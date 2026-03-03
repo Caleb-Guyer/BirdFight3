@@ -1,0 +1,1 @@
+Bird Fight 3 is a chaotic JavaFX multiplayer platformer with epic bird battles, power-ups, AI opponents, and custom maps like forests, cities, and cliffs. Built for fun fights and unlocks—flap to victory!
