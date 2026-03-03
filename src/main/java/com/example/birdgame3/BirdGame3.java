@@ -1,5 +1,5 @@
 package com.example.birdgame3;
-//bird gamer 3
+
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.geometry.Insets;
