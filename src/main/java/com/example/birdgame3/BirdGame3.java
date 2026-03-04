@@ -91,7 +91,6 @@ public class BirdGame3 extends Application {
     private boolean matchEnded = false;  // prevents double-trigger
 
     private boolean isPaused = false;
-    private boolean uiDirty = true;
 
     // === FIXED TIMESTEP PAUSE FIX ===
     private long lastUpdate = 0;
@@ -131,64 +130,6 @@ public class BirdGame3 extends Application {
     private double flashAlpha = 0.0;     // white flash intensity
     private double redFlashAlpha = 0.0;  // red tint for normal big hits
     private int flashTimer = 0;          // frames remaining for flash
-
-    static class WindVent {
-        double x, y, w;
-        int cooldown = 0;
-
-        WindVent(double x, double y, double w) {
-            this.x = x;
-            this.y = y;
-            this.w = w;
-        }
-    }
-
-    static class Platform {
-        double x, y, w, h;
-        String signText = null; // null = no sign
-        Platform(double x, double y, double w, double h) {
-            this.x = x;
-            this.y = y;
-            this.w = w;
-            this.h = h;
-        }
-    }
-
-    class NectarNode {
-        double x, y;
-        boolean isSpeed; // true = speed boost, false = hover regen
-        boolean active;
-
-        NectarNode(double x, double y, boolean isSpeed) {
-            this.x = x;
-            this.y = y;
-            this.isSpeed = isSpeed;
-            this.active = true;
-        }
-    }
-
-    class SwingingVine {
-        double baseX, baseY; // Anchor point at top
-        double length; // Vine length
-        double angle; // Current angle from vertical (radians)
-        double platformX, platformY; // Platform at vine's end
-        double platformW = 120, platformH = 40;
-        double angularVelocity; // For swinging motion
-
-        SwingingVine(double baseX, double baseY, double length) {
-            this.baseX = baseX;
-            this.baseY = baseY;
-            this.length = length;
-            this.angle = 0;
-            this.angularVelocity = 0;
-            updatePlatformPosition();
-        }
-
-        void updatePlatformPosition() {
-            platformX = baseX + length * Math.sin(angle);
-            platformY = baseY + length * Math.cos(angle);
-        }
-    }
 
     public void playHitSound(double intensity) {
         if (bonkClip != null) {
@@ -798,58 +739,92 @@ public class BirdGame3 extends Application {
 
     // === SKIN UNLOCKS ===
     public boolean cityPigeonUnlocked = false;
+    public boolean noirPigeonUnlocked = false;
     public boolean isTrialMode = false;
     public boolean eagleSkinUnlocked = false; // Sky King Eagle skin
 
-    public static final int SKIN_COUNT = 1; // add more later if needed
+    public static final int SKIN_COUNT = 2; // City Pigeon + Noir Pigeon
 
-    static class Particle {
-        double x, y, vx, vy;
-        Color color;
-        int life = 60; // frames
+    // === EPISODES ===
+    private boolean storyModeActive = false;
+    private boolean storyReplayMode = false;
+    private int storyChapterIndex = 0;
+    private int pigeonEpisodeUnlockedChapters = 1;
+    private boolean pigeonEpisodeCompleted = false;
+    private static final String PIGEON_EPISODE_TITLE = "Episode 1: Rise Of The Rooftop Pigeon";
+    private static final String PIGEON_EPISODE_AWARD = "Noir Pigeon Skin";
 
-        Particle(double x, double y, double vx, double vy, Color color) {
-            this.x = x;
-            this.y = y;
-            this.vx = vx;
-            this.vy = vy;
-            this.color = color;
+    static class StoryChapter {
+        final String title;
+        final String speaker;
+        final String dialogue;
+        final BirdType opponentType;
+        final String opponentName;
+        final MapType map;
+        final double opponentHealth;
+        final double opponentPowerMult;
+        final double opponentSpeedMult;
+
+        StoryChapter(String title, String speaker, String dialogue, BirdType opponentType, String opponentName,
+                     MapType map, double opponentHealth, double opponentPowerMult, double opponentSpeedMult) {
+            this.title = title;
+            this.speaker = speaker;
+            this.dialogue = dialogue;
+            this.opponentType = opponentType;
+            this.opponentName = opponentName;
+            this.map = map;
+            this.opponentHealth = opponentHealth;
+            this.opponentPowerMult = opponentPowerMult;
+            this.opponentSpeedMult = opponentSpeedMult;
         }
     }
 
-    static class CrowMinion {
-        double x, y, vx, vy;
-        int life = 1;
-        Bird target;
-        int age = 0;
-        Bird owner = null;
-
-        CrowMinion(double x, double y, Bird target) {
-            this.x = x;
-            this.y = y;
-            this.target = target;
-            this.vx = (Math.random() - 0.5) * 4;  // start with random drift
-            this.vy = (Math.random() - 0.5) * 4;
-            // they will pick a real target on the first update frame
-        }
-    }
-
-    enum PowerUpType {
-        HEALTH(Color.RED, "+40 HP"),
-        SPEED(Color.CYAN, "SPEED!"),
-        RAGE(Color.ORANGE, "RAGE!"),
-        SHRINK(Color.PURPLE, "SHRINK!"),
-        NEON(Color.MAGENTA.brighter(), "NEON BOOST!"),
-        THERMAL(Color.GOLD.brighter(), "THERMAL RISE!"),
-        VINE_GRAPPLE(Color.LIMEGREEN.brighter(), "VINE GRAPPLE!");  // NEW
-
-        final Color color;
-        final String text;
-        PowerUpType(Color color, String text) {
-            this.color = color;
-            this.text = text;
-        }
-    }
+    private final StoryChapter[] storyChapters = new StoryChapter[] {
+            new StoryChapter(
+                    "Chapter 1: Rooftop Rumors",
+                    "Old Sparrow",
+                    "A challenger landed on your block. Win the opening duel and defend your rooftop name.",
+                    BirdType.HUMMINGBIRD,
+                    "Rival: Neon Hummingbird",
+                    MapType.CITY,
+                    115,
+                    1.0,
+                    1.15
+            ),
+            new StoryChapter(
+                    "Chapter 2: The Forest Test",
+                    "Forest Crow",
+                    "Word spread beyond the city. In the forest, power beats style. Survive the Turkey's slam game.",
+                    BirdType.TURKEY,
+                    "Rival: Iron Turkey",
+                    MapType.FOREST,
+                    150,
+                    1.2,
+                    0.9
+            ),
+            new StoryChapter(
+                    "Chapter 3: Edge Of The Cliffs",
+                    "Sky Scout",
+                    "A Razorbill enforcer controls the cliffs. Beat the speed and survive the blade storm.",
+                    BirdType.RAZORBILL,
+                    "Rival: Cliff Razorbill",
+                    MapType.SKYCLIFFS,
+                    180,
+                    1.3,
+                    1.1
+            ),
+            new StoryChapter(
+                    "Chapter 4: Canopy Kingpin",
+                    "Jungle Oracle",
+                    "Final chapter. The Vulture boss runs the underground ring. End it and claim your reward.",
+                    BirdType.VULTURE,
+                    "Boss: Canopy Vulture",
+                    MapType.VIBRANT_JUNGLE,
+                    220,
+                    1.35,
+                    1.05
+            )
+    };
 
     public void unlockAchievement(int index, String title) {
         achievementsUnlocked[index] = true;
@@ -859,32 +834,20 @@ public class BirdGame3 extends Application {
         saveAchievements(); // save immediately!
     }
 
-    static class PowerUp {
-        double x, y;
-        PowerUpType type;
-        double floatOffset = 0;
-
-        PowerUp(double x, double y, PowerUpType type) {
-            this.x = x;
-            this.y = y;
-            this.type = type;
-        }
-    }
-
     public enum BirdType {
-        PIGEON("Pigeon", 8, 16, 3.8, Color.LIGHTGRAY, 0.0, "Double Jump + Heal Burst (+25 HP)"),
-        EAGLE("Eagle", 9, 20, 4.4, Color.DARKRED, 0.65, "Soar (Hold Jump) + Devastating Dive Bomb"),
-        HUMMINGBIRD("Hummingbird", 6, 24, 5.0, Color.LIME, 0.9, "Hover/Fly + Flutter Boost"),
-        TURKEY("Turkey", 10, 10, 2.8, Color.SADDLEBROWN, 0.0, "Ground Pound AOE"),
-        PENGUIN("Penguin", 7, 8, 3.5, Color.BLACK, 0.0, "Ice Slide Dash"),
-        SHOEBILL("Shoebill", 11, 12, 3.8, Color.DARKSLATEBLUE, 0.35, "Stun (2.5s)"),
+        PIGEON("Pigeon", 7, 16, 3.9, Color.LIGHTGRAY, 0.0, "Double Jump + Heal Burst"),
+        EAGLE("Eagle", 9, 19, 4.2, Color.DARKRED, 0.6, "Soar (Hold Jump) + Dive Bomb"),
+        HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Hover/Fly + Flutter Boost"),
+        TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.0, "Ground Pound AOE"),
+        PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Ice Slide Dash"),
+        SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "AoE Stun"),
         MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Spawn Lounge (Heal zone)"),
-        RAZORBILL("Razorbill", 9, 12, 3.5, Color.INDIGO, 0.3, "Razor Dive + Blade Storm"),
-        GRINCHHAWK("Grinch-Hawk", 12, 10, 2.6, Color.rgb(102, 153, 0), 0.0, "Steal ~20 HP from everyone"),
-        VULTURE("Vulture", 8, 14, 3.3, Color.rgb(45, 25, 55), 0.25, "Summon Crows + Feast"),
-        OPIUMBIRD("Opium Bird", 7, 20, 4.6, Color.rgb(138, 43, 226), 0.8, "Lean Cloud (DoT + Slow)"),
-        TITMOUSE("Tufted Titmouse", 6, 22, 5.5, Color.SLATEGRAY, 0.95, "Zip Dash (Teleport + 22 dmg)"),
-        PELICAN("Pelican", 13, 9, 2.9, Color.rgb(245, 220, 180), 0.0, "Pelican Plunge (Swallow + Launch)");
+        RAZORBILL("Razorbill", 8, 12, 3.6, Color.INDIGO, 0.25, "Razor Dive + Blade Storm"),
+        GRINCHHAWK("Grinch-Hawk", 10, 10, 2.8, Color.rgb(102, 153, 0), 0.0, "Steal HP from everyone"),
+        VULTURE("Vulture", 7, 14, 3.1, Color.rgb(45, 25, 55), 0.2, "Summon Crows + Feast"),
+        OPIUMBIRD("Opium Bird", 7, 19, 4.4, Color.rgb(138, 43, 226), 0.7, "Lean Cloud (DoT + Slow)"),
+        TITMOUSE("Tufted Titmouse", 6, 21, 5.4, Color.SLATEGRAY, 0.9, "Zip Dash"),
+        PELICAN("Pelican", 11, 9, 2.9, Color.rgb(245, 220, 180), 0.0, "Pelican Plunge");
 
         final String name;
         int power, jumpHeight;
@@ -1061,7 +1024,7 @@ public class BirdGame3 extends Application {
                     }
                 }
                 if (dist < 48) {
-                    int damage = (c.owner != null) ? 2 : 5;
+                    int damage = (c.owner != null) ? 1 : 4;
                     closest.health -= damage;
                     if (closest.health < 0) closest.health = 0;
                     String source = (c.owner != null) ? "CROW" : "MURDER CROW";
@@ -1085,7 +1048,7 @@ public class BirdGame3 extends Application {
             }
             c.x += c.vx;
             c.y += c.vy;
-            if (c.age > 2400 || c.x < -1500 || c.x > WORLD_WIDTH + 1500 || c.y < -1500 || c.y > WORLD_HEIGHT + 1500) {
+            if (c.age > 1800 || c.x < -1500 || c.x > WORLD_WIDTH + 1500 || c.y < -1500 || c.y > WORLD_HEIGHT + 1500) {
                 it.remove();
             }
         }
@@ -1539,6 +1502,8 @@ public class BirdGame3 extends Application {
     }
 
     private void showMenu(Stage stage) {
+        storyModeActive = false;
+        storyReplayMode = false;
         if (musicPlayer != null) musicPlayer.stop();
         if (victoryMusicPlayer != null) victoryMusicPlayer.stop();
         playMenuMusic();
@@ -1568,9 +1533,18 @@ public class BirdGame3 extends Application {
             countBox.getChildren().add(b);
         }
 
-        // === ACHIEVEMENTS AND TRIALS BUTTONS SIDE-BY-SIDE ===
+        // === STORY / ACHIEVEMENTS / TRIALS ===
         HBox menuButtons = new HBox(60);
         menuButtons.setAlignment(Pos.CENTER);
+
+        Button storyBtn = new Button("EPISODES");
+        storyBtn.setPrefSize(500, 100);
+        storyBtn.setFont(Font.font("Arial Black", 56));
+        storyBtn.setStyle("-fx-background-color: #1565C0; -fx-text-fill: white; -fx-background-radius: 50;");
+        storyBtn.setOnAction(e -> {
+            playButtonClick();
+            showEpisodesHub(stage);
+        });
 
         Button achievementsBtn = new Button("ACHIEVEMENTS");
         achievementsBtn.setPrefSize(500, 100);
@@ -1590,7 +1564,7 @@ public class BirdGame3 extends Application {
             showTrials(stage);
         });
 
-        menuButtons.getChildren().addAll(achievementsBtn, trialsBtn);
+        menuButtons.getChildren().addAll(storyBtn, achievementsBtn, trialsBtn);
         root.getChildren().add(menuButtons);
 
         playerSlots = new VBox[4];
@@ -1631,6 +1605,279 @@ public class BirdGame3 extends Application {
         countBox.getChildren().get(1).requestFocus(); // 2 PLAYERS
 
         stage.show();
+    }
+
+    private void showEpisodesHub(Stage stage) {
+        storyModeActive = true;
+        storyReplayMode = false;
+        playMenuMusic();
+
+        VBox root = new VBox(30);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(50));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #1F355E);");
+
+        Label title = new Label("EPISODES");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 96));
+        title.setTextFill(Color.GOLD);
+
+        VBox episodeCard = new VBox(18);
+        episodeCard.setAlignment(Pos.CENTER_LEFT);
+        episodeCard.setPadding(new Insets(35));
+        episodeCard.setMaxWidth(1400);
+        episodeCard.setStyle("-fx-background-color: rgba(0,0,0,0.55); -fx-background-radius: 24; -fx-border-color: #4FC3F7; -fx-border-width: 4; -fx-border-radius: 24;");
+
+        Label epTitle = new Label(PIGEON_EPISODE_TITLE);
+        epTitle.setFont(Font.font("Arial Black", 52));
+        epTitle.setTextFill(Color.WHITE);
+
+        int clampedUnlocked = Math.max(1, Math.min(pigeonEpisodeUnlockedChapters, storyChapters.length));
+        String status = pigeonEpisodeCompleted
+                ? "Completed"
+                : ("Unlocked Chapters: " + clampedUnlocked + "/" + storyChapters.length);
+        Label epStatus = new Label(status);
+        epStatus.setFont(Font.font("Consolas", 34));
+        epStatus.setTextFill(pigeonEpisodeCompleted ? Color.LIMEGREEN : Color.ORANGE);
+
+        Label epReward = new Label("Episode Award: " + PIGEON_EPISODE_AWARD + (noirPigeonUnlocked ? " (Unlocked)" : " (Locked)"));
+        epReward.setFont(Font.font("Consolas", 30));
+        epReward.setTextFill(noirPigeonUnlocked ? Color.GOLD : Color.LIGHTGRAY);
+
+        HBox actions = new HBox(24);
+        actions.setAlignment(Pos.CENTER_LEFT);
+
+        Button continueEpisode = new Button(pigeonEpisodeCompleted ? "REPLAY EPISODE" : "CONTINUE EPISODE");
+        continueEpisode.setPrefSize(460, 110);
+        continueEpisode.setFont(Font.font("Arial Black", 40));
+        continueEpisode.setStyle("-fx-background-color: #00C853; -fx-text-fill: white; -fx-background-radius: 28;");
+        continueEpisode.setOnAction(e -> {
+            playButtonClick();
+            resetMatchStats();
+            storyReplayMode = false;
+            storyChapterIndex = Math.max(0, Math.min(pigeonEpisodeUnlockedChapters - 1, storyChapters.length - 1));
+            showStoryDialogue(stage,
+                    "Episode Briefing",
+                    "Narrator",
+                    "You are the Pigeon. Keep pushing through each chapter. Win to unlock the next fight.",
+                    () -> showCurrentStoryChapterIntro(stage));
+        });
+
+        Button chapterSelect = new Button("CHAPTER SELECT");
+        chapterSelect.setPrefSize(460, 110);
+        chapterSelect.setFont(Font.font("Arial Black", 40));
+        chapterSelect.setStyle("-fx-background-color: #1976D2; -fx-text-fill: white; -fx-background-radius: 28;");
+        chapterSelect.setOnAction(e -> {
+            playButtonClick();
+            showEpisodeChapterSelect(stage);
+        });
+
+        Button menuButton = new Button("MAIN MENU");
+        menuButton.setPrefSize(460, 110);
+        menuButton.setFont(Font.font("Arial Black", 40));
+        menuButton.setStyle("-fx-background-color: #FF1744; -fx-text-fill: white; -fx-background-radius: 28;");
+        menuButton.setOnAction(e -> {
+            playButtonClick();
+            showMenu(stage);
+        });
+
+        actions.getChildren().addAll(continueEpisode, chapterSelect, menuButton);
+        episodeCard.getChildren().addAll(epTitle, epStatus, epReward, actions);
+        root.getChildren().addAll(title, episodeCard);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        stage.setScene(scene);
+        continueEpisode.requestFocus();
+    }
+
+    private void showEpisodeChapterSelect(Stage stage) {
+        playMenuMusic();
+        VBox root = new VBox(30);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(50));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0A1530, #1B2C52);");
+
+        Label title = new Label("EPISODE CHAPTERS");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 84));
+        title.setTextFill(Color.CYAN.brighter());
+
+        VBox chapterList = new VBox(18);
+        chapterList.setAlignment(Pos.CENTER);
+        int unlocked = Math.max(1, Math.min(pigeonEpisodeUnlockedChapters, storyChapters.length));
+
+        for (int i = 0; i < storyChapters.length; i++) {
+            StoryChapter chapter = storyChapters[i];
+            boolean isUnlocked = i < unlocked;
+            String label = (i + 1) + ". " + chapter.title + " - " + chapter.opponentName;
+            Button chapterBtn = new Button(isUnlocked ? label : ((i + 1) + ". LOCKED"));
+            chapterBtn.setPrefSize(1500, 100);
+            chapterBtn.setFont(Font.font("Arial Black", 30));
+            chapterBtn.setStyle(isUnlocked
+                    ? "-fx-background-color: #263238; -fx-text-fill: white; -fx-background-radius: 18;"
+                    : "-fx-background-color: #444444; -fx-text-fill: #BBBBBB; -fx-background-radius: 18;");
+            chapterBtn.setDisable(!isUnlocked);
+
+            if (isUnlocked) {
+                int chapterIndex = i;
+                chapterBtn.setOnAction(e -> {
+                    playButtonClick();
+                    resetMatchStats();
+                    storyReplayMode = true;
+                    storyChapterIndex = chapterIndex;
+                    showCurrentStoryChapterIntro(stage);
+                });
+            }
+            chapterList.getChildren().add(chapterBtn);
+        }
+
+        Button back = new Button("BACK TO EPISODES");
+        back.setPrefSize(700, 105);
+        back.setFont(Font.font("Arial Black", 42));
+        back.setStyle("-fx-background-color: #FF1744; -fx-text-fill: white; -fx-background-radius: 22;");
+        back.setOnAction(e -> {
+            playButtonClick();
+            showEpisodesHub(stage);
+        });
+
+        root.getChildren().addAll(title, chapterList, back);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        stage.setScene(scene);
+        back.requestFocus();
+    }
+
+    private void showCurrentStoryChapterIntro(Stage stage) {
+        if (!storyModeActive) return;
+        if (storyChapterIndex < 0 || storyChapterIndex >= storyChapters.length) {
+            showEpisodesHub(stage);
+            return;
+        }
+        StoryChapter chapter = storyChapters[storyChapterIndex];
+        showStoryDialogue(stage, chapter.title, chapter.speaker, chapter.dialogue, () -> startStoryBattle(stage));
+    }
+
+    private void startStoryBattle(Stage stage) {
+        if (!storyModeActive) return;
+        StoryChapter chapter = storyChapters[storyChapterIndex];
+        selectedMap = chapter.map;
+        activePlayers = 2;
+        startMatch(stage);
+    }
+
+    private void handleStoryMatchEnd(Stage stage, Bird winner) {
+        boolean playerWon = winner != null && winner.playerIndex == 0;
+        if (!playerWon) {
+            showStoryDialogue(stage,
+                    "Defeat",
+                    "Narrator",
+                    "You were knocked out in " + storyChapters[storyChapterIndex].title + ".",
+                    () -> startStoryBattle(stage));
+            return;
+        }
+
+        if (!storyReplayMode && storyChapterIndex == pigeonEpisodeUnlockedChapters - 1 && pigeonEpisodeUnlockedChapters < storyChapters.length) {
+            pigeonEpisodeUnlockedChapters++;
+            saveAchievements();
+        }
+
+        if (storyChapterIndex >= storyChapters.length - 1) {
+            if (!pigeonEpisodeCompleted) {
+                pigeonEpisodeCompleted = true;
+                noirPigeonUnlocked = true;
+                saveAchievements();
+                showStoryDialogue(stage,
+                        "Episode Complete",
+                        "Narrator",
+                        "Episode clear. Award unlocked: " + PIGEON_EPISODE_AWARD + ".\nSelect Pigeon to cycle skins.",
+                        () -> showEpisodesHub(stage));
+            } else {
+                showStoryDialogue(stage,
+                        "Replay Complete",
+                        "Narrator",
+                        "Chapter clear. Episode is already complete, so this was a replay victory.",
+                        () -> showEpisodesHub(stage));
+            }
+            return;
+        }
+
+        if (storyReplayMode) {
+            showStoryDialogue(stage,
+                    "Replay Complete",
+                    "Narrator",
+                    "Chapter clear. Choose another unlocked chapter or return to episodes.",
+                    () -> showEpisodeChapterSelect(stage));
+            return;
+        }
+
+        storyChapterIndex++;
+        StoryChapter next = storyChapters[storyChapterIndex];
+        showStoryDialogue(stage,
+                "Victory",
+                "Narrator",
+                "You won the duel.\nNext chapter: " + next.title + " (" + next.opponentName + ").",
+                () -> showCurrentStoryChapterIntro(stage));
+    }
+
+    private void showStoryDialogue(Stage stage, String titleText, String speaker, String dialogue, Runnable onContinue) {
+        playMenuMusic();
+
+        VBox root = new VBox(30);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(60));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);");
+
+        Label title = new Label(titleText);
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 92));
+        title.setTextFill(Color.GOLD);
+
+        VBox card = new VBox(20);
+        card.setAlignment(Pos.CENTER_LEFT);
+        card.setPadding(new Insets(35));
+        card.setMaxWidth(1300);
+        card.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 24; -fx-border-color: #4FC3F7; -fx-border-width: 4; -fx-border-radius: 24;");
+
+        Label speakerLabel = new Label(speaker);
+        speakerLabel.setFont(Font.font("Arial Black", 44));
+        speakerLabel.setTextFill(Color.CYAN.brighter());
+
+        Label text = new Label(dialogue);
+        text.setWrapText(true);
+        text.setFont(Font.font("Consolas", 34));
+        text.setTextFill(Color.WHITE);
+
+        card.getChildren().addAll(speakerLabel, text);
+
+        HBox buttons = new HBox(30);
+        buttons.setAlignment(Pos.CENTER);
+
+        Button continueButton = new Button("CONTINUE");
+        continueButton.setPrefSize(460, 120);
+        continueButton.setFont(Font.font("Arial Black", 52));
+        continueButton.setStyle("-fx-background-color: #00C853; -fx-text-fill: white; -fx-background-radius: 32;");
+        continueButton.setOnAction(e -> {
+            playButtonClick();
+            onContinue.run();
+        });
+
+        Button menuButton = new Button("MAIN MENU");
+        menuButton.setPrefSize(460, 120);
+        menuButton.setFont(Font.font("Arial Black", 52));
+        menuButton.setStyle("-fx-background-color: #FF1744; -fx-text-fill: white; -fx-background-radius: 32;");
+        menuButton.setOnAction(e -> {
+            playButtonClick();
+            showMenu(stage);
+        });
+
+        buttons.getChildren().addAll(continueButton, menuButton);
+        root.getChildren().addAll(title, card, buttons);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        stage.setScene(scene);
+        continueButton.requestFocus();
     }
 
     private void showStageSelect(Stage stage) {
@@ -1788,18 +2035,42 @@ public class BirdGame3 extends Application {
                 playButtonClick();
                 Object currentData = box.getUserData();
 
-                // === CITY PIGEON SKIN ===
-                if (bt == BirdType.PIGEON && cityPigeonUnlocked) {
-                    if ("CITY_PIGEON".equals(currentData)) {
-                        // Switch back to normal
-                        selected.setText("Selected: Pigeon");
-                        box.setUserData(BirdType.PIGEON);
-                        b.setStyle(baseStyle);
+                // === PIGEON SKIN CYCLER ===
+                if (bt == BirdType.PIGEON && (cityPigeonUnlocked || noirPigeonUnlocked)) {
+                    if (cityPigeonUnlocked && noirPigeonUnlocked) {
+                        if ("CITY_PIGEON".equals(currentData)) {
+                            selected.setText("Selected: Noir Pigeon (Skin)");
+                            box.setUserData("NOIR_PIGEON");
+                            b.setStyle("-fx-background-color: #111111; -fx-text-fill: #F44336; -fx-font-weight: bold;");
+                        } else if ("NOIR_PIGEON".equals(currentData)) {
+                            selected.setText("Selected: Pigeon");
+                            box.setUserData(BirdType.PIGEON);
+                            b.setStyle(baseStyle);
+                        } else {
+                            selected.setText("Selected: City Pigeon (Skin)");
+                            box.setUserData("CITY_PIGEON");
+                            b.setStyle("-fx-background-color: #FFD700; -fx-text-fill: black; -fx-font-weight: bold;");
+                        }
+                    } else if (cityPigeonUnlocked) {
+                        if ("CITY_PIGEON".equals(currentData)) {
+                            selected.setText("Selected: Pigeon");
+                            box.setUserData(BirdType.PIGEON);
+                            b.setStyle(baseStyle);
+                        } else {
+                            selected.setText("Selected: City Pigeon (Skin)");
+                            box.setUserData("CITY_PIGEON");
+                            b.setStyle("-fx-background-color: #FFD700; -fx-text-fill: black; -fx-font-weight: bold;");
+                        }
                     } else {
-                        // Switch to City Pigeon skin
-                        selected.setText("Selected: City Pigeon (Skin)");
-                        box.setUserData("CITY_PIGEON");
-                        b.setStyle("-fx-background-color: #FFD700; -fx-text-fill: black; -fx-font-weight: bold;");
+                        if ("NOIR_PIGEON".equals(currentData)) {
+                            selected.setText("Selected: Pigeon");
+                            box.setUserData(BirdType.PIGEON);
+                            b.setStyle(baseStyle);
+                        } else {
+                            selected.setText("Selected: Noir Pigeon (Skin)");
+                            box.setUserData("NOIR_PIGEON");
+                            b.setStyle("-fx-background-color: #111111; -fx-text-fill: #F44336; -fx-font-weight: bold;");
+                        }
                     }
                 }
                 // === SKY KING EAGLE SKIN ===
@@ -1908,40 +2179,64 @@ public class BirdGame3 extends Application {
         isTrialMode = false;
         matchTimer = 90 * 60;
         this.currentStage = stage;
+        Arrays.fill(scores, 0);
         Arrays.fill(players, null);
-        for (int i = 0; i < activePlayers; i++) {
-            VBox selectorBox = (VBox) playerSlots[i].getChildren().get(2);
-            Object data = selectorBox.getUserData();
+        if (storyModeActive) {
+            StoryChapter chapter = storyChapters[storyChapterIndex];
+            activePlayers = 2;
 
-            BirdType type;
-            boolean useCitySkin = false;
-            boolean useSkyKingSkin = false;  // NEW
+            players[0] = new Bird(1200, BirdType.PIGEON, 0, this);
+            players[0].name = "You: Pigeon";
+            players[0].health = 100;
+            isAI[0] = false;
 
-            if (data instanceof String) {
-                if ("CITY_PIGEON".equals(data)) {
-                    type = BirdType.PIGEON;
-                    useCitySkin = true;
-                } else if ("SKY_KING_EAGLE".equals(data)) {
-                    type = BirdType.EAGLE;
-                    useSkyKingSkin = true;  // We don't need a flag in Bird class — the draw() method already checks eagleSkinUnlocked
+            players[1] = new Bird(4200, chapter.opponentType, 1, this);
+            players[1].name = chapter.opponentName;
+            players[1].health = chapter.opponentHealth;
+            players[1].powerMultiplier = chapter.opponentPowerMult;
+            players[1].speedMultiplier = chapter.opponentSpeedMult;
+            isAI[1] = true;
+        } else {
+            for (int i = 0; i < activePlayers; i++) {
+                VBox selectorBox = (VBox) playerSlots[i].getChildren().get(2);
+                Object data = selectorBox.getUserData();
+
+                BirdType type;
+                boolean useCitySkin = false;
+                boolean useNoirSkin = false;
+
+                if (data instanceof String) {
+                    if ("CITY_PIGEON".equals(data)) {
+                        type = BirdType.PIGEON;
+                        useCitySkin = true;
+                    } else if ("NOIR_PIGEON".equals(data)) {
+                        type = BirdType.PIGEON;
+                        useNoirSkin = true;
+                    } else if ("SKY_KING_EAGLE".equals(data)) {
+                        type = BirdType.EAGLE;
+                    } else {
+                        type = BirdType.PIGEON;
+                    }
                 } else {
-                    // Fallback — shouldn't happen
-                    type = BirdType.PIGEON;
+                    type = (BirdType) data;
                 }
-            } else {
-                type = (BirdType) data;
-            }
 
-            double startX = 300 + i * (WIDTH - 600) / Math.max(1, activePlayers - 1);
-            players[i] = new Bird(startX, type, i, this);
+                double startX = 300 + i * (WIDTH - 600) / Math.max(1, activePlayers - 1);
+                players[i] = new Bird(startX, type, i, this);
 
-            if (useCitySkin) {
-                players[i].isCitySkin = true;
+                if (useCitySkin) {
+                    players[i].isCitySkin = true;
+                }
+                if (useNoirSkin) {
+                    players[i].isNoirSkin = true;
+                }
             }
-            // Sky King skin is already handled in draw() via eagleSkinUnlocked + playerIndex == 0
         }
 
         platforms.clear();
+        windVents.clear();
+        nectarNodes.clear();
+        swingingVines.clear();
         crowMinions.clear();
         particles.clear();
         powerUps.clear();
@@ -2135,11 +2430,7 @@ public class BirdGame3 extends Application {
 
             // NO random floating pillars/antennas — removed completely
 
-            // Add wind vents on main rooftops (for bursts)
-            for (double bx : buildingX) {
-                windVents.add(new WindVent(bx - 350 + 100, GROUND_Y - 320, 500)); // left side of rooftop
-                windVents.add(new WindVent(bx - 350 + 500, GROUND_Y - 320, 100)); // right side
-            }
+            // Rooftop vents already added in the building loop above.
         }
 
         Canvas canvas = new Canvas(WIDTH, HEIGHT);
@@ -2172,11 +2463,6 @@ public class BirdGame3 extends Application {
             public void handle(long now) {
                 gameTick(1.0);
                 drawGame(g);   // ← ONE LINE
-
-                if (uiDirty || flashTimer > 0 || !killFeed.isEmpty()) {  // ← only clear if changed
-                    ui.clearRect(0, 0, WIDTH, HEIGHT);
-                    uiDirty = false;  // reset after draw
-                }
 
                 ui.clearRect(0, 0, WIDTH, HEIGHT);
 
@@ -2263,7 +2549,6 @@ public class BirdGame3 extends Application {
                         redFlashAlpha *= 0.86;
                     }
                 }
-                uiDirty = true;
             }
         };
 
@@ -2453,17 +2738,31 @@ public class BirdGame3 extends Application {
 
         HBox buttons = new HBox(100);
         buttons.setAlignment(Pos.CENTER);
-        Button rematch = button("REMATCH", "#FF1744");
-        rematch.setOnAction(e -> {
-            resetMatchStats();
-            startMatch(stage);
-        });
-        Button menu = button("MAIN MENU", "#9C27B0");
-        menu.setOnAction(e -> {
-            resetMatchStats();
-            showMenu(stage);
-        });
-        buttons.getChildren().addAll(rematch, menu);
+        if (storyModeActive) {
+            Button continueStory = button("CONTINUE EPISODE", "#1565C0");
+            continueStory.setOnAction(e -> {
+                resetMatchStats();
+                handleStoryMatchEnd(stage, winner);
+            });
+            Button menu = button("MAIN MENU", "#9C27B0");
+            menu.setOnAction(e -> {
+                resetMatchStats();
+                showMenu(stage);
+            });
+            buttons.getChildren().addAll(continueStory, menu);
+        } else {
+            Button rematch = button("REMATCH", "#FF1744");
+            rematch.setOnAction(e -> {
+                resetMatchStats();
+                startMatch(stage);
+            });
+            Button menu = button("MAIN MENU", "#9C27B0");
+            menu.setOnAction(e -> {
+                resetMatchStats();
+                showMenu(stage);
+            });
+            buttons.getChildren().addAll(rematch, menu);
+        }
 
         if (winner != null && selectedMap == MapType.CITY) {
             cityWins[winner.playerIndex]++;
@@ -2528,32 +2827,40 @@ public class BirdGame3 extends Application {
             achievementProgress[i] = prefs.getInt("prog_" + i, 0);
         }
         cityPigeonUnlocked = prefs.getBoolean("skin_citypigeon", false);
+        noirPigeonUnlocked = prefs.getBoolean("skin_noirpigeon", false);
         eagleSkinUnlocked = prefs.getBoolean("skin_eagle", false);
+        pigeonEpisodeUnlockedChapters = Math.max(1, prefs.getInt("ep_pigeon_unlocked", 1));
+        pigeonEpisodeCompleted = prefs.getBoolean("ep_pigeon_completed", false);
+        if (pigeonEpisodeCompleted) {
+            pigeonEpisodeUnlockedChapters = storyChapters.length;
+            noirPigeonUnlocked = true;
+        }
         for (int i = 0; i < 4; i++) {
             vineGrapplePickups[i] = prefs.getInt("vine_pickups_" + i, 0);
             jungleWins[i] = prefs.getInt("jungle_wins_" + i, 0);
         }
     }
-
     private void saveAchievements() {
         Preferences prefs = Preferences.userNodeForPackage(BirdGame3.class);
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             prefs.putBoolean("ach_" + i, achievementsUnlocked[i]);
             prefs.putInt("prog_" + i, achievementProgress[i]);
         }
-        try {
-            prefs.flush(); // Write changes to disk
-        } catch (BackingStoreException e) {
-            e.printStackTrace(); // Safe to just log — game can still run without saving
-        }
         prefs.putBoolean("skin_citypigeon", cityPigeonUnlocked);
+        prefs.putBoolean("skin_noirpigeon", noirPigeonUnlocked);
         prefs.putBoolean("skin_eagle", eagleSkinUnlocked);
+        prefs.putInt("ep_pigeon_unlocked", pigeonEpisodeUnlockedChapters);
+        prefs.putBoolean("ep_pigeon_completed", pigeonEpisodeCompleted);
         for (int i = 0; i < 4; i++) {
             prefs.putInt("vine_pickups_" + i, vineGrapplePickups[i]);
             prefs.putInt("jungle_wins_" + i, jungleWins[i]);
         }
+        try {
+            prefs.flush();
+        } catch (BackingStoreException e) {
+            e.printStackTrace();
+        }
     }
-
     public void checkAchievements(Bird bird) {
         int idx = bird.playerIndex;
 
@@ -2863,3 +3170,6 @@ public class BirdGame3 extends Application {
         launch(args);
     }
 }
+
+
+

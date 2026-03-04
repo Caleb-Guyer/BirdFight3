@@ -8,7 +8,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
-import com.example.birdgame3.BirdGame3.MapType;  // ← ADD THIS LINE
+import com.example.birdgame3.BirdGame3.MapType;
 
 import java.util.Iterator;
 import java.util.Random;
@@ -37,6 +37,7 @@ public class Bird {
     public boolean canDoubleJump = true;
     public boolean loungeActive = false;
     public boolean isCitySkin = false;
+    public boolean isNoirSkin = false;
     public double loungeX, loungeY;
     public int diveTimer = 0;
 
@@ -68,7 +69,7 @@ public class Bird {
     public int blockCooldown = 0;
 
     // === VINE SWINGING ===
-    public BirdGame3.SwingingVine attachedVine = null;
+    public SwingingVine attachedVine = null;
     public boolean onVine = false;
 
     // === POWER-UP BUFFS ===
@@ -88,7 +89,7 @@ public class Bird {
 
     // === MOCKINGBIRD LOUNGE ===
     public int loungeHealth = 0;
-    private static final int LOUNGE_MAX_HEALTH = 120;
+    private static final int LOUNGE_MAX_HEALTH = 100;
     private static final double LOUNGE_HEAL_PER_SECOND = 12.0;
     public int loungeDamageFlash = 0;
 
@@ -125,7 +126,7 @@ public class Bird {
     public boolean isOnGround() {
         double bottom = y + 80 * sizeMultiplier;
         if (bottom >= game.GROUND_Y) return true;
-        for (BirdGame3.Platform p : game.platforms) {
+        for (Platform p : game.platforms) {
             if (x + 40 * sizeMultiplier >= p.x && x + 40 * sizeMultiplier <= p.x + p.w &&
                     bottom >= p.y && bottom <= p.y + p.h)
                 return true;
@@ -152,7 +153,7 @@ public class Bird {
         boolean hit = false;
         double newY = y;
 
-        for (BirdGame3.Platform p : game.platforms) {
+        for (Platform p : game.platforms) {
             if (x + 40 * sizeMultiplier >= p.x && x + 40 * sizeMultiplier <= p.x + p.w &&
                     y + 80 * sizeMultiplier > p.y && y < p.y + p.h) {
                 newY = p.y - 80 * sizeMultiplier;
@@ -230,13 +231,13 @@ public class Bird {
             double vx = Math.cos(angle) * speed;
             double vy = Math.sin(angle) * speed - 5;
             Color c = Math.random() < 0.7 ? Color.SADDLEBROWN : Color.SANDYBROWN;
-            game.particles.add(new BirdGame3.Particle(x + 40, y + 70, vx, vy, c));
+            game.particles.add(new Particle(x + 40, y + 70, vx, vy, c));
         }
 
         for (int i = 0; i < 20; i++) {
             double vx = (Math.random() - 0.5) * 20;
             double vy = -8 - Math.random() * 10;
-            game.particles.add(new BirdGame3.Particle(x + 40, y + 70, vx, vy, Color.GRAY));
+            game.particles.add(new Particle(x + 40, y + 70, vx, vy, Color.GRAY));
         }
     }
 
@@ -248,7 +249,7 @@ public class Bird {
             double vx = Math.cos(angle) * speed;
             double vy = Math.sin(angle) * speed - 3;
             Color c = Math.random() < 0.6 ? Color.WHITE : Color.rgb(220, 20, 20, 0.8);
-            game.particles.add(new BirdGame3.Particle(target.x + 40 + (Math.random() - 0.5) * 20,
+            game.particles.add(new Particle(target.x + 40 + (Math.random() - 0.5) * 20,
                     target.y + 40 + (Math.random() - 0.5) * 20, vx, vy, c));
         }
     }
@@ -321,10 +322,6 @@ public class Bird {
             game.eliminations[playerIndex]++;
             game.checkAchievements(this);
             if (game.zombieFallingClip != null) game.zombieFallingClip.play();
-        }
-
-        if (other.health <= 0 && oldHealth > 0) {
-            game.eliminations[playerIndex]++;
             game.scores[playerIndex] += 50;
         }
         game.scores[playerIndex] += (int) dealtDamage / 2;
@@ -358,7 +355,7 @@ public class Bird {
 
                 for (int i = 0; i < 30; i++) {
                     double angle = Math.random() * Math.PI * 2;
-                    game.particles.add(new BirdGame3.Particle(
+                    game.particles.add(new Particle(
                             target.loungeX + Math.cos(angle) * 50,
                             target.loungeY + Math.sin(angle) * 40,
                             Math.cos(angle) * 10, Math.sin(angle) * 10 - 4,
@@ -374,7 +371,7 @@ public class Bird {
                     for (int i = 0; i < 120; i++) {
                         double angle = i / 120.0 * Math.PI * 2;
                         double speed = 8 + Math.random() * 14;
-                        game.particles.add(new BirdGame3.Particle(target.loungeX, target.loungeY,
+                        game.particles.add(new Particle(target.loungeX, target.loungeY,
                                 Math.cos(angle) * speed, Math.sin(angle) * speed - 5,
                                 Math.random() < 0.5 ? Color.LIME : Color.GREENYELLOW));
                     }
@@ -412,26 +409,26 @@ public class Bird {
     }
 
     private void specialPigeon() {
-        health = Math.min(100, health + 25);
+        health = Math.min(100, health + 20);
         canDoubleJump = true;
-        specialCooldown = 480;
-        specialMaxCooldown = 480;
-        game.addToKillFeed(name.split(":")[0].trim() + " HEAL BURST! +25 HP + DOUBLE JUMP");
+        specialCooldown = 540;
+        specialMaxCooldown = 540;
+        game.addToKillFeed(name.split(":")[0].trim() + " HEAL BURST! +20 HP + DOUBLE JUMP");
         game.shakeIntensity = 12;
         game.hitstopFrames = 8;
         for (int i = 0; i < 40; i++) {
             double angle = Math.random() * Math.PI * 2;
             double speed = 3 + Math.random() * 8;
-            game.particles.add(new BirdGame3.Particle(x + 40, y + 40,
+            game.particles.add(new Particle(x + 40, y + 40,
                     Math.cos(angle) * speed, Math.sin(angle) * speed - 4,
                     Color.LIME.deriveColor(0, 1, 1, 0.8)));
         }
     }
 
     private void specialEagle() {
-        diveTimer = 120;
-        specialCooldown = 480;
-        specialMaxCooldown = 480;
+        diveTimer = 100;
+        specialCooldown = 540;
+        specialMaxCooldown = 540;
 
         game.shakeIntensity = 35;
         game.hitstopFrames = 20;
@@ -440,7 +437,7 @@ public class Bird {
         for (int i = 0; i < 100; i++) {
             double angle = Math.atan2(vy, vx) + Math.PI;
             double dist = i * 10;
-            game.particles.add(new BirdGame3.Particle(
+            game.particles.add(new Particle(
                     x + 40 + Math.cos(angle) * dist,
                     y + 40 + Math.sin(angle) * dist,
                     0, 0,
@@ -450,7 +447,7 @@ public class Bird {
 
         double predictX = x + vx * 40;
         for (int i = -15; i <= 15; i++) {
-            game.particles.add(new BirdGame3.Particle(predictX + i * 60, game.GROUND_Y - 20, 0, -5 - Math.random() * 8, Color.ORANGERED.brighter()));
+            game.particles.add(new Particle(predictX + i * 60, game.GROUND_Y - 20, 0, -5 - Math.random() * 8, Color.ORANGERED.brighter()));
         }
 
         eagleDiveCountdown = 60;
@@ -458,32 +455,32 @@ public class Bird {
 
     private void specialHummingbird() {
         vy -= type.jumpHeight * 1.2;
-        vx += (facingRight ? 1 : -1) * 8;
-        specialCooldown = 300;
-        specialMaxCooldown = 300;
+        vx += (facingRight ? 1 : -1) * 7;
+        specialCooldown = 270;
+        specialMaxCooldown = 270;
         game.addToKillFeed(name.split(":")[0].trim() + " FLUTTER BOOST!");
         for (int i = 0; i < 30; i++) {
-            game.particles.add(new BirdGame3.Particle(x + 40, y + 40,
+            game.particles.add(new Particle(x + 40, y + 40,
                     (Math.random() - 0.5) * 20, -10 - Math.random() * 10,
                     Color.CYAN.brighter()));
         }
     }
 
     private void specialTurkey() {
-        vy = -type.jumpHeight * 1.5;
+        vy = -type.jumpHeight * 1.45;
         isGroundPounding = true;
-        specialCooldown = 420;
-        specialMaxCooldown = 420;
+        specialCooldown = 450;
+        specialMaxCooldown = 450;
     }
 
     private void specialPenguin() {
-        vx = (facingRight ? 1 : -1) * 22.0;
+        vx = (facingRight ? 1 : -1) * 20.0;
         vy = 0;
-        specialCooldown = 540;
-        specialMaxCooldown = 540;
+        specialCooldown = 510;
+        specialMaxCooldown = 510;
         game.addToKillFeed(name.split(":")[0].trim() + " ICE SLIDE!");
         for (int i = 0; i < 50; i++) {
-            game.particles.add(new BirdGame3.Particle(x + 40 + (Math.random() - 0.5) * 100,
+            game.particles.add(new Particle(x + 40 + (Math.random() - 0.5) * 100,
                     y + 70, (Math.random() - 0.5) * 8, -2 - Math.random() * 4,
                     Color.CYAN.deriveColor(0, 1, 1, 0.7)));
         }
@@ -493,13 +490,13 @@ public class Bird {
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
             double dist = Math.hypot(other.x - x, other.y - y);
-            if (dist < 400) {
-                other.stunTime = 180;
+            if (dist < 320) {
+                other.stunTime = 120;
             }
         }
-        specialCooldown = 900;
-        specialMaxCooldown = 900;
-        game.addToKillFeed(name.split(":")[0].trim() + " DEATH STARE! Everyone stunned!");
+        specialCooldown = 780;
+        specialMaxCooldown = 780;
+        game.addToKillFeed(name.split(":")[0].trim() + " DEATH STARE! Nearby birds stunned!");
         game.shakeIntensity = 20;
     }
 
@@ -507,29 +504,29 @@ public class Bird {
         loungeActive = true;
         loungeX = x + 40;
         loungeY = y + 40;
-        loungeHealth = LOUNGE_MAX_HEALTH;
-        specialCooldown = 720;
-        specialMaxCooldown = 720;
+        loungeHealth = 100;
+        specialCooldown = 660;
+        specialMaxCooldown = 660;
         game.addToKillFeed(name.split(":")[0].trim() + " opened the LOUNGE!");
     }
 
     private void specialRazorbill() {
-        diveTimer = 180;
-        specialCooldown = 720;
-        specialMaxCooldown = 720;
+        diveTimer = 160;
+        specialCooldown = 780;
+        specialMaxCooldown = 780;
 
         game.shakeIntensity = 28;
         game.hitstopFrames = 18;
         game.addToKillFeed("BLADE STORM! " + name.split(":")[0].trim() + " IS UNSTOPPABLE!");
 
-        vx *= 2.4;
-        sizeMultiplier = 1.2;
-        powerMultiplier = 1.6;
+        vx *= 2.0;
+        sizeMultiplier = 1.15;
+        powerMultiplier = 1.45;
 
         for (int i = 0; i < 100; i++) {
             double angle = i / 100.0 * Math.PI * 2;
             double speed = 8 + Math.random() * 10;
-            game.particles.add(new BirdGame3.Particle(
+            game.particles.add(new Particle(
                     x + 40 + Math.cos(angle) * 50,
                     y + 40 + Math.sin(angle) * 50,
                     Math.cos(angle) * speed,
@@ -537,50 +534,50 @@ public class Bird {
                     Color.CYAN.brighter()
             ));
         }
-        bladeStormFrames = 180;
+        bladeStormFrames = 150;
     }
 
     private void specialGrinchhawk() {
         int stolen = 0;
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
-            int take = (int) Math.min(12 + (health > 80 ? 6 : 0), other.health);
+            int take = (int) Math.min(8 + (health > 80 ? 4 : 0), other.health);
             other.health -= take;
             stolen += take;
             game.addToKillFeed(name.split(":")[0].trim() + " STOLE " + take + " HP from " + other.name.split(":")[0].trim() + "!");
         }
         health = Math.min(100, health + stolen);
-        specialCooldown = 900;
-        specialMaxCooldown = 900;
+        specialCooldown = 840;
+        specialMaxCooldown = 840;
         game.shakeIntensity = 20;
     }
 
     private void specialVulture() {
-        crowSwarmCooldown = 900;
-        specialCooldown = 900;
-        specialMaxCooldown = 900;
+        crowSwarmCooldown = 1080;
+        specialCooldown = 1080;
+        specialMaxCooldown = 1080;
         game.addToKillFeed(name.split(":")[0].trim() + " SUMMONS THE MURDER!");
 
-        int crowCount = 20 + random.nextInt(15);
+        int crowCount = 10 + random.nextInt(6);
         for (int i = 0; i < crowCount; i++) {
             double angle = Math.random() * Math.PI * 2;
             double dist = 300 + Math.random() * 1200;
             double spawnX = x + 40 + Math.cos(angle) * dist;
             double spawnY = y + 40 + Math.sin(angle) * dist;
 
-            BirdGame3.CrowMinion crow = new BirdGame3.CrowMinion(spawnX, spawnY, null);
+            CrowMinion crow = new CrowMinion(spawnX, spawnY, null);
             crow.owner = this;
             game.crowMinions.add(crow);
         }
 
-        game.shakeIntensity = 28;
-        game.hitstopFrames = 18;
-        carrionSwarmTimer = 180;
+        game.shakeIntensity = 18;
+        game.hitstopFrames = 12;
+        carrionSwarmTimer = 120;
 
         for (int i = 0; i < 200; i++) {
             double angle = Math.random() * Math.PI * 2;
             double speed = 8 + Math.random() * 16;
-            game.particles.add(new BirdGame3.Particle(x + 40, y + 40,
+            game.particles.add(new Particle(x + 40, y + 40,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 6,
                     Color.rgb(10, 0, 20)));
@@ -588,16 +585,16 @@ public class Bird {
     }
 
     private void specialOpiumBird() {
-        leanTimer = 480;
-        leanCooldown = 900;
-        specialCooldown = 900;
-        specialMaxCooldown = 900;
+        leanTimer = 360;
+        leanCooldown = 840;
+        specialCooldown = 840;
+        specialMaxCooldown = 840;
         game.addToKillFeed(name.split(":")[0].trim() + " DROPPED THE LEAN!");
         game.shakeIntensity = 20;
         game.hitstopFrames = 15;
         for (int i = 0; i < 150; i++) {
             double angle = Math.random() * Math.PI * 2;
-            game.particles.add(new BirdGame3.Particle(x + 40, y + 40,
+            game.particles.add(new Particle(x + 40, y + 40,
                     Math.cos(angle) * (2 + Math.random() * 10),
                     Math.sin(angle) * (2 + Math.random() * 10) - 4,
                     Color.PURPLE.deriveColor(0, 1, 1, 0.7)));
@@ -617,8 +614,8 @@ public class Bird {
         }
         if (target == null) {
             game.addToKillFeed(name.split(":")[0].trim() + " tried to ZIP... but no target!");
-            specialCooldown = 300;
-            specialMaxCooldown = 300;
+            specialCooldown = 240;
+            specialMaxCooldown = 240;
             return;
         }
 
@@ -627,14 +624,14 @@ public class Bird {
         zipTargetY = target.y;
         zipTimer = 30;
 
-        specialCooldown = 720;
-        specialMaxCooldown = 720;
+        specialCooldown = 780;
+        specialMaxCooldown = 780;
 
         game.addToKillFeed(name.split(":")[0].trim() + " ZIPPED to " + target.name.split(":")[0].trim() + "!");
 
         for (int i = 0; i < 50; i++) {
             double offset = i * 8;
-            game.particles.add(new BirdGame3.Particle(
+            game.particles.add(new Particle(
                     x + 40 - vx * offset / 10,
                     y + 40 - vy * offset / 10,
                     (Math.random() - 0.5) * 8,
@@ -660,21 +657,21 @@ public class Bird {
             plungeTimer = 45;
             sizeMultiplier *= 1.18;
             enlargedByPlunge = true;
-            specialCooldown = 660;
-            specialMaxCooldown = 660;
+            specialCooldown = 720;
+            specialMaxCooldown = 720;
             game.addToKillFeed(name.split(":")[0].trim() + " PELICAN PLUNGE!!!");
             game.shakeIntensity = 32;
             game.hitstopFrames = 18;
-            target.vx += (target.x > x ? 1 : -1) * 55;
-            target.vy = -38;
-            int dmg = (int)(32 * powerMultiplier);
+            target.vx += (target.x > x ? 1 : -1) * 42;
+            target.vy = -30;
+            int dmg = (int)(26 * powerMultiplier);
             double old = target.health;
             target.health = Math.max(0, target.health - dmg);
             game.damageDealt[playerIndex] += (int)(old - target.health);
             if (target.health <= 0 && old > 0) game.eliminations[playerIndex]++;
             for (int i = 0; i < 120; i++) {
                 double ang = Math.random() * Math.PI * 2;
-                game.particles.add(new BirdGame3.Particle(target.x + 40, target.y + 40,
+                game.particles.add(new Particle(target.x + 40, target.y + 40,
                         Math.cos(ang) * (8 + Math.random() * 22),
                         Math.sin(ang) * (8 + Math.random() * 22) - 12,
                         Color.ORANGE.brighter()));
@@ -684,7 +681,7 @@ public class Bird {
                 game.unlockAchievement(18, "PELICAN KING!");
             }
         } else {
-            specialCooldown = 180;
+            specialCooldown = 210;
         }
     }
 
@@ -748,214 +745,293 @@ public class Bird {
         };
     }
 
+    private int aiJumpCooldown = 0;
+    private int aiSpecialCooldown = 0;
+    private int aiStrafeTimer = 0;
+    private int aiStrafeDir = 1;
+    private int aiIdleFrames = 0;
+
     private void aiControl() {
-        // === FIND PRIMARY TARGET ===
-        Bird target = null;
-        double bestDist = Double.MAX_VALUE;
-        for (Bird b : game.players) {
-            if (b == null || b == this || b.health <= 0) continue;
-            if (game.isTrialMode) {
-                if (playerIndex <= 2) { if (b.playerIndex != 3) continue; }
-                else if (playerIndex == 3) { if (b.playerIndex > 2) continue; }
-            }
-            double d = Math.hypot(b.x - x, b.y - y);
-            if (d < bestDist) { bestDist = d; target = b; }
-        }
+        if (aiJumpCooldown > 0) aiJumpCooldown--;
+        if (aiSpecialCooldown > 0) aiSpecialCooldown--;
+        if (aiStrafeTimer > 0) aiStrafeTimer--;
 
-        // === FIND BEST POWER-UP ===
-        BirdGame3.PowerUp bestPowerUp = null;
-        double bestPowerUpScore = 0;
-        for (BirdGame3.PowerUp p : game.powerUps) {
-            double dist = Math.hypot(p.x - (x + 40), p.y - (y + 40));
-            double score = 0;
-            if (p.type == BirdGame3.PowerUpType.HEALTH) score = (100 - health) * 2 + 1000;
-            else if (p.type == BirdGame3.PowerUpType.RAGE || p.type == BirdGame3.PowerUpType.NEON) score = 800;
-            else if (p.type == BirdGame3.PowerUpType.SPEED || p.type == BirdGame3.PowerUpType.THERMAL) score = 500;
-            score /= (1 + dist / 400.0);
-            if (score > bestPowerUpScore) {
-                bestPowerUpScore = score;
-                bestPowerUp = p;
-            }
-        }
+        clearAIInputs();
 
-        boolean hasTarget = target != null;
-        boolean nearTarget = hasTarget && bestDist < 220;
-        boolean mediumRange = hasTarget && bestDist < 500;
-        boolean far = hasTarget && bestDist > 700;
+        Bird target = pickAITarget();
+        PowerUp powerUp = pickBestAIPowerUp(target);
         boolean onGround = isOnGround();
-        boolean airborne = !onGround;
 
-        boolean chasePowerUp = bestPowerUp != null &&
-                (bestPowerUp.type == BirdGame3.PowerUpType.HEALTH && health < 70 ||
-                        bestPowerUpScore > 800);
+        if (target == null && powerUp == null) return;
 
-        double goalX = hasTarget ? target.x : (chasePowerUp ? bestPowerUp.x : x);
-        double goalY = hasTarget ? target.y : (chasePowerUp ? bestPowerUp.y : y);
-        facingRight = goalX > x + 20;
+        double myCx = x + 40;
+        double targetDist = target != null ? Math.hypot(target.x - x, target.y - y) : Double.MAX_VALUE;
+        double idealRange = getAIIdealRange();
+        boolean lowHealth = health < 38;
 
-        game.pressedKeys.remove(leftKey());
-        game.pressedKeys.remove(rightKey());
-        game.pressedKeys.remove(jumpKey());
-
-        // === DODGING LOGIC ===
-        if (handleAIDodging(target, onGround)) return;
-
-        // === VERTICAL POSITIONING ===
-        handleAIVerticalPositioning(target, onGround, airborne);
-
-        // === HORIZONTAL MOVEMENT ===
-        double horizThreshold = chasePowerUp ? 100 : 80;
-        if (Math.abs(goalX - x) > horizThreshold) {
-            if (goalX < x) game.pressedKeys.add(leftKey());
-            else game.pressedKeys.add(rightKey());
+        // Emergency self-preservation before anything else.
+        if (onGround && y > game.GROUND_Y + 220) {
+            game.pressedKeys.add(jumpKey());
+            aiJumpCooldown = 12;
         }
 
-        // === JUMP / FALL / FLY ===
-        handleAIJumpAndFly(target, onGround, airborne);
+        if (handleAIDodgeBurstThreats(target, onGround)) return;
 
-        // === BLOCK LOGIC ===
-        if (hasTarget && nearTarget && attackAnimationTimer > 0 &&
-                (facingRight == (target.x < x)) && random.nextDouble() < 0.4) {
-            game.pressedKeys.add(blockKey());
+        PowerUp healthPack = findBestHealthPowerUp();
+        boolean shouldRetreat = target != null && health < 30 && target.health > health + 18 && targetDist < 280 && healthPack == null;
+        boolean shouldChasePower = powerUp != null && shouldPrioritizePowerUp(powerUp, target);
+
+        double goalX;
+        if (shouldRetreat && target != null) {
+            goalX = x + (x - target.x) * 2.0;
+        } else if (shouldChasePower) {
+            goalX = powerUp.x;
+        } else if (target != null) {
+            // Predict movement instead of chasing current position.
+            double lead = Math.min(10, Math.max(2, targetDist / 120.0));
+            double predictedX = target.x + target.vx * lead;
+            if (targetDist > idealRange * 1.25) {
+                goalX = predictedX;
+            } else if (targetDist < idealRange * 0.65) {
+                goalX = x - Math.signum(predictedX - x) * 180;
+            } else {
+                if (aiStrafeTimer <= 0) {
+                    aiStrafeTimer = 40 + random.nextInt(35);
+                    aiStrafeDir = random.nextBoolean() ? 1 : -1;
+                }
+                goalX = target.x + aiStrafeDir * 140;
+            }
         } else {
-            game.pressedKeys.remove(blockKey());
+            goalX = x;
         }
 
-        boolean isAI = false;
-        boolean canAttackSafely = !isAI && attackCooldown <= 0;
-        if (nearTarget && canAttackSafely) {
+        goalX = Math.max(120, Math.min(goalX, game.WORLD_WIDTH - 120));
+
+        if (target != null) facingRight = target.x > myCx;
+        else if (powerUp != null) facingRight = powerUp.x > myCx;
+
+        int moveDir = 0;
+        if (Math.abs(goalX - x) > 35) {
+            moveDir = goalX < x ? -1 : 1;
+        }
+
+        // Anti-stall fallback: if spacing logic leaves us idle too long, pressure target.
+        if (target != null && moveDir == 0 && targetDist > 130) {
+            aiIdleFrames++;
+            if (aiIdleFrames > 24) {
+                moveDir = target.x < x ? -1 : 1;
+            }
+        } else {
+            aiIdleFrames = 0;
+        }
+
+        if (moveDir < 0) game.pressedKeys.add(leftKey());
+        if (moveDir > 0) game.pressedKeys.add(rightKey());
+
+        // Vertical positioning and recovery behavior.
+        if (target != null) {
+            double dy = target.y - y;
+            if (onGround && aiJumpCooldown <= 0) {
+                boolean jumpForHeight = dy < -120 && Math.abs(target.x - x) < 420;
+                boolean jumpForCombo = dy > 70 && targetDist < 220;
+                if (jumpForHeight || jumpForCombo) {
+                    game.pressedKeys.add(jumpKey());
+                    aiJumpCooldown = 14;
+                }
+            }
+
+            if (!onGround && type.flyUpForce > 0) {
+                boolean recoverAltitude = y > game.GROUND_Y - 120;
+                boolean maintainVsTarget = target.y < y + 180;
+                if (recoverAltitude || maintainVsTarget) {
+                    game.pressedKeys.add(jumpKey());
+                }
+            }
+        } else if (powerUp != null && onGround && aiJumpCooldown <= 0 && powerUp.y < y - 120) {
+            game.pressedKeys.add(jumpKey());
+            aiJumpCooldown = 14;
+        }
+
+        // Defensive block read.
+        if (target != null && targetDist < 170 && target.attackAnimationTimer > 3 &&
+                facingRight == (target.x > x) && random.nextDouble() < 0.55) {
+            game.pressedKeys.add(blockKey());
+        }
+
+        // Attack cadence respects role/range.
+        if (target != null && attackCooldown <= 0 &&
+                targetDist < Math.max(140, idealRange * 0.95) &&
+                Math.abs(target.y - y) < 115 &&
+                random.nextDouble() < 0.85) {
             game.pressedKeys.add(attackKey());
         }
 
-        // === SPECIAL ABILITY ===
-        handleAISpecialAbility(target, mediumRange, far, onGround, nearTarget);
+        // Special ability timing by bird role.
+        if (target != null && specialCooldown <= 0 && aiSpecialCooldown <= 0 &&
+                shouldUseSpecialAI(target, targetDist, onGround, lowHealth)) {
+            game.pressedKeys.add(specialKey());
+            aiSpecialCooldown = 26;
+        }
 
-        // === TAUNT WHEN DOMINATING ===
-        if (tauntCooldown <= 0 && hasTarget && health > 85 && nearTarget && random.nextDouble() < 0.015) {
+        if (tauntCooldown <= 0 && target != null && health > 80 && target.health < 35 &&
+                targetDist < 200 && random.nextDouble() < 0.006) {
             currentTaunt = random.nextInt(3) + 1;
-            tauntTimer = 60;
+            tauntTimer = 50;
             tauntCooldown = 300;
             game.addToKillFeed(name.split(":")[0].trim() + " IS ABSOLUTELY COOKING!");
         }
     }
 
-    private boolean handleAIDodging(Bird target, boolean onGround) {
-        boolean shouldDodge = false;
-        double dodgeDir = 0;
-
-        if (target != null) {
-            if (target.type == BirdGame3.BirdType.TURKEY && target.isGroundPounding &&
-                    Math.abs(target.x - x) < 300 && target.y < y - 100) {
-                shouldDodge = true;
-                dodgeDir = target.x > x ? -1 : 1;
-            }
-            if (target.type == BirdGame3.BirdType.EAGLE && target.diveTimer > 0 &&
-                    Math.abs(target.x - x) < 400 && target.y < y) {
-                shouldDodge = true;
-                dodgeDir = target.x > x ? -1 : 1;
-            }
-            if (target.type == BirdGame3.BirdType.PENGUIN && Math.abs(target.vx) > 15 &&
-                    Math.abs(target.x - x) < 400 && Math.abs(target.y - y) < 100) {
-                shouldDodge = true;
-                if (onGround) game.pressedKeys.add(jumpKey());
-            }
-        }
-
-        if (shouldDodge) {
-            if (dodgeDir < 0) game.pressedKeys.add(leftKey());
-            else game.pressedKeys.add(rightKey());
-            if (onGround) game.pressedKeys.add(jumpKey());
-            return true;
-        }
-        return false;
+    private void clearAIInputs() {
+        game.pressedKeys.remove(leftKey());
+        game.pressedKeys.remove(rightKey());
+        game.pressedKeys.remove(jumpKey());
+        game.pressedKeys.remove(attackKey());
+        game.pressedKeys.remove(specialKey());
+        game.pressedKeys.remove(blockKey());
     }
 
-    private void handleAIVerticalPositioning(Bird target, boolean onGround, boolean airborne) {
-        boolean enemyDirectlyAbove = target != null && Math.abs(target.x - x) < 120 && target.y < y - 100 && target.isOnGround();
-        boolean enemyDirectlyBelow = target != null && Math.abs(target.x - x) < 120 && target.y > y + 100 && isOnGround();
-
-        if (enemyDirectlyAbove) {
-            if (target.x > x) game.pressedKeys.add(leftKey());
-            else game.pressedKeys.add(rightKey());
+    private Bird pickAITarget() {
+        Bird best = null;
+        double bestScore = -Double.MAX_VALUE;
+        for (Bird b : game.players) {
+            if (b == null || b == this || b.health <= 0) continue;
+            if (game.isTrialMode) {
+                if (playerIndex <= 2 && b.playerIndex != 3) continue;
+                if (playerIndex == 3 && b.playerIndex > 2) continue;
+            }
+            double dist = Math.hypot(b.x - x, b.y - y);
+            double score = 3000.0 / (1 + dist);
+            score += (100 - b.health) * 1.8;
+            score += Math.max(0, 40 - health) * 0.9;
+            if (b.specialCooldown <= 0) score += 40; // prioritize threatening targets
+            if (b.playerIndex == 0) score += 15; // slight preference to human player
+            if (score > bestScore) {
+                bestScore = score;
+                best = b;
+            }
         }
-
-        if (enemyDirectlyBelow && (type == BirdGame3.BirdType.TURKEY || type == BirdGame3.BirdType.EAGLE || type == BirdGame3.BirdType.RAZORBILL)) {
-            if (airborne && type.flyUpForce > 0) game.pressedKeys.add(jumpKey());
-        }
+        return best;
     }
 
-    private void handleAIJumpAndFly(Bird target, boolean onGround, boolean airborne) {
-        if (onGround) {
-            boolean shouldJump = target != null && target.y < y - 120;
-            if (target != null && Math.abs(target.x - x) < 200 && target.y > y + 50) shouldJump = true;
-            if (target != null && target.type == BirdGame3.BirdType.TURKEY && target.isGroundPounding && Math.abs(target.x - x) < 350) {
-                shouldJump = true;
+    private PowerUp pickBestAIPowerUp(Bird target) {
+        PowerUp bestPowerUp = null;
+        double bestScore = -Double.MAX_VALUE;
+        for (PowerUp p : game.powerUps) {
+            double myDist = Math.hypot(p.x - (x + 40), p.y - (y + 40));
+            double score = 0;
+            switch (p.type) {
+                case HEALTH -> score = (100 - health) * 26 + 140;
+                case RAGE -> score = 96;
+                case NEON -> score = 95;
+                case SPEED -> score = 82;
+                case THERMAL -> score = 74;
+                case SHRINK -> score = 66;
+                case VINE_GRAPPLE -> score = 88;
             }
-            if (shouldJump) game.pressedKeys.add(jumpKey());
-        } else {
-            if (type.flyUpForce > 0 && y > 200 && y < 1200) {
-                boolean maintainHeight = target == null || !(target.y > y + 300) ||
-                        (type != BirdGame3.BirdType.EAGLE && type != BirdGame3.BirdType.RAZORBILL && type != BirdGame3.BirdType.TURKEY);
-                if (maintainHeight) game.pressedKeys.add(jumpKey());
+            score /= (1 + myDist / 350.0);
+
+            if (target != null) {
+                double enemyDist = Math.hypot(p.x - (target.x + 40), p.y - (target.y + 40));
+                if (enemyDist < myDist * 0.75) score *= 0.6;
+            }
+
+            if (score > bestScore) {
+                bestScore = score;
+                bestPowerUp = p;
             }
         }
+        return bestPowerUp;
     }
 
-    private void handleAISpecialAbility(Bird target, boolean mediumRange, boolean far, boolean onGround, boolean nearTarget) {
-        if (specialCooldown <= 0) {
-            switch (type) {
-                case PIGEON -> {
-                    if (health < 40) game.pressedKeys.add(specialKey());
-                }
-                case EAGLE -> {
-                    if (y < game.GROUND_Y - 900 && target != null && target.y > y + 200 && mediumRange) {
-                        game.pressedKeys.add(specialKey());
-                    }
-                }
-                case HUMMINGBIRD -> {
-                    if (far || (target != null && target.y < y - 250)) {
-                        game.pressedKeys.add(specialKey());
-                    }
-                }
-                case TURKEY -> {
-                    if (onGround && target != null && target.y > y + 80 && Math.abs(target.x - x) < 300) {
-                        game.pressedKeys.add(specialKey());
-                    }
-                }
-                case PENGUIN -> {
-                    if (onGround && nearTarget) game.pressedKeys.add(specialKey());
-                }
-                case SHOEBILL -> {
-                    if (mediumRange && random.nextDouble() < 0.07) game.pressedKeys.add(specialKey());
-                }
-                case MOCKINGBIRD -> {
-                    if (health < 70 && onGround) game.pressedKeys.add(specialKey());
-                }
-                case RAZORBILL -> {
-                    if (!isOnGround() && mediumRange && (target != null && target.y > y || nearTarget)) {
-                        game.pressedKeys.add(specialKey());
-                    }
-                }
-                case GRINCHHAWK -> {
-                    if (health > 90 && nearTarget) game.pressedKeys.add(specialKey());
-                }
-                case VULTURE -> {
-                    if (crowSwarmCooldown <= 0 && random.nextDouble() < 0.05) {
-                        game.pressedKeys.add(specialKey());
-                    }
-                }
-                case OPIUMBIRD -> {
-                    if (nearTarget && onGround && random.nextDouble() < 0.7) {
-                        game.pressedKeys.add(specialKey());
-                    }
-                }
-                case TITMOUSE -> {
-                    if (nearTarget) game.pressedKeys.add(specialKey());
-                }
-                case PELICAN -> {
-                    if (nearTarget && plungeTimer <= 0) game.pressedKeys.add(specialKey());
-                }
+    private PowerUp findBestHealthPowerUp() {
+        PowerUp best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (PowerUp p : game.powerUps) {
+            if (p.type != PowerUpType.HEALTH) continue;
+            double dist = Math.hypot(p.x - (x + 40), p.y - (y + 40));
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = p;
             }
+        }
+        return best;
+    }
+
+    private boolean shouldPrioritizePowerUp(PowerUp p, Bird target) {
+        if (p == null) return false;
+        if (p.type == PowerUpType.HEALTH && health < 72) return true;
+        if (target == null) return true;
+        double targetDist = Math.hypot(target.x - x, target.y - y);
+        return targetDist > getAIIdealRange() * 1.7;
+    }
+
+    private double getAIIdealRange() {
+        return switch (type) {
+            case TURKEY, PELICAN, GRINCHHAWK -> 170;
+            case RAZORBILL, SHOEBILL -> 200;
+            case EAGLE, VULTURE, PENGUIN -> 230;
+            case HUMMINGBIRD, TITMOUSE -> 250;
+            case OPIUMBIRD, MOCKINGBIRD -> 240;
+            case PIGEON -> 210;
+        };
+    }
+
+    private boolean handleAIDodgeBurstThreats(Bird target, boolean onGround) {
+        if (target == null) return false;
+
+        boolean dodge = false;
+        int dir = target.x > x ? -1 : 1;
+        double dx = Math.abs(target.x - x);
+        double dy = target.y - y;
+
+        if (target.type == BirdGame3.BirdType.TURKEY && target.isGroundPounding && dx < 320 && dy < -60) dodge = true;
+        if (target.type == BirdGame3.BirdType.EAGLE && target.diveTimer > 0 && dx < 430 && dy < 120) dodge = true;
+        if (target.type == BirdGame3.BirdType.PENGUIN && Math.abs(target.vx) > 14 && dx < 380 && Math.abs(dy) < 110) dodge = true;
+        if (target.type == BirdGame3.BirdType.TITMOUSE && target.isZipping && dx < 420) dodge = true;
+
+        if (!dodge) return false;
+
+        if (dir < 0) game.pressedKeys.add(leftKey());
+        else game.pressedKeys.add(rightKey());
+        if (onGround && aiJumpCooldown <= 0) {
+            game.pressedKeys.add(jumpKey());
+            aiJumpCooldown = 16;
+        }
+        return true;
+    }
+
+    private boolean shouldUseSpecialAI(Bird target, double dist, boolean onGround, boolean lowHealth) {
+        double dy = target.y - y;
+        switch (type) {
+            case PIGEON:
+                return lowHealth || (health < 55 && dist < 200);
+            case EAGLE:
+                return y < game.GROUND_Y - 800 && dy > 180 && dist < 520;
+            case HUMMINGBIRD:
+                return dist > 420 || dy < -220;
+            case TURKEY:
+                return onGround && dist < 280 && dy > 50;
+            case PENGUIN:
+                return onGround && dist > 110 && dist < 340 && Math.abs(dy) < 90;
+            case SHOEBILL:
+                return dist < 240 || (dist < 420 && random.nextDouble() < 0.2);
+            case MOCKINGBIRD:
+                return onGround && !loungeActive && (lowHealth || dist < 210);
+            case RAZORBILL:
+                return !onGround && dist < 320 && dy > -90;
+            case GRINCHHAWK:
+                return dist < 260 && health < 95;
+            case VULTURE:
+                return crowSwarmCooldown <= 0 && (dist < 380 || lowHealth);
+            case OPIUMBIRD:
+                return onGround && dist < 270 && random.nextDouble() < 0.85;
+            case TITMOUSE:
+                return dist > 140 && dist < 560;
+            case PELICAN:
+                return plungeTimer <= 0 && onGround && dist < 260 && Math.abs(dy) < 130;
+            default:
+                return false;
         }
     }
 
@@ -1098,7 +1174,7 @@ public class Bird {
             double targetY = y + 40;
             boolean found = false;
 
-            for (BirdGame3.Platform p : game.platforms) {
+            for (Platform p : game.platforms) {
                 double centerX = p.x + p.w / 2;
                 double centerY = p.y;
                 double d = Math.hypot(centerX - (x + 40), centerY - (y + 40));
@@ -1111,7 +1187,7 @@ public class Bird {
             }
 
             if (game.selectedMap == MapType.VIBRANT_JUNGLE) {
-                for (BirdGame3.SwingingVine v : game.swingingVines) {
+                for (SwingingVine v : game.swingingVines) {
                     double d = Math.hypot(v.platformX + v.platformW / 2 - (x + 40), v.platformY - (y + 40));
                     if (d < bestDist && d > 100 && d < 800) {
                         bestDist = d;
@@ -1131,7 +1207,7 @@ public class Bird {
                 game.addToKillFeed(name.split(":")[0].trim() + " GRAPPLED with vine!");
                 for (int i = 0; i < 30; i++) {
                     double progress = i / 30.0;
-                    game.particles.add(new BirdGame3.Particle(
+                    game.particles.add(new Particle(
                             x + 40 + (targetX - x - 40) * progress,
                             y + 40 + (targetY - y - 40) * progress,
                             0, 0, Color.FORESTGREEN.deriveColor(0,1,1,0.7)
@@ -1223,7 +1299,7 @@ public class Bird {
                 powerMultiplier = Math.max(powerMultiplier, 1.3);
                 speedMultiplier = Math.max(speedMultiplier, 1.2);
                 if (Math.random() < 0.3) {
-                    game.particles.add(new BirdGame3.Particle(x + 40 + (Math.random() - 0.5) * 60,
+                    game.particles.add(new Particle(x + 40 + (Math.random() - 0.5) * 60,
                             y + 80, (Math.random() - 0.5) * 6, 2 + Math.random() * 4,
                             Color.GOLD.deriveColor(0, 1, 1, 0.7)));
                 }
@@ -1242,7 +1318,7 @@ public class Bird {
                 y = y + (zipTargetY - y) * progress * 0.4;
 
                 for (int i = 0; i < 5; i++) {
-                    game.particles.add(new BirdGame3.Particle(
+                    game.particles.add(new Particle(
                             x + 40 + (Math.random() - 0.5) * 30,
                             y + 40 + (Math.random() - 0.5) * 30,
                             (Math.random() - 0.5) * 20,
@@ -1263,7 +1339,7 @@ public class Bird {
             if (other == null || other == this || other.health <= 0) continue;
             double dist = Math.hypot(other.x - x, other.y - y);
             if (dist < 120) {
-                int dmg = (int) (22 * powerMultiplier);
+                int dmg = (int) (20 * powerMultiplier);
                 double oldHealth = other.health;
                 other.health = Math.max(0, other.health - dmg);
                 double dealt = oldHealth - other.health;
@@ -1283,7 +1359,7 @@ public class Bird {
                 for (int i = 0; i < 60; i++) {
                     double angle = Math.random() * Math.PI * 2;
                     double speed = 8 + Math.random() * 16;
-                    game.particles.add(new BirdGame3.Particle(
+                    game.particles.add(new Particle(
                             other.x + 40,
                             other.y + 40,
                             Math.cos(angle) * speed,
@@ -1392,13 +1468,13 @@ public class Bird {
             double vx = Math.cos(angle) * speed;
             double vy = Math.sin(angle) * speed - 10;
             Color c = Math.random() < 0.5 ? Color.ORANGERED : Color.YELLOW.brighter();
-            game.particles.add(new BirdGame3.Particle(x + 40, y + 70, vx, vy, c));
+            game.particles.add(new Particle(x + 40, y + 70, vx, vy, c));
         }
 
         for (int i = 0; i < 20; i++) {
             double offset = (Math.random() - 0.5) * 800;
             for (int j = 0; j < 15; j++) {
-                game.particles.add(new BirdGame3.Particle(x + 40 + offset + j * 10, game.GROUND_Y + j * 10,
+                game.particles.add(new Particle(x + 40 + offset + j * 10, game.GROUND_Y + j * 10,
                         (Math.random() - 0.5) * 25, -6 - Math.random() * 15, Color.SADDLEBROWN.darker()));
             }
         }
@@ -1416,24 +1492,25 @@ public class Bird {
             double dist = Math.hypot(dx, dy);
 
             if (dist < 350) {
-                int dmg = (int) (65 * (1.0 - dist / 500.0));
-                if (dmg < 20) dmg = 20;
+                int dmg = (int) (58 * (1.0 - dist / 500.0));
+                if (dmg < 18) dmg = 18;
 
                 double oldHealth = other.health;
                 other.health = Math.max(0, other.health - dmg);
                 game.damageDealt[playerIndex] += (int) (oldHealth - other.health);
                 if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
 
-                other.vx += dx / dist * 50;
+                double safeDist = Math.max(0.001, dist);
+                other.vx += dx / safeDist * 50;
                 other.vy -= 35;
 
-                String intensity = dmg >= 80 ? "ANNIHILATED" : dmg >= 60 ? "DEVASTATED" : dmg >= 40 ? "BLASTED" : "SMASHED";
+                String intensity = dmg >= 50 ? "DEVASTATED" : dmg >= 35 ? "BLASTED" : "SMASHED";
                 game.addToKillFeed(name.split(":")[0].trim() + " " + intensity + " " + other.name.split(":")[0].trim() + "! -" + dmg + " HP");
 
                 if (dmg > 40) {
                     for (int k = 0; k < 60; k++) {
                         double angle = Math.random() * Math.PI * 2;
-                        game.particles.add(new BirdGame3.Particle(other.x + 40, other.y + 40,
+                        game.particles.add(new Particle(other.x + 40, other.y + 40,
                                 Math.cos(angle) * (10 + Math.random() * 20),
                                 Math.sin(angle) * (10 + Math.random() * 20) - 10,
                                 Color.CRIMSON.brighter()));
@@ -1446,21 +1523,20 @@ public class Bird {
     private void handleRazorbillBladeStorm() {
         if (type == BirdGame3.BirdType.RAZORBILL && bladeStormFrames > 0) {
             bladeStormFrames--;
-            int slashTimer = 180 - bladeStormFrames;
-
-            if ((180 - bladeStormFrames) % 12 == 0) {
+            if ((150 - bladeStormFrames) % 14 == 0) {
                 for (Bird other : game.players) {
                     if (other == null || other == this || other.health <= 0) continue;
                     double dx = other.x - x;
                     double dy = other.y - y;
                     double dist = Math.hypot(dx, dy);
                     if (dist < 160) {
-                        int dmg = 14 + random.nextInt(9);
+                        int dmg = 10 + random.nextInt(7);
                         double oldHealth = other.health;
                         other.health = Math.max(0, other.health - dmg);
                         game.damageDealt[playerIndex] += (int) (oldHealth - other.health);
                         if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-                        other.vx += dx / dist * 32;
+                        double safeDist = Math.max(0.001, dist);
+                        other.vx += dx / safeDist * 32;
                         other.vy -= 20;
                         String verb = dmg >= 25 ? "GASHED" : "CUT";
                         game.addToKillFeed(name.split(":")[0].trim() + " " + verb + " " +
@@ -1468,7 +1544,7 @@ public class Bird {
 
                         for (int k = 0; k < 25; k++) {
                             double angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.4;
-                            game.particles.add(new BirdGame3.Particle(other.x + 40, other.y + 40,
+                            game.particles.add(new Particle(other.x + 40, other.y + 40,
                                     Math.cos(angle) * (8 + Math.random() * 16),
                                     Math.sin(angle) * (8 + Math.random() * 16) - 8, Color.CYAN));
                         }
@@ -1480,7 +1556,7 @@ public class Bird {
                 for (int i = 0; i < 10; i++) {
                     double angle = facingRight ? 0 : Math.PI;
                     angle += (Math.random() - 0.5);
-                    game.particles.add(new BirdGame3.Particle(x + 40 + Math.cos(angle) * 70,
+                    game.particles.add(new Particle(x + 40 + Math.cos(angle) * 70,
                             y + 40 + Math.sin(angle) * 70,
                             Math.cos(angle) * 25, Math.sin(angle) * 25,
                             Color.WHITE.deriveColor(0, 1, 1, 0.85)));
@@ -1496,7 +1572,7 @@ public class Bird {
 
     private void handleThermals() {
         if (game.selectedMap == MapType.SKYCLIFFS || game.selectedMap == MapType.VIBRANT_JUNGLE) {
-            for (BirdGame3.WindVent v : game.windVents) {
+            for (WindVent v : game.windVents) {
                 if (v.cooldown > 0) continue;
                 double centerX = v.x + v.w / 2;
                 double centerY = v.y - 75;
@@ -1505,7 +1581,7 @@ public class Bird {
                 if (Math.pow(dx / (v.w / 2 + 50), 2) + Math.pow(dy / 200, 2) <= 1.0) {
                     vy = Math.min(vy, BirdGame3.WIND_FORCE);
                     if (Math.random() < 0.3) {
-                        game.particles.add(new BirdGame3.Particle(x + 40 + (Math.random() - 0.5) * 40, y + 80,
+                        game.particles.add(new Particle(x + 40 + (Math.random() - 0.5) * 40, y + 80,
                                 (Math.random() - 0.5) * 8, -4 - Math.random() * 8, Color.CYAN.deriveColor(0, 1, 1, 0.7)));
                     }
                     break;
@@ -1569,11 +1645,11 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE && health > 0) {
             for (Bird b : game.players) {
                 if (b != null && b != this && b.health <= 0 && b.y > game.HEIGHT + 50 && b.y <= game.HEIGHT + 100) {
-                    health = Math.min(100, health + 8);
-                    game.addToKillFeed(name.split(":")[0].trim() + " FEASTS! +8 HP");
+                    health = Math.min(100, health + 5);
+                    game.addToKillFeed(name.split(":")[0].trim() + " FEASTS! +5 HP");
                     for (int i = 0; i < 15; i++) {
                         double angle = Math.random() * Math.PI * 2;
-                        game.particles.add(new BirdGame3.Particle(b.x + 40, b.y + 40,
+                        game.particles.add(new Particle(b.x + 40, b.y + 40,
                                 Math.cos(angle) * 4, Math.sin(angle) * 4 - 3, Color.DARKRED));
                     }
                 }
@@ -1582,15 +1658,15 @@ public class Bird {
     }
 
     private void handlePowerUpPickup() {
-        for (Iterator<BirdGame3.PowerUp> it = game.powerUps.iterator(); it.hasNext(); ) {
-            BirdGame3.PowerUp p = it.next();
+        for (Iterator<PowerUp> it = game.powerUps.iterator(); it.hasNext(); ) {
+            PowerUp p = it.next();
             if (Math.abs(x + 40 - p.x) < 80 && Math.abs(y + 40 - p.y) < 80) {
                 handlePowerUpType(p, it);
             }
         }
     }
 
-    private void handlePowerUpType(BirdGame3.PowerUp p, Iterator<BirdGame3.PowerUp> it) {
+    private void handlePowerUpType(PowerUp p, Iterator<PowerUp> it) {
         switch (p.type) {
             case HEALTH -> {
                 health = Math.min(100, health + 40);
@@ -1633,7 +1709,7 @@ public class Bird {
                     double angle = Math.random() * Math.PI * 2;
                     double speed = 10 + Math.random() * 20;
                     Color c = Math.random() < 0.5 ? Color.MAGENTA.brighter() : Color.CYAN.brighter();
-                    game.particles.add(new BirdGame3.Particle(x + 40, y + 40, Math.cos(angle) * speed, Math.sin(angle) * speed - 8, c));
+                    game.particles.add(new Particle(x + 40, y + 40, Math.cos(angle) * speed, Math.sin(angle) * speed - 8, c));
                 }
 
                 game.shakeIntensity = 20;
@@ -1654,7 +1730,7 @@ public class Bird {
                 for (int i = 0; i < 100; i++) {
                     double angle = Math.random() * Math.PI * 2;
                     double speed = 8 + Math.random() * 18;
-                    game.particles.add(new BirdGame3.Particle(x + 40, y + 40,
+                    game.particles.add(new Particle(x + 40, y + 40,
                             Math.cos(angle) * speed,
                             Math.sin(angle) * speed - 10,
                             Color.GOLD.brighter()));
@@ -1674,7 +1750,7 @@ public class Bird {
                 for (int i = 0; i < 80; i++) {
                     double angle = Math.random() * Math.PI * 2;
                     double speed = 8 + Math.random() * 16;
-                    game.particles.add(new BirdGame3.Particle(x + 40, y + 40,
+                    game.particles.add(new Particle(x + 40, y + 40,
                             Math.cos(angle) * speed, Math.sin(angle) * speed - 6,
                             Color.LIMEGREEN.brighter()));
                 }
@@ -1696,7 +1772,7 @@ public class Bird {
         game.checkAchievements(this);
         for (int i = 0; i < 30; i++) {
             double angle = Math.random() * Math.PI * 2;
-            game.particles.add(new BirdGame3.Particle(p.x, p.y, Math.cos(angle) * 8, Math.sin(angle) * 8 - 4, p.type.color.brighter()));
+            game.particles.add(new Particle(p.x, p.y, Math.cos(angle) * 8, Math.sin(angle) * 8 - 4, p.type.color.brighter()));
         }
         it.remove();
     }
@@ -1734,7 +1810,7 @@ public class Bird {
 
                 for (int i = 0; i < 30; i++) {
                     Color c = currentTaunt == 1 ? Color.YELLOW : currentTaunt == 2 ? Color.RED : Color.PINK;
-                    game.particles.add(new BirdGame3.Particle(x + 40, y + 40, (Math.random() - 0.5) * 16, (Math.random() - 0.7) * 12, c));
+                    game.particles.add(new Particle(x + 40, y + 40, (Math.random() - 0.5) * 16, (Math.random() - 0.7) * 12, c));
                 }
             }
         }
@@ -1763,6 +1839,7 @@ public class Bird {
         drawLounge(g);
         drawBodyAndEyes(g, drawSize);
         drawCitySkin(g);
+        drawNoirSkin(g);
         drawBeak(g, drawSize);
         drawPelican(g, drawSize);
         drawVineGrapple(g, drawSize);
@@ -1785,7 +1862,7 @@ public class Bird {
                 double particleAngle = shieldAngleStart + (Math.random() - 0.5) * Math.PI;
                 double px = birdCenterX + Math.cos(particleAngle) * shieldRadius;
                 double py = birdCenterY + Math.sin(particleAngle) * shieldRadius;
-                game.particles.add(new BirdGame3.Particle(px, py, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4 - 2, Color.BLUE.brighter()));
+                game.particles.add(new Particle(px, py, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4 - 2, Color.BLUE.brighter()));
             }
         }
     }
@@ -1849,7 +1926,7 @@ public class Bird {
             g.setFill(Color.GOLD.deriveColor(0, 1, 1, 0.4 + 0.3 * pulse));
             g.fillOval(x - 60, y - 60, drawSize + 120, drawSize + 120);
             if (Math.random() < 0.4) {
-                game.particles.add(new BirdGame3.Particle(x + 40 + (Math.random() - 0.5) * 60,
+                game.particles.add(new Particle(x + 40 + (Math.random() - 0.5) * 60,
                         y + 80,
                         (Math.random() - 0.5) * 4,
                         -6 - Math.random() * 8,
@@ -1943,7 +2020,7 @@ public class Bird {
             g.fillOval(x - 50, y - 50, drawSize + 100, drawSize + 100);
 
             if (Math.random() < 0.2) {
-                game.particles.add(new BirdGame3.Particle(x + (facingRight ? -20 : drawSize + 20), y + 40,
+                game.particles.add(new Particle(x + (facingRight ? -20 : drawSize + 20), y + 40,
                         (facingRight ? 1 : -1) * (2 + Math.random() * 4),
                         (Math.random() - 0.5) * 4,
                         Color.GOLD.brighter()));
@@ -2024,7 +2101,7 @@ public class Bird {
             g.fillOval(x + 25, y - 45, 30, 40);
 
             if (Math.random() < 0.4) {
-                game.particles.add(new BirdGame3.Particle(x + 40 + (Math.random() - 0.5) * 100, y + 40 + (Math.random() - 0.5) * 100,
+                game.particles.add(new Particle(x + 40 + (Math.random() - 0.5) * 100, y + 40 + (Math.random() - 0.5) * 100,
                         (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5 - 3, Color.GOLD.brighter()));
             }
         }
@@ -2141,13 +2218,17 @@ public class Bird {
     }
 
     private void drawBodyAndEyes(GraphicsContext g, double drawSize) {
-        g.setFill(type.color);
+        boolean noirPigeon = (type == BirdGame3.BirdType.PIGEON && isNoirSkin);
+        Color bodyColor = noirPigeon ? Color.rgb(18, 18, 18) : type.color;
+        Color headColor = noirPigeon ? Color.rgb(42, 42, 42) : type.color.brighter();
+
+        g.setFill(bodyColor);
         g.fillOval(x, y, drawSize, drawSize);
-        g.setFill(type.color.brighter());
+        g.setFill(headColor);
         g.fillOval(facingRight ? x + 50 * sizeMultiplier : x - 20 * sizeMultiplier, y + 20 * sizeMultiplier, 50 * sizeMultiplier, 40 * sizeMultiplier);
         g.setFill(Color.WHITE);
         g.fillOval(x + (facingRight ? 50 : 20) * sizeMultiplier, y + 20 * sizeMultiplier, 25 * sizeMultiplier, 25 * sizeMultiplier);
-        g.setFill(Color.BLACK);
+        g.setFill(noirPigeon ? Color.RED.brighter() : Color.BLACK);
         g.fillOval(x + (facingRight ? 55 : 25) * sizeMultiplier, y + 25 * sizeMultiplier, 15 * sizeMultiplier, 15 * sizeMultiplier);
     }
 
@@ -2165,12 +2246,38 @@ public class Bird {
             if (Math.random() < 0.7) {
                 double smokeX = facingRight ? x + 110 : x - 20;
                 double smokeY = y + 40 + Math.random() * 12;
-                game.particles.add(new BirdGame3.Particle(
+                game.particles.add(new Particle(
                         smokeX,
                         smokeY,
                         (Math.random() - 0.5) * 3,
                         -1.5 - Math.random() * 2,
                         Color.LIGHTGRAY.deriveColor(0, 1, 1, 0.3 + Math.random() * 0.4)
+                ));
+            }
+        }
+    }
+
+    private void drawNoirSkin(GraphicsContext g) {
+        if (type == BirdGame3.BirdType.PIGEON && isNoirSkin) {
+            g.setFill(Color.BLACK);
+            g.fillRoundRect(x + 16, y - 12, 48, 18, 10, 10);
+            g.fillRect(x + 4, y - 6, 72, 8);
+
+            g.setFill(Color.BLACK.deriveColor(0, 1, 0.8, 1));
+            g.fillRoundRect(x + 18, y + 52, 44, 22, 10, 10);
+            g.setStroke(Color.RED.brighter());
+            g.setLineWidth(3);
+            g.strokeLine(x + 22, y + 58, x + 58, y + 70);
+
+            if (Math.random() < 0.45) {
+                double smokeX = facingRight ? x + 98 : x - 10;
+                double smokeY = y + 42 + Math.random() * 10;
+                game.particles.add(new Particle(
+                        smokeX,
+                        smokeY,
+                        (Math.random() - 0.5) * 2.2,
+                        -1.2 - Math.random() * 1.8,
+                        Color.GRAY.deriveColor(0, 1, 1, 0.35 + Math.random() * 0.25)
                 ));
             }
         }
@@ -2276,3 +2383,4 @@ public class Bird {
         }
     }
 }
+
