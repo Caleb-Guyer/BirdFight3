@@ -10,6 +10,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import com.example.birdgame3.BirdGame3.MapType;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Random;
 
@@ -62,8 +63,16 @@ public class Bird {
     public int cooldownFlash = 0;
     public int currentTaunt = 0;
     public int eagleDiveCountdown = 0;
+    public boolean eagleDiveActive = false;
+    public boolean eagleAscentActive = false;
+    public int eagleAscentFrames = 0;
+    private final boolean[] eagleAscentHit = new boolean[4];
     public int bladeStormFrames = 0;
     public int plungeTimer = 0;
+    public boolean batHanging = false;
+    private Platform batHangPlatform = null;
+    public int batEchoTimer = 0;
+    private int batHangLockTimer = 0;
 
     public boolean isBlocking = false;
     public int blockCooldown = 0;
@@ -76,9 +85,13 @@ public class Bird {
     public double speedMultiplier = 1.0;
     public double powerMultiplier = 1.0;
     public double sizeMultiplier = 1.0;
+    public double baseSpeedMultiplier = 1.0;
+    public double basePowerMultiplier = 1.0;
+    public double baseSizeMultiplier = 1.0;
     public int speedTimer = 0;
     public int rageTimer = 0;
     public int shrinkTimer = 0;
+    public int neonRushTimer = 0;
     public int thermalTimer = 0;
     public double thermalLift = 0.0;
 
@@ -119,16 +132,30 @@ public class Bird {
         this.name = (game.isAI != null && game.isAI[playerIndex] ? "AI" : "P") + (playerIndex + 1) + ": " + type.name;
 
         if (type == BirdGame3.BirdType.PELICAN) {
-            sizeMultiplier = 1.2;
+            baseSizeMultiplier = 1.2;
         }
+        sizeMultiplier = baseSizeMultiplier;
+    }
+
+    public void setBaseMultipliers(double size, double power, double speed) {
+        baseSizeMultiplier = size;
+        basePowerMultiplier = power;
+        baseSpeedMultiplier = speed;
+        sizeMultiplier = size;
+        powerMultiplier = power;
+        speedMultiplier = speed;
     }
 
     public boolean isOnGround() {
         double bottom = y + 80 * sizeMultiplier;
         if (bottom >= game.GROUND_Y) return true;
         for (Platform p : game.platforms) {
+            boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
+                    p.y <= 1 && p.h >= 60 && p.w >= game.WORLD_WIDTH - 10;
+            if (isCaveCeiling) continue;
             if (x + 40 * sizeMultiplier >= p.x && x + 40 * sizeMultiplier <= p.x + p.w &&
-                    bottom >= p.y && bottom <= p.y + p.h)
+                    bottom >= p.y && bottom <= p.y + p.h &&
+                    y <= p.y + 1)
                 return true;
         }
         return false;
@@ -148,14 +175,29 @@ public class Bird {
     }
 
     private void handleVerticalCollision() {
-        if (onVine) return;
+        if (onVine || batHanging) return;
 
         boolean hit = false;
         double newY = y;
 
         for (Platform p : game.platforms) {
+            boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
+                    p.y <= 1 && p.h >= 60 && p.w >= game.WORLD_WIDTH - 10;
+
+            if (isCaveCeiling) {
+                // Solid cave ceiling: block upward movement from below but never allow standing on top.
+                if (x + 40 * sizeMultiplier >= p.x && x + 40 * sizeMultiplier <= p.x + p.w &&
+                        y < p.y + p.h && y > p.y - 50 && vy < 0) {
+                    y = p.y + p.h + 0.5;
+                    vy = 0;
+                }
+                continue;
+            }
+
+            // Land only when descending onto the top surface to avoid snapping onto platforms from below.
             if (x + 40 * sizeMultiplier >= p.x && x + 40 * sizeMultiplier <= p.x + p.w &&
-                    y + 80 * sizeMultiplier > p.y && y < p.y + p.h) {
+                    y + 80 * sizeMultiplier > p.y && y < p.y + p.h &&
+                    vy >= 0 && y <= p.y) {
                 newY = p.y - 80 * sizeMultiplier;
                 hit = true;
                 break;
@@ -195,6 +237,7 @@ public class Bird {
                 double dealtDamage = oldHealth - other.health;
 
                 game.damageDealt[playerIndex] += (int) dealtDamage;
+                game.recordSpecialImpact(playerIndex, (int) dealtDamage, dealtDamage > 0);
                 boolean isKill = oldHealth > 0 && other.health <= 0;
                 if (isKill) {
                     game.eliminations[playerIndex]++;
@@ -390,6 +433,7 @@ public class Bird {
         }
 
         if (game.jalapenoClip != null) game.jalapenoClip.play();
+        game.specialsUsed[playerIndex]++;
 
         switch (type) {
             case PIGEON -> specialPigeon();
@@ -404,6 +448,7 @@ public class Bird {
             case VULTURE -> specialVulture();
             case OPIUMBIRD -> specialOpiumBird();
             case TITMOUSE -> specialTitmouse();
+            case BAT -> specialBat();
             case PELICAN -> specialPelican();
         }
     }
@@ -426,9 +471,13 @@ public class Bird {
     }
 
     private void specialEagle() {
-        diveTimer = 100;
+        diveTimer = 120;
         specialCooldown = 540;
         specialMaxCooldown = 540;
+        eagleDiveActive = true;
+        eagleAscentActive = false;
+        eagleAscentFrames = 0;
+        Arrays.fill(eagleAscentHit, false);
 
         game.shakeIntensity = 35;
         game.hitstopFrames = 20;
@@ -450,7 +499,9 @@ public class Bird {
             game.particles.add(new Particle(predictX + i * 60, game.GROUND_Y - 20, 0, -5 - Math.random() * 8, Color.ORANGERED.brighter()));
         }
 
-        eagleDiveCountdown = 60;
+        vy = isOnGround() ? -8 : Math.max(vy, 14);
+        vx *= 0.7;
+        eagleDiveCountdown = 0;
     }
 
     private void specialHummingbird() {
@@ -520,8 +571,8 @@ public class Bird {
         game.addToKillFeed("BLADE STORM! " + name.split(":")[0].trim() + " IS UNSTOPPABLE!");
 
         vx *= 2.0;
-        sizeMultiplier = 1.15;
-        powerMultiplier = 1.45;
+        sizeMultiplier = baseSizeMultiplier * 1.15;
+        powerMultiplier = basePowerMultiplier * 1.45;
 
         for (int i = 0; i < 100; i++) {
             double angle = i / 100.0 * Math.PI * 2;
@@ -541,10 +592,15 @@ public class Bird {
         int stolen = 0;
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
+            double oldHealth = other.health;
             int take = (int) Math.min(8 + (health > 80 ? 4 : 0), other.health);
-            other.health -= take;
-            stolen += take;
-            game.addToKillFeed(name.split(":")[0].trim() + " STOLE " + take + " HP from " + other.name.split(":")[0].trim() + "!");
+            other.health = Math.max(0, other.health - take);
+            int dealt = (int) (oldHealth - other.health);
+            stolen += dealt;
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
+            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+            game.addToKillFeed(name.split(":")[0].trim() + " STOLE " + dealt + " HP from " + other.name.split(":")[0].trim() + "!");
         }
         health = Math.min(100, health + stolen);
         specialCooldown = 840;
@@ -667,7 +723,9 @@ public class Bird {
             int dmg = (int)(26 * powerMultiplier);
             double old = target.health;
             target.health = Math.max(0, target.health - dmg);
-            game.damageDealt[playerIndex] += (int)(old - target.health);
+            int dealt = (int) (old - target.health);
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
             if (target.health <= 0 && old > 0) game.eliminations[playerIndex]++;
             for (int i = 0; i < 120; i++) {
                 double ang = Math.random() * Math.PI * 2;
@@ -750,11 +808,23 @@ public class Bird {
     private int aiStrafeTimer = 0;
     private int aiStrafeDir = 1;
     private int aiIdleFrames = 0;
+    private int aiCommitFrames = 0;
+    private int aiRetreatCooldown = 0;
+    private int aiMicroPause = 0;
+    private int aiDirectionLock = 0;
+    private int aiLockedDir = 0;
+    private int aiStrafeHoldFrames = 0;
+    private double aiLastHealth = 100;
 
     private void aiControl() {
         if (aiJumpCooldown > 0) aiJumpCooldown--;
         if (aiSpecialCooldown > 0) aiSpecialCooldown--;
         if (aiStrafeTimer > 0) aiStrafeTimer--;
+        if (aiCommitFrames > 0) aiCommitFrames--;
+        if (aiRetreatCooldown > 0) aiRetreatCooldown--;
+        if (aiMicroPause > 0) aiMicroPause--;
+        if (aiDirectionLock > 0) aiDirectionLock--;
+        if (aiStrafeHoldFrames > 0) aiStrafeHoldFrames--;
 
         clearAIInputs();
 
@@ -762,12 +832,22 @@ public class Bird {
         PowerUp powerUp = pickBestAIPowerUp(target);
         boolean onGround = isOnGround();
 
-        if (target == null && powerUp == null) return;
+        if (target == null && powerUp == null) {
+            aiLastHealth = health;
+            return;
+        }
 
         double myCx = x + 40;
         double targetDist = target != null ? Math.hypot(target.x - x, target.y - y) : Double.MAX_VALUE;
         double idealRange = getAIIdealRange();
         boolean lowHealth = health < 38;
+        boolean tookDamageRecently = health < aiLastHealth - 1.0;
+        if (tookDamageRecently && target != null && targetDist < 300) {
+            aiCommitFrames = Math.max(aiCommitFrames, 42 + random.nextInt(20));
+        }
+        if (target != null && aiCommitFrames <= 0 && targetDist < 240 && random.nextDouble() < 0.012) {
+            aiCommitFrames = 36 + random.nextInt(26);
+        }
 
         // Emergency self-preservation before anything else.
         if (onGround && y > game.GROUND_Y + 220) {
@@ -775,15 +855,22 @@ public class Bird {
             aiJumpCooldown = 12;
         }
 
-        if (handleAIDodgeBurstThreats(target, onGround)) return;
+        if (handleAIDodgeBurstThreats(target, onGround)) {
+            aiLastHealth = health;
+            return;
+        }
 
         PowerUp healthPack = findBestHealthPowerUp();
-        boolean shouldRetreat = target != null && health < 30 && target.health > health + 18 && targetDist < 280 && healthPack == null;
-        boolean shouldChasePower = powerUp != null && shouldPrioritizePowerUp(powerUp, target);
+        boolean veryLowHealth = health < 20;
+        boolean losingHard = target != null && target.health > health + 32;
+        boolean retreatWindow = aiRetreatCooldown <= 0 && (veryLowHealth || (health < 28 && losingHard));
+        boolean shouldRetreat = target != null && retreatWindow && targetDist < 220 && healthPack == null && aiCommitFrames <= 0;
+        boolean shouldChasePower = powerUp != null && shouldPrioritizePowerUp(powerUp, target) && aiCommitFrames <= 0;
 
         double goalX;
         if (shouldRetreat && target != null) {
-            goalX = x + (x - target.x) * 2.0;
+            goalX = x + (x - target.x) * 1.35;
+            aiRetreatCooldown = 90 + random.nextInt(45);
         } else if (shouldChasePower) {
             goalX = powerUp.x;
         } else if (target != null) {
@@ -793,13 +880,24 @@ public class Bird {
             if (targetDist > idealRange * 1.25) {
                 goalX = predictedX;
             } else if (targetDist < idealRange * 0.65) {
-                goalX = x - Math.signum(predictedX - x) * 180;
-            } else {
-                if (aiStrafeTimer <= 0) {
-                    aiStrafeTimer = 40 + random.nextInt(35);
-                    aiStrafeDir = random.nextBoolean() ? 1 : -1;
+                if (aiCommitFrames > 0) {
+                    goalX = target.x + (random.nextBoolean() ? 1 : -1) * 65;
+                } else {
+                    goalX = target.x + (x < target.x ? -1 : 1) * 95;
                 }
-                goalX = target.x + aiStrafeDir * 140;
+            } else {
+                double desiredOffset = aiCommitFrames > 0 ? 95 : 125;
+                double strafeTargetX = target.x + aiStrafeDir * desiredOffset;
+                double strafeError = Math.abs(x - strafeTargetX);
+                if (aiStrafeHoldFrames <= 0 && aiStrafeTimer <= 0 && strafeError < 55) {
+                    aiStrafeDir *= -1;
+                    aiStrafeHoldFrames = 26 + random.nextInt(24);
+                    aiStrafeTimer = 18 + random.nextInt(18);
+                } else if (aiStrafeHoldFrames <= 0 && aiStrafeTimer <= 0) {
+                    aiStrafeHoldFrames = 18 + random.nextInt(18);
+                    aiStrafeTimer = 14 + random.nextInt(14);
+                }
+                goalX = target.x + aiStrafeDir * desiredOffset;
             }
         } else {
             goalX = x;
@@ -823,6 +921,21 @@ public class Bird {
             }
         } else {
             aiIdleFrames = 0;
+        }
+
+        if (target != null && onGround && targetDist < 270 && aiDirectionLock <= 0 && random.nextDouble() < 0.02) {
+            aiDirectionLock = 18 + random.nextInt(30);
+            aiLockedDir = target.x < x ? -1 : 1;
+        }
+        if (aiDirectionLock > 0) {
+            moveDir = aiLockedDir;
+        }
+
+        if (onGround && aiMicroPause <= 0 && target != null && targetDist > 160 && random.nextDouble() < 0.008) {
+            aiMicroPause = 6 + random.nextInt(10);
+        }
+        if (aiMicroPause > 0 && targetDist > 150) {
+            moveDir = 0;
         }
 
         if (moveDir < 0) game.pressedKeys.add(leftKey());
@@ -854,15 +967,16 @@ public class Bird {
 
         // Defensive block read.
         if (target != null && targetDist < 170 && target.attackAnimationTimer > 3 &&
-                facingRight == (target.x > x) && random.nextDouble() < 0.55) {
+                facingRight == (target.x > x) && random.nextDouble() < (lowHealth ? 0.50 : 0.34)) {
             game.pressedKeys.add(blockKey());
         }
 
         // Attack cadence respects role/range.
+        double attackChance = aiCommitFrames > 0 ? 0.96 : 0.84;
         if (target != null && attackCooldown <= 0 &&
                 targetDist < Math.max(140, idealRange * 0.95) &&
                 Math.abs(target.y - y) < 115 &&
-                random.nextDouble() < 0.85) {
+                random.nextDouble() < attackChance) {
             game.pressedKeys.add(attackKey());
         }
 
@@ -879,6 +993,60 @@ public class Bird {
             tauntTimer = 50;
             tauntCooldown = 300;
             game.addToKillFeed(name.split(":")[0].trim() + " IS ABSOLUTELY COOKING!");
+        }
+
+        aiLastHealth = health;
+    }
+
+    private void specialBat() {
+        batEchoTimer = 150;
+        specialCooldown = 660;
+        specialMaxCooldown = 660;
+        game.shakeIntensity = 22;
+        game.hitstopFrames = 12;
+
+        if (batHanging) {
+            batHanging = false;
+            batHangPlatform = null;
+            vy = -16;
+            vx += (facingRight ? 1 : -1) * 9;
+        }
+
+        game.addToKillFeed(name.split(":")[0].trim() + " UNLEASHED SONAR SCREECH!");
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = (other.x + 40) - (x + 40);
+            double dy = (other.y + 40) - (y + 40);
+            double dist = Math.hypot(dx, dy);
+            if (dist > 360) continue;
+
+            int dmg = dist < 150 ? 18 : (dist < 260 ? 12 : 8);
+            double oldHealth = other.health;
+            other.health = Math.max(0, other.health - dmg);
+            int dealt = (int) (oldHealth - other.health);
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
+            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+
+            other.stunTime = Math.max(other.stunTime, 28);
+            double safeDist = Math.max(0.001, dist);
+            other.vx += dx / safeDist * 16;
+            other.vy -= 8;
+        }
+
+        for (int ring = 1; ring <= 4; ring++) {
+            double radius = 70 + ring * 55;
+            for (int i = 0; i < 42; i++) {
+                double ang = i / 42.0 * Math.PI * 2;
+                game.particles.add(new Particle(
+                        x + 40 + Math.cos(ang) * radius,
+                        y + 40 + Math.sin(ang) * radius,
+                        Math.cos(ang) * 2.4,
+                        Math.sin(ang) * 2.4,
+                        ring % 2 == 0 ? Color.MEDIUMPURPLE.brighter() : Color.CYAN.brighter()
+                ));
+            }
         }
     }
 
@@ -962,18 +1130,20 @@ public class Bird {
         if (p == null) return false;
         if (p.type == PowerUpType.HEALTH && health < 72) return true;
         if (target == null) return true;
+        if (target.health < 35 && health > 30) return false;
         double targetDist = Math.hypot(target.x - x, target.y - y);
-        return targetDist > getAIIdealRange() * 1.7;
+        return targetDist > getAIIdealRange() * 2.1;
     }
 
     private double getAIIdealRange() {
         return switch (type) {
-            case TURKEY, PELICAN, GRINCHHAWK -> 170;
-            case RAZORBILL, SHOEBILL -> 200;
-            case EAGLE, VULTURE, PENGUIN -> 230;
-            case HUMMINGBIRD, TITMOUSE -> 250;
-            case OPIUMBIRD, MOCKINGBIRD -> 240;
-            case PIGEON -> 210;
+            case TURKEY, PELICAN, GRINCHHAWK -> 165;
+            case RAZORBILL, SHOEBILL -> 188;
+            case EAGLE, VULTURE, PENGUIN -> 208;
+            case HUMMINGBIRD, TITMOUSE -> 220;
+            case OPIUMBIRD, MOCKINGBIRD -> 205;
+            case BAT -> 214;
+            case PIGEON -> 190;
         };
     }
 
@@ -1028,6 +1198,8 @@ public class Bird {
                 return onGround && dist < 270 && random.nextDouble() < 0.85;
             case TITMOUSE:
                 return dist > 140 && dist < 560;
+            case BAT:
+                return dist < 320 && (Math.abs(dy) < 180 || !onGround);
             case PELICAN:
                 return plungeTimer <= 0 && onGround && dist < 260 && Math.abs(dy) < 130;
             default:
@@ -1058,6 +1230,12 @@ public class Bird {
         boolean stunned = stunTime > 0;
         boolean airborne = !isOnGround();
 
+        if (type == BirdGame3.BirdType.BAT && handleBatHanging(stunned)) {
+            handleTaunts();
+            if (tauntTimer > 0) tauntTimer--;
+            return;
+        }
+
         // === BLOCKING ===
         if (blockCooldown > 0) blockCooldown--;
         if (!stunned && game.pressedKeys.contains(blockKey()) && blockCooldown <= 0) {
@@ -1070,7 +1248,11 @@ public class Bird {
         }
 
         // === GRAVITY ===
-        vy += BirdGame3.GRAVITY * gameSpeed;
+        double gravityScale = 1.0;
+        if (type == BirdGame3.BirdType.BAT && !isOnGround()) {
+            gravityScale = 0.66;
+        }
+        vy += BirdGame3.GRAVITY * gravityScale * gameSpeed;
 
         // === EAGLE PASSIVE ===
         handleEaglePassive(airborne);
@@ -1088,6 +1270,11 @@ public class Bird {
         // === FLY/GLIDE ===
         if (!stunned && game.pressedKeys.contains(jumpKey()) && airborne) {
             vy -= (type.flyUpForce + thermalLift) * hoverRegenMultiplier;
+            if (type == BirdGame3.BirdType.BAT) {
+                // Bat gets stronger sustained lift so it can truly dogfight in the air.
+                vy -= 0.55;
+                if (vy < -11.5) vy = -11.5;
+            }
         }
 
         // === THERMAL SOARING ===
@@ -1105,9 +1292,11 @@ public class Bird {
         if (!game.pressedKeys.contains(leftKey()) && !game.pressedKeys.contains(rightKey())) {
             vx *= airborne ? 0.96 : 0.80;
         }
-
-        // === EAGLE DIVE IMPACT ===
-        handleEagleDiveImpact();
+        if (neonRushTimer > 0) {
+            int dir = facingRight ? 1 : -1;
+            vx += dir * 0.7;
+            if (Math.abs(vx) > 28) vx = Math.signum(vx) * 28;
+        }
 
         // === RAZORBILL BLADE STORM ===
         handleRazorbillBladeStorm();
@@ -1121,6 +1310,9 @@ public class Bird {
 
         // === BOUNDARIES ===
         handleBoundaries();
+
+        // === EAGLE DIVE / ASCENT DAMAGE ===
+        handleEagleDiveImpact();
 
         // === VULTURE FEAST ===
         handleVultureFeast();
@@ -1138,6 +1330,7 @@ public class Bird {
         speedTimer = Math.max(0, (int)(speedTimer - gameSpeed));
         rageTimer = Math.max(0, (int)(rageTimer - gameSpeed));
         shrinkTimer = Math.max(0, (int)(shrinkTimer - gameSpeed));
+        neonRushTimer = Math.max(0, (int)(neonRushTimer - gameSpeed));
         thermalTimer = Math.max(0, (int)(thermalTimer - gameSpeed));
         grappleTimer = Math.max(0, (int)(grappleTimer - gameSpeed));
         speedBoostTimer = Math.max(0, (int)(speedBoostTimer - gameSpeed));
@@ -1158,6 +1351,8 @@ public class Bird {
         bladeStormFrames = Math.max(0, (int)(bladeStormFrames - gameSpeed));
         plungeTimer = Math.max(0, (int)(plungeTimer - gameSpeed));
         blockCooldown = Math.max(0, (int)(blockCooldown - gameSpeed));
+        batEchoTimer = Math.max(0, (int)(batEchoTimer - gameSpeed));
+        batHangLockTimer = Math.max(0, (int)(batHangLockTimer - gameSpeed));
     }
 
     private void handleVineGrapple() {
@@ -1235,20 +1430,20 @@ public class Bird {
     private void resetExpiredBuffs() {
         if (speedBoostTimer <= 0) {
             speedBoostTimer = 0;
-            speedMultiplier = 1.0;
+            speedMultiplier = baseSpeedMultiplier;
         }
         if (hoverRegenTimer <= 0) {
             hoverRegenTimer = 0;
             hoverRegenMultiplier = 1.0;
         }
         if (speedTimer <= 0) {
-            speedMultiplier = 1.0;
+            speedMultiplier = baseSpeedMultiplier;
         }
         if (rageTimer <= 0) {
-            powerMultiplier = 1.0;
+            powerMultiplier = basePowerMultiplier;
         }
         if (shrinkTimer <= 0) {
-            sizeMultiplier = (type == BirdGame3.BirdType.PELICAN ? 1.2 : 1.0);
+            sizeMultiplier = baseSizeMultiplier;
         }
         if (thermalTimer <= 0) {
             thermalLift = 0.0;
@@ -1344,6 +1539,7 @@ public class Bird {
                 other.health = Math.max(0, other.health - dmg);
                 double dealt = oldHealth - other.health;
                 game.damageDealt[playerIndex] += (int) dealt;
+                game.recordSpecialImpact(playerIndex, (int) dealt, dealt > 0);
                 if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
                 if (game.zombieFallingClip != null) game.zombieFallingClip.play();
 
@@ -1371,20 +1567,109 @@ public class Bird {
         }
     }
 
+    private boolean handleBatHanging(boolean stunned) {
+        if (batHanging) {
+            if (stunned || batHangPlatform == null || !game.platforms.contains(batHangPlatform)) {
+                batHanging = false;
+                batHangPlatform = null;
+                return false;
+            }
+
+            double leftBound = batHangPlatform.x + 10;
+            double rightBound = batHangPlatform.x + batHangPlatform.w - (80 * sizeMultiplier) - 10;
+            x = Math.max(leftBound, Math.min(x, rightBound));
+            y = batHangPlatform.y + batHangPlatform.h + 2;
+            vy = 0;
+
+            double hangSpeed = type.speed * speedMultiplier * 0.72;
+            if (game.pressedKeys.contains(leftKey())) {
+                vx = -hangSpeed;
+            } else if (game.pressedKeys.contains(rightKey())) {
+                vx = hangSpeed;
+            } else {
+                vx *= 0.55;
+            }
+            x += vx;
+            if (Math.abs(vx) > 0.05) facingRight = vx > 0;
+
+            if (game.pressedKeys.contains(jumpKey())) {
+                if (batHangLockTimer <= 0) {
+                    batHanging = false;
+                    batHangPlatform = null;
+                    vy = 2;
+                    return false;
+                }
+            }
+
+            if (game.pressedKeys.contains(attackKey()) && attackCooldown <= 0 && !isBlocking) {
+                attack();
+                if (game.butterClip != null) game.butterClip.play();
+                attackCooldown = 30;
+                attackAnimationTimer = 12;
+            }
+            if (game.pressedKeys.contains(specialKey()) && specialCooldown <= 0 && !isBlocking) {
+                special();
+            }
+            return true;
+        }
+
+        if (!stunned && !isOnGround() && vy < -2 && game.pressedKeys.contains(jumpKey())) {
+            Platform hangable = findBatHangablePlatform();
+            if (hangable != null) {
+                batHanging = true;
+                batHangPlatform = hangable;
+                batHangLockTimer = 14; // prevents immediate unlatch from the same jump press
+                vx *= 0.35;
+                vy = 0;
+                y = hangable.y + hangable.h + 2;
+                canDoubleJump = true;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Platform findBatHangablePlatform() {
+        Platform best = null;
+        double bestDist = Double.MAX_VALUE;
+        double centerX = x + 40 * sizeMultiplier;
+        for (Platform p : game.platforms) {
+            if (p.w < 120) continue;
+            if (centerX < p.x + 20 || centerX > p.x + p.w - 20) continue;
+
+            double undersideY = p.y + p.h;
+            double headY = y;
+            double dy = Math.abs(headY - undersideY);
+            if (dy <= 28) {
+                if (dy < bestDist) {
+                    bestDist = dy;
+                    best = p;
+                }
+            }
+        }
+        return best;
+    }
+
     private void handleHorizontalMovement(boolean stunned, boolean airborne) {
         if (!stunned) {
             double targetVx = 0;
             double airFric = airborne ? 0.90 : 0.75;
             double accel = airborne ? 0.20 : 0.45;
+            double moveSpeed = type.speed * speedMultiplier;
+            if (type == BirdGame3.BirdType.BAT) {
+                moveSpeed *= airborne ? 1.48 : 0.62;
+                airFric = airborne ? 0.93 : 0.70;
+                accel = airborne ? 0.28 : 0.34;
+            }
 
             if (game.pressedKeys.contains(leftKey())) {
-                targetVx = -type.speed * speedMultiplier;
+                targetVx = -moveSpeed;
                 if (type == BirdGame3.BirdType.HUMMINGBIRD && game.pressedKeys.contains(jumpKey()) && airborne) {
                     targetVx *= 1.75;
                 }
             }
             else if (game.pressedKeys.contains(rightKey())) {
-                targetVx = type.speed * speedMultiplier;
+                targetVx = moveSpeed;
                 if (type == BirdGame3.BirdType.HUMMINGBIRD && game.pressedKeys.contains(jumpKey()) && airborne) {
                     targetVx *= 1.75;
                 }
@@ -1449,10 +1734,75 @@ public class Bird {
     }
 
     private void handleEagleDiveImpact() {
-        if ((type == BirdGame3.BirdType.EAGLE) && (eagleDiveCountdown > 0)) {
-            eagleDiveCountdown--;
-            if (eagleDiveCountdown == 0) {
+        if (type != BirdGame3.BirdType.EAGLE || !eagleDiveActive) return;
+
+        if (!eagleAscentActive) {
+            // Dive phase: force a committed downward slam.
+            if (vy < 18) vy = 18;
+            vx *= 0.96;
+
+            if (isOnGround()) {
                 processDiveImpact();
+                eagleAscentActive = true;
+                eagleAscentFrames = 52;
+                vy = -30;
+                canDoubleJump = true;
+            }
+            return;
+        }
+
+        // Ascent phase: the eagle rockets upward and damages enemies it passes through.
+        if (eagleAscentFrames > 0) eagleAscentFrames--;
+        if (vy > -24 && eagleAscentFrames > 24) vy = -24;
+        applyEagleAscentHits();
+
+        if (eagleAscentFrames <= 0 || vy >= -1.0) {
+            eagleDiveActive = false;
+            eagleAscentActive = false;
+        }
+    }
+
+    private boolean canDamageTarget(Bird other) {
+        if (other == null || other == this || other.health <= 0) return false;
+        if (game.isTrialMode) {
+            boolean attackerIsFriendly = playerIndex <= 2;
+            boolean targetIsFriendly = other.playerIndex <= 2;
+            if (attackerIsFriendly == targetIsFriendly) return false;
+        }
+        return true;
+    }
+
+    private void applyEagleAscentHits() {
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= eagleAscentHit.length) continue;
+            if (eagleAscentHit[other.playerIndex]) continue;
+
+            double dx = (other.x + 40) - (x + 40);
+            double dy = (other.y + 40) - (y + 40);
+            if (Math.abs(dx) < 120 && Math.abs(dy) < 115) {
+                int dmg = 22 + random.nextInt(10);
+                double oldHealth = other.health;
+                other.health = Math.max(0, other.health - dmg);
+                int dealt = (int) (oldHealth - other.health);
+                game.damageDealt[playerIndex] += dealt;
+                game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
+                if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+
+                other.vx += (dx >= 0 ? 1 : -1) * 18;
+                other.vy -= 20;
+                eagleAscentHit[other.playerIndex] = true;
+
+                game.addToKillFeed(name.split(":")[0].trim() + " ASCENT-SLASHED " +
+                        other.name.split(":")[0].trim() + "! -" + dmg + " HP");
+
+                for (int i = 0; i < 22; i++) {
+                    double angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
+                    game.particles.add(new Particle(other.x + 40, other.y + 40,
+                            Math.cos(angle) * (6 + Math.random() * 8),
+                            Math.sin(angle) * (10 + Math.random() * 12),
+                            Color.GOLD.brighter()));
+                }
             }
         }
     }
@@ -1461,6 +1811,7 @@ public class Bird {
         game.shakeIntensity = 60;
         game.hitstopFrames = 35;
         game.addToKillFeed("KABOOOOOM!!! " + name.split(":")[0].trim() + " OBLITERATES THE GROUND!");
+        Arrays.fill(eagleAscentHit, false);
 
         for (int i = 0; i < 300; i++) {
             double angle = i / 300.0 * Math.PI * 2;
@@ -1480,12 +1831,7 @@ public class Bird {
         }
 
         for (Bird other : game.players) {
-            if (other == null || other == this || other.health <= 0) continue;
-            if (game.isTrialMode) {
-                boolean attackerIsFriendly = playerIndex <= 2;
-                boolean targetIsFriendly = other.playerIndex <= 2;
-                if (attackerIsFriendly == targetIsFriendly) continue;
-            }
+            if (!canDamageTarget(other)) continue;
 
             double dx = other.x - x;
             double dy = (other.y + 40) - (y + 70);
@@ -1497,7 +1843,9 @@ public class Bird {
 
                 double oldHealth = other.health;
                 other.health = Math.max(0, other.health - dmg);
-                game.damageDealt[playerIndex] += (int) (oldHealth - other.health);
+                int dealt = (int) (oldHealth - other.health);
+                game.damageDealt[playerIndex] += dealt;
+                game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
                 if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
 
                 double safeDist = Math.max(0.001, dist);
@@ -1533,7 +1881,9 @@ public class Bird {
                         int dmg = 10 + random.nextInt(7);
                         double oldHealth = other.health;
                         other.health = Math.max(0, other.health - dmg);
-                        game.damageDealt[playerIndex] += (int) (oldHealth - other.health);
+                        int dealt = (int) (oldHealth - other.health);
+                        game.damageDealt[playerIndex] += dealt;
+                        game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
                         if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
                         double safeDist = Math.max(0.001, dist);
                         other.vx += dx / safeDist * 32;
@@ -1564,14 +1914,14 @@ public class Bird {
             }
 
             if (bladeStormFrames <= 0) {
-                sizeMultiplier = 1.0;
-                powerMultiplier = 1.0;
+                sizeMultiplier = baseSizeMultiplier;
+                powerMultiplier = basePowerMultiplier;
             }
         }
     }
 
     private void handleThermals() {
-        if (game.selectedMap == MapType.SKYCLIFFS || game.selectedMap == MapType.VIBRANT_JUNGLE) {
+        if (game.selectedMap == MapType.SKYCLIFFS || game.selectedMap == MapType.VIBRANT_JUNGLE || game.selectedMap == MapType.CAVE) {
             for (WindVent v : game.windVents) {
                 if (v.cooldown > 0) continue;
                 double centerX = v.x + v.w / 2;
@@ -1674,13 +2024,13 @@ public class Bird {
                 it.remove();
             }
             case SPEED -> {
-                speedMultiplier = 1.7;
+                speedMultiplier = baseSpeedMultiplier * 1.7;
                 speedTimer = 480;
                 game.addToKillFeed(name.split(":")[0].trim() + " got SPEED BOOST!");
                 it.remove();
             }
             case RAGE -> {
-                powerMultiplier = 2.0;
+                powerMultiplier = basePowerMultiplier * 2.0;
                 rageTimer = 420;
                 game.addToKillFeed(name.split(":")[0].trim() + " is ENRAGED!");
                 it.remove();
@@ -1688,7 +2038,7 @@ public class Bird {
             case SHRINK -> {
                 for (Bird b : game.players) {
                     if (b != null && b != this) {
-                        b.sizeMultiplier = 0.6;
+                        b.sizeMultiplier = b.baseSizeMultiplier * 0.6;
                         b.shrinkTimer = 360;
                     }
                 }
@@ -1696,11 +2046,13 @@ public class Bird {
                 it.remove();
             }
             case NEON -> {
-                speedMultiplier = 2.4;
+                speedMultiplier = baseSpeedMultiplier * 2.4;
                 speedTimer = 360;
                 canDoubleJump = true;
-                vy = -28;
-                powerMultiplier = 1.3;
+                vy = -18;
+                vx = (facingRight ? 1 : -1) * 24;
+                neonRushTimer = 180;
+                powerMultiplier = basePowerMultiplier * 1.3;
                 rageTimer = 360;
 
                 game.addToKillFeed(name.split(":")[0].trim() + " grabbed NEON BOOST! HYPERSPEED!");
@@ -1826,6 +2178,7 @@ public class Bird {
         drawRageBuff(g, drawSize);
         drawThermalBuff(g, drawSize);
         drawNeonBuff(g, drawSize);
+        drawBatEcho(g, drawSize);
         drawOpiumBirdEffects(g, drawSize);
         drawTitmouseSpecial(g);
         drawEagleSoaring(g, airborne, drawSize);
@@ -1843,6 +2196,19 @@ public class Bird {
         drawBeak(g, drawSize);
         drawPelican(g, drawSize);
         drawVineGrapple(g, drawSize);
+    }
+
+    private void drawBatEcho(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.BAT || batEchoTimer <= 0) return;
+        double pulse = 0.5 + 0.5 * Math.sin((150 - batEchoTimer) * 0.33);
+        g.setStroke(Color.CYAN.deriveColor(0, 1, 1, 0.6));
+        g.setLineWidth(4);
+        for (int i = 0; i < 3; i++) {
+            double r = 70 + i * 48 + pulse * 18;
+            g.strokeOval(x + 40 - r, y + 40 - r, r * 2, r * 2);
+        }
+        g.setFill(Color.MEDIUMPURPLE.deriveColor(0, 1, 1, 0.4));
+        g.fillOval(x - 20, y - 20, drawSize + 40, drawSize + 40);
     }
 
     private void drawBlockingShield(GraphicsContext g, double drawSize, boolean airborne) {
@@ -2218,6 +2584,11 @@ public class Bird {
     }
 
     private void drawBodyAndEyes(GraphicsContext g, double drawSize) {
+        if (type == BirdGame3.BirdType.BAT) {
+            drawBatBody(g, drawSize);
+            return;
+        }
+
         boolean noirPigeon = (type == BirdGame3.BirdType.PIGEON && isNoirSkin);
         Color bodyColor = noirPigeon ? Color.rgb(18, 18, 18) : type.color;
         Color headColor = noirPigeon ? Color.rgb(42, 42, 42) : type.color.brighter();
@@ -2230,6 +2601,68 @@ public class Bird {
         g.fillOval(x + (facingRight ? 50 : 20) * sizeMultiplier, y + 20 * sizeMultiplier, 25 * sizeMultiplier, 25 * sizeMultiplier);
         g.setFill(noirPigeon ? Color.RED.brighter() : Color.BLACK);
         g.fillOval(x + (facingRight ? 55 : 25) * sizeMultiplier, y + 25 * sizeMultiplier, 15 * sizeMultiplier, 15 * sizeMultiplier);
+    }
+
+    private void drawBatBody(GraphicsContext g, double drawSize) {
+        double cx = x + 40 * sizeMultiplier;
+        double cy = y + 40 * sizeMultiplier;
+        boolean airborne = !isOnGround();
+        if (batHanging) {
+            g.save();
+            g.translate(cx, cy);
+            g.scale(1, -1);
+            g.translate(-cx, -cy);
+        }
+
+        Color wing = Color.rgb(28, 16, 48);
+        Color wingInner = Color.rgb(50, 30, 76);
+        Color body = Color.rgb(70, 40, 102);
+        Color head = Color.rgb(88, 54, 124);
+        double flap = airborne ? Math.sin(System.currentTimeMillis() / 90.0) * 10 : 0;
+        double leftWingY = y + 18 - flap;
+        double rightWingY = y + 18 - flap;
+        double wingSpread = airborne ? 1.15 : 1.0;
+
+        // outer wings
+        g.setFill(wing);
+        g.fillOval(x - 64 * wingSpread, leftWingY, 88 * wingSpread, 54);
+        g.fillOval(x + 56, rightWingY, 88 * wingSpread, 54);
+        g.fillPolygon(new double[]{x + 6, x - 52 * wingSpread, x - 8}, new double[]{y + 48 - flap * 0.6, y + 72 - flap * 0.2, y + 86}, 3);
+        g.fillPolygon(new double[]{x + 74, x + 132 * wingSpread, x + 88}, new double[]{y + 48 - flap * 0.6, y + 72 - flap * 0.2, y + 86}, 3);
+
+        // inner wing membrane
+        g.setFill(wingInner);
+        g.fillOval(x - 36 * wingSpread, y + 26 - flap * 0.45, 64 * wingSpread, 42);
+        g.fillOval(x + 52, y + 26 - flap * 0.45, 64 * wingSpread, 42);
+
+        // torso and head
+        g.setFill(body);
+        g.fillOval(x + 20, y + 22, 40, 54);
+        double headX = facingRight ? x + 24 : x + 16;
+        g.setFill(head);
+        g.fillOval(headX, y + 6, 44, 32);
+
+        // ears
+        g.setFill(Color.rgb(110, 74, 150));
+        g.fillPolygon(new double[]{headX + 6, headX + 12, headX + 18}, new double[]{y + 8, y - 10, y + 8}, 3);
+        g.fillPolygon(new double[]{headX + 26, headX + 32, headX + 38}, new double[]{y + 8, y - 10, y + 8}, 3);
+
+        // eyes
+        g.setFill(Color.WHITE);
+        double eyeBias = facingRight ? 3 : -3;
+        g.fillOval(headX + 8 + eyeBias, y + 16, 11, 11);
+        g.fillOval(headX + 24 + eyeBias, y + 16, 11, 11);
+        g.setFill(Color.CRIMSON.brighter());
+        g.fillOval(headX + 11 + eyeBias, y + 19, 6, 6);
+        g.fillOval(headX + 27 + eyeBias, y + 19, 6, 6);
+
+        if (batHanging) {
+            g.setStroke(Color.LIGHTGRAY);
+            g.setLineWidth(2);
+            g.strokeLine(x + 30, y + 76, x + 30, y + 92);
+            g.strokeLine(x + 50, y + 76, x + 50, y + 92);
+            g.restore();
+        }
     }
 
     private void drawCitySkin(GraphicsContext g) {
@@ -2284,6 +2717,32 @@ public class Bird {
     }
 
     private void drawBeak(GraphicsContext g, double drawSize) {
+        if (type == BirdGame3.BirdType.BAT) {
+            double mouthX = x + 33 * sizeMultiplier;
+            double mouthY = y + 28 * sizeMultiplier;
+            boolean attacking = attackAnimationTimer > 0;
+            double biteOpen = attacking ? (4 + Math.sin(attackAnimationTimer * 0.8) * 3) * sizeMultiplier : 0;
+            g.setFill(Color.rgb(220, 120, 170));
+            g.fillOval(mouthX, mouthY + biteOpen * 0.2, 16 * sizeMultiplier, (10 + biteOpen) * sizeMultiplier);
+            g.setFill(Color.WHITE);
+            g.fillPolygon(
+                    new double[]{mouthX + 4 * sizeMultiplier, mouthX + 7 * sizeMultiplier, mouthX + 10 * sizeMultiplier},
+                    new double[]{mouthY + (8 + biteOpen) * sizeMultiplier, mouthY + (13 + biteOpen) * sizeMultiplier, mouthY + (8 + biteOpen) * sizeMultiplier},
+                    3
+            );
+            if (attacking) {
+                g.setStroke(Color.MEDIUMPURPLE.brighter());
+                g.setLineWidth(3);
+                double dir = facingRight ? 1 : -1;
+                for (int i = 0; i < 3; i++) {
+                    double sx = x + 40 + dir * (25 + i * 12);
+                    double sy = y + 44 - i * 6;
+                    g.strokeLine(sx, sy, sx + dir * 20, sy - 10);
+                }
+            }
+            return;
+        }
+
         boolean isAttacking = attackAnimationTimer > 0;
         double openAmount = isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) * sizeMultiplier : 3 * sizeMultiplier;
         double beakBaseY = y + 45 * sizeMultiplier;
