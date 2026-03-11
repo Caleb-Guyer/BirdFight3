@@ -988,12 +988,22 @@ public class Bird {
         clearAIInputs();
 
         int cpuLevel = game.getCpuLevel(playerIndex);
-        double skill = Math.max(0.0, Math.min(1.0, (cpuLevel - 1) / 8.0));
-        double error = 1.0 - skill;
+        double rawSkill = Math.max(0.0, Math.min(1.0, (cpuLevel - 1) / 8.0));
+        double skill = Math.pow(rawSkill, 2.1);
+        double error = Math.min(1.0, 1.05 - skill);
+        if (cpuLevel <= 1) {
+            skill = 0.0;
+            error = 1.0;
+            if (random.nextDouble() < 0.22) {
+                aiLastHealth = health;
+                return;
+            }
+        }
 
         Bird target = pickAITarget();
         PowerUp powerUp = pickBestAIPowerUp(target);
         boolean onGround = isOnGround();
+        Platform standing = findCurrentSupportPlatform();
 
         if (target == null && powerUp == null) {
             aiLastHealth = health;
@@ -1008,8 +1018,11 @@ public class Bird {
         if (tookDamageRecently && target != null && targetDist < 300) {
             aiCommitFrames = Math.max(aiCommitFrames, 42 + random.nextInt(20));
         }
-        if (target != null && aiCommitFrames <= 0 && targetDist < 240 && random.nextDouble() < 0.012 * (0.4 + 0.6 * skill)) {
+        if (cpuLevel > 1 && target != null && aiCommitFrames <= 0 && targetDist < 240 && random.nextDouble() < 0.012 * (0.4 + 0.6 * skill)) {
             aiCommitFrames = 36 + random.nextInt(26);
+        }
+        if (cpuLevel <= 1) {
+            aiCommitFrames = 0;
         }
 
         // Emergency self-preservation before anything else.
@@ -1035,6 +1048,14 @@ public class Bird {
             aiPowerCommitFrames = Math.max(aiPowerCommitFrames, immediatePowerChance ? 44 : 30);
         }
         boolean powerFocus = powerUp != null && !shouldRetreat && (shouldChasePower || aiPowerCommitFrames > 0);
+        if (powerFocus && powerUp != null && !isPowerUpConvenient(powerUp, target)) {
+            powerFocus = false;
+            aiPowerCommitFrames = 0;
+        }
+        if (powerFocus && target != null && targetDist < idealRange * 0.85) {
+            powerFocus = false;
+            aiPowerCommitFrames = 0;
+        }
 
         if (powerFocus) {
             // Keep movement deterministic while committing to a pickup.
@@ -1042,6 +1063,20 @@ public class Bird {
             aiMicroPause = 0;
         }
 
+        double dyToTarget = target != null ? target.y - y : 0;
+        boolean targetBelow = target != null && dyToTarget > 160;
+        boolean dropPlan = false;
+        double dropEdgeX = x;
+        if (targetBelow && onGround && standing != null && !isBoundaryPlatform(standing)) {
+            double dropOffset = 60;
+            double leftEdge = standing.x - dropOffset - 40 * sizeMultiplier;
+            double rightEdge = standing.x + standing.w + dropOffset - 40 * sizeMultiplier;
+            double platformCenter = standing.x + standing.w / 2.0;
+            double targetCx = target.x + 40;
+            dropEdgeX = targetCx < platformCenter ? leftEdge : rightEdge;
+            dropPlan = true;
+        }
+        boolean lowCpu = cpuLevel <= 2;
         double goalX;
         if (shouldRetreat && target != null) {
             goalX = x + (x - target.x) * 1.35;
@@ -1051,8 +1086,11 @@ public class Bird {
         } else if (target != null) {
             // Predict movement instead of chasing current position.
             double lead = Math.min(10, Math.max(2, targetDist / 120.0));
+            if (lowCpu) lead *= 0.55;
             double predictedX = target.x + target.vx * lead;
-            if (targetDist > idealRange * 1.25) {
+            if (targetBelow) {
+                goalX = dropPlan ? dropEdgeX : predictedX;
+            } else if (targetDist > idealRange * 1.25) {
                 goalX = predictedX;
             } else if (targetDist < idealRange * 0.65) {
                 if (aiCommitFrames > 0) {
@@ -1078,7 +1116,25 @@ public class Bird {
             goalX = x;
         }
 
-        if (!powerFocus && target != null && error > 0.0) {
+        Platform climbPlatform = null;
+        boolean verticalPlan = false;
+        if (!powerFocus && target != null) {
+            if (dyToTarget < -160) {
+                double maxRise = 520 + 180 * skill;
+                climbPlatform = findClimbPlatform(target.x + 40, maxRise, 520);
+                if (climbPlatform != null) {
+                    goalX = climbPlatform.x + climbPlatform.w / 2.0 - 40 * sizeMultiplier;
+                    verticalPlan = true;
+                }
+            } else if (dyToTarget > 180 && onGround) {
+                if (standing != null && !isBoundaryPlatform(standing)) {
+                    goalX = (target.x < x) ? (standing.x - 20) : (standing.x + standing.w + 20);
+                    verticalPlan = true;
+                }
+            }
+        }
+
+        if (!powerFocus && target != null && error > 0.0 && !dropPlan) {
             goalX += (random.nextDouble() - 0.5) * 160 * error;
         }
 
@@ -1089,12 +1145,31 @@ public class Bird {
         else if (powerUp != null) facingRight = powerUp.x > myCx;
 
         int moveDir = 0;
-        if (Math.abs(goalX - x) > 35) {
+        if (dropPlan) {
+            goalX = dropEdgeX;
+            aiDirectionLock = 0;
+            aiStrafeHoldFrames = 0;
+            aiStrafeTimer = 0;
+            aiMicroPause = 0;
+        }
+        double moveDeadZone = targetBelow ? 120 : 35;
+        if (!dropPlan && Math.abs(goalX - x) > moveDeadZone) {
             moveDir = goalX < x ? -1 : 1;
+        }
+        if (!powerFocus && target != null) {
+            double loiterChance = cpuLevel <= 1 ? 0.45 : (cpuLevel == 2 ? 0.25 : 0.0);
+            if (loiterChance > 0 && random.nextDouble() < loiterChance) {
+                moveDir = 0;
+            }
+        }
+        if (dropPlan) {
+            moveDir = goalX < x ? -1 : 1;
+            aiDirectionLock = 0;
+            aiStrafeHoldFrames = 0;
         }
 
         // Anti-stall fallback: if spacing logic leaves us idle too long, pressure target.
-        if (!powerFocus && target != null && moveDir == 0 && targetDist > 130) {
+        if (!powerFocus && !dropPlan && target != null && moveDir == 0 && targetDist > 130 && cpuLevel > 2) {
             aiIdleFrames++;
             if (aiIdleFrames > 24) {
                 moveDir = target.x < x ? -1 : 1;
@@ -1103,20 +1178,23 @@ public class Bird {
             aiIdleFrames = 0;
         }
 
-        if (!powerFocus && target != null && onGround && targetDist < 270 &&
+        if (!powerFocus && !verticalPlan && !dropPlan && !targetBelow && target != null && onGround && targetDist < 270 &&
                 aiDirectionLock <= 0 && random.nextDouble() < 0.02 * (0.35 + 0.65 * skill)) {
             aiDirectionLock = 18 + random.nextInt(30);
             aiLockedDir = target.x < x ? -1 : 1;
         }
-        if (!powerFocus && aiDirectionLock > 0) {
+        if (!powerFocus && !verticalPlan && !dropPlan && !targetBelow && aiDirectionLock > 0) {
             moveDir = aiLockedDir;
         }
 
-        if (!powerFocus && onGround && aiMicroPause <= 0 && target != null &&
+        if (!powerFocus && !verticalPlan && !dropPlan && !targetBelow && onGround && aiMicroPause <= 0 && target != null &&
                 targetDist > 160 && random.nextDouble() < 0.008 + 0.02 * error) {
             aiMicroPause = 6 + random.nextInt(10 + (int) (error * 10));
         }
-        if (!powerFocus && aiMicroPause > 0 && targetDist > 150) {
+        if (!powerFocus && targetBelow && lowCpu && aiMicroPause <= 0 && random.nextDouble() < 0.12) {
+            aiMicroPause = 12 + random.nextInt(18);
+        }
+        if (!powerFocus && !verticalPlan && !dropPlan && !targetBelow && aiMicroPause > 0 && targetDist > 150) {
             moveDir = 0;
         }
 
@@ -1129,10 +1207,18 @@ public class Bird {
             if (onGround && aiJumpCooldown <= 0) {
                 boolean jumpForHeight = dy < -120 && Math.abs(target.x - x) < 420;
                 boolean jumpForCombo = dy > 70 && targetDist < 220;
+                boolean jumpForAboveClose = dy < -200 && Math.abs(target.x - x) < 220;
                 double jumpSense = 0.35 + 0.65 * skill;
-                if ((jumpForHeight || jumpForCombo) && random.nextDouble() < jumpSense) {
+                if ((jumpForHeight || jumpForCombo || jumpForAboveClose) && random.nextDouble() < jumpSense) {
                     game.pressedKeys.add(jumpKey());
                     aiJumpCooldown = 14;
+                }
+                if (verticalPlan && climbPlatform != null) {
+                    double climbCenter = climbPlatform.x + climbPlatform.w / 2.0;
+                    if (Math.abs((x + 40) - climbCenter) < 140 && dy < -140) {
+                        game.pressedKeys.add(jumpKey());
+                        aiJumpCooldown = 14;
+                    }
                 }
             }
 
@@ -1144,8 +1230,12 @@ public class Bird {
                 }
             }
         } else if (powerUp != null && onGround && aiJumpCooldown <= 0 && powerUp.y < y - 120) {
-            game.pressedKeys.add(jumpKey());
-            aiJumpCooldown = 14;
+            double dx = Math.abs(powerUp.x - (x + 40));
+            double dy = (y + 40) - powerUp.y;
+            if (dx < 140 && dy < 320) {
+                game.pressedKeys.add(jumpKey());
+                aiJumpCooldown = 14;
+            }
         }
 
         // Defensive block read.
@@ -1156,6 +1246,8 @@ public class Bird {
 
         // Attack cadence respects role/range.
         double attackChance = (aiCommitFrames > 0 ? 0.96 : 0.84) * (0.45 + 0.55 * skill);
+        if (cpuLevel <= 1) attackChance *= 0.04;
+        else if (cpuLevel == 2) attackChance *= 0.35;
         if (!powerFocus && target != null && attackCooldown <= 0 &&
                 targetDist < Math.max(140, idealRange * 0.95) &&
                 Math.abs(target.y - y) < 115 &&
@@ -1266,6 +1358,8 @@ public class Bird {
         PowerUp bestPowerUp = null;
         double bestScore = -Double.MAX_VALUE;
         for (PowerUp p : game.powerUps) {
+            boolean convenient = isPowerUpConvenient(p, target);
+            if (!convenient && !isImmediatePowerUpOpportunity(p)) continue;
             double myDist = Math.hypot(p.x - (x + 40), p.y - (y + 40));
             double score = 0;
             switch (p.type) {
@@ -1279,7 +1373,7 @@ public class Bird {
                 case OVERCHARGE -> score = 102;
                 case TITAN -> score = 92;
             }
-            score /= (1 + myDist / 350.0);
+            score /= (1 + myDist / 320.0);
 
             if (target != null) {
                 double enemyDist = Math.hypot(p.x - (target.x + 40), p.y - (target.y + 40));
@@ -1299,7 +1393,7 @@ public class Bird {
         double dx = Math.abs(p.x - (x + 40));
         double dy = p.y - (y + 40);
         if (dx < 110 && Math.abs(dy) < 220) return true;
-        return dx < 105 && dy > 90 && dy < 560;
+        return dx < 105 && dy > 90 && dy < 360;
     }
 
     private double pickPowerUpGoalX(PowerUp p) {
@@ -1354,12 +1448,70 @@ public class Bird {
 
     private boolean shouldPrioritizePowerUp(PowerUp p, Bird target) {
         if (p == null) return false;
+        if (!isPowerUpConvenient(p, target)) return false;
         if (isImmediatePowerUpOpportunity(p)) return true;
         if (p.type == PowerUpType.HEALTH && health < 72) return true;
         if (target == null) return true;
         if (target.health < 35 && health > 30) return false;
         double targetDist = Math.hypot(target.x - x, target.y - y);
         return targetDist > getAIIdealRange() * 2.1;
+    }
+
+    private boolean isPowerUpConvenient(PowerUp p, Bird target) {
+        if (p == null) return false;
+        double myCx = x + 40;
+        double myCy = y + 40;
+        double dx = Math.abs(p.x - myCx);
+        double dy = p.y - myCy;
+        double dist = Math.hypot(dx, dy);
+        double maxDist = health < 25 ? 650 : 480;
+        if (dist > maxDist) return false;
+        double maxVertical = (type.flyUpForce > 0 || !isOnGround()) ? 520 : 320;
+        if (Math.abs(dy) > maxVertical) return false;
+
+        if (target == null) {
+            return dx < 260 && Math.abs(dy) < 260;
+        }
+
+        double targetDist = Math.hypot(target.x - x, target.y - y);
+        double enemyDist = Math.hypot(p.x - (target.x + 40), p.y - (target.y + 40));
+        boolean onRoute = dist + enemyDist <= targetDist * 1.25;
+        boolean between = dx < Math.abs(target.x - x) + 140;
+        boolean nearMe = dist < 260;
+        return onRoute || (nearMe && between);
+    }
+
+    private boolean isBoundaryPlatform(Platform p) {
+        boolean isFloor = p.w >= game.WORLD_WIDTH - 10 && p.h >= 200;
+        boolean isWall = p.h >= game.WORLD_HEIGHT - 10 && p.w <= 150;
+        boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
+                p.y <= 1 && p.h >= 60 && p.w >= game.WORLD_WIDTH - 10;
+        return isFloor || isWall || isCaveCeiling;
+    }
+
+    private Platform findClimbPlatform(double targetX, double maxRise, double maxHorizontal) {
+        Platform best = null;
+        double bestScore = -Double.MAX_VALUE;
+        double myCx = x + 40;
+        for (Platform p : game.platforms) {
+            if (isBoundaryPlatform(p)) continue;
+            if (p.y >= y - 40) continue;
+            double rise = y - p.y;
+            if (rise <= 0 || rise > maxRise) continue;
+            double centerX = p.x + p.w / 2.0;
+            double dxTarget = Math.abs(centerX - targetX);
+            double dxMe = Math.abs(centerX - myCx);
+            if (dxMe > maxHorizontal && dxTarget > maxHorizontal) continue;
+            double score = 0;
+            score -= rise * 1.1;
+            score -= dxTarget * 0.8;
+            score -= dxMe * 0.4;
+            if (score > bestScore) {
+                bestScore = score;
+                best = p;
+            }
+        }
+        return best;
     }
 
     private double getAIIdealRange() {
@@ -2624,10 +2776,23 @@ public class Bird {
     }
 
     private void handleBoundaries() {
-        if (x < 50) x = 50;
-        if (x > game.WORLD_WIDTH - 150 * sizeMultiplier) x = game.WORLD_WIDTH - 150 * sizeMultiplier;
+        double leftBound = 50;
+        double rightBound = game.WORLD_WIDTH - 150 * sizeMultiplier;
+        double outLeft = -300;
+        double outRight = game.WORLD_WIDTH + 300;
+        if (game.selectedMap == MapType.BATTLEFIELD) {
+            double battlefieldLeft = game.battlefieldLeftBound();
+            double battlefieldRight = game.battlefieldRightBound();
+            leftBound = battlefieldLeft + 50;
+            rightBound = battlefieldRight - 150 * sizeMultiplier;
+            outLeft = battlefieldLeft - 300;
+            outRight = battlefieldRight + 300;
+        }
 
-        if (x < -300 || x > game.WORLD_WIDTH + 300) {
+        if (x < leftBound) x = leftBound;
+        if (x > rightBound) x = rightBound;
+
+        if (x < outLeft || x > outRight) {
             health = Math.max(0, health - 50);
             boolean reborn = false;
             if (health <= 0) {

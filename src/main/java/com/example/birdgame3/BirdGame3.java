@@ -2537,24 +2537,6 @@ public class BirdGame3 extends Application {
                     g.setFill(c);
                     g.fillRect(0, i * (WORLD_HEIGHT / 520.0), WORLD_WIDTH, WORLD_HEIGHT / 520.0 + 3);
                 }
-                g.setFill(Color.web("#1B5E20").darker());
-                for (double tx : new double[]{700, 1700, 2700, 3700, 4700, 5600}) {
-                    g.fillRect(tx - 260, GROUND_Y - 1400, 520, 1100);
-                    g.setFill(Color.web("#2E7D32").darker());
-                    g.fillOval(tx - 520, GROUND_Y - 1550, 1040, 650);
-                    g.setFill(Color.web("#1B5E20").darker());
-                }
-                double mistY = battlefieldIslandY - 260;
-                g.setFill(Color.web("#B2DFDB", 0.25));
-                g.fillRect(0, mistY, WORLD_WIDTH, 520);
-
-                double fadeStart = battlefieldIslandY + 120;
-                for (int i = 0; i < 220; i++) {
-                    double ratio = i / 220.0;
-                    Color c = Color.web("#1B2B22").interpolate(Color.BLACK, ratio);
-                    g.setFill(c);
-                    g.fillRect(0, fadeStart + i * 8, WORLD_WIDTH, 8);
-                }
 
                 g.setStroke(Color.web("#3E2723"));
                 g.setLineWidth(4);
@@ -3048,10 +3030,13 @@ public class BirdGame3 extends Application {
         Bird preview = new Bird(0, type, 0, this);
         preview.suppressSelectEffects = true;
         applySkinChoiceToBird(preview, type, skinKey);
-        preview.sizeMultiplier = 0.6;
+        double baseSize = Math.min(w, h);
+        double pad = Math.min(8, baseSize * 0.08);
+        double extentFactor = (type == BirdType.BAT) ? 2.9 : 1.35;
+        preview.sizeMultiplier = Math.max(0.28, Math.min(0.72, (baseSize - pad * 2) / (80.0 * extentFactor)));
         double drawSize = 80 * preview.sizeMultiplier;
         preview.x = (w - drawSize) / 2.0;
-        preview.y = (h - drawSize) / 2.0 + 2;
+        preview.y = (h - drawSize) / 2.0 + pad;
         preview.facingRight = true;
         preview.draw(g);
     }
@@ -3201,21 +3186,29 @@ public class BirdGame3 extends Application {
         Map<BirdType, BirdIconSpot> spotByType = new HashMap<>();
         BirdIconSpot randomSpot = null;
 
-        int columns = 4;
+        int columns = gridBirds.size() > 16 ? 5 : 4;
         int rows = (int) Math.ceil(gridBirds.size() / (double) columns);
-        double dockH = 120;
-        double gridAreaH = paneH - dockH - 20;
-        double cellW = paneW / columns;
-        double cellH = gridAreaH / Math.max(1, rows);
-        double iconSize = 80;
+        double dockW = 160;
+        double dockH = 320;
+        double dockX = 0;
+        double dockY = paneH - dockH;
+        double gridX = dockX + dockW + 20;
+        double gridY = 10;
+        double gridW = paneW - gridX - 20;
+        double gridH = paneH - 20;
+        double cellW = gridW / columns;
+        double cellH = gridH / Math.max(1, rows);
+        double iconSize = Math.max(60, Math.min(110, Math.min(cellW, cellH) * 0.65));
 
         for (int i = 0; i < gridBirds.size(); i++) {
             BirdType type = gridBirds.get(i);
             boolean isRandom = type == null;
             int col = i % columns;
             int row = i / columns;
-            double centerX = col * cellW + cellW / 2.0;
-            double centerY = 20 + row * cellH + cellH / 2.0;
+            double cellX = gridX + col * cellW;
+            double cellY = gridY + row * cellH;
+            double centerX = cellX + cellW / 2.0;
+            double centerY = cellY + cellH / 2.0;
 
             Canvas icon = new Canvas(iconSize, iconSize);
             drawRosterSprite(icon, type, null, isRandom);
@@ -3223,11 +3216,18 @@ public class BirdGame3 extends Application {
             Label name = new Label(isRandom ? "RANDOM" : type.name.toUpperCase());
             name.setFont(Font.font("Consolas", 16));
             name.setTextFill(Color.web("#ECEFF1"));
+            name.setMaxWidth(cellW - 10);
+            name.setTextAlignment(TextAlignment.CENTER);
+            name.setAlignment(Pos.CENTER);
+            name.setWrapText(true);
 
             VBox card = new VBox(6, icon, name);
             card.setAlignment(Pos.CENTER);
-            card.setLayoutX(centerX - iconSize / 2.0);
-            card.setLayoutY(centerY - iconSize / 2.0);
+            card.setPrefWidth(cellW);
+            card.setPrefHeight(cellH);
+            card.setLayoutX(cellX);
+            card.setLayoutY(cellY);
+            card.setMouseTransparent(true);
 
             selectionPane.getChildren().add(card);
             BirdIconSpot spot = new BirdIconSpot(type, isRandom, centerX, centerY);
@@ -3240,23 +3240,24 @@ public class BirdGame3 extends Application {
         }
 
         Region selectorDock = new Region();
-        selectorDock.setPrefSize(560, dockH);
-        selectorDock.setLayoutX(20);
-        selectorDock.setLayoutY(paneH - dockH - 10);
+        selectorDock.setPrefSize(dockW, dockH);
+        selectorDock.setLayoutX(dockX);
+        selectorDock.setLayoutY(dockY);
         selectorDock.setStyle("-fx-background-color: rgba(10,10,10,0.6); -fx-border-color: #FFD54F; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
         selectionPane.getChildren().add(selectorDock);
 
         Label dockLabel = new Label("PLAYER SELECTORS");
         dockLabel.setFont(Font.font("Consolas", 18));
         dockLabel.setTextFill(Color.web("#FFE082"));
-        dockLabel.setLayoutX(40);
-        dockLabel.setLayoutY(paneH - dockH - 2);
+        dockLabel.setLayoutX(dockX + 12);
+        dockLabel.setLayoutY(dockY + 8);
         selectionPane.getChildren().add(dockLabel);
 
         Point2D[] dockPositions = new Point2D[4];
         for (int i = 0; i < 4; i++) {
-            double dx = 70 + i * 120;
-            double dy = paneH - dockH / 2.0 - 10;
+            double spacing = dockH / 5.0;
+            double dx = dockX + dockW / 2.0;
+            double dy = dockY + spacing * (i + 1);
             dockPositions[i] = new Point2D(dx, dy);
         }
 
@@ -3377,6 +3378,7 @@ public class BirdGame3 extends Application {
         Circle[] selectors = new Circle[4];
         Text[] selectorLabels = new Text[4];
         boolean[] selectorLocked = new boolean[4];
+        boolean[] selectorJustUnlocked = new boolean[4];
         for (int i = 0; i < 4; i++) {
             int idx = i;
             Circle selector = new Circle(26);
@@ -3392,6 +3394,7 @@ public class BirdGame3 extends Application {
             label.setFont(Font.font("Impact", 16));
             label.setFill(Color.web("#FFD54F"));
             label.setManaged(false);
+            label.setMouseTransparent(true);
             selectorLabels[i] = label;
             selectionPane.getChildren().add(label);
 
@@ -3399,8 +3402,12 @@ public class BirdGame3 extends Application {
             selector.setOnMousePressed(e -> {
                 if (selectorLocked[idx]) {
                     selectorLocked[idx] = false;
+                    fightRandomSelected[idx] = false;
+                    fightSelectedBirds[idx] = null;
+                    fightSelectedSkinKeys[idx] = null;
+                    updateSlot[idx].run();
                     updateReadyBanner.run();
-                    return;
+                    selectorJustUnlocked[idx] = true;
                 }
                 Point2D local = selectionPane.sceneToLocal(e.getSceneX(), e.getSceneY());
                 dragOffset[0] = selector.getCenterX() - local.getX();
@@ -3411,6 +3418,9 @@ public class BirdGame3 extends Application {
                 Point2D local = selectionPane.sceneToLocal(e.getSceneX(), e.getSceneY());
                 double nx = local.getX() + dragOffset[0];
                 double ny = local.getY() + dragOffset[1];
+                if (selectorJustUnlocked[idx]) {
+                    selectorJustUnlocked[idx] = false;
+                }
                 nx = Math.max(40, Math.min(nx, selectionPane.getPrefWidth() - 40));
                 ny = Math.max(40, Math.min(ny, selectionPane.getPrefHeight() - 40));
                 selector.setCenterX(nx);
@@ -3420,6 +3430,15 @@ public class BirdGame3 extends Application {
             });
             selector.setOnMouseReleased(e -> {
                 if (selectorLocked[idx]) return;
+                if (selectorJustUnlocked[idx]) {
+                    selectorJustUnlocked[idx] = false;
+                    Point2D dock = dockPositions[idx];
+                    selector.setCenterX(dock.getX());
+                    selector.setCenterY(dock.getY());
+                    label.setX(dock.getX() - 10);
+                    label.setY(dock.getY() + 6);
+                    return;
+                }
                 BirdIconSpot best = null;
                 double bestDist = Double.MAX_VALUE;
                 for (BirdIconSpot spot : spots) {
@@ -3504,12 +3523,19 @@ public class BirdGame3 extends Application {
         root.setBottom(playerBar);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        java.util.function.BooleanSupplier tryStartMatch = () -> {
+            if (!readyBtn.isVisible()) return false;
+            playButtonClick();
+            readyBtn.fire();
+            return true;
+        };
+
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             boolean handled = false;
-            handled |= handleSelectorKey(e, 0, selectors[0], selectorLabels[0], selectorLocked, spots, dockPositions, selectionPane, updateSlot[0], updateReadyBanner);
-            handled |= handleSelectorKey(e, 1, selectors[1], selectorLabels[1], selectorLocked, spots, dockPositions, selectionPane, updateSlot[1], updateReadyBanner);
-            handled |= handleSelectorKey(e, 2, selectors[2], selectorLabels[2], selectorLocked, spots, dockPositions, selectionPane, updateSlot[2], updateReadyBanner);
-            handled |= handleSelectorKey(e, 3, selectors[3], selectorLabels[3], selectorLocked, spots, dockPositions, selectionPane, updateSlot[3], updateReadyBanner);
+            handled |= handleSelectorKey(e, 0, selectors[0], selectorLabels[0], selectorLocked, spots, dockPositions, selectionPane, updateSlot[0], updateReadyBanner, tryStartMatch);
+            handled |= handleSelectorKey(e, 1, selectors[1], selectorLabels[1], selectorLocked, spots, dockPositions, selectionPane, updateSlot[1], updateReadyBanner, tryStartMatch);
+            handled |= handleSelectorKey(e, 2, selectors[2], selectorLabels[2], selectorLocked, spots, dockPositions, selectionPane, updateSlot[2], updateReadyBanner, tryStartMatch);
+            handled |= handleSelectorKey(e, 3, selectors[3], selectorLabels[3], selectorLocked, spots, dockPositions, selectionPane, updateSlot[3], updateReadyBanner, tryStartMatch);
             if (handled) {
                 e.consume();
             }
@@ -3529,7 +3555,8 @@ public class BirdGame3 extends Application {
                                       Point2D[] dockPositions,
                                       Pane selectionPane,
                                       Runnable updateSlot,
-                                      Runnable updateReady) {
+                                      Runnable updateReady,
+                                      java.util.function.BooleanSupplier tryStartMatch) {
         if (idx < 0 || idx >= activePlayers) return false;
         if (selector == null || label == null) return false;
 
@@ -3563,25 +3590,40 @@ public class BirdGame3 extends Application {
             default -> KeyCode.S;
         };
         KeyCode select = switch (idx) {
-            case 0 -> KeyCode.ENTER;
-            case 1 -> KeyCode.SLASH;
-            case 2 -> KeyCode.U;
-            case 3 -> KeyCode.P;
-            default -> KeyCode.ENTER;
-        };
-        KeyCode altSelect = switch (idx) {
             case 0 -> KeyCode.SPACE;
-            case 1 -> null;
+            case 1 -> KeyCode.ENTER;
             case 2 -> KeyCode.Y;
             case 3 -> KeyCode.O;
             default -> KeyCode.SPACE;
         };
+        KeyCode special = switch (idx) {
+            case 0 -> KeyCode.SHIFT;
+            case 1 -> KeyCode.SLASH;
+            case 2 -> KeyCode.U;
+            case 3 -> KeyCode.P;
+            default -> KeyCode.SHIFT;
+        };
 
         double step = 26;
         boolean moved = false;
-        if (code == select || (altSelect != null && code == altSelect)) {
+        if (code == special) {
+            if (tryStartMatch != null && tryStartMatch.getAsBoolean()) {
+                return true;
+            }
+            return false;
+        }
+        if (code == select) {
             if (selectorLocked[idx]) {
                 selectorLocked[idx] = false;
+                fightRandomSelected[idx] = false;
+                fightSelectedBirds[idx] = null;
+                fightSelectedSkinKeys[idx] = null;
+                Point2D dock = dockPositions[idx];
+                selector.setCenterX(dock.getX());
+                selector.setCenterY(dock.getY());
+                label.setX(dock.getX() - 10);
+                label.setY(dock.getY() + 6);
+                updateSlot.run();
                 updateReady.run();
                 return true;
             }
@@ -3614,8 +3656,6 @@ public class BirdGame3 extends Application {
             return true;
         }
 
-        if (selectorLocked[idx]) return false;
-
         double nx = selector.getCenterX();
         double ny = selector.getCenterY();
         if (code == left) {
@@ -3632,6 +3672,14 @@ public class BirdGame3 extends Application {
             moved = true;
         }
         if (moved) {
+            if (selectorLocked[idx]) {
+                selectorLocked[idx] = false;
+                fightRandomSelected[idx] = false;
+                fightSelectedBirds[idx] = null;
+                fightSelectedSkinKeys[idx] = null;
+                updateSlot.run();
+                updateReady.run();
+            }
             nx = Math.max(40, Math.min(nx, selectionPane.getPrefWidth() - 40));
             ny = Math.max(40, Math.min(ny, selectionPane.getPrefHeight() - 40));
             selector.setCenterX(nx);
@@ -5418,7 +5466,7 @@ public class BirdGame3 extends Application {
             classicRoundIndex = 0;
         }
         classicEncounter = classicRun.get(classicRoundIndex);
-        if (classicEncounter.cpuLevel < 1 || classicEncounter.cpuLevel > 9) classicEncounter.cpuLevel = 5;
+        int classicCpuLevel = getClassicCpuLevel();
         String text = classicEncounter.briefing
                 + "\n\nMap: " + classicEncounter.map.name()
                 + "\nMutator: " + classicEncounter.mutator.label
@@ -5452,13 +5500,10 @@ public class BirdGame3 extends Application {
 
         card.getChildren().addAll(speakerLabel, textLabel);
 
-        Button cpuBtn = uiFactory.action("CPU LEVEL: " + classicEncounter.cpuLevel, 360, 95, 34, "#455A64", 24, () -> {});
-        cpuBtn.setOnAction(e -> {
-            playButtonClick();
-            classicEncounter.cpuLevel = classicEncounter.cpuLevel % 9 + 1;
-            cpuBtn.setText("CPU LEVEL: " + classicEncounter.cpuLevel);
-        });
-        HBox options = new HBox(20, cpuBtn);
+        Label cpuLabel = new Label("CPU LEVEL: " + classicCpuLevel + " (AUTO)");
+        cpuLabel.setFont(Font.font("Consolas", 26));
+        cpuLabel.setTextFill(Color.web("#B3E5FC"));
+        HBox options = new HBox(20, cpuLabel);
         options.setAlignment(Pos.CENTER);
 
         HBox buttons = new HBox(30);
@@ -7289,10 +7334,20 @@ public class BirdGame3 extends Application {
         if (adventureModeActive && currentAdventureBattle != null) {
             level = currentAdventureBattle.cpuLevel;
         } else if (classicModeActive && classicEncounter != null) {
-            level = classicEncounter.cpuLevel;
+            level = getClassicCpuLevel();
         } else if (playerIdx >= 0 && playerIdx < cpuLevels.length) {
             level = cpuLevels[playerIdx];
         }
+        if (level < 1) level = 1;
+        if (level > 9) level = 9;
+        return level;
+    }
+
+    private int getClassicCpuLevel() {
+        int total = classicRun == null ? 0 : classicRun.size();
+        if (total <= 1) return 5;
+        int maxIndex = Math.max(1, total - 1);
+        int level = 1 + (int) Math.round(8.0 * classicRoundIndex / maxIndex);
         if (level < 1) level = 1;
         if (level > 9) level = 9;
         return level;
@@ -7391,6 +7446,24 @@ public class BirdGame3 extends Application {
         return GROUND_Y - 300;
     }
 
+    private double battlefieldBoundsMargin() {
+        return Math.max(500, battlefieldIslandW * 0.7);
+    }
+
+    double battlefieldLeftBound() {
+        if (battlefieldIslandW > 0) {
+            return battlefieldIslandX - battlefieldBoundsMargin();
+        }
+        return 0;
+    }
+
+    double battlefieldRightBound() {
+        if (battlefieldIslandW > 0) {
+            return battlefieldIslandX + battlefieldIslandW + battlefieldBoundsMargin();
+        }
+        return WORLD_WIDTH;
+    }
+
     private void startMatch(Stage stage) { 
         isTrialMode = false;
         matchTimer = MATCH_DURATION_FRAMES;
@@ -7484,11 +7557,11 @@ public class BirdGame3 extends Application {
             double islandW = 1200;
             double islandH = 70;
             double islandX = (WORLD_WIDTH - islandW) / 2.0;
-            double islandY = GROUND_Y - 120;
+            double islandY = GROUND_Y - 80;
             platforms.add(new Platform(islandX, islandY, islandW, islandH));
-            platforms.add(new Platform(islandX + 120, islandY - 320, 360, 45));
-            platforms.add(new Platform(islandX + islandW - 480, islandY - 320, 360, 45));
-            platforms.add(new Platform(islandX + (islandW - 420) / 2.0, islandY - 520, 420, 45));
+            platforms.add(new Platform(islandX + 120, islandY - 260, 360, 45));
+            platforms.add(new Platform(islandX + islandW - 480, islandY - 260, 360, 45));
+            platforms.add(new Platform(islandX + (islandW - 420) / 2.0, islandY - 420, 420, 45));
             battlefieldIslandX = islandX;
             battlefieldIslandW = islandW;
             battlefieldIslandY = islandY;
