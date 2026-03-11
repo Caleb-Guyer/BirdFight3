@@ -11,7 +11,6 @@ enum PowerUpType {
     THERMAL(Color.GOLD.brighter(), "THERMAL RISE!"),
     VINE_GRAPPLE(Color.LIMEGREEN.brighter(), "VINE GRAPPLE!"),
     OVERCHARGE(Color.DEEPSKYBLUE.brighter(), "OVERCHARGE!"),
-    FROST_NOVA(Color.ALICEBLUE, "FROST NOVA!"),
     TITAN(Color.DARKGOLDENROD, "TITAN FORM!");
 
     final Color color;
