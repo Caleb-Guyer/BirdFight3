@@ -40,6 +40,7 @@ public class Bird {
     public boolean isCitySkin = false;
     public boolean isNoirSkin = false;
     public boolean isClassicSkin = false;
+    public boolean isNovaSkin = false;
     public boolean suppressSelectEffects = false;
     public double loungeX, loungeY;
     public int diveTimer = 0;
@@ -321,8 +322,8 @@ public class Bird {
     private void logDamageKillFeed(double damage, boolean isKill, Bird victim) {
         String attacker = name.split(":")[0].trim();
         String victimName = victim.name.split(":")[0].trim();
-        String verb = (type == BirdGame3.BirdType.RAZORBILL && diveTimer > 0)
-                ? "DIVEBOMBED" : (damage >= 35 ? "BRUTALIZED" : damage >= 25 ? "SMASHED" : "hit");
+        String verb = (type == BirdGame3.BirdType.RAZORBILL && bladeStormFrames > 0)
+                ? "CARVED" : (damage >= 35 ? "BRUTALIZED" : damage >= 25 ? "SMASHED" : "hit");
         game.addToKillFeed(attacker + " " + verb + " " + victimName + "! -" + (int) damage + " HP");
 
         if (isKill) {
@@ -334,11 +335,6 @@ public class Bird {
         if (health <= 0) return;
         double range = 120 * sizeMultiplier;
         int dmg = (int) (type.power * powerMultiplier);
-        if (type == BirdGame3.BirdType.RAZORBILL && diveTimer > 0) {
-            range = 200;
-            dmg = (int) (type.power * 4 * powerMultiplier);
-        }
-
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
             if (!canDamageTarget(other)) continue;
@@ -444,8 +440,6 @@ public class Bird {
             double distToLounge = Math.hypot(target.loungeX - (x + 40), target.loungeY - (y + 40));
             if (distToLounge < 130) {
                 int loungeDmg = (int) (type.power * 2.0 * powerMultiplier);
-                if (type == BirdGame3.BirdType.RAZORBILL && diveTimer > 0) loungeDmg *= 2;
-
                 target.loungeHealth -= loungeDmg;
                 target.loungeDamageFlash = 15;
 
@@ -716,7 +710,6 @@ public class Bird {
     }
 
     private void specialRazorbill() {
-        diveTimer = 160;
         specialCooldown = 780;
         specialMaxCooldown = 780;
 
@@ -726,7 +719,7 @@ public class Bird {
 
         vx *= 2.0;
         sizeMultiplier = baseSizeMultiplier * 1.15;
-        powerMultiplier = basePowerMultiplier * 1.45;
+        powerMultiplier = basePowerMultiplier * 1.25;
 
         for (int i = 0; i < 100; i++) {
             double angle = i / 100.0 * Math.PI * 2;
@@ -2714,7 +2707,7 @@ public class Bird {
                     double dy = other.y - y;
                     double dist = Math.hypot(dx, dy);
                     if (dist < 160) {
-                        int dmg = 10 + random.nextInt(7);
+                        int dmg = 7 + random.nextInt(6);
                         double oldHealth = other.health;
                         int dealt = (int) applyDamageTo(other, dmg);
                         game.damageDealt[playerIndex] += dealt;
@@ -3129,6 +3122,43 @@ public class Bird {
         double centerX = x + drawSize / 2.0;
         double centerY = y + drawSize / 2.0;
         double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 120.0);
+        if (isNovaSkin) {
+            Color core = Color.web("#1A237E");
+            Color rim = Color.web("#00E5FF");
+            Color ring = Color.web("#E040FB");
+            g.setFill(core.deriveColor(0, 1, 1, 0.2 + pulse * 0.15));
+            g.fillOval(x - 30 * s, y - 30 * s, drawSize + 60 * s, drawSize + 60 * s);
+
+            g.setStroke(rim.deriveColor(0, 1, 1, 0.85));
+            g.setLineWidth(3.0);
+            double r1 = (58 + pulse * 14) * s;
+            g.strokeOval(centerX - r1, centerY - r1, r1 * 2, r1 * 2);
+
+            g.setStroke(ring.deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth(2.2);
+            double r2 = (76 + pulse * 18) * s;
+            g.strokeOval(centerX - r2, centerY - r2, r2 * 2, r2 * 2);
+
+            if (phoenixAfterburnTimer > 0) {
+                double burstIntensity = Math.min(1.0, phoenixAfterburnTimer / 48.0);
+                g.setStroke(rim.brighter().deriveColor(0, 1, 1, 0.9));
+                g.setLineWidth(3.2);
+                double t = System.currentTimeMillis() / 180.0;
+                for (int i = 0; i < 8; i++) {
+                    double angle = (Math.PI * 2 * i / 8.0) + t * 0.6;
+                    double len = (70 + burstIntensity * 35) * s;
+                    g.strokeLine(centerX, centerY, centerX + Math.cos(angle) * len, centerY + Math.sin(angle) * len);
+                }
+            }
+
+            if (Math.random() < 0.35) {
+                double px = centerX + (Math.random() - 0.5) * 60 * s;
+                double py = centerY + (Math.random() - 0.5) * 50 * s;
+                Color c = Math.random() < 0.5 ? rim : ring;
+                game.particles.add(new Particle(px, py, (Math.random() - 0.5) * 2.2, -1.5 - Math.random() * 2.4, c));
+            }
+            return;
+        }
         g.setFill(Color.ORANGERED.deriveColor(0, 1, 1, 0.22 + pulse * 0.12));
         g.fillOval(x - 24 * s, y - 24 * s, drawSize + 48 * s, drawSize + 48 * s);
 
@@ -3467,15 +3497,26 @@ public class Bird {
                 (isClassicSkin ||
                         (game.isTrialMode && playerIndex == 3 && game.selectedMap == MapType.SKYCLIFFS))) {
 
-            g.setFill(Color.GOLD.deriveColor(0, 1, 1, 0.5));
-            g.fillOval(x - 40, y - 40, drawSize + 80, drawSize + 80);
+            if (!suppressSelectEffects) {
+                g.setFill(Color.GOLD.deriveColor(0, 1, 1, 0.5));
+                g.fillOval(x - 40, y - 40, drawSize + 80, drawSize + 80);
+            }
 
+            double crownScale = suppressSelectEffects ? 0.8 : 1.0;
+            double crownW = 50 * crownScale;
+            double crownH = 70 * crownScale;
+            double crownX = x + 15 + (50 - crownW) * 0.5;
+            double crownY = y - 35 + (70 - crownH) * 0.5;
             g.setFill(Color.GOLD.brighter());
-            g.fillOval(x + 15, y - 35, 50, 70);
+            g.fillOval(crownX, crownY, crownW, crownH);
             g.setFill(Color.ORANGE.brighter());
-            g.fillOval(x + 25, y - 45, 30, 40);
+            double gemW = 30 * crownScale;
+            double gemH = 40 * crownScale;
+            double gemX = x + 25 + (30 - gemW) * 0.5;
+            double gemY = y - 45 + (40 - gemH) * 0.5;
+            g.fillOval(gemX, gemY, gemW, gemH);
 
-            if (Math.random() < 0.4) {
+            if (!suppressSelectEffects && Math.random() < 0.4) {
                 game.particles.add(new Particle(x + 40 + (Math.random() - 0.5) * 100, y + 40 + (Math.random() - 0.5) * 100,
                         (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5 - 3, Color.GOLD.brighter()));
             }
@@ -3622,6 +3663,28 @@ public class Bird {
         g.fillOval(x, y, drawSize, drawSize);
         g.setFill(headColor);
         g.fillOval(facingRight ? x + 50 * sizeMultiplier : x - 20 * sizeMultiplier, y + 20 * sizeMultiplier, 50 * sizeMultiplier, 40 * sizeMultiplier);
+        if (type == BirdGame3.BirdType.RAZORBILL) {
+            double s = sizeMultiplier;
+            double headX = facingRight ? x + 50 * s : x - 20 * s;
+            double crestBaseX = facingRight ? headX + 10 * s : headX + 30 * s;
+            Color crest = classicPalette ? game.classicSkinAccentColor(type) : Color.CYAN.brighter();
+            g.setFill(crest);
+            g.fillPolygon(
+                    new double[]{crestBaseX, crestBaseX + 6 * s, crestBaseX + 12 * s},
+                    new double[]{y + 20 * s, y + 4 * s, y + 20 * s},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{crestBaseX + 10 * s, crestBaseX + 16 * s, crestBaseX + 22 * s},
+                    new double[]{y + 22 * s, y + 6 * s, y + 22 * s},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{crestBaseX + 20 * s, crestBaseX + 26 * s, crestBaseX + 32 * s},
+                    new double[]{y + 20 * s, y + 4 * s, y + 20 * s},
+                    3
+            );
+        }
         g.setFill(Color.WHITE);
         g.fillOval(x + (facingRight ? 50 : 20) * sizeMultiplier, y + 20 * sizeMultiplier, 25 * sizeMultiplier, 25 * sizeMultiplier);
         g.setFill(noirPigeon ? Color.RED.brighter() : (classicPalette ? game.classicSkinAccentColor(type) : Color.BLACK));
@@ -3721,10 +3784,12 @@ public class Bird {
 
     private void drawPhoenixBody(GraphicsContext g, double drawSize) {
         double s = sizeMultiplier;
-        boolean classicPalette = isClassicSkin;
-        Color bodyMain = classicPalette ? game.classicSkinPrimaryColor(type) : Color.rgb(230, 95, 48);
-        Color bodyHead = classicPalette ? game.classicSkinPrimaryColor(type).brighter() : Color.rgb(246, 132, 74);
-        Color accent = classicPalette ? game.classicSkinAccentColor(type) : Color.GOLD;
+        boolean nova = isNovaSkin;
+        boolean classicPalette = isClassicSkin && !nova;
+        Color bodyMain = nova ? Color.web("#1A1033") : (classicPalette ? game.classicSkinPrimaryColor(type) : Color.rgb(230, 95, 48));
+        Color bodyHead = nova ? Color.web("#3D1B6B") : (classicPalette ? game.classicSkinPrimaryColor(type).brighter() : Color.rgb(246, 132, 74));
+        Color accent = nova ? Color.web("#00E5FF") : (classicPalette ? game.classicSkinAccentColor(type) : Color.GOLD);
+        Color innerAccent = nova ? Color.web("#E040FB") : Color.ORANGERED.deriveColor(0, 1, 1, 0.72);
         double tailBaseX = facingRight ? x + 6 * s : x + 74 * s;
         double tailBackOffset = facingRight ? -14 * s : 14 * s;
         double tailFrontOffset = facingRight ? 6 * s : -6 * s;
@@ -3739,7 +3804,7 @@ public class Bird {
                 new double[]{y + 58 * s, y + 70 * s, y + 76 * s},
                 3
         );
-        g.setFill(Color.ORANGERED.deriveColor(0, 1, 1, 0.72));
+        g.setFill(innerAccent);
         g.fillPolygon(
                 new double[]{innerBaseX, innerBaseX + innerBackOffset, innerBaseX + innerFrontOffset},
                 new double[]{y + 60 * s, y + 76 * s, y + 80 * s},
@@ -3762,6 +3827,18 @@ public class Bird {
                 new double[]{y + 19 * s, y + 3 * s, y + 19 * s},
                 3
         );
+        if (nova) {
+            g.setStroke(accent.deriveColor(0, 1, 1, 0.8));
+            g.setLineWidth(2.4 * s);
+            g.strokeOval(x - 6 * s, y - 10 * s, drawSize + 12 * s, drawSize + 12 * s);
+
+            g.setFill(innerAccent.deriveColor(0, 1, 1, 0.85));
+            g.fillPolygon(
+                    new double[]{crestBaseX - 10 * s, crestBaseX, crestBaseX + 10 * s},
+                    new double[]{y + 21 * s, y - 6 * s, y + 21 * s},
+                    3
+            );
+        }
 
         // Eyes (standard placement).
         g.setFill(Color.WHITE);
