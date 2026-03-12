@@ -41,6 +41,11 @@ public class Bird {
     public boolean isNoirSkin = false;
     public boolean isClassicSkin = false;
     public boolean isNovaSkin = false;
+    public boolean isDuneSkin = false;
+    public boolean isMintSkin = false;
+    public boolean isCircuitSkin = false;
+    public boolean isPrismSkin = false;
+    public boolean isAuroraSkin = false;
     public boolean suppressSelectEffects = false;
     public double loungeX, loungeY;
     public int diveTimer = 0;
@@ -2307,6 +2312,10 @@ public class Bird {
         if (target == null || rawDamage <= 0 || target.health <= 0) return 0;
         double oldHealth = target.health;
         double scaledDamage = rawDamage * outgoingDamageMultiplier() * target.incomingDamageMultiplier();
+        if (game.isTrainingDummy(target)) {
+            target.health = target.getMaxHealth();
+            return scaledDamage;
+        }
         target.health = Math.max(0, target.health - scaledDamage);
         if (target.health <= 0) {
             target.tryPhoenixRebirth();
@@ -2785,10 +2794,15 @@ public class Bird {
         if (x < leftBound) x = leftBound;
         if (x > rightBound) x = rightBound;
 
+        boolean trainingDummy = game.isTrainingDummy(this);
+
         if (x < outLeft || x > outRight) {
             health = Math.max(0, health - 50);
             boolean reborn = false;
-            if (health <= 0) {
+            if (trainingDummy) {
+                health = getMaxHealth();
+                reborn = true;
+            } else if (health <= 0) {
                 reborn = tryPhoenixRebirth();
                 if (!reborn) {
                     game.addToKillFeed(name.split(":")[0].trim() + " FLEW INTO THE VOID!");
@@ -2831,7 +2845,10 @@ public class Bird {
                 health = Math.max(0, health - 50);
             }
             boolean reborn = false;
-            if (health <= 0) {
+            if (trainingDummy) {
+                health = getMaxHealth();
+                reborn = true;
+            } else if (health <= 0) {
                 reborn = tryPhoenixRebirth();
                 if (!reborn) {
                     String msg = (game.selectedMap == MapType.BATTLEFIELD)
@@ -2852,9 +2869,11 @@ public class Bird {
                 y = game.GROUND_Y - 300;
             }
             vx = vy = 0;
-            game.achievementProgress[7]++;
-            if (game.achievementProgress[7] >= 3 && !game.achievementsUnlocked[7]) {
-                game.unlockAchievement(7, "FALL GUY!");
+            if (!game.trainingModeActive) {
+                game.achievementProgress[7]++;
+                if (game.achievementProgress[7] >= 3 && !game.achievementsUnlocked[7]) {
+                    game.unlockAchievement(7, "FALL GUY!");
+                }
             }
         }
     }
@@ -3096,6 +3115,7 @@ public class Bird {
         drawCitySkin(g);
         drawNoirSkin(g);
         drawClassicSkinAccent(g, drawSize);
+        drawSpecialSkinAccent(g, drawSize);
         drawBeak(g, drawSize);
         drawPelican(g, drawSize);
         drawVineGrapple(g, drawSize);
@@ -3646,11 +3666,37 @@ public class Bird {
 
         boolean noirPigeon = (type == BirdGame3.BirdType.PIGEON && isNoirSkin);
         boolean classicPalette = isClassicSkin && type != BirdGame3.BirdType.PIGEON;
+        boolean duneFalcon = (type == BirdGame3.BirdType.FALCON && isDuneSkin);
+        boolean mintPenguin = (type == BirdGame3.BirdType.PENGUIN && isMintSkin);
+        boolean circuitTitmouse = (type == BirdGame3.BirdType.TITMOUSE && isCircuitSkin);
+        boolean prismRazorbill = (type == BirdGame3.BirdType.RAZORBILL && isPrismSkin);
+        boolean auroraPelican = (type == BirdGame3.BirdType.PELICAN && isAuroraSkin);
         Color bodyColor;
         Color headColor;
+        Color eyeOverride = null;
         if (noirPigeon) {
             bodyColor = Color.rgb(18, 18, 18);
             headColor = Color.rgb(42, 42, 42);
+        } else if (duneFalcon) {
+            bodyColor = Color.web("#D7B98E");
+            headColor = Color.web("#E7CFAE");
+            eyeOverride = Color.web("#4E342E");
+        } else if (mintPenguin) {
+            bodyColor = Color.web("#7FD6D8");
+            headColor = Color.web("#A6ECEB");
+            eyeOverride = Color.web("#004D40");
+        } else if (circuitTitmouse) {
+            bodyColor = Color.web("#455A64");
+            headColor = Color.web("#607D8B");
+            eyeOverride = Color.web("#00E5FF");
+        } else if (prismRazorbill) {
+            bodyColor = Color.web("#1A237E");
+            headColor = Color.web("#3949AB");
+            eyeOverride = Color.web("#40C4FF");
+        } else if (auroraPelican) {
+            bodyColor = Color.web("#B2DFDB");
+            headColor = Color.web("#E0F2F1");
+            eyeOverride = Color.web("#00695C");
         } else if (classicPalette) {
             bodyColor = game.classicSkinPrimaryColor(type);
             headColor = game.classicSkinPrimaryColor(type).brighter();
@@ -3667,7 +3713,7 @@ public class Bird {
             double s = sizeMultiplier;
             double headX = facingRight ? x + 50 * s : x - 20 * s;
             double crestBaseX = facingRight ? headX + 10 * s : headX + 30 * s;
-            Color crest = classicPalette ? game.classicSkinAccentColor(type) : Color.CYAN.brighter();
+            Color crest = classicPalette ? game.classicSkinAccentColor(type) : (prismRazorbill ? Color.web("#FFD740") : Color.CYAN.brighter());
             g.setFill(crest);
             g.fillPolygon(
                     new double[]{crestBaseX, crestBaseX + 6 * s, crestBaseX + 12 * s},
@@ -3687,7 +3733,10 @@ public class Bird {
         }
         g.setFill(Color.WHITE);
         g.fillOval(x + (facingRight ? 50 : 20) * sizeMultiplier, y + 20 * sizeMultiplier, 25 * sizeMultiplier, 25 * sizeMultiplier);
-        g.setFill(noirPigeon ? Color.RED.brighter() : (classicPalette ? game.classicSkinAccentColor(type) : Color.BLACK));
+        Color eyeColor = classicPalette ? game.classicSkinAccentColor(type) : Color.BLACK;
+        if (eyeOverride != null) eyeColor = eyeOverride;
+        if (noirPigeon) eyeColor = Color.RED.brighter();
+        g.setFill(eyeColor);
         g.fillOval(x + (facingRight ? 55 : 25) * sizeMultiplier, y + 25 * sizeMultiplier, 15 * sizeMultiplier, 15 * sizeMultiplier);
     }
 
@@ -3699,6 +3748,43 @@ public class Bird {
         g.strokeOval(x - 10 * sizeMultiplier, y - 10 * sizeMultiplier, drawSize + 20 * sizeMultiplier, drawSize + 20 * sizeMultiplier);
         g.setFill(accent.deriveColor(0, 1, 1, 0.35));
         g.fillOval(x + 8 * sizeMultiplier, y + 10 * sizeMultiplier, drawSize * 0.72, drawSize * 0.45);
+    }
+
+    private void drawSpecialSkinAccent(GraphicsContext g, double drawSize) {
+        double s = sizeMultiplier;
+        if (type == BirdGame3.BirdType.FALCON && isDuneSkin) {
+            g.setStroke(Color.web("#8D6E63").deriveColor(0, 1, 1, 0.7));
+            g.setLineWidth(2.2 * s);
+            g.strokeLine(x + 18 * s, y + 55 * s, x + 62 * s, y + 45 * s);
+        }
+        if (type == BirdGame3.BirdType.PENGUIN && isMintSkin) {
+            g.setFill(Color.web("#E0F7FA").deriveColor(0, 1, 1, 0.55));
+            g.fillOval(x + 16 * s, y + 40 * s, 48 * s, 32 * s);
+        }
+        if (type == BirdGame3.BirdType.TITMOUSE && isCircuitSkin) {
+            g.setStroke(Color.web("#00E5FF").deriveColor(0, 1, 1, 0.85));
+            g.setLineWidth(2.4 * s);
+            g.strokeLine(x + 18 * s, y + 46 * s, x + 62 * s, y + 30 * s);
+            g.strokeLine(x + 26 * s, y + 30 * s, x + 26 * s, y + 64 * s);
+            g.setFill(Color.web("#FF4081"));
+            g.fillOval(x + 58 * s, y + 26 * s, 6 * s, 6 * s);
+        }
+        if (type == BirdGame3.BirdType.RAZORBILL && isPrismSkin) {
+            double startX = facingRight ? x + 10 * s : x + 70 * s;
+            double endX = facingRight ? x + 60 * s : x + 20 * s;
+            g.setStroke(Color.web("#E1BEE7").deriveColor(0, 1, 1, 0.7));
+            g.setLineWidth(3.0 * s);
+            g.strokeLine(startX, y + 60 * s, endX, y + 35 * s);
+            g.setStroke(Color.web("#80D8FF").deriveColor(0, 1, 1, 0.8));
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(startX, y + 66 * s, endX, y + 41 * s);
+        }
+        if (type == BirdGame3.BirdType.PELICAN && isAuroraSkin) {
+            g.setFill(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.35));
+            g.fillOval(x + 6 * s, y + 30 * s, 68 * s, 26 * s);
+            g.setFill(Color.web("#CE93D8").deriveColor(0, 1, 1, 0.28));
+            g.fillOval(x + 10 * s, y + 48 * s, 64 * s, 24 * s);
+        }
     }
 
     private void drawPenguinIceBuff(GraphicsContext g, double drawSize) {

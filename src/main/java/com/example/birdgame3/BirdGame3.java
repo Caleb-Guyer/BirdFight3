@@ -194,6 +194,7 @@ public class BirdGame3 extends Application {
     private int flashTimer = 0;          // frames remaining for flash
     private final UIFactory uiFactory = new UIFactory();
     private Runnable stageSelectReturn = null;
+    private java.util.function.Consumer<MapType> stageSelectHandler = null;
     private Runnable settingsReturn = null;
 
     public void playHitSound(double intensity) {
@@ -717,6 +718,9 @@ public class BirdGame3 extends Application {
         uiCanvas = new Canvas(WIDTH, HEIGHT);
         ui = uiCanvas.getGraphicsContext2D();
         root.getChildren().add(uiCanvas);
+        if (trainingModeActive) {
+            addTrainingControls(root);
+        }
 
         pressedKeys.clear();
         scene.setOnKeyPressed(e -> handleGameplayKeyPress(stage, e));
@@ -1097,8 +1101,21 @@ public class BirdGame3 extends Application {
     public boolean cityPigeonUnlocked = true;
     public boolean noirPigeonUnlocked = false;
     public boolean isTrialMode = false;
+    public boolean trainingModeActive = false;
+    private BirdType trainingPlayerBird = BirdType.PIGEON;
+    private BirdType trainingOpponentBird = BirdType.PIGEON;
+    private final int trainingDummyIndex = 1;
+    private double trainingPlayerSpawnX = 1200;
+    private double trainingPlayerSpawnY = GROUND_Y - 400;
+    private double trainingDummySpawnX = 4200;
+    private double trainingDummySpawnY = GROUND_Y - 400;
     public boolean eagleSkinUnlocked = true; // Sky Tyrant Eagle skin
     public boolean novaPhoenixUnlocked = false;
+    public boolean duneFalconUnlocked = false;
+    public boolean mintPenguinUnlocked = false;
+    public boolean circuitTitmouseUnlocked = false;
+    public boolean prismRazorbillUnlocked = false;
+    public boolean auroraPelicanUnlocked = false;
     public boolean batUnlocked = false;
     public boolean falconUnlocked = false;
     public boolean phoenixUnlocked = false;
@@ -1110,6 +1127,11 @@ public class BirdGame3 extends Application {
 
     public static final int SKIN_COUNT = 2; // City Pigeon + Noir Pigeon
     private static final String NOVA_PHOENIX_SKIN = "NOVA_PHOENIX";
+    private static final String DUNE_FALCON_SKIN = "DUNE_FALCON";
+    private static final String MINT_PENGUIN_SKIN = "MINT_PENGUIN";
+    private static final String CIRCUIT_TITMOUSE_SKIN = "CIRCUIT_TITMOUSE";
+    private static final String PRISM_RAZORBILL_SKIN = "PRISM_RAZORBILL";
+    private static final String AURORA_PELICAN_SKIN = "AURORA_PELICAN";
 
     // === CLASSIC MODE ===
     private boolean classicModeActive = false;
@@ -2690,6 +2712,25 @@ public class BirdGame3 extends Application {
         } else {
             if (isClassicRewardUnlocked(type)) options.add(classicSkinDataKey(type));
         }
+        switch (type) {
+            case FALCON -> {
+                if (duneFalconUnlocked) options.add(DUNE_FALCON_SKIN);
+            }
+            case PENGUIN -> {
+                if (mintPenguinUnlocked) options.add(MINT_PENGUIN_SKIN);
+            }
+            case TITMOUSE -> {
+                if (circuitTitmouseUnlocked) options.add(CIRCUIT_TITMOUSE_SKIN);
+            }
+            case RAZORBILL -> {
+                if (prismRazorbillUnlocked) options.add(PRISM_RAZORBILL_SKIN);
+            }
+            case PELICAN -> {
+                if (auroraPelicanUnlocked) options.add(AURORA_PELICAN_SKIN);
+            }
+            default -> {
+            }
+        }
         return options;
     }
 
@@ -2699,6 +2740,11 @@ public class BirdGame3 extends Application {
         if ("NOIR_PIGEON".equals(skinKey) && type == BirdType.PIGEON && noirPigeonUnlocked) return skinKey;
         if ("SKY_KING_EAGLE".equals(skinKey) && type == BirdType.EAGLE && eagleSkinUnlocked) return skinKey;
         if (NOVA_PHOENIX_SKIN.equals(skinKey) && type == BirdType.PHOENIX && novaPhoenixUnlocked) return skinKey;
+        if (DUNE_FALCON_SKIN.equals(skinKey) && type == BirdType.FALCON && duneFalconUnlocked) return skinKey;
+        if (MINT_PENGUIN_SKIN.equals(skinKey) && type == BirdType.PENGUIN && mintPenguinUnlocked) return skinKey;
+        if (CIRCUIT_TITMOUSE_SKIN.equals(skinKey) && type == BirdType.TITMOUSE && circuitTitmouseUnlocked) return skinKey;
+        if (PRISM_RAZORBILL_SKIN.equals(skinKey) && type == BirdType.RAZORBILL && prismRazorbillUnlocked) return skinKey;
+        if (AURORA_PELICAN_SKIN.equals(skinKey) && type == BirdType.PELICAN && auroraPelicanUnlocked) return skinKey;
         if (skinKey.startsWith("CLASSIC_SKIN_") && type != BirdType.PIGEON && type != BirdType.EAGLE) {
             String expected = classicSkinDataKey(type);
             if (skinKey.equals(expected) && isClassicRewardUnlocked(type)) return skinKey;
@@ -2712,6 +2758,11 @@ public class BirdGame3 extends Application {
         if ("NOIR_PIGEON".equals(skinKey)) return "SKIN: NOIR PIGEON";
         if ("SKY_KING_EAGLE".equals(skinKey)) return "SKIN: SKY KING";
         if (NOVA_PHOENIX_SKIN.equals(skinKey)) return "SKIN: NOVA PHOENIX";
+        if (DUNE_FALCON_SKIN.equals(skinKey)) return "SKIN: DUNE FALCON";
+        if (MINT_PENGUIN_SKIN.equals(skinKey)) return "SKIN: MINT PENGUIN";
+        if (CIRCUIT_TITMOUSE_SKIN.equals(skinKey)) return "SKIN: CIRCUIT TITMOUSE";
+        if (PRISM_RAZORBILL_SKIN.equals(skinKey)) return "SKIN: PRISM RAZORBILL";
+        if (AURORA_PELICAN_SKIN.equals(skinKey)) return "SKIN: AURORA PELICAN";
         if (skinKey.startsWith("CLASSIC_SKIN_")) return "SKIN: " + classicRewardFor(type);
         return "SKIN: BASE";
     }
@@ -2722,6 +2773,11 @@ public class BirdGame3 extends Application {
         bird.isNoirSkin = false;
         bird.isClassicSkin = false;
         bird.isNovaSkin = false;
+        bird.isDuneSkin = false;
+        bird.isMintSkin = false;
+        bird.isCircuitSkin = false;
+        bird.isPrismSkin = false;
+        bird.isAuroraSkin = false;
 
         if (skinKey == null) return;
         if (type == BirdType.PIGEON) {
@@ -2737,6 +2793,26 @@ public class BirdGame3 extends Application {
             bird.isNovaSkin = true;
             return;
         }
+        if (type == BirdType.FALCON && DUNE_FALCON_SKIN.equals(skinKey) && duneFalconUnlocked) {
+            bird.isDuneSkin = true;
+            return;
+        }
+        if (type == BirdType.PENGUIN && MINT_PENGUIN_SKIN.equals(skinKey) && mintPenguinUnlocked) {
+            bird.isMintSkin = true;
+            return;
+        }
+        if (type == BirdType.TITMOUSE && CIRCUIT_TITMOUSE_SKIN.equals(skinKey) && circuitTitmouseUnlocked) {
+            bird.isCircuitSkin = true;
+            return;
+        }
+        if (type == BirdType.RAZORBILL && PRISM_RAZORBILL_SKIN.equals(skinKey) && prismRazorbillUnlocked) {
+            bird.isPrismSkin = true;
+            return;
+        }
+        if (type == BirdType.PELICAN && AURORA_PELICAN_SKIN.equals(skinKey) && auroraPelicanUnlocked) {
+            bird.isAuroraSkin = true;
+            return;
+        }
         if (skinKey.equals(classicSkinDataKey(type)) && isClassicRewardUnlocked(type)) {
             bird.isClassicSkin = true;
         }
@@ -2748,6 +2824,11 @@ public class BirdGame3 extends Application {
         bird.isNoirSkin = false;
         bird.isClassicSkin = false;
         bird.isNovaSkin = false;
+        bird.isDuneSkin = false;
+        bird.isMintSkin = false;
+        bird.isCircuitSkin = false;
+        bird.isPrismSkin = false;
+        bird.isAuroraSkin = false;
 
         if (skinKey == null) return;
         if (type == BirdType.PIGEON) {
@@ -2761,6 +2842,26 @@ public class BirdGame3 extends Application {
         }
         if (type == BirdType.PHOENIX && NOVA_PHOENIX_SKIN.equals(skinKey)) {
             bird.isNovaSkin = true;
+            return;
+        }
+        if (type == BirdType.FALCON && DUNE_FALCON_SKIN.equals(skinKey)) {
+            bird.isDuneSkin = true;
+            return;
+        }
+        if (type == BirdType.PENGUIN && MINT_PENGUIN_SKIN.equals(skinKey)) {
+            bird.isMintSkin = true;
+            return;
+        }
+        if (type == BirdType.TITMOUSE && CIRCUIT_TITMOUSE_SKIN.equals(skinKey)) {
+            bird.isCircuitSkin = true;
+            return;
+        }
+        if (type == BirdType.RAZORBILL && PRISM_RAZORBILL_SKIN.equals(skinKey)) {
+            bird.isPrismSkin = true;
+            return;
+        }
+        if (type == BirdType.PELICAN && AURORA_PELICAN_SKIN.equals(skinKey)) {
+            bird.isAuroraSkin = true;
             return;
         }
         if (skinKey.startsWith("CLASSIC_SKIN_")) {
@@ -2904,7 +3005,7 @@ public class BirdGame3 extends Application {
             long now = System.nanoTime();
             applyMatchModeRuntimeEffects(now);
             spawnPowerUp(now);
-            if (!matchEnded) matchTimer--;
+            if (!matchEnded && !trainingModeActive) matchTimer--;
 
             accumulator -= FRAME_TIME;
             updates++;
@@ -3089,18 +3190,18 @@ public class BirdGame3 extends Application {
             }
         }
 
-        if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !isTrialMode && !classicModeActive && !matchEnded && matchTimer <= 0) {
+        if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !isTrialMode && !classicModeActive && !trainingModeActive && !matchEnded && matchTimer <= 0) {
             Bird timeoutWinner = findTimeoutWinner();
             addToKillFeed("TIME! Tournament decision.");
             triggerMatchEnd(timeoutWinner);
-        } else if (!isTrialMode && !matchEnded && matchTimer <= 0 && !suddenDeath.isActive()) {
+        } else if (!isTrialMode && !trainingModeActive && !matchEnded && matchTimer <= 0 && !suddenDeath.isActive()) {
             suddenDeath.start();
             if (hugewaveClip != null) hugewaveClip.play();
             addToKillFeed("SUDDEN DEATH! A MURDER OF CROWS DESCENDS!");
             shakeIntensity = 40;
             hitstopFrames = 30;
         }
-        if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !isTrialMode && !classicModeActive)) {
+        if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !isTrialMode && !classicModeActive) && !trainingModeActive) {
             shakeIntensity = suddenDeath.updateAndSpawn(
                     crowMinions,
                     random,
@@ -3175,6 +3276,13 @@ public class BirdGame3 extends Application {
             p.vy += 0.4;
             p.life--;
             if (p.life <= 0 || p.y > WORLD_HEIGHT + 200) it.remove();
+        }
+
+        if (trainingModeActive) {
+            Bird dummy = players[trainingDummyIndex];
+            if (dummy != null) {
+                dummy.health = dummy.getMaxHealth();
+            }
         }
 
         int alive = 0;
@@ -3790,6 +3898,8 @@ public class BirdGame3 extends Application {
         Arrays.fill(competitionRoundWins, 0);
         Arrays.fill(competitionTeamWins, 0);
         competitionRoundNumber = 1;
+        trainingModeActive = false;
+        stageSelectHandler = null;
         if (musicPlayer != null) musicPlayer.stop();
         if (victoryMusicPlayer != null) victoryMusicPlayer.stop();
         playMenuMusic();
@@ -3827,6 +3937,21 @@ public class BirdGame3 extends Application {
         } else if (NOVA_PHOENIX_SKIN.equals(skinKey)) {
             base = Color.web("#1A237E");
             accent = Color.web("#00E5FF");
+        } else if (DUNE_FALCON_SKIN.equals(skinKey)) {
+            base = Color.web("#D7B98E");
+            accent = Color.web("#5D4037");
+        } else if (MINT_PENGUIN_SKIN.equals(skinKey)) {
+            base = Color.web("#7FD6D8");
+            accent = Color.web("#006064");
+        } else if (CIRCUIT_TITMOUSE_SKIN.equals(skinKey)) {
+            base = Color.web("#455A64");
+            accent = Color.web("#00E5FF");
+        } else if (PRISM_RAZORBILL_SKIN.equals(skinKey)) {
+            base = Color.web("#1A237E");
+            accent = Color.web("#FFD740");
+        } else if (AURORA_PELICAN_SKIN.equals(skinKey)) {
+            base = Color.web("#B2DFDB");
+            accent = Color.web("#7B1FA2");
         } else if (skinKey != null && skinKey.startsWith("CLASSIC_SKIN_")) {
             base = classicSkinPrimaryColor(type);
             accent = classicSkinAccentColor(type);
@@ -3860,10 +3985,14 @@ public class BirdGame3 extends Application {
             g.setStroke(accent);
             g.setLineWidth(3);
             g.strokeOval(x - size * 0.08, y - size * 0.08, size * 1.16, size * 1.16);
-        } else if (NOVA_PHOENIX_SKIN.equals(skinKey)) {
+        } else if (NOVA_PHOENIX_SKIN.equals(skinKey) || AURORA_PELICAN_SKIN.equals(skinKey)) {
             g.setStroke(accent.deriveColor(0, 1, 1, 0.8));
             g.setLineWidth(2.5);
             g.strokeOval(x - size * 0.12, y - size * 0.12, size * 1.24, size * 1.24);
+        } else if (PRISM_RAZORBILL_SKIN.equals(skinKey)) {
+            g.setStroke(accent.deriveColor(0, 1, 1, 0.75));
+            g.setLineWidth(2.2);
+            g.strokeOval(x - size * 0.1, y - size * 0.1, size * 1.2, size * 1.2);
         }
     }
 
@@ -3954,12 +4083,14 @@ public class BirdGame3 extends Application {
 
         Button fightBtn = uiFactory.action("FIGHT", 520, 130, 48, "#FF7043", 30, () -> showFightSetup(stage));
         Button adventureBtn = uiFactory.action("ADVENTURE", 520, 130, 48, "#26A69A", 30, () -> showAdventureHub(stage));
+        Button trainingBtn = uiFactory.action("TRAINING", 520, 130, 48, "#26C6DA", 30, () -> showTrainingSetup(stage));
         Button classicBtn = uiFactory.action("CLASSIC & MORE", 520, 130, 40, "#1E88E5", 28, () -> showClassicMoreMenu(stage));
         Button shopBtn = uiFactory.action("SHOP", 520, 130, 48, "#FBC02D", 30, () -> showShop(stage));
         Button onlineBtn = uiFactory.action("ONLINE", 520, 130, 48, "#8D6E63", 30, () -> showOnlinePlaceholder(stage));
 
         nav.add(fightBtn, 0, 0);
         nav.add(adventureBtn, 1, 0);
+        nav.add(trainingBtn, 2, 0);
         nav.add(classicBtn, 0, 1);
         nav.add(shopBtn, 1, 1);
         nav.add(onlineBtn, 2, 1);
@@ -4059,13 +4190,13 @@ public class BirdGame3 extends Application {
         double paneW = 1500;
         double paneH = 520;
         selectionPane.setPrefSize(paneW, paneH);
-        selectionPane.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #90A4AE; -fx-border-width: 3; -fx-background-radius: 20; -fx-border-radius: 20;");
+        selectionPane.setStyle("-fx-background-color: transparent;");
 
         List<BirdIconSpot> spots = new ArrayList<>();
         Map<BirdType, BirdIconSpot> spotByType = new HashMap<>();
         BirdIconSpot randomSpot = null;
 
-        int columns = gridBirds.size() > 16 ? 5 : 4;
+        int columns = Math.min(6, Math.max(1, gridBirds.size()));
         int rows = (int) Math.ceil(gridBirds.size() / (double) columns);
         double dockW = 160;
         double dockH = 320;
@@ -4079,6 +4210,13 @@ public class BirdGame3 extends Application {
         double cellH = gridH / Math.max(1, rows);
         double iconSize = Math.max(60, Math.min(110, Math.min(cellW, cellH) * 0.65));
 
+        Region gridFrame = new Region();
+        gridFrame.setLayoutX(gridX - 12);
+        gridFrame.setLayoutY(gridY - 10);
+        gridFrame.setPrefSize(gridW + 24, gridH + 20);
+        gridFrame.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #90A4AE; -fx-border-width: 3; -fx-background-radius: 20; -fx-border-radius: 20;");
+        selectionPane.getChildren().add(gridFrame);
+
         for (int i = 0; i < gridBirds.size(); i++) {
             BirdType type = gridBirds.get(i);
             boolean isRandom = type == null;
@@ -4091,6 +4229,19 @@ public class BirdGame3 extends Application {
 
             Canvas icon = new Canvas(iconSize, iconSize);
             drawRosterSprite(icon, type, null, isRandom);
+            Node iconNode = icon;
+            if (type == BirdType.FALCON && !isRandom) {
+                StackPane iconStack = new StackPane();
+                iconStack.setPrefSize(iconSize, iconSize);
+                iconStack.getChildren().add(icon);
+                Canvas echo = new Canvas(iconSize * 0.55, iconSize * 0.55);
+                drawRosterSprite(echo, BirdType.EAGLE, null, false);
+                echo.setOpacity(0.32);
+                StackPane.setAlignment(echo, Pos.TOP_LEFT);
+                StackPane.setMargin(echo, new Insets(6, 0, 0, 6));
+                iconStack.getChildren().add(echo);
+                iconNode = iconStack;
+            }
 
             Label name = new Label(isRandom ? "RANDOM" : type.name.toUpperCase());
             name.setFont(Font.font("Consolas", 16));
@@ -4099,8 +4250,12 @@ public class BirdGame3 extends Application {
             name.setTextAlignment(TextAlignment.CENTER);
             name.setAlignment(Pos.CENTER);
             name.setWrapText(true);
+            if (type == BirdType.FALCON && !isRandom) {
+                name.setText("FALCON\nECHO OF EAGLE");
+                name.setFont(Font.font("Consolas", 14));
+            }
 
-            VBox card = new VBox(6, icon, name);
+            VBox card = new VBox(6, iconNode, name);
             card.setAlignment(Pos.CENTER);
             card.setPrefWidth(cellW);
             card.setPrefHeight(cellH);
@@ -4392,9 +4547,12 @@ public class BirdGame3 extends Application {
         HBox playerBar = new HBox(18, fightSlots);
         playerBar.setAlignment(Pos.CENTER);
         playerBar.setPadding(new Insets(12, 0, 0, 0));
-        BorderPane.setMargin(playerBar, new Insets(10, 0, 0, 0));
+        playerBar.setTranslateY(36);
+        BorderPane.setMargin(playerBar, new Insets(0, 0, 0, 0));
 
         StackPane center = new StackPane(selectionPane, readyBtn);
+        StackPane.setAlignment(selectionPane, Pos.BOTTOM_LEFT);
+        StackPane.setMargin(selectionPane, new Insets(0, 0, 36, 24));
         StackPane.setAlignment(readyBtn, Pos.BOTTOM_CENTER);
         StackPane.setMargin(readyBtn, new Insets(0, 0, 16, 0));
 
@@ -4423,6 +4581,300 @@ public class BirdGame3 extends Application {
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
         back.requestFocus();
+    }
+
+    private void showTrainingSetup(Stage stage) {
+        storyModeActive = false;
+        storyReplayMode = false;
+        adventureModeActive = false;
+        adventureReplayMode = false;
+        currentAdventureBattle = null;
+        adventureTeamMode = false;
+        Arrays.fill(adventureTeams, 1);
+        classicModeActive = false;
+        classicEncounter = null;
+        classicRun.clear();
+        classicRoundIndex = 0;
+        classicTeamMode = false;
+        Arrays.fill(classicTeams, 1);
+        activeBossChallenge = BossChallengeType.NONE;
+        competitionSeriesActive = false;
+        Arrays.fill(competitionRoundWins, 0);
+        Arrays.fill(competitionTeamWins, 0);
+        competitionRoundNumber = 1;
+        trainingModeActive = false;
+        isTrialMode = false;
+        stageSelectHandler = null;
+        playMenuMusic();
+
+        BorderPane root = new BorderPane();
+        root.setPadding(new Insets(26, 36, 26, 36));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #071A27, #13293D);");
+
+        Label title = new Label("TRAINING MODE");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 88));
+        title.setTextFill(Color.web("#FFE082"));
+        title.setEffect(new DropShadow(35, Color.BLACK));
+
+        Label subtitle = new Label("Single-player practice. Choose your bird, choose a sparring partner, then pick a stage.");
+        subtitle.setFont(Font.font("Consolas", 24));
+        subtitle.setTextFill(Color.web("#80DEEA"));
+
+        VBox top = new VBox(6, title, subtitle);
+        top.setAlignment(Pos.CENTER);
+
+        List<BirdType> availableBirds = unlockedBirdPool();
+        BirdType playerPick = isBirdUnlocked(trainingPlayerBird) ? trainingPlayerBird : firstUnlockedBird();
+        if (playerPick == null && !availableBirds.isEmpty()) playerPick = availableBirds.get(0);
+        BirdType opponentPick = isBirdUnlocked(trainingOpponentBird) ? trainingOpponentBird : firstUnlockedBird();
+        if (opponentPick == null && !availableBirds.isEmpty()) opponentPick = availableBirds.get(0);
+        if (playerPick != null) trainingPlayerBird = playerPick;
+        if (opponentPick != null) trainingOpponentBird = opponentPick;
+
+        final BirdType[] selected = new BirdType[]{playerPick, opponentPick};
+        final boolean[] selectorLocked = new boolean[]{playerPick != null, opponentPick != null};
+        final boolean[] selectorJustUnlocked = new boolean[]{false, false};
+
+        Pane selectionPane = new Pane();
+        double paneW = 1100;
+        double paneH = 520;
+        selectionPane.setPrefSize(paneW, paneH);
+        selectionPane.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #90A4AE; -fx-border-width: 3; -fx-background-radius: 20; -fx-border-radius: 20;");
+
+        List<BirdIconSpot> spots = new ArrayList<>();
+        Map<BirdType, BirdIconSpot> spotByType = new HashMap<>();
+
+        int columns = availableBirds.size() > 12 ? 4 : 3;
+        int rows = (int) Math.ceil(availableBirds.size() / (double) Math.max(1, columns));
+        double dockW = 170;
+        double dockH = 320;
+        double dockX = 0;
+        double dockY = paneH - dockH;
+        double gridX = dockX + dockW + 20;
+        double gridY = 10;
+        double gridW = paneW - gridX - 20;
+        double gridH = paneH - 20;
+        double cellW = gridW / Math.max(1, columns);
+        double cellH = gridH / Math.max(1, rows);
+        double iconSize = Math.max(60, Math.min(110, Math.min(cellW, cellH) * 0.65));
+
+        for (int i = 0; i < availableBirds.size(); i++) {
+            BirdType type = availableBirds.get(i);
+            int col = i % columns;
+            int row = i / columns;
+            double cellX = gridX + col * cellW;
+            double cellY = gridY + row * cellH;
+            double centerX = cellX + cellW / 2.0;
+            double centerY = cellY + cellH / 2.0;
+
+            Canvas icon = new Canvas(iconSize, iconSize);
+            drawRosterSprite(icon, type, null, false);
+
+            Label name = new Label(type.name.toUpperCase());
+            name.setFont(Font.font("Consolas", 16));
+            name.setTextFill(Color.web("#ECEFF1"));
+            name.setWrapText(true);
+            name.setAlignment(Pos.CENTER);
+
+            VBox card = new VBox(6, icon, name);
+            card.setAlignment(Pos.CENTER);
+            card.setPrefWidth(cellW);
+            card.setPrefHeight(cellH);
+            card.setLayoutX(cellX);
+            card.setLayoutY(cellY);
+            card.setMouseTransparent(true);
+
+            selectionPane.getChildren().add(card);
+            BirdIconSpot spot = new BirdIconSpot(type, false, centerX, centerY);
+            spots.add(spot);
+            spotByType.put(type, spot);
+        }
+
+        Region selectorDock = new Region();
+        selectorDock.setPrefSize(dockW, dockH);
+        selectorDock.setLayoutX(dockX);
+        selectorDock.setLayoutY(dockY);
+        selectorDock.setStyle("-fx-background-color: rgba(10,10,10,0.6); -fx-border-color: #FFD54F; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
+        selectionPane.getChildren().add(selectorDock);
+
+        Label dockLabel = new Label("SELECTORS");
+        dockLabel.setFont(Font.font("Consolas", 18));
+        dockLabel.setTextFill(Color.web("#FFE082"));
+        dockLabel.setLayoutX(dockX + 12);
+        dockLabel.setLayoutY(dockY + 8);
+        selectionPane.getChildren().add(dockLabel);
+
+        Point2D[] dockPositions = new Point2D[]{
+                new Point2D(dockX + dockW / 2.0, dockY + dockH * 0.35),
+                new Point2D(dockX + dockW / 2.0, dockY + dockH * 0.72)
+        };
+
+        Circle[] selectors = new Circle[2];
+        Text[] selectorLabels = new Text[2];
+        Color[] selectorColors = new Color[]{Color.web("#FFD54F"), Color.web("#FF6B6B")};
+        String[] selectorNames = new String[]{"YOU", "OPP"};
+
+        final Runnable[] refreshRef = new Runnable[1];
+
+        for (int i = 0; i < 2; i++) {
+            int idx = i;
+            Circle selector = new Circle(26);
+            selector.setFill(Color.web("rgba(255,213,79,0.15)"));
+            selector.setStroke(selectorColors[i]);
+            selector.setStrokeWidth(3);
+            selector.setManaged(false);
+            selectors[i] = selector;
+            selectionPane.getChildren().add(selector);
+
+            Text label = new Text(selectorNames[i]);
+            label.setFont(Font.font("Impact", 14));
+            label.setFill(selectorColors[i]);
+            label.setManaged(false);
+            label.setMouseTransparent(true);
+            selectorLabels[i] = label;
+            selectionPane.getChildren().add(label);
+
+            final double[] dragOffset = new double[2];
+            selector.setOnMousePressed(e -> {
+                if (selectorLocked[idx]) {
+                    selectorLocked[idx] = false;
+                    selected[idx] = null;
+                    if (refreshRef[0] != null) refreshRef[0].run();
+                    selectorJustUnlocked[idx] = true;
+                }
+                Point2D local = selectionPane.sceneToLocal(e.getSceneX(), e.getSceneY());
+                dragOffset[0] = selector.getCenterX() - local.getX();
+                dragOffset[1] = selector.getCenterY() - local.getY();
+            });
+            selector.setOnMouseDragged(e -> {
+                if (selectorLocked[idx]) return;
+                Point2D local = selectionPane.sceneToLocal(e.getSceneX(), e.getSceneY());
+                double nx = local.getX() + dragOffset[0];
+                double ny = local.getY() + dragOffset[1];
+                if (selectorJustUnlocked[idx]) {
+                    selectorJustUnlocked[idx] = false;
+                }
+                nx = Math.max(40, Math.min(nx, selectionPane.getPrefWidth() - 40));
+                ny = Math.max(40, Math.min(ny, selectionPane.getPrefHeight() - 40));
+                selector.setCenterX(nx);
+                selector.setCenterY(ny);
+                label.setX(nx - 18);
+                label.setY(ny + 6);
+            });
+            selector.setOnMouseReleased(e -> {
+                if (selectorLocked[idx]) return;
+                if (selectorJustUnlocked[idx]) {
+                    selectorJustUnlocked[idx] = false;
+                    Point2D dock = dockPositions[idx];
+                    selector.setCenterX(dock.getX());
+                    selector.setCenterY(dock.getY());
+                    label.setX(dock.getX() - 18);
+                    label.setY(dock.getY() + 6);
+                    return;
+                }
+                BirdIconSpot best = null;
+                double bestDist = Double.MAX_VALUE;
+                for (BirdIconSpot spot : spots) {
+                    double dx = selector.getCenterX() - spot.cx;
+                    double dy = selector.getCenterY() - spot.cy;
+                    double dist = dx * dx + dy * dy;
+                    if (dist < bestDist) {
+                        bestDist = dist;
+                        best = spot;
+                    }
+                }
+                if (best != null) {
+                    selector.setCenterX(best.cx);
+                    selector.setCenterY(best.cy);
+                    label.setX(best.cx - 18);
+                    label.setY(best.cy + 6);
+                    selected[idx] = best.type;
+                    selectorLocked[idx] = true;
+                    if (refreshRef[0] != null) refreshRef[0].run();
+                } else {
+                    Point2D dock = dockPositions[idx];
+                    selector.setCenterX(dock.getX());
+                    selector.setCenterY(dock.getY());
+                    label.setX(dock.getX() - 18);
+                    label.setY(dock.getY() + 6);
+                }
+            });
+        }
+
+        Label youLabel = new Label();
+        youLabel.setFont(Font.font("Arial Black", 36));
+        youLabel.setTextFill(Color.web("#FFE082"));
+
+        Label oppLabel = new Label();
+        oppLabel.setFont(Font.font("Arial Black", 36));
+        oppLabel.setTextFill(Color.web("#FFCDD2"));
+
+        Label note = new Label("Opponent has infinite health.\nUse RESET DUMMY in-game if they fall off the map.");
+        note.setFont(Font.font("Consolas", 22));
+        note.setTextFill(Color.web("#B0BEC5"));
+
+        Button back = uiFactory.action("BACK TO HUB", 360, 96, 34, "#FF1744", 22, () -> showMenu(stage));
+        Button selectMap = uiFactory.action("SELECT MAP", 420, 96, 34, "#00C853", 24, () -> {
+            if (selected[0] == null || selected[1] == null) return;
+            playButtonClick();
+            trainingPlayerBird = selected[0];
+            trainingOpponentBird = selected[1];
+            stageSelectReturn = () -> showTrainingSetup(stage);
+            stageSelectHandler = map -> beginTrainingMatchOnMap(stage, map);
+            showStageSelect(stage);
+        });
+
+        Runnable refresh = () -> {
+            youLabel.setText(selected[0] != null ? "You: " + selected[0].name : "You: SELECT");
+            oppLabel.setText(selected[1] != null ? "Opponent: " + selected[1].name : "Opponent: SELECT");
+            boolean ready = selected[0] != null && selected[1] != null;
+            selectMap.setDisable(!ready);
+            selectMap.setOpacity(ready ? 1.0 : 0.6);
+        };
+        refreshRef[0] = refresh;
+        refresh.run();
+
+        VBox rightCard = new VBox(14, youLabel, oppLabel, note);
+        rightCard.setAlignment(Pos.TOP_LEFT);
+        rightCard.setPadding(new Insets(24));
+        rightCard.setMaxWidth(680);
+        rightCard.setStyle("-fx-background-color: rgba(0,0,0,0.56); -fx-border-color: #64B5F6; -fx-border-width: 3; -fx-border-radius: 22; -fx-background-radius: 22;");
+
+        HBox center = new HBox(22, selectionPane, rightCard);
+        center.setAlignment(Pos.CENTER);
+
+        HBox bottom = new HBox(18, back, selectMap);
+        bottom.setAlignment(Pos.CENTER);
+
+        root.setTop(top);
+        root.setCenter(center);
+        root.setBottom(bottom);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+
+        for (int i = 0; i < 2; i++) {
+            BirdType pick = selected[i];
+            if (pick != null) {
+                BirdIconSpot spot = spotByType.get(pick);
+                if (spot != null) {
+                    selectors[i].setCenterX(spot.cx);
+                    selectors[i].setCenterY(spot.cy);
+                    selectorLabels[i].setX(spot.cx - 18);
+                    selectorLabels[i].setY(spot.cy + 6);
+                    continue;
+                }
+            }
+            Point2D dock = dockPositions[i];
+            selectors[i].setCenterX(dock.getX());
+            selectors[i].setCenterY(dock.getY());
+            selectorLabels[i].setX(dock.getX() - 18);
+            selectorLabels[i].setY(dock.getY() + 6);
+        }
+        refresh.run();
+        selectMap.requestFocus();
     }
 
     private boolean handleSelectorKey(KeyEvent e,
@@ -4629,6 +5081,7 @@ public class BirdGame3 extends Application {
 
     private enum ShopRarity {
         COMMON("COMMON", Color.web("#B0BEC5")),
+        UNCOMMON("UNCOMMON", Color.web("#81C784")),
         RARE("RARE", Color.web("#64B5F6")),
         EPIC("EPIC", Color.web("#BA68C8")),
         LEGENDARY("LEGENDARY", Color.web("#FFB300")),
@@ -4705,6 +5158,11 @@ public class BirdGame3 extends Application {
         if ("NOIR_PIGEON".equals(key)) return noirPigeonUnlocked;
         if ("SKY_KING_EAGLE".equals(key)) return eagleSkinUnlocked;
         if (NOVA_PHOENIX_SKIN.equals(key)) return novaPhoenixUnlocked;
+        if (DUNE_FALCON_SKIN.equals(key)) return duneFalconUnlocked;
+        if (MINT_PENGUIN_SKIN.equals(key)) return mintPenguinUnlocked;
+        if (CIRCUIT_TITMOUSE_SKIN.equals(key)) return circuitTitmouseUnlocked;
+        if (PRISM_RAZORBILL_SKIN.equals(key)) return prismRazorbillUnlocked;
+        if (AURORA_PELICAN_SKIN.equals(key)) return auroraPelicanUnlocked;
         if (key.startsWith("CLASSIC_SKIN_")) return isClassicRewardUnlocked(preview.type);
         return false;
     }
@@ -4728,6 +5186,26 @@ public class BirdGame3 extends Application {
             novaPhoenixUnlocked = true;
             return;
         }
+        if (DUNE_FALCON_SKIN.equals(key)) {
+            duneFalconUnlocked = true;
+            return;
+        }
+        if (MINT_PENGUIN_SKIN.equals(key)) {
+            mintPenguinUnlocked = true;
+            return;
+        }
+        if (CIRCUIT_TITMOUSE_SKIN.equals(key)) {
+            circuitTitmouseUnlocked = true;
+            return;
+        }
+        if (PRISM_RAZORBILL_SKIN.equals(key)) {
+            prismRazorbillUnlocked = true;
+            return;
+        }
+        if (AURORA_PELICAN_SKIN.equals(key)) {
+            auroraPelicanUnlocked = true;
+            return;
+        }
         if (key.startsWith("CLASSIC_SKIN_")) {
             unlockClassicReward(preview.type);
         }
@@ -4748,6 +5226,11 @@ public class BirdGame3 extends Application {
         if ("NOIR_PIGEON".equals(key)) return "Noir Pigeon";
         if ("SKY_KING_EAGLE".equals(key)) return "Sky King Eagle";
         if (NOVA_PHOENIX_SKIN.equals(key)) return "Nova Phoenix";
+        if (DUNE_FALCON_SKIN.equals(key)) return "Dune Falcon";
+        if (MINT_PENGUIN_SKIN.equals(key)) return "Mint Penguin";
+        if (CIRCUIT_TITMOUSE_SKIN.equals(key)) return "Circuit Titmouse";
+        if (PRISM_RAZORBILL_SKIN.equals(key)) return "Prism Razorbill";
+        if (AURORA_PELICAN_SKIN.equals(key)) return "Aurora Pelican";
         if (key != null && key.startsWith("CLASSIC_SKIN_") && preview.type != null) {
             return classicRewardFor(preview.type);
         }
@@ -4760,6 +5243,11 @@ public class BirdGame3 extends Application {
         final int noirCost = 900;
         final int skyCost = 1200;
         final int novaCost = 3500;
+        final int duneCost = 500;
+        final int mintCost = 800;
+        final int circuitCost = 1100;
+        final int prismCost = 1800;
+        final int auroraCost = 3600;
         final int classicUnitValue = 600;
         final int flockPrice = 4200;
         final int classicBundlePrice = 6000;
@@ -4804,18 +5292,45 @@ public class BirdGame3 extends Application {
                 novaPreview, ShopRarity.LEGENDARY,
                 () -> unlockShopPreview(novaPreview), () -> isShopPreviewOwned(novaPreview)));
 
-        ShopPreview cityPreview = new ShopPreview(BirdType.PIGEON, "CITY_PIGEON", null, cityCost);
-        items.add(new ShopItem("City Pigeon Skin", "Gold city plumage with bright rooftop trim.", cityCost,
-                cityPreview, ShopRarity.RARE,
-                () -> unlockShopPreview(cityPreview), () -> isShopPreviewOwned(cityPreview)));
+        ShopPreview auroraPreview = new ShopPreview(BirdType.PELICAN, AURORA_PELICAN_SKIN, null, auroraCost);
+        items.add(new ShopItem("Aurora Pelican Skin", "Aurora bands shimmer across the wings and hull.", auroraCost,
+                auroraPreview, ShopRarity.LEGENDARY,
+                () -> unlockShopPreview(auroraPreview), () -> isShopPreviewOwned(auroraPreview)));
+
+        ShopPreview prismPreview = new ShopPreview(BirdType.RAZORBILL, PRISM_RAZORBILL_SKIN, null, prismCost);
+        items.add(new ShopItem("Prism Razorbill Skin", "Prismatic feathers with neon crest flashes.", prismCost,
+                prismPreview, ShopRarity.EPIC,
+                () -> unlockShopPreview(prismPreview), () -> isShopPreviewOwned(prismPreview)));
+
         ShopPreview noirPreview = new ShopPreview(BirdType.PIGEON, "NOIR_PIGEON", null, noirCost);
         items.add(new ShopItem("Noir Pigeon Skin", "Shadow noir styling with crimson eyes.", noirCost,
                 noirPreview, ShopRarity.EPIC,
                 () -> unlockShopPreview(noirPreview), () -> isShopPreviewOwned(noirPreview)));
+
         ShopPreview skyPreview = new ShopPreview(BirdType.EAGLE, "SKY_KING_EAGLE", null, skyCost);
         items.add(new ShopItem("Sky King Eagle Skin", "Royal sky-gold armor and crown glow.", skyCost,
                 skyPreview, ShopRarity.EPIC,
                 () -> unlockShopPreview(skyPreview), () -> isShopPreviewOwned(skyPreview)));
+
+        ShopPreview circuitPreview = new ShopPreview(BirdType.TITMOUSE, CIRCUIT_TITMOUSE_SKIN, null, circuitCost);
+        items.add(new ShopItem("Circuit Titmouse Skin", "Neon signal lines crackle across the frame.", circuitCost,
+                circuitPreview, ShopRarity.RARE,
+                () -> unlockShopPreview(circuitPreview), () -> isShopPreviewOwned(circuitPreview)));
+
+        ShopPreview cityPreview = new ShopPreview(BirdType.PIGEON, "CITY_PIGEON", null, cityCost);
+        items.add(new ShopItem("City Pigeon Skin", "Gold city plumage with bright rooftop trim.", cityCost,
+                cityPreview, ShopRarity.RARE,
+                () -> unlockShopPreview(cityPreview), () -> isShopPreviewOwned(cityPreview)));
+
+        ShopPreview mintPreview = new ShopPreview(BirdType.PENGUIN, MINT_PENGUIN_SKIN, null, mintCost);
+        items.add(new ShopItem("Mint Penguin Skin", "Chilled mint armor with frosted tips.", mintCost,
+                mintPreview, ShopRarity.UNCOMMON,
+                () -> unlockShopPreview(mintPreview), () -> isShopPreviewOwned(mintPreview)));
+
+        ShopPreview dunePreview = new ShopPreview(BirdType.FALCON, DUNE_FALCON_SKIN, null, duneCost);
+        items.add(new ShopItem("Dune Falcon Skin", "Wind-worn dunes and canyon streaks.", duneCost,
+                dunePreview, ShopRarity.COMMON,
+                () -> unlockShopPreview(dunePreview), () -> isShopPreviewOwned(dunePreview)));
         return items;
     }
 
@@ -4843,7 +5358,9 @@ public class BirdGame3 extends Application {
         list.setPadding(new Insets(10, 20, 20, 20));
         list.setStyle("-fx-background-color: transparent;");
 
-        for (ShopItem item : buildShopItems()) {
+        List<ShopItem> items = buildShopItems();
+        items.sort(Comparator.comparing(item -> item.unlocked.getAsBoolean()));
+        for (ShopItem item : items) {
             boolean owned = item.unlocked.getAsBoolean();
             int previewCount = item.previews.size();
             double cardW = 420;
@@ -4864,6 +5381,10 @@ public class BirdGame3 extends Application {
                     case COMMON -> {
                         cardW = 360;
                         cardH = 300;
+                    }
+                    case UNCOMMON -> {
+                        cardW = 390;
+                        cardH = 315;
                     }
                     case RARE -> {
                         cardW = 420;
@@ -7697,6 +8218,7 @@ public class BirdGame3 extends Application {
         Runnable backAction = () -> {
             Runnable target = stageSelectReturn;
             stageSelectReturn = null;
+            stageSelectHandler = null;
             if (target != null) {
                 target.run();
             } else {
@@ -7740,6 +8262,16 @@ public class BirdGame3 extends Application {
         grid.setVgap(22);
         grid.setAlignment(Pos.TOP_CENTER);
 
+        java.util.function.Consumer<MapType> handler = stageSelectHandler;
+        java.util.function.Consumer<MapType> selectMap = map -> {
+            if (handler != null) {
+                stageSelectHandler = null;
+                handler.accept(map);
+            } else {
+                beginFreshMatchOnMap(stage, map);
+            }
+        };
+
         for (int i = 0; i < cards.size(); i++) {
             MapCard card = cards.get(i);
             int col = i % 2;
@@ -7749,7 +8281,7 @@ public class BirdGame3 extends Application {
             cardBox.setPadding(new Insets(16));
             cardBox.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-border-color: #90A4AE; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
 
-            Button btn = uiFactory.action(card.name, 680, 120, 34, card.color, 22, () -> beginFreshMatchOnMap(stage, card.map));
+            Button btn = uiFactory.action(card.name, 680, 120, 34, card.color, 22, () -> selectMap.accept(card.map));
             Label desc = new Label(card.desc);
             desc.setFont(Font.font("Consolas", 20));
             desc.setTextFill(Color.web("#CFD8DC"));
@@ -7762,7 +8294,7 @@ public class BirdGame3 extends Application {
 
         Button randomBtn = uiFactory.action("RANDOM", 1400, 110, 38, "#8E24AA", 24, () -> {
             MapType[] maps = MapType.values();
-            beginFreshMatchOnMap(stage, maps[random.nextInt(maps.length)]);
+            selectMap.accept(maps[random.nextInt(maps.length)]);
         });
         Label randomHint = new Label("Roll a random arena and adapt on the fly.");
         randomHint.setFont(Font.font("Consolas", 20));
@@ -7795,7 +8327,9 @@ public class BirdGame3 extends Application {
 
     private void beginFreshMatchOnMap(Stage stage, MapType map) {
         stageSelectReturn = null;
+        stageSelectHandler = null;
         selectedMap = map;
+        trainingModeActive = false;
         classicModeActive = false;
         classicEncounter = null;
         classicRun.clear();
@@ -7807,6 +8341,99 @@ public class BirdGame3 extends Application {
         Arrays.fill(competitionTeamWins, 0);
         competitionRoundNumber = 1;
         startMatch(stage);
+    }
+
+    private void beginTrainingMatchOnMap(Stage stage, MapType map) {
+        stageSelectReturn = null;
+        stageSelectHandler = null;
+        resetMatchStats();
+        selectedMap = map;
+        trainingModeActive = true;
+        isTrialMode = false;
+        storyModeActive = false;
+        storyReplayMode = false;
+        adventureModeActive = false;
+        adventureReplayMode = false;
+        currentAdventureBattle = null;
+        adventureTeamMode = false;
+        Arrays.fill(adventureTeams, 1);
+        classicModeActive = false;
+        classicEncounter = null;
+        classicRun.clear();
+        classicRoundIndex = 0;
+        classicTeamMode = false;
+        Arrays.fill(classicTeams, 1);
+        activeBossChallenge = BossChallengeType.NONE;
+        competitionSeriesActive = false;
+        Arrays.fill(competitionRoundWins, 0);
+        Arrays.fill(competitionTeamWins, 0);
+        competitionRoundNumber = 1;
+        teamModeEnabled = false;
+        competitionModeEnabled = false;
+        mutatorModeEnabled = false;
+        startMatch(stage);
+    }
+
+    private void setupTrainingRoster() {
+        activePlayers = 2;
+        BirdType playerType = isBirdUnlocked(trainingPlayerBird) ? trainingPlayerBird : firstUnlockedBird();
+        if (playerType == null) playerType = BirdType.PIGEON;
+        BirdType opponentType = isBirdUnlocked(trainingOpponentBird) ? trainingOpponentBird : playerType;
+        if (opponentType == null) opponentType = BirdType.PIGEON;
+
+        Bird player = new Bird(1200, playerType, 0, this);
+        player.y = GROUND_Y - 400;
+        player.name = "You: " + playerType.name;
+        players[0] = player;
+        isAI[0] = false;
+
+        Bird dummy = new Bird(4200, opponentType, trainingDummyIndex, this);
+        dummy.y = GROUND_Y - 400;
+        dummy.name = "Dummy: " + opponentType.name;
+        players[trainingDummyIndex] = dummy;
+        isAI[trainingDummyIndex] = false;
+
+        applySkinChoiceToBird(player, playerType, null);
+        applySkinChoiceToBird(dummy, opponentType, null);
+    }
+
+    private void captureTrainingSpawns() {
+        Bird player = players[0];
+        Bird dummy = players[trainingDummyIndex];
+        if (player != null) {
+            trainingPlayerSpawnX = player.x;
+            trainingPlayerSpawnY = player.y;
+        }
+        if (dummy != null) {
+            trainingDummySpawnX = dummy.x;
+            trainingDummySpawnY = dummy.y;
+        }
+    }
+
+    private void addTrainingControls(StackPane root) {
+        Button resetDummy = uiFactory.action("RESET DUMMY", 260, 70, 24, "#546E7A", 18, this::resetTrainingDummyPosition);
+        StackPane.setAlignment(resetDummy, Pos.BOTTOM_RIGHT);
+        StackPane.setMargin(resetDummy, new Insets(0, 28, 26, 0));
+        root.getChildren().add(resetDummy);
+    }
+
+    private void resetTrainingDummyPosition() {
+        if (!trainingModeActive) return;
+        Bird dummy = players[trainingDummyIndex];
+        if (dummy == null) return;
+        dummy.x = trainingDummySpawnX;
+        dummy.y = trainingDummySpawnY;
+        dummy.vx = 0;
+        dummy.vy = 0;
+        dummy.canDoubleJump = true;
+        dummy.onVine = false;
+        dummy.attachedVine = null;
+        dummy.health = dummy.getMaxHealth();
+        addToKillFeed("DUMMY RESET.");
+    }
+
+    public boolean isTrainingDummy(Bird target) {
+        return trainingModeActive && target != null && target.playerIndex == trainingDummyIndex;
     }
 
     private void setSlotBirdType(int idx, BirdType type) {
@@ -8364,7 +8991,7 @@ public class BirdGame3 extends Application {
             return;
         }
 
-        if (storyModeActive || adventureModeActive || isTrialMode) return;
+        if (storyModeActive || adventureModeActive || isTrialMode || trainingModeActive) return;
 
         if (competitionModeEnabled) {
             if (!competitionSeriesActive) {
@@ -8516,7 +9143,7 @@ public class BirdGame3 extends Application {
     }
 
     private void applyMatchModeRuntimeEffects(long now) {
-        if (storyModeActive || adventureModeActive || isTrialMode) return;
+        if (storyModeActive || adventureModeActive || isTrialMode || trainingModeActive) return;
 
         if (activeMutator == MatchMutator.LOW_GRAVITY) {
             for (int i = 0; i < activePlayers; i++) {
@@ -8951,7 +9578,9 @@ public class BirdGame3 extends Application {
         StoryChapter storyChapter = null;
         AdventureBattle adventureBattle = null;
         ClassicEncounter classicRound = null;
-        if (classicModeActive) {
+        if (trainingModeActive) {
+            setupTrainingRoster();
+        } else if (classicModeActive) {
             if (classicRun.isEmpty()) {
                 classicRun.addAll(buildClassicRun(classicSelectedBird));
                 classicRoundIndex = 0;
@@ -9266,6 +9895,9 @@ public class BirdGame3 extends Application {
         }
         configureMatchModes();
         positionBattlefieldSpawns();
+        if (trainingModeActive) {
+            captureTrainingSpawns();
+        }
 
         Canvas canvas = new Canvas(WIDTH, HEIGHT);
         GraphicsContext g = canvas.getGraphicsContext2D();
@@ -9371,13 +10003,19 @@ public class BirdGame3 extends Application {
 
                 ui.setFill(Color.WHITE);
                 ui.setFont(Font.font("Arial Black", 48));
-                String timeText = matchTimer > 0 ? String.format("TIME: %d", matchTimer / 60) : "SUDDEN DEATH!";
-                if (matchTimer <= 600 && matchTimer > 0) {
-                    ui.setFill(Color.RED.brighter());
-                    ui.setEffect(new Glow(0.8));
-                } else if (matchTimer <= 0) {
-                    ui.setFill(Color.CRIMSON.darker());
-                    ui.setEffect(new Glow(1.2));
+                String timeText;
+                if (trainingModeActive) {
+                    timeText = "TRAINING";
+                    ui.setFill(Color.web("#80DEEA"));
+                } else {
+                    timeText = matchTimer > 0 ? String.format("TIME: %d", matchTimer / 60) : "SUDDEN DEATH!";
+                    if (matchTimer <= 600 && matchTimer > 0) {
+                        ui.setFill(Color.RED.brighter());
+                        ui.setEffect(new Glow(0.8));
+                    } else if (matchTimer <= 0) {
+                        ui.setFill(Color.CRIMSON.darker());
+                        ui.setEffect(new Glow(1.2));
+                    }
                 }
                 ui.fillText(timeText, WIDTH / 2 - 120, 80);
                 ui.setEffect(null);
@@ -9443,6 +10081,7 @@ public class BirdGame3 extends Application {
     }
 
     private int awardBirdCoinsForMatch(Bird winner) {
+        if (trainingModeActive) return 0;
         int coins = 30 + activePlayers * 10;
         if (winner != null) coins += 10;
         if (classicModeActive) coins += 60;
@@ -9852,7 +10491,7 @@ public class BirdGame3 extends Application {
     }
 
     private void applyWinnerMapProgress(Bird winner) {
-        if (winner == null) return;
+        if (winner == null || trainingModeActive) return;
         if (selectedMap == MapType.CITY) {
             cityWins[winner.playerIndex]++;
             if (cityWins[winner.playerIndex] >= 5 && !achievementsUnlocked[12]) {
@@ -9913,7 +10552,7 @@ public class BirdGame3 extends Application {
         if (balanceOutcomeRecorded) return;
         balanceOutcomeRecorded = true;
 
-        if (isTrialMode || storyModeActive || adventureModeActive) return;
+        if (isTrialMode || storyModeActive || adventureModeActive || trainingModeActive) return;
 
         for (int i = 0; i < activePlayers; i++) {
             Bird b = players[i];
@@ -10033,6 +10672,11 @@ public class BirdGame3 extends Application {
         noirPigeonUnlocked = prefs.getBoolean("skin_noirpigeon", false);
         eagleSkinUnlocked = prefs.getBoolean("skin_eagle", true);
         novaPhoenixUnlocked = prefs.getBoolean("skin_nova_phoenix", false);
+        duneFalconUnlocked = prefs.getBoolean("skin_dune_falcon", false);
+        mintPenguinUnlocked = prefs.getBoolean("skin_mint_penguin", false);
+        circuitTitmouseUnlocked = prefs.getBoolean("skin_circuit_titmouse", false);
+        prismRazorbillUnlocked = prefs.getBoolean("skin_prism_razorbill", false);
+        auroraPelicanUnlocked = prefs.getBoolean("skin_aurora_pelican", false);
         batUnlocked = prefs.getBoolean("char_bat_unlocked", false);
         falconUnlocked = prefs.getBoolean("char_falcon_unlocked", false);
         phoenixUnlocked = prefs.getBoolean("char_phoenix_unlocked", false);
@@ -10110,6 +10754,11 @@ public class BirdGame3 extends Application {
         prefs.putBoolean("skin_noirpigeon", noirPigeonUnlocked);
         prefs.putBoolean("skin_eagle", eagleSkinUnlocked);
         prefs.putBoolean("skin_nova_phoenix", novaPhoenixUnlocked);
+        prefs.putBoolean("skin_dune_falcon", duneFalconUnlocked);
+        prefs.putBoolean("skin_mint_penguin", mintPenguinUnlocked);
+        prefs.putBoolean("skin_circuit_titmouse", circuitTitmouseUnlocked);
+        prefs.putBoolean("skin_prism_razorbill", prismRazorbillUnlocked);
+        prefs.putBoolean("skin_aurora_pelican", auroraPelicanUnlocked);
         prefs.putBoolean("char_bat_unlocked", batUnlocked);
         prefs.putBoolean("char_falcon_unlocked", falconUnlocked);
         prefs.putBoolean("char_phoenix_unlocked", phoenixUnlocked);
