@@ -9,11 +9,12 @@ import java.util.Random;
 final class SuddenDeathController {
     private static final int FPS = 60;
 
-    private static final int BASE_SPAWN_INTERVAL = 78;
+    private static final int BASE_SPAWN_INTERVAL = 90;
     private static final int MIN_SPAWN_INTERVAL = 8;
-    private static final double SPAWN_INTERVAL_DECAY_PER_SEC = 1.8;
+    private static final double SPAWN_INTERVAL_DECAY_PER_SEC = 1.6;
     private static final int MAX_CROWS_PER_SIDE = 10;
-    private static final double CROW_COUNT_STEP_SECONDS = 15.0;
+    private static final double CROW_RAMP_DELAY_SECONDS = 8.0;
+    private static final double CROW_COUNT_STEP_SECONDS = 20.0;
     private static final int BASE_CROW_LIFE = 2;
     private static final int MAX_CROW_LIFE_BONUS = 2;
     private static final double CROW_LIFE_STEP_SECONDS = 30.0;
@@ -50,13 +51,15 @@ final class SuddenDeathController {
         int sdFrames = frames;
         double sdSeconds = sdFrames / (double) FPS;
 
+        int baseInterval = BASE_SPAWN_INTERVAL + (sdSeconds < 12.0 ? 24 : 0);
         int spawnInterval = Math.max(
                 MIN_SPAWN_INTERVAL,
-                (int) Math.round(BASE_SPAWN_INTERVAL - sdSeconds * SPAWN_INTERVAL_DECAY_PER_SEC)
+                (int) Math.round(baseInterval - sdSeconds * SPAWN_INTERVAL_DECAY_PER_SEC)
         );
+        double rampSeconds = Math.max(0.0, sdSeconds - CROW_RAMP_DELAY_SECONDS);
         int crowsPerSide = Math.min(
                 MAX_CROWS_PER_SIDE,
-                1 + (int) (sdSeconds / CROW_COUNT_STEP_SECONDS)
+                1 + (int) (rampSeconds / CROW_COUNT_STEP_SECONDS)
         );
         int murderCrowLife = BASE_CROW_LIFE + Math.min(
                 MAX_CROW_LIFE_BONUS,

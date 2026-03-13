@@ -46,6 +46,7 @@ public class Bird {
     public boolean isCircuitSkin = false;
     public boolean isPrismSkin = false;
     public boolean isAuroraSkin = false;
+    public boolean isBeaconSkin = false;
     public boolean suppressSelectEffects = false;
     public double loungeX, loungeY;
     public int diveTimer = 0;
@@ -269,7 +270,7 @@ public class Bird {
                 if (isKill) {
                     game.eliminations[playerIndex]++;
                     game.groundPounds[playerIndex]++;
-                    if (game.zombieFallingClip != null) game.zombieFallingClip.play();
+                    if (game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
                 }
 
                 if (dealtDamage >= 30) {
@@ -419,7 +420,7 @@ public class Bird {
         if (other.health <= 0 && oldHealth > 0) {
             game.eliminations[playerIndex]++;
             game.checkAchievements(this);
-            if (game.zombieFallingClip != null) game.zombieFallingClip.play();
+            if (game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
             game.scores[playerIndex] += 50;
         }
         game.scores[playerIndex] += (int) dealtDamage / 2;
@@ -486,7 +487,7 @@ public class Bird {
             return;
         }
 
-        if (game.jalapenoClip != null) game.jalapenoClip.play();
+        if (game.isSfxEnabled() && game.jalapenoClip != null) game.jalapenoClip.play();
         game.specialsUsed[playerIndex]++;
 
         switch (type) {
@@ -503,6 +504,7 @@ public class Bird {
             case GRINCHHAWK -> specialGrinchhawk();
             case VULTURE -> specialVulture();
             case OPIUMBIRD -> specialOpiumBird();
+            case HEISENBIRD -> specialHeisenbird();
             case TITMOUSE -> specialTitmouse();
             case BAT -> specialBat();
             case PELICAN -> specialPelican();
@@ -806,6 +808,23 @@ public class Bird {
                     Math.cos(angle) * (2 + Math.random() * 10),
                     Math.sin(angle) * (2 + Math.random() * 10) - 4,
                     Color.PURPLE.deriveColor(0, 1, 1, 0.7)));
+        }
+    }
+
+    private void specialHeisenbird() {
+        leanTimer = 300;
+        leanCooldown = 720;
+        specialCooldown = 720;
+        specialMaxCooldown = 720;
+        game.addToKillFeed(name.split(":")[0].trim() + " COOKED THE BLUE!");
+        game.shakeIntensity = 18;
+        game.hitstopFrames = 12;
+        for (int i = 0; i < 150; i++) {
+            double angle = Math.random() * Math.PI * 2;
+            game.particles.add(new Particle(x + 40, y + 40,
+                    Math.cos(angle) * (2 + Math.random() * 10),
+                    Math.sin(angle) * (2 + Math.random() * 10) - 4,
+                    Color.web("#29B6F6").deriveColor(0, 1, 1, 0.75)));
         }
     }
 
@@ -1519,7 +1538,7 @@ public class Bird {
             case EAGLE, VULTURE, PENGUIN, PHOENIX -> 208;
             case FALCON -> 202;
             case HUMMINGBIRD, TITMOUSE -> 220;
-            case OPIUMBIRD, MOCKINGBIRD -> 205;
+            case OPIUMBIRD, HEISENBIRD, MOCKINGBIRD -> 205;
             case BAT -> 214;
             case PIGEON -> 190;
         };
@@ -1583,6 +1602,8 @@ public class Bird {
                 return crowSwarmCooldown <= 0 && (dist < 380 || lowHealth);
             case OPIUMBIRD:
                 return onGround && dist < 270 && random.nextDouble() < 0.85;
+            case HEISENBIRD:
+                return onGround && dist < 250 && random.nextDouble() < 0.9;
             case TITMOUSE:
                 return dist > 140 && dist < 560;
             case BAT:
@@ -1618,7 +1639,7 @@ public class Bird {
             game.loungeTime[playerIndex]++;
         }
 
-        // === OPIUM BIRD ===
+        // === OPIUM / HEISENBIRD ===
         handleOpiumBirdEffects();
 
         boolean stunned = stunTime > 0;
@@ -1916,37 +1937,52 @@ public class Bird {
     }
 
     private void handleOpiumBirdEffects() {
-        if (type == BirdGame3.BirdType.OPIUMBIRD) {
-            if (leanTimer > 0) {
-                game.leanTime[playerIndex]++;
-            }
+        boolean opium = type == BirdGame3.BirdType.OPIUMBIRD;
+        boolean heisen = type == BirdGame3.BirdType.HEISENBIRD;
+        if (!opium && !heisen) return;
 
-            if (leanTimer > 0) {
-                for (Bird other : game.players) {
-                    if (!canDamageTarget(other)) continue;
-                    double dx = other.x - x;
-                    double dy = other.y - y;
-                    if (Math.hypot(dx, dy) < 300) {
-                        if (Math.hypot(dx, dy) < 250) {
-                            if (random.nextInt(60) == 0) {
-                                applyDamageTo(other, 1);
-                                game.addToKillFeed(name.split(":")[0].trim() + "'s lean is COOKING " + other.name.split(":")[0].trim() + " (-1 HP)");
-                            }
-                            other.vx *= 0.94;
-                            other.vy *= 0.98;
-                        }
+        if (leanTimer > 0 && opium) {
+            game.leanTime[playerIndex]++;
+        } else if (leanTimer > 0 && heisen) {
+            game.leanTime[playerIndex]++;
+        }
 
-                        if (Math.hypot(dx, dy) < 120 && random.nextInt(20) == 0) {
-                            other.highTimer = 180;
+        if (leanTimer > 0) {
+            double outerRadius = heisen ? 280 : 300;
+            double innerRadius = heisen ? 220 : 250;
+            double highRadius = heisen ? 110 : 120;
+            int damageRoll = heisen ? 45 : 60;
+            int highRoll = heisen ? 24 : 20;
+            int highDuration = heisen ? 140 : 180;
+            double slowX = heisen ? 0.96 : 0.94;
+            double slowY = heisen ? 0.985 : 0.98;
+            String cloudLabel = heisen ? "blue crystal" : "lean";
+
+            for (Bird other : game.players) {
+                if (!canDamageTarget(other)) continue;
+                double dx = other.x - x;
+                double dy = other.y - y;
+                double dist = Math.hypot(dx, dy);
+                if (dist < outerRadius) {
+                    if (dist < innerRadius) {
+                        if (random.nextInt(damageRoll) == 0) {
+                            applyDamageTo(other, 1);
+                            game.addToKillFeed(name.split(":")[0].trim() + "'s " + cloudLabel + " is COOKING " + other.name.split(":")[0].trim() + " (-1 HP)");
                         }
+                        other.vx *= slowX;
+                        other.vy *= slowY;
+                    }
+
+                    if (dist < highRadius && random.nextInt(highRoll) == 0) {
+                        other.highTimer = highDuration;
                     }
                 }
-
-                if (Math.random() < 0.1) highTimer = 120;
             }
 
-            if (highTimer > 0) highTimer--;
+            if (Math.random() < (heisen ? 0.08 : 0.1)) highTimer = heisen ? 100 : 120;
         }
+
+        if (highTimer > 0) highTimer--;
     }
 
     private void handleEaglePassive(boolean airborne) {
@@ -2013,7 +2049,7 @@ public class Bird {
                 game.damageDealt[playerIndex] += (int) dealt;
                 game.recordSpecialImpact(playerIndex, (int) dealt, dealt > 0);
                 if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-                if (game.zombieFallingClip != null) game.zombieFallingClip.play();
+                if (game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
 
                 other.vx += (other.x > x ? 1 : -1) * 25;
                 other.vy -= 18;
@@ -2169,13 +2205,9 @@ public class Bird {
             boolean canJump = isOnGround() || (type == BirdGame3.BirdType.PIGEON && canDoubleJump);
             if (game.pressedKeys.contains(jumpKey()) && canJump) {
                 double mult = isOnGround() ? 1.0 : 0.75;
-                double jumpPower = type.jumpHeight * mult;
-                if (playerIndex == 3 && game.isTrialMode) {
-                    jumpPower *= 0.4;
-                }
                 vy = -type.jumpHeight * mult;
                 if (!isOnGround() && type == BirdGame3.BirdType.PIGEON) canDoubleJump = false;
-                if (game.swingClip != null) game.swingClip.play();
+                if (game.isSfxEnabled() && game.swingClip != null) game.swingClip.play();
             }
 
             // Track rooftop jumps
@@ -2198,13 +2230,8 @@ public class Bird {
             if (game.pressedKeys.contains(attackKey()) && attackCooldown <= 0 && !isBlocking) {
                 attack();
                 if (game.butterClip != null) game.butterClip.play();
-                if (playerIndex == 3 && game.isTrialMode) {
-                    attackCooldown = scaledAttackCooldown(72);
-                    attackAnimationTimer = overchargeAttackTimer > 0 ? 20 : 24;
-                } else {
-                    attackCooldown = scaledAttackCooldown(30);
-                    attackAnimationTimer = overchargeAttackTimer > 0 ? 10 : 12;
-                }
+                attackCooldown = scaledAttackCooldown(30);
+                attackAnimationTimer = overchargeAttackTimer > 0 ? 10 : 12;
             }
 
             if (game.pressedKeys.contains(specialKey())) {
@@ -2810,7 +2837,7 @@ public class Bird {
             } else {
                 game.addToKillFeed(name.split(":")[0].trim() + " went out of bounds... -50 HP");
             }
-            if (!reborn && game.zombieFallingClip != null) game.zombieFallingClip.play();
+            if (!reborn && game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
             if (game.selectedMap == MapType.BATTLEFIELD) {
                 double centerX = game.battlefieldSpawnCenterX();
                 x = centerX - 40 * sizeMultiplier;
@@ -2823,10 +2850,6 @@ public class Bird {
             vy = 0;
             canDoubleJump = true;
 
-            if (game.isTrialMode) {
-                game.shakeIntensity = 20;
-                game.hitstopFrames = 15;
-            }
         }
 
         if (y < game.CEILING_Y) {
@@ -2859,7 +2882,7 @@ public class Bird {
             } else {
                 game.addToKillFeed(name.split(":")[0].trim() + " fell... but survived! -50 HP");
             }
-            if (!reborn && game.zombieFallingClip != null) game.zombieFallingClip.play();
+            if (!reborn && game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
             if (game.selectedMap == MapType.BATTLEFIELD) {
                 double centerX = game.battlefieldSpawnCenterX();
                 x = centerX - 40 * sizeMultiplier;
@@ -2906,7 +2929,7 @@ public class Bird {
     private void handlePowerUpType(PowerUp p, Iterator<PowerUp> it) {
         switch (p.type) {
             case HEALTH -> {
-                health = Math.min(getMaxHealth(), health + 40);
+                health = Math.max(health, Math.min(getMaxHealth(), health + 40));
                 game.addToKillFeed(name.split(":")[0].trim() + " grabbed HEALTH! +40 HP");
             }
             case SPEED -> {
@@ -3078,6 +3101,193 @@ public class Bird {
         }
     }
 
+    LanBirdState toLanState() {
+        LanBirdState state = new LanBirdState();
+        state.typeOrdinal = type.ordinal();
+        state.x = x;
+        state.y = y;
+        state.vx = vx;
+        state.vy = vy;
+        state.facingRight = facingRight;
+        state.health = health;
+        state.stunTime = stunTime;
+        state.specialCooldown = specialCooldown;
+        state.specialMaxCooldown = specialMaxCooldown;
+        state.attackCooldown = attackCooldown;
+        state.attackAnimationTimer = attackAnimationTimer;
+        state.canDoubleJump = canDoubleJump;
+        state.loungeActive = loungeActive;
+        state.isCitySkin = isCitySkin;
+        state.isNoirSkin = isNoirSkin;
+        state.isClassicSkin = isClassicSkin;
+        state.isNovaSkin = isNovaSkin;
+        state.isDuneSkin = isDuneSkin;
+        state.isMintSkin = isMintSkin;
+        state.isCircuitSkin = isCircuitSkin;
+        state.isPrismSkin = isPrismSkin;
+        state.isAuroraSkin = isAuroraSkin;
+        state.isBeaconSkin = isBeaconSkin;
+        state.suppressSelectEffects = suppressSelectEffects;
+        state.loungeX = loungeX;
+        state.loungeY = loungeY;
+        state.loungeHealth = loungeHealth;
+        state.loungeDamageFlash = loungeDamageFlash;
+        state.diveTimer = diveTimer;
+        state.isZipping = isZipping;
+        state.zipTargetX = zipTargetX;
+        state.zipTargetY = zipTargetY;
+        state.zipTimer = zipTimer;
+        state.isGroundPounding = isGroundPounding;
+        state.carrionSwarmTimer = carrionSwarmTimer;
+        state.crowSwarmCooldown = crowSwarmCooldown;
+        state.isFlying = isFlying;
+        state.leanTimer = leanTimer;
+        state.leanCooldown = leanCooldown;
+        state.isHigh = isHigh;
+        state.highTimer = highTimer;
+        state.tauntCooldown = tauntCooldown;
+        state.tauntTimer = tauntTimer;
+        state.cooldownFlash = cooldownFlash;
+        state.currentTaunt = currentTaunt;
+        state.eagleDiveCountdown = eagleDiveCountdown;
+        state.eagleDiveActive = eagleDiveActive;
+        state.eagleAscentActive = eagleAscentActive;
+        state.eagleAscentFrames = eagleAscentFrames;
+        state.bladeStormFrames = bladeStormFrames;
+        state.plungeTimer = plungeTimer;
+        state.batHanging = batHanging;
+        state.batEchoTimer = batEchoTimer;
+        state.isBlocking = isBlocking;
+        state.blockCooldown = blockCooldown;
+        state.speedMultiplier = speedMultiplier;
+        state.powerMultiplier = powerMultiplier;
+        state.sizeMultiplier = sizeMultiplier;
+        state.baseSpeedMultiplier = baseSpeedMultiplier;
+        state.basePowerMultiplier = basePowerMultiplier;
+        state.baseSizeMultiplier = baseSizeMultiplier;
+        state.speedTimer = speedTimer;
+        state.rageTimer = rageTimer;
+        state.shrinkTimer = shrinkTimer;
+        state.titanTimer = titanTimer;
+        state.titanActive = titanActive;
+        state.neonRushTimer = neonRushTimer;
+        state.thermalTimer = thermalTimer;
+        state.thermalLift = thermalLift;
+        state.overchargeAttackTimer = overchargeAttackTimer;
+        state.speedBoostTimer = speedBoostTimer;
+        state.hoverRegenTimer = hoverRegenTimer;
+        state.hoverRegenMultiplier = hoverRegenMultiplier;
+        state.grappleTimer = grappleTimer;
+        state.grappleUses = grappleUses;
+        state.isGrappling = isGrappling;
+        state.grappleTargetX = grappleTargetX;
+        state.grappleTargetY = grappleTargetY;
+        state.enlargedByPlunge = enlargedByPlunge;
+        state.limitedFlightFuel = limitedFlightFuel;
+        state.penguinIceFxTimer = penguinIceFxTimer;
+        state.penguinDashDamageTimer = penguinDashDamageTimer;
+        state.hummingFrenzyTimer = hummingFrenzyTimer;
+        state.phoenixAfterburnTimer = phoenixAfterburnTimer;
+        state.phoenixRebornUsed = phoenixRebornUsed;
+        state.phoenixRebornActive = phoenixRebornActive;
+        return state;
+    }
+
+    void applyLanState(LanBirdState state) {
+        if (state == null) return;
+        BirdGame3.BirdType[] types = BirdGame3.BirdType.values();
+        if (state.typeOrdinal >= 0 && state.typeOrdinal < types.length) {
+            this.type = types[state.typeOrdinal];
+        }
+        this.name = "P" + (playerIndex + 1) + ": " + type.name;
+        this.x = state.x;
+        this.y = state.y;
+        this.vx = state.vx;
+        this.vy = state.vy;
+        this.facingRight = state.facingRight;
+        this.health = state.health;
+        this.stunTime = state.stunTime;
+        this.specialCooldown = state.specialCooldown;
+        this.specialMaxCooldown = state.specialMaxCooldown;
+        this.attackCooldown = state.attackCooldown;
+        this.attackAnimationTimer = state.attackAnimationTimer;
+        this.canDoubleJump = state.canDoubleJump;
+        this.loungeActive = state.loungeActive;
+        this.isCitySkin = state.isCitySkin;
+        this.isNoirSkin = state.isNoirSkin;
+        this.isClassicSkin = state.isClassicSkin;
+        this.isNovaSkin = state.isNovaSkin;
+        this.isDuneSkin = state.isDuneSkin;
+        this.isMintSkin = state.isMintSkin;
+        this.isCircuitSkin = state.isCircuitSkin;
+        this.isPrismSkin = state.isPrismSkin;
+        this.isAuroraSkin = state.isAuroraSkin;
+        this.isBeaconSkin = state.isBeaconSkin;
+        this.suppressSelectEffects = state.suppressSelectEffects;
+        this.loungeX = state.loungeX;
+        this.loungeY = state.loungeY;
+        this.loungeHealth = state.loungeHealth;
+        this.loungeDamageFlash = state.loungeDamageFlash;
+        this.diveTimer = state.diveTimer;
+        this.isZipping = state.isZipping;
+        this.zipTargetX = state.zipTargetX;
+        this.zipTargetY = state.zipTargetY;
+        this.zipTimer = state.zipTimer;
+        this.isGroundPounding = state.isGroundPounding;
+        this.carrionSwarmTimer = state.carrionSwarmTimer;
+        this.crowSwarmCooldown = state.crowSwarmCooldown;
+        this.isFlying = state.isFlying;
+        this.leanTimer = state.leanTimer;
+        this.leanCooldown = state.leanCooldown;
+        this.isHigh = state.isHigh;
+        this.highTimer = state.highTimer;
+        this.tauntCooldown = state.tauntCooldown;
+        this.tauntTimer = state.tauntTimer;
+        this.cooldownFlash = state.cooldownFlash;
+        this.currentTaunt = state.currentTaunt;
+        this.eagleDiveCountdown = state.eagleDiveCountdown;
+        this.eagleDiveActive = state.eagleDiveActive;
+        this.eagleAscentActive = state.eagleAscentActive;
+        this.eagleAscentFrames = state.eagleAscentFrames;
+        this.bladeStormFrames = state.bladeStormFrames;
+        this.plungeTimer = state.plungeTimer;
+        this.batHanging = state.batHanging;
+        this.batEchoTimer = state.batEchoTimer;
+        this.isBlocking = state.isBlocking;
+        this.blockCooldown = state.blockCooldown;
+        this.speedMultiplier = state.speedMultiplier;
+        this.powerMultiplier = state.powerMultiplier;
+        this.sizeMultiplier = state.sizeMultiplier;
+        this.baseSpeedMultiplier = state.baseSpeedMultiplier;
+        this.basePowerMultiplier = state.basePowerMultiplier;
+        this.baseSizeMultiplier = state.baseSizeMultiplier;
+        this.speedTimer = state.speedTimer;
+        this.rageTimer = state.rageTimer;
+        this.shrinkTimer = state.shrinkTimer;
+        this.titanTimer = state.titanTimer;
+        this.titanActive = state.titanActive;
+        this.neonRushTimer = state.neonRushTimer;
+        this.thermalTimer = state.thermalTimer;
+        this.thermalLift = state.thermalLift;
+        this.overchargeAttackTimer = state.overchargeAttackTimer;
+        this.speedBoostTimer = state.speedBoostTimer;
+        this.hoverRegenTimer = state.hoverRegenTimer;
+        this.hoverRegenMultiplier = state.hoverRegenMultiplier;
+        this.grappleTimer = state.grappleTimer;
+        this.grappleUses = state.grappleUses;
+        this.isGrappling = state.isGrappling;
+        this.grappleTargetX = state.grappleTargetX;
+        this.grappleTargetY = state.grappleTargetY;
+        this.enlargedByPlunge = state.enlargedByPlunge;
+        this.limitedFlightFuel = state.limitedFlightFuel;
+        this.penguinIceFxTimer = state.penguinIceFxTimer;
+        this.penguinDashDamageTimer = state.penguinDashDamageTimer;
+        this.hummingFrenzyTimer = state.hummingFrenzyTimer;
+        this.phoenixAfterburnTimer = state.phoenixAfterburnTimer;
+        this.phoenixRebornUsed = state.phoenixRebornUsed;
+        this.phoenixRebornActive = state.phoenixRebornActive;
+    }
+
     public void draw(GraphicsContext g) {
         double drawSize = 80 * sizeMultiplier;
         boolean airborne = !isOnGround();
@@ -3112,8 +3322,10 @@ public class Bird {
         drawSpecialCooldown(g);
         drawLounge(g);
         drawBodyAndEyes(g, drawSize);
+        drawHeisenbirdAccessories(g, drawSize);
         drawCitySkin(g);
         drawNoirSkin(g);
+        drawBeaconSkin(g, drawSize);
         drawClassicSkinAccent(g, drawSize);
         drawSpecialSkinAccent(g, drawSize);
         drawBeak(g, drawSize);
@@ -3364,7 +3576,11 @@ public class Bird {
     }
 
     private void drawOpiumBirdEffects(GraphicsContext g, double drawSize) {
-        if (type == BirdGame3.BirdType.OPIUMBIRD) {
+        boolean opium = type == BirdGame3.BirdType.OPIUMBIRD;
+        boolean heisen = type == BirdGame3.BirdType.HEISENBIRD;
+        if (!opium && !heisen) return;
+
+        if (opium) {
             g.setFill(Color.rgb(138, 43, 226, 0.3));
             g.fillOval(x - 30, y - 40, drawSize + 60, drawSize + 80);
 
@@ -3399,6 +3615,60 @@ public class Bird {
                 g.setFill(Color.WHITE);
                 g.setFont(Font.font("Arial Black", 18));
                 g.fillText("LEAN", facingRight ? x + 15 : x + 38, y + 116);
+            }
+        } else {
+            g.setFill(Color.web("#0D47A1", 0.25));
+            g.fillOval(x - 30, y - 40, drawSize + 60, drawSize + 80);
+
+            g.setFill(Color.web("#1E88E5"));
+            double crystalBaseX = facingRight ? x + 85 : x - 21;
+            for (int i = 0; i < 4; i++) {
+                double offset = Math.sin((System.currentTimeMillis() / 110.0) + i) * 3;
+                double facingOffset = facingRight ? offset : -offset;
+                double cx = crystalBaseX + facingOffset;
+                double cy = y + 50 + i * 14;
+                double w = 14;
+                double h = 18;
+                g.fillPolygon(
+                        new double[]{cx, cx + w / 2.0, cx + w, cx + w / 2.0},
+                        new double[]{cy + h / 2.0, cy, cy + h / 2.0, cy + h},
+                        4
+                );
+            }
+            g.setFill(Color.web("#81D4FA"));
+            for (int i = 0; i < 3; i++) {
+                double cx = (facingRight ? x + 66 : x + 6) + i * 8;
+                double cy = y + 46 + i * 10;
+                g.fillPolygon(
+                        new double[]{cx, cx + 6, cx + 12, cx + 6},
+                        new double[]{cy + 6, cy, cy + 6, cy + 12},
+                        4
+                );
+            }
+
+            if (highTimer > 0) {
+                double intensity = highTimer / 140.0;
+                g.setFill(Color.web("#29B6F6", 0.25 * intensity));
+                g.fillOval(x - 100, y - 100, drawSize + 200, drawSize + 200);
+                g.setFill(Color.web("#4FC3F7"));
+                g.fillOval(x + Math.sin(highTimer * 0.3) * 18, y + Math.cos(highTimer * 0.2) * 14, drawSize, drawSize);
+            }
+
+            if (leanTimer > 0) {
+                double cloudAlpha = 0.28 + 0.28 * Math.sin(System.currentTimeMillis() / 200.0);
+                g.setFill(Color.web("#29B6F6", cloudAlpha));
+                g.fillOval(x - 110, y - 90, 280, 280);
+                g.setFill(Color.WHITE);
+                g.setFont(Font.font("Arial Black", 30));
+                g.fillText("BLUE", facingRight ? x + 14 : x + 30, y + 20);
+            }
+
+            if (leanCooldown > 0) {
+                g.setFill(Color.web("#0D47A1"));
+                g.fillRoundRect(x - 10, y + 100, 100, 20, 15, 15);
+                g.setFill(Color.WHITE);
+                g.setFont(Font.font("Arial Black", 18));
+                g.fillText("BLUE", facingRight ? x + 20 : x + 38, y + 116);
             }
         }
     }
@@ -3513,9 +3783,7 @@ public class Bird {
     }
 
     private void drawEagleSkin(GraphicsContext g, double drawSize) {
-        if (type == BirdGame3.BirdType.EAGLE &&
-                (isClassicSkin ||
-                        (game.isTrialMode && playerIndex == 3 && game.selectedMap == MapType.SKYCLIFFS))) {
+        if (type == BirdGame3.BirdType.EAGLE && isClassicSkin) {
 
             if (!suppressSelectEffects) {
                 g.setFill(Color.GOLD.deriveColor(0, 1, 1, 0.5));
@@ -3613,6 +3881,8 @@ public class Bird {
                 cooldownText = "CROWS";
             } else if (type == BirdGame3.BirdType.OPIUMBIRD && leanCooldown > 0) {
                 cooldownText = "LEAN";
+            } else if (type == BirdGame3.BirdType.HEISENBIRD && leanCooldown > 0) {
+                cooldownText = "BLUE";
             } else if (type == BirdGame3.BirdType.MOCKINGBIRD && specialCooldown > 0) {
                 cooldownText = "LOUNGE";
             } else if (type == BirdGame3.BirdType.PIGEON && specialCooldown > 0) {
@@ -3665,6 +3935,7 @@ public class Bird {
         }
 
         boolean noirPigeon = (type == BirdGame3.BirdType.PIGEON && isNoirSkin);
+        boolean beaconPigeon = (type == BirdGame3.BirdType.PIGEON && isBeaconSkin);
         boolean classicPalette = isClassicSkin && type != BirdGame3.BirdType.PIGEON;
         boolean duneFalcon = (type == BirdGame3.BirdType.FALCON && isDuneSkin);
         boolean mintPenguin = (type == BirdGame3.BirdType.PENGUIN && isMintSkin);
@@ -3674,7 +3945,11 @@ public class Bird {
         Color bodyColor;
         Color headColor;
         Color eyeOverride = null;
-        if (noirPigeon) {
+        if (beaconPigeon) {
+            bodyColor = Color.web("#FFE082");
+            headColor = Color.web("#FFF8E1");
+            eyeOverride = Color.web("#1E88E5");
+        } else if (noirPigeon) {
             bodyColor = Color.rgb(18, 18, 18);
             headColor = Color.rgb(42, 42, 42);
         } else if (duneFalcon) {
@@ -3738,6 +4013,34 @@ public class Bird {
         if (noirPigeon) eyeColor = Color.RED.brighter();
         g.setFill(eyeColor);
         g.fillOval(x + (facingRight ? 55 : 25) * sizeMultiplier, y + 25 * sizeMultiplier, 15 * sizeMultiplier, 15 * sizeMultiplier);
+    }
+
+    private void drawHeisenbirdAccessories(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.HEISENBIRD) return;
+        double s = sizeMultiplier;
+        double headX = facingRight ? x + 50 * s : x - 20 * s;
+        double headY = y + 20 * s;
+        double headW = 50 * s;
+
+        // Hat
+        g.setFill(Color.rgb(20, 20, 20));
+        g.fillRoundRect(headX - 6 * s, headY - 12 * s, headW + 12 * s, 10 * s, 6 * s, 6 * s);
+        g.setFill(Color.rgb(35, 35, 35));
+        g.fillRoundRect(headX + 8 * s, headY - 34 * s, headW - 16 * s, 22 * s, 6 * s, 6 * s);
+        g.setFill(Color.rgb(90, 90, 90));
+        g.fillRect(headX + 10 * s, headY - 24 * s, headW - 20 * s, 5 * s);
+
+        // Goatee
+        g.setFill(Color.rgb(45, 25, 15));
+        double goateeW = 14 * s;
+        double goateeH = 10 * s;
+        double goateeX = facingRight ? x + 62 * s : x + 4 * s;
+        double goateeY = y + 54 * s;
+        g.fillPolygon(
+                new double[]{goateeX, goateeX + goateeW, goateeX + goateeW / 2.0},
+                new double[]{goateeY, goateeY, goateeY + goateeH},
+                3
+        );
     }
 
     private void drawClassicSkinAccent(GraphicsContext g, double drawSize) {
@@ -3986,6 +4289,27 @@ public class Bird {
         }
     }
 
+    private void drawBeaconSkin(GraphicsContext g, double drawSize) {
+        if (type == BirdGame3.BirdType.PIGEON && isBeaconSkin) {
+            double s = sizeMultiplier;
+            double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 160.0);
+            g.setFill(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.18 + 0.18 * pulse));
+            g.fillOval(x - 14 * s, y - 14 * s, drawSize + 28 * s, drawSize + 28 * s);
+
+            g.setStroke(Color.web("#FFE082").deriveColor(0, 1, 1, 0.75));
+            g.setLineWidth(2.2 * s);
+            g.strokeOval(x - 8 * s, y - 8 * s, drawSize + 16 * s, drawSize + 16 * s);
+
+            double headX = facingRight ? x + 50 * s : x - 20 * s;
+            double headY = y + 20 * s;
+            g.setFill(Color.web("#81D4FA").deriveColor(0, 1, 1, 0.85));
+            g.fillOval(headX + 18 * s, headY - 10 * s, 10 * s, 10 * s);
+            g.setStroke(Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.85));
+            g.setLineWidth(1.6 * s);
+            g.strokeLine(headX + 23 * s, headY - 12 * s, headX + 23 * s, headY - 20 * s);
+        }
+    }
+
     private void drawBeak(GraphicsContext g, double drawSize) {
         if (type == BirdGame3.BirdType.BAT) {
             double mouthX = x + 33 * sizeMultiplier;
@@ -4091,10 +4415,10 @@ public class Bird {
             }
         }
 
-        int flashFrame = (playerIndex == 3 && game.isTrialMode) ? 24 : 12;
+        int flashFrame = 12;
         if (attackAnimationTimer == flashFrame) {
-            double flashOpacity = (playerIndex == 3 && game.isTrialMode) ? 0.9 : 0.7;
-            double flashSize = (playerIndex == 3 && game.isTrialMode) ? 60 : 36;
+            double flashOpacity = 0.7;
+            double flashSize = 36;
             g.setFill(Color.WHITE.deriveColor(0, 1, 1, flashOpacity));
             g.fillOval(
                     facingRight ? x + 90 * sizeMultiplier : x - 40 * sizeMultiplier,

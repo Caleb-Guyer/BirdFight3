@@ -1,0 +1,180 @@
+package com.example.birdgame3;
+
+import com.example.birdgame3.BirdGame3.BirdType;
+import com.example.birdgame3.BirdGame3.MapType;
+
+import java.io.ByteArrayInputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.IOException;
+import java.net.Socket;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+
+class LanClient {
+    private final BirdGame3 game;
+    private Socket socket;
+    private DataInputStream in;
+    private DataOutputStream out;
+    private final BlockingQueue<byte[]> outbound = new LinkedBlockingQueue<>();
+    private Thread readThread;
+    private Thread writeThread;
+    private volatile boolean running;
+    private volatile int playerIndex = -1;
+    private String lastError = "";
+
+    LanClient(BirdGame3 game) {
+        this.game = game;
+    }
+
+    int getPlayerIndex() {
+        return playerIndex;
+    }
+
+    String getLastError() {
+        return lastError;
+    }
+
+    boolean connect(String host, int port) {
+        if (running) return true;
+        try {
+            socket = new Socket(host, port);
+            socket.setTcpNoDelay(true);
+            in = new DataInputStream(socket.getInputStream());
+            out = new DataOutputStream(socket.getOutputStream());
+            running = true;
+            readThread = new Thread(this::readLoop, "LanClient-Read");
+            writeThread = new Thread(this::writeLoop, "LanClient-Write");
+            readThread.setDaemon(true);
+            writeThread.setDaemon(true);
+            readThread.start();
+            writeThread.start();
+            sendHello();
+            return true;
+        } catch (IOException e) {
+            lastError = e.getMessage() != null ? e.getMessage() : "Connection failed.";
+            disconnect();
+            return false;
+        }
+    }
+
+    void disconnect() {
+        running = false;
+        if (readThread != null) readThread.interrupt();
+        if (writeThread != null) writeThread.interrupt();
+        try {
+            if (socket != null) socket.close();
+        } catch (IOException ignored) {
+        }
+    }
+
+    void sendSelect(BirdType type) {
+        if (!running) return;
+        try {
+            int ord = type != null ? type.ordinal() : -1;
+            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_SELECT, out -> out.writeInt(ord));
+            outbound.offer(msg);
+        } catch (IOException ignored) {
+        }
+    }
+
+    void sendInputMask(int mask) {
+        if (!running) return;
+        try {
+            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_INPUT, out -> out.writeInt(mask));
+            outbound.offer(msg);
+        } catch (IOException ignored) {
+        }
+    }
+
+    private void sendHello() throws IOException {
+        byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_HELLO, out -> out.writeInt(LanProtocol.VERSION));
+        outbound.offer(msg);
+    }
+
+    private void readLoop() {
+        try {
+            while (running) {
+                byte[] payload = LanProtocol.readFramed(in);
+                DataInputStream msgIn = new DataInputStream(new ByteArrayInputStream(payload));
+                byte type = msgIn.readByte();
+                switch (type) {
+                    case LanProtocol.MSG_WELCOME -> {
+                        int idx = msgIn.readInt();
+                        int version = msgIn.readInt();
+                        if (version != LanProtocol.VERSION) {
+                            running = false;
+                            break;
+                        }
+                        playerIndex = idx;
+                        game.onLanWelcome(idx);
+                    }
+                    case LanProtocol.MSG_LOBBY -> {
+                        MapType map = readMap(msgIn);
+                        boolean[] connected = new boolean[4];
+                        BirdType[] birds = new BirdType[4];
+                        for (int i = 0; i < 4; i++) {
+                            connected[i] = msgIn.readBoolean();
+                            birds[i] = readBird(msgIn);
+                        }
+                        game.onLanLobbyUpdate(map, connected, birds);
+                    }
+                    case LanProtocol.MSG_START -> {
+                        MapType map = readMap(msgIn);
+                        boolean[] connected = new boolean[4];
+                        BirdType[] birds = new BirdType[4];
+                        for (int i = 0; i < 4; i++) {
+                            connected[i] = msgIn.readBoolean();
+                            birds[i] = readBird(msgIn);
+                        }
+                        game.onLanStartMatch(map, connected, birds);
+                    }
+                    case LanProtocol.MSG_STATE -> {
+                        LanState state = LanState.read(msgIn);
+                        game.onLanState(state);
+                    }
+                    case LanProtocol.MSG_END -> {
+                        int winnerIndex = msgIn.readInt();
+                        game.onLanMatchEnd(winnerIndex);
+                    }
+                    default -> {
+                    }
+                }
+            }
+        } catch (IOException ignored) {
+        } finally {
+            disconnect();
+            game.onLanDisconnected("Connection lost.");
+        }
+    }
+
+    private void writeLoop() {
+        try {
+            while (running) {
+                byte[] payload = outbound.take();
+                LanProtocol.writeFramed(out, payload);
+            }
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        } catch (IOException ignored) {
+        } finally {
+            disconnect();
+        }
+    }
+
+    private MapType readMap(DataInputStream in) throws IOException {
+        int ord = in.readInt();
+        MapType[] values = MapType.values();
+        if (ord < 0 || ord >= values.length) {
+            return MapType.FOREST;
+        }
+        return values[ord];
+    }
+
+    private BirdType readBird(DataInputStream in) throws IOException {
+        int ord = in.readInt();
+        BirdType[] values = BirdType.values();
+        if (ord < 0 || ord >= values.length) return null;
+        return values[ord];
+    }
+}
