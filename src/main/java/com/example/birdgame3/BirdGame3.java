@@ -962,6 +962,19 @@ public class BirdGame3 extends Application {
     private final Set<ClassicTwist> classicUsedTwists = EnumSet.noneOf(ClassicTwist.class);
     private final Set<MatchMutator> classicUsedMutators = EnumSet.noneOf(MatchMutator.class);
 
+    // === TOURNAMENT MODE ===
+    private boolean tournamentModeActive = false;
+    private int tournamentEntrantCount = 8;
+    private int tournamentHumanCount = 2;
+    private boolean tournamentMapRandom = true;
+    private MapType tournamentFixedMap = MapType.FOREST;
+    private final List<TournamentEntry> tournamentEntries = new ArrayList<>();
+    private final List<List<TournamentMatch>> tournamentRounds = new ArrayList<>();
+    private TournamentMatch currentTournamentMatch = null;
+    private TournamentEntry tournamentSlotA = null;
+    private TournamentEntry tournamentSlotB = null;
+    private boolean tournamentMatchResolved = false;
+
     private enum ClassicTwist {
         STORM_LIFTS("Storm Lifts", "Thermal vents surge and reward vertical control."),
         CROW_CARNIVAL("Crow Carnival", "Neutral crows patrol lanes from the opening bell."),
@@ -1026,6 +1039,31 @@ public class BirdGame3 extends Application {
             this.allies = allies;
             this.enemies = enemies;
             this.bossFight = bossFight;
+        }
+    }
+
+    static class TournamentEntry {
+        final int id;
+        boolean human = true;
+        BirdType selectedType = null;
+
+        TournamentEntry(int id) {
+            this.id = id;
+        }
+    }
+
+    static class TournamentMatch {
+        final int roundIndex;
+        final int matchIndex;
+        TournamentEntry a;
+        TournamentEntry b;
+        TournamentEntry winner;
+
+        TournamentMatch(int roundIndex, int matchIndex, TournamentEntry a, TournamentEntry b) {
+            this.roundIndex = roundIndex;
+            this.matchIndex = matchIndex;
+            this.a = a;
+            this.b = b;
         }
     }
 
@@ -4757,6 +4795,7 @@ public class BirdGame3 extends Application {
         classicRoundIndex = 0;
         classicTeamMode = false;
         Arrays.fill(classicTeams, 1);
+        resetTournamentRun();
         competitionSeriesActive = false;
         Arrays.fill(competitionRoundWins, 0);
         Arrays.fill(competitionTeamWins, 0);
@@ -6211,7 +6250,9 @@ public class BirdGame3 extends Application {
         title.setTextFill(Color.web("#FFE082"));
 
         Button classicBtn = uiFactory.action("CLASSIC MODE", 700, 140, 44, "#1565C0", 30, () -> showClassicBirdSelect(stage));
-        VBox options = new VBox(26, classicBtn);
+        Button episodesBtn = uiFactory.action("EPISODES", 700, 140, 44, "#8E24AA", 30, () -> showEpisodesHub(stage));
+        Button tournamentBtn = uiFactory.action("TOURNAMENT MODE", 700, 140, 40, "#FFB300", 28, () -> showTournamentSetup(stage));
+        VBox options = new VBox(22, classicBtn, episodesBtn, tournamentBtn);
         options.setAlignment(Pos.CENTER);
 
         Button back = uiFactory.action("BACK TO HUB", 360, 90, 34, "#D32F2F", 22, () -> showMenu(stage));
@@ -6228,6 +6269,749 @@ public class BirdGame3 extends Application {
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
         classicBtn.requestFocus();
+    }
+
+    private void resetTournamentRun() {
+        tournamentModeActive = false;
+        tournamentRounds.clear();
+        currentTournamentMatch = null;
+        tournamentSlotA = null;
+        tournamentSlotB = null;
+        tournamentMatchResolved = false;
+    }
+
+    private void ensureTournamentEntries() {
+        tournamentEntrantCount = Math.max(2, Math.min(32, tournamentEntrantCount));
+        tournamentHumanCount = Math.max(0, Math.min(tournamentHumanCount, tournamentEntrantCount));
+        int current = tournamentEntries.size();
+        if (current < tournamentEntrantCount) {
+            for (int i = current; i < tournamentEntrantCount; i++) {
+                tournamentEntries.add(new TournamentEntry(i + 1));
+            }
+        } else if (current > tournamentEntrantCount) {
+            while (tournamentEntries.size() > tournamentEntrantCount) {
+                tournamentEntries.remove(tournamentEntries.size() - 1);
+            }
+        }
+    }
+
+    private void syncTournamentEntries() {
+        ensureTournamentEntries();
+        for (int i = 0; i < tournamentEntries.size(); i++) {
+            TournamentEntry entry = tournamentEntries.get(i);
+            entry.human = i < tournamentHumanCount;
+            if (entry.selectedType != null && !isBirdUnlocked(entry.selectedType)) {
+                entry.selectedType = null;
+            }
+        }
+    }
+
+    private String tournamentEntryLabel(TournamentEntry entry) {
+        if (entry == null) return "PLAYER";
+        return "PLAYER " + entry.id;
+    }
+
+    private List<MapType> tournamentMapPool() {
+        List<MapType> maps = new ArrayList<>();
+        for (MapType map : MapType.values()) {
+            if (isMapUnlocked(map)) {
+                maps.add(map);
+            }
+        }
+        if (maps.isEmpty()) {
+            maps.add(MapType.FOREST);
+        }
+        return maps;
+    }
+
+    private MapType pickTournamentMap() {
+        if (!tournamentMapRandom) {
+            List<MapType> maps = tournamentMapPool();
+            if (!maps.contains(tournamentFixedMap)) {
+                tournamentFixedMap = maps.get(0);
+            }
+            return tournamentFixedMap;
+        }
+        List<MapType> maps = tournamentMapPool();
+        return maps.get(random.nextInt(maps.size()));
+    }
+
+    private void buildTournamentBracket() {
+        tournamentRounds.clear();
+        ensureTournamentEntries();
+        if (tournamentEntries.isEmpty()) return;
+
+        List<TournamentEntry> seeds = new ArrayList<>(tournamentEntries);
+        int size = 1;
+        while (size < seeds.size()) size *= 2;
+        int matchCount = size / 2;
+
+        List<TournamentMatch> round0 = new ArrayList<>();
+        for (int i = 0; i < matchCount; i++) {
+            round0.add(new TournamentMatch(0, i, null, null));
+        }
+        for (int i = 0; i < matchCount && i < seeds.size(); i++) {
+            round0.get(i).a = seeds.get(i);
+        }
+        int idx = matchCount;
+        int matchIndex = 0;
+        while (idx < seeds.size()) {
+            round0.get(matchIndex).b = seeds.get(idx);
+            idx++;
+            matchIndex++;
+        }
+        tournamentRounds.add(round0);
+
+        int roundIndex = 1;
+        int nextMatches = matchCount / 2;
+        while (nextMatches > 0) {
+            List<TournamentMatch> round = new ArrayList<>();
+            for (int i = 0; i < nextMatches; i++) {
+                round.add(new TournamentMatch(roundIndex, i, null, null));
+            }
+            tournamentRounds.add(round);
+            roundIndex++;
+            nextMatches /= 2;
+        }
+    }
+
+    private TournamentMatch findNextTournamentMatch() {
+        for (List<TournamentMatch> round : tournamentRounds) {
+            for (TournamentMatch match : round) {
+                if (match.winner == null && match.a != null && match.b != null) {
+                    return match;
+                }
+            }
+        }
+        return null;
+    }
+
+    private void recordTournamentWinner(TournamentMatch match, TournamentEntry winner) {
+        if (match == null || winner == null || match.winner != null) return;
+        match.winner = winner;
+        int nextRoundIndex = match.roundIndex + 1;
+        if (nextRoundIndex < tournamentRounds.size()) {
+            List<TournamentMatch> nextRound = tournamentRounds.get(nextRoundIndex);
+            TournamentMatch next = nextRound.get(match.matchIndex / 2);
+            if (match.matchIndex % 2 == 0) {
+                next.a = winner;
+            } else {
+                next.b = winner;
+            }
+        }
+    }
+
+    private boolean isTournamentComplete() {
+        if (tournamentRounds.isEmpty()) return false;
+        List<TournamentMatch> last = tournamentRounds.get(tournamentRounds.size() - 1);
+        return !last.isEmpty() && last.get(0).winner != null;
+    }
+
+    private void resolveTournamentByes() {
+        if (tournamentRounds.isEmpty()) return;
+        List<TournamentMatch> round0 = tournamentRounds.get(0);
+        for (TournamentMatch match : round0) {
+            if (match.winner != null) continue;
+            boolean hasA = match.a != null;
+            boolean hasB = match.b != null;
+            if (hasA ^ hasB) {
+                recordTournamentWinner(match, hasA ? match.a : match.b);
+            }
+        }
+    }
+
+    private String tournamentRoundLabel(int roundIndex) {
+        int totalRounds = tournamentRounds.size();
+        if (totalRounds == 0) return "ROUND";
+        int entrants = 1 << (totalRounds - roundIndex);
+        return switch (entrants) {
+            case 2 -> "FINAL";
+            case 4 -> "SEMIFINALS";
+            case 8 -> "QUARTERFINALS";
+            case 16 -> "ROUND OF 16";
+            case 32 -> "ROUND OF 32";
+            case 64 -> "ROUND OF 64";
+            default -> "ROUND " + (roundIndex + 1);
+        };
+    }
+
+    private TournamentEntry resolveTournamentWinnerEntry(Bird winner) {
+        if (tournamentSlotA == null || tournamentSlotB == null) return null;
+        if (winner == null) {
+            return random.nextBoolean() ? tournamentSlotA : tournamentSlotB;
+        }
+        if (winner.playerIndex == 0) return tournamentSlotA;
+        if (winner.playerIndex == 1) return tournamentSlotB;
+        return random.nextBoolean() ? tournamentSlotA : tournamentSlotB;
+    }
+
+    private void applyTournamentSlotNames() {
+        if (!tournamentModeActive || tournamentSlotA == null || tournamentSlotB == null) return;
+        if (players[0] != null) {
+            players[0].name = tournamentEntryLabel(tournamentSlotA) + ": " + players[0].type.name;
+        }
+        if (players[1] != null) {
+            players[1].name = tournamentEntryLabel(tournamentSlotB) + ": " + players[1].type.name;
+        }
+    }
+
+    private void showTournamentSetup(Stage stage) {
+        storyModeActive = false;
+        storyReplayMode = false;
+        adventureModeActive = false;
+        adventureReplayMode = false;
+        currentAdventureBattle = null;
+        classicModeActive = false;
+        classicEncounter = null;
+        classicRun.clear();
+        classicRoundIndex = 0;
+        classicTeamMode = false;
+        Arrays.fill(classicTeams, 1);
+        resetTournamentRun();
+        trainingModeActive = false;
+        lanModeActive = false;
+        competitionSeriesActive = false;
+        Arrays.fill(competitionRoundWins, 0);
+        Arrays.fill(competitionTeamWins, 0);
+        competitionRoundNumber = 1;
+        playMenuMusic();
+
+        ensureTournamentEntries();
+        syncTournamentEntries();
+
+        BorderPane root = new BorderPane();
+        root.setPadding(new Insets(26, 36, 26, 36));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0B1A2E, #1C2F4E);");
+
+        Label title = new Label("TOURNAMENT MODE");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 88));
+        title.setTextFill(Color.web("#FFECB3"));
+
+        Label subtitle = new Label("Set entrants, humans, and birds. CPU vs CPU matches can be watched or skipped.");
+        subtitle.setFont(Font.font("Consolas", 24));
+        subtitle.setTextFill(Color.web("#B3E5FC"));
+        subtitle.setWrapText(true);
+        subtitle.setMaxWidth(1400);
+        subtitle.setTextAlignment(TextAlignment.CENTER);
+
+        VBox header = new VBox(6, title, subtitle);
+        header.setAlignment(Pos.CENTER);
+
+        Label entrantsLabel = new Label("ENTRANTS");
+        entrantsLabel.setFont(Font.font("Consolas", 20));
+        entrantsLabel.setTextFill(Color.web("#B3E5FC"));
+        Label entrantsValue = new Label();
+        entrantsValue.setFont(Font.font("Arial Black", 40));
+        entrantsValue.setTextFill(Color.WHITE);
+
+        Label humansLabel = new Label("HUMANS");
+        humansLabel.setFont(Font.font("Consolas", 20));
+        humansLabel.setTextFill(Color.web("#B3E5FC"));
+        Label humansValue = new Label();
+        humansValue.setFont(Font.font("Arial Black", 40));
+        humansValue.setTextFill(Color.WHITE);
+        Label cpuValue = new Label();
+        cpuValue.setFont(Font.font("Consolas", 20));
+        cpuValue.setTextFill(Color.web("#FFCCBC"));
+
+        Runnable[] refreshCounters = new Runnable[1];
+        Runnable[] refreshEntries = new Runnable[1];
+        Runnable[] refreshMapControls = new Runnable[1];
+        Runnable[] refreshAll = new Runnable[1];
+
+        Button entrantsMinus = uiFactory.action("-", 90, 70, 42, "#546E7A", 14, () -> {
+            tournamentEntrantCount = Math.max(2, tournamentEntrantCount - 1);
+            if (tournamentHumanCount > tournamentEntrantCount) {
+                tournamentHumanCount = tournamentEntrantCount;
+            }
+            if (refreshAll[0] != null) refreshAll[0].run();
+        });
+        Button entrantsPlus = uiFactory.action("+", 90, 70, 42, "#546E7A", 14, () -> {
+            tournamentEntrantCount = Math.min(32, tournamentEntrantCount + 1);
+            if (refreshAll[0] != null) refreshAll[0].run();
+        });
+
+        Button humansMinus = uiFactory.action("-", 90, 70, 42, "#546E7A", 14, () -> {
+            tournamentHumanCount = Math.max(0, tournamentHumanCount - 1);
+            if (refreshAll[0] != null) refreshAll[0].run();
+        });
+        Button humansPlus = uiFactory.action("+", 90, 70, 42, "#546E7A", 14, () -> {
+            tournamentHumanCount = Math.min(tournamentEntrantCount, tournamentHumanCount + 1);
+            if (refreshAll[0] != null) refreshAll[0].run();
+        });
+
+        HBox entrantsButtons = new HBox(8, entrantsMinus, entrantsPlus);
+        entrantsButtons.setAlignment(Pos.CENTER);
+        VBox entrantsBox = new VBox(6, entrantsLabel, entrantsValue, entrantsButtons);
+        entrantsBox.setAlignment(Pos.CENTER);
+
+        HBox humansButtons = new HBox(8, humansMinus, humansPlus);
+        humansButtons.setAlignment(Pos.CENTER);
+        VBox humansBox = new VBox(6, humansLabel, humansValue, cpuValue, humansButtons);
+        humansBox.setAlignment(Pos.CENTER);
+
+        Button mapModeBtn = uiFactory.action("MAP MODE: RANDOM", 360, 70, 24, "#6D4C41", 16, () -> {
+            tournamentMapRandom = !tournamentMapRandom;
+            if (refreshMapControls[0] != null) refreshMapControls[0].run();
+        });
+        Button mapSelectBtn = uiFactory.action("MAP: " + mapDisplayName(tournamentFixedMap), 360, 70, 24, "#00897B", 16, () -> {
+            if (tournamentMapRandom) return;
+            List<MapType> maps = tournamentMapPool();
+            if (maps.isEmpty()) return;
+            int idx = maps.indexOf(tournamentFixedMap);
+            if (idx < 0) idx = 0;
+            tournamentFixedMap = maps.get((idx + 1) % maps.size());
+            if (refreshMapControls[0] != null) refreshMapControls[0].run();
+        });
+
+        VBox mapBox = new VBox(6, mapModeBtn, mapSelectBtn);
+        mapBox.setAlignment(Pos.CENTER);
+
+        Button allRandomBtn = uiFactory.action("ALL RANDOM", 260, 70, 24, "#7B1FA2", 16, () -> {
+            for (TournamentEntry entry : tournamentEntries) {
+                entry.selectedType = null;
+            }
+            if (refreshEntries[0] != null) refreshEntries[0].run();
+        });
+
+        HBox controls = new HBox(24, entrantsBox, humansBox, mapBox, allRandomBtn);
+        controls.setAlignment(Pos.CENTER);
+
+        VBox entryList = new VBox(12);
+        entryList.setAlignment(Pos.TOP_CENTER);
+        entryList.setPadding(new Insets(10, 20, 10, 20));
+
+        refreshCounters[0] = () -> {
+            entrantsValue.setText(String.valueOf(tournamentEntrantCount));
+            humansValue.setText(String.valueOf(tournamentHumanCount));
+            cpuValue.setText("CPU: " + (tournamentEntrantCount - tournamentHumanCount));
+        };
+
+        refreshMapControls[0] = () -> {
+            List<MapType> maps = tournamentMapPool();
+            if (!maps.contains(tournamentFixedMap)) {
+                tournamentFixedMap = maps.get(0);
+            }
+            mapModeBtn.setText("MAP MODE: " + (tournamentMapRandom ? "RANDOM" : "FIXED"));
+            mapSelectBtn.setText("MAP: " + mapDisplayName(tournamentFixedMap));
+            mapSelectBtn.setDisable(tournamentMapRandom);
+            mapSelectBtn.setOpacity(tournamentMapRandom ? 0.65 : 1.0);
+        };
+
+        refreshEntries[0] = () -> {
+            syncTournamentEntries();
+            entryList.getChildren().clear();
+            List<BirdType> pool = unlockedBirdPool();
+            List<BirdType> choices = new ArrayList<>();
+            choices.add(null);
+            choices.addAll(pool);
+
+            for (TournamentEntry entry : tournamentEntries) {
+                HBox row = new HBox(16);
+                row.setAlignment(Pos.CENTER_LEFT);
+                row.setPadding(new Insets(10, 14, 10, 14));
+                row.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-background-radius: 16; -fx-border-color: #37474F; -fx-border-width: 2; -fx-border-radius: 16;");
+
+                Label playerLabel = new Label(tournamentEntryLabel(entry));
+                playerLabel.setFont(Font.font("Arial Black", 26));
+                playerLabel.setTextFill(Color.web("#FFECB3"));
+                playerLabel.setPrefWidth(220);
+
+                Label roleLabel = new Label(entry.human ? "HUMAN" : "CPU");
+                roleLabel.setFont(Font.font("Consolas", 22));
+                roleLabel.setTextFill(entry.human ? Color.web("#81D4FA") : Color.web("#FFAB91"));
+                roleLabel.setPrefWidth(120);
+
+                String birdName = entry.selectedType != null ? entry.selectedType.name : "RANDOM";
+                Button birdBtn = uiFactory.action("BIRD: " + birdName, 520, 70, 24, "#1976D2", 16, () -> {
+                    int idx = choices.indexOf(entry.selectedType);
+                    if (idx < 0) idx = 0;
+                    int next = (idx + 1) % choices.size();
+                    entry.selectedType = choices.get(next);
+                    if (refreshEntries[0] != null) refreshEntries[0].run();
+                });
+                birdBtn.setWrapText(false);
+                uiFactory.fitSingleLineOnLayout(birdBtn, 24, 16);
+
+                row.getChildren().addAll(playerLabel, roleLabel, birdBtn);
+                entryList.getChildren().add(row);
+            }
+        };
+
+        refreshAll[0] = () -> {
+            if (refreshCounters[0] != null) refreshCounters[0].run();
+            if (refreshMapControls[0] != null) refreshMapControls[0].run();
+            if (refreshEntries[0] != null) refreshEntries[0].run();
+        };
+
+        refreshAll[0].run();
+
+        ScrollPane scroll = new ScrollPane(entryList);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent;");
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        Button startBtn = uiFactory.action("START TOURNAMENT", 520, 110, 38, "#00C853", 26, () -> beginTournament(stage));
+        Button backBtn = uiFactory.action("BACK TO CLASSIC & MORE", 520, 110, 34, "#FF1744", 22, () -> showClassicMoreMenu(stage));
+        HBox bottom = new HBox(30, startBtn, backBtn);
+        bottom.setAlignment(Pos.CENTER);
+
+        VBox bottomBox = new VBox(18, controls, bottom);
+        bottomBox.setAlignment(Pos.CENTER);
+
+        root.setTop(header);
+        root.setCenter(scroll);
+        root.setBottom(bottomBox);
+        BorderPane.setAlignment(header, Pos.CENTER);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        startBtn.requestFocus();
+    }
+
+    private void beginTournament(Stage stage) {
+        syncTournamentEntries();
+        tournamentModeActive = true;
+        tournamentMatchResolved = false;
+        currentTournamentMatch = null;
+        tournamentSlotA = null;
+        tournamentSlotB = null;
+        lanModeActive = false;
+        competitionSeriesActive = false;
+        Arrays.fill(competitionRoundWins, 0);
+        Arrays.fill(competitionTeamWins, 0);
+        competitionRoundNumber = 1;
+        buildTournamentBracket();
+        resolveTournamentByes();
+        showTournamentBracket(stage);
+    }
+
+    private void showTournamentBracket(Stage stage) {
+        playMenuMusic();
+        syncTournamentEntries();
+        if (tournamentRounds.isEmpty()) {
+            buildTournamentBracket();
+        }
+        resolveTournamentByes();
+
+        TournamentMatch nextMatch = findNextTournamentMatch();
+        boolean complete = isTournamentComplete();
+
+        BorderPane root = new BorderPane();
+        root.setPadding(new Insets(26, 36, 26, 36));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);");
+
+        Label title = new Label("TOURNAMENT BRACKET");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 88));
+        title.setTextFill(Color.GOLD);
+
+        String mapLine = tournamentMapRandom
+                ? "Map Mode: RANDOM"
+                : "Map: " + mapDisplayName(tournamentFixedMap);
+        Label subtitle = new Label(mapLine + "  |  Entrants: " + tournamentEntrantCount);
+        subtitle.setFont(Font.font("Consolas", 24));
+        subtitle.setTextFill(Color.web("#B3E5FC"));
+
+        VBox header = new VBox(6, title, subtitle);
+        header.setAlignment(Pos.CENTER);
+
+        HBox columns = new HBox(26);
+        columns.setAlignment(Pos.TOP_LEFT);
+        columns.setPadding(new Insets(10, 10, 10, 10));
+
+        for (int r = 0; r < tournamentRounds.size(); r++) {
+            List<TournamentMatch> round = tournamentRounds.get(r);
+            VBox column = new VBox(16);
+            column.setAlignment(Pos.TOP_CENTER);
+            column.setPrefWidth(280);
+
+            Label roundLabel = new Label(tournamentRoundLabel(r));
+            roundLabel.setFont(Font.font("Arial Black", 26));
+            roundLabel.setTextFill(Color.web("#FFE082"));
+            column.getChildren().add(roundLabel);
+
+            for (TournamentMatch match : round) {
+                VBox matchBox = new VBox(6);
+                matchBox.setAlignment(Pos.CENTER_LEFT);
+                matchBox.setPadding(new Insets(12));
+                String border = (nextMatch != null && match == nextMatch) ? "#FFD54F" : "#37474F";
+                String bg = (match.winner != null) ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.45)";
+                matchBox.setStyle("-fx-background-color: " + bg + "; -fx-background-radius: 14; -fx-border-color: " + border + "; -fx-border-width: 2; -fx-border-radius: 14;");
+
+                String placeholder = r == 0 ? "BYE" : "TBD";
+                String aName = match.a != null ? tournamentEntryLabel(match.a) : placeholder;
+                String bName = match.b != null ? tournamentEntryLabel(match.b) : placeholder;
+
+                Label aLabel = new Label(aName);
+                aLabel.setFont(Font.font("Consolas", 22));
+                aLabel.setTextFill(Color.web("#ECEFF1"));
+
+                Label vs = new Label("vs");
+                vs.setFont(Font.font("Consolas", 18));
+                vs.setTextFill(Color.web("#B0BEC5"));
+
+                Label bLabel = new Label(bName);
+                bLabel.setFont(Font.font("Consolas", 22));
+                bLabel.setTextFill(Color.web("#ECEFF1"));
+
+                matchBox.getChildren().addAll(aLabel, vs, bLabel);
+
+                if (match.winner != null) {
+                    Label adv = new Label("Advances: " + tournamentEntryLabel(match.winner));
+                    adv.setFont(Font.font("Consolas", 18));
+                    adv.setTextFill(Color.web("#C5E1A5"));
+                    matchBox.getChildren().add(adv);
+                }
+
+                column.getChildren().add(matchBox);
+            }
+
+            columns.getChildren().add(column);
+        }
+
+        ScrollPane scroll = new ScrollPane(columns);
+        scroll.setFitToHeight(true);
+        scroll.setFitToWidth(false);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent;");
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+
+        Button primary = uiFactory.action(complete ? "VIEW CHAMPION" : "START NEXT MATCH", 520, 110, 38, "#1565C0", 26, () -> {
+            if (complete) {
+                showTournamentComplete(stage);
+            } else {
+                startNextTournamentMatch(stage);
+            }
+        });
+        Button reset = uiFactory.action("RESET TOURNAMENT", 420, 110, 34, "#00897B", 22, () -> {
+            resetTournamentRun();
+            showTournamentSetup(stage);
+        });
+        Button exit = uiFactory.action("EXIT TO HUB", 420, 110, 34, "#FF1744", 22, () -> {
+            resetTournamentRun();
+            showMenu(stage);
+        });
+        HBox buttons = new HBox(24, primary, reset, exit);
+        buttons.setAlignment(Pos.CENTER);
+
+        root.setTop(header);
+        root.setCenter(scroll);
+        root.setBottom(buttons);
+        BorderPane.setAlignment(header, Pos.CENTER);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        primary.requestFocus();
+    }
+
+    private void startNextTournamentMatch(Stage stage) {
+        if (!tournamentModeActive) {
+            showTournamentSetup(stage);
+            return;
+        }
+        if (tournamentRounds.isEmpty()) {
+            buildTournamentBracket();
+        }
+        resolveTournamentByes();
+        TournamentMatch next = findNextTournamentMatch();
+
+        if (next == null) {
+            if (isTournamentComplete()) {
+                showTournamentComplete(stage);
+            } else {
+                showTournamentBracket(stage);
+            }
+            return;
+        }
+
+        currentTournamentMatch = next;
+        tournamentSlotA = next.a;
+        tournamentSlotB = next.b;
+        tournamentMatchResolved = false;
+
+        if (tournamentSlotA != null && tournamentSlotB != null
+                && !tournamentSlotA.human && !tournamentSlotB.human) {
+            showTournamentCpuChoice(stage, next);
+        } else {
+            launchTournamentMatch(stage, next);
+        }
+    }
+
+    private void launchTournamentMatch(Stage stage, TournamentMatch match) {
+        if (match == null || match.a == null || match.b == null) {
+            startNextTournamentMatch(stage);
+            return;
+        }
+        tournamentSlotA = match.a;
+        tournamentSlotB = match.b;
+        tournamentMatchResolved = false;
+
+        teamModeEnabled = false;
+        Arrays.fill(playerTeams, 1);
+        activePlayers = 2;
+        selectedMap = pickTournamentMap();
+
+        BirdType aType = tournamentSlotA.selectedType;
+        BirdType bType = tournamentSlotB.selectedType;
+        if (aType != null && !isBirdUnlocked(aType)) aType = null;
+        if (bType != null && !isBirdUnlocked(bType)) bType = null;
+
+        fightSelectedBirds[0] = aType;
+        fightSelectedBirds[1] = bType;
+        fightRandomSelected[0] = aType == null;
+        fightRandomSelected[1] = bType == null;
+        fightSelectedSkinKeys[0] = null;
+        fightSelectedSkinKeys[1] = null;
+
+        isAI[0] = !tournamentSlotA.human;
+        isAI[1] = !tournamentSlotB.human;
+
+        competitionSeriesActive = false;
+        Arrays.fill(competitionRoundWins, 0);
+        Arrays.fill(competitionTeamWins, 0);
+        competitionRoundNumber = 1;
+
+        resetMatchStats();
+        startMatch(stage);
+    }
+
+    private void showTournamentCpuChoice(Stage stage, TournamentMatch match) {
+        playMenuMusic();
+
+        VBox root = new VBox(30);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(60));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #091426, #1A2B4B);");
+
+        Label title = new Label("CPU VS CPU");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 92));
+        title.setTextFill(Color.GOLD);
+
+        String left = tournamentEntryLabel(match.a);
+        String right = tournamentEntryLabel(match.b);
+        Label info = new Label(left + " vs " + right + "\nWatch the match or simulate the result.");
+        info.setFont(Font.font("Consolas", 30));
+        info.setTextFill(Color.web("#B3E5FC"));
+        info.setWrapText(true);
+        info.setTextAlignment(TextAlignment.CENTER);
+
+        Button watch = uiFactory.action("WATCH MATCH", 520, 120, 42, "#1565C0", 26, () -> launchTournamentMatch(stage, match));
+        Button skip = uiFactory.action("SIMULATE", 420, 120, 38, "#8E24AA", 26, () -> simulateTournamentMatch(stage, match));
+        Button exit = uiFactory.action("EXIT TO HUB", 420, 120, 34, "#FF1744", 22, () -> {
+            resetTournamentRun();
+            showMenu(stage);
+        });
+
+        HBox buttons = new HBox(24, watch, skip, exit);
+        buttons.setAlignment(Pos.CENTER);
+
+        root.getChildren().addAll(title, info, buttons);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        watch.requestFocus();
+    }
+
+    private void simulateTournamentMatch(Stage stage, TournamentMatch match) {
+        if (match == null || match.a == null || match.b == null) {
+            startNextTournamentMatch(stage);
+            return;
+        }
+        TournamentEntry winner = random.nextBoolean() ? match.a : match.b;
+        recordTournamentWinner(match, winner);
+        tournamentMatchResolved = true;
+        currentTournamentMatch = null;
+        showTournamentSimResult(stage, winner);
+    }
+
+    private void showTournamentSimResult(Stage stage, TournamentEntry winner) {
+        playMenuMusic();
+
+        VBox root = new VBox(28);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(60));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);");
+
+        Label title = new Label("SIMULATED RESULT");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 88));
+        title.setTextFill(Color.GOLD);
+
+        String winnerText = winner != null ? tournamentEntryLabel(winner) + " advances." : "No winner.";
+        Label info = new Label(winnerText);
+        info.setFont(Font.font("Consolas", 32));
+        info.setTextFill(Color.web("#C5E1A5"));
+
+        boolean complete = isTournamentComplete();
+        Button next = uiFactory.action(complete ? "VIEW CHAMPION" : "VIEW BRACKET", 520, 120, 40, "#1565C0", 26, () -> {
+            resetMatchStats();
+            if (complete) {
+                showTournamentComplete(stage);
+            } else {
+                showTournamentBracket(stage);
+            }
+        });
+        Button exit = uiFactory.action("EXIT TO HUB", 420, 120, 34, "#FF1744", 22, () -> {
+            resetTournamentRun();
+            showMenu(stage);
+        });
+        HBox buttons = new HBox(24, next, exit);
+        buttons.setAlignment(Pos.CENTER);
+
+        root.getChildren().addAll(title, info, buttons);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        next.requestFocus();
+    }
+
+    private void showTournamentComplete(Stage stage) {
+        playMenuMusic();
+
+        TournamentEntry champion = null;
+        if (!tournamentRounds.isEmpty()) {
+            List<TournamentMatch> last = tournamentRounds.get(tournamentRounds.size() - 1);
+            if (!last.isEmpty()) {
+                champion = last.get(0).winner;
+            }
+        }
+
+        VBox root = new VBox(28);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(60));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);");
+
+        Label title = new Label("TOURNAMENT COMPLETE");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 90));
+        title.setTextFill(Color.GOLD);
+
+        String champText = champion != null ? (tournamentEntryLabel(champion) + " is champion!") : "No champion.";
+        Label info = new Label(champText);
+        info.setFont(Font.font("Consolas", 34));
+        info.setTextFill(Color.web("#FFE082"));
+        info.setWrapText(true);
+        info.setTextAlignment(TextAlignment.CENTER);
+
+        Button setup = uiFactory.action("NEW TOURNAMENT", 520, 120, 38, "#1565C0", 26, () -> showTournamentSetup(stage));
+        Button exit = uiFactory.action("EXIT TO HUB", 420, 120, 34, "#FF1744", 22, () -> {
+            resetTournamentRun();
+            showMenu(stage);
+        });
+        HBox buttons = new HBox(24, setup, exit);
+        buttons.setAlignment(Pos.CENTER);
+
+        root.getChildren().addAll(title, info, buttons);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        setup.requestFocus();
     }
 
     private void showLanMenu(Stage stage) {
@@ -9169,11 +9953,21 @@ public class BirdGame3 extends Application {
         Label title = new Label("EPISODES");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 96));
         title.setTextFill(Color.GOLD);
-        BorderPane.setAlignment(title, Pos.CENTER);
 
-        VBox pigeonCard = buildEpisodeCard(stage, EpisodeType.PIGEON, "#4FC3F7", "Select Pigeon to cycle skins when unlocked.");
-        VBox batCard = buildEpisodeCard(stage, EpisodeType.BAT, "#B388FF", "Master aerial cave combat with Bat.");
-        VBox pelicanCard = buildEpisodeCard(stage, EpisodeType.PELICAN, "#FFD54F", "Command the Iron Beak in scripted chaos battles. Defeat Vulture to unlock Bat.");
+        Label legacyNote = new Label("Legacy Episodes: older story content with no rewards or unlocks.");
+        legacyNote.setFont(Font.font("Consolas", 24));
+        legacyNote.setTextFill(Color.web("#FFCC80"));
+        legacyNote.setWrapText(true);
+        legacyNote.setMaxWidth(1400);
+        legacyNote.setTextAlignment(TextAlignment.CENTER);
+
+        VBox header = new VBox(8, title, legacyNote);
+        header.setAlignment(Pos.CENTER);
+        BorderPane.setAlignment(header, Pos.CENTER);
+
+        VBox pigeonCard = buildEpisodeCard(stage, EpisodeType.PIGEON, "#4FC3F7", "Legacy rooftop skirmishes that introduce the early rivalries.");
+        VBox batCard = buildEpisodeCard(stage, EpisodeType.BAT, "#B388FF", "Echo caverns and aerial ambushes where timing decides everything.");
+        VBox pelicanCard = buildEpisodeCard(stage, EpisodeType.PELICAN, "#FFD54F", "Iron Beak leads a siege through storm arenas and elite foes.");
         VBox cards = new VBox(18, pigeonCard, batCard, pelicanCard);
         cards.setAlignment(Pos.TOP_CENTER);
 
@@ -9189,7 +9983,7 @@ public class BirdGame3 extends Application {
         HBox bottom = new HBox(menuButton);
         bottom.setAlignment(Pos.CENTER);
 
-        root.setTop(title);
+        root.setTop(header);
         root.setCenter(scroll);
         root.setBottom(bottom);
 
@@ -11498,21 +12292,11 @@ public class BirdGame3 extends Application {
 
         Label epStatus = new Label(
                 !episodePlayable
-                        ? "Locked - clear Vulture campaign (Pelican Episode)"
+                        ? "Locked - character not unlocked"
                         : (completed ? "Completed" : ("Unlocked Chapters: " + unlocked + "/" + chapters.length))
         );
         epStatus.setFont(Font.font("Consolas", 30));
         epStatus.setTextFill(!episodePlayable ? Color.GRAY : (completed ? Color.LIMEGREEN : Color.ORANGE));
-
-        boolean rewardUnlocked = isEpisodeRewardUnlocked(ep);
-        Label epReward = new Label("Episode Award: " + (switch (ep) {
-            case BAT -> BAT_EPISODE_AWARD;
-            case PELICAN -> PELICAN_EPISODE_AWARD;
-            default -> PIGEON_EPISODE_AWARD;
-        })
-                + (rewardUnlocked ? " (Unlocked)" : " (Locked)"));
-        epReward.setFont(Font.font("Consolas", 26));
-        epReward.setTextFill(rewardUnlocked ? Color.GOLD : Color.LIGHTGRAY);
 
         Label flavor = new Label(flavorText);
         flavor.setFont(Font.font("Consolas", 22));
@@ -11543,7 +12327,7 @@ public class BirdGame3 extends Application {
         chapterSelect.setOpacity(episodePlayable ? 1.0 : 0.65);
 
         actions.getChildren().addAll(continueEpisode, chapterSelect);
-        card.getChildren().addAll(epTitle, epStatus, epReward, actions, flavor);
+        card.getChildren().addAll(epTitle, epStatus, actions, flavor);
         return card;
     }
 
@@ -12020,15 +12804,6 @@ public class BirdGame3 extends Application {
             return;
         }
 
-        StoryChapter clearedChapter = chapters[storyChapterIndex];
-        boolean unlockedBatFromVulture = false;
-        if (clearedChapter.opponentType == BirdType.VULTURE && !batUnlocked) {
-            batUnlocked = true;
-            unlockedBatFromVulture = true;
-            queueUnlockCardForBird(BirdType.BAT);
-            saveAchievements();
-        }
-
         int unlocked = getEpisodeUnlocked(selectedEpisode);
         if (!storyReplayMode && storyChapterIndex == unlocked - 1 && unlocked < chapters.length) {
             setEpisodeUnlocked(selectedEpisode, unlocked + 1);
@@ -12038,45 +12813,18 @@ public class BirdGame3 extends Application {
         if (storyChapterIndex >= chapters.length - 1) {
             if (!isEpisodeCompleted(selectedEpisode)) {
                 setEpisodeCompleted(selectedEpisode, true);
-                boolean unlockedNoir = false;
-                boolean unlockedEpisodeBat = false;
-                boolean unlockedEagleSkin = false;
-                if (selectedEpisode == EpisodeType.PIGEON) {
-                    unlockedNoir = !noirPigeonUnlocked;
-                    noirPigeonUnlocked = true;
-                } else if (selectedEpisode == EpisodeType.BAT) {
-                    unlockedEpisodeBat = !batUnlocked;
-                    batUnlocked = true;
-                } else if (selectedEpisode == EpisodeType.PELICAN) {
-                    unlockedEagleSkin = !eagleSkinUnlocked;
-                    unlockedEpisodeBat = !batUnlocked;
-                    eagleSkinUnlocked = true;
-                    batUnlocked = true;
-                }
-                if (unlockedNoir) {
-                    queueUnlockCardForSkin(BirdType.PIGEON, "NOIR_PIGEON");
-                }
-                if (unlockedEagleSkin) {
-                    queueUnlockCardForSkin(BirdType.EAGLE, "SKY_KING_EAGLE");
-                }
-                if (unlockedEpisodeBat) {
-                    queueUnlockCardForBird(BirdType.BAT);
-                }
                 saveAchievements();
                 showStoryDialogue(stage,
                         "Episode Complete",
                         "Narrator",
-                        "Episode clear. Award unlocked: " + activeEpisodeAward() + "."
-                                + (unlockedBatFromVulture ? "\nBat character unlocked for defeating Vulture." : "")
-                                + (selectedEpisode == EpisodeType.PIGEON ? "\nSelect Pigeon to cycle skins." : "")
-                                + (selectedEpisode == EpisodeType.PELICAN ? "\nSelect Eagle to use the Sky King skin.\nBat character unlocked from Vulture campaign." : ""),
-                        () -> runAfterUnlockCards(stage, () -> showEpisodesHub(stage)));
+                        "Episode clear. Legacy episodes do not grant rewards.",
+                        () -> showEpisodesHub(stage));
             } else {
                 showStoryDialogue(stage,
                         "Replay Complete",
                         "Narrator",
                         "Chapter clear. Episode is already complete, so this was a replay victory.",
-                        () -> runAfterUnlockCards(stage, () -> showEpisodesHub(stage)));
+                        () -> showEpisodesHub(stage));
             }
             return;
         }
@@ -12095,10 +12843,8 @@ public class BirdGame3 extends Application {
         showStoryDialogue(stage,
                 "Victory",
                 "Narrator",
-                "You won the duel."
-                        + (unlockedBatFromVulture ? "\nBat character unlocked for defeating Vulture." : "")
-                        + "\nNext chapter: " + next.title + " (" + next.opponentName + ").",
-                () -> runAfterUnlockCards(stage, () -> showCurrentStoryChapterIntro(stage)));
+                "You won the duel.\nNext chapter: " + next.title + " (" + next.opponentName + ").",
+                () -> showCurrentStoryChapterIntro(stage));
     }
 
     private void showStoryDialogue(Stage stage, String titleText, String speaker, String dialogue, Runnable onContinue) {
@@ -13330,6 +14076,13 @@ public class BirdGame3 extends Application {
                 this.stop();
                 timer.stop();
                 recordBalanceOutcome(finalWinner);
+                if (tournamentModeActive && currentTournamentMatch != null && !tournamentMatchResolved) {
+                    TournamentEntry winnerEntry = resolveTournamentWinnerEntry(finalWinner);
+                    if (winnerEntry != null) {
+                        recordTournamentWinner(currentTournamentMatch, winnerEntry);
+                    }
+                    tournamentMatchResolved = true;
+                }
                 showMatchSummary(finalStage, finalWinner);
                 if (finalWinner != null && finalWinner.health < 20 && finalWinner.health > 0 && !achievementsUnlocked[9]) {
                     unlockAchievement(9, "CLUTCH GOD!");
@@ -13875,6 +14628,10 @@ public class BirdGame3 extends Application {
 
                 applyAdaptiveBalance(players[i]);
             }
+        }
+
+        if (tournamentModeActive) {
+            applyTournamentSlotNames();
         }
 
         platforms.clear();
@@ -14857,6 +15614,19 @@ public class BirdGame3 extends Application {
                 showMenu(stage);
             });
             buttons.getChildren().addAll(continueAdventure, hub, menu);
+        } else if (tournamentModeActive) {
+            Button bracket = button("VIEW BRACKET", "#1565C0");
+            bracket.setOnAction(e -> {
+                resetMatchStats();
+                showTournamentBracket(stage);
+            });
+            Button exit = button("EXIT TO HUB", "#9C27B0");
+            exit.setOnAction(e -> {
+                resetMatchStats();
+                resetTournamentRun();
+                showMenu(stage);
+            });
+            buttons.getChildren().addAll(bracket, exit);
         } else {
             Button rematch = button("REMATCH", "#FF1744");
             rematch.setOnAction(e -> {

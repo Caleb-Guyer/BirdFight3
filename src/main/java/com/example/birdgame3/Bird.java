@@ -2305,9 +2305,10 @@ public class Bird {
     }
 
     private void handleFalconDiveImpact() {
-        if (vy < 20) vy = 20;
-        double targetVx = (facingRight ? 1 : -1) * 12.5;
-        vx = vx * 0.84 + targetVx * 0.16;
+        double diagSpeed = Math.max(18, Math.max(Math.abs(vx), Math.abs(vy)));
+        diagSpeed = Math.min(diagSpeed, 26);
+        vy = diagSpeed;
+        vx = (facingRight ? 1 : -1) * diagSpeed;
         applyFalconDiveSweetspotHits();
 
         if (isOnGround()) {
@@ -3735,6 +3736,11 @@ public class Bird {
         boolean skyKing = eagle && isClassicSkin;
         boolean falcon = type == BirdGame3.BirdType.FALCON;
         boolean duneFalcon = falcon && isDuneSkin;
+        if ((eagle || falcon) && diveTimer > 0) {
+            Color aura = eagle ? Color.web("#D32F2F") : Color.SADDLEBROWN;
+            g.setFill(aura.deriveColor(0, 1, 1, 0.28));
+            g.fillOval(x - 70, y - 70, drawSize + 140, drawSize + 140);
+        }
         if ((skyKing || duneFalcon) && diveTimer > 0) {
             Color core = skyKing ? Color.CRIMSON : Color.web("#FF7043");
             Color streakPrimary = skyKing ? Color.ORANGERED : Color.web("#FF8A65");
