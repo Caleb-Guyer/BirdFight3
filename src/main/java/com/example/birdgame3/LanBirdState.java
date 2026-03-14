@@ -29,6 +29,11 @@ class LanBirdState {
     boolean isPrismSkin;
     boolean isAuroraSkin;
     boolean isBeaconSkin;
+    boolean isSunflareSkin;
+    boolean isGlacierSkin;
+    boolean isTideSkin;
+    boolean isEclipseSkin;
+    boolean isUmbraSkin;
     boolean suppressSelectEffects;
     double loungeX;
     double loungeY;
@@ -118,6 +123,11 @@ class LanBirdState {
         out.writeBoolean(isPrismSkin);
         out.writeBoolean(isAuroraSkin);
         out.writeBoolean(isBeaconSkin);
+        out.writeBoolean(isSunflareSkin);
+        out.writeBoolean(isGlacierSkin);
+        out.writeBoolean(isTideSkin);
+        out.writeBoolean(isEclipseSkin);
+        out.writeBoolean(isUmbraSkin);
         out.writeBoolean(suppressSelectEffects);
         out.writeDouble(loungeX);
         out.writeDouble(loungeY);
@@ -209,6 +219,11 @@ class LanBirdState {
         state.isPrismSkin = in.readBoolean();
         state.isAuroraSkin = in.readBoolean();
         state.isBeaconSkin = in.readBoolean();
+        state.isSunflareSkin = in.readBoolean();
+        state.isGlacierSkin = in.readBoolean();
+        state.isTideSkin = in.readBoolean();
+        state.isEclipseSkin = in.readBoolean();
+        state.isUmbraSkin = in.readBoolean();
         state.suppressSelectEffects = in.readBoolean();
         state.loungeX = in.readDouble();
         state.loungeY = in.readDouble();

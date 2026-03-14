@@ -47,6 +47,11 @@ public class Bird {
     public boolean isPrismSkin = false;
     public boolean isAuroraSkin = false;
     public boolean isBeaconSkin = false;
+    public boolean isSunflareSkin = false;
+    public boolean isGlacierSkin = false;
+    public boolean isTideSkin = false;
+    public boolean isEclipseSkin = false;
+    public boolean isUmbraSkin = false;
     public boolean suppressSelectEffects = false;
     public double loungeX, loungeY;
     public int diveTimer = 0;
@@ -816,7 +821,7 @@ public class Bird {
         leanCooldown = 720;
         specialCooldown = 720;
         specialMaxCooldown = 720;
-        game.addToKillFeed(name.split(":")[0].trim() + " COOKED THE BLUE!");
+        game.addToKillFeed(name.split(":")[0].trim() + " COOKED THE CRYSTAL!");
         game.shakeIntensity = 18;
         game.hitstopFrames = 12;
         for (int i = 0; i < 150; i++) {
@@ -1956,7 +1961,7 @@ public class Bird {
             int highDuration = heisen ? 140 : 180;
             double slowX = heisen ? 0.96 : 0.94;
             double slowY = heisen ? 0.985 : 0.98;
-            String cloudLabel = heisen ? "blue crystal" : "lean";
+            String cloudLabel = heisen ? "crystal" : "lean";
 
             for (Bird other : game.players) {
                 if (!canDamageTarget(other)) continue;
@@ -3127,6 +3132,11 @@ public class Bird {
         state.isPrismSkin = isPrismSkin;
         state.isAuroraSkin = isAuroraSkin;
         state.isBeaconSkin = isBeaconSkin;
+        state.isSunflareSkin = isSunflareSkin;
+        state.isGlacierSkin = isGlacierSkin;
+        state.isTideSkin = isTideSkin;
+        state.isEclipseSkin = isEclipseSkin;
+        state.isUmbraSkin = isUmbraSkin;
         state.suppressSelectEffects = suppressSelectEffects;
         state.loungeX = loungeX;
         state.loungeY = loungeY;
@@ -3223,6 +3233,11 @@ public class Bird {
         this.isPrismSkin = state.isPrismSkin;
         this.isAuroraSkin = state.isAuroraSkin;
         this.isBeaconSkin = state.isBeaconSkin;
+        this.isSunflareSkin = state.isSunflareSkin;
+        this.isGlacierSkin = state.isGlacierSkin;
+        this.isTideSkin = state.isTideSkin;
+        this.isEclipseSkin = state.isEclipseSkin;
+        this.isUmbraSkin = state.isUmbraSkin;
         this.suppressSelectEffects = state.suppressSelectEffects;
         this.loungeX = state.loungeX;
         this.loungeY = state.loungeY;
@@ -3658,9 +3673,6 @@ public class Bird {
                 double cloudAlpha = 0.28 + 0.28 * Math.sin(System.currentTimeMillis() / 200.0);
                 g.setFill(Color.web("#29B6F6", cloudAlpha));
                 g.fillOval(x - 110, y - 90, 280, 280);
-                g.setFill(Color.WHITE);
-                g.setFont(Font.font("Arial Black", 30));
-                g.fillText("BLUE", facingRight ? x + 14 : x + 30, y + 20);
             }
 
             if (leanCooldown > 0) {
@@ -3668,7 +3680,7 @@ public class Bird {
                 g.fillRoundRect(x - 10, y + 100, 100, 20, 15, 15);
                 g.setFill(Color.WHITE);
                 g.setFont(Font.font("Arial Black", 18));
-                g.fillText("BLUE", facingRight ? x + 20 : x + 38, y + 116);
+                g.fillText("CRYSTAL", facingRight ? x + 4 : x + 20, y + 116);
             }
         }
     }
@@ -3701,9 +3713,11 @@ public class Bird {
 
     private void drawEagleSoaring(GraphicsContext g, boolean airborne, double drawSize) {
         boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        boolean skyKing = eagle && isClassicSkin;
         boolean falcon = type == BirdGame3.BirdType.FALCON;
-        if ((eagle || falcon) && (diveTimer == 0) && airborne && (vy < 2)) {
-            Color aura = eagle ? Color.GOLD : Color.web("#FFCC80");
+        boolean duneFalcon = falcon && isDuneSkin;
+        if ((skyKing || duneFalcon) && (diveTimer == 0) && airborne && (vy < 2)) {
+            Color aura = skyKing ? Color.GOLD : Color.web("#FFCC80");
             g.setFill(aura.deriveColor(0, 1, 1, 0.2));
             g.fillOval(x - 50, y - 50, drawSize + 100, drawSize + 100);
 
@@ -3711,19 +3725,21 @@ public class Bird {
                 game.particles.add(new Particle(x + (facingRight ? -20 : drawSize + 20), y + 40,
                         (facingRight ? 1 : -1) * (2 + Math.random() * 4),
                         (Math.random() - 0.5) * 4,
-                        (eagle ? Color.GOLD : Color.web("#FFB74D")).brighter()));
+                        (skyKing ? Color.GOLD : Color.web("#FFB74D")).brighter()));
             }
         }
     }
 
     private void drawEagleDive(GraphicsContext g, double drawSize) {
         boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        boolean skyKing = eagle && isClassicSkin;
         boolean falcon = type == BirdGame3.BirdType.FALCON;
-        if ((eagle || falcon) && diveTimer > 0) {
-            Color core = eagle ? Color.CRIMSON : Color.web("#FF7043");
-            Color streakPrimary = eagle ? Color.ORANGERED : Color.web("#FF8A65");
-            Color streakSecondary = eagle ? Color.YELLOW : Color.web("#FFE082");
-            String diveText = eagle ? "SKREEEEEEEE!!!" : "LOCKED IN!";
+        boolean duneFalcon = falcon && isDuneSkin;
+        if ((skyKing || duneFalcon) && diveTimer > 0) {
+            Color core = skyKing ? Color.CRIMSON : Color.web("#FF7043");
+            Color streakPrimary = skyKing ? Color.ORANGERED : Color.web("#FF8A65");
+            Color streakSecondary = skyKing ? Color.YELLOW : Color.web("#FFE082");
+            String diveText = skyKing ? "SKREEEEEEEE!!!" : "LOCKED IN!";
 
             g.setFill(core.deriveColor(0, 1, 1, 0.6 + 0.4 * Math.sin(diveTimer * 0.5)));
             g.fillOval(x - 80, y - 80, drawSize + 160, drawSize + 160);
@@ -3739,7 +3755,7 @@ public class Bird {
                 g.strokeLine(x + 40, y + 40, x + 40 - vx * i * 2.5, y + 40 - vy * i * 2.5);
             }
 
-            if (diveTimer > (eagle ? 70 : 55)) {
+            if (diveTimer > (skyKing ? 70 : 55)) {
                 g.setFill(Color.WHITE);
                 g.setFont(Font.font("Arial Black", FontWeight.BOLD, 64));
                 g.setEffect(new DropShadow(20, Color.BLACK));
@@ -3882,7 +3898,7 @@ public class Bird {
             } else if (type == BirdGame3.BirdType.OPIUMBIRD && leanCooldown > 0) {
                 cooldownText = "LEAN";
             } else if (type == BirdGame3.BirdType.HEISENBIRD && leanCooldown > 0) {
-                cooldownText = "BLUE";
+                cooldownText = "CRYSTAL";
             } else if (type == BirdGame3.BirdType.MOCKINGBIRD && specialCooldown > 0) {
                 cooldownText = "LOUNGE";
             } else if (type == BirdGame3.BirdType.PIGEON && specialCooldown > 0) {
@@ -3942,6 +3958,10 @@ public class Bird {
         boolean circuitTitmouse = (type == BirdGame3.BirdType.TITMOUSE && isCircuitSkin);
         boolean prismRazorbill = (type == BirdGame3.BirdType.RAZORBILL && isPrismSkin);
         boolean auroraPelican = (type == BirdGame3.BirdType.PELICAN && isAuroraSkin);
+        boolean sunflareHummingbird = (type == BirdGame3.BirdType.HUMMINGBIRD && isSunflareSkin);
+        boolean glacierShoebill = (type == BirdGame3.BirdType.SHOEBILL && isGlacierSkin);
+        boolean tideVulture = (type == BirdGame3.BirdType.VULTURE && isTideSkin);
+        boolean eclipseMockingbird = (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin);
         Color bodyColor;
         Color headColor;
         Color eyeOverride = null;
@@ -3952,6 +3972,22 @@ public class Bird {
         } else if (noirPigeon) {
             bodyColor = Color.rgb(18, 18, 18);
             headColor = Color.rgb(42, 42, 42);
+        } else if (sunflareHummingbird) {
+            bodyColor = Color.web("#FFB74D");
+            headColor = Color.web("#FFE082");
+            eyeOverride = Color.web("#E65100");
+        } else if (glacierShoebill) {
+            bodyColor = Color.web("#90CAF9");
+            headColor = Color.web("#BBDEFB");
+            eyeOverride = Color.web("#01579B");
+        } else if (tideVulture) {
+            bodyColor = Color.web("#26A69A");
+            headColor = Color.web("#80CBC4");
+            eyeOverride = Color.web("#004D40");
+        } else if (eclipseMockingbird) {
+            bodyColor = Color.web("#311B92");
+            headColor = Color.web("#4A148C");
+            eyeOverride = Color.web("#E040FB");
         } else if (duneFalcon) {
             bodyColor = Color.web("#D7B98E");
             headColor = Color.web("#E7CFAE");
@@ -4088,6 +4124,36 @@ public class Bird {
             g.setFill(Color.web("#CE93D8").deriveColor(0, 1, 1, 0.28));
             g.fillOval(x + 10 * s, y + 48 * s, 64 * s, 24 * s);
         }
+        if (type == BirdGame3.BirdType.HUMMINGBIRD && isSunflareSkin) {
+            g.setStroke(Color.web("#FFECB3").deriveColor(0, 1, 1, 0.8));
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(x + 12 * s, y + 40 * s, x + 68 * s, y + 24 * s);
+            g.setFill(Color.web("#FFE082").deriveColor(0, 1, 1, 0.3));
+            g.fillOval(x + 18 * s, y + 52 * s, 36 * s, 20 * s);
+        }
+        if (type == BirdGame3.BirdType.SHOEBILL && isGlacierSkin) {
+            g.setStroke(Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.85));
+            g.setLineWidth(2.2 * s);
+            g.strokeLine(x + 18 * s, y + 30 * s, x + 58 * s, y + 18 * s);
+            g.strokeLine(x + 20 * s, y + 56 * s, x + 60 * s, y + 44 * s);
+        }
+        if (type == BirdGame3.BirdType.VULTURE && isTideSkin) {
+            g.setStroke(Color.web("#80CBC4").deriveColor(0, 1, 1, 0.7));
+            g.setLineWidth(2.1 * s);
+            g.strokeArc(x + 8 * s, y + 32 * s, 70 * s, 40 * s, 200, 160, ArcType.OPEN);
+        }
+        if (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin) {
+            g.setStroke(Color.web("#E040FB").deriveColor(0, 1, 1, 0.65));
+            g.setLineWidth(2.4 * s);
+            g.strokeOval(x - 6 * s, y + 6 * s, 92 * s, 92 * s);
+            g.setFill(Color.web("#5E35B1").deriveColor(0, 1, 1, 0.25));
+            g.fillOval(x + 14 * s, y + 38 * s, 52 * s, 28 * s);
+        }
+        if (type == BirdGame3.BirdType.BAT && isUmbraSkin) {
+            g.setStroke(Color.web("#00E5FF").deriveColor(0, 1, 1, 0.45));
+            g.setLineWidth(2.0 * s);
+            g.strokeOval(x - 10 * s, y - 10 * s, 100 * s, 100 * s);
+        }
     }
 
     private void drawPenguinIceBuff(GraphicsContext g, double drawSize) {
@@ -4112,10 +4178,11 @@ public class Bird {
             g.translate(-cx, -cy);
         }
 
-        Color wing = Color.rgb(28, 16, 48);
-        Color wingInner = Color.rgb(50, 30, 76);
-        Color body = Color.rgb(70, 40, 102);
-        Color head = Color.rgb(88, 54, 124);
+        boolean umbra = isUmbraSkin;
+        Color wing = umbra ? Color.web("#0B0F1A") : Color.rgb(28, 16, 48);
+        Color wingInner = umbra ? Color.web("#182032") : Color.rgb(50, 30, 76);
+        Color body = umbra ? Color.web("#1C1033") : Color.rgb(70, 40, 102);
+        Color head = umbra ? Color.web("#2D1B4D") : Color.rgb(88, 54, 124);
         double flap = airborne ? Math.sin(System.currentTimeMillis() / 90.0) * 10 * s : 0;
         double leftWingY = y + 18 * s - flap;
         double rightWingY = y + 18 * s - flap;
@@ -4149,7 +4216,8 @@ public class Bird {
         g.fillOval(headX, y + 6 * s, 44 * s, 32 * s);
 
         // ears
-        g.setFill(Color.rgb(110, 74, 150));
+        Color ear = umbra ? Color.web("#4C537A") : Color.rgb(110, 74, 150);
+        g.setFill(ear);
         g.fillPolygon(new double[]{headX + 6 * s, headX + 12 * s, headX + 18 * s}, new double[]{y + 8 * s, y - 10 * s, y + 8 * s}, 3);
         g.fillPolygon(new double[]{headX + 26 * s, headX + 32 * s, headX + 38 * s}, new double[]{y + 8 * s, y - 10 * s, y + 8 * s}, 3);
 
@@ -4158,7 +4226,8 @@ public class Bird {
         double eyeBias = (facingRight ? 3 : -3) * s;
         g.fillOval(headX + 8 * s + eyeBias, y + 16 * s, 11 * s, 11 * s);
         g.fillOval(headX + 24 * s + eyeBias, y + 16 * s, 11 * s, 11 * s);
-        g.setFill(Color.CRIMSON.brighter());
+        Color iris = umbra ? Color.web("#00E5FF") : Color.CRIMSON.brighter();
+        g.setFill(iris);
         g.fillOval(headX + 11 * s + eyeBias, y + 19 * s, 6 * s, 6 * s);
         g.fillOval(headX + 27 * s + eyeBias, y + 19 * s, 6 * s, 6 * s);
 
