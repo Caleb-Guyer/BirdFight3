@@ -159,8 +159,10 @@ public class BirdGame3 extends Application {
     private LanHostServer lanHost;
     private LanClient lanClient;
     private final BirdType[] lanSelectedBirds = new BirdType[LAN_MAX_PLAYERS];
+    private final String[] lanSelectedSkinKeys = new String[LAN_MAX_PLAYERS];
     private final boolean[] lanRandomBirds = new boolean[LAN_MAX_PLAYERS];
     private final boolean[] lanSlotConnected = new boolean[LAN_MAX_PLAYERS];
+    private final boolean[] lanReady = new boolean[LAN_MAX_PLAYERS];
     private final MapType[] lanMapVotes = new MapType[LAN_MAX_PLAYERS];
     private final boolean[] lanMapVoteRandom = new boolean[LAN_MAX_PLAYERS];
     private final int[] lanInputMasks = new int[LAN_MAX_PLAYERS];
@@ -175,11 +177,18 @@ public class BirdGame3 extends Application {
     private Label lanYourBirdLabel;
     private Label lanMapLabel;
     private Label lanMapVoteLabel;
+    private Label lanCountdownLabel;
+    private Canvas[] lanPortraits;
     private Button lanStartButton;
     private Button lanPrevBirdButton;
     private Button lanNextBirdButton;
     private Button lanPrevMapButton;
     private Button lanNextMapButton;
+    private Button lanSelectBirdButton;
+    private Button lanSelectMapButton;
+    private Button lanReadyButton;
+    private Timeline lanCountdownTimeline;
+    private int lanCountdownValue = 0;
     private String lanLastHost = "";
     private LanState pendingLanState;
 
@@ -250,6 +259,7 @@ public class BirdGame3 extends Application {
     private final UIFactory uiFactory = new UIFactory(this::playButtonClick, this::applyNoEllipsis, this::fitMainMenuButtonSingleLine);
     private Runnable stageSelectReturn = null;
     private java.util.function.Consumer<MapType> stageSelectHandler = null;
+    private Runnable stageSelectRandomHandler = null;
     private Runnable settingsReturn = null;
     private boolean musicEnabled = true;
     private boolean sfxEnabled = true;
@@ -3859,6 +3869,7 @@ public class BirdGame3 extends Application {
             return;
         }
 
+        boolean lanClientSim = lanModeActive && lanIsClient;
         if (lanModeActive && lanIsHost && lanMatchActive) {
             applyLanInputMasks();
         }
@@ -3880,246 +3891,250 @@ public class BirdGame3 extends Application {
             }
 
             long now = System.nanoTime();
-            applyMatchModeRuntimeEffects(now);
-            spawnPowerUp(now);
-            if (!matchEnded && !trainingModeActive) matchTimer--;
+            if (!lanClientSim) {
+                applyMatchModeRuntimeEffects(now);
+                spawnPowerUp(now);
+                if (!matchEnded && !trainingModeActive) matchTimer--;
+            }
 
             accumulator -= FRAME_TIME;
             updates++;
         }
-        for (Bird b : players) {
-            if (b == null || b.health <= 0) continue;
-            for (NectarNode node : nectarNodes) {
-                if (node.active && Math.hypot(node.x - (b.x + 40), node.y - (b.y + 40)) < 80) {
-                    node.active = false;
-                    if (node.isSpeed) {
-                        b.speedBoostTimer = 300;
-                        b.speedMultiplier = 1.2;
-                        addToKillFeed(b.name.split(":")[0].trim() + " sipped SPEED NECTAR! +20% speed");
-                    } else {
-                        b.hoverRegenTimer = 300;
-                        b.hoverRegenMultiplier = 1.5;
-                        addToKillFeed(b.name.split(":")[0].trim() + " sipped HOVER NECTAR! Better hover regen");
-                    }
-                    for (int i = 0; i < 30; i++) {
-                        double angle = Math.random() * Math.PI * 2;
-                        particles.add(new Particle(node.x, node.y, Math.cos(angle) * 8, Math.sin(angle) * 8 - 4, node.isSpeed ? Color.YELLOW : Color.AQUA));
-                    }
-                }
-            }
-        }
-
-        if (selectedMap == MapType.VIBRANT_JUNGLE) {
-            for (SwingingVine vine : swingingVines) {
-                vine.angularVelocity += (Math.random() - 0.5) * 0.0015;
-                if (Math.random() < 0.008) vine.angularVelocity += (Math.random() - 0.5) * 0.04;
-                double gravity = 0.009;
-                double angularAccel = -gravity * Math.sin(vine.angle);
-                vine.angularVelocity += angularAccel;
-                vine.angularVelocity *= 0.995;
-                vine.angle += vine.angularVelocity;
-                vine.angle = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, vine.angle));
-                vine.updatePlatformPosition();
-                for (Bird b : players) {
-                    if (b == null || b.health <= 0) continue;
-                    double birdLeft = b.x + 20;
-                    double birdRight = b.x + 60 * b.sizeMultiplier;
-                    double birdBottom = b.y + 80 * b.sizeMultiplier;
-                    double birdTop = b.y;
-                    double platLeft = vine.platformX;
-                    double platRight = vine.platformX + vine.platformW;
-                    double platTop = vine.platformY;
-                    boolean horizontallyOver = birdLeft < platRight && birdRight > platLeft;
-                    boolean verticallyOnTop = birdBottom >= platTop && birdBottom <= platTop + 30;
-                    if (!b.onVine && horizontallyOver && verticallyOnTop && b.vy >= 0 && birdTop < platTop) {
-                        b.onVine = true;
-                        b.attachedVine = vine;
-                        b.y = platTop - 80 * b.sizeMultiplier;
-                        b.vy = 0;
-                        addToKillFeed(b.name.split(":")[0].trim() + " grabbed a vine!");
-                    }
-                    if (b.onVine && b.attachedVine == vine) {
-                        b.x = vine.platformX + vine.platformW / 2 - 40 * b.sizeMultiplier;
-                        b.y = vine.platformY - 80 * b.sizeMultiplier;
-                        if (!isAI[b.playerIndex]) {
-                            if (pressedKeys.contains(b.leftKey())) vine.angularVelocity -= 0.004;
-                            if (pressedKeys.contains(b.rightKey())) vine.angularVelocity += 0.004;
-                        }
-                        if (isAI[b.playerIndex]) {
-                            Bird target = null;
-                            double best = Double.MAX_VALUE;
-                            for (Bird other : players) {
-                                if (other != null && other.health > 0 && other != b) {
-                                    double d = Math.abs(other.x - b.x);
-                                    if (d < best) {
-                                        best = d;
-                                        target = other;
-                                    }
-                                }
-                            }
-                            if (target != null) {
-                                if (target.x < b.x) vine.angularVelocity -= 0.006;
-                                if (target.x > b.x) vine.angularVelocity += 0.006;
-                            }
-                        }
-                        if (pressedKeys.contains(b.jumpKey())) {
-                            b.onVine = false;
-                            b.attachedVine = null;
-                            b.vy = -b.type.jumpHeight * 0.9;
-                            b.canDoubleJump = true;
-                            addToKillFeed(b.name.split(":")[0].trim() + " swung off the vine!");
-                        }
-                        b.vy = 0;
-                    }
-                }
-            }
-            for (Bird b : players) {
-                if (b != null && b.onVine && b.attachedVine != null) {
-                    double platY = b.attachedVine.platformY;
-                    if (b.y + 80 * b.sizeMultiplier > platY + 50) {
-                        b.onVine = false;
-                        b.attachedVine = null;
-                    }
-                }
-            }
-        }
-
-        for (Iterator<CrowMinion> it = crowMinions.iterator(); it.hasNext(); ) {
-            CrowMinion c = it.next();
-            c.age++;
-            Bird closest = null;
-            double best = Double.MAX_VALUE;
+        if (!lanClientSim) {
             for (Bird b : players) {
                 if (b == null || b.health <= 0) continue;
-                if (c.owner != null && !canDamage(c.owner, b)) continue;
-                double d = Math.hypot(b.x + 40 - c.x, b.y + 40 - c.y);
-                if (d < best) {
-                    best = d;
-                    closest = b;
-                }
-            }
-            if (closest != null) {
-                double dx = closest.x + 40 - c.x;
-                double dy = closest.y + 40 - c.y;
-                double dist = Math.hypot(dx, dy);
-                if (dist > 0) {
-                    double spd = 3.2;
-                    c.vx += dx / dist * 0.22;
-                    c.vy += dy / dist * 0.22;
-                    double speedNow = Math.hypot(c.vx, c.vy);
-                    if (speedNow > spd) {
-                        c.vx = c.vx / speedNow * spd;
-                        c.vy = c.vy / speedNow * spd;
+                for (NectarNode node : nectarNodes) {
+                    if (node.active && Math.hypot(node.x - (b.x + 40), node.y - (b.y + 40)) < 80) {
+                        node.active = false;
+                        if (node.isSpeed) {
+                            b.speedBoostTimer = 300;
+                            b.speedMultiplier = 1.2;
+                            addToKillFeed(b.name.split(":")[0].trim() + " sipped SPEED NECTAR! +20% speed");
+                        } else {
+                            b.hoverRegenTimer = 300;
+                            b.hoverRegenMultiplier = 1.5;
+                            addToKillFeed(b.name.split(":")[0].trim() + " sipped HOVER NECTAR! Better hover regen");
+                        }
+                        for (int i = 0; i < 30; i++) {
+                            double angle = Math.random() * Math.PI * 2;
+                            particles.add(new Particle(node.x, node.y, Math.cos(angle) * 8, Math.sin(angle) * 8 - 4, node.isSpeed ? Color.YELLOW : Color.AQUA));
+                        }
                     }
                 }
-                if (dist < 48) {
-                    int damage = (c.owner != null) ? 1 : 4;
-                    closest.health -= damage;
-                    if (closest.health < 0) closest.health = 0;
-                    String source = (c.owner != null) ? "CROW" : "MURDER CROW";
-                    addToKillFeed(source + " devours " + closest.name.split(":")[0].trim() + "! -" + damage + " HP");
-                    closest.vx += c.vx * 1.5;
-                    closest.vy -= 12;
-                    int particleCount = (c.owner != null) ? 18 : 35;
-                    Color particleColor = (c.owner != null) ? Color.DARKRED.deriveColor(0, 1, 1, 0.9) : Color.BLACK;
-                    for (int i = 0; i < particleCount; i++) {
-                        double angle = Math.random() * Math.PI * 2;
-                        double spd = 6 + Math.random() * 20;
-                        particles.add(new Particle(c.x, c.y, Math.cos(angle) * spd, Math.sin(angle) * spd - 8, particleColor));
-                    }
-                    if (c.owner == null) {
-                        triggerFlash(0.6, false);
-                        shakeIntensity = Math.max(shakeIntensity, 20);
-                    }
-                    it.remove();
-                    continue;
-                }
             }
-            c.x += c.vx;
-            c.y += c.vy;
-            if (c.age > 1800 || c.x < -1500 || c.x > WORLD_WIDTH + 1500 || c.y < -1500 || c.y > WORLD_HEIGHT + 1500) {
-                it.remove();
-            }
-        }
 
-        if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive && !trainingModeActive && !matchEnded && matchTimer <= 0) {
-            Bird timeoutWinner = findTimeoutWinner();
-            addToKillFeed("TIME! Tournament decision.");
-            triggerMatchEnd(timeoutWinner);
-        } else if (!trainingModeActive && !matchEnded && matchTimer <= 0 && !suddenDeath.isActive()) {
-            suddenDeath.start();
-            if (sfxEnabled && hugewaveClip != null) hugewaveClip.play();
-            addToKillFeed("SUDDEN DEATH! A MURDER OF CROWS DESCENDS!");
-            shakeIntensity = 40;
-            hitstopFrames = 30;
-        }
-        if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) && !trainingModeActive) {
-            shakeIntensity = suddenDeath.updateAndSpawn(
-                    crowMinions,
-                    random,
-                    WORLD_WIDTH,
-                    WORLD_HEIGHT,
-                    shakeIntensity,
-                    matchEnded
-            );
-        }
-
-        if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
-                && selectedMap == MapType.CITY
-                && System.nanoTime() - lastWindBurstTime > WIND_BURST_INTERVAL) {
-            lastWindBurstTime = System.nanoTime();
-            Collections.shuffle(windVents);
-            int bursts = 2 + random.nextInt(2);
-            for (int i = 0; i < Math.min(bursts, windVents.size()); i++) {
-                WindVent vent = windVents.get(i);
-                vent.cooldown = 120;
+            if (selectedMap == MapType.VIBRANT_JUNGLE) {
+                for (SwingingVine vine : swingingVines) {
+                    vine.angularVelocity += (Math.random() - 0.5) * 0.0015;
+                    if (Math.random() < 0.008) vine.angularVelocity += (Math.random() - 0.5) * 0.04;
+                    double gravity = 0.009;
+                    double angularAccel = -gravity * Math.sin(vine.angle);
+                    vine.angularVelocity += angularAccel;
+                    vine.angularVelocity *= 0.995;
+                    vine.angle += vine.angularVelocity;
+                    vine.angle = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, vine.angle));
+                    vine.updatePlatformPosition();
+                    for (Bird b : players) {
+                        if (b == null || b.health <= 0) continue;
+                        double birdLeft = b.x + 20;
+                        double birdRight = b.x + 60 * b.sizeMultiplier;
+                        double birdBottom = b.y + 80 * b.sizeMultiplier;
+                        double birdTop = b.y;
+                        double platLeft = vine.platformX;
+                        double platRight = vine.platformX + vine.platformW;
+                        double platTop = vine.platformY;
+                        boolean horizontallyOver = birdLeft < platRight && birdRight > platLeft;
+                        boolean verticallyOnTop = birdBottom >= platTop && birdBottom <= platTop + 30;
+                        if (!b.onVine && horizontallyOver && verticallyOnTop && b.vy >= 0 && birdTop < platTop) {
+                            b.onVine = true;
+                            b.attachedVine = vine;
+                            b.y = platTop - 80 * b.sizeMultiplier;
+                            b.vy = 0;
+                            addToKillFeed(b.name.split(":")[0].trim() + " grabbed a vine!");
+                        }
+                        if (b.onVine && b.attachedVine == vine) {
+                            b.x = vine.platformX + vine.platformW / 2 - 40 * b.sizeMultiplier;
+                            b.y = vine.platformY - 80 * b.sizeMultiplier;
+                            if (!isAI[b.playerIndex]) {
+                                if (pressedKeys.contains(b.leftKey())) vine.angularVelocity -= 0.004;
+                                if (pressedKeys.contains(b.rightKey())) vine.angularVelocity += 0.004;
+                            }
+                            if (isAI[b.playerIndex]) {
+                                Bird target = null;
+                                double best = Double.MAX_VALUE;
+                                for (Bird other : players) {
+                                    if (other != null && other.health > 0 && other != b) {
+                                        double d = Math.abs(other.x - b.x);
+                                        if (d < best) {
+                                            best = d;
+                                            target = other;
+                                        }
+                                    }
+                                }
+                                if (target != null) {
+                                    if (target.x < b.x) vine.angularVelocity -= 0.006;
+                                    if (target.x > b.x) vine.angularVelocity += 0.006;
+                                }
+                            }
+                            if (pressedKeys.contains(b.jumpKey())) {
+                                b.onVine = false;
+                                b.attachedVine = null;
+                                b.vy = -b.type.jumpHeight * 0.9;
+                                b.canDoubleJump = true;
+                                addToKillFeed(b.name.split(":")[0].trim() + " swung off the vine!");
+                            }
+                            b.vy = 0;
+                        }
+                    }
+                }
                 for (Bird b : players) {
-                    if (b != null && b.health > 0) {
-                        double dx = b.x + 40 - (vent.x + vent.w / 2);
-                        if (Math.abs(dx) < vent.w / 2 + 100 && b.y > vent.y - 300) {
-                            b.vy = Math.min(b.vy, WIND_FORCE);
-                            addToKillFeed("WIND GUST lifts " + b.name.split(":")[0].trim() + "!");
-                            for (int j = 0; j < 40; j++) {
-                                double angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
-                                double spd = 8 + Math.random() * 12;
-                                particles.add(new Particle(vent.x + vent.w / 2 + (Math.random() - 0.5) * vent.w, vent.y - 20, Math.cos(angle) * spd, Math.sin(angle) * spd, Color.CYAN.deriveColor(0, 1, 1, 0.7)));
+                    if (b != null && b.onVine && b.attachedVine != null) {
+                        double platY = b.attachedVine.platformY;
+                        if (b.y + 80 * b.sizeMultiplier > platY + 50) {
+                            b.onVine = false;
+                            b.attachedVine = null;
+                        }
+                    }
+                }
+            }
+
+            for (Iterator<CrowMinion> it = crowMinions.iterator(); it.hasNext(); ) {
+                CrowMinion c = it.next();
+                c.age++;
+                Bird closest = null;
+                double best = Double.MAX_VALUE;
+                for (Bird b : players) {
+                    if (b == null || b.health <= 0) continue;
+                    if (c.owner != null && !canDamage(c.owner, b)) continue;
+                    double d = Math.hypot(b.x + 40 - c.x, b.y + 40 - c.y);
+                    if (d < best) {
+                        best = d;
+                        closest = b;
+                    }
+                }
+                if (closest != null) {
+                    double dx = closest.x + 40 - c.x;
+                    double dy = closest.y + 40 - c.y;
+                    double dist = Math.hypot(dx, dy);
+                    if (dist > 0) {
+                        double spd = 3.2;
+                        c.vx += dx / dist * 0.22;
+                        c.vy += dy / dist * 0.22;
+                        double speedNow = Math.hypot(c.vx, c.vy);
+                        if (speedNow > spd) {
+                            c.vx = c.vx / speedNow * spd;
+                            c.vy = c.vy / speedNow * spd;
+                        }
+                    }
+                    if (dist < 48) {
+                        int damage = (c.owner != null) ? 1 : 4;
+                        closest.health -= damage;
+                        if (closest.health < 0) closest.health = 0;
+                        String source = (c.owner != null) ? "CROW" : "MURDER CROW";
+                        addToKillFeed(source + " devours " + closest.name.split(":")[0].trim() + "! -" + damage + " HP");
+                        closest.vx += c.vx * 1.5;
+                        closest.vy -= 12;
+                        int particleCount = (c.owner != null) ? 18 : 35;
+                        Color particleColor = (c.owner != null) ? Color.DARKRED.deriveColor(0, 1, 1, 0.9) : Color.BLACK;
+                        for (int i = 0; i < particleCount; i++) {
+                            double angle = Math.random() * Math.PI * 2;
+                            double spd = 6 + Math.random() * 20;
+                            particles.add(new Particle(c.x, c.y, Math.cos(angle) * spd, Math.sin(angle) * spd - 8, particleColor));
+                        }
+                        if (c.owner == null) {
+                            triggerFlash(0.6, false);
+                            shakeIntensity = Math.max(shakeIntensity, 20);
+                        }
+                        it.remove();
+                        continue;
+                    }
+                }
+                c.x += c.vx;
+                c.y += c.vy;
+                if (c.age > 1800 || c.x < -1500 || c.x > WORLD_WIDTH + 1500 || c.y < -1500 || c.y > WORLD_HEIGHT + 1500) {
+                    it.remove();
+                }
+            }
+
+            if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive && !trainingModeActive && !matchEnded && matchTimer <= 0) {
+                Bird timeoutWinner = findTimeoutWinner();
+                addToKillFeed("TIME! Tournament decision.");
+                triggerMatchEnd(timeoutWinner);
+            } else if (!trainingModeActive && !matchEnded && matchTimer <= 0 && !suddenDeath.isActive()) {
+                suddenDeath.start();
+                if (sfxEnabled && hugewaveClip != null) hugewaveClip.play();
+                addToKillFeed("SUDDEN DEATH! A MURDER OF CROWS DESCENDS!");
+                shakeIntensity = 40;
+                hitstopFrames = 30;
+            }
+            if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) && !trainingModeActive) {
+                shakeIntensity = suddenDeath.updateAndSpawn(
+                        crowMinions,
+                        random,
+                        WORLD_WIDTH,
+                        WORLD_HEIGHT,
+                        shakeIntensity,
+                        matchEnded
+                );
+            }
+
+            if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
+                    && selectedMap == MapType.CITY
+                    && System.nanoTime() - lastWindBurstTime > WIND_BURST_INTERVAL) {
+                lastWindBurstTime = System.nanoTime();
+                Collections.shuffle(windVents);
+                int bursts = 2 + random.nextInt(2);
+                for (int i = 0; i < Math.min(bursts, windVents.size()); i++) {
+                    WindVent vent = windVents.get(i);
+                    vent.cooldown = 120;
+                    for (Bird b : players) {
+                        if (b != null && b.health > 0) {
+                            double dx = b.x + 40 - (vent.x + vent.w / 2);
+                            if (Math.abs(dx) < vent.w / 2 + 100 && b.y > vent.y - 300) {
+                                b.vy = Math.min(b.vy, WIND_FORCE);
+                                addToKillFeed("WIND GUST lifts " + b.name.split(":")[0].trim() + "!");
+                                for (int j = 0; j < 40; j++) {
+                                    double angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+                                    double spd = 8 + Math.random() * 12;
+                                    particles.add(new Particle(vent.x + vent.w / 2 + (Math.random() - 0.5) * vent.w, vent.y - 20, Math.cos(angle) * spd, Math.sin(angle) * spd, Color.CYAN.deriveColor(0, 1, 1, 0.7)));
+                                }
                             }
                         }
                     }
                 }
             }
-        }
-        for (WindVent v : windVents) if (v.cooldown > 0) v.cooldown--;
+            for (WindVent v : windVents) if (v.cooldown > 0) v.cooldown--;
 
-        double minX = Double.MAX_VALUE, maxX = Double.MIN_VALUE;
-        double minY = Double.MAX_VALUE, maxY = Double.MIN_VALUE;
-        int aliveCount = 0;
-        for (Bird b : players) {
-            if (b != null && b.health > 0) {
-                aliveCount++;
-                minX = Math.min(minX, b.x);
-                maxX = Math.max(maxX, b.x + 80);
-                minY = Math.min(minY, b.y);
-                maxY = Math.max(maxY, b.y + 80);
+            double minX = Double.MAX_VALUE, maxX = Double.MIN_VALUE;
+            double minY = Double.MAX_VALUE, maxY = Double.MIN_VALUE;
+            int aliveCount = 0;
+            for (Bird b : players) {
+                if (b != null && b.health > 0) {
+                    aliveCount++;
+                    minX = Math.min(minX, b.x);
+                    maxX = Math.max(maxX, b.x + 80);
+                    minY = Math.min(minY, b.y);
+                    maxY = Math.max(maxY, b.y + 80);
+                }
             }
+            if (aliveCount >= 2) {
+                double birdsWidth = maxX - minX;
+                double birdsHeight = maxY - minY;
+                double targetZoomW = WIDTH / (birdsWidth + 800);
+                double targetZoomH = HEIGHT / (birdsHeight + 800);
+                double targetZoom = Math.min(targetZoomW, targetZoomH);
+                targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
+                zoom += (targetZoom - zoom) * ZOOM_SPEED;
+            } else if (aliveCount == 1) {
+                zoom += (0.9 - zoom) * 0.01;
+            }
+            double centerX = (minX + maxX) / 2.0;
+            double centerY = (minY + maxY) / 2.0;
+            camX = centerX - WIDTH / (2 * zoom);
+            camY = centerY - HEIGHT / (2 * zoom);
+            camX = Math.max(0, Math.min(camX, WORLD_WIDTH - WIDTH / zoom));
+            camY = Math.max(0, Math.min(camY, WORLD_HEIGHT - HEIGHT / zoom));
         }
-        if (aliveCount >= 2) {
-            double birdsWidth = maxX - minX;
-            double birdsHeight = maxY - minY;
-            double targetZoomW = WIDTH / (birdsWidth + 800);
-            double targetZoomH = HEIGHT / (birdsHeight + 800);
-            double targetZoom = Math.min(targetZoomW, targetZoomH);
-            targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
-            zoom += (targetZoom - zoom) * ZOOM_SPEED;
-        } else if (aliveCount == 1) {
-            zoom += (0.9 - zoom) * 0.01;
-        }
-        double centerX = (minX + maxX) / 2.0;
-        double centerY = (minY + maxY) / 2.0;
-        camX = centerX - WIDTH / (2 * zoom);
-        camY = centerY - HEIGHT / (2 * zoom);
-        camX = Math.max(0, Math.min(camX, WORLD_WIDTH - WIDTH / zoom));
-        camY = Math.max(0, Math.min(camY, WORLD_HEIGHT - HEIGHT / zoom));
         
         if (particleEffectsEnabled) {
             for (Iterator<Particle> it = particles.iterator(); it.hasNext(); ) {
@@ -4134,31 +4149,33 @@ public class BirdGame3 extends Application {
             particles.clear();
         }
 
-        if (trainingModeActive) {
-            Bird dummy = players[trainingDummyIndex];
-            if (dummy != null) {
-                dummy.health = dummy.getMaxHealth();
+        if (!lanClientSim) {
+            if (trainingModeActive) {
+                Bird dummy = players[trainingDummyIndex];
+                if (dummy != null) {
+                    dummy.health = dummy.getMaxHealth();
+                }
             }
-        }
 
-        int alive = 0;
-        Bird winner = null;
-        Set<Integer> aliveTeams = new HashSet<>();
-        for (Bird b : players) {
-            if (b != null && b.health > 0) {
-                alive++;
-                winner = b;
-                aliveTeams.add(getEffectiveTeam(b.playerIndex));
+            int alive = 0;
+            Bird winner = null;
+            Set<Integer> aliveTeams = new HashSet<>();
+            for (Bird b : players) {
+                if (b != null && b.health > 0) {
+                    alive++;
+                    winner = b;
+                    aliveTeams.add(getEffectiveTeam(b.playerIndex));
+                }
             }
-        }
-        boolean teamModeMatch =
-                (teamModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
-                        || (storyModeActive && storyTeamMode)
-                        || (adventureModeActive && adventureTeamMode)
-                        || (classicModeActive && classicTeamMode);
-        boolean isMatchOver = teamModeMatch ? aliveTeams.size() <= 1 : alive <= 1;
-        if (isMatchOver && !matchEnded) {
-            triggerMatchEnd(winner);
+            boolean teamModeMatch =
+                    (teamModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
+                            || (storyModeActive && storyTeamMode)
+                            || (adventureModeActive && adventureTeamMode)
+                            || (classicModeActive && classicTeamMode);
+            boolean isMatchOver = teamModeMatch ? aliveTeams.size() <= 1 : alive <= 1;
+            if (isMatchOver && !matchEnded) {
+                triggerMatchEnd(winner);
+            }
         }
     }
     private void drawGame(GraphicsContext g) {
@@ -7118,30 +7135,28 @@ public class BirdGame3 extends Application {
         lanMapVoteLabel.setFont(Font.font("Consolas", 20));
         lanMapVoteLabel.setTextFill(Color.web("#B0BEC5"));
 
-        lanPrevMapButton = uiFactory.action("<", 70, 60, 26, "#455A64", 18, () -> cycleLanMap(-1));
-        lanNextMapButton = uiFactory.action(">", 70, 60, 26, "#455A64", 18, () -> cycleLanMap(1));
-        HBox mapRow = new HBox(12, lanPrevMapButton, lanMapLabel, lanNextMapButton);
-        mapRow.setAlignment(Pos.CENTER);
-        VBox mapBox = new VBox(6, mapRow, lanMapVoteLabel);
+        lanSelectMapButton = uiFactory.action(lanIsHost ? "SELECT MAP" : "VOTE MAP", 240, 70, 26, "#455A64", 18, () -> openLanMapSelect(stage));
+        VBox mapBox = new VBox(6, lanMapLabel, lanSelectMapButton, lanMapVoteLabel);
         mapBox.setAlignment(Pos.CENTER);
 
         lanYourBirdLabel = new Label();
         lanYourBirdLabel.setFont(Font.font("Arial Black", 24));
         lanYourBirdLabel.setTextFill(Color.web("#FFECB3"));
 
-        lanPrevBirdButton = uiFactory.action("<", 70, 60, 26, "#455A64", 18, () -> cycleLanBird(-1));
-        lanNextBirdButton = uiFactory.action(">", 70, 60, 26, "#455A64", 18, () -> cycleLanBird(1));
-        HBox birdRow = new HBox(12, lanPrevBirdButton, lanYourBirdLabel, lanNextBirdButton);
-        birdRow.setAlignment(Pos.CENTER);
+        lanSelectBirdButton = uiFactory.action("SELECT BIRD", 240, 70, 26, "#455A64", 18, () -> showLanBirdSelect(stage));
+        VBox birdBox = new VBox(6, lanYourBirdLabel, lanSelectBirdButton);
+        birdBox.setAlignment(Pos.CENTER);
 
-        VBox controls = new VBox(12, mapBox, birdRow);
+        VBox controls = new VBox(12, mapBox, birdBox);
         controls.setAlignment(Pos.CENTER);
 
         lanStartButton = null;
         VBox actions = new VBox(12);
         actions.setAlignment(Pos.CENTER);
+        lanReadyButton = uiFactory.action("READY UP", 260, 70, 26, "#2E7D32", 18, this::toggleLanReady);
+        actions.getChildren().add(lanReadyButton);
         if (lanIsHost) {
-            lanStartButton = uiFactory.action("START MATCH", 420, 90, 32, "#00C853", 22, () -> startLanMatchHost(stage));
+            lanStartButton = uiFactory.action("START MATCH", 420, 90, 32, "#00C853", 22, () -> beginLanCountdown(stage));
             actions.getChildren().add(lanStartButton);
         } else {
             Label waiting = new Label("Waiting for host to start...");
@@ -7150,13 +7165,36 @@ public class BirdGame3 extends Application {
             actions.getChildren().add(waiting);
         }
 
+        lanCountdownLabel = new Label();
+        lanCountdownLabel.setFont(Font.font("Impact", FontWeight.BOLD, 48));
+        lanCountdownLabel.setTextFill(Color.web("#FFD54F"));
+        applyNoEllipsis(lanCountdownLabel);
+        updateLanCountdownLabel();
+
         Button back = uiFactory.action("BACK TO HUB", 320, 80, 28, "#D32F2F", 20, () -> {
             stopLanSession();
             showMenu(stage);
         });
         actions.getChildren().add(back);
 
-        root.getChildren().addAll(title, info, lanStatusLabel, slots, controls, actions);
+        lanPortraits = new Canvas[LAN_MAX_PLAYERS];
+        HBox portraitRow = new HBox(18);
+        portraitRow.setAlignment(Pos.CENTER);
+        for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
+            Label pLabel = new Label("P" + (i + 1));
+            pLabel.setFont(Font.font("Consolas", 18));
+            pLabel.setTextFill(Color.web("#B0BEC5"));
+            Canvas portrait = new Canvas(100, 100);
+            lanPortraits[i] = portrait;
+            StackPane frame = new StackPane(portrait);
+            frame.setPadding(new Insets(6));
+            frame.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #607D8B; -fx-border-width: 2; -fx-background-radius: 14; -fx-border-radius: 14;");
+            VBox slotBox = new VBox(6, pLabel, frame);
+            slotBox.setAlignment(Pos.CENTER);
+            portraitRow.getChildren().add(slotBox);
+        }
+
+        root.getChildren().addAll(title, info, lanStatusLabel, slots, controls, portraitRow, lanCountdownLabel, actions);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -7179,7 +7217,9 @@ public class BirdGame3 extends Application {
         lanMatchActive = false;
         lanPlayerIndex = 0;
         Arrays.fill(lanSlotConnected, false);
+        Arrays.fill(lanSelectedSkinKeys, null);
         Arrays.fill(lanRandomBirds, false);
+        Arrays.fill(lanReady, false);
         Arrays.fill(lanMapVotes, null);
         Arrays.fill(lanMapVoteRandom, false);
         Arrays.fill(lanInputMasks, 0);
@@ -7191,6 +7231,8 @@ public class BirdGame3 extends Application {
             lanSelectedBirds[0] = firstUnlockedBird();
         }
         lanRandomBirds[0] = false;
+        lanSelectedSkinKeys[0] = null;
+        lanReady[0] = false;
         if (lanSelectedMap == null) {
             lanSelectedMap = MapType.FOREST;
         }
@@ -7220,7 +7262,9 @@ public class BirdGame3 extends Application {
         lanMatchActive = false;
         lanPlayerIndex = -1;
         Arrays.fill(lanSlotConnected, false);
+        Arrays.fill(lanSelectedSkinKeys, null);
         Arrays.fill(lanRandomBirds, false);
+        Arrays.fill(lanReady, false);
         Arrays.fill(lanMapVotes, null);
         Arrays.fill(lanMapVoteRandom, false);
         Arrays.fill(lanInputMasks, 0);
@@ -7260,7 +7304,8 @@ public class BirdGame3 extends Application {
                     BirdType type = lanSelectedBirds[i];
                     name = type != null ? type.name : "Selecting...";
                 }
-                slot.setText("P" + (i + 1) + ": " + name);
+                String readyState = lanReady[i] ? "READY" : "NOT READY";
+                slot.setText("P" + (i + 1) + ": " + name + " - " + readyState);
             }
         }
         if (lanMapLabel != null) {
@@ -7309,12 +7354,302 @@ public class BirdGame3 extends Application {
             }
         }
         boolean canSelect = lanPlayerIndex >= 0;
-        if (lanPrevMapButton != null) lanPrevMapButton.setDisable(!canSelect);
-        if (lanNextMapButton != null) lanNextMapButton.setDisable(!canSelect);
-        if (lanPrevBirdButton != null) lanPrevBirdButton.setDisable(!canSelect);
-        if (lanNextBirdButton != null) lanNextBirdButton.setDisable(!canSelect);
+        if (lanSelectMapButton != null) lanSelectMapButton.setDisable(!canSelect);
+        if (lanSelectBirdButton != null) lanSelectBirdButton.setDisable(!canSelect);
+        if (lanReadyButton != null) {
+            lanReadyButton.setDisable(!canSelect);
+            boolean ready = canSelect && lanReady[lanPlayerIndex];
+            lanReadyButton.setText(ready ? "READY" : "NOT READY");
+            lanReadyButton.setStyle(ready
+                    ? "-fx-background-color: #00C853; -fx-text-fill: white;"
+                    : "-fx-background-color: #546E7A; -fx-text-fill: white;");
+        }
         if (lanStartButton != null) {
-            lanStartButton.setDisable(connectedCount < 2);
+            lanStartButton.setDisable(connectedCount < 2 || lanCountdownTimeline != null);
+        }
+        if (lanPortraits != null) {
+            for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
+                Canvas canvas = lanPortraits[i];
+                if (canvas == null) continue;
+                GraphicsContext g = canvas.getGraphicsContext2D();
+                g.clearRect(0, 0, canvas.getWidth(), canvas.getHeight());
+                if (!lanSlotConnected[i]) continue;
+                boolean randomPick = lanRandomBirds[i];
+                BirdType type = randomPick ? null : lanSelectedBirds[i];
+                String skinKey = randomPick ? null : lanSelectedSkinKeys[i];
+                drawRosterSprite(canvas, type, skinKey, randomPick);
+            }
+        }
+    }
+
+    private void toggleLanReady() {
+        if (lanPlayerIndex < 0) return;
+        lanReady[lanPlayerIndex] = !lanReady[lanPlayerIndex];
+        if (lanIsHost) {
+            broadcastLanLobby();
+        } else if (lanClient != null) {
+            lanClient.sendReady(lanReady[lanPlayerIndex]);
+        }
+        refreshLanLobbyUI();
+    }
+
+    private void beginLanCountdown(Stage stage) {
+        if (!lanIsHost) return;
+        if (lanCountdownTimeline != null) return;
+        if (countLanConnected() < 2) return;
+        lanCountdownValue = 5;
+        updateLanCountdownLabel();
+        if (lanHost != null) {
+            lanHost.broadcastCountdown(lanCountdownValue);
+        }
+        lanCountdownTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
+            lanCountdownValue--;
+            if (lanCountdownValue <= 0) {
+                stopLanCountdown();
+                startLanMatchHost(stage);
+                return;
+            }
+            updateLanCountdownLabel();
+            if (lanHost != null) {
+                lanHost.broadcastCountdown(lanCountdownValue);
+            }
+        }));
+        lanCountdownTimeline.setCycleCount(Timeline.INDEFINITE);
+        lanCountdownTimeline.play();
+        refreshLanLobbyUI();
+    }
+
+    private void stopLanCountdown() {
+        if (lanCountdownTimeline != null) {
+            lanCountdownTimeline.stop();
+            lanCountdownTimeline = null;
+        }
+        lanCountdownValue = 0;
+        updateLanCountdownLabel();
+    }
+
+    private void updateLanCountdownLabel() {
+        if (lanCountdownLabel == null) return;
+        if (lanCountdownValue > 0) {
+            lanCountdownLabel.setText("MATCH STARTS IN " + lanCountdownValue);
+        } else {
+            lanCountdownLabel.setText("");
+        }
+    }
+
+    private void openLanMapSelect(Stage stage) {
+        if (stage == null) return;
+        if (lanPlayerIndex < 0) return;
+        stageSelectReturn = () -> showLanLobby(stage);
+        if (lanIsHost) {
+            stageSelectHandler = map -> {
+                lanSelectedMap = map;
+                lanSelectedMapRandom = false;
+                lanMapVotes[lanPlayerIndex] = map;
+                lanMapVoteRandom[lanPlayerIndex] = false;
+                broadcastLanLobby();
+                showLanLobby(stage);
+            };
+            stageSelectRandomHandler = () -> {
+                lanSelectedMapRandom = true;
+                if (lanSelectedMap == null) {
+                    lanSelectedMap = MapType.FOREST;
+                }
+                lanMapVotes[lanPlayerIndex] = null;
+                lanMapVoteRandom[lanPlayerIndex] = true;
+                broadcastLanLobby();
+                showLanLobby(stage);
+            };
+        } else {
+            stageSelectHandler = map -> {
+                lanMapVotes[lanPlayerIndex] = map;
+                lanMapVoteRandom[lanPlayerIndex] = false;
+                if (lanClient != null) {
+                    lanClient.sendMapVote(map, false);
+                }
+                showLanLobby(stage);
+            };
+            stageSelectRandomHandler = () -> {
+                lanMapVotes[lanPlayerIndex] = null;
+                lanMapVoteRandom[lanPlayerIndex] = true;
+                if (lanClient != null) {
+                    lanClient.sendMapVote(null, true);
+                }
+                showLanLobby(stage);
+            };
+        }
+        showStageSelect(stage);
+    }
+
+    private void sendLanSelectionUpdate() {
+        if (lanPlayerIndex < 0) return;
+        if (lanIsHost) {
+            broadcastLanLobby();
+        } else if (lanClient != null) {
+            lanClient.sendSelect(lanSelectedBirds[lanPlayerIndex], lanRandomBirds[lanPlayerIndex], lanSelectedSkinKeys[lanPlayerIndex]);
+        }
+    }
+
+    private void showLanBirdSelect(Stage stage) {
+        if (stage == null) return;
+        if (lanPlayerIndex < 0) {
+            showLanLobby(stage);
+            return;
+        }
+        playMenuMusic();
+        BorderPane root = new BorderPane();
+        root.setPadding(new Insets(24, 34, 24, 34));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #091421, #152738, #1F3443);");
+
+        Button back = uiFactory.action("BACK TO LOBBY", 320, 86, 32, "#D32F2F", 22, () -> showLanLobby(stage));
+        Label title = new Label("SELECT BIRD");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 78));
+        title.setTextFill(Color.web("#FFE082"));
+
+        HBox topBar = new HBox(18, back, title);
+        topBar.setAlignment(Pos.CENTER_LEFT);
+        root.setTop(topBar);
+
+        List<BirdType> available = unlockedBirdPool();
+        if (available.isEmpty()) {
+            available.add(BirdType.PIGEON);
+        }
+        List<BirdType> gridBirds = new ArrayList<>(available);
+        gridBirds.add(null); // random slot
+
+        GridPane grid = new GridPane();
+        grid.setHgap(20);
+        grid.setVgap(20);
+        grid.setAlignment(Pos.CENTER);
+
+        Map<BirdType, Button> buttonByType = new HashMap<>();
+        final Button[] randomButton = new Button[1];
+
+        Canvas preview = new Canvas(160, 160);
+        Label selectionLabel = new Label();
+        selectionLabel.setFont(Font.font("Consolas", 22));
+        selectionLabel.setTextFill(Color.web("#FFD54F"));
+        applyNoEllipsis(selectionLabel);
+
+        Button skinButton = new Button();
+        skinButton.setPrefSize(240, 60);
+        skinButton.setFont(Font.font("Consolas", 18));
+        skinButton.setStyle("-fx-background-color: #37474F; -fx-text-fill: white;");
+
+        int columns = Math.min(5, Math.max(1, (int) Math.ceil(gridBirds.size() / 2.0)));
+        for (int i = 0; i < gridBirds.size(); i++) {
+            BirdType type = gridBirds.get(i);
+            boolean isRandom = type == null;
+            Canvas icon = new Canvas(90, 90);
+            drawRosterSprite(icon, type, null, isRandom);
+            Button btn = new Button(isRandom ? "RANDOM" : type.name.toUpperCase());
+            btn.setGraphic(icon);
+            btn.setContentDisplay(ContentDisplay.TOP);
+            btn.setPrefSize(200, 160);
+            btn.setFont(Font.font("Consolas", 16));
+            btn.setWrapText(true);
+            btn.setTextAlignment(TextAlignment.CENTER);
+            btn.setOnAction(e -> {
+                playButtonClick();
+                if (isRandom) {
+                    lanRandomBirds[lanPlayerIndex] = true;
+                    lanSelectedBirds[lanPlayerIndex] = null;
+                    lanSelectedSkinKeys[lanPlayerIndex] = null;
+                } else {
+                    lanRandomBirds[lanPlayerIndex] = false;
+                    lanSelectedBirds[lanPlayerIndex] = type;
+                    lanSelectedSkinKeys[lanPlayerIndex] = normalizeAdventureSkinChoice(type, lanSelectedSkinKeys[lanPlayerIndex]);
+                }
+                sendLanSelectionUpdate();
+                refreshLanLobbyUI();
+                updateLanBirdSelectButtons(buttonByType, randomButton[0]);
+                updateLanBirdSelectPreview(preview, selectionLabel, skinButton);
+            });
+            int col = i % columns;
+            int row = i / columns;
+            grid.add(btn, col, row);
+            if (isRandom) {
+                randomButton[0] = btn;
+            } else {
+                buttonByType.put(type, btn);
+            }
+        }
+
+        skinButton.setOnAction(e -> {
+            playButtonClick();
+            if (lanRandomBirds[lanPlayerIndex]) return;
+            BirdType type = lanSelectedBirds[lanPlayerIndex];
+            if (type == null) return;
+            List<String> options = adventureSkinOptions(type);
+            if (options.size() <= 1) return;
+            String current = normalizeAdventureSkinChoice(type, lanSelectedSkinKeys[lanPlayerIndex]);
+            int idx = options.indexOf(current);
+            if (idx < 0) idx = 0;
+            lanSelectedSkinKeys[lanPlayerIndex] = options.get((idx + 1) % options.size());
+            sendLanSelectionUpdate();
+            refreshLanLobbyUI();
+            updateLanBirdSelectPreview(preview, selectionLabel, skinButton);
+        });
+
+        updateLanBirdSelectPreview(preview, selectionLabel, skinButton);
+        updateLanBirdSelectButtons(buttonByType, randomButton[0]);
+
+        VBox previewBox = new VBox(12, preview, selectionLabel, skinButton);
+        previewBox.setAlignment(Pos.CENTER);
+        previewBox.setPadding(new Insets(12));
+        previewBox.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #90A4AE; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
+
+        BorderPane center = new BorderPane();
+        center.setCenter(grid);
+        center.setRight(previewBox);
+        BorderPane.setMargin(previewBox, new Insets(0, 0, 0, 20));
+        root.setCenter(center);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        back.requestFocus();
+    }
+
+    private void updateLanBirdSelectButtons(Map<BirdType, Button> buttonByType, Button randomButton) {
+        if (lanPlayerIndex < 0) return;
+        BirdType selected = lanSelectedBirds[lanPlayerIndex];
+        boolean randomPick = lanRandomBirds[lanPlayerIndex];
+        String baseStyle = "-fx-background-color: rgba(0,0,0,0.45); -fx-border-color: #90A4AE; -fx-border-width: 2; -fx-text-fill: white;";
+        String activeStyle = "-fx-background-color: rgba(255,213,79,0.25); -fx-border-color: #FFD54F; -fx-border-width: 3; -fx-text-fill: white;";
+        for (Map.Entry<BirdType, Button> entry : buttonByType.entrySet()) {
+            boolean active = !randomPick && entry.getKey() == selected;
+            entry.getValue().setStyle(active ? activeStyle : baseStyle);
+        }
+        if (randomButton != null) {
+            randomButton.setStyle(randomPick ? activeStyle : baseStyle);
+        }
+    }
+
+    private void updateLanBirdSelectPreview(Canvas preview, Label selectionLabel, Button skinButton) {
+        if (lanPlayerIndex < 0) return;
+        boolean randomPick = lanRandomBirds[lanPlayerIndex];
+        BirdType type = randomPick ? null : lanSelectedBirds[lanPlayerIndex];
+        String skinKey = randomPick ? null : normalizeAdventureSkinChoice(type, lanSelectedSkinKeys[lanPlayerIndex]);
+        lanSelectedSkinKeys[lanPlayerIndex] = skinKey;
+        if (preview != null) {
+            drawRosterSprite(preview, type, skinKey, randomPick);
+        }
+        if (selectionLabel != null) {
+            selectionLabel.setText(randomPick ? "RANDOM" : (type != null ? type.name.toUpperCase() : "SELECTING..."));
+        }
+        if (skinButton != null) {
+            if (type == null || randomPick) {
+                skinButton.setDisable(true);
+                skinButton.setOpacity(0.7);
+                skinButton.setText("SKIN: BASE");
+            } else {
+                List<String> options = adventureSkinOptions(type);
+                skinButton.setDisable(options.size() <= 1);
+                skinButton.setOpacity(options.size() <= 1 ? 0.7 : 1.0);
+                skinButton.setText(adventureSkinLabel(type, skinKey));
+            }
         }
     }
 
@@ -7336,14 +7671,16 @@ public class BirdGame3 extends Application {
         if (next == total - 1) {
             lanRandomBirds[lanPlayerIndex] = true;
             lanSelectedBirds[lanPlayerIndex] = null;
+            lanSelectedSkinKeys[lanPlayerIndex] = null;
         } else {
             lanRandomBirds[lanPlayerIndex] = false;
             lanSelectedBirds[lanPlayerIndex] = pool.get(next);
+            lanSelectedSkinKeys[lanPlayerIndex] = null;
         }
         if (lanIsHost) {
             broadcastLanLobby();
         } else if (lanClient != null) {
-            lanClient.sendSelect(lanSelectedBirds[lanPlayerIndex], lanRandomBirds[lanPlayerIndex]);
+            lanClient.sendSelect(lanSelectedBirds[lanPlayerIndex], lanRandomBirds[lanPlayerIndex], lanSelectedSkinKeys[lanPlayerIndex]);
         }
         refreshLanLobbyUI();
     }
@@ -7373,7 +7710,6 @@ public class BirdGame3 extends Application {
             lanMapVotes[lanPlayerIndex] = maps.get(next);
         }
         if (lanIsHost) {
-            updateLanMapSelectionFromVotes();
             broadcastLanLobby();
         } else if (lanClient != null) {
             lanClient.sendMapVote(lanMapVotes[lanPlayerIndex], lanMapVoteRandom[lanPlayerIndex]);
@@ -7520,7 +7856,7 @@ public class BirdGame3 extends Application {
     private void broadcastLanLobby() {
         if (!lanIsHost) return;
         if (lanHost != null) {
-            lanHost.broadcastLobby(lanSelectedMap, lanSelectedMapRandom, lanSlotConnected, lanSelectedBirds, lanRandomBirds);
+            lanHost.broadcastLobby(lanSelectedMap, lanSelectedMapRandom, lanSlotConnected, lanSelectedBirds, lanRandomBirds, lanSelectedSkinKeys, lanReady);
         }
     }
 
@@ -7530,6 +7866,8 @@ public class BirdGame3 extends Application {
             if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
             lanSlotConnected[slot] = true;
             lanRandomBirds[slot] = false;
+            lanSelectedSkinKeys[slot] = null;
+            lanReady[slot] = false;
             lanMapVotes[slot] = null;
             lanMapVoteRandom[slot] = false;
             if (lanSelectedBirds[slot] == null) {
@@ -7551,24 +7889,26 @@ public class BirdGame3 extends Application {
             lanSlotConnected[slot] = false;
             lanSelectedBirds[slot] = null;
             lanRandomBirds[slot] = false;
+            lanSelectedSkinKeys[slot] = null;
+            lanReady[slot] = false;
             lanMapVotes[slot] = null;
             lanMapVoteRandom[slot] = false;
             synchronized (lanInputLock) {
                 lanInputMasks[slot] = 0;
                 lanLastInputMasks[slot] = 0;
             }
-            updateLanMapSelectionFromVotes();
             refreshLanLobbyUI();
             broadcastLanLobby();
         });
     }
 
-    void onLanClientSelected(int slot, BirdType type, boolean random) {
+    void onLanClientSelected(int slot, BirdType type, boolean random, String skinKey) {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsHost) return;
             if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
             lanRandomBirds[slot] = random;
             lanSelectedBirds[slot] = random ? null : type;
+            lanSelectedSkinKeys[slot] = random ? null : skinKey;
             refreshLanLobbyUI();
             broadcastLanLobby();
         });
@@ -7580,7 +7920,16 @@ public class BirdGame3 extends Application {
             if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
             lanMapVoteRandom[slot] = random;
             lanMapVotes[slot] = random ? null : map;
-            updateLanMapSelectionFromVotes();
+            refreshLanLobbyUI();
+            broadcastLanLobby();
+        });
+    }
+
+    void onLanClientReady(int slot, boolean ready) {
+        javafx.application.Platform.runLater(() -> {
+            if (!lanModeActive || !lanIsHost) return;
+            if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
+            lanReady[slot] = ready;
             refreshLanLobbyUI();
             broadcastLanLobby();
         });
@@ -7612,23 +7961,25 @@ public class BirdGame3 extends Application {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsClient) return;
             lanPlayerIndex = idx;
-            if (lanPlayerIndex >= 0 && lanPlayerIndex < LAN_MAX_PLAYERS && lanSelectedBirds[lanPlayerIndex] == null) {
-                lanSelectedBirds[lanPlayerIndex] = firstUnlockedBird();
+            if (lanPlayerIndex >= 0 && lanPlayerIndex < LAN_MAX_PLAYERS) {
+                if (!lanRandomBirds[lanPlayerIndex] && lanSelectedBirds[lanPlayerIndex] == null) {
+                    lanSelectedBirds[lanPlayerIndex] = firstUnlockedBird();
+                }
                 if (lanClient != null) {
-                    lanRandomBirds[lanPlayerIndex] = false;
-                    lanClient.sendSelect(lanSelectedBirds[lanPlayerIndex], false);
+                    lanSelectedSkinKeys[lanPlayerIndex] = normalizeAdventureSkinChoice(
+                            lanSelectedBirds[lanPlayerIndex], lanSelectedSkinKeys[lanPlayerIndex]);
+                    lanClient.sendSelect(lanSelectedBirds[lanPlayerIndex], lanRandomBirds[lanPlayerIndex], lanSelectedSkinKeys[lanPlayerIndex]);
+                    lanClient.sendReady(lanReady[lanPlayerIndex]);
                 }
             }
             refreshLanLobbyUI();
         });
     }
 
-    void onLanLobbyUpdate(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds) {
+    void onLanLobbyUpdate(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds, String[] skinKeys, boolean[] ready) {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsClient) return;
-            if (!mapRandom || lanSelectedMap == null) {
-                lanSelectedMap = map;
-            }
+            lanSelectedMap = map;
             lanSelectedMapRandom = mapRandom;
             if (connected != null) {
                 System.arraycopy(connected, 0, lanSlotConnected, 0, Math.min(connected.length, LAN_MAX_PLAYERS));
@@ -7639,12 +7990,18 @@ public class BirdGame3 extends Application {
             if (randomBirds != null) {
                 System.arraycopy(randomBirds, 0, lanRandomBirds, 0, Math.min(randomBirds.length, LAN_MAX_PLAYERS));
             }
+            if (skinKeys != null) {
+                System.arraycopy(skinKeys, 0, lanSelectedSkinKeys, 0, Math.min(skinKeys.length, LAN_MAX_PLAYERS));
+            }
+            if (ready != null) {
+                System.arraycopy(ready, 0, lanReady, 0, Math.min(ready.length, LAN_MAX_PLAYERS));
+            }
             refreshLanLobbyUI();
         });
     }
 
-    void onLanStartMatch(MapType map, boolean[] connected, BirdType[] birds) {
-        javafx.application.Platform.runLater(() -> startLanMatchClient(currentStage, map, connected, birds));
+    void onLanStartMatch(MapType map, boolean[] connected, BirdType[] birds, String[] skinKeys) {
+        javafx.application.Platform.runLater(() -> startLanMatchClient(currentStage, map, connected, birds, skinKeys));
     }
 
     void onLanState(LanState state) {
@@ -7655,6 +8012,14 @@ public class BirdGame3 extends Application {
                 return;
             }
             applyLanState(state);
+        });
+    }
+
+    void onLanCountdown(int seconds) {
+        if (!lanModeActive || !lanIsClient) return;
+        javafx.application.Platform.runLater(() -> {
+            lanCountdownValue = seconds;
+            updateLanCountdownLabel();
         });
     }
 
@@ -7677,36 +8042,42 @@ public class BirdGame3 extends Application {
             if (musicEnabled) victoryMusicPlayer.play();
         }
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #111827, #1f2937);",
-                MENU_PADDING, 26);
-
+        Bird winner = null;
         String winnerText = "TIME'S UP!";
         if (winnerIndex >= 0 && winnerIndex < players.length) {
-            Bird winner = players[winnerIndex];
+            winner = players[winnerIndex];
             winnerText = (winner != null ? winner.name.toUpperCase() : ("P" + (winnerIndex + 1) + " WINS!"));
             if (winner != null) {
                 winnerText = winner.name.toUpperCase() + " WINS!";
             }
         }
 
-        Label title = new Label("LAN RESULTS");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 64));
-        title.setTextFill(Color.web("#FFE082"));
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);",
+                MENU_PADDING, 30);
+
+        Label title = new Label(winnerText);
+        title.setFont(Font.font("Arial Black", 90));
+        title.setTextFill(winner != null ? Color.GOLD : Color.SILVER);
+        title.setEffect(new DropShadow(40, Color.BLACK));
         applyNoEllipsis(title);
 
-        Label winnerLabel = new Label(winnerText);
-        winnerLabel.setFont(Font.font("Arial Black", 48));
-        winnerLabel.setTextFill(Color.GOLD);
-        applyNoEllipsis(winnerLabel);
+        Label subtitle = new Label("LAN RESULTS");
+        subtitle.setFont(Font.font("Consolas", 26));
+        subtitle.setTextFill(Color.web("#B3E5FC"));
+
+        int coinsEarned = awardBirdCoinsForMatch(winner);
+        Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoins);
+        coinsLabel.setFont(Font.font("Consolas", 28));
+        coinsLabel.setTextFill(Color.web("#FFD54F"));
 
         Label mapLabel = new Label("MAP: " + mapDisplayName(selectedMap));
         mapLabel.setFont(Font.font("Consolas", 22));
         mapLabel.setTextFill(Color.web("#B3E5FC"));
 
-        VBox scoreboard = new VBox(8);
+        VBox scoreboard = new VBox(10);
         scoreboard.setAlignment(Pos.CENTER);
         scoreboard.setPadding(new Insets(18, 26, 18, 26));
-        scoreboard.setMaxWidth(1100);
+        scoreboard.setMaxWidth(1200);
         scoreboard.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-background-radius: 22; -fx-border-color: #FFD54F; -fx-border-width: 2; -fx-border-radius: 22;");
 
         List<Integer> ranking = new ArrayList<>();
@@ -7719,14 +8090,19 @@ public class BirdGame3 extends Application {
 
         for (int idx : ranking) {
             Bird b = players[idx];
-            String birdName = b != null ? b.type.name : (lanSelectedBirds[idx] != null ? lanSelectedBirds[idx].name : "Unknown");
-            String line = "P" + (idx + 1) + "  |  " + birdName
-                    + "  |  Score " + scores[idx];
+            BirdType type = b != null ? b.type : lanSelectedBirds[idx];
+            String skinKey = b != null ? skinKeyForBird(b) : lanSelectedSkinKeys[idx];
+            Canvas icon = new Canvas(60, 60);
+            drawRosterSprite(icon, type, skinKey, false);
+            String birdName = type != null ? type.name : "Unknown";
+            String line = "P" + (idx + 1) + "  |  " + birdName + "  |  Score " + scores[idx];
             Label row = new Label(line);
             row.setFont(Font.font("Consolas", 22));
             row.setTextFill(Color.web("#E3F2FD"));
             applyNoEllipsis(row);
-            scoreboard.getChildren().add(row);
+            HBox rowBox = new HBox(12, icon, row);
+            rowBox.setAlignment(Pos.CENTER_LEFT);
+            scoreboard.getChildren().add(rowBox);
         }
 
         Button backLobby = uiFactory.action("BACK TO LOBBY", 360, 80, 28, "#00C853", 20, () -> returnToLanLobby(stage));
@@ -7737,7 +8113,7 @@ public class BirdGame3 extends Application {
         HBox actions = new HBox(20, backLobby, exit);
         actions.setAlignment(Pos.CENTER);
 
-        root.getChildren().addAll(title, winnerLabel, mapLabel, scoreboard, actions);
+        root.getChildren().addAll(title, subtitle, coinsLabel, mapLabel, scoreboard, actions);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -7763,6 +8139,7 @@ public class BirdGame3 extends Application {
     private void startLanMatchHost(Stage stage) {
         if (!lanIsHost) return;
         if (countLanConnected() < 2) return;
+        stopLanCountdown();
         resetMatchStats();
         storyModeActive = false;
         storyReplayMode = false;
@@ -7792,17 +8169,21 @@ public class BirdGame3 extends Application {
             if (!lanSlotConnected[i]) continue;
             if ((lanRandomBirds[i] || lanSelectedBirds[i] == null) && !pool.isEmpty()) {
                 lanSelectedBirds[i] = pool.get(random.nextInt(pool.size()));
+                lanRandomBirds[i] = false;
+                lanSelectedSkinKeys[i] = null;
             }
         }
         if (lanHost != null) {
-            lanHost.broadcastStart(mapToPlay, lanSlotConnected, lanSelectedBirds);
+            lanHost.broadcastStart(mapToPlay, lanSlotConnected, lanSelectedBirds, lanSelectedSkinKeys);
         }
         startMatch(stage);
     }
 
-    private void startLanMatchClient(Stage stage, MapType map, boolean[] connected, BirdType[] birds) {
+    private void startLanMatchClient(Stage stage, MapType map, boolean[] connected, BirdType[] birds, String[] skinKeys) {
         if (!lanModeActive || !lanIsClient) return;
         if (stage == null) return;
+        lanCountdownValue = 0;
+        updateLanCountdownLabel();
         resetMatchStats();
         storyModeActive = false;
         storyReplayMode = false;
@@ -7823,9 +8204,15 @@ public class BirdGame3 extends Application {
         if (birds != null) {
             System.arraycopy(birds, 0, lanSelectedBirds, 0, Math.min(birds.length, LAN_MAX_PLAYERS));
         }
+        if (skinKeys != null) {
+            System.arraycopy(skinKeys, 0, lanSelectedSkinKeys, 0, Math.min(skinKeys.length, LAN_MAX_PLAYERS));
+        }
         for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
             if (lanSlotConnected[i] && lanSelectedBirds[i] == null) {
                 lanSelectedBirds[i] = firstUnlockedBird();
+            }
+            if (lanSlotConnected[i]) {
+                lanRandomBirds[i] = false;
             }
         }
         activePlayers = LAN_MAX_PLAYERS;
@@ -7847,11 +8234,20 @@ public class BirdGame3 extends Application {
         pressedKeys.clear();
         lanMatchActive = false;
         pendingLanState = null;
+        stopLanCountdown();
         synchronized (lanInputLock) {
             Arrays.fill(lanInputMasks, 0);
             Arrays.fill(lanLastInputMasks, 0);
         }
         lanLocalInputMask = 0;
+        if (lanIsHost) {
+            Arrays.fill(lanReady, false);
+        } else if (lanPlayerIndex >= 0) {
+            lanReady[lanPlayerIndex] = false;
+            if (lanClient != null) {
+                lanClient.sendReady(false);
+            }
+        }
         resetMatchStats();
         showLanLobby(stage);
         if (lanIsHost) {
@@ -7865,6 +8261,7 @@ public class BirdGame3 extends Application {
         lanIsClient = false;
         lanMatchActive = false;
         lanPlayerIndex = -1;
+        stopLanCountdown();
         if (lanHost != null) {
             lanHost.stop();
             lanHost = null;
@@ -7875,7 +8272,9 @@ public class BirdGame3 extends Application {
         }
         Arrays.fill(lanSlotConnected, false);
         Arrays.fill(lanSelectedBirds, null);
+        Arrays.fill(lanSelectedSkinKeys, null);
         Arrays.fill(lanRandomBirds, false);
+        Arrays.fill(lanReady, false);
         Arrays.fill(lanMapVotes, null);
         Arrays.fill(lanMapVoteRandom, false);
         synchronized (lanInputLock) {
@@ -13181,6 +13580,7 @@ public class BirdGame3 extends Application {
             Runnable target = stageSelectReturn;
             stageSelectReturn = null;
             stageSelectHandler = null;
+            stageSelectRandomHandler = null;
             if (target != null) {
                 target.run();
             } else {
@@ -13227,6 +13627,7 @@ public class BirdGame3 extends Application {
 
         java.util.function.Consumer<MapType> handler = stageSelectHandler;
         java.util.function.Consumer<MapType> selectMap = map -> {
+            stageSelectRandomHandler = null;
             if (handler != null) {
                 stageSelectHandler = null;
                 handler.accept(map);
@@ -13258,6 +13659,13 @@ public class BirdGame3 extends Application {
         }
 
         Button randomBtn = uiFactory.action("RANDOM", 1400, 110, 38, "#8E24AA", 24, () -> {
+            Runnable randomHandler = stageSelectRandomHandler;
+            if (randomHandler != null) {
+                stageSelectHandler = null;
+                stageSelectRandomHandler = null;
+                randomHandler.run();
+                return;
+            }
             List<MapType> maps = new ArrayList<>();
             for (MapType map : MapType.values()) {
                 if (isMapUnlocked(map)) maps.add(map);
@@ -14963,17 +15371,26 @@ public class BirdGame3 extends Application {
                     continue;
                 }
                 BirdType type = lanModeActive ? lanSelectedBirds[i] : fightSelectedBirds[i];
-                boolean randomPick = !lanModeActive && fightRandomSelected[i];
-                if (type == null || (!lanModeActive && (randomPick || !isBirdUnlocked(type)))) {
+                boolean randomPick = lanModeActive ? lanRandomBirds[i] : fightRandomSelected[i];
+                if (type == null || (lanModeActive && randomPick) || (!lanModeActive && (randomPick || !isBirdUnlocked(type)))) {
                     type = pool.get(random.nextInt(pool.size()));
+                    if (lanModeActive) {
+                        lanSelectedBirds[i] = type;
+                        lanRandomBirds[i] = false;
+                    }
                 }
                 double startX = 300 + i * (WIDTH - 600) / Math.max(1, slots - 1);
                 isAI[i] = lanModeActive ? false : menuAI[i];
                 players[i] = new Bird(startX, type, i, this);
-                String skinKey = lanModeActive ? null : (randomPick ? null : fightSelectedSkinKeys[i]);
-                skinKey = normalizeAdventureSkinChoice(type, skinKey);
-                fightSelectedSkinKeys[i] = skinKey;
-                applySkinChoiceToBird(players[i], type, skinKey);
+                if (lanModeActive) {
+                    String skinKey = randomPick ? null : lanSelectedSkinKeys[i];
+                    applyPreviewSkinChoiceToBird(players[i], type, skinKey);
+                } else {
+                    String skinKey = randomPick ? null : fightSelectedSkinKeys[i];
+                    skinKey = normalizeAdventureSkinChoice(type, skinKey);
+                    fightSelectedSkinKeys[i] = skinKey;
+                    applySkinChoiceToBird(players[i], type, skinKey);
+                }
 
                 applyAdaptiveBalance(players[i]);
             }
@@ -15286,9 +15703,7 @@ public class BirdGame3 extends Application {
         timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
-                if (!lanModeActive || lanIsHost) {
-                    gameTick(1.0);
-                }
+                gameTick(1.0);
                 if (lanModeActive && lanIsHost) {
                     boolean hasClients = lanHost != null && lanHost.hasClients();
                     if (hasClients && now - lastLanSnapshotNs >= LAN_SNAPSHOT_INTERVAL_NS) {
@@ -15463,7 +15878,8 @@ public class BirdGame3 extends Application {
 
     private int awardBirdCoinsForMatch(Bird winner) {
         if (trainingModeActive) return 0;
-        int coins = 30 + activePlayers * 10;
+        int playerCount = lanModeActive ? countLanConnected() : activePlayers;
+        int coins = 30 + playerCount * 10;
         if (winner != null) coins += 10;
         if (classicModeActive) coins += 60;
         else if (adventureModeActive) coins += 40;

@@ -68,11 +68,14 @@ class LanClient {
         }
     }
 
-    void sendSelect(BirdType type, boolean random) {
+    void sendSelect(BirdType type, boolean random, String skinKey) {
         if (!running) return;
         try {
             int ord = random ? LanProtocol.BIRD_RANDOM : (type != null ? type.ordinal() : -1);
-            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_SELECT, out -> out.writeInt(ord));
+            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_SELECT, out -> {
+                out.writeInt(ord);
+                out.writeUTF(skinKey == null ? "" : skinKey);
+            });
             outbound.offer(msg);
         } catch (IOException ignored) {
         }
@@ -83,6 +86,15 @@ class LanClient {
         try {
             int ord = random ? LanProtocol.MAP_RANDOM : (map != null ? map.ordinal() : -1);
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_MAP_VOTE, out -> out.writeInt(ord));
+            outbound.offer(msg);
+        } catch (IOException ignored) {
+        }
+    }
+
+    void sendReady(boolean ready) {
+        if (!running) return;
+        try {
+            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_READY, out -> out.writeBoolean(ready));
             outbound.offer(msg);
         } catch (IOException ignored) {
         }
@@ -124,30 +136,38 @@ class LanClient {
                         boolean mapRandom = mapOrd == LanProtocol.MAP_RANDOM;
                         MapType map = readMapByOrdinal(mapOrd);
                         boolean[] connected = new boolean[4];
+                        boolean[] ready = new boolean[4];
                         BirdType[] birds = new BirdType[4];
                         boolean[] randomBirds = new boolean[4];
+                        String[] skinKeys = new String[4];
                         for (int i = 0; i < 4; i++) {
                             connected[i] = msgIn.readBoolean();
+                            ready[i] = msgIn.readBoolean();
                             int birdOrd = msgIn.readInt();
                             if (birdOrd == LanProtocol.BIRD_RANDOM) {
                                 randomBirds[i] = true;
                             } else {
                                 birds[i] = readBirdByOrdinal(birdOrd);
                             }
+                            String skinKey = msgIn.readUTF();
+                            skinKeys[i] = skinKey == null || skinKey.isBlank() ? null : skinKey;
                         }
-                        game.onLanLobbyUpdate(map, mapRandom, connected, birds, randomBirds);
+                        game.onLanLobbyUpdate(map, mapRandom, connected, birds, randomBirds, skinKeys, ready);
                     }
                     case LanProtocol.MSG_START -> {
                         int mapOrd = msgIn.readInt();
                         MapType map = readMapByOrdinal(mapOrd);
                         boolean[] connected = new boolean[4];
                         BirdType[] birds = new BirdType[4];
+                        String[] skinKeys = new String[4];
                         for (int i = 0; i < 4; i++) {
                             connected[i] = msgIn.readBoolean();
                             int birdOrd = msgIn.readInt();
                             birds[i] = readBirdByOrdinal(birdOrd);
+                            String skinKey = msgIn.readUTF();
+                            skinKeys[i] = skinKey == null || skinKey.isBlank() ? null : skinKey;
                         }
-                        game.onLanStartMatch(map, connected, birds);
+                        game.onLanStartMatch(map, connected, birds, skinKeys);
                     }
                     case LanProtocol.MSG_STATE -> {
                         LanState state = LanState.read(msgIn);
@@ -156,6 +176,10 @@ class LanClient {
                     case LanProtocol.MSG_END -> {
                         int winnerIndex = msgIn.readInt();
                         game.onLanMatchEnd(winnerIndex);
+                    }
+                    case LanProtocol.MSG_COUNTDOWN -> {
+                        int seconds = msgIn.readInt();
+                        game.onLanCountdown(seconds);
                     }
                     default -> {
                     }

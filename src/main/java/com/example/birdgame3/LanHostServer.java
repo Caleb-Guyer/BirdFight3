@@ -61,17 +61,20 @@ class LanHostServer {
         return !clients.isEmpty();
     }
 
-    void broadcastLobby(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds) {
+    void broadcastLobby(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds, String[] skinKeys, boolean[] ready) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_LOBBY, out -> {
                 out.writeInt(mapRandom ? LanProtocol.MAP_RANDOM : map.ordinal());
                 for (int i = 0; i < 4; i++) {
                     out.writeBoolean(connected[i]);
+                    out.writeBoolean(ready != null && ready[i]);
                     if (randomBirds != null && randomBirds[i]) {
                         out.writeInt(LanProtocol.BIRD_RANDOM);
                     } else {
                         out.writeInt(birds[i] != null ? birds[i].ordinal() : -1);
                     }
+                    String skinKey = skinKeys != null ? skinKeys[i] : null;
+                    out.writeUTF(skinKey == null ? "" : skinKey);
                 }
             });
             sendToAll(msg);
@@ -79,13 +82,15 @@ class LanHostServer {
         }
     }
 
-    void broadcastStart(MapType map, boolean[] connected, BirdType[] birds) {
+    void broadcastStart(MapType map, boolean[] connected, BirdType[] birds, String[] skinKeys) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_START, out -> {
                 out.writeInt(map.ordinal());
                 for (int i = 0; i < 4; i++) {
                     out.writeBoolean(connected[i]);
                     out.writeInt(birds[i] != null ? birds[i].ordinal() : -1);
+                    String skinKey = skinKeys != null ? skinKeys[i] : null;
+                    out.writeUTF(skinKey == null ? "" : skinKey);
                 }
             });
             sendToAll(msg);
@@ -105,6 +110,14 @@ class LanHostServer {
     void broadcastMatchEnd(int winnerIndex) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_END, out -> out.writeInt(winnerIndex));
+            sendToAll(msg);
+        } catch (IOException ignored) {
+        }
+    }
+
+    void broadcastCountdown(int seconds) {
+        try {
+            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_COUNTDOWN, out -> out.writeInt(seconds));
             sendToAll(msg);
         } catch (IOException ignored) {
         }
@@ -228,11 +241,12 @@ class LanHostServer {
                         }
                         case LanProtocol.MSG_SELECT -> {
                             int ord = msgIn.readInt();
+                            String skinKey = msgIn.readUTF();
                             boolean random = ord == LanProtocol.BIRD_RANDOM;
                             BirdType typeBird = (!random && ord >= 0 && ord < BirdType.values().length)
                                     ? BirdType.values()[ord]
                                     : null;
-                            game.onLanClientSelected(slot, typeBird, random);
+                            game.onLanClientSelected(slot, typeBird, random, skinKey == null || skinKey.isBlank() ? null : skinKey);
                         }
                         case LanProtocol.MSG_MAP_VOTE -> {
                             int ord = msgIn.readInt();
@@ -241,6 +255,10 @@ class LanHostServer {
                                     ? MapType.values()[ord]
                                     : null;
                             game.onLanClientMapVote(slot, map, random);
+                        }
+                        case LanProtocol.MSG_READY -> {
+                            boolean ready = msgIn.readBoolean();
+                            game.onLanClientReady(slot, ready);
                         }
                         case LanProtocol.MSG_INPUT -> {
                             int mask = msgIn.readInt();

@@ -6,7 +6,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 final class LanProtocol {
-    static final int VERSION = 2;
+    static final int VERSION = 3;
     static final int DEFAULT_PORT = 28999;
 
     static final byte MSG_HELLO = 1;
@@ -18,6 +18,8 @@ final class LanProtocol {
     static final byte MSG_STATE = 7;
     static final byte MSG_END = 8;
     static final byte MSG_MAP_VOTE = 9;
+    static final byte MSG_READY = 10;
+    static final byte MSG_COUNTDOWN = 11;
 
     static final int MAP_RANDOM = -1;
     static final int BIRD_RANDOM = -2;
