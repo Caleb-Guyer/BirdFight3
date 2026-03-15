@@ -772,7 +772,7 @@ public class Bird {
         specialMaxCooldown = 1080;
         game.addToKillFeed(name.split(":")[0].trim() + " SUMMONS THE MURDER!");
 
-        int crowCount = 10 + random.nextInt(6);
+        int crowCount = 8 + random.nextInt(5);
         for (int i = 0; i < crowCount; i++) {
             double angle = Math.random() * Math.PI * 2;
             double dist = 300 + Math.random() * 1200;
@@ -787,7 +787,7 @@ public class Bird {
 
         game.shakeIntensity = 18;
         game.hitstopFrames = 12;
-        carrionSwarmTimer = 120;
+        carrionSwarmTimer = 100;
 
         for (int i = 0; i < 200; i++) {
             double angle = Math.random() * Math.PI * 2;
@@ -804,7 +804,6 @@ public class Bird {
         leanCooldown = 840;
         specialCooldown = 840;
         specialMaxCooldown = 840;
-        game.addToKillFeed(name.split(":")[0].trim() + " DROPPED THE LEAN!");
         game.shakeIntensity = 20;
         game.hitstopFrames = 15;
         for (int i = 0; i < 150; i++) {
@@ -821,7 +820,6 @@ public class Bird {
         leanCooldown = 720;
         specialCooldown = 720;
         specialMaxCooldown = 720;
-        game.addToKillFeed(name.split(":")[0].trim() + " COOKED THE CRYSTAL!");
         game.shakeIntensity = 18;
         game.hitstopFrames = 12;
         for (int i = 0; i < 150; i++) {
@@ -893,9 +891,9 @@ public class Bird {
             game.addToKillFeed(name.split(":")[0].trim() + " PELICAN PLUNGE!!!");
             game.shakeIntensity = 32;
             game.hitstopFrames = 18;
-            target.vx += (target.x > x ? 1 : -1) * 42;
-            target.vy = -30;
-            int dmg = (int)(26 * powerMultiplier);
+            target.vx += (target.x > x ? 1 : -1) * 36;
+            target.vy = -26;
+            int dmg = (int)(24 * powerMultiplier);
             double old = target.health;
             int dealt = (int) applyDamageTo(target, dmg);
             game.damageDealt[playerIndex] += dealt;
@@ -1961,8 +1959,6 @@ public class Bird {
             int highDuration = heisen ? 140 : 180;
             double slowX = heisen ? 0.96 : 0.94;
             double slowY = heisen ? 0.985 : 0.98;
-            String cloudLabel = heisen ? "crystal" : "lean";
-
             for (Bird other : game.players) {
                 if (!canDamageTarget(other)) continue;
                 double dx = other.x - x;
@@ -1972,7 +1968,6 @@ public class Bird {
                     if (dist < innerRadius) {
                         if (random.nextInt(damageRoll) == 0) {
                             applyDamageTo(other, 1);
-                            game.addToKillFeed(name.split(":")[0].trim() + "'s " + cloudLabel + " is COOKING " + other.name.split(":")[0].trim() + " (-1 HP)");
                         }
                         other.vx *= slowX;
                         other.vy *= slowY;
@@ -2911,8 +2906,8 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE && health > 0) {
             for (Bird b : game.players) {
                 if (b != null && b != this && b.health <= 0 && b.y > game.HEIGHT + 50 && b.y <= game.HEIGHT + 100) {
-                    health = Math.min(getMaxHealth(), health + 5);
-                    game.addToKillFeed(name.split(":")[0].trim() + " FEASTS! +5 HP");
+                    health = Math.min(getMaxHealth(), health + 4);
+                    game.addToKillFeed(name.split(":")[0].trim() + " FEASTS! +4 HP");
                     for (int i = 0; i < 15; i++) {
                         double angle = Math.random() * Math.PI * 2;
                         game.particles.add(new Particle(b.x + 40, b.y + 40,
@@ -3620,17 +3615,11 @@ public class Bird {
                 double cloudAlpha = 0.3 + 0.3 * Math.sin(System.currentTimeMillis() / 200.0);
                 g.setFill(Color.rgb(138, 43, 226, cloudAlpha));
                 g.fillOval(x - 120, y - 100, 300, 300);
-                g.setFill(Color.WHITE);
-                g.setFont(Font.font("Arial Black", 32));
-                g.fillText("LEAN", facingRight ? x + 10 : x + 25, y + 20);
             }
 
             if (leanCooldown > 0) {
                 g.setFill(Color.PURPLE.darker());
                 g.fillRoundRect(x - 10, y + 100, 100, 20, 15, 15);
-                g.setFill(Color.WHITE);
-                g.setFont(Font.font("Arial Black", 18));
-                g.fillText("LEAN", facingRight ? x + 15 : x + 38, y + 116);
             }
         } else {
             g.setFill(Color.web("#0D47A1", 0.25));
@@ -3679,9 +3668,6 @@ public class Bird {
             if (leanCooldown > 0) {
                 g.setFill(Color.web("#0D47A1"));
                 g.fillRoundRect(x - 10, y + 100, 100, 20, 15, 15);
-                g.setFill(Color.WHITE);
-                g.setFont(Font.font("Arial Black", 18));
-                g.fillText("CRYSTAL", facingRight ? x + 4 : x + 20, y + 116);
             }
         }
     }
@@ -3738,8 +3724,34 @@ public class Bird {
         boolean duneFalcon = falcon && isDuneSkin;
         if ((eagle || falcon) && diveTimer > 0) {
             Color aura = eagle ? Color.web("#D32F2F") : Color.SADDLEBROWN;
-            g.setFill(aura.deriveColor(0, 1, 1, 0.28));
-            g.fillOval(x - 70, y - 70, drawSize + 140, drawSize + 140);
+            double pulse = 0.55 + 0.45 * Math.sin(diveTimer * 0.35);
+            double auraSize = drawSize + 170 + pulse * 30;
+            double auraOffset = (auraSize - drawSize) / 2.0;
+            g.setFill(aura.deriveColor(0, 1, 1, 0.35 + 0.2 * pulse));
+            g.fillOval(x - auraOffset, y - auraOffset, auraSize, auraSize);
+
+            g.setStroke(aura.brighter().deriveColor(0, 1, 1, 0.85));
+            g.setLineWidth(6);
+            g.strokeOval(x - auraOffset - 6, y - auraOffset - 6, auraSize + 12, auraSize + 12);
+
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.35 + 0.25 * pulse));
+            g.setLineWidth(2.5);
+            g.strokeOval(x - 60, y - 60, drawSize + 120, drawSize + 120);
+
+            if (Math.random() < 0.3) {
+                double angle = Math.random() * Math.PI * 2;
+                double dist = 40 + Math.random() * 45;
+                double px = x + 40 + Math.cos(angle) * dist;
+                double py = y + 40 + Math.sin(angle) * dist;
+                double spd = 3 + Math.random() * 5;
+                game.particles.add(new Particle(
+                        px,
+                        py,
+                        Math.cos(angle) * spd - vx * 0.08,
+                        Math.sin(angle) * spd - vy * 0.08,
+                        aura.brighter().deriveColor(0, 1, 1, 0.9)
+                ));
+            }
         }
         if ((skyKing || duneFalcon) && diveTimer > 0) {
             Color core = skyKing ? Color.CRIMSON : Color.web("#FF7043");
@@ -3883,20 +3895,31 @@ public class Bird {
         if (specialCooldown > 0 && specialMaxCooldown > 0) {
             double ratio = (double) specialCooldown / specialMaxCooldown;
 
+            double drawSize = 80 * sizeMultiplier;
+            double barScale = Math.max(0.85, Math.min(sizeMultiplier, 1.25));
+            double barWidth = 90 * barScale;
+            double barHeight = 14 * barScale;
+            double barX = x + (drawSize / 2.0) - (barWidth / 2.0);
+            double barY = y + drawSize + (12 * barScale);
+            double innerX = barX + (5 * barScale);
+            double innerY = barY + (4 * barScale);
+            double innerWidth = Math.max(0, (barWidth - (10 * barScale)) * (1 - ratio));
+            double innerHeight = 6 * barScale;
+
             g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.8));
-            g.fillRoundRect(x - 5, y + 92, 90, 14, 10, 10);
+            g.fillRoundRect(barX, barY, barWidth, barHeight, 10 * barScale, 10 * barScale);
 
             Color fillColor = ratio > 0.66 ? Color.CRIMSON :
                     ratio > 0.33 ? Color.ORANGE : Color.CYAN.brighter();
             g.setFill(fillColor);
-            g.fillRoundRect(x, y + 96, 80 * (1 - ratio), 6, 6, 6);
+            g.fillRoundRect(innerX, innerY, innerWidth, innerHeight, 6 * barScale, 6 * barScale);
 
             g.setStroke(Color.WHITE);
-            g.setLineWidth(2);
-            g.strokeRoundRect(x - 5, y + 92, 90, 14, 10, 10);
+            g.setLineWidth(2 * barScale);
+            g.strokeRoundRect(barX, barY, barWidth, barHeight, 10 * barScale, 10 * barScale);
 
             g.setFill(Color.WHITE);
-            g.setFont(Font.font("Arial Black", 16));
+            g.setFont(Font.font("Arial Black", 16 * barScale));
 
             String cooldownText;
             if (type == BirdGame3.BirdType.VULTURE && crowSwarmCooldown > 0) {
@@ -3914,7 +3937,7 @@ public class Bird {
             } else {
                 cooldownText = "";
             }
-            g.fillText(cooldownText, x + 20, y + 104);
+            g.fillText(cooldownText, barX + (25 * barScale), barY + (12 * barScale));
         }
     }
 

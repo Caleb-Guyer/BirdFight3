@@ -63,7 +63,6 @@ import java.net.SocketException;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.function.BooleanSupplier;
-import java.util.function.Supplier;
 
 public class BirdGame3 extends Application {
 
@@ -73,6 +72,9 @@ public class BirdGame3 extends Application {
     public static final double GRAVITY = 0.75;
     private static final int MATCH_DURATION_FRAMES = 90 * 60;
     private static final int COMPETITION_DURATION_FRAMES = 120 * 60;
+    private static final Insets MENU_PADDING = new Insets(60, 80, 60, 80);
+    private static final double MENU_GAP = 24;
+    private static final double MENU_TEXT_MAX_WIDTH = 1100;
 
     final Set<KeyCode> pressedKeys = new HashSet<>();
     public Bird[] players = new Bird[4];
@@ -97,6 +99,7 @@ public class BirdGame3 extends Application {
     private final Random random = new Random();
     private long lastPowerUpSpawnTime = 0;
     public static final long POWERUP_SPAWN_INTERVAL = 1_000_000_000L * 8; // every 8 seconds
+    private static final int MUTATOR_BUFF_FRAMES = COMPETITION_DURATION_FRAMES * 2;
     public double shakeIntensity = 0;
     private double[] mountainPeaks = null; // will store fixed peak heights for Sky Cliffs
     public int hitstopFrames = 0;
@@ -239,7 +242,7 @@ public class BirdGame3 extends Application {
     private double flashAlpha = 0.0;     // white flash intensity
     private double redFlashAlpha = 0.0;  // red tint for normal big hits
     private int flashTimer = 0;          // frames remaining for flash
-    private final UIFactory uiFactory = new UIFactory();
+    private final UIFactory uiFactory = new UIFactory(this::playButtonClick, this::applyNoEllipsis, this::fitMainMenuButtonSingleLine);
     private Runnable stageSelectReturn = null;
     private java.util.function.Consumer<MapType> stageSelectHandler = null;
     private Runnable settingsReturn = null;
@@ -377,7 +380,7 @@ public class BirdGame3 extends Application {
                 return;
             }
 
-            // WASD â†’ arrows for focus
+            // WASD -> arrows for focus
             KeyCode arrow = switch (code) {
                 case W -> KeyCode.UP;
                 case S -> KeyCode.DOWN;
@@ -749,32 +752,6 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private final class UIFactory {
-        Button action(String text, double width, double height, double fontSize, String bgColor, double radius, Runnable onAction) {
-            Button b = new Button(text);
-            b.setPrefSize(width, height);
-            b.setMinSize(width, height);
-            b.setMaxSize(width, height);
-            b.setFont(Font.font("Arial Black", fontSize));
-            b.setWrapText(text != null && text.contains("\n"));
-            b.setTextAlignment(TextAlignment.CENTER);
-            b.setAlignment(Pos.CENTER);
-            b.setStyle("-fx-background-color: " + bgColor + "; -fx-text-fill: white; -fx-background-radius: " + radius + ";");
-            applyNoEllipsis(b);
-            if (onAction != null) {
-                b.setOnAction(e -> {
-                    playButtonClick();
-                    onAction.run();
-                });
-            }
-            return b;
-        }
-
-        void fitSingleLineOnLayout(Button b, double maxSize, double minSize) {
-            javafx.application.Platform.runLater(() -> fitMainMenuButtonSingleLine(b, maxSize, minSize));
-        }
-    }
-
     private void confirmExitGame(Stage stage) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
                 "Exit Bird Fight 3?",
@@ -956,6 +933,7 @@ public class BirdGame3 extends Application {
     private String classicRunCodename = "";
     private boolean classicTeamMode = false;
     private final int[] classicTeams = new int[]{1, 2, 2, 2};
+    private final int[] classicCpuLevels = new int[4];
     private MapType classicLastMap = null;
     private ClassicTwist classicLastTwist = null;
     private MatchMutator classicLastMutator = null;
@@ -1003,13 +981,25 @@ public class BirdGame3 extends Application {
         final double health;
         final double powerMult;
         final double speedMult;
+        final String skinKey;
+        final int cpuLevel;
 
         ClassicFighter(BirdType type, String title, double health, double powerMult, double speedMult) {
+            this(type, title, health, powerMult, speedMult, null, 0);
+        }
+
+        ClassicFighter(BirdType type, String title, double health, double powerMult, double speedMult, String skinKey) {
+            this(type, title, health, powerMult, speedMult, skinKey, 0);
+        }
+
+        ClassicFighter(BirdType type, String title, double health, double powerMult, double speedMult, String skinKey, int cpuLevel) {
             this.type = type;
             this.title = title;
             this.health = health;
             this.powerMult = powerMult;
             this.speedMult = speedMult;
+            this.skinKey = skinKey;
+            this.cpuLevel = cpuLevel;
         }
     }
 
@@ -1091,8 +1081,9 @@ public class BirdGame3 extends Application {
     private enum EpisodeType { PIGEON, BAT, PELICAN }
     private enum MatchMutator {
         NONE("None", "Standard rules."),
-        LOW_GRAVITY("Low Gravity", "Everyone falls slower and stays airborne longer."),
-        POWERUP_STORM("Power-Up Storm", "Power-ups rain in much faster."),
+        RAGE_FRENZY("Rage Frenzy", "Everyone fights enraged for the whole match."),
+        TITAN_RUMBLE("Titan Rumble", "Everyone enters Titan form for the whole match."),
+        OVERCHARGE_BRAWL("Overcharge Brawl", "Rapid attacks and extra power for everyone."),
         CROW_SURGE("Crow Surge", "Neutral crows periodically invade mid-match."),
         TURBO_BRAWL("Turbo Brawl", "Faster movement and harder hits for all birds.");
 
@@ -4603,7 +4594,7 @@ public class BirdGame3 extends Application {
                 g.fillOval(p.x - 4, p.y - 4, 8, 8);
             }
             if (particles.size() > 3000) {
-                particles.subList(0, particles.size() - 2500).clear();  // ← changed from 2000 to keep more but cap at ~500 active
+                particles.subList(0, particles.size() - 2500).clear();  // <- changed from 2000 to keep more but cap at ~500 active
             }
         }
 
@@ -5248,14 +5239,14 @@ public class BirdGame3 extends Application {
         Button trainingBtn = uiFactory.action("TRAINING", 520, 130, 48, "#26C6DA", 30, () -> showTrainingSetup(stage));
         Button classicBtn = uiFactory.action("CLASSIC & MORE", 520, 130, 40, "#1E88E5", 28, () -> showClassicMoreMenu(stage));
         Button shopBtn = uiFactory.action("SHOP", 520, 130, 48, "#FBC02D", 30, () -> showShop(stage));
-        Button onlineBtn = uiFactory.action("LAN PLAY", 520, 130, 44, "#8D6E63", 30, () -> showLanMenu(stage));
+        Button lanBtn = uiFactory.action("LAN PLAY", 520, 130, 40, "#8D6E63", 28, () -> showLanMenu(stage));
 
         nav.add(fightBtn, 0, 0);
         nav.add(adventureBtn, 1, 0);
         nav.add(trainingBtn, 2, 0);
         nav.add(classicBtn, 0, 1);
         nav.add(shopBtn, 1, 1);
-        nav.add(onlineBtn, 2, 1);
+        nav.add(lanBtn, 2, 1);
 
         Button achievementsBtn = uiFactory.action("ACHIEVEMENTS", 360, 86, 34, "#455A64", 22, () -> showAchievements(stage));
         Button bookBtn = uiFactory.action("FEATHERPEDIA", 360, 86, 30, "#5E35B1", 22, () -> showBirdBook(stage));
@@ -5741,7 +5732,7 @@ public class BirdGame3 extends Application {
         root.setBottom(playerBar);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
-        java.util.function.BooleanSupplier tryStartMatch = () -> {
+        BooleanSupplier tryStartMatch = () -> {
             if (!readyBtn.isVisible()) return false;
             playButtonClick();
             readyBtn.fire();
@@ -6030,7 +6021,7 @@ public class BirdGame3 extends Application {
         note.setFont(Font.font("Consolas", 22));
         note.setTextFill(Color.web("#B0BEC5"));
 
-        Button back = uiFactory.action("BACK TO HUB", 360, 96, 34, "#FF1744", 22, () -> showMenu(stage));
+        Button back = uiFactory.action("BACK TO HUB", 360, 96, 34, "#D32F2F", 22, () -> showMenu(stage));
         Button selectMap = uiFactory.action("SELECT MAP", 420, 96, 34, "#00C853", 24, () -> {
             if (selected[0] == null || selected[1] == null) return;
             playButtonClick();
@@ -6104,7 +6095,7 @@ public class BirdGame3 extends Application {
                                       Pane selectionPane,
                                       Runnable updateSlot,
                                       Runnable updateReady,
-                                      java.util.function.BooleanSupplier tryStartMatch) {
+                                      BooleanSupplier tryStartMatch) {
         if (idx < 0 || idx >= activePlayers) return false;
         if (selector == null || label == null) return false;
 
@@ -6883,10 +6874,8 @@ public class BirdGame3 extends Application {
     private void showTournamentCpuChoice(Stage stage, TournamentMatch match) {
         playMenuMusic();
 
-        VBox root = new VBox(30);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #091426, #1A2B4B);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #091426, #1A2B4B);",
+                MENU_PADDING, 30);
 
         Label title = new Label("CPU VS CPU");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 92));
@@ -6895,10 +6884,7 @@ public class BirdGame3 extends Application {
         String left = tournamentEntryLabel(match.a);
         String right = tournamentEntryLabel(match.b);
         Label info = new Label(left + " vs " + right + "\nWatch the match or simulate the result.");
-        info.setFont(Font.font("Consolas", 30));
-        info.setTextFill(Color.web("#B3E5FC"));
-        info.setWrapText(true);
-        info.setTextAlignment(TextAlignment.CENTER);
+        MenuLayout.styleMenuMessage(info, 30, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
 
         Button watch = uiFactory.action("WATCH MATCH", 520, 120, 42, "#1565C0", 26, () -> launchTournamentMatch(stage, match));
         Button skip = uiFactory.action("SIMULATE", 420, 120, 38, "#8E24AA", 26, () -> simulateTournamentMatch(stage, match));
@@ -6933,10 +6919,8 @@ public class BirdGame3 extends Application {
     private void showTournamentSimResult(Stage stage, TournamentEntry winner) {
         playMenuMusic();
 
-        VBox root = new VBox(28);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);",
+                MENU_PADDING, 28);
 
         Label title = new Label("SIMULATED RESULT");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 88));
@@ -6944,8 +6928,7 @@ public class BirdGame3 extends Application {
 
         String winnerText = winner != null ? tournamentEntryLabel(winner) + " advances." : "No winner.";
         Label info = new Label(winnerText);
-        info.setFont(Font.font("Consolas", 32));
-        info.setTextFill(Color.web("#C5E1A5"));
+        MenuLayout.styleMenuMessage(info, 32, "#C5E1A5", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
 
         boolean complete = isTournamentComplete();
         Button next = uiFactory.action(complete ? "VIEW CHAMPION" : "VIEW BRACKET", 520, 120, 40, "#1565C0", 26, () -> {
@@ -6982,10 +6965,8 @@ public class BirdGame3 extends Application {
             }
         }
 
-        VBox root = new VBox(28);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);",
+                MENU_PADDING, 28);
 
         Label title = new Label("TOURNAMENT COMPLETE");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 90));
@@ -6993,10 +6974,7 @@ public class BirdGame3 extends Application {
 
         String champText = champion != null ? (tournamentEntryLabel(champion) + " is champion!") : "No champion.";
         Label info = new Label(champText);
-        info.setFont(Font.font("Consolas", 34));
-        info.setTextFill(Color.web("#FFE082"));
-        info.setWrapText(true);
-        info.setTextAlignment(TextAlignment.CENTER);
+        MenuLayout.styleMenuMessage(info, 34, "#FFE082", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
 
         Button setup = uiFactory.action("NEW TOURNAMENT", 520, 120, 38, "#1565C0", 26, () -> showTournamentSetup(stage));
         Button exit = uiFactory.action("EXIT TO HUB", 420, 120, 34, "#FF1744", 22, () -> {
@@ -7019,25 +6997,21 @@ public class BirdGame3 extends Application {
         playMenuMusic();
         currentStage = stage;
 
-        VBox root = new VBox(24);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
+                MENU_PADDING, MENU_GAP);
 
         Label title = new Label("LAN PLAY");
         title.setFont(Font.font("Impact", FontWeight.BOLD, 92));
         title.setTextFill(Color.web("#FFE082"));
 
-        Label message = new Label("Host or join a local network match.\nHost is authoritative. Default 4 slots.");
-        message.setFont(Font.font("Consolas", 26));
-        message.setTextFill(Color.web("#B3E5FC"));
-        message.setTextAlignment(TextAlignment.CENTER);
+        Label message = new Label("Host or join a local network match.\nHost is authoritative. Up to " + LAN_MAX_PLAYERS + " players.");
+        MenuLayout.styleMenuMessage(message, 26, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
 
         Button hostBtn = uiFactory.action("HOST LAN", 360, 90, 32, "#2E7D32", 22, () -> startLanHost(stage));
         Button joinBtn = uiFactory.action("JOIN LAN", 360, 90, 32, "#1565C0", 22, () -> showLanJoin(stage, ""));
         Button back = uiFactory.action("BACK TO HUB", 360, 90, 32, "#D32F2F", 22, () -> showMenu(stage));
 
-        VBox buttons = new VBox(18, hostBtn, joinBtn, back);
+        VBox buttons = new VBox(16, hostBtn, joinBtn, back);
         buttons.setAlignment(Pos.CENTER);
 
         root.getChildren().addAll(title, message, buttons);
@@ -7053,18 +7027,15 @@ public class BirdGame3 extends Application {
         playMenuMusic();
         currentStage = stage;
 
-        VBox root = new VBox(18);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
+                MENU_PADDING, 18);
 
         Label title = new Label("JOIN LAN");
         title.setFont(Font.font("Impact", FontWeight.BOLD, 78));
         title.setTextFill(Color.web("#FFE082"));
 
         Label prompt = new Label("Enter host IP (port " + LanProtocol.DEFAULT_PORT + ")");
-        prompt.setFont(Font.font("Consolas", 24));
-        prompt.setTextFill(Color.web("#B3E5FC"));
+        MenuLayout.styleMenuMessage(prompt, 24, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
 
         Preferences prefs = Preferences.userNodeForPackage(BirdGame3.class);
         if (lanLastHost == null || lanLastHost.isBlank()) {
@@ -7107,24 +7078,18 @@ public class BirdGame3 extends Application {
         playMenuMusic();
         currentStage = stage;
 
-        VBox root = new VBox(20);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
+                MENU_PADDING, 20);
 
-        Label title = new Label(lanIsHost ? "LAN LOBBY (HOST)" : "LAN LOBBY");
+        String lobbyTitle = lanIsHost ? "LAN LOBBY (HOST)" : "LAN LOBBY";
+        Label title = new Label(lobbyTitle);
         title.setFont(Font.font("Impact", FontWeight.BOLD, 72));
         title.setTextFill(Color.web("#FFE082"));
 
-        String infoText = lanIsHost
-                ? "IP: " + findLanAddress() + "  Port: " + LanProtocol.DEFAULT_PORT
-                : "Connected to: " + (lanLastHost == null ? "" : lanLastHost);
-        Label info = new Label(infoText);
-        info.setFont(Font.font("Consolas", 22));
-        info.setTextFill(Color.web("#B3E5FC"));
-        info.setWrapText(true);
-        info.setMaxWidth(900);
-        applyNoEllipsis(info);
+        Label info = new Label(lanIsHost
+                ? ("IP: " + findLanAddress() + "  Port: " + LanProtocol.DEFAULT_PORT)
+                : ("Connected to: " + (lanLastHost == null ? "" : lanLastHost)));
+        MenuLayout.styleMenuMessage(info, 22, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
 
         lanStatusLabel = new Label(lanIsHost ? "Waiting for players..." : "Connecting...");
         lanStatusLabel.setFont(Font.font("Consolas", 20));
@@ -7399,7 +7364,8 @@ public class BirdGame3 extends Application {
     }
 
     private void broadcastLanLobby() {
-        if (lanIsHost && lanHost != null) {
+        if (!lanIsHost) return;
+        if (lanHost != null) {
             lanHost.broadcastLobby(lanSelectedMap, lanSlotConnected, lanSelectedBirds);
         }
     }
@@ -7457,7 +7423,7 @@ public class BirdGame3 extends Application {
     void onLanServerError(IOException e) {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsHost) return;
-            Alert alert = new Alert(Alert.AlertType.ERROR, "LAN server error: " + (e.getMessage() == null ? "" : e.getMessage()), ButtonType.OK);
+            Alert alert = new Alert(Alert.AlertType.ERROR, "LAN hosting error: " + (e.getMessage() == null ? "" : e.getMessage()), ButtonType.OK);
             alert.setTitle("LAN Error");
             alert.setHeaderText("Hosting interrupted.");
             alert.showAndWait();
@@ -7650,10 +7616,10 @@ public class BirdGame3 extends Application {
 
     private void confirmLeaveLanMatch(Stage stage) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "Leave the LAN match?",
+                "Leave the match?",
                 ButtonType.YES,
                 ButtonType.NO);
-        alert.setTitle("Leave LAN Match");
+        alert.setTitle("Leave Match");
         alert.setHeaderText("This will disconnect you from the lobby.");
         alert.initOwner(stage);
         alert.showAndWait().ifPresent(choice -> {
@@ -8696,10 +8662,8 @@ public class BirdGame3 extends Application {
             return;
         }
         playMenuMusic();
-        VBox root = new VBox(30);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0B1D2B, #1A2E3F);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1D2B, #1A2E3F);",
+                MENU_PADDING, 30);
 
         Label title = new Label(result.title);
         title.setFont(Font.font("Impact", FontWeight.BOLD, 84));
@@ -8724,7 +8688,7 @@ public class BirdGame3 extends Application {
         card.getChildren().addAll(header, text);
 
         Button back = uiFactory.action("BACK TO SHOP", 420, 110, 38, "#00C853", 24, () -> showShop(stage));
-        Button menu = uiFactory.action("MAIN MENU", 420, 110, 38, "#FF1744", 24, () -> showMenu(stage));
+        Button menu = uiFactory.action("BACK TO HUB", 420, 110, 38, "#D32F2F", 24, () -> showMenu(stage));
         HBox buttons = new HBox(24, back, menu);
         buttons.setAlignment(Pos.CENTER);
 
@@ -8776,10 +8740,8 @@ public class BirdGame3 extends Application {
         }
         playMenuMusic();
 
-        VBox root = new VBox(26);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0A1422, #1C2B3C, #16212F);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0A1422, #1C2B3C, #16212F);",
+                MENU_PADDING, 26);
 
         Label title = new Label("NEW FEATHERPEDIA ENTRY");
         title.setFont(Font.font("Impact", FontWeight.BOLD, 78));
@@ -9977,7 +9939,7 @@ public class BirdGame3 extends Application {
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
-        Button menuButton = uiFactory.action("MAIN MENU", 520, 95, 34, "#FF1744", 24, () -> showMenu(stage));
+        Button menuButton = uiFactory.action("BACK TO HUB", 520, 95, 34, "#D32F2F", 24, () -> showMenu(stage));
         menuButton.setWrapText(false);
         uiFactory.fitSingleLineOnLayout(menuButton, 34, 20);
         HBox bottom = new HBox(menuButton);
@@ -10149,7 +10111,7 @@ public class BirdGame3 extends Application {
         actions.getChildren().addAll(continueBtn, selectBtn);
         card.getChildren().addAll(chaptersLabel, chapterRow, chapterTitle, status, summary, roster, actions);
 
-        Button menuBtn = uiFactory.action("MAIN MENU", 420, 100, 34, "#FF1744", 24, () -> showMenu(stage));
+        Button menuBtn = uiFactory.action("BACK TO HUB", 420, 100, 34, "#D32F2F", 24, () -> showMenu(stage));
 
         root.getChildren().addAll(title, card, menuBtn);
 
@@ -11030,7 +10992,7 @@ public class BirdGame3 extends Application {
         Label mutatorInfo = new Label(
                 "Mutator Mode:\n" +
                 "- Randomly activates 1 mutator each match.\n" +
-                "- Variety includes: Low Gravity, Power-Up Storm, Crow Surge, Turbo Brawl."
+                "- Variety includes: Rage Frenzy, Titan Rumble, Overcharge Brawl, Crow Surge, Turbo Brawl."
         );
         mutatorInfo.setFont(Font.font("Consolas", 24));
         mutatorInfo.setTextFill(Color.web("#B3E5FC"));
@@ -11427,8 +11389,40 @@ public class BirdGame3 extends Application {
         return pick;
     }
 
+    private String bossSkinKeyFor(BirdType type) {
+        if (type == null) return null;
+        return switch (type) {
+            case PIGEON -> BEACON_PIGEON_SKIN;
+            case EAGLE -> "SKY_KING_EAGLE";
+            case PHOENIX -> NOVA_PHOENIX_SKIN;
+            case FALCON -> DUNE_FALCON_SKIN;
+            case PENGUIN -> MINT_PENGUIN_SKIN;
+            case TITMOUSE -> CIRCUIT_TITMOUSE_SKIN;
+            case RAZORBILL -> PRISM_RAZORBILL_SKIN;
+            case PELICAN -> AURORA_PELICAN_SKIN;
+            case HUMMINGBIRD -> SUNFLARE_HUMMINGBIRD_SKIN;
+            case SHOEBILL -> GLACIER_SHOEBILL_SKIN;
+            case VULTURE -> TIDE_VULTURE_SKIN;
+            case MOCKINGBIRD -> ECLIPSE_MOCKINGBIRD_SKIN;
+            case BAT -> UMBRA_BAT_SKIN;
+            default -> classicSkinDataKey(type);
+        };
+    }
+
     private ClassicFighter classicFighter(BirdType type, String title, double health, double powerMult, double speedMult) {
         return new ClassicFighter(type, title, health, powerMult, speedMult);
+    }
+
+    private ClassicFighter classicFighter(BirdType type, String title, double health, double powerMult, double speedMult, String skinKey) {
+        return new ClassicFighter(type, title, health, powerMult, speedMult, skinKey);
+    }
+
+    private ClassicFighter classicFighterWithCpu(BirdType type, String title, double health, double powerMult, double speedMult, int cpuLevel) {
+        return new ClassicFighter(type, title, health, powerMult, speedMult, null, cpuLevel);
+    }
+
+    private ClassicFighter classicBossFighter(BirdType type, String title, double health, double powerMult, double speedMult) {
+        return classicFighter(type, title, health, powerMult, speedMult, bossSkinKeyFor(type));
     }
 
     private String buildClassicRunCodename() {
@@ -11455,7 +11449,7 @@ public class BirdGame3 extends Application {
                     "Skycaster",
                     "One rival enters. Win clean and establish tempo.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.NONE, MatchMutator.LOW_GRAVITY),
+                    pickClassicMutator(MatchMutator.NONE, MatchMutator.RAGE_FRENZY),
                     pickClassicTwist(ClassicTwist.STORM_LIFTS, ClassicTwist.NECTAR_BLOOM, ClassicTwist.WIND_RALLY, ClassicTwist.VINE_SURGE),
                     85 * 60,
                     new ClassicFighter[0],
@@ -11472,7 +11466,7 @@ public class BirdGame3 extends Application {
                     "Skycaster",
                     "Two lighter foes push early pace. Win clean and stay composed.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.NONE, MatchMutator.LOW_GRAVITY),
+                    pickClassicMutator(MatchMutator.NONE, MatchMutator.OVERCHARGE_BRAWL),
                     pickClassicTwist(ClassicTwist.NECTAR_BLOOM, ClassicTwist.SHADOW_CACHE, ClassicTwist.MEDIC_CACHE),
                     80 * 60,
                     new ClassicFighter[0],
@@ -11489,7 +11483,7 @@ public class BirdGame3 extends Application {
                     "Arena Warden",
                     "A tuned rival with hazards online early. Survive the opening storm.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.POWERUP_STORM, MatchMutator.CROW_SURGE),
+                    pickClassicMutator(MatchMutator.TITAN_RUMBLE, MatchMutator.CROW_SURGE),
                     pickClassicTwist(ClassicTwist.SHOCK_DROPS, ClassicTwist.TITAN_CACHE, ClassicTwist.OVERCHARGE_FURY),
                     88 * 60,
                     new ClassicFighter[0],
@@ -11509,7 +11503,7 @@ public class BirdGame3 extends Application {
                     "Arena Warden",
                     "Two enemies coordinate from opposite angles. One misstep snowballs.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.POWERUP_STORM, MatchMutator.LOW_GRAVITY, MatchMutator.NONE),
+                    pickClassicMutator(MatchMutator.RAGE_FRENZY, MatchMutator.OVERCHARGE_BRAWL, MatchMutator.NONE),
                     pickClassicTwist(ClassicTwist.TITAN_CACHE, ClassicTwist.SHOCK_DROPS, ClassicTwist.OVERCHARGE_FURY),
                     95 * 60,
                     new ClassicFighter[0],
@@ -11527,7 +11521,7 @@ public class BirdGame3 extends Application {
                     "Command Relay",
                     "You gain an ally to break a stronger rival. Stay together and trade aggro.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.POWERUP_STORM),
+                    pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.OVERCHARGE_BRAWL),
                     pickClassicTwist(ClassicTwist.RAGE_RITUAL, ClassicTwist.NECTAR_BLOOM, ClassicTwist.MEDIC_CACHE),
                     92 * 60,
                     new ClassicFighter[]{
@@ -11547,7 +11541,7 @@ public class BirdGame3 extends Application {
                     "Command Relay",
                     "Pair up and control space. Both sides bring balanced threats.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.LOW_GRAVITY, MatchMutator.TURBO_BRAWL),
+                    pickClassicMutator(MatchMutator.TITAN_RUMBLE, MatchMutator.TURBO_BRAWL),
                     pickClassicTwist(ClassicTwist.WIND_RALLY, ClassicTwist.SHADOW_CACHE, ClassicTwist.VINE_SURGE),
                     98 * 60,
                     new ClassicFighter[]{
@@ -11571,7 +11565,7 @@ public class BirdGame3 extends Application {
                     "Command Relay",
                     "You gain one ally. Keep formation and rotate aggro before they isolate either of you.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.POWERUP_STORM),
+                    pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.OVERCHARGE_BRAWL),
                     pickClassicTwist(ClassicTwist.NECTAR_BLOOM, ClassicTwist.STORM_LIFTS, ClassicTwist.VINE_SURGE),
                     95 * 60,
                     new ClassicFighter[]{
@@ -11592,7 +11586,7 @@ public class BirdGame3 extends Application {
                     "Ruin Oracle",
                     "Three lighter enemies hunt together. Control space before they surround you.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.CROW_SURGE, MatchMutator.LOW_GRAVITY),
+                    pickClassicMutator(MatchMutator.CROW_SURGE, MatchMutator.RAGE_FRENZY),
                     pickClassicTwist(ClassicTwist.CROW_CARNIVAL, ClassicTwist.SHADOW_CACHE, ClassicTwist.MEDIC_CACHE),
                     88 * 60,
                     new ClassicFighter[0],
@@ -11612,7 +11606,7 @@ public class BirdGame3 extends Application {
                     "Arena Warden",
                     "Two elite enemies hold territory. Work with your ally to dislodge them.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.POWERUP_STORM, MatchMutator.TURBO_BRAWL),
+                    pickClassicMutator(MatchMutator.TITAN_RUMBLE, MatchMutator.TURBO_BRAWL),
                     pickClassicTwist(ClassicTwist.RAGE_RITUAL, ClassicTwist.TITAN_CACHE, ClassicTwist.OVERCHARGE_FURY),
                     96 * 60,
                     new ClassicFighter[]{
@@ -11656,7 +11650,7 @@ public class BirdGame3 extends Application {
                     "Command Relay",
                     "Both sides field duos. Focus targets together to avoid staggered defeats.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.LOW_GRAVITY, MatchMutator.CROW_SURGE),
+                    pickClassicMutator(MatchMutator.TITAN_RUMBLE, MatchMutator.CROW_SURGE),
                     pickClassicTwist(ClassicTwist.WIND_RALLY, ClassicTwist.STORM_LIFTS, ClassicTwist.VINE_SURGE),
                     95 * 60,
                     new ClassicFighter[]{
@@ -11676,12 +11670,12 @@ public class BirdGame3 extends Application {
                     "Skycaster Prime",
                     "A mini-boss enters with support. Control space and split them apart.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.POWERUP_STORM),
+                    pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.OVERCHARGE_BRAWL),
                     pickClassicTwist(ClassicTwist.TITAN_CACHE, ClassicTwist.RAGE_RITUAL, ClassicTwist.MEDIC_CACHE),
                     100 * 60,
                     new ClassicFighter[0],
                     new ClassicFighter[]{
-                            classicFighter(miniBoss, "Boss: " + miniBoss.name, 180, 1.22, 1.1),
+                            classicBossFighter(miniBoss, "Boss: " + miniBoss.name, 180, 1.22, 1.1),
                             classicFighter(support, "Escort: " + support.name, 120, 1.05, 1.1)
                     },
                     true
@@ -11698,15 +11692,15 @@ public class BirdGame3 extends Application {
                     "Skycaster Prime",
                     "Final arena. A boss duo controls the map core. Break them to clear Classic for this bird.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.CROW_SURGE, MatchMutator.POWERUP_STORM),
+                    pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.CROW_SURGE, MatchMutator.TITAN_RUMBLE),
                     pickClassicTwist(ClassicTwist.TITAN_CACHE, ClassicTwist.STORM_LIFTS, ClassicTwist.CROW_CARNIVAL, ClassicTwist.OVERCHARGE_FURY),
                     110 * 60,
                     new ClassicFighter[]{
                             classicFighter(r5ally, "Ally: " + r5ally.name, 112, 1.04, 1.08)
                     },
                     new ClassicFighter[]{
-                            classicFighter(boss, "Boss: " + boss.name, 210, 1.32, 1.08),
-                            classicFighter(lieutenant, "Boss: " + lieutenant.name, 175, 1.24, 1.12)
+                            classicBossFighter(boss, "Boss: " + boss.name, 210, 1.32, 1.08),
+                            classicBossFighter(lieutenant, "Boss: " + lieutenant.name, 175, 1.24, 1.12)
                     },
                     true
             ));
@@ -11717,14 +11711,14 @@ public class BirdGame3 extends Application {
                     "Skycaster Prime",
                     "Final arena. The boss leads an elite wing. Break them to clear Classic for this bird.",
                     pickClassicMap(usedMaps),
-                    pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.CROW_SURGE, MatchMutator.POWERUP_STORM),
+                    pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.CROW_SURGE, MatchMutator.TITAN_RUMBLE),
                     pickClassicTwist(ClassicTwist.TITAN_CACHE, ClassicTwist.WIND_RALLY, ClassicTwist.RAGE_RITUAL, ClassicTwist.MEDIC_CACHE),
                     110 * 60,
                     new ClassicFighter[0],
                     new ClassicFighter[]{
-                            classicFighter(boss, "Boss: " + boss.name, 220, 1.34, 1.1),
-                            classicFighter(lieutenant, "Elite: " + lieutenant.name, 150, 1.18, 1.12),
-                            classicFighter(elite, "Elite: " + elite.name, 140, 1.16, 1.12)
+                            classicBossFighter(boss, "Boss: " + boss.name, 220, 1.34, 1.1),
+                            classicFighterWithCpu(lieutenant, "Elite: " + lieutenant.name, 90, 1.18, 1.12, 2),
+                            classicFighterWithCpu(elite, "Elite: " + elite.name, 80, 1.16, 1.12, 2)
                     },
                     true
             ));
@@ -11904,7 +11898,7 @@ public class BirdGame3 extends Application {
             classicSelectedSkinKey = normalizeAdventureSkinChoice(selected[0], selectedSkin[0]);
             showClassicRunBriefing(stage, selected[0]);
         });
-        Button back = uiFactory.action("MAIN MENU", 420, 110, 38, "#FF1744", 24, () -> showMenu(stage));
+        Button back = uiFactory.action("BACK TO HUB", 420, 110, 38, "#D32F2F", 24, () -> showMenu(stage));
 
         Runnable refreshSkin = () -> {
             BirdType pick = selected[0];
@@ -12174,10 +12168,8 @@ public class BirdGame3 extends Application {
         int livesLeft = Math.max(0, 3 - classicDeaths);
         playMenuMusic();
 
-        VBox root = new VBox(30);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);",
+                MENU_PADDING, 30);
 
         Label title = new Label("Classic " + (classicRoundIndex + 1) + ": " + classicEncounter.name);
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 92));
@@ -12247,7 +12239,7 @@ public class BirdGame3 extends Application {
 
         Button continueButton = uiFactory.action("START ENCOUNTER", 520, 120, 52, "#00C853", 32, () -> startClassicEncounter(stage));
 
-        Button menuButton = uiFactory.action("MAIN MENU", 460, 120, 36, "#FF1744", 32, () -> showMenu(stage));
+        Button menuButton = uiFactory.action("BACK TO HUB", 460, 120, 36, "#D32F2F", 32, () -> showMenu(stage));
         menuButton.setWrapText(false);
         uiFactory.fitSingleLineOnLayout(menuButton, 36, 20);
 
@@ -12534,6 +12526,7 @@ public class BirdGame3 extends Application {
     private void setupClassicEncounterRoster(ClassicEncounter encounter) {
         classicTeamMode = true;
         Arrays.fill(classicTeams, 2);
+        Arrays.fill(classicCpuLevels, 0);
         classicTeams[0] = 1;
 
         int slot = 0;
@@ -12546,7 +12539,7 @@ public class BirdGame3 extends Application {
         if (encounter.allies != null) {
             for (int i = 0; i < encounter.allies.length && slot < 4; i++) {
                 ClassicFighter ally = encounter.allies[i];
-                createStoryBird(
+                Bird allyBird = createStoryBird(
                         1300 + i * 350,
                         ally.type,
                         slot,
@@ -12556,7 +12549,11 @@ public class BirdGame3 extends Application {
                         ally.speedMult,
                         true
                 );
+                if (ally.skinKey != null) {
+                    applyPreviewSkinChoiceToBird(allyBird, ally.type, ally.skinKey);
+                }
                 classicTeams[slot] = 1;
+                classicCpuLevels[slot] = Math.max(0, ally.cpuLevel);
                 slot++;
             }
         }
@@ -12564,7 +12561,7 @@ public class BirdGame3 extends Application {
         if (encounter.enemies != null) {
             for (int i = 0; i < encounter.enemies.length && slot < 4; i++) {
                 ClassicFighter enemy = encounter.enemies[i];
-                createStoryBird(
+                Bird enemyBird = createStoryBird(
                         3800 + i * 520,
                         enemy.type,
                         slot,
@@ -12574,7 +12571,11 @@ public class BirdGame3 extends Application {
                         enemy.speedMult,
                         true
                 );
+                if (enemy.skinKey != null) {
+                    applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
+                }
                 classicTeams[slot] = 2;
+                classicCpuLevels[slot] = Math.max(0, enemy.cpuLevel);
                 slot++;
             }
         }
@@ -12731,10 +12732,8 @@ public class BirdGame3 extends Application {
     private void showClassicContinuePrompt(Stage stage) {
         playMenuMusic();
 
-        VBox root = new VBox(30);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);",
+                MENU_PADDING, 30);
 
         Label title = new Label("CLASSIC CONTINUE");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 84));
@@ -12850,10 +12849,8 @@ public class BirdGame3 extends Application {
     private void showStoryDialogue(Stage stage, String titleText, String speaker, String dialogue, Runnable onContinue) {
         playMenuMusic();
 
-        VBox root = new VBox(30);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);",
+                MENU_PADDING, 30);
 
         Label title = new Label(titleText);
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 92));
@@ -12881,7 +12878,7 @@ public class BirdGame3 extends Application {
 
         Button continueButton = uiFactory.action("CONTINUE", 460, 120, 52, "#00C853", 32, onContinue);
 
-        Button menuButton = uiFactory.action("MAIN MENU", 460, 120, 36, "#FF1744", 32, () -> showMenu(stage));
+        Button menuButton = uiFactory.action("BACK TO HUB", 460, 120, 36, "#D32F2F", 32, () -> showMenu(stage));
         menuButton.setWrapText(false);
         uiFactory.fitSingleLineOnLayout(menuButton, 36, 20);
 
@@ -13816,6 +13813,70 @@ public class BirdGame3 extends Application {
         return String.format("#%02X%02X%02X", (int) (c.getRed() * 255), (int) (c.getGreen() * 255), (int) (c.getBlue() * 255));
     }
 
+    private void applyMutatorStartEffects(MatchMutator mutator, boolean announce, boolean classicScale) {
+        if (mutator == null || mutator == MatchMutator.NONE) return;
+        double turboPower = classicScale ? 1.10 : 1.12;
+        double turboSpeed = classicScale ? 1.12 : 1.14;
+
+        switch (mutator) {
+            case TURBO_BRAWL -> {
+                for (int i = 0; i < activePlayers; i++) {
+                    Bird b = players[i];
+                    if (b == null) continue;
+                    b.setBaseMultipliers(
+                            b.baseSizeMultiplier,
+                            b.basePowerMultiplier * turboPower,
+                            b.baseSpeedMultiplier * turboSpeed
+                    );
+                }
+                if (announce) {
+                    addToKillFeed("Turbo Brawl: +speed and +power for everyone.");
+                }
+            }
+            case RAGE_FRENZY -> {
+                for (int i = 0; i < activePlayers; i++) {
+                    Bird b = players[i];
+                    if (b == null) continue;
+                    b.rageTimer = Math.max(b.rageTimer, MUTATOR_BUFF_FRAMES);
+                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.6);
+                }
+                if (announce) {
+                    addToKillFeed("Rage Frenzy: everyone is enraged.");
+                }
+            }
+            case TITAN_RUMBLE -> {
+                for (int i = 0; i < activePlayers; i++) {
+                    Bird b = players[i];
+                    if (b == null) continue;
+                    b.titanActive = true;
+                    b.titanTimer = Math.max(b.titanTimer, MUTATOR_BUFF_FRAMES);
+                    if (b.shrinkTimer <= 0) {
+                        b.sizeMultiplier = b.baseSizeMultiplier * 1.35;
+                    }
+                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.4);
+                }
+                if (announce) {
+                    addToKillFeed("Titan Rumble: everyone is in Titan form.");
+                }
+            }
+            case OVERCHARGE_BRAWL -> {
+                for (int i = 0; i < activePlayers; i++) {
+                    Bird b = players[i];
+                    if (b == null) continue;
+                    b.specialCooldown = 0;
+                    b.overchargeAttackTimer = Math.max(b.overchargeAttackTimer, MUTATOR_BUFF_FRAMES);
+                    b.rageTimer = Math.max(b.rageTimer, MUTATOR_BUFF_FRAMES);
+                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.35);
+                }
+                if (announce) {
+                    addToKillFeed("Overcharge Brawl: rapid attacks for everyone.");
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
     private void configureMatchModes() {
         activeMutator = MatchMutator.NONE;
         activePowerUpSpawnInterval = POWERUP_SPAWN_INTERVAL;
@@ -13827,19 +13888,7 @@ public class BirdGame3 extends Application {
             if (activeMutator != MatchMutator.NONE) {
                 addToKillFeed("CLASSIC MUTATOR: " + activeMutator.label);
             }
-            if (activeMutator == MatchMutator.POWERUP_STORM) {
-                activePowerUpSpawnInterval = 1_000_000_000L * 3;
-            } else if (activeMutator == MatchMutator.TURBO_BRAWL) {
-                for (int i = 0; i < activePlayers; i++) {
-                    Bird b = players[i];
-                    if (b == null) continue;
-                    b.setBaseMultipliers(
-                            b.baseSizeMultiplier,
-                            b.basePowerMultiplier * 1.10,
-                            b.baseSpeedMultiplier * 1.12
-                    );
-                }
-            }
+            applyMutatorStartEffects(activeMutator, false, true);
             return;
         }
 
@@ -13862,29 +13911,15 @@ public class BirdGame3 extends Application {
         if (!mutatorModeEnabled) return;
 
         MatchMutator[] pool = {
-                MatchMutator.LOW_GRAVITY,
-                MatchMutator.POWERUP_STORM,
+                MatchMutator.RAGE_FRENZY,
+                MatchMutator.TITAN_RUMBLE,
+                MatchMutator.OVERCHARGE_BRAWL,
                 MatchMutator.CROW_SURGE,
                 MatchMutator.TURBO_BRAWL
         };
         activeMutator = pool[random.nextInt(pool.length)];
         addToKillFeed("MUTATOR ACTIVE: " + activeMutator.label);
-
-        if (activeMutator == MatchMutator.POWERUP_STORM) {
-            activePowerUpSpawnInterval = 1_000_000_000L * 3;
-            addToKillFeed("Power-Up Storm: faster drops all match.");
-        } else if (activeMutator == MatchMutator.TURBO_BRAWL) {
-            for (int i = 0; i < activePlayers; i++) {
-                Bird b = players[i];
-                if (b == null) continue;
-                b.setBaseMultipliers(
-                        b.baseSizeMultiplier,
-                        b.basePowerMultiplier * 1.12,
-                        b.baseSpeedMultiplier * 1.14
-                );
-            }
-            addToKillFeed("Turbo Brawl: +speed and +power for everyone.");
-        }
+        applyMutatorStartEffects(activeMutator, true, false);
     }
 
     private Bird findTimeoutWinner() {
@@ -13997,30 +14032,57 @@ public class BirdGame3 extends Application {
     private void applyMatchModeRuntimeEffects(long now) {
         if (storyModeActive || adventureModeActive || trainingModeActive) return;
 
-        if (activeMutator == MatchMutator.LOW_GRAVITY) {
-            for (int i = 0; i < activePlayers; i++) {
-                Bird b = players[i];
-                if (b == null || b.health <= 0) continue;
-                if (b.vy > 0) b.vy *= 0.87;
-            }
-        } else if (activeMutator == MatchMutator.CROW_SURGE) {
-            if (now - lastMutatorHazardTime > 1_000_000_000L * 6) {
-                lastMutatorHazardTime = now;
-                int waves = 2 + random.nextInt(2);
-                for (int i = 0; i < waves; i++) {
-                    double y = 220 + random.nextDouble() * (WORLD_HEIGHT - 900);
-                    CrowMinion left = new CrowMinion(-120, y, null);
-                    left.vx = 4.5 + random.nextDouble() * 2.0;
-                    left.vy = (random.nextDouble() - 0.5) * 3.5;
-                    crowMinions.add(left);
-
-                    CrowMinion right = new CrowMinion(WORLD_WIDTH + 120, y, null);
-                    right.vx = -4.5 - random.nextDouble() * 2.0;
-                    right.vy = (random.nextDouble() - 0.5) * 3.5;
-                    crowMinions.add(right);
+        switch (activeMutator) {
+            case RAGE_FRENZY -> {
+                for (int i = 0; i < activePlayers; i++) {
+                    Bird b = players[i];
+                    if (b == null) continue;
+                    b.rageTimer = Math.max(b.rageTimer, MUTATOR_BUFF_FRAMES);
+                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.6);
                 }
-                addToKillFeed("MUTATOR: Crow surge wave!");
-                shakeIntensity = Math.max(shakeIntensity, 12);
+            }
+            case TITAN_RUMBLE -> {
+                for (int i = 0; i < activePlayers; i++) {
+                    Bird b = players[i];
+                    if (b == null) continue;
+                    b.titanActive = true;
+                    b.titanTimer = Math.max(b.titanTimer, MUTATOR_BUFF_FRAMES);
+                    if (b.shrinkTimer <= 0) {
+                        b.sizeMultiplier = b.baseSizeMultiplier * 1.35;
+                    }
+                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.4);
+                }
+            }
+            case OVERCHARGE_BRAWL -> {
+                for (int i = 0; i < activePlayers; i++) {
+                    Bird b = players[i];
+                    if (b == null) continue;
+                    b.overchargeAttackTimer = Math.max(b.overchargeAttackTimer, MUTATOR_BUFF_FRAMES);
+                    b.rageTimer = Math.max(b.rageTimer, MUTATOR_BUFF_FRAMES);
+                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.35);
+                }
+            }
+            case CROW_SURGE -> {
+                if (now - lastMutatorHazardTime > 1_000_000_000L * 6) {
+                    lastMutatorHazardTime = now;
+                    int waves = 2 + random.nextInt(2);
+                    for (int i = 0; i < waves; i++) {
+                        double y = 220 + random.nextDouble() * (WORLD_HEIGHT - 900);
+                        CrowMinion left = new CrowMinion(-120, y, null);
+                        left.vx = 4.5 + random.nextDouble() * 2.0;
+                        left.vy = (random.nextDouble() - 0.5) * 3.5;
+                        crowMinions.add(left);
+
+                        CrowMinion right = new CrowMinion(WORLD_WIDTH + 120, y, null);
+                        right.vx = -4.5 - random.nextDouble() * 2.0;
+                        right.vy = (random.nextDouble() - 0.5) * 3.5;
+                        crowMinions.add(right);
+                    }
+                    addToKillFeed("MUTATOR: Crow surge wave!");
+                    shakeIntensity = Math.max(shakeIntensity, 12);
+                }
+            }
+            default -> {
             }
         }
     }
@@ -14031,8 +14093,10 @@ public class BirdGame3 extends Application {
         if (lanModeActive) {
             matchEnded = true;
             int winnerIndex = winner != null ? winner.playerIndex : -1;
-            if (lanIsHost && lanHost != null) {
-                lanHost.broadcastMatchEnd(winnerIndex);
+            if (lanIsHost) {
+                if (lanHost != null) {
+                    lanHost.broadcastMatchEnd(winnerIndex);
+                }
             }
             final Stage finalStage = currentStage;
             new AnimationTimer() {
@@ -14094,20 +14158,13 @@ public class BirdGame3 extends Application {
     private void spawnPowerUp(long now) {
         if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) return;
         if (now - lastPowerUpSpawnTime < activePowerUpSpawnInterval) return;
-        double spawnChance = activeMutator == MatchMutator.POWERUP_STORM ? 0.98 : 0.8;
+        double spawnChance = 0.8;
         if (random.nextDouble() < spawnChance) {
             double[] spawn = pickPowerUpSpawnPoint();
             double x = spawn[0];
             double y = spawn[1];
             PowerUpType type;
-            if (activeMutator == MatchMutator.POWERUP_STORM && random.nextDouble() < 0.22) {
-                PowerUpType[] storm = {
-                        PowerUpType.NEON, PowerUpType.THERMAL, PowerUpType.RAGE,
-                        PowerUpType.SPEED, PowerUpType.HEALTH, PowerUpType.OVERCHARGE,
-                        PowerUpType.SHRINK, PowerUpType.TITAN
-                };
-                type = storm[random.nextInt(storm.length)];
-            } else if (selectedMap == MapType.SKYCLIFFS && random.nextDouble() < 0.35) {
+            if (selectedMap == MapType.SKYCLIFFS && random.nextDouble() < 0.35) {
                 type = PowerUpType.THERMAL;
             } else if (selectedMap == MapType.CITY && random.nextDouble() < 0.4) {
                 type = PowerUpType.NEON;
@@ -14383,7 +14440,7 @@ public class BirdGame3 extends Application {
 
         g.setFill(Color.WHITE);
         g.setFont(Font.font("Consolas", 16));
-        g.fillText("Player                        DPS   Specials  Elims  Falls  WRÎ”", panelX + 18, panelY + 84);
+        g.fillText("Player                        DPS   Specials  Elims  Falls  WRd", panelX + 18, panelY + 84);
 
         for (int i = 0; i < activePlayers; i++) {
             Bird b = players[i];
@@ -14411,7 +14468,7 @@ public class BirdGame3 extends Application {
 
         g.setFill(Color.GRAY.brighter());
         g.setFont(Font.font("Consolas", 14));
-        g.fillText("WRÎ” = bird type lifetime win-rate delta from 50%", panelX + 18, panelY + panelH - 10);
+        g.fillText("WRd = bird type lifetime win-rate delta from 50%", panelX + 18, panelY + panelH - 10);
     }
 
     public void recordSpecialImpact(int playerIdx, int damage, boolean didHit) {
@@ -14425,7 +14482,11 @@ public class BirdGame3 extends Application {
         if (adventureModeActive && currentAdventureBattle != null) {
             level = currentAdventureBattle.cpuLevel;
         } else if (classicModeActive && classicEncounter != null) {
-            level = getClassicCpuLevel();
+            if (playerIdx >= 0 && playerIdx < classicCpuLevels.length && classicCpuLevels[playerIdx] > 0) {
+                level = classicCpuLevels[playerIdx];
+            } else {
+                level = getClassicCpuLevel();
+            }
         } else if (playerIdx >= 0 && playerIdx < cpuLevels.length) {
             level = cpuLevels[playerIdx];
         }
@@ -14883,7 +14944,7 @@ public class BirdGame3 extends Application {
             platforms.add(new Platform(3000, GROUND_Y - 150, 500, 40));
             platforms.add(new Platform(4500, GROUND_Y - 80, 400, 40));
 
-            // NO random floating pillars/antennas â€” removed completely
+            // NO random floating pillars/antennas - removed completely
 
             // Rooftop vents already added in the building loop above.
         }
@@ -14940,16 +15001,19 @@ public class BirdGame3 extends Application {
                 if (!lanModeActive || lanIsHost) {
                     gameTick(1.0);
                 }
-                if (lanModeActive && lanIsHost && lanHost != null && lanHost.hasClients()) {
-                    if (now - lastLanSnapshotNs >= LAN_SNAPSHOT_INTERVAL_NS) {
-                        lanHost.broadcastState(buildLanState());
+                if (lanModeActive && lanIsHost) {
+                    boolean hasClients = lanHost != null && lanHost.hasClients();
+                    if (hasClients && now - lastLanSnapshotNs >= LAN_SNAPSHOT_INTERVAL_NS) {
+                        if (lanHost != null) {
+                            lanHost.broadcastState(buildLanState());
+                        }
                         lastLanSnapshotNs = now;
                     }
                 }
                 if (!shouldRenderFrame(now)) {
                     return;
                 }
-                drawGame(g);   // â† ONE LINE
+                drawGame(g);   // <- ONE LINE
 
                 ui.clearRect(0, 0, WIDTH, HEIGHT);
 
@@ -15129,10 +15193,8 @@ public class BirdGame3 extends Application {
             victoryMusicPlayer.stop();
             if (musicEnabled) victoryMusicPlayer.play();
         }
-        VBox root = new VBox(40);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);");
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);",
+                MENU_PADDING, 40);
 
         Label title = new Label(winner != null ? winner.name.toUpperCase() + " WINS!" : "TIME'S UP!");
         title.setFont(Font.font("Arial Black", 110));
@@ -15551,9 +15613,9 @@ public class BirdGame3 extends Application {
     }
 
     private Button button(String text, String color) {
-        Button b = uiFactory.action(text, 480, 120, 40, color, 36, null);
+        Button b = uiFactory.action(text, 520, 120, 40, color, 36, null);
         b.setWrapText(false);
-        uiFactory.fitSingleLineOnLayout(b, 40, 18);
+        uiFactory.fitSingleLineOnLayout(b, 40, 16);
         return b;
     }
 
@@ -15579,7 +15641,7 @@ public class BirdGame3 extends Application {
                 showClassicRunBriefing(stage, classicSelectedBird);
             });
 
-            Button menu = button("MAIN MENU", "#9C27B0");
+            Button menu = button("BACK TO HUB", "#D32F2F");
             menu.setOnAction(e -> {
                 resetMatchStats();
                 showMenu(stage);
@@ -15591,7 +15653,7 @@ public class BirdGame3 extends Application {
                 resetMatchStats();
                 handleStoryMatchEnd(stage, winner);
             });
-            Button menu = button("MAIN MENU", "#9C27B0");
+            Button menu = button("BACK TO HUB", "#D32F2F");
             menu.setOnAction(e -> {
                 resetMatchStats();
                 showMenu(stage);
@@ -15608,7 +15670,7 @@ public class BirdGame3 extends Application {
                 resetMatchStats();
                 showAdventureHub(stage);
             });
-            Button menu = button("MAIN MENU", "#9C27B0");
+            Button menu = button("BACK TO HUB", "#D32F2F");
             menu.setOnAction(e -> {
                 resetMatchStats();
                 showMenu(stage);
@@ -15637,7 +15699,7 @@ public class BirdGame3 extends Application {
                 competitionRoundNumber = 1;
                 startMatch(stage);
             });
-            Button menu = button("MAIN MENU", "#9C27B0");
+            Button menu = button("BACK TO HUB", "#D32F2F");
             menu.setOnAction(e -> {
                 resetMatchStats();
                 showMenu(stage);
@@ -16165,14 +16227,29 @@ public class BirdGame3 extends Application {
 
     private String sanitizeAchievementText(String text) {
         if (text == null) return "";
-        return text.replace("â€“", " - ")
-                .replace("â€—", " - ")
-                .replace("â”", "\"")
-                .replace("â“", "\"")
-                .replace("âœ“", "")
-                .replace("â‐", "-")
-                .replace("â”", "-")
+        String cleaned = text;
+        // Normalize common punctuation and encoding noise.
+        cleaned = cleaned
+                .replace("\u2013", " - ")
+                .replace("\u2014", " - ")
+                .replace("\u2015", " - ")
+                .replace("\u2212", "-")
+                .replace("\u201C", "\"")
+                .replace("\u201D", "\"")
+                .replace("\u2018", "'")
+                .replace("\u2019", "'")
+                .replace("\u2022", "-")
+                .replace("\u2713", "")
                 .replace("\uFFFD", "");
+        // Common UTF-8 -> CP1252 mojibake sequences.
+        cleaned = cleaned
+                .replace("\u00C3\u00A2\u00E2\u201A\u00AC\u00E2\u20AC\u0153", " - ")
+                .replace("\u00C3\u00A2\u00E2\u201A\u00AC\u00E2\u20AC\u201D", " - ")
+                .replace("\u00C3\u00A2\u00E2\u20AC\u009D", "\"")
+                .replace("\u00C3\u00A2\u00E2\u20AC\u0153", "\"")
+                .replace("\u00C3\u00A2\u00C5\u201C\u00E2\u20AC\u0153", "")
+                .replace("\u00C3\u00A2\u00E2\u20AC\u0090", "-");
+        return cleaned;
     }
 
     private void togglePause(Stage stage) {
@@ -16182,7 +16259,7 @@ public class BirdGame3 extends Application {
             scene.setOnKeyPressed(e -> handleGameplayKeyPress(stage, e));
             gameRoot.getChildren().removeIf(node -> node instanceof VBox && "pauseMenu".equals(node.getId()));
 
-            lastUpdate = 0;      // â† CRITICAL: reset so no speed-up
+            lastUpdate = 0;      // <- CRITICAL: reset so no speed-up
             accumulator = 0;
             resetRenderTimer();
 
@@ -16272,18 +16349,6 @@ public class BirdGame3 extends Application {
         launch(args);
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
