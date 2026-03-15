@@ -159,17 +159,22 @@ public class BirdGame3 extends Application {
     private LanHostServer lanHost;
     private LanClient lanClient;
     private final BirdType[] lanSelectedBirds = new BirdType[LAN_MAX_PLAYERS];
+    private final boolean[] lanRandomBirds = new boolean[LAN_MAX_PLAYERS];
     private final boolean[] lanSlotConnected = new boolean[LAN_MAX_PLAYERS];
+    private final MapType[] lanMapVotes = new MapType[LAN_MAX_PLAYERS];
+    private final boolean[] lanMapVoteRandom = new boolean[LAN_MAX_PLAYERS];
     private final int[] lanInputMasks = new int[LAN_MAX_PLAYERS];
     private final int[] lanLastInputMasks = new int[LAN_MAX_PLAYERS];
     private final Object lanInputLock = new Object();
     private int lanLocalInputMask = 0;
     private MapType lanSelectedMap = MapType.FOREST;
+    private boolean lanSelectedMapRandom = false;
     private long lastLanSnapshotNs = 0L;
     private Label[] lanSlotLabels;
     private Label lanStatusLabel;
     private Label lanYourBirdLabel;
     private Label lanMapLabel;
+    private Label lanMapVoteLabel;
     private Button lanStartButton;
     private Button lanPrevBirdButton;
     private Button lanNextBirdButton;
@@ -7109,17 +7114,16 @@ public class BirdGame3 extends Application {
         lanMapLabel = new Label();
         lanMapLabel.setFont(Font.font("Arial Black", 24));
         lanMapLabel.setTextFill(Color.web("#FFECB3"));
-        lanPrevMapButton = null;
-        lanNextMapButton = null;
-        HBox mapRow = new HBox(12);
+        lanMapVoteLabel = new Label();
+        lanMapVoteLabel.setFont(Font.font("Consolas", 20));
+        lanMapVoteLabel.setTextFill(Color.web("#B0BEC5"));
+
+        lanPrevMapButton = uiFactory.action("<", 70, 60, 26, "#455A64", 18, () -> cycleLanMap(-1));
+        lanNextMapButton = uiFactory.action(">", 70, 60, 26, "#455A64", 18, () -> cycleLanMap(1));
+        HBox mapRow = new HBox(12, lanPrevMapButton, lanMapLabel, lanNextMapButton);
         mapRow.setAlignment(Pos.CENTER);
-        if (lanIsHost) {
-            lanPrevMapButton = uiFactory.action("<", 70, 60, 26, "#455A64", 18, () -> cycleLanMap(-1));
-            lanNextMapButton = uiFactory.action(">", 70, 60, 26, "#455A64", 18, () -> cycleLanMap(1));
-            mapRow.getChildren().addAll(lanPrevMapButton, lanMapLabel, lanNextMapButton);
-        } else {
-            mapRow.getChildren().add(lanMapLabel);
-        }
+        VBox mapBox = new VBox(6, mapRow, lanMapVoteLabel);
+        mapBox.setAlignment(Pos.CENTER);
 
         lanYourBirdLabel = new Label();
         lanYourBirdLabel.setFont(Font.font("Arial Black", 24));
@@ -7130,7 +7134,7 @@ public class BirdGame3 extends Application {
         HBox birdRow = new HBox(12, lanPrevBirdButton, lanYourBirdLabel, lanNextBirdButton);
         birdRow.setAlignment(Pos.CENTER);
 
-        VBox controls = new VBox(12, mapRow, birdRow);
+        VBox controls = new VBox(12, mapBox, birdRow);
         controls.setAlignment(Pos.CENTER);
 
         lanStartButton = null;
@@ -7175,19 +7179,25 @@ public class BirdGame3 extends Application {
         lanMatchActive = false;
         lanPlayerIndex = 0;
         Arrays.fill(lanSlotConnected, false);
+        Arrays.fill(lanRandomBirds, false);
+        Arrays.fill(lanMapVotes, null);
+        Arrays.fill(lanMapVoteRandom, false);
         Arrays.fill(lanInputMasks, 0);
         Arrays.fill(lanLastInputMasks, 0);
         lanLocalInputMask = 0;
         lanSlotConnected[0] = true;
+        lanSelectedMapRandom = false;
         if (lanSelectedBirds[0] == null) {
             lanSelectedBirds[0] = firstUnlockedBird();
         }
+        lanRandomBirds[0] = false;
         if (lanSelectedMap == null) {
             lanSelectedMap = MapType.FOREST;
         }
         if (!availableLanMaps().contains(lanSelectedMap)) {
             lanSelectedMap = MapType.FOREST;
         }
+        lanMapVotes[0] = lanSelectedMap;
         lanHost = new LanHostServer(this);
         if (!lanHost.start(LanProtocol.DEFAULT_PORT)) {
             Alert alert = new Alert(Alert.AlertType.ERROR, "Could not start LAN server on port " + LanProtocol.DEFAULT_PORT + ".", ButtonType.OK);
@@ -7210,10 +7220,14 @@ public class BirdGame3 extends Application {
         lanMatchActive = false;
         lanPlayerIndex = -1;
         Arrays.fill(lanSlotConnected, false);
+        Arrays.fill(lanRandomBirds, false);
+        Arrays.fill(lanMapVotes, null);
+        Arrays.fill(lanMapVoteRandom, false);
         Arrays.fill(lanInputMasks, 0);
         Arrays.fill(lanLastInputMasks, 0);
         lanLocalInputMask = 0;
         lanSelectedMap = MapType.FOREST;
+        lanSelectedMapRandom = false;
         lanClient = new LanClient(this);
         showLanLobby(stage);
 
@@ -7239,13 +7253,37 @@ public class BirdGame3 extends Application {
             if (!lanSlotConnected[i]) {
                 slot.setText("Slot " + (i + 1) + ": Open");
             } else {
-                BirdType type = lanSelectedBirds[i];
-                String name = type != null ? type.name : "Selecting...";
+                String name;
+                if (lanRandomBirds[i]) {
+                    name = "Random";
+                } else {
+                    BirdType type = lanSelectedBirds[i];
+                    name = type != null ? type.name : "Selecting...";
+                }
                 slot.setText("P" + (i + 1) + ": " + name);
             }
         }
         if (lanMapLabel != null) {
-            lanMapLabel.setText("MAP: " + mapDisplayName(lanSelectedMap));
+            if (lanSelectedMapRandom) {
+                lanMapLabel.setText("MAP: RANDOM");
+            } else {
+                lanMapLabel.setText("MAP: " + mapDisplayName(lanSelectedMap));
+            }
+        }
+        if (lanMapVoteLabel != null) {
+            if (lanPlayerIndex >= 0) {
+                String vote;
+                if (lanMapVoteRandom[lanPlayerIndex]) {
+                    vote = "RANDOM";
+                } else if (lanMapVotes[lanPlayerIndex] != null) {
+                    vote = mapDisplayName(lanMapVotes[lanPlayerIndex]);
+                } else {
+                    vote = "(none)";
+                }
+                lanMapVoteLabel.setText("YOUR VOTE: " + vote);
+            } else {
+                lanMapVoteLabel.setText("YOUR VOTE: (awaiting slot)");
+            }
         }
         if (lanStatusLabel != null) {
             if (lanIsHost) {
@@ -7258,14 +7296,21 @@ public class BirdGame3 extends Application {
         }
         if (lanYourBirdLabel != null) {
             if (lanPlayerIndex >= 0) {
-                BirdType type = lanSelectedBirds[lanPlayerIndex];
-                String name = type != null ? type.name : "Selecting...";
+                String name;
+                if (lanRandomBirds[lanPlayerIndex]) {
+                    name = "RANDOM";
+                } else {
+                    BirdType type = lanSelectedBirds[lanPlayerIndex];
+                    name = type != null ? type.name : "Selecting...";
+                }
                 lanYourBirdLabel.setText("YOUR BIRD: " + name);
             } else {
                 lanYourBirdLabel.setText("YOUR BIRD: (awaiting slot)");
             }
         }
         boolean canSelect = lanPlayerIndex >= 0;
+        if (lanPrevMapButton != null) lanPrevMapButton.setDisable(!canSelect);
+        if (lanNextMapButton != null) lanNextMapButton.setDisable(!canSelect);
         if (lanPrevBirdButton != null) lanPrevBirdButton.setDisable(!canSelect);
         if (lanNextBirdButton != null) lanNextBirdButton.setDisable(!canSelect);
         if (lanStartButton != null) {
@@ -7277,29 +7322,138 @@ public class BirdGame3 extends Application {
         if (lanPlayerIndex < 0) return;
         List<BirdType> pool = unlockedBirdPool();
         if (pool.isEmpty()) return;
-        BirdType current = lanSelectedBirds[lanPlayerIndex];
-        int idx = pool.indexOf(current);
-        if (idx < 0) idx = 0;
-        int next = (idx + delta + pool.size()) % pool.size();
-        lanSelectedBirds[lanPlayerIndex] = pool.get(next);
+        int total = pool.size() + 1;
+        int currentIndex;
+        if (lanRandomBirds[lanPlayerIndex]) {
+            currentIndex = total - 1;
+        } else {
+            BirdType current = lanSelectedBirds[lanPlayerIndex];
+            int idx = pool.indexOf(current);
+            if (idx < 0) idx = 0;
+            currentIndex = idx;
+        }
+        int next = (currentIndex + delta + total) % total;
+        if (next == total - 1) {
+            lanRandomBirds[lanPlayerIndex] = true;
+            lanSelectedBirds[lanPlayerIndex] = null;
+        } else {
+            lanRandomBirds[lanPlayerIndex] = false;
+            lanSelectedBirds[lanPlayerIndex] = pool.get(next);
+        }
         if (lanIsHost) {
             broadcastLanLobby();
         } else if (lanClient != null) {
-            lanClient.sendSelect(lanSelectedBirds[lanPlayerIndex]);
+            lanClient.sendSelect(lanSelectedBirds[lanPlayerIndex], lanRandomBirds[lanPlayerIndex]);
         }
         refreshLanLobbyUI();
     }
 
     private void cycleLanMap(int delta) {
-        if (!lanIsHost) return;
+        if (lanPlayerIndex < 0) return;
         List<MapType> maps = availableLanMaps();
         if (maps.isEmpty()) return;
-        int idx = maps.indexOf(lanSelectedMap);
-        if (idx < 0) idx = 0;
-        int next = (idx + delta + maps.size()) % maps.size();
-        lanSelectedMap = maps.get(next);
-        broadcastLanLobby();
+        int total = maps.size() + 1;
+        int currentIndex;
+        if (lanMapVoteRandom[lanPlayerIndex]) {
+            currentIndex = total - 1;
+        } else {
+            int idx = maps.indexOf(lanMapVotes[lanPlayerIndex]);
+            if (idx < 0) {
+                idx = maps.indexOf(lanSelectedMap);
+            }
+            if (idx < 0) idx = 0;
+            currentIndex = idx;
+        }
+        int next = (currentIndex + delta + total) % total;
+        if (next == total - 1) {
+            lanMapVoteRandom[lanPlayerIndex] = true;
+            lanMapVotes[lanPlayerIndex] = null;
+        } else {
+            lanMapVoteRandom[lanPlayerIndex] = false;
+            lanMapVotes[lanPlayerIndex] = maps.get(next);
+        }
+        if (lanIsHost) {
+            updateLanMapSelectionFromVotes();
+            broadcastLanLobby();
+        } else if (lanClient != null) {
+            lanClient.sendMapVote(lanMapVotes[lanPlayerIndex], lanMapVoteRandom[lanPlayerIndex]);
+        }
         refreshLanLobbyUI();
+    }
+
+    private void updateLanMapSelectionFromVotes() {
+        List<MapType> maps = availableLanMaps();
+        if (maps.isEmpty()) {
+            lanSelectedMapRandom = false;
+            lanSelectedMap = MapType.FOREST;
+            return;
+        }
+        int[] counts = new int[maps.size()];
+        int randomVotes = 0;
+        for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
+            if (!lanSlotConnected[i]) continue;
+            if (lanMapVoteRandom[i]) {
+                randomVotes++;
+                continue;
+            }
+            MapType vote = lanMapVotes[i];
+            if (vote == null) continue;
+            int idx = maps.indexOf(vote);
+            if (idx >= 0) {
+                counts[idx]++;
+            }
+        }
+        int maxMapVotes = 0;
+        for (int count : counts) {
+            if (count > maxMapVotes) {
+                maxMapVotes = count;
+            }
+        }
+
+        if (randomVotes == 0 && maxMapVotes == 0) {
+            if (lanSelectedMap == null || !maps.contains(lanSelectedMap)) {
+                lanSelectedMap = maps.get(0);
+            }
+            return;
+        }
+
+        if (randomVotes > maxMapVotes) {
+            lanSelectedMapRandom = true;
+            if (lanSelectedMap == null || !maps.contains(lanSelectedMap)) {
+                lanSelectedMap = maps.get(0);
+            }
+            return;
+        }
+
+        if (randomVotes < maxMapVotes) {
+            lanSelectedMapRandom = false;
+            int currentIdx = maps.indexOf(lanSelectedMap);
+            if (currentIdx >= 0 && counts[currentIdx] == maxMapVotes) {
+                return;
+            }
+            for (int i = 0; i < counts.length; i++) {
+                if (counts[i] == maxMapVotes) {
+                    lanSelectedMap = maps.get(i);
+                    return;
+                }
+            }
+            return;
+        }
+
+        if (lanSelectedMapRandom) {
+            return;
+        }
+        int currentIdx = maps.indexOf(lanSelectedMap);
+        if (currentIdx >= 0 && counts[currentIdx] == maxMapVotes) {
+            return;
+        }
+        lanSelectedMapRandom = false;
+        for (int i = 0; i < counts.length; i++) {
+            if (counts[i] == maxMapVotes) {
+                lanSelectedMap = maps.get(i);
+                return;
+            }
+        }
     }
 
     private List<MapType> availableLanMaps() {
@@ -7366,7 +7520,7 @@ public class BirdGame3 extends Application {
     private void broadcastLanLobby() {
         if (!lanIsHost) return;
         if (lanHost != null) {
-            lanHost.broadcastLobby(lanSelectedMap, lanSlotConnected, lanSelectedBirds);
+            lanHost.broadcastLobby(lanSelectedMap, lanSelectedMapRandom, lanSlotConnected, lanSelectedBirds, lanRandomBirds);
         }
     }
 
@@ -7375,6 +7529,9 @@ public class BirdGame3 extends Application {
             if (!lanModeActive || !lanIsHost) return;
             if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
             lanSlotConnected[slot] = true;
+            lanRandomBirds[slot] = false;
+            lanMapVotes[slot] = null;
+            lanMapVoteRandom[slot] = false;
             if (lanSelectedBirds[slot] == null) {
                 lanSelectedBirds[slot] = firstUnlockedBird();
             }
@@ -7393,20 +7550,37 @@ public class BirdGame3 extends Application {
             if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
             lanSlotConnected[slot] = false;
             lanSelectedBirds[slot] = null;
+            lanRandomBirds[slot] = false;
+            lanMapVotes[slot] = null;
+            lanMapVoteRandom[slot] = false;
             synchronized (lanInputLock) {
                 lanInputMasks[slot] = 0;
                 lanLastInputMasks[slot] = 0;
             }
+            updateLanMapSelectionFromVotes();
             refreshLanLobbyUI();
             broadcastLanLobby();
         });
     }
 
-    void onLanClientSelected(int slot, BirdType type) {
+    void onLanClientSelected(int slot, BirdType type, boolean random) {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsHost) return;
             if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
-            lanSelectedBirds[slot] = type;
+            lanRandomBirds[slot] = random;
+            lanSelectedBirds[slot] = random ? null : type;
+            refreshLanLobbyUI();
+            broadcastLanLobby();
+        });
+    }
+
+    void onLanClientMapVote(int slot, MapType map, boolean random) {
+        javafx.application.Platform.runLater(() -> {
+            if (!lanModeActive || !lanIsHost) return;
+            if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
+            lanMapVoteRandom[slot] = random;
+            lanMapVotes[slot] = random ? null : map;
+            updateLanMapSelectionFromVotes();
             refreshLanLobbyUI();
             broadcastLanLobby();
         });
@@ -7441,22 +7615,29 @@ public class BirdGame3 extends Application {
             if (lanPlayerIndex >= 0 && lanPlayerIndex < LAN_MAX_PLAYERS && lanSelectedBirds[lanPlayerIndex] == null) {
                 lanSelectedBirds[lanPlayerIndex] = firstUnlockedBird();
                 if (lanClient != null) {
-                    lanClient.sendSelect(lanSelectedBirds[lanPlayerIndex]);
+                    lanRandomBirds[lanPlayerIndex] = false;
+                    lanClient.sendSelect(lanSelectedBirds[lanPlayerIndex], false);
                 }
             }
             refreshLanLobbyUI();
         });
     }
 
-    void onLanLobbyUpdate(MapType map, boolean[] connected, BirdType[] birds) {
+    void onLanLobbyUpdate(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds) {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsClient) return;
-            lanSelectedMap = map;
+            if (!mapRandom || lanSelectedMap == null) {
+                lanSelectedMap = map;
+            }
+            lanSelectedMapRandom = mapRandom;
             if (connected != null) {
                 System.arraycopy(connected, 0, lanSlotConnected, 0, Math.min(connected.length, LAN_MAX_PLAYERS));
             }
             if (birds != null) {
                 System.arraycopy(birds, 0, lanSelectedBirds, 0, Math.min(birds.length, LAN_MAX_PLAYERS));
+            }
+            if (randomBirds != null) {
+                System.arraycopy(randomBirds, 0, lanRandomBirds, 0, Math.min(randomBirds.length, LAN_MAX_PLAYERS));
             }
             refreshLanLobbyUI();
         });
@@ -7479,10 +7660,90 @@ public class BirdGame3 extends Application {
 
     void onLanMatchEnd(int winnerIndex) {
         if (!lanModeActive || !lanIsClient) return;
+        matchEnded = true;
+        lanMatchActive = false;
         javafx.application.Platform.runLater(() -> {
             if (timer != null) timer.stop();
-            returnToLanLobby(currentStage);
+            showLanResults(currentStage, winnerIndex);
         });
+    }
+
+    private void showLanResults(Stage stage, int winnerIndex) {
+        if (stage == null) return;
+        if (musicPlayer != null) musicPlayer.stop();
+        if (menuMusicPlayer != null) menuMusicPlayer.stop();
+        if (victoryMusicPlayer != null) {
+            victoryMusicPlayer.stop();
+            if (musicEnabled) victoryMusicPlayer.play();
+        }
+
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #111827, #1f2937);",
+                MENU_PADDING, 26);
+
+        String winnerText = "TIME'S UP!";
+        if (winnerIndex >= 0 && winnerIndex < players.length) {
+            Bird winner = players[winnerIndex];
+            winnerText = (winner != null ? winner.name.toUpperCase() : ("P" + (winnerIndex + 1) + " WINS!"));
+            if (winner != null) {
+                winnerText = winner.name.toUpperCase() + " WINS!";
+            }
+        }
+
+        Label title = new Label("LAN RESULTS");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 64));
+        title.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(title);
+
+        Label winnerLabel = new Label(winnerText);
+        winnerLabel.setFont(Font.font("Arial Black", 48));
+        winnerLabel.setTextFill(Color.GOLD);
+        applyNoEllipsis(winnerLabel);
+
+        Label mapLabel = new Label("MAP: " + mapDisplayName(selectedMap));
+        mapLabel.setFont(Font.font("Consolas", 22));
+        mapLabel.setTextFill(Color.web("#B3E5FC"));
+
+        VBox scoreboard = new VBox(8);
+        scoreboard.setAlignment(Pos.CENTER);
+        scoreboard.setPadding(new Insets(18, 26, 18, 26));
+        scoreboard.setMaxWidth(1100);
+        scoreboard.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-background-radius: 22; -fx-border-color: #FFD54F; -fx-border-width: 2; -fx-border-radius: 22;");
+
+        List<Integer> ranking = new ArrayList<>();
+        for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
+            if (lanSlotConnected[i] || players[i] != null) {
+                ranking.add(i);
+            }
+        }
+        ranking.sort((a, b) -> Integer.compare(scores[b], scores[a]));
+
+        for (int idx : ranking) {
+            Bird b = players[idx];
+            String birdName = b != null ? b.type.name : (lanSelectedBirds[idx] != null ? lanSelectedBirds[idx].name : "Unknown");
+            String line = "P" + (idx + 1) + "  |  " + birdName
+                    + "  |  Score " + scores[idx];
+            Label row = new Label(line);
+            row.setFont(Font.font("Consolas", 22));
+            row.setTextFill(Color.web("#E3F2FD"));
+            applyNoEllipsis(row);
+            scoreboard.getChildren().add(row);
+        }
+
+        Button backLobby = uiFactory.action("BACK TO LOBBY", 360, 80, 28, "#00C853", 20, () -> returnToLanLobby(stage));
+        Button exit = uiFactory.action("EXIT TO HUB", 320, 80, 28, "#D32F2F", 20, () -> {
+            stopLanSession();
+            showMenu(stage);
+        });
+        HBox actions = new HBox(20, backLobby, exit);
+        actions.setAlignment(Pos.CENTER);
+
+        root.getChildren().addAll(title, winnerLabel, mapLabel, scoreboard, actions);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        backLobby.requestFocus();
     }
 
     void onLanDisconnected(String reason) {
@@ -7514,19 +7775,27 @@ public class BirdGame3 extends Application {
         competitionModeEnabled = false;
         mutatorModeEnabled = false;
         teamModeEnabled = false;
-        selectedMap = lanSelectedMap;
+        MapType mapToPlay = lanSelectedMap;
+        if (lanSelectedMapRandom) {
+            List<MapType> maps = availableLanMaps();
+            if (!maps.isEmpty()) {
+                mapToPlay = maps.get(random.nextInt(maps.size()));
+            }
+        }
+        lanSelectedMap = mapToPlay;
+        selectedMap = mapToPlay;
         activePlayers = LAN_MAX_PLAYERS;
         lanMatchActive = true;
         lastLanSnapshotNs = 0L;
         List<BirdType> pool = unlockedBirdPool();
         for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
             if (!lanSlotConnected[i]) continue;
-            if (lanSelectedBirds[i] == null && !pool.isEmpty()) {
+            if ((lanRandomBirds[i] || lanSelectedBirds[i] == null) && !pool.isEmpty()) {
                 lanSelectedBirds[i] = pool.get(random.nextInt(pool.size()));
             }
         }
         if (lanHost != null) {
-            lanHost.broadcastStart(lanSelectedMap, lanSlotConnected, lanSelectedBirds);
+            lanHost.broadcastStart(mapToPlay, lanSlotConnected, lanSelectedBirds);
         }
         startMatch(stage);
     }
@@ -7606,12 +7875,16 @@ public class BirdGame3 extends Application {
         }
         Arrays.fill(lanSlotConnected, false);
         Arrays.fill(lanSelectedBirds, null);
+        Arrays.fill(lanRandomBirds, false);
+        Arrays.fill(lanMapVotes, null);
+        Arrays.fill(lanMapVoteRandom, false);
         synchronized (lanInputLock) {
             Arrays.fill(lanInputMasks, 0);
             Arrays.fill(lanLastInputMasks, 0);
         }
         lanLocalInputMask = 0;
         lastLanSnapshotNs = 0L;
+        lanSelectedMapRandom = false;
     }
 
     private void confirmLeaveLanMatch(Stage stage) {
@@ -14098,6 +14371,7 @@ public class BirdGame3 extends Application {
 
         if (lanModeActive) {
             matchEnded = true;
+            lanMatchActive = false;
             int winnerIndex = winner != null ? winner.playerIndex : -1;
             if (lanIsHost) {
                 if (lanHost != null) {
@@ -14114,7 +14388,7 @@ public class BirdGame3 extends Application {
                     }
                     this.stop();
                     if (timer != null) timer.stop();
-                    returnToLanLobby(finalStage);
+                    showLanResults(finalStage, winnerIndex);
                 }
             }.start();
             return;

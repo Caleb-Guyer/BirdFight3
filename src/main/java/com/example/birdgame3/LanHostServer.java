@@ -61,13 +61,17 @@ class LanHostServer {
         return !clients.isEmpty();
     }
 
-    void broadcastLobby(MapType map, boolean[] connected, BirdType[] birds) {
+    void broadcastLobby(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_LOBBY, out -> {
-                out.writeInt(map.ordinal());
+                out.writeInt(mapRandom ? LanProtocol.MAP_RANDOM : map.ordinal());
                 for (int i = 0; i < 4; i++) {
                     out.writeBoolean(connected[i]);
-                    out.writeInt(birds[i] != null ? birds[i].ordinal() : -1);
+                    if (randomBirds != null && randomBirds[i]) {
+                        out.writeInt(LanProtocol.BIRD_RANDOM);
+                    } else {
+                        out.writeInt(birds[i] != null ? birds[i].ordinal() : -1);
+                    }
                 }
             });
             sendToAll(msg);
@@ -224,10 +228,19 @@ class LanHostServer {
                         }
                         case LanProtocol.MSG_SELECT -> {
                             int ord = msgIn.readInt();
-                            BirdType typeBird = (ord >= 0 && ord < BirdType.values().length)
+                            boolean random = ord == LanProtocol.BIRD_RANDOM;
+                            BirdType typeBird = (!random && ord >= 0 && ord < BirdType.values().length)
                                     ? BirdType.values()[ord]
                                     : null;
-                            game.onLanClientSelected(slot, typeBird);
+                            game.onLanClientSelected(slot, typeBird, random);
+                        }
+                        case LanProtocol.MSG_MAP_VOTE -> {
+                            int ord = msgIn.readInt();
+                            boolean random = ord == LanProtocol.MAP_RANDOM;
+                            MapType map = (!random && ord >= 0 && ord < MapType.values().length)
+                                    ? MapType.values()[ord]
+                                    : null;
+                            game.onLanClientMapVote(slot, map, random);
                         }
                         case LanProtocol.MSG_INPUT -> {
                             int mask = msgIn.readInt();
