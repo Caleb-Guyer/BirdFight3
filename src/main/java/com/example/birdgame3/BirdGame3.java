@@ -150,7 +150,7 @@ public class BirdGame3 extends Application {
 
     // === LAN MODE ===
     private static final int LAN_MAX_PLAYERS = 4;
-    private static final long LAN_SNAPSHOT_INTERVAL_NS = 33_000_000L;
+    private static final long LAN_SNAPSHOT_INTERVAL_NS = 16_666_666L;
     private boolean lanModeActive = false;
     private boolean lanIsHost = false;
     private boolean lanIsClient = false;
@@ -7819,6 +7819,9 @@ public class BirdGame3 extends Application {
         }
         if (lanPlayerIndex < 0) return;
         int bit = inputBitForKey(code, lanPlayerIndex);
+        if (bit == 0) {
+            bit = inputBitForKey(code, 0);
+        }
         if (bit == 0) return;
         int next = lanLocalInputMask | bit;
         if (next != lanLocalInputMask) {
@@ -7833,6 +7836,9 @@ public class BirdGame3 extends Application {
         if (lanPlayerIndex < 0) return;
         KeyCode code = e.getCode();
         int bit = inputBitForKey(code, lanPlayerIndex);
+        if (bit == 0) {
+            bit = inputBitForKey(code, 0);
+        }
         if (bit == 0) return;
         int next = lanLocalInputMask & ~bit;
         if (next != lanLocalInputMask) {
@@ -14231,6 +14237,10 @@ public class BirdGame3 extends Application {
 
     private void handleGameplayKeyPress(Stage stage, KeyEvent e) {
         KeyCode code = e.getCode();
+        if (lanModeActive && lanIsClient) {
+            handleLanKeyPress(stage, e);
+            return;
+        }
         if (code == KeyCode.F11) {
             stage.setFullScreen(!stage.isFullScreen());
             return;
@@ -14263,6 +14273,10 @@ public class BirdGame3 extends Application {
 
     private void handleGameplayKeyRelease(KeyEvent e) {
         KeyCode code = e.getCode();
+        if (lanModeActive && lanIsClient) {
+            handleLanKeyRelease(e);
+            return;
+        }
         if (lanModeActive && lanIsHost && !isGameplayKeyForPlayer(0, code)) {
             return;
         }
