@@ -1,5 +1,4 @@
 package com.example.birdgame3;
-import com.example.birdgame3.Bird;
 
 import javafx.animation.Animation;
 import javafx.animation.AnimationTimer;
@@ -60,6 +59,7 @@ import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.net.URL;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.function.BooleanSupplier;
@@ -91,7 +91,7 @@ public class BirdGame3 extends Application {
     public List<SwingingVine> swingingVines = new ArrayList<>();
     private final List<double[]> cityStars = new ArrayList<>();
     private VBox[] playerSlots;
-    private Button[] teamButtons = new Button[4];
+    private final Button[] teamButtons = new Button[4];
     private final Button[] cpuButtons = new Button[4];
     private Button teamModeToggleButton;
     private boolean teamModeEnabled = false;
@@ -283,31 +283,40 @@ public class BirdGame3 extends Application {
         return sfxEnabled;
     }
 
+    private String resourceUrl(String path) {
+        URL url = getClass().getResource(path);
+        if (url == null) {
+            throw new IllegalStateException("Missing resource: " + path);
+        }
+        return url.toExternalForm();
+    }
+
     private void loadSounds() {
         try {
             String p = "/sounds/";
-            bonkClip = new AudioClip(getClass().getResource(p + "bonk.mp3").toExternalForm());
-            butterClip = new AudioClip(getClass().getResource(p + "butter.mp3").toExternalForm());
-            jalapenoClip = new AudioClip(getClass().getResource(p + "jalapeno.mp3").toExternalForm());
-            swingClip = new AudioClip(getClass().getResource(p + "swing.mp3").toExternalForm());
-            hugewaveClip = new AudioClip(getClass().getResource(p + "hugewave.mp3").toExternalForm());
+            bonkClip = new AudioClip(resourceUrl(p + "bonk.mp3"));
+            butterClip = new AudioClip(resourceUrl(p + "butter.mp3"));
+            jalapenoClip = new AudioClip(resourceUrl(p + "jalapeno.mp3"));
+            swingClip = new AudioClip(resourceUrl(p + "swing.mp3"));
+            hugewaveClip = new AudioClip(resourceUrl(p + "hugewave.mp3"));
 
             // === NEW MENU & VICTORY MUSIC ===
-            menuMusicPlayer = new MediaPlayer(new Media(getClass().getResource(p + "choose_your_seeds.mp3").toExternalForm()));
+            menuMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "choose_your_seeds.mp3")));
             menuMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
             menuMusicPlayer.setVolume(0.55);
 
-            victoryMusicPlayer = new MediaPlayer(new Media(getClass().getResource(p + "finalfanfare.mp3").toExternalForm()));
+            victoryMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "finalfanfare.mp3")));
             victoryMusicPlayer.setVolume(0.75);
 
             // === WIIMOTE BUTTON CLICK ===
-            buttonClickClip = new AudioClip(getClass().getResource(p + "buttonclick.mp3").toExternalForm());
+            buttonClickClip = new AudioClip(resourceUrl(p + "buttonclick.mp3"));
             buttonClickClip.setVolume(0.9);
 
-            zombieFallingClip = new AudioClip(getClass().getResource(p + "zombie-falling.mp3").toExternalForm());
+            zombieFallingClip = new AudioClip(resourceUrl(p + "zombie-falling.mp3"));
 
         } catch (Exception e) {
-            System.out.println("Sounds not found - put mp3 files in 'sounds' folder inside src/main/resources");
+            System.err.println("Sounds not found - put mp3 files in 'sounds' folder inside src/main/resources");
+            System.err.println("Sound load error: " + e.getMessage());
         }
     }
 
@@ -331,7 +340,7 @@ public class BirdGame3 extends Application {
                 };
 
         try {
-            Media media = new Media(getClass().getResource("/sounds/" + file).toExternalForm());
+            Media media = new Media(resourceUrl("/sounds/" + file));
             musicPlayer = new MediaPlayer(media);
             musicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
             musicPlayer.setVolume(0.45);
@@ -421,6 +430,21 @@ public class BirdGame3 extends Application {
                 e.consume();
             }
         });
+    }
+
+    private void bindEscape(Scene scene, Runnable action) {
+        if (scene == null || action == null) return;
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ESCAPE) {
+                action.run();
+                e.consume();
+            }
+        });
+    }
+
+    private void bindEscape(Scene scene, Button backButton) {
+        if (backButton == null) return;
+        bindEscape(scene, backButton::fire);
     }
 
     private boolean isInteractiveTarget(Node target) {
@@ -5602,6 +5626,7 @@ public class BirdGame3 extends Application {
             slot.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-background-radius: 16; -fx-border-color: #78909C; -fx-border-width: 2; -fx-border-radius: 16;");
             fightSlots[idx] = slot;
         }
+        playerSlots = fightSlots;
 
         Circle[] selectors = new Circle[4];
         Text[] selectorLabels = new Text[4];
@@ -5754,6 +5779,7 @@ public class BirdGame3 extends Application {
         root.setBottom(playerBar);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         BooleanSupplier tryStartMatch = () -> {
             if (!readyBtn.isVisible()) return false;
             playButtonClick();
@@ -6081,6 +6107,7 @@ public class BirdGame3 extends Application {
         root.setBottom(bottom);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -6104,7 +6131,11 @@ public class BirdGame3 extends Application {
             selectorLabels[i].setY(dock.getY() + 6);
         }
         refresh.run();
-        selectMap.requestFocus();
+        if (selectMap.isDisabled()) {
+            back.requestFocus();
+        } else {
+            selectMap.requestFocus();
+        }
     }
 
     private boolean handleSelectorKey(KeyEvent e,
@@ -6278,6 +6309,7 @@ public class BirdGame3 extends Application {
         root.setBottom(bottom);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -6679,6 +6711,7 @@ public class BirdGame3 extends Application {
         BorderPane.setAlignment(header, Pos.CENTER);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, backBtn);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -6816,6 +6849,7 @@ public class BirdGame3 extends Application {
         BorderPane.setAlignment(header, Pos.CENTER);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, exit);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -6920,6 +6954,7 @@ public class BirdGame3 extends Application {
 
         root.getChildren().addAll(title, info, buttons);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, exit);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -6970,6 +7005,7 @@ public class BirdGame3 extends Application {
 
         root.getChildren().addAll(title, info, buttons);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, exit);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -7008,6 +7044,7 @@ public class BirdGame3 extends Application {
 
         root.getChildren().addAll(title, info, buttons);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, exit);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -7039,6 +7076,7 @@ public class BirdGame3 extends Application {
         root.getChildren().addAll(title, message, buttons);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -7606,10 +7644,12 @@ public class BirdGame3 extends Application {
         root.setCenter(center);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
-        back.requestFocus();
+        Button focus = randomButton[0] != null ? randomButton[0] : back;
+        focus.requestFocus();
     }
 
     private void updateLanBirdSelectButtons(Map<BirdType, Button> buttonByType, Button randomButton) {
@@ -8116,6 +8156,7 @@ public class BirdGame3 extends Application {
         root.getChildren().addAll(title, subtitle, coinsLabel, mapLabel, scoreboard, actions);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, backLobby);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -9328,6 +9369,7 @@ public class BirdGame3 extends Application {
         root.setBottom(bottom);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -9656,6 +9698,7 @@ public class BirdGame3 extends Application {
         root.setCenter(content);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -11713,6 +11756,7 @@ public class BirdGame3 extends Application {
 
         root.getChildren().addAll(title, card, buttons);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -11885,6 +11929,7 @@ public class BirdGame3 extends Application {
 
         root.getChildren().addAll(title, card, buttons);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
@@ -13698,6 +13743,7 @@ public class BirdGame3 extends Application {
         root.setCenter(scroll);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, backArrow);
         scene.getRoot().setStyle(scene.getRoot().getStyle() + ";-fx-focus-color:transparent;-fx-faint-focus-color:transparent;");
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
@@ -15379,8 +15425,8 @@ public class BirdGame3 extends Application {
                         lanRandomBirds[i] = false;
                     }
                 }
-                double startX = 300 + i * (WIDTH - 600) / Math.max(1, slots - 1);
-                isAI[i] = lanModeActive ? false : menuAI[i];
+                double startX = 300 + i * (WIDTH - 600) / (double) Math.max(1, slots - 1);
+                isAI[i] = !lanModeActive && menuAI[i];
                 players[i] = new Bird(startX, type, i, this);
                 if (lanModeActive) {
                     String skinKey = randomPick ? null : lanSelectedSkinKeys[i];
@@ -15768,33 +15814,33 @@ public class BirdGame3 extends Application {
                 if (activeMutator != MatchMutator.NONE && !competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) {
                     ui.setFill(Color.web("#80DEEA"));
                     ui.setFont(Font.font("Arial Black", 24));
-                    ui.fillText("MUTATOR: " + activeMutator.label.toUpperCase(), WIDTH / 2 - 220, healthBarY + 78);
+                    ui.fillText("MUTATOR: " + activeMutator.label.toUpperCase(), WIDTH / 2.0 - 220, healthBarY + 78);
                 }
                 if (classicModeActive && classicEncounter != null) {
                     ui.setFill(Color.web("#FFE082"));
                     ui.setFont(Font.font("Arial Black", 22));
                     ui.fillText(
                             "CLASSIC " + (classicRoundIndex + 1) + "/" + classicRun.size() + "  " + classicEncounter.name.toUpperCase(),
-                            WIDTH / 2 - 360,
+                            WIDTH / 2.0 - 360,
                             healthBarY + 104
                     );
                     ui.setFill(Color.web("#B3E5FC"));
                     ui.setFont(Font.font("Consolas", 18));
                     ui.fillText("RULES: " + classicEncounter.mutator.label + " | " + classicEncounter.twist.label,
-                            WIDTH / 2 - 240, healthBarY + 130);
+                            WIDTH / 2.0 - 240, healthBarY + 130);
                     int livesLeft = Math.max(0, 3 - classicDeaths);
                     ui.setFill(Color.web("#C8E6C9"));
                     ui.setFont(Font.font("Consolas", 18));
                     ui.fillText("LIVES: " + livesLeft + "/3  CONTINUES: " + classicContinues,
-                            WIDTH / 2 - 190, healthBarY + 154);
+                            WIDTH / 2.0 - 190, healthBarY + 154);
                 }
                 if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) {
                     ui.setFill(Color.web("#FFD54F"));
                     ui.setFont(Font.font("Arial Black", 22));
-                    ui.fillText("COMPETITION MODE", WIDTH / 2 - 160, healthBarY + 78);
+                    ui.fillText("COMPETITION MODE", WIDTH / 2.0 - 160, healthBarY + 78);
                     ui.setFill(Color.web("#FFF59D"));
                     ui.setFont(Font.font("Consolas", 21));
-                    ui.fillText(competitionScoreLine(), WIDTH / 2 - 245, healthBarY + 104);
+                    ui.fillText(competitionScoreLine(), WIDTH / 2.0 - 245, healthBarY + 104);
                 }
 
                 ui.setFill(Color.WHITE);
@@ -15813,7 +15859,7 @@ public class BirdGame3 extends Application {
                         ui.setEffect(new Glow(1.2));
                     }
                 }
-                ui.fillText(timeText, WIDTH / 2 - 120, 80);
+                ui.fillText(timeText, WIDTH / 2.0 - 120, 80);
                 ui.setEffect(null);
                 ui.setFont(Font.font("Arial Black", 26));
                 for (int i = 0; i < killFeed.size(); i++) {
@@ -16758,7 +16804,7 @@ public class BirdGame3 extends Application {
         try {
             prefs.flush();
         } catch (BackingStoreException e) {
-            e.printStackTrace();
+            System.err.println("Failed to save preferences: " + e.getMessage());
         }
     }
     public void checkAchievements(Bird bird) {
