@@ -123,6 +123,17 @@ class LanHostServer {
         }
     }
 
+    void broadcastResultsAction(int action, int delayMs) {
+        try {
+            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_RESULTS_ACTION, out -> {
+                out.writeInt(action);
+                out.writeInt(delayMs);
+            });
+            sendToAll(msg);
+        } catch (IOException ignored) {
+        }
+    }
+
     private void sendToAll(byte[] payload) {
         for (ClientHandler client : clients) {
             client.enqueue(payload);

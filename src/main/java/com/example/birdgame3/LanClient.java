@@ -181,6 +181,11 @@ class LanClient {
                         int seconds = msgIn.readInt();
                         game.onLanCountdown(seconds);
                     }
+                    case LanProtocol.MSG_RESULTS_ACTION -> {
+                        int action = msgIn.readInt();
+                        int delayMs = msgIn.readInt();
+                        game.onLanResultsAction(action, delayMs);
+                    }
                     default -> {
                     }
                 }
