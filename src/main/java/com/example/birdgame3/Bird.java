@@ -82,6 +82,11 @@ public class Bird {
     public int eagleAscentFrames = 0;
     private final boolean[] eagleAscentHit = new boolean[4];
     public int bladeStormFrames = 0;
+    private static final int RAZORBILL_DASH_FRAMES = 26;
+    private static final double RAZORBILL_DASH_SPEED = 22.0;
+    private double razorbillDashVX = 0.0;
+    private double razorbillDashVY = 0.0;
+    private final boolean[] razorbillDashHit = new boolean[4];
     public int plungeTimer = 0;
     public boolean batHanging = false;
     private Platform batHangPlatform = null;
@@ -492,7 +497,13 @@ public class Bird {
             return;
         }
 
-        if (game.isSfxEnabled() && game.jalapenoClip != null) game.jalapenoClip.play();
+        if (game.isSfxEnabled()) {
+            if (type == BirdGame3.BirdType.RAZORBILL && game.vaseBreakingClip != null) {
+                game.vaseBreakingClip.play();
+            } else if (game.jalapenoClip != null) {
+                game.jalapenoClip.play();
+            }
+        }
         game.specialsUsed[playerIndex]++;
 
         switch (type) {
@@ -726,26 +737,39 @@ public class Bird {
         specialCooldown = 780;
         specialMaxCooldown = 780;
 
-        game.shakeIntensity = 28;
-        game.hitstopFrames = 18;
-        game.addToKillFeed("BLADE STORM! " + name.split(":")[0].trim() + " IS UNSTOPPABLE!");
+        game.shakeIntensity = 18;
+        game.hitstopFrames = 10;
+        game.addToKillFeed("RAZOR DASH! " + name.split(":")[0].trim() + " PIERCES THE SKY!");
 
-        vx *= 2.0;
-        sizeMultiplier = baseSizeMultiplier * 1.15;
-        powerMultiplier = basePowerMultiplier * 1.25;
+        double dirX = vx;
+        double dirY = vy;
+        double mag = Math.hypot(dirX, dirY);
+        if (mag < 0.35) {
+            dirX = facingRight ? 1 : -1;
+            dirY = 0;
+            mag = 1.0;
+        }
+        double dashSpeed = Math.max(12.0, RAZORBILL_DASH_SPEED * speedMultiplier);
+        razorbillDashVX = dirX / mag * dashSpeed;
+        razorbillDashVY = dirY / mag * dashSpeed;
+        vx = razorbillDashVX;
+        vy = razorbillDashVY;
+        bladeStormFrames = RAZORBILL_DASH_FRAMES;
+        Arrays.fill(razorbillDashHit, false);
 
-        for (int i = 0; i < 100; i++) {
-            double angle = i / 100.0 * Math.PI * 2;
-            double speed = 8 + Math.random() * 10;
+        double trailAngle = Math.atan2(razorbillDashVY, razorbillDashVX);
+        for (int i = 0; i < 60; i++) {
+            double angle = trailAngle + (Math.random() - 0.5) * 0.7;
+            double speed = 6 + Math.random() * 10;
+            double back = 20 + Math.random() * 70;
             game.particles.add(new Particle(
-                    x + 40 + Math.cos(angle) * 50,
-                    y + 40 + Math.sin(angle) * 50,
+                    x + 40 - Math.cos(angle) * back,
+                    y + 40 - Math.sin(angle) * back,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed,
                     Color.CYAN.brighter()
             ));
         }
-        bladeStormFrames = 150;
     }
 
     private void specialGrinchhawk() {
@@ -1824,7 +1848,7 @@ public class Bird {
             if (Math.abs(vx) > 28) vx = Math.signum(vx) * 28;
         }
 
-        // === RAZORBILL BLADE STORM ===
+        // === RAZORBILL DASH ===
         handleRazorbillBladeStorm();
 
         // === APPLY VELOCITY ===
@@ -1903,6 +1927,10 @@ public class Bird {
         tauntTimer = Math.max(0, (int)(tauntTimer - gameSpeed));
         eagleDiveCountdown = Math.max(0, (int)(eagleDiveCountdown - gameSpeed));
         bladeStormFrames = Math.max(0, (int)(bladeStormFrames - gameSpeed));
+        if (bladeStormFrames == 0) {
+            razorbillDashVX = 0.0;
+            razorbillDashVY = 0.0;
+        }
         plungeTimer = Math.max(0, (int)(plungeTimer - gameSpeed));
         blockCooldown = Math.max(0, (int)(blockCooldown - gameSpeed));
         batEchoTimer = Math.max(0, (int)(batEchoTimer - gameSpeed));
@@ -2501,7 +2529,7 @@ public class Bird {
             double dy = (other.y + 40) - centerY;
             if (Math.abs(dx) > 118 || Math.abs(dy) > 105) continue;
 
-            int dmg = 4 + random.nextInt(3);
+            int dmg = 2 + random.nextInt(2);
             double oldHealth = other.health;
             int dealt = (int) applyDamageTo(other, dmg);
             if (dealt <= 0) continue;
@@ -2818,52 +2846,83 @@ public class Bird {
     }
 
     private void handleRazorbillBladeStorm() {
-        if (type == BirdGame3.BirdType.RAZORBILL && bladeStormFrames > 0) {
-            bladeStormFrames--;
-            if ((150 - bladeStormFrames) % 14 == 0) {
-                for (Bird other : game.players) {
-                    if (!canDamageTarget(other)) continue;
-                    double dx = other.x - x;
-                    double dy = other.y - y;
-                    double dist = Math.hypot(dx, dy);
-                    if (dist < 160) {
-                        int dmg = 7 + random.nextInt(6);
-                        double oldHealth = other.health;
-                        int dealt = (int) applyDamageTo(other, dmg);
-                        game.damageDealt[playerIndex] += dealt;
-                        game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
-                        if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-                        double safeDist = Math.max(0.001, dist);
-                        other.vx += dx / safeDist * 32;
-                        other.vy -= 20;
-                        String verb = dmg >= 25 ? "GASHED" : "CUT";
-                        game.addToKillFeed(name.split(":")[0].trim() + " " + verb + " " +
-                                other.name.split(":")[0].trim() + "! -" + dmg + " HP");
+        if (type != BirdGame3.BirdType.RAZORBILL || bladeStormFrames <= 0) return;
 
-                        for (int k = 0; k < 25; k++) {
-                            double angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * 1.4;
-                            game.particles.add(new Particle(other.x + 40, other.y + 40,
-                                    Math.cos(angle) * (8 + Math.random() * 16),
-                                    Math.sin(angle) * (8 + Math.random() * 16) - 8, Color.CYAN));
-                        }
-                        game.shakeIntensity = 18;
-                        game.hitstopFrames = 6;
-                    }
-                }
-
-                for (int i = 0; i < 10; i++) {
-                    double angle = facingRight ? 0 : Math.PI;
-                    angle += (Math.random() - 0.5);
-                    game.particles.add(new Particle(x + 40 + Math.cos(angle) * 70,
-                            y + 40 + Math.sin(angle) * 70,
-                            Math.cos(angle) * 25, Math.sin(angle) * 25,
-                            Color.WHITE.deriveColor(0, 1, 1, 0.85)));
-                }
+        double dashX = razorbillDashVX;
+        double dashY = razorbillDashVY;
+        double dashMag = Math.hypot(dashX, dashY);
+        if (dashMag < 0.1) {
+            dashX = vx;
+            dashY = vy;
+            dashMag = Math.hypot(dashX, dashY);
+            if (dashMag < 0.1) {
+                dashX = facingRight ? 1 : -1;
+                dashY = 0;
+                dashMag = 1.0;
             }
+            double dashSpeed = Math.max(12.0, RAZORBILL_DASH_SPEED * speedMultiplier);
+            razorbillDashVX = dashX / dashMag * dashSpeed;
+            razorbillDashVY = dashY / dashMag * dashSpeed;
+            dashX = razorbillDashVX;
+            dashY = razorbillDashVY;
+            dashMag = Math.hypot(dashX, dashY);
+        }
 
-            if (bladeStormFrames <= 0) {
-                sizeMultiplier = baseSizeMultiplier;
-                powerMultiplier = basePowerMultiplier;
+        vx = dashX;
+        vy = dashY;
+
+        double dirX = dashX / dashMag;
+        double dirY = dashY / dashMag;
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= razorbillDashHit.length) continue;
+            if (razorbillDashHit[other.playerIndex]) continue;
+
+            double dx = (other.x + 40) - (x + 40);
+            double dy = (other.y + 40) - (y + 40);
+            double dist = Math.hypot(dx, dy);
+            if (dist > 85) continue;
+
+            int dmg = Math.max(6, (int) Math.round((11 + random.nextInt(5)) * powerMultiplier));
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+
+            other.vx += dirX * 12;
+            other.vy += dirY * 12;
+            razorbillDashHit[other.playerIndex] = true;
+
+            game.addToKillFeed(name.split(":")[0].trim() + " PIERCED " +
+                    other.name.split(":")[0].trim() + "! -" + dealt + " HP");
+
+            for (int k = 0; k < 16; k++) {
+                double angle = Math.atan2(dirY, dirX) + (Math.random() - 0.5) * 1.4;
+                double speed = 6 + Math.random() * 9;
+                game.particles.add(new Particle(other.x + 40, other.y + 40,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed,
+                        Color.CYAN.brighter()));
+            }
+            game.shakeIntensity = Math.max(game.shakeIntensity, 14);
+            game.hitstopFrames = Math.max(game.hitstopFrames, 6);
+        }
+
+        if (bladeStormFrames % 3 == 0) {
+            for (int i = 0; i < 6; i++) {
+                double angle = Math.atan2(dirY, dirX) + Math.PI + (Math.random() - 0.5) * 0.9;
+                double speed = 4 + Math.random() * 6;
+                game.particles.add(new Particle(
+                        x + 40 + (Math.random() - 0.5) * 16,
+                        y + 40 + (Math.random() - 0.5) * 16,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed,
+                        Color.WHITE.deriveColor(0, 1, 1, 0.9)
+                ));
             }
         }
     }
@@ -3874,24 +3933,36 @@ public class Bird {
 
     private void drawRazorbillBladestorm(GraphicsContext g, double drawSize) {
         if ((type == BirdGame3.BirdType.RAZORBILL) && (bladeStormFrames > 0)) {
-            double spin = System.currentTimeMillis() * 0.02;
+            double dirX = razorbillDashVX;
+            double dirY = razorbillDashVY;
+            double mag = Math.hypot(dirX, dirY);
+            if (mag < 0.1) {
+                dirX = facingRight ? 1 : -1;
+                dirY = 0;
+                mag = 1.0;
+            }
+            dirX /= mag;
+            dirY /= mag;
 
             g.setStroke(Color.CYAN.brighter());
             g.setLineWidth(6);
-            for (int i = 0; i < 8; i++) {
-                double angle = spin + i * Math.PI / 4;
-                double len = 100 + Math.sin(spin * 3) * 30;
-                g.strokeLine(x + 40, y + 40, x + 40 + Math.cos(angle) * len, y + 40 + Math.sin(angle) * len);
+            for (int i = 0; i < 7; i++) {
+                double offset = i * 18;
+                double jitter = (Math.random() - 0.5) * 10;
+                double px = x + 40 - dirX * offset - dirY * jitter;
+                double py = y + 40 - dirY * offset + dirX * jitter;
+                g.strokeLine(px, py, px - dirX * 26, py - dirY * 26);
             }
 
-            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.6 + 0.4 * Math.sin(spin * 10)));
-            g.fillOval(x - 40, y - 40, drawSize + 80, drawSize + 80);
+            double pulse = 0.45 + 0.25 * Math.sin(bladeStormFrames * 0.6);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, pulse));
+            g.fillOval(x - 35, y - 35, drawSize + 70, drawSize + 70);
 
-            if ((int) (spin * 10) % 20 < 5) {
+            if (bladeStormFrames % 12 < 4) {
                 g.setFill(Color.CYAN.brighter());
-                g.setFont(Font.font("Arial Black", FontWeight.BOLD, 48));
+                g.setFont(Font.font("Arial Black", FontWeight.BOLD, 44));
                 g.setEffect(new Glow(1.0));
-                g.fillText("SLASHING!", x - 80, y - 60);
+                g.fillText("PIERCE!", x - 70, y - 56);
                 g.setEffect(null);
             }
         }
