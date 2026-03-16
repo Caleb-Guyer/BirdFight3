@@ -383,10 +383,15 @@ public class BirdGame3 extends Application {
     private void playMenuMusic() {
         if (musicPlayer != null) musicPlayer.stop();
         if (victoryMusicPlayer != null) victoryMusicPlayer.stop();
-        if (!musicEnabled) return;
+        if (!musicEnabled) {
+            if (menuMusicPlayer != null) menuMusicPlayer.stop();
+            return;
+        }
         if (menuMusicPlayer != null) {
-            menuMusicPlayer.stop();
-            menuMusicPlayer.play();
+            MediaPlayer.Status status = menuMusicPlayer.getStatus();
+            if (status != MediaPlayer.Status.PLAYING && status != MediaPlayer.Status.STALLED) {
+                menuMusicPlayer.play();
+            }
         }
     }
 
