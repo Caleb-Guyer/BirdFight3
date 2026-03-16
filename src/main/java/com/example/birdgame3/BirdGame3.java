@@ -5785,17 +5785,29 @@ public class BirdGame3 extends Application {
         hubLabel.setFont(Font.font("Consolas", 28));
         hubLabel.setTextFill(Color.web("#80DEEA"));
 
-        VBox titleBox = new VBox(6, title, hubLabel);
+        Region titleFlare = new Region();
+        titleFlare.setPrefSize(520, 4);
+        titleFlare.setStyle("-fx-background-color: linear-gradient(to right, transparent, rgba(255, 224, 130, 0.9), transparent);"
+                + "-fx-background-radius: 2;");
+
+        VBox titleBox = new VBox(6, title, hubLabel, titleFlare);
         titleBox.setAlignment(Pos.CENTER);
 
         Label coins = new Label("BIRD COINS: " + birdCoins);
         coins.setFont(Font.font("Consolas", 24));
         coins.setTextFill(Color.web("#FFD54F"));
 
-        BorderPane top = new BorderPane();
-        top.setCenter(titleBox);
-        top.setRight(coins);
-        BorderPane.setAlignment(coins, Pos.TOP_RIGHT);
+        StackPane logoFrame = new StackPane(titleBox);
+        logoFrame.setPadding(new Insets(14, 40, 18, 40));
+        logoFrame.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(255, 224, 130, 0.18), rgba(255, 224, 130, 0.05));"
+                + "-fx-background-radius: 24; -fx-border-color: rgba(255, 224, 130, 0.55);"
+                + "-fx-border-width: 2; -fx-border-radius: 24;");
+        logoFrame.setEffect(new Glow(0.12));
+
+        StackPane top = new StackPane(logoFrame, coins);
+        StackPane.setAlignment(logoFrame, Pos.CENTER);
+        StackPane.setAlignment(coins, Pos.TOP_RIGHT);
+        StackPane.setMargin(coins, new Insets(6, 4, 0, 0));
 
         GridPane nav = new GridPane();
         nav.setHgap(26);
