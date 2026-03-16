@@ -51,6 +51,8 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Rectangle;
+import javafx.geometry.Rectangle2D;
+import javafx.stage.Screen;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -394,6 +396,7 @@ public class BirdGame3 extends Application {
         javafx.application.Platform.runLater(() -> fitSceneButtons(scene.getRoot()));
         scene.widthProperty().addListener((obs, oldV, newV) -> fitSceneButtons(scene.getRoot()));
         scene.heightProperty().addListener((obs, oldV, newV) -> fitSceneButtons(scene.getRoot()));
+        applyFocusRingStyle(scene);
         scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
             if (!(e.getTarget() instanceof Node target)) return;
             if (isInteractiveTarget(target)) return;
@@ -496,6 +499,16 @@ public class BirdGame3 extends Application {
         if (node instanceof Parent p) {
             for (Node child : p.getChildrenUnmodifiable()) {
                 if (sceneContainsCanvas(child)) return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean sceneContainsScrollPane(Node node) {
+        if (node instanceof ScrollPane) return true;
+        if (node instanceof Parent p) {
+            for (Node child : p.getChildrenUnmodifiable()) {
+                if (sceneContainsScrollPane(child)) return true;
             }
         }
         return false;
@@ -687,6 +700,9 @@ public class BirdGame3 extends Application {
 
     private void bindScaleToFit(Scene scene, Node content, double padding) {
         Runnable apply = () -> {
+            if (scene.getRoot() instanceof StackPane sp && "uiFrame".equals(sp.getId())) {
+                return;
+            }
             content.applyCss();
             content.autosize();
             Bounds bounds = content.getBoundsInLocal();
@@ -709,12 +725,207 @@ public class BirdGame3 extends Application {
         javafx.application.Platform.runLater(apply);
     }
 
+    private void ensureSceneAutoScaled(Scene scene) {
+        if (scene == null) return;
+        Node root = scene.getRoot();
+        if (root == null) return;
+        if (root instanceof StackPane sp && "responsiveContainer".equals(sp.getId())) return;
+        if (root instanceof StackPane sp && "uiFrame".equals(sp.getId())) return;
+        javafx.application.Platform.runLater(() -> wrapAndScaleUiScene(scene));
+    }
+
+    private void applyFocusRingStyle(Scene scene) {
+        if (scene == null) return;
+        Node root = scene.getRoot();
+        if (!(root instanceof Region region)) return;
+        String focusStyle = "-fx-focus-color: transparent; -fx-faint-focus-color: transparent;";
+        String style = region.getStyle();
+        if (style == null) style = "";
+        if (!style.contains("-fx-focus-color")) {
+            region.setStyle(style + (style.isBlank() ? "" : "; ") + focusStyle);
+        }
+    }
+
+    private void wrapAndScaleUiScene(Scene scene) {
+        if (scene == null) return;
+        Node root = scene.getRoot();
+        if (root == null) return;
+        if (root instanceof StackPane sp && "responsiveContainer".equals(sp.getId())) return;
+        if (root instanceof StackPane sp && "uiFrame".equals(sp.getId())) return;
+
+        boolean hasScroll = (root instanceof ScrollPane) || sceneContainsScrollPane(root);
+        Region backgroundSource = null;
+        if (root instanceof Region region) {
+            backgroundSource = region;
+        } else if (root instanceof ScrollPane sp) {
+            Node content = sp.getContent();
+            if (content instanceof Region contentRegion) {
+                backgroundSource = contentRegion;
+            }
+        }
+
+        String rootStyle = backgroundSource != null ? backgroundSource.getStyle() : "";
+        String backgroundStyle = extractBackgroundStyle(rootStyle);
+        String strippedStyle = stripBackgroundStyle(rootStyle);
+        if (backgroundSource != null) {
+            backgroundSource.setStyle(strippedStyle);
+        }
+
+        if (root instanceof ScrollPane sp) {
+            String style = sp.getStyle();
+            if (style == null) style = "";
+            if (!style.contains("-fx-background-color")) {
+                sp.setStyle(style + (style.isBlank() ? "" : "; ")
+                        + "-fx-background-color: transparent; -fx-border-color: transparent; "
+                        + "-fx-background-insets: 0; -fx-padding: 0;");
+            }
+            sp.setFitToWidth(true);
+        }
+
+        if (!hasScroll && root instanceof Region region) {
+            region.setMinSize(WIDTH, HEIGHT);
+            region.setPrefSize(WIDTH, HEIGHT);
+            region.setMaxSize(WIDTH, HEIGHT);
+        }
+
+        StackPane frame = new StackPane(root);
+        frame.setId("uiFrame");
+        frame.setAlignment(Pos.CENTER);
+        if (!backgroundStyle.isBlank()) {
+            frame.setStyle(backgroundStyle);
+        }
+        frame.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        scene.setRoot(frame);
+        Runnable sizeFrame = () -> {
+            double w = scene.getWidth();
+            double h = scene.getHeight();
+            if (w > 0 && h > 0) {
+                frame.setMinSize(w, h);
+                frame.setPrefSize(w, h);
+                frame.setMaxSize(w, h);
+            }
+        };
+        scene.widthProperty().addListener((obs, oldV, newV) -> {
+            double w = newV.doubleValue();
+            frame.setMinWidth(w);
+            frame.setPrefWidth(w);
+            frame.setMaxWidth(w);
+        });
+        scene.heightProperty().addListener((obs, oldV, newV) -> {
+            double h = newV.doubleValue();
+            frame.setMinHeight(h);
+            frame.setPrefHeight(h);
+            frame.setMaxHeight(h);
+        });
+        javafx.application.Platform.runLater(sizeFrame);
+
+        if (!hasScroll) {
+            Runnable applyScale = () -> {
+                double sx = scene.getWidth() / WIDTH;
+                double sy = scene.getHeight() / HEIGHT;
+                root.setScaleX(Math.max(0.01, sx));
+                root.setScaleY(Math.max(0.01, sy));
+            };
+            scene.widthProperty().addListener((obs, oldV, newV) -> applyScale.run());
+            scene.heightProperty().addListener((obs, oldV, newV) -> applyScale.run());
+            javafx.application.Platform.runLater(applyScale);
+        }
+    }
+
+    private String extractBackgroundStyle(String style) {
+        if (style == null || style.isBlank()) return "";
+        StringBuilder sb = new StringBuilder();
+        String[] parts = style.split(";");
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (trimmed.isBlank()) continue;
+            if (trimmed.startsWith("-fx-background")) {
+                if (sb.length() > 0) sb.append("; ");
+                sb.append(trimmed);
+            }
+        }
+        return sb.toString();
+    }
+
+    private String stripBackgroundStyle(String style) {
+        if (style == null || style.isBlank()) return "";
+        StringBuilder sb = new StringBuilder();
+        String[] parts = style.split(";");
+        for (String part : parts) {
+            String trimmed = part.trim();
+            if (trimmed.isBlank()) continue;
+            if (trimmed.startsWith("-fx-background")) continue;
+            if (sb.length() > 0) sb.append("; ");
+            sb.append(trimmed);
+        }
+        return sb.toString();
+    }
+
+    private void ensureSceneFitsToScreen(Stage stage, Scene scene) {
+        if (scene == null) return;
+        Node root = scene.getRoot();
+        if (root == null) return;
+        if (root instanceof StackPane sp && "responsiveContainer".equals(sp.getId())) return;
+        if (root instanceof StackPane sp && "autoScrollContainer".equals(sp.getId())) return;
+        if (root instanceof ScrollPane) return;
+        if (sceneContainsScrollPane(root)) return;
+
+        double availW = scene.getWidth();
+        double availH = scene.getHeight();
+        if (availW <= 1 || availH <= 1) {
+            Rectangle2D bounds = getStageScreenBounds(stage, scene);
+            if (bounds == null) return;
+            availW = bounds.getWidth();
+            availH = bounds.getHeight();
+        }
+        availW = Math.max(1.0, availW);
+        availH = Math.max(1.0, availH);
+
+        root.applyCss();
+        root.autosize();
+        Bounds rootBounds = root.getBoundsInLocal();
+        if (rootBounds.getWidth() <= availW + 1 && rootBounds.getHeight() <= availH + 1) {
+            return;
+        }
+
+        if (!(root instanceof Parent parent)) {
+            return;
+        }
+
+        ScrollPane scroll = wrapInOverflowScroll(parent);
+
+        StackPane container = new StackPane(scroll);
+        container.setId("autoScrollContainer");
+        container.setAlignment(Pos.CENTER);
+        if (root instanceof Region region) {
+            String style = region.getStyle();
+            if (style != null && !style.isBlank()) {
+                container.setStyle(style);
+            }
+        }
+        scene.setRoot(container);
+    }
+
+    private ScrollPane wrapInOverflowScroll(Parent content) {
+        ScrollPane scroll = new ScrollPane(content);
+        scroll.setFitToWidth(true);
+        scroll.setFitToHeight(false);
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroll.setPannable(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent; -fx-border-color: transparent; -fx-border-width: 0; -fx-background-insets: 0; -fx-padding: 0;");
+        return scroll;
+    }
+
     private ScrollPane wrapInScroll(Parent content) {
         ScrollPane scroll = new ScrollPane(content);
         scroll.setFitToWidth(true);
+        scroll.setFitToHeight(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent;");
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; "
+                + "-fx-control-inner-background: transparent; -fx-border-color: transparent; "
+                + "-fx-background-insets: 0; -fx-padding: 0;");
         return scroll;
     }
 
@@ -817,10 +1028,63 @@ public class BirdGame3 extends Application {
     private void setScenePreservingFullscreen(Stage stage, Scene scene) {
         boolean wasFullscreen = stage.isFullScreen();
         stage.setScene(scene);
+        fitStageToScreen(stage, scene);
+        ensureSceneAutoScaled(scene);
         if (fullscreenEnabled) {
             if (!stage.isFullScreen()) stage.setFullScreen(true);
         } else if (wasFullscreen && stage.isFullScreen()) {
             stage.setFullScreen(false);
+        }
+    }
+
+    private void fitStageToScreen(Stage stage, Scene scene) {
+        if (stage == null || scene == null) return;
+        if (fullscreenEnabled || stage.isFullScreen()) return;
+        Rectangle2D bounds = getStageScreenBounds(stage, scene);
+        if (bounds == null) return;
+        double currentW = stage.getWidth();
+        double currentH = stage.getHeight();
+        boolean hasSize = currentW > 1 && currentH > 1;
+        double maxW = bounds.getWidth();
+        double maxH = bounds.getHeight();
+        double targetW;
+        double targetH;
+        if (hasSize) {
+            targetW = Math.min(currentW, maxW);
+            targetH = Math.min(currentH, maxH);
+        } else {
+            double sceneW = scene.getWidth() > 0 ? scene.getWidth() : WIDTH;
+            double sceneH = scene.getHeight() > 0 ? scene.getHeight() : HEIGHT;
+            targetW = Math.min(sceneW, maxW);
+            targetH = Math.min(sceneH, maxH);
+        }
+        if (targetW > 0 && targetH > 0) {
+            boolean resized = false;
+            if (Math.abs(stage.getWidth() - targetW) > 1.0) {
+                stage.setWidth(targetW);
+                resized = true;
+            }
+            if (Math.abs(stage.getHeight() - targetH) > 1.0) {
+                stage.setHeight(targetH);
+                resized = true;
+            }
+            if (resized) {
+                stage.centerOnScreen();
+            }
+        }
+    }
+
+    private Rectangle2D getStageScreenBounds(Stage stage, Scene scene) {
+        try {
+            double x = stage.getX();
+            double y = stage.getY();
+            double w = stage.getWidth() > 0 ? stage.getWidth() : (scene.getWidth() > 0 ? scene.getWidth() : WIDTH);
+            double h = stage.getHeight() > 0 ? stage.getHeight() : (scene.getHeight() > 0 ? scene.getHeight() : HEIGHT);
+            List<Screen> screens = Screen.getScreensForRectangle(x, y, w, h);
+            Screen screen = screens.isEmpty() ? Screen.getPrimary() : screens.get(0);
+            return screen.getVisualBounds();
+        } catch (Exception e) {
+            return Screen.getPrimary().getVisualBounds();
         }
     }
 
@@ -7146,6 +7410,7 @@ public class BirdGame3 extends Application {
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
+        bindEscape(scene, back);
         setScenePreservingFullscreen(stage, scene);
         hostField.requestFocus();
     }
@@ -7252,6 +7517,10 @@ public class BirdGame3 extends Application {
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
+        bindEscape(scene, () -> confirmLeaveLanSession(stage, () -> {
+            stopLanSession();
+            showMenu(stage);
+        }));
         setScenePreservingFullscreen(stage, scene);
 
         refreshLanLobbyUI();
