@@ -82,10 +82,11 @@ class LanHostServer {
         }
     }
 
-    void broadcastStart(MapType map, boolean[] connected, BirdType[] birds, String[] skinKeys) {
+    void broadcastStart(MapType map, long seed, boolean[] connected, BirdType[] birds, String[] skinKeys) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_START, out -> {
                 out.writeInt(map.ordinal());
+                out.writeLong(seed);
                 for (int i = 0; i < 4; i++) {
                     out.writeBoolean(connected[i]);
                     out.writeInt(birds[i] != null ? birds[i].ordinal() : -1);

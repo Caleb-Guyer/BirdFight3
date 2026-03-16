@@ -182,6 +182,7 @@ public class BirdGame3 extends Application {
     private int lanLocalInputMask = 0;
     private MapType lanSelectedMap = MapType.FOREST;
     private boolean lanSelectedMapRandom = false;
+    private long lanMatchSeed = 0L;
     private long lastLanSnapshotNs = 0L;
     private Label[] lanSlotLabels;
     private Label lanStatusLabel;
@@ -8633,8 +8634,8 @@ public class BirdGame3 extends Application {
         });
     }
 
-    void onLanStartMatch(MapType map, boolean[] connected, BirdType[] birds, String[] skinKeys) {
-        javafx.application.Platform.runLater(() -> startLanMatchClient(currentStage, map, connected, birds, skinKeys));
+    void onLanStartMatch(MapType map, long seed, boolean[] connected, BirdType[] birds, String[] skinKeys) {
+        javafx.application.Platform.runLater(() -> startLanMatchClient(currentStage, map, seed, connected, birds, skinKeys));
     }
 
     void onLanState(LanState state) {
@@ -8876,13 +8877,14 @@ public class BirdGame3 extends Application {
                 lanSelectedSkinKeys[i] = null;
             }
         }
+        lanMatchSeed = System.nanoTime();
         if (lanHost != null) {
-            lanHost.broadcastStart(mapToPlay, lanSlotConnected, lanSelectedBirds, lanSelectedSkinKeys);
+            lanHost.broadcastStart(mapToPlay, lanMatchSeed, lanSlotConnected, lanSelectedBirds, lanSelectedSkinKeys);
         }
         startMatch(stage);
     }
 
-    private void startLanMatchClient(Stage stage, MapType map, boolean[] connected, BirdType[] birds, String[] skinKeys) {
+    private void startLanMatchClient(Stage stage, MapType map, long seed, boolean[] connected, BirdType[] birds, String[] skinKeys) {
         if (!lanModeActive || !lanIsClient) return;
         if (stage == null) return;
         lanCountdownValue = 0;
@@ -8899,6 +8901,7 @@ public class BirdGame3 extends Application {
         competitionModeEnabled = false;
         mutatorModeEnabled = false;
         teamModeEnabled = false;
+        lanMatchSeed = seed;
         lanSelectedMap = map;
         selectedMap = map;
         if (connected != null) {
@@ -16151,13 +16154,15 @@ public class BirdGame3 extends Application {
         particles.clear();
         powerUps.clear();
 
-        if (selectedMap != MapType.CITY) cityStars.clear();
+        if (selectedMap != MapType.CITY || lanModeActive) cityStars.clear();
+
+        Random mapRandom = lanModeActive ? new Random(lanMatchSeed) : random;
 
         if (selectedMap == MapType.CITY && cityStars.isEmpty()) {
             for (int i = 0; i < 250; i++) {
                 cityStars.add(new double[]{
-                        random.nextDouble() * WORLD_WIDTH,
-                        random.nextDouble() * (GROUND_Y - 200)
+                        mapRandom.nextDouble() * WORLD_WIDTH,
+                        mapRandom.nextDouble() * (GROUND_Y - 200)
                 });
             }
         }
@@ -16192,7 +16197,7 @@ public class BirdGame3 extends Application {
                 platforms.add(new Platform(tx - 150, GROUND_Y - 500, 300, 30));
                 platforms.add(new Platform(tx - 100, GROUND_Y - 200, 200, 30));
             }
-            Random rand = new Random();
+            Random rand = mapRandom;
             for (int i = 0; i < 25; i++) {
                 double px = 300 + rand.nextDouble() * (WORLD_WIDTH - 600);
                 double py = 800 + rand.nextDouble() * (GROUND_Y - 1000);
@@ -16249,7 +16254,7 @@ public class BirdGame3 extends Application {
             mountainPeaks = new double[7];
             double[] mountainX = {0, 800, 1800, 2800, 3800, 4800, WORLD_WIDTH};
             for (int i = 0; i < mountainX.length - 1; i++) {
-                mountainPeaks[i] = GROUND_Y - 400 - random.nextDouble() * 600;
+                mountainPeaks[i] = GROUND_Y - 400 - mapRandom.nextDouble() * 600;
             }
         } else if (selectedMap == MapType.VIBRANT_JUNGLE) {
             // Clear new collections
@@ -16266,7 +16271,7 @@ public class BirdGame3 extends Application {
             }
 
             // Floating orchid platforms (small, scattered)
-            Random rand = new Random();
+            Random rand = mapRandom;
             for (int i = 0; i < 40; i++) {
                 double px = 200 + rand.nextDouble() * (WORLD_WIDTH - 400);
                 double py = 400 + rand.nextDouble() * (GROUND_Y - 600);
@@ -16335,14 +16340,14 @@ public class BirdGame3 extends Application {
             // Stalactite hangs (underside-friendly narrow ledges)
             double[] stalactiteX = {650, 1300, 2050, 2800, 3550, 4300, 5050, 5650};
             for (double sx : stalactiteX) {
-                platforms.add(new Platform(sx - 140, 240 + random.nextDouble() * 300, 280, 34));
+                platforms.add(new Platform(sx - 140, 240 + mapRandom.nextDouble() * 300, 280, 34));
             }
 
             // Midair crystal bridges
             for (int i = 0; i < 12; i++) {
-                double px = 260 + i * 470 + random.nextDouble() * 120;
-                double py = 500 + random.nextDouble() * (GROUND_Y - 900);
-                platforms.add(new Platform(px, py, 220 + random.nextDouble() * 180, 30));
+                double px = 260 + i * 470 + mapRandom.nextDouble() * 120;
+                double py = 500 + mapRandom.nextDouble() * (GROUND_Y - 900);
+                platforms.add(new Platform(px, py, 220 + mapRandom.nextDouble() * 180, 30));
             }
 
             // Vertical shafts with updraft pockets
@@ -16354,7 +16359,7 @@ public class BirdGame3 extends Application {
 
             mountainPeaks = new double[7];
             for (int i = 0; i < mountainPeaks.length; i++) {
-                mountainPeaks[i] = GROUND_Y - 1000 - random.nextDouble() * 800;
+                mountainPeaks[i] = GROUND_Y - 1000 - mapRandom.nextDouble() * 800;
             }
         } else if (selectedMap == MapType.BATTLEFIELD) {
             mountainPeaks = null;
@@ -16369,8 +16374,8 @@ public class BirdGame3 extends Application {
                 Platform high2 = new Platform(bx + 50, GROUND_Y - 1020, 200, 40);
 
                 String[] possibleSigns = {"CLUB", "BAR", "HOTEL", "EAT", "LIVE", "24/7", "OPEN", "PIZZA", "DIVE", "LOUNGE"};
-                high1.signText = possibleSigns[random.nextInt(possibleSigns.length)];
-                high2.signText = possibleSigns[random.nextInt(possibleSigns.length)];
+                high1.signText = possibleSigns[mapRandom.nextInt(possibleSigns.length)];
+                high2.signText = possibleSigns[mapRandom.nextInt(possibleSigns.length)];
 
                 platforms.add(high1);
                 platforms.add(high2);

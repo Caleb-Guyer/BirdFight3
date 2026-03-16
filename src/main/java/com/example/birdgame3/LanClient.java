@@ -157,6 +157,7 @@ class LanClient {
                     case LanProtocol.MSG_START -> {
                         int mapOrd = msgIn.readInt();
                         MapType map = readMapByOrdinal(mapOrd);
+                        long seed = msgIn.readLong();
                         boolean[] connected = new boolean[4];
                         BirdType[] birds = new BirdType[4];
                         String[] skinKeys = new String[4];
@@ -167,7 +168,7 @@ class LanClient {
                             String skinKey = msgIn.readUTF();
                             skinKeys[i] = skinKey == null || skinKey.isBlank() ? null : skinKey;
                         }
-                        game.onLanStartMatch(map, connected, birds, skinKeys);
+                        game.onLanStartMatch(map, seed, connected, birds, skinKeys);
                     }
                     case LanProtocol.MSG_STATE -> {
                         LanState state = LanState.read(msgIn);
