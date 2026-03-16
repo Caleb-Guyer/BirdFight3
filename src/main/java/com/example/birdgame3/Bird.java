@@ -3757,26 +3757,24 @@ public class Bird {
 
     private void drawTitmouseSpecial(GraphicsContext g) {
         if (type == BirdGame3.BirdType.TITMOUSE) {
+            double s = sizeMultiplier;
             g.setFill(Color.SILVER);
-            g.fillOval(x + 20, y - 20, 40, 60);
+            g.fillOval(x + 20 * s, y - 20 * s, 40 * s, 60 * s);
 
             g.setFill(Color.BLACK);
-            g.fillOval(x + 25, y + 15, 25, 25);
-            g.fillOval(x + 45, y + 15, 25, 25);
+            g.fillOval(x + 25 * s, y + 15 * s, 25 * s, 25 * s);
+            g.fillOval(x + 45 * s, y + 15 * s, 25 * s, 25 * s);
             g.setFill(Color.WHITE);
-            g.fillOval(x + 32, y + 20, 10, 10);
-            g.fillOval(x + 52, y + 20, 10, 10);
-
-            g.setFill(Color.PERU.brighter());
-            g.fillOval(x + 10, y + 40, 60, 40);
+            g.fillOval(x + 32 * s, y + 20 * s, 10 * s, 10 * s);
+            g.fillOval(x + 52 * s, y + 20 * s, 10 * s, 10 * s);
 
             if (isZipping) {
                 g.setStroke(Color.SKYBLUE.brighter());
                 g.setLineWidth(8);
-                g.strokeLine(x + 40, y + 40, zipTargetX + 40, zipTargetY + 40);
+                g.strokeLine(x + 40 * s, y + 40 * s, zipTargetX + 40 * s, zipTargetY + 40 * s);
                 g.setLineWidth(4);
                 g.setStroke(Color.WHITE);
-                g.strokeLine(x + 40, y + 40, zipTargetX + 40, zipTargetY + 40);
+                g.strokeLine(x + 40 * s, y + 40 * s, zipTargetX + 40 * s, zipTargetY + 40 * s);
             }
         }
     }
@@ -4154,6 +4152,7 @@ public class Bird {
                     3
             );
         }
+        // Titmouse head details are handled by drawTitmouseSpecial when effects are enabled.
         g.setFill(Color.WHITE);
         g.fillOval(x + (facingRight ? 50 : 20) * sizeMultiplier, y + 20 * sizeMultiplier, 25 * sizeMultiplier, 25 * sizeMultiplier);
         Color eyeColor = classicPalette ? game.classicSkinAccentColor(type) : Color.BLACK;

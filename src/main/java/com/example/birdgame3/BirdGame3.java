@@ -5273,7 +5273,7 @@ public class BirdGame3 extends Application {
         }
 
         Bird preview = new Bird(0, type, 0, this);
-        preview.suppressSelectEffects = true;
+        preview.suppressSelectEffects = type != BirdType.TITMOUSE;
         if (forceSkin) {
             applyPreviewSkinChoiceToBird(preview, type, skinKey);
         } else {
@@ -5288,24 +5288,7 @@ public class BirdGame3 extends Application {
         preview.y = (h - drawSize) / 2.0 + pad;
         preview.facingRight = true;
         preview.draw(g);
-        if (type == BirdType.TITMOUSE) {
-            double s = preview.sizeMultiplier;
-            double headX = preview.facingRight ? preview.x + 50 * s : preview.x - 20 * s;
-            double headY = preview.y + 20 * s;
-            double tuftBaseX = headX + 16 * s;
-            double tuftBaseY = headY + 2 * s;
-            g.setFill(Color.SILVER);
-            g.fillPolygon(
-                    new double[]{tuftBaseX, tuftBaseX + 6 * s, tuftBaseX + 12 * s},
-                    new double[]{tuftBaseY + 10 * s, tuftBaseY - 4 * s, tuftBaseY + 10 * s},
-                    3
-            );
-            g.fillPolygon(
-                    new double[]{tuftBaseX + 6 * s, tuftBaseX + 12 * s, tuftBaseX + 18 * s},
-                    new double[]{tuftBaseY + 12 * s, tuftBaseY - 2 * s, tuftBaseY + 12 * s},
-                    3
-            );
-        }
+        // Titmouse crest is rendered in Bird.draw now for consistent previews.
     }
 
     private void drawPackSilhouette(Canvas canvas, Color tint) {
@@ -5779,15 +5762,16 @@ public class BirdGame3 extends Application {
         Label title = new Label("BIRD FIGHT 3");
         title.setFont(Font.font("Impact", FontWeight.BOLD, 96));
         title.setTextFill(Color.web("#FFE082"));
-        title.setEffect(new DropShadow(40, Color.BLACK));
+        title.setEffect(new DropShadow(50, Color.rgb(0, 0, 0, 0.85)));
 
         Label hubLabel = new Label("CENTRAL HUB");
         hubLabel.setFont(Font.font("Consolas", 28));
         hubLabel.setTextFill(Color.web("#80DEEA"));
+        hubLabel.setEffect(new DropShadow(12, Color.rgb(0, 0, 0, 0.6)));
 
         Region titleFlare = new Region();
-        titleFlare.setPrefSize(520, 4);
-        titleFlare.setStyle("-fx-background-color: linear-gradient(to right, transparent, rgba(255, 224, 130, 0.9), transparent);"
+        titleFlare.setPrefSize(480, 4);
+        titleFlare.setStyle("-fx-background-color: linear-gradient(to right, transparent, rgba(255, 224, 130, 0.95), transparent);"
                 + "-fx-background-radius: 2;");
 
         VBox titleBox = new VBox(6, title, hubLabel, titleFlare);
@@ -5797,12 +5781,56 @@ public class BirdGame3 extends Application {
         coins.setFont(Font.font("Consolas", 24));
         coins.setTextFill(Color.web("#FFD54F"));
 
-        StackPane logoFrame = new StackPane(titleBox);
-        logoFrame.setPadding(new Insets(14, 40, 18, 40));
-        logoFrame.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(255, 224, 130, 0.18), rgba(255, 224, 130, 0.05));"
-                + "-fx-background-radius: 24; -fx-border-color: rgba(255, 224, 130, 0.55);"
-                + "-fx-border-width: 2; -fx-border-radius: 24;");
-        logoFrame.setEffect(new Glow(0.12));
+        Pane logoArt = new Pane();
+        logoArt.setPrefSize(900, 200);
+        logoArt.setMinSize(900, 200);
+        logoArt.setMaxSize(900, 200);
+        logoArt.setMouseTransparent(true);
+
+        Circle glowOuter = new Circle(450, 100, 150);
+        glowOuter.setFill(Color.web("#64B5F6", 0.12));
+        Circle glowInner = new Circle(450, 100, 105);
+        glowInner.setFill(Color.web("#FFD54F", 0.22));
+
+        Line wingLeftA = new Line(150, 130, 360, 70);
+        wingLeftA.setStroke(Color.web("#FFD54F", 0.75));
+        wingLeftA.setStrokeWidth(4);
+        wingLeftA.setStrokeLineCap(StrokeLineCap.ROUND);
+        Line wingLeftB = new Line(170, 150, 360, 100);
+        wingLeftB.setStroke(Color.web("#80DEEA", 0.55));
+        wingLeftB.setStrokeWidth(3);
+        wingLeftB.setStrokeLineCap(StrokeLineCap.ROUND);
+        Line wingLeftC = new Line(200, 168, 360, 130);
+        wingLeftC.setStroke(Color.web("#FFE082", 0.45));
+        wingLeftC.setStrokeWidth(2.5);
+        wingLeftC.setStrokeLineCap(StrokeLineCap.ROUND);
+
+        Line wingRightA = new Line(750, 130, 540, 70);
+        wingRightA.setStroke(Color.web("#FFD54F", 0.75));
+        wingRightA.setStrokeWidth(4);
+        wingRightA.setStrokeLineCap(StrokeLineCap.ROUND);
+        Line wingRightB = new Line(730, 150, 540, 100);
+        wingRightB.setStroke(Color.web("#80DEEA", 0.55));
+        wingRightB.setStrokeWidth(3);
+        wingRightB.setStrokeLineCap(StrokeLineCap.ROUND);
+        Line wingRightC = new Line(700, 168, 540, 130);
+        wingRightC.setStroke(Color.web("#FFE082", 0.45));
+        wingRightC.setStrokeWidth(2.5);
+        wingRightC.setStrokeLineCap(StrokeLineCap.ROUND);
+
+        Circle sparkA = new Circle(320, 54, 3, Color.web("#FFF8E1", 0.8));
+        Circle sparkB = new Circle(580, 60, 2.5, Color.web("#B3E5FC", 0.7));
+        Circle sparkC = new Circle(450, 40, 2.2, Color.web("#FFF8E1", 0.6));
+
+        logoArt.getChildren().addAll(glowOuter, glowInner,
+                wingLeftA, wingLeftB, wingLeftC,
+                wingRightA, wingRightB, wingRightC,
+                sparkA, sparkB, sparkC);
+
+        StackPane logoFrame = new StackPane(logoArt, titleBox);
+        logoFrame.setPadding(new Insets(6, 20, 8, 20));
+        logoFrame.setAlignment(Pos.CENTER);
+        logoFrame.setEffect(new Glow(0.08));
 
         StackPane top = new StackPane(logoFrame, coins);
         StackPane.setAlignment(logoFrame, Pos.CENTER);
