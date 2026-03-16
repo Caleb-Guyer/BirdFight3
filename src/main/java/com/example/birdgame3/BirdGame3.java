@@ -50,7 +50,11 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Line;
+import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.transform.Rotate;
 import javafx.geometry.Rectangle2D;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
@@ -5539,6 +5543,233 @@ public class BirdGame3 extends Application {
         return card;
     }
 
+    private Button buildHubNavButton(String text, double fontSize, String primary, String secondary, String accent, Node icon, Runnable action) {
+        Button button = uiFactory.action(text, 520, 130, fontSize, primary, 30, action);
+        styleHubButton(button, primary, secondary, accent, icon, ContentDisplay.LEFT, true, 28);
+        return button;
+    }
+
+    private Button buildHubFooterButton(String text, double width, double fontSize, String primary, String secondary, String accent, Node icon, Runnable action) {
+        Button button = uiFactory.action(text, width, 110, fontSize, primary, 20, action);
+        styleHubButton(button, primary, secondary, accent, icon, ContentDisplay.TOP, false, 20);
+        return button;
+    }
+
+    private void styleHubButton(Button button, String primary, String secondary, String accent, Node icon,
+                                ContentDisplay display, boolean leftAlign, double radius) {
+        String style = "-fx-background-color: linear-gradient(to bottom right, " + primary + ", " + secondary + ");"
+                + "-fx-background-radius: " + radius + ";"
+                + "-fx-border-color: " + accent + "; -fx-border-width: 3; -fx-border-radius: " + radius + ";"
+                + "-fx-text-fill: white; -fx-font-weight: bold;";
+        button.setStyle(style);
+        if (icon != null) {
+            button.setGraphic(icon);
+            button.setContentDisplay(display);
+        }
+        if (leftAlign) {
+            button.setAlignment(Pos.CENTER_LEFT);
+            button.setPadding(new Insets(6, 24, 6, 24));
+            button.setGraphicTextGap(18);
+        } else {
+            button.setAlignment(Pos.CENTER);
+            button.setPadding(new Insets(8, 10, 8, 10));
+            button.setGraphicTextGap(10);
+        }
+        button.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.55)));
+    }
+
+    private Pane hubIconPane(double size) {
+        Pane pane = new Pane();
+        pane.setPrefSize(size, size);
+        pane.setMinSize(size, size);
+        pane.setMaxSize(size, size);
+        return pane;
+    }
+
+    private Node hubIconFight() {
+        Pane pane = hubIconPane(56);
+        Color blade = Color.web("#FFE0B2");
+        Line left = new Line(12, 44, 44, 12);
+        left.setStroke(blade);
+        left.setStrokeWidth(5);
+        left.setStrokeLineCap(StrokeLineCap.ROUND);
+        Line right = new Line(12, 12, 44, 44);
+        right.setStroke(blade);
+        right.setStrokeWidth(5);
+        right.setStrokeLineCap(StrokeLineCap.ROUND);
+        Circle center = new Circle(28, 28, 4, Color.web("#FFF3E0"));
+        pane.getChildren().addAll(left, right, center);
+        return pane;
+    }
+
+    private Node hubIconAdventure() {
+        Pane pane = hubIconPane(56);
+        Circle ring = new Circle(28, 28, 20);
+        ring.setFill(Color.TRANSPARENT);
+        ring.setStroke(Color.web("#E0F7FA"));
+        ring.setStrokeWidth(4);
+        Polygon needle = new Polygon(28, 10, 34, 30, 28, 26, 22, 30);
+        needle.setFill(Color.web("#FFE082"));
+        Circle center = new Circle(28, 28, 3, Color.web("#FFE082"));
+        pane.getChildren().addAll(ring, needle, center);
+        return pane;
+    }
+
+    private Node hubIconTraining() {
+        Pane pane = hubIconPane(56);
+        Circle outer = new Circle(28, 28, 20);
+        outer.setFill(Color.TRANSPARENT);
+        outer.setStroke(Color.web("#E0F7FA"));
+        outer.setStrokeWidth(4);
+        Circle mid = new Circle(28, 28, 12);
+        mid.setFill(Color.TRANSPARENT);
+        mid.setStroke(Color.web("#FFE082"));
+        mid.setStrokeWidth(3);
+        Circle dot = new Circle(28, 28, 4, Color.web("#FFE082"));
+        pane.getChildren().addAll(outer, mid, dot);
+        return pane;
+    }
+
+    private Node hubIconClassic() {
+        Pane pane = hubIconPane(56);
+        Polygon cup = new Polygon(16, 14, 40, 14, 36, 30, 20, 30);
+        cup.setFill(Color.web("#FFE082"));
+        Line handleLeft = new Line(16, 16, 10, 22);
+        handleLeft.setStroke(Color.web("#FFD54F"));
+        handleLeft.setStrokeWidth(3);
+        handleLeft.setStrokeLineCap(StrokeLineCap.ROUND);
+        Line handleRight = new Line(40, 16, 46, 22);
+        handleRight.setStroke(Color.web("#FFD54F"));
+        handleRight.setStrokeWidth(3);
+        handleRight.setStrokeLineCap(StrokeLineCap.ROUND);
+        Rectangle stem = new Rectangle(26, 30, 4, 8);
+        stem.setFill(Color.web("#FFECB3"));
+        Rectangle base = new Rectangle(20, 38, 16, 6);
+        base.setArcWidth(4);
+        base.setArcHeight(4);
+        base.setFill(Color.web("#FFD54F"));
+        pane.getChildren().addAll(cup, handleLeft, handleRight, stem, base);
+        return pane;
+    }
+
+    private Node hubIconShop() {
+        Pane pane = hubIconPane(56);
+        Polygon roof = new Polygon(6, 22, 28, 8, 50, 22);
+        roof.setFill(Color.web("#FFCC80"));
+        Rectangle base = new Rectangle(8, 22, 40, 26);
+        base.setArcWidth(6);
+        base.setArcHeight(6);
+        base.setFill(Color.web("#FFE0B2"));
+        Line awning = new Line(8, 27, 48, 27);
+        awning.setStroke(Color.web("#F57F17"));
+        awning.setStrokeWidth(3);
+        Rectangle door = new Rectangle(26, 32, 10, 16);
+        door.setArcWidth(4);
+        door.setArcHeight(4);
+        door.setFill(Color.web("#6D4C41"));
+        Rectangle window = new Rectangle(14, 32, 8, 8);
+        window.setFill(Color.web("#90CAF9"));
+        pane.getChildren().addAll(roof, base, awning, door, window);
+        return pane;
+    }
+
+    private Node hubIconLan() {
+        Pane pane = hubIconPane(56);
+        Color nodeColor = Color.web("#E0F2F1");
+        Line linkTop = new Line(20, 18, 36, 18);
+        linkTop.setStroke(nodeColor);
+        linkTop.setStrokeWidth(3);
+        Line linkLeft = new Line(17, 23, 25, 35);
+        linkLeft.setStroke(nodeColor);
+        linkLeft.setStrokeWidth(3);
+        Line linkRight = new Line(39, 23, 31, 35);
+        linkRight.setStroke(nodeColor);
+        linkRight.setStrokeWidth(3);
+        Circle left = new Circle(14, 18, 6, nodeColor);
+        Circle right = new Circle(42, 18, 6, nodeColor);
+        Circle bottom = new Circle(28, 40, 6, nodeColor);
+        pane.getChildren().addAll(linkTop, linkLeft, linkRight, left, right, bottom);
+        return pane;
+    }
+
+    private Node hubIconAchievements() {
+        Pane pane = hubIconPane(56);
+        Rectangle ribbonLeft = new Rectangle(20, 40, 6, 10);
+        ribbonLeft.setFill(Color.web("#90CAF9"));
+        Rectangle ribbonRight = new Rectangle(30, 40, 6, 10);
+        ribbonRight.setFill(Color.web("#90CAF9"));
+        Circle medal = new Circle(28, 26, 12);
+        medal.setFill(Color.web("#FFD54F"));
+        medal.setStroke(Color.web("#FFF8E1"));
+        medal.setStrokeWidth(3);
+        Polygon star = new Polygon(
+                28, 18,
+                30, 24,
+                36, 24,
+                31, 28,
+                33, 34,
+                28, 30,
+                23, 34,
+                25, 28,
+                20, 24,
+                26, 24
+        );
+        star.setFill(Color.web("#FFF3E0"));
+        pane.getChildren().addAll(ribbonLeft, ribbonRight, medal, star);
+        return pane;
+    }
+
+    private Node hubIconFeatherpedia() {
+        Pane pane = hubIconPane(56);
+        Rectangle cover = new Rectangle(10, 12, 36, 32);
+        cover.setArcWidth(4);
+        cover.setArcHeight(4);
+        cover.setFill(Color.web("#D1C4E9"));
+        Rectangle page = new Rectangle(12, 14, 14, 28);
+        page.setArcWidth(3);
+        page.setArcHeight(3);
+        page.setFill(Color.web("#F3E5F5"));
+        Line spine = new Line(28, 12, 28, 44);
+        spine.setStroke(Color.web("#B39DDB"));
+        spine.setStrokeWidth(3);
+        pane.getChildren().addAll(cover, page, spine);
+        return pane;
+    }
+
+    private Node hubIconSettings() {
+        Pane pane = hubIconPane(56);
+        Circle ring = new Circle(28, 28, 14);
+        ring.setFill(Color.TRANSPARENT);
+        ring.setStroke(Color.web("#E0F7FA"));
+        ring.setStrokeWidth(4);
+        for (int i = 0; i < 6; i++) {
+            Rectangle tooth = new Rectangle(26, 8, 4, 8);
+            tooth.setArcWidth(2);
+            tooth.setArcHeight(2);
+            tooth.setFill(Color.web("#E0F7FA"));
+            tooth.getTransforms().add(new Rotate(i * 60.0, 28, 28));
+            pane.getChildren().add(tooth);
+        }
+        Circle core = new Circle(28, 28, 4, Color.web("#FFE082"));
+        pane.getChildren().addAll(ring, core);
+        return pane;
+    }
+
+    private Node hubIconExit() {
+        Pane pane = hubIconPane(56);
+        Rectangle frame = new Rectangle(16, 12, 24, 32);
+        frame.setArcWidth(4);
+        frame.setArcHeight(4);
+        frame.setFill(Color.web("#FFCDD2"));
+        Rectangle door = new Rectangle(20, 16, 16, 24);
+        door.setArcWidth(3);
+        door.setArcHeight(3);
+        door.setFill(Color.web("#EF9A9A"));
+        Circle knob = new Circle(32, 28, 2, Color.web("#FFF8E1"));
+        pane.getChildren().addAll(frame, door, knob);
+        return pane;
+    }
+
     private void showHub(Stage stage) {
         playMenuMusic();
         BorderPane root = new BorderPane();
@@ -5571,12 +5802,18 @@ public class BirdGame3 extends Application {
         nav.setVgap(26);
         nav.setAlignment(Pos.CENTER);
 
-        Button fightBtn = uiFactory.action("FIGHT", 520, 130, 48, "#FF7043", 30, () -> showFightSetup(stage));
-        Button adventureBtn = uiFactory.action("ADVENTURE", 520, 130, 48, "#26A69A", 30, () -> showAdventureHub(stage));
-        Button trainingBtn = uiFactory.action("TRAINING", 520, 130, 48, "#26C6DA", 30, () -> showTrainingSetup(stage));
-        Button classicBtn = uiFactory.action("CLASSIC & MORE", 520, 130, 40, "#1E88E5", 28, () -> showClassicMoreMenu(stage));
-        Button shopBtn = uiFactory.action("SHOP", 520, 130, 48, "#FBC02D", 30, () -> showShop(stage));
-        Button lanBtn = uiFactory.action("LAN PLAY", 520, 130, 40, "#8D6E63", 28, () -> showLanMenu(stage));
+        Button fightBtn = buildHubNavButton("FIGHT", 48, "#FF7043", "#E64A19", "#FFCCBC", hubIconFight(),
+                () -> showFightSetup(stage));
+        Button adventureBtn = buildHubNavButton("ADVENTURE", 48, "#26A69A", "#00796B", "#B2DFDB", hubIconAdventure(),
+                () -> showAdventureHub(stage));
+        Button trainingBtn = buildHubNavButton("TRAINING", 48, "#26C6DA", "#0097A7", "#B2EBF2", hubIconTraining(),
+                () -> showTrainingSetup(stage));
+        Button classicBtn = buildHubNavButton("CLASSIC & MORE", 40, "#1E88E5", "#1565C0", "#BBDEFB", hubIconClassic(),
+                () -> showClassicMoreMenu(stage));
+        Button shopBtn = buildHubNavButton("SHOP", 48, "#FBC02D", "#F57F17", "#FFF8E1", hubIconShop(),
+                () -> showShop(stage));
+        Button lanBtn = buildHubNavButton("LAN PLAY", 40, "#8D6E63", "#5D4037", "#D7CCC8", hubIconLan(),
+                () -> showLanMenu(stage));
 
         nav.add(fightBtn, 0, 0);
         nav.add(adventureBtn, 1, 0);
@@ -5585,14 +5822,19 @@ public class BirdGame3 extends Application {
         nav.add(shopBtn, 1, 1);
         nav.add(lanBtn, 2, 1);
 
-        Button achievementsBtn = uiFactory.action("ACHIEVEMENTS", 360, 86, 34, "#455A64", 22, () -> showAchievements(stage));
-        Button bookBtn = uiFactory.action("FEATHERPEDIA", 360, 86, 30, "#5E35B1", 22, () -> showBirdBook(stage));
-        Button settingsBtn = uiFactory.action("SETTINGS", 300, 86, 30, "#607D8B", 22, () -> {
-            settingsReturn = () -> showMenu(stage);
-            showMainSettings(stage);
-        });
-        Button exitBtn = uiFactory.action("EXIT", 260, 86, 34, "#D32F2F", 22, () -> confirmExitGame(stage));
-        HBox footer = new HBox(18, achievementsBtn, bookBtn, settingsBtn, exitBtn);
+        Button achievementsBtn = buildHubFooterButton("ACHIEVEMENTS", 190, 18, "#455A64", "#37474F", "#B0BEC5",
+                hubIconAchievements(), () -> showAchievements(stage));
+        Button bookBtn = buildHubFooterButton("FEATHERPEDIA", 190, 16, "#5E35B1", "#4527A0", "#D1C4E9",
+                hubIconFeatherpedia(), () -> showBirdBook(stage));
+        Button settingsBtn = buildHubFooterButton("SETTINGS", 170, 18, "#607D8B", "#455A64", "#CFD8DC",
+                hubIconSettings(), () -> {
+                    settingsReturn = () -> showMenu(stage);
+                    showMainSettings(stage);
+                });
+        Button exitBtn = buildHubFooterButton("EXIT", 140, 18, "#D32F2F", "#B71C1C", "#FFCDD2",
+                hubIconExit(), () -> confirmExitGame(stage));
+        uiFactory.fitSingleLineOnLayout(bookBtn, 16, 12);
+        HBox footer = new HBox(20, achievementsBtn, bookBtn, settingsBtn, exitBtn);
         footer.setAlignment(Pos.CENTER);
 
         root.setTop(top);
