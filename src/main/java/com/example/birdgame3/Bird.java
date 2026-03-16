@@ -513,6 +513,7 @@ public class Bird {
             case TITMOUSE -> specialTitmouse();
             case BAT -> specialBat();
             case PELICAN -> specialPelican();
+            case RAVEN -> specialRaven();
         }
     }
 
@@ -1345,6 +1346,85 @@ public class Bird {
         }
     }
 
+    private void specialRaven() {
+        Bird target = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Bird b : game.players) {
+            if (!canDamageTarget(b)) continue;
+            double d = Math.hypot(b.x - x, b.y - y);
+            if (d < bestDist) {
+                bestDist = d;
+                target = b;
+            }
+        }
+
+        if (target != null && bestDist < 520) {
+            double dir = (target.x + 40 >= x + 40) ? -1 : 1;
+            double warpX = target.x + dir * 120;
+            double warpY = target.y;
+            double maxX = game.WORLD_WIDTH - 80 * sizeMultiplier;
+            double maxY = game.GROUND_Y - 80 * sizeMultiplier;
+            warpX = Math.max(0, Math.min(warpX, maxX));
+            warpY = Math.max(0, Math.min(warpY, maxY));
+            x = warpX;
+            y = warpY;
+            facingRight = dir < 0;
+
+            int dmg = Math.max(8, (int) Math.round(14 * powerMultiplier));
+            double oldHealth = target.health;
+            int dealt = (int) applyDamageTo(target, dmg);
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
+            if (target.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+
+            target.stunTime = Math.max(target.stunTime, 40);
+            double kbDir = (target.x > x) ? 1 : -1;
+            target.vx += kbDir * 10;
+            target.vy -= 6;
+
+            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * 1.35);
+            speedTimer = Math.max(speedTimer, 120);
+
+            game.shakeIntensity = Math.max(game.shakeIntensity, 16);
+            game.hitstopFrames = Math.max(game.hitstopFrames, 8);
+            game.addToKillFeed(name.split(":")[0].trim() + " SHADOW WARPED " + target.name.split(":")[0].trim() + "! -" + dealt + " HP");
+
+            for (int i = 0; i < 90; i++) {
+                double angle = Math.random() * Math.PI * 2;
+                double speed = 5 + Math.random() * 12;
+                game.particles.add(new Particle(
+                        x + 40 + Math.cos(angle) * 20,
+                        y + 40 + Math.sin(angle) * 20,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed - 4,
+                        Color.web("#263238").deriveColor(0, 1, 1, 0.85)
+                ));
+            }
+
+            specialCooldown = 660;
+            specialMaxCooldown = 660;
+        } else {
+            vx += (facingRight ? 1 : -1) * 18;
+            vy = Math.min(vy, -10);
+            canDoubleJump = true;
+            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * 1.2);
+            speedTimer = Math.max(speedTimer, 80);
+            game.addToKillFeed(name.split(":")[0].trim() + " SHADOW DASH!");
+            for (int i = 0; i < 50; i++) {
+                double angle = Math.random() * Math.PI * 2;
+                game.particles.add(new Particle(
+                        x + 40,
+                        y + 40,
+                        Math.cos(angle) * (4 + Math.random() * 8),
+                        Math.sin(angle) * (4 + Math.random() * 8) - 3,
+                        Color.web("#455A64").deriveColor(0, 1, 1, 0.8)
+                ));
+            }
+            specialCooldown = 240;
+            specialMaxCooldown = 240;
+        }
+    }
+
     private void clearAIInputs() {
         game.pressedKeys.remove(leftKey());
         game.pressedKeys.remove(rightKey());
@@ -1544,6 +1624,7 @@ public class Bird {
             case OPIUMBIRD, HEISENBIRD, MOCKINGBIRD -> 205;
             case BAT -> 214;
             case PIGEON -> 190;
+            case RAVEN -> 210;
         };
     }
 
@@ -1613,6 +1694,8 @@ public class Bird {
                 return dist < 320 && (Math.abs(dy) < 180 || !onGround);
             case PELICAN:
                 return plungeTimer <= 0 && onGround && dist < 260 && Math.abs(dy) < 130;
+            case RAVEN:
+                return dist < 420 && (lowHealth || Math.abs(dy) < 200);
             default:
                 return false;
         }

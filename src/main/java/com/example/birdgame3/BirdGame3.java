@@ -736,6 +736,7 @@ public class BirdGame3 extends Application {
         if (root == null) return;
         if (root instanceof StackPane sp && "responsiveContainer".equals(sp.getId())) return;
         if (root instanceof StackPane sp && "uiFrame".equals(sp.getId())) return;
+        if (Boolean.TRUE.equals(root.getProperties().get("noAutoScale"))) return;
         javafx.application.Platform.runLater(() -> wrapAndScaleUiScene(scene));
     }
 
@@ -1212,6 +1213,7 @@ public class BirdGame3 extends Application {
     public boolean heisenbirdUnlocked = false;
     public boolean phoenixUnlocked = false;
     public boolean titmouseUnlocked = false;
+    public boolean ravenUnlocked = false;
 
     public static final int SKIN_COUNT = 3; // City Pigeon + Noir Pigeon + Beacon Pigeon
     private static final String BEACON_PIGEON_SKIN = "BEACON_PIGEON";
@@ -1232,6 +1234,7 @@ public class BirdGame3 extends Application {
     private static final String CHAR_HEISENBIRD_KEY = "CHAR_HEISENBIRD";
     private static final String CHAR_PHOENIX_KEY = "CHAR_PHOENIX";
     private static final String CHAR_TITMOUSE_KEY = "CHAR_TITMOUSE";
+    private static final String CHAR_RAVEN_KEY = "CHAR_RAVEN";
     private static final String MAP_CAVE_KEY = "MAP_CAVE";
     private static final String MAP_BATTLEFIELD_KEY = "MAP_BATTLEFIELD";
 
@@ -3725,6 +3728,7 @@ public class BirdGame3 extends Application {
             case HEISENBIRD -> heisenbirdUnlocked;
             case PHOENIX -> phoenixUnlocked;
             case TITMOUSE -> titmouseUnlocked;
+            case RAVEN -> ravenUnlocked;
             default -> true;
         };
     }
@@ -4140,7 +4144,8 @@ public class BirdGame3 extends Application {
         TITMOUSE("Tufted Titmouse", 6, 21, 5.4, Color.SLATEGRAY, 0.9, "Zip Dash"),
         BAT("Bat", 7, 14, 3.7, Color.rgb(55, 35, 85), 0.65, "Sonar Screech + Ceiling Hang"),
         PELICAN("Pelican", 11, 9, 2.9, Color.rgb(245, 220, 180), 0.84, "Pelican Plunge + Glide"),
-        HEISENBIRD("Heisenbird", 7, 18, 4.6, Color.web("#D7D1C5"), 0.68, "Echo of Opium: Crystal Cloud (DoT + Slow)");
+        HEISENBIRD("Heisenbird", 7, 18, 4.6, Color.web("#D7D1C5"), 0.68, "Echo of Opium: Crystal Cloud (DoT + Slow)"),
+        RAVEN("Raven", 8, 18, 4.3, Color.web("#1C1F26"), 0.72, "Shadow Warp (blink strike + short haste)");
 
         final String name;
         int power, jumpHeight;
@@ -5356,7 +5361,8 @@ public class BirdGame3 extends Application {
                 || CHAR_FALCON_KEY.equals(key)
                 || CHAR_HEISENBIRD_KEY.equals(key)
                 || CHAR_PHOENIX_KEY.equals(key)
-                || CHAR_TITMOUSE_KEY.equals(key);
+                || CHAR_TITMOUSE_KEY.equals(key)
+                || CHAR_RAVEN_KEY.equals(key);
     }
 
     private boolean isShopPreviewCharacter(ShopPreview preview) {
@@ -8973,6 +8979,7 @@ public class BirdGame3 extends Application {
         if (CHAR_HEISENBIRD_KEY.equals(key)) return heisenbirdUnlocked;
         if (CHAR_PHOENIX_KEY.equals(key)) return phoenixUnlocked;
         if (CHAR_TITMOUSE_KEY.equals(key)) return titmouseUnlocked;
+        if (CHAR_RAVEN_KEY.equals(key)) return ravenUnlocked;
         if (MAP_CAVE_KEY.equals(key)) return caveMapUnlocked;
         if (MAP_BATTLEFIELD_KEY.equals(key)) return battlefieldMapUnlocked;
         if ("CITY_PIGEON".equals(key)) return cityPigeonUnlocked;
@@ -9031,6 +9038,12 @@ public class BirdGame3 extends Application {
             titmouseUnlocked = true;
             adventureUnlocked[BirdType.TITMOUSE.ordinal()] = true;
             queueUnlockCardForBird(BirdType.TITMOUSE);
+            return;
+        }
+        if (CHAR_RAVEN_KEY.equals(key)) {
+            ravenUnlocked = true;
+            adventureUnlocked[BirdType.RAVEN.ordinal()] = true;
+            queueUnlockCardForBird(BirdType.RAVEN);
             return;
         }
         if (MAP_CAVE_KEY.equals(key)) {
@@ -9133,6 +9146,7 @@ public class BirdGame3 extends Application {
         if (CHAR_HEISENBIRD_KEY.equals(key)) return "Heisenbird";
         if (CHAR_PHOENIX_KEY.equals(key)) return "Phoenix";
         if (CHAR_TITMOUSE_KEY.equals(key)) return "Titmouse";
+        if (CHAR_RAVEN_KEY.equals(key)) return "Raven";
         if (MAP_CAVE_KEY.equals(key)) return "Echo Cavern Map";
         if (MAP_BATTLEFIELD_KEY.equals(key)) return "Battlefield Map";
         if ("CITY_PIGEON".equals(key)) return "City Pigeon";
@@ -9160,7 +9174,7 @@ public class BirdGame3 extends Application {
     }
 
     private boolean areAllBirdsUnlocked() {
-        return batUnlocked && falconUnlocked && heisenbirdUnlocked && phoenixUnlocked && titmouseUnlocked;
+        return batUnlocked && falconUnlocked && heisenbirdUnlocked && phoenixUnlocked && titmouseUnlocked && ravenUnlocked;
     }
 
     private PackReward coinReward(int amount, int weight) {
@@ -9349,7 +9363,8 @@ public class BirdGame3 extends Application {
                 new ShopPreview(BirdType.FALCON, CHAR_FALCON_KEY, "Falcon"),
                 new ShopPreview(BirdType.HEISENBIRD, CHAR_HEISENBIRD_KEY, "Heisenbird"),
                 new ShopPreview(BirdType.PHOENIX, CHAR_PHOENIX_KEY, "Phoenix"),
-                new ShopPreview(BirdType.TITMOUSE, CHAR_TITMOUSE_KEY, "Titmouse")
+                new ShopPreview(BirdType.TITMOUSE, CHAR_TITMOUSE_KEY, "Titmouse"),
+                new ShopPreview(BirdType.RAVEN, CHAR_RAVEN_KEY, "Raven")
         );
         List<ShopPreview> mapRewards = List.of(
                 new ShopPreview(null, MAP_CAVE_KEY, "Echo Cavern Map"),
@@ -10741,7 +10756,7 @@ public class BirdGame3 extends Application {
 
     private MapType originMapForBird(BirdType type) {
         return switch (type) {
-            case PIGEON, MOCKINGBIRD -> MapType.CITY;
+            case PIGEON, MOCKINGBIRD, RAVEN -> MapType.CITY;
             case EAGLE, FALCON, PENGUIN, RAZORBILL -> MapType.SKYCLIFFS;
             case PHOENIX, BAT, VULTURE, OPIUMBIRD, HEISENBIRD -> MapType.CAVE;
             case HUMMINGBIRD, TITMOUSE -> MapType.VIBRANT_JUNGLE;
@@ -10776,6 +10791,7 @@ public class BirdGame3 extends Application {
             case TITMOUSE -> "Tiny rocket with a fearless heart. Loves speed, hates standing still, and dares you to keep up.";
             case BAT -> "Night specialist who hears everything and hides in the shadows. It knows the cave better than the cave knows itself.";
             case PELICAN -> "Iron beak, iron will. Hauls momentum like cargo and hits like a loaded ship.";
+            case RAVEN -> "A shadow on the skyline with a talent for misdirection. It appears, it hits, and then it is already gone.";
         };
     }
 
@@ -10814,6 +10830,7 @@ public class BirdGame3 extends Application {
             case BAT -> "Defeat Vulture in Episode 1 or Card Packs";
             case TITMOUSE -> "Clear Classic with Hummingbird or Card Packs";
             case HEISENBIRD -> "Card Packs";
+            case RAVEN -> "Card Packs";
             default -> "Unlocked by default";
         };
     }
@@ -11875,6 +11892,7 @@ public class BirdGame3 extends Application {
         Runnable render = () -> renderAdventureDialogueFrame(g, titleText, lines[idx[0]]);
 
         StackPane root = new StackPane(canvas);
+        root.getProperties().put("noAutoScale", true);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         canvas.widthProperty().bind(scene.widthProperty());
         canvas.heightProperty().bind(scene.heightProperty());
@@ -12354,6 +12372,7 @@ public class BirdGame3 extends Application {
             case TITMOUSE -> "Volt Titmouse";
             case BAT -> "Moonlit Bat";
             case PELICAN -> "Titan Pelican";
+            case RAVEN -> "Nightshade Raven";
         };
     }
 
@@ -12402,6 +12421,7 @@ public class BirdGame3 extends Application {
             case TITMOUSE -> Color.web("#FFCA28");
             case BAT -> Color.web("#5E35B1");
             case PELICAN -> Color.web("#FFB74D");
+            case RAVEN -> Color.web("#263238");
             case EAGLE -> Color.GOLD;
             case PIGEON -> Color.rgb(18, 18, 18);
         };
@@ -12424,6 +12444,7 @@ public class BirdGame3 extends Application {
             case TITMOUSE -> Color.web("#FFF59D");
             case BAT -> Color.web("#D1C4E9");
             case PELICAN -> Color.web("#FFE0B2");
+            case RAVEN -> Color.web("#B0BEC5");
             case EAGLE -> Color.web("#FFF176");
             case PIGEON -> Color.web("#F44336");
         };
@@ -17054,6 +17075,7 @@ public class BirdGame3 extends Application {
         heisenbirdUnlocked = prefs.getBoolean("char_heisenbird_unlocked", false);
         phoenixUnlocked = prefs.getBoolean("char_phoenix_unlocked", false);
         titmouseUnlocked = prefs.getBoolean("char_titmouse_unlocked", false);
+        ravenUnlocked = prefs.getBoolean("char_raven_unlocked", false);
         musicEnabled = prefs.getBoolean("setting_music", true);
         sfxEnabled = prefs.getBoolean("setting_sfx", true);
         screenShakeEnabled = prefs.getBoolean("setting_shake", true);
@@ -17153,6 +17175,7 @@ public class BirdGame3 extends Application {
         prefs.putBoolean("char_heisenbird_unlocked", heisenbirdUnlocked);
         prefs.putBoolean("char_phoenix_unlocked", phoenixUnlocked);
         prefs.putBoolean("char_titmouse_unlocked", titmouseUnlocked);
+        prefs.putBoolean("char_raven_unlocked", ravenUnlocked);
         prefs.putBoolean("setting_music", musicEnabled);
         prefs.putBoolean("setting_sfx", sfxEnabled);
         prefs.putBoolean("setting_shake", screenShakeEnabled);
