@@ -21,6 +21,7 @@ class LanBirdState {
     boolean loungeActive;
     boolean isCitySkin;
     boolean isNoirSkin;
+    boolean isFreemanSkin;
     boolean isClassicSkin;
     boolean isNovaSkin;
     boolean isDuneSkin;
@@ -115,6 +116,7 @@ class LanBirdState {
         out.writeBoolean(loungeActive);
         out.writeBoolean(isCitySkin);
         out.writeBoolean(isNoirSkin);
+        out.writeBoolean(isFreemanSkin);
         out.writeBoolean(isClassicSkin);
         out.writeBoolean(isNovaSkin);
         out.writeBoolean(isDuneSkin);
@@ -211,6 +213,7 @@ class LanBirdState {
         state.loungeActive = in.readBoolean();
         state.isCitySkin = in.readBoolean();
         state.isNoirSkin = in.readBoolean();
+        state.isFreemanSkin = in.readBoolean();
         state.isClassicSkin = in.readBoolean();
         state.isNovaSkin = in.readBoolean();
         state.isDuneSkin = in.readBoolean();

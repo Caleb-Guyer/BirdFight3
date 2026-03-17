@@ -39,6 +39,7 @@ public class Bird {
     public boolean loungeActive = false;
     public boolean isCitySkin = false;
     public boolean isNoirSkin = false;
+    public boolean isFreemanSkin = false;
     public boolean isClassicSkin = false;
     public boolean isNovaSkin = false;
     public boolean isDuneSkin = false;
@@ -3262,6 +3263,7 @@ public class Bird {
         state.loungeActive = loungeActive;
         state.isCitySkin = isCitySkin;
         state.isNoirSkin = isNoirSkin;
+        state.isFreemanSkin = isFreemanSkin;
         state.isClassicSkin = isClassicSkin;
         state.isNovaSkin = isNovaSkin;
         state.isDuneSkin = isDuneSkin;
@@ -3363,6 +3365,7 @@ public class Bird {
         this.loungeActive = state.loungeActive;
         this.isCitySkin = state.isCitySkin;
         this.isNoirSkin = state.isNoirSkin;
+        this.isFreemanSkin = state.isFreemanSkin;
         this.isClassicSkin = state.isClassicSkin;
         this.isNovaSkin = state.isNovaSkin;
         this.isDuneSkin = state.isDuneSkin;
@@ -3478,6 +3481,7 @@ public class Bird {
         drawHeisenbirdAccessories(g, drawSize);
         drawCitySkin(g);
         drawNoirSkin(g);
+        drawFreemanSkin(g);
         drawBeaconSkin(g, drawSize);
         drawClassicSkinAccent(g, drawSize);
         drawSpecialSkinAccent(g, drawSize);
@@ -4143,6 +4147,8 @@ public class Bird {
         boolean glacierShoebill = (type == BirdGame3.BirdType.SHOEBILL && isGlacierSkin);
         boolean tideVulture = (type == BirdGame3.BirdType.VULTURE && isTideSkin);
         boolean eclipseMockingbird = (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin);
+        boolean freemanPigeon = (type == BirdGame3.BirdType.PIGEON && isFreemanSkin);
+        boolean ravenEyes = (type == BirdGame3.BirdType.RAVEN);
         Color bodyColor;
         Color headColor;
         Color eyeOverride = null;
@@ -4169,6 +4175,10 @@ public class Bird {
             bodyColor = Color.web("#311B92");
             headColor = Color.web("#4A148C");
             eyeOverride = Color.web("#E040FB");
+        } else if (freemanPigeon) {
+            bodyColor = Color.web("#7B7B7B");
+            headColor = Color.web("#9E9E9E");
+            eyeOverride = Color.web("#6D4C41");
         } else if (duneFalcon) {
             bodyColor = Color.web("#D7B98E");
             headColor = Color.web("#E7CFAE");
@@ -4224,11 +4234,19 @@ public class Bird {
             );
         }
         // Titmouse head details are handled by drawTitmouseSpecial when effects are enabled.
+        if (ravenEyes) {
+            double s = sizeMultiplier;
+            double glowX = x + (facingRight ? 48 : 18) * s;
+            double glowY = y + 18 * s;
+            g.setFill(Color.web("#B71C1C").deriveColor(0, 1, 1, 0.35));
+            g.fillOval(glowX, glowY, 29 * s, 29 * s);
+        }
         g.setFill(Color.WHITE);
         g.fillOval(x + (facingRight ? 50 : 20) * sizeMultiplier, y + 20 * sizeMultiplier, 25 * sizeMultiplier, 25 * sizeMultiplier);
         Color eyeColor = classicPalette ? game.classicSkinAccentColor(type) : Color.BLACK;
         if (eyeOverride != null) eyeColor = eyeOverride;
         if (noirPigeon) eyeColor = Color.RED.brighter();
+        if (ravenEyes) eyeColor = Color.web("#D50000");
         g.setFill(eyeColor);
         g.fillOval(x + (facingRight ? 55 : 25) * sizeMultiplier, y + 25 * sizeMultiplier, 15 * sizeMultiplier, 15 * sizeMultiplier);
     }
@@ -4537,6 +4555,42 @@ public class Bird {
                         Color.GRAY.deriveColor(0, 1, 1, 0.35 + Math.random() * 0.25)
                 ));
             }
+        }
+    }
+
+    private void drawFreemanSkin(GraphicsContext g) {
+        if (type == BirdGame3.BirdType.PIGEON && isFreemanSkin) {
+            double s = sizeMultiplier;
+
+            g.setFill(Color.web("#5D4037"));
+            g.fillRoundRect(x + 16 * s, y - 10 * s, 48 * s, 18 * s, 10 * s, 10 * s);
+            g.setFill(Color.web("#4E342E"));
+            g.fillRect(x + 12 * s, y - 2 * s, 56 * s, 6 * s);
+
+            double eyeX = x + (facingRight ? 50 : 20) * s;
+            double eyeY = y + 20 * s;
+            g.setFill(Color.web("#4E342E").deriveColor(0, 1, 1, 0.55));
+            g.fillOval(eyeX, eyeY - 1 * s, 25 * s, 14 * s);
+
+            g.setFill(Color.web("#ECEFF1"));
+            g.fillRect(facingRight ? x + 85 * s : x - 15 * s, y + 45 * s, 20 * s, 4 * s);
+            g.setFill(Color.web("#FF8F00"));
+            g.fillRect(facingRight ? x + 105 * s : x - 35 * s, y + 45 * s, 8 * s, 4 * s);
+
+            if (Math.random() < 0.6) {
+                double smokeX = facingRight ? x + 110 * s : x - 20 * s;
+                double smokeY = y + 40 * s + Math.random() * 12 * s;
+                game.particles.add(new Particle(
+                        smokeX,
+                        smokeY,
+                        (Math.random() - 0.5) * 2.4,
+                        -1.4 - Math.random() * 2.0,
+                        Color.LIGHTGRAY.deriveColor(0, 1, 1, 0.35 + Math.random() * 0.35)
+                ));
+            }
+
+            g.setFill(Color.web("#8D6E63").deriveColor(0, 1, 1, 0.45));
+            g.fillOval(x + 22 * s, y + 54 * s, 20 * s, 12 * s);
         }
     }
 

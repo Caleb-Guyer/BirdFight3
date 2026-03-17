@@ -6,6 +6,7 @@ import javafx.animation.KeyFrame;
 import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.application.Application;
+import javafx.beans.value.ChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Point2D;
@@ -527,6 +528,7 @@ public class BirdGame3 extends Application {
 
     private void fitSceneButtons(Node node) {
         if (node instanceof Button b) {
+            installButtonFontLock(b);
             fitButtonText(b);
         }
         if (node instanceof Parent p) {
@@ -578,6 +580,50 @@ public class BirdGame3 extends Application {
 
         b.setFont(Font.font(current.getFamily(), chosen));
         b.setText(String.join("\n", bestLines));
+        storeLockedFont(b, b.getFont());
+    }
+
+    private void installButtonFontLock(Button b) {
+        if (b == null) return;
+        if (Boolean.TRUE.equals(b.getProperties().get("fontLockInstalled"))) {
+            if (!b.isHover() && !b.isPressed() && !b.isFocused()) {
+                storeLockedFont(b, b.getFont());
+            }
+            return;
+        }
+        b.getProperties().put("fontLockInstalled", true);
+        storeLockedFont(b, b.getFont());
+
+        ChangeListener<Boolean> enforce = (obs, oldVal, newVal) -> enforceLockedFont(b);
+        b.hoverProperty().addListener(enforce);
+        b.focusedProperty().addListener(enforce);
+        b.pressedProperty().addListener(enforce);
+
+        b.fontProperty().addListener((obs, oldFont, newFont) -> {
+            if (Boolean.TRUE.equals(b.getProperties().get("fontLockUpdating"))) return;
+            if (newFont == null) return;
+            if (!b.isHover() && !b.isPressed() && !b.isFocused()) {
+                storeLockedFont(b, newFont);
+                return;
+            }
+            enforceLockedFont(b);
+        });
+    }
+
+    private void storeLockedFont(Button b, Font font) {
+        if (b == null || font == null) return;
+        b.getProperties().put("lockedFont", font);
+    }
+
+    private void enforceLockedFont(Button b) {
+        if (b == null) return;
+        Font locked = (Font) b.getProperties().get("lockedFont");
+        if (locked == null) return;
+        Font current = b.getFont();
+        if (current != null && current.equals(locked)) return;
+        b.getProperties().put("fontLockUpdating", true);
+        b.setFont(locked);
+        b.getProperties().put("fontLockUpdating", false);
     }
 
     private List<String> wrapTextToLines(String text, Font font, double maxWidth) {
@@ -1194,6 +1240,7 @@ public class BirdGame3 extends Application {
     // === SKIN UNLOCKS ===
     public boolean cityPigeonUnlocked = true;
     public boolean noirPigeonUnlocked = false;
+    public boolean freemanPigeonUnlocked = false;
     public boolean beaconPigeonUnlocked = false;
     public boolean trainingModeActive = false;
     private BirdType trainingPlayerBird = BirdType.PIGEON;
@@ -1222,7 +1269,8 @@ public class BirdGame3 extends Application {
     public boolean titmouseUnlocked = false;
     public boolean ravenUnlocked = false;
 
-    public static final int SKIN_COUNT = 3; // City Pigeon + Noir Pigeon + Beacon Pigeon
+    public static final int SKIN_COUNT = 4; // City Pigeon + Noir Pigeon + Freeman Bird + Beacon Pigeon
+    private static final String FREEMAN_PIGEON_SKIN = "FREEMAN_PIGEON";
     private static final String BEACON_PIGEON_SKIN = "BEACON_PIGEON";
     private static final String NOVA_PHOENIX_SKIN = "NOVA_PHOENIX";
     private static final String DUNE_FALCON_SKIN = "DUNE_FALCON";
@@ -3640,6 +3688,353 @@ public class BirdGame3 extends Application {
                                     "Echo hears two heartbeats, and both choose the flock."
                             )
                     }
+            ),
+            new AdventureChapter(
+                    "Chapter 8: The Second Dawn",
+                    "The echo inside the Beacon begins to broadcast beyond the skyline. A raven rides the answering storm, and the Carrion Court's last secret surfaces: the Beacon was meant to be shared, not worn. The keeper must split the light to save the flock.",
+                    new AdventureDialogueLine[] {
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.BAT,
+                                    DialogueSide.LEFT,
+                                    "Pigeon",
+                                    "The echo keeps showing me skies I've never flown."
+                            ),
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.BAT,
+                                    DialogueSide.RIGHT,
+                                    "Bat",
+                                    "Echo hears a horizon beyond the skyline. It isn't a voice. It's a map."
+                            ),
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.PHOENIX,
+                                    DialogueSide.RIGHT,
+                                    "Phoenix",
+                                    "Maps are warnings. Something is coming back for the Beacon."
+                            ),
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.MOCKINGBIRD,
+                                    DialogueSide.RIGHT,
+                                    "Old Sparrow",
+                                    "The Court sealed it with our blood. The lock was never meant for one keeper."
+                            ),
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.EAGLE,
+                                    DialogueSide.RIGHT,
+                                    "Eagle",
+                                    "Then why hunt us?"
+                            ),
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.MOCKINGBIRD,
+                                    DialogueSide.RIGHT,
+                                    "Old Sparrow",
+                                    "To stop the light from choosing a single body."
+                            ),
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.PIGEON,
+                                    DialogueSide.RIGHT,
+                                    "Beacon Echo",
+                                    "One flame dies. A chorus endures."
+                            ),
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.PIGEON,
+                                    DialogueSide.LEFT,
+                                    "Pigeon",
+                                    "Then we make a chorus."
+                            )
+                    },
+                    new AdventureBattle[] {
+                            new AdventureBattle(
+                                    "Battle 1: Signal Break",
+                                    "A raven rides the storm that answers the Beacon. Cut the signal before it spreads.",
+                                    MapType.SKYCLIFFS,
+                                    BirdType.RAVEN,
+                                    "Enemy: Harbinger Raven",
+                                    210,
+                                    1.22,
+                                    1.16,
+                                    null,
+                                    null,
+                                    null,
+                                    new AdventureDialogueLine[] {
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.RAVEN,
+                                                    DialogueSide.RIGHT,
+                                                    "Harbinger Raven",
+                                                    "The Beacon called. I answered."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.RAVEN,
+                                                    DialogueSide.LEFT,
+                                                    "Pigeon",
+                                                    "Then you're the storm on my doorstep."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.RAVEN,
+                                                    DialogueSide.RIGHT,
+                                                    "Harbinger Raven",
+                                                    "I am the warning. The storm follows."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.EAGLE,
+                                                    DialogueSide.RIGHT,
+                                                    "Eagle",
+                                                    "Then we cut the signal."
+                                            )
+                                    },
+                                    new AdventureDialogueLine[] {
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.RAVEN,
+                                                    DialogueSide.RIGHT,
+                                                    "Harbinger Raven",
+                                                    "You're strong... too strong for one body."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.RAVEN,
+                                                    DialogueSide.LEFT,
+                                                    "Pigeon",
+                                                    "Then stop making it a throne."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.BAT,
+                                                    DialogueSide.RIGHT,
+                                                    "Bat",
+                                                    "Echo says the signal spreads."
+                                            )
+                                    },
+                                    new AdventureDialogueLine[] {
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.RAVEN,
+                                                    DialogueSide.RIGHT,
+                                                    "Harbinger Raven",
+                                                    "The beacon chooses you, and the sky pays."
+                                            )
+                                    }
+                            ),
+                            new AdventureBattle(
+                                    "Battle 2: Court Remnant",
+                                    "A last warden of the Carrion Court returns. Learn why they fought the light.",
+                                    MapType.VIBRANT_JUNGLE,
+                                    BirdType.VULTURE,
+                                    "Enemy: Remnant Warden",
+                                    230,
+                                    1.24,
+                                    1.02,
+                                    null,
+                                    null,
+                                    null,
+                                    new AdventureDialogueLine[] {
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.VULTURE,
+                                                    DialogueSide.RIGHT,
+                                                    "Remnant Warden",
+                                                    "We were the Carrion Court. We kept the lock."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.VULTURE,
+                                                    DialogueSide.LEFT,
+                                                    "Pigeon",
+                                                    "You broke the flock."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.VULTURE,
+                                                    DialogueSide.RIGHT,
+                                                    "Remnant Warden",
+                                                    "So the flock wouldn't become a cage."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.PHOENIX,
+                                                    DialogueSide.RIGHT,
+                                                    "Phoenix",
+                                                    "Then you chose fear."
+                                            )
+                                    },
+                                    new AdventureDialogueLine[] {
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.VULTURE,
+                                                    DialogueSide.RIGHT,
+                                                    "Remnant Warden",
+                                                    "Split the light and the storm can't claim you."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.VULTURE,
+                                                    DialogueSide.LEFT,
+                                                    "Pigeon",
+                                                    "Then we split it."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.EAGLE,
+                                                    DialogueSide.RIGHT,
+                                                    "Eagle",
+                                                    "A keeper becomes a chorus."
+                                            )
+                                    },
+                                    new AdventureDialogueLine[] {
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.VULTURE,
+                                                    DialogueSide.RIGHT,
+                                                    "Remnant Warden",
+                                                    "Then the light chooses one, and the rest burn."
+                                            )
+                                    }
+                            ),
+                            new AdventureBattle(
+                                    "Battle 3: Second Dawn",
+                                    "The void wants a single keeper. Refuse the crown and remake the Beacon.",
+                                    MapType.BATTLEFIELD,
+                                    BirdType.RAVEN,
+                                    "Boss: Void Raven",
+                                    260,
+                                    1.36,
+                                    1.1,
+                                    null,
+                                    null,
+                                    null,
+                                    new AdventureDialogueLine[] {
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.RAVEN,
+                                                    DialogueSide.RIGHT,
+                                                    "Void Raven",
+                                                    "Hand me the echo. The Void Roost is hungry."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.RAVEN,
+                                                    DialogueSide.LEFT,
+                                                    "Pigeon",
+                                                    "It's not yours."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.PIGEON,
+                                                    DialogueSide.RIGHT,
+                                                    "Beacon Echo",
+                                                    "I was never yours to carry alone."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.PIGEON,
+                                                    DialogueSide.LEFT,
+                                                    "Pigeon",
+                                                    "Echo... you're not a thing. You're..."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.PIGEON,
+                                                    DialogueSide.RIGHT,
+                                                    "Beacon Echo",
+                                                    "I'm you, after the fall."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.PHOENIX,
+                                                    DialogueSide.RIGHT,
+                                                    "Phoenix",
+                                                    "Then we change the fall."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.EAGLE,
+                                                    DialogueSide.RIGHT,
+                                                    "Eagle",
+                                                    "No throne. No cage. The flock."
+                                            )
+                                    },
+                                    new AdventureDialogueLine[] {
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.RAVEN,
+                                                    DialogueSide.RIGHT,
+                                                    "Void Raven",
+                                                    "A chorus... I can't bind it."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.RAVEN,
+                                                    DialogueSide.LEFT,
+                                                    "Pigeon",
+                                                    "Then fly free."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.PIGEON,
+                                                    DialogueSide.RIGHT,
+                                                    "Beacon Echo",
+                                                    "Light for all."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.BAT,
+                                                    DialogueSide.RIGHT,
+                                                    "Bat",
+                                                    "Echo hears a second dawn."
+                                            )
+                                    },
+                                    new AdventureDialogueLine[] {
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.RAVEN,
+                                                    DialogueSide.RIGHT,
+                                                    "Void Raven",
+                                                    "One keeper. One cage. One end."
+                                            )
+                                    }
+                            )
+                    },
+                    new AdventureDialogueLine[] {
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.PIGEON,
+                                    DialogueSide.LEFT,
+                                    "Pigeon",
+                                    "The echo isn't gone. It's in every wingbeat."
+                            ),
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.PHOENIX,
+                                    DialogueSide.RIGHT,
+                                    "Phoenix",
+                                    "A chorus, not a crown."
+                            ),
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.EAGLE,
+                                    DialogueSide.RIGHT,
+                                    "Eagle",
+                                    "The sky remembers. The flock decides."
+                            ),
+                            new AdventureDialogueLine(
+                                    BirdType.PIGEON,
+                                    BirdType.BAT,
+                                    DialogueSide.RIGHT,
+                                    "Bat",
+                                    "Echo hears the storm pass."
+                            )
+                    }
             )
     };
 
@@ -3783,6 +4178,7 @@ public class BirdGame3 extends Application {
         if (type == BirdType.PIGEON) {
             if (cityPigeonUnlocked) options.add("CITY_PIGEON");
             if (noirPigeonUnlocked) options.add("NOIR_PIGEON");
+            if (freemanPigeonUnlocked) options.add(FREEMAN_PIGEON_SKIN);
             if (beaconPigeonUnlocked) options.add(BEACON_PIGEON_SKIN);
         } else if (type == BirdType.EAGLE) {
             if (eagleSkinUnlocked) options.add("SKY_KING_EAGLE");
@@ -3833,6 +4229,7 @@ public class BirdGame3 extends Application {
         if (type == null || skinKey == null) return null;
         if ("CITY_PIGEON".equals(skinKey) && type == BirdType.PIGEON && cityPigeonUnlocked) return skinKey;
         if ("NOIR_PIGEON".equals(skinKey) && type == BirdType.PIGEON && noirPigeonUnlocked) return skinKey;
+        if (FREEMAN_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON && freemanPigeonUnlocked) return skinKey;
         if (BEACON_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON && beaconPigeonUnlocked) return skinKey;
         if ("SKY_KING_EAGLE".equals(skinKey) && type == BirdType.EAGLE && eagleSkinUnlocked) return skinKey;
         if (NOVA_PHOENIX_SKIN.equals(skinKey) && type == BirdType.PHOENIX && novaPhoenixUnlocked) return skinKey;
@@ -3857,6 +4254,7 @@ public class BirdGame3 extends Application {
         if (skinKey == null) return "SKIN: BASE";
         if ("CITY_PIGEON".equals(skinKey)) return "SKIN: CITY PIGEON";
         if ("NOIR_PIGEON".equals(skinKey)) return "SKIN: NOIR PIGEON";
+        if (FREEMAN_PIGEON_SKIN.equals(skinKey)) return "SKIN: FREEMAN BIRD";
         if (BEACON_PIGEON_SKIN.equals(skinKey)) return "SKIN: BEACON PIGEON";
         if ("SKY_KING_EAGLE".equals(skinKey)) return "SKIN: SKY KING";
         if (NOVA_PHOENIX_SKIN.equals(skinKey)) return "SKIN: NOVA PHOENIX";
@@ -3878,6 +4276,7 @@ public class BirdGame3 extends Application {
         if (bird == null || type == null) return;
         bird.isCitySkin = false;
         bird.isNoirSkin = false;
+        bird.isFreemanSkin = false;
         bird.isClassicSkin = false;
         bird.isNovaSkin = false;
         bird.isDuneSkin = false;
@@ -3897,6 +4296,7 @@ public class BirdGame3 extends Application {
             if (BEACON_PIGEON_SKIN.equals(skinKey) && beaconPigeonUnlocked) bird.isBeaconSkin = true;
             else if ("CITY_PIGEON".equals(skinKey)) bird.isCitySkin = true;
             else if ("NOIR_PIGEON".equals(skinKey)) bird.isNoirSkin = true;
+            else if (FREEMAN_PIGEON_SKIN.equals(skinKey) && freemanPigeonUnlocked) bird.isFreemanSkin = true;
             return;
         }
         if (type == BirdType.EAGLE) {
@@ -3956,6 +4356,7 @@ public class BirdGame3 extends Application {
         if (bird == null || type == null) return;
         bird.isCitySkin = false;
         bird.isNoirSkin = false;
+        bird.isFreemanSkin = false;
         bird.isClassicSkin = false;
         bird.isNovaSkin = false;
         bird.isDuneSkin = false;
@@ -3975,6 +4376,7 @@ public class BirdGame3 extends Application {
             if (BEACON_PIGEON_SKIN.equals(skinKey)) bird.isBeaconSkin = true;
             else if ("CITY_PIGEON".equals(skinKey)) bird.isCitySkin = true;
             else if ("NOIR_PIGEON".equals(skinKey)) bird.isNoirSkin = true;
+            else if (FREEMAN_PIGEON_SKIN.equals(skinKey)) bird.isFreemanSkin = true;
             return;
         }
         if (type == BirdType.EAGLE) {
@@ -4037,6 +4439,7 @@ public class BirdGame3 extends Application {
         if (type == BirdType.PIGEON && name.contains("echo")) return BEACON_PIGEON_SKIN;
         if (type == BirdType.PIGEON && name.contains("beacon")) return BEACON_PIGEON_SKIN;
         if (type == BirdType.PIGEON && name.contains("noir")) return "NOIR_PIGEON";
+        if (type == BirdType.PIGEON && name.contains("freeman")) return FREEMAN_PIGEON_SKIN;
         if (type == BirdType.PIGEON && name.contains("city")) return "CITY_PIGEON";
         if (type == BirdType.EAGLE && name.contains("sky king")) return "SKY_KING_EAGLE";
         if (type == BirdType.HUMMINGBIRD && name.contains("neon")) return classicSkinDataKey(type);
@@ -4055,6 +4458,7 @@ public class BirdGame3 extends Application {
         if (type == BirdType.PIGEON) {
             if (bird.isCitySkin) return "CITY_PIGEON";
             if (bird.isNoirSkin) return "NOIR_PIGEON";
+            if (bird.isFreemanSkin) return FREEMAN_PIGEON_SKIN;
             if (bird.isBeaconSkin) return BEACON_PIGEON_SKIN;
             return null;
         }
@@ -5167,6 +5571,9 @@ public class BirdGame3 extends Application {
         } else if ("NOIR_PIGEON".equals(skinKey)) {
             base = Color.rgb(18, 18, 18);
             accent = Color.web("#F44336");
+        } else if (FREEMAN_PIGEON_SKIN.equals(skinKey)) {
+            base = Color.web("#7B7B7B");
+            accent = Color.web("#6D4C41");
         } else if (BEACON_PIGEON_SKIN.equals(skinKey)) {
             base = Color.web("#FFE082");
             accent = Color.web("#1E88E5");
@@ -9271,6 +9678,7 @@ public class BirdGame3 extends Application {
         if (MAP_BATTLEFIELD_KEY.equals(key)) return battlefieldMapUnlocked;
         if ("CITY_PIGEON".equals(key)) return cityPigeonUnlocked;
         if ("NOIR_PIGEON".equals(key)) return noirPigeonUnlocked;
+        if (FREEMAN_PIGEON_SKIN.equals(key)) return freemanPigeonUnlocked;
         if ("SKY_KING_EAGLE".equals(key)) return eagleSkinUnlocked;
         if (NOVA_PHOENIX_SKIN.equals(key)) return novaPhoenixUnlocked;
         if (DUNE_FALCON_SKIN.equals(key)) return duneFalconUnlocked;
@@ -9350,6 +9758,11 @@ public class BirdGame3 extends Application {
         }
         if ("NOIR_PIGEON".equals(key)) {
             unlockClassicReward(BirdType.PIGEON);
+            return;
+        }
+        if (FREEMAN_PIGEON_SKIN.equals(key)) {
+            freemanPigeonUnlocked = true;
+            queueUnlockCardForSkin(BirdType.PIGEON, FREEMAN_PIGEON_SKIN);
             return;
         }
         if ("SKY_KING_EAGLE".equals(key)) {
@@ -9438,6 +9851,7 @@ public class BirdGame3 extends Application {
         if (MAP_BATTLEFIELD_KEY.equals(key)) return "Battlefield Map";
         if ("CITY_PIGEON".equals(key)) return "City Pigeon";
         if ("NOIR_PIGEON".equals(key)) return "Noir Pigeon";
+        if (FREEMAN_PIGEON_SKIN.equals(key)) return "Freeman Bird";
         if (BEACON_PIGEON_SKIN.equals(key)) return "Beacon Pigeon";
         if ("SKY_KING_EAGLE".equals(key)) return "Sky King Eagle";
         if (NOVA_PHOENIX_SKIN.equals(key)) return "Nova Phoenix";
@@ -9663,6 +10077,7 @@ public class BirdGame3 extends Application {
         ShopPreview cityPreview = new ShopPreview(BirdType.PIGEON, "CITY_PIGEON", null);
         ShopPreview circuitPreview = new ShopPreview(BirdType.TITMOUSE, CIRCUIT_TITMOUSE_SKIN, null);
         ShopPreview noirPreview = new ShopPreview(BirdType.PIGEON, "NOIR_PIGEON", null);
+        ShopPreview freemanPreview = new ShopPreview(BirdType.PIGEON, FREEMAN_PIGEON_SKIN, null);
         ShopPreview skyPreview = new ShopPreview(BirdType.EAGLE, "SKY_KING_EAGLE", null);
         ShopPreview prismPreview = new ShopPreview(BirdType.RAZORBILL, PRISM_RAZORBILL_SKIN, null);
         ShopPreview novaPreview = new ShopPreview(BirdType.PHOENIX, NOVA_PHOENIX_SKIN, null);
@@ -9675,7 +10090,7 @@ public class BirdGame3 extends Application {
 
         List<ShopPreview> commonSkins = List.of(dunePreview, sunflarePreview);
         List<ShopPreview> uncommonSkins = List.of(mintPreview, glacierPreview);
-        List<ShopPreview> rareSkins = List.of(cityPreview, circuitPreview, tidePreview);
+        List<ShopPreview> rareSkins = List.of(cityPreview, circuitPreview, tidePreview, freemanPreview);
         List<ShopPreview> epicSkins = List.of(noirPreview, skyPreview, prismPreview, eclipsePreview);
         List<ShopPreview> legendarySkins = List.of(novaPreview, auroraPreview, umbraPreview);
 
@@ -10253,6 +10668,7 @@ public class BirdGame3 extends Application {
         if (key == null) return "Skin";
         if ("CITY_PIGEON".equals(key)) return "City Pigeon";
         if ("NOIR_PIGEON".equals(key)) return "Noir Pigeon";
+        if (FREEMAN_PIGEON_SKIN.equals(key)) return "Freeman Bird";
         if (BEACON_PIGEON_SKIN.equals(key)) return "Beacon Pigeon";
         if ("SKY_KING_EAGLE".equals(key)) return "Sky King Eagle";
         if (NOVA_PHOENIX_SKIN.equals(key)) return "Nova Phoenix";
@@ -10455,10 +10871,12 @@ public class BirdGame3 extends Application {
 
         for (ItemEntry entry : birdBookItems()) {
             Color accent = entry.powerUp != null ? entry.powerUp.color : Color.web("#FFD54F");
+            int ownedCount = itemOwnedCount(entry);
+            String label = entry.name + "\nOWNED: " + ownedCount;
             Node icon = entry.unlocked
                     ? (entry.isContinue ? buildContinueTileIcon() : (entry.isCoin ? buildCoinTileIcon() : buildPowerUpTileIcon(entry.powerUp)))
                     : buildLockedTileIcon(accent);
-            Button tile = createBirdBookTile(grid, entry.name, icon, entry.unlocked, accent,
+            Button tile = createBirdBookTile(grid, label, icon, entry.unlocked, accent,
                     () -> showItemSidebar(sidebar, entry));
             grid.getChildren().add(tile);
 
@@ -10730,6 +11148,9 @@ public class BirdGame3 extends Application {
         Label name = bookTitle(entry.name, 30);
         Label status = bookStatus(entry.unlocked);
         sidebar.getChildren().addAll(name, status);
+        if (entry.isCoin || entry.isContinue) {
+            sidebar.getChildren().add(bookBody("OWNED: " + itemOwnedCount(entry), 18));
+        }
         if (!entry.unlocked) {
             sidebar.getChildren().add(bookBody("HOW TO GET: " + entry.howToGet, 18));
             return;
@@ -11126,6 +11547,7 @@ public class BirdGame3 extends Application {
         if (key == null) return false;
         if ("CITY_PIGEON".equals(key)) return cityPigeonUnlocked;
         if ("NOIR_PIGEON".equals(key)) return noirPigeonUnlocked;
+        if (FREEMAN_PIGEON_SKIN.equals(key)) return freemanPigeonUnlocked;
         if (BEACON_PIGEON_SKIN.equals(key)) return beaconPigeonUnlocked;
         if ("SKY_KING_EAGLE".equals(key)) return eagleSkinUnlocked;
         if (NOVA_PHOENIX_SKIN.equals(key)) return novaPhoenixUnlocked;
@@ -11147,6 +11569,7 @@ public class BirdGame3 extends Application {
         if (key == null) return "Card Packs";
         if ("CITY_PIGEON".equals(key)) return "Unlocked by default";
         if ("NOIR_PIGEON".equals(key)) return "Complete Pigeon Episode or Classic with Pigeon, or Card Packs";
+        if (FREEMAN_PIGEON_SKIN.equals(key)) return "Card Packs";
         if (BEACON_PIGEON_SKIN.equals(key)) return "Complete Adventure Chapter 5: Signal of the Beacon";
         if ("SKY_KING_EAGLE".equals(key)) return "Complete Pelican Episode or Classic with Eagle, or Card Packs";
         if (key.startsWith("CLASSIC_SKIN_")) {
@@ -11159,6 +11582,7 @@ public class BirdGame3 extends Application {
         if ("CITY_PIGEON".equals(key)) return "Gold-plated city swagger for the rooftop boss. Every flap looks expensive and every landing sounds like a coin drop.";
         if ("NOIR_PIGEON".equals(key)) return "Trench-coat noir vibe with a hardboiled stare. Smells like rain, neon, and unfinished business.";
         if (BEACON_PIGEON_SKIN.equals(key)) return "Beacon-lit feathers with a steady glow. The signal chose a keeper and the skyline can feel it.";
+        if (FREEMAN_PIGEON_SKIN.equals(key)) return "A bleary-eyed pigeon with a worn beanie and a constant cigarette. Very addicted to smoking.";
         if ("SKY_KING_EAGLE".equals(key)) return "Crowned and gilded, a ruler of the highest drafts. The sky feels smaller when this one arrives.";
         if (DUNE_FALCON_SKIN.equals(key)) return "Sandstorm tones and desert grit. A heat-haze blur that hits before you hear it.";
         if (MINT_PENGUIN_SKIN.equals(key)) return "Fresh icy sheen with a minty chill. Slides look cleaner and landings feel colder.";
@@ -11183,7 +11607,7 @@ public class BirdGame3 extends Application {
         if (SUNFLARE_HUMMINGBIRD_SKIN.equals(key)) return "COMMON";
         if (MINT_PENGUIN_SKIN.equals(key)) return "UNCOMMON";
         if (GLACIER_SHOEBILL_SKIN.equals(key)) return "UNCOMMON";
-        if ("CITY_PIGEON".equals(key) || CIRCUIT_TITMOUSE_SKIN.equals(key)) return "RARE";
+        if ("CITY_PIGEON".equals(key) || CIRCUIT_TITMOUSE_SKIN.equals(key) || FREEMAN_PIGEON_SKIN.equals(key)) return "RARE";
         if (TIDE_VULTURE_SKIN.equals(key)) return "RARE";
         if ("NOIR_PIGEON".equals(key) || "SKY_KING_EAGLE".equals(key) || PRISM_RAZORBILL_SKIN.equals(key)) return "EPIC";
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(key)) return "EPIC";
@@ -11205,6 +11629,13 @@ public class BirdGame3 extends Application {
         };
     }
 
+    private int itemOwnedCount(ItemEntry entry) {
+        if (entry == null) return 0;
+        if (entry.isCoin) return Math.max(0, birdCoins);
+        if (entry.isContinue) return Math.max(0, classicContinues);
+        return 0;
+    }
+
     private List<ItemEntry> birdBookItems() {
         List<ItemEntry> items = new ArrayList<>();
         items.add(new ItemEntry(
@@ -11216,12 +11647,11 @@ public class BirdGame3 extends Application {
                 false,
                 true
         ));
-        boolean hasContinue = classicContinues > 0;
         items.add(new ItemEntry(
                 "Classic Continue",
                 "Spend after 3 Classic defeats to retry the encounter and keep the run alive. Consumed on use.",
                 "Card Packs",
-                hasContinue,
+                true,
                 null,
                 true,
                 false
@@ -11257,6 +11687,8 @@ public class BirdGame3 extends Application {
                 skinDescription(CIRCUIT_TITMOUSE_SKIN, BirdType.TITMOUSE), skinHowToGet(CIRCUIT_TITMOUSE_SKIN, BirdType.TITMOUSE)));
         skins.add(new SkinEntry(BirdType.PIGEON, "NOIR_PIGEON", "Noir Pigeon",
                 skinDescription("NOIR_PIGEON", BirdType.PIGEON), skinHowToGet("NOIR_PIGEON", BirdType.PIGEON)));
+        skins.add(new SkinEntry(BirdType.PIGEON, FREEMAN_PIGEON_SKIN, "Freeman Bird",
+                skinDescription(FREEMAN_PIGEON_SKIN, BirdType.PIGEON), skinHowToGet(FREEMAN_PIGEON_SKIN, BirdType.PIGEON)));
         skins.add(new SkinEntry(BirdType.PIGEON, BEACON_PIGEON_SKIN, "Beacon Pigeon",
                 skinDescription(BEACON_PIGEON_SKIN, BirdType.PIGEON), skinHowToGet(BEACON_PIGEON_SKIN, BirdType.PIGEON)));
         skins.add(new SkinEntry(BirdType.EAGLE, "SKY_KING_EAGLE", "Sky King Eagle",
@@ -11631,7 +12063,11 @@ public class BirdGame3 extends Application {
         }
         final BirdType[] selected = new BirdType[]{initial};
         if (battle.cpuLevel < 1 || battle.cpuLevel > 9) battle.cpuLevel = 5;
-        final int[] cpuLevel = new int[]{battle.cpuLevel};
+        final int[] difficultyLevels = new int[]{3, 5, 7};
+        final String[] difficultyLabels = new String[]{"EASY", "MEDIUM", "HARD"};
+        int normalizedCpu = battle.cpuLevel <= 3 ? 3 : (battle.cpuLevel <= 6 ? 5 : 7);
+        battle.cpuLevel = normalizedCpu;
+        final int[] difficultyIndex = new int[]{normalizedCpu <= 3 ? 0 : (normalizedCpu <= 5 ? 1 : 2)};
         String initialSkin = normalizeAdventureSkinChoice(initial, adventureSelectedSkinKey);
         final String[] selectedSkin = new String[]{initialSkin};
         final boolean[] selectorLocked = new boolean[]{initial != null};
@@ -11680,7 +12116,8 @@ public class BirdGame3 extends Application {
         selectedLabel.setTextFill(Color.web("#FAFAFA"));
 
         Button skinBtn = uiFactory.action("SKIN: BASE", 520, 90, 30, "#37474F", 22, () -> {});
-        Button cpuBtn = uiFactory.action("CPU LEVEL: " + cpuLevel[0], 320, 90, 30, "#455A64", 22, () -> {});
+        Button difficultyBtn = uiFactory.action("DIFFICULTY\n" + difficultyLabels[difficultyIndex[0]], 320, 90, 28, "#455A64", 22, () -> {});
+        difficultyBtn.getProperties().put("origText", difficultyBtn.getText());
         Runnable refreshSkin = () -> {
             BirdType pick = selected[0];
             if (pick == null) {
@@ -11710,15 +12147,16 @@ public class BirdGame3 extends Application {
             skinBtn.setText(adventureSkinLabel(selected[0], selectedSkin[0]));
         });
 
-        cpuBtn.setOnAction(e -> {
+        difficultyBtn.setOnAction(e -> {
             playButtonClick();
-            cpuLevel[0] = cpuLevel[0] % 9 + 1;
-            battle.cpuLevel = cpuLevel[0];
-            cpuBtn.setText("CPU LEVEL: " + cpuLevel[0]);
+            difficultyIndex[0] = (difficultyIndex[0] + 1) % difficultyLabels.length;
+            battle.cpuLevel = difficultyLevels[difficultyIndex[0]];
+            difficultyBtn.setText("DIFFICULTY\n" + difficultyLabels[difficultyIndex[0]]);
+            difficultyBtn.getProperties().put("origText", difficultyBtn.getText());
         });
 
         refreshSkin.run();
-        FlowPane optionRow = new FlowPane(16, 12, skinBtn, cpuBtn);
+        FlowPane optionRow = new FlowPane(16, 12, skinBtn, difficultyBtn);
         optionRow.setAlignment(Pos.CENTER);
         optionRow.setPrefWrapLength(rightCardInnerWidth);
         optionRow.setPrefWidth(rightCardInnerWidth);
@@ -11823,7 +12261,7 @@ public class BirdGame3 extends Application {
             playButtonClick();
             adventureSelectedBird = selected[0];
             adventureSelectedSkinKey = selectedSkin[0];
-            battle.cpuLevel = cpuLevel[0];
+            battle.cpuLevel = difficultyLevels[difficultyIndex[0]];
             startAdventureBattle(stage);
         });
 
@@ -13013,12 +13451,12 @@ public class BirdGame3 extends Application {
                     pickClassicMap(usedMaps),
                     pickClassicMutator(MatchMutator.CROW_SURGE, MatchMutator.RAGE_FRENZY),
                     pickClassicTwist(ClassicTwist.CROW_CARNIVAL, ClassicTwist.SHADOW_CACHE, ClassicTwist.MEDIC_CACHE),
-                    88 * 60,
+                    96 * 60,
                     new ClassicFighter[0],
                     new ClassicFighter[]{
-                            classicFighter(r3a, "Pack Wing: " + r3a.name, 86, 0.9, 1.05),
-                            classicFighter(r3b, "Pack Wing: " + r3b.name, 84, 0.9, 1.05),
-                            classicFighter(r3c, "Pack Wing: " + r3c.name, 82, 0.9, 1.06)
+                            classicFighter(r3a, "Pack Wing: " + r3a.name, 78, 0.84, 1.0),
+                            classicFighter(r3b, "Pack Wing: " + r3b.name, 76, 0.84, 1.0),
+                            classicFighter(r3c, "Pack Wing: " + r3c.name, 74, 0.84, 1.02)
                     },
                     false
             ));
@@ -13057,12 +13495,12 @@ public class BirdGame3 extends Application {
                     pickClassicMap(usedMaps),
                     pickClassicMutator(MatchMutator.CROW_SURGE, MatchMutator.TURBO_BRAWL),
                     pickClassicTwist(ClassicTwist.CROW_CARNIVAL, ClassicTwist.SHOCK_DROPS, ClassicTwist.OVERCHARGE_FURY),
-                    90 * 60,
+                    98 * 60,
                     new ClassicFighter[0],
                     new ClassicFighter[]{
-                            classicFighter(r4a, "Gauntlet Wing: " + r4a.name, 92, 0.88, 0.96),
-                            classicFighter(r4b, "Gauntlet Wing: " + r4b.name, 90, 0.86, 0.98),
-                            classicFighter(r4c, "Gauntlet Wing: " + r4c.name, 88, 0.85, 1.0)
+                            classicFighter(r4a, "Gauntlet Wing: " + r4a.name, 84, 0.82, 0.94),
+                            classicFighter(r4b, "Gauntlet Wing: " + r4b.name, 82, 0.8, 0.96),
+                            classicFighter(r4c, "Gauntlet Wing: " + r4c.name, 80, 0.8, 0.98)
                     },
                     false
             ));
@@ -13097,11 +13535,11 @@ public class BirdGame3 extends Application {
                     pickClassicMap(usedMaps),
                     pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.OVERCHARGE_BRAWL),
                     pickClassicTwist(ClassicTwist.TITAN_CACHE, ClassicTwist.RAGE_RITUAL, ClassicTwist.MEDIC_CACHE),
-                    100 * 60,
+                    105 * 60,
                     new ClassicFighter[0],
                     new ClassicFighter[]{
-                            classicBossFighter(miniBoss, "Boss: " + miniBoss.name, 180, 1.22, 1.1),
-                            classicFighter(support, "Escort: " + support.name, 120, 1.05, 1.1)
+                            classicBossFighter(miniBoss, "Boss: " + miniBoss.name, 165, 1.14, 1.06),
+                            classicFighter(support, "Escort: " + support.name, 105, 0.98, 1.03)
                     },
                     true
             ));
@@ -13138,12 +13576,12 @@ public class BirdGame3 extends Application {
                     pickClassicMap(usedMaps),
                     pickClassicMutator(MatchMutator.TURBO_BRAWL, MatchMutator.CROW_SURGE, MatchMutator.TITAN_RUMBLE),
                     pickClassicTwist(ClassicTwist.TITAN_CACHE, ClassicTwist.WIND_RALLY, ClassicTwist.RAGE_RITUAL, ClassicTwist.MEDIC_CACHE),
-                    110 * 60,
+                    118 * 60,
                     new ClassicFighter[0],
                     new ClassicFighter[]{
-                            classicBossFighter(boss, "Boss: " + boss.name, 220, 1.34, 1.1),
-                            classicFighterWithCpu(lieutenant, "Elite: " + lieutenant.name, 90, 1.18, 1.12, 2),
-                            classicFighterWithCpu(elite, "Elite: " + elite.name, 80, 1.16, 1.12, 2)
+                            classicBossFighter(boss, "Boss: " + boss.name, 200, 1.24, 1.06),
+                            classicFighterWithCpu(lieutenant, "Elite: " + lieutenant.name, 80, 1.08, 1.06, 1),
+                            classicFighterWithCpu(elite, "Elite: " + elite.name, 72, 1.06, 1.06, 1)
                     },
                     true
             ));
@@ -15061,11 +15499,12 @@ public class BirdGame3 extends Application {
                 Object currentData = box.getUserData();
 
                 // === PIGEON SKIN CYCLER ===
-                if (bt == BirdType.PIGEON && (cityPigeonUnlocked || noirPigeonUnlocked || beaconPigeonUnlocked)) {
+                if (bt == BirdType.PIGEON && (cityPigeonUnlocked || noirPigeonUnlocked || freemanPigeonUnlocked || beaconPigeonUnlocked)) {
                     List<Object> cycle = new ArrayList<>();
                     cycle.add(BirdType.PIGEON);
                     if (cityPigeonUnlocked) cycle.add("CITY_PIGEON");
                     if (noirPigeonUnlocked) cycle.add("NOIR_PIGEON");
+                    if (freemanPigeonUnlocked) cycle.add(FREEMAN_PIGEON_SKIN);
                     if (beaconPigeonUnlocked) cycle.add(BEACON_PIGEON_SKIN);
 
                     int idx = cycle.indexOf(currentData);
@@ -15084,6 +15523,10 @@ public class BirdGame3 extends Application {
                         selected.setText("Selected: Noir Pigeon (Skin)");
                         box.setUserData("NOIR_PIGEON");
                         b.setStyle("-fx-background-color: #111111; -fx-text-fill: #F44336; -fx-font-weight: bold;");
+                    } else if (FREEMAN_PIGEON_SKIN.equals(next)) {
+                        selected.setText("Selected: Freeman Bird (Skin)");
+                        box.setUserData(FREEMAN_PIGEON_SKIN);
+                        b.setStyle("-fx-background-color: #8D6E63; -fx-text-fill: #FFF8E1; -fx-font-weight: bold;");
                     } else if (BEACON_PIGEON_SKIN.equals(next)) {
                         selected.setText("Selected: Beacon Pigeon (Skin)");
                         box.setUserData(BEACON_PIGEON_SKIN);
@@ -17346,6 +17789,7 @@ public class BirdGame3 extends Application {
         battlefieldMapUnlocked = prefs.getBoolean("map_battlefield_unlocked", false);
         cityPigeonUnlocked = true;
         noirPigeonUnlocked = prefs.getBoolean("skin_noirpigeon", false);
+        freemanPigeonUnlocked = prefs.getBoolean("skin_freeman_pigeon", false);
         beaconPigeonUnlocked = prefs.getBoolean("skin_beacon_pigeon", false);
         eagleSkinUnlocked = prefs.getBoolean("skin_eagle", true);
         novaPhoenixUnlocked = prefs.getBoolean("skin_nova_phoenix", false);
@@ -17446,6 +17890,7 @@ public class BirdGame3 extends Application {
         prefs.putBoolean("map_battlefield_unlocked", battlefieldMapUnlocked);
         prefs.putBoolean("skin_citypigeon", cityPigeonUnlocked);
         prefs.putBoolean("skin_noirpigeon", noirPigeonUnlocked);
+        prefs.putBoolean("skin_freeman_pigeon", freemanPigeonUnlocked);
         prefs.putBoolean("skin_beacon_pigeon", beaconPigeonUnlocked);
         prefs.putBoolean("skin_eagle", eagleSkinUnlocked);
         prefs.putBoolean("skin_nova_phoenix", novaPhoenixUnlocked);
