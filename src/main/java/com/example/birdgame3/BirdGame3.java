@@ -152,6 +152,7 @@ public class BirdGame3 extends Application {
 
     private boolean isPaused = false;
     private boolean debugHudEnabled = false;
+    private boolean consoleHighlightActive = false;
     private long matchStartNano = 0L;
     private boolean balanceOutcomeRecorded = false;
     private final Deque<UnlockCard> pendingUnlockCards = new ArrayDeque<>();
@@ -410,6 +411,7 @@ public class BirdGame3 extends Application {
         scene.heightProperty().addListener((obs, oldV, newV) -> fitSceneButtons(scene.getRoot()));
         applyFocusRingStyle(scene);
         scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+            setConsoleHighlightActive(false, scene);
             if (!(e.getTarget() instanceof Node target)) return;
             if (isInteractiveTarget(target)) return;
             Node focus = scene.getFocusOwner();
@@ -1063,9 +1065,7 @@ public class BirdGame3 extends Application {
         String textColor = active ? "#0A0A0A" : "white";
         String weight = active ? "bold" : "normal";
         tab.setStyle("-fx-background-color: " + color + "; -fx-text-fill: " + textColor + "; -fx-background-radius: 18; -fx-font-weight: " + weight + ";");
-        if (tab.isFocused()) {
-            highlightControlSimple(tab);
-        }
+        updateControlHighlight(tab);
     }
 
     private void confirmExitGame(Stage stage) {
@@ -1167,10 +1167,69 @@ public class BirdGame3 extends Application {
 
     // === WIIMOTE HIGHLIGHT ===
     private void applyConsoleHighlight(Scene scene) {
-        scene.focusOwnerProperty().addListener((obs, oldFocus, newFocus) -> {
-            if (oldFocus instanceof Control oldCtrl) restoreControl(oldCtrl);
-            if (newFocus instanceof Control newCtrl) highlightControlSimple(newCtrl);
-        });
+        if (scene == null) return;
+        if (!Boolean.TRUE.equals(scene.getProperties().get("consoleHighlightInstalled"))) {
+            scene.getProperties().put("consoleHighlightInstalled", true);
+            scene.focusOwnerProperty().addListener((obs, oldFocus, newFocus) -> {
+                if (oldFocus instanceof Control oldCtrl) updateControlHighlight(oldCtrl);
+                if (newFocus instanceof Control newCtrl) updateControlHighlight(newCtrl);
+            });
+            scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> setConsoleHighlightActive(true, scene));
+            scene.addEventFilter(MouseEvent.MOUSE_MOVED, e -> setConsoleHighlightActive(false, scene));
+            scene.addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> setConsoleHighlightActive(false, scene));
+            scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> setConsoleHighlightActive(false, scene));
+        }
+        refreshSceneHighlights(scene);
+    }
+
+    private void setConsoleHighlightActive(boolean active, Scene scene) {
+        if (consoleHighlightActive == active) return;
+        consoleHighlightActive = active;
+        refreshSceneHighlights(scene);
+    }
+
+    private void refreshSceneHighlights(Scene scene) {
+        if (scene == null) return;
+        installHighlightHandlers(scene.getRoot());
+    }
+
+    private void installHighlightHandlers(Node node) {
+        if (node == null) return;
+        if (node instanceof Control ctrl) {
+            if (!Boolean.TRUE.equals(ctrl.getProperties().get("uiHighlightInstalled"))) {
+                ctrl.getProperties().put("uiHighlightInstalled", true);
+                ctrl.hoverProperty().addListener((obs, oldVal, newVal) -> updateControlHighlight(ctrl));
+                ctrl.focusedProperty().addListener((obs, oldVal, newVal) -> updateControlHighlight(ctrl));
+                ctrl.disabledProperty().addListener((obs, oldVal, newVal) -> updateControlHighlight(ctrl));
+            }
+            updateControlHighlight(ctrl);
+        }
+        if (node instanceof ScrollPane scroll && scroll.getContent() != null) {
+            installHighlightHandlers(scroll.getContent());
+        }
+        if (node instanceof Parent p) {
+            for (Node child : p.getChildrenUnmodifiable()) {
+                installHighlightHandlers(child);
+            }
+        }
+    }
+
+    private void updateControlHighlight(Control ctrl) {
+        if (ctrl == null) return;
+        if (!isHighlightEligible(ctrl)) {
+            restoreControl(ctrl);
+            return;
+        }
+        boolean shouldHighlight = ctrl.isHover() || (consoleHighlightActive && ctrl.isFocused());
+        if (shouldHighlight) {
+            highlightControlSimple(ctrl);
+        } else {
+            restoreControl(ctrl);
+        }
+    }
+
+    private boolean isHighlightEligible(Control ctrl) {
+        return ctrl.isFocusTraversable() && !ctrl.isDisabled();
     }
 
     private void highlightControlSimple(Control ctrl) {
