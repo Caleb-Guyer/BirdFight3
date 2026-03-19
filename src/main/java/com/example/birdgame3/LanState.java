@@ -82,6 +82,7 @@ class LanState {
             out.writeDouble(c.y);
             out.writeInt(c.age);
             out.writeInt(c.ownerIndex);
+            out.writeBoolean(c.hasCrown);
         }
     }
 
@@ -162,6 +163,7 @@ class LanState {
             c.y = in.readDouble();
             c.age = in.readInt();
             c.ownerIndex = in.readInt();
+            c.hasCrown = in.readBoolean();
             state.crowMinions.add(c);
         }
         return state;
@@ -200,5 +202,6 @@ class LanState {
         double y;
         int age;
         int ownerIndex;
+        boolean hasCrown;
     }
 }

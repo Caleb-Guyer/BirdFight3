@@ -83,6 +83,16 @@ public class BirdGame3 extends Application {
     private static final Insets MENU_PADDING = new Insets(60, 80, 60, 80);
     private static final double MENU_GAP = 24;
     private static final double MENU_TEXT_MAX_WIDTH = 1100;
+    private static final Font HUD_SCORE_FONT = Font.font("Arial Black", 32);
+    private static final Font HUD_MUTATOR_FONT = Font.font("Arial Black", 24);
+    private static final Font HUD_CLASSIC_TITLE_FONT = Font.font("Arial Black", 22);
+    private static final Font HUD_CLASSIC_RULES_FONT = Font.font("Consolas", 18);
+    private static final Font HUD_COMP_TITLE_FONT = Font.font("Arial Black", 22);
+    private static final Font HUD_COMP_LINE_FONT = Font.font("Consolas", 21);
+    private static final Font HUD_TIMER_FONT = Font.font("Arial Black", 48);
+    private static final Font HUD_FEED_FONT = Font.font("Arial Black", 26);
+    private static final Font HUD_CONTROLS_FONT = Font.font(22);
+    private static final Font HUD_HEALTH_FONT = Font.font("Arial Black", 28);
 
     final Set<KeyCode> pressedKeys = new HashSet<>();
     public Bird[] players = new Bird[4];
@@ -105,6 +115,7 @@ public class BirdGame3 extends Application {
     private boolean teamModeEnabled = false;
     private final int[] playerTeams = new int[]{1, 2, 1, 2};
     private final Random random = new Random();
+    private final Random renderRandom = new Random();
     private long lastPowerUpSpawnTime = 0;
     public static final long POWERUP_SPAWN_INTERVAL = 1_000_000_000L * 8; // every 8 seconds
     private static final int MUTATOR_BUFF_FRAMES = COMPETITION_DURATION_FRAMES * 2;
@@ -228,6 +239,9 @@ public class BirdGame3 extends Application {
     // === MAP + DYNAMIC CAMERA ===
     public static final double WORLD_WIDTH = 6000;
     public static final double WORLD_HEIGHT = 3000;
+    private static final double[] FOREST_TREE_X = {800, 2100, 3400, 4800, 5600};
+    private static final double[] JUNGLE_TREE_X = {600, 1600, 2600, 3600, 4600, 5400};
+    private static final double[] MOUNTAIN_X = {0, 800, 1800, 2800, 3800, 4800, WORLD_WIDTH};
 
     // Camera state
     private double camX = 0, camY = 0;
@@ -4651,8 +4665,9 @@ public class BirdGame3 extends Application {
         }
 
         final long FRAME_TIME = 16_666_666L;   // exactly 60 FPS
-        long elapsed = System.nanoTime() - lastUpdate;
-        lastUpdate = System.nanoTime();
+        long frameNow = System.nanoTime();
+        long elapsed = frameNow - lastUpdate;
+        lastUpdate = frameNow;
         accumulator += elapsed;
 
         final long MAX_UPDATES = 6;
@@ -4688,25 +4703,28 @@ public class BirdGame3 extends Application {
             for (Bird b : players) {
                 if (b == null || b.health <= 0) continue;
                 for (NectarNode node : nectarNodes) {
-                    if (node.active && Math.hypot(node.x - (b.x + 40), node.y - (b.y + 40)) < 80) {
+                    if (!node.active) continue;
+                    double dx = node.x - (b.x + 40);
+                    double dy = node.y - (b.y + 40);
+                    if (dx * dx + dy * dy < 6400) {
                         node.active = false;
                         if (node.isSpeed) {
                             b.speedBoostTimer = 300;
                             b.speedMultiplier = 1.2;
-                            addToKillFeed(b.name.split(":")[0].trim() + " sipped SPEED NECTAR! +20% speed");
+                            addToKillFeed(shortName(b.name) + " sipped SPEED NECTAR! +20% speed");
                         } else {
                             b.hoverRegenTimer = 300;
                             b.hoverRegenMultiplier = 1.5;
-                            addToKillFeed(b.name.split(":")[0].trim() + " sipped HOVER NECTAR! Better hover regen");
+                            addToKillFeed(shortName(b.name) + " sipped HOVER NECTAR! Better hover regen");
                         }
                         for (int i = 0; i < 30; i++) {
                             double angle = Math.random() * Math.PI * 2;
-                            particles.add(new Particle(node.x, node.y, Math.cos(angle) * 8, Math.sin(angle) * 8 - 4, node.isSpeed ? Color.YELLOW : Color.AQUA));
+                            particles.add(new Particle(node.x, node.y, Math.cos(angle) * 8, Math.sin(angle) * 8 - 4,
+                                    node.isSpeed ? Color.YELLOW : Color.AQUA));
                         }
                     }
                 }
             }
-
             if (selectedMap == MapType.VIBRANT_JUNGLE) {
                 for (SwingingVine vine : swingingVines) {
                     vine.angularVelocity += (Math.random() - 0.5) * 0.0015;
@@ -4734,7 +4752,7 @@ public class BirdGame3 extends Application {
                             b.attachedVine = vine;
                             b.y = platTop - 80 * b.sizeMultiplier;
                             b.vy = 0;
-                            addToKillFeed(b.name.split(":")[0].trim() + " grabbed a vine!");
+                            addToKillFeed(shortName(b.name) + " grabbed a vine!");
                         }
                         if (b.onVine && b.attachedVine == vine) {
                             b.x = vine.platformX + vine.platformW / 2 - 40 * b.sizeMultiplier;
@@ -4765,7 +4783,7 @@ public class BirdGame3 extends Application {
                                 b.attachedVine = null;
                                 b.vy = -b.type.jumpHeight * 0.9;
                                 b.canDoubleJump = true;
-                                addToKillFeed(b.name.split(":")[0].trim() + " swung off the vine!");
+                                addToKillFeed(shortName(b.name) + " swung off the vine!");
                             }
                             b.vy = 0;
                         }
@@ -4786,26 +4804,29 @@ public class BirdGame3 extends Application {
                 CrowMinion c = it.next();
                 c.age++;
                 Bird closest = null;
-                double best = Double.MAX_VALUE;
+                double bestSq = Double.MAX_VALUE;
                 for (Bird b : players) {
                     if (b == null || b.health <= 0) continue;
                     if (c.owner != null && !canDamage(c.owner, b)) continue;
-                    double d = Math.hypot(b.x + 40 - c.x, b.y + 40 - c.y);
-                    if (d < best) {
-                        best = d;
+                    double dx = b.x + 40 - c.x;
+                    double dy = b.y + 40 - c.y;
+                    double distSq = dx * dx + dy * dy;
+                    if (distSq < bestSq) {
+                        bestSq = distSq;
                         closest = b;
                     }
                 }
                 if (closest != null) {
                     double dx = closest.x + 40 - c.x;
                     double dy = closest.y + 40 - c.y;
-                    double dist = Math.hypot(dx, dy);
+                    double dist = Math.sqrt(dx * dx + dy * dy);
                     if (dist > 0) {
                         double spd = 3.2;
                         c.vx += dx / dist * 0.22;
                         c.vy += dy / dist * 0.22;
-                        double speedNow = Math.hypot(c.vx, c.vy);
-                        if (speedNow > spd) {
+                        double speedSq = c.vx * c.vx + c.vy * c.vy;
+                        if (speedSq > spd * spd) {
+                            double speedNow = Math.sqrt(speedSq);
                             c.vx = c.vx / speedNow * spd;
                             c.vy = c.vy / speedNow * spd;
                         }
@@ -4815,7 +4836,7 @@ public class BirdGame3 extends Application {
                         closest.health -= damage;
                         if (closest.health < 0) closest.health = 0;
                         String source = (c.owner != null) ? "CROW" : "MURDER CROW";
-                        addToKillFeed(source + " devours " + closest.name.split(":")[0].trim() + "! -" + damage + " HP");
+                        addToKillFeed(source + " devours " + shortName(closest.name) + "! -" + damage + " HP");
                         closest.vx += c.vx * 1.5;
                         closest.vy -= 12;
                         int particleCount = (c.owner != null) ? 18 : 35;
@@ -4875,8 +4896,12 @@ public class BirdGame3 extends Application {
                         if (b != null && b.health > 0) {
                             double dx = b.x + 40 - (vent.x + vent.w / 2);
                             if (Math.abs(dx) < vent.w / 2 + 100 && b.y > vent.y - 300) {
-                                b.vy = Math.min(b.vy, WIND_FORCE);
-                                addToKillFeed("WIND GUST lifts " + b.name.split(":")[0].trim() + "!");
+                                if (b.isDownHeld()) {
+                                    b.vy *= 0.85;
+                                } else {
+                                    b.vy = Math.min(b.vy, WIND_FORCE);
+                                }
+                                addToKillFeed("WIND GUST lifts " + shortName(b.name) + "!");
                                 for (int j = 0; j < 40; j++) {
                                     double angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
                                     double spd = 8 + Math.random() * 12;
@@ -4937,7 +4962,7 @@ public class BirdGame3 extends Application {
             if (trainingModeActive) {
                 Bird dummy = players[trainingDummyIndex];
                 if (dummy != null) {
-                    dummy.health = dummy.getMaxHealth();
+                    dummy.health = Bird.STARTING_HEALTH;
                 }
             }
 
@@ -4984,7 +5009,7 @@ public class BirdGame3 extends Application {
         switch (selectedMap) {
             case FOREST -> {
                 g.setFill(Color.DARKGREEN.darker());
-                for (double tx : new double[]{800, 2100, 3400, 4800, 5600}) {
+                for (double tx : FOREST_TREE_X) {
                     g.fillRect(tx - 300, GROUND_Y - 1200, 600, 1500);
                     g.setFill(Color.FORESTGREEN.darker());
                     g.fillOval(tx - 500, GROUND_Y - 1400, 1000, 800);
@@ -5014,17 +5039,17 @@ public class BirdGame3 extends Application {
                     g.fillRect(0, i * (WORLD_HEIGHT / 600.0), WORLD_WIDTH, WORLD_HEIGHT / 600.0 + 3);
                 }
                 g.setFill(Color.PURPLE.darker().darker().darker());
-                double[] mountainX = {0, 800, 1800, 2800, 3800, 4800, WORLD_WIDTH};
-                for (int m = 0; m < mountainX.length - 1; m++) {
+                for (int m = 0; m < MOUNTAIN_X.length - 1; m++) {
                     double baseY = GROUND_Y + 300;
                     double peakY = mountainPeaks[m];
-                    double midX = mountainX[m] + 400 + (m % 2 == 0 ? 100 : -100);
-                    g.fillPolygon(new double[]{mountainX[m], midX, mountainX[m+1]}, new double[]{baseY, peakY, baseY}, 3);
+                    double midX = MOUNTAIN_X[m] + 400 + (m % 2 == 0 ? 100 : -100);
+                    g.fillPolygon(new double[]{MOUNTAIN_X[m], midX, MOUNTAIN_X[m+1]}, new double[]{baseY, peakY, baseY}, 3);
                 }
                 if (ambientFx) {
                     double cloudTime = System.currentTimeMillis() / 40.0;
                     g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.3));
-                    Random cloudRandom = new Random(42);
+                    renderRandom.setSeed(42L);
+                    Random cloudRandom = renderRandom;
                     for (int layer = 0; layer < 4; layer++) {
                         double speed = 0.15 + layer * 0.15;
                         double offset = cloudTime * speed;
@@ -5052,7 +5077,8 @@ public class BirdGame3 extends Application {
                     g.strokeRoundRect(p.x + 10, p.y + 10, p.w - 20, p.h - 10, 50, 50);
                     g.setFill(Color.DARKGREEN.brighter().brighter());
                     g.fillRoundRect(p.x + 40, p.y + 5, p.w - 80, 40, 40, 40);
-                    Random crackRand = new Random((long) (p.x * 1000));
+                    renderRandom.setSeed((long) (p.x * 1000));
+                    Random crackRand = renderRandom;
                     g.setStroke(Color.BLACK);
                     g.setLineWidth(4);
                     for (int c = 0; c < 10; c++) {
@@ -5092,8 +5118,7 @@ public class BirdGame3 extends Application {
                 g.setFill(Color.SADDLEBROWN.darker().darker());
                 g.setStroke(Color.SIENNA.darker());
                 g.setLineWidth(20);
-                double[] treeX = {600, 1600, 2600, 3600, 4600, 5400};
-                for (double tx : treeX) {
+                for (double tx : JUNGLE_TREE_X) {
                     g.fillRect(tx - 100, GROUND_Y - 2100, 200, 2200);
                     g.strokeRect(tx - 100, GROUND_Y - 2100, 200, 2200);
                     g.setFill(Color.SADDLEBROWN.darker());
@@ -5108,12 +5133,11 @@ public class BirdGame3 extends Application {
                     g.fillOval(tx - 300, GROUND_Y - 2150, 600, 300);
                 }
                 g.setFill(Color.DARKGREEN.darker().darker());
-                double[] mountainX = {0, 800, 1800, 2800, 3800, 4800, WORLD_WIDTH};
-                for (int m = 0; m < mountainX.length - 1; m++) {
+                for (int m = 0; m < MOUNTAIN_X.length - 1; m++) {
                     double baseY = GROUND_Y + 500;
                     double peakY = mountainPeaks[m];
-                    double midX = mountainX[m] + 400;
-                    g.fillPolygon(new double[]{mountainX[m], midX, mountainX[m+1]}, new double[]{baseY, peakY, baseY}, 3);
+                    double midX = MOUNTAIN_X[m] + 400;
+                    g.fillPolygon(new double[]{MOUNTAIN_X[m], midX, MOUNTAIN_X[m+1]}, new double[]{baseY, peakY, baseY}, 3);
                 }
                 g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.25));
                 g.fillRect(800, GROUND_Y - 1300, 1000, 1500);
@@ -5230,7 +5254,8 @@ public class BirdGame3 extends Application {
 
                 if (ambientFx) {
                     // Distant bat silhouettes for atmosphere (animated, non-linear scatter)
-                    Random batRand = new Random(9042);
+                    renderRandom.setSeed(9042L);
+                    Random batRand = renderRandom;
                     double batTime = System.currentTimeMillis() / 700.0;
                     for (int i = 0; i < 32; i++) {
                         double bx = 120 + batRand.nextDouble() * (WORLD_WIDTH - 240);
@@ -5249,7 +5274,8 @@ public class BirdGame3 extends Application {
                     }
 
                     // Glowing crystals/mushrooms for unique cave identity (scattered, non-linear)
-                    Random crystalRand = new Random(6117);
+                    renderRandom.setSeed(6117L);
+                    Random crystalRand = renderRandom;
                     for (int i = 0; i < 46; i++) {
                         double cx = 60 + crystalRand.nextDouble() * (WORLD_WIDTH - 120);
                         double cy = GROUND_Y - 70 - crystalRand.nextDouble() * 260;
@@ -5422,6 +5448,23 @@ public class BirdGame3 extends Application {
             g.setFill(isMurderCrow ? Color.RED : Color.RED.brighter());
             g.fillOval(c.x - 4 * scale, c.y - 5 * scale, 8 * scale, 8 * scale);
             g.fillOval(c.x + 10 * scale, c.y - 5 * scale, 8 * scale, 8 * scale);
+            if (c.hasCrown) {
+                double crownW = 18 * scale;
+                double crownH = 10 * scale;
+                double cx = c.x;
+                double cy = c.y - 18 * scale;
+                double[] xs = new double[]{
+                        cx - crownW / 2, cx - crownW / 4, cx, cx + crownW / 4, cx + crownW / 2, cx + crownW / 2, cx - crownW / 2
+                };
+                double[] ys = new double[]{
+                        cy + crownH, cy, cy + crownH * 0.3, cy, cy + crownH, cy + crownH * 1.3, cy + crownH * 1.3
+                };
+                g.setFill(Color.GOLD);
+                g.fillPolygon(xs, ys, xs.length);
+                g.setStroke(Color.web("#FFF59D"));
+                g.setLineWidth(1.2);
+                g.strokePolygon(xs, ys, xs.length);
+            }
         }
 
         for (Bird b : players) {
@@ -9552,6 +9595,7 @@ public class BirdGame3 extends Application {
             cs.y = c.y;
             cs.age = c.age;
             cs.ownerIndex = c.owner != null ? c.owner.playerIndex : -1;
+            cs.hasCrown = c.hasCrown;
             state.crowMinions.add(cs);
         }
         return state;
@@ -9624,6 +9668,7 @@ public class BirdGame3 extends Application {
         for (LanState.CrowMinionState cs : state.crowMinions) {
             CrowMinion c = new CrowMinion(cs.x, cs.y, null);
             c.age = cs.age;
+            c.hasCrown = cs.hasCrown;
             if (cs.ownerIndex >= 0 && cs.ownerIndex < players.length) {
                 c.owner = players[cs.ownerIndex];
             }
@@ -15051,7 +15096,7 @@ public class BirdGame3 extends Application {
         dummy.canDoubleJump = true;
         dummy.onVine = false;
         dummy.attachedVine = null;
-        dummy.health = dummy.getMaxHealth();
+        dummy.health = Bird.STARTING_HEALTH;
         addToKillFeed("DUMMY RESET.");
     }
 
@@ -15944,7 +15989,7 @@ public class BirdGame3 extends Application {
                 int idx = winner.playerIndex;
                 if (idx >= 0 && idx < competitionRoundWins.length) {
                     competitionRoundWins[idx]++;
-                    roundWinnerText = winner.name.split(":")[0].trim();
+                    roundWinnerText = shortName(winner.name);
                     seriesWon = competitionRoundWins[idx] >= COMPETITION_ROUND_TARGET;
                 }
             }
@@ -16580,6 +16625,7 @@ public class BirdGame3 extends Application {
         resetSuddenDeathState();
         matchStartNano = System.nanoTime();
         balanceOutcomeRecorded = false;
+        killFeed.clear();
         this.currentStage = stage;
         Arrays.fill(scores, 0);
         Arrays.fill(players, null);
@@ -16974,11 +17020,11 @@ public class BirdGame3 extends Application {
 
                 // Draw scores
                 ui.setFill(Color.WHITE);
-                ui.setFont(Font.font("Arial Black", 32));
+                ui.setFont(HUD_SCORE_FONT);
                 ui.fillText("SCORES:", 50, 150);
                 for (int i = 0; i < activePlayers; i++) {
                     if (players[i] != null) {
-                        ui.fillText(players[i].name.split(":")[0] + ": " + scores[i], 50, 190 + i * 40);
+                        ui.fillText(shortName(players[i].name) + ": " + scores[i], 50, 190 + i * 40);
                     }
                 }
 // Minimap: bottom-right, 200x150, scaled world view
@@ -17019,38 +17065,38 @@ public class BirdGame3 extends Application {
 
                 if (activeMutator != MatchMutator.NONE && !competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) {
                     ui.setFill(Color.web("#80DEEA"));
-                    ui.setFont(Font.font("Arial Black", 24));
+                    ui.setFont(HUD_MUTATOR_FONT);
                     ui.fillText("MUTATOR: " + activeMutator.label.toUpperCase(), WIDTH / 2.0 - 220, healthBarY + 78);
                 }
                 if (classicModeActive && classicEncounter != null) {
                     ui.setFill(Color.web("#FFE082"));
-                    ui.setFont(Font.font("Arial Black", 22));
+                    ui.setFont(HUD_CLASSIC_TITLE_FONT);
                     ui.fillText(
                             "CLASSIC " + (classicRoundIndex + 1) + "/" + classicRun.size() + "  " + classicEncounter.name.toUpperCase(),
                             WIDTH / 2.0 - 360,
                             healthBarY + 104
                     );
                     ui.setFill(Color.web("#B3E5FC"));
-                    ui.setFont(Font.font("Consolas", 18));
+                    ui.setFont(HUD_CLASSIC_RULES_FONT);
                     ui.fillText("RULES: " + classicEncounter.mutator.label + " | " + classicEncounter.twist.label,
                             WIDTH / 2.0 - 240, healthBarY + 130);
                     int livesLeft = Math.max(0, 3 - classicDeaths);
                     ui.setFill(Color.web("#C8E6C9"));
-                    ui.setFont(Font.font("Consolas", 18));
+                    ui.setFont(HUD_CLASSIC_RULES_FONT);
                     ui.fillText("LIVES: " + livesLeft + "/3  CONTINUES: " + classicContinues,
                             WIDTH / 2.0 - 190, healthBarY + 154);
                 }
                 if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) {
                     ui.setFill(Color.web("#FFD54F"));
-                    ui.setFont(Font.font("Arial Black", 22));
+                    ui.setFont(HUD_COMP_TITLE_FONT);
                     ui.fillText("COMPETITION MODE", WIDTH / 2.0 - 160, healthBarY + 78);
                     ui.setFill(Color.web("#FFF59D"));
-                    ui.setFont(Font.font("Consolas", 21));
+                    ui.setFont(HUD_COMP_LINE_FONT);
                     ui.fillText(competitionScoreLine(), WIDTH / 2.0 - 245, healthBarY + 104);
                 }
 
                 ui.setFill(Color.WHITE);
-                ui.setFont(Font.font("Arial Black", 48));
+                ui.setFont(HUD_TIMER_FONT);
                 String timeText;
                 if (trainingModeActive) {
                     timeText = "TRAINING";
@@ -17067,7 +17113,7 @@ public class BirdGame3 extends Application {
                 }
                 ui.fillText(timeText, WIDTH / 2.0 - 120, 80);
                 ui.setEffect(null);
-                ui.setFont(Font.font("Arial Black", 26));
+                ui.setFont(HUD_FEED_FONT);
                 for (int i = 0; i < killFeed.size(); i++) {
                     String msg = killFeed.get(i);
                     double alpha = Math.max(0.3, 1.0 - (i / (double) MAX_FEED_LINES));
@@ -17079,8 +17125,8 @@ public class BirdGame3 extends Application {
                 ui.setFill(new Color(0, 0, 0, 0.75));
                 ui.fillRoundRect(20, HEIGHT - 70, WIDTH - 40, 60, 20, 20);
                 ui.setFill(Color.WHITE);
-                ui.setFont(Font.font(22));
-                ui.fillText("Controls: WASD+Space+Shift | Q/E=Taunt | P2=Arrows+Enter+Slash | P3=TFGH+Y+U | P4=IJKL+O+P | S/Down/G/K=Block", 50, HEIGHT - 35);
+                ui.setFont(HUD_CONTROLS_FONT);
+                ui.fillText("Controls: WASD+Space+Shift | Q/E=Taunt | P2=Arrows+Enter+Slash | P3=TFGH+Y+U | P4=IJKL+O+P | S/Down/G/K=Block (ground) / Fast Fall (air)", 50, HEIGHT - 35);
                 drawDebugBalanceHud(ui);
                 if (flashTimer > 0) {
                     flashTimer--;
@@ -17111,21 +17157,53 @@ public class BirdGame3 extends Application {
     private void drawHealthBar(GraphicsContext g, Bird b, double x, double y) {
         int shownHealth = (int) Math.round(Math.max(0, b.health));
         double maxHealth = Math.max(1.0, b.getMaxHealth());
-        double fillRatio = Math.max(0, Math.min(1.0, b.health / maxHealth));
+        double barWidth = 400;
+        double healthHeight = 30;
+        double ultimateHeight = 8;
+        double gap = 2;
+        double totalHeight = healthHeight + ultimateHeight + gap;
+
         g.setFill(Color.BLACK);
-        g.fillRoundRect(x - 3, y - 3, 406, 46, 10, 10);
+        g.fillRoundRect(x - 3, y - 3, barWidth + 6, totalHeight + 6, 10, 10);
         g.setFill(Color.RED);
-        g.fillRoundRect(x, y, 400, 40, 10, 10);
+        g.fillRoundRect(x, y, barWidth, healthHeight, 10, 10);
         boolean compStyle = competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive;
+        Color baseColor = compStyle ? Color.DODGERBLUE : Color.LIME;
+        double baseRatio = Math.max(0, Math.min(1.0, b.health / maxHealth));
+        g.setFill(baseColor);
+        g.fillRoundRect(x, y, barWidth * baseRatio, healthHeight, 10, 10);
+
         if (b.health > maxHealth) {
-            g.setFill(Color.ORANGE.brighter());
-        } else {
-            g.setFill(compStyle ? Color.DODGERBLUE : Color.LIME);
+            double overMax = Math.max(1.0, Bird.STARTING_HEALTH - maxHealth);
+            double overRatio = Math.min(1.0, (b.health - maxHealth) / overMax);
+            g.setFill(Color.SILVER);
+            g.fillRoundRect(x, y, barWidth * overRatio, healthHeight, 10, 10);
         }
-        g.fillRoundRect(x, y, 400 * fillRatio, 40, 10, 10);
+
+        double ultimateY = y + healthHeight + gap;
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.75));
+        g.fillRoundRect(x, ultimateY, barWidth, ultimateHeight, 8, 8);
+        double ultimateRatio = b.getUltimateRatio();
+        g.setFill(b.isUltimateReady() ? Color.GOLD : Color.CYAN);
+        g.fillRoundRect(x, ultimateY, barWidth * ultimateRatio, ultimateHeight, 8, 8);
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.8));
+        g.setLineWidth(1.5);
+        g.strokeRoundRect(x, ultimateY, barWidth, ultimateHeight, 8, 8);
+
         g.setFill(Color.WHITE);
-        g.setFont(Font.font("Arial Black", 28));
-        g.fillText(b.name + " " + shownHealth + "%", x + 20, y + 32);
+        g.setFont(HUD_HEALTH_FONT);
+        g.fillText(b.name + " " + shownHealth + "%", x + 20, y + healthHeight - 6);
+    }
+
+    private static String shortName(String fullName) {
+        if (fullName == null) {
+            return "";
+        }
+        int colon = fullName.indexOf(':');
+        if (colon < 0) {
+            return fullName;
+        }
+        return fullName.substring(0, colon).trim();
     }
 
     private int awardBirdCoinsForMatch(Bird winner) {
@@ -17229,7 +17307,7 @@ public class BirdGame3 extends Application {
                 else award = "WILD CARD";
 
                 String membersText = members.stream()
-                        .map(b -> b.name.split(":")[0].trim())
+                        .map(b -> shortName(b.name))
                         .reduce((a, b) -> a + " + " + b)
                         .orElse("-");
 

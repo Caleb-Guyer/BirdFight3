@@ -1,5 +1,7 @@
 Bird Fight 3 is a chaotic JavaFX multiplayer platformer with epic bird battles, power-ups, AI opponents, and custom maps, like forests, cities, and cliffs. Built for fun fights and unlocks—flap to victory!
 
+Update: Royal Specials are here. Ultimates now upgrade each bird's special with unique, regal flair. Rule the skies with crowned crows, a royal lounge, and signature ultimate visuals.
+
 Official Bird Fight 3 Wiki: https://bird-fight-3.fandom.com/wiki/Bird_Fight_3_Wiki
 
 Download The Following If You Are Using a Wiimote:

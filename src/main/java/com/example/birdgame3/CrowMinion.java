@@ -6,6 +6,7 @@ class CrowMinion {
     Bird target;
     int age = 0;
     Bird owner = null;
+    boolean hasCrown = false;
 
     CrowMinion(double x, double y, Bird target) {
         this.x = x;

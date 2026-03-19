@@ -39,7 +39,9 @@ class LanBirdState {
     double loungeX;
     double loungeY;
     int loungeHealth;
+    int loungeMaxHealth;
     int loungeDamageFlash;
+    boolean loungeRoyal;
     int diveTimer;
     boolean isZipping;
     double zipTargetX;
@@ -98,6 +100,8 @@ class LanBirdState {
     int phoenixAfterburnTimer;
     boolean phoenixRebornUsed;
     boolean phoenixRebornActive;
+    double ultimateMeter;
+    int ultimateFxTimer;
 
     void write(DataOutputStream out) throws IOException {
         out.writeInt(typeOrdinal);
@@ -134,7 +138,9 @@ class LanBirdState {
         out.writeDouble(loungeX);
         out.writeDouble(loungeY);
         out.writeInt(loungeHealth);
+        out.writeInt(loungeMaxHealth);
         out.writeInt(loungeDamageFlash);
+        out.writeBoolean(loungeRoyal);
         out.writeInt(diveTimer);
         out.writeBoolean(isZipping);
         out.writeDouble(zipTargetX);
@@ -193,6 +199,8 @@ class LanBirdState {
         out.writeInt(phoenixAfterburnTimer);
         out.writeBoolean(phoenixRebornUsed);
         out.writeBoolean(phoenixRebornActive);
+        out.writeDouble(ultimateMeter);
+        out.writeInt(ultimateFxTimer);
     }
 
     static LanBirdState read(DataInputStream in) throws IOException {
@@ -231,7 +239,9 @@ class LanBirdState {
         state.loungeX = in.readDouble();
         state.loungeY = in.readDouble();
         state.loungeHealth = in.readInt();
+        state.loungeMaxHealth = in.readInt();
         state.loungeDamageFlash = in.readInt();
+        state.loungeRoyal = in.readBoolean();
         state.diveTimer = in.readInt();
         state.isZipping = in.readBoolean();
         state.zipTargetX = in.readDouble();
@@ -290,6 +300,8 @@ class LanBirdState {
         state.phoenixAfterburnTimer = in.readInt();
         state.phoenixRebornUsed = in.readBoolean();
         state.phoenixRebornActive = in.readBoolean();
+        state.ultimateMeter = in.readDouble();
+        state.ultimateFxTimer = in.readInt();
         return state;
     }
 }

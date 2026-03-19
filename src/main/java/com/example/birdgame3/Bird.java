@@ -28,7 +28,8 @@ public class Bird {
     public BirdGame3.BirdType type;
     public boolean facingRight = true;
     public int playerIndex;
-    public double health = 100;
+    public static final double STARTING_HEALTH = 200.0;
+    public double health = STARTING_HEALTH;
     public String name;
     public double stunTime = 0;
     public int specialCooldown = 0;
@@ -117,6 +118,8 @@ public class Bird {
     public int thermalTimer = 0;
     public double thermalLift = 0.0;
     public int overchargeAttackTimer = 0;
+    private double ultimateMeter = 0.0;
+    private int ultimateFxTimer = 0;
 
     // === NECTAR BOOST (Jungle) ===
     public double speedBoostTimer = 0;
@@ -127,7 +130,9 @@ public class Bird {
     public int loungeHealth = 0;
     private static final int LOUNGE_MAX_HEALTH = 100;
     private static final double LOUNGE_HEAL_PER_SECOND = 12.0;
+    private int loungeMaxHealth = LOUNGE_MAX_HEALTH;
     public int loungeDamageFlash = 0;
+    private boolean loungeRoyal = false;
 
     // === VINE GRAPPLE ===
     private int grappleTimer = 0;
@@ -138,6 +143,14 @@ public class Bird {
     private boolean enlargedByPlunge = false;
     private static final double LIMITED_FLIGHT_MAX = 34.0; // ~0.55s at 60fps
     private double limitedFlightFuel = LIMITED_FLIGHT_MAX;
+    private static final double FAST_FALL_ACCEL = 1.6;
+    private static final double FAST_FALL_MAX = 22.0;
+    private static final double FAST_FALL_UPDRAFT_ACCEL = 0.35;
+    private static final double DOWN_WIND_DAMPING = 0.85;
+    private static final double ULTIMATE_MAX = 100.0;
+    private static final double ULTIMATE_GAIN_DEALT = 0.35;
+    private static final double ULTIMATE_GAIN_TAKEN = 0.45;
+    private static final int ULTIMATE_FX_FRAMES = 24;
     private double penguinIceFxTimer = 0;
     private int penguinDashDamageTimer = 0;
     private final boolean[] penguinDashHit = new boolean[4];
@@ -207,8 +220,7 @@ public class Bird {
             double distToLounge = Math.hypot(birdCenterX - loungeX, birdCenterY - loungeY);
 
             if (distToLounge < 70) {
-                health += LOUNGE_HEAL_PER_SECOND / 60.0;
-                if (health > getMaxHealth()) health = getMaxHealth();
+                heal(LOUNGE_HEAL_PER_SECOND / 60.0);
             }
         }
     }
@@ -264,7 +276,7 @@ public class Bird {
         isGroundPounding = false;
         game.shakeIntensity = 22;
         game.hitstopFrames = 15;
-        game.addToKillFeed(name.split(":")[0].trim() + " SLAMMED THE GROUND!");
+        game.addToKillFeed(shortName() + " SLAMMED THE GROUND!");
 
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
@@ -337,8 +349,8 @@ public class Bird {
     }
 
     private void logDamageKillFeed(double damage, boolean isKill, Bird victim) {
-        String attacker = name.split(":")[0].trim();
-        String victimName = victim.name.split(":")[0].trim();
+        String attacker = shortName();
+        String victimName = victim.shortName();
         String verb = (type == BirdGame3.BirdType.RAZORBILL && bladeStormFrames > 0)
                 ? "CARVED" : (damage >= 35 ? "BRUTALIZED" : damage >= 25 ? "SMASHED" : "hit");
         game.addToKillFeed(attacker + " " + verb + " " + victimName + "! -" + (int) damage + " HP");
@@ -402,7 +414,7 @@ public class Bird {
         }
 
         if (kills > 0) {
-            String source = name.split(":")[0].trim();
+            String source = shortName();
             game.addToKillFeed(source + " swatted " + kills + " crow" + (kills > 1 ? "s" : "") + "!");
             game.scores[playerIndex] += kills * 2;
         }
@@ -413,12 +425,12 @@ public class Bird {
 
         if (other.isBlocking) {
             dmg = (int)(dmg * 0.45);
-            game.addToKillFeed(other.name.split(":")[0].trim() + " BLOCKED the attack! -" + dmg + " HP");
+            game.addToKillFeed(other.shortName() + " BLOCKED the attack! -" + dmg + " HP");
             kb *= 0.35;
 
             if (other.facingRight == (x < other.x) && random.nextDouble() < 0.25) {
                 stunTime = 35;
-                game.addToKillFeed(other.name.split(":")[0].trim() + " PARRIED! Attacker stunned!");
+                game.addToKillFeed(other.shortName() + " PARRIED! Attacker stunned!");
             }
         }
 
@@ -460,7 +472,7 @@ public class Bird {
                 target.loungeHealth -= loungeDmg;
                 target.loungeDamageFlash = 15;
 
-                game.addToKillFeed(name.split(":")[0].trim() + " smashed the Lounge! -" + loungeDmg + " HP");
+                game.addToKillFeed(shortName() + " smashed the Lounge! -" + loungeDmg + " HP");
 
                 for (int i = 0; i < 30; i++) {
                     double angle = Math.random() * Math.PI * 2;
@@ -474,6 +486,8 @@ public class Bird {
                 if (target.loungeHealth <= 0) {
                     target.loungeActive = false;
                     target.loungeHealth = 0;
+                    target.loungeMaxHealth = LOUNGE_MAX_HEALTH;
+                    target.loungeRoyal = false;
                     game.addToKillFeed("THE LOUNGE HAS BEEN OBLITERATED!");
                     game.shakeIntensity = 30;
                     game.hitstopFrames = 18;
@@ -491,11 +505,34 @@ public class Bird {
     }
 
     private void special() {
-        if (health <= 0 || specialCooldown > 0) {
-            if (specialCooldown > 0 && !game.isAI[playerIndex]) {
+        if (health <= 0) {
+            return;
+        }
+        boolean ultimateReady = isUltimateReady();
+        if (specialCooldown > 0 && !ultimateReady) {
+            if (!game.isAI[playerIndex]) {
                 this.cooldownFlash = 15;
             }
             return;
+        }
+
+        boolean ultimateTriggered = ultimateReady && consumeUltimate();
+        if (ultimateTriggered) {
+            game.addToKillFeed(shortName() + " UNLEASHED ULTIMATE!");
+            game.shakeIntensity = Math.max(game.shakeIntensity, 18);
+            game.hitstopFrames = Math.max(game.hitstopFrames, 8);
+            game.triggerFlash(0.7, false);
+            for (int i = 0; i < 90; i++) {
+                double angle = Math.random() * Math.PI * 2;
+                double speed = 8 + Math.random() * 16;
+                game.particles.add(new Particle(
+                        x + 40 + Math.cos(angle) * 20,
+                        y + 40 + Math.sin(angle) * 20,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed - 4,
+                        Color.GOLD.deriveColor(0, 1, 1, 0.95)
+                ));
+            }
         }
 
         if (game.isSfxEnabled()) {
@@ -508,46 +545,55 @@ public class Bird {
         game.specialsUsed[playerIndex]++;
 
         switch (type) {
-            case PIGEON -> specialPigeon();
-            case EAGLE -> specialEagle();
-            case FALCON -> specialFalcon();
-            case PHOENIX -> specialPhoenix();
-            case HUMMINGBIRD -> specialHummingbird();
-            case TURKEY -> specialTurkey();
-            case PENGUIN -> specialPenguin();
-            case SHOEBILL -> specialShoebill();
-            case MOCKINGBIRD -> specialMockingbird();
-            case RAZORBILL -> specialRazorbill();
-            case GRINCHHAWK -> specialGrinchhawk();
-            case VULTURE -> specialVulture();
-            case OPIUMBIRD -> specialOpiumBird();
-            case HEISENBIRD -> specialHeisenbird();
-            case TITMOUSE -> specialTitmouse();
-            case BAT -> specialBat();
-            case PELICAN -> specialPelican();
-            case RAVEN -> specialRaven();
+            case PIGEON -> specialPigeon(ultimateTriggered);
+            case EAGLE -> specialEagle(ultimateTriggered);
+            case FALCON -> specialFalcon(ultimateTriggered);
+            case PHOENIX -> specialPhoenix(ultimateTriggered);
+            case HUMMINGBIRD -> specialHummingbird(ultimateTriggered);
+            case TURKEY -> specialTurkey(ultimateTriggered);
+            case PENGUIN -> specialPenguin(ultimateTriggered);
+            case SHOEBILL -> specialShoebill(ultimateTriggered);
+            case MOCKINGBIRD -> specialMockingbird(ultimateTriggered);
+            case RAZORBILL -> specialRazorbill(ultimateTriggered);
+            case GRINCHHAWK -> specialGrinchhawk(ultimateTriggered);
+            case VULTURE -> specialVulture(ultimateTriggered);
+            case OPIUMBIRD -> specialOpiumBird(ultimateTriggered);
+            case HEISENBIRD -> specialHeisenbird(ultimateTriggered);
+            case TITMOUSE -> specialTitmouse(ultimateTriggered);
+            case BAT -> specialBat(ultimateTriggered);
+            case PELICAN -> specialPelican(ultimateTriggered);
+            case RAVEN -> specialRaven(ultimateTriggered);
         }
     }
 
-    private void specialPigeon() {
-        health = Math.min(getMaxHealth(), health + 20);
+    private void specialPigeon(boolean ultimate) {
+        int healAmount = ultimate ? 45 : 20;
+        heal(healAmount);
         canDoubleJump = true;
+        if (ultimate) {
+            stunTime = 0;
+            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * 1.25);
+            speedTimer = Math.max(speedTimer, 200);
+        }
         specialCooldown = 540;
         specialMaxCooldown = 540;
-        game.addToKillFeed(name.split(":")[0].trim() + " HEAL BURST! +20 HP + DOUBLE JUMP");
-        game.shakeIntensity = 12;
-        game.hitstopFrames = 8;
-        for (int i = 0; i < 40; i++) {
+        String label = ultimate ? " ULT HEAL BURST! +" + healAmount + " HP + SPEED" : " HEAL BURST! +20 HP + DOUBLE JUMP";
+        game.addToKillFeed(shortName() + label);
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 16 : 12);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 10 : 8);
+        int particleCount = ultimate ? 70 : 40;
+        Color burstColor = ultimate ? Color.GOLD.deriveColor(0, 1, 1, 0.9) : Color.LIME.deriveColor(0, 1, 1, 0.8);
+        for (int i = 0; i < particleCount; i++) {
             double angle = Math.random() * Math.PI * 2;
             double speed = 3 + Math.random() * 8;
             game.particles.add(new Particle(x + 40, y + 40,
                     Math.cos(angle) * speed, Math.sin(angle) * speed - 4,
-                    Color.LIME.deriveColor(0, 1, 1, 0.8)));
+                    burstColor));
         }
     }
 
-    private void specialEagle() {
-        diveTimer = 120;
+    private void specialEagle(boolean ultimate) {
+        diveTimer = ultimate ? 160 : 120;
         specialCooldown = 780;
         specialMaxCooldown = 780;
         eagleDiveActive = true;
@@ -555,18 +601,19 @@ public class Bird {
         eagleAscentFrames = 0;
         Arrays.fill(eagleAscentHit, false);
 
-        game.shakeIntensity = 16;
-        game.hitstopFrames = 9;
-        game.addToKillFeed("SKREEEEEEEE!!! " + name.split(":")[0].trim() + " IS DIVING FROM THE HEAVENS!");
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 20 : 16);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 11 : 9);
+        game.addToKillFeed("SKREEEEEEEE!!! " + shortName() + (ultimate ? " ULT DIVES FROM THE HEAVENS!" : " IS DIVING FROM THE HEAVENS!"));
 
-        for (int i = 0; i < 100; i++) {
+        int trailCount = ultimate ? 140 : 100;
+        for (int i = 0; i < trailCount; i++) {
             double angle = Math.atan2(vy, vx) + Math.PI;
             double dist = i * 10;
             game.particles.add(new Particle(
                     x + 40 + Math.cos(angle) * dist,
                     y + 40 + Math.sin(angle) * dist,
                     0, 0,
-                    Color.CRIMSON.deriveColor(0, 1, 1, 1.0 - i / 100.0)
+                    Color.CRIMSON.deriveColor(0, 1, 1, 1.0 - i / (double) trailCount)
             ));
         }
 
@@ -575,13 +622,13 @@ public class Bird {
             game.particles.add(new Particle(predictX + i * 60, game.GROUND_Y - 20, 0, -5 - Math.random() * 8, Color.ORANGERED.brighter()));
         }
 
-        vy = isOnGround() ? -8 : Math.max(vy, 14);
-        vx *= 0.7;
+        vy = isOnGround() ? (ultimate ? -12 : -8) : Math.max(vy, ultimate ? 18 : 14);
+        vx *= ultimate ? 0.82 : 0.7;
         eagleDiveCountdown = 0;
     }
 
-    private void specialFalcon() {
-        diveTimer = 92;
+    private void specialFalcon(boolean ultimate) {
+        diveTimer = ultimate ? 130 : 92;
         specialCooldown = 660;
         specialMaxCooldown = 660;
         eagleDiveActive = true;
@@ -589,11 +636,12 @@ public class Bird {
         eagleAscentFrames = 0;
         Arrays.fill(eagleAscentHit, false);
 
-        game.shakeIntensity = Math.max(game.shakeIntensity, 12);
-        game.hitstopFrames = Math.max(game.hitstopFrames, 7);
-        game.addToKillFeed(name.split(":")[0].trim() + " LOCKED IN A FALCON DIVE!");
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 16 : 12);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 9 : 7);
+        game.addToKillFeed(shortName() + (ultimate ? " ULT FALCON DIVE ENGAGED!" : " LOCKED IN A FALCON DIVE!"));
 
-        for (int i = 0; i < 78; i++) {
+        int trailCount = ultimate ? 110 : 78;
+        for (int i = 0; i < trailCount; i++) {
             double angle = Math.atan2(vy, vx) + Math.PI;
             double dist = i * 7.5;
             Color c = i % 2 == 0 ? Color.web("#FF7043") : Color.web("#FFE082");
@@ -601,41 +649,45 @@ public class Bird {
                     x + 40 + Math.cos(angle) * dist,
                     y + 40 + Math.sin(angle) * dist,
                     0, 0,
-                    c.deriveColor(0, 1, 1, 1.0 - i / 90.0)
+                    c.deriveColor(0, 1, 1, 1.0 - i / (double) trailCount)
             ));
         }
 
-        vy = isOnGround() ? -6 : Math.max(vy, 13);
-        vx += (facingRight ? 1 : -1) * 8;
+        vy = isOnGround() ? (ultimate ? -9 : -6) : Math.max(vy, ultimate ? 17 : 13);
+        vx += (facingRight ? 1 : -1) * (ultimate ? 12 : 8);
         eagleDiveCountdown = 0;
     }
 
-    private void specialPhoenix() {
+    private void specialPhoenix(boolean ultimate) {
         canDoubleJump = true;
-        vx += (facingRight ? 1 : -1) * 12;
-        vy = Math.min(vy - 8, -10);
+        vx += (facingRight ? 1 : -1) * (ultimate ? 16 : 12);
+        vy = Math.min(vy - (ultimate ? 11 : 8), ultimate ? -12 : -10);
 
-        powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.2);
-        rageTimer = Math.max(rageTimer, 220);
-        speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * 1.2);
-        speedTimer = Math.max(speedTimer, 220);
+        double buffScale = ultimate ? 1.45 : 1.2;
+        int buffTimer = ultimate ? 320 : 220;
+        powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * buffScale);
+        rageTimer = Math.max(rageTimer, buffTimer);
+        speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * buffScale);
+        speedTimer = Math.max(speedTimer, buffTimer);
 
         specialCooldown = 600;
         specialMaxCooldown = 600;
-        phoenixAfterburnTimer = 48;
+        phoenixAfterburnTimer = ultimate ? 70 : 48;
         Arrays.fill(phoenixAfterburnHitCooldown, 0);
-        game.addToKillFeed(name.split(":")[0].trim() + " UNLEASHED REBIRTH BLAZE!");
-        game.shakeIntensity = Math.max(game.shakeIntensity, 16);
-        game.hitstopFrames = Math.max(game.hitstopFrames, 8);
+        game.addToKillFeed(shortName() + (ultimate ? " ULT REBIRTH BLAZE!" : " UNLEASHED REBIRTH BLAZE!"));
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 20 : 16);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 10 : 8);
 
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
             double dx = (other.x + 40) - (x + 40);
             double dy = (other.y + 40) - (y + 40);
             double dist = Math.hypot(dx, dy);
-            if (dist > 300) continue;
+            double radius = ultimate ? 360 : 300;
+            if (dist > radius) continue;
 
-            int dmg = dist < 150 ? 16 : (dist < 230 ? 12 : 9);
+            int dmg = dist < radius * 0.5 ? (ultimate ? 24 : 16)
+                    : (dist < radius * 0.75 ? (ultimate ? 18 : 12) : (ultimate ? 14 : 9));
             double oldHealth = other.health;
             int dealt = (int) applyDamageTo(other, dmg);
             game.damageDealt[playerIndex] += dealt;
@@ -666,81 +718,94 @@ public class Bird {
         }
     }
 
-    private void specialHummingbird() {
-        hummingFrenzyTimer = 105;
+    private void specialHummingbird(boolean ultimate) {
+        hummingFrenzyTimer = ultimate ? 150 : 105;
         Arrays.fill(hummingFrenzyHitCooldown, 0);
         canDoubleJump = true;
-        vy = Math.min(vy - type.jumpHeight * 0.45, -type.jumpHeight * 0.9);
-        vx += (facingRight ? 1 : -1) * 9;
-        health = Math.min(getMaxHealth(), health + 6);
+        vy = Math.min(vy - type.jumpHeight * (ultimate ? 0.6 : 0.45),
+                -type.jumpHeight * (ultimate ? 1.1 : 0.9));
+        vx += (facingRight ? 1 : -1) * (ultimate ? 12 : 9);
+        heal(ultimate ? 12 : 6);
+        if (ultimate) {
+            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * 1.3);
+            speedTimer = Math.max(speedTimer, 160);
+        }
         specialCooldown = 390;
         specialMaxCooldown = 390;
-        game.addToKillFeed(name.split(":")[0].trim() + " UNLEASHED NECTAR FRENZY!");
-        for (int i = 0; i < 55; i++) {
-            Color c = Math.random() < 0.55 ? Color.CYAN.brighter() : Color.YELLOW.brighter();
+        game.addToKillFeed(shortName() + (ultimate ? " ULT NECTAR FRENZY!" : " UNLEASHED NECTAR FRENZY!"));
+        int particleCount = ultimate ? 80 : 55;
+        for (int i = 0; i < particleCount; i++) {
+            Color c = Math.random() < 0.55 ? Color.CYAN.brighter() : (ultimate ? Color.GOLD.brighter() : Color.YELLOW.brighter());
             game.particles.add(new Particle(x + 40, y + 40,
                     (Math.random() - 0.5) * 22, -8 - Math.random() * 12,
                     c));
         }
     }
 
-    private void specialTurkey() {
-        vy = -type.jumpHeight * 1.45;
+    private void specialTurkey(boolean ultimate) {
+        vy = -type.jumpHeight * (ultimate ? 1.75 : 1.45);
         isGroundPounding = true;
+        if (ultimate) {
+            powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.2);
+            rageTimer = Math.max(rageTimer, 180);
+        }
         specialCooldown = 450;
         specialMaxCooldown = 450;
     }
 
-    private void specialPenguin() {
+    private void specialPenguin(boolean ultimate) {
         boolean grounded = isOnGround();
-        vx = (facingRight ? 1 : -1) * (grounded ? 17.0 : 14.0);
+        vx = (facingRight ? 1 : -1) * (grounded ? (ultimate ? 21.0 : 17.0) : (ultimate ? 17.0 : 14.0));
         // Mobility special: gives penguin a reliable vertical burst to reach upper lanes.
-        vy = grounded ? -type.jumpHeight * 2.0 : Math.min(vy - 11.0, -16.0);
+        vy = grounded ? -type.jumpHeight * (ultimate ? 2.4 : 2.0) : Math.min(vy - (ultimate ? 13.0 : 11.0), -(ultimate ? 20.0 : 16.0));
         canDoubleJump = true;
         specialCooldown = 135;
         specialMaxCooldown = 135;
-        penguinIceFxTimer = 70;
-        penguinDashDamageTimer = 18;
+        penguinIceFxTimer = ultimate ? 100 : 70;
+        penguinDashDamageTimer = ultimate ? 26 : 18;
         Arrays.fill(penguinDashHit, false);
-        game.addToKillFeed(name.split(":")[0].trim() + " ICE JUMP DASH!");
-        for (int i = 0; i < 90; i++) {
+        game.addToKillFeed(shortName() + (ultimate ? " ULT ICE JUMP DASH!" : " ICE JUMP DASH!"));
+        int particleCount = ultimate ? 130 : 90;
+        for (int i = 0; i < particleCount; i++) {
             game.particles.add(new Particle(x + 40 + (Math.random() - 0.5) * 100,
                     y + 70, (Math.random() - 0.5) * 10, -5 - Math.random() * 9,
                     Color.CYAN.deriveColor(0, 1, 1, 0.7)));
         }
     }
 
-    private void specialShoebill() {
+    private void specialShoebill(boolean ultimate) {
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
             double dist = Math.hypot(other.x - x, other.y - y);
-            if (dist < 320) {
-                other.stunTime = 120;
+            if (dist < (ultimate ? 420 : 320)) {
+                other.stunTime = ultimate ? 180 : 120;
             }
         }
         specialCooldown = 780;
         specialMaxCooldown = 780;
-        game.addToKillFeed(name.split(":")[0].trim() + " DEATH STARE! Nearby birds stunned!");
-        game.shakeIntensity = 20;
+        game.addToKillFeed(shortName() + (ultimate ? " ULT DEATH STARE! Wider stun!" : " DEATH STARE! Nearby birds stunned!"));
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 26 : 20);
     }
 
-    private void specialMockingbird() {
+    private void specialMockingbird(boolean ultimate) {
         loungeActive = true;
         loungeX = x + 40;
         loungeY = y + 40;
-        loungeHealth = 100;
+        loungeMaxHealth = ultimate ? 200 : LOUNGE_MAX_HEALTH;
+        loungeRoyal = ultimate;
+        loungeHealth = loungeMaxHealth;
         specialCooldown = 660;
         specialMaxCooldown = 660;
-        game.addToKillFeed(name.split(":")[0].trim() + " opened the LOUNGE!");
+        game.addToKillFeed(shortName() + (ultimate ? " ROYAL LOUNGE OPENED!" : " opened the LOUNGE!"));
     }
 
-    private void specialRazorbill() {
+    private void specialRazorbill(boolean ultimate) {
         specialCooldown = 780;
         specialMaxCooldown = 780;
 
-        game.shakeIntensity = 18;
-        game.hitstopFrames = 10;
-        game.addToKillFeed("RAZOR DASH! " + name.split(":")[0].trim() + " PIERCES THE SKY!");
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 22 : 18);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 12 : 10);
+        game.addToKillFeed("RAZOR DASH! " + shortName() + (ultimate ? " ULT PIERCES THE SKY!" : " PIERCES THE SKY!"));
 
         double dirX = vx;
         double dirY = vy;
@@ -750,16 +815,17 @@ public class Bird {
             dirY = 0;
             mag = 1.0;
         }
-        double dashSpeed = Math.max(12.0, RAZORBILL_DASH_SPEED * speedMultiplier);
+        double dashSpeed = Math.max(12.0, RAZORBILL_DASH_SPEED * (ultimate ? 1.35 : 1.0) * speedMultiplier);
         razorbillDashVX = dirX / mag * dashSpeed;
         razorbillDashVY = dirY / mag * dashSpeed;
         vx = razorbillDashVX;
         vy = razorbillDashVY;
-        bladeStormFrames = RAZORBILL_DASH_FRAMES;
+        bladeStormFrames = ultimate ? (int) Math.round(RAZORBILL_DASH_FRAMES * 1.4) : RAZORBILL_DASH_FRAMES;
         Arrays.fill(razorbillDashHit, false);
 
         double trailAngle = Math.atan2(razorbillDashVY, razorbillDashVX);
-        for (int i = 0; i < 60; i++) {
+        int trailCount = ultimate ? 90 : 60;
+        for (int i = 0; i < trailCount; i++) {
             double angle = trailAngle + (Math.random() - 0.5) * 0.7;
             double speed = 6 + Math.random() * 10;
             double back = 20 + Math.random() * 70;
@@ -768,37 +834,39 @@ public class Bird {
                     y + 40 - Math.sin(angle) * back,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed,
-                    Color.CYAN.brighter()
+                    ultimate ? Color.GOLD.brighter() : Color.CYAN.brighter()
             ));
         }
     }
 
-    private void specialGrinchhawk() {
+    private void specialGrinchhawk(boolean ultimate) {
         int stolen = 0;
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
-            int take = (int) Math.min(8 + (health > 80 ? 4 : 0), other.health);
+            int base = ultimate ? 12 : 8;
+            int bonus = (health > 80 ? (ultimate ? 6 : 4) : 0);
+            int take = (int) Math.min(base + bonus, other.health);
             double oldHealth = other.health;
             int dealt = (int) applyDamageTo(other, take);
             stolen += dealt;
             game.damageDealt[playerIndex] += dealt;
             game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
             if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-            game.addToKillFeed(name.split(":")[0].trim() + " STOLE " + dealt + " HP from " + other.name.split(":")[0].trim() + "!");
+            game.addToKillFeed(shortName() + " STOLE " + dealt + " HP from " + other.shortName() + "!");
         }
-        health = Math.min(getMaxHealth(), health + stolen);
+        heal(stolen);
         specialCooldown = 840;
         specialMaxCooldown = 840;
-        game.shakeIntensity = 20;
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 26 : 20);
     }
 
-    private void specialVulture() {
+    private void specialVulture(boolean ultimate) {
         crowSwarmCooldown = 1080;
         specialCooldown = 1080;
         specialMaxCooldown = 1080;
-        game.addToKillFeed(name.split(":")[0].trim() + " SUMMONS THE MURDER!");
+        game.addToKillFeed(shortName() + (ultimate ? " ULT MURDER UNLEASHED!" : " SUMMONS THE MURDER!"));
 
-        int crowCount = 8 + random.nextInt(5);
+        int crowCount = (ultimate ? 12 : 8) + random.nextInt(ultimate ? 7 : 5);
         for (int i = 0; i < crowCount; i++) {
             double angle = Math.random() * Math.PI * 2;
             double dist = 300 + Math.random() * 1200;
@@ -808,56 +876,68 @@ public class Bird {
             CrowMinion crow = new CrowMinion(spawnX, spawnY, null);
             crow.owner = this;
             crow.life = 1;
+            crow.hasCrown = ultimate;
             game.crowMinions.add(crow);
         }
 
-        game.shakeIntensity = 18;
-        game.hitstopFrames = 12;
-        carrionSwarmTimer = 100;
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 22 : 18);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 14 : 12);
+        carrionSwarmTimer = ultimate ? 150 : 100;
 
-        for (int i = 0; i < 200; i++) {
+        int particleCount = ultimate ? 260 : 200;
+        for (int i = 0; i < particleCount; i++) {
             double angle = Math.random() * Math.PI * 2;
             double speed = 8 + Math.random() * 16;
             game.particles.add(new Particle(x + 40, y + 40,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 6,
-                    Color.rgb(10, 0, 20)));
+                    ultimate ? Color.BLACK : Color.rgb(10, 0, 20)));
         }
     }
 
-    private void specialOpiumBird() {
-        leanTimer = 360;
+    private void specialOpiumBird(boolean ultimate) {
+        leanTimer = ultimate ? 520 : 360;
         leanCooldown = 840;
         specialCooldown = 840;
         specialMaxCooldown = 840;
-        game.shakeIntensity = 20;
-        game.hitstopFrames = 15;
-        for (int i = 0; i < 150; i++) {
+        if (ultimate) {
+            powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.25);
+            rageTimer = Math.max(rageTimer, 240);
+        }
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 26 : 20);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 18 : 15);
+        int particleCount = ultimate ? 220 : 150;
+        for (int i = 0; i < particleCount; i++) {
             double angle = Math.random() * Math.PI * 2;
             game.particles.add(new Particle(x + 40, y + 40,
                     Math.cos(angle) * (2 + Math.random() * 10),
                     Math.sin(angle) * (2 + Math.random() * 10) - 4,
-                    Color.PURPLE.deriveColor(0, 1, 1, 0.7)));
+                    (ultimate ? Color.GOLD : Color.PURPLE).deriveColor(0, 1, 1, 0.7)));
         }
     }
 
-    private void specialHeisenbird() {
-        leanTimer = 300;
+    private void specialHeisenbird(boolean ultimate) {
+        leanTimer = ultimate ? 460 : 300;
         leanCooldown = 720;
         specialCooldown = 720;
         specialMaxCooldown = 720;
-        game.shakeIntensity = 18;
-        game.hitstopFrames = 12;
-        for (int i = 0; i < 150; i++) {
+        if (ultimate) {
+            powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.2);
+            rageTimer = Math.max(rageTimer, 220);
+        }
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 24 : 18);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 15 : 12);
+        int particleCount = ultimate ? 220 : 150;
+        for (int i = 0; i < particleCount; i++) {
             double angle = Math.random() * Math.PI * 2;
             game.particles.add(new Particle(x + 40, y + 40,
                     Math.cos(angle) * (2 + Math.random() * 10),
                     Math.sin(angle) * (2 + Math.random() * 10) - 4,
-                    Color.web("#29B6F6").deriveColor(0, 1, 1, 0.75)));
+                    (ultimate ? Color.GOLD : Color.web("#29B6F6")).deriveColor(0, 1, 1, 0.75)));
         }
     }
 
-    private void specialTitmouse() {
+    private void specialTitmouse(boolean ultimate) {
         Bird target = null;
         double bestDist = Double.MAX_VALUE;
         for (Bird b : game.players) {
@@ -869,7 +949,7 @@ public class Bird {
             }
         }
         if (target == null) {
-            game.addToKillFeed(name.split(":")[0].trim() + " tried to ZIP... but no target!");
+            game.addToKillFeed(shortName() + (ultimate ? " tried ULT ZIP... but no target!" : " tried to ZIP... but no target!"));
             specialCooldown = 240;
             specialMaxCooldown = 240;
             return;
@@ -879,58 +959,64 @@ public class Bird {
         zipTargetX = target.x;
         zipTargetY = target.y;
         zipTimer = 30;
+        if (ultimate) {
+            powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.35);
+            rageTimer = Math.max(rageTimer, 200);
+        }
 
         specialCooldown = 780;
         specialMaxCooldown = 780;
 
-        game.addToKillFeed(name.split(":")[0].trim() + " ZIPPED to " + target.name.split(":")[0].trim() + "!");
+        game.addToKillFeed(shortName() + (ultimate ? " ULT ZIPPED to " : " ZIPPED to ") + target.shortName() + "!");
 
-        for (int i = 0; i < 50; i++) {
+        int particleCount = ultimate ? 80 : 50;
+        for (int i = 0; i < particleCount; i++) {
             double offset = i * 8;
             game.particles.add(new Particle(
                     x + 40 - vx * offset / 10,
                     y + 40 - vy * offset / 10,
                     (Math.random() - 0.5) * 8,
                     (Math.random() - 0.5) * 8 - 2,
-                    Color.SKYBLUE.deriveColor(0, 1, 1, 0.8 - i / 60.0)
+                    (ultimate ? Color.GOLD : Color.SKYBLUE).deriveColor(0, 1, 1, 0.8 - i / 60.0)
             ));
         }
     }
 
-    private void specialPelican() {
+    private void specialPelican(boolean ultimate) {
         Bird target = null;
         double bestDist = Double.MAX_VALUE;
         for (Bird b : game.players) {
             if (!canDamageTarget(b)) continue;
             double d = Math.hypot(b.x - x, b.y - y);
-            if (d < bestDist && d < 280) {
+            if (d < bestDist && d < (ultimate ? 360 : 280)) {
                 bestDist = d;
                 target = b;
             }
         }
         if (target != null) {
-            plungeTimer = 45;
-            sizeMultiplier *= 1.18;
+            plungeTimer = ultimate ? 60 : 45;
+            sizeMultiplier *= ultimate ? 1.28 : 1.18;
             enlargedByPlunge = true;
             specialCooldown = 720;
             specialMaxCooldown = 720;
-            game.addToKillFeed(name.split(":")[0].trim() + " PELICAN PLUNGE!!!");
-            game.shakeIntensity = 32;
-            game.hitstopFrames = 18;
-            target.vx += (target.x > x ? 1 : -1) * 36;
-            target.vy = -26;
-            int dmg = (int)(24 * powerMultiplier);
+            game.addToKillFeed(shortName() + (ultimate ? " ULT PELICAN PLUNGE!!!" : " PELICAN PLUNGE!!!"));
+            game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 38 : 32);
+            game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 22 : 18);
+            target.vx += (target.x > x ? 1 : -1) * (ultimate ? 44 : 36);
+            target.vy = ultimate ? -32 : -26;
+            int dmg = (int)((ultimate ? 32 : 24) * powerMultiplier);
             double old = target.health;
             int dealt = (int) applyDamageTo(target, dmg);
             game.damageDealt[playerIndex] += dealt;
             game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
             if (target.health <= 0 && old > 0) game.eliminations[playerIndex]++;
-            for (int i = 0; i < 120; i++) {
+            int particleCount = ultimate ? 170 : 120;
+            for (int i = 0; i < particleCount; i++) {
                 double ang = Math.random() * Math.PI * 2;
                 game.particles.add(new Particle(target.x + 40, target.y + 40,
                         Math.cos(ang) * (8 + Math.random() * 22),
                         Math.sin(ang) * (8 + Math.random() * 22) - 12,
-                        Color.ORANGE.brighter()));
+                        ultimate ? Color.GOLD.brighter() : Color.ORANGE.brighter()));
             }
             game.achievementProgress[18]++;
             if (game.achievementProgress[18] >= 15 && !game.achievementsUnlocked[18]) {
@@ -1001,6 +1087,29 @@ public class Bird {
         };
     }
 
+    private String shortName() {
+        return shortName(name);
+    }
+
+    private static String shortName(String fullName) {
+        if (fullName == null) {
+            return "";
+        }
+        int colon = fullName.indexOf(':');
+        if (colon < 0) {
+            return fullName;
+        }
+        return fullName.substring(0, colon).trim();
+    }
+
+    KeyCode downKey() {
+        return blockKey();
+    }
+
+    boolean isDownHeld() {
+        return game.pressedKeys.contains(blockKey());
+    }
+
     private int aiJumpCooldown = 0;
     private int aiSpecialCooldown = 0;
     private int aiStrafeTimer = 0;
@@ -1013,7 +1122,7 @@ public class Bird {
     private int aiLockedDir = 0;
     private int aiStrafeHoldFrames = 0;
     private int aiPowerCommitFrames = 0;
-    private double aiLastHealth = 100;
+    private double aiLastHealth = STARTING_HEALTH;
 
     private int dashCooldown = 0;
     private int dashTimer = 0;
@@ -1284,8 +1393,8 @@ public class Bird {
             }
         }
 
-        // Defensive block read.
-        if (target != null && targetDist < 170 && target.attackAnimationTimer > 3 &&
+        // Defensive block read (ground only).
+        if (onGround && target != null && targetDist < 170 && target.attackAnimationTimer > 3 &&
                 facingRight == (target.x > x) && random.nextDouble() < (lowHealth ? 0.50 : 0.34) * (0.25 + 0.75 * skill)) {
             game.pressedKeys.add(blockKey());
         }
@@ -1314,18 +1423,18 @@ public class Bird {
             currentTaunt = random.nextInt(3) + 1;
             tauntTimer = 50;
             tauntCooldown = 300;
-            game.addToKillFeed(name.split(":")[0].trim() + " IS ABSOLUTELY COOKING!");
+            game.addToKillFeed(shortName() + " IS ABSOLUTELY COOKING!");
         }
 
         aiLastHealth = health;
     }
 
-    private void specialBat() {
-        batEchoTimer = 150;
+    private void specialBat(boolean ultimate) {
+        batEchoTimer = ultimate ? 220 : 150;
         specialCooldown = 660;
         specialMaxCooldown = 660;
-        game.shakeIntensity = 22;
-        game.hitstopFrames = 12;
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 28 : 22);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 15 : 12);
 
         if (batHanging) {
             batHanging = false;
@@ -1334,29 +1443,30 @@ public class Bird {
             vx += (facingRight ? 1 : -1) * 9;
         }
 
-        game.addToKillFeed(name.split(":")[0].trim() + " UNLEASHED SONAR SCREECH!");
+        game.addToKillFeed(shortName() + (ultimate ? " ULT SONAR SCREECH!" : " UNLEASHED SONAR SCREECH!"));
 
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
             double dx = (other.x + 40) - (x + 40);
             double dy = (other.y + 40) - (y + 40);
             double dist = Math.hypot(dx, dy);
-            if (dist > 360) continue;
+            if (dist > (ultimate ? 460 : 360)) continue;
 
-            int dmg = dist < 150 ? 18 : (dist < 260 ? 12 : 8);
+            int dmg = dist < 150 ? (ultimate ? 26 : 18) : (dist < 260 ? (ultimate ? 18 : 12) : (ultimate ? 12 : 8));
             double oldHealth = other.health;
             int dealt = (int) applyDamageTo(other, dmg);
             game.damageDealt[playerIndex] += dealt;
             game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
             if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
 
-            other.stunTime = Math.max(other.stunTime, 28);
+            other.stunTime = Math.max(other.stunTime, ultimate ? 45 : 28);
             double safeDist = Math.max(0.001, dist);
-            other.vx += dx / safeDist * 16;
-            other.vy -= 8;
+            other.vx += dx / safeDist * (ultimate ? 20 : 16);
+            other.vy -= ultimate ? 10 : 8;
         }
 
-        for (int ring = 1; ring <= 4; ring++) {
+        int ringCount = ultimate ? 6 : 4;
+        for (int ring = 1; ring <= ringCount; ring++) {
             double radius = 70 + ring * 55;
             for (int i = 0; i < 42; i++) {
                 double ang = i / 42.0 * Math.PI * 2;
@@ -1365,13 +1475,13 @@ public class Bird {
                         y + 40 + Math.sin(ang) * radius,
                         Math.cos(ang) * 2.4,
                         Math.sin(ang) * 2.4,
-                        ring % 2 == 0 ? Color.MEDIUMPURPLE.brighter() : Color.CYAN.brighter()
+                        ultimate ? Color.GOLD.brighter() : (ring % 2 == 0 ? Color.MEDIUMPURPLE.brighter() : Color.CYAN.brighter())
                 ));
             }
         }
     }
 
-    private void specialRaven() {
+    private void specialRaven(boolean ultimate) {
         Bird target = null;
         double bestDist = Double.MAX_VALUE;
         for (Bird b : game.players) {
@@ -1383,9 +1493,9 @@ public class Bird {
             }
         }
 
-        if (target != null && bestDist < 520) {
+        if (target != null && bestDist < (ultimate ? 720 : 520)) {
             double dir = (target.x + 40 >= x + 40) ? -1 : 1;
-            double warpX = target.x + dir * 120;
+            double warpX = target.x + dir * (ultimate ? 150 : 120);
             double warpY = target.y;
             double maxX = game.WORLD_WIDTH - 80 * sizeMultiplier;
             double maxY = game.GROUND_Y - 80 * sizeMultiplier;
@@ -1395,26 +1505,27 @@ public class Bird {
             y = warpY;
             facingRight = dir < 0;
 
-            int dmg = Math.max(8, (int) Math.round(14 * powerMultiplier));
+            int dmg = Math.max(8, (int) Math.round((ultimate ? 20 : 14) * powerMultiplier));
             double oldHealth = target.health;
             int dealt = (int) applyDamageTo(target, dmg);
             game.damageDealt[playerIndex] += dealt;
             game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
             if (target.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
 
-            target.stunTime = Math.max(target.stunTime, 40);
+            target.stunTime = Math.max(target.stunTime, ultimate ? 70 : 40);
             double kbDir = (target.x > x) ? 1 : -1;
-            target.vx += kbDir * 10;
-            target.vy -= 6;
+            target.vx += kbDir * (ultimate ? 14 : 10);
+            target.vy -= ultimate ? 9 : 6;
 
-            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * 1.35);
-            speedTimer = Math.max(speedTimer, 120);
+            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * (ultimate ? 1.55 : 1.35));
+            speedTimer = Math.max(speedTimer, ultimate ? 180 : 120);
 
-            game.shakeIntensity = Math.max(game.shakeIntensity, 16);
-            game.hitstopFrames = Math.max(game.hitstopFrames, 8);
-            game.addToKillFeed(name.split(":")[0].trim() + " SHADOW WARPED " + target.name.split(":")[0].trim() + "! -" + dealt + " HP");
+            game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 22 : 16);
+            game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 11 : 8);
+            game.addToKillFeed(shortName() + (ultimate ? " ULT SHADOW WARPED " : " SHADOW WARPED ") + target.shortName() + "! -" + dealt + " HP");
 
-            for (int i = 0; i < 90; i++) {
+            int particleCount = ultimate ? 140 : 90;
+            for (int i = 0; i < particleCount; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 double speed = 5 + Math.random() * 12;
                 game.particles.add(new Particle(
@@ -1422,27 +1533,28 @@ public class Bird {
                         y + 40 + Math.sin(angle) * 20,
                         Math.cos(angle) * speed,
                         Math.sin(angle) * speed - 4,
-                        Color.web("#263238").deriveColor(0, 1, 1, 0.85)
+                        (ultimate ? Color.GOLD : Color.web("#263238")).deriveColor(0, 1, 1, 0.85)
                 ));
             }
 
             specialCooldown = 660;
             specialMaxCooldown = 660;
         } else {
-            vx += (facingRight ? 1 : -1) * 18;
-            vy = Math.min(vy, -10);
+            vx += (facingRight ? 1 : -1) * (ultimate ? 24 : 18);
+            vy = Math.min(vy, ultimate ? -12 : -10);
             canDoubleJump = true;
-            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * 1.2);
-            speedTimer = Math.max(speedTimer, 80);
-            game.addToKillFeed(name.split(":")[0].trim() + " SHADOW DASH!");
-            for (int i = 0; i < 50; i++) {
+            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * (ultimate ? 1.4 : 1.2));
+            speedTimer = Math.max(speedTimer, ultimate ? 120 : 80);
+            game.addToKillFeed(shortName() + (ultimate ? " ULT SHADOW DASH!" : " SHADOW DASH!"));
+            int particleCount = ultimate ? 80 : 50;
+            for (int i = 0; i < particleCount; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 game.particles.add(new Particle(
                         x + 40,
                         y + 40,
                         Math.cos(angle) * (4 + Math.random() * 8),
                         Math.sin(angle) * (4 + Math.random() * 8) - 3,
-                        Color.web("#455A64").deriveColor(0, 1, 1, 0.8)
+                        (ultimate ? Color.GOLD : Color.web("#455A64")).deriveColor(0, 1, 1, 0.8)
                 ));
             }
             specialCooldown = 240;
@@ -1755,6 +1867,9 @@ public class Bird {
 
         boolean stunned = stunTime > 0;
         boolean airborne = !isOnGround();
+        boolean downHeld = !stunned && game.pressedKeys.contains(blockKey());
+        boolean inWindNow = isInWindVent(x, y);
+        boolean inUpdraft = inWindNow || thermalTimer > 0;
 
         if (type == BirdGame3.BirdType.BAT && handleBatHanging(stunned)) {
             handleTaunts();
@@ -1762,9 +1877,9 @@ public class Bird {
             return;
         }
 
-        // === BLOCKING ===
+        // === BLOCKING (ground only) ===
         if (blockCooldown > 0) blockCooldown--;
-        if (!stunned && game.pressedKeys.contains(blockKey()) && blockCooldown <= 0) {
+        if (!stunned && downHeld && !airborne && blockCooldown <= 0) {
             isBlocking = true;
             vx *= 0.6;
             vy *= 0.9;
@@ -1779,6 +1894,11 @@ public class Bird {
             gravityScale = 0.66;
         }
         vy += BirdGame3.GRAVITY * gravityScale * gameSpeed;
+        if (airborne && downHeld) {
+            double accel = inUpdraft ? FAST_FALL_UPDRAFT_ACCEL : FAST_FALL_ACCEL;
+            vy += accel * gameSpeed;
+            if (!inUpdraft && vy > FAST_FALL_MAX) vy = FAST_FALL_MAX;
+        }
 
         // === EAGLE PASSIVE ===
         handleEaglePassive(airborne);
@@ -1853,11 +1973,13 @@ public class Bird {
         handleRazorbillBladeStorm();
 
         // === APPLY VELOCITY ===
+        double prevX = x;
+        double prevY = y;
         x += vx;
         y += vy;
 
         // === THERMALS & WIND VENTS ===
-        handleThermals();
+        handleThermals(downHeld, prevX, prevY);
         applyPenguinDashDamage();
         handleHummingbirdFrenzy();
         handlePhoenixAfterburn();
@@ -1902,6 +2024,7 @@ public class Bird {
         thermalTimer = Math.max(0, (int)(thermalTimer - gameSpeed));
         grappleTimer = Math.max(0, (int)(grappleTimer - gameSpeed));
         overchargeAttackTimer = Math.max(0, (int)(overchargeAttackTimer - gameSpeed));
+        ultimateFxTimer = Math.max(0, (int)(ultimateFxTimer - gameSpeed));
         speedBoostTimer = Math.max(0, (int)(speedBoostTimer - gameSpeed));
         hoverRegenTimer = Math.max(0, (int)(hoverRegenTimer - gameSpeed));
         penguinIceFxTimer = Math.max(0, penguinIceFxTimer - gameSpeed);
@@ -1982,7 +2105,7 @@ public class Bird {
                 grappleTargetY = targetY;
                 grappleUses--;
                 specialCooldown = 30;
-                game.addToKillFeed(name.split(":")[0].trim() + " GRAPPLED with vine!");
+                game.addToKillFeed(shortName() + " GRAPPLED with vine!");
                 for (int i = 0; i < 30; i++) {
                     double progress = i / 30.0;
                     game.particles.add(new Particle(
@@ -2166,7 +2289,7 @@ public class Bird {
                 other.vx += (other.x > x ? 1 : -1) * 25;
                 other.vy -= 18;
 
-                game.addToKillFeed(name.split(":")[0].trim() + " ZAPPED " + other.name.split(":")[0].trim() + "! -" + dmg + " HP");
+                game.addToKillFeed(shortName() + " ZAPPED " + other.shortName() + "! -" + dmg + " HP");
 
                 game.hitstopFrames = 12;
                 game.shakeIntensity = 28;
@@ -2438,9 +2561,37 @@ public class Bird {
         return mult;
     }
 
+    private void heal(double amount) {
+        if (amount <= 0) return;
+        double maxHealth = getMaxHealth();
+        if (health >= maxHealth) return;
+        health = Math.min(maxHealth, health + amount);
+    }
+
+    public double getUltimateRatio() {
+        return Math.max(0.0, Math.min(1.0, ultimateMeter / ULTIMATE_MAX));
+    }
+
+    public boolean isUltimateReady() {
+        return ultimateMeter >= ULTIMATE_MAX;
+    }
+
+    private void gainUltimate(double amount) {
+        if (amount <= 0) return;
+        ultimateMeter = Math.min(ULTIMATE_MAX, ultimateMeter + amount);
+    }
+
+    private boolean consumeUltimate() {
+        if (!isUltimateReady()) return false;
+        ultimateMeter = 0.0;
+        ultimateFxTimer = ULTIMATE_FX_FRAMES;
+        return true;
+    }
+
     private double outgoingDamageMultiplier() {
-        if (type == BirdGame3.BirdType.PHOENIX && phoenixRebornActive) return PHOENIX_REBORN_DAMAGE_SCALE;
-        return 1.0;
+        double mult = 1.0;
+        if (type == BirdGame3.BirdType.PHOENIX && phoenixRebornActive) mult *= PHOENIX_REBORN_DAMAGE_SCALE;
+        return mult;
     }
 
     public double getMaxHealth() {
@@ -2452,15 +2603,22 @@ public class Bird {
         if (target == null || rawDamage <= 0 || target.health <= 0) return 0;
         double oldHealth = target.health;
         double scaledDamage = rawDamage * outgoingDamageMultiplier() * target.incomingDamageMultiplier();
+        double dealtDamage;
         if (game.isTrainingDummy(target)) {
-            target.health = target.getMaxHealth();
-            return scaledDamage;
+            target.health = STARTING_HEALTH;
+            dealtDamage = Math.max(0, scaledDamage);
+        } else {
+            target.health = Math.max(0, target.health - scaledDamage);
+            if (target.health <= 0) {
+                target.tryPhoenixRebirth();
+            }
+            dealtDamage = oldHealth - target.health;
         }
-        target.health = Math.max(0, target.health - scaledDamage);
-        if (target.health <= 0) {
-            target.tryPhoenixRebirth();
+        if (dealtDamage > 0) {
+            gainUltimate(dealtDamage * ULTIMATE_GAIN_DEALT);
+            target.gainUltimate(dealtDamage * ULTIMATE_GAIN_TAKEN);
         }
-        return oldHealth - target.health;
+        return dealtDamage;
     }
 
     private boolean tryPhoenixRebirth() {
@@ -2480,7 +2638,7 @@ public class Bird {
         canDoubleJump = true;
         phoenixAfterburnTimer = 0;
 
-        String who = name.split(":")[0].trim();
+        String who = shortName();
         game.addToKillFeed(who + " REBORN FROM THE ASHES!");
         game.shakeIntensity = Math.max(game.shakeIntensity, 18);
         game.hitstopFrames = Math.max(game.hitstopFrames, 8);
@@ -2541,7 +2699,7 @@ public class Bird {
 
             other.vx += (dx >= 0 ? 1 : -1) * 4.2;
             other.vy -= 3.5;
-            health = Math.min(getMaxHealth(), health + dealt * 0.35);
+            heal(dealt * 0.35);
             hummingFrenzyHitCooldown[other.playerIndex] = 8;
 
             for (int i = 0; i < 8; i++) {
@@ -2626,7 +2784,7 @@ public class Bird {
             other.vx += (dx >= 0 ? 1 : -1) * 11;
             other.vy -= 9;
             penguinDashHit[other.playerIndex] = true;
-            game.addToKillFeed(name.split(":")[0].trim() + " ICE-CHECKED " + other.name.split(":")[0].trim() + "! -" + dmg + " HP");
+            game.addToKillFeed(shortName() + " ICE-CHECKED " + other.shortName() + "! -" + dmg + " HP");
 
             for (int i = 0; i < 14; i++) {
                 double ang = Math.random() * Math.PI * 2;
@@ -2660,8 +2818,8 @@ public class Bird {
                 other.vy -= 9;
                 eagleAscentHit[other.playerIndex] = true;
 
-                game.addToKillFeed(name.split(":")[0].trim() + " ASCENT-SLASHED " +
-                        other.name.split(":")[0].trim() + "! -" + dmg + " HP");
+                game.addToKillFeed(shortName() + " ASCENT-SLASHED " +
+                        other.shortName() + "! -" + dmg + " HP");
 
                 for (int i = 0; i < 22; i++) {
                     double angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.2;
@@ -2703,8 +2861,8 @@ public class Bird {
             other.vy -= sweetspot ? 13 : 8;
             eagleAscentHit[other.playerIndex] = true;
 
-            String attacker = name.split(":")[0].trim();
-            String victim = other.name.split(":")[0].trim();
+            String attacker = shortName();
+            String victim = other.shortName();
             if (sweetspot) {
                 game.addToKillFeed(attacker + " SWEETSPOTTED " + victim + "! -" + dealt + " HP");
             } else {
@@ -2737,7 +2895,7 @@ public class Bird {
 
         game.shakeIntensity = 24;
         game.hitstopFrames = 14;
-        game.addToKillFeed("KABOOM! " + name.split(":")[0].trim() + " slams the ground!");
+        game.addToKillFeed("KABOOM! " + shortName() + " slams the ground!");
         Arrays.fill(eagleAscentHit, false);
 
         for (int i = 0; i < 140; i++) {
@@ -2779,7 +2937,7 @@ public class Bird {
                 other.vy -= 14;
 
                 String intensity = dmg >= 50 ? "DEVASTATED" : dmg >= 35 ? "BLASTED" : "SMASHED";
-                game.addToKillFeed(name.split(":")[0].trim() + " " + intensity + " " + other.name.split(":")[0].trim() + "! -" + dmg + " HP");
+                game.addToKillFeed(shortName() + " " + intensity + " " + other.shortName() + "! -" + dmg + " HP");
 
                 if (dmg > 16) {
                     for (int k = 0; k < 24; k++) {
@@ -2797,7 +2955,7 @@ public class Bird {
     private void processFalconDiveImpact() {
         game.shakeIntensity = Math.max(game.shakeIntensity, 16);
         game.hitstopFrames = Math.max(game.hitstopFrames, 10);
-        game.addToKillFeed(name.split(":")[0].trim() + " lands a precision strike!");
+        game.addToKillFeed(shortName() + " lands a precision strike!");
         Arrays.fill(eagleAscentHit, false);
 
         for (int i = 0; i < 88; i++) {
@@ -2836,12 +2994,12 @@ public class Bird {
             other.vx += dx / safeDist * (sweetspot ? 15 : 10);
             other.vy -= sweetspot ? 12 : 8;
 
-            String victim = other.name.split(":")[0].trim();
+            String victim = other.shortName();
             if (sweetspot) {
-                game.addToKillFeed(name.split(":")[0].trim() + " SWEETSPOT DOVE " + victim + "! -" + dealt + " HP");
+                game.addToKillFeed(shortName() + " SWEETSPOT DOVE " + victim + "! -" + dealt + " HP");
                 game.triggerFlash(0.7, other.health <= 0 && oldHealth > 0);
             } else {
-                game.addToKillFeed(name.split(":")[0].trim() + " tagged " + victim + " on impact! -" + dealt + " HP");
+                game.addToKillFeed(shortName() + " tagged " + victim + " on impact! -" + dealt + " HP");
             }
         }
     }
@@ -2898,8 +3056,8 @@ public class Bird {
             other.vy += dirY * 12;
             razorbillDashHit[other.playerIndex] = true;
 
-            game.addToKillFeed(name.split(":")[0].trim() + " PIERCED " +
-                    other.name.split(":")[0].trim() + "! -" + dealt + " HP");
+            game.addToKillFeed(shortName() + " PIERCED " +
+                    other.shortName() + "! -" + dealt + " HP");
 
             for (int k = 0; k < 16; k++) {
                 double angle = Math.atan2(dirY, dirX) + (Math.random() - 0.5) * 1.4;
@@ -2928,16 +3086,16 @@ public class Bird {
         }
     }
 
-    private void handleThermals() {
+    private void handleThermals(boolean downHeld, double prevX, double prevY) {
         if (game.selectedMap == MapType.SKYCLIFFS || game.selectedMap == MapType.VIBRANT_JUNGLE || game.selectedMap == MapType.CAVE) {
             for (WindVent v : game.windVents) {
                 if (v.cooldown > 0) continue;
-                double centerX = v.x + v.w / 2;
-                double centerY = v.y - 75;
-                double dx = (x + 40) - centerX;
-                double dy = (y + 40) - centerY;
-                if (Math.pow(dx / (v.w / 2 + 50), 2) + Math.pow(dy / 200, 2) <= 1.0) {
-                    vy = Math.min(vy, BirdGame3.WIND_FORCE);
+                if (isInsideWindVent(v, x, y) || isInsideWindVent(v, prevX, prevY)) {
+                    if (downHeld) {
+                        vy *= DOWN_WIND_DAMPING;
+                    } else {
+                        vy = Math.min(vy, BirdGame3.WIND_FORCE);
+                    }
                     if (Math.random() < 0.3) {
                         game.particles.add(new Particle(x + 40 + (Math.random() - 0.5) * 40, y + 80,
                                 (Math.random() - 0.5) * 8, -4 - Math.random() * 8, Color.CYAN.deriveColor(0, 1, 1, 0.7)));
@@ -2946,6 +3104,27 @@ public class Bird {
                 }
             }
         }
+    }
+
+    private boolean isInWindVent(double px, double py) {
+        if (game.selectedMap != MapType.SKYCLIFFS && game.selectedMap != MapType.VIBRANT_JUNGLE && game.selectedMap != MapType.CAVE) {
+            return false;
+        }
+        for (WindVent v : game.windVents) {
+            if (v.cooldown > 0) continue;
+            if (isInsideWindVent(v, px, py)) return true;
+        }
+        return false;
+    }
+
+    private boolean isInsideWindVent(WindVent v, double px, double py) {
+        double centerX = v.x + v.w / 2;
+        double centerY = v.y - 75;
+        double dx = (px + 40) - centerX;
+        double dy = (py + 40) - centerY;
+        double normX = dx / (v.w / 2 + 50);
+        double normY = dy / 200.0;
+        return normX * normX + normY * normY <= 1.0;
     }
 
     private void handleBoundaries() {
@@ -2971,15 +3150,15 @@ public class Bird {
             health = Math.max(0, health - 50);
             boolean reborn = false;
             if (trainingDummy) {
-                health = getMaxHealth();
+                health = STARTING_HEALTH;
                 reborn = true;
             } else if (health <= 0) {
                 reborn = tryPhoenixRebirth();
                 if (!reborn) {
-                    game.addToKillFeed(name.split(":")[0].trim() + " FLEW INTO THE VOID!");
+                    game.addToKillFeed(shortName() + " FLEW INTO THE VOID!");
                 }
             } else {
-                game.addToKillFeed(name.split(":")[0].trim() + " went out of bounds... -50 HP");
+                game.addToKillFeed(shortName() + " went out of bounds... -50 HP");
             }
             if (!reborn && game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
             if (game.selectedMap == MapType.BATTLEFIELD) {
@@ -3013,18 +3192,18 @@ public class Bird {
             }
             boolean reborn = false;
             if (trainingDummy) {
-                health = getMaxHealth();
+                health = STARTING_HEALTH;
                 reborn = true;
             } else if (health <= 0) {
                 reborn = tryPhoenixRebirth();
                 if (!reborn) {
                     String msg = (game.selectedMap == MapType.BATTLEFIELD)
-                            ? name.split(":")[0].trim() + " FELL INTO THE VOID!"
-                            : name.split(":")[0].trim() + " FELL TO THEIR DOOM!";
+                            ? shortName() + " FELL INTO THE VOID!"
+                            : shortName() + " FELL TO THEIR DOOM!";
                     game.addToKillFeed(msg);
                 }
             } else {
-                game.addToKillFeed(name.split(":")[0].trim() + " fell... but survived! -50 HP");
+                game.addToKillFeed(shortName() + " fell... but survived! -50 HP");
             }
             if (!reborn && game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
             if (game.selectedMap == MapType.BATTLEFIELD) {
@@ -3049,8 +3228,8 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE && health > 0) {
             for (Bird b : game.players) {
                 if (b != null && b != this && b.health <= 0 && b.y > game.HEIGHT + 50 && b.y <= game.HEIGHT + 100) {
-                    health = Math.min(getMaxHealth(), health + 4);
-                    game.addToKillFeed(name.split(":")[0].trim() + " FEASTS! +4 HP");
+                    heal(4);
+                    game.addToKillFeed(shortName() + " FEASTS! +4 HP");
                     for (int i = 0; i < 15; i++) {
                         double angle = Math.random() * Math.PI * 2;
                         game.particles.add(new Particle(b.x + 40, b.y + 40,
@@ -3073,18 +3252,18 @@ public class Bird {
     private void handlePowerUpType(PowerUp p, Iterator<PowerUp> it) {
         switch (p.type) {
             case HEALTH -> {
-                health = Math.max(health, Math.min(getMaxHealth(), health + 40));
-                game.addToKillFeed(name.split(":")[0].trim() + " grabbed HEALTH! +40 HP");
+                heal(40);
+                game.addToKillFeed(shortName() + " grabbed HEALTH! +40 HP");
             }
             case SPEED -> {
                 speedMultiplier = baseSpeedMultiplier * 1.7;
                 speedTimer = 480;
-                game.addToKillFeed(name.split(":")[0].trim() + " got SPEED BOOST!");
+                game.addToKillFeed(shortName() + " got SPEED BOOST!");
             }
             case RAGE -> {
                 powerMultiplier = basePowerMultiplier * 2.0;
                 rageTimer = 420;
-                game.addToKillFeed(name.split(":")[0].trim() + " is ENRAGED!");
+                game.addToKillFeed(shortName() + " is ENRAGED!");
             }
             case SHRINK -> {
                 for (Bird b : game.players) {
@@ -3093,7 +3272,7 @@ public class Bird {
                         b.shrinkTimer = 360;
                     }
                 }
-                game.addToKillFeed(name.split(":")[0].trim() + " SHRANK + WEAKENED enemies!");
+                game.addToKillFeed(shortName() + " SHRANK + WEAKENED enemies!");
             }
             case NEON -> {
                 speedMultiplier = baseSpeedMultiplier * 2.4;
@@ -3105,7 +3284,7 @@ public class Bird {
                 powerMultiplier = basePowerMultiplier * 1.3;
                 rageTimer = 360;
 
-                game.addToKillFeed(name.split(":")[0].trim() + " grabbed NEON BOOST! HYPERSPEED!");
+                game.addToKillFeed(shortName() + " grabbed NEON BOOST! HYPERSPEED!");
 
                 for (int i = 0; i < 80; i++) {
                     double angle = Math.random() * Math.PI * 2;
@@ -3127,7 +3306,7 @@ public class Bird {
             case THERMAL -> {
                 thermalTimer = 600;
                 thermalLift = 1.2;
-                game.addToKillFeed(name.split(":")[0].trim() + " rides a THERMAL! SOARING!");
+                game.addToKillFeed(shortName() + " rides a THERMAL! SOARING!");
                 for (int i = 0; i < 100; i++) {
                     double angle = Math.random() * Math.PI * 2;
                     double speed = 8 + Math.random() * 18;
@@ -3145,7 +3324,7 @@ public class Bird {
             case VINE_GRAPPLE -> {
                 grappleTimer = 480;
                 grappleUses = 3;
-                game.addToKillFeed(name.split(":")[0].trim() + " grabbed VINE GRAPPLE! Swing freely!");
+                game.addToKillFeed(shortName() + " grabbed VINE GRAPPLE! Swing freely!");
                 for (int i = 0; i < 80; i++) {
                     double angle = Math.random() * Math.PI * 2;
                     double speed = 8 + Math.random() * 16;
@@ -3166,7 +3345,7 @@ public class Bird {
                 powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.35);
                 rageTimer = Math.max(rageTimer, 260);
                 overchargeAttackTimer = Math.max(overchargeAttackTimer, 300);
-                game.addToKillFeed(name.split(":")[0].trim() + " got OVERCHARGE! Special reset + rapid attacks!");
+                game.addToKillFeed(shortName() + " got OVERCHARGE! Special reset + rapid attacks!");
                 for (int i = 0; i < 65; i++) {
                     double angle = Math.random() * Math.PI * 2;
                     double speed = 8 + Math.random() * 16;
@@ -3182,7 +3361,7 @@ public class Bird {
                     sizeMultiplier = baseSizeMultiplier * 1.35;
                 }
                 powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.4);
-                game.addToKillFeed(name.split(":")[0].trim() + " entered TITAN FORM! (attack + defense)");
+                game.addToKillFeed(shortName() + " entered TITAN FORM! (attack + defense)");
                 for (int i = 0; i < 80; i++) {
                     double angle = Math.random() * Math.PI * 2;
                     double speed = 6 + Math.random() * 13;
@@ -3235,7 +3414,7 @@ public class Bird {
                     case 3 -> "MOONED";
                     default -> "TAUNTED";
                 };
-                game.addToKillFeed(name.split(":")[0].trim() + " " + tauntName + " EVERYONE!");
+                game.addToKillFeed(shortName() + " " + tauntName + " EVERYONE!");
 
                 for (int i = 0; i < 30; i++) {
                     Color c = currentTaunt == 1 ? Color.YELLOW : currentTaunt == 2 ? Color.RED : Color.PINK;
@@ -3282,6 +3461,8 @@ public class Bird {
         state.loungeY = loungeY;
         state.loungeHealth = loungeHealth;
         state.loungeDamageFlash = loungeDamageFlash;
+        state.loungeMaxHealth = loungeMaxHealth;
+        state.loungeRoyal = loungeRoyal;
         state.diveTimer = diveTimer;
         state.isZipping = isZipping;
         state.zipTargetX = zipTargetX;
@@ -3340,6 +3521,8 @@ public class Bird {
         state.phoenixAfterburnTimer = phoenixAfterburnTimer;
         state.phoenixRebornUsed = phoenixRebornUsed;
         state.phoenixRebornActive = phoenixRebornActive;
+        state.ultimateMeter = ultimateMeter;
+        state.ultimateFxTimer = ultimateFxTimer;
         return state;
     }
 
@@ -3384,6 +3567,8 @@ public class Bird {
         this.loungeY = state.loungeY;
         this.loungeHealth = state.loungeHealth;
         this.loungeDamageFlash = state.loungeDamageFlash;
+        this.loungeMaxHealth = state.loungeMaxHealth > 0 ? state.loungeMaxHealth : LOUNGE_MAX_HEALTH;
+        this.loungeRoyal = state.loungeRoyal;
         this.diveTimer = state.diveTimer;
         this.isZipping = state.isZipping;
         this.zipTargetX = state.zipTargetX;
@@ -3442,6 +3627,8 @@ public class Bird {
         this.phoenixAfterburnTimer = state.phoenixAfterburnTimer;
         this.phoenixRebornUsed = state.phoenixRebornUsed;
         this.phoenixRebornActive = state.phoenixRebornActive;
+        this.ultimateMeter = state.ultimateMeter;
+        this.ultimateFxTimer = state.ultimateFxTimer;
     }
 
     public void draw(GraphicsContext g) {
@@ -3459,6 +3646,7 @@ public class Bird {
             drawPhoenixAura(g, drawSize);
         }
         drawNeonBuff(g, drawSize);
+        drawUltimateFx(g, drawSize);
         drawBatEcho(g, drawSize);
         if (!suppressSelectEffects) {
             drawOpiumBirdEffects(g, drawSize);
@@ -3818,6 +4006,200 @@ public class Bird {
         }
     }
 
+    private void drawUltimateFx(GraphicsContext g, double drawSize) {
+        if (ultimateFxTimer <= 0) return;
+        double s = sizeMultiplier;
+        double t = (ULTIMATE_FX_FRAMES - ultimateFxTimer);
+        double pulse = 0.6 + 0.4 * Math.sin(t * 0.6);
+        double cx = x + 40;
+        double cy = y + 40;
+        double radius = (drawSize / 2.0) + 18 * s + pulse * 18 * s;
+        Color gold = Color.GOLD.deriveColor(0, 1, 1, 0.9);
+        Color purple = Color.web("#7E57C2").deriveColor(0, 1, 1, 0.7);
+        Color accent = type.color.deriveColor(0, 1, 1, 0.85);
+
+        g.setFill(gold.deriveColor(0, 1, 1, 0.12));
+        g.fillOval(cx - radius, cy - radius, radius * 2, radius * 2);
+
+        g.setStroke(gold.deriveColor(0, 1, 1, 0.85));
+        g.setLineWidth(3.5);
+        g.strokeOval(cx - radius, cy - radius, radius * 2, radius * 2);
+
+        g.setStroke(purple.deriveColor(0, 1, 1, 0.45));
+        g.setLineWidth(2.0);
+        double outer = radius + 14 * s;
+        g.strokeOval(cx - outer, cy - outer, outer * 2, outer * 2);
+
+        switch (type) {
+            case PIGEON -> {
+                drawRoyalCrown(g, cx, y - 16 * s, 34 * s, 16 * s, gold, Color.web("#FFF59D"));
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.7));
+                g.setLineWidth(2.2);
+                g.strokeOval(cx - 18 * s, y - 28 * s, 36 * s, 12 * s);
+            }
+            case EAGLE -> {
+                g.setStroke(gold);
+                g.setLineWidth(3.2);
+                g.strokeArc(cx - 80 * s, cy - 50 * s, 160 * s, 90 * s, 200, 140, ArcType.OPEN);
+                g.strokeArc(cx - 80 * s, cy - 50 * s, 160 * s, 90 * s, 0, 140, ArcType.OPEN);
+            }
+            case FALCON -> {
+                g.setStroke(gold);
+                g.setLineWidth(3.0);
+                int dir = facingRight ? 1 : -1;
+                g.strokeLine(cx, cy, cx + dir * 70 * s, cy - 18 * s);
+                g.setLineWidth(2.0);
+                g.strokeLine(cx - dir * 10 * s, cy + 8 * s, cx + dir * 56 * s, cy - 8 * s);
+            }
+            case PHOENIX -> {
+                g.setStroke(Color.ORANGERED.brighter());
+                g.setLineWidth(2.6);
+                for (int i = 0; i < 10; i++) {
+                    double ang = i / 10.0 * Math.PI * 2;
+                    double len = (18 + (i % 3) * 6) * s;
+                    g.strokeLine(cx, cy, cx + Math.cos(ang) * len, cy + Math.sin(ang) * len);
+                }
+            }
+            case HUMMINGBIRD -> {
+                g.setStroke(Color.GOLD.brighter());
+                g.setLineWidth(2.0);
+                for (int i = 0; i < 8; i++) {
+                    double ang = i / 8.0 * Math.PI * 2;
+                    g.strokeLine(cx, cy - 6 * s, cx + Math.cos(ang) * 22 * s, cy - 6 * s + Math.sin(ang) * 22 * s);
+                }
+            }
+            case TURKEY -> {
+                g.setStroke(gold);
+                g.setLineWidth(3.0);
+                g.strokeOval(cx - 90 * s, y + drawSize - 6 * s, 180 * s, 26 * s);
+                g.setLineWidth(2.0);
+                g.strokeOval(cx - 70 * s, y + drawSize + 4 * s, 140 * s, 18 * s);
+            }
+            case PENGUIN -> {
+                double w = 26 * s;
+                double h = 18 * s;
+                g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.7));
+                g.fillPolygon(
+                        new double[]{cx - w / 2, cx, cx + w / 2, cx},
+                        new double[]{y - 10 * s, y - 10 * s - h, y - 10 * s, y - 10 * s + h * 0.4},
+                        4
+                );
+                drawRoyalCrown(g, cx, y - 20 * s, 28 * s, 14 * s, gold, Color.web("#B3E5FC"));
+            }
+            case SHOEBILL -> {
+                g.setFill(purple.deriveColor(0, 1, 1, 0.22));
+                g.fillRect(cx - 6 * s, y - 18 * s, 12 * s, drawSize + 40 * s);
+                g.setStroke(gold);
+                g.setLineWidth(2.2);
+                g.strokeLine(cx, y - 10 * s, cx, y + drawSize + 16 * s);
+            }
+            case MOCKINGBIRD -> {
+                g.setStroke(gold);
+                g.setLineWidth(2.8);
+                g.strokePolygon(
+                        new double[]{cx, cx + 60 * s, cx, cx - 60 * s},
+                        new double[]{cy - 60 * s, cy, cy + 60 * s, cy},
+                        4
+                );
+                drawRoyalCrown(g, cx, y - 18 * s, 30 * s, 14 * s, gold, Color.web("#E1BEE7"));
+            }
+            case RAZORBILL -> {
+                g.setStroke(accent);
+                g.setLineWidth(2.4);
+                for (int i = 0; i < 6; i++) {
+                    double ang = i / 6.0 * Math.PI * 2;
+                    double len = 26 * s;
+                    g.strokeLine(cx, cy, cx + Math.cos(ang) * len, cy + Math.sin(ang) * len);
+                }
+            }
+            case GRINCHHAWK -> {
+                g.setStroke(Color.web("#9CCC65"));
+                g.setLineWidth(2.6);
+                for (int i = -2; i <= 2; i++) {
+                    g.strokeLine(cx, y - 4 * s, cx + i * 10 * s, y - 28 * s);
+                }
+            }
+            case VULTURE -> {
+                g.setFill(Color.rgb(20, 0, 20, 0.25));
+                g.fillOval(cx - 40 * s, cy - 40 * s, 80 * s, 80 * s);
+                drawRoyalCrown(g, cx, y - 14 * s, 26 * s, 12 * s, gold, Color.web("#FFE082"));
+            }
+            case OPIUMBIRD -> {
+                g.setFill(Color.PURPLE.deriveColor(0, 1, 1, 0.22));
+                g.fillOval(cx - 70 * s, cy - 60 * s, 140 * s, 120 * s);
+                g.setStroke(gold);
+                g.setLineWidth(2.0);
+                g.strokeOval(cx - 36 * s, cy - 30 * s, 72 * s, 60 * s);
+            }
+            case HEISENBIRD -> {
+                g.setStroke(Color.web("#B3E5FC"));
+                g.setLineWidth(2.4);
+                g.strokePolygon(
+                        new double[]{cx - 40 * s, cx, cx + 40 * s, cx + 20 * s, cx - 20 * s},
+                        new double[]{cy, cy - 36 * s, cy, cy + 36 * s, cy + 36 * s},
+                        5
+                );
+            }
+            case TITMOUSE -> {
+                g.setStroke(gold);
+                g.setLineWidth(2.6);
+                g.strokePolyline(
+                        new double[]{cx - 30 * s, cx - 8 * s, cx + 10 * s, cx + 34 * s},
+                        new double[]{cy - 14 * s, cy + 8 * s, cy - 6 * s, cy + 12 * s},
+                        4
+                );
+            }
+            case BAT -> {
+                g.setStroke(Color.GOLD.deriveColor(0, 1, 1, 0.75));
+                g.setLineWidth(2.4);
+                g.strokeOval(cx - 70 * s, cy - 50 * s, 140 * s, 100 * s);
+                g.strokeOval(cx - 90 * s, cy - 65 * s, 180 * s, 130 * s);
+            }
+            case PELICAN -> {
+                drawRoyalCrown(g, cx, y - 20 * s, 44 * s, 20 * s, gold, Color.web("#FFF9C4"));
+                g.setStroke(gold);
+                g.setLineWidth(2.2);
+                g.strokeLine(cx - 50 * s, cy + 10 * s, cx + 50 * s, cy + 6 * s);
+            }
+            case RAVEN -> {
+                g.setFill(Color.web("#1C1F26", 0.28));
+                g.fillOval(cx - 60 * s, cy - 60 * s, 120 * s, 120 * s);
+                g.setStroke(gold);
+                g.setLineWidth(2.2);
+                g.strokeArc(cx - 45 * s, cy - 35 * s, 90 * s, 70 * s, 200, 140, ArcType.OPEN);
+            }
+        }
+    }
+
+    private void drawRoyalCrown(GraphicsContext g, double cx, double yTop, double width, double height, Color fill, Color stroke) {
+        double half = width / 2.0;
+        double x0 = cx - half;
+        double x1 = cx - half * 0.5;
+        double x2 = cx - half * 0.1;
+        double x3 = cx;
+        double x4 = cx + half * 0.1;
+        double x5 = cx + half * 0.5;
+        double x6 = cx + half;
+
+        double y0 = yTop + height;
+        double y1 = yTop + height * 0.25;
+        double y2 = yTop + height;
+        double y3 = yTop;
+        double y4 = yTop + height;
+        double y5 = yTop + height * 0.25;
+        double y6 = yTop + height;
+        double yBase = yTop + height * 1.25;
+
+        double[] xs = new double[]{x0, x1, x2, x3, x4, x5, x6, x6, x0};
+        double[] ys = new double[]{y0, y1, y2, y3, y4, y5, y6, yBase, yBase};
+
+        g.setFill(fill);
+        g.fillPolygon(xs, ys, xs.length);
+        g.setStroke(stroke);
+        g.setLineWidth(1.6);
+        g.strokePolygon(xs, ys, xs.length);
+    }
+
     private void drawTitmouseSpecial(GraphicsContext g) {
         if (type == BirdGame3.BirdType.TITMOUSE) {
             double s = sizeMultiplier;
@@ -4099,27 +4481,35 @@ public class Bird {
 
     private void drawLounge(GraphicsContext g) {
         if (type == BirdGame3.BirdType.MOCKINGBIRD && loungeActive && loungeHealth > 0) {
-            Color loungeColor = loungeDamageFlash > 0 ? Color.RED : Color.LIME;
-            g.setFill(loungeColor.deriveColor(0, 1, 1, 0.7));
-            g.fillRoundRect(loungeX - 60, loungeY - 40, 120, 80, 30, 30);
-            g.setStroke(loungeDamageFlash > 0 ? Color.ORANGERED : Color.DARKGREEN);
-            g.setLineWidth(loungeDamageFlash > 0 ? 8 : 5);
-            g.strokeRoundRect(loungeX - 60, loungeY - 40, 120, 80, 30, 30);
+            boolean royal = loungeRoyal;
+            Color baseFill = royal ? Color.web("#5E35B1") : Color.LIME;
+            Color baseStroke = loungeDamageFlash > 0 ? Color.ORANGERED : (royal ? Color.GOLD : Color.DARKGREEN);
+            g.setFill(baseFill.deriveColor(0, 1, 1, 0.75));
+            g.fillRoundRect(loungeX - 62, loungeY - 42, 124, 84, 32, 32);
+            g.setStroke(baseStroke);
+            g.setLineWidth(loungeDamageFlash > 0 ? 8 : (royal ? 6 : 5));
+            g.strokeRoundRect(loungeX - 62, loungeY - 42, 124, 84, 32, 32);
 
+            int maxHealth = Math.max(1, loungeMaxHealth);
+            double ratio = Math.max(0, Math.min(1.0, loungeHealth / (double) maxHealth));
             g.setFill(Color.BLACK);
             g.fillRect(loungeX - 65, loungeY - 75, 130, 18);
             g.setFill(Color.RED.darker());
             g.fillRect(loungeX - 60, loungeY - 70, 120, 12);
-            g.setFill(Color.LIME);
-            g.fillRect(loungeX - 60, loungeY - 70, 120 * (loungeHealth / (double) LOUNGE_MAX_HEALTH), 12);
+            g.setFill(royal ? Color.GOLD : Color.LIME);
+            g.fillRect(loungeX - 60, loungeY - 70, 120 * ratio, 12);
 
             g.setFill(Color.WHITE);
             g.setFont(Font.font("Arial Black", 20));
             g.fillText(loungeHealth + " HP", loungeX - 48, loungeY - 55);
 
-            g.setFill(Color.BLACK);
+            g.setFill(royal ? Color.GOLD : Color.BLACK);
             g.setFont(Font.font("Arial Black", 24));
-            g.fillText("LOUNGE", loungeX - 52, loungeY + 8);
+            g.fillText(royal ? "ROYAL LOUNGE" : "LOUNGE", loungeX - (royal ? 74 : 52), loungeY + 8);
+
+            if (royal) {
+                drawRoyalCrown(g, loungeX, loungeY - 58, 46, 22, Color.GOLD, Color.web("#FFF59D"));
+            }
 
             if (loungeDamageFlash > 0) loungeDamageFlash--;
         }
