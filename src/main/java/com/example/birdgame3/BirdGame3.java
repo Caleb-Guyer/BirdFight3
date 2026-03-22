@@ -93,6 +93,18 @@ public class BirdGame3 extends Application {
     private static final Font HUD_FEED_FONT = Font.font("Arial Black", 26);
     private static final Font HUD_CONTROLS_FONT = Font.font(22);
     private static final Font HUD_HEALTH_FONT = Font.font("Arial Black", 28);
+    private static final int VERIFIED_MATCH_BASE_BIRD_COINS = 30;
+    private static final int VERIFIED_MATCH_PLAYER_BIRD_COINS = 10;
+    private static final int VERIFIED_MATCH_WIN_BONUS = 10;
+    private static final int VERIFIED_CLASSIC_MATCH_BONUS = 60;
+    private static final int VERIFIED_ADVENTURE_MATCH_BONUS = 40;
+    private static final int VERIFIED_STORY_MATCH_BONUS = 30;
+    private static final int VERIFIED_COMPETITION_MATCH_BONUS = 20;
+    private static final String PREF_BIRD_COINS = "bird_coins";
+    private static final String PREF_BIRD_COINS_EARNED = "bird_coins_earned";
+    private static final String PREF_BIRD_COINS_SPENT = "bird_coins_spent";
+    private static final String PREF_BIRD_COINS_CHECKSUM = "bird_coins_checksum";
+    private static final long BIRD_COIN_LEDGER_SALT = 0x6A09E667F3BCC909L;
 
     final Set<KeyCode> pressedKeys = new HashSet<>();
     public Bird[] players = new Bird[4];
@@ -125,6 +137,8 @@ public class BirdGame3 extends Application {
     public List<String> killFeed = new ArrayList<>();
     private final int MAX_FEED_LINES = 6;
     private int birdCoins = 0;
+    private int birdCoinsEarnedLedger = 0;
+    private int birdCoinsSpentLedger = 0;
     public static final double CEILING_Y = -100;
     public int[] falls = new int[4];
     public int[] scores = new int[4];  // live score: elims*50 + damage/2
@@ -264,6 +278,7 @@ public class BirdGame3 extends Application {
 
     public List<Particle> particles = new ArrayList<>();
     public List<CrowMinion> crowMinions = new ArrayList<>();
+    public List<ChickMinion> chickMinions = new ArrayList<>();
 
     // === CITY WIND BURSTS ===
     public List<WindVent> windVents = new ArrayList<>();
@@ -1335,12 +1350,14 @@ public class BirdGame3 extends Application {
     public boolean tideVultureUnlocked = false;
     public boolean eclipseMockingbirdUnlocked = false;
     public boolean umbraBatUnlocked = false;
+    public boolean sunforgeRoosterUnlocked = false;
     public boolean batUnlocked = false;
     public boolean falconUnlocked = false;
     public boolean heisenbirdUnlocked = false;
     public boolean phoenixUnlocked = false;
     public boolean titmouseUnlocked = false;
     public boolean ravenUnlocked = false;
+    public boolean roosterUnlocked = false;
 
     public static final int SKIN_COUNT = 4; // City Pigeon + Noir Pigeon + Freeman Bird + Beacon Pigeon
     private static final String FREEMAN_PIGEON_SKIN = "FREEMAN_PIGEON";
@@ -1356,6 +1373,7 @@ public class BirdGame3 extends Application {
     private static final String TIDE_VULTURE_SKIN = "TIDE_VULTURE";
     private static final String ECLIPSE_MOCKINGBIRD_SKIN = "ECLIPSE_MOCKINGBIRD";
     private static final String UMBRA_BAT_SKIN = "UMBRA_BAT";
+    private static final String SUNFORGE_ROOSTER_SKIN = "SUNFORGE_ROOSTER";
     private static final String CLASSIC_CONTINUE_KEY = "CLASSIC_CONTINUE";
     private static final String CHAR_BAT_KEY = "CHAR_BAT";
     private static final String CHAR_FALCON_KEY = "CHAR_FALCON";
@@ -1363,6 +1381,7 @@ public class BirdGame3 extends Application {
     private static final String CHAR_PHOENIX_KEY = "CHAR_PHOENIX";
     private static final String CHAR_TITMOUSE_KEY = "CHAR_TITMOUSE";
     private static final String CHAR_RAVEN_KEY = "CHAR_RAVEN";
+    private static final String CHAR_ROOSTER_KEY = "CHAR_ROOSTER";
     private static final String MAP_CAVE_KEY = "MAP_CAVE";
     private static final String MAP_BATTLEFIELD_KEY = "MAP_BATTLEFIELD";
 
@@ -4204,6 +4223,7 @@ public class BirdGame3 extends Application {
             case PHOENIX -> phoenixUnlocked;
             case TITMOUSE -> titmouseUnlocked;
             case RAVEN -> ravenUnlocked;
+            case ROOSTER -> roosterUnlocked;
             default -> true;
         };
     }
@@ -4292,6 +4312,9 @@ public class BirdGame3 extends Application {
             case BAT -> {
                 if (umbraBatUnlocked) options.add(UMBRA_BAT_SKIN);
             }
+            case ROOSTER -> {
+                if (sunforgeRoosterUnlocked) options.add(SUNFORGE_ROOSTER_SKIN);
+            }
             default -> {
             }
         }
@@ -4316,6 +4339,7 @@ public class BirdGame3 extends Application {
         if (TIDE_VULTURE_SKIN.equals(skinKey) && type == BirdType.VULTURE && tideVultureUnlocked) return skinKey;
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(skinKey) && type == BirdType.MOCKINGBIRD && eclipseMockingbirdUnlocked) return skinKey;
         if (UMBRA_BAT_SKIN.equals(skinKey) && type == BirdType.BAT && umbraBatUnlocked) return skinKey;
+        if (SUNFORGE_ROOSTER_SKIN.equals(skinKey) && type == BirdType.ROOSTER && sunforgeRoosterUnlocked) return skinKey;
         if (skinKey.startsWith("CLASSIC_SKIN_") && type != BirdType.PIGEON && type != BirdType.EAGLE) {
             String expected = classicSkinDataKey(type);
             if (skinKey.equals(expected) && isClassicRewardUnlocked(type)) return skinKey;
@@ -4341,6 +4365,7 @@ public class BirdGame3 extends Application {
         if (TIDE_VULTURE_SKIN.equals(skinKey)) return "SKIN: TIDE VULTURE";
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(skinKey)) return "SKIN: ECLIPSE CHARLES";
         if (UMBRA_BAT_SKIN.equals(skinKey)) return "SKIN: UMBRA BAT";
+        if (SUNFORGE_ROOSTER_SKIN.equals(skinKey)) return "SKIN: SUNFORGE ROOSTER";
         if (skinKey.startsWith("CLASSIC_SKIN_")) return "SKIN: " + classicRewardFor(type);
         return "SKIN: BASE";
     }
@@ -4363,6 +4388,7 @@ public class BirdGame3 extends Application {
         bird.isTideSkin = false;
         bird.isEclipseSkin = false;
         bird.isUmbraSkin = false;
+        bird.isSunforgeSkin = false;
 
         if (skinKey == null) return;
         if (type == BirdType.PIGEON) {
@@ -4420,6 +4446,10 @@ public class BirdGame3 extends Application {
             bird.isUmbraSkin = true;
             return;
         }
+        if (type == BirdType.ROOSTER && SUNFORGE_ROOSTER_SKIN.equals(skinKey) && sunforgeRoosterUnlocked) {
+            bird.isSunforgeSkin = true;
+            return;
+        }
         if (skinKey.equals(classicSkinDataKey(type)) && isClassicRewardUnlocked(type)) {
             bird.isClassicSkin = true;
         }
@@ -4443,6 +4473,7 @@ public class BirdGame3 extends Application {
         bird.isTideSkin = false;
         bird.isEclipseSkin = false;
         bird.isUmbraSkin = false;
+        bird.isSunforgeSkin = false;
 
         if (skinKey == null) return;
         if (type == BirdType.PIGEON) {
@@ -4500,6 +4531,10 @@ public class BirdGame3 extends Application {
             bird.isUmbraSkin = true;
             return;
         }
+        if (type == BirdType.ROOSTER && SUNFORGE_ROOSTER_SKIN.equals(skinKey)) {
+            bird.isSunforgeSkin = true;
+            return;
+        }
         if (skinKey.startsWith("CLASSIC_SKIN_")) {
             bird.isClassicSkin = true;
         }
@@ -4550,6 +4585,7 @@ public class BirdGame3 extends Application {
         if (type == BirdType.VULTURE && bird.isTideSkin) return TIDE_VULTURE_SKIN;
         if (type == BirdType.MOCKINGBIRD && bird.isEclipseSkin) return ECLIPSE_MOCKINGBIRD_SKIN;
         if (type == BirdType.BAT && bird.isUmbraSkin) return UMBRA_BAT_SKIN;
+        if (type == BirdType.ROOSTER && bird.isSunforgeSkin) return SUNFORGE_ROOSTER_SKIN;
         if (bird.isClassicSkin) return classicSkinDataKey(type);
         return null;
     }
@@ -4618,6 +4654,7 @@ public class BirdGame3 extends Application {
         PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Rebirth Blaze (heal + fireburst)"),
         HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Hover/Fly + Nectar Frenzy (stings + lifesteal)"),
         TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Ground Pound AOE + Heavy Flap"),
+        ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Summon Chicks (3 variants)"),
         PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Ice Jump Dash"),
         SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "AoE Stun"),
         MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Spawn Charles Lounge (Heal zone)"),
@@ -4694,299 +4731,431 @@ public class BirdGame3 extends Application {
                 applyMatchModeRuntimeEffects(now);
                 spawnPowerUp(now);
                 if (!matchEnded && !trainingModeActive) matchTimer--;
+                updateWorldFixed();
             }
+
+            updateParticlesFixed();
 
             accumulator -= FRAME_TIME;
             updates++;
         }
-        if (!lanClientSim) {
-            for (Bird b : players) {
-                if (b == null || b.health <= 0) continue;
-                for (NectarNode node : nectarNodes) {
-                    if (!node.active) continue;
-                    double dx = node.x - (b.x + 40);
-                    double dy = node.y - (b.y + 40);
-                    if (dx * dx + dy * dy < 6400) {
-                        node.active = false;
-                        if (node.isSpeed) {
-                            b.speedBoostTimer = 300;
-                            b.speedMultiplier = 1.2;
-                            addToKillFeed(shortName(b.name) + " sipped SPEED NECTAR! +20% speed");
-                        } else {
-                            b.hoverRegenTimer = 300;
-                            b.hoverRegenMultiplier = 1.5;
-                            addToKillFeed(shortName(b.name) + " sipped HOVER NECTAR! Better hover regen");
-                        }
-                        for (int i = 0; i < 30; i++) {
-                            double angle = Math.random() * Math.PI * 2;
-                            particles.add(new Particle(node.x, node.y, Math.cos(angle) * 8, Math.sin(angle) * 8 - 4,
-                                    node.isSpeed ? Color.YELLOW : Color.AQUA));
-                        }
-                    }
-                }
-            }
-            if (selectedMap == MapType.VIBRANT_JUNGLE) {
-                for (SwingingVine vine : swingingVines) {
-                    vine.angularVelocity += (Math.random() - 0.5) * 0.0015;
-                    if (Math.random() < 0.008) vine.angularVelocity += (Math.random() - 0.5) * 0.04;
-                    double gravity = 0.009;
-                    double angularAccel = -gravity * Math.sin(vine.angle);
-                    vine.angularVelocity += angularAccel;
-                    vine.angularVelocity *= 0.995;
-                    vine.angle += vine.angularVelocity;
-                    vine.angle = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, vine.angle));
-                    vine.updatePlatformPosition();
-                    for (Bird b : players) {
-                        if (b == null || b.health <= 0) continue;
-                        double birdLeft = b.x + 20;
-                        double birdRight = b.x + 60 * b.sizeMultiplier;
-                        double birdBottom = b.y + 80 * b.sizeMultiplier;
-                        double birdTop = b.y;
-                        double platLeft = vine.platformX;
-                        double platRight = vine.platformX + vine.platformW;
-                        double platTop = vine.platformY;
-                        boolean horizontallyOver = birdLeft < platRight && birdRight > platLeft;
-                        boolean verticallyOnTop = birdBottom >= platTop && birdBottom <= platTop + 30;
-                        if (!b.onVine && horizontallyOver && verticallyOnTop && b.vy >= 0 && birdTop < platTop) {
-                            b.onVine = true;
-                            b.attachedVine = vine;
-                            b.y = platTop - 80 * b.sizeMultiplier;
-                            b.vy = 0;
-                            addToKillFeed(shortName(b.name) + " grabbed a vine!");
-                        }
-                        if (b.onVine && b.attachedVine == vine) {
-                            b.x = vine.platformX + vine.platformW / 2 - 40 * b.sizeMultiplier;
-                            b.y = vine.platformY - 80 * b.sizeMultiplier;
-                            if (!isAI[b.playerIndex]) {
-                                if (pressedKeys.contains(b.leftKey())) vine.angularVelocity -= 0.004;
-                                if (pressedKeys.contains(b.rightKey())) vine.angularVelocity += 0.004;
-                            }
-                            if (isAI[b.playerIndex]) {
-                                Bird target = null;
-                                double best = Double.MAX_VALUE;
-                                for (Bird other : players) {
-                                    if (other != null && other.health > 0 && other != b) {
-                                        double d = Math.abs(other.x - b.x);
-                                        if (d < best) {
-                                            best = d;
-                                            target = other;
-                                        }
-                                    }
-                                }
-                                if (target != null) {
-                                    if (target.x < b.x) vine.angularVelocity -= 0.006;
-                                    if (target.x > b.x) vine.angularVelocity += 0.006;
-                                }
-                            }
-                            if (pressedKeys.contains(b.jumpKey())) {
-                                b.onVine = false;
-                                b.attachedVine = null;
-                                b.vy = -b.type.jumpHeight * 0.9;
-                                b.canDoubleJump = true;
-                                addToKillFeed(shortName(b.name) + " swung off the vine!");
-                            }
-                            b.vy = 0;
-                        }
-                    }
-                }
-                for (Bird b : players) {
-                    if (b != null && b.onVine && b.attachedVine != null) {
-                        double platY = b.attachedVine.platformY;
-                        if (b.y + 80 * b.sizeMultiplier > platY + 50) {
-                            b.onVine = false;
-                            b.attachedVine = null;
-                        }
-                    }
-                }
-            }
+        if (!particleEffectsEnabled && !particles.isEmpty()) {
+            particles.clear();
+        }
+    }
 
-            for (Iterator<CrowMinion> it = crowMinions.iterator(); it.hasNext(); ) {
-                CrowMinion c = it.next();
-                c.age++;
-                Bird closest = null;
-                double bestSq = Double.MAX_VALUE;
+    private void updateWorldFixed() {
+        for (Bird b : players) {
+            if (b == null || b.health <= 0) continue;
+            for (NectarNode node : nectarNodes) {
+                if (!node.active) continue;
+                double dx = node.x - (b.x + 40);
+                double dy = node.y - (b.y + 40);
+                if (dx * dx + dy * dy < 6400) {
+                    node.active = false;
+                    if (node.isSpeed) {
+                        b.speedBoostTimer = 300;
+                        b.speedMultiplier = 1.2;
+                        addToKillFeed(shortName(b.name) + " sipped SPEED NECTAR! +20% speed");
+                    } else {
+                        b.hoverRegenTimer = 300;
+                        b.hoverRegenMultiplier = 1.5;
+                        addToKillFeed(shortName(b.name) + " sipped HOVER NECTAR! Better hover regen");
+                    }
+                    for (int i = 0; i < 30; i++) {
+                        double angle = Math.random() * Math.PI * 2;
+                        particles.add(new Particle(node.x, node.y, Math.cos(angle) * 8, Math.sin(angle) * 8 - 4,
+                                node.isSpeed ? Color.YELLOW : Color.AQUA));
+                    }
+                }
+            }
+        }
+        if (selectedMap == MapType.VIBRANT_JUNGLE) {
+            for (SwingingVine vine : swingingVines) {
+                vine.angularVelocity += (Math.random() - 0.5) * 0.0015;
+                if (Math.random() < 0.008) vine.angularVelocity += (Math.random() - 0.5) * 0.04;
+                double gravity = 0.009;
+                double angularAccel = -gravity * Math.sin(vine.angle);
+                vine.angularVelocity += angularAccel;
+                vine.angularVelocity *= 0.995;
+                vine.angle += vine.angularVelocity;
+                vine.angle = Math.max(-Math.PI / 2.2, Math.min(Math.PI / 2.2, vine.angle));
+                vine.updatePlatformPosition();
                 for (Bird b : players) {
                     if (b == null || b.health <= 0) continue;
-                    if (c.owner != null && !canDamage(c.owner, b)) continue;
-                    double dx = b.x + 40 - c.x;
-                    double dy = b.y + 40 - c.y;
+                    double birdLeft = b.x + 20;
+                    double birdRight = b.x + 60 * b.sizeMultiplier;
+                    double birdBottom = b.y + 80 * b.sizeMultiplier;
+                    double birdTop = b.y;
+                    double platLeft = vine.platformX;
+                    double platRight = vine.platformX + vine.platformW;
+                    double platTop = vine.platformY;
+                    boolean horizontallyOver = birdLeft < platRight && birdRight > platLeft;
+                    boolean verticallyOnTop = birdBottom >= platTop && birdBottom <= platTop + 30;
+                    if (!b.onVine && horizontallyOver && verticallyOnTop && b.vy >= 0 && birdTop < platTop) {
+                        b.onVine = true;
+                        b.attachedVine = vine;
+                        b.y = platTop - 80 * b.sizeMultiplier;
+                        b.vy = 0;
+                        addToKillFeed(shortName(b.name) + " grabbed a vine!");
+                    }
+                    if (b.onVine && b.attachedVine == vine) {
+                        b.x = vine.platformX + vine.platformW / 2 - 40 * b.sizeMultiplier;
+                        b.y = vine.platformY - 80 * b.sizeMultiplier;
+                        if (!isAI[b.playerIndex]) {
+                            if (pressedKeys.contains(b.leftKey())) vine.angularVelocity -= 0.004;
+                            if (pressedKeys.contains(b.rightKey())) vine.angularVelocity += 0.004;
+                        }
+                        if (isAI[b.playerIndex]) {
+                            Bird target = null;
+                            double best = Double.MAX_VALUE;
+                            for (Bird other : players) {
+                                if (other != null && other.health > 0 && other != b) {
+                                    double d = Math.abs(other.x - b.x);
+                                    if (d < best) {
+                                        best = d;
+                                        target = other;
+                                    }
+                                }
+                            }
+                            if (target != null) {
+                                if (target.x < b.x) vine.angularVelocity -= 0.006;
+                                if (target.x > b.x) vine.angularVelocity += 0.006;
+                            }
+                        }
+                        if (pressedKeys.contains(b.jumpKey())) {
+                            b.onVine = false;
+                            b.attachedVine = null;
+                            b.vy = -b.type.jumpHeight * 0.9;
+                            b.canDoubleJump = true;
+                            addToKillFeed(shortName(b.name) + " swung off the vine!");
+                        }
+                        b.vy = 0;
+                    }
+                }
+            }
+            for (Bird b : players) {
+                if (b != null && b.onVine && b.attachedVine != null) {
+                    double platY = b.attachedVine.platformY;
+                    if (b.y + 80 * b.sizeMultiplier > platY + 50) {
+                        b.onVine = false;
+                        b.attachedVine = null;
+                    }
+                }
+            }
+        }
+
+        for (Iterator<CrowMinion> it = crowMinions.iterator(); it.hasNext(); ) {
+            CrowMinion c = it.next();
+            c.age++;
+            Bird closest = null;
+            double bestSq = Double.MAX_VALUE;
+            for (Bird b : players) {
+                if (b == null || b.health <= 0) continue;
+                if (c.owner != null && !canDamage(c.owner, b)) continue;
+                double dx = b.x + 40 - c.x;
+                double dy = b.y + 40 - c.y;
+                double distSq = dx * dx + dy * dy;
+                if (distSq < bestSq) {
+                    bestSq = distSq;
+                    closest = b;
+                }
+            }
+            if (closest != null) {
+                double dx = closest.x + 40 - c.x;
+                double dy = closest.y + 40 - c.y;
+                double dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist > 0) {
+                    double spd = 3.2;
+                    c.vx += dx / dist * 0.22;
+                    c.vy += dy / dist * 0.22;
+                    double speedSq = c.vx * c.vx + c.vy * c.vy;
+                    if (speedSq > spd * spd) {
+                        double speedNow = Math.sqrt(speedSq);
+                        c.vx = c.vx / speedNow * spd;
+                        c.vy = c.vy / speedNow * spd;
+                    }
+                }
+                if (dist < 48) {
+                    int damage = (c.owner != null) ? 1 : 4;
+                    closest.health -= damage;
+                    if (closest.health < 0) closest.health = 0;
+                    String source = (c.owner != null) ? "CROW" : "MURDER CROW";
+                    addToKillFeed(source + " devours " + shortName(closest.name) + "! -" + damage + " HP");
+                    closest.vx += c.vx * 1.5;
+                    closest.vy -= 12;
+                    int particleCount = (c.owner != null) ? 18 : 35;
+                    Color particleColor = (c.owner != null) ? Color.DARKRED.deriveColor(0, 1, 1, 0.9) : Color.BLACK;
+                    for (int i = 0; i < particleCount; i++) {
+                        double angle = Math.random() * Math.PI * 2;
+                        double spd = 6 + Math.random() * 20;
+                        particles.add(new Particle(c.x, c.y, Math.cos(angle) * spd, Math.sin(angle) * spd - 8, particleColor));
+                    }
+                    if (c.owner == null) {
+                        triggerFlash(0.6, false);
+                        shakeIntensity = Math.max(shakeIntensity, 20);
+                    }
+                    it.remove();
+                    continue;
+                }
+            }
+            c.x += c.vx;
+            c.y += c.vy;
+            if (c.age > 1800 || c.x < -1500 || c.x > WORLD_WIDTH + 1500 || c.y < -1500 || c.y > WORLD_HEIGHT + 1500) {
+                it.remove();
+            }
+        }
+
+        for (Iterator<ChickMinion> it = chickMinions.iterator(); it.hasNext(); ) {
+            ChickMinion chick = it.next();
+            chick.age++;
+            if (chick.attackCooldown > 0) chick.attackCooldown--;
+            if (chick.jumpCooldown > 0) chick.jumpCooldown--;
+
+            Bird target = chick.target;
+            if (target == null || target.health <= 0 || (chick.owner != null && !canDamage(chick.owner, target))) {
+                Bird closest = null;
+                double bestSq = Double.MAX_VALUE;
+                double ccx = chick.x + chick.width * 0.5;
+                double ccy = chick.y + chick.height * 0.5;
+                for (Bird b : players) {
+                    if (b == null || b.health <= 0) continue;
+                    if (chick.owner != null && !canDamage(chick.owner, b)) continue;
+                    double dx = (b.x + 40) - ccx;
+                    double dy = (b.y + 40) - ccy;
                     double distSq = dx * dx + dy * dy;
                     if (distSq < bestSq) {
                         bestSq = distSq;
                         closest = b;
                     }
                 }
-                if (closest != null) {
-                    double dx = closest.x + 40 - c.x;
-                    double dy = closest.y + 40 - c.y;
-                    double dist = Math.sqrt(dx * dx + dy * dy);
-                    if (dist > 0) {
-                        double spd = 3.2;
-                        c.vx += dx / dist * 0.22;
-                        c.vy += dy / dist * 0.22;
-                        double speedSq = c.vx * c.vx + c.vy * c.vy;
-                        if (speedSq > spd * spd) {
-                            double speedNow = Math.sqrt(speedSq);
-                            c.vx = c.vx / speedNow * spd;
-                            c.vy = c.vy / speedNow * spd;
+                chick.target = closest;
+                target = closest;
+            }
+
+            boolean wasOnGround = chick.onGround;
+            if (target != null) {
+                double ccx = chick.x + chick.width * 0.5;
+                double ccy = chick.y + chick.height * 0.5;
+                double dx = (target.x + 40) - ccx;
+                double dy = (target.y + 40) - ccy;
+                double dir = dx == 0 ? 0 : Math.signum(dx);
+                double desiredVx = dir * chick.speed;
+                chick.vx += (desiredVx - chick.vx) * chick.accel;
+                if (Math.abs(chick.vx) > chick.speed) chick.vx = dir * chick.speed;
+
+                    boolean targetAbove = dy < -30;
+                    boolean closePounce = Math.abs(dx) < 140;
+                    if (wasOnGround && chick.jumpCooldown <= 0 && (targetAbove || closePounce)) {
+                        chick.vy = -chick.jumpStrength;
+                        double jumpBoost = chick.variant == 1 ? 1.05 : (chick.variant == 0 ? 0.78 : 0.6);
+                        chick.vx += dir * chick.speed * jumpBoost;
+                        if (chick.variant == 1) {
+                            chick.jumpCooldown = chick.ultimate ? 14 : 20;
+                        } else if (chick.variant == 0) {
+                            chick.jumpCooldown = chick.ultimate ? 22 : 28;
+                        } else {
+                            chick.jumpCooldown = chick.ultimate ? 26 : 34;
                         }
+                        chick.onGround = false;
                     }
-                    if (dist < 48) {
-                        int damage = (c.owner != null) ? 1 : 4;
-                        closest.health -= damage;
-                        if (closest.health < 0) closest.health = 0;
-                        String source = (c.owner != null) ? "CROW" : "MURDER CROW";
-                        addToKillFeed(source + " devours " + shortName(closest.name) + "! -" + damage + " HP");
-                        closest.vx += c.vx * 1.5;
-                        closest.vy -= 12;
-                        int particleCount = (c.owner != null) ? 18 : 35;
-                        Color particleColor = (c.owner != null) ? Color.DARKRED.deriveColor(0, 1, 1, 0.9) : Color.BLACK;
+            } else {
+                chick.vx *= 0.92;
+            }
+
+            chick.vy += GRAVITY * 0.8;
+
+            double prevY = chick.y;
+            chick.x += chick.vx;
+            chick.y += chick.vy;
+
+            boolean landed = false;
+            double bottom = chick.y + chick.height;
+            if (bottom >= GROUND_Y) {
+                chick.y = GROUND_Y - chick.height;
+                chick.vy = 0;
+                landed = true;
+            }
+            if (!landed && chick.vy >= 0) {
+                double prevBottom = prevY + chick.height;
+                for (Platform p : platforms) {
+                    double left = chick.x + chick.width * 0.1;
+                    double right = chick.x + chick.width * 0.9;
+                    if (right < p.x || left > p.x + p.w) continue;
+                    if (prevBottom <= p.y && bottom >= p.y) {
+                        chick.y = p.y - chick.height;
+                        chick.vy = 0;
+                        landed = true;
+                        break;
+                    }
+                }
+            }
+            chick.onGround = landed;
+            if (landed) {
+                chick.vx *= 0.85;
+            }
+
+            if (target != null && chick.attackCooldown <= 0) {
+                if (chick.owner != null && !canDamage(chick.owner, target)) {
+                    chick.target = null;
+                } else {
+                    double ccx = chick.x + chick.width * 0.5;
+                    double ccy = chick.y + chick.height * 0.5;
+                    double dx = (target.x + 40) - ccx;
+                    double dy = (target.y + 40) - ccy;
+                    if (dx * dx + dy * dy < 2500) {
+                        int damage = chick.damage;
+                        double oldHealth = target.health;
+                        target.health -= damage;
+                        if (target.health < 0) target.health = 0;
+                        double dealtDamage = Math.max(0, oldHealth - target.health);
+                        if (dealtDamage > 0 && chick.owner != null) {
+                            chick.owner.gainUltimateFromMinionDamage(dealtDamage);
+                        }
+                        String ownerTag = chick.owner != null ? shortName(chick.owner.name) + "'s " : "";
+                        addToKillFeed(ownerTag + "CHICK pecked " + shortName(target.name) + "! -" + damage + " HP");
+                        target.vx += Math.signum(dx) * (chick.ultimate ? 9 : 7);
+                        target.vy -= chick.ultimate ? 8 : 6;
+                        int particleCount = chick.ultimate ? 16 : 12;
+                        Color puff = chick.ultimate ? Color.GOLD : Color.web("#FFD54F");
                         for (int i = 0; i < particleCount; i++) {
                             double angle = Math.random() * Math.PI * 2;
-                            double spd = 6 + Math.random() * 20;
-                            particles.add(new Particle(c.x, c.y, Math.cos(angle) * spd, Math.sin(angle) * spd - 8, particleColor));
+                            double spd = 4 + Math.random() * 6;
+                            particles.add(new Particle(ccx, ccy, Math.cos(angle) * spd, Math.sin(angle) * spd - 3, puff));
                         }
-                        if (c.owner == null) {
-                            triggerFlash(0.6, false);
-                            shakeIntensity = Math.max(shakeIntensity, 20);
-                        }
-                        it.remove();
-                        continue;
+                        chick.attackCooldown = chick.ultimate ? 32 : 44;
                     }
                 }
-                c.x += c.vx;
-                c.y += c.vy;
-                if (c.age > 1800 || c.x < -1500 || c.x > WORLD_WIDTH + 1500 || c.y < -1500 || c.y > WORLD_HEIGHT + 1500) {
-                    it.remove();
-                }
             }
 
-            if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive && !trainingModeActive && !matchEnded && matchTimer <= 0) {
-                Bird timeoutWinner = findTimeoutWinner();
-                addToKillFeed("TIME! Tournament decision.");
-                triggerMatchEnd(timeoutWinner);
-            } else if (!trainingModeActive && !matchEnded && matchTimer <= 0 && !suddenDeath.isActive()) {
-                suddenDeath.start();
-                if (sfxEnabled && hugewaveClip != null) hugewaveClip.play();
-                addToKillFeed("SUDDEN DEATH! A MURDER OF CROWS DESCENDS!");
-                shakeIntensity = 40;
-                hitstopFrames = 30;
+            if (chick.age > chick.maxAge || chick.x < -600 || chick.x > WORLD_WIDTH + 600 || chick.y > WORLD_HEIGHT + 600) {
+                it.remove();
             }
-            if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) && !trainingModeActive) {
-                shakeIntensity = suddenDeath.updateAndSpawn(
-                        crowMinions,
-                        random,
-                        WORLD_WIDTH,
-                        WORLD_HEIGHT,
-                        shakeIntensity,
-                        matchEnded
-                );
-            }
+        }
 
-            if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
-                    && selectedMap == MapType.CITY
-                    && System.nanoTime() - lastWindBurstTime > WIND_BURST_INTERVAL) {
-                lastWindBurstTime = System.nanoTime();
-                Collections.shuffle(windVents);
-                int bursts = 2 + random.nextInt(2);
-                for (int i = 0; i < Math.min(bursts, windVents.size()); i++) {
-                    WindVent vent = windVents.get(i);
-                    vent.cooldown = 120;
-                    for (Bird b : players) {
-                        if (b != null && b.health > 0) {
-                            double dx = b.x + 40 - (vent.x + vent.w / 2);
-                            if (Math.abs(dx) < vent.w / 2 + 100 && b.y > vent.y - 300) {
-                                if (b.isDownHeld()) {
-                                    b.vy *= 0.85;
-                                } else {
-                                    b.vy = Math.min(b.vy, WIND_FORCE);
-                                }
-                                addToKillFeed("WIND GUST lifts " + shortName(b.name) + "!");
-                                for (int j = 0; j < 40; j++) {
-                                    double angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
-                                    double spd = 8 + Math.random() * 12;
-                                    particles.add(new Particle(vent.x + vent.w / 2 + (Math.random() - 0.5) * vent.w, vent.y - 20, Math.cos(angle) * spd, Math.sin(angle) * spd, Color.CYAN.deriveColor(0, 1, 1, 0.7)));
-                                }
+        if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive && !trainingModeActive && !matchEnded && matchTimer <= 0) {
+            Bird timeoutWinner = findTimeoutWinner();
+            addToKillFeed("TIME! Tournament decision.");
+            triggerMatchEnd(timeoutWinner);
+        } else if (!trainingModeActive && !matchEnded && matchTimer <= 0 && !suddenDeath.isActive()) {
+            suddenDeath.start();
+            if (sfxEnabled && hugewaveClip != null) hugewaveClip.play();
+            addToKillFeed("SUDDEN DEATH! A MURDER OF CROWS DESCENDS!");
+            shakeIntensity = 40;
+            hitstopFrames = 30;
+        }
+        if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) && !trainingModeActive) {
+            shakeIntensity = suddenDeath.updateAndSpawn(
+                    crowMinions,
+                    random,
+                    WORLD_WIDTH,
+                    WORLD_HEIGHT,
+                    shakeIntensity,
+                    matchEnded
+            );
+        }
+
+        if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
+                && selectedMap == MapType.CITY
+                && System.nanoTime() - lastWindBurstTime > WIND_BURST_INTERVAL) {
+            lastWindBurstTime = System.nanoTime();
+            Collections.shuffle(windVents);
+            int bursts = 2 + random.nextInt(2);
+            for (int i = 0; i < Math.min(bursts, windVents.size()); i++) {
+                WindVent vent = windVents.get(i);
+                vent.cooldown = 120;
+                for (Bird b : players) {
+                    if (b != null && b.health > 0) {
+                        double dx = b.x + 40 - (vent.x + vent.w / 2);
+                        if (Math.abs(dx) < vent.w / 2 + 100 && b.y > vent.y - 300) {
+                            if (b.isDownHeld()) {
+                                b.vy *= 0.85;
+                            } else {
+                                b.vy = Math.min(b.vy, WIND_FORCE);
+                            }
+                            addToKillFeed("WIND GUST lifts " + shortName(b.name) + "!");
+                            for (int j = 0; j < 40; j++) {
+                                double angle = -Math.PI / 2 + (Math.random() - 0.5) * 0.8;
+                                double spd = 8 + Math.random() * 12;
+                                particles.add(new Particle(vent.x + vent.w / 2 + (Math.random() - 0.5) * vent.w, vent.y - 20, Math.cos(angle) * spd, Math.sin(angle) * spd, Color.CYAN.deriveColor(0, 1, 1, 0.7)));
                             }
                         }
                     }
                 }
             }
-            for (WindVent v : windVents) if (v.cooldown > 0) v.cooldown--;
-
-            double minX = Double.MAX_VALUE, maxX = Double.MIN_VALUE;
-            double minY = Double.MAX_VALUE, maxY = Double.MIN_VALUE;
-            int aliveCount = 0;
-            for (Bird b : players) {
-                if (b != null && b.health > 0) {
-                    aliveCount++;
-                    minX = Math.min(minX, b.x);
-                    maxX = Math.max(maxX, b.x + 80);
-                    minY = Math.min(minY, b.y);
-                    maxY = Math.max(maxY, b.y + 80);
-                }
-            }
-            if (aliveCount >= 2) {
-                double birdsWidth = maxX - minX;
-                double birdsHeight = maxY - minY;
-                double targetZoomW = WIDTH / (birdsWidth + 800);
-                double targetZoomH = HEIGHT / (birdsHeight + 800);
-                double targetZoom = Math.min(targetZoomW, targetZoomH);
-                targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
-                zoom += (targetZoom - zoom) * ZOOM_SPEED;
-            } else if (aliveCount == 1) {
-                zoom += (0.9 - zoom) * 0.01;
-            }
-            double centerX = (minX + maxX) / 2.0;
-            double centerY = (minY + maxY) / 2.0;
-            camX = centerX - WIDTH / (2 * zoom);
-            camY = centerY - HEIGHT / (2 * zoom);
-            camX = Math.max(0, Math.min(camX, WORLD_WIDTH - WIDTH / zoom));
-            camY = Math.max(0, Math.min(camY, WORLD_HEIGHT - HEIGHT / zoom));
         }
-        
-        if (particleEffectsEnabled) {
-            for (Iterator<Particle> it = particles.iterator(); it.hasNext(); ) {
-                Particle p = it.next();
-                p.x += p.vx;
-                p.y += p.vy;
-                p.vy += 0.4;
-                p.life--;
-                if (p.life <= 0 || p.y > WORLD_HEIGHT + 200) it.remove();
+        for (WindVent v : windVents) if (v.cooldown > 0) v.cooldown--;
+
+        double minX = Double.MAX_VALUE, maxX = Double.MIN_VALUE;
+        double minY = Double.MAX_VALUE, maxY = Double.MIN_VALUE;
+        int aliveCount = 0;
+        for (Bird b : players) {
+            if (b != null && b.health > 0) {
+                aliveCount++;
+                minX = Math.min(minX, b.x);
+                maxX = Math.max(maxX, b.x + 80);
+                minY = Math.min(minY, b.y);
+                maxY = Math.max(maxY, b.y + 80);
             }
-        } else if (!particles.isEmpty()) {
-            particles.clear();
+        }
+        if (aliveCount >= 2) {
+            double birdsWidth = maxX - minX;
+            double birdsHeight = maxY - minY;
+            double targetZoomW = WIDTH / (birdsWidth + 800);
+            double targetZoomH = HEIGHT / (birdsHeight + 800);
+            double targetZoom = Math.min(targetZoomW, targetZoomH);
+            targetZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, targetZoom));
+            zoom += (targetZoom - zoom) * ZOOM_SPEED;
+        } else if (aliveCount == 1) {
+            zoom += (0.9 - zoom) * 0.01;
+        }
+        double centerX = (minX + maxX) / 2.0;
+        double centerY = (minY + maxY) / 2.0;
+        camX = centerX - WIDTH / (2 * zoom);
+        camY = centerY - HEIGHT / (2 * zoom);
+        camX = Math.max(0, Math.min(camX, WORLD_WIDTH - WIDTH / zoom));
+        camY = Math.max(0, Math.min(camY, WORLD_HEIGHT - HEIGHT / zoom));
+
+        if (trainingModeActive) {
+            Bird dummy = players[trainingDummyIndex];
+            if (dummy != null) {
+                dummy.health = Bird.STARTING_HEALTH;
+            }
         }
 
-        if (!lanClientSim) {
-            if (trainingModeActive) {
-                Bird dummy = players[trainingDummyIndex];
-                if (dummy != null) {
-                    dummy.health = Bird.STARTING_HEALTH;
-                }
+        int alive = 0;
+        Bird winner = null;
+        Set<Integer> aliveTeams = new HashSet<>();
+        for (Bird b : players) {
+            if (b != null && b.health > 0) {
+                alive++;
+                winner = b;
+                aliveTeams.add(getEffectiveTeam(b.playerIndex));
             }
-
-            int alive = 0;
-            Bird winner = null;
-            Set<Integer> aliveTeams = new HashSet<>();
-            for (Bird b : players) {
-                if (b != null && b.health > 0) {
-                    alive++;
-                    winner = b;
-                    aliveTeams.add(getEffectiveTeam(b.playerIndex));
-                }
-            }
-            boolean teamModeMatch =
-                    (teamModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
-                            || (storyModeActive && storyTeamMode)
-                            || (adventureModeActive && adventureTeamMode)
-                            || (classicModeActive && classicTeamMode);
-            boolean isMatchOver = teamModeMatch ? aliveTeams.size() <= 1 : alive <= 1;
-            if (isMatchOver && !matchEnded) {
-                triggerMatchEnd(winner);
-            }
+        }
+        boolean teamModeMatch =
+                (teamModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
+                        || (storyModeActive && storyTeamMode)
+                        || (adventureModeActive && adventureTeamMode)
+                        || (classicModeActive && classicTeamMode);
+        boolean isMatchOver = teamModeMatch ? aliveTeams.size() <= 1 : alive <= 1;
+        if (isMatchOver && !matchEnded) {
+            triggerMatchEnd(winner);
         }
     }
+
+    private void updateParticlesFixed() {
+        if (!particleEffectsEnabled) return;
+        for (Iterator<Particle> it = particles.iterator(); it.hasNext(); ) {
+            Particle p = it.next();
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.4;
+            p.life--;
+            if (p.life <= 0 || p.y > WORLD_HEIGHT + 200) it.remove();
+        }
+    }
+
     private void drawGame(GraphicsContext g) {
         g.clearRect(0, 0, WIDTH, HEIGHT);
         g.save();
@@ -5437,34 +5606,11 @@ public class BirdGame3 extends Application {
         }
 
         for (CrowMinion c : crowMinions) {
-            boolean isMurderCrow = (c.owner == null);
-            double pulseVal = 1.0 + 0.3 * Math.sin(c.age * 0.4);
-            double scale = isMurderCrow ? pulseVal * 1.4 : pulseVal;
-            g.setFill(isMurderCrow ? Color.rgb(20, 0, 0) : Color.BLACK);
-            g.fillOval(c.x - 12 * scale, c.y - 10 * scale, 24 * scale, 20 * scale);
-            g.setFill(isMurderCrow ? Color.rgb(40, 0, 0) : Color.rgb(30, 30, 40));
-            g.fillOval(c.x - 25 * scale, c.y - 8 * scale, 20 * scale, 25 * scale);
-            g.fillOval(c.x + 5 * scale, c.y - 8 * scale, 20 * scale, 25 * scale);
-            g.setFill(isMurderCrow ? Color.RED : Color.RED.brighter());
-            g.fillOval(c.x - 4 * scale, c.y - 5 * scale, 8 * scale, 8 * scale);
-            g.fillOval(c.x + 10 * scale, c.y - 5 * scale, 8 * scale, 8 * scale);
-            if (c.hasCrown) {
-                double crownW = 18 * scale;
-                double crownH = 10 * scale;
-                double cx = c.x;
-                double cy = c.y - 18 * scale;
-                double[] xs = new double[]{
-                        cx - crownW / 2, cx - crownW / 4, cx, cx + crownW / 4, cx + crownW / 2, cx + crownW / 2, cx - crownW / 2
-                };
-                double[] ys = new double[]{
-                        cy + crownH, cy, cy + crownH * 0.3, cy, cy + crownH, cy + crownH * 1.3, cy + crownH * 1.3
-                };
-                g.setFill(Color.GOLD);
-                g.fillPolygon(xs, ys, xs.length);
-                g.setStroke(Color.web("#FFF59D"));
-                g.setLineWidth(1.2);
-                g.strokePolygon(xs, ys, xs.length);
-            }
+            drawCrowMinion(g, c, c.owner == null);
+        }
+
+        for (ChickMinion chick : chickMinions) {
+            drawChickMinion(g, chick);
         }
 
         for (Bird b : players) {
@@ -5474,6 +5620,220 @@ public class BirdGame3 extends Application {
             }
         }
 
+        g.restore();
+    }
+
+    private void drawCrowMinion(GraphicsContext g, CrowMinion crow, boolean murderCrow) {
+        double pulseVal = 1.0 + 0.3 * Math.sin(crow.age * 0.4);
+        double scale = murderCrow ? pulseVal * 1.4 : pulseVal;
+        g.setFill(murderCrow ? Color.rgb(20, 0, 0) : Color.BLACK);
+        g.fillOval(crow.x - 12 * scale, crow.y - 10 * scale, 24 * scale, 20 * scale);
+        g.setFill(murderCrow ? Color.rgb(40, 0, 0) : Color.rgb(30, 30, 40));
+        g.fillOval(crow.x - 25 * scale, crow.y - 8 * scale, 20 * scale, 25 * scale);
+        g.fillOval(crow.x + 5 * scale, crow.y - 8 * scale, 20 * scale, 25 * scale);
+        g.setFill(murderCrow ? Color.RED : Color.RED.brighter());
+        g.fillOval(crow.x - 4 * scale, crow.y - 5 * scale, 8 * scale, 8 * scale);
+        g.fillOval(crow.x + 10 * scale, crow.y - 5 * scale, 8 * scale, 8 * scale);
+        if (crow.hasCrown) {
+            double crownW = 18 * scale;
+            double crownH = 10 * scale;
+            double cx = crow.x;
+            double cy = crow.y - 18 * scale;
+            double[] xs = new double[]{
+                    cx - crownW / 2, cx - crownW / 4, cx, cx + crownW / 4, cx + crownW / 2, cx + crownW / 2, cx - crownW / 2
+            };
+            double[] ys = new double[]{
+                    cy + crownH, cy, cy + crownH * 0.3, cy, cy + crownH, cy + crownH * 1.3, cy + crownH * 1.3
+            };
+            g.setFill(Color.GOLD);
+            g.fillPolygon(xs, ys, xs.length);
+            g.setStroke(Color.web("#FFF59D"));
+            g.setLineWidth(1.2);
+            g.strokePolygon(xs, ys, xs.length);
+        }
+    }
+
+    private void drawChickMinion(GraphicsContext g, ChickMinion chick) {
+        double pulse = 1.0 + 0.05 * Math.sin(chick.age * 0.35);
+        double w = chick.width * pulse;
+        double h = chick.height * pulse;
+        double x = chick.x + (chick.width - w) * 0.5;
+        double y = chick.y + (chick.height - h) * 0.5;
+        boolean facingRight = chick.vx >= 0;
+        boolean sunforgeBrood = chick.owner != null
+                && chick.owner.type == BirdType.ROOSTER
+                && chick.owner.isSunforgeSkin;
+
+        Color body;
+        Color accent;
+        Color trim = null;
+        if (sunforgeBrood) {
+            switch (chick.variant) {
+                case 1 -> {
+                    body = Color.web("#455A64");
+                    accent = Color.web("#4DD0E1");
+                    trim = Color.web("#FFD54F");
+                }
+                case 2 -> {
+                    body = Color.web("#8D6E63");
+                    accent = Color.web("#FF7043");
+                    trim = Color.web("#FFD54F");
+                }
+                default -> {
+                    body = Color.web("#6D4C41");
+                    accent = Color.web("#FFB300");
+                    trim = Color.web("#FFF176");
+                }
+            }
+        } else {
+            switch (chick.variant) {
+                case 1 -> {
+                    body = Color.web("#FFF8E1");
+                    accent = Color.web("#4FC3F7");
+                    trim = Color.web("#90CAF9");
+                }
+                case 2 -> {
+                    body = Color.web("#FFB74D");
+                    accent = Color.web("#6D4C41");
+                }
+                default -> {
+                    body = Color.web("#FFD54F");
+                    accent = Color.web("#F57C00");
+                    trim = Color.web("#FF7043");
+                }
+            }
+        }
+
+        if (chick.ultimate) {
+            Color aura = sunforgeBrood ? Color.web("#FFB300") : Color.GOLD;
+            g.setFill(aura.deriveColor(0, 1, 1, 0.25));
+            g.fillOval(x - w * 0.6, y - h * 0.7, w * 2.2, h * 2.0);
+            body = body.brighter();
+        }
+
+        g.setFill(body);
+        g.fillOval(x, y + h * 0.2, w * 1.1, h * 0.8);
+
+        if (sunforgeBrood) {
+            g.setStroke(Color.web("#FFD54F").deriveColor(0, 1, 1, chick.ultimate ? 0.95 : 0.7));
+            g.setLineWidth(Math.max(1.6, w * 0.06));
+            g.strokeOval(x - w * 0.02, y + h * 0.18, w * 1.14, h * 0.84);
+        }
+
+        g.setFill(body.darker());
+        g.fillOval(x + w * 0.25, y + h * 0.35, w * 0.45, h * 0.4);
+
+        double headW = w * 0.45;
+        double headH = h * 0.45;
+        double headX = facingRight ? x + w * 0.7 : x - headW * 0.1;
+        double headY = y + h * 0.05;
+        g.setFill(body.brighter());
+        g.fillOval(headX, headY, headW, headH);
+
+        if (chick.variant == 1) {
+            g.setFill(accent);
+            double crestX = headX + headW * 0.1;
+            double crestY = headY - headH * 0.25;
+            g.fillPolygon(
+                    new double[]{crestX, crestX + headW * 0.35, crestX + headW * 0.7},
+                    new double[]{crestY + headH * 0.8, crestY, crestY + headH * 0.8},
+                    3
+            );
+        } else if (chick.variant == 0 && trim != null) {
+            g.setStroke(trim);
+            g.setLineWidth(2.0);
+            g.strokeLine(x + w * 0.35, y + h * 0.5, x + w * 0.7, y + h * 0.58);
+        } else if (chick.variant == 2) {
+            g.setFill(accent);
+            g.fillOval(x + w * 0.18, y + h * 0.52, w * 0.18, h * 0.18);
+            g.fillOval(x + w * 0.38, y + h * 0.55, w * 0.18, h * 0.18);
+        }
+
+        if (sunforgeBrood) {
+            g.setStroke(trim != null ? trim : Color.web("#FFE082"));
+            g.setLineWidth(Math.max(1.2, w * 0.045));
+            g.strokeLine(x + w * 0.24, y + h * 0.34, x + w * 0.82, y + h * 0.46);
+        }
+
+        g.setFill(accent);
+        if (facingRight) {
+            g.fillPolygon(
+                    new double[]{headX + headW * 0.9, headX + headW * 1.15, headX + headW * 0.9},
+                    new double[]{headY + headH * 0.45, headY + headH * 0.55, headY + headH * 0.65},
+                    3
+            );
+        } else {
+            g.fillPolygon(
+                    new double[]{headX + headW * 0.1, headX - headW * 0.15, headX + headW * 0.1},
+                    new double[]{headY + headH * 0.45, headY + headH * 0.55, headY + headH * 0.65},
+                    3
+            );
+        }
+
+        g.setFill(sunforgeBrood ? Color.web("#FFF8E1") : Color.BLACK);
+        double eyeX = facingRight ? headX + headW * 0.6 : headX + headW * 0.25;
+        double eyeY = headY + headH * 0.35;
+        g.fillOval(eyeX, eyeY, headW * 0.15, headW * 0.15);
+
+        if (chick.ultimate) {
+            double crownW = headW * 0.9;
+            double crownH = headH * 0.55;
+            double cx = headX + headW * 0.5;
+            double cy = headY - crownH * 0.4;
+            double[] xs = new double[]{
+                    cx - crownW / 2, cx - crownW * 0.2, cx, cx + crownW * 0.2, cx + crownW / 2,
+                    cx + crownW / 2, cx - crownW / 2
+            };
+            double[] ys = new double[]{
+                    cy + crownH, cy, cy + crownH * 0.35, cy, cy + crownH,
+                    cy + crownH * 1.25, cy + crownH * 1.25
+            };
+            g.setFill(Color.GOLD);
+            g.fillPolygon(xs, ys, xs.length);
+            g.setStroke(Color.web("#FFF59D"));
+            g.setLineWidth(1.0);
+            g.strokePolygon(xs, ys, xs.length);
+        }
+    }
+
+    private void drawBirdCompanionPreview(Canvas canvas, BirdCompanionEntry entry) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        double w = canvas.getWidth();
+        double h = canvas.getHeight();
+        g.clearRect(0, 0, w, h);
+
+        g.setFill(entry.accent.deriveColor(0, 1, 1, 0.18));
+        g.fillRoundRect(4, 4, w - 8, h - 8, 16, 16);
+        g.setStroke(entry.accent.deriveColor(0, 1, 1, 0.85));
+        g.setLineWidth(2);
+        g.strokeRoundRect(4, 4, w - 8, h - 8, 16, 16);
+
+        if (entry.kind == BirdCompanionKind.CHICK) {
+            g.setFill(Color.rgb(0, 0, 0, 0.2));
+            g.fillOval(w * 0.22, h * 0.72, w * 0.48, h * 0.16);
+            double scale = Math.min(w / 84.0, h / 62.0);
+            g.save();
+            g.translate(w * 0.14, h * 0.08);
+            g.scale(scale, scale);
+            ChickMinion chick = new ChickMinion(18, 18, entry.variant, entry.empowered, null);
+            chick.x = 16;
+            chick.y = 12;
+            chick.vx = 2.0;
+            chick.age = 18;
+            drawChickMinion(g, chick);
+            g.restore();
+            return;
+        }
+
+        g.setFill(Color.rgb(0, 0, 0, 0.25));
+        g.fillOval(w * 0.16, h * 0.7, w * 0.56, h * 0.16);
+        double scale = Math.min(w / 78.0, h / 58.0);
+        g.save();
+        g.translate(w * 0.16, h * 0.12);
+        g.scale(scale, scale);
+        CrowMinion crow = new CrowMinion(28, 22, null);
+        crow.age = 18;
+        drawCrowMinion(g, crow, entry.empowered);
         g.restore();
     }
 
@@ -5861,7 +6221,8 @@ public class BirdGame3 extends Application {
                 || CHAR_HEISENBIRD_KEY.equals(key)
                 || CHAR_PHOENIX_KEY.equals(key)
                 || CHAR_TITMOUSE_KEY.equals(key)
-                || CHAR_RAVEN_KEY.equals(key);
+                || CHAR_RAVEN_KEY.equals(key)
+                || CHAR_ROOSTER_KEY.equals(key);
     }
 
     private boolean isShopPreviewCharacter(ShopPreview preview) {
@@ -9598,6 +9959,18 @@ public class BirdGame3 extends Application {
             cs.hasCrown = c.hasCrown;
             state.crowMinions.add(cs);
         }
+        for (ChickMinion chick : chickMinions) {
+            LanState.ChickMinionState cs = new LanState.ChickMinionState();
+            cs.x = chick.x;
+            cs.y = chick.y;
+            cs.vx = chick.vx;
+            cs.age = chick.age;
+            cs.ownerIndex = chick.owner != null ? chick.owner.playerIndex : -1;
+            cs.variant = chick.variant;
+            cs.life = chick.life;
+            cs.ultimate = chick.ultimate;
+            state.chickMinions.add(cs);
+        }
         return state;
     }
 
@@ -9673,6 +10046,19 @@ public class BirdGame3 extends Application {
                 c.owner = players[cs.ownerIndex];
             }
             crowMinions.add(c);
+        }
+        chickMinions.clear();
+        for (LanState.ChickMinionState cs : state.chickMinions) {
+            ChickMinion chick = new ChickMinion(cs.x, cs.y, cs.variant, cs.ultimate, null);
+            chick.vx = cs.vx;
+            chick.age = cs.age;
+            if (cs.life > 0) {
+                chick.life = Math.min(cs.life, chick.maxLife);
+            }
+            if (cs.ownerIndex >= 0 && cs.ownerIndex < players.length) {
+                chick.owner = players[cs.ownerIndex];
+            }
+            chickMinions.add(chick);
         }
     }
 
@@ -9778,6 +10164,7 @@ public class BirdGame3 extends Application {
         if (CHAR_PHOENIX_KEY.equals(key)) return phoenixUnlocked;
         if (CHAR_TITMOUSE_KEY.equals(key)) return titmouseUnlocked;
         if (CHAR_RAVEN_KEY.equals(key)) return ravenUnlocked;
+        if (CHAR_ROOSTER_KEY.equals(key)) return roosterUnlocked;
         if (MAP_CAVE_KEY.equals(key)) return caveMapUnlocked;
         if (MAP_BATTLEFIELD_KEY.equals(key)) return battlefieldMapUnlocked;
         if ("CITY_PIGEON".equals(key)) return cityPigeonUnlocked;
@@ -9795,6 +10182,7 @@ public class BirdGame3 extends Application {
         if (TIDE_VULTURE_SKIN.equals(key)) return tideVultureUnlocked;
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(key)) return eclipseMockingbirdUnlocked;
         if (UMBRA_BAT_SKIN.equals(key)) return umbraBatUnlocked;
+        if (SUNFORGE_ROOSTER_SKIN.equals(key)) return sunforgeRoosterUnlocked;
         if (key.startsWith("CLASSIC_SKIN_")) return isClassicRewardUnlocked(preview.type);
         return false;
     }
@@ -9843,6 +10231,12 @@ public class BirdGame3 extends Application {
             ravenUnlocked = true;
             adventureUnlocked[BirdType.RAVEN.ordinal()] = true;
             queueUnlockCardForBird(BirdType.RAVEN);
+            return;
+        }
+        if (CHAR_ROOSTER_KEY.equals(key)) {
+            roosterUnlocked = true;
+            adventureUnlocked[BirdType.ROOSTER.ordinal()] = true;
+            queueUnlockCardForBird(BirdType.ROOSTER);
             return;
         }
         if (MAP_CAVE_KEY.equals(key)) {
@@ -9928,6 +10322,11 @@ public class BirdGame3 extends Application {
             queueUnlockCardForSkin(BirdType.BAT, UMBRA_BAT_SKIN);
             return;
         }
+        if (SUNFORGE_ROOSTER_SKIN.equals(key)) {
+            sunforgeRoosterUnlocked = true;
+            queueUnlockCardForSkin(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN);
+            return;
+        }
         if (key.startsWith("CLASSIC_SKIN_")) {
             unlockClassicReward(preview.type);
         }
@@ -9951,6 +10350,7 @@ public class BirdGame3 extends Application {
         if (CHAR_PHOENIX_KEY.equals(key)) return "Phoenix";
         if (CHAR_TITMOUSE_KEY.equals(key)) return "Titmouse";
         if (CHAR_RAVEN_KEY.equals(key)) return "Raven";
+        if (CHAR_ROOSTER_KEY.equals(key)) return "Rooster";
         if (MAP_CAVE_KEY.equals(key)) return "Echo Cavern Map";
         if (MAP_BATTLEFIELD_KEY.equals(key)) return "Battlefield Map";
         if ("CITY_PIGEON".equals(key)) return "City Pigeon";
@@ -9969,6 +10369,7 @@ public class BirdGame3 extends Application {
         if (TIDE_VULTURE_SKIN.equals(key)) return "Tide Vulture";
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(key)) return "Eclipse Charles";
         if (UMBRA_BAT_SKIN.equals(key)) return "Umbra Bat";
+        if (SUNFORGE_ROOSTER_SKIN.equals(key)) return "Sunforge Rooster";
         if (key != null && key.startsWith("CLASSIC_SKIN_") && preview.type != null) {
             return classicRewardFor(preview.type);
         }
@@ -9979,11 +10380,101 @@ public class BirdGame3 extends Application {
     }
 
     private boolean areAllBirdsUnlocked() {
-        return batUnlocked && falconUnlocked && heisenbirdUnlocked && phoenixUnlocked && titmouseUnlocked && ravenUnlocked;
+        return batUnlocked && falconUnlocked && heisenbirdUnlocked && phoenixUnlocked && titmouseUnlocked && ravenUnlocked && roosterUnlocked;
+    }
+
+    private int saturatingNonNegativeAdd(int current, int delta) {
+        long total = (long) current + Math.max(0, delta);
+        if (total <= 0L) {
+            return 0;
+        }
+        return total >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
+    }
+
+    private int computeBirdCoinLedgerBalance() {
+        long balance = (long) birdCoinsEarnedLedger - birdCoinsSpentLedger;
+        if (balance <= 0L) {
+            return 0;
+        }
+        return balance >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) balance;
+    }
+
+    private long computeBirdCoinLedgerChecksum(int balance, int earned, int spent) {
+        long checksum = BIRD_COIN_LEDGER_SALT;
+        checksum = Long.rotateLeft(checksum ^ (balance * 0x9E3779B9L), 13);
+        checksum = Long.rotateLeft(checksum ^ (earned * 0x85EBCA6BL), 17);
+        checksum = Long.rotateLeft(checksum ^ (spent * 0xC2B2AE35L), 7);
+        return checksum ^ 0xA5A5A5A5A5A5A5A5L;
+    }
+
+    private void synchronizeBirdCoinLedger() {
+        if (birdCoinsSpentLedger > birdCoinsEarnedLedger) {
+            birdCoinsSpentLedger = birdCoinsEarnedLedger;
+        }
+        birdCoins = computeBirdCoinLedgerBalance();
+    }
+
+    private void initializeBirdCoinLedger(Preferences prefs) {
+        String earnedValue = prefs.get(PREF_BIRD_COINS_EARNED, null);
+        String spentValue = prefs.get(PREF_BIRD_COINS_SPENT, null);
+        if (earnedValue == null || spentValue == null) {
+            birdCoinsEarnedLedger = Math.max(0, birdCoins);
+            birdCoinsSpentLedger = 0;
+            synchronizeBirdCoinLedger();
+            return;
+        }
+
+        birdCoinsEarnedLedger = Math.max(0, prefs.getInt(PREF_BIRD_COINS_EARNED, 0));
+        birdCoinsSpentLedger = Math.max(0, prefs.getInt(PREF_BIRD_COINS_SPENT, 0));
+        synchronizeBirdCoinLedger();
+
+        long savedChecksum = prefs.getLong(PREF_BIRD_COINS_CHECKSUM, Long.MIN_VALUE);
+        long expectedChecksum = computeBirdCoinLedgerChecksum(birdCoins, birdCoinsEarnedLedger, birdCoinsSpentLedger);
+        int storedBirdCoins = Math.max(0, prefs.getInt(PREF_BIRD_COINS, 0));
+        if (savedChecksum != expectedChecksum || storedBirdCoins != birdCoins) {
+            if (storedBirdCoins > birdCoins) {
+                System.err.println("Bird coin ledger mismatch detected; restoring balance from "
+                        + storedBirdCoins + " to " + birdCoins + '.');
+            }
+        }
+    }
+
+    private void grantBirdCoins(int amount) {
+        int safeAmount = Math.max(0, amount);
+        if (safeAmount == 0) {
+            synchronizeBirdCoinLedger();
+            return;
+        }
+        birdCoinsEarnedLedger = saturatingNonNegativeAdd(birdCoinsEarnedLedger, safeAmount);
+        synchronizeBirdCoinLedger();
+    }
+
+    private boolean spendBirdCoins(int amount) {
+        int safeAmount = Math.max(0, amount);
+        int availableCoins = computeBirdCoinLedgerBalance();
+        if (safeAmount > availableCoins) {
+            birdCoins = availableCoins;
+            return false;
+        }
+        birdCoinsSpentLedger = saturatingNonNegativeAdd(birdCoinsSpentLedger, safeAmount);
+        synchronizeBirdCoinLedger();
+        return true;
+    }
+
+    private int calculateVerifiedBirdCoinsForMatch(Bird winner) {
+        if (trainingModeActive) return 0;
+        int playerCount = lanModeActive ? countLanConnected() : activePlayers;
+        int coins = VERIFIED_MATCH_BASE_BIRD_COINS + playerCount * VERIFIED_MATCH_PLAYER_BIRD_COINS;
+        if (winner != null) coins += VERIFIED_MATCH_WIN_BONUS;
+        if (classicModeActive) coins += VERIFIED_CLASSIC_MATCH_BONUS;
+        else if (adventureModeActive) coins += VERIFIED_ADVENTURE_MATCH_BONUS;
+        else if (storyModeActive) coins += VERIFIED_STORY_MATCH_BONUS;
+        if (competitionModeEnabled) coins += VERIFIED_COMPETITION_MATCH_BONUS;
+        return coins;
     }
 
     private PackReward coinReward(int amount, int weight) {
-        return new PackReward("Bird Coins +" + amount, weight, () -> true, () -> birdCoins += amount);
+        return new PackReward("Bird Coins +" + amount, weight, () -> true, () -> grantBirdCoins(amount));
     }
 
     private PackReward continueReward(int amount, int weight) {
@@ -10129,7 +10620,7 @@ public class BirdGame3 extends Application {
             unlockShopPreview(primaryReward);
             lines.add("- " + shopPreviewName(primaryReward) + suffix);
         } else {
-            birdCoins += 300;
+            grantBirdCoins(300);
             lines.add("- Bird Coins +300");
         }
         int extraPulls = Math.max(0, safePulls - 1);
@@ -10169,7 +10660,8 @@ public class BirdGame3 extends Application {
                 new ShopPreview(BirdType.HEISENBIRD, CHAR_HEISENBIRD_KEY, "Heisenbird"),
                 new ShopPreview(BirdType.PHOENIX, CHAR_PHOENIX_KEY, "Phoenix"),
                 new ShopPreview(BirdType.TITMOUSE, CHAR_TITMOUSE_KEY, "Titmouse"),
-                new ShopPreview(BirdType.RAVEN, CHAR_RAVEN_KEY, "Raven")
+                new ShopPreview(BirdType.RAVEN, CHAR_RAVEN_KEY, "Raven"),
+                new ShopPreview(BirdType.ROOSTER, CHAR_ROOSTER_KEY, "Rooster")
         );
         List<ShopPreview> mapRewards = List.of(
                 new ShopPreview(null, MAP_CAVE_KEY, "Echo Cavern Map"),
@@ -10191,12 +10683,13 @@ public class BirdGame3 extends Application {
         ShopPreview tidePreview = new ShopPreview(BirdType.VULTURE, TIDE_VULTURE_SKIN, null);
         ShopPreview eclipsePreview = new ShopPreview(BirdType.MOCKINGBIRD, ECLIPSE_MOCKINGBIRD_SKIN, null);
         ShopPreview umbraPreview = new ShopPreview(BirdType.BAT, UMBRA_BAT_SKIN, null);
+        ShopPreview sunforgePreview = new ShopPreview(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN, null);
 
         List<ShopPreview> commonSkins = List.of(dunePreview, sunflarePreview);
         List<ShopPreview> uncommonSkins = List.of(mintPreview, glacierPreview);
         List<ShopPreview> rareSkins = List.of(cityPreview, circuitPreview, tidePreview, freemanPreview);
         List<ShopPreview> epicSkins = List.of(noirPreview, skyPreview, prismPreview, eclipsePreview);
-        List<ShopPreview> legendarySkins = List.of(novaPreview, auroraPreview, umbraPreview);
+        List<ShopPreview> legendarySkins = List.of(novaPreview, auroraPreview, umbraPreview, sunforgePreview);
 
         List<ShopPreview> classicSkins = new ArrayList<>();
         for (BirdType type : BirdType.values()) {
@@ -10537,11 +11030,10 @@ public class BirdGame3 extends Application {
             String buyColor = owned ? "#455A64" : (available ? "#00C853" : "#455A64");
             Button buy = uiFactory.action(buyLabel, 240, 64, 28, buyColor, 20, () -> {
                 if (owned || !available) return;
-                if (birdCoins < purchaseCost) {
+                if (!spendBirdCoins(purchaseCost)) {
                     playErrorSound();
                     return;
                 }
-                birdCoins -= purchaseCost;
                 ShopPackResult result = item.purchase.get();
                 saveAchievements();
                 runAfterUnlockCards(stage, () -> {
@@ -10786,6 +11278,7 @@ public class BirdGame3 extends Application {
         if (TIDE_VULTURE_SKIN.equals(key)) return "Tide Vulture";
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(key)) return "Eclipse Charles";
         if (UMBRA_BAT_SKIN.equals(key)) return "Umbra Bat";
+        if (SUNFORGE_ROOSTER_SKIN.equals(key)) return "Sunforge Rooster";
         if (key.startsWith("CLASSIC_SKIN_") && type != null) return classicRewardFor(type);
         return key.replace('_', ' ');
     }
@@ -10871,6 +11364,36 @@ public class BirdGame3 extends Application {
         BookTileStyle(boolean unlocked, Color accent) {
             this.unlocked = unlocked;
             this.accent = accent;
+        }
+    }
+
+    private enum BirdCompanionKind {
+        CHICK,
+        CROW
+    }
+
+    private static final class BirdCompanionEntry {
+        final String name;
+        final String role;
+        final String source;
+        final String stats;
+        final String description;
+        final Color accent;
+        final BirdCompanionKind kind;
+        final int variant;
+        final boolean empowered;
+
+        BirdCompanionEntry(String name, String role, String source, String stats, String description,
+                           Color accent, BirdCompanionKind kind, int variant, boolean empowered) {
+            this.name = name;
+            this.role = role;
+            this.source = source;
+            this.stats = stats;
+            this.description = description;
+            this.accent = accent;
+            this.kind = kind;
+            this.variant = variant;
+            this.empowered = empowered;
         }
     }
 
@@ -11292,6 +11815,136 @@ public class BirdGame3 extends Application {
         Label special = bookBody("SPECIAL: " + type.ability, 18);
         Label fun = bookBody(birdFunDescription(type), 17);
         sidebar.getChildren().addAll(art, stats, special, fun);
+
+        List<BirdCompanionEntry> companions = birdCompanionEntries(type);
+        if (!companions.isEmpty()) {
+            Label section = bookBody("FIELD NOTES", 15);
+            Label hint = bookBody("Select a companion entry for more detail.", 14);
+            sidebar.getChildren().addAll(section, hint, buildBirdCompanionTiles(sidebar, type, companions));
+        }
+    }
+
+    private List<BirdCompanionEntry> birdCompanionEntries(BirdType type) {
+        return switch (type) {
+            case ROOSTER -> List.of(
+                    new BirdCompanionEntry(
+                            "Rush Chick",
+                            "FAST SCOUT",
+                            "SOURCE: ROOSTER SPECIAL",
+                            "Speed: 6.5 | Damage: 2 | Life: 3",
+                            "The lead runner of the coop. It sticks to the ground, closes space first, and keeps pecking pressure on anyone trying to reset.",
+                            Color.web("#F9A825"),
+                            BirdCompanionKind.CHICK,
+                            0,
+                            false
+                    ),
+                    new BirdCompanionEntry(
+                            "Skyhop Chick",
+                            "HIGH-JUMP HUNTER",
+                            "SOURCE: ROOSTER SPECIAL",
+                            "Speed: 5.0 | Damage: 2 | Life: 3",
+                            "Built to chase targets onto platforms. It takes the higher route, then launches absurdly high when someone tries to escape upward.",
+                            Color.web("#4FC3F7"),
+                            BirdCompanionKind.CHICK,
+                            1,
+                            false
+                    ),
+                    new BirdCompanionEntry(
+                            "Bruiser Chick",
+                            "TANKY BRAWLER",
+                            "SOURCE: ROOSTER SPECIAL",
+                            "Speed: 4.2 | Damage: 4 | Life: 4",
+                            "The slowest chick, but the one you notice when it arrives. It survives longer, hits harder, and keeps lanes clogged for the Rooster.",
+                            Color.web("#8D6E63"),
+                            BirdCompanionKind.CHICK,
+                            2,
+                            false
+                    )
+            );
+            case VULTURE -> List.of(
+                    new BirdCompanionEntry(
+                            "Summoned Crow",
+                            "HOMING MINION",
+                            "SOURCE: VULTURE SPECIAL",
+                            "Damage: 1 | Life: 1 | Tracks nearby birds",
+                            "These are the crows Vulture sends out with his special. They swarm targets, chip health, and force movement even when Vulture hangs back.",
+                            Color.web("#6D4C41"),
+                            BirdCompanionKind.CROW,
+                            0,
+                            false
+                    ),
+                    new BirdCompanionEntry(
+                            "Sudden Death Crow",
+                            "ARENA HAZARD",
+                            "SOURCE: MATCH TIMER",
+                            "Damage: 4 | Life: 1 | Spawns after timer expires",
+                            "When the match times out, the murder arrives. These crows are larger, darker, and far less polite than Vulture's regular summons.",
+                            Color.web("#C62828"),
+                            BirdCompanionKind.CROW,
+                            0,
+                            true
+                    )
+            );
+            default -> Collections.emptyList();
+        };
+    }
+
+    private FlowPane buildBirdCompanionTiles(VBox sidebar, BirdType parentType, List<BirdCompanionEntry> companions) {
+        FlowPane flow = new FlowPane(10, 10);
+        flow.setAlignment(Pos.CENTER);
+        flow.setPrefWrapLength(450);
+        double tileWidth = companions.size() >= 3 ? 136 : 205;
+
+        for (BirdCompanionEntry entry : companions) {
+            flow.getChildren().add(createBirdCompanionTile(sidebar, parentType, entry, tileWidth));
+        }
+        return flow;
+    }
+
+    private Button createBirdCompanionTile(VBox sidebar, BirdType parentType, BirdCompanionEntry entry, double width) {
+        Button btn = new Button();
+        btn.setPrefSize(width, 122);
+        btn.setMinSize(width, 122);
+        btn.setMaxSize(width, 122);
+        btn.setFocusTraversable(true);
+        applyNoEllipsis(btn);
+
+        Canvas icon = new Canvas(88, 60);
+        drawBirdCompanionPreview(icon, entry);
+
+        Label label = new Label(entry.name.toUpperCase());
+        label.setFont(Font.font("Consolas", 13));
+        label.setTextFill(Color.web("#ECEFF1"));
+        label.setTextAlignment(TextAlignment.CENTER);
+        label.setWrapText(true);
+        label.setAlignment(Pos.CENTER);
+        label.setMaxWidth(width - 20);
+
+        VBox box = new VBox(6, icon, label);
+        box.setAlignment(Pos.CENTER);
+        btn.setGraphic(box);
+        btn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        btn.setStyle("-fx-background-color: rgba(8,12,18,0.82); -fx-border-color: " + toHex(entry.accent)
+                + "; -fx-border-width: 2; -fx-background-radius: 14; -fx-border-radius: 14;");
+        btn.setOnAction(e -> {
+            playButtonClick();
+            showBirdCompanionSidebar(sidebar, parentType, entry);
+        });
+        return btn;
+    }
+
+    private void showBirdCompanionSidebar(VBox sidebar, BirdType parentType, BirdCompanionEntry entry) {
+        sidebar.getChildren().clear();
+
+        Button back = uiFactory.action("BACK TO " + parentType.name.toUpperCase(), 320, 56, 18, toHex(entry.accent), 14,
+                () -> showBirdSidebar(sidebar, parentType, true));
+        Label name = bookTitle(entry.name.toUpperCase(), 30);
+        Label role = bookBody(entry.role, 15);
+        Label parent = bookBody(entry.source, 15);
+        StackPane art = buildBirdCompanionArt(entry, originMapForBird(parentType));
+        Label stats = bookBody(entry.stats, 16);
+        Label desc = bookBody(entry.description, 17);
+        sidebar.getChildren().addAll(back, name, role, parent, art, stats, desc);
     }
 
     private void showSkinSidebar(VBox sidebar, SkinEntry entry) {
@@ -11333,6 +11986,16 @@ public class BirdGame3 extends Application {
         drawMapBackdrop(bg, map);
         Canvas sprite = new Canvas(160, 160);
         drawRosterSprite(sprite, type, skinKey, false, true);
+        StackPane art = new StackPane(bg, sprite);
+        art.setAlignment(Pos.CENTER);
+        return art;
+    }
+
+    private StackPane buildBirdCompanionArt(BirdCompanionEntry entry, MapType map) {
+        Canvas bg = new Canvas(360, 200);
+        drawMapBackdrop(bg, map);
+        Canvas sprite = new Canvas(220, 140);
+        drawBirdCompanionPreview(sprite, entry);
         StackPane art = new StackPane(bg, sprite);
         art.setAlignment(Pos.CENTER);
         return art;
@@ -11592,6 +12255,7 @@ public class BirdGame3 extends Application {
             case PHOENIX -> "Flies like a blaze and lands like a firework. Somehow always returns, as if it is insulting the concept of defeat.";
             case HUMMINGBIRD -> "A blur with a sweet tooth and a short temper. Will duel you for a drop of nectar and win smiling.";
             case TURKEY -> "Big steps, bigger thumps. Treats the ground like an instrument and keeps the rhythm with shockwaves.";
+            case ROOSTER -> "Morning alarm with a battle plan. He calls three different chicks to swarm targets and keep the pressure on.";
             case PENGUIN -> "Slides more than it flies, but it still finds a way to win. Cool, calm, and stubborn as a glacier.";
             case SHOEBILL -> "Stares too long, strikes too fast. Marsh legends say it never blinks, only decides.";
             case MOCKINGBIRD -> "Old friend of Caleb Bossk and owner of the Charles Lounge. Passed the Bossk Test to become a Bosskhead, then turned every fight into his stage.";
@@ -11665,6 +12329,7 @@ public class BirdGame3 extends Application {
         if (TIDE_VULTURE_SKIN.equals(key)) return tideVultureUnlocked;
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(key)) return eclipseMockingbirdUnlocked;
         if (UMBRA_BAT_SKIN.equals(key)) return umbraBatUnlocked;
+        if (SUNFORGE_ROOSTER_SKIN.equals(key)) return sunforgeRoosterUnlocked;
         if (key.startsWith("CLASSIC_SKIN_")) return isClassicRewardUnlocked(type);
         return false;
     }
@@ -11676,6 +12341,7 @@ public class BirdGame3 extends Application {
         if (FREEMAN_PIGEON_SKIN.equals(key)) return "Card Packs";
         if (BEACON_PIGEON_SKIN.equals(key)) return "Complete Adventure Chapter 5: Signal of the Beacon";
         if ("SKY_KING_EAGLE".equals(key)) return "Complete Pelican Episode or Classic with Eagle, or Card Packs";
+        if (SUNFORGE_ROOSTER_SKIN.equals(key)) return "Card Packs";
         if (key.startsWith("CLASSIC_SKIN_")) {
             return "Complete Classic with " + type.name + " or Card Packs";
         }
@@ -11699,6 +12365,7 @@ public class BirdGame3 extends Application {
         if (NOVA_PHOENIX_SKIN.equals(key)) return "Star-forged glow with cosmic embers. A living supernova with too much style to burn out.";
         if (AURORA_PELICAN_SKIN.equals(key)) return "Polar lights woven into heavy wings. Looks calm, hits like a stormfront.";
         if (UMBRA_BAT_SKIN.equals(key)) return "Void-black membrane with starlit edges. A silent dive that leaves only afterimages.";
+        if (SUNFORGE_ROOSTER_SKIN.equals(key)) return "A first-light warlord with molten crestwork and a sun-stamped brood. Every summoned chick hatches in matching forged colors.";
         if (key != null && key.startsWith("CLASSIC_SKIN_")) {
             return "Classic reward skin for " + type.name + ". Earned by clearing a full Classic run and wearing the badge with pride.";
         }
@@ -11716,7 +12383,7 @@ public class BirdGame3 extends Application {
         if ("NOIR_PIGEON".equals(key) || "SKY_KING_EAGLE".equals(key) || PRISM_RAZORBILL_SKIN.equals(key)) return "EPIC";
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(key)) return "EPIC";
         if (BEACON_PIGEON_SKIN.equals(key) || NOVA_PHOENIX_SKIN.equals(key) || AURORA_PELICAN_SKIN.equals(key)) return "LEGENDARY";
-        if (UMBRA_BAT_SKIN.equals(key)) return "LEGENDARY";
+        if (UMBRA_BAT_SKIN.equals(key) || SUNFORGE_ROOSTER_SKIN.equals(key)) return "LEGENDARY";
         if (key.startsWith("CLASSIC_SKIN_")) return "CLASSIC";
         return "SPECIAL";
     }
@@ -11813,6 +12480,8 @@ public class BirdGame3 extends Application {
                 skinDescription(ECLIPSE_MOCKINGBIRD_SKIN, BirdType.MOCKINGBIRD), skinHowToGet(ECLIPSE_MOCKINGBIRD_SKIN, BirdType.MOCKINGBIRD)));
         skins.add(new SkinEntry(BirdType.BAT, UMBRA_BAT_SKIN, "Umbra Bat",
                 skinDescription(UMBRA_BAT_SKIN, BirdType.BAT), skinHowToGet(UMBRA_BAT_SKIN, BirdType.BAT)));
+        skins.add(new SkinEntry(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN, "Sunforge Rooster",
+                skinDescription(SUNFORGE_ROOSTER_SKIN, BirdType.ROOSTER), skinHowToGet(SUNFORGE_ROOSTER_SKIN, BirdType.ROOSTER)));
 
         for (BirdType type : BirdType.values()) {
             if (type == BirdType.PIGEON || type == BirdType.EAGLE) continue;
@@ -13190,6 +13859,7 @@ public class BirdGame3 extends Application {
             case PHOENIX -> "Solar Phoenix";
             case HUMMINGBIRD -> "Plasma Hummingbird";
             case TURKEY -> "Warpaint Turkey";
+            case ROOSTER -> "Dawn Rooster";
             case PENGUIN -> "Glacier Penguin";
             case SHOEBILL -> "Obsidian Shoebill";
             case MOCKINGBIRD -> "Velvet Bosskhead Charles";
@@ -13239,6 +13909,7 @@ public class BirdGame3 extends Application {
             case PHOENIX -> Color.web("#FF7043");
             case HUMMINGBIRD -> Color.web("#00E5FF");
             case TURKEY -> Color.web("#7B1FA2");
+            case ROOSTER -> Color.web("#D84315");
             case PENGUIN -> Color.web("#80DEEA");
             case SHOEBILL -> Color.web("#1E88E5");
             case MOCKINGBIRD -> Color.web("#EC407A");
@@ -13262,6 +13933,7 @@ public class BirdGame3 extends Application {
             case PHOENIX -> Color.web("#FFE082");
             case HUMMINGBIRD -> Color.web("#B2FF59");
             case TURKEY -> Color.web("#F06292");
+            case ROOSTER -> Color.web("#FFF59D");
             case PENGUIN -> Color.web("#E1F5FE");
             case SHOEBILL -> Color.web("#90CAF9");
             case MOCKINGBIRD -> Color.web("#F8BBD0");
@@ -13372,6 +14044,7 @@ public class BirdGame3 extends Application {
             case VULTURE -> TIDE_VULTURE_SKIN;
             case MOCKINGBIRD -> ECLIPSE_MOCKINGBIRD_SKIN;
             case BAT -> UMBRA_BAT_SKIN;
+            case ROOSTER -> SUNFORGE_ROOSTER_SKIN;
             default -> classicSkinDataKey(type);
         };
     }
@@ -15695,6 +16368,48 @@ public class BirdGame3 extends Application {
                         b.setStyle(baseStyle);
                     }
                 }
+                // === SUNFORGE ROOSTER LEGENDARY ===
+                else if (bt == BirdType.ROOSTER && (sunforgeRoosterUnlocked || isClassicRewardUnlocked(bt))) {
+                    String classicKey = classicSkinDataKey(bt);
+                    boolean hasClassicSkin = isClassicRewardUnlocked(bt);
+                    boolean hasLegendary = sunforgeRoosterUnlocked;
+                    String legendaryStyle = "-fx-background-color: linear-gradient(to right, #4E342E 0%, #BF360C 52%, #FFD54F 100%); -fx-text-fill: #FFF8E1; -fx-font-weight: bold;";
+                    String classicStyle = "-fx-background-color: #212121; -fx-text-fill: #FFD54F; -fx-font-weight: bold;";
+
+                    if (SUNFORGE_ROOSTER_SKIN.equals(currentData)) {
+                        selected.setText("Selected: Rooster");
+                        box.setUserData(bt);
+                        b.setStyle(baseStyle);
+                    } else if (hasClassicSkin && classicKey.equals(currentData)) {
+                        if (hasLegendary) {
+                            selected.setText("Selected: Sunforge Rooster (Legendary)");
+                            box.setUserData(SUNFORGE_ROOSTER_SKIN);
+                            b.setStyle(legendaryStyle);
+                        } else {
+                            selected.setText("Selected: Rooster");
+                            box.setUserData(bt);
+                            b.setStyle(baseStyle);
+                        }
+                    } else if (currentData == bt) {
+                        if (hasClassicSkin) {
+                            selected.setText("Selected: " + classicRewardFor(bt) + " (Skin)");
+                            box.setUserData(classicKey);
+                            b.setStyle(classicStyle);
+                        } else if (hasLegendary) {
+                            selected.setText("Selected: Sunforge Rooster (Legendary)");
+                            box.setUserData(SUNFORGE_ROOSTER_SKIN);
+                            b.setStyle(legendaryStyle);
+                        } else {
+                            selected.setText("Selected: Rooster");
+                            box.setUserData(bt);
+                            b.setStyle(baseStyle);
+                        }
+                    } else {
+                        selected.setText("Selected: Rooster");
+                        box.setUserData(bt);
+                        b.setStyle(baseStyle);
+                    }
+                }
                 // === NORMAL BIRDS ===
                 else {
                     String classicKey = classicSkinDataKey(bt);
@@ -16701,6 +17416,7 @@ public class BirdGame3 extends Application {
         nectarNodes.clear();
         swingingVines.clear();
         crowMinions.clear();
+        chickMinions.clear();
         particles.clear();
         powerUps.clear();
 
@@ -17209,13 +17925,20 @@ public class BirdGame3 extends Application {
     private int awardBirdCoinsForMatch(Bird winner) {
         if (trainingModeActive) return 0;
         int playerCount = lanModeActive ? countLanConnected() : activePlayers;
-        int coins = 30 + playerCount * 10;
-        if (winner != null) coins += 10;
-        if (classicModeActive) coins += 60;
-        else if (adventureModeActive) coins += 40;
-        else if (storyModeActive) coins += 30;
-        if (competitionModeEnabled) coins += 20;
-        birdCoins += coins;
+        int requestedCoins = 30 + playerCount * 10;
+        if (winner != null) requestedCoins += 10;
+        if (classicModeActive) requestedCoins += 60;
+        else if (adventureModeActive) requestedCoins += 40;
+        else if (storyModeActive) requestedCoins += 30;
+        if (competitionModeEnabled) requestedCoins += 20;
+
+        int verifiedCoins = calculateVerifiedBirdCoinsForMatch(winner);
+        int coins = Math.max(0, Math.min(requestedCoins, verifiedCoins));
+        if (coins != requestedCoins) {
+            System.err.println("Bird coin payout clamped from " + requestedCoins + " to " + coins + '.');
+        }
+
+        grantBirdCoins(coins);
         saveAchievements();
         return coins;
     }
@@ -17920,7 +18643,8 @@ public class BirdGame3 extends Application {
             achievementsUnlocked[i] = prefs.getBoolean("ach_" + i, false);
             achievementProgress[i] = prefs.getInt("prog_" + i, 0);
         }
-        birdCoins = Math.max(0, prefs.getInt("bird_coins", 0));
+        birdCoins = Math.max(0, prefs.getInt(PREF_BIRD_COINS, 0));
+        initializeBirdCoinLedger(prefs);
         classicContinues = Math.max(0, prefs.getInt("classic_continues", 0));
         caveMapUnlocked = prefs.getBoolean("map_cave_unlocked", false);
         battlefieldMapUnlocked = prefs.getBoolean("map_battlefield_unlocked", false);
@@ -17940,12 +18664,14 @@ public class BirdGame3 extends Application {
         tideVultureUnlocked = prefs.getBoolean("skin_tide_vulture", false);
         eclipseMockingbirdUnlocked = prefs.getBoolean("skin_eclipse_mockingbird", false);
         umbraBatUnlocked = prefs.getBoolean("skin_umbra_bat", false);
+        sunforgeRoosterUnlocked = prefs.getBoolean("skin_sunforge_rooster", false);
         batUnlocked = prefs.getBoolean("char_bat_unlocked", false);
         falconUnlocked = prefs.getBoolean("char_falcon_unlocked", false);
         heisenbirdUnlocked = prefs.getBoolean("char_heisenbird_unlocked", false);
         phoenixUnlocked = prefs.getBoolean("char_phoenix_unlocked", false);
         titmouseUnlocked = prefs.getBoolean("char_titmouse_unlocked", false);
         ravenUnlocked = prefs.getBoolean("char_raven_unlocked", false);
+        roosterUnlocked = prefs.getBoolean("char_rooster_unlocked", false);
         musicEnabled = prefs.getBoolean("setting_music", true);
         sfxEnabled = prefs.getBoolean("setting_sfx", true);
         screenShakeEnabled = prefs.getBoolean("setting_shake", true);
@@ -17977,6 +18703,7 @@ public class BirdGame3 extends Application {
             adventureUnlocked[idx] = prefs.getBoolean("adv_bird_" + type.name(), false);
         }
         adventureUnlocked[BirdType.PIGEON.ordinal()] = true;
+        adventureUnlocked[BirdType.ROOSTER.ordinal()] = roosterUnlocked;
         ensureAdventureChapterState();
         for (int i = 0; i < adventureChapters.length; i++) {
             int advBattles = adventureChapters[i].battles.length;
@@ -18021,7 +18748,12 @@ public class BirdGame3 extends Application {
             prefs.putBoolean("ach_" + i, achievementsUnlocked[i]);
             prefs.putInt("prog_" + i, achievementProgress[i]);
         }
-        prefs.putInt("bird_coins", birdCoins);
+        synchronizeBirdCoinLedger();
+        prefs.putInt(PREF_BIRD_COINS, birdCoins);
+        prefs.putInt(PREF_BIRD_COINS_EARNED, birdCoinsEarnedLedger);
+        prefs.putInt(PREF_BIRD_COINS_SPENT, birdCoinsSpentLedger);
+        prefs.putLong(PREF_BIRD_COINS_CHECKSUM,
+                computeBirdCoinLedgerChecksum(birdCoins, birdCoinsEarnedLedger, birdCoinsSpentLedger));
         prefs.putInt("classic_continues", classicContinues);
         prefs.putBoolean("map_cave_unlocked", caveMapUnlocked);
         prefs.putBoolean("map_battlefield_unlocked", battlefieldMapUnlocked);
@@ -18041,12 +18773,14 @@ public class BirdGame3 extends Application {
         prefs.putBoolean("skin_tide_vulture", tideVultureUnlocked);
         prefs.putBoolean("skin_eclipse_mockingbird", eclipseMockingbirdUnlocked);
         prefs.putBoolean("skin_umbra_bat", umbraBatUnlocked);
+        prefs.putBoolean("skin_sunforge_rooster", sunforgeRoosterUnlocked);
         prefs.putBoolean("char_bat_unlocked", batUnlocked);
         prefs.putBoolean("char_falcon_unlocked", falconUnlocked);
         prefs.putBoolean("char_heisenbird_unlocked", heisenbirdUnlocked);
         prefs.putBoolean("char_phoenix_unlocked", phoenixUnlocked);
         prefs.putBoolean("char_titmouse_unlocked", titmouseUnlocked);
         prefs.putBoolean("char_raven_unlocked", ravenUnlocked);
+        prefs.putBoolean("char_rooster_unlocked", roosterUnlocked);
         prefs.putBoolean("setting_music", musicEnabled);
         prefs.putBoolean("setting_sfx", sfxEnabled);
         prefs.putBoolean("setting_shake", screenShakeEnabled);

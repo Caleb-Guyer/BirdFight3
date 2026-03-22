@@ -54,6 +54,7 @@ public class Bird {
     public boolean isTideSkin = false;
     public boolean isEclipseSkin = false;
     public boolean isUmbraSkin = false;
+    public boolean isSunforgeSkin = false;
     public boolean suppressSelectEffects = false;
     public double loungeX, loungeY;
     public int diveTimer = 0;
@@ -377,6 +378,7 @@ public class Bird {
         // === LOUNGE CAN BE HIT ===
         attackLounge();
         attackCrows(range, dmg);
+        attackChicks(range, dmg);
     }
 
     private void attackCrows(double range, int dmg) {
@@ -416,6 +418,60 @@ public class Bird {
         if (kills > 0) {
             String source = shortName();
             game.addToKillFeed(source + " swatted " + kills + " crow" + (kills > 1 ? "s" : "") + "!");
+            game.scores[playerIndex] += kills * 2;
+        }
+    }
+
+    private void attackChicks(double range, int dmg) {
+        double reach = range + 30 * sizeMultiplier;
+        double verticalReach = 100 * sizeMultiplier;
+        int kills = 0;
+
+        for (Iterator<ChickMinion> it = game.chickMinions.iterator(); it.hasNext(); ) {
+            ChickMinion chick = it.next();
+            if (chick.owner == this) continue;
+
+            double cx = chick.x + chick.width * 0.5;
+            double cy = chick.y + chick.height * 0.5;
+            double dx = cx - (x + 40 * sizeMultiplier);
+            double dy = cy - (y + 40 * sizeMultiplier);
+            if (Math.abs(dx) > reach || Math.abs(dy) > verticalReach) continue;
+            if (facingRight && dx < -35 * sizeMultiplier) continue;
+            if (!facingRight && dx > 35 * sizeMultiplier) continue;
+
+            Color hitColor = chick.ultimate ? Color.GOLD : Color.web("#FFB74D");
+            int damageTaken = Math.max(1, dmg / 12);
+            chick.life -= damageTaken;
+
+            int particleCount = chick.life > 0 ? 8 + damageTaken * 2 : 14;
+            for (int i = 0; i < particleCount; i++) {
+                double angle = Math.random() * Math.PI * 2;
+                double speed = chick.life > 0 ? 3 + Math.random() * 6 : 4 + Math.random() * 9;
+                game.particles.add(new Particle(
+                        cx,
+                        cy,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed - 3,
+                        hitColor
+                ));
+            }
+
+            double kbDir = dx == 0 ? (facingRight ? 1 : -1) : Math.signum(dx);
+            chick.vx += kbDir * Math.max(4.0, dmg * 0.18);
+            chick.vy = Math.min(chick.vy, -3.5 - dmg * 0.08);
+            chick.onGround = false;
+            chick.jumpCooldown = Math.max(chick.jumpCooldown, 10);
+            chick.attackCooldown = Math.max(chick.attackCooldown, 8);
+
+            if (chick.life > 0) continue;
+
+            it.remove();
+            kills++;
+        }
+
+        if (kills > 0) {
+            String source = shortName();
+            game.addToKillFeed(source + " bopped " + kills + " chick" + (kills > 1 ? "s" : "") + "!");
             game.scores[playerIndex] += kills * 2;
         }
     }
@@ -557,6 +613,7 @@ public class Bird {
             case RAZORBILL -> specialRazorbill(ultimateTriggered);
             case GRINCHHAWK -> specialGrinchhawk(ultimateTriggered);
             case VULTURE -> specialVulture(ultimateTriggered);
+            case ROOSTER -> specialRooster(ultimateTriggered);
             case OPIUMBIRD -> specialOpiumBird(ultimateTriggered);
             case HEISENBIRD -> specialHeisenbird(ultimateTriggered);
             case TITMOUSE -> specialTitmouse(ultimateTriggered);
@@ -893,6 +950,36 @@ public class Bird {
                     Math.sin(angle) * speed - 6,
                     ultimate ? Color.BLACK : Color.rgb(10, 0, 20)));
         }
+    }
+
+    private void specialRooster(boolean ultimate) {
+        specialCooldown = 900;
+        specialMaxCooldown = 900;
+        game.addToKillFeed(shortName() + (ultimate ? " ULT COOP CALL!" : " calls the chicks!"));
+
+        double centerX = x + 40 * sizeMultiplier;
+        double spawnY = y + 50 * sizeMultiplier;
+        for (int i = 0; i < 3; i++) {
+            double offset = (i - 1) * 36 * sizeMultiplier;
+            ChickMinion chick = new ChickMinion(centerX + offset, spawnY, i, ultimate, this);
+            chick.x -= chick.width * 0.5;
+            chick.onGround = isOnGround();
+            game.chickMinions.add(chick);
+        }
+
+        int particleCount = ultimate ? 180 : 120;
+        Color burst = ultimate ? Color.GOLD : Color.ORANGE;
+        for (int i = 0; i < particleCount; i++) {
+            double angle = Math.random() * Math.PI * 2;
+            double speed = 5 + Math.random() * 10;
+            game.particles.add(new Particle(x + 40, y + 40,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 4,
+                    burst.deriveColor(0, 1, 1, 0.85)));
+        }
+
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 20 : 14);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 10 : 8);
     }
 
     private void specialOpiumBird(boolean ultimate) {
@@ -1761,6 +1848,7 @@ public class Bird {
             case OPIUMBIRD, HEISENBIRD, MOCKINGBIRD -> 205;
             case BAT -> 214;
             case PIGEON -> 190;
+            case ROOSTER -> 195;
             case RAVEN -> 210;
         };
     }
@@ -1821,6 +1909,13 @@ public class Bird {
                 return dist < 260 && health < 95;
             case VULTURE:
                 return crowSwarmCooldown <= 0 && (dist < 380 || lowHealth);
+            case ROOSTER: {
+                int owned = 0;
+                for (ChickMinion chick : game.chickMinions) {
+                    if (chick.owner == this) owned++;
+                }
+                return owned < 3 && (dist < 360 || lowHealth);
+            }
             case OPIUMBIRD:
                 return onGround && dist < 270 && random.nextDouble() < 0.85;
             case HEISENBIRD:
@@ -1840,7 +1935,7 @@ public class Bird {
 
     private boolean hasLimitedFlight() {
         return switch (type) {
-            case PIGEON, TURKEY, GRINCHHAWK, PELICAN -> true;
+            case PIGEON, TURKEY, GRINCHHAWK, PELICAN, ROOSTER -> true;
             default -> false;
         };
     }
@@ -1922,11 +2017,13 @@ public class Bird {
             // Thermal Rise should always remain effective even if limited-flight fuel is drained.
             if (!limitedFlight || limitedFlightFuel > 0 || thermalActive) {
                 vy -= (type.flyUpForce + thermalLift) * hoverRegenMultiplier * flightLiftScale;
+                double limitedFlightCap = type == BirdGame3.BirdType.ROOSTER ? -12.4 : -6.4;
+                double limitedFlightThermalCap = type == BirdGame3.BirdType.ROOSTER ? -14.2 : -9.2;
                 if (limitedFlight && !thermalActive) {
                     limitedFlightFuel = Math.max(0, limitedFlightFuel - gameSpeed);
-                    if (vy < -6.4) vy = -6.4;
+                    if (vy < limitedFlightCap) vy = limitedFlightCap;
                 } else if (limitedFlight) {
-                    if (vy < -9.2) vy = -9.2;
+                    if (vy < limitedFlightThermalCap) vy = limitedFlightThermalCap;
                 }
             }
             if (type == BirdGame3.BirdType.BAT) {
@@ -2579,6 +2676,11 @@ public class Bird {
     private void gainUltimate(double amount) {
         if (amount <= 0) return;
         ultimateMeter = Math.min(ULTIMATE_MAX, ultimateMeter + amount);
+    }
+
+    void gainUltimateFromMinionDamage(double dealtDamage) {
+        if (dealtDamage <= 0) return;
+        gainUltimate(dealtDamage * ULTIMATE_GAIN_DEALT);
     }
 
     private boolean consumeUltimate() {
@@ -3456,6 +3558,7 @@ public class Bird {
         state.isTideSkin = isTideSkin;
         state.isEclipseSkin = isEclipseSkin;
         state.isUmbraSkin = isUmbraSkin;
+        state.isSunforgeSkin = isSunforgeSkin;
         state.suppressSelectEffects = suppressSelectEffects;
         state.loungeX = loungeX;
         state.loungeY = loungeY;
@@ -3562,6 +3665,7 @@ public class Bird {
         this.isTideSkin = state.isTideSkin;
         this.isEclipseSkin = state.isEclipseSkin;
         this.isUmbraSkin = state.isUmbraSkin;
+        this.isSunforgeSkin = state.isSunforgeSkin;
         this.suppressSelectEffects = state.suppressSelectEffects;
         this.loungeX = state.loungeX;
         this.loungeY = state.loungeY;
@@ -3666,6 +3770,7 @@ public class Bird {
         drawSpecialCooldown(g);
         drawLounge(g);
         drawBodyAndEyes(g, drawSize);
+        drawRooster(g, drawSize);
         drawHeisenbirdAccessories(g, drawSize);
         drawCitySkin(g);
         drawNoirSkin(g);
@@ -4075,6 +4180,17 @@ public class Bird {
                 g.setLineWidth(2.0);
                 g.strokeOval(cx - 70 * s, y + drawSize + 4 * s, 140 * s, 18 * s);
             }
+            case ROOSTER -> {
+                g.setStroke(gold.brighter());
+                g.setLineWidth(2.8);
+                double combW = 44 * s;
+                double combH = 16 * s;
+                double topY = y - 18 * s;
+                g.strokeArc(cx - combW / 2, topY, combW, combH, 0, 180, ArcType.OPEN);
+                g.strokeArc(cx - combW / 2 + 10 * s, topY - 6 * s, combW * 0.7, combH * 0.7, 0, 180, ArcType.OPEN);
+                g.setLineWidth(2.2);
+                g.strokeLine(cx - 30 * s, cy + 24 * s, cx + 30 * s, cy + 24 * s);
+            }
             case PENGUIN -> {
                 double w = 26 * s;
                 double h = 18 * s;
@@ -4421,6 +4537,47 @@ public class Bird {
         }
     }
 
+    private void drawRooster(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.ROOSTER) return;
+        double s = sizeMultiplier;
+        double tailBaseX = facingRight ? x + 18 * s : x + drawSize - 18 * s;
+        double tailDir = facingRight ? -1 : 1;
+        Color tailStroke = isSunforgeSkin ? Color.web("#FFD54F") : Color.web("#BF360C");
+        if (isSunforgeSkin && !suppressSelectEffects) {
+            g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.45));
+            g.setLineWidth(8 * s);
+            for (int i = 0; i < 3; i++) {
+                double len = 26 + i * 10;
+                double rise = 18 + i * 6;
+                g.strokeLine(tailBaseX, y + 52 * s, tailBaseX + tailDir * len * s, y + 52 * s - rise * s);
+            }
+        }
+        g.setStroke(tailStroke);
+        g.setLineWidth(4 * s);
+        for (int i = 0; i < 3; i++) {
+            double len = 26 + i * 10;
+            double rise = 18 + i * 6;
+            g.strokeLine(tailBaseX, y + 52 * s, tailBaseX + tailDir * len * s, y + 52 * s - rise * s);
+        }
+
+        g.setFill(isSunforgeSkin ? Color.web("#FFB300") : Color.web("#D32F2F"));
+        double combX = facingRight ? x + 44 * s : x + 16 * s;
+        double combY = y - 6 * s;
+        double combW = 28 * s;
+        double combH = 18 * s;
+        double[] xs = new double[]{
+                combX, combX + combW * 0.25, combX + combW * 0.5, combX + combW * 0.75, combX + combW, combX + combW, combX
+        };
+        double[] ys = new double[]{
+                combY + combH, combY, combY + combH * 0.4, combY, combY + combH, combY + combH * 1.2, combY + combH * 1.2
+        };
+        g.fillPolygon(xs, ys, xs.length);
+
+        g.setFill(isSunforgeSkin ? Color.web("#FFE082") : Color.web("#B71C1C"));
+        double wattleX = facingRight ? x + 50 * s : x + 20 * s;
+        g.fillOval(wattleX, y + 42 * s, 10 * s, 14 * s);
+    }
+
     private void drawStunEffect(GraphicsContext g) {
         if (stunTime > 0) {
             g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.7));
@@ -4462,6 +4619,8 @@ public class Bird {
             String cooldownText;
             if (type == BirdGame3.BirdType.VULTURE && crowSwarmCooldown > 0) {
                 cooldownText = "CROWS";
+            } else if (type == BirdGame3.BirdType.ROOSTER && specialCooldown > 0) {
+                cooldownText = "CHICKS";
             } else if (type == BirdGame3.BirdType.OPIUMBIRD && leanCooldown > 0) {
                 cooldownText = "LEAN";
             } else if (type == BirdGame3.BirdType.HEISENBIRD && leanCooldown > 0) {
@@ -4537,6 +4696,7 @@ public class Bird {
         boolean glacierShoebill = (type == BirdGame3.BirdType.SHOEBILL && isGlacierSkin);
         boolean tideVulture = (type == BirdGame3.BirdType.VULTURE && isTideSkin);
         boolean eclipseMockingbird = (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin);
+        boolean sunforgeRooster = (type == BirdGame3.BirdType.ROOSTER && isSunforgeSkin);
         boolean freemanPigeon = (type == BirdGame3.BirdType.PIGEON && isFreemanSkin);
         boolean ravenEyes = (type == BirdGame3.BirdType.RAVEN);
         Color bodyColor;
@@ -4561,6 +4721,10 @@ public class Bird {
             bodyColor = Color.web("#26A69A");
             headColor = Color.web("#80CBC4");
             eyeOverride = Color.web("#004D40");
+        } else if (sunforgeRooster) {
+            bodyColor = Color.web("#4E342E");
+            headColor = Color.web("#BF6D1D");
+            eyeOverride = Color.web("#FFF8E1");
         } else if (eclipseMockingbird) {
             bodyColor = Color.web("#311B92");
             headColor = Color.web("#4A148C");
@@ -4743,6 +4907,16 @@ public class Bird {
             g.setStroke(Color.web("#00E5FF").deriveColor(0, 1, 1, 0.45));
             g.setLineWidth(2.0 * s);
             g.strokeOval(x - 10 * s, y - 10 * s, 100 * s, 100 * s);
+        }
+        if (type == BirdGame3.BirdType.ROOSTER && isSunforgeSkin) {
+            g.setStroke(Color.web("#FFD54F").deriveColor(0, 1, 1, 0.7));
+            g.setLineWidth(2.4 * s);
+            g.strokeArc(x - 10 * s, y + 4 * s, drawSize + 20 * s, drawSize + 18 * s, 210, 120, ArcType.OPEN);
+            g.setFill(Color.web("#FFF8E1").deriveColor(0, 1, 1, 0.18));
+            g.fillOval(x + 12 * s, y + 34 * s, 56 * s, 24 * s);
+            g.setFill(Color.web("#FFE082").deriveColor(0, 1, 1, 0.5));
+            g.fillOval(x + 24 * s, y + 20 * s, 8 * s, 8 * s);
+            g.fillOval(x + 52 * s, y + 26 * s, 7 * s, 7 * s);
         }
     }
 

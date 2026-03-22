@@ -23,6 +23,7 @@ class LanState {
     List<SwingingVineState> swingingVines = new ArrayList<>();
     List<WindVentState> windVents = new ArrayList<>();
     List<CrowMinionState> crowMinions = new ArrayList<>();
+    List<ChickMinionState> chickMinions = new ArrayList<>();
 
     void write(DataOutputStream out) throws IOException {
         out.writeInt(matchTimer);
@@ -83,6 +84,17 @@ class LanState {
             out.writeInt(c.age);
             out.writeInt(c.ownerIndex);
             out.writeBoolean(c.hasCrown);
+        }
+        out.writeInt(chickMinions.size());
+        for (ChickMinionState c : chickMinions) {
+            out.writeDouble(c.x);
+            out.writeDouble(c.y);
+            out.writeDouble(c.vx);
+            out.writeInt(c.age);
+            out.writeInt(c.ownerIndex);
+            out.writeInt(c.variant);
+            out.writeInt(c.life);
+            out.writeBoolean(c.ultimate);
         }
     }
 
@@ -166,6 +178,19 @@ class LanState {
             c.hasCrown = in.readBoolean();
             state.crowMinions.add(c);
         }
+        int chickCount = in.readInt();
+        for (int i = 0; i < chickCount; i++) {
+            ChickMinionState c = new ChickMinionState();
+            c.x = in.readDouble();
+            c.y = in.readDouble();
+            c.vx = in.readDouble();
+            c.age = in.readInt();
+            c.ownerIndex = in.readInt();
+            c.variant = in.readInt();
+            c.life = in.readInt();
+            c.ultimate = in.readBoolean();
+            state.chickMinions.add(c);
+        }
         return state;
     }
 
@@ -203,5 +228,16 @@ class LanState {
         int age;
         int ownerIndex;
         boolean hasCrown;
+    }
+
+    static final class ChickMinionState {
+        double x;
+        double y;
+        double vx;
+        int age;
+        int ownerIndex;
+        int variant;
+        int life;
+        boolean ultimate;
     }
 }

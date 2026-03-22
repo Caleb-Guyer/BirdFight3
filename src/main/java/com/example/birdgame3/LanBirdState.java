@@ -35,6 +35,7 @@ class LanBirdState {
     boolean isTideSkin;
     boolean isEclipseSkin;
     boolean isUmbraSkin;
+    boolean isSunforgeSkin;
     boolean suppressSelectEffects;
     double loungeX;
     double loungeY;
@@ -134,6 +135,7 @@ class LanBirdState {
         out.writeBoolean(isTideSkin);
         out.writeBoolean(isEclipseSkin);
         out.writeBoolean(isUmbraSkin);
+        out.writeBoolean(isSunforgeSkin);
         out.writeBoolean(suppressSelectEffects);
         out.writeDouble(loungeX);
         out.writeDouble(loungeY);
@@ -235,6 +237,7 @@ class LanBirdState {
         state.isTideSkin = in.readBoolean();
         state.isEclipseSkin = in.readBoolean();
         state.isUmbraSkin = in.readBoolean();
+        state.isSunforgeSkin = in.readBoolean();
         state.suppressSelectEffects = in.readBoolean();
         state.loungeX = in.readDouble();
         state.loungeY = in.readDouble();
