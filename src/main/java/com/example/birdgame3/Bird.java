@@ -1115,63 +1115,27 @@ public class Bird {
     }
 
     KeyCode leftKey() {
-        return switch (playerIndex) {
-            case 0 -> KeyCode.A;
-            case 1 -> KeyCode.LEFT;
-            case 2 -> KeyCode.F;
-            case 3 -> KeyCode.J;
-            default -> KeyCode.A;
-        };
+        return game.leftKeyForPlayer(playerIndex);
     }
 
     KeyCode rightKey() {
-        return switch (playerIndex) {
-            case 0 -> KeyCode.D;
-            case 1 -> KeyCode.RIGHT;
-            case 2 -> KeyCode.H;
-            case 3 -> KeyCode.L;
-            default -> KeyCode.D;
-        };
+        return game.rightKeyForPlayer(playerIndex);
     }
 
     KeyCode jumpKey() {
-        return switch (playerIndex) {
-            case 0 -> KeyCode.W;
-            case 1 -> KeyCode.UP;
-            case 2 -> KeyCode.T;
-            case 3 -> KeyCode.I;
-            default -> KeyCode.W;
-        };
+        return game.jumpKeyForPlayer(playerIndex);
     }
 
     private KeyCode attackKey() {
-        return switch (playerIndex) {
-            case 0 -> KeyCode.SPACE;
-            case 1 -> KeyCode.ENTER;
-            case 2 -> KeyCode.Y;
-            case 3 -> KeyCode.O;
-            default -> KeyCode.SPACE;
-        };
+        return game.attackKeyForPlayer(playerIndex);
     }
 
     private KeyCode specialKey() {
-        return switch (playerIndex) {
-            case 0 -> KeyCode.SHIFT;
-            case 1 -> KeyCode.SLASH;
-            case 2 -> KeyCode.U;
-            case 3 -> KeyCode.P;
-            default -> KeyCode.SHIFT;
-        };
+        return game.specialKeyForPlayer(playerIndex);
     }
 
     private KeyCode blockKey() {
-        return switch (playerIndex) {
-            case 0 -> KeyCode.S;
-            case 1 -> KeyCode.DOWN;
-            case 2 -> KeyCode.G;
-            case 3 -> KeyCode.K;
-            default -> KeyCode.S;
-        };
+        return game.blockKeyForPlayer(playerIndex);
     }
 
     private String shortName() {
@@ -1209,6 +1173,9 @@ public class Bird {
     private int aiLockedDir = 0;
     private int aiStrafeHoldFrames = 0;
     private int aiPowerCommitFrames = 0;
+    private int aiDropCommitFrames = 0;
+    private int aiDropCommitDir = 0;
+    private double aiDropOriginY = Double.NaN;
     private double aiLastHealth = STARTING_HEALTH;
 
     private int dashCooldown = 0;
@@ -1226,6 +1193,7 @@ public class Bird {
         if (aiDirectionLock > 0) aiDirectionLock--;
         if (aiStrafeHoldFrames > 0) aiStrafeHoldFrames--;
         if (aiPowerCommitFrames > 0) aiPowerCommitFrames--;
+        if (aiDropCommitFrames > 0) aiDropCommitFrames--;
 
         clearAIInputs();
 
@@ -1248,6 +1216,7 @@ public class Bird {
         Platform standing = findCurrentSupportPlatform();
 
         if (target == null && powerUp == null) {
+            resetAIDropCommit();
             aiLastHealth = health;
             return;
         }
@@ -1317,6 +1286,9 @@ public class Bird {
             double targetCx = target.x + 40;
             dropEdgeX = targetCx < platformCenter ? leftEdge : rightEdge;
             dropPlan = true;
+            aiDropCommitDir = targetCx < platformCenter ? -1 : 1;
+            aiDropCommitFrames = Math.max(aiDropCommitFrames, 24);
+            aiDropOriginY = standing.y;
         }
         boolean lowCpu = cpuLevel <= 2;
         double goalX;
@@ -1440,6 +1412,23 @@ public class Bird {
             moveDir = 0;
         }
 
+        if (aiDropCommitFrames > 0) {
+            boolean abandonDrop = powerFocus || target == null || !targetBelow;
+            boolean clearedDrop = !Double.isNaN(aiDropOriginY) && y > aiDropOriginY + 4;
+            boolean landedLower = onGround && standing != null
+                    && !Double.isNaN(aiDropOriginY)
+                    && standing.y > aiDropOriginY + 12;
+            if (abandonDrop || clearedDrop || landedLower) {
+                resetAIDropCommit();
+            } else if (aiDropCommitDir != 0) {
+                moveDir = aiDropCommitDir;
+                aiDirectionLock = 0;
+                aiStrafeHoldFrames = 0;
+                aiStrafeTimer = 0;
+                aiMicroPause = 0;
+            }
+        }
+
         if (moveDir < 0) game.pressedKeys.add(leftKey());
         if (moveDir > 0) game.pressedKeys.add(rightKey());
 
@@ -1447,17 +1436,18 @@ public class Bird {
         if (!powerFocus && target != null) {
             double dy = target.y - y;
             if (onGround && aiJumpCooldown <= 0) {
-                boolean jumpForHeight = dy < -120 && Math.abs(target.x - x) < 420;
+                double climbCenter = climbPlatform != null ? climbPlatform.x + climbPlatform.w / 2.0 : myCx;
+                boolean alignedForClimb = !verticalPlan || climbPlatform == null || Math.abs((x + 40) - climbCenter) < 165;
+                boolean jumpForHeight = dy < -120 && Math.abs(target.x - x) < 420 && alignedForClimb;
                 boolean jumpForCombo = dy > 70 && targetDist < 220;
-                boolean jumpForAboveClose = dy < -200 && Math.abs(target.x - x) < 220;
+                boolean jumpForAboveClose = dy < -200 && Math.abs(target.x - x) < 220 && alignedForClimb;
                 double jumpSense = 0.35 + 0.65 * skill;
                 if ((jumpForHeight || jumpForCombo || jumpForAboveClose) && random.nextDouble() < jumpSense) {
                     game.pressedKeys.add(jumpKey());
                     aiJumpCooldown = 14;
                 }
                 if (verticalPlan && climbPlatform != null) {
-                    double climbCenter = climbPlatform.x + climbPlatform.w / 2.0;
-                    if (Math.abs((x + 40) - climbCenter) < 140 && dy < -140) {
+                    if (Math.abs((x + 40) - climbCenter) < 165 && dy < -140) {
                         game.pressedKeys.add(jumpKey());
                         aiJumpCooldown = 14;
                     }
@@ -1656,6 +1646,12 @@ public class Bird {
         game.pressedKeys.remove(attackKey());
         game.pressedKeys.remove(specialKey());
         game.pressedKeys.remove(blockKey());
+    }
+
+    private void resetAIDropCommit() {
+        aiDropCommitFrames = 0;
+        aiDropCommitDir = 0;
+        aiDropOriginY = Double.NaN;
     }
 
     private Bird pickAITarget() {

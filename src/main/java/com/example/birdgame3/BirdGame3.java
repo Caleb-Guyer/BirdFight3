@@ -68,6 +68,10 @@ import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.net.URL;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.function.BooleanSupplier;
@@ -78,8 +82,8 @@ public class BirdGame3 extends Application {
     public static final int HEIGHT = 1080;
     public static final int GROUND_Y = 2400;
     public static final double GRAVITY = 0.75;
-    private static final int MATCH_DURATION_FRAMES = 90 * 60;
-    private static final int COMPETITION_DURATION_FRAMES = 120 * 60;
+    static final int MATCH_DURATION_FRAMES = 90 * 60;
+    static final int COMPETITION_DURATION_FRAMES = 120 * 60;
     private static final Insets MENU_PADDING = new Insets(60, 80, 60, 80);
     private static final double MENU_GAP = 24;
     private static final double MENU_TEXT_MAX_WIDTH = 1100;
@@ -100,11 +104,23 @@ public class BirdGame3 extends Application {
     private static final int VERIFIED_ADVENTURE_MATCH_BONUS = 40;
     private static final int VERIFIED_STORY_MATCH_BONUS = 30;
     private static final int VERIFIED_COMPETITION_MATCH_BONUS = 20;
+    private static final int MATCH_HISTORY_LIMIT = 20;
     private static final String PREF_BIRD_COINS = "bird_coins";
     private static final String PREF_BIRD_COINS_EARNED = "bird_coins_earned";
     private static final String PREF_BIRD_COINS_SPENT = "bird_coins_spent";
     private static final String PREF_BIRD_COINS_CHECKSUM = "bird_coins_checksum";
+    private static final String PREF_MATCH_HISTORY_COUNT = "match_history_count";
+    private static final String PREF_MATCH_HISTORY_PREFIX = "match_history_entry_";
+    private static final DateTimeFormatter MATCH_HISTORY_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("MMM d, yyyy  h:mm a", Locale.US);
     private static final long BIRD_COIN_LEDGER_SALT = 0x6A09E667F3BCC909L;
+    private final BirdCoinLedger birdCoinLedger = new BirdCoinLedger(
+            BIRD_COIN_LEDGER_SALT,
+            PREF_BIRD_COINS,
+            PREF_BIRD_COINS_EARNED,
+            PREF_BIRD_COINS_SPENT,
+            PREF_BIRD_COINS_CHECKSUM
+    );
 
     final Set<KeyCode> pressedKeys = new HashSet<>();
     public Bird[] players = new Bird[4];
@@ -113,8 +129,8 @@ public class BirdGame3 extends Application {
     private final BirdType[] fightSelectedBirds = new BirdType[4];
     private final boolean[] fightRandomSelected = new boolean[4];
     private final String[] fightSelectedSkinKeys = new String[4];
-    private int activePlayers = 2;
-    private AnimationTimer timer;
+    int activePlayers = 2;
+    AnimationTimer timer;
     public List<Platform> platforms = new ArrayList<>();
     public List<PowerUp> powerUps = new ArrayList<>();
     public List<NectarNode> nectarNodes = new ArrayList<>();
@@ -124,21 +140,18 @@ public class BirdGame3 extends Application {
     private final Button[] teamButtons = new Button[4];
     private final Button[] cpuButtons = new Button[4];
     private Button teamModeToggleButton;
-    private boolean teamModeEnabled = false;
+    boolean teamModeEnabled = false;
     private final int[] playerTeams = new int[]{1, 2, 1, 2};
-    private final Random random = new Random();
+    final Random random = new Random();
     private final Random renderRandom = new Random();
     private long lastPowerUpSpawnTime = 0;
     public static final long POWERUP_SPAWN_INTERVAL = 1_000_000_000L * 8; // every 8 seconds
-    private static final int MUTATOR_BUFF_FRAMES = COMPETITION_DURATION_FRAMES * 2;
+    static final int MUTATOR_BUFF_FRAMES = COMPETITION_DURATION_FRAMES * 2;
     public double shakeIntensity = 0;
     private double[] mountainPeaks = null; // will store fixed peak heights for Sky Cliffs
     public int hitstopFrames = 0;
     public List<String> killFeed = new ArrayList<>();
     private final int MAX_FEED_LINES = 6;
-    private int birdCoins = 0;
-    private int birdCoinsEarnedLedger = 0;
-    private int birdCoinsSpentLedger = 0;
     public static final double CEILING_Y = -100;
     public int[] falls = new int[4];
     public int[] scores = new int[4];  // live score: elims*50 + damage/2
@@ -170,17 +183,19 @@ public class BirdGame3 extends Application {
     public int[] cliffWins = new int[4];      // wins on Sky Cliffs map
 
     // === SUDDEN DEATH SYSTEM ===
-    private int matchTimer = MATCH_DURATION_FRAMES;
-    private final SuddenDeathController suddenDeath = new SuddenDeathController();
+    int matchTimer = MATCH_DURATION_FRAMES;
+    final SuddenDeathController suddenDeath = new SuddenDeathController();
 
-    private boolean matchEnded = false;  // prevents double-trigger
+    boolean matchEnded = false;  // prevents double-trigger
 
     private boolean isPaused = false;
     private boolean debugHudEnabled = false;
     private boolean consoleHighlightActive = false;
-    private long matchStartNano = 0L;
-    private boolean balanceOutcomeRecorded = false;
+    long matchStartNano = 0L;
+    boolean balanceOutcomeRecorded = false;
+    boolean matchHistoryRecorded = false;
     private final Deque<UnlockCard> pendingUnlockCards = new ArrayDeque<>();
+    private final List<MatchHistoryEntry> matchHistory = new ArrayList<>();
 
     // === LAN MODE ===
     private static final int LAN_MAX_PLAYERS = 4;
@@ -189,12 +204,12 @@ public class BirdGame3 extends Application {
     private static final int LAN_RESULTS_ACTION_EXIT = 2;
     private static final int LAN_RESULTS_MIN_SHOW_MS = 1200;
     private static final int LAN_RESULTS_CLOSE_DELAY_MS = 800;
-    private boolean lanModeActive = false;
-    private boolean lanIsHost = false;
+    boolean lanModeActive = false;
+    boolean lanIsHost = false;
     private boolean lanIsClient = false;
-    private boolean lanMatchActive = false;
+    boolean lanMatchActive = false;
     private int lanPlayerIndex = -1;
-    private LanHostServer lanHost;
+    LanHostServer lanHost;
     private LanClient lanClient;
     private final BirdType[] lanSelectedBirds = new BirdType[LAN_MAX_PLAYERS];
     private final String[] lanSelectedSkinKeys = new String[LAN_MAX_PLAYERS];
@@ -248,7 +263,7 @@ public class BirdGame3 extends Application {
     private long accumulator = 0L;
 
     private StackPane gameRoot;
-    private Stage currentStage;
+    Stage currentStage;
 
     // === MAP + DYNAMIC CAMERA ===
     public static final double WORLD_WIDTH = 6000;
@@ -269,6 +284,38 @@ public class BirdGame3 extends Application {
 
     private enum BirdBookCategory { ITEMS, POWERUPS, BIRDS, SKINS, MAPS }
 
+    private enum ControlAction {
+        LEFT("Left", "left", LanProtocol.INPUT_LEFT, KeyCode.A, KeyCode.LEFT, KeyCode.F, KeyCode.J),
+        RIGHT("Right", "right", LanProtocol.INPUT_RIGHT, KeyCode.D, KeyCode.RIGHT, KeyCode.H, KeyCode.L),
+        JUMP("Jump", "jump", LanProtocol.INPUT_JUMP, KeyCode.W, KeyCode.UP, KeyCode.T, KeyCode.I),
+        ATTACK("Attack", "attack", LanProtocol.INPUT_ATTACK, KeyCode.SPACE, KeyCode.ENTER, KeyCode.Y, KeyCode.O),
+        SPECIAL("Special", "special", LanProtocol.INPUT_SPECIAL, KeyCode.SHIFT, KeyCode.SLASH, KeyCode.U, KeyCode.P),
+        BLOCK("Block / Fast Fall", "block", LanProtocol.INPUT_BLOCK, KeyCode.S, KeyCode.DOWN, KeyCode.G, KeyCode.K),
+        TAUNT_CYCLE("Taunt Cycle", "taunt_cycle", LanProtocol.INPUT_TAUNT_CYCLE, KeyCode.Q, KeyCode.NUMPAD1, KeyCode.NUMPAD2, KeyCode.NUMPAD3),
+        TAUNT_EXECUTE("Taunt Execute", "taunt_execute", LanProtocol.INPUT_TAUNT_EXEC, KeyCode.E, KeyCode.NUMPAD4, KeyCode.NUMPAD5, KeyCode.NUMPAD6);
+
+        final String label;
+        final String prefKey;
+        final int inputMask;
+        final KeyCode[] defaults;
+
+        ControlAction(String label, String prefKey, int inputMask, KeyCode... defaults) {
+            this.label = label;
+            this.prefKey = prefKey;
+            this.inputMask = inputMask;
+            this.defaults = defaults;
+        }
+
+        KeyCode defaultKey(int playerIdx) {
+            if (playerIdx >= 0 && playerIdx < defaults.length) {
+                return defaults[playerIdx];
+            }
+            return defaults[0];
+        }
+    }
+
+    private record ControlBindingTarget(int playerIdx, ControlAction action) {}
+
     public MapType selectedMap = MapType.FOREST; // default
     private boolean caveMapUnlocked = false;
     private boolean battlefieldMapUnlocked = false;
@@ -285,16 +332,16 @@ public class BirdGame3 extends Application {
     private long lastWindBurstTime = 0;
     public static final long WIND_BURST_INTERVAL = 1_000_000_000L * 6; // every ~6 seconds
     public static final double WIND_FORCE = -28.0; // strong upward boost
-    private boolean mutatorModeEnabled = false;
-    private boolean competitionModeEnabled = false;
-    private MatchMutator activeMutator = MatchMutator.NONE;
-    private long activePowerUpSpawnInterval = POWERUP_SPAWN_INTERVAL;
-    private long lastMutatorHazardTime = 0L;
-    private static final int COMPETITION_ROUND_TARGET = 3;
-    private final int[] competitionRoundWins = new int[4];
-    private final int[] competitionTeamWins = new int[3];
-    private int competitionRoundNumber = 1;
-    private boolean competitionSeriesActive = false;
+    boolean mutatorModeEnabled = false;
+    boolean competitionModeEnabled = false;
+    MatchMutator activeMutator = MatchMutator.NONE;
+    long activePowerUpSpawnInterval = POWERUP_SPAWN_INTERVAL;
+    long lastMutatorHazardTime = 0L;
+    static final int COMPETITION_ROUND_TARGET = 3;
+    final int[] competitionRoundWins = new int[4];
+    final int[] competitionTeamWins = new int[3];
+    int competitionRoundNumber = 1;
+    boolean competitionSeriesActive = false;
 
     public Canvas uiCanvas;
     public GraphicsContext ui;
@@ -308,13 +355,15 @@ public class BirdGame3 extends Application {
     private Runnable stageSelectRandomHandler = null;
     private Runnable settingsReturn = null;
     private boolean musicEnabled = true;
-    private boolean sfxEnabled = true;
+    boolean sfxEnabled = true;
     private boolean screenShakeEnabled = true;
     private boolean fullscreenEnabled = true;
     private boolean particleEffectsEnabled = true;
     private boolean ambientEffectsEnabled = true;
     private int fpsCap = 60;
-    private long lastRenderNs = 0L;
+    private final FrameRateLimiter frameRateLimiter = new FrameRateLimiter();
+    private final MatchController matchController = new MatchController(this);
+    private final KeyCode[][] playerKeyBindings = createDefaultControlBindings();
     private static final int[] FPS_CAPS = new int[]{30, 60, 90, 120, 144, 0};
 
     public void playHitSound(double intensity) {
@@ -1047,24 +1096,15 @@ public class BirdGame3 extends Application {
     }
 
     private boolean shouldRenderFrame(long now) {
-        if (fpsCap <= 0) return true;
-        long interval = 1_000_000_000L / fpsCap;
-        if (lastRenderNs == 0L || now - lastRenderNs >= interval) {
-            lastRenderNs = now;
-            return true;
-        }
-        return false;
+        return frameRateLimiter.shouldRender(now, fpsCap);
     }
 
     private void resetRenderTimer() {
-        lastRenderNs = 0L;
+        frameRateLimiter.reset();
     }
 
     private int sanitizeFpsCap(int value) {
-        for (int cap : FPS_CAPS) {
-            if (cap == value) return value;
-        }
-        return 60;
+        return FrameRateLimiter.sanitizeFpsCap(value);
     }
 
     private void refreshFpsCapButton(Button btn) {
@@ -1087,6 +1127,132 @@ public class BirdGame3 extends Application {
         refreshFpsCapButton(btn);
         resetRenderTimer();
         saveAchievements();
+    }
+
+    private KeyCode[][] createDefaultControlBindings() {
+        KeyCode[][] bindings = new KeyCode[4][ControlAction.values().length];
+        applyDefaultControlBindings(bindings);
+        return bindings;
+    }
+
+    private void applyDefaultControlBindings(KeyCode[][] bindings) {
+        if (bindings == null) return;
+        for (int playerIdx = 0; playerIdx < bindings.length; playerIdx++) {
+            for (ControlAction action : ControlAction.values()) {
+                bindings[playerIdx][action.ordinal()] = action.defaultKey(playerIdx);
+            }
+        }
+    }
+
+    private void resetControlBindingsToDefaults() {
+        applyDefaultControlBindings(playerKeyBindings);
+    }
+
+    private String controlPrefKey(int playerIdx, ControlAction action) {
+        return "bind_p" + (playerIdx + 1) + "_" + action.prefKey;
+    }
+
+    private void loadControlBindings(Preferences prefs) {
+        resetControlBindingsToDefaults();
+        if (prefs == null) return;
+        for (int playerIdx = 0; playerIdx < playerKeyBindings.length; playerIdx++) {
+            for (ControlAction action : ControlAction.values()) {
+                String raw = prefs.get(controlPrefKey(playerIdx, action), null);
+                if (raw == null || raw.isBlank()) continue;
+                try {
+                    KeyCode loaded = KeyCode.valueOf(raw);
+                    if (!isReservedBindingKey(loaded)) {
+                        playerKeyBindings[playerIdx][action.ordinal()] = loaded;
+                    }
+                } catch (IllegalArgumentException ignored) {
+                }
+            }
+        }
+    }
+
+    private void saveControlBindings(Preferences prefs) {
+        if (prefs == null) return;
+        for (int playerIdx = 0; playerIdx < playerKeyBindings.length; playerIdx++) {
+            for (ControlAction action : ControlAction.values()) {
+                prefs.put(controlPrefKey(playerIdx, action), keyForPlayer(playerIdx, action).name());
+            }
+        }
+    }
+
+    private boolean isReservedBindingKey(KeyCode code) {
+        return code == null || code == KeyCode.UNDEFINED || code == KeyCode.ESCAPE || code == KeyCode.F11 || code == KeyCode.F3;
+    }
+
+    private void assignControlBinding(int playerIdx, ControlAction action, KeyCode code) {
+        if (playerIdx < 0 || playerIdx >= playerKeyBindings.length || action == null || isReservedBindingKey(code)) return;
+        KeyCode previous = keyForPlayer(playerIdx, action);
+        for (int i = 0; i < playerKeyBindings.length; i++) {
+            for (ControlAction other : ControlAction.values()) {
+                if (i == playerIdx && other == action) continue;
+                if (keyForPlayer(i, other) == code) {
+                    playerKeyBindings[i][other.ordinal()] = previous;
+                }
+            }
+        }
+        playerKeyBindings[playerIdx][action.ordinal()] = code;
+    }
+
+    private KeyCode keyForPlayer(int playerIdx, ControlAction action) {
+        if (action == null) return KeyCode.UNDEFINED;
+        if (playerIdx < 0 || playerIdx >= playerKeyBindings.length) {
+            return action.defaultKey(0);
+        }
+        KeyCode code = playerKeyBindings[playerIdx][action.ordinal()];
+        return code != null ? code : action.defaultKey(playerIdx);
+    }
+
+    private String displayKeyName(KeyCode code) {
+        if (code == null) return "UNBOUND";
+        return code.getName().toUpperCase(Locale.ROOT);
+    }
+
+    private String compactKeyName(KeyCode code) {
+        if (code == null) return "?";
+        return switch (code) {
+            case LEFT -> "<";
+            case RIGHT -> ">";
+            case UP -> "^";
+            case DOWN -> "v";
+            case SPACE -> "SPC";
+            case SHIFT -> "SHIFT";
+            case ENTER -> "ENT";
+            case SLASH -> "/";
+            default -> code.getName().toUpperCase(Locale.ROOT);
+        };
+    }
+
+    private String controlSummaryLine() {
+        StringBuilder summary = new StringBuilder("Controls: configurable in Settings > Controls");
+        int shownPlayers = Math.min(activePlayers, 2);
+        for (int i = 0; i < shownPlayers; i++) {
+            summary.append(" | P").append(i + 1).append(' ')
+                    .append(compactKeyName(leftKeyForPlayer(i))).append('/')
+                    .append(compactKeyName(rightKeyForPlayer(i))).append('/')
+                    .append(compactKeyName(jumpKeyForPlayer(i))).append(" atk ")
+                    .append(compactKeyName(attackKeyForPlayer(i))).append(" sp ")
+                    .append(compactKeyName(specialKeyForPlayer(i)));
+        }
+        summary.append(" | Block on ground, fast fall in air.");
+        return summary.toString();
+    }
+
+    private String controlBindingButtonId(int playerIdx, ControlAction action) {
+        return playerIdx + ":" + action.name();
+    }
+
+    private void refreshControlBindingButton(Button button, int playerIdx, ControlAction action, boolean awaiting) {
+        if (button == null || action == null) return;
+        String text = awaiting ? "PRESS A KEY..." : displayKeyName(keyForPlayer(playerIdx, action));
+        String color = awaiting ? "#F9A825" : "#455A64";
+        button.setText(text);
+        button.setStyle("-fx-background-color: " + color
+                + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 18;");
+        updateControlHighlight(button);
     }
 
     private void setSettingsTabActive(Button tab, boolean active) {
@@ -1386,7 +1552,7 @@ public class BirdGame3 extends Application {
     private static final String MAP_BATTLEFIELD_KEY = "MAP_BATTLEFIELD";
 
     // === CLASSIC MODE ===
-    private boolean classicModeActive = false;
+    boolean classicModeActive = false;
     private BirdType classicSelectedBird = BirdType.PIGEON;
     private String classicSelectedSkinKey = null;
     private int classicContinues = 0;
@@ -1395,10 +1561,10 @@ public class BirdGame3 extends Application {
     private final boolean[] classicSkinUnlocked = new boolean[BirdType.values().length];
     private final List<ClassicEncounter> classicRun = new ArrayList<>();
     private int classicRoundIndex = 0;
-    private ClassicEncounter classicEncounter = null;
+    ClassicEncounter classicEncounter = null;
     private String classicRunCodename = "";
-    private boolean classicTeamMode = false;
-    private final int[] classicTeams = new int[]{1, 2, 2, 2};
+    boolean classicTeamMode = false;
+    final int[] classicTeams = new int[]{1, 2, 2, 2};
     private final int[] classicCpuLevels = new int[4];
     private MapType classicLastMap = null;
     private ClassicTwist classicLastTwist = null;
@@ -1407,17 +1573,17 @@ public class BirdGame3 extends Application {
     private final Set<MatchMutator> classicUsedMutators = EnumSet.noneOf(MatchMutator.class);
 
     // === TOURNAMENT MODE ===
-    private boolean tournamentModeActive = false;
+    boolean tournamentModeActive = false;
     private int tournamentEntrantCount = 8;
     private int tournamentHumanCount = 2;
     private boolean tournamentMapRandom = true;
     private MapType tournamentFixedMap = MapType.FOREST;
     private final List<TournamentEntry> tournamentEntries = new ArrayList<>();
     private final List<List<TournamentMatch>> tournamentRounds = new ArrayList<>();
-    private TournamentMatch currentTournamentMatch = null;
+    TournamentMatch currentTournamentMatch = null;
     private TournamentEntry tournamentSlotA = null;
     private TournamentEntry tournamentSlotB = null;
-    private boolean tournamentMatchResolved = false;
+    boolean tournamentMatchResolved = false;
 
     private enum ClassicTwist {
         STORM_LIFTS("Storm Lifts", "Thermal vents surge and reward vertical control."),
@@ -1524,7 +1690,7 @@ public class BirdGame3 extends Application {
     }
 
     // === EPISODES ===
-    private boolean storyModeActive = false;
+    boolean storyModeActive = false;
     private boolean storyReplayMode = false;
     private int storyChapterIndex = 0;
     private EpisodeType selectedEpisode = EpisodeType.PIGEON;
@@ -1540,12 +1706,12 @@ public class BirdGame3 extends Application {
     private static final String BAT_EPISODE_AWARD = "Bat Character Unlock";
     private static final String PELICAN_EPISODE_TITLE = "Episode 3: Tempest Of The Iron Beak";
     private static final String PELICAN_EPISODE_AWARD = "Sky King Eagle Skin + Bat Character";
-    private boolean storyTeamMode = false;
-    private final int[] storyTeams = new int[]{1, 2, 2, 2};
-    private int storyMatchTimerOverride = -1;
+    boolean storyTeamMode = false;
+    final int[] storyTeams = new int[]{1, 2, 2, 2};
+    int storyMatchTimerOverride = -1;
 
     private enum EpisodeType { PIGEON, BAT, PELICAN }
-    private enum MatchMutator {
+    enum MatchMutator {
         NONE("None", "Standard rules."),
         RAGE_FRENZY("Rage Frenzy", "Everyone fights enraged for the whole match."),
         TITAN_RUMBLE("Titan Rumble", "Everyone enters Titan form for the whole match."),
@@ -1729,7 +1895,7 @@ public class BirdGame3 extends Application {
     };
 
     // === ADVENTURE MODE ===
-    private boolean adventureModeActive = false;
+    boolean adventureModeActive = false;
     private boolean adventureReplayMode = false;
     private int adventureChapterIndex = 0;
     private int adventureBattleIndex = 0;
@@ -1743,9 +1909,9 @@ public class BirdGame3 extends Application {
     private String activeAdventureDialogueTitle = null;
     private int activeAdventureDialogueChapterIndex = -1;
     private AdventureBattle currentAdventureBattle = null;
-    private boolean adventureTeamMode = false;
-    private final int[] adventureTeams = new int[]{1, 2, 2, 2};
-    private int adventureMatchTimerOverride = -1;
+    boolean adventureTeamMode = false;
+    final int[] adventureTeams = new int[]{1, 2, 2, 2};
+    int adventureMatchTimerOverride = -1;
 
     private enum DialogueSide { LEFT, RIGHT }
 
@@ -5033,27 +5199,7 @@ public class BirdGame3 extends Application {
             }
         }
 
-        if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive && !trainingModeActive && !matchEnded && matchTimer <= 0) {
-            Bird timeoutWinner = findTimeoutWinner();
-            addToKillFeed("TIME! Tournament decision.");
-            triggerMatchEnd(timeoutWinner);
-        } else if (!trainingModeActive && !matchEnded && matchTimer <= 0 && !suddenDeath.isActive()) {
-            suddenDeath.start();
-            if (sfxEnabled && hugewaveClip != null) hugewaveClip.play();
-            addToKillFeed("SUDDEN DEATH! A MURDER OF CROWS DESCENDS!");
-            shakeIntensity = 40;
-            hitstopFrames = 30;
-        }
-        if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) && !trainingModeActive) {
-            shakeIntensity = suddenDeath.updateAndSpawn(
-                    crowMinions,
-                    random,
-                    WORLD_WIDTH,
-                    WORLD_HEIGHT,
-                    shakeIntensity,
-                    matchEnded
-            );
-        }
+        updateMatchTimerState();
 
         if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
                 && selectedMap == MapType.CITY
@@ -5123,25 +5269,7 @@ public class BirdGame3 extends Application {
             }
         }
 
-        int alive = 0;
-        Bird winner = null;
-        Set<Integer> aliveTeams = new HashSet<>();
-        for (Bird b : players) {
-            if (b != null && b.health > 0) {
-                alive++;
-                winner = b;
-                aliveTeams.add(getEffectiveTeam(b.playerIndex));
-            }
-        }
-        boolean teamModeMatch =
-                (teamModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
-                        || (storyModeActive && storyTeamMode)
-                        || (adventureModeActive && adventureTeamMode)
-                        || (classicModeActive && classicTeamMode);
-        boolean isMatchOver = teamModeMatch ? aliveTeams.size() <= 1 : alive <= 1;
-        if (isMatchOver && !matchEnded) {
-            triggerMatchEnd(winner);
-        }
+        checkForMatchCompletion();
     }
 
     private void updateParticlesFixed() {
@@ -6575,6 +6703,31 @@ public class BirdGame3 extends Application {
         return pane;
     }
 
+    private Node hubIconHistory() {
+        Pane pane = hubIconPane(56);
+        Circle clock = new Circle(28, 23, 11, Color.TRANSPARENT);
+        clock.setStroke(Color.web("#B2DFDB"));
+        clock.setStrokeWidth(3);
+        Line minute = new Line(28, 23, 28, 16);
+        minute.setStroke(Color.web("#E0F2F1"));
+        minute.setStrokeWidth(3);
+        Line hour = new Line(28, 23, 34, 27);
+        hour.setStroke(Color.web("#80CBC4"));
+        hour.setStrokeWidth(3);
+        hour.setStrokeLineCap(StrokeLineCap.ROUND);
+        minute.setStrokeLineCap(StrokeLineCap.ROUND);
+        Rectangle rowOne = new Rectangle(14, 38, 28, 4);
+        rowOne.setArcWidth(3);
+        rowOne.setArcHeight(3);
+        rowOne.setFill(Color.web("#B2DFDB"));
+        Rectangle rowTwo = new Rectangle(14, 45, 20, 4);
+        rowTwo.setArcWidth(3);
+        rowTwo.setArcHeight(3);
+        rowTwo.setFill(Color.web("#80CBC4"));
+        pane.getChildren().addAll(clock, minute, hour, rowOne, rowTwo);
+        return pane;
+    }
+
     private Node hubIconFeatherpedia() {
         Pane pane = hubIconPane(56);
         Rectangle cover = new Rectangle(10, 12, 36, 32);
@@ -6650,7 +6803,7 @@ public class BirdGame3 extends Application {
         VBox titleBox = new VBox(6, title, hubLabel, titleFlare);
         titleBox.setAlignment(Pos.CENTER);
 
-        Label coins = new Label("BIRD COINS: " + birdCoins);
+        Label coins = new Label("BIRD COINS: " + birdCoinLedger.balance());
         coins.setFont(Font.font("Consolas", 24));
         coins.setTextFill(Color.web("#FFD54F"));
 
@@ -6737,17 +6890,20 @@ public class BirdGame3 extends Application {
 
         Button achievementsBtn = buildHubFooterButton("ACHIEVEMENTS", 190, 18, "#455A64", "#37474F", "#B0BEC5",
                 hubIconAchievements(), () -> showAchievements(stage));
-        Button bookBtn = buildHubFooterButton("FEATHERPEDIA", 190, 16, "#5E35B1", "#4527A0", "#D1C4E9",
+        Button historyBtn = buildHubFooterButton("MATCH HISTORY", 190, 15, "#00695C", "#004D40", "#B2DFDB",
+                hubIconHistory(), () -> showMatchHistory(stage));
+        Button bookBtn = buildHubFooterButton("FEATHERPEDIA", 185, 16, "#5E35B1", "#4527A0", "#D1C4E9",
                 hubIconFeatherpedia(), () -> showBirdBook(stage));
-        Button settingsBtn = buildHubFooterButton("SETTINGS", 170, 18, "#607D8B", "#455A64", "#CFD8DC",
+        Button settingsBtn = buildHubFooterButton("SETTINGS", 160, 18, "#607D8B", "#455A64", "#CFD8DC",
                 hubIconSettings(), () -> {
                     settingsReturn = () -> showMenu(stage);
                     showMainSettings(stage);
                 });
-        Button exitBtn = buildHubFooterButton("EXIT", 140, 18, "#D32F2F", "#B71C1C", "#FFCDD2",
+        Button exitBtn = buildHubFooterButton("EXIT", 130, 18, "#D32F2F", "#B71C1C", "#FFCDD2",
                 hubIconExit(), () -> confirmExitGame(stage));
+        uiFactory.fitSingleLineOnLayout(historyBtn, 15, 12);
         uiFactory.fitSingleLineOnLayout(bookBtn, 16, 12);
-        HBox footer = new HBox(20, achievementsBtn, bookBtn, settingsBtn, exitBtn);
+        HBox footer = new HBox(16, achievementsBtn, historyBtn, bookBtn, settingsBtn, exitBtn);
         footer.setAlignment(Pos.CENTER);
 
         root.setTop(top);
@@ -6780,7 +6936,7 @@ public class BirdGame3 extends Application {
         Label title = new Label("FIGHT - LOCAL");
         title.setFont(Font.font("Impact", FontWeight.BOLD, 78));
         title.setTextFill(Color.web("#FFE082"));
-        Label coins = new Label("BIRD COINS: " + birdCoins);
+        Label coins = new Label("BIRD COINS: " + birdCoinLedger.balance());
         coins.setFont(Font.font("Consolas", 22));
         coins.setTextFill(Color.web("#FFD54F"));
 
@@ -7877,7 +8033,7 @@ public class BirdGame3 extends Application {
         return null;
     }
 
-    private void recordTournamentWinner(TournamentMatch match, TournamentEntry winner) {
+    void recordTournamentWinner(TournamentMatch match, TournamentEntry winner) {
         if (match == null || winner == null || match.winner != null) return;
         match.winner = winner;
         int nextRoundIndex = match.roundIndex + 1;
@@ -7926,7 +8082,7 @@ public class BirdGame3 extends Application {
         };
     }
 
-    private TournamentEntry resolveTournamentWinnerEntry(Bird winner) {
+    TournamentEntry resolveTournamentWinnerEntry(Bird winner) {
         if (tournamentSlotA == null || tournamentSlotB == null) return null;
         if (winner == null) {
             return random.nextBoolean() ? tournamentSlotA : tournamentSlotB;
@@ -9539,7 +9695,7 @@ public class BirdGame3 extends Application {
         });
     }
 
-    private void showLanResults(Stage stage, int winnerIndex) {
+    void showLanResults(Stage stage, int winnerIndex) {
         if (stage == null) return;
         lanResultsActionPending = false;
         lanResultsStatusLabel = null;
@@ -9574,7 +9730,8 @@ public class BirdGame3 extends Application {
         subtitle.setTextFill(Color.web("#B3E5FC"));
 
         int coinsEarned = awardBirdCoinsForMatch(winner);
-        Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoins);
+        recordMatchHistory(winner, coinsEarned);
+        Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoinLedger.balance());
         coinsLabel.setFont(Font.font("Consolas", 28));
         coinsLabel.setTextFill(Color.web("#FFD54F"));
 
@@ -10383,82 +10540,12 @@ public class BirdGame3 extends Application {
         return batUnlocked && falconUnlocked && heisenbirdUnlocked && phoenixUnlocked && titmouseUnlocked && ravenUnlocked && roosterUnlocked;
     }
 
-    private int saturatingNonNegativeAdd(int current, int delta) {
-        long total = (long) current + Math.max(0, delta);
-        if (total <= 0L) {
-            return 0;
-        }
-        return total >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) total;
-    }
-
-    private int computeBirdCoinLedgerBalance() {
-        long balance = (long) birdCoinsEarnedLedger - birdCoinsSpentLedger;
-        if (balance <= 0L) {
-            return 0;
-        }
-        return balance >= Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) balance;
-    }
-
-    private long computeBirdCoinLedgerChecksum(int balance, int earned, int spent) {
-        long checksum = BIRD_COIN_LEDGER_SALT;
-        checksum = Long.rotateLeft(checksum ^ (balance * 0x9E3779B9L), 13);
-        checksum = Long.rotateLeft(checksum ^ (earned * 0x85EBCA6BL), 17);
-        checksum = Long.rotateLeft(checksum ^ (spent * 0xC2B2AE35L), 7);
-        return checksum ^ 0xA5A5A5A5A5A5A5A5L;
-    }
-
-    private void synchronizeBirdCoinLedger() {
-        if (birdCoinsSpentLedger > birdCoinsEarnedLedger) {
-            birdCoinsSpentLedger = birdCoinsEarnedLedger;
-        }
-        birdCoins = computeBirdCoinLedgerBalance();
-    }
-
-    private void initializeBirdCoinLedger(Preferences prefs) {
-        String earnedValue = prefs.get(PREF_BIRD_COINS_EARNED, null);
-        String spentValue = prefs.get(PREF_BIRD_COINS_SPENT, null);
-        if (earnedValue == null || spentValue == null) {
-            birdCoinsEarnedLedger = Math.max(0, birdCoins);
-            birdCoinsSpentLedger = 0;
-            synchronizeBirdCoinLedger();
-            return;
-        }
-
-        birdCoinsEarnedLedger = Math.max(0, prefs.getInt(PREF_BIRD_COINS_EARNED, 0));
-        birdCoinsSpentLedger = Math.max(0, prefs.getInt(PREF_BIRD_COINS_SPENT, 0));
-        synchronizeBirdCoinLedger();
-
-        long savedChecksum = prefs.getLong(PREF_BIRD_COINS_CHECKSUM, Long.MIN_VALUE);
-        long expectedChecksum = computeBirdCoinLedgerChecksum(birdCoins, birdCoinsEarnedLedger, birdCoinsSpentLedger);
-        int storedBirdCoins = Math.max(0, prefs.getInt(PREF_BIRD_COINS, 0));
-        if (savedChecksum != expectedChecksum || storedBirdCoins != birdCoins) {
-            if (storedBirdCoins > birdCoins) {
-                System.err.println("Bird coin ledger mismatch detected; restoring balance from "
-                        + storedBirdCoins + " to " + birdCoins + '.');
-            }
-        }
-    }
-
     private void grantBirdCoins(int amount) {
-        int safeAmount = Math.max(0, amount);
-        if (safeAmount == 0) {
-            synchronizeBirdCoinLedger();
-            return;
-        }
-        birdCoinsEarnedLedger = saturatingNonNegativeAdd(birdCoinsEarnedLedger, safeAmount);
-        synchronizeBirdCoinLedger();
+        birdCoinLedger.grant(amount);
     }
 
     private boolean spendBirdCoins(int amount) {
-        int safeAmount = Math.max(0, amount);
-        int availableCoins = computeBirdCoinLedgerBalance();
-        if (safeAmount > availableCoins) {
-            birdCoins = availableCoins;
-            return false;
-        }
-        birdCoinsSpentLedger = saturatingNonNegativeAdd(birdCoinsSpentLedger, safeAmount);
-        synchronizeBirdCoinLedger();
-        return true;
+        return birdCoinLedger.spend(amount);
     }
 
     private int calculateVerifiedBirdCoinsForMatch(Bird winner) {
@@ -10853,7 +10940,7 @@ public class BirdGame3 extends Application {
         title.setFont(Font.font("Impact", FontWeight.BOLD, 84));
         title.setTextFill(Color.web("#FFE082"));
 
-        Label coins = new Label("BIRD COINS: " + birdCoins);
+        Label coins = new Label("BIRD COINS: " + birdCoinLedger.balance());
         coins.setFont(Font.font("Consolas", 26));
         coins.setTextFill(Color.web("#FFD54F"));
 
@@ -12002,26 +12089,7 @@ public class BirdGame3 extends Application {
     }
 
     private void drawLockedIcon(Canvas canvas, Color tint) {
-        GraphicsContext g = canvas.getGraphicsContext2D();
-        double w = canvas.getWidth();
-        double h = canvas.getHeight();
-        g.clearRect(0, 0, w, h);
-
-        Color base = tint == null ? Color.web("#90A4AE") : tint;
-        g.setFill(Color.web("#0F171F", 0.8));
-        g.fillRoundRect(w * 0.08, h * 0.08, w * 0.84, h * 0.84, 18, 18);
-
-        g.setStroke(base);
-        g.setLineWidth(3);
-        g.strokeRoundRect(w * 0.18, h * 0.18, w * 0.64, h * 0.64, 14, 14);
-
-        g.setStroke(base.brighter());
-        g.setLineWidth(5);
-        g.strokeArc(w * 0.32, h * 0.22, w * 0.36, h * 0.3, 0, 180, javafx.scene.shape.ArcType.OPEN);
-        g.setFill(base.deriveColor(0, 1, 1, 0.85));
-        g.fillRoundRect(w * 0.32, h * 0.42, w * 0.36, h * 0.32, 10, 10);
-        g.setFill(Color.web("#263238"));
-        g.fillOval(w * 0.47, h * 0.53, w * 0.06, h * 0.1);
+        BirdBookUiSupport.drawLockedIcon(canvas, tint);
     }
 
     private void drawPowerUpIcon(Canvas canvas, PowerUpType type) {
@@ -12034,275 +12102,50 @@ public class BirdGame3 extends Application {
     }
 
     private void drawContinueIcon(Canvas canvas) {
-        GraphicsContext g = canvas.getGraphicsContext2D();
-        double w = canvas.getWidth();
-        double h = canvas.getHeight();
-        g.clearRect(0, 0, w, h);
-        double size = Math.min(w, h) * 0.7;
-        double x = (w - size) / 2.0;
-        double y = (h - size) / 2.0;
-        g.setFill(Color.web("#263238"));
-        g.fillOval(x, y, size, size);
-        g.setStroke(Color.web("#FFD54F"));
-        g.setLineWidth(6);
-        g.strokeOval(x, y, size, size);
-
-        g.setStroke(Color.web("#FFE082"));
-        g.setLineWidth(6);
-        double pad = size * 0.18;
-        g.strokeArc(x + pad, y + pad, size - pad * 2, size - pad * 2, 60, 260, javafx.scene.shape.ArcType.OPEN);
-
-        double arrowX = x + size * 0.76;
-        double arrowY = y + size * 0.3;
-        g.setFill(Color.web("#FFE082"));
-        g.fillPolygon(
-                new double[]{arrowX, arrowX + size * 0.12, arrowX + size * 0.04},
-                new double[]{arrowY, arrowY + size * 0.05, arrowY + size * 0.16},
-                3
-        );
+        BirdBookUiSupport.drawContinueIcon(canvas);
     }
 
     private void drawCoinIcon(Canvas canvas) {
-        GraphicsContext g = canvas.getGraphicsContext2D();
-        double w = canvas.getWidth();
-        double h = canvas.getHeight();
-        g.clearRect(0, 0, w, h);
-
-        double size = Math.min(w, h) * 0.62;
-        double x = (w - size) / 2.0;
-        double y = (h - size) / 2.0;
-
-        double backSize = size * 0.9;
-        double backX = x - size * 0.14;
-        double backY = y + size * 0.12;
-        g.setFill(Color.web("#F9A825"));
-        g.fillOval(backX, backY, backSize, backSize);
-        g.setStroke(Color.web("#F6C945"));
-        g.setLineWidth(size * 0.06);
-        g.strokeOval(backX, backY, backSize, backSize);
-
-        g.setFill(Color.web("#FFD54F"));
-        g.fillOval(x, y, size, size);
-        g.setStroke(Color.web("#FFF59D"));
-        g.setLineWidth(size * 0.08);
-        g.strokeOval(x, y, size, size);
-
-        g.setFill(Color.web("#F57F17"));
-        double mark = size * 0.24;
-        g.fillOval(x + size * 0.38, y + size * 0.38, mark, mark);
-        g.setStroke(Color.web("#FFE082"));
-        g.setLineWidth(size * 0.05);
-        g.strokeOval(x + size * 0.38, y + size * 0.38, mark, mark);
+        BirdBookUiSupport.drawCoinIcon(canvas);
     }
 
     private void drawMapBackdrop(Canvas canvas, MapType map) {
-        GraphicsContext g = canvas.getGraphicsContext2D();
-        double w = canvas.getWidth();
-        double h = canvas.getHeight();
-        g.clearRect(0, 0, w, h);
-
-        Color top;
-        Color bottom;
-        switch (map) {
-            case CITY -> {
-                top = Color.web("#0D2A52");
-                bottom = Color.web("#311B92");
-            }
-            case SKYCLIFFS -> {
-                top = Color.web("#5D4037");
-                bottom = Color.web("#B3E5FC");
-            }
-            case VIBRANT_JUNGLE -> {
-                top = Color.web("#0B3D24");
-                bottom = Color.web("#2E7D32");
-            }
-            case CAVE -> {
-                top = Color.web("#1A237E");
-                bottom = Color.web("#263238");
-            }
-            case BATTLEFIELD -> {
-                top = Color.web("#0D47A1");
-                bottom = Color.web("#1E88E5");
-            }
-            default -> {
-                top = Color.web("#1B5E20");
-                bottom = Color.web("#4CAF50");
-            }
-        }
-
-        LinearGradient gradient = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0, top), new Stop(1, bottom));
-        g.setFill(gradient);
-        g.fillRect(0, 0, w, h);
-
-        switch (map) {
-            case CITY -> {
-                g.setFill(Color.web("#101820", 0.75));
-                double base = h * 0.78;
-                double bw = w / 7.0;
-                double[] heights = new double[]{0.32, 0.54, 0.4, 0.62, 0.36, 0.5, 0.42};
-                for (int i = 0; i < heights.length; i++) {
-                    double bh = h * heights[i];
-                    g.fillRect(i * bw, base - bh, bw * 0.9, bh);
-                }
-                g.setFill(Color.web("#FFC107", 0.4));
-                for (int i = 0; i < heights.length; i++) {
-                    double bx = i * bw + bw * 0.2;
-                    double by = base - h * heights[i] + h * 0.08;
-                    for (int r = 0; r < 3; r++) {
-                        g.fillRect(bx, by + r * h * 0.08, bw * 0.18, h * 0.03);
-                    }
-                }
-            }
-            case SKYCLIFFS -> {
-                g.setFill(Color.web("#6D4C41", 0.75));
-                g.fillPolygon(new double[]{0, w * 0.22, w * 0.44}, new double[]{h, h * 0.45, h}, 3);
-                g.fillPolygon(new double[]{w * 0.35, w * 0.62, w * 0.88}, new double[]{h, h * 0.35, h}, 3);
-                g.setFill(Color.web("#8D6E63", 0.65));
-                g.fillPolygon(new double[]{w * 0.1, w * 0.35, w * 0.6}, new double[]{h, h * 0.55, h}, 3);
-            }
-            case VIBRANT_JUNGLE -> {
-                g.setStroke(Color.web("#1B5E20", 0.8));
-                g.setLineWidth(3);
-                g.strokeLine(w * 0.15, 0, w * 0.25, h);
-                g.strokeLine(w * 0.4, 0, w * 0.35, h);
-                g.strokeLine(w * 0.7, 0, w * 0.78, h);
-                g.setFill(Color.web("#2E7D32", 0.7));
-                g.fillOval(w * 0.05, h * 0.7, w * 0.25, h * 0.25);
-                g.fillOval(w * 0.7, h * 0.65, w * 0.25, h * 0.3);
-            }
-            case CAVE -> {
-                g.setFill(Color.web("#263238", 0.75));
-                double spikeW = w / 6.0;
-                for (int i = 0; i < 6; i++) {
-                    double x = i * spikeW;
-                    g.fillPolygon(new double[]{x, x + spikeW * 0.5, x + spikeW}, new double[]{0, h * 0.25, 0}, 3);
-                }
-                for (int i = 0; i < 5; i++) {
-                    double x = i * spikeW + spikeW * 0.1;
-                    g.fillPolygon(new double[]{x, x + spikeW * 0.5, x + spikeW}, new double[]{h, h * 0.75, h}, 3);
-                }
-            }
-            case BATTLEFIELD -> {
-                g.setFill(Color.web("#4E342E", 0.85));
-                g.fillOval(w * 0.2, h * 0.65, w * 0.6, h * 0.3);
-                g.setFill(Color.web("#2E7D32", 0.8));
-                g.fillOval(w * 0.24, h * 0.62, w * 0.52, h * 0.22);
-                g.setStroke(Color.web("#90CAF9", 0.5));
-                g.setLineWidth(2.5);
-                g.strokeLine(0, h * 0.62, w, h * 0.62);
-            }
-            default -> {
-                g.setFill(Color.web("#1B5E20", 0.75));
-                g.fillPolygon(new double[]{0, w * 0.1, w * 0.2}, new double[]{h, h * 0.55, h}, 3);
-                g.fillPolygon(new double[]{w * 0.15, w * 0.3, w * 0.45}, new double[]{h, h * 0.45, h}, 3);
-                g.fillPolygon(new double[]{w * 0.5, w * 0.62, w * 0.74}, new double[]{h, h * 0.5, h}, 3);
-                g.fillPolygon(new double[]{w * 0.7, w * 0.82, w}, new double[]{h, h * 0.58, h}, 3);
-            }
-        }
-
-        g.setFill(Color.web("#000000", 0.12));
-        g.fillRect(0, 0, w, h);
+        BirdBookUiSupport.drawMapBackdrop(canvas, map);
     }
 
     private void drawMapPreview(Canvas canvas, MapType map) {
-        GraphicsContext g = canvas.getGraphicsContext2D();
-        double w = canvas.getWidth();
-        double h = canvas.getHeight();
-        g.clearRect(0, 0, w, h);
-        drawMapBackdrop(canvas, map);
-
-        g.setFill(Color.web("#ECEFF1", 0.8));
-        g.fillRoundRect(w * 0.1, h * 0.7, w * 0.3, h * 0.08, 10, 10);
-        g.fillRoundRect(w * 0.6, h * 0.6, w * 0.28, h * 0.08, 10, 10);
-        g.fillRoundRect(w * 0.32, h * 0.42, w * 0.36, h * 0.08, 10, 10);
+        BirdBookUiSupport.drawMapPreview(canvas, map);
     }
 
     private Color mapAccentColor(MapType map) {
-        return switch (map) {
-            case CITY -> Color.web("#5E35B1");
-            case SKYCLIFFS -> Color.web("#8D6E63");
-            case VIBRANT_JUNGLE -> Color.web("#388E3C");
-            case CAVE -> Color.web("#455A64");
-            case BATTLEFIELD -> Color.web("#1E88E5");
-            default -> Color.web("#2E7D32");
-        };
+        return BirdBookUiSupport.mapAccentColor(map);
     }
 
     private MapType originMapForBird(BirdType type) {
-        return switch (type) {
-            case PIGEON, MOCKINGBIRD, RAVEN -> MapType.CITY;
-            case EAGLE, FALCON, PENGUIN, RAZORBILL -> MapType.SKYCLIFFS;
-            case PHOENIX, BAT, VULTURE, OPIUMBIRD, HEISENBIRD -> MapType.CAVE;
-            case HUMMINGBIRD, TITMOUSE -> MapType.VIBRANT_JUNGLE;
-            case PELICAN -> MapType.BATTLEFIELD;
-            default -> MapType.FOREST;
-        };
+        return BirdBookUiSupport.originMapForBird(type);
     }
 
     private String birdStatsLine(BirdType type) {
-        return "Power: " + type.power
-                + " | Speed: " + String.format("%.1f", type.speed)
-                + " | Jump: " + type.jumpHeight
-                + " | Lift: " + String.format("%.2f", type.flyUpForce);
+        return BirdBookUiSupport.birdStatsLine(type);
     }
 
     private String birdFunDescription(BirdType type) {
-        return switch (type) {
-            case PIGEON -> "Rooftop regular who knows every shortcut and every rumor. Never looks lost, even when the sky is falling.";
-            case EAGLE -> "Born to patrol the highest drafts and punish anyone below. Majestic until the dive starts, then it is all violence.";
-            case FALCON -> "Precision hunter with a chip on its shoulder. It loves the cleanest hit and the loudest crowd reaction.";
-            case PHOENIX -> "Flies like a blaze and lands like a firework. Somehow always returns, as if it is insulting the concept of defeat.";
-            case HUMMINGBIRD -> "A blur with a sweet tooth and a short temper. Will duel you for a drop of nectar and win smiling.";
-            case TURKEY -> "Big steps, bigger thumps. Treats the ground like an instrument and keeps the rhythm with shockwaves.";
-            case ROOSTER -> "Morning alarm with a battle plan. He calls three different chicks to swarm targets and keep the pressure on.";
-            case PENGUIN -> "Slides more than it flies, but it still finds a way to win. Cool, calm, and stubborn as a glacier.";
-            case SHOEBILL -> "Stares too long, strikes too fast. Marsh legends say it never blinks, only decides.";
-            case MOCKINGBIRD -> "Old friend of Caleb Bossk and owner of the Charles Lounge. Passed the Bossk Test to become a Bosskhead, then turned every fight into his stage.";
-            case RAZORBILL -> "Cut-clean wings and sharper intent. Prefers clean lines, clean hits, and no wasted motion.";
-            case GRINCHHAWK -> "Holiday menace with a grudge. Brings chaos instead of gifts and calls it tradition.";
-            case VULTURE -> "Patient and dangerous, Vulture circles until the moment is right. \"You are lucky to be on my side. My crows could end you in seconds,\" he warns.";
-            case OPIUMBIRD -> "Drifts in a haze and leaves trouble behind. Calm, then suddenly cruel when the cloud rolls in.";
-            case HEISENBIRD -> "Blue-hatted and bald, Heisenbird cooks sky-blue crystals in a hidden roost. The coop whispers \"say my name\" when he lands, and he is the one who pecks.";
-            case TITMOUSE -> "Tiny rocket with a fearless heart. Loves speed, hates standing still, and dares you to keep up.";
-            case BAT -> "Night specialist who hears everything and hides in the shadows. It knows the cave better than the cave knows itself.";
-            case PELICAN -> "Iron beak, iron will. Hauls momentum like cargo and hits like a loaded ship.";
-            case RAVEN -> "A shadow on the skyline with a talent for misdirection. It appears, it hits, and then it is already gone.";
-        };
+        return BirdBookUiSupport.birdFunDescription(type);
     }
 
     private String typeDisplayName(PowerUpType type) {
-        return switch (type) {
-            case HEALTH -> "Health";
-            case SPEED -> "Speed Boost";
-            case RAGE -> "Rage";
-            case SHRINK -> "Shrink";
-            case NEON -> "Neon Boost";
-            case THERMAL -> "Thermal Rise";
-            case VINE_GRAPPLE -> "Vine Grapple";
-            case OVERCHARGE -> "Overcharge";
-            case TITAN -> "Titan Form";
-        };
+        return BirdBookUiSupport.typeDisplayName(type);
     }
 
     private String powerUpDescription(PowerUpType type) {
-        return switch (type) {
-            case HEALTH -> "Instant +40 HP. Turns a losing duel into a second wind.";
-            case SPEED -> "Big speed surge for a short time. Great for chases, escapes, and sudden flanks.";
-            case RAGE -> "Double attack power for a short burst. Every hit feels like a hammer.";
-            case SHRINK -> "Shrinks and weakens all enemies. Buy space, then punish hard.";
-            case NEON -> "Hyper speed rush with extra power and mobility. The loudest pickup in the arena.";
-            case THERMAL -> "Stronger lift and hang time. Float above the chaos and reset the fight.";
-            case VINE_GRAPPLE -> "Grants 3 vine swings and aerial control. Swing to angles nobody expects.";
-            case OVERCHARGE -> "Resets special cooldown and amps attacks. Perfect for turning a brawl.";
-            case TITAN -> "Grow larger with boosted power and durability. You become the hazard.";
-        };
+        return BirdBookUiSupport.powerUpDescription(type);
     }
 
     private String birdHowToGet(BirdType type) {
         return switch (type) {
             case FALCON -> "Card Packs";
             case PHOENIX -> "Card Packs";
+            case ROOSTER -> "Card Packs";
             case BAT -> "Defeat Vulture in Episode 1 or Card Packs";
             case TITMOUSE -> "Clear Classic with Hummingbird or Card Packs";
             case HEISENBIRD -> "Card Packs";
@@ -12402,7 +12245,7 @@ public class BirdGame3 extends Application {
 
     private int itemOwnedCount(ItemEntry entry) {
         if (entry == null) return 0;
-        if (entry.isCoin) return Math.max(0, birdCoins);
+        if (entry.isCoin) return Math.max(0, birdCoinLedger.balance());
         if (entry.isContinue) return Math.max(0, classicContinues);
         return 0;
     }
@@ -13775,6 +13618,93 @@ public class BirdGame3 extends Application {
         VBox graphicsPanel = new VBox(16, particlesRow, ambientRow, fpsRow);
         graphicsPanel.setAlignment(Pos.CENTER_LEFT);
 
+        final ControlBindingTarget[] pendingBinding = new ControlBindingTarget[1];
+        Map<String, Button> bindingButtons = new HashMap<>();
+
+        Label controlsInfo = new Label("Select a control, then press a new key. Conflicts swap automatically. ESC cancels a pending rebind.");
+        controlsInfo.setFont(Font.font("Consolas", 20));
+        controlsInfo.setTextFill(Color.web("#FFE082"));
+        controlsInfo.setWrapText(true);
+        controlsInfo.setMaxWidth(1180);
+        controlsInfo.setAlignment(Pos.CENTER_LEFT);
+        applyNoEllipsis(controlsInfo);
+
+        Label controlsStatus = new Label("Ready to edit controls.");
+        controlsStatus.setFont(Font.font("Consolas", 18));
+        controlsStatus.setTextFill(Color.web("#CFD8DC"));
+        controlsStatus.setWrapText(true);
+        controlsStatus.setMaxWidth(1180);
+        controlsStatus.setAlignment(Pos.CENTER_LEFT);
+        applyNoEllipsis(controlsStatus);
+
+        GridPane controlsGrid = new GridPane();
+        controlsGrid.setHgap(14);
+        controlsGrid.setVgap(12);
+        controlsGrid.setPadding(new Insets(8, 0, 8, 0));
+
+        Label actionHeader = new Label("ACTION");
+        actionHeader.setFont(Font.font("Arial Black", 22));
+        actionHeader.setTextFill(Color.web("#90CAF9"));
+        controlsGrid.add(actionHeader, 0, 0);
+
+        for (int playerIdx = 0; playerIdx < 4; playerIdx++) {
+            Label playerHeader = new Label("PLAYER " + (playerIdx + 1));
+            playerHeader.setFont(Font.font("Arial Black", 22));
+            playerHeader.setTextFill(Color.web("#FFECB3"));
+            controlsGrid.add(playerHeader, playerIdx + 1, 0);
+        }
+
+        Runnable refreshBindingButtons = () -> {
+            for (int playerIdx = 0; playerIdx < 4; playerIdx++) {
+                for (ControlAction action : ControlAction.values()) {
+                    Button button = bindingButtons.get(controlBindingButtonId(playerIdx, action));
+                    boolean awaiting = pendingBinding[0] != null
+                            && pendingBinding[0].playerIdx() == playerIdx
+                            && pendingBinding[0].action() == action;
+                    refreshControlBindingButton(button, playerIdx, action, awaiting);
+                }
+            }
+        };
+
+        int row = 1;
+        for (ControlAction action : ControlAction.values()) {
+            Label actionLabel = new Label(action.label);
+            actionLabel.setFont(Font.font("Consolas", 20));
+            actionLabel.setTextFill(Color.web("#ECEFF1"));
+            actionLabel.setMinWidth(180);
+            controlsGrid.add(actionLabel, 0, row);
+
+            for (int playerIdx = 0; playerIdx < 4; playerIdx++) {
+                final int bindingPlayer = playerIdx;
+                final ControlAction bindingAction = action;
+                Button bindingButton = uiFactory.action("", 190, 58, 18, "#455A64", 16, null);
+                bindingButton.setOnAction(e -> {
+                    playButtonClick();
+                    pendingBinding[0] = new ControlBindingTarget(bindingPlayer, bindingAction);
+                    controlsStatus.setText("Press a new key for Player " + (bindingPlayer + 1) + " " + bindingAction.label + '.');
+                    refreshBindingButtons.run();
+                    root.requestFocus();
+                });
+                bindingButtons.put(controlBindingButtonId(playerIdx, action), bindingButton);
+                controlsGrid.add(bindingButton, playerIdx + 1, row);
+            }
+            row++;
+        }
+
+        Button resetControlsButton = uiFactory.action("RESET CONTROLS", 360, 76, 22, "#6D4C41", 18, () -> {
+            playButtonClick();
+            pendingBinding[0] = null;
+            resetControlBindingsToDefaults();
+            refreshBindingButtons.run();
+            controlsStatus.setText("Controls reset to defaults.");
+            saveAchievements();
+        });
+
+        VBox controlsPanel = new VBox(16, controlsInfo, controlsStatus, controlsGrid, resetControlsButton);
+        controlsPanel.setAlignment(Pos.CENTER_LEFT);
+
+        refreshBindingButtons.run();
+
         VBox contentHolder = new VBox(18);
         contentHolder.setAlignment(Pos.CENTER_LEFT);
         contentHolder.getChildren().add(audioPanel);
@@ -13782,24 +13712,35 @@ public class BirdGame3 extends Application {
         Button audioTab = uiFactory.action("AUDIO", 240, 70, 26, "#455A64", 18, null);
         Button displayTab = uiFactory.action("DISPLAY", 240, 70, 26, "#455A64", 18, null);
         Button graphicsTab = uiFactory.action("GRAPHICS", 240, 70, 26, "#455A64", 18, null);
+        Button controlsTab = uiFactory.action("CONTROLS", 240, 70, 26, "#455A64", 18, null);
 
         Runnable showAudio = () -> {
             setSettingsTabActive(audioTab, true);
             setSettingsTabActive(displayTab, false);
             setSettingsTabActive(graphicsTab, false);
+            setSettingsTabActive(controlsTab, false);
             contentHolder.getChildren().setAll(audioPanel);
         };
         Runnable showDisplay = () -> {
             setSettingsTabActive(audioTab, false);
             setSettingsTabActive(displayTab, true);
             setSettingsTabActive(graphicsTab, false);
+            setSettingsTabActive(controlsTab, false);
             contentHolder.getChildren().setAll(displayPanel);
         };
         Runnable showGraphics = () -> {
             setSettingsTabActive(audioTab, false);
             setSettingsTabActive(displayTab, false);
             setSettingsTabActive(graphicsTab, true);
+            setSettingsTabActive(controlsTab, false);
             contentHolder.getChildren().setAll(graphicsPanel);
+        };
+        Runnable showControls = () -> {
+            setSettingsTabActive(audioTab, false);
+            setSettingsTabActive(displayTab, false);
+            setSettingsTabActive(graphicsTab, false);
+            setSettingsTabActive(controlsTab, true);
+            contentHolder.getChildren().setAll(controlsPanel);
         };
 
         audioTab.setOnAction(e -> {
@@ -13814,8 +13755,12 @@ public class BirdGame3 extends Application {
             playButtonClick();
             showGraphics.run();
         });
+        controlsTab.setOnAction(e -> {
+            playButtonClick();
+            showControls.run();
+        });
 
-        HBox tabs = new HBox(16, audioTab, displayTab, graphicsTab);
+        HBox tabs = new HBox(16, audioTab, displayTab, graphicsTab, controlsTab);
         tabs.setAlignment(Pos.CENTER);
         tabs.setMaxWidth(Double.MAX_VALUE);
 
@@ -13839,6 +13784,29 @@ public class BirdGame3 extends Application {
 
         root.getChildren().addAll(title, card, buttons);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (pendingBinding[0] == null) return;
+            e.consume();
+            KeyCode code = e.getCode();
+            if (code == KeyCode.ESCAPE) {
+                pendingBinding[0] = null;
+                controlsStatus.setText("Rebind cancelled.");
+                refreshBindingButtons.run();
+                return;
+            }
+            if (isReservedBindingKey(code)) {
+                controlsStatus.setText(displayKeyName(code) + " is reserved for system controls.");
+                return;
+            }
+
+            ControlBindingTarget target = pendingBinding[0];
+            pendingBinding[0] = null;
+            assignControlBinding(target.playerIdx(), target.action(), code);
+            refreshBindingButtons.run();
+            controlsStatus.setText("Player " + (target.playerIdx() + 1) + ' ' + target.action().label
+                    + " set to " + displayKeyName(code) + '.');
+            saveAchievements();
+        });
         bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
@@ -16511,346 +16479,43 @@ public class BirdGame3 extends Application {
     }
 
     private void applyMutatorStartEffects(MatchMutator mutator, boolean announce, boolean classicScale) {
-        if (mutator == null || mutator == MatchMutator.NONE) return;
-        double turboPower = classicScale ? 1.10 : 1.12;
-        double turboSpeed = classicScale ? 1.12 : 1.14;
-
-        switch (mutator) {
-            case TURBO_BRAWL -> {
-                for (int i = 0; i < activePlayers; i++) {
-                    Bird b = players[i];
-                    if (b == null) continue;
-                    b.setBaseMultipliers(
-                            b.baseSizeMultiplier,
-                            b.basePowerMultiplier * turboPower,
-                            b.baseSpeedMultiplier * turboSpeed
-                    );
-                }
-                if (announce) {
-                    addToKillFeed("Turbo Brawl: +speed and +power for everyone.");
-                }
-            }
-            case RAGE_FRENZY -> {
-                for (int i = 0; i < activePlayers; i++) {
-                    Bird b = players[i];
-                    if (b == null) continue;
-                    b.rageTimer = Math.max(b.rageTimer, MUTATOR_BUFF_FRAMES);
-                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.6);
-                }
-                if (announce) {
-                    addToKillFeed("Rage Frenzy: everyone is enraged.");
-                }
-            }
-            case TITAN_RUMBLE -> {
-                for (int i = 0; i < activePlayers; i++) {
-                    Bird b = players[i];
-                    if (b == null) continue;
-                    b.titanActive = true;
-                    b.titanTimer = Math.max(b.titanTimer, MUTATOR_BUFF_FRAMES);
-                    if (b.shrinkTimer <= 0) {
-                        b.sizeMultiplier = b.baseSizeMultiplier * 1.35;
-                    }
-                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.4);
-                }
-                if (announce) {
-                    addToKillFeed("Titan Rumble: everyone is in Titan form.");
-                }
-            }
-            case OVERCHARGE_BRAWL -> {
-                for (int i = 0; i < activePlayers; i++) {
-                    Bird b = players[i];
-                    if (b == null) continue;
-                    b.specialCooldown = 0;
-                    b.overchargeAttackTimer = Math.max(b.overchargeAttackTimer, MUTATOR_BUFF_FRAMES);
-                    b.rageTimer = Math.max(b.rageTimer, MUTATOR_BUFF_FRAMES);
-                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.35);
-                }
-                if (announce) {
-                    addToKillFeed("Overcharge Brawl: rapid attacks for everyone.");
-                }
-            }
-            default -> {
-            }
-        }
+        matchController.applyMutatorStartEffects(mutator, announce, classicScale);
     }
 
     private void configureMatchModes() {
-        activeMutator = MatchMutator.NONE;
-        activePowerUpSpawnInterval = POWERUP_SPAWN_INTERVAL;
-        lastMutatorHazardTime = System.nanoTime();
-
-        if (classicModeActive) {
-            if (classicEncounter == null) return;
-            activeMutator = classicEncounter.mutator;
-            if (activeMutator != MatchMutator.NONE) {
-                addToKillFeed("CLASSIC MUTATOR: " + activeMutator.label);
-            }
-            applyMutatorStartEffects(activeMutator, false, true);
-            return;
-        }
-
-        if (storyModeActive || adventureModeActive || trainingModeActive) return;
-
-        if (competitionModeEnabled) {
-            if (!competitionSeriesActive) {
-                Arrays.fill(competitionRoundWins, 0);
-                Arrays.fill(competitionTeamWins, 0);
-                competitionRoundNumber = 1;
-                competitionSeriesActive = true;
-            }
-            matchTimer = COMPETITION_DURATION_FRAMES;
-            activePowerUpSpawnInterval = Long.MAX_VALUE;
-            powerUps.clear();
-            addToKillFeed("COMPETITION MODE: Round " + competitionRoundNumber + " (first to " + COMPETITION_ROUND_TARGET + ")");
-            return;
-        }
-
-        if (!mutatorModeEnabled) return;
-
-        MatchMutator[] pool = {
-                MatchMutator.RAGE_FRENZY,
-                MatchMutator.TITAN_RUMBLE,
-                MatchMutator.OVERCHARGE_BRAWL,
-                MatchMutator.CROW_SURGE,
-                MatchMutator.TURBO_BRAWL
-        };
-        activeMutator = pool[random.nextInt(pool.length)];
-        addToKillFeed("MUTATOR ACTIVE: " + activeMutator.label);
-        applyMutatorStartEffects(activeMutator, true, false);
+        matchController.configureMatchModes();
     }
 
     private Bird findTimeoutWinner() {
-        boolean teamComp = teamModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive;
-        if (teamComp) {
-            int[] teamHealth = new int[3];
-            int[] teamDamage = new int[3];
-            for (int i = 0; i < activePlayers; i++) {
-                Bird b = players[i];
-                if (b == null || b.health <= 0) continue;
-                int team = getEffectiveTeam(b.playerIndex);
-                if (team < 1 || team > 2) continue;
-                teamHealth[team] += (int) Math.round(b.health);
-                teamDamage[team] += Math.max(0, damageDealt[b.playerIndex]);
-            }
-            int winnerTeam = -1;
-            if (teamHealth[1] > teamHealth[2]) winnerTeam = 1;
-            else if (teamHealth[2] > teamHealth[1]) winnerTeam = 2;
-            else if (teamDamage[1] > teamDamage[2]) winnerTeam = 1;
-            else if (teamDamage[2] > teamDamage[1]) winnerTeam = 2;
-            if (winnerTeam == -1) return null;
-            for (int i = 0; i < activePlayers; i++) {
-                Bird b = players[i];
-                if (b != null && b.health > 0 && getEffectiveTeam(b.playerIndex) == winnerTeam) {
-                    return b;
-                }
-            }
-            for (int i = 0; i < activePlayers; i++) {
-                Bird b = players[i];
-                if (b != null && getEffectiveTeam(b.playerIndex) == winnerTeam) {
-                    return b;
-                }
-            }
-            return null;
-        }
-
-        Bird winner = null;
-        double bestHealth = -1;
-        int bestDamage = -1;
-        for (int i = 0; i < activePlayers; i++) {
-            Bird b = players[i];
-            if (b == null || b.health <= 0) continue;
-            int dmg = damageDealt[i];
-            if (b.health > bestHealth || (Math.abs(b.health - bestHealth) < 0.001 && dmg > bestDamage)) {
-                bestHealth = b.health;
-                bestDamage = dmg;
-                winner = b;
-            }
-        }
-        return winner;
+        return matchController.findTimeoutWinner();
     }
 
     private String competitionScoreLine() {
-        boolean teamComp = teamModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive;
-        if (teamComp) {
-            return "ROUND " + competitionRoundNumber + " | TEAM A " + competitionTeamWins[1] + " - TEAM B " + competitionTeamWins[2];
-        }
-        StringBuilder sb = new StringBuilder("ROUND ").append(competitionRoundNumber).append(" | ");
-        boolean first = true;
-        for (int i = 0; i < activePlayers; i++) {
-            if (players[i] == null) continue;
-            if (!first) sb.append("   ");
-            sb.append("P").append(i + 1).append(":").append(competitionRoundWins[i]);
-            first = false;
-        }
-        return sb.toString();
+        return matchController.competitionScoreLine();
     }
 
     private boolean handleCompetitionRoundEnd(Bird winner) {
-        if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)) return false;
-
-        boolean teamComp = teamModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive;
-        boolean seriesWon = false;
-        String roundWinnerText = "DRAW";
-
-        if (winner != null) {
-            if (teamComp) {
-                int team = getEffectiveTeam(winner.playerIndex);
-                if (team == 1 || team == 2) {
-                    competitionTeamWins[team]++;
-                    roundWinnerText = team == 1 ? "TEAM A" : "TEAM B";
-                    seriesWon = competitionTeamWins[team] >= COMPETITION_ROUND_TARGET;
-                }
-            } else {
-                int idx = winner.playerIndex;
-                if (idx >= 0 && idx < competitionRoundWins.length) {
-                    competitionRoundWins[idx]++;
-                    roundWinnerText = shortName(winner.name);
-                    seriesWon = competitionRoundWins[idx] >= COMPETITION_ROUND_TARGET;
-                }
-            }
-        }
-
-        addToKillFeed("ROUND " + competitionRoundNumber + " WINNER: " + roundWinnerText);
-
-        if (seriesWon) {
-            competitionSeriesActive = false;
-            return false;
-        }
-
-        competitionRoundNumber++;
-        javafx.application.Platform.runLater(() -> {
-            if (currentStage == null) return;
-            resetMatchStats();
-            startMatch(currentStage);
-        });
-        return true;
+        return matchController.handleCompetitionRoundEnd(winner);
     }
 
     private void applyMatchModeRuntimeEffects(long now) {
-        if (storyModeActive || adventureModeActive || trainingModeActive) return;
-
-        switch (activeMutator) {
-            case RAGE_FRENZY -> {
-                for (int i = 0; i < activePlayers; i++) {
-                    Bird b = players[i];
-                    if (b == null) continue;
-                    b.rageTimer = Math.max(b.rageTimer, MUTATOR_BUFF_FRAMES);
-                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.6);
-                }
-            }
-            case TITAN_RUMBLE -> {
-                for (int i = 0; i < activePlayers; i++) {
-                    Bird b = players[i];
-                    if (b == null) continue;
-                    b.titanActive = true;
-                    b.titanTimer = Math.max(b.titanTimer, MUTATOR_BUFF_FRAMES);
-                    if (b.shrinkTimer <= 0) {
-                        b.sizeMultiplier = b.baseSizeMultiplier * 1.35;
-                    }
-                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.4);
-                }
-            }
-            case OVERCHARGE_BRAWL -> {
-                for (int i = 0; i < activePlayers; i++) {
-                    Bird b = players[i];
-                    if (b == null) continue;
-                    b.overchargeAttackTimer = Math.max(b.overchargeAttackTimer, MUTATOR_BUFF_FRAMES);
-                    b.rageTimer = Math.max(b.rageTimer, MUTATOR_BUFF_FRAMES);
-                    b.powerMultiplier = Math.max(b.powerMultiplier, b.basePowerMultiplier * 1.35);
-                }
-            }
-            case CROW_SURGE -> {
-                if (now - lastMutatorHazardTime > 1_000_000_000L * 6) {
-                    lastMutatorHazardTime = now;
-                    int waves = 2 + random.nextInt(2);
-                    for (int i = 0; i < waves; i++) {
-                        double y = 220 + random.nextDouble() * (WORLD_HEIGHT - 900);
-                        CrowMinion left = new CrowMinion(-120, y, null);
-                        left.vx = 4.5 + random.nextDouble() * 2.0;
-                        left.vy = (random.nextDouble() - 0.5) * 3.5;
-                        crowMinions.add(left);
-
-                        CrowMinion right = new CrowMinion(WORLD_WIDTH + 120, y, null);
-                        right.vx = -4.5 - random.nextDouble() * 2.0;
-                        right.vy = (random.nextDouble() - 0.5) * 3.5;
-                        crowMinions.add(right);
-                    }
-                    addToKillFeed("MUTATOR: Crow surge wave!");
-                    shakeIntensity = Math.max(shakeIntensity, 12);
-                }
-            }
-            default -> {
-            }
-        }
+        matchController.applyMatchModeRuntimeEffects(now);
     }
 
     private void triggerMatchEnd(Bird winner) {
-        if (matchEnded) return;
+        matchController.triggerMatchEnd(winner);
+    }
 
-        if (lanModeActive) {
-            matchEnded = true;
-            lanMatchActive = false;
-            int winnerIndex = winner != null ? winner.playerIndex : -1;
-            if (lanIsHost) {
-                if (lanHost != null) {
-                    lanHost.broadcastMatchEnd(winnerIndex);
-                }
-            }
-            final Stage finalStage = currentStage;
-            new AnimationTimer() {
-                private int framesLeft = 90;
-                @Override public void handle(long now) {
-                    if (framesLeft > 0) {
-                        framesLeft--;
-                        return;
-                    }
-                    this.stop();
-                    if (timer != null) timer.stop();
-                    showLanResults(finalStage, winnerIndex);
-                }
-            }.start();
-            return;
-        }
+    private void updateMatchTimerState() {
+        matchController.updateTimerAndSuddenDeath();
+    }
 
-        if (handleCompetitionRoundEnd(winner)) {
-            matchEnded = true;
-            timer.stop();
-            return;
-        }
+    private void checkForMatchCompletion() {
+        matchController.checkForMatchCompletion();
+    }
 
-        matchEnded = true;
-        final Bird finalWinner = winner;
-        final Stage finalStage = currentStage;
-        new AnimationTimer() {
-            private int framesLeft = 100;
-            @Override public void handle(long now) {
-                if (framesLeft > 0) {
-                    framesLeft--;
-                    if (finalWinner != null && framesLeft % 3 == 0) {
-                        for (int i = 0; i < 15; i++) {
-                            double angle = Math.random() * Math.PI * 2;
-                            double spd = 6 + Math.random() * 16;
-                            particles.add(new Particle(finalWinner.x + 40, finalWinner.y + 40, Math.cos(angle) * spd, Math.sin(angle) * spd - 7, Color.GOLD.deriveColor(0, 1, 1, 0.95)));
-                        }
-                    }
-                    return;
-                }
-                this.stop();
-                timer.stop();
-                recordBalanceOutcome(finalWinner);
-                if (tournamentModeActive && currentTournamentMatch != null && !tournamentMatchResolved) {
-                    TournamentEntry winnerEntry = resolveTournamentWinnerEntry(finalWinner);
-                    if (winnerEntry != null) {
-                        recordTournamentWinner(currentTournamentMatch, winnerEntry);
-                    }
-                    tournamentMatchResolved = true;
-                }
-                showMatchSummary(finalStage, finalWinner);
-                if (finalWinner != null && finalWinner.health < 20 && finalWinner.health > 0 && !achievementsUnlocked[9]) {
-                    unlockAchievement(9, "CLUTCH GOD!");
-                }
-            }
-        }.start();
+    private void prepareMatchStart(Stage stage) {
+        matchController.prepareMatchStart(stage);
     }
 
     private void spawnPowerUp(long now) {
@@ -16999,122 +16664,59 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private KeyCode leftKeyForPlayer(int playerIdx) {
-        return switch (playerIdx) {
-            case 0 -> KeyCode.A;
-            case 1 -> KeyCode.LEFT;
-            case 2 -> KeyCode.F;
-            case 3 -> KeyCode.J;
-            default -> KeyCode.A;
-        };
+    KeyCode leftKeyForPlayer(int playerIdx) {
+        return keyForPlayer(playerIdx, ControlAction.LEFT);
     }
 
-    private KeyCode rightKeyForPlayer(int playerIdx) {
-        return switch (playerIdx) {
-            case 0 -> KeyCode.D;
-            case 1 -> KeyCode.RIGHT;
-            case 2 -> KeyCode.H;
-            case 3 -> KeyCode.L;
-            default -> KeyCode.D;
-        };
+    KeyCode rightKeyForPlayer(int playerIdx) {
+        return keyForPlayer(playerIdx, ControlAction.RIGHT);
     }
 
-    private KeyCode jumpKeyForPlayer(int playerIdx) {
-        return switch (playerIdx) {
-            case 0 -> KeyCode.W;
-            case 1 -> KeyCode.UP;
-            case 2 -> KeyCode.T;
-            case 3 -> KeyCode.I;
-            default -> KeyCode.W;
-        };
+    KeyCode jumpKeyForPlayer(int playerIdx) {
+        return keyForPlayer(playerIdx, ControlAction.JUMP);
     }
 
-    private KeyCode attackKeyForPlayer(int playerIdx) {
-        return switch (playerIdx) {
-            case 0 -> KeyCode.SPACE;
-            case 1 -> KeyCode.ENTER;
-            case 2 -> KeyCode.Y;
-            case 3 -> KeyCode.O;
-            default -> KeyCode.SPACE;
-        };
+    KeyCode attackKeyForPlayer(int playerIdx) {
+        return keyForPlayer(playerIdx, ControlAction.ATTACK);
     }
 
-    private KeyCode specialKeyForPlayer(int playerIdx) {
-        return switch (playerIdx) {
-            case 0 -> KeyCode.SHIFT;
-            case 1 -> KeyCode.SLASH;
-            case 2 -> KeyCode.U;
-            case 3 -> KeyCode.P;
-            default -> KeyCode.SHIFT;
-        };
+    KeyCode specialKeyForPlayer(int playerIdx) {
+        return keyForPlayer(playerIdx, ControlAction.SPECIAL);
     }
 
-    private KeyCode blockKeyForPlayer(int playerIdx) {
-        return switch (playerIdx) {
-            case 0 -> KeyCode.S;
-            case 1 -> KeyCode.DOWN;
-            case 2 -> KeyCode.G;
-            case 3 -> KeyCode.K;
-            default -> KeyCode.S;
-        };
+    KeyCode blockKeyForPlayer(int playerIdx) {
+        return keyForPlayer(playerIdx, ControlAction.BLOCK);
     }
 
-    private KeyCode tauntCycleKeyForPlayer(int playerIdx) {
-        return switch (playerIdx) {
-            case 0 -> KeyCode.Q;
-            case 1 -> KeyCode.NUMPAD1;
-            case 2 -> KeyCode.NUMPAD2;
-            case 3 -> KeyCode.NUMPAD3;
-            default -> KeyCode.Q;
-        };
+    KeyCode tauntCycleKeyForPlayer(int playerIdx) {
+        return keyForPlayer(playerIdx, ControlAction.TAUNT_CYCLE);
     }
 
-    private KeyCode tauntExecuteKeyForPlayer(int playerIdx) {
-        return switch (playerIdx) {
-            case 0 -> KeyCode.E;
-            case 1 -> KeyCode.NUMPAD4;
-            case 2 -> KeyCode.NUMPAD5;
-            case 3 -> KeyCode.NUMPAD6;
-            default -> KeyCode.E;
-        };
+    KeyCode tauntExecuteKeyForPlayer(int playerIdx) {
+        return keyForPlayer(playerIdx, ControlAction.TAUNT_EXECUTE);
     }
 
     private boolean isGameplayKeyForPlayer(int playerIdx, KeyCode code) {
         if (code == null) return false;
-        return code == leftKeyForPlayer(playerIdx)
-                || code == rightKeyForPlayer(playerIdx)
-                || code == jumpKeyForPlayer(playerIdx)
-                || code == attackKeyForPlayer(playerIdx)
-                || code == specialKeyForPlayer(playerIdx)
-                || code == blockKeyForPlayer(playerIdx)
-                || code == tauntCycleKeyForPlayer(playerIdx)
-                || code == tauntExecuteKeyForPlayer(playerIdx);
+        for (ControlAction action : ControlAction.values()) {
+            if (keyForPlayer(playerIdx, action) == code) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private int inputBitForKey(KeyCode code, int playerIdx) {
-        if (code == leftKeyForPlayer(playerIdx)) return LanProtocol.INPUT_LEFT;
-        if (code == rightKeyForPlayer(playerIdx)) return LanProtocol.INPUT_RIGHT;
-        if (code == jumpKeyForPlayer(playerIdx)) return LanProtocol.INPUT_JUMP;
-        if (code == attackKeyForPlayer(playerIdx)) return LanProtocol.INPUT_ATTACK;
-        if (code == specialKeyForPlayer(playerIdx)) return LanProtocol.INPUT_SPECIAL;
-        if (code == blockKeyForPlayer(playerIdx)) return LanProtocol.INPUT_BLOCK;
-        if (code == tauntCycleKeyForPlayer(playerIdx)) return LanProtocol.INPUT_TAUNT_CYCLE;
-        if (code == tauntExecuteKeyForPlayer(playerIdx)) return LanProtocol.INPUT_TAUNT_EXEC;
+        for (ControlAction action : ControlAction.values()) {
+            if (keyForPlayer(playerIdx, action) == code) {
+                return action.inputMask;
+            }
+        }
         return 0;
     }
 
     private boolean isControlKeyForPlayer(KeyCode code, int playerIdx) {
-        return switch (playerIdx) {
-            case 0 -> code == KeyCode.A || code == KeyCode.D || code == KeyCode.W
-                    || code == KeyCode.SPACE || code == KeyCode.SHIFT || code == KeyCode.S;
-            case 1 -> code == KeyCode.LEFT || code == KeyCode.RIGHT || code == KeyCode.UP
-                    || code == KeyCode.ENTER || code == KeyCode.SLASH || code == KeyCode.DOWN;
-            case 2 -> code == KeyCode.F || code == KeyCode.H || code == KeyCode.T
-                    || code == KeyCode.Y || code == KeyCode.U || code == KeyCode.G;
-            case 3 -> code == KeyCode.J || code == KeyCode.L || code == KeyCode.I
-                    || code == KeyCode.O || code == KeyCode.P || code == KeyCode.K;
-            default -> false;
-        };
+        return isGameplayKeyForPlayer(playerIdx, code);
     }
 
     private void drawDebugBalanceHud(GraphicsContext g) {
@@ -17321,29 +16923,8 @@ public class BirdGame3 extends Application {
         return WORLD_WIDTH;
     }
 
-    private void startMatch(Stage stage) { 
-        matchTimer = MATCH_DURATION_FRAMES;
-        storyMatchTimerOverride = -1;
-        storyTeamMode = false;
-        Arrays.fill(storyTeams, 1);
-        adventureMatchTimerOverride = -1;
-        adventureTeamMode = false;
-        Arrays.fill(adventureTeams, 1);
-        if (!classicModeActive) {
-            classicEncounter = null;
-            classicTeamMode = false;
-            Arrays.fill(classicTeams, 1);
-        }
-        activeMutator = MatchMutator.NONE;
-        activePowerUpSpawnInterval = POWERUP_SPAWN_INTERVAL;
-        lastMutatorHazardTime = System.nanoTime();
-        resetSuddenDeathState();
-        matchStartNano = System.nanoTime();
-        balanceOutcomeRecorded = false;
-        killFeed.clear();
-        this.currentStage = stage;
-        Arrays.fill(scores, 0);
-        Arrays.fill(players, null);
+    void startMatch(Stage stage) { 
+        prepareMatchStart(stage);
         boolean[] menuAI = Arrays.copyOf(isAI, isAI.length);
         Arrays.fill(isAI, false);
         StoryChapter storyChapter = null;
@@ -17842,7 +17423,7 @@ public class BirdGame3 extends Application {
                 ui.fillRoundRect(20, HEIGHT - 70, WIDTH - 40, 60, 20, 20);
                 ui.setFill(Color.WHITE);
                 ui.setFont(HUD_CONTROLS_FONT);
-                ui.fillText("Controls: WASD+Space+Shift | Q/E=Taunt | P2=Arrows+Enter+Slash | P3=TFGH+Y+U | P4=IJKL+O+P | S/Down/G/K=Block (ground) / Fast Fall (air)", 50, HEIGHT - 35);
+                ui.fillText(controlSummaryLine(), 50, HEIGHT - 35);
                 drawDebugBalanceHud(ui);
                 if (flashTimer > 0) {
                     flashTimer--;
@@ -17911,7 +17492,7 @@ public class BirdGame3 extends Application {
         g.fillText(b.name + " " + shownHealth + "%", x + 20, y + healthHeight - 6);
     }
 
-    private static String shortName(String fullName) {
+    static String shortName(String fullName) {
         if (fullName == null) {
             return "";
         }
@@ -17943,7 +17524,141 @@ public class BirdGame3 extends Application {
         return coins;
     }
 
-    private void showMatchSummary(Stage stage, Bird winner) {
+    private boolean isMatchHistoryTeamMode() {
+        return (teamModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
+                || (storyModeActive && storyTeamMode)
+                || (adventureModeActive && adventureTeamMode)
+                || (classicModeActive && classicTeamMode);
+    }
+
+    private void recordMatchHistory(Bird winner, int coinsEarned) {
+        if (matchHistoryRecorded || trainingModeActive) return;
+        MatchHistoryEntry entry = buildMatchHistoryEntry(winner, coinsEarned);
+        if (entry == null) return;
+        matchHistoryRecorded = true;
+        matchHistory.add(0, entry);
+        if (matchHistory.size() > MATCH_HISTORY_LIMIT) {
+            matchHistory.subList(MATCH_HISTORY_LIMIT, matchHistory.size()).clear();
+        }
+        saveAchievements();
+    }
+
+    private MatchHistoryEntry buildMatchHistoryEntry(Bird winner, int coinsEarned) {
+        int slotCount = lanModeActive ? LAN_MAX_PLAYERS : activePlayers;
+        boolean teamMode = isMatchHistoryTeamMode();
+        int winningTeam = teamMode && winner != null ? getEffectiveTeam(winner.playerIndex) : -1;
+
+        List<MatchHistoryEntry.Participant> participants = new ArrayList<>();
+        for (int i = 0; i < slotCount; i++) {
+            Bird bird = players[i];
+            boolean include = bird != null;
+            if (lanModeActive && !include) {
+                include = lanSlotConnected[i] || lanSelectedBirds[i] != null;
+            }
+            if (!include) continue;
+
+            BirdType type = bird != null ? bird.type : lanSelectedBirds[i];
+            String slotLabel = bird != null ? shortName(bird.name) : "P" + (i + 1);
+            boolean isWinner = teamMode
+                    ? winningTeam > 0 && getEffectiveTeam(i) == winningTeam
+                    : winner != null && i == winner.playerIndex;
+            int health = bird != null ? (int) Math.round(Math.max(0, bird.health)) : 0;
+            participants.add(new MatchHistoryEntry.Participant(
+                    slotLabel,
+                    type != null ? type.name : "Unknown",
+                    Math.max(0, damageDealt[i]),
+                    Math.max(0, eliminations[i]),
+                    Math.max(0, falls[i]),
+                    Math.max(0, scores[i]),
+                    health,
+                    isWinner
+            ));
+        }
+
+        if (participants.isEmpty()) return null;
+        participants.sort(Comparator
+                .comparing(MatchHistoryEntry.Participant::winner).reversed()
+                .thenComparing(MatchHistoryEntry.Participant::score, Comparator.reverseOrder())
+                .thenComparing(MatchHistoryEntry.Participant::damage, Comparator.reverseOrder()));
+
+        return new MatchHistoryEntry(
+                System.currentTimeMillis(),
+                currentMatchHistoryMode(),
+                currentMatchHistoryDetail(),
+                mapDisplayName(selectedMap),
+                currentMatchHistoryWinner(winner),
+                Math.max(0, coinsEarned),
+                participants
+        );
+    }
+
+    private String currentMatchHistoryMode() {
+        if (lanModeActive) return "LAN";
+        if (classicModeActive) return "CLASSIC";
+        if (storyModeActive) return "STORY";
+        if (adventureModeActive) return "ADVENTURE";
+        if (trainingModeActive) return "TRAINING";
+        if (competitionModeEnabled) return "COMPETITION";
+        return "FIGHT";
+    }
+
+    private String currentMatchHistoryDetail() {
+        List<String> details = new ArrayList<>();
+        int playerCount = lanModeActive ? Math.max(1, countLanConnected()) : activePlayers;
+        details.add(playerCount + "P");
+        details.add(isMatchHistoryTeamMode() ? "Team Battle" : "Free-for-All");
+
+        if (classicModeActive && classicEncounter != null) {
+            details.add("Round " + (classicRoundIndex + 1) + ": " + classicEncounter.name);
+        } else if (storyModeActive) {
+            StoryChapter[] chapters = activeStoryChapters();
+            if (chapters != null && storyChapterIndex >= 0 && storyChapterIndex < chapters.length) {
+                details.add(chapters[storyChapterIndex].title);
+            }
+        } else if (adventureModeActive) {
+            AdventureBattle battle = currentAdventureBattle != null ? currentAdventureBattle : activeAdventureBattle();
+            if (battle != null) {
+                details.add(battle.title);
+            }
+        } else if (competitionModeEnabled) {
+            details.add("Round " + competitionRoundNumber);
+        }
+
+        return String.join("  |  ", details);
+    }
+
+    private String currentMatchHistoryWinner(Bird winner) {
+        if (winner == null) return "TIME'S UP";
+        if (isMatchHistoryTeamMode()) {
+            int teamId = getEffectiveTeam(winner.playerIndex);
+            return teamId > 0 ? teamLabel(teamId) : "TIME'S UP";
+        }
+        return shortName(winner.name) + " - " + winner.type.name;
+    }
+
+    private void loadMatchHistory(Preferences prefs) {
+        matchHistory.clear();
+        int count = Math.max(0, Math.min(prefs.getInt(PREF_MATCH_HISTORY_COUNT, 0), MATCH_HISTORY_LIMIT));
+        for (int i = 0; i < count; i++) {
+            MatchHistoryEntry entry = MatchHistoryEntry.deserialize(prefs.get(PREF_MATCH_HISTORY_PREFIX + i, null));
+            if (entry != null) {
+                matchHistory.add(entry);
+            }
+        }
+    }
+
+    private void saveMatchHistory(Preferences prefs) {
+        int count = Math.min(matchHistory.size(), MATCH_HISTORY_LIMIT);
+        prefs.putInt(PREF_MATCH_HISTORY_COUNT, count);
+        for (int i = 0; i < count; i++) {
+            prefs.put(PREF_MATCH_HISTORY_PREFIX + i, matchHistory.get(i).serialize());
+        }
+        for (int i = count; i < MATCH_HISTORY_LIMIT; i++) {
+            prefs.remove(PREF_MATCH_HISTORY_PREFIX + i);
+        }
+    }
+
+    void showMatchSummary(Stage stage, Bird winner) {
         if (musicPlayer != null) musicPlayer.stop();
         if (menuMusicPlayer != null) menuMusicPlayer.stop();
         if (victoryMusicPlayer != null) {
@@ -17961,7 +17676,8 @@ public class BirdGame3 extends Application {
         applyNoEllipsis(title);
 
         int coinsEarned = awardBirdCoinsForMatch(winner);
-        Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoins);
+        recordMatchHistory(winner, coinsEarned);
+        Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoinLedger.balance());
         coinsLabel.setFont(Font.font("Consolas", 28));
         coinsLabel.setTextFill(Color.web("#FFD54F"));
 
@@ -17974,11 +17690,7 @@ public class BirdGame3 extends Application {
         HBox buttons = buildSummaryButtons(stage, winner);
         applyWinnerMapProgress(winner);
 
-        boolean teamSummaryMode =
-                (teamModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
-                        || (storyModeActive && storyTeamMode)
-                        || (adventureModeActive && adventureTeamMode)
-                        || (classicModeActive && classicTeamMode);
+        boolean teamSummaryMode = isMatchHistoryTeamMode();
         if (teamSummaryMode) {
             int winningTeam = winner != null ? getEffectiveTeam(winner.playerIndex) : -1;
             title.setText(winningTeam > 0 ? teamLabel(winningTeam) + " WINS!" : "TIME'S UP!");
@@ -18524,7 +18236,7 @@ public class BirdGame3 extends Application {
         );
     }
 
-    private void recordBalanceOutcome(Bird winner) {
+    void recordBalanceOutcome(Bird winner) {
         if (balanceOutcomeRecorded) return;
         balanceOutcomeRecorded = true;
 
@@ -18608,7 +18320,7 @@ public class BirdGame3 extends Application {
         return box;
     }
 
-    private void resetMatchStats() {
+    void resetMatchStats() {
         Arrays.fill(falls, 0);
         Arrays.fill(damageDealt, 0);
         Arrays.fill(eliminations, 0);
@@ -18624,6 +18336,7 @@ public class BirdGame3 extends Application {
         killFeed.clear();
         matchEnded = false;
         balanceOutcomeRecorded = false;
+        matchHistoryRecorded = false;
         matchTimer = MATCH_DURATION_FRAMES;
         resetSuddenDeathState();
         Arrays.fill(thermalPickups, 0);
@@ -18639,12 +18352,13 @@ public class BirdGame3 extends Application {
 
     private void loadAchievements() {
         Preferences prefs = Preferences.userNodeForPackage(BirdGame3.class);
+        loadControlBindings(prefs);
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             achievementsUnlocked[i] = prefs.getBoolean("ach_" + i, false);
             achievementProgress[i] = prefs.getInt("prog_" + i, 0);
         }
-        birdCoins = Math.max(0, prefs.getInt(PREF_BIRD_COINS, 0));
-        initializeBirdCoinLedger(prefs);
+        birdCoinLedger.load(prefs);
+        loadMatchHistory(prefs);
         classicContinues = Math.max(0, prefs.getInt("classic_continues", 0));
         caveMapUnlocked = prefs.getBoolean("map_cave_unlocked", false);
         battlefieldMapUnlocked = prefs.getBoolean("map_battlefield_unlocked", false);
@@ -18744,16 +18458,13 @@ public class BirdGame3 extends Application {
     }
     private void saveAchievements() {
         Preferences prefs = Preferences.userNodeForPackage(BirdGame3.class);
+        saveControlBindings(prefs);
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             prefs.putBoolean("ach_" + i, achievementsUnlocked[i]);
             prefs.putInt("prog_" + i, achievementProgress[i]);
         }
-        synchronizeBirdCoinLedger();
-        prefs.putInt(PREF_BIRD_COINS, birdCoins);
-        prefs.putInt(PREF_BIRD_COINS_EARNED, birdCoinsEarnedLedger);
-        prefs.putInt(PREF_BIRD_COINS_SPENT, birdCoinsSpentLedger);
-        prefs.putLong(PREF_BIRD_COINS_CHECKSUM,
-                computeBirdCoinLedgerChecksum(birdCoins, birdCoinsEarnedLedger, birdCoinsSpentLedger));
+        birdCoinLedger.save(prefs);
+        saveMatchHistory(prefs);
         prefs.putInt("classic_continues", classicContinues);
         prefs.putBoolean("map_cave_unlocked", caveMapUnlocked);
         prefs.putBoolean("map_battlefield_unlocked", battlefieldMapUnlocked);
@@ -18923,6 +18634,183 @@ public class BirdGame3 extends Application {
                 break;
             }
         }
+    }
+
+    private void showMatchHistory(Stage stage) {
+        playMenuMusic();
+        if (musicPlayer != null) musicPlayer.stop();
+
+        BorderPane root = new BorderPane();
+        root.setPadding(new Insets(30, 40, 30, 40));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #08121F, #132842, #1A3951);");
+
+        Label title = new Label("MATCH HISTORY");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 96));
+        title.setTextFill(Color.web("#FFE082"));
+        title.setEffect(new DropShadow(30, Color.BLACK));
+
+        Label subtitle = new Label("Last " + MATCH_HISTORY_LIMIT + " recorded matches");
+        subtitle.setFont(Font.font("Consolas", 22));
+        subtitle.setTextFill(Color.web("#B0BEC5"));
+
+        VBox top = new VBox(8, title, subtitle);
+        top.setAlignment(Pos.CENTER);
+
+        VBox list = new VBox(18);
+        list.setAlignment(Pos.TOP_CENTER);
+        list.setPadding(new Insets(6, 0, 6, 0));
+        if (matchHistory.isEmpty()) {
+            list.getChildren().add(buildMatchHistoryEmptyCard());
+        } else {
+            for (MatchHistoryEntry entry : matchHistory) {
+                list.getChildren().add(buildMatchHistoryCard(entry));
+            }
+        }
+
+        ScrollPane scroll = new ScrollPane(list);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+
+        Button back = uiFactory.action("BACK TO HUB", 360, 100, 34, "#D32F2F", 22, () -> showMenu(stage));
+
+        root.setTop(top);
+        root.setCenter(scroll);
+        root.setBottom(back);
+        BorderPane.setAlignment(top, Pos.CENTER);
+        BorderPane.setAlignment(back, Pos.CENTER);
+        BorderPane.setMargin(top, new Insets(0, 0, 20, 0));
+        BorderPane.setMargin(back, new Insets(20, 0, 0, 0));
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        root.setStyle(root.getStyle() + ";-fx-focus-color:transparent;-fx-faint-focus-color:transparent;");
+        setScenePreservingFullscreen(stage, scene);
+        back.requestFocus();
+    }
+
+    private VBox buildMatchHistoryCard(MatchHistoryEntry entry) {
+        Color accent = matchHistoryAccent(entry.mode());
+        String accentHex = toHex(accent);
+
+        VBox card = new VBox(12);
+        card.setPadding(new Insets(18, 22, 18, 22));
+        card.setMaxWidth(1480);
+        card.setStyle("-fx-background-color: rgba(7,12,18,0.82); -fx-border-color: " + accentHex
+                + "; -fx-border-width: 3; -fx-background-radius: 18; -fx-border-radius: 18;");
+
+        Label modeLabel = new Label(entry.mode());
+        modeLabel.setFont(Font.font("Arial Black", 30));
+        modeLabel.setTextFill(accent.brighter());
+
+        Label detailLabel = new Label(entry.detail().isBlank() ? "Free Match" : entry.detail());
+        detailLabel.setFont(Font.font("Consolas", 20));
+        detailLabel.setTextFill(Color.web("#CFD8DC"));
+        detailLabel.setWrapText(true);
+        detailLabel.setMaxWidth(980);
+
+        Label metaLabel = new Label(entry.map() + "  |  " + formatMatchHistoryTimestamp(entry.timestampMillis()));
+        metaLabel.setFont(Font.font("Consolas", 18));
+        metaLabel.setTextFill(Color.web("#90A4AE"));
+
+        VBox headerText = new VBox(4, modeLabel, detailLabel, metaLabel);
+        headerText.setAlignment(Pos.CENTER_LEFT);
+
+        Label winnerLabel = new Label("WINNER: " + entry.winner());
+        winnerLabel.setFont(Font.font("Arial Black", 24));
+        winnerLabel.setTextFill(Color.web("#FFF59D"));
+
+        Label coinsLabel = new Label("COINS +" + entry.coinsEarned());
+        coinsLabel.setFont(Font.font("Consolas", 22));
+        coinsLabel.setTextFill(Color.web("#FFD54F"));
+
+        VBox summary = new VBox(6, winnerLabel, coinsLabel);
+        summary.setAlignment(Pos.CENTER_RIGHT);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
+
+        HBox header = new HBox(16, headerText, spacer, summary);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        VBox participants = new VBox(8);
+        for (MatchHistoryEntry.Participant participant : entry.participants()) {
+            participants.getChildren().add(buildMatchHistoryParticipantRow(participant, accent));
+        }
+
+        card.getChildren().addAll(header, participants);
+        return card;
+    }
+
+    private VBox buildMatchHistoryEmptyCard() {
+        VBox card = new VBox(10);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(30));
+        card.setMaxWidth(1000);
+        card.setStyle("-fx-background-color: rgba(7,12,18,0.74); -fx-border-color: #455A64; -fx-border-width: 3; -fx-background-radius: 18; -fx-border-radius: 18;");
+
+        Label title = new Label("NO MATCHES RECORDED YET");
+        title.setFont(Font.font("Arial Black", 34));
+        title.setTextFill(Color.web("#ECEFF1"));
+
+        Label body = new Label("Finish a match in Fight, LAN, Story, Adventure, Classic, or Competition to see it here.");
+        body.setFont(Font.font("Consolas", 20));
+        body.setTextFill(Color.web("#B0BEC5"));
+        body.setWrapText(true);
+        body.setTextAlignment(TextAlignment.CENTER);
+        body.setMaxWidth(860);
+
+        card.getChildren().addAll(title, body);
+        return card;
+    }
+
+    private HBox buildMatchHistoryParticipantRow(MatchHistoryEntry.Participant participant, Color accent) {
+        String border = participant.winner() ? toHex(accent) : "#37474F";
+        String background = participant.winner() ? "rgba(46,125,50,0.25)" : "rgba(255,255,255,0.05)";
+
+        HBox row = new HBox(16);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(10, 14, 10, 14));
+        row.setStyle("-fx-background-color: " + background + "; -fx-border-color: " + border
+                + "; -fx-border-width: 2; -fx-background-radius: 14; -fx-border-radius: 14;");
+
+        Label nameLabel = new Label(participant.slotLabel() + " - " + participant.birdName());
+        nameLabel.setFont(Font.font("Arial Black", 24));
+        nameLabel.setTextFill(participant.winner() ? Color.web("#FFF59D") : Color.web("#ECEFF1"));
+
+        Label statsLabel = new Label("DMG " + participant.damage()
+                + "   KOs " + participant.eliminations()
+                + "   Falls " + participant.falls()
+                + "   Score " + participant.score()
+                + "   HP " + participant.health() + "%");
+        statsLabel.setFont(Font.font("Consolas", 19));
+        statsLabel.setTextFill(Color.web("#CFD8DC"));
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
+
+        row.getChildren().addAll(nameLabel, spacer, statsLabel);
+        return row;
+    }
+
+    private Color matchHistoryAccent(String mode) {
+        if (mode == null) return Color.web("#90A4AE");
+        return switch (mode) {
+            case "LAN" -> Color.web("#80CBC4");
+            case "CLASSIC" -> Color.web("#90CAF9");
+            case "STORY" -> Color.web("#CE93D8");
+            case "ADVENTURE" -> Color.web("#A5D6A7");
+            case "COMPETITION" -> Color.web("#FFCC80");
+            case "TRAINING" -> Color.web("#B0BEC5");
+            default -> Color.web("#FFAB91");
+        };
+    }
+
+    private String formatMatchHistoryTimestamp(long timestampMillis) {
+        LocalDateTime time = LocalDateTime.ofInstant(Instant.ofEpochMilli(timestampMillis), ZoneId.systemDefault());
+        return MATCH_HISTORY_TIME_FORMAT.format(time);
     }
 
     private void showAchievements(Stage stage) {
