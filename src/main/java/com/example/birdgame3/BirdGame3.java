@@ -102,6 +102,7 @@ public class BirdGame3 extends Application {
     private static final int VERIFIED_MATCH_PLAYER_BIRD_COINS = 10;
     private static final int VERIFIED_MATCH_WIN_BONUS = 10;
     private static final int VERIFIED_CLASSIC_MATCH_BONUS = 60;
+    private static final int VERIFIED_BOSS_RUSH_MATCH_BONUS = 80;
     private static final int VERIFIED_ADVENTURE_MATCH_BONUS = 40;
     private static final int VERIFIED_STORY_MATCH_BONUS = 30;
     private static final int VERIFIED_COMPETITION_MATCH_BONUS = 20;
@@ -110,6 +111,9 @@ public class BirdGame3 extends Application {
     private static final String UNITED_FINALE_CHAPTER_TITLE = "Chapter 9: Sky of All Wings";
     private static final String UNITED_FINALE_CLIMAX_TITLE = "Battle 2: All Wings Rise";
     private static final double UNITED_FINALE_BOSS_HEALTH = 520.0;
+    private static final String BOSS_RUSH_EX_NAME = "EX: Crown Of Nothing";
+    private static final int BOSS_RUSH_CLEAR_BONUS = 260;
+    private static final int BOSS_RUSH_EX_CLEAR_BONUS = 180;
     private static final String PREF_BIRD_COINS = "bird_coins";
     private static final String PREF_BIRD_COINS_EARNED = "bird_coins_earned";
     private static final String PREF_BIRD_COINS_SPENT = "bird_coins_spent";
@@ -121,6 +125,10 @@ public class BirdGame3 extends Application {
     private static final String PREF_DAILY_CHALLENGE_BEST_BIRD = "daily_challenge_best_bird";
     private static final String PREF_DAILY_CHALLENGE_BONUS_KEY = "daily_challenge_bonus_key";
     private static final String PREF_DAILY_CHALLENGE_BONUS_BIRD = "daily_challenge_bonus_bird";
+    private static final String PREF_BOSS_RUSH_BEST_TIME = "boss_rush_best_time";
+    private static final String PREF_BOSS_RUSH_BEST_BIRD = "boss_rush_best_bird";
+    private static final String PREF_BOSS_RUSH_BEST_RANK = "boss_rush_best_rank";
+    private static final String PREF_BOSS_RUSH_CLEAR_COUNT = "boss_rush_clear_count";
     private static final String PREF_BIRD_MASTERY_XP_PREFIX = "bird_mastery_xp_";
     private static final int[] BIRD_MASTERY_LEVEL_XP = {
             0, 120, 270, 470, 720, 1030, 1400, 1840, 2350, 2950
@@ -1612,6 +1620,16 @@ public class BirdGame3 extends Application {
     private MatchMutator classicLastMutator = null;
     private final Set<ClassicTwist> classicUsedTwists = EnumSet.noneOf(ClassicTwist.class);
     private final Set<MatchMutator> classicUsedMutators = EnumSet.noneOf(MatchMutator.class);
+    private boolean bossRushModeActive = false;
+    private long bossRushRunStartMillis = 0L;
+    private long bossRushBestClearMillis = Long.MAX_VALUE;
+    private BirdType bossRushBestBird = null;
+    private String bossRushBestRank = "";
+    private int bossRushClearCount = 0;
+    private boolean bossRushPerfectRun = true;
+    private boolean bossRushExEncounterAdded = false;
+    private final boolean[] bossRushEventTriggered = new boolean[8];
+    private boolean bossRushBossEnraged = false;
     private boolean dailyChallengeModeActive = false;
     private BirdType dailyChallengeSelectedBird = BirdType.PIGEON;
     private String dailyChallengeSelectedSkinKey = null;
@@ -6055,7 +6073,7 @@ public class BirdGame3 extends Application {
                 }
             }
             case BATTLEFIELD -> {
-                if (isUnitedFinaleClimaxContext()) {
+                if (isBeaconCrownBattlefieldContext()) {
                     drawBeaconCrownBattlefield(g, ambientFx);
                 } else {
                     for (int i = 0; i < 520; i++) {
@@ -6315,8 +6333,10 @@ public class BirdGame3 extends Application {
     }
 
     private void drawBeaconCrownBattlefield(GraphicsContext g, boolean ambientFx) {
-        Bird boss = unitedFinaleBoss();
-        double bossRatio = boss == null ? 1.0 : Math.max(0.0, Math.min(1.0, boss.health / UNITED_FINALE_BOSS_HEALTH));
+        Bird boss = isUnitedFinaleClimaxContext() ? unitedFinaleBoss() : bossRushLeadBoss();
+        double bossRatio = isUnitedFinaleClimaxContext()
+                ? (boss == null ? 1.0 : Math.max(0.0, Math.min(1.0, boss.health / UNITED_FINALE_BOSS_HEALTH)))
+                : bossRushEnemyHealthRatio();
         for (int i = 0; i < 640; i++) {
             double ratio = i / 640.0;
             Color top = Color.web("#04060C");
@@ -6753,6 +6773,7 @@ public class BirdGame3 extends Application {
         classicRoundIndex = 0;
         classicTeamMode = false;
         Arrays.fill(classicTeams, 1);
+        clearBossRushState();
         clearActiveDailyChallengeRun();
         resetTournamentRun();
         competitionSeriesActive = false;
@@ -8051,6 +8072,7 @@ public class BirdGame3 extends Application {
         classicDeaths = 0;
         classicTeamMode = false;
         Arrays.fill(classicTeams, 1);
+        clearBossRushState();
         competitionSeriesActive = false;
         Arrays.fill(competitionRoundWins, 0);
         Arrays.fill(competitionTeamWins, 0);
@@ -8518,6 +8540,7 @@ public class BirdGame3 extends Application {
 
     private void showClassicMoreMenu(Stage stage) {
         clearActiveDailyChallengeRun();
+        clearBossRushState();
         playMenuMusic();
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(28, 40, 28, 40));
@@ -8527,11 +8550,18 @@ public class BirdGame3 extends Application {
         title.setFont(Font.font("Impact", FontWeight.BOLD, 84));
         title.setTextFill(Color.web("#FFE082"));
 
-        Button classicBtn = uiFactory.action("CLASSIC MODE", 700, 140, 44, "#1565C0", 30, () -> showClassicBirdSelect(stage));
+        Button classicBtn = uiFactory.action("CLASSIC MODE", 700, 140, 44, "#1565C0", 30, () -> {
+            bossRushModeActive = false;
+            showClassicBirdSelect(stage);
+        });
+        Button bossRushBtn = uiFactory.action("BOSS RUSH", 700, 140, 44, "#C62828", 30, () -> {
+            bossRushModeActive = true;
+            showClassicBirdSelect(stage);
+        });
         Button dailyBtn = uiFactory.action("DAILY CHALLENGE", 700, 140, 40, "#00897B", 28, () -> showDailyChallengeSetup(stage));
         Button episodesBtn = uiFactory.action("EPISODES", 700, 140, 44, "#8E24AA", 30, () -> showEpisodesHub(stage));
         Button tournamentBtn = uiFactory.action("TOURNAMENT MODE", 700, 140, 40, "#FFB300", 28, () -> showTournamentSetup(stage));
-        VBox options = new VBox(22, classicBtn, dailyBtn, episodesBtn, tournamentBtn);
+        VBox options = new VBox(22, classicBtn, bossRushBtn, dailyBtn, episodesBtn, tournamentBtn);
         options.setAlignment(Pos.CENTER);
 
         Button back = uiFactory.action("BACK TO HUB", 360, 90, 34, "#D32F2F", 22, () -> showMenu(stage));
@@ -10102,6 +10132,12 @@ public class BirdGame3 extends Application {
 
     private String mapDisplayName(MapType map) {
         if (map == MapType.BATTLEFIELD) {
+            if (bossRushModeActive && classicEncounter != null && classicEncounter.map == map) {
+                String bossRushName = bossRushArenaName(classicEncounter);
+                if (bossRushName != null) {
+                    return bossRushName;
+                }
+            }
             AdventureBattle battle = currentAdventureBattle != null ? currentAdventureBattle
                     : (adventureModeActive ? activeAdventureBattle() : null);
             if (isUnitedFinaleClimaxBattle(battle)) {
@@ -11199,7 +11235,8 @@ public class BirdGame3 extends Application {
         int playerCount = lanModeActive ? countLanConnected() : activePlayers;
         int coins = VERIFIED_MATCH_BASE_BIRD_COINS + playerCount * VERIFIED_MATCH_PLAYER_BIRD_COINS;
         if (winner != null) coins += VERIFIED_MATCH_WIN_BONUS;
-        if (classicModeActive) coins += VERIFIED_CLASSIC_MATCH_BONUS;
+        if (bossRushModeActive && classicModeActive) coins += VERIFIED_BOSS_RUSH_MATCH_BONUS;
+        else if (classicModeActive) coins += VERIFIED_CLASSIC_MATCH_BONUS;
         else if (adventureModeActive) coins += VERIFIED_ADVENTURE_MATCH_BONUS;
         else if (storyModeActive) coins += VERIFIED_STORY_MATCH_BONUS;
         if (competitionModeEnabled) coins += VERIFIED_COMPETITION_MATCH_BONUS;
@@ -13104,6 +13141,7 @@ public class BirdGame3 extends Application {
         adventureModeActive = false;
         adventureReplayMode = false;
         currentAdventureBattle = null;
+        clearBossRushState();
         playMenuMusic();
 
         BorderPane root = new BorderPane();
@@ -13168,6 +13206,7 @@ public class BirdGame3 extends Application {
         classicRoundIndex = 0;
         classicTeamMode = false;
         Arrays.fill(classicTeams, 1);
+        clearBossRushState();
         competitionSeriesActive = false;
         Arrays.fill(competitionRoundWins, 0);
         Arrays.fill(competitionTeamWins, 0);
@@ -14923,6 +14962,183 @@ public class BirdGame3 extends Application {
         return buildClassicRunCodename(random);
     }
 
+    private void clearBossRushState() {
+        bossRushModeActive = false;
+        bossRushRunStartMillis = 0L;
+        bossRushPerfectRun = true;
+        bossRushExEncounterAdded = false;
+        Arrays.fill(bossRushEventTriggered, false);
+        bossRushBossEnraged = false;
+    }
+
+    private void resetBossRushEncounterState() {
+        Arrays.fill(bossRushEventTriggered, false);
+        bossRushBossEnraged = false;
+    }
+
+    private String bossRushArenaName(ClassicEncounter encounter) {
+        if (encounter == null || !bossRushModeActive) return null;
+        return switch (encounter.name) {
+            case "Skybreaker Council" -> "Skybreak Spires";
+            case "Ashfall Rebirth" -> "Ashfall Cathedral";
+            case "Titan Dock" -> "Titan Dock";
+            case "Parliament Of Smoke" -> "Parliament Rooftops";
+            case "Carrion Throne" -> "Carrion Throne";
+            case "Null Roc Ascending" -> "Beacon Crown";
+            case BOSS_RUSH_EX_NAME -> "Void Crown";
+            default -> null;
+        };
+    }
+
+    private String encounterMapDisplayName(ClassicEncounter encounter) {
+        String bossRushName = bossRushArenaName(encounter);
+        if (bossRushName != null) return bossRushName;
+        return encounter == null ? mapDisplayName(selectedMap) : mapDisplayName(encounter.map);
+    }
+
+    private String formatElapsedMillis(long elapsedMillis) {
+        long safe = Math.max(0L, elapsedMillis);
+        long totalSeconds = safe / 1000L;
+        long minutes = totalSeconds / 60L;
+        long seconds = totalSeconds % 60L;
+        long centiseconds = (safe % 1000L) / 10L;
+        return String.format(Locale.US, "%d:%02d.%02d", minutes, seconds, centiseconds);
+    }
+
+    private int bossRushRankScore(String rank) {
+        if ("S".equals(rank)) return 4;
+        if ("A".equals(rank)) return 3;
+        if ("B".equals(rank)) return 2;
+        if ("C".equals(rank)) return 1;
+        return 0;
+    }
+
+    private String bossRushRankFor(long elapsedMillis, int deaths, boolean exCleared) {
+        if (deaths == 0 && elapsedMillis <= 8L * 60_000L + 30_000L && exCleared) return "S";
+        if (deaths <= 1 && elapsedMillis <= 10L * 60_000L + 30_000L) return "A";
+        if (deaths <= 2 && elapsedMillis <= 13L * 60_000L) return "B";
+        return "C";
+    }
+
+    private String bossRushBestStatus() {
+        if (bossRushBestClearMillis == Long.MAX_VALUE || bossRushBestClearMillis <= 0L) {
+            return "No clear recorded";
+        }
+        String bird = bossRushBestBird == null ? "Unknown" : bossRushBestBird.name;
+        String rank = (bossRushBestRank == null || bossRushBestRank.isBlank()) ? "-" : bossRushBestRank;
+        return rank + "  |  " + formatElapsedMillis(bossRushBestClearMillis) + "  |  " + bird;
+    }
+
+    private boolean isBossRushExEncounter(ClassicEncounter encounter) {
+        return encounter != null && BOSS_RUSH_EX_NAME.equals(encounter.name);
+    }
+
+    private boolean isBossRushBeaconCrownEncounter(ClassicEncounter encounter) {
+        return encounter != null && ("Null Roc Ascending".equals(encounter.name) || isBossRushExEncounter(encounter));
+    }
+
+    private boolean isBeaconCrownBattlefieldContext() {
+        AdventureBattle battle = currentAdventureBattle != null ? currentAdventureBattle
+                : (adventureModeActive ? activeAdventureBattle() : null);
+        if (isUnitedFinaleClimaxBattle(battle)) {
+            return true;
+        }
+        return bossRushModeActive && classicModeActive && isBossRushBeaconCrownEncounter(classicEncounter);
+    }
+
+    private Bird bossRushLeadBoss() {
+        if (!bossRushModeActive || !classicModeActive || classicEncounter == null) return null;
+        Bird fallback = null;
+        for (Bird b : players) {
+            if (b == null) continue;
+            if (getEffectiveTeam(b.playerIndex) != 2) continue;
+            if (b.health > 0) return b;
+            if (fallback == null) fallback = b;
+        }
+        return fallback;
+    }
+
+    private List<Bird> livingBossRushEnemies() {
+        List<Bird> enemies = new ArrayList<>();
+        if (!bossRushModeActive || !classicModeActive || classicEncounter == null) return enemies;
+        for (Bird b : players) {
+            if (b == null || b.health <= 0) continue;
+            if (getEffectiveTeam(b.playerIndex) == 2) {
+                enemies.add(b);
+            }
+        }
+        return enemies;
+    }
+
+    private double bossRushEnemyHealthRatio() {
+        if (!bossRushModeActive || classicEncounter == null || classicEncounter.enemies == null || classicEncounter.enemies.length == 0) {
+            return 1.0;
+        }
+        double totalHealth = 0;
+        for (ClassicFighter fighter : classicEncounter.enemies) {
+            if (fighter != null) totalHealth += Math.max(1.0, fighter.health);
+        }
+        if (totalHealth <= 0) return 1.0;
+        double currentHealth = 0;
+        for (Bird enemy : livingBossRushEnemies()) {
+            currentHealth += Math.max(0, enemy.health);
+        }
+        return Math.max(0.0, Math.min(1.0, currentHealth / totalHealth));
+    }
+
+    private void damageBossRushEnemies(double totalDamage, Color primary, Color secondary) {
+        List<Bird> enemies = livingBossRushEnemies();
+        if (enemies.isEmpty() || totalDamage <= 0) return;
+        double share = totalDamage / enemies.size();
+        for (Bird enemy : enemies) {
+            damageBossFromUnitedFlock(enemy, share, primary, secondary);
+        }
+    }
+
+    private boolean shouldUpdateBossRushRecord(String rank, long elapsedMillis) {
+        if (bossRushBestClearMillis == Long.MAX_VALUE || bossRushBestClearMillis <= 0L) return true;
+        int newScore = bossRushRankScore(rank);
+        int bestScore = bossRushRankScore(bossRushBestRank);
+        if (newScore != bestScore) return newScore > bestScore;
+        return elapsedMillis < bossRushBestClearMillis;
+    }
+
+    private void completeBossRushRun(Stage stage, boolean exCleared) {
+        long elapsedMillis = bossRushRunStartMillis > 0L ? Math.max(0L, System.currentTimeMillis() - bossRushRunStartMillis) : 0L;
+        String rank = bossRushRankFor(elapsedMillis, classicDeaths, exCleared);
+        int payout = BOSS_RUSH_CLEAR_BONUS + (exCleared ? BOSS_RUSH_EX_CLEAR_BONUS : 0);
+        grantBirdCoins(payout);
+        bossRushClearCount++;
+        boolean newRecord = shouldUpdateBossRushRecord(rank, elapsedMillis);
+        if (newRecord) {
+            bossRushBestClearMillis = elapsedMillis;
+            bossRushBestBird = classicSelectedBird;
+            bossRushBestRank = rank;
+        }
+        classicDeaths = 0;
+        saveAchievements();
+
+        String exText = exCleared
+                ? "EX route collapsed the Void Crown."
+                : (bossRushPerfectRun
+                ? "Perfect route reached the crown, but the EX gate was left unopened."
+                : "Perfect route was broken, so the EX gate stayed closed.");
+        String recordText = newRecord
+                ? "New record: " + rank + "  |  " + formatElapsedMillis(elapsedMillis) + "."
+                : "Best record: " + bossRushBestStatus() + ".";
+        showStoryDialogue(
+                stage,
+                "Boss Rush Cleared",
+                exCleared ? "Voidcaster Prime" : "Beaconcaster Prime",
+                "Route cleared with " + classicSelectedBird.name + ".\n"
+                        + "Rank: " + rank + "  |  Time: " + formatElapsedMillis(elapsedMillis) + "\n"
+                        + "Bird Coins awarded: +" + payout + "  |  Clears logged: " + bossRushClearCount + "\n"
+                        + exText + "\n"
+                        + recordText,
+                () -> showClassicBirdSelect(stage)
+        );
+    }
+
     private String buildClassicRunCodename(Random rng) {
         String[] a = {"Tempest", "Neon", "Iron", "Night", "Solar", "Ghost", "Abyss", "Prism"};
         String[] b = {"Circuit", "Dynasty", "Gauntlet", "Arc", "Protocol", "Crown", "Storm", "Orbit"};
@@ -15229,7 +15445,152 @@ public class BirdGame3 extends Application {
         return run;
     }
 
+    private List<ClassicEncounter> buildBossRushRun(BirdType playerType) {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter skybreaker = new ClassicEncounter(
+                "Skybreaker Council",
+                "Stormcaster",
+                "Canopy Vulture and a sunflare courier lock the first ascent. Ride the vents, split the duo, and take the skyline back.",
+                MapType.SKYCLIFFS,
+                MatchMutator.TURBO_BRAWL,
+                ClassicTwist.STORM_LIFTS,
+                95 * 60,
+                new ClassicFighter[]{
+                        classicFighter(BirdType.EAGLE, "Ally: Sky King", 120, 1.16, 1.12, "SKY_KING_EAGLE")
+                },
+                new ClassicFighter[]{
+                        classicBossFighter(BirdType.VULTURE, "Boss: Canopy Vulture", 248, 1.34, 1.04),
+                        classicFighter(BirdType.HUMMINGBIRD, "Elite: Sunflare Courier", 96, 1.06, 1.24, SUNFLARE_HUMMINGBIRD_SKIN)
+                },
+                true
+        );
+        skybreaker.cpuLevel = 6;
+        run.add(skybreaker);
+
+        ClassicEncounter ashfall = new ClassicEncounter(
+                "Ashfall Rebirth",
+                "Pyrecaster",
+                "The Ashen Phoenix owns the cathedral core. Survive the first blaze, force the rebirth, then finish the second life before the chamber closes.",
+                MapType.CAVE,
+                MatchMutator.RAGE_FRENZY,
+                ClassicTwist.SHOCK_DROPS,
+                100 * 60,
+                null,
+                new ClassicFighter[]{
+                        classicBossFighter(BirdType.PHOENIX, "Boss: Ashen Phoenix", 290, 1.38, 1.08)
+                },
+                true
+        );
+        ashfall.cpuLevel = 7;
+        run.add(ashfall);
+
+        ClassicEncounter titanDock = new ClassicEncounter(
+                "Titan Dock",
+                "Dockmaster",
+                "Titan Pelican tears chunks out of the arena itself. Stay mobile on the dock rigging and punish the plunge before the whole platform goes over.",
+                MapType.BATTLEFIELD,
+                MatchMutator.TITAN_RUMBLE,
+                ClassicTwist.MEDIC_CACHE,
+                95 * 60,
+                new ClassicFighter[]{
+                        classicFighter(BirdType.BAT, "Ally: Umbra Bat", 112, 1.08, 1.14, UMBRA_BAT_SKIN)
+                },
+                new ClassicFighter[]{
+                        classicBossFighter(BirdType.PELICAN, "Boss: Titan Pelican", 340, 1.48, 0.94)
+                },
+                true
+        );
+        titanDock.cpuLevel = 7;
+        run.add(titanDock);
+
+        ClassicEncounter parliament = new ClassicEncounter(
+                "Parliament Of Smoke",
+                "Nightcaster",
+                "Old Sparrow and Void Raven hold the rooftops in tandem. Break the lounge, survive the shadow warps, and don't let the city close around you.",
+                MapType.CITY,
+                MatchMutator.CROW_SURGE,
+                ClassicTwist.SHADOW_CACHE,
+                105 * 60,
+                new ClassicFighter[]{
+                        classicFighter(BirdType.RAVEN, "Ally: Night Raven", 118, 1.14, 1.12, bossSkinKeyFor(BirdType.RAVEN))
+                },
+                new ClassicFighter[]{
+                        classicBossFighter(BirdType.MOCKINGBIRD, "Boss: Old Sparrow", 220, 1.18, 1.08),
+                        classicBossFighter(BirdType.RAVEN, "Boss: Void Raven", 200, 1.24, 1.18)
+                },
+                true
+        );
+        parliament.cpuLevel = 7;
+        run.add(parliament);
+
+        ClassicEncounter carrionThrone = new ClassicEncounter(
+                "Carrion Throne",
+                "Warcaller",
+                "The regent and the seer share the canopy throne. Control the vines, outlast the clouds, and stop the crow storm before the crown hardens.",
+                MapType.VIBRANT_JUNGLE,
+                MatchMutator.OVERCHARGE_BRAWL,
+                ClassicTwist.VINE_SURGE,
+                110 * 60,
+                new ClassicFighter[]{
+                        classicFighter(BirdType.PHOENIX, "Ally: Nova Phoenix", 118, 1.16, 1.08, NOVA_PHOENIX_SKIN)
+                },
+                new ClassicFighter[]{
+                        classicBossFighter(BirdType.VULTURE, "Boss: Carrion Regent", 270, 1.38, 1.04),
+                        classicBossFighter(BirdType.OPIUMBIRD, "Boss: Opium Seer", 215, 1.24, 1.16)
+                },
+                true
+        );
+        carrionThrone.cpuLevel = 8;
+        run.add(carrionThrone);
+
+        ClassicEncounter nullRoc = new ClassicEncounter(
+                "Null Roc Ascending",
+                "Beaconcaster Prime",
+                "The Beacon Crown answers with a monster big enough to blot the skyline. Call the flock, break the phases, and bring Null Roc out of the sky.",
+                MapType.BATTLEFIELD,
+                MatchMutator.NONE,
+                ClassicTwist.TITAN_CACHE,
+                120 * 60,
+                new ClassicFighter[]{
+                        classicFighter(BirdType.EAGLE, "Ally: Sky King", 122, 1.20, 1.12, "SKY_KING_EAGLE"),
+                        classicFighter(BirdType.PHOENIX, "Ally: Nova Phoenix", 118, 1.18, 1.08, NOVA_PHOENIX_SKIN)
+                },
+                new ClassicFighter[]{
+                        classicBossFighter(BirdType.VULTURE, "Boss: Null Roc", 480, 1.55, 0.96)
+                },
+                true
+        );
+        nullRoc.cpuLevel = 8;
+        run.add(nullRoc);
+
+        return run;
+    }
+
+    private ClassicEncounter buildBossRushExEncounter() {
+        ClassicEncounter ex = new ClassicEncounter(
+                BOSS_RUSH_EX_NAME,
+                "Voidcaster",
+                "Perfect route detected. The crown opens again and a Void Sovereign descends. This is the last thing in the sky that still thinks it deserves a throne.",
+                MapType.BATTLEFIELD,
+                MatchMutator.OVERCHARGE_BRAWL,
+                ClassicTwist.SHADOW_CACHE,
+                125 * 60,
+                new ClassicFighter[]{
+                        classicFighter(BirdType.BAT, "Ally: Umbra Bat", 118, 1.10, 1.16, UMBRA_BAT_SKIN),
+                        classicFighter(BirdType.RAVEN, "Ally: Night Raven", 120, 1.16, 1.18, bossSkinKeyFor(BirdType.RAVEN))
+                },
+                new ClassicFighter[]{
+                        classicBossFighter(BirdType.RAVEN, "EX Boss: Void Sovereign", 430, 1.64, 1.22)
+                },
+                true
+        );
+        ex.cpuLevel = 9;
+        return ex;
+    }
+
     private void showClassicBirdSelect(Stage stage) {
+        boolean bossRush = bossRushModeActive;
         storyModeActive = false;
         storyReplayMode = false;
         adventureModeActive = false;
@@ -15250,11 +15611,13 @@ public class BirdGame3 extends Application {
         root.setPadding(new Insets(26, 36, 26, 36));
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #091B2E, #142F45);");
 
-        Label title = new Label("CLASSIC MODE");
+        Label title = new Label(bossRush ? "BOSS RUSH" : "CLASSIC MODE");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 88));
         title.setTextFill(Color.GOLD);
 
-        Label subtitle = new Label("Single-player gauntlet. Pick one bird, clear five randomized encounters, unlock its signature skin.");
+        Label subtitle = new Label(bossRush
+                ? "Curated boss gauntlet. Pick one bird, clear six escalating bosses, and unlock an EX finale with a perfect route."
+                : "Single-player gauntlet. Pick one bird, clear five randomized encounters, unlock its signature skin.");
         subtitle.setFont(Font.font("Consolas", 24));
         subtitle.setTextFill(Color.web("#B3E5FC"));
 
@@ -15388,20 +15751,30 @@ public class BirdGame3 extends Application {
         continuesLabel.setFont(Font.font("Consolas", 24));
         continuesLabel.setTextFill(Color.web("#C5E1A5"));
 
-        Label info = new Label("Clear full runs to unlock each bird's rewards.\nUse the Skin button to cycle unlocked skins.");
+        Label info = new Label(bossRush
+                ? "Custom arenas, amplified bosses, and phase fights.\nPerfect route opens " + BOSS_RUSH_EX_NAME + "."
+                : "Clear full runs to unlock each bird's rewards.\nUse the Skin button to cycle unlocked skins.");
         info.setFont(Font.font("Consolas", 22));
         info.setTextFill(Color.web("#FFE082"));
         info.setWrapText(true);
         info.setMaxWidth(700);
         applyNoEllipsis(info);
 
-        Button start = uiFactory.action("GENERATE RUN", 480, 110, 38, "#00C853", 24, () -> {
+        Button start = uiFactory.action(bossRush ? "ARM ROUTE" : "GENERATE RUN", 480, 110, 38, "#00C853", 24, () -> {
             if (selected[0] == null) return;
             classicSelectedBird = selected[0];
             classicSelectedSkinKey = normalizeAdventureSkinChoice(selected[0], selectedSkin[0]);
             showClassicRunBriefing(stage, selected[0]);
         });
-        Button back = uiFactory.action("BACK TO HUB", 420, 110, 38, "#D32F2F", 24, () -> showMenu(stage));
+        Button back = uiFactory.action(bossRush ? "BACK TO MODES" : "BACK TO HUB", 420, 110, 38, "#D32F2F", 24,
+                () -> {
+                    if (bossRush) {
+                        clearBossRushState();
+                        showClassicMoreMenu(stage);
+                    } else {
+                        showMenu(stage);
+                    }
+                });
 
         Runnable refreshSkin = () -> {
             BirdType pick = selected[0];
@@ -15439,26 +15812,39 @@ public class BirdGame3 extends Application {
             boolean hasPick = picked != null;
             selectedLabel.setText(hasPick ? "Selected: " + picked.name : "Selected: SELECT");
             if (hasPick) {
-                String reward = classicRewardFor(picked);
-                String charReward = classicCharacterReward(picked);
-                boolean unlocked = isClassicRewardUnlocked(picked);
-                boolean completed = isClassicCompleted(picked);
-                rewardLabel.setText("Reward Skin: " + reward + (charReward.isBlank() ? "" : "\nReward Character: " + charReward));
-                unlockLabel.setText(unlocked ? "Reward Status: UNLOCKED" : "Reward Status: LOCKED");
-                unlockLabel.setTextFill(unlocked ? Color.LIMEGREEN : Color.ORANGE);
-                badgeLabel.setText(completed ? "Classic Badge: EARNED" : "Classic Badge: NOT EARNED");
-                badgeLabel.setTextFill(completed ? Color.web("#69F0AE") : Color.web("#FFAB91"));
+                if (bossRush) {
+                    boolean perfectEarned = "S".equals(bossRushBestRank);
+                    rewardLabel.setText("Best Record: " + bossRushBestStatus());
+                    unlockLabel.setText("Rush Reward: +" + BOSS_RUSH_CLEAR_BONUS + " clear bonus  |  +" + BOSS_RUSH_EX_CLEAR_BONUS + " EX bonus");
+                    unlockLabel.setTextFill(Color.web("#FFE082"));
+                    badgeLabel.setText(perfectEarned
+                            ? "Perfect Crown Route: EARNED"
+                            : "Perfect Crown Route: Clear with no losses to open EX");
+                    badgeLabel.setTextFill(perfectEarned ? Color.web("#69F0AE") : Color.web("#FFAB91"));
+                } else {
+                    String reward = classicRewardFor(picked);
+                    String charReward = classicCharacterReward(picked);
+                    boolean unlocked = isClassicRewardUnlocked(picked);
+                    boolean completed = isClassicCompleted(picked);
+                    rewardLabel.setText("Reward Skin: " + reward + (charReward.isBlank() ? "" : "\nReward Character: " + charReward));
+                    unlockLabel.setText(unlocked ? "Reward Status: UNLOCKED" : "Reward Status: LOCKED");
+                    unlockLabel.setTextFill(unlocked ? Color.LIMEGREEN : Color.ORANGE);
+                    badgeLabel.setText(completed ? "Classic Badge: EARNED" : "Classic Badge: NOT EARNED");
+                    badgeLabel.setTextFill(completed ? Color.web("#69F0AE") : Color.web("#FFAB91"));
+                }
                 selectedSkin[0] = normalizeAdventureSkinChoice(picked, selectedSkin[0]);
             } else {
-                rewardLabel.setText("Reward Skin: -");
-                unlockLabel.setText("Reward Status: LOCKED");
-                unlockLabel.setTextFill(Color.ORANGE);
-                badgeLabel.setText("Classic Badge: NOT EARNED");
+                rewardLabel.setText(bossRush ? "Best Record: " + bossRushBestStatus() : "Reward Skin: -");
+                unlockLabel.setText(bossRush ? "Rush Reward: +" + BOSS_RUSH_CLEAR_BONUS + " clear bonus" : "Reward Status: LOCKED");
+                unlockLabel.setTextFill(bossRush ? Color.web("#FFE082") : Color.ORANGE);
+                badgeLabel.setText(bossRush ? "Perfect Crown Route: Clear with no losses to open EX" : "Classic Badge: NOT EARNED");
                 badgeLabel.setTextFill(Color.web("#FFAB91"));
                 selectedSkin[0] = null;
             }
             refreshSkin.run();
-            continuesLabel.setText("Classic Continues: " + classicContinues);
+            continuesLabel.setText(bossRush
+                    ? ("Rush Record: " + bossRushBestStatus() + "  |  Clears: " + bossRushClearCount)
+                    : ("Classic Continues: " + classicContinues));
             start.setDisable(!hasPick);
             start.setOpacity(hasPick ? 1.0 : 0.6);
         };
@@ -15834,13 +16220,16 @@ public class BirdGame3 extends Application {
             showClassicBirdSelect(stage);
             return;
         }
+        boolean bossRush = bossRushModeActive;
         classicSelectedBird = birdType;
         classicSelectedSkinKey = normalizeAdventureSkinChoice(classicSelectedBird, classicSelectedSkinKey);
-        classicRunCodename = buildClassicRunCodename();
+        classicRunCodename = bossRush ? "BOSS RUSH" : buildClassicRunCodename();
         classicRun.clear();
-        classicRun.addAll(buildClassicRun(classicSelectedBird));
+        classicRun.addAll(bossRush ? buildBossRushRun(classicSelectedBird) : buildClassicRun(classicSelectedBird));
         classicRoundIndex = 0;
         classicDeaths = 0;
+        bossRushPerfectRun = true;
+        bossRushExEncounterAdded = false;
         classicEncounter = classicRun.isEmpty() ? null : classicRun.get(0);
         playMenuMusic();
 
@@ -15848,26 +16237,37 @@ public class BirdGame3 extends Application {
         root.setPadding(new Insets(30, 36, 30, 36));
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #1D3557);");
 
-        Label title = new Label("CLASSIC BRIEFING");
+        Label title = new Label(bossRush ? "BOSS RUSH BRIEFING" : "CLASSIC BRIEFING");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 84));
         title.setTextFill(Color.GOLD);
 
-        Label runInfo = new Label("Run: " + classicRunCodename + "  |  Pilot: " + classicSelectedBird.name
-                + "  |  Continues: " + classicContinues);
+        Label runInfo = new Label(bossRush
+                ? ("Route: " + classicRunCodename + "  |  Pilot: " + classicSelectedBird.name
+                + "  |  Repair Stocks: 3  |  Record: " + bossRushBestStatus())
+                : ("Run: " + classicRunCodename + "  |  Pilot: " + classicSelectedBird.name
+                + "  |  Continues: " + classicContinues));
         runInfo.setFont(Font.font("Consolas", 28));
         runInfo.setTextFill(Color.WHITE);
         runInfo.setWrapText(true);
         runInfo.setMaxWidth(1400);
         applyNoEllipsis(runInfo);
 
-        String reward = classicRewardFor(classicSelectedBird);
-        String charReward = classicCharacterReward(classicSelectedBird);
-        boolean unlocked = isClassicRewardUnlocked(classicSelectedBird);
-        String rewardText = "Reward: " + reward + (unlocked ? " (Unlocked)" : " (Locked)")
-                + (charReward.isBlank() ? "" : "\nBonus: " + charReward);
+        String rewardText;
+        if (bossRush) {
+            rewardText = "Clear reward: +" + BOSS_RUSH_CLEAR_BONUS + " Bird Coins."
+                    + "\nPerfect route unlock: " + BOSS_RUSH_EX_NAME + "."
+                    + "\nEX clear bonus: +" + BOSS_RUSH_EX_CLEAR_BONUS + " Bird Coins.";
+        } else {
+            String reward = classicRewardFor(classicSelectedBird);
+            String charReward = classicCharacterReward(classicSelectedBird);
+            boolean unlocked = isClassicRewardUnlocked(classicSelectedBird);
+            rewardText = "Reward: " + reward + (unlocked ? " (Unlocked)" : " (Locked)")
+                    + (charReward.isBlank() ? "" : "\nBonus: " + charReward);
+        }
         Label rewardInfo = new Label(rewardText);
         rewardInfo.setFont(Font.font("Consolas", 26));
-        rewardInfo.setTextFill(unlocked ? Color.LIMEGREEN : Color.ORANGE);
+        rewardInfo.setTextFill(bossRush ? Color.web("#FFE082")
+                : (isClassicRewardUnlocked(classicSelectedBird) ? Color.LIMEGREEN : Color.ORANGE));
         rewardInfo.setWrapText(true);
         rewardInfo.setMaxWidth(1400);
         applyNoEllipsis(rewardInfo);
@@ -15883,7 +16283,7 @@ public class BirdGame3 extends Application {
                     : (enemyCount >= 3 ? "SWARM" : (enemyCount == 2 ? "DUO" : "DUEL"));
             String line = String.format(
                     "R%d - %s | %s | %s | %s | %s",
-                    i + 1, enc.name, mapDisplayName(enc.map), enc.mutator.label, enc.twist.label, tag
+                    i + 1, enc.name, encounterMapDisplayName(enc), enc.mutator.label, enc.twist.label, tag
             );
             Label l = new Label(line);
             l.setFont(Font.font("Consolas", 22));
@@ -15893,11 +16293,23 @@ public class BirdGame3 extends Application {
             applyNoEllipsis(l);
             route.getChildren().add(l);
         }
+        if (bossRush) {
+            Label exHint = new Label("Perfect route bonus: unlock " + BOSS_RUSH_EX_NAME + " after Null Roc.");
+            exHint.setFont(Font.font("Consolas", 22));
+            exHint.setTextFill(Color.web("#FFCC80"));
+            exHint.setWrapText(true);
+            exHint.setMaxWidth(1400);
+            applyNoEllipsis(exHint);
+            route.getChildren().add(exHint);
+        }
 
-        Button start = uiFactory.action("START CLASSIC RUN", 560, 110, 38, "#00C853", 24, () -> {
+        Button start = uiFactory.action(bossRush ? "START BOSS RUSH" : "START CLASSIC RUN", 560, 110, 38, "#00C853", 24, () -> {
             playButtonClick();
             resetMatchStats();
             classicModeActive = true;
+            if (bossRush) {
+                bossRushRunStartMillis = System.currentTimeMillis();
+            }
             showClassicEncounterIntro(stage);
         });
         Button back = uiFactory.action("BACK TO BIRDS", 460, 110, 38, "#FF1744", 24, () -> showClassicBirdSelect(stage));
@@ -15938,7 +16350,7 @@ public class BirdGame3 extends Application {
         VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);",
                 MENU_PADDING, 30);
 
-        String titlePrefix = dailyChallengeModeActive ? "Daily " : "Classic ";
+        String titlePrefix = dailyChallengeModeActive ? "Daily " : (bossRushModeActive ? "Boss " : "Classic ");
         Label title = new Label(titlePrefix + (classicRoundIndex + 1) + ": " + classicEncounter.name);
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 92));
         title.setTextFill(Color.GOLD);
@@ -15960,7 +16372,7 @@ public class BirdGame3 extends Application {
         briefingLabel.setMaxWidth(1200);
         applyNoEllipsis(briefingLabel);
 
-        Label detailLabel = new Label("Map: " + mapDisplayName(classicEncounter.map)
+        Label detailLabel = new Label("Map: " + encounterMapDisplayName(classicEncounter)
                 + "  |  Mutator: " + classicEncounter.mutator.label
                 + "  |  Twist: " + classicEncounter.twist.label);
         detailLabel.setWrapText(true);
@@ -15981,6 +16393,10 @@ public class BirdGame3 extends Application {
         String statusText = dailyChallengeModeActive
                 ? "Round " + (classicRoundIndex + 1) + "/" + classicRun.size()
                 + "  |  Lives " + livesLeft + "/3  |  No Continues  |  Seed " + formatDailyChallengeSeed(dailyChallengeSeed)
+                : bossRushModeActive
+                ? "Boss " + (classicRoundIndex + 1) + "/" + classicRun.size()
+                + "  |  Repair Stocks " + livesLeft + "/3  |  Perfect Route "
+                + (bossRushPerfectRun ? "LIVE" : "BROKEN")
                 : "Round " + (classicRoundIndex + 1) + "/" + classicRun.size()
                 + "  |  Lives " + livesLeft + "/3  |  Continues " + classicContinues;
         Label statusLabel = new Label(statusText);
@@ -16000,7 +16416,9 @@ public class BirdGame3 extends Application {
 
         card.getChildren().addAll(speakerLabel, briefingLabel, detailLabel, twistLabel, statusLabel, rosterLabel);
 
-        Label cpuLabel = new Label("CPU LEVEL: " + classicCpuLevel + (dailyChallengeModeActive ? " (DAILY AUTO)" : " (AUTO)"));
+        Label cpuLabel = new Label("CPU LEVEL: " + classicCpuLevel + (dailyChallengeModeActive
+                ? " (DAILY AUTO)"
+                : (bossRushModeActive ? " (ROUTE LOCK)" : " (AUTO)")));
         cpuLabel.setFont(Font.font("Consolas", 26));
         cpuLabel.setTextFill(Color.web("#B3E5FC"));
         HBox options = new HBox(20, cpuLabel);
@@ -16010,15 +16428,17 @@ public class BirdGame3 extends Application {
         buttons.setAlignment(Pos.CENTER);
 
         Button continueButton = uiFactory.action(
-                dailyChallengeModeActive ? "START DAILY ENCOUNTER" : "START ENCOUNTER",
+                dailyChallengeModeActive ? "START DAILY ENCOUNTER" : (bossRushModeActive ? "START BOSS" : "START ENCOUNTER"),
                 560, 120, 48, "#00C853", 28, () -> startClassicEncounter(stage));
 
         Button menuButton = uiFactory.action(
-                dailyChallengeModeActive ? "BACK TO CHALLENGE" : "BACK TO HUB",
+                dailyChallengeModeActive ? "BACK TO CHALLENGE" : (bossRushModeActive ? "BACK TO BOSS RUSH" : "BACK TO HUB"),
                 520, 120, 34, "#D32F2F", 28,
                 () -> {
                     if (dailyChallengeModeActive) {
                         showDailyChallengeSetup(stage);
+                    } else if (bossRushModeActive) {
+                        showClassicBirdSelect(stage);
                     } else {
                         showMenu(stage);
                     }
@@ -16336,7 +16756,7 @@ public class BirdGame3 extends Application {
                     applyPreviewSkinChoiceToBird(allyBird, ally.type, ally.skinKey);
                 }
                 classicTeams[slot] = 1;
-                classicCpuLevels[slot] = Math.max(0, ally.cpuLevel);
+                classicCpuLevels[slot] = Math.max(0, ally.cpuLevel > 0 ? ally.cpuLevel : encounter.cpuLevel);
                 slot++;
             }
         }
@@ -16358,17 +16778,23 @@ public class BirdGame3 extends Application {
                     applyPreviewSkinChoiceToBird(enemyBird, enemy.type, enemy.skinKey);
                 }
                 classicTeams[slot] = 2;
-                classicCpuLevels[slot] = Math.max(0, enemy.cpuLevel);
+                classicCpuLevels[slot] = Math.max(0, enemy.cpuLevel > 0 ? enemy.cpuLevel : encounter.cpuLevel);
                 slot++;
             }
         }
 
         activePlayers = Math.max(2, slot);
+        if (bossRushModeActive) {
+            applyBossRushEncounterRosterModifiers(encounter);
+        }
     }
 
     private void applyClassicEncounterArenaModifiers(ClassicEncounter encounter) {
         if (encounter == null) return;
-        addToKillFeed("CLASSIC TWIST: " + encounter.twist.label);
+        if (bossRushModeActive) {
+            applyBossRushEncounterArenaModifiers(encounter);
+        }
+        addToKillFeed((bossRushModeActive ? "BOSS RUSH TWIST: " : "CLASSIC TWIST: ") + encounter.twist.label);
         switch (encounter.twist) {
             case STORM_LIFTS -> {
                 windVents.add(new WindVent(900, GROUND_Y - 380, 420));
@@ -16435,6 +16861,488 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void scaleBossRushBird(Bird bird, double sizeScale, double powerScale, double speedScale) {
+        if (bird == null) return;
+        double health = bird.health;
+        bird.setBaseMultipliers(
+                bird.baseSizeMultiplier * sizeScale,
+                bird.basePowerMultiplier * powerScale,
+                bird.baseSpeedMultiplier * speedScale
+        );
+        bird.health = health;
+    }
+
+    private void applyBossRushEncounterRosterModifiers(ClassicEncounter encounter) {
+        if (encounter == null) return;
+        for (Bird bird : players) {
+            if (bird == null) continue;
+            switch (bird.name) {
+                case "Ally: Sky King" -> scaleBossRushBird(bird, 1.04, 1.04, 1.06);
+                case "Boss: Canopy Vulture" -> scaleBossRushBird(bird, 1.18, 1.06, 1.02);
+                case "Elite: Sunflare Courier" -> scaleBossRushBird(bird, 0.98, 1.03, 1.08);
+                case "Boss: Ashen Phoenix" -> scaleBossRushBird(bird, 1.14, 1.07, 1.04);
+                case "Ally: Umbra Bat" -> scaleBossRushBird(bird, 1.02, 1.04, 1.05);
+                case "Boss: Titan Pelican" -> scaleBossRushBird(bird, 1.34, 1.08, 0.98);
+                case "Ally: Night Raven" -> scaleBossRushBird(bird, 1.04, 1.05, 1.06);
+                case "Boss: Old Sparrow" -> scaleBossRushBird(bird, 1.08, 1.05, 1.03);
+                case "Boss: Void Raven" -> scaleBossRushBird(bird, 1.10, 1.06, 1.08);
+                case "Boss: Carrion Regent" -> scaleBossRushBird(bird, 1.22, 1.08, 1.02);
+                case "Boss: Opium Seer" -> scaleBossRushBird(bird, 1.08, 1.06, 1.06);
+                case "Boss: Null Roc" -> scaleBossRushBird(bird, 1.55, 1.08, 1.00);
+                case "EX Boss: Void Sovereign" -> scaleBossRushBird(bird, 1.34, 1.12, 1.08);
+                default -> {
+                }
+            }
+        }
+    }
+
+    private void setupBossRushSolidBounds() {
+        platforms.clear();
+        windVents.clear();
+        nectarNodes.clear();
+        swingingVines.clear();
+        crowMinions.clear();
+        chickMinions.clear();
+        powerUps.clear();
+        platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
+        platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
+        platforms.add(new Platform(WORLD_WIDTH, 0, 100, WORLD_HEIGHT));
+        battlefieldIslandX = 0;
+        battlefieldIslandW = 0;
+        battlefieldIslandY = 0;
+    }
+
+    private void setupBossRushSkybreakSpires() {
+        setupBossRushSolidBounds();
+        platforms.add(new Platform(340, GROUND_Y - 260, 760, 62));
+        platforms.add(new Platform(720, GROUND_Y - 700, 460, 44));
+        platforms.add(new Platform(620, GROUND_Y - 1120, 340, 38));
+        platforms.add(new Platform(2260, GROUND_Y - 320, 1480, 76));
+        platforms.add(new Platform(2790, GROUND_Y - 700, 420, 44));
+        platforms.add(new Platform(4520, GROUND_Y - 260, 760, 62));
+        platforms.add(new Platform(4860, GROUND_Y - 700, 460, 44));
+        platforms.add(new Platform(5060, GROUND_Y - 1120, 320, 38));
+        platforms.add(new Platform(1710, GROUND_Y - 920, 340, 36));
+        platforms.add(new Platform(3920, GROUND_Y - 940, 340, 36));
+        windVents.add(new WindVent(510, GROUND_Y - 300, 320));
+        windVents.add(new WindVent(2500, GROUND_Y - 360, 620));
+        windVents.add(new WindVent(5150, GROUND_Y - 300, 320));
+    }
+
+    private void setupBossRushAshfallCathedral() {
+        setupBossRushSolidBounds();
+        platforms.add(new Platform(0, 0, WORLD_WIDTH, 70));
+        platforms.add(new Platform(980, GROUND_Y - 300, 4040, 72));
+        platforms.add(new Platform(1480, GROUND_Y - 760, 720, 48));
+        platforms.add(new Platform(3780, GROUND_Y - 760, 720, 48));
+        platforms.add(new Platform(2510, GROUND_Y - 1180, 980, 52));
+        platforms.add(new Platform(1300, 420, 420, 34));
+        platforms.add(new Platform(4280, 420, 420, 34));
+        windVents.add(new WindVent(2790, GROUND_Y - 360, 420));
+        windVents.add(new WindVent(1640, GROUND_Y - 820, 220));
+        windVents.add(new WindVent(4140, GROUND_Y - 820, 220));
+    }
+
+    private void setupBossRushTitanDock() {
+        platforms.clear();
+        windVents.clear();
+        nectarNodes.clear();
+        swingingVines.clear();
+        crowMinions.clear();
+        chickMinions.clear();
+        powerUps.clear();
+
+        double dockX = 2140;
+        double dockY = GROUND_Y - 120;
+        platforms.add(new Platform(dockX, dockY, 1720, 82));
+        platforms.add(new Platform(dockX - 540, dockY - 190, 420, 42));
+        platforms.add(new Platform(dockX + 1840, dockY - 190, 420, 42));
+        platforms.add(new Platform(dockX + 180, dockY - 440, 320, 34));
+        platforms.add(new Platform(dockX + 1220, dockY - 440, 320, 34));
+        platforms.add(new Platform(dockX + 660, dockY - 700, 400, 36));
+        platforms.add(new Platform(dockX - 760, dockY + 90, 260, 30));
+        platforms.add(new Platform(dockX + 2220, dockY + 90, 260, 30));
+        windVents.add(new WindVent(dockX + 700, dockY - 90, 300));
+
+        battlefieldIslandX = dockX;
+        battlefieldIslandW = 1720;
+        battlefieldIslandY = dockY;
+    }
+
+    private void setupBossRushParliamentRooftops() {
+        setupBossRushSolidBounds();
+
+        Platform lounge = new Platform(260, GROUND_Y - 320, 980, 60);
+        lounge.signText = "LOUNGE";
+        Platform smoke = new Platform(2430, GROUND_Y - 620, 1120, 52);
+        smoke.signText = "SMOKE";
+        Platform court = new Platform(4460, GROUND_Y - 300, 920, 60);
+        court.signText = "COURT";
+        Platform leftHigh = new Platform(690, GROUND_Y - 920, 420, 40);
+        leftHigh.signText = "NIGHT";
+        Platform rightHigh = new Platform(4720, GROUND_Y - 980, 420, 40);
+        rightHigh.signText = "RAVEN";
+
+        platforms.add(lounge);
+        platforms.add(smoke);
+        platforms.add(court);
+        platforms.add(leftHigh);
+        platforms.add(rightHigh);
+        platforms.add(new Platform(1420, GROUND_Y - 520, 520, 44));
+        platforms.add(new Platform(1820, GROUND_Y - 860, 340, 36));
+        platforms.add(new Platform(3690, GROUND_Y - 520, 520, 44));
+        platforms.add(new Platform(3980, GROUND_Y - 860, 340, 36));
+        platforms.add(new Platform(2570, GROUND_Y - 1040, 760, 38));
+
+        windVents.add(new WindVent(760, GROUND_Y - 360, 260));
+        windVents.add(new WindVent(2920, GROUND_Y - 700, 220));
+        windVents.add(new WindVent(4910, GROUND_Y - 360, 260));
+    }
+
+    private void setupBossRushCarrionThrone() {
+        setupBossRushSolidBounds();
+        platforms.add(new Platform(800, GROUND_Y - 420, 760, 62));
+        platforms.add(new Platform(4440, GROUND_Y - 420, 760, 62));
+        platforms.add(new Platform(1620, GROUND_Y - 940, 620, 48));
+        platforms.add(new Platform(3360, GROUND_Y - 940, 620, 48));
+        platforms.add(new Platform(2200, GROUND_Y - 1460, 1600, 82));
+        platforms.add(new Platform(2540, GROUND_Y - 1810, 320, 34));
+        platforms.add(new Platform(3140, GROUND_Y - 1810, 320, 34));
+
+        SwingingVine leftVine = new SwingingVine(1760, GROUND_Y - 2080, 440);
+        leftVine.angle = -0.22;
+        leftVine.angularVelocity = 0.015;
+        swingingVines.add(leftVine);
+
+        SwingingVine midVine = new SwingingVine(3020, GROUND_Y - 2240, 520);
+        midVine.angle = 0.18;
+        midVine.angularVelocity = -0.012;
+        swingingVines.add(midVine);
+
+        SwingingVine rightVine = new SwingingVine(4300, GROUND_Y - 2080, 420);
+        rightVine.angle = 0.28;
+        rightVine.angularVelocity = 0.014;
+        swingingVines.add(rightVine);
+
+        nectarNodes.add(new NectarNode(1200, GROUND_Y - 620, true));
+        nectarNodes.add(new NectarNode(3000, GROUND_Y - 1540, false));
+        nectarNodes.add(new NectarNode(4820, GROUND_Y - 620, true));
+
+        windVents.add(new WindVent(2140, GROUND_Y - 1100, 300));
+        windVents.add(new WindVent(3680, GROUND_Y - 1100, 300));
+    }
+
+    private void setupBossRushNullRocArena() {
+        platforms.clear();
+        windVents.clear();
+        nectarNodes.clear();
+        swingingVines.clear();
+        crowMinions.clear();
+        chickMinions.clear();
+        powerUps.clear();
+        setupBeaconCrownBattlefield();
+        platforms.add(new Platform(battlefieldIslandX - 420, battlefieldIslandY + 120, 300, 32));
+        platforms.add(new Platform(battlefieldIslandX + battlefieldIslandW + 120, battlefieldIslandY + 120, 300, 32));
+        platforms.add(new Platform(battlefieldIslandX + 80, battlefieldIslandY - 520, 280, 34));
+        platforms.add(new Platform(battlefieldIslandX + battlefieldIslandW - 360, battlefieldIslandY - 520, 280, 34));
+        windVents.add(new WindVent(battlefieldIslandX + 150, battlefieldIslandY - 80, 220));
+        windVents.add(new WindVent(battlefieldIslandX + battlefieldIslandW - 370, battlefieldIslandY - 80, 220));
+    }
+
+    private void setupBossRushVoidCrownArena() {
+        setupBossRushNullRocArena();
+        platforms.add(new Platform((WORLD_WIDTH - 260) / 2.0, battlefieldIslandY - 820, 260, 30));
+        platforms.add(new Platform(battlefieldIslandX + 520, battlefieldIslandY - 860, 220, 28));
+        platforms.add(new Platform(battlefieldIslandX + battlefieldIslandW - 740, battlefieldIslandY - 860, 220, 28));
+        windVents.add(new WindVent((WORLD_WIDTH - 200) / 2.0, battlefieldIslandY - 120, 200));
+    }
+
+    private void applyBossRushEncounterArenaModifiers(ClassicEncounter encounter) {
+        if (encounter == null) return;
+        switch (encounter.name) {
+            case "Skybreaker Council" -> {
+                setupBossRushSkybreakSpires();
+                addToKillFeed("SKYBREAK SPIRES: three wind lanes cut the summit apart.");
+            }
+            case "Ashfall Rebirth" -> {
+                setupBossRushAshfallCathedral();
+                addToKillFeed("ASHFALL CATHEDRAL: the nave burns around a rebirth altar.");
+            }
+            case "Titan Dock" -> {
+                setupBossRushTitanDock();
+                addToKillFeed("TITAN DOCK: rigging can collapse under Pelican's weight.");
+            }
+            case "Parliament Of Smoke" -> {
+                setupBossRushParliamentRooftops();
+                addToKillFeed("PARLIAMENT ROOFTOPS: neon lanes and lounge roofs frame the duel.");
+            }
+            case "Carrion Throne" -> {
+                setupBossRushCarrionThrone();
+                addToKillFeed("CARRION THRONE: canopy vines hang under a live crown.");
+            }
+            case "Null Roc Ascending" -> {
+                setupBossRushNullRocArena();
+                addToKillFeed("BEACON CROWN: the route reaches the apocalypse platform.");
+            }
+            case BOSS_RUSH_EX_NAME -> {
+                setupBossRushVoidCrownArena();
+                addToKillFeed("VOID CROWN: the battlefield narrows into a sovereign's altar.");
+            }
+            default -> {
+            }
+        }
+    }
+
+    private void collapseBossRushTitanDockSide(boolean leftSide) {
+        double cutoff = battlefieldIslandX + battlefieldIslandW / 2.0;
+        platforms.removeIf(p -> p.y < battlefieldIslandY + 140
+                && (leftSide ? p.x + p.w <= cutoff - 260 : p.x >= cutoff + 260));
+    }
+
+    private void applyBossRushRuntimeEffects(long now) {
+        if (!bossRushModeActive || !classicModeActive || classicEncounter == null || matchEnded) return;
+        double ratio = bossRushEnemyHealthRatio();
+        Bird boss = bossRushLeadBoss();
+        switch (classicEncounter.name) {
+            case "Skybreaker Council" -> {
+                if (!bossRushEventTriggered[0]) {
+                    bossRushEventTriggered[0] = true;
+                    addToKillFeed("SKYBREAKER: storm vents flare across the summit.");
+                    powerUps.add(new PowerUp(3020, GROUND_Y - 1110, PowerUpType.THERMAL));
+                }
+                if (!bossRushEventTriggered[1] && ratio <= 0.62) {
+                    bossRushEventTriggered[1] = true;
+                    addToKillFeed("SKYBREAKER: Sky King forces an opening in the gale.");
+                    empowerUnitedFinaleAllies(80, 140, 120);
+                    powerUps.add(new PowerUp(1780, GROUND_Y - 940, PowerUpType.SPEED));
+                    powerUps.add(new PowerUp(4200, GROUND_Y - 940, PowerUpType.NEON));
+                    damageBossRushEnemies(18, Color.web("#FFE082"), Color.CYAN);
+                }
+                if (!bossRushBossEnraged && ratio <= 0.28) {
+                    bossRushBossEnraged = true;
+                    addToKillFeed("SKYBREAKER: the council goes all-in on the last dive.");
+                    for (Bird enemy : livingBossRushEnemies()) {
+                        enemy.rageTimer = Math.max(enemy.rageTimer, 240);
+                        enemy.specialCooldown = 0;
+                    }
+                    triggerFlash(0.65, false);
+                }
+            }
+            case "Ashfall Rebirth" -> {
+                if (!bossRushEventTriggered[0]) {
+                    bossRushEventTriggered[0] = true;
+                    addToKillFeed("ASHFALL: the cathedral starts in open flame.");
+                    powerUps.add(new PowerUp(3000, GROUND_Y - 1320, PowerUpType.OVERCHARGE));
+                }
+                if (!bossRushEventTriggered[1] && boss != null && ratio <= 0.48) {
+                    bossRushEventTriggered[1] = true;
+                    boss.health = Math.max(boss.health, 190);
+                    boss.rageTimer = Math.max(boss.rageTimer, 240);
+                    boss.overchargeAttackTimer = Math.max(boss.overchargeAttackTimer, 240);
+                    boss.specialCooldown = 0;
+                    addToKillFeed("ASHEN PHOENIX: REBIRTH TRIGGERED.");
+                    triggerFlash(0.78, false);
+                    shakeIntensity = Math.max(shakeIntensity, 30);
+                }
+                if (!bossRushBossEnraged && ratio <= 0.22 && boss != null) {
+                    bossRushBossEnraged = true;
+                    addToKillFeed("ASHFALL: the second life burns hotter.");
+                    boss.powerMultiplier = Math.max(boss.powerMultiplier, boss.basePowerMultiplier * 1.22);
+                    boss.speedMultiplier = Math.max(boss.speedMultiplier, boss.baseSpeedMultiplier * 1.10);
+                    powerUps.add(new PowerUp(2100, GROUND_Y - 860, PowerUpType.HEALTH));
+                    powerUps.add(new PowerUp(3900, GROUND_Y - 860, PowerUpType.RAGE));
+                }
+            }
+            case "Titan Dock" -> {
+                if (!bossRushEventTriggered[0]) {
+                    bossRushEventTriggered[0] = true;
+                    addToKillFeed("TITAN DOCK: chains groan under the first slam.");
+                }
+                if (!bossRushEventTriggered[1] && ratio <= 0.68) {
+                    bossRushEventTriggered[1] = true;
+                    collapseBossRushTitanDockSide(true);
+                    addToKillFeed("TITAN DOCK: port rigging snaps loose.");
+                    powerUps.add(new PowerUp(2650, GROUND_Y - 860, PowerUpType.TITAN));
+                    shakeIntensity = Math.max(shakeIntensity, 28);
+                }
+                if (!bossRushEventTriggered[2] && ratio <= 0.34) {
+                    bossRushEventTriggered[2] = true;
+                    collapseBossRushTitanDockSide(false);
+                    addToKillFeed("TITAN DOCK: starboard rigging goes under.");
+                    if (boss != null) {
+                        boss.rageTimer = Math.max(boss.rageTimer, 300);
+                        boss.specialCooldown = 0;
+                    }
+                    powerUps.add(new PowerUp(3350, GROUND_Y - 860, PowerUpType.HEALTH));
+                    triggerFlash(0.72, false);
+                }
+            }
+            case "Parliament Of Smoke" -> {
+                if (!bossRushEventTriggered[0]) {
+                    bossRushEventTriggered[0] = true;
+                    addToKillFeed("PARLIAMENT: the rooftops flood with scout crows.");
+                    for (int i = 0; i < 4; i++) {
+                        crowMinions.add(new CrowMinion(1200 + i * 1000, 260 + random.nextDouble() * 220, null));
+                    }
+                }
+                if (!bossRushEventTriggered[1] && ratio <= 0.60) {
+                    bossRushEventTriggered[1] = true;
+                    addToKillFeed("PARLIAMENT: smoke lanes close and the city turns hostile.");
+                    for (int i = 0; i < 6; i++) {
+                        crowMinions.add(new CrowMinion(900 + random.nextDouble() * 4200, 220 + random.nextDouble() * 320, null));
+                    }
+                    powerUps.add(new PowerUp(3000, GROUND_Y - 1160, PowerUpType.SHRINK));
+                    damageBossRushEnemies(16, Color.web("#B39DDB"), Color.web("#80CBC4"));
+                }
+                if (!bossRushBossEnraged && ratio <= 0.22) {
+                    bossRushBossEnraged = true;
+                    addToKillFeed("PARLIAMENT: the surviving boss takes full control of the roofline.");
+                    for (Bird enemy : livingBossRushEnemies()) {
+                        enemy.rageTimer = Math.max(enemy.rageTimer, 240);
+                        enemy.specialCooldown = 0;
+                    }
+                    powerUps.add(new PowerUp(3000, GROUND_Y - 900, PowerUpType.NEON));
+                }
+            }
+            case "Carrion Throne" -> {
+                if (!bossRushEventTriggered[0]) {
+                    bossRushEventTriggered[0] = true;
+                    addToKillFeed("CARRION THRONE: the crown wakes the whole canopy.");
+                }
+                if (!bossRushEventTriggered[1] && ratio <= 0.58) {
+                    bossRushEventTriggered[1] = true;
+                    Bird owner = firstLivingAdventureAlly();
+                    addToKillFeed("CARRION THRONE: Nova Phoenix cracks the fog line.");
+                    empowerUnitedFinaleAllies(90, 180, 120);
+                    if (owner != null) {
+                        spawnUnitedFinaleAlliedCrows(owner, 4);
+                        spawnUnitedFinaleChicks(owner);
+                    }
+                    damageBossRushEnemies(18, Color.web("#FFB74D"), Color.web("#4FC3F7"));
+                }
+                if (!bossRushBossEnraged && ratio <= 0.22) {
+                    bossRushBossEnraged = true;
+                    addToKillFeed("CARRION THRONE: the regent hardens the crown for the kill.");
+                    powerUps.add(new PowerUp(2100, GROUND_Y - 1120, PowerUpType.TITAN));
+                    powerUps.add(new PowerUp(3900, GROUND_Y - 1120, PowerUpType.OVERCHARGE));
+                    triggerFlash(0.68, false);
+                }
+            }
+            case "Null Roc Ascending" -> {
+                if (!bossRushEventTriggered[0]) {
+                    bossRushEventTriggered[0] = true;
+                    addToKillFeed("NULL ROC: the crown opens and the route turns cinematic.");
+                    empowerUnitedFinaleAllies(96, 150, 120);
+                    shakeIntensity = Math.max(shakeIntensity, 26);
+                }
+                if (!bossRushEventTriggered[1] && ratio <= 0.78) {
+                    bossRushEventTriggered[1] = true;
+                    addToKillFeed("SKY WING: the flock punches a hole through the first phase.");
+                    empowerUnitedFinaleAllies(0, 180, 140);
+                    powerUps.add(new PowerUp(1700, GROUND_Y - 900, PowerUpType.SPEED));
+                    powerUps.add(new PowerUp(3000, GROUND_Y - 1120, PowerUpType.THERMAL));
+                    powerUps.add(new PowerUp(4300, GROUND_Y - 900, PowerUpType.NEON));
+                    damageBossRushEnemies(22, Color.web("#FFE082"), Color.CYAN);
+                }
+                if (!bossRushBossEnraged && ratio <= 0.58 && boss != null) {
+                    bossRushBossEnraged = true;
+                    addToKillFeed("NULL ROC: the crown goes feral.");
+                    boss.rageTimer = Math.max(boss.rageTimer, 360);
+                    boss.powerMultiplier = Math.max(boss.powerMultiplier, boss.basePowerMultiplier * 1.26);
+                    boss.speedMultiplier = Math.max(boss.speedMultiplier, boss.baseSpeedMultiplier * 1.10);
+                    boss.specialCooldown = 0;
+                    triggerFlash(0.82, false);
+                }
+                if (!bossRushEventTriggered[2] && ratio <= 0.34) {
+                    bossRushEventTriggered[2] = true;
+                    Bird owner = firstLivingAdventureAlly();
+                    addToKillFeed("SHADOW FLOCK: crows, chicks, and the ground wing all converge.");
+                    if (owner != null) {
+                        spawnUnitedFinaleAlliedCrows(owner, 6);
+                        spawnUnitedFinaleChicks(owner);
+                    }
+                    powerUps.add(new PowerUp(2100, GROUND_Y - 900, PowerUpType.TITAN));
+                    powerUps.add(new PowerUp(3900, GROUND_Y - 900, PowerUpType.OVERCHARGE));
+                    damageBossRushEnemies(28, Color.web("#FFAB91"), Color.web("#CE93D8"));
+                }
+                if (!bossRushEventTriggered[3] && ratio <= 0.14) {
+                    bossRushEventTriggered[3] = true;
+                    Bird owner = firstLivingAdventureAlly();
+                    addToKillFeed("ALL WINGS: every surviving bird lands the finishing pass.");
+                    empowerUnitedFinaleAllies(118, 320, 240);
+                    if (owner != null) {
+                        spawnUnitedFinaleAlliedCrows(owner, 10);
+                        spawnUnitedFinaleChicks(owner);
+                    }
+                    powerUps.add(new PowerUp(1600, GROUND_Y - 920, PowerUpType.HEALTH));
+                    powerUps.add(new PowerUp(2400, GROUND_Y - 1020, PowerUpType.SPEED));
+                    powerUps.add(new PowerUp(3000, GROUND_Y - 1180, PowerUpType.RAGE));
+                    powerUps.add(new PowerUp(3600, GROUND_Y - 1020, PowerUpType.OVERCHARGE));
+                    powerUps.add(new PowerUp(4400, GROUND_Y - 920, PowerUpType.TITAN));
+                    shakeIntensity = Math.max(shakeIntensity, 48);
+                    hitstopFrames = Math.max(hitstopFrames, 14);
+                    damageBossRushEnemies(36, Color.web("#FFF176"), Color.web("#80DEEA"));
+                }
+            }
+            case BOSS_RUSH_EX_NAME -> {
+                if (!bossRushEventTriggered[0]) {
+                    bossRushEventTriggered[0] = true;
+                    addToKillFeed("VOID CROWN: the sovereign takes the field under a dead eclipse.");
+                    empowerUnitedFinaleAllies(100, 180, 140);
+                    powerUps.add(new PowerUp(3000, GROUND_Y - 1260, PowerUpType.OVERCHARGE));
+                }
+                if (!bossRushEventTriggered[1] && ratio <= 0.82) {
+                    bossRushEventTriggered[1] = true;
+                    addToKillFeed("VOID CROWN: the first shell cracks.");
+                    powerUps.add(new PowerUp(1900, GROUND_Y - 920, PowerUpType.NEON));
+                    powerUps.add(new PowerUp(4100, GROUND_Y - 920, PowerUpType.NEON));
+                    damageBossRushEnemies(18, Color.web("#B39DDB"), Color.web("#FFF176"));
+                }
+                if (!bossRushBossEnraged && ratio <= 0.60 && boss != null) {
+                    bossRushBossEnraged = true;
+                    addToKillFeed("VOID CROWN: the sovereign accelerates.");
+                    boss.rageTimer = Math.max(boss.rageTimer, 420);
+                    boss.powerMultiplier = Math.max(boss.powerMultiplier, boss.basePowerMultiplier * 1.30);
+                    boss.speedMultiplier = Math.max(boss.speedMultiplier, boss.baseSpeedMultiplier * 1.12);
+                    boss.specialCooldown = 0;
+                    triggerFlash(0.88, false);
+                }
+                if (!bossRushEventTriggered[2] && ratio <= 0.38) {
+                    bossRushEventTriggered[2] = true;
+                    Bird owner = firstLivingAdventureAlly();
+                    addToKillFeed("VOID CROWN: Umbra Bat and Night Raven reopen the route.");
+                    if (owner != null) {
+                        spawnUnitedFinaleAlliedCrows(owner, 8);
+                        spawnUnitedFinaleChicks(owner);
+                    }
+                    powerUps.add(new PowerUp(2200, GROUND_Y - 980, PowerUpType.HEALTH));
+                    powerUps.add(new PowerUp(3800, GROUND_Y - 980, PowerUpType.TITAN));
+                    damageBossRushEnemies(26, Color.web("#CE93D8"), Color.web("#90CAF9"));
+                }
+                if (!bossRushEventTriggered[3] && ratio <= 0.16) {
+                    bossRushEventTriggered[3] = true;
+                    Bird owner = firstLivingAdventureAlly();
+                    addToKillFeed("VOID CROWN: the perfect route reaches its true finish.");
+                    empowerUnitedFinaleAllies(124, 360, 260);
+                    if (owner != null) {
+                        spawnUnitedFinaleAlliedCrows(owner, 12);
+                        spawnUnitedFinaleChicks(owner);
+                    }
+                    powerUps.add(new PowerUp(1600, GROUND_Y - 920, PowerUpType.HEALTH));
+                    powerUps.add(new PowerUp(2400, GROUND_Y - 1040, PowerUpType.SPEED));
+                    powerUps.add(new PowerUp(3000, GROUND_Y - 1200, PowerUpType.RAGE));
+                    powerUps.add(new PowerUp(3600, GROUND_Y - 1040, PowerUpType.OVERCHARGE));
+                    powerUps.add(new PowerUp(4400, GROUND_Y - 920, PowerUpType.TITAN));
+                    shakeIntensity = Math.max(shakeIntensity, 56);
+                    hitstopFrames = Math.max(hitstopFrames, 16);
+                    damageBossRushEnemies(34, Color.web("#FFF59D"), Color.web("#B39DDB"));
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
     private boolean didPlayerWinClassic(Bird winner) {
         if (winner == null || players[0] == null) return false;
         return getEffectiveTeam(winner.playerIndex) == getEffectiveTeam(0);
@@ -16451,6 +17359,10 @@ public class BirdGame3 extends Application {
         }
         if (dailyChallengeModeActive) {
             handleDailyChallengeMatchEnd(stage, winner);
+            return;
+        }
+        if (bossRushModeActive) {
+            handleBossRushMatchEnd(stage, winner);
             return;
         }
 
@@ -16575,6 +17487,79 @@ public class BirdGame3 extends Application {
                 "Encounter Cleared",
                 "Skycaster",
                 "Advance to Daily Round " + (classicRoundIndex + 1) + ": " + classicEncounter.name + ".",
+                () -> showClassicEncounterIntro(stage)
+        );
+    }
+
+    private void handleBossRushMatchEnd(Stage stage, Bird winner) {
+        if (!classicModeActive || classicEncounter == null) {
+            showClassicBirdSelect(stage);
+            return;
+        }
+
+        boolean playerWon = didPlayerWinClassic(winner);
+        if (!playerWon) {
+            bossRushPerfectRun = false;
+            classicDeaths++;
+            if (classicDeaths < 3) {
+                int stocksLeft = Math.max(0, 3 - classicDeaths);
+                showStoryDialogue(
+                        stage,
+                        "Boss Breach",
+                        "Stormcaster Prime",
+                        "You fell in " + classicEncounter.name + ".\nRepair stocks remaining: "
+                                + stocksLeft + "/3.\nRearm and retry the boss.",
+                        () -> startClassicEncounter(stage)
+                );
+            } else {
+                long elapsedMillis = bossRushRunStartMillis > 0L
+                        ? Math.max(0L, System.currentTimeMillis() - bossRushRunStartMillis)
+                        : 0L;
+                classicDeaths = 0;
+                showStoryDialogue(
+                        stage,
+                        "Boss Rush Failed",
+                        "Stormcaster Prime",
+                        "The route collapsed in " + classicEncounter.name + ".\n"
+                                + "Bosses cleared: " + classicRoundIndex + "/" + classicRun.size() + "\n"
+                                + "Run time: " + formatElapsedMillis(elapsedMillis),
+                        () -> showClassicBirdSelect(stage)
+                );
+            }
+            return;
+        }
+
+        boolean finalRound = classicRoundIndex >= classicRun.size() - 1;
+        boolean exEncounter = isBossRushExEncounter(classicEncounter);
+        if (finalRound) {
+            if (!exEncounter && bossRushPerfectRun && !bossRushExEncounterAdded) {
+                classicRun.add(buildBossRushExEncounter());
+                bossRushExEncounterAdded = true;
+                classicRoundIndex++;
+                classicEncounter = classicRun.get(classicRoundIndex);
+                saveAchievements();
+                showStoryDialogue(
+                        stage,
+                        "EX Route Open",
+                        "Beaconcaster Prime",
+                        "Perfect route confirmed.\nThe crown tears open again.\n"
+                                + BOSS_RUSH_EX_NAME + " is now active.",
+                        () -> showClassicEncounterIntro(stage)
+                );
+                return;
+            }
+            completeBossRushRun(stage, exEncounter);
+            return;
+        }
+
+        classicRoundIndex++;
+        classicEncounter = classicRun.get(classicRoundIndex);
+        saveAchievements();
+        showStoryDialogue(
+                stage,
+                "Boss Broken",
+                "Stormcaster Prime",
+                "Advance to Boss " + (classicRoundIndex + 1) + ": " + classicEncounter.name + ".",
                 () -> showClassicEncounterIntro(stage)
         );
     }
@@ -17741,6 +18726,9 @@ public class BirdGame3 extends Application {
     }
 
     private void applyMatchModeRuntimeEffects(long now) {
+        if (bossRushModeActive && classicModeActive) {
+            applyBossRushRuntimeEffects(now);
+        }
         if (adventureModeActive) {
             applyAdventureBattleRuntimeEffects(now);
         }
@@ -18049,6 +19037,12 @@ public class BirdGame3 extends Application {
     }
 
     private int getClassicCpuLevel() {
+        if (classicEncounter != null && classicEncounter.cpuLevel > 0) {
+            int lockedLevel = classicEncounter.cpuLevel;
+            if (lockedLevel < 1) lockedLevel = 1;
+            if (lockedLevel > 9) lockedLevel = 9;
+            return lockedLevel;
+        }
         int total = classicRun == null ? 0 : classicRun.size();
         if (total <= 1) return 5;
         int maxIndex = Math.max(1, total - 1);
@@ -18293,7 +19287,7 @@ public class BirdGame3 extends Application {
 
 // Common elements for both maps
         if (selectedMap == MapType.BATTLEFIELD) {
-            if (isUnitedFinaleClimaxBattle(adventureBattle)) {
+            if (isBeaconCrownBattlefieldContext()) {
                 setupBeaconCrownBattlefield();
             } else {
                 double islandW = 1200;
@@ -18558,7 +19552,7 @@ public class BirdGame3 extends Application {
         GraphicsContext g = canvas.getGraphicsContext2D();
         StackPane root = new StackPane(canvas);
         gameRoot = root;
-        root.setStyle((selectedMap == MapType.FOREST || (selectedMap == MapType.BATTLEFIELD && !isUnitedFinaleClimaxBattle(adventureBattle)))
+        root.setStyle((selectedMap == MapType.FOREST || (selectedMap == MapType.BATTLEFIELD && !isBeaconCrownBattlefieldContext()))
                 ? "-fx-background-color: linear-gradient(to bottom, #87CEEB 0%, #B3E5FC 50%, #E0F2F1 100%);"
                 : "-fx-background-color: #000011;");
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -18932,6 +19926,7 @@ public class BirdGame3 extends Application {
     private String currentMatchHistoryMode() {
         if (lanModeActive) return "LAN";
         if (dailyChallengeModeActive) return "DAILY CHALLENGE";
+        if (bossRushModeActive && classicModeActive) return "BOSS RUSH";
         if (classicModeActive) return "CLASSIC";
         if (storyModeActive) return "STORY";
         if (adventureModeActive) return "ADVENTURE";
@@ -18950,7 +19945,7 @@ public class BirdGame3 extends Application {
             if (dailyChallengeModeActive && dailyChallengeRunKey != null && !dailyChallengeRunKey.isBlank()) {
                 details.add("Daily " + dailyChallengeRunKey);
             }
-            details.add("Round " + (classicRoundIndex + 1) + ": " + classicEncounter.name);
+            details.add((bossRushModeActive ? "Boss " : "Round ") + (classicRoundIndex + 1) + ": " + classicEncounter.name);
         } else if (storyModeActive) {
             StoryChapter[] chapters = activeStoryChapters();
             if (chapters != null && storyChapterIndex >= 0 && storyChapterIndex < chapters.length) {
@@ -19371,6 +20366,8 @@ public class BirdGame3 extends Application {
                 ? classicRun.get(classicRoundIndex + 1)
                 : null;
         boolean daily = dailyChallengeModeActive;
+        boolean bossRush = bossRushModeActive && !daily;
+        boolean exUnlockNext = bossRush && won && finalRound && bossRushPerfectRun && !bossRushExEncounterAdded && !isBossRushExEncounter(current);
 
         VBox box = new VBox(8);
         box.setAlignment(Pos.CENTER_LEFT);
@@ -19380,7 +20377,7 @@ public class BirdGame3 extends Application {
 
         String headerText = daily
                 ? "DAILY CHALLENGE: " + dailyChallengeRunKey + "  |  SEED " + formatDailyChallengeSeed(dailyChallengeSeed)
-                : "CLASSIC RUN: " + classicRunCodename;
+                : (bossRush ? "BOSS RUSH: " + classicRunCodename : "CLASSIC RUN: " + classicRunCodename);
         Label header = new Label(headerText);
         header.setFont(Font.font("Arial Black", 34));
         header.setTextFill(Color.web("#FFE082"));
@@ -19394,6 +20391,10 @@ public class BirdGame3 extends Application {
         String progressText = daily
                 ? "Round " + (classicRoundIndex + 1) + "/" + classicRun.size()
                 + "  |  Lives " + livesLeft + "/3  |  " + dailyChallengeBonusStatus(dailyChallengeRunKey)
+                : bossRush
+                ? "Boss " + (classicRoundIndex + 1) + "/" + classicRun.size()
+                + "  |  Repair Stocks " + livesLeft + "/3  |  Perfect Route "
+                + (bossRushPerfectRun ? "LIVE" : "BROKEN")
                 : "Round " + (classicRoundIndex + 1) + "/" + classicRun.size()
                 + "  |  Lives " + livesLeft + "/3  |  Continues " + classicContinues;
         Label progress = new Label(progressText);
@@ -19403,7 +20404,7 @@ public class BirdGame3 extends Application {
         progress.setMaxWidth(1450);
         applyNoEllipsis(progress);
 
-        Label currentLine = new Label("Current: " + current.name + "  |  " + mapDisplayName(current.map)
+        Label currentLine = new Label("Current: " + current.name + "  |  " + encounterMapDisplayName(current)
                 + "  |  " + current.mutator.label + "  |  " + current.twist.label);
         currentLine.setFont(Font.font("Consolas", 22));
         currentLine.setTextFill(Color.web("#E3F2FD"));
@@ -19414,7 +20415,7 @@ public class BirdGame3 extends Application {
         box.getChildren().addAll(header, status, progress, currentLine);
 
         if (next != null) {
-            Label nextLine = new Label("Next: " + next.name + "  |  " + mapDisplayName(next.map)
+            Label nextLine = new Label("Next: " + next.name + "  |  " + encounterMapDisplayName(next)
                     + "  |  " + next.mutator.label + "  |  " + next.twist.label);
             nextLine.setFont(Font.font("Consolas", 21));
             nextLine.setTextFill(Color.web("#C5E1A5"));
@@ -19423,13 +20424,20 @@ public class BirdGame3 extends Application {
             applyNoEllipsis(nextLine);
             box.getChildren().add(nextLine);
         } else if (won && finalRound) {
-            Label nextLine = new Label(daily ? "Next: RETURN TO DAILY BOARD" : "Next: CLAIM REWARD");
+            String nextText = daily
+                    ? "Next: RETURN TO DAILY BOARD"
+                    : (bossRush
+                    ? (exUnlockNext ? "Next: UNLOCK EX ROUND" : "Next: CLAIM RANK")
+                    : "Next: CLAIM REWARD");
+            Label nextLine = new Label(nextText);
             nextLine.setFont(Font.font("Consolas", 21));
             nextLine.setTextFill(Color.web("#C8E6C9"));
             applyNoEllipsis(nextLine);
             box.getChildren().add(nextLine);
         } else if (!won) {
-            String nextText = livesLeft > 0 ? "Next: RETRY ENCOUNTER" : (daily ? "Next: DAILY RUN FAILED" : "Next: RUN FAILED");
+            String nextText = livesLeft > 0
+                    ? (bossRush ? "Next: RETRY BOSS" : "Next: RETRY ENCOUNTER")
+                    : (daily ? "Next: DAILY RUN FAILED" : (bossRush ? "Next: BOSS RUSH FAILED" : "Next: RUN FAILED"));
             Label nextLine = new Label(nextText);
             nextLine.setFont(Font.font("Consolas", 21));
             nextLine.setTextFill(Color.web("#FFCCBC"));
@@ -19478,6 +20486,32 @@ public class BirdGame3 extends Application {
                 showMenu(stage);
             });
             buttons.getChildren().addAll(continueDaily, restartDaily, menu);
+        } else if (bossRushModeActive && classicModeActive) {
+            boolean wonRound = didPlayerWinClassic(winner);
+            boolean finalRound = classicRoundIndex >= classicRun.size() - 1;
+            boolean exUnlockNext = wonRound && finalRound && bossRushPerfectRun && !bossRushExEncounterAdded && !isBossRushExEncounter(classicEncounter);
+            String advanceText = wonRound
+                    ? (finalRound ? (exUnlockNext ? "UNLOCK EX ROUND" : "CLAIM RANK") : "NEXT BOSS")
+                    : "RETRY BOSS";
+
+            Button continueRush = button(advanceText, "#1565C0");
+            continueRush.setOnAction(e -> {
+                resetMatchStats();
+                handleBossRushMatchEnd(stage, winner);
+            });
+
+            Button restartRush = button("RESTART BOSS RUSH", "#00897B");
+            restartRush.setOnAction(e -> {
+                resetMatchStats();
+                showClassicRunBriefing(stage, classicSelectedBird);
+            });
+
+            Button menu = button("BACK TO MODES", "#D32F2F");
+            menu.setOnAction(e -> {
+                resetMatchStats();
+                showClassicMoreMenu(stage);
+            });
+            buttons.getChildren().addAll(continueRush, restartRush, menu);
         } else if (classicModeActive) {
             boolean wonRound = didPlayerWinClassic(winner);
             boolean finalRound = classicRoundIndex >= classicRun.size() - 1;
@@ -19857,6 +20891,7 @@ public class BirdGame3 extends Application {
         Arrays.fill(jungleWins, 0);
         Arrays.fill(unitedFinaleEventTriggered, false);
         unitedFinaleBossEnraged = false;
+        resetBossRushEncounterState();
     }
 
     private void resetSuddenDeathState() {
@@ -19913,6 +20948,10 @@ public class BirdGame3 extends Application {
         dailyChallengeBestBird = parseBirdTypePreference(prefs.get(PREF_DAILY_CHALLENGE_BEST_BIRD, ""));
         dailyChallengeBonusClaimedKey = prefs.get(PREF_DAILY_CHALLENGE_BONUS_KEY, "");
         dailyChallengeBonusBird = parseBirdTypePreference(prefs.get(PREF_DAILY_CHALLENGE_BONUS_BIRD, ""));
+        bossRushBestClearMillis = prefs.getLong(PREF_BOSS_RUSH_BEST_TIME, Long.MAX_VALUE);
+        bossRushBestBird = parseBirdTypePreference(prefs.get(PREF_BOSS_RUSH_BEST_BIRD, ""));
+        bossRushBestRank = prefs.get(PREF_BOSS_RUSH_BEST_RANK, "");
+        bossRushClearCount = Math.max(0, prefs.getInt(PREF_BOSS_RUSH_CLEAR_COUNT, 0));
         musicEnabled = prefs.getBoolean("setting_music", true);
         sfxEnabled = prefs.getBoolean("setting_sfx", true);
         screenShakeEnabled = prefs.getBoolean("setting_shake", true);
@@ -20025,6 +21064,10 @@ public class BirdGame3 extends Application {
         prefs.put(PREF_DAILY_CHALLENGE_BEST_BIRD, dailyChallengeBestBird == null ? "" : dailyChallengeBestBird.name());
         prefs.put(PREF_DAILY_CHALLENGE_BONUS_KEY, dailyChallengeBonusClaimedKey == null ? "" : dailyChallengeBonusClaimedKey);
         prefs.put(PREF_DAILY_CHALLENGE_BONUS_BIRD, dailyChallengeBonusBird == null ? "" : dailyChallengeBonusBird.name());
+        prefs.putLong(PREF_BOSS_RUSH_BEST_TIME, bossRushBestClearMillis <= 0L ? Long.MAX_VALUE : bossRushBestClearMillis);
+        prefs.put(PREF_BOSS_RUSH_BEST_BIRD, bossRushBestBird == null ? "" : bossRushBestBird.name());
+        prefs.put(PREF_BOSS_RUSH_BEST_RANK, bossRushBestRank == null ? "" : bossRushBestRank);
+        prefs.putInt(PREF_BOSS_RUSH_CLEAR_COUNT, Math.max(0, bossRushClearCount));
         prefs.putBoolean("setting_music", musicEnabled);
         prefs.putBoolean("setting_sfx", sfxEnabled);
         prefs.putBoolean("setting_shake", screenShakeEnabled);
