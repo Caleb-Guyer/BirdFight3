@@ -20,6 +20,8 @@ class LanClient {
     private Thread readThread;
     private Thread writeThread;
     private volatile boolean running;
+    private volatile boolean closed;
+    private volatile boolean notifyOnDisconnect = true;
     private volatile int playerIndex = -1;
     private String lastError = "";
 
@@ -37,11 +39,24 @@ class LanClient {
 
     boolean connect(String host, int port) {
         if (running) return true;
+        if (closed) {
+            lastError = "Connection cancelled.";
+            return false;
+        }
         try {
-            socket = new Socket(host, port);
-            socket.setTcpNoDelay(true);
-            in = new DataInputStream(socket.getInputStream());
-            out = new DataOutputStream(socket.getOutputStream());
+            Socket newSocket = new Socket(host, port);
+            newSocket.setTcpNoDelay(true);
+            DataInputStream newIn = new DataInputStream(newSocket.getInputStream());
+            DataOutputStream newOut = new DataOutputStream(newSocket.getOutputStream());
+            if (closed) {
+                newSocket.close();
+                lastError = "Connection cancelled.";
+                return false;
+            }
+            socket = newSocket;
+            in = newIn;
+            out = newOut;
+            notifyOnDisconnect = true;
             running = true;
             readThread = new Thread(this::readLoop, "LanClient-Read");
             writeThread = new Thread(this::writeLoop, "LanClient-Write");
@@ -59,6 +74,12 @@ class LanClient {
     }
 
     void disconnect() {
+        closed = true;
+        notifyOnDisconnect = false;
+        disconnectInternal();
+    }
+
+    private void disconnectInternal() {
         running = false;
         if (readThread != null) readThread.interrupt();
         if (writeThread != null) writeThread.interrupt();
@@ -193,8 +214,11 @@ class LanClient {
             }
         } catch (IOException ignored) {
         } finally {
-            disconnect();
-            game.onLanDisconnected("Connection lost.");
+            boolean notify = notifyOnDisconnect;
+            disconnectInternal();
+            if (notify) {
+                game.onLanDisconnected("Connection lost.");
+            }
         }
     }
 
@@ -208,7 +232,7 @@ class LanClient {
             Thread.currentThread().interrupt();
         } catch (IOException ignored) {
         } finally {
-            disconnect();
+            disconnectInternal();
         }
     }
 

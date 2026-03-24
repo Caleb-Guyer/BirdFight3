@@ -26,29 +26,39 @@ final class BirdCoinLedger {
     }
 
     void load(Preferences prefs) {
-        balance = Math.max(0, prefs.getInt(balanceKey, 0));
+        int storedBalance = Math.max(0, prefs.getInt(balanceKey, 0));
 
         String earnedValue = prefs.get(earnedKey, null);
         String spentValue = prefs.get(spentKey, null);
         if (earnedValue == null || spentValue == null) {
-            earned = Math.max(0, balance);
-            spent = 0;
-            synchronize();
+            restoreFromBalance(storedBalance);
+            save(prefs);
             return;
         }
 
-        earned = Math.max(0, prefs.getInt(earnedKey, 0));
-        spent = Math.max(0, prefs.getInt(spentKey, 0));
-        synchronize();
+        int storedEarned = Math.max(0, prefs.getInt(earnedKey, 0));
+        int storedSpent = Math.max(0, prefs.getInt(spentKey, 0));
 
         long savedChecksum = prefs.getLong(checksumKey, Long.MIN_VALUE);
-        long expectedChecksum = computeChecksum(balance, earned, spent);
-        int storedBalance = Math.max(0, prefs.getInt(balanceKey, 0));
-        if (savedChecksum != expectedChecksum || storedBalance != balance) {
-            if (storedBalance > balance) {
-                System.err.println("Bird coin ledger mismatch detected; restoring balance from "
-                        + storedBalance + " to " + balance + '.');
-            }
+        if (savedChecksum == Long.MIN_VALUE) {
+            migrateLegacyLedger(prefs, storedBalance, storedEarned, storedSpent);
+            return;
+        }
+
+        long expectedChecksum = computeChecksum(storedBalance, storedEarned, storedSpent);
+        if (savedChecksum != expectedChecksum) {
+            System.err.println("Bird coin ledger checksum mismatch detected; resetting ledger.");
+            resetAndSave(prefs);
+            return;
+        }
+
+        balance = storedBalance;
+        earned = storedEarned;
+        spent = storedSpent;
+        synchronize();
+        if (balance != storedBalance) {
+            System.err.println("Bird coin ledger balance mismatch detected; rebuilding cached balance.");
+            save(prefs);
         }
     }
 
@@ -104,6 +114,30 @@ final class BirdCoinLedger {
         checksum = Long.rotateLeft(checksum ^ (checksumEarned * 0x85EBCA6BL), 17);
         checksum = Long.rotateLeft(checksum ^ (checksumSpent * 0xC2B2AE35L), 7);
         return checksum ^ 0xA5A5A5A5A5A5A5A5L;
+    }
+
+    private void migrateLegacyLedger(Preferences prefs, int storedBalance, int storedEarned, int storedSpent) {
+        balance = storedBalance;
+        earned = storedEarned;
+        spent = storedSpent;
+        synchronize();
+        if (balance != storedBalance) {
+            restoreFromBalance(storedBalance);
+        }
+        save(prefs);
+    }
+
+    private void restoreFromBalance(int storedBalance) {
+        earned = Math.max(0, storedBalance);
+        spent = 0;
+        synchronize();
+    }
+
+    private void resetAndSave(Preferences prefs) {
+        balance = 0;
+        earned = 0;
+        spent = 0;
+        save(prefs);
     }
 
     private void synchronize() {

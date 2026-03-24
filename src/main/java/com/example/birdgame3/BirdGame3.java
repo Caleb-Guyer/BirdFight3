@@ -9577,15 +9577,18 @@ public class BirdGame3 extends Application {
         lanSelectedMap = null;
         lanSelectedMapRandom = false;
         lanVoteSignature = 0;
-        lanClient = new LanClient(this);
+        LanClient client = new LanClient(this);
+        lanClient = client;
         showLanLobby(stage);
 
         Thread connectThread = new Thread(() -> {
-            boolean ok = lanClient.connect(host, LanProtocol.DEFAULT_PORT);
+            boolean ok = client.connect(host, LanProtocol.DEFAULT_PORT);
             if (!ok) {
+                String error = client.getLastError();
                 javafx.application.Platform.runLater(() -> {
+                    if (lanClient != client) return;
                     stopLanSession();
-                    showLanJoin(stage, "Failed to connect: " + lanClient.getLastError());
+                    showLanJoin(stage, "Failed to connect: " + error);
                 });
             }
         }, "LanClient-Connect");
@@ -20919,7 +20922,7 @@ public class BirdGame3 extends Application {
         classicContinues = Math.max(0, prefs.getInt("classic_continues", 0));
         caveMapUnlocked = prefs.getBoolean("map_cave_unlocked", false);
         battlefieldMapUnlocked = prefs.getBoolean("map_battlefield_unlocked", false);
-        cityPigeonUnlocked = true;
+        cityPigeonUnlocked = prefs.getBoolean("skin_citypigeon", true);
         noirPigeonUnlocked = prefs.getBoolean("skin_noirpigeon", false);
         freemanPigeonUnlocked = prefs.getBoolean("skin_freeman_pigeon", false);
         beaconPigeonUnlocked = prefs.getBoolean("skin_beacon_pigeon", false);

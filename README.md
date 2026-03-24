@@ -1,13 +1,42 @@
-Bird Fight 3 is a chaotic JavaFX multiplayer platformer with epic bird battles, power-ups, AI opponents, and custom maps, like forests, cities, and cliffs. Built for fun fights and unlocks—flap to victory!
+# Bird Fight 3
 
-Update: Royal Specials are here. Ultimates now upgrade each bird's special with unique, regal flair. Rule the skies with crowned crows, a royal lounge, and signature ultimate visuals.
+Bird Fight 3 is a JavaFX platform fighter with local play, AI opponents, LAN matches, unlockables, and multiple single-player modes.
 
-Official Bird Fight 3 Wiki: https://bird-fight-3.fandom.com/wiki/Bird_Fight_3_Wiki
+## Requirements
 
-Download The Following If You Are Using a Wiimote:
+- JDK 21 or newer
+- `JAVA_HOME` pointing to that JDK
+- PowerShell or another shell that can run the Maven wrapper
 
-WiimoteHook Download: https://epigramx.github.io/WiimoteHook/
+This project targets Java 21 in `pom.xml`. If `.\mvnw` fails with `JAVA_HOME not found` or launches under Java 8, point it at a JDK 21+ install first.
 
-JoyToKey English download: https://joytokey.net/en/download
+PowerShell example:
 
-Bird Fight 3 JoyToKey Table Files: https://drive.google.com/drive/u/0/folders/1c-JLjfshHN9w6SN-8aThY_4pzLLG5hfL
+```powershell
+$env:JAVA_HOME = "C:\Path\To\jdk-21"
+$env:Path = "$env:JAVA_HOME\bin;$env:Path"
+```
+
+If IntelliJ installed a JDK for you, a usable path may be under `C:\Users\<you>\.jdks\`.
+
+## Run
+
+```powershell
+.\mvnw javafx:run
+```
+
+## Test
+
+```powershell
+.\mvnw test
+```
+
+## Links
+
+- Official Bird Fight 3 Wiki: https://bird-fight-3.fandom.com/wiki/Bird_Fight_3_Wiki
+
+## Wiimote Support
+
+- WiimoteHook: https://epigramx.github.io/WiimoteHook/
+- JoyToKey: https://joytokey.net/en/download
+- Bird Fight 3 JoyToKey table files: https://drive.google.com/drive/u/0/folders/1c-JLjfshHN9w6SN-8aThY_4pzLLG5hfL
