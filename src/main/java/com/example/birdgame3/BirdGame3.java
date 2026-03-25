@@ -149,8 +149,12 @@ public class BirdGame3 extends Application {
             PREF_BIRD_COINS_SPENT,
             PREF_BIRD_COINS_CHECKSUM
     );
+    private final ContractsBoard contractsBoard = new ContractsBoard();
 
     final Set<KeyCode> pressedKeys = new HashSet<>();
+    private final boolean[][] localActionPressed = new boolean[4][ControlAction.values().length];
+    private final boolean[][] aiActionPressed = new boolean[4][ControlAction.values().length];
+    private final boolean[][] lanActionPressed = new boolean[4][ControlAction.values().length];
     public Bird[] players = new Bird[4];
     public boolean[] isAI = new boolean[4];
     private final int[] cpuLevels = new int[]{5, 5, 5, 5};
@@ -362,6 +366,12 @@ public class BirdGame3 extends Application {
 
         boolean isEmpty() {
             return gains.isEmpty();
+        }
+    }
+
+    private record ContractResolution(ContractsBoard.UpdateResult update, MasterySummary masteryBonusSummary) {
+        boolean hasContractUpdates() {
+            return update != null && update.hasChanges();
         }
     }
 
@@ -5546,8 +5556,8 @@ public class BirdGame3 extends Application {
                         b.x = vine.platformX + vine.platformW / 2 - 40 * b.sizeMultiplier;
                         b.y = vine.platformY - 80 * b.sizeMultiplier;
                         if (!isAI[b.playerIndex]) {
-                            if (pressedKeys.contains(b.leftKey())) vine.angularVelocity -= 0.004;
-                            if (pressedKeys.contains(b.rightKey())) vine.angularVelocity += 0.004;
+                            if (isLeftPressed(b.playerIndex)) vine.angularVelocity -= 0.004;
+                            if (isRightPressed(b.playerIndex)) vine.angularVelocity += 0.004;
                         }
                         if (isAI[b.playerIndex]) {
                             Bird target = null;
@@ -5566,7 +5576,7 @@ public class BirdGame3 extends Application {
                                 if (target.x > b.x) vine.angularVelocity += 0.006;
                             }
                         }
-                        if (pressedKeys.contains(b.jumpKey())) {
+                        if (isJumpPressed(b.playerIndex)) {
                             b.onVine = false;
                             b.attachedVine = null;
                             b.vy = -b.type.jumpHeight * 0.9;
@@ -7432,6 +7442,7 @@ public class BirdGame3 extends Application {
     }
 
     private void showHub(Stage stage) {
+        refreshContractsIfNeeded();
         playMenuMusic();
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(28, 40, 28, 40));
@@ -7559,7 +7570,9 @@ public class BirdGame3 extends Application {
         footer.setAlignment(Pos.CENTER);
 
         root.setTop(top);
-        root.setCenter(nav);
+        VBox center = new VBox(24, nav, buildContractHubPanel());
+        center.setAlignment(Pos.CENTER);
+        root.setCenter(center);
         root.setBottom(footer);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -7574,6 +7587,54 @@ public class BirdGame3 extends Application {
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
         fightBtn.requestFocus();
+    }
+
+    private VBox buildContractHubPanel() {
+        List<ContractsBoard.ContractView> contracts = contractsBoard.activeContracts();
+        if (contracts.isEmpty()) return new VBox();
+
+        VBox box = new VBox(10);
+        box.setAlignment(Pos.CENTER_LEFT);
+        box.setPadding(new Insets(18, 24, 18, 24));
+        box.setMaxWidth(1620);
+        box.setStyle("-fx-background-color: rgba(0,0,0,0.38); -fx-background-radius: 24; "
+                + "-fx-border-color: #80CBC4; -fx-border-width: 2; -fx-border-radius: 24;");
+
+        Label header = new Label("CONTRACT BOARD");
+        header.setFont(Font.font("Arial Black", 30));
+        header.setTextFill(Color.web("#B2DFDB"));
+        applyNoEllipsis(header);
+
+        Label subtitle = new Label("3 daily contracts and 1 weekly contract. Rewards claim automatically on the results screen.");
+        subtitle.setFont(Font.font("Consolas", 18));
+        subtitle.setTextFill(Color.web("#CFD8DC"));
+        subtitle.setWrapText(true);
+        subtitle.setMaxWidth(1550);
+        applyNoEllipsis(subtitle);
+
+        box.getChildren().addAll(header, subtitle);
+        for (ContractsBoard.ContractView contract : contracts) {
+            Label title = new Label(contract.cadenceLabel() + "  |  " + contract.title());
+            title.setFont(Font.font("Arial Black", 20));
+            title.setTextFill(contract.completed() ? Color.web("#FFF59D") : Color.WHITE);
+            applyNoEllipsis(title);
+
+            String statusText = contract.completed()
+                    ? "COMPLETE"
+                    : "PROGRESS " + contract.progressText();
+            Label detail = new Label(contract.description() + "  |  " + statusText + "  |  REWARD " + contract.rewardText());
+            detail.setFont(Font.font("Consolas", 17));
+            detail.setTextFill(contract.completed() ? Color.web("#A5D6A7") : Color.web("#B0BEC5"));
+            detail.setWrapText(true);
+            detail.setMaxWidth(1550);
+            applyNoEllipsis(detail);
+
+            VBox row = new VBox(3, title, detail);
+            row.setAlignment(Pos.CENTER_LEFT);
+            box.getChildren().add(row);
+        }
+
+        return box;
     }
 
     private void showFightSetup(Stage stage) {
@@ -10410,7 +10471,11 @@ public class BirdGame3 extends Application {
 
         int coinsEarned = awardBirdCoinsForMatch(winner);
         recordMatchHistory(winner, coinsEarned);
-        MasterySummary masterySummary = awardBirdMasteryForMatch(winner);
+        ContractResolution contractResolution = resolveContractsForMatch(winner);
+        MasterySummary masterySummary = mergeMasterySummaries(
+                awardBirdMasteryForMatch(winner),
+                contractResolution.masteryBonusSummary()
+        );
         Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoinLedger.balance());
         coinsLabel.setFont(Font.font("Consolas", 28));
         coinsLabel.setTextFill(Color.web("#FFD54F"));
@@ -10483,11 +10548,15 @@ public class BirdGame3 extends Application {
         }
 
         VBox masteryPanel = buildMasterySummaryPanel(masterySummary);
-        if (masteryPanel != null) {
-            root.getChildren().addAll(title, subtitle, coinsLabel, mapLabel, masteryPanel, scoreboard, actions);
-        } else {
-            root.getChildren().addAll(title, subtitle, coinsLabel, mapLabel, scoreboard, actions);
+        VBox contractPanel = buildContractSummaryPanel(contractResolution.update());
+        root.getChildren().addAll(title, subtitle, coinsLabel, mapLabel);
+        if (contractPanel != null) {
+            root.getChildren().add(contractPanel);
         }
+        if (masteryPanel != null) {
+            root.getChildren().add(masteryPanel);
+        }
+        root.getChildren().addAll(scoreboard, actions);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         if (backLobby != null) {
@@ -10651,7 +10720,7 @@ public class BirdGame3 extends Application {
 
     private void returnToLanLobby(Stage stage) {
         if (stage == null) return;
-        pressedKeys.clear();
+        clearGameplayInputs();
         lanMatchActive = false;
         pendingLanState = null;
         lanResultsActionPending = false;
@@ -10922,23 +10991,14 @@ public class BirdGame3 extends Application {
     }
 
     private void updatePressedKeysForPlayer(int idx, int mask) {
-        setPressedKey(leftKeyForPlayer(idx), (mask & LanProtocol.INPUT_LEFT) != 0);
-        setPressedKey(rightKeyForPlayer(idx), (mask & LanProtocol.INPUT_RIGHT) != 0);
-        setPressedKey(jumpKeyForPlayer(idx), (mask & LanProtocol.INPUT_JUMP) != 0);
-        setPressedKey(attackKeyForPlayer(idx), (mask & LanProtocol.INPUT_ATTACK) != 0);
-        setPressedKey(specialKeyForPlayer(idx), (mask & LanProtocol.INPUT_SPECIAL) != 0);
-        setPressedKey(blockKeyForPlayer(idx), (mask & LanProtocol.INPUT_BLOCK) != 0);
-        setPressedKey(tauntCycleKeyForPlayer(idx), (mask & LanProtocol.INPUT_TAUNT_CYCLE) != 0);
-        setPressedKey(tauntExecuteKeyForPlayer(idx), (mask & LanProtocol.INPUT_TAUNT_EXEC) != 0);
-    }
-
-    private void setPressedKey(KeyCode key, boolean down) {
-        if (key == null) return;
-        if (down) {
-            pressedKeys.add(key);
-        } else {
-            pressedKeys.remove(key);
-        }
+        setLanActionState(idx, ControlAction.LEFT, (mask & LanProtocol.INPUT_LEFT) != 0);
+        setLanActionState(idx, ControlAction.RIGHT, (mask & LanProtocol.INPUT_RIGHT) != 0);
+        setLanActionState(idx, ControlAction.JUMP, (mask & LanProtocol.INPUT_JUMP) != 0);
+        setLanActionState(idx, ControlAction.ATTACK, (mask & LanProtocol.INPUT_ATTACK) != 0);
+        setLanActionState(idx, ControlAction.SPECIAL, (mask & LanProtocol.INPUT_SPECIAL) != 0);
+        setLanActionState(idx, ControlAction.BLOCK, (mask & LanProtocol.INPUT_BLOCK) != 0);
+        setLanActionState(idx, ControlAction.TAUNT_CYCLE, (mask & LanProtocol.INPUT_TAUNT_CYCLE) != 0);
+        setLanActionState(idx, ControlAction.TAUNT_EXECUTE, (mask & LanProtocol.INPUT_TAUNT_EXEC) != 0);
     }
 
     private void handleLanKeyPress(Stage stage, KeyEvent e) {
@@ -14781,6 +14841,10 @@ public class BirdGame3 extends Application {
 
     private LocalDate currentDailyChallengeDate() {
         return LocalDate.now(ZoneId.systemDefault());
+    }
+
+    private LocalDate currentContractDate() {
+        return currentDailyChallengeDate();
     }
 
     private String dailyChallengeKeyFor(LocalDate date) {
@@ -18853,9 +18917,8 @@ public class BirdGame3 extends Application {
             }
         }
         boolean alreadyDown = pressedKeys.contains(code);
-        if (!isBlockedInputForAI(code)) {
-            pressedKeys.add(code);
-        }
+        pressedKeys.add(code);
+        setLocalActionsForKey(code, true);
         if (code != null && !alreadyDown) {
             registerDashTapForKey(code);
         }
@@ -18873,17 +18936,8 @@ public class BirdGame3 extends Application {
         if (lanModeActive && lanIsHost && !isGameplayKeyForPlayer(0, code)) {
             return;
         }
-        if (!isBlockedInputForAI(code)) {
-            pressedKeys.remove(code);
-        }
-    }
-
-    private boolean isBlockedInputForAI(KeyCode code) {
-        for (int i = 0; i < players.length; i++) {
-            if (players[i] == null || !isAI[i]) continue;
-            if (isControlKeyForPlayer(code, i)) return true;
-        }
-        return false;
+        pressedKeys.remove(code);
+        setLocalActionsForKey(code, false);
     }
 
     private void registerDashTapForKey(KeyCode code) {
@@ -18930,6 +18984,101 @@ public class BirdGame3 extends Application {
 
     KeyCode tauntExecuteKeyForPlayer(int playerIdx) {
         return keyForPlayer(playerIdx, ControlAction.TAUNT_EXECUTE);
+    }
+
+    boolean isLeftPressed(int playerIdx) {
+        return isActionPressed(playerIdx, ControlAction.LEFT);
+    }
+
+    boolean isRightPressed(int playerIdx) {
+        return isActionPressed(playerIdx, ControlAction.RIGHT);
+    }
+
+    boolean isJumpPressed(int playerIdx) {
+        return isActionPressed(playerIdx, ControlAction.JUMP);
+    }
+
+    boolean isAttackPressed(int playerIdx) {
+        return isActionPressed(playerIdx, ControlAction.ATTACK);
+    }
+
+    boolean isSpecialPressed(int playerIdx) {
+        return isActionPressed(playerIdx, ControlAction.SPECIAL);
+    }
+
+    boolean isBlockPressed(int playerIdx) {
+        return isActionPressed(playerIdx, ControlAction.BLOCK);
+    }
+
+    boolean isTauntCyclePressed(int playerIdx) {
+        return isActionPressed(playerIdx, ControlAction.TAUNT_CYCLE);
+    }
+
+    boolean isTauntExecutePressed(int playerIdx) {
+        return isActionPressed(playerIdx, ControlAction.TAUNT_EXECUTE);
+    }
+
+    void setAiControlKey(int playerIdx, KeyCode key, boolean down) {
+        ControlAction action = actionForKey(playerIdx, key);
+        if (action == null) return;
+        setActionState(aiActionPressed, playerIdx, action, down);
+    }
+
+    void clearGameplayInputs() {
+        pressedKeys.clear();
+        clearActionStates(localActionPressed);
+        clearActionStates(aiActionPressed);
+        clearActionStates(lanActionPressed);
+    }
+
+    private boolean isActionPressed(int playerIdx, ControlAction action) {
+        if (!isValidPlayerIndex(playerIdx) || action == null) return false;
+        int actionIdx = action.ordinal();
+        return localActionPressed[playerIdx][actionIdx]
+                || aiActionPressed[playerIdx][actionIdx]
+                || lanActionPressed[playerIdx][actionIdx];
+    }
+
+    private void clearActionStates(boolean[][] states) {
+        for (boolean[] playerStates : states) {
+            Arrays.fill(playerStates, false);
+        }
+    }
+
+    void setLocalActionsForKey(KeyCode code, boolean down) {
+        if (code == null) return;
+        int maxPlayers = Math.min(activePlayers, localActionPressed.length);
+        for (int i = 0; i < maxPlayers; i++) {
+            if (isAI[i]) continue;
+            if (lanModeActive && lanIsHost && i != 0) continue;
+            ControlAction action = actionForKey(i, code);
+            if (action != null) {
+                setActionState(localActionPressed, i, action, down);
+            }
+        }
+    }
+
+    private void setLanActionState(int playerIdx, ControlAction action, boolean down) {
+        setActionState(lanActionPressed, playerIdx, action, down);
+    }
+
+    private void setActionState(boolean[][] states, int playerIdx, ControlAction action, boolean down) {
+        if (!isValidPlayerIndex(playerIdx) || action == null) return;
+        states[playerIdx][action.ordinal()] = down;
+    }
+
+    private boolean isValidPlayerIndex(int playerIdx) {
+        return playerIdx >= 0 && playerIdx < players.length;
+    }
+
+    private ControlAction actionForKey(int playerIdx, KeyCode code) {
+        if (!isValidPlayerIndex(playerIdx) || code == null) return null;
+        for (ControlAction action : ControlAction.values()) {
+            if (keyForPlayer(playerIdx, action) == code) {
+                return action;
+            }
+        }
+        return null;
     }
 
     private boolean isGameplayKeyForPlayer(int playerIdx, KeyCode code) {
@@ -20017,7 +20166,11 @@ public class BirdGame3 extends Application {
         int coinsEarned = awardBirdCoinsForMatch(winner);
         recordMatchHistory(winner, coinsEarned);
         recordDailyChallengeResult(winner);
-        MasterySummary masterySummary = awardBirdMasteryForMatch(winner);
+        ContractResolution contractResolution = resolveContractsForMatch(winner);
+        MasterySummary masterySummary = mergeMasterySummaries(
+                awardBirdMasteryForMatch(winner),
+                contractResolution.masteryBonusSummary()
+        );
         Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoinLedger.balance());
         coinsLabel.setFont(Font.font("Consolas", 28));
         coinsLabel.setTextFill(Color.web("#FFD54F"));
@@ -20031,6 +20184,7 @@ public class BirdGame3 extends Application {
         HBox buttons = buildSummaryButtons(stage, winner);
         applyWinnerMapProgress(winner);
         VBox masteryPanel = buildMasterySummaryPanel(masterySummary);
+        VBox contractPanel = buildContractSummaryPanel(contractResolution.update());
 
         boolean teamSummaryMode = isMatchHistoryTeamMode();
         if (teamSummaryMode) {
@@ -20121,15 +20275,17 @@ public class BirdGame3 extends Application {
 
             VBox analyticsPanel = buildPostMatchAnalyticsPanel(activeBirds);
             VBox classicPanel = buildClassicSummaryPanel(winner);
-            if (classicPanel != null && masteryPanel != null) {
-                root.getChildren().addAll(title, coinsLabel, classicPanel, masteryPanel, podium, analyticsPanel, buttons);
-            } else if (classicPanel != null) {
-                root.getChildren().addAll(title, coinsLabel, classicPanel, podium, analyticsPanel, buttons);
-            } else if (masteryPanel != null) {
-                root.getChildren().addAll(title, coinsLabel, masteryPanel, podium, analyticsPanel, buttons);
-            } else {
-                root.getChildren().addAll(title, coinsLabel, podium, analyticsPanel, buttons);
+            root.getChildren().addAll(title, coinsLabel);
+            if (contractPanel != null) {
+                root.getChildren().add(contractPanel);
             }
+            if (classicPanel != null) {
+                root.getChildren().add(classicPanel);
+            }
+            if (masteryPanel != null) {
+                root.getChildren().add(masteryPanel);
+            }
+            root.getChildren().addAll(podium, analyticsPanel, buttons);
             String bgStyle = root.getStyle();
             root.setStyle("-fx-background-color: transparent;");
             StackPane container = new StackPane(root);
@@ -20332,15 +20488,17 @@ public class BirdGame3 extends Application {
 
         VBox analyticsPanel = buildPostMatchAnalyticsPanel(activeBirds);
         VBox classicPanel = buildClassicSummaryPanel(winner);
-        if (classicPanel != null && masteryPanel != null) {
-            root.getChildren().addAll(title, coinsLabel, classicPanel, masteryPanel, podium, analyticsPanel, buttons);
-        } else if (classicPanel != null) {
-            root.getChildren().addAll(title, coinsLabel, classicPanel, podium, analyticsPanel, buttons);
-        } else if (masteryPanel != null) {
-            root.getChildren().addAll(title, coinsLabel, masteryPanel, podium, analyticsPanel, buttons);
-        } else {
-            root.getChildren().addAll(title, coinsLabel, podium, analyticsPanel, buttons);
+        root.getChildren().addAll(title, coinsLabel);
+        if (contractPanel != null) {
+            root.getChildren().add(contractPanel);
         }
+        if (classicPanel != null) {
+            root.getChildren().add(classicPanel);
+        }
+        if (masteryPanel != null) {
+            root.getChildren().add(masteryPanel);
+        }
+        root.getChildren().addAll(podium, analyticsPanel, buttons);
         String bgStyle = root.getStyle();
         root.setStyle("-fx-background-color: transparent;");
         StackPane container = new StackPane(root);
@@ -20744,6 +20902,196 @@ public class BirdGame3 extends Application {
         return box;
     }
 
+    private void refreshContractsIfNeeded() {
+        if (contractsBoard.refresh(currentContractDate())) {
+            saveAchievements();
+        }
+    }
+
+    private ContractResolution resolveContractsForMatch(Bird winner) {
+        refreshContractsIfNeeded();
+        ContractsBoard.MatchStats matchStats = buildContractMatchStats(winner);
+        if (matchStats.matchesPlayed() <= 0) {
+            return new ContractResolution(ContractsBoard.UpdateResult.empty(), new MasterySummary(Collections.emptyList()));
+        }
+
+        ContractsBoard.UpdateResult update = contractsBoard.applyMatch(matchStats);
+        if (!update.hasChanges()) {
+            return new ContractResolution(update, new MasterySummary(Collections.emptyList()));
+        }
+
+        if (update.coinsAwarded() > 0) {
+            grantBirdCoins(update.coinsAwarded());
+        }
+
+        MasterySummary masteryBonus = awardContractMasteryBonus(localContractBirdTypes(), update.masteryXpAwarded());
+        saveAchievements();
+        return new ContractResolution(update, masteryBonus);
+    }
+
+    private ContractsBoard.MatchStats buildContractMatchStats(Bird winner) {
+        if (trainingModeActive) {
+            return new ContractsBoard.MatchStats(false, selectedMap, 0, 0, 0, 0, 0, 0);
+        }
+
+        int damage = 0;
+        int elims = 0;
+        int usedSpecials = 0;
+        int landedSpecials = 0;
+        boolean hasLocalPlayers = false;
+
+        for (int i = 0; i < players.length; i++) {
+            if (!shouldAwardMasteryForPlayer(i)) continue;
+            hasLocalPlayers = true;
+            damage += Math.max(0, damageDealt[i]);
+            elims += Math.max(0, eliminations[i]);
+            usedSpecials += Math.max(0, specialsUsed[i]);
+            landedSpecials += Math.max(0, specialHits[i]);
+        }
+
+        if (!hasLocalPlayers) {
+            return new ContractsBoard.MatchStats(false, selectedMap, 0, 0, 0, 0, 0, 0);
+        }
+
+        boolean localWin = didLocalContractPlayerWin(winner);
+        return new ContractsBoard.MatchStats(
+                localWin,
+                selectedMap,
+                1,
+                localWin ? 1 : 0,
+                damage,
+                elims,
+                usedSpecials,
+                landedSpecials
+        );
+    }
+
+    private boolean didLocalContractPlayerWin(Bird winner) {
+        if (winner == null) return false;
+        int winningTeam = getEffectiveTeam(winner.playerIndex);
+        for (int i = 0; i < players.length; i++) {
+            if (!shouldAwardMasteryForPlayer(i)) continue;
+            if (getEffectiveTeam(i) == winningTeam) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private Set<BirdType> localContractBirdTypes() {
+        Set<BirdType> types = new LinkedHashSet<>();
+        for (int i = 0; i < players.length; i++) {
+            if (!shouldAwardMasteryForPlayer(i)) continue;
+            Bird bird = players[i];
+            if (bird != null && bird.type != null) {
+                types.add(bird.type);
+            }
+        }
+        return types;
+    }
+
+    private MasterySummary awardContractMasteryBonus(Set<BirdType> localTypes, int bonusXp) {
+        if (bonusXp <= 0 || localTypes == null || localTypes.isEmpty()) {
+            return new MasterySummary(Collections.emptyList());
+        }
+
+        List<MasteryGain> gains = new ArrayList<>();
+        for (BirdType type : localTypes) {
+            int idx = type.ordinal();
+            int beforeXp = birdMasteryXp[idx];
+            int beforeLevel = birdMasteryLevelForXp(beforeXp);
+            int earnedXp = Math.max(0, Math.min(maxBirdMasteryXp() - beforeXp, bonusXp));
+            int afterXp = clampBirdMasteryXp(beforeXp + earnedXp);
+            birdMasteryXp[idx] = afterXp;
+            int afterLevel = birdMasteryLevelForXp(afterXp);
+            gains.add(new MasteryGain(type, earnedXp, afterXp, beforeLevel, afterLevel));
+        }
+        return new MasterySummary(gains);
+    }
+
+    private MasterySummary mergeMasterySummaries(MasterySummary primary, MasterySummary secondary) {
+        if (primary == null || primary.isEmpty()) {
+            return secondary == null ? new MasterySummary(Collections.emptyList()) : secondary;
+        }
+        if (secondary == null || secondary.isEmpty()) {
+            return primary;
+        }
+
+        Map<BirdType, MasteryGain> merged = new LinkedHashMap<>();
+        for (MasterySummary summary : List.of(primary, secondary)) {
+            for (MasteryGain gain : summary.gains()) {
+                MasteryGain existing = merged.get(gain.type());
+                if (existing == null) {
+                    merged.put(gain.type(), gain);
+                } else {
+                    merged.put(gain.type(), new MasteryGain(
+                            gain.type(),
+                            existing.xpEarned() + gain.xpEarned(),
+                            gain.totalXp(),
+                            existing.levelBefore(),
+                            gain.levelAfter()
+                    ));
+                }
+            }
+        }
+        return new MasterySummary(new ArrayList<>(merged.values()));
+    }
+
+    private VBox buildContractSummaryPanel(ContractsBoard.UpdateResult update) {
+        if (update == null || !update.hasChanges()) return null;
+
+        Set<String> completedIds = new HashSet<>();
+        for (ContractsBoard.RewardEvent reward : update.completedContracts()) {
+            completedIds.add(reward.contract().id());
+        }
+
+        VBox box = new VBox(8);
+        box.setAlignment(Pos.CENTER_LEFT);
+        box.setPadding(new Insets(18, 26, 18, 26));
+        box.setMaxWidth(1500);
+        box.setStyle("-fx-background-color: rgba(0,0,0,0.55); -fx-background-radius: 22; "
+                + "-fx-border-color: #FFD54F; -fx-border-width: 3; -fx-border-radius: 22;");
+
+        Label header = new Label(update.completedContracts().isEmpty() ? "CONTRACTS UPDATED" : "CONTRACTS CLEARED");
+        header.setFont(Font.font("Arial Black", 34));
+        header.setTextFill(update.completedContracts().isEmpty() ? Color.web("#B3E5FC") : Color.web("#FFF59D"));
+        applyNoEllipsis(header);
+        box.getChildren().add(header);
+
+        if (!update.completedContracts().isEmpty()) {
+            Label rewards = new Label("REWARDS CLAIMED: +" + update.coinsAwarded()
+                    + " BIRD COINS  |  +" + update.masteryXpAwarded() + " BONUS MASTERY XP");
+            rewards.setFont(Font.font("Consolas", 22));
+            rewards.setTextFill(Color.web("#A5D6A7"));
+            rewards.setWrapText(true);
+            rewards.setMaxWidth(1450);
+            applyNoEllipsis(rewards);
+            box.getChildren().add(rewards);
+        }
+
+        for (ContractsBoard.ContractView contract : update.updatedContracts()) {
+            boolean cleared = completedIds.contains(contract.id());
+            Label title = new Label(contract.cadenceLabel() + "  |  " + contract.title());
+            title.setFont(Font.font("Arial Black", 24));
+            title.setTextFill(cleared ? Color.web("#FFF59D") : Color.WHITE);
+            applyNoEllipsis(title);
+
+            String statusText = cleared ? "CLEARED" : "PROGRESS " + contract.progressText();
+            Label detail = new Label(contract.description() + "  |  " + statusText + "  |  REWARD " + contract.rewardText());
+            detail.setFont(Font.font("Consolas", 19));
+            detail.setTextFill(cleared ? Color.web("#A5D6A7") : Color.web("#CFD8DC"));
+            detail.setWrapText(true);
+            detail.setMaxWidth(1450);
+            applyNoEllipsis(detail);
+
+            VBox row = new VBox(4, title, detail);
+            row.setAlignment(Pos.CENTER_LEFT);
+            box.getChildren().add(row);
+        }
+
+        return box;
+    }
+
     private boolean shouldAwardMasteryForPlayer(int playerIdx) {
         if (trainingModeActive || playerIdx < 0 || playerIdx >= players.length || players[playerIdx] == null) {
             return false;
@@ -21025,6 +21373,7 @@ public class BirdGame3 extends Application {
             typeElims[idx] = prefs.getInt("balance_elims_" + type.name(), 0);
             birdMasteryXp[idx] = clampBirdMasteryXp(prefs.getInt(PREF_BIRD_MASTERY_XP_PREFIX + type.name(), 0));
         }
+        contractsBoard.load(prefs, currentContractDate());
     }
     private void saveAchievements() {
         Preferences prefs = Preferences.userNodeForPackage(BirdGame3.class);
@@ -21114,6 +21463,7 @@ public class BirdGame3 extends Application {
             prefs.putInt("balance_elims_" + type.name(), typeElims[idx]);
             prefs.putInt(PREF_BIRD_MASTERY_XP_PREFIX + type.name(), clampBirdMasteryXp(birdMasteryXp[idx]));
         }
+        contractsBoard.save(prefs);
         try {
             prefs.flush();
         } catch (BackingStoreException e) {
@@ -21496,6 +21846,7 @@ public class BirdGame3 extends Application {
         Scene scene = stage.getScene();
         if (isPaused) {
             // === RESUME ===
+            clearGameplayInputs();
             scene.setOnKeyPressed(e -> handleGameplayKeyPress(stage, e));
             gameRoot.getChildren().removeIf(node -> node instanceof VBox && "pauseMenu".equals(node.getId()));
 
@@ -21507,6 +21858,7 @@ public class BirdGame3 extends Application {
             isPaused = false;
         } else {
             // === PAUSE ===
+            clearGameplayInputs();
             scene.setOnKeyPressed(e -> {
                 KeyCode code = e.getCode();
                 KeyCode arrow = switch (code) {

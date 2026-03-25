@@ -1138,6 +1138,38 @@ public class Bird {
         return game.blockKeyForPlayer(playerIndex);
     }
 
+    private boolean leftPressed() {
+        return game.isLeftPressed(playerIndex);
+    }
+
+    private boolean rightPressed() {
+        return game.isRightPressed(playerIndex);
+    }
+
+    private boolean jumpPressed() {
+        return game.isJumpPressed(playerIndex);
+    }
+
+    private boolean attackPressed() {
+        return game.isAttackPressed(playerIndex);
+    }
+
+    private boolean specialPressed() {
+        return game.isSpecialPressed(playerIndex);
+    }
+
+    private boolean blockPressed() {
+        return game.isBlockPressed(playerIndex);
+    }
+
+    private boolean tauntCyclePressed() {
+        return game.isTauntCyclePressed(playerIndex);
+    }
+
+    private boolean tauntExecutePressed() {
+        return game.isTauntExecutePressed(playerIndex);
+    }
+
     private String shortName() {
         return shortName(name);
     }
@@ -1158,7 +1190,7 @@ public class Bird {
     }
 
     boolean isDownHeld() {
-        return game.pressedKeys.contains(blockKey());
+        return blockPressed();
     }
 
     private int aiJumpCooldown = 0;
@@ -1238,7 +1270,7 @@ public class Bird {
 
         // Emergency self-preservation before anything else.
         if (onGround && y > game.GROUND_Y + 220) {
-            game.pressedKeys.add(jumpKey());
+            game.setAiControlKey(playerIndex, jumpKey(), true);
             aiJumpCooldown = 12;
         }
 
@@ -1429,8 +1461,8 @@ public class Bird {
             }
         }
 
-        if (moveDir < 0) game.pressedKeys.add(leftKey());
-        if (moveDir > 0) game.pressedKeys.add(rightKey());
+        if (moveDir < 0) game.setAiControlKey(playerIndex, leftKey(), true);
+        if (moveDir > 0) game.setAiControlKey(playerIndex, rightKey(), true);
 
         // Vertical positioning and recovery behavior.
         if (!powerFocus && target != null) {
@@ -1443,12 +1475,12 @@ public class Bird {
                 boolean jumpForAboveClose = dy < -200 && Math.abs(target.x - x) < 220 && alignedForClimb;
                 double jumpSense = 0.35 + 0.65 * skill;
                 if ((jumpForHeight || jumpForCombo || jumpForAboveClose) && random.nextDouble() < jumpSense) {
-                    game.pressedKeys.add(jumpKey());
+                    game.setAiControlKey(playerIndex, jumpKey(), true);
                     aiJumpCooldown = 14;
                 }
                 if (verticalPlan && climbPlatform != null) {
                     if (Math.abs((x + 40) - climbCenter) < 165 && dy < -140) {
-                        game.pressedKeys.add(jumpKey());
+                        game.setAiControlKey(playerIndex, jumpKey(), true);
                         aiJumpCooldown = 14;
                     }
                 }
@@ -1458,14 +1490,14 @@ public class Bird {
                 boolean recoverAltitude = y > game.GROUND_Y - 120;
                 boolean maintainVsTarget = target.y < y + 180;
                 if (recoverAltitude || maintainVsTarget) {
-                    game.pressedKeys.add(jumpKey());
+                    game.setAiControlKey(playerIndex, jumpKey(), true);
                 }
             }
         } else if (powerUp != null && onGround && aiJumpCooldown <= 0 && powerUp.y < y - 120) {
             double dx = Math.abs(powerUp.x - (x + 40));
             double dy = (y + 40) - powerUp.y;
             if (dx < 140 && dy < 320) {
-                game.pressedKeys.add(jumpKey());
+                game.setAiControlKey(playerIndex, jumpKey(), true);
                 aiJumpCooldown = 14;
             }
         }
@@ -1473,7 +1505,7 @@ public class Bird {
         // Defensive block read (ground only).
         if (onGround && target != null && targetDist < 170 && target.attackAnimationTimer > 3 &&
                 facingRight == (target.x > x) && random.nextDouble() < (lowHealth ? 0.50 : 0.34) * (0.25 + 0.75 * skill)) {
-            game.pressedKeys.add(blockKey());
+            game.setAiControlKey(playerIndex, blockKey(), true);
         }
 
         // Attack cadence respects role/range.
@@ -1484,14 +1516,14 @@ public class Bird {
                 targetDist < Math.max(140, idealRange * 0.95) &&
                 Math.abs(target.y - y) < 115 &&
                 random.nextDouble() < attackChance) {
-            game.pressedKeys.add(attackKey());
+            game.setAiControlKey(playerIndex, attackKey(), true);
         }
 
         // Special ability timing by bird role.
         if (!powerFocus && target != null && specialCooldown <= 0 && aiSpecialCooldown <= 0 &&
                 shouldUseSpecialAI(target, targetDist, onGround, lowHealth) &&
                 random.nextDouble() < (0.25 + 0.75 * skill)) {
-            game.pressedKeys.add(specialKey());
+            game.setAiControlKey(playerIndex, specialKey(), true);
             aiSpecialCooldown = 26;
         }
 
@@ -1640,12 +1672,12 @@ public class Bird {
     }
 
     private void clearAIInputs() {
-        game.pressedKeys.remove(leftKey());
-        game.pressedKeys.remove(rightKey());
-        game.pressedKeys.remove(jumpKey());
-        game.pressedKeys.remove(attackKey());
-        game.pressedKeys.remove(specialKey());
-        game.pressedKeys.remove(blockKey());
+        game.setAiControlKey(playerIndex, leftKey(), false);
+        game.setAiControlKey(playerIndex, rightKey(), false);
+        game.setAiControlKey(playerIndex, jumpKey(), false);
+        game.setAiControlKey(playerIndex, attackKey(), false);
+        game.setAiControlKey(playerIndex, specialKey(), false);
+        game.setAiControlKey(playerIndex, blockKey(), false);
     }
 
     private void resetAIDropCommit() {
@@ -1868,10 +1900,10 @@ public class Bird {
         double skill = Math.max(0.0, Math.min(1.0, (cpuLevel - 1) / 8.0));
         if (random.nextDouble() > 0.25 + 0.75 * skill) return false;
 
-        if (dir < 0) game.pressedKeys.add(leftKey());
-        else game.pressedKeys.add(rightKey());
+        if (dir < 0) game.setAiControlKey(playerIndex, leftKey(), true);
+        else game.setAiControlKey(playerIndex, rightKey(), true);
         if (onGround && aiJumpCooldown <= 0) {
-            game.pressedKeys.add(jumpKey());
+            game.setAiControlKey(playerIndex, jumpKey(), true);
             aiJumpCooldown = 16;
         }
         return true;
@@ -1942,6 +1974,11 @@ public class Bird {
         // === UPDATE TIMERS ===
         updateTimers(gameSpeed);
 
+        if (health <= 0) {
+            updateDefeatedState(gameSpeed);
+            return;
+        }
+
         // === VINE GRAPPLE ===
         handleVineGrapple();
 
@@ -1958,7 +1995,7 @@ public class Bird {
 
         boolean stunned = stunTime > 0;
         boolean airborne = !isOnGround();
-        boolean downHeld = !stunned && game.pressedKeys.contains(blockKey());
+        boolean downHeld = !stunned && blockPressed();
         boolean inWindNow = isInWindVent(x, y);
         boolean inUpdraft = inWindNow || thermalTimer > 0;
 
@@ -1995,7 +2032,7 @@ public class Bird {
         handleEaglePassive(airborne);
 
         // === VULTURE FLYING ===
-        if (type == BirdGame3.BirdType.VULTURE && !stunned && game.pressedKeys.contains(jumpKey())) {
+        if (type == BirdGame3.BirdType.VULTURE && !stunned && jumpPressed()) {
             isFlying = true;
             vy -= 0.65;
             if (vy < -6.0) vy = -6.0;
@@ -2005,7 +2042,7 @@ public class Bird {
         }
 
         // === FLY/GLIDE ===
-        if (!stunned && game.pressedKeys.contains(jumpKey()) && airborne) {
+        if (!stunned && jumpPressed() && airborne) {
             boolean limitedFlight = hasLimitedFlight();
             boolean thermalActive = thermalTimer > 0;
             double speedRatio = baseSpeedMultiplier > 0 ? speedMultiplier / baseSpeedMultiplier : 1.0;
@@ -2053,7 +2090,7 @@ public class Bird {
         handleHorizontalMovement(stunned, airborne);
 
         // === AIR/GROUND FRICTION ===
-        if (!game.pressedKeys.contains(leftKey()) && !game.pressedKeys.contains(rightKey())) {
+        if (!leftPressed() && !rightPressed()) {
             vx *= airborne ? 0.96 : 0.80;
         }
         if (neonRushTimer > 0) {
@@ -2106,6 +2143,46 @@ public class Bird {
         handleTaunts();
 
         if (tauntTimer > 0) tauntTimer--;
+    }
+
+    private void updateDefeatedState(double gameSpeed) {
+        onDefeated();
+
+        vy += BirdGame3.GRAVITY * gameSpeed;
+        if (vy > FAST_FALL_MAX) vy = FAST_FALL_MAX;
+
+        x += vx;
+        y += vy;
+        vx *= 0.94;
+
+        double leftBound = 50;
+        double rightBound = game.WORLD_WIDTH - 150 * sizeMultiplier;
+        if (game.selectedMap == MapType.BATTLEFIELD) {
+            double battlefieldLeft = game.battlefieldLeftBound();
+            double battlefieldRight = game.battlefieldRightBound();
+            leftBound = battlefieldLeft + 50;
+            rightBound = battlefieldRight - 150 * sizeMultiplier;
+        }
+
+        if (x < leftBound) {
+            x = leftBound;
+            vx = Math.max(0, vx);
+        }
+        if (x > rightBound) {
+            x = rightBound;
+            vx = Math.min(0, vx);
+        }
+        if (y < game.CEILING_Y) {
+            y = game.CEILING_Y;
+            vy = Math.max(vy, 0);
+        }
+
+        handleVerticalCollision();
+        if (y > game.WORLD_HEIGHT + 400) {
+            y = game.WORLD_HEIGHT + 400;
+            vx = 0;
+            vy = 0;
+        }
     }
 
     private void updateTimers(double gameSpeed) {
@@ -2162,7 +2239,7 @@ public class Bird {
             }
         }
 
-        if (grappleUses > 0 && game.pressedKeys.contains(specialKey()) && !isOnGround() && !isGrappling && specialCooldown <= 0) {
+        if (grappleUses > 0 && specialPressed() && !isOnGround() && !isGrappling && specialCooldown <= 0) {
             double bestDist = Double.MAX_VALUE;
             double targetX = x + 40;
             double targetY = y + 40;
@@ -2418,9 +2495,9 @@ public class Bird {
             vy = 0;
 
             double hangSpeed = type.speed * speedMultiplier * 0.72;
-            if (game.pressedKeys.contains(leftKey())) {
+            if (leftPressed()) {
                 vx = -hangSpeed;
-            } else if (game.pressedKeys.contains(rightKey())) {
+            } else if (rightPressed()) {
                 vx = hangSpeed;
             } else {
                 vx *= 0.55;
@@ -2428,7 +2505,7 @@ public class Bird {
             x += vx;
             if (Math.abs(vx) > 0.05) facingRight = vx > 0;
 
-            if (game.pressedKeys.contains(jumpKey())) {
+            if (jumpPressed()) {
                 if (batHangLockTimer <= 0) {
                     batHanging = false;
                     batHangPlatform = null;
@@ -2437,19 +2514,19 @@ public class Bird {
                 }
             }
 
-            if (game.pressedKeys.contains(attackKey()) && attackCooldown <= 0 && !isBlocking) {
+            if (attackPressed() && attackCooldown <= 0 && !isBlocking) {
                 attack();
                 if (game.butterClip != null) game.butterClip.play();
                 attackCooldown = scaledAttackCooldown(30);
                 attackAnimationTimer = overchargeAttackTimer > 0 ? 10 : 12;
             }
-            if (game.pressedKeys.contains(specialKey()) && specialCooldown <= 0 && !isBlocking) {
+            if (specialPressed() && specialCooldown <= 0 && !isBlocking) {
                 special();
             }
             return true;
         }
 
-        if (!stunned && !isOnGround() && vy < -2 && game.pressedKeys.contains(jumpKey())) {
+        if (!stunned && !isOnGround() && vy < -2 && jumpPressed()) {
             Platform hangable = findBatHangablePlatform();
             if (hangable != null) {
                 batHanging = true;
@@ -2507,18 +2584,18 @@ public class Bird {
                 accel = airborne ? 0.28 : 0.34;
             }
 
-            boolean leftPressed = game.pressedKeys.contains(leftKey());
-            boolean rightPressed = game.pressedKeys.contains(rightKey());
+            boolean leftPressed = leftPressed();
+            boolean rightPressed = rightPressed();
 
             if (leftPressed) {
                 targetVx = -moveSpeed;
-                if (type == BirdGame3.BirdType.HUMMINGBIRD && game.pressedKeys.contains(jumpKey()) && airborne) {
+                if (type == BirdGame3.BirdType.HUMMINGBIRD && jumpPressed() && airborne) {
                     targetVx *= 1.75;
                 }
             }
             else if (rightPressed) {
                 targetVx = moveSpeed;
-                if (type == BirdGame3.BirdType.HUMMINGBIRD && game.pressedKeys.contains(jumpKey()) && airborne) {
+                if (type == BirdGame3.BirdType.HUMMINGBIRD && jumpPressed() && airborne) {
                     targetVx *= 1.75;
                 }
             }
@@ -2531,7 +2608,7 @@ public class Bird {
             if (Math.abs(vx) > 0.1) facingRight = vx > 0;
 
             boolean canJump = isOnGround() || (type == BirdGame3.BirdType.PIGEON && canDoubleJump);
-            if (game.pressedKeys.contains(jumpKey()) && canJump) {
+            if (jumpPressed() && canJump) {
                 double mult = isOnGround() ? 1.0 : 0.75;
                 vy = -type.jumpHeight * mult;
                 if (!isOnGround() && type == BirdGame3.BirdType.PIGEON) canDoubleJump = false;
@@ -2539,7 +2616,7 @@ public class Bird {
             }
 
             // Track rooftop jumps
-            if (game.selectedMap == MapType.CITY && game.pressedKeys.contains(jumpKey()) && canJump && y < game.GROUND_Y - 500) {
+            if (game.selectedMap == MapType.CITY && jumpPressed() && canJump && y < game.GROUND_Y - 500) {
                 game.rooftopJumps[playerIndex]++;
                 game.achievementProgress[10]++;
                 if (game.achievementProgress[10] >= 20 && !game.achievementsUnlocked[10]) {
@@ -2547,7 +2624,7 @@ public class Bird {
                 }
             }
 
-            if (game.selectedMap == MapType.SKYCLIFFS && game.pressedKeys.contains(jumpKey()) && canJump && y < game.GROUND_Y - 1000) {
+            if (game.selectedMap == MapType.SKYCLIFFS && jumpPressed() && canJump && y < game.GROUND_Y - 1000) {
                 game.highCliffJumps[playerIndex]++;
                 game.achievementProgress[14]++;
                 if (game.achievementProgress[14] >= 15 && !game.achievementsUnlocked[14]) {
@@ -2555,14 +2632,14 @@ public class Bird {
                 }
             }
 
-            if (game.pressedKeys.contains(attackKey()) && attackCooldown <= 0 && !isBlocking) {
+            if (attackPressed() && attackCooldown <= 0 && !isBlocking) {
                 attack();
                 if (game.butterClip != null) game.butterClip.play();
                 attackCooldown = scaledAttackCooldown(30);
                 attackAnimationTimer = overchargeAttackTimer > 0 ? 10 : 12;
             }
 
-            if (game.pressedKeys.contains(specialKey())) {
+            if (specialPressed()) {
                 if (grappleUses > 0 && !isOnGround() && !isGrappling && specialCooldown <= 0 && !isBlocking) {
                     // grapple handled in handleVineGrapple
                 } else if (grappleUses == 0 && specialCooldown <= 0 && !isBlocking) {
@@ -2656,6 +2733,7 @@ public class Bird {
 
     private void heal(double amount) {
         if (amount <= 0) return;
+        if (health <= 0) return;
         double maxHealth = getMaxHealth();
         if (health >= maxHealth) return;
         health = Math.min(maxHealth, health + amount);
@@ -2709,6 +2787,9 @@ public class Bird {
             target.health = Math.max(0, target.health - scaledDamage);
             if (target.health <= 0) {
                 target.tryPhoenixRebirth();
+                if (target.health <= 0) {
+                    target.onDefeated();
+                }
             }
             dealtDamage = oldHealth - target.health;
         }
@@ -3254,12 +3335,16 @@ public class Bird {
                 reborn = tryPhoenixRebirth();
                 if (!reborn) {
                     game.addToKillFeed(shortName() + " FLEW INTO THE VOID!");
+                    onDefeated();
                 }
             } else {
                 game.addToKillFeed(shortName() + " went out of bounds... -50 HP");
             }
             if (!reborn && game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
-            if (game.selectedMap == MapType.BATTLEFIELD) {
+            if (!reborn && !trainingDummy && health <= 0) {
+                x = Math.max(leftBound, Math.min(x, rightBound));
+                y = game.WORLD_HEIGHT + 400;
+            } else if (game.selectedMap == MapType.BATTLEFIELD) {
                 double centerX = game.battlefieldSpawnCenterX();
                 x = centerX - 40 * sizeMultiplier;
                 y = game.battlefieldSpawnY(sizeMultiplier);
@@ -3299,12 +3384,16 @@ public class Bird {
                             ? shortName() + " FELL INTO THE VOID!"
                             : shortName() + " FELL TO THEIR DOOM!";
                     game.addToKillFeed(msg);
+                    onDefeated();
                 }
             } else {
                 game.addToKillFeed(shortName() + " fell... but survived! -50 HP");
             }
             if (!reborn && game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
-            if (game.selectedMap == MapType.BATTLEFIELD) {
+            if (!reborn && !trainingDummy && health <= 0) {
+                x = Math.max(leftBound, Math.min(x, rightBound));
+                y = game.WORLD_HEIGHT + 400;
+            } else if (game.selectedMap == MapType.BATTLEFIELD) {
                 double centerX = game.battlefieldSpawnCenterX();
                 x = centerX - 40 * sizeMultiplier;
                 y = game.battlefieldSpawnY(sizeMultiplier);
@@ -3487,20 +3576,12 @@ public class Bird {
         if (!game.isAI[playerIndex]) {
             if (tauntCooldown > 0) tauntCooldown--;
 
-            KeyCode qKey = playerIndex == 0 ? KeyCode.Q :
-                    playerIndex == 1 ? KeyCode.NUMPAD1 :
-                            playerIndex == 2 ? KeyCode.NUMPAD2 : KeyCode.NUMPAD3;
-
-            KeyCode eKey = playerIndex == 0 ? KeyCode.E :
-                    playerIndex == 1 ? KeyCode.NUMPAD4 :
-                            playerIndex == 2 ? KeyCode.NUMPAD5 : KeyCode.NUMPAD6;
-
-            if (game.pressedKeys.contains(qKey) && tauntCooldown <= 0) {
+            if (tauntCyclePressed() && tauntCooldown <= 0) {
                 currentTaunt = (currentTaunt % 3) + 1;
                 tauntCooldown = 30;
             }
 
-            if (game.pressedKeys.contains(eKey) && tauntCooldown <= 0 && currentTaunt != 0) {
+            if (tauntExecutePressed() && tauntCooldown <= 0 && currentTaunt != 0) {
                 tauntTimer = 60;
                 tauntCooldown = 120;
                 game.tauntsPerformed[playerIndex]++;
@@ -3520,6 +3601,58 @@ public class Bird {
                 }
             }
         }
+    }
+
+    private void onDefeated() {
+        clearAIInputs();
+        removeOwnedSummons();
+
+        isBlocking = false;
+        stunTime = 0;
+        attackAnimationTimer = 0;
+        cooldownFlash = 0;
+        tauntTimer = 0;
+        currentTaunt = 0;
+        isGroundPounding = false;
+        isZipping = false;
+        zipTimer = 0;
+        eagleDiveActive = false;
+        eagleAscentActive = false;
+        eagleAscentFrames = 0;
+        Arrays.fill(eagleAscentHit, false);
+        bladeStormFrames = 0;
+        razorbillDashVX = 0.0;
+        razorbillDashVY = 0.0;
+        Arrays.fill(razorbillDashHit, false);
+        penguinIceFxTimer = 0;
+        penguinDashDamageTimer = 0;
+        Arrays.fill(penguinDashHit, false);
+        hummingFrenzyTimer = 0;
+        Arrays.fill(hummingFrenzyHitCooldown, 0);
+        phoenixAfterburnTimer = 0;
+        Arrays.fill(phoenixAfterburnHitCooldown, 0);
+        eagleDiveCountdown = 0;
+        diveTimer = 0;
+        leanTimer = 0;
+        highTimer = 0;
+        isHigh = false;
+        batEchoTimer = 0;
+        batHanging = false;
+        batHangPlatform = null;
+        batHangLockTimer = 0;
+        attachedVine = null;
+        onVine = false;
+        isGrappling = false;
+        isFlying = false;
+        loungeActive = false;
+        loungeHealth = 0;
+        loungeRoyal = false;
+        loungeDamageFlash = 0;
+    }
+
+    private void removeOwnedSummons() {
+        game.crowMinions.removeIf(crow -> crow.owner == this);
+        game.chickMinions.removeIf(chick -> chick.owner == this);
     }
 
     LanBirdState toLanState() {
