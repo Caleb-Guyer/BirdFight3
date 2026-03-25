@@ -1,9 +1,11 @@
 package com.example.birdgame3;
 
+import javafx.scene.input.KeyCode;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MatchControllerTest {
@@ -27,5 +29,20 @@ class MatchControllerTest {
         assertEquals(0, game.scores[1]);
         assertNull(game.players[0]);
         assertNull(game.players[1]);
+    }
+
+    @Test
+    void prepareMatchStartClearsLatchedGameplayInputs() {
+        BirdGame3 game = new BirdGame3();
+        MatchController controller = new MatchController(game);
+        game.activePlayers = 2;
+
+        KeyCode right = game.rightKeyForPlayer(0);
+        game.setLocalActionsForKey(right, true);
+        assertTrue(game.isRightPressed(0));
+
+        controller.prepareMatchStart(null);
+
+        assertFalse(game.isRightPressed(0));
     }
 }

@@ -113,6 +113,14 @@ public class BirdGame3 extends Application {
     private static final String UNITED_FINALE_CHAPTER_TITLE = "Chapter 9: Sky of All Wings";
     private static final String UNITED_FINALE_CLIMAX_TITLE = "Battle 2: All Wings Rise";
     private static final double UNITED_FINALE_BOSS_HEALTH = 520.0;
+    private static final double BOSS_HEALTH_EASE_FACTOR = 0.94;
+    private static final double BOSS_POWER_EASE_FACTOR = 0.97;
+    private static final double BOSS_SPEED_EASE_FACTOR = 0.98;
+    private static final int BOSS_CPU_LEVEL_REDUCTION = 1;
+    private static final double BOSS_RUSH_HEALTH_EASE_FACTOR = 0.72;
+    private static final double BOSS_RUSH_POWER_EASE_FACTOR = 0.84;
+    private static final double BOSS_RUSH_SPEED_EASE_FACTOR = 0.88;
+    private static final int BOSS_RUSH_CPU_LEVEL_REDUCTION = 2;
     private static final String BOSS_RUSH_EX_NAME = "EX: Crown Of Nothing";
     private static final int BOSS_RUSH_CLEAR_BONUS = 260;
     private static final int BOSS_RUSH_EX_CLEAR_BONUS = 180;
@@ -387,6 +395,12 @@ public class BirdGame3 extends Application {
         }
     }
 
+    record KillFeedRenderBlock(List<String> lines, double alpha) {
+        KillFeedRenderBlock {
+            lines = List.copyOf(lines);
+        }
+    }
+
     public MapType selectedMap = MapType.FOREST; // default
     private boolean caveMapUnlocked = false;
     private boolean battlefieldMapUnlocked = false;
@@ -656,6 +670,52 @@ public class BirdGame3 extends Application {
         return name.toLowerCase(Locale.ROOT).contains("boss");
     }
 
+    private boolean isBossRushBossContext(String name) {
+        return bossRushModeActive && classicModeActive && classicEncounter != null && isBossName(name);
+    }
+
+    private double adjustedBossHealth(String name, double health) {
+        if (!isBossName(name)) return health;
+        double adjusted = health * BOSS_HEALTH_EASE_FACTOR;
+        if (isBossRushBossContext(name)) {
+            adjusted *= BOSS_RUSH_HEALTH_EASE_FACTOR;
+        }
+        return Math.max(1.0, adjusted);
+    }
+
+    private double adjustedBossPowerMultiplier(String name, double powerMult) {
+        if (!isBossName(name)) return powerMult;
+        double adjusted = powerMult * BOSS_POWER_EASE_FACTOR;
+        if (isBossRushBossContext(name)) {
+            adjusted *= BOSS_RUSH_POWER_EASE_FACTOR;
+        }
+        return Math.max(0.1, adjusted);
+    }
+
+    private double adjustedBossSpeedMultiplier(String name, double speedMult) {
+        if (!isBossName(name)) return speedMult;
+        double adjusted = speedMult * BOSS_SPEED_EASE_FACTOR;
+        if (isBossRushBossContext(name)) {
+            adjusted *= BOSS_RUSH_SPEED_EASE_FACTOR;
+        }
+        return Math.max(0.1, adjusted);
+    }
+
+    private double unitedFinaleBossMaxHealth() {
+        return adjustedBossHealth("Boss: Null Roc", UNITED_FINALE_BOSS_HEALTH);
+    }
+
+    private int adjustedBossCpuLevel(int playerIdx, int level) {
+        if (playerIdx < 0 || playerIdx >= players.length || playerIdx >= isAI.length || !isAI[playerIdx]) return level;
+        Bird bird = players[playerIdx];
+        if (bird == null || !isBossName(bird.name)) return level;
+        int reduction = BOSS_CPU_LEVEL_REDUCTION;
+        if (isBossRushBossContext(bird.name)) {
+            reduction += BOSS_RUSH_CPU_LEVEL_REDUCTION;
+        }
+        return Math.max(1, level - reduction);
+    }
+
     private void playMenuMusic() {
         disposeGameplayMusicPlayer();
         victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, false);
@@ -921,6 +981,23 @@ public class BirdGame3 extends Application {
         }
         if (!current.isEmpty()) lines.add(current);
         return lines;
+    }
+
+    List<KillFeedRenderBlock> buildKillFeedRenderBlocks(double maxWidth) {
+        List<KillFeedRenderBlock> blocks = new ArrayList<>();
+        if (maxWidth <= 0) return blocks;
+
+        for (int i = 0; i < killFeed.size(); i++) {
+            String msg = killFeed.get(i);
+            if (msg == null || msg.isBlank()) continue;
+            double alpha = Math.max(0.3, 1.0 - (i / (double) MAX_FEED_LINES));
+            List<String> lines = wrapTextToLines(msg, HUD_FEED_FONT, maxWidth);
+            if (lines.isEmpty()) {
+                lines = List.of(msg);
+            }
+            blocks.add(new KillFeedRenderBlock(lines, alpha));
+        }
+        return blocks;
     }
 
     private List<String> splitWordToFit(String word, Font font, double maxWidth) {
@@ -5371,6 +5448,7 @@ public class BirdGame3 extends Application {
 
         Bird boss = unitedFinaleBoss();
         if (boss == null || boss.health <= 0 || matchEnded) return;
+        double bossMaxHealth = unitedFinaleBossMaxHealth();
 
         if (!unitedFinaleEventTriggered[0]) {
             unitedFinaleEventTriggered[0] = true;
@@ -5383,11 +5461,11 @@ public class BirdGame3 extends Application {
             unitedFinaleEventTriggered[1] = true;
             runUnitedFinaleEvent(1, boss);
         }
-        if (!unitedFinaleEventTriggered[2] && boss.health <= UNITED_FINALE_BOSS_HEALTH * 0.78) {
+        if (!unitedFinaleEventTriggered[2] && boss.health <= bossMaxHealth * 0.78) {
             unitedFinaleEventTriggered[2] = true;
             runUnitedFinaleEvent(2, boss);
         }
-        if (!unitedFinaleBossEnraged && boss.health <= UNITED_FINALE_BOSS_HEALTH * 0.62) {
+        if (!unitedFinaleBossEnraged && boss.health <= bossMaxHealth * 0.62) {
             unitedFinaleBossEnraged = true;
             addToKillFeed("NULL ROC: THE CROWN GOES FERAL.");
             boss.rageTimer = Math.max(boss.rageTimer, 420);
@@ -5397,15 +5475,15 @@ public class BirdGame3 extends Application {
             shakeIntensity = Math.max(shakeIntensity, 36);
             triggerFlash(0.85, false);
         }
-        if (!unitedFinaleEventTriggered[3] && boss.health <= UNITED_FINALE_BOSS_HEALTH * 0.56) {
+        if (!unitedFinaleEventTriggered[3] && boss.health <= bossMaxHealth * 0.56) {
             unitedFinaleEventTriggered[3] = true;
             runUnitedFinaleEvent(3, boss);
         }
-        if (!unitedFinaleEventTriggered[4] && boss.health <= UNITED_FINALE_BOSS_HEALTH * 0.36) {
+        if (!unitedFinaleEventTriggered[4] && boss.health <= bossMaxHealth * 0.36) {
             unitedFinaleEventTriggered[4] = true;
             runUnitedFinaleEvent(4, boss);
         }
-        if (!unitedFinaleEventTriggered[5] && boss.health <= UNITED_FINALE_BOSS_HEALTH * 0.16) {
+        if (!unitedFinaleEventTriggered[5] && boss.health <= bossMaxHealth * 0.16) {
             unitedFinaleEventTriggered[5] = true;
             runUnitedFinaleEvent(5, boss);
         }
@@ -6524,7 +6602,7 @@ public class BirdGame3 extends Application {
     private void drawBeaconCrownBattlefield(GraphicsContext g, boolean ambientFx) {
         Bird boss = isUnitedFinaleClimaxContext() ? unitedFinaleBoss() : bossRushLeadBoss();
         double bossRatio = isUnitedFinaleClimaxContext()
-                ? (boss == null ? 1.0 : Math.max(0.0, Math.min(1.0, boss.health / UNITED_FINALE_BOSS_HEALTH)))
+                ? (boss == null ? 1.0 : Math.max(0.0, Math.min(1.0, boss.health / unitedFinaleBossMaxHealth())))
                 : bossRushEnemyHealthRatio();
         for (int i = 0; i < 640; i++) {
             double ratio = i / 640.0;
@@ -14182,8 +14260,12 @@ public class BirdGame3 extends Application {
 
             Bird boss = createStoryBird(5000, battle.opponentType, 3, battle.opponentName,
                     battle.opponentHealth, battle.opponentPowerMult, battle.opponentSpeedMult, true);
-            boss.setBaseMultipliers(2.1, battle.opponentPowerMult, battle.opponentSpeedMult);
-            boss.health = battle.opponentHealth;
+            boss.setBaseMultipliers(
+                    2.1,
+                    adjustedBossPowerMultiplier(battle.opponentName, battle.opponentPowerMult),
+                    adjustedBossSpeedMultiplier(battle.opponentName, battle.opponentSpeedMult)
+            );
+            boss.health = adjustedBossHealth(battle.opponentName, battle.opponentHealth);
             applyPreviewSkinChoiceToBird(boss, battle.opponentType, TIDE_VULTURE_SKIN);
 
             adventureTeamMode = true;
@@ -15022,6 +15104,10 @@ public class BirdGame3 extends Application {
         return classicCompleted[type.ordinal()];
     }
 
+    boolean shouldShowClassicSelectBadge(BirdType type, boolean bossRush) {
+        return !bossRush && isClassicCompleted(type);
+    }
+
     private String classicRewardFor(BirdType type) {
         return switch (type) {
             case PIGEON -> "Pigeon Noir";
@@ -15432,7 +15518,7 @@ public class BirdGame3 extends Application {
         }
         double totalHealth = 0;
         for (ClassicFighter fighter : classicEncounter.enemies) {
-            if (fighter != null) totalHealth += Math.max(1.0, fighter.health);
+            if (fighter != null) totalHealth += Math.max(1.0, adjustedBossHealth(fighter.title, fighter.health));
         }
         if (totalHealth <= 0) return 1.0;
         double currentHealth = 0;
@@ -16032,7 +16118,7 @@ public class BirdGame3 extends Application {
             name.setWrapText(true);
             name.setAlignment(Pos.CENTER);
 
-            boolean completed = isClassicCompleted(type);
+            boolean completed = shouldShowClassicSelectBadge(type, bossRush);
             Label badge = new Label("BADGE");
             badge.setFont(Font.font("Consolas", 12));
             badge.setTextFill(Color.web("#1B5E20"));
@@ -16961,8 +17047,11 @@ public class BirdGame3 extends Application {
                                  double health, double powerMult, double speedMult, boolean ai) {
         Bird b = new Bird(x, type, playerIdx, this);
         b.name = name;
-        b.health = health;
-        b.setBaseMultipliers(b.baseSizeMultiplier, powerMult, speedMult);
+        double resolvedHealth = ai ? adjustedBossHealth(name, health) : health;
+        double resolvedPowerMult = ai ? adjustedBossPowerMultiplier(name, powerMult) : powerMult;
+        double resolvedSpeedMult = ai ? adjustedBossSpeedMultiplier(name, speedMult) : speedMult;
+        b.health = resolvedHealth;
+        b.setBaseMultipliers(b.baseSizeMultiplier, resolvedPowerMult, resolvedSpeedMult);
         players[playerIdx] = b;
         isAI[playerIdx] = ai;
         return b;
@@ -17492,7 +17581,7 @@ public class BirdGame3 extends Application {
                 }
                 if (!bossRushEventTriggered[1] && boss != null && ratio <= 0.48) {
                     bossRushEventTriggered[1] = true;
-                    boss.health = Math.max(boss.health, 190);
+                    boss.health = Math.max(boss.health, 120);
                     boss.rageTimer = Math.max(boss.rageTimer, 240);
                     boss.overchargeAttackTimer = Math.max(boss.overchargeAttackTimer, 240);
                     boss.specialCooldown = 0;
@@ -17503,8 +17592,8 @@ public class BirdGame3 extends Application {
                 if (!bossRushBossEnraged && ratio <= 0.22 && boss != null) {
                     bossRushBossEnraged = true;
                     addToKillFeed("ASHFALL: the second life burns hotter.");
-                    boss.powerMultiplier = Math.max(boss.powerMultiplier, boss.basePowerMultiplier * 1.22);
-                    boss.speedMultiplier = Math.max(boss.speedMultiplier, boss.baseSpeedMultiplier * 1.10);
+                    boss.powerMultiplier = Math.max(boss.powerMultiplier, boss.basePowerMultiplier * 1.10);
+                    boss.speedMultiplier = Math.max(boss.speedMultiplier, boss.baseSpeedMultiplier * 1.04);
                     powerUps.add(new PowerUp(2100, GROUND_Y - 860, PowerUpType.HEALTH));
                     powerUps.add(new PowerUp(3900, GROUND_Y - 860, PowerUpType.RAGE));
                 }
@@ -17604,8 +17693,8 @@ public class BirdGame3 extends Application {
                     bossRushBossEnraged = true;
                     addToKillFeed("NULL ROC: the crown goes feral.");
                     boss.rageTimer = Math.max(boss.rageTimer, 360);
-                    boss.powerMultiplier = Math.max(boss.powerMultiplier, boss.basePowerMultiplier * 1.26);
-                    boss.speedMultiplier = Math.max(boss.speedMultiplier, boss.baseSpeedMultiplier * 1.10);
+                    boss.powerMultiplier = Math.max(boss.powerMultiplier, boss.basePowerMultiplier * 1.14);
+                    boss.speedMultiplier = Math.max(boss.speedMultiplier, boss.baseSpeedMultiplier * 1.04);
                     boss.specialCooldown = 0;
                     triggerFlash(0.82, false);
                 }
@@ -17658,8 +17747,8 @@ public class BirdGame3 extends Application {
                     bossRushBossEnraged = true;
                     addToKillFeed("VOID CROWN: the sovereign accelerates.");
                     boss.rageTimer = Math.max(boss.rageTimer, 420);
-                    boss.powerMultiplier = Math.max(boss.powerMultiplier, boss.basePowerMultiplier * 1.30);
-                    boss.speedMultiplier = Math.max(boss.speedMultiplier, boss.baseSpeedMultiplier * 1.12);
+                    boss.powerMultiplier = Math.max(boss.powerMultiplier, boss.basePowerMultiplier * 1.15);
+                    boss.speedMultiplier = Math.max(boss.speedMultiplier, boss.baseSpeedMultiplier * 1.05);
                     boss.specialCooldown = 0;
                     triggerFlash(0.88, false);
                 }
@@ -19472,6 +19561,7 @@ public class BirdGame3 extends Application {
         } else if (playerIdx >= 0 && playerIdx < cpuLevels.length) {
             level = cpuLevels[playerIdx];
         }
+        level = adjustedBossCpuLevel(playerIdx, level);
         if (level < 1) level = 1;
         if (level > 9) level = 9;
         return level;
@@ -20131,13 +20221,23 @@ public class BirdGame3 extends Application {
                 ui.fillText(timeText, WIDTH / 2.0 - 120, 80);
                 ui.setEffect(null);
                 ui.setFont(HUD_FEED_FONT);
-                for (int i = 0; i < killFeed.size(); i++) {
-                    String msg = killFeed.get(i);
-                    double alpha = Math.max(0.3, 1.0 - (i / (double) MAX_FEED_LINES));
-                    ui.setFill(new Color(1, 1, 1, alpha));
-                    ui.fillText(msg, WIDTH - 700, 80 + i * 50);
-                    ui.setFill(new Color(0, 0, 0, alpha * 0.6));
-                    ui.fillText(msg, WIDTH - 698, 78 + i * 50);
+                double feedWidth = Math.max(220, Math.min(640, WIDTH - 120));
+                double feedX = Math.max(20, WIDTH - feedWidth - 40);
+                double feedY = 80;
+                double feedBottom = HEIGHT - 110;
+                double feedLineHeight = measureTextHeight("Ag", HUD_FEED_FONT) * 1.08;
+                double feedBlockSpacing = 8;
+                for (KillFeedRenderBlock block : buildKillFeedRenderBlocks(feedWidth)) {
+                    for (String line : block.lines()) {
+                        if (feedY > feedBottom) break;
+                        ui.setFill(new Color(1, 1, 1, block.alpha()));
+                        ui.fillText(line, feedX, feedY);
+                        ui.setFill(new Color(0, 0, 0, block.alpha() * 0.6));
+                        ui.fillText(line, feedX + 2, feedY - 2);
+                        feedY += feedLineHeight;
+                    }
+                    if (feedY > feedBottom) break;
+                    feedY += feedBlockSpacing;
                 }
                 ui.setFill(new Color(0, 0, 0, 0.75));
                 ui.fillRoundRect(20, HEIGHT - 70, WIDTH - 40, 60, 20, 20);
