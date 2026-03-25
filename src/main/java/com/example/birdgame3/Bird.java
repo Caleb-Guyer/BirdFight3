@@ -294,7 +294,7 @@ public class Bird {
                 if (isKill) {
                     game.eliminations[playerIndex]++;
                     game.groundPounds[playerIndex]++;
-                    if (game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
+        game.playZombieFallSfx();
                 }
 
                 if (dealtDamage >= 30) {
@@ -499,7 +499,7 @@ public class Bird {
         if (other.health <= 0 && oldHealth > 0) {
             game.eliminations[playerIndex]++;
             game.checkAchievements(this);
-            if (game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
+        game.playZombieFallSfx();
             game.scores[playerIndex] += 50;
         }
         game.scores[playerIndex] += (int) dealtDamage / 2;
@@ -592,11 +592,11 @@ public class Bird {
         }
 
         if (game.isSfxEnabled()) {
-            if (type == BirdGame3.BirdType.RAZORBILL && game.vaseBreakingClip != null) {
-                game.vaseBreakingClip.play();
-            } else if (game.jalapenoClip != null) {
-                game.jalapenoClip.play();
-            }
+                if (type == BirdGame3.BirdType.RAZORBILL) {
+                    game.playVaseBreakingSfx();
+                } else {
+                    game.playJalapenoSfx();
+                }
         }
         game.specialsUsed[playerIndex]++;
 
@@ -2454,7 +2454,7 @@ public class Bird {
                 game.damageDealt[playerIndex] += (int) dealt;
                 game.recordSpecialImpact(playerIndex, (int) dealt, dealt > 0);
                 if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-                if (game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
+        game.playZombieFallSfx();
 
                 other.vx += (other.x > x ? 1 : -1) * 25;
                 other.vy -= 18;
@@ -2516,7 +2516,7 @@ public class Bird {
 
             if (attackPressed() && attackCooldown <= 0 && !isBlocking) {
                 attack();
-                if (game.butterClip != null) game.butterClip.play();
+                game.playButterSfx();
                 attackCooldown = scaledAttackCooldown(30);
                 attackAnimationTimer = overchargeAttackTimer > 0 ? 10 : 12;
             }
@@ -2612,7 +2612,7 @@ public class Bird {
                 double mult = isOnGround() ? 1.0 : 0.75;
                 vy = -type.jumpHeight * mult;
                 if (!isOnGround() && type == BirdGame3.BirdType.PIGEON) canDoubleJump = false;
-                if (game.isSfxEnabled() && game.swingClip != null) game.swingClip.play();
+                game.playSwingSfx();
             }
 
             // Track rooftop jumps
@@ -2634,7 +2634,7 @@ public class Bird {
 
             if (attackPressed() && attackCooldown <= 0 && !isBlocking) {
                 attack();
-                if (game.butterClip != null) game.butterClip.play();
+                game.playButterSfx();
                 attackCooldown = scaledAttackCooldown(30);
                 attackAnimationTimer = overchargeAttackTimer > 0 ? 10 : 12;
             }
@@ -3340,7 +3340,7 @@ public class Bird {
             } else {
                 game.addToKillFeed(shortName() + " went out of bounds... -50 HP");
             }
-            if (!reborn && game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
+        if (!reborn) game.playZombieFallSfx();
             if (!reborn && !trainingDummy && health <= 0) {
                 x = Math.max(leftBound, Math.min(x, rightBound));
                 y = game.WORLD_HEIGHT + 400;
@@ -3389,7 +3389,7 @@ public class Bird {
             } else {
                 game.addToKillFeed(shortName() + " fell... but survived! -50 HP");
             }
-            if (!reborn && game.isSfxEnabled() && game.zombieFallingClip != null) game.zombieFallingClip.play();
+        if (!reborn) game.playZombieFallSfx();
             if (!reborn && !trainingDummy && health <= 0) {
                 x = Math.max(leftBound, Math.min(x, rightBound));
                 y = game.WORLD_HEIGHT + 400;

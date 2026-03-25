@@ -22,6 +22,7 @@ import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
 import javafx.scene.control.ScrollPane;
+import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
@@ -76,6 +77,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.function.BooleanSupplier;
+import java.util.function.DoubleConsumer;
 
 public class BirdGame3 extends Application {
 
@@ -129,6 +131,8 @@ public class BirdGame3 extends Application {
     private static final String PREF_BOSS_RUSH_BEST_BIRD = "boss_rush_best_bird";
     private static final String PREF_BOSS_RUSH_BEST_RANK = "boss_rush_best_rank";
     private static final String PREF_BOSS_RUSH_CLEAR_COUNT = "boss_rush_clear_count";
+    private static final String PREF_SETTING_MUSIC_VOLUME = "setting_music_volume";
+    private static final String PREF_SETTING_SFX_VOLUME = "setting_sfx_volume";
     private static final String PREF_BIRD_MASTERY_XP_PREFIX = "bird_mastery_xp_";
     private static final int[] BIRD_MASTERY_LEVEL_XP = {
             0, 120, 270, 470, 720, 1030, 1400, 1840, 2350, 2950
@@ -142,6 +146,12 @@ public class BirdGame3 extends Application {
     private static final DateTimeFormatter DAILY_CHALLENGE_DATE_FORMAT =
             DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy", Locale.US);
     private static final long BIRD_COIN_LEDGER_SALT = 0x6A09E667F3BCC909L;
+    private static final Duration ACHIEVEMENT_SAVE_DEBOUNCE = Duration.millis(250);
+    private static final double MENU_MUSIC_BASE_VOLUME = 0.55;
+    private static final double VICTORY_MUSIC_BASE_VOLUME = 0.75;
+    private static final double MATCH_MUSIC_BASE_VOLUME = 0.45;
+    private static final double BUTTON_CLICK_BASE_VOLUME = 0.9;
+    private static final double ERROR_SOUND_BASE_VOLUME = 0.6;
     private final BirdCoinLedger birdCoinLedger = new BirdCoinLedger(
             BIRD_COIN_LEDGER_SALT,
             PREF_BIRD_COINS,
@@ -150,6 +160,8 @@ public class BirdGame3 extends Application {
             PREF_BIRD_COINS_CHECKSUM
     );
     private final ContractsBoard contractsBoard = new ContractsBoard();
+    private PauseTransition achievementSaveDebounce;
+    private boolean achievementSaveQueued = false;
 
     final Set<KeyCode> pressedKeys = new HashSet<>();
     private final boolean[][] localActionPressed = new boolean[4][ControlAction.values().length];
@@ -414,7 +426,9 @@ public class BirdGame3 extends Application {
     private Runnable stageSelectRandomHandler = null;
     private Runnable settingsReturn = null;
     private boolean musicEnabled = true;
+    private double musicVolume = 1.0;
     boolean sfxEnabled = true;
+    private double sfxVolume = 1.0;
     private boolean screenShakeEnabled = true;
     private boolean fullscreenEnabled = true;
     private boolean particleEffectsEnabled = true;
@@ -426,15 +440,103 @@ public class BirdGame3 extends Application {
     private static final int[] FPS_CAPS = new int[]{30, 60, 90, 120, 144, 0};
 
     public void playHitSound(double intensity) {
-        if (!sfxEnabled) return;
-        if (bonkClip != null) {
-            bonkClip.setVolume(Math.min(1.0, intensity / 40.0));
-            bonkClip.play();
-        }
+        playManagedSfx(bonkClip, Math.min(1.0, intensity / 40.0));
     }
 
     public boolean isSfxEnabled() {
         return sfxEnabled;
+    }
+
+    private double sanitizeVolume(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return 0.0;
+        }
+        return Math.max(0.0, Math.min(1.0, value));
+    }
+
+    private boolean isMutedVolume(double value) {
+        return sanitizeVolume(value) <= 0.0001;
+    }
+
+    private String formatVolumePercent(double value) {
+        return (int) Math.round(sanitizeVolume(value) * 100.0) + "%";
+    }
+
+    private double effectiveMusicVolume() {
+        return musicEnabled ? sanitizeVolume(musicVolume) : 0.0;
+    }
+
+    private double effectiveSfxVolume() {
+        return sfxEnabled ? sanitizeVolume(sfxVolume) : 0.0;
+    }
+
+    private void applyAudioVolumes() {
+        double music = effectiveMusicVolume();
+        if (menuMusicPlayer != null) {
+            menuMusicPlayer.setVolume(MENU_MUSIC_BASE_VOLUME * music);
+        }
+        if (victoryMusicPlayer != null) {
+            victoryMusicPlayer.setVolume(VICTORY_MUSIC_BASE_VOLUME * music);
+        }
+        if (musicPlayer != null) {
+            musicPlayer.setVolume(MATCH_MUSIC_BASE_VOLUME * music);
+        }
+        double sfx = effectiveSfxVolume();
+        if (bonkClip != null) bonkClip.setVolume(sfx);
+        if (butterClip != null) butterClip.setVolume(sfx);
+        if (jalapenoClip != null) jalapenoClip.setVolume(sfx);
+        if (swingClip != null) swingClip.setVolume(sfx);
+        if (hugewaveClip != null) hugewaveClip.setVolume(sfx);
+        if (buttonClickClip != null) buttonClickClip.setVolume(BUTTON_CLICK_BASE_VOLUME * sfx);
+        if (zombieFallingClip != null) zombieFallingClip.setVolume(sfx);
+        if (vaseBreakingClip != null) vaseBreakingClip.setVolume(sfx);
+    }
+
+    private void setMusicVolume(double value) {
+        musicVolume = sanitizeVolume(value);
+        musicEnabled = !isMutedVolume(musicVolume);
+        applyAudioVolumes();
+        if (!musicEnabled) {
+            disposeGameplayMusicPlayer();
+            stopPersistentMusicPlayers();
+        }
+    }
+
+    private void setSfxVolume(double value) {
+        sfxVolume = sanitizeVolume(value);
+        sfxEnabled = !isMutedVolume(sfxVolume);
+        applyAudioVolumes();
+    }
+
+    void playManagedSfx(AudioClip clip, double baseVolume) {
+        if (clip == null) return;
+        double effective = sanitizeVolume(baseVolume) * effectiveSfxVolume();
+        if (effective <= 0.0) return;
+        clip.play(effective);
+    }
+
+    void playButterSfx() {
+        playManagedSfx(butterClip, 1.0);
+    }
+
+    void playJalapenoSfx() {
+        playManagedSfx(jalapenoClip, 1.0);
+    }
+
+    void playSwingSfx() {
+        playManagedSfx(swingClip, 1.0);
+    }
+
+    void playHugewaveSfx() {
+        playManagedSfx(hugewaveClip, 1.0);
+    }
+
+    void playZombieFallSfx() {
+        playManagedSfx(zombieFallingClip, 1.0);
+    }
+
+    void playVaseBreakingSfx() {
+        playManagedSfx(vaseBreakingClip, 1.0);
     }
 
     private String resourceUrl(String path) {
@@ -443,6 +545,39 @@ public class BirdGame3 extends Application {
             throw new IllegalStateException("Missing resource: " + path);
         }
         return url.toExternalForm();
+    }
+
+    private MediaPlayer stopMediaPlayer(MediaPlayer player, boolean dispose) {
+        if (player == null) {
+            return null;
+        }
+        try {
+            player.stop();
+        } catch (RuntimeException ignored) {
+        }
+        if (dispose) {
+            try {
+                player.dispose();
+            } catch (RuntimeException ignored) {
+            }
+            return null;
+        }
+        return player;
+    }
+
+    private void disposeGameplayMusicPlayer() {
+        musicPlayer = stopMediaPlayer(musicPlayer, true);
+    }
+
+    private void stopPersistentMusicPlayers() {
+        menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, false);
+        victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, false);
+    }
+
+    private void disposeAllManagedMediaPlayers() {
+        musicPlayer = stopMediaPlayer(musicPlayer, true);
+        menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, true);
+        victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, true);
     }
 
     private void loadSounds() {
@@ -458,16 +593,14 @@ public class BirdGame3 extends Application {
             // === NEW MENU & VICTORY MUSIC ===
             menuMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "choose_your_seeds.mp3")));
             menuMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-            menuMusicPlayer.setVolume(0.55);
 
             victoryMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "finalfanfare.mp3")));
-            victoryMusicPlayer.setVolume(0.75);
 
             // === WIIMOTE BUTTON CLICK ===
             buttonClickClip = new AudioClip(resourceUrl(p + "buttonclick.mp3"));
-            buttonClickClip.setVolume(0.9);
 
             zombieFallingClip = new AudioClip(resourceUrl(p + "zombie-falling.mp3"));
+            applyAudioVolumes();
 
         } catch (Exception e) {
             System.err.println("Sounds not found - put mp3 files in 'sounds' folder inside src/main/resources");
@@ -476,10 +609,8 @@ public class BirdGame3 extends Application {
     }
 
     private void startMusic() {
-        // STOP menu + victory BEFORE starting map music
-        if (menuMusicPlayer != null) menuMusicPlayer.stop();
-        if (victoryMusicPlayer != null) victoryMusicPlayer.stop();
-        if (musicPlayer != null) musicPlayer.stop();
+        stopPersistentMusicPlayers();
+        disposeGameplayMusicPlayer();
         if (!musicEnabled) return;
 
         boolean bossMusic = isBossEncounterActive();
@@ -498,7 +629,7 @@ public class BirdGame3 extends Application {
             Media media = new Media(resourceUrl("/sounds/" + file));
             musicPlayer = new MediaPlayer(media);
             musicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-            musicPlayer.setVolume(0.45);
+            applyAudioVolumes();
             musicPlayer.play();
         } catch (Exception e) {
             System.out.println("Music not found: " + file);
@@ -526,10 +657,10 @@ public class BirdGame3 extends Application {
     }
 
     private void playMenuMusic() {
-        if (musicPlayer != null) musicPlayer.stop();
-        if (victoryMusicPlayer != null) victoryMusicPlayer.stop();
+        disposeGameplayMusicPlayer();
+        victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, false);
         if (!musicEnabled) {
-            if (menuMusicPlayer != null) menuMusicPlayer.stop();
+            menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, false);
             return;
         }
         if (menuMusicPlayer != null) {
@@ -1154,6 +1285,66 @@ public class BirdGame3 extends Application {
         return row;
     }
 
+    private VBox buildVolumeSettingsRow(String title, String description, String color, String accent,
+                                        double initialValue, DoubleConsumer onValueChanged, Runnable preview) {
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("Arial Black", 24));
+        titleLabel.setTextFill(Color.web("#ECEFF1"));
+        applyNoEllipsis(titleLabel);
+
+        Label valueLabel = new Label(formatVolumePercent(initialValue));
+        valueLabel.setFont(Font.font("Consolas", 22));
+        valueLabel.setTextFill(Color.web(accent));
+        applyNoEllipsis(valueLabel);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, javafx.scene.layout.Priority.ALWAYS);
+
+        HBox header = new HBox(16, titleLabel, spacer, valueLabel);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setMaxWidth(620);
+
+        Slider slider = new Slider(0, 100, Math.round(sanitizeVolume(initialValue) * 100.0));
+        slider.setPrefWidth(620);
+        slider.setMaxWidth(620);
+        slider.setBlockIncrement(5);
+        slider.setMajorTickUnit(25);
+        slider.setMinorTickCount(4);
+        slider.setShowTickMarks(true);
+        slider.setShowTickLabels(true);
+        slider.setStyle("-fx-accent: " + accent + ";");
+        slider.valueProperty().addListener((obs, oldValue, newValue) -> {
+            double normalized = sanitizeVolume(newValue.doubleValue() / 100.0);
+            valueLabel.setText(formatVolumePercent(normalized));
+            onValueChanged.accept(normalized);
+        });
+        if (preview != null) {
+            slider.setOnMouseReleased(e -> preview.run());
+            slider.addEventHandler(KeyEvent.KEY_RELEASED, e -> {
+                switch (e.getCode()) {
+                    case LEFT, RIGHT, UP, DOWN, HOME, END, PAGE_UP, PAGE_DOWN -> preview.run();
+                    default -> {
+                    }
+                }
+            });
+        }
+
+        Label descriptionLabel = new Label(description);
+        descriptionLabel.setFont(Font.font("Consolas", 20));
+        descriptionLabel.setTextFill(Color.web(color));
+        descriptionLabel.setWrapText(true);
+        descriptionLabel.setMaxWidth(620);
+        descriptionLabel.setPrefWidth(620);
+        descriptionLabel.setTextAlignment(TextAlignment.LEFT);
+        descriptionLabel.setAlignment(Pos.CENTER_LEFT);
+        descriptionLabel.setPadding(new Insets(0, 0, 0, 14));
+        applyNoEllipsis(descriptionLabel);
+
+        VBox row = new VBox(8, header, slider, descriptionLabel);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
     private boolean shouldRenderFrame(long now) {
         return frameRateLimiter.shouldRender(now, fpsCap);
     }
@@ -1404,18 +1595,16 @@ public class BirdGame3 extends Application {
         if (!sfxEnabled) return;
         if (buttonClickClip != null) {
             buttonClickClip.stop();
-            buttonClickClip.play();
+            playManagedSfx(buttonClickClip, BUTTON_CLICK_BASE_VOLUME);
         }
     }
 
     private void playErrorSound() {
         if (!sfxEnabled) return;
         if (butterClip != null) {
-            butterClip.setVolume(0.6);
-            butterClip.play();
+            playManagedSfx(butterClip, ERROR_SOUND_BASE_VOLUME);
         } else if (bonkClip != null) {
-            bonkClip.setVolume(0.6);
-            bonkClip.play();
+            playManagedSfx(bonkClip, ERROR_SOUND_BASE_VOLUME);
         }
     }
 
@@ -5397,7 +5586,7 @@ public class BirdGame3 extends Application {
         addToKillFeed("ACHIEVEMENT UNLOCKED: " + title);
         shakeIntensity = 30;
         hitstopFrames = 20;
-        saveAchievements(); // save immediately!
+        saveAchievements();
     }
 
     public enum BirdType {
@@ -5449,7 +5638,7 @@ public class BirdGame3 extends Application {
             return;
         }
 
-        boolean lanClientSim = lanModeActive && lanIsClient;
+        boolean lanClientViewOnly = lanModeActive && lanIsClient;
         if (lanModeActive && lanIsHost && lanMatchActive) {
             applyLanInputMasks();
         }
@@ -5464,23 +5653,13 @@ public class BirdGame3 extends Application {
         int updates = 0;
 
         while (accumulator >= FRAME_TIME && updates < MAX_UPDATES) {
-            // === CORE GAME LOGIC (runs at fixed 60 FPS) ===
-            if (lanClientSim) {
-                int localIdx = lanPlayerIndex;
-                if (localIdx >= 0 && localIdx < activePlayers && players[localIdx] != null) {
-                    updatePressedKeysForPlayer(localIdx, lanLocalInputMask);
-                    players[localIdx].update(speed);
-                }
-            } else {
+            if (!lanClientViewOnly) {
                 for (int i = 0; i < activePlayers; i++) {
                     if (players[i] != null) {
                         players[i].update(speed);
                     }
                 }
-            }
-
-            long now = System.nanoTime();
-            if (!lanClientSim) {
+                long now = System.nanoTime();
                 applyMatchModeRuntimeEffects(now);
                 spawnPowerUp(now);
                 if (!matchEnded && !trainingModeActive) matchTimer--;
@@ -6792,8 +6971,8 @@ public class BirdGame3 extends Application {
         competitionRoundNumber = 1;
         trainingModeActive = false;
         stageSelectHandler = null;
-        if (musicPlayer != null) musicPlayer.stop();
-        if (victoryMusicPlayer != null) victoryMusicPlayer.stop();
+        disposeGameplayMusicPlayer();
+        victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, false);
         playMenuMusic();
         showHub(stage);
     }
@@ -10439,8 +10618,8 @@ public class BirdGame3 extends Application {
         if (stage == null) return;
         lanResultsActionPending = false;
         lanResultsStatusLabel = null;
-        if (musicPlayer != null) musicPlayer.stop();
-        if (menuMusicPlayer != null) menuMusicPlayer.stop();
+        disposeGameplayMusicPlayer();
+        menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, false);
         if (victoryMusicPlayer != null) {
             victoryMusicPlayer.stop();
             if (musicEnabled) victoryMusicPlayer.play();
@@ -10889,7 +11068,7 @@ public class BirdGame3 extends Application {
         if (state == null) return;
         matchTimer = state.matchTimer;
         matchEnded = state.matchEnded;
-        activePlayers = state.activePlayers > 0 ? state.activePlayers : LAN_MAX_PLAYERS;
+        activePlayers = Math.max(1, Math.min(state.activePlayers > 0 ? state.activePlayers : LAN_MAX_PLAYERS, LAN_MAX_PLAYERS));
         camX = state.camX;
         camY = state.camY;
         zoom = state.zoom;
@@ -10907,6 +11086,7 @@ public class BirdGame3 extends Application {
             LanBirdState bs = state.birds[i];
             if (bs == null) {
                 players[i] = null;
+                isAI[i] = false;
                 continue;
             }
             BirdType type = BirdType.values()[Math.max(0, Math.min(bs.typeOrdinal, BirdType.values().length - 1))];
@@ -10919,57 +11099,157 @@ public class BirdGame3 extends Application {
             b.applyLanState(bs);
         }
 
-        powerUps.clear();
-        for (LanState.PowerUpState ps : state.powerUps) {
+        syncLanPowerUps(state.powerUps);
+        syncLanNectarNodes(state.nectarNodes);
+        syncLanSwingingVines(state.swingingVines);
+        syncLanWindVents(state.windVents);
+        syncLanCrowMinions(state.crowMinions);
+        syncLanChickMinions(state.chickMinions);
+    }
+
+    private void syncLanPowerUps(List<LanState.PowerUpState> states) {
+        int targetSize = states != null ? states.size() : 0;
+        while (powerUps.size() > targetSize) {
+            powerUps.remove(powerUps.size() - 1);
+        }
+        for (int i = 0; i < targetSize; i++) {
+            LanState.PowerUpState ps = states.get(i);
             PowerUpType type = PowerUpType.values()[Math.max(0, Math.min(ps.typeOrdinal, PowerUpType.values().length - 1))];
-            powerUps.add(new PowerUp(ps.x, ps.y, type));
+            PowerUp powerUp;
+            if (i < powerUps.size()) {
+                powerUp = powerUps.get(i);
+            } else {
+                powerUp = new PowerUp(ps.x, ps.y, type);
+                powerUps.add(powerUp);
+            }
+            powerUp.x = ps.x;
+            powerUp.y = ps.y;
+            powerUp.type = type;
         }
+    }
 
-        nectarNodes.clear();
-        for (LanState.NectarNodeState ns : state.nectarNodes) {
-            NectarNode node = new NectarNode(ns.x, ns.y, ns.isSpeed);
+    private void syncLanNectarNodes(List<LanState.NectarNodeState> states) {
+        int targetSize = states != null ? states.size() : 0;
+        while (nectarNodes.size() > targetSize) {
+            nectarNodes.remove(nectarNodes.size() - 1);
+        }
+        for (int i = 0; i < targetSize; i++) {
+            LanState.NectarNodeState ns = states.get(i);
+            NectarNode node;
+            if (i < nectarNodes.size()) {
+                node = nectarNodes.get(i);
+            } else {
+                node = new NectarNode(ns.x, ns.y, ns.isSpeed);
+                nectarNodes.add(node);
+            }
+            node.x = ns.x;
+            node.y = ns.y;
+            node.isSpeed = ns.isSpeed;
             node.active = ns.active;
-            nectarNodes.add(node);
         }
+    }
 
-        swingingVines.clear();
-        for (LanState.SwingingVineState vs : state.swingingVines) {
-            SwingingVine vine = new SwingingVine(vs.baseX, vs.baseY, vs.length);
+    private void syncLanSwingingVines(List<LanState.SwingingVineState> states) {
+        int targetSize = states != null ? states.size() : 0;
+        while (swingingVines.size() > targetSize) {
+            swingingVines.remove(swingingVines.size() - 1);
+        }
+        for (int i = 0; i < targetSize; i++) {
+            LanState.SwingingVineState vs = states.get(i);
+            SwingingVine vine;
+            if (i < swingingVines.size()) {
+                vine = swingingVines.get(i);
+            } else {
+                vine = new SwingingVine(vs.baseX, vs.baseY, vs.length);
+                swingingVines.add(vine);
+            }
+            vine.baseX = vs.baseX;
+            vine.baseY = vs.baseY;
+            vine.length = vs.length;
             vine.angle = vs.angle;
             vine.angularVelocity = vs.angularVelocity;
             vine.updatePlatformPosition();
-            swingingVines.add(vine);
         }
+    }
 
-        windVents.clear();
-        for (LanState.WindVentState ws : state.windVents) {
-            WindVent vent = new WindVent(ws.x, ws.y, ws.w);
-            vent.cooldown = ws.cooldown;
-            windVents.add(vent);
+    private void syncLanWindVents(List<LanState.WindVentState> states) {
+        int targetSize = states != null ? states.size() : 0;
+        while (windVents.size() > targetSize) {
+            windVents.remove(windVents.size() - 1);
         }
-
-        crowMinions.clear();
-        for (LanState.CrowMinionState cs : state.crowMinions) {
-            CrowMinion c = new CrowMinion(cs.x, cs.y, null);
-            c.age = cs.age;
-            c.hasCrown = cs.hasCrown;
-            if (cs.ownerIndex >= 0 && cs.ownerIndex < players.length) {
-                c.owner = players[cs.ownerIndex];
+        for (int i = 0; i < targetSize; i++) {
+            LanState.WindVentState ws = states.get(i);
+            WindVent vent;
+            if (i < windVents.size()) {
+                vent = windVents.get(i);
+            } else {
+                vent = new WindVent(ws.x, ws.y, ws.w);
+                windVents.add(vent);
             }
-            crowMinions.add(c);
+            vent.x = ws.x;
+            vent.y = ws.y;
+            vent.w = ws.w;
+            vent.cooldown = ws.cooldown;
         }
-        chickMinions.clear();
-        for (LanState.ChickMinionState cs : state.chickMinions) {
-            ChickMinion chick = new ChickMinion(cs.x, cs.y, cs.variant, cs.ultimate, null);
+    }
+
+    private void syncLanCrowMinions(List<LanState.CrowMinionState> states) {
+        int targetSize = states != null ? states.size() : 0;
+        while (crowMinions.size() > targetSize) {
+            crowMinions.remove(crowMinions.size() - 1);
+        }
+        for (int i = 0; i < targetSize; i++) {
+            LanState.CrowMinionState cs = states.get(i);
+            CrowMinion crow;
+            if (i < crowMinions.size()) {
+                crow = crowMinions.get(i);
+            } else {
+                crow = new CrowMinion(cs.x, cs.y, null);
+                crow.vx = 0;
+                crow.vy = 0;
+                crowMinions.add(crow);
+            }
+            crow.x = cs.x;
+            crow.y = cs.y;
+            crow.age = cs.age;
+            crow.hasCrown = cs.hasCrown;
+            crow.owner = cs.ownerIndex >= 0 && cs.ownerIndex < players.length ? players[cs.ownerIndex] : null;
+            crow.target = null;
+        }
+    }
+
+    private void syncLanChickMinions(List<LanState.ChickMinionState> states) {
+        int targetSize = states != null ? states.size() : 0;
+        while (chickMinions.size() > targetSize) {
+            chickMinions.remove(chickMinions.size() - 1);
+        }
+        for (int i = 0; i < targetSize; i++) {
+            LanState.ChickMinionState cs = states.get(i);
+            ChickMinion chick;
+            boolean needsReplacement = i >= chickMinions.size();
+            if (!needsReplacement) {
+                chick = chickMinions.get(i);
+                needsReplacement = chick.variant != cs.variant || chick.ultimate != cs.ultimate;
+            } else {
+                chick = null;
+            }
+            if (needsReplacement) {
+                chick = new ChickMinion(cs.x, cs.y, cs.variant, cs.ultimate, null);
+                chick.vx = 0;
+                chick.vy = 0;
+                if (i < chickMinions.size()) {
+                    chickMinions.set(i, chick);
+                } else {
+                    chickMinions.add(chick);
+                }
+            }
+            chick.x = cs.x;
+            chick.y = cs.y;
             chick.vx = cs.vx;
             chick.age = cs.age;
-            if (cs.life > 0) {
-                chick.life = Math.min(cs.life, chick.maxLife);
-            }
-            if (cs.ownerIndex >= 0 && cs.ownerIndex < players.length) {
-                chick.owner = players[cs.ownerIndex];
-            }
-            chickMinions.add(chick);
+            chick.life = Math.max(0, Math.min(cs.life, chick.maxLife));
+            chick.owner = cs.ownerIndex >= 0 && cs.ownerIndex < players.length ? players[cs.ownerIndex] : null;
+            chick.target = null;
         }
     }
 
@@ -14448,33 +14728,12 @@ public class BirdGame3 extends Application {
         card.setMaxWidth(1320);
         card.setStyle("-fx-background-color: rgba(0,0,0,0.58); -fx-background-radius: 22; -fx-border-color: #90CAF9; -fx-border-width: 3; -fx-border-radius: 22;");
 
-        Button musicToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
-        Button sfxToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
         Button shakeToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
         Button fullscreenToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
         Button particlesToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
         Button ambientToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
         Button fpsCapToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
 
-        musicToggle.setOnAction(e -> {
-            playButtonClick();
-            musicEnabled = !musicEnabled;
-            if (!musicEnabled) {
-                if (musicPlayer != null) musicPlayer.stop();
-                if (menuMusicPlayer != null) menuMusicPlayer.stop();
-                if (victoryMusicPlayer != null) victoryMusicPlayer.stop();
-            } else {
-                playMenuMusic();
-            }
-            refreshSettingsToggleButton(musicToggle, "MUSIC", musicEnabled);
-            saveAchievements();
-        });
-        sfxToggle.setOnAction(e -> {
-            playButtonClick();
-            sfxEnabled = !sfxEnabled;
-            refreshSettingsToggleButton(sfxToggle, "SFX", sfxEnabled);
-            saveAchievements();
-        });
         shakeToggle.setOnAction(e -> {
             playButtonClick();
             screenShakeEnabled = !screenShakeEnabled;
@@ -14507,23 +14766,53 @@ public class BirdGame3 extends Application {
             cycleFpsCap(fpsCapToggle);
         });
 
-        refreshSettingsToggleButton(musicToggle, "MUSIC", musicEnabled);
-        refreshSettingsToggleButton(sfxToggle, "SFX", sfxEnabled);
         refreshSettingsToggleButton(shakeToggle, "SCREEN SHAKE", screenShakeEnabled);
         refreshSettingsToggleButton(fullscreenToggle, "FULLSCREEN", fullscreenEnabled);
         refreshSettingsToggleButton(particlesToggle, "PARTICLES", particleEffectsEnabled);
         refreshSettingsToggleButton(ambientToggle, "AMBIENT FX", ambientEffectsEnabled);
         refreshFpsCapButton(fpsCapToggle);
 
-        VBox musicRow = buildSettingsRow(musicToggle, "Menu, match, and victory tracks.", "#B3E5FC");
-        VBox sfxRow = buildSettingsRow(sfxToggle, "Hits, UI clicks, and hazard sounds.", "#B3E5FC");
+        VBox musicRow = buildVolumeSettingsRow(
+                "MUSIC VOLUME",
+                "Menu, match, and victory tracks. Set to 0% to mute.",
+                "#B3E5FC",
+                "#64B5F6",
+                musicVolume,
+                value -> {
+                    boolean wasMuted = !musicEnabled || isMutedVolume(musicVolume);
+                    setMusicVolume(value);
+                    if (musicEnabled && wasMuted) {
+                        playMenuMusic();
+                    }
+                    saveAchievements();
+                },
+                () -> {
+                    if (musicEnabled) {
+                        playMenuMusic();
+                    }
+                }
+        );
+        VBox sfxRow = buildVolumeSettingsRow(
+                "VFX VOLUME",
+                "Battle effects, hits, UI clicks, and hazard sounds. Set to 0% to mute.",
+                "#B3E5FC",
+                "#80CBC4",
+                sfxVolume,
+                value -> {
+                    setSfxVolume(value);
+                    saveAchievements();
+                },
+                this::playButtonClick
+        );
         VBox shakeRow = buildSettingsRow(shakeToggle, "Camera jolts on big hits.", "#C5E1A5");
         VBox fullscreenRow = buildSettingsRow(fullscreenToggle, "Toggle windowed/fullscreen display.", "#C5E1A5");
         VBox particlesRow = buildSettingsRow(particlesToggle, "Damage sparks and ability particles.", "#FFE0B2");
         VBox ambientRow = buildSettingsRow(ambientToggle, "Animated background ambience and glow.", "#FFE0B2");
         VBox fpsRow = buildSettingsRow(fpsCapToggle, "Limits render FPS without changing game speed.", "#FFE0B2");
 
-        VBox audioPanel = new VBox(16, musicRow, sfxRow);
+        Label audioInfo = new Label("Audio now uses channel sliders. Drag to mix levels, or set a slider to 0% to mute it.");
+        styleSettingsInfoLabel(audioInfo, "#E1F5FE");
+        VBox audioPanel = new VBox(16, audioInfo, musicRow, sfxRow);
         audioPanel.setAlignment(Pos.CENTER_LEFT);
 
         VBox displayPanel = new VBox(16, shakeRow, fullscreenRow);
@@ -14725,7 +15014,7 @@ public class BirdGame3 extends Application {
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
-        musicToggle.requestFocus();
+        audioTab.requestFocus();
     }
 
     private boolean isClassicCompleted(BirdType type) {
@@ -20147,8 +20436,8 @@ public class BirdGame3 extends Application {
     }
 
     void showMatchSummary(Stage stage, Bird winner) {
-        if (musicPlayer != null) musicPlayer.stop();
-        if (menuMusicPlayer != null) menuMusicPlayer.stop();
+        disposeGameplayMusicPlayer();
+        menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, false);
         if (victoryMusicPlayer != null) {
             victoryMusicPlayer.stop();
             if (musicEnabled) victoryMusicPlayer.play();
@@ -21305,6 +21594,10 @@ public class BirdGame3 extends Application {
         bossRushClearCount = Math.max(0, prefs.getInt(PREF_BOSS_RUSH_CLEAR_COUNT, 0));
         musicEnabled = prefs.getBoolean("setting_music", true);
         sfxEnabled = prefs.getBoolean("setting_sfx", true);
+        musicVolume = sanitizeVolume(prefs.getDouble(PREF_SETTING_MUSIC_VOLUME, musicEnabled ? 1.0 : 0.0));
+        sfxVolume = sanitizeVolume(prefs.getDouble(PREF_SETTING_SFX_VOLUME, sfxEnabled ? 1.0 : 0.0));
+        musicEnabled = !isMutedVolume(musicVolume);
+        sfxEnabled = !isMutedVolume(sfxVolume);
         screenShakeEnabled = prefs.getBoolean("setting_shake", true);
         fullscreenEnabled = prefs.getBoolean("setting_fullscreen", true);
         particleEffectsEnabled = prefs.getBoolean("setting_particles", true);
@@ -21376,7 +21669,39 @@ public class BirdGame3 extends Application {
         contractsBoard.load(prefs, currentContractDate());
     }
     private void saveAchievements() {
-        Preferences prefs = Preferences.userNodeForPackage(BirdGame3.class);
+        if (!javafx.application.Platform.isFxApplicationThread()) {
+            persistAchievements(false);
+            return;
+        }
+        achievementSaveQueued = true;
+        if (achievementSaveDebounce == null) {
+            achievementSaveDebounce = new PauseTransition(ACHIEVEMENT_SAVE_DEBOUNCE);
+            achievementSaveDebounce.setOnFinished(event -> flushQueuedAchievementSave());
+        }
+        achievementSaveDebounce.playFromStart();
+    }
+
+    private void flushQueuedAchievementSave() {
+        if (!achievementSaveQueued) {
+            return;
+        }
+        achievementSaveQueued = false;
+        persistAchievements(false);
+    }
+
+    private void flushAchievementsNow() {
+        if (achievementSaveDebounce != null) {
+            achievementSaveDebounce.stop();
+        }
+        achievementSaveQueued = false;
+        persistAchievements(true);
+    }
+
+    private void persistAchievements(boolean flush) {
+        persistAchievements(Preferences.userNodeForPackage(BirdGame3.class), flush);
+    }
+
+    void persistAchievements(Preferences prefs, boolean flush) {
         saveControlBindings(prefs);
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             prefs.putBoolean("ach_" + i, achievementsUnlocked[i]);
@@ -21422,6 +21747,8 @@ public class BirdGame3 extends Application {
         prefs.putInt(PREF_BOSS_RUSH_CLEAR_COUNT, Math.max(0, bossRushClearCount));
         prefs.putBoolean("setting_music", musicEnabled);
         prefs.putBoolean("setting_sfx", sfxEnabled);
+        prefs.putDouble(PREF_SETTING_MUSIC_VOLUME, sanitizeVolume(musicVolume));
+        prefs.putDouble(PREF_SETTING_SFX_VOLUME, sanitizeVolume(sfxVolume));
         prefs.putBoolean("setting_shake", screenShakeEnabled);
         prefs.putBoolean("setting_fullscreen", fullscreenEnabled);
         prefs.putBoolean("setting_particles", particleEffectsEnabled);
@@ -21464,10 +21791,12 @@ public class BirdGame3 extends Application {
             prefs.putInt(PREF_BIRD_MASTERY_XP_PREFIX + type.name(), clampBirdMasteryXp(birdMasteryXp[idx]));
         }
         contractsBoard.save(prefs);
-        try {
-            prefs.flush();
-        } catch (BackingStoreException e) {
-            System.err.println("Failed to save preferences: " + e.getMessage());
+        if (flush) {
+            try {
+                prefs.flush();
+            } catch (BackingStoreException e) {
+                System.err.println("Failed to save preferences: " + e.getMessage());
+            }
         }
     }
     public void checkAchievements(Bird bird) {
@@ -21568,7 +21897,6 @@ public class BirdGame3 extends Application {
 
     private void showMatchHistory(Stage stage) {
         playMenuMusic();
-        if (musicPlayer != null) musicPlayer.stop();
 
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(30, 40, 30, 40));
@@ -21745,7 +22073,6 @@ public class BirdGame3 extends Application {
 
     private void showAchievements(Stage stage) {
         playMenuMusic();
-        if (musicPlayer != null) musicPlayer.stop();
 
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(30, 40, 30, 40));
@@ -21933,7 +22260,10 @@ public class BirdGame3 extends Application {
 
     @Override
     public void stop() throws Exception {
-        saveAchievements();
+        if (timer != null) timer.stop();
+        stopLanSession();
+        flushAchievementsNow();
+        disposeAllManagedMediaPlayers();
         super.stop();
     }
 

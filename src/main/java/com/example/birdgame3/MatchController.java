@@ -325,7 +325,7 @@ final class MatchController {
 
         if (!game.trainingModeActive && !game.matchEnded && game.matchTimer <= 0 && !game.suddenDeath.isActive()) {
             game.suddenDeath.start();
-            if (game.sfxEnabled && game.hugewaveClip != null) game.hugewaveClip.play();
+            game.playHugewaveSfx();
             game.addToKillFeed("SUDDEN DEATH! A MURDER OF CROWS DESCENDS!");
             game.shakeIntensity = 40;
             game.hitstopFrames = 30;
