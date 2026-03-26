@@ -119,6 +119,7 @@ public class BirdGame3 extends Application {
     private static final double NULL_ROCK_TRUE_FORM_POWER = 1.78;
     private static final double NULL_ROCK_TRUE_FORM_SPEED = 1.04;
     private static final double NULL_ROCK_TRUE_FORM_SIZE = 3.6;
+    private static final char[] NULL_ROCK_SELECTOR_SEQUENCE = {'U', 'U', 'D', 'D', 'L', 'R'};
     private static final double BOSS_HEALTH_EASE_FACTOR = 0.94;
     private static final double BOSS_POWER_EASE_FACTOR = 0.97;
     private static final double BOSS_SPEED_EASE_FACTOR = 0.98;
@@ -728,31 +729,66 @@ public class BirdGame3 extends Application {
         return NULL_ROCK_TRUE_FORM_SIZE;
     }
 
-    private boolean isNullRockCodeInProgress(CharSequence code) {
-        return code != null
-                && !code.isEmpty()
-                && code.length() < 4
-                && "NULL".startsWith(code.toString());
+    private boolean canUseLocalNullRockSelectorSecret(int idx, boolean[] selectorLocked) {
+        return nullRockVultureUnlocked
+                && selectorLocked != null
+                && idx >= 0
+                && idx < selectorLocked.length
+                && idx < fightSelectedBirds.length
+                && idx < fightRandomSelected.length
+                && selectorLocked[idx]
+                && !fightRandomSelected[idx]
+                && fightSelectedBirds[idx] == BirdType.VULTURE;
     }
 
-    private boolean hasEligibleLocalNullRockSelection(boolean[] selectorLocked) {
-        if (!nullRockVultureUnlocked || selectorLocked == null) return false;
-        int limit = Math.min(activePlayers, Math.min(selectorLocked.length, fightSelectedBirds.length));
-        for (int i = 0; i < limit; i++) {
-            if (!selectorLocked[i] || fightRandomSelected[i]) continue;
-            if (fightSelectedBirds[i] == BirdType.VULTURE) return true;
+    private char localNullRockSelectorDirection(int idx, KeyCode code) {
+        if (idx < 0 || code == null) return 0;
+        if (code == jumpKeyForPlayer(idx)) return 'U';
+        if (code == blockKeyForPlayer(idx)) return 'D';
+        if (code == leftKeyForPlayer(idx)) return 'L';
+        if (code == rightKeyForPlayer(idx)) return 'R';
+        return 0;
+    }
+
+    private int advanceNullRockSelectorProgress(int progress, char direction) {
+        if (direction == 0) return 0;
+        int safeProgress = Math.clamp(progress, 0, NULL_ROCK_SELECTOR_SEQUENCE.length);
+        if (safeProgress < NULL_ROCK_SELECTOR_SEQUENCE.length
+                && NULL_ROCK_SELECTOR_SEQUENCE[safeProgress] == direction) {
+            return safeProgress + 1;
         }
-        return false;
+        return NULL_ROCK_SELECTOR_SEQUENCE[0] == direction ? 1 : 0;
     }
 
-    private boolean shouldReserveLocalNullRockCode(CharSequence code, boolean[] selectorLocked) {
-        return isNullRockCodeInProgress(code) && hasEligibleLocalNullRockSelection(selectorLocked);
+    private boolean handleLockedNullRockSelectorSecret(int idx,
+                                                       KeyCode code,
+                                                       boolean[] selectorLocked,
+                                                       Runnable updateSlot,
+                                                       int[] progressByPlayer) {
+        if (progressByPlayer == null || idx < 0 || idx >= progressByPlayer.length) return false;
+        if (!canUseLocalNullRockSelectorSecret(idx, selectorLocked)) {
+            progressByPlayer[idx] = 0;
+            return false;
+        }
+        char direction = localNullRockSelectorDirection(idx, code);
+        if (direction == 0) return false;
+        progressByPlayer[idx] = advanceNullRockSelectorProgress(progressByPlayer[idx], direction);
+        if (progressByPlayer[idx] >= NULL_ROCK_SELECTOR_SEQUENCE.length) {
+            progressByPlayer[idx] = 0;
+            if (!NULL_ROCK_VULTURE_SKIN.equals(fightSelectedSkinKeys[idx])) {
+                fightSelectedSkinKeys[idx] = NULL_ROCK_VULTURE_SKIN;
+                if (updateSlot != null) updateSlot.run();
+            }
+            playButtonClick();
+        }
+        return true;
     }
 
     private String nullRockBirdBookDescription() {
         return "The final boss of Bird Fight 3 and the true form hidden inside Null Roc's shell. "
-                + "Beat Adventure Chapter 9 to unlock him, pick Vulture, then type NULL on the Local Battle "
-                + "or LAN bird-select screen to play as him. He keeps the finale's boss health, giant frame, "
+                + "Beat Adventure Chapter 9 to unlock him, lock Vulture in Local Battle, then enter Up Up Down "
+                + "Down Left Right with that slot's selector controls to switch into him. He keeps the finale's "
+                + "boss health, giant frame, "
                 + "Dark Flock summons, and Void Shell phase armor.";
     }
 
@@ -8267,6 +8303,7 @@ public class BirdGame3 extends Application {
         };
 
         Runnable[] updateSlot = new Runnable[4];
+        int[] nullRockSequenceProgress = new int[4];
 
         for (int i = 0; i < 4; i++) {
             int idx = i;
@@ -8310,6 +8347,7 @@ public class BirdGame3 extends Application {
             refreshCpuButton(idx);
 
             updateSlot[idx] = () -> {
+                nullRockSequenceProgress[idx] = 0;
                 boolean randomPick = fightRandomSelected[idx];
                 BirdType type = fightSelectedBirds[idx];
                 String skinKey = fightSelectedSkinKeys[idx];
@@ -8514,40 +8552,13 @@ public class BirdGame3 extends Application {
             readyBtn.fire();
             return true;
         };
-        StringBuilder nullRockCode = new StringBuilder();
 
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            if (nullRockVultureUnlocked) {
-                String text = e.getText();
-                if (text != null && text.length() == 1 && Character.isLetter(text.charAt(0))) {
-                    char ch = Character.toUpperCase(text.charAt(0));
-                    nullRockCode.append(ch);
-                    if (nullRockCode.length() > 4) {
-                        nullRockCode.delete(0, nullRockCode.length() - 4);
-                    }
-                    if ("NULL".contentEquals(nullRockCode)) {
-                        for (int i = 0; i < activePlayers; i++) {
-                            if (!selectorLocked[i] || fightRandomSelected[i]) continue;
-                            if (fightSelectedBirds[i] != BirdType.VULTURE) continue;
-                            fightSelectedSkinKeys[i] = NULL_ROCK_VULTURE_SKIN;
-                            updateSlot[i].run();
-                            playButtonClick();
-                            nullRockCode.setLength(0);
-                            e.consume();
-                            return;
-                        }
-                    }
-                    if (shouldReserveLocalNullRockCode(nullRockCode, selectorLocked)) {
-                        e.consume();
-                        return;
-                    }
-                }
-            }
             boolean handled = false;
-            handled |= handleSelectorKey(e, 0, selectors[0], selectorLabels[0], selectorLocked, spots, dockPositions, selectionPane, updateSlot[0], updateReadyBanner, tryStartMatch);
-            handled |= handleSelectorKey(e, 1, selectors[1], selectorLabels[1], selectorLocked, spots, dockPositions, selectionPane, updateSlot[1], updateReadyBanner, tryStartMatch);
-            handled |= handleSelectorKey(e, 2, selectors[2], selectorLabels[2], selectorLocked, spots, dockPositions, selectionPane, updateSlot[2], updateReadyBanner, tryStartMatch);
-            handled |= handleSelectorKey(e, 3, selectors[3], selectorLabels[3], selectorLocked, spots, dockPositions, selectionPane, updateSlot[3], updateReadyBanner, tryStartMatch);
+            handled |= handleSelectorKey(e, 0, selectors[0], selectorLabels[0], selectorLocked, spots, dockPositions, selectionPane, updateSlot[0], updateReadyBanner, tryStartMatch, nullRockSequenceProgress);
+            handled |= handleSelectorKey(e, 1, selectors[1], selectorLabels[1], selectorLocked, spots, dockPositions, selectionPane, updateSlot[1], updateReadyBanner, tryStartMatch, nullRockSequenceProgress);
+            handled |= handleSelectorKey(e, 2, selectors[2], selectorLabels[2], selectorLocked, spots, dockPositions, selectionPane, updateSlot[2], updateReadyBanner, tryStartMatch, nullRockSequenceProgress);
+            handled |= handleSelectorKey(e, 3, selectors[3], selectorLabels[3], selectorLocked, spots, dockPositions, selectionPane, updateSlot[3], updateReadyBanner, tryStartMatch, nullRockSequenceProgress);
             if (handled) {
                 e.consume();
             }
@@ -8904,54 +8915,31 @@ public class BirdGame3 extends Application {
                                       Pane selectionPane,
                                       Runnable updateSlot,
                                       Runnable updateReady,
-                                      BooleanSupplier tryStartMatch) {
+                                      BooleanSupplier tryStartMatch,
+                                      int[] nullRockSequenceProgress) {
         if (idx < 0 || idx >= activePlayers) return false;
         if (selector == null || label == null) return false;
 
         KeyCode code = e.getCode();
-        KeyCode left = switch (idx) {
-            case 1 -> KeyCode.LEFT;
-            case 2 -> KeyCode.F;
-            case 3 -> KeyCode.J;
-            default -> KeyCode.A;
-        };
-        KeyCode right = switch (idx) {
-            case 1 -> KeyCode.RIGHT;
-            case 2 -> KeyCode.H;
-            case 3 -> KeyCode.L;
-            default -> KeyCode.D;
-        };
-        KeyCode up = switch (idx) {
-            case 1 -> KeyCode.UP;
-            case 2 -> KeyCode.T;
-            case 3 -> KeyCode.I;
-            default -> KeyCode.W;
-        };
-        KeyCode down = switch (idx) {
-            case 1 -> KeyCode.DOWN;
-            case 2 -> KeyCode.G;
-            case 3 -> KeyCode.K;
-            default -> KeyCode.S;
-        };
-        KeyCode select = switch (idx) {
-            case 1 -> KeyCode.ENTER;
-            case 2 -> KeyCode.Y;
-            case 3 -> KeyCode.O;
-            default -> KeyCode.SPACE;
-        };
-        KeyCode special = switch (idx) {
-            case 1 -> KeyCode.SLASH;
-            case 2 -> KeyCode.U;
-            case 3 -> KeyCode.P;
-            default -> KeyCode.SHIFT;
-        };
+        KeyCode left = leftKeyForPlayer(idx);
+        KeyCode right = rightKeyForPlayer(idx);
+        KeyCode up = jumpKeyForPlayer(idx);
+        KeyCode down = blockKeyForPlayer(idx);
+        KeyCode select = attackKeyForPlayer(idx);
+        KeyCode special = specialKeyForPlayer(idx);
 
         double step = 26;
         boolean moved = false;
         if (code == special) {
+            if (nullRockSequenceProgress != null && idx < nullRockSequenceProgress.length) {
+                nullRockSequenceProgress[idx] = 0;
+            }
             return tryStartMatch != null && tryStartMatch.getAsBoolean();
         }
         if (code == select) {
+            if (nullRockSequenceProgress != null && idx < nullRockSequenceProgress.length) {
+                nullRockSequenceProgress[idx] = 0;
+            }
             if (selectorLocked[idx]) {
                 selectorLocked[idx] = false;
                 fightRandomSelected[idx] = false;
@@ -8994,6 +8982,9 @@ public class BirdGame3 extends Application {
             }
             return true;
         }
+        if (handleLockedNullRockSelectorSecret(idx, code, selectorLocked, updateSlot, nullRockSequenceProgress)) {
+            return true;
+        }
 
         double nx = selector.getCenterX();
         double ny = selector.getCenterY();
@@ -9011,6 +9002,9 @@ public class BirdGame3 extends Application {
             moved = true;
         }
         if (moved) {
+            if (nullRockSequenceProgress != null && idx < nullRockSequenceProgress.length) {
+                nullRockSequenceProgress[idx] = 0;
+            }
             if (selectorLocked[idx]) {
                 selectorLocked[idx] = false;
                 fightRandomSelected[idx] = false;

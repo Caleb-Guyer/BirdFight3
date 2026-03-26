@@ -1,5 +1,6 @@
 package com.example.birdgame3;
 
+import javafx.scene.input.KeyCode;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -164,31 +165,47 @@ class BirdGame3BossBalanceTest {
         assertEquals(expectedStats, recordValue(entry, "statsLine"));
         String description = (String) recordValue(entry, "description");
         assertTrue(description.contains("final boss of Bird Fight 3"));
-        assertTrue(description.contains("type NULL"));
+        assertTrue(description.contains("Up Up Down Down Left Right"));
     }
 
     @Test
-    void localNullRockCodeReservesIntermediateLettersForHiddenSelector() throws Exception {
+    void lockedVultureSlotUnlocksNullRockFromDirectionalSelectorCode() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.nullRockVultureUnlocked = true;
         game.activePlayers = 4;
 
         BirdGame3.BirdType[] selectedBirds = getPrivateBirdTypeArray(game, "fightSelectedBirds");
         boolean[] randomSelected = getPrivateBooleanArray(game, "fightRandomSelected");
+        String[] selectedSkins = getPrivateStringArray(game, "fightSelectedSkinKeys");
         boolean[] selectorLocked = {true, false, false, false};
+        int[] progress = new int[4];
         selectedBirds[0] = BirdGame3.BirdType.VULTURE;
         randomSelected[0] = false;
 
-        Method method = BirdGame3.class.getDeclaredMethod("shouldReserveLocalNullRockCode", CharSequence.class, boolean[].class);
+        Method method = BirdGame3.class.getDeclaredMethod(
+                "handleLockedNullRockSelectorSecret",
+                int.class,
+                KeyCode.class,
+                boolean[].class,
+                Runnable.class,
+                int[].class
+        );
         method.setAccessible(true);
+        Runnable noop = () -> {};
 
-        assertTrue((Boolean) method.invoke(game, "N", selectorLocked));
-        assertTrue((Boolean) method.invoke(game, "NU", selectorLocked));
-        assertTrue((Boolean) method.invoke(game, "NUL", selectorLocked));
-        assertFalse((Boolean) method.invoke(game, "NULL", selectorLocked));
-
-        selectorLocked[0] = false;
-        assertFalse((Boolean) method.invoke(game, "NU", selectorLocked));
+        assertTrue((Boolean) method.invoke(game, 0, KeyCode.W, selectorLocked, noop, progress));
+        assertEquals(1, progress[0]);
+        assertTrue((Boolean) method.invoke(game, 0, KeyCode.W, selectorLocked, noop, progress));
+        assertEquals(2, progress[0]);
+        assertTrue((Boolean) method.invoke(game, 0, KeyCode.S, selectorLocked, noop, progress));
+        assertEquals(3, progress[0]);
+        assertTrue((Boolean) method.invoke(game, 0, KeyCode.S, selectorLocked, noop, progress));
+        assertEquals(4, progress[0]);
+        assertTrue((Boolean) method.invoke(game, 0, KeyCode.A, selectorLocked, noop, progress));
+        assertEquals(5, progress[0]);
+        assertTrue((Boolean) method.invoke(game, 0, KeyCode.D, selectorLocked, noop, progress));
+        assertEquals("NULL_ROCK_VULTURE", selectedSkins[0]);
+        assertEquals(0, progress[0]);
     }
 
     @Test
@@ -256,6 +273,12 @@ class BirdGame3BossBalanceTest {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         return (BirdGame3.BirdType[]) field.get(target);
+    }
+
+    private static String[] getPrivateStringArray(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return (String[]) field.get(target);
     }
 
     @SuppressWarnings("unchecked")
