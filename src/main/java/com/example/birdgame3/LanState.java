@@ -84,6 +84,7 @@ class LanState {
             out.writeInt(c.age);
             out.writeInt(c.ownerIndex);
             out.writeBoolean(c.hasCrown);
+            out.writeInt(c.variant);
         }
         out.writeInt(chickMinions.size());
         for (ChickMinionState c : chickMinions) {
@@ -176,6 +177,7 @@ class LanState {
             c.age = in.readInt();
             c.ownerIndex = in.readInt();
             c.hasCrown = in.readBoolean();
+            c.variant = in.readInt();
             state.crowMinions.add(c);
         }
         int chickCount = in.readInt();
@@ -228,6 +230,7 @@ class LanState {
         int age;
         int ownerIndex;
         boolean hasCrown;
+        int variant;
     }
 
     static final class ChickMinionState {

@@ -126,6 +126,10 @@ final class BirdBookUiSupport {
                 top = Color.web("#0D47A1");
                 bottom = Color.web("#1E88E5");
             }
+            case BEACON_CROWN -> {
+                top = Color.web("#120C2B");
+                bottom = Color.web("#3B1E54");
+            }
             default -> {
                 top = Color.web("#1B5E20");
                 bottom = Color.web("#4CAF50");
@@ -194,6 +198,19 @@ final class BirdBookUiSupport {
                 g.setLineWidth(2.5);
                 g.strokeLine(0, h * 0.62, w, h * 0.62);
             }
+            case BEACON_CROWN -> {
+                g.setFill(Color.web("#1A237E", 0.3));
+                g.fillOval(w * 0.1, h * 0.08, w * 0.8, h * 0.55);
+                g.setFill(Color.web("#4A148C", 0.82));
+                g.fillPolygon(
+                        new double[]{w * 0.18, w * 0.3, w * 0.42, w * 0.5, w * 0.58, w * 0.7, w * 0.82},
+                        new double[]{h * 0.72, h * 0.34, h * 0.66, h * 0.22, h * 0.66, h * 0.34, h * 0.72},
+                        7
+                );
+                g.setStroke(Color.web("#E1BEE7", 0.6));
+                g.setLineWidth(3);
+                g.strokeLine(w * 0.22, h * 0.72, w * 0.78, h * 0.72);
+            }
             default -> {
                 g.setFill(Color.web("#1B5E20", 0.75));
                 g.fillPolygon(new double[]{0, w * 0.1, w * 0.2}, new double[]{h, h * 0.55, h}, 3);
@@ -227,6 +244,7 @@ final class BirdBookUiSupport {
             case VIBRANT_JUNGLE -> Color.web("#388E3C");
             case CAVE -> Color.web("#455A64");
             case BATTLEFIELD -> Color.web("#1E88E5");
+            case BEACON_CROWN -> Color.web("#8E24AA");
             default -> Color.web("#2E7D32");
         };
     }

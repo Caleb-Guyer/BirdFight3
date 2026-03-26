@@ -4,9 +4,11 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 
 class BirdGame3BossBalanceTest {
     @Test
@@ -54,14 +56,14 @@ class BirdGame3BossBalanceTest {
     void unitedFinaleRosterKeepsBossEaseAfterTitanScaleOverride() throws Exception {
         BirdGame3 game = new BirdGame3();
         BirdGame3.AdventureBattle battle = new BirdGame3.AdventureBattle(
-                "Battle 2: All Wings Rise",
+                "Battle 3: The Null Rock",
                 "",
-                BirdGame3.MapType.BATTLEFIELD,
+                BirdGame3.MapType.BEACON_CROWN,
                 BirdGame3.BirdType.VULTURE,
-                "Boss: Null Roc",
-                520.0,
-                1.55,
-                0.96,
+                "Boss: The Null Rock",
+                760.0,
+                1.78,
+                1.04,
                 null,
                 null,
                 null,
@@ -80,10 +82,113 @@ class BirdGame3BossBalanceTest {
         method.invoke(game, battle, BirdGame3.BirdType.PIGEON, null);
 
         Bird boss = game.players[3];
-        assertEquals(488.8, boss.health, 0.0001);
-        assertEquals(2.1, boss.baseSizeMultiplier, 0.0001);
-        assertEquals(1.5035, boss.basePowerMultiplier, 0.0001);
-        assertEquals(0.9408, boss.baseSpeedMultiplier, 0.0001);
+        assertEquals(714.4, boss.health, 0.0001);
+        assertEquals(3.6, boss.baseSizeMultiplier, 0.0001);
+        assertEquals(1.7266, boss.basePowerMultiplier, 0.0001);
+        assertEquals(1.0192, boss.baseSpeedMultiplier, 0.0001);
+    }
+
+    @Test
+    void localNullRockSkinUsesBossTemplateStats() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.nullRockVultureUnlocked = true;
+        Bird bird = new Bird(100, BirdGame3.BirdType.VULTURE, 0, game);
+
+        Method method = BirdGame3.class.getDeclaredMethod(
+                "applySkinChoiceToBird",
+                Bird.class,
+                BirdGame3.BirdType.class,
+                String.class
+        );
+        method.setAccessible(true);
+        method.invoke(game, bird, BirdGame3.BirdType.VULTURE, "NULL_ROCK_VULTURE");
+
+        assertEquals(714.4, bird.health, 0.0001);
+        assertEquals(3.6, bird.baseSizeMultiplier, 0.0001);
+        assertEquals(1.7266, bird.basePowerMultiplier, 0.0001);
+        assertEquals(1.0192, bird.baseSpeedMultiplier, 0.0001);
+    }
+
+    @Test
+    void featherpediaShowsNullRockAsSeparateBirdWithItsOwnSummons() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.nullRockVultureUnlocked = true;
+
+        Method method = BirdGame3.class.getDeclaredMethod("birdBookBirdEntries");
+        method.setAccessible(true);
+        List<?> entries = (List<?>) method.invoke(game);
+
+        Object nullRockEntry = null;
+        for (Object entry : entries) {
+            if ("The Null Rock".equals(recordValue(entry, "displayName"))) {
+                nullRockEntry = entry;
+                break;
+            }
+        }
+
+        assertNotNull(nullRockEntry);
+        assertEquals(BirdGame3.BirdType.VULTURE, recordValue(nullRockEntry, "type"));
+        assertEquals("NULL_ROCK_VULTURE", recordValue(nullRockEntry, "skinKey"));
+        assertEquals(BirdGame3.MapType.BEACON_CROWN, recordValue(nullRockEntry, "origin"));
+        assertTrue((Boolean) recordValue(nullRockEntry, "unlocked"));
+        assertFalse((Boolean) recordValue(nullRockEntry, "showMastery"));
+
+        @SuppressWarnings("unchecked")
+        List<Object> companions = (List<Object>) recordValue(nullRockEntry, "companions");
+        List<String> companionNames = new ArrayList<>();
+        for (Object companion : companions) {
+            companionNames.add((String) recordValue(companion, "name"));
+        }
+
+        assertEquals(List.of("Giant Crow", "Raven", "Void Raven", "Murder Crow"), companionNames);
+    }
+
+    @Test
+    void featherpediaNullRockEntryUsesFinalBossDescriptionAndRealStats() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.nullRockVultureUnlocked = true;
+
+        Method method = BirdGame3.class.getDeclaredMethod("nullRockBirdBookEntry");
+        method.setAccessible(true);
+        Object entry = method.invoke(game);
+
+        String expectedStats = String.format(
+                Locale.US,
+                "Health: %.1f | Size: %.2fx | Power: %.2fx | Speed: %.2fx",
+                game.nullRockTrueFormHealth(),
+                game.nullRockTrueFormSizeMultiplier(),
+                game.nullRockTrueFormPowerMultiplier(),
+                game.nullRockTrueFormSpeedMultiplier()
+        );
+
+        assertEquals(expectedStats, recordValue(entry, "statsLine"));
+        String description = (String) recordValue(entry, "description");
+        assertTrue(description.contains("final boss of Bird Fight 3"));
+        assertTrue(description.contains("type NULL"));
+    }
+
+    @Test
+    void localNullRockCodeReservesIntermediateLettersForHiddenSelector() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.nullRockVultureUnlocked = true;
+        game.activePlayers = 4;
+
+        BirdGame3.BirdType[] selectedBirds = getPrivateBirdTypeArray(game, "fightSelectedBirds");
+        boolean[] randomSelected = getPrivateBooleanArray(game, "fightRandomSelected");
+        boolean[] selectorLocked = {true, false, false, false};
+        selectedBirds[0] = BirdGame3.BirdType.VULTURE;
+        randomSelected[0] = false;
+
+        Method method = BirdGame3.class.getDeclaredMethod("shouldReserveLocalNullRockCode", CharSequence.class, boolean[].class);
+        method.setAccessible(true);
+
+        assertTrue((Boolean) method.invoke(game, "N", selectorLocked));
+        assertTrue((Boolean) method.invoke(game, "NU", selectorLocked));
+        assertTrue((Boolean) method.invoke(game, "NUL", selectorLocked));
+        assertFalse((Boolean) method.invoke(game, "NULL", selectorLocked));
+
+        selectorLocked[0] = false;
+        assertFalse((Boolean) method.invoke(game, "NU", selectorLocked));
     }
 
     @Test
@@ -141,11 +246,23 @@ class BirdGame3BossBalanceTest {
         return (int[]) field.get(target);
     }
 
+    private static boolean[] getPrivateBooleanArray(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return (boolean[]) field.get(target);
+    }
+
+    private static BirdGame3.BirdType[] getPrivateBirdTypeArray(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return (BirdGame3.BirdType[]) field.get(target);
+    }
+
     @SuppressWarnings("unchecked")
     private static BirdGame3.ClassicEncounter firstBossRushEncounter(BirdGame3 game) throws Exception {
-        Method method = BirdGame3.class.getDeclaredMethod("buildBossRushRun", BirdGame3.BirdType.class);
+        Method method = BirdGame3.class.getDeclaredMethod("buildBossRushRun");
         method.setAccessible(true);
-        List<BirdGame3.ClassicEncounter> encounters = (List<BirdGame3.ClassicEncounter>) method.invoke(game, BirdGame3.BirdType.PIGEON);
+        List<BirdGame3.ClassicEncounter> encounters = (List<BirdGame3.ClassicEncounter>) method.invoke(game);
         return encounters.getFirst();
     }
 
@@ -153,5 +270,11 @@ class BirdGame3BossBalanceTest {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.setBoolean(target, value);
+    }
+
+    private static Object recordValue(Object target, String accessor) throws Exception {
+        Method method = target.getClass().getDeclaredMethod(accessor);
+        method.setAccessible(true);
+        return method.invoke(target);
     }
 }

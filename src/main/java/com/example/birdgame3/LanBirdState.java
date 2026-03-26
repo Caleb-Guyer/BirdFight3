@@ -33,6 +33,7 @@ class LanBirdState {
     boolean isSunflareSkin;
     boolean isGlacierSkin;
     boolean isTideSkin;
+    boolean isNullRockSkin;
     boolean isEclipseSkin;
     boolean isUmbraSkin;
     boolean isSunforgeSkin;
@@ -103,6 +104,8 @@ class LanBirdState {
     boolean phoenixRebornActive;
     double ultimateMeter;
     int ultimateFxTimer;
+    int nullRockInvincibilityTimer;
+    int nullRockPhaseIndex;
 
     void write(DataOutputStream out) throws IOException {
         out.writeInt(typeOrdinal);
@@ -133,6 +136,7 @@ class LanBirdState {
         out.writeBoolean(isSunflareSkin);
         out.writeBoolean(isGlacierSkin);
         out.writeBoolean(isTideSkin);
+        out.writeBoolean(isNullRockSkin);
         out.writeBoolean(isEclipseSkin);
         out.writeBoolean(isUmbraSkin);
         out.writeBoolean(isSunforgeSkin);
@@ -203,6 +207,8 @@ class LanBirdState {
         out.writeBoolean(phoenixRebornActive);
         out.writeDouble(ultimateMeter);
         out.writeInt(ultimateFxTimer);
+        out.writeInt(nullRockInvincibilityTimer);
+        out.writeInt(nullRockPhaseIndex);
     }
 
     static LanBirdState read(DataInputStream in) throws IOException {
@@ -235,6 +241,7 @@ class LanBirdState {
         state.isSunflareSkin = in.readBoolean();
         state.isGlacierSkin = in.readBoolean();
         state.isTideSkin = in.readBoolean();
+        state.isNullRockSkin = in.readBoolean();
         state.isEclipseSkin = in.readBoolean();
         state.isUmbraSkin = in.readBoolean();
         state.isSunforgeSkin = in.readBoolean();
@@ -305,6 +312,8 @@ class LanBirdState {
         state.phoenixRebornActive = in.readBoolean();
         state.ultimateMeter = in.readDouble();
         state.ultimateFxTimer = in.readInt();
+        state.nullRockInvincibilityTimer = in.readInt();
+        state.nullRockPhaseIndex = in.readInt();
         return state;
     }
 }

@@ -217,7 +217,7 @@ class LanClient {
             boolean notify = notifyOnDisconnect;
             disconnectInternal();
             if (notify) {
-                game.onLanDisconnected("Connection lost.");
+                game.onLanDisconnected();
             }
         }
     }

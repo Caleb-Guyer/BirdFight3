@@ -410,7 +410,7 @@ final class ContractsBoard {
             if (definition.metric() == ContractMetric.UNIQUE_MAP_WINS) {
                 progress = Integer.bitCount(extra);
             }
-            progress = Math.max(0, Math.min(progress, definition.target()));
+            progress = Math.clamp(progress, 0, definition.target());
             if (completed || progress >= definition.target()) {
                 completed = true;
                 progress = definition.target();

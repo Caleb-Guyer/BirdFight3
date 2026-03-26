@@ -52,6 +52,7 @@ public class Bird {
     public boolean isSunflareSkin = false;
     public boolean isGlacierSkin = false;
     public boolean isTideSkin = false;
+    public boolean isNullRockSkin = false;
     public boolean isEclipseSkin = false;
     public boolean isUmbraSkin = false;
     public boolean isSunforgeSkin = false;
@@ -100,7 +101,7 @@ public class Bird {
     public int blockCooldown = 0;
 
     // === VINE SWINGING ===
-    public SwingingVine attachedVine = null;
+    SwingingVine attachedVine = null;
     public boolean onVine = false;
 
     // === POWER-UP BUFFS ===
@@ -166,6 +167,11 @@ public class Bird {
     private static final double PHOENIX_REBORN_POWER_SCALE = 0.8;
     private static final double PHOENIX_REBORN_SPEED_SCALE = 1.35;
     private static final double PHOENIX_REBORN_DAMAGE_SCALE = 0.85;
+    private static final double[] NULL_ROCK_PHASE_THRESHOLDS = {0.84, 0.66, 0.46, 0.24};
+    private static final int NULL_ROCK_PHASE_INVULN_FRAMES = 135;
+    private int nullRockInvincibilityTimer = 0;
+    private int nullRockPhaseIndex = 0;
+    private int nullRockShieldFxCooldown = 0;
 
     private final Random random = new Random();
 
@@ -199,9 +205,17 @@ public class Bird {
         speedMultiplier = speed;
     }
 
+    boolean isNullRockForm() {
+        return type == BirdGame3.BirdType.VULTURE && isNullRockSkin;
+    }
+
+    boolean isCombatInvulnerable() {
+        return isNullRockForm() && nullRockInvincibilityTimer > 0;
+    }
+
     public boolean isOnGround() {
         double bottom = y + 80 * sizeMultiplier;
-        if (game.selectedMap != MapType.BATTLEFIELD && bottom >= game.GROUND_Y) return true;
+        if (game.selectedMap != MapType.BATTLEFIELD && game.selectedMap != MapType.BEACON_CROWN && bottom >= game.GROUND_Y) return true;
         for (Platform p : game.platforms) {
             boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
                     p.y <= 1 && p.h >= 60 && p.w >= game.WORLD_WIDTH - 10;
@@ -256,7 +270,7 @@ public class Bird {
             }
         }
 
-        if (!hit && game.selectedMap != MapType.BATTLEFIELD && y + 80 * sizeMultiplier > game.GROUND_Y) {
+        if (!hit && game.selectedMap != MapType.BATTLEFIELD && game.selectedMap != MapType.BEACON_CROWN && y + 80 * sizeMultiplier > game.GROUND_Y) {
             newY = game.GROUND_Y - 80 * sizeMultiplier;
             hit = true;
         }
@@ -918,6 +932,10 @@ public class Bird {
     }
 
     private void specialVulture(boolean ultimate) {
+        if (isNullRockForm()) {
+            specialNullRock(ultimate);
+            return;
+        }
         crowSwarmCooldown = 1080;
         specialCooldown = 1080;
         specialMaxCooldown = 1080;
@@ -949,6 +967,35 @@ public class Bird {
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 6,
                     ultimate ? Color.BLACK : Color.rgb(10, 0, 20)));
+        }
+    }
+
+    private void specialNullRock(boolean ultimate) {
+        crowSwarmCooldown = ultimate ? 960 : 1080;
+        specialCooldown = crowSwarmCooldown;
+        specialMaxCooldown = crowSwarmCooldown;
+        game.summonNullRockSpecialFlock(this, ultimate);
+
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 30 : 24);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 18 : 14);
+        carrionSwarmTimer = ultimate ? 240 : 180;
+
+        int particleCount = ultimate ? 360 : 260;
+        for (int i = 0; i < particleCount; i++) {
+            double angle = Math.random() * Math.PI * 2;
+            double speed = 9 + Math.random() * 18;
+            Color shade = switch (i % 3) {
+                case 1 -> Color.web("#16020C");
+                case 2 -> Color.web("#25102B");
+                default -> Color.BLACK;
+            };
+            game.particles.add(new Particle(
+                    x + 40,
+                    y + 40,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 6,
+                    shade.deriveColor(0, 1, 1, ultimate ? 0.95 : 0.82)
+            ));
         }
     }
 
@@ -1230,7 +1277,7 @@ public class Bird {
         clearAIInputs();
 
         int cpuLevel = game.getCpuLevel(playerIndex);
-        double rawSkill = Math.max(0.0, Math.min(1.0, (cpuLevel - 1) / 8.0));
+        double rawSkill = Math.clamp((cpuLevel - 1) / 8.0, 0.0, 1.0);
         double skill = Math.pow(rawSkill, 2.1);
         double error = Math.min(1.0, 1.05 - skill);
         if (cpuLevel <= 1) {
@@ -1331,7 +1378,7 @@ public class Bird {
             goalX = pickPowerUpGoalX(powerUp);
         } else if (target != null) {
             // Predict movement instead of chasing current position.
-            double lead = Math.min(10, Math.max(2, targetDist / 120.0));
+            double lead = Math.clamp(targetDist / 120.0, 2.0, 10.0);
             if (lowCpu) lead *= 0.55;
             double predictedX = target.x + target.vx * lead;
             if (targetBelow) {
@@ -1384,7 +1431,7 @@ public class Bird {
             goalX += (random.nextDouble() - 0.5) * 160 * error;
         }
 
-        goalX = Math.max(120, Math.min(goalX, game.WORLD_WIDTH - 120));
+        goalX = Math.clamp(goalX, 120.0, game.WORLD_WIDTH - 120.0);
 
         if (powerFocus && powerUp != null) facingRight = powerUp.x > myCx;
         else if (target != null) facingRight = target.x > myCx;
@@ -1608,8 +1655,8 @@ public class Bird {
             double warpY = target.y;
             double maxX = game.WORLD_WIDTH - 80 * sizeMultiplier;
             double maxY = game.GROUND_Y - 80 * sizeMultiplier;
-            warpX = Math.max(0, Math.min(warpX, maxX));
-            warpY = Math.max(0, Math.min(warpY, maxY));
+            warpX = Math.clamp(warpX, 0.0, maxX);
+            warpY = Math.clamp(warpY, 0.0, maxY);
             x = warpX;
             y = warpY;
             facingRight = dir < 0;
@@ -1760,8 +1807,8 @@ public class Bird {
                 double centerOffset = 25;
                 double leftDrop = standing.x - centerOffset - 40 * sizeMultiplier;
                 double rightDrop = standing.x + standing.w + centerOffset - 40 * sizeMultiplier;
-                leftDrop = Math.max(120, Math.min(leftDrop, game.WORLD_WIDTH - 120));
-                rightDrop = Math.max(120, Math.min(rightDrop, game.WORLD_WIDTH - 120));
+                leftDrop = Math.clamp(leftDrop, 120.0, game.WORLD_WIDTH - 120.0);
+                rightDrop = Math.clamp(rightDrop, 120.0, game.WORLD_WIDTH - 120.0);
                 return Math.abs(leftDrop - p.x) <= Math.abs(rightDrop - p.x) ? leftDrop : rightDrop;
             }
         }
@@ -1897,7 +1944,7 @@ public class Bird {
 
         if (!dodge) return false;
         int cpuLevel = game.getCpuLevel(playerIndex);
-        double skill = Math.max(0.0, Math.min(1.0, (cpuLevel - 1) / 8.0));
+        double skill = Math.clamp((cpuLevel - 1) / 8.0, 0.0, 1.0);
         if (random.nextDouble() > 0.25 + 0.75 * skill) return false;
 
         if (dir < 0) game.setAiControlKey(playerIndex, leftKey(), true);
@@ -2046,7 +2093,7 @@ public class Bird {
             boolean limitedFlight = hasLimitedFlight();
             boolean thermalActive = thermalTimer > 0;
             double speedRatio = baseSpeedMultiplier > 0 ? speedMultiplier / baseSpeedMultiplier : 1.0;
-            double flightLiftScale = Math.max(0.8, Math.min(1.45, 1.0 + (speedRatio - 1.0) * 0.55));
+            double flightLiftScale = Math.clamp(1.0 + (speedRatio - 1.0) * 0.55, 0.8, 1.45);
             // Thermal Rise should always remain effective even if limited-flight fuel is drained.
             if (!limitedFlight || limitedFlightFuel > 0 || thermalActive) {
                 vy -= (type.flyUpForce + thermalLift) * hoverRegenMultiplier * flightLiftScale;
@@ -2157,7 +2204,7 @@ public class Bird {
 
         double leftBound = 50;
         double rightBound = game.WORLD_WIDTH - 150 * sizeMultiplier;
-        if (game.selectedMap == MapType.BATTLEFIELD) {
+        if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
             double battlefieldLeft = game.battlefieldLeftBound();
             double battlefieldRight = game.battlefieldRightBound();
             leftBound = battlefieldLeft + 50;
@@ -2207,6 +2254,8 @@ public class Bird {
         for (int i = 0; i < phoenixAfterburnHitCooldown.length; i++) {
             phoenixAfterburnHitCooldown[i] = Math.max(0, (int)(phoenixAfterburnHitCooldown[i] - gameSpeed));
         }
+        nullRockInvincibilityTimer = Math.max(0, (int) (nullRockInvincibilityTimer - gameSpeed));
+        nullRockShieldFxCooldown = Math.max(0, (int) (nullRockShieldFxCooldown - gameSpeed));
 
         stunTime = Math.max(0, stunTime - gameSpeed);
         if (specialCooldown > 0) specialCooldown = (int)Math.max(0, specialCooldown - gameSpeed);
@@ -2574,9 +2623,9 @@ public class Bird {
             double moveSpeed = type.speed * speedMultiplier;
             double speedRatio = baseSpeedMultiplier > 0 ? speedMultiplier / baseSpeedMultiplier : 1.0;
             if (airborne) {
-                accel *= Math.max(0.85, Math.min(1.55, 1.0 + (speedRatio - 1.0) * 0.85));
+                accel *= Math.clamp(1.0 + (speedRatio - 1.0) * 0.85, 0.85, 1.55);
             } else {
-                accel *= Math.max(0.9, Math.min(1.45, 1.0 + (speedRatio - 1.0) * 0.65));
+                accel *= Math.clamp(1.0 + (speedRatio - 1.0) * 0.65, 0.9, 1.45);
             }
             if (type == BirdGame3.BirdType.BAT) {
                 moveSpeed *= airborne ? 1.48 : 0.62;
@@ -2726,6 +2775,7 @@ public class Bird {
 
     private double incomingDamageMultiplier() {
         double mult = 1.0;
+        if (isCombatInvulnerable()) return 0.0;
         if (titanActive && titanTimer > 0) mult *= 0.75;
         if (shrinkTimer > 0) mult *= 1.22;
         return mult;
@@ -2740,7 +2790,7 @@ public class Bird {
     }
 
     public double getUltimateRatio() {
-        return Math.max(0.0, Math.min(1.0, ultimateMeter / ULTIMATE_MAX));
+        return Math.clamp(ultimateMeter / ULTIMATE_MAX, 0.0, 1.0);
     }
 
     public boolean isUltimateReady() {
@@ -2772,32 +2822,108 @@ public class Bird {
 
     public double getMaxHealth() {
         if (type == BirdGame3.BirdType.PHOENIX && phoenixRebornActive) return PHOENIX_REBORN_HEALTH;
+        if (isNullRockForm()) return game.nullRockTrueFormHealth();
         return 100.0;
     }
 
     private double applyDamageTo(Bird target, double rawDamage) {
         if (target == null || rawDamage <= 0 || target.health <= 0) return 0;
-        double oldHealth = target.health;
         double scaledDamage = rawDamage * outgoingDamageMultiplier() * target.incomingDamageMultiplier();
-        double dealtDamage;
-        if (game.isTrainingDummy(target)) {
-            target.health = STARTING_HEALTH;
-            dealtDamage = Math.max(0, scaledDamage);
-        } else {
-            target.health = Math.max(0, target.health - scaledDamage);
-            if (target.health <= 0) {
-                target.tryPhoenixRebirth();
-                if (target.health <= 0) {
-                    target.onDefeated();
-                }
-            }
-            dealtDamage = oldHealth - target.health;
-        }
+        double dealtDamage = target.receiveScaledDamage(scaledDamage, this);
         if (dealtDamage > 0) {
             gainUltimate(dealtDamage * ULTIMATE_GAIN_DEALT);
             target.gainUltimate(dealtDamage * ULTIMATE_GAIN_TAKEN);
         }
         return dealtDamage;
+    }
+
+    double receiveExternalDamage(double rawDamage, Bird attacker) {
+        if (rawDamage <= 0) return 0;
+        if (isCombatInvulnerable()) {
+            spawnNullRockShieldBurst();
+            return 0;
+        }
+        return receiveScaledDamage(rawDamage * incomingDamageMultiplier(), attacker);
+    }
+
+    private double receiveScaledDamage(double scaledDamage, Bird attacker) {
+        if (scaledDamage <= 0 || health <= 0) return 0;
+        if (isCombatInvulnerable()) {
+            spawnNullRockShieldBurst();
+            return 0;
+        }
+
+        double oldHealth = health;
+        if (game.isTrainingDummy(this)) {
+            health = STARTING_HEALTH;
+            return Math.max(0, scaledDamage);
+        }
+
+        double gatedDamage = applyNullRockPhaseGate(scaledDamage);
+        if (!Double.isNaN(gatedDamage)) {
+            return gatedDamage;
+        }
+
+        health = Math.max(0, health - scaledDamage);
+        if (health <= 0) {
+            tryPhoenixRebirth();
+            if (health <= 0) {
+                onDefeated();
+            }
+        }
+        return oldHealth - health;
+    }
+
+    private double applyNullRockPhaseGate(double scaledDamage) {
+        if (!isNullRockForm()) return Double.NaN;
+        while (nullRockPhaseIndex < NULL_ROCK_PHASE_THRESHOLDS.length) {
+            double thresholdHealth = Math.max(1.0, getMaxHealth() * NULL_ROCK_PHASE_THRESHOLDS[nullRockPhaseIndex]);
+            if (health <= thresholdHealth + 0.0001) {
+                nullRockPhaseIndex++;
+                continue;
+            }
+            double nextHealth = health - scaledDamage;
+            if (nextHealth > thresholdHealth + 0.0001) {
+                return Double.NaN;
+            }
+            double oldHealth = health;
+            health = thresholdHealth;
+            triggerNullRockPhaseShift();
+            return oldHealth - health;
+        }
+        return Double.NaN;
+    }
+
+    private void triggerNullRockPhaseShift() {
+        nullRockPhaseIndex++;
+        nullRockInvincibilityTimer = NULL_ROCK_PHASE_INVULN_FRAMES + (nullRockPhaseIndex - 1) * 18;
+        nullRockShieldFxCooldown = 0;
+        stunTime = 0;
+        carrionSwarmTimer = Math.max(carrionSwarmTimer, 170 + nullRockPhaseIndex * 20);
+        specialCooldown = Math.min(specialCooldown, 90);
+        vx *= 0.35;
+        vy = Math.min(vy, -5.5);
+        game.onNullRockPhaseShift(this, nullRockPhaseIndex - 1);
+    }
+
+    private void spawnNullRockShieldBurst() {
+        if (!isNullRockForm()) return;
+        if (nullRockShieldFxCooldown > 0) return;
+        nullRockShieldFxCooldown = 8;
+        double centerX = x + 40 * sizeMultiplier;
+        double centerY = y + 40 * sizeMultiplier;
+        for (int i = 0; i < 14; i++) {
+            double angle = Math.random() * Math.PI * 2;
+            double speed = 3 + Math.random() * 8;
+            Color c = i % 2 == 0 ? Color.web("#FFCDD2") : Color.web("#80DEEA");
+            game.particles.add(new Particle(
+                    centerX,
+                    centerY,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 2.5,
+                    c.deriveColor(0, 1, 1, 0.82)
+            ));
+        }
     }
 
     private boolean tryPhoenixRebirth() {
@@ -3311,7 +3437,7 @@ public class Bird {
         double rightBound = game.WORLD_WIDTH - 150 * sizeMultiplier;
         double outLeft = -300;
         double outRight = game.WORLD_WIDTH + 300;
-        if (game.selectedMap == MapType.BATTLEFIELD) {
+        if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
             double battlefieldLeft = game.battlefieldLeftBound();
             double battlefieldRight = game.battlefieldRightBound();
             leftBound = battlefieldLeft + 50;
@@ -3344,7 +3470,7 @@ public class Bird {
             if (!reborn && !trainingDummy && health <= 0) {
                 x = Math.max(leftBound, Math.min(x, rightBound));
                 y = game.WORLD_HEIGHT + 400;
-            } else if (game.selectedMap == MapType.BATTLEFIELD) {
+            } else if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
                 double centerX = game.battlefieldSpawnCenterX();
                 x = centerX - 40 * sizeMultiplier;
                 y = game.battlefieldSpawnY(sizeMultiplier);
@@ -3368,7 +3494,7 @@ public class Bird {
 
         if (y > game.WORLD_HEIGHT + 300) {
             game.falls[playerIndex]++;
-            if (game.selectedMap == MapType.BATTLEFIELD) {
+            if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
                 health = 0;
             } else {
                 health = Math.max(0, health - 50);
@@ -3380,7 +3506,7 @@ public class Bird {
             } else if (health <= 0) {
                 reborn = tryPhoenixRebirth();
                 if (!reborn) {
-                    String msg = (game.selectedMap == MapType.BATTLEFIELD)
+                    String msg = (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN)
                             ? shortName() + " FELL INTO THE VOID!"
                             : shortName() + " FELL TO THEIR DOOM!";
                     game.addToKillFeed(msg);
@@ -3393,7 +3519,7 @@ public class Bird {
             if (!reborn && !trainingDummy && health <= 0) {
                 x = Math.max(leftBound, Math.min(x, rightBound));
                 y = game.WORLD_HEIGHT + 400;
-            } else if (game.selectedMap == MapType.BATTLEFIELD) {
+            } else if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
                 double centerX = game.battlefieldSpawnCenterX();
                 x = centerX - 40 * sizeMultiplier;
                 y = game.battlefieldSpawnY(sizeMultiplier);
@@ -3648,6 +3774,9 @@ public class Bird {
         loungeHealth = 0;
         loungeRoyal = false;
         loungeDamageFlash = 0;
+        nullRockInvincibilityTimer = 0;
+        nullRockPhaseIndex = 0;
+        nullRockShieldFxCooldown = 0;
     }
 
     private void removeOwnedSummons() {
@@ -3685,6 +3814,7 @@ public class Bird {
         state.isSunflareSkin = isSunflareSkin;
         state.isGlacierSkin = isGlacierSkin;
         state.isTideSkin = isTideSkin;
+        state.isNullRockSkin = isNullRockSkin;
         state.isEclipseSkin = isEclipseSkin;
         state.isUmbraSkin = isUmbraSkin;
         state.isSunforgeSkin = isSunforgeSkin;
@@ -3755,6 +3885,8 @@ public class Bird {
         state.phoenixRebornActive = phoenixRebornActive;
         state.ultimateMeter = ultimateMeter;
         state.ultimateFxTimer = ultimateFxTimer;
+        state.nullRockInvincibilityTimer = nullRockInvincibilityTimer;
+        state.nullRockPhaseIndex = nullRockPhaseIndex;
         return state;
     }
 
@@ -3792,6 +3924,7 @@ public class Bird {
         this.isSunflareSkin = state.isSunflareSkin;
         this.isGlacierSkin = state.isGlacierSkin;
         this.isTideSkin = state.isTideSkin;
+        this.isNullRockSkin = state.isNullRockSkin;
         this.isEclipseSkin = state.isEclipseSkin;
         this.isUmbraSkin = state.isUmbraSkin;
         this.isSunforgeSkin = state.isSunforgeSkin;
@@ -3862,6 +3995,8 @@ public class Bird {
         this.phoenixRebornActive = state.phoenixRebornActive;
         this.ultimateMeter = state.ultimateMeter;
         this.ultimateFxTimer = state.ultimateFxTimer;
+        this.nullRockInvincibilityTimer = state.nullRockInvincibilityTimer;
+        this.nullRockPhaseIndex = state.nullRockPhaseIndex;
     }
 
     public void draw(GraphicsContext g) {
@@ -3895,6 +4030,7 @@ public class Bird {
         drawEagleSkin(g, drawSize);
         drawGrinchhawk(g);
         drawVulture(g, drawSize);
+        drawNullRockShield(g, drawSize);
         drawStunEffect(g);
         drawSpecialCooldown(g);
         drawLounge(g);
@@ -4640,23 +4776,42 @@ public class Bird {
     private void drawVulture(GraphicsContext g, double drawSize) {
         if (type == BirdGame3.BirdType.VULTURE) {
             double s = sizeMultiplier;
-            g.setFill(Color.rgb(35, 15, 45));
+            if (isNullRockSkin) {
+                double pulse = suppressSelectEffects ? 0.35 : (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 180.0));
+                g.setFill(Color.rgb(8, 6, 14, 0.85));
+                g.fillOval(x - 34 * s, y - 26 * s, drawSize + 68 * s, drawSize + 84 * s);
+                g.setStroke(Color.web("#5C0F16").deriveColor(0, 1, 1, 0.58 + pulse * 0.18));
+                g.setLineWidth(8 * s);
+                g.strokeOval(x - 18 * s, y - 10 * s, drawSize + 36 * s, drawSize + 34 * s);
+                g.setFill(Color.web("#130C18"));
+            } else {
+                g.setFill(Color.rgb(35, 15, 45));
+            }
             g.fillOval(x, y, drawSize, drawSize);
 
-            double wingSpread = isFlying || Math.abs(vx) > 2 ? 1.4 : 1.0;
-            g.setFill(Color.rgb(20, 10, 30));
-            g.fillOval(x - 30 * wingSpread * s, y + 10 * s, 50 * wingSpread * s, 90 * s);
-            g.fillOval(x + drawSize - 20 * wingSpread * s, y + 10 * s, 50 * wingSpread * s, 90 * s);
+            double wingSpread = isFlying || Math.abs(vx) > 2 ? (isNullRockSkin ? 1.9 : 1.4) : (isNullRockSkin ? 1.35 : 1.0);
+            g.setFill(isNullRockSkin ? Color.web("#09060D") : Color.rgb(20, 10, 30));
+            g.fillOval(x - 34 * wingSpread * s, y + 2 * s, 58 * wingSpread * s, 104 * s);
+            g.fillOval(x + drawSize - 24 * wingSpread * s, y + 2 * s, 58 * wingSpread * s, 104 * s);
 
-            g.setFill(Color.rgb(180, 30, 30));
+            g.setFill(isNullRockSkin ? Color.web("#7A0C16") : Color.rgb(180, 30, 30));
             g.fillOval(x + 15 * s, y + 10 * s, 50 * s, 55 * s);
 
-            g.setFill(Color.CRIMSON.darker().darker());
+            g.setFill(isNullRockSkin ? Color.web("#2A050A") : Color.CRIMSON.darker().darker());
             g.fillOval(x + 25 * s, y + 25 * s, 20 * s, 20 * s);
             g.fillOval(x + 45 * s, y + 25 * s, 20 * s, 20 * s);
-            g.setFill(Color.RED.brighter());
+            g.setFill(isNullRockSkin ? Color.web("#FF6E6E") : Color.RED.brighter());
             g.fillOval(x + 30 * s, y + 30 * s, 10 * s, 10 * s);
             g.fillOval(x + 50 * s, y + 30 * s, 10 * s, 10 * s);
+
+            if (isNullRockSkin) {
+                double cx = x + drawSize * 0.5;
+                drawRoyalCrown(g, cx, y - 18 * s, 44 * s, 22 * s, Color.web("#6B0F1A"), Color.web("#FFB3B3"));
+                g.setStroke(Color.web("#3A0810").deriveColor(0, 1, 1, 0.85));
+                g.setLineWidth(2.4 * s);
+                g.strokeLine(cx - 18 * s, y + 16 * s, cx - 6 * s, y + 44 * s);
+                g.strokeLine(cx + 18 * s, y + 16 * s, cx + 6 * s, y + 44 * s);
+            }
 
             if (carrionSwarmTimer > 0) {
                 g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.6));
@@ -4715,12 +4870,29 @@ public class Bird {
         }
     }
 
+    private void drawNullRockShield(GraphicsContext g, double drawSize) {
+        if (!isCombatInvulnerable()) return;
+        double centerX = x + drawSize / 2.0;
+        double centerY = y + drawSize / 2.0;
+        double pulse = 0.5 + 0.5 * Math.sin(nullRockInvincibilityTimer * 0.24);
+        double ring = drawSize * (0.92 + pulse * 0.14);
+        g.setStroke(Color.web("#FFEBEE", 0.85));
+        g.setLineWidth(4.0);
+        g.strokeOval(centerX - ring / 2.0, centerY - ring / 2.0, ring, ring);
+        g.setStroke(Color.web("#80DEEA", 0.68));
+        g.setLineWidth(2.5);
+        g.strokeOval(centerX - ring * 0.68, centerY - ring * 0.68, ring * 1.36, ring * 1.36);
+        g.setFill(Color.web("#FFCDD2", 0.9));
+        g.setFont(Font.font("Arial Black", Math.max(22.0, 18.0 * Math.clamp(sizeMultiplier, 1.0, 1.8))));
+        g.fillText("VOID SHELL", x - 6 * sizeMultiplier, y - 34 * sizeMultiplier);
+    }
+
     private void drawSpecialCooldown(GraphicsContext g) {
         if (specialCooldown > 0 && specialMaxCooldown > 0) {
             double ratio = (double) specialCooldown / specialMaxCooldown;
 
             double drawSize = 80 * sizeMultiplier;
-            double barScale = Math.max(0.85, Math.min(sizeMultiplier, 1.25));
+            double barScale = Math.clamp(sizeMultiplier, 0.85, 1.25);
             double barWidth = 90 * barScale;
             double barHeight = 14 * barScale;
             double barX = x + (drawSize / 2.0) - (barWidth / 2.0);
@@ -4747,7 +4919,7 @@ public class Bird {
 
             String cooldownText;
             if (type == BirdGame3.BirdType.VULTURE && crowSwarmCooldown > 0) {
-                cooldownText = "CROWS";
+                cooldownText = isNullRockForm() ? "FLOCK" : "CROWS";
             } else if (type == BirdGame3.BirdType.ROOSTER && specialCooldown > 0) {
                 cooldownText = "CHICKS";
             } else if (type == BirdGame3.BirdType.OPIUMBIRD && leanCooldown > 0) {
@@ -4779,7 +4951,7 @@ public class Bird {
             g.strokeRoundRect(loungeX - 62, loungeY - 42, 124, 84, 32, 32);
 
             int maxHealth = Math.max(1, loungeMaxHealth);
-            double ratio = Math.max(0, Math.min(1.0, loungeHealth / (double) maxHealth));
+            double ratio = Math.clamp(loungeHealth / (double) maxHealth, 0.0, 1.0);
             g.setFill(Color.BLACK);
             g.fillRect(loungeX - 65, loungeY - 75, 130, 18);
             g.setFill(Color.RED.darker());
@@ -4824,6 +4996,7 @@ public class Bird {
         boolean sunflareHummingbird = (type == BirdGame3.BirdType.HUMMINGBIRD && isSunflareSkin);
         boolean glacierShoebill = (type == BirdGame3.BirdType.SHOEBILL && isGlacierSkin);
         boolean tideVulture = (type == BirdGame3.BirdType.VULTURE && isTideSkin);
+        boolean nullRockVulture = (type == BirdGame3.BirdType.VULTURE && isNullRockSkin);
         boolean eclipseMockingbird = (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin);
         boolean sunforgeRooster = (type == BirdGame3.BirdType.ROOSTER && isSunforgeSkin);
         boolean freemanPigeon = (type == BirdGame3.BirdType.PIGEON && isFreemanSkin);
@@ -4831,7 +5004,11 @@ public class Bird {
         Color bodyColor;
         Color headColor;
         Color eyeOverride = null;
-        if (beaconPigeon) {
+        if (nullRockVulture) {
+            bodyColor = Color.web("#180E1A");
+            headColor = Color.web("#2B1218");
+            eyeOverride = Color.web("#FF6E6E");
+        } else if (beaconPigeon) {
             bodyColor = Color.web("#FFE082");
             headColor = Color.web("#FFF8E1");
             eyeOverride = Color.web("#1E88E5");
@@ -5024,6 +5201,17 @@ public class Bird {
             g.setStroke(Color.web("#80CBC4").deriveColor(0, 1, 1, 0.7));
             g.setLineWidth(2.1 * s);
             g.strokeArc(x + 8 * s, y + 32 * s, 70 * s, 40 * s, 200, 160, ArcType.OPEN);
+        }
+        if (type == BirdGame3.BirdType.VULTURE && isNullRockSkin) {
+            g.setStroke(Color.web("#FF8A80").deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth(3.0 * s);
+            g.strokeArc(x - 8 * s, y + 12 * s, drawSize + 16 * s, drawSize + 26 * s, 208, 126, ArcType.OPEN);
+            g.setStroke(Color.web("#4A0610").deriveColor(0, 1, 1, 0.8));
+            g.setLineWidth(2.1 * s);
+            g.strokeLine(x + 20 * s, y + 22 * s, x + 34 * s, y + 60 * s);
+            g.strokeLine(x + 58 * s, y + 18 * s, x + 46 * s, y + 58 * s);
+            g.setFill(Color.web("#FFCDD2").deriveColor(0, 1, 1, 0.3));
+            g.fillOval(x + 18 * s, y + 42 * s, 44 * s, 18 * s);
         }
         if (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin) {
             g.setStroke(Color.web("#E040FB").deriveColor(0, 1, 1, 0.65));
