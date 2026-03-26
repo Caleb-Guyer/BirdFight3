@@ -781,9 +781,9 @@ public class BirdGame3 extends Application {
 
     private String nullRockBirdBookDescription() {
         return "The final boss of Bird Fight 3 and the true form hidden inside Null Roc's shell. "
-                + "Beat Adventure Chapter 9 to unlock him, lock Vulture in Local Battle, then enter Up Up Down "
-                + "Down Left Right with that slot's selector controls to switch into him. He keeps the finale's "
-                + "boss health, giant frame, "
+                + "Beat Adventure Chapter 9 to unlock him. In Local Battle, lock Vulture and enter Up Up Down "
+                + "Down Left Right with that slot's selector controls. In LAN, pick Vulture and type NULL on the "
+                + "bird-select screen. He keeps the finale's boss health, giant frame, "
                 + "Dark Flock summons, and Void Shell phase armor.";
     }
 
@@ -20982,7 +20982,7 @@ public class BirdGame3 extends Application {
         boolean hasLocalPlayers = false;
 
         for (int i = 0; i < players.length; i++) {
-            if (shouldAwardMasteryForPlayer(i)) continue;
+            if (isMasteryEligibleForPlayer(i)) continue;
             hasLocalPlayers = true;
             damage += Math.max(0, damageDealt[i]);
             elims += Math.max(0, eliminations[i]);
@@ -21011,7 +21011,7 @@ public class BirdGame3 extends Application {
         if (winner == null) return false;
         int winningTeam = getEffectiveTeam(winner.playerIndex);
         for (int i = 0; i < players.length; i++) {
-            if (shouldAwardMasteryForPlayer(i)) continue;
+            if (isMasteryEligibleForPlayer(i)) continue;
             if (getEffectiveTeam(i) == winningTeam) {
                 return true;
             }
@@ -21022,7 +21022,7 @@ public class BirdGame3 extends Application {
     private Set<BirdType> localContractBirdTypes() {
         Set<BirdType> types = new LinkedHashSet<>();
         for (int i = 0; i < players.length; i++) {
-            if (shouldAwardMasteryForPlayer(i)) continue;
+            if (isMasteryEligibleForPlayer(i)) continue;
             Bird bird = players[i];
             if (bird != null && bird.type != null) {
                 types.add(bird.type);
@@ -21133,7 +21133,7 @@ public class BirdGame3 extends Application {
         return box;
     }
 
-    private boolean shouldAwardMasteryForPlayer(int playerIdx) {
+    private boolean isMasteryEligibleForPlayer(int playerIdx) {
         if (trainingModeActive || playerIdx < 0 || playerIdx >= players.length || players[playerIdx] == null) {
             return true;
         }
@@ -21184,7 +21184,7 @@ public class BirdGame3 extends Application {
 
         Map<BirdType, Integer> xpByType = new LinkedHashMap<>();
         for (int i = 0; i < activePlayers; i++) {
-            if (shouldAwardMasteryForPlayer(i)) continue;
+            if (isMasteryEligibleForPlayer(i)) continue;
             Bird bird = players[i];
             if (bird == null || bird.type == null) continue;
             xpByType.merge(bird.type, masteryXpFromPlayerStats(i, winner), Integer::sum);
@@ -21776,7 +21776,7 @@ public class BirdGame3 extends Application {
         title.setFont(Font.font("Arial Black", 34));
         title.setTextFill(Color.web("#ECEFF1"));
 
-        Label body = new Label("Finish a match in Fight, LAN, Story, Adventure, Classic, or Competition to see it here.");
+        Label body = new Label("Finish a match in Fight, LAN, Story, Adventure, Classic, Boss Rush, Daily Challenge, or Competition to see it here.");
         body.setFont(Font.font("Consolas", 20));
         body.setTextFill(Color.web("#B0BEC5"));
         body.setWrapText(true);

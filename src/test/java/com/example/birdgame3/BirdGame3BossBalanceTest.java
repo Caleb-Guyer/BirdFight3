@@ -16,8 +16,8 @@ class BirdGame3BossBalanceTest {
     void createStoryBirdSoftensBossStatsWithoutTouchingNonBossEnemies() throws Exception {
         BirdGame3 game = new BirdGame3();
 
-        Bird boss = createStoryBird(game, 1, "Boss: Null Roc", 200.0, 1.50, 1.10, true);
-        Bird elite = createStoryBird(game, 2, "Elite: Crown Herald", 200.0, 1.50, 1.10, true);
+        Bird boss = createStoryBird(game, 1, "Boss: Null Roc");
+        Bird elite = createStoryBird(game, 2, "Elite: Crown Herald");
 
         assertEquals(188.0, boss.health, 0.0001);
         assertEquals(1.455, boss.basePowerMultiplier, 0.0001);
@@ -166,6 +166,7 @@ class BirdGame3BossBalanceTest {
         String description = (String) recordValue(entry, "description");
         assertTrue(description.contains("final boss of Bird Fight 3"));
         assertTrue(description.contains("Up Up Down Down Left Right"));
+        assertTrue(description.contains("type NULL"));
     }
 
     @Test
@@ -174,9 +175,9 @@ class BirdGame3BossBalanceTest {
         game.nullRockVultureUnlocked = true;
         game.activePlayers = 4;
 
-        BirdGame3.BirdType[] selectedBirds = getPrivateBirdTypeArray(game, "fightSelectedBirds");
-        boolean[] randomSelected = getPrivateBooleanArray(game, "fightRandomSelected");
-        String[] selectedSkins = getPrivateStringArray(game, "fightSelectedSkinKeys");
+        BirdGame3.BirdType[] selectedBirds = getPrivateBirdTypeArray(game);
+        boolean[] randomSelected = getPrivateBooleanArray(game);
+        String[] selectedSkins = getPrivateStringArray(game);
         boolean[] selectorLocked = {true, false, false, false};
         int[] progress = new int[4];
         selectedBirds[0] = BirdGame3.BirdType.VULTURE;
@@ -209,13 +210,34 @@ class BirdGame3BossBalanceTest {
     }
 
     @Test
+    void masteryEligibilityOnlyCountsLocalPlayers() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.players[0] = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
+        game.players[1] = new Bird(200, BirdGame3.BirdType.EAGLE, 1, game);
+        game.isAI[0] = false;
+        game.isAI[1] = true;
+
+        Method method = BirdGame3.class.getDeclaredMethod("isMasteryEligibleForPlayer", int.class);
+        method.setAccessible(true);
+
+        assertTrue((Boolean) method.invoke(game, 0));
+        assertFalse((Boolean) method.invoke(game, 1));
+
+        game.lanModeActive = true;
+        setPrivateInt(game);
+
+        assertFalse((Boolean) method.invoke(game, 0));
+        assertTrue((Boolean) method.invoke(game, 1));
+    }
+
+    @Test
     void createStoryBirdAppliesMuchStrongerEaseDuringBossRush() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.classicModeActive = true;
         game.classicEncounter = firstBossRushEncounter(game);
-        setPrivateBoolean(game, "bossRushModeActive", true);
+        setPrivateBoolean(game);
 
-        Bird boss = createStoryBird(game, 1, "Boss: Canopy Vulture", 200.0, 1.50, 1.10, true);
+        Bird boss = createStoryBird(game, 1, "Boss: Canopy Vulture");
 
         assertEquals(135.36, boss.health, 0.0001);
         assertEquals(1.2222, boss.basePowerMultiplier, 0.0001);
@@ -227,7 +249,7 @@ class BirdGame3BossBalanceTest {
         BirdGame3 game = new BirdGame3();
         game.classicModeActive = true;
         game.classicEncounter = firstBossRushEncounter(game);
-        setPrivateBoolean(game, "bossRushModeActive", true);
+        setPrivateBoolean(game);
 
         int[] classicCpuLevels = getPrivateIntArray(game, "classicCpuLevels");
         classicCpuLevels[1] = 7;
@@ -240,8 +262,7 @@ class BirdGame3BossBalanceTest {
         assertEquals(4, game.getCpuLevel(1));
     }
 
-    private static Bird createStoryBird(BirdGame3 game, int playerIdx, String name,
-                                        double health, double powerMult, double speedMult, boolean ai) throws Exception {
+    private static Bird createStoryBird(BirdGame3 game, int playerIdx, String name) throws Exception {
         Method method = BirdGame3.class.getDeclaredMethod(
                 "createStoryBird",
                 double.class,
@@ -254,7 +275,7 @@ class BirdGame3BossBalanceTest {
                 boolean.class
         );
         method.setAccessible(true);
-        return (Bird) method.invoke(game, 1000.0 + playerIdx * 100.0, BirdGame3.BirdType.VULTURE, playerIdx, name, health, powerMult, speedMult, ai);
+        return (Bird) method.invoke(game, 1000.0 + playerIdx * 100.0, BirdGame3.BirdType.VULTURE, playerIdx, name, 200.0, 1.5, 1.1, true);
     }
 
     private static int[] getPrivateIntArray(Object target, String fieldName) throws Exception {
@@ -263,20 +284,20 @@ class BirdGame3BossBalanceTest {
         return (int[]) field.get(target);
     }
 
-    private static boolean[] getPrivateBooleanArray(Object target, String fieldName) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
+    private static boolean[] getPrivateBooleanArray(Object target) throws Exception {
+        Field field = target.getClass().getDeclaredField("fightRandomSelected");
         field.setAccessible(true);
         return (boolean[]) field.get(target);
     }
 
-    private static BirdGame3.BirdType[] getPrivateBirdTypeArray(Object target, String fieldName) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
+    private static BirdGame3.BirdType[] getPrivateBirdTypeArray(Object target) throws Exception {
+        Field field = target.getClass().getDeclaredField("fightSelectedBirds");
         field.setAccessible(true);
         return (BirdGame3.BirdType[]) field.get(target);
     }
 
-    private static String[] getPrivateStringArray(Object target, String fieldName) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
+    private static String[] getPrivateStringArray(Object target) throws Exception {
+        Field field = target.getClass().getDeclaredField("fightSelectedSkinKeys");
         field.setAccessible(true);
         return (String[]) field.get(target);
     }
@@ -289,10 +310,16 @@ class BirdGame3BossBalanceTest {
         return encounters.getFirst();
     }
 
-    private static void setPrivateBoolean(Object target, String fieldName, boolean value) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
+    private static void setPrivateBoolean(Object target) throws Exception {
+        Field field = target.getClass().getDeclaredField("bossRushModeActive");
         field.setAccessible(true);
-        field.setBoolean(target, value);
+        field.setBoolean(target, true);
+    }
+
+    private static void setPrivateInt(Object target) throws Exception {
+        Field field = target.getClass().getDeclaredField("lanPlayerIndex");
+        field.setAccessible(true);
+        field.setInt(target, 1);
     }
 
     private static Object recordValue(Object target, String accessor) throws Exception {
