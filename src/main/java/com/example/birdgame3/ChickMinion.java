@@ -3,10 +3,10 @@ package com.example.birdgame3;
 class ChickMinion {
     double x, y, vx, vy;
     int age = 0;
-    Bird owner = null;
+    Bird owner;
     Bird target = null;
-    int variant = 0;
-    boolean ultimate = false;
+    int variant;
+    boolean ultimate;
     int life = 3;
     int maxLife = 3;
     int attackCooldown = 0;

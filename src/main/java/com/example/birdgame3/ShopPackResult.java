@@ -2,14 +2,7 @@ package com.example.birdgame3;
 
 import java.util.List;
 
-class ShopPackResult {
-    final String title;
-    final List<String> lines;
-
-    ShopPackResult(String title, List<String> lines) {
-        this.title = title;
-        this.lines = lines;
-    }
+record ShopPackResult(String title, List<String> lines) {
 
     String message() {
         return String.join("\n", lines);

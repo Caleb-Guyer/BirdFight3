@@ -19,7 +19,6 @@ class LanHostServer {
     private final List<ClientHandler> clients = new CopyOnWriteArrayList<>();
     private final boolean[] slotTaken = new boolean[4];
     private ServerSocket serverSocket;
-    private Thread acceptThread;
     private volatile boolean running;
 
     LanHostServer(BirdGame3 game) {
@@ -27,16 +26,16 @@ class LanHostServer {
         slotTaken[0] = true;
     }
 
-    boolean start(int port) {
+    boolean start() {
         if (running) return true;
         try {
-            serverSocket = new ServerSocket(port);
+            serverSocket = new ServerSocket(LanProtocol.DEFAULT_PORT);
             serverSocket.setReuseAddress(true);
         } catch (IOException e) {
             return false;
         }
         running = true;
-        acceptThread = new Thread(this::acceptLoop, "LanHost-Accept");
+        Thread acceptThread = new Thread(this::acceptLoop, "LanHost-Accept");
         acceptThread.setDaemon(true);
         acceptThread.start();
         return true;
@@ -213,8 +212,10 @@ class LanHostServer {
         }
 
         void enqueue(byte[] payload) {
-            if (!active) return;
-            outbound.offer(payload);
+            if (!active || payload == null) return;
+            if (!outbound.offer(payload)) {
+                close();
+            }
         }
 
         void close() {
@@ -258,7 +259,7 @@ class LanHostServer {
                             BirdType typeBird = (!random && ord >= 0 && ord < BirdType.values().length)
                                     ? BirdType.values()[ord]
                                     : null;
-                            game.onLanClientSelected(slot, typeBird, random, skinKey == null || skinKey.isBlank() ? null : skinKey);
+                            game.onLanClientSelected(slot, typeBird, random, skinKey.isBlank() ? null : skinKey);
                         }
                         case LanProtocol.MSG_MAP_VOTE -> {
                             int ord = msgIn.readInt();

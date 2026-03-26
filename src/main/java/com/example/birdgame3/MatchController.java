@@ -185,6 +185,10 @@ final class MatchController {
             return null;
         }
 
+        return getBird();
+    }
+
+    private Bird getBird() {
         Bird winner = null;
         double bestHealth = -1;
         int bestDamage = -1;
@@ -336,8 +340,6 @@ final class MatchController {
             game.shakeIntensity = game.suddenDeath.updateAndSpawn(
                     game.crowMinions,
                     game.random,
-                    BirdGame3.WORLD_WIDTH,
-                    BirdGame3.WORLD_HEIGHT,
                     game.shakeIntensity,
                     game.matchEnded
             );

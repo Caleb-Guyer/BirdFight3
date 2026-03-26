@@ -4,7 +4,6 @@ import java.time.LocalDate;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -186,7 +185,7 @@ final class ContractsBoard {
         weeklyRotationKey = prefs.get(PREF_WEEKLY_KEY, "");
 
         dailyContracts.clear();
-        List<ContractDefinition> storedDaily = resolveDefinitions(dailyById, prefs.get(PREF_DAILY_IDS, ""), 3);
+        List<ContractDefinition> storedDaily = resolveDefinitions(dailyById, prefs.get(PREF_DAILY_IDS, ""));
         if (storedDaily != null) {
             for (int i = 0; i < storedDaily.size(); i++) {
                 dailyContracts.add(ContractState.restore(storedDaily.get(i), prefs.get(PREF_DAILY_STATE_PREFIX + i, "")));
@@ -317,11 +316,11 @@ final class ContractsBoard {
         return Collections.unmodifiableMap(byId);
     }
 
-    private static List<ContractDefinition> resolveDefinitions(Map<String, ContractDefinition> byId, String encodedIds, int expectedCount) {
+    private static List<ContractDefinition> resolveDefinitions(Map<String, ContractDefinition> byId, String encodedIds) {
         if (encodedIds == null || encodedIds.isBlank()) return null;
         String[] ids = encodedIds.split(",");
-        if (ids.length != expectedCount) return null;
-        List<ContractDefinition> resolved = new ArrayList<>(expectedCount);
+        if (ids.length != 3) return null;
+        List<ContractDefinition> resolved = new ArrayList<>(3);
         for (String rawId : ids) {
             ContractDefinition definition = resolveDefinition(byId, rawId);
             if (definition == null || resolved.contains(definition)) {

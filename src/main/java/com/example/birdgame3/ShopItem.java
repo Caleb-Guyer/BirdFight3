@@ -16,19 +16,9 @@ class ShopItem {
     final BooleanSupplier owned;
     final BooleanSupplier available;
 
-    ShopItem(String name, String description, int cost, ShopPreview preview,
-             ShopRarity rarity, Supplier<ShopPackResult> purchase, BooleanSupplier available) {
-        this(name, description, cost, List.of(preview), rarity, false, 0, purchase, () -> false, available);
-    }
-
     ShopItem(String name, String description, int cost, List<ShopPreview> previews,
              ShopRarity rarity, Supplier<ShopPackResult> purchase, BooleanSupplier available) {
         this(name, description, cost, previews, rarity, false, 0, purchase, () -> false, available);
-    }
-
-    ShopItem(String name, String description, int cost, List<ShopPreview> previews,
-             ShopRarity rarity, Supplier<ShopPackResult> purchase, BooleanSupplier owned, BooleanSupplier available) {
-        this(name, description, cost, previews, rarity, false, 0, purchase, owned, available);
     }
 
     private ShopItem(String name, String description, int cost, List<ShopPreview> previews,

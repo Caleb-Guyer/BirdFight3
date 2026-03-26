@@ -107,7 +107,7 @@ public class Bird {
     // === POWER-UP BUFFS ===
     public double speedMultiplier = 1.0;
     public double powerMultiplier = 1.0;
-    public double sizeMultiplier = 1.0;
+    public double sizeMultiplier;
     public double baseSpeedMultiplier = 1.0;
     public double basePowerMultiplier = 1.0;
     public double baseSizeMultiplier = 1.0;
@@ -185,7 +185,7 @@ public class Bird {
     public Bird(double startX, BirdGame3.BirdType type, int playerIndex, BirdGame3 game) {
         this.game = game;
         this.x = startX;
-        this.y = game.GROUND_Y - 200;
+        this.y = BirdGame3.GROUND_Y - 200;
         this.type = type;
         this.playerIndex = playerIndex;
         this.name = (game.isAI != null && game.isAI[playerIndex] ? "AI" : "P") + (playerIndex + 1) + ": " + type.name;
@@ -215,10 +215,10 @@ public class Bird {
 
     public boolean isOnGround() {
         double bottom = y + 80 * sizeMultiplier;
-        if (game.selectedMap != MapType.BATTLEFIELD && game.selectedMap != MapType.BEACON_CROWN && bottom >= game.GROUND_Y) return true;
+        if (game.selectedMap != MapType.BATTLEFIELD && game.selectedMap != MapType.BEACON_CROWN && bottom >= BirdGame3.GROUND_Y) return true;
         for (Platform p : game.platforms) {
             boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
-                    p.y <= 1 && p.h >= 60 && p.w >= game.WORLD_WIDTH - 10;
+                    p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
             if (isCaveCeiling) continue;
             if (x + 40 * sizeMultiplier >= p.x && x + 40 * sizeMultiplier <= p.x + p.w &&
                     bottom >= p.y && bottom <= p.y + p.h &&
@@ -248,7 +248,7 @@ public class Bird {
 
         for (Platform p : game.platforms) {
             boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
-                    p.y <= 1 && p.h >= 60 && p.w >= game.WORLD_WIDTH - 10;
+                    p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
 
             if (isCaveCeiling) {
                 // Solid cave ceiling: block upward movement from below but never allow standing on top.
@@ -270,8 +270,8 @@ public class Bird {
             }
         }
 
-        if (!hit && game.selectedMap != MapType.BATTLEFIELD && game.selectedMap != MapType.BEACON_CROWN && y + 80 * sizeMultiplier > game.GROUND_Y) {
-            newY = game.GROUND_Y - 80 * sizeMultiplier;
+        if (!hit && game.selectedMap != MapType.BATTLEFIELD && game.selectedMap != MapType.BEACON_CROWN && y + 80 * sizeMultiplier > BirdGame3.GROUND_Y) {
+            newY = BirdGame3.GROUND_Y - 80 * sizeMultiplier;
             hit = true;
         }
 
@@ -690,7 +690,7 @@ public class Bird {
 
         double predictX = x + vx * 40;
         for (int i = -15; i <= 15; i++) {
-            game.particles.add(new Particle(predictX + i * 60, game.GROUND_Y - 20, 0, -5 - Math.random() * 8, Color.ORANGERED.brighter()));
+            game.particles.add(new Particle(predictX + i * 60, BirdGame3.GROUND_Y - 20, 0, -5 - Math.random() * 8, Color.ORANGERED.brighter()));
         }
 
         vy = isOnGround() ? (ultimate ? -12 : -8) : Math.max(vy, ultimate ? 18 : 14);
@@ -1232,10 +1232,6 @@ public class Bird {
         return fullName.substring(0, colon).trim();
     }
 
-    KeyCode downKey() {
-        return blockKey();
-    }
-
     boolean isDownHeld() {
         return blockPressed();
     }
@@ -1316,7 +1312,7 @@ public class Bird {
         }
 
         // Emergency self-preservation before anything else.
-        if (onGround && y > game.GROUND_Y + 220) {
+        if (onGround && y > BirdGame3.GROUND_Y + 220) {
             game.setAiControlKey(playerIndex, jumpKey(), true);
             aiJumpCooldown = 12;
         }
@@ -1331,14 +1327,14 @@ public class Bird {
         boolean losingHard = target != null && target.health > health + 32;
         boolean retreatWindow = aiRetreatCooldown <= 0 && (veryLowHealth || (health < 28 && losingHard));
         boolean shouldRetreat = target != null && retreatWindow && targetDist < 220 && healthPack == null && aiCommitFrames <= 0;
-        boolean immediatePowerChance = powerUp != null && isImmediatePowerUpOpportunity(powerUp);
+        boolean immediatePowerChance = isImmediatePowerUpOpportunity(powerUp);
         boolean shouldChasePower = powerUp != null &&
                 ((shouldPrioritizePowerUp(powerUp, target) && aiCommitFrames <= 0) || immediatePowerChance);
         if (shouldChasePower) {
             aiPowerCommitFrames = Math.max(aiPowerCommitFrames, immediatePowerChance ? 44 : 30);
         }
         boolean powerFocus = powerUp != null && !shouldRetreat && (shouldChasePower || aiPowerCommitFrames > 0);
-        if (powerFocus && powerUp != null && !isPowerUpConvenient(powerUp, target)) {
+        if (powerFocus && !isPowerUpConvenient(powerUp, target)) {
             powerFocus = false;
             aiPowerCommitFrames = 0;
         }
@@ -1371,10 +1367,10 @@ public class Bird {
         }
         boolean lowCpu = cpuLevel <= 2;
         double goalX;
-        if (shouldRetreat && target != null) {
+        if (shouldRetreat) {
             goalX = x + (x - target.x) * 1.35;
             aiRetreatCooldown = 90 + random.nextInt(45);
-        } else if (powerFocus && powerUp != null) {
+        } else if (powerFocus) {
             goalX = pickPowerUpGoalX(powerUp);
         } else if (target != null) {
             // Predict movement instead of chasing current position.
@@ -1414,7 +1410,7 @@ public class Bird {
         if (!powerFocus && target != null) {
             if (dyToTarget < -160) {
                 double maxRise = 520 + 180 * skill;
-                climbPlatform = findClimbPlatform(target.x + 40, maxRise, 520);
+                climbPlatform = findClimbPlatform(target.x + 40, maxRise);
                 if (climbPlatform != null) {
                     goalX = climbPlatform.x + climbPlatform.w / 2.0 - 40 * sizeMultiplier;
                     verticalPlan = true;
@@ -1431,11 +1427,11 @@ public class Bird {
             goalX += (random.nextDouble() - 0.5) * 160 * error;
         }
 
-        goalX = Math.clamp(goalX, 120.0, game.WORLD_WIDTH - 120.0);
+        goalX = Math.clamp(goalX, 120.0, BirdGame3.WORLD_WIDTH - 120.0);
 
-        if (powerFocus && powerUp != null) facingRight = powerUp.x > myCx;
+        if (powerFocus) facingRight = powerUp.x > myCx;
         else if (target != null) facingRight = target.x > myCx;
-        else if (powerUp != null) facingRight = powerUp.x > myCx;
+        else facingRight = powerUp.x > myCx;
 
         int moveDir = 0;
         if (dropPlan) {
@@ -1534,13 +1530,13 @@ public class Bird {
             }
 
             if (!onGround && type.flyUpForce > 0) {
-                boolean recoverAltitude = y > game.GROUND_Y - 120;
+                boolean recoverAltitude = y > BirdGame3.GROUND_Y - 120;
                 boolean maintainVsTarget = target.y < y + 180;
                 if (recoverAltitude || maintainVsTarget) {
                     game.setAiControlKey(playerIndex, jumpKey(), true);
                 }
             }
-        } else if (powerUp != null && onGround && aiJumpCooldown <= 0 && powerUp.y < y - 120) {
+        } else if (onGround && aiJumpCooldown <= 0 && powerUp.y < y - 120) {
             double dx = Math.abs(powerUp.x - (x + 40));
             double dy = (y + 40) - powerUp.y;
             if (dx < 140 && dy < 320) {
@@ -1653,8 +1649,8 @@ public class Bird {
             double dir = (target.x + 40 >= x + 40) ? -1 : 1;
             double warpX = target.x + dir * (ultimate ? 150 : 120);
             double warpY = target.y;
-            double maxX = game.WORLD_WIDTH - 80 * sizeMultiplier;
-            double maxY = game.GROUND_Y - 80 * sizeMultiplier;
+            double maxX = BirdGame3.WORLD_WIDTH - 80 * sizeMultiplier;
+            double maxY = BirdGame3.GROUND_Y - 80 * sizeMultiplier;
             warpX = Math.clamp(warpX, 0.0, maxX);
             warpY = Math.clamp(warpY, 0.0, maxY);
             x = warpX;
@@ -1760,24 +1756,7 @@ public class Bird {
             boolean convenient = isPowerUpConvenient(p, target);
             if (!convenient && !isImmediatePowerUpOpportunity(p)) continue;
             double myDist = Math.hypot(p.x - (x + 40), p.y - (y + 40));
-            double score = 0;
-            switch (p.type) {
-                case HEALTH -> score = (100 - health) * 26 + 140;
-                case RAGE -> score = 96;
-                case NEON -> score = 95;
-                case SPEED -> score = 82;
-                case THERMAL -> score = 74;
-                case SHRINK -> score = 66;
-                case VINE_GRAPPLE -> score = 88;
-                case OVERCHARGE -> score = 102;
-                case TITAN -> score = 92;
-            }
-            score /= (1 + myDist / 320.0);
-
-            if (target != null) {
-                double enemyDist = Math.hypot(p.x - (target.x + 40), p.y - (target.y + 40));
-                if (enemyDist < myDist * 0.75) score *= 0.6;
-            }
+            double score = getScore(target, p, myDist);
 
             if (score > bestScore) {
                 bestScore = score;
@@ -1785,6 +1764,28 @@ public class Bird {
             }
         }
         return bestPowerUp;
+    }
+
+    private double getScore(Bird target, PowerUp p, double myDist) {
+        double score = 0;
+        switch (p.type) {
+            case HEALTH -> score = (100 - health) * 26 + 140;
+            case RAGE -> score = 96;
+            case NEON -> score = 95;
+            case SPEED -> score = 82;
+            case THERMAL -> score = 74;
+            case SHRINK -> score = 66;
+            case VINE_GRAPPLE -> score = 88;
+            case OVERCHARGE -> score = 102;
+            case TITAN -> score = 92;
+        }
+        score /= (1 + myDist / 320.0);
+
+        if (target != null) {
+            double enemyDist = Math.hypot(p.x - (target.x + 40), p.y - (target.y + 40));
+            if (enemyDist < myDist * 0.75) score *= 0.6;
+        }
+        return score;
     }
 
     private boolean isImmediatePowerUpOpportunity(PowerUp p) {
@@ -1807,8 +1808,8 @@ public class Bird {
                 double centerOffset = 25;
                 double leftDrop = standing.x - centerOffset - 40 * sizeMultiplier;
                 double rightDrop = standing.x + standing.w + centerOffset - 40 * sizeMultiplier;
-                leftDrop = Math.clamp(leftDrop, 120.0, game.WORLD_WIDTH - 120.0);
-                rightDrop = Math.clamp(rightDrop, 120.0, game.WORLD_WIDTH - 120.0);
+                leftDrop = Math.clamp(leftDrop, 120.0, BirdGame3.WORLD_WIDTH - 120.0);
+                rightDrop = Math.clamp(rightDrop, 120.0, BirdGame3.WORLD_WIDTH - 120.0);
                 return Math.abs(leftDrop - p.x) <= Math.abs(rightDrop - p.x) ? leftDrop : rightDrop;
             }
         }
@@ -1820,7 +1821,7 @@ public class Bird {
         double feetY = y + 80 * sizeMultiplier;
         for (Platform p : game.platforms) {
             boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
-                    p.y <= 1 && p.h >= 60 && p.w >= game.WORLD_WIDTH - 10;
+                    p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
             if (isCaveCeiling) continue;
             if (feetX >= p.x && feetX <= p.x + p.w &&
                     Math.abs(feetY - p.y) <= 10 &&
@@ -1881,14 +1882,14 @@ public class Bird {
     }
 
     private boolean isBoundaryPlatform(Platform p) {
-        boolean isFloor = p.w >= game.WORLD_WIDTH - 10 && p.h >= 200;
-        boolean isWall = p.h >= game.WORLD_HEIGHT - 10 && p.w <= 150;
+        boolean isFloor = p.w >= BirdGame3.WORLD_WIDTH - 10 && p.h >= 200;
+        boolean isWall = p.h >= BirdGame3.WORLD_HEIGHT - 10 && p.w <= 150;
         boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
-                p.y <= 1 && p.h >= 60 && p.w >= game.WORLD_WIDTH - 10;
+                p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
         return isFloor || isWall || isCaveCeiling;
     }
 
-    private Platform findClimbPlatform(double targetX, double maxRise, double maxHorizontal) {
+    private Platform findClimbPlatform(double targetX, double maxRise) {
         Platform best = null;
         double bestScore = -Double.MAX_VALUE;
         double myCx = x + 40;
@@ -1900,7 +1901,7 @@ public class Bird {
             double centerX = p.x + p.w / 2.0;
             double dxTarget = Math.abs(centerX - targetX);
             double dxMe = Math.abs(centerX - myCx);
-            if (dxMe > maxHorizontal && dxTarget > maxHorizontal) continue;
+            if (dxMe > (double) 520 && dxTarget > (double) 520) continue;
             double score = 0;
             score -= rise * 1.1;
             score -= dxTarget * 0.8;
@@ -1962,7 +1963,7 @@ public class Bird {
             case PIGEON:
                 return lowHealth || (health < 55 && dist < 200);
             case EAGLE:
-                return y < game.GROUND_Y - 800 && dy > 180 && dist < 520;
+                return y < BirdGame3.GROUND_Y - 800 && dy > 180 && dist < 520;
             case FALCON:
                 return dist < 360 && dy > -120 && (onGround || lowHealth || target.health > health + 8);
             case PHOENIX:
@@ -2203,7 +2204,7 @@ public class Bird {
         vx *= 0.94;
 
         double leftBound = 50;
-        double rightBound = game.WORLD_WIDTH - 150 * sizeMultiplier;
+        double rightBound = BirdGame3.WORLD_WIDTH - 150 * sizeMultiplier;
         if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
             double battlefieldLeft = game.battlefieldLeftBound();
             double battlefieldRight = game.battlefieldRightBound();
@@ -2219,14 +2220,14 @@ public class Bird {
             x = rightBound;
             vx = Math.min(0, vx);
         }
-        if (y < game.CEILING_Y) {
-            y = game.CEILING_Y;
+        if (y < BirdGame3.CEILING_Y) {
+            y = BirdGame3.CEILING_Y;
             vy = Math.max(vy, 0);
         }
 
         handleVerticalCollision();
-        if (y > game.WORLD_HEIGHT + 400) {
-            y = game.WORLD_HEIGHT + 400;
+        if (y > BirdGame3.WORLD_HEIGHT + 400) {
+            y = BirdGame3.WORLD_HEIGHT + 400;
             vx = 0;
             vy = 0;
         }
@@ -2365,7 +2366,7 @@ public class Bird {
         if (speedTimer <= 0) {
             speedTimer = 0;
         }
-        if (speedTimer <= 0 && speedBoostTimer <= 0) {
+        if (speedTimer == 0 && speedBoostTimer <= 0) {
             speedMultiplier = baseSpeedMultiplier;
         }
         if (rageTimer <= 0) {
@@ -2400,7 +2401,7 @@ public class Bird {
 
         if (leanTimer > 0 && opium) {
             game.leanTime[playerIndex]++;
-        } else if (leanTimer > 0 && heisen) {
+        } else if (leanTimer > 0) {
             game.leanTime[playerIndex]++;
         }
 
@@ -2441,7 +2442,7 @@ public class Bird {
 
     private void handleEaglePassive(boolean airborne) {
         if (type == BirdGame3.BirdType.EAGLE) {
-            if (y < game.GROUND_Y - 800) {
+            if (y < BirdGame3.GROUND_Y - 800) {
                 powerMultiplier = Math.max(powerMultiplier, 1.3);
                 speedMultiplier = Math.max(speedMultiplier, 1.2);
                 if (Math.random() < 0.3) {
@@ -2449,11 +2450,11 @@ public class Bird {
                             y + 80, (Math.random() - 0.5) * 6, 2 + Math.random() * 4,
                             Color.GOLD.deriveColor(0, 1, 1, 0.7)));
                 }
-            } else if (y < game.GROUND_Y - 400) {
+            } else if (y < BirdGame3.GROUND_Y - 400) {
                 powerMultiplier = Math.max(powerMultiplier, 1.1);
             }
         } else if (type == BirdGame3.BirdType.FALCON && airborne) {
-            if (y < game.GROUND_Y - 700) {
+            if (y < BirdGame3.GROUND_Y - 700) {
                 powerMultiplier = Math.max(powerMultiplier, 1.22);
                 speedMultiplier = Math.max(speedMultiplier, 1.26);
                 if (Math.random() < 0.28) {
@@ -2461,7 +2462,7 @@ public class Bird {
                             y + 80, (Math.random() - 0.5) * 6, 2 + Math.random() * 4,
                             Color.web("#FFCC80").deriveColor(0, 1, 1, 0.75)));
                 }
-            } else if (y < game.GROUND_Y - 340) {
+            } else if (y < BirdGame3.GROUND_Y - 340) {
                 powerMultiplier = Math.max(powerMultiplier, 1.08);
             }
         }
@@ -2539,7 +2540,7 @@ public class Bird {
 
             double leftBound = batHangPlatform.x + 10;
             double rightBound = batHangPlatform.x + batHangPlatform.w - (80 * sizeMultiplier) - 10;
-            x = Math.max(leftBound, Math.min(x, rightBound));
+            x = Math.clamp(x, leftBound, rightBound);
             y = batHangPlatform.y + batHangPlatform.h + 2;
             vy = 0;
 
@@ -2566,7 +2567,7 @@ public class Bird {
             if (attackPressed() && attackCooldown <= 0 && !isBlocking) {
                 attack();
                 game.playButterSfx();
-                attackCooldown = scaledAttackCooldown(30);
+                attackCooldown = scaledAttackCooldown();
                 attackAnimationTimer = overchargeAttackTimer > 0 ? 10 : 12;
             }
             if (specialPressed() && specialCooldown <= 0 && !isBlocking) {
@@ -2665,7 +2666,7 @@ public class Bird {
             }
 
             // Track rooftop jumps
-            if (game.selectedMap == MapType.CITY && jumpPressed() && canJump && y < game.GROUND_Y - 500) {
+            if (game.selectedMap == MapType.CITY && jumpPressed() && canJump && y < BirdGame3.GROUND_Y - 500) {
                 game.rooftopJumps[playerIndex]++;
                 game.achievementProgress[10]++;
                 if (game.achievementProgress[10] >= 20 && !game.achievementsUnlocked[10]) {
@@ -2673,7 +2674,7 @@ public class Bird {
                 }
             }
 
-            if (game.selectedMap == MapType.SKYCLIFFS && jumpPressed() && canJump && y < game.GROUND_Y - 1000) {
+            if (game.selectedMap == MapType.SKYCLIFFS && jumpPressed() && canJump && y < BirdGame3.GROUND_Y - 1000) {
                 game.highCliffJumps[playerIndex]++;
                 game.achievementProgress[14]++;
                 if (game.achievementProgress[14] >= 15 && !game.achievementsUnlocked[14]) {
@@ -2684,14 +2685,12 @@ public class Bird {
             if (attackPressed() && attackCooldown <= 0 && !isBlocking) {
                 attack();
                 game.playButterSfx();
-                attackCooldown = scaledAttackCooldown(30);
+                attackCooldown = scaledAttackCooldown();
                 attackAnimationTimer = overchargeAttackTimer > 0 ? 10 : 12;
             }
 
             if (specialPressed()) {
-                if (grappleUses > 0 && !isOnGround() && !isGrappling && specialCooldown <= 0 && !isBlocking) {
-                    // grapple handled in handleVineGrapple
-                } else if (grappleUses == 0 && specialCooldown <= 0 && !isBlocking) {
+                if (grappleUses == 0 && specialCooldown <= 0 && !isBlocking) {
                     special();
                 } else if (!game.isAI[playerIndex] && specialCooldown > 0) {
                     cooldownFlash = 15;
@@ -2829,7 +2828,7 @@ public class Bird {
     private double applyDamageTo(Bird target, double rawDamage) {
         if (target == null || rawDamage <= 0 || target.health <= 0) return 0;
         double scaledDamage = rawDamage * outgoingDamageMultiplier() * target.incomingDamageMultiplier();
-        double dealtDamage = target.receiveScaledDamage(scaledDamage, this);
+        double dealtDamage = target.receiveScaledDamage(scaledDamage);
         if (dealtDamage > 0) {
             gainUltimate(dealtDamage * ULTIMATE_GAIN_DEALT);
             target.gainUltimate(dealtDamage * ULTIMATE_GAIN_TAKEN);
@@ -2837,16 +2836,16 @@ public class Bird {
         return dealtDamage;
     }
 
-    double receiveExternalDamage(double rawDamage, Bird attacker) {
+    double receiveExternalDamage(double rawDamage) {
         if (rawDamage <= 0) return 0;
         if (isCombatInvulnerable()) {
             spawnNullRockShieldBurst();
             return 0;
         }
-        return receiveScaledDamage(rawDamage * incomingDamageMultiplier(), attacker);
+        return receiveScaledDamage(rawDamage * incomingDamageMultiplier());
     }
 
-    private double receiveScaledDamage(double scaledDamage, Bird attacker) {
+    private double receiveScaledDamage(double scaledDamage) {
         if (scaledDamage <= 0 || health <= 0) return 0;
         if (isCombatInvulnerable()) {
             spawnNullRockShieldBurst();
@@ -2962,9 +2961,9 @@ public class Bird {
         return true;
     }
 
-    private int scaledAttackCooldown(int baseFrames) {
-        if (overchargeAttackTimer <= 0) return baseFrames;
-        return Math.max(10, (int) Math.round(baseFrames * 0.62));
+    private int scaledAttackCooldown() {
+        if (overchargeAttackTimer <= 0) return 30;
+        return Math.max(10, (int) Math.round(30 * 0.62));
     }
 
     private void handleHummingbirdFrenzy() {
@@ -3215,7 +3214,7 @@ public class Bird {
         for (int i = 0; i < 10; i++) {
             double offset = (Math.random() - 0.5) * 520;
             for (int j = 0; j < 9; j++) {
-                game.particles.add(new Particle(x + 40 + offset + j * 10, game.GROUND_Y + j * 10,
+                game.particles.add(new Particle(x + 40 + offset + j * 10, BirdGame3.GROUND_Y + j * 10,
                         (Math.random() - 0.5) * 14, -4 - Math.random() * 9, Color.SADDLEBROWN.darker()));
             }
         }
@@ -3434,9 +3433,9 @@ public class Bird {
 
     private void handleBoundaries() {
         double leftBound = 50;
-        double rightBound = game.WORLD_WIDTH - 150 * sizeMultiplier;
+        double rightBound = BirdGame3.WORLD_WIDTH - 150 * sizeMultiplier;
         double outLeft = -300;
-        double outRight = game.WORLD_WIDTH + 300;
+        double outRight = BirdGame3.WORLD_WIDTH + 300;
         if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
             double battlefieldLeft = game.battlefieldLeftBound();
             double battlefieldRight = game.battlefieldRightBound();
@@ -3467,16 +3466,16 @@ public class Bird {
                 game.addToKillFeed(shortName() + " went out of bounds... -50 HP");
             }
         if (!reborn) game.playZombieFallSfx();
-            if (!reborn && !trainingDummy && health <= 0) {
-                x = Math.max(leftBound, Math.min(x, rightBound));
-                y = game.WORLD_HEIGHT + 400;
+        if (!reborn && health <= 0) {
+                x = Math.clamp(x, leftBound, rightBound);
+                y = BirdGame3.WORLD_HEIGHT + 400;
             } else if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
                 double centerX = game.battlefieldSpawnCenterX();
                 x = centerX - 40 * sizeMultiplier;
                 y = game.battlefieldSpawnY(sizeMultiplier);
             } else {
                 x = 2000 + playerIndex * 600;
-                y = game.GROUND_Y - 400;
+                y = BirdGame3.GROUND_Y - 400;
             }
             vx = 0;
             vy = 0;
@@ -3484,15 +3483,15 @@ public class Bird {
 
         }
 
-        if (y < game.CEILING_Y) {
-            y = game.CEILING_Y;
+        if (y < BirdGame3.CEILING_Y) {
+            y = BirdGame3.CEILING_Y;
             vy = Math.max(vy, 0);
             if (type == BirdGame3.BirdType.VULTURE) isFlying = false;
         }
 
         handleVerticalCollision();
 
-        if (y > game.WORLD_HEIGHT + 300) {
+        if (y > BirdGame3.WORLD_HEIGHT + 300) {
             game.falls[playerIndex]++;
             if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
                 health = 0;
@@ -3516,16 +3515,16 @@ public class Bird {
                 game.addToKillFeed(shortName() + " fell... but survived! -50 HP");
             }
         if (!reborn) game.playZombieFallSfx();
-            if (!reborn && !trainingDummy && health <= 0) {
-                x = Math.max(leftBound, Math.min(x, rightBound));
-                y = game.WORLD_HEIGHT + 400;
+        if (!reborn && health <= 0) {
+                x = Math.clamp(x, leftBound, rightBound);
+                y = BirdGame3.WORLD_HEIGHT + 400;
             } else if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
                 double centerX = game.battlefieldSpawnCenterX();
                 x = centerX - 40 * sizeMultiplier;
                 y = game.battlefieldSpawnY(sizeMultiplier);
             } else {
                 x = 1000 + playerIndex * 800;
-                y = game.GROUND_Y - 300;
+                y = BirdGame3.GROUND_Y - 300;
             }
             vx = vy = 0;
             if (!game.trainingModeActive) {
@@ -3540,7 +3539,7 @@ public class Bird {
     private void handleVultureFeast() {
         if (type == BirdGame3.BirdType.VULTURE && health > 0) {
             for (Bird b : game.players) {
-                if (b != null && b != this && b.health <= 0 && b.y > game.HEIGHT + 50 && b.y <= game.HEIGHT + 100) {
+                if (b != null && b != this && b.health <= 0 && b.y > BirdGame3.HEIGHT + 50 && b.y <= BirdGame3.HEIGHT + 100) {
                     heal(4);
                     game.addToKillFeed(shortName() + " FEASTS! +4 HP");
                     for (int i = 0; i < 15; i++) {
@@ -4003,7 +4002,7 @@ public class Bird {
         double drawSize = 80 * sizeMultiplier;
         boolean airborne = !isOnGround();
 
-        drawBlockingShield(g, drawSize, airborne);
+        drawBlockingShield(g, drawSize);
         drawTaunt(g);
         drawCooldownFlash(g);
         drawRageBuff(g, drawSize);
@@ -4036,16 +4035,16 @@ public class Bird {
         drawLounge(g);
         drawBodyAndEyes(g, drawSize);
         drawRooster(g, drawSize);
-        drawHeisenbirdAccessories(g, drawSize);
+        drawHeisenbirdAccessories(g);
         drawCitySkin(g);
         drawNoirSkin(g);
         drawFreemanSkin(g);
         drawBeaconSkin(g, drawSize);
         drawClassicSkinAccent(g, drawSize);
         drawSpecialSkinAccent(g, drawSize);
-        drawBeak(g, drawSize);
-        drawPelican(g, drawSize);
-        drawVineGrapple(g, drawSize);
+        drawBeak(g);
+        drawPelican(g);
+        drawVineGrapple(g);
     }
 
     private void drawHummingbirdFrenzy(GraphicsContext g, double drawSize) {
@@ -4177,7 +4176,7 @@ public class Bird {
         g.fillOval(x - 20, y - 20, drawSize + 40, drawSize + 40);
     }
 
-    private void drawBlockingShield(GraphicsContext g, double drawSize, boolean airborne) {
+    private void drawBlockingShield(GraphicsContext g, double drawSize) {
         if (isBlocking) {
             double birdCenterX = x + 40 * sizeMultiplier;
             double birdCenterY = y + 40 * sizeMultiplier;
@@ -4557,7 +4556,6 @@ public class Bird {
         double x0 = cx - half;
         double x1 = cx - half * 0.5;
         double x2 = cx - half * 0.1;
-        double x3 = cx;
         double x4 = cx + half * 0.1;
         double x5 = cx + half * 0.5;
         double x6 = cx + half;
@@ -4565,14 +4563,13 @@ public class Bird {
         double y0 = yTop + height;
         double y1 = yTop + height * 0.25;
         double y2 = yTop + height;
-        double y3 = yTop;
         double y4 = yTop + height;
         double y5 = yTop + height * 0.25;
         double y6 = yTop + height;
         double yBase = yTop + height * 1.25;
 
-        double[] xs = new double[]{x0, x1, x2, x3, x4, x5, x6, x6, x0};
-        double[] ys = new double[]{y0, y1, y2, y3, y4, y5, y6, yBase, yBase};
+        double[] xs = new double[]{x0, x1, x2, cx, x4, x5, x6, x6, x0};
+        double[] ys = new double[]{y0, y1, y2, yTop, y4, y5, y6, yBase, yBase};
 
         g.setFill(fill);
         g.fillPolygon(xs, ys, xs.length);
@@ -5111,7 +5108,7 @@ public class Bird {
         g.fillOval(x + (facingRight ? 55 : 25) * sizeMultiplier, y + 25 * sizeMultiplier, 15 * sizeMultiplier, 15 * sizeMultiplier);
     }
 
-    private void drawHeisenbirdAccessories(GraphicsContext g, double drawSize) {
+    private void drawHeisenbirdAccessories(GraphicsContext g) {
         if (type != BirdGame3.BirdType.HEISENBIRD) return;
         double s = sizeMultiplier;
         double headX = facingRight ? x + 50 * s : x - 20 * s;
@@ -5496,7 +5493,7 @@ public class Bird {
         }
     }
 
-    private void drawBeak(GraphicsContext g, double drawSize) {
+    private void drawBeak(GraphicsContext g) {
         if (type == BirdGame3.BirdType.BAT) {
             double mouthX = x + 33 * sizeMultiplier;
             double mouthY = y + 28 * sizeMultiplier;
@@ -5615,7 +5612,7 @@ public class Bird {
         }
     }
 
-    private void drawPelican(GraphicsContext g, double drawSize) {
+    private void drawPelican(GraphicsContext g) {
         if (type == BirdGame3.BirdType.PELICAN) {
             double headX = facingRight ? x + 50 * sizeMultiplier : x - 20 * sizeMultiplier;
             double pouchX = headX + 2 * sizeMultiplier;
@@ -5629,7 +5626,7 @@ public class Bird {
         }
     }
 
-    private void drawVineGrapple(GraphicsContext g, double drawSize) {
+    private void drawVineGrapple(GraphicsContext g) {
         if (grappleUses > 0) {
             g.setFill(Color.LIMEGREEN.brighter());
             g.setFont(Font.font("Arial Black", FontWeight.BOLD, 36 * sizeMultiplier));

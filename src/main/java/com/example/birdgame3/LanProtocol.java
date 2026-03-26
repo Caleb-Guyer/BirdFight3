@@ -25,7 +25,7 @@ final class LanProtocol {
     static final int MAP_RANDOM = -1;
     static final int BIRD_RANDOM = -2;
 
-    static final int INPUT_LEFT = 1 << 0;
+    static final int INPUT_LEFT = 1;
     static final int INPUT_RIGHT = 1 << 1;
     static final int INPUT_JUMP = 1 << 2;
     static final int INPUT_ATTACK = 1 << 3;

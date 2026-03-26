@@ -29,22 +29,18 @@ class LanClient {
         this.game = game;
     }
 
-    int getPlayerIndex() {
-        return playerIndex;
-    }
-
     String getLastError() {
         return lastError;
     }
 
-    boolean connect(String host, int port) {
+    boolean connect(String host) {
         if (running) return true;
         if (closed) {
             lastError = "Connection cancelled.";
             return false;
         }
         try {
-            Socket newSocket = new Socket(host, port);
+            Socket newSocket = new Socket(host, LanProtocol.DEFAULT_PORT);
             newSocket.setTcpNoDelay(true);
             DataInputStream newIn = new DataInputStream(newSocket.getInputStream());
             DataOutputStream newOut = new DataOutputStream(newSocket.getOutputStream());
@@ -89,6 +85,14 @@ class LanClient {
         }
     }
 
+    private void enqueueOutbound(byte[] payload) {
+        if (!running || payload == null) return;
+        if (!outbound.offer(payload)) {
+            lastError = "Failed to queue LAN message.";
+            disconnectInternal();
+        }
+    }
+
     void sendSelect(BirdType type, boolean random, String skinKey) {
         if (!running) return;
         try {
@@ -97,7 +101,7 @@ class LanClient {
                 out.writeInt(ord);
                 out.writeUTF(skinKey == null ? "" : skinKey);
             });
-            outbound.offer(msg);
+            enqueueOutbound(msg);
         } catch (IOException ignored) {
         }
     }
@@ -107,7 +111,7 @@ class LanClient {
         try {
             int ord = random ? LanProtocol.MAP_RANDOM : (map != null ? map.ordinal() : -1);
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_MAP_VOTE, out -> out.writeInt(ord));
-            outbound.offer(msg);
+            enqueueOutbound(msg);
         } catch (IOException ignored) {
         }
     }
@@ -116,7 +120,7 @@ class LanClient {
         if (!running) return;
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_READY, out -> out.writeBoolean(ready));
-            outbound.offer(msg);
+            enqueueOutbound(msg);
         } catch (IOException ignored) {
         }
     }
@@ -125,14 +129,14 @@ class LanClient {
         if (!running) return;
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_INPUT, out -> out.writeInt(mask));
-            outbound.offer(msg);
+            enqueueOutbound(msg);
         } catch (IOException ignored) {
         }
     }
 
     private void sendHello() throws IOException {
         byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_HELLO, out -> out.writeInt(LanProtocol.VERSION));
-        outbound.offer(msg);
+        enqueueOutbound(msg);
     }
 
     private void readLoop() {
@@ -171,7 +175,7 @@ class LanClient {
                                 birds[i] = readBirdByOrdinal(birdOrd);
                             }
                             String skinKey = msgIn.readUTF();
-                            skinKeys[i] = skinKey == null || skinKey.isBlank() ? null : skinKey;
+                            skinKeys[i] = skinKey.isBlank() ? null : skinKey;
                         }
                         game.onLanLobbyUpdate(map, mapRandom, connected, birds, randomBirds, skinKeys, ready);
                     }
@@ -187,7 +191,7 @@ class LanClient {
                             int birdOrd = msgIn.readInt();
                             birds[i] = readBirdByOrdinal(birdOrd);
                             String skinKey = msgIn.readUTF();
-                            skinKeys[i] = skinKey == null || skinKey.isBlank() ? null : skinKey;
+                            skinKeys[i] = skinKey.isBlank() ? null : skinKey;
                         }
                         game.onLanStartMatch(map, seed, connected, birds, skinKeys);
                     }
@@ -248,5 +252,13 @@ class LanClient {
         BirdType[] values = BirdType.values();
         if (ord < 0 || ord >= values.length) return null;
         return values[ord];
+    }
+
+    public int getPlayerIndex() {
+        return playerIndex;
+    }
+
+    public void setPlayerIndex(int playerIndex) {
+        this.playerIndex = playerIndex;
     }
 }

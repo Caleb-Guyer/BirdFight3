@@ -41,8 +41,6 @@ final class SuddenDeathController {
 
     double updateAndSpawn(List<CrowMinion> crowMinions,
                           Random random,
-                          double worldWidth,
-                          double worldHeight,
                           double shakeIntensity,
                           boolean matchEnded) {
         if (!active || matchEnded) return shakeIntensity;
@@ -71,7 +69,7 @@ final class SuddenDeathController {
         }
 
         for (int i = 0; i < crowsPerSide; i++) {
-            double y = 200 + random.nextDouble() * (worldHeight - 800);
+            double y = 200 + random.nextDouble() * (BirdGame3.WORLD_HEIGHT - 800);
             double speed = BASE_CROW_SPEED + Math.min(CROW_SPEED_GROWTH_CAP, sdSeconds * CROW_SPEED_GROWTH_PER_SEC);
 
             CrowMinion left = new CrowMinion(-100, y, null);
@@ -80,7 +78,7 @@ final class SuddenDeathController {
             left.vy = (random.nextDouble() - 0.5) * 4;
             crowMinions.add(left);
 
-            CrowMinion right = new CrowMinion(worldWidth + 100, y, null);
+            CrowMinion right = new CrowMinion(BirdGame3.WORLD_WIDTH + 100, y, null);
             right.life = murderCrowLife;
             right.vx = -speed - random.nextDouble() * 2;
             right.vy = (random.nextDouble() - 0.5) * 4;
