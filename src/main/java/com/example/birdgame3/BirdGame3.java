@@ -322,6 +322,18 @@ public class BirdGame3 extends Application {
     public static final double MIN_ZOOM = 0.35;
     public static final double MAX_ZOOM = 1.5;
     public static final double ZOOM_SPEED = 0.008;
+    private static final double CAMERA_BOUND_EXPAND_SPEED = 0.08;
+    private static final double CAMERA_BOUND_CONTRACT_SPEED = 0.16;
+    private static final double CAMERA_PAN_SPEED = 0.12;
+    private static final double CAMERA_ZOOM_IN_SPEED = 0.015;
+    private static final double CAMERA_TAG_IN_BOUND_EXPAND_SPEED = 0.15;
+    private static final double CAMERA_TAG_IN_ZOOM_OUT_SPEED = 0.05;
+    private static final int CAMERA_TAG_IN_EASE_FRAMES = 42;
+    private double trackedCamMinX = Double.NaN;
+    private double trackedCamMaxX = Double.NaN;
+    private double trackedCamMinY = Double.NaN;
+    private double trackedCamMaxY = Double.NaN;
+    private int cameraTagInEaseFrames = 0;
 
     // === MAPS ===
     public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, CAVE, BATTLEFIELD, BEACON_CROWN }
@@ -2276,6 +2288,8 @@ public class BirdGame3 extends Application {
     private String adventureSelectedSkinKey = null;
     private String activeAdventureDialogueTitle = null;
     private int activeAdventureDialogueChapterIndex = -1;
+    private String activeAdventureDialogueLeftSkinKey = null;
+    private String activeAdventureDialogueRightSkinKey = null;
     private AdventureBattle currentAdventureBattle = null;
     boolean adventureTeamMode = false;
     final int[] adventureTeams = new int[]{1, 2, 2, 2};
@@ -2284,6 +2298,11 @@ public class BirdGame3 extends Application {
     private boolean unitedFinaleBossEnraged = false;
     private int unitedFinaleDarkForceCooldown = 0;
     private int unitedFinaleDarkForceWave = 0;
+    private final List<UnitedFinaleSupportEntry> unitedFinaleSupportQueue = new ArrayList<>();
+    private int unitedFinaleSupportCursor = 0;
+    private int unitedFinaleSupportRotateCooldown = 0;
+    private int unitedFinaleSupportNextSlot = 1;
+    private boolean unitedFinaleSupportRosterComplete = false;
 
     private enum DialogueSide { LEFT, RIGHT }
 
@@ -2333,44 +2352,48 @@ public class BirdGame3 extends Application {
                             AdventureBattle[] battles, AdventureDialogueLine[] outroDialogue) {
     }
 
+    private record UnitedFinaleSupportEntry(BirdType type, String displayName, String skinKey,
+                                            double health, double powerMult, double speedMult) {
+    }
+
     private final AdventureChapter[] adventureChapters = new AdventureChapter[] {
             new AdventureChapter(
                     "Chapter 1: The Silent Beacon",
-                    "The skyline Beacon has gone dark. Pigeon must rally allies before the Carrion Court tightens its grip.",
+                    "The Beacon goes dark, and Pigeon starts pulling the skyline back together before the Carrion Court turns fear into control.",
                     new AdventureDialogueLine[] {
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The Beacon went dark last night. The rooftops feel hollow."
+                                    "The Beacon went out, and the whole city feels wrong."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
-                                    "When the Beacon fades, the Carrion Court stirs. Vultures are already circling."
+                                    "That kind of silence makes people easy to scare. The Carrion Court will move fast."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "Then we gather wings. The skyline will not go quiet."
+                                    "Then we move faster. Who can still be trusted?"
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
-                                    "Start with the neon courier. Earn her trust."
+                                    "Start with the courier. If Hummingbird believes you, others will listen."
                             )
                     },
                     new AdventureBattle[] {
                             new AdventureBattle(
                                     "Battle 1: Rooftop Sprint",
-                                    "A neon courier tests your speed and resolve.",
+                                    "A neon courier refuses to help until you prove you can keep up and keep your word.",
                                     MapType.CITY,
                                     BirdType.HUMMINGBIRD,
                                     "Rival: Neon Hummingbird",
@@ -2386,14 +2409,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Neon Hummingbird",
-                                                    "I bring warnings, not comfort. The wind says you are slow."
+                                                    "You want my help? Fine. Show me you can keep pace when it matters."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then race me across the roofs. Win, and I listen."
+                                                    "If a race is what it takes, let's race."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2402,21 +2425,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Neon Hummingbird",
-                                                    "All right, you kept pace."
+                                                    "Okay. You kept up, and you didn't make excuses."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then fly with me. The Beacon needs voices."
+                                                    "Good. Then come with me. We need every fast wing we've got."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Neon Hummingbird",
-                                                    "I'm in. Eagle waits at the cliffs."
+                                                    "I'm in. Eagle's holding the cliffs, and he'll want proof too."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2425,20 +2448,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Neon Hummingbird",
-                                                    "Come back when your wings stop shaking."
+                                                    "You're not ready to lead anyone yet."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then I will."
+                                                    "Then I'll come back ready."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 2: Old Friend Run",
-                                    "Eagle will only join if you prove you still fight for the flock.",
+                                    "Eagle will join only if Pigeon proves this is about protecting the flock, not chasing glory.",
                                     MapType.SKYCLIFFS,
                                     BirdType.EAGLE,
                                     "Rival: Sky King Eagle",
@@ -2454,14 +2477,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.EAGLE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Eagle, it's me. The Beacon is out."
+                                                    "Eagle, the Beacon is out. I need you with me."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "Storms return. If you want my wings, prove your heart."
+                                                    "Need is cheap. Show me you're fighting for the flock, not for yourself."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2470,21 +2493,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "You still fight for the flock, not the crown. I am with you."
+                                                    "That's what I needed to see. You're carrying the city, not your ego."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then we move. The Carrion Court is next."
+                                                    "Then help me keep it standing."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "We will need more than friends."
+                                                    "I will. But this gets worse before it gets better."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2493,13 +2516,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "Your wings are heavy. Come back lighter."
+                                                    "You're carrying too much doubt. Fix that first."
+                                            ),
+                                            new AdventureDialogueLine(
+                                                    BirdType.PIGEON,
+                                                    BirdType.EAGLE,
+                                                    DialogueSide.LEFT,
+                                                    "Pigeon",
+                                                    "I will."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 3: Carrion Scout",
-                                    "A Vulture scout blocks the path. Break the warning and keep your allies safe.",
+                                    "A Carrion scout tries to scare your new allies back into hiding. Shut that down now.",
                                     MapType.VIBRANT_JUNGLE,
                                     BirdType.VULTURE,
                                     "Enemy: Carrion Scout",
@@ -2515,14 +2545,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Vulture Scout",
-                                                    "So the Beacon's little light walks. How cute."
+                                                    "So this is the rescue mission. I expected something louder."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "We are done hiding. Tell your Court we are coming."
+                                                    "Good. Then you can be the one who tells the Court we're done hiding."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2531,21 +2561,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Vulture Scout",
-                                                    "This is not over. The Court sees all."
+                                                    "You think one win changes anything?"
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.HUMMINGBIRD,
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Neon Hummingbird",
-                                                    "The Court runs deeper than rooftops."
+                                                    "No. But it proves you can bleed."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then we dive deeper."
+                                                    "And we're just getting started."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2554,14 +2584,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Vulture Scout",
-                                                    "Run. The sky belongs to the Court."
+                                                    "See? The Court doesn't even need to try."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Not yet."
+                                                    "We'll be back."
                                             )
                                     }
                             )
@@ -2572,61 +2602,61 @@ public class BirdGame3 extends Application {
                                     BirdType.EAGLE,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "Two allies. One warning. The Beacon can be relit."
+                                    "We have a team and a direction. That's enough for now."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "We head for the caves next. That is where the shadows gather."
+                                    "Next stop is the caves. That's where this trail goes cold."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.HUMMINGBIRD,
                                     BirdType.PIGEON,
                                     DialogueSide.LEFT,
                                     "Neon Hummingbird",
-                                    "And where the bat listens."
+                                    "And where Bat hears things the rest of us miss."
                             )
                     }
             ),
             new AdventureChapter(
                     "Chapter 2: Echoes Below",
-                    "With the Beacon dark, Pigeon descends into the Caves to find the bat who guards the Echo Vault. The Carrion Court sends a razor-wing and a lieutenant to claim the shard.",
+                    "The flock descends into the caves to recruit Bat and recover the Echo Shard before the Carrion Court seals it away.",
                     new AdventureDialogueLine[] {
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The caves are colder than the rooftops."
+                                    "I hate how quiet it gets down here."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "Bat hears the stone. Speak with an honest wing."
+                                    "Good. It means you'll hear the lies before you answer them."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.HUMMINGBIRD,
                                     BirdType.PIGEON,
                                     DialogueSide.LEFT,
                                     "Neon Hummingbird",
-                                    "I can map the echoes. Something sharp moves below."
+                                    "Movement ahead. Fast, sharp, and sticking to the walls."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.RIGHT,
                                     "Bat",
-                                    "Who breaks the silence?"
+                                    "If you came here shouting, turn around."
                             )
                     },
                     new AdventureBattle[] {
                             new AdventureBattle(
                                     "Battle 1: Cave Listener",
-                                    "A shadow guardian tests your intent. Earn Bat's trust to reach the Echo Vault.",
+                                    "Bat blocks the vault until Pigeon proves the city can trust him.",
                                     MapType.CAVE,
                                     BirdType.BAT,
                                     "Rival: Night Bat",
@@ -2642,14 +2672,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "The cave keeps secrets. Why should I open it?"
+                                                    "Why should I let strangers anywhere near the vault?"
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Because the Beacon is our sky. We need your ears."
+                                                    "Because the city is already in this fight, whether you join it or not."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2658,21 +2688,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Your heartbeat is steady. I will guide you."
+                                                    "You're direct. I respect that. I'll take you to the vault."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then help us find the Echo Vault."
+                                                    "That's all I needed."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.HUMMINGBIRD,
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Neon Hummingbird",
-                                                    "Hear that? Blades in the dark."
+                                                    "And whatever is rushing us from the dark just got a lot closer."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2681,20 +2711,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Your heart stutters. Return when it is steady."
+                                                    "Come back when you've decided what you're really here for."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "I will."
+                                                    "Fair."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 2: Razor Ambush",
-                                    "A razor-wing sent by the Court strikes in the echo tunnels.",
+                                    "A Court blade attacks before you can reach the vault.",
                                     MapType.CAVE,
                                     BirdType.RAZORBILL,
                                     "Enemy: Razorwing",
@@ -2710,14 +2740,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAZORBILL,
                                                     DialogueSide.RIGHT,
                                                     "Razorwing",
-                                                    "Step away from the vault. The shard belongs to the Court."
+                                                    "Leave the shard where it is and maybe you walk out of here."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.BAT,
                                                     BirdType.RAZORBILL,
                                                     DialogueSide.LEFT,
                                                     "Bat",
-                                                    "We do not trade echoes for threats."
+                                                    "You don't scare me in my own cave."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2726,14 +2756,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Bat",
-                                                    "The Court sends blades now."
+                                                    "So much for subtlety."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.BAT,
                                                     BirdType.PIGEON,
                                                     DialogueSide.RIGHT,
                                                     "Pigeon",
-                                                    "Then we answer at the Beacon."
+                                                    "The Court knows we're close. Move."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2742,7 +2772,7 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAZORBILL,
                                                     DialogueSide.RIGHT,
                                                     "Razorwing",
-                                                    "The echo belongs to the Court."
+                                                    "The shard was ours the moment you stepped inside."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.BAT,
@@ -2755,7 +2785,7 @@ public class BirdGame3 extends Application {
                             ),
                             new AdventureBattle(
                                     "Battle 3: Beacon Husk",
-                                    "The Beacon's base crawls with carrion. A lieutenant guards the Echo Shard.",
+                                    "At the Beacon's buried foundation, a Carrion lieutenant tries to lock the Echo Shard away for good.",
                                     MapType.CITY,
                                     BirdType.VULTURE,
                                     "Enemy: Carrion Lieutenant",
@@ -2771,21 +2801,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Carrion Lieutenant",
-                                                    "Leave the shard and I let you fly."
+                                                    "Drop the shard and fly away while you still can."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "We do not bargain with carrion."
+                                                    "We stopped bargaining with you when the Beacon went dark."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "Then clip his wings."
+                                                    "Finish it."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2794,21 +2824,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Carrion Lieutenant",
-                                                    "The Court will rise."
+                                                    "You have no idea what you're waking up."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.HUMMINGBIRD,
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Neon Hummingbird",
-                                                    "Then we light the sky."
+                                                    "Maybe. But you definitely shouldn't have left it in your hands."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "The Beacon will sing again."
+                                                    "We take the shard home."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2817,14 +2847,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Carrion Lieutenant",
-                                                    "The Beacon stays dark."
+                                                    "The Beacon stays buried."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "We will return."
+                                                    "Only until we get back."
                                             )
                                     }
                             )
@@ -2835,61 +2865,61 @@ public class BirdGame3 extends Application {
                                     BirdType.PIGEON,
                                     DialogueSide.LEFT,
                                     "Bat",
-                                    "The shard remembers the Beacon. It can sing again."
+                                    "The shard is tuned to the Beacon. It can wake the light."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.BAT,
                                     BirdType.PIGEON,
                                     DialogueSide.RIGHT,
                                     "Pigeon",
-                                    "Then we carry it home. The Court will answer."
+                                    "Then we get it above ground before the Court catches up."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "The Court's talons are many. We will need more wings."
+                                    "And be ready for everyone waiting for us there."
                             )
                     }
             ),
             new AdventureChapter(
                     "Chapter 3: Storm of Wings",
-                    "Echo Shard in claw, the flock races to the Beacon summit. The Carrion Court unleashes speed and greed to seize the shard before Vulture descends.",
+                    "With the Echo Shard in claw, the flock fights its way back to the Beacon while the Court throws speed, theft, and force at them.",
                     new AdventureDialogueLine[] {
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The shard is warm. It remembers the Beacon."
+                                    "The shard feels alive."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.RIGHT,
                                     "Bat",
-                                    "Echo says the Court waits above. They want the light silenced forever."
+                                    "It is, and the Court can feel it too."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "Then we take the storm route. No more hiding."
+                                    "Good. Let them come to us."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.HUMMINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Neon Hummingbird",
-                                    "Fast wings incoming. Someone rides the wind like a blade."
+                                    "Something fast just cut across the clouds."
                             )
                     },
                     new AdventureBattle[] {
                             new AdventureBattle(
                                     "Battle 1: Storm Intercept",
-                                    "A Carrion courier dives from the clouds to steal the shard.",
+                                    "A Court courier tries to snatch the shard in open air before you reach the Beacon.",
                                     MapType.SKYCLIFFS,
                                     BirdType.FALCON,
                                     "Enemy: Storm Falcon",
@@ -2905,21 +2935,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.FALCON,
                                                     DialogueSide.RIGHT,
                                                     "Storm Falcon",
-                                                    "Hand me the shard. The Court pays in skies."
+                                                    "Hand over the shard. I'm faster than you anyway."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.FALCON,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "The sky belongs to the flock."
+                                                    "Then come take it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.FALCON,
                                                     DialogueSide.RIGHT,
                                                     "Storm Falcon",
-                                                    "Then outrun me."
+                                                    "Gladly."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2928,21 +2958,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.FALCON,
                                                     DialogueSide.RIGHT,
                                                     "Storm Falcon",
-                                                    "Speed is not enough."
+                                                    "You're slower than me, but you're harder to shake."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.FALCON,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then stand aside."
+                                                    "That was the idea."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "The Beacon waits."
+                                                    "Keep moving. The Beacon is close."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -2951,20 +2981,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.FALCON,
                                                     DialogueSide.RIGHT,
                                                     "Storm Falcon",
-                                                    "Keep running. The storm is ours."
+                                                    "If you can't hold it, you don't deserve it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.FALCON,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Not for long."
+                                                    "I'll prove I can."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 2: Thief of Light",
-                                    "A greedy enforcer ambushes you at the Beacon's lower spires.",
+                                    "A greedy raider ambushes the flock near the lower spires and goes straight for the shard.",
                                     MapType.CITY,
                                     BirdType.GRINCHHAWK,
                                     "Enemy: Shard Thief",
@@ -2980,21 +3010,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.GRINCHHAWK,
                                                     DialogueSide.RIGHT,
                                                     "Grinch-Hawk",
-                                                    "Shiny shard. I will take it."
+                                                    "All this trouble over one shiny rock? I'll save you the trouble and keep it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "He hunts by greed, not honor."
+                                                    "He doesn't care what it is. He just wants it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.GRINCHHAWK,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then we deny him both."
+                                                    "Then let's disappoint him."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3003,21 +3033,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.GRINCHHAWK,
                                                     DialogueSide.RIGHT,
                                                     "Grinch-Hawk",
-                                                    "You clipped my profit."
+                                                    "Worst investment I've made all year."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Neon Hummingbird",
-                                                    "Good. Profit does not light the sky."
+                                                    "Good. Lose money somewhere else."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.GRINCHHAWK,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "The Beacon is ours."
+                                                    "And stay away from the Beacon."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3026,20 +3056,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.GRINCHHAWK,
                                                     DialogueSide.RIGHT,
                                                     "Grinch-Hawk",
-                                                    "Thanks for the shard."
+                                                    "Thanks. I knew you'd hand it over eventually."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.GRINCHHAWK,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Over my feathers."
+                                                    "Not a chance."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 3: Carrion Crown",
-                                    "Vulture descends as the Beacon stirs. End the Court's reign.",
+                                    "Vulture drops onto the upper spires to stop the shard from ever reaching the Beacon.",
                                     MapType.SKYCLIFFS,
                                     BirdType.VULTURE,
                                     "Boss: Vulture Regent",
@@ -3055,21 +3085,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Vulture Regent",
-                                                    "You carry the shard. You think it belongs to you."
+                                                    "You dragged this city through chaos for a light that was supposed to stay buried."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "It belongs to every wing that still believes."
+                                                    "The city deserves better than your darkness."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "Then face us, carrion king."
+                                                    "Enough talk."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3078,21 +3108,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Vulture Regent",
-                                                    "Then light it... if you can."
+                                                    "Then light it and find out what it costs you."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Echo accepts. The Beacon remembers."
+                                                    "The Beacon is responding."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Skyline, rise."
+                                                    "Good. Then we finish this."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3101,14 +3131,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Vulture Regent",
-                                                    "The Beacon stays dark."
+                                                    "You were never getting past me."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "We will return."
+                                                    "Watch us."
                                             )
                                     }
                             )
@@ -3119,61 +3149,61 @@ public class BirdGame3 extends Application {
                                     BirdType.HUMMINGBIRD,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The shard sings. The Beacon flickers."
+                                    "The Beacon's awake, but barely."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.HUMMINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Neon Hummingbird",
-                                    "The light is weak, but it is real."
+                                    "Weak is fine. Weak still means alive."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "The Court will not forget this. We take the fight to their nest."
+                                    "And that means the Court gets desperate next."
                             )
                     }
             ),
             new AdventureChapter(
                     "Chapter 4: Ashen Dawn",
-                    "With the Beacon flickering, the flock storms the Carrion Nest. To reignite the sky, they must break the Court and awaken the ancient fire.",
+                    "A weak Beacon is still a target, so the flock strikes the Carrion Nest and awakens the ancient fire at its heart.",
                     new AdventureDialogueLine[] {
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The Beacon is alive but weak. The Court will smother it."
+                                    "The Beacon's back, but it's still vulnerable."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "Then we strike their nest and end this."
+                                    "Then we hit the nest before they regroup."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.RIGHT,
                                     "Bat",
-                                    "Echo says the fire sleeps above. It will test whoever wakes it."
+                                    "Something older than the Court is waiting above."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.HUMMINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Neon Hummingbird",
-                                    "Fast wings ready. No more running."
+                                    "Fine. We wake it up on our terms."
                             )
                     },
                     new AdventureBattle[] {
                             new AdventureBattle(
                                     "Battle 1: Nestfall Breach",
-                                    "A gate warden blocks the path to the Carrion Nest.",
+                                    "A nest warden holds the route into Carrion territory.",
                                     MapType.VIBRANT_JUNGLE,
                                     BirdType.SHOEBILL,
                                     "Enemy: Gate Shoebill",
@@ -3189,14 +3219,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.SHOEBILL,
                                                     DialogueSide.RIGHT,
                                                     "Gate Shoebill",
-                                                    "No wing crosses the nest."
+                                                    "Nobody gets through this gate."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.SHOEBILL,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then we break the gate."
+                                                    "Then this gate is about to fail."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3205,14 +3235,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.SHOEBILL,
                                                     DialogueSide.RIGHT,
                                                     "Gate Shoebill",
-                                                    "The Court will answer."
+                                                    "The Court will answer for this."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "Let them. We are inside."
+                                                    "They can answer to all of us."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3221,20 +3251,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.SHOEBILL,
                                                     DialogueSide.RIGHT,
                                                     "Gate Shoebill",
-                                                    "Your beaks are not sharp enough."
+                                                    "You don't have the strength to breach us."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.SHOEBILL,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "We will return."
+                                                    "We'll return with more."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 2: Veil of Smoke",
-                                    "A Carrion priest spreads a lean fog to hide the shard.",
+                                    "A Carrion priest blankets the route in hallucinatory fog to break the flock's focus.",
                                     MapType.CITY,
                                     BirdType.OPIUMBIRD,
                                     "Enemy: Fog Priest",
@@ -3250,21 +3280,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.OPIUMBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Fog Priest",
-                                                    "Breathe deep. Forget the light."
+                                                    "Take one breath and forget what you're fighting for."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.OPIUMBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "We remember the Beacon."
+                                                    "No. We remember exactly why we're here."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Do not trust the haze."
+                                                    "Stay on the sound of my voice."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3273,14 +3303,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.OPIUMBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Fog Priest",
-                                                    "The Court will drown you."
+                                                    "You'll drown in haze sooner or later."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Neon Hummingbird",
-                                                    "We fly above the fog."
+                                                    "Not if we keep moving."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3289,20 +3319,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.OPIUMBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Fog Priest",
-                                                    "Let the haze hold you."
+                                                    "Let the fog make your choices for you."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.OPIUMBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Not today."
+                                                    "Not happening."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 3: Beacon Heart",
-                                    "The ancient fire awakens. Prove the flock is worthy.",
+                                    "The fire at the Beacon's heart refuses to awaken until the flock proves itself worthy.",
                                     MapType.SKYCLIFFS,
                                     BirdType.PHOENIX,
                                     "Boss: Ashen Phoenix",
@@ -3318,21 +3348,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Ashen Phoenix",
-                                                    "The Beacon has slept. Why should it burn again?"
+                                                    "Why should I burn for a city that let the light go out?"
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Because the sky still needs hope."
+                                                    "Because people still need it, and we're still here to carry it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.EAGLE,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.LEFT,
                                                     "Eagle",
-                                                    "Test us, flame. If we fail, let it die."
+                                                    "Judge us if you want. We didn't come to beg."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3341,21 +3371,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Ashen Phoenix",
-                                                    "Then rise. Carry my flame."
+                                                    "Good. You fought for the city, not for power. Take the flame."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Beacon, burn."
+                                                    "Then let's make the Beacon impossible to ignore."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "The echo turns to light."
+                                                    "The whole skyline can hear it."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3364,14 +3394,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Ashen Phoenix",
-                                                    "You are not ready."
+                                                    "Come back when your conviction is stronger than your fear."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then we will return ready."
+                                                    "We will."
                                             )
                                     }
                             )
@@ -3382,68 +3412,68 @@ public class BirdGame3 extends Application {
                                     BirdType.PHOENIX,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The Beacon burns. The skyline breathes."
+                                    "Now the Beacon feels alive."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "The Court is broken, but not gone. We hold the light now."
+                                    "Alive, and defended this time."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.HUMMINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Neon Hummingbird",
-                                    "Then we guard it together."
+                                    "Then let's keep it that way."
                             )
                     }
             ),
             new AdventureChapter(
                     "Chapter 5: Signal of the Beacon",
-                    "The Beacon burns again, but the Carrion Court sends a crystal echo to corrupt the signal. Defend the light and claim the mantle.",
+                    "The relit Beacon draws a new threat: a false signal designed to corrupt the light from inside.",
                     new AdventureDialogueLine[] {
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PHOENIX,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The Beacon burns again, but it flickers."
+                                    "We lit the Beacon, and now something is trying to copy it."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PHOENIX,
                                     DialogueSide.RIGHT,
                                     "Phoenix",
-                                    "A flame without a keeper is a flame at risk."
+                                    "Any light can be counterfeited if no one defends its source."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.RIGHT,
                                     "Bat",
-                                    "Echo says a false signal is climbing the tower."
+                                    "Whatever this is, it's climbing the tower already."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.HUMMINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Neon Hummingbird",
-                                    "Blue sparks in the rain. Something copies our light."
+                                    "Then we go up and tear it out."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "Then we meet it at the Beacon and end this."
+                                    "And keep the tower standing while we do it."
                             )
                     },
                     new AdventureBattle[] {
                             new AdventureBattle(
                                     "Battle 1: Signal Distortion",
-                                    "A blue crystal echo infiltrates the Beacon base. Break the false signal before it spreads.",
+                                    "A crystal echo is broadcasting a fake Beacon signal from inside the city.",
                                     MapType.CITY,
                                     BirdType.HEISENBIRD,
                                     "Enemy: Crystal Echo",
@@ -3459,21 +3489,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.HEISENBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Crystal Echo",
-                                                    "The Beacon will answer to my formula."
+                                                    "The Beacon works better when I control it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HEISENBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "It answers to the flock."
+                                                    "You don't control anything here."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "That voice is a copy."
+                                                    "That voice isn't alive. Don't let it set the pace."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3482,21 +3512,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.HEISENBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Crystal Echo",
-                                                    "Signal fading... but the Court listens."
+                                                    "Signal failing... but someone else heard it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HEISENBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then we will be louder."
+                                                    "Then they'll hear us instead."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Phoenix",
-                                                    "The flame rejects the false light."
+                                                    "The real flame is still ours."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3505,20 +3535,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.HEISENBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Crystal Echo",
-                                                    "The Beacon will rewrite you."
+                                                    "You'll be easier to rewrite than the tower."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HEISENBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Not today."
+                                                    "Try me."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 2: Signal Cutter",
-                                    "A razor wing aims to sever the relay path. Hold the line in the storm.",
+                                    "A razor-wing attacker tries to cut the Beacon's relay path in the middle of the storm.",
                                     MapType.SKYCLIFFS,
                                     BirdType.RAZORBILL,
                                     "Enemy: Signal Cutter",
@@ -3534,14 +3564,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAZORBILL,
                                                     DialogueSide.RIGHT,
                                                     "Signal Cutter",
-                                                    "One cut and the city goes dark."
+                                                    "One clean cut and the city goes dark again."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.RAZORBILL,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then you miss."
+                                                    "Then you'd better not miss."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
@@ -3557,21 +3587,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAZORBILL,
                                                     DialogueSide.RIGHT,
                                                     "Signal Cutter",
-                                                    "The Court will silence you anyway."
+                                                    "You held it once. You won't hold it forever."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.RAZORBILL,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "The Beacon speaks louder."
+                                                    "We only have to hold it today."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Neon Hummingbird",
-                                                    "Skyline stays lit."
+                                                    "And tomorrow if we have to."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3580,20 +3610,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAZORBILL,
                                                     DialogueSide.RIGHT,
                                                     "Signal Cutter",
-                                                    "The light dies here."
+                                                    "The line was always thinner than you thought."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.RAZORBILL,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "We will return."
+                                                    "We'll rebuild it."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 3: Beacon Ascendant",
-                                    "The Carrion Regent returns for one last strike. Defend the Beacon and claim the signal.",
+                                    "The Carrion Regent returns for the Beacon itself.",
                                     MapType.CITY,
                                     BirdType.VULTURE,
                                     "Boss: Carrion Regent",
@@ -3609,21 +3639,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Carrion Regent",
-                                                    "You lit the Beacon, but you do not own it."
+                                                    "You lit it. That doesn't mean you understand it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "It belongs to every wing that still believes."
+                                                    "Maybe not. But I know who it belongs to."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PHOENIX,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Phoenix",
-                                                    "Then watch the keeper claim the mantle."
+                                                    "And I know what happens to anyone who takes it by force."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3632,21 +3662,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Carrion Regent",
-                                                    "The Court falls... but the hunger remains."
+                                                    "The Court falls, but hunger never does."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then the Beacon will remind it who holds the sky."
+                                                    "Then the Beacon gets guarded by more than fear."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "The signal chooses its keeper."
+                                                    "The light has a keeper now."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3655,14 +3685,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Carrion Regent",
-                                                    "The Beacon is mine."
+                                                    "You wanted a crown so badly you didn't see the trap."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Not yet."
+                                                    "We're not done."
                                             )
                                     }
                             )
@@ -3673,68 +3703,68 @@ public class BirdGame3 extends Application {
                                     BirdType.PHOENIX,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The Beacon's light binds to my feathers."
+                                    "The Beacon is responding to me now."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.RIGHT,
                                     "Bat",
-                                    "The echo is steady. The signal is yours."
+                                    "The signal's stable. It's chosen you."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.HUMMINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Neon Hummingbird",
-                                    "Then the skyline can breathe again."
+                                    "Then don't let it turn you into a statue."
                             )
                     }
             ),
             new AdventureChapter(
                     "Chapter 6: Keeper's Oath",
-                    "The Beacon's light chooses its keeper, but the ancient wardens of the battlefield demand a trial. Prove the oath, and the skyline gains a guardian.",
+                    "With the Beacon choosing a keeper, the old wardens demand proof that Pigeon will serve the light instead of ruling through it.",
                     new AdventureDialogueLine[] {
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The Beacon's light is steady, but the air feels heavy."
+                                    "The Beacon listens when I touch it. That should feel better than it does."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "Old war paths woke. The Wardens are flying from the battlefield."
+                                    "Because now everyone will test what you do with it."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.RIGHT,
                                     "Bat",
-                                    "Echo hears an oath: Keeper, prove the light is earned."
+                                    "There's an old oath tied to the battlefield."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
-                                    "They guarded the Beacon before the Court. They will test you."
+                                    "Wardens kept the Beacon long before the Court. If they come, answer straight."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PHOENIX,
                                     DialogueSide.RIGHT,
                                     "Phoenix",
-                                    "If the light chose you, answer with fire and mercy."
+                                    "Strength matters. So does restraint."
                             )
                     },
                     new AdventureBattle[] {
                             new AdventureBattle(
                                     "Battle 1: Relay Chase",
-                                    "A lightning scout steals a relay shard to test the keeper. Catch the spark before the signal fractures.",
+                                    "A lightning-fast scout steals a relay shard to see whether the new keeper can stay in control under pressure.",
                                     MapType.CITY,
                                     BirdType.TITMOUSE,
                                     "Enemy: Volt Titmouse",
@@ -3750,21 +3780,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.TITMOUSE,
                                                     DialogueSide.RIGHT,
                                                     "Volt Titmouse",
-                                                    "Keeper, if you want the light, keep up."
+                                                    "Keeper, if you want the light, prove you can keep it moving."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.TITMOUSE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then race me through the skyline."
+                                                    "Fine. No speeches. Just fly."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Neon Hummingbird",
-                                                    "Fast wings, follow me."
+                                                    "I'll track the route."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3773,21 +3803,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.TITMOUSE,
                                                     DialogueSide.RIGHT,
                                                     "Volt Titmouse",
-                                                    "Alright, keeper. Your wings are honest."
+                                                    "All right. You stayed focused."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.TITMOUSE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "The light is for all of us."
+                                                    "I don't need to own the light. I just need to protect it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "Then the next test waits below."
+                                                    "Then keep going."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3796,20 +3826,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.TITMOUSE,
                                                     DialogueSide.RIGHT,
                                                     "Volt Titmouse",
-                                                    "The Beacon can't outrun the dark."
+                                                    "The dark is faster than hesitation."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.TITMOUSE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then I'll learn to."
+                                                    "Then I'll stop hesitating."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 2: Iron Oath",
-                                    "An iron warden blocks the battlefield bridge. Speak your oath with your wings.",
+                                    "An old battlefield warden forces Pigeon to state his oath and back it up.",
                                     MapType.BATTLEFIELD,
                                     BirdType.TURKEY,
                                     "Enemy: Iron Turkey",
@@ -3825,21 +3855,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.TURKEY,
                                                     DialogueSide.RIGHT,
                                                     "Iron Turkey",
-                                                    "This ground remembers war. Name your oath."
+                                                    "This ground remembers every bird who used power for the wrong reason. What's your oath?"
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.TURKEY,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "To guard the Beacon, not rule it."
+                                                    "I protect the Beacon. I don't own it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Echo hears truth, but steel still tests it."
+                                                    "He means it. Now prove it."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3848,14 +3878,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.TURKEY,
                                                     DialogueSide.RIGHT,
                                                     "Iron Turkey",
-                                                    "Your oath holds. The Warden awaits."
+                                                    "Good. Your oath survived the hit."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.TURKEY,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then we go."
+                                                    "Then point me to the next test."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3864,20 +3894,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.TURKEY,
                                                     DialogueSide.RIGHT,
                                                     "Iron Turkey",
-                                                    "Words are light. Steel decides."
+                                                    "Words are easy. Come back when yours cost something."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.TURKEY,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then I'll return with steel."
+                                                    "I will."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 3: Warden of the Light",
-                                    "The ancient guardian arrives to judge the new keeper. Prove the Beacon has a heart.",
+                                    "Titan Pelican, the oldest living warden, decides whether the Beacon truly has a keeper worth trusting.",
                                     MapType.BATTLEFIELD,
                                     BirdType.PELICAN,
                                     "Boss: Titan Pelican",
@@ -3893,28 +3923,28 @@ public class BirdGame3 extends Application {
                                                     BirdType.PELICAN,
                                                     DialogueSide.RIGHT,
                                                     "Titan Pelican",
-                                                    "I guarded the Beacon before the Court. Why should I trust you?"
+                                                    "Everyone says the light chose you. Why should I?"
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PELICAN,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Because the light chose me, and I choose the flock."
+                                                    "Because I'm not asking the flock to kneel. I'm asking them to stand with me."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Phoenix",
-                                                    "Fire respects a keeper who burns for others."
+                                                    "That answer matters."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "We stand with our keeper."
+                                                    "And so does what comes next."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3923,21 +3953,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.PELICAN,
                                                     DialogueSide.RIGHT,
                                                     "Titan Pelican",
-                                                    "Then the Beacon has a keeper. I will be its shield."
+                                                    "That's the answer I needed. I'll guard the Beacon with you."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PELICAN,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Welcome to the sky, Warden."
+                                                    "Then welcome aboard."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HUMMINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Neon Hummingbird",
-                                                    "The skyline just got bigger."
+                                                    "Nice. We just got a wall."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -3946,14 +3976,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.PELICAN,
                                                     DialogueSide.RIGHT,
                                                     "Titan Pelican",
-                                                    "The Beacon needs a steadier wing."
+                                                    "The Beacon needs steadier judgment than that."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PELICAN,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then I will be steadier."
+                                                    "Then I'll bring it."
                                             )
                                     }
                             )
@@ -3964,82 +3994,82 @@ public class BirdGame3 extends Application {
                                     BirdType.PELICAN,
                                     DialogueSide.RIGHT,
                                     "Titan Pelican",
-                                    "The oath is sealed. The Beacon answers you."
+                                    "The oath is sealed. The Beacon will answer when you call."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PELICAN,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "Then we guide its light together."
+                                    "Then we answer for it together."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "The sky has a keeper and a guard."
+                                    "Good. We'll need that unity."
                             )
                     }
             ),
             new AdventureChapter(
                     "Chapter 7: Echofall Paradox",
-                    "The Beacon speaks back. The flock learns the light was a lock, and the echo inside it wants a body. The keeper must decide what the sky becomes.",
+                    "The flock learns the Beacon was also a lock, and Old Sparrow's guidance was part of a plan to open it before the echo inside found a host.",
                     new AdventureDialogueLine[] {
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The Beacon's light is steady, but the air feels crowded."
+                                    "The Beacon feels wrong again. Like there's another bird inside it."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.RIGHT,
                                     "Bat",
-                                    "Echo hears a second heartbeat inside the Beacon."
+                                    "There is. I can hear a second pulse inside the light."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PHOENIX,
                                     DialogueSide.RIGHT,
                                     "Phoenix",
-                                    "We lit a lock, not a lamp. That light was a cage."
+                                    "Then we didn't relight a lamp. We opened a lock."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
-                                    "The Court were wardens. I needed a keeper to open the lock."
+                                    "Yes. The Court kept it sealed. I needed a keeper strong enough to face what was inside."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "Then who have we been guarding the skyline from?"
+                                    "You used us to open it."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
-                                    "From the thing the Beacon hides. It learns by copying your wingbeats."
+                                    "I gave you the truth late. That's on me. But the thing in there learns by copying whoever carries the light."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "Then it will learn my choice."
+                                    "Then start talking plainly, because I'm done solving riddles for you."
                             )
                     },
                     new AdventureBattle[] {
                             new AdventureBattle(
                                     "Battle 1: Mirror Sprint",
-                                    "The Beacon reflects your steps. Break the mirror before it breaks you.",
+                                    "The Beacon copies Pigeon and turns that reflection against the flock.",
                                     MapType.CITY,
                                     BirdType.PIGEON,
                                     "Enemy: Echo Pigeon",
@@ -4055,21 +4085,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.PIGEON,
                                                     DialogueSide.RIGHT,
                                                     "Echo Pigeon",
-                                                    "I am the light you carried. I learned your routes."
+                                                    "I learned from every choice you made."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then I teach you the last one."
+                                                    "Then you learned the wrong part of me."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.MOCKINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Old Sparrow",
-                                                    "Do not chase the reflection. Break the pattern."
+                                                    "Don't chase it. Break the pattern it's using."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4078,14 +4108,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.PIGEON,
                                                     DialogueSide.RIGHT,
                                                     "Echo Pigeon",
-                                                    "If I fall, you fall."
+                                                    "If I disappear, what happens to you?"
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then I stand."
+                                                    "I stay myself."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4094,20 +4124,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.PIGEON,
                                                     DialogueSide.RIGHT,
                                                     "Echo Pigeon",
-                                                    "You were never the keeper. You were the door."
+                                                    "You weren't chosen. You were opened."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then the door opens."
+                                                    "Maybe. But I'm still here."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 2: Shard Reversal",
-                                    "The echo shard flips the caves inside out. Shatter it before it rewrites you.",
+                                    "The Echo Shard destabilizes the caves and starts rewriting the space around the flock.",
                                     MapType.CAVE,
                                     BirdType.HEISENBIRD,
                                     "Enemy: Echo Shard",
@@ -4123,21 +4153,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.HEISENBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Echo Shard",
-                                                    "The shard remembers your bones."
+                                                    "I remember every voice that touched me."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Echo says the caves are turning inside out."
+                                                    "The caves are shifting. End this fast."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HEISENBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then we crack it before it cracks us."
+                                                    "Then we shatter it before it becomes the room."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4146,14 +4176,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.HEISENBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Echo Shard",
-                                                    "The pattern breaks. The Beacon still hungers."
+                                                    "Pattern broken. Hunger remains."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Phoenix",
-                                                    "Then we burn the hunger."
+                                                    "Then we face the hunger head-on."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4162,20 +4192,20 @@ public class BirdGame3 extends Application {
                                                     BirdType.HEISENBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Echo Shard",
-                                                    "Every echo returns. This one is mine."
+                                                    "Everything comes back as echo eventually."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.HEISENBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Not yet."
+                                                    "Not this."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 3: Beacon Paradox",
-                                    "Old Sparrow reveals the Beacon's true voice. Decide who owns the light.",
+                                    "Old Sparrow forces the final choice: one keeper, or a light shared by the flock.",
                                     MapType.BATTLEFIELD,
                                     BirdType.MOCKINGBIRD,
                                     "Boss: Old Sparrow",
@@ -4191,35 +4221,35 @@ public class BirdGame3 extends Application {
                                                     BirdType.MOCKINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Old Sparrow",
-                                                    "I carried the Beacon once. I became its voice."
+                                                    "I carried the Beacon once. I know exactly what one voice can become."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.MOCKINGBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "You guided us."
+                                                    "Then you should know why I won't let it happen again."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.MOCKINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Old Sparrow",
-                                                    "So the light could choose a new body."
+                                                    "Good. Then prove you can refuse it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "Then we cut the cord. Keeper or not, the sky stays free."
+                                                    "We end this here."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.MOCKINGBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "If I am the door, I'll decide when it closes."
+                                                    "And we decide what the light becomes."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4228,21 +4258,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.MOCKINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Old Sparrow",
-                                                    "Then be the keeper... and the lock."
+                                                    "Good. You chose the flock over the throne."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.MOCKINGBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "No. The light belongs to the flock."
+                                                    "That was always the only answer."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Echo settles. The Beacon breathes."
+                                                    "The Beacon is quiet again."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4251,14 +4281,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.MOCKINGBIRD,
                                                     DialogueSide.RIGHT,
                                                     "Old Sparrow",
-                                                    "The light returns to its old voice."
+                                                    "Then the Beacon goes back to one voice."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.MOCKINGBIRD,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then the sky goes silent."
+                                                    "Not if I can help it."
                                             )
                                     }
                             )
@@ -4269,96 +4299,96 @@ public class BirdGame3 extends Application {
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The Beacon is quiet. The echo is inside me, but it listens."
+                                    "The echo is still with me, but it's not driving anymore."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PHOENIX,
                                     DialogueSide.RIGHT,
                                     "Phoenix",
-                                    "Carry it. Do not let it command you."
+                                    "Keep it in your hands, not in your head."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "We guard the keeper. We guard the sky."
+                                    "We'll hold the line with you."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.RIGHT,
                                     "Bat",
-                                    "Echo hears two heartbeats, and both choose the flock."
+                                    "For the first time, both voices are making the same choice."
                             )
                     }
             ),
             new AdventureChapter(
                     "Chapter 8: The Second Dawn",
-                    "The echo inside the Beacon begins to broadcast beyond the skyline. A raven rides the answering storm, and the Carrion Court's last secret surfaces: the Beacon was meant to be shared, not worn. The keeper must split the light to save the flock.",
+                    "The echo reveals the Beacon was meant to be shared. Pigeon has to split the light before the Void can claim one keeper and turn the flock into a cage.",
                     new AdventureDialogueLine[] {
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The echo keeps showing me skies I've never flown."
+                                    "The echo keeps showing me places beyond the city."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.RIGHT,
                                     "Bat",
-                                    "Echo hears a horizon beyond the skyline. It isn't a voice. It's a map."
+                                    "Then it isn't just memory. It's pointing somewhere."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PHOENIX,
                                     DialogueSide.RIGHT,
                                     "Phoenix",
-                                    "Maps are warnings. Something is coming back for the Beacon."
+                                    "And something on the far end is already moving."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
-                                    "The Court sealed it with our blood. The lock was never meant for one keeper."
+                                    "The Court feared one bird carrying all of it. They were right to fear that part."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "Then why hunt us?"
+                                    "So we fix the design instead of repeating it."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
-                                    "To stop the light from choosing a single body."
+                                    "Exactly. One keeper becomes a target. A flock is harder to break."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PIGEON,
                                     DialogueSide.RIGHT,
                                     "Beacon Echo",
-                                    "One flame dies. A chorus endures."
+                                    "One flame can be taken. A chorus can't."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PIGEON,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "Then we make a chorus."
+                                    "Then we make it a chorus."
                             )
                     },
                     new AdventureBattle[] {
                             new AdventureBattle(
                                     "Battle 1: Signal Break",
-                                    "A raven rides the storm that answers the Beacon. Cut the signal before it spreads.",
+                                    "A raven answers the Beacon's broadcast and tries to pull the echo toward the coming storm.",
                                     MapType.SKYCLIFFS,
                                     BirdType.RAVEN,
                                     "Enemy: Harbinger Raven",
@@ -4374,28 +4404,28 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Harbinger Raven",
-                                                    "The Beacon called. I answered."
+                                                    "The Beacon called across the sky. I came to see who was foolish enough to answer."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.RAVEN,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then you're the storm on my doorstep."
+                                                    "Then you found me. Now tell me why the storm is following you."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Harbinger Raven",
-                                                    "I am the warning. The storm follows."
+                                                    "Because the signal is still too bright for one body."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "Then we cut the signal."
+                                                    "Then we cut it down to size."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4404,21 +4434,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Harbinger Raven",
-                                                    "You're strong... too strong for one body."
+                                                    "You're carrying too much power alone."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.RAVEN,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then stop making it a throne."
+                                                    "Then help me stop carrying it alone."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Echo says the signal spreads."
+                                                    "The signal is still spreading."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4427,13 +4457,13 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Harbinger Raven",
-                                                    "The beacon chooses you, and the sky pays."
+                                                    "If one bird holds it, everybody else pays."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 2: Court Remnant",
-                                    "A last warden of the Carrion Court returns. Learn why they fought the light.",
+                                    "A surviving Court warden finally explains why the Court fought the Beacon and how to stop repeating that mistake.",
                                     MapType.VIBRANT_JUNGLE,
                                     BirdType.VULTURE,
                                     "Enemy: Remnant Warden",
@@ -4449,28 +4479,28 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Remnant Warden",
-                                                    "We were the Carrion Court. We kept the lock."
+                                                    "We became monsters because nobody wanted to hear the reason."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "You broke the flock."
+                                                    "Then say it plainly."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Remnant Warden",
-                                                    "So the flock wouldn't become a cage."
+                                                    "One keeper turns the flock into a prison. We thought fear was the only way to stop that."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Phoenix",
-                                                    "Then you chose fear."
+                                                    "And fear turned you cruel."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4479,21 +4509,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Remnant Warden",
-                                                    "Split the light and the storm can't claim you."
+                                                    "Split the light. If you don't, the storm will choose for you."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.VULTURE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then we split it."
+                                                    "Then that's what we do."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "A keeper becomes a chorus."
+                                                    "No more crowns."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4502,13 +4532,13 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Remnant Warden",
-                                                    "Then the light chooses one, and the rest burn."
+                                                    "Then one bird burns, and the rest burn with them."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     "Battle 3: Second Dawn",
-                                    "The void wants a single keeper. Refuse the crown and remake the Beacon.",
+                                    "The Void Raven comes for a single ruler. Pigeon refuses the crown and remakes the Beacon as a shared signal.",
                                     MapType.BATTLEFIELD,
                                     BirdType.RAVEN,
                                     "Boss: Void Raven",
@@ -4524,49 +4554,49 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Void Raven",
-                                                    "Hand me the echo. The Void Roost is hungry."
+                                                    "Give me the echo. The Void only needs one ruler to break the rest."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.RAVEN,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "It's not yours."
+                                                    "That's exactly why you don't get it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PIGEON,
                                                     DialogueSide.RIGHT,
                                                     "Beacon Echo",
-                                                    "I was never yours to carry alone."
+                                                    "I was never meant to live in one bird."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Echo... you're not a thing. You're..."
+                                                    "Then we stop pretending I can carry all of you alone."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PIGEON,
                                                     DialogueSide.RIGHT,
                                                     "Beacon Echo",
-                                                    "I'm you, after the fall."
+                                                    "Then stop trying to carry it alone."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Phoenix",
-                                                    "Then we change the fall."
+                                                    "Change the terms."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "No throne. No cage. The flock."
+                                                    "No throne. No cage. Just the flock."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4575,28 +4605,28 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Void Raven",
-                                                    "A chorus... I can't bind it."
+                                                    "A shared signal... I can't seize what isn't singular."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.RAVEN,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then fly free."
+                                                    "Exactly."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PIGEON,
                                                     DialogueSide.RIGHT,
                                                     "Beacon Echo",
-                                                    "Light for all."
+                                                    "Then let the light belong to everyone."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Echo hears a second dawn."
+                                                    "The storm is breaking."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4605,7 +4635,7 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Void Raven",
-                                                    "One keeper. One cage. One end."
+                                                    "One keeper. One cage. Same ending every time."
                                             )
                                     }
                             )
@@ -4616,96 +4646,96 @@ public class BirdGame3 extends Application {
                                     BirdType.PIGEON,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The echo isn't gone. It's in every wingbeat."
+                                    "The echo is everywhere now, not just in me."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PHOENIX,
                                     DialogueSide.RIGHT,
                                     "Phoenix",
-                                    "A chorus, not a crown."
+                                    "That's what the Beacon was supposed to be."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "The sky remembers. The flock decides."
+                                    "No rulers. Shared sky."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.RIGHT,
                                     "Bat",
-                                    "Echo hears the storm pass."
+                                    "The storm heard the chorus and moved on."
                             )
                     }
             ),
             new AdventureChapter(
                     UNITED_FINALE_CHAPTER_TITLE,
-                    "The second dawn cracks open something older than the Carrion Court: a titan large enough to drown the skyline in shadow. The Beacon answers with everything it has. Every bird in Bird Fight 3 answers with it.",
+                    "Sharing the Beacon's light wakes something older than the Carrion Court: a titan big enough to smother the skyline. This time the whole flock answers together.",
                     new AdventureDialogueLine[] {
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "The Beacon split the light... and something under it woke up."
+                                    "Splitting the light woke something under the Beacon."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.BAT,
                                     DialogueSide.RIGHT,
                                     "Bat",
-                                    "Echo hears nineteen heartbeats. The whole roster answered."
+                                    "And I can hear it over everyone else. That's not a good sign."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "Then we don't guard the sky. We take it back."
+                                    "Then stop listening and start climbing."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PHOENIX,
                                     DialogueSide.RIGHT,
                                     "Phoenix",
-                                    "The storm wants one king. Let's bury it under a flock."
+                                    "It wants one king. We'll answer with a flock."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Charles",
-                                    "Whole city's up there. That's not a chorus. That's a riot."
+                                    "Whole city's in the air. I'd call that a plan."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.ROOSTER,
                                     DialogueSide.RIGHT,
                                     "Rooster",
-                                    "Then let it hear us crow."
+                                    "Works for me."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.RAVEN,
                                     DialogueSide.RIGHT,
                                     "Raven",
-                                    "Even shadows know this thing doesn't get the sky."
+                                    "Then let's make sure it remembers who pushed back."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PIGEON,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "All wings. All at once."
+                                    "All wings in."
                             )
                     },
                     new AdventureBattle[] {
                             new AdventureBattle(
                                     "Battle 1: Last Approach",
-                                    "Hold the crownstorm gate while the flock gathers over the cliffs. Break the heralds and clear the path to the Beacon Crown.",
+                                    "Hold the storm gate while the flock gathers over the cliffs. Clear the path to the Beacon Crown.",
                                     MapType.SKYCLIFFS,
                                     BirdType.RAVEN,
                                     "Enemy: Crown Herald",
@@ -4721,21 +4751,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Crown Herald",
-                                                    "You brought a flock to a funeral."
+                                                    "You really brought the whole flock for this?"
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "No. To an execution."
+                                                    "Yes. You're the one who should be worried."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Phoenix",
-                                                    "Crack the storm. The giant falls next."
+                                                    "Clear the path. The real fight is above us."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4744,14 +4774,14 @@ public class BirdGame3 extends Application {
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Echo hears it now. Bigger wings behind the clouds."
+                                                    "I can hear it clearly now. Something huge is moving behind the storm."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then we finish it above the Beacon."
+                                                    "Then we meet it at the crown."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4760,13 +4790,13 @@ public class BirdGame3 extends Application {
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Crown Herald",
-                                                    "The titan descends. Your chorus dies first."
+                                                    "The titan is coming down, and you're still in the way."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     UNITED_FINALE_PENULTIMATE_TITLE,
-                                    "Crack the first shell on the Beacon Crown. Null Roc is still wearing the Carrion Court's storm armor, and the flock needs you to break it open before the real thing can emerge.",
+                                    "Crack the shell on the Beacon Crown. Null Roc is still wearing the Carrion Court's storm armor, and the real monster is inside.",
                                     MapType.BEACON_CROWN,
                                     BirdType.VULTURE,
                                     "Boss: Null Roc",
@@ -4782,28 +4812,28 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Null Roc",
-                                                    "You hear a giant heart and think the sky belongs to you."
+                                                    "You heard a giant heartbeat and mistook it for hope."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "No. We hear where to strike."
+                                                    "No. We heard a target."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Phoenix",
-                                                    "Crack the shell. The real monster is inside."
+                                                    "Break the shell. Whatever's inside is worse."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Then let's open it."
+                                                    "Then we open it on our terms."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4812,21 +4842,21 @@ public class BirdGame3 extends Application {
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Echo hears the shell splitting. Something deeper just answered."
+                                                    "The shell's breaking. Something deeper just woke up."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Raven",
-                                                    "That wasn't a death cry. That was a door."
+                                                    "That wasn't the end. That was the warning."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Phoenix",
-                                                    "Everybody up. True form next."
+                                                    "Then everybody stays up. True form next."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4835,13 +4865,13 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "Null Roc",
-                                                    "Break this shell and I'll blot out every wing you ever named."
+                                                    "Break this shell and I'll erase every name you've ever protected."
                                             )
                                     }
                             ),
                             new AdventureBattle(
                                     UNITED_FINALE_CLIMAX_TITLE,
-                                    "Null Roc tears the shell away and returns as The Null Rock. The Beacon arena widens, the whole flock joins the strike, and the giant starts summoning endless dark forces to drown the sky.",
+                                    "Null Roc tears the shell away and returns as The Null Rock. The arena widens, the flock joins the strike, and the giant tries to drown the sky in dark.",
                                     MapType.BEACON_CROWN,
                                     BirdType.VULTURE,
                                     "Boss: The Null Rock",
@@ -4857,42 +4887,42 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "The Null Rock",
-                                                    "I was the crown's hunger before your flock ever learned to sing."
+                                                    "I was hungry before your flock even had a name."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.BAT,
                                                     DialogueSide.RIGHT,
                                                     "Bat",
-                                                    "Echo lost the edges of it. It's too big."
+                                                    "I can't map this thing anymore. It's too large."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Raven",
-                                                    "Then give it nineteen knives."
+                                                    "Then stop mapping it and start cutting."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.EAGLE,
                                                     DialogueSide.RIGHT,
                                                     "Eagle",
-                                                    "All wings up."
+                                                    "All wings, move."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PHOENIX,
                                                     DialogueSide.RIGHT,
                                                     "Phoenix",
-                                                    "Burn the void."
+                                                    "Burn through it."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Everybody. Hit it."
+                                                    "Everyone, hit it together."
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4901,28 +4931,28 @@ public class BirdGame3 extends Application {
                                                     BirdType.VULTURE,
                                                     DialogueSide.RIGHT,
                                                     "The Null Rock",
-                                                    "How can one flock strike like a world..."
+                                                    "How can one flock hit this hard..."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.PIGEON,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
-                                                    "Because it was all of them."
+                                                    "Because none of us came here alone."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.RAVEN,
                                                     DialogueSide.RIGHT,
                                                     "Raven",
-                                                    "Even the dark ran out of room."
+                                                    "Looks like even the dark can run out of room."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
                                                     BirdType.ROOSTER,
                                                     DialogueSide.RIGHT,
                                                     "Rooster",
-                                                    "Let dawn bury the giant!"
+                                                    "Then let sunrise finish the job!"
                                             )
                                     },
                                     new AdventureDialogueLine[] {
@@ -4942,35 +4972,35 @@ public class BirdGame3 extends Application {
                                     BirdType.PHOENIX,
                                     DialogueSide.RIGHT,
                                     "Phoenix",
-                                    "The Beacon doesn't belong to a throne anymore."
+                                    "The Beacon doesn't belong to a ruler anymore."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.EAGLE,
                                     DialogueSide.RIGHT,
                                     "Eagle",
-                                    "No king above the flock."
+                                    "And the sky doesn't either."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.MOCKINGBIRD,
                                     DialogueSide.RIGHT,
                                     "Charles",
-                                    "Whole city felt that landing."
+                                    "Good. The city could use a normal sunrise for once."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.ROOSTER,
                                     DialogueSide.RIGHT,
                                     "Rooster",
-                                    "Let the dawn hear it!"
+                                    "After a win like that? Never."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
                                     BirdType.PIGEON,
                                     DialogueSide.LEFT,
                                     "Pigeon",
-                                    "Every bird carried the sky today."
+                                    "Every bird held the sky together today."
                             )
                     }
             )
@@ -5432,26 +5462,30 @@ public class BirdGame3 extends Application {
         bird.specialMaxCooldown = Math.max(bird.specialMaxCooldown, 1080);
     }
 
-    private String adventureOpponentSkinKey(AdventureBattle battle) {
-        if (battle == null || battle.opponentType == null || battle.opponentName == null) return null;
-        String name = battle.opponentName.toLowerCase();
-        BirdType type = battle.opponentType;
-        if (type == BirdType.PIGEON && name.contains("echo")) return BEACON_PIGEON_SKIN;
-        if (type == BirdType.PIGEON && name.contains("beacon")) return BEACON_PIGEON_SKIN;
-        if (type == BirdType.PIGEON && name.contains("noir")) return "NOIR_PIGEON";
-        if (type == BirdType.PIGEON && name.contains("freeman")) return FREEMAN_PIGEON_SKIN;
-        if (type == BirdType.PIGEON && name.contains("city")) return "CITY_PIGEON";
-        if (type == BirdType.EAGLE && name.contains("sky king")) return "SKY_KING_EAGLE";
-        if (type == BirdType.HUMMINGBIRD && name.contains("neon")) return classicSkinDataKey(type);
-        if (type == BirdType.PHOENIX && name.contains("nova")) return NOVA_PHOENIX_SKIN;
-        if (type == BirdType.FALCON && name.contains("dune")) return DUNE_FALCON_SKIN;
-        if (type == BirdType.PENGUIN && name.contains("mint")) return MINT_PENGUIN_SKIN;
-        if (type == BirdType.TITMOUSE && name.contains("volt")) return CIRCUIT_TITMOUSE_SKIN;
-        if (type == BirdType.RAZORBILL && name.contains("prism")) return PRISM_RAZORBILL_SKIN;
-        if (type == BirdType.PELICAN && name.contains("aurora")) return AURORA_PELICAN_SKIN;
-        if (type == BirdType.VULTURE && name.contains("null rock")) return NULL_ROCK_VULTURE_SKIN;
-        if (type == BirdType.VULTURE && name.contains("null roc")) return TIDE_VULTURE_SKIN;
+    private String namedVariantSkinKey(BirdType type, String name) {
+        if (type == null || name == null) return null;
+        String normalizedName = name.toLowerCase(Locale.ROOT);
+        if (type == BirdType.PIGEON && normalizedName.contains("echo")) return BEACON_PIGEON_SKIN;
+        if (type == BirdType.PIGEON && normalizedName.contains("beacon")) return BEACON_PIGEON_SKIN;
+        if (type == BirdType.PIGEON && normalizedName.contains("noir")) return "NOIR_PIGEON";
+        if (type == BirdType.PIGEON && normalizedName.contains("freeman")) return FREEMAN_PIGEON_SKIN;
+        if (type == BirdType.PIGEON && normalizedName.contains("city")) return "CITY_PIGEON";
+        if (type == BirdType.EAGLE && normalizedName.contains("sky king")) return "SKY_KING_EAGLE";
+        if (type == BirdType.HUMMINGBIRD && normalizedName.contains("neon")) return classicSkinDataKey(type);
+        if (type == BirdType.PHOENIX && normalizedName.contains("nova")) return NOVA_PHOENIX_SKIN;
+        if (type == BirdType.FALCON && normalizedName.contains("dune")) return DUNE_FALCON_SKIN;
+        if (type == BirdType.PENGUIN && normalizedName.contains("mint")) return MINT_PENGUIN_SKIN;
+        if (type == BirdType.TITMOUSE && normalizedName.contains("volt")) return CIRCUIT_TITMOUSE_SKIN;
+        if (type == BirdType.RAZORBILL && normalizedName.contains("prism")) return PRISM_RAZORBILL_SKIN;
+        if (type == BirdType.PELICAN && normalizedName.contains("aurora")) return AURORA_PELICAN_SKIN;
+        if (type == BirdType.VULTURE && normalizedName.contains("null rock")) return NULL_ROCK_VULTURE_SKIN;
+        if (type == BirdType.VULTURE && normalizedName.contains("null roc")) return TIDE_VULTURE_SKIN;
         return null;
+    }
+
+    private String adventureOpponentSkinKey(AdventureBattle battle) {
+        if (battle == null) return null;
+        return namedVariantSkinKey(battle.opponentType, battle.opponentName);
     }
 
     private String skinKeyForBird(Bird bird) {
@@ -5560,6 +5594,157 @@ public class BirdGame3 extends Application {
         return null;
     }
 
+    private void initializeUnitedFinaleSupportRoster(BirdType playerType) {
+        unitedFinaleSupportQueue.clear();
+        unitedFinaleSupportCursor = 0;
+        unitedFinaleSupportRotateCooldown = 0;
+        unitedFinaleSupportNextSlot = 1;
+        unitedFinaleSupportRosterComplete = false;
+
+        queueUnitedFinaleSupport(playerType, BirdType.EAGLE, "Ally: Sky King", "SKY_KING_EAGLE");
+        queueUnitedFinaleSupport(playerType, BirdType.PHOENIX, "Ally: Nova Phoenix", NOVA_PHOENIX_SKIN);
+        queueUnitedFinaleSupport(playerType, BirdType.HUMMINGBIRD, "Ally: Neon Hummingbird", classicSkinDataKey(BirdType.HUMMINGBIRD));
+        queueUnitedFinaleSupport(playerType, BirdType.FALCON, "Ally: Dune Falcon", DUNE_FALCON_SKIN);
+        queueUnitedFinaleSupport(playerType, BirdType.TITMOUSE, "Ally: Volt Titmouse", CIRCUIT_TITMOUSE_SKIN);
+        queueUnitedFinaleSupport(playerType, BirdType.BAT, "Ally: Umbra Bat", UMBRA_BAT_SKIN);
+        queueUnitedFinaleSupport(playerType, BirdType.RAVEN, "Ally: Night Raven", null);
+        queueUnitedFinaleSupport(playerType, BirdType.PIGEON, "Ally: Beacon Pigeon", BEACON_PIGEON_SKIN);
+        queueUnitedFinaleSupport(playerType, BirdType.PENGUIN, "Ally: Mint Penguin", MINT_PENGUIN_SKIN);
+        queueUnitedFinaleSupport(playerType, BirdType.PELICAN, "Ally: Aurora Pelican", AURORA_PELICAN_SKIN);
+        queueUnitedFinaleSupport(playerType, BirdType.TURKEY, "Ally: Ground Turkey", null);
+        queueUnitedFinaleSupport(playerType, BirdType.SHOEBILL, "Ally: Glacier Shoebill", GLACIER_SHOEBILL_SKIN);
+        queueUnitedFinaleSupport(playerType, BirdType.GRINCHHAWK, "Ally: Grinch-Hawk", null);
+        queueUnitedFinaleSupport(playerType, BirdType.RAZORBILL, "Ally: Prism Razorbill", PRISM_RAZORBILL_SKIN);
+        queueUnitedFinaleSupport(playerType, BirdType.ROOSTER, "Ally: Sunforge Rooster", SUNFORGE_ROOSTER_SKIN);
+        queueUnitedFinaleSupport(playerType, BirdType.MOCKINGBIRD, "Ally: Charles", null);
+        queueUnitedFinaleSupport(playerType, BirdType.VULTURE, "Ally: Tide Vulture", TIDE_VULTURE_SKIN);
+        queueUnitedFinaleSupport(playerType, BirdType.OPIUMBIRD, "Ally: Opium Bird", null);
+        queueUnitedFinaleSupport(playerType, BirdType.HEISENBIRD, "Ally: Heisenbird", null);
+
+        replaceUnitedFinaleSupportSlot(1, true);
+        replaceUnitedFinaleSupportSlot(2, true);
+        unitedFinaleSupportRotateCooldown = 135;
+    }
+
+    private void queueUnitedFinaleSupport(BirdType playerType, BirdType type, String displayName, String skinKey) {
+        if (type == null || type == playerType) return;
+        double health = 94.0 + type.power * 2.6;
+        double powerMult = 1.04 + Math.min(0.22, type.power * 0.0105);
+        double speedMult = 1.02 + Math.min(0.18, type.speed * 0.03);
+        unitedFinaleSupportQueue.add(new UnitedFinaleSupportEntry(type, displayName, skinKey, health, powerMult, speedMult));
+    }
+
+    private boolean replaceUnitedFinaleSupportSlot(int slot, boolean initial) {
+        if (slot < 1 || slot > 2) return false;
+        if (unitedFinaleSupportCursor >= unitedFinaleSupportQueue.size()) {
+            markUnitedFinaleSupportRosterComplete();
+            return false;
+        }
+
+        UnitedFinaleSupportEntry entry = unitedFinaleSupportQueue.get(unitedFinaleSupportCursor++);
+        double spawnX = slot == 1 ? 1540.0 : 2380.0;
+        Bird support = createStoryBird(
+                spawnX,
+                entry.type(),
+                slot,
+                entry.displayName(),
+                entry.health(),
+                entry.powerMult(),
+                entry.speedMult(),
+                true
+        );
+        applyPreviewSkinChoiceToBird(support, entry.type(), entry.skinKey());
+        support.specialCooldown = 0;
+        support.rageTimer = Math.max(support.rageTimer, initial ? 120 : 220);
+        support.overchargeAttackTimer = Math.max(support.overchargeAttackTimer, initial ? 90 : 180);
+        support.speedTimer = Math.max(support.speedTimer, initial ? 160 : 220);
+        support.speedMultiplier = Math.max(support.speedMultiplier, support.baseSpeedMultiplier * (initial ? 1.08 : 1.14));
+        support.powerMultiplier = Math.max(support.powerMultiplier, support.basePowerMultiplier * (initial ? 1.06 : 1.12));
+        support.facingRight = true;
+        support.vx = initial ? 1.8 : 3.6;
+        if (slot < adventureTeams.length) {
+            adventureTeams[slot] = 1;
+        }
+
+        if (!initial) {
+            addToKillFeed(entry.displayName() + " joins the crown fight.");
+            spawnUnitedFinaleSupportTagBurst(support);
+            cameraTagInEaseFrames = Math.max(cameraTagInEaseFrames, CAMERA_TAG_IN_EASE_FRAMES);
+        }
+
+        if (unitedFinaleSupportCursor >= unitedFinaleSupportQueue.size()) {
+            markUnitedFinaleSupportRosterComplete();
+        }
+        return true;
+    }
+
+    private void spawnUnitedFinaleSupportTagBurst(Bird support) {
+        if (support == null) return;
+        double centerX = support.x + 40 * support.sizeMultiplier;
+        double centerY = support.y + 40 * support.sizeMultiplier;
+        for (int i = 0; i < 24; i++) {
+            double angle = Math.PI * 2 * i / 24.0;
+            double speed = 3.0 + random.nextDouble() * 6.0;
+            Color color = i % 2 == 0 ? Color.web("#FFF176") : Color.web("#80DEEA");
+            particles.add(new Particle(
+                    centerX,
+                    centerY,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 2.4,
+                    color.deriveColor(0, 1, 1, 0.82)
+            ));
+        }
+    }
+
+    private void updateUnitedFinaleSupportRoster(Bird boss) {
+        if (!isUnitedFinaleClimaxContext()) return;
+
+        if ((players[1] == null || players[1].health <= 0) && unitedFinaleSupportCursor < unitedFinaleSupportQueue.size()) {
+            replaceUnitedFinaleSupportSlot(1, false);
+        }
+        if ((players[2] == null || players[2].health <= 0) && unitedFinaleSupportCursor < unitedFinaleSupportQueue.size()) {
+            replaceUnitedFinaleSupportSlot(2, false);
+        }
+
+        if (unitedFinaleSupportCursor >= unitedFinaleSupportQueue.size()) {
+            markUnitedFinaleSupportRosterComplete();
+            return;
+        }
+
+        if (unitedFinaleSupportRotateCooldown > 0) {
+            unitedFinaleSupportRotateCooldown--;
+            return;
+        }
+
+        if (replaceUnitedFinaleSupportSlot(unitedFinaleSupportNextSlot, false)) {
+            unitedFinaleSupportNextSlot = unitedFinaleSupportNextSlot == 1 ? 2 : 1;
+            unitedFinaleSupportRotateCooldown = boss != null && boss.isTrueNullRockForm()
+                    ? 80
+                    : (unitedFinaleBossEnraged ? 100 : 135);
+        }
+    }
+
+    private void markUnitedFinaleSupportRosterComplete() {
+        if (unitedFinaleSupportRosterComplete) return;
+        unitedFinaleSupportRosterComplete = true;
+        addToKillFeed("ALL WINGS: every bird is in the fight now.");
+        empowerUnitedFinaleAllies(118, 260, 220);
+    }
+
+    void onTrueNullRockAscension(Bird boss) {
+        if (boss == null) return;
+        addToKillFeed("TRUE NULL ROCK: the divine core opens.");
+        shakeIntensity = Math.max(shakeIntensity, 44);
+        hitstopFrames = Math.max(hitstopFrames, 18);
+        triggerFlash(0.94, false);
+        if (isUnitedFinaleClimaxContext()) {
+            empowerUnitedFinaleAllies(108, 240, 200);
+            unitedFinaleSupportRotateCooldown = 0;
+            replaceUnitedFinaleSupportSlot(1, false);
+            replaceUnitedFinaleSupportSlot(2, false);
+        }
+    }
+
     private void applyAdventureBattleRuntimeEffects() {
         AdventureBattle battle = currentAdventureBattle != null ? currentAdventureBattle : activeAdventureBattle();
         if (battle == null) return;
@@ -5621,6 +5806,7 @@ public class BirdGame3 extends Application {
                     : bossRatio <= 0.60 ? 210
                     : 280;
         }
+        updateUnitedFinaleSupportRoster(boss);
     }
 
     private void summonUnitedFinaleDarkForceWave(Bird boss, double bossRatio) {
@@ -5754,7 +5940,7 @@ public class BirdGame3 extends Application {
                 powerUps.add(new PowerUp(3000, GROUND_Y - 1080, PowerUpType.THERMAL));
                 powerUps.add(new PowerUp(4300, GROUND_Y - 900, PowerUpType.NEON));
                 boss.vy -= 12;
-                boss.stunTime = Math.max(boss.stunTime, 18);
+                boss.applyStun(18);
                 damageBossFromUnitedFlock(boss, 18, Color.web("#FFE082"), Color.CYAN);
             }
             case 2 -> {
@@ -5765,7 +5951,7 @@ public class BirdGame3 extends Application {
                 powerUps.add(new PowerUp(4000, GROUND_Y - 760, PowerUpType.OVERCHARGE));
                 boss.vx *= 0.4;
                 boss.vy -= 10;
-                boss.stunTime = Math.max(boss.stunTime, 22);
+                boss.applyStun(22);
                 damageBossFromUnitedFlock(boss, 20, Color.web("#FFCA28"), Color.ORANGERED);
             }
             case 3 -> {
@@ -5776,7 +5962,7 @@ public class BirdGame3 extends Application {
                 powerUps.add(new PowerUp(4200, GROUND_Y - 820, PowerUpType.OVERCHARGE));
                 boss.vx *= 0.2;
                 boss.vy -= 18;
-                boss.stunTime = Math.max(boss.stunTime, 28);
+                boss.applyStun(28);
                 shakeIntensity = Math.max(shakeIntensity, 42);
                 damageBossFromUnitedFlock(boss, 28, Color.web("#FF7043"), Color.WHITE);
             }
@@ -5789,7 +5975,7 @@ public class BirdGame3 extends Application {
                     spawnUnitedFinaleChicks(owner);
                 }
                 boss.vx *= 0.3;
-                boss.stunTime = Math.max(boss.stunTime, 24);
+                boss.applyStun(24);
                 damageBossFromUnitedFlock(boss, 16, Color.web("#AB47BC"), Color.web("#29B6F6"));
             }
             case 5 -> {
@@ -5807,7 +5993,7 @@ public class BirdGame3 extends Application {
                 powerUps.add(new PowerUp(4400, GROUND_Y - 880, PowerUpType.TITAN));
                 boss.vx = 0;
                 boss.vy -= 24;
-                boss.stunTime = Math.max(boss.stunTime, 36);
+                boss.applyStun(36);
                 shakeIntensity = Math.max(shakeIntensity, 55);
                 hitstopFrames = Math.max(hitstopFrames, 16);
                 damageBossFromUnitedFlock(boss, 36, Color.web("#FFF176"), Color.web("#80DEEA"));
@@ -6000,6 +6186,96 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void resetTrackedCameraBounds() {
+        trackedCamMinX = Double.NaN;
+        trackedCamMaxX = Double.NaN;
+        trackedCamMinY = Double.NaN;
+        trackedCamMaxY = Double.NaN;
+        cameraTagInEaseFrames = 0;
+    }
+
+    private void syncTrackedCameraToCurrentView() {
+        double viewWidth = WIDTH / Math.max(0.01, zoom);
+        double viewHeight = HEIGHT / Math.max(0.01, zoom);
+        trackedCamMinX = camX;
+        trackedCamMaxX = camX + viewWidth;
+        trackedCamMinY = camY;
+        trackedCamMaxY = camY + viewHeight;
+    }
+
+    private double easeCameraBound(double current, double target, boolean outward, boolean tagInSmoothing) {
+        double speed = outward
+                ? (tagInSmoothing ? CAMERA_TAG_IN_BOUND_EXPAND_SPEED : CAMERA_BOUND_EXPAND_SPEED)
+                : CAMERA_BOUND_CONTRACT_SPEED;
+        return current + (target - current) * speed;
+    }
+
+    private void updateDynamicCamera() {
+        double minX = Double.MAX_VALUE;
+        double maxX = -Double.MAX_VALUE;
+        double minY = Double.MAX_VALUE;
+        double maxY = -Double.MAX_VALUE;
+        int aliveCount = 0;
+        for (Bird b : players) {
+            if (b != null && b.health > 0) {
+                aliveCount++;
+                minX = Math.min(minX, b.x);
+                maxX = Math.max(maxX, b.x + 80);
+                minY = Math.min(minY, b.y);
+                maxY = Math.max(maxY, b.y + 80);
+            }
+        }
+        if (aliveCount <= 0) return;
+
+        boolean tagInSmoothing = cameraTagInEaseFrames > 0;
+        if (Double.isNaN(trackedCamMinX) || Double.isNaN(trackedCamMaxX)
+                || Double.isNaN(trackedCamMinY) || Double.isNaN(trackedCamMaxY)) {
+            trackedCamMinX = minX;
+            trackedCamMaxX = maxX;
+            trackedCamMinY = minY;
+            trackedCamMaxY = maxY;
+        } else {
+            trackedCamMinX = easeCameraBound(trackedCamMinX, minX, minX < trackedCamMinX, tagInSmoothing);
+            trackedCamMaxX = easeCameraBound(trackedCamMaxX, maxX, maxX > trackedCamMaxX, tagInSmoothing);
+            trackedCamMinY = easeCameraBound(trackedCamMinY, minY, minY < trackedCamMinY, tagInSmoothing);
+            trackedCamMaxY = easeCameraBound(trackedCamMaxY, maxY, maxY > trackedCamMaxY, tagInSmoothing);
+        }
+
+        double targetZoom;
+        if (aliveCount >= 2) {
+            double birdsWidth = trackedCamMaxX - trackedCamMinX;
+            double birdsHeight = trackedCamMaxY - trackedCamMinY;
+            double targetZoomW = WIDTH / (birdsWidth + 800);
+            double targetZoomH = HEIGHT / (birdsHeight + 800);
+            targetZoom = Math.min(targetZoomW, targetZoomH);
+            targetZoom = Math.clamp(targetZoom, MIN_ZOOM, MAX_ZOOM);
+        } else {
+            targetZoom = 0.9;
+        }
+
+        double zoomSpeed = targetZoom < zoom
+                ? (tagInSmoothing ? CAMERA_TAG_IN_ZOOM_OUT_SPEED : ZOOM_SPEED)
+                : CAMERA_ZOOM_IN_SPEED;
+        zoom += (targetZoom - zoom) * zoomSpeed;
+
+        double centerX = (trackedCamMinX + trackedCamMaxX) / 2.0;
+        double centerY = (trackedCamMinY + trackedCamMaxY) / 2.0;
+        double targetCamX = centerX - WIDTH / (2 * zoom);
+        double targetCamY = centerY - HEIGHT / (2 * zoom);
+        targetCamX = Math.clamp(targetCamX, 0, WORLD_WIDTH - WIDTH / zoom);
+        targetCamY = Math.clamp(targetCamY, 0, WORLD_HEIGHT - HEIGHT / zoom);
+
+        double panSpeed = tagInSmoothing ? 0.18 : CAMERA_PAN_SPEED;
+        camX += (targetCamX - camX) * panSpeed;
+        camY += (targetCamY - camY) * panSpeed;
+        camX = Math.clamp(camX, 0, WORLD_WIDTH - WIDTH / zoom);
+        camY = Math.clamp(camY, 0, WORLD_HEIGHT - HEIGHT / zoom);
+
+        if (cameraTagInEaseFrames > 0) {
+            cameraTagInEaseFrames--;
+        }
+    }
+
     private void updateWorldFixed() {
         for (Bird b : players) {
             if (b == null || b.health <= 0) continue;
@@ -6094,6 +6370,9 @@ public class BirdGame3 extends Application {
         for (Iterator<CrowMinion> it = crowMinions.iterator(); it.hasNext(); ) {
             CrowMinion c = it.next();
             c.age++;
+            if (c.hitFlashTimer > 0) {
+                c.hitFlashTimer--;
+            }
             Bird closest = null;
             double bestSq = Double.MAX_VALUE;
             for (Bird b : players) {
@@ -6318,35 +6597,7 @@ public class BirdGame3 extends Application {
         }
         for (WindVent v : windVents) if (v.cooldown > 0) v.cooldown--;
 
-        double minX = Double.MAX_VALUE, maxX = Double.MIN_VALUE;
-        double minY = Double.MAX_VALUE, maxY = Double.MIN_VALUE;
-        int aliveCount = 0;
-        for (Bird b : players) {
-            if (b != null && b.health > 0) {
-                aliveCount++;
-                minX = Math.min(minX, b.x);
-                maxX = Math.max(maxX, b.x + 80);
-                minY = Math.min(minY, b.y);
-                maxY = Math.max(maxY, b.y + 80);
-            }
-        }
-        if (aliveCount >= 2) {
-            double birdsWidth = maxX - minX;
-            double birdsHeight = maxY - minY;
-            double targetZoomW = WIDTH / (birdsWidth + 800);
-            double targetZoomH = HEIGHT / (birdsHeight + 800);
-            double targetZoom = Math.min(targetZoomW, targetZoomH);
-            targetZoom = Math.clamp(targetZoom, MIN_ZOOM, MAX_ZOOM);
-            zoom += (targetZoom - zoom) * ZOOM_SPEED;
-        } else if (aliveCount == 1) {
-            zoom += (0.9 - zoom) * 0.01;
-        }
-        double centerX = (minX + maxX) / 2.0;
-        double centerY = (minY + maxY) / 2.0;
-        camX = centerX - WIDTH / (2 * zoom);
-        camY = centerY - HEIGHT / (2 * zoom);
-        camX = Math.clamp(camX, 0, WORLD_WIDTH - WIDTH / zoom);
-        camY = Math.clamp(camY, 0, WORLD_HEIGHT - HEIGHT / zoom);
+        updateDynamicCamera();
 
         if (trainingModeActive) {
             Bird dummy = players[trainingDummyIndex];
@@ -6942,6 +7193,9 @@ public class BirdGame3 extends Application {
         int variant = crow.effectiveVariant();
         double pulseVal = 1.0 + 0.3 * Math.sin(crow.age * 0.4);
         double scale = pulseVal * crow.drawScale();
+        double hitFlash = Math.clamp(crow.hitFlashTimer / 10.0, 0.0, 1.0);
+        double drawX = crow.x + (hitFlash > 0 ? (crow.hitFlashTimer % 2 == 0 ? 2.4 : -2.4) * scale : 0.0);
+        double drawY = crow.y - hitFlash * 2.0 * scale;
 
         Color body = switch (variant) {
             case CrowMinion.VARIANT_GIANT_CROW -> Color.web("#140407");
@@ -6962,27 +7216,31 @@ public class BirdGame3 extends Application {
             case CrowMinion.VARIANT_VOID_RAVEN -> Color.web("#FF80AB");
             default -> Color.RED.brighter();
         };
+        if (hitFlash > 0) {
+            body = body.interpolate(Color.web("#FFEBEE"), 0.18 + hitFlash * 0.28);
+            wings = wings.interpolate(Color.web("#FFF59D"), 0.10 + hitFlash * 0.22);
+        }
 
         g.setFill(body);
-        g.fillOval(crow.x - 12 * scale, crow.y - 10 * scale, 24 * scale, 20 * scale);
+        g.fillOval(drawX - 12 * scale, drawY - 10 * scale, 24 * scale, 20 * scale);
         double wingHeight = variant == CrowMinion.VARIANT_GIANT_CROW ? 34 * scale : 25 * scale;
         double wingWidth = variant == CrowMinion.VARIANT_VOID_RAVEN ? 24 * scale : 20 * scale;
         g.setFill(wings);
-        g.fillOval(crow.x - 25 * scale, crow.y - 8 * scale, wingWidth, wingHeight);
-        g.fillOval(crow.x + 5 * scale, crow.y - 8 * scale, wingWidth, wingHeight);
+        g.fillOval(drawX - 25 * scale, drawY - 8 * scale, wingWidth, wingHeight);
+        g.fillOval(drawX + 5 * scale, drawY - 8 * scale, wingWidth, wingHeight);
         g.setFill(eyes);
-        g.fillOval(crow.x - 4 * scale, crow.y - 5 * scale, 8 * scale, 8 * scale);
-        g.fillOval(crow.x + 10 * scale, crow.y - 5 * scale, 8 * scale, 8 * scale);
+        g.fillOval(drawX - 4 * scale, drawY - 5 * scale, 8 * scale, 8 * scale);
+        g.fillOval(drawX + 10 * scale, drawY - 5 * scale, 8 * scale, 8 * scale);
         if (variant == CrowMinion.VARIANT_VOID_RAVEN) {
             g.setStroke(Color.web("#FF80AB").deriveColor(0, 1, 1, 0.75));
             g.setLineWidth(2.0);
-            g.strokeOval(crow.x - 18 * scale, crow.y - 18 * scale, 36 * scale, 28 * scale);
+            g.strokeOval(drawX - 18 * scale, drawY - 18 * scale, 36 * scale, 28 * scale);
         }
         if (crow.hasCrown) {
             double crownW = 18 * scale;
             double crownH = 10 * scale;
-            double cx = crow.x;
-            double cy = crow.y - 18 * scale;
+            double cx = drawX;
+            double cy = drawY - 18 * scale;
             double[] xs = new double[]{
                     cx - crownW / 2, cx - crownW / 4, cx, cx + crownW / 4, cx + crownW / 2, cx + crownW / 2, cx - crownW / 2
             };
@@ -11512,6 +11770,7 @@ public class BirdGame3 extends Application {
         camX = state.camX;
         camY = state.camY;
         zoom = state.zoom;
+        syncTrackedCameraToCurrentView();
         shakeIntensity = state.shakeIntensity;
         hitstopFrames = state.hitstopFrames;
         if (state.scores != null) {
@@ -14162,6 +14421,7 @@ public class BirdGame3 extends Application {
         VBox root = new VBox(26);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(50));
+        root.setMinHeight(Region.USE_PREF_SIZE);
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #091426, #1A2B4B);");
 
         double cardWidth = 1400;
@@ -14174,6 +14434,7 @@ public class BirdGame3 extends Application {
         VBox card = new VBox(16);
         card.setAlignment(Pos.CENTER_LEFT);
         card.setPadding(new Insets(26));
+        card.setMinHeight(Region.USE_PREF_SIZE);
         card.setMinWidth(cardWidth);
         card.setPrefWidth(cardWidth);
         card.setMaxWidth(cardWidth);
@@ -14223,6 +14484,9 @@ public class BirdGame3 extends Application {
         summary.setWrapText(true);
         summary.setMaxWidth(cardInnerWidth);
         summary.setPrefWidth(cardInnerWidth);
+        summary.setMinHeight(Region.USE_PREF_SIZE);
+        summary.setTextAlignment(TextAlignment.LEFT);
+        summary.setAlignment(Pos.CENTER_LEFT);
         applyNoEllipsis(summary);
 
         Label roster = new Label("Adventure Roster: " + adventureRosterText());
@@ -14231,6 +14495,9 @@ public class BirdGame3 extends Application {
         roster.setWrapText(true);
         roster.setMaxWidth(cardInnerWidth);
         roster.setPrefWidth(cardInnerWidth);
+        roster.setMinHeight(Region.USE_PREF_SIZE);
+        roster.setTextAlignment(TextAlignment.LEFT);
+        roster.setAlignment(Pos.CENTER_LEFT);
         applyNoEllipsis(roster);
 
         HBox actions = new HBox(18);
@@ -14270,6 +14537,7 @@ public class BirdGame3 extends Application {
         root.getChildren().addAll(title, card, menuBtn);
 
         ScrollPane scroll = wrapInScroll(root);
+        scroll.setFitToHeight(false);
         Scene scene = new Scene(scroll, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
@@ -14394,6 +14662,9 @@ public class BirdGame3 extends Application {
         info.setWrapText(true);
         info.setMaxWidth(rightCardInnerWidth);
         info.setPrefWidth(rightCardInnerWidth);
+        info.setMinHeight(Region.USE_PREF_SIZE);
+        info.setTextAlignment(TextAlignment.LEFT);
+        info.setAlignment(Pos.CENTER_LEFT);
         applyNoEllipsis(info);
 
         String allowedText;
@@ -14412,6 +14683,9 @@ public class BirdGame3 extends Application {
         rules.setWrapText(true);
         rules.setMaxWidth(rightCardInnerWidth);
         rules.setPrefWidth(rightCardInnerWidth);
+        rules.setMinHeight(Region.USE_PREF_SIZE);
+        rules.setTextAlignment(TextAlignment.LEFT);
+        rules.setAlignment(Pos.CENTER_LEFT);
         applyNoEllipsis(rules);
 
         Label selectedLabel = new Label();
@@ -14748,12 +15022,6 @@ public class BirdGame3 extends Application {
             Bird player = createStoryBird(900, playerType, 0, "You: " + playerType.name, 100, 1.0, 1.0, false);
             applySkinChoiceToBird(player, playerType, skinKey);
 
-            Bird eagle = createStoryBird(1600, BirdType.EAGLE, 1, "Ally: Sky King", 120, 1.2, 1.12, true);
-            applyPreviewSkinChoiceToBird(eagle, BirdType.EAGLE, "SKY_KING_EAGLE");
-
-            Bird phoenix = createStoryBird(2350, BirdType.PHOENIX, 2, "Ally: Nova Phoenix", 118, 1.18, 1.08, true);
-            applyPreviewSkinChoiceToBird(phoenix, BirdType.PHOENIX, NOVA_PHOENIX_SKIN);
-
             Bird boss = createStoryBird(5000, battle.opponentType, 3, battle.opponentName,
                     battle.opponentHealth, battle.opponentPowerMult, battle.opponentSpeedMult, true);
             applyNullRockBossTemplate(boss);
@@ -14762,9 +15030,8 @@ public class BirdGame3 extends Application {
             adventureTeamMode = true;
             Arrays.fill(adventureTeams, 2);
             adventureTeams[0] = 1;
-            adventureTeams[1] = 1;
-            adventureTeams[2] = 1;
             adventureTeams[3] = 2;
+            initializeUnitedFinaleSupportRoster(playerType);
             return;
         }
 
@@ -15050,6 +15317,8 @@ public class BirdGame3 extends Application {
 
         activeAdventureDialogueTitle = titleText;
         activeAdventureDialogueChapterIndex = adventureChapterIndex;
+        activeAdventureDialogueLeftSkinKey = resolveAdventureDialogueSideSkinKey(lines, DialogueSide.LEFT);
+        activeAdventureDialogueRightSkinKey = resolveAdventureDialogueSideSkinKey(lines, DialogueSide.RIGHT);
 
         Canvas canvas = new Canvas(WIDTH, HEIGHT);
         GraphicsContext g = canvas.getGraphicsContext2D();
@@ -15120,11 +15389,11 @@ public class BirdGame3 extends Application {
         double rightX = width - Math.max(260, width * 0.18);
         if (line.leftBird != null) {
             double leftX = Math.max(200, width * 0.14);
-            left = createDialogueBird(line.leftBird, leftX, groundY, true);
+            left = createDialogueBird(line.leftBird, leftX, groundY, true, activeAdventureDialogueLeftSkinKey);
             left.draw(g);
         }
         if (line.rightBird != null) {
-            right = createDialogueBird(line.rightBird, rightX, groundY, false);
+            right = createDialogueBird(line.rightBird, rightX, groundY, false, activeAdventureDialogueRightSkinKey);
             right.draw(g);
         }
 
@@ -15187,7 +15456,7 @@ public class BirdGame3 extends Application {
         g.strokePolygon(xs, ys, 3);
     }
 
-    private Bird createDialogueBird(BirdType type, double x, double groundY, boolean facingRight) {
+    private Bird createDialogueBird(BirdType type, double x, double groundY, boolean facingRight, String skinKey) {
         Bird b = new Bird(x, type, 0, this);
         double scale = 1.25;
         b.setBaseMultipliers(b.baseSizeMultiplier * scale, b.basePowerMultiplier, b.baseSpeedMultiplier);
@@ -15197,7 +15466,6 @@ public class BirdGame3 extends Application {
         b.vx = 0;
         b.vy = 0;
         b.facingRight = facingRight;
-        String skinKey = dialogueSkinKeyFor(type);
         if (skinKey != null) {
             applyPreviewSkinChoiceToBird(b, type, skinKey);
         }
@@ -15218,6 +15486,21 @@ public class BirdGame3 extends Application {
         if (activeAdventureDialogueChapterIndex > beaconIndex) return true;
         return "Chapter Complete".equals(activeAdventureDialogueTitle)
                 && activeAdventureDialogueChapterIndex == beaconIndex;
+    }
+
+    private String resolveAdventureDialogueSideSkinKey(AdventureDialogueLine[] lines, DialogueSide side) {
+        if (lines == null) return null;
+        BirdType sideType = null;
+        for (AdventureDialogueLine line : lines) {
+            BirdType candidate = side == DialogueSide.LEFT ? line.leftBird : line.rightBird;
+            if (candidate == null) continue;
+            if (sideType == null) sideType = candidate;
+            if (line.speakerSide == side) {
+                String namedVariant = namedVariantSkinKey(candidate, line.speakerName);
+                if (namedVariant != null) return namedVariant;
+            }
+        }
+        return dialogueSkinKeyFor(sideType);
     }
 
     private String dialogueSkinKeyFor(BirdType type) {
@@ -19507,6 +19790,13 @@ public class BirdGame3 extends Application {
         return GROUND_Y - 300;
     }
 
+    double battlefieldVoidFloorY() {
+        if (battlefieldIslandW > 0) {
+            return battlefieldIslandY + 120.0;
+        }
+        return GROUND_Y;
+    }
+
     private double battlefieldBoundsMargin() {
         return Math.max(500, battlefieldIslandW * 0.7);
     }
@@ -20077,6 +20367,7 @@ public class BirdGame3 extends Application {
         zoom = 0.6;
         camX = 1000;
         camY = 800;
+        syncTrackedCameraToCurrentView();
     }
 
     private void drawHealthBar(GraphicsContext g, Bird b, double x, double y) {
@@ -20117,7 +20408,22 @@ public class BirdGame3 extends Application {
 
         g.setFill(Color.WHITE);
         g.setFont(HUD_HEALTH_FONT);
-        g.fillText(b.name + " " + shownHealth + "%", x + 20, y + healthHeight - 6);
+        g.fillText(healthBarLabel(b) + " " + shownHealth + "%", x + 20, y + healthHeight - 6);
+    }
+
+    String healthBarLabel(Bird bird) {
+        if (bird == null) {
+            return "";
+        }
+        String slot = shortName(bird.name);
+        String skinKey = skinKeyForBird(bird);
+        String birdLabel = bird.isTrueNullRockForm()
+                ? "True Null Rock"
+                : (skinKey != null ? skinDisplayName(skinKey, bird.type) : bird.type.name);
+        if (birdLabel == null || birdLabel.isBlank()) {
+            birdLabel = bird.type != null ? bird.type.name : "Unknown";
+        }
+        return slot.isBlank() ? birdLabel : slot + ": " + birdLabel;
     }
 
     static String shortName(String fullName) {
@@ -20807,10 +21113,42 @@ public class BirdGame3 extends Application {
     }
 
     private Button button(String text, String color) {
-        Button b = uiFactory.action(text, 520, 120, 40, color, 36, null);
+        return button(text, color, 520);
+    }
+
+    private Button button(String text, String color, double width) {
+        Button b = uiFactory.action(text, width, 120, 40, color, 36, null);
+        b.setPrefWidth(width);
+        b.setMinWidth(width);
+        b.setMaxWidth(width);
         b.setWrapText(false);
-        uiFactory.fitSingleLineOnLayout(b, 40, 16);
+        fitSummaryButtonSingleLine(b, 36, 16);
         return b;
+    }
+
+    private void fitSummaryButtonSingleLine(Button b, double maxSize, double minSize) {
+        if (b == null) return;
+        String text = b.getText();
+        if (text == null || text.isBlank()) return;
+
+        b.setWrapText(false);
+        applyNoEllipsis(b);
+
+        double w = b.getPrefWidth() > 0 ? b.getPrefWidth() : 520;
+        double h = b.getPrefHeight() > 0 ? b.getPrefHeight() : 120;
+        double availableW = Math.max(120, w - 72);
+        double availableH = Math.max(40, h - 22);
+
+        double size = maxSize;
+        while (size > minSize) {
+            Font f = Font.font("Arial Black", size);
+            if (measureTextWidth(text, f) <= availableW && measureTextHeight(f) <= availableH) {
+                b.setFont(f);
+                return;
+            }
+            size -= 1.0;
+        }
+        b.setFont(Font.font("Arial Black", minSize));
     }
 
     private HBox buildSummaryButtons(Stage stage, Bird winner) {
@@ -20905,7 +21243,7 @@ public class BirdGame3 extends Application {
             });
             buttons.getChildren().addAll(continueStory, menu);
         } else if (adventureModeActive) {
-            Button continueAdventure = button("CONTINUE ADVENTURE", "#1565C0");
+            Button continueAdventure = button("CONTINUE ADVENTURE", "#1565C0", 560);
             continueAdventure.setOnAction(e -> {
                 resetMatchStats();
                 handleAdventureMatchEnd(stage, winner);
@@ -21261,6 +21599,12 @@ public class BirdGame3 extends Application {
         unitedFinaleBossEnraged = false;
         unitedFinaleDarkForceCooldown = 0;
         unitedFinaleDarkForceWave = 0;
+        unitedFinaleSupportQueue.clear();
+        unitedFinaleSupportCursor = 0;
+        unitedFinaleSupportRotateCooldown = 0;
+        unitedFinaleSupportNextSlot = 1;
+        unitedFinaleSupportRosterComplete = false;
+        resetTrackedCameraBounds();
         resetBossRushEncounterState();
     }
 

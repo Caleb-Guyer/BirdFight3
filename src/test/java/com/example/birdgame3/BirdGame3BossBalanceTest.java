@@ -90,6 +90,125 @@ class BirdGame3BossBalanceTest {
     }
 
     @Test
+    void unitedFinaleSupportQueueBringsInTheRestOfTheRoster() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        BirdGame3.AdventureBattle battle = new BirdGame3.AdventureBattle(
+                "Battle 3: The Null Rock",
+                "",
+                BirdGame3.MapType.BEACON_CROWN,
+                BirdGame3.BirdType.VULTURE,
+                "Boss: The Null Rock",
+                760.0,
+                1.78,
+                1.04,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+
+        Method method = BirdGame3.class.getDeclaredMethod(
+                "setupUnitedFinaleAdventureRoster",
+                BirdGame3.AdventureBattle.class,
+                BirdGame3.BirdType.class,
+                String.class
+        );
+        method.setAccessible(true);
+        method.invoke(game, battle, BirdGame3.BirdType.PIGEON, null);
+
+        assertEquals(BirdGame3.BirdType.EAGLE, game.players[1].type);
+        assertEquals(BirdGame3.BirdType.PHOENIX, game.players[2].type);
+
+        Field queueField = BirdGame3.class.getDeclaredField("unitedFinaleSupportQueue");
+        queueField.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        List<Object> queue = (List<Object>) queueField.get(game);
+
+        List<BirdGame3.BirdType> queuedTypes = new ArrayList<>();
+        for (Object entry : queue) {
+            queuedTypes.add((BirdGame3.BirdType) recordValue(entry, "type"));
+        }
+
+        assertFalse(queuedTypes.contains(BirdGame3.BirdType.PIGEON));
+        assertTrue(queuedTypes.contains(BirdGame3.BirdType.HUMMINGBIRD));
+        assertTrue(queuedTypes.contains(BirdGame3.BirdType.VULTURE));
+        assertTrue(queuedTypes.contains(BirdGame3.BirdType.HEISENBIRD));
+    }
+
+    @Test
+    void dynamicCameraSmoothsOutUnitedFinaleTagIns() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird player = new Bird(1200, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird ally = new Bird(1340, BirdGame3.BirdType.EAGLE, 1, game);
+        Bird boss = new Bird(1460, BirdGame3.BirdType.VULTURE, 3, game);
+        game.players[0] = player;
+        game.players[1] = ally;
+        game.players[3] = boss;
+
+        double initialMinX = player.x;
+        double initialMaxX = boss.x + 80;
+        double initialMinY = Math.min(Math.min(player.y, ally.y), boss.y);
+        double initialMaxY = Math.max(Math.max(player.y, ally.y), boss.y) + 80;
+        double initialZoom = Math.clamp(
+                Math.min(
+                        BirdGame3.WIDTH / ((initialMaxX - initialMinX) + 800),
+                        BirdGame3.HEIGHT / ((initialMaxY - initialMinY) + 800)
+                ),
+                BirdGame3.MIN_ZOOM,
+                BirdGame3.MAX_ZOOM
+        );
+        double initialCamX = Math.clamp(
+                ((initialMinX + initialMaxX) * 0.5) - BirdGame3.WIDTH / (2 * initialZoom),
+                0,
+                BirdGame3.WORLD_WIDTH - BirdGame3.WIDTH / initialZoom
+        );
+        double initialCamY = Math.clamp(
+                ((initialMinY + initialMaxY) * 0.5) - BirdGame3.HEIGHT / (2 * initialZoom),
+                0,
+                BirdGame3.WORLD_HEIGHT - BirdGame3.HEIGHT / initialZoom
+        );
+
+        setPrivateDouble(game, "zoom", initialZoom);
+        setPrivateDouble(game, "camX", initialCamX);
+        setPrivateDouble(game, "camY", initialCamY);
+        setPrivateDouble(game, "trackedCamMinX", initialMinX);
+        setPrivateDouble(game, "trackedCamMaxX", initialMaxX);
+        setPrivateDouble(game, "trackedCamMinY", initialMinY);
+        setPrivateDouble(game, "trackedCamMaxY", initialMaxY);
+
+        Bird support = new Bird(2920, BirdGame3.BirdType.HUMMINGBIRD, 2, game);
+        game.players[2] = support;
+        setPrivateIntField(game, "cameraTagInEaseFrames", 42);
+
+        Method updateDynamicCamera = BirdGame3.class.getDeclaredMethod("updateDynamicCamera");
+        updateDynamicCamera.setAccessible(true);
+        updateDynamicCamera.invoke(game);
+
+        double directTargetZoom = Math.clamp(
+                Math.min(
+                        BirdGame3.WIDTH / (((support.x + 80) - initialMinX) + 800),
+                        BirdGame3.HEIGHT / ((initialMaxY - initialMinY) + 800)
+                ),
+                BirdGame3.MIN_ZOOM,
+                BirdGame3.MAX_ZOOM
+        );
+        double zoomAfterUpdate = getPrivateDouble(game, "zoom");
+        assertTrue(zoomAfterUpdate > directTargetZoom, "Tag-in zoom should ease out rather than jump to the full target.");
+
+        double directCenterX = (initialMinX + (support.x + 80)) * 0.5;
+        double directTargetCamX = Math.clamp(
+                directCenterX - BirdGame3.WIDTH / (2 * zoomAfterUpdate),
+                0,
+                BirdGame3.WORLD_WIDTH - BirdGame3.WIDTH / zoomAfterUpdate
+        );
+        double camXAfterUpdate = getPrivateDouble(game, "camX");
+        assertTrue(camXAfterUpdate > initialCamX, "Camera should start moving toward the new support.");
+        assertTrue(camXAfterUpdate < directTargetCamX, "Camera should pan toward the tag-in instead of snapping to it.");
+    }
+
+    @Test
     void localNullRockSkinUsesBossTemplateStats() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.nullRockVultureUnlocked = true;
@@ -108,6 +227,32 @@ class BirdGame3BossBalanceTest {
         assertEquals(3.6, bird.baseSizeMultiplier, 0.0001);
         assertEquals(1.7266, bird.basePowerMultiplier, 0.0001);
         assertEquals(1.0192, bird.baseSpeedMultiplier, 0.0001);
+    }
+
+    @Test
+    void unitedFinaleDialogueUsesNullRockPortraitSkin() throws Exception {
+        BirdGame3 game = new BirdGame3();
+
+        Field chaptersField = BirdGame3.class.getDeclaredField("adventureChapters");
+        chaptersField.setAccessible(true);
+        Object[] chapters = (Object[]) chaptersField.get(game);
+        Object unitedFinaleChapter = chapters[chapters.length - 1];
+        Object[] battles = (Object[]) recordValue(unitedFinaleChapter, "battles");
+        BirdGame3.AdventureBattle finalBattle = (BirdGame3.AdventureBattle) battles[battles.length - 1];
+
+        Field preDialogueField = BirdGame3.AdventureBattle.class.getDeclaredField("preDialogue");
+        preDialogueField.setAccessible(true);
+        Object lines = preDialogueField.get(finalBattle);
+
+        @SuppressWarnings("unchecked")
+        Class<? extends Enum<?>> dialogueSideClass = (Class<? extends Enum<?>>) Class.forName("com.example.birdgame3.BirdGame3$DialogueSide");
+        @SuppressWarnings({"rawtypes", "unchecked"})
+        Object rightSide = Enum.valueOf((Class) dialogueSideClass, "RIGHT");
+
+        Method resolve = BirdGame3.class.getDeclaredMethod("resolveAdventureDialogueSideSkinKey", lines.getClass(), dialogueSideClass);
+        resolve.setAccessible(true);
+
+        assertEquals("NULL_ROCK_VULTURE", resolve.invoke(game, lines, rightSide));
     }
 
     @Test
@@ -320,6 +465,24 @@ class BirdGame3BossBalanceTest {
         Field field = target.getClass().getDeclaredField("lanPlayerIndex");
         field.setAccessible(true);
         field.setInt(target, 1);
+    }
+
+    private static void setPrivateIntField(Object target, String fieldName, int value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setInt(target, value);
+    }
+
+    private static void setPrivateDouble(Object target, String fieldName, double value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setDouble(target, value);
+    }
+
+    private static double getPrivateDouble(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.getDouble(target);
     }
 
     private static Object recordValue(Object target, String accessor) throws Exception {

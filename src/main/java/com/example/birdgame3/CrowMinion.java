@@ -15,6 +15,7 @@ class CrowMinion {
     Bird owner = null;
     boolean hasCrown = false;
     int variant = VARIANT_AUTO;
+    int hitFlashTimer = 0;
 
     CrowMinion(double x, double y, Bird target) {
         this.x = x;
@@ -85,6 +86,16 @@ class CrowMinion {
             case VARIANT_MURDER_CROW -> "MURDER CROW";
             default -> "CROW";
         };
+    }
+
+    boolean hasHeavyLifePool() {
+        return defaultLife(effectiveVariant()) > 1;
+    }
+
+    void registerHit(double knockbackX, double knockbackY) {
+        vx += knockbackX;
+        vy += knockbackY;
+        hitFlashTimer = Math.max(hitFlashTimer, 10);
     }
 
     private static int defaultLife(int variant) {

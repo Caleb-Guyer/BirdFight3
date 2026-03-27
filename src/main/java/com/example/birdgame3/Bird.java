@@ -167,11 +167,21 @@ public class Bird {
     private static final double PHOENIX_REBORN_POWER_SCALE = 0.8;
     private static final double PHOENIX_REBORN_SPEED_SCALE = 1.35;
     private static final double PHOENIX_REBORN_DAMAGE_SCALE = 0.85;
-    private static final double[] NULL_ROCK_PHASE_THRESHOLDS = {0.84, 0.66, 0.46, 0.24};
+    private static final double BASE_BODY_SIZE = 80.0;
+    private static final double NULL_ROCK_VISIBLE_VOID_MARGIN = 80.0;
+    private static final double NULL_ROCK_COMBAT_HALF_WIDTH = 58.0;
+    private static final double NULL_ROCK_COMBAT_HALF_HEIGHT = 60.0;
+    private static final double NULL_ROCK_TRUE_FORM_THRESHOLD = 0.50;
+    private static final double NULL_ROCK_TRUE_FORM_SIZE_SCALE = 1.18;
+    private static final double NULL_ROCK_TRUE_FORM_POWER_SCALE = 1.34;
+    private static final double NULL_ROCK_TRUE_FORM_SPEED_SCALE = 1.18;
+    private static final double[] NULL_ROCK_PHASE_THRESHOLDS = {0.84, 0.66, NULL_ROCK_TRUE_FORM_THRESHOLD, 0.24};
     private static final int NULL_ROCK_PHASE_INVULN_FRAMES = 135;
+    private static final int TRUE_NULL_ROCK_ASCENSION_INVULN_FRAMES = 220;
     private int nullRockInvincibilityTimer = 0;
     private int nullRockPhaseIndex = 0;
     private int nullRockShieldFxCooldown = 0;
+    private boolean trueNullRockForm = false;
 
     private final Random random = new Random();
 
@@ -209,18 +219,116 @@ public class Bird {
         return type == BirdGame3.BirdType.VULTURE && isNullRockSkin;
     }
 
+    boolean isTrueNullRockForm() {
+        return isNullRockForm() && trueNullRockForm;
+    }
+
     boolean isCombatInvulnerable() {
         return isNullRockForm() && nullRockInvincibilityTimer > 0;
     }
 
+    private boolean isStunImmune() {
+        return isNullRockForm();
+    }
+
+    private boolean isShrinkImmune() {
+        return isNullRockForm();
+    }
+
+    void applyStun(double frames) {
+        if (frames <= 0) return;
+        if (isStunImmune()) {
+            spawnNullRockShieldBurst();
+            return;
+        }
+        stunTime = Math.max(stunTime, frames);
+    }
+
+    void applyShrinkEffect(double scale, int frames) {
+        if (frames <= 0) return;
+        if (isShrinkImmune()) {
+            spawnNullRockShieldBurst();
+            return;
+        }
+        sizeMultiplier = baseSizeMultiplier * scale;
+        shrinkTimer = Math.max(shrinkTimer, frames);
+    }
+
+    String combatDisplayName() {
+        if (isTrueNullRockForm()) return "True Null Rock";
+        if (isNullRockForm()) return "The Null Rock";
+        return type != null ? type.name : "Unknown";
+    }
+
+    private double bodyWidth() {
+        return BASE_BODY_SIZE * sizeMultiplier;
+    }
+
+    private double bodyHeight() {
+        return BASE_BODY_SIZE * sizeMultiplier;
+    }
+
+    private double bodyCenterX() {
+        return x + bodyWidth() / 2.0;
+    }
+
+    private double bodyCenterY() {
+        return y + bodyHeight() / 2.0;
+    }
+
+    private double bodyBottomY() {
+        return y + bodyHeight();
+    }
+
+    private double combatHalfWidth() {
+        return isNullRockForm() ? NULL_ROCK_COMBAT_HALF_WIDTH * sizeMultiplier : bodyWidth() / 2.0;
+    }
+
+    private double combatHalfHeight() {
+        return isNullRockForm() ? NULL_ROCK_COMBAT_HALF_HEIGHT * sizeMultiplier : bodyHeight() / 2.0;
+    }
+
+    private double combatRadius() {
+        return Math.max(combatHalfWidth(), combatHalfHeight()) * 0.82;
+    }
+
+    private boolean overlapsCombatBox(Bird other, double horizontalReach, double verticalReach) {
+        double dx = Math.abs(other.bodyCenterX() - bodyCenterX());
+        double dy = Math.abs(other.bodyCenterY() - bodyCenterY());
+        return dx <= horizontalReach + other.combatHalfWidth()
+                && dy <= verticalReach + other.combatHalfHeight();
+    }
+
+    private boolean overlapsPowerUp(PowerUp powerUp) {
+        double pickupHalfSize = BASE_BODY_SIZE / 2.0;
+        double dx = Math.abs(powerUp.x - bodyCenterX());
+        double dy = Math.abs(powerUp.y - bodyCenterY());
+        return dx <= combatHalfWidth() + pickupHalfSize
+                && dy <= combatHalfHeight() + pickupHalfSize;
+    }
+
+    private double combatDistanceTo(Bird other) {
+        return Math.hypot(other.bodyCenterX() - bodyCenterX(), other.bodyCenterY() - bodyCenterY());
+    }
+
+    private boolean canStandInVoid() {
+        return isNullRockForm() && (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN);
+    }
+
+    private double voidStandFloorY() {
+        double visibleVoidFloorY = BirdGame3.WORLD_HEIGHT - NULL_ROCK_VISIBLE_VOID_MARGIN;
+        return Math.max(game.battlefieldVoidFloorY(), visibleVoidFloorY);
+    }
+
     public boolean isOnGround() {
-        double bottom = y + 80 * sizeMultiplier;
+        double bottom = bodyBottomY();
         if (game.selectedMap != MapType.BATTLEFIELD && game.selectedMap != MapType.BEACON_CROWN && bottom >= BirdGame3.GROUND_Y) return true;
+        if (canStandInVoid() && bottom >= voidStandFloorY()) return true;
         for (Platform p : game.platforms) {
             boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
                     p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
             if (isCaveCeiling) continue;
-            if (x + 40 * sizeMultiplier >= p.x && x + 40 * sizeMultiplier <= p.x + p.w &&
+            if (bodyCenterX() >= p.x && bodyCenterX() <= p.x + p.w &&
                     bottom >= p.y && bottom <= p.y + p.h &&
                     y <= p.y + 1)
                 return true;
@@ -252,7 +360,7 @@ public class Bird {
 
             if (isCaveCeiling) {
                 // Solid cave ceiling: block upward movement from below but never allow standing on top.
-                if (x + 40 * sizeMultiplier >= p.x && x + 40 * sizeMultiplier <= p.x + p.w &&
+                if (bodyCenterX() >= p.x && bodyCenterX() <= p.x + p.w &&
                         y < p.y + p.h && y > p.y - 50 && vy < 0) {
                     y = p.y + p.h + 0.5;
                     vy = 0;
@@ -261,17 +369,22 @@ public class Bird {
             }
 
             // Land only when descending onto the top surface to avoid snapping onto platforms from below.
-            if (x + 40 * sizeMultiplier >= p.x && x + 40 * sizeMultiplier <= p.x + p.w &&
-                    y + 80 * sizeMultiplier > p.y && y < p.y + p.h &&
+            if (bodyCenterX() >= p.x && bodyCenterX() <= p.x + p.w &&
+                    bodyBottomY() > p.y && y < p.y + p.h &&
                     vy >= 0 && y <= p.y) {
-                newY = p.y - 80 * sizeMultiplier;
+                newY = p.y - bodyHeight();
                 hit = true;
                 break;
             }
         }
 
+        if (!hit && canStandInVoid() && bodyBottomY() > voidStandFloorY()) {
+            newY = voidStandFloorY() - bodyHeight();
+            hit = true;
+        }
+
         if (!hit && game.selectedMap != MapType.BATTLEFIELD && game.selectedMap != MapType.BEACON_CROWN && y + 80 * sizeMultiplier > BirdGame3.GROUND_Y) {
-            newY = BirdGame3.GROUND_Y - 80 * sizeMultiplier;
+            newY = BirdGame3.GROUND_Y - bodyHeight();
             hit = true;
         }
 
@@ -296,8 +409,9 @@ public class Bird {
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
             if (!canDamageTarget(other)) continue;
-            double dx = other.x - x;
-            if (Math.abs(dx) < 280 && Math.abs(other.y - y) < 180) {
+            double dx = other.bodyCenterX() - bodyCenterX();
+            if (Math.abs(dx) < 280 + other.combatHalfWidth()
+                    && Math.abs(other.bodyCenterY() - bodyCenterY()) < 180 + other.combatHalfHeight()) {
                 int dmg = (int) (28 * powerMultiplier);
                 double oldHealth = other.health;
                 double dealtDamage = applyDamageTo(other, dmg);
@@ -383,8 +497,7 @@ public class Bird {
             if (other == null || other == this || other.health <= 0) continue;
             if (!canDamageTarget(other)) continue;
 
-            double dist = Math.abs(x - other.x);
-            if (dist < range && Math.abs(y - other.y) < 100 * sizeMultiplier) {
+            if (overlapsCombatBox(other, range, 100 * sizeMultiplier)) {
                 processBirdAttack(other, dmg);
             }
         }
@@ -410,8 +523,12 @@ public class Bird {
             if (facingRight && dx < -35 * sizeMultiplier) continue;
             if (!facingRight && dx > 35 * sizeMultiplier) continue;
 
-            crow.life -= Math.max(1, dmg / 10);
-            if (crow.life > 0) continue;
+            int damageTaken = Math.max(1, dmg / 10);
+            crow.life -= damageTaken;
+            if (crow.life > 0) {
+                reactToCrowHit(crow, dx, damageTaken);
+                continue;
+            }
 
             it.remove();
             kills++;
@@ -433,6 +550,32 @@ public class Bird {
             String source = shortName();
             game.addToKillFeed(source + " swatted " + kills + " crow" + (kills > 1 ? "s" : "") + "!");
             game.scores[playerIndex] += kills * 2;
+        }
+    }
+
+    private void reactToCrowHit(CrowMinion crow, double dx, int damageTaken) {
+        if (crow == null || !crow.hasHeavyLifePool()) return;
+        double direction = dx == 0 ? (facingRight ? 1.0 : -1.0) : Math.signum(dx);
+        double knockback = 0.8 + damageTaken * 0.45;
+        crow.registerHit(direction * knockback, -0.8 - damageTaken * 0.25);
+
+        Color spark = switch (crow.effectiveVariant()) {
+            case CrowMinion.VARIANT_GIANT_CROW -> Color.web("#FF8A80");
+            case CrowMinion.VARIANT_RAVEN -> Color.web("#90CAF9");
+            case CrowMinion.VARIANT_VOID_RAVEN -> Color.web("#CE93D8");
+            default -> Color.web("#E0E0E0");
+        };
+        int particleCount = 6 + damageTaken * 2;
+        for (int i = 0; i < particleCount; i++) {
+            double angle = Math.random() * Math.PI * 2;
+            double speed = 2.5 + Math.random() * 6.0;
+            game.particles.add(new Particle(
+                    crow.x,
+                    crow.y,
+                    Math.cos(angle) * speed + direction * 0.8,
+                    Math.sin(angle) * speed - 1.8,
+                    spark.deriveColor(0, 1, 1, 0.82)
+            ));
         }
     }
 
@@ -499,7 +642,7 @@ public class Bird {
             kb *= 0.35;
 
             if (other.facingRight == (x < other.x) && random.nextDouble() < 0.25) {
-                stunTime = 35;
+                applyStun(35);
                 game.addToKillFeed(other.shortName() + " PARRIED! Attacker stunned!");
             }
         }
@@ -751,9 +894,10 @@ public class Bird {
 
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
-            double dx = (other.x + 40) - (x + 40);
-            double dy = (other.y + 40) - (y + 40);
-            double dist = Math.hypot(dx, dy);
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
+            double centerDist = Math.hypot(dx, dy);
+            double dist = Math.max(0.0, centerDist - other.combatRadius());
             double radius = ultimate ? 360 : 300;
             if (dist > radius) continue;
 
@@ -765,7 +909,7 @@ public class Bird {
             game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
             if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
 
-            double safeDist = Math.max(0.001, dist);
+            double safeDist = Math.max(0.001, centerDist);
             other.vx += dx / safeDist * 12;
             other.vy -= 7;
         }
@@ -847,9 +991,9 @@ public class Bird {
     private void specialShoebill(boolean ultimate) {
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
-            double dist = Math.hypot(other.x - x, other.y - y);
-            if (dist < (ultimate ? 420 : 320)) {
-                other.stunTime = ultimate ? 180 : 120;
+            double dist = combatDistanceTo(other);
+            if (dist < (ultimate ? 420 : 320) + other.combatRadius()) {
+                other.applyStun(ultimate ? 180 : 120);
             }
         }
         specialCooldown = 780;
@@ -1250,6 +1394,7 @@ public class Bird {
     private int aiPowerCommitFrames = 0;
     private int aiDropCommitFrames = 0;
     private int aiDropCommitDir = 0;
+    private int aiVoidRecoveryLockFrames = 0;
     private double aiDropOriginY = Double.NaN;
     private double aiLastHealth = STARTING_HEALTH;
 
@@ -1269,6 +1414,7 @@ public class Bird {
         if (aiStrafeHoldFrames > 0) aiStrafeHoldFrames--;
         if (aiPowerCommitFrames > 0) aiPowerCommitFrames--;
         if (aiDropCommitFrames > 0) aiDropCommitFrames--;
+        if (aiVoidRecoveryLockFrames > 0) aiVoidRecoveryLockFrames--;
 
         clearAIInputs();
 
@@ -1292,6 +1438,7 @@ public class Bird {
 
         if (target == null && powerUp == null) {
             resetAIDropCommit();
+            applyAIVoidRecoveryInputs(onGround, standing);
             aiLastHealth = health;
             return;
         }
@@ -1359,11 +1506,14 @@ public class Bird {
             double rightEdge = standing.x + standing.w + dropOffset - 40 * sizeMultiplier;
             double platformCenter = standing.x + standing.w / 2.0;
             double targetCx = target.x + 40;
-            dropEdgeX = targetCx < platformCenter ? leftEdge : rightEdge;
-            dropPlan = true;
-            aiDropCommitDir = targetCx < platformCenter ? -1 : 1;
-            aiDropCommitFrames = Math.max(aiDropCommitFrames, 24);
-            aiDropOriginY = standing.y;
+            double candidateDropEdgeX = targetCx < platformCenter ? leftEdge : rightEdge;
+            if (isAIDropGoalSafe(candidateDropEdgeX, target.y + 40)) {
+                dropEdgeX = candidateDropEdgeX;
+                dropPlan = true;
+                aiDropCommitDir = targetCx < platformCenter ? -1 : 1;
+                aiDropCommitFrames = Math.max(aiDropCommitFrames, 24);
+                aiDropOriginY = standing.y;
+            }
         }
         boolean lowCpu = cpuLevel <= 2;
         double goalX;
@@ -1428,6 +1578,8 @@ public class Bird {
         }
 
         goalX = Math.clamp(goalX, 120.0, BirdGame3.WORLD_WIDTH - 120.0);
+        goalX = clampGoalXAwayFromVoid(goalX);
+        boolean offstageCommit = aiGoalLeavesMainStage(goalX);
 
         if (powerFocus) facingRight = powerUp.x > myCx;
         else if (target != null) facingRight = target.x > myCx;
@@ -1435,7 +1587,8 @@ public class Bird {
 
         int moveDir = 0;
         if (dropPlan) {
-            goalX = dropEdgeX;
+            goalX = clampGoalXAwayFromVoid(dropEdgeX);
+            offstageCommit = aiGoalLeavesMainStage(goalX);
             aiDirectionLock = 0;
             aiStrafeHoldFrames = 0;
             aiStrafeTimer = 0;
@@ -1504,8 +1657,21 @@ public class Bird {
             }
         }
 
-        if (moveDir < 0) game.setAiControlKey(playerIndex, leftKey(), true);
-        if (moveDir > 0) game.setAiControlKey(playerIndex, rightKey(), true);
+        if (isVoidMap() && moveDir != 0) {
+            double projectedX = x + moveDir * Math.max(18.0, type.speed * speedMultiplier * 4.0);
+            if (Math.abs(clampGoalXAwayFromVoid(projectedX) - projectedX) > 0.1) {
+                moveDir = 0;
+            }
+        }
+
+        boolean voidRecovery = applyAIVoidRecoveryInputs(onGround, standing);
+        if (!voidRecovery) {
+            if (moveDir < 0) game.setAiControlKey(playerIndex, leftKey(), true);
+            if (moveDir > 0) game.setAiControlKey(playerIndex, rightKey(), true);
+        } else {
+            aiLastHealth = health;
+            return;
+        }
 
         // Vertical positioning and recovery behavior.
         if (!powerFocus && target != null) {
@@ -1516,8 +1682,12 @@ public class Bird {
                 boolean jumpForHeight = dy < -120 && Math.abs(target.x - x) < 420 && alignedForClimb;
                 boolean jumpForCombo = dy > 70 && targetDist < 220;
                 boolean jumpForAboveClose = dy < -200 && Math.abs(target.x - x) < 220 && alignedForClimb;
+                boolean jumpForOffstageLaunch = shouldAIJumpBeforeOffstage(goalX, true);
                 double jumpSense = 0.35 + 0.65 * skill;
-                if ((jumpForHeight || jumpForCombo || jumpForAboveClose) && random.nextDouble() < jumpSense) {
+                if (jumpForOffstageLaunch) {
+                    game.setAiControlKey(playerIndex, jumpKey(), true);
+                    aiJumpCooldown = 14;
+                } else if ((jumpForHeight || jumpForCombo || jumpForAboveClose) && random.nextDouble() < jumpSense) {
                     game.setAiControlKey(playerIndex, jumpKey(), true);
                     aiJumpCooldown = 14;
                 }
@@ -1530,9 +1700,11 @@ public class Bird {
             }
 
             if (!onGround && type.flyUpForce > 0) {
+                Platform mainStage = findAIMainStagePlatform();
                 boolean recoverAltitude = y > BirdGame3.GROUND_Y - 120;
-                boolean maintainVsTarget = target.y < y + 180;
-                if (recoverAltitude || maintainVsTarget) {
+                boolean maintainVsTarget = target.y < y + 180 && !isAIAboveCruiseCeiling(target, mainStage);
+                boolean recoverVoid = isVoidMap() && (offstageCommit || isAIVoidRecoveryUrgent(onGround, standing));
+                if (recoverAltitude || maintainVsTarget || recoverVoid) {
                     game.setAiControlKey(playerIndex, jumpKey(), true);
                 }
             }
@@ -1599,9 +1771,10 @@ public class Bird {
 
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
-            double dx = (other.x + 40) - (x + 40);
-            double dy = (other.y + 40) - (y + 40);
-            double dist = Math.hypot(dx, dy);
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
+            double centerDist = Math.hypot(dx, dy);
+            double dist = Math.max(0.0, centerDist - other.combatRadius());
             if (dist > (ultimate ? 460 : 360)) continue;
 
             int dmg = dist < 150 ? (ultimate ? 26 : 18) : (dist < 260 ? (ultimate ? 18 : 12) : (ultimate ? 12 : 8));
@@ -1611,8 +1784,8 @@ public class Bird {
             game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
             if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
 
-            other.stunTime = Math.max(other.stunTime, ultimate ? 45 : 28);
-            double safeDist = Math.max(0.001, dist);
+            other.applyStun(ultimate ? 45 : 28);
+            double safeDist = Math.max(0.001, centerDist);
             other.vx += dx / safeDist * (ultimate ? 20 : 16);
             other.vy -= ultimate ? 10 : 8;
         }
@@ -1664,7 +1837,7 @@ public class Bird {
             game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
             if (target.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
 
-            target.stunTime = Math.max(target.stunTime, ultimate ? 70 : 40);
+            target.applyStun(ultimate ? 70 : 40);
             double kbDir = (target.x > x) ? 1 : -1;
             target.vx += kbDir * (ultimate ? 14 : 10);
             target.vy -= ultimate ? 9 : 6;
@@ -1796,7 +1969,7 @@ public class Bird {
         return dx < 105 && dy > 90 && dy < 360;
     }
 
-    private double pickPowerUpGoalX(PowerUp p) {
+    private double rawPowerUpGoalX(PowerUp p) {
         if (p == null) return x;
         double myCx = x + 40;
         double dx = Math.abs(p.x - myCx);
@@ -1814,6 +1987,10 @@ public class Bird {
             }
         }
         return p.x;
+    }
+
+    private double pickPowerUpGoalX(PowerUp p) {
+        return clampGoalXAwayFromVoid(rawPowerUpGoalX(p));
     }
 
     private Platform findCurrentSupportPlatform() {
@@ -1868,6 +2045,18 @@ public class Bird {
         if (dist > maxDist) return false;
         double maxVertical = (type.flyUpForce > 0 || !isOnGround()) ? 520 : 320;
         if (Math.abs(dy) > maxVertical) return false;
+        if (isVoidMap()) {
+            double desiredGoalX = rawPowerUpGoalX(p);
+            double safeGoalX = clampGoalXAwayFromVoid(desiredGoalX);
+            double edgeDrift = Math.abs(safeGoalX - desiredGoalX);
+            Platform mainStage = findAIMainStagePlatform();
+            if (mainStage != null) {
+                double maxEdgeDrift = Math.max(24.0, aiVoidHorizontalAllowance(mainStage) * 0.55);
+                if (edgeDrift > maxEdgeDrift) return false;
+                double maxSafePickupY = mainStage.y + aiVoidDepthAllowance(mainStage) * 0.9;
+                if (p.y > maxSafePickupY) return false;
+            }
+        }
 
         if (target == null) {
             return dx < 260 && Math.abs(dy) < 260;
@@ -1887,6 +2076,303 @@ public class Bird {
         boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
                 p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
         return isFloor || isWall || isCaveCeiling;
+    }
+
+    private boolean isVoidMap() {
+        return game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN;
+    }
+
+    private Platform findAIMainStagePlatform() {
+        Platform best = null;
+        double bestWidth = -1.0;
+        for (Platform p : game.platforms) {
+            if (isBoundaryPlatform(p)) continue;
+            if (p.w > bestWidth) {
+                bestWidth = p.w;
+                best = p;
+            }
+        }
+        return best;
+    }
+
+    private boolean aiCanUseAirRecovery() {
+        return type.flyUpForce > 0.0 || (type == BirdGame3.BirdType.PIGEON && canDoubleJump);
+    }
+
+    private double topCameraOverflow() {
+        return Math.max(0.0, -y);
+    }
+
+    private double aiCruiseCeilingY(Platform mainStage) {
+        double ceiling = mainStage != null ? mainStage.y - 820.0 : BirdGame3.GROUND_Y - 1000.0;
+        ceiling = Math.max(140.0, ceiling);
+        return switch (type) {
+            case HUMMINGBIRD -> ceiling - 140.0;
+            case EAGLE, FALCON, PHOENIX, BAT -> ceiling - 60.0;
+            default -> ceiling;
+        };
+    }
+
+    private boolean isAIAboveCruiseCeiling(Bird target, Platform mainStage) {
+        if (target == null || type.flyUpForce <= 0.0) return false;
+        if (y >= aiCruiseCeilingY(mainStage)) return false;
+        return target.y > y - 180.0;
+    }
+
+    private double aiVoidHorizontalAllowance(Platform mainStage) {
+        if (mainStage == null) return 0.0;
+        boolean grounded = isOnGround();
+        double altitude = Math.max(0.0, mainStage.y - (y + 40 * sizeMultiplier));
+        double allowance = 8.0;
+        switch (type) {
+            case HUMMINGBIRD -> allowance = 360.0 + altitude * 0.18 + Math.max(0.0, -vy) * 10.0;
+            case EAGLE, FALCON, PHOENIX, BAT -> allowance = 240.0 + altitude * 0.14 + Math.max(0.0, -vy) * 7.0;
+            case TITMOUSE, OPIUMBIRD, HEISENBIRD, RAVEN -> allowance = 210.0 + altitude * 0.12 + Math.max(0.0, -vy) * 6.0;
+            case VULTURE -> {
+                double launch = grounded ? 0.0 : Math.max(0.0, -vy) * 18.0;
+                double altitudeBonus = Math.max(0.0, altitude - 80.0) * 0.16;
+                allowance = 40.0 + launch + altitudeBonus + (isFlying ? 55.0 : 0.0);
+            }
+            case PIGEON -> {
+                double fuelRatio = Math.clamp(limitedFlightFuel / LIMITED_FLIGHT_MAX, 0.0, 1.0);
+                allowance = 70.0 + fuelRatio * 70.0 + ((grounded || canDoubleJump) ? 35.0 : 0.0) + altitude * 0.06;
+            }
+            case TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> {
+                double fuelRatio = Math.clamp(limitedFlightFuel / LIMITED_FLIGHT_MAX, 0.0, 1.0);
+                allowance = 55.0 + fuelRatio * 55.0 + altitude * 0.05;
+            }
+            case PENGUIN -> allowance = specialCooldown <= 0 ? 105.0 + altitude * 0.08 : 10.0;
+            case SHOEBILL, MOCKINGBIRD, RAZORBILL -> allowance = 95.0 + altitude * 0.07 + Math.max(0.0, -vy) * 4.0;
+        }
+        return Math.clamp(allowance, 0.0, Math.max(120.0, mainStage.w * 0.42));
+    }
+
+    private double aiVoidDepthAllowance(Platform mainStage) {
+        if (mainStage == null) return 80.0;
+        boolean grounded = isOnGround();
+        double altitude = Math.max(0.0, mainStage.y - (y + 40 * sizeMultiplier));
+        double allowance = 60.0 + aiVoidHorizontalAllowance(mainStage) * 0.75;
+        switch (type) {
+            case HUMMINGBIRD -> allowance += 120.0;
+            case VULTURE -> allowance = 85.0
+                    + (grounded ? 0.0 : Math.max(0.0, -vy) * 12.0)
+                    + Math.max(0.0, altitude - 80.0) * 0.10
+                    + (isFlying ? 55.0 : 0.0);
+            case PIGEON -> {
+                double fuelRatio = Math.clamp(limitedFlightFuel / LIMITED_FLIGHT_MAX, 0.0, 1.0);
+                allowance = 140.0 + fuelRatio * 90.0 + ((grounded || canDoubleJump) ? 35.0 : 0.0);
+            }
+            case TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> {
+                double fuelRatio = Math.clamp(limitedFlightFuel / LIMITED_FLIGHT_MAX, 0.0, 1.0);
+                allowance = 110.0 + fuelRatio * 70.0;
+            }
+            case PENGUIN -> allowance = specialCooldown <= 0 ? 180.0 + altitude * 0.08 : 70.0;
+            default -> {
+            }
+        }
+        return Math.clamp(allowance, 60.0, 520.0);
+    }
+
+    private double aiVoidReentryInset(Platform mainStage) {
+        if (mainStage == null) return 40.0;
+        return Math.clamp(aiVoidHorizontalAllowance(mainStage) * 0.22, 18.0, 85.0);
+    }
+
+    private double clampGoalXAwayFromVoid(double desiredX) {
+        if (!isVoidMap()) return desiredX;
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) return desiredX;
+        double allowance = aiVoidHorizontalAllowance(mainStage);
+        double safeLeft = mainStage.x - 40 * sizeMultiplier - allowance;
+        double safeRight = mainStage.x + mainStage.w - 40 * sizeMultiplier + allowance;
+        double worldLeft = game.battlefieldLeftBound() + 20.0;
+        double worldRight = game.battlefieldRightBound() - 80 * sizeMultiplier - 20.0;
+        safeLeft = Math.max(worldLeft, safeLeft);
+        safeRight = Math.min(worldRight, safeRight);
+        return Math.clamp(desiredX, safeLeft, safeRight);
+    }
+
+    private boolean isAIDropGoalSafe(double desiredX, double targetY) {
+        if (!isVoidMap()) return true;
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) return true;
+        double safeX = clampGoalXAwayFromVoid(desiredX);
+        double maxHorizontalError = Math.max(18.0, aiVoidHorizontalAllowance(mainStage) * 0.20);
+        if (Math.abs(safeX - desiredX) > maxHorizontalError) return false;
+        double maxDropDepth = mainStage.y + aiVoidDepthAllowance(mainStage);
+        return targetY <= maxDropDepth;
+    }
+
+    private double aiRecoveryGoalX() {
+        return aiRecoveryGoalX(null);
+    }
+
+    private boolean isAIMainlandRecovered(boolean onGround, Platform standing, Platform mainStage) {
+        if (mainStage == null) return true;
+        if (!onGround) return false;
+        return standing == mainStage;
+    }
+
+    private boolean shouldAIMaintainRecoveryLock(boolean onGround, Platform standing, Platform mainStage) {
+        if (mainStage == null || aiVoidRecoveryLockFrames <= 0) return false;
+        return !isAIMainlandRecovered(onGround, standing, mainStage);
+    }
+
+    private boolean shouldAIHoldRecoveryJump(Platform mainStage, double recoveryGoalX) {
+        if (mainStage == null || !aiCanUseAirRecovery()) return false;
+        double centerX = x + 40 * sizeMultiplier;
+        double bottomY = y + 80 * sizeMultiplier;
+        double landingLeft = mainStage.x + aiVoidReentryInset(mainStage) * 0.55;
+        double landingRight = mainStage.x + mainStage.w - aiVoidReentryInset(mainStage) * 0.55;
+        boolean overLandingLane = centerX >= landingLeft && centerX <= landingRight;
+        boolean alignedForLanding = Math.abs(recoveryGoalX - x) < 60.0;
+        boolean safelyAboveIsland = bottomY < mainStage.y - 55.0;
+        boolean stillBelowLip = bottomY > mainStage.y - 8.0;
+        boolean driftingAway = (centerX < mainStage.x && vx < -0.8) || (centerX > mainStage.x + mainStage.w && vx > 0.8);
+        if (overLandingLane && alignedForLanding && safelyAboveIsland) {
+            return false;
+        }
+        return !overLandingLane || stillBelowLip || driftingAway;
+    }
+
+    private double aiRecoveryGoalX(Platform standing) {
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) return x;
+        double halfWidth = 40 * sizeMultiplier;
+        double mainCenterGoalX = mainStage.x + mainStage.w / 2.0 - halfWidth;
+        if (standing != null && standing != mainStage && !isBoundaryPlatform(standing)) {
+            double platformGoalLeft = standing.x - 28.0 - halfWidth;
+            double platformGoalRight = standing.x + standing.w + 28.0 - halfWidth;
+            double platformInnerLeft = standing.x + 18.0 - halfWidth;
+            double platformInnerRight = standing.x + standing.w - 18.0 - halfWidth;
+            if (mainCenterGoalX > platformInnerLeft && mainCenterGoalX < platformInnerRight) {
+                return Math.abs(x - platformGoalLeft) <= Math.abs(x - platformGoalRight)
+                        ? platformGoalLeft
+                        : platformGoalRight;
+            }
+            return Math.clamp(mainCenterGoalX, platformGoalLeft, platformGoalRight);
+        }
+        double centerX = x + 40 * sizeMultiplier;
+        double safeCenterX = Math.clamp(centerX,
+                mainStage.x + aiVoidReentryInset(mainStage),
+                mainStage.x + mainStage.w - aiVoidReentryInset(mainStage));
+        return safeCenterX - 40 * sizeMultiplier;
+    }
+
+    private boolean isAIVoidRecoveryUrgent(boolean onGround, Platform standing) {
+        if (!isVoidMap()) return false;
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) return false;
+        if (isAIMainlandRecovered(onGround, standing, mainStage)) return false;
+        double centerX = x + 40 * sizeMultiplier;
+        double bottomY = y + 80 * sizeMultiplier;
+        double hardLeft = mainStage.x - aiVoidHorizontalAllowance(mainStage);
+        double hardRight = mainStage.x + mainStage.w + aiVoidHorizontalAllowance(mainStage);
+        boolean tooFarOut = centerX < hardLeft || centerX > hardRight;
+        boolean deepBelowStage = bottomY > mainStage.y + aiVoidDepthAllowance(mainStage);
+        return tooFarOut || deepBelowStage;
+    }
+
+    private boolean isAIVoidRecoveryCaution(boolean onGround, Platform standing) {
+        if (!isVoidMap()) return false;
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) return false;
+        if (isAIMainlandRecovered(onGround, standing, mainStage)) return false;
+        if (onGround && standing != null && standing != mainStage && !isBoundaryPlatform(standing)) {
+            return true;
+        }
+        double centerX = x + 40 * sizeMultiplier;
+        double bottomY = y + 80 * sizeMultiplier;
+        double stageLeft = mainStage.x;
+        double stageRight = mainStage.x + mainStage.w;
+        double offstageDistance = centerX < stageLeft ? stageLeft - centerX
+                : (centerX > stageRight ? centerX - stageRight : 0.0);
+        if (offstageDistance <= 0.0) return false;
+        double depth = Math.max(0.0, bottomY - mainStage.y);
+        double horizontalRatio = offstageDistance / Math.max(1.0, aiVoidHorizontalAllowance(mainStage));
+        double depthRatio = depth / Math.max(1.0, aiVoidDepthAllowance(mainStage));
+        boolean movingAway = (centerX < stageLeft && vx < -1.4) || (centerX > stageRight && vx > 1.4);
+        return switch (type) {
+            case PENGUIN -> depth > 18.0 || horizontalRatio > 0.30 || movingAway || vy > 2.8;
+            case PIGEON -> (!canDoubleJump && (depth > 36.0 || horizontalRatio > 0.22 || movingAway))
+                    || depthRatio > 0.62
+                    || (vy > 3.6 && depth > 22.0);
+            default -> false;
+        };
+    }
+
+    private boolean aiGoalLeavesMainStage(double goalX) {
+        if (!isVoidMap()) return false;
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) return false;
+        double goalCenterX = goalX + 40 * sizeMultiplier;
+        return goalCenterX < mainStage.x || goalCenterX > mainStage.x + mainStage.w;
+    }
+
+    private boolean shouldAIJumpBeforeOffstage(double goalX, boolean onGround) {
+        if (!onGround || !aiGoalLeavesMainStage(goalX)) return false;
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) return false;
+        double centerX = x + 40 * sizeMultiplier;
+        double goalCenterX = goalX + 40 * sizeMultiplier;
+        double edgeX = goalCenterX < mainStage.x ? mainStage.x : mainStage.x + mainStage.w;
+        double distanceToEdge = Math.abs(centerX - edgeX);
+        return switch (type) {
+            case VULTURE -> distanceToEdge < 140.0;
+            case PIGEON, TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> distanceToEdge < 95.0;
+            default -> false;
+        };
+    }
+
+    private boolean shouldAIUseRecoverySpecial(boolean onGround, Platform mainStage) {
+        if (onGround || mainStage == null || specialCooldown > 0) return false;
+        double centerX = x + 40 * sizeMultiplier;
+        double bottomY = y + 80 * sizeMultiplier;
+        double stageLeft = mainStage.x;
+        double stageRight = mainStage.x + mainStage.w;
+        boolean offstage = centerX < stageLeft || centerX > stageRight;
+        double depth = bottomY - mainStage.y;
+        double offstageDistance = centerX < stageLeft ? stageLeft - centerX
+                : (centerX > stageRight ? centerX - stageRight : 0.0);
+        boolean movingAway = (centerX < stageLeft && vx < -1.2) || (centerX > stageRight && vx > 1.2);
+        return switch (type) {
+            case PENGUIN -> offstage && (offstageDistance > 14.0 || depth > 10.0 || movingAway || vy > 1.2)
+                    || depth > 55.0;
+            case PIGEON -> !canDoubleJump && (depth > 48.0 || (offstage && (offstageDistance > 10.0 || movingAway || vy > 2.2)));
+            default -> false;
+        };
+    }
+
+    private boolean applyAIVoidRecoveryInputs(boolean onGround, Platform standing) {
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) return false;
+        if (isAIMainlandRecovered(onGround, standing, mainStage)) {
+            aiVoidRecoveryLockFrames = 0;
+            return false;
+        }
+        boolean urgent = isAIVoidRecoveryUrgent(onGround, standing);
+        boolean caution = isAIVoidRecoveryCaution(onGround, standing);
+        boolean locked = shouldAIMaintainRecoveryLock(onGround, standing, mainStage);
+        if (!urgent && !caution && !locked) return false;
+        aiVoidRecoveryLockFrames = Math.max(aiVoidRecoveryLockFrames, urgent ? 40 : 26);
+        resetAIDropCommit();
+        aiDirectionLock = 0;
+        aiStrafeHoldFrames = 0;
+        aiStrafeTimer = 0;
+        aiMicroPause = 0;
+        double recoveryGoalX = aiRecoveryGoalX(standing);
+        if (Math.abs(recoveryGoalX - x) > 18) {
+            boolean moveLeft = recoveryGoalX < x;
+            game.setAiControlKey(playerIndex, moveLeft ? leftKey() : rightKey(), true);
+            facingRight = !moveLeft;
+        }
+        if (!onGround && shouldAIHoldRecoveryJump(mainStage, recoveryGoalX)) {
+            game.setAiControlKey(playerIndex, jumpKey(), true);
+        }
+        if (shouldAIUseRecoverySpecial(onGround, mainStage)) {
+            game.setAiControlKey(playerIndex, specialKey(), true);
+        }
+        return true;
     }
 
     private Platform findClimbPlatform(double targetX, double maxRise) {
@@ -1974,7 +2460,8 @@ public class Bird {
                 return onGround && dist < 280 && dy > 50;
             case PENGUIN:
                 return (onGround && dist > 110 && dist < 360 && Math.abs(dy) < 120)
-                        || (onGround && dy < -170 && dist < 420);
+                        || (dy < -140 && dist < 520)
+                        || (!onGround && isVoidMap() && dist < 420 && dy < 140);
             case SHOEBILL:
                 return dist < 240 || (dist < 420 && random.nextDouble() < 0.2);
             case MOCKINGBIRD:
@@ -2095,28 +2582,34 @@ public class Bird {
             boolean thermalActive = thermalTimer > 0;
             double speedRatio = baseSpeedMultiplier > 0 ? speedMultiplier / baseSpeedMultiplier : 1.0;
             double flightLiftScale = Math.clamp(1.0 + (speedRatio - 1.0) * 0.55, 0.8, 1.45);
+            double topOverflow = topCameraOverflow();
+            boolean aboveCameraReach = topOverflow > 0.0;
             // Thermal Rise should always remain effective even if limited-flight fuel is drained.
             if (!limitedFlight || limitedFlightFuel > 0 || thermalActive) {
-                vy -= (type.flyUpForce + thermalLift) * hoverRegenMultiplier * flightLiftScale;
+                if (!aboveCameraReach) {
+                    vy -= (type.flyUpForce + thermalLift) * hoverRegenMultiplier * flightLiftScale;
+                } else {
+                    vy += (0.65 + Math.min(4.8, topOverflow * 0.045)) * gameSpeed;
+                }
                 double limitedFlightCap = type == BirdGame3.BirdType.ROOSTER ? -12.4 : -6.4;
                 double limitedFlightThermalCap = type == BirdGame3.BirdType.ROOSTER ? -14.2 : -9.2;
                 if (limitedFlight && !thermalActive) {
                     limitedFlightFuel = Math.max(0, limitedFlightFuel - gameSpeed);
-                    if (vy < limitedFlightCap) vy = limitedFlightCap;
+                    if (vy < limitedFlightCap && !aboveCameraReach) vy = limitedFlightCap;
                 } else if (limitedFlight) {
-                    if (vy < limitedFlightThermalCap) vy = limitedFlightThermalCap;
+                    if (vy < limitedFlightThermalCap && !aboveCameraReach) vy = limitedFlightThermalCap;
                 }
             }
-            if (type == BirdGame3.BirdType.BAT) {
+            if (type == BirdGame3.BirdType.BAT && !aboveCameraReach) {
                 // Bat gets stronger sustained lift so it can truly dogfight in the air.
                 vy -= 0.55 * flightLiftScale;
                 if (vy < -11.5) vy = -11.5;
             }
             if (type == BirdGame3.BirdType.PHOENIX) {
-                if (phoenixRebornActive) {
+                if (phoenixRebornActive && !aboveCameraReach) {
                     vy -= 0.4 * flightLiftScale;
                     if (vy < -11.5) vy = -11.5;
-                } else if (vy < -8.5) {
+                } else if (!aboveCameraReach && vy < -8.5) {
                     vy = -8.5;
                 }
             }
@@ -2176,7 +2669,7 @@ public class Bird {
         }
 
         // === BOUNDARIES ===
-        handleBoundaries();
+        handleBoundaries(gameSpeed);
 
         // === EAGLE DIVE / ASCENT DAMAGE ===
         handleEagleDiveImpact();
@@ -2259,6 +2752,9 @@ public class Bird {
         nullRockShieldFxCooldown = Math.max(0, (int) (nullRockShieldFxCooldown - gameSpeed));
 
         stunTime = Math.max(0, stunTime - gameSpeed);
+        if (isStunImmune()) {
+            stunTime = 0;
+        }
         if (specialCooldown > 0) specialCooldown = (int)Math.max(0, specialCooldown - gameSpeed);
         if (crowSwarmCooldown > 0) crowSwarmCooldown = (int)Math.max(0, crowSwarmCooldown - gameSpeed);
         if (attackCooldown > 0) attackCooldown = (int)Math.max(0, attackCooldown - gameSpeed);
@@ -2279,6 +2775,12 @@ public class Bird {
         blockCooldown = Math.max(0, (int)(blockCooldown - gameSpeed));
         batEchoTimer = Math.max(0, (int)(batEchoTimer - gameSpeed));
         batHangLockTimer = Math.max(0, (int)(batHangLockTimer - gameSpeed));
+        if (isShrinkImmune()) {
+            shrinkTimer = 0;
+            if (sizeMultiplier < baseSizeMultiplier) {
+                sizeMultiplier = baseSizeMultiplier;
+            }
+        }
     }
 
     private void handleVineGrapple() {
@@ -2496,8 +2998,8 @@ public class Bird {
     private void handleTitmousZipImpact() {
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
-            double dist = Math.hypot(other.x - x, other.y - y);
-            if (dist < 120) {
+            double dist = combatDistanceTo(other);
+            if (dist < 120 + other.combatRadius()) {
                 int dmg = (int) (20 * powerMultiplier);
                 double oldHealth = other.health;
                 double dealt = applyDamageTo(other, dmg);
@@ -2506,7 +3008,7 @@ public class Bird {
                 if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
         game.playZombieFallSfx();
 
-                other.vx += (other.x > x ? 1 : -1) * 25;
+                other.vx += (other.bodyCenterX() > bodyCenterX() ? 1 : -1) * 25;
                 other.vy -= 18;
 
                 game.addToKillFeed(shortName() + " ZAPPED " + other.shortName() + "! -" + dmg + " HP");
@@ -2898,11 +3400,40 @@ public class Bird {
         nullRockInvincibilityTimer = NULL_ROCK_PHASE_INVULN_FRAMES + (nullRockPhaseIndex - 1) * 18;
         nullRockShieldFxCooldown = 0;
         stunTime = 0;
+        shrinkTimer = 0;
         carrionSwarmTimer = Math.max(carrionSwarmTimer, 170 + nullRockPhaseIndex * 20);
         specialCooldown = Math.min(specialCooldown, 90);
         vx *= 0.35;
         vy = Math.min(vy, -5.5);
         game.onNullRockPhaseShift(this, nullRockPhaseIndex - 1);
+        if (!trueNullRockForm && nullRockPhaseIndex == 3) {
+            triggerTrueNullRockAscension();
+        }
+    }
+
+    private void triggerTrueNullRockAscension() {
+        if (!isNullRockForm() || trueNullRockForm) return;
+        trueNullRockForm = true;
+        double ascendedSize = baseSizeMultiplier * NULL_ROCK_TRUE_FORM_SIZE_SCALE;
+        double ascendedPower = basePowerMultiplier * NULL_ROCK_TRUE_FORM_POWER_SCALE;
+        double ascendedSpeed = baseSpeedMultiplier * NULL_ROCK_TRUE_FORM_SPEED_SCALE;
+        setBaseMultipliers(ascendedSize, ascendedPower, ascendedSpeed);
+        nullRockInvincibilityTimer = Math.max(nullRockInvincibilityTimer, TRUE_NULL_ROCK_ASCENSION_INVULN_FRAMES);
+        specialCooldown = 0;
+        crowSwarmCooldown = 0;
+        carrionSwarmTimer = Math.max(carrionSwarmTimer, 320);
+        stunTime = 0;
+        shrinkTimer = 0;
+        if (name != null) {
+            String replaced = name.replace("The Null Rock", "True Null Rock")
+                    .replace("NULL ROCK", "TRUE NULL ROCK");
+            if (replaced.equals(name) && name.contains(":")) {
+                String prefix = name.substring(0, name.indexOf(':') + 1);
+                replaced = prefix + " True Null Rock";
+            }
+            name = replaced;
+        }
+        game.onTrueNullRockAscension(this);
     }
 
     private void spawnNullRockShieldBurst() {
@@ -2969,8 +3500,8 @@ public class Bird {
     private void handleHummingbirdFrenzy() {
         if (type != BirdGame3.BirdType.HUMMINGBIRD || hummingFrenzyTimer <= 0) return;
 
-        double centerX = x + 40;
-        double centerY = y + 40;
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
 
         for (int i = 0; i < 2; i++) {
             Color c = Math.random() < 0.5 ? Color.CYAN.brighter() : Color.YELLOW.brighter();
@@ -2988,9 +3519,9 @@ public class Bird {
             if (other.playerIndex < 0 || other.playerIndex >= hummingFrenzyHitCooldown.length) continue;
             if (hummingFrenzyHitCooldown[other.playerIndex] > 0) continue;
 
-            double dx = (other.x + 40) - centerX;
-            double dy = (other.y + 40) - centerY;
-            if (Math.abs(dx) > 118 || Math.abs(dy) > 105) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.abs(dx) > 118 + other.combatHalfWidth() || Math.abs(dy) > 105 + other.combatHalfHeight()) continue;
 
             int dmg = 2 + random.nextInt(2);
             double oldHealth = other.health;
@@ -3021,8 +3552,8 @@ public class Bird {
     private void handlePhoenixAfterburn() {
         if (type != BirdGame3.BirdType.PHOENIX || phoenixAfterburnTimer <= 0) return;
 
-        double centerX = x + 40;
-        double centerY = y + 40;
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
 
         // Flames shoot outward from Phoenix's body while the special lingers.
         for (int i = 0; i < 5; i++) {
@@ -3046,10 +3577,10 @@ public class Bird {
             if (other.playerIndex < 0 || other.playerIndex >= phoenixAfterburnHitCooldown.length) continue;
             if (phoenixAfterburnHitCooldown[other.playerIndex] > 0) continue;
 
-            double dx = (other.x + 40) - centerX;
-            double dy = (other.y + 40) - centerY;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
             double dist = Math.hypot(dx, dy);
-            if (dist > 185) continue;
+            if (dist > 185 + other.combatRadius()) continue;
 
             int dmg = dist < 120 ? 4 : 3;
             double oldHealth = other.health;
@@ -3074,9 +3605,9 @@ public class Bird {
             if (other.playerIndex < 0 || other.playerIndex >= penguinDashHit.length) continue;
             if (penguinDashHit[other.playerIndex]) continue;
 
-            double dx = (other.x + 40) - (x + 40);
-            double dy = (other.y + 40) - (y + 40);
-            if (Math.abs(dx) > 90 || Math.abs(dy) > 95) continue;
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
+            if (Math.abs(dx) > 90 + other.combatHalfWidth() || Math.abs(dy) > 95 + other.combatHalfHeight()) continue;
 
             int dmg = 10 + random.nextInt(5);
             double oldHealth = other.health;
@@ -3108,9 +3639,9 @@ public class Bird {
             if (other.playerIndex < 0 || other.playerIndex >= eagleAscentHit.length) continue;
             if (eagleAscentHit[other.playerIndex]) continue;
 
-            double dx = (other.x + 40) - (x + 40);
-            double dy = (other.y + 40) - (y + 40);
-            if (Math.abs(dx) < 120 && Math.abs(dy) < 115) {
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
+            if (Math.abs(dx) < 120 + other.combatHalfWidth() && Math.abs(dy) < 115 + other.combatHalfHeight()) {
                 int dmg = 9 + random.nextInt(6);
                 double oldHealth = other.health;
                 int dealt = (int) applyDamageTo(other, dmg);
@@ -3142,11 +3673,11 @@ public class Bird {
             if (other.playerIndex < 0 || other.playerIndex >= eagleAscentHit.length) continue;
             if (eagleAscentHit[other.playerIndex]) continue;
 
-            double dx = (other.x + 40) - (x + 40);
-            double dy = (other.y + 40) - (y + 40);
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
             if (facingRight && dx < -12) continue;
             if (!facingRight && dx > 12) continue;
-            if (Math.abs(dx) > 95 || Math.abs(dy) > 80) continue;
+            if (Math.abs(dx) > 95 + other.combatHalfWidth() || Math.abs(dy) > 80 + other.combatHalfHeight()) continue;
 
             double dist = Math.hypot(dx, dy);
             boolean sweetspot = dist < 46;
@@ -3222,11 +3753,11 @@ public class Bird {
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
 
-            double dx = other.x - x;
-            double dy = (other.y + 40) - (y + 70);
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - (y + 70);
             double dist = Math.hypot(dx, dy);
 
-            if (dist < 300) {
+            if (dist < 300 + other.combatRadius()) {
                 int dmg = (int) (22 * (1.0 - dist / 420.0));
                 if (dmg < 6) dmg = 6;
 
@@ -3278,10 +3809,10 @@ public class Bird {
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
 
-            double dx = (other.x + 40) - (x + 40);
-            double dy = (other.y + 40) - (y + 70);
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - (y + 70);
             double dist = Math.hypot(dx, dy);
-            if (dist > 230) continue;
+            if (dist > 230 + other.combatRadius()) continue;
 
             boolean sweetspot = dist < 95;
             int base = sweetspot ? 26 : (dist < 170 ? 14 : 8);
@@ -3342,10 +3873,10 @@ public class Bird {
             if (other.playerIndex < 0 || other.playerIndex >= razorbillDashHit.length) continue;
             if (razorbillDashHit[other.playerIndex]) continue;
 
-            double dx = (other.x + 40) - (x + 40);
-            double dy = (other.y + 40) - (y + 40);
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
             double dist = Math.hypot(dx, dy);
-            if (dist > 85) continue;
+            if (dist > 85 + other.combatRadius()) continue;
 
             int dmg = Math.max(6, (int) Math.round((11 + random.nextInt(5)) * powerMultiplier));
             double oldHealth = other.health;
@@ -3431,7 +3962,23 @@ public class Bird {
         return normX * normX + normY * normY <= 1.0;
     }
 
-    private void handleBoundaries() {
+    private boolean applyCameraTopBoundaryPressure(double gameSpeed, boolean trainingDummy) {
+        double topCameraLimit = 0.0;
+        if (y >= topCameraLimit) return false;
+        double overflow = topCameraLimit - y;
+        double chipDamage = Math.min(0.85, 0.12 + overflow * 0.0032) * gameSpeed;
+        health = Math.max(0.0, health - chipDamage);
+        vy = Math.max(vy, 1.35 + Math.min(6.8, overflow * 0.055));
+        if (type == BirdGame3.BirdType.VULTURE && overflow > 24.0) {
+            isFlying = false;
+        }
+        if (trainingDummy && health <= 0) {
+            health = STARTING_HEALTH;
+        }
+        return health <= 0;
+    }
+
+    private void handleBoundaries(double gameSpeed) {
         double leftBound = 50;
         double rightBound = BirdGame3.WORLD_WIDTH - 150 * sizeMultiplier;
         double outLeft = -300;
@@ -3449,6 +3996,10 @@ public class Bird {
         if (x > rightBound) x = rightBound;
 
         boolean trainingDummy = game.isTrainingDummy(this);
+
+        if (applyCameraTopBoundaryPressure(gameSpeed, trainingDummy)) {
+            return;
+        }
 
         if (x < outLeft || x > outRight) {
             health = Math.max(0, health - 50);
@@ -3555,7 +4106,7 @@ public class Bird {
     private void handlePowerUpPickup() {
         for (Iterator<PowerUp> it = game.powerUps.iterator(); it.hasNext(); ) {
             PowerUp p = it.next();
-            if (Math.abs(x + 40 - p.x) < 80 && Math.abs(y + 40 - p.y) < 80) {
+            if (overlapsPowerUp(p)) {
                 handlePowerUpType(p, it);
             }
         }
@@ -3580,8 +4131,7 @@ public class Bird {
             case SHRINK -> {
                 for (Bird b : game.players) {
                     if (b != null && b != this && canDamageTarget(b)) {
-                        b.sizeMultiplier = b.baseSizeMultiplier * 0.6;
-                        b.shrinkTimer = 360;
+                        b.applyShrinkEffect(0.6, 360);
                     }
                 }
                 game.addToKillFeed(shortName() + " SHRANK + WEAKENED enemies!");
@@ -3776,6 +4326,7 @@ public class Bird {
         nullRockInvincibilityTimer = 0;
         nullRockPhaseIndex = 0;
         nullRockShieldFxCooldown = 0;
+        trueNullRockForm = false;
     }
 
     private void removeOwnedSummons() {
@@ -4775,39 +5326,112 @@ public class Bird {
             double s = sizeMultiplier;
             if (isNullRockSkin) {
                 double pulse = suppressSelectEffects ? 0.35 : (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 180.0));
+                double cx = x + drawSize * 0.5;
+                if (isTrueNullRockForm()) {
+                    g.setFill(Color.web("#FFF8E1", 0.22 + pulse * 0.08));
+                    g.fillOval(x - 88 * s, y - 92 * s, drawSize + 176 * s, drawSize + 242 * s);
+                    g.setStroke(Color.web("#B39DDB").deriveColor(0, 1, 1, 0.65 + pulse * 0.18));
+                    g.setLineWidth(7 * s);
+                    g.strokeOval(x - 54 * s, y - 58 * s, drawSize + 108 * s, drawSize + 154 * s);
+                }
+                g.setFill(Color.rgb(3, 2, 7, 0.9));
+                g.fillOval(x - 54 * s, y - 50 * s, drawSize + 108 * s, drawSize + 154 * s);
                 g.setFill(Color.rgb(8, 6, 14, 0.85));
                 g.fillOval(x - 34 * s, y - 26 * s, drawSize + 68 * s, drawSize + 84 * s);
                 g.setStroke(Color.web("#5C0F16").deriveColor(0, 1, 1, 0.58 + pulse * 0.18));
                 g.setLineWidth(8 * s);
                 g.strokeOval(x - 18 * s, y - 10 * s, drawSize + 36 * s, drawSize + 34 * s);
+
+                g.setFill(Color.web("#10030B"));
+                double[] crestX = {
+                        cx - 40 * s, cx - 24 * s, cx - 10 * s, cx + 2 * s,
+                        cx + 16 * s, cx + 34 * s, cx + 16 * s, cx - 2 * s
+                };
+                double[] crestY = {
+                        y + 28 * s, y - 34 * s, y + 12 * s, y - 44 * s,
+                        y + 10 * s, y - 28 * s, y + 36 * s, y + 48 * s
+                };
+                g.fillPolygon(crestX, crestY, crestX.length);
                 g.setFill(Color.web("#130C18"));
             } else {
                 g.setFill(Color.rgb(35, 15, 45));
             }
             g.fillOval(x, y, drawSize, drawSize);
 
-            double wingSpread = isFlying || Math.abs(vx) > 2 ? (isNullRockSkin ? 1.9 : 1.4) : (isNullRockSkin ? 1.35 : 1.0);
+            double wingSpread = isFlying || Math.abs(vx) > 2 ? (isNullRockSkin ? 2.15 : 1.4) : (isNullRockSkin ? 1.55 : 1.0);
             g.setFill(isNullRockSkin ? Color.web("#09060D") : Color.rgb(20, 10, 30));
             g.fillOval(x - 34 * wingSpread * s, y + 2 * s, 58 * wingSpread * s, 104 * s);
             g.fillOval(x + drawSize - 24 * wingSpread * s, y + 2 * s, 58 * wingSpread * s, 104 * s);
 
-            g.setFill(isNullRockSkin ? Color.web("#7A0C16") : Color.rgb(180, 30, 30));
+            g.setFill(isNullRockSkin
+                    ? (isTrueNullRockForm() ? Color.web("#B71CFF") : Color.web("#7A0C16"))
+                    : Color.rgb(180, 30, 30));
             g.fillOval(x + 15 * s, y + 10 * s, 50 * s, 55 * s);
 
             g.setFill(isNullRockSkin ? Color.web("#2A050A") : Color.CRIMSON.darker().darker());
             g.fillOval(x + 25 * s, y + 25 * s, 20 * s, 20 * s);
             g.fillOval(x + 45 * s, y + 25 * s, 20 * s, 20 * s);
-            g.setFill(isNullRockSkin ? Color.web("#FF6E6E") : Color.RED.brighter());
+            g.setFill(isNullRockSkin
+                    ? (isTrueNullRockForm() ? Color.web("#FFF176") : Color.web("#FF6E6E"))
+                    : Color.RED.brighter());
             g.fillOval(x + 30 * s, y + 30 * s, 10 * s, 10 * s);
             g.fillOval(x + 50 * s, y + 30 * s, 10 * s, 10 * s);
 
             if (isNullRockSkin) {
                 double cx = x + drawSize * 0.5;
-                drawRoyalCrown(g, cx, y - 18 * s, 44 * s, 22 * s, Color.web("#6B0F1A"), Color.web("#FFB3B3"));
+                g.setFill(Color.web("#150208"));
+                g.fillRoundRect(x + 16 * s, y + 54 * s, 48 * s, 18 * s, 14 * s, 14 * s);
+                g.setFill(Color.web("#FFD7D7").deriveColor(0, 1, 1, 0.92));
+                for (int i = 0; i < 4; i++) {
+                    double toothX = x + 24 * s + i * 9 * s;
+                    g.fillPolygon(
+                            new double[]{toothX, toothX + 4 * s, toothX + 8 * s},
+                            new double[]{y + 58 * s, y + 70 * s, y + 58 * s},
+                            3
+                    );
+                }
+
+                g.setStroke(Color.web("#36060E"));
+                g.setLineWidth(3.2 * s);
+                g.strokeLine(x + 18 * s, y + 16 * s, x + 30 * s, y + 28 * s);
+                g.strokeLine(x + 62 * s, y + 16 * s, x + 50 * s, y + 28 * s);
+
+                g.setStroke(Color.web("#FF8A80"));
+                g.setLineWidth(1.8 * s);
+                g.strokeLine(x + 20 * s, y + 59 * s, x + 60 * s, y + 61 * s);
+
+                g.setStroke(Color.web("#7A101C").deriveColor(0, 1, 1, 0.74));
+                g.setLineWidth(2.8 * s);
+                g.strokeLine(x + 40 * s, y + 8 * s, x + 40 * s, y + 66 * s);
+                g.strokeLine(x + 34 * s, y + 18 * s, x + 24 * s, y + 48 * s);
+                g.strokeLine(x + 46 * s, y + 18 * s, x + 56 * s, y + 50 * s);
+
+                Color crownFill = isTrueNullRockForm() ? Color.web("#6A1B9A") : Color.web("#54070F");
+                Color crownStroke = isTrueNullRockForm() ? Color.web("#FFF59D") : Color.web("#FFB3B3");
+                drawRoyalCrown(g, cx, y - 22 * s, 52 * s, 28 * s, crownFill, crownStroke);
                 g.setStroke(Color.web("#3A0810").deriveColor(0, 1, 1, 0.85));
-                g.setLineWidth(2.4 * s);
-                g.strokeLine(cx - 18 * s, y + 16 * s, cx - 6 * s, y + 44 * s);
-                g.strokeLine(cx + 18 * s, y + 16 * s, cx + 6 * s, y + 44 * s);
+                g.setLineWidth(3.0 * s);
+                g.strokeLine(cx - 22 * s, y + 14 * s, cx - 8 * s, y + 48 * s);
+                g.strokeLine(cx + 22 * s, y + 14 * s, cx + 8 * s, y + 48 * s);
+                g.strokeLine(cx - 8 * s, y + 52 * s, cx - 24 * s, y + 78 * s);
+                g.strokeLine(cx + 8 * s, y + 52 * s, cx + 24 * s, y + 78 * s);
+
+                if (isTrueNullRockForm()) {
+                    g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.8));
+                    g.setLineWidth(2.6 * s);
+                    g.strokeArc(cx - 48 * s, y - 58 * s, 96 * s, 36 * s, 200, 140, ArcType.OPEN);
+                    g.strokeLine(cx, y - 30 * s, cx, y - 62 * s);
+                }
+
+                g.setStroke(Color.web("#0C050F"));
+                g.setLineWidth(3.4 * s);
+                for (int side = 0; side < 2; side++) {
+                    double baseX = side == 0 ? x + 18 * s : x + 62 * s;
+                    double dir = side == 0 ? -1.0 : 1.0;
+                    g.strokeLine(baseX, y + 74 * s, baseX + dir * 10 * s, y + 88 * s);
+                    g.strokeLine(baseX, y + 74 * s, baseX + dir * 4 * s, y + 92 * s);
+                    g.strokeLine(baseX, y + 74 * s, baseX + dir * 15 * s, y + 84 * s);
+                }
             }
 
             if (carrionSwarmTimer > 0) {
@@ -4881,7 +5505,7 @@ public class Bird {
         g.strokeOval(centerX - ring * 0.68, centerY - ring * 0.68, ring * 1.36, ring * 1.36);
         g.setFill(Color.web("#FFCDD2", 0.9));
         g.setFont(Font.font("Arial Black", Math.max(22.0, 18.0 * Math.clamp(sizeMultiplier, 1.0, 1.8))));
-        g.fillText("VOID SHELL", x - 6 * sizeMultiplier, y - 34 * sizeMultiplier);
+        g.fillText(isTrueNullRockForm() ? "DIVINE SHELL" : "VOID SHELL", x - 6 * sizeMultiplier, y - 34 * sizeMultiplier);
     }
 
     private void drawSpecialCooldown(GraphicsContext g) {
@@ -5652,4 +6276,3 @@ public class Bird {
         }
     }
 }
-
