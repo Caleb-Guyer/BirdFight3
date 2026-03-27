@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Run tests
+        shell: pwsh
+        run: ./scripts/test.cmd -NoAudioAudit
+
+      - name: Audit bundled audio
+        shell: pwsh
+        run: ./scripts/audit-sounds.cmd -OutputPath audit/audio-audit.md
+
+      - name: Upload audio audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: audio-audit
+          path: audit/audio-audit.md

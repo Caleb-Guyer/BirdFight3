@@ -210,14 +210,14 @@ class BirdGame3BossBalanceTest {
     }
 
     @Test
-    void masteryEligibilityOnlyCountsLocalPlayers() throws Exception {
+    void localProgressPlayerCheckOnlyCountsLocalPlayers() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.players[0] = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
         game.players[1] = new Bird(200, BirdGame3.BirdType.EAGLE, 1, game);
         game.isAI[0] = false;
         game.isAI[1] = true;
 
-        Method method = BirdGame3.class.getDeclaredMethod("isMasteryEligibleForPlayer", int.class);
+        Method method = BirdGame3.class.getDeclaredMethod("isLocalProgressPlayer", int.class);
         method.setAccessible(true);
 
         assertTrue((Boolean) method.invoke(game, 0));

@@ -26,6 +26,7 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.effect.DropShadow;
@@ -50,6 +51,8 @@ import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
 import javafx.scene.shape.Polygon;
 import javafx.scene.shape.Rectangle;
+import javafx.scene.shape.Arc;
+import javafx.scene.shape.ArcType;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.transform.Rotate;
 import javafx.geometry.Rectangle2D;
@@ -143,14 +146,6 @@ public class BirdGame3 extends Application {
     private static final String PREF_BOSS_RUSH_CLEAR_COUNT = "boss_rush_clear_count";
     private static final String PREF_SETTING_MUSIC_VOLUME = "setting_music_volume";
     private static final String PREF_SETTING_SFX_VOLUME = "setting_sfx_volume";
-    private static final String PREF_BIRD_MASTERY_XP_PREFIX = "bird_mastery_xp_";
-    private static final int[] BIRD_MASTERY_LEVEL_XP = {
-            0, 120, 270, 470, 720, 1030, 1400, 1840, 2350, 2950
-    };
-    private static final String[] BIRD_MASTERY_TITLES = {
-            "Fledgling", "Rookie", "Scout", "Striker", "Ace",
-            "Elite", "Royal", "Ascendant", "Mythic", "Sovereign"
-    };
     private static final DateTimeFormatter MATCH_HISTORY_TIME_FORMAT =
             DateTimeFormatter.ofPattern("MMM d, yyyy  h:mm a", Locale.US);
     private static final DateTimeFormatter DAILY_CHALLENGE_DATE_FORMAT =
@@ -169,7 +164,8 @@ public class BirdGame3 extends Application {
             PREF_BIRD_COINS_SPENT,
             PREF_BIRD_COINS_CHECKSUM
     );
-    private final ContractsBoard contractsBoard = new ContractsBoard();
+    private final GameSaveRepository saveRepository = new GameSaveRepository(BirdGame3.class);
+    private final BirdProgression progression = new BirdProgression(BirdType.values());
     private PauseTransition achievementSaveDebounce;
     private boolean achievementSaveQueued = false;
 
@@ -305,7 +301,6 @@ public class BirdGame3 extends Application {
     private final int[] typeWins = new int[BirdType.values().length];
     private final int[] typeDamage = new int[BirdType.values().length];
     private final int[] typeElims = new int[BirdType.values().length];
-    private final int[] birdMasteryXp = new int[BirdType.values().length];
 
     // === FIXED TIMESTEP PAUSE FIX ===
     private long lastUpdate = 0;
@@ -364,29 +359,6 @@ public class BirdGame3 extends Application {
     }
 
     private record ControlBindingTarget(int playerIdx, ControlAction action) {}
-
-    private record MasteryGain(BirdType type, int xpEarned, int totalXp, int levelBefore, int levelAfter) {
-        boolean leveledUp() {
-            return levelAfter > levelBefore;
-        }
-
-        boolean maxed() {
-            return levelAfter >= BIRD_MASTERY_TITLES.length;
-        }
-    }
-
-    private record MasterySummary(List<MasteryGain> gains) {
-        MasterySummary {
-            gains = List.copyOf(gains);
-        }
-
-        boolean isEmpty() {
-            return gains.isEmpty();
-        }
-    }
-
-    private record ContractResolution(ContractsBoard.UpdateResult update, MasterySummary masteryBonusSummary) {
-    }
 
     record KillFeedRenderBlock(List<String> lines, double alpha) {
         KillFeedRenderBlock {
@@ -7870,6 +7842,29 @@ public class BirdGame3 extends Application {
         return pane;
     }
 
+    private Node hubIconProfiles() {
+        Pane pane = hubIconPane();
+        Circle head = new Circle(28, 18, 8, Color.web("#FFE082"));
+        head.setStroke(Color.web("#FFF8E1"));
+        head.setStrokeWidth(2);
+        Arc body = new Arc(28, 38, 16, 12, 0, 180);
+        body.setType(ArcType.OPEN);
+        body.setStroke(Color.web("#E0F7FA"));
+        body.setStrokeWidth(4);
+        body.setStrokeLineCap(StrokeLineCap.ROUND);
+        Circle badge = new Circle(42, 18, 7, Color.web("#80CBC4"));
+        badge.setStroke(Color.web("#E0F2F1"));
+        badge.setStrokeWidth(2);
+        Line badgeLineA = new Line(39, 18, 45, 18);
+        badgeLineA.setStroke(Color.web("#004D40"));
+        badgeLineA.setStrokeWidth(2);
+        Line badgeLineB = new Line(42, 15, 42, 21);
+        badgeLineB.setStroke(Color.web("#004D40"));
+        badgeLineB.setStrokeWidth(2);
+        pane.getChildren().addAll(body, head, badge, badgeLineA, badgeLineB);
+        return pane;
+    }
+
     private Node hubIconExit() {
         Pane pane = hubIconPane();
         Rectangle frame = new Rectangle(16, 12, 24, 32);
@@ -7888,6 +7883,7 @@ public class BirdGame3 extends Application {
     private void showHub(Stage stage) {
         refreshContractsIfNeeded();
         playMenuMusic();
+        GameSaveRepository.SaveProfile activeProfile = saveRepository.activeProfile();
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(28, 40, 28, 40));
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #0B1D2B, #1B2E3C, #1F3D4C);");
@@ -7910,9 +7906,16 @@ public class BirdGame3 extends Application {
         VBox titleBox = new VBox(6, title, hubLabel, titleFlare);
         titleBox.setAlignment(Pos.CENTER);
 
+        Label profileLabel = new Label("PROFILE: " + activeProfile.name());
+        profileLabel.setFont(Font.font("Consolas", 22));
+        profileLabel.setTextFill(Color.web("#80DEEA"));
+
         Label coins = new Label("BIRD COINS: " + birdCoinLedger.balance());
         coins.setFont(Font.font("Consolas", 24));
         coins.setTextFill(Color.web("#FFD54F"));
+
+        VBox statusBox = new VBox(4, profileLabel, coins);
+        statusBox.setAlignment(Pos.TOP_RIGHT);
 
         Pane logoArt = new Pane();
         logoArt.setPrefSize(900, 200);
@@ -7965,10 +7968,10 @@ public class BirdGame3 extends Application {
         logoFrame.setAlignment(Pos.CENTER);
         logoFrame.setEffect(new Glow(0.08));
 
-        StackPane top = new StackPane(logoFrame, coins);
+        StackPane top = new StackPane(logoFrame, statusBox);
         StackPane.setAlignment(logoFrame, Pos.CENTER);
-        StackPane.setAlignment(coins, Pos.TOP_RIGHT);
-        StackPane.setMargin(coins, new Insets(6, 4, 0, 0));
+        StackPane.setAlignment(statusBox, Pos.TOP_RIGHT);
+        StackPane.setMargin(statusBox, new Insets(6, 4, 0, 0));
 
         GridPane nav = new GridPane();
         nav.setHgap(26);
@@ -8001,6 +8004,8 @@ public class BirdGame3 extends Application {
                 hubIconHistory(), () -> showMatchHistory(stage));
         Button bookBtn = buildHubFooterButton("FEATHERPEDIA", 185, 16, "#5E35B1", "#4527A0", "#D1C4E9",
                 hubIconFeatherpedia(), () -> showBirdBook(stage));
+        Button profilesBtn = buildHubFooterButton("PROFILES", 160, 18, "#00897B", "#00695C", "#B2DFDB",
+                hubIconProfiles(), () -> showProfileManager(stage));
         Button settingsBtn = buildHubFooterButton("SETTINGS", 160, 18, "#607D8B", "#455A64", "#CFD8DC",
                 hubIconSettings(), () -> {
                     settingsReturn = () -> showMenu(stage);
@@ -8010,7 +8015,7 @@ public class BirdGame3 extends Application {
                 hubIconExit(), () -> confirmExitGame(stage));
         uiFactory.fitSingleLineOnLayout(historyBtn, 15, 12);
         uiFactory.fitSingleLineOnLayout(bookBtn, 16, 12);
-        HBox footer = new HBox(16, achievementsBtn, historyBtn, bookBtn, settingsBtn, exitBtn);
+        HBox footer = new HBox(16, achievementsBtn, historyBtn, bookBtn, profilesBtn, settingsBtn, exitBtn);
         footer.setAlignment(Pos.CENTER);
 
         root.setTop(top);
@@ -8033,8 +8038,238 @@ public class BirdGame3 extends Application {
         fightBtn.requestFocus();
     }
 
+    private void showProfileManager(Stage stage) {
+        playMenuMusic();
+        List<GameSaveRepository.SaveProfile> profiles = saveRepository.profiles();
+        String activeProfileId = saveRepository.activeProfile().id();
+
+        BorderPane root = new BorderPane();
+        root.setPadding(new Insets(30, 40, 30, 40));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081520, #122A39, #173445);");
+
+        Button back = uiFactory.action("BACK TO HUB", 320, 84, 30, "#D32F2F", 22, () -> showMenu(stage));
+        Button create = uiFactory.action("NEW PROFILE", 290, 84, 28, "#2E7D32", 22, () -> createProfilePrompt(stage));
+
+        Label title = new Label("SAVE PROFILES");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 88));
+        title.setTextFill(Color.web("#FFE082"));
+        title.setEffect(new DropShadow(28, Color.BLACK));
+
+        Label subtitle = new Label("Settings and controls stay global. Coins, unlocks, mastery, contracts, and match history are stored per profile.");
+        subtitle.setFont(Font.font("Consolas", 20));
+        subtitle.setTextFill(Color.web("#B0BEC5"));
+        subtitle.setWrapText(true);
+        subtitle.setMaxWidth(1100);
+
+        VBox titleBox = new VBox(8, title, subtitle);
+        titleBox.setAlignment(Pos.CENTER_LEFT);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox topBar = new HBox(18, back, titleBox, spacer, create);
+        topBar.setAlignment(Pos.CENTER_LEFT);
+
+        VBox cards = new VBox(18);
+        cards.setAlignment(Pos.TOP_CENTER);
+        cards.setPadding(new Insets(8, 0, 8, 0));
+        for (GameSaveRepository.SaveProfile profile : profiles) {
+            cards.getChildren().add(buildProfileCard(stage, profile, profile.id().equals(activeProfileId), profiles.size() > 1));
+        }
+
+        ScrollPane scroll = new ScrollPane(cards);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background-color: transparent;");
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+
+        Label note = new Label("Switching or resetting the active profile reloads the hub immediately.");
+        note.setFont(Font.font("Consolas", 18));
+        note.setTextFill(Color.web("#80DEEA"));
+
+        root.setTop(topBar);
+        root.setCenter(scroll);
+        root.setBottom(note);
+        BorderPane.setAlignment(note, Pos.CENTER_LEFT);
+        BorderPane.setMargin(note, new Insets(18, 8, 0, 8));
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        create.requestFocus();
+    }
+
+    private VBox buildProfileCard(Stage stage, GameSaveRepository.SaveProfile profile, boolean active, boolean canDelete) {
+        VBox card = new VBox(12);
+        card.setPadding(new Insets(20, 24, 20, 24));
+        card.setMaxWidth(1540);
+        card.setStyle("-fx-background-color: rgba(0,0,0,0.34); -fx-background-radius: 24;"
+                + "-fx-border-color: " + (active ? "#FFE082" : "#607D8B") + ";"
+                + "-fx-border-width: 3; -fx-border-radius: 24;");
+
+        Label name = new Label(profile.name());
+        name.setFont(Font.font("Arial Black", 30));
+        name.setTextFill(active ? Color.web("#FFF59D") : Color.WHITE);
+        applyNoEllipsis(name);
+
+        Label state = new Label(active ? "ACTIVE PROFILE" : "AVAILABLE");
+        state.setFont(Font.font("Consolas", 18));
+        state.setTextFill(active ? Color.web("#80DEEA") : Color.web("#B0BEC5"));
+        applyNoEllipsis(state);
+
+        Label details = new Label("Created: " + formatProfileTimestamp(profile.createdAtMillis())
+                + "   |   Last updated: " + formatProfileTimestamp(profile.updatedAtMillis()));
+        details.setFont(Font.font("Consolas", 17));
+        details.setTextFill(Color.web("#CFD8DC"));
+        details.setWrapText(true);
+        details.setMaxWidth(1460);
+        applyNoEllipsis(details);
+
+        Button activate = uiFactory.action(active ? "ACTIVE" : "SWITCH", 180, 64, 22,
+                active ? "#546E7A" : "#1565C0", 18, () -> switchToProfile(stage, profile.id()));
+        activate.setDisable(active);
+
+        Button rename = uiFactory.action("RENAME", 180, 64, 22, "#6A1B9A", 18,
+                () -> renameProfilePrompt(stage, profile.id()));
+        Button reset = uiFactory.action("RESET", 180, 64, 22, "#EF6C00", 18,
+                () -> confirmResetProfile(stage, profile.id()));
+        Button delete = uiFactory.action("DELETE", 180, 64, 22, "#B71C1C", 18,
+                () -> confirmDeleteProfile(stage, profile.id()));
+        delete.setDisable(!canDelete);
+
+        FlowPane actions = new FlowPane(12, 12, activate, rename, reset, delete);
+        actions.setAlignment(Pos.CENTER_LEFT);
+
+        card.getChildren().addAll(name, state, details, actions);
+        return card;
+    }
+
+    private void createProfilePrompt(Stage stage) {
+        TextInputDialog dialog = new TextInputDialog("Profile " + (saveRepository.profiles().size() + 1));
+        dialog.setTitle("Create Profile");
+        dialog.setHeaderText("Create and switch to a new save profile.");
+        dialog.setContentText("Profile name:");
+        dialog.initOwner(stage);
+        dialog.showAndWait().ifPresent(name -> {
+            flushAchievementsNow();
+            saveRepository.createProfile(name, true);
+            loadAchievements();
+            showMenu(stage);
+        });
+    }
+
+    private void renameProfilePrompt(Stage stage, String profileId) {
+        GameSaveRepository.SaveProfile profile = saveRepository.profiles().stream()
+                .filter(candidate -> candidate.id().equals(profileId))
+                .findFirst()
+                .orElse(null);
+        if (profile == null) {
+            showProfileManager(stage);
+            return;
+        }
+
+        TextInputDialog dialog = new TextInputDialog(profile.name());
+        dialog.setTitle("Rename Profile");
+        dialog.setHeaderText("Rename save profile.");
+        dialog.setContentText("Profile name:");
+        dialog.initOwner(stage);
+        dialog.showAndWait().ifPresent(name -> {
+            saveRepository.renameProfile(profileId, name);
+            showProfileManager(stage);
+        });
+    }
+
+    private void switchToProfile(Stage stage, String profileId) {
+        if (profileId == null || profileId.isBlank()) {
+            showProfileManager(stage);
+            return;
+        }
+        if (profileId.equals(saveRepository.activeProfile().id())) {
+            showMenu(stage);
+            return;
+        }
+
+        flushAchievementsNow();
+        saveRepository.setActiveProfile(profileId);
+        loadAchievements();
+        showMenu(stage);
+    }
+
+    private void confirmResetProfile(Stage stage, String profileId) {
+        GameSaveRepository.SaveProfile profile = saveRepository.profiles().stream()
+                .filter(candidate -> candidate.id().equals(profileId))
+                .findFirst()
+                .orElse(null);
+        if (profile == null) {
+            showProfileManager(stage);
+            return;
+        }
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                "Reset coins, unlocks, mastery, contracts, story progress, and match history for this profile?",
+                ButtonType.YES,
+                ButtonType.NO);
+        alert.setTitle("Reset Profile");
+        alert.setHeaderText("Reset " + profile.name() + "?");
+        alert.initOwner(stage);
+        alert.showAndWait().ifPresent(choice -> {
+            if (choice != ButtonType.YES) {
+                return;
+            }
+            flushAchievementsNow();
+            boolean active = profileId.equals(saveRepository.activeProfile().id());
+            saveRepository.clearProfile(profileId);
+            if (active) {
+                loadAchievements();
+                showMenu(stage);
+            } else {
+                showProfileManager(stage);
+            }
+        });
+    }
+
+    private void confirmDeleteProfile(Stage stage, String profileId) {
+        GameSaveRepository.SaveProfile profile = saveRepository.profiles().stream()
+                .filter(candidate -> candidate.id().equals(profileId))
+                .findFirst()
+                .orElse(null);
+        if (profile == null) {
+            showProfileManager(stage);
+            return;
+        }
+
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
+                "Delete this profile and all of its profile-specific progress?",
+                ButtonType.YES,
+                ButtonType.NO);
+        alert.setTitle("Delete Profile");
+        alert.setHeaderText("Delete " + profile.name() + "?");
+        alert.initOwner(stage);
+        alert.showAndWait().ifPresent(choice -> {
+            if (choice != ButtonType.YES) {
+                return;
+            }
+            flushAchievementsNow();
+            boolean active = profileId.equals(saveRepository.activeProfile().id());
+            saveRepository.deleteProfile(profileId);
+            if (active) {
+                loadAchievements();
+                showMenu(stage);
+            } else {
+                showProfileManager(stage);
+            }
+        });
+    }
+
+    private String formatProfileTimestamp(long epochMillis) {
+        if (epochMillis <= 0L) {
+            return "Never";
+        }
+        return MATCH_HISTORY_TIME_FORMAT.format(LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneId.systemDefault()));
+    }
+
     private VBox buildContractHubPanel() {
-        List<ContractsBoard.ContractView> contracts = contractsBoard.activeContracts();
+        List<ContractsBoard.ContractView> contracts = progression.activeContracts();
         if (contracts.isEmpty()) return new VBox();
 
         VBox box = new VBox(10);
@@ -9845,7 +10080,7 @@ public class BirdGame3 extends Application {
         Label prompt = new Label("Enter host IP (port " + LanProtocol.DEFAULT_PORT + ")");
         MenuLayout.styleMenuMessage(prompt, 24, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
 
-        Preferences prefs = Preferences.userNodeForPackage(BirdGame3.class);
+        Preferences prefs = saveRepository.globalPrefs();
         if (lanLastHost == null || lanLastHost.isBlank()) {
             lanLastHost = prefs.get("lan_last_host", "");
         }
@@ -10855,10 +11090,10 @@ public class BirdGame3 extends Application {
 
         int coinsEarned = awardBirdCoinsForMatch(winner);
         recordMatchHistory(winner, coinsEarned);
-        ContractResolution contractResolution = resolveContractsForMatch(winner);
-        MasterySummary masterySummary = mergeMasterySummaries(
-                awardBirdMasteryForMatch(winner),
-                contractResolution.masteryBonusSummary()
+        BirdProgression.MatchResult progressionResult = progression.applyMatch(
+                buildProgressionMatchContext(winner),
+                this::grantBirdCoins,
+                this::saveAchievements
         );
         Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoinLedger.balance());
         coinsLabel.setFont(Font.font("Consolas", 28));
@@ -10930,8 +11165,8 @@ public class BirdGame3 extends Application {
             actions.getChildren().add(waiting);
         }
 
-        VBox masteryPanel = buildMasterySummaryPanel(masterySummary);
-        VBox contractPanel = buildContractSummaryPanel(contractResolution.update());
+        VBox masteryPanel = buildMasterySummaryPanel(progressionResult.masterySummary());
+        VBox contractPanel = buildContractSummaryPanel(progressionResult.contractUpdate());
         root.getChildren().addAll(title, subtitle, coinsLabel, mapLabel);
         if (contractPanel != null) {
             root.getChildren().add(contractPanel);
@@ -12867,7 +13102,7 @@ public class BirdGame3 extends Application {
                     ? buildBirdTileIcon(entry.type, entry.skinKey, entry.origin)
                     : buildLockedTileIcon(accent);
             String label = unlocked
-                    ? (entry.displayName.toUpperCase() + (entry.showMastery ? "\nLV " + birdMasteryLevel(entry.type) : "\nBOSS FORM"))
+                    ? (entry.displayName.toUpperCase() + (entry.showMastery ? "\nLV " + progression.level(entry.type) : "\nBOSS FORM"))
                     : entry.displayName.toUpperCase();
             Button tile = createBirdBookTile(grid, label, icon, unlocked, accent,
                     () -> showBirdSidebar(sidebar, entry));
@@ -13142,8 +13377,8 @@ public class BirdGame3 extends Application {
             sidebar.getChildren().add(bookBody("BASE BIRD: " + baseBird.name, 16));
         }
         if (entry.showMastery) {
-            Label mastery = bookBody(birdMasteryStatusLine(entry.type), 18);
-            Label masteryProgress = bookBody(birdMasteryProgressLine(entry.type), 16);
+            Label mastery = bookBody(progression.statusLine(entry.type), 18);
+            Label masteryProgress = bookBody(progression.progressLine(entry.type), 16);
             ProgressBar masteryBar = buildBirdMasteryProgressBar(entry.type, entry.origin);
             sidebar.getChildren().addAll(mastery, masteryProgress, masteryBar);
         }
@@ -13487,90 +13722,8 @@ public class BirdGame3 extends Application {
         return BirdBookUiSupport.originMapForBird(type);
     }
 
-    private int maxBirdMasteryLevel() {
-        return BIRD_MASTERY_TITLES.length;
-    }
-
-    private int maxBirdMasteryXp() {
-        return BIRD_MASTERY_LEVEL_XP[BIRD_MASTERY_LEVEL_XP.length - 1];
-    }
-
-    private int clampBirdMasteryXp(int xp) {
-        return Math.clamp(xp, 0, maxBirdMasteryXp());
-    }
-
-    private int birdMasteryXpForLevel(int level) {
-        if (level <= 1) {
-            return 0;
-        }
-        if (level >= maxBirdMasteryLevel()) {
-            return maxBirdMasteryXp();
-        }
-        return BIRD_MASTERY_LEVEL_XP[level - 1];
-    }
-
-    private int birdMasteryLevelForXp(int xp) {
-        int safeXp = clampBirdMasteryXp(xp);
-        for (int i = BIRD_MASTERY_LEVEL_XP.length - 1; i >= 0; i--) {
-            if (safeXp >= BIRD_MASTERY_LEVEL_XP[i]) {
-                return i + 1;
-            }
-        }
-        return 1;
-    }
-
-    private int birdMasteryXp(BirdType type) {
-        return type == null ? 0 : birdMasteryXp[type.ordinal()];
-    }
-
-    private int birdMasteryLevel(BirdType type) {
-        return birdMasteryLevelForXp(birdMasteryXp(type));
-    }
-
-    private boolean isBirdMasteryMaxed(BirdType type) {
-        return birdMasteryLevel(type) >= maxBirdMasteryLevel();
-    }
-
-    private String birdMasteryTitle(BirdType type) {
-        int level = Math.clamp(birdMasteryLevel(type), 1, maxBirdMasteryLevel());
-        return BIRD_MASTERY_TITLES[level - 1];
-    }
-
-    private String birdMasteryStatusLine(BirdType type) {
-        return "MASTERY: LV " + birdMasteryLevel(type) + ' ' + birdMasteryTitle(type);
-    }
-
-    private String birdMasteryProgressLine(BirdType type) {
-        if (type == null) {
-            return "Progress: unavailable";
-        }
-        if (isBirdMasteryMaxed(type)) {
-            return "Progress: MAX LEVEL";
-        }
-        int level = birdMasteryLevel(type);
-        int currentXp = birdMasteryXp(type);
-        int levelStartXp = birdMasteryXpForLevel(level);
-        int nextLevelXp = birdMasteryXpForLevel(level + 1);
-        return "Progress: " + (currentXp - levelStartXp) + "/" + (nextLevelXp - levelStartXp) + " XP to Lv " + (level + 1);
-    }
-
-    private double birdMasteryProgressRatio(BirdType type) {
-        if (type == null) {
-            return 0.0;
-        }
-        if (isBirdMasteryMaxed(type)) {
-            return 1.0;
-        }
-        int level = birdMasteryLevel(type);
-        int currentXp = birdMasteryXp(type);
-        int levelStartXp = birdMasteryXpForLevel(level);
-        int nextLevelXp = birdMasteryXpForLevel(level + 1);
-        int span = Math.max(1, nextLevelXp - levelStartXp);
-        return Math.clamp((currentXp - levelStartXp) / (double) span, 0.0, 1.0);
-    }
-
     private ProgressBar buildBirdMasteryProgressBar(BirdType type, MapType origin) {
-        ProgressBar bar = new ProgressBar(birdMasteryProgressRatio(type));
+        ProgressBar bar = new ProgressBar(progression.progressRatio(type));
         bar.setPrefWidth(420);
         bar.setMaxWidth(420);
         bar.setMinWidth(420);
@@ -13587,8 +13740,8 @@ public class BirdGame3 extends Application {
                 + " | Speed: " + String.format(Locale.US, "%.1f", type.speed)
                 + " | Jump: " + type.jumpHeight
                 + "\nSPECIAL: " + type.ability
-                + "\n" + birdMasteryStatusLine(type)
-                + "\n" + birdMasteryProgressLine(type);
+                + "\n" + progression.statusLine(type)
+                + "\n" + progression.progressLine(type);
     }
 
     private String birdStatsLine(BirdType type) {
@@ -20209,10 +20362,10 @@ public class BirdGame3 extends Application {
         int coinsEarned = awardBirdCoinsForMatch(winner);
         recordMatchHistory(winner, coinsEarned);
         recordDailyChallengeResult(winner);
-        ContractResolution contractResolution = resolveContractsForMatch(winner);
-        MasterySummary masterySummary = mergeMasterySummaries(
-                awardBirdMasteryForMatch(winner),
-                contractResolution.masteryBonusSummary()
+        BirdProgression.MatchResult progressionResult = progression.applyMatch(
+                buildProgressionMatchContext(winner),
+                this::grantBirdCoins,
+                this::saveAchievements
         );
         Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoinLedger.balance());
         coinsLabel.setFont(Font.font("Consolas", 28));
@@ -20226,8 +20379,8 @@ public class BirdGame3 extends Application {
 
         HBox buttons = buildSummaryButtons(stage, winner);
         applyWinnerMapProgress(winner);
-        VBox masteryPanel = buildMasterySummaryPanel(masterySummary);
-        VBox contractPanel = buildContractSummaryPanel(contractResolution.update());
+        VBox masteryPanel = buildMasterySummaryPanel(progressionResult.masterySummary());
+        VBox contractPanel = buildContractSummaryPanel(progressionResult.contractUpdate());
 
         boolean teamSummaryMode = isMatchHistoryTeamMode();
         if (teamSummaryMode) {
@@ -20944,138 +21097,46 @@ public class BirdGame3 extends Application {
     }
 
     private void refreshContractsIfNeeded() {
-        if (contractsBoard.refresh(currentContractDate())) {
+        if (progression.refreshContracts(currentContractDate())) {
             saveAchievements();
         }
     }
 
-    private ContractResolution resolveContractsForMatch(Bird winner) {
-        refreshContractsIfNeeded();
-        ContractsBoard.MatchStats matchStats = buildContractMatchStats(winner);
-        if (matchStats.matchesPlayed() <= 0) {
-            return new ContractResolution(ContractsBoard.UpdateResult.empty(), new MasterySummary(Collections.emptyList()));
-        }
-
-        ContractsBoard.UpdateResult update = contractsBoard.applyMatch(matchStats);
-        if (!update.hasChanges()) {
-            return new ContractResolution(update, new MasterySummary(Collections.emptyList()));
-        }
-
-        if (update.coinsAwarded() > 0) {
-            grantBirdCoins(update.coinsAwarded());
-        }
-
-        MasterySummary masteryBonus = awardContractMasteryBonus(localContractBirdTypes(), update.masteryXpAwarded());
-        saveAchievements();
-        return new ContractResolution(update, masteryBonus);
-    }
-
-    private ContractsBoard.MatchStats buildContractMatchStats(Bird winner) {
-        if (trainingModeActive) {
-            return new ContractsBoard.MatchStats(false, selectedMap, 0, 0, 0, 0, 0, 0);
-        }
-
-        int damage = 0;
-        int elims = 0;
-        int usedSpecials = 0;
-        int landedSpecials = 0;
-        boolean hasLocalPlayers = false;
-
-        for (int i = 0; i < players.length; i++) {
-            if (isMasteryEligibleForPlayer(i)) continue;
-            hasLocalPlayers = true;
-            damage += Math.max(0, damageDealt[i]);
-            elims += Math.max(0, eliminations[i]);
-            usedSpecials += Math.max(0, specialsUsed[i]);
-            landedSpecials += Math.max(0, specialHits[i]);
-        }
-
-        if (!hasLocalPlayers) {
-            return new ContractsBoard.MatchStats(false, selectedMap, 0, 0, 0, 0, 0, 0);
-        }
-
-        boolean localWin = didLocalContractPlayerWin(winner);
-        return new ContractsBoard.MatchStats(
-                localWin,
+    private BirdProgression.MatchContext buildProgressionMatchContext(Bird winner) {
+        return new BirdProgression.MatchContext(
+                currentContractDate(),
                 selectedMap,
-                1,
-                localWin ? 1 : 0,
-                damage,
-                elims,
-                usedSpecials,
-                landedSpecials
+                winner,
+                players,
+                isAI,
+                activePlayers,
+                damageDealt,
+                eliminations,
+                specialsUsed,
+                specialHits,
+                tauntsPerformed,
+                trainingModeActive,
+                lanModeActive,
+                lanPlayerIndex,
+                dailyChallengeModeActive,
+                classicModeActive,
+                adventureModeActive,
+                storyModeActive,
+                competitionModeEnabled,
+                isMatchHistoryTeamMode(),
+                this::getEffectiveTeam
         );
     }
 
-    private boolean didLocalContractPlayerWin(Bird winner) {
-        if (winner == null) return false;
-        int winningTeam = getEffectiveTeam(winner.playerIndex);
-        for (int i = 0; i < players.length; i++) {
-            if (isMasteryEligibleForPlayer(i)) continue;
-            if (getEffectiveTeam(i) == winningTeam) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private Set<BirdType> localContractBirdTypes() {
-        Set<BirdType> types = new LinkedHashSet<>();
-        for (int i = 0; i < players.length; i++) {
-            if (isMasteryEligibleForPlayer(i)) continue;
-            Bird bird = players[i];
-            if (bird != null && bird.type != null) {
-                types.add(bird.type);
-            }
-        }
-        return types;
-    }
-
-    private MasterySummary awardContractMasteryBonus(Set<BirdType> localTypes, int bonusXp) {
-        if (bonusXp <= 0 || localTypes == null || localTypes.isEmpty()) {
-            return new MasterySummary(Collections.emptyList());
-        }
-
-        List<MasteryGain> gains = new ArrayList<>();
-        for (BirdType type : localTypes) {
-            int idx = type.ordinal();
-            int beforeXp = birdMasteryXp[idx];
-            int beforeLevel = birdMasteryLevelForXp(beforeXp);
-            int earnedXp = Math.clamp(maxBirdMasteryXp() - beforeXp, 0, bonusXp);
-            int afterXp = clampBirdMasteryXp(beforeXp + earnedXp);
-            birdMasteryXp[idx] = afterXp;
-            int afterLevel = birdMasteryLevelForXp(afterXp);
-            gains.add(new MasteryGain(type, earnedXp, afterXp, beforeLevel, afterLevel));
-        }
-        return new MasterySummary(gains);
-    }
-
-    private MasterySummary mergeMasterySummaries(MasterySummary primary, MasterySummary secondary) {
-        if (primary == null || primary.isEmpty()) {
-            return secondary == null ? new MasterySummary(Collections.emptyList()) : secondary;
-        }
-        if (secondary == null || secondary.isEmpty()) {
-            return primary;
-        }
-
-        Map<BirdType, MasteryGain> merged = new LinkedHashMap<>();
-        for (MasterySummary summary : List.of(primary, secondary)) {
-            for (MasteryGain gain : summary.gains()) {
-                MasteryGain existing = merged.get(gain.type());
-                if (existing == null) {
-                    merged.put(gain.type(), gain);
-                } else {
-                    merged.put(gain.type(), new MasteryGain(
-                            gain.type(),
-                            existing.xpEarned() + gain.xpEarned(),
-                            gain.totalXp(),
-                            existing.levelBefore(),
-                            gain.levelAfter()
-                    ));
-                }
-            }
-        }
-        return new MasterySummary(new ArrayList<>(merged.values()));
+    private boolean isLocalProgressPlayer(int playerIdx) {
+        return BirdProgression.isLocalProgressPlayer(
+                players,
+                isAI,
+                trainingModeActive,
+                lanModeActive,
+                lanPlayerIndex,
+                playerIdx
+        );
     }
 
     private VBox buildContractSummaryPanel(ContractsBoard.UpdateResult update) {
@@ -21133,91 +21194,7 @@ public class BirdGame3 extends Application {
         return box;
     }
 
-    private boolean isMasteryEligibleForPlayer(int playerIdx) {
-        if (trainingModeActive || playerIdx < 0 || playerIdx >= players.length || players[playerIdx] == null) {
-            return true;
-        }
-        if (lanModeActive) {
-            return playerIdx != lanPlayerIndex;
-        }
-        return isAI[playerIdx];
-    }
-
-    private int masteryXpFromPlayerStats(int playerIdx, Bird winner) {
-        int xp = Math.max(0, damageDealt[playerIdx]) / 7;
-        xp += Math.max(0, eliminations[playerIdx]) * 12;
-        xp += Math.max(0, specialHits[playerIdx]) * 5;
-        xp += Math.clamp(tauntsPerformed[playerIdx], 0, 6);
-
-        if (winner != null) {
-            if (winner.playerIndex == playerIdx) {
-                xp += 22;
-            } else if (isMatchHistoryTeamMode()
-                    && getEffectiveTeam(winner.playerIndex) == getEffectiveTeam(playerIdx)) {
-                xp += 14;
-            }
-        }
-
-        if (dailyChallengeModeActive) {
-            xp += 20;
-        } else if (classicModeActive) {
-            xp += 16;
-        } else if (adventureModeActive) {
-            xp += 14;
-        } else if (storyModeActive) {
-            xp += 12;
-        }
-
-        if (competitionModeEnabled) {
-            xp += 10;
-        }
-        if (lanModeActive) {
-            xp += 8;
-        }
-        return Math.max(8, xp);
-    }
-
-    private MasterySummary awardBirdMasteryForMatch(Bird winner) {
-        if (trainingModeActive) {
-            return new MasterySummary(Collections.emptyList());
-        }
-
-        Map<BirdType, Integer> xpByType = new LinkedHashMap<>();
-        for (int i = 0; i < activePlayers; i++) {
-            if (isMasteryEligibleForPlayer(i)) continue;
-            Bird bird = players[i];
-            if (bird == null || bird.type == null) continue;
-            xpByType.merge(bird.type, masteryXpFromPlayerStats(i, winner), Integer::sum);
-        }
-
-        if (xpByType.isEmpty()) {
-            return new MasterySummary(Collections.emptyList());
-        }
-
-        List<MasteryGain> gains = new ArrayList<>();
-        boolean changed = false;
-        for (Map.Entry<BirdType, Integer> entry : xpByType.entrySet()) {
-            BirdType type = entry.getKey();
-            int idx = type.ordinal();
-            int beforeXp = birdMasteryXp[idx];
-            int beforeLevel = birdMasteryLevelForXp(beforeXp);
-            int earnedXp = Math.clamp(maxBirdMasteryXp() - beforeXp, 0, entry.getValue());
-            int afterXp = clampBirdMasteryXp(beforeXp + earnedXp);
-            birdMasteryXp[idx] = afterXp;
-            int afterLevel = birdMasteryLevelForXp(afterXp);
-            if (afterXp != beforeXp) {
-                changed = true;
-            }
-            gains.add(new MasteryGain(type, earnedXp, afterXp, beforeLevel, afterLevel));
-        }
-
-        if (changed) {
-            saveAchievements();
-        }
-        return new MasterySummary(gains);
-    }
-
-    private VBox buildMasterySummaryPanel(MasterySummary summary) {
+    private VBox buildMasterySummaryPanel(BirdProgression.MasterySummary summary) {
         if (summary == null || summary.isEmpty()) return null;
 
         VBox box = new VBox(10);
@@ -21231,15 +21208,15 @@ public class BirdGame3 extends Application {
         header.setTextFill(Color.web("#B2DFDB"));
         box.getChildren().add(header);
 
-        for (MasteryGain gain : summary.gains()) {
-            Label name = new Label(gain.type().name.toUpperCase() + "  |  LV " + gain.levelAfter() + ' ' + birdMasteryTitle(gain.type()));
+        for (BirdProgression.MasteryGain gain : summary.gains()) {
+            Label name = new Label(gain.type().name.toUpperCase() + "  |  LV " + gain.levelAfter() + ' ' + progression.title(gain.type()));
             name.setFont(Font.font("Arial Black", 24));
             name.setTextFill(gain.leveledUp() ? Color.web("#FFF59D") : Color.WHITE);
             applyNoEllipsis(name);
 
             String progressText = gain.maxed()
                     ? "MAX LEVEL"
-                    : birdMasteryProgressLine(gain.type());
+                    : progression.progressLine(gain.type());
             Label detail = getLabel(gain.leveledUp()
                     ? ("+" + gain.xpEarned() + " XP  |  LEVEL UP " + gain.levelBefore() + " -> " + gain.levelAfter() + "  |  " + progressText)
                     : ("+" + gain.xpEarned() + " XP  |  " + progressText));
@@ -21301,8 +21278,29 @@ public class BirdGame3 extends Application {
     }
 
     private void loadAchievements() {
-        Preferences prefs = Preferences.userNodeForPackage(BirdGame3.class);
+        Preferences prefs = saveRepository.globalPrefs();
+        Preferences profilePrefs = saveRepository.activeProfilePrefs();
+        loadGlobalSettings(prefs);
+        loadProfileProgress(profilePrefs);
+    }
+
+    private void loadGlobalSettings(Preferences prefs) {
         loadControlBindings(prefs);
+        lanLastHost = prefs.get("lan_last_host", "");
+        musicEnabled = prefs.getBoolean("setting_music", true);
+        sfxEnabled = prefs.getBoolean("setting_sfx", true);
+        musicVolume = sanitizeVolume(prefs.getDouble(PREF_SETTING_MUSIC_VOLUME, musicEnabled ? 1.0 : 0.0));
+        sfxVolume = sanitizeVolume(prefs.getDouble(PREF_SETTING_SFX_VOLUME, sfxEnabled ? 1.0 : 0.0));
+        musicEnabled = !isMutedVolume(musicVolume);
+        sfxEnabled = !isMutedVolume(sfxVolume);
+        screenShakeEnabled = prefs.getBoolean("setting_shake", true);
+        fullscreenEnabled = prefs.getBoolean("setting_fullscreen", true);
+        particleEffectsEnabled = prefs.getBoolean("setting_particles", true);
+        ambientEffectsEnabled = prefs.getBoolean("setting_ambient_fx", true);
+        fpsCap = sanitizeFpsCap(prefs.getInt("setting_fps_cap", 60));
+    }
+
+    private void loadProfileProgress(Preferences prefs) {
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             achievementsUnlocked[i] = prefs.getBoolean("ach_" + i, false);
             achievementProgress[i] = prefs.getInt("prog_" + i, 0);
@@ -21347,17 +21345,6 @@ public class BirdGame3 extends Application {
         bossRushBestBird = parseBirdTypePreference(prefs.get(PREF_BOSS_RUSH_BEST_BIRD, ""));
         bossRushBestRank = prefs.get(PREF_BOSS_RUSH_BEST_RANK, "");
         bossRushClearCount = Math.max(0, prefs.getInt(PREF_BOSS_RUSH_CLEAR_COUNT, 0));
-        musicEnabled = prefs.getBoolean("setting_music", true);
-        sfxEnabled = prefs.getBoolean("setting_sfx", true);
-        musicVolume = sanitizeVolume(prefs.getDouble(PREF_SETTING_MUSIC_VOLUME, musicEnabled ? 1.0 : 0.0));
-        sfxVolume = sanitizeVolume(prefs.getDouble(PREF_SETTING_SFX_VOLUME, sfxEnabled ? 1.0 : 0.0));
-        musicEnabled = !isMutedVolume(musicVolume);
-        sfxEnabled = !isMutedVolume(sfxVolume);
-        screenShakeEnabled = prefs.getBoolean("setting_shake", true);
-        fullscreenEnabled = prefs.getBoolean("setting_fullscreen", true);
-        particleEffectsEnabled = prefs.getBoolean("setting_particles", true);
-        ambientEffectsEnabled = prefs.getBoolean("setting_ambient_fx", true);
-        fpsCap = sanitizeFpsCap(prefs.getInt("setting_fps_cap", 60));
         pigeonEpisodeUnlockedChapters = Math.clamp(prefs.getInt("ep_pigeon_unlocked", 1), 1, storyChapters.length);
         pigeonEpisodeCompleted = prefs.getBoolean("ep_pigeon_completed", false);
         batEpisodeUnlockedChapters = Math.clamp(prefs.getInt("ep_bat_unlocked", 1), 1, batStoryChapters.length);
@@ -21400,6 +21387,8 @@ public class BirdGame3 extends Application {
             nullRockVultureUnlocked = true;
             beaconCrownMapUnlocked = true;
         }
+        adventureChapterIndex = 0;
+        adventureBattleIndex = 0;
         adventureChapterIndex = Math.clamp(adventureChapterIndex, 0, adventureChapters.length - 1);
         adventureChapterProgress = adventureChapterProgressByIndex[adventureChapterIndex];
         adventureChapterCompleted = adventureChapterCompletedByIndex[adventureChapterIndex];
@@ -21425,9 +21414,8 @@ public class BirdGame3 extends Application {
             typeWins[idx] = prefs.getInt("balance_wins_" + type.name(), 0);
             typeDamage[idx] = prefs.getInt("balance_damage_" + type.name(), 0);
             typeElims[idx] = prefs.getInt("balance_elims_" + type.name(), 0);
-            birdMasteryXp[idx] = clampBirdMasteryXp(prefs.getInt(PREF_BIRD_MASTERY_XP_PREFIX + type.name(), 0));
         }
-        contractsBoard.load(prefs, currentContractDate());
+        progression.load(prefs, currentContractDate());
     }
     private void saveAchievements() {
         if (!javafx.application.Platform.isFxApplicationThread()) {
@@ -21459,11 +21447,44 @@ public class BirdGame3 extends Application {
     }
 
     private void persistAchievements(boolean flush) {
-        persistAchievements(Preferences.userNodeForPackage(BirdGame3.class), flush);
+        Preferences prefs = saveRepository.globalPrefs();
+        Preferences profilePrefs = saveRepository.activeProfilePrefs();
+        saveRepository.touchActiveProfile();
+        persistAchievements(prefs, profilePrefs, flush);
     }
 
     void persistAchievements(Preferences prefs, boolean flush) {
+        persistAchievements(prefs, prefs, flush);
+    }
+
+    private void persistAchievements(Preferences globalPrefs, Preferences profilePrefs, boolean flush) {
+        saveGlobalSettings(globalPrefs);
+        saveProfileProgress(profilePrefs);
+        if (!flush) {
+            return;
+        }
+        flushPreferences(globalPrefs);
+        if (!samePreferences(globalPrefs, profilePrefs)) {
+            Preferences profileRoot = profilePrefs.parent();
+            flushPreferences(profileRoot == null ? profilePrefs : profileRoot);
+        }
+    }
+
+    private void saveGlobalSettings(Preferences prefs) {
         saveControlBindings(prefs);
+        prefs.put("lan_last_host", lanLastHost == null ? "" : lanLastHost);
+        prefs.putBoolean("setting_music", musicEnabled);
+        prefs.putBoolean("setting_sfx", sfxEnabled);
+        prefs.putDouble(PREF_SETTING_MUSIC_VOLUME, sanitizeVolume(musicVolume));
+        prefs.putDouble(PREF_SETTING_SFX_VOLUME, sanitizeVolume(sfxVolume));
+        prefs.putBoolean("setting_shake", screenShakeEnabled);
+        prefs.putBoolean("setting_fullscreen", fullscreenEnabled);
+        prefs.putBoolean("setting_particles", particleEffectsEnabled);
+        prefs.putBoolean("setting_ambient_fx", ambientEffectsEnabled);
+        prefs.putInt("setting_fps_cap", fpsCap);
+    }
+
+    private void saveProfileProgress(Preferences prefs) {
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             prefs.putBoolean("ach_" + i, achievementsUnlocked[i]);
             prefs.putInt("prog_" + i, achievementProgress[i]);
@@ -21508,15 +21529,6 @@ public class BirdGame3 extends Application {
         prefs.put(PREF_BOSS_RUSH_BEST_BIRD, bossRushBestBird == null ? "" : bossRushBestBird.name());
         prefs.put(PREF_BOSS_RUSH_BEST_RANK, bossRushBestRank == null ? "" : bossRushBestRank);
         prefs.putInt(PREF_BOSS_RUSH_CLEAR_COUNT, Math.max(0, bossRushClearCount));
-        prefs.putBoolean("setting_music", musicEnabled);
-        prefs.putBoolean("setting_sfx", sfxEnabled);
-        prefs.putDouble(PREF_SETTING_MUSIC_VOLUME, sanitizeVolume(musicVolume));
-        prefs.putDouble(PREF_SETTING_SFX_VOLUME, sanitizeVolume(sfxVolume));
-        prefs.putBoolean("setting_shake", screenShakeEnabled);
-        prefs.putBoolean("setting_fullscreen", fullscreenEnabled);
-        prefs.putBoolean("setting_particles", particleEffectsEnabled);
-        prefs.putBoolean("setting_ambient_fx", ambientEffectsEnabled);
-        prefs.putInt("setting_fps_cap", fpsCap);
         for (BirdType type : BirdType.values()) {
             int idx = type.ordinal();
             prefs.putBoolean("classic_done_" + type.name(), classicCompleted[idx]);
@@ -21551,15 +21563,28 @@ public class BirdGame3 extends Application {
             prefs.putInt("balance_wins_" + type.name(), typeWins[idx]);
             prefs.putInt("balance_damage_" + type.name(), typeDamage[idx]);
             prefs.putInt("balance_elims_" + type.name(), typeElims[idx]);
-            prefs.putInt(PREF_BIRD_MASTERY_XP_PREFIX + type.name(), clampBirdMasteryXp(birdMasteryXp[idx]));
         }
-        contractsBoard.save(prefs);
-        if (flush) {
-            try {
-                prefs.flush();
-            } catch (BackingStoreException e) {
-                System.err.println("Failed to save preferences: " + e.getMessage());
-            }
+        progression.save(prefs);
+    }
+
+    private boolean samePreferences(Preferences left, Preferences right) {
+        if (left == right) {
+            return true;
+        }
+        if (left == null || right == null) {
+            return false;
+        }
+        return Objects.equals(left.absolutePath(), right.absolutePath());
+    }
+
+    private void flushPreferences(Preferences prefs) {
+        if (prefs == null) {
+            return;
+        }
+        try {
+            prefs.flush();
+        } catch (BackingStoreException e) {
+            System.err.println("Failed to save preferences: " + e.getMessage());
         }
     }
     public void checkAchievements(Bird bird) {
