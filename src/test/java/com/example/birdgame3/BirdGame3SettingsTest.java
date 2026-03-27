@@ -33,7 +33,7 @@ class BirdGame3SettingsTest {
 
         invokeVolumeSetter(game, "setMusicVolume", 0.42);
         invokeVolumeSetter(game, "setSfxVolume", 0.15);
-        game.persistAchievements(prefs, false);
+        game.persistAchievements(prefs);
 
         assertEquals(0.42, prefs.getDouble("setting_music_volume", -1.0), 0.0001);
         assertEquals(0.15, prefs.getDouble("setting_sfx_volume", -1.0), 0.0001);
@@ -41,7 +41,7 @@ class BirdGame3SettingsTest {
         assertTrue(prefs.getBoolean("setting_sfx", false));
 
         invokeVolumeSetter(game, "setSfxVolume", 0.0);
-        game.persistAchievements(prefs, false);
+        game.persistAchievements(prefs);
 
         assertEquals(0.0, prefs.getDouble("setting_sfx_volume", -1.0), 0.0001);
         assertFalse(prefs.getBoolean("setting_sfx", true));

@@ -7239,10 +7239,9 @@ public class BirdGame3 extends Application {
         if (crow.hasCrown) {
             double crownW = 18 * scale;
             double crownH = 10 * scale;
-            double cx = drawX;
             double cy = drawY - 18 * scale;
             double[] xs = new double[]{
-                    cx - crownW / 2, cx - crownW / 4, cx, cx + crownW / 4, cx + crownW / 2, cx + crownW / 2, cx - crownW / 2
+                    drawX - crownW / 2, drawX - crownW / 4, drawX, drawX + crownW / 4, drawX + crownW / 2, drawX + crownW / 2, drawX - crownW / 2
             };
             double[] ys = new double[]{
                     cy + crownH, cy, cy + crownH * 0.3, cy, cy + crownH, cy + crownH * 1.3, cy + crownH * 1.3
@@ -21122,11 +21121,11 @@ public class BirdGame3 extends Application {
         b.setMinWidth(width);
         b.setMaxWidth(width);
         b.setWrapText(false);
-        fitSummaryButtonSingleLine(b, 36, 16);
+        fitSummaryButtonSingleLine(b);
         return b;
     }
 
-    private void fitSummaryButtonSingleLine(Button b, double maxSize, double minSize) {
+    private void fitSummaryButtonSingleLine(Button b) {
         if (b == null) return;
         String text = b.getText();
         if (text == null || text.isBlank()) return;
@@ -21139,8 +21138,8 @@ public class BirdGame3 extends Application {
         double availableW = Math.max(120, w - 72);
         double availableH = Math.max(40, h - 22);
 
-        double size = maxSize;
-        while (size > minSize) {
+        double size = 36;
+        while (size > (double) 16) {
             Font f = Font.font("Arial Black", size);
             if (measureTextWidth(text, f) <= availableW && measureTextHeight(f) <= availableH) {
                 b.setFont(f);
@@ -21148,7 +21147,7 @@ public class BirdGame3 extends Application {
             }
             size -= 1.0;
         }
-        b.setFont(Font.font("Arial Black", minSize));
+        b.setFont(Font.font("Arial Black", 16));
     }
 
     private HBox buildSummaryButtons(Stage stage, Bird winner) {
@@ -21463,17 +21462,6 @@ public class BirdGame3 extends Application {
                 competitionModeEnabled,
                 isMatchHistoryTeamMode(),
                 this::getEffectiveTeam
-        );
-    }
-
-    private boolean isLocalProgressPlayer(int playerIdx) {
-        return BirdProgression.isLocalProgressPlayer(
-                players,
-                isAI,
-                trainingModeActive,
-                lanModeActive,
-                lanPlayerIndex,
-                playerIdx
         );
     }
 
@@ -21797,8 +21785,8 @@ public class BirdGame3 extends Application {
         persistAchievements(prefs, profilePrefs, flush);
     }
 
-    void persistAchievements(Preferences prefs, boolean flush) {
-        persistAchievements(prefs, prefs, flush);
+    void persistAchievements(Preferences prefs) {
+        persistAchievements(prefs, prefs, false);
     }
 
     private void persistAchievements(Preferences globalPrefs, Preferences profilePrefs, boolean flush) {
