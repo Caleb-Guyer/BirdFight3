@@ -62,7 +62,7 @@ class BirdGame3BossBalanceTest {
                 BirdGame3.MapType.BEACON_CROWN,
                 BirdGame3.BirdType.VULTURE,
                 "Boss: The Null Rock",
-                760.0,
+                1000.0,
                 1.78,
                 1.04,
                 null,
@@ -82,15 +82,15 @@ class BirdGame3BossBalanceTest {
         method.setAccessible(true);
         method.invoke(game, battle, BirdGame3.BirdType.PIGEON, null);
 
-        Bird boss = game.players[3];
-        assertEquals(714.4, boss.health, 0.0001);
+        Bird boss = game.players[game.activePlayers - 1];
+        assertEquals(1000.0, boss.health, 0.0001);
         assertEquals(3.6, boss.baseSizeMultiplier, 0.0001);
         assertEquals(1.7266, boss.basePowerMultiplier, 0.0001);
         assertEquals(1.0192, boss.baseSpeedMultiplier, 0.0001);
     }
 
     @Test
-    void unitedFinaleSupportQueueBringsInTheRestOfTheRoster() throws Exception {
+    void unitedFinaleClimaxSpawnsTheEntireRosterAtOnce() throws Exception {
         BirdGame3 game = new BirdGame3();
         BirdGame3.AdventureBattle battle = new BirdGame3.AdventureBattle(
                 "Battle 3: The Null Rock",
@@ -98,7 +98,7 @@ class BirdGame3BossBalanceTest {
                 BirdGame3.MapType.BEACON_CROWN,
                 BirdGame3.BirdType.VULTURE,
                 "Boss: The Null Rock",
-                760.0,
+                1000.0,
                 1.78,
                 1.04,
                 null,
@@ -118,23 +118,27 @@ class BirdGame3BossBalanceTest {
         method.setAccessible(true);
         method.invoke(game, battle, BirdGame3.BirdType.PIGEON, null);
 
+        assertEquals(BirdGame3.BirdType.values().length + 1, game.activePlayers);
         assertEquals(BirdGame3.BirdType.EAGLE, game.players[1].type);
         assertEquals(BirdGame3.BirdType.PHOENIX, game.players[2].type);
+        assertEquals(BirdGame3.BirdType.VULTURE, game.players[game.activePlayers - 1].type);
 
         Field queueField = BirdGame3.class.getDeclaredField("unitedFinaleSupportQueue");
         queueField.setAccessible(true);
         @SuppressWarnings("unchecked")
         List<Object> queue = (List<Object>) queueField.get(game);
+        assertTrue(queue.isEmpty());
 
-        List<BirdGame3.BirdType> queuedTypes = new ArrayList<>();
-        for (Object entry : queue) {
-            queuedTypes.add((BirdGame3.BirdType) recordValue(entry, "type"));
+        List<BirdGame3.BirdType> alliedTypes = new ArrayList<>();
+        for (int i = 1; i < game.activePlayers - 1; i++) {
+            assertNotNull(game.players[i], "Every ally slot should be populated.");
+            alliedTypes.add(game.players[i].type);
         }
 
-        assertFalse(queuedTypes.contains(BirdGame3.BirdType.PIGEON));
-        assertTrue(queuedTypes.contains(BirdGame3.BirdType.HUMMINGBIRD));
-        assertTrue(queuedTypes.contains(BirdGame3.BirdType.VULTURE));
-        assertTrue(queuedTypes.contains(BirdGame3.BirdType.HEISENBIRD));
+        assertFalse(alliedTypes.contains(BirdGame3.BirdType.PIGEON));
+        assertTrue(alliedTypes.contains(BirdGame3.BirdType.HUMMINGBIRD));
+        assertTrue(alliedTypes.contains(BirdGame3.BirdType.VULTURE));
+        assertTrue(alliedTypes.contains(BirdGame3.BirdType.HEISENBIRD));
     }
 
     @Test
@@ -223,7 +227,7 @@ class BirdGame3BossBalanceTest {
         method.setAccessible(true);
         method.invoke(game, bird, BirdGame3.BirdType.VULTURE, "NULL_ROCK_VULTURE");
 
-        assertEquals(714.4, bird.health, 0.0001);
+        assertEquals(1000.0, bird.health, 0.0001);
         assertEquals(3.6, bird.baseSizeMultiplier, 0.0001);
         assertEquals(1.7266, bird.basePowerMultiplier, 0.0001);
         assertEquals(1.0192, bird.baseSpeedMultiplier, 0.0001);
@@ -362,17 +366,14 @@ class BirdGame3BossBalanceTest {
         game.isAI[0] = false;
         game.isAI[1] = true;
 
-        Method method = BirdGame3.class.getDeclaredMethod("isLocalProgressPlayer", int.class);
-        method.setAccessible(true);
-
-        assertTrue((Boolean) method.invoke(game, 0));
-        assertFalse((Boolean) method.invoke(game, 1));
+        assertTrue(BirdProgression.isLocalProgressPlayer(game.players, game.isAI, false, false, -1, 0));
+        assertFalse(BirdProgression.isLocalProgressPlayer(game.players, game.isAI, false, false, -1, 1));
 
         game.lanModeActive = true;
         setPrivateInt(game);
 
-        assertFalse((Boolean) method.invoke(game, 0));
-        assertTrue((Boolean) method.invoke(game, 1));
+        assertFalse(BirdProgression.isLocalProgressPlayer(game.players, game.isAI, false, true, 1, 0));
+        assertTrue(BirdProgression.isLocalProgressPlayer(game.players, game.isAI, false, true, 1, 1));
     }
 
     @Test

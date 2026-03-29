@@ -305,6 +305,36 @@ class BirdStateTest {
     }
 
     @Test
+    void nullRockRegularAttackStaysFocusedNearItsBeak() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.nullRockVultureUnlocked = true;
+        game.activePlayers = 3;
+
+        Bird nullRock = new Bird(1000.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird targetNearBeak = new Bird(1365.0, BirdGame3.BirdType.EAGLE, 1, game);
+        Bird targetBehind = new Bird(820.0, BirdGame3.BirdType.PIGEON, 2, game);
+        nullRock.facingRight = true;
+
+        Method applySkin = BirdGame3.class.getDeclaredMethod(
+                "applySkinChoiceToBird",
+                Bird.class,
+                BirdGame3.BirdType.class,
+                String.class
+        );
+        applySkin.setAccessible(true);
+        applySkin.invoke(game, nullRock, BirdGame3.BirdType.VULTURE, "NULL_ROCK_VULTURE");
+
+        game.players[0] = nullRock;
+        game.players[1] = targetNearBeak;
+        game.players[2] = targetBehind;
+
+        invokePrivateVoid(nullRock, "attack");
+
+        assertTrue(targetNearBeak.health < Bird.STARTING_HEALTH);
+        assertEquals(Bird.STARTING_HEALTH, targetBehind.health, 0.0001);
+    }
+
+    @Test
     void localHealthBarUsesNullRockName() {
         BirdGame3 game = new BirdGame3();
         Bird nullRock = new Bird(600.0, BirdGame3.BirdType.VULTURE, 0, game);

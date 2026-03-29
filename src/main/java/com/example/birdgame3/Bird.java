@@ -299,6 +299,13 @@ public class Bird {
                 && dy <= verticalReach + other.combatHalfHeight();
     }
 
+    private boolean overlapsAttackBox(Bird other, double attackCenterX, double attackCenterY, double horizontalReach, double verticalReach) {
+        double dx = Math.abs(other.bodyCenterX() - attackCenterX);
+        double dy = Math.abs(other.bodyCenterY() - attackCenterY);
+        return dx <= horizontalReach + other.combatHalfWidth()
+                && dy <= verticalReach + other.combatHalfHeight();
+    }
+
     private boolean overlapsPowerUp(PowerUp powerUp) {
         double pickupHalfSize = BASE_BODY_SIZE / 2.0;
         double dx = Math.abs(powerUp.x - bodyCenterX());
@@ -492,12 +499,21 @@ public class Bird {
     private void attack() {
         if (health <= 0) return;
         double range = 120 * sizeMultiplier;
+        double verticalRange = 100 * sizeMultiplier;
+        double attackCenterX = bodyCenterX();
+        double attackCenterY = bodyCenterY();
+        if (isNullRockForm()) {
+            range *= 0.86;
+            verticalRange *= 0.88;
+            attackCenterX += (facingRight ? 1.0 : -1.0) * combatHalfWidth() * 0.88;
+            attackCenterY -= combatHalfHeight() * 0.08;
+        }
         int dmg = (int) (type.power * powerMultiplier);
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
             if (!canDamageTarget(other)) continue;
 
-            if (overlapsCombatBox(other, range, 100 * sizeMultiplier)) {
+            if (overlapsAttackBox(other, attackCenterX, attackCenterY, range, verticalRange)) {
                 processBirdAttack(other, dmg);
             }
         }

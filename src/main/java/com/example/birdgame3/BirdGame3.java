@@ -113,10 +113,11 @@ public class BirdGame3 extends Application {
     private static final String UNITED_FINALE_PENULTIMATE_TITLE = "Battle 2: Crack the Crown";
     private static final String UNITED_FINALE_CLIMAX_TITLE = "Battle 3: The Null Rock";
     private static final double UNITED_FINALE_BOSS_HEALTH = 520.0;
-    private static final double UNITED_FINALE_TRUE_FORM_HEALTH = 760.0;
+    private static final double UNITED_FINALE_TRUE_FORM_HEALTH = 1000.0;
     private static final double NULL_ROCK_TRUE_FORM_POWER = 1.78;
     private static final double NULL_ROCK_TRUE_FORM_SPEED = 1.04;
     private static final double NULL_ROCK_TRUE_FORM_SIZE = 3.6;
+    private static final int MAX_COMBATANTS = 24;
     private static final char[] NULL_ROCK_SELECTOR_SEQUENCE = {'U', 'U', 'D', 'D', 'L', 'R'};
     private static final double BOSS_HEALTH_EASE_FACTOR = 0.94;
     private static final double BOSS_POWER_EASE_FACTOR = 0.97;
@@ -170,12 +171,12 @@ public class BirdGame3 extends Application {
     private boolean achievementSaveQueued = false;
 
     final Set<KeyCode> pressedKeys = new HashSet<>();
-    private final boolean[][] localActionPressed = new boolean[4][ControlAction.values().length];
-    private final boolean[][] aiActionPressed = new boolean[4][ControlAction.values().length];
-    private final boolean[][] lanActionPressed = new boolean[4][ControlAction.values().length];
-    public Bird[] players = new Bird[4];
-    public boolean[] isAI = new boolean[4];
-    private final int[] cpuLevels = new int[]{5, 5, 5, 5};
+    private final boolean[][] localActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
+    private final boolean[][] aiActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
+    private final boolean[][] lanActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
+    public Bird[] players = new Bird[MAX_COMBATANTS];
+    public boolean[] isAI = new boolean[MAX_COMBATANTS];
+    private final int[] cpuLevels = createFilledIntArray(5);
     private final BirdType[] fightSelectedBirds = new BirdType[4];
     private final boolean[] fightRandomSelected = new boolean[4];
     private final String[] fightSelectedSkinKeys = new String[4];
@@ -189,7 +190,7 @@ public class BirdGame3 extends Application {
     private final Button[] cpuButtons = new Button[4];
     private Button teamModeToggleButton;
     boolean teamModeEnabled = false;
-    private final int[] playerTeams = new int[]{1, 2, 1, 2};
+    private final int[] playerTeams = createVersusTeamArray();
     final Random random = new Random();
     private final Random renderRandom = new Random();
     private long lastPowerUpSpawnTime = 0;
@@ -201,34 +202,34 @@ public class BirdGame3 extends Application {
     public List<String> killFeed = new ArrayList<>();
     private final int MAX_FEED_LINES = 6;
     public static final double CEILING_Y = -100;
-    public int[] falls = new int[4];
-    public int[] scores = new int[4];  // live score: elims*50 + damage/2
-    public int[] specialsUsed = new int[4];
-    public int[] specialHits = new int[4];
-    public int[] specialDamageDealt = new int[4];
+    public int[] falls = new int[MAX_COMBATANTS];
+    public int[] scores = new int[MAX_COMBATANTS];  // live score: elims*50 + damage/2
+    public int[] specialsUsed = new int[MAX_COMBATANTS];
+    public int[] specialHits = new int[MAX_COMBATANTS];
+    public int[] specialDamageDealt = new int[MAX_COMBATANTS];
 
     // === MATCH STATS TRACKING ===
-    public int[] damageDealt = new int[4];
-    public int[] eliminations = new int[4];
-    public int[] groundPounds = new int[4];     // Turkey special
-    public int[] loungeTime = new int[4];       // Mockingbird lounge active frames
-    public int[] leanTime = new int[4];         // Opium/Heisenbird cloud active frames
-    public int[] tauntsPerformed = new int[4];
-    private final int[] loungeAchievementSnapshot = new int[4];
-    private final int[] leanAchievementSnapshot = new int[4];
+    public int[] damageDealt = new int[MAX_COMBATANTS];
+    public int[] eliminations = new int[MAX_COMBATANTS];
+    public int[] groundPounds = new int[MAX_COMBATANTS];     // Turkey special
+    public int[] loungeTime = new int[MAX_COMBATANTS];       // Mockingbird lounge active frames
+    public int[] leanTime = new int[MAX_COMBATANTS];         // Opium/Heisenbird cloud active frames
+    public int[] tauntsPerformed = new int[MAX_COMBATANTS];
+    private final int[] loungeAchievementSnapshot = new int[MAX_COMBATANTS];
+    private final int[] leanAchievementSnapshot = new int[MAX_COMBATANTS];
 
-    public int[] vineGrapplePickups = new int[4];     // times picked up Vine Grapple
-    public int[] jungleWins = new int[4];             // wins on Vibrant Jungle map
+    public int[] vineGrapplePickups = new int[MAX_COMBATANTS];     // times picked up Vine Grapple
+    public int[] jungleWins = new int[MAX_COMBATANTS];             // wins on Vibrant Jungle map
 
     // City-specific stats tracking
-    public int[] rooftopJumps = new int[4];     // times a bird jumped off a high rooftop
-    public int[] neonPickups = new int[4];      // times a bird picked up the new "Neon" power-up
-    public int[] cityWins = new int[4];         // wins on city map (for achievement)
+    public int[] rooftopJumps = new int[MAX_COMBATANTS];     // times a bird jumped off a high rooftop
+    public int[] neonPickups = new int[MAX_COMBATANTS];      // times a bird picked up the new "Neon" power-up
+    public int[] cityWins = new int[MAX_COMBATANTS];         // wins on city map (for achievement)
 
     // === SKYCLIFFS-specific stats tracking ===
-    public int[] thermalPickups = new int[4]; // times a bird picked up THERMAL power-up
-    public int[] highCliffJumps = new int[4]; // jumps from very high platforms (y < GROUND_Y - 1000)
-    public int[] cliffWins = new int[4];      // wins on Sky Cliffs map
+    public int[] thermalPickups = new int[MAX_COMBATANTS]; // times a bird picked up THERMAL power-up
+    public int[] highCliffJumps = new int[MAX_COMBATANTS]; // jumps from very high platforms (y < GROUND_Y - 1000)
+    public int[] cliffWins = new int[MAX_COMBATANTS];      // wins on Sky Cliffs map
 
     // === SUDDEN DEATH SYSTEM ===
     int matchTimer = MATCH_DURATION_FRAMES;
@@ -335,6 +336,28 @@ public class BirdGame3 extends Application {
     private double trackedCamMaxY = Double.NaN;
     private int cameraTagInEaseFrames = 0;
 
+    private static int[] createFilledIntArray(int value) {
+        int[] values = new int[MAX_COMBATANTS];
+        Arrays.fill(values, value);
+        return values;
+    }
+
+    private static int[] createVersusTeamArray() {
+        int[] teams = new int[MAX_COMBATANTS];
+        Arrays.fill(teams, 1);
+        if (teams.length > 1) teams[1] = 2;
+        if (teams.length > 2) teams[2] = 1;
+        if (teams.length > 3) teams[3] = 2;
+        return teams;
+    }
+
+    private static int[] createPvETeamArray() {
+        int[] teams = new int[MAX_COMBATANTS];
+        Arrays.fill(teams, 2);
+        if (teams.length > 0) teams[0] = 1;
+        return teams;
+    }
+
     // === MAPS ===
     public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, CAVE, BATTLEFIELD, BEACON_CROWN }
 
@@ -401,7 +424,7 @@ public class BirdGame3 extends Application {
     long activePowerUpSpawnInterval = POWERUP_SPAWN_INTERVAL;
     long lastMutatorHazardTime = 0L;
     static final int COMPETITION_ROUND_TARGET = 3;
-    final int[] competitionRoundWins = new int[4];
+    final int[] competitionRoundWins = new int[MAX_COMBATANTS];
     final int[] competitionTeamWins = new int[3];
     int competitionRoundNumber = 1;
     boolean competitionSeriesActive = false;
@@ -659,6 +682,9 @@ public class BirdGame3 extends Application {
 
     private double adjustedBossHealth(String name, double health) {
         if (!isBossName(name)) return health;
+        if (name != null && name.toLowerCase(Locale.ROOT).contains("null rock")) {
+            return Math.max(1.0, health);
+        }
         double adjusted = health * BOSS_HEALTH_EASE_FACTOR;
         if (isBossRushBossContext(name)) {
             adjusted *= BOSS_RUSH_HEALTH_EASE_FACTOR;
@@ -1960,8 +1986,8 @@ public class BirdGame3 extends Application {
     ClassicEncounter classicEncounter = null;
     private String classicRunCodename = "";
     boolean classicTeamMode = false;
-    final int[] classicTeams = new int[]{1, 2, 2, 2};
-    private final int[] classicCpuLevels = new int[4];
+    final int[] classicTeams = createPvETeamArray();
+    private final int[] classicCpuLevels = new int[MAX_COMBATANTS];
     private MapType classicLastMap = null;
     private ClassicTwist classicLastTwist = null;
     private MatchMutator classicLastMutator = null;
@@ -2108,7 +2134,7 @@ public class BirdGame3 extends Application {
     private static final String BAT_EPISODE_TITLE = "Episode 2: Nocturne Of The Echo Bat";
     private static final String PELICAN_EPISODE_TITLE = "Episode 3: Tempest Of The Iron Beak";
     boolean storyTeamMode = false;
-    final int[] storyTeams = new int[]{1, 2, 2, 2};
+    final int[] storyTeams = createPvETeamArray();
     int storyMatchTimerOverride = -1;
 
     private enum EpisodeType { PIGEON, BAT, PELICAN }
@@ -2292,12 +2318,13 @@ public class BirdGame3 extends Application {
     private String activeAdventureDialogueRightSkinKey = null;
     private AdventureBattle currentAdventureBattle = null;
     boolean adventureTeamMode = false;
-    final int[] adventureTeams = new int[]{1, 2, 2, 2};
+    final int[] adventureTeams = createPvETeamArray();
     int adventureMatchTimerOverride = -1;
     private final boolean[] unitedFinaleEventTriggered = new boolean[6];
     private boolean unitedFinaleBossEnraged = false;
     private int unitedFinaleDarkForceCooldown = 0;
     private int unitedFinaleDarkForceWave = 0;
+    private boolean unitedFinaleMassBattleActive = false;
     private final List<UnitedFinaleSupportEntry> unitedFinaleSupportQueue = new ArrayList<>();
     private int unitedFinaleSupportCursor = 0;
     private int unitedFinaleSupportRotateCooldown = 0;
@@ -5594,55 +5621,64 @@ public class BirdGame3 extends Application {
         return null;
     }
 
+    private boolean isUnitedFinaleMassBattleContext() {
+        return unitedFinaleMassBattleActive && isUnitedFinaleClimaxContext();
+    }
+
     private void initializeUnitedFinaleSupportRoster(BirdType playerType) {
         unitedFinaleSupportQueue.clear();
         unitedFinaleSupportCursor = 0;
         unitedFinaleSupportRotateCooldown = 0;
         unitedFinaleSupportNextSlot = 1;
         unitedFinaleSupportRosterComplete = false;
-
-        queueUnitedFinaleSupport(playerType, BirdType.EAGLE, "Ally: Sky King", "SKY_KING_EAGLE");
-        queueUnitedFinaleSupport(playerType, BirdType.PHOENIX, "Ally: Nova Phoenix", NOVA_PHOENIX_SKIN);
-        queueUnitedFinaleSupport(playerType, BirdType.HUMMINGBIRD, "Ally: Neon Hummingbird", classicSkinDataKey(BirdType.HUMMINGBIRD));
-        queueUnitedFinaleSupport(playerType, BirdType.FALCON, "Ally: Dune Falcon", DUNE_FALCON_SKIN);
-        queueUnitedFinaleSupport(playerType, BirdType.TITMOUSE, "Ally: Volt Titmouse", CIRCUIT_TITMOUSE_SKIN);
-        queueUnitedFinaleSupport(playerType, BirdType.BAT, "Ally: Umbra Bat", UMBRA_BAT_SKIN);
-        queueUnitedFinaleSupport(playerType, BirdType.RAVEN, "Ally: Night Raven", null);
-        queueUnitedFinaleSupport(playerType, BirdType.PIGEON, "Ally: Beacon Pigeon", BEACON_PIGEON_SKIN);
-        queueUnitedFinaleSupport(playerType, BirdType.PENGUIN, "Ally: Mint Penguin", MINT_PENGUIN_SKIN);
-        queueUnitedFinaleSupport(playerType, BirdType.PELICAN, "Ally: Aurora Pelican", AURORA_PELICAN_SKIN);
-        queueUnitedFinaleSupport(playerType, BirdType.TURKEY, "Ally: Ground Turkey", null);
-        queueUnitedFinaleSupport(playerType, BirdType.SHOEBILL, "Ally: Glacier Shoebill", GLACIER_SHOEBILL_SKIN);
-        queueUnitedFinaleSupport(playerType, BirdType.GRINCHHAWK, "Ally: Grinch-Hawk", null);
-        queueUnitedFinaleSupport(playerType, BirdType.RAZORBILL, "Ally: Prism Razorbill", PRISM_RAZORBILL_SKIN);
-        queueUnitedFinaleSupport(playerType, BirdType.ROOSTER, "Ally: Sunforge Rooster", SUNFORGE_ROOSTER_SKIN);
-        queueUnitedFinaleSupport(playerType, BirdType.MOCKINGBIRD, "Ally: Charles", null);
-        queueUnitedFinaleSupport(playerType, BirdType.VULTURE, "Ally: Tide Vulture", TIDE_VULTURE_SKIN);
-        queueUnitedFinaleSupport(playerType, BirdType.OPIUMBIRD, "Ally: Opium Bird", null);
-        queueUnitedFinaleSupport(playerType, BirdType.HEISENBIRD, "Ally: Heisenbird", null);
+        unitedFinaleSupportQueue.addAll(buildUnitedFinaleSupportEntries(playerType));
 
         replaceUnitedFinaleSupportSlot(1, true);
         replaceUnitedFinaleSupportSlot(2, true);
         unitedFinaleSupportRotateCooldown = 135;
     }
 
-    private void queueUnitedFinaleSupport(BirdType playerType, BirdType type, String displayName, String skinKey) {
+    private List<UnitedFinaleSupportEntry> buildUnitedFinaleSupportEntries(BirdType playerType) {
+        List<UnitedFinaleSupportEntry> entries = new ArrayList<>();
+        queueUnitedFinaleSupport(entries, playerType, BirdType.EAGLE, "Ally: Sky King", "SKY_KING_EAGLE");
+        queueUnitedFinaleSupport(entries, playerType, BirdType.PHOENIX, "Ally: Nova Phoenix", NOVA_PHOENIX_SKIN);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.HUMMINGBIRD, "Ally: Neon Hummingbird", classicSkinDataKey(BirdType.HUMMINGBIRD));
+        queueUnitedFinaleSupport(entries, playerType, BirdType.FALCON, "Ally: Dune Falcon", DUNE_FALCON_SKIN);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.TITMOUSE, "Ally: Volt Titmouse", CIRCUIT_TITMOUSE_SKIN);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.BAT, "Ally: Umbra Bat", UMBRA_BAT_SKIN);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.RAVEN, "Ally: Night Raven", null);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.PIGEON, "Ally: Beacon Pigeon", BEACON_PIGEON_SKIN);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.PENGUIN, "Ally: Mint Penguin", MINT_PENGUIN_SKIN);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.PELICAN, "Ally: Aurora Pelican", AURORA_PELICAN_SKIN);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.TURKEY, "Ally: Ground Turkey", null);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.SHOEBILL, "Ally: Glacier Shoebill", GLACIER_SHOEBILL_SKIN);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.GRINCHHAWK, "Ally: Grinch-Hawk", null);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.RAZORBILL, "Ally: Prism Razorbill", PRISM_RAZORBILL_SKIN);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.ROOSTER, "Ally: Sunforge Rooster", SUNFORGE_ROOSTER_SKIN);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.MOCKINGBIRD, "Ally: Charles", null);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.VULTURE, "Ally: Tide Vulture", TIDE_VULTURE_SKIN);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.OPIUMBIRD, "Ally: Opium Bird", null);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.HEISENBIRD, "Ally: Heisenbird", null);
+        return entries;
+    }
+
+    private void queueUnitedFinaleSupport(List<UnitedFinaleSupportEntry> entries,
+                                          BirdType playerType,
+                                          BirdType type,
+                                          String displayName,
+                                          String skinKey) {
         if (type == null || type == playerType) return;
         double health = 94.0 + type.power * 2.6;
         double powerMult = 1.04 + Math.min(0.22, type.power * 0.0105);
         double speedMult = 1.02 + Math.min(0.18, type.speed * 0.03);
-        unitedFinaleSupportQueue.add(new UnitedFinaleSupportEntry(type, displayName, skinKey, health, powerMult, speedMult));
+        entries.add(new UnitedFinaleSupportEntry(type, displayName, skinKey, health, powerMult, speedMult));
     }
 
-    private boolean replaceUnitedFinaleSupportSlot(int slot, boolean initial) {
-        if (slot < 1 || slot > 2) return false;
-        if (unitedFinaleSupportCursor >= unitedFinaleSupportQueue.size()) {
-            markUnitedFinaleSupportRosterComplete();
-            return false;
-        }
-
-        UnitedFinaleSupportEntry entry = unitedFinaleSupportQueue.get(unitedFinaleSupportCursor++);
-        double spawnX = slot == 1 ? 1540.0 : 2380.0;
+    private Bird createUnitedFinaleSupportBird(UnitedFinaleSupportEntry entry,
+                                               int slot,
+                                               double spawnX,
+                                               double verticalOffset,
+                                               boolean openingWave) {
         Bird support = createStoryBird(
                 spawnX,
                 entry.type(),
@@ -5654,17 +5690,53 @@ public class BirdGame3 extends Application {
                 true
         );
         applyPreviewSkinChoiceToBird(support, entry.type(), entry.skinKey());
+        support.y = Math.max(CEILING_Y + 140, support.y - verticalOffset);
         support.specialCooldown = 0;
-        support.rageTimer = Math.max(support.rageTimer, initial ? 120 : 220);
-        support.overchargeAttackTimer = Math.max(support.overchargeAttackTimer, initial ? 90 : 180);
-        support.speedTimer = Math.max(support.speedTimer, initial ? 160 : 220);
-        support.speedMultiplier = Math.max(support.speedMultiplier, support.baseSpeedMultiplier * (initial ? 1.08 : 1.14));
-        support.powerMultiplier = Math.max(support.powerMultiplier, support.basePowerMultiplier * (initial ? 1.06 : 1.12));
+        support.rageTimer = Math.max(support.rageTimer, openingWave ? 160 : 220);
+        support.overchargeAttackTimer = Math.max(support.overchargeAttackTimer, openingWave ? 120 : 180);
+        support.speedTimer = Math.max(support.speedTimer, openingWave ? 220 : 220);
+        support.speedMultiplier = Math.max(support.speedMultiplier, support.baseSpeedMultiplier * (openingWave ? 1.1 : 1.14));
+        support.powerMultiplier = Math.max(support.powerMultiplier, support.basePowerMultiplier * (openingWave ? 1.08 : 1.12));
         support.facingRight = true;
-        support.vx = initial ? 1.8 : 3.6;
+        support.vx = openingWave ? 2.4 : 3.6;
         if (slot < adventureTeams.length) {
             adventureTeams[slot] = 1;
         }
+        return support;
+    }
+
+    private void populateUnitedFinaleMassRoster(BirdType playerType) {
+        List<UnitedFinaleSupportEntry> entries = buildUnitedFinaleSupportEntries(playerType);
+        int slot = 1;
+        double baseX = 1300.0;
+        double columnSpacing = 340.0;
+        double rowSpacing = 150.0;
+        int rows = 3;
+        for (int i = 0; i < entries.size() && slot < players.length - 1; i++) {
+            int row = i % rows;
+            int col = i / rows;
+            double spawnX = baseX + col * columnSpacing + (row == 1 ? 90.0 : row == 2 ? 45.0 : 0.0);
+            double verticalOffset = row * rowSpacing;
+            createUnitedFinaleSupportBird(entries.get(i), slot, spawnX, verticalOffset, true);
+            slot++;
+        }
+        unitedFinaleSupportQueue.clear();
+        unitedFinaleSupportCursor = 0;
+        unitedFinaleSupportRotateCooldown = 0;
+        unitedFinaleSupportNextSlot = 1;
+        unitedFinaleSupportRosterComplete = true;
+    }
+
+    private boolean replaceUnitedFinaleSupportSlot(int slot, boolean initial) {
+        if (slot < 1 || slot > 2) return false;
+        if (unitedFinaleSupportCursor >= unitedFinaleSupportQueue.size()) {
+            markUnitedFinaleSupportRosterComplete();
+            return false;
+        }
+
+        UnitedFinaleSupportEntry entry = unitedFinaleSupportQueue.get(unitedFinaleSupportCursor++);
+        double spawnX = slot == 1 ? 1540.0 : 2380.0;
+        Bird support = createUnitedFinaleSupportBird(entry, slot, spawnX, 0.0, initial);
 
         if (!initial) {
             addToKillFeed(entry.displayName() + " joins the crown fight.");
@@ -5698,6 +5770,7 @@ public class BirdGame3 extends Application {
 
     private void updateUnitedFinaleSupportRoster(Bird boss) {
         if (!isUnitedFinaleClimaxContext()) return;
+        if (isUnitedFinaleMassBattleContext()) return;
 
         if ((players[1] == null || players[1].health <= 0) && unitedFinaleSupportCursor < unitedFinaleSupportQueue.size()) {
             replaceUnitedFinaleSupportSlot(1, false);
@@ -5739,9 +5812,11 @@ public class BirdGame3 extends Application {
         triggerFlash(0.94, false);
         if (isUnitedFinaleClimaxContext()) {
             empowerUnitedFinaleAllies(108, 240, 200);
-            unitedFinaleSupportRotateCooldown = 0;
-            replaceUnitedFinaleSupportSlot(1, false);
-            replaceUnitedFinaleSupportSlot(2, false);
+            if (!isUnitedFinaleMassBattleContext()) {
+                unitedFinaleSupportRotateCooldown = 0;
+                replaceUnitedFinaleSupportSlot(1, false);
+                replaceUnitedFinaleSupportSlot(2, false);
+            }
         }
     }
 
@@ -14992,6 +15067,7 @@ public class BirdGame3 extends Application {
 
     private void setupAdventureBattleRoster(AdventureBattle battle) {
         if (battle == null) return;
+        unitedFinaleMassBattleActive = false;
         BirdType playerType = adventureSelectedBird;
         if (battle.requiredPlayerType != null) {
             playerType = battle.requiredPlayerType;
@@ -15017,23 +15093,28 @@ public class BirdGame3 extends Application {
 
     private void setupUnitedFinaleAdventureRoster(AdventureBattle battle, BirdType playerType, String skinKey) {
         if (UNITED_FINALE_CLIMAX_TITLE.equals(battle.title)) {
-            activePlayers = 4;
+            unitedFinaleMassBattleActive = true;
+            activePlayers = Math.min(players.length, BirdType.values().length + 1);
             Bird player = createStoryBird(900, playerType, 0, "You: " + playerType.name, 100, 1.0, 1.0, false);
             applySkinChoiceToBird(player, playerType, skinKey);
 
-            Bird boss = createStoryBird(5000, battle.opponentType, 3, battle.opponentName,
+            int bossSlot = activePlayers - 1;
+            Bird boss = createStoryBird(5200, battle.opponentType, bossSlot, battle.opponentName,
                     battle.opponentHealth, battle.opponentPowerMult, battle.opponentSpeedMult, true);
             applyNullRockBossTemplate(boss);
             applyPreviewSkinChoiceToBird(boss, battle.opponentType, NULL_ROCK_VULTURE_SKIN);
+            boss.powerMultiplier = Math.max(boss.powerMultiplier, boss.basePowerMultiplier * 1.08);
+            boss.speedMultiplier = Math.max(boss.speedMultiplier, boss.baseSpeedMultiplier * 1.04);
 
             adventureTeamMode = true;
             Arrays.fill(adventureTeams, 2);
             adventureTeams[0] = 1;
-            adventureTeams[3] = 2;
-            initializeUnitedFinaleSupportRoster(playerType);
+            adventureTeams[bossSlot] = 2;
+            populateUnitedFinaleMassRoster(playerType);
             return;
         }
 
+        unitedFinaleMassBattleActive = false;
         if (UNITED_FINALE_PENULTIMATE_TITLE.equals(battle.title)) {
             activePlayers = 4;
             Bird player = createStoryBird(900, playerType, 0, "You: " + playerType.name, 100, 1.0, 1.0, false);
@@ -19817,6 +19898,7 @@ public class BirdGame3 extends Application {
     void startMatch(Stage stage) {
         prepareMatchStart(stage);
         boolean[] menuAI = Arrays.copyOf(isAI, isAI.length);
+        Arrays.fill(players, null);
         Arrays.fill(isAI, false);
         StoryChapter storyChapter = null;
         AdventureBattle adventureBattle = null;
@@ -20250,16 +20332,18 @@ public class BirdGame3 extends Application {
                 ui.setStroke(Color.YELLOW);
                 ui.strokeRect(WIDTH - mapW - 20 + camX * scaleX, HEIGHT - mapH - 20 + camY * scaleY, camViewW, camViewH);
 
-                // === CENTERED HEALTH BARS (works for 2/3/4 players) ===
-                double barWidth = 400;
-                double gap = 20;
-                double totalWidth = activePlayers * (barWidth + gap) - gap;
-                double startX = (WIDTH - totalWidth) / 2.0;
                 double healthBarY = 80;
-
-                for (int i = 0; i < activePlayers; i++) {
-                    if (players[i] != null && players[i].health > 0) {
-                        drawHealthBar(ui, players[i], startX + i * (barWidth + gap), healthBarY);
+                if (isUnitedFinaleMassBattleContext() && activePlayers > 6) {
+                    drawUnitedFinaleRaidHud(ui, healthBarY);
+                } else {
+                    double barWidth = 400;
+                    double gap = 20;
+                    double totalWidth = activePlayers * (barWidth + gap) - gap;
+                    double startX = (WIDTH - totalWidth) / 2.0;
+                    for (int i = 0; i < activePlayers; i++) {
+                        if (players[i] != null && players[i].health > 0) {
+                            drawHealthBar(ui, players[i], startX + i * (barWidth + gap), healthBarY);
+                        }
                     }
                 }
 
@@ -20367,6 +20451,38 @@ public class BirdGame3 extends Application {
         camX = 1000;
         camY = 800;
         syncTrackedCameraToCurrentView();
+    }
+
+    private void drawUnitedFinaleRaidHud(GraphicsContext g, double y) {
+        Bird player = players[0];
+        Bird boss = unitedFinaleBoss();
+        if (player != null && player.health > 0) {
+            drawHealthBar(g, player, 24, y);
+        }
+        if (boss != null) {
+            drawHealthBar(g, boss, WIDTH - 424, y);
+        }
+
+        int livingAllies = 0;
+        int totalAllies = 0;
+        for (Bird b : players) {
+            if (b == null || b.playerIndex == 0) continue;
+            if (getEffectiveTeam(b.playerIndex) != 1) continue;
+            totalAllies++;
+            if (b.health > 0) livingAllies++;
+        }
+
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.72));
+        g.fillRoundRect(WIDTH / 2.0 - 250, y - 4, 500, 62, 18, 18);
+        g.setStroke(Color.web("#FFF59D"));
+        g.setLineWidth(2);
+        g.strokeRoundRect(WIDTH / 2.0 - 250, y - 4, 500, 62, 18, 18);
+        g.setFill(Color.web("#FFF9C4"));
+        g.setFont(HUD_CLASSIC_TITLE_FONT);
+        g.fillText("ALL WINGS ENGAGED", WIDTH / 2.0 - 150, y + 22);
+        g.setFill(Color.web("#B3E5FC"));
+        g.setFont(HUD_CLASSIC_RULES_FONT);
+        g.fillText("ALLIES AIRBORNE: " + livingAllies + "/" + totalAllies, WIDTH / 2.0 - 145, y + 48);
     }
 
     private void drawHealthBar(GraphicsContext g, Bird b, double x, double y) {
@@ -21587,6 +21703,7 @@ public class BirdGame3 extends Application {
         unitedFinaleBossEnraged = false;
         unitedFinaleDarkForceCooldown = 0;
         unitedFinaleDarkForceWave = 0;
+        unitedFinaleMassBattleActive = false;
         unitedFinaleSupportQueue.clear();
         unitedFinaleSupportCursor = 0;
         unitedFinaleSupportRotateCooldown = 0;
