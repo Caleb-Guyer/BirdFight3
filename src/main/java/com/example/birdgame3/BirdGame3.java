@@ -2,9 +2,13 @@ package com.example.birdgame3;
 
 import javafx.animation.Animation;
 import javafx.animation.AnimationTimer;
+import javafx.animation.FadeTransition;
 import javafx.animation.KeyFrame;
+import javafx.animation.ParallelTransition;
 import javafx.animation.PauseTransition;
+import javafx.animation.SequentialTransition;
 import javafx.animation.Timeline;
+import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.beans.value.ChangeListener;
 import javafx.event.ActionEvent;
@@ -57,6 +61,7 @@ import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.transform.Rotate;
 import javafx.geometry.Rectangle2D;
 import javafx.stage.Screen;
+import javafx.stage.Popup;
 import javafx.stage.Stage;
 import javafx.util.Duration;
 
@@ -153,10 +158,15 @@ public class BirdGame3 extends Application {
             DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy", Locale.US);
     private static final long BIRD_COIN_LEDGER_SALT = 0x6A09E667F3BCC909L;
     private static final Duration ACHIEVEMENT_SAVE_DEBOUNCE = Duration.millis(250);
+    private static final Duration ACHIEVEMENT_TOAST_SHOW_TIME = Duration.seconds(3.4);
+    private static final double ACHIEVEMENT_TOAST_WIDTH = 448.0;
+    private static final double ACHIEVEMENT_TOAST_HEIGHT = 122.0;
+    private static final double ACHIEVEMENT_TOAST_MARGIN = 26.0;
     private static final double MENU_MUSIC_BASE_VOLUME = 0.55;
     private static final double VICTORY_MUSIC_BASE_VOLUME = 0.75;
     private static final double MATCH_MUSIC_BASE_VOLUME = 0.45;
     private static final double BUTTON_CLICK_BASE_VOLUME = 0.9;
+    private static final double ACHIEVEMENT_SOUND_BASE_VOLUME = 1.0;
     private static final double ERROR_SOUND_BASE_VOLUME = 0.6;
     private final BirdCoinLedger birdCoinLedger = new BirdCoinLedger(
             BIRD_COIN_LEDGER_SALT,
@@ -165,10 +175,14 @@ public class BirdGame3 extends Application {
             PREF_BIRD_COINS_SPENT,
             PREF_BIRD_COINS_CHECKSUM
     );
-    private final GameSaveRepository saveRepository = new GameSaveRepository(BirdGame3.class);
+    private final GameSaveRepository saveRepository;
     private final BirdProgression progression = new BirdProgression(BirdType.values());
     private PauseTransition achievementSaveDebounce;
     private boolean achievementSaveQueued = false;
+    private final Deque<AchievementToastPayload> achievementToastQueue = new ArrayDeque<>();
+    private Popup achievementToastPopup;
+    private SequentialTransition achievementToastAnimation;
+    private boolean achievementToastShowing = false;
 
     final Set<KeyCode> pressedKeys = new HashSet<>();
     private final boolean[][] localActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
@@ -217,6 +231,7 @@ public class BirdGame3 extends Application {
     public int[] tauntsPerformed = new int[MAX_COMBATANTS];
     private final int[] loungeAchievementSnapshot = new int[MAX_COMBATANTS];
     private final int[] leanAchievementSnapshot = new int[MAX_COMBATANTS];
+    private final int[] powerUpsCollectedMatch = new int[MAX_COMBATANTS];
 
     public int[] vineGrapplePickups = new int[MAX_COMBATANTS];     // times picked up Vine Grapple
     public int[] jungleWins = new int[MAX_COMBATANTS];             // wins on Vibrant Jungle map
@@ -357,6 +372,38 @@ public class BirdGame3 extends Application {
         if (teams.length > 0) teams[0] = 1;
         return teams;
     }
+
+    private static Preferences defaultSavePreferencesRoot() {
+        if (shouldUseIsolatedTestPrefs()) {
+            return Preferences.userRoot().node("/birdfight3-tests/runtime/" + UUID.randomUUID());
+        }
+        return Preferences.userNodeForPackage(BirdGame3.class);
+    }
+
+    private static boolean shouldUseIsolatedTestPrefs() {
+        if (System.getProperty("surefire.test.class.path") != null) {
+            return true;
+        }
+        for (StackTraceElement element : Thread.currentThread().getStackTrace()) {
+            String className = element.getClassName();
+            if (className.startsWith("org.junit.") || className.startsWith("org.apache.maven.surefire.")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public BirdGame3() {
+        this(defaultSavePreferencesRoot());
+    }
+
+    BirdGame3(Preferences savePrefsRoot) {
+        this.saveRepository = new GameSaveRepository(savePrefsRoot);
+    }
+
+    private record AchievementToastPayload(int achievementIndex, String title, String description, String rewardText) {}
+
+    private record AchievementClaimResult(ShopPreview preview, String detail, boolean usesUnlockCards) {}
 
     // === MAPS ===
     public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, CAVE, BATTLEFIELD, BEACON_CROWN }
@@ -503,6 +550,7 @@ public class BirdGame3 extends Application {
         if (swingClip != null) swingClip.setVolume(sfx);
         if (hugewaveClip != null) hugewaveClip.setVolume(sfx);
         if (buttonClickClip != null) buttonClickClip.setVolume(BUTTON_CLICK_BASE_VOLUME * sfx);
+        if (steamAchievementClip != null) steamAchievementClip.setVolume(ACHIEVEMENT_SOUND_BASE_VOLUME * sfx);
         if (zombieFallingClip != null) zombieFallingClip.setVolume(sfx);
         if (vaseBreakingClip != null) vaseBreakingClip.setVolume(sfx);
     }
@@ -552,6 +600,12 @@ public class BirdGame3 extends Application {
 
     void playVaseBreakingSfx() {
         playManagedSfx(vaseBreakingClip, 1.0);
+    }
+
+    void playAchievementSfx() {
+        if (!sfxEnabled || steamAchievementClip == null) return;
+        steamAchievementClip.stop();
+        playManagedSfx(steamAchievementClip, ACHIEVEMENT_SOUND_BASE_VOLUME);
     }
 
     private String resourceUrl(String path) {
@@ -604,6 +658,7 @@ public class BirdGame3 extends Application {
             swingClip = new AudioClip(resourceUrl(p + "swing.mp3"));
             hugewaveClip = new AudioClip(resourceUrl(p + "hugewave.mp3"));
             vaseBreakingClip = new AudioClip(resourceUrl(p + "vase-breaking.mp3"));
+            steamAchievementClip = new AudioClip(resourceUrl(p + "steam-achievement.mp3"));
 
             // === NEW MENU & VICTORY MUSIC ===
             menuMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "choose_your_seeds.mp3")));
@@ -1706,6 +1761,7 @@ public class BirdGame3 extends Application {
     }
 
     private void setScenePreservingFullscreen(Stage stage, Scene scene) {
+        currentStage = stage;
         boolean wasFullscreen = stage.isFullScreen();
         stage.setScene(scene);
         fitStageToScreen(stage, scene);
@@ -1715,6 +1771,10 @@ public class BirdGame3 extends Application {
         } else if (wasFullscreen && stage.isFullScreen()) {
             stage.setFullScreen(false);
         }
+        if (achievementToastShowing && achievementToastPopup != null) {
+            positionAchievementToast(achievementToastPopup);
+        }
+        tryShowQueuedAchievementToast();
     }
 
     private void fitStageToScreen(Stage stage, Scene scene) {
@@ -1875,7 +1935,7 @@ public class BirdGame3 extends Application {
 
     // === SOUND & MUSIC ===
     public AudioClip bonkClip, butterClip, jalapenoClip, swingClip, hugewaveClip, buttonClickClip, zombieFallingClip,
-            vaseBreakingClip;
+            vaseBreakingClip, steamAchievementClip;
     public MediaPlayer musicPlayer, menuMusicPlayer, victoryMusicPlayer;
 
     public static final String[] ACHIEVEMENT_NAMES = {
@@ -1915,6 +1975,47 @@ public class BirdGame3 extends Application {
     public static final int ACHIEVEMENT_COUNT = ACHIEVEMENT_NAMES.length;
     public boolean[] achievementsUnlocked = new boolean[ACHIEVEMENT_COUNT];
     public int[] achievementProgress = new int[ACHIEVEMENT_COUNT]; // for tracking partial progress
+    public boolean[] achievementRewardsClaimed = new boolean[ACHIEVEMENT_COUNT];
+
+    private enum AchievementCategory {
+        COMBAT("Combat"),
+        BIRD("Bird"),
+        MAP("Maps"),
+        MODE("Modes"),
+        STORY("Story");
+
+        final String label;
+
+        AchievementCategory(String label) {
+            this.label = label;
+        }
+    }
+
+    private record AchievementReward(String key, BirdType birdType, int amount, int duplicateCoins) {
+        static AchievementReward coins(int amount) {
+            return new AchievementReward("COINS", null, amount, 0);
+        }
+
+        static AchievementReward continues(int amount) {
+            return new AchievementReward("CONTINUE", null, amount, 0);
+        }
+
+        static AchievementReward preview(BirdType birdType, String key, int duplicateCoins) {
+            return new AchievementReward(key, birdType, 0, duplicateCoins);
+        }
+
+        boolean isCoins() {
+            return "COINS".equals(key);
+        }
+
+        boolean isContinue() {
+            return "CONTINUE".equals(key);
+        }
+
+        boolean isPreview() {
+            return key != null && !isCoins() && !isContinue();
+        }
+    }
 
     // === SKIN UNLOCKS ===
     public boolean cityPigeonUnlocked = true;
@@ -6166,11 +6267,177 @@ public class BirdGame3 extends Application {
     }
 
     public void unlockAchievement(int index, String title) {
+        if (index < 0 || index >= achievementsUnlocked.length) {
+            return;
+        }
+        if (achievementsUnlocked[index]) {
+            return;
+        }
+        String safeTitle = sanitizeAchievementText(title == null || title.isBlank() ? "NEW ACHIEVEMENT" : title);
         achievementsUnlocked[index] = true;
-        addToKillFeed("ACHIEVEMENT UNLOCKED: " + title);
+        enqueueAchievementToast(index, safeTitle);
+        tryShowQueuedAchievementToast();
+        playAchievementSfx();
+        addToKillFeed("ACHIEVEMENT UNLOCKED: " + safeTitle);
         shakeIntensity = 30;
         hitstopFrames = 20;
         saveAchievements();
+    }
+
+    private void enqueueAchievementToast(int index, String title) {
+        String safeTitle = sanitizeAchievementText(title == null || title.isBlank() ? "NEW ACHIEVEMENT" : title);
+        String safeDescription = "Complete a new challenge.";
+        if (index >= 0 && index < ACHIEVEMENT_DESCRIPTIONS.length) {
+            safeDescription = sanitizeAchievementText(ACHIEVEMENT_DESCRIPTIONS[index]);
+        }
+        achievementToastQueue.addLast(new AchievementToastPayload(index, safeTitle, safeDescription,
+                achievementRewardLabel(index)));
+    }
+
+    private void tryShowQueuedAchievementToast() {
+        if (achievementToastShowing || achievementToastQueue.isEmpty()) {
+            return;
+        }
+        Stage stage = currentStage;
+        if (stage == null) {
+            return;
+        }
+        if (!javafx.application.Platform.isFxApplicationThread()) {
+            javafx.application.Platform.runLater(this::tryShowQueuedAchievementToast);
+            return;
+        }
+        if (!stage.isShowing()) {
+            return;
+        }
+        AchievementToastPayload payload = achievementToastQueue.pollFirst();
+        Popup popup = buildAchievementToastPopup(payload);
+        achievementToastPopup = popup;
+        achievementToastShowing = true;
+        positionAchievementToast(popup);
+        popup.show(stage);
+
+        Node root = popup.getContent().getFirst();
+        root.setOpacity(0.0);
+        root.setTranslateX(42.0);
+        root.setTranslateY(14.0);
+
+        FadeTransition fadeIn = new FadeTransition(Duration.millis(170), root);
+        fadeIn.setFromValue(0.0);
+        fadeIn.setToValue(1.0);
+        TranslateTransition slideIn = new TranslateTransition(Duration.millis(220), root);
+        slideIn.setFromX(42.0);
+        slideIn.setToX(0.0);
+        slideIn.setFromY(14.0);
+        slideIn.setToY(0.0);
+
+        PauseTransition hold = new PauseTransition(ACHIEVEMENT_TOAST_SHOW_TIME);
+
+        FadeTransition fadeOut = new FadeTransition(Duration.millis(220), root);
+        fadeOut.setFromValue(1.0);
+        fadeOut.setToValue(0.0);
+        TranslateTransition slideOut = new TranslateTransition(Duration.millis(220), root);
+        slideOut.setFromX(0.0);
+        slideOut.setToX(18.0);
+
+        ParallelTransition inTransition = new ParallelTransition(fadeIn, slideIn);
+        ParallelTransition outTransition = new ParallelTransition(fadeOut, slideOut);
+        SequentialTransition sequence = new SequentialTransition(inTransition, hold, outTransition);
+        achievementToastAnimation = sequence;
+        sequence.setOnFinished(event -> hideAchievementToast());
+        sequence.play();
+    }
+
+    private Popup buildAchievementToastPopup(AchievementToastPayload payload) {
+        Popup popup = new Popup();
+        popup.setAutoFix(false);
+        popup.setAutoHide(false);
+        popup.setHideOnEscape(false);
+
+        Region accent = new Region();
+        accent.setPrefWidth(7);
+        accent.setMinWidth(7);
+        accent.setMaxWidth(7);
+        accent.setStyle("-fx-background-color: linear-gradient(to bottom, #8EEA59, #36C269);"
+                + "-fx-background-radius: 18 0 0 18;");
+
+        Canvas icon = buildAchievementIcon(payload.achievementIndex(), 74);
+
+        Label gameLabel = new Label("BIRD FIGHT 3");
+        gameLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        gameLabel.setTextFill(Color.web("#8FB3C7"));
+
+        Label headerLabel = new Label("ACHIEVEMENT UNLOCKED");
+        headerLabel.setFont(Font.font("Arial Black", 15));
+        headerLabel.setTextFill(Color.web("#D7FBD8"));
+
+        Label titleLabel = new Label(payload.title());
+        titleLabel.setFont(Font.font("Arial Black", 25));
+        titleLabel.setTextFill(Color.WHITE);
+        titleLabel.setWrapText(true);
+        titleLabel.setMaxWidth(286);
+
+        Label descLabel = new Label(payload.description());
+        descLabel.setFont(Font.font("Consolas", 16));
+        descLabel.setTextFill(Color.web("#B7C6CF"));
+        descLabel.setWrapText(true);
+        descLabel.setMaxWidth(286);
+
+        Label rewardLabel = new Label("Reward: " + payload.rewardText());
+        rewardLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        rewardLabel.setTextFill(Color.web("#FFE082"));
+        rewardLabel.setWrapText(true);
+        rewardLabel.setMaxWidth(286);
+
+        VBox textBox = new VBox(2, gameLabel, headerLabel, titleLabel, descLabel, rewardLabel);
+        textBox.setAlignment(Pos.CENTER_LEFT);
+
+        HBox content = new HBox(16, icon, textBox);
+        content.setAlignment(Pos.CENTER_LEFT);
+        content.setPadding(new Insets(14, 18, 14, 16));
+
+        HBox shell = new HBox(accent, content);
+        shell.setAlignment(Pos.CENTER_LEFT);
+        shell.setPrefSize(ACHIEVEMENT_TOAST_WIDTH, ACHIEVEMENT_TOAST_HEIGHT);
+        shell.setMinSize(ACHIEVEMENT_TOAST_WIDTH, ACHIEVEMENT_TOAST_HEIGHT);
+        shell.setMaxSize(ACHIEVEMENT_TOAST_WIDTH, ACHIEVEMENT_TOAST_HEIGHT);
+        shell.setMouseTransparent(true);
+        shell.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(15, 24, 31, 0.97), rgba(6, 11, 16, 0.97));"
+                + "-fx-background-radius: 18;"
+                + "-fx-border-color: rgba(118, 151, 168, 0.68);"
+                + "-fx-border-radius: 18;"
+                + "-fx-border-width: 1.2;");
+        shell.setEffect(new DropShadow(26, Color.rgb(0, 0, 0, 0.45)));
+
+        popup.getContent().add(shell);
+        return popup;
+    }
+
+    private void positionAchievementToast(Popup popup) {
+        if (popup == null || currentStage == null) {
+            return;
+        }
+        Scene scene = currentStage.getScene();
+        double sceneX = scene == null ? 0.0 : scene.getX();
+        double sceneY = scene == null ? 0.0 : scene.getY();
+        double sceneWidth = scene == null ? currentStage.getWidth() : scene.getWidth();
+        double sceneHeight = scene == null ? currentStage.getHeight() : scene.getHeight();
+        double x = currentStage.getX() + sceneX + Math.max(0.0, sceneWidth - ACHIEVEMENT_TOAST_WIDTH - ACHIEVEMENT_TOAST_MARGIN);
+        double y = currentStage.getY() + sceneY + Math.max(0.0, sceneHeight - ACHIEVEMENT_TOAST_HEIGHT - ACHIEVEMENT_TOAST_MARGIN);
+        popup.setX(x);
+        popup.setY(y);
+    }
+
+    private void hideAchievementToast() {
+        if (achievementToastAnimation != null) {
+            achievementToastAnimation.stop();
+            achievementToastAnimation = null;
+        }
+        if (achievementToastPopup != null) {
+            achievementToastPopup.hide();
+            achievementToastPopup = null;
+        }
+        achievementToastShowing = false;
+        tryShowQueuedAchievementToast();
     }
 
     public enum BirdType {
@@ -7647,6 +7914,7 @@ public class BirdGame3 extends Application {
 
     @Override
     public void start(Stage stage) {
+        currentStage = stage;
         stage.setTitle("Bird Fight 3 - Power-Up Chaos!");
         stage.setResizable(true);
         stage.centerOnScreen();
@@ -7657,6 +7925,7 @@ public class BirdGame3 extends Application {
         loadSounds();
         showMenu(stage);
         stage.show();
+        tryShowQueuedAchievementToast();
         stage.setFullScreen(fullscreenEnabled);
     }
 
@@ -8086,7 +8355,7 @@ public class BirdGame3 extends Application {
         return pane;
     }
 
-    private Node hubIconAchievements() {
+    private Node hubIconAchievements(boolean claimable) {
         Pane pane = hubIconPane();
         Rectangle ribbonLeft = new Rectangle(20, 40, 6, 10);
         ribbonLeft.setFill(Color.web("#90CAF9"));
@@ -8110,6 +8379,17 @@ public class BirdGame3 extends Application {
         );
         star.setFill(Color.web("#FFF3E0"));
         pane.getChildren().addAll(ribbonLeft, ribbonRight, medal, star);
+        if (claimable) {
+            Circle badge = new Circle(44, 14, 11, Color.web("#FF5252"));
+            badge.setStroke(Color.web("#FFF8E1"));
+            badge.setStrokeWidth(2);
+            Text mark = new Text("!");
+            mark.setFont(Font.font("Arial Black", FontWeight.BOLD, 16));
+            mark.setFill(Color.WHITE);
+            mark.setX(40.3);
+            mark.setY(19.2);
+            pane.getChildren().addAll(badge, mark);
+        }
         return pane;
     }
 
@@ -8330,8 +8610,10 @@ public class BirdGame3 extends Application {
         nav.add(shopBtn, 1, 1);
         nav.add(lanBtn, 2, 1);
 
-        Button achievementsBtn = buildHubFooterButton("ACHIEVEMENTS", 190, 18, "#455A64", "#37474F", "#B0BEC5",
-                hubIconAchievements(), () -> showAchievements(stage));
+        boolean claimableRewards = hasClaimableAchievementRewards();
+        Button achievementsBtn = buildHubFooterButton(claimableRewards ? "ACHIEVEMENTS !" : "ACHIEVEMENTS",
+                190, 18, "#455A64", "#37474F", "#B0BEC5",
+                hubIconAchievements(claimableRewards), () -> showAchievements(stage));
         Button historyBtn = buildHubFooterButton("MATCH HISTORY", 190, 15, "#00695C", "#004D40", "#B2DFDB",
                 hubIconHistory(), () -> showMatchHistory(stage));
         Button bookBtn = buildHubFooterButton("FEATHERPEDIA", 185, 16, "#5E35B1", "#4527A0", "#D1C4E9",
@@ -8345,6 +8627,7 @@ public class BirdGame3 extends Application {
                 });
         Button exitBtn = buildHubFooterButton("EXIT", 130, 18, "#D32F2F", "#B71C1C", "#FFCDD2",
                 hubIconExit(), () -> confirmExitGame(stage));
+        uiFactory.fitSingleLineOnLayout(achievementsBtn, 18, 12);
         uiFactory.fitSingleLineOnLayout(historyBtn, 15, 12);
         uiFactory.fitSingleLineOnLayout(bookBtn, 16, 12);
         HBox footer = new HBox(16, achievementsBtn, historyBtn, bookBtn, profilesBtn, settingsBtn, exitBtn);
@@ -21409,23 +21692,29 @@ public class BirdGame3 extends Application {
 
     private void applyWinnerMapProgress(Bird winner) {
         if (winner == null || trainingModeActive) return;
+        if (winner.health > 0 && winner.health < 20 && !achievementsUnlocked[9]) {
+            unlockAchievement(9, "CLUTCH GOD!");
+        }
         if (selectedMap == MapType.CITY) {
             cityWins[winner.playerIndex]++;
-            if (cityWins[winner.playerIndex] >= 5 && !achievementsUnlocked[12]) {
+            achievementProgress[12]++;
+            if (achievementProgress[12] >= 5 && !achievementsUnlocked[12]) {
                 unlockAchievement(12, "URBAN KING!");
             }
         }
 
         if (selectedMap == MapType.SKYCLIFFS) {
             cliffWins[winner.playerIndex]++;
-            if (cliffWins[winner.playerIndex] >= 5 && !achievementsUnlocked[15]) {
+            achievementProgress[15]++;
+            if (achievementProgress[15] >= 5 && !achievementsUnlocked[15]) {
                 unlockAchievement(15, "SKY EMPEROR!");
             }
         }
 
         if (selectedMap == MapType.VIBRANT_JUNGLE) {
             jungleWins[winner.playerIndex]++;
-            if (jungleWins[winner.playerIndex] >= 5 && !achievementsUnlocked[17]) {
+            achievementProgress[17]++;
+            if (achievementProgress[17] >= 5 && !achievementsUnlocked[17]) {
                 unlockAchievement(17, "CANOPY KING!");
             }
         }
@@ -21685,6 +21974,7 @@ public class BirdGame3 extends Application {
         Arrays.fill(loungeAchievementSnapshot, 0);
         Arrays.fill(leanAchievementSnapshot, 0);
         Arrays.fill(tauntsPerformed, 0);
+        Arrays.fill(powerUpsCollectedMatch, 0);
         Arrays.fill(specialsUsed, 0);
         Arrays.fill(specialHits, 0);
         Arrays.fill(specialDamageDealt, 0);
@@ -21694,11 +21984,6 @@ public class BirdGame3 extends Application {
         matchHistoryRecorded = false;
         matchTimer = MATCH_DURATION_FRAMES;
         resetSuddenDeathState();
-        Arrays.fill(thermalPickups, 0);
-        Arrays.fill(highCliffJumps, 0);
-        Arrays.fill(cliffWins, 0);
-        Arrays.fill(vineGrapplePickups, 0);
-        Arrays.fill(jungleWins, 0);
         Arrays.fill(unitedFinaleEventTriggered, false);
         unitedFinaleBossEnraged = false;
         unitedFinaleDarkForceCooldown = 0;
@@ -21753,6 +22038,7 @@ public class BirdGame3 extends Application {
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             achievementsUnlocked[i] = prefs.getBoolean("ach_" + i, false);
             achievementProgress[i] = prefs.getInt("prog_" + i, 0);
+            achievementRewardsClaimed[i] = prefs.getBoolean("ach_reward_claimed_" + i, false);
         }
         birdCoinLedger.load(prefs);
         loadMatchHistory(prefs);
@@ -21853,9 +22139,24 @@ public class BirdGame3 extends Application {
         eagleSkinUnlocked = true;
         classicSkinUnlocked[BirdType.EAGLE.ordinal()] = true;
         classicSkinUnlocked[BirdType.PIGEON.ordinal()] = noirPigeonUnlocked;
-        for (int i = 0; i < 4; i++) {
-            vineGrapplePickups[i] = prefs.getInt("vine_pickups_" + i, 0);
+        for (int i = 0; i < MAX_COMBATANTS; i++) {
+            cityWins[i] = prefs.getInt("city_wins_" + i, 0);
+            cliffWins[i] = prefs.getInt("cliff_wins_" + i, 0);
             jungleWins[i] = prefs.getInt("jungle_wins_" + i, 0);
+            rooftopJumps[i] = prefs.getInt("rooftop_jumps_" + i, 0);
+            neonPickups[i] = prefs.getInt("neon_pickups_" + i, 0);
+            thermalPickups[i] = prefs.getInt("thermal_pickups_" + i, 0);
+            highCliffJumps[i] = prefs.getInt("high_cliff_jumps_" + i, 0);
+            vineGrapplePickups[i] = prefs.getInt("vine_pickups_" + i, 0);
+        }
+        achievementProgress[12] = Math.max(achievementProgress[12], sumProgress(cityWins));
+        achievementProgress[15] = Math.max(achievementProgress[15], sumProgress(cliffWins));
+        achievementProgress[17] = Math.max(achievementProgress[17], sumProgress(jungleWins));
+        reconcileAchievementUnlocksFromStoredProgress();
+        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
+            if (achievementRewardsClaimed[i] && !achievementsUnlocked[i]) {
+                achievementRewardsClaimed[i] = false;
+            }
         }
         for (BirdType type : BirdType.values()) {
             int idx = type.ordinal();
@@ -21937,6 +22238,7 @@ public class BirdGame3 extends Application {
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             prefs.putBoolean("ach_" + i, achievementsUnlocked[i]);
             prefs.putInt("prog_" + i, achievementProgress[i]);
+            prefs.putBoolean("ach_reward_claimed_" + i, achievementRewardsClaimed[i]);
         }
         birdCoinLedger.save(prefs);
         saveMatchHistory(prefs);
@@ -22002,9 +22304,15 @@ public class BirdGame3 extends Application {
             int idx = type.ordinal();
             prefs.putBoolean("adv_bird_" + type.name(), adventureUnlocked[idx]);
         }
-        for (int i = 0; i < 4; i++) {
-            prefs.putInt("vine_pickups_" + i, vineGrapplePickups[i]);
+        for (int i = 0; i < MAX_COMBATANTS; i++) {
+            prefs.putInt("city_wins_" + i, cityWins[i]);
+            prefs.putInt("cliff_wins_" + i, cliffWins[i]);
             prefs.putInt("jungle_wins_" + i, jungleWins[i]);
+            prefs.putInt("rooftop_jumps_" + i, rooftopJumps[i]);
+            prefs.putInt("neon_pickups_" + i, neonPickups[i]);
+            prefs.putInt("thermal_pickups_" + i, thermalPickups[i]);
+            prefs.putInt("high_cliff_jumps_" + i, highCliffJumps[i]);
+            prefs.putInt("vine_pickups_" + i, vineGrapplePickups[i]);
         }
         for (BirdType type : BirdType.values()) {
             int idx = type.ordinal();
@@ -22036,6 +22344,29 @@ public class BirdGame3 extends Application {
             System.err.println("Failed to save preferences: " + e.getMessage());
         }
     }
+
+    private void reconcileAchievementUnlocksFromStoredProgress() {
+        if (achievementProgress[4] >= 1800) achievementsUnlocked[4] = true;
+        if (achievementProgress[5] >= 1000) achievementsUnlocked[5] = true;
+        if (achievementProgress[7] >= 3) achievementsUnlocked[7] = true;
+        if (achievementProgress[8] >= 10) achievementsUnlocked[8] = true;
+        if (achievementProgress[10] >= 20) achievementsUnlocked[10] = true;
+        if (achievementProgress[11] >= 8) achievementsUnlocked[11] = true;
+        if (achievementProgress[12] >= 5) achievementsUnlocked[12] = true;
+        if (achievementProgress[13] >= 10) achievementsUnlocked[13] = true;
+        if (achievementProgress[14] >= 15) achievementsUnlocked[14] = true;
+        if (achievementProgress[15] >= 5) achievementsUnlocked[15] = true;
+        if (achievementProgress[16] >= 8) achievementsUnlocked[16] = true;
+        if (achievementProgress[17] >= 5) achievementsUnlocked[17] = true;
+        if (achievementProgress[18] >= 15) achievementsUnlocked[18] = true;
+        if (countCompleted(classicCompleted) > 0) achievementsUnlocked[19] = true;
+        if (adventureChapterCompletedByIndex.length >= 2 && adventureChapterCompletedByIndex[1]) achievementsUnlocked[20] = true;
+        if (adventureChapterCompletedByIndex.length > 0
+                && countCompleted(adventureChapterCompletedByIndex) == adventureChapterCompletedByIndex.length) {
+            achievementsUnlocked[21] = true;
+        }
+    }
+
     public void checkAchievements(Bird bird) {
         int idx = bird.playerIndex;
 
@@ -22065,35 +22396,11 @@ public class BirdGame3 extends Application {
             unlockAchievement(3, "TURKEY SLAM MASTER!");
         }
 
-        // Lean God - 30 seconds total in lean cloud
-        if (bird.type == BirdType.OPIUMBIRD) {
-            int leanDelta = Math.max(0, leanTime[idx] - leanAchievementSnapshot[idx]);
-            if (leanDelta > 0) {
-                achievementProgress[4] += leanDelta;
-                leanAchievementSnapshot[idx] = leanTime[idx];
-            }
-            if (achievementProgress[4] >= 1800 && !achievementsUnlocked[4]) { // 30 seconds = 1800 frames @ 60fps
-                unlockAchievement(4, "LEAN GOD!");
-            }
-        }
-
-        // Lounge Lizard - heal 100 HP total
-        if (bird.type == BirdType.MOCKINGBIRD) {
-            int loungeDelta = Math.max(0, loungeTime[idx] - loungeAchievementSnapshot[idx]);
-            if (loungeDelta > 0) {
-                achievementProgress[5] += (int) Math.round(loungeDelta * (12.0 / 60.0));
-                loungeAchievementSnapshot[idx] = loungeTime[idx];
-            }
-            if (achievementProgress[5] >= 100 && !achievementsUnlocked[5]) {
-                unlockAchievement(5, "LOUNGE LIZARD!");
-            }
-        }
-
         // Power-Up Hoarder (already checked on pickup)
         // Fall Guy (already checked on fall)
 
         // Taunt Lord
-        if (tauntsPerformed[idx] >= 10 && !achievementsUnlocked[8]) {
+        if (achievementProgress[8] >= 10 && !achievementsUnlocked[8]) {
             unlockAchievement(8, "TAUNT LORD!");
         }
 
@@ -22103,6 +22410,58 @@ public class BirdGame3 extends Application {
         }
 
         // Clutch God (checked at match end in victory animation)
+    }
+
+    void recordLeanFrame(Bird bird) {
+        if (bird == null || bird.type != BirdType.OPIUMBIRD || achievementsUnlocked[4]) {
+            return;
+        }
+        achievementProgress[4]++;
+        if (achievementProgress[4] >= 1800) {
+            unlockAchievement(4, "LEAN GOD!");
+        }
+    }
+
+    void recordLoungeHealing(Bird bird, double healedAmount) {
+        if (bird == null || bird.type != BirdType.MOCKINGBIRD || healedAmount <= 0.0 || achievementsUnlocked[5]) {
+            return;
+        }
+        achievementProgress[5] += Math.max(1, (int) Math.round(healedAmount * 10.0));
+        if (achievementProgress[5] >= 1000) {
+            unlockAchievement(5, "LOUNGE LIZARD!");
+        }
+    }
+
+    void recordPowerUpPickupForAchievements(Bird bird) {
+        if (bird == null) {
+            return;
+        }
+        int idx = bird.playerIndex;
+        powerUpsCollectedMatch[idx]++;
+        if (powerUpsCollectedMatch[idx] >= 10 && !achievementsUnlocked[6]) {
+            unlockAchievement(6, "POWER-UP HOARDER!");
+        }
+    }
+
+    void recordTauntForAchievements(Bird bird) {
+        if (bird == null || achievementsUnlocked[8]) {
+            return;
+        }
+        achievementProgress[8]++;
+        if (achievementProgress[8] >= 10) {
+            unlockAchievement(8, "TAUNT LORD!");
+        }
+    }
+
+    private int maxProgressAcrossPlayers(int[] values) {
+        int best = 0;
+        if (values == null) {
+            return 0;
+        }
+        for (int value : values) {
+            best = Math.max(best, value);
+        }
+        return best;
     }
 
     private void checkAdventureAchievements() {
@@ -22308,49 +22667,623 @@ public class BirdGame3 extends Application {
         return MATCH_HISTORY_TIME_FORMAT.format(time);
     }
 
+    private AchievementCategory preferredAchievementCategory() {
+        for (AchievementCategory category : AchievementCategory.values()) {
+            if (countClaimableAchievementRewards(category) > 0) {
+                return category;
+            }
+        }
+        return AchievementCategory.COMBAT;
+    }
+
+    private AchievementCategory achievementCategoryFor(int index) {
+        return switch (index) {
+            case 0, 1, 2, 6, 7, 8, 9 -> AchievementCategory.COMBAT;
+            case 3, 4, 5, 18 -> AchievementCategory.BIRD;
+            case 10, 11, 12, 13, 14, 15, 16, 17 -> AchievementCategory.MAP;
+            case 19 -> AchievementCategory.MODE;
+            default -> AchievementCategory.STORY;
+        };
+    }
+
+    private AchievementReward achievementRewardFor(int index) {
+        return switch (index) {
+            case 0 -> AchievementReward.coins(150);
+            case 1 -> AchievementReward.coins(250);
+            case 2 -> AchievementReward.continues(1);
+            case 3 -> AchievementReward.coins(300);
+            case 4 -> AchievementReward.preview(BirdType.HEISENBIRD, CHAR_HEISENBIRD_KEY, 300);
+            case 5 -> AchievementReward.preview(BirdType.MOCKINGBIRD, ECLIPSE_MOCKINGBIRD_SKIN, 280);
+            case 6 -> AchievementReward.coins(350);
+            case 7 -> AchievementReward.continues(1);
+            case 8 -> AchievementReward.preview(BirdType.PIGEON, FREEMAN_PIGEON_SKIN, 260);
+            case 9 -> AchievementReward.coins(400);
+            case 10 -> AchievementReward.preview(BirdType.PIGEON, "CITY_PIGEON", 220);
+            case 11 -> AchievementReward.preview(BirdType.TITMOUSE, CIRCUIT_TITMOUSE_SKIN, 280);
+            case 12 -> AchievementReward.preview(BirdType.PIGEON, "NOIR_PIGEON", 320);
+            case 13 -> AchievementReward.preview(BirdType.HUMMINGBIRD, SUNFLARE_HUMMINGBIRD_SKIN, 300);
+            case 14 -> AchievementReward.preview(BirdType.SHOEBILL, GLACIER_SHOEBILL_SKIN, 300);
+            case 15 -> AchievementReward.preview(BirdType.EAGLE, "SKY_KING_EAGLE", 320);
+            case 16 -> AchievementReward.preview(BirdType.BAT, CHAR_BAT_KEY, 320);
+            case 17 -> AchievementReward.preview(BirdType.BAT, UMBRA_BAT_SKIN, 280);
+            case 18 -> AchievementReward.preview(BirdType.PELICAN, AURORA_PELICAN_SKIN, 320);
+            case 19 -> AchievementReward.continues(2);
+            case 20 -> AchievementReward.preview(null, MAP_CAVE_KEY, 320);
+            case 21 -> AchievementReward.preview(null, MAP_BATTLEFIELD_KEY, 420);
+            default -> AchievementReward.coins(100);
+        };
+    }
+
+    private ShopPreview achievementRewardPreview(int index) {
+        AchievementReward reward = achievementRewardFor(index);
+        if (reward == null || !reward.isPreview()) {
+            return null;
+        }
+        return new ShopPreview(reward.birdType(), reward.key(), null, reward.duplicateCoins());
+    }
+
+    private String achievementRewardKindLabel(ShopPreview preview) {
+        if (preview == null) return "Reward";
+        if (isShopPreviewMap(preview)) return "Map";
+        if (isShopPreviewCharacter(preview)) return "Character";
+        if (preview.type() != null && preview.skinKey() != null) return "Skin";
+        if (preview.type() != null) return "Bird";
+        return "Reward";
+    }
+
+    private String achievementRewardLabel(int index) {
+        AchievementReward reward = achievementRewardFor(index);
+        if (reward == null) {
+            return "Reward pending";
+        }
+        if (reward.isCoins()) {
+            return reward.amount() + " Bird Coins";
+        }
+        if (reward.isContinue()) {
+            return "Classic Continue +" + reward.amount();
+        }
+        ShopPreview preview = achievementRewardPreview(index);
+        String name = shopPreviewName(preview);
+        String kind = achievementRewardKindLabel(preview);
+        String suffix = name.toUpperCase(Locale.ROOT).endsWith(kind.toUpperCase(Locale.ROOT)) ? "" : (" " + kind);
+        return name + suffix;
+    }
+
+    private String achievementRewardDetail(int index) {
+        AchievementReward reward = achievementRewardFor(index);
+        if (reward == null) {
+            return "";
+        }
+        if (reward.isCoins()) {
+            return "Claim to receive +" + reward.amount() + " Bird Coins.";
+        }
+        if (reward.isContinue()) {
+            return "Claim to bank +" + reward.amount() + " Classic Continue"
+                    + (reward.amount() == 1 ? "" : "s") + " for future runs.";
+        }
+        return "Claim to unlock " + achievementRewardLabel(index) + ". Duplicate unlocks convert to +"
+                + reward.duplicateCoins() + " Bird Coins.";
+    }
+
+    private String achievementProgressText(int index) {
+        return switch (index) {
+            case 0 -> "Best this match: " + maxProgressAcrossPlayers(eliminations) + " / 1 elimination";
+            case 1 -> "Best this match: " + maxProgressAcrossPlayers(eliminations) + " / 3 eliminations";
+            case 2 -> "Best this match: " + maxProgressAcrossPlayers(eliminations) + " / "
+                    + Math.max(1, activePlayers - 1) + " eliminations";
+            case 3 -> "Best this match: " + maxProgressAcrossPlayers(groundPounds) + " / 3 ground pounds";
+            case 4 -> String.format(Locale.US, "Total lean time: %.1f / 30.0 seconds", achievementProgress[4] / 60.0);
+            case 5 -> String.format(Locale.US, "Lounge healing: %.1f / 100.0 HP", achievementProgress[5] / 10.0);
+            case 6 -> "Best this match: " + maxProgressAcrossPlayers(powerUpsCollectedMatch) + " / 10 power-ups";
+            case 7 -> "Total falls: " + achievementProgress[7] + " / 3";
+            case 8 -> "Total taunts: " + achievementProgress[8] + " / 10";
+            case 9 -> achievementsUnlocked[9] ? "Condition met: clutch win secured" : "Win a match with less than 20 HP remaining";
+            case 10 -> "High rooftop jumps: " + achievementProgress[10] + " / 20";
+            case 11 -> "Neon pickups: " + achievementProgress[11] + " / 8";
+            case 12 -> "Rooftop wins: " + achievementProgress[12] + " / 5";
+            case 13 -> "Thermal pickups: " + achievementProgress[13] + " / 10";
+            case 14 -> "High cliff jumps: " + achievementProgress[14] + " / 15";
+            case 15 -> "Sky Cliffs wins: " + achievementProgress[15] + " / 5";
+            case 16 -> "Vine Grapples: " + achievementProgress[16] + " / 8";
+            case 17 -> "Jungle wins: " + achievementProgress[17] + " / 5";
+            case 18 -> "Pelican plunges: " + achievementProgress[18] + " / 15";
+            case 19 -> "Classic clears: " + countCompleted(classicCompleted) + " / 1";
+            case 20 -> "Chapter 2 complete: " + (isAdventureChapterComplete(1) ? "1 / 1" : "0 / 1");
+            case 21 -> "Adventure chapters complete: " + countCompleted(adventureChapterCompletedByIndex)
+                    + " / " + Math.max(1, adventureChapterCompletedByIndex.length);
+            default -> "";
+        };
+    }
+
+    private boolean isAdventureChapterComplete(int chapterIndex) {
+        ensureAdventureChapterState();
+        return chapterIndex >= 0
+                && chapterIndex < adventureChapterCompletedByIndex.length
+                && adventureChapterCompletedByIndex[chapterIndex];
+    }
+
+    private int countCompleted(boolean[] values) {
+        if (values == null) return 0;
+        int total = 0;
+        for (boolean value : values) {
+            if (value) total++;
+        }
+        return total;
+    }
+
+    private int sumProgress(int[] values) {
+        if (values == null) return 0;
+        int total = 0;
+        for (int value : values) {
+            total += Math.max(0, value);
+        }
+        return total;
+    }
+
+    private boolean isAchievementRewardClaimable(int index) {
+        return index >= 0
+                && index < ACHIEVEMENT_COUNT
+                && achievementsUnlocked[index]
+                && !achievementRewardsClaimed[index];
+    }
+
+    private int countClaimableAchievementRewards(AchievementCategory category) {
+        int count = 0;
+        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
+            if (achievementCategoryFor(i) == category && isAchievementRewardClaimable(i)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private boolean hasClaimableAchievementRewards() {
+        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
+            if (isAchievementRewardClaimable(i)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private AchievementClaimResult claimAchievementRewardInternal(int index) {
+        if (!isAchievementRewardClaimable(index)) {
+            return null;
+        }
+
+        AchievementReward reward = achievementRewardFor(index);
+        achievementRewardsClaimed[index] = true;
+
+        if (reward == null) {
+            saveAchievements();
+            return null;
+        }
+
+        if (reward.isCoins()) {
+            grantBirdCoins(reward.amount());
+            saveAchievements();
+            return new AchievementClaimResult(
+                    new ShopPreview(null, null, "Bird Coins +" + reward.amount(), reward.amount()),
+                    ACHIEVEMENT_NAMES[index] + " paid out +" + reward.amount() + " Bird Coins.",
+                    false
+            );
+        }
+
+        if (reward.isContinue()) {
+            classicContinues += reward.amount();
+            saveAchievements();
+            return new AchievementClaimResult(
+                    new ShopPreview(null, CLASSIC_CONTINUE_KEY, "Classic Continue +" + reward.amount(), reward.amount()),
+                    ACHIEVEMENT_NAMES[index] + " granted +" + reward.amount() + " Classic Continue"
+                            + (reward.amount() == 1 ? "" : "s") + ".",
+                    false
+            );
+        }
+
+        ShopPreview preview = achievementRewardPreview(index);
+        if (preview != null && !isShopPreviewOwned(preview)) {
+            unlockShopPreview(preview);
+            saveAchievements();
+            return new AchievementClaimResult(preview, achievementRewardLabel(index), true);
+        }
+
+        int duplicateCoins = Math.max(100, reward.duplicateCoins());
+        grantBirdCoins(duplicateCoins);
+        saveAchievements();
+        return new AchievementClaimResult(
+                new ShopPreview(null, null, "Bird Coins +" + duplicateCoins, duplicateCoins),
+                achievementRewardLabel(index) + " was already unlocked, so the reward converted to +"
+                        + duplicateCoins + " Bird Coins.",
+                false
+        );
+    }
+
+    private void claimAchievementReward(int index, Stage stage, AchievementCategory currentCategory) {
+        AchievementClaimResult result = claimAchievementRewardInternal(index);
+        if (result == null || stage == null) {
+            return;
+        }
+        Runnable onComplete = () -> showAchievements(stage, currentCategory);
+        if (result.usesUnlockCards()) {
+            runAfterUnlockCards(stage, onComplete);
+        } else {
+            showAchievementRewardPreviewCard(stage, index, result.preview(), result.detail(), onComplete);
+        }
+    }
+
+    private void showAchievementRewardPreviewCard(Stage stage, int achievementIndex, ShopPreview preview,
+                                                  String description, Runnable onComplete) {
+        if (stage == null || preview == null) {
+            if (onComplete != null) onComplete.run();
+            return;
+        }
+        playMenuMusic();
+
+        Color accent = achievementAccentColor(achievementIndex);
+        String accentHex = toHex(accent);
+
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #09131F, #16283A, #101B2A);",
+                MENU_PADDING, 26);
+
+        Label title = new Label("ACHIEVEMENT REWARD CLAIMED");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 74));
+        title.setTextFill(Color.web("#FFE082"));
+
+        Label subtitle = getLabel(ACHIEVEMENT_NAMES[Math.clamp(achievementIndex, 0, ACHIEVEMENT_NAMES.length - 1)].toUpperCase(Locale.ROOT));
+        subtitle.setFont(Font.font("Consolas", 24));
+        subtitle.setTextFill(accent.brighter());
+
+        VBox header = new VBox(4, title, subtitle);
+        header.setAlignment(Pos.CENTER);
+
+        VBox card = new VBox(14);
+        card.setAlignment(Pos.TOP_CENTER);
+        card.setPadding(new Insets(24));
+        card.setPrefWidth(560);
+        card.setMaxWidth(560);
+        card.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 22; -fx-border-color: "
+                + accentHex + "; -fx-border-width: 3; -fx-border-radius: 22;");
+
+        Label rewardType = getLabel(shopPreviewCategory(preview));
+        rewardType.setFont(Font.font("Consolas", 20));
+        rewardType.setTextFill(accent.brighter());
+
+        Label rewardName = new Label(shopPreviewName(preview).toUpperCase(Locale.ROOT));
+        rewardName.setFont(Font.font("Arial Black", 34));
+        rewardName.setTextFill(Color.WHITE);
+        rewardName.setWrapText(true);
+        rewardName.setTextAlignment(TextAlignment.CENTER);
+        rewardName.setMaxWidth(480);
+
+        Node art = buildShopPreviewArt(preview, accent, 440);
+        Label detail = new Label(description == null ? "" : description);
+        detail.setFont(Font.font("Consolas", 20));
+        detail.setTextFill(Color.web("#CFD8DC"));
+        detail.setWrapText(true);
+        detail.setTextAlignment(TextAlignment.CENTER);
+        detail.setMaxWidth(500);
+
+        Label continueLabel = new Label("CLICK TO CONTINUE");
+        continueLabel.setFont(Font.font("Consolas", 28));
+        continueLabel.setTextFill(Color.web("#C8E6C9"));
+        continueLabel.setEffect(new Glow(0.6));
+
+        card.getChildren().addAll(rewardType, rewardName, art, detail);
+        root.getChildren().addAll(header, card, continueLabel);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+
+        Runnable advance = () -> {
+            if (onComplete != null) onComplete.run();
+        };
+
+        root.setOnMouseClicked(e -> {
+            playButtonClick();
+            advance.run();
+        });
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
+                playButtonClick();
+                advance.run();
+                e.consume();
+            }
+        });
+    }
+
+    private Color achievementAccentColor(int index) {
+        return switch (achievementCategoryFor(index)) {
+            case COMBAT -> Color.web("#EF5350");
+            case BIRD -> Color.web("#AB47BC");
+            case MAP -> Color.web("#26C6DA");
+            case MODE -> Color.web("#42A5F5");
+            case STORY -> Color.web("#FFD54F");
+        };
+    }
+
+    private Color achievementCategoryAccent(AchievementCategory category) {
+        return switch (category) {
+            case COMBAT -> Color.web("#EF5350");
+            case BIRD -> Color.web("#AB47BC");
+            case MAP -> Color.web("#26C6DA");
+            case MODE -> Color.web("#42A5F5");
+            case STORY -> Color.web("#FFD54F");
+        };
+    }
+
+    private String achievementIconCode(int index) {
+        return switch (index) {
+            case 0 -> "FB";
+            case 1 -> "DM";
+            case 2 -> "AN";
+            case 3 -> "TS";
+            case 4 -> "LG";
+            case 5 -> "LL";
+            case 6 -> "PH";
+            case 7 -> "FG";
+            case 8 -> "TL";
+            case 9 -> "CG";
+            case 10 -> "RR";
+            case 11 -> "NA";
+            case 12 -> "UK";
+            case 13 -> "TR";
+            case 14 -> "CD";
+            case 15 -> "SE";
+            case 16 -> "VS";
+            case 17 -> "CK";
+            case 18 -> "PK";
+            case 19 -> "CC";
+            case 20 -> "EB";
+            case 21 -> "SK";
+            default -> "A";
+        };
+    }
+
+    private void drawCenteredText(GraphicsContext g, String text, Font font, double centerX, double centerY, Color fill) {
+        Text helper = new Text(text);
+        helper.setFont(font);
+        Bounds bounds = helper.getLayoutBounds();
+        g.setFont(font);
+        g.setFill(fill);
+        g.fillText(text, centerX - bounds.getWidth() / 2.0, centerY + bounds.getHeight() / 4.0);
+    }
+
+    private Canvas buildAchievementIcon(int index, double size) {
+        double actual = Math.max(56.0, size);
+        Canvas canvas = new Canvas(actual, actual);
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        Color accent = achievementAccentColor(index);
+        Color accentDark = accent.deriveColor(0, 1.0, 0.48, 1.0);
+
+        g.setFill(Color.rgb(5, 8, 12, 0.92));
+        g.fillRoundRect(3, 3, actual - 6, actual - 6, actual * 0.26, actual * 0.26);
+
+        g.setFill(new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, accent.brighter()),
+                new Stop(1, accentDark)));
+        g.fillOval(actual * 0.13, actual * 0.11, actual * 0.74, actual * 0.74);
+
+        g.setStroke(Color.web("#F8FAFC", 0.88));
+        g.setLineWidth(Math.max(2.0, actual * 0.035));
+        g.strokeOval(actual * 0.17, actual * 0.15, actual * 0.66, actual * 0.66);
+        g.strokeRoundRect(5, 5, actual - 10, actual - 10, actual * 0.24, actual * 0.24);
+
+        g.setFill(Color.web("#041118", 0.26));
+        g.fillRoundRect(actual * 0.15, actual * 0.67, actual * 0.70, actual * 0.13, actual * 0.08, actual * 0.08);
+
+        Font codeFont = Font.font("Arial Black", FontWeight.BOLD, actual * 0.24);
+        drawCenteredText(g, achievementIconCode(index), codeFont, actual / 2.0, actual * 0.51, Color.WHITE);
+
+        Font categoryFont = Font.font("Consolas", FontWeight.BOLD, actual * 0.12);
+        drawCenteredText(g, achievementCategoryFor(index).label.substring(0, 1), categoryFont,
+                actual / 2.0, actual * 0.73, Color.web("#FDE68A"));
+
+        g.setStroke(Color.web("#E0F2F1", 0.65));
+        g.setLineWidth(Math.max(1.5, actual * 0.018));
+        g.strokeLine(actual * 0.19, actual * 0.25, actual * 0.09, actual * 0.17);
+        g.strokeLine(actual * 0.81, actual * 0.25, actual * 0.91, actual * 0.17);
+        g.strokeLine(actual * 0.23, actual * 0.81, actual * 0.13, actual * 0.89);
+        g.strokeLine(actual * 0.77, actual * 0.81, actual * 0.87, actual * 0.89);
+        return canvas;
+    }
+
+    private Node buildAchievementRewardTileIcon(int index) {
+        AchievementReward reward = achievementRewardFor(index);
+        if (reward == null) {
+            return buildLockedTileIcon(Color.web("#607D8B"));
+        }
+        if (reward.isCoins()) {
+            return buildCoinTileIcon();
+        }
+        if (reward.isContinue()) {
+            return buildContinueTileIcon();
+        }
+        ShopPreview preview = achievementRewardPreview(index);
+        if (preview == null) {
+            return buildLockedTileIcon(Color.web("#607D8B"));
+        }
+        if (isShopPreviewMap(preview)) {
+            MapType map = mapTypeForPreview(preview);
+            return map != null ? buildMapTileIcon(map) : buildLockedTileIcon(achievementAccentColor(index));
+        }
+        if (preview.type() != null) {
+            String skinKey = isShopPreviewCharacter(preview) ? null : preview.skinKey();
+            return buildBirdTileIcon(preview.type(), skinKey, originMapForBird(preview.type()));
+        }
+        return buildLockedTileIcon(achievementAccentColor(index));
+    }
+
+    private Button achievementTabButton(Stage stage, AchievementCategory current, AchievementCategory tab) {
+        int claimable = countClaimableAchievementRewards(tab);
+        boolean selected = current == tab;
+        String label = claimable > 0 ? tab.label.toUpperCase(Locale.ROOT) + " !" : tab.label.toUpperCase(Locale.ROOT);
+        Button button = uiFactory.action(label, 230, 78, 24,
+                selected ? "#FFD54F" : "#37474F",
+                18,
+                () -> showAchievements(stage, tab));
+        button.setTextFill(selected ? Color.web("#10202A") : Color.WHITE);
+        button.setStyle((button.getStyle() == null ? "" : button.getStyle())
+                + "; -fx-border-color: " + toHex(selected ? Color.web("#FFF8E1") : achievementCategoryAccent(tab))
+                + "; -fx-border-width: 2;");
+        return button;
+    }
+
+    private VBox buildAchievementCard(Stage stage, int index, AchievementCategory currentCategory) {
+        boolean unlocked = achievementsUnlocked[index];
+        boolean claimable = isAchievementRewardClaimable(index);
+        boolean claimed = unlocked && achievementRewardsClaimed[index];
+        Color accent = achievementAccentColor(index);
+        String border = claimable ? "#FFE082" : (claimed ? "#80CBC4" : toHex(accent));
+        String background = claimable ? "rgba(56, 95, 52, 0.82)"
+                : unlocked ? "rgba(17, 29, 42, 0.88)" : "rgba(10, 15, 23, 0.74)";
+
+        VBox card = new VBox(12);
+        card.setPadding(new Insets(20, 22, 20, 22));
+        card.setMaxWidth(1500);
+        card.setStyle("-fx-background-color: " + background + "; -fx-border-color: " + border
+                + "; -fx-border-width: 3; -fx-background-radius: 20; -fx-border-radius: 20;");
+
+        Canvas icon = buildAchievementIcon(index, 92);
+
+        Label nameLabel = new Label(ACHIEVEMENT_NAMES[index].toUpperCase(Locale.ROOT));
+        nameLabel.setFont(Font.font("Impact", 36));
+        nameLabel.setTextFill(Color.WHITE);
+
+        String statusText = claimable ? "UNLOCKED - REWARD READY"
+                : claimed ? "REWARD CLAIMED"
+                : unlocked ? "UNLOCKED"
+                : "LOCKED";
+        Label statusLabel = getLabel(statusText);
+        statusLabel.setFont(Font.font("Consolas", 18));
+        statusLabel.setTextFill(claimable ? Color.web("#FFF59D")
+                : claimed ? Color.web("#80DEEA")
+                : unlocked ? accent.brighter()
+                : Color.web("#90A4AE"));
+
+        HBox header = new HBox(14, nameLabel, statusLabel);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        Label descLabel = getLabel(sanitizeAchievementText(ACHIEVEMENT_DESCRIPTIONS[index]));
+        descLabel.setFont(Font.font("Consolas", 20));
+        descLabel.setTextFill(unlocked ? Color.web("#E3F2FD") : Color.web("#B0BEC5"));
+        descLabel.setWrapText(true);
+        descLabel.setMaxWidth(900);
+
+        Label progressLabel = getLabel(achievementProgressText(index));
+        progressLabel.setFont(Font.font("Consolas", 18));
+        progressLabel.setTextFill(Color.web("#90CAF9"));
+        progressLabel.setWrapText(true);
+        progressLabel.setMaxWidth(900);
+
+        VBox textBox = new VBox(8, header, descLabel, progressLabel);
+        textBox.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(textBox, Priority.ALWAYS);
+
+        VBox rewardBox = new VBox(8);
+        rewardBox.setAlignment(Pos.CENTER_LEFT);
+        rewardBox.setPrefWidth(360);
+        rewardBox.setMaxWidth(360);
+        rewardBox.setPadding(new Insets(12));
+        rewardBox.setStyle("-fx-background-color: rgba(0,0,0,0.34); -fx-background-radius: 18;");
+
+        Label rewardHeader = getLabel("REWARD");
+        rewardHeader.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        rewardHeader.setTextFill(accent.brighter());
+
+        Label rewardLabel = new Label(achievementRewardLabel(index));
+        rewardLabel.setFont(Font.font("Arial Black", 22));
+        rewardLabel.setTextFill(Color.web("#FFF8E1"));
+        rewardLabel.setWrapText(true);
+        rewardLabel.setMaxWidth(300);
+
+        Label rewardDetail = getLabel(achievementRewardDetail(index));
+        rewardDetail.setFont(Font.font("Consolas", 16));
+        rewardDetail.setTextFill(Color.web("#CFD8DC"));
+        rewardDetail.setWrapText(true);
+        rewardDetail.setMaxWidth(300);
+
+        Node rewardIcon = buildAchievementRewardTileIcon(index);
+
+        rewardBox.getChildren().addAll(rewardHeader, rewardIcon, rewardLabel, rewardDetail);
+
+        if (claimable) {
+            Button claimButton = uiFactory.action("CLAIM REWARD", 250, 74, 24, "#2E7D32", 18,
+                    () -> claimAchievementReward(index, stage, currentCategory));
+            rewardBox.getChildren().add(claimButton);
+        } else {
+            Label rewardState = getLabel(claimed ? "Already claimed" : (unlocked ? "Reward ready next visit" : "Unlock this achievement to claim"));
+            rewardState.setFont(Font.font("Consolas", 16));
+            rewardState.setTextFill(claimed ? Color.web("#A5D6A7") : Color.web("#90A4AE"));
+            rewardState.setWrapText(true);
+            rewardState.setMaxWidth(300);
+            rewardBox.getChildren().add(rewardState);
+        }
+
+        HBox row = new HBox(22, icon, textBox, rewardBox);
+        row.setAlignment(Pos.CENTER_LEFT);
+        card.getChildren().add(row);
+        return card;
+    }
+
     private void showAchievements(Stage stage) {
+        showAchievements(stage, preferredAchievementCategory());
+    }
+
+    private void showAchievements(Stage stage, AchievementCategory category) {
         playMenuMusic();
 
         BorderPane root = new BorderPane();
-        root.setPadding(new Insets(30, 40, 30, 40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0C1220, #1A2A44);");
+        root.setPadding(new Insets(28, 36, 28, 36));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #09111D, #12233A, #17304B);");
+
+        Button back = uiFactory.action("BACK TO HUB", 320, 84, 30, "#D32F2F", 22, () -> showMenu(stage));
 
         Label title = new Label("ACHIEVEMENTS");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 96));
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 88));
         title.setTextFill(Color.web("#FFE082"));
-        title.setEffect(new DropShadow(30, Color.BLACK));
+        title.setEffect(new DropShadow(28, Color.BLACK));
+
+        int unlockedCount = countCompleted(achievementsUnlocked);
+        int claimableCount = 0;
+        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
+            if (isAchievementRewardClaimable(i)) {
+                claimableCount++;
+            }
+        }
+
+        Label subtitle = new Label("Unlock challenges, claim rewards, and convert duplicate cosmetic rewards into Bird Coins.");
+        subtitle.setFont(Font.font("Consolas", 20));
+        subtitle.setTextFill(Color.web("#B0BEC5"));
+        subtitle.setWrapText(true);
+        subtitle.setMaxWidth(980);
+
+        Label summary = new Label("UNLOCKED " + unlockedCount + " / " + ACHIEVEMENT_COUNT
+                + "   |   CLAIMABLE REWARDS " + claimableCount);
+        summary.setFont(Font.font("Consolas", 22));
+        summary.setTextFill(claimableCount > 0 ? Color.web("#FFF59D") : Color.web("#80DEEA"));
+
+        VBox titleBox = new VBox(6, title, subtitle, summary);
+        titleBox.setAlignment(Pos.CENTER_LEFT);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox header = new HBox(18, back, titleBox, spacer);
+        header.setAlignment(Pos.CENTER_LEFT);
+
+        HBox tabs = new HBox(14);
+        tabs.setAlignment(Pos.CENTER);
+        for (AchievementCategory tab : AchievementCategory.values()) {
+            tabs.getChildren().add(achievementTabButton(stage, category, tab));
+        }
 
         VBox list = new VBox(18);
         list.setAlignment(Pos.TOP_CENTER);
-
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
-            boolean unlocked = achievementsUnlocked[i];
-            VBox card = new VBox(8);
-            card.setPadding(new Insets(18, 22, 18, 22));
-            card.setMaxWidth(1400);
-            String bg = unlocked ? "rgba(46,125,50,0.85)" : "rgba(20,20,20,0.6)";
-            String border = unlocked ? "#FFD54F" : "#37474F";
-            card.setStyle("-fx-background-color: " + bg + "; -fx-border-color: " + border + "; -fx-border-width: 3; -fx-background-radius: 18; -fx-border-radius: 18;");
-
-            Label nameLabel = new Label(ACHIEVEMENT_NAMES[i]);
-            nameLabel.setFont(Font.font("Impact", 34));
-            nameLabel.setTextFill(unlocked ? Color.web("#C8E6C9") : Color.web("#B0BEC5"));
-
-            Label statusLabel = getLabel(unlocked ? "UNLOCKED" : "LOCKED");
-            statusLabel.setFont(Font.font("Consolas", 20));
-            statusLabel.setTextFill(unlocked ? Color.web("#FFF59D") : Color.web("#78909C"));
-
-            Label descLabel = getLabel(sanitizeAchievementText(ACHIEVEMENT_DESCRIPTIONS[i]));
-            descLabel.setFont(Font.font("Consolas", 22));
-            descLabel.setTextFill(unlocked ? Color.web("#E8F5E9") : Color.web("#B0BEC5"));
-            descLabel.setWrapText(true);
-            descLabel.setMaxWidth(1200);
-
-            HBox header = new HBox(16, nameLabel, statusLabel);
-            header.setAlignment(Pos.CENTER_LEFT);
-
-            card.getChildren().addAll(header, descLabel);
-            list.getChildren().add(card);
+            if (achievementCategoryFor(i) == category) {
+                list.getChildren().add(buildAchievementCard(stage, i, category));
+            }
         }
 
         ScrollPane scroll = new ScrollPane(list);
@@ -22358,21 +23291,15 @@ public class BirdGame3 extends Application {
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
 
-        Button back = uiFactory.action("BACK", 360, 100, 40, "#FF1744", 28, () -> showMenu(stage));
-
-        BorderPane.setAlignment(title, Pos.CENTER);
-        root.setTop(title);
+        VBox top = new VBox(16, header, tabs);
+        root.setTop(top);
         root.setCenter(scroll);
-        root.setBottom(back);
-        BorderPane.setAlignment(back, Pos.CENTER);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
-
-        // Hide default blue mouse focus ring
         root.setStyle(root.getStyle() + ";-fx-focus-color:transparent;-fx-faint-focus-color:transparent;");
-
         setScenePreservingFullscreen(stage, scene);
         back.requestFocus();
     }

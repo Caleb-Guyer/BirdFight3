@@ -13,6 +13,7 @@ import java.util.prefs.Preferences;
 final class GameSaveRepository {
     private static final String KEY_ACTIVE_PROFILE_ID = "save_active_profile_id";
     private static final String KEY_MIGRATED = "save_profiles_migrated";
+    private static final String KEY_LEGACY_RECOVERED = "save_legacy_recovered";
     private static final String NODE_PROFILES = "save_profiles";
     private static final String NODE_SAVE = "save";
     private static final String KEY_NAME = "name";
@@ -82,6 +83,7 @@ final class GameSaveRepository {
 
     SaveProfile createProfile(String requestedName, boolean activate) {
         ensureInitialized();
+        markLegacyRecoveryHandled();
         return createProfileInternal(requestedName, activate, listProfilesRaw().size() + 1);
     }
 
@@ -97,12 +99,14 @@ final class GameSaveRepository {
     void setActiveProfile(String profileId) {
         ensureInitialized();
         existingProfileNode(profileId);
+        markLegacyRecoveryHandled();
         root.put(KEY_ACTIVE_PROFILE_ID, profileId);
     }
 
     void clearProfile(String profileId) {
         ensureInitialized();
         Preferences profileNode = existingProfileNode(profileId);
+        markLegacyRecoveryHandled();
         try {
             if (profileNode.nodeExists(NODE_SAVE)) {
                 profileNode.node(NODE_SAVE).removeNode();
@@ -123,6 +127,7 @@ final class GameSaveRepository {
 
         Preferences profileNode = existingProfileNode(profileId);
         boolean deletedActive = activeProfile().id().equals(profileId);
+        markLegacyRecoveryHandled();
         try {
             profileNode.removeNode();
         } catch (BackingStoreException e) {
@@ -155,9 +160,12 @@ final class GameSaveRepository {
         }
 
         String activeId = root.get(KEY_ACTIVE_PROFILE_ID, "");
-        if (findProfileRaw(activeId) == null) {
-            root.put(KEY_ACTIVE_PROFILE_ID, profiles.getFirst().id());
+        SaveProfile activeProfile = findProfileRaw(activeId);
+        if (activeProfile == null) {
+            activeProfile = profiles.getFirst();
+            root.put(KEY_ACTIVE_PROFILE_ID, activeProfile.id());
         }
+        maybeRecoverLegacySave(activeProfile, profiles);
     }
 
     private void migrateLegacySaveIfNeeded() {
@@ -197,6 +205,76 @@ final class GameSaveRepository {
         } catch (BackingStoreException e) {
             throw new IllegalStateException("Failed to inspect legacy save data.", e);
         }
+    }
+
+    private void maybeRecoverLegacySave(SaveProfile activeProfile, List<SaveProfile> profiles) {
+        if (root.getBoolean(KEY_LEGACY_RECOVERED, false)) {
+            return;
+        }
+        if (activeProfile == null || profiles.size() != 1) {
+            return;
+        }
+
+        Preferences target = profileNode(activeProfile.id()).node(NODE_SAVE);
+        int activeMeaningfulEntries = countMeaningfulSaveEntries(target, false);
+        int legacyMeaningfulEntries = countMeaningfulSaveEntries(root, true);
+        if (activeMeaningfulEntries > 1 || legacyMeaningfulEntries < 2 || legacyMeaningfulEntries <= activeMeaningfulEntries) {
+            return;
+        }
+
+        copyLegacySave(target);
+        profileNode(activeProfile.id()).putLong(KEY_UPDATED_AT, System.currentTimeMillis());
+        root.putBoolean(KEY_LEGACY_RECOVERED, true);
+    }
+
+    private void copyLegacySave(Preferences target) {
+        try {
+            for (String key : target.keys()) {
+                target.remove(key);
+            }
+            for (String key : root.keys()) {
+                if (isRepositoryKey(key) || isGlobalKey(key)) {
+                    continue;
+                }
+                String value = root.get(key, null);
+                if (value != null) {
+                    target.put(key, value);
+                }
+            }
+        } catch (BackingStoreException e) {
+            throw new IllegalStateException("Failed to recover legacy save data.", e);
+        }
+    }
+
+    private int countMeaningfulSaveEntries(Preferences prefs, boolean treatAsRootNode) {
+        try {
+            int count = 0;
+            for (String key : prefs.keys()) {
+                if (treatAsRootNode && (isRepositoryKey(key) || isGlobalKey(key))) {
+                    continue;
+                }
+                if (isMeaningfulValue(prefs.get(key, null))) {
+                    count++;
+                }
+            }
+            return count;
+        } catch (BackingStoreException e) {
+            throw new IllegalStateException("Failed to inspect save data.", e);
+        }
+    }
+
+    private boolean isMeaningfulValue(String value) {
+        if (value == null) {
+            return false;
+        }
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            return false;
+        }
+        return !trimmed.equals("0")
+                && !trimmed.equals("0.0")
+                && !trimmed.equals("0.00")
+                && !trimmed.equals("false");
     }
 
     private List<SaveProfile> listProfilesRaw() {
@@ -276,7 +354,13 @@ final class GameSaveRepository {
     }
 
     private boolean isRepositoryKey(String key) {
-        return KEY_ACTIVE_PROFILE_ID.equals(key) || KEY_MIGRATED.equals(key);
+        return KEY_ACTIVE_PROFILE_ID.equals(key)
+                || KEY_MIGRATED.equals(key)
+                || KEY_LEGACY_RECOVERED.equals(key);
+    }
+
+    private void markLegacyRecoveryHandled() {
+        root.putBoolean(KEY_LEGACY_RECOVERED, true);
     }
 
     private boolean isGlobalKey(String key) {

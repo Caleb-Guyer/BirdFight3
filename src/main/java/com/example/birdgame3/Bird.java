@@ -350,7 +350,9 @@ public class Bird {
             double distToLounge = Math.hypot(birdCenterX - loungeX, birdCenterY - loungeY);
 
             if (distToLounge < 70) {
+                double healthBefore = health;
                 heal(LOUNGE_HEAL_PER_SECOND / 60.0);
+                game.recordLoungeHealing(this, health - healthBefore);
             }
         }
     }
@@ -409,6 +411,8 @@ public class Bird {
 
     private void handleTurkeyGroundPound() {
         isGroundPounding = false;
+        game.groundPounds[playerIndex]++;
+        game.checkAchievements(this);
         game.shakeIntensity = 22;
         game.hitstopFrames = 15;
         game.addToKillFeed(shortName() + " SLAMMED THE GROUND!");
@@ -428,8 +432,7 @@ public class Bird {
                 boolean isKill = oldHealth > 0 && other.health <= 0;
                 if (isKill) {
                     game.eliminations[playerIndex]++;
-                    game.groundPounds[playerIndex]++;
-        game.playZombieFallSfx();
+                    game.playZombieFallSfx();
                 }
 
                 if (dealtDamage >= 30) {
@@ -2919,6 +2922,7 @@ public class Bird {
 
         if (leanTimer > 0 && opium) {
             game.leanTime[playerIndex]++;
+            game.recordLeanFrame(this);
         } else if (leanTimer > 0) {
             game.leanTime[playerIndex]++;
         }
@@ -4198,6 +4202,9 @@ public class Bird {
 
                 game.thermalPickups[playerIndex]++;
                 game.achievementProgress[13]++;
+                if (game.achievementProgress[13] >= 10 && !game.achievementsUnlocked[13]) {
+                    game.unlockAchievement(13, "THERMAL RIDER!");
+                }
             }
             case VINE_GRAPPLE -> {
                 grappleTimer = 480;
@@ -4251,10 +4258,7 @@ public class Bird {
             }
         }
 
-        game.achievementProgress[6]++;
-        if (game.achievementProgress[6] >= 10 && !game.achievementsUnlocked[6]) {
-            game.unlockAchievement(6, "POWER-UP HOARDER!");
-        }
+        game.recordPowerUpPickupForAchievements(this);
         game.checkAchievements(this);
         for (int i = 0; i < 30; i++) {
             double angle = Math.random() * Math.PI * 2;
@@ -4276,6 +4280,7 @@ public class Bird {
                 tauntTimer = 60;
                 tauntCooldown = 120;
                 game.tauntsPerformed[playerIndex]++;
+                game.recordTauntForAchievements(this);
                 game.checkAchievements(this);
 
                 String tauntName = switch (currentTaunt) {

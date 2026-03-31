@@ -78,4 +78,31 @@ class GameSaveRepositoryTest {
         assertEquals(1, repository.profiles().size());
         assertThrows(IllegalStateException.class, () -> repository.deleteProfile(firstProfile.id()));
     }
+
+    @Test
+    void recoversLegacyRootSaveIntoBlankActiveProfile() {
+        String profileId = "profile_restore_target";
+        Preferences profileNode = prefs.node("save_profiles").node(profileId);
+        profileNode.put("name", "Profile 1");
+        profileNode.putLong("created_at", 10L);
+        profileNode.putLong("updated_at", 10L);
+        profileNode.node("save").putBoolean("ach_30", true);
+        prefs.put("save_active_profile_id", profileId);
+        prefs.putBoolean("save_profiles_migrated", true);
+
+        prefs.putInt("bird_coins", 4030);
+        prefs.putInt("classic_continues", 4);
+        prefs.putBoolean("ach_0", true);
+        prefs.putBoolean("adv_ch9_done", true);
+
+        GameSaveRepository repository = new GameSaveRepository(prefs);
+
+        Preferences restored = repository.activeProfilePrefs();
+        assertEquals(4030, restored.getInt("bird_coins", -1));
+        assertEquals(4, restored.getInt("classic_continues", -1));
+        assertTrue(restored.getBoolean("ach_0", false));
+        assertTrue(restored.getBoolean("adv_ch9_done", false));
+        assertFalse(restored.getBoolean("ach_30", false));
+        assertTrue(prefs.getBoolean("save_legacy_recovered", false));
+    }
 }
