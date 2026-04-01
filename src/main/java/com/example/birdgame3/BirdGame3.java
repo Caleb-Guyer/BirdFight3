@@ -1377,7 +1377,12 @@ public class BirdGame3 extends Application {
 
         boolean hasScroll = (root instanceof ScrollPane) || sceneContainsScrollPane(root);
         Region backgroundSource = null;
-        if (root instanceof Region region) {
+        if (root instanceof ScrollPane scrollRoot) {
+            installTransparentScrollViewport(scrollRoot);
+            if (scrollRoot.getContent() instanceof Region region) {
+                backgroundSource = region;
+            }
+        } else if (root instanceof Region region) {
             backgroundSource = region;
         }
         String rootStyle = backgroundSource != null ? backgroundSource.getStyle() : "";
@@ -1396,7 +1401,11 @@ public class BirdGame3 extends Application {
                         + "-fx-background-insets: 0; -fx-padding: 0;");
             }
             sp.setFitToWidth(true);
+            sp.setFitToHeight(false);
+            installTransparentScrollViewport(sp);
         }
+
+        installTransparentScrollViewports(root);
 
         if (!hasScroll && root instanceof Region region) {
             region.setMinSize(WIDTH, HEIGHT);
@@ -1480,13 +1489,51 @@ public class BirdGame3 extends Application {
     private ScrollPane wrapInScroll(Parent content) {
         ScrollPane scroll = new ScrollPane(content);
         scroll.setFitToWidth(true);
-        scroll.setFitToHeight(true);
+        scroll.setFitToHeight(false);
+        scroll.setPannable(true);
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; "
                 + "-fx-control-inner-background: transparent; -fx-border-color: transparent; "
                 + "-fx-background-insets: 0; -fx-padding: 0;");
+        installTransparentScrollViewport(scroll);
         return scroll;
+    }
+
+    private void installTransparentScrollViewports(Node node) {
+        if (node == null) return;
+        if (node instanceof ScrollPane scroll) {
+            installTransparentScrollViewport(scroll);
+            installTransparentScrollViewports(scroll.getContent());
+            return;
+        }
+        if (node instanceof Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) {
+                installTransparentScrollViewports(child);
+            }
+        }
+    }
+
+    private void installTransparentScrollViewport(ScrollPane scroll) {
+        if (scroll == null) return;
+        Runnable apply = () -> {
+            Node viewport = scroll.lookup(".viewport");
+            if (viewport instanceof Region region) {
+                region.setStyle("-fx-background-color: transparent; -fx-background-insets: 0;");
+            }
+            Node corner = scroll.lookup(".corner");
+            if (corner instanceof Region region) {
+                region.setStyle("-fx-background-color: transparent;");
+            }
+        };
+        if (Boolean.TRUE.equals(scroll.getProperties().get("transparentViewportInstalled"))) {
+            javafx.application.Platform.runLater(apply);
+            return;
+        }
+        scroll.getProperties().put("transparentViewportInstalled", true);
+        scroll.skinProperty().addListener((obs, oldVal, newVal) -> javafx.application.Platform.runLater(apply));
+        scroll.sceneProperty().addListener((obs, oldVal, newVal) -> javafx.application.Platform.runLater(apply));
+        javafx.application.Platform.runLater(apply);
     }
 
     private void styleSettingsInfoLabel(Label label) {
@@ -1944,7 +1991,9 @@ public class BirdGame3 extends Application {
             "Rooftop Runner", "Neon Addict", "Urban King",
             "Thermal Rider", "Cliff Diver", "Sky Emperor",
             "Vine Swinger", "Canopy King", "Pelican King",
-            "Classic Crest", "Echoes Below", "Story Keeper"
+            "Classic Crest", "Echoes Below", "Story Keeper",
+            "Boss Breaker", "Crown Unbroken", "Daily Dynasty",
+            "Rooftop Legacy", "Echo Sovereign", "Iron Tempest"
     };
 
     public static final String[] ACHIEVEMENT_DESCRIPTIONS = {
@@ -1969,7 +2018,13 @@ public class BirdGame3 extends Application {
             "Pelican Plunge 15 enemies across matches",
             "Complete Classic mode with any bird",
             "Complete Adventure Chapter 2: Echoes Below",
-            "Complete all Adventure chapters"
+            "Complete all Adventure chapters",
+            "Clear Boss Rush once",
+            "Clear the Boss Rush EX route",
+            "Clear a full Daily Challenge run",
+            "Complete the Pigeon Episode",
+            "Complete the Bat Episode",
+            "Complete the Pelican Episode"
     };
 
     public static final int ACHIEVEMENT_COUNT = ACHIEVEMENT_NAMES.length;
@@ -2022,6 +2077,7 @@ public class BirdGame3 extends Application {
     public boolean noirPigeonUnlocked = false;
     public boolean freemanPigeonUnlocked = false;
     public boolean beaconPigeonUnlocked = false;
+    public boolean stormPigeonUnlocked = false;
     public boolean trainingModeActive = false;
     private BirdType trainingPlayerBird = BirdType.PIGEON;
     private BirdType trainingOpponentBird = BirdType.PIGEON;
@@ -2033,12 +2089,14 @@ public class BirdGame3 extends Application {
     public boolean circuitTitmouseUnlocked = false;
     public boolean prismRazorbillUnlocked = false;
     public boolean auroraPelicanUnlocked = false;
+    public boolean ironcladPelicanUnlocked = false;
     public boolean sunflareHummingbirdUnlocked = false;
     public boolean glacierShoebillUnlocked = false;
     public boolean tideVultureUnlocked = false;
     public boolean nullRockVultureUnlocked = false;
     public boolean eclipseMockingbirdUnlocked = false;
     public boolean umbraBatUnlocked = false;
+    public boolean resonanceBatUnlocked = false;
     public boolean sunforgeRoosterUnlocked = false;
     public boolean batUnlocked = false;
     public boolean falconUnlocked = false;
@@ -2050,18 +2108,21 @@ public class BirdGame3 extends Application {
 
     private static final String FREEMAN_PIGEON_SKIN = "FREEMAN_PIGEON";
     private static final String BEACON_PIGEON_SKIN = "BEACON_PIGEON";
+    private static final String STORM_PIGEON_SKIN = "STORM_PIGEON";
     private static final String NOVA_PHOENIX_SKIN = "NOVA_PHOENIX";
     private static final String DUNE_FALCON_SKIN = "DUNE_FALCON";
     private static final String MINT_PENGUIN_SKIN = "MINT_PENGUIN";
     private static final String CIRCUIT_TITMOUSE_SKIN = "CIRCUIT_TITMOUSE";
     private static final String PRISM_RAZORBILL_SKIN = "PRISM_RAZORBILL";
     private static final String AURORA_PELICAN_SKIN = "AURORA_PELICAN";
+    private static final String IRONCLAD_PELICAN_SKIN = "IRONCLAD_PELICAN";
     private static final String SUNFLARE_HUMMINGBIRD_SKIN = "SUNFLARE_HUMMINGBIRD";
     private static final String GLACIER_SHOEBILL_SKIN = "GLACIER_SHOEBILL";
     private static final String TIDE_VULTURE_SKIN = "TIDE_VULTURE";
     private static final String NULL_ROCK_VULTURE_SKIN = "NULL_ROCK_VULTURE";
     private static final String ECLIPSE_MOCKINGBIRD_SKIN = "ECLIPSE_MOCKINGBIRD";
     private static final String UMBRA_BAT_SKIN = "UMBRA_BAT";
+    private static final String RESONANCE_BAT_SKIN = "RESONANCE_BAT";
     private static final String SUNFORGE_ROOSTER_SKIN = "SUNFORGE_ROOSTER";
     private static final String CLASSIC_CONTINUE_KEY = "CLASSIC_CONTINUE";
     private static final String CHAR_BAT_KEY = "CHAR_BAT";
@@ -5253,6 +5314,7 @@ public class BirdGame3 extends Application {
             if (noirPigeonUnlocked) options.add("NOIR_PIGEON");
             if (freemanPigeonUnlocked) options.add(FREEMAN_PIGEON_SKIN);
             if (beaconPigeonUnlocked) options.add(BEACON_PIGEON_SKIN);
+            if (stormPigeonUnlocked) options.add(STORM_PIGEON_SKIN);
         } else if (type == BirdType.EAGLE) {
             if (eagleSkinUnlocked) options.add("SKY_KING_EAGLE");
         } else if (type == BirdType.PHOENIX) {
@@ -5276,6 +5338,7 @@ public class BirdGame3 extends Application {
             }
             case PELICAN -> {
                 if (auroraPelicanUnlocked) options.add(AURORA_PELICAN_SKIN);
+                if (ironcladPelicanUnlocked) options.add(IRONCLAD_PELICAN_SKIN);
             }
             case HUMMINGBIRD -> {
                 if (sunflareHummingbirdUnlocked) options.add(SUNFLARE_HUMMINGBIRD_SKIN);
@@ -5291,6 +5354,7 @@ public class BirdGame3 extends Application {
             }
             case BAT -> {
                 if (umbraBatUnlocked) options.add(UMBRA_BAT_SKIN);
+                if (resonanceBatUnlocked) options.add(RESONANCE_BAT_SKIN);
             }
             case ROOSTER -> {
                 if (sunforgeRoosterUnlocked) options.add(SUNFORGE_ROOSTER_SKIN);
@@ -5307,6 +5371,7 @@ public class BirdGame3 extends Application {
         if ("NOIR_PIGEON".equals(skinKey) && type == BirdType.PIGEON && noirPigeonUnlocked) return skinKey;
         if (FREEMAN_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON && freemanPigeonUnlocked) return skinKey;
         if (BEACON_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON && beaconPigeonUnlocked) return skinKey;
+        if (STORM_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON && stormPigeonUnlocked) return skinKey;
         if ("SKY_KING_EAGLE".equals(skinKey) && type == BirdType.EAGLE && eagleSkinUnlocked) return skinKey;
         if (NOVA_PHOENIX_SKIN.equals(skinKey) && type == BirdType.PHOENIX && novaPhoenixUnlocked) return skinKey;
         if (DUNE_FALCON_SKIN.equals(skinKey) && type == BirdType.FALCON && duneFalconUnlocked) return skinKey;
@@ -5314,12 +5379,14 @@ public class BirdGame3 extends Application {
         if (CIRCUIT_TITMOUSE_SKIN.equals(skinKey) && type == BirdType.TITMOUSE && circuitTitmouseUnlocked) return skinKey;
         if (PRISM_RAZORBILL_SKIN.equals(skinKey) && type == BirdType.RAZORBILL && prismRazorbillUnlocked) return skinKey;
         if (AURORA_PELICAN_SKIN.equals(skinKey) && type == BirdType.PELICAN && auroraPelicanUnlocked) return skinKey;
+        if (IRONCLAD_PELICAN_SKIN.equals(skinKey) && type == BirdType.PELICAN && ironcladPelicanUnlocked) return skinKey;
         if (SUNFLARE_HUMMINGBIRD_SKIN.equals(skinKey) && type == BirdType.HUMMINGBIRD && sunflareHummingbirdUnlocked) return skinKey;
         if (GLACIER_SHOEBILL_SKIN.equals(skinKey) && type == BirdType.SHOEBILL && glacierShoebillUnlocked) return skinKey;
         if (NULL_ROCK_VULTURE_SKIN.equals(skinKey) && type == BirdType.VULTURE && nullRockVultureUnlocked) return skinKey;
         if (TIDE_VULTURE_SKIN.equals(skinKey) && type == BirdType.VULTURE && tideVultureUnlocked) return skinKey;
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(skinKey) && type == BirdType.MOCKINGBIRD && eclipseMockingbirdUnlocked) return skinKey;
         if (UMBRA_BAT_SKIN.equals(skinKey) && type == BirdType.BAT && umbraBatUnlocked) return skinKey;
+        if (RESONANCE_BAT_SKIN.equals(skinKey) && type == BirdType.BAT && resonanceBatUnlocked) return skinKey;
         if (SUNFORGE_ROOSTER_SKIN.equals(skinKey) && type == BirdType.ROOSTER && sunforgeRoosterUnlocked) return skinKey;
         if (skinKey.startsWith("CLASSIC_SKIN_") && type != BirdType.PIGEON && type != BirdType.EAGLE) {
             String expected = classicSkinDataKey(type);
@@ -5343,6 +5410,9 @@ public class BirdGame3 extends Application {
             case BEACON_PIGEON_SKIN -> {
                 return "SKIN: BEACON PIGEON";
             }
+            case STORM_PIGEON_SKIN -> {
+                return "SKIN: STORM PIGEON";
+            }
             case "SKY_KING_EAGLE" -> {
                 return "SKIN: SKY KING";
             }
@@ -5364,6 +5434,9 @@ public class BirdGame3 extends Application {
             case AURORA_PELICAN_SKIN -> {
                 return "SKIN: AURORA PELICAN";
             }
+            case IRONCLAD_PELICAN_SKIN -> {
+                return "SKIN: IRONCLAD PELICAN";
+            }
             case SUNFLARE_HUMMINGBIRD_SKIN -> {
                 return "SKIN: SUNFLARE HUMMINGBIRD";
             }
@@ -5381,6 +5454,9 @@ public class BirdGame3 extends Application {
             }
             case UMBRA_BAT_SKIN -> {
                 return "SKIN: UMBRA BAT";
+            }
+            case RESONANCE_BAT_SKIN -> {
+                return "SKIN: RESONANCE BAT";
             }
             case SUNFORGE_ROOSTER_SKIN -> {
                 return "SKIN: SUNFORGE ROOSTER";
@@ -5403,12 +5479,15 @@ public class BirdGame3 extends Application {
         bird.isPrismSkin = false;
         bird.isAuroraSkin = false;
         bird.isBeaconSkin = false;
+        bird.isStormSkin = false;
         bird.isSunflareSkin = false;
         bird.isGlacierSkin = false;
         bird.isTideSkin = false;
         bird.isNullRockSkin = false;
         bird.isEclipseSkin = false;
         bird.isUmbraSkin = false;
+        bird.isResonanceSkin = false;
+        bird.isIroncladSkin = false;
         bird.isSunforgeSkin = false;
 
         if (skinKey == null) return;
@@ -5417,6 +5496,7 @@ public class BirdGame3 extends Application {
             else if ("CITY_PIGEON".equals(skinKey)) bird.isCitySkin = true;
             else if ("NOIR_PIGEON".equals(skinKey)) bird.isNoirSkin = true;
             else if (FREEMAN_PIGEON_SKIN.equals(skinKey) && freemanPigeonUnlocked) bird.isFreemanSkin = true;
+            else if (STORM_PIGEON_SKIN.equals(skinKey) && stormPigeonUnlocked) bird.isStormSkin = true;
             return;
         }
         if (type == BirdType.EAGLE) {
@@ -5447,6 +5527,10 @@ public class BirdGame3 extends Application {
             bird.isAuroraSkin = true;
             return;
         }
+        if (type == BirdType.PELICAN && IRONCLAD_PELICAN_SKIN.equals(skinKey) && ironcladPelicanUnlocked) {
+            bird.isIroncladSkin = true;
+            return;
+        }
         if (type == BirdType.HUMMINGBIRD && SUNFLARE_HUMMINGBIRD_SKIN.equals(skinKey) && sunflareHummingbirdUnlocked) {
             bird.isSunflareSkin = true;
             return;
@@ -5472,6 +5556,10 @@ public class BirdGame3 extends Application {
             bird.isUmbraSkin = true;
             return;
         }
+        if (type == BirdType.BAT && RESONANCE_BAT_SKIN.equals(skinKey) && resonanceBatUnlocked) {
+            bird.isResonanceSkin = true;
+            return;
+        }
         if (type == BirdType.ROOSTER && SUNFORGE_ROOSTER_SKIN.equals(skinKey) && sunforgeRoosterUnlocked) {
             bird.isSunforgeSkin = true;
             return;
@@ -5494,12 +5582,15 @@ public class BirdGame3 extends Application {
         bird.isPrismSkin = false;
         bird.isAuroraSkin = false;
         bird.isBeaconSkin = false;
+        bird.isStormSkin = false;
         bird.isSunflareSkin = false;
         bird.isGlacierSkin = false;
         bird.isTideSkin = false;
         bird.isNullRockSkin = false;
         bird.isEclipseSkin = false;
         bird.isUmbraSkin = false;
+        bird.isResonanceSkin = false;
+        bird.isIroncladSkin = false;
         bird.isSunforgeSkin = false;
 
         if (skinKey == null) return;
@@ -5509,6 +5600,7 @@ public class BirdGame3 extends Application {
                 case "CITY_PIGEON" -> bird.isCitySkin = true;
                 case "NOIR_PIGEON" -> bird.isNoirSkin = true;
                 case FREEMAN_PIGEON_SKIN -> bird.isFreemanSkin = true;
+                case STORM_PIGEON_SKIN -> bird.isStormSkin = true;
             }
             return;
         }
@@ -5540,6 +5632,10 @@ public class BirdGame3 extends Application {
             bird.isAuroraSkin = true;
             return;
         }
+        if (type == BirdType.PELICAN && IRONCLAD_PELICAN_SKIN.equals(skinKey)) {
+            bird.isIroncladSkin = true;
+            return;
+        }
         if (type == BirdType.HUMMINGBIRD && SUNFLARE_HUMMINGBIRD_SKIN.equals(skinKey)) {
             bird.isSunflareSkin = true;
             return;
@@ -5563,6 +5659,10 @@ public class BirdGame3 extends Application {
         }
         if (type == BirdType.BAT && UMBRA_BAT_SKIN.equals(skinKey)) {
             bird.isUmbraSkin = true;
+            return;
+        }
+        if (type == BirdType.BAT && RESONANCE_BAT_SKIN.equals(skinKey)) {
+            bird.isResonanceSkin = true;
             return;
         }
         if (type == BirdType.ROOSTER && SUNFORGE_ROOSTER_SKIN.equals(skinKey)) {
@@ -8611,7 +8711,7 @@ public class BirdGame3 extends Application {
         nav.add(lanBtn, 2, 1);
 
         boolean claimableRewards = hasClaimableAchievementRewards();
-        Button achievementsBtn = buildHubFooterButton(claimableRewards ? "ACHIEVEMENTS !" : "ACHIEVEMENTS",
+        Button achievementsBtn = buildHubFooterButton("ACHIEVEMENTS",
                 190, 18, "#455A64", "#37474F", "#B0BEC5",
                 hubIconAchievements(claimableRewards), () -> showAchievements(stage));
         Button historyBtn = buildHubFooterButton("MATCH HISTORY", 190, 15, "#00695C", "#004D40", "#B2DFDB",
@@ -11692,6 +11792,8 @@ public class BirdGame3 extends Application {
 
         VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);",
                 MENU_PADDING, 30);
+        root.setAlignment(Pos.TOP_CENTER);
+        root.setMinHeight(Region.USE_PREF_SIZE);
 
         Label title = new Label(winnerText);
         title.setFont(Font.font("Arial Black", 90));
@@ -11791,7 +11893,8 @@ public class BirdGame3 extends Application {
         }
         root.getChildren().addAll(scoreboard, actions);
 
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        ScrollPane scroll = wrapInScroll(root);
+        Scene scene = new Scene(scroll, WIDTH, HEIGHT);
         if (backLobby != null) {
             bindEscape(scene, backLobby);
         }
@@ -12428,6 +12531,12 @@ public class BirdGame3 extends Application {
             case FREEMAN_PIGEON_SKIN -> {
                 return freemanPigeonUnlocked;
             }
+            case BEACON_PIGEON_SKIN -> {
+                return beaconPigeonUnlocked;
+            }
+            case STORM_PIGEON_SKIN -> {
+                return stormPigeonUnlocked;
+            }
             case "SKY_KING_EAGLE" -> {
                 return eagleSkinUnlocked;
             }
@@ -12449,6 +12558,9 @@ public class BirdGame3 extends Application {
             case AURORA_PELICAN_SKIN -> {
                 return auroraPelicanUnlocked;
             }
+            case IRONCLAD_PELICAN_SKIN -> {
+                return ironcladPelicanUnlocked;
+            }
             case SUNFLARE_HUMMINGBIRD_SKIN -> {
                 return sunflareHummingbirdUnlocked;
             }
@@ -12458,11 +12570,17 @@ public class BirdGame3 extends Application {
             case TIDE_VULTURE_SKIN -> {
                 return tideVultureUnlocked;
             }
+            case NULL_ROCK_VULTURE_SKIN -> {
+                return nullRockVultureUnlocked;
+            }
             case ECLIPSE_MOCKINGBIRD_SKIN -> {
                 return eclipseMockingbirdUnlocked;
             }
             case UMBRA_BAT_SKIN -> {
                 return umbraBatUnlocked;
+            }
+            case RESONANCE_BAT_SKIN -> {
+                return resonanceBatUnlocked;
             }
             case SUNFORGE_ROOSTER_SKIN -> {
                 return sunforgeRoosterUnlocked;
@@ -12549,6 +12667,16 @@ public class BirdGame3 extends Application {
                 queueUnlockCardForSkin(BirdType.PIGEON, FREEMAN_PIGEON_SKIN);
                 return;
             }
+            case BEACON_PIGEON_SKIN -> {
+                beaconPigeonUnlocked = true;
+                queueUnlockCardForSkin(BirdType.PIGEON, BEACON_PIGEON_SKIN);
+                return;
+            }
+            case STORM_PIGEON_SKIN -> {
+                stormPigeonUnlocked = true;
+                queueUnlockCardForSkin(BirdType.PIGEON, STORM_PIGEON_SKIN);
+                return;
+            }
             case "SKY_KING_EAGLE" -> {
                 unlockClassicReward(BirdType.EAGLE);
                 return;
@@ -12583,6 +12711,11 @@ public class BirdGame3 extends Application {
                 queueUnlockCardForSkin(BirdType.PELICAN, AURORA_PELICAN_SKIN);
                 return;
             }
+            case IRONCLAD_PELICAN_SKIN -> {
+                ironcladPelicanUnlocked = true;
+                queueUnlockCardForSkin(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN);
+                return;
+            }
             case SUNFLARE_HUMMINGBIRD_SKIN -> {
                 sunflareHummingbirdUnlocked = true;
                 queueUnlockCardForSkin(BirdType.HUMMINGBIRD, SUNFLARE_HUMMINGBIRD_SKIN);
@@ -12598,6 +12731,11 @@ public class BirdGame3 extends Application {
                 queueUnlockCardForSkin(BirdType.VULTURE, TIDE_VULTURE_SKIN);
                 return;
             }
+            case NULL_ROCK_VULTURE_SKIN -> {
+                nullRockVultureUnlocked = true;
+                queueUnlockCardForSkin(BirdType.VULTURE, NULL_ROCK_VULTURE_SKIN);
+                return;
+            }
             case ECLIPSE_MOCKINGBIRD_SKIN -> {
                 eclipseMockingbirdUnlocked = true;
                 queueUnlockCardForSkin(BirdType.MOCKINGBIRD, ECLIPSE_MOCKINGBIRD_SKIN);
@@ -12606,6 +12744,11 @@ public class BirdGame3 extends Application {
             case UMBRA_BAT_SKIN -> {
                 umbraBatUnlocked = true;
                 queueUnlockCardForSkin(BirdType.BAT, UMBRA_BAT_SKIN);
+                return;
+            }
+            case RESONANCE_BAT_SKIN -> {
+                resonanceBatUnlocked = true;
+                queueUnlockCardForSkin(BirdType.BAT, RESONANCE_BAT_SKIN);
                 return;
             }
             case SUNFORGE_ROOSTER_SKIN -> {
@@ -12637,6 +12780,7 @@ public class BirdGame3 extends Application {
         if ("NOIR_PIGEON".equals(key)) return "Noir Pigeon";
         if (FREEMAN_PIGEON_SKIN.equals(key)) return "Freeman Bird";
         if (BEACON_PIGEON_SKIN.equals(key)) return "Beacon Pigeon";
+        if (STORM_PIGEON_SKIN.equals(key)) return "Storm Pigeon";
         if ("SKY_KING_EAGLE".equals(key)) return "Sky King Eagle";
         if (NOVA_PHOENIX_SKIN.equals(key)) return "Nova Phoenix";
         if (DUNE_FALCON_SKIN.equals(key)) return "Dune Falcon";
@@ -12644,11 +12788,14 @@ public class BirdGame3 extends Application {
         if (CIRCUIT_TITMOUSE_SKIN.equals(key)) return "Circuit Titmouse";
         if (PRISM_RAZORBILL_SKIN.equals(key)) return "Prism Razorbill";
         if (AURORA_PELICAN_SKIN.equals(key)) return "Aurora Pelican";
+        if (IRONCLAD_PELICAN_SKIN.equals(key)) return "Ironclad Pelican";
         if (SUNFLARE_HUMMINGBIRD_SKIN.equals(key)) return "Sunflare Hummingbird";
         if (GLACIER_SHOEBILL_SKIN.equals(key)) return "Glacier Shoebill";
+        if (NULL_ROCK_VULTURE_SKIN.equals(key)) return "The Null Rock";
         if (TIDE_VULTURE_SKIN.equals(key)) return "Tide Vulture";
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(key)) return "Eclipse Charles";
         if (UMBRA_BAT_SKIN.equals(key)) return "Umbra Bat";
+        if (RESONANCE_BAT_SKIN.equals(key)) return "Resonance Bat";
         if (SUNFORGE_ROOSTER_SKIN.equals(key)) return "Sunforge Rooster";
         if (key != null && key.startsWith("CLASSIC_SKIN_") && preview.type() != null) {
             return classicRewardFor(preview.type());
@@ -13478,6 +13625,9 @@ public class BirdGame3 extends Application {
             case BEACON_PIGEON_SKIN -> {
                 return "Beacon Pigeon";
             }
+            case STORM_PIGEON_SKIN -> {
+                return "Storm Pigeon";
+            }
             case "SKY_KING_EAGLE" -> {
                 return "Sky King Eagle";
             }
@@ -13499,6 +13649,9 @@ public class BirdGame3 extends Application {
             case AURORA_PELICAN_SKIN -> {
                 return "Aurora Pelican";
             }
+            case IRONCLAD_PELICAN_SKIN -> {
+                return "Ironclad Pelican";
+            }
             case SUNFLARE_HUMMINGBIRD_SKIN -> {
                 return "Sunflare Hummingbird";
             }
@@ -13516,6 +13669,9 @@ public class BirdGame3 extends Application {
             }
             case UMBRA_BAT_SKIN -> {
                 return "Umbra Bat";
+            }
+            case RESONANCE_BAT_SKIN -> {
+                return "Resonance Bat";
             }
             case SUNFORGE_ROOSTER_SKIN -> {
                 return "Sunforge Rooster";
@@ -14400,6 +14556,9 @@ public class BirdGame3 extends Application {
             case BEACON_PIGEON_SKIN -> {
                 return beaconPigeonUnlocked;
             }
+            case STORM_PIGEON_SKIN -> {
+                return stormPigeonUnlocked;
+            }
             case "SKY_KING_EAGLE" -> {
                 return eagleSkinUnlocked;
             }
@@ -14421,6 +14580,9 @@ public class BirdGame3 extends Application {
             case AURORA_PELICAN_SKIN -> {
                 return auroraPelicanUnlocked;
             }
+            case IRONCLAD_PELICAN_SKIN -> {
+                return ironcladPelicanUnlocked;
+            }
             case SUNFLARE_HUMMINGBIRD_SKIN -> {
                 return sunflareHummingbirdUnlocked;
             }
@@ -14438,6 +14600,9 @@ public class BirdGame3 extends Application {
             }
             case UMBRA_BAT_SKIN -> {
                 return umbraBatUnlocked;
+            }
+            case RESONANCE_BAT_SKIN -> {
+                return resonanceBatUnlocked;
             }
             case SUNFORGE_ROOSTER_SKIN -> {
                 return sunforgeRoosterUnlocked;
@@ -14462,8 +14627,17 @@ public class BirdGame3 extends Application {
             case BEACON_PIGEON_SKIN -> {
                 return "Complete Adventure Chapter 5: Signal of the Beacon";
             }
+            case STORM_PIGEON_SKIN -> {
+                return "Claim the Rooftop Legacy achievement reward";
+            }
             case NULL_ROCK_VULTURE_SKIN -> {
                 return "Complete Adventure Chapter 9: Sky of All Wings";
+            }
+            case IRONCLAD_PELICAN_SKIN -> {
+                return "Claim the Iron Tempest achievement reward";
+            }
+            case RESONANCE_BAT_SKIN -> {
+                return "Claim the Echo Sovereign achievement reward";
             }
             case "SKY_KING_EAGLE" -> {
                 return "Complete Pelican Episode or Classic with Eagle, or Card Packs";
@@ -14479,6 +14653,7 @@ public class BirdGame3 extends Application {
         if ("CITY_PIGEON".equals(key)) return "Gold-plated city swagger for the rooftop boss. Every flap looks expensive and every landing sounds like a coin drop.";
         if ("NOIR_PIGEON".equals(key)) return "Trench-coat noir vibe with a hardboiled stare. Smells like rain, neon, and unfinished business.";
         if (BEACON_PIGEON_SKIN.equals(key)) return "Beacon-lit feathers with a steady glow. The signal chose a keeper and the skyline can feel it.";
+        if (STORM_PIGEON_SKIN.equals(key)) return "Slate feathers, lightning scars, and skyline-static eyes. It looks like a rooftop storm decided to become a bird.";
         if (FREEMAN_PIGEON_SKIN.equals(key)) return "A bleary-eyed pigeon with a worn beanie and a constant cigarette. Very addicted to smoking.";
         if ("SKY_KING_EAGLE".equals(key)) return "Crowned and gilded, a ruler of the highest drafts. The sky feels smaller when this one arrives.";
         if (DUNE_FALCON_SKIN.equals(key)) return "Sandstorm tones and desert grit. A heat-haze blur that hits before you hear it.";
@@ -14492,7 +14667,9 @@ public class BirdGame3 extends Application {
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(key)) return "Shadow velvet with a violet halo. The lounge feels like a night club after midnight.";
         if (NOVA_PHOENIX_SKIN.equals(key)) return "Star-forged glow with cosmic embers. A living supernova with too much style to burn out.";
         if (AURORA_PELICAN_SKIN.equals(key)) return "Polar lights woven into heavy wings. Looks calm, hits like a stormfront.";
+        if (IRONCLAD_PELICAN_SKIN.equals(key)) return "Storm-bronze plating, riveted wingguards, and a siege-bird silhouette built to crash through the line.";
         if (UMBRA_BAT_SKIN.equals(key)) return "Void-black membrane with starlit edges. A silent dive that leaves only afterimages.";
+        if (RESONANCE_BAT_SKIN.equals(key)) return "Ultrasonic veins glow through the wings, and every flap looks like it should leave a sonar shockwave behind.";
         if (SUNFORGE_ROOSTER_SKIN.equals(key)) return "A first-light warlord with molten crestwork and a sun-stamped brood. Every summoned chick hatches in matching forged colors.";
         if (key != null && key.startsWith("CLASSIC_SKIN_")) {
             return "Classic reward skin for " + type.name + ". Earned by clearing a full Classic run and wearing the badge with pride.";
@@ -14512,10 +14689,12 @@ public class BirdGame3 extends Application {
             case "CITY_PIGEON", CIRCUIT_TITMOUSE_SKIN, FREEMAN_PIGEON_SKIN, TIDE_VULTURE_SKIN -> {
                 return "RARE";
             }
-            case "NOIR_PIGEON", "SKY_KING_EAGLE", PRISM_RAZORBILL_SKIN, ECLIPSE_MOCKINGBIRD_SKIN -> {
+            case "NOIR_PIGEON", "SKY_KING_EAGLE", PRISM_RAZORBILL_SKIN, ECLIPSE_MOCKINGBIRD_SKIN,
+                    STORM_PIGEON_SKIN, RESONANCE_BAT_SKIN -> {
                 return "EPIC";
             }
-            case BEACON_PIGEON_SKIN, NOVA_PHOENIX_SKIN, AURORA_PELICAN_SKIN, UMBRA_BAT_SKIN, SUNFORGE_ROOSTER_SKIN, NULL_ROCK_VULTURE_SKIN -> {
+            case BEACON_PIGEON_SKIN, NOVA_PHOENIX_SKIN, AURORA_PELICAN_SKIN, UMBRA_BAT_SKIN, SUNFORGE_ROOSTER_SKIN,
+                    NULL_ROCK_VULTURE_SKIN, IRONCLAD_PELICAN_SKIN -> {
                 return "LEGENDARY";
             }
         }
@@ -14597,6 +14776,8 @@ public class BirdGame3 extends Application {
                 skinDescription(FREEMAN_PIGEON_SKIN, BirdType.PIGEON), skinHowToGet(FREEMAN_PIGEON_SKIN, BirdType.PIGEON)));
         skins.add(new SkinEntry(BirdType.PIGEON, BEACON_PIGEON_SKIN, "Beacon Pigeon",
                 skinDescription(BEACON_PIGEON_SKIN, BirdType.PIGEON), skinHowToGet(BEACON_PIGEON_SKIN, BirdType.PIGEON)));
+        skins.add(new SkinEntry(BirdType.PIGEON, STORM_PIGEON_SKIN, "Storm Pigeon",
+                skinDescription(STORM_PIGEON_SKIN, BirdType.PIGEON), skinHowToGet(STORM_PIGEON_SKIN, BirdType.PIGEON)));
         skins.add(new SkinEntry(BirdType.EAGLE, "SKY_KING_EAGLE", "Sky King Eagle",
                 skinDescription("SKY_KING_EAGLE", BirdType.EAGLE), skinHowToGet("SKY_KING_EAGLE", BirdType.EAGLE)));
         skins.add(new SkinEntry(BirdType.RAZORBILL, PRISM_RAZORBILL_SKIN, "Prism Razorbill",
@@ -14605,6 +14786,8 @@ public class BirdGame3 extends Application {
                 skinDescription(NOVA_PHOENIX_SKIN, BirdType.PHOENIX), skinHowToGet(NOVA_PHOENIX_SKIN, BirdType.PHOENIX)));
         skins.add(new SkinEntry(BirdType.PELICAN, AURORA_PELICAN_SKIN, "Aurora Pelican",
                 skinDescription(AURORA_PELICAN_SKIN, BirdType.PELICAN), skinHowToGet(AURORA_PELICAN_SKIN, BirdType.PELICAN)));
+        skins.add(new SkinEntry(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN, "Ironclad Pelican",
+                skinDescription(IRONCLAD_PELICAN_SKIN, BirdType.PELICAN), skinHowToGet(IRONCLAD_PELICAN_SKIN, BirdType.PELICAN)));
         skins.add(new SkinEntry(BirdType.HUMMINGBIRD, SUNFLARE_HUMMINGBIRD_SKIN, "Sunflare Hummingbird",
                 skinDescription(SUNFLARE_HUMMINGBIRD_SKIN, BirdType.HUMMINGBIRD), skinHowToGet(SUNFLARE_HUMMINGBIRD_SKIN, BirdType.HUMMINGBIRD)));
         skins.add(new SkinEntry(BirdType.SHOEBILL, GLACIER_SHOEBILL_SKIN, "Glacier Shoebill",
@@ -14617,6 +14800,8 @@ public class BirdGame3 extends Application {
                 skinDescription(ECLIPSE_MOCKINGBIRD_SKIN, BirdType.MOCKINGBIRD), skinHowToGet(ECLIPSE_MOCKINGBIRD_SKIN, BirdType.MOCKINGBIRD)));
         skins.add(new SkinEntry(BirdType.BAT, UMBRA_BAT_SKIN, "Umbra Bat",
                 skinDescription(UMBRA_BAT_SKIN, BirdType.BAT), skinHowToGet(UMBRA_BAT_SKIN, BirdType.BAT)));
+        skins.add(new SkinEntry(BirdType.BAT, RESONANCE_BAT_SKIN, "Resonance Bat",
+                skinDescription(RESONANCE_BAT_SKIN, BirdType.BAT), skinHowToGet(RESONANCE_BAT_SKIN, BirdType.BAT)));
         skins.add(new SkinEntry(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN, "Sunforge Rooster",
                 skinDescription(SUNFORGE_ROOSTER_SKIN, BirdType.ROOSTER), skinHowToGet(SUNFORGE_ROOSTER_SKIN, BirdType.ROOSTER)));
 
@@ -14686,7 +14871,7 @@ public class BirdGame3 extends Application {
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 96));
         title.setTextFill(Color.GOLD);
 
-        Label legacyNote = new Label("Legacy Episodes: older story content with no rewards or unlocks.");
+        Label legacyNote = new Label("Legacy Episodes: self-contained story arcs with one-time achievement rewards when you finish them.");
         legacyNote.setFont(Font.font("Consolas", 24));
         legacyNote.setTextFill(Color.web("#FFCC80"));
         legacyNote.setWrapText(true);
@@ -16733,6 +16918,16 @@ public class BirdGame3 extends Application {
         int payout = BOSS_RUSH_CLEAR_BONUS + (exCleared ? BOSS_RUSH_EX_CLEAR_BONUS : 0);
         grantBirdCoins(payout);
         bossRushClearCount++;
+        achievementProgress[22] = Math.max(achievementProgress[22], bossRushClearCount);
+        if (!achievementsUnlocked[22]) {
+            unlockAchievement(22, "BOSS BREAKER!");
+        }
+        if (exCleared) {
+            achievementProgress[23] = Math.max(achievementProgress[23], 1);
+            if (!achievementsUnlocked[23]) {
+                unlockAchievement(23, "CROWN UNBROKEN!");
+            }
+        }
         boolean newRecord = shouldUpdateBossRushRecord(rank, elapsedMillis);
         if (newRecord) {
             bossRushBestClearMillis = elapsedMillis;
@@ -19124,6 +19319,10 @@ public class BirdGame3 extends Application {
 
         if (classicRoundIndex >= classicRun.size() - 1) {
             classicDeaths = 0;
+            achievementProgress[24] = Math.max(achievementProgress[24], 1);
+            if (!achievementsUnlocked[24]) {
+                unlockAchievement(24, "DAILY DYNASTY!");
+            }
             saveAchievements();
             showStoryDialogue(
                     stage,
@@ -19306,11 +19505,31 @@ public class BirdGame3 extends Application {
         if (storyChapterIndex >= chapters.length - 1) {
             if (!isEpisodeCompleted(selectedEpisode)) {
                 setEpisodeCompleted(selectedEpisode);
+                switch (selectedEpisode) {
+                    case PIGEON -> {
+                        achievementProgress[25] = Math.max(achievementProgress[25], 1);
+                        if (!achievementsUnlocked[25]) {
+                            unlockAchievement(25, "ROOFTOP LEGACY!");
+                        }
+                    }
+                    case BAT -> {
+                        achievementProgress[26] = Math.max(achievementProgress[26], 1);
+                        if (!achievementsUnlocked[26]) {
+                            unlockAchievement(26, "ECHO SOVEREIGN!");
+                        }
+                    }
+                    case PELICAN -> {
+                        achievementProgress[27] = Math.max(achievementProgress[27], 1);
+                        if (!achievementsUnlocked[27]) {
+                            unlockAchievement(27, "IRON TEMPEST!");
+                        }
+                    }
+                }
                 saveAchievements();
                 showStoryDialogue(stage,
                         "Episode Complete",
                         "Narrator",
-                        "Episode clear. Legacy episodes do not grant rewards.",
+                        "Episode clear. A new achievement reward is now waiting in Achievements.",
                         () -> showEpisodesHub(stage));
             } else {
                 showStoryDialogue(stage,
@@ -22050,6 +22269,7 @@ public class BirdGame3 extends Application {
         noirPigeonUnlocked = prefs.getBoolean("skin_noirpigeon", false);
         freemanPigeonUnlocked = prefs.getBoolean("skin_freeman_pigeon", false);
         beaconPigeonUnlocked = prefs.getBoolean("skin_beacon_pigeon", false);
+        stormPigeonUnlocked = prefs.getBoolean("skin_storm_pigeon", false);
         eagleSkinUnlocked = prefs.getBoolean("skin_eagle", true);
         novaPhoenixUnlocked = prefs.getBoolean("skin_nova_phoenix", false);
         duneFalconUnlocked = prefs.getBoolean("skin_dune_falcon", false);
@@ -22057,12 +22277,14 @@ public class BirdGame3 extends Application {
         circuitTitmouseUnlocked = prefs.getBoolean("skin_circuit_titmouse", false);
         prismRazorbillUnlocked = prefs.getBoolean("skin_prism_razorbill", false);
         auroraPelicanUnlocked = prefs.getBoolean("skin_aurora_pelican", false);
+        ironcladPelicanUnlocked = prefs.getBoolean("skin_ironclad_pelican", false);
         sunflareHummingbirdUnlocked = prefs.getBoolean("skin_sunflare_hummingbird", false);
         glacierShoebillUnlocked = prefs.getBoolean("skin_glacier_shoebill", false);
         tideVultureUnlocked = prefs.getBoolean("skin_tide_vulture", false);
         nullRockVultureUnlocked = prefs.getBoolean("skin_null_rock_vulture", false);
         eclipseMockingbirdUnlocked = prefs.getBoolean("skin_eclipse_mockingbird", false);
         umbraBatUnlocked = prefs.getBoolean("skin_umbra_bat", false);
+        resonanceBatUnlocked = prefs.getBoolean("skin_resonance_bat", false);
         sunforgeRoosterUnlocked = prefs.getBoolean("skin_sunforge_rooster", false);
         batUnlocked = prefs.getBoolean("char_bat_unlocked", false);
         falconUnlocked = prefs.getBoolean("char_falcon_unlocked", false);
@@ -22152,6 +22374,11 @@ public class BirdGame3 extends Application {
         achievementProgress[12] = Math.max(achievementProgress[12], sumProgress(cityWins));
         achievementProgress[15] = Math.max(achievementProgress[15], sumProgress(cliffWins));
         achievementProgress[17] = Math.max(achievementProgress[17], sumProgress(jungleWins));
+        achievementProgress[22] = Math.max(achievementProgress[22], bossRushClearCount);
+        achievementProgress[24] = Math.max(achievementProgress[24], dailyChallengeBestProgress >= 5 ? 1 : 0);
+        achievementProgress[25] = Math.max(achievementProgress[25], pigeonEpisodeCompleted ? 1 : 0);
+        achievementProgress[26] = Math.max(achievementProgress[26], batEpisodeCompleted ? 1 : 0);
+        achievementProgress[27] = Math.max(achievementProgress[27], pelicanEpisodeCompleted ? 1 : 0);
         reconcileAchievementUnlocksFromStoredProgress();
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             if (achievementRewardsClaimed[i] && !achievementsUnlocked[i]) {
@@ -22250,6 +22477,7 @@ public class BirdGame3 extends Application {
         prefs.putBoolean("skin_noirpigeon", noirPigeonUnlocked);
         prefs.putBoolean("skin_freeman_pigeon", freemanPigeonUnlocked);
         prefs.putBoolean("skin_beacon_pigeon", beaconPigeonUnlocked);
+        prefs.putBoolean("skin_storm_pigeon", stormPigeonUnlocked);
         prefs.putBoolean("skin_eagle", eagleSkinUnlocked);
         prefs.putBoolean("skin_nova_phoenix", novaPhoenixUnlocked);
         prefs.putBoolean("skin_dune_falcon", duneFalconUnlocked);
@@ -22257,12 +22485,14 @@ public class BirdGame3 extends Application {
         prefs.putBoolean("skin_circuit_titmouse", circuitTitmouseUnlocked);
         prefs.putBoolean("skin_prism_razorbill", prismRazorbillUnlocked);
         prefs.putBoolean("skin_aurora_pelican", auroraPelicanUnlocked);
+        prefs.putBoolean("skin_ironclad_pelican", ironcladPelicanUnlocked);
         prefs.putBoolean("skin_sunflare_hummingbird", sunflareHummingbirdUnlocked);
         prefs.putBoolean("skin_glacier_shoebill", glacierShoebillUnlocked);
         prefs.putBoolean("skin_tide_vulture", tideVultureUnlocked);
         prefs.putBoolean("skin_null_rock_vulture", nullRockVultureUnlocked);
         prefs.putBoolean("skin_eclipse_mockingbird", eclipseMockingbirdUnlocked);
         prefs.putBoolean("skin_umbra_bat", umbraBatUnlocked);
+        prefs.putBoolean("skin_resonance_bat", resonanceBatUnlocked);
         prefs.putBoolean("skin_sunforge_rooster", sunforgeRoosterUnlocked);
         prefs.putBoolean("char_bat_unlocked", batUnlocked);
         prefs.putBoolean("char_falcon_unlocked", falconUnlocked);
@@ -22365,6 +22595,12 @@ public class BirdGame3 extends Application {
                 && countCompleted(adventureChapterCompletedByIndex) == adventureChapterCompletedByIndex.length) {
             achievementsUnlocked[21] = true;
         }
+        if (achievementProgress[22] >= 1 || bossRushClearCount > 0) achievementsUnlocked[22] = true;
+        if (achievementProgress[23] >= 1) achievementsUnlocked[23] = true;
+        if (achievementProgress[24] >= 1 || dailyChallengeBestProgress >= 5) achievementsUnlocked[24] = true;
+        if (achievementProgress[25] >= 1 || pigeonEpisodeCompleted) achievementsUnlocked[25] = true;
+        if (achievementProgress[26] >= 1 || batEpisodeCompleted) achievementsUnlocked[26] = true;
+        if (achievementProgress[27] >= 1 || pelicanEpisodeCompleted) achievementsUnlocked[27] = true;
     }
 
     public void checkAchievements(Bird bird) {
@@ -22681,7 +22917,7 @@ public class BirdGame3 extends Application {
             case 0, 1, 2, 6, 7, 8, 9 -> AchievementCategory.COMBAT;
             case 3, 4, 5, 18 -> AchievementCategory.BIRD;
             case 10, 11, 12, 13, 14, 15, 16, 17 -> AchievementCategory.MAP;
-            case 19 -> AchievementCategory.MODE;
+            case 19, 22, 23, 24 -> AchievementCategory.MODE;
             default -> AchievementCategory.STORY;
         };
     }
@@ -22710,6 +22946,12 @@ public class BirdGame3 extends Application {
             case 19 -> AchievementReward.continues(2);
             case 20 -> AchievementReward.preview(null, MAP_CAVE_KEY, 320);
             case 21 -> AchievementReward.preview(null, MAP_BATTLEFIELD_KEY, 420);
+            case 22 -> AchievementReward.preview(BirdType.RAVEN, CHAR_RAVEN_KEY, 340);
+            case 23 -> AchievementReward.preview(BirdType.VULTURE, TIDE_VULTURE_SKIN, 320);
+            case 24 -> AchievementReward.preview(BirdType.PENGUIN, MINT_PENGUIN_SKIN, 300);
+            case 25 -> AchievementReward.preview(BirdType.PIGEON, STORM_PIGEON_SKIN, 360);
+            case 26 -> AchievementReward.preview(BirdType.BAT, RESONANCE_BAT_SKIN, 360);
+            case 27 -> AchievementReward.preview(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN, 400);
             default -> AchievementReward.coins(100);
         };
     }
@@ -22761,11 +23003,13 @@ public class BirdGame3 extends Application {
             return "Claim to bank +" + reward.amount() + " Classic Continue"
                     + (reward.amount() == 1 ? "" : "s") + " for future runs.";
         }
-        return "Claim to unlock " + achievementRewardLabel(index) + ". Duplicate unlocks convert to +"
-                + reward.duplicateCoins() + " Bird Coins.";
+        return "Claim to unlock " + achievementRewardLabel(index) + ".";
     }
 
     private String achievementProgressText(int index) {
+        if (index >= 0 && index < ACHIEVEMENT_COUNT && achievementsUnlocked[index]) {
+            return "Completed";
+        }
         return switch (index) {
             case 0 -> "Best this match: " + maxProgressAcrossPlayers(eliminations) + " / 1 elimination";
             case 1 -> "Best this match: " + maxProgressAcrossPlayers(eliminations) + " / 3 eliminations";
@@ -22791,6 +23035,12 @@ public class BirdGame3 extends Application {
             case 20 -> "Chapter 2 complete: " + (isAdventureChapterComplete(1) ? "1 / 1" : "0 / 1");
             case 21 -> "Adventure chapters complete: " + countCompleted(adventureChapterCompletedByIndex)
                     + " / " + Math.max(1, adventureChapterCompletedByIndex.length);
+            case 22 -> "Boss Rush clears: " + Math.max(achievementProgress[22], bossRushClearCount) + " / 1";
+            case 23 -> "EX route clears: " + achievementProgress[23] + " / 1";
+            case 24 -> "Daily clears: " + achievementProgress[24] + " / 1";
+            case 25 -> "Pigeon Episode complete: " + (pigeonEpisodeCompleted ? "1 / 1" : "0 / 1");
+            case 26 -> "Bat Episode complete: " + (batEpisodeCompleted ? "1 / 1" : "0 / 1");
+            case 27 -> "Pelican Episode complete: " + (pelicanEpisodeCompleted ? "1 / 1" : "0 / 1");
             default -> "";
         };
     }
@@ -22835,6 +23085,20 @@ public class BirdGame3 extends Application {
             }
         }
         return count;
+    }
+
+    private List<Integer> achievementDisplayOrder(AchievementCategory category) {
+        List<Integer> order = new ArrayList<>();
+        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
+            if (achievementCategoryFor(i) == category) {
+                order.add(i);
+            }
+        }
+        order.sort(Comparator
+                .comparingInt((Integer index) -> achievementsUnlocked[index] ? 1 : 0)
+                .thenComparingInt(index -> achievementRewardsClaimed[index] ? 1 : 0)
+                .thenComparingInt(Integer::intValue));
+        return order;
     }
 
     private boolean hasClaimableAchievementRewards() {
@@ -23013,31 +23277,37 @@ public class BirdGame3 extends Application {
         };
     }
 
-    private String achievementIconCode(int index) {
+    private String achievementIconVariantKey(int index) {
         return switch (index) {
-            case 0 -> "FB";
-            case 1 -> "DM";
-            case 2 -> "AN";
-            case 3 -> "TS";
-            case 4 -> "LG";
-            case 5 -> "LL";
-            case 6 -> "PH";
-            case 7 -> "FG";
-            case 8 -> "TL";
-            case 9 -> "CG";
-            case 10 -> "RR";
-            case 11 -> "NA";
-            case 12 -> "UK";
-            case 13 -> "TR";
-            case 14 -> "CD";
-            case 15 -> "SE";
-            case 16 -> "VS";
-            case 17 -> "CK";
-            case 18 -> "PK";
-            case 19 -> "CC";
-            case 20 -> "EB";
-            case 21 -> "SK";
-            default -> "A";
+            case 0 -> "blood-drop";
+            case 1 -> "triple-skull";
+            case 2 -> "annihilation-burst";
+            case 3 -> "slam-impact";
+            case 4 -> "lean-cloud";
+            case 5 -> "lounge-heart";
+            case 6 -> "powerup-cache";
+            case 7 -> "void-fall";
+            case 8 -> "taunt-horn";
+            case 9 -> "clutch-heart";
+            case 10 -> "rooftop-arc";
+            case 11 -> "neon-bolt";
+            case 12 -> "urban-crown";
+            case 13 -> "thermal-spiral";
+            case 14 -> "cliff-dive";
+            case 15 -> "sky-crown";
+            case 16 -> "vine-swing";
+            case 17 -> "canopy-crown";
+            case 18 -> "pelican-plunge";
+            case 19 -> "classic-crest";
+            case 20 -> "cave-echo";
+            case 21 -> "story-book";
+            case 22 -> "boss-breaker";
+            case 23 -> "void-crown";
+            case 24 -> "daily-sun";
+            case 25 -> "storm-rooftop";
+            case 26 -> "echo-rings";
+            case 27 -> "iron-wing";
+            default -> "badge";
         };
     }
 
@@ -23050,43 +23320,579 @@ public class BirdGame3 extends Application {
         g.fillText(text, centerX - bounds.getWidth() / 2.0, centerY + bounds.getHeight() / 4.0);
     }
 
+    private void drawAchievementIconShell(GraphicsContext g, double actual, Color accent, Color accentDark) {
+        g.setFill(Color.rgb(5, 8, 12, 0.94));
+        g.fillRoundRect(3, 3, actual - 6, actual - 6, actual * 0.26, actual * 0.26);
+
+        g.setFill(new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, accent.brighter().deriveColor(0, 1.0, 1.08, 1.0)),
+                new Stop(1, accentDark)));
+        g.fillRoundRect(actual * 0.08, actual * 0.08, actual * 0.84, actual * 0.84,
+                actual * 0.22, actual * 0.22);
+
+        g.setFill(Color.web("#06121A", 0.74));
+        g.fillOval(actual * 0.15, actual * 0.14, actual * 0.70, actual * 0.70);
+        g.setFill(Color.web("#FFFFFF", 0.10));
+        g.fillOval(actual * 0.23, actual * 0.18, actual * 0.26, actual * 0.16);
+
+        g.setStroke(Color.web("#F8FAFC", 0.88));
+        g.setLineWidth(Math.max(2.0, actual * 0.032));
+        g.strokeRoundRect(5, 5, actual - 10, actual - 10, actual * 0.24, actual * 0.24);
+        g.setStroke(Color.web("#E0F2F1", 0.40));
+        g.setLineWidth(Math.max(1.4, actual * 0.017));
+        g.strokeOval(actual * 0.18, actual * 0.17, actual * 0.64, actual * 0.64);
+    }
+
+    private void fillAchievementStar(GraphicsContext g, double cx, double cy, double outerRadius,
+                                     double innerRadius, int points, Color fill, Color stroke) {
+        int safePoints = Math.max(5, points);
+        int vertexCount = safePoints * 2;
+        double[] xs = new double[vertexCount];
+        double[] ys = new double[vertexCount];
+        for (int i = 0; i < vertexCount; i++) {
+            double angle = -Math.PI / 2.0 + (Math.PI * i / safePoints);
+            double radius = (i % 2 == 0) ? outerRadius : innerRadius;
+            xs[i] = cx + Math.cos(angle) * radius;
+            ys[i] = cy + Math.sin(angle) * radius;
+        }
+        g.setFill(fill);
+        g.fillPolygon(xs, ys, vertexCount);
+        if (stroke != null) {
+            g.setStroke(stroke);
+            g.setLineWidth(Math.max(1.4, outerRadius * 0.16));
+            g.strokePolygon(xs, ys, vertexCount);
+        }
+    }
+
+    private void fillAchievementCrown(GraphicsContext g, double cx, double baseY, double width,
+                                      double height, Color fill, Color stroke) {
+        double left = cx - width / 2.0;
+        double right = cx + width / 2.0;
+        double top = baseY - height;
+        double[] xs = {
+                left, left + width * 0.10, left + width * 0.24, cx,
+                right - width * 0.24, right - width * 0.10, right, right, left
+        };
+        double[] ys = {
+                baseY, baseY - height * 0.44, top + height * 0.24, top,
+                top + height * 0.24, baseY - height * 0.44, baseY, baseY + height * 0.18, baseY + height * 0.18
+        };
+        g.setFill(fill);
+        g.fillPolygon(xs, ys, xs.length);
+        if (stroke != null) {
+            g.setStroke(stroke);
+            g.setLineWidth(Math.max(1.2, width * 0.05));
+            g.strokePolygon(xs, ys, xs.length);
+        }
+        g.setFill(Color.web("#FFF8E1", 0.92));
+        g.fillOval(cx - width * 0.07, top + height * 0.12, width * 0.14, width * 0.14);
+    }
+
+    private void fillAchievementHeart(GraphicsContext g, double cx, double cy, double width,
+                                      double height, Color fill, Color stroke) {
+        double circleW = width * 0.40;
+        double circleH = height * 0.40;
+        double leftX = cx - width * 0.36;
+        double rightX = cx - circleW + width * 0.08;
+        double circleY = cy - height * 0.34;
+        g.setFill(fill);
+        g.fillOval(leftX, circleY, circleW, circleH);
+        g.fillOval(rightX, circleY, circleW, circleH);
+        double[] xs = {cx - width * 0.48, cx + width * 0.48, cx};
+        double[] ys = {cy - height * 0.06, cy - height * 0.06, cy + height * 0.52};
+        g.fillPolygon(xs, ys, 3);
+        if (stroke != null) {
+            g.setStroke(stroke);
+            g.setLineWidth(Math.max(1.3, width * 0.05));
+            g.strokeOval(leftX, circleY, circleW, circleH);
+            g.strokeOval(rightX, circleY, circleW, circleH);
+            g.strokePolygon(xs, ys, 3);
+        }
+    }
+
+    private void drawAchievementSkull(GraphicsContext g, double cx, double cy, double size,
+                                      Color fill, Color stroke) {
+        double skullW = size;
+        double skullH = size * 0.78;
+        g.setFill(fill);
+        g.fillOval(cx - skullW / 2.0, cy - skullH / 2.0, skullW, skullH);
+        g.fillRoundRect(cx - skullW * 0.22, cy + skullH * 0.12, skullW * 0.44, skullH * 0.22,
+                skullW * 0.08, skullW * 0.08);
+        g.setFill(Color.web("#07131B", 0.95));
+        g.fillOval(cx - skullW * 0.24, cy - skullH * 0.10, skullW * 0.16, skullW * 0.18);
+        g.fillOval(cx + skullW * 0.08, cy - skullH * 0.10, skullW * 0.16, skullW * 0.18);
+        g.fillPolygon(
+                new double[]{cx, cx - skullW * 0.05, cx + skullW * 0.05},
+                new double[]{cy + skullH * 0.05, cy + skullH * 0.17, cy + skullH * 0.17},
+                3
+        );
+        if (stroke != null) {
+            g.setStroke(stroke);
+            g.setLineWidth(Math.max(1.1, size * 0.05));
+            g.strokeOval(cx - skullW / 2.0, cy - skullH / 2.0, skullW, skullH);
+            g.strokeRoundRect(cx - skullW * 0.22, cy + skullH * 0.12, skullW * 0.44, skullH * 0.22,
+                    skullW * 0.08, skullW * 0.08);
+        }
+    }
+
+    private void drawAchievementCityline(GraphicsContext g, double x, double y, double width,
+                                         double height, Color fill, Color stroke) {
+        double baseY = y + height;
+        g.setFill(fill);
+        g.fillRect(x, baseY - height * 0.16, width * 0.18, height * 0.16);
+        g.fillRect(x + width * 0.20, baseY - height * 0.38, width * 0.16, height * 0.38);
+        g.fillRect(x + width * 0.41, baseY - height * 0.56, width * 0.18, height * 0.56);
+        g.fillRect(x + width * 0.63, baseY - height * 0.30, width * 0.14, height * 0.30);
+        g.fillRect(x + width * 0.80, baseY - height * 0.48, width * 0.14, height * 0.48);
+        if (stroke != null) {
+            g.setStroke(stroke);
+            g.setLineWidth(Math.max(1.1, width * 0.02));
+            g.strokeLine(x - width * 0.02, baseY, x + width * 0.98, baseY);
+        }
+    }
+
+    private void fillAchievementLeaf(GraphicsContext g, double cx, double cy, double width,
+                                     double height, Color fill, Color stroke) {
+        double[] xs = {
+                cx, cx + width * 0.34, cx + width * 0.18,
+                cx, cx - width * 0.18, cx - width * 0.34
+        };
+        double[] ys = {
+                cy - height * 0.52, cy - height * 0.08, cy + height * 0.36,
+                cy + height * 0.52, cy + height * 0.36, cy - height * 0.08
+        };
+        g.setFill(fill);
+        g.fillPolygon(xs, ys, xs.length);
+        if (stroke != null) {
+            g.setStroke(stroke);
+            g.setLineWidth(Math.max(1.0, width * 0.05));
+            g.strokePolygon(xs, ys, xs.length);
+            g.strokeLine(cx, cy - height * 0.40, cx, cy + height * 0.34);
+        }
+    }
+
+    private void drawAchievementBook(GraphicsContext g, double cx, double cy, double width,
+                                     double height, Color fill, Color stroke) {
+        double half = width / 2.0;
+        double top = cy - height / 2.0;
+        g.setFill(fill.deriveColor(0, 1.0, 1.06, 1.0));
+        g.fillRoundRect(cx - half, top, half - 3, height, width * 0.10, width * 0.10);
+        g.setFill(fill.deriveColor(0, 0.92, 0.90, 1.0));
+        g.fillRoundRect(cx + 3, top, half - 3, height, width * 0.10, width * 0.10);
+        g.setStroke(stroke);
+        g.setLineWidth(Math.max(1.2, width * 0.03));
+        g.strokeRoundRect(cx - half, top, half - 3, height, width * 0.10, width * 0.10);
+        g.strokeRoundRect(cx + 3, top, half - 3, height, width * 0.10, width * 0.10);
+        g.strokeLine(cx, top + height * 0.06, cx, top + height * 0.94);
+        g.setStroke(Color.web("#FFF8E1", 0.72));
+        g.setLineWidth(Math.max(0.9, width * 0.016));
+        g.strokeLine(cx - half * 0.72, cy - height * 0.12, cx - half * 0.18, cy - height * 0.12);
+        g.strokeLine(cx + half * 0.18, cy - height * 0.12, cx + half * 0.72, cy - height * 0.12);
+    }
+
     private Canvas buildAchievementIcon(int index, double size) {
         double actual = Math.max(56.0, size);
         Canvas canvas = new Canvas(actual, actual);
         GraphicsContext g = canvas.getGraphicsContext2D();
         Color accent = achievementAccentColor(index);
         Color accentDark = accent.deriveColor(0, 1.0, 0.48, 1.0);
+        Color ink = Color.web("#F8FAFC");
+        Color warm = Color.web("#FFE082");
+        Color emerald = Color.web("#C8E6C9");
+        Color crimson = Color.web("#FF6B6B");
+        Color violet = Color.web("#CE93D8");
+        Color sea = Color.web("#80DEEA");
+        Color neon = Color.web("#76FF03");
+        Color steel = Color.web("#B0BEC5");
 
-        g.setFill(Color.rgb(5, 8, 12, 0.92));
-        g.fillRoundRect(3, 3, actual - 6, actual - 6, actual * 0.26, actual * 0.26);
+        drawAchievementIconShell(g, actual, accent, accentDark);
+        g.setLineCap(StrokeLineCap.ROUND);
 
-        g.setFill(new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0, accent.brighter()),
-                new Stop(1, accentDark)));
-        g.fillOval(actual * 0.13, actual * 0.11, actual * 0.74, actual * 0.74);
-
-        g.setStroke(Color.web("#F8FAFC", 0.88));
-        g.setLineWidth(Math.max(2.0, actual * 0.035));
-        g.strokeOval(actual * 0.17, actual * 0.15, actual * 0.66, actual * 0.66);
-        g.strokeRoundRect(5, 5, actual - 10, actual - 10, actual * 0.24, actual * 0.24);
-
-        g.setFill(Color.web("#041118", 0.26));
-        g.fillRoundRect(actual * 0.15, actual * 0.67, actual * 0.70, actual * 0.13, actual * 0.08, actual * 0.08);
-
-        Font codeFont = Font.font("Arial Black", FontWeight.BOLD, actual * 0.24);
-        drawCenteredText(g, achievementIconCode(index), codeFont, actual / 2.0, actual * 0.51, Color.WHITE);
-
-        Font categoryFont = Font.font("Consolas", FontWeight.BOLD, actual * 0.12);
-        drawCenteredText(g, achievementCategoryFor(index).label.substring(0, 1), categoryFont,
-                actual / 2.0, actual * 0.73, Color.web("#FDE68A"));
-
-        g.setStroke(Color.web("#E0F2F1", 0.65));
-        g.setLineWidth(Math.max(1.5, actual * 0.018));
-        g.strokeLine(actual * 0.19, actual * 0.25, actual * 0.09, actual * 0.17);
-        g.strokeLine(actual * 0.81, actual * 0.25, actual * 0.91, actual * 0.17);
-        g.strokeLine(actual * 0.23, actual * 0.81, actual * 0.13, actual * 0.89);
-        g.strokeLine(actual * 0.77, actual * 0.81, actual * 0.87, actual * 0.89);
+        switch (achievementIconVariantKey(index)) {
+            case "blood-drop" -> {
+                g.setFill(crimson);
+                g.fillOval(actual * 0.38, actual * 0.27, actual * 0.24, actual * 0.22);
+                g.fillPolygon(
+                        new double[]{actual * 0.38, actual * 0.50, actual * 0.62},
+                        new double[]{actual * 0.44, actual * 0.70, actual * 0.44},
+                        3
+                );
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.06);
+                g.strokeLine(actual * 0.66, actual * 0.28, actual * 0.36, actual * 0.60);
+            }
+            case "triple-skull" -> {
+                drawAchievementSkull(g, actual * 0.37, actual * 0.54, actual * 0.18, ink, Color.web("#22313A"));
+                drawAchievementSkull(g, actual * 0.63, actual * 0.54, actual * 0.18, ink, Color.web("#22313A"));
+                drawAchievementSkull(g, actual * 0.50, actual * 0.35, actual * 0.20, warm, Color.web("#22313A"));
+            }
+            case "annihilation-burst" -> {
+                fillAchievementStar(g, actual * 0.50, actual * 0.48, actual * 0.26, actual * 0.11,
+                        8, Color.web("#FFB74D"), ink);
+                g.setFill(Color.web("#07131B"));
+                g.fillOval(actual * 0.43, actual * 0.41, actual * 0.14, actual * 0.14);
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.03);
+                g.strokeLine(actual * 0.33, actual * 0.67, actual * 0.67, actual * 0.29);
+                g.strokeLine(actual * 0.67, actual * 0.67, actual * 0.33, actual * 0.29);
+            }
+            case "slam-impact" -> {
+                g.setFill(Color.web("#FFCA28"));
+                g.fillPolygon(
+                        new double[]{actual * 0.50, actual * 0.36, actual * 0.45, actual * 0.45, actual * 0.55, actual * 0.55, actual * 0.64},
+                        new double[]{actual * 0.22, actual * 0.44, actual * 0.44, actual * 0.60, actual * 0.60, actual * 0.44, actual * 0.44},
+                        7
+                );
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.03);
+                g.strokeLine(actual * 0.28, actual * 0.72, actual * 0.72, actual * 0.72);
+                g.strokeLine(actual * 0.44, actual * 0.72, actual * 0.38, actual * 0.80);
+                g.strokeLine(actual * 0.56, actual * 0.72, actual * 0.62, actual * 0.82);
+                g.strokeLine(actual * 0.50, actual * 0.72, actual * 0.48, actual * 0.83);
+            }
+            case "lean-cloud" -> {
+                g.setFill(violet);
+                g.fillOval(actual * 0.29, actual * 0.42, actual * 0.22, actual * 0.17);
+                g.fillOval(actual * 0.40, actual * 0.32, actual * 0.24, actual * 0.21);
+                g.fillOval(actual * 0.54, actual * 0.41, actual * 0.18, actual * 0.15);
+                g.fillRoundRect(actual * 0.31, actual * 0.46, actual * 0.38, actual * 0.16,
+                        actual * 0.08, actual * 0.08);
+                g.setStroke(warm);
+                g.setLineWidth(actual * 0.03);
+                g.strokeOval(actual * 0.34, actual * 0.21, actual * 0.32, actual * 0.14);
+                fillAchievementStar(g, actual * 0.63, actual * 0.35, actual * 0.06, actual * 0.03,
+                        4, ink, null);
+            }
+            case "lounge-heart" -> {
+                g.setFill(Color.web("#8D6E63"));
+                g.fillRoundRect(actual * 0.24, actual * 0.49, actual * 0.52, actual * 0.16,
+                        actual * 0.08, actual * 0.08);
+                g.fillRoundRect(actual * 0.29, actual * 0.36, actual * 0.42, actual * 0.17,
+                        actual * 0.08, actual * 0.08);
+                g.fillRect(actual * 0.26, actual * 0.64, actual * 0.05, actual * 0.10);
+                g.fillRect(actual * 0.69, actual * 0.64, actual * 0.05, actual * 0.10);
+                fillAchievementHeart(g, actual * 0.66, actual * 0.30, actual * 0.22, actual * 0.22,
+                        Color.web("#FF8A80"), ink);
+            }
+            case "powerup-cache" -> {
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.025);
+                g.setFill(Color.web("#90CAF9"));
+                g.fillRect(actual * 0.27, actual * 0.48, actual * 0.17, actual * 0.17);
+                g.fillRect(actual * 0.47, actual * 0.38, actual * 0.17, actual * 0.17);
+                g.fillRect(actual * 0.57, actual * 0.54, actual * 0.14, actual * 0.14);
+                g.strokeRect(actual * 0.27, actual * 0.48, actual * 0.17, actual * 0.17);
+                g.strokeRect(actual * 0.47, actual * 0.38, actual * 0.17, actual * 0.17);
+                g.strokeRect(actual * 0.57, actual * 0.54, actual * 0.14, actual * 0.14);
+                g.setStroke(neon);
+                g.setLineWidth(actual * 0.04);
+                g.strokeLine(actual * 0.34, actual * 0.23, actual * 0.34, actual * 0.39);
+                g.strokeLine(actual * 0.26, actual * 0.31, actual * 0.42, actual * 0.31);
+            }
+            case "void-fall" -> {
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.03);
+                g.strokeLine(actual * 0.47, actual * 0.26, actual * 0.42, actual * 0.50);
+                g.strokeLine(actual * 0.47, actual * 0.34, actual * 0.58, actual * 0.45);
+                g.strokeLine(actual * 0.42, actual * 0.50, actual * 0.33, actual * 0.61);
+                g.strokeLine(actual * 0.42, actual * 0.50, actual * 0.54, actual * 0.63);
+                g.setFill(ink);
+                g.fillOval(actual * 0.42, actual * 0.16, actual * 0.12, actual * 0.12);
+                g.setStroke(crimson);
+                g.setLineWidth(actual * 0.035);
+                g.strokeLine(actual * 0.50, actual * 0.57, actual * 0.50, actual * 0.74);
+                g.strokeLine(actual * 0.44, actual * 0.68, actual * 0.50, actual * 0.74);
+                g.strokeLine(actual * 0.56, actual * 0.68, actual * 0.50, actual * 0.74);
+                g.strokeLine(actual * 0.28, actual * 0.80, actual * 0.72, actual * 0.80);
+            }
+            case "taunt-horn" -> {
+                g.setFill(warm);
+                g.fillPolygon(
+                        new double[]{actual * 0.31, actual * 0.55, actual * 0.55, actual * 0.31},
+                        new double[]{actual * 0.37, actual * 0.27, actual * 0.59, actual * 0.50},
+                        4
+                );
+                g.setFill(Color.web("#795548"));
+                g.fillRect(actual * 0.24, actual * 0.42, actual * 0.10, actual * 0.12);
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.03);
+                g.strokeArc(actual * 0.52, actual * 0.30, actual * 0.18, actual * 0.20, -34, 68, ArcType.OPEN);
+                g.strokeArc(actual * 0.59, actual * 0.25, actual * 0.24, actual * 0.30, -32, 64, ArcType.OPEN);
+            }
+            case "clutch-heart" -> {
+                fillAchievementHeart(g, actual * 0.50, actual * 0.49, actual * 0.34, actual * 0.32,
+                        crimson, ink);
+                fillAchievementCrown(g, actual * 0.50, actual * 0.24, actual * 0.24, actual * 0.16, warm, ink);
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.028);
+                g.strokePolyline(
+                        new double[]{actual * 0.34, actual * 0.42, actual * 0.46, actual * 0.52, actual * 0.58, actual * 0.66},
+                        new double[]{actual * 0.57, actual * 0.57, actual * 0.49, actual * 0.63, actual * 0.54, actual * 0.54},
+                        6
+                );
+            }
+            case "rooftop-arc" -> {
+                drawAchievementCityline(g, actual * 0.20, actual * 0.50, actual * 0.60, actual * 0.22, steel, ink);
+                g.setStroke(warm);
+                g.setLineWidth(actual * 0.03);
+                g.strokeArc(actual * 0.24, actual * 0.24, actual * 0.44, actual * 0.34, 18, 126, ArcType.OPEN);
+                g.setFill(ink);
+                g.fillOval(actual * 0.64, actual * 0.31, actual * 0.08, actual * 0.08);
+            }
+            case "neon-bolt" -> {
+                g.setStroke(Color.web("#39FF14"));
+                g.setLineWidth(actual * 0.06);
+                g.strokeLine(actual * 0.36, actual * 0.26, actual * 0.60, actual * 0.26);
+                g.strokeLine(actual * 0.40, actual * 0.66, actual * 0.64, actual * 0.66);
+                g.setFill(neon);
+                g.fillPolygon(
+                        new double[]{actual * 0.52, actual * 0.38, actual * 0.50, actual * 0.43, actual * 0.63, actual * 0.51},
+                        new double[]{actual * 0.20, actual * 0.48, actual * 0.48, actual * 0.78, actual * 0.42, actual * 0.42},
+                        6
+                );
+            }
+            case "urban-crown" -> {
+                fillAchievementCrown(g, actual * 0.50, actual * 0.34, actual * 0.42, actual * 0.20, warm, ink);
+                drawAchievementCityline(g, actual * 0.23, actual * 0.52, actual * 0.54, actual * 0.18, steel, ink);
+            }
+            case "thermal-spiral" -> {
+                g.setStroke(sea);
+                g.setLineWidth(actual * 0.035);
+                g.beginPath();
+                g.moveTo(actual * 0.36, actual * 0.68);
+                g.quadraticCurveTo(actual * 0.28, actual * 0.56, actual * 0.42, actual * 0.50);
+                g.quadraticCurveTo(actual * 0.58, actual * 0.44, actual * 0.50, actual * 0.31);
+                g.quadraticCurveTo(actual * 0.41, actual * 0.20, actual * 0.63, actual * 0.20);
+                g.stroke();
+                g.setFill(warm);
+                g.fillOval(actual * 0.58, actual * 0.16, actual * 0.10, actual * 0.10);
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.025);
+                g.strokeLine(actual * 0.63, actual * 0.11, actual * 0.63, actual * 0.04);
+            }
+            case "cliff-dive" -> {
+                g.setFill(Color.web("#8D6E63"));
+                g.fillRect(actual * 0.22, actual * 0.28, actual * 0.16, actual * 0.38);
+                g.fillRect(actual * 0.22, actual * 0.58, actual * 0.40, actual * 0.08);
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.03);
+                g.strokeLine(actual * 0.62, actual * 0.39, actual * 0.76, actual * 0.60);
+                g.strokeLine(actual * 0.70, actual * 0.56, actual * 0.76, actual * 0.60);
+                g.strokeLine(actual * 0.78, actual * 0.52, actual * 0.76, actual * 0.60);
+                g.setFill(warm);
+                g.fillOval(actual * 0.56, actual * 0.31, actual * 0.10, actual * 0.10);
+            }
+            case "sky-crown" -> {
+                g.setFill(Color.web("#B0BEC5"));
+                g.fillPolygon(
+                        new double[]{actual * 0.22, actual * 0.34, actual * 0.44, actual * 0.54, actual * 0.68, actual * 0.80},
+                        new double[]{actual * 0.72, actual * 0.44, actual * 0.72, actual * 0.34, actual * 0.72, actual * 0.50},
+                        6
+                );
+                fillAchievementCrown(g, actual * 0.52, actual * 0.25, actual * 0.30, actual * 0.16, warm, ink);
+            }
+            case "vine-swing" -> {
+                g.setStroke(Color.web("#66BB6A"));
+                g.setLineWidth(actual * 0.03);
+                g.beginPath();
+                g.moveTo(actual * 0.30, actual * 0.12);
+                g.quadraticCurveTo(actual * 0.54, actual * 0.28, actual * 0.42, actual * 0.60);
+                g.stroke();
+                g.setFill(ink);
+                g.fillOval(actual * 0.36, actual * 0.53, actual * 0.11, actual * 0.11);
+                g.setStroke(ink);
+                g.strokeLine(actual * 0.41, actual * 0.64, actual * 0.34, actual * 0.75);
+                g.strokeLine(actual * 0.41, actual * 0.64, actual * 0.48, actual * 0.75);
+                fillAchievementLeaf(g, actual * 0.56, actual * 0.24, actual * 0.16, actual * 0.20, emerald, ink);
+            }
+            case "canopy-crown" -> {
+                fillAchievementLeaf(g, actual * 0.38, actual * 0.38, actual * 0.20, actual * 0.24, emerald, ink);
+                fillAchievementLeaf(g, actual * 0.50, actual * 0.31, actual * 0.22, actual * 0.28, emerald, ink);
+                fillAchievementLeaf(g, actual * 0.62, actual * 0.38, actual * 0.20, actual * 0.24, emerald, ink);
+                fillAchievementCrown(g, actual * 0.50, actual * 0.63, actual * 0.34, actual * 0.16, warm, ink);
+            }
+            case "pelican-plunge" -> {
+                g.setFill(Color.web("#FFCC80"));
+                g.fillPolygon(
+                        new double[]{actual * 0.34, actual * 0.68, actual * 0.52},
+                        new double[]{actual * 0.30, actual * 0.44, actual * 0.70},
+                        3
+                );
+                g.setFill(ink);
+                g.fillOval(actual * 0.33, actual * 0.25, actual * 0.12, actual * 0.12);
+                g.setFill(sea);
+                g.fillOval(actual * 0.57, actual * 0.57, actual * 0.10, actual * 0.06);
+                g.setStroke(sea);
+                g.setLineWidth(actual * 0.022);
+                g.strokeArc(actual * 0.52, actual * 0.62, actual * 0.20, actual * 0.10, 8, 164, ArcType.OPEN);
+            }
+            case "classic-crest" -> {
+                g.setFill(Color.web("#ECEFF1"));
+                g.fillPolygon(
+                        new double[]{actual * 0.50, actual * 0.66, actual * 0.62, actual * 0.50, actual * 0.38, actual * 0.34},
+                        new double[]{actual * 0.24, actual * 0.34, actual * 0.62, actual * 0.76, actual * 0.62, actual * 0.34},
+                        6
+                );
+                g.setStroke(Color.web("#66BB6A"));
+                g.setLineWidth(actual * 0.022);
+                g.strokeArc(actual * 0.18, actual * 0.30, actual * 0.24, actual * 0.36, -74, 148, ArcType.OPEN);
+                g.strokeArc(actual * 0.58, actual * 0.30, actual * 0.24, actual * 0.36, 106, 148, ArcType.OPEN);
+                fillAchievementStar(g, actual * 0.50, actual * 0.48, actual * 0.07, actual * 0.03, 5, warm, null);
+            }
+            case "cave-echo" -> {
+                g.setFill(Color.web("#263238"));
+                g.fillArc(actual * 0.24, actual * 0.24, actual * 0.52, actual * 0.50, 0, 180, ArcType.ROUND);
+                g.setFill(Color.web("#06121A"));
+                g.fillRect(actual * 0.24, actual * 0.49, actual * 0.52, actual * 0.14);
+                g.setStroke(sea);
+                g.setLineWidth(actual * 0.024);
+                g.strokeArc(actual * 0.37, actual * 0.36, actual * 0.12, actual * 0.12, -40, 260, ArcType.OPEN);
+                g.strokeArc(actual * 0.32, actual * 0.31, actual * 0.22, actual * 0.22, -35, 250, ArcType.OPEN);
+                g.strokeArc(actual * 0.26, actual * 0.25, actual * 0.34, actual * 0.34, -30, 240, ArcType.OPEN);
+                g.setFill(warm);
+                g.fillOval(actual * 0.57, actual * 0.55, actual * 0.07, actual * 0.07);
+            }
+            case "story-book" -> {
+                drawAchievementBook(g, actual * 0.50, actual * 0.56, actual * 0.46, actual * 0.30, Color.web("#FFF8E1"), ink);
+                g.setStroke(Color.web("#CFD8DC"));
+                g.setLineWidth(actual * 0.026);
+                g.strokeLine(actual * 0.62, actual * 0.22, actual * 0.49, actual * 0.52);
+                g.strokeLine(actual * 0.59, actual * 0.26, actual * 0.67, actual * 0.35);
+                fillAchievementStar(g, actual * 0.70, actual * 0.18, actual * 0.06, actual * 0.025, 5, warm, null);
+            }
+            case "boss-breaker" -> {
+                fillAchievementCrown(g, actual * 0.50, actual * 0.30, actual * 0.38, actual * 0.18, warm, ink);
+                g.setStroke(crimson);
+                g.setLineWidth(actual * 0.05);
+                g.strokeLine(actual * 0.30, actual * 0.66, actual * 0.70, actual * 0.30);
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.025);
+                g.strokeLine(actual * 0.56, actual * 0.40, actual * 0.68, actual * 0.52);
+                g.strokeLine(actual * 0.30, actual * 0.66, actual * 0.42, actual * 0.78);
+                fillAchievementStar(g, actual * 0.32, actual * 0.68, actual * 0.08, actual * 0.03, 6, Color.web("#FFAB91"), null);
+            }
+            case "void-crown" -> {
+                g.setStroke(Color.web("#B39DDB"));
+                g.setLineWidth(actual * 0.03);
+                g.strokeOval(actual * 0.22, actual * 0.20, actual * 0.56, actual * 0.56);
+                fillAchievementCrown(g, actual * 0.50, actual * 0.43, actual * 0.34, actual * 0.16, Color.web("#CE93D8"), ink);
+                g.setStroke(Color.web("#4A148C"));
+                g.setLineWidth(actual * 0.03);
+                g.strokeArc(actual * 0.28, actual * 0.46, actual * 0.44, actual * 0.18, 200, 140, ArcType.OPEN);
+                fillAchievementStar(g, actual * 0.63, actual * 0.24, actual * 0.07, actual * 0.03, 5, sea, null);
+            }
+            case "daily-sun" -> {
+                g.setFill(Color.web("#CFD8DC"));
+                g.fillRoundRect(actual * 0.24, actual * 0.28, actual * 0.36, actual * 0.32,
+                        actual * 0.06, actual * 0.06);
+                g.setFill(Color.web("#90A4AE"));
+                g.fillRect(actual * 0.24, actual * 0.28, actual * 0.36, actual * 0.08);
+                g.setFill(Color.web("#546E7A"));
+                g.fillRect(actual * 0.30, actual * 0.22, actual * 0.05, actual * 0.10);
+                g.fillRect(actual * 0.49, actual * 0.22, actual * 0.05, actual * 0.10);
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.02);
+                g.strokeRoundRect(actual * 0.24, actual * 0.28, actual * 0.36, actual * 0.32,
+                        actual * 0.06, actual * 0.06);
+                fillAchievementStar(g, actual * 0.67, actual * 0.55, actual * 0.12, actual * 0.05, 8, warm, ink);
+                g.setStroke(warm);
+                g.setLineWidth(actual * 0.02);
+                g.strokeLine(actual * 0.67, actual * 0.28, actual * 0.67, actual * 0.18);
+                g.strokeLine(actual * 0.67, actual * 0.82, actual * 0.67, actual * 0.72);
+                g.strokeLine(actual * 0.53, actual * 0.55, actual * 0.43, actual * 0.55);
+                g.strokeLine(actual * 0.91, actual * 0.55, actual * 0.81, actual * 0.55);
+            }
+            case "storm-rooftop" -> {
+                drawAchievementCityline(g, actual * 0.18, actual * 0.54, actual * 0.64, actual * 0.20, steel, ink);
+                g.setFill(Color.web("#81D4FA"));
+                g.fillPolygon(
+                        new double[]{actual * 0.48, actual * 0.38, actual * 0.50, actual * 0.44, actual * 0.58, actual * 0.50},
+                        new double[]{actual * 0.18, actual * 0.44, actual * 0.44, actual * 0.68, actual * 0.50, actual * 0.50},
+                        6
+                );
+                g.setStroke(Color.web("#B3E5FC"));
+                g.setLineWidth(actual * 0.024);
+                g.strokeArc(actual * 0.24, actual * 0.20, actual * 0.22, actual * 0.14, 15, 140, ArcType.OPEN);
+            }
+            case "echo-rings" -> {
+                g.setStroke(sea);
+                g.setLineWidth(actual * 0.028);
+                g.strokeOval(actual * 0.26, actual * 0.24, actual * 0.22, actual * 0.22);
+                g.strokeOval(actual * 0.18, actual * 0.16, actual * 0.38, actual * 0.38);
+                g.strokeOval(actual * 0.10, actual * 0.08, actual * 0.54, actual * 0.54);
+                g.setFill(Color.web("#7E57C2"));
+                g.fillPolygon(
+                        new double[]{actual * 0.46, actual * 0.66, actual * 0.56},
+                        new double[]{actual * 0.56, actual * 0.50, actual * 0.72},
+                        3
+                );
+                g.fillPolygon(
+                        new double[]{actual * 0.54, actual * 0.74, actual * 0.64},
+                        new double[]{actual * 0.56, actual * 0.50, actual * 0.72},
+                        3
+                );
+                g.setFill(ink);
+                g.fillOval(actual * 0.50, actual * 0.49, actual * 0.10, actual * 0.10);
+            }
+            case "iron-wing" -> {
+                g.setFill(Color.web("#BCAAA4"));
+                g.fillPolygon(
+                        new double[]{actual * 0.28, actual * 0.52, actual * 0.70, actual * 0.56, actual * 0.36},
+                        new double[]{actual * 0.32, actual * 0.22, actual * 0.42, actual * 0.74, actual * 0.78},
+                        5
+                );
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.024);
+                g.strokePolygon(
+                        new double[]{actual * 0.28, actual * 0.52, actual * 0.70, actual * 0.56, actual * 0.36},
+                        new double[]{actual * 0.32, actual * 0.22, actual * 0.42, actual * 0.74, actual * 0.78},
+                        5
+                );
+                g.setStroke(Color.web("#8D6E63"));
+                g.setLineWidth(actual * 0.022);
+                g.strokeLine(actual * 0.40, actual * 0.34, actual * 0.49, actual * 0.67);
+                g.strokeLine(actual * 0.50, actual * 0.30, actual * 0.58, actual * 0.60);
+                g.strokeLine(actual * 0.60, actual * 0.34, actual * 0.65, actual * 0.54);
+                g.setFill(warm);
+                g.fillPolygon(
+                        new double[]{actual * 0.66, actual * 0.84, actual * 0.70},
+                        new double[]{actual * 0.42, actual * 0.46, actual * 0.54},
+                        3
+                );
+            }
+            default -> {
+                fillAchievementStar(g, actual * 0.50, actual * 0.46, actual * 0.24, actual * 0.10, 6, warm, ink);
+                drawCenteredText(g, "?", Font.font("Arial Black", FontWeight.BOLD, actual * 0.28),
+                        actual / 2.0, actual * 0.53, Color.web("#07131B"));
+            }
+        }
         return canvas;
+    }
+
+    private boolean shouldShowAchievementRewardOwnedOverlay(int index) {
+        ShopPreview preview = achievementRewardPreview(index);
+        return preview != null && isShopPreviewOwned(preview);
+    }
+
+    private StackPane wrapOwnedAchievementRewardTile(Node baseIcon) {
+        StackPane wrapper = new StackPane(baseIcon);
+        wrapper.setPickOnBounds(false);
+
+        Label owned = new Label("OWNED");
+        owned.setFont(Font.font("Arial Black", 13));
+        owned.setTextFill(Color.WHITE);
+        owned.setPadding(new Insets(3, 10, 3, 10));
+        owned.setRotate(-10);
+        owned.setMouseTransparent(true);
+        owned.setStyle("-fx-background-color: rgba(18, 80, 28, 0.92);"
+                + " -fx-border-color: rgba(214, 255, 220, 0.95);"
+                + " -fx-border-width: 1.5;"
+                + " -fx-background-radius: 12;"
+                + " -fx-border-radius: 12;");
+        StackPane.setAlignment(owned, Pos.TOP_RIGHT);
+        StackPane.setMargin(owned, new Insets(8, 8, 0, 0));
+        wrapper.getChildren().add(owned);
+        return wrapper;
     }
 
     private Node buildAchievementRewardTileIcon(int index) {
@@ -23104,22 +23910,24 @@ public class BirdGame3 extends Application {
         if (preview == null) {
             return buildLockedTileIcon(Color.web("#607D8B"));
         }
+        Node baseIcon;
         if (isShopPreviewMap(preview)) {
             MapType map = mapTypeForPreview(preview);
-            return map != null ? buildMapTileIcon(map) : buildLockedTileIcon(achievementAccentColor(index));
+            baseIcon = map != null ? buildMapTileIcon(map) : buildLockedTileIcon(achievementAccentColor(index));
+            return shouldShowAchievementRewardOwnedOverlay(index) ? wrapOwnedAchievementRewardTile(baseIcon) : baseIcon;
         }
         if (preview.type() != null) {
             String skinKey = isShopPreviewCharacter(preview) ? null : preview.skinKey();
-            return buildBirdTileIcon(preview.type(), skinKey, originMapForBird(preview.type()));
+            baseIcon = buildBirdTileIcon(preview.type(), skinKey, originMapForBird(preview.type()));
+            return shouldShowAchievementRewardOwnedOverlay(index) ? wrapOwnedAchievementRewardTile(baseIcon) : baseIcon;
         }
         return buildLockedTileIcon(achievementAccentColor(index));
     }
 
-    private Button achievementTabButton(Stage stage, AchievementCategory current, AchievementCategory tab) {
+    private StackPane achievementTabButton(Stage stage, AchievementCategory current, AchievementCategory tab) {
         int claimable = countClaimableAchievementRewards(tab);
         boolean selected = current == tab;
-        String label = claimable > 0 ? tab.label.toUpperCase(Locale.ROOT) + " !" : tab.label.toUpperCase(Locale.ROOT);
-        Button button = uiFactory.action(label, 230, 78, 24,
+        Button button = uiFactory.action(tab.label.toUpperCase(Locale.ROOT), 230, 78, 24,
                 selected ? "#FFD54F" : "#37474F",
                 18,
                 () -> showAchievements(stage, tab));
@@ -23127,39 +23935,47 @@ public class BirdGame3 extends Application {
         button.setStyle((button.getStyle() == null ? "" : button.getStyle())
                 + "; -fx-border-color: " + toHex(selected ? Color.web("#FFF8E1") : achievementCategoryAccent(tab))
                 + "; -fx-border-width: 2;");
-        return button;
+        StackPane wrapper = new StackPane(button);
+        wrapper.setPickOnBounds(false);
+        if (claimable > 0) {
+            StackPane badge = buildAchievementAlertBadge();
+            StackPane.setAlignment(badge, Pos.TOP_RIGHT);
+            StackPane.setMargin(badge, new Insets(-6, -8, 0, 0));
+            wrapper.getChildren().add(badge);
+        }
+        return wrapper;
     }
 
-    private VBox buildAchievementCard(Stage stage, int index, AchievementCategory currentCategory) {
+    private StackPane buildAchievementCard(Stage stage, int index, AchievementCategory currentCategory) {
         boolean unlocked = achievementsUnlocked[index];
         boolean claimable = isAchievementRewardClaimable(index);
         boolean claimed = unlocked && achievementRewardsClaimed[index];
         Color accent = achievementAccentColor(index);
-        String border = claimable ? "#FFE082" : (claimed ? "#80CBC4" : toHex(accent));
-        String background = claimable ? "rgba(56, 95, 52, 0.82)"
-                : unlocked ? "rgba(17, 29, 42, 0.88)" : "rgba(10, 15, 23, 0.74)";
+        String border = claimable ? "#FFE082" : (unlocked ? "#66BB6A" : toHex(accent));
+        String background = claimable ? "rgba(56, 95, 52, 0.88)"
+                : unlocked ? "rgba(22, 64, 40, 0.82)" : "rgba(10, 15, 23, 0.74)";
 
-        VBox card = new VBox(12);
-        card.setPadding(new Insets(20, 22, 20, 22));
-        card.setMaxWidth(1500);
-        card.setStyle("-fx-background-color: " + background + "; -fx-border-color: " + border
+        VBox cardContent = new VBox(12);
+        cardContent.setPadding(new Insets(20, 22, 20, 22));
+        cardContent.setMaxWidth(1500);
+        cardContent.setStyle("-fx-background-color: " + background + "; -fx-border-color: " + border
                 + "; -fx-border-width: 3; -fx-background-radius: 20; -fx-border-radius: 20;");
 
         Canvas icon = buildAchievementIcon(index, 92);
 
         Label nameLabel = new Label(ACHIEVEMENT_NAMES[index].toUpperCase(Locale.ROOT));
         nameLabel.setFont(Font.font("Impact", 36));
-        nameLabel.setTextFill(Color.WHITE);
+        nameLabel.setTextFill(unlocked ? Color.web("#F1F8E9") : Color.WHITE);
 
-        String statusText = claimable ? "UNLOCKED - REWARD READY"
-                : claimed ? "REWARD CLAIMED"
-                : unlocked ? "UNLOCKED"
+        String statusText = claimable ? "COMPLETED - REWARD READY"
+                : claimed ? "COMPLETED - REWARD CLAIMED"
+                : unlocked ? "COMPLETED"
                 : "LOCKED";
         Label statusLabel = getLabel(statusText);
         statusLabel.setFont(Font.font("Consolas", 18));
         statusLabel.setTextFill(claimable ? Color.web("#FFF59D")
-                : claimed ? Color.web("#80DEEA")
-                : unlocked ? accent.brighter()
+                : claimed ? Color.web("#B9F6CA")
+                : unlocked ? Color.web("#C8E6C9")
                 : Color.web("#90A4AE"));
 
         HBox header = new HBox(14, nameLabel, statusLabel);
@@ -23167,13 +23983,13 @@ public class BirdGame3 extends Application {
 
         Label descLabel = getLabel(sanitizeAchievementText(ACHIEVEMENT_DESCRIPTIONS[index]));
         descLabel.setFont(Font.font("Consolas", 20));
-        descLabel.setTextFill(unlocked ? Color.web("#E3F2FD") : Color.web("#B0BEC5"));
+        descLabel.setTextFill(unlocked ? Color.web("#E8F5E9") : Color.web("#B0BEC5"));
         descLabel.setWrapText(true);
         descLabel.setMaxWidth(900);
 
         Label progressLabel = getLabel(achievementProgressText(index));
         progressLabel.setFont(Font.font("Consolas", 18));
-        progressLabel.setTextFill(Color.web("#90CAF9"));
+        progressLabel.setTextFill(unlocked ? Color.web("#A5D6A7") : Color.web("#90CAF9"));
         progressLabel.setWrapText(true);
         progressLabel.setMaxWidth(900);
 
@@ -23223,8 +24039,37 @@ public class BirdGame3 extends Application {
 
         HBox row = new HBox(22, icon, textBox, rewardBox);
         row.setAlignment(Pos.CENTER_LEFT);
-        card.getChildren().add(row);
+        cardContent.getChildren().add(row);
+
+        StackPane card = new StackPane(cardContent);
+        card.setMaxWidth(1500);
+        if (unlocked) {
+            Label completedStamp = new Label("COMPLETED");
+            completedStamp.setMouseTransparent(true);
+            completedStamp.setFont(Font.font("Arial Black", FontWeight.BOLD, 76));
+            completedStamp.setTextFill(Color.rgb(232, 245, 233, 0.16));
+            completedStamp.setRotate(-13);
+            StackPane.setAlignment(completedStamp, Pos.CENTER);
+            card.getChildren().add(completedStamp);
+        }
         return card;
+    }
+
+    private StackPane buildAchievementAlertBadge() {
+        Circle badge = new Circle(10, Color.web("#FF5252"));
+        badge.setStroke(Color.web("#FFF8E1"));
+        badge.setStrokeWidth(2);
+
+        Text mark = new Text("!");
+        mark.setFont(Font.font("Arial Black", FontWeight.BOLD, 14));
+        mark.setFill(Color.WHITE);
+
+        StackPane badgePane = new StackPane(badge, mark);
+        badgePane.setMouseTransparent(true);
+        badgePane.setPrefSize(22, 22);
+        badgePane.setMinSize(22, 22);
+        badgePane.setMaxSize(22, 22);
+        return badgePane;
     }
 
     private void showAchievements(Stage stage) {
@@ -23280,10 +24125,8 @@ public class BirdGame3 extends Application {
 
         VBox list = new VBox(18);
         list.setAlignment(Pos.TOP_CENTER);
-        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
-            if (achievementCategoryFor(i) == category) {
-                list.getChildren().add(buildAchievementCard(stage, i, category));
-            }
+        for (int index : achievementDisplayOrder(category)) {
+            list.getChildren().add(buildAchievementCard(stage, index, category));
         }
 
         ScrollPane scroll = new ScrollPane(list);

@@ -49,12 +49,15 @@ public class Bird {
     public boolean isPrismSkin = false;
     public boolean isAuroraSkin = false;
     public boolean isBeaconSkin = false;
+    public boolean isStormSkin = false;
     public boolean isSunflareSkin = false;
     public boolean isGlacierSkin = false;
     public boolean isTideSkin = false;
     public boolean isNullRockSkin = false;
     public boolean isEclipseSkin = false;
     public boolean isUmbraSkin = false;
+    public boolean isResonanceSkin = false;
+    public boolean isIroncladSkin = false;
     public boolean isSunforgeSkin = false;
     public boolean suppressSelectEffects = false;
     public double loungeX, loungeY;
@@ -4382,12 +4385,15 @@ public class Bird {
         state.isPrismSkin = isPrismSkin;
         state.isAuroraSkin = isAuroraSkin;
         state.isBeaconSkin = isBeaconSkin;
+        state.isStormSkin = isStormSkin;
         state.isSunflareSkin = isSunflareSkin;
         state.isGlacierSkin = isGlacierSkin;
         state.isTideSkin = isTideSkin;
         state.isNullRockSkin = isNullRockSkin;
         state.isEclipseSkin = isEclipseSkin;
         state.isUmbraSkin = isUmbraSkin;
+        state.isResonanceSkin = isResonanceSkin;
+        state.isIroncladSkin = isIroncladSkin;
         state.isSunforgeSkin = isSunforgeSkin;
         state.suppressSelectEffects = suppressSelectEffects;
         state.loungeX = loungeX;
@@ -4492,12 +4498,15 @@ public class Bird {
         this.isPrismSkin = state.isPrismSkin;
         this.isAuroraSkin = state.isAuroraSkin;
         this.isBeaconSkin = state.isBeaconSkin;
+        this.isStormSkin = state.isStormSkin;
         this.isSunflareSkin = state.isSunflareSkin;
         this.isGlacierSkin = state.isGlacierSkin;
         this.isTideSkin = state.isTideSkin;
         this.isNullRockSkin = state.isNullRockSkin;
         this.isEclipseSkin = state.isEclipseSkin;
         this.isUmbraSkin = state.isUmbraSkin;
+        this.isResonanceSkin = state.isResonanceSkin;
+        this.isIroncladSkin = state.isIroncladSkin;
         this.isSunforgeSkin = state.isSunforgeSkin;
         this.suppressSelectEffects = state.suppressSelectEffects;
         this.loungeX = state.loungeX;
@@ -5629,12 +5638,14 @@ public class Bird {
 
         boolean noirPigeon = (type == BirdGame3.BirdType.PIGEON && isNoirSkin);
         boolean beaconPigeon = (type == BirdGame3.BirdType.PIGEON && isBeaconSkin);
+        boolean stormPigeon = (type == BirdGame3.BirdType.PIGEON && isStormSkin);
         boolean classicPalette = isClassicSkin && type != BirdGame3.BirdType.PIGEON;
         boolean duneFalcon = (type == BirdGame3.BirdType.FALCON && isDuneSkin);
         boolean mintPenguin = (type == BirdGame3.BirdType.PENGUIN && isMintSkin);
         boolean circuitTitmouse = (type == BirdGame3.BirdType.TITMOUSE && isCircuitSkin);
         boolean prismRazorbill = (type == BirdGame3.BirdType.RAZORBILL && isPrismSkin);
         boolean auroraPelican = (type == BirdGame3.BirdType.PELICAN && isAuroraSkin);
+        boolean ironcladPelican = (type == BirdGame3.BirdType.PELICAN && isIroncladSkin);
         boolean sunflareHummingbird = (type == BirdGame3.BirdType.HUMMINGBIRD && isSunflareSkin);
         boolean glacierShoebill = (type == BirdGame3.BirdType.SHOEBILL && isGlacierSkin);
         boolean tideVulture = (type == BirdGame3.BirdType.VULTURE && isTideSkin);
@@ -5650,6 +5661,10 @@ public class Bird {
             bodyColor = Color.web("#180E1A");
             headColor = Color.web("#2B1218");
             eyeOverride = Color.web("#FF6E6E");
+        } else if (stormPigeon) {
+            bodyColor = Color.web("#455A64");
+            headColor = Color.web("#607D8B");
+            eyeOverride = Color.web("#B3E5FC");
         } else if (beaconPigeon) {
             bodyColor = Color.web("#FFE082");
             headColor = Color.web("#FFF8E1");
@@ -5701,6 +5716,10 @@ public class Bird {
             bodyColor = Color.web("#B2DFDB");
             headColor = Color.web("#E0F2F1");
             eyeOverride = Color.web("#00695C");
+        } else if (ironcladPelican) {
+            bodyColor = Color.web("#8D6E63");
+            headColor = Color.web("#BCAAA4");
+            eyeOverride = Color.web("#FFF3E0");
         } else if (classicPalette) {
             bodyColor = game.classicSkinPrimaryColor(type);
             headColor = game.classicSkinPrimaryColor(type).brighter();
@@ -5802,6 +5821,15 @@ public class Bird {
             g.setFill(Color.web("#E0F7FA").deriveColor(0, 1, 1, 0.55));
             g.fillOval(x + 16 * s, y + 40 * s, 48 * s, 32 * s);
         }
+        if (type == BirdGame3.BirdType.PIGEON && isStormSkin) {
+            g.setStroke(Color.web("#90CAF9").deriveColor(0, 1, 1, 0.85));
+            g.setLineWidth(2.1 * s);
+            g.strokeLine(x + 26 * s, y + 18 * s, x + 18 * s, y + 38 * s);
+            g.strokeLine(x + 18 * s, y + 38 * s, x + 34 * s, y + 38 * s);
+            g.strokeLine(x + 34 * s, y + 38 * s, x + 24 * s, y + 62 * s);
+            g.setStroke(Color.web("#CFD8DC").deriveColor(0, 1, 1, 0.55));
+            g.strokeArc(x - 4 * s, y + 8 * s, drawSize + 8 * s, drawSize * 0.54, 210, 120, ArcType.OPEN);
+        }
         if (type == BirdGame3.BirdType.TITMOUSE && isCircuitSkin) {
             g.setStroke(Color.web("#00E5FF").deriveColor(0, 1, 1, 0.85));
             g.setLineWidth(2.4 * s);
@@ -5825,6 +5853,15 @@ public class Bird {
             g.fillOval(x + 6 * s, y + 30 * s, 68 * s, 26 * s);
             g.setFill(Color.web("#CE93D8").deriveColor(0, 1, 1, 0.28));
             g.fillOval(x + 10 * s, y + 48 * s, 64 * s, 24 * s);
+        }
+        if (type == BirdGame3.BirdType.PELICAN && isIroncladSkin) {
+            g.setStroke(Color.web("#D7CCC8").deriveColor(0, 1, 1, 0.8));
+            g.setLineWidth(2.4 * s);
+            g.strokeArc(x - 4 * s, y + 28 * s, 80 * s, 34 * s, 196, 148, ArcType.OPEN);
+            g.strokeLine(x + 18 * s, y + 32 * s, x + 60 * s, y + 28 * s);
+            g.setFill(Color.web("#FFCC80").deriveColor(0, 1, 1, 0.5));
+            g.fillOval(x + 18 * s, y + 54 * s, 8 * s, 8 * s);
+            g.fillOval(x + 54 * s, y + 50 * s, 8 * s, 8 * s);
         }
         if (type == BirdGame3.BirdType.HUMMINGBIRD && isSunflareSkin) {
             g.setStroke(Color.web("#FFECB3").deriveColor(0, 1, 1, 0.8));
@@ -5867,6 +5904,14 @@ public class Bird {
             g.setLineWidth(2.0 * s);
             g.strokeOval(x - 10 * s, y - 10 * s, 100 * s, 100 * s);
         }
+        if (type == BirdGame3.BirdType.BAT && isResonanceSkin) {
+            g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.7));
+            g.setLineWidth(2.0 * s);
+            g.strokeOval(x - 4 * s, y + 2 * s, 88 * s, 88 * s);
+            g.strokeOval(x - 14 * s, y - 8 * s, 108 * s, 108 * s);
+            g.setStroke(Color.web("#B39DDB").deriveColor(0, 1, 1, 0.7));
+            g.strokeLine(x + 14 * s, y + 38 * s, x + 68 * s, y + 28 * s);
+        }
         if (type == BirdGame3.BirdType.ROOSTER && isSunforgeSkin) {
             g.setStroke(Color.web("#FFD54F").deriveColor(0, 1, 1, 0.7));
             g.setLineWidth(2.4 * s);
@@ -5902,10 +5947,11 @@ public class Bird {
         }
 
         boolean umbra = isUmbraSkin;
-        Color wing = umbra ? Color.web("#0B0F1A") : Color.rgb(28, 16, 48);
-        Color wingInner = umbra ? Color.web("#182032") : Color.rgb(50, 30, 76);
-        Color body = umbra ? Color.web("#1C1033") : Color.rgb(70, 40, 102);
-        Color head = umbra ? Color.web("#2D1B4D") : Color.rgb(88, 54, 124);
+        boolean resonance = isResonanceSkin;
+        Color wing = umbra ? Color.web("#0B0F1A") : (resonance ? Color.web("#162447") : Color.rgb(28, 16, 48));
+        Color wingInner = umbra ? Color.web("#182032") : (resonance ? Color.web("#244A6A") : Color.rgb(50, 30, 76));
+        Color body = umbra ? Color.web("#1C1033") : (resonance ? Color.web("#355C7D") : Color.rgb(70, 40, 102));
+        Color head = umbra ? Color.web("#2D1B4D") : (resonance ? Color.web("#4E7BA7") : Color.rgb(88, 54, 124));
         double flap = airborne ? Math.sin(System.currentTimeMillis() / 90.0) * 10 * s : 0;
         double leftWingY = y + 18 * s - flap;
         double rightWingY = y + 18 * s - flap;
@@ -5939,7 +5985,7 @@ public class Bird {
         g.fillOval(headX, y + 6 * s, 44 * s, 32 * s);
 
         // ears
-        Color ear = umbra ? Color.web("#4C537A") : Color.rgb(110, 74, 150);
+        Color ear = umbra ? Color.web("#4C537A") : (resonance ? Color.web("#8AD7FF") : Color.rgb(110, 74, 150));
         g.setFill(ear);
         g.fillPolygon(new double[]{headX + 6 * s, headX + 12 * s, headX + 18 * s}, new double[]{y + 8 * s, y - 10 * s, y + 8 * s}, 3);
         g.fillPolygon(new double[]{headX + 26 * s, headX + 32 * s, headX + 38 * s}, new double[]{y + 8 * s, y - 10 * s, y + 8 * s}, 3);
@@ -5949,10 +5995,17 @@ public class Bird {
         double eyeBias = (facingRight ? 3 : -3) * s;
         g.fillOval(headX + 8 * s + eyeBias, y + 16 * s, 11 * s, 11 * s);
         g.fillOval(headX + 24 * s + eyeBias, y + 16 * s, 11 * s, 11 * s);
-        Color iris = umbra ? Color.web("#00E5FF") : Color.CRIMSON.brighter();
+        Color iris = umbra ? Color.web("#00E5FF") : (resonance ? Color.web("#B2EBF2") : Color.CRIMSON.brighter());
         g.setFill(iris);
         g.fillOval(headX + 11 * s + eyeBias, y + 19 * s, 6 * s, 6 * s);
         g.fillOval(headX + 27 * s + eyeBias, y + 19 * s, 6 * s, 6 * s);
+
+        if (resonance) {
+            g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.8));
+            g.setLineWidth(1.8 * s);
+            g.strokeArc(x - 18 * s, y + 8 * s, 116 * s, 60 * s, 12, 154, ArcType.OPEN);
+            g.strokeArc(x - 6 * s, y + 18 * s, 92 * s, 42 * s, 10, 146, ArcType.OPEN);
+        }
 
         if (batHanging) {
             g.setStroke(Color.LIGHTGRAY);
@@ -6264,10 +6317,16 @@ public class Bird {
             double pouchY = y + 42 * sizeMultiplier;
             double pouchW = (plungeTimer > 0 ? 62 : 46) * sizeMultiplier;
             double pouchH = (plungeTimer > 0 ? 38 : 28) * sizeMultiplier;
-            g.setFill(Color.rgb(255, 180, 80));
+            g.setFill(isIroncladSkin ? Color.web("#A1887F") : Color.rgb(255, 180, 80));
             g.fillOval(pouchX, pouchY, pouchW, pouchH);
-            g.setFill(Color.rgb(255, 200, 100));
+            g.setFill(isIroncladSkin ? Color.web("#D7CCC8") : Color.rgb(255, 200, 100));
             g.fillOval(pouchX + 5 * sizeMultiplier, pouchY + 4 * sizeMultiplier, pouchW - 12 * sizeMultiplier, pouchH - 12 * sizeMultiplier);
+            if (isIroncladSkin) {
+                g.setStroke(Color.web("#5D4037"));
+                g.setLineWidth(1.8 * sizeMultiplier);
+                g.strokeOval(pouchX + 3 * sizeMultiplier, pouchY + 3 * sizeMultiplier,
+                        pouchW - 6 * sizeMultiplier, pouchH - 6 * sizeMultiplier);
+            }
         }
     }
 

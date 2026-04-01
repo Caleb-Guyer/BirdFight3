@@ -7,6 +7,9 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Deque;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -116,6 +119,109 @@ class BirdGame3SettingsTest {
 
         assertEquals(5, game.achievementProgress[12]);
         assertTrue(game.achievementsUnlocked[12]);
+    }
+
+    @Test
+    void achievementProgressTextShowsCompletedAfterUnlock() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.achievementsUnlocked[20] = true;
+
+        Method progressText = BirdGame3.class.getDeclaredMethod("achievementProgressText", int.class);
+        progressText.setAccessible(true);
+
+        assertEquals("Completed", progressText.invoke(game, 20));
+    }
+
+    @Test
+    void achievementDisplayOrderMovesCompletedEntriesToBottom() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.achievementsUnlocked[12] = true;
+
+        Class<?> categoryClass = Class.forName("com.example.birdgame3.BirdGame3$AchievementCategory");
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        Object mapCategory = Enum.valueOf((Class<? extends Enum>) categoryClass.asSubclass(Enum.class), "MAP");
+
+        Method orderMethod = BirdGame3.class.getDeclaredMethod("achievementDisplayOrder", categoryClass);
+        orderMethod.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        List<Integer> order = (List<Integer>) orderMethod.invoke(game, mapCategory);
+
+        assertEquals(12, order.getLast());
+    }
+
+    @Test
+    void achievementRewardDetailOmitsDuplicateCoinFallbackText() throws Exception {
+        BirdGame3 game = new BirdGame3();
+
+        Method rewardDetail = BirdGame3.class.getDeclaredMethod("achievementRewardDetail", int.class);
+        rewardDetail.setAccessible(true);
+
+        String detail = (String) rewardDetail.invoke(game, 10);
+        assertEquals("Claim to unlock City Pigeon Skin.", detail);
+    }
+
+    @Test
+    void ownedAchievementRewardPreviewShowsOwnedOverlayState() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.cityPigeonUnlocked = true;
+
+        Method overlayState = BirdGame3.class.getDeclaredMethod("shouldShowAchievementRewardOwnedOverlay", int.class);
+        overlayState.setAccessible(true);
+
+        assertTrue((boolean) overlayState.invoke(game, 10));
+        assertFalse((boolean) overlayState.invoke(game, 0));
+    }
+
+    @Test
+    void reconcileAchievementUnlocksRestoresNewModeAndStoryMilestones() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.achievementProgress[23] = 1;
+
+        setPrivateField(game, "bossRushClearCount", 2);
+        setPrivateField(game, "dailyChallengeBestProgress", 5);
+        setPrivateField(game, "pigeonEpisodeCompleted", true);
+        setPrivateField(game, "batEpisodeCompleted", true);
+        setPrivateField(game, "pelicanEpisodeCompleted", true);
+
+        Method ensureAdventureState = BirdGame3.class.getDeclaredMethod("ensureAdventureChapterState");
+        ensureAdventureState.setAccessible(true);
+        ensureAdventureState.invoke(game);
+
+        Method reconcile = BirdGame3.class.getDeclaredMethod("reconcileAchievementUnlocksFromStoredProgress");
+        reconcile.setAccessible(true);
+        reconcile.invoke(game);
+
+        assertTrue(game.achievementsUnlocked[22]);
+        assertTrue(game.achievementsUnlocked[23]);
+        assertTrue(game.achievementsUnlocked[24]);
+        assertTrue(game.achievementsUnlocked[25]);
+        assertTrue(game.achievementsUnlocked[26]);
+        assertTrue(game.achievementsUnlocked[27]);
+    }
+
+    @Test
+    void achievementIconVariantsAreUniquePerAchievement() throws Exception {
+        BirdGame3 game = new BirdGame3();
+
+        Method iconVariant = BirdGame3.class.getDeclaredMethod("achievementIconVariantKey", int.class);
+        iconVariant.setAccessible(true);
+
+        Set<String> variants = new HashSet<>();
+        for (int i = 0; i < BirdGame3.ACHIEVEMENT_COUNT; i++) {
+            variants.add((String) iconVariant.invoke(game, i));
+        }
+
+        assertEquals(BirdGame3.ACHIEVEMENT_COUNT, variants.size());
+        assertEquals("rooftop-arc", iconVariant.invoke(game, 10));
+        assertEquals("story-book", iconVariant.invoke(game, 21));
+        assertEquals("iron-wing", iconVariant.invoke(game, 27));
+    }
+
+    private static void setPrivateField(BirdGame3 game, String fieldName, Object value) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(game, value);
     }
 
     private static void invokeVolumeSetter(BirdGame3 game, String methodName, double value) throws Exception {
