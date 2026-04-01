@@ -408,6 +408,62 @@ class BirdGame3BossBalanceTest {
         assertEquals(4, game.getCpuLevel(1));
     }
 
+    @Test
+    void bossRushAshfallEncounterUsesNerfedPhoenixProfile() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        BirdGame3.ClassicEncounter encounter = bossRushEncounterByName(game, "Ashfall Rebirth");
+
+        assertEquals(6, encounter.cpuLevel);
+        assertEquals(1, encounter.enemies.length);
+        assertEquals(BirdGame3.BirdType.PHOENIX, encounter.enemies[0].type());
+        assertEquals(255.0, encounter.enemies[0].health(), 0.0001);
+        assertEquals(1.28, encounter.enemies[0].powerMult(), 0.0001);
+        assertEquals(1.04, encounter.enemies[0].speedMult(), 0.0001);
+    }
+
+    @Test
+    void bossRushTitanDockEncounterUsesNerfedPelicanProfile() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        BirdGame3.ClassicEncounter encounter = bossRushEncounterByName(game, "Titan Dock");
+
+        assertEquals(6, encounter.cpuLevel);
+        assertEquals(1, encounter.enemies.length);
+        assertEquals(BirdGame3.BirdType.PELICAN, encounter.enemies[0].type());
+        assertEquals(300.0, encounter.enemies[0].health(), 0.0001);
+        assertEquals(1.34, encounter.enemies[0].powerMult(), 0.0001);
+        assertEquals(0.90, encounter.enemies[0].speedMult(), 0.0001);
+    }
+
+    @Test
+    void bossRushRosterModifiersAreAlsoReducedForPhoenixAndPelican() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird phoenix = new Bird(400, BirdGame3.BirdType.PHOENIX, 1, game);
+        phoenix.name = "Boss: Ashen Phoenix";
+        double phoenixBaseSize = phoenix.baseSizeMultiplier;
+        double phoenixBasePower = phoenix.basePowerMultiplier;
+        double phoenixBaseSpeed = phoenix.baseSpeedMultiplier;
+        game.players[1] = phoenix;
+
+        Bird pelican = new Bird(500, BirdGame3.BirdType.PELICAN, 2, game);
+        pelican.name = "Boss: Titan Pelican";
+        double pelicanBaseSize = pelican.baseSizeMultiplier;
+        double pelicanBasePower = pelican.basePowerMultiplier;
+        double pelicanBaseSpeed = pelican.baseSpeedMultiplier;
+        game.players[2] = pelican;
+
+        Method method = BirdGame3.class.getDeclaredMethod("applyBossRushEncounterRosterModifiers", BirdGame3.ClassicEncounter.class);
+        method.setAccessible(true);
+        method.invoke(game, bossRushEncounterByName(game, "Ashfall Rebirth"));
+
+        assertEquals(phoenixBaseSize * 1.08, phoenix.baseSizeMultiplier, 0.0001);
+        assertEquals(phoenixBasePower * 1.04, phoenix.basePowerMultiplier, 0.0001);
+        assertEquals(phoenixBaseSpeed * 1.02, phoenix.baseSpeedMultiplier, 0.0001);
+
+        assertEquals(pelicanBaseSize * 1.22, pelican.baseSizeMultiplier, 0.0001);
+        assertEquals(pelicanBasePower * 1.04, pelican.basePowerMultiplier, 0.0001);
+        assertEquals(pelicanBaseSpeed * 0.96, pelican.baseSpeedMultiplier, 0.0001);
+    }
+
     private static Bird createStoryBird(BirdGame3 game, int playerIdx, String name) throws Exception {
         Method method = BirdGame3.class.getDeclaredMethod(
                 "createStoryBird",
@@ -454,6 +510,20 @@ class BirdGame3BossBalanceTest {
         method.setAccessible(true);
         List<BirdGame3.ClassicEncounter> encounters = (List<BirdGame3.ClassicEncounter>) method.invoke(game);
         return encounters.getFirst();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static BirdGame3.ClassicEncounter bossRushEncounterByName(BirdGame3 game, String name) throws Exception {
+        Method method = BirdGame3.class.getDeclaredMethod("buildBossRushRun");
+        method.setAccessible(true);
+        List<BirdGame3.ClassicEncounter> encounters = (List<BirdGame3.ClassicEncounter>) method.invoke(game);
+        for (BirdGame3.ClassicEncounter encounter : encounters) {
+            if (name.equals(encounter.name)) {
+                return encounter;
+            }
+        }
+        fail("Missing Boss Rush encounter: " + name);
+        return null;
     }
 
     private static void setPrivateBoolean(Object target) throws Exception {

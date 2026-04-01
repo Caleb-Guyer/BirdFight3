@@ -201,6 +201,28 @@ class BirdGame3SettingsTest {
     }
 
     @Test
+    void persistAchievementsRoundTripsBossRushPerBirdRecords() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        setPrivateBossRushBirdRecord(game, BirdGame3.BirdType.BAT, 505_000L, "S");
+        setPrivateBossRushPerfectBadge(game, BirdGame3.BirdType.BAT, true);
+
+        Method refreshOverall = BirdGame3.class.getDeclaredMethod("refreshBossRushOverallBestRecord");
+        refreshOverall.setAccessible(true);
+        refreshOverall.invoke(game);
+        game.persistAchievements(prefs);
+
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(reloaded, prefs);
+
+        assertEquals("S  |  8:25.00", reloaded.bossRushBestStatusForBird(BirdGame3.BirdType.BAT));
+        assertTrue(reloaded.shouldShowBossRushSelectCompletionBadge(BirdGame3.BirdType.BAT));
+        assertTrue(reloaded.shouldShowBossRushSelectPerfectBadge(BirdGame3.BirdType.BAT));
+        assertEquals("S  |  8:25.00  |  Bat", reloaded.bossRushOverallBestStatus());
+    }
+
+    @Test
     void achievementIconVariantsAreUniquePerAchievement() throws Exception {
         BirdGame3 game = new BirdGame3();
 
@@ -222,6 +244,25 @@ class BirdGame3SettingsTest {
         Field field = BirdGame3.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(game, value);
+    }
+
+    private static void setPrivateBossRushBirdRecord(BirdGame3 game, BirdGame3.BirdType type, long elapsedMillis, String rank) throws Exception {
+        Field timeField = BirdGame3.class.getDeclaredField("bossRushBestClearMillisByBird");
+        timeField.setAccessible(true);
+        long[] times = (long[]) timeField.get(game);
+        times[type.ordinal()] = elapsedMillis;
+
+        Field rankField = BirdGame3.class.getDeclaredField("bossRushBestRankByBird");
+        rankField.setAccessible(true);
+        String[] ranks = (String[]) rankField.get(game);
+        ranks[type.ordinal()] = rank;
+    }
+
+    private static void setPrivateBossRushPerfectBadge(BirdGame3 game, BirdGame3.BirdType type, boolean value) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField("bossRushPerfectBadgeByBird");
+        field.setAccessible(true);
+        boolean[] badges = (boolean[]) field.get(game);
+        badges[type.ordinal()] = value;
     }
 
     private static void invokeVolumeSetter(BirdGame3 game, String methodName, double value) throws Exception {

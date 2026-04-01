@@ -150,10 +150,19 @@ public class BirdGame3 extends Application {
     private static final String PREF_BOSS_RUSH_BEST_BIRD = "boss_rush_best_bird";
     private static final String PREF_BOSS_RUSH_BEST_RANK = "boss_rush_best_rank";
     private static final String PREF_BOSS_RUSH_CLEAR_COUNT = "boss_rush_clear_count";
+    private static final String PREF_BOSS_RUSH_BEST_TIME_PREFIX = "boss_rush_best_time_";
+    private static final String PREF_BOSS_RUSH_BEST_RANK_PREFIX = "boss_rush_best_rank_";
+    private static final String PREF_BOSS_RUSH_PERFECT_PREFIX = "boss_rush_perfect_";
     private static final String PREF_SETTING_MUSIC_VOLUME = "setting_music_volume";
     private static final String PREF_SETTING_SFX_VOLUME = "setting_sfx_volume";
     private static final DateTimeFormatter MATCH_HISTORY_TIME_FORMAT =
             DateTimeFormatter.ofPattern("MMM d, yyyy  h:mm a", Locale.US);
+
+    private static long[] filledLongArray(int length, long value) {
+        long[] values = new long[Math.max(0, length)];
+        Arrays.fill(values, value);
+        return values;
+    }
     private static final DateTimeFormatter DAILY_CHALLENGE_DATE_FORMAT =
             DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy", Locale.US);
     private static final long BIRD_COIN_LEDGER_SALT = 0x6A09E667F3BCC909L;
@@ -2165,6 +2174,9 @@ public class BirdGame3 extends Application {
     private boolean bossRushExEncounterAdded = false;
     private final boolean[] bossRushEventTriggered = new boolean[8];
     private boolean bossRushBossEnraged = false;
+    private final long[] bossRushBestClearMillisByBird = filledLongArray(BirdType.values().length, Long.MAX_VALUE);
+    private final String[] bossRushBestRankByBird = new String[BirdType.values().length];
+    private final boolean[] bossRushPerfectBadgeByBird = new boolean[BirdType.values().length];
     private boolean dailyChallengeModeActive = false;
     private BirdType dailyChallengeSelectedBird = BirdType.PIGEON;
     private String dailyChallengeSelectedSkinKey = null;
@@ -16487,6 +16499,16 @@ public class BirdGame3 extends Application {
         return !bossRush && isClassicCompleted(type);
     }
 
+    private Label createRouteBadge(String text, String background, String textColor, boolean visible) {
+        Label badge = new Label(text);
+        badge.setFont(Font.font("Consolas", 12));
+        badge.setTextFill(Color.web(textColor));
+        badge.setStyle("-fx-background-color: " + background + "; -fx-background-radius: 10; -fx-padding: 2 6 2 6;");
+        badge.setVisible(visible);
+        badge.setManaged(visible);
+        return badge;
+    }
+
     private String classicRewardFor(BirdType type) {
         return switch (type) {
             case PIGEON -> "Pigeon Noir";
@@ -16823,7 +16845,96 @@ public class BirdGame3 extends Application {
         return "C";
     }
 
-    private String bossRushBestStatus() {
+    private boolean hasBossRushRecordedClear(long elapsedMillis) {
+        return elapsedMillis > 0L && elapsedMillis < Long.MAX_VALUE;
+    }
+
+    private boolean isBetterBossRushRecord(String newRank, long newElapsedMillis, String bestRank, long bestElapsedMillis) {
+        if (!hasBossRushRecordedClear(bestElapsedMillis)) return true;
+        int newScore = bossRushRankScore(newRank);
+        int bestScore = bossRushRankScore(bestRank);
+        if (newScore != bestScore) return newScore > bestScore;
+        return newElapsedMillis < bestElapsedMillis;
+    }
+
+    private long bossRushBestClearMillisFor(BirdType type) {
+        if (type == null) return Long.MAX_VALUE;
+        return bossRushBestClearMillisByBird[type.ordinal()];
+    }
+
+    private String bossRushBestRankFor(BirdType type) {
+        if (type == null) return "";
+        String rank = bossRushBestRankByBird[type.ordinal()];
+        return rank == null ? "" : rank;
+    }
+
+    boolean shouldShowBossRushSelectCompletionBadge(BirdType type) {
+        return type != null && hasBossRushRecordedClear(bossRushBestClearMillisFor(type));
+    }
+
+    boolean shouldShowBossRushSelectPerfectBadge(BirdType type) {
+        return type != null && bossRushPerfectBadgeByBird[type.ordinal()];
+    }
+
+    String bossRushBadgeDisplayLabel(BirdType type) {
+        if (type == null) {
+            return "-";
+        }
+        if (shouldShowBossRushSelectPerfectBadge(type)) {
+            return "PERFECT";
+        }
+        if (shouldShowBossRushSelectCompletionBadge(type)) {
+            return "CLEAR";
+        }
+        return "NOT EARNED";
+    }
+
+    String bossRushBestStatusForBird(BirdType type) {
+        long bestElapsedMillis = bossRushBestClearMillisFor(type);
+        if (!hasBossRushRecordedClear(bestElapsedMillis)) {
+            return "No clear recorded";
+        }
+        String rank = bossRushBestRankFor(type);
+        if (rank.isBlank()) {
+            rank = "-";
+        }
+        return rank + "  |  " + formatElapsedMillis(bestElapsedMillis);
+    }
+
+    private void refreshBossRushOverallBestRecord() {
+        bossRushBestClearMillis = Long.MAX_VALUE;
+        bossRushBestBird = null;
+        bossRushBestRank = "";
+        for (BirdType type : BirdType.values()) {
+            long bestElapsedMillis = bossRushBestClearMillisFor(type);
+            if (!hasBossRushRecordedClear(bestElapsedMillis)) {
+                continue;
+            }
+            String rank = bossRushBestRankFor(type);
+            if (isBetterBossRushRecord(rank, bestElapsedMillis, bossRushBestRank, bossRushBestClearMillis)) {
+                bossRushBestClearMillis = bestElapsedMillis;
+                bossRushBestBird = type;
+                bossRushBestRank = rank;
+            }
+        }
+    }
+
+    private void recordBossRushCompletion(BirdType type, String rank, long elapsedMillis, boolean perfectRouteCompleted) {
+        if (type == null || !hasBossRushRecordedClear(elapsedMillis)) {
+            return;
+        }
+        int idx = type.ordinal();
+        if (isBetterBossRushRecord(rank, elapsedMillis, bossRushBestRankByBird[idx], bossRushBestClearMillisByBird[idx])) {
+            bossRushBestClearMillisByBird[idx] = elapsedMillis;
+            bossRushBestRankByBird[idx] = rank == null ? "" : rank;
+        }
+        if (perfectRouteCompleted) {
+            bossRushPerfectBadgeByBird[idx] = true;
+        }
+        refreshBossRushOverallBestRecord();
+    }
+
+    String bossRushOverallBestStatus() {
         if (bossRushBestClearMillis == Long.MAX_VALUE || bossRushBestClearMillis <= 0L) {
             return "No clear recorded";
         }
@@ -16905,11 +17016,7 @@ public class BirdGame3 extends Application {
     }
 
     private boolean shouldUpdateBossRushRecord(String rank, long elapsedMillis) {
-        if (bossRushBestClearMillis == Long.MAX_VALUE || bossRushBestClearMillis <= 0L) return true;
-        int newScore = bossRushRankScore(rank);
-        int bestScore = bossRushRankScore(bossRushBestRank);
-        if (newScore != bestScore) return newScore > bestScore;
-        return elapsedMillis < bossRushBestClearMillis;
+        return isBetterBossRushRecord(rank, elapsedMillis, bossRushBestRank, bossRushBestClearMillis);
     }
 
     private void completeBossRushRun(Stage stage, boolean exCleared) {
@@ -16929,11 +17036,8 @@ public class BirdGame3 extends Application {
             }
         }
         boolean newRecord = shouldUpdateBossRushRecord(rank, elapsedMillis);
-        if (newRecord) {
-            bossRushBestClearMillis = elapsedMillis;
-            bossRushBestBird = classicSelectedBird;
-            bossRushBestRank = rank;
-        }
+        boolean perfectRouteCompleted = exCleared && bossRushPerfectRun;
+        recordBossRushCompletion(classicSelectedBird, rank, elapsedMillis, perfectRouteCompleted);
         classicDeaths = 0;
         saveAchievements();
 
@@ -16944,7 +17048,7 @@ public class BirdGame3 extends Application {
                 : "Perfect route was broken, so the EX gate stayed closed.");
         String recordText = newRecord
                 ? "New record: " + rank + "  |  " + formatElapsedMillis(elapsedMillis) + "."
-                : "Best record: " + bossRushBestStatus() + ".";
+                : "Best record: " + bossRushOverallBestStatus() + ".";
         showStoryDialogue(
                 stage,
                 "Boss Rush Cleared",
@@ -17297,11 +17401,11 @@ public class BirdGame3 extends Application {
                 100 * 60,
                 null,
                 new ClassicFighter[]{
-                        classicBossFighter(BirdType.PHOENIX, "Boss: Ashen Phoenix", 290, 1.38, 1.08)
+                        classicBossFighter(BirdType.PHOENIX, "Boss: Ashen Phoenix", 255, 1.28, 1.04)
                 },
                 true
         );
-        ashfall.cpuLevel = 7;
+        ashfall.cpuLevel = 6;
         run.add(ashfall);
 
         ClassicEncounter titanDock = new ClassicEncounter(
@@ -17316,11 +17420,11 @@ public class BirdGame3 extends Application {
                         classicFighter(BirdType.BAT, "Ally: Umbra Bat", 112, 1.08, 1.14, UMBRA_BAT_SKIN)
                 },
                 new ClassicFighter[]{
-                        classicBossFighter(BirdType.PELICAN, "Boss: Titan Pelican", 340, 1.48, 0.94)
+                        classicBossFighter(BirdType.PELICAN, "Boss: Titan Pelican", 300, 1.34, 0.90)
                 },
                 true
         );
-        titanDock.cpuLevel = 7;
+        titanDock.cpuLevel = 6;
         run.add(titanDock);
 
         ClassicEncounter parliament = new ClassicEncounter(
@@ -17497,16 +17601,20 @@ public class BirdGame3 extends Application {
             name.setWrapText(true);
             name.setAlignment(Pos.CENTER);
 
-            boolean completed = shouldShowClassicSelectBadge(type, bossRush);
-            Label badge = new Label("BADGE");
-            badge.setFont(Font.font("Consolas", 12));
-            badge.setTextFill(Color.web("#1B5E20"));
-            badge.setStyle("-fx-background-color: #69F0AE; -fx-background-radius: 10; -fx-padding: 2 6 2 6;");
-            badge.setVisible(completed);
-            badge.setManaged(completed);
-
-            HBox nameRow = new HBox(6, name, badge);
+            HBox nameRow = new HBox(6);
             nameRow.setAlignment(Pos.CENTER);
+            nameRow.getChildren().add(name);
+            if (bossRush) {
+                String badgeTier = bossRushBadgeDisplayLabel(type);
+                if ("PERFECT".equals(badgeTier)) {
+                    nameRow.getChildren().add(createRouteBadge("PERFECT", "#FFE082", "#6D4C41", true));
+                } else if ("CLEAR".equals(badgeTier)) {
+                    nameRow.getChildren().add(createRouteBadge("CLEAR", "#69F0AE", "#1B5E20", true));
+                }
+            } else {
+                boolean completed = shouldShowClassicSelectBadge(type, false);
+                nameRow.getChildren().add(createRouteBadge("BADGE", "#69F0AE", "#1B5E20", completed));
+            }
 
             VBox card = new VBox(6, icon, nameRow);
             card.setAlignment(Pos.CENTER);
@@ -17664,14 +17772,14 @@ public class BirdGame3 extends Application {
             fitLabelSingleLine(selectedLabel, 44, 26, rightCardContentWidth);
             if (hasPick) {
                 if (bossRush) {
-                    boolean perfectEarned = "S".equals(bossRushBestRank);
-                    rewardLabel.setText("Best Record: " + bossRushBestStatus());
+                    rewardLabel.setText("Selected Bird Record: " + bossRushBestStatusForBird(picked));
                     unlockLabel.setText("Rush Reward: +" + BOSS_RUSH_CLEAR_BONUS + " clear bonus  |  +" + BOSS_RUSH_EX_CLEAR_BONUS + " EX bonus");
                     unlockLabel.setTextFill(Color.web("#FFE082"));
-                    badgeLabel.setText(perfectEarned
-                            ? "Perfect Crown Route: EARNED"
-                            : "Perfect Crown Route: Clear with no losses to open EX");
-                    badgeLabel.setTextFill(perfectEarned ? Color.web("#69F0AE") : Color.web("#FFAB91"));
+                    String badgeTier = bossRushBadgeDisplayLabel(picked);
+                    badgeLabel.setText("Boss Rush Badge: " + badgeTier);
+                    badgeLabel.setTextFill("PERFECT".equals(badgeTier)
+                            ? Color.web("#FFE082")
+                            : ("CLEAR".equals(badgeTier) ? Color.web("#69F0AE") : Color.web("#FFAB91")));
                 } else {
                     String reward = classicRewardFor(picked);
                     String charReward = classicCharacterReward(picked);
@@ -17685,16 +17793,16 @@ public class BirdGame3 extends Application {
                 }
                 selectedSkin[0] = normalizeAdventureSkinChoice(picked, selectedSkin[0]);
             } else {
-                rewardLabel.setText(bossRush ? "Best Record: " + bossRushBestStatus() : "Reward Skin: -");
+                rewardLabel.setText(bossRush ? "Selected Bird Record: SELECT A BIRD" : "Reward Skin: -");
                 unlockLabel.setText(bossRush ? "Rush Reward: +" + BOSS_RUSH_CLEAR_BONUS + " clear bonus" : "Reward Status: LOCKED");
                 unlockLabel.setTextFill(bossRush ? Color.web("#FFE082") : Color.ORANGE);
-                badgeLabel.setText(bossRush ? "Perfect Crown Route: Clear with no losses to open EX" : "Classic Badge: NOT EARNED");
+                badgeLabel.setText(bossRush ? "Boss Rush Badge: -" : "Classic Badge: NOT EARNED");
                 badgeLabel.setTextFill(Color.web("#FFAB91"));
                 selectedSkin[0] = null;
             }
             refreshSkin.run();
             continuesLabel.setText(bossRush
-                    ? ("Rush Record: " + bossRushBestStatus() + "  |  Clears: " + bossRushClearCount)
+                    ? ("Overall Best Any Bird: " + bossRushOverallBestStatus() + "  |  Clears: " + bossRushClearCount)
                     : ("Classic Continues: " + classicContinues));
             start.setDisable(!hasPick);
             start.setOpacity(hasPick ? 1.0 : 0.6);
@@ -18096,7 +18204,9 @@ public class BirdGame3 extends Application {
 
         Label runInfo = new Label(bossRush
                 ? ("Route: " + classicRunCodename + "  |  Pilot: " + classicSelectedBird.name
-                + "  |  Repair Stocks: 3  |  Record: " + bossRushBestStatus())
+                + "  |  Repair Stocks: 3"
+                + "\nSelected Best: " + bossRushBestStatusForBird(classicSelectedBird)
+                + "  |  Overall Best: " + bossRushOverallBestStatus())
                 : ("Run: " + classicRunCodename + "  |  Pilot: " + classicSelectedBird.name
                 + "  |  Continues: " + classicContinues));
         runInfo.setFont(Font.font("Consolas", 28));
@@ -18734,9 +18844,9 @@ public class BirdGame3 extends Application {
                 case "Ally: Sky King" -> scaleBossRushBird(bird, 1.04, 1.04, 1.06);
                 case "Boss: Canopy Vulture" -> scaleBossRushBird(bird, 1.18, 1.06, 1.02);
                 case "Elite: Sunflare Courier" -> scaleBossRushBird(bird, 0.98, 1.03, 1.08);
-                case "Boss: Ashen Phoenix" -> scaleBossRushBird(bird, 1.14, 1.07, 1.04);
+                case "Boss: Ashen Phoenix" -> scaleBossRushBird(bird, 1.08, 1.04, 1.02);
                 case "Ally: Umbra Bat" -> scaleBossRushBird(bird, 1.02, 1.04, 1.05);
-                case "Boss: Titan Pelican" -> scaleBossRushBird(bird, 1.34, 1.08, 0.98);
+                case "Boss: Titan Pelican" -> scaleBossRushBird(bird, 1.22, 1.04, 0.96);
                 case "Ally: Night Raven" -> scaleBossRushBird(bird, 1.04, 1.05, 1.06);
                 case "Boss: Old Sparrow" -> scaleBossRushBird(bird, 1.08, 1.05, 1.03);
                 case "Boss: Void Raven" -> scaleBossRushBird(bird, 1.10, 1.06, 1.08);
@@ -22302,6 +22412,27 @@ public class BirdGame3 extends Application {
         bossRushBestBird = parseBirdTypePreference(prefs.get(PREF_BOSS_RUSH_BEST_BIRD, ""));
         bossRushBestRank = prefs.get(PREF_BOSS_RUSH_BEST_RANK, "");
         bossRushClearCount = Math.max(0, prefs.getInt(PREF_BOSS_RUSH_CLEAR_COUNT, 0));
+        Arrays.fill(bossRushBestClearMillisByBird, Long.MAX_VALUE);
+        Arrays.fill(bossRushBestRankByBird, null);
+        Arrays.fill(bossRushPerfectBadgeByBird, false);
+        for (BirdType type : BirdType.values()) {
+            int idx = type.ordinal();
+            bossRushBestClearMillisByBird[idx] = prefs.getLong(PREF_BOSS_RUSH_BEST_TIME_PREFIX + type.name(), Long.MAX_VALUE);
+            bossRushBestRankByBird[idx] = prefs.get(PREF_BOSS_RUSH_BEST_RANK_PREFIX + type.name(), "");
+            bossRushPerfectBadgeByBird[idx] = prefs.getBoolean(PREF_BOSS_RUSH_PERFECT_PREFIX + type.name(), false);
+        }
+        if (bossRushBestBird != null && hasBossRushRecordedClear(bossRushBestClearMillis)) {
+            int idx = bossRushBestBird.ordinal();
+            if (isBetterBossRushRecord(bossRushBestRank, bossRushBestClearMillis,
+                    bossRushBestRankByBird[idx], bossRushBestClearMillisByBird[idx])) {
+                bossRushBestClearMillisByBird[idx] = bossRushBestClearMillis;
+                bossRushBestRankByBird[idx] = bossRushBestRank == null ? "" : bossRushBestRank;
+            }
+            if ("S".equals(bossRushBestRank)) {
+                bossRushPerfectBadgeByBird[idx] = true;
+            }
+        }
+        refreshBossRushOverallBestRecord();
         pigeonEpisodeUnlockedChapters = Math.clamp(prefs.getInt("ep_pigeon_unlocked", 1), 1, storyChapters.length);
         pigeonEpisodeCompleted = prefs.getBoolean("ep_pigeon_completed", false);
         batEpisodeUnlockedChapters = Math.clamp(prefs.getInt("ep_bat_unlocked", 1), 1, batStoryChapters.length);
@@ -22510,6 +22641,15 @@ public class BirdGame3 extends Application {
         prefs.put(PREF_BOSS_RUSH_BEST_BIRD, bossRushBestBird == null ? "" : bossRushBestBird.name());
         prefs.put(PREF_BOSS_RUSH_BEST_RANK, bossRushBestRank == null ? "" : bossRushBestRank);
         prefs.putInt(PREF_BOSS_RUSH_CLEAR_COUNT, Math.max(0, bossRushClearCount));
+        for (BirdType type : BirdType.values()) {
+            int idx = type.ordinal();
+            long bestElapsedMillis = bossRushBestClearMillisByBird[idx];
+            prefs.putLong(PREF_BOSS_RUSH_BEST_TIME_PREFIX + type.name(),
+                    bestElapsedMillis <= 0L ? Long.MAX_VALUE : bestElapsedMillis);
+            prefs.put(PREF_BOSS_RUSH_BEST_RANK_PREFIX + type.name(),
+                    bossRushBestRankByBird[idx] == null ? "" : bossRushBestRankByBird[idx]);
+            prefs.putBoolean(PREF_BOSS_RUSH_PERFECT_PREFIX + type.name(), bossRushPerfectBadgeByBird[idx]);
+        }
         for (BirdType type : BirdType.values()) {
             int idx = type.ordinal();
             prefs.putBoolean("classic_done_" + type.name(), classicCompleted[idx]);
