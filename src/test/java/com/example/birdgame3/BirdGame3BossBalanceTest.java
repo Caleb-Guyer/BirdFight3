@@ -123,12 +123,6 @@ class BirdGame3BossBalanceTest {
         assertEquals(BirdGame3.BirdType.PHOENIX, game.players[2].type);
         assertEquals(BirdGame3.BirdType.VULTURE, game.players[game.activePlayers - 1].type);
 
-        Field queueField = BirdGame3.class.getDeclaredField("unitedFinaleSupportQueue");
-        queueField.setAccessible(true);
-        @SuppressWarnings("unchecked")
-        List<Object> queue = (List<Object>) queueField.get(game);
-        assertTrue(queue.isEmpty());
-
         List<BirdGame3.BirdType> alliedTypes = new ArrayList<>();
         for (int i = 1; i < game.activePlayers - 1; i++) {
             assertNotNull(game.players[i], "Every ally slot should be populated.");
@@ -416,9 +410,9 @@ class BirdGame3BossBalanceTest {
         assertEquals(6, encounter.cpuLevel);
         assertEquals(1, encounter.enemies.length);
         assertEquals(BirdGame3.BirdType.PHOENIX, encounter.enemies[0].type());
-        assertEquals(255.0, encounter.enemies[0].health(), 0.0001);
-        assertEquals(1.28, encounter.enemies[0].powerMult(), 0.0001);
-        assertEquals(1.04, encounter.enemies[0].speedMult(), 0.0001);
+        assertEquals(240.0, encounter.enemies[0].health(), 0.0001);
+        assertEquals(1.22, encounter.enemies[0].powerMult(), 0.0001);
+        assertEquals(1.02, encounter.enemies[0].speedMult(), 0.0001);
     }
 
     @Test
@@ -432,6 +426,50 @@ class BirdGame3BossBalanceTest {
         assertEquals(300.0, encounter.enemies[0].health(), 0.0001);
         assertEquals(1.34, encounter.enemies[0].powerMult(), 0.0001);
         assertEquals(0.90, encounter.enemies[0].speedMult(), 0.0001);
+    }
+
+    @Test
+    void bossRushParliamentEncounterUsesSofterDuoProfile() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        BirdGame3.ClassicEncounter encounter = bossRushEncounterByName(game, "Parliament Of Smoke");
+
+        assertEquals(7, encounter.cpuLevel);
+        assertEquals(1, encounter.allies.length);
+        assertEquals(124.0, encounter.allies[0].health(), 0.0001);
+        assertEquals(1.16, encounter.allies[0].powerMult(), 0.0001);
+        assertEquals(1.14, encounter.allies[0].speedMult(), 0.0001);
+
+        assertEquals(2, encounter.enemies.length);
+        assertEquals(BirdGame3.BirdType.MOCKINGBIRD, encounter.enemies[0].type());
+        assertEquals(200.0, encounter.enemies[0].health(), 0.0001);
+        assertEquals(1.12, encounter.enemies[0].powerMult(), 0.0001);
+        assertEquals(1.05, encounter.enemies[0].speedMult(), 0.0001);
+        assertEquals(BirdGame3.BirdType.RAVEN, encounter.enemies[1].type());
+        assertEquals(180.0, encounter.enemies[1].health(), 0.0001);
+        assertEquals(1.16, encounter.enemies[1].powerMult(), 0.0001);
+        assertEquals(1.10, encounter.enemies[1].speedMult(), 0.0001);
+    }
+
+    @Test
+    void bossRushCarrionThroneEncounterUsesSofterLateRouteProfile() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        BirdGame3.ClassicEncounter encounter = bossRushEncounterByName(game, "Carrion Throne");
+
+        assertEquals(7, encounter.cpuLevel);
+        assertEquals(1, encounter.allies.length);
+        assertEquals(126.0, encounter.allies[0].health(), 0.0001);
+        assertEquals(1.18, encounter.allies[0].powerMult(), 0.0001);
+        assertEquals(1.10, encounter.allies[0].speedMult(), 0.0001);
+
+        assertEquals(2, encounter.enemies.length);
+        assertEquals(BirdGame3.BirdType.VULTURE, encounter.enemies[0].type());
+        assertEquals(250.0, encounter.enemies[0].health(), 0.0001);
+        assertEquals(1.30, encounter.enemies[0].powerMult(), 0.0001);
+        assertEquals(1.02, encounter.enemies[0].speedMult(), 0.0001);
+        assertEquals(BirdGame3.BirdType.OPIUMBIRD, encounter.enemies[1].type());
+        assertEquals(198.0, encounter.enemies[1].health(), 0.0001);
+        assertEquals(1.18, encounter.enemies[1].powerMult(), 0.0001);
+        assertEquals(1.12, encounter.enemies[1].speedMult(), 0.0001);
     }
 
     @Test
@@ -455,13 +493,94 @@ class BirdGame3BossBalanceTest {
         method.setAccessible(true);
         method.invoke(game, bossRushEncounterByName(game, "Ashfall Rebirth"));
 
-        assertEquals(phoenixBaseSize * 1.08, phoenix.baseSizeMultiplier, 0.0001);
-        assertEquals(phoenixBasePower * 1.04, phoenix.basePowerMultiplier, 0.0001);
-        assertEquals(phoenixBaseSpeed * 1.02, phoenix.baseSpeedMultiplier, 0.0001);
+        assertEquals(phoenixBaseSize * 1.05, phoenix.baseSizeMultiplier, 0.0001);
+        assertEquals(phoenixBasePower * 1.03, phoenix.basePowerMultiplier, 0.0001);
+        assertEquals(phoenixBaseSpeed * 1.01, phoenix.baseSpeedMultiplier, 0.0001);
 
         assertEquals(pelicanBaseSize * 1.22, pelican.baseSizeMultiplier, 0.0001);
         assertEquals(pelicanBasePower * 1.04, pelican.basePowerMultiplier, 0.0001);
         assertEquals(pelicanBaseSpeed * 0.96, pelican.baseSpeedMultiplier, 0.0001);
+    }
+
+    @Test
+    void bossRushRosterModifiersAreReducedForParliamentAndCarrionBosses() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird sparrow = new Bird(400, BirdGame3.BirdType.MOCKINGBIRD, 1, game);
+        sparrow.name = "Boss: Old Sparrow";
+        double sparrowBaseSize = sparrow.baseSizeMultiplier;
+        double sparrowBasePower = sparrow.basePowerMultiplier;
+        double sparrowBaseSpeed = sparrow.baseSpeedMultiplier;
+        game.players[1] = sparrow;
+
+        Bird raven = new Bird(500, BirdGame3.BirdType.RAVEN, 2, game);
+        raven.name = "Boss: Void Raven";
+        double ravenBaseSize = raven.baseSizeMultiplier;
+        double ravenBasePower = raven.basePowerMultiplier;
+        double ravenBaseSpeed = raven.baseSpeedMultiplier;
+        game.players[2] = raven;
+
+        Bird regent = new Bird(600, BirdGame3.BirdType.VULTURE, 3, game);
+        regent.name = "Boss: Carrion Regent";
+        double regentBaseSize = regent.baseSizeMultiplier;
+        double regentBasePower = regent.basePowerMultiplier;
+        double regentBaseSpeed = regent.baseSpeedMultiplier;
+        game.players[3] = regent;
+
+        Bird seer = new Bird(700, BirdGame3.BirdType.OPIUMBIRD, 4, game);
+        seer.name = "Boss: Opium Seer";
+        double seerBaseSize = seer.baseSizeMultiplier;
+        double seerBasePower = seer.basePowerMultiplier;
+        double seerBaseSpeed = seer.baseSpeedMultiplier;
+        game.players[4] = seer;
+
+        Method method = BirdGame3.class.getDeclaredMethod("applyBossRushEncounterRosterModifiers", BirdGame3.ClassicEncounter.class);
+        method.setAccessible(true);
+        method.invoke(game, bossRushEncounterByName(game, "Parliament Of Smoke"));
+
+        assertEquals(sparrowBaseSize * 1.04, sparrow.baseSizeMultiplier, 0.0001);
+        assertEquals(sparrowBasePower * 1.03, sparrow.basePowerMultiplier, 0.0001);
+        assertEquals(sparrowBaseSpeed * 1.01, sparrow.baseSpeedMultiplier, 0.0001);
+        assertEquals(ravenBaseSize * 1.06, raven.baseSizeMultiplier, 0.0001);
+        assertEquals(ravenBasePower * 1.04, raven.basePowerMultiplier, 0.0001);
+        assertEquals(ravenBaseSpeed * 1.05, raven.baseSpeedMultiplier, 0.0001);
+        assertEquals(regentBaseSize * 1.14, regent.baseSizeMultiplier, 0.0001);
+        assertEquals(regentBasePower * 1.05, regent.basePowerMultiplier, 0.0001);
+        assertEquals(regentBaseSpeed * 1.01, regent.baseSpeedMultiplier, 0.0001);
+        assertEquals(seerBaseSize * 1.04, seer.baseSizeMultiplier, 0.0001);
+        assertEquals(seerBasePower * 1.04, seer.basePowerMultiplier, 0.0001);
+        assertEquals(seerBaseSpeed * 1.04, seer.baseSpeedMultiplier, 0.0001);
+    }
+
+    @Test
+    void bossRushParliamentMidpointUsesHealthPickupAndLowerCrowPressure() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.classicModeActive = true;
+        game.classicTeamMode = true;
+        game.classicEncounter = bossRushEncounterByName(game, "Parliament Of Smoke");
+        setPrivateBoolean(game);
+        game.activePlayers = 3;
+        game.classicTeams[0] = 1;
+        game.classicTeams[1] = 2;
+        game.classicTeams[2] = 2;
+
+        Bird player = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird sparrow = new Bird(200, BirdGame3.BirdType.MOCKINGBIRD, 1, game);
+        sparrow.name = "Boss: Old Sparrow";
+        sparrow.health = 80.0;
+        Bird raven = new Bird(300, BirdGame3.BirdType.RAVEN, 2, game);
+        raven.name = "Boss: Void Raven";
+        raven.health = 70.0;
+        game.players[0] = player;
+        game.players[1] = sparrow;
+        game.players[2] = raven;
+
+        Method method = BirdGame3.class.getDeclaredMethod("applyBossRushRuntimeEffects");
+        method.setAccessible(true);
+        method.invoke(game);
+
+        assertEquals(7, game.crowMinions.size());
+        assertTrue(game.powerUps.stream().anyMatch(powerUp -> powerUp.type == PowerUpType.HEALTH));
+        assertFalse(game.powerUps.stream().anyMatch(powerUp -> powerUp.type == PowerUpType.SHRINK));
     }
 
     private static Bird createStoryBird(BirdGame3 game, int playerIdx, String name) throws Exception {

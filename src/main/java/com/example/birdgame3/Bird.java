@@ -247,20 +247,13 @@ public class Bird {
         stunTime = Math.max(stunTime, frames);
     }
 
-    void applyShrinkEffect(double scale, int frames) {
-        if (frames <= 0) return;
+    void applyShrinkEffect() {
         if (isShrinkImmune()) {
             spawnNullRockShieldBurst();
             return;
         }
-        sizeMultiplier = baseSizeMultiplier * scale;
-        shrinkTimer = Math.max(shrinkTimer, frames);
-    }
-
-    String combatDisplayName() {
-        if (isTrueNullRockForm()) return "True Null Rock";
-        if (isNullRockForm()) return "The Null Rock";
-        return type != null ? type.name : "Unknown";
+        sizeMultiplier = baseSizeMultiplier * 0.6;
+        shrinkTimer = Math.max(shrinkTimer, 360);
     }
 
     private double bodyWidth() {
@@ -293,13 +286,6 @@ public class Bird {
 
     private double combatRadius() {
         return Math.max(combatHalfWidth(), combatHalfHeight()) * 0.82;
-    }
-
-    private boolean overlapsCombatBox(Bird other, double horizontalReach, double verticalReach) {
-        double dx = Math.abs(other.bodyCenterX() - bodyCenterX());
-        double dy = Math.abs(other.bodyCenterY() - bodyCenterY());
-        return dx <= horizontalReach + other.combatHalfWidth()
-                && dy <= verticalReach + other.combatHalfHeight();
     }
 
     private boolean overlapsAttackBox(Bird other, double attackCenterX, double attackCenterY, double horizontalReach, double verticalReach) {
@@ -461,8 +447,9 @@ public class Bird {
         }
 
         // Big dust cloud
-        for (int i = 0; i < 80; i++) {
-            double angle = i / 80.0 * Math.PI * 2;
+        int dustBurstCount = scaledParticleCount(80);
+        for (int i = 0; i < dustBurstCount; i++) {
+            double angle = i / (double) dustBurstCount * Math.PI * 2;
             double speed = 4 + Math.random() * 10;
             double vx = Math.cos(angle) * speed;
             double vy = Math.sin(angle) * speed - 5;
@@ -470,7 +457,8 @@ public class Bird {
             game.particles.add(new Particle(x + 40, y + 70, vx, vy, c));
         }
 
-        for (int i = 0; i < 20; i++) {
+        int debrisBurstCount = scaledParticleCount(20);
+        for (int i = 0; i < debrisBurstCount; i++) {
             double vx = (Math.random() - 0.5) * 20;
             double vy = -8 - Math.random() * 10;
             game.particles.add(new Particle(x + 40, y + 70, vx, vy, Color.GRAY));
@@ -478,7 +466,7 @@ public class Bird {
     }
 
     private void spawnDamageParticles(Bird target, double damage) {
-        double particleCount = Math.min(50, 3 + damage * 2);
+        int particleCount = scaledParticleCount((int) Math.round(Math.min(50, 3 + damage * 2)));
         for (int i = 0; i < particleCount; i++) {
             double angle = (Math.random() * Math.PI * 2) - Math.PI / 4;
             double speed = 3 + Math.random() * (damage * 0.3);
@@ -488,6 +476,10 @@ public class Bird {
             game.particles.add(new Particle(target.x + 40 + (Math.random() - 0.5) * 20,
                     target.y + 40 + (Math.random() - 0.5) * 20, vx, vy, c));
         }
+    }
+
+    private int scaledParticleCount(int requested) {
+        return game.scaledParticleBurstCount(requested);
     }
 
     private void logDamageKillFeed(double damage, boolean isKill, Bird victim) {
@@ -709,7 +701,8 @@ public class Bird {
 
                 game.addToKillFeed(shortName() + " smashed the Lounge! -" + loungeDmg + " HP");
 
-                for (int i = 0; i < 30; i++) {
+                int loungeHitParticles = scaledParticleCount(30);
+                for (int i = 0; i < loungeHitParticles; i++) {
                     double angle = Math.random() * Math.PI * 2;
                     game.particles.add(new Particle(
                             target.loungeX + Math.cos(angle) * 50,
@@ -726,8 +719,9 @@ public class Bird {
                     game.addToKillFeed("THE LOUNGE HAS BEEN OBLITERATED!");
                     game.shakeIntensity = 30;
                     game.hitstopFrames = 18;
-                    for (int i = 0; i < 120; i++) {
-                        double angle = i / 120.0 * Math.PI * 2;
+                    int loungeBreakParticles = scaledParticleCount(120);
+                    for (int i = 0; i < loungeBreakParticles; i++) {
+                        double angle = i / (double) loungeBreakParticles * Math.PI * 2;
                         double speed = 8 + Math.random() * 14;
                         game.particles.add(new Particle(target.loungeX, target.loungeY,
                                 Math.cos(angle) * speed, Math.sin(angle) * speed - 5,
@@ -757,7 +751,8 @@ public class Bird {
             game.shakeIntensity = Math.max(game.shakeIntensity, 18);
             game.hitstopFrames = Math.max(game.hitstopFrames, 8);
             game.triggerFlash(0.7, false);
-            for (int i = 0; i < 90; i++) {
+            int ultimateBurstParticles = scaledParticleCount(90);
+            for (int i = 0; i < ultimateBurstParticles; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 double speed = 8 + Math.random() * 16;
                 game.particles.add(new Particle(
@@ -817,7 +812,7 @@ public class Bird {
         game.addToKillFeed(shortName() + label);
         game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 16 : 12);
         game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 10 : 8);
-        int particleCount = ultimate ? 70 : 40;
+        int particleCount = scaledParticleCount(ultimate ? 70 : 40);
         Color burstColor = ultimate ? Color.GOLD.deriveColor(0, 1, 1, 0.9) : Color.LIME.deriveColor(0, 1, 1, 0.8);
         for (int i = 0; i < particleCount; i++) {
             double angle = Math.random() * Math.PI * 2;
@@ -841,7 +836,7 @@ public class Bird {
         game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 11 : 9);
         game.addToKillFeed("SKREEEEEEEE!!! " + shortName() + (ultimate ? " ULT DIVES FROM THE HEAVENS!" : " IS DIVING FROM THE HEAVENS!"));
 
-        int trailCount = ultimate ? 140 : 100;
+        int trailCount = scaledParticleCount(ultimate ? 140 : 100);
         for (int i = 0; i < trailCount; i++) {
             double angle = Math.atan2(vy, vx) + Math.PI;
             double dist = i * 10;
@@ -854,8 +849,11 @@ public class Bird {
         }
 
         double predictX = x + vx * 40;
-        for (int i = -15; i <= 15; i++) {
-            game.particles.add(new Particle(predictX + i * 60, BirdGame3.GROUND_Y - 20, 0, -5 - Math.random() * 8, Color.ORANGERED.brighter()));
+        int warningCount = scaledParticleCount(31);
+        for (int i = 0; i < warningCount; i++) {
+            double progress = warningCount == 1 ? 0.0 : (i / (double) (warningCount - 1));
+            double laneOffset = -15.0 + progress * 30.0;
+            game.particles.add(new Particle(predictX + laneOffset * 60.0, BirdGame3.GROUND_Y - 20, 0, -5 - Math.random() * 8, Color.ORANGERED.brighter()));
         }
 
         vy = isOnGround() ? (ultimate ? -12 : -8) : Math.max(vy, ultimate ? 18 : 14);
@@ -876,7 +874,7 @@ public class Bird {
         game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 9 : 7);
         game.addToKillFeed(shortName() + (ultimate ? " ULT FALCON DIVE ENGAGED!" : " LOCKED IN A FALCON DIVE!"));
 
-        int trailCount = ultimate ? 110 : 78;
+        int trailCount = scaledParticleCount(ultimate ? 110 : 78);
         for (int i = 0; i < trailCount; i++) {
             double angle = Math.atan2(vy, vx) + Math.PI;
             double dist = i * 7.5;
@@ -937,9 +935,11 @@ public class Bird {
         }
 
         // Flame lances shoot outward from Phoenix's body.
-        for (int ray = 0; ray < 14; ray++) {
-            double baseAngle = ray / 14.0 * Math.PI * 2;
-            for (int seg = 0; seg < 8; seg++) {
+        int rayCount = Math.max(6, scaledParticleCount(ultimate ? 14 : 12));
+        int segmentCount = Math.max(4, scaledParticleCount(8));
+        for (int ray = 0; ray < rayCount; ray++) {
+            double baseAngle = ray / (double) rayCount * Math.PI * 2;
+            for (int seg = 0; seg < segmentCount; seg++) {
                 double angle = baseAngle + (Math.random() - 0.5) * 0.16;
                 double speed = 8 + seg * 1.6 + Math.random() * 3.5;
                 double spawnDist = 10 + seg * 5.0;
@@ -970,7 +970,7 @@ public class Bird {
         specialCooldown = 390;
         specialMaxCooldown = 390;
         game.addToKillFeed(shortName() + (ultimate ? " ULT NECTAR FRENZY!" : " UNLEASHED NECTAR FRENZY!"));
-        int particleCount = ultimate ? 80 : 55;
+        int particleCount = scaledParticleCount(ultimate ? 80 : 55);
         for (int i = 0; i < particleCount; i++) {
             Color c = Math.random() < 0.55 ? Color.CYAN.brighter() : (ultimate ? Color.GOLD.brighter() : Color.YELLOW.brighter());
             game.particles.add(new Particle(x + 40, y + 40,
@@ -1002,7 +1002,7 @@ public class Bird {
         penguinDashDamageTimer = ultimate ? 26 : 18;
         Arrays.fill(penguinDashHit, false);
         game.addToKillFeed(shortName() + (ultimate ? " ULT ICE JUMP DASH!" : " ICE JUMP DASH!"));
-        int particleCount = ultimate ? 130 : 90;
+        int particleCount = scaledParticleCount(ultimate ? 130 : 90);
         for (int i = 0; i < particleCount; i++) {
             game.particles.add(new Particle(x + 40 + (Math.random() - 0.5) * 100,
                     y + 70, (Math.random() - 0.5) * 10, -5 - Math.random() * 9,
@@ -1061,7 +1061,7 @@ public class Bird {
         Arrays.fill(razorbillDashHit, false);
 
         double trailAngle = Math.atan2(razorbillDashVY, razorbillDashVX);
-        int trailCount = ultimate ? 90 : 60;
+        int trailCount = scaledParticleCount(ultimate ? 90 : 60);
         for (int i = 0; i < trailCount; i++) {
             double angle = trailAngle + (Math.random() - 0.5) * 0.7;
             double speed = 6 + Math.random() * 10;
@@ -1125,7 +1125,7 @@ public class Bird {
         game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 14 : 12);
         carrionSwarmTimer = ultimate ? 150 : 100;
 
-        int particleCount = ultimate ? 260 : 200;
+        int particleCount = scaledParticleCount(ultimate ? 260 : 200);
         for (int i = 0; i < particleCount; i++) {
             double angle = Math.random() * Math.PI * 2;
             double speed = 8 + Math.random() * 16;
@@ -1146,7 +1146,7 @@ public class Bird {
         game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 18 : 14);
         carrionSwarmTimer = ultimate ? 240 : 180;
 
-        int particleCount = ultimate ? 360 : 260;
+        int particleCount = scaledParticleCount(ultimate ? 360 : 260);
         for (int i = 0; i < particleCount; i++) {
             double angle = Math.random() * Math.PI * 2;
             double speed = 9 + Math.random() * 18;
@@ -1180,7 +1180,7 @@ public class Bird {
             game.chickMinions.add(chick);
         }
 
-        int particleCount = ultimate ? 180 : 120;
+        int particleCount = scaledParticleCount(ultimate ? 180 : 120);
         Color burst = ultimate ? Color.GOLD : Color.ORANGE;
         for (int i = 0; i < particleCount; i++) {
             double angle = Math.random() * Math.PI * 2;
@@ -1206,7 +1206,7 @@ public class Bird {
         }
         game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 26 : 20);
         game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 18 : 15);
-        int particleCount = ultimate ? 220 : 150;
+        int particleCount = scaledParticleCount(ultimate ? 220 : 150);
         for (int i = 0; i < particleCount; i++) {
             double angle = Math.random() * Math.PI * 2;
             game.particles.add(new Particle(x + 40, y + 40,
@@ -1227,7 +1227,7 @@ public class Bird {
         }
         game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 24 : 18);
         game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 15 : 12);
-        int particleCount = ultimate ? 220 : 150;
+        int particleCount = scaledParticleCount(ultimate ? 220 : 150);
         for (int i = 0; i < particleCount; i++) {
             double angle = Math.random() * Math.PI * 2;
             game.particles.add(new Particle(x + 40, y + 40,
@@ -1269,7 +1269,7 @@ public class Bird {
 
         game.addToKillFeed(shortName() + (ultimate ? " ULT ZIPPED to " : " ZIPPED to ") + target.shortName() + "!");
 
-        int particleCount = ultimate ? 80 : 50;
+        int particleCount = scaledParticleCount(ultimate ? 80 : 50);
         for (int i = 0; i < particleCount; i++) {
             double offset = i * 8;
             game.particles.add(new Particle(
@@ -1310,7 +1310,7 @@ public class Bird {
             game.damageDealt[playerIndex] += dealt;
             game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
             if (target.health <= 0 && old > 0) game.eliminations[playerIndex]++;
-            int particleCount = ultimate ? 170 : 120;
+            int particleCount = scaledParticleCount(ultimate ? 170 : 120);
             for (int i = 0; i < particleCount; i++) {
                 double ang = Math.random() * Math.PI * 2;
                 game.particles.add(new Particle(target.x + 40, target.y + 40,
@@ -1417,6 +1417,8 @@ public class Bird {
     private int aiDropCommitFrames = 0;
     private int aiDropCommitDir = 0;
     private int aiVoidRecoveryLockFrames = 0;
+    private int aiTargetLockFrames = 0;
+    private int aiLockedTargetIndex = -1;
     private double aiDropOriginY = Double.NaN;
     private double aiLastHealth = STARTING_HEALTH;
 
@@ -1437,6 +1439,7 @@ public class Bird {
         if (aiPowerCommitFrames > 0) aiPowerCommitFrames--;
         if (aiDropCommitFrames > 0) aiDropCommitFrames--;
         if (aiVoidRecoveryLockFrames > 0) aiVoidRecoveryLockFrames--;
+        if (aiTargetLockFrames > 0) aiTargetLockFrames--;
 
         clearAIInputs();
 
@@ -1704,7 +1707,7 @@ public class Bird {
                 boolean jumpForHeight = dy < -120 && Math.abs(target.x - x) < 420 && alignedForClimb;
                 boolean jumpForCombo = dy > 70 && targetDist < 220;
                 boolean jumpForAboveClose = dy < -200 && Math.abs(target.x - x) < 220 && alignedForClimb;
-                boolean jumpForOffstageLaunch = shouldAIJumpBeforeOffstage(goalX, true);
+                boolean jumpForOffstageLaunch = shouldAIJumpBeforeOffstage(goalX);
                 double jumpSense = 0.35 + 0.65 * skill;
                 if (jumpForOffstageLaunch) {
                     game.setAiControlKey(playerIndex, jumpKey(), true);
@@ -1725,7 +1728,7 @@ public class Bird {
                 Platform mainStage = findAIMainStagePlatform();
                 boolean recoverAltitude = y > BirdGame3.GROUND_Y - 120;
                 boolean maintainVsTarget = target.y < y + 180 && !isAIAboveCruiseCeiling(target, mainStage);
-                boolean recoverVoid = isVoidMap() && (offstageCommit || isAIVoidRecoveryUrgent(onGround, standing));
+                boolean recoverVoid = isVoidMap() && (offstageCommit || isAIVoidRecoveryUrgent(false, standing));
                 if (recoverAltitude || maintainVsTarget || recoverVoid) {
                     game.setAiControlKey(playerIndex, jumpKey(), true);
                 }
@@ -1737,6 +1740,13 @@ public class Bird {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
                 aiJumpCooldown = 14;
             }
+        }
+
+        if (shouldAIUseUtilitySpecial(target, powerUp, onGround, climbPlatform, powerFocus)) {
+            game.setAiControlKey(playerIndex, specialKey(), true);
+            aiSpecialCooldown = 18;
+            aiLastHealth = health;
+            return;
         }
 
         // Defensive block read (ground only).
@@ -1871,7 +1881,7 @@ public class Bird {
             game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 11 : 8);
             game.addToKillFeed(shortName() + (ultimate ? " ULT SHADOW WARPED " : " SHADOW WARPED ") + target.shortName() + "! -" + dealt + " HP");
 
-            int particleCount = ultimate ? 140 : 90;
+            int particleCount = scaledParticleCount(ultimate ? 140 : 90);
             for (int i = 0; i < particleCount; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 double speed = 5 + Math.random() * 12;
@@ -1893,7 +1903,7 @@ public class Bird {
             speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * (ultimate ? 1.4 : 1.2));
             speedTimer = Math.max(speedTimer, ultimate ? 120 : 80);
             game.addToKillFeed(shortName() + (ultimate ? " ULT SHADOW DASH!" : " SHADOW DASH!"));
-            int particleCount = ultimate ? 80 : 50;
+            int particleCount = scaledParticleCount(ultimate ? 80 : 50);
             for (int i = 0; i < particleCount; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 game.particles.add(new Particle(
@@ -1924,22 +1934,84 @@ public class Bird {
         aiDropOriginY = Double.NaN;
     }
 
+    private Bird currentAILockedTarget() {
+        if (aiLockedTargetIndex < 0 || aiLockedTargetIndex >= game.players.length) return null;
+        Bird target = game.players[aiLockedTargetIndex];
+        if (target == null || target == this || target.health <= 0) return null;
+        if (!game.canDamage(this, target)) return null;
+        return target;
+    }
+
+    private double aiTargetVoidPenalty(Bird candidate) {
+        if (!isVoidMap()) return 0.0;
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) return 0.0;
+        double stageLeft = mainStage.x;
+        double stageRight = mainStage.x + mainStage.w;
+        double centerX = candidate.bodyCenterX();
+        double offstageDistance = centerX < stageLeft ? stageLeft - centerX
+                : (centerX > stageRight ? centerX - stageRight : 0.0);
+        if (offstageDistance <= 0.0) return 0.0;
+        double allowance = Math.max(1.0, aiVoidHorizontalAllowance(mainStage));
+        double depth = Math.max(0.0, candidate.bodyBottomY() - mainStage.y);
+        double penalty = Math.max(0.0, offstageDistance - allowance * 0.22) * 0.22;
+        penalty += Math.max(0.0, depth - aiVoidDepthAllowance(mainStage) * 0.45) * 0.07;
+        if (aiCanUseAirRecovery()) {
+            penalty += offstageDistance * 0.28;
+        }
+        return penalty;
+    }
+
+    private double scoreAITarget(Bird candidate, Bird lockedTarget) {
+        double dist = Math.hypot(candidate.x - x, candidate.y - y);
+        double score = 3000.0 / (1.0 + dist);
+        score += (100.0 - candidate.health) * 1.8;
+        if (candidate.specialCooldown <= 0) score += 40.0;
+        if (candidate.playerIndex == 0) score += 15.0;
+        if (candidate.attackAnimationTimer > 3 && dist < 260.0) score += 12.0;
+        score += Math.max(0.0, 55.0 - candidate.health) * 0.42;
+        score -= Math.abs(candidate.y - y) * (type.flyUpForce > 0.0 ? 0.025 : 0.055);
+        score -= aiTargetVoidPenalty(candidate);
+        if (candidate == lockedTarget) {
+            score += 18.0 + Math.min(22.0, aiTargetLockFrames * 0.45);
+        }
+        return score;
+    }
+
     private Bird pickAITarget() {
+        Bird lockedTarget = currentAILockedTarget();
         Bird best = null;
         double bestScore = -Double.MAX_VALUE;
+        double lockedScore = -Double.MAX_VALUE;
         for (Bird b : game.players) {
             if (b == null || b == this || b.health <= 0) continue;
             if (!game.canDamage(this, b)) continue;
-            double dist = Math.hypot(b.x - x, b.y - y);
-            double score = 3000.0 / (1 + dist);
-            score += (100 - b.health) * 1.8;
-            score += Math.max(0, 40 - health) * 0.9;
-            if (b.specialCooldown <= 0) score += 40; // prioritize threatening targets
-            if (b.playerIndex == 0) score += 15; // slight preference to human player
+            double score = scoreAITarget(b, lockedTarget);
+            if (b == lockedTarget) {
+                lockedScore = score;
+            }
             if (score > bestScore) {
                 bestScore = score;
                 best = b;
             }
+        }
+        if (lockedTarget != null && lockedScore > -Double.MAX_VALUE / 2.0) {
+            double keepMargin = aiTargetLockFrames > 0 ? 18.0 : 8.0;
+            if (lockedScore >= bestScore - keepMargin) {
+                best = lockedTarget;
+            }
+        }
+        if (best != null) {
+            if (lockedTarget == null || best.playerIndex != lockedTarget.playerIndex) {
+                aiLockedTargetIndex = best.playerIndex;
+                aiTargetLockFrames = 42 + random.nextInt(28);
+            } else {
+                aiLockedTargetIndex = best.playerIndex;
+                aiTargetLockFrames = Math.max(aiTargetLockFrames, 12);
+            }
+        } else {
+            aiLockedTargetIndex = -1;
+            aiTargetLockFrames = 0;
         }
         return best;
     }
@@ -2118,7 +2190,7 @@ public class Bird {
     }
 
     private boolean aiCanUseAirRecovery() {
-        return type.flyUpForce > 0.0 || (type == BirdGame3.BirdType.PIGEON && canDoubleJump);
+        return !(type.flyUpForce > 0.0) && (type != BirdGame3.BirdType.PIGEON || !canDoubleJump);
     }
 
     private double topCameraOverflow() {
@@ -2225,10 +2297,6 @@ public class Bird {
         return targetY <= maxDropDepth;
     }
 
-    private double aiRecoveryGoalX() {
-        return aiRecoveryGoalX(null);
-    }
-
     private boolean isAIMainlandRecovered(boolean onGround, Platform standing, Platform mainStage) {
         if (mainStage == null) return true;
         if (!onGround) return false;
@@ -2241,7 +2309,7 @@ public class Bird {
     }
 
     private boolean shouldAIHoldRecoveryJump(Platform mainStage, double recoveryGoalX) {
-        if (mainStage == null || !aiCanUseAirRecovery()) return false;
+        if (mainStage == null || aiCanUseAirRecovery()) return false;
         double centerX = x + 40 * sizeMultiplier;
         double bottomY = y + 80 * sizeMultiplier;
         double landingLeft = mainStage.x + aiVoidReentryInset(mainStage) * 0.55;
@@ -2331,8 +2399,8 @@ public class Bird {
         return goalCenterX < mainStage.x || goalCenterX > mainStage.x + mainStage.w;
     }
 
-    private boolean shouldAIJumpBeforeOffstage(double goalX, boolean onGround) {
-        if (!onGround || !aiGoalLeavesMainStage(goalX)) return false;
+    private boolean shouldAIJumpBeforeOffstage(double goalX) {
+        if (!aiGoalLeavesMainStage(goalX)) return false;
         Platform mainStage = findAIMainStagePlatform();
         if (mainStage == null) return false;
         double centerX = x + 40 * sizeMultiplier;
@@ -2363,6 +2431,32 @@ public class Bird {
             case PIGEON -> !canDoubleJump && (depth > 48.0 || (offstage && (offstageDistance > 10.0 || movingAway || vy > 2.2)));
             default -> false;
         };
+    }
+
+    private boolean shouldAIUseUtilitySpecial(Bird target, PowerUp powerUp, boolean onGround,
+                                              Platform climbPlatform, boolean powerFocus) {
+        if (specialCooldown > 0) return false;
+        double objectiveX;
+        double objectiveY;
+        if (powerFocus && powerUp != null) {
+            objectiveX = powerUp.x;
+            objectiveY = powerUp.y;
+        } else if (target != null) {
+            objectiveX = target.bodyCenterX();
+            objectiveY = target.bodyCenterY();
+        } else {
+            return false;
+        }
+        double dx = Math.abs(objectiveX - bodyCenterX());
+        double dy = objectiveY - bodyCenterY();
+        if (type != BirdGame3.BirdType.PENGUIN) {
+            return false;
+        }
+        return onGround
+                && dx < 180.0
+                && dy < -150.0
+                && dy > -540.0
+                && (climbPlatform != null || objectiveY < y - 180.0);
     }
 
     private boolean applyAIVoidRecoveryInputs(boolean onGround, Platform standing) {
@@ -2401,25 +2495,84 @@ public class Bird {
         Platform best = null;
         double bestScore = -Double.MAX_VALUE;
         double myCx = x + 40;
+        double practicalRise = Math.min(maxRise, aiPlatformRiseReach());
         for (Platform p : game.platforms) {
             if (isBoundaryPlatform(p)) continue;
             if (p.y >= y - 40) continue;
             double rise = y - p.y;
-            if (rise <= 0 || rise > maxRise) continue;
+            if (rise <= 0 || rise > practicalRise) continue;
             double centerX = p.x + p.w / 2.0;
             double dxTarget = Math.abs(centerX - targetX);
             double dxMe = Math.abs(centerX - myCx);
-            if (dxMe > (double) 520 && dxTarget > (double) 520) continue;
+            double horizontalReach = aiPlatformHorizontalReach(rise);
+            if (dxMe > horizontalReach && dxTarget > horizontalReach * 1.25) continue;
             double score = 0;
-            score -= rise * 1.1;
-            score -= dxTarget * 0.8;
+            double progress = Math.abs(targetX - myCx) - dxTarget;
+            score -= rise * 0.95;
+            score -= dxTarget * 0.72;
             score -= dxMe * 0.4;
+            score += progress * 0.45;
+            if ((centerX >= Math.min(myCx, targetX) && centerX <= Math.max(myCx, targetX))) {
+                score += 26.0;
+            }
+            if (rise < practicalRise * 0.65) {
+                score += 18.0;
+            }
             if (score > bestScore) {
                 bestScore = score;
                 best = p;
             }
         }
         return best;
+    }
+
+    private double aiPlatformRiseReach() {
+        double reach = type.jumpHeight * 17.5;
+        if (type.flyUpForce > 0.0) {
+            reach += 90.0 + type.flyUpForce * 190.0;
+        }
+        switch (type) {
+            case PIGEON -> {
+                if (canDoubleJump) reach += 115.0;
+            }
+            case PENGUIN -> {
+                if (specialCooldown <= 0) reach += 210.0;
+            }
+            case TITMOUSE, HUMMINGBIRD, BAT -> reach += 95.0;
+            case VULTURE -> {
+                if (!isOnGround() || isFlying) {
+                    reach += 80.0 + Math.max(0.0, -vy) * 12.0;
+                }
+            }
+            case TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> {
+                if (limitedFlightFuel > 0.0) reach += 55.0;
+            }
+            default -> {
+            }
+        }
+        return Math.clamp(reach, 180.0, 760.0);
+    }
+
+    private double aiPlatformHorizontalReach(double rise) {
+        double reach = 155.0 + type.speed * 82.0;
+        if (type.flyUpForce > 0.0) {
+            reach += 60.0;
+        }
+        switch (type) {
+            case PENGUIN -> {
+                if (specialCooldown <= 0) reach += 85.0;
+            }
+            case TITMOUSE, HUMMINGBIRD, BAT -> reach += 95.0;
+            case TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> reach += 35.0;
+            default -> {
+            }
+        }
+        if (rise < 150.0) {
+            reach += 80.0;
+        } else if (rise > 320.0) {
+            reach -= 35.0;
+        }
+        return Math.clamp(reach, 160.0, 620.0);
     }
 
     private double getAIIdealRange() {
@@ -2519,10 +2672,11 @@ public class Bird {
     }
 
     private boolean hasLimitedFlight() {
-        return switch (type) {
-            case PIGEON, TURKEY, GRINCHHAWK, PELICAN, ROOSTER -> true;
-            default -> false;
-        };
+        return type == BirdGame3.BirdType.PIGEON
+                || type == BirdGame3.BirdType.TURKEY
+                || type == BirdGame3.BirdType.GRINCHHAWK
+                || type == BirdGame3.BirdType.PELICAN
+                || type == BirdGame3.BirdType.ROOSTER;
     }
 
     public void update(double gameSpeed) {
@@ -3011,14 +3165,14 @@ public class Bird {
                     ));
                 }
             } else {
-                handleTitmousZipImpact();
+                handleTitmouseZipImpact();
                 isZipping = false;
             }
             vx = vy = 0;
         }
     }
 
-    private void handleTitmousZipImpact() {
+    private void handleTitmouseZipImpact() {
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
             double dist = combatDistanceTo(other);
@@ -3350,6 +3504,107 @@ public class Bird {
         return 100.0;
     }
 
+    void refillTrainingResources(boolean fillUltimate) {
+        onDefeated();
+        baseSizeMultiplier = type == BirdGame3.BirdType.PELICAN ? 1.2 : 1.0;
+        basePowerMultiplier = 1.0;
+        baseSpeedMultiplier = 1.0;
+        phoenixRebornUsed = false;
+        phoenixRebornActive = false;
+        health = STARTING_HEALTH;
+        vx = 0;
+        vy = 0;
+        stunTime = 0;
+        attackCooldown = 0;
+        attackAnimationTimer = 0;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        cooldownFlash = 0;
+        canDoubleJump = true;
+        speedTimer = 0;
+        hoverRegenTimer = 0;
+        shrinkTimer = 0;
+        speedMultiplier = baseSpeedMultiplier;
+        powerMultiplier = basePowerMultiplier;
+        sizeMultiplier = baseSizeMultiplier;
+        ultimateFxTimer = 0;
+        if (fillUltimate) {
+            ultimateMeter = ULTIMATE_MAX;
+        }
+    }
+
+    boolean applyTrainingRecoveryInputs() {
+        return applyAIVoidRecoveryInputs(isOnGround(), findCurrentSupportPlatform());
+    }
+
+    double debugCombatLeft() {
+        return bodyCenterX() - combatHalfWidth();
+    }
+
+    double debugCombatTop() {
+        return bodyCenterY() - combatHalfHeight();
+    }
+
+    double debugCombatWidth() {
+        return combatHalfWidth() * 2.0;
+    }
+
+    double debugCombatHeight() {
+        return combatHalfHeight() * 2.0;
+    }
+
+    boolean debugAttackBoxActive() {
+        return attackAnimationTimer > 0;
+    }
+
+    double debugAttackBoxLeft() {
+        return debugAttackCenterX() - debugAttackHalfWidth();
+    }
+
+    double debugAttackBoxTop() {
+        return debugAttackCenterY() - debugAttackHalfHeight();
+    }
+
+    double debugAttackBoxWidth() {
+        return debugAttackHalfWidth() * 2.0;
+    }
+
+    double debugAttackBoxHeight() {
+        return debugAttackHalfHeight() * 2.0;
+    }
+
+    private double debugAttackCenterX() {
+        double centerX = bodyCenterX();
+        if (isNullRockForm()) {
+            centerX += (facingRight ? 1.0 : -1.0) * combatHalfWidth() * 0.88;
+        }
+        return centerX;
+    }
+
+    private double debugAttackCenterY() {
+        double centerY = bodyCenterY();
+        if (isNullRockForm()) {
+            centerY -= combatHalfHeight() * 0.08;
+        }
+        return centerY;
+    }
+
+    private double debugAttackHalfWidth() {
+        double range = 120 * sizeMultiplier;
+        if (isNullRockForm()) {
+            range *= 0.86;
+        }
+        return range;
+    }
+
+    private double debugAttackHalfHeight() {
+        double verticalRange = 100 * sizeMultiplier;
+        if (isNullRockForm()) {
+            verticalRange *= 0.88;
+        }
+        return verticalRange;
+    }
+
     private double applyDamageTo(Bird target, double rawDamage) {
         if (target == null || rawDamage <= 0 || target.health <= 0) return 0;
         double scaledDamage = rawDamage * outgoingDamageMultiplier() * target.incomingDamageMultiplier();
@@ -3357,6 +3612,7 @@ public class Bird {
         if (dealtDamage > 0) {
             gainUltimate(dealtDamage * ULTIMATE_GAIN_DEALT);
             target.gainUltimate(dealtDamage * ULTIMATE_GAIN_TAKEN);
+            game.recordTrainingHit(this, target, dealtDamage);
         }
         return dealtDamage;
     }
@@ -4154,7 +4410,7 @@ public class Bird {
             case SHRINK -> {
                 for (Bird b : game.players) {
                     if (b != null && b != this && canDamageTarget(b)) {
-                        b.applyShrinkEffect(0.6, 360);
+                        b.applyShrinkEffect();
                     }
                 }
                 game.addToKillFeed(shortName() + " SHRANK + WEAKENED enemies!");

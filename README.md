@@ -41,17 +41,6 @@ Or use the repo test script, which will try to find a local JDK 21+ install unde
 
 GitHub Actions runs the Windows test workflow from `.github/workflows/ci.yml` on every push and pull request.
 
-## Audio Audit
-
-Bundled audio should be treated as release-blocking until its source and license are recorded. Run the audit script to scan shipped sound files for embedded hostnames and write a markdown report:
-
-```powershell
-.\scripts\audit-sounds.cmd -OutputPath .\audit\audio-audit.md
-```
-
-The latest checked-in audit report lives at `docs/audio-audit.md`.
-Track clearance or replacement work in `docs/audio-asset-manifest.csv`.
-
 ## Links
 
 - Official Bird Fight 3 Wiki: https://bird-fight-3.fandom.com/wiki/Bird_Fight_3_Wiki

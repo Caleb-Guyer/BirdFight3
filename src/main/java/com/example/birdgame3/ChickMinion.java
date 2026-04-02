@@ -19,6 +19,7 @@ class ChickMinion {
     double jumpStrength = 10.0;
     int damage = 2;
     int maxAge = 2100;
+    int retargetCooldown = 0;
 
     ChickMinion(double x, double y, int variant, boolean ultimate, Bird owner) {
         this.x = x;

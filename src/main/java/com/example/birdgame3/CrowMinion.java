@@ -16,6 +16,7 @@ class CrowMinion {
     boolean hasCrown = false;
     int variant = VARIANT_AUTO;
     int hitFlashTimer = 0;
+    int retargetCooldown = 0;
 
     CrowMinion(double x, double y, Bird target) {
         this.x = x;

@@ -201,6 +201,27 @@ class BirdGame3SettingsTest {
     }
 
     @Test
+    void newProfilesDefaultToShowingStartHereGuide() {
+        BirdGame3 game = new BirdGame3();
+
+        assertTrue(game.shouldAutoShowStartHere());
+    }
+
+    @Test
+    void persistAchievementsRoundTripsStartHereGuideCompletion() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        setPrivateField(game, "startHereCompleted", true);
+        game.persistAchievements(prefs);
+
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(reloaded, prefs);
+
+        assertFalse(reloaded.shouldAutoShowStartHere());
+    }
+
+    @Test
     void persistAchievementsRoundTripsBossRushPerBirdRecords() throws Exception {
         BirdGame3 game = new BirdGame3();
         setPrivateBossRushBirdRecord(game, BirdGame3.BirdType.BAT, 505_000L, "S");
@@ -238,6 +259,42 @@ class BirdGame3SettingsTest {
         assertEquals("rooftop-arc", iconVariant.invoke(game, 10));
         assertEquals("story-book", iconVariant.invoke(game, 21));
         assertEquals("iron-wing", iconVariant.invoke(game, 27));
+    }
+
+    @Test
+    void computeUiFitScaleShrinksOversizedLayoutsUsingMeasuredBounds() throws Exception {
+        BirdGame3 game = new BirdGame3();
+
+        Method computeScale = BirdGame3.class.getDeclaredMethod(
+                "computeUiFitScale",
+                double.class,
+                double.class,
+                double.class,
+                double.class
+        );
+        computeScale.setAccessible(true);
+
+        double scale = (double) computeScale.invoke(game, 2200.0, 1500.0, 1280.0, 720.0);
+
+        assertTrue(scale < 0.5);
+    }
+
+    @Test
+    void computeUiFitScaleLeavesComfortablySizedLayoutsUnscaled() throws Exception {
+        BirdGame3 game = new BirdGame3();
+
+        Method computeScale = BirdGame3.class.getDeclaredMethod(
+                "computeUiFitScale",
+                double.class,
+                double.class,
+                double.class,
+                double.class
+        );
+        computeScale.setAccessible(true);
+
+        double scale = (double) computeScale.invoke(game, 900.0, 520.0, 1366.0, 768.0);
+
+        assertEquals(1.0, scale, 0.0001);
     }
 
     private static void setPrivateField(BirdGame3 game, String fieldName, Object value) throws Exception {
