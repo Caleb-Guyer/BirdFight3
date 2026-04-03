@@ -45,8 +45,6 @@ GitHub Actions runs the Windows test workflow from `.github/workflows/ci.yml` on
 
 - Official Bird Fight 3 Wiki: https://bird-fight-3.fandom.com/wiki/Bird_Fight_3_Wiki
 
-## Wiimote Support
+## Wii Remote Support
 
-- WiimoteHook: https://epigramx.github.io/WiimoteHook/
-- JoyToKey: https://joytokey.net/en/download
-- Bird Fight 3 JoyToKey table files: https://drive.google.com/drive/u/0/folders/1c-JLjfshHN9w6SN-8aThY_4pzLLG5hfL
+Bird Fight 3 natively supports Wii remotes.

@@ -12,6 +12,8 @@ import javafx.animation.TranslateTransition;
 import javafx.application.Application;
 import javafx.beans.value.ChangeListener;
 import javafx.event.ActionEvent;
+import javafx.event.Event;
+import javafx.event.EventHandler;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Point2D;
@@ -19,6 +21,9 @@ import javafx.geometry.Bounds;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.Cursor;
+import javafx.scene.ImageCursor;
+import javafx.scene.SnapshotParameters;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
@@ -38,7 +43,9 @@ import javafx.scene.effect.Glow;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.KeyCombination;
+import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.robot.Robot;
 import javafx.scene.layout.*;
 import javafx.scene.media.AudioClip;
 import javafx.scene.media.Media;
@@ -47,6 +54,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
+import javafx.scene.image.WritableImage;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
@@ -64,6 +72,7 @@ import javafx.stage.Screen;
 import javafx.stage.Popup;
 import javafx.stage.Stage;
 import javafx.stage.FileChooser;
+import javafx.stage.Window;
 import javafx.util.Duration;
 
 import java.util.*;
@@ -157,7 +166,23 @@ public class BirdGame3 extends Application {
     private static final String PREF_BOSS_RUSH_PERFECT_PREFIX = "boss_rush_perfect_";
     private static final String PREF_SETTING_MUSIC_VOLUME = "setting_music_volume";
     private static final String PREF_SETTING_SFX_VOLUME = "setting_sfx_volume";
+    private static final String PREF_WIIMOTE_MODE_PREFIX = "setting_wiimote_mode_p";
     private static final String PREF_START_HERE_COMPLETED = "start_here_completed";
+    private static final String SCENE_PROP_WIIMOTE_SELECTOR = "wiimote_selector_scene";
+    private static final String SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS = "wiimote_selector_players";
+    private static final String SCENE_PROP_FIGHT_SELECTOR_CONTROLLER = "fight_selector_controller";
+    private static final String SCENE_PROP_WIIMOTE_POINTER_TRACKING = "wiimote_pointer_tracking";
+    private static final String FIGHT_SELECTOR_COLOR_PROP = "fight_selector_color";
+    private static final long WIIMOTE_GAMEPLAY_DIRECTION_GRACE_NS = 300_000_000L;
+    private static final long WIIMOTE_GAMEPLAY_ACTION_LATCH_NS = 80_000_000L;
+    private static final double FIGHT_SELECTOR_MOVE_STEP = 18.0;
+    private static final double FIGHT_SELECTOR_BOUND_MARGIN = 40.0;
+    private static final double WIIMOTE_SELECTOR_CURSOR_SPEED = 720.0;
+    private static final double FIGHT_SELECTOR_CLAW_SIZE = 48.0;
+    private static final double FIGHT_SELECTOR_CLAW_GRAB_RADIUS = 56.0;
+    private static final double FIGHT_SELECTOR_CLAW_LABEL_OFFSET_Y = 42.0;
+    private static final double FIGHT_SELECTOR_CLAW_HOTSPOT_Y = 4.0;
+    private static final double WIIMOTE_UI_CURSOR_SPEED = 900.0;
     private static final DateTimeFormatter MATCH_HISTORY_TIME_FORMAT =
             DateTimeFormatter.ofPattern("MMM d, yyyy  h:mm a", Locale.US);
 
@@ -201,6 +226,13 @@ public class BirdGame3 extends Application {
     private final boolean[][] localActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[][] aiActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[][] lanActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
+    private final boolean[][] wiimoteActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
+    private final boolean[] wiimoteLeftHeld = new boolean[MAX_COMBATANTS];
+    private final boolean[] wiimoteRightHeld = new boolean[MAX_COMBATANTS];
+    private final long[] wiimoteLeftHoldUntilNs = new long[MAX_COMBATANTS];
+    private final long[] wiimoteRightHoldUntilNs = new long[MAX_COMBATANTS];
+    private final long[][] wiimoteActionHoldUntilNs = new long[MAX_COMBATANTS][ControlAction.values().length];
+    private final WiimoteControlMode[] wiimoteModes = createDefaultWiimoteModes();
     public Bird[] players = new Bird[MAX_COMBATANTS];
     public boolean[] isAI = new boolean[MAX_COMBATANTS];
     private final int[] cpuLevels = createFilledIntArray();
@@ -335,6 +367,34 @@ public class BirdGame3 extends Application {
 
     private StackPane gameRoot;
     Stage currentStage;
+    private Scene gameplayScene;
+    private WiimoteInputManager wiimoteInputManager;
+    private AnimationTimer wiimoteMenuTimer;
+    private boolean wiimoteMenuSelectHeld = false;
+    private boolean wiimoteMenuBackHeld = false;
+    private boolean wiimoteMenuPauseHeld = false;
+    private final boolean[] wiimoteMenuDirectionHeld = new boolean[4];
+    private long wiimoteMenuPointerLastNs = 0L;
+    private double wiimoteMenuPointerSceneX = WIDTH / 2.0;
+    private double wiimoteMenuPointerSceneY = HEIGHT / 2.0;
+    private boolean wiimoteMenuPointerInitialized = false;
+    private boolean wiimoteMenuMousePressed = false;
+    private Scene wiimoteMenuPointerScene;
+    private Robot wiimoteUiRobot;
+    private final boolean[] wiimoteGameplayPauseHeld = new boolean[MAX_COMBATANTS];
+    private final boolean[] wiimoteSelectorAttackHeld = new boolean[4];
+    private final boolean[] wiimoteSelectorSpecialHeld = new boolean[4];
+    private final boolean[] wiimoteSelectorBackHeld = new boolean[4];
+    private final boolean[] wiimoteSelectorPauseHeld = new boolean[4];
+    private final boolean[][] wiimoteSelectorDirectionHeld = new boolean[4][4];
+    private final long[] wiimoteSelectorLastMoveNs = new long[4];
+    private int wiimoteSoloSelectorTarget = 0;
+    private boolean wiimoteSoloSelectorNextHeld = false;
+    private boolean wiimoteSoloSelectorPrevHeld = false;
+    private Cursor birdClawOpenCursor;
+    private Cursor birdClawClosedCursor;
+    private WritableImage birdClawOpenImage;
+    private WritableImage birdClawClosedImage;
 
     // === MAP + DYNAMIC CAMERA ===
     public static final double WORLD_WIDTH = 6000;
@@ -365,6 +425,12 @@ public class BirdGame3 extends Application {
         int[] values = new int[MAX_COMBATANTS];
         Arrays.fill(values, 5);
         return values;
+    }
+
+    private static WiimoteControlMode[] createDefaultWiimoteModes() {
+        WiimoteControlMode[] modes = new WiimoteControlMode[4];
+        Arrays.fill(modes, WiimoteControlMode.OFF);
+        return modes;
     }
 
     private static int[] createVersusTeamArray() {
@@ -977,6 +1043,664 @@ public class BirdGame3 extends Application {
                 e.consume();
             }
         });
+    }
+
+    private void startWiimoteMenuTimer() {
+        if (wiimoteMenuTimer != null) {
+            wiimoteMenuTimer.stop();
+        }
+        wiimoteMenuTimer = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                pollWiimoteMenuNavigation();
+            }
+        };
+        wiimoteMenuTimer.start();
+    }
+
+    private void pollWiimoteMenuNavigation() {
+        if (wiimoteInputManager == null || currentStage == null) {
+            return;
+        }
+        if (!currentStage.isFocused()) {
+            resetWiimoteMenuHeldState();
+            resetWiimoteSelectorHeldState();
+            return;
+        }
+        Scene scene = currentStage.getScene();
+        if (scene == null || (scene == gameplayScene && !isPaused)) {
+            resetWiimoteMenuHeldState();
+            resetWiimoteSelectorHeldState();
+            return;
+        }
+
+        if (isWiimoteSelectorScene(scene)) {
+            pollWiimoteSelectorNavigation(scene);
+            return;
+        }
+
+        resetWiimoteSelectorHeldState();
+
+        WiimoteMappedState state = wiimoteInputManager.menuState();
+        if (pollWiimotePausedGameplayMenu(scene, state)) {
+            Arrays.fill(wiimoteMenuDirectionHeld, false);
+            return;
+        }
+        if (pollWiimoteMenuPointer(scene, state)) {
+            Arrays.fill(wiimoteMenuDirectionHeld, false);
+            return;
+        }
+        if (state.menuUp() && !wiimoteMenuDirectionHeld[0]) {
+            dispatchWiimoteMenuDirectional(scene, KeyCode.UP);
+        }
+        wiimoteMenuDirectionHeld[0] = state.menuUp();
+        if (state.menuDown() && !wiimoteMenuDirectionHeld[1]) {
+            dispatchWiimoteMenuDirectional(scene, KeyCode.DOWN);
+        }
+        wiimoteMenuDirectionHeld[1] = state.menuDown();
+        if (state.menuLeft() && !wiimoteMenuDirectionHeld[2]) {
+            dispatchWiimoteMenuDirectional(scene, KeyCode.LEFT);
+        }
+        wiimoteMenuDirectionHeld[2] = state.menuLeft();
+        if (state.menuRight() && !wiimoteMenuDirectionHeld[3]) {
+            dispatchWiimoteMenuDirectional(scene, KeyCode.RIGHT);
+        }
+        wiimoteMenuDirectionHeld[3] = state.menuRight();
+
+        boolean selectHeld = state.menuSelect();
+        if (selectHeld && !wiimoteMenuSelectHeld) {
+            dispatchWiimoteMenuKey(scene, KeyCode.ENTER);
+        }
+        wiimoteMenuSelectHeld = selectHeld;
+
+        boolean backHeld = state.menuBack();
+        if (backHeld && !wiimoteMenuBackHeld) {
+            dispatchWiimoteMenuKey(scene, KeyCode.ESCAPE);
+        }
+        wiimoteMenuBackHeld = backHeld;
+
+        boolean pauseHeld = state.menuPause();
+        if (pauseHeld && !wiimoteMenuPauseHeld) {
+            dispatchWiimoteMenuKey(scene, KeyCode.ESCAPE);
+        }
+        wiimoteMenuPauseHeld = pauseHeld;
+    }
+
+    private boolean pollWiimotePausedGameplayMenu(Scene scene, WiimoteMappedState state) {
+        if (scene != gameplayScene || !isPaused) {
+            return false;
+        }
+        VBox pauseMenu = currentPauseMenu();
+        if (pauseMenu == null) {
+            return false;
+        }
+        boolean connected = state != null && state.connected();
+        if (connected && state.menuUp()) {
+            movePauseMenuFocus(scene, pauseMenu, KeyCode.UP);
+        }
+        if (connected && state.menuDown()) {
+            movePauseMenuFocus(scene, pauseMenu, KeyCode.DOWN);
+        }
+        if (connected && state.menuLeft()) {
+            movePauseMenuFocus(scene, pauseMenu, KeyCode.LEFT);
+        }
+        if (connected && state.menuRight()) {
+            movePauseMenuFocus(scene, pauseMenu, KeyCode.RIGHT);
+        }
+
+        boolean selectHeld = connected && state.menuSelect();
+        if (selectHeld && !wiimoteMenuSelectHeld) {
+            Node focus = scene.getFocusOwner();
+            if (focus instanceof Button button) {
+                playButtonClick();
+                button.fire();
+            }
+        }
+        wiimoteMenuSelectHeld = selectHeld;
+
+        boolean backHeld = connected && state.menuBack();
+        if (backHeld && !wiimoteMenuBackHeld && currentStage != null) {
+            togglePause(currentStage);
+            wiimoteMenuBackHeld = true;
+            return true;
+        }
+        wiimoteMenuBackHeld = backHeld;
+
+        boolean pauseHeld = connected && state.menuPause();
+        if (pauseHeld && !wiimoteMenuPauseHeld && currentStage != null) {
+            togglePause(currentStage);
+            wiimoteMenuPauseHeld = true;
+            return true;
+        }
+        wiimoteMenuPauseHeld = pauseHeld;
+        return true;
+    }
+
+    private boolean pollWiimoteMenuPointer(Scene scene, WiimoteMappedState state) {
+        if (!usesWiimoteUiPointer(scene)) {
+            return false;
+        }
+        Robot robot = wiimoteUiRobot();
+        if (robot == null) {
+            return false;
+        }
+
+        syncWiimoteMenuPointer(scene);
+        setConsoleHighlightActive(false, scene);
+
+        long now = System.nanoTime();
+        double dtSeconds = wiimoteMenuPointerDeltaSeconds(now);
+        double horizontal = 0.0;
+        double vertical = 0.0;
+        if (state != null && state.connected()) {
+            if (state.menuLeftHeld()) {
+                horizontal -= 1.0;
+            }
+            if (state.menuRightHeld()) {
+                horizontal += 1.0;
+            }
+            if (state.menuUpHeld()) {
+                vertical -= 1.0;
+            }
+            if (state.menuDownHeld()) {
+                vertical += 1.0;
+            }
+        }
+        if (horizontal != 0.0 || vertical != 0.0) {
+            moveWiimoteMenuPointer(scene, horizontal, vertical, dtSeconds);
+        }
+
+        boolean selectHeld = state != null && state.connected() && state.menuSelectHeld();
+        if (selectHeld && !wiimoteMenuSelectHeld) {
+            setFightSetupClawCursor(scene, true);
+            robot.mousePress(MouseButton.PRIMARY);
+            wiimoteMenuMousePressed = true;
+        } else if (!selectHeld && wiimoteMenuSelectHeld) {
+            releaseWiimoteMenuPointerPress();
+            setFightSetupClawCursor(scene, false);
+        }
+        wiimoteMenuSelectHeld = selectHeld;
+
+        boolean backHeld = state != null && state.connected() && state.menuBack();
+        if (backHeld && !wiimoteMenuBackHeld) {
+            dispatchWiimoteMenuKey(scene, KeyCode.ESCAPE);
+        }
+        wiimoteMenuBackHeld = backHeld;
+
+        boolean pauseHeld = state != null && state.connected() && state.menuPause();
+        if (pauseHeld && !wiimoteMenuPauseHeld) {
+            dispatchWiimoteMenuKey(scene, KeyCode.ESCAPE);
+        }
+        wiimoteMenuPauseHeld = pauseHeld;
+        return true;
+    }
+
+    private boolean usesWiimoteUiPointer(Scene scene) {
+        return scene != null && scene != gameplayScene && !isWiimoteSelectorScene(scene);
+    }
+
+    private Robot wiimoteUiRobot() {
+        if (wiimoteUiRobot != null) {
+            return wiimoteUiRobot;
+        }
+        try {
+            wiimoteUiRobot = new Robot();
+        } catch (Exception e) {
+            wiimoteUiRobot = null;
+        }
+        return wiimoteUiRobot;
+    }
+
+    private void installWiimoteMenuPointerTracking(Scene scene) {
+        if (scene == null || Boolean.TRUE.equals(scene.getProperties().get(SCENE_PROP_WIIMOTE_POINTER_TRACKING))) {
+            return;
+        }
+        scene.getProperties().put(SCENE_PROP_WIIMOTE_POINTER_TRACKING, Boolean.TRUE);
+        EventHandler<MouseEvent> tracker = e -> updateWiimoteMenuPointerScenePosition(scene, e.getSceneX(), e.getSceneY());
+        scene.addEventFilter(MouseEvent.MOUSE_MOVED, tracker);
+        scene.addEventFilter(MouseEvent.MOUSE_DRAGGED, tracker);
+        scene.addEventFilter(MouseEvent.MOUSE_PRESSED, tracker);
+        scene.addEventFilter(MouseEvent.MOUSE_RELEASED, tracker);
+    }
+
+    private void syncWiimoteMenuPointer(Scene scene) {
+        if (scene == null) {
+            return;
+        }
+        if (wiimoteMenuPointerScene == scene && wiimoteMenuPointerInitialized) {
+            clampWiimoteMenuPointerToScene(scene);
+            return;
+        }
+        wiimoteMenuPointerScene = scene;
+        wiimoteMenuPointerLastNs = 0L;
+
+        Point2D scenePoint = wiimoteMenuPointerSceneFromRobot(scene);
+        if (scenePoint != null) {
+            updateWiimoteMenuPointerScenePosition(scene, scenePoint.getX(), scenePoint.getY());
+        } else {
+            double width = scene.getWidth() > 0 ? scene.getWidth() : WIDTH;
+            double height = scene.getHeight() > 0 ? scene.getHeight() : HEIGHT;
+            updateWiimoteMenuPointerScenePosition(scene, width / 2.0, height / 2.0);
+        }
+        moveWiimoteMenuPointerTo(scene, wiimoteMenuPointerSceneX, wiimoteMenuPointerSceneY);
+    }
+
+    private Point2D wiimoteMenuPointerSceneFromRobot(Scene scene) {
+        Robot robot = wiimoteUiRobot();
+        if (scene == null || robot == null) {
+            return null;
+        }
+        Point2D screenPoint = robot.getMousePosition();
+        Window window = scene.getWindow();
+        if (window == null) {
+            return null;
+        }
+        return new Point2D(
+                screenPoint.getX() - window.getX() - scene.getX(),
+                screenPoint.getY() - window.getY() - scene.getY()
+        );
+    }
+
+    private void moveWiimoteMenuPointer(Scene scene, double horizontal, double vertical, double dtSeconds) {
+        if (scene == null) {
+            return;
+        }
+        double length = Math.hypot(horizontal, vertical);
+        if (length <= 0.0) {
+            return;
+        }
+        double distance = WIIMOTE_UI_CURSOR_SPEED * Math.max(0.0, dtSeconds);
+        double nextX = wiimoteMenuPointerSceneX + horizontal / length * distance;
+        double nextY = wiimoteMenuPointerSceneY + vertical / length * distance;
+        moveWiimoteMenuPointerTo(scene, nextX, nextY);
+    }
+
+    private void moveWiimoteMenuPointerTo(Scene scene, double sceneX, double sceneY) {
+        Robot robot = wiimoteUiRobot();
+        Point2D screenPoint = sceneToScreenPoint(scene, sceneX, sceneY);
+        if (scene == null || robot == null || screenPoint == null) {
+            return;
+        }
+        updateWiimoteMenuPointerScenePosition(scene, sceneX, sceneY);
+        robot.mouseMove(screenPoint.getX(), screenPoint.getY());
+    }
+
+    private Point2D sceneToScreenPoint(Scene scene, double sceneX, double sceneY) {
+        if (scene == null) {
+            return null;
+        }
+        Window window = scene.getWindow();
+        if (window == null) {
+            return null;
+        }
+        return new Point2D(window.getX() + scene.getX() + clampWiimoteMenuPointerSceneX(sceneX, scene),
+                window.getY() + scene.getY() + clampWiimoteMenuPointerSceneY(sceneY, scene));
+    }
+
+    private void updateWiimoteMenuPointerScenePosition(Scene scene, double sceneX, double sceneY) {
+        wiimoteMenuPointerScene = scene;
+        wiimoteMenuPointerSceneX = clampWiimoteMenuPointerSceneX(sceneX, scene);
+        wiimoteMenuPointerSceneY = clampWiimoteMenuPointerSceneY(sceneY, scene);
+        wiimoteMenuPointerInitialized = true;
+    }
+
+    private void clampWiimoteMenuPointerToScene(Scene scene) {
+        wiimoteMenuPointerSceneX = clampWiimoteMenuPointerSceneX(wiimoteMenuPointerSceneX, scene);
+        wiimoteMenuPointerSceneY = clampWiimoteMenuPointerSceneY(wiimoteMenuPointerSceneY, scene);
+    }
+
+    private double clampWiimoteMenuPointerSceneX(double sceneX, Scene scene) {
+        double width = scene != null && scene.getWidth() > 0 ? scene.getWidth() : WIDTH;
+        return Math.clamp(sceneX, 0.0, Math.max(0.0, width - 1.0));
+    }
+
+    private double clampWiimoteMenuPointerSceneY(double sceneY, Scene scene) {
+        double height = scene != null && scene.getHeight() > 0 ? scene.getHeight() : HEIGHT;
+        return Math.clamp(sceneY, 0.0, Math.max(0.0, height - 1.0));
+    }
+
+    private double wiimoteMenuPointerDeltaSeconds(long now) {
+        long last = wiimoteMenuPointerLastNs;
+        wiimoteMenuPointerLastNs = now;
+        if (last <= 0L || now <= last) {
+            return 1.0 / 60.0;
+        }
+        return Math.clamp((now - last) / 1_000_000_000.0, 1.0 / 240.0, 1.0 / 20.0);
+    }
+
+    private void releaseWiimoteMenuPointerPress() {
+        if (!wiimoteMenuMousePressed) {
+            return;
+        }
+        Robot robot = wiimoteUiRobot();
+        if (robot != null) {
+            robot.mouseRelease(MouseButton.PRIMARY);
+        }
+        wiimoteMenuMousePressed = false;
+    }
+
+    private boolean isWiimoteSelectorScene(Scene scene) {
+        return scene != null && Boolean.TRUE.equals(scene.getProperties().get(SCENE_PROP_WIIMOTE_SELECTOR));
+    }
+
+    private int wiimoteSelectorPlayerCount(Scene scene) {
+        if (scene == null) {
+            return 0;
+        }
+        Object rawCount = scene.getProperties().get(SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS);
+        if (rawCount instanceof Number number) {
+            return Math.clamp(number.intValue(), 0, wiimoteSelectorAttackHeld.length);
+        }
+        return Math.clamp(activePlayers, 0, wiimoteSelectorAttackHeld.length);
+    }
+
+    private void pollWiimoteSelectorNavigation(Scene scene) {
+        if (scene == null || wiimoteInputManager == null) {
+            resetWiimoteSelectorHeldState();
+            return;
+        }
+
+        int selectorPlayers = wiimoteSelectorPlayerCount(scene);
+        List<Integer> connectedSources = new ArrayList<>();
+        WiimoteMappedState[] states = new WiimoteMappedState[selectorPlayers];
+        for (int playerIdx = 0; playerIdx < selectorPlayers; playerIdx++) {
+            WiimoteMappedState state = wiimoteInputManager.stateForPlayer(playerIdx);
+            states[playerIdx] = state;
+            if (state != null && state.connected()) {
+                connectedSources.add(playerIdx);
+            }
+        }
+
+        FightSetupSelectorController controller = fightSetupSelectorController(scene);
+        if (controller != null) {
+            wiimoteSoloSelectorTarget = 0;
+            wiimoteSoloSelectorNextHeld = false;
+            wiimoteSoloSelectorPrevHeld = false;
+            for (int playerIdx = 0; playerIdx < wiimoteSelectorAttackHeld.length; playerIdx++) {
+                boolean activeSource = playerIdx < selectorPlayers;
+                WiimoteMappedState state = activeSource ? states[playerIdx] : null;
+                if (!activeSource || state == null || !state.connected()) {
+                    wiimoteSelectorAttackHeld[playerIdx] = false;
+                    wiimoteSelectorSpecialHeld[playerIdx] = false;
+                    wiimoteSelectorBackHeld[playerIdx] = false;
+                    wiimoteSelectorPauseHeld[playerIdx] = false;
+                    wiimoteSelectorLastMoveNs[playerIdx] = 0L;
+                    Arrays.fill(wiimoteSelectorDirectionHeld[playerIdx], false);
+                    controller.setClawConnected(playerIdx, false);
+                    if (playerIdx == 0) {
+                        releaseWiimoteMenuPointerPress();
+                        setFightSetupClawCursor(scene, false);
+                    }
+                    continue;
+                }
+                dispatchWiimoteSelectorState(scene, playerIdx, playerIdx, state);
+            }
+            return;
+        }
+
+        if (connectedSources.size() == 1 && selectorPlayers > 1) {
+            int sourceIdx = connectedSources.getFirst();
+            WiimoteMappedState sourceState = states[sourceIdx];
+            wiimoteSoloSelectorTarget = Math.clamp(wiimoteSoloSelectorTarget, 0, selectorPlayers - 1);
+
+            boolean nextHeld = sourceState.tauntCycle();
+            if (nextHeld && !wiimoteSoloSelectorNextHeld) {
+                wiimoteSoloSelectorTarget = (wiimoteSoloSelectorTarget + 1) % selectorPlayers;
+                Arrays.fill(wiimoteSelectorDirectionHeld[sourceIdx], false);
+                wiimoteSelectorAttackHeld[sourceIdx] = false;
+                wiimoteSelectorSpecialHeld[sourceIdx] = false;
+            }
+            wiimoteSoloSelectorNextHeld = nextHeld;
+
+            boolean prevHeld = sourceState.tauntExecute();
+            if (prevHeld && !wiimoteSoloSelectorPrevHeld) {
+                wiimoteSoloSelectorTarget = (wiimoteSoloSelectorTarget - 1 + selectorPlayers) % selectorPlayers;
+                Arrays.fill(wiimoteSelectorDirectionHeld[sourceIdx], false);
+                wiimoteSelectorAttackHeld[sourceIdx] = false;
+                wiimoteSelectorSpecialHeld[sourceIdx] = false;
+            }
+            wiimoteSoloSelectorPrevHeld = prevHeld;
+
+            resetInactiveWiimoteSelectorHeldState(sourceIdx);
+            dispatchWiimoteSelectorState(scene, sourceIdx, wiimoteSoloSelectorTarget, sourceState);
+            return;
+        }
+
+        wiimoteSoloSelectorTarget = 0;
+        wiimoteSoloSelectorNextHeld = false;
+        wiimoteSoloSelectorPrevHeld = false;
+        for (int playerIdx = 0; playerIdx < wiimoteSelectorAttackHeld.length; playerIdx++) {
+            boolean activeSelector = playerIdx < selectorPlayers;
+            WiimoteMappedState state = activeSelector ? states[playerIdx] : null;
+            if (!activeSelector || state == null || !state.connected()) {
+                wiimoteSelectorAttackHeld[playerIdx] = false;
+                wiimoteSelectorSpecialHeld[playerIdx] = false;
+                wiimoteSelectorBackHeld[playerIdx] = false;
+                wiimoteSelectorPauseHeld[playerIdx] = false;
+                Arrays.fill(wiimoteSelectorDirectionHeld[playerIdx], false);
+                continue;
+            }
+            dispatchWiimoteSelectorState(scene, playerIdx, playerIdx, state);
+        }
+    }
+
+    private void dispatchWiimoteSelectorState(Scene scene, int sourceIdx, int targetIdx, WiimoteMappedState state) {
+        if (scene == null || state == null || sourceIdx < 0 || sourceIdx >= wiimoteSelectorDirectionHeld.length) {
+            return;
+        }
+        FightSetupSelectorController controller = fightSetupSelectorController(scene);
+        if (controller != null) {
+            if (sourceIdx == 0) {
+                controller.setClawConnected(sourceIdx, false);
+                long now = System.nanoTime();
+                double dtSeconds = selectorDeltaSeconds(sourceIdx, now);
+                double horizontal = 0.0;
+                double vertical = 0.0;
+                if (state.menuLeftHeld()) {
+                    horizontal -= 1.0;
+                }
+                if (state.menuRightHeld()) {
+                    horizontal += 1.0;
+                }
+                if (state.menuUpHeld()) {
+                    vertical -= 1.0;
+                }
+                if (state.menuDownHeld()) {
+                    vertical += 1.0;
+                }
+
+                syncWiimoteMenuPointer(scene);
+                setConsoleHighlightActive(false, scene);
+                if (horizontal != 0.0 || vertical != 0.0) {
+                    moveWiimoteMenuPointer(scene, horizontal, vertical, dtSeconds);
+                }
+
+                boolean selectHeld = state.menuSelectHeld();
+                if (selectHeld && !wiimoteSelectorAttackHeld[sourceIdx]) {
+                    Robot robot = wiimoteUiRobot();
+                    if (robot != null) {
+                        setFightSetupClawCursor(scene, true);
+                        robot.mousePress(MouseButton.PRIMARY);
+                        wiimoteMenuMousePressed = true;
+                    }
+                } else if (!selectHeld && wiimoteSelectorAttackHeld[sourceIdx]) {
+                    releaseWiimoteMenuPointerPress();
+                    setFightSetupClawCursor(scene, false);
+                }
+                wiimoteSelectorAttackHeld[sourceIdx] = selectHeld;
+
+                boolean specialHeld = state.special();
+                if (specialHeld && !wiimoteSelectorSpecialHeld[sourceIdx]) {
+                    controller.tryStartMatch();
+                }
+                wiimoteSelectorSpecialHeld[sourceIdx] = specialHeld;
+
+                boolean backHeld = state.menuBack();
+                if (backHeld && !wiimoteSelectorBackHeld[sourceIdx]) {
+                    dispatchWiimoteMenuKey(scene, KeyCode.ESCAPE);
+                }
+                wiimoteSelectorBackHeld[sourceIdx] = backHeld;
+
+                boolean pauseHeld = state.menuPause();
+                if (pauseHeld && !wiimoteSelectorPauseHeld[sourceIdx]) {
+                    dispatchWiimoteMenuKey(scene, KeyCode.ESCAPE);
+                }
+                wiimoteSelectorPauseHeld[sourceIdx] = pauseHeld;
+                return;
+            }
+            controller.setClawConnected(sourceIdx, true);
+            long now = System.nanoTime();
+            double dtSeconds = selectorDeltaSeconds(sourceIdx, now);
+            double horizontal = 0.0;
+            double vertical = 0.0;
+            if (state.menuLeftHeld()) {
+                horizontal -= 1.0;
+            }
+            if (state.menuRightHeld()) {
+                horizontal += 1.0;
+            }
+            if (state.menuUpHeld()) {
+                vertical -= 1.0;
+            }
+            if (state.menuDownHeld()) {
+                vertical += 1.0;
+            }
+            if (horizontal != 0.0 || vertical != 0.0) {
+                controller.moveClaw(sourceIdx, horizontal, vertical, dtSeconds);
+            }
+
+            boolean selectHeld = state.menuSelectHeld();
+            if (selectHeld && !wiimoteSelectorAttackHeld[sourceIdx]) {
+                controller.beginClawGrab(sourceIdx);
+            } else if (!selectHeld && wiimoteSelectorAttackHeld[sourceIdx]) {
+                controller.releaseClawGrab(sourceIdx);
+            }
+            wiimoteSelectorAttackHeld[sourceIdx] = selectHeld;
+
+            boolean specialHeld = state.special();
+            if (specialHeld && !wiimoteSelectorSpecialHeld[sourceIdx]) {
+                controller.tryStartMatch();
+            }
+            wiimoteSelectorSpecialHeld[sourceIdx] = specialHeld;
+
+            boolean backHeld = state.menuBack();
+            if (backHeld && !wiimoteSelectorBackHeld[sourceIdx]) {
+                dispatchWiimoteMenuKey(scene, KeyCode.ESCAPE);
+            }
+            wiimoteSelectorBackHeld[sourceIdx] = backHeld;
+
+            boolean pauseHeld = state.menuPause();
+            if (pauseHeld && !wiimoteSelectorPauseHeld[sourceIdx]) {
+                dispatchWiimoteMenuKey(scene, KeyCode.ESCAPE);
+            }
+            wiimoteSelectorPauseHeld[sourceIdx] = pauseHeld;
+            return;
+        }
+
+        if (state.menuLeft() && !wiimoteSelectorDirectionHeld[sourceIdx][0]) {
+            dispatchWiimoteMenuKey(scene, leftKeyForPlayer(targetIdx));
+        }
+        wiimoteSelectorDirectionHeld[sourceIdx][0] = state.menuLeft();
+        if (state.menuRight() && !wiimoteSelectorDirectionHeld[sourceIdx][1]) {
+            dispatchWiimoteMenuKey(scene, rightKeyForPlayer(targetIdx));
+        }
+        wiimoteSelectorDirectionHeld[sourceIdx][1] = state.menuRight();
+        if (state.menuUp() && !wiimoteSelectorDirectionHeld[sourceIdx][2]) {
+            dispatchWiimoteMenuKey(scene, jumpKeyForPlayer(targetIdx));
+        }
+        wiimoteSelectorDirectionHeld[sourceIdx][2] = state.menuUp();
+        if (state.menuDown() && !wiimoteSelectorDirectionHeld[sourceIdx][3]) {
+            dispatchWiimoteMenuKey(scene, blockKeyForPlayer(targetIdx));
+        }
+        wiimoteSelectorDirectionHeld[sourceIdx][3] = state.menuDown();
+
+        boolean attackHeld = state.attack();
+        if (attackHeld && !wiimoteSelectorAttackHeld[sourceIdx]) {
+            dispatchWiimoteMenuKey(scene, attackKeyForPlayer(targetIdx));
+        }
+        wiimoteSelectorAttackHeld[sourceIdx] = attackHeld;
+
+        boolean specialHeld = state.special();
+        if (specialHeld && !wiimoteSelectorSpecialHeld[sourceIdx]) {
+            dispatchWiimoteMenuKey(scene, specialKeyForPlayer(targetIdx));
+        }
+        wiimoteSelectorSpecialHeld[sourceIdx] = specialHeld;
+
+        boolean backHeld = state.menuBack();
+        if (backHeld && !wiimoteSelectorBackHeld[sourceIdx]) {
+            dispatchWiimoteMenuKey(scene, KeyCode.ESCAPE);
+        }
+        wiimoteSelectorBackHeld[sourceIdx] = backHeld;
+
+        boolean pauseHeld = state.menuPause();
+        if (pauseHeld && !wiimoteSelectorPauseHeld[sourceIdx]) {
+            dispatchWiimoteMenuKey(scene, KeyCode.ESCAPE);
+        }
+        wiimoteSelectorPauseHeld[sourceIdx] = pauseHeld;
+    }
+
+    private void resetInactiveWiimoteSelectorHeldState(int activeSourceIdx) {
+        for (int playerIdx = 0; playerIdx < wiimoteSelectorAttackHeld.length; playerIdx++) {
+            if (playerIdx == activeSourceIdx) {
+                continue;
+            }
+            wiimoteSelectorAttackHeld[playerIdx] = false;
+            wiimoteSelectorSpecialHeld[playerIdx] = false;
+            wiimoteSelectorBackHeld[playerIdx] = false;
+            wiimoteSelectorPauseHeld[playerIdx] = false;
+            wiimoteSelectorLastMoveNs[playerIdx] = 0L;
+            Arrays.fill(wiimoteSelectorDirectionHeld[playerIdx], false);
+        }
+    }
+
+    private void resetWiimoteMenuHeldState() {
+        releaseWiimoteMenuPointerPress();
+        Arrays.fill(wiimoteMenuDirectionHeld, false);
+        wiimoteMenuSelectHeld = false;
+        wiimoteMenuBackHeld = false;
+        wiimoteMenuPauseHeld = false;
+        wiimoteMenuPointerLastNs = 0L;
+    }
+
+    private void resetWiimoteSelectorHeldState() {
+        Arrays.fill(wiimoteSelectorAttackHeld, false);
+        Arrays.fill(wiimoteSelectorSpecialHeld, false);
+        Arrays.fill(wiimoteSelectorBackHeld, false);
+        Arrays.fill(wiimoteSelectorPauseHeld, false);
+        Arrays.fill(wiimoteSelectorLastMoveNs, 0L);
+        wiimoteSoloSelectorTarget = 0;
+        wiimoteSoloSelectorNextHeld = false;
+        wiimoteSoloSelectorPrevHeld = false;
+        for (boolean[] directionHeld : wiimoteSelectorDirectionHeld) {
+            Arrays.fill(directionHeld, false);
+        }
+    }
+
+    private double selectorDeltaSeconds(int sourceIdx, long now) {
+        if (sourceIdx < 0 || sourceIdx >= wiimoteSelectorLastMoveNs.length) {
+            return 1.0 / 60.0;
+        }
+        long last = wiimoteSelectorLastMoveNs[sourceIdx];
+        wiimoteSelectorLastMoveNs[sourceIdx] = now;
+        if (last <= 0L || now <= last) {
+            return 1.0 / 60.0;
+        }
+        return Math.clamp((now - last) / 1_000_000_000.0, 1.0 / 240.0, 1.0 / 20.0);
+    }
+
+    private void dispatchWiimoteMenuDirectional(Scene scene, KeyCode code) {
+        if (scene == null || code == null) return;
+        Node focus = scene.getFocusOwner();
+        if (focus != null) {
+            focus.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false));
+            return;
+        }
+        Event.fireEvent(scene, new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false));
+    }
+
+    private void dispatchWiimoteMenuKey(Scene scene, KeyCode code) {
+        if (scene == null || code == null) return;
+        Event.fireEvent(scene, new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false));
     }
 
     private void bindEscape(Scene scene, Runnable action) {
@@ -1776,6 +2500,50 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private String wiimotePrefKey(int playerIdx) {
+        return PREF_WIIMOTE_MODE_PREFIX + (playerIdx + 1);
+    }
+
+    WiimoteControlMode wiimoteModeForPlayer(int playerIdx) {
+        if (playerIdx < 0 || playerIdx >= wiimoteModes.length) {
+            return WiimoteControlMode.OFF;
+        }
+        return wiimoteModes[playerIdx];
+    }
+
+    void setWiimoteModeForPlayer(int playerIdx, WiimoteControlMode mode) {
+        if (playerIdx < 0 || playerIdx >= wiimoteModes.length) {
+            return;
+        }
+        wiimoteModes[playerIdx] = mode == null ? WiimoteControlMode.OFF : mode;
+        if (wiimoteInputManager != null) {
+            wiimoteInputManager.setPlayerMode(playerIdx, wiimoteModes[playerIdx]);
+        }
+    }
+
+    private void loadWiimoteModes(Preferences prefs) {
+        for (int playerIdx = 0; playerIdx < wiimoteModes.length; playerIdx++) {
+            WiimoteControlMode loaded = prefs == null
+                    ? WiimoteControlMode.OFF
+                    : WiimoteControlMode.fromPreference(prefs.get(wiimotePrefKey(playerIdx), WiimoteControlMode.OFF.name()));
+            setWiimoteModeForPlayer(playerIdx, loaded);
+        }
+    }
+
+    private void saveWiimoteModes(Preferences prefs) {
+        if (prefs == null) return;
+        for (int playerIdx = 0; playerIdx < wiimoteModes.length; playerIdx++) {
+            prefs.put(wiimotePrefKey(playerIdx), wiimoteModeForPlayer(playerIdx).name());
+        }
+    }
+
+    private void syncWiimoteModesToManager() {
+        if (wiimoteInputManager == null) return;
+        for (int playerIdx = 0; playerIdx < wiimoteModes.length; playerIdx++) {
+            wiimoteInputManager.setPlayerMode(playerIdx, wiimoteModes[playerIdx]);
+        }
+    }
+
     private boolean isReservedBindingKey(KeyCode code) {
         return code == null || code == KeyCode.UNDEFINED || code == KeyCode.ESCAPE || code == KeyCode.F11 || code == KeyCode.F3;
     }
@@ -1877,10 +2645,20 @@ public class BirdGame3 extends Application {
 
     private void setScenePreservingFullscreen(Stage stage, Scene scene) {
         currentStage = stage;
+        releaseWiimoteMenuPointerPress();
         boolean wasFullscreen = stage.isFullScreen();
         stage.setScene(scene);
         fitStageToScreen(stage, scene);
         ensureSceneAutoScaled(scene);
+        installWiimoteMenuPointerTracking(scene);
+        if (usesWiimoteUiPointer(scene)) {
+            setFightSetupClawCursor(scene, false);
+            syncWiimoteMenuPointer(scene);
+        } else if (isWiimoteSelectorScene(scene)) {
+            setFightSetupClawCursor(scene, false);
+        } else if (scene != null) {
+            scene.setCursor(Cursor.DEFAULT);
+        }
         if (fullscreenEnabled) {
             if (!stage.isFullScreen()) stage.setFullScreen(true);
         } else if (wasFullscreen && stage.isFullScreen()) {
@@ -2161,10 +2939,6 @@ public class BirdGame3 extends Application {
     private int trainingFrameAdvanceRequests = 0;
     private int trainingDummyJumpCooldown = 0;
     private int trainingDummyBlockFrames = 0;
-    private double trainingPlayerSpawnX = Double.NaN;
-    private double trainingPlayerSpawnY = Double.NaN;
-    private double trainingDummySpawnX = Double.NaN;
-    private double trainingDummySpawnY = Double.NaN;
     private int trainingComboHits = 0;
     private int trainingComboTimer = 0;
     private int trainingComboFrames = 0;
@@ -6592,6 +7366,8 @@ public class BirdGame3 extends Application {
             return;
         }
 
+        pollWiimoteGameplayInputs();
+
         boolean lanClientViewOnly = lanModeActive && lanIsClient;
         if (lanModeActive && lanIsHost && lanMatchActive) {
             applyLanInputMasks();
@@ -6608,6 +7384,10 @@ public class BirdGame3 extends Application {
         int updates = 0;
 
         while (accumulator >= FRAME_TIME && updates < MAX_UPDATES) {
+            pollWiimoteGameplayInputs();
+            if (lanModeActive && lanIsHost && lanMatchActive) {
+                applyLanInputMasks();
+            }
             if (!lanClientViewOnly) {
                 for (int i = 0; i < activePlayers; i++) {
                     if (players[i] != null) {
@@ -8154,8 +8934,11 @@ public class BirdGame3 extends Application {
         stage.setMaximized(true);
         stage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
         stage.setFullScreenExitHint("");
+        wiimoteInputManager = new WiimoteInputManager();
         loadAchievements();
+        syncWiimoteModesToManager();
         loadSounds();
+        startWiimoteMenuTimer();
         showMenu(stage);
         stage.show();
         tryShowQueuedAchievementToast();
@@ -9657,9 +10440,520 @@ public class BirdGame3 extends Application {
         return box;
     }
 
+    private void positionFightSelector(Circle selector, Text label, double x, double y) {
+        if (selector == null || label == null) {
+            return;
+        }
+        selector.setCenterX(x);
+        selector.setCenterY(y);
+        label.applyCss();
+        label.setX(x - label.getLayoutBounds().getWidth() / 2.0);
+        label.setY(y + 6.0);
+    }
+
+    private void moveFightSelectorWithinPane(Circle selector, Text label, double x, double y, Pane selectionPane) {
+        if (selector == null || label == null || selectionPane == null) {
+            return;
+        }
+        double boundW = selectionPane.getWidth() > 0 ? selectionPane.getWidth() : selectionPane.getPrefWidth();
+        double boundH = selectionPane.getHeight() > 0 ? selectionPane.getHeight() : selectionPane.getPrefHeight();
+        double nx = Math.clamp(x, FIGHT_SELECTOR_BOUND_MARGIN, boundW - FIGHT_SELECTOR_BOUND_MARGIN);
+        double ny = Math.clamp(y, FIGHT_SELECTOR_BOUND_MARGIN, boundH - FIGHT_SELECTOR_BOUND_MARGIN);
+        positionFightSelector(selector, label, nx, ny);
+    }
+
+    private void dockFightSelector(int playerIdx, Circle selector, Text label, Point2D[] dockPositions) {
+        if (dockPositions == null || isValidPlayerIndex(playerIdx) || playerIdx >= dockPositions.length) {
+            return;
+        }
+        Point2D dock = dockPositions[playerIdx];
+        if (dock == null) {
+            return;
+        }
+        positionFightSelector(selector, label, dock.getX(), dock.getY());
+    }
+
+    private BirdIconSpot nearestFightSelectorSpot(Circle selector, List<BirdIconSpot> spots) {
+        if (selector == null || spots == null || spots.isEmpty()) {
+            return null;
+        }
+        BirdIconSpot best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (BirdIconSpot spot : spots) {
+            if (spot == null) {
+                continue;
+            }
+            double dx = selector.getCenterX() - spot.cx();
+            double dy = selector.getCenterY() - spot.cy();
+            double dist = dx * dx + dy * dy;
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = spot;
+            }
+        }
+        return best;
+    }
+
+    private void clearFightSelectorChoice(int playerIdx, Circle selector, boolean[] selectorLocked, Runnable updateSlot, Runnable updateReady) {
+        if (selectorLocked == null || isValidPlayerIndex(playerIdx) || playerIdx >= selectorLocked.length) {
+            return;
+        }
+        selectorLocked[playerIdx] = false;
+        fightRandomSelected[playerIdx] = false;
+        fightSelectedBirds[playerIdx] = null;
+        fightSelectedSkinKeys[playerIdx] = null;
+        refreshFightSelectorVisual(selector, false);
+        if (updateSlot != null) {
+            updateSlot.run();
+        }
+        if (updateReady != null) {
+            updateReady.run();
+        }
+    }
+
+    private void lockFightSelectorToSpot(int playerIdx,
+                                         Circle selector,
+                                         Text label,
+                                         boolean[] selectorLocked,
+                                         BirdIconSpot spot,
+                                         Runnable updateSlot) {
+        if (spot == null || selectorLocked == null || isValidPlayerIndex(playerIdx) || playerIdx >= selectorLocked.length) {
+            return;
+        }
+        positionFightSelector(selector, label, spot.cx(), spot.cy());
+        if (spot.random()) {
+            fightRandomSelected[playerIdx] = true;
+            fightSelectedBirds[playerIdx] = null;
+        } else {
+            fightRandomSelected[playerIdx] = false;
+            fightSelectedBirds[playerIdx] = spot.type();
+        }
+        selectorLocked[playerIdx] = true;
+        refreshFightSelectorVisual(selector, true);
+        if (updateSlot != null) {
+            updateSlot.run();
+        }
+    }
+
+    private Color selectorAccentColor(Circle selector) {
+        if (selector == null) {
+            return Color.web("#FFD54F");
+        }
+        Object raw = selector.getProperties().get(FIGHT_SELECTOR_COLOR_PROP);
+        return raw instanceof Color color ? color : Color.web("#FFD54F");
+    }
+
+    private void refreshFightSelectorVisual(Circle selector, boolean locked) {
+        if (selector == null) {
+            return;
+        }
+        Color accent = selectorAccentColor(selector);
+        selector.setFill(accent.deriveColor(0.0, 1.0, locked ? 0.82 : 0.64, locked ? 0.28 : 0.16));
+        selector.setStroke(accent.interpolate(Color.WHITE, locked ? 0.24 : 0.08));
+        selector.setStrokeWidth(locked ? 4.5 : 3.0);
+    }
+
+    private void positionFightSelectorClaw(Canvas claw, Text label, double x, double y) {
+        if (claw == null || label == null) {
+            return;
+        }
+        claw.relocate(x - claw.getWidth() / 2.0, y - FIGHT_SELECTOR_CLAW_HOTSPOT_Y);
+        label.applyCss();
+        label.setX(x - label.getLayoutBounds().getWidth() / 2.0);
+        label.setY(y + FIGHT_SELECTOR_CLAW_LABEL_OFFSET_Y);
+    }
+
+    private void setFightSelectorClawVisible(Canvas claw, Text label, boolean visible) {
+        if (claw != null) {
+            claw.setVisible(visible);
+            claw.setManaged(false);
+        }
+        if (label != null) {
+            label.setVisible(visible);
+            label.setManaged(false);
+        }
+    }
+
+    private void refreshFightSelectorClaw(Canvas claw, Color accent, boolean clenched) {
+        if (claw == null) {
+            return;
+        }
+        GraphicsContext g = claw.getGraphicsContext2D();
+        g.clearRect(0, 0, claw.getWidth(), claw.getHeight());
+        g.drawImage(fightSetupClawImage(clenched), 0, 0, claw.getWidth(), claw.getHeight());
+    }
+
+    private void drawFightSelectorClaw(Canvas canvas, Color accent, boolean clenched) {
+        if (canvas == null) {
+            return;
+        }
+        double width = canvas.getWidth();
+        double height = canvas.getHeight();
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.clearRect(0, 0, width, height);
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        Color shell = accent == null ? Color.web("#FFD54F") : accent;
+        Color stroke = shell.deriveColor(0.0, 1.0, 0.42, 1.0);
+        Color highlight = shell.interpolate(Color.WHITE, 0.46);
+        Color shadow = shell.deriveColor(0.0, 1.0, 0.55, 0.32);
+
+        g.setFill(shadow);
+        g.fillOval(14, 40, width - 28, 20);
+
+        g.setFill(shell.deriveColor(0.0, 0.82, 0.92, 1.0));
+        g.setStroke(stroke);
+        g.setLineWidth(4.0);
+        g.fillRoundRect(26, 20, width - 52, 34, 16, 16);
+        g.strokeRoundRect(26, 20, width - 52, 34, 16, 16);
+
+        g.setFill(shell);
+        g.fillOval(20, 8, width - 40, 24);
+        g.strokeOval(20, 8, width - 40, 24);
+
+        g.setStroke(stroke);
+        g.setLineWidth(5.0);
+        if (clenched) {
+            g.strokeLine(30, 18, 22, 42);
+            g.strokeLine(width / 2.0, 14, width / 2.0, 42);
+            g.strokeLine(width - 30, 18, width - 22, 42);
+            g.setFill(stroke);
+            g.fillPolygon(new double[]{18, 26, 22}, new double[]{45, 42, 52}, 3);
+            g.fillPolygon(new double[]{width / 2.0 - 5, width / 2.0, width / 2.0 + 5}, new double[]{46, 40, 46}, 3);
+            g.fillPolygon(new double[]{width - 18, width - 26, width - 22}, new double[]{45, 42, 52}, 3);
+        } else {
+            g.strokeLine(30, 18, 14, 6);
+            g.strokeLine(width / 2.0, 14, width / 2.0, 1);
+            g.strokeLine(width - 30, 18, width - 14, 6);
+            g.setFill(stroke);
+            g.fillPolygon(new double[]{10, 18, 14}, new double[]{6, 10, 16}, 3);
+            g.fillPolygon(new double[]{width / 2.0 - 6, width / 2.0, width / 2.0 + 6}, new double[]{0, 9, 9}, 3);
+            g.fillPolygon(new double[]{width - 10, width - 18, width - 14}, new double[]{6, 10, 16}, 3);
+        }
+
+        g.setStroke(highlight);
+        g.setLineWidth(2.0);
+        g.strokeLine(30, 25, width - 30, 25);
+        g.strokeLine(32, 34, width - 32, 34);
+    }
+
+    private Cursor fightSetupClawCursor(boolean clenched) {
+        if (clenched) {
+            if (birdClawClosedCursor == null) {
+                birdClawClosedCursor = new ImageCursor(fightSetupClawImage(true), 24, 4);
+            }
+            return birdClawClosedCursor;
+        }
+        if (birdClawOpenCursor == null) {
+            birdClawOpenCursor = new ImageCursor(fightSetupClawImage(false), 24, 4);
+        }
+        return birdClawOpenCursor;
+    }
+
+    private WritableImage fightSetupClawImage(boolean clenched) {
+        if (clenched) {
+            if (birdClawClosedImage == null) {
+                birdClawClosedImage = renderFightSetupClawImage(true);
+            }
+            return birdClawClosedImage;
+        }
+        if (birdClawOpenImage == null) {
+            birdClawOpenImage = renderFightSetupClawImage(false);
+        }
+        return birdClawOpenImage;
+    }
+
+    private WritableImage renderFightSetupClawImage(boolean clenched) {
+        Canvas canvas = new Canvas(48, 48);
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.clearRect(0, 0, 48, 48);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(4.0);
+        g.setFill(Color.web("#D7A341"));
+        g.setStroke(Color.web("#5F3917"));
+
+        g.fillRoundRect(18, 18, 12, 22, 10, 10);
+        g.strokeRoundRect(18, 18, 12, 22, 10, 10);
+        g.fillOval(14, 10, 20, 14);
+        g.strokeOval(14, 10, 20, 14);
+
+        if (clenched) {
+            g.strokeLine(19, 12, 15, 24);
+            g.strokeLine(24, 10, 24, 24);
+            g.strokeLine(29, 12, 33, 24);
+            g.fillPolygon(new double[]{12, 17, 14}, new double[]{27, 25, 31}, 3);
+            g.fillPolygon(new double[]{24, 28, 20}, new double[]{29, 25, 25}, 3);
+            g.fillPolygon(new double[]{36, 31, 34}, new double[]{27, 25, 31}, 3);
+        } else {
+            g.strokeLine(19, 12, 10, 6);
+            g.strokeLine(24, 10, 24, 2);
+            g.strokeLine(29, 12, 38, 6);
+            g.fillPolygon(new double[]{6, 12, 9}, new double[]{5, 7, 11}, 3);
+            g.fillPolygon(new double[]{24, 28, 20}, new double[]{0, 6, 6}, 3);
+            g.fillPolygon(new double[]{42, 36, 39}, new double[]{5, 7, 11}, 3);
+        }
+
+        g.setStroke(Color.web("#F7D98E"));
+        g.setLineWidth(1.5);
+        g.strokeLine(19, 22, 29, 22);
+
+        SnapshotParameters params = new SnapshotParameters();
+        params.setFill(Color.TRANSPARENT);
+        return canvas.snapshot(params, null);
+    }
+
+    private void setFightSetupClawCursor(Scene scene, boolean clenched) {
+        if (scene == null) {
+            return;
+        }
+        scene.setCursor(fightSetupClawCursor(clenched));
+    }
+
+    private FightSetupSelectorController fightSetupSelectorController(Scene scene) {
+        if (scene == null) {
+            return null;
+        }
+        Object raw = scene.getProperties().get(SCENE_PROP_FIGHT_SELECTOR_CONTROLLER);
+        return raw instanceof FightSetupSelectorController controller ? controller : null;
+    }
+
+    private final class FightSetupSelectorController {
+        private final Circle[] selectors;
+        private final Text[] selectorLabels;
+        private final boolean[] selectorLocked;
+        private final List<BirdIconSpot> spots;
+        private final Point2D[] dockPositions;
+        private final Pane selectionPane;
+        private final Runnable[] updateSlot;
+        private final Runnable updateReady;
+        private final BooleanSupplier tryStartMatch;
+        private final int[] nullRockSequenceProgress;
+        private final Canvas[] clawCanvases;
+        private final Text[] clawLabels;
+        private final Color[] clawColors;
+        private final double[] clawX;
+        private final double[] clawY;
+        private final int[] grabbedSelectorByClaw;
+        private final double[] grabOffsetX;
+        private final double[] grabOffsetY;
+        private final boolean[] clawVisible;
+        private final boolean[] clawClosed;
+
+        private FightSetupSelectorController(Circle[] selectors,
+                                             Text[] selectorLabels,
+                                             boolean[] selectorLocked,
+                                             List<BirdIconSpot> spots,
+                                             Point2D[] dockPositions,
+                                             Pane selectionPane,
+                                             Runnable[] updateSlot,
+                                             Runnable updateReady,
+                                             BooleanSupplier tryStartMatch,
+                                             int[] nullRockSequenceProgress,
+                                             Canvas[] clawCanvases,
+                                             Text[] clawLabels,
+                                             Color[] clawColors) {
+            this.selectors = selectors;
+            this.selectorLabels = selectorLabels;
+            this.selectorLocked = selectorLocked;
+            this.spots = spots;
+            this.dockPositions = dockPositions;
+            this.selectionPane = selectionPane;
+            this.updateSlot = updateSlot;
+            this.updateReady = updateReady;
+            this.tryStartMatch = tryStartMatch;
+            this.nullRockSequenceProgress = nullRockSequenceProgress;
+            this.clawCanvases = clawCanvases;
+            this.clawLabels = clawLabels;
+            this.clawColors = clawColors;
+            this.clawX = new double[clawCanvases == null ? 0 : clawCanvases.length];
+            this.clawY = new double[clawCanvases == null ? 0 : clawCanvases.length];
+            this.grabbedSelectorByClaw = new int[clawCanvases == null ? 0 : clawCanvases.length];
+            this.grabOffsetX = new double[clawCanvases == null ? 0 : clawCanvases.length];
+            this.grabOffsetY = new double[clawCanvases == null ? 0 : clawCanvases.length];
+            this.clawVisible = new boolean[clawCanvases == null ? 0 : clawCanvases.length];
+            this.clawClosed = new boolean[clawCanvases == null ? 0 : clawCanvases.length];
+            Arrays.fill(this.grabbedSelectorByClaw, -1);
+            for (int i = 0; i < this.clawX.length; i++) {
+                Point2D dock = dockPositions != null && i < dockPositions.length
+                        ? dockPositions[i]
+                        : new Point2D(FIGHT_SELECTOR_BOUND_MARGIN, FIGHT_SELECTOR_BOUND_MARGIN);
+                clawX[i] = dock.getX();
+                clawY[i] = Math.max(FIGHT_SELECTOR_BOUND_MARGIN, dock.getY() - 54.0);
+                positionFightSelectorClaw(clawCanvases[i], clawLabels[i], clawX[i], clawY[i]);
+                updateClawPresentation(i, false, false);
+            }
+        }
+
+        private void setClawConnected(int sourceIdx, boolean connected) {
+            if (!isValidClawIndex(sourceIdx)) {
+                return;
+            }
+            if (!connected || sourceIdx >= activePlayers) {
+                cancelClawGrab(sourceIdx, true);
+                return;
+            }
+            updateClawPresentation(sourceIdx, true, grabbedSelectorByClaw[sourceIdx] >= 0);
+            positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawX[sourceIdx], clawY[sourceIdx]);
+        }
+
+        private void moveClaw(int sourceIdx, double horizontal, double vertical, double dtSeconds) {
+            if (!isValidClawIndex(sourceIdx) || sourceIdx >= activePlayers) {
+                return;
+            }
+            double length = Math.hypot(horizontal, vertical);
+            if (length <= 0.0) {
+                return;
+            }
+            double distance = WIIMOTE_SELECTOR_CURSOR_SPEED * Math.max(0.0, dtSeconds);
+            double dx = horizontal / length * distance;
+            double dy = vertical / length * distance;
+            double boundW = selectionPane.getWidth() > 0 ? selectionPane.getWidth() : selectionPane.getPrefWidth();
+            double boundH = selectionPane.getHeight() > 0 ? selectionPane.getHeight() : selectionPane.getPrefHeight();
+            clawX[sourceIdx] = Math.clamp(clawX[sourceIdx] + dx, FIGHT_SELECTOR_BOUND_MARGIN, boundW - FIGHT_SELECTOR_BOUND_MARGIN);
+            clawY[sourceIdx] = Math.clamp(clawY[sourceIdx] + dy, FIGHT_SELECTOR_BOUND_MARGIN, boundH - FIGHT_SELECTOR_BOUND_MARGIN);
+            positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawX[sourceIdx], clawY[sourceIdx]);
+            updateGrabbedSelectorPosition(sourceIdx);
+        }
+
+        private void beginClawGrab(int sourceIdx) {
+            if (!isValidClawIndex(sourceIdx) || sourceIdx >= activePlayers) {
+                return;
+            }
+            if (grabbedSelectorByClaw[sourceIdx] >= 0) {
+                return;
+            }
+            int targetSelector = nearestSelectorForClaw(sourceIdx);
+            if (targetSelector < 0) {
+                return;
+            }
+            if (targetSelector < nullRockSequenceProgress.length) {
+                nullRockSequenceProgress[targetSelector] = 0;
+            }
+            if (selectorLocked[targetSelector]) {
+                clearFightSelectorChoice(targetSelector, selectors[targetSelector], selectorLocked, updateSlot[targetSelector], updateReady);
+            }
+            grabbedSelectorByClaw[sourceIdx] = targetSelector;
+            grabOffsetX[sourceIdx] = selectors[targetSelector].getCenterX() - clawX[sourceIdx];
+            grabOffsetY[sourceIdx] = selectors[targetSelector].getCenterY() - clawY[sourceIdx];
+            updateClawPresentation(sourceIdx, true, true);
+            updateGrabbedSelectorPosition(sourceIdx);
+        }
+
+        private void releaseClawGrab(int sourceIdx) {
+            cancelClawGrab(sourceIdx, false);
+        }
+
+        private boolean tryStartMatch() {
+            return tryStartMatch != null && tryStartMatch.getAsBoolean();
+        }
+
+        private void cancelClawGrab(int sourceIdx, boolean hideAfter) {
+            if (!isValidClawIndex(sourceIdx)) {
+                return;
+            }
+            int selectorIdx = grabbedSelectorByClaw[sourceIdx];
+            if (selectorIdx >= 0 && selectorIdx < activePlayers) {
+                Circle selector = selectors[selectorIdx];
+                Text label = selectorLabels[selectorIdx];
+                BirdIconSpot best = nearestFightSelectorSpot(selector, spots);
+                if (best != null) {
+                    lockFightSelectorToSpot(selectorIdx, selector, label, selectorLocked, best, updateSlot[selectorIdx]);
+                } else {
+                    dockFightSelector(selectorIdx, selector, label, dockPositions);
+                }
+            }
+            grabbedSelectorByClaw[sourceIdx] = -1;
+            grabOffsetX[sourceIdx] = 0.0;
+            grabOffsetY[sourceIdx] = 0.0;
+            updateClawPresentation(sourceIdx, !hideAfter && sourceIdx < activePlayers, false);
+        }
+
+        private void updateGrabbedSelectorPosition(int sourceIdx) {
+            if (!isValidClawIndex(sourceIdx)) {
+                return;
+            }
+            int selectorIdx = grabbedSelectorByClaw[sourceIdx];
+            if (selectorIdx < 0 || selectorIdx >= activePlayers) {
+                return;
+            }
+            moveFightSelectorWithinPane(
+                    selectors[selectorIdx],
+                    selectorLabels[selectorIdx],
+                    clawX[sourceIdx] + grabOffsetX[sourceIdx],
+                    clawY[sourceIdx] + grabOffsetY[sourceIdx],
+                    selectionPane
+            );
+        }
+
+        private int nearestSelectorForClaw(int sourceIdx) {
+            if (!isValidClawIndex(sourceIdx)) {
+                return -1;
+            }
+            double bestDistance = FIGHT_SELECTOR_CLAW_GRAB_RADIUS * FIGHT_SELECTOR_CLAW_GRAB_RADIUS;
+            int bestIndex = -1;
+            for (int selectorIdx = 0; selectorIdx < activePlayers; selectorIdx++) {
+                if (selectors == null || selectorIdx >= selectors.length || selectors[selectorIdx] == null) {
+                    continue;
+                }
+                if (selectorGrabbedByOtherClaw(selectorIdx, sourceIdx)) {
+                    continue;
+                }
+                double dx = selectors[selectorIdx].getCenterX() - clawX[sourceIdx];
+                double dy = selectors[selectorIdx].getCenterY() - clawY[sourceIdx];
+                double distance = dx * dx + dy * dy;
+                if (distance <= bestDistance) {
+                    bestDistance = distance;
+                    bestIndex = selectorIdx;
+                }
+            }
+            return bestIndex;
+        }
+
+        private boolean selectorGrabbedByOtherClaw(int selectorIdx, int sourceIdx) {
+            for (int clawIdx = 0; clawIdx < grabbedSelectorByClaw.length; clawIdx++) {
+                if (clawIdx != sourceIdx && grabbedSelectorByClaw[clawIdx] == selectorIdx) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private boolean isValidClawIndex(int sourceIdx) {
+            return sourceIdx >= 0
+                    && clawCanvases != null
+                    && sourceIdx < clawCanvases.length
+                    && clawLabels != null
+                    && sourceIdx < clawLabels.length;
+        }
+
+        private Color clawColor(int sourceIdx) {
+            if (clawColors == null || sourceIdx < 0 || sourceIdx >= clawColors.length) {
+                return Color.web("#FFD54F");
+            }
+            return clawColors[sourceIdx];
+        }
+
+        private void updateClawPresentation(int sourceIdx, boolean visible, boolean closed) {
+            if (!isValidClawIndex(sourceIdx)) {
+                return;
+            }
+            boolean visibleChanged = clawVisible[sourceIdx] != visible;
+            if (clawVisible[sourceIdx] != visible) {
+                clawVisible[sourceIdx] = visible;
+                setFightSelectorClawVisible(clawCanvases[sourceIdx], clawLabels[sourceIdx], visible);
+            }
+            if (visibleChanged || clawClosed[sourceIdx] != closed) {
+                clawClosed[sourceIdx] = closed;
+                refreshFightSelectorClaw(clawCanvases[sourceIdx], clawColor(sourceIdx), closed);
+            }
+        }
+    }
+
     private void showFightSetup(Stage stage) {
         playMenuMusic();
         activePlayers = Math.clamp(activePlayers, 2, 4);
+        resetWiimoteSelectorHeldState();
+        final Scene[] fightSceneRef = new Scene[1];
 
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(24, 34, 24, 34));
@@ -9840,6 +11134,17 @@ public class BirdGame3 extends Application {
         dockLabel.setLayoutY(dockY + 8);
         selectionPane.getChildren().add(dockLabel);
 
+        Label wiimoteSelectHint = new Label("Drag player selectors onto birds. Wiimote claws can grab any player selector.");
+        wiimoteSelectHint.setFont(Font.font("Consolas", 14));
+        wiimoteSelectHint.setTextFill(Color.web("#CFD8DC"));
+        wiimoteSelectHint.setMaxWidth(dockW - 20);
+        wiimoteSelectHint.setWrapText(true);
+        wiimoteSelectHint.setLayoutX(dockX + 10);
+        wiimoteSelectHint.setLayoutY(dockY + dockH - 54);
+        wiimoteSelectHint.setMouseTransparent(true);
+        applyNoEllipsis(wiimoteSelectHint);
+        selectionPane.getChildren().add(wiimoteSelectHint);
+
         Point2D[] dockPositions = new Point2D[4];
         for (int i = 0; i < 4; i++) {
             double spacing = dockH / 5.0;
@@ -9966,36 +11271,58 @@ public class BirdGame3 extends Application {
 
         Circle[] selectors = new Circle[4];
         Text[] selectorLabels = new Text[4];
+        Canvas[] selectorClaws = new Canvas[4];
+        Text[] selectorClawLabels = new Text[4];
         boolean[] selectorLocked = new boolean[4];
         boolean[] selectorJustUnlocked = new boolean[4];
+        Color[] selectorColors = new Color[]{
+                Color.web("#FFD54F"),
+                Color.web("#FF8A65"),
+                Color.web("#4DD0E1"),
+                Color.web("#81C784")
+        };
         for (int i = 0; i < 4; i++) {
             int idx = i;
             Circle selector = new Circle(26);
-            selector.setFill(Color.web("rgba(255,213,79,0.15)"));
-            selector.setStroke(Color.web("#FFD54F"));
-            selector.setStrokeWidth(3);
+            selector.setFill(selectorColors[i].deriveColor(0.0, 1.0, 0.64, 0.16));
+            selector.setStroke(selectorColors[i]);
+            selector.setStrokeWidth(3.0);
             selector.setVisible(i < activePlayers);
             selector.setManaged(false);
+            selector.getProperties().put(FIGHT_SELECTOR_COLOR_PROP, selectorColors[i]);
             selectors[i] = selector;
             selectionPane.getChildren().add(selector);
+            refreshFightSelectorVisual(selector, false);
 
             Text label = new Text("P" + (idx + 1));
             label.setFont(Font.font("Impact", 16));
-            label.setFill(Color.web("#FFD54F"));
+            label.setFill(selectorColors[i]);
             label.setManaged(false);
             label.setMouseTransparent(true);
             selectorLabels[i] = label;
             selectionPane.getChildren().add(label);
 
+            Canvas claw = new Canvas(FIGHT_SELECTOR_CLAW_SIZE, FIGHT_SELECTOR_CLAW_SIZE);
+            claw.setManaged(false);
+            claw.setMouseTransparent(true);
+            selectorClaws[i] = claw;
+            selectionPane.getChildren().add(claw);
+            refreshFightSelectorClaw(claw, selectorColors[i], false);
+
+            Text clawLabel = new Text("P" + (idx + 1));
+            clawLabel.setFont(Font.font("Impact", 18));
+            clawLabel.setFill(selectorColors[i]);
+            clawLabel.setManaged(false);
+            clawLabel.setMouseTransparent(true);
+            selectorClawLabels[i] = clawLabel;
+            selectionPane.getChildren().add(clawLabel);
+            setFightSelectorClawVisible(claw, clawLabel, false);
+
             final double[] dragOffset = new double[2];
             selector.setOnMousePressed(e -> {
+                setFightSetupClawCursor(fightSceneRef[0], true);
                 if (selectorLocked[idx]) {
-                    selectorLocked[idx] = false;
-                    fightRandomSelected[idx] = false;
-                    fightSelectedBirds[idx] = null;
-                    fightSelectedSkinKeys[idx] = null;
-                    updateSlot[idx].run();
-                    updateReadyBanner.run();
+                    clearFightSelectorChoice(idx, selector, selectorLocked, updateSlot[idx], updateReadyBanner);
                     selectorJustUnlocked[idx] = true;
                 }
                 Point2D local = selectionPane.sceneToLocal(e.getSceneX(), e.getSceneY());
@@ -10005,86 +11332,50 @@ public class BirdGame3 extends Application {
             selector.setOnMouseDragged(e -> {
                 if (selectorLocked[idx]) return;
                 Point2D local = selectionPane.sceneToLocal(e.getSceneX(), e.getSceneY());
-                double nx = local.getX() + dragOffset[0];
-                double ny = local.getY() + dragOffset[1];
                 if (selectorJustUnlocked[idx]) {
                     selectorJustUnlocked[idx] = false;
                 }
-                nx = Math.clamp(nx, 40.0, selectionPane.getPrefWidth() - 40.0);
-                ny = Math.clamp(ny, 40.0, selectionPane.getPrefHeight() - 40.0);
-                selector.setCenterX(nx);
-                selector.setCenterY(ny);
-                label.setX(nx - 10);
-                label.setY(ny + 6);
+                moveFightSelectorWithinPane(selector, label, local.getX() + dragOffset[0], local.getY() + dragOffset[1], selectionPane);
             });
             selector.setOnMouseReleased(e -> {
+                setFightSetupClawCursor(fightSceneRef[0], false);
                 if (selectorLocked[idx]) return;
                 if (selectorJustUnlocked[idx]) {
                     selectorJustUnlocked[idx] = false;
-                    Point2D dock = dockPositions[idx];
-                    selector.setCenterX(dock.getX());
-                    selector.setCenterY(dock.getY());
-                    label.setX(dock.getX() - 10);
-                    label.setY(dock.getY() + 6);
+                    dockFightSelector(idx, selector, label, dockPositions);
                     return;
                 }
-                BirdIconSpot best = null;
-                double bestDist = Double.MAX_VALUE;
-                for (BirdIconSpot spot : spots) {
-                    double dx = selector.getCenterX() - spot.cx();
-                    double dy = selector.getCenterY() - spot.cy();
-                    double dist = dx * dx + dy * dy;
-                    if (dist < bestDist) {
-                        bestDist = dist;
-                        best = spot;
-                    }
-                }
+                BirdIconSpot best = nearestFightSelectorSpot(selector, spots);
                 if (best != null) {
-                    selector.setCenterX(best.cx());
-                    selector.setCenterY(best.cy());
-                    label.setX(best.cx() - 10);
-                    label.setY(best.cy() + 6);
-                    if (best.random()) {
-                        fightRandomSelected[idx] = true;
-                        fightSelectedBirds[idx] = null;
-                    } else {
-                        fightRandomSelected[idx] = false;
-                        fightSelectedBirds[idx] = best.type();
-                    }
-                    selectorLocked[idx] = true;
-                    updateSlot[idx].run();
+                    lockFightSelectorToSpot(idx, selector, label, selectorLocked, best, updateSlot[idx]);
                 } else {
-                    Point2D dock = dockPositions[idx];
-                    selector.setCenterX(dock.getX());
-                    selector.setCenterY(dock.getY());
-                    label.setX(dock.getX() - 10);
-                    label.setY(dock.getY() + 6);
+                    dockFightSelector(idx, selector, label, dockPositions);
                 }
             });
         }
 
         final BirdIconSpot finalRandomSpot = randomSpot;
         Runnable refreshLayout = () -> {
+            if (fightSceneRef[0] != null) {
+                fightSceneRef[0].getProperties().put(SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS, activePlayers);
+            }
             for (int i = 0; i < 4; i++) {
                 boolean active = i < activePlayers;
                 fightSlots[i].setVisible(active);
                 fightSlots[i].setManaged(active);
                 selectors[i].setVisible(active);
+                if (!active) {
+                    setFightSelectorClawVisible(selectorClaws[i], selectorClawLabels[i], false);
+                }
                 selectorLabels[i].setVisible(active);
                 selectorLocked[i] = selectorLocked[i] && active;
                 if (!active) continue;
+                refreshFightSelectorVisual(selectors[i], selectorLocked[i]);
                 BirdIconSpot spot = fightRandomSelected[i] ? finalRandomSpot : spotByType.get(fightSelectedBirds[i]);
                 if (spot != null) {
-                    selectors[i].setCenterX(spot.cx());
-                    selectors[i].setCenterY(spot.cy());
-                    selectorLabels[i].setX(spot.cx() - 10);
-                    selectorLabels[i].setY(spot.cy() + 6);
+                    positionFightSelector(selectors[i], selectorLabels[i], spot.cx(), spot.cy());
                 } else {
-                    Point2D dock = dockPositions[i];
-                    selectors[i].setCenterX(dock.getX());
-                    selectors[i].setCenterY(dock.getY());
-                    selectorLabels[i].setX(dock.getX() - 10);
-                    selectorLabels[i].setY(dock.getY() + 6);
+                    dockFightSelector(i, selectors[i], selectorLabels[i], dockPositions);
                 }
                 updateSlot[i].run();
             }
@@ -10114,14 +11405,38 @@ public class BirdGame3 extends Application {
         root.setCenter(center);
         root.setBottom(playerBar);
 
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        bindEscape(scene, back);
         BooleanSupplier tryStartMatch = () -> {
             if (!readyBtn.isVisible()) return false;
             playButtonClick();
             readyBtn.fire();
             return true;
         };
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        fightSceneRef[0] = scene;
+        scene.getProperties().put(SCENE_PROP_WIIMOTE_SELECTOR, Boolean.TRUE);
+        scene.getProperties().put(SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS, activePlayers);
+        scene.getProperties().put(
+                SCENE_PROP_FIGHT_SELECTOR_CONTROLLER,
+                new FightSetupSelectorController(
+                        selectors,
+                        selectorLabels,
+                        selectorLocked,
+                        spots,
+                        dockPositions,
+                        selectionPane,
+                        updateSlot,
+                        updateReadyBanner,
+                        tryStartMatch,
+                        nullRockSequenceProgress,
+                        selectorClaws,
+                        selectorClawLabels,
+                        selectorColors
+                )
+        );
+        setFightSetupClawCursor(scene, false);
+        scene.addEventFilter(MouseEvent.MOUSE_RELEASED, e -> setFightSetupClawCursor(scene, false));
+        bindEscape(scene, back);
 
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             boolean handled = false;
@@ -10502,7 +11817,7 @@ public class BirdGame3 extends Application {
         KeyCode select = attackKeyForPlayer(idx);
         KeyCode special = specialKeyForPlayer(idx);
 
-        double step = 26;
+        double step = FIGHT_SELECTOR_MOVE_STEP;
         boolean moved = false;
         if (code == special) {
             if (nullRockSequenceProgress != null && idx < nullRockSequenceProgress.length) {
@@ -10515,44 +11830,13 @@ public class BirdGame3 extends Application {
                 nullRockSequenceProgress[idx] = 0;
             }
             if (selectorLocked[idx]) {
-                selectorLocked[idx] = false;
-                fightRandomSelected[idx] = false;
-                fightSelectedBirds[idx] = null;
-                fightSelectedSkinKeys[idx] = null;
-                Point2D dock = dockPositions[idx];
-                selector.setCenterX(dock.getX());
-                selector.setCenterY(dock.getY());
-                label.setX(dock.getX() - 10);
-                label.setY(dock.getY() + 6);
-                updateSlot.run();
-                updateReady.run();
+                clearFightSelectorChoice(idx, selector, selectorLocked, updateSlot, updateReady);
+                dockFightSelector(idx, selector, label, dockPositions);
                 return true;
             }
-            BirdIconSpot best = null;
-            double bestDist = Double.MAX_VALUE;
-            for (BirdIconSpot spot : spots) {
-                double dx = selector.getCenterX() - spot.cx();
-                double dy = selector.getCenterY() - spot.cy();
-                double dist = dx * dx + dy * dy;
-                if (dist < bestDist) {
-                    bestDist = dist;
-                    best = spot;
-                }
-            }
+            BirdIconSpot best = nearestFightSelectorSpot(selector, spots);
             if (best != null) {
-                selector.setCenterX(best.cx());
-                selector.setCenterY(best.cy());
-                label.setX(best.cx() - 10);
-                label.setY(best.cy() + 6);
-                if (best.random()) {
-                    fightRandomSelected[idx] = true;
-                    fightSelectedBirds[idx] = null;
-                } else {
-                    fightRandomSelected[idx] = false;
-                    fightSelectedBirds[idx] = best.type();
-                }
-                selectorLocked[idx] = true;
-                updateSlot.run();
+                lockFightSelectorToSpot(idx, selector, label, selectorLocked, best, updateSlot);
             }
             return true;
         }
@@ -10580,19 +11864,9 @@ public class BirdGame3 extends Application {
                 nullRockSequenceProgress[idx] = 0;
             }
             if (selectorLocked[idx]) {
-                selectorLocked[idx] = false;
-                fightRandomSelected[idx] = false;
-                fightSelectedBirds[idx] = null;
-                fightSelectedSkinKeys[idx] = null;
-                updateSlot.run();
-                updateReady.run();
+                clearFightSelectorChoice(idx, selector, selectorLocked, updateSlot, updateReady);
             }
-            nx = Math.clamp(nx, 40.0, selectionPane.getPrefWidth() - 40.0);
-            ny = Math.clamp(ny, 40.0, selectionPane.getPrefHeight() - 40.0);
-            selector.setCenterX(nx);
-            selector.setCenterY(ny);
-            label.setX(nx - 10);
-            label.setY(ny + 6);
+            moveFightSelectorWithinPane(selector, label, nx, ny, selectionPane);
             return true;
         }
         return false;
@@ -16914,6 +18188,8 @@ public class BirdGame3 extends Application {
 
         final ControlBindingTarget[] pendingBinding = new ControlBindingTarget[1];
         Map<String, Button> bindingButtons = new HashMap<>();
+        Button[] wiimoteModeButtons = new Button[4];
+        Label[] wiimoteStatusLabels = new Label[4];
 
         Label controlsInfo = new Label("Select a control, then press a new key. Conflicts swap automatically. ESC cancels a pending rebind.");
         controlsInfo.setFont(Font.font("Consolas", 20));
@@ -16930,6 +18206,86 @@ public class BirdGame3 extends Application {
         controlsStatus.setMaxWidth(1180);
         controlsStatus.setAlignment(Pos.CENTER_LEFT);
         applyNoEllipsis(controlsStatus);
+
+        Label wiimoteInfo = new Label("Wiimote modes pair to player slots globally. Pair the controller in Windows Bluetooth first, then wake it with a button press. SIDEWAYS uses the D-pad plus motion gestures. NUNCHUK uses the stick with C/Z and remote motion.");
+        wiimoteInfo.setFont(Font.font("Consolas", 18));
+        wiimoteInfo.setTextFill(Color.web("#B3E5FC"));
+        wiimoteInfo.setWrapText(true);
+        wiimoteInfo.setMaxWidth(1180);
+        wiimoteInfo.setAlignment(Pos.CENTER_LEFT);
+        applyNoEllipsis(wiimoteInfo);
+
+        GridPane wiimoteGrid = new GridPane();
+        wiimoteGrid.setHgap(14);
+        wiimoteGrid.setVgap(10);
+        wiimoteGrid.setPadding(new Insets(6, 0, 10, 0));
+
+        Label wiimotePlayerHeader = new Label("PLAYER");
+        wiimotePlayerHeader.setFont(Font.font("Arial Black", 22));
+        wiimotePlayerHeader.setTextFill(Color.web("#90CAF9"));
+        Label wiimoteModeHeader = new Label("WIIMOTE MODE");
+        wiimoteModeHeader.setFont(Font.font("Arial Black", 22));
+        wiimoteModeHeader.setTextFill(Color.web("#FFE082"));
+        Label wiimoteStatusHeader = new Label("STATUS");
+        wiimoteStatusHeader.setFont(Font.font("Arial Black", 22));
+        wiimoteStatusHeader.setTextFill(Color.web("#C5E1A5"));
+        wiimoteGrid.add(wiimotePlayerHeader, 0, 0);
+        wiimoteGrid.add(wiimoteModeHeader, 1, 0);
+        wiimoteGrid.add(wiimoteStatusHeader, 2, 0);
+
+        Runnable refreshWiimoteControls = () -> {
+            for (int playerIdx = 0; playerIdx < wiimoteModeButtons.length; playerIdx++) {
+                Button button = wiimoteModeButtons[playerIdx];
+                if (button != null) {
+                    WiimoteControlMode mode = wiimoteModeForPlayer(playerIdx);
+                    String color = switch (mode) {
+                        case OFF -> "#455A64";
+                        case SIDEWAYS -> "#00838F";
+                        case NUNCHUK -> "#2E7D32";
+                    };
+                    button.setText(mode.label);
+                    button.setStyle("-fx-background-color: " + color
+                            + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 18;");
+                    updateControlHighlight(button);
+                }
+                Label statusLabel = wiimoteStatusLabels[playerIdx];
+                if (statusLabel != null) {
+                    String status = wiimoteInputManager == null
+                            ? "Wiimote HID unavailable."
+                            : wiimoteInputManager.statusForPlayer(playerIdx);
+                    statusLabel.setText(status == null || status.isBlank() ? "Waiting for Wiimote." : status);
+                }
+            }
+        };
+
+        for (int playerIdx = 0; playerIdx < 4; playerIdx++) {
+            Label playerLabel = new Label("PLAYER " + (playerIdx + 1));
+            playerLabel.setFont(Font.font("Consolas", 20));
+            playerLabel.setTextFill(Color.web("#ECEFF1"));
+            wiimoteGrid.add(playerLabel, 0, playerIdx + 1);
+
+            final int wiimotePlayer = playerIdx;
+            Button wiimoteModeButton = uiFactory.action("", 220, 58, 18, "#455A64", 16, null);
+            wiimoteModeButton.setOnAction(e -> {
+                playButtonClick();
+                WiimoteControlMode nextMode = wiimoteModeForPlayer(wiimotePlayer).next();
+                setWiimoteModeForPlayer(wiimotePlayer, nextMode);
+                controlsStatus.setText("Player " + (wiimotePlayer + 1) + " Wiimote mode set to " + nextMode.label + '.');
+                refreshWiimoteControls.run();
+                saveAchievements();
+            });
+            wiimoteModeButtons[playerIdx] = wiimoteModeButton;
+            wiimoteGrid.add(wiimoteModeButton, 1, playerIdx + 1);
+
+            Label statusLabel = new Label();
+            statusLabel.setFont(Font.font("Consolas", 16));
+            statusLabel.setTextFill(Color.web("#CFD8DC"));
+            statusLabel.setWrapText(true);
+            statusLabel.setMaxWidth(520);
+            applyNoEllipsis(statusLabel);
+            wiimoteStatusLabels[playerIdx] = statusLabel;
+            wiimoteGrid.add(statusLabel, 2, playerIdx + 1);
+        }
 
         GridPane controlsGrid = new GridPane();
         controlsGrid.setHgap(14);
@@ -16994,10 +18350,11 @@ public class BirdGame3 extends Application {
             saveAchievements();
         });
 
-        VBox controlsPanel = new VBox(16, controlsInfo, controlsStatus, controlsGrid, resetControlsButton);
+        VBox controlsPanel = new VBox(16, controlsInfo, controlsStatus, wiimoteInfo, wiimoteGrid, controlsGrid, resetControlsButton);
         controlsPanel.setAlignment(Pos.CENTER_LEFT);
 
         refreshBindingButtons.run();
+        refreshWiimoteControls.run();
 
         VBox contentHolder = new VBox(18);
         contentHolder.setAlignment(Pos.CENTER_LEFT);
@@ -17034,6 +18391,7 @@ public class BirdGame3 extends Application {
             setSettingsTabActive(displayTab, false);
             setSettingsTabActive(graphicsTab, false);
             setSettingsTabActive(controlsTab, true);
+            refreshWiimoteControls.run();
             contentHolder.getChildren().setAll(controlsPanel);
         };
 
@@ -20532,10 +21890,6 @@ public class BirdGame3 extends Application {
     private void captureTrainingSpawns() {
         Bird player = players[0];
         Bird dummy = players[trainingDummyIndex];
-        trainingPlayerSpawnX = player != null ? player.x : Double.NaN;
-        trainingPlayerSpawnY = player != null ? player.y : Double.NaN;
-        trainingDummySpawnX = dummy != null ? dummy.x : Double.NaN;
-        trainingDummySpawnY = dummy != null ? dummy.y : Double.NaN;
     }
 
     private void resetTrainingLabState() {
@@ -20546,10 +21900,6 @@ public class BirdGame3 extends Application {
         trainingFrameAdvanceRequests = 0;
         trainingDummyJumpCooldown = 0;
         trainingDummyBlockFrames = 0;
-        trainingPlayerSpawnX = Double.NaN;
-        trainingPlayerSpawnY = Double.NaN;
-        trainingDummySpawnX = Double.NaN;
-        trainingDummySpawnY = Double.NaN;
         resetTrainingComboState();
         trainingSessionDamage = 0.0;
         trainingLastHitDamage = 0.0;
@@ -20998,7 +22348,7 @@ public class BirdGame3 extends Application {
             registerDashTapForKey(code);
         }
         if (!lanModeActive && e.getCode() == KeyCode.ESCAPE) {
-            togglePause(stage);
+            handleGameplayPauseRequest(stage);
         }
     }
 
@@ -21027,6 +22377,66 @@ public class BirdGame3 extends Application {
                 players[i].registerDashTap(1);
             }
         }
+    }
+
+    private void handleGameplayPauseRequest(Stage stage) {
+        if (stage == null) {
+            return;
+        }
+        if (lanModeActive) {
+            confirmLeaveLanMatch(stage);
+            return;
+        }
+        togglePause(stage);
+    }
+
+    private boolean movePauseMenuFocus(Scene scene, VBox pauseMenu, KeyCode direction) {
+        if (pauseMenu == null) {
+            return false;
+        }
+        List<Button> buttons = new ArrayList<>();
+        for (Node child : pauseMenu.getChildren()) {
+            if (child instanceof Button button && button.isVisible() && !button.isDisabled()) {
+                buttons.add(button);
+            }
+        }
+        if (buttons.isEmpty()) {
+            return false;
+        }
+        int delta = switch (direction) {
+            case UP, LEFT -> -1;
+            case DOWN, RIGHT -> 1;
+            default -> 0;
+        };
+        if (delta == 0) {
+            return false;
+        }
+        Node focus = scene == null ? null : scene.getFocusOwner();
+        int currentIndex = buttons.indexOf(focus);
+        int nextIndex;
+        if (currentIndex < 0) {
+            nextIndex = delta > 0 ? 0 : buttons.size() - 1;
+        } else {
+            nextIndex = Math.clamp(currentIndex + delta, 0, buttons.size() - 1);
+        }
+        Button next = buttons.get(nextIndex);
+        next.requestFocus();
+        if (scene != null) {
+            setConsoleHighlightActive(true, scene);
+        }
+        return true;
+    }
+
+    private VBox currentPauseMenu() {
+        if (gameRoot == null) {
+            return null;
+        }
+        for (Node child : gameRoot.getChildren()) {
+            if (child instanceof VBox box && "pauseMenu".equals(box.getId())) {
+                return box;
+            }
+        }
+        return null;
     }
 
     KeyCode leftKeyForPlayer(int playerIdx) {
@@ -21096,6 +22506,15 @@ public class BirdGame3 extends Application {
         clearActionStates(localActionPressed);
         clearActionStates(aiActionPressed);
         clearActionStates(lanActionPressed);
+        clearActionStates(wiimoteActionPressed);
+        Arrays.fill(wiimoteLeftHeld, false);
+        Arrays.fill(wiimoteRightHeld, false);
+        Arrays.fill(wiimoteLeftHoldUntilNs, 0L);
+        Arrays.fill(wiimoteRightHoldUntilNs, 0L);
+        Arrays.fill(wiimoteGameplayPauseHeld, false);
+        for (long[] holdRow : wiimoteActionHoldUntilNs) {
+            Arrays.fill(holdRow, 0L);
+        }
     }
 
     private boolean isActionPressed(int playerIdx, ControlAction action) {
@@ -21103,13 +22522,151 @@ public class BirdGame3 extends Application {
         int actionIdx = action.ordinal();
         return localActionPressed[playerIdx][actionIdx]
                 || aiActionPressed[playerIdx][actionIdx]
-                || lanActionPressed[playerIdx][actionIdx];
+                || lanActionPressed[playerIdx][actionIdx]
+                || wiimoteActionPressed[playerIdx][actionIdx];
     }
 
     private void clearActionStates(boolean[][] states) {
         for (boolean[] playerStates : states) {
             Arrays.fill(playerStates, false);
         }
+    }
+
+    private void pollWiimoteGameplayInputs() {
+        clearActionStates(wiimoteActionPressed);
+        if (wiimoteInputManager == null) {
+            Arrays.fill(wiimoteLeftHeld, false);
+            Arrays.fill(wiimoteRightHeld, false);
+            Arrays.fill(wiimoteLeftHoldUntilNs, 0L);
+            Arrays.fill(wiimoteRightHoldUntilNs, 0L);
+            Arrays.fill(wiimoteGameplayPauseHeld, false);
+            for (long[] holdRow : wiimoteActionHoldUntilNs) {
+                Arrays.fill(holdRow, 0L);
+            }
+            return;
+        }
+
+        if (lanModeActive && lanIsClient) {
+            Arrays.fill(wiimoteGameplayPauseHeld, false);
+            syncLanWiimoteInputMask();
+            return;
+        }
+
+        int maxPlayers = Math.min(activePlayers, wiimoteActionPressed.length);
+        for (int i = 0; i < maxPlayers; i++) {
+            if (players[i] == null || isAI[i]) {
+                resetWiimoteGameplayHoldState(i);
+                continue;
+            }
+            if (lanModeActive && lanIsHost && i != 0) {
+                resetWiimoteGameplayHoldState(i);
+                continue;
+            }
+            WiimoteMappedState state = wiimoteInputManager.stateForPlayer(i);
+            boolean connected = state != null && state.connected();
+            boolean left = connected && state.left();
+            boolean right = connected && state.right();
+            boolean jump = connected && state.jump();
+            boolean attack = connected && state.attack();
+            boolean special = connected && state.special();
+            boolean block = connected && state.block();
+            boolean tauntCycle = connected && state.tauntCycle();
+            boolean tauntExecute = connected && state.tauntExecute();
+            boolean pauseHeld = connected && state.menuPause();
+            if (pauseHeld && !wiimoteGameplayPauseHeld[i] && currentStage != null && currentStage.getScene() == gameplayScene) {
+                wiimoteGameplayPauseHeld[i] = true;
+                wiimoteMenuPauseHeld = true;
+                handleGameplayPauseRequest(currentStage);
+                return;
+            }
+            wiimoteGameplayPauseHeld[i] = pauseHeld;
+            setActionState(wiimoteActionPressed, i, ControlAction.LEFT, left);
+            setActionState(wiimoteActionPressed, i, ControlAction.RIGHT, right);
+            setActionState(wiimoteActionPressed, i, ControlAction.JUMP, jump);
+            setActionState(wiimoteActionPressed, i, ControlAction.ATTACK, attack);
+            setActionState(wiimoteActionPressed, i, ControlAction.SPECIAL, special);
+            setActionState(wiimoteActionPressed, i, ControlAction.BLOCK, block);
+            setActionState(wiimoteActionPressed, i, ControlAction.TAUNT_CYCLE, tauntCycle);
+            setActionState(wiimoteActionPressed, i, ControlAction.TAUNT_EXECUTE, tauntExecute);
+
+            if (left && !wiimoteLeftHeld[i]) {
+                players[i].registerDashTap(-1);
+            }
+            if (right && !wiimoteRightHeld[i]) {
+                players[i].registerDashTap(1);
+            }
+            wiimoteLeftHeld[i] = left;
+            wiimoteRightHeld[i] = right;
+        }
+    }
+
+    private void syncLanWiimoteInputMask() {
+        int wiimotePlayer = Math.clamp(lanPlayerIndex >= 0 ? lanPlayerIndex : 0, 0, 3);
+        WiimoteMappedState state = wiimoteInputManager.stateForPlayer(wiimotePlayer);
+        boolean connected = state != null && state.connected();
+        boolean left = connected && state.left();
+        boolean right = connected && state.right();
+        boolean jump = connected && state.jump();
+        boolean attack = connected && state.attack();
+        boolean special = connected && state.special();
+        boolean block = connected && state.block();
+        boolean tauntCycle = connected && state.tauntCycle();
+        boolean tauntExecute = connected && state.tauntExecute();
+        int nextMask = 0;
+        if (left) nextMask |= LanProtocol.INPUT_LEFT;
+        if (right) nextMask |= LanProtocol.INPUT_RIGHT;
+        if (jump) nextMask |= LanProtocol.INPUT_JUMP;
+        if (attack) nextMask |= LanProtocol.INPUT_ATTACK;
+        if (special) nextMask |= LanProtocol.INPUT_SPECIAL;
+        if (block) nextMask |= LanProtocol.INPUT_BLOCK;
+        if (tauntCycle) nextMask |= LanProtocol.INPUT_TAUNT_CYCLE;
+        if (tauntExecute) nextMask |= LanProtocol.INPUT_TAUNT_EXEC;
+        if (nextMask != lanLocalInputMask) {
+            lanLocalInputMask = nextMask;
+            if (lanClient != null) {
+                lanClient.sendInputMask(lanLocalInputMask);
+            }
+        }
+    }
+
+    private boolean stableWiimoteDirection(int playerIdx, boolean directionHeld, boolean oppositeHeld, long now, boolean leftDirection) {
+        if (isValidPlayerIndex(playerIdx)) {
+            return false;
+        }
+        long[] holdUntil = leftDirection ? wiimoteLeftHoldUntilNs : wiimoteRightHoldUntilNs;
+        if (directionHeld) {
+            holdUntil[playerIdx] = now + WIIMOTE_GAMEPLAY_DIRECTION_GRACE_NS;
+            return true;
+        }
+        if (oppositeHeld) {
+            holdUntil[playerIdx] = 0L;
+            return false;
+        }
+        return now < holdUntil[playerIdx];
+    }
+
+    private boolean stableWiimoteAction(int playerIdx, ControlAction action, boolean actionHeld, long now) {
+        if (isValidPlayerIndex(playerIdx) || action == null) {
+            return false;
+        }
+        long[] holdUntil = wiimoteActionHoldUntilNs[playerIdx];
+        int actionIdx = action.ordinal();
+        if (actionHeld) {
+            holdUntil[actionIdx] = now + WIIMOTE_GAMEPLAY_ACTION_LATCH_NS;
+            return true;
+        }
+        return now < holdUntil[actionIdx];
+    }
+
+    private void resetWiimoteGameplayHoldState(int playerIdx) {
+        if (isValidPlayerIndex(playerIdx)) {
+            return;
+        }
+        wiimoteLeftHeld[playerIdx] = false;
+        wiimoteRightHeld[playerIdx] = false;
+        wiimoteLeftHoldUntilNs[playerIdx] = 0L;
+        wiimoteRightHoldUntilNs[playerIdx] = 0L;
+        Arrays.fill(wiimoteActionHoldUntilNs[playerIdx], 0L);
     }
 
     void setLocalActionsForKey(KeyCode code, boolean down) {
@@ -21794,6 +23351,7 @@ public class BirdGame3 extends Application {
                 ? "-fx-background-color: linear-gradient(to bottom, #87CEEB 0%, #B3E5FC 50%, #E0F2F1 100%);"
                 : "-fx-background-color: #000011;");
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        gameplayScene = scene;
         makeSceneResponsive(scene);
         uiCanvas = new Canvas(WIDTH, HEIGHT);
         ui = uiCanvas.getGraphicsContext2D();
@@ -23309,6 +24867,7 @@ public class BirdGame3 extends Application {
 
     private void loadGlobalSettings(Preferences prefs) {
         loadControlBindings(prefs);
+        loadWiimoteModes(prefs);
         lanLastHost = prefs.get("lan_last_host", "");
         musicEnabled = prefs.getBoolean("setting_music", true);
         sfxEnabled = prefs.getBoolean("setting_sfx", true);
@@ -23541,6 +25100,7 @@ public class BirdGame3 extends Application {
 
     private void saveGlobalSettings(Preferences prefs) {
         saveControlBindings(prefs);
+        saveWiimoteModes(prefs);
         prefs.put("lan_last_host", lanLastHost == null ? "" : lanLastHost);
         prefs.putBoolean("setting_music", musicEnabled);
         prefs.putBoolean("setting_sfx", sfxEnabled);
@@ -25290,19 +26850,28 @@ public class BirdGame3 extends Application {
         } else {
             // === PAUSE ===
             clearGameplayInputs();
+            VBox pauseMenu = new VBox(20);
+            pauseMenu.setId("pauseMenu");
+            pauseMenu.setAlignment(Pos.CENTER);
+            pauseMenu.setPrefSize(WIDTH, HEIGHT);
+            pauseMenu.setStyle("-fx-background-color: rgba(0,0,0,0.7);");
             scene.setOnKeyPressed(e -> {
                 KeyCode code = e.getCode();
-                KeyCode arrow = switch (code) {
+                KeyCode navigation = switch (code) {
                     case W -> KeyCode.UP;
                     case S -> KeyCode.DOWN;
                     case A -> KeyCode.LEFT;
                     case D -> KeyCode.RIGHT;
-                    default -> null;
+                    default -> code;
                 };
-                if (arrow != null) {
-                    e.consume();
-                    Node focus = scene.getFocusOwner();
-                    if (focus != null) focus.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", arrow, false, false, false, false));
+                if (navigation == KeyCode.UP
+                        || navigation == KeyCode.DOWN
+                        || navigation == KeyCode.LEFT
+                        || navigation == KeyCode.RIGHT) {
+                    if (movePauseMenuFocus(scene, pauseMenu, navigation)) {
+                        e.consume();
+                        return;
+                    }
                 }
                 if (code == KeyCode.SPACE || code == KeyCode.ENTER) {
                     playButtonClick();
@@ -25315,12 +26884,6 @@ public class BirdGame3 extends Application {
                     e.consume();
                 }
             });
-
-            VBox pauseMenu = new VBox(20);
-            pauseMenu.setId("pauseMenu");
-            pauseMenu.setAlignment(Pos.CENTER);
-            pauseMenu.setPrefSize(WIDTH, HEIGHT);
-            pauseMenu.setStyle("-fx-background-color: rgba(0,0,0,0.7);");
 
             Label pauseLabel = new Label("PAUSED");
             pauseLabel.setFont(Font.font("Arial Black", FontWeight.BOLD, 80));
@@ -25365,6 +26928,8 @@ public class BirdGame3 extends Application {
     @Override
     public void stop() throws Exception {
         if (timer != null) timer.stop();
+        if (wiimoteMenuTimer != null) wiimoteMenuTimer.stop();
+        if (wiimoteInputManager != null) wiimoteInputManager.close();
         stopLanSession();
         flushAchievementsNow();
         disposeAllManagedMediaPlayers();

@@ -1,6 +1,7 @@
 package com.example.birdgame3;
 
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +45,7 @@ class BirdGame3SettingsTest {
         assertEquals(0.15, prefs.getDouble("setting_sfx_volume", -1.0), 0.0001);
         assertTrue(prefs.getBoolean("setting_music", false));
         assertTrue(prefs.getBoolean("setting_sfx", false));
+        assertEquals(WiimoteControlMode.OFF.name(), prefs.get("setting_wiimote_mode_p1", ""));
 
         invokeVolumeSetter(game, "setSfxVolume", 0.0);
         game.persistAchievements(prefs);
@@ -66,6 +68,7 @@ class BirdGame3SettingsTest {
         assertEquals(1, queue.size());
 
         Object payload = queue.peekFirst();
+        Assertions.assertNotNull(payload);
         Method title = payload.getClass().getDeclaredMethod("title");
         Method description = payload.getClass().getDeclaredMethod("description");
         Method rewardText = payload.getClass().getDeclaredMethod("rewardText");
@@ -259,6 +262,23 @@ class BirdGame3SettingsTest {
         assertEquals("rooftop-arc", iconVariant.invoke(game, 10));
         assertEquals("story-book", iconVariant.invoke(game, 21));
         assertEquals("iron-wing", iconVariant.invoke(game, 27));
+    }
+
+    @Test
+    void globalSettingsRoundTripWiimoteModes() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.setWiimoteModeForPlayer(0, WiimoteControlMode.SIDEWAYS);
+        game.setWiimoteModeForPlayer(1, WiimoteControlMode.NUNCHUK);
+        game.persistAchievements(prefs);
+
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadGlobalSettings = BirdGame3.class.getDeclaredMethod("loadGlobalSettings", Preferences.class);
+        loadGlobalSettings.setAccessible(true);
+        loadGlobalSettings.invoke(reloaded, prefs);
+
+        assertEquals(WiimoteControlMode.SIDEWAYS, reloaded.wiimoteModeForPlayer(0));
+        assertEquals(WiimoteControlMode.NUNCHUK, reloaded.wiimoteModeForPlayer(1));
+        assertEquals(WiimoteControlMode.OFF, reloaded.wiimoteModeForPlayer(2));
     }
 
     @Test

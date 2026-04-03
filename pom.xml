@@ -26,6 +26,11 @@
             <artifactId>javafx-media</artifactId>
             <version>21.0.6</version>
         </dependency>
+        <dependency>
+            <groupId>org.hid4java</groupId>
+            <artifactId>hid4java</artifactId>
+            <version>0.8.0</version>
+        </dependency>
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -98,6 +103,7 @@
                             <noHeaderFiles>true</noHeaderFiles>
                             <options>
                                 <option>--enable-native-access=javafx.media</option>
+                                <option>--enable-native-access=com.sun.jna</option>
                             </options>
                         </configuration>
                     </execution>
