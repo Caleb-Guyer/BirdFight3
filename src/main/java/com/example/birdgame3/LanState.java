@@ -15,6 +15,7 @@ class LanState {
     double zoom;
     double shakeIntensity;
     int hitstopFrames;
+    int dockLeverCooldown;
     int[] scores = new int[4];
     List<String> killFeed = new ArrayList<>();
     LanBirdState[] birds = new LanBirdState[4];
@@ -23,6 +24,8 @@ class LanState {
     List<SwingingVineState> swingingVines = new ArrayList<>();
     List<WindVentState> windVents = new ArrayList<>();
     List<CrowMinionState> crowMinions = new ArrayList<>();
+    List<PiranhaState> piranhas = new ArrayList<>();
+    DockBombState dockBomb;
     List<ChickMinionState> chickMinions = new ArrayList<>();
 
     void write(DataOutputStream out) throws IOException {
@@ -34,6 +37,7 @@ class LanState {
         out.writeDouble(zoom);
         out.writeDouble(shakeIntensity);
         out.writeInt(hitstopFrames);
+        out.writeInt(dockLeverCooldown);
         out.writeInt(scores.length);
         for (int score : scores) {
             out.writeInt(score);
@@ -90,6 +94,33 @@ class LanState {
             out.writeBoolean(c.hasCrown);
             out.writeInt(c.variant);
         }
+        out.writeInt(piranhas.size());
+        for (PiranhaState p : piranhas) {
+            out.writeDouble(p.x);
+            out.writeDouble(p.y);
+            out.writeDouble(p.vx);
+            out.writeDouble(p.vy);
+            out.writeInt(p.age);
+            out.writeInt(p.biteCooldown);
+            out.writeInt(p.breachCooldown);
+        }
+        out.writeBoolean(dockBomb != null);
+        if (dockBomb != null) {
+            out.writeDouble(dockBomb.x);
+            out.writeDouble(dockBomb.y);
+            out.writeDouble(dockBomb.vx);
+            out.writeDouble(dockBomb.vy);
+            out.writeDouble(dockBomb.targetX);
+            out.writeDouble(dockBomb.targetY);
+            out.writeInt(dockBomb.ownerPlayerIndex);
+            out.writeInt(dockBomb.targetPlayerIndex);
+            out.writeInt(dockBomb.fuse);
+            out.writeInt(dockBomb.launchDelayFrames);
+            out.writeInt(dockBomb.cannonFlashFrames);
+            out.writeInt(dockBomb.explosionFrames);
+            out.writeBoolean(dockBomb.fired);
+            out.writeBoolean(dockBomb.exploded);
+        }
         out.writeInt(chickMinions.size());
         for (ChickMinionState c : chickMinions) {
             out.writeDouble(c.x);
@@ -113,6 +144,7 @@ class LanState {
         state.zoom = in.readDouble();
         state.shakeIntensity = in.readDouble();
         state.hitstopFrames = in.readInt();
+        state.dockLeverCooldown = in.readInt();
         int scoreCount = in.readInt();
         for (int i = 0; i < Math.min(scoreCount, state.scores.length); i++) {
             state.scores[i] = in.readInt();
@@ -188,6 +220,37 @@ class LanState {
             c.variant = in.readInt();
             state.crowMinions.add(c);
         }
+        int piranhaCount = in.readInt();
+        for (int i = 0; i < piranhaCount; i++) {
+            PiranhaState p = new PiranhaState();
+            p.x = in.readDouble();
+            p.y = in.readDouble();
+            p.vx = in.readDouble();
+            p.vy = in.readDouble();
+            p.age = in.readInt();
+            p.biteCooldown = in.readInt();
+            p.breachCooldown = in.readInt();
+            state.piranhas.add(p);
+        }
+        boolean hasDockBomb = in.readBoolean();
+        if (hasDockBomb) {
+            DockBombState bomb = new DockBombState();
+            bomb.x = in.readDouble();
+            bomb.y = in.readDouble();
+            bomb.vx = in.readDouble();
+            bomb.vy = in.readDouble();
+            bomb.targetX = in.readDouble();
+            bomb.targetY = in.readDouble();
+            bomb.ownerPlayerIndex = in.readInt();
+            bomb.targetPlayerIndex = in.readInt();
+            bomb.fuse = in.readInt();
+            bomb.launchDelayFrames = in.readInt();
+            bomb.cannonFlashFrames = in.readInt();
+            bomb.explosionFrames = in.readInt();
+            bomb.fired = in.readBoolean();
+            bomb.exploded = in.readBoolean();
+            state.dockBomb = bomb;
+        }
         int chickCount = in.readInt();
         for (int i = 0; i < chickCount; i++) {
             ChickMinionState c = new ChickMinionState();
@@ -243,6 +306,33 @@ class LanState {
         int ownerIndex;
         boolean hasCrown;
         int variant;
+    }
+
+    static final class PiranhaState {
+        double x;
+        double y;
+        double vx;
+        double vy;
+        int age;
+        int biteCooldown;
+        int breachCooldown;
+    }
+
+    static final class DockBombState {
+        double x;
+        double y;
+        double vx;
+        double vy;
+        double targetX;
+        double targetY;
+        int ownerPlayerIndex;
+        int targetPlayerIndex;
+        int fuse;
+        int launchDelayFrames;
+        int cannonFlashFrames;
+        int explosionFrames;
+        boolean fired;
+        boolean exploded;
     }
 
     static final class ChickMinionState {

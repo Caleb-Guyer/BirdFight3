@@ -130,6 +130,10 @@ final class BirdBookUiSupport {
                 top = Color.web("#120C2B");
                 bottom = Color.web("#3B1E54");
             }
+            case DOCK -> {
+                top = Color.web("#0F3047");
+                bottom = Color.web("#2A6A83");
+            }
             default -> {
                 top = Color.web("#1B5E20");
                 bottom = Color.web("#4CAF50");
@@ -211,6 +215,35 @@ final class BirdBookUiSupport {
                 g.setLineWidth(3);
                 g.strokeLine(w * 0.22, h * 0.72, w * 0.78, h * 0.72);
             }
+            case DOCK -> {
+                g.setFill(Color.web("#0A1F2C", 0.42));
+                g.fillRect(0, h * 0.62, w, h * 0.38);
+                g.setFill(Color.web("#12394D", 0.65));
+                g.fillOval(w * 0.04, h * 0.68, w * 0.92, h * 0.22);
+
+                g.setFill(Color.web("#3E2723", 0.92));
+                g.fillRoundRect(w * 0.18, h * 0.58, w * 0.64, h * 0.12, 12, 12);
+                g.setStroke(Color.web("#8D6E63", 0.9));
+                g.setLineWidth(3);
+                for (int i = 0; i < 6; i++) {
+                    double px = w * (0.22 + i * 0.1);
+                    g.strokeLine(px, h * 0.58, px, h * 0.7);
+                }
+
+                g.setStroke(Color.web("#5D4037", 0.9));
+                g.setLineWidth(4);
+                g.strokeLine(w * 0.32, h * 0.58, w * 0.32, h * 0.22);
+                g.strokeLine(w * 0.68, h * 0.58, w * 0.68, h * 0.18);
+                g.strokeLine(w * 0.24, h * 0.3, w * 0.44, h * 0.52);
+                g.strokeLine(w * 0.76, h * 0.24, w * 0.54, h * 0.52);
+
+                g.setFill(Color.web("#E6EE9C", 0.22));
+                g.fillPolygon(
+                        new double[]{w * 0.32, w * 0.48, w * 0.32},
+                        new double[]{h * 0.24, h * 0.42, h * 0.56},
+                        3
+                );
+            }
             default -> {
                 g.setFill(Color.web("#1B5E20", 0.75));
                 g.fillPolygon(new double[]{0, w * 0.1, w * 0.2}, new double[]{h, h * 0.55, h}, 3);
@@ -245,6 +278,7 @@ final class BirdBookUiSupport {
             case CAVE -> Color.web("#455A64");
             case BATTLEFIELD -> Color.web("#1E88E5");
             case BEACON_CROWN -> Color.web("#8E24AA");
+            case DOCK -> Color.web("#26A69A");
             default -> Color.web("#2E7D32");
         };
     }
@@ -255,7 +289,7 @@ final class BirdBookUiSupport {
             case EAGLE, FALCON, PENGUIN, RAZORBILL -> BirdGame3.MapType.SKYCLIFFS;
             case PHOENIX, BAT, VULTURE, OPIUMBIRD, HEISENBIRD -> BirdGame3.MapType.CAVE;
             case HUMMINGBIRD, TITMOUSE -> BirdGame3.MapType.VIBRANT_JUNGLE;
-            case PELICAN -> BirdGame3.MapType.BATTLEFIELD;
+            case PELICAN -> BirdGame3.MapType.DOCK;
             default -> BirdGame3.MapType.FOREST;
         };
     }
@@ -302,6 +336,7 @@ final class BirdBookUiSupport {
             case VINE_GRAPPLE -> "Vine Grapple";
             case OVERCHARGE -> "Overcharge";
             case TITAN -> "Titan Form";
+            case BROADSIDE -> "Broadside";
         };
     }
 
@@ -316,6 +351,7 @@ final class BirdBookUiSupport {
             case VINE_GRAPPLE -> "Summons one swing vine from the platform above you. Snap up, arc out, and launch from new angles.";
             case OVERCHARGE -> "Resets special cooldown and amps attacks. Perfect for turning a brawl.";
             case TITAN -> "Grow larger with boosted power and durability. You become the hazard.";
+            case BROADSIDE -> "Legacy dockside cannon crate. Broken Harbor now uses a map lever that calls in pirate-ship bombs instead.";
         };
     }
 }

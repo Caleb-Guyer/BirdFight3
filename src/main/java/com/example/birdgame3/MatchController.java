@@ -339,8 +339,14 @@ final class MatchController {
         if (!isCompetitionMatch() && !game.trainingModeActive) {
             game.shakeIntensity = game.suddenDeath.updateAndSpawn(
                     game.crowMinions,
+                    game.piranhaHazards,
                     game.random,
                     game.shakeIntensity,
+                    game.selectedMap == BirdGame3.MapType.DOCK,
+                    game.dockWaterStartX(),
+                    game.dockWaterSurfaceY(),
+                    game.dockWaterWidth(),
+                    game.dockDrownDepthY(),
                     game.matchEnded
             );
         }

@@ -154,6 +154,16 @@ public class Bird {
     private static final double FAST_FALL_MAX = 22.0;
     private static final double FAST_FALL_UPDRAFT_ACCEL = 0.35;
     private static final double DOWN_WIND_DAMPING = 0.85;
+    private static final double DOCK_WATER_GRAVITY_SCALE = 0.08;
+    private static final double DOCK_WATER_BUOYANCY = 0.92;
+    private static final double DOCK_WATER_RISE_ACCEL = 1.85;
+    private static final double DOCK_WATER_DIVE_ACCEL = 0.72;
+    private static final double DOCK_WATER_SWIM_DRAG_X = 0.95;
+    private static final double DOCK_WATER_SWIM_DRAG_Y = 0.93;
+    private static final double DOCK_WATER_MAX_RISE = -13.2;
+    private static final double DOCK_WATER_MAX_SINK = 8.8;
+    private static final double DOCK_WATER_SURFACE_BREACH_WINDOW = 96.0;
+    private static final double DOCK_WATER_SURFACE_BREACH_BOOST = 12.4;
     private static final double ULTIMATE_MAX = 100.0;
     private static final double ULTIMATE_GAIN_DEALT = 0.35;
     private static final double ULTIMATE_GAIN_TAKEN = 0.45;
@@ -311,7 +321,34 @@ public class Bird {
     }
 
     private boolean canStandInVoid() {
-        return isNullRockForm() && (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN);
+        return isNullRockForm() && isVoidMap();
+    }
+
+    private boolean usesIslandBounds() {
+        return game.selectedMap == MapType.BATTLEFIELD
+                || game.selectedMap == MapType.BEACON_CROWN;
+    }
+
+    private boolean isInDockWater() {
+        return game.selectedMap == MapType.DOCK
+                && game.isDockWaterAt(bodyCenterX(), bodyCenterY() + combatHalfHeight() * 0.25);
+    }
+
+    private boolean isFullySubmergedInDockWater() {
+        return game.selectedMap == MapType.DOCK
+                && game.isDockWaterAt(bodyCenterX(), bodyCenterY());
+    }
+
+    private boolean isDockDrownDepthReached() {
+        return game.selectedMap == MapType.DOCK
+                && bodyBottomY() >= game.dockDrownDepthY();
+    }
+
+    private boolean hasSolidGroundFloorUnderBody() {
+        if (game.selectedMap == MapType.DOCK) {
+            return !game.isDockWaterAt(bodyCenterX(), BirdGame3.GROUND_Y + 8);
+        }
+        return !usesIslandBounds();
     }
 
     private double voidStandFloorY() {
@@ -321,7 +358,7 @@ public class Bird {
 
     public boolean isOnGround() {
         double bottom = bodyBottomY();
-        if (game.selectedMap != MapType.BATTLEFIELD && game.selectedMap != MapType.BEACON_CROWN && bottom >= BirdGame3.GROUND_Y) return true;
+        if (hasSolidGroundFloorUnderBody() && bottom >= BirdGame3.GROUND_Y) return true;
         if (canStandInVoid() && bottom >= voidStandFloorY()) return true;
         for (Platform p : game.platforms) {
             boolean isCaveCeiling = game.selectedMap == MapType.CAVE &&
@@ -384,7 +421,7 @@ public class Bird {
             hit = true;
         }
 
-        if (!hit && game.selectedMap != MapType.BATTLEFIELD && game.selectedMap != MapType.BEACON_CROWN && y + 80 * sizeMultiplier > BirdGame3.GROUND_Y) {
+        if (!hit && hasSolidGroundFloorUnderBody() && y + 80 * sizeMultiplier > BirdGame3.GROUND_Y) {
             newY = BirdGame3.GROUND_Y - bodyHeight();
             hit = true;
         }
@@ -2047,6 +2084,7 @@ public class Bird {
             case VINE_GRAPPLE -> score = 88;
             case OVERCHARGE -> score = 102;
             case TITAN -> score = 92;
+            case BROADSIDE -> score = 90;
         }
         score /= (1 + myDist / 320.0);
 
@@ -2709,6 +2747,7 @@ public class Bird {
         boolean stunned = stunTime > 0;
         boolean airborne = !isOnGround();
         boolean downHeld = !stunned && blockPressed();
+        boolean inDockWater = isInDockWater();
         boolean inWindNow = isInWindVent(x, y);
         boolean inUpdraft = inWindNow || thermalTimer > 0;
 
@@ -2734,18 +2773,24 @@ public class Bird {
         if (type == BirdGame3.BirdType.BAT && !isOnGround()) {
             gravityScale = 0.66;
         }
+        if (inDockWater) {
+            gravityScale *= DOCK_WATER_GRAVITY_SCALE;
+        }
         vy += BirdGame3.GRAVITY * gravityScale * gameSpeed;
-        if (airborne && downHeld) {
+        if (airborne && downHeld && !inDockWater) {
             double accel = inUpdraft ? FAST_FALL_UPDRAFT_ACCEL : FAST_FALL_ACCEL;
             vy += accel * gameSpeed;
             if (!inUpdraft && vy > FAST_FALL_MAX) vy = FAST_FALL_MAX;
+        }
+        if (inDockWater) {
+            applyDockWaterPhysics(stunned, downHeld, gameSpeed);
         }
 
         // === EAGLE PASSIVE ===
         handleEaglePassive(airborne);
 
         // === VULTURE FLYING ===
-        if (type == BirdGame3.BirdType.VULTURE && !stunned && jumpPressed()) {
+        if (type == BirdGame3.BirdType.VULTURE && !stunned && jumpPressed() && !inDockWater) {
             isFlying = true;
             vy -= 0.65;
             if (vy < -6.0) vy = -6.0;
@@ -2755,7 +2800,7 @@ public class Bird {
         }
 
         // === FLY/GLIDE ===
-        if (!stunned && jumpPressed() && airborne) {
+        if (!stunned && jumpPressed() && airborne && !inDockWater) {
             boolean limitedFlight = hasLimitedFlight();
             boolean thermalActive = thermalTimer > 0;
             double speedRatio = baseSpeedMultiplier > 0 ? speedMultiplier / baseSpeedMultiplier : 1.0;
@@ -2798,7 +2843,7 @@ public class Bird {
         }
 
         // === THERMAL SOARING ===
-        if (thermalTimer > 0 && vy > 0) {
+        if (thermalTimer > 0 && vy > 0 && !inDockWater) {
             vy *= 0.85;
         }
 
@@ -2876,7 +2921,7 @@ public class Bird {
 
         double leftBound = 50;
         double rightBound = BirdGame3.WORLD_WIDTH - 150 * sizeMultiplier;
-        if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
+        if (usesIslandBounds()) {
             double battlefieldLeft = game.battlefieldLeftBound();
             double battlefieldRight = game.battlefieldRightBound();
             leftBound = battlefieldLeft + 50;
@@ -3441,6 +3486,73 @@ public class Bird {
         } else {
             vx *= 0.92;
         }
+    }
+
+    private void applyDockWaterPhysics(boolean stunned, boolean downHeld, double gameSpeed) {
+        if (!isInDockWater()) {
+            return;
+        }
+
+        canDoubleJump = true;
+        vx *= Math.pow(DOCK_WATER_SWIM_DRAG_X, gameSpeed);
+        vy *= Math.pow(DOCK_WATER_SWIM_DRAG_Y, gameSpeed);
+        double surfaceGap = bodyCenterY() - game.dockWaterSurfaceY();
+
+        if (stunned) {
+            vy -= DOCK_WATER_BUOYANCY * 0.32 * gameSpeed;
+        } else {
+            if (jumpPressed()) {
+                if (surfaceGap <= DOCK_WATER_SURFACE_BREACH_WINDOW) {
+                    vy = Math.min(vy - DOCK_WATER_RISE_ACCEL * 0.45 * gameSpeed,
+                            -Math.max(DOCK_WATER_SURFACE_BREACH_BOOST, type.jumpHeight * 0.88));
+                    limitedFlightFuel = LIMITED_FLIGHT_MAX;
+                    canDoubleJump = true;
+                } else {
+                    vy -= DOCK_WATER_RISE_ACCEL * gameSpeed;
+                }
+            } else {
+                vy -= DOCK_WATER_BUOYANCY * gameSpeed;
+            }
+            if (downHeld) {
+                vy += DOCK_WATER_DIVE_ACCEL * gameSpeed;
+            }
+        }
+
+        if ((isFullySubmergedInDockWater() || surfaceGap <= DOCK_WATER_SURFACE_BREACH_WINDOW + 18.0)
+                && jumpPressed() && vy < -5.6) {
+            limitedFlightFuel = LIMITED_FLIGHT_MAX;
+        }
+
+        vy = Math.clamp(vy, DOCK_WATER_MAX_RISE, DOCK_WATER_MAX_SINK);
+    }
+
+    private void respawnAfterStageLoss(boolean trainingDummy, boolean islandBounds, double leftBound, double rightBound,
+                                       double fallbackX, double fallbackY) {
+        if (trainingDummy) {
+            health = STARTING_HEALTH;
+        }
+        boolean reborn = false;
+        if (!trainingDummy && health <= 0) {
+            reborn = tryPhoenixRebirth();
+            if (!reborn) {
+                onDefeated();
+            }
+        }
+        if (!reborn) game.playZombieFallSfx();
+        if (!reborn && health <= 0) {
+            x = Math.clamp(x, leftBound, rightBound);
+            y = BirdGame3.WORLD_HEIGHT + 400;
+        } else if (islandBounds) {
+            double centerX = game.battlefieldSpawnCenterX();
+            x = centerX - 40 * sizeMultiplier;
+            y = game.battlefieldSpawnY(sizeMultiplier);
+        } else {
+            x = fallbackX;
+            y = fallbackY;
+        }
+        vx = 0;
+        vy = 0;
+        canDoubleJump = true;
     }
 
     private void handleEagleDiveImpact() {
@@ -4325,7 +4437,8 @@ public class Bird {
         double rightBound = BirdGame3.WORLD_WIDTH - 150 * sizeMultiplier;
         double outLeft = -300;
         double outRight = BirdGame3.WORLD_WIDTH + 300;
-        if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
+        boolean islandBounds = usesIslandBounds();
+        if (islandBounds) {
             double battlefieldLeft = game.battlefieldLeftBound();
             double battlefieldRight = game.battlefieldRightBound();
             leftBound = battlefieldLeft + 50;
@@ -4345,35 +4458,14 @@ public class Bird {
 
         if (x < outLeft || x > outRight) {
             health = Math.max(0, health - 50);
-            boolean reborn = false;
-            if (trainingDummy) {
-                health = STARTING_HEALTH;
-                reborn = true;
-            } else if (health <= 0) {
-                reborn = tryPhoenixRebirth();
-                if (!reborn) {
-                    game.addToKillFeed(shortName() + " FLEW INTO THE VOID!");
-                    onDefeated();
-                }
-            } else {
+            if (health > 0 && !trainingDummy) {
                 game.addToKillFeed(shortName() + " went out of bounds... -50 HP");
             }
-        if (!reborn) game.playZombieFallSfx();
-        if (!reborn && health <= 0) {
-                x = Math.clamp(x, leftBound, rightBound);
-                y = BirdGame3.WORLD_HEIGHT + 400;
-            } else if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
-                double centerX = game.battlefieldSpawnCenterX();
-                x = centerX - 40 * sizeMultiplier;
-                y = game.battlefieldSpawnY(sizeMultiplier);
-            } else {
-                x = 2000 + playerIndex * 600;
-                y = BirdGame3.GROUND_Y - 400;
+            if (health <= 0 && !trainingDummy) {
+                game.addToKillFeed(shortName() + " FLEW INTO THE VOID!");
             }
-            vx = 0;
-            vy = 0;
-            canDoubleJump = true;
-
+            respawnAfterStageLoss(trainingDummy, islandBounds, leftBound, rightBound,
+                    2000 + playerIndex * 600, BirdGame3.GROUND_Y - 400);
         }
 
         if (y < BirdGame3.CEILING_Y) {
@@ -4384,42 +4476,35 @@ public class Bird {
 
         handleVerticalCollision();
 
+        if (game.selectedMap == MapType.DOCK && isDockDrownDepthReached()) {
+            game.falls[playerIndex]++;
+            health = 0;
+            if (!trainingDummy) {
+                game.addToKillFeed(shortName() + " DROWNED IN THE HARBOR!");
+            }
+            respawnAfterStageLoss(trainingDummy, true, leftBound, rightBound,
+                    game.battlefieldSpawnCenterX(), game.battlefieldSpawnY(sizeMultiplier));
+            return;
+        }
+
         if (y > BirdGame3.WORLD_HEIGHT + 300) {
             game.falls[playerIndex]++;
-            if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
+            if (isVoidMap()) {
                 health = 0;
             } else {
                 health = Math.max(0, health - 50);
             }
-            boolean reborn = false;
-            if (trainingDummy) {
-                health = STARTING_HEALTH;
-                reborn = true;
-            } else if (health <= 0) {
-                reborn = tryPhoenixRebirth();
-                if (!reborn) {
-                    String msg = (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN)
-                            ? shortName() + " FELL INTO THE VOID!"
-                            : shortName() + " FELL TO THEIR DOOM!";
-                    game.addToKillFeed(msg);
-                    onDefeated();
-                }
-            } else {
+            if (health > 0 && !trainingDummy) {
                 game.addToKillFeed(shortName() + " fell... but survived! -50 HP");
             }
-        if (!reborn) game.playZombieFallSfx();
-        if (!reborn && health <= 0) {
-                x = Math.clamp(x, leftBound, rightBound);
-                y = BirdGame3.WORLD_HEIGHT + 400;
-            } else if (game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN) {
-                double centerX = game.battlefieldSpawnCenterX();
-                x = centerX - 40 * sizeMultiplier;
-                y = game.battlefieldSpawnY(sizeMultiplier);
-            } else {
-                x = 1000 + playerIndex * 800;
-                y = BirdGame3.GROUND_Y - 300;
+            if (health <= 0 && !trainingDummy) {
+                String msg = isVoidMap()
+                        ? shortName() + " FELL INTO THE VOID!"
+                        : shortName() + " FELL TO THEIR DOOM!";
+                game.addToKillFeed(msg);
             }
-            vx = vy = 0;
+            respawnAfterStageLoss(trainingDummy, islandBounds, leftBound, rightBound,
+                    1000 + playerIndex * 800, BirdGame3.GROUND_Y - 300);
             if (!game.trainingModeActive) {
                 game.achievementProgress[7]++;
                 if (game.achievementProgress[7] >= 3 && !game.achievementsUnlocked[7]) {
@@ -4451,6 +4536,73 @@ public class Bird {
             if (overlapsPowerUp(p)) {
                 handlePowerUpType(p, it);
             }
+        }
+    }
+
+    private void triggerBroadsidePickup() {
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        double heaviestHit = 0;
+        boolean hitAnyone = false;
+
+        specialCooldown = Math.max(0, specialCooldown - 180);
+        overchargeAttackTimer = Math.max(overchargeAttackTimer, 210);
+        game.addToKillFeed(shortName() + " fired a BROADSIDE!");
+
+        for (Bird other : game.players) {
+            if (other == null || other == this || other.health <= 0) continue;
+            if (!canDamageTarget(other)) continue;
+
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            double maxDx = 1120 + other.combatHalfWidth();
+            double maxDy = 280 + other.combatHalfHeight();
+            if (Math.abs(dx) > maxDx || Math.abs(dy) > maxDy) continue;
+
+            double laneBias = 1.0 - Math.min(1.0, Math.abs(dy) / maxDy);
+            double oldHealth = other.health;
+            double dealtDamage = applyDamageTo(other, 28 + laneBias * 16);
+            if (dealtDamage <= 0) continue;
+
+            hitAnyone = true;
+            heaviestHit = Math.max(heaviestHit, dealtDamage);
+            game.damageDealt[playerIndex] += (int) Math.round(dealtDamage);
+            boolean isKill = oldHealth > 0 && other.health <= 0;
+            if (isKill) {
+                game.eliminations[playerIndex]++;
+                game.playZombieFallSfx();
+            }
+
+            spawnDamageParticles(other, dealtDamage);
+            logDamageKillFeed(dealtDamage, isKill, other);
+
+            double dir = dx == 0 ? (other.x >= x ? 1.0 : -1.0) : Math.signum(dx);
+            other.vx += dir * (20 + laneBias * 16);
+            other.vy -= 11 + laneBias * 8;
+            other.applyStun(12 + (int) Math.round(laneBias * 8));
+        }
+
+        int particleCount = scaledParticleCount(hitAnyone ? 86 : 58);
+        for (int i = 0; i < particleCount; i++) {
+            double side = i % 2 == 0 ? -1.0 : 1.0;
+            double speed = 10 + Math.random() * (hitAnyone ? 18 : 13);
+            double spread = (Math.random() - 0.5) * 10;
+            Color color = i % 3 == 0 ? Color.web("#FFCC80") : (i % 3 == 1 ? Color.web("#8D6E63") : Color.web("#ECEFF1"));
+            game.particles.add(new Particle(
+                    centerX + side * (18 + Math.random() * 22),
+                    centerY + spread,
+                    side * speed,
+                    spread * 0.35 - 3,
+                    color
+            ));
+        }
+
+        game.playHugewaveSfx();
+        game.shakeIntensity = Math.max(game.shakeIntensity, hitAnyone ? 30 : 18);
+        game.hitstopFrames = Math.max(game.hitstopFrames, hitAnyone ? 12 : 6);
+        if (hitAnyone) {
+            game.triggerFlash(Math.min(0.92, 0.42 + heaviestHit / 42.0), false);
+            game.playHitSound(heaviestHit);
         }
     }
 
@@ -4578,6 +4730,7 @@ public class Bird {
                 }
                 game.shakeIntensity = Math.max(game.shakeIntensity, 18);
             }
+            case BROADSIDE -> triggerBroadsidePickup();
         }
 
         game.recordPowerUpPickupForAchievements(this);

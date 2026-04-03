@@ -40,8 +40,14 @@ final class SuddenDeathController {
     }
 
     double updateAndSpawn(List<CrowMinion> crowMinions,
+                          List<PiranhaHazard> piranhas,
                           Random random,
                           double shakeIntensity,
+                          boolean dockMap,
+                          double waterX,
+                          double waterY,
+                          double waterW,
+                          double drownY,
                           boolean matchEnded) {
         if (!active || matchEnded) return shakeIntensity;
 
@@ -69,7 +75,11 @@ final class SuddenDeathController {
         }
 
         for (int i = 0; i < crowsPerSide; i++) {
-            double y = 200 + random.nextDouble() * (BirdGame3.WORLD_HEIGHT - 800);
+            double crowMaxY = BirdGame3.WORLD_HEIGHT - 800;
+            if (dockMap && waterY > 260) {
+                crowMaxY = Math.min(crowMaxY, waterY - 140);
+            }
+            double y = 200 + random.nextDouble() * Math.max(80.0, crowMaxY - 200);
             double speed = BASE_CROW_SPEED + Math.min(CROW_SPEED_GROWTH_CAP, sdSeconds * CROW_SPEED_GROWTH_PER_SEC);
 
             CrowMinion left = new CrowMinion(-100, y, null);
@@ -83,6 +93,17 @@ final class SuddenDeathController {
             right.vx = -speed - random.nextDouble() * 2;
             right.vy = (random.nextDouble() - 0.5) * 4;
             crowMinions.add(right);
+        }
+
+        if (dockMap && piranhas != null && waterW > 0) {
+            int fishPerSide = Math.min(3, 1 + (int) (rampSeconds / 24.0));
+            double minY = waterY + 44;
+            double maxY = Math.max(minY + 20, drownY - 80);
+            for (int i = 0; i < fishPerSide; i++) {
+                double y = minY + random.nextDouble() * Math.max(1.0, maxY - minY);
+                double speed = 4.0 + Math.min(3.6, sdSeconds * 0.08) + random.nextDouble() * 1.4;
+                piranhas.add(new PiranhaHazard(waterX + waterW - 12, y, -speed));
+            }
         }
 
         return Math.max(shakeIntensity, 15);

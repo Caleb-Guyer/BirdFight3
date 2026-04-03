@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -436,6 +437,176 @@ class BirdStateTest {
     }
 
     @Test
+    void dockWaterLetsBirdSwimUpward() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        game.selectedMap = BirdGame3.MapType.DOCK;
+
+        Method setupDockArena = BirdGame3.class.getDeclaredMethod("setupDockArena");
+        setupDockArena.setAccessible(true);
+        setupDockArena.invoke(game);
+
+        Bird bird = new Bird(3900.0, BirdGame3.BirdType.PIGEON, 0, game);
+        bird.x = 3900.0;
+        bird.y = game.dockWaterSurfaceY() + 120.0;
+        game.players[0] = bird;
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+
+        double startY = bird.y;
+        bird.update(1.0);
+
+        assertTrue(bird.vy < 0.0);
+        assertTrue(bird.y < startY);
+    }
+
+    @Test
+    void dockUsesSandFloorOutsideWaterGap() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        game.selectedMap = BirdGame3.MapType.DOCK;
+
+        Method setupDockArena = BirdGame3.class.getDeclaredMethod("setupDockArena");
+        setupDockArena.setAccessible(true);
+        setupDockArena.invoke(game);
+
+        Bird sandBird = new Bird(1600.0, BirdGame3.BirdType.PIGEON, 0, game);
+        sandBird.x = 1600.0;
+        sandBird.y = BirdGame3.GROUND_Y + 24.0;
+        sandBird.vy = 6.0;
+
+        Bird waterBird = new Bird(3900.0, BirdGame3.BirdType.PIGEON, 0, game);
+        waterBird.x = 3900.0;
+        waterBird.y = BirdGame3.GROUND_Y + 24.0;
+        waterBird.vy = 6.0;
+
+        Method handleVerticalCollision = Bird.class.getDeclaredMethod("handleVerticalCollision");
+        handleVerticalCollision.setAccessible(true);
+        handleVerticalCollision.invoke(sandBird);
+        handleVerticalCollision.invoke(waterBird);
+
+        assertTrue(sandBird.isOnGround());
+        assertFalse(waterBird.isOnGround());
+        assertTrue(waterBird.y > BirdGame3.GROUND_Y - 20.0);
+    }
+
+    @Test
+    void dockSkiffPlatformsSitAboveWaterline() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.selectedMap = BirdGame3.MapType.DOCK;
+
+        Method setupDockArena = BirdGame3.class.getDeclaredMethod("setupDockArena");
+        setupDockArena.setAccessible(true);
+        setupDockArena.invoke(game);
+
+        double waterline = game.dockWaterSurfaceY();
+        long submergedSkiffs = game.platforms.stream()
+                .filter(p -> p.x >= 2800.0 && p.x <= 3400.0 && p.w <= 260.0 && p.h <= 24.0)
+                .filter(p -> p.y >= waterline)
+                .count();
+
+        assertEquals(0, submergedSkiffs);
+    }
+
+    @Test
+    void dockLeverLaunchesPirateBomb() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.selectedMap = BirdGame3.MapType.DOCK;
+        game.activePlayers = 2;
+
+        Method setupDockArena = BirdGame3.class.getDeclaredMethod("setupDockArena");
+        setupDockArena.setAccessible(true);
+        setupDockArena.invoke(game);
+
+        Bird puller = new Bird(0.0, BirdGame3.BirdType.PELICAN, 0, game);
+        Bird target = new Bird(3600.0, BirdGame3.BirdType.EAGLE, 1, game);
+        game.players[0] = puller;
+        game.players[1] = target;
+
+        puller.x = getPrivateDouble(game, "dockLeverX") - 40.0;
+        puller.y = getPrivateDouble(game, "dockLeverY") - 40.0;
+
+        Method launchDockShipBomb = BirdGame3.class.getDeclaredMethod("launchDockShipBomb", Bird.class, Bird.class);
+        launchDockShipBomb.setAccessible(true);
+        launchDockShipBomb.invoke(game, puller, target);
+
+        DockShipBomb bomb = (DockShipBomb) getPrivateObject(game, "dockShipBomb");
+        assertNotNull(bomb);
+        assertTrue(getPrivateInt(game, "dockLeverCooldown") > 0);
+        assertFalse(bomb.fired);
+        assertTrue(bomb.launchDelayFrames > 0);
+    }
+
+    @Test
+    void dockStageUpdateDoesNotOverflowLeverState() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.selectedMap = BirdGame3.MapType.DOCK;
+        game.activePlayers = 2;
+
+        Method setupDockArena = BirdGame3.class.getDeclaredMethod("setupDockArena");
+        setupDockArena.setAccessible(true);
+        setupDockArena.invoke(game);
+
+        game.players[0] = new Bird(1040.0, BirdGame3.BirdType.PIGEON, 0, game);
+        game.players[1] = new Bird(3660.0, BirdGame3.BirdType.EAGLE, 1, game);
+
+        Method updateWorldFixed = BirdGame3.class.getDeclaredMethod("updateWorldFixed");
+        updateWorldFixed.setAccessible(true);
+
+        assertDoesNotThrow(() -> updateWorldFixed.invoke(game));
+    }
+
+    @Test
+    void dockBombLocksOnBeforeFiring() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.selectedMap = BirdGame3.MapType.DOCK;
+        game.activePlayers = 2;
+
+        Method setupDockArena = BirdGame3.class.getDeclaredMethod("setupDockArena");
+        setupDockArena.setAccessible(true);
+        setupDockArena.invoke(game);
+
+        Bird puller = new Bird(0.0, BirdGame3.BirdType.PELICAN, 0, game);
+        Bird target = new Bird(3600.0, BirdGame3.BirdType.EAGLE, 1, game);
+        game.players[0] = puller;
+        game.players[1] = target;
+
+        Method launchDockShipBomb = BirdGame3.class.getDeclaredMethod("launchDockShipBomb", Bird.class, Bird.class);
+        launchDockShipBomb.setAccessible(true);
+        launchDockShipBomb.invoke(game, puller, target);
+
+        Method updateDockShipBomb = BirdGame3.class.getDeclaredMethod("updateDockShipBomb");
+        updateDockShipBomb.setAccessible(true);
+        DockShipBomb bomb = (DockShipBomb) getPrivateObject(game, "dockShipBomb");
+        int delay = bomb.launchDelayFrames;
+        for (int i = 0; i < delay; i++) {
+            updateDockShipBomb.invoke(game);
+        }
+
+        bomb = (DockShipBomb) getPrivateObject(game, "dockShipBomb");
+        assertNotNull(bomb);
+        assertTrue(bomb.fired);
+        assertTrue(bomb.cannonFlashFrames > 0);
+    }
+
+    @Test
+    void dockMapCanBeUnlockedFromShopPreview() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        ShopPreview preview = new ShopPreview(null, "MAP_DOCK", "Broken Harbor Map");
+
+        Method isOwned = BirdGame3.class.getDeclaredMethod("isShopPreviewOwned", ShopPreview.class);
+        isOwned.setAccessible(true);
+        Method unlock = BirdGame3.class.getDeclaredMethod("unlockShopPreview", ShopPreview.class);
+        unlock.setAccessible(true);
+
+        assertFalse((boolean) isOwned.invoke(game, preview));
+
+        unlock.invoke(game, preview);
+
+        assertTrue((boolean) isOwned.invoke(game, preview));
+        assertTrue(getPrivateBoolean(game, "dockMapUnlocked"));
+    }
+
+    @Test
     void nullRockCannotBeStunnedOrShrunkAndAscendsAtHalfHealth() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.nullRockVultureUnlocked = true;
@@ -740,5 +911,17 @@ class BirdStateTest {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         return field.getDouble(target);
+    }
+
+    private static boolean getPrivateBoolean(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.getBoolean(target);
+    }
+
+    private static Object getPrivateObject(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
     }
 }

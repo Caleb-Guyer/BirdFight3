@@ -486,7 +486,7 @@ public class BirdGame3 extends Application {
     private record AchievementClaimResult(ShopPreview preview, String detail, boolean usesUnlockCards) {}
 
     // === MAPS ===
-    public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, CAVE, BATTLEFIELD, BEACON_CROWN }
+    public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, CAVE, BATTLEFIELD, BEACON_CROWN, DOCK }
 
     private enum BirdBookCategory { ITEMS, POWERUPS, BIRDS, SKINS, MAPS }
 
@@ -551,12 +551,31 @@ public class BirdGame3 extends Application {
     private boolean caveMapUnlocked = false;
     private boolean battlefieldMapUnlocked = false;
     private boolean beaconCrownMapUnlocked = false;
+    private boolean dockMapUnlocked = false;
+    private static final int DOCK_LEVER_COOLDOWN_FRAMES = 900;
+    private static final int DOCK_BOMB_FUSE_FRAMES = 88;
+    private static final int DOCK_BOMB_LOCKON_FRAMES = 72;
+    private static final int DOCK_BOMB_CANNON_FLASH_FRAMES = 16;
+    private static final double DOCK_BOMB_GRAVITY = 0.24;
+    private static final double DOCK_BOMB_WARNING_RADIUS = 112.0;
+    private static final double DOCK_SHIP_SCALE = 1.75;
     private double battlefieldIslandX = 0;
     private double battlefieldIslandW = 0;
     private double battlefieldIslandY = 0;
+    private double dockWaterX = 0;
+    private double dockWaterY = 0;
+    private double dockWaterW = 0;
+    private double dockWaterH = 0;
+    private double dockDrownY = 0;
+    private double dockLeverX = 0;
+    private double dockLeverY = 0;
+    private int dockLeverCooldown = 0;
+    private DockShipBomb dockShipBomb = null;
+    private final boolean[] dockLeverHeld = new boolean[MAX_COMBATANTS];
 
     List<Particle> particles = new ArrayList<>();
     List<CrowMinion> crowMinions = new ArrayList<>();
+    List<PiranhaHazard> piranhaHazards = new ArrayList<>();
     List<ChickMinion> chickMinions = new ArrayList<>();
     private static final int PARTICLE_SOFT_CAP = 2600;
     private static final int PARTICLE_FLOOR_CAP = 900;
@@ -659,6 +678,7 @@ public class BirdGame3 extends Application {
         if (steamAchievementClip != null) steamAchievementClip.setVolume(ACHIEVEMENT_SOUND_BASE_VOLUME * sfx);
         if (zombieFallingClip != null) zombieFallingClip.setVolume(sfx);
         if (vaseBreakingClip != null) vaseBreakingClip.setVolume(sfx);
+        if (cherrybombClip != null) cherrybombClip.setVolume(sfx);
     }
 
     private void setMusicVolume(double value) {
@@ -706,6 +726,12 @@ public class BirdGame3 extends Application {
 
     void playVaseBreakingSfx() {
         playManagedSfx(vaseBreakingClip, 1.0);
+    }
+
+    void playCherrybombSfx() {
+        if (!sfxEnabled || cherrybombClip == null) return;
+        cherrybombClip.stop();
+        playManagedSfx(cherrybombClip, 1.0);
     }
 
     void playAchievementSfx() {
@@ -764,6 +790,7 @@ public class BirdGame3 extends Application {
             swingClip = new AudioClip(resourceUrl(p + "swing.mp3"));
             hugewaveClip = new AudioClip(resourceUrl(p + "hugewave.mp3"));
             vaseBreakingClip = new AudioClip(resourceUrl(p + "vase-breaking.mp3"));
+            cherrybombClip = new AudioClip(resourceUrl(p + "cherrybomb.mp3"));
             steamAchievementClip = new AudioClip(resourceUrl(p + "steam-achievement.mp3"));
 
             // === NEW MENU & VICTORY MUSIC ===
@@ -813,6 +840,7 @@ public class BirdGame3 extends Application {
                     case VIBRANT_JUNGLE -> "loonboon.mp3";
                     case CAVE -> "dark-ages-ultimate-battle.mp3";
                     case BATTLEFIELD -> "skycity.mp3";
+                    case DOCK -> "pirate-seas.mp3";
             default -> throw new IllegalStateException("Unexpected value: " + selectedMap);
         };
     }
@@ -2865,7 +2893,7 @@ public class BirdGame3 extends Application {
 
     // === SOUND & MUSIC ===
     public AudioClip bonkClip, butterClip, jalapenoClip, swingClip, hugewaveClip, buttonClickClip, zombieFallingClip,
-            vaseBreakingClip, steamAchievementClip;
+            vaseBreakingClip, cherrybombClip, steamAchievementClip;
     public MediaPlayer musicPlayer, menuMusicPlayer, victoryMusicPlayer;
 
     public static final String[] ACHIEVEMENT_NAMES = {
@@ -3034,6 +3062,7 @@ public class BirdGame3 extends Application {
     private static final String CHAR_ROOSTER_KEY = "CHAR_ROOSTER";
     private static final String MAP_CAVE_KEY = "MAP_CAVE";
     private static final String MAP_BATTLEFIELD_KEY = "MAP_BATTLEFIELD";
+    private static final String MAP_DOCK_KEY = "MAP_DOCK";
 
     // === CLASSIC MODE ===
     boolean classicModeActive = false;
@@ -3377,6 +3406,13 @@ public class BirdGame3 extends Application {
     private final boolean[] adventureUnlocked = new boolean[BirdType.values().length];
     private BirdType adventureSelectedBird = BirdType.PIGEON;
     private String adventureSelectedSkinKey = null;
+    private AdventureRoute selectedAdventureRoute = AdventureRoute.MAIN;
+    private final int[][] adventureChapterProgressByRoute = new int[AdventureRoute.values().length][];
+    private final boolean[][] adventureChapterCompletedByRoute = new boolean[AdventureRoute.values().length][];
+    private final boolean[][] adventureUnlockedByRoute = new boolean[AdventureRoute.values().length][BirdType.values().length];
+    private final BirdType[] adventureSelectedBirdByRoute = new BirdType[AdventureRoute.values().length];
+    private final String[] adventureSelectedSkinKeyByRoute = new String[AdventureRoute.values().length];
+    private final int[] adventureChapterIndexByRoute = new int[AdventureRoute.values().length];
     private String activeAdventureDialogueTitle = null;
     private int activeAdventureDialogueChapterIndex = -1;
     private String activeAdventureDialogueLeftSkinKey = null;
@@ -3390,6 +3426,39 @@ public class BirdGame3 extends Application {
     private int unitedFinaleDarkForceCooldown = 0;
     private int unitedFinaleDarkForceWave = 0;
     private boolean unitedFinaleMassBattleActive = false;
+    private final boolean[] tempestRunEventTriggered = new boolean[4];
+    private boolean tempestRunBossEnraged = false;
+
+    private enum AdventureRoute {
+        MAIN(
+                "Main Adventure",
+                "Pigeon's Beacon War",
+                "Rebuild the city flock chapter by chapter as the Beacon falls and the Carrion Court closes in.",
+                "#64B5F6",
+                BirdType.PIGEON
+        ),
+        TEMPEST(
+                "Tempest Run",
+                "Pelican's Harbor War",
+                "Reclaim Broken Harbor, chase a stolen stormglass engine through inland relays, and bring the fight back to the bay before Heisenbird hard-locks the sky over the sea lanes.",
+                "#4DD0E1",
+                BirdType.PELICAN
+        );
+
+        final String label;
+        final String heading;
+        final String summary;
+        final String accent;
+        final BirdType defaultBird;
+
+        AdventureRoute(String label, String heading, String summary, String accent, BirdType defaultBird) {
+            this.label = label;
+            this.heading = heading;
+            this.summary = summary;
+            this.accent = accent;
+            this.defaultBird = defaultBird;
+        }
+    }
 
     private enum DialogueSide { LEFT, RIGHT }
 
@@ -3441,6 +3510,34 @@ public class BirdGame3 extends Application {
 
     private record UnitedFinaleSupportEntry(BirdType type, String displayName, String skinKey,
                                             double health, double powerMult, double speedMult) {
+    }
+
+    private AdventureDialogueLine line(BirdType leftBird, BirdType rightBird, DialogueSide speakerSide,
+                                       String speakerName, String text) {
+        return new AdventureDialogueLine(leftBird, rightBird, speakerSide, speakerName, text);
+    }
+
+    private AdventureBattle battle(String title, String briefing, MapType map, BirdType opponentType,
+                                   String opponentName, double opponentHealth, double opponentPowerMult,
+                                   double opponentSpeedMult, BirdType requiredPlayerType,
+                                   EnumSet<BirdType> allowedBirds, BirdType unlockReward,
+                                   AdventureDialogueLine[] preDialogue, AdventureDialogueLine[] winDialogue,
+                                   AdventureDialogueLine[] loseDialogue) {
+        return new AdventureBattle(title, briefing, map, opponentType, opponentName, opponentHealth,
+                opponentPowerMult, opponentSpeedMult, requiredPlayerType, allowedBirds, unlockReward,
+                preDialogue, winDialogue, loseDialogue);
+    }
+
+    private AdventureChapter chapter(String title, String summary, AdventureDialogueLine[] introDialogue,
+                                     AdventureBattle[] battles, AdventureDialogueLine[] outroDialogue) {
+        return new AdventureChapter(title, summary, introDialogue, battles, outroDialogue);
+    }
+
+    private EnumSet<BirdType> birds(BirdType... types) {
+        if (types == null || types.length == 0) {
+            return EnumSet.noneOf(BirdType.class);
+        }
+        return EnumSet.copyOf(Arrays.asList(types));
     }
 
     private final AdventureChapter[] adventureChapters = new AdventureChapter[] {
@@ -6093,6 +6190,481 @@ public class BirdGame3 extends Application {
             )
     };
 
+    private final AdventureChapter[] tempestAdventureChapters = buildTempestAdventureChapters();
+
+    private AdventureChapter[] buildTempestAdventureChapters() {
+        return new AdventureChapter[] {
+                chapter(
+                        "Chapter 1: Broken Harbor Under Fire",
+                        "A pirate ship shells Pelican's home dock while smugglers rip out a stormglass engine. To chase the thieves, Pelican has to retake Broken Harbor and turn its rough workers into a real strike crew.",
+                        new AdventureDialogueLine[] {
+                                line(BirdType.PELICAN, BirdType.RAZORBILL, DialogueSide.LEFT, "Pelican",
+                                        "That engine was anchored in my dock an hour ago."),
+                                line(BirdType.PELICAN, BirdType.RAZORBILL, DialogueSide.RIGHT, "Harbor Razorbill",
+                                        "And now your own harbor guns are pointed at your birds. Welcome back."),
+                                line(BirdType.PELICAN, BirdType.RAZORBILL, DialogueSide.LEFT, "Pelican",
+                                        "Then we retake the lever, the launch lines, and every inch of pier they touched."),
+                                line(BirdType.PELICAN, BirdType.RAZORBILL, DialogueSide.RIGHT, "Harbor Razorbill",
+                                        "Good. Broken Harbor only listens when somebody talks like a captain.")
+                        },
+                        new AdventureBattle[] {
+                                battle(
+                                        "Battle 1: Take The Lever",
+                                        "Raiders hold Broken Harbor's top lever and are using the pirate ship to pin the dock. Fight across the flooded piers, seize the cannon lane, and make Razorbill choose the harbor over the payout.",
+                                        MapType.DOCK,
+                                        BirdType.RAZORBILL,
+                                        "Rival: Harbor Razorbill",
+                                        124,
+                                        1.04,
+                                        1.06,
+                                        BirdType.PELICAN,
+                                        null,
+                                        BirdType.RAZORBILL,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.RAZORBILL, DialogueSide.RIGHT, "Harbor Razorbill",
+                                                        "Nobody owns Broken Harbor unless they can hold the top deck."),
+                                                line(BirdType.PELICAN, BirdType.RAZORBILL, DialogueSide.LEFT, "Pelican",
+                                                        "Then start counting from the moment I get there.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.RAZORBILL, DialogueSide.RIGHT, "Harbor Razorbill",
+                                                        "You took the lever under live fire. That's harbor business."),
+                                                line(BirdType.PELICAN, BirdType.RAZORBILL, DialogueSide.LEFT, "Pelican",
+                                                        "Then swing the guns with me instead of at me.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.RAZORBILL, DialogueSide.RIGHT, "Harbor Razorbill",
+                                                        "You can't save a dock if you never take command."),
+                                                line(BirdType.PELICAN, BirdType.RAZORBILL, DialogueSide.LEFT, "Pelican",
+                                                        "Then next time I take it sooner.")
+                                        }
+                                ),
+                                battle(
+                                        "Battle 2: Marsh Oath",
+                                        "Shoebill controls the reed channels behind the harbor. Earn their trust, and your chase can cut the smugglers before they disappear inland.",
+                                        MapType.CAVE,
+                                        BirdType.SHOEBILL,
+                                        "Rival: Mire Shoebill",
+                                        146,
+                                        1.12,
+                                        0.98,
+                                        null,
+                                        birds(BirdType.PELICAN, BirdType.RAZORBILL),
+                                        BirdType.SHOEBILL,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.SHOEBILL, DialogueSide.RIGHT, "Mire Shoebill",
+                                                        "Broken Harbor's panic is already spilling into my marsh."),
+                                                line(BirdType.PELICAN, BirdType.SHOEBILL, DialogueSide.LEFT, "Pelican",
+                                                        "Help me end it at the source and the panic stops here.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.SHOEBILL, DialogueSide.RIGHT, "Mire Shoebill",
+                                                        "You fought for the harbor, not just your pride. That matters."),
+                                                line(BirdType.PELICAN, BirdType.SHOEBILL, DialogueSide.LEFT, "Pelican",
+                                                        "Good. Then bring that judgment to the crew.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.SHOEBILL, DialogueSide.RIGHT, "Mire Shoebill",
+                                                        "If this is leadership, the marsh should stay out of it."),
+                                                line(BirdType.PELICAN, BirdType.SHOEBILL, DialogueSide.LEFT, "Pelican",
+                                                        "Then I'll return with something steadier.")
+                                        }
+                                ),
+                                battle(
+                                        "Battle 3: Storm Pilot",
+                                        "Falcon owns the cliff weather lane above the harbor. Win there, and the crew gains a pilot who can cut a supercell instead of waiting for it.",
+                                        MapType.SKYCLIFFS,
+                                        BirdType.FALCON,
+                                        "Rival: Gale Falcon",
+                                        132,
+                                        1.08,
+                                        1.18,
+                                        null,
+                                        birds(BirdType.PELICAN, BirdType.RAZORBILL, BirdType.SHOEBILL),
+                                        BirdType.FALCON,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.RIGHT, "Gale Falcon",
+                                                        "Harbor birds don't usually ask permission from the storm."),
+                                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.LEFT, "Pelican",
+                                                        "I'm not asking. I'm bringing a route through it.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.RIGHT, "Gale Falcon",
+                                                        "You didn't blink on the drop. All right. I'll fly your lane."),
+                                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.LEFT, "Pelican",
+                                                        "Good. Because the lane only gets uglier from here.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.RIGHT, "Gale Falcon",
+                                                        "You felt the gust and answered late."),
+                                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.LEFT, "Pelican",
+                                                        "Then I'll answer earlier.")
+                                        }
+                                )
+                        },
+                        new AdventureDialogueLine[] {
+                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.LEFT, "Pelican",
+                                        "Broken Harbor's ours again, but the engine isn't."),
+                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.RIGHT, "Gale Falcon",
+                                        "The thieves cut inland through tower beacons and jungle cranes."),
+                                line(BirdType.RAZORBILL, BirdType.SHOEBILL, DialogueSide.LEFT, "Harbor Razorbill",
+                                        "Then we carry the harbor with us and take it back piece by piece.")
+                        }
+                ),
+                chapter(
+                        "Chapter 2: Wake Chase",
+                        "The crew follows forged beacons, jungle handoffs, and cold cargo routes as the smugglers try to loop the stolen engine back toward Broken Harbor under heavier guard.",
+                        new AdventureDialogueLine[] {
+                                line(BirdType.PELICAN, BirdType.MOCKINGBIRD, DialogueSide.LEFT, "Pelican",
+                                        "Every fake beacon points away from the bay. Somebody wants us chasing ghosts."),
+                                line(BirdType.PELICAN, BirdType.MOCKINGBIRD, DialogueSide.RIGHT, "Smoke Mockingbird",
+                                        "Ghosts are useful. They make heavy birds waste miles."),
+                                line(BirdType.PELICAN, BirdType.MOCKINGBIRD, DialogueSide.LEFT, "Pelican",
+                                        "Then the miles stop here."),
+                                line(BirdType.PELICAN, BirdType.MOCKINGBIRD, DialogueSide.RIGHT, "Smoke Mockingbird",
+                                        "Catch the voice throwing them.")
+                        },
+                        new AdventureBattle[] {
+                                battle(
+                                        "Battle 1: Beacon Fraud",
+                                        "A mockingbird saboteur is repainting the harbor distress grid across the city skyline. Shut him down and turn the real route back on.",
+                                        MapType.CITY,
+                                        BirdType.MOCKINGBIRD,
+                                        "Rival: Smoke Mockingbird",
+                                        120,
+                                        1.0,
+                                        1.2,
+                                        null,
+                                        birds(BirdType.PELICAN, BirdType.RAZORBILL, BirdType.SHOEBILL, BirdType.FALCON),
+                                        BirdType.MOCKINGBIRD,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.MOCKINGBIRD, DialogueSide.RIGHT, "Smoke Mockingbird",
+                                                        "I can make the whole harbor run for the wrong fire."),
+                                                line(BirdType.PELICAN, BirdType.MOCKINGBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "Then scream when the real one lands on you.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.MOCKINGBIRD, DialogueSide.RIGHT, "Smoke Mockingbird",
+                                                        "Fine, fine. The real route bends through the canopy cranes."),
+                                                line(BirdType.PELICAN, BirdType.MOCKINGBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "Good. Now you tell it to my crew.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.MOCKINGBIRD, DialogueSide.RIGHT, "Smoke Mockingbird",
+                                                        "If you can't read the lights, the harbor deserves to drown."),
+                                                line(BirdType.PELICAN, BirdType.MOCKINGBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "Then next round I read faster.")
+                                        }
+                                ),
+                                battle(
+                                        "Battle 2: Canopy Handoff",
+                                        "The engine is being winched across jungle vines and relay perches toward a hidden sea exit. Break the handoff before it disappears back toward the bay.",
+                                        MapType.VIBRANT_JUNGLE,
+                                        BirdType.VULTURE,
+                                        "Enemy: Canopy Warden",
+                                        168,
+                                        1.16,
+                                        0.98,
+                                        null,
+                                        birds(BirdType.PELICAN, BirdType.RAZORBILL, BirdType.SHOEBILL, BirdType.FALCON, BirdType.MOCKINGBIRD),
+                                        null,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.VULTURE, DialogueSide.RIGHT, "Canopy Warden",
+                                                        "Too slow. The crate's already swinging toward the water."),
+                                                line(BirdType.PELICAN, BirdType.VULTURE, DialogueSide.LEFT, "Pelican",
+                                                        "Then you can hang there while I pull it back.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.VULTURE, DialogueSide.RIGHT, "Canopy Warden",
+                                                        "You broke the handoff."),
+                                                line(BirdType.RAZORBILL, BirdType.PELICAN, DialogueSide.LEFT, "Harbor Razorbill",
+                                                        "Yeah. We do that at our harbor."),
+                                                line(BirdType.PELICAN, BirdType.VULTURE, DialogueSide.LEFT, "Pelican",
+                                                        "Next relay.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.VULTURE, DialogueSide.RIGHT, "Canopy Warden",
+                                                        "The jungle keeps what it catches."),
+                                                line(BirdType.PELICAN, BirdType.VULTURE, DialogueSide.LEFT, "Pelican",
+                                                        "Not my harbor's engine.")
+                                        }
+                                ),
+                                battle(
+                                        "Battle 3: Harbor Ice Lock",
+                                        "The convoy beats the smugglers back to Broken Harbor, where Penguin has sealed the stormglass inside refrigerated freight beneath the pirate ship's shadow. Crack the cargo line and reopen your home pier.",
+                                        MapType.DOCK,
+                                        BirdType.PENGUIN,
+                                        "Rival: Cold Freight Penguin",
+                                        150,
+                                        1.12,
+                                        1.02,
+                                        null,
+                                        birds(BirdType.PELICAN, BirdType.RAZORBILL, BirdType.SHOEBILL, BirdType.FALCON, BirdType.MOCKINGBIRD),
+                                        BirdType.PENGUIN,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.PENGUIN, DialogueSide.RIGHT, "Cold Freight Penguin",
+                                                        "Cargo stays sealed. Harbor or not."),
+                                                line(BirdType.PELICAN, BirdType.PENGUIN, DialogueSide.LEFT, "Pelican",
+                                                        "Then the harbor opens without your permission.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.PENGUIN, DialogueSide.RIGHT, "Cold Freight Penguin",
+                                                        "I hate the method, but you're right about the destination."),
+                                                line(BirdType.PELICAN, BirdType.PENGUIN, DialogueSide.LEFT, "Pelican",
+                                                        "Good enough. Grab a crate and fall in.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.PENGUIN, DialogueSide.RIGHT, "Cold Freight Penguin",
+                                                        "You tried to smash the lock instead of reading the line."),
+                                                line(BirdType.PELICAN, BirdType.PENGUIN, DialogueSide.LEFT, "Pelican",
+                                                        "Then I return with better timing.")
+                                        }
+                                )
+                        },
+                        new AdventureDialogueLine[] {
+                                line(BirdType.PELICAN, BirdType.PENGUIN, DialogueSide.LEFT, "Pelican",
+                                        "They looped my own engine back through my own dock."),
+                                line(BirdType.PELICAN, BirdType.PENGUIN, DialogueSide.RIGHT, "Cold Freight Penguin",
+                                        "Because the next move isn't transport. It's fortification."),
+                                line(BirdType.FALCON, BirdType.MOCKINGBIRD, DialogueSide.LEFT, "Gale Falcon",
+                                        "Then we hit the fort before the bay belongs to it.")
+                        }
+                ),
+                chapter(
+                        "Chapter 3: Guns Of Broken Harbor",
+                        "Pelican turns the chase into a counterattack. Tower relays, undertow vaults, and a dreadnought barge all have to fall before Broken Harbor can stop being a route and start being a stronghold again.",
+                        new AdventureDialogueLine[] {
+                                line(BirdType.PELICAN, BirdType.HUMMINGBIRD, DialogueSide.LEFT, "Pelican",
+                                        "Heisenbird thinks Broken Harbor is just a loading point."),
+                                line(BirdType.PELICAN, BirdType.HUMMINGBIRD, DialogueSide.RIGHT, "Relay Hummingbird",
+                                        "Because once the engine leaves it, that's all it is."),
+                                line(BirdType.PELICAN, BirdType.HUMMINGBIRD, DialogueSide.LEFT, "Pelican",
+                                        "Then watch me turn a loading point into a weapon.")
+                        },
+                        new AdventureBattle[] {
+                                battle(
+                                        "Battle 1: Needle Run",
+                                        "A courier on the relay needles keeps flipping the air lanes that feed the harbor guns. Catch them before the whole counterattack scatters.",
+                                        MapType.SKYCLIFFS,
+                                        BirdType.HUMMINGBIRD,
+                                        "Enemy: Relay Hummingbird",
+                                        114,
+                                        0.98,
+                                        1.24,
+                                        null,
+                                        birds(BirdType.PELICAN, BirdType.RAZORBILL, BirdType.SHOEBILL, BirdType.FALCON, BirdType.MOCKINGBIRD, BirdType.PENGUIN),
+                                        null,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.HUMMINGBIRD, DialogueSide.RIGHT, "Relay Hummingbird",
+                                                        "You can't hold a line this thin."),
+                                                line(BirdType.PELICAN, BirdType.HUMMINGBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "I don't need to hold it. I need one clean lane home.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.HUMMINGBIRD, DialogueSide.RIGHT, "Relay Hummingbird",
+                                                        "The lane is yours. For now."),
+                                                line(BirdType.PELICAN, BirdType.HUMMINGBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "That's long enough.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.HUMMINGBIRD, DialogueSide.RIGHT, "Relay Hummingbird",
+                                                        "See? One bad answer and the whole stack eats you."),
+                                                line(BirdType.PELICAN, BirdType.HUMMINGBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "Then the next answer lands cleaner.")
+                                        }
+                                ),
+                                battle(
+                                        "Battle 2: Undertow Vault",
+                                        "An undertow seer is stabilizing the stolen engine from a tide vault under the harbor approaches. Break the ritual before the dreadnought barge can make its run.",
+                                        MapType.CAVE,
+                                        BirdType.OPIUMBIRD,
+                                        "Enemy: Undertow Seer",
+                                        176,
+                                        1.18,
+                                        1.08,
+                                        null,
+                                        birds(BirdType.PELICAN, BirdType.RAZORBILL, BirdType.SHOEBILL, BirdType.FALCON, BirdType.MOCKINGBIRD, BirdType.PENGUIN),
+                                        null,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.RIGHT, "Undertow Seer",
+                                                        "I can hear the storm deciding what shape the bay should be."),
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "Then tell it Broken Harbor isn't part of the sacrifice.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.RIGHT, "Undertow Seer",
+                                                        "The ritual is broken. The barge will have to move now."),
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "Good. Moving targets sink.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.RIGHT, "Undertow Seer",
+                                                        "You tried to win the room instead of reading the current."),
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "Then I read deeper.")
+                                        }
+                                ),
+                                battle(
+                                        "Battle 3: Sink The Dreadnought",
+                                        "The dreadnought Pelican is dragging the engine past Broken Harbor's guns on a fortress barge. Break the escort, turn the dock lever against him, and leave the flagship dead in your own tide.",
+                                        MapType.DOCK,
+                                        BirdType.PELICAN,
+                                        "Boss: Dreadnought Pelican",
+                                        238,
+                                        1.42,
+                                        0.98,
+                                        null,
+                                        birds(BirdType.PELICAN, BirdType.RAZORBILL, BirdType.SHOEBILL, BirdType.FALCON, BirdType.MOCKINGBIRD, BirdType.PENGUIN),
+                                        null,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.PELICAN, DialogueSide.RIGHT, "Dreadnought Pelican",
+                                                        "You should've stayed a dock boss. This harbor belongs to weight."),
+                                                line(BirdType.PELICAN, BirdType.PELICAN, DialogueSide.LEFT, "Pelican",
+                                                        "Weight without purpose just sinks harder.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.PELICAN, DialogueSide.RIGHT, "Dreadnought Pelican",
+                                                        "The barge is done. Heisenbird will run for the Crown."),
+                                                line(BirdType.FALCON, BirdType.PELICAN, DialogueSide.LEFT, "Gale Falcon",
+                                                        "Good. Force him to climb with the whole harbor behind him.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.PELICAN, DialogueSide.RIGHT, "Dreadnought Pelican",
+                                                        "You don't have the force to break a convoy at sea."),
+                                                line(BirdType.PELICAN, BirdType.PELICAN, DialogueSide.LEFT, "Pelican",
+                                                        "Then I bring more of the sea with me.")
+                                        }
+                                )
+                        },
+                        new AdventureDialogueLine[] {
+                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.LEFT, "Pelican",
+                                        "Broken Harbor held. Heisenbird had to take the engine straight to the Crown."),
+                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.RIGHT, "Gale Falcon",
+                                        "Which means the last route is vertical."),
+                                line(BirdType.MOCKINGBIRD, BirdType.PENGUIN, DialogueSide.LEFT, "Smoke Mockingbird",
+                                        "Perfect. Love that for none of us.")
+                        }
+                ),
+                chapter(
+                        "Chapter 4: Storm Over The Harbor",
+                        "Heisenbird drags the stolen engine into Beacon Crown to print a permanent supercell over the coast. With Broken Harbor holding the line below, Pelican climbs through the eye to end it.",
+                        new AdventureDialogueLine[] {
+                                line(BirdType.PELICAN, BirdType.HEISENBIRD, DialogueSide.LEFT, "Pelican",
+                                        "You stole my harbor's engine just to chain the whole coast to your machine."),
+                                line(BirdType.PELICAN, BirdType.HEISENBIRD, DialogueSide.RIGHT, "Stormglass Heisenbird",
+                                        "Not chain. Standardize. Predictable skies, profitable water."),
+                                line(BirdType.PELICAN, BirdType.HEISENBIRD, DialogueSide.LEFT, "Pelican",
+                                        "You don't get to price a sky over living birds."),
+                                line(BirdType.PELICAN, BirdType.HEISENBIRD, DialogueSide.RIGHT, "Stormglass Heisenbird",
+                                        "Then come say that inside the storm.")
+                        },
+                        new AdventureBattle[] {
+                                battle(
+                                        "Battle 1: Crown Breach",
+                                        "A crown raven screens the climb while Harbor Razorbill's signal flares mark the only safe line up.",
+                                        MapType.BEACON_CROWN,
+                                        BirdType.RAVEN,
+                                        "Enemy: Crown Raven",
+                                        170,
+                                        1.16,
+                                        1.12,
+                                        null,
+                                        birds(BirdType.PELICAN, BirdType.RAZORBILL, BirdType.SHOEBILL, BirdType.FALCON, BirdType.MOCKINGBIRD, BirdType.PENGUIN),
+                                        null,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.RAVEN, DialogueSide.RIGHT, "Crown Raven",
+                                                        "Nobody reaches the lattice without paying air tax."),
+                                                line(BirdType.PELICAN, BirdType.RAVEN, DialogueSide.LEFT, "Pelican",
+                                                        "Bill me after I tear it down.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.RAVEN, DialogueSide.RIGHT, "Crown Raven",
+                                                        "You punched a hole in the screen."),
+                                                line(BirdType.PELICAN, BirdType.RAVEN, DialogueSide.LEFT, "Pelican",
+                                                        "Now the harbor flies through it.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.RAVEN, DialogueSide.RIGHT, "Crown Raven",
+                                                        "The Crown eats impatient birds."),
+                                                line(BirdType.PELICAN, BirdType.RAVEN, DialogueSide.LEFT, "Pelican",
+                                                        "Then I'll make it choke.")
+                                        }
+                                ),
+                                battle(
+                                        "Battle 2: Floodline Choir",
+                                        "The last seer chorus tries to lock the eye in place long enough to drown every harbor under the storm.",
+                                        MapType.BEACON_CROWN,
+                                        BirdType.OPIUMBIRD,
+                                        "Boss: Floodline Seer",
+                                        210,
+                                        1.28,
+                                        1.12,
+                                        null,
+                                        birds(BirdType.PELICAN, BirdType.RAZORBILL, BirdType.SHOEBILL, BirdType.FALCON, BirdType.MOCKINGBIRD, BirdType.PENGUIN),
+                                        null,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.RIGHT, "Floodline Seer",
+                                                        "The eye is beautiful when it stops fighting itself."),
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "Beauty that buries docks is still burial.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.RIGHT, "Floodline Seer",
+                                                        "The choir breaks. The eye will wobble."),
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "Good. I only need it unstable once.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.RIGHT, "Floodline Seer",
+                                                        "You came to a vision fight with dock muscles."),
+                                                line(BirdType.PELICAN, BirdType.OPIUMBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "Dock muscles are enough.")
+                                        }
+                                ),
+                                battle(
+                                        "Battle 3: Stormglass King",
+                                        "Heisenbird drops into the open forge and tries to crown himself over the whole coast. End the route here.",
+                                        MapType.BEACON_CROWN,
+                                        BirdType.HEISENBIRD,
+                                        "Boss: Stormglass Heisenbird",
+                                        270,
+                                        1.52,
+                                        1.16,
+                                        null,
+                                        birds(BirdType.PELICAN, BirdType.RAZORBILL, BirdType.SHOEBILL, BirdType.FALCON, BirdType.MOCKINGBIRD, BirdType.PENGUIN),
+                                        null,
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.HEISENBIRD, DialogueSide.RIGHT, "Stormglass Heisenbird",
+                                                        "This is the part where better logistics becomes destiny."),
+                                                line(BirdType.PELICAN, BirdType.HEISENBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "No. This is the part where Broken Harbor ends your route.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.HEISENBIRD, DialogueSide.RIGHT, "Stormglass Heisenbird",
+                                                        "You broke the forge."),
+                                                line(BirdType.PELICAN, BirdType.HEISENBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "And gave the sky back to everybody under it.")
+                                        },
+                                        new AdventureDialogueLine[] {
+                                                line(BirdType.PELICAN, BirdType.HEISENBIRD, DialogueSide.RIGHT, "Stormglass Heisenbird",
+                                                        "Then watch the machine teach you scale."),
+                                                line(BirdType.PELICAN, BirdType.HEISENBIRD, DialogueSide.LEFT, "Pelican",
+                                                        "I've carried scale my whole life.")
+                                        }
+                                )
+                        },
+                        new AdventureDialogueLine[] {
+                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.LEFT, "Pelican",
+                                        "Harbor's open. Bay's breathing. The sky belongs to birds again."),
+                                line(BirdType.PELICAN, BirdType.FALCON, DialogueSide.RIGHT, "Gale Falcon",
+                                        "And now every route in the storm knows where the line held."),
+                                line(BirdType.MOCKINGBIRD, BirdType.PENGUIN, DialogueSide.LEFT, "Smoke Mockingbird",
+                                        "Next time let's steal something smaller than the weather.")
+                        }
+                ),
+        };
+    }
+
     private StoryChapter[] activeStoryChapters() {
         return switch (selectedEpisode) {
             case BAT -> batStoryChapters;
@@ -6179,6 +6751,7 @@ public class BirdGame3 extends Application {
         if (map == MapType.CAVE) return caveMapUnlocked;
         if (map == MapType.BATTLEFIELD) return battlefieldMapUnlocked;
         if (map == MapType.BEACON_CROWN) return beaconCrownMapUnlocked;
+        if (map == MapType.DOCK) return dockMapUnlocked;
         return true;
     }
 
@@ -6199,7 +6772,7 @@ public class BirdGame3 extends Application {
             if (battle.allowedBirds != null && !battle.allowedBirds.contains(bt)) continue;
             pool.add(bt);
         }
-        if (pool.isEmpty()) pool.add(BirdType.PIGEON);
+        if (pool.isEmpty()) pool.add(firstAdventureBirdForRoute(selectedAdventureRoute));
         return pool;
     }
 
@@ -6645,25 +7218,156 @@ public class BirdGame3 extends Application {
         return null;
     }
 
+    private AdventureChapter[] chaptersForAdventureRoute(AdventureRoute route) {
+        return route == AdventureRoute.TEMPEST ? tempestAdventureChapters : adventureChapters;
+    }
+
+    private void ensureAdventureRouteState(AdventureRoute route) {
+        AdventureRoute resolved = route == null ? AdventureRoute.MAIN : route;
+        int idx = resolved.ordinal();
+        AdventureChapter[] chapters = chaptersForAdventureRoute(resolved);
+        int chapterCount = chapters.length;
+        if (adventureChapterProgressByRoute[idx] == null || adventureChapterProgressByRoute[idx].length != chapterCount) {
+            int[] oldProgress = adventureChapterProgressByRoute[idx];
+            boolean[] oldCompleted = adventureChapterCompletedByRoute[idx];
+            adventureChapterProgressByRoute[idx] = new int[chapterCount];
+            adventureChapterCompletedByRoute[idx] = new boolean[chapterCount];
+            if (oldProgress != null) {
+                System.arraycopy(oldProgress, 0, adventureChapterProgressByRoute[idx], 0, Math.min(oldProgress.length, chapterCount));
+            }
+            if (oldCompleted != null) {
+                System.arraycopy(oldCompleted, 0, adventureChapterCompletedByRoute[idx], 0, Math.min(oldCompleted.length, chapterCount));
+            }
+        }
+        boolean[] unlocked = adventureUnlockedByRoute[idx];
+        if (resolved == AdventureRoute.MAIN) {
+            unlocked[BirdType.PIGEON.ordinal()] = true;
+            unlocked[BirdType.ROOSTER.ordinal()] = roosterUnlocked;
+        } else {
+            unlocked[BirdType.PELICAN.ordinal()] = true;
+        }
+        if (adventureSelectedBirdByRoute[idx] == null) {
+            adventureSelectedBirdByRoute[idx] = resolved.defaultBird;
+        }
+        BirdType selectedBird = adventureSelectedBirdByRoute[idx];
+        if (selectedBird == null || !unlocked[selectedBird.ordinal()]) {
+            adventureSelectedBirdByRoute[idx] = firstAdventureBirdForRoute(resolved);
+        }
+        adventureSelectedSkinKeyByRoute[idx] = normalizeAdventureSkinChoice(adventureSelectedBirdByRoute[idx], adventureSelectedSkinKeyByRoute[idx]);
+        if (chapterCount > 0) {
+            adventureChapterIndexByRoute[idx] = Math.clamp(adventureChapterIndexByRoute[idx], 0, chapterCount - 1);
+        } else {
+            adventureChapterIndexByRoute[idx] = 0;
+        }
+    }
+
+    private BirdType firstAdventureBirdForRoute(AdventureRoute route) {
+        boolean[] unlocked = adventureUnlockedByRoute[route.ordinal()];
+        for (BirdType type : BirdType.values()) {
+            if (unlocked[type.ordinal()]) {
+                return type;
+            }
+        }
+        return route.defaultBird;
+    }
+
+    private void storeActiveAdventureRouteState() {
+        ensureAdventureRouteState(selectedAdventureRoute);
+        int idx = selectedAdventureRoute.ordinal();
+        if (adventureChapterProgressByIndex != null) {
+            adventureChapterProgressByRoute[idx] = adventureChapterProgressByIndex;
+        }
+        if (adventureChapterCompletedByIndex != null) {
+            adventureChapterCompletedByRoute[idx] = adventureChapterCompletedByIndex;
+        }
+        int chapterCount = adventureChapterProgressByRoute[idx].length;
+        adventureChapterIndexByRoute[idx] = chapterCount > 0 ? Math.clamp(adventureChapterIndex, 0, chapterCount - 1) : 0;
+        adventureSelectedBirdByRoute[idx] = adventureSelectedBird;
+        adventureSelectedSkinKeyByRoute[idx] = adventureSelectedSkinKey;
+        System.arraycopy(adventureUnlocked, 0, adventureUnlockedByRoute[idx], 0, adventureUnlocked.length);
+    }
+
+    private void setAdventureRoute(AdventureRoute route) {
+        AdventureRoute resolved = route == null ? AdventureRoute.MAIN : route;
+        if (adventureChapterProgressByIndex != null || adventureChapterCompletedByIndex != null) {
+            storeActiveAdventureRouteState();
+        }
+        selectedAdventureRoute = resolved;
+        ensureAdventureRouteState(resolved);
+        int idx = resolved.ordinal();
+        adventureChapterProgressByIndex = adventureChapterProgressByRoute[idx];
+        adventureChapterCompletedByIndex = adventureChapterCompletedByRoute[idx];
+        System.arraycopy(adventureUnlockedByRoute[idx], 0, adventureUnlocked, 0, adventureUnlocked.length);
+        int chapterCount = adventureChapterProgressByIndex.length;
+        adventureChapterIndex = chapterCount > 0 ? Math.clamp(adventureChapterIndexByRoute[idx], 0, chapterCount - 1) : 0;
+        adventureChapterProgress = chapterCount > 0 ? adventureChapterProgressByIndex[adventureChapterIndex] : 0;
+        adventureChapterCompleted = chapterCount > 0 && adventureChapterCompletedByIndex[adventureChapterIndex];
+        adventureSelectedBird = adventureSelectedBirdByRoute[idx];
+        if (adventureSelectedBird == null || !isAdventureBirdUnlocked(adventureSelectedBird)) {
+            adventureSelectedBird = firstAdventureBirdForRoute(resolved);
+        }
+        adventureSelectedSkinKey = normalizeAdventureSkinChoice(adventureSelectedBird, adventureSelectedSkinKeyByRoute[idx]);
+        adventureSelectedBirdByRoute[idx] = adventureSelectedBird;
+        adventureSelectedSkinKeyByRoute[idx] = adventureSelectedSkinKey;
+        currentAdventureBattle = null;
+    }
+
+    private void setAdventureBirdUnlocked(AdventureRoute route, BirdType type, boolean unlocked) {
+        if (type == null) return;
+        ensureAdventureRouteState(route);
+        adventureUnlockedByRoute[route.ordinal()][type.ordinal()] = unlocked;
+        if (route == selectedAdventureRoute) {
+            adventureUnlocked[type.ordinal()] = unlocked;
+        }
+    }
+
+    private void setAdventureBirdUnlocked(BirdType type, boolean unlocked) {
+        setAdventureBirdUnlocked(selectedAdventureRoute, type, unlocked);
+    }
+
+    private boolean[] mainAdventureChapterCompletedState() {
+        ensureAdventureRouteState(AdventureRoute.MAIN);
+        return adventureChapterCompletedByRoute[AdventureRoute.MAIN.ordinal()];
+    }
+
     private String adventureRosterText() {
+        return adventureRosterText(selectedAdventureRoute);
+    }
+
+    private String adventureRosterText(AdventureRoute route) {
+        ensureAdventureRouteState(route);
+        boolean[] unlocked = route == selectedAdventureRoute
+                ? adventureUnlocked
+                : adventureUnlockedByRoute[route.ordinal()];
         List<String> names = new ArrayList<>();
         for (BirdType bt : BirdType.values()) {
-            if (isAdventureBirdUnlocked(bt)) names.add(bt.name);
+            if (unlocked[bt.ordinal()]) names.add(bt.name);
         }
-        return names.isEmpty() ? "Pigeon" : String.join(", ", names);
+        return names.isEmpty() ? route.defaultBird.name : String.join(", ", names);
+    }
+
+    private String adventureRewardText(AdventureBattle battle) {
+        if (battle == null || battle.unlockReward == null) {
+            return "Reward: Story progress";
+        }
+        if (selectedAdventureRoute == AdventureRoute.TEMPEST) {
+            return "Crew reward: " + battle.unlockReward.name + " joins Tempest Run";
+        }
+        return "Unlock reward: " + battle.unlockReward.name;
     }
 
     private AdventureChapter activeAdventureChapter() {
-        if (adventureChapters.length == 0) return null;
-        adventureChapterIndex = Math.clamp(adventureChapterIndex, 0, adventureChapters.length - 1);
-        return adventureChapters[adventureChapterIndex];
+        AdventureChapter[] chapters = chaptersForAdventureRoute(selectedAdventureRoute);
+        if (chapters.length == 0) return null;
+        adventureChapterIndex = Math.clamp(adventureChapterIndex, 0, chapters.length - 1);
+        return chapters[adventureChapterIndex];
     }
 
     private void ensureAdventureChapterState() {
-        if (adventureChapterProgressByIndex == null || adventureChapterProgressByIndex.length != adventureChapters.length) {
-            adventureChapterProgressByIndex = new int[adventureChapters.length];
-            adventureChapterCompletedByIndex = new boolean[adventureChapters.length];
-        }
+        ensureAdventureRouteState(selectedAdventureRoute);
+        int idx = selectedAdventureRoute.ordinal();
+        adventureChapterProgressByIndex = adventureChapterProgressByRoute[idx];
+        adventureChapterCompletedByIndex = adventureChapterCompletedByRoute[idx];
     }
 
     private AdventureBattle activeAdventureBattle() {
@@ -6683,12 +7387,14 @@ public class BirdGame3 extends Application {
 
     private boolean isUnitedFinaleClimaxBattle(AdventureBattle battle) {
         return battle != null
+                && selectedAdventureRoute == AdventureRoute.MAIN
                 && adventureChapterIndex == unitedFinaleChapterIndex()
                 && UNITED_FINALE_CLIMAX_TITLE.equals(battle.title);
     }
 
     private boolean isUnitedFinaleBeaconBattle(AdventureBattle battle) {
         return battle != null
+                && selectedAdventureRoute == AdventureRoute.MAIN
                 && adventureChapterIndex == unitedFinaleChapterIndex()
                 && (UNITED_FINALE_PENULTIMATE_TITLE.equals(battle.title) || UNITED_FINALE_CLIMAX_TITLE.equals(battle.title));
     }
@@ -6820,6 +7526,10 @@ public class BirdGame3 extends Application {
     private void applyAdventureBattleRuntimeEffects() {
         AdventureBattle battle = currentAdventureBattle != null ? currentAdventureBattle : activeAdventureBattle();
         if (battle == null) return;
+        if (selectedAdventureRoute == AdventureRoute.TEMPEST) {
+            applyTempestAdventureRuntimeEffects(battle);
+            return;
+        }
         if (!isUnitedFinaleClimaxBattle(battle)) return;
 
         Bird boss = unitedFinaleBoss();
@@ -6877,6 +7587,80 @@ public class BirdGame3 extends Application {
                     : bossRatio <= 0.36 ? 160
                     : bossRatio <= 0.60 ? 210
                     : 280;
+        }
+    }
+
+    private Bird tempestAdventureBoss() {
+        Bird best = null;
+        for (Bird bird : players) {
+            if (bird == null) continue;
+            if (adventureTeamMode && getEffectiveTeam(bird.playerIndex) == 1) continue;
+            if (!adventureTeamMode && bird.playerIndex == 0) continue;
+            if (bird.health > 0) return bird;
+            if (best == null) best = bird;
+        }
+        return best;
+    }
+
+    private void applyTempestAdventureRuntimeEffects(AdventureBattle battle) {
+        if (battle == null || matchEnded) return;
+        if (adventureChapterIndex != 3 || adventureBattleIndex != 2) return;
+
+        Bird boss = tempestAdventureBoss();
+        if (boss == null || boss.health <= 0) return;
+        double bossMaxHealth = adjustedBossHealth(battle.opponentName, battle.opponentHealth);
+        double bossRatio = bossMaxHealth <= 0 ? 1.0 : Math.clamp(boss.health / bossMaxHealth, 0.0, 1.0);
+
+        if (!tempestRunEventTriggered[0]) {
+            tempestRunEventTriggered[0] = true;
+            addToKillFeed("TEMPEST RUN: the weather forge wakes up around the Crown.");
+            hitstopFrames = Math.max(hitstopFrames, 10);
+            shakeIntensity = Math.max(shakeIntensity, 18);
+            empowerUnitedFinaleAllies(0, 120, 90);
+        }
+        if (!tempestRunEventTriggered[1] && bossRatio <= 0.74) {
+            tempestRunEventTriggered[1] = true;
+            addToKillFeed("TEMPEST RUN: Falcon cuts the eye open for one clean lane.");
+            windVents.add(new WindVent(1700, battlefieldIslandY - 120, 240));
+            windVents.add(new WindVent(4300, battlefieldIslandY - 120, 240));
+            powerUps.add(new PowerUp(3000, battlefieldIslandY - 760, PowerUpType.SPEED));
+            Bird owner = firstLivingAdventureAlly();
+            if (owner != null) {
+                spawnUnitedFinaleAlliedCrows(owner, 2);
+            }
+            triggerFlash(0.55, false);
+        }
+        if (!tempestRunBossEnraged && bossRatio <= 0.46) {
+            tempestRunBossEnraged = true;
+            addToKillFeed("STORMGLASS KING: the forge overloads into a live supercell.");
+            boss.rageTimer = Math.max(boss.rageTimer, 300);
+            boss.overchargeAttackTimer = Math.max(boss.overchargeAttackTimer, 260);
+            boss.specialCooldown = 0;
+            boss.powerMultiplier = Math.max(boss.powerMultiplier, boss.basePowerMultiplier * 1.12);
+            boss.speedMultiplier = Math.max(boss.speedMultiplier, boss.baseSpeedMultiplier * 1.06);
+            powerUps.add(new PowerUp(2200, battlefieldIslandY - 820, PowerUpType.HEALTH));
+            powerUps.add(new PowerUp(3800, battlefieldIslandY - 820, PowerUpType.OVERCHARGE));
+            shakeIntensity = Math.max(shakeIntensity, 28);
+        }
+        if (!tempestRunEventTriggered[2] && bossRatio <= 0.24) {
+            tempestRunEventTriggered[2] = true;
+            addToKillFeed("TEMPEST RUN: the convoy commits everything to the last pass.");
+            Bird owner = firstLivingAdventureAlly();
+            empowerUnitedFinaleAllies(90, 180, 140);
+            if (owner != null) {
+                spawnUnitedFinaleAlliedCrows(owner, 4);
+                spawnUnitedFinaleChicks(owner);
+            }
+            for (int i = 0; i < 4; i++) {
+                crowMinions.add(new CrowMinion(900 + random.nextDouble() * 4200, 220 + random.nextDouble() * 280, null));
+            }
+        }
+        if (!tempestRunEventTriggered[3] && bossRatio <= 0.10) {
+            tempestRunEventTriggered[3] = true;
+            addToKillFeed("TEMPEST RUN: one more clean hit ends the route.");
+            powerUps.add(new PowerUp(3000, battlefieldIslandY - 940, PowerUpType.TITAN));
+            hitstopFrames = Math.max(hitstopFrames, 8);
+            triggerFlash(0.78, false);
         }
     }
 
@@ -7672,8 +8456,13 @@ public class BirdGame3 extends Application {
                 c.retargetCooldown = isLargeFightLoad() ? 10 : 5;
             }
             if (closest != null) {
-                double dx = closest.x + 40 - c.x;
-                double dy = closest.y + 40 - c.y;
+                double targetX = closest.x + 40;
+                double targetY = closest.y + 40;
+                if (selectedMap == MapType.DOCK && isDockWaterAt(targetX, targetY)) {
+                    targetY = dockWaterSurfaceY() - 26;
+                }
+                double dx = targetX - c.x;
+                double dy = targetY - c.y;
                 double dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist > 0) {
                     double spd = c.maxSpeed();
@@ -7718,7 +8507,171 @@ public class BirdGame3 extends Application {
             }
             c.x += c.vx;
             c.y += c.vy;
+            if (selectedMap == MapType.DOCK && isDockWaterAt(c.x, c.y + 10)) {
+                c.y = dockWaterSurfaceY() - 14;
+                c.vy = -Math.max(1.4, Math.abs(c.vy) * 0.55 + 0.8);
+                c.vx *= 0.96;
+            }
             if (c.age > 1800 || c.x < -1500 || c.x > WORLD_WIDTH + 1500 || c.y < -1500 || c.y > WORLD_HEIGHT + 1500) {
+                it.remove();
+            }
+        }
+
+        for (Iterator<PiranhaHazard> it = piranhaHazards.iterator(); it.hasNext(); ) {
+            PiranhaHazard p = it.next();
+            p.age++;
+            if (p.biteCooldown > 0) p.biteCooldown--;
+            if (p.breachCooldown > 0) p.breachCooldown--;
+            if (p.retargetCooldown > 0) p.retargetCooldown--;
+
+            if (!isDockWaterActive()) {
+                it.remove();
+                continue;
+            }
+
+            double surfaceY = dockWaterSurfaceY();
+            double minY = surfaceY + 26;
+            double maxY = dockDrownDepthY() - 54;
+            Bird target = p.target;
+            if (target == null || target.health <= 0 || p.retargetCooldown <= 0) {
+                Bird best = null;
+                double bestSq = Double.MAX_VALUE;
+                for (Bird b : players) {
+                    if (b == null || b.health <= 0) continue;
+                    double tx = b.x + 40;
+                    double ty = b.y + 40;
+                    boolean inWater = isDockWaterAt(tx, ty);
+                    boolean nearSurface = tx >= dockWaterX
+                            && tx <= dockWaterX + dockWaterW
+                            && ty >= surfaceY - 120
+                            && ty <= surfaceY + 150;
+                    if (!inWater && !nearSurface) continue;
+                    double dx = tx - p.x;
+                    double dy = ty - p.y;
+                    double distSq = dx * dx + dy * dy;
+                    if (distSq < bestSq) {
+                        bestSq = distSq;
+                        best = b;
+                    }
+                }
+                p.target = best;
+                target = best;
+                p.retargetCooldown = 10;
+            }
+
+            double targetX = target != null ? target.x + 40 : p.x + Math.signum(p.vx == 0 ? 1.0 : p.vx) * 120;
+            double targetY = target != null ? target.y + 48 : dockWaterMidY();
+            boolean targetNearSurface = target != null && targetY <= surfaceY + 94;
+            boolean breaching = p.y < minY - 2 || p.vy < -3.2;
+
+            if (!breaching && p.breachCooldown <= 0 && targetNearSurface && p.y <= minY + 84
+                    && Math.abs(targetX - p.x) < 160) {
+                p.vy = -9.8 - Math.max(0.0, 80.0 - Math.abs(targetX - p.x)) * 0.018;
+                p.vx += Math.signum(targetX - p.x) * 2.0;
+                p.breachCooldown = 72;
+                breaching = true;
+                for (int i = 0; i < scaledParticleBurstCount(8); i++) {
+                    double sprayX = p.x + (Math.random() - 0.5) * 30;
+                    particles.add(new Particle(
+                            sprayX,
+                            surfaceY + Math.random() * 10,
+                            (Math.random() - 0.5) * 5,
+                            -3.2 - Math.random() * 3.5,
+                            Color.web("#B3E5FC", 0.85)
+                    ));
+                }
+            } else if (!breaching && p.breachCooldown <= 0 && target == null && p.age % 210 == 0) {
+                p.vy = -7.8;
+                p.breachCooldown = 150;
+                breaching = true;
+            }
+
+            if (breaching) {
+                double dx = targetX - p.x;
+                p.vx += Math.signum(dx == 0 ? (p.vx == 0 ? 1.0 : p.vx) : dx) * 0.16;
+                p.vx = Math.clamp(p.vx, -8.4, 8.4);
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += 0.58;
+                if (p.y < surfaceY - 78) {
+                    p.y = surfaceY - 78;
+                    p.vy = Math.max(p.vy, -1.8);
+                }
+                if (p.y >= minY) {
+                    p.y = minY;
+                    p.vy = Math.abs(p.vy) * 0.22;
+                    for (int i = 0; i < scaledParticleBurstCount(8); i++) {
+                        particles.add(new Particle(
+                                p.x + (Math.random() - 0.5) * 24,
+                                surfaceY + Math.random() * 8,
+                                (Math.random() - 0.5) * 4.5,
+                                -2.0 - Math.random() * 2.0,
+                                Color.web("#80DEEA", 0.8)
+                        ));
+                    }
+                }
+            } else {
+                double desiredX = targetX;
+                double desiredY = target != null
+                        ? Math.max(surfaceY + 36, Math.min(maxY, targetY))
+                        : dockWaterMidY();
+
+                double dx = desiredX - p.x;
+                double dy = desiredY - p.y;
+                double dist = Math.hypot(dx, dy);
+                if (dist > 0.001) {
+                    p.vx += dx / dist * 0.22;
+                    p.vy += dy / dist * 0.18;
+                }
+                p.vx = Math.clamp(p.vx, -7.2, 7.2);
+                p.vy = Math.clamp(p.vy, -5.4, 5.4);
+
+                p.x += p.vx;
+                p.y += p.vy;
+
+                if (p.y < minY) {
+                    p.y = minY;
+                    p.vy = Math.abs(p.vy) * 0.35;
+                }
+                if (p.y > maxY) {
+                    p.y = maxY;
+                    p.vy = -Math.abs(p.vy) * 0.45;
+                }
+            }
+
+            if (p.x < dockWaterX + 20) {
+                p.x = dockWaterX + 20;
+                p.vx = Math.abs(p.vx) * 0.7;
+            }
+            if (p.x > dockWaterX + dockWaterW - 20) {
+                p.x = dockWaterX + dockWaterW - 20;
+                p.vx = -Math.abs(p.vx) * 0.7;
+            }
+
+            if (target != null && p.biteCooldown <= 0) {
+                if (Math.hypot(targetX - p.x, targetY - p.y) < (breaching ? 78 : 62)) {
+                    double dealtDamage = target.receiveExternalDamage(breaching ? 10 : 7);
+                    if (dealtDamage > 0) {
+                        addToKillFeed("PIRANHA ripped " + shortName(target.name) + "! -" + (int) Math.round(dealtDamage) + " HP");
+                        target.vx += Math.signum(p.vx == 0 ? (targetX >= p.x ? 1 : -1) : p.vx) * (breaching ? 11.5 : 8.5);
+                        target.vy -= breaching ? 10.0 : 7.5;
+                        for (int i = 0; i < scaledParticleBurstCount(16); i++) {
+                            double angle = Math.random() * Math.PI * 2;
+                            double spd = 4 + Math.random() * 7;
+                            particles.add(new Particle(
+                                    p.x,
+                                    p.y,
+                                    Math.cos(angle) * spd,
+                                    Math.sin(angle) * spd - 2,
+                                    Color.web("#EF5350")
+                            ));
+                        }
+                        p.biteCooldown = breaching ? 60 : 50;
+                    }
+                }
+            }
+
+            if (p.age > 1600) {
                 it.remove();
             }
         }
@@ -7852,6 +8805,7 @@ public class BirdGame3 extends Application {
             }
         }
 
+        updateDockStageHazards();
         updateMatchTimerState();
 
         if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
@@ -7893,6 +8847,280 @@ public class BirdGame3 extends Application {
         }
 
         checkForMatchCompletion();
+    }
+
+    private void updateDockStageHazards() {
+        if (selectedMap != MapType.DOCK) {
+            dockLeverCooldown = 0;
+            dockShipBomb = null;
+            Arrays.fill(dockLeverHeld, false);
+            return;
+        }
+
+        if (dockLeverCooldown > 0) {
+            dockLeverCooldown--;
+        }
+
+        int playerCount = Math.min(activePlayers, players.length);
+        for (int i = 0; i < playerCount; i++) {
+            Bird bird = players[i];
+            boolean pressed = isAttackPressed(i) || isSpecialPressed(i);
+            if (bird == null || bird.health <= 0) {
+                dockLeverHeld[i] = pressed;
+                continue;
+            }
+
+            boolean nearLever = isBirdNearDockLever(bird);
+            if (nearLever && pressed && !dockLeverHeld[i]) {
+                if (dockLeverCooldown <= 0 && dockShipBomb == null) {
+                    Bird target = findDockBombTarget(bird);
+                    if (target != null) {
+                        launchDockShipBomb(bird, target);
+                    } else {
+                        bird.cooldownFlash = 18;
+                    }
+                } else {
+                    bird.cooldownFlash = 18;
+                }
+            }
+            dockLeverHeld[i] = pressed;
+        }
+
+        updateDockShipBomb();
+    }
+
+    private boolean isBirdNearDockLever(Bird bird) {
+        if (bird == null || dockLeverX == 0) return false;
+        if (!bird.isOnGround()) return false;
+        double centerX = bird.x + 40 * bird.sizeMultiplier;
+        double centerY = bird.y + 40 * bird.sizeMultiplier;
+        return Math.abs(centerX - dockLeverX) <= 92
+                && Math.abs(centerY - dockLeverY) <= 112;
+    }
+
+    private Bird findDockBombTarget(Bird puller) {
+        Bird best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Bird other : players) {
+            if (other == null || other == puller || other.health <= 0) continue;
+            if (!canDamage(puller, other)) continue;
+            double dx = (other.x + 40 * other.sizeMultiplier) - (puller.x + 40 * puller.sizeMultiplier);
+            double dy = (other.y + 40 * other.sizeMultiplier) - (puller.y + 40 * puller.sizeMultiplier);
+            double distSq = dx * dx + dy * dy;
+            if (distSq < bestDist) {
+                bestDist = distSq;
+                best = other;
+            }
+        }
+        return best;
+    }
+
+    private void launchDockShipBomb(Bird puller, Bird target) {
+        dockShipBomb = new DockShipBomb(
+                dockShipCannonMuzzleX(),
+                dockShipCannonMuzzleY(),
+                0,
+                0,
+                dockBombTargetX(target),
+                dockBombTargetY(target),
+                puller.playerIndex,
+                target.playerIndex,
+                DOCK_BOMB_FUSE_FRAMES
+        );
+        dockShipBomb.launchDelayFrames = DOCK_BOMB_LOCKON_FRAMES;
+        dockShipBomb.fired = false;
+        dockShipBomb.cannonFlashFrames = 0;
+        dockLeverCooldown = DOCK_LEVER_COOLDOWN_FRAMES;
+        puller.cooldownFlash = 20;
+        addToKillFeed(shortName(puller.name) + " sighted " + shortName(target.name) + " for bombardment!");
+
+        for (int i = 0; i < scaledParticleBurstCount(18); i++) {
+            particles.add(new Particle(
+                    dockLeverX + (Math.random() - 0.5) * 18,
+                    dockLeverY - 10 + (Math.random() - 0.5) * 12,
+                    (Math.random() - 0.5) * 2.8,
+                    -2.2 - Math.random() * 2.8,
+                    Color.web("#FFCA28", 0.9)
+            ));
+        }
+    }
+
+    private void fireDockShipBomb() {
+        if (dockShipBomb == null || dockShipBomb.fired) {
+            return;
+        }
+        double startX = dockShipCannonMuzzleX();
+        double startY = dockShipCannonMuzzleY();
+        dockShipBomb.x = startX;
+        dockShipBomb.y = startY;
+        double travelFrames = Math.clamp(48.0 + Math.abs(dockShipBomb.targetX - startX) / 34.0, 48.0, 78.0);
+        dockShipBomb.vx = (dockShipBomb.targetX - startX) / travelFrames;
+        dockShipBomb.vy = (dockShipBomb.targetY - startY - 0.5 * DOCK_BOMB_GRAVITY * travelFrames * travelFrames) / travelFrames;
+        dockShipBomb.fuse = Math.max(18, (int) Math.ceil(travelFrames) + 10);
+        dockShipBomb.fired = true;
+        dockShipBomb.cannonFlashFrames = DOCK_BOMB_CANNON_FLASH_FRAMES;
+        shakeIntensity = Math.max(shakeIntensity, 9);
+        playCherrybombSfx();
+        addToKillFeed("The pirate ship opens fire!");
+        for (int i = 0; i < scaledParticleBurstCount(22); i++) {
+            particles.add(new Particle(
+                    startX + (Math.random() - 0.5) * 20,
+                    startY + (Math.random() - 0.5) * 16,
+                    -3.0 - Math.random() * 7.2,
+                    -3.2 + (Math.random() - 0.5) * 4.0,
+                    Color.web(i % 3 == 0 ? "#FFF59D" : "#FFB74D", 0.92)
+            ));
+        }
+        for (int i = 0; i < scaledParticleBurstCount(14); i++) {
+            particles.add(new Particle(
+                    startX + (Math.random() - 0.5) * 12,
+                    startY + 10 + (Math.random() - 0.5) * 10,
+                    -1.6 - Math.random() * 3.0,
+                    0.8 + Math.random() * 1.8,
+                    Color.web("#6D4C41", 0.74)
+            ));
+        }
+    }
+
+    private void updateDockShipBomb() {
+        if (dockShipBomb == null) {
+            return;
+        }
+
+        if (dockShipBomb.cannonFlashFrames > 0) {
+            dockShipBomb.cannonFlashFrames--;
+        }
+
+        if (dockShipBomb.exploded) {
+            dockShipBomb.explosionFrames--;
+            if (dockShipBomb.explosionFrames <= 0) {
+                dockShipBomb = null;
+            }
+            return;
+        }
+
+        Bird target = dockShipBomb.targetPlayerIndex >= 0 && dockShipBomb.targetPlayerIndex < players.length
+                ? players[dockShipBomb.targetPlayerIndex]
+                : null;
+        if (!dockShipBomb.fired && target != null && target.health > 0) {
+            dockShipBomb.targetX = dockBombTargetX(target);
+            dockShipBomb.targetY = dockBombTargetY(target);
+        }
+
+        if (!dockShipBomb.fired) {
+            if (dockShipBomb.launchDelayFrames > 0) {
+                dockShipBomb.launchDelayFrames--;
+            }
+            if (dockShipBomb.launchDelayFrames <= 0) {
+                fireDockShipBomb();
+            }
+            return;
+        }
+
+        dockShipBomb.fuse--;
+        dockShipBomb.x += dockShipBomb.vx;
+        dockShipBomb.y += dockShipBomb.vy;
+        dockShipBomb.vy += DOCK_BOMB_GRAVITY;
+
+        if (particleEffectsEnabled && random.nextDouble() < 0.9) {
+            particles.add(new Particle(
+                    dockShipBomb.x + (Math.random() - 0.5) * 14,
+                    dockShipBomb.y + 8,
+                    (Math.random() - 0.5) * 1.8,
+                    1.0 + Math.random() * 2.6,
+                    Color.web("#5D4037", 0.78)
+            ));
+            particles.add(new Particle(
+                    dockShipBomb.x + (Math.random() - 0.5) * 10,
+                    dockShipBomb.y - 12,
+                    (Math.random() - 0.5) * 1.2,
+                    -1.6 - Math.random() * 1.6,
+                    Color.web("#FFB74D", 0.84)
+            ));
+        }
+
+        boolean explode = dockShipBomb.fuse <= 0
+                || Math.hypot(dockShipBomb.targetX - dockShipBomb.x, dockShipBomb.targetY - dockShipBomb.y) < 52
+                || dockBombHitsPlatform(dockShipBomb)
+                || (isDockWaterAt(dockShipBomb.x, dockShipBomb.y) && dockShipBomb.y >= dockWaterSurfaceY() + 6)
+                || dockShipBomb.y >= GROUND_Y + 8;
+        if (explode) {
+            explodeDockShipBomb();
+        }
+    }
+
+    private boolean dockBombHitsPlatform(DockShipBomb bomb) {
+        for (Platform p : platforms) {
+            if (bomb.x >= p.x - 6 && bomb.x <= p.x + p.w + 6
+                    && bomb.y >= p.y - 8 && bomb.y <= p.y + p.h + 8
+                    && bomb.vy >= -1.0) {
+                bomb.y = p.y;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void explodeDockShipBomb() {
+        if (dockShipBomb == null) return;
+
+        DockShipBomb bomb = dockShipBomb;
+        bomb.exploded = true;
+        bomb.explosionFrames = 16;
+        bomb.vx = 0;
+        bomb.vy = 0;
+
+        Bird owner = bomb.ownerPlayerIndex >= 0 && bomb.ownerPlayerIndex < players.length
+                ? players[bomb.ownerPlayerIndex]
+                : null;
+        double radius = 220.0;
+        double heaviestHit = 0.0;
+        for (Bird other : players) {
+            if (other == null || other.health <= 0) continue;
+            if (owner != null && !canDamage(owner, other)) continue;
+            double centerX = other.x + 40 * other.sizeMultiplier;
+            double centerY = other.y + 40 * other.sizeMultiplier;
+            double dx = centerX - bomb.x;
+            double dy = centerY - bomb.y;
+            double dist = Math.hypot(dx, dy);
+            if (dist > radius + 32) continue;
+
+            double falloff = 1.0 - Math.min(1.0, dist / radius);
+            double oldHealth = other.health;
+            double dealtDamage = other.receiveExternalDamage(18 + falloff * 30);
+            if (dealtDamage <= 0) continue;
+
+            heaviestHit = Math.max(heaviestHit, dealtDamage);
+            if (owner != null) {
+                damageDealt[owner.playerIndex] += (int) Math.round(dealtDamage);
+                owner.gainUltimateFromMinionDamage(dealtDamage);
+                if (oldHealth > 0 && other.health <= 0) {
+                    eliminations[owner.playerIndex]++;
+                }
+            }
+            double dir = dx == 0 ? (other.x >= bomb.x ? 1.0 : -1.0) : Math.signum(dx);
+            other.vx += dir * (12 + falloff * 18);
+            other.vy -= 9 + falloff * 14;
+            other.applyStun(18 + falloff * 12);
+            addToKillFeed("PIRATE BOMB blasted " + shortName(other.name) + "! -" + (int) Math.round(dealtDamage) + " HP");
+        }
+
+        int particleCount = scaledParticleBurstCount(72);
+        for (int i = 0; i < particleCount; i++) {
+            double angle = Math.random() * Math.PI * 2;
+            double speed = 5 + Math.random() * 16;
+            Color color = i % 3 == 0 ? Color.web("#FFCA28") : (i % 3 == 1 ? Color.web("#6D4C41") : Color.web("#FF7043"));
+            particles.add(new Particle(
+                    bomb.x,
+                    bomb.y,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 3,
+                    color
+            ));
+        }
+        shakeIntensity = Math.max(shakeIntensity, 30);
+        hitstopFrames = Math.max(hitstopFrames, 10);
+        triggerFlash(Math.min(0.95, 0.38 + heaviestHit / 42.0), false);
     }
 
     private void updateSwingingVines() {
@@ -8211,6 +9439,7 @@ public class BirdGame3 extends Application {
                     g.fillOval(v.x + v.w / 2 - ventWidth / 2, v.y - ventHeight * 0.72, ventWidth, ventHeight);
                 }
             }
+            case DOCK -> drawDockArena(g, ambientFx);
             case BATTLEFIELD -> {
                 if (isBeaconCrownBattlefieldContext()) {
                     drawBeaconCrownBattlefield(g, ambientFx);
@@ -8454,6 +9683,17 @@ public class BirdGame3 extends Application {
                 continue;
             }
             drawPowerUpSprite(g, p, offset);
+        }
+
+        if (dockShipBomb != null) {
+            drawDockShipBomb(g, dockShipBomb);
+        }
+
+        for (PiranhaHazard piranha : piranhaHazards) {
+            if (isWorldRectNearCamera(piranha.x - 42, piranha.y - 28, 84, 56, 180)) {
+                continue;
+            }
+            drawPiranhaHazard(g, piranha);
         }
 
         for (CrowMinion c : crowMinions) {
@@ -8838,6 +10078,273 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void drawDockArena(GraphicsContext g, boolean ambientFx) {
+        for (int i = 0; i < 620; i++) {
+            double ratio = i / 620.0;
+            Color c = Color.web("#0B2030").interpolate(Color.web("#2C6E87"), ratio);
+            g.setFill(c);
+            g.fillRect(0, i * (WORLD_HEIGHT / 620.0), WORLD_WIDTH, WORLD_HEIGHT / 620.0 + 3);
+        }
+
+        double time = System.currentTimeMillis() / 820.0;
+        double horizonY = GROUND_Y - 250;
+        g.setFill(Color.web("#FFD180", 0.26));
+        g.fillOval(420, 140, 520, 520);
+        g.setFill(Color.web("#FFFFFF", 0.08));
+        g.fillOval(520, 220, 320, 320);
+
+        g.setFill(Color.web("#10293A", 0.85));
+        for (int i = 0; i < 9; i++) {
+            double baseX = i * 720 - 120;
+            double height = 220 + (i % 3) * 60;
+            g.fillRect(baseX, horizonY - height, 280, height);
+            g.fillRect(baseX + 220, horizonY - height * 0.72, 180, height * 0.72);
+            g.fillPolygon(
+                    new double[]{baseX + 420, baseX + 540, baseX + 660},
+                    new double[]{horizonY, horizonY - 120 - (i % 2) * 40, horizonY},
+                    3
+            );
+        }
+
+        g.setFill(Color.web("#0C1D28", 0.65));
+        g.fillRect(0, horizonY, WORLD_WIDTH, WORLD_HEIGHT - horizonY);
+        g.setStroke(Color.web("#7FDBFF", 0.14));
+        g.setLineWidth(3);
+        for (int i = 0; i < 18; i++) {
+            double waveY = horizonY + 55 + i * 28;
+            g.strokeLine(0, waveY + Math.sin(time + i * 0.8) * 5, WORLD_WIDTH, waveY + Math.sin(time + i * 0.8) * 5);
+        }
+
+        g.setFill(Color.web("#0E2430", 0.82));
+        g.fillPolygon(
+                new double[]{820, 980, 1180, 1360, 1240, 900},
+                new double[]{horizonY + 70, horizonY - 20, horizonY + 10, horizonY + 100, horizonY + 130, horizonY + 120},
+                6
+        );
+        g.fillPolygon(
+                new double[]{4180, 4370, 4600, 4780, 4660, 4300},
+                new double[]{horizonY + 40, horizonY - 40, horizonY - 10, horizonY + 96, horizonY + 126, horizonY + 116},
+                6
+        );
+        g.setFill(Color.web("#D7CCC8", 0.16));
+        g.fillPolygon(new double[]{1000, 1170, 1000}, new double[]{horizonY - 10, horizonY + 86, horizonY + 146}, 3);
+        g.fillPolygon(new double[]{4390, 4580, 4390}, new double[]{horizonY - 30, horizonY + 78, horizonY + 146}, 3);
+
+        if (ambientFx) {
+            g.setFill(Color.web("#FFF8E1", 0.12));
+            for (int i = 0; i < 8; i++) {
+                double gullX = 500 + i * 650 + Math.sin(time * 0.55 + i * 0.7) * 70;
+                double gullY = 180 + (i % 3) * 80 + Math.cos(time * 0.75 + i) * 18;
+                g.fillArc(gullX - 20, gullY, 26, 14, 15, 145, ArcType.OPEN);
+                g.fillArc(gullX - 2, gullY, 26, 14, 20, 145, ArcType.OPEN);
+            }
+        }
+
+        double waterline = dockWaterSurfaceY();
+        g.setFill(Color.web("#8D6E63"));
+        g.fillRect(0, GROUND_Y - 6, dockWaterX - 24, WORLD_HEIGHT - GROUND_Y + 180);
+        g.setFill(Color.web("#C8A268"));
+        g.fillRect(0, GROUND_Y - 20, dockWaterX - 46, WORLD_HEIGHT - GROUND_Y + 180);
+        g.setFill(Color.web("#E6C68A", 0.72));
+        g.fillPolygon(
+                new double[]{dockWaterX - 300, dockWaterX - 120, dockWaterX + 34, dockWaterX + 10, dockWaterX - 260},
+                new double[]{GROUND_Y + 22, GROUND_Y - 58, GROUND_Y - 26, GROUND_Y + 42, GROUND_Y + 76},
+                5
+        );
+        g.setFill(Color.web("#F4D79E", 0.34));
+        for (int i = 0; i < 6; i++) {
+            double duneX = 220 + i * 320;
+            g.fillOval(duneX, GROUND_Y - 34 + (i % 2) * 8, 240, 54);
+        }
+
+        g.setFill(Color.web("#0A2533", 0.84));
+        g.fillRect(dockWaterX, waterline, dockWaterW, WORLD_HEIGHT - waterline + 220);
+        g.setFill(Color.web("#173C4D", 0.48));
+        g.fillRect(dockWaterX + 30, waterline + 16, dockWaterW - 60, 34);
+        g.setStroke(Color.web("#80DEEA", 0.24));
+        g.setLineWidth(3.2);
+        for (int i = 0; i < 14; i++) {
+            double waveY = waterline + 18 + i * 26;
+            double waveShift = Math.sin(time * 1.2 + i * 0.9) * 8;
+            g.strokeLine(dockWaterX, waveY + waveShift, dockWaterX + dockWaterW, waveY - waveShift * 0.35);
+        }
+        g.setStroke(Color.web("#B3E5FC", 0.55));
+        g.setLineWidth(4);
+        g.strokeLine(dockWaterX, waterline, dockWaterX + dockWaterW, waterline);
+
+        double shipX = dockShipVisualX();
+        double shipY = dockShipVisualY();
+        double shipScale = DOCK_SHIP_SCALE;
+        boolean shipActive = dockShipBomb != null && !dockShipBomb.exploded;
+        double cannonGlow = shipActive
+                ? (dockShipBomb.fired
+                ? 0.22 + Math.max(0.0, dockShipBomb.cannonFlashFrames / (double) DOCK_BOMB_CANNON_FLASH_FRAMES) * 0.55
+                : 0.16 + (1.0 - Math.max(0, dockShipBomb.launchDelayFrames) / (double) DOCK_BOMB_LOCKON_FRAMES) * 0.28)
+                : 0.08;
+        g.save();
+        g.translate(shipX, shipY);
+        g.scale(shipScale, shipScale);
+        g.setFill(Color.web("#132734", 0.92));
+        g.fillPolygon(
+                new double[]{30, 220, 670, 860, 930, 180},
+                new double[]{154, 106, 114, 148, 198, 214},
+                6
+        );
+        g.setFill(Color.web("#1E3948", 0.76));
+        g.fillPolygon(
+                new double[]{88, 232, 646, 780, 196},
+                new double[]{150, 118, 126, 152, 186},
+                5
+        );
+        g.setStroke(Color.web("#4E342E", 0.74));
+        g.setLineWidth(10);
+        g.strokeLine(308, -242, 308, 116);
+        g.strokeLine(520, -188, 520, 132);
+        g.strokeLine(714, -120, 714, 144);
+        g.setStroke(Color.web("#BCAAA4", 0.24));
+        g.setLineWidth(2.4);
+        g.strokeLine(308, -210, 122, 20);
+        g.strokeLine(308, -110, 620, 70);
+        g.strokeLine(520, -150, 312, 20);
+        g.strokeLine(520, -38, 756, 88);
+        g.strokeLine(714, -92, 566, 48);
+        g.setFill(Color.web("#263238", 0.84));
+        g.fillPolygon(
+                new double[]{308, 118, 308},
+                new double[]{-214, -24, 28},
+                3
+        );
+        g.fillPolygon(
+                new double[]{520, 332, 520},
+                new double[]{-150, 14, 54},
+                3
+        );
+        g.fillPolygon(
+                new double[]{714, 572, 714},
+                new double[]{-82, 34, 72},
+                3
+        );
+        g.setFill(Color.web("#FFECB3", 0.14));
+        for (int i = 0; i < 5; i++) {
+            g.fillOval(210 + i * 112, 136 + (i % 2) * 6, 38, 16);
+        }
+        g.setStroke(Color.web("#3E2723", 0.9));
+        g.setLineWidth(16);
+        g.strokeLine(78, 146, -18, 134);
+        g.setStroke(Color.web("#4A2E1F", 0.92));
+        g.setLineWidth(10);
+        g.strokeLine(82, 148, -36, 132);
+        g.setFill(Color.web("#FFCC80", cannonGlow));
+        g.fillOval(4, 106, 132, 58);
+        g.setFill(Color.web("#FFE082", cannonGlow * 0.92));
+        g.fillOval(-12, 114, 92, 42);
+        g.restore();
+
+        g.setFill(Color.web("#4E342E", 0.95));
+        g.fillRoundRect(720, GROUND_Y - 250, 420, 140, 18, 18);
+        g.fillRoundRect(980, GROUND_Y - 420, 300, 170, 18, 18);
+        g.setFill(Color.web("#6D4C41", 0.94));
+        g.fillPolygon(
+                new double[]{920, 1090, 1280, 1200, 980},
+                new double[]{GROUND_Y - 420, GROUND_Y - 580, GROUND_Y - 420, GROUND_Y - 350, GROUND_Y - 350},
+                5
+        );
+        g.setStroke(Color.web("#D7CCC8", 0.22));
+        g.setLineWidth(3);
+        for (int i = 0; i < 3; i++) {
+            g.strokeRect(800 + i * 90, GROUND_Y - 200, 54, 40);
+            g.strokeRect(1020 + i * 68, GROUND_Y - 360, 42, 34);
+        }
+
+        g.setStroke(Color.web("#5D4037", 0.85));
+        g.setLineWidth(14);
+        g.strokeLine(3180, GROUND_Y - 192, 4880, GROUND_Y - 192);
+        g.setLineWidth(10);
+        for (double supportX = 3240; supportX <= 4820; supportX += 220) {
+            g.strokeLine(supportX, GROUND_Y - 164, supportX, waterline + 110);
+        }
+        g.setStroke(Color.web("#BCAAA4", 0.28));
+        g.setLineWidth(2.2);
+        g.strokeLine(3300, GROUND_Y - 540, 3460, GROUND_Y - 220);
+        g.strokeLine(4300, GROUND_Y - 780, 4520, GROUND_Y - 220);
+
+        for (Platform p : platforms) {
+            boolean skiff = isDockSkiffPlatform(p);
+            boolean bridge = p.x >= 3000;
+            boolean highRigging = p.y < GROUND_Y - 520;
+            Color wood = highRigging ? Color.web("#5D4037") : Color.web("#6D4C41");
+            Color trim = highRigging ? Color.web("#A1887F") : Color.web("#8D6E63");
+            g.setFill(wood);
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 24, 24);
+            g.setStroke(Color.web("#3E2723"));
+            g.setLineWidth(3.4);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 24, 24);
+            g.setStroke(trim);
+            g.setLineWidth(2.0);
+            for (int i = 1; i < Math.max(2, (int) (p.w / 110)); i++) {
+                double plankX = p.x + i * (p.w / Math.max(2, (int) (p.w / 110) + 1));
+                g.strokeLine(plankX, p.y + 6, plankX, p.y + p.h - 6);
+            }
+            g.setFill(Color.web("#D7CCC8", 0.16));
+            g.fillRoundRect(p.x + 10, p.y + 6, Math.max(20, p.w - 20), Math.max(10, p.h * 0.24), 18, 18);
+
+            if (skiff) {
+                g.setStroke(Color.web("#4E342E", 0.85));
+                g.setLineWidth(5);
+                g.strokeArc(p.x - 18, p.y + 4, p.w + 36, p.h + 30, 0, 180, ArcType.OPEN);
+            } else if (bridge && p.y >= GROUND_Y - 260) {
+                g.setStroke(Color.web("#4E342E", 0.72));
+                g.setLineWidth(7);
+                for (double postX = p.x + 40; postX < p.x + p.w - 10; postX += 120) {
+                    g.strokeLine(postX, p.y + p.h, postX, waterline + 95);
+                }
+            } else if (p.y >= battlefieldIslandY - 180) {
+                g.setStroke(Color.web("#4E342E", 0.72));
+                g.setLineWidth(8);
+                double supportBottom = p.x + p.w < dockWaterX - 20 ? GROUND_Y + 10 : waterline + 30;
+                for (double postX = p.x + 50; postX < p.x + p.w - 20; postX += 140) {
+                    g.strokeLine(postX, p.y + p.h, postX, supportBottom);
+                }
+            } else {
+                double mastBaseX = p.x + p.w / 2;
+                g.setStroke(Color.web("#5D4037", 0.72));
+                g.setLineWidth(5);
+                g.strokeLine(mastBaseX, battlefieldIslandY + 8, mastBaseX, p.y + p.h);
+                g.setStroke(Color.web("#D7CCC8", 0.22));
+                g.setLineWidth(2);
+                g.strokeLine(mastBaseX, p.y + p.h, mastBaseX - 160, battlefieldIslandY + 20);
+                g.strokeLine(mastBaseX, p.y + p.h, mastBaseX + 160, battlefieldIslandY + 20);
+            }
+        }
+
+        double leverBaseY = dockLeverY + 26;
+        boolean leverReady = dockLeverCooldown <= 0;
+        g.setFill(leverReady ? Color.web("#7B5A3B") : Color.web("#546E7A"));
+        g.fillRoundRect(dockLeverX - 34, leverBaseY - 10, 68, 18, 10, 10);
+        g.setStroke(Color.web("#2E1F16"));
+        g.setLineWidth(3);
+        g.strokeRoundRect(dockLeverX - 34, leverBaseY - 10, 68, 18, 10, 10);
+        double handleTipX = dockLeverX + (leverReady ? 18 : -18);
+        double handleTipY = dockLeverY + (leverReady ? -20 : -34);
+        g.setStroke(leverReady ? Color.web("#FFCA28") : Color.web("#90A4AE"));
+        g.setLineWidth(5);
+        g.strokeLine(dockLeverX, leverBaseY - 4, handleTipX, handleTipY);
+        g.setFill(leverReady ? Color.web("#FFE082") : Color.web("#CFD8DC"));
+        g.fillOval(handleTipX - 8, handleTipY - 8, 16, 16);
+        g.setFill(Color.web("#FFF8E1", leverReady ? 0.72 : 0.46));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
+        String leverText = leverReady ? "LEVER READY" : "RELOAD " + (int) Math.ceil(dockLeverCooldown / 60.0) + "s";
+        g.fillText(leverText, dockLeverX - 60, dockLeverY - 24);
+
+        for (WindVent v : windVents) {
+            g.setFill(Color.web("#B3E5FC", ambientFx ? 0.22 : 0.14));
+            g.fillOval(v.x + v.w / 2 - 120, v.y - 180, 240, 300);
+            g.setStroke(Color.web("#E1F5FE", 0.18));
+            g.setLineWidth(2);
+            g.strokeOval(v.x + v.w / 2 - 94, v.y - 140, 188, 224);
+        }
+    }
+
     private void drawCrowMinion(GraphicsContext g, CrowMinion crow) {
         int variant = crow.effectiveVariant();
         double pulseVal = 1.0 + 0.3 * Math.sin(crow.age * 0.4);
@@ -8901,6 +10408,127 @@ public class BirdGame3 extends Application {
             g.setLineWidth(1.2);
             g.strokePolygon(xs, ys, xs.length);
         }
+    }
+
+    private void drawPiranhaHazard(GraphicsContext g, PiranhaHazard piranha) {
+        double dir = piranha.vx >= 0 ? 1.0 : -1.0;
+        double bodyW = 46;
+        double bodyH = 24;
+        double x = piranha.x;
+        double y = piranha.y;
+        double bitePulse = piranha.biteCooldown > 0 ? 1.0 : 0.0;
+
+        g.setFill(Color.web("#0A1A20", 0.28));
+        g.fillOval(x - bodyW * 0.5, y + 10, bodyW, 10);
+
+        g.setFill(Color.web("#C62828"));
+        g.fillOval(x - bodyW * 0.5, y - bodyH * 0.5, bodyW, bodyH);
+        g.setFill(Color.web("#EF5350"));
+        g.fillOval(x - bodyW * 0.12, y - bodyH * 0.42, bodyW * 0.44, bodyH * 0.48);
+        g.setFill(Color.web("#8E0000"));
+        g.fillPolygon(
+                new double[]{x - dir * bodyW * 0.46, x - dir * bodyW * 0.74, x - dir * bodyW * 0.46},
+                new double[]{y, y - bodyH * 0.46, y + bodyH * 0.46},
+                3
+        );
+        g.setFill(Color.web("#FFCDD2"));
+        g.fillPolygon(
+                new double[]{x + dir * bodyW * 0.28, x + dir * bodyW * 0.58, x + dir * bodyW * 0.28},
+                new double[]{y - bodyH * 0.16, y - bodyH * 0.02, y + bodyH * 0.1},
+                3
+        );
+        g.fillPolygon(
+                new double[]{x + dir * bodyW * 0.28, x + dir * bodyW * 0.58, x + dir * bodyW * 0.28},
+                new double[]{y + bodyH * 0.16, y + bodyH * 0.02, y - bodyH * 0.1},
+                3
+        );
+        g.setFill(Color.WHITE);
+        g.fillOval(x + dir * 10, y - 8, 6, 6);
+        g.setFill(Color.BLACK);
+        g.fillOval(x + dir * 11, y - 7, 3, 3);
+        if (bitePulse > 0) {
+            g.setStroke(Color.web("#FFEB3B", 0.6));
+            g.setLineWidth(2.2);
+            g.strokeOval(x - bodyW * 0.56, y - bodyH * 0.72, bodyW * 1.1, bodyH * 1.45);
+        }
+    }
+
+    private void drawDockShipBomb(GraphicsContext g, DockShipBomb bomb) {
+        if (bomb == null) return;
+        double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 95.0);
+        if (!bomb.exploded) {
+            double warningRadius = DOCK_BOMB_WARNING_RADIUS + pulse * 10.0;
+            double telegraphAlpha = bomb.fired ? 0.2 : 0.28 + (1.0 - Math.max(0, bomb.launchDelayFrames) / (double) DOCK_BOMB_LOCKON_FRAMES) * 0.22;
+            g.setFill(Color.web("#D50000", telegraphAlpha * 0.38));
+            g.fillOval(bomb.targetX - warningRadius, bomb.targetY - warningRadius, warningRadius * 2, warningRadius * 2);
+            g.setStroke(Color.web("#FF5252", Math.min(0.92, telegraphAlpha + 0.24)));
+            g.setLineWidth(4.5);
+            g.strokeOval(bomb.targetX - warningRadius, bomb.targetY - warningRadius, warningRadius * 2, warningRadius * 2);
+            g.setStroke(Color.web("#FF8A80", Math.min(0.96, telegraphAlpha + 0.3)));
+            g.setLineWidth(2.6);
+            g.strokeLine(bomb.targetX - warningRadius * 0.72, bomb.targetY, bomb.targetX + warningRadius * 0.72, bomb.targetY);
+            g.strokeLine(bomb.targetX, bomb.targetY - warningRadius * 0.72, bomb.targetX, bomb.targetY + warningRadius * 0.72);
+        }
+
+        double muzzleX = dockShipCannonMuzzleX();
+        double muzzleY = dockShipCannonMuzzleY();
+        if (!bomb.fired) {
+            g.setStroke(Color.web("#FF8A80", 0.26 + pulse * 0.12));
+            g.setLineWidth(3.2);
+            g.setLineDashes(18, 12);
+            g.strokeLine(muzzleX, muzzleY, bomb.targetX, bomb.targetY);
+            g.setLineDashes();
+            double charge = 1.0 - Math.max(0, bomb.launchDelayFrames) / (double) DOCK_BOMB_LOCKON_FRAMES;
+            double chargeRadius = 28 + charge * 40;
+            g.setFill(Color.web("#FFB74D", 0.22 + charge * 0.24));
+            g.fillOval(muzzleX - chargeRadius, muzzleY - chargeRadius * 0.72, chargeRadius * 2, chargeRadius * 1.44);
+            g.setStroke(Color.web("#FFF59D", 0.34 + charge * 0.36));
+            g.setLineWidth(3.0);
+            g.strokeOval(muzzleX - chargeRadius * 0.78, muzzleY - chargeRadius * 0.52, chargeRadius * 1.56, chargeRadius * 1.04);
+            return;
+        }
+
+        if (bomb.cannonFlashFrames > 0) {
+            double flash = bomb.cannonFlashFrames / (double) DOCK_BOMB_CANNON_FLASH_FRAMES;
+            g.setFill(Color.web("#FFD54F", 0.22 + flash * 0.48));
+            g.fillOval(muzzleX - 62, muzzleY - 34, 124, 68);
+            g.setFill(Color.web("#FFF8E1", 0.24 + flash * 0.54));
+            g.fillPolygon(
+                    new double[]{muzzleX - 8, muzzleX - 88, muzzleX - 30, muzzleX - 108, muzzleX - 24},
+                    new double[]{muzzleY - 14, muzzleY - 32, muzzleY, muzzleY + 20, muzzleY + 14},
+                    5
+            );
+        }
+
+        if (bomb.exploded) {
+            double radius = 90 + bomb.explosionFrames * 8;
+            g.setFill(Color.web("#FFCA28", 0.28));
+            g.fillOval(bomb.x - radius, bomb.y - radius, radius * 2, radius * 2);
+            g.setStroke(Color.web("#FFF59D", 0.75));
+            g.setLineWidth(4);
+            g.strokeOval(bomb.x - radius * 0.78, bomb.y - radius * 0.78, radius * 1.56, radius * 1.56);
+            return;
+        }
+
+        for (int i = 5; i >= 1; i--) {
+            double trailX = bomb.x - bomb.vx * i * 2.1;
+            double trailY = bomb.y - bomb.vy * i * 2.1 + DOCK_BOMB_GRAVITY * i * i * 0.45;
+            double size = 16 + i * 5;
+            g.setFill(Color.web("#6D4C41", 0.08 + i * 0.06));
+            g.fillOval(trailX - size * 0.5, trailY - size * 0.42, size, size * 0.84);
+        }
+        g.setStroke(Color.web("#6D4C41", 0.56));
+        g.setLineWidth(2.6);
+        g.strokeLine(bomb.x + 8, bomb.y - 10, bomb.x + 18, bomb.y - 24);
+        g.setFill(Color.web("#2B2B2B"));
+        g.fillOval(bomb.x - 22, bomb.y - 22, 44, 44);
+        g.setStroke(Color.web("#B0BEC5"));
+        g.setLineWidth(2.8);
+        g.strokeOval(bomb.x - 22, bomb.y - 22, 44, 44);
+        g.setFill(Color.web("#FF7043", 0.92));
+        g.fillOval(bomb.x + 14, bomb.y - 28, 12, 12);
+        g.setFill(Color.web("#FFD180", 0.32));
+        g.fillOval(bomb.x - 34, bomb.y - 16, 24, 14);
     }
 
     private void drawChickMinion(GraphicsContext g, ChickMinion chick) {
@@ -9216,6 +10844,20 @@ public class BirdGame3 extends Application {
                 g.fillPolygon(new double[]{cx - 3, cx + 3, cx + 3, cx + 8, cx, cx - 8, cx - 3},
                         new double[]{cy - 14, cy - 14, cy - 2, cy - 2, cy + 12, cy -2, cy -2}, 7);
             }
+            case BROADSIDE -> {
+                g.setFill(Color.web("#5D4037"));
+                g.fillRoundRect(cx - 18, cy - 10, 26, 20, 8, 8);
+                g.setStroke(Color.web("#D7CCC8"));
+                g.setLineWidth(2.4);
+                g.strokeRoundRect(cx - 18, cy - 10, 26, 20, 8, 8);
+                g.setStroke(Color.web("#FFCC80"));
+                g.setLineWidth(3);
+                g.strokeLine(cx + 8, cy, cx + 22, cy);
+                g.strokeLine(cx + 12, cy - 10, cx + 22, cy - 16);
+                g.strokeLine(cx + 12, cy + 10, cx + 22, cy + 16);
+                g.setFill(Color.web("#8D6E63"));
+                g.fillOval(cx - 22, cy - 5, 12, 10);
+            }
         }
     }
 
@@ -9403,7 +11045,7 @@ public class BirdGame3 extends Application {
     private boolean isShopPreviewMap(ShopPreview preview) {
         if (preview == null) return false;
         String key = preview.skinKey();
-        return MAP_CAVE_KEY.equals(key) || MAP_BATTLEFIELD_KEY.equals(key);
+        return MAP_CAVE_KEY.equals(key) || MAP_BATTLEFIELD_KEY.equals(key) || MAP_DOCK_KEY.equals(key);
     }
 
     private boolean isShopPreviewCoin(ShopPreview preview) {
@@ -9426,6 +11068,7 @@ public class BirdGame3 extends Application {
         if (preview == null) return null;
         if (MAP_CAVE_KEY.equals(preview.skinKey())) return MapType.CAVE;
         if (MAP_BATTLEFIELD_KEY.equals(preview.skinKey())) return MapType.BATTLEFIELD;
+        if (MAP_DOCK_KEY.equals(preview.skinKey())) return MapType.DOCK;
         return null;
     }
 
@@ -13746,6 +15389,7 @@ public class BirdGame3 extends Application {
             case CAVE -> "Echo Cavern";
             case BATTLEFIELD -> "Battlefield";
             case BEACON_CROWN -> "Beacon Crown";
+            case DOCK -> "Broken Harbor";
             default -> "Big Forest";
         };
     }
@@ -14355,6 +15999,7 @@ public class BirdGame3 extends Application {
         state.zoom = zoom;
         state.shakeIntensity = shakeIntensity;
         state.hitstopFrames = hitstopFrames;
+        state.dockLeverCooldown = dockLeverCooldown;
         state.scores = Arrays.copyOf(scores, scores.length);
         state.killFeed = new ArrayList<>(killFeed);
         for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
@@ -14409,6 +16054,35 @@ public class BirdGame3 extends Application {
             cs.variant = c.variant;
             state.crowMinions.add(cs);
         }
+        for (PiranhaHazard piranha : piranhaHazards) {
+            LanState.PiranhaState ps = new LanState.PiranhaState();
+            ps.x = piranha.x;
+            ps.y = piranha.y;
+            ps.vx = piranha.vx;
+            ps.vy = piranha.vy;
+            ps.age = piranha.age;
+            ps.biteCooldown = piranha.biteCooldown;
+            ps.breachCooldown = piranha.breachCooldown;
+            state.piranhas.add(ps);
+        }
+        if (dockShipBomb != null) {
+            LanState.DockBombState bs = new LanState.DockBombState();
+            bs.x = dockShipBomb.x;
+            bs.y = dockShipBomb.y;
+            bs.vx = dockShipBomb.vx;
+            bs.vy = dockShipBomb.vy;
+            bs.targetX = dockShipBomb.targetX;
+            bs.targetY = dockShipBomb.targetY;
+            bs.ownerPlayerIndex = dockShipBomb.ownerPlayerIndex;
+            bs.targetPlayerIndex = dockShipBomb.targetPlayerIndex;
+            bs.fuse = dockShipBomb.fuse;
+            bs.launchDelayFrames = dockShipBomb.launchDelayFrames;
+            bs.cannonFlashFrames = dockShipBomb.cannonFlashFrames;
+            bs.explosionFrames = dockShipBomb.explosionFrames;
+            bs.fired = dockShipBomb.fired;
+            bs.exploded = dockShipBomb.exploded;
+            state.dockBomb = bs;
+        }
         for (ChickMinion chick : chickMinions) {
             LanState.ChickMinionState cs = new LanState.ChickMinionState();
             cs.x = chick.x;
@@ -14435,6 +16109,7 @@ public class BirdGame3 extends Application {
         syncTrackedCameraToCurrentView();
         shakeIntensity = state.shakeIntensity;
         hitstopFrames = state.hitstopFrames;
+        dockLeverCooldown = state.dockLeverCooldown;
         if (state.scores != null) {
             int len = Math.min(scores.length, state.scores.length);
             System.arraycopy(state.scores, 0, scores, 0, len);
@@ -14465,6 +16140,8 @@ public class BirdGame3 extends Application {
         syncLanSwingingVines(state.swingingVines);
         syncLanWindVents(state.windVents);
         syncLanCrowMinions(state.crowMinions);
+        syncLanPiranhas(state.piranhas);
+        syncLanDockBomb(state.dockBomb);
         syncLanChickMinions(state.chickMinions);
     }
 
@@ -14582,6 +16259,66 @@ public class BirdGame3 extends Application {
             crow.owner = cs.ownerIndex >= 0 && cs.ownerIndex < players.length ? players[cs.ownerIndex] : null;
             crow.target = null;
         }
+    }
+
+    private void syncLanPiranhas(List<LanState.PiranhaState> states) {
+        int targetSize = states != null ? states.size() : 0;
+        while (piranhaHazards.size() > targetSize) {
+            piranhaHazards.removeLast();
+        }
+        for (int i = 0; i < targetSize; i++) {
+            LanState.PiranhaState ps = states.get(i);
+            PiranhaHazard piranha;
+            if (i < piranhaHazards.size()) {
+                piranha = piranhaHazards.get(i);
+            } else {
+                piranha = new PiranhaHazard(ps.x, ps.y, ps.vx);
+                piranhaHazards.add(piranha);
+            }
+            piranha.x = ps.x;
+            piranha.y = ps.y;
+            piranha.vx = ps.vx;
+            piranha.vy = ps.vy;
+            piranha.age = ps.age;
+            piranha.biteCooldown = ps.biteCooldown;
+            piranha.breachCooldown = ps.breachCooldown;
+            piranha.target = null;
+            piranha.retargetCooldown = 0;
+        }
+    }
+
+    private void syncLanDockBomb(LanState.DockBombState state) {
+        if (state == null) {
+            dockShipBomb = null;
+            return;
+        }
+        if (dockShipBomb == null) {
+            dockShipBomb = new DockShipBomb(
+                    state.x,
+                    state.y,
+                    state.vx,
+                    state.vy,
+                    state.targetX,
+                    state.targetY,
+                    state.ownerPlayerIndex,
+                    state.targetPlayerIndex,
+                    state.fuse
+            );
+        }
+        dockShipBomb.x = state.x;
+        dockShipBomb.y = state.y;
+        dockShipBomb.vx = state.vx;
+        dockShipBomb.vy = state.vy;
+        dockShipBomb.targetX = state.targetX;
+        dockShipBomb.targetY = state.targetY;
+        dockShipBomb.ownerPlayerIndex = state.ownerPlayerIndex;
+        dockShipBomb.targetPlayerIndex = state.targetPlayerIndex;
+        dockShipBomb.fuse = state.fuse;
+        dockShipBomb.launchDelayFrames = state.launchDelayFrames;
+        dockShipBomb.cannonFlashFrames = state.cannonFlashFrames;
+        dockShipBomb.explosionFrames = state.explosionFrames;
+        dockShipBomb.fired = state.fired;
+        dockShipBomb.exploded = state.exploded;
     }
 
     private void syncLanChickMinions(List<LanState.ChickMinionState> states) {
@@ -14728,6 +16465,9 @@ public class BirdGame3 extends Application {
             case MAP_BATTLEFIELD_KEY -> {
                 return battlefieldMapUnlocked;
             }
+            case MAP_DOCK_KEY -> {
+                return dockMapUnlocked;
+            }
             case "CITY_PIGEON" -> {
                 return cityPigeonUnlocked;
             }
@@ -14809,43 +16549,43 @@ public class BirdGame3 extends Application {
         switch (key) {
             case CHAR_BAT_KEY -> {
                 batUnlocked = true;
-                adventureUnlocked[BirdType.BAT.ordinal()] = true;
+                setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.BAT, true);
                 queueUnlockCardForBird(BirdType.BAT);
                 return;
             }
             case CHAR_FALCON_KEY -> {
                 falconUnlocked = true;
-                adventureUnlocked[BirdType.FALCON.ordinal()] = true;
+                setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.FALCON, true);
                 queueUnlockCardForBird(BirdType.FALCON);
                 return;
             }
             case CHAR_HEISENBIRD_KEY -> {
                 heisenbirdUnlocked = true;
-                adventureUnlocked[BirdType.HEISENBIRD.ordinal()] = true;
+                setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.HEISENBIRD, true);
                 queueUnlockCardForBird(BirdType.HEISENBIRD);
                 return;
             }
             case CHAR_PHOENIX_KEY -> {
                 phoenixUnlocked = true;
-                adventureUnlocked[BirdType.PHOENIX.ordinal()] = true;
+                setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.PHOENIX, true);
                 queueUnlockCardForBird(BirdType.PHOENIX);
                 return;
             }
             case CHAR_TITMOUSE_KEY -> {
                 titmouseUnlocked = true;
-                adventureUnlocked[BirdType.TITMOUSE.ordinal()] = true;
+                setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.TITMOUSE, true);
                 queueUnlockCardForBird(BirdType.TITMOUSE);
                 return;
             }
             case CHAR_RAVEN_KEY -> {
                 ravenUnlocked = true;
-                adventureUnlocked[BirdType.RAVEN.ordinal()] = true;
+                setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.RAVEN, true);
                 queueUnlockCardForBird(BirdType.RAVEN);
                 return;
             }
             case CHAR_ROOSTER_KEY -> {
                 roosterUnlocked = true;
-                adventureUnlocked[BirdType.ROOSTER.ordinal()] = true;
+                setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.ROOSTER, true);
                 queueUnlockCardForBird(BirdType.ROOSTER);
                 return;
             }
@@ -14857,6 +16597,11 @@ public class BirdGame3 extends Application {
             case MAP_BATTLEFIELD_KEY -> {
                 battlefieldMapUnlocked = true;
                 queueUnlockCardForMap(MapType.BATTLEFIELD);
+                return;
+            }
+            case MAP_DOCK_KEY -> {
+                dockMapUnlocked = true;
+                queueUnlockCardForMap(MapType.DOCK);
                 return;
             }
             case "CITY_PIGEON" -> {
@@ -14982,6 +16727,7 @@ public class BirdGame3 extends Application {
         if (CHAR_ROOSTER_KEY.equals(key)) return "Rooster";
         if (MAP_CAVE_KEY.equals(key)) return "Echo Cavern Map";
         if (MAP_BATTLEFIELD_KEY.equals(key)) return "Battlefield Map";
+        if (MAP_DOCK_KEY.equals(key)) return "Broken Harbor Map";
         if ("CITY_PIGEON".equals(key)) return "City Pigeon";
         if ("NOIR_PIGEON".equals(key)) return "Noir Pigeon";
         if (FREEMAN_PIGEON_SKIN.equals(key)) return "Freeman Bird";
@@ -15230,7 +16976,8 @@ public class BirdGame3 extends Application {
         );
         List<ShopPreview> mapRewards = List.of(
                 new ShopPreview(null, MAP_CAVE_KEY, "Echo Cavern Map"),
-                new ShopPreview(null, MAP_BATTLEFIELD_KEY, "Battlefield Map")
+                new ShopPreview(null, MAP_BATTLEFIELD_KEY, "Battlefield Map"),
+                new ShopPreview(null, MAP_DOCK_KEY, "Broken Harbor Map")
         );
 
         ShopPreview dunePreview = new ShopPreview(BirdType.FALCON, DUNE_FALCON_SKIN, null);
@@ -17031,6 +18778,7 @@ public class BirdGame3 extends Application {
                 new MapEntry(MapType.VIBRANT_JUNGLE, "Vibrant Jungle", mapDescription(MapType.VIBRANT_JUNGLE), mapHowToGet(MapType.VIBRANT_JUNGLE)),
                 new MapEntry(MapType.CAVE, "Echo Cavern", mapDescription(MapType.CAVE), mapHowToGet(MapType.CAVE)),
                 new MapEntry(MapType.BATTLEFIELD, "Battlefield", mapDescription(MapType.BATTLEFIELD), mapHowToGet(MapType.BATTLEFIELD)),
+                new MapEntry(MapType.DOCK, "Broken Harbor", mapDescription(MapType.DOCK), mapHowToGet(MapType.DOCK)),
                 new MapEntry(MapType.BEACON_CROWN, "Beacon Crown", mapDescription(MapType.BEACON_CROWN), mapHowToGet(MapType.BEACON_CROWN))
         );
     }
@@ -17041,6 +18789,9 @@ public class BirdGame3 extends Application {
         }
         if (map == MapType.BATTLEFIELD) {
             return "Card Packs";
+        }
+        if (map == MapType.DOCK) {
+            return "Complete Tempest Run or find it in Card Packs";
         }
         if (map == MapType.BEACON_CROWN) {
             return "Complete Adventure Chapter 9: Sky of All Wings";
@@ -17055,6 +18806,7 @@ public class BirdGame3 extends Application {
             case VIBRANT_JUNGLE -> "Lush canopy with vines, nectar nodes, and layered platforms. Fights swing from open air to close quarters fast.";
             case CAVE -> "Tight corridors and hanging ledges that turn every chase into an ambush. Echoes hide footsteps and reward patient play.";
             case BATTLEFIELD -> "A floating island ringed by open sky. Clean side platforms and a central perch make it perfect for classic duels.";
+            case DOCK -> "Storm-battered piers, rigging perches, and rescue skiffs over open water. Pull the top-dock lever to call in a pirate-ship bomb on a rival.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -17138,14 +18890,16 @@ public class BirdGame3 extends Application {
         competitionRoundNumber = 1;
         playMenuMusic();
 
+        setAdventureRoute(selectedAdventureRoute);
         ensureAdventureChapterState();
         checkAdventureAchievements();
-        if (adventureChapters.length == 0) {
+        AdventureChapter[] routeChapters = chaptersForAdventureRoute(selectedAdventureRoute);
+        if (routeChapters.length == 0) {
             showMenu(stage);
             return;
         }
         int maxVisibleChapter = 0;
-        for (int i = 0; i < adventureChapters.length; i++) {
+        for (int i = 0; i < routeChapters.length; i++) {
             if (i == 0 || adventureChapterCompletedByIndex[i - 1]) {
                 maxVisibleChapter = i;
             } else {
@@ -17179,6 +18933,23 @@ public class BirdGame3 extends Application {
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 90));
         title.setTextFill(Color.web("#FFD54F"));
 
+        HBox routeRow = new HBox(18);
+        routeRow.setAlignment(Pos.CENTER);
+        for (AdventureRoute route : AdventureRoute.values()) {
+            ensureAdventureRouteState(route);
+            boolean selected = route == selectedAdventureRoute;
+            boolean[] routeCompleted = adventureChapterCompletedByRoute[route.ordinal()];
+            int routeDone = countCompleted(routeCompleted);
+            String buttonText = route.label.toUpperCase() + "\n" + route.heading.toUpperCase()
+                    + "\n" + routeDone + "/" + Math.max(1, routeCompleted.length) + " CHAPTERS";
+            Button routeBtn = uiFactory.action(buttonText, 460, 118, 20, selected ? route.accent : "#455A64", 18, () -> {
+                playButtonClick();
+                setAdventureRoute(route);
+                showAdventureHub(stage);
+            });
+            routeRow.getChildren().add(routeBtn);
+        }
+
         VBox card = new VBox(16);
         card.setAlignment(Pos.CENTER_LEFT);
         card.setPadding(new Insets(26));
@@ -17186,9 +18957,29 @@ public class BirdGame3 extends Application {
         card.setMinWidth(cardWidth);
         card.setPrefWidth(cardWidth);
         card.setMaxWidth(cardWidth);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 24; -fx-border-color: #64B5F6; -fx-border-width: 3; -fx-border-radius: 24;");
+        card.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 24; -fx-border-color: " + selectedAdventureRoute.accent + "; -fx-border-width: 3; -fx-border-radius: 24;");
 
-        Label chaptersLabel = new Label("CHAPTERS");
+        Label routeHeading = new Label(selectedAdventureRoute.heading);
+        routeHeading.setFont(Font.font("Arial Black", 42));
+        routeHeading.setTextFill(Color.web(selectedAdventureRoute.accent));
+
+        String completionRewardText = selectedAdventureRoute == AdventureRoute.TEMPEST
+                ? "Completion reward: Ironclad Pelican skin + Broken Harbor map"
+                : "Completion reward: Beacon Pigeon + Beacon Crown finale rewards";
+        Label routeSummary = new Label(selectedAdventureRoute.summary
+                + "\nRoute roster: " + adventureRosterText()
+                + "\n" + completionRewardText);
+        routeSummary.setFont(Font.font("Consolas", 22));
+        routeSummary.setTextFill(Color.web("#B3E5FC"));
+        routeSummary.setWrapText(true);
+        routeSummary.setMaxWidth(cardInnerWidth);
+        routeSummary.setPrefWidth(cardInnerWidth);
+        routeSummary.setMinHeight(Region.USE_PREF_SIZE);
+        routeSummary.setTextAlignment(TextAlignment.LEFT);
+        routeSummary.setAlignment(Pos.CENTER_LEFT);
+        applyNoEllipsis(routeSummary);
+
+        Label chaptersLabel = new Label(selectedAdventureRoute.label.toUpperCase() + " CHAPTERS");
         chaptersLabel.setFont(Font.font("Arial Black", 32));
         chaptersLabel.setTextFill(Color.web("#FFECB3"));
 
@@ -17199,7 +18990,7 @@ public class BirdGame3 extends Application {
         chapterRow.setMaxWidth(cardInnerWidth);
         for (int i = 0; i <= maxVisibleChapter; i++) {
             int idx = i;
-            String chapterTitle = adventureChapters[i].title;
+            String chapterTitle = routeChapters[i].title;
             int colon = chapterTitle.indexOf(':');
             if (colon >= 0 && colon + 1 < chapterTitle.length()) {
                 chapterTitle = chapterTitle.substring(colon + 1).trim();
@@ -17278,11 +19069,11 @@ public class BirdGame3 extends Application {
         });
 
         actions.getChildren().addAll(continueBtn, selectBtn);
-        card.getChildren().addAll(chaptersLabel, chapterRow, chapterTitle, status, summary, roster, actions);
+        card.getChildren().addAll(routeHeading, routeSummary, chaptersLabel, chapterRow, chapterTitle, status, summary, roster, actions);
 
         Button menuBtn = uiFactory.action("BACK TO HUB", 420, 100, 34, "#D32F2F", 24, () -> showMenu(stage));
 
-        root.getChildren().addAll(title, card, menuBtn);
+        root.getChildren().addAll(title, routeRow, card, menuBtn);
 
         ScrollPane scroll = wrapInScroll(root);
         scroll.setFitToHeight(false);
@@ -17307,7 +19098,7 @@ public class BirdGame3 extends Application {
         root.setPadding(new Insets(50));
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #0A1530, #1B2C52);");
 
-        Label title = new Label(chapter.title + " - BATTLES");
+        Label title = new Label(selectedAdventureRoute.label.toUpperCase() + " - " + chapter.title + " - BATTLES");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 84));
         title.setTextFill(Color.web("#4FC3F7"));
 
@@ -17396,7 +19187,7 @@ public class BirdGame3 extends Application {
         root.setPadding(new Insets(30, 40, 30, 40));
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #07111F, #16263F);");
 
-        Label title = new Label("ADVENTURE - " + battle.title);
+        Label title = new Label(selectedAdventureRoute.label.toUpperCase() + " - " + battle.title);
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
         title.setTextFill(Color.web("#FFD54F"));
         BorderPane.setAlignment(title, Pos.CENTER);
@@ -17424,7 +19215,7 @@ public class BirdGame3 extends Application {
             allowedText = "Allowed birds: Any unlocked";
         }
 
-        String rewardText = battle.unlockReward != null ? ("Unlock reward: " + battle.unlockReward.name) : "Reward: Story progress";
+        String rewardText = adventureRewardText(battle);
         Label rules = new Label(allowedText + "\n" + rewardText + "\nAdventure roster: " + adventureRosterText());
         rules.setFont(Font.font("Consolas", 22));
         rules.setTextFill(Color.web("#E0E0E0"));
@@ -17747,14 +19538,25 @@ public class BirdGame3 extends Application {
             playerType = battle.requiredPlayerType;
         }
         if (!isAdventureBirdUnlocked(playerType)) {
-            playerType = BirdType.PIGEON;
+            playerType = firstAdventureBirdForRoute(selectedAdventureRoute);
         }
         String skinKey = normalizeAdventureSkinChoice(playerType, adventureSelectedSkinKey);
         adventureSelectedSkinKey = skinKey;
-        if (adventureChapterIndex == unitedFinaleChapterIndex()) {
+        if (selectedAdventureRoute == AdventureRoute.MAIN && adventureChapterIndex == unitedFinaleChapterIndex()) {
             setupUnitedFinaleAdventureRoster(battle, playerType, skinKey);
             return;
         }
+
+        if (selectedAdventureRoute == AdventureRoute.TEMPEST) {
+            setupTempestAdventureRoster(battle, playerType, skinKey);
+            return;
+        }
+
+        setupDefaultAdventureDuel(battle, playerType, skinKey);
+    }
+
+    private void setupDefaultAdventureDuel(AdventureBattle battle, BirdType playerType, String skinKey) {
+        if (battle == null) return;
 
         activePlayers = 2;
         Bird player = createStoryBird(1200, playerType, 0, "You: " + playerType.name, 100, 1.0, 1.0, false);
@@ -17763,6 +19565,84 @@ public class BirdGame3 extends Application {
                 battle.opponentHealth, battle.opponentPowerMult, battle.opponentSpeedMult, true);
         String opponentSkinKey = adventureOpponentSkinKey(battle);
         applyPreviewSkinChoiceToBird(opponent, battle.opponentType, opponentSkinKey);
+    }
+
+    private void setupTempestAdventureRoster(AdventureBattle battle, BirdType playerType, String skinKey) {
+        if (battle == null) return;
+        int chapter = adventureChapterIndex;
+        int battleIdx = adventureBattleIndex;
+
+        if (chapter == 1 && battleIdx == 1) {
+            activePlayers = 4;
+            Bird player = createStoryBird(1000, playerType, 0, "You: " + playerType.name, 100, 1.0, 1.0, false);
+            applySkinChoiceToBird(player, playerType, skinKey);
+
+            Bird ally = createStoryBird(1650, BirdType.RAZORBILL, 1, "Ally: Harbor Razorbill", 110, 1.06, 1.08, true);
+            applyPreviewSkinChoiceToBird(ally, BirdType.RAZORBILL, PRISM_RAZORBILL_SKIN);
+
+            Bird scout = createStoryBird(3950, BirdType.HUMMINGBIRD, 2, "Enemy: Relay Scout", 104, 0.98, 1.16, true);
+            applyPreviewSkinChoiceToBird(scout, BirdType.HUMMINGBIRD, SUNFLARE_HUMMINGBIRD_SKIN);
+
+            Bird boss = createStoryBird(4860, battle.opponentType, 3, battle.opponentName,
+                    battle.opponentHealth, battle.opponentPowerMult, battle.opponentSpeedMult, true);
+            applyPreviewSkinChoiceToBird(boss, battle.opponentType, TIDE_VULTURE_SKIN);
+
+            adventureTeamMode = true;
+            Arrays.fill(adventureTeams, 2);
+            adventureTeams[0] = 1;
+            adventureTeams[1] = 1;
+            adventureTeams[2] = 2;
+            adventureTeams[3] = 2;
+            return;
+        }
+
+        if (chapter == 2 && battleIdx == 2) {
+            activePlayers = 4;
+            Bird player = createStoryBird(980, playerType, 0, "You: " + playerType.name, 100, 1.0, 1.0, false);
+            applySkinChoiceToBird(player, playerType, skinKey);
+
+            Bird ally = createStoryBird(1650, BirdType.FALCON, 1, "Ally: Gale Falcon", 112, 1.12, 1.14, true);
+            applyPreviewSkinChoiceToBird(ally, BirdType.FALCON, DUNE_FALCON_SKIN);
+
+            Bird quartermaster = createStoryBird(3920, BirdType.VULTURE, 2, "Enemy: Freight Warden", 154, 1.12, 1.0, true);
+            applyPreviewSkinChoiceToBird(quartermaster, BirdType.VULTURE, TIDE_VULTURE_SKIN);
+
+            Bird boss = createStoryBird(4920, battle.opponentType, 3, battle.opponentName,
+                    battle.opponentHealth, battle.opponentPowerMult, battle.opponentSpeedMult, true);
+            applyPreviewSkinChoiceToBird(boss, battle.opponentType, IRONCLAD_PELICAN_SKIN);
+
+            adventureTeamMode = true;
+            Arrays.fill(adventureTeams, 2);
+            adventureTeams[0] = 1;
+            adventureTeams[1] = 1;
+            adventureTeams[2] = 2;
+            adventureTeams[3] = 2;
+            return;
+        }
+
+        if (chapter == 3 && battleIdx == 2) {
+            activePlayers = 3;
+            Bird player = createStoryBird(980, playerType, 0, "You: " + playerType.name, 100, 1.0, 1.0, false);
+            applySkinChoiceToBird(player, playerType, skinKey);
+
+            Bird ally = createStoryBird(1680, BirdType.FALCON, 1, "Ally: Gale Falcon", 116, 1.14, 1.16, true);
+            applyPreviewSkinChoiceToBird(ally, BirdType.FALCON, DUNE_FALCON_SKIN);
+            ally.specialCooldown = 0;
+
+            Bird boss = createStoryBird(5000, battle.opponentType, 2, battle.opponentName,
+                    battle.opponentHealth, battle.opponentPowerMult, battle.opponentSpeedMult, true);
+            applyPreviewSkinChoiceToBird(boss, battle.opponentType, null);
+            boss.overchargeAttackTimer = Math.max(boss.overchargeAttackTimer, 150);
+
+            adventureTeamMode = true;
+            Arrays.fill(adventureTeams, 2);
+            adventureTeams[0] = 1;
+            adventureTeams[1] = 1;
+            adventureTeams[2] = 2;
+            return;
+        }
+
+        setupDefaultAdventureDuel(battle, playerType, skinKey);
     }
 
     private void setupUnitedFinaleAdventureRoster(AdventureBattle battle, BirdType playerType, String skinKey) {
@@ -17842,6 +19722,10 @@ public class BirdGame3 extends Application {
 
     private void applyAdventureBattleArenaModifiers(AdventureBattle battle) {
         if (battle == null) return;
+        if (selectedAdventureRoute == AdventureRoute.TEMPEST) {
+            applyTempestAdventureArenaModifiers(battle);
+            return;
+        }
         if (adventureChapterIndex == 0) {
             switch (adventureBattleIndex) {
                 case 0 -> {
@@ -17956,6 +19840,130 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void applyTempestAdventureArenaModifiers(AdventureBattle battle) {
+        if (battle == null) return;
+        switch (adventureChapterIndex) {
+            case 0 -> {
+                switch (adventureBattleIndex) {
+                    case 0 -> {
+                        setupBossRushTitanDock();
+                        addToKillFeed("BROKEN HARBOR: retake the lever while the pirate ship shells the bay.");
+                        powerUps.add(new PowerUp(2550, GROUND_Y - 760, PowerUpType.HEALTH));
+                        powerUps.add(new PowerUp(3000, GROUND_Y - 940, PowerUpType.OVERCHARGE));
+                        powerUps.add(new PowerUp(3460, GROUND_Y - 760, PowerUpType.SPEED));
+                        adventureMatchTimerOverride = 80 * 60;
+                    }
+                    case 1 -> {
+                        addToKillFeed("MARSH OATH: earn the reed-channel guide that lets the harbor chase go inland.");
+                        powerUps.add(new PowerUp(1600, GROUND_Y - 980, PowerUpType.HEALTH));
+                        powerUps.add(new PowerUp(3020, GROUND_Y - 1110, PowerUpType.OVERCHARGE));
+                        powerUps.add(new PowerUp(4380, GROUND_Y - 900, PowerUpType.THERMAL));
+                        adventureMatchTimerOverride = 85 * 60;
+                    }
+                    case 2 -> {
+                        setupBossRushSkybreakSpires();
+                        addToKillFeed("STORM PILOT: claim the weather lane that lets Broken Harbor fight the sky back.");
+                        powerUps.add(new PowerUp(1760, GROUND_Y - 940, PowerUpType.SPEED));
+                        powerUps.add(new PowerUp(3020, GROUND_Y - 1110, PowerUpType.THERMAL));
+                        powerUps.add(new PowerUp(4300, GROUND_Y - 940, PowerUpType.NEON));
+                        adventureMatchTimerOverride = 90 * 60;
+                    }
+                }
+            }
+            case 1 -> {
+                switch (adventureBattleIndex) {
+                    case 0 -> {
+                        setupBossRushParliamentRooftops();
+                        addToKillFeed("BEACON FRAUD: reclaim the harbor distress grid from skyline decoys.");
+                        for (int i = 0; i < 3; i++) {
+                            crowMinions.add(new CrowMinion(1000 + i * 1200, 260 + random.nextDouble() * 240, null));
+                        }
+                        powerUps.add(new PowerUp(3000, GROUND_Y - 1120, PowerUpType.NEON));
+                    }
+                    case 1 -> {
+                        setupBossRushCarrionThrone();
+                        addToKillFeed("CANOPY HANDOFF: smash the jungle cranes before the engine slips back to the bay.");
+                        powerUps.add(new PowerUp(3000, GROUND_Y - 1540, PowerUpType.VINE_GRAPPLE));
+                        powerUps.add(new PowerUp(4820, GROUND_Y - 620, PowerUpType.HEALTH));
+                        adventureMatchTimerOverride = 100 * 60;
+                    }
+                    case 2 -> {
+                        setupBossRushTitanDock();
+                        addToKillFeed("HARBOR ICE LOCK: fight back through home water under the pirate ship's shadow.");
+                        powerUps.add(new PowerUp(2550, GROUND_Y - 760, PowerUpType.SHRINK));
+                        powerUps.add(new PowerUp(3000, GROUND_Y - 980, PowerUpType.RAGE));
+                        powerUps.add(new PowerUp(3460, GROUND_Y - 760, PowerUpType.HEALTH));
+                        adventureMatchTimerOverride = 85 * 60;
+                    }
+                }
+            }
+            case 2 -> {
+                switch (adventureBattleIndex) {
+                    case 0 -> {
+                        setupBossRushSkybreakSpires();
+                        addToKillFeed("NEEDLE RUN: reclaim the air lanes that let Broken Harbor aim its guns.");
+                        powerUps.add(new PowerUp(1710, GROUND_Y - 920, PowerUpType.SPEED));
+                        powerUps.add(new PowerUp(3920, GROUND_Y - 940, PowerUpType.NEON));
+                        powerUps.add(new PowerUp(3020, GROUND_Y - 1110, PowerUpType.THERMAL));
+                        adventureMatchTimerOverride = 78 * 60;
+                    }
+                    case 1 -> {
+                        addToKillFeed("UNDERTOW VAULT: break the tide ritual before the dreadnought makes its run.");
+                        powerUps.add(new PowerUp(1800, GROUND_Y - 840, PowerUpType.RAGE));
+                        powerUps.add(new PowerUp(3000, GROUND_Y - 980, PowerUpType.OVERCHARGE));
+                        powerUps.add(new PowerUp(4200, GROUND_Y - 840, PowerUpType.HEALTH));
+                        for (int i = 0; i < 4; i++) {
+                            crowMinions.add(new CrowMinion(900 + random.nextDouble() * 4200, 240 + random.nextDouble() * 520, null));
+                        }
+                        adventureMatchTimerOverride = 92 * 60;
+                    }
+                    case 2 -> {
+                        setupBossRushTitanDock();
+                        addToKillFeed("SINK THE DREADNOUGHT: turn the dock lever and the bay itself against the barge.");
+                        powerUps.add(new PowerUp(2300, GROUND_Y - 860, PowerUpType.SPEED));
+                        powerUps.add(new PowerUp(2600, GROUND_Y - 860, PowerUpType.TITAN));
+                        powerUps.add(new PowerUp(3350, GROUND_Y - 860, PowerUpType.HEALTH));
+                        powerUps.add(new PowerUp(3700, GROUND_Y - 860, PowerUpType.OVERCHARGE));
+                        shakeIntensity = Math.max(shakeIntensity, 18);
+                        adventureMatchTimerOverride = 105 * 60;
+                    }
+                }
+            }
+            case 3 -> {
+                switch (adventureBattleIndex) {
+                    case 0 -> {
+                        setupBossRushNullRocArena();
+                        addToKillFeed("CROWN BREACH: harbor flares mark the only safe line into the eye.");
+                        powerUps.add(new PowerUp(1700, GROUND_Y - 900, PowerUpType.SPEED));
+                        powerUps.add(new PowerUp(4300, GROUND_Y - 900, PowerUpType.NEON));
+                        adventureMatchTimerOverride = 95 * 60;
+                    }
+                    case 1 -> {
+                        setupBossRushVoidCrownArena();
+                        addToKillFeed("FLOODLINE CHOIR: break the seers before the storm drowns every harbor below.");
+                        powerUps.add(new PowerUp(3000, GROUND_Y - 1120, PowerUpType.OVERCHARGE));
+                        powerUps.add(new PowerUp(3000, GROUND_Y - 900, PowerUpType.HEALTH));
+                        for (int i = 0; i < 3; i++) {
+                            crowMinions.add(new CrowMinion(1100 + random.nextDouble() * 3800, 240 + random.nextDouble() * 260, null));
+                        }
+                        adventureMatchTimerOverride = 115 * 60;
+                    }
+                    case 2 -> {
+                        setupBossRushVoidCrownArena();
+                        addToKillFeed("STORMGLASS KING: finish it with Broken Harbor still holding below.");
+                        powerUps.add(new PowerUp(1700, GROUND_Y - 900, PowerUpType.SPEED));
+                        powerUps.add(new PowerUp(3000, GROUND_Y - 1120, PowerUpType.THERMAL));
+                        powerUps.add(new PowerUp(4300, GROUND_Y - 900, PowerUpType.OVERCHARGE));
+                        shakeIntensity = Math.max(shakeIntensity, 24);
+                        adventureMatchTimerOverride = 145 * 60;
+                    }
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
     private void buildBirdBookPowerUpsGrid(FlowPane grid, VBox sidebar) {
         Runnable[] initial = new Runnable[1];
         Runnable[] fallback = new Runnable[1];
@@ -18009,7 +20017,7 @@ public class BirdGame3 extends Application {
         }
 
         if (battle.unlockReward != null && !isAdventureBirdUnlocked(battle.unlockReward)) {
-            adventureUnlocked[battle.unlockReward.ordinal()] = true;
+            setAdventureBirdUnlocked(battle.unlockReward, true);
             queueUnlockCardForBird(battle.unlockReward);
             saveAchievements();
         }
@@ -18030,20 +20038,40 @@ public class BirdGame3 extends Application {
             saveAchievements();
             checkAdventureAchievements();
         }
-        if (chapterJustCompleted && adventureChapterIndex == beaconChapterIndex() && !beaconPigeonUnlocked) {
+        if (chapterJustCompleted && selectedAdventureRoute == AdventureRoute.MAIN
+                && adventureChapterIndex == beaconChapterIndex() && !beaconPigeonUnlocked) {
             beaconPigeonUnlocked = true;
             queueUnlockCardForSkin(BirdType.PIGEON, BEACON_PIGEON_SKIN);
             saveAchievements();
         }
-        if (chapterJustCompleted && adventureChapterIndex == unitedFinaleChapterIndex() && !nullRockVultureUnlocked) {
+        if (chapterJustCompleted && selectedAdventureRoute == AdventureRoute.MAIN
+                && adventureChapterIndex == unitedFinaleChapterIndex() && !nullRockVultureUnlocked) {
             nullRockVultureUnlocked = true;
             queueUnlockCardForSkin(BirdType.VULTURE, NULL_ROCK_VULTURE_SKIN);
             saveAchievements();
         }
-        if (chapterJustCompleted && adventureChapterIndex == unitedFinaleChapterIndex() && !beaconCrownMapUnlocked) {
+        if (chapterJustCompleted && selectedAdventureRoute == AdventureRoute.MAIN
+                && adventureChapterIndex == unitedFinaleChapterIndex() && !beaconCrownMapUnlocked) {
             beaconCrownMapUnlocked = true;
             queueUnlockCardForMap(MapType.BEACON_CROWN);
             saveAchievements();
+        }
+        if (chapterJustCompleted && selectedAdventureRoute == AdventureRoute.TEMPEST
+                && adventureChapterIndex == chaptersForAdventureRoute(AdventureRoute.TEMPEST).length - 1) {
+            boolean unlockedAnyReward = false;
+            if (!ironcladPelicanUnlocked) {
+                ironcladPelicanUnlocked = true;
+                queueUnlockCardForSkin(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN);
+                unlockedAnyReward = true;
+            }
+            if (!dockMapUnlocked) {
+                dockMapUnlocked = true;
+                queueUnlockCardForMap(MapType.DOCK);
+                unlockedAnyReward = true;
+            }
+            if (unlockedAnyReward) {
+                saveAchievements();
+            }
         }
 
         Runnable afterWin = () -> {
@@ -18235,6 +20263,7 @@ public class BirdGame3 extends Application {
     }
 
     private boolean shouldShowBeaconPigeonSkin() {
+        if (selectedAdventureRoute != AdventureRoute.MAIN) return false;
         if (activeAdventureDialogueTitle == null) return false;
         int beaconIndex = beaconChapterIndex();
         if (activeAdventureDialogueChapterIndex > beaconIndex) return true;
@@ -21144,6 +23173,7 @@ public class BirdGame3 extends Application {
         nectarNodes.clear();
         swingingVines.clear();
         crowMinions.clear();
+        piranhaHazards.clear();
         chickMinions.clear();
         powerUps.clear();
         platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
@@ -21152,6 +23182,16 @@ public class BirdGame3 extends Application {
         battlefieldIslandX = 0;
         battlefieldIslandW = 0;
         battlefieldIslandY = 0;
+        dockWaterX = 0;
+        dockWaterY = 0;
+        dockWaterW = 0;
+        dockWaterH = 0;
+        dockDrownY = 0;
+        dockLeverX = 0;
+        dockLeverY = 0;
+        dockLeverCooldown = 0;
+        dockShipBomb = null;
+        Arrays.fill(dockLeverHeld, false);
     }
 
     private void setupBossRushSkybreakSpires() {
@@ -21191,24 +23231,13 @@ public class BirdGame3 extends Application {
         nectarNodes.clear();
         swingingVines.clear();
         crowMinions.clear();
+        piranhaHazards.clear();
         chickMinions.clear();
         powerUps.clear();
-
-        double dockX = 2140;
-        double dockY = GROUND_Y - 120;
-        platforms.add(new Platform(dockX, dockY, 1720, 82));
-        platforms.add(new Platform(dockX - 540, dockY - 190, 420, 42));
-        platforms.add(new Platform(dockX + 1840, dockY - 190, 420, 42));
-        platforms.add(new Platform(dockX + 180, dockY - 440, 320, 34));
-        platforms.add(new Platform(dockX + 1220, dockY - 440, 320, 34));
-        platforms.add(new Platform(dockX + 660, dockY - 700, 400, 36));
-        platforms.add(new Platform(dockX - 760, dockY + 90, 260, 30));
-        platforms.add(new Platform(dockX + 2220, dockY + 90, 260, 30));
-        windVents.add(new WindVent(dockX + 700, dockY - 90, 300));
-
-        battlefieldIslandX = dockX;
-        battlefieldIslandW = 1720;
-        battlefieldIslandY = dockY;
+        setupDockArena();
+        platforms.add(new Platform(1650, GROUND_Y - 620, 280, 34));
+        platforms.add(new Platform(4410, GROUND_Y - 760, 260, 30));
+        windVents.add(new WindVent(4460, GROUND_Y - 240, 220));
     }
 
     private void setupBossRushParliamentRooftops() {
@@ -22030,6 +24059,7 @@ public class BirdGame3 extends Application {
                 new MapCard("VIBRANT JUNGLE", "Vines, nectar nodes, wild vertical mix.", "#388E3C", MapType.VIBRANT_JUNGLE),
                 new MapCard("ECHO CAVERN", "Tight cave corridors and hang ledges.", "#455A64", MapType.CAVE),
                 new MapCard("BATTLEFIELD", "A tight floating island with clean side perches and open edges.", "#1E88E5", MapType.BATTLEFIELD),
+                new MapCard("BROKEN HARBOR", "Storm piers, mast perches, rescue skiffs, and a bombardment lever on the high dock.", "#26A69A", MapType.DOCK),
                 new MapCard("BEACON CROWN", "A huge crown-top arena with long lanes, layered perches, and a lethal void.", "#6A1B9A", MapType.BEACON_CROWN)
         ));
         cards.removeIf(card -> !isMapUnlocked(card.map));
@@ -22572,7 +24602,8 @@ public class BirdGame3 extends Application {
     }
 
     private double[] pickPowerUpSpawnPoint() {
-        boolean battlefield = (selectedMap == MapType.BATTLEFIELD || selectedMap == MapType.BEACON_CROWN) && battlefieldIslandW > 0;
+        boolean battlefield = (selectedMap == MapType.BATTLEFIELD || selectedMap == MapType.BEACON_CROWN || selectedMap == MapType.DOCK)
+                && battlefieldIslandW > 0;
         double battlefieldMinX = 0;
         double battlefieldMaxX = 0;
         if (battlefield) {
@@ -22589,6 +24620,7 @@ public class BirdGame3 extends Application {
         if (!platforms.isEmpty() && random.nextDouble() < 0.72) {
             List<Platform> candidates = new ArrayList<>();
             for (Platform p : platforms) {
+                if (battlefield && (p.x + p.w < battlefieldMinX || p.x > battlefieldMaxX)) continue;
                 if (p.w >= 140 && p.y <= GROUND_Y - 30 && p.y > 120) {
                     candidates.add(p);
                 }
@@ -23218,12 +25250,28 @@ public class BirdGame3 extends Application {
     }
 
     private void positionBattlefieldSpawns() {
-        if ((selectedMap != MapType.BATTLEFIELD && selectedMap != MapType.BEACON_CROWN) || battlefieldIslandW <= 0) return;
+        if ((selectedMap != MapType.BATTLEFIELD && selectedMap != MapType.BEACON_CROWN && selectedMap != MapType.DOCK)
+                || battlefieldIslandW <= 0) return;
         List<Bird> active = new ArrayList<>();
         for (Bird b : players) {
             if (b != null) active.add(b);
         }
         if (active.isEmpty()) return;
+
+        if (selectedMap == MapType.DOCK) {
+            double[] spawnCenters = {1040, 1620, 3660, 4560};
+            for (int i = 0; i < active.size(); i++) {
+                Bird b = active.get(i);
+                double center = spawnCenters[Math.min(i, spawnCenters.length - 1)];
+                double halfWidth = 40 * b.sizeMultiplier;
+                double spawnY = center < 2600 ? GROUND_Y - 220 * b.sizeMultiplier : GROUND_Y - 300 * b.sizeMultiplier;
+                b.x = center - halfWidth;
+                b.y = spawnY;
+                b.vx = 0;
+                b.vy = 0;
+            }
+            return;
+        }
 
         double margin = Math.clamp(battlefieldIslandW * 0.15, 120.0, 220.0);
         double usable = Math.max(0, battlefieldIslandW - margin * 2);
@@ -23243,6 +25291,9 @@ public class BirdGame3 extends Application {
     }
 
     double battlefieldSpawnCenterX() {
+        if (selectedMap == MapType.DOCK) {
+            return 1760;
+        }
         if (battlefieldIslandW > 0) {
             return battlefieldIslandX + battlefieldIslandW / 2.0;
         }
@@ -23250,6 +25301,9 @@ public class BirdGame3 extends Application {
     }
 
     double battlefieldSpawnY(double sizeMultiplier) {
+        if (selectedMap == MapType.DOCK) {
+            return GROUND_Y - 220 * sizeMultiplier;
+        }
         if (battlefieldIslandW > 0) {
             return battlefieldIslandY - 80 * sizeMultiplier;
         }
@@ -23279,6 +25333,118 @@ public class BirdGame3 extends Application {
             return battlefieldIslandX + battlefieldIslandW + battlefieldBoundsMargin();
         }
         return WORLD_WIDTH;
+    }
+
+    boolean isDockWaterActive() {
+        return selectedMap == MapType.DOCK && dockWaterW > 0 && dockWaterH > 0;
+    }
+
+    boolean isDockWaterAt(double worldX, double worldY) {
+        return isDockWaterActive()
+                && worldX >= dockWaterX
+                && worldX <= dockWaterX + dockWaterW
+                && worldY >= dockWaterY
+                && worldY <= dockWaterY + dockWaterH;
+    }
+
+    double dockWaterSurfaceY() {
+        return dockWaterY;
+    }
+
+    double dockWaterStartX() {
+        return dockWaterX;
+    }
+
+    double dockWaterWidth() {
+        return dockWaterW;
+    }
+
+    double dockDrownDepthY() {
+        return dockDrownY > 0 ? dockDrownY : WORLD_HEIGHT + 1;
+    }
+
+    double dockWaterMidY() {
+        return dockWaterY + Math.min(220.0, dockWaterH * 0.42);
+    }
+
+    private boolean isDockSkiffPlatform(Platform p) {
+        if (p == null || selectedMap != MapType.DOCK) return false;
+        double centerX = p.x + p.w / 2.0;
+        return centerX >= dockWaterX - 40
+                && centerX <= dockWaterX + 1100
+                && p.y >= dockWaterY - 48
+                && p.y <= dockWaterY + 18
+                && p.w <= 320
+                && p.h <= 28;
+    }
+
+    private double dockShipVisualX() {
+        return WORLD_WIDTH * 0.5 - 448.0 * DOCK_SHIP_SCALE;
+    }
+
+    private double dockShipVisualY() {
+        return dockWaterSurfaceY() - 360.0;
+    }
+
+    private double dockShipCannonMuzzleX() {
+        return dockShipVisualX() + 120.0 * DOCK_SHIP_SCALE;
+    }
+
+    private double dockShipCannonMuzzleY() {
+        return dockShipVisualY() + 146.0 * DOCK_SHIP_SCALE;
+    }
+
+    private double dockBombTargetX(Bird target) {
+        if (target == null) {
+            return Math.clamp(battlefieldSpawnCenterX(), 120.0, WORLD_WIDTH - 120.0);
+        }
+        return Math.clamp(target.x + 40 * target.sizeMultiplier, 120.0, WORLD_WIDTH - 120.0);
+    }
+
+    private double dockBombTargetY(Bird target) {
+        if (target == null) {
+            return Math.clamp(GROUND_Y - 80.0, 120.0, dockDrownDepthY() - 90.0);
+        }
+        return Math.clamp(target.y + 40 * target.sizeMultiplier, 120.0, dockDrownDepthY() - 90.0);
+    }
+
+    private void setupDockArena() {
+        double leftDockX = 720;
+        double leftDockY = GROUND_Y - 140;
+        double leftDockW = 1820;
+        double bridgeX = 3080;
+        double bridgeY = GROUND_Y - 220;
+        double bridgeW = 1840;
+
+        dockWaterX = 2580;
+        dockWaterY = GROUND_Y - 30;
+        dockWaterW = WORLD_WIDTH - dockWaterX + 120;
+        dockWaterH = WORLD_HEIGHT - dockWaterY + 320;
+        dockDrownY = WORLD_HEIGHT - 44;
+        dockLeverX = leftDockX + 1330;
+        dockLeverY = leftDockY - 742;
+
+        platforms.add(new Platform(leftDockX, leftDockY, leftDockW, 92));
+        platforms.add(new Platform(leftDockX + 160, leftDockY - 250, 420, 40));
+        platforms.add(new Platform(leftDockX + 780, leftDockY - 430, 360, 34));
+        platforms.add(new Platform(leftDockX + 1180, leftDockY - 710, 300, 30));
+        platforms.add(new Platform(leftDockX + 1380, leftDockY - 310, 320, 34));
+
+        platforms.add(new Platform(bridgeX, bridgeY, bridgeW, 56));
+        platforms.add(new Platform(bridgeX + 220, bridgeY - 300, 320, 32));
+        platforms.add(new Platform(bridgeX + 900, bridgeY - 520, 340, 30));
+        platforms.add(new Platform(bridgeX + 1380, bridgeY - 760, 280, 28));
+
+        platforms.add(new Platform(2850, dockWaterY - 26, 250, 24));
+        platforms.add(new Platform(3300, dockWaterY - 10, 230, 24));
+        platforms.add(new Platform(5170, bridgeY - 180, 250, 28));
+
+        windVents.add(new WindVent(bridgeX + 820, bridgeY - 110, 300));
+        windVents.add(new WindVent(bridgeX + 1460, bridgeY - 180, 240));
+
+        battlefieldIslandX = leftDockX;
+        battlefieldIslandW = (bridgeX + bridgeW) - leftDockX;
+        battlefieldIslandY = leftDockY;
     }
 
     private void setupVibrantJungleArena(Random mapRandom) {
@@ -23457,9 +25623,20 @@ public class BirdGame3 extends Application {
         nectarNodes.clear();
         swingingVines.clear();
         crowMinions.clear();
+        piranhaHazards.clear();
         chickMinions.clear();
         particles.clear();
         powerUps.clear();
+        dockWaterX = 0;
+        dockWaterY = 0;
+        dockWaterW = 0;
+        dockWaterH = 0;
+        dockDrownY = 0;
+        dockLeverX = 0;
+        dockLeverY = 0;
+        dockLeverCooldown = 0;
+        dockShipBomb = null;
+        Arrays.fill(dockLeverHeld, false);
 
         if (selectedMap != MapType.CITY || lanModeActive) cityStars.clear();
 
@@ -23489,6 +25666,8 @@ public class BirdGame3 extends Application {
             battlefieldIslandY = islandY;
         } else if (selectedMap == MapType.BEACON_CROWN) {
             setupBeaconCrownBattlefield();
+        } else if (selectedMap == MapType.DOCK) {
+            setupDockArena();
         } else {
             platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600)); // thick floor
             platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT)); // left wall
@@ -23600,7 +25779,7 @@ public class BirdGame3 extends Application {
             for (int i = 0; i < mountainPeaks.length; i++) {
                 mountainPeaks[i] = GROUND_Y - 1000 - mapRandom.nextDouble() * 800;
             }
-        } else if (selectedMap == MapType.BATTLEFIELD || selectedMap == MapType.BEACON_CROWN) {
+        } else if (selectedMap == MapType.BATTLEFIELD || selectedMap == MapType.BEACON_CROWN || selectedMap == MapType.DOCK) {
             mountainPeaks = null;
         } else { // CITY - Clean, structured nighttime rooftops
             // Main building rooftops (wide, aligned platforms)
@@ -23669,7 +25848,9 @@ public class BirdGame3 extends Application {
         GraphicsContext g = canvas.getGraphicsContext2D();
         StackPane root = new StackPane(canvas);
         gameRoot = root;
-        root.setStyle((selectedMap == MapType.FOREST || selectedMap == MapType.BATTLEFIELD)
+        root.setStyle(selectedMap == MapType.DOCK
+                ? "-fx-background-color: linear-gradient(to bottom, #0F3047 0%, #1E5D78 55%, #0A171F 100%);"
+                : (selectedMap == MapType.FOREST || selectedMap == MapType.BATTLEFIELD)
                 ? "-fx-background-color: linear-gradient(to bottom, #87CEEB 0%, #B3E5FC 50%, #E0F2F1 100%);"
                 : "-fx-background-color: #000011;");
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -25163,6 +27344,8 @@ public class BirdGame3 extends Application {
         unitedFinaleDarkForceCooldown = 0;
         unitedFinaleDarkForceWave = 0;
         unitedFinaleMassBattleActive = false;
+        Arrays.fill(tempestRunEventTriggered, false);
+        tempestRunBossEnraged = false;
         resetTrackedCameraBounds();
         resetBossRushEncounterState();
     }
@@ -25217,6 +27400,7 @@ public class BirdGame3 extends Application {
         caveMapUnlocked = prefs.getBoolean("map_cave_unlocked", false);
         battlefieldMapUnlocked = prefs.getBoolean("map_battlefield_unlocked", false);
         beaconCrownMapUnlocked = prefs.getBoolean("map_beacon_crown_unlocked", false);
+        dockMapUnlocked = prefs.getBoolean("map_dock_unlocked", false);
         cityPigeonUnlocked = prefs.getBoolean("skin_citypigeon", true);
         noirPigeonUnlocked = prefs.getBoolean("skin_noirpigeon", false);
         freemanPigeonUnlocked = prefs.getBoolean("skin_freeman_pigeon", false);
@@ -25294,13 +27478,20 @@ public class BirdGame3 extends Application {
             eagleSkinUnlocked = true;
             batUnlocked = true;
         }
-        for (BirdType type : BirdType.values()) {
-            int idx = type.ordinal();
-            adventureUnlocked[idx] = prefs.getBoolean("adv_bird_" + type.name(), false);
+        try {
+            selectedAdventureRoute = AdventureRoute.valueOf(prefs.get("adv_route_selected", AdventureRoute.MAIN.name()));
+        } catch (IllegalArgumentException ignored) {
+            selectedAdventureRoute = AdventureRoute.MAIN;
         }
-        adventureUnlocked[BirdType.PIGEON.ordinal()] = true;
-        adventureUnlocked[BirdType.ROOSTER.ordinal()] = roosterUnlocked;
-        ensureAdventureChapterState();
+        ensureAdventureRouteState(AdventureRoute.MAIN);
+        ensureAdventureRouteState(AdventureRoute.TEMPEST);
+        for (BirdType type : BirdType.values()) {
+            setAdventureBirdUnlocked(AdventureRoute.MAIN, type, prefs.getBoolean("adv_bird_" + type.name(), false));
+            setAdventureBirdUnlocked(AdventureRoute.TEMPEST, type, prefs.getBoolean("adv_tempest_bird_" + type.name(), false));
+        }
+        setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.PIGEON, true);
+        setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.ROOSTER, roosterUnlocked);
+        setAdventureBirdUnlocked(AdventureRoute.TEMPEST, BirdType.PELICAN, true);
         for (int i = 0; i < adventureChapters.length; i++) {
             int advBattles = adventureChapters[i].battles.length;
             int progress = Math.clamp(prefs.getInt("adv_ch" + (i + 1) + "_progress", 0), 0, advBattles);
@@ -25308,20 +27499,37 @@ public class BirdGame3 extends Application {
             if (done && advBattles > 0) {
                 progress = advBattles;
             }
-            adventureChapterProgressByIndex[i] = progress;
-            adventureChapterCompletedByIndex[i] = done;
+            adventureChapterProgressByRoute[AdventureRoute.MAIN.ordinal()][i] = progress;
+            adventureChapterCompletedByRoute[AdventureRoute.MAIN.ordinal()][i] = done;
+        }
+        for (int i = 0; i < tempestAdventureChapters.length; i++) {
+            int advBattles = tempestAdventureChapters[i].battles.length;
+            int progress = Math.clamp(prefs.getInt("adv_tempest_ch" + (i + 1) + "_progress", 0), 0, advBattles);
+            boolean done = prefs.getBoolean("adv_tempest_ch" + (i + 1) + "_done", false);
+            if (done && advBattles > 0) {
+                progress = advBattles;
+            }
+            adventureChapterProgressByRoute[AdventureRoute.TEMPEST.ordinal()][i] = progress;
+            adventureChapterCompletedByRoute[AdventureRoute.TEMPEST.ordinal()][i] = done;
         }
         int unitedIdx = unitedFinaleChapterIndex();
-        if (unitedIdx >= 0 && unitedIdx < adventureChapterCompletedByIndex.length
-                && adventureChapterCompletedByIndex[unitedIdx]) {
+        boolean[] mainAdventureCompleted = adventureChapterCompletedByRoute[AdventureRoute.MAIN.ordinal()];
+        if (unitedIdx >= 0 && unitedIdx < mainAdventureCompleted.length
+                && mainAdventureCompleted[unitedIdx]) {
             nullRockVultureUnlocked = true;
             beaconCrownMapUnlocked = true;
         }
-        adventureChapterIndex = 0;
+        int tempestIdx = tempestAdventureChapters.length - 1;
+        boolean[] tempestAdventureCompleted = adventureChapterCompletedByRoute[AdventureRoute.TEMPEST.ordinal()];
+        if (tempestIdx >= 0 && tempestIdx < tempestAdventureCompleted.length
+                && tempestAdventureCompleted[tempestIdx]) {
+            ironcladPelicanUnlocked = true;
+            dockMapUnlocked = true;
+        }
         adventureBattleIndex = 0;
-        adventureChapterIndex = Math.clamp(adventureChapterIndex, 0, adventureChapters.length - 1);
-        adventureChapterProgress = adventureChapterProgressByIndex[adventureChapterIndex];
-        adventureChapterCompleted = adventureChapterCompletedByIndex[adventureChapterIndex];
+        adventureChapterIndexByRoute[AdventureRoute.MAIN.ordinal()] = 0;
+        adventureChapterIndexByRoute[AdventureRoute.TEMPEST.ordinal()] = 0;
+        setAdventureRoute(selectedAdventureRoute);
         for (BirdType type : BirdType.values()) {
             int idx = type.ordinal();
             classicCompleted[idx] = prefs.getBoolean("classic_done_" + type.name(), false);
@@ -25448,6 +27656,7 @@ public class BirdGame3 extends Application {
         prefs.putBoolean("map_cave_unlocked", caveMapUnlocked);
         prefs.putBoolean("map_battlefield_unlocked", battlefieldMapUnlocked);
         prefs.putBoolean("map_beacon_crown_unlocked", beaconCrownMapUnlocked);
+        prefs.putBoolean("map_dock_unlocked", dockMapUnlocked);
         prefs.putBoolean("skin_citypigeon", cityPigeonUnlocked);
         prefs.putBoolean("skin_noirpigeon", noirPigeonUnlocked);
         prefs.putBoolean("skin_freeman_pigeon", freemanPigeonUnlocked);
@@ -25505,18 +27714,26 @@ public class BirdGame3 extends Application {
         prefs.putBoolean("ep_bat_completed", batEpisodeCompleted);
         prefs.putInt("ep_pelican_unlocked", pelicanEpisodeUnlockedChapters);
         prefs.putBoolean("ep_pelican_completed", pelicanEpisodeCompleted);
-        ensureAdventureChapterState();
-        if (adventureChapterIndex >= 0 && adventureChapterIndex < adventureChapterProgressByIndex.length) {
-            adventureChapterProgressByIndex[adventureChapterIndex] = adventureChapterProgress;
-            adventureChapterCompletedByIndex[adventureChapterIndex] = adventureChapterCompleted;
-        }
+        prefs.put("adv_route_selected", selectedAdventureRoute.name());
+        storeActiveAdventureRouteState();
+        ensureAdventureRouteState(AdventureRoute.MAIN);
+        ensureAdventureRouteState(AdventureRoute.TEMPEST);
+        int[] mainAdventureProgress = adventureChapterProgressByRoute[AdventureRoute.MAIN.ordinal()];
+        boolean[] mainAdventureDone = adventureChapterCompletedByRoute[AdventureRoute.MAIN.ordinal()];
         for (int i = 0; i < adventureChapters.length; i++) {
-            prefs.putInt("adv_ch" + (i + 1) + "_progress", adventureChapterProgressByIndex[i]);
-            prefs.putBoolean("adv_ch" + (i + 1) + "_done", adventureChapterCompletedByIndex[i]);
+            prefs.putInt("adv_ch" + (i + 1) + "_progress", mainAdventureProgress[i]);
+            prefs.putBoolean("adv_ch" + (i + 1) + "_done", mainAdventureDone[i]);
+        }
+        int[] tempestAdventureProgress = adventureChapterProgressByRoute[AdventureRoute.TEMPEST.ordinal()];
+        boolean[] tempestAdventureDone = adventureChapterCompletedByRoute[AdventureRoute.TEMPEST.ordinal()];
+        for (int i = 0; i < tempestAdventureChapters.length; i++) {
+            prefs.putInt("adv_tempest_ch" + (i + 1) + "_progress", tempestAdventureProgress[i]);
+            prefs.putBoolean("adv_tempest_ch" + (i + 1) + "_done", tempestAdventureDone[i]);
         }
         for (BirdType type : BirdType.values()) {
             int idx = type.ordinal();
-            prefs.putBoolean("adv_bird_" + type.name(), adventureUnlocked[idx]);
+            prefs.putBoolean("adv_bird_" + type.name(), adventureUnlockedByRoute[AdventureRoute.MAIN.ordinal()][idx]);
+            prefs.putBoolean("adv_tempest_bird_" + type.name(), adventureUnlockedByRoute[AdventureRoute.TEMPEST.ordinal()][idx]);
         }
         for (int i = 0; i < MAX_COMBATANTS; i++) {
             prefs.putInt("city_wins_" + i, cityWins[i]);
@@ -25560,6 +27777,7 @@ public class BirdGame3 extends Application {
     }
 
     private void reconcileAchievementUnlocksFromStoredProgress() {
+        boolean[] completedAdventure = mainAdventureChapterCompletedState();
         if (achievementProgress[4] >= 1800) achievementsUnlocked[4] = true;
         if (achievementProgress[5] >= 1000) achievementsUnlocked[5] = true;
         if (achievementProgress[7] >= 3) achievementsUnlocked[7] = true;
@@ -25574,9 +27792,9 @@ public class BirdGame3 extends Application {
         if (achievementProgress[17] >= 5) achievementsUnlocked[17] = true;
         if (achievementProgress[18] >= 15) achievementsUnlocked[18] = true;
         if (countCompleted(classicCompleted) > 0) achievementsUnlocked[19] = true;
-        if (adventureChapterCompletedByIndex.length >= 2 && adventureChapterCompletedByIndex[1]) achievementsUnlocked[20] = true;
-        if (adventureChapterCompletedByIndex.length > 0
-                && countCompleted(adventureChapterCompletedByIndex) == adventureChapterCompletedByIndex.length) {
+        if (completedAdventure.length >= 2 && completedAdventure[1]) achievementsUnlocked[20] = true;
+        if (completedAdventure.length > 0
+                && countCompleted(completedAdventure) == completedAdventure.length) {
             achievementsUnlocked[21] = true;
         }
         if (achievementProgress[22] >= 1 || bossRushClearCount > 0) achievementsUnlocked[22] = true;
@@ -25685,12 +27903,12 @@ public class BirdGame3 extends Application {
     }
 
     private void checkAdventureAchievements() {
-        ensureAdventureChapterState();
-        if (adventureChapterCompletedByIndex.length >= 2 && adventureChapterCompletedByIndex[1] && !achievementsUnlocked[20]) {
+        boolean[] completedAdventure = mainAdventureChapterCompletedState();
+        if (completedAdventure.length >= 2 && completedAdventure[1] && !achievementsUnlocked[20]) {
             unlockAchievement(20, "ECHOES BELOW!");
         }
-        boolean allDone = adventureChapterCompletedByIndex.length > 0;
-        for (boolean done : adventureChapterCompletedByIndex) {
+        boolean allDone = completedAdventure.length > 0;
+        for (boolean done : completedAdventure) {
             if (!done) {
                 allDone = false;
                 break;
@@ -26016,8 +28234,11 @@ public class BirdGame3 extends Application {
             case 18 -> "Pelican plunges: " + achievementProgress[18] + " / 15";
             case 19 -> "Classic clears: " + countCompleted(classicCompleted) + " / 1";
             case 20 -> "Chapter 2 complete: " + (isAdventureChapterComplete() ? "1 / 1" : "0 / 1");
-            case 21 -> "Adventure chapters complete: " + countCompleted(adventureChapterCompletedByIndex)
-                    + " / " + Math.max(1, adventureChapterCompletedByIndex.length);
+            case 21 -> {
+                boolean[] completedAdventure = mainAdventureChapterCompletedState();
+                yield "Adventure chapters complete: " + countCompleted(completedAdventure)
+                        + " / " + Math.max(1, completedAdventure.length);
+            }
             case 22 -> "Boss Rush clears: " + Math.max(achievementProgress[22], bossRushClearCount) + " / 1";
             case 23 -> "EX route clears: " + achievementProgress[23] + " / 1";
             case 24 -> "Daily clears: " + achievementProgress[24] + " / 1";
@@ -26029,9 +28250,9 @@ public class BirdGame3 extends Application {
     }
 
     private boolean isAdventureChapterComplete() {
-        ensureAdventureChapterState();
-        return 1 < adventureChapterCompletedByIndex.length
-                && adventureChapterCompletedByIndex[1];
+        boolean[] completedAdventure = mainAdventureChapterCompletedState();
+        return 1 < completedAdventure.length
+                && completedAdventure[1];
     }
 
     private int countCompleted(boolean[] values) {
