@@ -72,6 +72,7 @@ class LanBirdState {
     int plungeTimer;
     boolean batHanging;
     int batEchoTimer;
+    int batRehangCooldownTimer;
     boolean isBlocking;
     int blockCooldown;
     double speedMultiplier;
@@ -178,6 +179,7 @@ class LanBirdState {
         out.writeInt(plungeTimer);
         out.writeBoolean(batHanging);
         out.writeInt(batEchoTimer);
+        out.writeInt(batRehangCooldownTimer);
         out.writeBoolean(isBlocking);
         out.writeInt(blockCooldown);
         out.writeDouble(speedMultiplier);
@@ -286,6 +288,7 @@ class LanBirdState {
         state.plungeTimer = in.readInt();
         state.batHanging = in.readBoolean();
         state.batEchoTimer = in.readInt();
+        state.batRehangCooldownTimer = in.readInt();
         state.isBlocking = in.readBoolean();
         state.blockCooldown = in.readInt();
         state.speedMultiplier = in.readDouble();

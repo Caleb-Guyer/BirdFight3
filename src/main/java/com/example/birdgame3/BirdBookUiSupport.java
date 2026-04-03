@@ -313,7 +313,7 @@ final class BirdBookUiSupport {
             case SHRINK -> "Shrinks and weakens all enemies. Buy space, then punish hard.";
             case NEON -> "Hyper speed rush with extra power and mobility. The loudest pickup in the arena.";
             case THERMAL -> "Stronger lift and hang time. Float above the chaos and reset the fight.";
-            case VINE_GRAPPLE -> "Grants 3 vine swings and aerial control. Swing to angles nobody expects.";
+            case VINE_GRAPPLE -> "Summons one swing vine from the platform above you. Snap up, arc out, and launch from new angles.";
             case OVERCHARGE -> "Resets special cooldown and amps attacks. Perfect for turning a brawl.";
             case TITAN -> "Grow larger with boosted power and durability. You become the hazard.";
         };

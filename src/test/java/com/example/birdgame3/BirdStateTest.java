@@ -8,6 +8,7 @@ import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BirdStateTest {
@@ -312,6 +313,126 @@ class BirdStateTest {
 
         assertTrue(hummingbird.health < Bird.STARTING_HEALTH);
         assertTrue(hummingbird.vy > 0.0);
+    }
+
+    @Test
+    void batCannotImmediatelyRehangAfterDroppingFromCeiling() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Platform ceiling = new Platform(1000.0, 480.0, 320, 40);
+        game.platforms.add(ceiling);
+
+        Bird bat = new Bird(1120.0, BirdGame3.BirdType.BAT, 0, game);
+        game.players[0] = bat;
+        bat.x = 1120.0;
+        bat.y = ceiling.y + ceiling.h + 2;
+
+        Field batHangPlatformField = Bird.class.getDeclaredField("batHangPlatform");
+        batHangPlatformField.setAccessible(true);
+        batHangPlatformField.set(bat, ceiling);
+        bat.batHanging = true;
+        setPrivateInt(bat, "batHangLockTimer", 0);
+
+        Method handleBatHanging = Bird.class.getDeclaredMethod("handleBatHanging", boolean.class);
+        handleBatHanging.setAccessible(true);
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+
+        boolean handledDropFrame = (boolean) handleBatHanging.invoke(bat, false);
+        assertFalse(handledDropFrame);
+        assertFalse(bat.batHanging);
+        assertEquals(14, getPrivateInt(bat, "batRehangCooldownTimer"));
+
+        bat.y = ceiling.y + ceiling.h + 10;
+        bat.vy = -3.5;
+
+        boolean handledImmediateRetry = (boolean) handleBatHanging.invoke(bat, false);
+        assertFalse(handledImmediateRetry);
+        assertFalse(bat.batHanging);
+
+        setPrivateInt(bat, "batRehangCooldownTimer", 0);
+        bat.vy = -3.5;
+
+        boolean handledRetryAfterCooldown = (boolean) handleBatHanging.invoke(bat, false);
+        assertTrue(handledRetryAfterCooldown);
+        assertTrue(bat.batHanging);
+    }
+
+    @Test
+    void vineGrapplePickupNowGrantsOneUse() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird bird = new Bird(1000.0, BirdGame3.BirdType.PIGEON, 0, game);
+        game.players[0] = bird;
+        game.powerUps.add(new PowerUp(bird.x + 40.0, bird.y + 40.0, PowerUpType.VINE_GRAPPLE));
+
+        invokePrivateVoid(bird, "handlePowerUpPickup");
+
+        assertEquals(1, getPrivateInt(bird, "grappleUses"));
+    }
+
+    @Test
+    void vineGrappleSpawnsTemporaryVineFromPlatformAbove() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Platform above = new Platform(900.0, 560.0, 320, 36);
+        game.platforms.add(above);
+
+        Bird bird = new Bird(1000.0, BirdGame3.BirdType.PIGEON, 0, game);
+        bird.x = 1000.0;
+        bird.y = 940.0;
+        game.players[0] = bird;
+
+        setPrivateInt(bird, "grappleUses", 1);
+        setPrivateInt(bird, "grappleTimer", 480);
+        bird.specialCooldown = 0;
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+
+        invokePrivateVoid(bird, "handleVineGrapple");
+
+        assertTrue(bird.onVine);
+        assertNotNull(bird.attachedVine);
+        assertTrue(bird.attachedVine.temporary);
+        assertEquals(above.y + above.h, bird.attachedVine.baseY, 0.0001);
+        assertEquals(0, getPrivateInt(bird, "grappleUses"));
+        assertEquals(1, game.swingingVines.size());
+    }
+
+    @Test
+    void vineAutoLaunchNowDependsOnSwingSpeedAndOutwardArc() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        SwingingVine fastOutward = new SwingingVine(1200.0, 400.0, 420.0);
+        fastOutward.angle = 0.55;
+        fastOutward.angularVelocity = 0.045;
+
+        SwingingVine slowVine = new SwingingVine(1200.0, 400.0, 420.0);
+        slowVine.angle = 0.55;
+        slowVine.angularVelocity = 0.03;
+
+        SwingingVine inwardVine = new SwingingVine(1200.0, 400.0, 420.0);
+        inwardVine.angle = 0.55;
+        inwardVine.angularVelocity = -0.045;
+
+        Method shouldAutoLaunch = BirdGame3.class.getDeclaredMethod("shouldAutoLaunchFromVine", SwingingVine.class);
+        shouldAutoLaunch.setAccessible(true);
+
+        assertTrue((boolean) shouldAutoLaunch.invoke(game, fastOutward));
+        assertFalse((boolean) shouldAutoLaunch.invoke(game, slowVine));
+        assertFalse((boolean) shouldAutoLaunch.invoke(game, inwardVine));
+    }
+
+    @Test
+    void releasedTemporaryVineDetachesBeforeDisappearing() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        SwingingVine vine = new SwingingVine(1200.0, 420.0, 320.0);
+        vine.temporary = true;
+        game.swingingVines.add(vine);
+
+        Method updateSwingingVines = BirdGame3.class.getDeclaredMethod("updateSwingingVines");
+        updateSwingingVines.setAccessible(true);
+        updateSwingingVines.invoke(game);
+
+        assertEquals(1, game.swingingVines.size());
+        assertTrue(vine.detaching);
     }
 
     @Test

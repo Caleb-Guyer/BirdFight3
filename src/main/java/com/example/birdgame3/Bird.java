@@ -99,6 +99,7 @@ public class Bird {
     private Platform batHangPlatform = null;
     public int batEchoTimer = 0;
     private int batHangLockTimer = 0;
+    private int batRehangCooldownTimer = 0;
 
     public boolean isBlocking = false;
     public int blockCooldown = 0;
@@ -106,6 +107,7 @@ public class Bird {
     // === VINE SWINGING ===
     SwingingVine attachedVine = null;
     public boolean onVine = false;
+    int vineRideFrames = 0;
 
     // === POWER-UP BUFFS ===
     public double speedMultiplier = 1.0;
@@ -181,6 +183,7 @@ public class Bird {
     private static final double[] NULL_ROCK_PHASE_THRESHOLDS = {0.84, 0.66, NULL_ROCK_TRUE_FORM_THRESHOLD, 0.24};
     private static final int NULL_ROCK_PHASE_INVULN_FRAMES = 135;
     private static final int TRUE_NULL_ROCK_ASCENSION_INVULN_FRAMES = 220;
+    private static final int BAT_REHANG_COOLDOWN_FRAMES = 14;
     private int nullRockInvincibilityTimer = 0;
     private int nullRockPhaseIndex = 0;
     private int nullRockShieldFxCooldown = 0;
@@ -1793,8 +1796,7 @@ public class Bird {
         game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 15 : 12);
 
         if (batHanging) {
-            batHanging = false;
-            batHangPlatform = null;
+            releaseBatHang(BAT_REHANG_COOLDOWN_FRAMES);
             vy = -16;
             vx += (facingRight ? 1 : -1) * 9;
         }
@@ -2951,6 +2953,7 @@ public class Bird {
         blockCooldown = Math.max(0, (int)(blockCooldown - gameSpeed));
         batEchoTimer = Math.max(0, (int)(batEchoTimer - gameSpeed));
         batHangLockTimer = Math.max(0, (int)(batHangLockTimer - gameSpeed));
+        batRehangCooldownTimer = Math.max(0, (int)(batRehangCooldownTimer - gameSpeed));
         if (isShrinkImmune()) {
             shrinkTimer = 0;
             if (sizeMultiplier < baseSizeMultiplier) {
@@ -2960,75 +2963,129 @@ public class Bird {
     }
 
     private void handleVineGrapple() {
-        if (grappleTimer > 0) {
-            grappleTimer--;
-            if (grappleTimer == 0) {
-                grappleUses = 0;
-            }
+        if (grappleTimer <= 0) {
+            grappleUses = 0;
         }
 
-        if (grappleUses > 0 && specialPressed() && !isOnGround() && !isGrappling && specialCooldown <= 0) {
-            double bestDist = Double.MAX_VALUE;
-            double targetX = x + 40;
-            double targetY = y + 40;
-            boolean found = false;
+        if (grappleUses > 0 && specialPressed() && !isOnGround() && !onVine && !isGrappling && specialCooldown <= 0) {
+            GrappleVineAnchor anchor = findGrappleVineAnchor();
+            if (anchor != null) {
+                SwingingVine vine = new SwingingVine(anchor.anchorX(), anchor.anchorY(), anchor.length());
+                vine.temporary = true;
+                vine.ownerPlayerIndex = playerIndex;
+                vine.angle = Math.clamp((bodyCenterX() - anchor.anchorX()) / Math.max(120.0, anchor.length()) + vx * 0.025, -0.55, 0.55);
+                vine.angularVelocity = Math.clamp(vx * 0.010 + (facingRight ? 0.022 : -0.022), -0.085, 0.085);
+                vine.updatePlatformPosition();
+                game.swingingVines.add(vine);
 
-            for (Platform p : game.platforms) {
-                double centerX = p.x + p.w / 2;
-                double centerY = p.y;
-                double d = Math.hypot(centerX - (x + 40), centerY - (y + 40));
-                if (d < bestDist && d > 100 && d < 800) {
-                    bestDist = d;
-                    targetX = centerX;
-                    targetY = centerY - 40;
-                    found = true;
-                }
-            }
-
-            if (game.selectedMap == MapType.VIBRANT_JUNGLE) {
-                for (SwingingVine v : game.swingingVines) {
-                    double d = Math.hypot(v.platformX + v.platformW / 2 - (x + 40), v.platformY - (y + 40));
-                    if (d < bestDist && d > 100 && d < 800) {
-                        bestDist = d;
-                        targetX = v.platformX + v.platformW / 2;
-                        targetY = v.platformY - 40;
-                        found = true;
-                    }
-                }
-            }
-
-            if (found) {
-                isGrappling = true;
-                grappleTargetX = targetX;
-                grappleTargetY = targetY;
+                grappleTargetX = vine.gripX();
+                grappleTargetY = vine.gripY();
+                isGrappling = false;
                 grappleUses--;
-                specialCooldown = 30;
-                game.addToKillFeed(shortName() + " GRAPPLED with vine!");
+                specialCooldown = 34;
+                attachToVine(vine);
+                game.addToKillFeed(shortName() + " summoned a VINE SWING!");
                 for (int i = 0; i < 30; i++) {
-                    double progress = i / 30.0;
+                    double progress = i / 29.0;
                     game.particles.add(new Particle(
-                            x + 40 + (targetX - x - 40) * progress,
-                            y + 40 + (targetY - y - 40) * progress,
-                            0, 0, Color.FORESTGREEN.deriveColor(0,1,1,0.7)
+                            anchor.anchorX() + (grappleTargetX - anchor.anchorX()) * progress,
+                            anchor.anchorY() + (grappleTargetY - anchor.anchorY()) * progress,
+                            0,
+                            -0.4,
+                            Color.FORESTGREEN.deriveColor(0, 1, 1, 0.78)
                     ));
                 }
             }
         }
 
         if (isGrappling) {
-            double dx = grappleTargetX - (x + 40);
-            double dy = grappleTargetY - (y + 40);
-            double dist = Math.hypot(dx, dy);
-            if (dist > 30) {
-                vx = dx / dist * 32;
-                vy = dy / dist * 32;
-            } else {
-                isGrappling = false;
-                vx *= 0.6;
-                vy = 0;
-                canDoubleJump = true;
+            isGrappling = false;
+            canDoubleJump = true;
+        }
+    }
+
+    void attachToVine(SwingingVine vine) {
+        if (vine == null) {
+            return;
+        }
+        attachedVine = vine;
+        onVine = true;
+        vineRideFrames = 0;
+        isGrappling = false;
+        vx = 0;
+        vy = 0;
+        canDoubleJump = true;
+        syncToAttachedVine();
+    }
+
+    void syncToAttachedVine() {
+        if (!onVine || attachedVine == null) {
+            return;
+        }
+        x = attachedVine.gripX() - 40 * sizeMultiplier;
+        y = attachedVine.gripY() - 78 * sizeMultiplier;
+        vx = 0;
+        vy = 0;
+    }
+
+    void dropFromVine() {
+        onVine = false;
+        attachedVine = null;
+        vineRideFrames = 0;
+        isGrappling = false;
+        canDoubleJump = true;
+    }
+
+    void launchFromVine(boolean autoLaunch) {
+        if (!onVine || attachedVine == null) {
+            return;
+        }
+        SwingingVine vine = attachedVine;
+        double launchVx = vine.tipVelocityX() * 1.12;
+        double launchVy = vine.tipVelocityY() * 1.12 - (autoLaunch ? 6.4 : 5.2);
+        if (Math.abs(launchVx) < 4.5) {
+            double fallbackDirection = Math.abs(vine.angle) > 0.06 ? Math.signum(vine.angle) : (facingRight ? 1.0 : -1.0);
+            launchVx = fallbackDirection * 4.5;
+        }
+
+        onVine = false;
+        attachedVine = null;
+        vineRideFrames = 0;
+        vx = Math.clamp(launchVx, -22.0, 22.0);
+        vy = Math.clamp(launchVy, -18.0, 10.0);
+        if (Math.abs(vx) > 0.08) {
+            facingRight = vx > 0;
+        }
+        canDoubleJump = true;
+    }
+
+    private GrappleVineAnchor findGrappleVineAnchor() {
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        GrappleVineAnchor best = null;
+        double bestScore = Double.MAX_VALUE;
+
+        for (Platform p : game.platforms) {
+            double undersideY = p.y + p.h;
+            double verticalGap = centerY - undersideY;
+            if (verticalGap < 110 || verticalGap > 620) {
+                continue;
+            }
+            double anchorX = Math.clamp(centerX, p.x + 36, p.x + p.w - 36);
+            double horizontalGap = Math.abs(anchorX - centerX);
+            if (horizontalGap > 250) {
+                continue;
+            }
+            double score = verticalGap * 1.25 + horizontalGap * 1.8;
+            if (score < bestScore) {
+                bestScore = score;
+                best = new GrappleVineAnchor(anchorX, undersideY, Math.clamp(verticalGap - 28.0, 120.0, 420.0));
             }
         }
+        return best;
+    }
+
+    private record GrappleVineAnchor(double anchorX, double anchorY, double length) {
     }
 
     private void resetExpiredBuffs() {
@@ -3212,8 +3269,7 @@ public class Bird {
     private boolean handleBatHanging(boolean stunned) {
         if (batHanging) {
             if (stunned || batHangPlatform == null || !game.platforms.contains(batHangPlatform)) {
-                batHanging = false;
-                batHangPlatform = null;
+                releaseBatHang(BAT_REHANG_COOLDOWN_FRAMES);
                 return false;
             }
 
@@ -3236,8 +3292,7 @@ public class Bird {
 
             if (jumpPressed()) {
                 if (batHangLockTimer <= 0) {
-                    batHanging = false;
-                    batHangPlatform = null;
+                    releaseBatHang(BAT_REHANG_COOLDOWN_FRAMES);
                     vy = 2;
                     return false;
                 }
@@ -3255,12 +3310,13 @@ public class Bird {
             return true;
         }
 
-        if (!stunned && !isOnGround() && vy < -2 && jumpPressed()) {
+        if (!stunned && batRehangCooldownTimer <= 0 && !isOnGround() && vy < -2 && jumpPressed()) {
             Platform hangable = findBatHangablePlatform();
             if (hangable != null) {
                 batHanging = true;
                 batHangPlatform = hangable;
                 batHangLockTimer = 14; // prevents immediate unlatch from the same jump press
+                batRehangCooldownTimer = 0;
                 vx *= 0.35;
                 vy = 0;
                 y = hangable.y + hangable.h + 2;
@@ -3269,6 +3325,13 @@ public class Bird {
             }
         }
         return false;
+    }
+
+    private void releaseBatHang(int rehangCooldownFrames) {
+        batHanging = false;
+        batHangPlatform = null;
+        batHangLockTimer = 0;
+        batRehangCooldownTimer = Math.max(batRehangCooldownTimer, rehangCooldownFrames);
     }
 
     private Platform findBatHangablePlatform() {
@@ -4467,8 +4530,8 @@ public class Bird {
             }
             case VINE_GRAPPLE -> {
                 grappleTimer = 480;
-                grappleUses = 3;
-                game.addToKillFeed(shortName() + " grabbed VINE GRAPPLE! Swing freely!");
+                grappleUses = 1;
+                game.addToKillFeed(shortName() + " grabbed VINE GRAPPLE! One summoned swing!");
                 for (int i = 0; i < 80; i++) {
                     double angle = Math.random() * Math.PI * 2;
                     double speed = 8 + Math.random() * 16;
@@ -4595,8 +4658,10 @@ public class Bird {
         batHanging = false;
         batHangPlatform = null;
         batHangLockTimer = 0;
+        batRehangCooldownTimer = 0;
         attachedVine = null;
         onVine = false;
+        vineRideFrames = 0;
         isGrappling = false;
         isFlying = false;
         loungeActive = false;
@@ -4683,6 +4748,7 @@ public class Bird {
         state.plungeTimer = plungeTimer;
         state.batHanging = batHanging;
         state.batEchoTimer = batEchoTimer;
+        state.batRehangCooldownTimer = batRehangCooldownTimer;
         state.isBlocking = isBlocking;
         state.blockCooldown = blockCooldown;
         state.speedMultiplier = speedMultiplier;
@@ -4796,6 +4862,7 @@ public class Bird {
         this.plungeTimer = state.plungeTimer;
         this.batHanging = state.batHanging;
         this.batEchoTimer = state.batEchoTimer;
+        this.batRehangCooldownTimer = state.batRehangCooldownTimer;
         this.isBlocking = state.isBlocking;
         this.blockCooldown = state.blockCooldown;
         this.speedMultiplier = state.speedMultiplier;

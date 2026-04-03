@@ -76,4 +76,29 @@ class BirdGame3WiimoteInputTest {
         assertTrue(briefDrop);
         assertFalse(released);
     }
+
+    @Test
+    void pauseMenuDirectionRepeatUsesHeldInput() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Method triggerPauseDirection = BirdGame3.class.getDeclaredMethod(
+                "shouldTriggerPauseMenuDirection",
+                int.class,
+                boolean.class,
+                long.class
+        );
+        triggerPauseDirection.setAccessible(true);
+
+        long start = 4_000_000_000L;
+        boolean initialHold = (boolean) triggerPauseDirection.invoke(game, 1, true, start);
+        boolean beforeRepeat = (boolean) triggerPauseDirection.invoke(game, 1, true, start + 120_000_000L);
+        boolean repeatedHold = (boolean) triggerPauseDirection.invoke(game, 1, true, start + 300_000_000L);
+        boolean released = (boolean) triggerPauseDirection.invoke(game, 1, false, start + 320_000_000L);
+        boolean repress = (boolean) triggerPauseDirection.invoke(game, 1, true, start + 340_000_000L);
+
+        assertTrue(initialHold);
+        assertFalse(beforeRepeat);
+        assertTrue(repeatedHold);
+        assertFalse(released);
+        assertTrue(repress);
+    }
 }

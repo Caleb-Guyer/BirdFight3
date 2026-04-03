@@ -69,6 +69,10 @@ class LanState {
             out.writeDouble(v.length);
             out.writeDouble(v.angle);
             out.writeDouble(v.angularVelocity);
+            out.writeBoolean(v.temporary);
+            out.writeBoolean(v.detaching);
+            out.writeDouble(v.detachedVX);
+            out.writeDouble(v.detachedVY);
         }
         out.writeInt(windVents.size());
         for (WindVentState v : windVents) {
@@ -158,6 +162,10 @@ class LanState {
             v.length = in.readDouble();
             v.angle = in.readDouble();
             v.angularVelocity = in.readDouble();
+            v.temporary = in.readBoolean();
+            v.detaching = in.readBoolean();
+            v.detachedVX = in.readDouble();
+            v.detachedVY = in.readDouble();
             state.swingingVines.add(v);
         }
         int ventCount = in.readInt();
@@ -215,6 +223,10 @@ class LanState {
         double length;
         double angle;
         double angularVelocity;
+        boolean temporary;
+        boolean detaching;
+        double detachedVX;
+        double detachedVY;
     }
 
     static final class WindVentState {

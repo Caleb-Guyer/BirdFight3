@@ -374,6 +374,8 @@ public class BirdGame3 extends Application {
     private boolean wiimoteMenuBackHeld = false;
     private boolean wiimoteMenuPauseHeld = false;
     private final boolean[] wiimoteMenuDirectionHeld = new boolean[4];
+    private final boolean[] wiimotePauseMenuDirectionHeld = new boolean[4];
+    private final long[] wiimotePauseMenuNextRepeatNs = new long[4];
     private long wiimoteMenuPointerLastNs = 0L;
     private double wiimoteMenuPointerSceneX = WIDTH / 2.0;
     private double wiimoteMenuPointerSceneY = HEIGHT / 2.0;
@@ -395,6 +397,8 @@ public class BirdGame3 extends Application {
     private Cursor birdClawClosedCursor;
     private WritableImage birdClawOpenImage;
     private WritableImage birdClawClosedImage;
+    private static final double VINE_AUTO_LAUNCH_SPEED = 18.0;
+    private static final double VINE_AUTO_LAUNCH_ANGLE = 0.48;
 
     // === MAP + DYNAMIC CAMERA ===
     public static final double WORLD_WIDTH = 6000;
@@ -1128,24 +1132,30 @@ public class BirdGame3 extends Application {
 
     private boolean pollWiimotePausedGameplayMenu(Scene scene, WiimoteMappedState state) {
         if (scene != gameplayScene || !isPaused) {
+            resetWiimotePauseMenuHeldState();
             return false;
         }
         VBox pauseMenu = currentPauseMenu();
         if (pauseMenu == null) {
+            resetWiimotePauseMenuHeldState();
             return false;
         }
         boolean connected = state != null && state.connected();
-        if (connected && state.menuUp()) {
+        long now = System.nanoTime();
+        if (connected && shouldTriggerPauseMenuDirection(0, state.menuUpHeld(), now)) {
             movePauseMenuFocus(scene, pauseMenu, KeyCode.UP);
         }
-        if (connected && state.menuDown()) {
+        if (connected && shouldTriggerPauseMenuDirection(1, state.menuDownHeld(), now)) {
             movePauseMenuFocus(scene, pauseMenu, KeyCode.DOWN);
         }
-        if (connected && state.menuLeft()) {
+        if (connected && shouldTriggerPauseMenuDirection(2, state.menuLeftHeld(), now)) {
             movePauseMenuFocus(scene, pauseMenu, KeyCode.LEFT);
         }
-        if (connected && state.menuRight()) {
+        if (connected && shouldTriggerPauseMenuDirection(3, state.menuRightHeld(), now)) {
             movePauseMenuFocus(scene, pauseMenu, KeyCode.RIGHT);
+        }
+        if (!connected) {
+            resetWiimotePauseMenuHeldState();
         }
 
         boolean selectHeld = connected && state.menuSelect();
@@ -1174,6 +1184,27 @@ public class BirdGame3 extends Application {
         }
         wiimoteMenuPauseHeld = pauseHeld;
         return true;
+    }
+
+    private boolean shouldTriggerPauseMenuDirection(int index, boolean held, long now) {
+        if (index < 0 || index >= wiimotePauseMenuDirectionHeld.length) {
+            return false;
+        }
+        if (!held) {
+            wiimotePauseMenuDirectionHeld[index] = false;
+            wiimotePauseMenuNextRepeatNs[index] = 0L;
+            return false;
+        }
+        if (!wiimotePauseMenuDirectionHeld[index]) {
+            wiimotePauseMenuDirectionHeld[index] = true;
+            wiimotePauseMenuNextRepeatNs[index] = now + 260_000_000L;
+            return true;
+        }
+        if (now >= wiimotePauseMenuNextRepeatNs[index]) {
+            wiimotePauseMenuNextRepeatNs[index] = now + 135_000_000L;
+            return true;
+        }
+        return false;
     }
 
     private boolean pollWiimoteMenuPointer(Scene scene, WiimoteMappedState state) {
@@ -1656,10 +1687,16 @@ public class BirdGame3 extends Application {
     private void resetWiimoteMenuHeldState() {
         releaseWiimoteMenuPointerPress();
         Arrays.fill(wiimoteMenuDirectionHeld, false);
+        resetWiimotePauseMenuHeldState();
         wiimoteMenuSelectHeld = false;
         wiimoteMenuBackHeld = false;
         wiimoteMenuPauseHeld = false;
         wiimoteMenuPointerLastNs = 0L;
+    }
+
+    private void resetWiimotePauseMenuHeldState() {
+        Arrays.fill(wiimotePauseMenuDirectionHeld, false);
+        Arrays.fill(wiimotePauseMenuNextRepeatNs, 0L);
     }
 
     private void resetWiimoteSelectorHeldState() {
@@ -7603,70 +7640,7 @@ public class BirdGame3 extends Application {
                 }
             }
         }
-        if (selectedMap == MapType.VIBRANT_JUNGLE) {
-            for (SwingingVine vine : swingingVines) {
-                vine.angularVelocity += (Math.random() - 0.5) * 0.0015;
-                if (Math.random() < 0.008) vine.angularVelocity += (Math.random() - 0.5) * 0.04;
-                double gravity = 0.009;
-                double angularAccel = -gravity * Math.sin(vine.angle);
-                vine.angularVelocity += angularAccel;
-                vine.angularVelocity *= 0.995;
-                vine.angle += vine.angularVelocity;
-                vine.angle = Math.clamp(vine.angle, -Math.PI / 2.2, Math.PI / 2.2);
-                vine.updatePlatformPosition();
-                for (Bird b : players) {
-                    if (b == null || b.health <= 0) continue;
-                    double birdLeft = b.x + 20;
-                    double birdRight = b.x + 60 * b.sizeMultiplier;
-                    double birdBottom = b.y + 80 * b.sizeMultiplier;
-                    double birdTop = b.y;
-                    double platLeft = vine.platformX;
-                    double platRight = vine.platformX + vine.platformW;
-                    double platTop = vine.platformY;
-                    boolean horizontallyOver = birdLeft < platRight && birdRight > platLeft;
-                    boolean verticallyOnTop = birdBottom >= platTop && birdBottom <= platTop + 30;
-                    if (!b.onVine && horizontallyOver && verticallyOnTop && b.vy >= 0 && birdTop < platTop) {
-                        b.onVine = true;
-                        b.attachedVine = vine;
-                        b.y = platTop - 80 * b.sizeMultiplier;
-                        b.vy = 0;
-                        addToKillFeed(shortName(b.name) + " grabbed a vine!");
-                    }
-                    if (b.onVine && b.attachedVine == vine) {
-                        b.x = vine.platformX + vine.platformW / 2 - 40 * b.sizeMultiplier;
-                        b.y = vine.platformY - 80 * b.sizeMultiplier;
-                        if (!isAI[b.playerIndex]) {
-                            if (isLeftPressed(b.playerIndex)) vine.angularVelocity -= 0.004;
-                            if (isRightPressed(b.playerIndex)) vine.angularVelocity += 0.004;
-                        }
-                        if (isAI[b.playerIndex]) {
-                            Bird target = getBird(b);
-                            if (target != null) {
-                                if (target.x < b.x) vine.angularVelocity -= 0.006;
-                                if (target.x > b.x) vine.angularVelocity += 0.006;
-                            }
-                        }
-                        if (isJumpPressed(b.playerIndex)) {
-                            b.onVine = false;
-                            b.attachedVine = null;
-                            b.vy = -b.type.jumpHeight * 0.9;
-                            b.canDoubleJump = true;
-                            addToKillFeed(shortName(b.name) + " swung off the vine!");
-                        }
-                        b.vy = 0;
-                    }
-                }
-            }
-            for (Bird b : players) {
-                if (b != null && b.onVine && b.attachedVine != null) {
-                    double platY = b.attachedVine.platformY;
-                    if (b.y + 80 * b.sizeMultiplier > platY + 50) {
-                        b.onVine = false;
-                        b.attachedVine = null;
-                    }
-                }
-            }
-        }
+        updateSwingingVines();
 
         for (Iterator<CrowMinion> it = crowMinions.iterator(); it.hasNext(); ) {
             CrowMinion c = it.next();
@@ -7921,6 +7895,131 @@ public class BirdGame3 extends Application {
         checkForMatchCompletion();
     }
 
+    private void updateSwingingVines() {
+        if (swingingVines.isEmpty()) {
+            for (Bird b : players) {
+                if (b != null && b.onVine) {
+                    b.dropFromVine();
+                }
+            }
+            return;
+        }
+
+        for (Iterator<SwingingVine> it = swingingVines.iterator(); it.hasNext(); ) {
+            SwingingVine vine = it.next();
+            if (vine.detaching) {
+                vine.updateDetaching();
+                if (vine.isFullyDetachedOffscreen()) {
+                    it.remove();
+                }
+                continue;
+            }
+            vine.angularVelocity += (Math.random() - 0.5) * (vine.temporary ? 0.0012 : 0.0016);
+            if (!vine.temporary && Math.random() < 0.006) {
+                vine.angularVelocity += (Math.random() - 0.5) * 0.032;
+            }
+            double gravity = vine.temporary ? 0.0105 : 0.0088;
+            vine.angularVelocity += -gravity * Math.sin(vine.angle);
+            vine.angularVelocity *= vine.temporary ? 0.992 : 0.994;
+            vine.angle += vine.angularVelocity;
+            vine.angle = Math.clamp(vine.angle, -Math.PI / 2.2, Math.PI / 2.2);
+            vine.updatePlatformPosition();
+
+            boolean occupied = false;
+            for (Bird b : players) {
+                if (b == null) {
+                    continue;
+                }
+                if (b.health <= 0) {
+                    if (b.onVine && b.attachedVine == vine) {
+                        b.dropFromVine();
+                    }
+                    continue;
+                }
+                double birdLeft = b.x + 18;
+                double birdRight = b.x + 62 * b.sizeMultiplier;
+                double birdBottom = b.y + 80 * b.sizeMultiplier;
+                double birdTop = b.y;
+                double platLeft = vine.platformX - 10;
+                double platRight = vine.platformX + vine.platformW + 10;
+                double platTop = vine.platformY;
+                boolean horizontallyOver = birdLeft < platRight && birdRight > platLeft;
+                boolean verticallyOnTop = birdBottom >= platTop - 8 && birdBottom <= platTop + 28;
+
+                if (!b.onVine && horizontallyOver && verticallyOnTop && b.vy >= 0 && birdTop < platTop + 14) {
+                    b.attachToVine(vine);
+                    addToKillFeed(shortName(b.name) + " grabbed a vine!");
+                }
+
+                if (b.onVine && b.attachedVine == vine) {
+                    occupied = true;
+                    b.syncToAttachedVine();
+                    b.vineRideFrames++;
+
+                    if (!isAI[b.playerIndex]) {
+                        if (isLeftPressed(b.playerIndex)) {
+                            vine.angularVelocity -= vine.temporary ? 0.0054 : 0.0046;
+                        }
+                        if (isRightPressed(b.playerIndex)) {
+                            vine.angularVelocity += vine.temporary ? 0.0054 : 0.0046;
+                        }
+                    } else {
+                        Bird target = getBird(b);
+                        if (target != null) {
+                            if (target.x < b.x) {
+                                vine.angularVelocity -= 0.006;
+                            }
+                            if (target.x > b.x) {
+                                vine.angularVelocity += 0.006;
+                            }
+                        }
+                    }
+
+                    boolean manualLaunch = isJumpPressed(b.playerIndex);
+                    boolean autoLaunch = shouldAutoLaunchFromVine(vine);
+                    if (manualLaunch || autoLaunch) {
+                        b.launchFromVine(autoLaunch);
+                        if (!autoLaunch) {
+                            addToKillFeed(shortName(b.name) + " swung off the vine!");
+                        }
+                        occupied = false;
+                    }
+                }
+            }
+
+            if (vine.temporary && !occupied) {
+                vine.startDetaching();
+            }
+        }
+
+        for (Bird b : players) {
+            if (b == null || !b.onVine) {
+                continue;
+            }
+            if (b.attachedVine == null || !swingingVines.contains(b.attachedVine)) {
+                b.dropFromVine();
+                continue;
+            }
+            double platY = b.attachedVine.platformY;
+            if (b.y + 80 * b.sizeMultiplier > platY + 58) {
+                b.dropFromVine();
+            }
+        }
+    }
+
+    private boolean shouldAutoLaunchFromVine(SwingingVine vine) {
+        if (vine == null || vine.detaching) {
+            return false;
+        }
+        if (vine.tipSpeed() < VINE_AUTO_LAUNCH_SPEED) {
+            return false;
+        }
+        if (Math.abs(vine.angle) < VINE_AUTO_LAUNCH_ANGLE) {
+            return false;
+        }
+        return Math.signum(vine.angle) == Math.signum(vine.angularVelocity);
+    }
+
     private Bird getBird(Bird b) {
         Bird target = null;
         double best = Double.MAX_VALUE;
@@ -7974,30 +8073,7 @@ public class BirdGame3 extends Application {
 
         // === BACKGROUND (different per map) ===
         switch (selectedMap) {
-            case FOREST -> {
-                g.setFill(Color.DARKGREEN.darker());
-                for (double tx : FOREST_TREE_X) {
-                    g.fillRect(tx - 300, GROUND_Y - 1200, 600, 1500);
-                    g.setFill(Color.FORESTGREEN.darker());
-                    g.fillOval(tx - 500, GROUND_Y - 1400, 1000, 800);
-                    g.setFill(Color.DARKGREEN.darker());
-                }
-                g.setFill(Color.SADDLEBROWN.darker());
-                g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
-                g.setFill(Color.FORESTGREEN.darker().darker());
-                g.fillRect(0, GROUND_Y, WORLD_WIDTH, 100);
-                g.setFill(Color.FORESTGREEN.brighter());
-                for (Platform p : platforms) {
-                    if (p.y < GROUND_Y - 50) g.fillRoundRect(p.x - 20, p.y - 30, p.w + 40, 80, 60, 60);
-                }
-                g.setFill(Color.SADDLEBROWN.darker());
-                g.setStroke(Color.SIENNA);
-                g.setLineWidth(3);
-                for (Platform p : platforms) {
-                    g.fillRect(p.x, p.y, p.w, p.h);
-                    g.strokeRect(p.x, p.y, p.w, p.h);
-                }
-            }
+            case FOREST -> drawForestArena(g, ambientFx);
             case SKYCLIFFS -> {
                 for (int i = 0; i < 600; i++) {
                     double ratio = i / 600.0;
@@ -8115,41 +8191,9 @@ public class BirdGame3 extends Application {
                 g.setFill(Color.SEAGREEN.darker());
                 for (Platform p : platforms) {
                     g.fillRoundRect(p.x, p.y, p.w, p.h, 40, 40);
-                    g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.5));
-                    g.fillOval(p.x + p.w/2 - 30, p.y - 30, 60, 60);
-                }
-                g.setStroke(Color.SADDLEBROWN.darker().darker());
-                g.setLineWidth(16);
-                for (SwingingVine vine : swingingVines) {
-                    double ropeEndX = vine.platformX + vine.platformW / 2;
-                    double ropeEndY = vine.platformY + 20;
-                    g.strokeLine(vine.baseX, vine.baseY, ropeEndX, ropeEndY);
-                    if (ambientFx) {
-                        int flowerCount = 5;
-                        for (int i = 1; i <= flowerCount; i++) {
-                            double t = i / (double)(flowerCount + 1);
-                            double fx = vine.baseX + t * (ropeEndX - vine.baseX);
-                            double fy = vine.baseY + t * (ropeEndY - vine.baseY);
-                            g.setFill(Color.MAGENTA.brighter());
-                            g.setEffect(new Glow(0.6));
-                            for (int p = 0; p < 5; p++) {
-                                double petalAngle = p * Math.PI * 2 / 5;
-                                double px = fx + Math.cos(petalAngle) * 18;
-                                double py = fy + Math.sin(petalAngle) * 18;
-                                g.fillOval(px - 12, py - 12, 24, 24);
-                            }
-                            g.setEffect(null);
-                            g.setFill(Color.GOLD);
-                            g.fillOval(fx - 8, fy - 8, 16, 16);
-                            g.setFill(Color.WHITE);
-                            g.fillOval(fx - 4, fy - 6, 6, 6);
-                        }
-                    }
+                    g.setFill(Color.web("#8BC34A", 0.6));
+                    g.fillOval(p.x + p.w / 2 - 36, p.y - 34, 72, 40);
                     g.setFill(Color.SEAGREEN.darker());
-                    g.fillRoundRect(vine.platformX, vine.platformY, vine.platformW, vine.platformH, 30, 30);
-                    g.setStroke(Color.DARKGREEN);
-                    g.setLineWidth(4);
-                    g.strokeRoundRect(vine.platformX, vine.platformY, vine.platformW, vine.platformH, 30, 30);
                 }
                 for (NectarNode node : nectarNodes) {
                     if (node.active) {
@@ -8161,8 +8205,10 @@ public class BirdGame3 extends Application {
                     }
                 }
                 for (WindVent v : windVents) {
-                    g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.25));
-                    g.fillOval(v.x + v.w/2 - 120, v.y - 200, 240, 400);
+                    double ventWidth = Math.max(170, v.w * 0.55);
+                    double ventHeight = 230 + v.w * 0.36;
+                    g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.18));
+                    g.fillOval(v.x + v.w / 2 - ventWidth / 2, v.y - ventHeight * 0.72, ventWidth, ventHeight);
                 }
             }
             case BATTLEFIELD -> {
@@ -8387,6 +8433,10 @@ public class BirdGame3 extends Application {
             }
         }
 
+        if (!swingingVines.isEmpty()) {
+            drawSwingingVines(g, ambientFx);
+        }
+
         if (particleEffectsEnabled) {
             for (Particle p : particles) {
                 if (p.life <= 0 || isWorldRectNearCamera(p.x - 4, p.y - 4, 8, 8, 96)) {
@@ -8437,6 +8487,250 @@ public class BirdGame3 extends Application {
         }
 
         g.restore();
+    }
+
+    private void drawSwingingVines(GraphicsContext g, boolean ambientFx) {
+        boolean junglePalette = selectedMap == MapType.VIBRANT_JUNGLE;
+        for (SwingingVine vine : swingingVines) {
+            drawSwingingVine(g, vine, ambientFx, junglePalette);
+        }
+    }
+
+    private void drawSwingingVine(GraphicsContext g, SwingingVine vine, boolean ambientFx, boolean junglePalette) {
+        double tipX = vine.gripX();
+        double tipY = vine.gripY();
+        double controlX = (vine.baseX + tipX) * 0.5 - Math.cos(vine.angle) * (junglePalette ? 34 : 22);
+        double controlY = vine.baseY + vine.length * 0.42 + Math.abs(Math.sin(vine.angle)) * 28;
+        int segments = 16;
+
+        Color vineCore = junglePalette ? Color.web("#2E7D32") : Color.web("#33691E");
+        Color vineHighlight = junglePalette ? Color.web("#66BB6A") : Color.web("#7CB342");
+        Color leaf = junglePalette ? Color.web("#8BC34A") : Color.web("#9CCC65");
+        if (vine.temporary) {
+            vineCore = Color.web("#43A047");
+            vineHighlight = Color.web("#A5D6A7");
+            leaf = Color.web("#C5E1A5");
+        }
+        if (vine.detaching) {
+            vineCore = vineCore.deriveColor(0, 1, 1, 0.88);
+            vineHighlight = vineHighlight.deriveColor(0, 1, 1, 0.7);
+            leaf = leaf.deriveColor(0, 1, 1, 0.86);
+        }
+
+        double prevX = vine.baseX;
+        double prevY = vine.baseY;
+        for (int i = 1; i <= segments; i++) {
+            double t = i / (double) segments;
+            double pointX = quadraticPoint(vine.baseX, controlX, tipX, t);
+            double pointY = quadraticPoint(vine.baseY, controlY, tipY, t);
+            g.setStroke(vineCore);
+            g.setLineWidth(10 - t * 4);
+            g.strokeLine(prevX, prevY, pointX, pointY);
+            g.setStroke(vineHighlight.deriveColor(0, 1, 1, 0.62));
+            g.setLineWidth(4 - t * 1.4);
+            g.strokeLine(prevX + 1.5, prevY, pointX + 1.5, pointY);
+
+            if (junglePalette && (i == 4 || i == 8 || i == 12)) {
+                drawSwingingVineLeafCluster(g, pointX, pointY, leaf, ambientFx);
+            }
+            prevX = pointX;
+            prevY = pointY;
+        }
+
+        if (!vine.detaching) {
+            g.setFill(Color.web("#4E342E"));
+            g.fillOval(vine.baseX - 14, vine.baseY - 12, 28, 24);
+        } else {
+            g.setStroke(Color.web("#6D4C41", 0.8));
+            g.setLineWidth(3.0);
+            g.strokeLine(vine.baseX - 6, vine.baseY - 5, vine.baseX + 3, vine.baseY + 8);
+            g.strokeLine(vine.baseX + 1, vine.baseY - 6, vine.baseX + 8, vine.baseY + 6);
+        }
+
+        g.setFill(leaf);
+        g.fillOval(tipX - 22, tipY - 14, 44, 28);
+        g.fillOval(tipX - 12, tipY - 22, 30, 22);
+        g.fillOval(tipX - 24, tipY - 8, 26, 18);
+
+        if (ambientFx && junglePalette) {
+            g.setEffect(new Glow(vine.temporary ? 0.35 : 0.18));
+            g.setFill(Color.web("#F06292", vine.temporary ? 0.44 : 0.28));
+            g.fillOval(tipX - 10, tipY - 10, 20, 20);
+            g.setEffect(null);
+        }
+    }
+
+    private void drawSwingingVineLeafCluster(GraphicsContext g, double x, double y, Color leaf, boolean ambientFx) {
+        g.setFill(leaf);
+        g.fillOval(x - 12, y - 10, 24, 16);
+        g.fillOval(x - 4, y - 16, 20, 14);
+        g.fillOval(x - 16, y - 4, 18, 14);
+        if (ambientFx) {
+            g.setFill(Color.web("#F8BBD0", 0.55));
+            g.fillOval(x - 5, y - 5, 10, 10);
+        }
+    }
+
+    private double quadraticPoint(double start, double control, double end, double t) {
+        double inv = 1.0 - t;
+        return inv * inv * start + 2 * inv * t * control + t * t * end;
+    }
+
+    private void drawForestArena(GraphicsContext g, boolean ambientFx) {
+        drawForestHillLayer(g, Color.web("#B7D4B0", 0.72), GROUND_Y + 220, 250, 110, 0.12, 8_101L);
+        drawForestHillLayer(g, Color.web("#7FA27B", 0.76), GROUND_Y + 310, 360, 150, 0.20, 8_102L);
+        drawForestHillLayer(g, Color.web("#4E7253", 0.88), GROUND_Y + 420, 440, 180, 0.30, 8_103L);
+
+        drawForestTreeLayer(g, 0.18, GROUND_Y + 60, 420, 250, 360,
+                Color.web("#4A2E20", 0.26), Color.web("#315A38", 0.34), 8_120L);
+        drawForestTreeLayer(g, 0.30, GROUND_Y + 70, 560, 320, 300,
+                Color.web("#402318", 0.44), Color.web("#224C2D", 0.56), 8_121L);
+
+        if (ambientFx) {
+            drawForestSunbeams(g);
+            drawForestAmbientMotes(g);
+        }
+
+        g.setFill(Color.web("#4E342E"));
+        g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
+        g.setFill(Color.web("#245A2B"));
+        g.fillRect(0, GROUND_Y, WORLD_WIDTH, 120);
+        g.setFill(Color.web("#4CAF50", 0.28));
+        renderRandom.setSeed(8_130L);
+        Random grassRandom = renderRandom;
+        for (int i = 0; i < 180; i++) {
+            double patchX = -40 + i * 34 + grassRandom.nextDouble() * 26;
+            double patchW = 70 + grassRandom.nextDouble() * 60;
+            double patchH = 20 + grassRandom.nextDouble() * 26;
+            g.fillOval(patchX, GROUND_Y - 8 - patchH * 0.25, patchW, patchH);
+        }
+
+        g.setFill(Color.web("#5FAE5B", 0.2));
+        for (Platform p : platforms) {
+            if (p.y < GROUND_Y - 50) {
+                g.fillRoundRect(p.x - 34, p.y - 42, p.w + 68, 92, 70, 70);
+            }
+        }
+
+        g.setStroke(Color.web("#4E342E", 0.42));
+        g.setLineWidth(2.5);
+        for (Platform p : platforms) {
+            if (p.y >= GROUND_Y - 40) {
+                continue;
+            }
+            renderRandom.setSeed(Double.doubleToLongBits(p.x * 31.0 + p.y * 17.0 + p.w * 13.0));
+            Random rootRandom = renderRandom;
+            int rootCount = Math.max(1, Math.min(4, (int) Math.round(p.w / 170.0)));
+            for (int i = 0; i < rootCount; i++) {
+                double startX = p.x + 30 + rootRandom.nextDouble() * Math.max(30, p.w - 60);
+                double length = 28 + rootRandom.nextDouble() * 34;
+                double drift = (rootRandom.nextDouble() - 0.5) * 18;
+                g.strokeLine(startX, p.y + p.h, startX + drift, p.y + p.h + length);
+            }
+        }
+
+        g.setFill(Color.web("#5D4037"));
+        g.setStroke(Color.web("#8D6E63"));
+        g.setLineWidth(3);
+        for (Platform p : platforms) {
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 18, 18);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 18, 18);
+
+            g.setFill(Color.web("#2E7D32"));
+            g.fillRoundRect(p.x - 6, p.y - 16, p.w + 12, 24, 24, 24);
+            g.setFill(Color.web("#81C784", 0.88));
+            g.fillOval(p.x + 12, p.y - 14, 46, 18);
+            g.fillOval(p.x + p.w * 0.33, p.y - 16, 54, 20);
+            g.fillOval(p.x + p.w * 0.62, p.y - 14, 52, 18);
+            g.fillOval(p.x + p.w - 56, p.y - 12, 44, 16);
+            g.setFill(Color.web("#5D4037"));
+        }
+    }
+
+    private void drawForestHillLayer(GraphicsContext g, Color color, double baseY, double amplitude, double variance,
+                                     double movementFactor, long seed) {
+        final int points = 22;
+        double[] xPoints = new double[points + 2];
+        double[] yPoints = new double[points + 2];
+        renderRandom.setSeed(seed);
+        Random layerRandom = renderRandom;
+        for (int i = 0; i < points; i++) {
+            double worldX = -420 + i * ((WORLD_WIDTH + 840) / (double) (points - 1));
+            double wave = Math.sin((worldX + seed * 0.11) / 360.0) * amplitude * 0.18;
+            double ridge = Math.cos((worldX + seed * 0.07) / 640.0) * amplitude * 0.1;
+            double lift = amplitude * 0.34 + layerRandom.nextDouble() * variance;
+            xPoints[i] = parallaxAdjustedWorldX(worldX, movementFactor);
+            yPoints[i] = baseY - lift - wave - ridge;
+        }
+        xPoints[points] = parallaxAdjustedWorldX(WORLD_WIDTH + 480, movementFactor);
+        yPoints[points] = WORLD_HEIGHT + 120;
+        xPoints[points + 1] = parallaxAdjustedWorldX(-480, movementFactor);
+        yPoints[points + 1] = WORLD_HEIGHT + 120;
+        g.setFill(color);
+        g.fillPolygon(xPoints, yPoints, xPoints.length);
+    }
+
+    private void drawForestTreeLayer(GraphicsContext g, double movementFactor, double baseY, double minHeight,
+                                     double heightVariance, double spacing, Color trunkColor, Color canopyColor, long seed) {
+        renderRandom.setSeed(seed);
+        Random treeRandom = renderRandom;
+        for (int i = 0; i < 24; i++) {
+            double worldX = -240 + i * spacing + treeRandom.nextDouble() * 70;
+            double drawX = parallaxAdjustedWorldX(worldX, movementFactor);
+            double trunkHeight = minHeight + treeRandom.nextDouble() * heightVariance;
+            double trunkWidth = 26 + treeRandom.nextDouble() * 28;
+            double canopyWidth = 170 + treeRandom.nextDouble() * 120;
+            double canopyHeight = 110 + treeRandom.nextDouble() * 90;
+            double trunkTopY = baseY - trunkHeight;
+
+            g.setFill(trunkColor);
+            g.fillRoundRect(drawX - trunkWidth * 0.5, trunkTopY, trunkWidth, trunkHeight + 70, trunkWidth, trunkWidth);
+
+            g.setFill(canopyColor);
+            g.fillOval(drawX - canopyWidth * 0.52, trunkTopY - canopyHeight * 0.26, canopyWidth, canopyHeight);
+            g.fillOval(drawX - canopyWidth * 0.82, trunkTopY + canopyHeight * 0.05, canopyWidth * 0.72, canopyHeight * 0.72);
+            g.fillOval(drawX - canopyWidth * 0.06, trunkTopY + canopyHeight * 0.02, canopyWidth * 0.72, canopyHeight * 0.76);
+            if (treeRandom.nextDouble() < 0.55) {
+                g.fillOval(drawX - canopyWidth * 0.28, trunkTopY - canopyHeight * 0.42,
+                        canopyWidth * 0.62, canopyHeight * 0.62);
+            }
+        }
+    }
+
+    private void drawForestSunbeams(GraphicsContext g) {
+        double time = System.currentTimeMillis() / 1800.0;
+        g.setFill(Color.web("#FFF9C4", 0.08));
+        for (int i = 0; i < 6; i++) {
+            double beamCenterX = parallaxAdjustedWorldX(180 + i * 980 + Math.sin(time + i * 0.8) * 80, 0.10);
+            double beamWidth = 170 + (i % 3) * 34;
+            g.fillPolygon(
+                    new double[]{beamCenterX - beamWidth, beamCenterX + beamWidth, beamCenterX + beamWidth * 0.42, beamCenterX - beamWidth * 0.42},
+                    new double[]{0, 0, GROUND_Y + 140, GROUND_Y + 140},
+                    4
+            );
+        }
+    }
+
+    private void drawForestAmbientMotes(GraphicsContext g) {
+        double time = System.currentTimeMillis() / 950.0;
+        renderRandom.setSeed(8_140L);
+        Random moteRandom = renderRandom;
+        for (int i = 0; i < 48; i++) {
+            double baseX = moteRandom.nextDouble() * WORLD_WIDTH;
+            double baseY = 160 + moteRandom.nextDouble() * (GROUND_Y - 260);
+            double driftX = Math.sin(time * 0.8 + i * 1.37) * (14 + moteRandom.nextDouble() * 20);
+            double driftY = Math.cos(time * 0.65 + i * 0.93) * (8 + moteRandom.nextDouble() * 14);
+            double x = baseX + driftX;
+            double y = baseY + driftY;
+            boolean glowing = i % 6 == 0;
+            g.setFill(glowing ? Color.web("#FFF59D", 0.54) : Color.web("#C5E1A5", 0.3));
+            double size = glowing ? 6.2 : 3.8;
+            g.fillOval(x - size * 0.5, y - size * 0.5, size, size * 0.78);
+        }
+    }
+
+    private double parallaxAdjustedWorldX(double worldX, double movementFactor) {
+        return worldX + camX * (1.0 - movementFactor);
     }
 
     private void drawTrainingCombatOverlay(GraphicsContext g) {
@@ -14091,6 +14385,10 @@ public class BirdGame3 extends Application {
             vs.length = v.length;
             vs.angle = v.angle;
             vs.angularVelocity = v.angularVelocity;
+            vs.temporary = v.temporary;
+            vs.detaching = v.detaching;
+            vs.detachedVX = v.detachedVX;
+            vs.detachedVY = v.detachedVY;
             state.swingingVines.add(vs);
         }
         for (WindVent v : windVents) {
@@ -14231,6 +14529,10 @@ public class BirdGame3 extends Application {
             vine.length = vs.length;
             vine.angle = vs.angle;
             vine.angularVelocity = vs.angularVelocity;
+            vine.temporary = vs.temporary;
+            vine.detaching = vs.detaching;
+            vine.detachedVX = vs.detachedVX;
+            vine.detachedVY = vs.detachedVY;
             vine.updatePlatformPosition();
         }
     }
@@ -22979,6 +23281,92 @@ public class BirdGame3 extends Application {
         return WORLD_WIDTH;
     }
 
+    private void setupVibrantJungleArena(Random mapRandom) {
+        windVents.clear();
+        nectarNodes.clear();
+        swingingVines.clear();
+
+        for (int i = 0; i < JUNGLE_TREE_X.length; i++) {
+            double tx = JUNGLE_TREE_X[i];
+            double canopyShift = (i % 2 == 0) ? 0 : 90;
+            double midShift = (i % 3 - 1) * 55;
+            double lowShift = (i % 2 == 0) ? -30 : 30;
+            platforms.add(new Platform(tx - 340, GROUND_Y - 1940 + canopyShift, 680, 58));
+            platforms.add(new Platform(tx - 230, GROUND_Y - 1380 + midShift, 460, 48));
+            platforms.add(new Platform(tx - 210, GROUND_Y - 910 - midShift * 0.45, 420, 46));
+            platforms.add(new Platform(tx - 300, GROUND_Y - 500 + lowShift, 600, 60));
+        }
+
+        double[][] orchidPlatforms = {
+                {520, GROUND_Y - 760, 220},
+                {1040, GROUND_Y - 1120, 190},
+                {1540, GROUND_Y - 1560, 210},
+                {2140, GROUND_Y - 720, 180},
+                {2480, GROUND_Y - 1250, 240},
+                {2980, GROUND_Y - 1710, 220},
+                {3360, GROUND_Y - 980, 200},
+                {3860, GROUND_Y - 1460, 230},
+                {4320, GROUND_Y - 760, 200},
+                {4680, GROUND_Y - 1180, 210},
+                {5180, GROUND_Y - 1540, 220},
+                {5460, GROUND_Y - 860, 180}
+        };
+        for (int i = 0; i < orchidPlatforms.length; i++) {
+            double px = orchidPlatforms[i][0] + (mapRandom.nextDouble() - 0.5) * 36;
+            double py = orchidPlatforms[i][1] + (mapRandom.nextDouble() - 0.5) * 30;
+            double pw = orchidPlatforms[i][2] + (mapRandom.nextDouble() - 0.5) * 40;
+            platforms.add(new Platform(px, py, pw, 38));
+            if (i % 3 != 1) {
+                nectarNodes.add(new NectarNode(px + pw / 2.0, py - 36, i % 2 == 0));
+            }
+        }
+
+        platforms.add(new Platform(860, GROUND_Y - 1260, 760, 64));
+        platforms.add(new Platform(2520, GROUND_Y - 1540, 980, 68));
+        platforms.add(new Platform(4340, GROUND_Y - 1220, 820, 62));
+        platforms.add(new Platform(1880, GROUND_Y - 1880, 520, 46));
+        platforms.add(new Platform(3660, GROUND_Y - 1860, 520, 46));
+
+        SwingingVine leftVine = new SwingingVine(1320, GROUND_Y - 2010, 430);
+        leftVine.angle = -0.26;
+        leftVine.angularVelocity = 0.017;
+        swingingVines.add(leftVine);
+
+        SwingingVine midLeftVine = new SwingingVine(2330, GROUND_Y - 1650, 340);
+        midLeftVine.angle = 0.32;
+        midLeftVine.angularVelocity = -0.012;
+        swingingVines.add(midLeftVine);
+
+        SwingingVine centerVine = new SwingingVine(3100, GROUND_Y - 2100, 500);
+        centerVine.angle = -0.18;
+        centerVine.angularVelocity = 0.014;
+        swingingVines.add(centerVine);
+
+        SwingingVine midRightVine = new SwingingVine(4030, GROUND_Y - 1710, 360);
+        midRightVine.angle = 0.24;
+        midRightVine.angularVelocity = -0.011;
+        swingingVines.add(midRightVine);
+
+        SwingingVine rightVine = new SwingingVine(4960, GROUND_Y - 1980, 410);
+        rightVine.angle = -0.22;
+        rightVine.angularVelocity = 0.016;
+        swingingVines.add(rightVine);
+
+        nectarNodes.add(new NectarNode(1240, GROUND_Y - 630, true));
+        nectarNodes.add(new NectarNode(2980, GROUND_Y - 1600, false));
+        nectarNodes.add(new NectarNode(4770, GROUND_Y - 690, true));
+
+        windVents.add(new WindVent(760, GROUND_Y - 340, 260));
+        windVents.add(new WindVent(2240, GROUND_Y - 1120, 300));
+        windVents.add(new WindVent(3580, GROUND_Y - 700, 260));
+        windVents.add(new WindVent(4860, GROUND_Y - 1360, 280));
+
+        mountainPeaks = new double[MOUNTAIN_X.length - 1];
+        for (int i = 0; i < mountainPeaks.length; i++) {
+            mountainPeaks[i] = GROUND_Y - 860 - mapRandom.nextDouble() * 940;
+        }
+    }
+
     void startMatch(Stage stage) {
         prepareMatchStart(stage);
         boolean[] menuAI = Arrays.copyOf(isAI, isAI.length);
@@ -23176,73 +23564,7 @@ public class BirdGame3 extends Application {
                 mountainPeaks[i] = GROUND_Y - 400 - mapRandom.nextDouble() * 600;
             }
         } else if (selectedMap == MapType.VIBRANT_JUNGLE) {
-            // Clear new collections
-            nectarNodes.clear();
-            swingingVines.clear();
-
-            // Kapok tree platforms: tall, layered branches
-            double[] treeX = {600, 1600, 2600, 3600, 4600, 5400};
-            for (double tx : treeX) {
-                platforms.add(new Platform(tx - 350, GROUND_Y - 2000, 700, 60)); // High canopy
-                platforms.add(new Platform(tx - 250, GROUND_Y - 1500, 500, 50)); // Mid-high
-                platforms.add(new Platform(tx - 200, GROUND_Y - 1000, 400, 50)); // Mid
-                platforms.add(new Platform(tx - 300, GROUND_Y - 500, 600, 60)); // Low branches
-            }
-
-            // Floating orchid platforms (small, scattered)
-            for (int i = 0; i < 40; i++) {
-                double px = 200 + mapRandom.nextDouble() * (WORLD_WIDTH - 400);
-                double py = 400 + mapRandom.nextDouble() * (GROUND_Y - 600);
-                double pw = 100 + mapRandom.nextDouble() * 200;
-                platforms.add(new Platform(px, py, pw, 40));
-                // 30% chance for nectar node on platform
-                if (mapRandom.nextDouble() < 0.3) {
-                    nectarNodes.add(new NectarNode(px + pw/2, py - 40, mapRandom.nextBoolean()));
-                }
-            }
-
-            // Waterfall ledges (wide, stable)
-            platforms.add(new Platform(800, GROUND_Y - 1300, 1000, 70));
-            platforms.add(new Platform(3200, GROUND_Y - 1400, 900, 60));
-            platforms.add(new Platform(5000, GROUND_Y - 1200, 1100, 70));
-
-            // Swinging vines (attached to high platforms)
-            SwingingVine vine1 = new SwingingVine(1200, GROUND_Y - 2000, 400);
-            vine1.angle = -0.3;
-            vine1.angularVelocity = 0.02;
-            swingingVines.add(vine1);
-
-            SwingingVine vine2 = new SwingingVine(2000, GROUND_Y - 1500, 350);
-            vine2.angle = 0.4;
-            swingingVines.add(vine2);
-
-            SwingingVine vine3 = new SwingingVine(3000, GROUND_Y - 2000, 450);
-            vine3.angle = -0.2;
-            vine3.angularVelocity = -0.01;
-            swingingVines.add(vine3);
-
-            SwingingVine vine4 = new SwingingVine(4000, GROUND_Y - 1500, 300);
-            vine4.angle = 0.35;
-            swingingVines.add(vine4);
-
-            SwingingVine vine5 = new SwingingVine(5200, GROUND_Y - 2000, 400);
-            vine5.angle = -0.25;
-            vine5.angularVelocity = 0.015;
-            swingingVines.add(vine5);
-
-            // Mist breezes (gentle upward vents)
-            double[] breezeX = {1000, 2000, 3000, 4000, 5000};
-            for (double bx : breezeX) {
-                windVents.add(new WindVent(bx - 200, GROUND_Y - 1000, 400)); // Mid-level
-                windVents.add(new WindVent(bx - 150, GROUND_Y - 1600, 300)); // High
-                windVents.add(new WindVent(bx - 100, GROUND_Y - 400, 300)); // Low
-            }
-
-            // Canopy peaks for background
-            mountainPeaks = new double[MOUNTAIN_X.length - 1];
-            for (int i = 0; i < mountainPeaks.length; i++) {
-                mountainPeaks[i] = GROUND_Y - 800 - mapRandom.nextDouble() * 1000;
-            }
+            setupVibrantJungleArena(mapRandom);
         } else if (selectedMap == MapType.CAVE) {
             // Hard cave ceiling to support bat hanging and vertical combat lanes.
             platforms.add(new Platform(0, 0, WORLD_WIDTH, 70));
