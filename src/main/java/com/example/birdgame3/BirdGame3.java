@@ -173,8 +173,6 @@ public class BirdGame3 extends Application {
     private static final String SCENE_PROP_FIGHT_SELECTOR_CONTROLLER = "fight_selector_controller";
     private static final String SCENE_PROP_WIIMOTE_POINTER_TRACKING = "wiimote_pointer_tracking";
     private static final String FIGHT_SELECTOR_COLOR_PROP = "fight_selector_color";
-    private static final long WIIMOTE_GAMEPLAY_DIRECTION_GRACE_NS = 300_000_000L;
-    private static final long WIIMOTE_GAMEPLAY_ACTION_LATCH_NS = 80_000_000L;
     private static final double FIGHT_SELECTOR_MOVE_STEP = 18.0;
     private static final double FIGHT_SELECTOR_BOUND_MARGIN = 40.0;
     private static final double WIIMOTE_SELECTOR_CURSOR_SPEED = 720.0;
@@ -229,9 +227,6 @@ public class BirdGame3 extends Application {
     private final boolean[][] wiimoteActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[] wiimoteLeftHeld = new boolean[MAX_COMBATANTS];
     private final boolean[] wiimoteRightHeld = new boolean[MAX_COMBATANTS];
-    private final long[] wiimoteLeftHoldUntilNs = new long[MAX_COMBATANTS];
-    private final long[] wiimoteRightHoldUntilNs = new long[MAX_COMBATANTS];
-    private final long[][] wiimoteActionHoldUntilNs = new long[MAX_COMBATANTS][ControlAction.values().length];
     private final WiimoteControlMode[] wiimoteModes = createDefaultWiimoteModes();
     public Bird[] players = new Bird[MAX_COMBATANTS];
     public boolean[] isAI = new boolean[MAX_COMBATANTS];
@@ -403,7 +398,6 @@ public class BirdGame3 extends Application {
     // === MAP + DYNAMIC CAMERA ===
     public static final double WORLD_WIDTH = 6000;
     public static final double WORLD_HEIGHT = 3000;
-    private static final double[] FOREST_TREE_X = {800, 2100, 3400, 4800, 5600};
     private static final double[] JUNGLE_TREE_X = {600, 1600, 2600, 3600, 4600, 5400};
     private static final double[] MOUNTAIN_X = {0, 800, 1800, 2800, 3800, 4800, WORLD_WIDTH};
 
@@ -552,6 +546,7 @@ public class BirdGame3 extends Application {
     private boolean battlefieldMapUnlocked = false;
     private boolean beaconCrownMapUnlocked = false;
     private boolean dockMapUnlocked = false;
+    private final boolean[][] towerDefenseDifficultyBadges = new boolean[MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     private static final int DOCK_LEVER_COOLDOWN_FRAMES = 900;
     private static final int DOCK_BOMB_FUSE_FRAMES = 88;
     private static final int DOCK_BOMB_LOCKON_FRAMES = 72;
@@ -6756,8 +6751,8 @@ public class BirdGame3 extends Application {
     }
 
     private boolean isAdventureBirdUnlocked(BirdType type) {
-        if (type == null) return false;
-        return adventureUnlocked[type.ordinal()];
+        if (type == null) return true;
+        return !adventureUnlocked[type.ordinal()];
     }
 
     private List<BirdType> adventureAllowedBirds(AdventureBattle battle) {
@@ -6768,7 +6763,7 @@ public class BirdGame3 extends Application {
             return pool;
         }
         for (BirdType bt : BirdType.values()) {
-            if (!isAdventureBirdUnlocked(bt)) continue;
+            if (isAdventureBirdUnlocked(bt)) continue;
             if (battle.allowedBirds != null && !battle.allowedBirds.contains(bt)) continue;
             pool.add(bt);
         }
@@ -7303,7 +7298,7 @@ public class BirdGame3 extends Application {
         adventureChapterProgress = chapterCount > 0 ? adventureChapterProgressByIndex[adventureChapterIndex] : 0;
         adventureChapterCompleted = chapterCount > 0 && adventureChapterCompletedByIndex[adventureChapterIndex];
         adventureSelectedBird = adventureSelectedBirdByRoute[idx];
-        if (adventureSelectedBird == null || !isAdventureBirdUnlocked(adventureSelectedBird)) {
+        if (adventureSelectedBird == null || isAdventureBirdUnlocked(adventureSelectedBird)) {
             adventureSelectedBird = firstAdventureBirdForRoute(resolved);
         }
         adventureSelectedSkinKey = normalizeAdventureSkinChoice(adventureSelectedBird, adventureSelectedSkinKeyByRoute[idx]);
@@ -7321,8 +7316,8 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private void setAdventureBirdUnlocked(BirdType type, boolean unlocked) {
-        setAdventureBirdUnlocked(selectedAdventureRoute, type, unlocked);
+    private void setAdventureBirdUnlocked(BirdType type) {
+        setAdventureBirdUnlocked(selectedAdventureRoute, type, true);
     }
 
     private boolean[] mainAdventureChapterCompletedState() {
@@ -8611,12 +8606,11 @@ public class BirdGame3 extends Application {
                     }
                 }
             } else {
-                double desiredX = targetX;
                 double desiredY = target != null
-                        ? Math.max(surfaceY + 36, Math.min(maxY, targetY))
+                        ? Math.clamp(maxY, surfaceY + 36, targetY)
                         : dockWaterMidY();
 
-                double dx = desiredX - p.x;
+                double dx = targetX - p.x;
                 double dy = desiredY - p.y;
                 double dist = Math.hypot(dx, dy);
                 if (dist > 0.001) {
@@ -9860,7 +9854,7 @@ public class BirdGame3 extends Application {
             }
             renderRandom.setSeed(Double.doubleToLongBits(p.x * 31.0 + p.y * 17.0 + p.w * 13.0));
             Random rootRandom = renderRandom;
-            int rootCount = Math.max(1, Math.min(4, (int) Math.round(p.w / 170.0)));
+            int rootCount = Math.clamp((int) Math.round(p.w / 170.0), 1, 4);
             for (int i = 0; i < rootCount; i++) {
                 double startX = p.x + 30 + rootRandom.nextDouble() * Math.max(30, p.w - 60);
                 double length = 28 + rootRandom.nextDouble() * 34;
@@ -9893,12 +9887,11 @@ public class BirdGame3 extends Application {
         double[] xPoints = new double[points + 2];
         double[] yPoints = new double[points + 2];
         renderRandom.setSeed(seed);
-        Random layerRandom = renderRandom;
         for (int i = 0; i < points; i++) {
             double worldX = -420 + i * ((WORLD_WIDTH + 840) / (double) (points - 1));
             double wave = Math.sin((worldX + seed * 0.11) / 360.0) * amplitude * 0.18;
             double ridge = Math.cos((worldX + seed * 0.07) / 640.0) * amplitude * 0.1;
-            double lift = amplitude * 0.34 + layerRandom.nextDouble() * variance;
+            double lift = amplitude * 0.34 + renderRandom.nextDouble() * variance;
             xPoints[i] = parallaxAdjustedWorldX(worldX, movementFactor);
             yPoints[i] = baseY - lift - wave - ridge;
         }
@@ -9924,7 +9917,8 @@ public class BirdGame3 extends Application {
             double trunkTopY = baseY - trunkHeight;
 
             g.setFill(trunkColor);
-            g.fillRoundRect(drawX - trunkWidth * 0.5, trunkTopY, trunkWidth, trunkHeight + 70, trunkWidth, trunkWidth);
+            g.fillRoundRect(drawX - trunkWidth * 0.5, trunkTopY, trunkWidth, trunkHeight + 70,
+                    trunkWidth, Math.min(trunkWidth, trunkHeight + 70));
 
             g.setFill(canopyColor);
             g.fillOval(drawX - canopyWidth * 0.52, trunkTopY - canopyHeight * 0.26, canopyWidth, canopyHeight);
@@ -10112,7 +10106,8 @@ public class BirdGame3 extends Application {
         g.setLineWidth(3);
         for (int i = 0; i < 18; i++) {
             double waveY = horizonY + 55 + i * 28;
-            g.strokeLine(0, waveY + Math.sin(time + i * 0.8) * 5, WORLD_WIDTH, waveY + Math.sin(time + i * 0.8) * 5);
+            double y1 = waveY + Math.sin(time + i * 0.8) * 5;
+            g.strokeLine(0, y1, WORLD_WIDTH, y1);
         }
 
         g.setFill(Color.web("#0E2430", 0.82));
@@ -11336,6 +11331,28 @@ public class BirdGame3 extends Application {
         return pane;
     }
 
+    private Node hubIconTowerDefense() {
+        Pane pane = hubIconPane();
+        Rectangle trunk = new Rectangle(24, 30, 8, 16);
+        trunk.setArcWidth(4);
+        trunk.setArcHeight(4);
+        trunk.setFill(Color.web("#6D4C41"));
+        Circle canopy = new Circle(28, 22, 14, Color.web("#81C784"));
+        canopy.setStroke(Color.web("#C8E6C9"));
+        canopy.setStrokeWidth(2.5);
+        Line perchLeft = new Line(10, 38, 24, 32);
+        perchLeft.setStroke(Color.web("#FFF59D"));
+        perchLeft.setStrokeWidth(3.0);
+        perchLeft.setStrokeLineCap(StrokeLineCap.ROUND);
+        Line perchRight = new Line(32, 32, 46, 38);
+        perchRight.setStroke(Color.web("#FFF59D"));
+        perchRight.setStrokeWidth(3.0);
+        perchRight.setStrokeLineCap(StrokeLineCap.ROUND);
+        Circle sun = new Circle(42, 14, 5, Color.web("#FFE082"));
+        pane.getChildren().addAll(trunk, canopy, perchLeft, perchRight, sun);
+        return pane;
+    }
+
     private Node hubIconAchievements(boolean claimable) {
         Pane pane = hubIconPane();
         Rectangle ribbonLeft = new Rectangle(20, 40, 6, 10);
@@ -11582,6 +11599,14 @@ public class BirdGame3 extends Application {
         StackPane.setAlignment(logoFrame, Pos.CENTER);
         StackPane.setAlignment(statusBox, Pos.TOP_RIGHT);
         StackPane.setMargin(statusBox, new Insets(6, 4, 0, 0));
+
+        Button towerDefenseHubBtn = buildHubFooterButton("TOWER DEFENSE",
+                220, 18, "#2E7D32", "#1B5E20", "#C8E6C9",
+                hubIconTowerDefense(), () -> showTowerDefenseMapSelect(stage));
+        uiFactory.fitSingleLineOnLayout(towerDefenseHubBtn, 18, 12);
+        StackPane.setAlignment(towerDefenseHubBtn, Pos.TOP_LEFT);
+        StackPane.setMargin(towerDefenseHubBtn, new Insets(6, 0, 0, 0));
+        top.getChildren().add(towerDefenseHubBtn);
 
         GridPane nav = new GridPane();
         nav.setHgap(26);
@@ -12392,8 +12417,8 @@ public class BirdGame3 extends Application {
         if (selector == null || label == null || selectionPane == null) {
             return;
         }
-        double boundW = selectionPane.getWidth() > 0 ? selectionPane.getWidth() : selectionPane.getPrefWidth();
-        double boundH = selectionPane.getHeight() > 0 ? selectionPane.getHeight() : selectionPane.getPrefHeight();
+        double boundW = Math.max(selectionPane.getWidth(), selectionPane.getPrefWidth());
+        double boundH = Math.max(selectionPane.getHeight(), selectionPane.getPrefHeight());
         double nx = Math.clamp(x, FIGHT_SELECTOR_BOUND_MARGIN, boundW - FIGHT_SELECTOR_BOUND_MARGIN);
         double ny = Math.clamp(y, FIGHT_SELECTOR_BOUND_MARGIN, boundH - FIGHT_SELECTOR_BOUND_MARGIN);
         positionFightSelector(selector, label, nx, ny);
@@ -12511,67 +12536,13 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private void refreshFightSelectorClaw(Canvas claw, Color accent, boolean clenched) {
+    private void refreshFightSelectorClaw(Canvas claw, boolean clenched) {
         if (claw == null) {
             return;
         }
         GraphicsContext g = claw.getGraphicsContext2D();
         g.clearRect(0, 0, claw.getWidth(), claw.getHeight());
         g.drawImage(fightSetupClawImage(clenched), 0, 0, claw.getWidth(), claw.getHeight());
-    }
-
-    private void drawFightSelectorClaw(Canvas canvas, Color accent, boolean clenched) {
-        if (canvas == null) {
-            return;
-        }
-        double width = canvas.getWidth();
-        double height = canvas.getHeight();
-        GraphicsContext g = canvas.getGraphicsContext2D();
-        g.clearRect(0, 0, width, height);
-        g.setLineCap(StrokeLineCap.ROUND);
-
-        Color shell = accent == null ? Color.web("#FFD54F") : accent;
-        Color stroke = shell.deriveColor(0.0, 1.0, 0.42, 1.0);
-        Color highlight = shell.interpolate(Color.WHITE, 0.46);
-        Color shadow = shell.deriveColor(0.0, 1.0, 0.55, 0.32);
-
-        g.setFill(shadow);
-        g.fillOval(14, 40, width - 28, 20);
-
-        g.setFill(shell.deriveColor(0.0, 0.82, 0.92, 1.0));
-        g.setStroke(stroke);
-        g.setLineWidth(4.0);
-        g.fillRoundRect(26, 20, width - 52, 34, 16, 16);
-        g.strokeRoundRect(26, 20, width - 52, 34, 16, 16);
-
-        g.setFill(shell);
-        g.fillOval(20, 8, width - 40, 24);
-        g.strokeOval(20, 8, width - 40, 24);
-
-        g.setStroke(stroke);
-        g.setLineWidth(5.0);
-        if (clenched) {
-            g.strokeLine(30, 18, 22, 42);
-            g.strokeLine(width / 2.0, 14, width / 2.0, 42);
-            g.strokeLine(width - 30, 18, width - 22, 42);
-            g.setFill(stroke);
-            g.fillPolygon(new double[]{18, 26, 22}, new double[]{45, 42, 52}, 3);
-            g.fillPolygon(new double[]{width / 2.0 - 5, width / 2.0, width / 2.0 + 5}, new double[]{46, 40, 46}, 3);
-            g.fillPolygon(new double[]{width - 18, width - 26, width - 22}, new double[]{45, 42, 52}, 3);
-        } else {
-            g.strokeLine(30, 18, 14, 6);
-            g.strokeLine(width / 2.0, 14, width / 2.0, 1);
-            g.strokeLine(width - 30, 18, width - 14, 6);
-            g.setFill(stroke);
-            g.fillPolygon(new double[]{10, 18, 14}, new double[]{6, 10, 16}, 3);
-            g.fillPolygon(new double[]{width / 2.0 - 6, width / 2.0, width / 2.0 + 6}, new double[]{0, 9, 9}, 3);
-            g.fillPolygon(new double[]{width - 10, width - 18, width - 14}, new double[]{6, 10, 16}, 3);
-        }
-
-        g.setStroke(highlight);
-        g.setLineWidth(2.0);
-        g.strokeLine(30, 25, width - 30, 25);
-        g.strokeLine(32, 34, width - 32, 34);
     }
 
     private Cursor fightSetupClawCursor(boolean clenched) {
@@ -12667,7 +12638,6 @@ public class BirdGame3 extends Application {
         private final int[] nullRockSequenceProgress;
         private final Canvas[] clawCanvases;
         private final Text[] clawLabels;
-        private final Color[] clawColors;
         private final double[] clawX;
         private final double[] clawY;
         private final int[] grabbedSelectorByClaw;
@@ -12687,8 +12657,7 @@ public class BirdGame3 extends Application {
                                              BooleanSupplier tryStartMatch,
                                              int[] nullRockSequenceProgress,
                                              Canvas[] clawCanvases,
-                                             Text[] clawLabels,
-                                             Color[] clawColors) {
+                                             Text[] clawLabels) {
             this.selectors = selectors;
             this.selectorLabels = selectorLabels;
             this.selectorLocked = selectorLocked;
@@ -12701,7 +12670,6 @@ public class BirdGame3 extends Application {
             this.nullRockSequenceProgress = nullRockSequenceProgress;
             this.clawCanvases = clawCanvases;
             this.clawLabels = clawLabels;
-            this.clawColors = clawColors;
             this.clawX = new double[clawCanvases == null ? 0 : clawCanvases.length];
             this.clawY = new double[clawCanvases == null ? 0 : clawCanvases.length];
             this.grabbedSelectorByClaw = new int[clawCanvases == null ? 0 : clawCanvases.length];
@@ -12722,7 +12690,7 @@ public class BirdGame3 extends Application {
         }
 
         private void setClawConnected(int sourceIdx, boolean connected) {
-            if (!isValidClawIndex(sourceIdx)) {
+            if (isValidClawIndex(sourceIdx)) {
                 return;
             }
             if (!connected || sourceIdx >= activePlayers) {
@@ -12734,7 +12702,7 @@ public class BirdGame3 extends Application {
         }
 
         private void moveClaw(int sourceIdx, double horizontal, double vertical, double dtSeconds) {
-            if (!isValidClawIndex(sourceIdx) || sourceIdx >= activePlayers) {
+            if (isValidClawIndex(sourceIdx) || sourceIdx >= activePlayers) {
                 return;
             }
             double length = Math.hypot(horizontal, vertical);
@@ -12744,8 +12712,8 @@ public class BirdGame3 extends Application {
             double distance = WIIMOTE_SELECTOR_CURSOR_SPEED * Math.max(0.0, dtSeconds);
             double dx = horizontal / length * distance;
             double dy = vertical / length * distance;
-            double boundW = selectionPane.getWidth() > 0 ? selectionPane.getWidth() : selectionPane.getPrefWidth();
-            double boundH = selectionPane.getHeight() > 0 ? selectionPane.getHeight() : selectionPane.getPrefHeight();
+            double boundW = Math.max(selectionPane.getWidth(), selectionPane.getPrefWidth());
+            double boundH = Math.max(selectionPane.getHeight(), selectionPane.getPrefHeight());
             clawX[sourceIdx] = Math.clamp(clawX[sourceIdx] + dx, FIGHT_SELECTOR_BOUND_MARGIN, boundW - FIGHT_SELECTOR_BOUND_MARGIN);
             clawY[sourceIdx] = Math.clamp(clawY[sourceIdx] + dy, FIGHT_SELECTOR_BOUND_MARGIN, boundH - FIGHT_SELECTOR_BOUND_MARGIN);
             positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawX[sourceIdx], clawY[sourceIdx]);
@@ -12753,7 +12721,7 @@ public class BirdGame3 extends Application {
         }
 
         private void beginClawGrab(int sourceIdx) {
-            if (!isValidClawIndex(sourceIdx) || sourceIdx >= activePlayers) {
+            if (isValidClawIndex(sourceIdx) || sourceIdx >= activePlayers) {
                 return;
             }
             if (grabbedSelectorByClaw[sourceIdx] >= 0) {
@@ -12780,12 +12748,14 @@ public class BirdGame3 extends Application {
             cancelClawGrab(sourceIdx, false);
         }
 
-        private boolean tryStartMatch() {
-            return tryStartMatch != null && tryStartMatch.getAsBoolean();
+        private void tryStartMatch() {
+            if (tryStartMatch != null) {
+                tryStartMatch.getAsBoolean();
+            }
         }
 
         private void cancelClawGrab(int sourceIdx, boolean hideAfter) {
-            if (!isValidClawIndex(sourceIdx)) {
+            if (isValidClawIndex(sourceIdx)) {
                 return;
             }
             int selectorIdx = grabbedSelectorByClaw[sourceIdx];
@@ -12806,7 +12776,7 @@ public class BirdGame3 extends Application {
         }
 
         private void updateGrabbedSelectorPosition(int sourceIdx) {
-            if (!isValidClawIndex(sourceIdx)) {
+            if (isValidClawIndex(sourceIdx)) {
                 return;
             }
             int selectorIdx = grabbedSelectorByClaw[sourceIdx];
@@ -12823,7 +12793,7 @@ public class BirdGame3 extends Application {
         }
 
         private int nearestSelectorForClaw(int sourceIdx) {
-            if (!isValidClawIndex(sourceIdx)) {
+            if (isValidClawIndex(sourceIdx)) {
                 return -1;
             }
             double bestDistance = FIGHT_SELECTOR_CLAW_GRAB_RADIUS * FIGHT_SELECTOR_CLAW_GRAB_RADIUS;
@@ -12856,22 +12826,15 @@ public class BirdGame3 extends Application {
         }
 
         private boolean isValidClawIndex(int sourceIdx) {
-            return sourceIdx >= 0
-                    && clawCanvases != null
-                    && sourceIdx < clawCanvases.length
-                    && clawLabels != null
-                    && sourceIdx < clawLabels.length;
-        }
-
-        private Color clawColor(int sourceIdx) {
-            if (clawColors == null || sourceIdx < 0 || sourceIdx >= clawColors.length) {
-                return Color.web("#FFD54F");
-            }
-            return clawColors[sourceIdx];
+            return sourceIdx < 0
+                    || clawCanvases == null
+                    || sourceIdx >= clawCanvases.length
+                    || clawLabels == null
+                    || sourceIdx >= clawLabels.length;
         }
 
         private void updateClawPresentation(int sourceIdx, boolean visible, boolean closed) {
-            if (!isValidClawIndex(sourceIdx)) {
+            if (isValidClawIndex(sourceIdx)) {
                 return;
             }
             boolean visibleChanged = clawVisible[sourceIdx] != visible;
@@ -12881,7 +12844,7 @@ public class BirdGame3 extends Application {
             }
             if (visibleChanged || clawClosed[sourceIdx] != closed) {
                 clawClosed[sourceIdx] = closed;
-                refreshFightSelectorClaw(clawCanvases[sourceIdx], clawColor(sourceIdx), closed);
+                refreshFightSelectorClaw(clawCanvases[sourceIdx], closed);
             }
         }
     }
@@ -12960,7 +12923,13 @@ public class BirdGame3 extends Application {
         double paneW = 1500;
         double paneH = 520;
         selectionPane.setPrefSize(paneW, paneH);
+        selectionPane.setMinSize(paneW, paneH);
+        selectionPane.setMaxSize(paneW, paneH);
         selectionPane.setStyle("-fx-background-color: transparent;");
+        Rectangle selectionClip = new Rectangle();
+        selectionClip.widthProperty().bind(selectionPane.widthProperty());
+        selectionClip.heightProperty().bind(selectionPane.heightProperty());
+        selectionPane.setClip(selectionClip);
 
         List<BirdIconSpot> spots = new ArrayList<>();
         Map<BirdType, BirdIconSpot> spotByType = new HashMap<>();
@@ -13244,7 +13213,7 @@ public class BirdGame3 extends Application {
             claw.setMouseTransparent(true);
             selectorClaws[i] = claw;
             selectionPane.getChildren().add(claw);
-            refreshFightSelectorClaw(claw, selectorColors[i], false);
+            refreshFightSelectorClaw(claw, false);
 
             Text clawLabel = new Text("P" + (idx + 1));
             clawLabel.setFont(Font.font("Impact", 18));
@@ -13367,8 +13336,7 @@ public class BirdGame3 extends Application {
                         tryStartMatch,
                         nullRockSequenceProgress,
                         selectorClaws,
-                        selectorClawLabels,
-                        selectorColors
+                        selectorClawLabels
                 )
         );
         setFightSetupClawCursor(scene, false);
@@ -13850,6 +13818,1021 @@ public class BirdGame3 extends Application {
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
         classicBtn.requestFocus();
+    }
+
+    private void showTowerDefenseMapSelect(Stage stage) {
+        bossRushModeActive = false;
+        dailyChallengeModeActive = false;
+        classicModeActive = false;
+        storyModeActive = false;
+        adventureModeActive = false;
+        selectedMap = MapType.FOREST;
+        startMusic();
+
+        VBox root = new VBox(24);
+        root.setAlignment(Pos.TOP_CENTER);
+        root.setPadding(new Insets(40));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #08120D, #10281C, #183926);");
+
+        Label title = new Label("TOWER DEFENSE MAPS");
+        title.setFont(Font.font("Arial Black", 72));
+        title.setTextFill(Color.web("#FFF59D"));
+
+        Label subtitle = new Label("Choose a defense map. Each difficulty on each map has its own badge slot.");
+        subtitle.setFont(Font.font("Consolas", 22));
+        subtitle.setTextFill(Color.web("#D0E8D6"));
+        subtitle.setWrapText(true);
+        subtitle.setMaxWidth(1040);
+        subtitle.setTextAlignment(TextAlignment.CENTER);
+        subtitle.setAlignment(Pos.CENTER);
+        applyNoEllipsis(subtitle);
+
+        Canvas preview = new Canvas(820, 280);
+        GraphicsContext previewG = preview.getGraphicsContext2D();
+        previewG.setFill(new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#173A25")),
+                new Stop(0.6, Color.web("#255F3B")),
+                new Stop(1, Color.web("#0E1C13"))));
+        previewG.fillRoundRect(0, 0, preview.getWidth(), preview.getHeight(), 28, 28);
+        previewG.setFill(Color.web("#8ECF9A", 0.12));
+        for (int i = 0; i < 9; i++) {
+            previewG.fillOval(36 + i * 90, 24 + (i % 3) * 16, 120, 70);
+        }
+        double[] previewPathX = {-20, 120, 120, 300, 300, 470, 470, 640, 640, 840};
+        double[] previewPathY = {218, 218, 84, 84, 170, 170, 52, 52, 212, 212};
+        previewG.setStroke(Color.web("#3E2D1F", 0.76));
+        previewG.setLineWidth(44);
+        previewG.strokePolyline(previewPathX, previewPathY, previewPathX.length);
+        previewG.setStroke(Color.web("#B8946A", 0.92));
+        previewG.setLineWidth(28);
+        previewG.strokePolyline(previewPathX, previewPathY, previewPathX.length);
+        previewG.setStroke(Color.web("#E9D3A7", 0.78));
+        previewG.setLineWidth(5);
+        previewG.strokePolyline(previewPathX, previewPathY, previewPathX.length);
+        for (int i = 0; i < 7; i++) {
+            double x = 50 + i * 110;
+            double y = 32 + (i % 2) * 168;
+            previewG.setFill(Color.web("#0A2416", 0.42));
+            previewG.fillOval(x - 30, y - 18, 60, 28);
+            previewG.setFill(Color.web("#2E7D32"));
+            previewG.fillOval(x - 42, y - 36, 84, 68);
+            previewG.setFill(Color.web("#74C69D", 0.18));
+            previewG.fillOval(x - 24, y - 22, 48, 30);
+        }
+
+        Label mapName = new Label("BIG FOREST");
+        mapName.setFont(Font.font("Arial Black", 42));
+        mapName.setTextFill(Color.web("#FFF8E1"));
+        applyNoEllipsis(mapName);
+
+        Label mapBody = new Label(towerDefenseMapDescription(MapType.FOREST));
+        mapBody.setFont(Font.font("Consolas", 18));
+        mapBody.setTextFill(Color.web("#D8EFE0"));
+        mapBody.setWrapText(true);
+        mapBody.setMaxWidth(820);
+        applyNoEllipsis(mapBody);
+
+        HBox badgeRow = new HBox(12);
+        badgeRow.setAlignment(Pos.CENTER);
+        for (TowerDefenseMode.Difficulty difficulty : TowerDefenseMode.Difficulty.values()) {
+            boolean earned = hasTowerDefenseBadge(MapType.FOREST, difficulty);
+            Label slot = new Label(difficulty.label.toUpperCase(Locale.ROOT) + "\n" + (earned ? "BADGE EARNED" : "EMPTY SLOT"));
+            slot.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+            slot.setTextAlignment(TextAlignment.CENTER);
+            slot.setAlignment(Pos.CENTER);
+            slot.setPrefSize(168, 62);
+            slot.setTextFill(earned ? Color.web("#16331F") : Color.web("#ECEFF1"));
+            slot.setStyle("-fx-background-color: " + (earned ? "#A5D6A7" : "rgba(11,25,18,0.92)")
+                    + "; -fx-border-color: " + (earned ? "#FFF59D" : "#4F7E62")
+                    + "; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
+            applyNoEllipsis(slot);
+            badgeRow.getChildren().add(slot);
+        }
+
+        Button openMapBtn = uiFactory.action("OPEN BIG FOREST", 420, 88, 30, "#2E7D32", 22, () -> showTowerDefenseDifficultySelect(stage, MapType.FOREST));
+        Button back = uiFactory.action("BACK", 360, 88, 30, "#C62828", 24, () -> showHub(stage));
+
+        VBox mapCard = new VBox(18, preview, mapName, mapBody, badgeRow, openMapBtn);
+        mapCard.setAlignment(Pos.CENTER);
+        mapCard.setPadding(new Insets(26));
+        mapCard.setMaxWidth(900);
+        mapCard.setStyle("-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 28; "
+                + "-fx-border-color: #4CAF50; -fx-border-width: 3; -fx-border-radius: 28;");
+
+        root.getChildren().addAll(title, subtitle, mapCard, back);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindScaleToFit(scene, root);
+        setScenePreservingFullscreen(stage, scene);
+        openMapBtn.requestFocus();
+    }
+
+    private void showTowerDefenseDifficultySelect(Stage stage, MapType map) {
+        bossRushModeActive = false;
+        dailyChallengeModeActive = false;
+        classicModeActive = false;
+        storyModeActive = false;
+        adventureModeActive = false;
+        selectedMap = map == null ? MapType.FOREST : map;
+        startMusic();
+
+        VBox root = new VBox(22);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(52));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #07110C, #113221, #1B4630);");
+
+        Label title = new Label(mapDisplayName(selectedMap).toUpperCase(Locale.ROOT));
+        title.setFont(Font.font("Arial Black", 78));
+        title.setTextFill(Color.web("#FFF59D"));
+        applyNoEllipsis(title);
+
+        Label subtitle = new Label(towerDefenseMapDescription(selectedMap)
+                + "\nChoose the grove difficulty. Clear a run to claim the badge and Bird Coins.");
+        subtitle.setFont(Font.font("Consolas", 22));
+        subtitle.setTextFill(Color.web("#D0E8D6"));
+        subtitle.setWrapText(true);
+        subtitle.setMaxWidth(980);
+        subtitle.setTextAlignment(TextAlignment.CENTER);
+        subtitle.setAlignment(Pos.CENTER);
+        applyNoEllipsis(subtitle);
+
+        VBox difficultyBox = new VBox(16);
+        difficultyBox.setAlignment(Pos.CENTER);
+        difficultyBox.setPadding(new Insets(28));
+        difficultyBox.setMaxWidth(980);
+        difficultyBox.setStyle("-fx-background-color: rgba(0,0,0,0.42); -fx-background-radius: 28; "
+                + "-fx-border-color: #4CAF50; -fx-border-width: 3; -fx-border-radius: 28;");
+
+        java.util.function.Function<TowerDefenseMode.Difficulty, Button> difficultyButton = difficulty -> {
+            String color = switch (difficulty) {
+                case EASY -> "#2E7D32";
+                case MEDIUM -> "#EF6C00";
+                case HARD -> "#C62828";
+            };
+            String badgeText = hasTowerDefenseBadge(selectedMap, difficulty) ? "BADGE EARNED" : "BADGE OPEN";
+            Button button = uiFactory.action(
+                    difficulty.label.toUpperCase(Locale.ROOT) + "  |  +" + towerDefenseCoinReward(difficulty) + " BIRD COINS\n"
+                            + towerDefenseDifficultySummary(difficulty) + "  |  " + badgeText,
+                    820, 108, 26, color, 20, null
+            );
+            button.setWrapText(true);
+            button.setTextAlignment(TextAlignment.CENTER);
+            button.setOnAction(e -> {
+                playButtonClick();
+                showTowerDefenseMode(stage, selectedMap, difficulty);
+            });
+            return button;
+        };
+
+        Button easyBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.EASY);
+        Button mediumBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.MEDIUM);
+        Button hardBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.HARD);
+        Button back = uiFactory.action("BACK", 360, 88, 30, "#C62828", 24, () -> showTowerDefenseMapSelect(stage));
+        difficultyBox.getChildren().addAll(easyBtn, mediumBtn, hardBtn, back);
+
+        root.getChildren().addAll(title, subtitle, difficultyBox);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindScaleToFit(scene, root);
+        setScenePreservingFullscreen(stage, scene);
+        easyBtn.requestFocus();
+    }
+
+    private void showTowerDefenseMode(Stage stage) {
+        bossRushModeActive = false;
+        dailyChallengeModeActive = false;
+        classicModeActive = false;
+        storyModeActive = false;
+        adventureModeActive = false;
+        selectedMap = MapType.FOREST;
+        startMusic();
+
+        VBox root = new VBox(22);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(60));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #08120D, #10281C, #183926);");
+
+        Label title = new Label("BIG FOREST DEFENSE");
+        title.setFont(Font.font("Arial Black", 82));
+        title.setTextFill(Color.web("#FFF59D"));
+
+        Label subtitle = new Label("Choose a difficulty before the grove opens. Harder modes cost more and forgive less.");
+        subtitle.setFont(Font.font("Consolas", 24));
+        subtitle.setTextFill(Color.web("#D0E8D6"));
+        subtitle.setWrapText(true);
+        subtitle.setMaxWidth(980);
+        subtitle.setTextAlignment(TextAlignment.CENTER);
+        subtitle.setAlignment(Pos.CENTER);
+        applyNoEllipsis(subtitle);
+
+        VBox difficultyBox = new VBox(16);
+        difficultyBox.setAlignment(Pos.CENTER);
+        difficultyBox.setPadding(new Insets(28));
+        difficultyBox.setMaxWidth(980);
+        difficultyBox.setStyle("-fx-background-color: rgba(0,0,0,0.42); -fx-background-radius: 28; "
+                + "-fx-border-color: #4CAF50; -fx-border-width: 3; -fx-border-radius: 28;");
+
+        java.util.function.Function<TowerDefenseMode.Difficulty, Button> difficultyButton = difficulty -> {
+            String color = switch (difficulty) {
+                case EASY -> "#2E7D32";
+                case MEDIUM -> "#EF6C00";
+                case HARD -> "#C62828";
+            };
+            Button button = uiFactory.action(
+                    difficulty.label.toUpperCase(Locale.ROOT) + "  •  " + difficulty.roundCount + " ROUNDS\n"
+                            + difficulty.description(),
+                    760, 108, 28, color, 22, null
+            );
+            button.setWrapText(true);
+            button.setTextAlignment(TextAlignment.CENTER);
+            button.setOnAction(e -> {
+                playButtonClick();
+                showTowerDefenseMode(stage, difficulty);
+            });
+            return button;
+        };
+
+        Button easyBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.EASY);
+        Button mediumBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.MEDIUM);
+        Button hardBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.HARD);
+        Button back = uiFactory.action("BACK", 360, 88, 30, "#C62828", 24, () -> showHub(stage));
+        difficultyBox.getChildren().addAll(easyBtn, mediumBtn, hardBtn, back);
+
+        root.getChildren().addAll(title, subtitle, difficultyBox);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        easyBtn.requestFocus();
+    }
+
+    private void showTowerDefenseMode(Stage stage, MapType map, TowerDefenseMode.Difficulty difficulty) {
+        selectedMap = map == null ? MapType.FOREST : map;
+        showTowerDefenseMode(stage, difficulty);
+    }
+
+    private void showTowerDefenseMode(Stage stage, TowerDefenseMode.Difficulty difficulty) {
+        clearActiveDailyChallengeRun();
+        clearBossRushState();
+        bossRushModeActive = false;
+        dailyChallengeModeActive = false;
+        resetTournamentRun();
+        trainingModeActive = false;
+        storyModeActive = false;
+        storyReplayMode = false;
+        adventureModeActive = false;
+        adventureReplayMode = false;
+        currentAdventureBattle = null;
+        adventureTeamMode = false;
+        Arrays.fill(adventureTeams, 1);
+        classicModeActive = false;
+        classicEncounter = null;
+        classicRun.clear();
+        classicRoundIndex = 0;
+        classicDeaths = 0;
+        classicTeamMode = false;
+        Arrays.fill(classicTeams, 1);
+        competitionSeriesActive = false;
+        Arrays.fill(competitionRoundWins, 0);
+        Arrays.fill(competitionTeamWins, 0);
+        competitionRoundNumber = 1;
+        stageSelectHandler = null;
+        stageSelectRandomHandler = null;
+        selectedMap = selectedMap == null ? MapType.FOREST : selectedMap;
+        startMusic();
+
+        TowerDefenseMode mode = new TowerDefenseMode(this, difficulty);
+        final MapType defenseMap = selectedMap;
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #050B08, #0D1B14, #12271D);");
+
+        Canvas canvas = new Canvas(WIDTH - 520, HEIGHT);
+        StackPane mapPane = new StackPane(canvas);
+        mapPane.setStyle("-fx-background-color: #040A07;");
+        mapPane.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        mapPane.setMinWidth(0);
+        HBox.setHgrow(mapPane, Priority.ALWAYS);
+        Rectangle mapClip = new Rectangle();
+        mapClip.widthProperty().bind(mapPane.widthProperty());
+        mapClip.heightProperty().bind(mapPane.heightProperty());
+        mapPane.setClip(mapClip);
+        canvas.widthProperty().bind(mapPane.widthProperty());
+        canvas.heightProperty().bind(mapPane.heightProperty());
+
+        Node settingsIcon = hubIconSettings();
+        settingsIcon.setScaleX(0.76);
+        settingsIcon.setScaleY(0.76);
+        Button settingsBtn = new Button();
+        settingsBtn.setGraphic(settingsIcon);
+        settingsBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        settingsBtn.setPrefSize(48, 48);
+        settingsBtn.setMinSize(48, 48);
+        settingsBtn.setMaxSize(48, 48);
+        settingsBtn.setStyle("-fx-background-color: rgba(9,18,14,0.88); -fx-border-color: #B2DFDB; -fx-border-width: 2; "
+                + "-fx-background-radius: 24; -fx-border-radius: 24;");
+        StackPane.setAlignment(settingsBtn, Pos.TOP_RIGHT);
+        StackPane.setMargin(settingsBtn, new Insets(14, 16, 0, 0));
+        mapPane.getChildren().add(settingsBtn);
+
+        Label cashLabel = new Label();
+        Label livesLabel = new Label();
+        Label blightLabel = new Label();
+        for (Label label : List.of(cashLabel, livesLabel, blightLabel)) {
+            label.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+            label.setTextFill(Color.web("#F1F8E9"));
+            label.setPadding(new Insets(6, 10, 6, 10));
+            label.setAlignment(Pos.CENTER);
+            label.setTextAlignment(TextAlignment.CENTER);
+            label.setMaxWidth(Double.MAX_VALUE);
+            label.setMinWidth(0);
+            label.setStyle("-fx-background-color: rgba(11,25,18,0.86); -fx-background-radius: 16; -fx-border-color: #355C4C; "
+                    + "-fx-border-width: 2; -fx-border-radius: 16;");
+            applyNoEllipsis(label);
+            HBox.setHgrow(label, Priority.ALWAYS);
+        }
+        HBox resources = new HBox(6, cashLabel, livesLabel, blightLabel);
+        resources.setAlignment(Pos.CENTER_LEFT);
+        resources.setFillHeight(true);
+        resources.setMaxWidth(Double.MAX_VALUE);
+
+        Label panelHint = new Label();
+        panelHint.setFont(Font.font("Consolas", 15));
+        panelHint.setTextFill(Color.web("#B9F6CA"));
+        panelHint.setWrapText(true);
+        panelHint.setMaxWidth(320);
+        applyNoEllipsis(panelHint);
+        VBox panelTop = new VBox(10, resources, panelHint);
+        panelTop.setAlignment(Pos.TOP_LEFT);
+
+        java.util.function.Function<String, Button> panelButton = text -> {
+            Button button = new Button(text);
+            button.setWrapText(true);
+            button.setTextFill(Color.web("#F1F8E9"));
+            button.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+            button.setAlignment(Pos.CENTER_LEFT);
+            button.setContentDisplay(ContentDisplay.TEXT_ONLY);
+            button.setMaxWidth(Double.MAX_VALUE);
+            button.setPrefWidth(320);
+            button.setPrefHeight(88);
+            applyNoEllipsis(button);
+            return button;
+        };
+
+        java.util.function.Function<TowerDefenseMode.TowerBirdKind, Button> shopCard = kind -> {
+            Canvas icon = new Canvas(70, 70);
+            drawRosterSprite(icon, kind.birdType, null, false, true);
+
+            Label name = new Label(kind.label.toUpperCase(Locale.ROOT) + "  $" + mode.shopCost(kind));
+            name.setFont(Font.font("Arial Black", 18));
+            name.setTextFill(Color.web("#FFF8E1"));
+            applyNoEllipsis(name);
+
+            Label body = new Label(kind.role + "  |  " + kind.summary);
+            body.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+            body.setTextFill(Color.web("#D0E8D6"));
+            body.setWrapText(true);
+            body.setMaxWidth(210);
+            applyNoEllipsis(body);
+
+            VBox text = new VBox(4, name, body);
+            text.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(text, Priority.ALWAYS);
+
+            HBox content = new HBox(12, icon, text);
+            content.setAlignment(Pos.CENTER_LEFT);
+
+            Button button = new Button();
+            button.setGraphic(content);
+            button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            button.setAlignment(Pos.CENTER_LEFT);
+            button.setMaxWidth(Double.MAX_VALUE);
+            button.setPrefHeight(96);
+            button.setPadding(new Insets(10));
+            return button;
+        };
+
+        Button pigeonBtn = shopCard.apply(TowerDefenseMode.TowerBirdKind.PIGEON);
+        Button eagleBtn = shopCard.apply(TowerDefenseMode.TowerBirdKind.EAGLE);
+        Button opiumBtn = shopCard.apply(TowerDefenseMode.TowerBirdKind.OPIUMBIRD);
+        Button batBtn = shopCard.apply(TowerDefenseMode.TowerBirdKind.BAT);
+        Button cancelBuildBtn = uiFactory.action("CANCEL BUILD", 320, 58, 20, "#455A64", 16, null);
+        Label selectedHeader = new Label();
+        selectedHeader.setFont(Font.font("Arial Black", 24));
+        selectedHeader.setTextFill(Color.web("#FFF59D"));
+        selectedHeader.setWrapText(true);
+        selectedHeader.setMaxWidth(320);
+        applyNoEllipsis(selectedHeader);
+        Label selectedBody = new Label();
+        selectedBody.setFont(Font.font("Consolas", 15));
+        selectedBody.setTextFill(Color.web("#ECEFF1"));
+        selectedBody.setWrapText(true);
+        selectedBody.setMaxWidth(Double.MAX_VALUE);
+        applyNoEllipsis(selectedBody);
+        Canvas selectedPreview = new Canvas(320, 188);
+        Button targetingBtn = panelButton.apply("");
+        Button topUpgradeBtn = panelButton.apply("");
+        Button bottomUpgradeBtn = panelButton.apply("");
+        Button sellBtn = uiFactory.action("SELL BIRD", 320, 58, 20, "#8D6E63", 16, null);
+
+        Label roostTitle = new Label("BIRD ROOST");
+        roostTitle.setFont(Font.font("Arial Black", 28));
+        roostTitle.setTextFill(Color.web("#B9F6CA"));
+        Label roostBody = new Label("Choose a bird, place it on open grass, and click the bird later to swap this panel into upgrades.");
+        roostBody.setFont(Font.font("Consolas", 15));
+        roostBody.setTextFill(Color.web("#E8F5E9"));
+        roostBody.setWrapText(true);
+        roostBody.setMaxWidth(320);
+        applyNoEllipsis(roostBody);
+        VBox roostPane = new VBox(12, roostTitle, roostBody, pigeonBtn, eagleBtn, opiumBtn, batBtn, cancelBuildBtn);
+        roostPane.setAlignment(Pos.TOP_LEFT);
+        roostPane.setFillWidth(true);
+
+        VBox upgradePane = new VBox(12, selectedPreview, selectedHeader, selectedBody, targetingBtn, topUpgradeBtn, bottomUpgradeBtn, sellBtn);
+        upgradePane.setAlignment(Pos.TOP_LEFT);
+        upgradePane.setFillWidth(true);
+
+        ScrollPane contentScroll = new ScrollPane(roostPane);
+        contentScroll.setFitToWidth(true);
+        contentScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        contentScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        contentScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent; "
+                + "-fx-border-color: transparent;");
+        installTransparentScrollViewport(contentScroll);
+
+        Canvas playIconCanvas = new Canvas(34, 34);
+        Label startRoundLabel = new Label();
+        startRoundLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        startRoundLabel.setTextFill(Color.WHITE);
+        VBox startRoundGraphic = new VBox(4, playIconCanvas, startRoundLabel);
+        startRoundGraphic.setAlignment(Pos.CENTER);
+        startRoundGraphic.setFillWidth(true);
+        StackPane startRoundGraphicWrap = new StackPane(startRoundGraphic);
+        startRoundGraphicWrap.setAlignment(Pos.CENTER);
+        startRoundGraphicWrap.setPrefSize(150, 72);
+        startRoundGraphicWrap.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        Button startRoundBtn = new Button();
+        startRoundBtn.setGraphic(startRoundGraphicWrap);
+        startRoundBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        startRoundBtn.setPrefSize(104, 84);
+        startRoundBtn.setMinSize(104, 84);
+        startRoundBtn.setMaxSize(104, 84);
+        startRoundBtn.setPadding(Insets.EMPTY);
+        startRoundBtn.setAlignment(Pos.CENTER);
+
+        Canvas speedIconCanvas = new Canvas(38, 34);
+        Label speedLabel = new Label();
+        speedLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        speedLabel.setTextFill(Color.WHITE);
+        VBox speedGraphic = new VBox(4, speedIconCanvas, speedLabel);
+        speedGraphic.setAlignment(Pos.CENTER);
+        speedGraphic.setFillWidth(true);
+        StackPane speedGraphicWrap = new StackPane(speedGraphic);
+        speedGraphicWrap.setAlignment(Pos.CENTER);
+        speedGraphicWrap.setPrefSize(150, 72);
+        speedGraphicWrap.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        Button speedBtn = new Button();
+        speedBtn.setGraphic(speedGraphicWrap);
+        speedBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        speedBtn.setPrefSize(104, 84);
+        speedBtn.setMinSize(104, 84);
+        speedBtn.setMaxSize(Double.MAX_VALUE, 84);
+        speedBtn.setPadding(Insets.EMPTY);
+        speedBtn.setAlignment(Pos.CENTER);
+
+        HBox controlRow = new HBox(12, speedBtn, startRoundBtn);
+        controlRow.setAlignment(Pos.CENTER);
+        controlRow.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(speedBtn, Priority.ALWAYS);
+        HBox.setHgrow(startRoundBtn, Priority.ALWAYS);
+        startRoundBtn.setMaxWidth(Double.MAX_VALUE);
+        startRoundBtn.setAlignment(Pos.CENTER);
+        VBox panelBottom = new VBox(12, controlRow);
+        panelBottom.setAlignment(Pos.BOTTOM_CENTER);
+        panelBottom.setFillWidth(true);
+        panelBottom.setMaxWidth(Double.MAX_VALUE);
+
+        BorderPane sidePanel = new BorderPane();
+        sidePanel.setTop(panelTop);
+        sidePanel.setCenter(contentScroll);
+        sidePanel.setBottom(panelBottom);
+        sidePanel.setPadding(new Insets(18));
+        sidePanel.setPrefWidth(360);
+        sidePanel.setMinWidth(320);
+        sidePanel.setMaxWidth(380);
+        sidePanel.setStyle("-fx-background-color: rgba(3,10,7,0.88); -fx-background-radius: 28; -fx-border-color: #3F6F58; "
+                + "-fx-border-width: 2; -fx-border-radius: 28;");
+        startRoundBtn.prefWidthProperty().bind(sidePanel.widthProperty().subtract(48).subtract(12).divide(2.0));
+        speedBtn.prefWidthProperty().bind(sidePanel.widthProperty().subtract(48).subtract(12).divide(2.0));
+        startRoundGraphicWrap.prefWidthProperty().bind(startRoundBtn.widthProperty());
+        startRoundGraphicWrap.prefHeightProperty().bind(startRoundBtn.heightProperty());
+        speedGraphicWrap.prefWidthProperty().bind(speedBtn.widthProperty());
+        speedGraphicWrap.prefHeightProperty().bind(speedBtn.heightProperty());
+        selectedPreview.widthProperty().bind(sidePanel.widthProperty().subtract(36));
+
+        HBox shell = new HBox(mapPane, sidePanel);
+        shell.setFillHeight(true);
+        shell.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        root.getChildren().add(shell);
+
+        VBox pauseMenu = new VBox(14);
+        pauseMenu.setAlignment(Pos.CENTER);
+        pauseMenu.setPadding(new Insets(24));
+        pauseMenu.setPrefWidth(500);
+        pauseMenu.setMaxWidth(500);
+        pauseMenu.setStyle("-fx-background-color: rgba(6,12,18,0.92); -fx-background-radius: 24; -fx-border-color: #B2DFDB; -fx-border-width: 3; -fx-border-radius: 24;");
+        pauseMenu.setVisible(false);
+        pauseMenu.setManaged(false);
+        Label pauseTitle = new Label("DEFENSE PAUSED");
+        pauseTitle.setFont(Font.font("Arial Black", 38));
+        pauseTitle.setTextFill(Color.web("#FFF59D"));
+        pauseTitle.setMaxWidth(Double.MAX_VALUE);
+        pauseTitle.setAlignment(Pos.CENTER);
+        pauseTitle.setTextAlignment(TextAlignment.CENTER);
+        applyNoEllipsis(pauseTitle);
+        Button resumeBtn = uiFactory.action("RESUME", 320, 70, 24, "#2E7D32", 18, null);
+        Button debugBtn = uiFactory.action("DEBUG MENU", 320, 70, 24, "#6A1B9A", 18, null);
+        Button restartBtn = uiFactory.action("RESTART DEFENSE", 320, 70, 24, "#FB8C00", 18, null);
+        Button exitBtn = uiFactory.action("BACK TO HUB", 320, 70, 24, "#D32F2F", 18, null);
+        pauseMenu.getChildren().addAll(pauseTitle, resumeBtn, debugBtn, restartBtn, exitBtn);
+
+        VBox debugMenu = new VBox(12);
+        debugMenu.setAlignment(Pos.CENTER_LEFT);
+        debugMenu.setPadding(new Insets(24));
+        debugMenu.setMaxWidth(500);
+        debugMenu.setStyle("-fx-background-color: rgba(8,14,24,0.95); -fx-background-radius: 24; -fx-border-color: #CE93D8; -fx-border-width: 3; -fx-border-radius: 24;");
+        debugMenu.setVisible(false);
+        debugMenu.setManaged(false);
+        Label debugTitle = new Label("DEFENSE DEBUG");
+        debugTitle.setFont(Font.font("Arial Black", 36));
+        debugTitle.setTextFill(Color.web("#F3E5F5"));
+        Label debugInfo = new Label("Sets values immediately. Changing round clears the current wave and sets the next round to start.");
+        debugInfo.setFont(Font.font("Consolas", 16));
+        debugInfo.setWrapText(true);
+        debugInfo.setMaxWidth(440);
+        debugInfo.setTextFill(Color.web("#E1BEE7"));
+        applyNoEllipsis(debugInfo);
+        TextField cashField = new TextField();
+        TextField livesField = new TextField();
+        TextField roundField = new TextField();
+        for (TextField field : List.of(cashField, livesField, roundField)) {
+            field.setPrefWidth(180);
+            field.setFont(Font.font("Consolas", 20));
+        }
+        GridPane debugGrid = new GridPane();
+        debugGrid.setHgap(12);
+        debugGrid.setVgap(10);
+        debugGrid.add(new Label("Cash"), 0, 0);
+        debugGrid.add(cashField, 1, 0);
+        debugGrid.add(new Label("Lives"), 0, 1);
+        debugGrid.add(livesField, 1, 1);
+        debugGrid.add(new Label("Round"), 0, 2);
+        debugGrid.add(roundField, 1, 2);
+        for (Node node : debugGrid.getChildren()) {
+            if (node instanceof Label label) {
+                label.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+                label.setTextFill(Color.web("#F3E5F5"));
+            }
+        }
+        Label debugHint = new Label();
+        debugHint.setFont(Font.font("Consolas", 15));
+        debugHint.setWrapText(true);
+        debugHint.setMaxWidth(440);
+        debugHint.setTextFill(Color.web("#FFF59D"));
+        applyNoEllipsis(debugHint);
+        Button applyDebugBtn = uiFactory.action("APPLY", 220, 64, 22, "#7B1FA2", 18, null);
+        Button clearWaveBtn = uiFactory.action("CLEAR WAVE", 220, 64, 22, "#455A64", 18, null);
+        Button closeDebugBtn = uiFactory.action("CLOSE", 220, 64, 22, "#D32F2F", 18, null);
+        HBox debugActions = new HBox(12, applyDebugBtn, clearWaveBtn, closeDebugBtn);
+        debugActions.setAlignment(Pos.CENTER);
+        debugMenu.getChildren().addAll(debugTitle, debugInfo, debugGrid, debugHint, debugActions);
+
+        VBox endMenu = new VBox(14);
+        endMenu.setAlignment(Pos.CENTER);
+        endMenu.setPadding(new Insets(24));
+        endMenu.setMaxWidth(520);
+        endMenu.setStyle("-fx-background-color: rgba(6,12,18,0.94); -fx-background-radius: 24; -fx-border-color: #FFE082; -fx-border-width: 3; -fx-border-radius: 24;");
+        endMenu.setVisible(false);
+        endMenu.setManaged(false);
+        Label endTitle = new Label();
+        endTitle.setFont(Font.font("Arial Black", 34));
+        endTitle.setWrapText(true);
+        endTitle.setTextAlignment(TextAlignment.CENTER);
+        endTitle.setAlignment(Pos.CENTER);
+        endTitle.setMaxWidth(460);
+        applyNoEllipsis(endTitle);
+        Label endBody = new Label();
+        endBody.setFont(Font.font("Consolas", 18));
+        endBody.setTextFill(Color.web("#ECEFF1"));
+        endBody.setWrapText(true);
+        endBody.setMaxWidth(440);
+        applyNoEllipsis(endBody);
+        Button restartEndBtn = uiFactory.action("RESTART DEFENSE", 320, 70, 24, "#2E7D32", 18, null);
+        Button backEndBtn = uiFactory.action("BACK TO HUB", 320, 70, 24, "#D32F2F", 18, null);
+        endMenu.getChildren().addAll(endTitle, endBody, restartEndBtn, backEndBtn);
+
+        root.getChildren().addAll(pauseMenu, debugMenu, endMenu);
+
+        final AnimationTimer[] tdTimer = new AnimationTimer[1];
+        final boolean[] paused = new boolean[]{false};
+        final boolean[] debugOpen = new boolean[]{false};
+        final double[] mouseX = new double[]{TowerDefenseMode.MAP_WIDTH * 0.5};
+        final double[] mouseY = new double[]{TowerDefenseMode.MAP_HEIGHT * 0.5};
+        final double[] mapScale = new double[]{1.0};
+        final double[] mapOffsetX = new double[]{0.0};
+        final double[] mapOffsetY = new double[]{0.0};
+        final boolean[] mouseInside = new boolean[]{true};
+        final Runnable[] refreshUi = new Runnable[1];
+        final Runnable[] syncOverlayState = new Runnable[1];
+        final Runnable[] togglePause = new Runnable[1];
+        final Runnable[] openDebug = new Runnable[1];
+        final Runnable[] redraw = new Runnable[1];
+        final Runnable[] stopTimer = new Runnable[1];
+        final boolean[] rewardsGranted = new boolean[]{false};
+        final int[] rewardCoins = new int[]{0};
+        final boolean[] newBadgeAwarded = new boolean[]{false};
+
+        java.util.function.BiConsumer<Button, TowerDefenseMode.TowerBirdKind> styleShopButton = (button, kind) -> {
+            boolean selected = mode.buildSelection() == kind;
+            boolean affordable = mode.canAfford(kind);
+            button.setStyle("-fx-background-color: " + (selected ? "#2E7D32" : (affordable ? "rgba(17,53,38,0.96)" : "rgba(55,71,79,0.88)"))
+                    + "; -fx-text-fill: white; -fx-border-color: " + (selected ? "#FFF59D" : (affordable ? "#A5D6A7" : "#90A4AE"))
+                    + "; -fx-border-width: 2; -fx-background-radius: 20; -fx-border-radius: 20;");
+            button.setDisable(!affordable && !selected);
+        };
+
+        java.util.function.BiConsumer<Button, TowerDefenseMode.UpgradeOffer> styleUpgradeButton = (button, offer) -> {
+            button.setText(offer.title() + (offer.cost() > 0 ? "  $" + offer.cost() : "") + "\n" + offer.description());
+            boolean enabled = mode.hasSelectedTower() && offer.allowed() && offer.affordable() && offer.cost() > 0;
+            button.setDisable(!enabled);
+            button.setStyle("-fx-background-color: " + (enabled ? "#234E52" : "#37474F")
+                    + "; -fx-text-fill: white; -fx-border-color: " + (offer.allowed() ? "#80CBC4" : "#EF9A9A")
+                    + "; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
+        };
+
+        java.util.function.BiConsumer<Double, Double> updateMouseWorld = (localX, localY) -> {
+            double scale = Math.max(0.0001, mapScale[0]);
+            double worldX = (localX - mapOffsetX[0]) / scale;
+            double worldY = (localY - mapOffsetY[0]) / scale;
+            mouseInside[0] = worldX >= 0.0 && worldX <= TowerDefenseMode.MAP_WIDTH
+                    && worldY >= 0.0 && worldY <= TowerDefenseMode.MAP_HEIGHT;
+            mouseX[0] = Math.clamp(worldX, 0.0, TowerDefenseMode.MAP_WIDTH);
+            mouseY[0] = Math.clamp(worldY, 0.0, TowerDefenseMode.MAP_HEIGHT);
+        };
+
+        syncOverlayState[0] = () -> {
+            boolean ended = mode.victory() || mode.gameOver();
+            pauseMenu.setVisible(paused[0] && !debugOpen[0] && !ended);
+            pauseMenu.setManaged(paused[0] && !debugOpen[0] && !ended);
+            debugMenu.setVisible(paused[0] && debugOpen[0] && !ended);
+            debugMenu.setManaged(paused[0] && debugOpen[0] && !ended);
+            endMenu.setVisible(ended);
+            endMenu.setManaged(ended);
+            settingsBtn.setDisable(ended);
+            if (ended) {
+                if (!rewardsGranted[0]) {
+                    rewardsGranted[0] = true;
+                    if (mode.victory()) {
+                        rewardCoins[0] = towerDefenseCoinReward(mode.difficulty());
+                        newBadgeAwarded[0] = awardTowerDefenseBadge(defenseMap, mode.difficulty());
+                        grantBirdCoins(rewardCoins[0]);
+                        saveAchievements();
+                    }
+                }
+                endTitle.setText(mode.victory() ? "BIG FOREST SECURED" : "BIG FOREST OVERWHELMED");
+                endTitle.setTextFill(mode.victory() ? Color.web("#FFF59D") : Color.web("#FFAB91"));
+                endBody.setText(mode.victory()
+                        ? "The grove held through all " + mode.maxRounds() + " " + mode.difficulty().label + " rounds."
+                        + "\nBird Coins +" + rewardCoins[0]
+                        + (newBadgeAwarded[0] ? "\nNew " + mode.difficulty().label + " badge earned for " + mapDisplayName(defenseMap) + "." : "\n" + mode.difficulty().label + " badge slot remains secured.")
+                        : "The Blight slipped through the trail on " + mode.difficulty().label + ". Rebuild the grove and try a new defense line.");
+            }
+        };
+
+        redraw[0] = () -> {
+            GraphicsContext g = canvas.getGraphicsContext2D();
+            double canvasW = canvas.getWidth();
+            double canvasH = canvas.getHeight();
+            g.clearRect(0, 0, canvasW, canvasH);
+            if (canvasW <= 0 || canvasH <= 0) {
+                return;
+            }
+            double scale = Math.min(canvasW / TowerDefenseMode.MAP_WIDTH, canvasH / TowerDefenseMode.MAP_HEIGHT);
+            double drawW = TowerDefenseMode.MAP_WIDTH * scale;
+            double drawH = TowerDefenseMode.MAP_HEIGHT * scale;
+            mapScale[0] = scale;
+            mapOffsetX[0] = (canvasW - drawW) * 0.5;
+            mapOffsetY[0] = (canvasH - drawH) * 0.5;
+            g.save();
+            g.translate(mapOffsetX[0], mapOffsetY[0]);
+            g.scale(scale, scale);
+            mode.render(g, mouseX[0], mouseY[0]);
+            g.restore();
+        };
+
+        refreshUi[0] = () -> {
+            cashLabel.setText("CASH $" + mode.cash());
+            livesLabel.setText("LIVES " + mode.lives());
+            blightLabel.setText("BLIGHT " + mode.enemyCount());
+
+            panelHint.setText(mode.shouldShowRoostPanel()
+                    ? (mode.buildSelection() == null
+                    ? "Build birds here. Click a bird on the map to swap this panel into upgrades."
+                    : mode.buildSelection().label + " selected. Click open grass on the map to place it.")
+                    : "");
+            boolean showPanelHint = !panelHint.getText().isBlank();
+            panelHint.setVisible(showPanelHint);
+            panelHint.setManaged(showPanelHint);
+
+            styleShopButton.accept(pigeonBtn, TowerDefenseMode.TowerBirdKind.PIGEON);
+            styleShopButton.accept(eagleBtn, TowerDefenseMode.TowerBirdKind.EAGLE);
+            styleShopButton.accept(opiumBtn, TowerDefenseMode.TowerBirdKind.OPIUMBIRD);
+            styleShopButton.accept(batBtn, TowerDefenseMode.TowerBirdKind.BAT);
+            cancelBuildBtn.setDisable(mode.buildSelection() == null);
+
+            contentScroll.setContent(mode.shouldShowRoostPanel() ? roostPane : upgradePane);
+            selectedHeader.setText(mode.selectedTowerTitle());
+            selectedBody.setText(mode.selectedTowerBody());
+            targetingBtn.setText("TARGETING  " + mode.selectedTowerTargetMode().label + "\n" + mode.selectedTowerTargetingSummary());
+            targetingBtn.setDisable(!mode.hasSelectedTower());
+            targetingBtn.setStyle("-fx-background-color: #254B5C; -fx-text-fill: #F4FFFC; -fx-border-color: #9FD6D2; "
+                    + "-fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
+            styleUpgradeButton.accept(topUpgradeBtn, mode.selectedUpgradeOffer(0));
+            styleUpgradeButton.accept(bottomUpgradeBtn, mode.selectedUpgradeOffer(1));
+            sellBtn.setDisable(!mode.hasSelectedTower());
+            sellBtn.setText(mode.hasSelectedTower() ? "SELL BIRD  $" + mode.selectedTowerSellValue() : "SELL BIRD");
+            mode.renderSelectedTowerPreview(selectedPreview.getGraphicsContext2D(), selectedPreview.getWidth(), selectedPreview.getHeight());
+
+            startRoundBtn.setDisable(mode.roundActive() || mode.victory() || mode.gameOver());
+            startRoundBtn.setStyle("-fx-background-color: " + (mode.roundActive() ? "#546E7A" : (mode.victory() ? "#2E7D32" : (mode.gameOver() ? "#8D6E63" : "#2E7D32")))
+                    + "; -fx-border-color: " + (mode.roundActive() ? "#90A4AE" : "#A5D6A7")
+                    + "; -fx-border-width: 2; -fx-background-radius: 24; -fx-border-radius: 24;");
+            startRoundLabel.setText(mode.victory() ? "WIN" : (mode.gameOver() ? "LOSE" : (mode.roundActive() ? "LIVE" : "R" + mode.nextRoundNumber())));
+            GraphicsContext playIconG = playIconCanvas.getGraphicsContext2D();
+            playIconG.clearRect(0, 0, playIconCanvas.getWidth(), playIconCanvas.getHeight());
+            playIconG.setFill(mode.roundActive() ? Color.web("#CFD8DC") : Color.web("#F1F8E9"));
+            playIconG.fillPolygon(new double[]{10, 26, 10}, new double[]{7, 17, 27}, 3);
+
+            boolean spedUp = mode.speedMultiplier() > 1.0;
+            speedBtn.setDisable(mode.victory() || mode.gameOver());
+            speedBtn.setStyle("-fx-background-color: " + (spedUp ? "#1565C0" : "#455A64")
+                    + "; -fx-border-color: " + (spedUp ? "#FFF59D" : "#90A4AE")
+                    + "; -fx-border-width: 2; -fx-background-radius: 24; -fx-border-radius: 24;");
+            speedLabel.setText((int) mode.speedMultiplier() + "x");
+            GraphicsContext speedIconG = speedIconCanvas.getGraphicsContext2D();
+            speedIconG.clearRect(0, 0, speedIconCanvas.getWidth(), speedIconCanvas.getHeight());
+            speedIconG.setFill(spedUp ? Color.web("#FFF176") : Color.web("#263238"));
+            speedIconG.fillOval(5, 12, 8, 8);
+            speedIconG.setFill(spedUp ? Color.web("#FFF59D") : Color.web("#CFD8DC"));
+            speedIconG.fillPolygon(new double[]{10, 20, 10}, new double[]{7, 17, 27}, 3);
+            speedIconG.fillPolygon(new double[]{19, 29, 19}, new double[]{7, 17, 27}, 3);
+
+            syncOverlayState[0].run();
+        };
+
+        stopTimer[0] = () -> {
+            if (tdTimer[0] != null) {
+                tdTimer[0].stop();
+            }
+        };
+
+        openDebug[0] = () -> {
+            paused[0] = true;
+            debugOpen[0] = true;
+            cashField.setText(String.valueOf(mode.cash()));
+            livesField.setText(String.valueOf(mode.lives()));
+            roundField.setText(String.valueOf(mode.nextRoundNumber()));
+            debugHint.setText("Apply writes values immediately. Round sets the next round and clears the current one.");
+            refreshUi[0].run();
+            cashField.requestFocus();
+            cashField.selectAll();
+        };
+
+        togglePause[0] = () -> {
+            if (mode.victory() || mode.gameOver()) {
+                return;
+            }
+            if (debugOpen[0]) {
+                debugOpen[0] = false;
+            }
+            paused[0] = !paused[0];
+            refreshUi[0].run();
+            if (paused[0]) {
+                resumeBtn.requestFocus();
+            } else {
+                canvas.requestFocus();
+            }
+        };
+
+        pigeonBtn.setOnAction(e -> { playButtonClick(); mode.selectBuild(TowerDefenseMode.TowerBirdKind.PIGEON); refreshUi[0].run(); canvas.requestFocus(); });
+        eagleBtn.setOnAction(e -> { playButtonClick(); mode.selectBuild(TowerDefenseMode.TowerBirdKind.EAGLE); refreshUi[0].run(); canvas.requestFocus(); });
+        opiumBtn.setOnAction(e -> { playButtonClick(); mode.selectBuild(TowerDefenseMode.TowerBirdKind.OPIUMBIRD); refreshUi[0].run(); canvas.requestFocus(); });
+        batBtn.setOnAction(e -> { playButtonClick(); mode.selectBuild(TowerDefenseMode.TowerBirdKind.BAT); refreshUi[0].run(); canvas.requestFocus(); });
+        cancelBuildBtn.setOnAction(e -> { playButtonClick(); mode.clearBuildSelection(); refreshUi[0].run(); canvas.requestFocus(); });
+        targetingBtn.setOnAction(e -> { playButtonClick(); mode.cycleSelectedTowerTargetMode(); refreshUi[0].run(); canvas.requestFocus(); });
+        startRoundBtn.setOnAction(e -> { playButtonClick(); mode.startRound(); refreshUi[0].run(); canvas.requestFocus(); });
+        speedBtn.setOnAction(e -> { playButtonClick(); mode.cycleSpeedMultiplier(); refreshUi[0].run(); canvas.requestFocus(); });
+        settingsBtn.setOnAction(e -> { playButtonClick(); togglePause[0].run(); });
+        topUpgradeBtn.setOnAction(e -> { playButtonClick(); mode.upgradeSelectedTower(0); refreshUi[0].run(); canvas.requestFocus(); });
+        bottomUpgradeBtn.setOnAction(e -> { playButtonClick(); mode.upgradeSelectedTower(1); refreshUi[0].run(); canvas.requestFocus(); });
+        sellBtn.setOnAction(e -> { playButtonClick(); mode.sellSelectedTower(); refreshUi[0].run(); canvas.requestFocus(); });
+        resumeBtn.setOnAction(e -> { playButtonClick(); paused[0] = false; debugOpen[0] = false; refreshUi[0].run(); canvas.requestFocus(); });
+        debugBtn.setOnAction(e -> { playButtonClick(); openDebug[0].run(); });
+        restartBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showTowerDefenseMode(stage, selectedMap, mode.difficulty()); });
+        exitBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showHub(stage); });
+        applyDebugBtn.setOnAction(e -> {
+            playButtonClick();
+            try {
+                mode.setCash(Integer.parseInt(cashField.getText().trim()));
+                mode.setLives(Integer.parseInt(livesField.getText().trim()));
+                mode.jumpToRound(Integer.parseInt(roundField.getText().trim()));
+                debugHint.setText("Debug values applied.");
+                refreshUi[0].run();
+            } catch (NumberFormatException ex) {
+                debugHint.setText("Use whole numbers for cash, lives, and round.");
+            }
+        });
+        clearWaveBtn.setOnAction(e -> { playButtonClick(); mode.clearWaveForDebug(); debugHint.setText("Current wave cleared."); refreshUi[0].run(); });
+        closeDebugBtn.setOnAction(e -> { playButtonClick(); debugOpen[0] = false; refreshUi[0].run(); resumeBtn.requestFocus(); });
+        restartEndBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showTowerDefenseMode(stage, selectedMap, mode.difficulty()); });
+        backEndBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showHub(stage); });
+
+        canvas.setOnMouseMoved(e -> {
+            updateMouseWorld.accept(e.getX(), e.getY());
+            redraw[0].run();
+        });
+        canvas.setOnMouseDragged(e -> {
+            updateMouseWorld.accept(e.getX(), e.getY());
+            redraw[0].run();
+        });
+        canvas.setOnMouseClicked(e -> {
+            updateMouseWorld.accept(e.getX(), e.getY());
+            if (paused[0] || mode.victory() || mode.gameOver()) {
+                return;
+            }
+            if (e.getButton() == MouseButton.SECONDARY) {
+                mode.clearBuildSelection();
+                mode.deselectTower();
+            } else if (!mouseInside[0]) {
+                mode.clearBuildSelection();
+                mode.deselectTower();
+            } else if (mode.buildSelection() != null) {
+                playButtonClick();
+                mode.placeSelectedTower(mouseX[0], mouseY[0]);
+            } else {
+                mode.selectTowerAt(mouseX[0], mouseY[0]);
+            }
+            refreshUi[0].run();
+            redraw[0].run();
+            canvas.requestFocus();
+        });
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            KeyCode code = e.getCode();
+            if (code == KeyCode.ESCAPE) {
+                if (mode.victory() || mode.gameOver()) {
+                    stopTimer[0].run();
+                    showHub(stage);
+                } else if (debugOpen[0]) {
+                    playButtonClick();
+                    debugOpen[0] = false;
+                    refreshUi[0].run();
+                    resumeBtn.requestFocus();
+                } else {
+                    playButtonClick();
+                    togglePause[0].run();
+                }
+                e.consume();
+                return;
+            }
+
+            if (mode.victory() || mode.gameOver()) {
+                if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
+                    Node focus = scene.getFocusOwner();
+                    if (focus instanceof Button button) {
+                        playButtonClick();
+                        button.fire();
+                        e.consume();
+                    }
+                } else if (movePauseMenuFocus(scene, endMenu, switch (code) {
+                    case W -> KeyCode.UP;
+                    case S -> KeyCode.DOWN;
+                    default -> code;
+                })) {
+                    e.consume();
+                }
+                return;
+            }
+
+            if (paused[0]) {
+                if (!debugOpen[0]) {
+                    KeyCode navigation = switch (code) {
+                        case W -> KeyCode.UP;
+                        case S -> KeyCode.DOWN;
+                        default -> code;
+                    };
+                    if (movePauseMenuFocus(scene, pauseMenu, navigation)) {
+                        e.consume();
+                        return;
+                    }
+                    if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
+                        Node focus = scene.getFocusOwner();
+                        if (focus instanceof Button button) {
+                            playButtonClick();
+                            button.fire();
+                            e.consume();
+                        }
+                    }
+                }
+                return;
+            }
+
+            switch (code) {
+                case SPACE -> {
+                    playButtonClick();
+                    mode.startRound();
+                    refreshUi[0].run();
+                    e.consume();
+                }
+                case DIGIT1, NUMPAD1 -> {
+                    playButtonClick();
+                    mode.selectBuild(TowerDefenseMode.TowerBirdKind.PIGEON);
+                    refreshUi[0].run();
+                    e.consume();
+                }
+                case DIGIT2, NUMPAD2 -> {
+                    playButtonClick();
+                    mode.selectBuild(TowerDefenseMode.TowerBirdKind.EAGLE);
+                    refreshUi[0].run();
+                    e.consume();
+                }
+                case DIGIT3, NUMPAD3 -> {
+                    playButtonClick();
+                    mode.selectBuild(TowerDefenseMode.TowerBirdKind.OPIUMBIRD);
+                    refreshUi[0].run();
+                    e.consume();
+                }
+                case DIGIT4, NUMPAD4 -> {
+                    playButtonClick();
+                    mode.selectBuild(TowerDefenseMode.TowerBirdKind.BAT);
+                    refreshUi[0].run();
+                    e.consume();
+                }
+                case DELETE, BACK_SPACE -> {
+                    playButtonClick();
+                    mode.sellSelectedTower();
+                    refreshUi[0].run();
+                    e.consume();
+                }
+                case T -> {
+                    playButtonClick();
+                    mode.cycleSelectedTowerTargetMode();
+                    refreshUi[0].run();
+                    e.consume();
+                }
+                case P -> {
+                    playButtonClick();
+                    togglePause[0].run();
+                    e.consume();
+                }
+                default -> {
+                }
+            }
+        });
+
+        tdTimer[0] = new AnimationTimer() {
+            private long last = 0L;
+
+            @Override
+            public void handle(long now) {
+                if (last == 0L) {
+                    last = now;
+                }
+                double dt = Math.min(0.05, (now - last) / 1_000_000_000.0);
+                last = now;
+                if (!paused[0] && !debugOpen[0] && !mode.victory() && !mode.gameOver()) {
+                    mode.update(dt);
+                }
+                redraw[0].run();
+                refreshUi[0].run();
+            }
+        };
+
+        refreshUi[0].run();
+        redraw[0].run();
+        setScenePreservingFullscreen(stage, scene);
+        applyConsoleHighlight(scene);
+        tdTimer[0].start();
+        javafx.application.Platform.runLater(canvas::requestFocus);
     }
 
     private void resetTournamentRun() {
@@ -19537,7 +20520,7 @@ public class BirdGame3 extends Application {
         if (battle.requiredPlayerType != null) {
             playerType = battle.requiredPlayerType;
         }
-        if (!isAdventureBirdUnlocked(playerType)) {
+        if (isAdventureBirdUnlocked(playerType)) {
             playerType = firstAdventureBirdForRoute(selectedAdventureRoute);
         }
         String skinKey = normalizeAdventureSkinChoice(playerType, adventureSelectedSkinKey);
@@ -20016,8 +20999,8 @@ public class BirdGame3 extends Application {
             return;
         }
 
-        if (battle.unlockReward != null && !isAdventureBirdUnlocked(battle.unlockReward)) {
-            setAdventureBirdUnlocked(battle.unlockReward, true);
+        if (battle.unlockReward != null && isAdventureBirdUnlocked(battle.unlockReward)) {
+            setAdventureBirdUnlocked(battle.unlockReward);
             queueUnlockCardForBird(battle.unlockReward);
             saveAchievements();
         }
@@ -20814,6 +21797,49 @@ public class BirdGame3 extends Application {
         badge.setVisible(visible);
         badge.setManaged(visible);
         return badge;
+    }
+
+    private boolean hasTowerDefenseBadge(MapType map, TowerDefenseMode.Difficulty difficulty) {
+        if (map == null || difficulty == null) {
+            return false;
+        }
+        return towerDefenseDifficultyBadges[map.ordinal()][difficulty.ordinal()];
+    }
+
+    private boolean awardTowerDefenseBadge(MapType map, TowerDefenseMode.Difficulty difficulty) {
+        if (map == null || difficulty == null) {
+            return false;
+        }
+        boolean[] row = towerDefenseDifficultyBadges[map.ordinal()];
+        boolean alreadyHad = row[difficulty.ordinal()];
+        row[difficulty.ordinal()] = true;
+        return !alreadyHad;
+    }
+
+    private int towerDefenseCoinReward(TowerDefenseMode.Difficulty difficulty) {
+        if (difficulty == null) {
+            return 0;
+        }
+        return switch (difficulty) {
+            case EASY -> 120;
+            case MEDIUM -> 220;
+            case HARD -> 360;
+        };
+    }
+
+    private String towerDefenseDifficultySummary(TowerDefenseMode.Difficulty difficulty) {
+        if (difficulty == null) {
+            return "";
+        }
+        return difficulty.roundCount + " rounds | " + difficulty.startingLives + " lives | "
+                + Math.round(difficulty.priceMultiplier * 100.0) + "% prices";
+    }
+
+    private String towerDefenseMapDescription(MapType map) {
+        if (map == MapType.FOREST) {
+            return "A top-down Big Forest defense route with a winding dirt trail, wide clearings, and long sightlines for grove birds.";
+        }
+        return mapDescription(map);
     }
 
     private String classicRewardFor(BirdType type) {
@@ -24095,7 +25121,10 @@ public class BirdGame3 extends Application {
             desc.setFont(Font.font("Consolas", 20));
             desc.setTextFill(Color.web("#CFD8DC"));
             desc.setWrapText(true);
+            desc.setPrefWidth(640);
             desc.setMaxWidth(640);
+            desc.setMinHeight(Region.USE_PREF_SIZE);
+            applyNoEllipsis(desc);
 
             cardBox.getChildren().addAll(btn, desc);
             grid.add(cardBox, col, row);
@@ -24220,8 +25249,6 @@ public class BirdGame3 extends Application {
     }
 
     private void captureTrainingSpawns() {
-        Bird player = players[0];
-        Bird dummy = players[trainingDummyIndex];
     }
 
     private void resetTrainingLabState() {
@@ -24745,8 +25772,13 @@ public class BirdGame3 extends Application {
         if (delta == 0) {
             return false;
         }
-        Node focus = scene == null ? null : scene.getFocusOwner();
-        int currentIndex = buttons.indexOf(focus);
+        int currentIndex = -1;
+        for (Node focus = scene == null ? null : scene.getFocusOwner(); focus != null; focus = focus.getParent()) {
+            if (focus instanceof Button button) {
+                currentIndex = buttons.indexOf(button);
+                break;
+            }
+        }
         int nextIndex;
         if (currentIndex < 0) {
             nextIndex = delta > 0 ? 0 : buttons.size() - 1;
@@ -24843,12 +25875,7 @@ public class BirdGame3 extends Application {
         clearActionStates(wiimoteActionPressed);
         Arrays.fill(wiimoteLeftHeld, false);
         Arrays.fill(wiimoteRightHeld, false);
-        Arrays.fill(wiimoteLeftHoldUntilNs, 0L);
-        Arrays.fill(wiimoteRightHoldUntilNs, 0L);
         Arrays.fill(wiimoteGameplayPauseHeld, false);
-        for (long[] holdRow : wiimoteActionHoldUntilNs) {
-            Arrays.fill(holdRow, 0L);
-        }
     }
 
     private boolean isActionPressed(int playerIdx, ControlAction action) {
@@ -24871,12 +25898,7 @@ public class BirdGame3 extends Application {
         if (wiimoteInputManager == null) {
             Arrays.fill(wiimoteLeftHeld, false);
             Arrays.fill(wiimoteRightHeld, false);
-            Arrays.fill(wiimoteLeftHoldUntilNs, 0L);
-            Arrays.fill(wiimoteRightHoldUntilNs, 0L);
             Arrays.fill(wiimoteGameplayPauseHeld, false);
-            for (long[] holdRow : wiimoteActionHoldUntilNs) {
-                Arrays.fill(holdRow, 0L);
-            }
             return;
         }
 
@@ -24935,7 +25957,7 @@ public class BirdGame3 extends Application {
     }
 
     private void syncLanWiimoteInputMask() {
-        int wiimotePlayer = Math.clamp(lanPlayerIndex >= 0 ? lanPlayerIndex : 0, 0, 3);
+        int wiimotePlayer = Math.clamp(Math.max(lanPlayerIndex, 0), 0, 3);
         WiimoteMappedState state = wiimoteInputManager.stateForPlayer(wiimotePlayer);
         boolean connected = state != null && state.connected();
         boolean left = connected && state.left();
@@ -24963,44 +25985,12 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private boolean stableWiimoteDirection(int playerIdx, boolean directionHeld, boolean oppositeHeld, long now, boolean leftDirection) {
-        if (isValidPlayerIndex(playerIdx)) {
-            return false;
-        }
-        long[] holdUntil = leftDirection ? wiimoteLeftHoldUntilNs : wiimoteRightHoldUntilNs;
-        if (directionHeld) {
-            holdUntil[playerIdx] = now + WIIMOTE_GAMEPLAY_DIRECTION_GRACE_NS;
-            return true;
-        }
-        if (oppositeHeld) {
-            holdUntil[playerIdx] = 0L;
-            return false;
-        }
-        return now < holdUntil[playerIdx];
-    }
-
-    private boolean stableWiimoteAction(int playerIdx, ControlAction action, boolean actionHeld, long now) {
-        if (isValidPlayerIndex(playerIdx) || action == null) {
-            return false;
-        }
-        long[] holdUntil = wiimoteActionHoldUntilNs[playerIdx];
-        int actionIdx = action.ordinal();
-        if (actionHeld) {
-            holdUntil[actionIdx] = now + WIIMOTE_GAMEPLAY_ACTION_LATCH_NS;
-            return true;
-        }
-        return now < holdUntil[actionIdx];
-    }
-
     private void resetWiimoteGameplayHoldState(int playerIdx) {
         if (isValidPlayerIndex(playerIdx)) {
             return;
         }
         wiimoteLeftHeld[playerIdx] = false;
         wiimoteRightHeld[playerIdx] = false;
-        wiimoteLeftHoldUntilNs[playerIdx] = 0L;
-        wiimoteRightHoldUntilNs[playerIdx] = 0L;
-        Arrays.fill(wiimoteActionHoldUntilNs[playerIdx], 0L);
     }
 
     void setLocalActionsForKey(KeyCode code, boolean down) {
@@ -27401,6 +28391,12 @@ public class BirdGame3 extends Application {
         battlefieldMapUnlocked = prefs.getBoolean("map_battlefield_unlocked", false);
         beaconCrownMapUnlocked = prefs.getBoolean("map_beacon_crown_unlocked", false);
         dockMapUnlocked = prefs.getBoolean("map_dock_unlocked", false);
+        for (MapType map : MapType.values()) {
+            for (TowerDefenseMode.Difficulty difficulty : TowerDefenseMode.Difficulty.values()) {
+                towerDefenseDifficultyBadges[map.ordinal()][difficulty.ordinal()] =
+                        prefs.getBoolean("td_badge_" + map.name() + "_" + difficulty.name(), false);
+            }
+        }
         cityPigeonUnlocked = prefs.getBoolean("skin_citypigeon", true);
         noirPigeonUnlocked = prefs.getBoolean("skin_noirpigeon", false);
         freemanPigeonUnlocked = prefs.getBoolean("skin_freeman_pigeon", false);
@@ -27657,6 +28653,12 @@ public class BirdGame3 extends Application {
         prefs.putBoolean("map_battlefield_unlocked", battlefieldMapUnlocked);
         prefs.putBoolean("map_beacon_crown_unlocked", beaconCrownMapUnlocked);
         prefs.putBoolean("map_dock_unlocked", dockMapUnlocked);
+        for (MapType map : MapType.values()) {
+            for (TowerDefenseMode.Difficulty difficulty : TowerDefenseMode.Difficulty.values()) {
+                prefs.putBoolean("td_badge_" + map.name() + "_" + difficulty.name(),
+                        towerDefenseDifficultyBadges[map.ordinal()][difficulty.ordinal()]);
+            }
+        }
         prefs.putBoolean("skin_citypigeon", cityPigeonUnlocked);
         prefs.putBoolean("skin_noirpigeon", noirPigeonUnlocked);
         prefs.putBoolean("skin_freeman_pigeon", freemanPigeonUnlocked);
