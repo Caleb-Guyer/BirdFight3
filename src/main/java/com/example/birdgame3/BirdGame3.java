@@ -100,6 +100,7 @@ public class BirdGame3 extends Application {
     public static final int HEIGHT = 1080;
     public static final int GROUND_Y = 2400;
     public static final double GRAVITY = 0.75;
+    private static final int XBOX_CONTROLLER_SLOTS = 4;
     static final int MATCH_DURATION_FRAMES = 90 * 60;
     static final int COMPETITION_DURATION_FRAMES = 120 * 60;
     private static final Insets MENU_PADDING = new Insets(60, 80, 60, 80);
@@ -227,6 +228,10 @@ public class BirdGame3 extends Application {
     private final boolean[][] wiimoteActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[] wiimoteLeftHeld = new boolean[MAX_COMBATANTS];
     private final boolean[] wiimoteRightHeld = new boolean[MAX_COMBATANTS];
+    private final int[] xboxAssignedSlotByPlayer = createFilledIntArray(MAX_COMBATANTS, -1);
+    private final int[] xboxAssignedPlayerBySlot = createFilledIntArray(XBOX_CONTROLLER_SLOTS, -1);
+    private final boolean[] xboxJoinHeld = new boolean[XBOX_CONTROLLER_SLOTS];
+    private int xboxPendingAssignPlayerIdx = -1;
     private final WiimoteControlMode[] wiimoteModes = createDefaultWiimoteModes();
     public Bird[] players = new Bird[MAX_COMBATANTS];
     public boolean[] isAI = new boolean[MAX_COMBATANTS];
@@ -364,6 +369,7 @@ public class BirdGame3 extends Application {
     Stage currentStage;
     private Scene gameplayScene;
     private WiimoteInputManager wiimoteInputManager;
+    private XboxInputManager xboxInputManager;
     private AnimationTimer wiimoteMenuTimer;
     private boolean wiimoteMenuSelectHeld = false;
     private boolean wiimoteMenuBackHeld = false;
@@ -422,6 +428,12 @@ public class BirdGame3 extends Application {
     private static int[] createFilledIntArray() {
         int[] values = new int[MAX_COMBATANTS];
         Arrays.fill(values, 5);
+        return values;
+    }
+
+    private static int[] createFilledIntArray(int length, int fillValue) {
+        int[] values = new int[Math.max(0, length)];
+        Arrays.fill(values, fillValue);
         return values;
     }
 
@@ -721,6 +733,15 @@ public class BirdGame3 extends Application {
 
     void playVaseBreakingSfx() {
         playManagedSfx(vaseBreakingClip, 1.0);
+    }
+
+    void playTowerDefenseBlightPopSfx(double intensity) {
+        double clamped = Math.clamp(intensity, 0.2, 1.0);
+        if (vaseBreakingClip != null) {
+            playManagedSfx(vaseBreakingClip, 0.18 + clamped * 0.16);
+        } else {
+            playManagedSfx(bonkClip, 0.14 + clamped * 0.10);
+        }
     }
 
     void playCherrybombSfx() {
@@ -1085,8 +1106,222 @@ public class BirdGame3 extends Application {
         wiimoteMenuTimer.start();
     }
 
+    private WiimoteMappedState mergedControllerState(WiimoteMappedState first, WiimoteMappedState second) {
+        WiimoteMappedState a = first == null ? WiimoteMappedState.off("Controller unavailable") : first;
+        WiimoteMappedState b = second == null ? WiimoteMappedState.off("Controller unavailable") : second;
+        boolean connected = a.connected() || b.connected();
+        String status = connected
+                ? (a.connected() ? a.status() : b.status())
+                : ((a.status() != null && !a.status().isBlank()) ? a.status() : b.status());
+        return new WiimoteMappedState(
+                connected,
+                a.left() || b.left(),
+                a.right() || b.right(),
+                a.jump() || b.jump(),
+                a.attack() || b.attack(),
+                a.special() || b.special(),
+                a.block() || b.block(),
+                a.tauntCycle() || b.tauntCycle(),
+                a.tauntExecute() || b.tauntExecute(),
+                a.menuUp() || b.menuUp(),
+                a.menuDown() || b.menuDown(),
+                a.menuLeft() || b.menuLeft(),
+                a.menuRight() || b.menuRight(),
+                a.menuUpHeld() || b.menuUpHeld(),
+                a.menuDownHeld() || b.menuDownHeld(),
+                a.menuLeftHeld() || b.menuLeftHeld(),
+                a.menuRightHeld() || b.menuRightHeld(),
+                a.menuSelectHeld() || b.menuSelectHeld(),
+                a.menuBackHeld() || b.menuBackHeld(),
+                a.menuPauseHeld() || b.menuPauseHeld(),
+                a.menuSelect() || b.menuSelect(),
+                a.menuBack() || b.menuBack(),
+                a.menuPause() || b.menuPause(),
+                status
+        );
+    }
+
+    private boolean usesXboxControllerAssignments() {
+        Scene scene = currentStage == null ? null : currentStage.getScene();
+        if (scene != null && fightSetupSelectorController(scene) != null) {
+            return true;
+        }
+        return scene == gameplayScene && isPlainLocalFightGameplay();
+    }
+
+    private boolean isPlainLocalFightGameplay() {
+        return !lanModeActive
+                && !trainingModeActive
+                && !storyModeActive
+                && !adventureModeActive
+                && !classicModeActive
+                && !competitionSeriesActive;
+    }
+
+    private boolean keyboardControlsPlayer(int playerIdx) {
+        return !usesXboxControllerAssignments() || xboxAssignedSlotForPlayer(playerIdx) < 0;
+    }
+
+    private int xboxAssignedSlotForPlayer(int playerIdx) {
+        if (playerIdx < 0 || playerIdx >= xboxAssignedSlotByPlayer.length) {
+            return -1;
+        }
+        return xboxAssignedSlotByPlayer[playerIdx];
+    }
+
+    private int xboxAssignedPlayerForSlot(int xboxSlot) {
+        if (xboxSlot < 0 || xboxSlot >= xboxAssignedPlayerBySlot.length) {
+            return -1;
+        }
+        return xboxAssignedPlayerBySlot[xboxSlot];
+    }
+
+    private void clearXboxAssignmentForPlayer(int playerIdx) {
+        if (playerIdx < 0 || playerIdx >= xboxAssignedSlotByPlayer.length) {
+            return;
+        }
+        int xboxSlot = xboxAssignedSlotByPlayer[playerIdx];
+        xboxAssignedSlotByPlayer[playerIdx] = -1;
+        if (xboxSlot >= 0 && xboxSlot < xboxAssignedPlayerBySlot.length && xboxAssignedPlayerBySlot[xboxSlot] == playerIdx) {
+            xboxAssignedPlayerBySlot[xboxSlot] = -1;
+        }
+        if (xboxPendingAssignPlayerIdx == playerIdx) {
+            xboxPendingAssignPlayerIdx = -1;
+        }
+    }
+
+    private void clearXboxAssignmentForSlot(int xboxSlot) {
+        if (xboxSlot < 0 || xboxSlot >= xboxAssignedPlayerBySlot.length) {
+            return;
+        }
+        int playerIdx = xboxAssignedPlayerBySlot[xboxSlot];
+        xboxAssignedPlayerBySlot[xboxSlot] = -1;
+        if (playerIdx >= 0 && playerIdx < xboxAssignedSlotByPlayer.length && xboxAssignedSlotByPlayer[playerIdx] == xboxSlot) {
+            xboxAssignedSlotByPlayer[playerIdx] = -1;
+            if (xboxPendingAssignPlayerIdx == playerIdx) {
+                xboxPendingAssignPlayerIdx = -1;
+            }
+        }
+    }
+
+    private boolean assignXboxControllerToPlayer(int xboxSlot, int playerIdx) {
+        if (xboxSlot < 0 || xboxSlot >= xboxAssignedPlayerBySlot.length) {
+            return false;
+        }
+        if (playerIdx < 0 || playerIdx >= activePlayers || playerIdx >= xboxAssignedSlotByPlayer.length || isAI[playerIdx]) {
+            return false;
+        }
+        int existingPlayer = xboxAssignedPlayerForSlot(xboxSlot);
+        if (existingPlayer == playerIdx) {
+            xboxPendingAssignPlayerIdx = -1;
+            return false;
+        }
+        clearXboxAssignmentForSlot(xboxSlot);
+        clearXboxAssignmentForPlayer(playerIdx);
+        xboxAssignedPlayerBySlot[xboxSlot] = playerIdx;
+        xboxAssignedSlotByPlayer[playerIdx] = xboxSlot;
+        xboxPendingAssignPlayerIdx = -1;
+        return true;
+    }
+
+    private void normalizeXboxAssignmentsForLocalSetup() {
+        boolean[] usedSlots = new boolean[xboxAssignedPlayerBySlot.length];
+        Arrays.fill(xboxAssignedPlayerBySlot, -1);
+        for (int playerIdx = 0; playerIdx < xboxAssignedSlotByPlayer.length; playerIdx++) {
+            int xboxSlot = xboxAssignedSlotByPlayer[playerIdx];
+            boolean valid = playerIdx < activePlayers
+                    && !isAI[playerIdx]
+                    && xboxSlot >= 0
+                    && xboxSlot < xboxAssignedPlayerBySlot.length
+                    && !usedSlots[xboxSlot];
+            if (!valid) {
+                xboxAssignedSlotByPlayer[playerIdx] = -1;
+                continue;
+            }
+            usedSlots[xboxSlot] = true;
+            xboxAssignedPlayerBySlot[xboxSlot] = playerIdx;
+        }
+        if (xboxPendingAssignPlayerIdx >= activePlayers
+                || xboxPendingAssignPlayerIdx >= isAI.length
+                || (xboxPendingAssignPlayerIdx >= 0 && isAI[xboxPendingAssignPlayerIdx])) {
+            xboxPendingAssignPlayerIdx = -1;
+        }
+    }
+
+    private int nextOpenXboxJoinPlayer() {
+        for (int playerIdx = 1; playerIdx < activePlayers; playerIdx++) {
+            if (!isAI[playerIdx] && xboxAssignedSlotForPlayer(playerIdx) < 0) {
+                return playerIdx;
+            }
+        }
+        if (activePlayers > 0 && !isAI[0] && xboxAssignedSlotForPlayer(0) < 0) {
+            return 0;
+        }
+        return -1;
+    }
+
+    private void resetXboxJoinHeldState() {
+        Arrays.fill(xboxJoinHeld, false);
+    }
+
+    private void pollXboxJoinAssignments(Scene scene, FightSetupSelectorController controller) {
+        if (scene == null || controller == null || xboxInputManager == null) {
+            resetXboxJoinHeldState();
+            return;
+        }
+        normalizeXboxAssignmentsForLocalSetup();
+        boolean changed = false;
+        for (int xboxSlot = 0; xboxSlot < xboxJoinHeld.length; xboxSlot++) {
+            WiimoteMappedState state = xboxInputManager.stateForSlot(xboxSlot);
+            boolean joinHeld = state.connected() && state.menuSelect();
+            if (joinHeld && !xboxJoinHeld[xboxSlot] && xboxAssignedPlayerForSlot(xboxSlot) < 0) {
+                int targetPlayer = xboxPendingAssignPlayerIdx >= 0 ? xboxPendingAssignPlayerIdx : nextOpenXboxJoinPlayer();
+                if (assignXboxControllerToPlayer(xboxSlot, targetPlayer)) {
+                    changed = true;
+                }
+            }
+            xboxJoinHeld[xboxSlot] = joinHeld;
+        }
+        if (changed) {
+            playButtonClick();
+            controller.refreshControllerAssignments();
+        }
+    }
+
+    private WiimoteMappedState xboxStateForPlayer(int playerIdx) {
+        if (xboxInputManager == null) {
+            return WiimoteMappedState.off("Xbox controller unavailable");
+        }
+        if (!usesXboxControllerAssignments()) {
+            return xboxInputManager.stateForSlot(playerIdx);
+        }
+        int xboxSlot = xboxAssignedSlotForPlayer(playerIdx);
+        if (xboxSlot < 0) {
+            return WiimoteMappedState.off("Xbox controller unassigned");
+        }
+        return xboxInputManager.stateForSlot(xboxSlot);
+    }
+
+    private WiimoteMappedState controllerMenuState() {
+        WiimoteMappedState wiimoteState = wiimoteInputManager == null
+                ? WiimoteMappedState.off("Wiimote HID unavailable")
+                : wiimoteInputManager.menuState();
+        WiimoteMappedState xboxState = xboxInputManager == null
+                ? WiimoteMappedState.off("Xbox controller unavailable")
+                : xboxInputManager.menuState();
+        return mergedControllerState(wiimoteState, xboxState);
+    }
+
+    private WiimoteMappedState controllerStateForPlayer(int playerIdx) {
+        WiimoteMappedState wiimoteState = wiimoteInputManager == null
+                ? WiimoteMappedState.off("Wiimote HID unavailable")
+                : wiimoteInputManager.stateForPlayer(playerIdx);
+        WiimoteMappedState xboxState = xboxStateForPlayer(playerIdx);
+        return mergedControllerState(wiimoteState, xboxState);
+    }
+
     private void pollWiimoteMenuNavigation() {
-        if (wiimoteInputManager == null || currentStage == null) {
+        if ((wiimoteInputManager == null && xboxInputManager == null) || currentStage == null) {
             return;
         }
         if (!currentStage.isFocused()) {
@@ -1108,7 +1343,7 @@ public class BirdGame3 extends Application {
 
         resetWiimoteSelectorHeldState();
 
-        WiimoteMappedState state = wiimoteInputManager.menuState();
+        WiimoteMappedState state = controllerMenuState();
         if (pollWiimotePausedGameplayMenu(scene, state)) {
             Arrays.fill(wiimoteMenuDirectionHeld, false);
             return;
@@ -1449,23 +1684,26 @@ public class BirdGame3 extends Application {
     }
 
     private void pollWiimoteSelectorNavigation(Scene scene) {
-        if (scene == null || wiimoteInputManager == null) {
+        if (scene == null || (wiimoteInputManager == null && xboxInputManager == null)) {
             resetWiimoteSelectorHeldState();
+            resetXboxJoinHeldState();
             return;
         }
+
+        FightSetupSelectorController controller = fightSetupSelectorController(scene);
+        pollXboxJoinAssignments(scene, controller);
 
         int selectorPlayers = wiimoteSelectorPlayerCount(scene);
         List<Integer> connectedSources = new ArrayList<>();
         WiimoteMappedState[] states = new WiimoteMappedState[selectorPlayers];
         for (int playerIdx = 0; playerIdx < selectorPlayers; playerIdx++) {
-            WiimoteMappedState state = wiimoteInputManager.stateForPlayer(playerIdx);
+            WiimoteMappedState state = controllerStateForPlayer(playerIdx);
             states[playerIdx] = state;
-            if (state != null && state.connected()) {
+            if (state.connected()) {
                 connectedSources.add(playerIdx);
             }
         }
 
-        FightSetupSelectorController controller = fightSetupSelectorController(scene);
         if (controller != null) {
             wiimoteSoloSelectorTarget = 0;
             wiimoteSoloSelectorNextHeld = false;
@@ -10866,6 +11104,7 @@ public class BirdGame3 extends Application {
         stage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
         stage.setFullScreenExitHint("");
         wiimoteInputManager = new WiimoteInputManager();
+        xboxInputManager = new XboxInputManager();
         loadAchievements();
         syncWiimoteModesToManager();
         loadSounds();
@@ -12634,6 +12873,7 @@ public class BirdGame3 extends Application {
         private final Pane selectionPane;
         private final Runnable[] updateSlot;
         private final Runnable updateReady;
+        private final Runnable updateControllerAssignments;
         private final BooleanSupplier tryStartMatch;
         private final int[] nullRockSequenceProgress;
         private final Canvas[] clawCanvases;
@@ -12654,6 +12894,7 @@ public class BirdGame3 extends Application {
                                              Pane selectionPane,
                                              Runnable[] updateSlot,
                                              Runnable updateReady,
+                                             Runnable updateControllerAssignments,
                                              BooleanSupplier tryStartMatch,
                                              int[] nullRockSequenceProgress,
                                              Canvas[] clawCanvases,
@@ -12666,6 +12907,7 @@ public class BirdGame3 extends Application {
             this.selectionPane = selectionPane;
             this.updateSlot = updateSlot;
             this.updateReady = updateReady;
+            this.updateControllerAssignments = updateControllerAssignments;
             this.tryStartMatch = tryStartMatch;
             this.nullRockSequenceProgress = nullRockSequenceProgress;
             this.clawCanvases = clawCanvases;
@@ -12686,6 +12928,12 @@ public class BirdGame3 extends Application {
                 clawY[i] = Math.max(FIGHT_SELECTOR_BOUND_MARGIN, dock.getY() - 54.0);
                 positionFightSelectorClaw(clawCanvases[i], clawLabels[i], clawX[i], clawY[i]);
                 updateClawPresentation(i, false, false);
+            }
+        }
+
+        private void refreshControllerAssignments() {
+            if (updateControllerAssignments != null) {
+                updateControllerAssignments.run();
             }
         }
 
@@ -12853,6 +13101,7 @@ public class BirdGame3 extends Application {
         playMenuMusic();
         activePlayers = Math.clamp(activePlayers, 2, 4);
         resetWiimoteSelectorHeldState();
+        normalizeXboxAssignmentsForLocalSetup();
         final Scene[] fightSceneRef = new Scene[1];
 
         BorderPane root = new BorderPane();
@@ -12912,7 +13161,14 @@ public class BirdGame3 extends Application {
         HBox controls = new HBox(18, countBox, teamModeToggleButton, settingsBtn);
         controls.setAlignment(Pos.CENTER_LEFT);
 
-        VBox top = new VBox(14, topBar, controls);
+        Label xboxJoinHint = new Label("Keyboard still works for open slots. Click a player's input button, then press A on an Xbox pad to claim that slot, or just press A to join the next open slot.");
+        xboxJoinHint.setFont(Font.font("Consolas", 16));
+        xboxJoinHint.setTextFill(Color.web("#CFD8DC"));
+        xboxJoinHint.setWrapText(true);
+        xboxJoinHint.setMaxWidth(1200);
+        applyNoEllipsis(xboxJoinHint);
+
+        VBox top = new VBox(14, topBar, controls, xboxJoinHint);
         root.setTop(top);
 
         List<BirdType> availableBirds = unlockedBirdPool();
@@ -13063,6 +13319,7 @@ public class BirdGame3 extends Application {
         Canvas[] portraits = new Canvas[4];
         Label[] nameLabels = new Label[4];
         Button[] skinButtons = new Button[4];
+        Button[] inputButtons = new Button[4];
 
         Button readyBtn = uiFactory.action("FLY INTO BATTLE", 680, 110, 52, "#FF1744", 32, () -> {
             stageSelectReturn = () -> showFightSetup(stage);
@@ -13085,6 +13342,7 @@ public class BirdGame3 extends Application {
 
         Runnable[] updateSlot = new Runnable[4];
         int[] nullRockSequenceProgress = new int[4];
+        Runnable[] refreshInputAssignmentsRef = new Runnable[1];
 
         for (int i = 0; i < 4; i++) {
             int idx = i;
@@ -13102,8 +13360,31 @@ public class BirdGame3 extends Application {
                 isAI[idx] = !isAI[idx];
                 aiToggle.setText(isAI[idx] ? "CPU" : "PLAYER");
                 aiToggle.setStyle("-fx-background-color: " + (isAI[idx] ? "#B71C1C" : "#1565C0") + "; -fx-text-fill: white;");
+                if (isAI[idx]) {
+                    clearXboxAssignmentForPlayer(idx);
+                }
                 refreshCpuButton(idx);
+                if (refreshInputAssignmentsRef[0] != null) refreshInputAssignmentsRef[0].run();
             });
+
+            Button inputBtn = new Button("INPUT: KEYBOARD");
+            inputBtn.setPrefSize(200, 40);
+            inputBtn.setFont(Font.font("Consolas", 15));
+            inputBtn.setWrapText(true);
+            applyNoEllipsis(inputBtn);
+            inputBtn.setOnAction(e -> {
+                playButtonClick();
+                if (idx >= activePlayers || isAI[idx]) {
+                    return;
+                }
+                if (xboxAssignedSlotForPlayer(idx) >= 0) {
+                    clearXboxAssignmentForPlayer(idx);
+                } else {
+                    xboxPendingAssignPlayerIdx = xboxPendingAssignPlayerIdx == idx ? -1 : idx;
+                }
+                if (refreshInputAssignmentsRef[0] != null) refreshInputAssignmentsRef[0].run();
+            });
+            inputButtons[idx] = inputBtn;
 
             portraits[idx] = new Canvas(140, 140);
             nameLabels[idx] = new Label("SELECT");
@@ -13167,13 +13448,56 @@ public class BirdGame3 extends Application {
                 updateSlot[idx].run();
             });
 
-            VBox slot = new VBox(8, pLabel, aiToggle, portraits[idx], nameLabels[idx], skinButtons[idx], cpuBtn);
+            VBox slot = new VBox(8, pLabel, aiToggle, inputBtn, portraits[idx], nameLabels[idx], skinButtons[idx], cpuBtn);
             slot.setAlignment(Pos.CENTER);
             slot.setPadding(new Insets(10));
             slot.setPrefWidth(260);
             slot.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-background-radius: 16; -fx-border-color: #78909C; -fx-border-width: 2; -fx-border-radius: 16;");
             fightSlots[idx] = slot;
         }
+
+        Runnable refreshInputAssignments = () -> {
+            normalizeXboxAssignmentsForLocalSetup();
+            for (int idx = 0; idx < inputButtons.length; idx++) {
+                Button inputBtn = inputButtons[idx];
+                if (inputBtn == null) {
+                    continue;
+                }
+                boolean active = idx < activePlayers;
+                boolean cpu = idx < isAI.length && isAI[idx];
+                int xboxSlot = xboxAssignedSlotForPlayer(idx);
+                boolean awaitingAssign = active && !cpu && xboxPendingAssignPlayerIdx == idx;
+                String text;
+                String color;
+                double opacity = 1.0;
+                boolean disabled = !active;
+                if (!active) {
+                    text = "INACTIVE SLOT";
+                    color = "#37474F";
+                    opacity = 0.45;
+                } else if (cpu) {
+                    text = "CPU CONTROL";
+                    color = "#6D4C41";
+                    opacity = 0.85;
+                    disabled = true;
+                } else if (xboxSlot >= 0) {
+                    text = "INPUT: XBOX " + (xboxSlot + 1);
+                    color = "#2E7D32";
+                } else if (awaitingAssign) {
+                    text = "PRESS A TO JOIN";
+                    color = "#F9A825";
+                } else {
+                    text = "INPUT: KEYBOARD";
+                    color = "#455A64";
+                }
+                inputBtn.setText(text);
+                inputBtn.setDisable(disabled);
+                inputBtn.setOpacity(opacity);
+                inputBtn.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 12;");
+            }
+        };
+        refreshInputAssignmentsRef[0] = refreshInputAssignments;
+        refreshInputAssignments.run();
 
         Circle[] selectors = new Circle[4];
         Text[] selectorLabels = new Text[4];
@@ -13265,6 +13589,7 @@ public class BirdGame3 extends Application {
             if (fightSceneRef[0] != null) {
                 fightSceneRef[0].getProperties().put(SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS, activePlayers);
             }
+            normalizeXboxAssignmentsForLocalSetup();
             for (int i = 0; i < 4; i++) {
                 boolean active = i < activePlayers;
                 fightSlots[i].setVisible(active);
@@ -13285,6 +13610,7 @@ public class BirdGame3 extends Application {
                 }
                 updateSlot[i].run();
             }
+            refreshInputAssignments.run();
             updateReadyBanner.run();
         };
         refreshLayoutRef[0] = refreshLayout;
@@ -13333,6 +13659,7 @@ public class BirdGame3 extends Application {
                         selectionPane,
                         updateSlot,
                         updateReadyBanner,
+                        refreshInputAssignments,
                         tryStartMatch,
                         nullRockSequenceProgress,
                         selectorClaws,
@@ -13712,6 +14039,7 @@ public class BirdGame3 extends Application {
                                       BooleanSupplier tryStartMatch,
                                       int[] nullRockSequenceProgress) {
         if (idx < 0 || idx >= activePlayers) return false;
+        if (!keyboardControlsPlayer(idx)) return false;
         if (selector == null || label == null) return false;
 
         KeyCode code = e.getCode();
@@ -13885,34 +14213,53 @@ public class BirdGame3 extends Application {
         mapName.setTextFill(Color.web("#FFF8E1"));
         applyNoEllipsis(mapName);
 
-        Label mapBody = new Label(towerDefenseMapDescription(MapType.FOREST));
+        Label mapBody = new Label(towerDefenseMapDescription());
         mapBody.setFont(Font.font("Consolas", 18));
         mapBody.setTextFill(Color.web("#D8EFE0"));
         mapBody.setWrapText(true);
         mapBody.setMaxWidth(820);
         applyNoEllipsis(mapBody);
 
-        HBox badgeRow = new HBox(12);
-        badgeRow.setAlignment(Pos.CENTER);
+        HBox difficultyRow = new HBox(12);
+        difficultyRow.setAlignment(Pos.CENTER);
         for (TowerDefenseMode.Difficulty difficulty : TowerDefenseMode.Difficulty.values()) {
-            boolean earned = hasTowerDefenseBadge(MapType.FOREST, difficulty);
-            Label slot = new Label(difficulty.label.toUpperCase(Locale.ROOT) + "\n" + (earned ? "BADGE EARNED" : "EMPTY SLOT"));
-            slot.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
-            slot.setTextAlignment(TextAlignment.CENTER);
-            slot.setAlignment(Pos.CENTER);
-            slot.setPrefSize(168, 62);
-            slot.setTextFill(earned ? Color.web("#16331F") : Color.web("#ECEFF1"));
-            slot.setStyle("-fx-background-color: " + (earned ? "#A5D6A7" : "rgba(11,25,18,0.92)")
-                    + "; -fx-border-color: " + (earned ? "#FFF59D" : "#4F7E62")
-                    + "; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
-            applyNoEllipsis(slot);
-            badgeRow.getChildren().add(slot);
+            boolean earned = hasTowerDefenseBadge(difficulty);
+            String color = switch (difficulty) {
+                case EASY -> "#2E7D32";
+                case MEDIUM -> "#EF6C00";
+                case HARD -> "#C62828";
+            };
+            Button difficultyBtn = uiFactory.action(
+                    "",
+                    250, 112, 16, color, 14,
+                    () -> showTowerDefenseMode(stage, MapType.FOREST, difficulty)
+            );
+            Label difficultyLabel = new Label(difficulty.label.toUpperCase(Locale.ROOT));
+            difficultyLabel.setFont(Font.font("Arial Black", 24));
+            difficultyLabel.setTextFill(Color.web("#FFF8E1"));
+            difficultyLabel.setTextAlignment(TextAlignment.CENTER);
+            applyNoEllipsis(difficultyLabel);
+
+            StackPane buttonGraphic = new StackPane(difficultyLabel);
+            buttonGraphic.setPrefSize(210, 72);
+            buttonGraphic.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+            if (earned) {
+                Canvas badgeIcon = towerDefenseBadgeIcon();
+                StackPane.setAlignment(badgeIcon, Pos.TOP_RIGHT);
+                StackPane.setMargin(badgeIcon, new Insets(0, 2, 0, 0));
+                buttonGraphic.getChildren().add(badgeIcon);
+            }
+
+            difficultyBtn.setGraphic(buttonGraphic);
+            difficultyBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            difficultyBtn.setText(null);
+            difficultyBtn.setAlignment(Pos.CENTER);
+            difficultyRow.getChildren().add(difficultyBtn);
         }
 
-        Button openMapBtn = uiFactory.action("OPEN BIG FOREST", 420, 88, 30, "#2E7D32", 22, () -> showTowerDefenseDifficultySelect(stage, MapType.FOREST));
         Button back = uiFactory.action("BACK", 360, 88, 30, "#C62828", 24, () -> showHub(stage));
 
-        VBox mapCard = new VBox(18, preview, mapName, mapBody, badgeRow, openMapBtn);
+        VBox mapCard = new VBox(18, preview, mapName, mapBody, difficultyRow);
         mapCard.setAlignment(Pos.CENTER);
         mapCard.setPadding(new Insets(26));
         mapCard.setMaxWidth(900);
@@ -13927,151 +14274,7 @@ public class BirdGame3 extends Application {
         applyConsoleHighlight(scene);
         bindScaleToFit(scene, root);
         setScenePreservingFullscreen(stage, scene);
-        openMapBtn.requestFocus();
-    }
-
-    private void showTowerDefenseDifficultySelect(Stage stage, MapType map) {
-        bossRushModeActive = false;
-        dailyChallengeModeActive = false;
-        classicModeActive = false;
-        storyModeActive = false;
-        adventureModeActive = false;
-        selectedMap = map == null ? MapType.FOREST : map;
-        startMusic();
-
-        VBox root = new VBox(22);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(52));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #07110C, #113221, #1B4630);");
-
-        Label title = new Label(mapDisplayName(selectedMap).toUpperCase(Locale.ROOT));
-        title.setFont(Font.font("Arial Black", 78));
-        title.setTextFill(Color.web("#FFF59D"));
-        applyNoEllipsis(title);
-
-        Label subtitle = new Label(towerDefenseMapDescription(selectedMap)
-                + "\nChoose the grove difficulty. Clear a run to claim the badge and Bird Coins.");
-        subtitle.setFont(Font.font("Consolas", 22));
-        subtitle.setTextFill(Color.web("#D0E8D6"));
-        subtitle.setWrapText(true);
-        subtitle.setMaxWidth(980);
-        subtitle.setTextAlignment(TextAlignment.CENTER);
-        subtitle.setAlignment(Pos.CENTER);
-        applyNoEllipsis(subtitle);
-
-        VBox difficultyBox = new VBox(16);
-        difficultyBox.setAlignment(Pos.CENTER);
-        difficultyBox.setPadding(new Insets(28));
-        difficultyBox.setMaxWidth(980);
-        difficultyBox.setStyle("-fx-background-color: rgba(0,0,0,0.42); -fx-background-radius: 28; "
-                + "-fx-border-color: #4CAF50; -fx-border-width: 3; -fx-border-radius: 28;");
-
-        java.util.function.Function<TowerDefenseMode.Difficulty, Button> difficultyButton = difficulty -> {
-            String color = switch (difficulty) {
-                case EASY -> "#2E7D32";
-                case MEDIUM -> "#EF6C00";
-                case HARD -> "#C62828";
-            };
-            String badgeText = hasTowerDefenseBadge(selectedMap, difficulty) ? "BADGE EARNED" : "BADGE OPEN";
-            Button button = uiFactory.action(
-                    difficulty.label.toUpperCase(Locale.ROOT) + "  |  +" + towerDefenseCoinReward(difficulty) + " BIRD COINS\n"
-                            + towerDefenseDifficultySummary(difficulty) + "  |  " + badgeText,
-                    820, 108, 26, color, 20, null
-            );
-            button.setWrapText(true);
-            button.setTextAlignment(TextAlignment.CENTER);
-            button.setOnAction(e -> {
-                playButtonClick();
-                showTowerDefenseMode(stage, selectedMap, difficulty);
-            });
-            return button;
-        };
-
-        Button easyBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.EASY);
-        Button mediumBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.MEDIUM);
-        Button hardBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.HARD);
-        Button back = uiFactory.action("BACK", 360, 88, 30, "#C62828", 24, () -> showTowerDefenseMapSelect(stage));
-        difficultyBox.getChildren().addAll(easyBtn, mediumBtn, hardBtn, back);
-
-        root.getChildren().addAll(title, subtitle, difficultyBox);
-
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        bindEscape(scene, back);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        bindScaleToFit(scene, root);
-        setScenePreservingFullscreen(stage, scene);
-        easyBtn.requestFocus();
-    }
-
-    private void showTowerDefenseMode(Stage stage) {
-        bossRushModeActive = false;
-        dailyChallengeModeActive = false;
-        classicModeActive = false;
-        storyModeActive = false;
-        adventureModeActive = false;
-        selectedMap = MapType.FOREST;
-        startMusic();
-
-        VBox root = new VBox(22);
-        root.setAlignment(Pos.CENTER);
-        root.setPadding(new Insets(60));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #08120D, #10281C, #183926);");
-
-        Label title = new Label("BIG FOREST DEFENSE");
-        title.setFont(Font.font("Arial Black", 82));
-        title.setTextFill(Color.web("#FFF59D"));
-
-        Label subtitle = new Label("Choose a difficulty before the grove opens. Harder modes cost more and forgive less.");
-        subtitle.setFont(Font.font("Consolas", 24));
-        subtitle.setTextFill(Color.web("#D0E8D6"));
-        subtitle.setWrapText(true);
-        subtitle.setMaxWidth(980);
-        subtitle.setTextAlignment(TextAlignment.CENTER);
-        subtitle.setAlignment(Pos.CENTER);
-        applyNoEllipsis(subtitle);
-
-        VBox difficultyBox = new VBox(16);
-        difficultyBox.setAlignment(Pos.CENTER);
-        difficultyBox.setPadding(new Insets(28));
-        difficultyBox.setMaxWidth(980);
-        difficultyBox.setStyle("-fx-background-color: rgba(0,0,0,0.42); -fx-background-radius: 28; "
-                + "-fx-border-color: #4CAF50; -fx-border-width: 3; -fx-border-radius: 28;");
-
-        java.util.function.Function<TowerDefenseMode.Difficulty, Button> difficultyButton = difficulty -> {
-            String color = switch (difficulty) {
-                case EASY -> "#2E7D32";
-                case MEDIUM -> "#EF6C00";
-                case HARD -> "#C62828";
-            };
-            Button button = uiFactory.action(
-                    difficulty.label.toUpperCase(Locale.ROOT) + "  •  " + difficulty.roundCount + " ROUNDS\n"
-                            + difficulty.description(),
-                    760, 108, 28, color, 22, null
-            );
-            button.setWrapText(true);
-            button.setTextAlignment(TextAlignment.CENTER);
-            button.setOnAction(e -> {
-                playButtonClick();
-                showTowerDefenseMode(stage, difficulty);
-            });
-            return button;
-        };
-
-        Button easyBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.EASY);
-        Button mediumBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.MEDIUM);
-        Button hardBtn = difficultyButton.apply(TowerDefenseMode.Difficulty.HARD);
-        Button back = uiFactory.action("BACK", 360, 88, 30, "#C62828", 24, () -> showHub(stage));
-        difficultyBox.getChildren().addAll(easyBtn, mediumBtn, hardBtn, back);
-
-        root.getChildren().addAll(title, subtitle, difficultyBox);
-
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        bindEscape(scene, back);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        setScenePreservingFullscreen(stage, scene);
-        easyBtn.requestFocus();
+        difficultyRow.getChildren().getFirst().requestFocus();
     }
 
     private void showTowerDefenseMode(Stage stage, MapType map, TowerDefenseMode.Difficulty difficulty) {
@@ -14320,16 +14523,7 @@ public class BirdGame3 extends Application {
         panelBottom.setFillWidth(true);
         panelBottom.setMaxWidth(Double.MAX_VALUE);
 
-        BorderPane sidePanel = new BorderPane();
-        sidePanel.setTop(panelTop);
-        sidePanel.setCenter(contentScroll);
-        sidePanel.setBottom(panelBottom);
-        sidePanel.setPadding(new Insets(18));
-        sidePanel.setPrefWidth(360);
-        sidePanel.setMinWidth(320);
-        sidePanel.setMaxWidth(380);
-        sidePanel.setStyle("-fx-background-color: rgba(3,10,7,0.88); -fx-background-radius: 28; -fx-border-color: #3F6F58; "
-                + "-fx-border-width: 2; -fx-border-radius: 28;");
+        BorderPane sidePanel = getBorderPane(panelTop, contentScroll, panelBottom);
         startRoundBtn.prefWidthProperty().bind(sidePanel.widthProperty().subtract(48).subtract(12).divide(2.0));
         speedBtn.prefWidthProperty().bind(sidePanel.widthProperty().subtract(48).subtract(12).divide(2.0));
         startRoundGraphicWrap.prefWidthProperty().bind(startRoundBtn.widthProperty());
@@ -14833,6 +15027,20 @@ public class BirdGame3 extends Application {
         applyConsoleHighlight(scene);
         tdTimer[0].start();
         javafx.application.Platform.runLater(canvas::requestFocus);
+    }
+
+    private static BorderPane getBorderPane(VBox panelTop, ScrollPane contentScroll, VBox panelBottom) {
+        BorderPane sidePanel = new BorderPane();
+        sidePanel.setTop(panelTop);
+        sidePanel.setCenter(contentScroll);
+        sidePanel.setBottom(panelBottom);
+        sidePanel.setPadding(new Insets(18));
+        sidePanel.setPrefWidth(360);
+        sidePanel.setMinWidth(320);
+        sidePanel.setMaxWidth(380);
+        sidePanel.setStyle("-fx-background-color: rgba(3,10,7,0.88); -fx-background-radius: 28; -fx-border-color: #3F6F58; "
+                + "-fx-border-width: 2; -fx-border-radius: 28;");
+        return sidePanel;
     }
 
     private void resetTournamentRun() {
@@ -21799,11 +22007,31 @@ public class BirdGame3 extends Application {
         return badge;
     }
 
-    private boolean hasTowerDefenseBadge(MapType map, TowerDefenseMode.Difficulty difficulty) {
-        if (map == null || difficulty == null) {
+    private Canvas towerDefenseBadgeIcon() {
+        Canvas icon = new Canvas(26, 26);
+        GraphicsContext g = icon.getGraphicsContext2D();
+        g.setFill(Color.web("#7A5A16"));
+        g.fillOval(4, 4, 18, 18);
+        g.setFill(Color.web("#FDD835"));
+        g.fillOval(6, 6, 14, 14);
+        g.setStroke(Color.web("#FFF8E1"));
+        g.setLineWidth(1.6);
+        g.strokeOval(6.5, 6.5, 13, 13);
+        g.setStroke(Color.web("#6D4C41"));
+        g.setLineWidth(1.8);
+        g.strokeLine(13, 9, 13, 17);
+        g.strokeLine(9, 13, 17, 13);
+        g.setFill(Color.web("#EF6C00"));
+        g.fillPolygon(new double[]{10, 13, 11}, new double[]{20, 24, 24}, 3);
+        g.fillPolygon(new double[]{15, 13, 16}, new double[]{20, 24, 24}, 3);
+        return icon;
+    }
+
+    private boolean hasTowerDefenseBadge(TowerDefenseMode.Difficulty difficulty) {
+        if (difficulty == null) {
             return false;
         }
-        return towerDefenseDifficultyBadges[map.ordinal()][difficulty.ordinal()];
+        return towerDefenseDifficultyBadges[MapType.FOREST.ordinal()][difficulty.ordinal()];
     }
 
     private boolean awardTowerDefenseBadge(MapType map, TowerDefenseMode.Difficulty difficulty) {
@@ -21827,19 +22055,8 @@ public class BirdGame3 extends Application {
         };
     }
 
-    private String towerDefenseDifficultySummary(TowerDefenseMode.Difficulty difficulty) {
-        if (difficulty == null) {
-            return "";
-        }
-        return difficulty.roundCount + " rounds | " + difficulty.startingLives + " lives | "
-                + Math.round(difficulty.priceMultiplier * 100.0) + "% prices";
-    }
-
-    private String towerDefenseMapDescription(MapType map) {
-        if (map == MapType.FOREST) {
-            return "A top-down Big Forest defense route with a winding dirt trail, wide clearings, and long sightlines for grove birds.";
-        }
-        return mapDescription(map);
+    private String towerDefenseMapDescription() {
+        return "A top-down Big Forest defense route with a winding dirt trail, wide clearings, and long sightlines for grove birds.";
     }
 
     private String classicRewardFor(BirdType type) {
@@ -25895,7 +26112,7 @@ public class BirdGame3 extends Application {
 
     private void pollWiimoteGameplayInputs() {
         clearActionStates(wiimoteActionPressed);
-        if (wiimoteInputManager == null) {
+        if (wiimoteInputManager == null && xboxInputManager == null) {
             Arrays.fill(wiimoteLeftHeld, false);
             Arrays.fill(wiimoteRightHeld, false);
             Arrays.fill(wiimoteGameplayPauseHeld, false);
@@ -25918,8 +26135,8 @@ public class BirdGame3 extends Application {
                 resetWiimoteGameplayHoldState(i);
                 continue;
             }
-            WiimoteMappedState state = wiimoteInputManager.stateForPlayer(i);
-            boolean connected = state != null && state.connected();
+            WiimoteMappedState state = controllerStateForPlayer(i);
+            boolean connected = state.connected();
             boolean left = connected && state.left();
             boolean right = connected && state.right();
             boolean jump = connected && state.jump();
@@ -25958,8 +26175,8 @@ public class BirdGame3 extends Application {
 
     private void syncLanWiimoteInputMask() {
         int wiimotePlayer = Math.clamp(Math.max(lanPlayerIndex, 0), 0, 3);
-        WiimoteMappedState state = wiimoteInputManager.stateForPlayer(wiimotePlayer);
-        boolean connected = state != null && state.connected();
+        WiimoteMappedState state = controllerStateForPlayer(wiimotePlayer);
+        boolean connected = state.connected();
         boolean left = connected && state.left();
         boolean right = connected && state.right();
         boolean jump = connected && state.jump();
@@ -25998,6 +26215,7 @@ public class BirdGame3 extends Application {
         int maxPlayers = Math.min(activePlayers, localActionPressed.length);
         for (int i = 0; i < maxPlayers; i++) {
             if (isAI[i]) continue;
+            if (!keyboardControlsPlayer(i)) continue;
             if (lanModeActive && lanIsHost && i != 0) continue;
             ControlAction action = actionForKey(i, code);
             if (action != null) {
@@ -30475,6 +30693,7 @@ public class BirdGame3 extends Application {
         if (timer != null) timer.stop();
         if (wiimoteMenuTimer != null) wiimoteMenuTimer.stop();
         if (wiimoteInputManager != null) wiimoteInputManager.close();
+        if (xboxInputManager != null) xboxInputManager.close();
         stopLanSession();
         flushAchievementsNow();
         disposeAllManagedMediaPlayers();

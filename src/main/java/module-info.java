@@ -3,6 +3,7 @@ module com.example.birdgame3 {
     requires java.prefs;
     requires javafx.media;
     requires hid4java;
+    requires com.sun.jna;
 
-    opens com.example.birdgame3 to javafx.graphics;
+    opens com.example.birdgame3 to javafx.graphics, com.sun.jna;
 }

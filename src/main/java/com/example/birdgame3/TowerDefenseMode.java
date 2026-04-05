@@ -1287,6 +1287,7 @@ final class TowerDefenseMode {
                 continue;
             }
             enemies.remove(i);
+            game.playTowerDefenseBlightPopSfx(Math.min(1.0, 0.22 + enemy.kind.leakDamage / 18.0));
             cash += enemy.cashAward;
             pulses.add(new Pulse(enemy.x, enemy.y, enemy.kind.radius * 1.8, enemy.kind.accent.deriveColor(0, 1, 1, 0.7), 0.2));
             if (enemy.kind.childKind != null && enemy.kind.childCount > 0 && !enemy.deathSpawnTriggered) {
