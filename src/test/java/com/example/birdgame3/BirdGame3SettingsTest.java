@@ -226,27 +226,6 @@ class BirdGame3SettingsTest {
     }
 
     @Test
-    void newProfilesDefaultToShowingStartHereGuide() {
-        BirdGame3 game = new BirdGame3();
-
-        assertTrue(game.shouldAutoShowStartHere());
-    }
-
-    @Test
-    void persistAchievementsRoundTripsStartHereGuideCompletion() throws Exception {
-        BirdGame3 game = new BirdGame3();
-        setPrivateField(game, "startHereCompleted", true);
-        game.persistAchievements(prefs);
-
-        BirdGame3 reloaded = new BirdGame3();
-        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
-        loadProfileProgress.setAccessible(true);
-        loadProfileProgress.invoke(reloaded, prefs);
-
-        assertFalse(reloaded.shouldAutoShowStartHere());
-    }
-
-    @Test
     void persistAchievementsRoundTripsBossRushPerBirdRecords() throws Exception {
         BirdGame3 game = new BirdGame3();
         setPrivateBossRushBirdRecord(game, BirdGame3.BirdType.BAT, 505_000L, "S");

@@ -275,7 +275,6 @@ class BirdGame3BossBalanceTest {
         assertEquals("NULL_ROCK_VULTURE", recordValue(nullRockEntry, "skinKey"));
         assertEquals(BirdGame3.MapType.BEACON_CROWN, recordValue(nullRockEntry, "origin"));
         assertTrue((Boolean) recordValue(nullRockEntry, "unlocked"));
-        assertFalse((Boolean) recordValue(nullRockEntry, "showMastery"));
 
         @SuppressWarnings("unchecked")
         List<Object> companions = (List<Object>) recordValue(nullRockEntry, "companions");
@@ -350,24 +349,6 @@ class BirdGame3BossBalanceTest {
         assertTrue((Boolean) method.invoke(game, 0, KeyCode.D, selectorLocked, noop, progress));
         assertEquals("NULL_ROCK_VULTURE", selectedSkins[0]);
         assertEquals(0, progress[0]);
-    }
-
-    @Test
-    void localProgressPlayerCheckOnlyCountsLocalPlayers() throws Exception {
-        BirdGame3 game = new BirdGame3();
-        game.players[0] = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
-        game.players[1] = new Bird(200, BirdGame3.BirdType.EAGLE, 1, game);
-        game.isAI[0] = false;
-        game.isAI[1] = true;
-
-        assertTrue(BirdProgression.isLocalProgressPlayer(game.players, game.isAI, false, false, -1, 0));
-        assertFalse(BirdProgression.isLocalProgressPlayer(game.players, game.isAI, false, false, -1, 1));
-
-        game.lanModeActive = true;
-        setPrivateInt(game);
-
-        assertFalse(BirdProgression.isLocalProgressPlayer(game.players, game.isAI, false, true, 1, 0));
-        assertTrue(BirdProgression.isLocalProgressPlayer(game.players, game.isAI, false, true, 1, 1));
     }
 
     @Test

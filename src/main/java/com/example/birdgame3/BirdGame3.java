@@ -18,6 +18,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Point2D;
 import javafx.geometry.Bounds;
+import javafx.scene.Group;
 import javafx.scene.Node;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
@@ -39,6 +40,7 @@ import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.effect.DropShadow;
+import javafx.scene.effect.Effect;
 import javafx.scene.effect.Glow;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
@@ -61,10 +63,17 @@ import javafx.scene.text.Text;
 import javafx.scene.text.TextAlignment;
 import javafx.scene.shape.Circle;
 import javafx.scene.shape.Line;
+import javafx.scene.shape.ClosePath;
+import javafx.scene.shape.LineTo;
+import javafx.scene.shape.MoveTo;
+import javafx.scene.shape.Path;
+import javafx.scene.shape.PathElement;
 import javafx.scene.shape.Polygon;
+import javafx.scene.shape.QuadCurveTo;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.Arc;
 import javafx.scene.shape.ArcType;
+import javafx.scene.shape.Shape;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.transform.Rotate;
 import javafx.geometry.Rectangle2D;
@@ -126,6 +135,18 @@ public class BirdGame3 extends Application {
     private static final int VERIFIED_COMPETITION_MATCH_BONUS = 20;
     private static final int DAILY_CHALLENGE_FIRST_CLEAR_BONUS = 180;
     private static final int MATCH_HISTORY_LIMIT = 20;
+    private static final String[] HUB_TIPS = {
+            "Recover early and save your jump so you still have options offstage.",
+            "Training is the fastest way to test ranges, confirms, and recovery angles.",
+            "Adventure is the safest route for unlocking birds and learning matchups.",
+            "Boss Rush rewards clean routing more than risky coin-flip scrambles.",
+            "Tower Defense badges are tracked per difficulty, so every tier matters.",
+            "Ground block turns into a fast fall in the air, so use it deliberately.",
+            "Bird Coins come from matches, achievements, and steady route clears.",
+            "Featherpedia lists unlock paths when you need a bird or skin target.",
+            "Test LAN controls before the set so rooms do not stall at the start.",
+            "Tournament mode works best when every player locks a real main first."
+    };
     private static final String UNITED_FINALE_CHAPTER_TITLE = "Chapter 9: Sky of All Wings";
     private static final String UNITED_FINALE_PENULTIMATE_TITLE = "Battle 2: Crack the Crown";
     private static final String UNITED_FINALE_CLIMAX_TITLE = "Battle 3: The Null Rock";
@@ -170,7 +191,6 @@ public class BirdGame3 extends Application {
     private static final String PREF_SETTING_MUSIC_VOLUME = "setting_music_volume";
     private static final String PREF_SETTING_SFX_VOLUME = "setting_sfx_volume";
     private static final String PREF_WIIMOTE_MODE_PREFIX = "setting_wiimote_mode_p";
-    private static final String PREF_START_HERE_COMPLETED = "start_here_completed";
     private static final int ACHIEVEMENT_SCHEMA_VERSION = 2;
     private static final String SCENE_PROP_WIIMOTE_SELECTOR = "wiimote_selector_scene";
     private static final String SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS = "wiimote_selector_players";
@@ -219,15 +239,12 @@ public class BirdGame3 extends Application {
             PREF_BIRD_COINS_CHECKSUM
     );
     private final GameSaveRepository saveRepository;
-    private final BirdProgression progression = new BirdProgression(BirdType.values());
     private PauseTransition achievementSaveDebounce;
     private boolean achievementSaveQueued = false;
     private final Deque<AchievementToastPayload> achievementToastQueue = new ArrayDeque<>();
     private Popup achievementToastPopup;
     private SequentialTransition achievementToastAnimation;
     private boolean achievementToastShowing = false;
-    private boolean startHereCompleted = false;
-
     final Set<KeyCode> pressedKeys = new HashSet<>();
     private final boolean[][] localActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[][] aiActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
@@ -1116,12 +1133,10 @@ public class BirdGame3 extends Application {
 
             // SPACE/ENTER = SELECT + CLICK SOUND ON EVERY BUTTON
             if (code == KeyCode.SPACE || code == KeyCode.ENTER) {
-                playButtonClick();   // guaranteed sound on every button
                 Node focus = scene.getFocusOwner();
-                if (focus instanceof Button btn) {
-                    btn.fire();
+                if (activateInteractiveNode(focus)) {
+                    e.consume();
                 }
-                e.consume();
             }
         });
     }
@@ -2128,6 +2143,9 @@ public class BirdGame3 extends Application {
         Node node = target;
         while (node != null) {
             if (node instanceof Control) return true;
+            if (node.getProperties().get("uiAction") instanceof Runnable) {
+                return true;
+            }
             if (node.getOnMousePressed() != null
                     || node.getOnMouseClicked() != null
                     || node.getOnMouseDragged() != null
@@ -2135,6 +2153,26 @@ public class BirdGame3 extends Application {
                 return true;
             }
             node = node.getParent();
+        }
+        return false;
+    }
+
+    private boolean activateInteractiveNode(Node node) {
+        if (node == null) return false;
+        Node cursor = node;
+        while (cursor != null) {
+            if (cursor instanceof Button button) {
+                playButtonClick();
+                button.fire();
+                return true;
+            }
+            Object action = cursor.getProperties().get("uiAction");
+            if (action instanceof Runnable runnable) {
+                playButtonClick();
+                runnable.run();
+                return true;
+            }
+            cursor = cursor.getParent();
         }
         return false;
     }
@@ -2202,8 +2240,9 @@ public class BirdGame3 extends Application {
         b.setTextAlignment(TextAlignment.CENTER);
         b.setAlignment(Pos.CENTER);
 
-        Font current = b.getFont() != null ? b.getFont() : Font.font("Arial Black", 30);
-        double size = current.getSize();
+        Font baseFont = (Font) b.getProperties().computeIfAbsent("baseFont", k ->
+                b.getFont() != null ? b.getFont() : Font.font("Arial Black", 30));
+        double size = baseFont.getSize();
         double minSize = Math.min(12, size);
         double width = b.getPrefWidth() > 0 ? b.getPrefWidth() : 420;
         double height = b.getPrefHeight() > 0 ? b.getPrefHeight() : 96;
@@ -2213,7 +2252,7 @@ public class BirdGame3 extends Application {
         List<String> bestLines = List.of(original);
         double chosen = minSize;
         while (size > minSize) {
-            Font trial = Font.font(current.getFamily(), size);
+            Font trial = Font.font(baseFont.getFamily(), size);
             List<String> lines = wrapTextToLines(original, trial, availableW);
             double lineH = measureTextHeight(trial) * 1.12;
             double blockH = lines.size() * lineH;
@@ -2227,14 +2266,13 @@ public class BirdGame3 extends Application {
         }
 
         if (size <= minSize) {
-            Font trial = Font.font(current.getFamily(), minSize);
+            Font trial = Font.font(baseFont.getFamily(), minSize);
             bestLines = wrapTextToLines(original, trial, availableW);
             chosen = minSize;
         }
 
-        b.setFont(Font.font(current.getFamily(), chosen));
+        setLockedButtonFont(b, Font.font(baseFont.getFamily(), chosen));
         b.setText(String.join("\n", bestLines));
-        storeLockedFont(b, b.getFont());
     }
 
     private void fitWrappedLabelText(Label label, String original, double availableW, double availableH, double minSize) {
@@ -2279,27 +2317,28 @@ public class BirdGame3 extends Application {
     private void installButtonFontLock(Button b) {
         if (b == null) return;
         if (Boolean.TRUE.equals(b.getProperties().get("fontLockInstalled"))) {
-            if (!b.isHover() && !b.isPressed() && !b.isFocused()) {
-                storeLockedFont(b, b.getFont());
-            }
+            enforceLockedFont(b);
             return;
         }
         b.getProperties().put("fontLockInstalled", true);
+        b.getProperties().putIfAbsent("baseFont", b.getFont());
         storeLockedFont(b, b.getFont());
 
         ChangeListener<Boolean> enforce = (obs, oldVal, newVal) -> enforceLockedFont(b);
         b.hoverProperty().addListener(enforce);
         b.focusedProperty().addListener(enforce);
         b.pressedProperty().addListener(enforce);
-
         b.fontProperty().addListener((obs, oldFont, newFont) -> {
             if (Boolean.TRUE.equals(b.getProperties().get("fontLockUpdating"))) return;
             if (newFont == null) return;
-            if (!b.isHover() && !b.isPressed() && !b.isFocused()) {
+            Font locked = (Font) b.getProperties().get("lockedFont");
+            if (locked == null) {
                 storeLockedFont(b, newFont);
                 return;
             }
-            enforceLockedFont(b);
+            if (!newFont.equals(locked)) {
+                enforceLockedFont(b);
+            }
         });
     }
 
@@ -2308,15 +2347,24 @@ public class BirdGame3 extends Application {
         b.getProperties().put("lockedFont", font);
     }
 
+    private void setLockedButtonFont(Button b, Font font) {
+        if (b == null || font == null) return;
+        b.getProperties().put("fontLockUpdating", true);
+        try {
+            storeLockedFont(b, font);
+            b.setFont(font);
+        } finally {
+            b.getProperties().put("fontLockUpdating", false);
+        }
+    }
+
     private void enforceLockedFont(Button b) {
         if (b == null) return;
         Font locked = (Font) b.getProperties().get("lockedFont");
         if (locked == null) return;
         Font current = b.getFont();
         if (current != null && current.equals(locked)) return;
-        b.getProperties().put("fontLockUpdating", true);
-        b.setFont(locked);
-        b.getProperties().put("fontLockUpdating", false);
+        setLockedButtonFont(b, locked);
     }
 
     private List<String> wrapTextToLines(String text, Font font, double maxWidth) {
@@ -3205,28 +3253,27 @@ public class BirdGame3 extends Application {
     }
 
     private boolean isHighlightEligible(Control ctrl) {
-        return ctrl.isFocusTraversable() && !ctrl.isDisabled();
+        return ctrl.isFocusTraversable()
+                && !ctrl.isDisabled()
+                && !Boolean.TRUE.equals(ctrl.getProperties().get("skipConsoleHighlight"));
     }
 
     private void highlightControlSimple(Control ctrl) {
-        String original = ctrl.getStyle();
-        ctrl.getProperties().put("highlightRestoreStyle", original);
-        String marker = "-fx-effect: dropshadow(three-pass-box, rgba(255,255,255,0.9), 18, 0.6, 0, 0);";
-        ctrl.getProperties().put("highlightMarker", marker);
-        String style = original == null ? "" : original;
-        if (!style.contains("-fx-effect: dropshadow")) {
-            ctrl.setStyle(style + (style.isBlank() ? "" : "; ") + marker);
+        if (!Boolean.TRUE.equals(ctrl.getProperties().get("highlightEffectInstalled"))) {
+            ctrl.getProperties().put("highlightEffectInstalled", true);
+            ctrl.getProperties().put("highlightRestoreEffect", ctrl.getEffect());
         }
+        Effect baseEffect = (Effect) ctrl.getProperties().get("highlightRestoreEffect");
+        DropShadow glow = new DropShadow(18, Color.rgb(255, 255, 255, 0.9));
+        glow.setSpread(0.22);
+        glow.setInput(baseEffect);
+        ctrl.setEffect(glow);
     }
 
     private void restoreControl(Control ctrl) {
-        Object markerData = ctrl.getProperties().get("highlightMarker");
-        if (!(markerData instanceof String marker) || marker.isBlank()) return;
-        String style = ctrl.getStyle();
-        if (style == null || style.isBlank()) return;
-        String restored = style.replace(marker, "").replace(";;", ";").trim();
-        if (restored.endsWith(";")) restored = restored.substring(0, restored.length() - 1).trim();
-        ctrl.setStyle(restored);
+        if (!Boolean.TRUE.equals(ctrl.getProperties().get("highlightEffectInstalled"))) return;
+        Effect original = (Effect) ctrl.getProperties().get("highlightRestoreEffect");
+        ctrl.setEffect(original);
     }
 
     // === SOUND & MUSIC ===
@@ -11261,35 +11308,7 @@ public class BirdGame3 extends Application {
         disposeGameplayMusicPlayer();
         victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, false);
         playMenuMusic();
-        if (shouldAutoShowStartHere()) {
-            showStartHere(stage);
-            return;
-        }
         showHub(stage);
-    }
-
-    boolean shouldAutoShowStartHere() {
-        return !startHereCompleted;
-    }
-
-    private void completeStartHereGuide() {
-        if (startHereCompleted) {
-            return;
-        }
-        startHereCompleted = true;
-        saveAchievements();
-    }
-
-    private void leaveStartHereToHub(Stage stage) {
-        completeStartHereGuide();
-        showHub(stage);
-    }
-
-    private void launchStartHereDestination(Runnable nextStep) {
-        completeStartHereGuide();
-        if (nextStep != null) {
-            nextStep.run();
-        }
     }
 
     private void drawRosterSprite(Canvas canvas, BirdType type, String skinKey, boolean randomPick) {
@@ -11333,6 +11352,10 @@ public class BirdGame3 extends Application {
     }
 
     private void drawVictoryRosterSprite(Canvas canvas, BirdType type, String skinKey) {
+        drawVictoryRosterSprite(canvas, type, skinKey, false);
+    }
+
+    private void drawVictoryRosterSprite(Canvas canvas, BirdType type, String skinKey, boolean winnerPose) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -11347,13 +11370,15 @@ public class BirdGame3 extends Application {
         preview.suppressSelectEffects = type != BirdType.TITMOUSE;
         applyPreviewSkinChoiceToBird(preview, type, skinKey);
 
+        VictoryPortraitLayout layout = victoryPortraitLayout(type, winnerPose);
         double baseSize = Math.min(w, h);
-        double pad = Math.min(8, baseSize * 0.05);
-        double extentFactor = (type == BirdType.BAT) ? 2.7 : 1.18;
-        preview.sizeMultiplier = Math.clamp((baseSize - pad * 2) / (80.0 * extentFactor), 0.72, 1.34);
+        double pad = Math.max(12.0, baseSize * (winnerPose ? 0.06 : 0.07));
+        preview.sizeMultiplier = Math.clamp((baseSize - pad * 2) / (80.0 * layout.extentFactor()),
+                layout.minScale(),
+                layout.maxScale());
         double drawSize = 80 * preview.sizeMultiplier;
-        preview.x = (w - drawSize) / 2.0;
-        preview.y = (h - drawSize) / 2.0 + pad * 0.5;
+        preview.x = (w - drawSize) / 2.0 + w * layout.xBias();
+        preview.y = (h - drawSize) / 2.0 + h * layout.yBias();
         preview.facingRight = true;
         preview.draw(g);
     }
@@ -11528,13 +11553,57 @@ public class BirdGame3 extends Application {
         double holderHeight = Math.max(150, cardWidth * 0.55);
         artHolder.setMinHeight(holderHeight);
         artHolder.setPrefHeight(holderHeight);
+        artHolder.setMaxHeight(holderHeight);
 
         Label counter = bookBody("", 12);
         counter.setTextFill(Color.web("#90A4AE"));
         counter.setVisible(total > 1);
         counter.setManaged(total > 1);
 
+        double contentWidth = cardWidth - 26;
+        double reservedTitleHeight = 0.0;
+        double reservedCategoryHeight = 0.0;
+        for (ShopPreview preview : safePreviews) {
+            String previewName = shopPreviewName(preview);
+            if (previewName == null || previewName.isBlank()) {
+                previewName = "REWARD";
+            }
+            reservedTitleHeight = Math.max(
+                    reservedTitleHeight,
+                    measureWrappedBlockHeight(previewName, title.getFont(), contentWidth)
+            );
+            reservedCategoryHeight = Math.max(
+                    reservedCategoryHeight,
+                    measureWrappedBlockHeight(shopPreviewCategory(preview), category.getFont(), contentWidth)
+            );
+        }
+        reservedTitleHeight = Math.max(reservedTitleHeight, measureWrappedBlockHeight("REWARD", title.getFont(), contentWidth));
+        reservedCategoryHeight = Math.max(reservedCategoryHeight, measureWrappedBlockHeight("CATEGORY", category.getFont(), contentWidth));
+        title.setMinHeight(reservedTitleHeight);
+        title.setPrefHeight(reservedTitleHeight);
+        title.setMaxHeight(reservedTitleHeight);
+        category.setMinHeight(reservedCategoryHeight);
+        category.setPrefHeight(reservedCategoryHeight);
+        category.setMaxHeight(reservedCategoryHeight);
+
+        double counterHeight = 0.0;
+        if (total > 1) {
+            counterHeight = measureWrappedBlockHeight("99 / 99", counter.getFont(), contentWidth);
+            counter.setMinHeight(counterHeight);
+            counter.setPrefHeight(counterHeight);
+            counter.setMaxHeight(counterHeight);
+        }
+
         card.getChildren().addAll(title, category, artHolder, counter);
+        double cardHeight = 18 * 2
+                + reservedTitleHeight
+                + reservedCategoryHeight
+                + holderHeight
+                + counterHeight
+                + (total > 1 ? 3 : 2) * 12;
+        card.setMinHeight(cardHeight);
+        card.setPrefHeight(cardHeight);
+        card.setMaxHeight(cardHeight);
 
         Runnable update = () -> {
             ShopPreview preview = safePreviews.get(index[0]);
@@ -11565,6 +11634,17 @@ public class BirdGame3 extends Application {
         }
 
         return card;
+    }
+
+    private double measureWrappedBlockHeight(String text, Font font, double maxWidth) {
+        if (font == null) {
+            return 0.0;
+        }
+        List<String> lines = wrapTextToLines(text == null ? "" : text, font, Math.max(1.0, maxWidth));
+        if (lines.isEmpty()) {
+            lines = List.of(" ");
+        }
+        return lines.size() * measureTextHeight(font) * 1.12;
     }
 
     private Button buildHubNavButton(String text, double fontSize, String primary, String secondary, String accent, Node icon, Runnable action) {
@@ -11897,23 +11977,6 @@ public class BirdGame3 extends Application {
         return pane;
     }
 
-    private Node hubIconGuide() {
-        Pane pane = hubIconPane();
-        Rectangle cover = new Rectangle(10, 12, 36, 32);
-        cover.setArcWidth(6);
-        cover.setArcHeight(6);
-        cover.setFill(Color.web("#B3E5FC"));
-        cover.setStroke(Color.web("#E1F5FE"));
-        cover.setStrokeWidth(2);
-        Line spine = new Line(28, 12, 28, 44);
-        spine.setStroke(Color.web("#01579B"));
-        spine.setStrokeWidth(3);
-        Polygon arrow = new Polygon(16, 24, 28, 16, 28, 22, 40, 22, 40, 26, 28, 26, 28, 32);
-        arrow.setFill(Color.web("#0277BD"));
-        pane.getChildren().addAll(cover, spine, arrow);
-        return pane;
-    }
-
     private Node hubIconExit() {
         Pane pane = hubIconPane();
         Rectangle frame = new Rectangle(16, 12, 24, 32);
@@ -11976,176 +12039,200 @@ public class BirdGame3 extends Application {
     }
 
     private void showHub(Stage stage) {
-        refreshContractsIfNeeded();
         playMenuMusic();
         GameSaveRepository.SaveProfile activeProfile = saveRepository.activeProfile();
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(28, 40, 28, 40));
-        root.setStyle(MenuTheme.pageBackground());
+        StackPane root = new StackPane();
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #020203, #0C1017 38%, #030304 100%);");
 
-        Label title = new Label("BIRD FIGHT 3");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 96));
-        title.setTextFill(Color.web("#FFE082"));
-        title.setEffect(new DropShadow(50, Color.rgb(0, 0, 0, 0.85)));
+        AnchorPane frame = new AnchorPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.getChildren().add(buildUltimateHubBackdrop());
 
-        Label hubLabel = new Label("CENTRAL HUB");
-        hubLabel.setFont(Font.font("Consolas", 28));
-        hubLabel.setTextFill(Color.web("#80DEEA"));
-        hubLabel.setEffect(new DropShadow(12, Color.rgb(0, 0, 0, 0.6)));
+        Label helpTitle = new Label("CENTRAL HUB");
+        helpTitle.setFont(Font.font("Arial Black", 30));
+        helpTitle.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(helpTitle);
 
-        Region titleFlare = new Region();
-        titleFlare.setPrefSize(480, 4);
-        titleFlare.setStyle("-fx-background-color: linear-gradient(to right, transparent, rgba(255, 224, 130, 0.95), transparent);"
-                + "-fx-background-radius: 2;");
+        Label helpBody = new Label("Pick a mode tile or utility menu.");
+        helpBody.setFont(Font.font("Consolas", 20));
+        helpBody.setTextFill(Color.web("#F5F5F5"));
+        helpBody.setWrapText(true);
+        helpBody.setMaxWidth(860);
+        applyNoEllipsis(helpBody);
 
-        VBox titleBox = new VBox(6, title, hubLabel, titleFlare);
-        titleBox.setAlignment(Pos.CENTER);
+        Label footerStatus = new Label("PROFILE  " + activeProfile.name().toUpperCase(Locale.ROOT)
+                + "   |   BIRD COINS  " + birdCoinLedger.balance());
+        footerStatus.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        footerStatus.setTextFill(Color.web("#B0BEC5"));
+        applyNoEllipsis(footerStatus);
 
-        Label profileLabel = new Label("PROFILE: " + activeProfile.name());
-        profileLabel.setFont(Font.font("Consolas", 22));
-        profileLabel.setTextFill(Color.web("#80DEEA"));
+        final String defaultHelpTitle = "CENTRAL HUB";
+        final String defaultHelpBody = "Choose a panel to jump into versus battles, routes, unlocks, or support menus.";
+        List<Node> hubButtons = new ArrayList<>();
+        final double hubMainTop = 112.0;
+        final double hubMidline = 540.0;
+        final double hubLeftWidth = 744.0;
+        final double hubRightLeft = 744.0;
+        final double hubRightWidth = 712.0;
+        final double hubFightHeight = 428.0;
+        final double hubGamesHeight = 246.0;
+        final double hubShopHeight = 182.0;
+        final double hubBottomHeight = 314.0;
+        final double medallionTop = 244.0;
+        final double medallionLeft = 568.0;
 
-        Label coins = new Label("BIRD COINS: " + birdCoinLedger.balance());
-        coins.setFont(Font.font("Consolas", 24));
-        coins.setTextFill(Color.web("#FFD54F"));
+        StackPane tipPanel = buildUltimateHubTipPanel(randomHubTip());
+        AnchorPane.setTopAnchor(tipPanel, 0.0);
+        AnchorPane.setLeftAnchor(tipPanel, 0.0);
+        AnchorPane.setRightAnchor(tipPanel, 0.0);
 
-        VBox statusBox = new VBox(4, profileLabel, coins);
-        statusBox.setAlignment(Pos.TOP_RIGHT);
-        statusBox.setPadding(new Insets(12, 16, 12, 16));
-        statusBox.setStyle(MenuTheme.insetPanelStyle("#FFD54F", 20));
+        StackPane medallion = buildUltimateHubCenterMedallion(activeProfile);
+        medallion.setScaleX(1.04);
+        medallion.setScaleY(1.04);
+        medallion.setViewOrder(-500);
+        AnchorPane.setTopAnchor(medallion, medallionTop);
+        AnchorPane.setLeftAnchor(medallion, medallionLeft);
 
-        Pane logoArt = new Pane();
-        logoArt.setPrefSize(900, 200);
-        logoArt.setMinSize(900, 200);
-        logoArt.setMaxSize(900, 200);
-        logoArt.setMouseTransparent(true);
+        Group selectorPointer = buildUltimateHubSelectorPointer();
+        selectorPointer.setViewOrder(-520);
 
-        Circle glowOuter = new Circle(450, 100, 150);
-        glowOuter.setFill(Color.web("#64B5F6", 0.12));
-        Circle glowInner = new Circle(450, 100, 105);
-        glowInner.setFill(Color.web("#FFD54F", 0.22));
+        Button fightNode = buildUltimateHubMainTileButton(
+                "VERSUS BATTLES", "FIGHT", "",
+                hubLeftWidth, hubFightHeight, 82, 20, new Insets(18, 220, 24, 34),
+                Pos.CENTER_LEFT, hubIconFight(), Pos.TOP_RIGHT, 3.2, 0.16,
+                38, 0, 0, 0, () -> showFightSetup(stage));
+        registerHubInteractiveNode(fightNode, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+                buildUltimateHubStyle("#D62828", "#8B0000", "#FFD7C2", 38, 0, 0, 0, false),
+                buildUltimateHubStyle("#D62828", "#8B0000", "#FFF8E1", 38, 0, 0, 0, true),
+                "FIGHT", "Jump into versus battles with the main match setup flow.", selectorPointer, medallion);
+        AnchorPane.setTopAnchor(fightNode, hubMainTop);
+        AnchorPane.setLeftAnchor(fightNode, 0.0);
 
-        Line wingLeftA = new Line(150, 130, 360, 70);
-        wingLeftA.setStroke(Color.web("#FFD54F", 0.75));
-        wingLeftA.setStrokeWidth(4);
-        wingLeftA.setStrokeLineCap(StrokeLineCap.ROUND);
-        Line wingLeftB = new Line(170, 150, 360, 100);
-        wingLeftB.setStroke(Color.web("#80DEEA", 0.55));
-        wingLeftB.setStrokeWidth(3);
-        wingLeftB.setStrokeLineCap(StrokeLineCap.ROUND);
-        Line wingLeftC = new Line(200, 168, 360, 130);
-        wingLeftC.setStroke(Color.web("#FFE082", 0.45));
-        wingLeftC.setStrokeWidth(2.5);
-        wingLeftC.setStrokeLineCap(StrokeLineCap.ROUND);
+        Button adventureNode = buildUltimateHubMainTileButton(
+                "STORY ROUTES", "ADVENTURE", "",
+                hubLeftWidth, hubBottomHeight, 62, 18, new Insets(16, 210, 26, 30),
+                Pos.CENTER_LEFT, hubIconAdventure(), Pos.TOP_RIGHT, 2.9, 0.15,
+                0, 0, 0, 38, () -> showAdventureHub(stage));
+        registerHubInteractiveNode(adventureNode, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+                buildUltimateHubStyle("#00A84F", "#007730", "#D9FFE8", 0, 0, 0, 38, false),
+                buildUltimateHubStyle("#00A84F", "#007730", "#F1FFF4", 0, 0, 0, 38, true),
+                "ADVENTURE", "Play the campaign-style routes, unlock birds, and clear story battles.", selectorPointer, medallion);
+        AnchorPane.setTopAnchor(adventureNode, hubMidline);
+        AnchorPane.setLeftAnchor(adventureNode, 0.0);
 
-        Line wingRightA = new Line(750, 130, 540, 70);
-        wingRightA.setStroke(Color.web("#FFD54F", 0.75));
-        wingRightA.setStrokeWidth(4);
-        wingRightA.setStrokeLineCap(StrokeLineCap.ROUND);
-        Line wingRightB = new Line(730, 150, 540, 100);
-        wingRightB.setStroke(Color.web("#80DEEA", 0.55));
-        wingRightB.setStrokeWidth(3);
-        wingRightB.setStrokeLineCap(StrokeLineCap.ROUND);
-        Line wingRightC = new Line(700, 168, 540, 130);
-        wingRightC.setStroke(Color.web("#FFE082", 0.45));
-        wingRightC.setStrokeWidth(2.5);
-        wingRightC.setStrokeLineCap(StrokeLineCap.ROUND);
+        Button gamesNode = buildUltimateHubMainTileButton(
+                "EXTRAS & CHALLENGES", "GAMES & MORE", "",
+                hubRightWidth, hubGamesHeight, 50, 16, new Insets(16, 34, 14, 132),
+                Pos.CENTER, hubIconClassic(), Pos.TOP_RIGHT, 2.7, 0.16,
+                0, 38, 0, 0, () -> showClassicMoreMenu(stage));
+        registerHubInteractiveNode(gamesNode, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+                buildUltimateHubStyle("#1E88FF", "#0B53C1", "#D6E8FF", 0, 38, 0, 0, false),
+                buildUltimateHubStyle("#1E88FF", "#0B53C1", "#F5FBFF", 0, 38, 0, 0, true),
+                "GAMES & MORE", "Open the challenge stack with Classic, Boss Rush, Episodes, Tournament, Training, and Tower Defense.", selectorPointer, medallion);
+        AnchorPane.setTopAnchor(gamesNode, hubMainTop);
+        AnchorPane.setLeftAnchor(gamesNode, hubRightLeft);
 
-        Circle sparkA = new Circle(320, 54, 3, Color.web("#FFF8E1", 0.8));
-        Circle sparkB = new Circle(580, 60, 2.5, Color.web("#B3E5FC", 0.7));
-        Circle sparkC = new Circle(450, 40, 2.2, Color.web("#FFF8E1", 0.6));
+        Button shopNode = buildUltimateHubMainTileButton(
+                "SKINS & UNLOCKS", "SHOP", "",
+                hubRightWidth, hubShopHeight, 50, 14, new Insets(16, 30, 16, 176),
+                Pos.CENTER, hubIconShop(), Pos.TOP_RIGHT, 2.7, 0.17,
+                0, 0, 0, 0, () -> showShop(stage));
+        registerHubInteractiveNode(shopNode, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+                buildUltimateHubStyle("#FF4FA1", "#C2185B", "#FFE3F3", 0, false),
+                buildUltimateHubStyle("#FF4FA1", "#C2185B", "#FFF6FB", 0, true),
+                "SHOP", "Spend Bird Coins on skins, unlockables, and cosmetic pickups.", selectorPointer, medallion);
+        AnchorPane.setTopAnchor(shopNode, hubMainTop + hubGamesHeight);
+        AnchorPane.setLeftAnchor(shopNode, hubRightLeft);
 
-        logoArt.getChildren().addAll(glowOuter, glowInner,
-                wingLeftA, wingLeftB, wingLeftC,
-                wingRightA, wingRightB, wingRightC,
-                sparkA, sparkB, sparkC);
-
-        StackPane logoFrame = new StackPane(logoArt, titleBox);
-        logoFrame.setPadding(new Insets(6, 20, 8, 20));
-        logoFrame.setAlignment(Pos.CENTER);
-        logoFrame.setEffect(new Glow(0.08));
-
-        StackPane top = new StackPane(logoFrame, statusBox);
-        StackPane.setAlignment(logoFrame, Pos.CENTER);
-        StackPane.setAlignment(statusBox, Pos.TOP_RIGHT);
-        StackPane.setMargin(statusBox, new Insets(6, 4, 0, 0));
-        top.setPadding(new Insets(14, 18, 14, 18));
-        top.setStyle(MenuTheme.topStripStyle());
-
-        Button towerDefenseHubBtn = buildHubFooterButton("TOWER DEFENSE",
-                220, 18, "#2E7D32", "#1B5E20", "#C8E6C9",
-                hubIconTowerDefense(), () -> showTowerDefenseMapSelect(stage));
-        uiFactory.fitSingleLineOnLayout(towerDefenseHubBtn, 18, 12);
-        StackPane.setAlignment(towerDefenseHubBtn, Pos.TOP_LEFT);
-        StackPane.setMargin(towerDefenseHubBtn, new Insets(6, 0, 0, 0));
-        top.getChildren().add(towerDefenseHubBtn);
-
-        GridPane nav = new GridPane();
-        nav.setHgap(26);
-        nav.setVgap(26);
-        nav.setAlignment(Pos.CENTER);
-
-        Button fightBtn = buildHubNavButton("FIGHT", 48, "#FF7043", "#E64A19", "#FFCCBC", hubIconFight(),
-                () -> showFightSetup(stage));
-        Button adventureBtn = buildHubNavButton("ADVENTURE", 48, "#26A69A", "#00796B", "#B2DFDB", hubIconAdventure(),
-                () -> showAdventureHub(stage));
-        Button trainingBtn = buildHubNavButton("TRAINING", 48, "#26C6DA", "#0097A7", "#B2EBF2", hubIconTraining(),
-                () -> showTrainingSetup(stage));
-        Button classicBtn = buildHubNavButton("CLASSIC & MORE", 40, "#1E88E5", "#1565C0", "#BBDEFB", hubIconClassic(),
-                () -> showClassicMoreMenu(stage));
-        Button shopBtn = buildHubNavButton("SHOP", 48, "#FBC02D", "#F57F17", "#FFF8E1", hubIconShop(),
-                () -> showShop(stage));
-        Button lanBtn = buildHubNavButton("LAN PLAY", 40, "#8D6E63", "#5D4037", "#D7CCC8", hubIconLan(),
-                () -> showLanMenu(stage));
-
-        nav.add(fightBtn, 0, 0);
-        nav.add(adventureBtn, 1, 0);
-        nav.add(trainingBtn, 2, 0);
-        nav.add(classicBtn, 0, 1);
-        nav.add(shopBtn, 1, 1);
-        nav.add(lanBtn, 2, 1);
-        StackPane navShell = new StackPane(nav);
-        navShell.setPadding(new Insets(18, 20, 18, 20));
-        navShell.setStyle(MenuTheme.panelStyle("#90A4AE", 30));
+        Button lanNode = buildUltimateHubMainTileButton(
+                "LOCAL NETWORK", "LAN PLAY", "",
+                hubRightWidth, hubBottomHeight, 58, 18, new Insets(16, 42, 26, 154),
+                Pos.CENTER, hubIconLan(), Pos.TOP_RIGHT, 3.0, 0.15,
+                0, 0, 38, 0, () -> showLanMenu(stage));
+        registerHubInteractiveNode(lanNode, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+                buildUltimateHubStyle("#F6A400", "#C97700", "#FFF2CF", 0, 0, 38, 0, false),
+                buildUltimateHubStyle("#F6A400", "#C97700", "#FFFBEA", 0, 0, 38, 0, true),
+                "LAN PLAY", "Set up local-network matches for a room full of players.", selectorPointer, medallion);
+        AnchorPane.setTopAnchor(lanNode, hubMidline);
+        AnchorPane.setLeftAnchor(lanNode, hubRightLeft);
 
         boolean claimableRewards = hasClaimableAchievementRewards();
-        String guideText = startHereCompleted ? "BASICS GUIDE" : "START HERE";
-        String guidePrimary = startHereCompleted ? "#0277BD" : "#039BE5";
-        String guideSecondary = startHereCompleted ? "#01579B" : "#0277BD";
-        String guideAccent = startHereCompleted ? "#B3E5FC" : "#E1F5FE";
-        Button guideBtn = buildHubFooterButton(guideText,
-                190, 16, guidePrimary, guideSecondary, guideAccent,
-                hubIconGuide(), () -> showStartHere(stage));
-        Button achievementsBtn = buildHubFooterButton("ACHIEVEMENTS",
-                190, 18, "#455A64", "#37474F", "#B0BEC5",
-                hubIconAchievements(claimableRewards), () -> showAchievements(stage));
-        Button historyBtn = buildHubFooterButton("MATCH HISTORY", 190, 15, "#00695C", "#004D40", "#B2DFDB",
-                hubIconHistory(), () -> showMatchHistory(stage));
-        Button bookBtn = buildHubFooterButton("FEATHERPEDIA", 185, 16, "#5E35B1", "#4527A0", "#D1C4E9",
-                hubIconFeatherpedia(), () -> showBirdBook(stage));
-        Button profilesBtn = buildHubFooterButton("PROFILES", 160, 18, "#00897B", "#00695C", "#B2DFDB",
-                hubIconProfiles(), () -> showProfileManager(stage));
-        Button settingsBtn = buildHubFooterButton("SETTINGS", 160, 18, "#607D8B", "#455A64", "#CFD8DC",
-                hubIconSettings(), () -> {
-                    settingsReturn = () -> showMenu(stage);
-                    showMainSettings(stage);
-                });
-        Button exitBtn = buildHubFooterButton("EXIT", 130, 18, "#D32F2F", "#B71C1C", "#FFCDD2",
-                hubIconExit(), () -> confirmExitGame(stage));
-        uiFactory.fitSingleLineOnLayout(guideBtn, 16, 12);
-        uiFactory.fitSingleLineOnLayout(achievementsBtn, 18, 12);
-        uiFactory.fitSingleLineOnLayout(historyBtn, 15, 12);
-        uiFactory.fitSingleLineOnLayout(bookBtn, 16, 12);
-        HBox footer = new HBox(16, guideBtn, achievementsBtn, historyBtn, bookBtn, profilesBtn, settingsBtn, exitBtn);
-        footer.setAlignment(Pos.CENTER);
-        footer.setPadding(new Insets(16, 18, 16, 18));
-        footer.setStyle(MenuTheme.panelStyle("#607D8B", 24));
+        Button historyBtn = buildUltimateHubRailButton("HISTORY", 132, 112, hubIconHistory(), () -> showMatchHistory(stage));
+        registerHubInteractiveNode(historyBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+                buildUltimateHubStyle("#101214", "#050607", "#6FCF97", 24, false),
+                buildUltimateHubStyle("#101214", "#050607", "#E8FFF1", 24, true),
+                "MATCH HISTORY", "Review recent winners, match rules, and coin payouts.", selectorPointer, medallion);
 
-        root.setTop(top);
-        VBox center = new VBox(24, navShell, buildContractHubPanel());
-        center.setAlignment(Pos.CENTER);
-        root.setCenter(center);
-        root.setBottom(footer);
+        Button bookBtn = buildUltimateHubRailButton("FEATHERPEDIA", 132, 112, hubIconFeatherpedia(), () -> showBirdBook(stage));
+        registerHubInteractiveNode(bookBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+                buildUltimateHubStyle("#101214", "#050607", "#D1C4E9", 24, false),
+                buildUltimateHubStyle("#101214", "#050607", "#F2EBFF", 24, true),
+                "FEATHERPEDIA", "Browse birds, stats, abilities, origins, and unlock hints.", selectorPointer, medallion);
+
+        Button achievementsBtn = buildUltimateHubRailButton("ACHIEVEMENTS", 132, 112, hubIconAchievements(claimableRewards),
+                () -> showAchievements(stage));
+        registerHubInteractiveNode(achievementsBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+                buildUltimateHubStyle("#101214", "#050607", "#FFD54F", 24, false),
+                buildUltimateHubStyle("#101214", "#050607", "#FFF8E1", 24, true),
+                "ACHIEVEMENTS", "Track progress, unlock rewards, and claim extra Bird Coins.", selectorPointer, medallion);
+
+        Button settingsBtn = buildUltimateHubRailButton("SETTINGS", 132, 112, hubIconSettings(), () -> {
+            settingsReturn = () -> showMenu(stage);
+            showMainSettings(stage);
+        });
+        registerHubInteractiveNode(settingsBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+                buildUltimateHubStyle("#101214", "#050607", "#B0BEC5", 24, false),
+                buildUltimateHubStyle("#101214", "#050607", "#ECEFF1", 24, true),
+                "SETTINGS", "Adjust controls, audio, fullscreen, particles, and system options.", selectorPointer, medallion);
+
+        Button profilesBtn = buildUltimateHubRailButton("PROFILES", 132, 112, hubIconProfiles(), () -> showProfileManager(stage));
+        registerHubInteractiveNode(profilesBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+                buildUltimateHubStyle("#101214", "#050607", "#90A4AE", 24, false),
+                buildUltimateHubStyle("#101214", "#050607", "#ECEFF1", 24, true),
+                "PROFILES", "Switch, rename, back up, import, or reset save profiles.", selectorPointer, medallion);
+
+        Button exitBtn = buildUltimateHubRailButton("EXIT", 132, 98, hubIconExit(), () -> confirmExitGame(stage));
+        registerHubInteractiveNode(exitBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+                buildUltimateHubStyle("#4A0A0A", "#1C0202", "#FFCDD2", 24, false),
+                buildUltimateHubStyle("#4A0A0A", "#1C0202", "#FFF5F6", 24, true),
+                "EXIT", "Close Bird Fight 3.", selectorPointer, medallion);
+
+        Region railSpacer = new Region();
+        VBox.setVgrow(railSpacer, Priority.ALWAYS);
+        VBox railButtons = new VBox(12, historyBtn, bookBtn, achievementsBtn, settingsBtn, profilesBtn, railSpacer, exitBtn);
+        railButtons.setAlignment(Pos.TOP_CENTER);
+
+        StackPane railShell = new StackPane(railButtons);
+        lockRegionSize(railShell, 144, 818);
+        railShell.setPadding(new Insets(18, 6, 18, 6));
+        railShell.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(0,0,0,0.98), rgba(8,8,8,0.97));"
+                + "-fx-background-radius: 28 0 0 28;"
+                + "-fx-border-color: rgba(255,255,255,0.16);"
+                + "-fx-border-width: 3 0 3 3;"
+                + "-fx-border-radius: 28 0 0 28;");
+        AnchorPane.setTopAnchor(railShell, 0.0);
+        AnchorPane.setRightAnchor(railShell, 0.0);
+
+        StackPane helpBar = new StackPane();
+        lockRegionSize(helpBar, 1600, 94);
+        helpBar.setPadding(new Insets(14, 28, 14, 28));
+        helpBar.setStyle("-fx-background-color: linear-gradient(to right, rgba(0,0,0,0.98), rgba(18,18,18,0.96));"
+                + "-fx-border-color: rgba(255,255,255,0.10) transparent transparent transparent;"
+                + "-fx-border-width: 3 0 0 0;");
+        Region helpSpacer = new Region();
+        HBox.setHgrow(helpSpacer, Priority.ALWAYS);
+        VBox helpText = new VBox(4, helpTitle, helpBody);
+        helpText.setAlignment(Pos.CENTER_LEFT);
+        HBox helpContent = new HBox(24, helpText, helpSpacer, footerStatus);
+        helpContent.setAlignment(Pos.CENTER_LEFT);
+        helpBar.getChildren().add(helpContent);
+        AnchorPane.setLeftAnchor(helpBar, 0.0);
+        AnchorPane.setRightAnchor(helpBar, 0.0);
+        AnchorPane.setBottomAnchor(helpBar, 0.0);
+
+        frame.getChildren().addAll(tipPanel, fightNode, adventureNode, gamesNode, shopNode, lanNode, medallion, selectorPointer, railShell, helpBar);
+        root.getChildren().add(frame);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
@@ -12157,204 +12244,776 @@ public class BirdGame3 extends Application {
         });
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
-        setScenePreservingFullscreen(stage, scene);
-        fightBtn.requestFocus();
-    }
-
-    private VBox buildStartHereCard(String title, String body, String accentHex) {
-        VBox card = createBookCard(430, accentHex);
-        card.setMinHeight(Region.USE_PREF_SIZE);
-        card.getChildren().addAll(bookTitle(title, 30), bookBody(body, 17));
-        return card;
-    }
-
-    private VBox buildStartHereControlCard() {
-        VBox card = createBookCard(510, "#4FC3F7");
-        card.setAlignment(Pos.TOP_LEFT);
-
-        Label header = new Label("PLAYER 1 BASICS");
-        header.setFont(Font.font("Impact", 30));
-        header.setTextFill(Color.web("#ECEFF1"));
-        applyNoEllipsis(header);
-        card.getChildren().add(header);
-
-        String[][] controlLines = {
-                {"MOVE", displayKeyName(leftKeyForPlayer(0)) + " / " + displayKeyName(rightKeyForPlayer(0))},
-                {"JUMP", displayKeyName(jumpKeyForPlayer(0)) + " (save your double jump for recovery)"},
-                {"ATTACK", displayKeyName(attackKeyForPlayer(0))},
-                {"SPECIAL", displayKeyName(specialKeyForPlayer(0)) + " (bird-specific tool)"},
-                {"BLOCK / FAST FALL", displayKeyName(blockKeyForPlayer(0)) + " on ground / in air"},
-                {"TAUNTS", displayKeyName(keyForPlayer(0, ControlAction.TAUNT_CYCLE)) + " cycle, "
-                        + displayKeyName(keyForPlayer(0, ControlAction.TAUNT_EXECUTE)) + " use"}
-        };
-
-        for (String[] line : controlLines) {
-            Label label = new Label(line[0] + "  |  " + line[1]);
-            label.setFont(Font.font("Consolas", 18));
-            label.setTextFill(Color.web("#E1F5FE"));
-            label.setWrapText(true);
-            label.setMaxWidth(460);
-            label.setAlignment(Pos.CENTER_LEFT);
-            applyNoEllipsis(label);
-            card.getChildren().add(label);
-        }
-
-        Label footer = new Label("Bindings are global to the profile and can be changed in Settings > Controls.");
-        footer.setFont(Font.font("Consolas", 16));
-        footer.setTextFill(Color.web("#B0BEC5"));
-        footer.setWrapText(true);
-        footer.setMaxWidth(460);
-        applyNoEllipsis(footer);
-        card.getChildren().add(footer);
-        return card;
-    }
-
-    private VBox buildStartHereNextStepsCard(Stage stage) {
-        VBox card = createBookCard(1400, "#FFE082");
-        card.setAlignment(Pos.TOP_LEFT);
-
-        Label title = new Label("RECOMMENDED NEXT STEPS");
-        title.setFont(Font.font("Impact", 34));
-        title.setTextFill(Color.web("#FFF59D"));
-        applyNoEllipsis(title);
-
-        Label body = new Label("""
-                Start in Training if you want a safe sandbox, then head into Adventure for guided battles and unlocks.
-                Fight is best once your movement and recovery feel automatic. Classic, Boss Rush, and LAN expect more familiarity.
-                """);
-        body.setFont(Font.font("Consolas", 20));
-        body.setTextFill(Color.web("#CFD8DC"));
-        body.setWrapText(true);
-        body.setMaxWidth(1280);
-        applyNoEllipsis(body);
-
-        Button training = uiFactory.action("OPEN TRAINING", 320, 82, 28, "#00897B", 20,
-                () -> launchStartHereDestination(() -> showTrainingSetup(stage)));
-        Button adventure = uiFactory.action("START ADVENTURE", 340, 82, 28, "#2E7D32", 20,
-                () -> launchStartHereDestination(() -> showAdventureHub(stage)));
-        Button fight = uiFactory.action("GO TO FIGHT", 280, 82, 28, "#EF6C00", 20,
-                () -> launchStartHereDestination(() -> showFightSetup(stage)));
-        Button hub = uiFactory.action(startHereCompleted ? "BACK TO HUB" : "CONTINUE TO HUB",
-                340, 82, 28, "#455A64", 20, () -> leaveStartHereToHub(stage));
-        HBox buttons = new HBox(18, training, adventure, fight, hub);
-        buttons.setAlignment(Pos.CENTER_LEFT);
-
-        Label note = new Label(startHereCompleted
-                ? "You can reopen this guide from the hub any time."
-                : "This guide is stored per profile. Choosing any option above marks it complete for this profile.");
-        note.setFont(Font.font("Consolas", 17));
-        note.setTextFill(Color.web("#80DEEA"));
-        note.setWrapText(true);
-        note.setMaxWidth(1280);
-        applyNoEllipsis(note);
-
-        card.getChildren().addAll(title, body, buttons, note);
-        return card;
-    }
-
-    private void showStartHere(Stage stage) {
-        playMenuMusic();
-
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(28, 36, 28, 36));
-        root.setStyle(MenuTheme.pageBackground());
-
-        Button back = uiFactory.action(startHereCompleted ? "BACK TO HUB" : "CONTINUE TO HUB",
-                360, 84, 28, "#455A64", 20, () -> leaveStartHereToHub(stage));
-
-        StackPane title = buildMenuTitleBanner("START HERE", 460, 74, 34);
-
-        Label subtitle = new Label("""
-                New profile? Learn the essentials here before you jump into the bigger modes.
-                This route covers movement, recovery, blocking, specials, stage awareness, and where to go next.
-                """);
-        subtitle.setFont(Font.font("Consolas", 24));
-        subtitle.setTextFill(Color.web("#B3E5FC"));
-        subtitle.setWrapText(true);
-        subtitle.setMaxWidth(980);
-        applyNoEllipsis(subtitle);
-
-        Label status = new Label(startHereCompleted ? "REVISITABLE BASICS GUIDE" : "FIRST-RUN ONBOARDING");
-        status.setFont(Font.font("Consolas", 20));
-        status.setTextFill(startHereCompleted ? Color.web("#80CBC4") : Color.web("#FFF59D"));
-        applyNoEllipsis(status);
-
-        VBox heroText = new VBox(8, title, status, subtitle);
-        heroText.setAlignment(Pos.CENTER_LEFT);
-
-        Region topSpacer = new Region();
-        HBox.setHgrow(topSpacer, Priority.ALWAYS);
-        HBox topBar = new HBox(24, back, topSpacer, heroText);
-        topBar.setAlignment(Pos.CENTER_LEFT);
-        topBar.setPadding(new Insets(12, 16, 12, 16));
-        topBar.setStyle(MenuTheme.topStripStyle());
-
-        VBox overview = createBookCard(1480, "#FFE082");
-        overview.setAlignment(Pos.TOP_LEFT);
-        Label overviewTitle = new Label("YOUR FIRST GOOD ROUTE");
-        overviewTitle.setFont(Font.font("Impact", 36));
-        overviewTitle.setTextFill(Color.web("#FFF59D"));
-        applyNoEllipsis(overviewTitle);
-        Label overviewBody = new Label("""
-                1. Learn how your bird moves and recovers.
-                2. Use Training to build comfort without pressure.
-                3. Move into Adventure for structured battles, unlocks, and progression.
-                4. Come back to Fight, Classic, Boss Rush, and LAN once the controls feel automatic.
-                """);
-        overviewBody.setFont(Font.font("Consolas", 22));
-        overviewBody.setTextFill(Color.web("#CFD8DC"));
-        overviewBody.setWrapText(true);
-        overviewBody.setMaxWidth(1320);
-        applyNoEllipsis(overviewBody);
-        overview.getChildren().addAll(overviewTitle, overviewBody);
-
-        HBox fundamentals = new HBox(18,
-                buildStartHereControlCard(),
-                buildStartHereCard("MOVE & RECOVER",
-                        "Stay mobile, preserve your double jump, and recover early. Falling off the map is a full loss, so don't spend your recovery options too late.",
-                        "#4DB6AC"),
-                buildStartHereCard("DEFEND SMART",
-                        "Blocking is strongest on the ground. In the air, that same input fast-falls instead. Block the obvious hit, then reposition instead of holding still.",
-                        "#FFB74D"));
-        fundamentals.setAlignment(Pos.TOP_CENTER);
-
-        HBox systems = new HBox(18,
-                buildStartHereCard("SPECIALS & ULTIMATE",
-                        "Every bird has a special move, and your ultimate meter fills under the health bar. Specials shape neutral; ultimates are best used when you can actually convert the momentum.",
-                        "#BA68C8"),
-                buildStartHereCard("WATCH THE STAGE",
-                        "Power-ups, nectar lanes, vines, wind vents, and map geometry matter. Stage control wins fights before raw damage does.",
-                        "#90CAF9"),
-                buildStartHereCard("CHOOSE MODES IN ORDER",
-                        "Training teaches muscle memory. Adventure teaches pacing and match flow. Fight is best for clean versus sets once you know your bird well enough to recover consistently.",
-                        "#AED581"));
-        systems.setAlignment(Pos.TOP_CENTER);
-
-        VBox content = new VBox(24,
-                overview,
-                fundamentals,
-                systems,
-                buildStartHereNextStepsCard(stage));
-        content.setAlignment(Pos.TOP_CENTER);
-        content.setPadding(new Insets(8, 0, 8, 0));
-
-        ScrollPane scroll = wrapInScroll(content);
-
-        root.setTop(topBar);
-        root.setCenter(scroll);
-
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        bindEscape(scene, back);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame);
         setScenePreservingFullscreen(stage, scene);
         javafx.application.Platform.runLater(() -> {
-            FightSetupSelectorController controller = fightSetupSelectorController(scene);
-            if (controller != null) {
-                controller.relayoutClaws();
+            fightNode.requestFocus();
+            setConsoleHighlightActive(true, scene);
+            refreshUltimateHubButtons(hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody, selectorPointer, medallion);
+        });
+    }
+
+    private String randomHubTip() {
+        if (HUB_TIPS.length == 0) {
+            return "Jump into Fight to start a set.";
+        }
+        int index = java.util.concurrent.ThreadLocalRandom.current().nextInt(HUB_TIPS.length);
+        return HUB_TIPS[index];
+    }
+
+    private Pane buildUltimateHubBackdrop() {
+        Pane backdrop = new Pane();
+        lockRegionSize(backdrop, 1600, 950);
+        backdrop.setMouseTransparent(true);
+
+        Circle centerGlow = new Circle(742, 360, 214, Color.web("#FFFFFF", 0.05));
+        Circle fightGlow = new Circle(280, 300, 282, Color.web("#FF3D00", 0.10));
+        Circle gamesGlow = new Circle(1110, 206, 258, Color.web("#1E88E5", 0.10));
+        Circle adventureGlow = new Circle(300, 676, 274, Color.web("#00C853", 0.10));
+        Circle lanGlow = new Circle(1080, 682, 318, Color.web("#FFB300", 0.10));
+
+        Region slashA = new Region();
+        lockRegionSize(slashA, 900, 210);
+        slashA.relocate(-180, 142);
+        slashA.setRotate(-10);
+        slashA.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,71,87,0.34), rgba(255,71,87,0.0));"
+                + "-fx-background-radius: 120;");
+
+        Region slashB = new Region();
+        lockRegionSize(slashB, 820, 190);
+        slashB.relocate(770, 38);
+        slashB.setRotate(-8);
+        slashB.setStyle("-fx-background-color: linear-gradient(to right, rgba(52,152,219,0.32), rgba(52,152,219,0.0));"
+                + "-fx-background-radius: 120;");
+
+        Region slashC = new Region();
+        lockRegionSize(slashC, 760, 180);
+        slashC.relocate(-120, 604);
+        slashC.setRotate(-8);
+        slashC.setStyle("-fx-background-color: linear-gradient(to right, rgba(46,204,113,0.28), rgba(46,204,113,0.0));"
+                + "-fx-background-radius: 120;");
+
+        Region slashD = new Region();
+        lockRegionSize(slashD, 880, 200);
+        slashD.relocate(660, 612);
+        slashD.setRotate(-7);
+        slashD.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,179,0,0.28), rgba(255,179,0,0.0));"
+                + "-fx-background-radius: 120;");
+
+        Line accentA = new Line(0, 108, 1450, 108);
+        accentA.setStroke(Color.web("#FFFFFF", 0.08));
+        accentA.setStrokeWidth(3);
+        Line accentB = new Line(0, 842, 1450, 842);
+        accentB.setStroke(Color.web("#FFFFFF", 0.08));
+        accentB.setStrokeWidth(3);
+
+        backdrop.getChildren().addAll(
+                fightGlow,
+                gamesGlow,
+                adventureGlow,
+                lanGlow,
+                centerGlow,
+                slashA,
+                slashB,
+                slashC,
+                slashD,
+                accentA,
+                accentB
+        );
+        return backdrop;
+    }
+
+    private Button buildUltimateHubButtonBase(double width, double height, Runnable action) {
+        Button button = uiFactory.action("", width, height, 18, "#101214", 24, action);
+        button.setText("");
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        button.setGraphicTextGap(0);
+        button.setPadding(Insets.EMPTY);
+        button.setCursor(Cursor.HAND);
+        return button;
+    }
+
+    private Button buildUltimateHubMainTileButton(String banner, String title, String subtitle,
+                                                  double width, double height, double titleSize, double subtitleSize,
+                                                  Insets textInsets, Pos textAlignment, Node icon, Pos iconAlignment,
+                                                  double iconScale, double iconOpacity,
+                                                  double topLeftRadius, double topRightRadius,
+                                                  double bottomRightRadius, double bottomLeftRadius,
+                                                  Runnable action) {
+        Button button = buildUltimateHubButtonBase(width, height, action);
+        button.setAccessibleText(title);
+        Node graphic = buildUltimateHubTileGraphic(
+                banner, title, subtitle,
+                width, height, titleSize, subtitleSize, textInsets,
+                textAlignment, icon, iconAlignment, iconScale, iconOpacity);
+        StackPane shell = buildUltimateHubTileShell(graphic,
+                width, height, topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius);
+        button.setGraphic(shell);
+        button.getProperties().put("hubStyleTarget", shell);
+        button.getProperties().put("hubUseShadow", Boolean.FALSE);
+        button.getProperties().put("hubTitleOnlyActive", Boolean.TRUE);
+        button.getProperties().put("hubShowSelectorArrow", Boolean.TRUE);
+        button.getProperties().put("skipConsoleHighlight", Boolean.TRUE);
+        Object titleLabel = graphic.getProperties().get("hubTitleLabel");
+        if (titleLabel instanceof Label label) {
+            button.getProperties().put("hubTitleLabel", label);
+        }
+        applyHubButtonHitShape(button, buildRoundedCornerShape(
+                width, height, topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius));
+        button.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0;");
+        return button;
+    }
+
+    private StackPane buildUltimateHubTileShell(Node content, double width, double height,
+                                                double topLeftRadius, double topRightRadius,
+                                                double bottomRightRadius, double bottomLeftRadius) {
+        Region background = new Region();
+        lockRegionSize(background, width, height);
+        background.setMouseTransparent(true);
+        installCornerClip(background, topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius);
+
+        StackPane shell = new StackPane(background, content);
+        lockRegionSize(shell, width, height);
+        shell.setMouseTransparent(true);
+        shell.setPickOnBounds(false);
+        shell.getProperties().put("hubStyleRegion", background);
+        return shell;
+    }
+
+    private StackPane buildUltimateHubInteractiveTile(Node visual, Node hitArea, double width, double height) {
+        StackPane shell = new StackPane(visual, hitArea);
+        lockRegionSize(shell, width, height);
+        shell.setPickOnBounds(false);
+        StackPane.setAlignment(visual, Pos.CENTER);
+        StackPane.setAlignment(hitArea, Pos.CENTER);
+        return shell;
+    }
+
+    private Button buildUltimateHubTileOverlayButton(Region styleTarget,
+                                                     double width, double height,
+                                                     double topLeftRadius, double topRightRadius,
+                                                     double bottomRightRadius, double bottomLeftRadius,
+                                                     String accessibleText, Runnable action) {
+        Button hitArea = new Button();
+        lockRegionSize(hitArea, width, height);
+        hitArea.setText("");
+        hitArea.setGraphic(null);
+        hitArea.setPickOnBounds(false);
+        installCornerClip(hitArea, topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius);
+        applyHubButtonHitShape(hitArea, buildRoundedCornerShape(
+                width, height, topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius));
+        if (accessibleText != null && !accessibleText.isBlank()) {
+            hitArea.setAccessibleText(accessibleText);
+        }
+        if (action != null) {
+            hitArea.getProperties().put("uiAction", action);
+            hitArea.setOnAction(e -> action.run());
+        }
+        hitArea.getProperties().put("hubStyleTarget", styleTarget);
+        hitArea.getProperties().put("hubUseShadow", Boolean.FALSE);
+        hitArea.setCursor(Cursor.HAND);
+        hitArea.setFocusTraversable(true);
+        hitArea.setStyle("-fx-background-color: rgba(255,255,255,0.01);"
+                + "-fx-border-color: transparent;"
+                + "-fx-padding: 0;");
+        hitArea.setOnMousePressed(e -> {
+            if (e.getButton() == MouseButton.PRIMARY) {
+                hitArea.requestFocus();
             }
         });
-        back.requestFocus();
+        return hitArea;
+    }
+
+    private String buildUltimateHubStyle(String primary, String secondary, String accent, double radius, boolean selected) {
+        return buildUltimateHubStyle(primary, secondary, accent, radius, radius, radius, radius, selected);
+    }
+
+    private String buildUltimateHubStyle(String primary, String secondary, String accent,
+                                         double topLeftRadius, double topRightRadius,
+                                         double bottomRightRadius, double bottomLeftRadius,
+                                         boolean selected) {
+        double borderWidth = selected ? 5.0 : 3.0;
+        String borderColor = selected ? "#FFF8E1" : accent;
+        String radiusSpec = formatHubRadiusSpec(topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius);
+        return "-fx-background-color: linear-gradient(to bottom right, " + primary + " 0%, " + secondary + " 100%);"
+                + "-fx-background-radius: " + radiusSpec + ";"
+                + "-fx-border-color: " + borderColor + ";"
+                + "-fx-border-width: " + borderWidth + ";"
+                + "-fx-border-radius: " + radiusSpec + ";"
+                + "-fx-padding: 0;";
+    }
+
+    private String formatHubRadiusSpec(double topLeftRadius, double topRightRadius,
+                                       double bottomRightRadius, double bottomLeftRadius) {
+        return topLeftRadius + " " + topRightRadius + " " + bottomRightRadius + " " + bottomLeftRadius;
+    }
+
+    private void applyHubButtonHitShape(Button button, Shape shape) {
+        if (button == null || shape == null) return;
+        button.setPickOnBounds(false);
+        button.setScaleShape(false);
+        button.setCenterShape(false);
+        button.setShape(shape);
+    }
+
+    private Shape buildRoundedCornerShape(double width, double height,
+                                          double topLeftRadius, double topRightRadius,
+                                          double bottomRightRadius, double bottomLeftRadius) {
+        double safeWidth = Math.max(1.0, width);
+        double safeHeight = Math.max(1.0, height);
+        double tl = Math.max(0.0, Math.min(Math.min(safeWidth / 2.0, safeHeight / 2.0), topLeftRadius));
+        double tr = Math.max(0.0, Math.min(Math.min(safeWidth / 2.0, safeHeight / 2.0), topRightRadius));
+        double br = Math.max(0.0, Math.min(Math.min(safeWidth / 2.0, safeHeight / 2.0), bottomRightRadius));
+        double bl = Math.max(0.0, Math.min(Math.min(safeWidth / 2.0, safeHeight / 2.0), bottomLeftRadius));
+
+        Path path = new Path();
+        path.getElements().setAll(
+                new MoveTo(tl, 0.0),
+                new LineTo(safeWidth - tr, 0.0),
+                tr > 0 ? new QuadCurveTo(safeWidth, 0.0, safeWidth, tr) : new LineTo(safeWidth, 0.0),
+                new LineTo(safeWidth, safeHeight - br),
+                br > 0 ? new QuadCurveTo(safeWidth, safeHeight, safeWidth - br, safeHeight) : new LineTo(safeWidth, safeHeight),
+                new LineTo(bl, safeHeight),
+                bl > 0 ? new QuadCurveTo(0.0, safeHeight, 0.0, safeHeight - bl) : new LineTo(0.0, safeHeight),
+                new LineTo(0.0, tl),
+                tl > 0 ? new QuadCurveTo(0.0, 0.0, tl, 0.0) : new LineTo(0.0, 0.0),
+                new ClosePath()
+        );
+        return path;
+    }
+
+    private void installCornerClip(Region region, double topLeftRadius, double topRightRadius,
+                                   double bottomRightRadius, double bottomLeftRadius) {
+        if (region == null) return;
+        Path clip = new Path();
+        Runnable refresh = () -> {
+            double w = region.getWidth() > 0 ? region.getWidth() : region.getPrefWidth();
+            double h = region.getHeight() > 0 ? region.getHeight() : region.getPrefHeight();
+            if (w <= 0 || h <= 0) {
+                return;
+            }
+            double tl = Math.max(0.0, Math.min(Math.min(w / 2.0, h / 2.0), topLeftRadius));
+            double tr = Math.max(0.0, Math.min(Math.min(w / 2.0, h / 2.0), topRightRadius));
+            double br = Math.max(0.0, Math.min(Math.min(w / 2.0, h / 2.0), bottomRightRadius));
+            double bl = Math.max(0.0, Math.min(Math.min(w / 2.0, h / 2.0), bottomLeftRadius));
+
+            List<PathElement> elements = new ArrayList<>();
+            elements.add(new MoveTo(tl, 0.0));
+            elements.add(new LineTo(w - tr, 0.0));
+            if (tr > 0) {
+                elements.add(new QuadCurveTo(w, 0.0, w, tr));
+            } else {
+                elements.add(new LineTo(w, 0.0));
+            }
+            elements.add(new LineTo(w, h - br));
+            if (br > 0) {
+                elements.add(new QuadCurveTo(w, h, w - br, h));
+            } else {
+                elements.add(new LineTo(w, h));
+            }
+            elements.add(new LineTo(bl, h));
+            if (bl > 0) {
+                elements.add(new QuadCurveTo(0.0, h, 0.0, h - bl));
+            } else {
+                elements.add(new LineTo(0.0, h));
+            }
+            elements.add(new LineTo(0.0, tl));
+            if (tl > 0) {
+                elements.add(new QuadCurveTo(0.0, 0.0, tl, 0.0));
+            } else {
+                elements.add(new LineTo(0.0, 0.0));
+            }
+            elements.add(new ClosePath());
+            clip.getElements().setAll(elements);
+        };
+        region.widthProperty().addListener((obs, oldVal, newVal) -> refresh.run());
+        region.heightProperty().addListener((obs, oldVal, newVal) -> refresh.run());
+        region.setClip(clip);
+        javafx.application.Platform.runLater(refresh);
+    }
+
+    private void installTrapezoidClip(Region region, double topLeftInset, double topRightInset,
+                                      double bottomRightInset, double bottomLeftInset) {
+        if (region == null) return;
+        Polygon clip = new Polygon();
+        Runnable refresh = () -> {
+            double w = region.getWidth() > 0 ? region.getWidth() : region.getPrefWidth();
+            double h = region.getHeight() > 0 ? region.getHeight() : region.getPrefHeight();
+            if (w <= 0 || h <= 0) {
+                return;
+            }
+            clip.getPoints().setAll(
+                    Math.max(0.0, topLeftInset), 0.0,
+                    Math.max(0.0, w - topRightInset), 0.0,
+                    Math.max(0.0, w - bottomRightInset), h,
+                    Math.max(0.0, bottomLeftInset), h
+            );
+        };
+        region.widthProperty().addListener((obs, oldVal, newVal) -> refresh.run());
+        region.heightProperty().addListener((obs, oldVal, newVal) -> refresh.run());
+        region.setClip(clip);
+        javafx.application.Platform.runLater(refresh);
+    }
+
+    private Node buildUltimateHubTileGraphic(String banner, String title, String subtitle,
+                                             double width, double height, double titleSize, double subtitleSize,
+                                             Insets textInsets, Pos textAlignment, Node icon, Pos iconAlignment,
+                                             double iconScale, double iconOpacity) {
+        StackPane content = new StackPane();
+        lockRegionSize(content, width, height);
+        content.setMouseTransparent(true);
+
+        Region sheen = new Region();
+        lockRegionSize(sheen, width, height);
+        sheen.setStyle("-fx-background-color: linear-gradient(to bottom right,"
+                + " rgba(255,255,255,0.14), rgba(255,255,255,0.03) 48%, rgba(255,255,255,0.18));");
+
+        Region slash = new Region();
+        lockRegionSize(slash, Math.max(220, width * 0.42), height * 1.16);
+        slash.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,255,255,0.16), rgba(255,255,255,0.02));"
+                + "-fx-background-radius: 240;");
+        slash.setRotate(-18);
+        slash.setMouseTransparent(true);
+        StackPane.setAlignment(slash, Pos.CENTER_RIGHT);
+        StackPane.setMargin(slash, new Insets(-40, -80, -40, 0));
+
+        Region topEdge = new Region();
+        lockRegionSize(topEdge, width, 8);
+        topEdge.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,255,255,0.9), rgba(255,255,255,0.12));");
+        topEdge.setMouseTransparent(true);
+        StackPane.setAlignment(topEdge, Pos.TOP_LEFT);
+
+        boolean alignRight = textAlignment == Pos.TOP_RIGHT
+                || textAlignment == Pos.CENTER_RIGHT
+                || textAlignment == Pos.BOTTOM_RIGHT;
+        double safeWidth = Math.max(220, width - textInsets.getLeft() - textInsets.getRight() - 70);
+
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("Arial Black", titleSize));
+        titleLabel.setTextFill(Color.WHITE);
+        titleLabel.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.8)));
+        titleLabel.setMouseTransparent(true);
+        applyNoEllipsis(titleLabel);
+        fitLabelSingleLine(titleLabel, titleSize, Math.max(24, titleSize - 22), safeWidth);
+
+        VBox textBox = new VBox();
+        textBox.setSpacing(subtitle == null || subtitle.isBlank() ? 8 : 4);
+        if (banner != null && !banner.isBlank()) {
+            Label bannerLabel = new Label(banner);
+            bannerLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+            bannerLabel.setTextFill(Color.web("#FFF8E1"));
+            bannerLabel.setMouseTransparent(true);
+            applyNoEllipsis(bannerLabel);
+            fitLabelSingleLine(bannerLabel, 15, 11, safeWidth);
+            textBox.getChildren().add(bannerLabel);
+        }
+        textBox.getChildren().add(titleLabel);
+        if (subtitle != null && !subtitle.isBlank()) {
+            Label subtitleLabel = new Label(subtitle);
+            subtitleLabel.setFont(Font.font("Consolas", subtitleSize));
+            subtitleLabel.setTextFill(Color.web("#F7F7F7"));
+            subtitleLabel.setWrapText(true);
+            subtitleLabel.setMaxWidth(safeWidth);
+            subtitleLabel.setMouseTransparent(true);
+            applyNoEllipsis(subtitleLabel);
+            textBox.getChildren().add(subtitleLabel);
+        }
+        textBox.setAlignment(alignRight ? Pos.BOTTOM_RIGHT : Pos.BOTTOM_LEFT);
+        textBox.setMouseTransparent(true);
+        textBox.setMaxWidth(safeWidth);
+        StackPane.setAlignment(textBox, textAlignment);
+        StackPane.setMargin(textBox, textInsets);
+
+        content.getChildren().addAll(sheen, slash, topEdge);
+
+        if (icon != null) {
+            icon.setScaleX(iconScale);
+            icon.setScaleY(iconScale);
+            icon.setOpacity(iconOpacity);
+            icon.setMouseTransparent(true);
+            icon.setEffect(new DropShadow(14, Color.rgb(255, 255, 255, 0.14)));
+            StackPane.setAlignment(icon, iconAlignment);
+            StackPane.setMargin(icon, new Insets(24, 30, 24, 30));
+            content.getChildren().add(icon);
+        }
+
+        content.getChildren().add(textBox);
+        content.getProperties().put("hubTitleLabel", titleLabel);
+        return content;
+    }
+
+    private Button buildUltimateHubChipButton(String text, double width, Runnable action) {
+        Button button = buildUltimateHubButtonBase(width, 56, action);
+        Label label = new Label(text);
+        label.setFont(Font.font("Arial Black", 20));
+        label.setTextFill(Color.WHITE);
+        label.setMouseTransparent(true);
+        applyNoEllipsis(label);
+        fitLabelSingleLine(label, 20, 14, Math.max(120, width - 26));
+
+        StackPane content = new StackPane(label);
+        lockRegionSize(content, width, 56);
+        content.setMouseTransparent(true);
+
+        button.setAccessibleText(text);
+        button.setGraphic(content);
+        installRegionClip(button, 28, 28);
+        applyHubButtonHitShape(button, buildRoundedCornerShape(width, 56, 28, 28, 28, 28));
+        return button;
+    }
+
+    private Button buildUltimateHubRailButton(String text, double width, double height, Node icon, Runnable action) {
+        Button button = buildUltimateHubButtonBase(width, height, action);
+        button.setAccessibleText(text);
+
+        StackPane iconFrame = new StackPane();
+        lockRegionSize(iconFrame, 60, 60);
+        iconFrame.setMouseTransparent(true);
+        if (icon != null) {
+            icon.setScaleX(1.12);
+            icon.setScaleY(1.12);
+            icon.setOpacity(0.96);
+            icon.setMouseTransparent(true);
+            iconFrame.getChildren().add(icon);
+        }
+
+        Label label = new Label(text);
+        label.setFont(Font.font("Arial Black", 18));
+        label.setTextFill(Color.WHITE);
+        label.setWrapText(true);
+        label.setTextAlignment(TextAlignment.CENTER);
+        label.setAlignment(Pos.CENTER);
+        label.setMaxWidth(width - 20);
+        label.setMouseTransparent(true);
+        applyNoEllipsis(label);
+        fitLabelSingleLine(label, 18, 12, Math.max(80, width - 18));
+
+        VBox content = new VBox(10, iconFrame, label);
+        content.setAlignment(Pos.CENTER);
+        lockRegionSize(content, width, height);
+        content.setMouseTransparent(true);
+
+        button.setGraphic(content);
+        installRegionClip(button, 24, 24);
+        applyHubButtonHitShape(button, buildRoundedCornerShape(width, height, 24, 24, 24, 24));
+        return button;
+    }
+
+    private StackPane buildUltimateHubTipPanel(String tip, Button... actionButtons) {
+        StackPane panel = new StackPane();
+        lockRegionSize(panel, 1600, 108);
+        panel.setPadding(new Insets(10, 186, 12, 36));
+        panel.setStyle("-fx-background-color: linear-gradient(to right, rgba(0,0,0,0.98), rgba(14,14,14,0.96));"
+                + "-fx-border-color: #E53935 transparent rgba(255,255,255,0.12) transparent;"
+                + "-fx-border-width: 6 0 2 0;"
+                + "-fx-background-radius: 0;"
+                + "-fx-border-radius: 0;");
+
+        Label header = new Label("ROOST TIP");
+        header.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        header.setTextFill(Color.web("#FFCDD2"));
+        applyNoEllipsis(header);
+
+        Label tipLabel = new Label(tip);
+        tipLabel.setFont(Font.font("Consolas", 20));
+        tipLabel.setTextFill(Color.WHITE);
+        tipLabel.setWrapText(false);
+        tipLabel.setMaxWidth(1320);
+        applyNoEllipsis(tipLabel);
+        fitLabelSingleLine(tipLabel, 20, 14, 1320);
+
+        VBox tipText = new VBox(4, header, tipLabel);
+        tipText.setAlignment(Pos.CENTER_LEFT);
+        if (actionButtons == null || actionButtons.length == 0) {
+            panel.getChildren().add(tipText);
+        } else {
+            HBox actions = new HBox(10, actionButtons);
+            actions.setAlignment(Pos.CENTER_RIGHT);
+
+            Region spacer = new Region();
+            HBox.setHgrow(spacer, Priority.ALWAYS);
+
+            HBox content = new HBox(20, tipText, spacer, actions);
+            content.setAlignment(Pos.CENTER_LEFT);
+            panel.getChildren().add(content);
+        }
+        return panel;
+    }
+
+    private Group buildUltimateHubSelectorPointer() {
+        Line shaftOutline = new Line(0, 0, 18, 0);
+        shaftOutline.setStroke(Color.web("#111111"));
+        shaftOutline.setStrokeWidth(6);
+        shaftOutline.setStrokeLineCap(StrokeLineCap.ROUND);
+
+        Line shaft = new Line(0, 0, 18, 0);
+        shaft.setStroke(Color.web("#F7F2DE", 0.82));
+        shaft.setStrokeWidth(3);
+        shaft.setStrokeLineCap(StrokeLineCap.ROUND);
+
+        Polygon headOutline = new Polygon(26.0, 0.0, 14.0, -8.0, 14.0, 8.0);
+        headOutline.setFill(Color.web("#111111", 0.88));
+
+        Polygon head = new Polygon(24.0, 0.0, 15.5, -5.5, 15.5, 5.5);
+        head.setFill(Color.web("#FFF8E1", 0.82));
+
+        Group pointer = new Group(shaftOutline, shaft, headOutline, head);
+        pointer.setManaged(false);
+        pointer.setMouseTransparent(true);
+        pointer.setVisible(false);
+        pointer.setOpacity(0.68);
+        pointer.setEffect(new DropShadow(8, Color.rgb(0, 0, 0, 0.30)));
+        pointer.getTransforms().add(new Rotate(0, 0, 0));
+        return pointer;
+    }
+
+    private StackPane buildUltimateHubCenterMedallion(GameSaveRepository.SaveProfile activeProfile) {
+        StackPane medallion = new StackPane();
+        lockRegionSize(medallion, 348, 348);
+        medallion.setMouseTransparent(true);
+
+        Circle outer = new Circle(174, Color.web("#FDFDFD"));
+        outer.setStroke(Color.web("#111111"));
+        outer.setStrokeWidth(8);
+        Circle ring = new Circle(162, Color.web("#FF6F00"));
+        ring.setStroke(Color.web("#111111"));
+        ring.setStrokeWidth(6);
+        Circle inner = new Circle(146);
+        inner.setFill(new LinearGradient(0, 0, 1, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#182233")),
+                new Stop(0.45, Color.web("#0B111A")),
+                new Stop(1, Color.web("#050608"))));
+
+        Node crest = hubIconFight();
+        crest.setScaleX(4.2);
+        crest.setScaleY(4.2);
+        crest.setOpacity(0.10);
+        crest.setMouseTransparent(true);
+
+        Label title = new Label("BIRD\nFIGHT 3");
+        title.setFont(Font.font("Impact", 46));
+        title.setTextFill(Color.WHITE);
+        title.setTextAlignment(TextAlignment.CENTER);
+        title.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.78)));
+        title.setMouseTransparent(true);
+        applyNoEllipsis(title);
+
+        Label profile = new Label(activeProfile.name().toUpperCase(Locale.ROOT));
+        profile.setFont(Font.font("Arial Black", 22));
+        profile.setTextFill(Color.web("#FFE082"));
+        profile.setMouseTransparent(true);
+        applyNoEllipsis(profile);
+        fitLabelSingleLine(profile, 22, 16, 250);
+
+        Label coins = new Label(birdCoinLedger.balance() + " BIRD COINS");
+        coins.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        coins.setTextFill(Color.web("#B3E5FC"));
+        coins.setMouseTransparent(true);
+        applyNoEllipsis(coins);
+
+        VBox text = new VBox(8, title, profile, coins);
+        text.setAlignment(Pos.CENTER);
+        text.setMouseTransparent(true);
+
+        medallion.getChildren().addAll(outer, ring, inner, crest, text);
+        medallion.setEffect(new DropShadow(40, Color.rgb(0, 0, 0, 0.55)));
+        return medallion;
+    }
+
+    private void registerHubInteractiveNode(Node node, List<Node> nodes,
+                                            Label helpTitle, Label helpBody,
+                                            String defaultHelpTitle, String defaultHelpBody,
+                                            String baseStyle, String activeStyle,
+                                            String title, String description,
+                                            Group selectorPointer, Node medallion) {
+        if (node == null) return;
+        node.getProperties().putIfAbsent("hubUseShadow", Boolean.TRUE);
+        node.getProperties().put("hubBaseStyle", baseStyle);
+        node.getProperties().put("hubActiveStyle", activeStyle);
+        node.getProperties().put("hubHelpTitle", title);
+        node.getProperties().put("hubHelpBody", description);
+        applyUltimateHubStyle(node, baseStyle);
+        applyUltimateHubEffect(node, new DropShadow(24, Color.rgb(0, 0, 0, 0.56)));
+        nodes.add(node);
+
+        ChangeListener<Boolean> refreshListener = (obs, oldVal, newVal) ->
+                refreshUltimateHubButtons(nodes, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody, selectorPointer, medallion);
+        node.hoverProperty().addListener(refreshListener);
+        node.focusedProperty().addListener(refreshListener);
+        node.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> {
+            node.getProperties().put("hubPointerSceneX", e.getSceneX());
+            node.getProperties().put("hubPointerSceneY", e.getSceneY());
+            refreshUltimateHubButtons(nodes, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody, selectorPointer, medallion);
+        });
+        node.addEventHandler(MouseEvent.MOUSE_MOVED, e -> {
+            node.getProperties().put("hubPointerSceneX", e.getSceneX());
+            node.getProperties().put("hubPointerSceneY", e.getSceneY());
+            refreshUltimateHubButtons(nodes, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody, selectorPointer, medallion);
+        });
+        node.addEventHandler(MouseEvent.MOUSE_EXITED, e -> {
+            node.getProperties().remove("hubPointerSceneX");
+            node.getProperties().remove("hubPointerSceneY");
+        });
+    }
+
+    private void refreshUltimateHubButtons(List<Node> buttons, Label helpTitle, Label helpBody,
+                                           String defaultHelpTitle, String defaultHelpBody,
+                                           Group selectorPointer, Node medallion) {
+        if (buttons == null || buttons.isEmpty()) {
+            if (helpTitle != null) helpTitle.setText(defaultHelpTitle);
+            if (helpBody != null) helpBody.setText(defaultHelpBody);
+            updateUltimateHubSelectorPointer(null, selectorPointer, medallion);
+            return;
+        }
+
+        Node selected = null;
+        for (Node button : buttons) {
+            if (button.isHover()) {
+                selected = button;
+                break;
+            }
+        }
+        if (selected == null && consoleHighlightActive) {
+            for (Node button : buttons) {
+                if (button.isFocused()) {
+                    selected = button;
+                    break;
+                }
+            }
+        }
+
+        for (Node button : buttons) {
+            boolean active = button == selected;
+            boolean titleOnly = Boolean.TRUE.equals(button.getProperties().get("hubTitleOnlyActive"));
+            Object styleKey = button.getProperties().get(titleOnly ? "hubBaseStyle" : (active ? "hubActiveStyle" : "hubBaseStyle"));
+            if (styleKey instanceof String style) {
+                applyUltimateHubStyle(button, style);
+            }
+            applyUltimateHubEffect(button, active
+                    ? new DropShadow(34, Color.rgb(255, 248, 225, 0.28))
+                    : new DropShadow(24, Color.rgb(0, 0, 0, 0.56)));
+            applyUltimateHubTitleState(button, active);
+            button.setScaleX(1.0);
+            button.setScaleY(1.0);
+            button.setViewOrder(0);
+        }
+
+        if (helpTitle != null) {
+            helpTitle.setText(selected == null
+                    ? defaultHelpTitle
+                    : Objects.toString(selected.getProperties().get("hubHelpTitle"), defaultHelpTitle));
+        }
+        if (helpBody != null) {
+            helpBody.setText(selected == null
+                    ? defaultHelpBody
+                    : Objects.toString(selected.getProperties().get("hubHelpBody"), defaultHelpBody));
+        }
+        updateUltimateHubSelectorPointer(selected, selectorPointer, medallion);
+    }
+
+    private void applyUltimateHubTitleState(Node node, boolean active) {
+        if (node == null) return;
+        Object labelObject = node.getProperties().get("hubTitleLabel");
+        if (!(labelObject instanceof Label label)) return;
+
+        DropShadow baseShadow = new DropShadow(18, Color.rgb(0, 0, 0, 0.82));
+        if (!active) {
+            label.setTextFill(Color.WHITE);
+            label.setEffect(baseShadow);
+            label.setScaleX(1.0);
+            label.setScaleY(1.0);
+            return;
+        }
+
+        DropShadow glow = new DropShadow(20, Color.rgb(255, 248, 225, 0.34));
+        glow.setInput(baseShadow);
+        label.setTextFill(Color.web("#FFF5D8"));
+        label.setEffect(glow);
+        label.setScaleX(1.03);
+        label.setScaleY(1.03);
+    }
+
+    private void updateUltimateHubSelectorPointer(Node selected, Group selectorPointer, Node medallion) {
+        if (selectorPointer == null || medallion == null) return;
+        if (selected == null || !Boolean.TRUE.equals(selected.getProperties().get("hubShowSelectorArrow"))) {
+            selectorPointer.setVisible(false);
+            return;
+        }
+        Bounds medallionBounds = medallion.localToParent(medallion.getBoundsInLocal());
+        double medallionCenterX = medallionBounds.getMinX() + medallionBounds.getWidth() * 0.5;
+        double medallionCenterY = medallionBounds.getMinY() + medallionBounds.getHeight() * 0.5;
+        Point2D targetPoint = null;
+        Object pointerSceneX = selected.getProperties().get("hubPointerSceneX");
+        Object pointerSceneY = selected.getProperties().get("hubPointerSceneY");
+        if (selected.isHover() && pointerSceneX instanceof Number sceneX && pointerSceneY instanceof Number sceneY) {
+            Parent parent = medallion.getParent();
+            if (parent != null) {
+                targetPoint = parent.sceneToLocal(sceneX.doubleValue(), sceneY.doubleValue());
+            }
+        }
+        if (targetPoint == null) {
+            Bounds selectedBounds = selected.localToParent(selected.getBoundsInLocal());
+            targetPoint = new Point2D(
+                    selectedBounds.getMinX() + selectedBounds.getWidth() * 0.5,
+                    selectedBounds.getMinY() + selectedBounds.getHeight() * 0.5
+            );
+        }
+        double angle = Math.atan2(targetPoint.getY() - medallionCenterY, targetPoint.getX() - medallionCenterX);
+        double radius = Math.min(medallionBounds.getWidth(), medallionBounds.getHeight()) * 0.51;
+        selectorPointer.setLayoutX(medallionCenterX + Math.cos(angle) * radius);
+        selectorPointer.setLayoutY(medallionCenterY + Math.sin(angle) * radius);
+        for (var transform : selectorPointer.getTransforms()) {
+            if (transform instanceof Rotate rotate) {
+                rotate.setAngle(Math.toDegrees(angle));
+                break;
+            }
+        }
+        selectorPointer.setVisible(true);
+    }
+
+    private void applyUltimateHubStyle(Node node, String style) {
+        if (node == null || style == null) return;
+        Object target = node.getProperties().get("hubStyleTarget");
+        if (target == null) {
+            target = node;
+        }
+        if (target instanceof Region region) {
+            Object styleRegion = region.getProperties().get("hubStyleRegion");
+            if (styleRegion instanceof Region styledRegion) {
+                styledRegion.setStyle(style);
+            } else {
+                region.setStyle(style);
+            }
+            if (node instanceof Button button && target != node) {
+                button.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0;");
+            }
+        } else if (node instanceof Button button) {
+            button.setStyle(style);
+        }
+    }
+
+    private void applyUltimateHubEffect(Node node, Effect effect) {
+        if (node == null) return;
+        boolean useShadow = !Boolean.FALSE.equals(node.getProperties().get("hubUseShadow"));
+        Object target = node.getProperties().get("hubStyleTarget");
+        if (target == null) {
+            target = node;
+        }
+        if (target instanceof Region region) {
+            Object styleRegion = region.getProperties().get("hubStyleRegion");
+            if (styleRegion instanceof Region styledRegion) {
+                styledRegion.setEffect(useShadow ? effect : null);
+            } else {
+                region.setEffect(useShadow ? effect : null);
+            }
+            if (node instanceof Button button && target != node) {
+                button.setEffect(null);
+            }
+        } else if (node instanceof Button button) {
+            button.setEffect(useShadow ? effect : null);
+        } else if (node instanceof Region region) {
+            region.setEffect(useShadow ? effect : null);
+        }
     }
 
     private void showProfileManager(Stage stage) {
@@ -12374,7 +13033,7 @@ public class BirdGame3 extends Application {
         Button importSave = uiFactory.action("IMPORT SAVE", 250, 84, 26, "#EF6C00", 20, () -> importSaveData(stage));
         StackPane title = buildMenuTitleBanner("SAVE PROFILES", 520, 74, 34);
 
-        Label subtitle = new Label("Settings and controls stay global. Coins, unlocks, mastery, contracts, and match history are stored per profile.");
+        Label subtitle = new Label("Settings and controls stay global. Coins, unlocks, story progress, and match history are stored per profile.");
         subtitle.setFont(Font.font("Consolas", 20));
         subtitle.setTextFill(Color.web("#CFD8DC"));
         subtitle.setWrapText(true);
@@ -12539,7 +13198,7 @@ public class BirdGame3 extends Application {
         }
 
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "Reset coins, unlocks, mastery, contracts, story progress, and match history for this profile?",
+                "Reset coins, unlocks, story progress, and match history for this profile?",
                 ButtonType.YES,
                 ButtonType.NO);
         alert.setTitle("Reset Profile");
@@ -12844,54 +13503,6 @@ public class BirdGame3 extends Application {
             return "Never";
         }
         return MATCH_HISTORY_TIME_FORMAT.format(LocalDateTime.ofInstant(Instant.ofEpochMilli(epochMillis), ZoneId.systemDefault()));
-    }
-
-    private VBox buildContractHubPanel() {
-        List<ContractsBoard.ContractView> contracts = progression.activeContracts();
-        if (contracts.isEmpty()) return new VBox();
-
-        VBox box = new VBox(10);
-        box.setAlignment(Pos.CENTER_LEFT);
-        box.setPadding(new Insets(18, 24, 18, 24));
-        box.setMaxWidth(1620);
-        box.setStyle("-fx-background-color: rgba(0,0,0,0.38); -fx-background-radius: 24; "
-                + "-fx-border-color: #80CBC4; -fx-border-width: 2; -fx-border-radius: 24;");
-
-        Label header = new Label("CONTRACT BOARD");
-        header.setFont(Font.font("Arial Black", 30));
-        header.setTextFill(Color.web("#B2DFDB"));
-        applyNoEllipsis(header);
-
-        Label subtitle = new Label("3 daily contracts and 1 weekly contract. Rewards claim automatically on the results screen.");
-        subtitle.setFont(Font.font("Consolas", 18));
-        subtitle.setTextFill(Color.web("#CFD8DC"));
-        subtitle.setWrapText(true);
-        subtitle.setMaxWidth(1550);
-        applyNoEllipsis(subtitle);
-
-        box.getChildren().addAll(header, subtitle);
-        for (ContractsBoard.ContractView contract : contracts) {
-            Label title = new Label(contract.cadenceLabel() + "  |  " + contract.title());
-            title.setFont(Font.font("Arial Black", 20));
-            title.setTextFill(contract.completed() ? Color.web("#FFF59D") : Color.WHITE);
-            applyNoEllipsis(title);
-
-            String statusText = contract.completed()
-                    ? "COMPLETE"
-                    : "PROGRESS " + contract.progressText();
-            Label detail = new Label(contract.description() + "  |  " + statusText + "  |  REWARD " + contract.rewardText());
-            detail.setFont(Font.font("Consolas", 17));
-            detail.setTextFill(contract.completed() ? Color.web("#A5D6A7") : Color.web("#B0BEC5"));
-            detail.setWrapText(true);
-            detail.setMaxWidth(1550);
-            applyNoEllipsis(detail);
-
-            VBox row = new VBox(3, title, detail);
-            row.setAlignment(Pos.CENTER_LEFT);
-            box.getChildren().add(row);
-        }
-
-        return box;
     }
 
     private void positionFightSelector(Circle selector, Text label, double x, double y) {
@@ -14293,16 +14904,6 @@ public class BirdGame3 extends Application {
         scene.addEventFilter(MouseEvent.MOUSE_RELEASED, e -> setFightSetupClawCursor(scene, false));
         bindEscape(scene, back);
 
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
-            boolean handled = false;
-            handled |= handleSelectorKey(e, 0, selectors[0], selectorLabels[0], selectorLocked, spots, dockPositions, selectionPane, updateSlot[0], updateReadyBanner, tryStartMatch, nullRockSequenceProgress);
-            handled |= handleSelectorKey(e, 1, selectors[1], selectorLabels[1], selectorLocked, spots, dockPositions, selectionPane, updateSlot[1], updateReadyBanner, tryStartMatch, nullRockSequenceProgress);
-            handled |= handleSelectorKey(e, 2, selectors[2], selectorLabels[2], selectorLocked, spots, dockPositions, selectionPane, updateSlot[2], updateReadyBanner, tryStartMatch, nullRockSequenceProgress);
-            handled |= handleSelectorKey(e, 3, selectors[3], selectorLabels[3], selectorLocked, spots, dockPositions, selectionPane, updateSlot[3], updateReadyBanner, tryStartMatch, nullRockSequenceProgress);
-            if (handled) {
-                e.consume();
-            }
-        });
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         bindFixedFrameScale(scene, content);
@@ -14786,7 +15387,7 @@ public class BirdGame3 extends Application {
         root.setPadding(new Insets(28, 40, 28, 40));
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #0A1A2A, #17324A);");
 
-        Label title = new Label("CLASSIC & MORE");
+        Label title = new Label("GAMES & MORE");
         title.setFont(Font.font("Impact", FontWeight.BOLD, 84));
         title.setTextFill(Color.web("#FFE082"));
 
@@ -14800,8 +15401,19 @@ public class BirdGame3 extends Application {
         });
         Button episodesBtn = uiFactory.action("EPISODES", 700, 140, 44, "#8E24AA", 30, () -> showEpisodesHub(stage));
         Button tournamentBtn = uiFactory.action("TOURNAMENT MODE", 700, 140, 40, "#FFB300", 28, () -> showTournamentSetup(stage));
-        VBox options = new VBox(22, classicBtn, bossRushBtn, episodesBtn, tournamentBtn);
+        Button trainingBtn = uiFactory.action("TRAINING", 700, 140, 42, "#00ACC1", 28, () -> showTrainingSetup(stage));
+        Button towerDefenseBtn = uiFactory.action("TOWER DEFENSE", 700, 140, 34, "#2E7D32", 28, () -> showTowerDefenseMapSelect(stage));
+
+        GridPane options = new GridPane();
+        options.setHgap(24);
+        options.setVgap(24);
         options.setAlignment(Pos.CENTER);
+        options.add(classicBtn, 0, 0);
+        options.add(bossRushBtn, 1, 0);
+        options.add(episodesBtn, 0, 1);
+        options.add(tournamentBtn, 1, 1);
+        options.add(trainingBtn, 0, 2);
+        options.add(towerDefenseBtn, 1, 2);
 
         Button back = uiFactory.action("BACK TO HUB", 360, 90, 34, "#D32F2F", 22, () -> showMenu(stage));
         HBox bottom = new HBox(back);
@@ -16102,7 +16714,7 @@ public class BirdGame3 extends Application {
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
         Button startBtn = uiFactory.action("START TOURNAMENT", 520, 110, 38, "#00C853", 26, () -> beginTournament(stage));
-        Button backBtn = uiFactory.action("BACK TO CLASSIC & MORE", 520, 110, 34, "#FF1744", 22, () -> showClassicMoreMenu(stage));
+        Button backBtn = uiFactory.action("BACK TO GAMES & MORE", 520, 110, 34, "#FF1744", 22, () -> showClassicMoreMenu(stage));
         HBox bottom = new HBox(30, startBtn, backBtn);
         bottom.setAlignment(Pos.CENTER);
 
@@ -17517,11 +18129,6 @@ public class BirdGame3 extends Application {
 
         int coinsEarned = awardBirdCoinsForMatch(winner);
         recordMatchHistory(winner, coinsEarned);
-        progression.applyMatch(
-                buildProgressionMatchContext(winner),
-                this::grantBirdCoins,
-                this::saveAchievements
-        );
         Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoinLedger.balance());
         coinsLabel.setFont(Font.font("Consolas", 28));
         coinsLabel.setTextFill(Color.web("#FFD54F"));
@@ -19516,7 +20123,7 @@ public class BirdGame3 extends Application {
 
     private record BirdBookBirdEntry(BirdType type, String displayName, String skinKey, String description,
                                      String howToGet, boolean unlocked, String statsLine, String specialLine,
-                                     boolean showMastery, MapType origin, List<BirdCompanionEntry> companions) {
+                                     MapType origin, List<BirdCompanionEntry> companions) {
     }
 
     private enum BirdCompanionKind {
@@ -19674,7 +20281,7 @@ public class BirdGame3 extends Application {
                     ? buildBirdTileIcon(entry.type, entry.skinKey, entry.origin)
                     : buildLockedTileIcon(accent);
             String label = unlocked
-                    ? (entry.displayName.toUpperCase() + (entry.showMastery ? "\nLV " + progression.level(entry.type) : "\nBOSS FORM"))
+                    ? (entry.displayName.toUpperCase() + (entry.skinKey != null ? "\nBOSS FORM" : ""))
                     : entry.displayName.toUpperCase();
             Button tile = createBirdBookTile(grid, label, icon, unlocked, accent,
                     () -> showBirdSidebar(sidebar, entry));
@@ -19947,12 +20554,6 @@ public class BirdGame3 extends Application {
         if (baseBird != null) {
             sidebar.getChildren().add(bookBody("BASE BIRD: " + baseBird.name, 16));
         }
-        if (entry.showMastery) {
-            Label mastery = bookBody(progression.statusLine(entry.type), 18);
-            Label masteryProgress = bookBody(progression.progressLine(entry.type), 16);
-            ProgressBar masteryBar = buildBirdMasteryProgressBar(entry.type, entry.origin);
-            sidebar.getChildren().addAll(mastery, masteryProgress, masteryBar);
-        }
         sidebar.getChildren().add(bookBody(entry.description, 17));
 
         List<BirdCompanionEntry> companions = entry.companions;
@@ -19973,7 +20574,6 @@ public class BirdGame3 extends Application {
                 forceUnlocked || isBirdUnlocked(type),
                 birdStatsLine(type),
                 type.ability,
-                true,
                 originMapForBird(type),
                 birdCompanionEntries(type)
         );
@@ -20010,7 +20610,6 @@ public class BirdGame3 extends Application {
                 nullRockVultureUnlocked,
                 nullRockBirdBookStatsLine(),
                 "Dark Flock (giant crows, ravens, void ravens, murder crows) + Void Shell phase armor",
-                false,
                 MapType.BEACON_CROWN,
                 nullRockCompanionEntries()
         );
@@ -20293,16 +20892,6 @@ public class BirdGame3 extends Application {
         return BirdBookUiSupport.originMapForBird(type);
     }
 
-    private ProgressBar buildBirdMasteryProgressBar(BirdType type, MapType origin) {
-        ProgressBar bar = new ProgressBar(progression.progressRatio(type));
-        bar.setPrefWidth(420);
-        bar.setMaxWidth(420);
-        bar.setMinWidth(420);
-        bar.setPrefHeight(16);
-        bar.setStyle("-fx-accent: " + toHex(mapAccentColor(origin)) + ";");
-        return bar;
-    }
-
     private String birdSelectorStatsText(BirdType type) {
         if (type == null) {
             return "No bird selected.";
@@ -20310,9 +20899,7 @@ public class BirdGame3 extends Application {
         return "Power: " + type.power
                 + " | Speed: " + String.format(Locale.US, "%.1f", type.speed)
                 + " | Jump: " + type.jumpHeight
-                + "\nSPECIAL: " + type.ability
-                + "\n" + progression.statusLine(type)
-                + "\n" + progression.progressLine(type);
+                + "\nSPECIAL: " + type.ability;
     }
 
     private String birdStatsLine(BirdType type) {
@@ -22949,10 +23536,6 @@ public class BirdGame3 extends Application {
 
     private LocalDate currentDailyChallengeDate() {
         return LocalDate.now(ZoneId.systemDefault());
-    }
-
-    private LocalDate currentContractDate() {
-        return currentDailyChallengeDate();
     }
 
     private String dailyChallengeKeyFor(LocalDate date) {
@@ -28449,11 +29032,6 @@ public class BirdGame3 extends Application {
         int coinsEarned = awardBirdCoinsForMatch(winner);
         recordMatchHistory(winner, coinsEarned);
         recordDailyChallengeResult(winner);
-        progression.applyMatch(
-                buildProgressionMatchContext(winner),
-                this::grantBirdCoins,
-                this::saveAchievements
-        );
         Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoinLedger.balance());
         coinsLabel.setFont(Font.font("Consolas", 28));
         coinsLabel.setTextFill(Color.web("#FFD54F"));
@@ -28619,6 +29197,8 @@ public class BirdGame3 extends Application {
         Color accent = matchSummaryAccent(bird);
         VBox card = new VBox(12);
         card.setAlignment(Pos.CENTER);
+        card.setPrefWidth(820);
+        card.setMinWidth(820);
         card.setMaxWidth(820);
         card.setPadding(new Insets(26, 34, 24, 34));
         card.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(10,14,30,0.96), rgba(6,9,20,0.92));"
@@ -28632,7 +29212,7 @@ public class BirdGame3 extends Application {
         placeLabel.setTextFill(Color.GOLD);
         placeLabel.setEffect(new DropShadow(26, Color.rgb(0, 0, 0, 0.8)));
 
-        StackPane portrait = buildVictoryPortraitNode(bird, 360, true);
+        StackPane portrait = buildVictoryPortraitNode(bird, 420, true);
 
         Label birdLabel = new Label(matchSummaryBirdLabel(bird));
         birdLabel.setFont(Font.font("Arial Black", 54));
@@ -28665,9 +29245,9 @@ public class BirdGame3 extends Application {
         VBox card = new VBox(10);
         card.setAlignment(Pos.CENTER);
         card.setPadding(new Insets(16, 18, 18, 18));
-        card.setPrefWidth(280);
-        card.setMinWidth(280);
-        card.setMaxWidth(280);
+        card.setPrefWidth(320);
+        card.setMinWidth(320);
+        card.setMaxWidth(320);
         card.setStyle("-fx-background-color: rgba(7,11,24,0.82);"
                 + "-fx-background-radius: 24;"
                 + "-fx-border-color: rgba(255,255,255,0.18);"
@@ -28679,7 +29259,7 @@ public class BirdGame3 extends Application {
         placeLabel.setTextFill(summaryPlaceColor(place));
         placeLabel.setEffect(new DropShadow(16, Color.rgb(0, 0, 0, 0.7)));
 
-        StackPane portrait = buildVictoryPortraitNode(bird, 200, false);
+        StackPane portrait = buildVictoryPortraitNode(bird, 236, false);
 
         Label birdLabel = new Label(matchSummaryBirdLabel(bird));
         birdLabel.setFont(Font.font("Arial Black", 28));
@@ -28707,10 +29287,10 @@ public class BirdGame3 extends Application {
 
     private StackPane buildVictoryPortraitNode(Bird bird, double size, boolean winnerPose) {
         double portraitSize = Math.max(140, size);
-        double spriteSize = portraitSize * (winnerPose ? 0.84 : 0.74);
+        double spriteSize = portraitSize;
         Canvas sprite = new Canvas(spriteSize, spriteSize);
         String skinKey = bird == null ? null : skinKeyForBird(bird);
-        drawVictoryRosterSprite(sprite, bird == null ? null : bird.type, skinKey);
+        drawVictoryRosterSprite(sprite, bird == null ? null : bird.type, skinKey, winnerPose);
 
         Canvas overlay = new Canvas(spriteSize, spriteSize);
         if (winnerPose && bird != null) {
@@ -28719,14 +29299,56 @@ public class BirdGame3 extends Application {
 
         StackPane art = new StackPane(sprite, overlay);
         art.setAlignment(Pos.CENTER);
-        art.setTranslateY(winnerPose ? portraitSize * 0.02 : portraitSize * 0.01);
 
         StackPane frame = new StackPane(art);
         frame.setAlignment(Pos.CENTER);
         frame.setPrefSize(portraitSize, portraitSize);
         frame.setMinSize(portraitSize, portraitSize);
         frame.setMaxSize(portraitSize, portraitSize);
+        installRegionClip(frame, 34, 34);
         return frame;
+    }
+
+    private record VictoryPortraitLayout(double extentFactor, double minScale, double maxScale, double xBias, double yBias) {
+    }
+
+    private VictoryPortraitLayout victoryPortraitLayout(BirdType type, boolean winnerPose) {
+        double extentFactor = winnerPose ? 0.92 : 1.00;
+        double minScale = winnerPose ? 1.45 : 1.10;
+        double maxScale = winnerPose ? 2.15 : 1.70;
+        double xBias = 0.03;
+        double yBias = winnerPose ? 0.12 : 0.10;
+        if (type == null) {
+            return new VictoryPortraitLayout(extentFactor, minScale, maxScale, xBias, yBias);
+        }
+        return switch (type) {
+            case BAT -> new VictoryPortraitLayout(winnerPose ? 1.48 : 1.60,
+                    winnerPose ? 1.05 : 0.92,
+                    winnerPose ? 1.60 : 1.28,
+                    0.00,
+                    winnerPose ? 0.08 : 0.06);
+            case PIGEON -> new VictoryPortraitLayout(winnerPose ? 0.98 : 1.04,
+                    winnerPose ? 1.35 : 1.02,
+                    winnerPose ? 1.95 : 1.52,
+                    0.08,
+                    winnerPose ? 0.11 : 0.09);
+            case EAGLE -> new VictoryPortraitLayout(winnerPose ? 0.88 : 0.95,
+                    winnerPose ? 1.55 : 1.18,
+                    winnerPose ? 2.25 : 1.82,
+                    0.02,
+                    winnerPose ? 0.13 : 0.10);
+            case PELICAN -> new VictoryPortraitLayout(winnerPose ? 1.06 : 1.14,
+                    winnerPose ? 1.28 : 1.00,
+                    winnerPose ? 1.88 : 1.48,
+                    0.06,
+                    winnerPose ? 0.14 : 0.11);
+            case TURKEY, VULTURE -> new VictoryPortraitLayout(winnerPose ? 1.04 : 1.12,
+                    winnerPose ? 1.30 : 1.02,
+                    winnerPose ? 1.90 : 1.52,
+                    0.04,
+                    winnerPose ? 0.14 : 0.11);
+            default -> new VictoryPortraitLayout(extentFactor, minScale, maxScale, xBias, yBias);
+        };
     }
 
     private void drawVictoryPoseOverlay(Canvas canvas, Bird bird) {
@@ -29173,38 +29795,34 @@ public class BirdGame3 extends Application {
         b.setPrefWidth(width);
         b.setMinWidth(width);
         b.setMaxWidth(width);
+        b.setAccessibleText(text);
+        b.setText("");
+        b.setGraphic(buildSummaryButtonGraphic(text, width));
+        b.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         b.setWrapText(false);
-        fitSummaryButtonSingleLine(b);
         return b;
     }
 
-    private void fitSummaryButtonSingleLine(Button b) {
-        if (b == null) return;
-        String text = b.getText();
-        if (text == null || text.isBlank()) return;
+    private Node buildSummaryButtonGraphic(String text, double width) {
+        Label label = new Label(text);
+        label.setFont(Font.font("Arial Black", 36));
+        label.setTextFill(Color.WHITE);
+        label.setWrapText(false);
+        label.setAlignment(Pos.CENTER);
+        label.setTextAlignment(TextAlignment.CENTER);
+        label.setMouseTransparent(true);
+        applyNoEllipsis(label);
+        fitLabelSingleLine(label, 36, 20, Math.max(180, width - 76));
 
-        b.setWrapText(false);
-        applyNoEllipsis(b);
-
-        double w = b.getPrefWidth() > 0 ? b.getPrefWidth() : 520;
-        double h = b.getPrefHeight() > 0 ? b.getPrefHeight() : 120;
-        double availableW = Math.max(120, w - 72);
-        double availableH = Math.max(40, h - 22);
-
-        double size = 36;
-        while (size > (double) 16) {
-            Font f = Font.font("Arial Black", size);
-            if (measureTextWidth(text, f) <= availableW && measureTextHeight(f) <= availableH) {
-                b.setFont(f);
-                return;
-            }
-            size -= 1.0;
-        }
-        b.setFont(Font.font("Arial Black", 16));
+        StackPane content = new StackPane(label);
+        content.setAlignment(Pos.CENTER);
+        lockRegionWidth(content, Math.max(200, width - 36));
+        content.setMouseTransparent(true);
+        return content;
     }
 
     private HBox buildSummaryButtons(Stage stage, Bird winner) {
-        HBox buttons = new HBox(100);
+        HBox buttons = new HBox(44);
         buttons.setAlignment(Pos.CENTER);
         if (dailyChallengeModeActive && classicModeActive) {
             boolean wonRound = didPlayerWinClassic(winner);
@@ -29428,38 +30046,6 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private void refreshContractsIfNeeded() {
-        if (progression.refreshContracts(currentContractDate())) {
-            saveAchievements();
-        }
-    }
-
-    private BirdProgression.MatchContext buildProgressionMatchContext(Bird winner) {
-        return new BirdProgression.MatchContext(
-                currentContractDate(),
-                selectedMap,
-                winner,
-                players,
-                isAI,
-                activePlayers,
-                damageDealt,
-                eliminations,
-                specialsUsed,
-                specialHits,
-                tauntsPerformed,
-                trainingModeActive,
-                lanModeActive,
-                lanPlayerIndex,
-                dailyChallengeModeActive,
-                classicModeActive,
-                adventureModeActive,
-                storyModeActive,
-                competitionModeEnabled,
-                isMatchHistoryTeamMode(),
-                this::getEffectiveTeam
-        );
-    }
-
     void resetMatchStats() {
         Arrays.fill(falls, 0);
         Arrays.fill(damageDealt, 0);
@@ -29527,7 +30113,6 @@ public class BirdGame3 extends Application {
     }
 
     private void loadProfileProgress(Preferences prefs) {
-        startHereCompleted = prefs.getBoolean(PREF_START_HERE_COMPLETED, false);
         int achievementSchemaVersion = Math.max(0, prefs.getInt(PREF_ACHIEVEMENT_SCHEMA_VERSION, 0));
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             achievementsUnlocked[i] = prefs.getBoolean("ach_" + i, false);
@@ -29721,7 +30306,6 @@ public class BirdGame3 extends Application {
             typeDamage[idx] = prefs.getInt("balance_damage_" + type.name(), 0);
             typeElims[idx] = prefs.getInt("balance_elims_" + type.name(), 0);
         }
-        progression.load(prefs, currentContractDate());
     }
     private void saveAchievements() {
         if (!javafx.application.Platform.isFxApplicationThread()) {
@@ -29792,7 +30376,8 @@ public class BirdGame3 extends Application {
     }
 
     private void saveProfileProgress(Preferences prefs) {
-        prefs.putBoolean(PREF_START_HERE_COMPLETED, startHereCompleted);
+        prefs.remove("start_here_completed");
+        removeLegacyProgressionPrefs(prefs);
         prefs.putInt(PREF_ACHIEVEMENT_SCHEMA_VERSION, ACHIEVEMENT_SCHEMA_VERSION);
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             prefs.putBoolean("ach_" + i, achievementsUnlocked[i]);
@@ -29908,7 +30493,20 @@ public class BirdGame3 extends Application {
             prefs.putInt("balance_damage_" + type.name(), typeDamage[idx]);
             prefs.putInt("balance_elims_" + type.name(), typeElims[idx]);
         }
-        progression.save(prefs);
+    }
+
+    private void removeLegacyProgressionPrefs(Preferences prefs) {
+        for (BirdType type : BirdType.values()) {
+            prefs.remove("bird_mastery_xp_" + type.name());
+        }
+        try {
+            for (String key : prefs.keys()) {
+                if (key.startsWith("contracts_")) {
+                    prefs.remove(key);
+                }
+            }
+        } catch (BackingStoreException ignored) {
+        }
     }
 
     private boolean samePreferences(Preferences left, Preferences right) {

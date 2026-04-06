@@ -41,11 +41,14 @@ final class MenuTheme {
                 + "-fx-text-fill: " + resolvedText + ";"
                 + "-fx-font-family: 'Arial Black';"
                 + "-fx-font-weight: bold;"
+                + "-fx-alignment: center;"
+                + "-fx-background-insets: 0;"
                 + "-fx-background-radius: " + radius + ";"
                 + "-fx-border-color: " + rgb(highlight) + ", " + rgb(border) + ";"
                 + "-fx-border-width: 1.6, 2.8;"
                 + "-fx-border-insets: 0, 2;"
                 + "-fx-border-radius: " + radius + ", " + innerRadius + ";"
+                + "-fx-padding: 0 18 0 18;"
                 + "-fx-effect: dropshadow(gaussian, rgba(0,0,0,0.42), 14, 0.24, 0, 5);";
     }
 
