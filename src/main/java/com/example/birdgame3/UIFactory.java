@@ -33,7 +33,7 @@ public final class UIFactory {
         b.setWrapText(text != null && text.contains("\n"));
         b.setTextAlignment(TextAlignment.CENTER);
         b.setAlignment(Pos.CENTER);
-        b.setStyle("-fx-background-color: " + bgColor + "; -fx-text-fill: white; -fx-background-radius: " + radius + ";");
+        b.setStyle(MenuTheme.buttonStyle(bgColor, radius));
         if (noEllipsis != null) {
             noEllipsis.accept(b);
         }

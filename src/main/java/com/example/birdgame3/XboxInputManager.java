@@ -44,11 +44,36 @@ final class XboxInputManager implements AutoCloseable {
     }
 
     WiimoteMappedState stateForSlot(int playerIndex) {
+        XInputState state = readState(playerIndex);
+        if (state == null) {
+            if (playerIndex < 0 || playerIndex >= PLAYER_SLOTS) {
+                return WiimoteMappedState.off("Xbox slot unavailable");
+            }
+            return available ? WiimoteMappedState.waiting("Waiting for Xbox controller")
+                    : WiimoteMappedState.waiting(unavailableReason);
+        }
+        return mapState(state, playerIndex);
+    }
+
+    boolean isConnected(int playerIndex) {
+        return readState(playerIndex) != null;
+    }
+
+    boolean viewPressedForSlot(int playerIndex) {
+        XInputState state = readState(playerIndex);
+        if (state == null) {
+            return false;
+        }
+        int buttons = Short.toUnsignedInt(state.gamepad.wButtons);
+        return (buttons & XINPUT_GAMEPAD_BACK) != 0;
+    }
+
+    private XInputState readState(int playerIndex) {
         if (playerIndex < 0 || playerIndex >= PLAYER_SLOTS) {
-            return WiimoteMappedState.off("Xbox slot unavailable");
+            return null;
         }
         if (!available || xinput == null) {
-            return WiimoteMappedState.waiting(unavailableReason);
+            return null;
         }
 
         XInputState state;
@@ -56,19 +81,19 @@ final class XboxInputManager implements AutoCloseable {
             state = new XInputState();
         } catch (Throwable ignored) {
             disable("Xbox controller unavailable");
-            return WiimoteMappedState.waiting(unavailableReason);
+            return null;
         }
         int result;
         try {
             result = xinput.XInputGetState(playerIndex, state);
         } catch (Throwable ignored) {
             disable("Xbox controller unavailable");
-            return WiimoteMappedState.waiting("Xbox controller unavailable");
+            return null;
         }
         if (result != ERROR_SUCCESS) {
-            return WiimoteMappedState.waiting("Waiting for Xbox controller");
+            return null;
         }
-        return mapState(state, playerIndex);
+        return state;
     }
 
     WiimoteMappedState stateForPlayer(int playerIndex) {

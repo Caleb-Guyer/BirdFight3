@@ -151,6 +151,7 @@ public class BirdGame3 extends Application {
     private static final String PREF_BIRD_COINS_EARNED = "bird_coins_earned";
     private static final String PREF_BIRD_COINS_SPENT = "bird_coins_spent";
     private static final String PREF_BIRD_COINS_CHECKSUM = "bird_coins_checksum";
+    private static final String PREF_ACHIEVEMENT_SCHEMA_VERSION = "achievement_schema_version";
     private static final String PREF_MATCH_HISTORY_COUNT = "match_history_count";
     private static final String PREF_MATCH_HISTORY_PREFIX = "match_history_entry_";
     private static final String PREF_DAILY_CHALLENGE_BEST_KEY = "daily_challenge_best_key";
@@ -165,17 +166,23 @@ public class BirdGame3 extends Application {
     private static final String PREF_BOSS_RUSH_BEST_TIME_PREFIX = "boss_rush_best_time_";
     private static final String PREF_BOSS_RUSH_BEST_RANK_PREFIX = "boss_rush_best_rank_";
     private static final String PREF_BOSS_RUSH_PERFECT_PREFIX = "boss_rush_perfect_";
+    private static final String PREF_TOURNAMENT_CHAMPIONSHIPS = "tournament_championships";
     private static final String PREF_SETTING_MUSIC_VOLUME = "setting_music_volume";
     private static final String PREF_SETTING_SFX_VOLUME = "setting_sfx_volume";
     private static final String PREF_WIIMOTE_MODE_PREFIX = "setting_wiimote_mode_p";
     private static final String PREF_START_HERE_COMPLETED = "start_here_completed";
+    private static final int ACHIEVEMENT_SCHEMA_VERSION = 2;
     private static final String SCENE_PROP_WIIMOTE_SELECTOR = "wiimote_selector_scene";
     private static final String SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS = "wiimote_selector_players";
     private static final String SCENE_PROP_FIGHT_SELECTOR_CONTROLLER = "fight_selector_controller";
     private static final String SCENE_PROP_WIIMOTE_POINTER_TRACKING = "wiimote_pointer_tracking";
     private static final String FIGHT_SELECTOR_COLOR_PROP = "fight_selector_color";
+    private static final String FIGHT_SELECTOR_SNAP_DISTANCE_PROP = "fight_selector_snap_distance";
+    private static final String FIGHT_SELECTOR_DOCK_BOUNDS_PROP = "fight_selector_dock_bounds";
     private static final double FIGHT_SELECTOR_MOVE_STEP = 18.0;
     private static final double FIGHT_SELECTOR_BOUND_MARGIN = 40.0;
+    private static final double WINDOW_CHROME_WIDTH_ESTIMATE = 16.0;
+    private static final double WINDOW_CHROME_HEIGHT_ESTIMATE = 39.0;
     private static final double WIIMOTE_SELECTOR_CURSOR_SPEED = 720.0;
     private static final double FIGHT_SELECTOR_CLAW_SIZE = 48.0;
     private static final double FIGHT_SELECTOR_CLAW_GRAB_RADIUS = 56.0;
@@ -228,10 +235,13 @@ public class BirdGame3 extends Application {
     private final boolean[][] wiimoteActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[] wiimoteLeftHeld = new boolean[MAX_COMBATANTS];
     private final boolean[] wiimoteRightHeld = new boolean[MAX_COMBATANTS];
-    private final int[] xboxAssignedSlotByPlayer = createFilledIntArray(MAX_COMBATANTS, -1);
-    private final int[] xboxAssignedPlayerBySlot = createFilledIntArray(XBOX_CONTROLLER_SLOTS, -1);
+    private final int[] xboxAssignedSlotByPlayer = createFilledIntArray(MAX_COMBATANTS);
+    private final int[] xboxAssignedPlayerBySlot = createFilledIntArray(XBOX_CONTROLLER_SLOTS);
     private final boolean[] xboxJoinHeld = new boolean[XBOX_CONTROLLER_SLOTS];
+    private final boolean[] xboxLeaveHeld = new boolean[XBOX_CONTROLLER_SLOTS];
+    private final boolean[] xboxLastConnectedBySlot = new boolean[XBOX_CONTROLLER_SLOTS];
     private int xboxPendingAssignPlayerIdx = -1;
+    private int xboxDisconnectPlayerIdx = -1;
     private final WiimoteControlMode[] wiimoteModes = createDefaultWiimoteModes();
     public Bird[] players = new Bird[MAX_COMBATANTS];
     public boolean[] isAI = new boolean[MAX_COMBATANTS];
@@ -431,9 +441,9 @@ public class BirdGame3 extends Application {
         return values;
     }
 
-    private static int[] createFilledIntArray(int length, int fillValue) {
+    private static int[] createFilledIntArray(int length) {
         int[] values = new int[Math.max(0, length)];
-        Arrays.fill(values, fillValue);
+        Arrays.fill(values, -1);
         return values;
     }
 
@@ -524,6 +534,29 @@ public class BirdGame3 extends Application {
             }
             return defaults[0];
         }
+    }
+
+    private Node controllerGlyphHint(String glyph, String glyphColor, String text) {
+        StackPane badge = new StackPane();
+        double badgeWidth = glyph != null && glyph.length() > 1 ? Math.max(54.0, glyph.length() * 12.0 + 18.0) : 34.0;
+        badge.setMinSize(badgeWidth, 34);
+        badge.setPrefSize(badgeWidth, 34);
+        badge.setMaxSize(badgeWidth, 34);
+        badge.setStyle("-fx-background-color: " + glyphColor + "; -fx-background-radius: 18; -fx-border-color: rgba(255,255,255,0.5); -fx-border-width: 1.5; -fx-border-radius: 18;");
+
+        Label glyphLabel = new Label(glyph == null ? "" : glyph.toUpperCase(Locale.ROOT));
+        glyphLabel.setFont(Font.font("Arial Black", FontWeight.BOLD, glyph != null && glyph.length() > 1 ? 11 : 18));
+        glyphLabel.setTextFill(Color.WHITE);
+        badge.getChildren().add(glyphLabel);
+
+        Label textLabel = new Label(text);
+        textLabel.setFont(Font.font("Consolas", 15));
+        textLabel.setTextFill(Color.web("#ECEFF1"));
+        applyNoEllipsis(textLabel);
+
+        HBox hint = new HBox(8, badge, textLabel);
+        hint.setAlignment(Pos.CENTER_LEFT);
+        return hint;
     }
 
     private enum TrainingDummyBehavior {
@@ -1058,8 +1091,8 @@ public class BirdGame3 extends Application {
             KeyCode code = e.getCode();
 
             if (code == KeyCode.F11 && scene.getWindow() instanceof Stage s) {
-                s.setFullScreen(!s.isFullScreen());
-                fullscreenEnabled = s.isFullScreen();
+                fullscreenEnabled = !fullscreenEnabled;
+                applyDisplaySettings(s);
                 saveAchievements();
                 e.consume();
                 return;
@@ -1144,22 +1177,22 @@ public class BirdGame3 extends Application {
     private boolean usesXboxControllerAssignments() {
         Scene scene = currentStage == null ? null : currentStage.getScene();
         if (scene != null && fightSetupSelectorController(scene) != null) {
-            return true;
+            return false;
         }
-        return scene == gameplayScene && isPlainLocalFightGameplay();
+        return scene != gameplayScene || isPlainLocalFightGameplay();
     }
 
     private boolean isPlainLocalFightGameplay() {
-        return !lanModeActive
-                && !trainingModeActive
-                && !storyModeActive
-                && !adventureModeActive
-                && !classicModeActive
-                && !competitionSeriesActive;
+        return lanModeActive
+                || trainingModeActive
+                || storyModeActive
+                || adventureModeActive
+                || classicModeActive
+                || competitionSeriesActive;
     }
 
     private boolean keyboardControlsPlayer(int playerIdx) {
-        return !usesXboxControllerAssignments() || xboxAssignedSlotForPlayer(playerIdx) < 0;
+        return !usesXboxControllerAssignments() && xboxAssignedSlotForPlayer(playerIdx) >= 0;
     }
 
     private int xboxAssignedSlotForPlayer(int playerIdx) {
@@ -1262,6 +1295,8 @@ public class BirdGame3 extends Application {
 
     private void resetXboxJoinHeldState() {
         Arrays.fill(xboxJoinHeld, false);
+        Arrays.fill(xboxLeaveHeld, false);
+        Arrays.fill(xboxLastConnectedBySlot, false);
     }
 
     private void pollXboxJoinAssignments(Scene scene, FightSetupSelectorController controller) {
@@ -1271,19 +1306,40 @@ public class BirdGame3 extends Application {
         }
         normalizeXboxAssignmentsForLocalSetup();
         boolean changed = false;
+        boolean assignmentChanged = false;
         for (int xboxSlot = 0; xboxSlot < xboxJoinHeld.length; xboxSlot++) {
             WiimoteMappedState state = xboxInputManager.stateForSlot(xboxSlot);
-            boolean joinHeld = state.connected() && state.menuSelect();
+            boolean connected = state.connected();
+            if (xboxLastConnectedBySlot[xboxSlot] != connected) {
+                xboxLastConnectedBySlot[xboxSlot] = connected;
+                changed = true;
+            }
+            int assignedPlayer = xboxAssignedPlayerForSlot(xboxSlot);
+            boolean leaveHeld = connected && xboxInputManager.viewPressedForSlot(xboxSlot);
+            if (leaveHeld && !xboxLeaveHeld[xboxSlot] && assignedPlayer >= 0) {
+                clearXboxAssignmentForSlot(xboxSlot);
+                if (xboxDisconnectPlayerIdx == assignedPlayer) {
+                    xboxDisconnectPlayerIdx = -1;
+                }
+                changed = true;
+                assignmentChanged = true;
+            }
+            xboxLeaveHeld[xboxSlot] = leaveHeld;
+
+            boolean joinHeld = connected && state.menuSelect();
             if (joinHeld && !xboxJoinHeld[xboxSlot] && xboxAssignedPlayerForSlot(xboxSlot) < 0) {
                 int targetPlayer = xboxPendingAssignPlayerIdx >= 0 ? xboxPendingAssignPlayerIdx : nextOpenXboxJoinPlayer();
                 if (assignXboxControllerToPlayer(xboxSlot, targetPlayer)) {
                     changed = true;
+                    assignmentChanged = true;
                 }
             }
             xboxJoinHeld[xboxSlot] = joinHeld;
         }
-        if (changed) {
+        if (assignmentChanged) {
             playButtonClick();
+        }
+        if (changed) {
             controller.refreshControllerAssignments();
         }
     }
@@ -1292,7 +1348,7 @@ public class BirdGame3 extends Application {
         if (xboxInputManager == null) {
             return WiimoteMappedState.off("Xbox controller unavailable");
         }
-        if (!usesXboxControllerAssignments()) {
+        if (usesXboxControllerAssignments()) {
             return xboxInputManager.stateForSlot(playerIdx);
         }
         int xboxSlot = xboxAssignedSlotForPlayer(playerIdx);
@@ -1300,6 +1356,58 @@ public class BirdGame3 extends Application {
             return WiimoteMappedState.off("Xbox controller unassigned");
         }
         return xboxInputManager.stateForSlot(xboxSlot);
+    }
+
+    private boolean isXboxSlotConnected(int xboxSlot) {
+        if (xboxInputManager == null || xboxSlot < 0 || xboxSlot >= XBOX_CONTROLLER_SLOTS) {
+            return false;
+        }
+        return xboxInputManager.isConnected(xboxSlot);
+    }
+
+    private List<Integer> disconnectedAssignedXboxPlayers() {
+        if (usesXboxControllerAssignments()) {
+            return List.of();
+        }
+        List<Integer> disconnected = new ArrayList<>();
+        int maxPlayers = Math.min(activePlayers, xboxAssignedSlotByPlayer.length);
+        for (int playerIdx = 0; playerIdx < maxPlayers; playerIdx++) {
+            int xboxSlot = xboxAssignedSlotForPlayer(playerIdx);
+            if (xboxSlot >= 0 && !isXboxSlotConnected(xboxSlot)) {
+                disconnected.add(playerIdx);
+            }
+        }
+        return disconnected;
+    }
+
+    private boolean hasDisconnectedAssignedXboxPlayers() {
+        return !disconnectedAssignedXboxPlayers().isEmpty();
+    }
+
+    private void refreshXboxDisconnectMarker() {
+        List<Integer> disconnected = disconnectedAssignedXboxPlayers();
+        xboxDisconnectPlayerIdx = disconnected.isEmpty() ? -1 : disconnected.getFirst();
+    }
+
+    private boolean handleAssignedXboxDisconnectDuringGameplay() {
+        if (isPlainLocalFightGameplay()
+                || currentStage == null
+                || currentStage.getScene() != gameplayScene
+                || isPaused) {
+            return false;
+        }
+        refreshXboxDisconnectMarker();
+        if (xboxDisconnectPlayerIdx < 0) {
+            return false;
+        }
+        togglePause(currentStage);
+        return true;
+    }
+
+    private String xboxDisconnectSummary(int playerIdx) {
+        int xboxSlot = xboxAssignedSlotForPlayer(playerIdx);
+        String slotText = xboxSlot >= 0 ? "Xbox " + (xboxSlot + 1) : "assigned controller";
+        return "P" + (playerIdx + 1) + " lost " + slotText + ".";
     }
 
     private WiimoteMappedState controllerMenuState() {
@@ -1821,7 +1929,7 @@ public class BirdGame3 extends Application {
                 }
                 wiimoteSelectorAttackHeld[sourceIdx] = selectHeld;
 
-                boolean specialHeld = state.special();
+                boolean specialHeld = state.special() && !state.menuBack();
                 if (specialHeld && !wiimoteSelectorSpecialHeld[sourceIdx]) {
                     controller.tryStartMatch();
                 }
@@ -1869,7 +1977,7 @@ public class BirdGame3 extends Application {
             }
             wiimoteSelectorAttackHeld[sourceIdx] = selectHeld;
 
-            boolean specialHeld = state.special();
+            boolean specialHeld = state.special() && !state.menuBack();
             if (specialHeld && !wiimoteSelectorSpecialHeld[sourceIdx]) {
                 controller.tryStartMatch();
             }
@@ -2357,6 +2465,30 @@ public class BirdGame3 extends Application {
         label.setFont(Font.font("Arial Black", minSize));
     }
 
+    private void lockRegionSize(Region region, double width, double height) {
+        if (region == null) return;
+        region.setMinSize(width, height);
+        region.setPrefSize(width, height);
+        region.setMaxSize(width, height);
+    }
+
+    private void lockRegionWidth(Region region, double width) {
+        if (region == null) return;
+        region.setMinWidth(width);
+        region.setPrefWidth(width);
+        region.setMaxWidth(width);
+    }
+
+    private void installRegionClip(Region region, double arcWidth, double arcHeight) {
+        if (region == null) return;
+        Rectangle clip = new Rectangle();
+        clip.widthProperty().bind(region.widthProperty());
+        clip.heightProperty().bind(region.heightProperty());
+        clip.setArcWidth(arcWidth);
+        clip.setArcHeight(arcHeight);
+        region.setClip(clip);
+    }
+
     private void bindScaleToFit(Scene scene, Node content) {
         Runnable apply = () -> {
             if (scene.getRoot() instanceof StackPane sp && "uiFrame".equals(sp.getId())) {
@@ -2381,6 +2513,19 @@ public class BirdGame3 extends Application {
         scene.widthProperty().addListener((obs, oldVal, newVal) -> apply.run());
         scene.heightProperty().addListener((obs, oldVal, newVal) -> apply.run());
         content.boundsInLocalProperty().addListener((obs, oldVal, newVal) -> apply.run());
+        javafx.application.Platform.runLater(apply);
+    }
+
+    private void bindFixedFrameScale(Scene scene, Node content) {
+        Runnable apply = () -> {
+            double availW = Math.max(1.0, scene.getWidth() - 8.0 * 2.0);
+            double availH = Math.max(1.0, scene.getHeight() - 8.0 * 2.0);
+            double scale = Math.min(availW / 1600.0, availH / 950.0);
+            content.setScaleX(scale);
+            content.setScaleY(scale);
+        };
+        scene.widthProperty().addListener((obs, oldVal, newVal) -> apply.run());
+        scene.heightProperty().addListener((obs, oldVal, newVal) -> apply.run());
         javafx.application.Platform.runLater(apply);
     }
 
@@ -2625,13 +2770,14 @@ public class BirdGame3 extends Application {
     }
 
     private void styleSettingsInfoLabel(Label label) {
-        label.setFont(Font.font("Consolas", 24));
-        label.setTextFill(Color.web("#E1F5FE"));
+        label.setFont(Font.font("Consolas", 22));
+        label.setTextFill(Color.web("#CFD8DC"));
         label.setWrapText(true);
         label.setMaxWidth(1100);
         label.setPrefWidth(1100);
         label.setTextAlignment(TextAlignment.LEFT);
         label.setAlignment(Pos.CENTER_LEFT);
+        label.setPadding(new Insets(0, 8, 0, 8));
         applyNoEllipsis(label);
     }
 
@@ -2649,6 +2795,8 @@ public class BirdGame3 extends Application {
 
         VBox row = new VBox(6, toggle, label);
         row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(12, 14, 12, 14));
+        row.setStyle(MenuTheme.insetPanelStyle(color, 20));
         return row;
     }
 
@@ -2711,6 +2859,8 @@ public class BirdGame3 extends Application {
 
         VBox row = new VBox(8, header, slider, descriptionLabel);
         row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(12, 14, 12, 14));
+        row.setStyle(MenuTheme.insetPanelStyle(accent, 20));
         return row;
     }
 
@@ -2730,7 +2880,7 @@ public class BirdGame3 extends Application {
         String label = fpsCap <= 0 ? "FPS CAP: UNCAPPED" : "FPS CAP: " + fpsCap;
         String color = fpsCap <= 0 ? "#546E7A" : "#1E88E5";
         btn.setText(label);
-        btn.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 24;");
+        btn.setStyle(MenuTheme.buttonStyle(color, 24));
     }
 
     private void cycleFpsCap(Button btn) {
@@ -2913,16 +3063,14 @@ public class BirdGame3 extends Application {
         String text = awaiting ? "PRESS A KEY..." : displayKeyName(keyForPlayer(playerIdx, action));
         String color = awaiting ? "#F9A825" : "#455A64";
         button.setText(text);
-        button.setStyle("-fx-background-color: " + color
-                + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 18;");
+        button.setStyle(MenuTheme.buttonStyle(color, 18));
         updateControlHighlight(button);
     }
 
     private void setSettingsTabActive(Button tab, boolean active) {
         String color = active ? "#FBC02D" : "#455A64";
-        String textColor = active ? "#0A0A0A" : "white";
-        String weight = active ? "bold" : "normal";
-        tab.setStyle("-fx-background-color: " + color + "; -fx-text-fill: " + textColor + "; -fx-background-radius: 18; -fx-font-weight: " + weight + ";");
+        String textColor = active ? "#111111" : "white";
+        tab.setStyle(MenuTheme.buttonStyle(color, 18, textColor));
         updateControlHighlight(tab);
     }
 
@@ -2944,9 +3092,8 @@ public class BirdGame3 extends Application {
     private void setScenePreservingFullscreen(Stage stage, Scene scene) {
         currentStage = stage;
         releaseWiimoteMenuPointerPress();
-        boolean wasFullscreen = stage.isFullScreen();
         stage.setScene(scene);
-        fitStageToScreen(stage, scene);
+        applyDisplaySettings(stage);
         ensureSceneAutoScaled(scene);
         installWiimoteMenuPointerTracking(scene);
         if (usesWiimoteUiPointer(scene)) {
@@ -2957,52 +3104,10 @@ public class BirdGame3 extends Application {
         } else if (scene != null) {
             scene.setCursor(Cursor.DEFAULT);
         }
-        if (fullscreenEnabled) {
-            if (!stage.isFullScreen()) stage.setFullScreen(true);
-        } else if (wasFullscreen && stage.isFullScreen()) {
-            stage.setFullScreen(false);
-        }
         if (achievementToastShowing && achievementToastPopup != null) {
             positionAchievementToast(achievementToastPopup);
         }
         tryShowQueuedAchievementToast();
-    }
-
-    private void fitStageToScreen(Stage stage, Scene scene) {
-        if (stage == null || scene == null) return;
-        if (fullscreenEnabled || stage.isFullScreen()) return;
-        Rectangle2D bounds = getStageScreenBounds(stage, scene);
-        if (bounds == null) return;
-        double currentW = stage.getWidth();
-        double currentH = stage.getHeight();
-        boolean hasSize = currentW > 1 && currentH > 1;
-        double maxW = bounds.getWidth();
-        double maxH = bounds.getHeight();
-        double targetW;
-        double targetH;
-        if (hasSize) {
-            targetW = Math.min(currentW, maxW);
-            targetH = Math.min(currentH, maxH);
-        } else {
-            double sceneW = scene.getWidth() > 0 ? scene.getWidth() : WIDTH;
-            double sceneH = scene.getHeight() > 0 ? scene.getHeight() : HEIGHT;
-            targetW = Math.min(sceneW, maxW);
-            targetH = Math.min(sceneH, maxH);
-        }
-        if (targetW > 0 && targetH > 0) {
-            boolean resized = false;
-            if (Math.abs(stage.getWidth() - targetW) > 1.0) {
-                stage.setWidth(targetW);
-                resized = true;
-            }
-            if (Math.abs(stage.getHeight() - targetH) > 1.0) {
-                stage.setHeight(targetH);
-                resized = true;
-            }
-            if (resized) {
-                stage.centerOnScreen();
-            }
-        }
     }
 
     private Rectangle2D getStageScreenBounds(Stage stage, Scene scene) {
@@ -3136,8 +3241,9 @@ public class BirdGame3 extends Application {
             "Thermal Rider", "Cliff Diver", "Sky Emperor",
             "Vine Swinger", "Canopy King", "Pelican King",
             "Classic Crest", "Echoes Below", "Story Keeper",
-            "Boss Breaker", "Crown Unbroken", "Daily Dynasty",
-            "Rooftop Legacy", "Echo Sovereign", "Iron Tempest"
+            "Boss Breaker", "Crown Unbroken", "Grove Sentinel",
+            "Rooftop Legacy", "Echo Sovereign", "Iron Tempest",
+            "Blight Buster", "Bracket Boss"
     };
 
     public static final String[] ACHIEVEMENT_DESCRIPTIONS = {
@@ -3165,10 +3271,12 @@ public class BirdGame3 extends Application {
             "Complete all Adventure chapters",
             "Clear Boss Rush once",
             "Clear the Boss Rush EX route",
-            "Clear a full Daily Challenge run",
+            "Earn any Tower Defense badge",
             "Complete the Pigeon Episode",
             "Complete the Bat Episode",
-            "Complete the Pelican Episode"
+            "Complete the Pelican Episode",
+            "Earn every Big Forest Tower Defense badge",
+            "Win a Tournament as a human entrant"
     };
 
     public static final int ACHIEVEMENT_COUNT = ACHIEVEMENT_NAMES.length;
@@ -3343,6 +3451,7 @@ public class BirdGame3 extends Application {
 
     // === TOURNAMENT MODE ===
     boolean tournamentModeActive = false;
+    private int tournamentChampionshipsWon = 0;
     private int tournamentEntrantCount = 8;
     private int tournamentHumanCount = 2;
     private boolean tournamentMapRandom = true;
@@ -7168,6 +7277,17 @@ public class BirdGame3 extends Application {
         }
         if (skinKey.startsWith("CLASSIC_SKIN_")) return "SKIN: " + classicRewardFor(type);
         return "SKIN: BASE";
+    }
+
+    private String randomAdventureSkinChoice(BirdType type) {
+        if (type == null) {
+            return null;
+        }
+        List<String> options = adventureSkinOptions(type);
+        if (options.isEmpty()) {
+            return null;
+        }
+        return normalizeAdventureSkinChoice(type, options.get(random.nextInt(options.size())));
     }
 
     private void applySkinChoiceToBird(Bird bird, BirdType type, String skinKey) {
@@ -11100,19 +11220,19 @@ public class BirdGame3 extends Application {
         stage.setTitle("Bird Fight 3 - Power-Up Chaos!");
         stage.setResizable(true);
         stage.centerOnScreen();
-        stage.setMaximized(true);
         stage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
         stage.setFullScreenExitHint("");
         wiimoteInputManager = new WiimoteInputManager();
         xboxInputManager = new XboxInputManager();
         loadAchievements();
+        fullscreenEnabled = true;
         syncWiimoteModesToManager();
         loadSounds();
         startWiimoteMenuTimer();
         showMenu(stage);
         stage.show();
+        javafx.application.Platform.runLater(() -> applyDisplaySettings(stage));
         tryShowQueuedAchievementToast();
-        stage.setFullScreen(fullscreenEnabled);
     }
 
     private void showMenu(Stage stage) {
@@ -11210,6 +11330,32 @@ public class BirdGame3 extends Application {
         preview.facingRight = true;
         preview.draw(g);
         // Titmouse crest is rendered in Bird.draw now for consistent previews.
+    }
+
+    private void drawVictoryRosterSprite(Canvas canvas, BirdType type, String skinKey) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        double w = canvas.getWidth();
+        double h = canvas.getHeight();
+        g.clearRect(0, 0, w, h);
+
+        if (type == null) {
+            drawRosterSprite(canvas, null, skinKey, true, false);
+            return;
+        }
+
+        Bird preview = new Bird(0, type, 0, this);
+        preview.suppressSelectEffects = type != BirdType.TITMOUSE;
+        applyPreviewSkinChoiceToBird(preview, type, skinKey);
+
+        double baseSize = Math.min(w, h);
+        double pad = Math.min(8, baseSize * 0.05);
+        double extentFactor = (type == BirdType.BAT) ? 2.7 : 1.18;
+        preview.sizeMultiplier = Math.clamp((baseSize - pad * 2) / (80.0 * extentFactor), 0.72, 1.34);
+        double drawSize = 80 * preview.sizeMultiplier;
+        preview.x = (w - drawSize) / 2.0;
+        preview.y = (h - drawSize) / 2.0 + pad * 0.5;
+        preview.facingRight = true;
+        preview.draw(g);
     }
 
     private void drawPackSilhouette(Canvas canvas, Color tint) {
@@ -11423,7 +11569,12 @@ public class BirdGame3 extends Application {
 
     private Button buildHubNavButton(String text, double fontSize, String primary, String secondary, String accent, Node icon, Runnable action) {
         Button button = uiFactory.action(text, 520, 130, fontSize, primary, 30, action);
-        styleHubButton(button, primary, secondary, accent, icon, ContentDisplay.LEFT, true, 28);
+        styleHubButton(button, primary, secondary, accent, null, ContentDisplay.GRAPHIC_ONLY, true, 28);
+        button.getProperties().put("origText", text);
+        button.setAccessibleText(text);
+        button.setText("");
+        button.setGraphic(buildHubNavButtonGraphic(text, fontSize, icon));
+        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         return button;
     }
 
@@ -11435,10 +11586,12 @@ public class BirdGame3 extends Application {
 
     private void styleHubButton(Button button, String primary, String secondary, String accent, Node icon,
                                 ContentDisplay display, boolean leftAlign, double radius) {
+        Font buttonFont = button.getFont() != null ? button.getFont() : Font.font("Arial Black", leftAlign ? 40 : 18);
+        String family = buttonFont.getFamily().replace("'", "\\'");
         String style = "-fx-background-color: linear-gradient(to bottom right, " + primary + ", " + secondary + ");"
                 + "-fx-background-radius: " + radius + ";"
                 + "-fx-border-color: " + accent + "; -fx-border-width: 3; -fx-border-radius: " + radius + ";"
-                + "-fx-text-fill: white; -fx-font-weight: bold;";
+                + "-fx-text-fill: white; -fx-font-family: '" + family + "'; -fx-font-size: " + buttonFont.getSize() + "px; -fx-font-weight: bold;";
         button.setStyle(style);
         if (icon != null) {
             button.setGraphic(icon);
@@ -11454,6 +11607,36 @@ public class BirdGame3 extends Application {
             button.setGraphicTextGap(10);
         }
         button.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.55)));
+    }
+
+    private Node buildHubNavButtonGraphic(String text, double fontSize, Node icon) {
+        StackPane iconFrame = new StackPane();
+        lockRegionSize(iconFrame, 64, 64);
+        iconFrame.setMinSize(64, 64);
+        iconFrame.setPrefSize(64, 64);
+        iconFrame.setMaxSize(64, 64);
+        iconFrame.setAlignment(Pos.CENTER);
+        iconFrame.setMouseTransparent(true);
+        if (icon != null) {
+            iconFrame.getChildren().add(icon);
+        }
+
+        Label label = new Label(text);
+        label.setFont(Font.font("Arial Black", fontSize));
+        label.setTextFill(Color.WHITE);
+        label.setWrapText(false);
+        label.setAlignment(Pos.CENTER_LEFT);
+        label.setMouseTransparent(true);
+        applyNoEllipsis(label);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        HBox content = new HBox(18, iconFrame, label, spacer);
+        content.setAlignment(Pos.CENTER_LEFT);
+        content.setMouseTransparent(true);
+        lockRegionWidth(content, 448);
+        return content;
     }
 
     private Pane hubIconPane() {
@@ -11746,13 +11929,59 @@ public class BirdGame3 extends Application {
         return pane;
     }
 
+    private StackPane buildMenuTitleBanner(String text, double width, double height, double fontSize) {
+        Label title = new Label(text);
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, fontSize));
+        title.setTextFill(Color.web("#111111"));
+        applyNoEllipsis(title);
+
+        StackPane banner = new StackPane(title);
+        banner.setMinSize(width, height);
+        banner.setPrefSize(width, height);
+        banner.setMaxSize(width, height);
+        banner.setStyle(MenuTheme.titleBannerStyle());
+        banner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
+        return banner;
+    }
+
+    private StackPane buildMenuChip(String text, String accentHex, String borderHex) {
+        Label label = new Label(text);
+        label.setFont(Font.font("Arial Black", 18));
+        label.setTextFill(Color.web("#FFF8D6"));
+        applyNoEllipsis(label);
+
+        StackPane chip = new StackPane(label);
+        chip.setPadding(new Insets(10, 18, 10, 18));
+        chip.setStyle(MenuTheme.chipStyle(accentHex, borderHex, 24));
+        return chip;
+    }
+
+    private StackPane buildMenuTopStrip(Node left, Node center, Node right) {
+        BorderPane chrome = new BorderPane();
+        chrome.setLeft(left);
+        chrome.setRight(right);
+        BorderPane.setAlignment(left, Pos.CENTER_LEFT);
+        BorderPane.setAlignment(right, Pos.CENTER_RIGHT);
+
+        StackPane strip = new StackPane(chrome);
+        if (center != null) {
+            strip.getChildren().add(center);
+            StackPane.setAlignment(center, Pos.CENTER);
+        }
+        strip.setPadding(new Insets(10, 14, 10, 14));
+        strip.setMinHeight(92);
+        strip.setStyle(MenuTheme.topStripStyle());
+        strip.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.30)));
+        return strip;
+    }
+
     private void showHub(Stage stage) {
         refreshContractsIfNeeded();
         playMenuMusic();
         GameSaveRepository.SaveProfile activeProfile = saveRepository.activeProfile();
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(28, 40, 28, 40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0B1D2B, #1B2E3C, #1F3D4C);");
+        root.setStyle(MenuTheme.pageBackground());
 
         Label title = new Label("BIRD FIGHT 3");
         title.setFont(Font.font("Impact", FontWeight.BOLD, 96));
@@ -11782,6 +12011,8 @@ public class BirdGame3 extends Application {
 
         VBox statusBox = new VBox(4, profileLabel, coins);
         statusBox.setAlignment(Pos.TOP_RIGHT);
+        statusBox.setPadding(new Insets(12, 16, 12, 16));
+        statusBox.setStyle(MenuTheme.insetPanelStyle("#FFD54F", 20));
 
         Pane logoArt = new Pane();
         logoArt.setPrefSize(900, 200);
@@ -11838,6 +12069,8 @@ public class BirdGame3 extends Application {
         StackPane.setAlignment(logoFrame, Pos.CENTER);
         StackPane.setAlignment(statusBox, Pos.TOP_RIGHT);
         StackPane.setMargin(statusBox, new Insets(6, 4, 0, 0));
+        top.setPadding(new Insets(14, 18, 14, 18));
+        top.setStyle(MenuTheme.topStripStyle());
 
         Button towerDefenseHubBtn = buildHubFooterButton("TOWER DEFENSE",
                 220, 18, "#2E7D32", "#1B5E20", "#C8E6C9",
@@ -11871,6 +12104,9 @@ public class BirdGame3 extends Application {
         nav.add(classicBtn, 0, 1);
         nav.add(shopBtn, 1, 1);
         nav.add(lanBtn, 2, 1);
+        StackPane navShell = new StackPane(nav);
+        navShell.setPadding(new Insets(18, 20, 18, 20));
+        navShell.setStyle(MenuTheme.panelStyle("#90A4AE", 30));
 
         boolean claimableRewards = hasClaimableAchievementRewards();
         String guideText = startHereCompleted ? "BASICS GUIDE" : "START HERE";
@@ -11902,9 +12138,11 @@ public class BirdGame3 extends Application {
         uiFactory.fitSingleLineOnLayout(bookBtn, 16, 12);
         HBox footer = new HBox(16, guideBtn, achievementsBtn, historyBtn, bookBtn, profilesBtn, settingsBtn, exitBtn);
         footer.setAlignment(Pos.CENTER);
+        footer.setPadding(new Insets(16, 18, 16, 18));
+        footer.setStyle(MenuTheme.panelStyle("#607D8B", 24));
 
         root.setTop(top);
-        VBox center = new VBox(24, nav, buildContractHubPanel());
+        VBox center = new VBox(24, navShell, buildContractHubPanel());
         center.setAlignment(Pos.CENTER);
         root.setCenter(center);
         root.setBottom(footer);
@@ -12019,15 +12257,12 @@ public class BirdGame3 extends Application {
 
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(28, 36, 28, 36));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #07121B, #102838, #17384A);");
+        root.setStyle(MenuTheme.pageBackground());
 
         Button back = uiFactory.action(startHereCompleted ? "BACK TO HUB" : "CONTINUE TO HUB",
                 360, 84, 28, "#455A64", 20, () -> leaveStartHereToHub(stage));
 
-        Label title = new Label("START HERE");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 92));
-        title.setTextFill(Color.web("#FFE082"));
-        title.setEffect(new DropShadow(30, Color.BLACK));
+        StackPane title = buildMenuTitleBanner("START HERE", 460, 74, 34);
 
         Label subtitle = new Label("""
                 New profile? Learn the essentials here before you jump into the bigger modes.
@@ -12044,13 +12279,15 @@ public class BirdGame3 extends Application {
         status.setTextFill(startHereCompleted ? Color.web("#80CBC4") : Color.web("#FFF59D"));
         applyNoEllipsis(status);
 
-        VBox heroText = new VBox(8, status, title, subtitle);
+        VBox heroText = new VBox(8, title, status, subtitle);
         heroText.setAlignment(Pos.CENTER_LEFT);
 
         Region topSpacer = new Region();
         HBox.setHgrow(topSpacer, Priority.ALWAYS);
         HBox topBar = new HBox(24, back, topSpacer, heroText);
         topBar.setAlignment(Pos.CENTER_LEFT);
+        topBar.setPadding(new Insets(12, 16, 12, 16));
+        topBar.setStyle(MenuTheme.topStripStyle());
 
         VBox overview = createBookCard(1480, "#FFE082");
         overview.setAlignment(Pos.TOP_LEFT);
@@ -12111,6 +12348,12 @@ public class BirdGame3 extends Application {
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            FightSetupSelectorController controller = fightSetupSelectorController(scene);
+            if (controller != null) {
+                controller.relayoutClaws();
+            }
+        });
         back.requestFocus();
     }
 
@@ -12121,7 +12364,7 @@ public class BirdGame3 extends Application {
 
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(30, 40, 30, 40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081520, #122A39, #173445);");
+        root.setStyle(MenuTheme.pageBackground());
 
         Button back = uiFactory.action("BACK TO HUB", 320, 84, 30, "#D32F2F", 22, () -> showMenu(stage));
         Button create = uiFactory.action("NEW PROFILE", 290, 84, 28, "#2E7D32", 22, () -> createProfilePrompt(stage));
@@ -12129,29 +12372,30 @@ public class BirdGame3 extends Application {
         Button backups = uiFactory.action("BACKUPS", 220, 84, 26, "#5E35B1", 20, () -> showBackupManager(stage));
         Button export = uiFactory.action("EXPORT SAVE", 250, 84, 26, "#1565C0", 20, () -> exportSaveData(stage));
         Button importSave = uiFactory.action("IMPORT SAVE", 250, 84, 26, "#EF6C00", 20, () -> importSaveData(stage));
-
-        Label title = new Label("SAVE PROFILES");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 88));
-        title.setTextFill(Color.web("#FFE082"));
-        title.setEffect(new DropShadow(28, Color.BLACK));
+        StackPane title = buildMenuTitleBanner("SAVE PROFILES", 520, 74, 34);
 
         Label subtitle = new Label("Settings and controls stay global. Coins, unlocks, mastery, contracts, and match history are stored per profile.");
         subtitle.setFont(Font.font("Consolas", 20));
-        subtitle.setTextFill(Color.web("#B0BEC5"));
+        subtitle.setTextFill(Color.web("#CFD8DC"));
         subtitle.setWrapText(true);
-        subtitle.setMaxWidth(1100);
+        subtitle.setMaxWidth(920);
+        applyNoEllipsis(subtitle);
 
-        VBox titleBox = new VBox(8, title, subtitle);
+        VBox titleBox = new VBox(10, title, subtitle);
         titleBox.setAlignment(Pos.CENTER_LEFT);
 
         FlowPane tools = new FlowPane(12, 12, create, backupNow, backups, export, importSave);
         tools.setAlignment(Pos.CENTER_RIGHT);
         tools.setPrefWrapLength(1040);
+        tools.setPadding(new Insets(12, 14, 12, 14));
+        tools.setStyle(MenuTheme.insetPanelStyle("#90CAF9", 22));
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         HBox topBar = new HBox(18, back, titleBox, spacer, tools);
         topBar.setAlignment(Pos.CENTER_LEFT);
+        topBar.setPadding(new Insets(12, 16, 12, 16));
+        topBar.setStyle(MenuTheme.topStripStyle());
 
         VBox cards = new VBox(18);
         cards.setAlignment(Pos.TOP_CENTER);
@@ -12162,13 +12406,17 @@ public class BirdGame3 extends Application {
 
         ScrollPane scroll = new ScrollPane(cards);
         scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background-color: transparent;");
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-control-inner-background: transparent;");
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
 
         Label note = new Label("Automatic backups are created before resets, deletes, imports, and save recovery. Switching or resetting the active profile reloads the hub immediately.");
         note.setFont(Font.font("Consolas", 18));
         note.setTextFill(Color.web("#80DEEA"));
         note.setWrapText(true);
+        note.setPadding(new Insets(16, 18, 16, 18));
+        note.setMaxWidth(Double.MAX_VALUE);
+        note.setStyle(MenuTheme.insetPanelStyle("#80DEEA", 20));
+        applyNoEllipsis(note);
 
         root.setTop(topBar);
         root.setCenter(scroll);
@@ -12188,9 +12436,7 @@ public class BirdGame3 extends Application {
         VBox card = new VBox(12);
         card.setPadding(new Insets(20, 24, 20, 24));
         card.setMaxWidth(1540);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.34); -fx-background-radius: 24;"
-                + "-fx-border-color: " + (active ? "#FFE082" : "#607D8B") + ";"
-                + "-fx-border-width: 3; -fx-border-radius: 24;");
+        card.setStyle(MenuTheme.panelStyle(active ? "#FFE082" : "#607D8B", 24));
 
         Label name = new Label(profile.name());
         name.setFont(Font.font("Arial Black", 30));
@@ -12224,6 +12470,8 @@ public class BirdGame3 extends Application {
 
         FlowPane actions = new FlowPane(12, 12, activate, rename, reset, delete);
         actions.setAlignment(Pos.CENTER_LEFT);
+        actions.setPadding(new Insets(12, 14, 12, 14));
+        actions.setStyle(MenuTheme.insetPanelStyle(active ? "#FFE082" : "#607D8B", 18));
 
         card.getChildren().addAll(name, state, details, actions);
         return card;
@@ -12361,29 +12609,28 @@ public class BirdGame3 extends Application {
 
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(30, 40, 30, 40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081520, #122A39, #173445);");
+        root.setStyle(MenuTheme.pageBackground());
 
         Button back = uiFactory.action("BACK TO PROFILES", 360, 84, 28, "#D32F2F", 22, () -> showProfileManager(stage));
         Button backupNow = uiFactory.action("BACK UP NOW", 260, 84, 26, "#00897B", 20, () -> createManualBackup(stage));
-
-        Label title = new Label("SAVE BACKUPS");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 88));
-        title.setTextFill(Color.web("#FFE082"));
-        title.setEffect(new DropShadow(28, Color.BLACK));
+        StackPane title = buildMenuTitleBanner("SAVE BACKUPS", 520, 74, 34);
 
         Label subtitle = new Label("Use restore before risky changes or after a bad update. Imports also create a restore point automatically.");
         subtitle.setFont(Font.font("Consolas", 20));
-        subtitle.setTextFill(Color.web("#B0BEC5"));
+        subtitle.setTextFill(Color.web("#CFD8DC"));
         subtitle.setWrapText(true);
-        subtitle.setMaxWidth(1100);
+        subtitle.setMaxWidth(920);
+        applyNoEllipsis(subtitle);
 
-        VBox titleBox = new VBox(8, title, subtitle);
+        VBox titleBox = new VBox(10, title, subtitle);
         titleBox.setAlignment(Pos.CENTER_LEFT);
 
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         HBox topBar = new HBox(18, back, titleBox, spacer, backupNow);
         topBar.setAlignment(Pos.CENTER_LEFT);
+        topBar.setPadding(new Insets(12, 16, 12, 16));
+        topBar.setStyle(MenuTheme.topStripStyle());
 
         VBox cards = new VBox(18);
         cards.setAlignment(Pos.TOP_CENTER);
@@ -12399,6 +12646,7 @@ public class BirdGame3 extends Application {
             VBox emptyBox = new VBox(empty);
             emptyBox.setAlignment(Pos.CENTER);
             emptyBox.setPadding(new Insets(40, 20, 40, 20));
+            emptyBox.setStyle(MenuTheme.panelStyle("#607D8B", 24));
             cards.getChildren().add(emptyBox);
         } else {
             for (GameSaveRepository.SaveBackup backup : backups) {
@@ -12408,13 +12656,17 @@ public class BirdGame3 extends Application {
 
         ScrollPane scroll = new ScrollPane(cards);
         scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background-color: transparent;");
+        scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-control-inner-background: transparent;");
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
 
         Label note = new Label("Restoring a backup first snapshots your current save, so you can undo the restore if needed.");
         note.setFont(Font.font("Consolas", 18));
         note.setTextFill(Color.web("#80DEEA"));
         note.setWrapText(true);
+        note.setPadding(new Insets(16, 18, 16, 18));
+        note.setMaxWidth(Double.MAX_VALUE);
+        note.setStyle(MenuTheme.insetPanelStyle("#80DEEA", 20));
+        applyNoEllipsis(note);
 
         root.setTop(topBar);
         root.setCenter(scroll);
@@ -12434,8 +12686,7 @@ public class BirdGame3 extends Application {
         VBox card = new VBox(12);
         card.setPadding(new Insets(20, 24, 20, 24));
         card.setMaxWidth(1540);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.34); -fx-background-radius: 24;"
-                + "-fx-border-color: #78909C; -fx-border-width: 3; -fx-border-radius: 24;");
+        card.setStyle(MenuTheme.panelStyle("#78909C", 24));
 
         Label name = new Label(backup.reason());
         name.setFont(Font.font("Arial Black", 28));
@@ -12462,6 +12713,8 @@ public class BirdGame3 extends Application {
                 () -> confirmDeleteBackup(stage, backup.id()));
         FlowPane actions = new FlowPane(12, 12, restore, delete);
         actions.setAlignment(Pos.CENTER_LEFT);
+        actions.setPadding(new Insets(12, 14, 12, 14));
+        actions.setStyle(MenuTheme.insetPanelStyle("#78909C", 18));
 
         card.getChildren().addAll(name, state, details, actions);
         return card;
@@ -12692,6 +12945,22 @@ public class BirdGame3 extends Application {
                 best = spot;
             }
         }
+        Object snapDistance = selector.getProperties().get(FIGHT_SELECTOR_SNAP_DISTANCE_PROP);
+        if (snapDistance instanceof Number number) {
+            double maxDistance = number.doubleValue();
+            if (maxDistance > 0.0 && bestDist > maxDistance * maxDistance) {
+                return null;
+            }
+        }
+        Object dockBounds = selector.getProperties().get(FIGHT_SELECTOR_DOCK_BOUNDS_PROP);
+        if (dockBounds instanceof double[] bounds && bounds.length >= 4) {
+            double x = selector.getCenterX();
+            double y = selector.getCenterY();
+            if (x >= bounds[0] && x <= bounds[0] + bounds[2]
+                    && y >= bounds[1] && y <= bounds[1] + bounds[3]) {
+                return null;
+            }
+        }
         return best;
     }
 
@@ -12871,6 +13140,7 @@ public class BirdGame3 extends Application {
         private final List<BirdIconSpot> spots;
         private final Point2D[] dockPositions;
         private final Pane selectionPane;
+        private final Pane interactionPane;
         private final Runnable[] updateSlot;
         private final Runnable updateReady;
         private final Runnable updateControllerAssignments;
@@ -12878,6 +13148,7 @@ public class BirdGame3 extends Application {
         private final int[] nullRockSequenceProgress;
         private final Canvas[] clawCanvases;
         private final Text[] clawLabels;
+        private final Button[][] playerControlButtons;
         private final double[] clawX;
         private final double[] clawY;
         private final int[] grabbedSelectorByClaw;
@@ -12892,19 +13163,22 @@ public class BirdGame3 extends Application {
                                              List<BirdIconSpot> spots,
                                              Point2D[] dockPositions,
                                              Pane selectionPane,
+                                             Pane interactionPane,
                                              Runnable[] updateSlot,
                                              Runnable updateReady,
                                              Runnable updateControllerAssignments,
                                              BooleanSupplier tryStartMatch,
                                              int[] nullRockSequenceProgress,
                                              Canvas[] clawCanvases,
-                                             Text[] clawLabels) {
+                                             Text[] clawLabels,
+                                             Button[][] playerControlButtons) {
             this.selectors = selectors;
             this.selectorLabels = selectorLabels;
             this.selectorLocked = selectorLocked;
             this.spots = spots;
             this.dockPositions = dockPositions;
             this.selectionPane = selectionPane;
+            this.interactionPane = interactionPane;
             this.updateSlot = updateSlot;
             this.updateReady = updateReady;
             this.updateControllerAssignments = updateControllerAssignments;
@@ -12912,6 +13186,7 @@ public class BirdGame3 extends Application {
             this.nullRockSequenceProgress = nullRockSequenceProgress;
             this.clawCanvases = clawCanvases;
             this.clawLabels = clawLabels;
+            this.playerControlButtons = playerControlButtons;
             this.clawX = new double[clawCanvases == null ? 0 : clawCanvases.length];
             this.clawY = new double[clawCanvases == null ? 0 : clawCanvases.length];
             this.grabbedSelectorByClaw = new int[clawCanvases == null ? 0 : clawCanvases.length];
@@ -12937,6 +13212,19 @@ public class BirdGame3 extends Application {
             }
         }
 
+        private void relayoutClaws() {
+            for (int sourceIdx = 0; sourceIdx < clawX.length; sourceIdx++) {
+                if (grabbedSelectorByClaw[sourceIdx] >= 0) {
+                    updateGrabbedSelectorPosition(sourceIdx);
+                    continue;
+                }
+                Point2D home = clawDockInInteraction(sourceIdx);
+                clawX[sourceIdx] = home.getX();
+                clawY[sourceIdx] = home.getY();
+                positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawX[sourceIdx], clawY[sourceIdx]);
+            }
+        }
+
         private void setClawConnected(int sourceIdx, boolean connected) {
             if (isValidClawIndex(sourceIdx)) {
                 return;
@@ -12945,8 +13233,14 @@ public class BirdGame3 extends Application {
                 cancelClawGrab(sourceIdx, true);
                 return;
             }
+            if (!clawVisible[sourceIdx]) {
+                Point2D home = clawDockInInteraction(sourceIdx);
+                clawX[sourceIdx] = home.getX();
+                clawY[sourceIdx] = home.getY();
+            }
             updateClawPresentation(sourceIdx, true, grabbedSelectorByClaw[sourceIdx] >= 0);
             positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawX[sourceIdx], clawY[sourceIdx]);
+            focusButtonUnderClaw(sourceIdx);
         }
 
         private void moveClaw(int sourceIdx, double horizontal, double vertical, double dtSeconds) {
@@ -12960,12 +13254,19 @@ public class BirdGame3 extends Application {
             double distance = WIIMOTE_SELECTOR_CURSOR_SPEED * Math.max(0.0, dtSeconds);
             double dx = horizontal / length * distance;
             double dy = vertical / length * distance;
-            double boundW = Math.max(selectionPane.getWidth(), selectionPane.getPrefWidth());
-            double boundH = Math.max(selectionPane.getHeight(), selectionPane.getPrefHeight());
+            double boundW = Math.max(interactionPane == null ? 0.0 : interactionPane.getWidth(),
+                    interactionPane == null ? 0.0 : interactionPane.getLayoutBounds().getWidth());
+            double boundH = Math.max(interactionPane == null ? 0.0 : interactionPane.getHeight(),
+                    interactionPane == null ? 0.0 : interactionPane.getLayoutBounds().getHeight());
+            if (boundW <= 0.0 || boundH <= 0.0) {
+                boundW = Math.max(selectionPane.getWidth(), selectionPane.getPrefWidth());
+                boundH = Math.max(selectionPane.getHeight(), selectionPane.getPrefHeight());
+            }
             clawX[sourceIdx] = Math.clamp(clawX[sourceIdx] + dx, FIGHT_SELECTOR_BOUND_MARGIN, boundW - FIGHT_SELECTOR_BOUND_MARGIN);
             clawY[sourceIdx] = Math.clamp(clawY[sourceIdx] + dy, FIGHT_SELECTOR_BOUND_MARGIN, boundH - FIGHT_SELECTOR_BOUND_MARGIN);
             positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawX[sourceIdx], clawY[sourceIdx]);
             updateGrabbedSelectorPosition(sourceIdx);
+            focusButtonUnderClaw(sourceIdx);
         }
 
         private void beginClawGrab(int sourceIdx) {
@@ -12973,6 +13274,14 @@ public class BirdGame3 extends Application {
                 return;
             }
             if (grabbedSelectorByClaw[sourceIdx] >= 0) {
+                return;
+            }
+            Button button = buttonUnderClaw(sourceIdx);
+            if (button != null) {
+                button.requestFocus();
+                setConsoleHighlightActive(true, currentStage == null ? null : currentStage.getScene());
+                playButtonClick();
+                button.fire();
                 return;
             }
             int targetSelector = nearestSelectorForClaw(sourceIdx);
@@ -12985,9 +13294,10 @@ public class BirdGame3 extends Application {
             if (selectorLocked[targetSelector]) {
                 clearFightSelectorChoice(targetSelector, selectors[targetSelector], selectorLocked, updateSlot[targetSelector], updateReady);
             }
+            Point2D selectorCenter = selectorCenterInInteraction(targetSelector);
             grabbedSelectorByClaw[sourceIdx] = targetSelector;
-            grabOffsetX[sourceIdx] = selectors[targetSelector].getCenterX() - clawX[sourceIdx];
-            grabOffsetY[sourceIdx] = selectors[targetSelector].getCenterY() - clawY[sourceIdx];
+            grabOffsetX[sourceIdx] = selectorCenter.getX() - clawX[sourceIdx];
+            grabOffsetY[sourceIdx] = selectorCenter.getY() - clawY[sourceIdx];
             updateClawPresentation(sourceIdx, true, true);
             updateGrabbedSelectorPosition(sourceIdx);
         }
@@ -13031,11 +13341,13 @@ public class BirdGame3 extends Application {
             if (selectorIdx < 0 || selectorIdx >= activePlayers) {
                 return;
             }
+            Point2D selectionLocal = interactionToSelection(clawX[sourceIdx] + grabOffsetX[sourceIdx],
+                    clawY[sourceIdx] + grabOffsetY[sourceIdx]);
             moveFightSelectorWithinPane(
                     selectors[selectorIdx],
                     selectorLabels[selectorIdx],
-                    clawX[sourceIdx] + grabOffsetX[sourceIdx],
-                    clawY[sourceIdx] + grabOffsetY[sourceIdx],
+                    selectionLocal.getX(),
+                    selectionLocal.getY(),
                     selectionPane
             );
         }
@@ -13053,8 +13365,9 @@ public class BirdGame3 extends Application {
                 if (selectorGrabbedByOtherClaw(selectorIdx, sourceIdx)) {
                     continue;
                 }
-                double dx = selectors[selectorIdx].getCenterX() - clawX[sourceIdx];
-                double dy = selectors[selectorIdx].getCenterY() - clawY[sourceIdx];
+                Point2D center = selectorCenterInInteraction(selectorIdx);
+                double dx = center.getX() - clawX[sourceIdx];
+                double dy = center.getY() - clawY[sourceIdx];
                 double distance = dx * dx + dy * dy;
                 if (distance <= bestDistance) {
                     bestDistance = distance;
@@ -13095,6 +13408,72 @@ public class BirdGame3 extends Application {
                 refreshFightSelectorClaw(clawCanvases[sourceIdx], closed);
             }
         }
+
+        private Point2D clawDockInInteraction(int sourceIdx) {
+            Point2D dock = dockPositions != null && sourceIdx >= 0 && sourceIdx < dockPositions.length
+                    ? dockPositions[sourceIdx]
+                    : new Point2D(FIGHT_SELECTOR_BOUND_MARGIN, FIGHT_SELECTOR_BOUND_MARGIN);
+            Point2D interaction = selectionToInteraction(dock);
+            return new Point2D(interaction.getX(), Math.max(FIGHT_SELECTOR_BOUND_MARGIN, interaction.getY() - 54.0));
+        }
+
+        private Point2D selectionToInteraction(Point2D point) {
+            if (point == null || selectionPane == null || interactionPane == null || selectionPane.getScene() == null || interactionPane.getScene() == null) {
+                return point == null ? new Point2D(FIGHT_SELECTOR_BOUND_MARGIN, FIGHT_SELECTOR_BOUND_MARGIN) : point;
+            }
+            Point2D scenePoint = selectionPane.localToScene(point);
+            return interactionPane.sceneToLocal(scenePoint);
+        }
+
+        private Point2D interactionToSelection(double x, double y) {
+            if (selectionPane == null || interactionPane == null || selectionPane.getScene() == null || interactionPane.getScene() == null) {
+                return new Point2D(x, y);
+            }
+            Point2D scenePoint = interactionPane.localToScene(x, y);
+            return selectionPane.sceneToLocal(scenePoint);
+        }
+
+        private Point2D selectorCenterInInteraction(int selectorIdx) {
+            if (selectors == null || selectorIdx < 0 || selectorIdx >= selectors.length || selectors[selectorIdx] == null) {
+                return new Point2D(FIGHT_SELECTOR_BOUND_MARGIN, FIGHT_SELECTOR_BOUND_MARGIN);
+            }
+            return selectionToInteraction(new Point2D(selectors[selectorIdx].getCenterX(), selectors[selectorIdx].getCenterY()));
+        }
+
+        private Button buttonUnderClaw(int sourceIdx) {
+            if (sourceIdx < 0 || playerControlButtons == null || sourceIdx >= playerControlButtons.length || interactionPane == null) {
+                return null;
+            }
+            Button[] buttons = playerControlButtons[sourceIdx];
+            if (buttons == null) {
+                return null;
+            }
+            for (Button button : buttons) {
+                if (button == null || !button.isVisible() || button.isDisabled()) {
+                    continue;
+                }
+                Bounds sceneBounds = button.localToScene(button.getBoundsInLocal());
+                if (sceneBounds == null) {
+                    continue;
+                }
+                Bounds localBounds = interactionPane.sceneToLocal(sceneBounds);
+                if (localBounds.contains(clawX[sourceIdx], clawY[sourceIdx])) {
+                    return button;
+                }
+            }
+            return null;
+        }
+
+        private void focusButtonUnderClaw(int sourceIdx) {
+            Button button = buttonUnderClaw(sourceIdx);
+            if (button == null) {
+                return;
+            }
+            button.requestFocus();
+            if (currentStage != null) {
+                setConsoleHighlightActive(true, currentStage.getScene());
+            }
+        }
     }
 
     private void showFightSetup(Stage stage) {
@@ -13103,25 +13482,48 @@ public class BirdGame3 extends Application {
         resetWiimoteSelectorHeldState();
         normalizeXboxAssignmentsForLocalSetup();
         final Scene[] fightSceneRef = new Scene[1];
+        final double layoutW = 1600.0;
+        final double layoutH = 950.0;
 
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(24, 34, 24, 34));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #091421, #152738, #1F3443);");
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #06070A;");
 
-        Button back = uiFactory.action("BACK TO HUB", 320, 86, 32, "#D32F2F", 22, () -> showMenu(stage));
-        Label title = new Label("FIGHT - LOCAL");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 78));
-        title.setTextFill(Color.web("#FFE082"));
-        Label coins = new Label("BIRD COINS: " + birdCoinLedger.balance());
-        coins.setFont(Font.font("Consolas", 22));
-        coins.setTextFill(Color.web("#FFD54F"));
+        BorderPane content = new BorderPane();
+        content.setPadding(new Insets(14));
+        content.setMinSize(layoutW, layoutH);
+        content.setPrefSize(layoutW, layoutH);
+        content.setMaxSize(layoutW, layoutH);
+        content.setStyle("-fx-background-color: linear-gradient(to bottom, #06070A, #0D1017 34%, #171B22 100%);");
+        root.getChildren().add(content);
 
-        Region spacer = new Region();
-        HBox topBar = new HBox(18, back, title, spacer, coins);
-        topBar.setAlignment(Pos.CENTER_LEFT);
-        HBox.setHgrow(spacer, Priority.ALWAYS);
+        Button back = uiFactory.action("BACK", 156, 56, 22, "#B5121B", 16, () -> showMenu(stage));
+        back.setStyle("-fx-background-color: linear-gradient(to bottom, #D61D28, #981019); "
+                + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 17px; "
+                + "-fx-font-weight: bold; -fx-background-radius: 18; -fx-border-color: black; "
+                + "-fx-border-width: 3; -fx-border-radius: 18;");
+        applyNoEllipsis(back);
 
-        HBox countBox = new HBox(16);
+        Label title = new Label("LOCAL BATTLE");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
+        title.setTextFill(Color.web("#111111"));
+        StackPane titleBanner = new StackPane(title);
+        titleBanner.setMinSize(520, 72);
+        titleBanner.setPrefSize(520, 72);
+        titleBanner.setMaxSize(520, 72);
+        titleBanner.setStyle("-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
+                + "-fx-background-radius: 12; -fx-border-color: black; -fx-border-width: 4; "
+                + "-fx-border-radius: 12;");
+        titleBanner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
+
+        Label coins = new Label("BIRD COINS  " + birdCoinLedger.balance());
+        coins.setFont(Font.font("Arial Black", 19));
+        coins.setTextFill(Color.web("#FFF8D6"));
+        StackPane coinsChip = new StackPane(coins);
+        coinsChip.setPadding(new Insets(10, 18, 10, 18));
+        coinsChip.setStyle("-fx-background-color: rgba(255, 193, 7, 0.22); -fx-background-radius: 24; -fx-border-color: rgba(255, 245, 157, 0.65); -fx-border-width: 2; -fx-border-radius: 24;");
+
+        HBox countBox = new HBox(8);
         countBox.setAlignment(Pos.CENTER_LEFT);
         Button[] countButtons = new Button[3];
         final Runnable[] refreshLayoutRef = new Runnable[1];
@@ -13131,57 +13533,71 @@ public class BirdGame3 extends Application {
                 if (b == null) continue;
                 int value = i + 2;
                 boolean active = activePlayers == value;
-                b.setStyle("-fx-background-color: " + (active ? "#2E7D32" : "#4CAF50") + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 30;");
-                b.setOpacity(active ? 1.0 : 0.75);
+                b.setStyle("-fx-background-color: " + (active ? "#FFE45C" : "#20252D") + "; "
+                        + "-fx-text-fill: " + (active ? "#141414" : "white") + "; "
+                        + "-fx-font-family: 'Arial Black'; -fx-font-size: 16px; -fx-font-weight: bold; "
+                        + "-fx-background-radius: 16; -fx-border-color: black; -fx-border-width: 2.5; "
+                        + "-fx-border-radius: 16;");
+                b.setOpacity(active ? 1.0 : 0.94);
             }
         };
         for (int i = 2; i <= 4; i++) {
             int n = i;
-            Button b = uiFactory.action(n + "P", 140, 76, 32, "#4CAF50", 24, () -> {
+            Button b = uiFactory.action(n + "P", 74, 52, 18, "#20252D", 16, () -> {
                 activePlayers = n;
                 refreshCountButtons.run();
                 if (refreshLayoutRef[0] != null) refreshLayoutRef[0].run();
             });
+            applyNoEllipsis(b);
             countButtons[i - 2] = b;
             countBox.getChildren().add(b);
         }
         refreshCountButtons.run();
 
-        teamModeToggleButton = uiFactory.action("TEAM MODE: OFF", 360, 76, 28, "#546E7A", 22, () -> {
+        teamModeToggleButton = uiFactory.action("TEAM MODE: OFF", 228, 52, 18, "#3A434D", 16, () -> {
             teamModeEnabled = !teamModeEnabled;
             refreshTeamToggleButton();
         });
+        applyNoEllipsis(teamModeToggleButton);
         refreshTeamToggleButton();
 
-        Button settingsBtn = uiFactory.action("GAME SETTINGS", 300, 76, 28, "#455A64", 20, () -> {
-            settingsReturn = () -> showFightSetup(stage);
-            showGameSettings(stage);
-        });
+        Node settingsIcon = hubIconSettings();
+        settingsIcon.setScaleX(0.58);
+        settingsIcon.setScaleY(0.58);
+        Button settingsBtn = getButton(stage, settingsIcon);
 
-        HBox controls = new HBox(18, countBox, teamModeToggleButton, settingsBtn);
-        controls.setAlignment(Pos.CENTER_LEFT);
+        HBox rightHud = new HBox(10, teamModeToggleButton, settingsBtn, coinsChip);
+        rightHud.setAlignment(Pos.CENTER_RIGHT);
 
-        Label xboxJoinHint = new Label("Keyboard still works for open slots. Click a player's input button, then press A on an Xbox pad to claim that slot, or just press A to join the next open slot.");
-        xboxJoinHint.setFont(Font.font("Consolas", 16));
-        xboxJoinHint.setTextFill(Color.web("#CFD8DC"));
-        xboxJoinHint.setWrapText(true);
-        xboxJoinHint.setMaxWidth(1200);
-        applyNoEllipsis(xboxJoinHint);
+        BorderPane topChrome = new BorderPane();
+        topChrome.setLeft(back);
+        topChrome.setRight(rightHud);
+        BorderPane.setAlignment(back, Pos.CENTER_LEFT);
+        BorderPane.setAlignment(rightHud, Pos.CENTER_RIGHT);
 
-        VBox top = new VBox(14, topBar, controls, xboxJoinHint);
-        root.setTop(top);
+        StackPane topStrip = new StackPane(topChrome, titleBanner);
+        topStrip.setPadding(new Insets(10, 14, 10, 14));
+        topStrip.setMinHeight(92);
+        topStrip.setStyle("-fx-background-color: linear-gradient(to right, #8E0D16 0%, #C51A24 42%, #111317 42%, #111317 100%); "
+                + "-fx-background-radius: 24; -fx-border-color: black; -fx-border-width: 4; -fx-border-radius: 24;");
+        topStrip.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.30)));
+
+        VBox top = new VBox(topStrip);
+        content.setTop(top);
 
         List<BirdType> availableBirds = unlockedBirdPool();
         List<BirdType> gridBirds = new ArrayList<>(availableBirds);
         gridBirds.add(null); // random slot
 
         Pane selectionPane = new Pane();
-        double paneW = 1500;
-        double paneH = 520;
+        double paneW = 1520;
+        double paneH = 430;
         selectionPane.setPrefSize(paneW, paneH);
         selectionPane.setMinSize(paneW, paneH);
         selectionPane.setMaxSize(paneW, paneH);
-        selectionPane.setStyle("-fx-background-color: transparent;");
+        selectionPane.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(21,25,31,0.97), rgba(7,9,12,0.99)); "
+                + "-fx-background-radius: 22; -fx-border-color: rgba(255,255,255,0.16); "
+                + "-fx-border-width: 2; -fx-border-radius: 22;");
         Rectangle selectionClip = new Rectangle();
         selectionClip.widthProperty().bind(selectionPane.widthProperty());
         selectionClip.heightProperty().bind(selectionPane.heightProperty());
@@ -13191,26 +13607,36 @@ public class BirdGame3 extends Application {
         Map<BirdType, BirdIconSpot> spotByType = new HashMap<>();
         BirdIconSpot randomSpot = null;
 
-        int columns = Math.clamp(gridBirds.size(), 1, 6);
+        int columns = Math.clamp((int) Math.ceil(gridBirds.size() / 3.0), 8, 12);
         int rows = (int) Math.ceil(gridBirds.size() / (double) columns);
-        double dockW = 160;
-        double dockH = 320;
-        double dockX = 0;
-        double dockY = paneH - dockH;
-        double gridX = dockX + dockW + 20;
-        double gridY = 10;
-        double gridW = paneW - gridX - 20;
-        double gridH = paneH - 20;
+        double dockW = 138;
+        double dockX = 16;
+        double dockY = 18;
+        double dockH = paneH - dockY * 2;
+        double gridX = dockX + dockW + 14;
+        double gridY = 18;
+        double gridW = paneW - gridX - 18;
+        double gridH = paneH - gridY * 2;
         double cellW = gridW / columns;
         double cellH = gridH / Math.max(1, rows);
-        double iconSize = Math.clamp(Math.min(cellW, cellH) * 0.65, 60, 110);
 
         Region gridFrame = new Region();
         gridFrame.setLayoutX(gridX - 12);
-        gridFrame.setLayoutY(gridY - 10);
-        gridFrame.setPrefSize(gridW + 24, gridH + 20);
-        gridFrame.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #90A4AE; -fx-border-width: 3; -fx-background-radius: 20; -fx-border-radius: 20;");
+        gridFrame.setLayoutY(gridY - 12);
+        gridFrame.setPrefSize(gridW + 24, gridH + 24);
+        gridFrame.setStyle("-fx-background-color: rgba(255,255,255,0.035); "
+                + "-fx-border-color: rgba(255,255,255,0.14); -fx-border-width: 2; "
+                + "-fx-background-radius: 20; -fx-border-radius: 20;");
         selectionPane.getChildren().add(gridFrame);
+
+        Region selectorDock = new Region();
+        selectorDock.setPrefSize(dockW, dockH);
+        selectorDock.setLayoutX(dockX);
+        selectorDock.setLayoutY(dockY);
+        selectorDock.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(18,24,32,0.96), rgba(7,9,14,0.98)); "
+                + "-fx-background-radius: 20; -fx-border-color: rgba(255,224,130,0.42); "
+                + "-fx-border-width: 2; -fx-border-radius: 20;");
+        selectionPane.getChildren().add(selectorDock);
 
         for (int i = 0; i < gridBirds.size(); i++) {
             BirdType type = gridBirds.get(i);
@@ -13221,6 +13647,9 @@ public class BirdGame3 extends Application {
             double cellY = gridY + row * cellH;
             double centerX = cellX + cellW / 2.0;
             double centerY = cellY + cellH / 2.0;
+            double tileW = Math.max(110.0, cellW - 8.0);
+            double tileH = Math.max(110.0, cellH - 8.0);
+            double iconSize = Math.clamp(Math.min(tileW - 24.0, tileH - 52.0), 68.0, 138.0);
 
             Canvas icon = new Canvas(iconSize, iconSize);
             drawRosterSprite(icon, type, null, isRandom);
@@ -13250,26 +13679,41 @@ public class BirdGame3 extends Application {
             }
 
             Label name = new Label(isRandom ? "RANDOM" : type.name.toUpperCase());
-            name.setFont(Font.font("Consolas", 16));
-            name.setTextFill(Color.web("#ECEFF1"));
-            name.setMaxWidth(cellW - 10);
+            name.setFont(Font.font("Arial Black", tileH < 140 ? 13 : 15));
+            name.setTextFill(Color.WHITE);
+            name.setMaxWidth(tileW - 12);
             name.setTextAlignment(TextAlignment.CENTER);
             name.setAlignment(Pos.CENTER);
             name.setWrapText(true);
             if (type == BirdType.FALCON) {
                 name.setText("FALCON\nECHO OF EAGLE");
-                name.setFont(Font.font("Consolas", 14));
+                name.setFont(Font.font("Arial Black", 12));
             } else if (type == BirdType.HEISENBIRD) {
                 name.setText("HEISENBIRD\nECHO OF OPIUM");
-                name.setFont(Font.font("Consolas", 14));
+                name.setFont(Font.font("Arial Black", 12));
             }
 
-            VBox card = new VBox(6, iconNode, name);
-            card.setAlignment(Pos.CENTER);
-            card.setPrefWidth(cellW);
-            card.setPrefHeight(cellH);
-            card.setLayoutX(cellX);
-            card.setLayoutY(cellY);
+            StackPane namePlate = new StackPane(name);
+            namePlate.setPadding(new Insets(5, 8, 6, 8));
+            namePlate.setStyle("-fx-background-color: rgba(0,0,0,0.78); -fx-background-radius: 12;");
+
+            StackPane iconHolder = new StackPane(iconNode);
+            iconHolder.setPadding(new Insets(8, 8, 4, 8));
+
+            BorderPane tileBody = new BorderPane();
+            tileBody.setCenter(iconHolder);
+            tileBody.setBottom(namePlate);
+
+            StackPane card = new StackPane(tileBody);
+            card.setPrefSize(tileW, tileH);
+            card.setLayoutX(cellX + (cellW - tileW) / 2.0);
+            card.setLayoutY(cellY + (cellH - tileH) / 2.0);
+            card.setStyle((isRandom
+                    ? "-fx-background-color: linear-gradient(to bottom, rgba(122,91,12,0.96), rgba(49,34,4,0.98)); "
+                    : "-fx-background-color: linear-gradient(to bottom, rgba(58,72,92,0.82), rgba(14,17,22,0.96)); ")
+                    + "-fx-background-radius: 18; -fx-border-color: "
+                    + (isRandom ? "rgba(255,236,179,0.88)" : "rgba(255,255,255,0.18)")
+                    + "; -fx-border-width: 2; -fx-border-radius: 18;");
             card.setMouseTransparent(true);
 
             selectionPane.getChildren().add(card);
@@ -13282,31 +13726,6 @@ public class BirdGame3 extends Application {
             }
         }
 
-        Region selectorDock = new Region();
-        selectorDock.setPrefSize(dockW, dockH);
-        selectorDock.setLayoutX(dockX);
-        selectorDock.setLayoutY(dockY);
-        selectorDock.setStyle("-fx-background-color: rgba(10,10,10,0.6); -fx-border-color: #FFD54F; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
-        selectionPane.getChildren().add(selectorDock);
-
-        Label dockLabel = new Label("PLAYER SELECTORS");
-        dockLabel.setFont(Font.font("Consolas", 18));
-        dockLabel.setTextFill(Color.web("#FFE082"));
-        dockLabel.setLayoutX(dockX + 12);
-        dockLabel.setLayoutY(dockY + 8);
-        selectionPane.getChildren().add(dockLabel);
-
-        Label wiimoteSelectHint = new Label("Drag player selectors onto birds. Wiimote claws can grab any player selector.");
-        wiimoteSelectHint.setFont(Font.font("Consolas", 14));
-        wiimoteSelectHint.setTextFill(Color.web("#CFD8DC"));
-        wiimoteSelectHint.setMaxWidth(dockW - 20);
-        wiimoteSelectHint.setWrapText(true);
-        wiimoteSelectHint.setLayoutX(dockX + 10);
-        wiimoteSelectHint.setLayoutY(dockY + dockH - 54);
-        wiimoteSelectHint.setMouseTransparent(true);
-        applyNoEllipsis(wiimoteSelectHint);
-        selectionPane.getChildren().add(wiimoteSelectHint);
-
         Point2D[] dockPositions = new Point2D[4];
         for (int i = 0; i < 4; i++) {
             double spacing = dockH / 5.0;
@@ -13315,18 +13734,64 @@ public class BirdGame3 extends Application {
             dockPositions[i] = new Point2D(dx, dy);
         }
 
-        VBox[] fightSlots = new VBox[4];
+        StackPane[] fightSlots = new StackPane[4];
         Canvas[] portraits = new Canvas[4];
         Label[] nameLabels = new Label[4];
         Button[] skinButtons = new Button[4];
         Button[] inputButtons = new Button[4];
+        Button[] aiToggleButtons = new Button[4];
 
-        Button readyBtn = uiFactory.action("FLY INTO BATTLE", 680, 110, 52, "#FF1744", 32, () -> {
+        Button readyBtn = uiFactory.action("FLY INTO BATTLE!", 760, 102, 30, "#F6C431", 28, () -> {
             stageSelectReturn = () -> showFightSetup(stage);
             showStageSelect(stage);
         });
+        readyBtn.setStyle("-fx-background-color: linear-gradient(to right, #CF2F14, #F59E0B 58%, #FFE96A 100%); "
+                + "-fx-text-fill: #111111; -fx-font-family: 'Arial Black'; -fx-font-size: 34px; "
+                + "-fx-font-style: italic; -fx-font-weight: bold; -fx-background-radius: 24; "
+                + "-fx-border-color: white, black; -fx-border-insets: 0, 3; -fx-border-width: 3, 4; "
+                + "-fx-border-radius: 24, 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 18, 0.35, 0, 10);");
+        applyNoEllipsis(readyBtn);
         readyBtn.setVisible(false);
         readyBtn.setManaged(false);
+
+        Label playerCountLabel = new Label();
+        playerCountLabel.setFont(Font.font("Arial Black", 20));
+        playerCountLabel.setTextFill(Color.web("#CFD8DC"));
+        applyNoEllipsis(playerCountLabel);
+
+        Button removePlayerBtn = uiFactory.action("- PLAYER", 126, 46, 18, "#455A64", 14, () -> {
+            if (activePlayers <= 2) {
+                return;
+            }
+            activePlayers--;
+            refreshCountButtons.run();
+            if (refreshLayoutRef[0] != null) refreshLayoutRef[0].run();
+        });
+        Button addPlayerBtn = uiFactory.action("+ PLAYER", 126, 46, 18, "#2E7D32", 14, () -> {
+            if (activePlayers >= 4) {
+                return;
+            }
+            activePlayers++;
+            refreshCountButtons.run();
+            if (refreshLayoutRef[0] != null) refreshLayoutRef[0].run();
+        });
+        applyNoEllipsis(removePlayerBtn);
+        applyNoEllipsis(addPlayerBtn);
+        Runnable refreshPlayerCountControls = () -> {
+            playerCountLabel.setText(activePlayers + (activePlayers == 1 ? " PLAYER" : " PLAYERS"));
+            removePlayerBtn.setDisable(activePlayers <= 2);
+            removePlayerBtn.setOpacity(activePlayers <= 2 ? 0.48 : 1.0);
+            addPlayerBtn.setDisable(activePlayers >= 4);
+            addPlayerBtn.setOpacity(activePlayers >= 4 ? 0.48 : 1.0);
+            removePlayerBtn.setStyle("-fx-background-color: #455A64; -fx-text-fill: white; "
+                    + "-fx-font-family: 'Arial Black'; -fx-font-size: 14px; -fx-font-weight: bold; "
+                    + "-fx-background-radius: 14; -fx-border-color: black; -fx-border-width: 2.5; "
+                    + "-fx-border-radius: 14;");
+            addPlayerBtn.setStyle("-fx-background-color: #2E7D32; -fx-text-fill: white; "
+                    + "-fx-font-family: 'Arial Black'; -fx-font-size: 14px; -fx-font-weight: bold; "
+                    + "-fx-background-radius: 14; -fx-border-color: black; -fx-border-width: 2.5; "
+                    + "-fx-border-radius: 14;");
+        };
 
         Runnable updateReadyBanner = () -> {
             boolean ready = true;
@@ -13347,29 +13812,60 @@ public class BirdGame3 extends Application {
         for (int i = 0; i < 4; i++) {
             int idx = i;
 
-            Label pLabel = new Label("P" + (idx + 1));
-            pLabel.setFont(Font.font("Impact", 28));
-            pLabel.setTextFill(Color.web("#FFCC80"));
+            Color accent = switch (idx) {
+                case 0 -> Color.web("#F44336");
+                case 1 -> Color.web("#42A5F5");
+                case 2 -> Color.web("#FDD835");
+                default -> Color.web("#66BB6A");
+            };
+            String accentHex = toHex(accent);
 
-            Button aiToggle = new Button(isAI[idx] ? "CPU" : "PLAYER");
-            aiToggle.setPrefSize(140, 40);
-            aiToggle.setFont(Font.font("Consolas", 18));
-            aiToggle.setStyle("-fx-background-color: " + (isAI[idx] ? "#B71C1C" : "#1565C0") + "; -fx-text-fill: white;");
+            StackPane playerBadge = new StackPane();
+            playerBadge.setMinSize(78, 44);
+            playerBadge.setPrefSize(78, 44);
+            playerBadge.setMaxSize(78, 44);
+            playerBadge.setStyle("-fx-background-color: " + accentHex + "; "
+                    + "-fx-background-radius: 14; -fx-border-color: black; "
+                    + "-fx-border-width: 3; -fx-border-radius: 14;");
+
+            Label pLabel = new Label("P" + (idx + 1));
+            pLabel.setFont(Font.font("Arial Black", 24));
+            pLabel.setTextFill(idx == 2 ? Color.web("#111111") : Color.WHITE);
+            playerBadge.getChildren().add(pLabel);
+
+            Button aiToggle = new Button();
+            aiToggle.setPrefSize(132, 40);
+            aiToggle.setMinSize(132, 40);
+            aiToggle.setMaxSize(132, 40);
+            aiToggle.setFont(Font.font("Arial Black", 16));
+            applyNoEllipsis(aiToggle);
+            Runnable syncAiToggle = () -> {
+                aiToggle.setText(isAI[idx] ? "CPU" : "PLAYER");
+                String bg = isAI[idx] ? "#D7D9DD" : accentHex;
+                String fg = isAI[idx] ? "#111111" : (idx == 2 ? "#111111" : "#FFFFFF");
+                aiToggle.setStyle("-fx-background-color: " + bg + "; -fx-text-fill: " + fg + "; "
+                        + "-fx-font-family: 'Arial Black'; -fx-font-size: 15px; -fx-font-weight: bold; "
+                        + "-fx-background-radius: 14; -fx-border-color: black; -fx-border-width: 2.5; "
+                        + "-fx-border-radius: 14;");
+            };
             aiToggle.setOnAction(e -> {
                 playButtonClick();
                 isAI[idx] = !isAI[idx];
-                aiToggle.setText(isAI[idx] ? "CPU" : "PLAYER");
-                aiToggle.setStyle("-fx-background-color: " + (isAI[idx] ? "#B71C1C" : "#1565C0") + "; -fx-text-fill: white;");
                 if (isAI[idx]) {
                     clearXboxAssignmentForPlayer(idx);
                 }
+                syncAiToggle.run();
                 refreshCpuButton(idx);
                 if (refreshInputAssignmentsRef[0] != null) refreshInputAssignmentsRef[0].run();
             });
+            syncAiToggle.run();
+            aiToggleButtons[idx] = aiToggle;
 
             Button inputBtn = new Button("INPUT: KEYBOARD");
-            inputBtn.setPrefSize(200, 40);
-            inputBtn.setFont(Font.font("Consolas", 15));
+            inputBtn.setMinHeight(42);
+            inputBtn.setPrefHeight(42);
+            inputBtn.setMaxWidth(Double.MAX_VALUE);
+            inputBtn.setFont(Font.font("Arial Black", 14));
             inputBtn.setWrapText(true);
             applyNoEllipsis(inputBtn);
             inputBtn.setOnAction(e -> {
@@ -13386,19 +13882,33 @@ public class BirdGame3 extends Application {
             });
             inputButtons[idx] = inputBtn;
 
-            portraits[idx] = new Canvas(140, 140);
-            nameLabels[idx] = new Label("SELECT");
-            nameLabels[idx].setFont(Font.font("Consolas", 18));
-            nameLabels[idx].setTextFill(Color.web("#ECEFF1"));
+            portraits[idx] = new Canvas(156, 156);
+            nameLabels[idx] = new Label("SELECT A BIRD");
+            nameLabels[idx].setFont(Font.font("Arial Black", 30));
+            nameLabels[idx].setTextFill(Color.WHITE);
+            nameLabels[idx].setAlignment(Pos.CENTER_LEFT);
+            nameLabels[idx].setTextAlignment(TextAlignment.LEFT);
+            nameLabels[idx].setWrapText(true);
+            nameLabels[idx].setMaxWidth(260);
+            applyNoEllipsis(nameLabels[idx]);
 
             skinButtons[idx] = new Button("SKIN: BASE");
-            skinButtons[idx].setPrefSize(180, 36);
-            skinButtons[idx].setFont(Font.font("Consolas", 16));
-            skinButtons[idx].setStyle("-fx-background-color: #37474F; -fx-text-fill: white;");
+            skinButtons[idx].setMinHeight(42);
+            skinButtons[idx].setPrefHeight(42);
+            skinButtons[idx].setMaxWidth(Double.MAX_VALUE);
+            skinButtons[idx].setFont(Font.font("Arial Black", 14));
+            skinButtons[idx].setStyle("-fx-background-color: rgba(16,22,28,0.96); -fx-text-fill: white; "
+                    + "-fx-font-weight: bold; -fx-background-radius: 16; "
+                    + "-fx-border-color: rgba(255,255,255,0.16); -fx-border-width: 2; "
+                    + "-fx-border-radius: 16;");
+            applyNoEllipsis(skinButtons[idx]);
 
             Button cpuBtn = new Button("CPU LV: " + cpuLevels[idx]);
-            cpuBtn.setPrefSize(150, 36);
-            cpuBtn.setFont(Font.font("Consolas", 16));
+            cpuBtn.setMinHeight(42);
+            cpuBtn.setPrefHeight(42);
+            cpuBtn.setMaxWidth(Double.MAX_VALUE);
+            cpuBtn.setFont(Font.font("Arial Black", 14));
+            applyNoEllipsis(cpuBtn);
             cpuBtn.setOnAction(e -> {
                 playButtonClick();
                 if (!isAI[idx]) return;
@@ -13421,7 +13931,8 @@ public class BirdGame3 extends Application {
                     fightSelectedSkinKeys[idx] = skinKey;
                 }
                 drawRosterSprite(portraits[idx], type, skinKey, randomPick);
-                nameLabels[idx].setText(randomPick ? "RANDOM" : (type != null ? type.name.toUpperCase() : "SELECT"));
+                nameLabels[idx].setText(randomPick ? "RANDOM" : (type != null ? type.name.toUpperCase() : "SELECT A BIRD"));
+                fitLabelSingleLine(nameLabels[idx], 30, 16, 260);
                 if (type == null) {
                     skinButtons[idx].setDisable(true);
                     skinButtons[idx].setOpacity(0.6);
@@ -13448,12 +13959,52 @@ public class BirdGame3 extends Application {
                 updateSlot[idx].run();
             });
 
-            VBox slot = new VBox(8, pLabel, aiToggle, inputBtn, portraits[idx], nameLabels[idx], skinButtons[idx], cpuBtn);
-            slot.setAlignment(Pos.CENTER);
-            slot.setPadding(new Insets(10));
-            slot.setPrefWidth(260);
-            slot.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-background-radius: 16; -fx-border-color: #78909C; -fx-border-width: 2; -fx-border-radius: 16;");
-            fightSlots[idx] = slot;
+            StackPane portraitFrame = new StackPane(portraits[idx]);
+            portraitFrame.setMinSize(170, 170);
+            portraitFrame.setPrefSize(170, 170);
+            portraitFrame.setMaxSize(170, 170);
+            portraitFrame.setStyle("-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 22; "
+                    + "-fx-border-color: rgba(255,255,255,0.20); -fx-border-width: 2; "
+                    + "-fx-border-radius: 22;");
+
+            Region slotSpacer = new Region();
+            HBox.setHgrow(slotSpacer, Priority.ALWAYS);
+            HBox slotHeader = new HBox(10, playerBadge, slotSpacer, aiToggle);
+            slotHeader.setAlignment(Pos.CENTER_LEFT);
+
+            VBox detailColumn = new VBox(10, nameLabels[idx], inputBtn, skinButtons[idx], cpuBtn);
+            detailColumn.setAlignment(Pos.TOP_LEFT);
+            detailColumn.setFillWidth(true);
+            HBox.setHgrow(detailColumn, Priority.ALWAYS);
+
+            HBox slotBody = new HBox(18, portraitFrame, detailColumn);
+            slotBody.setAlignment(Pos.CENTER_LEFT);
+
+            VBox slot = new VBox(14, slotHeader, slotBody);
+            slot.setAlignment(Pos.TOP_LEFT);
+            slot.setPadding(new Insets(16));
+
+            Region cardBase = new Region();
+            cardBase.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+            cardBase.setStyle("-fx-background-color: linear-gradient(to bottom right, "
+                    + accentHex + ", #0C0E12); "
+                    + "-fx-background-radius: 26; -fx-border-color: rgba(255,255,255,0.16); "
+                    + "-fx-border-width: 3; -fx-border-radius: 26;");
+
+            Rectangle cardSlash = new Rectangle(220, 320, accent.deriveColor(0.0, 1.0, 1.0, 0.24));
+            cardSlash.setRotate(-13.0);
+            cardSlash.setTranslateX(-120.0);
+            cardSlash.setTranslateY(-24.0);
+            cardSlash.setMouseTransparent(true);
+
+            StackPane slotCard = new StackPane(cardBase, cardSlash, slot);
+            slotCard.setMinWidth(320);
+            slotCard.setPrefWidth(320);
+            slotCard.setPrefHeight(248);
+            slotCard.setMinHeight(248);
+            slotCard.setMaxHeight(248);
+            slotCard.setMaxWidth(320);
+            fightSlots[idx] = slotCard;
         }
 
         Runnable refreshInputAssignments = () -> {
@@ -13466,6 +14017,7 @@ public class BirdGame3 extends Application {
                 boolean active = idx < activePlayers;
                 boolean cpu = idx < isAI.length && isAI[idx];
                 int xboxSlot = xboxAssignedSlotForPlayer(idx);
+                boolean xboxConnected = xboxSlot >= 0 && isXboxSlotConnected(xboxSlot);
                 boolean awaitingAssign = active && !cpu && xboxPendingAssignPlayerIdx == idx;
                 String text;
                 String color;
@@ -13481,8 +14033,8 @@ public class BirdGame3 extends Application {
                     opacity = 0.85;
                     disabled = true;
                 } else if (xboxSlot >= 0) {
-                    text = "INPUT: XBOX " + (xboxSlot + 1);
-                    color = "#2E7D32";
+                    text = xboxConnected ? "INPUT: XBOX " + (xboxSlot + 1) : "XBOX " + (xboxSlot + 1) + " DISCONNECTED";
+                    color = xboxConnected ? "#2E7D32" : "#C62828";
                 } else if (awaitingAssign) {
                     text = "PRESS A TO JOIN";
                     color = "#F9A825";
@@ -13493,11 +14045,21 @@ public class BirdGame3 extends Application {
                 inputBtn.setText(text);
                 inputBtn.setDisable(disabled);
                 inputBtn.setOpacity(opacity);
-                inputBtn.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 12;");
+                inputBtn.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; "
+                        + "-fx-font-family: 'Arial Black'; -fx-font-size: 13px; -fx-font-weight: bold; "
+                        + "-fx-background-radius: 16; -fx-border-color: rgba(255,255,255,0.16); "
+                        + "-fx-border-width: 2; -fx-border-radius: 16;");
             }
         };
         refreshInputAssignmentsRef[0] = refreshInputAssignments;
         refreshInputAssignments.run();
+        Button[][] playerControlButtons = new Button[4][];
+        for (int i = 0; i < playerControlButtons.length; i++) {
+            playerControlButtons[i] = new Button[]{aiToggleButtons[i], inputButtons[i], skinButtons[i], cpuButtons[i]};
+        }
+        Pane interactionOverlay = new Pane();
+        interactionOverlay.setPickOnBounds(false);
+        interactionOverlay.setMouseTransparent(true);
 
         Circle[] selectors = new Circle[4];
         Text[] selectorLabels = new Text[4];
@@ -13511,6 +14073,7 @@ public class BirdGame3 extends Application {
                 Color.web("#4DD0E1"),
                 Color.web("#81C784")
         };
+        double selectorSnapDistance = Math.min(cellW, cellH) * 0.42;
         for (int i = 0; i < 4; i++) {
             int idx = i;
             Circle selector = new Circle(26);
@@ -13520,6 +14083,8 @@ public class BirdGame3 extends Application {
             selector.setVisible(i < activePlayers);
             selector.setManaged(false);
             selector.getProperties().put(FIGHT_SELECTOR_COLOR_PROP, selectorColors[i]);
+            selector.getProperties().put(FIGHT_SELECTOR_SNAP_DISTANCE_PROP, selectorSnapDistance);
+            selector.getProperties().put(FIGHT_SELECTOR_DOCK_BOUNDS_PROP, new double[]{dockX, dockY, dockW, dockH});
             selectors[i] = selector;
             selectionPane.getChildren().add(selector);
             refreshFightSelectorVisual(selector, false);
@@ -13536,7 +14101,7 @@ public class BirdGame3 extends Application {
             claw.setManaged(false);
             claw.setMouseTransparent(true);
             selectorClaws[i] = claw;
-            selectionPane.getChildren().add(claw);
+            interactionOverlay.getChildren().add(claw);
             refreshFightSelectorClaw(claw, false);
 
             Text clawLabel = new Text("P" + (idx + 1));
@@ -13545,7 +14110,7 @@ public class BirdGame3 extends Application {
             clawLabel.setManaged(false);
             clawLabel.setMouseTransparent(true);
             selectorClawLabels[i] = clawLabel;
-            selectionPane.getChildren().add(clawLabel);
+            interactionOverlay.getChildren().add(clawLabel);
             setFightSelectorClawVisible(claw, clawLabel, false);
 
             final double[] dragOffset = new double[2];
@@ -13575,6 +14140,15 @@ public class BirdGame3 extends Application {
                     dockFightSelector(idx, selector, label, dockPositions);
                     return;
                 }
+                boolean inDock = selector.getCenterX() >= dockX - 10.0
+                        && selector.getCenterX() <= dockX + dockW + 10.0
+                        && selector.getCenterY() >= dockY - 10.0
+                        && selector.getCenterY() <= dockY + dockH + 10.0;
+                if (inDock) {
+                    clearFightSelectorChoice(idx, selector, selectorLocked, updateSlot[idx], updateReadyBanner);
+                    dockFightSelector(idx, selector, label, dockPositions);
+                    return;
+                }
                 BirdIconSpot best = nearestFightSelectorSpot(selector, spots);
                 if (best != null) {
                     lockFightSelectorToSpot(idx, selector, label, selectorLocked, best, updateSlot[idx]);
@@ -13590,10 +14164,18 @@ public class BirdGame3 extends Application {
                 fightSceneRef[0].getProperties().put(SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS, activePlayers);
             }
             normalizeXboxAssignmentsForLocalSetup();
+            double slotWidth = switch (activePlayers) {
+                case 2 -> 620.0;
+                case 3 -> 410.0;
+                default -> 300.0;
+            };
             for (int i = 0; i < 4; i++) {
                 boolean active = i < activePlayers;
                 fightSlots[i].setVisible(active);
                 fightSlots[i].setManaged(active);
+                fightSlots[i].setMinWidth(slotWidth);
+                fightSlots[i].setPrefWidth(slotWidth);
+                fightSlots[i].setMaxWidth(slotWidth);
                 selectors[i].setVisible(active);
                 if (!active) {
                     setFightSelectorClawVisible(selectorClaws[i], selectorClawLabels[i], false);
@@ -13611,7 +14193,16 @@ public class BirdGame3 extends Application {
                 updateSlot[i].run();
             }
             refreshInputAssignments.run();
+            refreshPlayerCountControls.run();
             updateReadyBanner.run();
+            if (fightSceneRef[0] != null) {
+                javafx.application.Platform.runLater(() -> {
+                    FightSetupSelectorController controller = fightSetupSelectorController(fightSceneRef[0]);
+                    if (controller != null) {
+                        controller.relayoutClaws();
+                    }
+                });
+            }
         };
         refreshLayoutRef[0] = refreshLayout;
 
@@ -13622,20 +14213,49 @@ public class BirdGame3 extends Application {
             }
         }
 
-        HBox playerBar = new HBox(18, fightSlots);
+        Label rosterTitle = new Label("SELECT YOUR BIRD");
+        rosterTitle.setFont(Font.font("Arial Black", 28));
+        rosterTitle.setTextFill(Color.web("#FFF176"));
+        rosterTitle.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.30)));
+        HBox rosterHeader = new HBox(rosterTitle);
+        rosterHeader.setAlignment(Pos.CENTER_LEFT);
+
+        VBox rosterCard = new VBox(10, rosterHeader, selectionPane);
+        rosterCard.setPadding(new Insets(12));
+        rosterCard.setStyle("-fx-background-color: rgba(4,5,8,0.90); -fx-background-radius: 28; "
+                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 3; -fx-border-radius: 28;");
+
+        HBox playerBar = new HBox(14);
+        playerBar.getChildren().addAll(fightSlots);
         playerBar.setAlignment(Pos.CENTER);
-        playerBar.setPadding(new Insets(12, 0, 0, 0));
-        playerBar.setTranslateY(36);
-        BorderPane.setMargin(playerBar, new Insets(0, 0, 0, 0));
+        playerBar.setFillHeight(true);
 
-        StackPane center = new StackPane(selectionPane, readyBtn);
-        StackPane.setAlignment(selectionPane, Pos.BOTTOM_LEFT);
-        StackPane.setMargin(selectionPane, new Insets(0, 0, 36, 24));
-        StackPane.setAlignment(readyBtn, Pos.BOTTOM_CENTER);
-        StackPane.setMargin(readyBtn, new Insets(0, 0, 16, 0));
+        HBox playerCountButtons = new HBox(8, removePlayerBtn, addPlayerBtn);
+        playerCountButtons.setAlignment(Pos.CENTER);
 
-        root.setCenter(center);
-        root.setBottom(playerBar);
+        VBox actionCardBody = new VBox(16, playerCountLabel, playerCountButtons);
+        actionCardBody.setAlignment(Pos.CENTER);
+
+        HBox footerRow = getHBox(actionCardBody, playerBar);
+        HBox.setHgrow(playerBar, Priority.ALWAYS);
+
+        StackPane playersPanel = new StackPane(footerRow);
+        playersPanel.setPadding(new Insets(10));
+        playersPanel.setStyle("-fx-background-color: rgba(4,5,8,0.92); -fx-background-radius: 28; "
+                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 3; -fx-border-radius: 28;");
+
+        VBox body = new VBox(14, rosterCard, playersPanel);
+        body.setAlignment(Pos.TOP_CENTER);
+
+        StackPane readyOverlay = new StackPane(readyBtn);
+        readyOverlay.visibleProperty().bind(readyBtn.visibleProperty());
+        readyOverlay.managedProperty().bind(readyBtn.managedProperty());
+        readyOverlay.setPickOnBounds(false);
+        StackPane.setAlignment(readyOverlay, Pos.BOTTOM_CENTER);
+        StackPane.setMargin(readyOverlay, new Insets(0, 0, 176, 0));
+
+        StackPane interactionLayer = new StackPane(body, readyOverlay, interactionOverlay);
+        content.setCenter(interactionLayer);
 
         BooleanSupplier tryStartMatch = () -> {
             if (!readyBtn.isVisible()) return false;
@@ -13645,6 +14265,7 @@ public class BirdGame3 extends Application {
         };
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        scene.setFill(Color.web("#06070A"));
         fightSceneRef[0] = scene;
         scene.getProperties().put(SCENE_PROP_WIIMOTE_SELECTOR, Boolean.TRUE);
         scene.getProperties().put(SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS, activePlayers);
@@ -13657,13 +14278,15 @@ public class BirdGame3 extends Application {
                         spots,
                         dockPositions,
                         selectionPane,
+                        interactionOverlay,
                         updateSlot,
                         updateReadyBanner,
                         refreshInputAssignments,
                         tryStartMatch,
                         nullRockSequenceProgress,
                         selectorClaws,
-                        selectorClawLabels
+                        selectorClawLabels,
+                        playerControlButtons
                 )
         );
         setFightSetupClawCursor(scene, false);
@@ -13682,8 +14305,54 @@ public class BirdGame3 extends Application {
         });
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, content);
         setScenePreservingFullscreen(stage, scene);
         back.requestFocus();
+    }
+
+    private Button getButton(Stage stage, Node settingsIcon) {
+        Button settingsBtn = new Button();
+        settingsBtn.setGraphic(settingsIcon);
+        settingsBtn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+        settingsBtn.setPrefSize(54, 54);
+        settingsBtn.setMinSize(54, 54);
+        settingsBtn.setMaxSize(54, 54);
+        settingsBtn.setStyle("-fx-background-color: #101318; -fx-background-radius: 18; "
+                + "-fx-border-color: black; -fx-border-width: 2.5; -fx-border-radius: 18;");
+        settingsBtn.setOnAction(e -> {
+            playButtonClick();
+            settingsReturn = () -> showFightSetup(stage);
+            showGameSettings(stage);
+        });
+        return settingsBtn;
+    }
+
+    private static HBox getHBox(VBox actionCardBody, HBox playerBar) {
+        StackPane actionCard = getStackPane(actionCardBody);
+        actionCard.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(18,22,28,0.96), rgba(6,8,11,0.98)); "
+                + "-fx-background-radius: 26; -fx-border-color: rgba(255,224,130,0.60); "
+                + "-fx-border-width: 3; -fx-border-radius: 26;");
+
+        HBox footerRow = new HBox(14, playerBar, actionCard);
+        footerRow.setAlignment(Pos.BOTTOM_CENTER);
+        return footerRow;
+    }
+
+    private static StackPane getStackPane(VBox actionCardBody) {
+        Region actionAccent = new Region();
+        actionAccent.setPrefHeight(14);
+        actionAccent.setMaxWidth(Double.MAX_VALUE);
+        actionAccent.setStyle("-fx-background-color: linear-gradient(to right, #FEEB6E, #F2B626); "
+                + "-fx-background-radius: 24 24 0 0;");
+
+        BorderPane actionCardChrome = new BorderPane();
+        actionCardChrome.setTop(actionAccent);
+
+        StackPane actionCard = new StackPane(actionCardChrome, actionCardBody);
+        actionCard.setMinSize(250, 188);
+        actionCard.setPrefSize(250, 188);
+        actionCard.setMaxSize(250, 188);
+        return actionCard;
     }
 
     private void showTrainingSetup(Stage stage) {
@@ -13741,14 +14410,9 @@ public class BirdGame3 extends Application {
         Pane selectionPane = new Pane();
         double paneW = 1100;
         double paneH = 520;
-        selectionPane.setPrefSize(paneW, paneH);
-        selectionPane.setMinSize(paneW, paneH);
-        selectionPane.setMaxSize(paneW, paneH);
+        lockRegionSize(selectionPane, paneW, paneH);
         selectionPane.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #90A4AE; -fx-border-width: 3; -fx-background-radius: 20; -fx-border-radius: 20;");
-        Rectangle selectionClip = new Rectangle();
-        selectionClip.widthProperty().bind(selectionPane.widthProperty());
-        selectionClip.heightProperty().bind(selectionPane.heightProperty());
-        selectionPane.setClip(selectionClip);
+        installRegionClip(selectionPane, 20, 20);
 
         List<BirdIconSpot> spots = new ArrayList<>();
         Map<BirdType, BirdIconSpot> spotByType = new HashMap<>();
@@ -13815,11 +14479,11 @@ public class BirdGame3 extends Application {
                 name.setText("HEISENBIRD\nECHO OF OPIUM");
                 name.setFont(Font.font("Consolas", 14));
             }
+            fitWrappedLabelText(name, name.getText(), Math.max(84.0, cellW - 18.0), 42.0, 10.0);
 
             VBox card = new VBox(6, iconNode, name);
             card.setAlignment(Pos.CENTER);
-            card.setPrefWidth(cellW);
-            card.setPrefHeight(cellH);
+            lockRegionSize(card, cellW, cellH);
             card.setLayoutX(cellX);
             card.setLayoutY(cellY);
             card.setMouseTransparent(true);
@@ -13944,10 +14608,14 @@ public class BirdGame3 extends Application {
         Label youLabel = new Label();
         youLabel.setFont(Font.font("Arial Black", 36));
         youLabel.setTextFill(Color.web("#FFE082"));
+        youLabel.setMaxWidth(620);
+        applyNoEllipsis(youLabel);
 
         Label oppLabel = new Label();
         oppLabel.setFont(Font.font("Arial Black", 36));
         oppLabel.setTextFill(Color.web("#FFCDD2"));
+        oppLabel.setMaxWidth(620);
+        applyNoEllipsis(oppLabel);
 
         Label note = new Label("""
                 Opponent has infinite health.
@@ -13956,6 +14624,9 @@ public class BirdGame3 extends Application {
                 """);
         note.setFont(Font.font("Consolas", 22));
         note.setTextFill(Color.web("#B0BEC5"));
+        note.setWrapText(true);
+        note.setMaxWidth(620);
+        applyNoEllipsis(note);
 
         Button back = uiFactory.action("BACK TO HUB", 360, 96, 34, "#D32F2F", 22, () -> showMenu(stage));
         Button selectMap = uiFactory.action("SELECT MAP", 420, 96, 34, "#00C853", 24, () -> {
@@ -13971,6 +14642,8 @@ public class BirdGame3 extends Application {
         Runnable refresh = () -> {
             youLabel.setText(selected[0] != null ? "You: " + selected[0].name : "You: SELECT");
             oppLabel.setText(selected[1] != null ? "Opponent: " + selected[1].name : "Opponent: SELECT");
+            fitLabelSingleLine(youLabel, 36, 20, 620);
+            fitLabelSingleLine(oppLabel, 36, 20, 620);
             boolean ready = selected[0] != null && selected[1] != null;
             selectMap.setDisable(!ready);
             selectMap.setOpacity(ready ? 1.0 : 0.6);
@@ -13981,7 +14654,7 @@ public class BirdGame3 extends Application {
         VBox rightCard = new VBox(14, youLabel, oppLabel, note);
         rightCard.setAlignment(Pos.TOP_LEFT);
         rightCard.setPadding(new Insets(24));
-        rightCard.setMaxWidth(680);
+        lockRegionWidth(rightCard, 680);
         rightCard.setStyle("-fx-background-color: rgba(0,0,0,0.56); -fx-border-color: #64B5F6; -fx-border-width: 3; -fx-border-radius: 22; -fx-background-radius: 22;");
 
         HBox center = new HBox(22, selectionPane, rightCard);
@@ -14039,7 +14712,7 @@ public class BirdGame3 extends Application {
                                       BooleanSupplier tryStartMatch,
                                       int[] nullRockSequenceProgress) {
         if (idx < 0 || idx >= activePlayers) return false;
-        if (!keyboardControlsPlayer(idx)) return false;
+        if (keyboardControlsPlayer(idx)) return false;
         if (selector == null || label == null) return false;
 
         KeyCode code = e.getCode();
@@ -14125,10 +14798,9 @@ public class BirdGame3 extends Application {
             bossRushModeActive = true;
             showClassicBirdSelect(stage);
         });
-        Button dailyBtn = uiFactory.action("DAILY CHALLENGE", 700, 140, 40, "#00897B", 28, () -> showDailyChallengeSetup(stage));
         Button episodesBtn = uiFactory.action("EPISODES", 700, 140, 44, "#8E24AA", 30, () -> showEpisodesHub(stage));
         Button tournamentBtn = uiFactory.action("TOURNAMENT MODE", 700, 140, 40, "#FFB300", 28, () -> showTournamentSetup(stage));
-        VBox options = new VBox(22, classicBtn, bossRushBtn, dailyBtn, episodesBtn, tournamentBtn);
+        VBox options = new VBox(22, classicBtn, bossRushBtn, episodesBtn, tournamentBtn);
         options.setAlignment(Pos.CENTER);
 
         Button back = uiFactory.action("BACK TO HUB", 360, 90, 34, "#D32F2F", 22, () -> showMenu(stage));
@@ -14698,6 +15370,7 @@ public class BirdGame3 extends Application {
                         rewardCoins[0] = towerDefenseCoinReward(mode.difficulty());
                         newBadgeAwarded[0] = awardTowerDefenseBadge(defenseMap, mode.difficulty());
                         grantBirdCoins(rewardCoins[0]);
+                        refreshModeAchievementUnlocks();
                         saveAchievements();
                     }
                 }
@@ -15170,6 +15843,10 @@ public class BirdGame3 extends Application {
             } else {
                 next.b = winner;
             }
+        } else if (winner.human) {
+            tournamentChampionshipsWon++;
+            refreshModeAchievementUnlocks();
+            saveAchievements();
         }
     }
 
@@ -16840,7 +17517,7 @@ public class BirdGame3 extends Application {
 
         int coinsEarned = awardBirdCoinsForMatch(winner);
         recordMatchHistory(winner, coinsEarned);
-        BirdProgression.MatchResult progressionResult = progression.applyMatch(
+        progression.applyMatch(
                 buildProgressionMatchContext(winner),
                 this::grantBirdCoins,
                 this::saveAchievements
@@ -16915,15 +17592,7 @@ public class BirdGame3 extends Application {
             actions.getChildren().add(waiting);
         }
 
-        VBox masteryPanel = buildMasterySummaryPanel(progressionResult.masterySummary());
-        VBox contractPanel = buildContractSummaryPanel(progressionResult.contractUpdate());
         root.getChildren().addAll(title, subtitle, coinsLabel, mapLabel);
-        if (contractPanel != null) {
-            root.getChildren().add(contractPanel);
-        }
-        if (masteryPanel != null) {
-            root.getChildren().add(masteryPanel);
-        }
         root.getChildren().addAll(scoreboard, actions);
 
         ScrollPane scroll = wrapInScroll(root);
@@ -17578,7 +18247,9 @@ public class BirdGame3 extends Application {
     private void handleLanKeyPress(Stage stage, KeyEvent e) {
         KeyCode code = e.getCode();
         if (code == KeyCode.F11) {
-            stage.setFullScreen(!stage.isFullScreen());
+            fullscreenEnabled = !fullscreenEnabled;
+            applyDisplaySettings(stage);
+            saveAchievements();
             return;
         }
         if (code == KeyCode.F3) {
@@ -18350,19 +19021,12 @@ public class BirdGame3 extends Application {
         playMenuMusic();
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(26, 40, 26, 40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0B1D2B, #1A2E3F);");
+        root.setStyle(MenuTheme.pageBackground());
 
-        Label title = new Label("SHOP");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 84));
-        title.setTextFill(Color.web("#FFE082"));
-
-        Label coins = new Label("BIRD COINS: " + birdCoinLedger.balance());
-        coins.setFont(Font.font("Consolas", 26));
-        coins.setTextFill(Color.web("#FFD54F"));
-
-        BorderPane top = new BorderPane();
-        top.setCenter(title);
-        top.setRight(coins);
+        Button back = uiFactory.action("BACK TO HUB", 360, 90, 34, "#D32F2F", 22, () -> showMenu(stage));
+        StackPane title = buildMenuTitleBanner("SHOP", 320, 72, 34);
+        StackPane coins = buildMenuChip("BIRD COINS  " + birdCoinLedger.balance(), "#FFC107", "#FFF59D");
+        StackPane top = buildMenuTopStrip(back, title, coins);
 
         FlowPane list = new FlowPane(24, 24);
         list.setAlignment(Pos.TOP_CENTER);
@@ -18437,11 +19101,11 @@ public class BirdGame3 extends Application {
             card.setPrefHeight(Region.USE_COMPUTED_SIZE);
             card.setMaxHeight(Double.MAX_VALUE);
             String border = toHex(item.rarity.color);
-            card.setStyle("-fx-background-color: rgba(7,12,18,0.74); -fx-border-color: " + border + "; -fx-border-width: 2; -fx-border-radius: 18; -fx-background-radius: 18;");
+            card.setStyle(MenuTheme.panelStyle(border, 20));
 
             Label name = new Label(item.name);
-            name.setFont(Font.font("Impact", 34));
-            name.setTextFill(Color.web("#ECEFF1"));
+            name.setFont(Font.font("Arial Black", 32));
+            name.setTextFill(Color.web("#FFF8D6"));
             name.setAlignment(Pos.CENTER);
             name.setTextAlignment(TextAlignment.CENTER);
             name.setMaxWidth(cardW - 36);
@@ -18451,7 +19115,7 @@ public class BirdGame3 extends Application {
             rarity.setTextFill(item.rarity.color);
             rarity.setAlignment(Pos.CENTER);
             rarity.setTextAlignment(TextAlignment.CENTER);
-            rarity.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-padding: 4 12 4 12; -fx-background-radius: 12;");
+            rarity.setStyle(MenuTheme.chipStyle(border, "#FFF8E1", 12) + "-fx-padding: 4 12 4 12;");
 
             Label value = null;
             if (item.bundle) {
@@ -18514,7 +19178,7 @@ public class BirdGame3 extends Application {
 
             Label desc = new Label(item.description);
             desc.setFont(Font.font("Consolas", 18));
-            desc.setTextFill(Color.web("#B0BEC5"));
+            desc.setTextFill(Color.web("#CFD8DC"));
             desc.setWrapText(true);
             desc.setAlignment(Pos.CENTER);
             desc.setTextAlignment(TextAlignment.CENTER);
@@ -18561,14 +19225,12 @@ public class BirdGame3 extends Application {
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-control-inner-background: transparent;");
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-
-        Button back = uiFactory.action("BACK TO HUB", 360, 90, 34, "#D32F2F", 22, () -> showMenu(stage));
-        HBox bottom = new HBox(back);
-        bottom.setAlignment(Pos.CENTER);
+        StackPane catalogShell = new StackPane(scroll);
+        catalogShell.setPadding(new Insets(14));
+        catalogShell.setStyle(MenuTheme.panelStyle("#90CAF9", 28));
 
         root.setTop(top);
-        root.setCenter(scroll);
-        root.setBottom(bottom);
+        root.setCenter(catalogShell);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -18584,28 +19246,27 @@ public class BirdGame3 extends Application {
             return;
         }
         playMenuMusic();
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1D2B, #1A2E3F);",
+        VBox root = MenuLayout.buildMenuRoot(MenuTheme.pageBackground(),
                 MENU_PADDING, 30);
 
-        Label title = new Label(result.title());
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 84));
-        title.setTextFill(Color.web("#FFE082"));
+        StackPane title = buildMenuTitleBanner(result.title().toUpperCase(Locale.ROOT), 760, 74, 32);
 
         VBox card = new VBox(18);
         card.setAlignment(Pos.CENTER_LEFT);
         card.setPadding(new Insets(32));
         card.setMaxWidth(1100);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 24; -fx-border-color: #64B5F6; -fx-border-width: 3; -fx-border-radius: 24;");
+        card.setStyle(MenuTheme.panelStyle("#64B5F6", 24));
 
         Label header = new Label("Cards Pulled");
         header.setFont(Font.font("Arial Black", 36));
-        header.setTextFill(Color.web("#B3E5FC"));
+        header.setTextFill(Color.web("#80DEEA"));
 
         Label text = new Label(result.message());
         text.setFont(Font.font("Consolas", 28));
-        text.setTextFill(Color.WHITE);
+        text.setTextFill(Color.web("#CFD8DC"));
         text.setWrapText(true);
         text.setMaxWidth(1000);
+        applyNoEllipsis(text);
 
         card.getChildren().addAll(header, text);
 
@@ -18875,20 +19536,12 @@ public class BirdGame3 extends Application {
         playMenuMusic();
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(26, 40, 26, 40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0A1422, #1C2B3C, #16212F);");
+        root.setStyle(MenuTheme.pageBackground());
 
         Button back = uiFactory.action("BACK TO HUB", 360, 90, 34, "#D32F2F", 22, () -> showMenu(stage));
-        Label title = new Label("FEATHERPEDIA");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 84));
-        title.setTextFill(Color.web("#FFE082"));
-        Label subtitle = new Label("THE BIRD BOOK");
-        subtitle.setFont(Font.font("Consolas", 22));
-        subtitle.setTextFill(Color.web("#80DEEA"));
-
-        VBox titleBox = new VBox(4, title, subtitle);
-        titleBox.setAlignment(Pos.CENTER_LEFT);
-        HBox header = new HBox(18, back, titleBox);
-        header.setAlignment(Pos.CENTER_LEFT);
+        StackPane title = buildMenuTitleBanner("FEATHERPEDIA", 520, 74, 34);
+        StackPane activeTabChip = buildMenuChip(category.name(), "#4FC3F7", "#B3E5FC");
+        StackPane header = buildMenuTopStrip(back, title, activeTabChip);
 
         HBox tabs = new HBox(16,
                 birdBookTab("ITEMS", BirdBookCategory.ITEMS, category, stage),
@@ -18898,9 +19551,11 @@ public class BirdGame3 extends Application {
                 birdBookTab("MAPS", BirdBookCategory.MAPS, category, stage)
         );
         tabs.setAlignment(Pos.CENTER);
-        tabs.setPadding(new Insets(8, 0, 0, 0));
+        StackPane tabsShell = new StackPane(tabs);
+        tabsShell.setPadding(new Insets(16, 18, 16, 18));
+        tabsShell.setStyle(MenuTheme.panelStyle("#607D8B", 24));
 
-        VBox top = new VBox(12, header, tabs);
+        VBox top = new VBox(12, header, tabsShell);
         root.setTop(top);
 
         BorderPane content = buildBirdBookContent(category);
@@ -18917,9 +19572,7 @@ public class BirdGame3 extends Application {
     private Button birdBookTab(String label, BirdBookCategory tab, BirdBookCategory active, Stage stage) {
         String color = (tab == active) ? "#FBC02D" : "#455A64";
         Button btn = uiFactory.action(label, 240, 70, 26, color, 18, () -> showBirdBook(stage, tab));
-        if (tab == active) {
-            btn.setStyle("-fx-background-color: " + color + "; -fx-text-fill: #0A0A0A; -fx-font-weight: bold;");
-        }
+        btn.setStyle(MenuTheme.buttonStyle(color, 18, tab == active ? "#111111" : "white"));
         return btn;
     }
 
@@ -18935,6 +19588,9 @@ public class BirdGame3 extends Application {
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-control-inner-background: transparent;");
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        StackPane gridShell = new StackPane(scroll);
+        gridShell.setPadding(new Insets(14));
+        gridShell.setStyle(MenuTheme.panelStyle("#607D8B", 28));
 
         VBox sidebar = new VBox(14);
         sidebar.setAlignment(Pos.TOP_CENTER);
@@ -18942,12 +19598,12 @@ public class BirdGame3 extends Application {
         sidebar.setPadding(new Insets(18));
         sidebar.setPrefWidth(520);
         sidebar.setMinHeight(Region.USE_PREF_SIZE);
-        sidebar.setStyle("-fx-background-color: rgba(0,0,0,0.6); -fx-background-radius: 20; -fx-border-color: #607D8B; -fx-border-width: 2; -fx-border-radius: 20;");
+        sidebar.setStyle(MenuTheme.panelStyle("#607D8B", 20));
         ScrollPane sidebarScroll = getScrollPane(sidebar);
 
         buildBirdBookGrid(category, grid, sidebar);
 
-        content.setCenter(scroll);
+        content.setCenter(gridShell);
         content.setRight(sidebarScroll);
         BorderPane.setMargin(sidebarScroll, new Insets(0, 0, 0, 24));
         return content;
@@ -19100,19 +19756,18 @@ public class BirdGame3 extends Application {
     }
 
     private VBox createBookCard(double width, String borderColor) {
-        VBox card = new VBox(10);
+        VBox card = new VBox(12);
         card.setAlignment(Pos.TOP_CENTER);
-        card.setPadding(new Insets(16));
+        card.setPadding(new Insets(18));
         card.setPrefWidth(width);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.65); -fx-border-color: " + borderColor
-                + "; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
+        card.setStyle(MenuTheme.panelStyle(borderColor, 20));
         return card;
     }
 
     private Label bookTitle(String text, int size) {
         Label label = new Label(text);
-        label.setFont(Font.font("Impact", size));
-        label.setTextFill(Color.web("#ECEFF1"));
+        label.setFont(Font.font("Arial Black", size));
+        label.setTextFill(Color.web("#FFF8D6"));
         label.setAlignment(Pos.CENTER);
         label.setTextAlignment(TextAlignment.CENTER);
         label.setWrapText(true);
@@ -20421,6 +21076,8 @@ public class BirdGame3 extends Application {
         Label selectedLabel = new Label();
         selectedLabel.setFont(Font.font("Arial Black", 38));
         selectedLabel.setTextFill(Color.web("#FAFAFA"));
+        selectedLabel.setMaxWidth(rightCardInnerWidth);
+        applyNoEllipsis(selectedLabel);
 
         Button skinBtn = uiFactory.action("SKIN: BASE", 520, 90, 30, "#37474F", 22, () -> {});
         Button difficultyBtn = uiFactory.action("DIFFICULTY\n" + difficultyLabels[difficultyIndex[0]], 320, 90, 28, "#455A64", 22, () -> {});
@@ -20473,14 +21130,9 @@ public class BirdGame3 extends Application {
         Pane selectionPane = new Pane();
         double paneW = 1100;
         double paneH = 520;
-        selectionPane.setPrefSize(paneW, paneH);
+        lockRegionSize(selectionPane, paneW, paneH);
         selectionPane.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #90A4AE; -fx-border-width: 3; -fx-background-radius: 20; -fx-border-radius: 20;");
-        Rectangle selectionClip = new Rectangle(paneW, paneH);
-        selectionClip.widthProperty().bind(selectionPane.widthProperty());
-        selectionClip.heightProperty().bind(selectionPane.heightProperty());
-        selectionClip.setArcWidth(20);
-        selectionClip.setArcHeight(20);
-        selectionPane.setClip(selectionClip);
+        installRegionClip(selectionPane, 20, 20);
 
         List<BirdIconSpot> spots = new ArrayList<>();
         Map<BirdType, BirdIconSpot> spotByType = new HashMap<>();
@@ -20517,11 +21169,11 @@ public class BirdGame3 extends Application {
             name.setTextFill(Color.web("#ECEFF1"));
             name.setWrapText(true);
             name.setAlignment(Pos.CENTER);
+            fitWrappedLabelText(name, name.getText(), Math.max(84.0, cellW - 18.0), 40.0, 10.0);
 
             VBox card = new VBox(6, icon, name);
             card.setAlignment(Pos.CENTER);
-            card.setPrefWidth(cellW);
-            card.setPrefHeight(cellH);
+            lockRegionSize(card, cellW, cellH);
             card.setLayoutX(cellX);
             card.setLayoutY(cellY);
             card.setMouseTransparent(true);
@@ -20576,6 +21228,7 @@ public class BirdGame3 extends Application {
             BirdType pick = selected[0];
             boolean hasPick = pick != null;
             selectedLabel.setText(hasPick ? "Selected: " + pick.name : "Selected: SELECT");
+            fitLabelSingleLine(selectedLabel, 38, 22, rightCardInnerWidth);
             if (hasPick) {
                 selectedSkin[0] = normalizeAdventureSkinChoice(pick, selectedSkin[0]);
             } else {
@@ -21487,7 +22140,87 @@ public class BirdGame3 extends Application {
     private void refreshSettingsToggleButton(Button btn, String prefix, boolean enabled) {
         btn.setText(prefix + ": " + (enabled ? "ON" : "OFF"));
         String color = enabled ? "#2E7D32" : "#546E7A";
-        btn.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 24;");
+        btn.setStyle(MenuTheme.buttonStyle(color, 24));
+    }
+
+    private void refreshDisplayModeButton(Button btn) {
+        if (btn == null) {
+            return;
+        }
+        btn.setText("DISPLAY MODE: " + (fullscreenEnabled ? "FULLSCREEN" : "WINDOWED"));
+        String color = fullscreenEnabled ? "#2E7D32" : "#455A64";
+        btn.setStyle(MenuTheme.buttonStyle(color, 24));
+    }
+
+    private void applyDisplaySettings(Stage stage) {
+        if (stage == null) {
+            return;
+        }
+        stage.setMaximized(false);
+        if (fullscreenEnabled) {
+            if (!stage.isFullScreen()) {
+                stage.setFullScreen(true);
+            }
+            return;
+        }
+        Runnable applyWindowed = () -> applyWindowedStageSize(stage);
+        if (stage.isFullScreen()) {
+            stage.setFullScreen(false);
+            javafx.application.Platform.runLater(applyWindowed);
+        } else {
+            applyWindowed.run();
+        }
+    }
+
+    private void applyWindowedStageSize(Stage stage) {
+        if (stage == null) {
+            return;
+        }
+        Scene scene = stage.getScene();
+        Rectangle2D bounds = getStageScreenBounds(stage, scene);
+        if (bounds == null) {
+            bounds = Screen.getPrimary().getVisualBounds();
+        }
+        double chromeW = currentWindowChromeWidth(stage);
+        double chromeH = currentWindowChromeHeight(stage);
+        double targetSceneW = Math.clamp(bounds.getWidth() - chromeW, 640.0, WIDTH);
+        double targetSceneH = Math.clamp(bounds.getHeight() - chromeH, 360.0, HEIGHT);
+        double targetStageW = targetSceneW + chromeW;
+        double targetStageH = targetSceneH + chromeH;
+        boolean resized = false;
+        if (Math.abs(stage.getWidth() - targetStageW) > 1.0 || !stage.isShowing()) {
+            stage.setWidth(targetStageW);
+            resized = true;
+        }
+        if (Math.abs(stage.getHeight() - targetStageH) > 1.0 || !stage.isShowing()) {
+            stage.setHeight(targetStageH);
+            resized = true;
+        }
+        if (resized) {
+            stage.centerOnScreen();
+        }
+    }
+
+    private double currentWindowChromeWidth(Stage stage) {
+        if (stage == null) {
+            return WINDOW_CHROME_WIDTH_ESTIMATE;
+        }
+        Scene scene = stage.getScene();
+        if (scene == null || stage.getWidth() <= 1.0 || scene.getWidth() <= 1.0) {
+            return WINDOW_CHROME_WIDTH_ESTIMATE;
+        }
+        return Math.max(0.0, stage.getWidth() - scene.getWidth());
+    }
+
+    private double currentWindowChromeHeight(Stage stage) {
+        if (stage == null) {
+            return WINDOW_CHROME_HEIGHT_ESTIMATE;
+        }
+        Scene scene = stage.getScene();
+        if (scene == null || stage.getHeight() <= 1.0 || scene.getHeight() <= 1.0) {
+            return WINDOW_CHROME_HEIGHT_ESTIMATE;
+        }
+        return Math.max(0.0, stage.getHeight() - scene.getHeight());
     }
 
     private void showGameSettings(Stage stage) {
@@ -21496,17 +22229,15 @@ public class BirdGame3 extends Application {
         VBox root = new VBox(24);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(50));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0D1B2A, #1B263B);");
+        root.setStyle(MenuTheme.pageBackground());
 
-        Label title = new Label("GAME SETTINGS");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 86));
-        title.setTextFill(Color.GOLD);
+        StackPane title = buildMenuTitleBanner("GAME SETTINGS", 620, 74, 34);
 
         VBox card = new VBox(18);
         card.setAlignment(Pos.CENTER_LEFT);
         card.setPadding(new Insets(26));
         card.setMaxWidth(1320);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.58); -fx-background-radius: 22; -fx-border-color: #64B5F6; -fx-border-width: 3; -fx-border-radius: 22;");
+        card.setStyle(MenuTheme.panelStyle("#64B5F6", 22));
 
         Button mutatorToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
         Button compToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
@@ -21587,8 +22318,12 @@ public class BirdGame3 extends Application {
                 showMenu(stage);
             }
         };
+        Button displaySettings = uiFactory.action("DISPLAY SETTINGS", 360, 100, 34, "#1565C0", 24, () -> {
+            settingsReturn = () -> showGameSettings(stage);
+            showMainSettings(stage);
+        });
         Button back = uiFactory.action("BACK", 360, 100, 40, "#FF1744", 28, backAction);
-        buttons.getChildren().add(back);
+        buttons.getChildren().addAll(displaySettings, back);
 
         root.getChildren().addAll(title, card, buttons);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -21605,20 +22340,18 @@ public class BirdGame3 extends Application {
         VBox root = new VBox(24);
         root.setAlignment(Pos.CENTER);
         root.setPadding(new Insets(50));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0B1624, #1A2738);");
+        root.setStyle(MenuTheme.pageBackground());
 
-        Label title = new Label("SETTINGS");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 86));
-        title.setTextFill(Color.GOLD);
+        StackPane title = buildMenuTitleBanner("SETTINGS", 520, 74, 34);
 
         VBox card = new VBox(18);
         card.setAlignment(Pos.CENTER_LEFT);
         card.setPadding(new Insets(26));
         card.setMaxWidth(1320);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.58); -fx-background-radius: 22; -fx-border-color: #90CAF9; -fx-border-width: 3; -fx-border-radius: 22;");
+        card.setStyle(MenuTheme.panelStyle("#90CAF9", 22));
 
         Button shakeToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
-        Button fullscreenToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
+        Button displayModeToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
         Button particlesToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
         Button ambientToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
         Button fpsCapToggle = uiFactory.action("", 620, 96, 34, "#546E7A", 24, () -> {});
@@ -21630,11 +22363,11 @@ public class BirdGame3 extends Application {
             refreshSettingsToggleButton(shakeToggle, "SCREEN SHAKE", screenShakeEnabled);
             saveAchievements();
         });
-        fullscreenToggle.setOnAction(e -> {
+        displayModeToggle.setOnAction(e -> {
             playButtonClick();
             fullscreenEnabled = !fullscreenEnabled;
-            if (stage != null) stage.setFullScreen(fullscreenEnabled);
-            refreshSettingsToggleButton(fullscreenToggle, "FULLSCREEN", fullscreenEnabled);
+            applyDisplaySettings(stage);
+            refreshDisplayModeButton(displayModeToggle);
             saveAchievements();
         });
         particlesToggle.setOnAction(e -> {
@@ -21656,7 +22389,7 @@ public class BirdGame3 extends Application {
         });
 
         refreshSettingsToggleButton(shakeToggle, "SCREEN SHAKE", screenShakeEnabled);
-        refreshSettingsToggleButton(fullscreenToggle, "FULLSCREEN", fullscreenEnabled);
+        refreshDisplayModeButton(displayModeToggle);
         refreshSettingsToggleButton(particlesToggle, "PARTICLES", particleEffectsEnabled);
         refreshSettingsToggleButton(ambientToggle, "AMBIENT FX", ambientEffectsEnabled);
         refreshFpsCapButton(fpsCapToggle);
@@ -21692,7 +22425,7 @@ public class BirdGame3 extends Application {
                 this::playButtonClick
         );
         VBox shakeRow = buildSettingsRow(shakeToggle, "Camera jolts on big hits.", "#C5E1A5");
-        VBox fullscreenRow = buildSettingsRow(fullscreenToggle, "Toggle windowed/fullscreen display.", "#C5E1A5");
+        VBox displayModeRow = buildSettingsRow(displayModeToggle, "Switch between fullscreen and windowed play.", "#C5E1A5");
         VBox particlesRow = buildSettingsRow(particlesToggle, "Damage sparks and ability particles.", "#FFE0B2");
         VBox ambientRow = buildSettingsRow(ambientToggle, "Animated background ambience and glow.", "#FFE0B2");
         VBox fpsRow = buildSettingsRow(fpsCapToggle, "Limits render FPS without changing game speed.", "#FFE0B2");
@@ -21701,12 +22434,20 @@ public class BirdGame3 extends Application {
         styleSettingsInfoLabel(audioInfo);
         VBox audioPanel = new VBox(16, audioInfo, musicRow, sfxRow);
         audioPanel.setAlignment(Pos.CENTER_LEFT);
+        audioPanel.setPadding(new Insets(14, 16, 14, 16));
+        audioPanel.setStyle(MenuTheme.insetPanelStyle("#64B5F6", 22));
 
-        VBox displayPanel = new VBox(16, shakeRow, fullscreenRow);
+        Label displayInfo = new Label("Windowed mode uses a clamped default game window and fullscreen stays as a one-tap toggle.");
+        styleSettingsInfoLabel(displayInfo);
+        VBox displayPanel = new VBox(16, displayInfo, shakeRow, displayModeRow);
         displayPanel.setAlignment(Pos.CENTER_LEFT);
+        displayPanel.setPadding(new Insets(14, 16, 14, 16));
+        displayPanel.setStyle(MenuTheme.insetPanelStyle("#90CAF9", 22));
 
         VBox graphicsPanel = new VBox(16, particlesRow, ambientRow, fpsRow);
         graphicsPanel.setAlignment(Pos.CENTER_LEFT);
+        graphicsPanel.setPadding(new Insets(14, 16, 14, 16));
+        graphicsPanel.setStyle(MenuTheme.insetPanelStyle("#FFE082", 22));
 
         final ControlBindingTarget[] pendingBinding = new ControlBindingTarget[1];
         Map<String, Button> bindingButtons = new HashMap<>();
@@ -21766,8 +22507,7 @@ public class BirdGame3 extends Application {
                         case NUNCHUK -> "#2E7D32";
                     };
                     button.setText(mode.label);
-                    button.setStyle("-fx-background-color: " + color
-                            + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 18;");
+                    button.setStyle(MenuTheme.buttonStyle(color, 18));
                     updateControlHighlight(button);
                 }
                 Label statusLabel = wiimoteStatusLabels[playerIdx];
@@ -21874,6 +22614,8 @@ public class BirdGame3 extends Application {
 
         VBox controlsPanel = new VBox(16, controlsInfo, controlsStatus, wiimoteInfo, wiimoteGrid, controlsGrid, resetControlsButton);
         controlsPanel.setAlignment(Pos.CENTER_LEFT);
+        controlsPanel.setPadding(new Insets(14, 16, 14, 16));
+        controlsPanel.setStyle(MenuTheme.insetPanelStyle("#80CBC4", 22));
 
         refreshBindingButtons.run();
         refreshWiimoteControls.run();
@@ -22053,6 +22795,48 @@ public class BirdGame3 extends Application {
             case MEDIUM -> 220;
             case HARD -> 360;
         };
+    }
+
+    private int countTowerDefenseBadges() {
+        int total = 0;
+        for (boolean[] row : towerDefenseDifficultyBadges) {
+            total += countCompleted(row);
+        }
+        return total;
+    }
+
+    private int countTowerDefenseBadges(MapType map) {
+        if (map == null) {
+            return 0;
+        }
+        return countCompleted(towerDefenseDifficultyBadges[map.ordinal()]);
+    }
+
+    private int bigForestTowerDefenseBadgeGoal() {
+        return TowerDefenseMode.Difficulty.values().length;
+    }
+
+    private void syncModeAchievementMilestones() {
+        achievementProgress[22] = Math.max(achievementProgress[22], bossRushClearCount);
+        achievementProgress[24] = Math.max(achievementProgress[24], countTowerDefenseBadges() > 0 ? 1 : 0);
+        achievementProgress[25] = Math.max(achievementProgress[25], pigeonEpisodeCompleted ? 1 : 0);
+        achievementProgress[26] = Math.max(achievementProgress[26], batEpisodeCompleted ? 1 : 0);
+        achievementProgress[27] = Math.max(achievementProgress[27], pelicanEpisodeCompleted ? 1 : 0);
+        achievementProgress[28] = Math.max(achievementProgress[28], countTowerDefenseBadges(MapType.FOREST));
+        achievementProgress[29] = Math.max(achievementProgress[29], tournamentChampionshipsWon > 0 ? 1 : 0);
+    }
+
+    private void refreshModeAchievementUnlocks() {
+        syncModeAchievementMilestones();
+        if (achievementProgress[24] >= 1 && !achievementsUnlocked[24]) {
+            unlockAchievement(24, "GROVE SENTINEL!");
+        }
+        if (achievementProgress[28] >= bigForestTowerDefenseBadgeGoal() && !achievementsUnlocked[28]) {
+            unlockAchievement(28, "BLIGHT BUSTER!");
+        }
+        if (achievementProgress[29] >= 1 && !achievementsUnlocked[29]) {
+            unlockAchievement(29, "BRACKET BOSS!");
+        }
     }
 
     private String towerDefenseMapDescription() {
@@ -23113,8 +23897,9 @@ public class BirdGame3 extends Application {
         Pane selectionPane = new Pane();
         double paneW = 1100;
         double paneH = 520;
-        selectionPane.setPrefSize(paneW, paneH);
+        lockRegionSize(selectionPane, paneW, paneH);
         selectionPane.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #90A4AE; -fx-border-width: 3; -fx-background-radius: 20; -fx-border-radius: 20;");
+        installRegionClip(selectionPane, 20, 20);
 
         List<BirdIconSpot> spots = new ArrayList<>();
         Map<BirdType, BirdIconSpot> spotByType = new HashMap<>();
@@ -23150,26 +23935,26 @@ public class BirdGame3 extends Application {
             name.setTextFill(Color.web("#ECEFF1"));
             name.setWrapText(true);
             name.setAlignment(Pos.CENTER);
+            fitWrappedLabelText(name, name.getText(), Math.max(84.0, cellW - 18.0), 40.0, 10.0);
 
-            HBox nameRow = new HBox(6);
-            nameRow.setAlignment(Pos.CENTER);
-            nameRow.getChildren().add(name);
+            VBox textStack = new VBox(2);
+            textStack.setAlignment(Pos.CENTER);
+            textStack.getChildren().add(name);
             if (bossRush) {
                 String badgeTier = bossRushBadgeDisplayLabel(type);
                 if ("PERFECT".equals(badgeTier)) {
-                    nameRow.getChildren().add(createRouteBadge("PERFECT", "#FFE082", "#6D4C41", true));
+                    textStack.getChildren().add(createRouteBadge("PERFECT", "#FFE082", "#6D4C41", true));
                 } else if ("CLEAR".equals(badgeTier)) {
-                    nameRow.getChildren().add(createRouteBadge("CLEAR", "#69F0AE", "#1B5E20", true));
+                    textStack.getChildren().add(createRouteBadge("CLEAR", "#69F0AE", "#1B5E20", true));
                 }
             } else {
                 boolean completed = shouldShowClassicSelectBadge(type, false);
-                nameRow.getChildren().add(createRouteBadge("BADGE", "#69F0AE", "#1B5E20", completed));
+                textStack.getChildren().add(createRouteBadge("BADGE", "#69F0AE", "#1B5E20", completed));
             }
 
-            VBox card = new VBox(6, icon, nameRow);
+            VBox card = new VBox(6, icon, textStack);
             card.setAlignment(Pos.CENTER);
-            card.setPrefWidth(cellW);
-            card.setPrefHeight(cellH);
+            lockRegionSize(card, cellW, cellH);
             card.setLayoutX(cellX);
             card.setLayoutY(cellY);
             card.setMouseTransparent(true);
@@ -23361,9 +24146,7 @@ public class BirdGame3 extends Application {
         VBox rightCard = new VBox(14, selectedLabel, skinBtn, rewardLabel, unlockLabel, badgeLabel, continuesLabel, info);
         rightCard.setAlignment(Pos.TOP_LEFT);
         rightCard.setPadding(new Insets(26));
-        rightCard.setMinWidth(rightCardWidth);
-        rightCard.setPrefWidth(rightCardWidth);
-        rightCard.setMaxWidth(rightCardWidth);
+        lockRegionWidth(rightCard, rightCardWidth);
         rightCard.setStyle("-fx-background-color: rgba(0,0,0,0.56); -fx-border-color: #64B5F6; -fx-border-width: 3; -fx-border-radius: 22; -fx-background-radius: 22;");
 
         HBox center = new HBox(22, selectionPane, rightCard);
@@ -23465,7 +24248,16 @@ public class BirdGame3 extends Application {
         back.requestFocus();
     }
 
+    private boolean isDailyChallengeRetired() {
+        return true;
+    }
+
     private void showDailyChallengeSetup(Stage stage) {
+        if (isDailyChallengeRetired()) {
+            clearActiveDailyChallengeRun();
+            showClassicMoreMenu(stage);
+            return;
+        }
         storyModeActive = false;
         storyReplayMode = false;
         adventureModeActive = false;
@@ -23532,6 +24324,8 @@ public class BirdGame3 extends Application {
         Label birdLabel = new Label();
         birdLabel.setFont(Font.font("Arial Black", 42));
         birdLabel.setTextFill(Color.WHITE);
+        birdLabel.setMaxWidth(760);
+        applyNoEllipsis(birdLabel);
 
         Label statsLabel = new Label();
         statsLabel.setFont(Font.font("Consolas", 22));
@@ -23582,7 +24376,7 @@ public class BirdGame3 extends Application {
         );
         leftCard.setAlignment(Pos.TOP_CENTER);
         leftCard.setPadding(new Insets(24));
-        leftCard.setPrefWidth(820);
+        lockRegionWidth(leftCard, 820);
         leftCard.setStyle("-fx-background-color: rgba(0,0,0,0.52); -fx-border-color: #4FC3F7; -fx-border-width: 3; -fx-border-radius: 24; -fx-background-radius: 24;");
 
         Label routeTitle = new Label("TODAY'S ROUTE");
@@ -23602,7 +24396,7 @@ public class BirdGame3 extends Application {
         VBox routeCard = new VBox(16, routeTitle, routeScroll);
         routeCard.setAlignment(Pos.TOP_LEFT);
         routeCard.setPadding(new Insets(24));
-        routeCard.setPrefWidth(980);
+        lockRegionWidth(routeCard, 980);
         routeCard.setStyle("-fx-background-color: rgba(0,0,0,0.52); -fx-border-color: #FFD54F; -fx-border-width: 3; -fx-border-radius: 24; -fx-background-radius: 24;");
 
         HBox center = new HBox(22, leftCard, routeCard);
@@ -23663,6 +24457,7 @@ public class BirdGame3 extends Application {
             refreshSkin.run();
             drawRosterSprite(portrait, selectedBird[0], selectedSkin[0], false);
             birdLabel.setText(selectedBird[0].name);
+            fitLabelSingleLine(birdLabel, 42, 22, 760);
             statsLabel.setText(birdSelectorStatsText(selectedBird[0]));
             dateLabel.setText("Date: " + DAILY_CHALLENGE_DATE_FORMAT.format(selectedPlan[0].date()));
             seedLabel.setText("Seed: " + formatDailyChallengeSeed(selectedPlan[0].seed()));
@@ -24979,10 +25774,6 @@ public class BirdGame3 extends Application {
 
         if (classicRoundIndex >= classicRun.size() - 1) {
             classicDeaths = 0;
-            achievementProgress[24] = Math.max(achievementProgress[24], 1);
-            if (!achievementsUnlocked[24]) {
-                unlockAchievement(24, "DAILY DYNASTY!");
-            }
             saveAchievements();
             showStoryDialogue(
                     stage,
@@ -25768,8 +26559,11 @@ public class BirdGame3 extends Application {
     private void refreshTeamToggleButton() {
         if (teamModeToggleButton == null) return;
         teamModeToggleButton.setText(teamModeEnabled ? "TEAM MODE: ON" : "TEAM MODE: OFF");
-        String color = teamModeEnabled ? "#2E7D32" : "#546E7A";
-        teamModeToggleButton.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 30;");
+        String color = teamModeEnabled ? "#2E7D32" : "#3A434D";
+        teamModeToggleButton.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; "
+                + "-fx-font-family: 'Arial Black'; -fx-font-size: 15px; -fx-font-weight: bold; "
+                + "-fx-background-radius: 16; -fx-border-color: black; -fx-border-width: 2.5; "
+                + "-fx-border-radius: 16;");
     }
 
     private void refreshCpuButton(int idx) {
@@ -25781,7 +26575,13 @@ public class BirdGame3 extends Application {
         boolean aiActive = isAI[idx];
         cpuBtn.setDisable(!aiActive);
         cpuBtn.setOpacity(aiActive ? 1.0 : 0.65);
-        cpuBtn.setStyle("-fx-background-color: " + (aiActive ? "#5D4037" : "#455A64") + "; -fx-text-fill: white; -fx-font-weight: bold;");
+        cpuBtn.setVisible(aiActive);
+        cpuBtn.setManaged(aiActive);
+        cpuBtn.setStyle("-fx-background-color: " + (aiActive ? "#5D4037" : "#455A64") + "; "
+                + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 14px; "
+                + "-fx-font-weight: bold; -fx-background-radius: 16; "
+                + "-fx-border-color: rgba(255,255,255,0.16); -fx-border-width: 2; "
+                + "-fx-border-radius: 16;");
     }
 
     private String toHex(Color c) {
@@ -25899,7 +26699,9 @@ public class BirdGame3 extends Application {
             return;
         }
         if (code == KeyCode.F11) {
-            stage.setFullScreen(!stage.isFullScreen());
+            fullscreenEnabled = !fullscreenEnabled;
+            applyDisplaySettings(stage);
+            saveAchievements();
             return;
         }
         if (code == KeyCode.F3) {
@@ -25973,11 +26775,7 @@ public class BirdGame3 extends Application {
             return false;
         }
         List<Button> buttons = new ArrayList<>();
-        for (Node child : pauseMenu.getChildren()) {
-            if (child instanceof Button button && button.isVisible() && !button.isDisabled()) {
-                buttons.add(button);
-            }
-        }
+        collectPauseMenuButtons(pauseMenu, buttons);
         if (buttons.isEmpty()) {
             return false;
         }
@@ -26008,6 +26806,23 @@ public class BirdGame3 extends Application {
             setConsoleHighlightActive(true, scene);
         }
         return true;
+    }
+
+    private void collectPauseMenuButtons(Node node, List<Button> buttons) {
+        if (node == null || buttons == null) {
+            return;
+        }
+        if (node instanceof Button button) {
+            if (button.isVisible() && !button.isDisabled()) {
+                buttons.add(button);
+            }
+            return;
+        }
+        if (node instanceof Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) {
+                collectPauseMenuButtons(child, buttons);
+            }
+        }
     }
 
     private VBox currentPauseMenu() {
@@ -26125,6 +26940,11 @@ public class BirdGame3 extends Application {
             return;
         }
 
+        if (handleAssignedXboxDisconnectDuringGameplay()) {
+            Arrays.fill(wiimoteGameplayPauseHeld, false);
+            return;
+        }
+
         int maxPlayers = Math.min(activePlayers, wiimoteActionPressed.length);
         for (int i = 0; i < maxPlayers; i++) {
             if (players[i] == null || isAI[i]) {
@@ -26215,7 +27035,7 @@ public class BirdGame3 extends Application {
         int maxPlayers = Math.min(activePlayers, localActionPressed.length);
         for (int i = 0; i < maxPlayers; i++) {
             if (isAI[i]) continue;
-            if (!keyboardControlsPlayer(i)) continue;
+            if (keyboardControlsPlayer(i)) continue;
             if (lanModeActive && lanIsHost && i != 0) continue;
             ControlAction action = actionForKey(i, code);
             if (action != null) {
@@ -26809,10 +27629,10 @@ public class BirdGame3 extends Application {
                 isAI[i] = !lanModeActive && menuAI[i];
                 players[i] = new Bird(startX, type, i, this);
                 if (lanModeActive) {
-                    String skinKey = randomPick ? null : lanSelectedSkinKeys[i];
+                    String skinKey = randomPick ? randomAdventureSkinChoice(type) : lanSelectedSkinKeys[i];
                     applyPreviewSkinChoiceToBird(players[i], type, skinKey);
                 } else {
-                    String skinKey = randomPick ? null : fightSelectedSkinKeys[i];
+                    String skinKey = randomPick ? randomAdventureSkinChoice(type) : fightSelectedSkinKeys[i];
                     skinKey = normalizeAdventureSkinChoice(type, skinKey);
                     fightSelectedSkinKeys[i] = skinKey;
                     applySkinChoiceToBird(players[i], type, skinKey);
@@ -27629,7 +28449,7 @@ public class BirdGame3 extends Application {
         int coinsEarned = awardBirdCoinsForMatch(winner);
         recordMatchHistory(winner, coinsEarned);
         recordDailyChallengeResult(winner);
-        BirdProgression.MatchResult progressionResult = progression.applyMatch(
+        progression.applyMatch(
                 buildProgressionMatchContext(winner),
                 this::grantBirdCoins,
                 this::saveAchievements
@@ -27646,8 +28466,6 @@ public class BirdGame3 extends Application {
 
         HBox buttons = buildSummaryButtons(stage, winner);
         applyWinnerMapProgress(winner);
-        VBox masteryPanel = buildMasterySummaryPanel(progressionResult.masterySummary());
-        VBox contractPanel = buildContractSummaryPanel(progressionResult.contractUpdate());
 
         boolean teamSummaryMode = isMatchHistoryTeamMode();
         if (teamSummaryMode) {
@@ -27672,22 +28490,12 @@ public class BirdGame3 extends Application {
 
                 int kills = 0;
                 int damage = 0;
-                int taunts = 0;
                 int fallsCount = 0;
                 for (Bird bird : members) {
                     kills += eliminations[bird.playerIndex];
                     damage += damageDealt[bird.playerIndex];
-                    taunts += tauntsPerformed[bird.playerIndex];
                     fallsCount += falls[bird.playerIndex];
                 }
-
-                String award;
-                if (idx == 0) award = "TEAM CHAMPIONS";
-                else if (damage >= 350) award = "BRUTE SQUAD";
-                else if (kills >= 5) award = "FINISHER CREW";
-                else if (taunts >= 4) award = "TRASH TALKERS";
-                else if (fallsCount >= 3) award = "RISK TAKERS";
-                else award = "WILD CARD";
 
                 String membersText = members.stream()
                         .map(b -> shortName(b.name))
@@ -27699,7 +28507,7 @@ public class BirdGame3 extends Application {
                 slot.setPadding(new Insets(25));
                 slot.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 25;");
 
-                Label placeLabel = getLabel((idx == 0) ? "1ST" : (idx == 1 ? "2ND" : "3RD"));
+                Label placeLabel = getLabel(summaryPlaceText(idx + 1));
                 placeLabel.setFont(Font.font("Arial Black", 64));
                 placeLabel.setTextFill(idx == 0 ? Color.GOLD : idx == 1 ? Color.SILVER : Color.web("#CD7F32"));
 
@@ -27711,32 +28519,20 @@ public class BirdGame3 extends Application {
                 memberLabel.setFont(Font.font("Arial Black", 28));
                 memberLabel.setTextFill(Color.WHITE);
 
-                Label statsLabel = new Label("DMG " + damage + "  KILLS " + kills);
+                Label statsLabel = new Label("DMG " + damage + "   KILLS " + kills + "   FALLS " + fallsCount);
                 statsLabel.setFont(Font.font("Consolas", 24));
                 statsLabel.setTextFill(Color.LIGHTGRAY);
 
-                Label awardLabel = new Label(award);
-                awardLabel.setFont(Font.font("Arial Black", 30));
-                awardLabel.setTextFill(Color.CYAN.brighter());
-                awardLabel.setEffect(new Glow(0.8));
-
-                slot.getChildren().addAll(placeLabel, teamName, memberLabel, statsLabel, awardLabel);
+                slot.getChildren().addAll(placeLabel, teamName, memberLabel, statsLabel);
                 podium.getChildren().add(slot);
             }
 
-            VBox analyticsPanel = buildPostMatchAnalyticsPanel(activeBirds);
             VBox classicPanel = buildClassicSummaryPanel(winner);
             root.getChildren().addAll(title, coinsLabel);
-            if (contractPanel != null) {
-                root.getChildren().add(contractPanel);
-            }
             if (classicPanel != null) {
                 root.getChildren().add(classicPanel);
             }
-            if (masteryPanel != null) {
-                root.getChildren().add(masteryPanel);
-            }
-            root.getChildren().addAll(podium, analyticsPanel, buttons);
+            root.getChildren().addAll(podium, buttons);
             String bgStyle = root.getStyle();
             root.setStyle("-fx-background-color: transparent;");
             StackPane container = new StackPane(root);
@@ -27766,189 +28562,14 @@ public class BirdGame3 extends Application {
             return Integer.compare(scoreB, scoreA);
         });
 
-        HBox podium = new HBox(100);
-        podium.setAlignment(Pos.CENTER);
+        VBox showcase = buildVictoryShowcase(activeBirds);
 
-        // === STAT-BASED AWARDS ===
-        Bird killLeader = null, mostDamage = null, mostGroundPounds = null,
-                mostLean = null, mostTaunts = null, fallGuy = null, healthiest = null;
-
-        int maxKills = -1, maxDamage = -1, maxPounds = -1, maxLean = -1, maxTaunts = -1;
-
-        int maxFalls = -1;
-        int maxHealth = -1;
-
-        for (Bird b : activeBirds) {
-            if (eliminations[b.playerIndex] > maxKills) {
-                maxKills = eliminations[b.playerIndex];
-                killLeader = b;
-            }
-            if (damageDealt[b.playerIndex] > maxDamage) {
-                maxDamage = damageDealt[b.playerIndex];
-                mostDamage = b;
-            }
-            if (groundPounds[b.playerIndex] > maxPounds) {
-                maxPounds = groundPounds[b.playerIndex];
-                mostGroundPounds = b;
-            }
-            if (leanTime[b.playerIndex] > maxLean) {
-                maxLean = leanTime[b.playerIndex];
-                mostLean = b;
-            }
-            if (tauntsPerformed[b.playerIndex] > maxTaunts) {
-                maxTaunts = tauntsPerformed[b.playerIndex];
-                mostTaunts = b;
-            }
-
-            if (falls[b.playerIndex] > maxFalls) {
-                maxFalls = falls[b.playerIndex];
-                fallGuy = b;
-            }
-
-            int healthScore = (int) Math.round(Math.max(0, b.health));
-            if (healthScore > maxHealth) {
-                maxHealth = healthScore;
-                healthiest = b;
-            }
-
-            if (b.health <= 0) {
-                if (fallGuy == null || b.y > fallGuy.y) {
-                    fallGuy = b;
-                }
-            }
-        }
-
-        for (Bird bird : activeBirds) {
-            int place = activeBirds.indexOf(bird) + 1;
-            VBox slot = new VBox(15);
-            slot.setAlignment(Pos.CENTER);
-            slot.setPadding(new Insets(25));
-            slot.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 25;");
-
-            Label placeLabel = new Label(place == 1 ? "1ST" : place == 2 ? "2ND" : place == 3 ? "3RD" : place + "TH");
-            placeLabel.setFont(Font.font("Arial Black", 70));
-            placeLabel.setTextFill(place == 1 ? Color.GOLD : place == 2 ? Color.SILVER : place == 3 ? Color.web("#CD7F32") : Color.GRAY);
-            placeLabel.setEffect(new DropShadow(20, Color.BLACK));
-
-            Canvas icon = new Canvas(140, 140);
-            String skinKey = skinKeyForBird(bird);
-            drawRosterSprite(icon, bird.type, skinKey, false, true);
-
-            Label nameLabel = getLabel(bird.name
-                    .replace("P1:", "Player 1:")
-                    .replace("P2:", "Player 2:")
-                    .replace("P3:", "Player 3:")
-                    .replace("P4:", "Player 4:")
-                    .replace("AI", "AI Player"));
-            nameLabel.setFont(Font.font("Arial Black", 34));
-            nameLabel.setTextFill(Color.WHITE);
-
-            // === STAT-BASED AWARD LOGIC ===
-            String award;
-
-            if (place == 1) {
-                award = (bird.health < 20 && bird.health > 0) ? "CLUTCH GOD" : "CHAMPION";
-            } else {
-                int kills = eliminations[bird.playerIndex];
-                int damage = damageDealt[bird.playerIndex];
-                int pounds = groundPounds[bird.playerIndex];
-                int lean = leanTime[bird.playerIndex];
-                int taunts = tauntsPerformed[bird.playerIndex];
-                int fallCount = falls[bird.playerIndex];
-                int healthScore = (int) Math.round(Math.max(0, bird.health));
-
-                int bestCategory = -1;
-                double bestScore = -1;
-                if (maxKills > 0 && kills > 0) {
-                    double score = kills / (double) maxKills;
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestCategory = 0;
-                    }
-                }
-                if (maxDamage > 0 && damage > 0) {
-                    double score = damage / (double) maxDamage;
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestCategory = 1;
-                    }
-                }
-                if (maxPounds > 0 && pounds > 0) {
-                    double score = pounds / (double) maxPounds;
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestCategory = 2;
-                    }
-                }
-                if (maxLean > 0 && lean > 0) {
-                    double score = lean / (double) maxLean;
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestCategory = 3;
-                    }
-                }
-                if (maxTaunts > 0 && taunts > 0) {
-                    double score = taunts / (double) maxTaunts;
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestCategory = 4;
-                    }
-                }
-                if (maxFalls > 0 && fallCount > 0) {
-                    double score = fallCount / (double) maxFalls;
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestCategory = 5;
-                    }
-                }
-                if (maxHealth > 0 && healthScore > 0) {
-                    double score = healthScore / (double) maxHealth;
-                    if (score > bestScore) {
-                        bestCategory = 6;
-                    }
-                }
-
-                if (bestCategory == 0) {
-                    award = (bird == killLeader && maxKills > 0) ? "KILL LEADER" : "FINISHER";
-                } else if (bestCategory == 1) {
-                    award = (bird == mostDamage && maxDamage > 0) ? "MOST BRUTAL" : "HARD HITTER";
-                } else if (bestCategory == 2) {
-                    award = (bird == mostGroundPounds && maxPounds > 0) ? "GROUND POUNDER" : "PILEDRIVER";
-                } else if (bestCategory == 3) {
-                    award = (bird == mostLean && maxLean > 0) ? "LEAN GOD" : "LEANER";
-                } else if (bestCategory == 4) {
-                    award = (bird == mostTaunts && maxTaunts > 0) ? "TAUNT LORD" : "SHOWBOAT";
-                } else if (bestCategory == 5) {
-                    award = (bird == fallGuy && maxFalls > 0) ? "FALL GUY" : "RISK TAKER";
-                } else if (bestCategory == 6) {
-                    award = bird == healthiest ? "SURVIVOR" : "STILL FLYING";
-                } else {
-                    award = bird.health > 0 ? "READY FOR MORE" : "DOWNED";
-                }
-            }
-
-            Label awardLabel = new Label(award);
-            awardLabel.setFont(Font.font("Arial Black", 32));
-            awardLabel.setTextFill(Color.CYAN.brighter());
-            awardLabel.setEffect(new Glow(0.8));
-
-            slot.getChildren().addAll(placeLabel, icon, nameLabel, awardLabel);
-            podium.getChildren().add(slot);
-        }
-
-        VBox analyticsPanel = buildPostMatchAnalyticsPanel(activeBirds);
         VBox classicPanel = buildClassicSummaryPanel(winner);
-        root.getChildren().addAll(title, coinsLabel);
-        if (contractPanel != null) {
-            root.getChildren().add(contractPanel);
-        }
+        root.getChildren().addAll(title, coinsLabel, showcase);
         if (classicPanel != null) {
             root.getChildren().add(classicPanel);
         }
-        if (masteryPanel != null) {
-            root.getChildren().add(masteryPanel);
-        }
-        root.getChildren().addAll(podium, analyticsPanel, buttons);
+        root.getChildren().add(buttons);
         String bgStyle = root.getStyle();
         root.setStyle("-fx-background-color: transparent;");
         StackPane container = new StackPane(root);
@@ -27966,6 +28587,474 @@ public class BirdGame3 extends Application {
             fitLabelSingleLine(title, 110, 56, maxWidth);
         });
         setScenePreservingFullscreen(stage, scene);
+    }
+
+    private VBox buildVictoryShowcase(List<Bird> rankedBirds) {
+        VBox showcase = new VBox(26);
+        showcase.setAlignment(Pos.CENTER);
+        showcase.setMaxWidth(1500);
+
+        if (rankedBirds == null || rankedBirds.isEmpty()) {
+            return showcase;
+        }
+
+        Bird champion = rankedBirds.getFirst();
+        showcase.getChildren().add(buildChampionSummaryCard(champion));
+
+        if (rankedBirds.size() > 1) {
+            HBox runners = new HBox(22);
+            runners.setAlignment(Pos.TOP_CENTER);
+            for (int i = 1; i < rankedBirds.size(); i++) {
+                VBox runnerCard = buildRunnerSummaryCard(rankedBirds.get(i), i + 1);
+                runnerCard.setTranslateY((i - 1) * 18.0);
+                runners.getChildren().add(runnerCard);
+            }
+            showcase.getChildren().add(runners);
+        }
+
+        return showcase;
+    }
+
+    private VBox buildChampionSummaryCard(Bird bird) {
+        Color accent = matchSummaryAccent(bird);
+        VBox card = new VBox(12);
+        card.setAlignment(Pos.CENTER);
+        card.setMaxWidth(820);
+        card.setPadding(new Insets(26, 34, 24, 34));
+        card.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(10,14,30,0.96), rgba(6,9,20,0.92));"
+                + "-fx-background-radius: 34;"
+                + "-fx-border-color: " + toHex(accent) + ";"
+                + "-fx-border-width: 3;"
+                + "-fx-border-radius: 34;");
+
+        Label placeLabel = new Label("1ST PLACE");
+        placeLabel.setFont(Font.font("Arial Black", 66));
+        placeLabel.setTextFill(Color.GOLD);
+        placeLabel.setEffect(new DropShadow(26, Color.rgb(0, 0, 0, 0.8)));
+
+        StackPane portrait = buildVictoryPortraitNode(bird, 360, true);
+
+        Label birdLabel = new Label(matchSummaryBirdLabel(bird));
+        birdLabel.setFont(Font.font("Arial Black", 54));
+        birdLabel.setTextFill(accent);
+        birdLabel.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.75)));
+        applyNoEllipsis(birdLabel);
+
+        Label ownerLabel = new Label(matchSummaryOwnerLabel(bird));
+        ownerLabel.setFont(Font.font("Arial Black", 26));
+        ownerLabel.setTextFill(Color.web("#F3F6FF"));
+        ownerLabel.setStyle("-fx-background-color: rgba(255,255,255,0.14);"
+                + "-fx-background-radius: 18;"
+                + "-fx-border-color: rgba(255,255,255,0.24);"
+                + "-fx-border-width: 1.5;"
+                + "-fx-border-radius: 18;"
+                + "-fx-padding: 8 18 8 18;");
+
+        Label statLine = new Label("KILLS " + safeStat(eliminations, bird)
+                + "   DMG " + safeStat(damageDealt, bird)
+                + "   FALLS " + safeStat(falls, bird));
+        statLine.setFont(Font.font("Consolas", 24));
+        statLine.setTextFill(Color.web("#C6D4FF"));
+
+        card.getChildren().addAll(placeLabel, portrait, birdLabel, ownerLabel, statLine);
+        return card;
+    }
+
+    private VBox buildRunnerSummaryCard(Bird bird, int place) {
+        Color accent = matchSummaryAccent(bird);
+        VBox card = new VBox(10);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(16, 18, 18, 18));
+        card.setPrefWidth(280);
+        card.setMinWidth(280);
+        card.setMaxWidth(280);
+        card.setStyle("-fx-background-color: rgba(7,11,24,0.82);"
+                + "-fx-background-radius: 24;"
+                + "-fx-border-color: rgba(255,255,255,0.18);"
+                + "-fx-border-width: 2;"
+                + "-fx-border-radius: 24;");
+
+        Label placeLabel = new Label(summaryPlaceText(place));
+        placeLabel.setFont(Font.font("Arial Black", 44));
+        placeLabel.setTextFill(summaryPlaceColor(place));
+        placeLabel.setEffect(new DropShadow(16, Color.rgb(0, 0, 0, 0.7)));
+
+        StackPane portrait = buildVictoryPortraitNode(bird, 200, false);
+
+        Label birdLabel = new Label(matchSummaryBirdLabel(bird));
+        birdLabel.setFont(Font.font("Arial Black", 28));
+        birdLabel.setTextFill(accent);
+        applyNoEllipsis(birdLabel);
+
+        Label ownerLabel = new Label(matchSummaryOwnerLabel(bird));
+        ownerLabel.setFont(Font.font("Arial Black", 18));
+        ownerLabel.setTextFill(Color.web("#E2E8FF"));
+
+        Label statLine = new Label("KILLS " + safeStat(eliminations, bird)
+                + "   DMG " + safeStat(damageDealt, bird)
+                + "   FALLS " + safeStat(falls, bird));
+        statLine.setFont(Font.font("Consolas", 16));
+        statLine.setTextFill(Color.web("#C6D4FF"));
+        statLine.setWrapText(true);
+        statLine.setTextAlignment(TextAlignment.CENTER);
+        statLine.setAlignment(Pos.CENTER);
+        statLine.setMaxWidth(230);
+        applyNoEllipsis(statLine);
+
+        card.getChildren().addAll(placeLabel, portrait, birdLabel, ownerLabel, statLine);
+        return card;
+    }
+
+    private StackPane buildVictoryPortraitNode(Bird bird, double size, boolean winnerPose) {
+        double portraitSize = Math.max(140, size);
+        double spriteSize = portraitSize * (winnerPose ? 0.84 : 0.74);
+        Canvas sprite = new Canvas(spriteSize, spriteSize);
+        String skinKey = bird == null ? null : skinKeyForBird(bird);
+        drawVictoryRosterSprite(sprite, bird == null ? null : bird.type, skinKey);
+
+        Canvas overlay = new Canvas(spriteSize, spriteSize);
+        if (winnerPose && bird != null) {
+            drawVictoryPoseOverlay(overlay, bird);
+        }
+
+        StackPane art = new StackPane(sprite, overlay);
+        art.setAlignment(Pos.CENTER);
+        art.setTranslateY(winnerPose ? portraitSize * 0.02 : portraitSize * 0.01);
+
+        StackPane frame = new StackPane(art);
+        frame.setAlignment(Pos.CENTER);
+        frame.setPrefSize(portraitSize, portraitSize);
+        frame.setMinSize(portraitSize, portraitSize);
+        frame.setMaxSize(portraitSize, portraitSize);
+        return frame;
+    }
+
+    private void drawVictoryPoseOverlay(Canvas canvas, Bird bird) {
+        if (bird == null || bird.type == null) return;
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        double w = canvas.getWidth();
+        double h = canvas.getHeight();
+        g.clearRect(0, 0, w, h);
+
+        switch (bird.type) {
+            case PIGEON -> {
+                g.setLineWidth(5);
+                g.setStroke(Color.web("#ECEFF1"));
+                g.strokeLine(w * 0.56, h * 0.57, w * 0.69, h * 0.54);
+                g.setStroke(Color.web("#FF7043"));
+                g.strokeLine(w * 0.68, h * 0.54, w * 0.73, h * 0.535);
+                drawVictorySmokePuff(g, w * 0.75, h * 0.41, w * 0.075, Color.rgb(220, 225, 230, 0.58));
+                drawVictorySmokePuff(g, w * 0.83, h * 0.31, w * 0.055, Color.rgb(240, 245, 248, 0.46));
+            }
+            case EAGLE -> {
+                g.setStroke(Color.web("#FFD54F"));
+                g.setLineWidth(10);
+                g.strokeArc(w * 0.16, h * 0.18, w * 0.68, h * 0.42, 202, 136, ArcType.OPEN);
+                g.strokeLine(w * 0.2, h * 0.34, w * 0.08, h * 0.26);
+                g.strokeLine(w * 0.8, h * 0.34, w * 0.92, h * 0.26);
+                drawVictorySparkle(g, w * 0.22, h * 0.22, w * 0.035, Color.web("#FFF59D"));
+                drawVictorySparkle(g, w * 0.78, h * 0.22, w * 0.035, Color.web("#FFF59D"));
+            }
+            case FALCON -> {
+                g.setLineWidth(10);
+                g.setStroke(Color.web("#FF7043"));
+                g.strokeLine(w * 0.18, h * 0.66, w * 0.44, h * 0.34);
+                g.strokeLine(w * 0.24, h * 0.72, w * 0.52, h * 0.4);
+                g.setLineWidth(6);
+                g.setStroke(Color.web("#FFD180"));
+                g.strokeLine(w * 0.6, h * 0.28, w * 0.84, h * 0.16);
+                drawVictorySparkle(g, w * 0.8, h * 0.17, w * 0.032, Color.web("#FFE082"));
+            }
+            case PHOENIX -> {
+                g.setStroke(Color.web("#FF7043"));
+                g.setLineWidth(10);
+                g.strokeOval(w * 0.25, h * 0.18, w * 0.5, h * 0.46);
+                g.setStroke(Color.web("#FFD54F"));
+                g.setLineWidth(6);
+                g.strokeArc(w * 0.22, h * 0.16, w * 0.56, h * 0.5, 20, 120, ArcType.OPEN);
+                g.strokeArc(w * 0.22, h * 0.16, w * 0.56, h * 0.5, 200, 120, ArcType.OPEN);
+                drawVictorySparkle(g, w * 0.28, h * 0.3, w * 0.03, Color.web("#FFE082"));
+                drawVictorySparkle(g, w * 0.72, h * 0.3, w * 0.03, Color.web("#FFE082"));
+            }
+            case HUMMINGBIRD -> {
+                drawVictoryFlower(g, w * 0.78, h * 0.72, w * 0.08);
+                g.setStroke(Color.web("#80DEEA"));
+                g.setLineWidth(5);
+                g.strokeArc(w * 0.46, h * 0.28, w * 0.26, h * 0.2, 40, 250, ArcType.OPEN);
+            }
+            case TURKEY -> {
+                Color[] fan = new Color[]{Color.web("#D84315"), Color.web("#FFB74D"), Color.web("#8D6E63"), Color.web("#F06292")};
+                for (int i = 0; i < fan.length; i++) {
+                    g.setFill(fan[i].deriveColor(0, 1.0, 1.0, 0.7));
+                    g.fillOval(w * (0.16 + i * 0.1), h * (0.18 + (i % 2) * 0.03), w * 0.24, h * 0.4);
+                }
+                g.setFill(Color.rgb(0, 0, 0, 0.16));
+                g.fillOval(w * 0.3, h * 0.62, w * 0.4, h * 0.12);
+            }
+            case ROOSTER -> {
+                g.setFill(Color.web("#6D4C41"));
+                g.fillRoundRect(w * 0.46, h * 0.68, w * 0.08, h * 0.17, 12, 12);
+                g.setFill(Color.web("#8D6E63"));
+                g.fillRoundRect(w * 0.3, h * 0.79, w * 0.4, h * 0.05, 12, 12);
+                g.setStroke(Color.web("#FFEB3B"));
+                g.setLineWidth(6);
+                g.strokeArc(w * 0.64, h * 0.3, w * 0.16, h * 0.16, 300, 240, ArcType.OPEN);
+                g.strokeArc(w * 0.67, h * 0.27, w * 0.23, h * 0.23, 300, 210, ArcType.OPEN);
+            }
+            case PENGUIN -> {
+                g.setFill(Color.rgb(144, 202, 249, 0.85));
+                g.fillRoundRect(w * 0.24, h * 0.73, w * 0.52, h * 0.12, 28, 28);
+                drawVictoryFish(g, w * 0.72, h * 0.66, w * 0.075, Color.web("#90A4AE"), Color.web("#CFD8DC"));
+            }
+            case SHOEBILL -> {
+                drawVictoryFish(g, w * 0.76, h * 0.5, w * 0.085, Color.web("#42A5F5"), Color.web("#B3E5FC"));
+                g.setStroke(Color.rgb(255, 255, 255, 0.35));
+                g.setLineWidth(5);
+                g.strokeOval(w * 0.32, h * 0.74, w * 0.36, h * 0.08);
+            }
+            case MOCKINGBIRD -> {
+                g.setFill(Color.web("#111827"));
+                g.fillRoundRect(w * 0.47, h * 0.37, w * 0.15, h * 0.035, 12, 12);
+                g.fillRoundRect(w * 0.61, h * 0.375, w * 0.055, h * 0.022, 8, 8);
+                g.setStroke(Color.web("#AB47BC"));
+                g.setLineWidth(5);
+                g.strokeLine(w * 0.77, h * 0.46, w * 0.77, h * 0.78);
+                g.setStroke(Color.web("#EC407A"));
+                g.setLineWidth(6);
+                g.strokeOval(w * 0.71, h * 0.39, w * 0.12, h * 0.14);
+                drawVictorySparkle(g, w * 0.84, h * 0.24, w * 0.03, Color.web("#F48FB1"));
+            }
+            case RAZORBILL -> {
+                g.setStroke(Color.web("#80DEEA"));
+                g.setLineWidth(10);
+                g.strokeLine(w * 0.22, h * 0.68, w * 0.76, h * 0.22);
+                g.strokeLine(w * 0.24, h * 0.22, w * 0.78, h * 0.68);
+                g.setStroke(Color.web("#E0F7FA"));
+                g.setLineWidth(4);
+                g.strokeLine(w * 0.18, h * 0.7, w * 0.72, h * 0.24);
+            }
+            case GRINCHHAWK -> {
+                drawVictoryPresent(g, w * 0.24, h * 0.67, w * 0.16);
+                g.setStroke(Color.web("#7CB342"));
+                g.setLineWidth(7);
+                g.strokeArc(w * 0.18, h * 0.24, w * 0.22, h * 0.16, 70, 220, ArcType.OPEN);
+            }
+            case VULTURE -> {
+                drawVictoryBone(g, w * 0.28, h * 0.77, w * 0.085);
+                drawVictoryBone(g, w * 0.68, h * 0.79, w * 0.07);
+                drawVictorySmokePuff(g, w * 0.22, h * 0.55, w * 0.07, Color.rgb(70, 58, 92, 0.42));
+                drawVictorySmokePuff(g, w * 0.79, h * 0.58, w * 0.06, Color.rgb(70, 58, 92, 0.36));
+            }
+            case OPIUMBIRD -> {
+                g.setStroke(Color.web("#CE93D8"));
+                g.setLineWidth(8);
+                g.strokeArc(w * 0.22, h * 0.46, w * 0.56, h * 0.22, 180, 180, ArcType.OPEN);
+                drawVictorySmokePuff(g, w * 0.3, h * 0.64, w * 0.11, Color.rgb(171, 71, 188, 0.36));
+                drawVictorySmokePuff(g, w * 0.48, h * 0.68, w * 0.13, Color.rgb(171, 71, 188, 0.42));
+                drawVictorySmokePuff(g, w * 0.66, h * 0.64, w * 0.11, Color.rgb(171, 71, 188, 0.36));
+            }
+            case TITMOUSE -> {
+                g.setStroke(Color.web("#FFEE58"));
+                g.setLineWidth(8);
+                g.strokePolyline(
+                        new double[]{w * 0.2, w * 0.34, w * 0.3, w * 0.48, w * 0.42, w * 0.62},
+                        new double[]{h * 0.32, h * 0.24, h * 0.46, h * 0.34, h * 0.6, h * 0.5},
+                        6
+                );
+                drawVictorySparkle(g, w * 0.68, h * 0.3, w * 0.028, Color.web("#FFF59D"));
+            }
+            case BAT -> {
+                g.setStroke(Color.web("#B39DDB"));
+                g.setLineWidth(5);
+                g.strokeArc(w * 0.22, h * 0.26, w * 0.22, h * 0.16, 40, 240, ArcType.OPEN);
+                g.strokeArc(w * 0.56, h * 0.26, w * 0.22, h * 0.16, -100, 240, ArcType.OPEN);
+                g.setFill(Color.rgb(255, 255, 255, 0.14));
+                g.fillOval(w * 0.18, h * 0.12, w * 0.16, h * 0.16);
+                g.setFill(Color.rgb(5, 8, 20, 0.92));
+                g.fillOval(w * 0.23, h * 0.12, w * 0.16, h * 0.16);
+            }
+            case PELICAN -> {
+                drawVictoryFish(g, w * 0.76, h * 0.38, w * 0.075, Color.web("#4FC3F7"), Color.web("#E1F5FE"));
+                g.setStroke(Color.web("#81D4FA"));
+                g.setLineWidth(6);
+                g.strokeArc(w * 0.52, h * 0.34, w * 0.24, h * 0.34, 250, 120, ArcType.OPEN);
+                g.strokeArc(w * 0.56, h * 0.62, w * 0.14, h * 0.12, 180, 180, ArcType.OPEN);
+            }
+            case HEISENBIRD -> {
+                drawVictoryCrystal(g, w * 0.28, h * 0.72, w * 0.11, Color.web("#4FC3F7"));
+                drawVictoryCrystal(g, w * 0.46, h * 0.76, w * 0.09, Color.web("#90CAF9"));
+                drawVictoryCrystal(g, w * 0.66, h * 0.71, w * 0.1, Color.web("#29B6F6"));
+                drawVictorySmokePuff(g, w * 0.68, h * 0.28, w * 0.06, Color.rgb(144, 202, 249, 0.35));
+            }
+            case RAVEN -> {
+                for (int i = 0; i < 5; i++) {
+                    double x = w * (0.24 + i * 0.12);
+                    double y = h * (0.18 + Math.abs(2 - i) * 0.04);
+                    g.setFill(Color.rgb(28, 31, 38, 0.78));
+                    g.fillOval(x, y, w * 0.08, h * 0.16);
+                }
+                g.setStroke(Color.rgb(176, 190, 197, 0.45));
+                g.setLineWidth(4);
+                g.strokeArc(w * 0.2, h * 0.2, w * 0.6, h * 0.28, 190, 160, ArcType.OPEN);
+            }
+        }
+
+        drawVictoryCrown(g, w * 0.5, h * 0.19, Math.min(w, h) * 0.16);
+    }
+
+    private void drawVictoryCrown(GraphicsContext g, double cx, double cy, double scale) {
+        double crownH = scale * 0.58;
+        double[] xs = new double[]{
+                cx - scale / 2, cx - scale * 0.24, cx, cx + scale * 0.24, cx + scale / 2,
+                cx + scale / 2, cx - scale / 2
+        };
+        double[] ys = new double[]{
+                cy + crownH, cy, cy + crownH * 0.34, cy, cy + crownH,
+                cy + crownH * 1.22, cy + crownH * 1.22
+        };
+        g.setFill(Color.web("#FFD54F"));
+        g.fillPolygon(xs, ys, xs.length);
+        g.setStroke(Color.web("#5D4037"));
+        g.setLineWidth(Math.max(2.5, scale * 0.045));
+        g.strokePolygon(xs, ys, xs.length);
+        drawVictorySparkle(g, cx - scale * 0.18, cy + crownH * 0.16, scale * 0.08, Color.web("#FFF8E1"));
+        drawVictorySparkle(g, cx + scale * 0.18, cy + crownH * 0.16, scale * 0.08, Color.web("#FFF8E1"));
+    }
+
+    private void drawVictorySparkle(GraphicsContext g, double cx, double cy, double radius, Color color) {
+        g.setStroke(color);
+        g.setLineWidth(Math.max(2.0, radius * 0.22));
+        g.strokeLine(cx - radius, cy, cx + radius, cy);
+        g.strokeLine(cx, cy - radius, cx, cy + radius);
+        g.strokeLine(cx - radius * 0.65, cy - radius * 0.65, cx + radius * 0.65, cy + radius * 0.65);
+        g.strokeLine(cx - radius * 0.65, cy + radius * 0.65, cx + radius * 0.65, cy - radius * 0.65);
+    }
+
+    private void drawVictorySmokePuff(GraphicsContext g, double cx, double cy, double size, Color color) {
+        g.setFill(color);
+        g.fillOval(cx - size * 0.6, cy - size * 0.35, size * 0.85, size * 0.7);
+        g.fillOval(cx - size * 0.15, cy - size * 0.5, size * 0.8, size * 0.72);
+        g.fillOval(cx + size * 0.26, cy - size * 0.28, size * 0.72, size * 0.62);
+    }
+
+    private void drawVictoryFlower(GraphicsContext g, double cx, double cy, double scale) {
+        Color[] petals = new Color[]{Color.web("#F06292"), Color.web("#FFB74D"), Color.web("#BA68C8"), Color.web("#4DD0E1"), Color.web("#81C784")};
+        for (int i = 0; i < petals.length; i++) {
+            double angle = Math.toRadians(i * (360.0 / petals.length));
+            double px = cx + Math.cos(angle) * scale * 0.75;
+            double py = cy + Math.sin(angle) * scale * 0.75;
+            g.setFill(petals[i]);
+            g.fillOval(px - scale * 0.34, py - scale * 0.34, scale * 0.68, scale * 0.68);
+        }
+        g.setFill(Color.web("#FFEE58"));
+        g.fillOval(cx - scale * 0.26, cy - scale * 0.26, scale * 0.52, scale * 0.52);
+        g.setStroke(Color.web("#81C784"));
+        g.setLineWidth(Math.max(2.0, scale * 0.08));
+        g.strokeLine(cx, cy + scale * 0.2, cx - scale * 0.45, cy + scale * 1.2);
+    }
+
+    private void drawVictoryFish(GraphicsContext g, double cx, double cy, double scale, Color body, Color fin) {
+        g.setFill(body);
+        g.fillOval(cx - scale * 0.7, cy - scale * 0.34, scale, scale * 0.68);
+        g.fillPolygon(
+                new double[]{cx + scale * 0.1, cx + scale * 0.7, cx + scale * 0.1},
+                new double[]{cy, cy - scale * 0.42, cy + scale * 0.42},
+                3
+        );
+        g.setFill(fin);
+        g.fillPolygon(
+                new double[]{cx - scale * 0.15, cx + scale * 0.1, cx - scale * 0.02},
+                new double[]{cy - scale * 0.02, cy - scale * 0.45, cy - scale * 0.16},
+                3
+        );
+        g.setFill(Color.WHITE);
+        g.fillOval(cx - scale * 0.48, cy - scale * 0.12, scale * 0.16, scale * 0.16);
+        g.setFill(Color.BLACK);
+        g.fillOval(cx - scale * 0.42, cy - scale * 0.09, scale * 0.07, scale * 0.07);
+    }
+
+    private void drawVictoryPresent(GraphicsContext g, double x, double y, double size) {
+        g.setFill(Color.web("#66BB6A"));
+        g.fillRoundRect(x, y, size, size, 12, 12);
+        g.setFill(Color.web("#F44336"));
+        g.fillRect(x + size * 0.42, y, size * 0.16, size);
+        g.fillRect(x, y + size * 0.42, size, size * 0.16);
+        g.setStroke(Color.web("#FCE4EC"));
+        g.setLineWidth(Math.max(2.5, size * 0.06));
+        g.strokeArc(x + size * 0.15, y - size * 0.08, size * 0.24, size * 0.22, 0, 180, ArcType.OPEN);
+        g.strokeArc(x + size * 0.6, y - size * 0.08, size * 0.24, size * 0.22, 0, 180, ArcType.OPEN);
+    }
+
+    private void drawVictoryBone(GraphicsContext g, double x, double y, double size) {
+        g.setFill(Color.web("#F5F5F5"));
+        g.fillOval(x - size * 0.7, y - size * 0.42, size * 0.44, size * 0.44);
+        g.fillOval(x + size * 0.26, y - size * 0.42, size * 0.44, size * 0.44);
+        g.fillOval(x - size * 0.7, y - size * 0.02, size * 0.44, size * 0.44);
+        g.fillOval(x + size * 0.26, y - size * 0.02, size * 0.44, size * 0.44);
+        g.fillRoundRect(x - size * 0.36, y - size * 0.12, size * 0.72, size * 0.24, 10, 10);
+    }
+
+    private void drawVictoryCrystal(GraphicsContext g, double cx, double cy, double scale, Color color) {
+        g.setFill(color.deriveColor(0, 1.0, 1.0, 0.88));
+        g.fillPolygon(
+                new double[]{cx, cx + scale * 0.44, cx + scale * 0.18, cx - scale * 0.22},
+                new double[]{cy - scale * 0.7, cy - scale * 0.06, cy + scale * 0.7, cy + scale * 0.18},
+                4
+        );
+        g.setStroke(Color.WHITE.deriveColor(0, 1.0, 1.0, 0.45));
+        g.setLineWidth(Math.max(2.0, scale * 0.08));
+        g.strokePolygon(
+                new double[]{cx, cx + scale * 0.44, cx + scale * 0.18, cx - scale * 0.22},
+                new double[]{cy - scale * 0.7, cy - scale * 0.06, cy + scale * 0.7, cy + scale * 0.18},
+                4
+        );
+    }
+
+    private String matchSummaryBirdLabel(Bird bird) {
+        if (bird == null || bird.type == null || bird.type.name == null) return "MYSTERY BIRD";
+        return bird.type.name.toUpperCase(Locale.ROOT);
+    }
+
+    private String matchSummaryOwnerLabel(Bird bird) {
+        if (bird == null) return "";
+        int idx = bird.playerIndex;
+        if (idx < 0 || idx >= MAX_COMBATANTS) return bird.name == null ? "" : bird.name.toUpperCase(Locale.ROOT);
+        return (isAI[idx] ? "CPU " : "PLAYER ") + (idx + 1);
+    }
+
+    private int safeStat(int[] values, Bird bird) {
+        if (values == null || bird == null) return 0;
+        int idx = bird.playerIndex;
+        return (idx >= 0 && idx < values.length) ? values[idx] : 0;
+    }
+
+    private String summaryPlaceText(int place) {
+        int mod100 = Math.abs(place) % 100;
+        int mod10 = Math.abs(place) % 10;
+        String suffix = (mod100 >= 11 && mod100 <= 13) ? "TH"
+                : switch (mod10) {
+                    case 1 -> "ST";
+                    case 2 -> "ND";
+                    case 3 -> "RD";
+                    default -> "TH";
+                };
+        return place + suffix;
+    }
+
+    private Color summaryPlaceColor(int place) {
+        return switch (place) {
+            case 1 -> Color.GOLD;
+            case 2 -> Color.SILVER;
+            case 3 -> Color.web("#CD7F32");
+            default -> Color.web("#B0BEC5");
+        };
+    }
+
+    private Color matchSummaryAccent(Bird bird) {
+        if (bird == null || bird.type == null || bird.type.color == null) {
+            return Color.web("#90A4AE");
+        }
+        return bird.type.color.interpolate(Color.WHITE, 0.24);
     }
 
     private List<Integer> getIntegers(Map<Integer, List<Bird>> teams) {
@@ -28339,70 +29428,6 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private VBox buildPostMatchAnalyticsPanel(List<Bird> activeBirds) {
-        record MatchTypeStats(BirdType type, int picks, int damage, int kills, int specials, int specialHits) {}
-
-        Map<BirdType, int[]> byType = new HashMap<>();
-        int totalDamage = 0;
-        for (Bird b : activeBirds) {
-            int idx = b.playerIndex;
-            int[] s = byType.computeIfAbsent(b.type, t -> new int[6]);
-            s[0] += 1;
-            s[1] += Math.max(0, damageDealt[idx]);
-            s[2] += Math.max(0, eliminations[idx]);
-            s[3] += Math.max(0, specialsUsed[idx]);
-            s[4] += Math.max(0, specialHits[idx]);
-            s[5] += Math.max(0, specialDamageDealt[idx]);
-            totalDamage += Math.max(0, damageDealt[idx]);
-        }
-
-        List<MatchTypeStats> rows = new ArrayList<>();
-        for (var e : byType.entrySet()) {
-            int[] s = e.getValue();
-            rows.add(new MatchTypeStats(e.getKey(), s[0], s[1], s[2], s[3], s[4]));
-        }
-        rows.sort((a, b) -> Integer.compare(b.damage(), a.damage()));
-
-        VBox box = new VBox(8);
-        box.setAlignment(Pos.CENTER_LEFT);
-        box.setPadding(new Insets(14, 24, 14, 24));
-        box.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-background-radius: 20; -fx-border-color: #7C4DFF; -fx-border-radius: 20;");
-
-        Label header = new Label("POST-MATCH ANALYTICS");
-        header.setFont(Font.font("Arial Black", 34));
-        header.setTextFill(Color.web("#B388FF"));
-        box.getChildren().add(header);
-
-        Label columns = new Label("Type                     Ability Hit%   Damage Share   Kill Conv");
-        columns.setFont(Font.font("Consolas", 22));
-        columns.setTextFill(Color.WHITE);
-        box.getChildren().add(columns);
-
-        int safeTotalDamage = Math.max(1, totalDamage);
-        for (MatchTypeStats r : rows) {
-            double hitRate = r.specials() > 0 ? (r.specialHits() * 100.0 / r.specials()) : 0.0;
-            double damageShare = r.damage() * 100.0 / safeTotalDamage;
-            double killConv = r.damage() > 0 ? (r.kills() * 100.0 / r.damage()) : 0.0; // kills per 100 dmg
-
-            Label row = getLabel(String.format(
-                    "%-24s %10.1f%% %12.1f%% %10.2f",
-                    r.type().name,
-                    hitRate,
-                    damageShare,
-                    killConv
-            ));
-            row.setFont(Font.font("Consolas", 21));
-            row.setTextFill(r.type().color.brighter());
-            box.getChildren().add(row);
-        }
-
-        Label note = new Label("Kill Conv = eliminations per 100 damage. Ability Hit% = special hits / special uses.");
-        note.setFont(Font.font("Consolas", 16));
-        note.setTextFill(Color.LIGHTGRAY);
-        box.getChildren().add(note);
-        return box;
-    }
-
     private void refreshContractsIfNeeded() {
         if (progression.refreshContracts(currentContractDate())) {
             saveAchievements();
@@ -28433,100 +29458,6 @@ public class BirdGame3 extends Application {
                 isMatchHistoryTeamMode(),
                 this::getEffectiveTeam
         );
-    }
-
-    private VBox buildContractSummaryPanel(ContractsBoard.UpdateResult update) {
-        if (update == null || !update.hasChanges()) return null;
-
-        Set<String> completedIds = new HashSet<>();
-        for (ContractsBoard.RewardEvent reward : update.completedContracts()) {
-            completedIds.add(reward.contract().id());
-        }
-
-        VBox box = new VBox(8);
-        box.setAlignment(Pos.CENTER_LEFT);
-        box.setPadding(new Insets(18, 26, 18, 26));
-        box.setMaxWidth(1500);
-        box.setStyle("-fx-background-color: rgba(0,0,0,0.55); -fx-background-radius: 22; "
-                + "-fx-border-color: #FFD54F; -fx-border-width: 3; -fx-border-radius: 22;");
-
-        Label header = new Label(update.completedContracts().isEmpty() ? "CONTRACTS UPDATED" : "CONTRACTS CLEARED");
-        header.setFont(Font.font("Arial Black", 34));
-        header.setTextFill(update.completedContracts().isEmpty() ? Color.web("#B3E5FC") : Color.web("#FFF59D"));
-        applyNoEllipsis(header);
-        box.getChildren().add(header);
-
-        if (!update.completedContracts().isEmpty()) {
-            Label rewards = new Label("REWARDS CLAIMED: +" + update.coinsAwarded()
-                    + " BIRD COINS  |  +" + update.masteryXpAwarded() + " BONUS MASTERY XP");
-            rewards.setFont(Font.font("Consolas", 22));
-            rewards.setTextFill(Color.web("#A5D6A7"));
-            rewards.setWrapText(true);
-            rewards.setMaxWidth(1450);
-            applyNoEllipsis(rewards);
-            box.getChildren().add(rewards);
-        }
-
-        for (ContractsBoard.ContractView contract : update.updatedContracts()) {
-            boolean cleared = completedIds.contains(contract.id());
-            Label title = new Label(contract.cadenceLabel() + "  |  " + contract.title());
-            title.setFont(Font.font("Arial Black", 24));
-            title.setTextFill(cleared ? Color.web("#FFF59D") : Color.WHITE);
-            applyNoEllipsis(title);
-
-            String statusText = cleared ? "CLEARED" : "PROGRESS " + contract.progressText();
-            Label detail = new Label(contract.description() + "  |  " + statusText + "  |  REWARD " + contract.rewardText());
-            detail.setFont(Font.font("Consolas", 19));
-            detail.setTextFill(cleared ? Color.web("#A5D6A7") : Color.web("#CFD8DC"));
-            detail.setWrapText(true);
-            detail.setMaxWidth(1450);
-            applyNoEllipsis(detail);
-
-            VBox row = new VBox(4, title, detail);
-            row.setAlignment(Pos.CENTER_LEFT);
-            box.getChildren().add(row);
-        }
-
-        return box;
-    }
-
-    private VBox buildMasterySummaryPanel(BirdProgression.MasterySummary summary) {
-        if (summary == null || summary.isEmpty()) return null;
-
-        VBox box = new VBox(10);
-        box.setAlignment(Pos.CENTER_LEFT);
-        box.setPadding(new Insets(18, 26, 18, 26));
-        box.setMaxWidth(1500);
-        box.setStyle("-fx-background-color: rgba(0,0,0,0.55); -fx-background-radius: 22; -fx-border-color: #80CBC4; -fx-border-width: 3; -fx-border-radius: 22;");
-
-        Label header = new Label("BIRD MASTERY");
-        header.setFont(Font.font("Arial Black", 34));
-        header.setTextFill(Color.web("#B2DFDB"));
-        box.getChildren().add(header);
-
-        for (BirdProgression.MasteryGain gain : summary.gains()) {
-            Label name = new Label(gain.type().name.toUpperCase() + "  |  LV " + gain.levelAfter() + ' ' + progression.title(gain.type()));
-            name.setFont(Font.font("Arial Black", 24));
-            name.setTextFill(gain.leveledUp() ? Color.web("#FFF59D") : Color.WHITE);
-            applyNoEllipsis(name);
-
-            String progressText = gain.maxed()
-                    ? "MAX LEVEL"
-                    : progression.progressLine(gain.type());
-            Label detail = getLabel(gain.leveledUp()
-                    ? ("+" + gain.xpEarned() + " XP  |  LEVEL UP " + gain.levelBefore() + " -> " + gain.levelAfter() + "  |  " + progressText)
-                    : ("+" + gain.xpEarned() + " XP  |  " + progressText));
-            detail.setFont(Font.font("Consolas", 20));
-            detail.setTextFill(gain.leveledUp() ? Color.web("#A5D6A7") : Color.web("#CFD8DC"));
-            detail.setWrapText(true);
-            detail.setMaxWidth(1440);
-            applyNoEllipsis(detail);
-
-            VBox row = new VBox(4, name, detail);
-            row.setAlignment(Pos.CENTER_LEFT);
-            box.getChildren().add(row);
-        }
-        return box;
     }
 
     void resetMatchStats() {
@@ -28597,6 +29528,7 @@ public class BirdGame3 extends Application {
 
     private void loadProfileProgress(Preferences prefs) {
         startHereCompleted = prefs.getBoolean(PREF_START_HERE_COMPLETED, false);
+        int achievementSchemaVersion = Math.max(0, prefs.getInt(PREF_ACHIEVEMENT_SCHEMA_VERSION, 0));
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             achievementsUnlocked[i] = prefs.getBoolean("ach_" + i, false);
             achievementProgress[i] = prefs.getInt("prog_" + i, 0);
@@ -28652,6 +29584,7 @@ public class BirdGame3 extends Application {
         bossRushBestBird = parseBirdTypePreference(prefs.get(PREF_BOSS_RUSH_BEST_BIRD, ""));
         bossRushBestRank = prefs.get(PREF_BOSS_RUSH_BEST_RANK, "");
         bossRushClearCount = Math.max(0, prefs.getInt(PREF_BOSS_RUSH_CLEAR_COUNT, 0));
+        tournamentChampionshipsWon = Math.max(0, prefs.getInt(PREF_TOURNAMENT_CHAMPIONSHIPS, 0));
         Arrays.fill(bossRushBestClearMillisByBird, Long.MAX_VALUE);
         Arrays.fill(bossRushBestRankByBird, null);
         Arrays.fill(bossRushPerfectBadgeByBird, false);
@@ -28769,11 +29702,12 @@ public class BirdGame3 extends Application {
         achievementProgress[12] = Math.max(achievementProgress[12], sumProgress(cityWins));
         achievementProgress[15] = Math.max(achievementProgress[15], sumProgress(cliffWins));
         achievementProgress[17] = Math.max(achievementProgress[17], sumProgress(jungleWins));
-        achievementProgress[22] = Math.max(achievementProgress[22], bossRushClearCount);
-        achievementProgress[24] = Math.max(achievementProgress[24], dailyChallengeBestProgress >= 5 ? 1 : 0);
-        achievementProgress[25] = Math.max(achievementProgress[25], pigeonEpisodeCompleted ? 1 : 0);
-        achievementProgress[26] = Math.max(achievementProgress[26], batEpisodeCompleted ? 1 : 0);
-        achievementProgress[27] = Math.max(achievementProgress[27], pelicanEpisodeCompleted ? 1 : 0);
+        if (achievementSchemaVersion < ACHIEVEMENT_SCHEMA_VERSION) {
+            achievementsUnlocked[24] = false;
+            achievementProgress[24] = 0;
+            achievementRewardsClaimed[24] = false;
+        }
+        syncModeAchievementMilestones();
         reconcileAchievementUnlocksFromStoredProgress();
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             if (achievementRewardsClaimed[i] && !achievementsUnlocked[i]) {
@@ -28859,6 +29793,7 @@ public class BirdGame3 extends Application {
 
     private void saveProfileProgress(Preferences prefs) {
         prefs.putBoolean(PREF_START_HERE_COMPLETED, startHereCompleted);
+        prefs.putInt(PREF_ACHIEVEMENT_SCHEMA_VERSION, ACHIEVEMENT_SCHEMA_VERSION);
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             prefs.putBoolean("ach_" + i, achievementsUnlocked[i]);
             prefs.putInt("prog_" + i, achievementProgress[i]);
@@ -28914,6 +29849,7 @@ public class BirdGame3 extends Application {
         prefs.put(PREF_BOSS_RUSH_BEST_BIRD, bossRushBestBird == null ? "" : bossRushBestBird.name());
         prefs.put(PREF_BOSS_RUSH_BEST_RANK, bossRushBestRank == null ? "" : bossRushBestRank);
         prefs.putInt(PREF_BOSS_RUSH_CLEAR_COUNT, Math.max(0, bossRushClearCount));
+        prefs.putInt(PREF_TOURNAMENT_CHAMPIONSHIPS, Math.max(0, tournamentChampionshipsWon));
         for (BirdType type : BirdType.values()) {
             int idx = type.ordinal();
             long bestElapsedMillis = bossRushBestClearMillisByBird[idx];
@@ -29019,10 +29955,15 @@ public class BirdGame3 extends Application {
         }
         if (achievementProgress[22] >= 1 || bossRushClearCount > 0) achievementsUnlocked[22] = true;
         if (achievementProgress[23] >= 1) achievementsUnlocked[23] = true;
-        if (achievementProgress[24] >= 1 || dailyChallengeBestProgress >= 5) achievementsUnlocked[24] = true;
+        if (achievementProgress[24] >= 1 || countTowerDefenseBadges() > 0) achievementsUnlocked[24] = true;
         if (achievementProgress[25] >= 1 || pigeonEpisodeCompleted) achievementsUnlocked[25] = true;
         if (achievementProgress[26] >= 1 || batEpisodeCompleted) achievementsUnlocked[26] = true;
         if (achievementProgress[27] >= 1 || pelicanEpisodeCompleted) achievementsUnlocked[27] = true;
+        if (achievementProgress[28] >= bigForestTowerDefenseBadgeGoal()
+                || countTowerDefenseBadges(MapType.FOREST) >= bigForestTowerDefenseBadgeGoal()) {
+            achievementsUnlocked[28] = true;
+        }
+        if (achievementProgress[29] >= 1 || tournamentChampionshipsWon > 0) achievementsUnlocked[29] = true;
     }
 
     public void checkAchievements(Bird bird) {
@@ -29154,19 +30095,12 @@ public class BirdGame3 extends Application {
 
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(30, 40, 30, 40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #08121F, #132842, #1A3951);");
+        root.setStyle(MenuTheme.pageBackground());
 
-        Label title = new Label("MATCH HISTORY");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 96));
-        title.setTextFill(Color.web("#FFE082"));
-        title.setEffect(new DropShadow(30, Color.BLACK));
-
-        Label subtitle = new Label("Last " + MATCH_HISTORY_LIMIT + " recorded matches");
-        subtitle.setFont(Font.font("Consolas", 22));
-        subtitle.setTextFill(Color.web("#B0BEC5"));
-
-        VBox top = new VBox(8, title, subtitle);
-        top.setAlignment(Pos.CENTER);
+        Button back = uiFactory.action("BACK TO HUB", 360, 100, 34, "#D32F2F", 22, () -> showMenu(stage));
+        StackPane title = buildMenuTitleBanner("MATCH HISTORY", 620, 74, 34);
+        StackPane summaryChip = buildMenuChip("LAST " + MATCH_HISTORY_LIMIT + " MATCHES", "#4FC3F7", "#B3E5FC");
+        StackPane top = buildMenuTopStrip(back, title, summaryChip);
 
         VBox list = new VBox(18);
         list.setAlignment(Pos.TOP_CENTER);
@@ -29183,16 +30117,13 @@ public class BirdGame3 extends Application {
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-
-        Button back = uiFactory.action("BACK TO HUB", 360, 100, 34, "#D32F2F", 22, () -> showMenu(stage));
+        StackPane historyShell = new StackPane(scroll);
+        historyShell.setPadding(new Insets(14));
+        historyShell.setStyle(MenuTheme.panelStyle("#64B5F6", 28));
 
         root.setTop(top);
-        root.setCenter(scroll);
-        root.setBottom(back);
-        BorderPane.setAlignment(top, Pos.CENTER);
-        BorderPane.setAlignment(back, Pos.CENTER);
-        BorderPane.setMargin(top, new Insets(0, 0, 20, 0));
-        BorderPane.setMargin(back, new Insets(20, 0, 0, 0));
+        root.setCenter(historyShell);
+        BorderPane.setMargin(top, new Insets(0, 0, 18, 0));
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -29210,8 +30141,7 @@ public class BirdGame3 extends Application {
         VBox card = new VBox(12);
         card.setPadding(new Insets(18, 22, 18, 22));
         card.setMaxWidth(1480);
-        card.setStyle("-fx-background-color: rgba(7,12,18,0.82); -fx-border-color: " + accentHex
-                + "; -fx-border-width: 3; -fx-background-radius: 18; -fx-border-radius: 18;");
+        card.setStyle(MenuTheme.panelStyle(accentHex, 20));
 
         Label modeLabel = new Label(entry.mode());
         modeLabel.setFont(Font.font("Arial Black", 30));
@@ -29261,13 +30191,13 @@ public class BirdGame3 extends Application {
         card.setAlignment(Pos.CENTER);
         card.setPadding(new Insets(30));
         card.setMaxWidth(1000);
-        card.setStyle("-fx-background-color: rgba(7,12,18,0.74); -fx-border-color: #455A64; -fx-border-width: 3; -fx-background-radius: 18; -fx-border-radius: 18;");
+        card.setStyle(MenuTheme.panelStyle("#455A64", 20));
 
         Label title = new Label("NO MATCHES RECORDED YET");
         title.setFont(Font.font("Arial Black", 34));
         title.setTextFill(Color.web("#ECEFF1"));
 
-        Label body = new Label("Finish a match in Fight, LAN, Story, Adventure, Classic, Boss Rush, Daily Challenge, or Competition to see it here.");
+        Label body = new Label("Finish a match in Fight, LAN, Story, Adventure, Classic, Boss Rush, Tournament, or Competition to see it here.");
         body.setFont(Font.font("Consolas", 20));
         body.setTextFill(Color.web("#B0BEC5"));
         body.setWrapText(true);
@@ -29285,8 +30215,7 @@ public class BirdGame3 extends Application {
         HBox row = new HBox(16);
         row.setAlignment(Pos.CENTER_LEFT);
         row.setPadding(new Insets(10, 14, 10, 14));
-        row.setStyle("-fx-background-color: " + background + "; -fx-border-color: " + border
-                + "; -fx-border-width: 2; -fx-background-radius: 14; -fx-border-radius: 14;");
+        row.setStyle(MenuTheme.listRowStyle(participant.winner() ? toHex(accent) : border, 14, participant.winner()));
 
         Label nameLabel = new Label(participant.slotLabel() + " - " + participant.birdName());
         nameLabel.setFont(Font.font("Arial Black", 24));
@@ -29339,7 +30268,7 @@ public class BirdGame3 extends Application {
             case 0, 1, 2, 6, 7, 8, 9 -> AchievementCategory.COMBAT;
             case 3, 4, 5, 18 -> AchievementCategory.BIRD;
             case 10, 11, 12, 13, 14, 15, 16, 17 -> AchievementCategory.MAP;
-            case 19, 22, 23, 24 -> AchievementCategory.MODE;
+            case 19, 22, 23, 24, 28, 29 -> AchievementCategory.MODE;
             default -> AchievementCategory.STORY;
         };
     }
@@ -29373,6 +30302,8 @@ public class BirdGame3 extends Application {
             case 25 -> AchievementReward.preview(BirdType.PIGEON, STORM_PIGEON_SKIN, 360);
             case 26 -> AchievementReward.preview(BirdType.BAT, RESONANCE_BAT_SKIN, 360);
             case 27 -> AchievementReward.preview(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN, 400);
+            case 28 -> AchievementReward.preview(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN, 420);
+            case 29 -> AchievementReward.coins(450);
             default -> AchievementReward.coins(100);
         };
     }
@@ -29461,10 +30392,13 @@ public class BirdGame3 extends Application {
             }
             case 22 -> "Boss Rush clears: " + Math.max(achievementProgress[22], bossRushClearCount) + " / 1";
             case 23 -> "EX route clears: " + achievementProgress[23] + " / 1";
-            case 24 -> "Daily clears: " + achievementProgress[24] + " / 1";
+            case 24 -> "Tower Defense badges: " + Math.max(achievementProgress[24], countTowerDefenseBadges() > 0 ? 1 : 0) + " / 1";
             case 25 -> "Pigeon Episode complete: " + (pigeonEpisodeCompleted ? "1 / 1" : "0 / 1");
             case 26 -> "Bat Episode complete: " + (batEpisodeCompleted ? "1 / 1" : "0 / 1");
             case 27 -> "Pelican Episode complete: " + (pelicanEpisodeCompleted ? "1 / 1" : "0 / 1");
+            case 28 -> "Big Forest badges: " + Math.max(achievementProgress[28], countTowerDefenseBadges(MapType.FOREST))
+                    + " / " + bigForestTowerDefenseBadgeGoal();
+            case 29 -> "Tournament championships: " + Math.max(achievementProgress[29], tournamentChampionshipsWon > 0 ? 1 : 0) + " / 1";
             default -> "";
         };
     }
@@ -29726,10 +30660,12 @@ public class BirdGame3 extends Application {
             case 21 -> "story-book";
             case 22 -> "boss-breaker";
             case 23 -> "void-crown";
-            case 24 -> "daily-sun";
+            case 24 -> "grove-shield";
             case 25 -> "storm-rooftop";
             case 26 -> "echo-rings";
             case 27 -> "iron-wing";
+            case 28 -> "tower-triad";
+            case 29 -> "bracket-crown";
             default -> "badge";
         };
     }
@@ -30203,26 +31139,25 @@ public class BirdGame3 extends Application {
                 g.strokeArc(actual * 0.28, actual * 0.46, actual * 0.44, actual * 0.18, 200, 140, ArcType.OPEN);
                 fillAchievementStar(g, actual * 0.63, actual * 0.24, actual * 0.07, actual * 0.03, 5, sea, null);
             }
-            case "daily-sun" -> {
-                g.setFill(Color.web("#CFD8DC"));
-                g.fillRoundRect(actual * 0.24, actual * 0.28, actual * 0.36, actual * 0.32,
-                        actual * 0.06, actual * 0.06);
-                g.setFill(Color.web("#90A4AE"));
-                g.fillRect(actual * 0.24, actual * 0.28, actual * 0.36, actual * 0.08);
-                g.setFill(Color.web("#546E7A"));
-                g.fillRect(actual * 0.30, actual * 0.22, actual * 0.05, actual * 0.10);
-                g.fillRect(actual * 0.49, actual * 0.22, actual * 0.05, actual * 0.10);
+            case "grove-shield" -> {
+                g.setFill(Color.web("#E8F5E9"));
+                g.fillPolygon(
+                        new double[]{actual * 0.50, actual * 0.74, actual * 0.68, actual * 0.50, actual * 0.32, actual * 0.26},
+                        new double[]{actual * 0.18, actual * 0.30, actual * 0.66, actual * 0.82, actual * 0.66, actual * 0.30},
+                        6
+                );
                 g.setStroke(ink);
-                g.setLineWidth(actual * 0.02);
-                g.strokeRoundRect(actual * 0.24, actual * 0.28, actual * 0.36, actual * 0.32,
-                        actual * 0.06, actual * 0.06);
-                fillAchievementStar(g, actual * 0.67, actual * 0.55, actual * 0.12, actual * 0.05, 8, warm, ink);
-                g.setStroke(warm);
-                g.setLineWidth(actual * 0.02);
-                g.strokeLine(actual * 0.67, actual * 0.28, actual * 0.67, actual * 0.18);
-                g.strokeLine(actual * 0.67, actual * 0.82, actual * 0.67, actual * 0.72);
-                g.strokeLine(actual * 0.53, actual * 0.55, actual * 0.43, actual * 0.55);
-                g.strokeLine(actual * 0.91, actual * 0.55, actual * 0.81, actual * 0.55);
+                g.setLineWidth(actual * 0.025);
+                g.strokePolygon(
+                        new double[]{actual * 0.50, actual * 0.74, actual * 0.68, actual * 0.50, actual * 0.32, actual * 0.26},
+                        new double[]{actual * 0.18, actual * 0.30, actual * 0.66, actual * 0.82, actual * 0.66, actual * 0.30},
+                        6
+                );
+                g.setFill(Color.web("#8D6E63"));
+                g.fillRect(actual * 0.47, actual * 0.39, actual * 0.06, actual * 0.22);
+                fillAchievementLeaf(g, actual * 0.42, actual * 0.42, actual * 0.15, actual * 0.20, emerald, ink);
+                fillAchievementLeaf(g, actual * 0.58, actual * 0.42, actual * 0.15, actual * 0.20, emerald, ink);
+                fillAchievementStar(g, actual * 0.50, actual * 0.25, actual * 0.06, actual * 0.025, 5, warm, null);
             }
             case "storm-rooftop" -> {
                 drawAchievementCityline(g, actual * 0.18, actual * 0.54, actual * 0.64, actual * 0.20, steel, ink);
@@ -30281,6 +31216,37 @@ public class BirdGame3 extends Application {
                         new double[]{actual * 0.42, actual * 0.46, actual * 0.54},
                         3
                 );
+            }
+            case "tower-triad" -> {
+                g.setFill(Color.web("#A5D6A7"));
+                g.fillRect(actual * 0.24, actual * 0.62, actual * 0.52, actual * 0.08);
+                g.setFill(Color.web("#2E7D32"));
+                g.fillRect(actual * 0.28, actual * 0.40, actual * 0.10, actual * 0.22);
+                g.fillRect(actual * 0.45, actual * 0.28, actual * 0.10, actual * 0.34);
+                g.fillRect(actual * 0.62, actual * 0.46, actual * 0.10, actual * 0.16);
+                g.setStroke(ink);
+                g.setLineWidth(actual * 0.022);
+                g.strokeRect(actual * 0.28, actual * 0.40, actual * 0.10, actual * 0.22);
+                g.strokeRect(actual * 0.45, actual * 0.28, actual * 0.10, actual * 0.34);
+                g.strokeRect(actual * 0.62, actual * 0.46, actual * 0.10, actual * 0.16);
+                fillAchievementStar(g, actual * 0.33, actual * 0.31, actual * 0.05, actual * 0.02, 5, warm, null);
+                fillAchievementStar(g, actual * 0.50, actual * 0.18, actual * 0.06, actual * 0.025, 5, warm, null);
+                fillAchievementStar(g, actual * 0.67, actual * 0.37, actual * 0.05, actual * 0.02, 5, warm, null);
+            }
+            case "bracket-crown" -> {
+                g.setStroke(Color.web("#90CAF9"));
+                g.setLineWidth(actual * 0.03);
+                g.strokeLine(actual * 0.22, actual * 0.26, actual * 0.22, actual * 0.72);
+                g.strokeLine(actual * 0.22, actual * 0.34, actual * 0.38, actual * 0.34);
+                g.strokeLine(actual * 0.22, actual * 0.64, actual * 0.38, actual * 0.64);
+                g.strokeLine(actual * 0.78, actual * 0.26, actual * 0.78, actual * 0.72);
+                g.strokeLine(actual * 0.62, actual * 0.34, actual * 0.78, actual * 0.34);
+                g.strokeLine(actual * 0.62, actual * 0.64, actual * 0.78, actual * 0.64);
+                g.strokeLine(actual * 0.38, actual * 0.34, actual * 0.50, actual * 0.48);
+                g.strokeLine(actual * 0.38, actual * 0.64, actual * 0.50, actual * 0.48);
+                g.strokeLine(actual * 0.62, actual * 0.34, actual * 0.50, actual * 0.48);
+                g.strokeLine(actual * 0.62, actual * 0.64, actual * 0.50, actual * 0.48);
+                fillAchievementCrown(g, actual * 0.50, actual * 0.74, actual * 0.28, actual * 0.14, warm, ink);
             }
             default -> {
                 fillAchievementStar(g, actual * 0.50, actual * 0.46, actual * 0.24, actual * 0.10, 6, warm, ink);
@@ -30353,10 +31319,7 @@ public class BirdGame3 extends Application {
                 selected ? "#FFD54F" : "#37474F",
                 18,
                 () -> showAchievements(stage, tab));
-        button.setTextFill(selected ? Color.web("#10202A") : Color.WHITE);
-        button.setStyle((button.getStyle() == null ? "" : button.getStyle())
-                + "; -fx-border-color: " + toHex(selected ? Color.web("#FFF8E1") : achievementCategoryAccent(tab))
-                + "; -fx-border-width: 2;");
+        button.setStyle(MenuTheme.buttonStyle(selected ? "#FFD54F" : "#37474F", 18, selected ? "#111111" : "white"));
         StackPane wrapper = new StackPane(button);
         wrapper.setPickOnBounds(false);
         if (claimable > 0) {
@@ -30374,14 +31337,11 @@ public class BirdGame3 extends Application {
         boolean claimed = unlocked && achievementRewardsClaimed[index];
         Color accent = achievementAccentColor(index);
         String border = claimable ? "#FFE082" : (unlocked ? "#66BB6A" : toHex(accent));
-        String background = claimable ? "rgba(56, 95, 52, 0.88)"
-                : unlocked ? "rgba(22, 64, 40, 0.82)" : "rgba(10, 15, 23, 0.74)";
 
         VBox cardContent = new VBox(12);
         cardContent.setPadding(new Insets(20, 22, 20, 22));
         cardContent.setMaxWidth(1500);
-        cardContent.setStyle("-fx-background-color: " + background + "; -fx-border-color: " + border
-                + "; -fx-border-width: 3; -fx-background-radius: 20; -fx-border-radius: 20;");
+        cardContent.setStyle(MenuTheme.panelStyle(border, 20));
 
         Canvas icon = buildAchievementIcon(index, 92);
 
@@ -30424,7 +31384,7 @@ public class BirdGame3 extends Application {
         rewardBox.setPrefWidth(360);
         rewardBox.setMaxWidth(360);
         rewardBox.setPadding(new Insets(12));
-        rewardBox.setStyle("-fx-background-color: rgba(0,0,0,0.34); -fx-background-radius: 18;");
+        rewardBox.setStyle(MenuTheme.insetPanelStyle(border, 18));
 
         Label rewardHeader = getLabel("REWARD");
         rewardHeader.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
@@ -30503,14 +31463,10 @@ public class BirdGame3 extends Application {
 
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(28, 36, 28, 36));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #09111D, #12233A, #17304B);");
+        root.setStyle(MenuTheme.pageBackground());
 
         Button back = uiFactory.action("BACK TO HUB", 320, 84, 30, "#D32F2F", 22, () -> showMenu(stage));
-
-        Label title = new Label("ACHIEVEMENTS");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 88));
-        title.setTextFill(Color.web("#FFE082"));
-        title.setEffect(new DropShadow(28, Color.BLACK));
+        StackPane title = buildMenuTitleBanner("ACHIEVEMENTS", 620, 74, 34);
 
         int unlockedCount = countCompleted(achievementsUnlocked);
         int claimableCount = 0;
@@ -30522,28 +31478,32 @@ public class BirdGame3 extends Application {
 
         Label subtitle = new Label("Unlock challenges, claim rewards, and convert duplicate cosmetic rewards into Bird Coins.");
         subtitle.setFont(Font.font("Consolas", 20));
-        subtitle.setTextFill(Color.web("#B0BEC5"));
+        subtitle.setTextFill(Color.web("#CFD8DC"));
         subtitle.setWrapText(true);
-        subtitle.setMaxWidth(980);
+        subtitle.setMaxWidth(1180);
+        applyNoEllipsis(subtitle);
 
         Label summary = new Label("UNLOCKED " + unlockedCount + " / " + ACHIEVEMENT_COUNT
                 + "   |   CLAIMABLE REWARDS " + claimableCount);
         summary.setFont(Font.font("Consolas", 22));
         summary.setTextFill(claimableCount > 0 ? Color.web("#FFF59D") : Color.web("#80DEEA"));
+        applyNoEllipsis(summary);
 
-        VBox titleBox = new VBox(6, title, subtitle, summary);
-        titleBox.setAlignment(Pos.CENTER_LEFT);
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-        HBox header = new HBox(18, back, titleBox, spacer);
-        header.setAlignment(Pos.CENTER_LEFT);
+        StackPane summaryChip = buildMenuChip(
+                claimableCount > 0 ? "REWARDS READY  " + claimableCount : "UNLOCKED  " + unlockedCount,
+                claimableCount > 0 ? "#FFE082" : "#80DEEA",
+                "#FFF8E1"
+        );
+        StackPane header = buildMenuTopStrip(back, title, summaryChip);
 
         HBox tabs = new HBox(14);
         tabs.setAlignment(Pos.CENTER);
         for (AchievementCategory tab : AchievementCategory.values()) {
             tabs.getChildren().add(achievementTabButton(stage, category, tab));
         }
+        StackPane tabsShell = new StackPane(tabs);
+        tabsShell.setPadding(new Insets(16, 18, 16, 18));
+        tabsShell.setStyle(MenuTheme.panelStyle("#607D8B", 24));
 
         VBox list = new VBox(18);
         list.setAlignment(Pos.TOP_CENTER);
@@ -30555,10 +31515,18 @@ public class BirdGame3 extends Application {
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        StackPane listShell = new StackPane(scroll);
+        listShell.setPadding(new Insets(14));
+        listShell.setStyle(MenuTheme.panelStyle("#64B5F6", 28));
 
-        VBox top = new VBox(16, header, tabs);
+        VBox infoBox = new VBox(6, subtitle, summary);
+        infoBox.setAlignment(Pos.CENTER_LEFT);
+        infoBox.setPadding(new Insets(14, 18, 14, 18));
+        infoBox.setStyle(MenuTheme.insetPanelStyle("#80DEEA", 22));
+
+        VBox top = new VBox(16, header, infoBox, tabsShell);
         root.setTop(top);
-        root.setCenter(scroll);
+        root.setCenter(listShell);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
@@ -30599,6 +31567,12 @@ public class BirdGame3 extends Application {
     private void togglePause(Stage stage) {
         Scene scene = stage.getScene();
         if (isPaused) {
+            refreshXboxDisconnectMarker();
+            if (hasDisconnectedAssignedXboxPlayers()) {
+                playErrorSound();
+                rebuildPauseMenu(stage);
+                return;
+            }
             // === RESUME ===
             clearGameplayInputs();
             scene.setOnKeyPressed(e -> handleGameplayKeyPress(stage, e));
@@ -30613,6 +31587,8 @@ public class BirdGame3 extends Application {
         } else {
             // === PAUSE ===
             clearGameplayInputs();
+            refreshXboxDisconnectMarker();
+            List<Integer> disconnectedXboxPlayers = disconnectedAssignedXboxPlayers();
             VBox pauseMenu = new VBox(20);
             pauseMenu.setId("pauseMenu");
             pauseMenu.setAlignment(Pos.CENTER);
@@ -30651,13 +31627,78 @@ public class BirdGame3 extends Application {
             Label pauseLabel = new Label("PAUSED");
             pauseLabel.setFont(Font.font("Arial Black", FontWeight.BOLD, 80));
             pauseLabel.setTextFill(Color.WHITE);
+            if (!disconnectedXboxPlayers.isEmpty()) {
+                pauseLabel.setText("CONTROLLER DISCONNECTED");
+                pauseLabel.setFont(Font.font("Arial Black", FontWeight.BOLD, 66));
+            }
+
+            FlowPane glyphLegend = new FlowPane();
+            glyphLegend.setHgap(18);
+            glyphLegend.setVgap(8);
+            glyphLegend.setAlignment(Pos.CENTER);
+            glyphLegend.getChildren().addAll(
+                    controllerGlyphHint("A", "#2E7D32", "select"),
+                    controllerGlyphHint("START", "#F9A825", "pause or resume")
+            );
+
+            VBox disconnectBox = null;
+            if (!disconnectedXboxPlayers.isEmpty()) {
+                disconnectBox = new VBox(12);
+                disconnectBox.setAlignment(Pos.CENTER);
+                disconnectBox.setMaxWidth(760);
+                disconnectBox.setPadding(new Insets(18, 24, 18, 24));
+                disconnectBox.setStyle("-fx-background-color: rgba(135, 24, 24, 0.82); -fx-background-radius: 20; -fx-border-color: #FFCDD2; -fx-border-width: 2; -fx-border-radius: 20;");
+
+                Label disconnectLead = new Label("Reconnect the missing pad, or swap that player back to keyboard before resuming.");
+                disconnectLead.setFont(Font.font("Consolas", 20));
+                disconnectLead.setTextFill(Color.web("#FFEBEE"));
+                disconnectLead.setWrapText(true);
+                disconnectLead.setTextAlignment(TextAlignment.CENTER);
+                disconnectLead.setAlignment(Pos.CENTER);
+                disconnectLead.setMaxWidth(680);
+                applyNoEllipsis(disconnectLead);
+                disconnectBox.getChildren().add(disconnectLead);
+
+                for (int playerIdx : disconnectedXboxPlayers) {
+                    Label line = new Label(xboxDisconnectSummary(playerIdx));
+                    line.setFont(Font.font("Consolas", 18));
+                    line.setTextFill(Color.WHITE);
+                    line.setWrapText(true);
+                    line.setTextAlignment(TextAlignment.CENTER);
+                    line.setAlignment(Pos.CENTER);
+                    line.setMaxWidth(660);
+                    applyNoEllipsis(line);
+
+                    Button switchButton = new Button("Switch P" + (playerIdx + 1) + " to Keyboard");
+                    switchButton.setPrefSize(360, 56);
+                    switchButton.setFont(Font.font("Arial Black", 22));
+                    switchButton.setStyle("-fx-background-color: #1E88E5; -fx-text-fill: white; -fx-background-radius: 18;");
+                    switchButton.setFocusTraversable(true);
+                    switchButton.setOnAction(ev -> {
+                        playButtonClick();
+                        clearXboxAssignmentForPlayer(playerIdx);
+                        refreshXboxDisconnectMarker();
+                        rebuildPauseMenu(stage);
+                    });
+                    disconnectBox.getChildren().addAll(line, switchButton);
+                }
+            }
 
             Button resumeButton = new Button("Resume");
             resumeButton.setPrefSize(300, 60);
             resumeButton.setFont(Font.font("Arial Black", 30));
             resumeButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-background-radius: 20;");
             resumeButton.setFocusTraversable(true);
-            resumeButton.setOnAction(ev -> { playButtonClick(); togglePause(stage); });
+            resumeButton.setOnAction(ev -> {
+                refreshXboxDisconnectMarker();
+                if (hasDisconnectedAssignedXboxPlayers()) {
+                    playErrorSound();
+                    rebuildPauseMenu(stage);
+                    return;
+                }
+                playButtonClick();
+                togglePause(stage);
+            });
 
             Button restartButton = new Button("Restart");
             restartButton.setPrefSize(300, 60);
@@ -30665,6 +31706,12 @@ public class BirdGame3 extends Application {
             restartButton.setStyle("-fx-background-color: #FFC107; -fx-text-fill: white; -fx-background-radius: 20;");
             restartButton.setFocusTraversable(true);
             restartButton.setOnAction(ev -> {
+                refreshXboxDisconnectMarker();
+                if (hasDisconnectedAssignedXboxPlayers()) {
+                    playErrorSound();
+                    rebuildPauseMenu(stage);
+                    return;
+                }
                 playButtonClick();
                 togglePause(stage);
                 resetMatchStats();
@@ -30678,7 +31725,11 @@ public class BirdGame3 extends Application {
             exitButton.setFocusTraversable(true);
             exitButton.setOnAction(ev -> { playButtonClick(); showMenu(stage); });
 
-            pauseMenu.getChildren().addAll(pauseLabel, resumeButton, restartButton, exitButton);
+            pauseMenu.getChildren().addAll(pauseLabel, glyphLegend);
+            if (disconnectBox != null) {
+                pauseMenu.getChildren().add(disconnectBox);
+            }
+            pauseMenu.getChildren().addAll(resumeButton, restartButton, exitButton);
             gameRoot.getChildren().add(pauseMenu);
             resumeButton.requestFocus();
             applyConsoleHighlight(scene);
@@ -30686,6 +31737,15 @@ public class BirdGame3 extends Application {
             timer.stop();
             isPaused = true;
         }
+    }
+
+    private void rebuildPauseMenu(Stage stage) {
+        if (stage == null || !isPaused || gameRoot == null) {
+            return;
+        }
+        gameRoot.getChildren().removeIf(node -> node instanceof VBox && "pauseMenu".equals(node.getId()));
+        isPaused = false;
+        togglePause(stage);
     }
 
     @Override

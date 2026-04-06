@@ -177,15 +177,18 @@ class BirdGame3SettingsTest {
     }
 
     @Test
-    void reconcileAchievementUnlocksRestoresNewModeAndStoryMilestones() throws Exception {
+    void reconcileAchievementUnlocksRestoresModeAndStoryMilestones() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.achievementProgress[23] = 1;
 
         setPrivateField(game, "bossRushClearCount", 2);
-        setPrivateField(game, "dailyChallengeBestProgress", 5);
+        setPrivateField(game, "tournamentChampionshipsWon", 1);
         setPrivateField(game, "pigeonEpisodeCompleted", true);
         setPrivateField(game, "batEpisodeCompleted", true);
         setPrivateField(game, "pelicanEpisodeCompleted", true);
+        setTowerDefenseBadge(game, BirdGame3.MapType.FOREST, TowerDefenseMode.Difficulty.EASY, true);
+        setTowerDefenseBadge(game, BirdGame3.MapType.FOREST, TowerDefenseMode.Difficulty.MEDIUM, true);
+        setTowerDefenseBadge(game, BirdGame3.MapType.FOREST, TowerDefenseMode.Difficulty.HARD, true);
 
         Method ensureAdventureState = BirdGame3.class.getDeclaredMethod("ensureAdventureChapterState");
         ensureAdventureState.setAccessible(true);
@@ -201,6 +204,25 @@ class BirdGame3SettingsTest {
         assertTrue(game.achievementsUnlocked[25]);
         assertTrue(game.achievementsUnlocked[26]);
         assertTrue(game.achievementsUnlocked[27]);
+        assertTrue(game.achievementsUnlocked[28]);
+        assertTrue(game.achievementsUnlocked[29]);
+    }
+
+    @Test
+    void loadProfileProgressMigratesRetiredDailyAchievementSlotToTowerDefense() throws Exception {
+        prefs.putBoolean("ach_24", true);
+        prefs.putInt("prog_24", 1);
+        prefs.putBoolean("ach_reward_claimed_24", true);
+        prefs.putBoolean("td_badge_FOREST_EASY", true);
+
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(reloaded, prefs);
+
+        assertTrue(reloaded.achievementsUnlocked[24]);
+        assertEquals(1, reloaded.achievementProgress[24]);
+        assertFalse(reloaded.achievementRewardsClaimed[24]);
     }
 
     @Test
@@ -262,6 +284,7 @@ class BirdGame3SettingsTest {
         assertEquals("rooftop-arc", iconVariant.invoke(game, 10));
         assertEquals("story-book", iconVariant.invoke(game, 21));
         assertEquals("iron-wing", iconVariant.invoke(game, 27));
+        assertEquals("bracket-crown", iconVariant.invoke(game, 29));
     }
 
     @Test
@@ -340,6 +363,13 @@ class BirdGame3SettingsTest {
         field.setAccessible(true);
         boolean[] badges = (boolean[]) field.get(game);
         badges[type.ordinal()] = value;
+    }
+
+    private static void setTowerDefenseBadge(BirdGame3 game, BirdGame3.MapType map, TowerDefenseMode.Difficulty difficulty, boolean value) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField("towerDefenseDifficultyBadges");
+        field.setAccessible(true);
+        boolean[][] badges = (boolean[][]) field.get(game);
+        badges[map.ordinal()][difficulty.ordinal()] = value;
     }
 
     private static void invokeVolumeSetter(BirdGame3 game, String methodName, double value) throws Exception {
