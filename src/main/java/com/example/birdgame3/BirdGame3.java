@@ -32,7 +32,6 @@ import javafx.scene.control.Control;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
-import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
@@ -199,7 +198,6 @@ public class BirdGame3 extends Application {
     private static final String FIGHT_SELECTOR_COLOR_PROP = "fight_selector_color";
     private static final String FIGHT_SELECTOR_SNAP_DISTANCE_PROP = "fight_selector_snap_distance";
     private static final String FIGHT_SELECTOR_DOCK_BOUNDS_PROP = "fight_selector_dock_bounds";
-    private static final double FIGHT_SELECTOR_MOVE_STEP = 18.0;
     private static final double FIGHT_SELECTOR_BOUND_MARGIN = 40.0;
     private static final double WINDOW_CHROME_WIDTH_ESTIMATE = 16.0;
     private static final double WINDOW_CHROME_HEIGHT_ESTIMATE = 39.0;
@@ -1020,17 +1018,16 @@ public class BirdGame3 extends Application {
         return NULL_ROCK_SELECTOR_SEQUENCE[0] == direction ? 1 : 0;
     }
 
-    private boolean handleLockedNullRockSelectorSecret(int idx,
-                                                       KeyCode code,
-                                                       boolean[] selectorLocked,
-                                                       Runnable updateSlot,
-                                                       int[] progressByPlayer) {
+    private boolean advanceLockedNullRockSelectorSecret(int idx,
+                                                        char direction,
+                                                        boolean[] selectorLocked,
+                                                        Runnable updateSlot,
+                                                        int[] progressByPlayer) {
         if (progressByPlayer == null || idx < 0 || idx >= progressByPlayer.length) return false;
         if (!canUseLocalNullRockSelectorSecret(idx, selectorLocked)) {
             progressByPlayer[idx] = 0;
             return false;
         }
-        char direction = localNullRockSelectorDirection(idx, code);
         if (direction == 0) return false;
         progressByPlayer[idx] = advanceNullRockSelectorProgress(progressByPlayer[idx], direction);
         if (progressByPlayer[idx] >= NULL_ROCK_SELECTOR_SEQUENCE.length) {
@@ -1047,7 +1044,7 @@ public class BirdGame3 extends Application {
     private String nullRockBirdBookDescription() {
         return "The final boss of Bird Fight 3 and the true form hidden inside Null Roc's shell. "
                 + "Beat Adventure Chapter 9 to unlock him. In Local Battle, lock Vulture and enter Up Up Down "
-                + "Down Left Right with that slot's selector controls. In LAN, pick Vulture and type NULL on the "
+                + "Down Left Right with that slot's player controls or controller cursor. In LAN, pick Vulture and type NULL on the "
                 + "bird-select screen. He keeps the finale's boss health, giant frame, "
                 + "Dark Flock summons, and Void Shell phase armor.";
     }
@@ -1905,6 +1902,7 @@ public class BirdGame3 extends Application {
         }
         FightSetupSelectorController controller = fightSetupSelectorController(scene);
         if (controller != null) {
+            updateControllerNullRockSecretInput(sourceIdx, state, controller);
             if (sourceIdx == 0) {
                 controller.setClawConnected(sourceIdx, false);
                 long now = System.nanoTime();
@@ -2052,6 +2050,37 @@ public class BirdGame3 extends Application {
             dispatchWiimoteMenuKey(scene, KeyCode.ESCAPE);
         }
         wiimoteSelectorPauseHeld[sourceIdx] = pauseHeld;
+    }
+
+    private void updateControllerNullRockSecretInput(int sourceIdx,
+                                                     WiimoteMappedState state,
+                                                     FightSetupSelectorController controller) {
+        if (controller == null || state == null || sourceIdx < 0 || sourceIdx >= wiimoteSelectorDirectionHeld.length) {
+            return;
+        }
+        boolean leftPressed = state.menuLeftHeld();
+        if (leftPressed && !wiimoteSelectorDirectionHeld[sourceIdx][0]) {
+            controller.advanceNullRockSecret(sourceIdx, 'L');
+        }
+        wiimoteSelectorDirectionHeld[sourceIdx][0] = leftPressed;
+
+        boolean rightPressed = state.menuRightHeld();
+        if (rightPressed && !wiimoteSelectorDirectionHeld[sourceIdx][1]) {
+            controller.advanceNullRockSecret(sourceIdx, 'R');
+        }
+        wiimoteSelectorDirectionHeld[sourceIdx][1] = rightPressed;
+
+        boolean upPressed = state.menuUpHeld();
+        if (upPressed && !wiimoteSelectorDirectionHeld[sourceIdx][2]) {
+            controller.advanceNullRockSecret(sourceIdx, 'U');
+        }
+        wiimoteSelectorDirectionHeld[sourceIdx][2] = upPressed;
+
+        boolean downPressed = state.menuDownHeld();
+        if (downPressed && !wiimoteSelectorDirectionHeld[sourceIdx][3]) {
+            controller.advanceNullRockSecret(sourceIdx, 'D');
+        }
+        wiimoteSelectorDirectionHeld[sourceIdx][3] = downPressed;
     }
 
     private void resetInactiveWiimoteSelectorHeldState(int activeSourceIdx) {
@@ -11351,10 +11380,6 @@ public class BirdGame3 extends Application {
         // Titmouse crest is rendered in Bird.draw now for consistent previews.
     }
 
-    private void drawVictoryRosterSprite(Canvas canvas, BirdType type, String skinKey) {
-        drawVictoryRosterSprite(canvas, type, skinKey, false);
-    }
-
     private void drawVictoryRosterSprite(Canvas canvas, BirdType type, String skinKey, boolean winnerPose) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
@@ -11647,78 +11672,6 @@ public class BirdGame3 extends Application {
         return lines.size() * measureTextHeight(font) * 1.12;
     }
 
-    private Button buildHubNavButton(String text, double fontSize, String primary, String secondary, String accent, Node icon, Runnable action) {
-        Button button = uiFactory.action(text, 520, 130, fontSize, primary, 30, action);
-        styleHubButton(button, primary, secondary, accent, null, ContentDisplay.GRAPHIC_ONLY, true, 28);
-        button.getProperties().put("origText", text);
-        button.setAccessibleText(text);
-        button.setText("");
-        button.setGraphic(buildHubNavButtonGraphic(text, fontSize, icon));
-        button.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
-        return button;
-    }
-
-    private Button buildHubFooterButton(String text, double width, double fontSize, String primary, String secondary, String accent, Node icon, Runnable action) {
-        Button button = uiFactory.action(text, width, 110, fontSize, primary, 20, action);
-        styleHubButton(button, primary, secondary, accent, icon, ContentDisplay.TOP, false, 20);
-        return button;
-    }
-
-    private void styleHubButton(Button button, String primary, String secondary, String accent, Node icon,
-                                ContentDisplay display, boolean leftAlign, double radius) {
-        Font buttonFont = button.getFont() != null ? button.getFont() : Font.font("Arial Black", leftAlign ? 40 : 18);
-        String family = buttonFont.getFamily().replace("'", "\\'");
-        String style = "-fx-background-color: linear-gradient(to bottom right, " + primary + ", " + secondary + ");"
-                + "-fx-background-radius: " + radius + ";"
-                + "-fx-border-color: " + accent + "; -fx-border-width: 3; -fx-border-radius: " + radius + ";"
-                + "-fx-text-fill: white; -fx-font-family: '" + family + "'; -fx-font-size: " + buttonFont.getSize() + "px; -fx-font-weight: bold;";
-        button.setStyle(style);
-        if (icon != null) {
-            button.setGraphic(icon);
-            button.setContentDisplay(display);
-        }
-        if (leftAlign) {
-            button.setAlignment(Pos.CENTER_LEFT);
-            button.setPadding(new Insets(6, 24, 6, 24));
-            button.setGraphicTextGap(18);
-        } else {
-            button.setAlignment(Pos.CENTER);
-            button.setPadding(new Insets(8, 10, 8, 10));
-            button.setGraphicTextGap(10);
-        }
-        button.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.55)));
-    }
-
-    private Node buildHubNavButtonGraphic(String text, double fontSize, Node icon) {
-        StackPane iconFrame = new StackPane();
-        lockRegionSize(iconFrame, 64, 64);
-        iconFrame.setMinSize(64, 64);
-        iconFrame.setPrefSize(64, 64);
-        iconFrame.setMaxSize(64, 64);
-        iconFrame.setAlignment(Pos.CENTER);
-        iconFrame.setMouseTransparent(true);
-        if (icon != null) {
-            iconFrame.getChildren().add(icon);
-        }
-
-        Label label = new Label(text);
-        label.setFont(Font.font("Arial Black", fontSize));
-        label.setTextFill(Color.WHITE);
-        label.setWrapText(false);
-        label.setAlignment(Pos.CENTER_LEFT);
-        label.setMouseTransparent(true);
-        applyNoEllipsis(label);
-
-        Region spacer = new Region();
-        HBox.setHgrow(spacer, Priority.ALWAYS);
-
-        HBox content = new HBox(18, iconFrame, label, spacer);
-        content.setAlignment(Pos.CENTER_LEFT);
-        content.setMouseTransparent(true);
-        lockRegionWidth(content, 448);
-        return content;
-    }
-
     private Pane hubIconPane() {
         Pane pane = new Pane();
         pane.setPrefSize(56, 56);
@@ -11753,21 +11706,6 @@ public class BirdGame3 extends Application {
         needle.setFill(Color.web("#FFE082"));
         Circle center = new Circle(28, 28, 3, Color.web("#FFE082"));
         pane.getChildren().addAll(ring, needle, center);
-        return pane;
-    }
-
-    private Node hubIconTraining() {
-        Pane pane = hubIconPane();
-        Circle outer = new Circle(28, 28, 20);
-        outer.setFill(Color.TRANSPARENT);
-        outer.setStroke(Color.web("#E0F7FA"));
-        outer.setStrokeWidth(4);
-        Circle mid = new Circle(28, 28, 12);
-        mid.setFill(Color.TRANSPARENT);
-        mid.setStroke(Color.web("#FFE082"));
-        mid.setStrokeWidth(3);
-        Circle dot = new Circle(28, 28, 4, Color.web("#FFE082"));
-        pane.getChildren().addAll(outer, mid, dot);
         return pane;
     }
 
@@ -11830,28 +11768,6 @@ public class BirdGame3 extends Application {
         Circle right = new Circle(42, 18, 6, nodeColor);
         Circle bottom = new Circle(28, 40, 6, nodeColor);
         pane.getChildren().addAll(linkTop, linkLeft, linkRight, left, right, bottom);
-        return pane;
-    }
-
-    private Node hubIconTowerDefense() {
-        Pane pane = hubIconPane();
-        Rectangle trunk = new Rectangle(24, 30, 8, 16);
-        trunk.setArcWidth(4);
-        trunk.setArcHeight(4);
-        trunk.setFill(Color.web("#6D4C41"));
-        Circle canopy = new Circle(28, 22, 14, Color.web("#81C784"));
-        canopy.setStroke(Color.web("#C8E6C9"));
-        canopy.setStrokeWidth(2.5);
-        Line perchLeft = new Line(10, 38, 24, 32);
-        perchLeft.setStroke(Color.web("#FFF59D"));
-        perchLeft.setStrokeWidth(3.0);
-        perchLeft.setStrokeLineCap(StrokeLineCap.ROUND);
-        Line perchRight = new Line(32, 32, 46, 38);
-        perchRight.setStroke(Color.web("#FFF59D"));
-        perchRight.setStrokeWidth(3.0);
-        perchRight.setStrokeLineCap(StrokeLineCap.ROUND);
-        Circle sun = new Circle(42, 14, 5, Color.web("#FFE082"));
-        pane.getChildren().addAll(trunk, canopy, perchLeft, perchRight, sun);
         return pane;
     }
 
@@ -12067,8 +11983,6 @@ public class BirdGame3 extends Application {
         footerStatus.setTextFill(Color.web("#B0BEC5"));
         applyNoEllipsis(footerStatus);
 
-        final String defaultHelpTitle = "CENTRAL HUB";
-        final String defaultHelpBody = "Choose a panel to jump into versus battles, routes, unlocks, or support menus.";
         List<Node> hubButtons = new ArrayList<>();
         final double hubMainTop = 112.0;
         final double hubMidline = 540.0;
@@ -12098,11 +12012,11 @@ public class BirdGame3 extends Application {
         selectorPointer.setViewOrder(-520);
 
         Button fightNode = buildUltimateHubMainTileButton(
-                "VERSUS BATTLES", "FIGHT", "",
-                hubLeftWidth, hubFightHeight, 82, 20, new Insets(18, 220, 24, 34),
-                Pos.CENTER_LEFT, hubIconFight(), Pos.TOP_RIGHT, 3.2, 0.16,
+                "VERSUS BATTLES", "FIGHT",
+                hubLeftWidth, hubFightHeight, 82, new Insets(18, 220, 24, 34),
+                Pos.CENTER_LEFT, hubIconFight(), 3.2, 0.16,
                 38, 0, 0, 0, () -> showFightSetup(stage));
-        registerHubInteractiveNode(fightNode, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+        registerHubInteractiveNode(fightNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#D62828", "#8B0000", "#FFD7C2", 38, 0, 0, 0, false),
                 buildUltimateHubStyle("#D62828", "#8B0000", "#FFF8E1", 38, 0, 0, 0, true),
                 "FIGHT", "Jump into versus battles with the main match setup flow.", selectorPointer, medallion);
@@ -12110,11 +12024,11 @@ public class BirdGame3 extends Application {
         AnchorPane.setLeftAnchor(fightNode, 0.0);
 
         Button adventureNode = buildUltimateHubMainTileButton(
-                "STORY ROUTES", "ADVENTURE", "",
-                hubLeftWidth, hubBottomHeight, 62, 18, new Insets(16, 210, 26, 30),
-                Pos.CENTER_LEFT, hubIconAdventure(), Pos.TOP_RIGHT, 2.9, 0.15,
+                "STORY ROUTES", "ADVENTURE",
+                hubLeftWidth, hubBottomHeight, 62, new Insets(16, 210, 26, 30),
+                Pos.CENTER_LEFT, hubIconAdventure(), 2.9, 0.15,
                 0, 0, 0, 38, () -> showAdventureHub(stage));
-        registerHubInteractiveNode(adventureNode, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+        registerHubInteractiveNode(adventureNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#00A84F", "#007730", "#D9FFE8", 0, 0, 0, 38, false),
                 buildUltimateHubStyle("#00A84F", "#007730", "#F1FFF4", 0, 0, 0, 38, true),
                 "ADVENTURE", "Play the campaign-style routes, unlock birds, and clear story battles.", selectorPointer, medallion);
@@ -12122,11 +12036,11 @@ public class BirdGame3 extends Application {
         AnchorPane.setLeftAnchor(adventureNode, 0.0);
 
         Button gamesNode = buildUltimateHubMainTileButton(
-                "EXTRAS & CHALLENGES", "GAMES & MORE", "",
-                hubRightWidth, hubGamesHeight, 50, 16, new Insets(16, 34, 14, 132),
-                Pos.CENTER, hubIconClassic(), Pos.TOP_RIGHT, 2.7, 0.16,
+                "EXTRAS & CHALLENGES", "GAMES & MORE",
+                hubRightWidth, hubGamesHeight, 50, new Insets(16, 34, 14, 132),
+                Pos.CENTER, hubIconClassic(), 2.7, 0.16,
                 0, 38, 0, 0, () -> showClassicMoreMenu(stage));
-        registerHubInteractiveNode(gamesNode, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+        registerHubInteractiveNode(gamesNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#1E88FF", "#0B53C1", "#D6E8FF", 0, 38, 0, 0, false),
                 buildUltimateHubStyle("#1E88FF", "#0B53C1", "#F5FBFF", 0, 38, 0, 0, true),
                 "GAMES & MORE", "Open the challenge stack with Classic, Boss Rush, Episodes, Tournament, Training, and Tower Defense.", selectorPointer, medallion);
@@ -12134,11 +12048,11 @@ public class BirdGame3 extends Application {
         AnchorPane.setLeftAnchor(gamesNode, hubRightLeft);
 
         Button shopNode = buildUltimateHubMainTileButton(
-                "SKINS & UNLOCKS", "SHOP", "",
-                hubRightWidth, hubShopHeight, 50, 14, new Insets(16, 30, 16, 176),
-                Pos.CENTER, hubIconShop(), Pos.TOP_RIGHT, 2.7, 0.17,
+                "SKINS & UNLOCKS", "SHOP",
+                hubRightWidth, hubShopHeight, 50, new Insets(16, 30, 16, 176),
+                Pos.CENTER, hubIconShop(), 2.7, 0.17,
                 0, 0, 0, 0, () -> showShop(stage));
-        registerHubInteractiveNode(shopNode, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+        registerHubInteractiveNode(shopNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#FF4FA1", "#C2185B", "#FFE3F3", 0, false),
                 buildUltimateHubStyle("#FF4FA1", "#C2185B", "#FFF6FB", 0, true),
                 "SHOP", "Spend Bird Coins on skins, unlockables, and cosmetic pickups.", selectorPointer, medallion);
@@ -12146,11 +12060,11 @@ public class BirdGame3 extends Application {
         AnchorPane.setLeftAnchor(shopNode, hubRightLeft);
 
         Button lanNode = buildUltimateHubMainTileButton(
-                "LOCAL NETWORK", "LAN PLAY", "",
-                hubRightWidth, hubBottomHeight, 58, 18, new Insets(16, 42, 26, 154),
-                Pos.CENTER, hubIconLan(), Pos.TOP_RIGHT, 3.0, 0.15,
+                "LOCAL NETWORK", "LAN PLAY",
+                hubRightWidth, hubBottomHeight, 58, new Insets(16, 42, 26, 154),
+                Pos.CENTER, hubIconLan(), 3.0, 0.15,
                 0, 0, 38, 0, () -> showLanMenu(stage));
-        registerHubInteractiveNode(lanNode, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+        registerHubInteractiveNode(lanNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#F6A400", "#C97700", "#FFF2CF", 0, 0, 38, 0, false),
                 buildUltimateHubStyle("#F6A400", "#C97700", "#FFFBEA", 0, 0, 38, 0, true),
                 "LAN PLAY", "Set up local-network matches for a room full of players.", selectorPointer, medallion);
@@ -12158,42 +12072,42 @@ public class BirdGame3 extends Application {
         AnchorPane.setLeftAnchor(lanNode, hubRightLeft);
 
         boolean claimableRewards = hasClaimableAchievementRewards();
-        Button historyBtn = buildUltimateHubRailButton("HISTORY", 132, 112, hubIconHistory(), () -> showMatchHistory(stage));
-        registerHubInteractiveNode(historyBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+        Button historyBtn = buildUltimateHubRailButton("HISTORY", 112, hubIconHistory(), () -> showMatchHistory(stage));
+        registerHubInteractiveNode(historyBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#101214", "#050607", "#6FCF97", 24, false),
                 buildUltimateHubStyle("#101214", "#050607", "#E8FFF1", 24, true),
                 "MATCH HISTORY", "Review recent winners, match rules, and coin payouts.", selectorPointer, medallion);
 
-        Button bookBtn = buildUltimateHubRailButton("FEATHERPEDIA", 132, 112, hubIconFeatherpedia(), () -> showBirdBook(stage));
-        registerHubInteractiveNode(bookBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+        Button bookBtn = buildUltimateHubRailButton("FEATHERPEDIA", 112, hubIconFeatherpedia(), () -> showBirdBook(stage));
+        registerHubInteractiveNode(bookBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#101214", "#050607", "#D1C4E9", 24, false),
                 buildUltimateHubStyle("#101214", "#050607", "#F2EBFF", 24, true),
                 "FEATHERPEDIA", "Browse birds, stats, abilities, origins, and unlock hints.", selectorPointer, medallion);
 
-        Button achievementsBtn = buildUltimateHubRailButton("ACHIEVEMENTS", 132, 112, hubIconAchievements(claimableRewards),
+        Button achievementsBtn = buildUltimateHubRailButton("ACHIEVEMENTS", 112, hubIconAchievements(claimableRewards),
                 () -> showAchievements(stage));
-        registerHubInteractiveNode(achievementsBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+        registerHubInteractiveNode(achievementsBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#101214", "#050607", "#FFD54F", 24, false),
                 buildUltimateHubStyle("#101214", "#050607", "#FFF8E1", 24, true),
                 "ACHIEVEMENTS", "Track progress, unlock rewards, and claim extra Bird Coins.", selectorPointer, medallion);
 
-        Button settingsBtn = buildUltimateHubRailButton("SETTINGS", 132, 112, hubIconSettings(), () -> {
+        Button settingsBtn = buildUltimateHubRailButton("SETTINGS", 112, hubIconSettings(), () -> {
             settingsReturn = () -> showMenu(stage);
             showMainSettings(stage);
         });
-        registerHubInteractiveNode(settingsBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+        registerHubInteractiveNode(settingsBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#101214", "#050607", "#B0BEC5", 24, false),
                 buildUltimateHubStyle("#101214", "#050607", "#ECEFF1", 24, true),
                 "SETTINGS", "Adjust controls, audio, fullscreen, particles, and system options.", selectorPointer, medallion);
 
-        Button profilesBtn = buildUltimateHubRailButton("PROFILES", 132, 112, hubIconProfiles(), () -> showProfileManager(stage));
-        registerHubInteractiveNode(profilesBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+        Button profilesBtn = buildUltimateHubRailButton("PROFILES", 112, hubIconProfiles(), () -> showProfileManager(stage));
+        registerHubInteractiveNode(profilesBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#101214", "#050607", "#90A4AE", 24, false),
                 buildUltimateHubStyle("#101214", "#050607", "#ECEFF1", 24, true),
                 "PROFILES", "Switch, rename, back up, import, or reset save profiles.", selectorPointer, medallion);
 
-        Button exitBtn = buildUltimateHubRailButton("EXIT", 132, 98, hubIconExit(), () -> confirmExitGame(stage));
-        registerHubInteractiveNode(exitBtn, hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody,
+        Button exitBtn = buildUltimateHubRailButton("EXIT", 98, hubIconExit(), () -> confirmExitGame(stage));
+        registerHubInteractiveNode(exitBtn, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#4A0A0A", "#1C0202", "#FFCDD2", 24, false),
                 buildUltimateHubStyle("#4A0A0A", "#1C0202", "#FFF5F6", 24, true),
                 "EXIT", "Close Bird Fight 3.", selectorPointer, medallion);
@@ -12249,14 +12163,11 @@ public class BirdGame3 extends Application {
         javafx.application.Platform.runLater(() -> {
             fightNode.requestFocus();
             setConsoleHighlightActive(true, scene);
-            refreshUltimateHubButtons(hubButtons, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody, selectorPointer, medallion);
+            refreshUltimateHubButtons(hubButtons, helpTitle, helpBody, selectorPointer, medallion);
         });
     }
 
     private String randomHubTip() {
-        if (HUB_TIPS.length == 0) {
-            return "Jump into Fight to start a set.";
-        }
         int index = java.util.concurrent.ThreadLocalRandom.current().nextInt(HUB_TIPS.length);
         return HUB_TIPS[index];
     }
@@ -12333,9 +12244,9 @@ public class BirdGame3 extends Application {
         return button;
     }
 
-    private Button buildUltimateHubMainTileButton(String banner, String title, String subtitle,
-                                                  double width, double height, double titleSize, double subtitleSize,
-                                                  Insets textInsets, Pos textAlignment, Node icon, Pos iconAlignment,
+    private Button buildUltimateHubMainTileButton(String banner, String title,
+                                                  double width, double height, double titleSize,
+                                                  Insets textInsets, Pos textAlignment, Node icon,
                                                   double iconScale, double iconOpacity,
                                                   double topLeftRadius, double topRightRadius,
                                                   double bottomRightRadius, double bottomLeftRadius,
@@ -12343,9 +12254,9 @@ public class BirdGame3 extends Application {
         Button button = buildUltimateHubButtonBase(width, height, action);
         button.setAccessibleText(title);
         Node graphic = buildUltimateHubTileGraphic(
-                banner, title, subtitle,
-                width, height, titleSize, subtitleSize, textInsets,
-                textAlignment, icon, iconAlignment, iconScale, iconOpacity);
+                banner, title,
+                width, height, titleSize, textInsets,
+                textAlignment, icon, iconScale, iconOpacity);
         StackPane shell = buildUltimateHubTileShell(graphic,
                 width, height, topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius);
         button.setGraphic(shell);
@@ -12378,50 +12289,6 @@ public class BirdGame3 extends Application {
         shell.setPickOnBounds(false);
         shell.getProperties().put("hubStyleRegion", background);
         return shell;
-    }
-
-    private StackPane buildUltimateHubInteractiveTile(Node visual, Node hitArea, double width, double height) {
-        StackPane shell = new StackPane(visual, hitArea);
-        lockRegionSize(shell, width, height);
-        shell.setPickOnBounds(false);
-        StackPane.setAlignment(visual, Pos.CENTER);
-        StackPane.setAlignment(hitArea, Pos.CENTER);
-        return shell;
-    }
-
-    private Button buildUltimateHubTileOverlayButton(Region styleTarget,
-                                                     double width, double height,
-                                                     double topLeftRadius, double topRightRadius,
-                                                     double bottomRightRadius, double bottomLeftRadius,
-                                                     String accessibleText, Runnable action) {
-        Button hitArea = new Button();
-        lockRegionSize(hitArea, width, height);
-        hitArea.setText("");
-        hitArea.setGraphic(null);
-        hitArea.setPickOnBounds(false);
-        installCornerClip(hitArea, topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius);
-        applyHubButtonHitShape(hitArea, buildRoundedCornerShape(
-                width, height, topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius));
-        if (accessibleText != null && !accessibleText.isBlank()) {
-            hitArea.setAccessibleText(accessibleText);
-        }
-        if (action != null) {
-            hitArea.getProperties().put("uiAction", action);
-            hitArea.setOnAction(e -> action.run());
-        }
-        hitArea.getProperties().put("hubStyleTarget", styleTarget);
-        hitArea.getProperties().put("hubUseShadow", Boolean.FALSE);
-        hitArea.setCursor(Cursor.HAND);
-        hitArea.setFocusTraversable(true);
-        hitArea.setStyle("-fx-background-color: rgba(255,255,255,0.01);"
-                + "-fx-border-color: transparent;"
-                + "-fx-padding: 0;");
-        hitArea.setOnMousePressed(e -> {
-            if (e.getButton() == MouseButton.PRIMARY) {
-                hitArea.requestFocus();
-            }
-        });
-        return hitArea;
     }
 
     private String buildUltimateHubStyle(String primary, String secondary, String accent, double radius, boolean selected) {
@@ -12461,10 +12328,10 @@ public class BirdGame3 extends Application {
                                           double bottomRightRadius, double bottomLeftRadius) {
         double safeWidth = Math.max(1.0, width);
         double safeHeight = Math.max(1.0, height);
-        double tl = Math.max(0.0, Math.min(Math.min(safeWidth / 2.0, safeHeight / 2.0), topLeftRadius));
-        double tr = Math.max(0.0, Math.min(Math.min(safeWidth / 2.0, safeHeight / 2.0), topRightRadius));
-        double br = Math.max(0.0, Math.min(Math.min(safeWidth / 2.0, safeHeight / 2.0), bottomRightRadius));
-        double bl = Math.max(0.0, Math.min(Math.min(safeWidth / 2.0, safeHeight / 2.0), bottomLeftRadius));
+        double tl = Math.clamp(safeWidth / 2.0, 0.0, Math.min(safeHeight / 2.0, topLeftRadius));
+        double tr = Math.clamp(safeWidth / 2.0, 0.0, Math.min(safeHeight / 2.0, topRightRadius));
+        double br = Math.clamp(safeWidth / 2.0, 0.0, Math.min(safeHeight / 2.0, bottomRightRadius));
+        double bl = Math.clamp(safeWidth / 2.0, 0.0, Math.min(safeHeight / 2.0, bottomLeftRadius));
 
         Path path = new Path();
         path.getElements().setAll(
@@ -12492,10 +12359,10 @@ public class BirdGame3 extends Application {
             if (w <= 0 || h <= 0) {
                 return;
             }
-            double tl = Math.max(0.0, Math.min(Math.min(w / 2.0, h / 2.0), topLeftRadius));
-            double tr = Math.max(0.0, Math.min(Math.min(w / 2.0, h / 2.0), topRightRadius));
-            double br = Math.max(0.0, Math.min(Math.min(w / 2.0, h / 2.0), bottomRightRadius));
-            double bl = Math.max(0.0, Math.min(Math.min(w / 2.0, h / 2.0), bottomLeftRadius));
+            double tl = Math.clamp(w / 2.0, 0.0, Math.min(h / 2.0, topLeftRadius));
+            double tr = Math.clamp(w / 2.0, 0.0, Math.min(h / 2.0, topRightRadius));
+            double br = Math.clamp(w / 2.0, 0.0, Math.min(h / 2.0, bottomRightRadius));
+            double bl = Math.clamp(w / 2.0, 0.0, Math.min(h / 2.0, bottomLeftRadius));
 
             List<PathElement> elements = new ArrayList<>();
             elements.add(new MoveTo(tl, 0.0));
@@ -12532,32 +12399,9 @@ public class BirdGame3 extends Application {
         javafx.application.Platform.runLater(refresh);
     }
 
-    private void installTrapezoidClip(Region region, double topLeftInset, double topRightInset,
-                                      double bottomRightInset, double bottomLeftInset) {
-        if (region == null) return;
-        Polygon clip = new Polygon();
-        Runnable refresh = () -> {
-            double w = region.getWidth() > 0 ? region.getWidth() : region.getPrefWidth();
-            double h = region.getHeight() > 0 ? region.getHeight() : region.getPrefHeight();
-            if (w <= 0 || h <= 0) {
-                return;
-            }
-            clip.getPoints().setAll(
-                    Math.max(0.0, topLeftInset), 0.0,
-                    Math.max(0.0, w - topRightInset), 0.0,
-                    Math.max(0.0, w - bottomRightInset), h,
-                    Math.max(0.0, bottomLeftInset), h
-            );
-        };
-        region.widthProperty().addListener((obs, oldVal, newVal) -> refresh.run());
-        region.heightProperty().addListener((obs, oldVal, newVal) -> refresh.run());
-        region.setClip(clip);
-        javafx.application.Platform.runLater(refresh);
-    }
-
-    private Node buildUltimateHubTileGraphic(String banner, String title, String subtitle,
-                                             double width, double height, double titleSize, double subtitleSize,
-                                             Insets textInsets, Pos textAlignment, Node icon, Pos iconAlignment,
+    private Node buildUltimateHubTileGraphic(String banner, String title,
+                                             double width, double height, double titleSize,
+                                             Insets textInsets, Pos textAlignment, Node icon,
                                              double iconScale, double iconOpacity) {
         StackPane content = new StackPane();
         lockRegionSize(content, width, height);
@@ -12597,7 +12441,7 @@ public class BirdGame3 extends Application {
         fitLabelSingleLine(titleLabel, titleSize, Math.max(24, titleSize - 22), safeWidth);
 
         VBox textBox = new VBox();
-        textBox.setSpacing(subtitle == null || subtitle.isBlank() ? 8 : 4);
+        textBox.setSpacing(8);
         if (banner != null && !banner.isBlank()) {
             Label bannerLabel = new Label(banner);
             bannerLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
@@ -12608,16 +12452,6 @@ public class BirdGame3 extends Application {
             textBox.getChildren().add(bannerLabel);
         }
         textBox.getChildren().add(titleLabel);
-        if (subtitle != null && !subtitle.isBlank()) {
-            Label subtitleLabel = new Label(subtitle);
-            subtitleLabel.setFont(Font.font("Consolas", subtitleSize));
-            subtitleLabel.setTextFill(Color.web("#F7F7F7"));
-            subtitleLabel.setWrapText(true);
-            subtitleLabel.setMaxWidth(safeWidth);
-            subtitleLabel.setMouseTransparent(true);
-            applyNoEllipsis(subtitleLabel);
-            textBox.getChildren().add(subtitleLabel);
-        }
         textBox.setAlignment(alignRight ? Pos.BOTTOM_RIGHT : Pos.BOTTOM_LEFT);
         textBox.setMouseTransparent(true);
         textBox.setMaxWidth(safeWidth);
@@ -12632,7 +12466,7 @@ public class BirdGame3 extends Application {
             icon.setOpacity(iconOpacity);
             icon.setMouseTransparent(true);
             icon.setEffect(new DropShadow(14, Color.rgb(255, 255, 255, 0.14)));
-            StackPane.setAlignment(icon, iconAlignment);
+            StackPane.setAlignment(icon, Pos.TOP_RIGHT);
             StackPane.setMargin(icon, new Insets(24, 30, 24, 30));
             content.getChildren().add(icon);
         }
@@ -12642,28 +12476,8 @@ public class BirdGame3 extends Application {
         return content;
     }
 
-    private Button buildUltimateHubChipButton(String text, double width, Runnable action) {
-        Button button = buildUltimateHubButtonBase(width, 56, action);
-        Label label = new Label(text);
-        label.setFont(Font.font("Arial Black", 20));
-        label.setTextFill(Color.WHITE);
-        label.setMouseTransparent(true);
-        applyNoEllipsis(label);
-        fitLabelSingleLine(label, 20, 14, Math.max(120, width - 26));
-
-        StackPane content = new StackPane(label);
-        lockRegionSize(content, width, 56);
-        content.setMouseTransparent(true);
-
-        button.setAccessibleText(text);
-        button.setGraphic(content);
-        installRegionClip(button, 28, 28);
-        applyHubButtonHitShape(button, buildRoundedCornerShape(width, 56, 28, 28, 28, 28));
-        return button;
-    }
-
-    private Button buildUltimateHubRailButton(String text, double width, double height, Node icon, Runnable action) {
-        Button button = buildUltimateHubButtonBase(width, height, action);
+    private Button buildUltimateHubRailButton(String text, double height, Node icon, Runnable action) {
+        Button button = buildUltimateHubButtonBase(132, height, action);
         button.setAccessibleText(text);
 
         StackPane iconFrame = new StackPane();
@@ -12683,19 +12497,19 @@ public class BirdGame3 extends Application {
         label.setWrapText(true);
         label.setTextAlignment(TextAlignment.CENTER);
         label.setAlignment(Pos.CENTER);
-        label.setMaxWidth(width - 20);
+        label.setMaxWidth((double) 132 - 20);
         label.setMouseTransparent(true);
         applyNoEllipsis(label);
-        fitLabelSingleLine(label, 18, 12, Math.max(80, width - 18));
+        fitLabelSingleLine(label, 18, 12, Math.max(80, (double) 132 - 18));
 
         VBox content = new VBox(10, iconFrame, label);
         content.setAlignment(Pos.CENTER);
-        lockRegionSize(content, width, height);
+        lockRegionSize(content, 132, height);
         content.setMouseTransparent(true);
 
         button.setGraphic(content);
         installRegionClip(button, 24, 24);
-        applyHubButtonHitShape(button, buildRoundedCornerShape(width, height, 24, 24, 24, 24));
+        applyHubButtonHitShape(button, buildRoundedCornerShape(132, height, 24, 24, 24, 24));
         return button;
     }
 
@@ -12822,7 +12636,6 @@ public class BirdGame3 extends Application {
 
     private void registerHubInteractiveNode(Node node, List<Node> nodes,
                                             Label helpTitle, Label helpBody,
-                                            String defaultHelpTitle, String defaultHelpBody,
                                             String baseStyle, String activeStyle,
                                             String title, String description,
                                             Group selectorPointer, Node medallion) {
@@ -12837,18 +12650,18 @@ public class BirdGame3 extends Application {
         nodes.add(node);
 
         ChangeListener<Boolean> refreshListener = (obs, oldVal, newVal) ->
-                refreshUltimateHubButtons(nodes, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody, selectorPointer, medallion);
+                refreshUltimateHubButtons(nodes, helpTitle, helpBody, selectorPointer, medallion);
         node.hoverProperty().addListener(refreshListener);
         node.focusedProperty().addListener(refreshListener);
         node.addEventHandler(MouseEvent.MOUSE_ENTERED, e -> {
             node.getProperties().put("hubPointerSceneX", e.getSceneX());
             node.getProperties().put("hubPointerSceneY", e.getSceneY());
-            refreshUltimateHubButtons(nodes, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody, selectorPointer, medallion);
+            refreshUltimateHubButtons(nodes, helpTitle, helpBody, selectorPointer, medallion);
         });
         node.addEventHandler(MouseEvent.MOUSE_MOVED, e -> {
             node.getProperties().put("hubPointerSceneX", e.getSceneX());
             node.getProperties().put("hubPointerSceneY", e.getSceneY());
-            refreshUltimateHubButtons(nodes, helpTitle, helpBody, defaultHelpTitle, defaultHelpBody, selectorPointer, medallion);
+            refreshUltimateHubButtons(nodes, helpTitle, helpBody, selectorPointer, medallion);
         });
         node.addEventHandler(MouseEvent.MOUSE_EXITED, e -> {
             node.getProperties().remove("hubPointerSceneX");
@@ -12857,11 +12670,10 @@ public class BirdGame3 extends Application {
     }
 
     private void refreshUltimateHubButtons(List<Node> buttons, Label helpTitle, Label helpBody,
-                                           String defaultHelpTitle, String defaultHelpBody,
                                            Group selectorPointer, Node medallion) {
         if (buttons == null || buttons.isEmpty()) {
-            if (helpTitle != null) helpTitle.setText(defaultHelpTitle);
-            if (helpBody != null) helpBody.setText(defaultHelpBody);
+            if (helpTitle != null) helpTitle.setText("CENTRAL HUB");
+            if (helpBody != null) helpBody.setText("Choose a panel to jump into versus battles, routes, unlocks, or support menus.");
             updateUltimateHubSelectorPointer(null, selectorPointer, medallion);
             return;
         }
@@ -12900,13 +12712,13 @@ public class BirdGame3 extends Application {
 
         if (helpTitle != null) {
             helpTitle.setText(selected == null
-                    ? defaultHelpTitle
-                    : Objects.toString(selected.getProperties().get("hubHelpTitle"), defaultHelpTitle));
+                    ? "CENTRAL HUB"
+                    : Objects.toString(selected.getProperties().get("hubHelpTitle"), "CENTRAL HUB"));
         }
         if (helpBody != null) {
             helpBody.setText(selected == null
-                    ? defaultHelpBody
-                    : Objects.toString(selected.getProperties().get("hubHelpBody"), defaultHelpBody));
+                    ? "Choose a panel to jump into versus battles, routes, unlocks, or support menus."
+                    : Objects.toString(selected.getProperties().get("hubHelpBody"), "Choose a panel to jump into versus battles, routes, unlocks, or support menus."));
         }
         updateUltimateHubSelectorPointer(selected, selectorPointer, medallion);
     }
@@ -13878,6 +13690,19 @@ public class BirdGame3 extends Application {
             positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawX[sourceIdx], clawY[sourceIdx]);
             updateGrabbedSelectorPosition(sourceIdx);
             focusButtonUnderClaw(sourceIdx);
+        }
+
+        private void advanceNullRockSecret(int selectorIdx, char direction) {
+            if (selectorIdx < 0 || selectorIdx >= activePlayers) {
+                return;
+            }
+            advanceLockedNullRockSelectorSecret(
+                    selectorIdx,
+                    direction,
+                    selectorLocked,
+                    updateSlot[selectorIdx],
+                    nullRockSequenceProgress
+            );
         }
 
         private void beginClawGrab(int sourceIdx) {
@@ -14903,6 +14728,23 @@ public class BirdGame3 extends Application {
         setFightSetupClawCursor(scene, false);
         scene.addEventFilter(MouseEvent.MOUSE_RELEASED, e -> setFightSetupClawCursor(scene, false));
         bindEscape(scene, back);
+        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            for (int idx = 0; idx < activePlayers; idx++) {
+                if (keyboardControlsPlayer(idx)) {
+                    continue;
+                }
+                if (advanceLockedNullRockSelectorSecret(
+                        idx,
+                        localNullRockSelectorDirection(idx, e.getCode()),
+                        selectorLocked,
+                        updateSlot[idx],
+                        nullRockSequenceProgress
+                )) {
+                    e.consume();
+                    return;
+                }
+            }
+        });
 
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
@@ -15300,85 +15142,6 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private boolean handleSelectorKey(KeyEvent e,
-                                      int idx,
-                                      Circle selector,
-                                      Text label,
-                                      boolean[] selectorLocked,
-                                      List<BirdIconSpot> spots,
-                                      Point2D[] dockPositions,
-                                      Pane selectionPane,
-                                      Runnable updateSlot,
-                                      Runnable updateReady,
-                                      BooleanSupplier tryStartMatch,
-                                      int[] nullRockSequenceProgress) {
-        if (idx < 0 || idx >= activePlayers) return false;
-        if (keyboardControlsPlayer(idx)) return false;
-        if (selector == null || label == null) return false;
-
-        KeyCode code = e.getCode();
-        KeyCode left = leftKeyForPlayer(idx);
-        KeyCode right = rightKeyForPlayer(idx);
-        KeyCode up = jumpKeyForPlayer(idx);
-        KeyCode down = blockKeyForPlayer(idx);
-        KeyCode select = attackKeyForPlayer(idx);
-        KeyCode special = specialKeyForPlayer(idx);
-
-        double step = FIGHT_SELECTOR_MOVE_STEP;
-        boolean moved = false;
-        if (code == special) {
-            if (nullRockSequenceProgress != null && idx < nullRockSequenceProgress.length) {
-                nullRockSequenceProgress[idx] = 0;
-            }
-            return tryStartMatch != null && tryStartMatch.getAsBoolean();
-        }
-        if (code == select) {
-            if (nullRockSequenceProgress != null && idx < nullRockSequenceProgress.length) {
-                nullRockSequenceProgress[idx] = 0;
-            }
-            if (selectorLocked[idx]) {
-                clearFightSelectorChoice(idx, selector, selectorLocked, updateSlot, updateReady);
-                dockFightSelector(idx, selector, label, dockPositions);
-                return true;
-            }
-            BirdIconSpot best = nearestFightSelectorSpot(selector, spots);
-            if (best != null) {
-                lockFightSelectorToSpot(idx, selector, label, selectorLocked, best, updateSlot);
-            }
-            return true;
-        }
-        if (handleLockedNullRockSelectorSecret(idx, code, selectorLocked, updateSlot, nullRockSequenceProgress)) {
-            return true;
-        }
-
-        double nx = selector.getCenterX();
-        double ny = selector.getCenterY();
-        if (code == left) {
-            nx -= step;
-            moved = true;
-        } else if (code == right) {
-            nx += step;
-            moved = true;
-        } else if (code == up) {
-            ny -= step;
-            moved = true;
-        } else if (code == down) {
-            ny += step;
-            moved = true;
-        }
-        if (moved) {
-            if (nullRockSequenceProgress != null && idx < nullRockSequenceProgress.length) {
-                nullRockSequenceProgress[idx] = 0;
-            }
-            if (selectorLocked[idx]) {
-                clearFightSelectorChoice(idx, selector, selectorLocked, updateSlot, updateReady);
-            }
-            moveFightSelectorWithinPane(selector, label, nx, ny, selectionPane);
-            return true;
-        }
-        return false;
-    }
-
     private void showClassicMoreMenu(Stage stage) {
         clearActiveDailyChallengeRun();
         clearBossRushState();
@@ -15516,7 +15279,7 @@ public class BirdGame3 extends Application {
             Button difficultyBtn = uiFactory.action(
                     "",
                     250, 112, 16, color, 14,
-                    () -> showTowerDefenseMode(stage, MapType.FOREST, difficulty)
+                    () -> showTowerDefenseMode(stage, difficulty)
             );
             Label difficultyLabel = new Label(difficulty.label.toUpperCase(Locale.ROOT));
             difficultyLabel.setFont(Font.font("Arial Black", 24));
@@ -15561,11 +15324,6 @@ public class BirdGame3 extends Application {
         difficultyRow.getChildren().getFirst().requestFocus();
     }
 
-    private void showTowerDefenseMode(Stage stage, MapType map, TowerDefenseMode.Difficulty difficulty) {
-        selectedMap = map == null ? MapType.FOREST : map;
-        showTowerDefenseMode(stage, difficulty);
-    }
-
     private void showTowerDefenseMode(Stage stage, TowerDefenseMode.Difficulty difficulty) {
         clearActiveDailyChallengeRun();
         clearBossRushState();
@@ -15593,11 +15351,10 @@ public class BirdGame3 extends Application {
         competitionRoundNumber = 1;
         stageSelectHandler = null;
         stageSelectRandomHandler = null;
-        selectedMap = selectedMap == null ? MapType.FOREST : selectedMap;
+        selectedMap = MapType.FOREST;
         startMusic();
 
         TowerDefenseMode mode = new TowerDefenseMode(this, difficulty);
-        final MapType defenseMap = selectedMap;
         StackPane root = new StackPane();
         root.getProperties().put("noAutoScale", true);
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #050B08, #0D1B14, #12271D);");
@@ -15980,7 +15737,7 @@ public class BirdGame3 extends Application {
                     rewardsGranted[0] = true;
                     if (mode.victory()) {
                         rewardCoins[0] = towerDefenseCoinReward(mode.difficulty());
-                        newBadgeAwarded[0] = awardTowerDefenseBadge(defenseMap, mode.difficulty());
+                        newBadgeAwarded[0] = awardBigForestTowerDefenseBadge(mode.difficulty());
                         grantBirdCoins(rewardCoins[0]);
                         refreshModeAchievementUnlocks();
                         saveAchievements();
@@ -15991,7 +15748,7 @@ public class BirdGame3 extends Application {
                 endBody.setText(mode.victory()
                         ? "The grove held through all " + mode.maxRounds() + " " + mode.difficulty().label + " rounds."
                         + "\nBird Coins +" + rewardCoins[0]
-                        + (newBadgeAwarded[0] ? "\nNew " + mode.difficulty().label + " badge earned for " + mapDisplayName(defenseMap) + "." : "\n" + mode.difficulty().label + " badge slot remains secured.")
+                        + (newBadgeAwarded[0] ? "\nNew " + mode.difficulty().label + " badge earned for " + mapDisplayName(MapType.FOREST) + "." : "\n" + mode.difficulty().label + " badge slot remains secured.")
                         : "The Blight slipped through the trail on " + mode.difficulty().label + ". Rebuild the grove and try a new defense line.");
             }
         };
@@ -16125,7 +15882,7 @@ public class BirdGame3 extends Application {
         sellBtn.setOnAction(e -> { playButtonClick(); mode.sellSelectedTower(); refreshUi[0].run(); canvas.requestFocus(); });
         resumeBtn.setOnAction(e -> { playButtonClick(); paused[0] = false; debugOpen[0] = false; refreshUi[0].run(); canvas.requestFocus(); });
         debugBtn.setOnAction(e -> { playButtonClick(); openDebug[0].run(); });
-        restartBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showTowerDefenseMode(stage, selectedMap, mode.difficulty()); });
+        restartBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showTowerDefenseMode(stage, mode.difficulty()); });
         exitBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showHub(stage); });
         applyDebugBtn.setOnAction(e -> {
             playButtonClick();
@@ -16141,7 +15898,7 @@ public class BirdGame3 extends Application {
         });
         clearWaveBtn.setOnAction(e -> { playButtonClick(); mode.clearWaveForDebug(); debugHint.setText("Current wave cleared."); refreshUi[0].run(); });
         closeDebugBtn.setOnAction(e -> { playButtonClick(); debugOpen[0] = false; refreshUi[0].run(); resumeBtn.requestFocus(); });
-        restartEndBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showTowerDefenseMode(stage, selectedMap, mode.difficulty()); });
+        restartEndBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showTowerDefenseMode(stage, mode.difficulty()); });
         backEndBtn.setOnAction(e -> { playButtonClick(); stopTimer[0].run(); showHub(stage); });
 
         canvas.setOnMouseMoved(e -> {
@@ -23363,11 +23120,11 @@ public class BirdGame3 extends Application {
         return towerDefenseDifficultyBadges[MapType.FOREST.ordinal()][difficulty.ordinal()];
     }
 
-    private boolean awardTowerDefenseBadge(MapType map, TowerDefenseMode.Difficulty difficulty) {
-        if (map == null || difficulty == null) {
+    private boolean awardBigForestTowerDefenseBadge(TowerDefenseMode.Difficulty difficulty) {
+        if (difficulty == null) {
             return false;
         }
-        boolean[] row = towerDefenseDifficultyBadges[map.ordinal()];
+        boolean[] row = towerDefenseDifficultyBadges[MapType.FOREST.ordinal()];
         boolean alreadyHad = row[difficulty.ordinal()];
         row[difficulty.ordinal()] = true;
         return !alreadyHad;
@@ -23392,11 +23149,8 @@ public class BirdGame3 extends Application {
         return total;
     }
 
-    private int countTowerDefenseBadges(MapType map) {
-        if (map == null) {
-            return 0;
-        }
-        return countCompleted(towerDefenseDifficultyBadges[map.ordinal()]);
+    private int countBigForestTowerDefenseBadges() {
+        return countCompleted(towerDefenseDifficultyBadges[MapType.FOREST.ordinal()]);
     }
 
     private int bigForestTowerDefenseBadgeGoal() {
@@ -23409,7 +23163,7 @@ public class BirdGame3 extends Application {
         achievementProgress[25] = Math.max(achievementProgress[25], pigeonEpisodeCompleted ? 1 : 0);
         achievementProgress[26] = Math.max(achievementProgress[26], batEpisodeCompleted ? 1 : 0);
         achievementProgress[27] = Math.max(achievementProgress[27], pelicanEpisodeCompleted ? 1 : 0);
-        achievementProgress[28] = Math.max(achievementProgress[28], countTowerDefenseBadges(MapType.FOREST));
+        achievementProgress[28] = Math.max(achievementProgress[28], countBigForestTowerDefenseBadges());
         achievementProgress[29] = Math.max(achievementProgress[29], tournamentChampionshipsWon > 0 ? 1 : 0);
     }
 
@@ -29287,12 +29041,11 @@ public class BirdGame3 extends Application {
 
     private StackPane buildVictoryPortraitNode(Bird bird, double size, boolean winnerPose) {
         double portraitSize = Math.max(140, size);
-        double spriteSize = portraitSize;
-        Canvas sprite = new Canvas(spriteSize, spriteSize);
+        Canvas sprite = new Canvas(portraitSize, portraitSize);
         String skinKey = bird == null ? null : skinKeyForBird(bird);
         drawVictoryRosterSprite(sprite, bird == null ? null : bird.type, skinKey, winnerPose);
 
-        Canvas overlay = new Canvas(spriteSize, spriteSize);
+        Canvas overlay = new Canvas(portraitSize, portraitSize);
         if (winnerPose && bird != null) {
             drawVictoryPoseOverlay(overlay, bird);
         }
@@ -29318,8 +29071,9 @@ public class BirdGame3 extends Application {
         double maxScale = winnerPose ? 2.15 : 1.70;
         double xBias = 0.03;
         double yBias = winnerPose ? 0.12 : 0.10;
+        VictoryPortraitLayout victoryPortraitLayout = new VictoryPortraitLayout(extentFactor, minScale, maxScale, xBias, yBias);
         if (type == null) {
-            return new VictoryPortraitLayout(extentFactor, minScale, maxScale, xBias, yBias);
+            return victoryPortraitLayout;
         }
         return switch (type) {
             case BAT -> new VictoryPortraitLayout(winnerPose ? 1.48 : 1.60,
@@ -29347,7 +29101,7 @@ public class BirdGame3 extends Application {
                     winnerPose ? 1.90 : 1.52,
                     0.04,
                     winnerPose ? 0.14 : 0.11);
-            default -> new VictoryPortraitLayout(extentFactor, minScale, maxScale, xBias, yBias);
+            default -> victoryPortraitLayout;
         };
     }
 
@@ -30558,7 +30312,7 @@ public class BirdGame3 extends Application {
         if (achievementProgress[26] >= 1 || batEpisodeCompleted) achievementsUnlocked[26] = true;
         if (achievementProgress[27] >= 1 || pelicanEpisodeCompleted) achievementsUnlocked[27] = true;
         if (achievementProgress[28] >= bigForestTowerDefenseBadgeGoal()
-                || countTowerDefenseBadges(MapType.FOREST) >= bigForestTowerDefenseBadgeGoal()) {
+                || countBigForestTowerDefenseBadges() >= bigForestTowerDefenseBadgeGoal()) {
             achievementsUnlocked[28] = true;
         }
         if (achievementProgress[29] >= 1 || tournamentChampionshipsWon > 0) achievementsUnlocked[29] = true;
@@ -30808,7 +30562,6 @@ public class BirdGame3 extends Application {
 
     private HBox buildMatchHistoryParticipantRow(MatchHistoryEntry.Participant participant, Color accent) {
         String border = participant.winner() ? toHex(accent) : "#37474F";
-        String background = participant.winner() ? "rgba(46,125,50,0.25)" : "rgba(255,255,255,0.05)";
 
         HBox row = new HBox(16);
         row.setAlignment(Pos.CENTER_LEFT);
@@ -30994,7 +30747,7 @@ public class BirdGame3 extends Application {
             case 25 -> "Pigeon Episode complete: " + (pigeonEpisodeCompleted ? "1 / 1" : "0 / 1");
             case 26 -> "Bat Episode complete: " + (batEpisodeCompleted ? "1 / 1" : "0 / 1");
             case 27 -> "Pelican Episode complete: " + (pelicanEpisodeCompleted ? "1 / 1" : "0 / 1");
-            case 28 -> "Big Forest badges: " + Math.max(achievementProgress[28], countTowerDefenseBadges(MapType.FOREST))
+            case 28 -> "Big Forest badges: " + Math.max(achievementProgress[28], countBigForestTowerDefenseBadges())
                     + " / " + bigForestTowerDefenseBadgeGoal();
             case 29 -> "Tournament championships: " + Math.max(achievementProgress[29], tournamentChampionshipsWon > 0 ? 1 : 0) + " / 1";
             default -> "";
@@ -31214,16 +30967,6 @@ public class BirdGame3 extends Application {
 
     private Color achievementAccentColor(int index) {
         return switch (achievementCategoryFor(index)) {
-            case COMBAT -> Color.web("#EF5350");
-            case BIRD -> Color.web("#AB47BC");
-            case MAP -> Color.web("#26C6DA");
-            case MODE -> Color.web("#42A5F5");
-            case STORY -> Color.web("#FFD54F");
-        };
-    }
-
-    private Color achievementCategoryAccent(AchievementCategory category) {
-        return switch (category) {
             case COMBAT -> Color.web("#EF5350");
             case BIRD -> Color.web("#AB47BC");
             case MAP -> Color.web("#26C6DA");
