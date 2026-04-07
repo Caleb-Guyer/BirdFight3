@@ -15578,34 +15578,6 @@ public class BirdGame3 extends Application {
                 + "-fx-padding: 0;";
     }
 
-    private StackPane buildGamesMoreSideCard(String eyebrow, String title, String body, String accentHex) {
-        Label eyebrowLabel = new Label(eyebrow);
-        eyebrowLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
-        eyebrowLabel.setTextFill(Color.web("#B3E5FC"));
-        applyNoEllipsis(eyebrowLabel);
-
-        Label titleLabel = new Label(title);
-        titleLabel.setFont(Font.font("Arial Black", 28));
-        titleLabel.setTextFill(Color.web("#FFF8E1"));
-        titleLabel.setWrapText(true);
-        applyNoEllipsis(titleLabel);
-
-        Label bodyLabel = new Label(body);
-        bodyLabel.setFont(Font.font("Consolas", 17));
-        bodyLabel.setTextFill(Color.web("#ECEFF1"));
-        bodyLabel.setWrapText(true);
-        bodyLabel.setMaxWidth(252);
-        applyNoEllipsis(bodyLabel);
-
-        VBox text = new VBox(8, eyebrowLabel, titleLabel, bodyLabel);
-        text.setAlignment(Pos.TOP_LEFT);
-
-        StackPane card = new StackPane(text);
-        card.setPadding(new Insets(22, 20, 22, 20));
-        card.setStyle(MenuTheme.panelStyle(accentHex, 28));
-        return card;
-    }
-
     private Node gamesMoreIconBossRush() {
         Pane pane = hubIconPane();
         Polygon crown = new Polygon(10, 34, 16, 16, 24, 28, 32, 12, 40, 28, 46, 16, 46, 34);
