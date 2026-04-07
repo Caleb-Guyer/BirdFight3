@@ -2594,9 +2594,13 @@ public class BirdGame3 extends Application {
     }
 
     private void bindFixedFrameScale(Scene scene, Node content) {
+        bindFixedFrameScale(scene, content, 8.0);
+    }
+
+    private void bindFixedFrameScale(Scene scene, Node content, double margin) {
         Runnable apply = () -> {
-            double availW = Math.max(1.0, scene.getWidth() - 8.0 * 2.0);
-            double availH = Math.max(1.0, scene.getHeight() - 8.0 * 2.0);
+            double availW = Math.max(1.0, scene.getWidth() - margin * 2.0);
+            double availH = Math.max(1.0, scene.getHeight() - margin * 2.0);
             double scale = Math.min(availW / 1600.0, availH / 950.0);
             content.setScaleX(scale);
             content.setScaleY(scale);
@@ -11939,8 +11943,12 @@ public class BirdGame3 extends Application {
         BorderPane chrome = new BorderPane();
         chrome.setLeft(left);
         chrome.setRight(right);
-        BorderPane.setAlignment(left, Pos.CENTER_LEFT);
-        BorderPane.setAlignment(right, Pos.CENTER_RIGHT);
+        if (left != null) {
+            BorderPane.setAlignment(left, Pos.CENTER_LEFT);
+        }
+        if (right != null) {
+            BorderPane.setAlignment(right, Pos.CENTER_RIGHT);
+        }
 
         StackPane strip = new StackPane(chrome);
         if (center != null) {
@@ -11958,6 +11966,7 @@ public class BirdGame3 extends Application {
         playMenuMusic();
         GameSaveRepository.SaveProfile activeProfile = saveRepository.activeProfile();
         StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #020203, #0C1017 38%, #030304 100%);");
 
         AnchorPane frame = new AnchorPane();
@@ -12158,7 +12167,7 @@ public class BirdGame3 extends Application {
         });
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
-        bindFixedFrameScale(scene, frame);
+        bindFixedFrameScale(scene, frame, 0.0);
         setScenePreservingFullscreen(stage, scene);
         javafx.application.Platform.runLater(() -> {
             fightNode.requestFocus();
@@ -15146,53 +15155,558 @@ public class BirdGame3 extends Application {
         clearActiveDailyChallengeRun();
         clearBossRushState();
         playMenuMusic();
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(28, 40, 28, 40));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0A1A2A, #17324A);");
+        GameSaveRepository.SaveProfile activeProfile = saveRepository.activeProfile();
 
-        Label title = new Label("GAMES & MORE");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 84));
-        title.setTextFill(Color.web("#FFE082"));
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #06101B 0%, #0A2033 40%, #05080C 100%);");
 
-        Button classicBtn = uiFactory.action("CLASSIC MODE", 700, 140, 44, "#1565C0", 30, () -> {
-            bossRushModeActive = false;
-            showClassicBirdSelect(stage);
-        });
-        Button bossRushBtn = uiFactory.action("BOSS RUSH", 700, 140, 44, "#C62828", 30, () -> {
-            bossRushModeActive = true;
-            showClassicBirdSelect(stage);
-        });
-        Button episodesBtn = uiFactory.action("EPISODES", 700, 140, 44, "#8E24AA", 30, () -> showEpisodesHub(stage));
-        Button tournamentBtn = uiFactory.action("TOURNAMENT MODE", 700, 140, 40, "#FFB300", 28, () -> showTournamentSetup(stage));
-        Button trainingBtn = uiFactory.action("TRAINING", 700, 140, 42, "#00ACC1", 28, () -> showTrainingSetup(stage));
-        Button towerDefenseBtn = uiFactory.action("TOWER DEFENSE", 700, 140, 34, "#2E7D32", 28, () -> showTowerDefenseMapSelect(stage));
+        AnchorPane frame = new AnchorPane();
+        frame.setId("uiFrame");
+        lockRegionSize(frame, 1600, 950);
+        frame.getChildren().add(buildGamesMoreBackdrop());
 
-        GridPane options = new GridPane();
-        options.setHgap(24);
-        options.setVgap(24);
-        options.setAlignment(Pos.CENTER);
-        options.add(classicBtn, 0, 0);
-        options.add(bossRushBtn, 1, 0);
-        options.add(episodesBtn, 0, 1);
-        options.add(tournamentBtn, 1, 1);
-        options.add(trainingBtn, 0, 2);
-        options.add(towerDefenseBtn, 1, 2);
+        Button back = uiFactory.action("BACK TO HUB", 276, 72, 26, "#C62828", 20, () -> showMenu(stage));
+        StackPane titleBanner = buildMenuTitleBanner("GAMES & MORE", 430, 74, 28);
+        StackPane topStrip = buildMenuTopStrip(back, titleBanner, null);
+        lockRegionSize(topStrip, 1600, 96);
+        topStrip.setStyle("-fx-background-color: linear-gradient(to right, #0E58B5 0%, #18A7E2 43%, #0C1219 43%, #070B10 100%);"
+                + "-fx-background-radius: 0;"
+                + "-fx-border-color: rgba(255,255,255,0.16);"
+                + "-fx-border-width: 0 0 3 0;");
+        AnchorPane.setTopAnchor(topStrip, 0.0);
+        AnchorPane.setLeftAnchor(topStrip, 0.0);
+        AnchorPane.setRightAnchor(topStrip, 0.0);
 
-        Button back = uiFactory.action("BACK TO HUB", 360, 90, 34, "#D32F2F", 22, () -> showMenu(stage));
-        HBox bottom = new HBox(back);
-        bottom.setAlignment(Pos.CENTER);
+        Label helpTitle = new Label("MODE STACK");
+        helpTitle.setFont(Font.font("Arial Black", 30));
+        helpTitle.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(helpTitle);
 
-        root.setTop(title);
-        BorderPane.setAlignment(title, Pos.CENTER);
-        root.setCenter(options);
-        root.setBottom(bottom);
+        Label helpBody = new Label("Pick a route, lab, or challenge lane from the extras dashboard.");
+        helpBody.setFont(Font.font("Consolas", 20));
+        helpBody.setTextFill(Color.web("#F5F5F5"));
+        helpBody.setWrapText(true);
+        helpBody.setMaxWidth(Double.MAX_VALUE);
+        helpBody.setMinWidth(0);
+        applyNoEllipsis(helpBody);
+
+        HBox footerMeta = new HBox(
+                10,
+                buildMenuChip("PROFILE  " + activeProfile.name().toUpperCase(Locale.ROOT), "#263238", "#90A4AE"),
+                buildMenuChip("BIRD COINS  " + birdCoinLedger.balance(), "#5D4037", "#FFE082")
+        );
+        footerMeta.setAlignment(Pos.CENTER_RIGHT);
+
+        List<Node> modeButtons = new ArrayList<>();
+
+        Button classicBtn = buildGamesMoreModeButton(
+                "FEATURED ROUTE",
+                "CLASSIC MODE",
+                1600, 274, 70,
+                new Insets(26, 320, 36, 42),
+                42,
+                hubIconClassic(), 5.8, 0.14,
+                new Insets(16, 34, 18, 18),
+                () -> {
+                    bossRushModeActive = false;
+                    showClassicBirdSelect(stage);
+                });
+        registerHubInteractiveNode(classicBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#08B2F0", "#1457C0", "#FFF176", 42, false),
+                buildGamesMoreCardStyle("#08B2F0", "#1457C0", "#FFFDE7", 42, true),
+                "CLASSIC MODE",
+                "Run the main arcade route ladder with branching encounters, rewards, and classic unlock progress.",
+                null, null);
+        AnchorPane.setTopAnchor(classicBtn, 112.0);
+        AnchorPane.setLeftAnchor(classicBtn, 0.0);
+
+        Button bossRushBtn = buildGamesMoreModeButton(
+                "BOSS GAUNTLET",
+                "BOSS RUSH",
+                520, 186, 40,
+                new Insets(18, 118, 24, 28),
+                32,
+                gamesMoreIconBossRush(), 3.0, 0.16,
+                new Insets(18, 22, 18, 18),
+                () -> {
+                    bossRushModeActive = true;
+                    showClassicBirdSelect(stage);
+                });
+        registerHubInteractiveNode(bossRushBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#D84343", "#6A1010", "#FFCDD2", 32, false),
+                buildGamesMoreCardStyle("#D84343", "#6A1010", "#FFF5F6", 32, true),
+                "BOSS RUSH",
+                "Push through the boss-only route stack for stronger rewards and a harsher routing test.",
+                null, null);
+        AnchorPane.setTopAnchor(bossRushBtn, 404.0);
+        AnchorPane.setLeftAnchor(bossRushBtn, 0.0);
+
+        Button episodesBtn = buildGamesMoreModeButton(
+                "STORY ARCS",
+                "EPISODES",
+                520, 186, 40,
+                new Insets(18, 120, 24, 28),
+                32,
+                gamesMoreIconEpisodes(), 3.0, 0.16,
+                new Insets(18, 22, 18, 18),
+                () -> showEpisodesHub(stage));
+        registerHubInteractiveNode(episodesBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#9334C8", "#4A148C", "#E1BEE7", 32, false),
+                buildGamesMoreCardStyle("#9334C8", "#4A148C", "#F6E7FF", 32, true),
+                "EPISODES",
+                "Open the handcrafted story battles, remix arcs, and one-off challenge routes.",
+                null, null);
+        AnchorPane.setTopAnchor(episodesBtn, 404.0);
+        AnchorPane.setLeftAnchor(episodesBtn, 540.0);
+
+        Button tournamentBtn = buildGamesMoreModeButton(
+                "BRACKET PLAY",
+                "TOURNAMENT",
+                520, 186, 40,
+                new Insets(18, 110, 24, 28),
+                32,
+                gamesMoreIconTournament(), 3.0, 0.16,
+                new Insets(18, 22, 18, 18),
+                () -> showTournamentSetup(stage));
+        registerHubInteractiveNode(tournamentBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#F5A623", "#C46A00", "#FFE082", 32, false),
+                buildGamesMoreCardStyle("#F5A623", "#C46A00", "#FFF8E1", 32, true),
+                "TOURNAMENT MODE",
+                "Set up a bracket, seed the room, and track local tournament championships.",
+                null, null);
+        AnchorPane.setTopAnchor(tournamentBtn, 404.0);
+        AnchorPane.setLeftAnchor(tournamentBtn, 1080.0);
+
+        Button trainingBtn = buildGamesMoreModeButton(
+                "LAB WORK",
+                "TRAINING",
+                790, 236, 50,
+                new Insets(18, 164, 30, 32),
+                34,
+                gamesMoreIconTraining(), 3.5, 0.16,
+                new Insets(18, 26, 18, 18),
+                () -> showTrainingSetup(stage));
+        registerHubInteractiveNode(trainingBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#00ACC1", "#006064", "#B2EBF2", 34, false),
+                buildGamesMoreCardStyle("#00ACC1", "#006064", "#E0F7FA", 34, true),
+                "TRAINING",
+                "Use the lab to test confirms, dummy behavior, slow motion, and movement checks.",
+                null, null);
+        AnchorPane.setTopAnchor(trainingBtn, 610.0);
+        AnchorPane.setLeftAnchor(trainingBtn, 0.0);
+
+        Button towerDefenseBtn = buildGamesMoreModeButton(
+                "DEFENSE LANE",
+                "TOWER DEFENSE",
+                790, 236, 46,
+                new Insets(18, 162, 30, 32),
+                34,
+                gamesMoreIconTowerDefense(), 3.4, 0.16,
+                new Insets(18, 26, 18, 18),
+                () -> showTowerDefenseMapSelect(stage));
+        registerHubInteractiveNode(towerDefenseBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#2E7D32", "#184B1D", "#C8E6C9", 34, false),
+                buildGamesMoreCardStyle("#2E7D32", "#184B1D", "#F1FFF4", 34, true),
+                "TOWER DEFENSE",
+                "Swap into the defense maps to place birds, manage loadouts, and survive lane pressure.",
+                null, null);
+        AnchorPane.setTopAnchor(towerDefenseBtn, 610.0);
+        AnchorPane.setLeftAnchor(towerDefenseBtn, 810.0);
+
+        StackPane helpBar = new StackPane();
+        lockRegionSize(helpBar, 1600, 104);
+        helpBar.setPadding(new Insets(14, 28, 14, 28));
+        helpBar.setStyle("-fx-background-color: linear-gradient(to right, rgba(0,0,0,0.98), rgba(12,18,24,0.96));"
+                + "-fx-border-color: rgba(255,255,255,0.10) transparent transparent transparent;"
+                + "-fx-border-width: 3 0 0 0;");
+        Region helpSpacer = new Region();
+        HBox.setHgrow(helpSpacer, Priority.ALWAYS);
+        VBox helpText = new VBox(4, helpTitle, helpBody);
+        helpText.setAlignment(Pos.CENTER_LEFT);
+        helpText.setMinWidth(0);
+        helpText.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(helpText, Priority.ALWAYS);
+        HBox helpContent = new HBox(24, helpText, helpSpacer, footerMeta);
+        helpContent.setAlignment(Pos.CENTER_LEFT);
+        helpBar.getChildren().add(helpContent);
+        AnchorPane.setLeftAnchor(helpBar, 0.0);
+        AnchorPane.setRightAnchor(helpBar, 0.0);
+        AnchorPane.setBottomAnchor(helpBar, 0.0);
+        installGamesMoreHelpTextFitting(helpTitle, helpBody, helpText, footerMeta, helpBar);
+
+        frame.getChildren().addAll(
+                topStrip,
+                classicBtn,
+                bossRushBtn,
+                episodesBtn,
+                tournamentBtn,
+                trainingBtn,
+                towerDefenseBtn,
+                helpBar
+        );
+        root.getChildren().add(frame);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         bindEscape(scene, back);
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, frame, 0.0);
         setScenePreservingFullscreen(stage, scene);
-        classicBtn.requestFocus();
+        javafx.application.Platform.runLater(() -> {
+            classicBtn.requestFocus();
+            setConsoleHighlightActive(true, scene);
+            refreshUltimateHubButtons(modeButtons, helpTitle, helpBody, null, null);
+        });
+    }
+
+    private Pane buildGamesMoreBackdrop() {
+        Pane backdrop = new Pane();
+        lockRegionSize(backdrop, 1600, 950);
+        backdrop.setMouseTransparent(true);
+
+        Circle topGlow = new Circle(1120, 154, 330, Color.web("#29B6F6", 0.16));
+        Circle leftGlow = new Circle(190, 338, 280, Color.web("#64B5F6", 0.12));
+        Circle lowerGlow = new Circle(496, 748, 340, Color.web("#7E57C2", 0.10));
+        Circle lowerRightGlow = new Circle(1190, 706, 300, Color.web("#26A69A", 0.09));
+
+        Region slashA = new Region();
+        lockRegionSize(slashA, 1080, 180);
+        slashA.relocate(120, 104);
+        slashA.setRotate(-8);
+        slashA.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,255,255,0.16), rgba(255,255,255,0.0));"
+                + "-fx-background-radius: 120;");
+
+        Region slashB = new Region();
+        lockRegionSize(slashB, 900, 170);
+        slashB.relocate(-120, 504);
+        slashB.setRotate(-7);
+        slashB.setStyle("-fx-background-color: linear-gradient(to right, rgba(103,58,183,0.24), rgba(103,58,183,0.0));"
+                + "-fx-background-radius: 120;");
+
+        Region slashC = new Region();
+        lockRegionSize(slashC, 820, 170);
+        slashC.relocate(660, 598);
+        slashC.setRotate(-6);
+        slashC.setStyle("-fx-background-color: linear-gradient(to right, rgba(38,166,154,0.22), rgba(38,166,154,0.0));"
+                + "-fx-background-radius: 120;");
+
+        Line topLine = new Line(0, 96, 1600, 96);
+        topLine.setStroke(Color.web("#FFFFFF", 0.12));
+        topLine.setStrokeWidth(3);
+
+        Line bottomLine = new Line(0, 856, 1600, 856);
+        bottomLine.setStroke(Color.web("#FFFFFF", 0.08));
+        bottomLine.setStrokeWidth(3);
+
+        backdrop.getChildren().addAll(
+                topGlow,
+                leftGlow,
+                lowerGlow,
+                lowerRightGlow,
+                slashA,
+                slashB,
+                slashC,
+                topLine,
+                bottomLine
+        );
+        return backdrop;
+    }
+
+    private void installGamesMoreHelpTextFitting(Label helpTitle, Label helpBody, VBox helpText,
+                                                 HBox footerMeta, Region helpBar) {
+        if (helpTitle == null || helpBody == null || helpText == null || footerMeta == null || helpBar == null) {
+            return;
+        }
+
+        helpTitle.getProperties().put("gamesMoreRawText", helpTitle.getText());
+        helpBody.getProperties().put("gamesMoreRawText", helpBody.getText());
+        final boolean[] adjusting = {false};
+
+        Runnable apply = () -> {
+            if (adjusting[0]) {
+                return;
+            }
+            adjusting[0] = true;
+            try {
+                String rawTitle = Objects.toString(
+                        helpTitle.getProperties().getOrDefault("gamesMoreRawText", helpTitle.getText()),
+                        helpTitle.getText()
+                );
+                String rawBody = Objects.toString(
+                        helpBody.getProperties().getOrDefault("gamesMoreRawText", helpBody.getText()),
+                        helpBody.getText()
+                );
+
+                footerMeta.applyCss();
+                footerMeta.autosize();
+
+                double barWidth = helpBar.getWidth() > 0 ? helpBar.getWidth() : helpBar.getPrefWidth();
+                double barHeight = helpBar.getHeight() > 0 ? helpBar.getHeight() : helpBar.getPrefHeight();
+                double metaWidth = Math.max(0.0, footerMeta.prefWidth(-1));
+                double availableWidth = Math.max(360.0, barWidth - metaWidth - 28.0 * 2.0 - 24.0 - 20.0);
+
+                helpText.setPrefWidth(availableWidth);
+                helpText.setMaxWidth(availableWidth);
+
+                helpTitle.setText(rawTitle);
+                fitLabelSingleLine(helpTitle, 30, 20, availableWidth);
+
+                double titleHeight = measureTextHeight(helpTitle.getFont());
+                double bodyHeight = Math.max(20.0, barHeight - 28.0 - titleHeight - 4.0);
+                helpBody.setFont(Font.font("Consolas", 20));
+                fitWrappedLabelText(helpBody, rawBody, availableWidth, bodyHeight, 14.0);
+            } finally {
+                adjusting[0] = false;
+            }
+        };
+
+        helpTitle.textProperty().addListener((obs, oldValue, newValue) -> {
+            if (adjusting[0]) {
+                return;
+            }
+            helpTitle.getProperties().put("gamesMoreRawText", newValue == null ? "" : newValue.replace('\n', ' '));
+            javafx.application.Platform.runLater(apply);
+        });
+        helpBody.textProperty().addListener((obs, oldValue, newValue) -> {
+            if (adjusting[0]) {
+                return;
+            }
+            helpBody.getProperties().put("gamesMoreRawText", newValue == null ? "" : newValue.replace('\n', ' '));
+            javafx.application.Platform.runLater(apply);
+        });
+        helpBar.widthProperty().addListener((obs, oldValue, newValue) -> apply.run());
+        helpBar.heightProperty().addListener((obs, oldValue, newValue) -> apply.run());
+        footerMeta.layoutBoundsProperty().addListener((obs, oldValue, newValue) -> apply.run());
+        javafx.application.Platform.runLater(apply);
+    }
+
+    private Button buildGamesMoreModeButton(String eyebrow, String title,
+                                            double width, double height, double titleSize,
+                                            Insets textInsets, double radius,
+                                            Node icon, double iconScale, double iconOpacity,
+                                            Insets iconMargin, Runnable action) {
+        Button button = buildUltimateHubButtonBase(width, height, action);
+        button.setAccessibleText(title);
+
+        StackPane content = new StackPane();
+        lockRegionSize(content, width, height);
+        content.setMouseTransparent(true);
+
+        Region sheen = new Region();
+        lockRegionSize(sheen, width, height);
+        sheen.setStyle("-fx-background-color: linear-gradient(to bottom right,"
+                + " rgba(255,255,255,0.18), rgba(255,255,255,0.03) 42%, rgba(255,255,255,0.16));");
+
+        Region slash = new Region();
+        lockRegionSize(slash, Math.max(240, width * 0.42), height * 1.15);
+        slash.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,255,255,0.14), rgba(255,255,255,0.02));"
+                + "-fx-background-radius: 220;");
+        slash.setRotate(-18);
+        slash.setMouseTransparent(true);
+        StackPane.setAlignment(slash, Pos.CENTER_RIGHT);
+        StackPane.setMargin(slash, new Insets(-36, -74, -36, 0));
+
+        Region topEdge = new Region();
+        lockRegionSize(topEdge, width, 8);
+        topEdge.setStyle("-fx-background-color: linear-gradient(to right, rgba(255,255,255,0.92), rgba(255,255,255,0.12));");
+        topEdge.setMouseTransparent(true);
+        StackPane.setAlignment(topEdge, Pos.TOP_LEFT);
+
+        Label eyebrowLabel = new Label(eyebrow);
+        eyebrowLabel.setFont(Font.font("Consolas", FontWeight.BOLD, height >= 250 ? 18 : 15));
+        eyebrowLabel.setTextFill(Color.web("#FFF8E1"));
+        eyebrowLabel.setMouseTransparent(true);
+        applyNoEllipsis(eyebrowLabel);
+
+        StackPane eyebrowChip = new StackPane(eyebrowLabel);
+        eyebrowChip.setPadding(new Insets(6, 12, 6, 12));
+        eyebrowChip.setStyle("-fx-background-color: rgba(0,0,0,0.28);"
+                + "-fx-background-radius: 18;"
+                + "-fx-border-color: rgba(255,255,255,0.18);"
+                + "-fx-border-width: 1.5;"
+                + "-fx-border-radius: 18;");
+        eyebrowChip.setMouseTransparent(true);
+
+        double safeWidth = Math.max(240, width - textInsets.getLeft() - textInsets.getRight() - Math.min(150.0, width * 0.18));
+
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("Arial Black", titleSize));
+        titleLabel.setTextFill(Color.WHITE);
+        titleLabel.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.82)));
+        titleLabel.setMouseTransparent(true);
+        applyNoEllipsis(titleLabel);
+        fitLabelSingleLine(titleLabel, titleSize, Math.max(24, titleSize - 20), safeWidth);
+
+        VBox textBox = new VBox(height >= 250 ? 16 : 12, eyebrowChip, titleLabel);
+        textBox.setAlignment(Pos.BOTTOM_LEFT);
+        textBox.setMouseTransparent(true);
+        textBox.setMaxWidth(safeWidth);
+        StackPane.setAlignment(textBox, Pos.BOTTOM_LEFT);
+        StackPane.setMargin(textBox, textInsets);
+
+        content.getChildren().addAll(sheen, slash, topEdge, textBox);
+
+        if (icon != null) {
+            icon.setScaleX(iconScale);
+            icon.setScaleY(iconScale);
+            icon.setOpacity(iconOpacity);
+            icon.setMouseTransparent(true);
+            icon.setEffect(new DropShadow(16, Color.rgb(255, 255, 255, 0.12)));
+            StackPane.setAlignment(icon, Pos.TOP_RIGHT);
+            StackPane.setMargin(icon, iconMargin);
+            content.getChildren().add(icon);
+        }
+
+        StackPane shell = buildUltimateHubTileShell(content, width, height, radius, radius, radius, radius);
+        button.setGraphic(shell);
+        button.getProperties().put("hubStyleTarget", shell);
+        button.getProperties().put("hubTitleLabel", titleLabel);
+        applyHubButtonHitShape(button, buildRoundedCornerShape(width, height, radius, radius, radius, radius));
+        button.setStyle("-fx-background-color: transparent; -fx-border-color: transparent; -fx-padding: 0;");
+        return button;
+    }
+
+    private String buildGamesMoreCardStyle(String primary, String secondary, String accent, double radius, boolean selected) {
+        double borderWidth = selected ? 5.0 : 3.0;
+        String borderColor = selected ? "#FFF8E1" : accent;
+        return "-fx-background-color: linear-gradient(to bottom right, " + primary + " 0%, " + secondary + " 100%);"
+                + "-fx-background-radius: " + radius + ";"
+                + "-fx-border-color: " + borderColor + ";"
+                + "-fx-border-width: " + borderWidth + ";"
+                + "-fx-border-radius: " + radius + ";"
+                + "-fx-padding: 0;";
+    }
+
+    private StackPane buildGamesMoreSideCard(String eyebrow, String title, String body, String accentHex) {
+        Label eyebrowLabel = new Label(eyebrow);
+        eyebrowLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        eyebrowLabel.setTextFill(Color.web("#B3E5FC"));
+        applyNoEllipsis(eyebrowLabel);
+
+        Label titleLabel = new Label(title);
+        titleLabel.setFont(Font.font("Arial Black", 28));
+        titleLabel.setTextFill(Color.web("#FFF8E1"));
+        titleLabel.setWrapText(true);
+        applyNoEllipsis(titleLabel);
+
+        Label bodyLabel = new Label(body);
+        bodyLabel.setFont(Font.font("Consolas", 17));
+        bodyLabel.setTextFill(Color.web("#ECEFF1"));
+        bodyLabel.setWrapText(true);
+        bodyLabel.setMaxWidth(252);
+        applyNoEllipsis(bodyLabel);
+
+        VBox text = new VBox(8, eyebrowLabel, titleLabel, bodyLabel);
+        text.setAlignment(Pos.TOP_LEFT);
+
+        StackPane card = new StackPane(text);
+        card.setPadding(new Insets(22, 20, 22, 20));
+        card.setStyle(MenuTheme.panelStyle(accentHex, 28));
+        return card;
+    }
+
+    private Node gamesMoreIconBossRush() {
+        Pane pane = hubIconPane();
+        Polygon crown = new Polygon(10, 34, 16, 16, 24, 28, 32, 12, 40, 28, 46, 16, 46, 34);
+        crown.setFill(Color.web("#FFE082"));
+        Rectangle base = new Rectangle(12, 34, 32, 8);
+        base.setArcWidth(6);
+        base.setArcHeight(6);
+        base.setFill(Color.web("#FFB300"));
+        Line slash = new Line(16, 42, 40, 16);
+        slash.setStroke(Color.web("#FFCDD2"));
+        slash.setStrokeWidth(5);
+        slash.setStrokeLineCap(StrokeLineCap.ROUND);
+        pane.getChildren().addAll(crown, base, slash);
+        return pane;
+    }
+
+    private Node gamesMoreIconEpisodes() {
+        Pane pane = hubIconPane();
+        Rectangle leftPage = new Rectangle(10, 12, 15, 30);
+        leftPage.setArcWidth(4);
+        leftPage.setArcHeight(4);
+        leftPage.setFill(Color.web("#E1BEE7"));
+        Rectangle rightPage = new Rectangle(31, 12, 15, 30);
+        rightPage.setArcWidth(4);
+        rightPage.setArcHeight(4);
+        rightPage.setFill(Color.web("#CE93D8"));
+        Line spine = new Line(28, 12, 28, 42);
+        spine.setStroke(Color.web("#F3E5F5"));
+        spine.setStrokeWidth(3);
+        Polygon pageFold = new Polygon(36, 16, 42, 16, 42, 22);
+        pageFold.setFill(Color.web("#F8EAFB"));
+        pane.getChildren().addAll(leftPage, rightPage, spine, pageFold);
+        return pane;
+    }
+
+    private Node gamesMoreIconTournament() {
+        Pane pane = hubIconPane();
+        Polygon cup = new Polygon(16, 14, 40, 14, 36, 28, 20, 28);
+        cup.setFill(Color.web("#FFE082"));
+        Line handleLeft = new Line(16, 18, 10, 23);
+        handleLeft.setStroke(Color.web("#FFD54F"));
+        handleLeft.setStrokeWidth(3);
+        Line handleRight = new Line(40, 18, 46, 23);
+        handleRight.setStroke(Color.web("#FFD54F"));
+        handleRight.setStrokeWidth(3);
+        Line bracketA = new Line(14, 38, 24, 38);
+        bracketA.setStroke(Color.web("#FFF8E1"));
+        bracketA.setStrokeWidth(3);
+        Line bracketB = new Line(32, 38, 42, 38);
+        bracketB.setStroke(Color.web("#FFF8E1"));
+        bracketB.setStrokeWidth(3);
+        Line bracketMid = new Line(28, 28, 28, 44);
+        bracketMid.setStroke(Color.web("#FFF8E1"));
+        bracketMid.setStrokeWidth(3);
+        pane.getChildren().addAll(cup, handleLeft, handleRight, bracketA, bracketB, bracketMid);
+        return pane;
+    }
+
+    private Node gamesMoreIconTraining() {
+        Pane pane = hubIconPane();
+        Rectangle leftWeight = new Rectangle(10, 18, 8, 20);
+        leftWeight.setArcWidth(3);
+        leftWeight.setArcHeight(3);
+        leftWeight.setFill(Color.web("#B2EBF2"));
+        Rectangle leftPlate = new Rectangle(20, 14, 6, 28);
+        leftPlate.setArcWidth(3);
+        leftPlate.setArcHeight(3);
+        leftPlate.setFill(Color.web("#80DEEA"));
+        Rectangle bar = new Rectangle(26, 25, 12, 6);
+        bar.setArcWidth(3);
+        bar.setArcHeight(3);
+        bar.setFill(Color.web("#E0F7FA"));
+        Rectangle rightPlate = new Rectangle(38, 14, 6, 28);
+        rightPlate.setArcWidth(3);
+        rightPlate.setArcHeight(3);
+        rightPlate.setFill(Color.web("#80DEEA"));
+        Rectangle rightWeight = new Rectangle(46, 18, 8, 20);
+        rightWeight.setArcWidth(3);
+        rightWeight.setArcHeight(3);
+        rightWeight.setFill(Color.web("#B2EBF2"));
+        pane.getChildren().addAll(leftWeight, leftPlate, bar, rightPlate, rightWeight);
+        return pane;
+    }
+
+    private Node gamesMoreIconTowerDefense() {
+        Pane pane = hubIconPane();
+        Polygon shield = new Polygon(28, 10, 44, 16, 40, 36, 28, 46, 16, 36, 12, 16);
+        shield.setFill(Color.web("#C8E6C9"));
+        Rectangle tower = new Rectangle(22, 18, 12, 18);
+        tower.setArcWidth(3);
+        tower.setArcHeight(3);
+        tower.setFill(Color.web("#66BB6A"));
+        Rectangle top = new Rectangle(20, 14, 16, 6);
+        top.setArcWidth(3);
+        top.setArcHeight(3);
+        top.setFill(Color.web("#A5D6A7"));
+        Line gate = new Line(28, 24, 28, 36);
+        gate.setStroke(Color.web("#F1FFF4"));
+        gate.setStrokeWidth(3);
+        pane.getChildren().addAll(shield, tower, top, gate);
+        return pane;
     }
 
     private void showTowerDefenseMapSelect(Stage stage) {
@@ -15681,7 +16195,8 @@ public class BirdGame3 extends Application {
         final boolean[] debugOpen = new boolean[]{false};
         final double[] mouseX = new double[]{TowerDefenseMode.MAP_WIDTH * 0.5};
         final double[] mouseY = new double[]{TowerDefenseMode.MAP_HEIGHT * 0.5};
-        final double[] mapScale = new double[]{1.0};
+        final double[] mapScaleX = new double[]{1.0};
+        final double[] mapScaleY = new double[]{1.0};
         final double[] mapOffsetX = new double[]{0.0};
         final double[] mapOffsetY = new double[]{0.0};
         final boolean[] mouseInside = new boolean[]{true};
@@ -15714,9 +16229,10 @@ public class BirdGame3 extends Application {
         };
 
         java.util.function.BiConsumer<Double, Double> updateMouseWorld = (localX, localY) -> {
-            double scale = Math.max(0.0001, mapScale[0]);
-            double worldX = (localX - mapOffsetX[0]) / scale;
-            double worldY = (localY - mapOffsetY[0]) / scale;
+            double scaleX = Math.max(0.0001, mapScaleX[0]);
+            double scaleY = Math.max(0.0001, mapScaleY[0]);
+            double worldX = (localX - mapOffsetX[0]) / scaleX;
+            double worldY = (localY - mapOffsetY[0]) / scaleY;
             mouseInside[0] = worldX >= 0.0 && worldX <= TowerDefenseMode.MAP_WIDTH
                     && worldY >= 0.0 && worldY <= TowerDefenseMode.MAP_HEIGHT;
             mouseX[0] = Math.clamp(worldX, 0.0, TowerDefenseMode.MAP_WIDTH);
@@ -15761,15 +16277,13 @@ public class BirdGame3 extends Application {
             if (canvasW <= 0 || canvasH <= 0) {
                 return;
             }
-            double scale = Math.min(canvasW / TowerDefenseMode.MAP_WIDTH, canvasH / TowerDefenseMode.MAP_HEIGHT);
-            double drawW = TowerDefenseMode.MAP_WIDTH * scale;
-            double drawH = TowerDefenseMode.MAP_HEIGHT * scale;
-            mapScale[0] = scale;
-            mapOffsetX[0] = (canvasW - drawW) * 0.5;
-            mapOffsetY[0] = (canvasH - drawH) * 0.5;
+            mapScaleX[0] = canvasW / TowerDefenseMode.MAP_WIDTH;
+            mapScaleY[0] = canvasH / TowerDefenseMode.MAP_HEIGHT;
+            mapOffsetX[0] = 0.0;
+            mapOffsetY[0] = 0.0;
             g.save();
             g.translate(mapOffsetX[0], mapOffsetY[0]);
-            g.scale(scale, scale);
+            g.scale(mapScaleX[0], mapScaleY[0]);
             mode.render(g, mouseX[0], mouseY[0]);
             g.restore();
         };
