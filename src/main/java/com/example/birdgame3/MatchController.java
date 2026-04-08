@@ -444,10 +444,6 @@ final class MatchController {
                     game.tournamentMatchResolved = true;
                 }
                 game.showMatchSummary(finalStage, finalWinner);
-                if (finalWinner != null && finalWinner.health < 20 && finalWinner.health > 0
-                        && !game.achievementsUnlocked[9]) {
-                    game.unlockAchievement(9, "CLUTCH GOD!");
-                }
             }
         }.start();
     }

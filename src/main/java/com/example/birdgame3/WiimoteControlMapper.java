@@ -42,13 +42,12 @@ final class WiimoteControlMapper {
     private long lastAttackTriggerNs = 0L;
     private long lastSpecialTriggerNs = 0L;
     private long lastBlockTriggerNs = 0L;
-    private boolean leftHeldStable = false;
-    private boolean rightHeldStable = false;
-    private int leftReleaseSamples = 0;
-    private int rightReleaseSamples = 0;
-    private final long[] nextMenuRepeatNs = new long[4];
-    private final boolean[] digitalHeldStable = new boolean[13];
-    private final int[] digitalReleaseSamples = new int[13];
+    private final OpposingDirectionStabilizer directionStabilizer =
+            new OpposingDirectionStabilizer(2, DIRECTION_RELEASE_DEBOUNCE_SAMPLES);
+    private final HeldDirectionRepeater menuDirectionRepeater =
+            new HeldDirectionRepeater(4, MENU_INITIAL_REPEAT_NS, MENU_REPEAT_NS);
+    private final DigitalHoldStabilizer digitalHoldStabilizer =
+            new DigitalHoldStabilizer(13, DIGITAL_RELEASE_DEBOUNCE_SAMPLES);
 
     void reset() {
         neutralRemote = new Vector3(0.0, 0.0, 1.0);
@@ -72,17 +71,9 @@ final class WiimoteControlMapper {
         lastAttackTriggerNs = 0L;
         lastSpecialTriggerNs = 0L;
         lastBlockTriggerNs = 0L;
-        leftHeldStable = false;
-        rightHeldStable = false;
-        leftReleaseSamples = 0;
-        rightReleaseSamples = 0;
-        for (int i = 0; i < nextMenuRepeatNs.length; i++) {
-            nextMenuRepeatNs[i] = 0L;
-        }
-        for (int i = 0; i < digitalHeldStable.length; i++) {
-            digitalHeldStable[i] = false;
-            digitalReleaseSamples[i] = 0;
-        }
+        directionStabilizer.reset();
+        menuDirectionRepeater.reset();
+        digitalHoldStabilizer.reset();
     }
 
     WiimoteMappedState map(WiimoteRawInput raw, WiimoteControlMode mode) {
@@ -186,8 +177,8 @@ final class WiimoteControlMapper {
             double stickX = centeredStickX(raw);
             boolean rawLeft = raw.dpadLeft() || stickX <= -MOVE_AXIS_THRESHOLD;
             boolean rawRight = raw.dpadRight() || stickX >= MOVE_AXIS_THRESHOLD;
-            left = debouncedDirection(rawLeft, rawRight, true);
-            right = debouncedDirection(rawRight, rawLeft, false);
+            left = directionStabilizer.stabilize(0, rawLeft, rawRight);
+            right = directionStabilizer.stabilize(1, rawRight, rawLeft);
             rawJumpHeld = raw.buttonC() || raw.dpadUp() || now < jumpPulseUntilNs || jumpGesture;
             rawBlockHeld = raw.buttonZ() || raw.dpadDown() || now < blockPulseUntilNs || blockGesture;
             rawAttackHeld = raw.buttonA() || now < attackPulseUntilNs || attackGesture;
@@ -204,18 +195,18 @@ final class WiimoteControlMapper {
             }
             boolean rawLeft = sidewaysLeftHeld(raw);
             boolean rawRight = sidewaysRightHeld(raw);
-            left = debouncedDirection(rawLeft, rawRight, true);
-            right = debouncedDirection(rawRight, rawLeft, false);
+            left = directionStabilizer.stabilize(0, rawLeft, rawRight);
+            right = directionStabilizer.stabilize(1, rawRight, rawLeft);
             rawJumpHeld = raw.buttonTwo() || sidewaysUpHeld(raw) || now < jumpPulseUntilNs;
             rawBlockHeld = sidewaysDownHeld(raw) || now < blockPulseUntilNs;
             rawAttackHeld = raw.buttonOne() || now < attackPulseUntilNs;
             rawSpecialHeld = now < specialPulseUntilNs || specialGesture;
         }
 
-        boolean rawMenuUp = stabilizedDigital(8, menuUpHeld(raw, mode));
-        boolean rawMenuDown = stabilizedDigital(9, menuDownHeld(raw, mode));
-        boolean rawMenuLeft = stabilizedDigital(10, menuLeftHeld(raw, mode));
-        boolean rawMenuRight = stabilizedDigital(11, menuRightHeld(raw, mode));
+        boolean rawMenuUp = digitalHoldStabilizer.stabilize(8, menuUpHeld(raw, mode));
+        boolean rawMenuDown = digitalHoldStabilizer.stabilize(9, menuDownHeld(raw, mode));
+        boolean rawMenuLeft = digitalHoldStabilizer.stabilize(10, menuLeftHeld(raw, mode));
+        boolean rawMenuRight = digitalHoldStabilizer.stabilize(11, menuRightHeld(raw, mode));
         boolean rawMenuSelectBase = mode == WiimoteControlMode.NUNCHUK
                 ? raw.buttonA() || raw.buttonC()
                 : raw.buttonOne() || raw.buttonTwo();
@@ -239,22 +230,22 @@ final class WiimoteControlMapper {
         if (edgePressed(previousMenuPause, rawMenuPauseBase)) {
             menuPausePulseUntilNs = now + INPUT_PULSE_NS;
         }
-        boolean rawMenuSelect = stabilizedDigital(5, rawMenuSelectBase);
-        boolean rawMenuBack = stabilizedDigital(6, rawMenuBackBase);
-        boolean rawMenuPause = stabilizedDigital(7, rawMenuPauseBase);
-        boolean menuUp = menuHold(menuUpHeld(previous, mode), rawMenuUp, now, 0);
-        boolean menuDown = menuHold(menuDownHeld(previous, mode), rawMenuDown, now, 1);
-        boolean menuLeft = menuHold(menuLeftHeld(previous, mode), rawMenuLeft, now, 2);
-        boolean menuRight = menuHold(menuRightHeld(previous, mode), rawMenuRight, now, 3);
+        boolean rawMenuSelect = digitalHoldStabilizer.stabilize(5, rawMenuSelectBase);
+        boolean rawMenuBack = digitalHoldStabilizer.stabilize(6, rawMenuBackBase);
+        boolean rawMenuPause = digitalHoldStabilizer.stabilize(7, rawMenuPauseBase);
+        boolean menuUp = menuDirectionRepeater.shouldTrigger(0, rawMenuUp, now);
+        boolean menuDown = menuDirectionRepeater.shouldTrigger(1, rawMenuDown, now);
+        boolean menuLeft = menuDirectionRepeater.shouldTrigger(2, rawMenuLeft, now);
+        boolean menuRight = menuDirectionRepeater.shouldTrigger(3, rawMenuRight, now);
         boolean menuSelect = rawMenuSelect || now < menuSelectPulseUntilNs;
         boolean menuBack = rawMenuBack || now < menuBackPulseUntilNs;
         boolean menuPause = rawMenuPause || now < menuPausePulseUntilNs;
-        boolean jump = stabilizedDigital(0, rawJumpHeld);
-        boolean attack = stabilizedDigital(1, rawAttackHeld);
-        boolean special = stabilizedDigital(2, rawSpecialHeld);
-        boolean block = stabilizedDigital(3, rawBlockHeld);
-        boolean tauntCycle = stabilizedDigital(4, rawTauntCycleHeld);
-        boolean tauntExecute = stabilizedDigital(5 + 7, rawTauntExecuteHeld);
+        boolean jump = digitalHoldStabilizer.stabilize(0, rawJumpHeld);
+        boolean attack = digitalHoldStabilizer.stabilize(1, rawAttackHeld);
+        boolean special = digitalHoldStabilizer.stabilize(2, rawSpecialHeld);
+        boolean block = digitalHoldStabilizer.stabilize(3, rawBlockHeld);
+        boolean tauntCycle = digitalHoldStabilizer.stabilize(4, rawTauntCycleHeld);
+        boolean tauntExecute = digitalHoldStabilizer.stabilize(5 + 7, rawTauntExecuteHeld);
 
         previous = raw;
         return new WiimoteMappedState(
@@ -287,70 +278,6 @@ final class WiimoteControlMapper {
 
     private boolean edgePressed(boolean previousDown, boolean currentDown) {
         return currentDown && !previousDown;
-    }
-
-    private boolean stabilizedDigital(int index, boolean currentlyHeld) {
-        if (index < 0 || index >= digitalHeldStable.length) {
-            return currentlyHeld;
-        }
-        if (currentlyHeld) {
-            digitalHeldStable[index] = true;
-            digitalReleaseSamples[index] = 0;
-            return true;
-        }
-        if (!digitalHeldStable[index]) {
-            return false;
-        }
-        digitalReleaseSamples[index]++;
-        if (digitalReleaseSamples[index] >= DIGITAL_RELEASE_DEBOUNCE_SAMPLES) {
-            digitalHeldStable[index] = false;
-            digitalReleaseSamples[index] = 0;
-            return false;
-        }
-        return true;
-    }
-
-    private boolean debouncedDirection(boolean directionHeld, boolean oppositeHeld, boolean leftDirection) {
-        boolean stableHeld = leftDirection ? leftHeldStable : rightHeldStable;
-        if (directionHeld) {
-            if (leftDirection) {
-                leftHeldStable = true;
-                leftReleaseSamples = 0;
-            } else {
-                rightHeldStable = true;
-                rightReleaseSamples = 0;
-            }
-            return true;
-        }
-        if (oppositeHeld) {
-            if (leftDirection) {
-                leftHeldStable = false;
-                leftReleaseSamples = 0;
-            } else {
-                rightHeldStable = false;
-                rightReleaseSamples = 0;
-            }
-            return false;
-        }
-        if (!stableHeld) {
-            return false;
-        }
-        if (leftDirection) {
-            leftReleaseSamples++;
-            if (leftReleaseSamples >= DIRECTION_RELEASE_DEBOUNCE_SAMPLES) {
-                leftHeldStable = false;
-                leftReleaseSamples = 0;
-                return false;
-            }
-        } else {
-            rightReleaseSamples++;
-            if (rightReleaseSamples >= DIRECTION_RELEASE_DEBOUNCE_SAMPLES) {
-                rightHeldStable = false;
-                rightReleaseSamples = 0;
-                return false;
-            }
-        }
-        return true;
     }
 
     private void updateNeutralSamples(WiimoteRawInput raw) {
@@ -448,22 +375,6 @@ final class WiimoteControlMapper {
             case NUNCHUK -> raw.dpadRight() || centeredStickX(raw) >= MENU_AXIS_THRESHOLD;
             case OFF -> false;
         };
-    }
-
-    private boolean menuHold(boolean previousHeld, boolean currentHeld, long now, int index) {
-        if (!currentHeld) {
-            nextMenuRepeatNs[index] = 0L;
-            return false;
-        }
-        if (!previousHeld) {
-            nextMenuRepeatNs[index] = now + MENU_INITIAL_REPEAT_NS;
-            return true;
-        }
-        if (now >= nextMenuRepeatNs[index]) {
-            nextMenuRepeatNs[index] = now + MENU_REPEAT_NS;
-            return true;
-        }
-        return false;
     }
 
     private double centeredStickX(WiimoteRawInput raw) {

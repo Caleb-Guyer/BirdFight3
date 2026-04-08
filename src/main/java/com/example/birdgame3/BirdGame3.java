@@ -155,7 +155,8 @@ public class BirdGame3 extends Application {
     private static final double NULL_ROCK_TRUE_FORM_SPEED = 1.04;
     private static final double NULL_ROCK_TRUE_FORM_SIZE = 3.6;
     private static final int MAX_COMBATANTS = 24;
-    private static final char[] NULL_ROCK_SELECTOR_SEQUENCE = {'U', 'U', 'D', 'D', 'L', 'R'};
+    private static final DirectionalSecretCode NULL_ROCK_SELECTOR_CODE =
+            new DirectionalSecretCode('U', 'U', 'D', 'D', 'L', 'R');
     private static final double BOSS_HEALTH_EASE_FACTOR = 0.94;
     private static final double BOSS_POWER_EASE_FACTOR = 0.97;
     private static final double BOSS_SPEED_EASE_FACTOR = 0.98;
@@ -171,25 +172,6 @@ public class BirdGame3 extends Application {
     private static final String PREF_BIRD_COINS_EARNED = "bird_coins_earned";
     private static final String PREF_BIRD_COINS_SPENT = "bird_coins_spent";
     private static final String PREF_BIRD_COINS_CHECKSUM = "bird_coins_checksum";
-    private static final String PREF_ACHIEVEMENT_SCHEMA_VERSION = "achievement_schema_version";
-    private static final String PREF_MATCH_HISTORY_COUNT = "match_history_count";
-    private static final String PREF_MATCH_HISTORY_PREFIX = "match_history_entry_";
-    private static final String PREF_DAILY_CHALLENGE_BEST_KEY = "daily_challenge_best_key";
-    private static final String PREF_DAILY_CHALLENGE_BEST_PROGRESS = "daily_challenge_best_progress";
-    private static final String PREF_DAILY_CHALLENGE_BEST_BIRD = "daily_challenge_best_bird";
-    private static final String PREF_DAILY_CHALLENGE_BONUS_KEY = "daily_challenge_bonus_key";
-    private static final String PREF_DAILY_CHALLENGE_BONUS_BIRD = "daily_challenge_bonus_bird";
-    private static final String PREF_BOSS_RUSH_BEST_TIME = "boss_rush_best_time";
-    private static final String PREF_BOSS_RUSH_BEST_BIRD = "boss_rush_best_bird";
-    private static final String PREF_BOSS_RUSH_BEST_RANK = "boss_rush_best_rank";
-    private static final String PREF_BOSS_RUSH_CLEAR_COUNT = "boss_rush_clear_count";
-    private static final String PREF_BOSS_RUSH_BEST_TIME_PREFIX = "boss_rush_best_time_";
-    private static final String PREF_BOSS_RUSH_BEST_RANK_PREFIX = "boss_rush_best_rank_";
-    private static final String PREF_BOSS_RUSH_PERFECT_PREFIX = "boss_rush_perfect_";
-    private static final String PREF_TOURNAMENT_CHAMPIONSHIPS = "tournament_championships";
-    private static final String PREF_SETTING_MUSIC_VOLUME = "setting_music_volume";
-    private static final String PREF_SETTING_SFX_VOLUME = "setting_sfx_volume";
-    private static final String PREF_WIIMOTE_MODE_PREFIX = "setting_wiimote_mode_p";
     private static final int ACHIEVEMENT_SCHEMA_VERSION = 2;
     private static final String SCENE_PROP_WIIMOTE_SELECTOR = "wiimote_selector_scene";
     private static final String SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS = "wiimote_selector_players";
@@ -400,8 +382,8 @@ public class BirdGame3 extends Application {
     private boolean wiimoteMenuBackHeld = false;
     private boolean wiimoteMenuPauseHeld = false;
     private final boolean[] wiimoteMenuDirectionHeld = new boolean[4];
-    private final boolean[] wiimotePauseMenuDirectionHeld = new boolean[4];
-    private final long[] wiimotePauseMenuNextRepeatNs = new long[4];
+    private final HeldDirectionRepeater wiimotePauseMenuDirectionRepeater =
+            new HeldDirectionRepeater(4, 260_000_000L, 135_000_000L);
     private long wiimoteMenuPointerLastNs = 0L;
     private double wiimoteMenuPointerSceneX = WIDTH / 2.0;
     private double wiimoteMenuPointerSceneY = HEIGHT / 2.0;
@@ -551,6 +533,10 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private static final String[] CONTROL_ACTION_PREF_KEYS = Arrays.stream(ControlAction.values())
+            .map(action -> action.prefKey)
+            .toArray(String[]::new);
+
     private Node controllerGlyphHint(String glyph, String glyphColor, String text) {
         StackPane badge = new StackPane();
         double badgeWidth = glyph != null && glyph.length() > 1 ? Math.max(54.0, glyph.length() * 12.0 + 18.0) : 34.0;
@@ -678,6 +664,11 @@ public class BirdGame3 extends Application {
     private int fpsCap = 60;
     private final FrameRateLimiter frameRateLimiter = new FrameRateLimiter();
     private final MatchController matchController = new MatchController(this);
+    private final BirdGame3ProgressionService progressionService = new BirdGame3ProgressionService();
+    private final BirdGame3AchievementEvaluator achievementEvaluator =
+            new BirdGame3AchievementEvaluator(this, progressionService);
+    private final BirdGame3ProfileProgressController profileProgressController =
+            new BirdGame3ProfileProgressController(this, progressionService);
     private final KeyCode[][] playerKeyBindings = createDefaultControlBindings();
     private static final int[] FPS_CAPS = new int[]{30, 60, 90, 120, 144, 0};
 
@@ -1008,30 +999,22 @@ public class BirdGame3 extends Application {
         return 0;
     }
 
-    private int advanceNullRockSelectorProgress(int progress, char direction) {
-        if (direction == 0) return 0;
-        int safeProgress = Math.clamp(progress, 0, NULL_ROCK_SELECTOR_SEQUENCE.length);
-        if (safeProgress < NULL_ROCK_SELECTOR_SEQUENCE.length
-                && NULL_ROCK_SELECTOR_SEQUENCE[safeProgress] == direction) {
-            return safeProgress + 1;
-        }
-        return NULL_ROCK_SELECTOR_SEQUENCE[0] == direction ? 1 : 0;
-    }
-
     private boolean advanceLockedNullRockSelectorSecret(int idx,
                                                         char direction,
                                                         boolean[] selectorLocked,
                                                         Runnable updateSlot,
                                                         int[] progressByPlayer) {
         if (progressByPlayer == null || idx < 0 || idx >= progressByPlayer.length) return false;
-        if (!canUseLocalNullRockSelectorSecret(idx, selectorLocked)) {
-            progressByPlayer[idx] = 0;
+        DirectionalSecretCode.StepResult result = NULL_ROCK_SELECTOR_CODE.advance(
+                progressByPlayer[idx],
+                direction,
+                canUseLocalNullRockSelectorSecret(idx, selectorLocked)
+        );
+        progressByPlayer[idx] = result.nextProgress();
+        if (!result.consumed()) {
             return false;
         }
-        if (direction == 0) return false;
-        progressByPlayer[idx] = advanceNullRockSelectorProgress(progressByPlayer[idx], direction);
-        if (progressByPlayer[idx] >= NULL_ROCK_SELECTOR_SEQUENCE.length) {
-            progressByPlayer[idx] = 0;
+        if (result.complete()) {
             if (!NULL_ROCK_VULTURE_SKIN.equals(fightSelectedSkinKeys[idx])) {
                 fightSelectedSkinKeys[idx] = NULL_ROCK_VULTURE_SKIN;
                 if (updateSlot != null) updateSlot.run();
@@ -1565,24 +1548,7 @@ public class BirdGame3 extends Application {
     }
 
     private boolean shouldTriggerPauseMenuDirection(int index, boolean held, long now) {
-        if (index < 0 || index >= wiimotePauseMenuDirectionHeld.length) {
-            return false;
-        }
-        if (!held) {
-            wiimotePauseMenuDirectionHeld[index] = false;
-            wiimotePauseMenuNextRepeatNs[index] = 0L;
-            return false;
-        }
-        if (!wiimotePauseMenuDirectionHeld[index]) {
-            wiimotePauseMenuDirectionHeld[index] = true;
-            wiimotePauseMenuNextRepeatNs[index] = now + 260_000_000L;
-            return true;
-        }
-        if (now >= wiimotePauseMenuNextRepeatNs[index]) {
-            wiimotePauseMenuNextRepeatNs[index] = now + 135_000_000L;
-            return true;
-        }
-        return false;
+        return wiimotePauseMenuDirectionRepeater.shouldTrigger(index, held, now);
     }
 
     private boolean pollWiimoteMenuPointer(Scene scene, WiimoteMappedState state) {
@@ -2108,8 +2074,7 @@ public class BirdGame3 extends Application {
     }
 
     private void resetWiimotePauseMenuHeldState() {
-        Arrays.fill(wiimotePauseMenuDirectionHeld, false);
-        Arrays.fill(wiimotePauseMenuNextRepeatNs, 0L);
+        wiimotePauseMenuDirectionRepeater.reset();
     }
 
     private void resetWiimoteSelectorHeldState() {
@@ -2998,16 +2963,14 @@ public class BirdGame3 extends Application {
         applyDefaultControlBindings(playerKeyBindings);
     }
 
-    private String controlPrefKey(int playerIdx, ControlAction action) {
-        return "bind_p" + (playerIdx + 1) + "_" + action.prefKey;
-    }
-
-    private void loadControlBindings(Preferences prefs) {
+    private void applyControlBindingNames(String[][] bindingNames) {
         resetControlBindingsToDefaults();
-        if (prefs == null) return;
+        if (bindingNames == null) return;
         for (int playerIdx = 0; playerIdx < playerKeyBindings.length; playerIdx++) {
             for (ControlAction action : ControlAction.values()) {
-                String raw = prefs.get(controlPrefKey(playerIdx, action), null);
+                String raw = playerIdx < bindingNames.length && action.ordinal() < bindingNames[playerIdx].length
+                        ? bindingNames[playerIdx][action.ordinal()]
+                        : null;
                 if (raw == null || raw.isBlank()) continue;
                 try {
                     KeyCode loaded = KeyCode.valueOf(raw);
@@ -3020,17 +2983,14 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private void saveControlBindings(Preferences prefs) {
-        if (prefs == null) return;
+    private String[][] captureControlBindingNames() {
+        String[][] bindingNames = new String[playerKeyBindings.length][ControlAction.values().length];
         for (int playerIdx = 0; playerIdx < playerKeyBindings.length; playerIdx++) {
             for (ControlAction action : ControlAction.values()) {
-                prefs.put(controlPrefKey(playerIdx, action), keyForPlayer(playerIdx, action).name());
+                bindingNames[playerIdx][action.ordinal()] = keyForPlayer(playerIdx, action).name();
             }
         }
-    }
-
-    private String wiimotePrefKey(int playerIdx) {
-        return PREF_WIIMOTE_MODE_PREFIX + (playerIdx + 1);
+        return bindingNames;
     }
 
     WiimoteControlMode wiimoteModeForPlayer(int playerIdx) {
@@ -3050,20 +3010,22 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private void loadWiimoteModes(Preferences prefs) {
+    private void applyWiimoteModeNames(String[] wiimoteModeNames) {
         for (int playerIdx = 0; playerIdx < wiimoteModes.length; playerIdx++) {
-            WiimoteControlMode loaded = prefs == null
-                    ? WiimoteControlMode.OFF
-                    : WiimoteControlMode.fromPreference(prefs.get(wiimotePrefKey(playerIdx), WiimoteControlMode.OFF.name()));
+            String modeName = wiimoteModeNames != null && playerIdx < wiimoteModeNames.length
+                    ? wiimoteModeNames[playerIdx]
+                    : WiimoteControlMode.OFF.name();
+            WiimoteControlMode loaded = WiimoteControlMode.fromPreference(modeName);
             setWiimoteModeForPlayer(playerIdx, loaded);
         }
     }
 
-    private void saveWiimoteModes(Preferences prefs) {
-        if (prefs == null) return;
+    private String[] captureWiimoteModeNames() {
+        String[] modeNames = new String[wiimoteModes.length];
         for (int playerIdx = 0; playerIdx < wiimoteModes.length; playerIdx++) {
-            prefs.put(wiimotePrefKey(playerIdx), wiimoteModeForPlayer(playerIdx).name());
+            modeNames[playerIdx] = wiimoteModeForPlayer(playerIdx).name();
         }
+        return modeNames;
     }
 
     private void syncWiimoteModesToManager() {
@@ -3071,6 +3033,41 @@ public class BirdGame3 extends Application {
         for (int playerIdx = 0; playerIdx < wiimoteModes.length; playerIdx++) {
             wiimoteInputManager.setPlayerMode(playerIdx, wiimoteModes[playerIdx]);
         }
+    }
+
+    private BirdGame3GlobalSettingsState captureGlobalSettingsState() {
+        BirdGame3GlobalSettingsState state = new BirdGame3GlobalSettingsState();
+        state.controlBindingNames = captureControlBindingNames();
+        state.wiimoteModeNames = captureWiimoteModeNames();
+        state.lanLastHost = lanLastHost;
+        state.musicEnabled = musicEnabled;
+        state.sfxEnabled = sfxEnabled;
+        state.musicVolume = musicVolume;
+        state.sfxVolume = sfxVolume;
+        state.screenShakeEnabled = screenShakeEnabled;
+        state.fullscreenEnabled = fullscreenEnabled;
+        state.particleEffectsEnabled = particleEffectsEnabled;
+        state.ambientEffectsEnabled = ambientEffectsEnabled;
+        state.fpsCap = fpsCap;
+        return state;
+    }
+
+    private void applyGlobalSettingsState(BirdGame3GlobalSettingsState state) {
+        BirdGame3GlobalSettingsState resolved = state == null ? new BirdGame3GlobalSettingsState() : state;
+        applyControlBindingNames(resolved.controlBindingNames);
+        applyWiimoteModeNames(resolved.wiimoteModeNames);
+        lanLastHost = resolved.lanLastHost;
+        musicEnabled = resolved.musicEnabled;
+        sfxEnabled = resolved.sfxEnabled;
+        musicVolume = sanitizeVolume(resolved.musicVolume);
+        sfxVolume = sanitizeVolume(resolved.sfxVolume);
+        musicEnabled = !isMutedVolume(musicVolume);
+        sfxEnabled = !isMutedVolume(sfxVolume);
+        screenShakeEnabled = resolved.screenShakeEnabled;
+        fullscreenEnabled = resolved.fullscreenEnabled;
+        particleEffectsEnabled = resolved.particleEffectsEnabled;
+        ambientEffectsEnabled = resolved.ambientEffectsEnabled;
+        fpsCap = sanitizeFpsCap(resolved.fpsCap);
     }
 
     private boolean isReservedBindingKey(KeyCode code) {
@@ -3314,69 +3311,9 @@ public class BirdGame3 extends Application {
             vaseBreakingClip, cherrybombClip, steamAchievementClip;
     public MediaPlayer musicPlayer, menuMusicPlayer, victoryMusicPlayer;
 
-    public static final String[] ACHIEVEMENT_NAMES = {
-            "First Blood", "Dominator", "Annihilator", "Turkey Slam Master", "Lean God", "Lounge Lizard",
-            "Power-Up Hoarder", "Fall Guy", "Taunt Lord", "Clutch God",
-            "Rooftop Runner", "Neon Addict", "Urban King",
-            "Thermal Rider", "Cliff Diver", "Sky Emperor",
-            "Vine Swinger", "Canopy King", "Pelican King",
-            "Classic Crest", "Echoes Below", "Story Keeper",
-            "Boss Breaker", "Crown Unbroken", "Grove Sentinel",
-            "Rooftop Legacy", "Echo Sovereign", "Iron Tempest",
-            "Blight Buster", "Bracket Boss"
-    };
-
-    public static final String[] ACHIEVEMENT_DESCRIPTIONS = {
-            "Get your first elimination in a match",
-            "Eliminate 3 opponents in one match (max possible in 4-player)",
-            "Eliminate all other opponents in one match",
-            "Perform 3 ground pounds in one match (Turkey only)",
-            "Spend a total of 30 seconds inside your lean cloud (Opium Bird only)",
-            "Heal a total of 100 HP inside the lounge (Mockingbird only)",
-            "Pick up 10 power-ups in one match",
-            "Fall off the bottom of the map 3 times",
-            "Perform 10 taunts in total",
-            "Win a match with less than 20 HP remaining",
-            "Perform 20 high jumps on rooftops in the City map",
-            "Pick up 8 Neon Boost power-ups across matches",
-            "Win 5 matches on Pigeon's Rooftops",
-            "Pick up 10 Thermal Rise power-ups across matches",
-            "Perform 15 jumps from the highest cliffs (Sky Cliffs map)",
-            "Win 5 matches on Sky Cliffs",
-            "Pick up 8 Vine Grapple power-ups across matches",
-            "Win 5 matches on Vibrant Jungle",
-            "Pelican Plunge 15 enemies across matches",
-            "Complete Classic mode with any bird",
-            "Complete Adventure Chapter 2: Echoes Below",
-            "Complete all Adventure chapters",
-            "Clear Boss Rush once",
-            "Clear the Boss Rush EX route",
-            "Earn any Tower Defense badge",
-            "Complete the Pigeon Episode",
-            "Complete the Bat Episode",
-            "Complete the Pelican Episode",
-            "Earn every Big Forest Tower Defense badge",
-            "Win a Tournament as a human entrant"
-    };
-
-    public static final int ACHIEVEMENT_COUNT = ACHIEVEMENT_NAMES.length;
-    public boolean[] achievementsUnlocked = new boolean[ACHIEVEMENT_COUNT];
-    public int[] achievementProgress = new int[ACHIEVEMENT_COUNT]; // for tracking partial progress
-    public boolean[] achievementRewardsClaimed = new boolean[ACHIEVEMENT_COUNT];
-
-    private enum AchievementCategory {
-        COMBAT("Combat"),
-        BIRD("Bird"),
-        MAP("Maps"),
-        MODE("Modes"),
-        STORY("Story");
-
-        final String label;
-
-        AchievementCategory(String label) {
-            this.label = label;
-        }
-    }
+    public static final String[] ACHIEVEMENT_DESCRIPTIONS = BirdGame3Achievement.descriptions();
+    public static final int ACHIEVEMENT_COUNT = BirdGame3Achievement.count();
+    private final BirdGame3AchievementProfile achievementProfile = new BirdGame3AchievementProfile();
 
     private record AchievementReward(String key, BirdType birdType, int amount, int duplicateCoins) {
         static AchievementReward coins(int amount) {
@@ -7133,10 +7070,52 @@ public class BirdGame3 extends Application {
         else pigeonEpisodeUnlockedChapters = value;
     }
 
-    private void setEpisodeCompleted(EpisodeType ep) {
-        if (ep == EpisodeType.BAT) batEpisodeCompleted = true;
-        else if (ep == EpisodeType.PELICAN) pelicanEpisodeCompleted = true;
-        else pigeonEpisodeCompleted = true;
+    boolean isEpisodeCompletedForBird(BirdType type) {
+        if (type == BirdType.BAT) {
+            return batEpisodeCompleted;
+        }
+        if (type == BirdType.PELICAN) {
+            return pelicanEpisodeCompleted;
+        }
+        return type == BirdType.PIGEON && pigeonEpisodeCompleted;
+    }
+
+    void setEpisodeCompletedForBird(BirdType type) {
+        if (type == BirdType.BAT) {
+            batEpisodeCompleted = true;
+            return;
+        }
+        if (type == BirdType.PELICAN) {
+            pelicanEpisodeCompleted = true;
+            return;
+        }
+        if (type == BirdType.PIGEON) {
+            pigeonEpisodeCompleted = true;
+        }
+    }
+
+    int episodeChapterCountForBird(BirdType type) {
+        if (type == BirdType.BAT) {
+            return batStoryChapters.length;
+        }
+        if (type == BirdType.PELICAN) {
+            return pelicanStoryChapters.length;
+        }
+        return type == BirdType.PIGEON ? storyChapters.length : 0;
+    }
+
+    void setEpisodeUnlockedChaptersForBird(BirdType type, int value) {
+        if (type == BirdType.BAT) {
+            batEpisodeUnlockedChapters = Math.clamp(value, 1, batStoryChapters.length);
+            return;
+        }
+        if (type == BirdType.PELICAN) {
+            pelicanEpisodeUnlockedChapters = Math.clamp(value, 1, pelicanStoryChapters.length);
+            return;
+        }
+        if (type == BirdType.PIGEON) {
+            pigeonEpisodeUnlockedChapters = Math.clamp(value, 1, storyChapters.length);
+        }
     }
 
     private String episodeBriefing(EpisodeType ep) {
@@ -7754,7 +7733,18 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private void setAdventureBirdUnlocked(BirdType type) {
+    boolean isAdventureBirdAvailableForCurrentRoute(BirdType type) {
+        if (type == null) {
+            return true;
+        }
+        ensureAdventureRouteState(selectedAdventureRoute);
+        return adventureUnlocked[type.ordinal()];
+    }
+
+    void unlockAdventureBirdForCurrentRoute(BirdType type) {
+        if (type == null) {
+            return;
+        }
         setAdventureBirdUnlocked(selectedAdventureRoute, type, true);
     }
 
@@ -8378,15 +8368,78 @@ public class BirdGame3 extends Application {
         return BirdType.PIGEON;
     }
 
+    BirdGame3Achievement achievementForIndex(int index) {
+        return BirdGame3Achievement.fromLegacyIndex(index);
+    }
+
+    boolean isAchievementUnlocked(int index) {
+        return achievementProfile.isUnlocked(index);
+    }
+
+    boolean isAchievementUnlocked(BirdGame3Achievement achievement) {
+        return achievementProfile.isUnlocked(achievement);
+    }
+
+    void setAchievementUnlocked(int index) {
+        achievementProfile.setUnlocked(index, true);
+    }
+
+    void setAchievementUnlocked(BirdGame3Achievement achievement, boolean unlocked) {
+        achievementProfile.setUnlocked(achievement, unlocked);
+    }
+
+    BirdGame3AchievementProfile achievementProfileState() {
+        return achievementProfile;
+    }
+
+    int achievementProgressValue(BirdGame3Achievement achievement) {
+        return achievementProfile.progress(achievement);
+    }
+
+    void setAchievementProgressValue(BirdGame3Achievement achievement, int progress) {
+        achievementProfile.setProgress(achievement, progress);
+    }
+
+    void maxAchievementProgress(BirdGame3Achievement achievement, int progress) {
+        achievementProfile.maxProgress(achievement, progress);
+    }
+
+    int incrementAchievementProgress(int index) {
+        return achievementProfile.addProgress(index, 1);
+    }
+
+    int addAchievementProgress(int index, int delta) {
+        return achievementProfile.addProgress(index, delta);
+    }
+
+    int incrementPowerUpPickupMatchCount(int playerIndex) {
+        if (playerIndex < 0 || playerIndex >= powerUpsCollectedMatch.length) {
+            return 0;
+        }
+        return ++powerUpsCollectedMatch[playerIndex];
+    }
+
+    boolean isAchievementRewardClaimed(int index) {
+        return achievementProfile.isRewardClaimed(index);
+    }
+
+    void setAchievementRewardClaimed(int index) {
+        achievementProfile.setRewardClaimed(index, true);
+    }
+
+    void setAchievementRewardClaimed(BirdGame3Achievement achievement) {
+        achievementProfile.setRewardClaimed(achievement, false);
+    }
+
     public void unlockAchievement(int index, String title) {
-        if (index < 0 || index >= achievementsUnlocked.length) {
+        if (index < 0 || index >= ACHIEVEMENT_COUNT) {
             return;
         }
-        if (achievementsUnlocked[index]) {
+        if (isAchievementUnlocked(index)) {
             return;
         }
         String safeTitle = sanitizeAchievementText(title == null || title.isBlank() ? "NEW ACHIEVEMENT" : title);
-        achievementsUnlocked[index] = true;
+        setAchievementUnlocked(index);
         enqueueAchievementToast(index, safeTitle);
         tryShowQueuedAchievementToast();
         playAchievementSfx();
@@ -8394,6 +8447,13 @@ public class BirdGame3 extends Application {
         shakeIntensity = 30;
         hitstopFrames = 20;
         saveAchievements();
+    }
+
+    void unlockAchievement(BirdGame3Achievement achievement, String title) {
+        if (achievement == null) {
+            return;
+        }
+        unlockAchievement(achievement.legacyIndex, title);
     }
 
     private void enqueueAchievementToast(int index, String title) {
@@ -16699,9 +16759,7 @@ public class BirdGame3 extends Application {
                 next.b = winner;
             }
         } else if (winner.human) {
-            tournamentChampionshipsWon++;
-            refreshModeAchievementUnlocks();
-            saveAchievements();
+            profileProgressController.onTournamentChampionshipWon(this::refreshModeAchievementUnlocks);
         }
     }
 
@@ -20134,19 +20192,31 @@ public class BirdGame3 extends Application {
         back.requestFocus();
     }
 
-    private void queueUnlockCardForBird(BirdType type) {
+    void queueBirdUnlockCard(BirdType type) {
         if (type == null) return;
         pendingUnlockCards.add(UnlockCard.bird(type));
     }
 
-    private void queueUnlockCardForSkin(BirdType bird, String key) {
+    void queueSkinUnlockCard(BirdType bird, String key) {
         if (bird == null || key == null) return;
         pendingUnlockCards.add(UnlockCard.skin(bird, key));
     }
 
-    private void queueUnlockCardForMap(MapType map) {
+    void queueMapUnlockCard(MapType map) {
         if (map == null) return;
         pendingUnlockCards.add(UnlockCard.map(map));
+    }
+
+    private void queueUnlockCardForBird(BirdType type) {
+        queueBirdUnlockCard(type);
+    }
+
+    private void queueUnlockCardForSkin(BirdType bird, String key) {
+        queueSkinUnlockCard(bird, key);
+    }
+
+    private void queueUnlockCardForMap(MapType map) {
+        queueMapUnlockCard(map);
     }
 
     private void runAfterUnlockCards(Stage stage, Runnable onComplete) {
@@ -22690,11 +22760,7 @@ public class BirdGame3 extends Application {
             return;
         }
 
-        if (battle.unlockReward != null && isAdventureBirdUnlocked(battle.unlockReward)) {
-            setAdventureBirdUnlocked(battle.unlockReward);
-            queueUnlockCardForBird(battle.unlockReward);
-            saveAchievements();
-        }
+        profileProgressController.applyAdventureBattleUnlock(battle.unlockReward);
 
         boolean chapterJustCompleted = false;
         if (!adventureReplayMode && adventureBattleIndex >= adventureChapterProgress) {
@@ -22712,40 +22778,19 @@ public class BirdGame3 extends Application {
             saveAchievements();
             checkAdventureAchievements();
         }
-        if (chapterJustCompleted && selectedAdventureRoute == AdventureRoute.MAIN
-                && adventureChapterIndex == beaconChapterIndex() && !beaconPigeonUnlocked) {
-            beaconPigeonUnlocked = true;
-            queueUnlockCardForSkin(BirdType.PIGEON, BEACON_PIGEON_SKIN);
-            saveAchievements();
-        }
-        if (chapterJustCompleted && selectedAdventureRoute == AdventureRoute.MAIN
-                && adventureChapterIndex == unitedFinaleChapterIndex() && !nullRockVultureUnlocked) {
-            nullRockVultureUnlocked = true;
-            queueUnlockCardForSkin(BirdType.VULTURE, NULL_ROCK_VULTURE_SKIN);
-            saveAchievements();
-        }
-        if (chapterJustCompleted && selectedAdventureRoute == AdventureRoute.MAIN
-                && adventureChapterIndex == unitedFinaleChapterIndex() && !beaconCrownMapUnlocked) {
-            beaconCrownMapUnlocked = true;
-            queueUnlockCardForMap(MapType.BEACON_CROWN);
-            saveAchievements();
-        }
-        if (chapterJustCompleted && selectedAdventureRoute == AdventureRoute.TEMPEST
-                && adventureChapterIndex == chaptersForAdventureRoute(AdventureRoute.TEMPEST).length - 1) {
-            boolean unlockedAnyReward = false;
-            if (!ironcladPelicanUnlocked) {
-                ironcladPelicanUnlocked = true;
-                queueUnlockCardForSkin(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN);
-                unlockedAnyReward = true;
-            }
-            if (!dockMapUnlocked) {
-                dockMapUnlocked = true;
-                queueUnlockCardForMap(MapType.DOCK);
-                unlockedAnyReward = true;
-            }
-            if (unlockedAnyReward) {
-                saveAchievements();
-            }
+        if (chapterJustCompleted) {
+            profileProgressController.onAdventureChapterCompleted(
+                    selectedAdventureRoute == AdventureRoute.TEMPEST,
+                    adventureChapterIndex,
+                    beaconChapterIndex(),
+                    unitedFinaleChapterIndex(),
+                    chaptersForAdventureRoute(AdventureRoute.TEMPEST).length - 1,
+                    beaconPigeonUnlocked,
+                    nullRockVultureUnlocked,
+                    beaconCrownMapUnlocked,
+                    ironcladPelicanUnlocked,
+                    dockMapUnlocked
+            );
         }
 
         Runnable afterWin = () -> {
@@ -23560,9 +23605,16 @@ public class BirdGame3 extends Application {
         audioTab.requestFocus();
     }
 
-    private boolean isClassicCompleted(BirdType type) {
+    boolean isClassicCompleted(BirdType type) {
         if (type == null) return false;
         return classicCompleted[type.ordinal()];
+    }
+
+    void setClassicCompleted(BirdType type) {
+        if (type == null) {
+            return;
+        }
+        classicCompleted[type.ordinal()] = true;
     }
 
     boolean shouldShowClassicSelectBadge(BirdType type, boolean bossRush) {
@@ -23643,27 +23695,17 @@ public class BirdGame3 extends Application {
         return TowerDefenseMode.Difficulty.values().length;
     }
 
-    private void syncModeAchievementMilestones() {
-        achievementProgress[22] = Math.max(achievementProgress[22], bossRushClearCount);
-        achievementProgress[24] = Math.max(achievementProgress[24], countTowerDefenseBadges() > 0 ? 1 : 0);
-        achievementProgress[25] = Math.max(achievementProgress[25], pigeonEpisodeCompleted ? 1 : 0);
-        achievementProgress[26] = Math.max(achievementProgress[26], batEpisodeCompleted ? 1 : 0);
-        achievementProgress[27] = Math.max(achievementProgress[27], pelicanEpisodeCompleted ? 1 : 0);
-        achievementProgress[28] = Math.max(achievementProgress[28], countBigForestTowerDefenseBadges());
-        achievementProgress[29] = Math.max(achievementProgress[29], tournamentChampionshipsWon > 0 ? 1 : 0);
-    }
-
     private void refreshModeAchievementUnlocks() {
-        syncModeAchievementMilestones();
-        if (achievementProgress[24] >= 1 && !achievementsUnlocked[24]) {
-            unlockAchievement(24, "GROVE SENTINEL!");
-        }
-        if (achievementProgress[28] >= bigForestTowerDefenseBadgeGoal() && !achievementsUnlocked[28]) {
-            unlockAchievement(28, "BLIGHT BUSTER!");
-        }
-        if (achievementProgress[29] >= 1 && !achievementsUnlocked[29]) {
-            unlockAchievement(29, "BRACKET BOSS!");
-        }
+        achievementEvaluator.refreshModeAchievementUnlocks(
+                bossRushClearCount,
+                countTowerDefenseBadges(),
+                pigeonEpisodeCompleted,
+                batEpisodeCompleted,
+                pelicanEpisodeCompleted,
+                countBigForestTowerDefenseBadges(),
+                bigForestTowerDefenseBadgeGoal(),
+                tournamentChampionshipsWon
+        );
     }
 
     private String towerDefenseMapDescription() {
@@ -23699,6 +23741,90 @@ public class BirdGame3 extends Application {
         if (type == BirdType.PIGEON) return noirPigeonUnlocked;
         if (type == BirdType.EAGLE) return eagleSkinUnlocked;
         return classicSkinUnlocked[type.ordinal()];
+    }
+
+    boolean isNoirPigeonUnlocked() {
+        return noirPigeonUnlocked;
+    }
+
+    void setNoirPigeonUnlocked() {
+        noirPigeonUnlocked = true;
+    }
+
+    void setEagleSkinUnlocked() {
+        eagleSkinUnlocked = true;
+    }
+
+    boolean isTitmouseUnlocked() {
+        return titmouseUnlocked;
+    }
+
+    void setTitmouseUnlocked() {
+        titmouseUnlocked = true;
+    }
+
+    void setBatUnlocked() {
+        batUnlocked = true;
+    }
+
+    void setClassicSkinUnlocked(BirdType type, boolean unlocked) {
+        if (type == null) {
+            return;
+        }
+        classicSkinUnlocked[type.ordinal()] = unlocked;
+    }
+
+    boolean unlockBeaconPigeonReward() {
+        if (beaconPigeonUnlocked) {
+            return false;
+        }
+        beaconPigeonUnlocked = true;
+        queueSkinUnlockCard(BirdType.PIGEON, BEACON_PIGEON_SKIN);
+        return true;
+    }
+
+    boolean unlockNullRockVultureReward(boolean queueCard) {
+        if (nullRockVultureUnlocked) {
+            return false;
+        }
+        nullRockVultureUnlocked = true;
+        if (queueCard) {
+            queueSkinUnlockCard(BirdType.VULTURE, NULL_ROCK_VULTURE_SKIN);
+        }
+        return true;
+    }
+
+    boolean unlockBeaconCrownMapReward(boolean queueCard) {
+        if (beaconCrownMapUnlocked) {
+            return false;
+        }
+        beaconCrownMapUnlocked = true;
+        if (queueCard) {
+            queueMapUnlockCard(MapType.BEACON_CROWN);
+        }
+        return true;
+    }
+
+    boolean unlockIroncladPelicanReward(boolean queueCard) {
+        if (ironcladPelicanUnlocked) {
+            return false;
+        }
+        ironcladPelicanUnlocked = true;
+        if (queueCard) {
+            queueSkinUnlockCard(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN);
+        }
+        return true;
+    }
+
+    boolean unlockDockMapReward(boolean queueCard) {
+        if (dockMapUnlocked) {
+            return false;
+        }
+        dockMapUnlocked = true;
+        if (queueCard) {
+            queueMapUnlockCard(MapType.DOCK);
+        }
+        return true;
     }
 
     private void unlockClassicReward(BirdType type) {
@@ -24091,6 +24217,18 @@ public class BirdGame3 extends Application {
         refreshBossRushOverallBestRecord();
     }
 
+    int incrementBossRushClearCount() {
+        return ++bossRushClearCount;
+    }
+
+    void recordBossRushProfileCompletion(BirdType type, String rank, long elapsedMillis, boolean perfectRouteCompleted) {
+        recordBossRushCompletion(type, rank, elapsedMillis, perfectRouteCompleted);
+    }
+
+    void incrementTournamentChampionshipsWon() {
+        ++tournamentChampionshipsWon;
+    }
+
     String bossRushOverallBestStatus() {
         if (bossRushBestClearMillis == Long.MAX_VALUE || bossRushBestClearMillis <= 0L) {
             return "No clear recorded";
@@ -24181,22 +24319,16 @@ public class BirdGame3 extends Application {
         String rank = bossRushRankFor(elapsedMillis, classicDeaths, exCleared);
         int payout = BOSS_RUSH_CLEAR_BONUS + (exCleared ? BOSS_RUSH_EX_CLEAR_BONUS : 0);
         grantBirdCoins(payout);
-        bossRushClearCount++;
-        achievementProgress[22] = Math.max(achievementProgress[22], bossRushClearCount);
-        if (!achievementsUnlocked[22]) {
-            unlockAchievement(22, "BOSS BREAKER!");
-        }
-        if (exCleared) {
-            achievementProgress[23] = Math.max(achievementProgress[23], 1);
-            if (!achievementsUnlocked[23]) {
-                unlockAchievement(23, "CROWN UNBROKEN!");
-            }
-        }
         boolean newRecord = shouldUpdateBossRushRecord(rank, elapsedMillis);
         boolean perfectRouteCompleted = exCleared && bossRushPerfectRun;
-        recordBossRushCompletion(classicSelectedBird, rank, elapsedMillis, perfectRouteCompleted);
+        bossRushClearCount = profileProgressController.onBossRushCompleted(
+                classicSelectedBird,
+                rank,
+                elapsedMillis,
+                perfectRouteCompleted,
+                clearCount -> achievementEvaluator.onBossRushCompleted(clearCount, exCleared)
+        );
         classicDeaths = 0;
-        saveAchievements();
 
         String exText = exCleared
                 ? "EX route collapsed the Void Crown."
@@ -26528,17 +26660,7 @@ public class BirdGame3 extends Application {
 
         if (classicRoundIndex >= classicRun.size() - 1) {
             classicDeaths = 0;
-            classicCompleted[classicSelectedBird.ordinal()] = true;
-            if (!achievementsUnlocked[19]) {
-                unlockAchievement(19, "CLASSIC CREST!");
-            }
-            unlockClassicReward(classicSelectedBird);
-            boolean unlockedTitmouse = classicSelectedBird == BirdType.HUMMINGBIRD && !titmouseUnlocked;
-            if (unlockedTitmouse) {
-                titmouseUnlocked = true;
-                queueUnlockCardForBird(BirdType.TITMOUSE);
-            }
-            saveAchievements();
+            profileProgressController.onClassicRunCompleted(classicSelectedBird, achievementEvaluator::onClassicRunCompleted);
             String reward = classicRewardFor(classicSelectedBird);
             String charReward = classicCharacterReward(classicSelectedBird);
             showStoryDialogue(
@@ -26777,29 +26899,10 @@ public class BirdGame3 extends Application {
         }
 
         if (storyChapterIndex >= chapters.length - 1) {
-            if (!isEpisodeCompleted(selectedEpisode)) {
-                setEpisodeCompleted(selectedEpisode);
-                switch (selectedEpisode) {
-                    case PIGEON -> {
-                        achievementProgress[25] = Math.max(achievementProgress[25], 1);
-                        if (!achievementsUnlocked[25]) {
-                            unlockAchievement(25, "ROOFTOP LEGACY!");
-                        }
-                    }
-                    case BAT -> {
-                        achievementProgress[26] = Math.max(achievementProgress[26], 1);
-                        if (!achievementsUnlocked[26]) {
-                            unlockAchievement(26, "ECHO SOVEREIGN!");
-                        }
-                    }
-                    case PELICAN -> {
-                        achievementProgress[27] = Math.max(achievementProgress[27], 1);
-                        if (!achievementsUnlocked[27]) {
-                            unlockAchievement(27, "IRON TEMPEST!");
-                        }
-                    }
-                }
-                saveAchievements();
+            if (profileProgressController.onEpisodeCompleted(
+                    activeEpisodePlayerType(),
+                    () -> achievementEvaluator.onEpisodeCompleted(activeEpisodePlayerType())
+            )) {
                 showStoryDialogue(stage,
                         "Episode Complete",
                         "Narrator",
@@ -29230,28 +29333,6 @@ public class BirdGame3 extends Application {
         return shortName(winner.name) + " - " + winner.type.name;
     }
 
-    private void loadMatchHistory(Preferences prefs) {
-        matchHistory.clear();
-        int count = Math.clamp(prefs.getInt(PREF_MATCH_HISTORY_COUNT, 0), 0, MATCH_HISTORY_LIMIT);
-        for (int i = 0; i < count; i++) {
-            MatchHistoryEntry entry = MatchHistoryEntry.deserialize(prefs.get(PREF_MATCH_HISTORY_PREFIX + i, null));
-            if (entry != null) {
-                matchHistory.add(entry);
-            }
-        }
-    }
-
-    private void saveMatchHistory(Preferences prefs) {
-        int count = Math.min(matchHistory.size(), MATCH_HISTORY_LIMIT);
-        prefs.putInt(PREF_MATCH_HISTORY_COUNT, count);
-        for (int i = 0; i < count; i++) {
-            prefs.put(PREF_MATCH_HISTORY_PREFIX + i, matchHistory.get(i).serialize());
-        }
-        for (int i = count; i < MATCH_HISTORY_LIMIT; i++) {
-            prefs.remove(PREF_MATCH_HISTORY_PREFIX + i);
-        }
-    }
-
     void showMatchSummary(Stage stage, Bird winner) {
         disposeGameplayMusicPlayer();
         menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, false);
@@ -30203,33 +30284,7 @@ public class BirdGame3 extends Application {
     }
 
     private void applyWinnerMapProgress(Bird winner) {
-        if (winner == null || trainingModeActive) return;
-        if (winner.health > 0 && winner.health < 20 && !achievementsUnlocked[9]) {
-            unlockAchievement(9, "CLUTCH GOD!");
-        }
-        if (selectedMap == MapType.CITY) {
-            cityWins[winner.playerIndex]++;
-            achievementProgress[12]++;
-            if (achievementProgress[12] >= 5 && !achievementsUnlocked[12]) {
-                unlockAchievement(12, "URBAN KING!");
-            }
-        }
-
-        if (selectedMap == MapType.SKYCLIFFS) {
-            cliffWins[winner.playerIndex]++;
-            achievementProgress[15]++;
-            if (achievementProgress[15] >= 5 && !achievementsUnlocked[15]) {
-                unlockAchievement(15, "SKY EMPEROR!");
-            }
-        }
-
-        if (selectedMap == MapType.VIBRANT_JUNGLE) {
-            jungleWins[winner.playerIndex]++;
-            achievementProgress[17]++;
-            if (achievementProgress[17] >= 5 && !achievementsUnlocked[17]) {
-                unlockAchievement(17, "CANOPY KING!");
-            }
-        }
+        achievementEvaluator.onMatchWinner(winner, selectedMap, trainingModeActive);
     }
 
     private String teamLabel(int teamId) {
@@ -30319,15 +30374,6 @@ public class BirdGame3 extends Application {
         suddenDeath.reset();
     }
 
-    private BirdType parseBirdTypePreference(String value) {
-        if (value == null || value.isBlank()) return null;
-        try {
-            return BirdType.valueOf(value);
-        } catch (IllegalArgumentException ignored) {
-            return null;
-        }
-    }
-
     private void loadAchievements() {
         Preferences prefs = saveRepository.globalPrefs();
         Preferences profilePrefs = saveRepository.activeProfilePrefs();
@@ -30336,217 +30382,22 @@ public class BirdGame3 extends Application {
     }
 
     private void loadGlobalSettings(Preferences prefs) {
-        loadControlBindings(prefs);
-        loadWiimoteModes(prefs);
-        lanLastHost = prefs.get("lan_last_host", "");
-        musicEnabled = prefs.getBoolean("setting_music", true);
-        sfxEnabled = prefs.getBoolean("setting_sfx", true);
-        musicVolume = sanitizeVolume(prefs.getDouble(PREF_SETTING_MUSIC_VOLUME, musicEnabled ? 1.0 : 0.0));
-        sfxVolume = sanitizeVolume(prefs.getDouble(PREF_SETTING_SFX_VOLUME, sfxEnabled ? 1.0 : 0.0));
-        musicEnabled = !isMutedVolume(musicVolume);
-        sfxEnabled = !isMutedVolume(sfxVolume);
-        screenShakeEnabled = prefs.getBoolean("setting_shake", true);
-        fullscreenEnabled = prefs.getBoolean("setting_fullscreen", true);
-        particleEffectsEnabled = prefs.getBoolean("setting_particles", true);
-        ambientEffectsEnabled = prefs.getBoolean("setting_ambient_fx", true);
-        fpsCap = sanitizeFpsCap(prefs.getInt("setting_fps_cap", 60));
+        applyGlobalSettingsState(BirdGame3GlobalSettingsState.load(
+                prefs,
+                CONTROL_ACTION_PREF_KEYS,
+                playerKeyBindings.length
+        ));
     }
 
     private void loadProfileProgress(Preferences prefs) {
-        int achievementSchemaVersion = Math.max(0, prefs.getInt(PREF_ACHIEVEMENT_SCHEMA_VERSION, 0));
-        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
-            achievementsUnlocked[i] = prefs.getBoolean("ach_" + i, false);
-            achievementProgress[i] = prefs.getInt("prog_" + i, 0);
-            achievementRewardsClaimed[i] = prefs.getBoolean("ach_reward_claimed_" + i, false);
-        }
         birdCoinLedger.load(prefs);
-        loadMatchHistory(prefs);
-        classicContinues = Math.max(0, prefs.getInt("classic_continues", 0));
-        caveMapUnlocked = prefs.getBoolean("map_cave_unlocked", false);
-        battlefieldMapUnlocked = prefs.getBoolean("map_battlefield_unlocked", false);
-        beaconCrownMapUnlocked = prefs.getBoolean("map_beacon_crown_unlocked", false);
-        dockMapUnlocked = prefs.getBoolean("map_dock_unlocked", false);
-        for (MapType map : MapType.values()) {
-            for (TowerDefenseMode.Difficulty difficulty : TowerDefenseMode.Difficulty.values()) {
-                towerDefenseDifficultyBadges[map.ordinal()][difficulty.ordinal()] =
-                        prefs.getBoolean("td_badge_" + map.name() + "_" + difficulty.name(), false);
-            }
-        }
-        cityPigeonUnlocked = prefs.getBoolean("skin_citypigeon", true);
-        noirPigeonUnlocked = prefs.getBoolean("skin_noirpigeon", false);
-        freemanPigeonUnlocked = prefs.getBoolean("skin_freeman_pigeon", false);
-        beaconPigeonUnlocked = prefs.getBoolean("skin_beacon_pigeon", false);
-        stormPigeonUnlocked = prefs.getBoolean("skin_storm_pigeon", false);
-        eagleSkinUnlocked = prefs.getBoolean("skin_eagle", true);
-        novaPhoenixUnlocked = prefs.getBoolean("skin_nova_phoenix", false);
-        duneFalconUnlocked = prefs.getBoolean("skin_dune_falcon", false);
-        mintPenguinUnlocked = prefs.getBoolean("skin_mint_penguin", false);
-        circuitTitmouseUnlocked = prefs.getBoolean("skin_circuit_titmouse", false);
-        prismRazorbillUnlocked = prefs.getBoolean("skin_prism_razorbill", false);
-        auroraPelicanUnlocked = prefs.getBoolean("skin_aurora_pelican", false);
-        ironcladPelicanUnlocked = prefs.getBoolean("skin_ironclad_pelican", false);
-        sunflareHummingbirdUnlocked = prefs.getBoolean("skin_sunflare_hummingbird", false);
-        glacierShoebillUnlocked = prefs.getBoolean("skin_glacier_shoebill", false);
-        tideVultureUnlocked = prefs.getBoolean("skin_tide_vulture", false);
-        nullRockVultureUnlocked = prefs.getBoolean("skin_null_rock_vulture", false);
-        eclipseMockingbirdUnlocked = prefs.getBoolean("skin_eclipse_mockingbird", false);
-        umbraBatUnlocked = prefs.getBoolean("skin_umbra_bat", false);
-        resonanceBatUnlocked = prefs.getBoolean("skin_resonance_bat", false);
-        sunforgeRoosterUnlocked = prefs.getBoolean("skin_sunforge_rooster", false);
-        batUnlocked = prefs.getBoolean("char_bat_unlocked", false);
-        falconUnlocked = prefs.getBoolean("char_falcon_unlocked", false);
-        heisenbirdUnlocked = prefs.getBoolean("char_heisenbird_unlocked", false);
-        phoenixUnlocked = prefs.getBoolean("char_phoenix_unlocked", false);
-        titmouseUnlocked = prefs.getBoolean("char_titmouse_unlocked", false);
-        ravenUnlocked = prefs.getBoolean("char_raven_unlocked", false);
-        roosterUnlocked = prefs.getBoolean("char_rooster_unlocked", false);
-        dailyChallengeBestKey = prefs.get(PREF_DAILY_CHALLENGE_BEST_KEY, "");
-        dailyChallengeBestProgress = Math.max(0, prefs.getInt(PREF_DAILY_CHALLENGE_BEST_PROGRESS, 0));
-        dailyChallengeBestBird = parseBirdTypePreference(prefs.get(PREF_DAILY_CHALLENGE_BEST_BIRD, ""));
-        dailyChallengeBonusClaimedKey = prefs.get(PREF_DAILY_CHALLENGE_BONUS_KEY, "");
-        dailyChallengeBonusBird = parseBirdTypePreference(prefs.get(PREF_DAILY_CHALLENGE_BONUS_BIRD, ""));
-        bossRushBestClearMillis = prefs.getLong(PREF_BOSS_RUSH_BEST_TIME, Long.MAX_VALUE);
-        bossRushBestBird = parseBirdTypePreference(prefs.get(PREF_BOSS_RUSH_BEST_BIRD, ""));
-        bossRushBestRank = prefs.get(PREF_BOSS_RUSH_BEST_RANK, "");
-        bossRushClearCount = Math.max(0, prefs.getInt(PREF_BOSS_RUSH_CLEAR_COUNT, 0));
-        tournamentChampionshipsWon = Math.max(0, prefs.getInt(PREF_TOURNAMENT_CHAMPIONSHIPS, 0));
-        Arrays.fill(bossRushBestClearMillisByBird, Long.MAX_VALUE);
-        Arrays.fill(bossRushBestRankByBird, null);
-        Arrays.fill(bossRushPerfectBadgeByBird, false);
-        for (BirdType type : BirdType.values()) {
-            int idx = type.ordinal();
-            bossRushBestClearMillisByBird[idx] = prefs.getLong(PREF_BOSS_RUSH_BEST_TIME_PREFIX + type.name(), Long.MAX_VALUE);
-            bossRushBestRankByBird[idx] = prefs.get(PREF_BOSS_RUSH_BEST_RANK_PREFIX + type.name(), "");
-            bossRushPerfectBadgeByBird[idx] = prefs.getBoolean(PREF_BOSS_RUSH_PERFECT_PREFIX + type.name(), false);
-        }
-        if (bossRushBestBird != null && hasBossRushRecordedClear(bossRushBestClearMillis)) {
-            int idx = bossRushBestBird.ordinal();
-            if (isBetterBossRushRecord(bossRushBestRank, bossRushBestClearMillis,
-                    bossRushBestRankByBird[idx], bossRushBestClearMillisByBird[idx])) {
-                bossRushBestClearMillisByBird[idx] = bossRushBestClearMillis;
-                bossRushBestRankByBird[idx] = bossRushBestRank == null ? "" : bossRushBestRank;
-            }
-            if ("S".equals(bossRushBestRank)) {
-                bossRushPerfectBadgeByBird[idx] = true;
-            }
-        }
-        refreshBossRushOverallBestRecord();
-        pigeonEpisodeUnlockedChapters = Math.clamp(prefs.getInt("ep_pigeon_unlocked", 1), 1, storyChapters.length);
-        pigeonEpisodeCompleted = prefs.getBoolean("ep_pigeon_completed", false);
-        batEpisodeUnlockedChapters = Math.clamp(prefs.getInt("ep_bat_unlocked", 1), 1, batStoryChapters.length);
-        batEpisodeCompleted = prefs.getBoolean("ep_bat_completed", false);
-        pelicanEpisodeUnlockedChapters = Math.clamp(prefs.getInt("ep_pelican_unlocked", 1), 1, pelicanStoryChapters.length);
-        pelicanEpisodeCompleted = prefs.getBoolean("ep_pelican_completed", false);
-        if (pigeonEpisodeCompleted) {
-            pigeonEpisodeUnlockedChapters = storyChapters.length;
-            noirPigeonUnlocked = true;
-        }
-        if (batEpisodeCompleted) {
-            batEpisodeUnlockedChapters = batStoryChapters.length;
-            batUnlocked = true;
-        }
-        if (pelicanEpisodeCompleted) {
-            pelicanEpisodeUnlockedChapters = pelicanStoryChapters.length;
-            eagleSkinUnlocked = true;
-            batUnlocked = true;
-        }
-        try {
-            selectedAdventureRoute = AdventureRoute.valueOf(prefs.get("adv_route_selected", AdventureRoute.MAIN.name()));
-        } catch (IllegalArgumentException ignored) {
-            selectedAdventureRoute = AdventureRoute.MAIN;
-        }
-        ensureAdventureRouteState(AdventureRoute.MAIN);
-        ensureAdventureRouteState(AdventureRoute.TEMPEST);
-        for (BirdType type : BirdType.values()) {
-            setAdventureBirdUnlocked(AdventureRoute.MAIN, type, prefs.getBoolean("adv_bird_" + type.name(), false));
-            setAdventureBirdUnlocked(AdventureRoute.TEMPEST, type, prefs.getBoolean("adv_tempest_bird_" + type.name(), false));
-        }
-        setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.PIGEON, true);
-        setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.ROOSTER, roosterUnlocked);
-        setAdventureBirdUnlocked(AdventureRoute.TEMPEST, BirdType.PELICAN, true);
-        for (int i = 0; i < adventureChapters.length; i++) {
-            int advBattles = adventureChapters[i].battles.length;
-            int progress = Math.clamp(prefs.getInt("adv_ch" + (i + 1) + "_progress", 0), 0, advBattles);
-            boolean done = prefs.getBoolean("adv_ch" + (i + 1) + "_done", false);
-            if (done && advBattles > 0) {
-                progress = advBattles;
-            }
-            adventureChapterProgressByRoute[AdventureRoute.MAIN.ordinal()][i] = progress;
-            adventureChapterCompletedByRoute[AdventureRoute.MAIN.ordinal()][i] = done;
-        }
-        for (int i = 0; i < tempestAdventureChapters.length; i++) {
-            int advBattles = tempestAdventureChapters[i].battles.length;
-            int progress = Math.clamp(prefs.getInt("adv_tempest_ch" + (i + 1) + "_progress", 0), 0, advBattles);
-            boolean done = prefs.getBoolean("adv_tempest_ch" + (i + 1) + "_done", false);
-            if (done && advBattles > 0) {
-                progress = advBattles;
-            }
-            adventureChapterProgressByRoute[AdventureRoute.TEMPEST.ordinal()][i] = progress;
-            adventureChapterCompletedByRoute[AdventureRoute.TEMPEST.ordinal()][i] = done;
-        }
-        int unitedIdx = unitedFinaleChapterIndex();
-        boolean[] mainAdventureCompleted = adventureChapterCompletedByRoute[AdventureRoute.MAIN.ordinal()];
-        if (unitedIdx >= 0 && unitedIdx < mainAdventureCompleted.length
-                && mainAdventureCompleted[unitedIdx]) {
-            nullRockVultureUnlocked = true;
-            beaconCrownMapUnlocked = true;
-        }
-        int tempestIdx = tempestAdventureChapters.length - 1;
-        boolean[] tempestAdventureCompleted = adventureChapterCompletedByRoute[AdventureRoute.TEMPEST.ordinal()];
-        if (tempestIdx >= 0 && tempestIdx < tempestAdventureCompleted.length
-                && tempestAdventureCompleted[tempestIdx]) {
-            ironcladPelicanUnlocked = true;
-            dockMapUnlocked = true;
-        }
-        adventureBattleIndex = 0;
-        adventureChapterIndexByRoute[AdventureRoute.MAIN.ordinal()] = 0;
-        adventureChapterIndexByRoute[AdventureRoute.TEMPEST.ordinal()] = 0;
-        setAdventureRoute(selectedAdventureRoute);
-        for (BirdType type : BirdType.values()) {
-            int idx = type.ordinal();
-            classicCompleted[idx] = prefs.getBoolean("classic_done_" + type.name(), false);
-            classicSkinUnlocked[idx] = prefs.getBoolean("classic_skin_" + type.name(), false);
-        }
-        if (classicCompleted[BirdType.HUMMINGBIRD.ordinal()]) {
-            titmouseUnlocked = true;
-        }
-        // Requested defaults
-        eagleSkinUnlocked = true;
-        classicSkinUnlocked[BirdType.EAGLE.ordinal()] = true;
-        classicSkinUnlocked[BirdType.PIGEON.ordinal()] = noirPigeonUnlocked;
-        for (int i = 0; i < MAX_COMBATANTS; i++) {
-            cityWins[i] = prefs.getInt("city_wins_" + i, 0);
-            cliffWins[i] = prefs.getInt("cliff_wins_" + i, 0);
-            jungleWins[i] = prefs.getInt("jungle_wins_" + i, 0);
-            rooftopJumps[i] = prefs.getInt("rooftop_jumps_" + i, 0);
-            neonPickups[i] = prefs.getInt("neon_pickups_" + i, 0);
-            thermalPickups[i] = prefs.getInt("thermal_pickups_" + i, 0);
-            highCliffJumps[i] = prefs.getInt("high_cliff_jumps_" + i, 0);
-            vineGrapplePickups[i] = prefs.getInt("vine_pickups_" + i, 0);
-        }
-        achievementProgress[12] = Math.max(achievementProgress[12], sumProgress(cityWins));
-        achievementProgress[15] = Math.max(achievementProgress[15], sumProgress(cliffWins));
-        achievementProgress[17] = Math.max(achievementProgress[17], sumProgress(jungleWins));
-        if (achievementSchemaVersion < ACHIEVEMENT_SCHEMA_VERSION) {
-            achievementsUnlocked[24] = false;
-            achievementProgress[24] = 0;
-            achievementRewardsClaimed[24] = false;
-        }
-        syncModeAchievementMilestones();
-        reconcileAchievementUnlocksFromStoredProgress();
-        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
-            if (achievementRewardsClaimed[i] && !achievementsUnlocked[i]) {
-                achievementRewardsClaimed[i] = false;
-            }
-        }
-        for (BirdType type : BirdType.values()) {
-            int idx = type.ordinal();
-            typePicks[idx] = prefs.getInt("balance_picks_" + type.name(), 0);
-            typeWins[idx] = prefs.getInt("balance_wins_" + type.name(), 0);
-            typeDamage[idx] = prefs.getInt("balance_damage_" + type.name(), 0);
-            typeElims[idx] = prefs.getInt("balance_elims_" + type.name(), 0);
-        }
+        applyProfileProgressState(BirdGame3ProfileProgressState.load(prefs, profileProgressSchema()));
     }
+
+    void requestProgressSave() {
+        saveAchievements();
+    }
+
     private void saveAchievements() {
         if (!javafx.application.Platform.isFxApplicationThread()) {
             persistAchievements(false);
@@ -30601,151 +30452,356 @@ public class BirdGame3 extends Application {
     }
 
     private void saveGlobalSettings(Preferences prefs) {
-        saveControlBindings(prefs);
-        saveWiimoteModes(prefs);
-        prefs.put("lan_last_host", lanLastHost == null ? "" : lanLastHost);
-        prefs.putBoolean("setting_music", musicEnabled);
-        prefs.putBoolean("setting_sfx", sfxEnabled);
-        prefs.putDouble(PREF_SETTING_MUSIC_VOLUME, sanitizeVolume(musicVolume));
-        prefs.putDouble(PREF_SETTING_SFX_VOLUME, sanitizeVolume(sfxVolume));
-        prefs.putBoolean("setting_shake", screenShakeEnabled);
-        prefs.putBoolean("setting_fullscreen", fullscreenEnabled);
-        prefs.putBoolean("setting_particles", particleEffectsEnabled);
-        prefs.putBoolean("setting_ambient_fx", ambientEffectsEnabled);
-        prefs.putInt("setting_fps_cap", fpsCap);
+        captureGlobalSettingsState().saveTo(prefs, CONTROL_ACTION_PREF_KEYS);
     }
 
     private void saveProfileProgress(Preferences prefs) {
-        prefs.remove("start_here_completed");
-        removeLegacyProgressionPrefs(prefs);
-        prefs.putInt(PREF_ACHIEVEMENT_SCHEMA_VERSION, ACHIEVEMENT_SCHEMA_VERSION);
-        for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
-            prefs.putBoolean("ach_" + i, achievementsUnlocked[i]);
-            prefs.putInt("prog_" + i, achievementProgress[i]);
-            prefs.putBoolean("ach_reward_claimed_" + i, achievementRewardsClaimed[i]);
-        }
         birdCoinLedger.save(prefs);
-        saveMatchHistory(prefs);
-        prefs.putInt("classic_continues", classicContinues);
-        prefs.putBoolean("map_cave_unlocked", caveMapUnlocked);
-        prefs.putBoolean("map_battlefield_unlocked", battlefieldMapUnlocked);
-        prefs.putBoolean("map_beacon_crown_unlocked", beaconCrownMapUnlocked);
-        prefs.putBoolean("map_dock_unlocked", dockMapUnlocked);
-        for (MapType map : MapType.values()) {
-            for (TowerDefenseMode.Difficulty difficulty : TowerDefenseMode.Difficulty.values()) {
-                prefs.putBoolean("td_badge_" + map.name() + "_" + difficulty.name(),
-                        towerDefenseDifficultyBadges[map.ordinal()][difficulty.ordinal()]);
-            }
-        }
-        prefs.putBoolean("skin_citypigeon", cityPigeonUnlocked);
-        prefs.putBoolean("skin_noirpigeon", noirPigeonUnlocked);
-        prefs.putBoolean("skin_freeman_pigeon", freemanPigeonUnlocked);
-        prefs.putBoolean("skin_beacon_pigeon", beaconPigeonUnlocked);
-        prefs.putBoolean("skin_storm_pigeon", stormPigeonUnlocked);
-        prefs.putBoolean("skin_eagle", eagleSkinUnlocked);
-        prefs.putBoolean("skin_nova_phoenix", novaPhoenixUnlocked);
-        prefs.putBoolean("skin_dune_falcon", duneFalconUnlocked);
-        prefs.putBoolean("skin_mint_penguin", mintPenguinUnlocked);
-        prefs.putBoolean("skin_circuit_titmouse", circuitTitmouseUnlocked);
-        prefs.putBoolean("skin_prism_razorbill", prismRazorbillUnlocked);
-        prefs.putBoolean("skin_aurora_pelican", auroraPelicanUnlocked);
-        prefs.putBoolean("skin_ironclad_pelican", ironcladPelicanUnlocked);
-        prefs.putBoolean("skin_sunflare_hummingbird", sunflareHummingbirdUnlocked);
-        prefs.putBoolean("skin_glacier_shoebill", glacierShoebillUnlocked);
-        prefs.putBoolean("skin_tide_vulture", tideVultureUnlocked);
-        prefs.putBoolean("skin_null_rock_vulture", nullRockVultureUnlocked);
-        prefs.putBoolean("skin_eclipse_mockingbird", eclipseMockingbirdUnlocked);
-        prefs.putBoolean("skin_umbra_bat", umbraBatUnlocked);
-        prefs.putBoolean("skin_resonance_bat", resonanceBatUnlocked);
-        prefs.putBoolean("skin_sunforge_rooster", sunforgeRoosterUnlocked);
-        prefs.putBoolean("char_bat_unlocked", batUnlocked);
-        prefs.putBoolean("char_falcon_unlocked", falconUnlocked);
-        prefs.putBoolean("char_heisenbird_unlocked", heisenbirdUnlocked);
-        prefs.putBoolean("char_phoenix_unlocked", phoenixUnlocked);
-        prefs.putBoolean("char_titmouse_unlocked", titmouseUnlocked);
-        prefs.putBoolean("char_raven_unlocked", ravenUnlocked);
-        prefs.putBoolean("char_rooster_unlocked", roosterUnlocked);
-        prefs.put(PREF_DAILY_CHALLENGE_BEST_KEY, dailyChallengeBestKey == null ? "" : dailyChallengeBestKey);
-        prefs.putInt(PREF_DAILY_CHALLENGE_BEST_PROGRESS, Math.max(0, dailyChallengeBestProgress));
-        prefs.put(PREF_DAILY_CHALLENGE_BEST_BIRD, dailyChallengeBestBird == null ? "" : dailyChallengeBestBird.name());
-        prefs.put(PREF_DAILY_CHALLENGE_BONUS_KEY, dailyChallengeBonusClaimedKey == null ? "" : dailyChallengeBonusClaimedKey);
-        prefs.put(PREF_DAILY_CHALLENGE_BONUS_BIRD, dailyChallengeBonusBird == null ? "" : dailyChallengeBonusBird.name());
-        prefs.putLong(PREF_BOSS_RUSH_BEST_TIME, bossRushBestClearMillis <= 0L ? Long.MAX_VALUE : bossRushBestClearMillis);
-        prefs.put(PREF_BOSS_RUSH_BEST_BIRD, bossRushBestBird == null ? "" : bossRushBestBird.name());
-        prefs.put(PREF_BOSS_RUSH_BEST_RANK, bossRushBestRank == null ? "" : bossRushBestRank);
-        prefs.putInt(PREF_BOSS_RUSH_CLEAR_COUNT, Math.max(0, bossRushClearCount));
-        prefs.putInt(PREF_TOURNAMENT_CHAMPIONSHIPS, Math.max(0, tournamentChampionshipsWon));
-        for (BirdType type : BirdType.values()) {
-            int idx = type.ordinal();
-            long bestElapsedMillis = bossRushBestClearMillisByBird[idx];
-            prefs.putLong(PREF_BOSS_RUSH_BEST_TIME_PREFIX + type.name(),
-                    bestElapsedMillis <= 0L ? Long.MAX_VALUE : bestElapsedMillis);
-            prefs.put(PREF_BOSS_RUSH_BEST_RANK_PREFIX + type.name(),
-                    bossRushBestRankByBird[idx] == null ? "" : bossRushBestRankByBird[idx]);
-            prefs.putBoolean(PREF_BOSS_RUSH_PERFECT_PREFIX + type.name(), bossRushPerfectBadgeByBird[idx]);
-        }
-        for (BirdType type : BirdType.values()) {
-            int idx = type.ordinal();
-            prefs.putBoolean("classic_done_" + type.name(), classicCompleted[idx]);
-            prefs.putBoolean("classic_skin_" + type.name(), classicSkinUnlocked[idx]);
-        }
-        prefs.putInt("ep_pigeon_unlocked", pigeonEpisodeUnlockedChapters);
-        prefs.putBoolean("ep_pigeon_completed", pigeonEpisodeCompleted);
-        prefs.putInt("ep_bat_unlocked", batEpisodeUnlockedChapters);
-        prefs.putBoolean("ep_bat_completed", batEpisodeCompleted);
-        prefs.putInt("ep_pelican_unlocked", pelicanEpisodeUnlockedChapters);
-        prefs.putBoolean("ep_pelican_completed", pelicanEpisodeCompleted);
-        prefs.put("adv_route_selected", selectedAdventureRoute.name());
+        captureProfileProgressState().saveTo(prefs, profileProgressSchema());
+    }
+
+    private BirdGame3ProfileProgressState.Schema profileProgressSchema() {
+        return new BirdGame3ProfileProgressState.Schema(
+                ACHIEVEMENT_COUNT,
+                MAX_COMBATANTS,
+                MATCH_HISTORY_LIMIT,
+                adventureChapters.length,
+                tempestAdventureChapters.length
+        );
+    }
+
+    private BirdGame3ProfileProgressState captureProfileProgressState() {
         storeActiveAdventureRouteState();
         ensureAdventureRouteState(AdventureRoute.MAIN);
         ensureAdventureRouteState(AdventureRoute.TEMPEST);
-        int[] mainAdventureProgress = adventureChapterProgressByRoute[AdventureRoute.MAIN.ordinal()];
-        boolean[] mainAdventureDone = adventureChapterCompletedByRoute[AdventureRoute.MAIN.ordinal()];
+
+        BirdGame3ProfileProgressState state = new BirdGame3ProfileProgressState();
+        state.achievementSchemaVersion = ACHIEVEMENT_SCHEMA_VERSION;
+        state.achievementProfile = achievementProfile.copy();
+        state.matchHistory = new ArrayList<>(matchHistory);
+        state.classicContinues = classicContinues;
+        state.caveMapUnlocked = caveMapUnlocked;
+        state.battlefieldMapUnlocked = battlefieldMapUnlocked;
+        state.beaconCrownMapUnlocked = beaconCrownMapUnlocked;
+        state.dockMapUnlocked = dockMapUnlocked;
+        state.towerDefenseDifficultyBadges = copyBooleanMatrix(towerDefenseDifficultyBadges);
+        state.cityPigeonUnlocked = cityPigeonUnlocked;
+        state.noirPigeonUnlocked = noirPigeonUnlocked;
+        state.freemanPigeonUnlocked = freemanPigeonUnlocked;
+        state.beaconPigeonUnlocked = beaconPigeonUnlocked;
+        state.stormPigeonUnlocked = stormPigeonUnlocked;
+        state.eagleSkinUnlocked = eagleSkinUnlocked;
+        state.novaPhoenixUnlocked = novaPhoenixUnlocked;
+        state.duneFalconUnlocked = duneFalconUnlocked;
+        state.mintPenguinUnlocked = mintPenguinUnlocked;
+        state.circuitTitmouseUnlocked = circuitTitmouseUnlocked;
+        state.prismRazorbillUnlocked = prismRazorbillUnlocked;
+        state.auroraPelicanUnlocked = auroraPelicanUnlocked;
+        state.ironcladPelicanUnlocked = ironcladPelicanUnlocked;
+        state.sunflareHummingbirdUnlocked = sunflareHummingbirdUnlocked;
+        state.glacierShoebillUnlocked = glacierShoebillUnlocked;
+        state.tideVultureUnlocked = tideVultureUnlocked;
+        state.nullRockVultureUnlocked = nullRockVultureUnlocked;
+        state.eclipseMockingbirdUnlocked = eclipseMockingbirdUnlocked;
+        state.umbraBatUnlocked = umbraBatUnlocked;
+        state.resonanceBatUnlocked = resonanceBatUnlocked;
+        state.sunforgeRoosterUnlocked = sunforgeRoosterUnlocked;
+        state.batUnlocked = batUnlocked;
+        state.falconUnlocked = falconUnlocked;
+        state.heisenbirdUnlocked = heisenbirdUnlocked;
+        state.phoenixUnlocked = phoenixUnlocked;
+        state.titmouseUnlocked = titmouseUnlocked;
+        state.ravenUnlocked = ravenUnlocked;
+        state.roosterUnlocked = roosterUnlocked;
+        state.dailyChallengeBestKey = dailyChallengeBestKey;
+        state.dailyChallengeBestProgress = dailyChallengeBestProgress;
+        state.dailyChallengeBestBird = dailyChallengeBestBird;
+        state.dailyChallengeBonusClaimedKey = dailyChallengeBonusClaimedKey;
+        state.dailyChallengeBonusBird = dailyChallengeBonusBird;
+        state.bossRushBestClearMillis = bossRushBestClearMillis;
+        state.bossRushBestBird = bossRushBestBird;
+        state.bossRushBestRank = bossRushBestRank;
+        state.bossRushClearCount = bossRushClearCount;
+        state.bossRushBestClearMillisByBird = Arrays.copyOf(bossRushBestClearMillisByBird, bossRushBestClearMillisByBird.length);
+        state.bossRushBestRankByBird = Arrays.copyOf(bossRushBestRankByBird, bossRushBestRankByBird.length);
+        state.bossRushPerfectBadgeByBird = Arrays.copyOf(bossRushPerfectBadgeByBird, bossRushPerfectBadgeByBird.length);
+        state.pigeonEpisodeUnlockedChapters = pigeonEpisodeUnlockedChapters;
+        state.pigeonEpisodeCompleted = pigeonEpisodeCompleted;
+        state.batEpisodeUnlockedChapters = batEpisodeUnlockedChapters;
+        state.batEpisodeCompleted = batEpisodeCompleted;
+        state.pelicanEpisodeUnlockedChapters = pelicanEpisodeUnlockedChapters;
+        state.pelicanEpisodeCompleted = pelicanEpisodeCompleted;
+        state.selectedAdventureRouteName = selectedAdventureRoute.name();
+        state.mainAdventureUnlocked = Arrays.copyOf(
+                adventureUnlockedByRoute[AdventureRoute.MAIN.ordinal()],
+                BirdType.values().length
+        );
+        state.tempestAdventureUnlocked = Arrays.copyOf(
+                adventureUnlockedByRoute[AdventureRoute.TEMPEST.ordinal()],
+                BirdType.values().length
+        );
+        state.mainAdventureChapterProgress = Arrays.copyOf(
+                adventureChapterProgressByRoute[AdventureRoute.MAIN.ordinal()],
+                adventureChapters.length
+        );
+        state.mainAdventureChapterCompleted = Arrays.copyOf(
+                adventureChapterCompletedByRoute[AdventureRoute.MAIN.ordinal()],
+                adventureChapters.length
+        );
+        state.tempestAdventureChapterProgress = Arrays.copyOf(
+                adventureChapterProgressByRoute[AdventureRoute.TEMPEST.ordinal()],
+                tempestAdventureChapters.length
+        );
+        state.tempestAdventureChapterCompleted = Arrays.copyOf(
+                adventureChapterCompletedByRoute[AdventureRoute.TEMPEST.ordinal()],
+                tempestAdventureChapters.length
+        );
+        state.classicCompleted = Arrays.copyOf(classicCompleted, classicCompleted.length);
+        state.classicSkinUnlocked = Arrays.copyOf(classicSkinUnlocked, classicSkinUnlocked.length);
+        state.cityWins = Arrays.copyOf(cityWins, cityWins.length);
+        state.cliffWins = Arrays.copyOf(cliffWins, cliffWins.length);
+        state.jungleWins = Arrays.copyOf(jungleWins, jungleWins.length);
+        state.rooftopJumps = Arrays.copyOf(rooftopJumps, rooftopJumps.length);
+        state.neonPickups = Arrays.copyOf(neonPickups, neonPickups.length);
+        state.thermalPickups = Arrays.copyOf(thermalPickups, thermalPickups.length);
+        state.highCliffJumps = Arrays.copyOf(highCliffJumps, highCliffJumps.length);
+        state.vineGrapplePickups = Arrays.copyOf(vineGrapplePickups, vineGrapplePickups.length);
+        state.typePicks = Arrays.copyOf(typePicks, typePicks.length);
+        state.typeWins = Arrays.copyOf(typeWins, typeWins.length);
+        state.typeDamage = Arrays.copyOf(typeDamage, typeDamage.length);
+        state.typeElims = Arrays.copyOf(typeElims, typeElims.length);
+        state.tournamentChampionshipsWon = tournamentChampionshipsWon;
+        return state;
+    }
+
+    private boolean[][] copyBooleanMatrix(boolean[][] values) {
+        if (values == null) {
+            return new boolean[0][];
+        }
+        boolean[][] copy = new boolean[values.length][];
+        for (int i = 0; i < values.length; i++) {
+            copy[i] = values[i] == null ? new boolean[0] : Arrays.copyOf(values[i], values[i].length);
+        }
+        return copy;
+    }
+
+    private void applyProfileProgressState(BirdGame3ProfileProgressState state) {
+        BirdGame3ProfileProgressState resolved = state == null
+                ? BirdGame3ProfileProgressState.load(null, profileProgressSchema())
+                : state;
+        int loadedAchievementSchemaVersion = resolved.achievementSchemaVersion;
+
+        applyAchievementProfileState(resolved.achievementProfile);
+        matchHistory.clear();
+        if (resolved.matchHistory != null) {
+            matchHistory.addAll(resolved.matchHistory);
+        }
+
+        classicContinues = resolved.classicContinues;
+        caveMapUnlocked = resolved.caveMapUnlocked;
+        battlefieldMapUnlocked = resolved.battlefieldMapUnlocked;
+        beaconCrownMapUnlocked = resolved.beaconCrownMapUnlocked;
+        dockMapUnlocked = resolved.dockMapUnlocked;
+        copyInto(resolved.towerDefenseDifficultyBadges, towerDefenseDifficultyBadges);
+
+        cityPigeonUnlocked = resolved.cityPigeonUnlocked;
+        noirPigeonUnlocked = resolved.noirPigeonUnlocked;
+        freemanPigeonUnlocked = resolved.freemanPigeonUnlocked;
+        beaconPigeonUnlocked = resolved.beaconPigeonUnlocked;
+        stormPigeonUnlocked = resolved.stormPigeonUnlocked;
+        eagleSkinUnlocked = resolved.eagleSkinUnlocked;
+        novaPhoenixUnlocked = resolved.novaPhoenixUnlocked;
+        duneFalconUnlocked = resolved.duneFalconUnlocked;
+        mintPenguinUnlocked = resolved.mintPenguinUnlocked;
+        circuitTitmouseUnlocked = resolved.circuitTitmouseUnlocked;
+        prismRazorbillUnlocked = resolved.prismRazorbillUnlocked;
+        auroraPelicanUnlocked = resolved.auroraPelicanUnlocked;
+        ironcladPelicanUnlocked = resolved.ironcladPelicanUnlocked;
+        sunflareHummingbirdUnlocked = resolved.sunflareHummingbirdUnlocked;
+        glacierShoebillUnlocked = resolved.glacierShoebillUnlocked;
+        tideVultureUnlocked = resolved.tideVultureUnlocked;
+        nullRockVultureUnlocked = resolved.nullRockVultureUnlocked;
+        eclipseMockingbirdUnlocked = resolved.eclipseMockingbirdUnlocked;
+        umbraBatUnlocked = resolved.umbraBatUnlocked;
+        resonanceBatUnlocked = resolved.resonanceBatUnlocked;
+        sunforgeRoosterUnlocked = resolved.sunforgeRoosterUnlocked;
+        batUnlocked = resolved.batUnlocked;
+        falconUnlocked = resolved.falconUnlocked;
+        heisenbirdUnlocked = resolved.heisenbirdUnlocked;
+        phoenixUnlocked = resolved.phoenixUnlocked;
+        titmouseUnlocked = resolved.titmouseUnlocked;
+        ravenUnlocked = resolved.ravenUnlocked;
+        roosterUnlocked = resolved.roosterUnlocked;
+
+        dailyChallengeBestKey = resolved.dailyChallengeBestKey;
+        dailyChallengeBestProgress = resolved.dailyChallengeBestProgress;
+        dailyChallengeBestBird = resolved.dailyChallengeBestBird;
+        dailyChallengeBonusClaimedKey = resolved.dailyChallengeBonusClaimedKey;
+        dailyChallengeBonusBird = resolved.dailyChallengeBonusBird;
+        bossRushBestClearMillis = resolved.bossRushBestClearMillis;
+        bossRushBestBird = resolved.bossRushBestBird;
+        bossRushBestRank = resolved.bossRushBestRank;
+        bossRushClearCount = resolved.bossRushClearCount;
+        tournamentChampionshipsWon = resolved.tournamentChampionshipsWon;
+        copyInto(resolved.bossRushBestClearMillisByBird, bossRushBestClearMillisByBird);
+        copyInto(resolved.bossRushBestRankByBird, bossRushBestRankByBird);
+        copyInto(resolved.bossRushPerfectBadgeByBird, bossRushPerfectBadgeByBird);
+        if (bossRushBestBird != null && hasBossRushRecordedClear(bossRushBestClearMillis)) {
+            int idx = bossRushBestBird.ordinal();
+            if (isBetterBossRushRecord(bossRushBestRank, bossRushBestClearMillis,
+                    bossRushBestRankByBird[idx], bossRushBestClearMillisByBird[idx])) {
+                bossRushBestClearMillisByBird[idx] = bossRushBestClearMillis;
+                bossRushBestRankByBird[idx] = bossRushBestRank == null ? "" : bossRushBestRank;
+            }
+            if ("S".equals(bossRushBestRank)) {
+                bossRushPerfectBadgeByBird[idx] = true;
+            }
+        }
+        refreshBossRushOverallBestRecord();
+
+        pigeonEpisodeUnlockedChapters = Math.clamp(resolved.pigeonEpisodeUnlockedChapters, 1, storyChapters.length);
+        pigeonEpisodeCompleted = resolved.pigeonEpisodeCompleted;
+        batEpisodeUnlockedChapters = Math.clamp(resolved.batEpisodeUnlockedChapters, 1, batStoryChapters.length);
+        batEpisodeCompleted = resolved.batEpisodeCompleted;
+        pelicanEpisodeUnlockedChapters = Math.clamp(resolved.pelicanEpisodeUnlockedChapters, 1, pelicanStoryChapters.length);
+        pelicanEpisodeCompleted = resolved.pelicanEpisodeCompleted;
+
+        try {
+            selectedAdventureRoute = AdventureRoute.valueOf(
+                    resolved.selectedAdventureRouteName == null ? AdventureRoute.MAIN.name() : resolved.selectedAdventureRouteName
+            );
+        } catch (IllegalArgumentException ignored) {
+            selectedAdventureRoute = AdventureRoute.MAIN;
+        }
+        ensureAdventureRouteState(AdventureRoute.MAIN);
+        ensureAdventureRouteState(AdventureRoute.TEMPEST);
+        for (BirdType type : BirdType.values()) {
+            int idx = type.ordinal();
+            setAdventureBirdUnlocked(AdventureRoute.MAIN, type,
+                    idx < resolved.mainAdventureUnlocked.length && resolved.mainAdventureUnlocked[idx]);
+            setAdventureBirdUnlocked(AdventureRoute.TEMPEST, type,
+                    idx < resolved.tempestAdventureUnlocked.length && resolved.tempestAdventureUnlocked[idx]);
+        }
+        setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.PIGEON, true);
+        setAdventureBirdUnlocked(AdventureRoute.MAIN, BirdType.ROOSTER, roosterUnlocked);
+        setAdventureBirdUnlocked(AdventureRoute.TEMPEST, BirdType.PELICAN, true);
         for (int i = 0; i < adventureChapters.length; i++) {
-            prefs.putInt("adv_ch" + (i + 1) + "_progress", mainAdventureProgress[i]);
-            prefs.putBoolean("adv_ch" + (i + 1) + "_done", mainAdventureDone[i]);
+            int advBattles = adventureChapters[i].battles.length;
+            int progress = i < resolved.mainAdventureChapterProgress.length ? resolved.mainAdventureChapterProgress[i] : 0;
+            boolean done = i < resolved.mainAdventureChapterCompleted.length && resolved.mainAdventureChapterCompleted[i];
+            progress = Math.clamp(progress, 0, advBattles);
+            if (done && advBattles > 0) {
+                progress = advBattles;
+            }
+            adventureChapterProgressByRoute[AdventureRoute.MAIN.ordinal()][i] = progress;
+            adventureChapterCompletedByRoute[AdventureRoute.MAIN.ordinal()][i] = done;
         }
-        int[] tempestAdventureProgress = adventureChapterProgressByRoute[AdventureRoute.TEMPEST.ordinal()];
-        boolean[] tempestAdventureDone = adventureChapterCompletedByRoute[AdventureRoute.TEMPEST.ordinal()];
         for (int i = 0; i < tempestAdventureChapters.length; i++) {
-            prefs.putInt("adv_tempest_ch" + (i + 1) + "_progress", tempestAdventureProgress[i]);
-            prefs.putBoolean("adv_tempest_ch" + (i + 1) + "_done", tempestAdventureDone[i]);
+            int advBattles = tempestAdventureChapters[i].battles.length;
+            int progress = i < resolved.tempestAdventureChapterProgress.length ? resolved.tempestAdventureChapterProgress[i] : 0;
+            boolean done = i < resolved.tempestAdventureChapterCompleted.length && resolved.tempestAdventureChapterCompleted[i];
+            progress = Math.clamp(progress, 0, advBattles);
+            if (done && advBattles > 0) {
+                progress = advBattles;
+            }
+            adventureChapterProgressByRoute[AdventureRoute.TEMPEST.ordinal()][i] = progress;
+            adventureChapterCompletedByRoute[AdventureRoute.TEMPEST.ordinal()][i] = done;
         }
-        for (BirdType type : BirdType.values()) {
-            int idx = type.ordinal();
-            prefs.putBoolean("adv_bird_" + type.name(), adventureUnlockedByRoute[AdventureRoute.MAIN.ordinal()][idx]);
-            prefs.putBoolean("adv_tempest_bird_" + type.name(), adventureUnlockedByRoute[AdventureRoute.TEMPEST.ordinal()][idx]);
-        }
-        for (int i = 0; i < MAX_COMBATANTS; i++) {
-            prefs.putInt("city_wins_" + i, cityWins[i]);
-            prefs.putInt("cliff_wins_" + i, cliffWins[i]);
-            prefs.putInt("jungle_wins_" + i, jungleWins[i]);
-            prefs.putInt("rooftop_jumps_" + i, rooftopJumps[i]);
-            prefs.putInt("neon_pickups_" + i, neonPickups[i]);
-            prefs.putInt("thermal_pickups_" + i, thermalPickups[i]);
-            prefs.putInt("high_cliff_jumps_" + i, highCliffJumps[i]);
-            prefs.putInt("vine_pickups_" + i, vineGrapplePickups[i]);
-        }
-        for (BirdType type : BirdType.values()) {
-            int idx = type.ordinal();
-            prefs.putInt("balance_picks_" + type.name(), typePicks[idx]);
-            prefs.putInt("balance_wins_" + type.name(), typeWins[idx]);
-            prefs.putInt("balance_damage_" + type.name(), typeDamage[idx]);
-            prefs.putInt("balance_elims_" + type.name(), typeElims[idx]);
+        int unitedIdx = unitedFinaleChapterIndex();
+        boolean[] mainAdventureCompleted = adventureChapterCompletedByRoute[AdventureRoute.MAIN.ordinal()];
+        int tempestIdx = tempestAdventureChapters.length - 1;
+        boolean[] tempestAdventureCompleted = adventureChapterCompletedByRoute[AdventureRoute.TEMPEST.ordinal()];
+        adventureBattleIndex = 0;
+        adventureChapterIndexByRoute[AdventureRoute.MAIN.ordinal()] = 0;
+        adventureChapterIndexByRoute[AdventureRoute.TEMPEST.ordinal()] = 0;
+        setAdventureRoute(selectedAdventureRoute);
+
+        copyInto(resolved.classicCompleted, classicCompleted);
+        copyInto(resolved.classicSkinUnlocked, classicSkinUnlocked);
+        boolean unitedFinaleCompleted = unitedIdx >= 0
+                && unitedIdx < mainAdventureCompleted.length
+                && mainAdventureCompleted[unitedIdx];
+        boolean tempestFinaleCompleted = tempestIdx >= 0
+                && tempestIdx < tempestAdventureCompleted.length
+                && tempestAdventureCompleted[tempestIdx];
+        profileProgressController.reconcileLoadedProgress(unitedFinaleCompleted, tempestFinaleCompleted);
+
+        copyInto(resolved.cityWins, cityWins);
+        copyInto(resolved.cliffWins, cliffWins);
+        copyInto(resolved.jungleWins, jungleWins);
+        copyInto(resolved.rooftopJumps, rooftopJumps);
+        copyInto(resolved.neonPickups, neonPickups);
+        copyInto(resolved.thermalPickups, thermalPickups);
+        copyInto(resolved.highCliffJumps, highCliffJumps);
+        copyInto(resolved.vineGrapplePickups, vineGrapplePickups);
+        achievementEvaluator.normalizeLoadedProfileState(
+                cityWins,
+                cliffWins,
+                jungleWins,
+                loadedAchievementSchemaVersion,
+                ACHIEVEMENT_SCHEMA_VERSION,
+                classicCompleted,
+                mainAdventureChapterCompletedState(),
+                bossRushClearCount,
+                countTowerDefenseBadges(),
+                pigeonEpisodeCompleted,
+                batEpisodeCompleted,
+                pelicanEpisodeCompleted,
+                countBigForestTowerDefenseBadges(),
+                bigForestTowerDefenseBadgeGoal(),
+                tournamentChampionshipsWon
+        );
+
+        copyInto(resolved.typePicks, typePicks);
+        copyInto(resolved.typeWins, typeWins);
+        copyInto(resolved.typeDamage, typeDamage);
+        copyInto(resolved.typeElims, typeElims);
+    }
+
+    private void copyInto(boolean[] source, boolean[] target) {
+        Arrays.fill(target, false);
+        if (source != null) {
+            System.arraycopy(source, 0, target, 0, Math.min(source.length, target.length));
         }
     }
 
-    private void removeLegacyProgressionPrefs(Preferences prefs) {
-        for (BirdType type : BirdType.values()) {
-            prefs.remove("bird_mastery_xp_" + type.name());
+    private void copyInto(int[] source, int[] target) {
+        Arrays.fill(target, 0);
+        if (source != null) {
+            System.arraycopy(source, 0, target, 0, Math.min(source.length, target.length));
         }
-        try {
-            for (String key : prefs.keys()) {
-                if (key.startsWith("contracts_")) {
-                    prefs.remove(key);
-                }
+    }
+
+    private void copyInto(long[] source, long[] target) {
+        Arrays.fill(target, Long.MAX_VALUE);
+        if (source != null) {
+            System.arraycopy(source, 0, target, 0, Math.min(source.length, target.length));
+        }
+    }
+
+    private void copyInto(String[] source, String[] target) {
+        Arrays.fill(target, null);
+        if (source != null) {
+            System.arraycopy(source, 0, target, 0, Math.min(source.length, target.length));
+        }
+    }
+
+    private void copyInto(boolean[][] source, boolean[][] target) {
+        for (int i = 0; i < target.length; i++) {
+            if (target[i] == null) {
+                continue;
             }
-        } catch (BackingStoreException ignored) {
+            boolean[] sourceRow = source != null && i < source.length ? source[i] : null;
+            copyInto(sourceRow, target[i]);
+        }
+    }
+
+    private void applyAchievementProfileState(BirdGame3AchievementProfile state) {
+        BirdGame3AchievementProfile resolved = state == null ? new BirdGame3AchievementProfile() : state;
+        for (BirdGame3Achievement achievement : BirdGame3Achievement.values()) {
+            achievementProfile.setUnlocked(achievement, resolved.isUnlocked(achievement));
+            achievementProfile.setProgress(achievement, resolved.progress(achievement));
+            achievementProfile.setRewardClaimed(achievement, resolved.isRewardClaimed(achievement));
         }
     }
 
@@ -30770,124 +30826,52 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private void reconcileAchievementUnlocksFromStoredProgress() {
-        boolean[] completedAdventure = mainAdventureChapterCompletedState();
-        if (achievementProgress[4] >= 1800) achievementsUnlocked[4] = true;
-        if (achievementProgress[5] >= 1000) achievementsUnlocked[5] = true;
-        if (achievementProgress[7] >= 3) achievementsUnlocked[7] = true;
-        if (achievementProgress[8] >= 10) achievementsUnlocked[8] = true;
-        if (achievementProgress[10] >= 20) achievementsUnlocked[10] = true;
-        if (achievementProgress[11] >= 8) achievementsUnlocked[11] = true;
-        if (achievementProgress[12] >= 5) achievementsUnlocked[12] = true;
-        if (achievementProgress[13] >= 10) achievementsUnlocked[13] = true;
-        if (achievementProgress[14] >= 15) achievementsUnlocked[14] = true;
-        if (achievementProgress[15] >= 5) achievementsUnlocked[15] = true;
-        if (achievementProgress[16] >= 8) achievementsUnlocked[16] = true;
-        if (achievementProgress[17] >= 5) achievementsUnlocked[17] = true;
-        if (achievementProgress[18] >= 15) achievementsUnlocked[18] = true;
-        if (countCompleted(classicCompleted) > 0) achievementsUnlocked[19] = true;
-        if (completedAdventure.length >= 2 && completedAdventure[1]) achievementsUnlocked[20] = true;
-        if (completedAdventure.length > 0
-                && countCompleted(completedAdventure) == completedAdventure.length) {
-            achievementsUnlocked[21] = true;
-        }
-        if (achievementProgress[22] >= 1 || bossRushClearCount > 0) achievementsUnlocked[22] = true;
-        if (achievementProgress[23] >= 1) achievementsUnlocked[23] = true;
-        if (achievementProgress[24] >= 1 || countTowerDefenseBadges() > 0) achievementsUnlocked[24] = true;
-        if (achievementProgress[25] >= 1 || pigeonEpisodeCompleted) achievementsUnlocked[25] = true;
-        if (achievementProgress[26] >= 1 || batEpisodeCompleted) achievementsUnlocked[26] = true;
-        if (achievementProgress[27] >= 1 || pelicanEpisodeCompleted) achievementsUnlocked[27] = true;
-        if (achievementProgress[28] >= bigForestTowerDefenseBadgeGoal()
-                || countBigForestTowerDefenseBadges() >= bigForestTowerDefenseBadgeGoal()) {
-            achievementsUnlocked[28] = true;
-        }
-        if (achievementProgress[29] >= 1 || tournamentChampionshipsWon > 0) achievementsUnlocked[29] = true;
-    }
-
     public void checkAchievements(Bird bird) {
-        int idx = bird.playerIndex;
-
-        // First Blood
-        if (eliminations[idx] >= 1 && !achievementsUnlocked[0]) {
-            unlockAchievement(0, "FIRST BLOOD!");
-        }
-
-        // Dominator - 3 eliminations in one match
-        if (eliminations[idx] >= 3 && !achievementsUnlocked[1]) {
-            unlockAchievement(1, "DOMINATOR!");
-        }
-
-        // Annihilator - eliminate all other players (3 kills in 4-player)
-        if (eliminations[idx] >= 3 && activePlayers == 4 && !achievementsUnlocked[2]) {
-            unlockAchievement(2, "ANNIHILATOR!");
-        }
-        // If only 3 or 2 players, make it possible with 2 or 1 kill
-        else if (eliminations[idx] >= 2 && activePlayers == 3 && !achievementsUnlocked[2]) {
-            unlockAchievement(2, "ANNIHILATOR!");
-        } else if (eliminations[idx] >= 1 && activePlayers == 2 && !achievementsUnlocked[2]) {
-            unlockAchievement(2, "ANNIHILATOR!");
-        }
-
-        // Turkey Slam Master
-        if (groundPounds[idx] >= 3 && !achievementsUnlocked[3]) {
-            unlockAchievement(3, "TURKEY SLAM MASTER!");
-        }
-
-        // Power-Up Hoarder (already checked on pickup)
-        // Fall Guy (already checked on fall)
-
-        // Taunt Lord
-        if (achievementProgress[8] >= 10 && !achievementsUnlocked[8]) {
-            unlockAchievement(8, "TAUNT LORD!");
-        }
-
-        // Pelican King
-        if (bird.type == BirdType.PELICAN && BirdGame3.this.achievementProgress[18] >= 15 && !BirdGame3.this.achievementsUnlocked[18]) {
-            BirdGame3.this.unlockAchievement(18, "PELICAN KING!");
-        }
-
-        // Clutch God (checked at match end in victory animation)
+        achievementEvaluator.onCombatStatsUpdated(bird);
     }
 
     void recordLeanFrame(Bird bird) {
-        if (bird == null || bird.type != BirdType.OPIUMBIRD || achievementsUnlocked[4]) {
-            return;
-        }
-        achievementProgress[4]++;
-        if (achievementProgress[4] >= 1800) {
-            unlockAchievement(4, "LEAN GOD!");
-        }
+        achievementEvaluator.onLeanFrame(bird);
     }
 
     void recordLoungeHealing(Bird bird, double healedAmount) {
-        if (bird == null || bird.type != BirdType.MOCKINGBIRD || healedAmount <= 0.0 || achievementsUnlocked[5]) {
-            return;
-        }
-        achievementProgress[5] += Math.max(1, (int) Math.round(healedAmount * 10.0));
-        if (achievementProgress[5] >= 1000) {
-            unlockAchievement(5, "LOUNGE LIZARD!");
-        }
+        achievementEvaluator.onLoungeHealing(bird, healedAmount);
     }
 
     void recordPowerUpPickupForAchievements(Bird bird) {
-        if (bird == null) {
-            return;
-        }
-        int idx = bird.playerIndex;
-        powerUpsCollectedMatch[idx]++;
-        if (powerUpsCollectedMatch[idx] >= 10 && !achievementsUnlocked[6]) {
-            unlockAchievement(6, "POWER-UP HOARDER!");
-        }
+        achievementEvaluator.onPowerUpPickup(bird);
     }
 
     void recordTauntForAchievements(Bird bird) {
-        if (bird == null || achievementsUnlocked[8]) {
-            return;
-        }
-        achievementProgress[8]++;
-        if (achievementProgress[8] >= 10) {
-            unlockAchievement(8, "TAUNT LORD!");
-        }
+        achievementEvaluator.onTaunt(bird);
+    }
+
+    void recordPelicanPlungeAchievement() {
+        achievementEvaluator.onPelicanPlunge();
+    }
+
+    void recordHighRooftopJumpAchievement(int playerIndex) {
+        achievementEvaluator.onHighRooftopJump(playerIndex);
+    }
+
+    void recordHighCliffJumpAchievement(int playerIndex) {
+        achievementEvaluator.onHighCliffJump(playerIndex);
+    }
+
+    void recordStageFallAchievement(int playerIndex) {
+        achievementEvaluator.onStageFall(playerIndex, trainingModeActive);
+    }
+
+    void recordNeonPickupAchievement(int playerIndex) {
+        achievementEvaluator.onNeonPickup(playerIndex);
+    }
+
+    void recordThermalPickupAchievement(int playerIndex) {
+        achievementEvaluator.onThermalPickup(playerIndex);
+    }
+
+    void recordVineGrapplePickupAchievement(int playerIndex) {
+        achievementEvaluator.onVineGrapplePickup(playerIndex);
     }
 
     private int maxProgressAcrossPlayers(int[] values) {
@@ -30902,30 +30886,11 @@ public class BirdGame3 extends Application {
     }
 
     private void checkAdventureAchievements() {
-        boolean[] completedAdventure = mainAdventureChapterCompletedState();
-        if (completedAdventure.length >= 2 && completedAdventure[1] && !achievementsUnlocked[20]) {
-            unlockAchievement(20, "ECHOES BELOW!");
-        }
-        boolean allDone = completedAdventure.length > 0;
-        for (boolean done : completedAdventure) {
-            if (!done) {
-                allDone = false;
-                break;
-            }
-        }
-        if (allDone && !achievementsUnlocked[21]) {
-            unlockAchievement(21, "STORY KEEPER!");
-        }
+        achievementEvaluator.onAdventureProgressUpdated(mainAdventureChapterCompletedState());
     }
 
     private void checkClassicAchievements() {
-        if (achievementsUnlocked[19]) return;
-        for (boolean done : classicCompleted) {
-            if (done) {
-                unlockAchievement(19, "CLASSIC CREST!");
-                break;
-            }
-        }
+        achievementEvaluator.onClassicProgressUpdated(classicCompleted);
     }
 
     private void showMatchHistory(Stage stage) {
@@ -31091,57 +31056,50 @@ public class BirdGame3 extends Application {
         return MATCH_HISTORY_TIME_FORMAT.format(time);
     }
 
-    private AchievementCategory preferredAchievementCategory() {
-        for (AchievementCategory category : AchievementCategory.values()) {
+    private BirdGame3AchievementCategory preferredAchievementCategory() {
+        for (BirdGame3AchievementCategory category : BirdGame3AchievementCategory.values()) {
             if (countClaimableAchievementRewards(category) > 0) {
                 return category;
             }
         }
-        return AchievementCategory.COMBAT;
+        return BirdGame3AchievementCategory.COMBAT;
     }
 
-    private AchievementCategory achievementCategoryFor(int index) {
-        return switch (index) {
-            case 0, 1, 2, 6, 7, 8, 9 -> AchievementCategory.COMBAT;
-            case 3, 4, 5, 18 -> AchievementCategory.BIRD;
-            case 10, 11, 12, 13, 14, 15, 16, 17 -> AchievementCategory.MAP;
-            case 19, 22, 23, 24, 28, 29 -> AchievementCategory.MODE;
-            default -> AchievementCategory.STORY;
-        };
+    private BirdGame3AchievementCategory achievementCategoryFor(int index) {
+        return achievementForIndex(index).category;
     }
 
     private AchievementReward achievementRewardFor(int index) {
-        return switch (index) {
-            case 0 -> AchievementReward.coins(150);
-            case 1 -> AchievementReward.coins(250);
-            case 2, 7 -> AchievementReward.continues(1);
-            case 3 -> AchievementReward.coins(300);
-            case 4 -> AchievementReward.preview(BirdType.HEISENBIRD, CHAR_HEISENBIRD_KEY, 300);
-            case 5 -> AchievementReward.preview(BirdType.MOCKINGBIRD, ECLIPSE_MOCKINGBIRD_SKIN, 280);
-            case 6 -> AchievementReward.coins(350);
-            case 8 -> AchievementReward.preview(BirdType.PIGEON, FREEMAN_PIGEON_SKIN, 260);
-            case 9 -> AchievementReward.coins(400);
-            case 10 -> AchievementReward.preview(BirdType.PIGEON, "CITY_PIGEON", 220);
-            case 11 -> AchievementReward.preview(BirdType.TITMOUSE, CIRCUIT_TITMOUSE_SKIN, 280);
-            case 12 -> AchievementReward.preview(BirdType.PIGEON, "NOIR_PIGEON", 320);
-            case 13 -> AchievementReward.preview(BirdType.HUMMINGBIRD, SUNFLARE_HUMMINGBIRD_SKIN, 300);
-            case 14 -> AchievementReward.preview(BirdType.SHOEBILL, GLACIER_SHOEBILL_SKIN, 300);
-            case 15 -> AchievementReward.preview(BirdType.EAGLE, "SKY_KING_EAGLE", 320);
-            case 16 -> AchievementReward.preview(BirdType.BAT, CHAR_BAT_KEY, 320);
-            case 17 -> AchievementReward.preview(BirdType.BAT, UMBRA_BAT_SKIN, 280);
-            case 18 -> AchievementReward.preview(BirdType.PELICAN, AURORA_PELICAN_SKIN, 320);
-            case 19 -> AchievementReward.continues(2);
-            case 20 -> AchievementReward.preview(null, MAP_CAVE_KEY, 320);
-            case 21 -> AchievementReward.preview(null, MAP_BATTLEFIELD_KEY, 420);
-            case 22 -> AchievementReward.preview(BirdType.RAVEN, CHAR_RAVEN_KEY, 340);
-            case 23 -> AchievementReward.preview(BirdType.VULTURE, TIDE_VULTURE_SKIN, 320);
-            case 24 -> AchievementReward.preview(BirdType.PENGUIN, MINT_PENGUIN_SKIN, 300);
-            case 25 -> AchievementReward.preview(BirdType.PIGEON, STORM_PIGEON_SKIN, 360);
-            case 26 -> AchievementReward.preview(BirdType.BAT, RESONANCE_BAT_SKIN, 360);
-            case 27 -> AchievementReward.preview(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN, 400);
-            case 28 -> AchievementReward.preview(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN, 420);
-            case 29 -> AchievementReward.coins(450);
-            default -> AchievementReward.coins(100);
+        return switch (achievementForIndex(index)) {
+            case FIRST_BLOOD -> AchievementReward.coins(150);
+            case DOMINATOR -> AchievementReward.coins(250);
+            case ANNIHILATOR, FALL_GUY -> AchievementReward.continues(1);
+            case TURKEY_SLAM_MASTER -> AchievementReward.coins(300);
+            case LEAN_GOD -> AchievementReward.preview(BirdType.HEISENBIRD, CHAR_HEISENBIRD_KEY, 300);
+            case LOUNGE_LIZARD -> AchievementReward.preview(BirdType.MOCKINGBIRD, ECLIPSE_MOCKINGBIRD_SKIN, 280);
+            case POWER_UP_HOARDER -> AchievementReward.coins(350);
+            case TAUNT_LORD -> AchievementReward.preview(BirdType.PIGEON, FREEMAN_PIGEON_SKIN, 260);
+            case CLUTCH_GOD -> AchievementReward.coins(400);
+            case ROOFTOP_RUNNER -> AchievementReward.preview(BirdType.PIGEON, "CITY_PIGEON", 220);
+            case NEON_ADDICT -> AchievementReward.preview(BirdType.TITMOUSE, CIRCUIT_TITMOUSE_SKIN, 280);
+            case URBAN_KING -> AchievementReward.preview(BirdType.PIGEON, "NOIR_PIGEON", 320);
+            case THERMAL_RIDER -> AchievementReward.preview(BirdType.HUMMINGBIRD, SUNFLARE_HUMMINGBIRD_SKIN, 300);
+            case CLIFF_DIVER -> AchievementReward.preview(BirdType.SHOEBILL, GLACIER_SHOEBILL_SKIN, 300);
+            case SKY_EMPEROR -> AchievementReward.preview(BirdType.EAGLE, "SKY_KING_EAGLE", 320);
+            case VINE_SWINGER -> AchievementReward.preview(BirdType.BAT, CHAR_BAT_KEY, 320);
+            case CANOPY_KING -> AchievementReward.preview(BirdType.BAT, UMBRA_BAT_SKIN, 280);
+            case PELICAN_KING -> AchievementReward.preview(BirdType.PELICAN, AURORA_PELICAN_SKIN, 320);
+            case CLASSIC_CREST -> AchievementReward.continues(2);
+            case ECHOES_BELOW -> AchievementReward.preview(null, MAP_CAVE_KEY, 320);
+            case STORY_KEEPER -> AchievementReward.preview(null, MAP_BATTLEFIELD_KEY, 420);
+            case BOSS_BREAKER -> AchievementReward.preview(BirdType.RAVEN, CHAR_RAVEN_KEY, 340);
+            case CROWN_UNBROKEN -> AchievementReward.preview(BirdType.VULTURE, TIDE_VULTURE_SKIN, 320);
+            case GROVE_SENTINEL -> AchievementReward.preview(BirdType.PENGUIN, MINT_PENGUIN_SKIN, 300);
+            case ROOFTOP_LEGACY -> AchievementReward.preview(BirdType.PIGEON, STORM_PIGEON_SKIN, 360);
+            case ECHO_SOVEREIGN -> AchievementReward.preview(BirdType.BAT, RESONANCE_BAT_SKIN, 360);
+            case IRON_TEMPEST -> AchievementReward.preview(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN, 400);
+            case BLIGHT_BUSTER -> AchievementReward.preview(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN, 420);
+            case BRACKET_BOSS -> AchievementReward.coins(450);
         };
     }
 
@@ -31196,47 +31154,52 @@ public class BirdGame3 extends Application {
     }
 
     private String achievementProgressText(int index) {
-        if (index >= 0 && index < ACHIEVEMENT_COUNT && achievementsUnlocked[index]) {
+        if (index >= 0 && index < ACHIEVEMENT_COUNT && isAchievementUnlocked(index)) {
             return "Completed";
         }
-        return switch (index) {
-            case 0 -> "Best this match: " + maxProgressAcrossPlayers(eliminations) + " / 1 elimination";
-            case 1 -> "Best this match: " + maxProgressAcrossPlayers(eliminations) + " / 3 eliminations";
-            case 2 -> "Best this match: " + maxProgressAcrossPlayers(eliminations) + " / "
+        return switch (achievementForIndex(index)) {
+            case FIRST_BLOOD -> "Best this match: " + maxProgressAcrossPlayers(eliminations) + " / 1 elimination";
+            case DOMINATOR -> "Best this match: " + maxProgressAcrossPlayers(eliminations) + " / 3 eliminations";
+            case ANNIHILATOR -> "Best this match: " + maxProgressAcrossPlayers(eliminations) + " / "
                     + Math.max(1, activePlayers - 1) + " eliminations";
-            case 3 -> "Best this match: " + maxProgressAcrossPlayers(groundPounds) + " / 3 ground pounds";
-            case 4 -> String.format(Locale.US, "Total lean time: %.1f / 30.0 seconds", achievementProgress[4] / 60.0);
-            case 5 -> String.format(Locale.US, "Lounge healing: %.1f / 100.0 HP", achievementProgress[5] / 10.0);
-            case 6 -> "Best this match: " + maxProgressAcrossPlayers(powerUpsCollectedMatch) + " / 10 power-ups";
-            case 7 -> "Total falls: " + achievementProgress[7] + " / 3";
-            case 8 -> "Total taunts: " + achievementProgress[8] + " / 10";
-            case 9 -> achievementsUnlocked[9] ? "Condition met: clutch win secured" : "Win a match with less than 20 HP remaining";
-            case 10 -> "High rooftop jumps: " + achievementProgress[10] + " / 20";
-            case 11 -> "Neon pickups: " + achievementProgress[11] + " / 8";
-            case 12 -> "Rooftop wins: " + achievementProgress[12] + " / 5";
-            case 13 -> "Thermal pickups: " + achievementProgress[13] + " / 10";
-            case 14 -> "High cliff jumps: " + achievementProgress[14] + " / 15";
-            case 15 -> "Sky Cliffs wins: " + achievementProgress[15] + " / 5";
-            case 16 -> "Vine Grapples: " + achievementProgress[16] + " / 8";
-            case 17 -> "Jungle wins: " + achievementProgress[17] + " / 5";
-            case 18 -> "Pelican plunges: " + achievementProgress[18] + " / 15";
-            case 19 -> "Classic clears: " + countCompleted(classicCompleted) + " / 1";
-            case 20 -> "Chapter 2 complete: " + (isAdventureChapterComplete() ? "1 / 1" : "0 / 1");
-            case 21 -> {
+            case TURKEY_SLAM_MASTER -> "Best this match: " + maxProgressAcrossPlayers(groundPounds) + " / 3 ground pounds";
+            case LEAN_GOD -> String.format(Locale.US, "Total lean time: %.1f / 30.0 seconds",
+                    achievementProgressValue(BirdGame3Achievement.LEAN_GOD) / 60.0);
+            case LOUNGE_LIZARD -> String.format(Locale.US, "Lounge healing: %.1f / 100.0 HP",
+                    achievementProgressValue(BirdGame3Achievement.LOUNGE_LIZARD) / 10.0);
+            case POWER_UP_HOARDER -> "Best this match: " + maxProgressAcrossPlayers(powerUpsCollectedMatch) + " / 10 power-ups";
+            case FALL_GUY -> "Total falls: " + achievementProgressValue(BirdGame3Achievement.FALL_GUY) + " / 3";
+            case TAUNT_LORD -> "Total taunts: " + achievementProgressValue(BirdGame3Achievement.TAUNT_LORD) + " / 10";
+            case CLUTCH_GOD -> isAchievementUnlocked(BirdGame3Achievement.CLUTCH_GOD)
+                    ? "Condition met: clutch win secured"
+                    : "Win a match with less than 20 HP remaining";
+            case ROOFTOP_RUNNER -> "High rooftop jumps: " + achievementProgressValue(BirdGame3Achievement.ROOFTOP_RUNNER) + " / 20";
+            case NEON_ADDICT -> "Neon pickups: " + achievementProgressValue(BirdGame3Achievement.NEON_ADDICT) + " / 8";
+            case URBAN_KING -> "Rooftop wins: " + achievementProgressValue(BirdGame3Achievement.URBAN_KING) + " / 5";
+            case THERMAL_RIDER -> "Thermal pickups: " + achievementProgressValue(BirdGame3Achievement.THERMAL_RIDER) + " / 10";
+            case CLIFF_DIVER -> "High cliff jumps: " + achievementProgressValue(BirdGame3Achievement.CLIFF_DIVER) + " / 15";
+            case SKY_EMPEROR -> "Sky Cliffs wins: " + achievementProgressValue(BirdGame3Achievement.SKY_EMPEROR) + " / 5";
+            case VINE_SWINGER -> "Vine Grapples: " + achievementProgressValue(BirdGame3Achievement.VINE_SWINGER) + " / 8";
+            case CANOPY_KING -> "Jungle wins: " + achievementProgressValue(BirdGame3Achievement.CANOPY_KING) + " / 5";
+            case PELICAN_KING -> "Pelican plunges: " + achievementProgressValue(BirdGame3Achievement.PELICAN_KING) + " / 15";
+            case CLASSIC_CREST -> "Classic clears: " + countCompleted(classicCompleted) + " / 1";
+            case ECHOES_BELOW -> "Chapter 2 complete: " + (isAdventureChapterComplete() ? "1 / 1" : "0 / 1");
+            case STORY_KEEPER -> {
                 boolean[] completedAdventure = mainAdventureChapterCompletedState();
                 yield "Adventure chapters complete: " + countCompleted(completedAdventure)
                         + " / " + Math.max(1, completedAdventure.length);
             }
-            case 22 -> "Boss Rush clears: " + Math.max(achievementProgress[22], bossRushClearCount) + " / 1";
-            case 23 -> "EX route clears: " + achievementProgress[23] + " / 1";
-            case 24 -> "Tower Defense badges: " + Math.max(achievementProgress[24], countTowerDefenseBadges() > 0 ? 1 : 0) + " / 1";
-            case 25 -> "Pigeon Episode complete: " + (pigeonEpisodeCompleted ? "1 / 1" : "0 / 1");
-            case 26 -> "Bat Episode complete: " + (batEpisodeCompleted ? "1 / 1" : "0 / 1");
-            case 27 -> "Pelican Episode complete: " + (pelicanEpisodeCompleted ? "1 / 1" : "0 / 1");
-            case 28 -> "Big Forest badges: " + Math.max(achievementProgress[28], countBigForestTowerDefenseBadges())
+            case BOSS_BREAKER -> "Boss Rush clears: " + Math.max(achievementProgressValue(BirdGame3Achievement.BOSS_BREAKER), bossRushClearCount) + " / 1";
+            case CROWN_UNBROKEN -> "EX route clears: " + achievementProgressValue(BirdGame3Achievement.CROWN_UNBROKEN) + " / 1";
+            case GROVE_SENTINEL -> "Tower Defense badges: "
+                    + Math.max(achievementProgressValue(BirdGame3Achievement.GROVE_SENTINEL), countTowerDefenseBadges() > 0 ? 1 : 0) + " / 1";
+            case ROOFTOP_LEGACY -> "Pigeon Episode complete: " + (pigeonEpisodeCompleted ? "1 / 1" : "0 / 1");
+            case ECHO_SOVEREIGN -> "Bat Episode complete: " + (batEpisodeCompleted ? "1 / 1" : "0 / 1");
+            case IRON_TEMPEST -> "Pelican Episode complete: " + (pelicanEpisodeCompleted ? "1 / 1" : "0 / 1");
+            case BLIGHT_BUSTER -> "Big Forest badges: " + Math.max(achievementProgressValue(BirdGame3Achievement.BLIGHT_BUSTER), countBigForestTowerDefenseBadges())
                     + " / " + bigForestTowerDefenseBadgeGoal();
-            case 29 -> "Tournament championships: " + Math.max(achievementProgress[29], tournamentChampionshipsWon > 0 ? 1 : 0) + " / 1";
-            default -> "";
+            case BRACKET_BOSS -> "Tournament championships: "
+                    + Math.max(achievementProgressValue(BirdGame3Achievement.BRACKET_BOSS), tournamentChampionshipsWon > 0 ? 1 : 0) + " / 1";
         };
     }
 
@@ -31255,23 +31218,14 @@ public class BirdGame3 extends Application {
         return total;
     }
 
-    private int sumProgress(int[] values) {
-        if (values == null) return 0;
-        int total = 0;
-        for (int value : values) {
-            total += Math.max(0, value);
-        }
-        return total;
-    }
-
     private boolean isAchievementRewardClaimable(int index) {
         return index >= 0
                 && index < ACHIEVEMENT_COUNT
-                && achievementsUnlocked[index]
-                && !achievementRewardsClaimed[index];
+                && isAchievementUnlocked(index)
+                && !isAchievementRewardClaimed(index);
     }
 
-    private int countClaimableAchievementRewards(AchievementCategory category) {
+    private int countClaimableAchievementRewards(BirdGame3AchievementCategory category) {
         int count = 0;
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             if (achievementCategoryFor(i) == category && isAchievementRewardClaimable(i)) {
@@ -31281,7 +31235,7 @@ public class BirdGame3 extends Application {
         return count;
     }
 
-    private List<Integer> achievementDisplayOrder(AchievementCategory category) {
+    private List<Integer> achievementDisplayOrder(BirdGame3AchievementCategory category) {
         List<Integer> order = new ArrayList<>();
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             if (achievementCategoryFor(i) == category) {
@@ -31289,8 +31243,8 @@ public class BirdGame3 extends Application {
             }
         }
         order.sort(Comparator
-                .comparingInt((Integer index) -> achievementsUnlocked[index] ? 1 : 0)
-                .thenComparingInt(index -> achievementRewardsClaimed[index] ? 1 : 0)
+                .comparingInt((Integer index) -> isAchievementUnlocked(index) ? 1 : 0)
+                .thenComparingInt(index -> isAchievementRewardClaimed(index) ? 1 : 0)
                 .thenComparingInt(Integer::intValue));
         return order;
     }
@@ -31310,7 +31264,7 @@ public class BirdGame3 extends Application {
         }
 
         AchievementReward reward = achievementRewardFor(index);
-        achievementRewardsClaimed[index] = true;
+        setAchievementRewardClaimed(index);
 
         if (reward == null) {
             saveAchievements();
@@ -31322,7 +31276,7 @@ public class BirdGame3 extends Application {
             saveAchievements();
             return new AchievementClaimResult(
                     new ShopPreview(null, null, "Bird Coins +" + reward.amount(), reward.amount()),
-                    ACHIEVEMENT_NAMES[index] + " paid out +" + reward.amount() + " Bird Coins.",
+                    achievementForIndex(index).displayName + " paid out +" + reward.amount() + " Bird Coins.",
                     false
             );
         }
@@ -31332,7 +31286,7 @@ public class BirdGame3 extends Application {
             saveAchievements();
             return new AchievementClaimResult(
                     new ShopPreview(null, CLASSIC_CONTINUE_KEY, "Classic Continue +" + reward.amount(), reward.amount()),
-                    ACHIEVEMENT_NAMES[index] + " granted +" + reward.amount() + " Classic Continue"
+                    achievementForIndex(index).displayName + " granted +" + reward.amount() + " Classic Continue"
                             + (reward.amount() == 1 ? "" : "s") + ".",
                     false
             );
@@ -31356,7 +31310,7 @@ public class BirdGame3 extends Application {
         );
     }
 
-    private void claimAchievementReward(int index, Stage stage, AchievementCategory currentCategory) {
+    private void claimAchievementReward(int index, Stage stage, BirdGame3AchievementCategory currentCategory) {
         AchievementClaimResult result = claimAchievementRewardInternal(index);
         if (result == null || stage == null) {
             return;
@@ -31387,7 +31341,7 @@ public class BirdGame3 extends Application {
         title.setFont(Font.font("Impact", FontWeight.BOLD, 74));
         title.setTextFill(Color.web("#FFE082"));
 
-        Label subtitle = getLabel(ACHIEVEMENT_NAMES[Math.clamp(achievementIndex, 0, ACHIEVEMENT_NAMES.length - 1)].toUpperCase(Locale.ROOT));
+        Label subtitle = getLabel(achievementForIndex(Math.clamp(achievementIndex, 0, ACHIEVEMENT_COUNT - 1)).displayName.toUpperCase(Locale.ROOT));
         subtitle.setFont(Font.font("Consolas", 24));
         subtitle.setTextFill(accent.brighter());
 
@@ -31462,39 +31416,7 @@ public class BirdGame3 extends Application {
     }
 
     private String achievementIconVariantKey(int index) {
-        return switch (index) {
-            case 0 -> "blood-drop";
-            case 1 -> "triple-skull";
-            case 2 -> "annihilation-burst";
-            case 3 -> "slam-impact";
-            case 4 -> "lean-cloud";
-            case 5 -> "lounge-heart";
-            case 6 -> "powerup-cache";
-            case 7 -> "void-fall";
-            case 8 -> "taunt-horn";
-            case 9 -> "clutch-heart";
-            case 10 -> "rooftop-arc";
-            case 11 -> "neon-bolt";
-            case 12 -> "urban-crown";
-            case 13 -> "thermal-spiral";
-            case 14 -> "cliff-dive";
-            case 15 -> "sky-crown";
-            case 16 -> "vine-swing";
-            case 17 -> "canopy-crown";
-            case 18 -> "pelican-plunge";
-            case 19 -> "classic-crest";
-            case 20 -> "cave-echo";
-            case 21 -> "story-book";
-            case 22 -> "boss-breaker";
-            case 23 -> "void-crown";
-            case 24 -> "grove-shield";
-            case 25 -> "storm-rooftop";
-            case 26 -> "echo-rings";
-            case 27 -> "iron-wing";
-            case 28 -> "tower-triad";
-            case 29 -> "bracket-crown";
-            default -> "badge";
-        };
+        return achievementForIndex(index).iconVariantKey;
     }
 
     private void drawCenteredText(GraphicsContext g, Font font, double centerX, double centerY, Color fill) {
@@ -32139,7 +32061,7 @@ public class BirdGame3 extends Application {
         return buildLockedTileIcon(achievementAccentColor(index));
     }
 
-    private StackPane achievementTabButton(Stage stage, AchievementCategory current, AchievementCategory tab) {
+    private StackPane achievementTabButton(Stage stage, BirdGame3AchievementCategory current, BirdGame3AchievementCategory tab) {
         int claimable = countClaimableAchievementRewards(tab);
         boolean selected = current == tab;
         Button button = uiFactory.action(tab.label.toUpperCase(Locale.ROOT), 230, 78, 24,
@@ -32158,10 +32080,10 @@ public class BirdGame3 extends Application {
         return wrapper;
     }
 
-    private StackPane buildAchievementCard(Stage stage, int index, AchievementCategory currentCategory) {
-        boolean unlocked = achievementsUnlocked[index];
+    private StackPane buildAchievementCard(Stage stage, int index, BirdGame3AchievementCategory currentCategory) {
+        boolean unlocked = isAchievementUnlocked(index);
         boolean claimable = isAchievementRewardClaimable(index);
-        boolean claimed = unlocked && achievementRewardsClaimed[index];
+        boolean claimed = unlocked && isAchievementRewardClaimed(index);
         Color accent = achievementAccentColor(index);
         String border = claimable ? "#FFE082" : (unlocked ? "#66BB6A" : toHex(accent));
 
@@ -32172,7 +32094,7 @@ public class BirdGame3 extends Application {
 
         Canvas icon = buildAchievementIcon(index, 92);
 
-        Label nameLabel = new Label(ACHIEVEMENT_NAMES[index].toUpperCase(Locale.ROOT));
+        Label nameLabel = new Label(achievementForIndex(index).displayName.toUpperCase(Locale.ROOT));
         nameLabel.setFont(Font.font("Impact", 36));
         nameLabel.setTextFill(unlocked ? Color.web("#F1F8E9") : Color.WHITE);
 
@@ -32190,7 +32112,7 @@ public class BirdGame3 extends Application {
         HBox header = new HBox(14, nameLabel, statusLabel);
         header.setAlignment(Pos.CENTER_LEFT);
 
-        Label descLabel = getLabel(sanitizeAchievementText(ACHIEVEMENT_DESCRIPTIONS[index]));
+        Label descLabel = getLabel(sanitizeAchievementText(achievementForIndex(index).description));
         descLabel.setFont(Font.font("Consolas", 20));
         descLabel.setTextFill(unlocked ? Color.web("#E8F5E9") : Color.web("#B0BEC5"));
         descLabel.setWrapText(true);
@@ -32285,7 +32207,7 @@ public class BirdGame3 extends Application {
         showAchievements(stage, preferredAchievementCategory());
     }
 
-    private void showAchievements(Stage stage, AchievementCategory category) {
+    private void showAchievements(Stage stage, BirdGame3AchievementCategory category) {
         playMenuMusic();
 
         BorderPane root = new BorderPane();
@@ -32295,7 +32217,7 @@ public class BirdGame3 extends Application {
         Button back = uiFactory.action("BACK TO HUB", 320, 84, 30, "#D32F2F", 22, () -> showMenu(stage));
         StackPane title = buildMenuTitleBanner("ACHIEVEMENTS", 620, 74, 34);
 
-        int unlockedCount = countCompleted(achievementsUnlocked);
+        int unlockedCount = achievementProfile.unlockedCount();
         int claimableCount = 0;
         for (int i = 0; i < ACHIEVEMENT_COUNT; i++) {
             if (isAchievementRewardClaimable(i)) {
@@ -32325,7 +32247,7 @@ public class BirdGame3 extends Application {
 
         HBox tabs = new HBox(14);
         tabs.setAlignment(Pos.CENTER);
-        for (AchievementCategory tab : AchievementCategory.values()) {
+        for (BirdGame3AchievementCategory tab : BirdGame3AchievementCategory.values()) {
             tabs.getChildren().add(achievementTabButton(stage, category, tab));
         }
         StackPane tabsShell = new StackPane(tabs);

@@ -1358,10 +1358,7 @@ public class Bird {
                         Math.sin(ang) * (8 + Math.random() * 22) - 12,
                         ultimate ? Color.GOLD.brighter() : Color.ORANGE.brighter()));
             }
-            game.achievementProgress[18]++;
-            if (game.achievementProgress[18] >= 15 && !game.achievementsUnlocked[18]) {
-                game.unlockAchievement(18, "PELICAN KING!");
-            }
+            game.recordPelicanPlungeAchievement();
         } else {
             specialCooldown = 210;
         }
@@ -3454,19 +3451,11 @@ public class Bird {
 
             // Track rooftop jumps
             if (game.selectedMap == MapType.CITY && jumpPressed() && canJump && y < BirdGame3.GROUND_Y - 500) {
-                game.rooftopJumps[playerIndex]++;
-                game.achievementProgress[10]++;
-                if (game.achievementProgress[10] >= 20 && !game.achievementsUnlocked[10]) {
-                    game.unlockAchievement(10, "ROOFTOP RUNNER!");
-                }
+                game.recordHighRooftopJumpAchievement(playerIndex);
             }
 
             if (game.selectedMap == MapType.SKYCLIFFS && jumpPressed() && canJump && y < BirdGame3.GROUND_Y - 1000) {
-                game.highCliffJumps[playerIndex]++;
-                game.achievementProgress[14]++;
-                if (game.achievementProgress[14] >= 15 && !game.achievementsUnlocked[14]) {
-                    game.unlockAchievement(14, "CLIFF DIVER!");
-                }
+                game.recordHighCliffJumpAchievement(playerIndex);
             }
 
             if (attackPressed() && attackCooldown <= 0 && !isBlocking) {
@@ -4506,10 +4495,7 @@ public class Bird {
             respawnAfterStageLoss(trainingDummy, islandBounds, leftBound, rightBound,
                     1000 + playerIndex * 800, BirdGame3.GROUND_Y - 300);
             if (!game.trainingModeActive) {
-                game.achievementProgress[7]++;
-                if (game.achievementProgress[7] >= 3 && !game.achievementsUnlocked[7]) {
-                    game.unlockAchievement(7, "FALL GUY!");
-                }
+                game.recordStageFallAchievement(playerIndex);
             }
         }
     }
@@ -4652,12 +4638,8 @@ public class Bird {
                 game.shakeIntensity = 20;
                 game.hitstopFrames = 12;
 
-                game.neonPickups[playerIndex]++;
                 game.scores[playerIndex] += 20;
-                game.achievementProgress[11]++;
-                if (game.achievementProgress[11] >= 8 && !game.achievementsUnlocked[11]) {
-                    game.unlockAchievement(11, "NEON ADDICT!");
-                }
+                game.recordNeonPickupAchievement(playerIndex);
             }
             case THERMAL -> {
                 thermalTimer = 600;
@@ -4674,11 +4656,7 @@ public class Bird {
                 game.shakeIntensity = 15;
                 game.hitstopFrames = 10;
 
-                game.thermalPickups[playerIndex]++;
-                game.achievementProgress[13]++;
-                if (game.achievementProgress[13] >= 10 && !game.achievementsUnlocked[13]) {
-                    game.unlockAchievement(13, "THERMAL RIDER!");
-                }
+                game.recordThermalPickupAchievement(playerIndex);
             }
             case VINE_GRAPPLE -> {
                 grappleTimer = 480;
@@ -4693,11 +4671,7 @@ public class Bird {
                 }
                 game.shakeIntensity = 18;
                 game.hitstopFrames = 10;
-                game.vineGrapplePickups[playerIndex]++;
-                game.achievementProgress[16]++;
-                if (game.achievementProgress[16] >= 8 && !game.achievementsUnlocked[16]) {
-                    game.unlockAchievement(16, "VINE SWINGER!");
-                }
+                game.recordVineGrapplePickupAchievement(playerIndex);
             }
             case OVERCHARGE -> {
                 specialCooldown = 0;

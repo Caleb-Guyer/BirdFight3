@@ -84,14 +84,14 @@ class BirdGame3SettingsTest {
     @Test
     void claimAchievementRewardFallsBackToBirdCoinsWhenCosmeticIsOwned() throws Exception {
         BirdGame3 game = new BirdGame3();
-        game.achievementsUnlocked[10] = true;
+        game.setAchievementUnlocked(BirdGame3Achievement.ROOFTOP_RUNNER.legacyIndex);
         game.cityPigeonUnlocked = true;
 
         Method claim = BirdGame3.class.getDeclaredMethod("claimAchievementRewardInternal", int.class);
         claim.setAccessible(true);
         Object result = claim.invoke(game, 10);
 
-        assertTrue(game.achievementRewardsClaimed[10]);
+        assertTrue(game.isAchievementRewardClaimed(BirdGame3Achievement.ROOFTOP_RUNNER.legacyIndex));
         assertEquals(220, currentBirdCoinBalance(game));
 
         Method usesUnlockCards = result.getClass().getDeclaredMethod("usesUnlockCards");
@@ -120,14 +120,14 @@ class BirdGame3SettingsTest {
         applyWinnerMapProgress.invoke(game, winnerTwo);
         applyWinnerMapProgress.invoke(game, winnerOne);
 
-        assertEquals(5, game.achievementProgress[12]);
-        assertTrue(game.achievementsUnlocked[12]);
+        assertEquals(5, game.achievementProgressValue(BirdGame3Achievement.URBAN_KING));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.URBAN_KING));
     }
 
     @Test
     void achievementProgressTextShowsCompletedAfterUnlock() throws Exception {
         BirdGame3 game = new BirdGame3();
-        game.achievementsUnlocked[20] = true;
+        game.setAchievementUnlocked(BirdGame3Achievement.ECHOES_BELOW.legacyIndex);
 
         Method progressText = BirdGame3.class.getDeclaredMethod("achievementProgressText", int.class);
         progressText.setAccessible(true);
@@ -138,9 +138,9 @@ class BirdGame3SettingsTest {
     @Test
     void achievementDisplayOrderMovesCompletedEntriesToBottom() throws Exception {
         BirdGame3 game = new BirdGame3();
-        game.achievementsUnlocked[12] = true;
+        game.setAchievementUnlocked(BirdGame3Achievement.URBAN_KING.legacyIndex);
 
-        Class<?> categoryClass = Class.forName("com.example.birdgame3.BirdGame3$AchievementCategory");
+        Class<?> categoryClass = Class.forName("com.example.birdgame3.BirdGame3AchievementCategory");
         @SuppressWarnings({"unchecked", "rawtypes"})
         Object mapCategory = Enum.valueOf((Class<? extends Enum>) categoryClass.asSubclass(Enum.class), "MAP");
 
@@ -179,7 +179,7 @@ class BirdGame3SettingsTest {
     @Test
     void reconcileAchievementUnlocksRestoresModeAndStoryMilestones() throws Exception {
         BirdGame3 game = new BirdGame3();
-        game.achievementProgress[23] = 1;
+        game.setAchievementProgressValue(BirdGame3Achievement.CROWN_UNBROKEN, 1);
 
         setPrivateField(game, "bossRushClearCount", 2);
         setPrivateField(game, "tournamentChampionshipsWon", 1);
@@ -198,14 +198,14 @@ class BirdGame3SettingsTest {
         reconcile.setAccessible(true);
         reconcile.invoke(game);
 
-        assertTrue(game.achievementsUnlocked[22]);
-        assertTrue(game.achievementsUnlocked[23]);
-        assertTrue(game.achievementsUnlocked[24]);
-        assertTrue(game.achievementsUnlocked[25]);
-        assertTrue(game.achievementsUnlocked[26]);
-        assertTrue(game.achievementsUnlocked[27]);
-        assertTrue(game.achievementsUnlocked[28]);
-        assertTrue(game.achievementsUnlocked[29]);
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.BOSS_BREAKER));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.CROWN_UNBROKEN));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.GROVE_SENTINEL));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.ROOFTOP_LEGACY));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.ECHO_SOVEREIGN));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.IRON_TEMPEST));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.BLIGHT_BUSTER));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.BRACKET_BOSS));
     }
 
     @Test
@@ -220,9 +220,9 @@ class BirdGame3SettingsTest {
         loadProfileProgress.setAccessible(true);
         loadProfileProgress.invoke(reloaded, prefs);
 
-        assertTrue(reloaded.achievementsUnlocked[24]);
-        assertEquals(1, reloaded.achievementProgress[24]);
-        assertFalse(reloaded.achievementRewardsClaimed[24]);
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.GROVE_SENTINEL));
+        assertEquals(1, reloaded.achievementProgressValue(BirdGame3Achievement.GROVE_SENTINEL));
+        assertFalse(reloaded.isAchievementRewardClaimed(BirdGame3Achievement.GROVE_SENTINEL.legacyIndex));
     }
 
     @Test

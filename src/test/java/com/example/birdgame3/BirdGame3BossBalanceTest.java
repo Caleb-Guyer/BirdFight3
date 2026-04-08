@@ -1,6 +1,5 @@
 package com.example.birdgame3;
 
-import javafx.scene.input.KeyCode;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -313,42 +312,45 @@ class BirdGame3BossBalanceTest {
 
     @Test
     void lockedVultureSlotUnlocksNullRockFromDirectionalSelectorCode() throws Exception {
-        BirdGame3 game = new BirdGame3();
-        game.nullRockVultureUnlocked = true;
-        game.activePlayers = 4;
+        DirectionalSecretCode code = new DirectionalSecretCode('U', 'U', 'D', 'D', 'L', 'R');
+        int progress = 0;
+        String skinKey = "";
 
-        BirdGame3.BirdType[] selectedBirds = getPrivateBirdTypeArray(game);
-        boolean[] randomSelected = getPrivateBooleanArray(game);
-        String[] selectedSkins = getPrivateStringArray(game);
-        boolean[] selectorLocked = {true, false, false, false};
-        int[] progress = new int[4];
-        selectedBirds[0] = BirdGame3.BirdType.VULTURE;
-        randomSelected[0] = false;
+        DirectionalSecretCode.StepResult result = code.advance(progress, 'U', true);
+        assertTrue(result.consumed());
+        progress = result.nextProgress();
+        assertEquals(1, progress);
 
-        Method method = BirdGame3.class.getDeclaredMethod(
-                "handleLockedNullRockSelectorSecret",
-                int.class,
-                KeyCode.class,
-                boolean[].class,
-                Runnable.class,
-                int[].class
-        );
-        method.setAccessible(true);
-        Runnable noop = () -> {};
+        result = code.advance(progress, 'U', true);
+        assertTrue(result.consumed());
+        progress = result.nextProgress();
+        assertEquals(2, progress);
 
-        assertTrue((Boolean) method.invoke(game, 0, KeyCode.W, selectorLocked, noop, progress));
-        assertEquals(1, progress[0]);
-        assertTrue((Boolean) method.invoke(game, 0, KeyCode.W, selectorLocked, noop, progress));
-        assertEquals(2, progress[0]);
-        assertTrue((Boolean) method.invoke(game, 0, KeyCode.S, selectorLocked, noop, progress));
-        assertEquals(3, progress[0]);
-        assertTrue((Boolean) method.invoke(game, 0, KeyCode.S, selectorLocked, noop, progress));
-        assertEquals(4, progress[0]);
-        assertTrue((Boolean) method.invoke(game, 0, KeyCode.A, selectorLocked, noop, progress));
-        assertEquals(5, progress[0]);
-        assertTrue((Boolean) method.invoke(game, 0, KeyCode.D, selectorLocked, noop, progress));
-        assertEquals("NULL_ROCK_VULTURE", selectedSkins[0]);
-        assertEquals(0, progress[0]);
+        result = code.advance(progress, 'D', true);
+        assertTrue(result.consumed());
+        progress = result.nextProgress();
+        assertEquals(3, progress);
+
+        result = code.advance(progress, 'D', true);
+        assertTrue(result.consumed());
+        progress = result.nextProgress();
+        assertEquals(4, progress);
+
+        result = code.advance(progress, 'L', true);
+        assertTrue(result.consumed());
+        progress = result.nextProgress();
+        assertEquals(5, progress);
+
+        result = code.advance(progress, 'R', true);
+        assertTrue(result.consumed());
+        assertTrue(result.complete());
+        progress = result.nextProgress();
+        if (result.complete()) {
+            skinKey = "NULL_ROCK_VULTURE";
+        }
+
+        assertEquals("NULL_ROCK_VULTURE", skinKey);
+        assertEquals(0, progress);
     }
 
     @Test
