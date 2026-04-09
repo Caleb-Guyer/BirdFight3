@@ -3474,6 +3474,7 @@ public class BirdGame3 extends Application {
     private boolean tournamentMapRandom = true;
     private MapType tournamentFixedMap = MapType.FOREST;
     private final List<TournamentEntry> tournamentEntries = new ArrayList<>();
+    private final List<TournamentEntry> tournamentSeedOrder = new ArrayList<>();
     private final List<List<TournamentMatch>> tournamentRounds = new ArrayList<>();
     TournamentMatch currentTournamentMatch = null;
     private TournamentEntry tournamentSlotA = null;
@@ -3551,6 +3552,8 @@ public class BirdGame3 extends Application {
         final int id;
         boolean human = true;
         BirdType selectedType = null;
+        BirdType resolvedType = null;
+        String customName = "";
 
         TournamentEntry(int id) {
             this.id = id;
@@ -8781,8 +8784,18 @@ public class BirdGame3 extends Application {
             particles.subList(0, particles.size() - particleCap).clear();
         }
         int crowCap = activeCrowMinionCap();
-        if (crowMinions.size() > crowCap) {
-            crowMinions.subList(0, crowMinions.size() - crowCap).clear();
+        long protectedCrows = crowMinions.stream().filter(CrowMinion::isOverflowProtected).count();
+        int effectiveCrowCap = crowCap + (int) protectedCrows;
+        if (crowMinions.size() > effectiveCrowCap) {
+            int overflow = crowMinions.size() - effectiveCrowCap;
+            for (Iterator<CrowMinion> it = crowMinions.iterator(); it.hasNext() && overflow > 0; ) {
+                CrowMinion crow = it.next();
+                if (crow.isOverflowProtected()) {
+                    continue;
+                }
+                it.remove();
+                overflow--;
+            }
         }
         int chickCap = activeChickMinionCap();
         if (chickMinions.size() > chickCap) {
@@ -8922,6 +8935,9 @@ public class BirdGame3 extends Application {
         for (Iterator<CrowMinion> it = crowMinions.iterator(); it.hasNext(); ) {
             CrowMinion c = it.next();
             c.age++;
+            if (c.overflowProtectionFrames > 0) {
+                c.overflowProtectionFrames--;
+            }
             if (c.hitFlashTimer > 0) {
                 c.hitFlashTimer--;
             }
@@ -11978,11 +11994,7 @@ public class BirdGame3 extends Application {
         title.setTextFill(Color.web("#111111"));
         applyNoEllipsis(title);
 
-        StackPane banner = new StackPane(title);
-        banner.setMinSize(width, height);
-        banner.setPrefSize(width, height);
-        banner.setMaxSize(width, height);
-        banner.setStyle(MenuTheme.titleBannerStyle());
+        StackPane banner = getStackPane(new StackPane(title), width, MenuTheme.titleBannerStyle());
         banner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
         return banner;
     }
@@ -13995,7 +14007,7 @@ public class BirdGame3 extends Application {
         root.setStyle("-fx-background-color: #06070A;");
 
         BorderPane content = new BorderPane();
-        content.setPadding(new Insets(14));
+        content.setPadding(new Insets(12));
         content.setMinSize(layoutW, layoutH);
         content.setPrefSize(layoutW, layoutH);
         content.setMaxSize(layoutW, layoutH);
@@ -14012,11 +14024,7 @@ public class BirdGame3 extends Application {
         Label title = new Label("LOCAL BATTLE");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
         title.setTextFill(Color.web("#111111"));
-        StackPane titleBanner = new StackPane(title);
-        titleBanner.setMinSize(520, 72);
-        titleBanner.setPrefSize(520, 72);
-        titleBanner.setMaxSize(520, 72);
-        titleBanner.setStyle("-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
+        StackPane titleBanner = getStackPane(new StackPane(title), 520, "-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
                 + "-fx-background-radius: 12; -fx-border-color: black; -fx-border-width: 4; "
                 + "-fx-border-radius: 12;");
         titleBanner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
@@ -14325,11 +14333,7 @@ public class BirdGame3 extends Application {
             };
             String accentHex = toHex(accent);
 
-            StackPane playerBadge = new StackPane();
-            playerBadge.setMinSize(78, 44);
-            playerBadge.setPrefSize(78, 44);
-            playerBadge.setMaxSize(78, 44);
-            playerBadge.setStyle("-fx-background-color: " + accentHex + "; "
+            StackPane playerBadge = getStackPane(new StackPane(), 78, "-fx-background-color: " + accentHex + "; "
                     + "-fx-background-radius: 14; -fx-border-color: black; "
                     + "-fx-border-width: 3; -fx-border-radius: 14;");
 
@@ -14464,11 +14468,7 @@ public class BirdGame3 extends Application {
                 updateSlot[idx].run();
             });
 
-            StackPane portraitFrame = new StackPane(portraits[idx]);
-            portraitFrame.setMinSize(170, 170);
-            portraitFrame.setPrefSize(170, 170);
-            portraitFrame.setMaxSize(170, 170);
-            portraitFrame.setStyle("-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 22; "
+            StackPane portraitFrame = getStackPane(new StackPane(portraits[idx]), 170, "-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 22; "
                     + "-fx-border-color: rgba(255,255,255,0.20); -fx-border-width: 2; "
                     + "-fx-border-radius: 22;");
 
@@ -16634,10 +16634,16 @@ public class BirdGame3 extends Application {
     private void resetTournamentRun() {
         tournamentModeActive = false;
         tournamentRounds.clear();
+        tournamentSeedOrder.clear();
         currentTournamentMatch = null;
         tournamentSlotA = null;
         tournamentSlotB = null;
         tournamentMatchResolved = false;
+        for (TournamentEntry entry : tournamentEntries) {
+            if (entry != null) {
+                entry.resolvedType = null;
+            }
+        }
     }
 
     private void ensureTournamentEntries() {
@@ -16662,13 +16668,200 @@ public class BirdGame3 extends Application {
             entry.human = i < tournamentHumanCount;
             if (entry.selectedType != null && !isBirdUnlocked(entry.selectedType)) {
                 entry.selectedType = null;
+                entry.resolvedType = null;
+            }
+            if (entry.resolvedType != null && !isBirdUnlocked(entry.resolvedType)) {
+                entry.resolvedType = null;
+            }
+            entry.customName = normalizeTournamentEntryName(entry.customName);
+        }
+        ensureTournamentSeedOrder();
+    }
+
+    private void ensureTournamentSeedOrder() {
+        tournamentSeedOrder.removeIf(entry -> !tournamentEntries.contains(entry));
+        for (TournamentEntry entry : tournamentEntries) {
+            if (!tournamentSeedOrder.contains(entry)) {
+                tournamentSeedOrder.add(entry);
             }
         }
     }
 
+    private void shuffleTournamentSeedOrder() {
+        ensureTournamentSeedOrder();
+        Collections.shuffle(tournamentSeedOrder, random);
+    }
+
+    private int tournamentEntrySeedNumber(TournamentEntry entry) {
+        if (entry == null) {
+            return 0;
+        }
+        int seededIndex = tournamentSeedOrder.indexOf(entry);
+        if (seededIndex >= 0) {
+            return seededIndex + 1;
+        }
+        int fallbackIndex = tournamentEntries.indexOf(entry);
+        return fallbackIndex >= 0 ? fallbackIndex + 1 : entry.id;
+    }
+
+    private String normalizeTournamentEntryName(String requestedName) {
+        if (requestedName == null) {
+            return "";
+        }
+        String trimmed = requestedName.trim();
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+        String shortened = trimmed.length() > 32 ? trimmed.substring(0, 32).trim() : trimmed;
+        return shortened.isEmpty() ? "" : shortened;
+    }
+
     private String tournamentEntryLabel(TournamentEntry entry) {
         if (entry == null) return "PLAYER";
+        if (entry.customName != null && !entry.customName.isBlank()) {
+            return entry.customName;
+        }
         return "PLAYER " + entry.id;
+    }
+
+    private Color tournamentEntryAccent(int index, boolean human) {
+        Color[] palette = human
+                ? new Color[]{
+                Color.web("#F44336"),
+                Color.web("#42A5F5"),
+                Color.web("#FDD835"),
+                Color.web("#66BB6A"),
+                Color.web("#FF8A65"),
+                Color.web("#AB47BC")
+        }
+                : new Color[]{
+                Color.web("#8D6E63"),
+                Color.web("#78909C"),
+                Color.web("#9575CD"),
+                Color.web("#4DB6AC"),
+                Color.web("#A1887F"),
+                Color.web("#90A4AE")
+        };
+        return palette[Math.floorMod(index, palette.length)];
+    }
+
+    private String tournamentEntrySeedLabel(TournamentEntry entry) {
+        if (entry == null) {
+            return "";
+        }
+        return "SEED " + tournamentEntrySeedNumber(entry);
+    }
+
+    private void setTournamentEntrySelection(TournamentEntry entry, BirdType type) {
+        if (entry == null) {
+            return;
+        }
+        entry.selectedType = type;
+        entry.resolvedType = null;
+    }
+
+    private BirdType tournamentAssignedBird(TournamentEntry entry) {
+        if (entry == null) {
+            return null;
+        }
+        BirdType direct = entry.selectedType;
+        if (direct != null && isBirdUnlocked(direct)) {
+            return direct;
+        }
+        if (entry.resolvedType != null && isBirdUnlocked(entry.resolvedType)) {
+            return entry.resolvedType;
+        }
+        return null;
+    }
+
+    private BirdType resolveTournamentEntryBird(TournamentEntry entry) {
+        if (entry == null) {
+            return null;
+        }
+        BirdType direct = entry.selectedType;
+        if (direct != null && isBirdUnlocked(direct)) {
+            entry.resolvedType = direct;
+            return direct;
+        }
+        if (entry.resolvedType != null && isBirdUnlocked(entry.resolvedType)) {
+            return entry.resolvedType;
+        }
+        List<BirdType> pool = unlockedBirdPool();
+        BirdType resolved = pool.isEmpty() ? firstUnlockedBird() : pool.get(random.nextInt(pool.size()));
+        entry.resolvedType = resolved;
+        return resolved;
+    }
+
+    private void resolveTournamentEntryBirds() {
+        for (TournamentEntry entry : tournamentEntries) {
+            resolveTournamentEntryBird(entry);
+        }
+    }
+
+    private String tournamentBirdLabel(TournamentEntry entry, boolean revealResolvedRandom) {
+        if (entry == null) {
+            return "TBD";
+        }
+        if (entry.selectedType != null) {
+            return entry.selectedType.name.toUpperCase(Locale.ROOT);
+        }
+        if (revealResolvedRandom && entry.resolvedType != null) {
+            return "RANDOM -> " + entry.resolvedType.name.toUpperCase(Locale.ROOT);
+        }
+        return "RANDOM";
+    }
+
+    private void renameTournamentEntryPrompt(Stage stage, TournamentEntry entry, Runnable onComplete) {
+        if (entry == null) {
+            if (onComplete != null) {
+                onComplete.run();
+            }
+            return;
+        }
+        String defaultName = entry.customName == null || entry.customName.isBlank()
+                ? "PLAYER " + entry.id
+                : entry.customName;
+        TextInputDialog dialog = new TextInputDialog(defaultName);
+        dialog.setTitle("Rename Tournament Entrant");
+        dialog.setHeaderText("Rename this tournament entrant.");
+        dialog.setContentText("Entrant name:");
+        dialog.initOwner(stage);
+        dialog.showAndWait().ifPresent(name -> {
+            entry.customName = normalizeTournamentEntryName(name);
+            if (onComplete != null) {
+                onComplete.run();
+            }
+        });
+    }
+
+    private Node buildTournamentRenameChipIcon() {
+        Rectangle shaft = new Rectangle(10, 3, Color.web("#FFE082"));
+        shaft.setArcWidth(2);
+        shaft.setArcHeight(2);
+        shaft.setTranslateX(-1.5);
+        shaft.setTranslateY(0.5);
+        shaft.setRotate(-32);
+
+        Polygon tip = new Polygon(
+                0.0, 0.0,
+                4.0, 1.5,
+                0.5, 4.5
+        );
+        tip.setFill(Color.web("#FFF8E1"));
+        tip.setTranslateX(5.2);
+        tip.setTranslateY(-2.4);
+        tip.setRotate(-32);
+
+        Rectangle eraser = new Rectangle(3.2, 3.0, Color.web("#F48FB1"));
+        eraser.setArcWidth(1.5);
+        eraser.setArcHeight(1.5);
+        eraser.setTranslateX(-5.2);
+        eraser.setTranslateY(3.0);
+        eraser.setRotate(-32);
+
+        Group icon = new Group(shaft, tip, eraser);
+        icon.setManaged(false);
+        return icon;
     }
 
     private List<MapType> tournamentMapPool() {
@@ -16699,26 +16892,29 @@ public class BirdGame3 extends Application {
     private void buildTournamentBracket() {
         tournamentRounds.clear();
         ensureTournamentEntries();
+        ensureTournamentSeedOrder();
         if (tournamentEntries.isEmpty()) return;
 
-        List<TournamentEntry> seeds = new ArrayList<>(tournamentEntries);
+        List<TournamentEntry> seeds = new ArrayList<>(tournamentSeedOrder);
         int size = 1;
         while (size < seeds.size()) size *= 2;
         int matchCount = size / 2;
+        int[] slotBySeed = tournamentSeedSlots(size);
+        TournamentEntry[] seededSlots = new TournamentEntry[size];
+        for (int seedIndex = 0; seedIndex < seeds.size(); seedIndex++) {
+            int seedNumber = seedIndex + 1;
+            int slotIndex = slotBySeed[seedNumber];
+            seededSlots[slotIndex] = seeds.get(seedIndex);
+        }
 
         List<TournamentMatch> round0 = new ArrayList<>();
         for (int i = 0; i < matchCount; i++) {
-            round0.add(new TournamentMatch(0, i, null, null));
-        }
-        for (int i = 0; i < matchCount && i < seeds.size(); i++) {
-            round0.get(i).a = seeds.get(i);
-        }
-        int idx = matchCount;
-        int matchIndex = 0;
-        while (idx < seeds.size()) {
-            round0.get(matchIndex).b = seeds.get(idx);
-            idx++;
-            matchIndex++;
+            round0.add(new TournamentMatch(
+                    0,
+                    i,
+                    seededSlots[i * 2],
+                    seededSlots[i * 2 + 1]
+            ));
         }
         tournamentRounds.add(round0);
 
@@ -16733,6 +16929,28 @@ public class BirdGame3 extends Application {
             roundIndex++;
             nextMatches /= 2;
         }
+    }
+
+    private int[] tournamentSeedSlots(int size) {
+        List<Integer> order = new ArrayList<>();
+        order.add(1);
+        order.add(2);
+        int bracketSize = 2;
+        while (bracketSize < size) {
+            int nextSize = bracketSize * 2;
+            List<Integer> nextOrder = new ArrayList<>(nextSize);
+            for (int seed : order) {
+                nextOrder.add(seed);
+                nextOrder.add(nextSize + 1 - seed);
+            }
+            order = nextOrder;
+            bracketSize = nextSize;
+        }
+        int[] slotBySeed = new int[size + 1];
+        for (int slot = 0; slot < order.size(); slot++) {
+            slotBySeed[order.get(slot)] = slot;
+        }
+        return slotBySeed;
     }
 
     private TournamentMatch findNextTournamentMatch() {
@@ -16840,203 +17058,728 @@ public class BirdGame3 extends Application {
 
         ensureTournamentEntries();
         syncTournamentEntries();
+        Scene scene = buildTournamentSetupScene(stage);
+        setScenePreservingFullscreen(stage, scene);
+    }
 
-        BorderPane root = new BorderPane();
-        root.setPadding(new Insets(26, 36, 26, 36));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #0B1A2E, #1C2F4E);");
+    private static final class TournamentSetupUi {
+        final int[] activeEntryIndex = new int[]{0};
+        final Runnable[] refreshCounts = new Runnable[1];
+        final Runnable[] refreshEntries = new Runnable[1];
+        final Runnable[] refreshMapControls = new Runnable[1];
+        final Runnable[] refreshFocus = new Runnable[1];
+        final Runnable[] refreshAll = new Runnable[1];
+        final Pane selectionPane = new Pane();
+        final List<BirdIconSpot> spots = new ArrayList<>();
+        final Map<BirdType, BirdIconSpot> spotByType = new HashMap<>();
+        final FlowPane entrantStrip = new FlowPane(12, 12);
+        BirdIconSpot randomSpot;
+        Circle selector;
+        Circle selectorGrabHandle;
+        Text selectorLabel;
+        Label activeSeed;
+        Label activeName;
+        Label activeRole;
+        Canvas activePortrait;
+        Label activeBird;
+        Label entrantsValue;
+        Label humansValue;
+        Label cpuValue;
+        Button mapModeBtn;
+        Button mapSelectBtn;
+        Button startBtn;
+        Button backBtn;
+    }
+
+    private Scene buildTournamentSetupScene(Stage stage) {
+        final double layoutW = 1600.0;
+        final double layoutH = 950.0;
+
+        StackPane root = new StackPane();
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #06070A;");
+
+        BorderPane content = new BorderPane();
+        content.setPadding(new Insets(12));
+        content.setMinSize(layoutW, layoutH);
+        content.setPrefSize(layoutW, layoutH);
+        content.setMaxSize(layoutW, layoutH);
+        content.setStyle("-fx-background-color: linear-gradient(to bottom, #06070A, #0D1017 34%, #171B22 100%);");
+        root.getChildren().add(content);
+
+        TournamentSetupUi ui = new TournamentSetupUi();
+        content.setTop(new VBox(buildTournamentSetupTopStrip(stage, ui)));
+        configureTournamentSetupSelectionPane(ui);
+
+        VBox rosterCard = buildTournamentSetupRosterCard(ui);
+        StackPane footerPanel = buildTournamentSetupFooter(stage, ui);
+
+        VBox body = new VBox(12, rosterCard, footerPanel);
+        body.setAlignment(Pos.TOP_CENTER);
+        content.setCenter(body);
+
+        if (ui.refreshAll[0] != null) {
+            ui.refreshAll[0].run();
+        }
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        scene.setFill(Color.web("#06070A"));
+        bindEscape(scene, ui.backBtn);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, content);
+        if (ui.startBtn != null) {
+            ui.startBtn.requestFocus();
+        }
+        return scene;
+    }
+
+    private StackPane buildTournamentSetupTopStrip(Stage stage, TournamentSetupUi ui) {
+        ui.backBtn = uiFactory.action("BACK", 156, 56, 22, "#B5121B", 16, () -> showClassicMoreMenu(stage));
+        ui.backBtn.setStyle("-fx-background-color: linear-gradient(to bottom, #D61D28, #981019); "
+                + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 17px; "
+                + "-fx-font-weight: bold; -fx-background-radius: 18; -fx-border-color: black; "
+                + "-fx-border-width: 3; -fx-border-radius: 18;");
+        applyNoEllipsis(ui.backBtn);
 
         Label title = new Label("TOURNAMENT MODE");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 88));
-        title.setTextFill(Color.web("#FFECB3"));
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
+        title.setTextFill(Color.web("#111111"));
+        StackPane titleBanner = getStackPane(new StackPane(title), 548, "-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
+                + "-fx-background-radius: 12; -fx-border-color: black; -fx-border-width: 4; "
+                + "-fx-border-radius: 12;");
+        titleBanner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
 
-        Label subtitle = new Label("Set entrants, humans, and birds. CPU vs CPU matches can be watched or skipped.");
-        subtitle.setFont(Font.font("Consolas", 24));
-        subtitle.setTextFill(Color.web("#B3E5FC"));
-        subtitle.setWrapText(true);
-        subtitle.setMaxWidth(1400);
-        subtitle.setTextAlignment(TextAlignment.CENTER);
+        BorderPane topChrome = new BorderPane();
+        topChrome.setLeft(ui.backBtn);
+        BorderPane.setAlignment(ui.backBtn, Pos.CENTER_LEFT);
 
-        VBox header = new VBox(6, title, subtitle);
-        header.setAlignment(Pos.CENTER);
+        StackPane topStrip = new StackPane(topChrome, titleBanner);
+        topStrip.setPadding(new Insets(8, 12, 8, 12));
+        topStrip.setMinHeight(86);
+        topStrip.setStyle("-fx-background-color: linear-gradient(to right, #8E0D16 0%, #C51A24 42%, #111317 42%, #111317 100%); "
+                + "-fx-background-radius: 24; -fx-border-color: black; -fx-border-width: 4; -fx-border-radius: 24;");
+        topStrip.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.30)));
+        return topStrip;
+    }
+
+    private VBox buildTournamentSetupRosterCard(TournamentSetupUi ui) {
+        Label rosterTitle = new Label("SELECT YOUR TOURNAMENT BIRD");
+        rosterTitle.setFont(Font.font("Arial Black", 26));
+        rosterTitle.setTextFill(Color.web("#FFF176"));
+        rosterTitle.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.30)));
+        HBox rosterHeader = new HBox(rosterTitle);
+        rosterHeader.setAlignment(Pos.CENTER_LEFT);
+
+        VBox rosterCard = new VBox(8, rosterHeader, ui.selectionPane);
+        rosterCard.setPadding(new Insets(10));
+        rosterCard.setStyle("-fx-background-color: rgba(4,5,8,0.90); -fx-background-radius: 28; "
+                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 3; -fx-border-radius: 28;");
+        return rosterCard;
+    }
+
+    private void configureTournamentSetupSelectionPane(TournamentSetupUi ui) {
+        List<BirdType> availableBirds = unlockedBirdPool();
+        List<BirdType> gridBirds = new ArrayList<>(availableBirds);
+        gridBirds.add(null);
+
+        double paneW = 1520;
+        double paneH = 406;
+        ui.selectionPane.setPrefSize(paneW, paneH);
+        ui.selectionPane.setMinSize(paneW, paneH);
+        ui.selectionPane.setMaxSize(paneW, paneH);
+        ui.selectionPane.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(21,25,31,0.97), rgba(7,9,12,0.99)); "
+                + "-fx-background-radius: 22; -fx-border-color: rgba(255,255,255,0.16); "
+                + "-fx-border-width: 2; -fx-border-radius: 22;");
+        Rectangle selectionClip = new Rectangle();
+        selectionClip.widthProperty().bind(ui.selectionPane.widthProperty());
+        selectionClip.heightProperty().bind(ui.selectionPane.heightProperty());
+        ui.selectionPane.setClip(selectionClip);
+
+        int columns = Math.clamp((int) Math.ceil(gridBirds.size() / 3.0), 8, 12);
+        int rows = (int) Math.ceil(gridBirds.size() / (double) columns);
+        double dockW = 230;
+        double dockX = 16;
+        double dockY = 18;
+        double dockH = paneH - dockY * 2;
+        double gridX = dockX + dockW + 16;
+        double gridY = 18;
+        double gridW = paneW - gridX - 18;
+        double gridH = paneH - gridY * 2;
+        double cellW = gridW / columns;
+        double cellH = gridH / Math.max(1, rows);
+
+        Region gridFrame = new Region();
+        gridFrame.setLayoutX(gridX - 12);
+        gridFrame.setLayoutY(gridY - 12);
+        gridFrame.setPrefSize(gridW + 24, gridH + 24);
+        gridFrame.setStyle("-fx-background-color: rgba(255,255,255,0.035); "
+                + "-fx-border-color: rgba(255,255,255,0.14); -fx-border-width: 2; "
+                + "-fx-background-radius: 20; -fx-border-radius: 20;");
+        ui.selectionPane.getChildren().add(gridFrame);
+
+        Region focusDock = new Region();
+        focusDock.setPrefSize(dockW, dockH);
+        focusDock.setLayoutX(dockX);
+        focusDock.setLayoutY(dockY);
+        focusDock.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(18,24,32,0.96), rgba(7,9,14,0.98)); "
+                + "-fx-background-radius: 20; -fx-border-color: rgba(255,224,130,0.42); "
+                + "-fx-border-width: 2; -fx-border-radius: 20;");
+        ui.selectionPane.getChildren().add(focusDock);
+
+        ui.activeSeed = new Label();
+        ui.activeSeed.setFont(Font.font("Consolas", 18));
+        ui.activeSeed.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(ui.activeSeed);
+
+        ui.activeName = new Label();
+        ui.activeName.setFont(Font.font("Arial Black", 26));
+        ui.activeName.setTextFill(Color.WHITE);
+        ui.activeName.setWrapText(true);
+        ui.activeName.setTextAlignment(TextAlignment.CENTER);
+        ui.activeName.setAlignment(Pos.CENTER);
+        ui.activeName.setMaxWidth(dockW - 36);
+        applyNoEllipsis(ui.activeName);
+
+        ui.activeRole = new Label();
+        ui.activeRole.setFont(Font.font("Arial Black", 15));
+        ui.activeRole.setTextFill(Color.WHITE);
+        ui.activeRole.setPadding(new Insets(6, 14, 6, 14));
+
+        ui.activePortrait = new Canvas(150, 150);
+        StackPane activePortraitFrame = getStackPane(new StackPane(ui.activePortrait), 168, "-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 22; "
+                + "-fx-border-color: rgba(255,255,255,0.20); -fx-border-width: 2; "
+                + "-fx-border-radius: 22;");
+
+        ui.activeBird = new Label();
+        ui.activeBird.setFont(Font.font("Arial Black", 18));
+        ui.activeBird.setTextFill(Color.web("#FFF4C3"));
+        ui.activeBird.setWrapText(true);
+        ui.activeBird.setTextAlignment(TextAlignment.CENTER);
+        ui.activeBird.setAlignment(Pos.CENTER);
+        ui.activeBird.setMaxWidth(dockW - 40);
+        applyNoEllipsis(ui.activeBird);
+
+        Label focusHint = new Label("Random locks one bird for the entire tournament.");
+        focusHint.setFont(Font.font("Consolas", 15));
+        focusHint.setTextFill(Color.web("#B0BEC5"));
+        focusHint.setWrapText(true);
+        focusHint.setTextAlignment(TextAlignment.CENTER);
+        focusHint.setAlignment(Pos.CENTER);
+        focusHint.setMaxWidth(dockW - 40);
+
+        VBox focusCard = new VBox(10, ui.activeSeed, ui.activeName, ui.activeRole, activePortraitFrame, ui.activeBird, focusHint);
+        focusCard.setAlignment(Pos.TOP_CENTER);
+        focusCard.setPadding(new Insets(18, 12, 14, 12));
+        focusCard.setLayoutX(dockX + 8);
+        focusCard.setLayoutY(dockY + 8);
+        focusCard.setPrefSize(dockW - 16, dockH - 16);
+        focusCard.setStyle("-fx-background-color: rgba(0,0,0,0.18); -fx-background-radius: 18;");
+        ui.selectionPane.getChildren().add(focusCard);
+
+        for (int i = 0; i < gridBirds.size(); i++) {
+            BirdType type = gridBirds.get(i);
+            boolean isRandom = type == null;
+            int col = i % columns;
+            int row = i / columns;
+            double cellX = gridX + col * cellW;
+            double cellY = gridY + row * cellH;
+            double centerX = cellX + cellW / 2.0;
+            double centerY = cellY + cellH / 2.0;
+            double tileW = Math.max(110.0, cellW - 8.0);
+            double tileH = Math.max(110.0, cellH - 8.0);
+            double iconSize = Math.clamp(Math.min(tileW - 24.0, tileH - 52.0), 68.0, 138.0);
+
+            Canvas icon = new Canvas(iconSize, iconSize);
+            drawRosterSprite(icon, type, null, isRandom);
+            Node iconNode = icon;
+            if (type == BirdType.FALCON) {
+                StackPane iconStack = new StackPane();
+                iconStack.setPrefSize(iconSize, iconSize);
+                iconStack.getChildren().add(icon);
+                Canvas echo = new Canvas(iconSize * 0.55, iconSize * 0.55);
+                drawRosterSprite(echo, BirdType.EAGLE, null, false);
+                echo.setOpacity(0.32);
+                StackPane.setAlignment(echo, Pos.TOP_LEFT);
+                StackPane.setMargin(echo, new Insets(6, 0, 0, 6));
+                iconStack.getChildren().add(echo);
+                iconNode = iconStack;
+            } else if (type == BirdType.HEISENBIRD) {
+                StackPane iconStack = new StackPane();
+                iconStack.setPrefSize(iconSize, iconSize);
+                iconStack.getChildren().add(icon);
+                Canvas echo = new Canvas(iconSize * 0.55, iconSize * 0.55);
+                drawRosterSprite(echo, BirdType.OPIUMBIRD, null, false);
+                echo.setOpacity(0.32);
+                StackPane.setAlignment(echo, Pos.TOP_LEFT);
+                StackPane.setMargin(echo, new Insets(6, 0, 0, 6));
+                iconStack.getChildren().add(echo);
+                iconNode = iconStack;
+            }
+
+            Label name = new Label(isRandom ? "RANDOM" : type.name.toUpperCase(Locale.ROOT));
+            name.setFont(Font.font("Arial Black", tileH < 140 ? 13 : 15));
+            name.setTextFill(Color.WHITE);
+            name.setMaxWidth(tileW - 12);
+            name.setTextAlignment(TextAlignment.CENTER);
+            name.setAlignment(Pos.CENTER);
+            name.setWrapText(true);
+            if (type == BirdType.FALCON) {
+                name.setText("FALCON\nECHO OF EAGLE");
+                name.setFont(Font.font("Arial Black", 12));
+            } else if (type == BirdType.HEISENBIRD) {
+                name.setText("HEISENBIRD\nECHO OF OPIUM");
+                name.setFont(Font.font("Arial Black", 12));
+            }
+
+            StackPane namePlate = new StackPane(name);
+            namePlate.setPadding(new Insets(5, 8, 6, 8));
+            namePlate.setStyle("-fx-background-color: rgba(0,0,0,0.78); -fx-background-radius: 12;");
+
+            StackPane iconHolder = new StackPane(iconNode);
+            iconHolder.setPadding(new Insets(8, 8, 4, 8));
+
+            BorderPane tileBody = new BorderPane();
+            tileBody.setCenter(iconHolder);
+            tileBody.setBottom(namePlate);
+
+            StackPane card = new StackPane(tileBody);
+            card.setPrefSize(tileW, tileH);
+            card.setLayoutX(cellX + (cellW - tileW) / 2.0);
+            card.setLayoutY(cellY + (cellH - tileH) / 2.0);
+            card.setStyle((isRandom
+                    ? "-fx-background-color: linear-gradient(to bottom, rgba(122,91,12,0.96), rgba(49,34,4,0.98)); "
+                    : "-fx-background-color: linear-gradient(to bottom, rgba(58,72,92,0.82), rgba(14,17,22,0.96)); ")
+                    + "-fx-background-radius: 18; -fx-border-color: "
+                    + (isRandom ? "rgba(255,236,179,0.88)" : "rgba(255,255,255,0.18)")
+                    + "; -fx-border-width: 2; -fx-border-radius: 18;");
+            card.setCursor(Cursor.HAND);
+
+            card.setOnMouseClicked(e -> {
+                if (tournamentEntries.isEmpty()) {
+                    return;
+                }
+                playButtonClick();
+                int idx = Math.clamp(ui.activeEntryIndex[0], 0, tournamentEntries.size() - 1);
+                setTournamentEntrySelection(tournamentEntries.get(idx), type);
+                if (ui.refreshEntries[0] != null) {
+                    ui.refreshEntries[0].run();
+                }
+                if (ui.refreshFocus[0] != null) {
+                    ui.refreshFocus[0].run();
+                }
+            });
+
+            ui.selectionPane.getChildren().add(card);
+            BirdIconSpot spot = new BirdIconSpot(type, isRandom, centerX, centerY);
+            ui.spots.add(spot);
+            if (type != null) {
+                ui.spotByType.put(type, spot);
+            } else {
+                ui.randomSpot = spot;
+            }
+        }
+
+        ui.selector = new Circle(28);
+        ui.selector.setManaged(false);
+        ui.selector.getProperties().put(FIGHT_SELECTOR_SNAP_DISTANCE_PROP, Math.min(cellW, cellH) * 0.45);
+        ui.selectionPane.getChildren().add(ui.selector);
+
+        ui.selectorGrabHandle = new Circle(42);
+        ui.selectorGrabHandle.setManaged(false);
+        ui.selectorGrabHandle.setFill(Color.rgb(255, 255, 255, 0.015));
+        ui.selectorGrabHandle.setStroke(Color.TRANSPARENT);
+        ui.selectionPane.getChildren().add(ui.selectorGrabHandle);
+
+        ui.selectorLabel = new Text("#1");
+        ui.selectorLabel.setFont(Font.font("Impact", 18));
+        ui.selectorLabel.setManaged(false);
+        ui.selectorLabel.setMouseTransparent(true);
+        ui.selectionPane.getChildren().add(ui.selectorLabel);
+
+        final double[] dragOffset = new double[2];
+        EventHandler<MouseEvent> beginDrag = e -> {
+            Point2D local = ui.selectionPane.sceneToLocal(e.getSceneX(), e.getSceneY());
+            dragOffset[0] = ui.selectorGrabHandle.getCenterX() - local.getX();
+            dragOffset[1] = ui.selectorGrabHandle.getCenterY() - local.getY();
+        };
+        EventHandler<MouseEvent> dragSelector = e -> {
+            Point2D local = ui.selectionPane.sceneToLocal(e.getSceneX(), e.getSceneY());
+            moveFightSelectorWithinPane(ui.selectorGrabHandle, ui.selectorLabel, local.getX() + dragOffset[0], local.getY() + dragOffset[1], ui.selectionPane);
+            positionFightSelector(ui.selector, ui.selectorLabel, ui.selectorGrabHandle.getCenterX(), ui.selectorGrabHandle.getCenterY());
+        };
+        EventHandler<MouseEvent> endDrag = e -> {
+            BirdIconSpot best = nearestFightSelectorSpot(ui.selector, ui.spots);
+            if (!tournamentEntries.isEmpty() && best != null) {
+                int idx = Math.clamp(ui.activeEntryIndex[0], 0, tournamentEntries.size() - 1);
+                setTournamentEntrySelection(tournamentEntries.get(idx), best.random() ? null : best.type());
+                if (ui.refreshEntries[0] != null) {
+                    ui.refreshEntries[0].run();
+                }
+            }
+            if (ui.refreshFocus[0] != null) {
+                ui.refreshFocus[0].run();
+            }
+        };
+        ui.selector.setOnMousePressed(beginDrag);
+        ui.selector.setOnMouseDragged(dragSelector);
+        ui.selector.setOnMouseReleased(endDrag);
+        ui.selectorGrabHandle.setOnMousePressed(beginDrag);
+        ui.selectorGrabHandle.setOnMouseDragged(dragSelector);
+        ui.selectorGrabHandle.setOnMouseReleased(endDrag);
+
+        ui.refreshFocus[0] = () -> {
+            if (tournamentEntries.isEmpty()) {
+                return;
+            }
+            int idx = Math.clamp(ui.activeEntryIndex[0], 0, tournamentEntries.size() - 1);
+            TournamentEntry entry = tournamentEntries.get(idx);
+            BirdType previewType = entry.selectedType;
+            Color accent = tournamentEntryAccent(idx, entry.human);
+
+            ui.activeSeed.setText(tournamentEntrySeedLabel(entry));
+            ui.activeName.setText(tournamentEntryLabel(entry));
+            fitLabelSingleLine(ui.activeName, 26, 16, dockW - 36);
+            ui.activeRole.setText(entry.human ? "HUMAN SLOT" : "CPU SLOT");
+            ui.activeRole.setStyle("-fx-background-color: " + (entry.human ? "#1565C0" : "#6D4C41")
+                    + "; -fx-background-radius: 999;");
+            ui.activeBird.setText(previewType == null ? "RANDOM BIRD" : previewType.name.toUpperCase(Locale.ROOT));
+            drawRosterSprite(ui.activePortrait, previewType, null, previewType == null);
+
+            ui.selector.getProperties().put(FIGHT_SELECTOR_COLOR_PROP, accent);
+            ui.selectorLabel.setFill(accent.interpolate(Color.WHITE, 0.22));
+            ui.selectorLabel.setText("#" + tournamentEntrySeedNumber(entry));
+            refreshFightSelectorVisual(ui.selector, true);
+
+            BirdIconSpot spot = previewType == null ? ui.randomSpot : ui.spotByType.get(previewType);
+            if (spot != null) {
+                positionFightSelector(ui.selector, ui.selectorLabel, spot.cx(), spot.cy());
+                positionFightSelector(ui.selectorGrabHandle, ui.selectorLabel, spot.cx(), spot.cy());
+            }
+        };
+    }
+
+    private StackPane buildTournamentSetupFooter(Stage stage, TournamentSetupUi ui) {
+        Label entrantsStripTitle = new Label("TOURNAMENT FIELD");
+        entrantsStripTitle.setFont(Font.font("Arial Black", 20));
+        entrantsStripTitle.setTextFill(Color.web("#FFE082"));
+
+        ui.entrantStrip.setAlignment(Pos.TOP_LEFT);
+        ui.entrantStrip.setPrefWrapLength(960);
+        ui.entrantStrip.setPadding(new Insets(4));
+        ui.entrantStrip.setMinWidth(0);
+
+        ScrollPane entrantScroll = new ScrollPane(ui.entrantStrip);
+        entrantScroll.setFitToWidth(true);
+        entrantScroll.setFitToHeight(true);
+        entrantScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        entrantScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        entrantScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent;");
+        entrantScroll.viewportBoundsProperty().addListener((obs, oldBounds, newBounds) ->
+                ui.entrantStrip.setPrefWrapLength(Math.max(320.0, newBounds.getWidth() - 22.0)));
 
         Label entrantsLabel = new Label("ENTRANTS");
-        entrantsLabel.setFont(Font.font("Consolas", 20));
-        entrantsLabel.setTextFill(Color.web("#B3E5FC"));
-        Label entrantsValue = new Label();
-        entrantsValue.setFont(Font.font("Arial Black", 40));
-        entrantsValue.setTextFill(Color.WHITE);
+        entrantsLabel.setFont(Font.font("Consolas", 14));
+        entrantsLabel.setTextFill(Color.web("#CFD8DC"));
+        ui.entrantsValue = new Label();
+        ui.entrantsValue.setFont(Font.font("Arial Black", 22));
+        ui.entrantsValue.setTextFill(Color.WHITE);
 
         Label humansLabel = new Label("HUMANS");
-        humansLabel.setFont(Font.font("Consolas", 20));
-        humansLabel.setTextFill(Color.web("#B3E5FC"));
-        Label humansValue = new Label();
-        humansValue.setFont(Font.font("Arial Black", 40));
-        humansValue.setTextFill(Color.WHITE);
-        Label cpuValue = new Label();
-        cpuValue.setFont(Font.font("Consolas", 20));
-        cpuValue.setTextFill(Color.web("#FFCCBC"));
+        humansLabel.setFont(Font.font("Consolas", 14));
+        humansLabel.setTextFill(Color.web("#CFD8DC"));
+        ui.humansValue = new Label();
+        ui.humansValue.setFont(Font.font("Arial Black", 22));
+        ui.humansValue.setTextFill(Color.WHITE);
+        ui.cpuValue = new Label();
+        ui.cpuValue.setFont(Font.font("Consolas", 12));
+        ui.cpuValue.setTextFill(Color.web("#FFCCBC"));
 
-        Runnable[] refreshCounters = new Runnable[1];
-        Runnable[] refreshEntries = new Runnable[1];
-        Runnable[] refreshMapControls = new Runnable[1];
-        Runnable[] refreshAll = new Runnable[1];
-
-        Button entrantsMinus = uiFactory.action("-", 90, 70, 42, "#546E7A", 14, () -> {
+        Button entrantsMinus = uiFactory.action("-", 54, 40, 18, "#455A64", 14, () -> {
             tournamentEntrantCount = Math.max(2, tournamentEntrantCount - 1);
             if (tournamentHumanCount > tournamentEntrantCount) {
                 tournamentHumanCount = tournamentEntrantCount;
             }
-            if (refreshAll[0] != null) refreshAll[0].run();
+            if (ui.refreshAll[0] != null) {
+                ui.refreshAll[0].run();
+            }
         });
-        Button entrantsPlus = uiFactory.action("+", 90, 70, 42, "#546E7A", 14, () -> {
+        Button entrantsPlus = uiFactory.action("+", 54, 40, 18, "#455A64", 14, () -> {
             tournamentEntrantCount = Math.min(32, tournamentEntrantCount + 1);
-            if (refreshAll[0] != null) refreshAll[0].run();
+            if (ui.refreshAll[0] != null) {
+                ui.refreshAll[0].run();
+            }
         });
-
-        Button humansMinus = uiFactory.action("-", 90, 70, 42, "#546E7A", 14, () -> {
+        Button humansMinus = uiFactory.action("-", 54, 40, 18, "#455A64", 14, () -> {
             tournamentHumanCount = Math.max(0, tournamentHumanCount - 1);
-            if (refreshAll[0] != null) refreshAll[0].run();
+            if (ui.refreshAll[0] != null) {
+                ui.refreshAll[0].run();
+            }
         });
-        Button humansPlus = uiFactory.action("+", 90, 70, 42, "#546E7A", 14, () -> {
+        Button humansPlus = uiFactory.action("+", 54, 40, 18, "#455A64", 14, () -> {
             tournamentHumanCount = Math.min(tournamentEntrantCount, tournamentHumanCount + 1);
-            if (refreshAll[0] != null) refreshAll[0].run();
+            if (ui.refreshAll[0] != null) {
+                ui.refreshAll[0].run();
+            }
         });
+        applyNoEllipsis(entrantsMinus);
+        applyNoEllipsis(entrantsPlus);
+        applyNoEllipsis(humansMinus);
+        applyNoEllipsis(humansPlus);
 
-        HBox entrantsButtons = new HBox(8, entrantsMinus, entrantsPlus);
-        entrantsButtons.setAlignment(Pos.CENTER);
-        VBox entrantsBox = new VBox(6, entrantsLabel, entrantsValue, entrantsButtons);
+        VBox entrantsBox = new VBox(2,
+                entrantsLabel,
+                ui.entrantsValue,
+                new HBox(8, entrantsMinus, entrantsPlus));
         entrantsBox.setAlignment(Pos.CENTER);
+        entrantsBox.setPadding(new Insets(8, 12, 8, 12));
+        entrantsBox.setMinWidth(162);
+        entrantsBox.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 18; "
+                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 2; -fx-border-radius: 18;");
 
-        HBox humansButtons = new HBox(8, humansMinus, humansPlus);
-        humansButtons.setAlignment(Pos.CENTER);
-        VBox humansBox = new VBox(6, humansLabel, humansValue, cpuValue, humansButtons);
+        VBox humansBox = new VBox(2,
+                humansLabel,
+                ui.humansValue,
+                ui.cpuValue,
+                new HBox(8, humansMinus, humansPlus));
         humansBox.setAlignment(Pos.CENTER);
+        humansBox.setPadding(new Insets(8, 12, 8, 12));
+        humansBox.setMinWidth(162);
+        humansBox.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 18; "
+                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 2; -fx-border-radius: 18;");
 
-        Button mapModeBtn = uiFactory.action("MAP MODE: RANDOM", 360, 70, 24, "#6D4C41", 16, () -> {
+        ui.mapModeBtn = uiFactory.action("MAP: RANDOM", 170, 48, 18, "#6D4C41", 12, () -> {
             tournamentMapRandom = !tournamentMapRandom;
-            if (refreshMapControls[0] != null) refreshMapControls[0].run();
+            if (ui.refreshMapControls[0] != null) {
+                ui.refreshMapControls[0].run();
+            }
         });
-        Button mapSelectBtn = uiFactory.action("MAP: " + mapDisplayName(tournamentFixedMap), 360, 70, 24, "#00897B", 16, () -> {
-            if (tournamentMapRandom) return;
+        ui.mapSelectBtn = uiFactory.action("MAP: " + mapDisplayName(tournamentFixedMap), 170, 48, 18, "#00897B", 12, () -> {
+            if (tournamentMapRandom) {
+                return;
+            }
             List<MapType> maps = tournamentMapPool();
-            if (maps.isEmpty()) return;
+            if (maps.isEmpty()) {
+                return;
+            }
             int idx = maps.indexOf(tournamentFixedMap);
             if (idx < 0) idx = 0;
             tournamentFixedMap = maps.get((idx + 1) % maps.size());
-            if (refreshMapControls[0] != null) refreshMapControls[0].run();
-        });
-
-        VBox mapBox = new VBox(6, mapModeBtn, mapSelectBtn);
-        mapBox.setAlignment(Pos.CENTER);
-
-        Button allRandomBtn = uiFactory.action("ALL RANDOM", 260, 70, 24, "#7B1FA2", 16, () -> {
-            for (TournamentEntry entry : tournamentEntries) {
-                entry.selectedType = null;
+            if (ui.refreshMapControls[0] != null) {
+                ui.refreshMapControls[0].run();
             }
-            if (refreshEntries[0] != null) refreshEntries[0].run();
         });
+        applyNoEllipsis(ui.mapModeBtn);
+        applyNoEllipsis(ui.mapSelectBtn);
 
-        HBox controls = new HBox(24, entrantsBox, humansBox, mapBox, allRandomBtn);
-        controls.setAlignment(Pos.CENTER);
+        Button allRandomBtn = uiFactory.action("ALL RANDOM", 170, 48, 18, "#7B1FA2", 12, () -> {
+            for (TournamentEntry entry : tournamentEntries) {
+                setTournamentEntrySelection(entry, null);
+            }
+            if (ui.refreshEntries[0] != null) {
+                ui.refreshEntries[0].run();
+            }
+            if (ui.refreshFocus[0] != null) {
+                ui.refreshFocus[0].run();
+            }
+        });
+        applyNoEllipsis(allRandomBtn);
 
-        VBox entryList = new VBox(12);
-        entryList.setAlignment(Pos.TOP_CENTER);
-        entryList.setPadding(new Insets(10, 20, 10, 20));
+        Button shuffleBtn = uiFactory.action("SHUFFLE BRACKET", 170, 48, 18, "#00897B", 12, () -> {
+            shuffleTournamentSeedOrder();
+            if (ui.refreshEntries[0] != null) {
+                ui.refreshEntries[0].run();
+            }
+            if (ui.refreshFocus[0] != null) {
+                ui.refreshFocus[0].run();
+            }
+        });
+        applyNoEllipsis(shuffleBtn);
 
-        refreshCounters[0] = () -> {
-            entrantsValue.setText(String.valueOf(tournamentEntrantCount));
-            humansValue.setText(String.valueOf(tournamentHumanCount));
-            cpuValue.setText("CPU: " + (tournamentEntrantCount - tournamentHumanCount));
+        ui.startBtn = uiFactory.action("START TOURNAMENT", 350, 70, 22, "#00C853", 18, () -> beginTournament(stage));
+        applyNoEllipsis(ui.startBtn);
+
+        ui.refreshCounts[0] = () -> {
+            tournamentEntrantCount = Math.clamp(tournamentEntrantCount, 2, 32);
+            tournamentHumanCount = Math.clamp(tournamentHumanCount, 0, tournamentEntrantCount);
+            ui.entrantsValue.setText(String.valueOf(tournamentEntrantCount));
+            ui.humansValue.setText(String.valueOf(tournamentHumanCount));
+            ui.cpuValue.setText("CPU: " + (tournamentEntrantCount - tournamentHumanCount));
+            ui.activeEntryIndex[0] = Math.clamp(ui.activeEntryIndex[0], 0, Math.max(0, tournamentEntrantCount - 1));
         };
 
-        refreshMapControls[0] = () -> {
+        ui.refreshMapControls[0] = () -> {
             List<MapType> maps = tournamentMapPool();
             if (!maps.contains(tournamentFixedMap)) {
                 tournamentFixedMap = maps.getFirst();
             }
-            mapModeBtn.setText("MAP MODE: " + (tournamentMapRandom ? "RANDOM" : "FIXED"));
-            mapSelectBtn.setText("MAP: " + mapDisplayName(tournamentFixedMap));
-            mapSelectBtn.setDisable(tournamentMapRandom);
-            mapSelectBtn.setOpacity(tournamentMapRandom ? 0.65 : 1.0);
+            ui.mapModeBtn.setText("MAP: " + (tournamentMapRandom ? "RANDOM" : "CHOOSE"));
+            ui.mapSelectBtn.setText("MAP: " + mapDisplayName(tournamentFixedMap));
+            ui.mapSelectBtn.setDisable(tournamentMapRandom);
+            ui.mapSelectBtn.setVisible(!tournamentMapRandom);
+            ui.mapSelectBtn.setManaged(!tournamentMapRandom);
+            ui.mapSelectBtn.setOpacity(tournamentMapRandom ? 0.0 : 1.0);
         };
 
-        refreshEntries[0] = () -> {
+        ui.refreshEntries[0] = () -> {
             syncTournamentEntries();
-            entryList.getChildren().clear();
-            List<BirdType> pool = unlockedBirdPool();
-            List<BirdType> choices = new ArrayList<>();
-            choices.add(null);
-            choices.addAll(pool);
+            ui.activeEntryIndex[0] = Math.clamp(ui.activeEntryIndex[0], 0, Math.max(0, tournamentEntries.size() - 1));
+            ui.entrantStrip.getChildren().clear();
+            for (int i = 0; i < tournamentEntries.size(); i++) {
+                TournamentEntry entry = tournamentEntries.get(i);
+                Color accent = tournamentEntryAccent(i, entry.human);
+                String accentHex = toHex(accent);
+                boolean active = i == ui.activeEntryIndex[0];
 
-            for (TournamentEntry entry : tournamentEntries) {
-                HBox row = new HBox(16);
-                row.setAlignment(Pos.CENTER_LEFT);
-                row.setPadding(new Insets(10, 14, 10, 14));
-                row.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-background-radius: 16; -fx-border-color: #37474F; -fx-border-width: 2; -fx-border-radius: 16;");
+                Canvas portrait = new Canvas(68, 68);
+                BirdType previewType = entry.selectedType;
+                drawRosterSprite(portrait, previewType, null, previewType == null);
 
-                Label playerLabel = new Label(tournamentEntryLabel(entry));
-                playerLabel.setFont(Font.font("Arial Black", 26));
-                playerLabel.setTextFill(Color.web("#FFECB3"));
-                playerLabel.setPrefWidth(220);
+                StackPane portraitFrame = getStackPane(new StackPane(portrait), 76, "-fx-background-color: rgba(0,0,0,0.46); -fx-background-radius: 18; "
+                        + "-fx-border-color: rgba(255,255,255,0.18); -fx-border-width: 2; -fx-border-radius: 18;");
 
-                Label roleLabel = new Label(entry.human ? "HUMAN" : "CPU");
-                roleLabel.setFont(Font.font("Consolas", 22));
-                roleLabel.setTextFill(entry.human ? Color.web("#81D4FA") : Color.web("#FFAB91"));
-                roleLabel.setPrefWidth(120);
+                Label seed = new Label("#" + tournamentEntrySeedNumber(entry));
+                seed.setFont(Font.font("Arial Black", 15));
+                seed.setTextFill(Color.web("#111111"));
+                StackPane seedChip = new StackPane(seed);
+                seedChip.setPadding(new Insets(4, 10, 4, 10));
+                seedChip.setStyle("-fx-background-color: #FFE082; -fx-background-radius: 999;");
 
-                String birdName = entry.selectedType != null ? entry.selectedType.name : "RANDOM";
-                Button birdBtn = uiFactory.action("BIRD: " + birdName, 520, 70, 24, "#1976D2", 16, () -> {
-                    int idx = choices.indexOf(entry.selectedType);
-                    if (idx < 0) idx = 0;
-                    int next = (idx + 1) % choices.size();
-                    entry.selectedType = choices.get(next);
-                    if (refreshEntries[0] != null) refreshEntries[0].run();
+                Label name = new Label(tournamentEntryLabel(entry));
+                name.setFont(Font.font("Arial Black", 18));
+                name.setTextFill(Color.WHITE);
+                name.setMaxWidth(172);
+                applyNoEllipsis(name);
+                fitLabelSingleLine(name, 18, 11, 172);
+
+                Label role = new Label(entry.human ? "HUMAN" : "CPU");
+                role.setFont(Font.font("Arial Black", 12));
+                role.setTextFill(Color.WHITE);
+                role.setPadding(new Insets(4, 10, 4, 10));
+                role.setStyle("-fx-background-color: " + (entry.human ? "#1565C0" : "#6D4C41")
+                        + "; -fx-background-radius: 999;");
+
+                Label bird = new Label(tournamentBirdLabel(entry, false));
+                bird.setFont(Font.font("Consolas", 14));
+                bird.setTextFill(Color.web("#CFD8DC"));
+                bird.setMaxWidth(172);
+                applyNoEllipsis(bird);
+                fitLabelSingleLine(bird, 14, 10, 172);
+
+                VBox info = new VBox(4, seedChip, name, role, bird);
+                info.setAlignment(Pos.CENTER_LEFT);
+                HBox body = new HBox(10, portraitFrame, info);
+                body.setAlignment(Pos.CENTER_LEFT);
+                final int selectedIndex = i;
+
+                Button renameChip = new Button();
+                renameChip.setGraphic(buildTournamentRenameChipIcon());
+                renameChip.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+                renameChip.setMinSize(34, 28);
+                renameChip.setPrefSize(34, 28);
+                renameChip.setMaxSize(34, 28);
+                renameChip.setFocusTraversable(false);
+                renameChip.setStyle("-fx-background-color: rgba(12,16,22,0.92); -fx-background-radius: 999; "
+                        + "-fx-border-color: rgba(255,224,130,0.75); -fx-border-width: 2; -fx-border-radius: 999;");
+                renameChip.setOnAction(e -> {
+                    playButtonClick();
+                    ui.activeEntryIndex[0] = selectedIndex;
+                    renameTournamentEntryPrompt(stage, entry, () -> {
+                        if (ui.refreshAll[0] != null) {
+                            ui.refreshAll[0].run();
+                        }
+                    });
                 });
-                birdBtn.setWrapText(false);
-                uiFactory.fitSingleLineOnLayout(birdBtn, 24, 16);
+                renameChip.addEventFilter(MouseEvent.MOUSE_CLICKED, MouseEvent::consume);
 
-                row.getChildren().addAll(playerLabel, roleLabel, birdBtn);
-                entryList.getChildren().add(row);
+                StackPane card = new StackPane(body, renameChip);
+                card.setPadding(new Insets(12));
+                card.setMinWidth(272);
+                card.setPrefWidth(272);
+                card.setMaxWidth(272);
+                card.setStyle("-fx-background-color: linear-gradient(to bottom right, "
+                        + accentHex + ", #0C0E12); "
+                        + "-fx-background-radius: 24; -fx-border-color: "
+                        + (active ? "#FFE082" : "rgba(255,255,255,0.16)")
+                        + "; -fx-border-width: " + (active ? "3.5" : "2.0") + "; -fx-border-radius: 24;");
+                card.setCursor(Cursor.HAND);
+                StackPane.setAlignment(renameChip, Pos.TOP_RIGHT);
+                StackPane.setMargin(renameChip, new Insets(2, 2, 0, 0));
+
+                card.setOnMouseClicked(e -> {
+                    playButtonClick();
+                    ui.activeEntryIndex[0] = selectedIndex;
+                    if (ui.refreshEntries[0] != null) {
+                        ui.refreshEntries[0].run();
+                    }
+                    if (ui.refreshFocus[0] != null) {
+                        ui.refreshFocus[0].run();
+                    }
+                });
+                ui.entrantStrip.getChildren().add(card);
             }
         };
 
-        refreshAll[0] = () -> {
-            if (refreshCounters[0] != null) refreshCounters[0].run();
-            if (refreshMapControls[0] != null) refreshMapControls[0].run();
-            if (refreshEntries[0] != null) refreshEntries[0].run();
+        ui.refreshAll[0] = () -> {
+            if (ui.refreshCounts[0] != null) {
+                ui.refreshCounts[0].run();
+            }
+            if (ui.refreshMapControls[0] != null) {
+                ui.refreshMapControls[0].run();
+            }
+            if (ui.refreshEntries[0] != null) {
+                ui.refreshEntries[0].run();
+            }
+            if (ui.refreshFocus[0] != null) {
+                ui.refreshFocus[0].run();
+            }
         };
 
-        refreshAll[0].run();
+        FlowPane utilityButtons = new FlowPane(10, 10,
+                ui.mapModeBtn,
+                ui.mapSelectBtn,
+                shuffleBtn,
+                allRandomBtn
+        );
+        utilityButtons.setAlignment(Pos.TOP_CENTER);
+        utilityButtons.setPrefWrapLength(350);
 
-        ScrollPane scroll = new ScrollPane(entryList);
-        scroll.setFitToWidth(true);
-        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent;");
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
-        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        VBox actionPanel = new VBox(12, utilityButtons, ui.startBtn);
+        actionPanel.setAlignment(Pos.TOP_CENTER);
+        actionPanel.setMinWidth(362);
+        actionPanel.setPrefWidth(362);
+        actionPanel.setMaxWidth(362);
 
-        Button startBtn = uiFactory.action("START TOURNAMENT", 520, 110, 38, "#00C853", 26, () -> beginTournament(stage));
-        Button backBtn = uiFactory.action("BACK TO GAMES & MORE", 520, 110, 34, "#FF1744", 22, () -> showClassicMoreMenu(stage));
-        HBox bottom = new HBox(30, startBtn, backBtn);
-        bottom.setAlignment(Pos.CENTER);
+        Region headerSpacer = new Region();
+        HBox.setHgrow(headerSpacer, Priority.ALWAYS);
+        HBox counters = new HBox(10, entrantsBox, humansBox);
+        counters.setAlignment(Pos.CENTER_RIGHT);
+        HBox headerRow = new HBox(14, entrantsStripTitle, headerSpacer, counters);
+        headerRow.setAlignment(Pos.CENTER_LEFT);
 
-        VBox bottomBox = new VBox(18, controls, bottom);
-        bottomBox.setAlignment(Pos.CENTER);
+        HBox centerRow = new HBox(16, entrantScroll, actionPanel);
+        centerRow.setAlignment(Pos.TOP_LEFT);
+        HBox.setHgrow(entrantScroll, Priority.ALWAYS);
 
-        root.setTop(header);
-        root.setCenter(scroll);
-        root.setBottom(bottomBox);
-        BorderPane.setAlignment(header, Pos.CENTER);
+        BorderPane footerBody = new BorderPane();
+        footerBody.setTop(headerRow);
+        footerBody.setCenter(centerRow);
+        BorderPane.setMargin(headerRow, new Insets(0, 0, 10, 0));
+        entrantScroll.setMinHeight(206);
+        entrantScroll.setPrefViewportHeight(206);
 
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        bindEscape(scene, backBtn);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        setScenePreservingFullscreen(stage, scene);
-        startBtn.requestFocus();
+        StackPane footerPanel = new StackPane(footerBody);
+        footerPanel.setPadding(new Insets(10));
+        footerPanel.setMinHeight(292);
+        footerPanel.setPrefHeight(292);
+        footerPanel.setStyle("-fx-background-color: rgba(4,5,8,0.92); -fx-background-radius: 28; "
+                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 3; -fx-border-radius: 28;");
+        return footerPanel;
     }
 
     private void beginTournament(Stage stage) {
         syncTournamentEntries();
+        resolveTournamentEntryBirds();
         tournamentModeActive = true;
         tournamentMatchResolved = false;
         currentTournamentMatch = null;
@@ -17064,96 +17807,46 @@ public class BirdGame3 extends Application {
         boolean complete = isTournamentComplete();
 
         BorderPane root = new BorderPane();
-        root.setPadding(new Insets(26, 36, 26, 36));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);");
+        root.setPadding(new Insets(16, 20, 16, 20));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #07111F, #142849 58%, #1B365E);");
 
         Label title = new Label("TOURNAMENT BRACKET");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 88));
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 58));
         title.setTextFill(Color.GOLD);
 
         String mapLine = tournamentMapRandom
-                ? "Map Mode: RANDOM"
+                ? "Map: RANDOM"
                 : "Map: " + mapDisplayName(tournamentFixedMap);
-        Label subtitle = new Label(mapLine + "  |  Entrants: " + tournamentEntrantCount);
-        subtitle.setFont(Font.font("Consolas", 24));
+        Label subtitle = new Label(mapLine + "  |  Entrants: " + tournamentEntrantCount + "  |  Random picks stay locked for the run");
+        subtitle.setFont(Font.font("Consolas", 18));
         subtitle.setTextFill(Color.web("#B3E5FC"));
 
-        VBox header = new VBox(6, title, subtitle);
+        Label legend = new Label(nextMatch != null ? "Gold outline marks the next match." : "Champion crowned.");
+        legend.setFont(Font.font("Consolas", 14));
+        legend.setTextFill(Color.web("#FFE082"));
+
+        VBox header = new VBox(4, title, subtitle, legend);
         header.setAlignment(Pos.CENTER);
+        ScrollPane scroll = buildTournamentBracketScrollPane(nextMatch);
 
-        HBox columns = new HBox(26);
-        columns.setAlignment(Pos.TOP_LEFT);
-        columns.setPadding(new Insets(10, 10, 10, 10));
-
-        for (int r = 0; r < tournamentRounds.size(); r++) {
-            List<TournamentMatch> round = tournamentRounds.get(r);
-            VBox column = new VBox(16);
-            column.setAlignment(Pos.TOP_CENTER);
-            column.setPrefWidth(280);
-
-            Label roundLabel = new Label(tournamentRoundLabel(r));
-            roundLabel.setFont(Font.font("Arial Black", 26));
-            roundLabel.setTextFill(Color.web("#FFE082"));
-            column.getChildren().add(roundLabel);
-
-            for (TournamentMatch match : round) {
-                VBox matchBox = getVBox(match, nextMatch);
-
-                String placeholder = r == 0 ? "BYE" : "TBD";
-                String aName = match.a != null ? tournamentEntryLabel(match.a) : placeholder;
-                String bName = match.b != null ? tournamentEntryLabel(match.b) : placeholder;
-
-                Label aLabel = new Label(aName);
-                aLabel.setFont(Font.font("Consolas", 22));
-                aLabel.setTextFill(Color.web("#ECEFF1"));
-
-                Label vs = new Label("vs");
-                vs.setFont(Font.font("Consolas", 18));
-                vs.setTextFill(Color.web("#B0BEC5"));
-
-                Label bLabel = new Label(bName);
-                bLabel.setFont(Font.font("Consolas", 22));
-                bLabel.setTextFill(Color.web("#ECEFF1"));
-
-                matchBox.getChildren().addAll(aLabel, vs, bLabel);
-
-                if (match.winner != null) {
-                    Label adv = new Label("Advances: " + tournamentEntryLabel(match.winner));
-                    adv.setFont(Font.font("Consolas", 18));
-                    adv.setTextFill(Color.web("#C5E1A5"));
-                    matchBox.getChildren().add(adv);
-                }
-
-                column.getChildren().add(matchBox);
-            }
-
-            columns.getChildren().add(column);
-        }
-
-        ScrollPane scroll = new ScrollPane(columns);
-        scroll.setFitToHeight(true);
-        scroll.setFitToWidth(false);
-        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent;");
-        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-
-        Button primary = uiFactory.action(complete ? "VIEW CHAMPION" : "START NEXT MATCH", 520, 110, 38, "#1565C0", 26, () -> {
+        Button primary = uiFactory.action(complete ? "VIEW CHAMPION" : "START NEXT MATCH", 440, 86, 30, "#1565C0", 22, () -> {
             if (complete) {
                 showTournamentComplete(stage);
             } else {
                 startNextTournamentMatch(stage);
             }
         });
-        Button reset = uiFactory.action("RESET TOURNAMENT", 420, 110, 34, "#00897B", 22, () -> {
+        Button reset = uiFactory.action("RESET TOURNAMENT", 330, 86, 28, "#00897B", 20, () -> {
             resetTournamentRun();
             showTournamentSetup(stage);
         });
-        Button exit = uiFactory.action("EXIT TO HUB", 420, 110, 34, "#FF1744", 22, () -> {
+        Button exit = uiFactory.action("EXIT TO HUB", 330, 86, 28, "#FF1744", 20, () -> {
             resetTournamentRun();
             showMenu(stage);
         });
-        HBox buttons = new HBox(24, primary, reset, exit);
+        HBox buttons = new HBox(18, primary, reset, exit);
         buttons.setAlignment(Pos.CENTER);
+        buttons.setPadding(new Insets(10, 0, 0, 0));
 
         root.setTop(header);
         root.setCenter(scroll);
@@ -17168,14 +17861,260 @@ public class BirdGame3 extends Application {
         primary.requestFocus();
     }
 
-    private static VBox getVBox(TournamentMatch match, TournamentMatch nextMatch) {
-        VBox matchBox = new VBox(6);
-        matchBox.setAlignment(Pos.CENTER_LEFT);
-        matchBox.setPadding(new Insets(12));
-        String border = (nextMatch != null && match == nextMatch) ? "#FFD54F" : "#37474F";
-        String bg = (match.winner != null) ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.45)";
-        matchBox.setStyle("-fx-background-color: " + bg + "; -fx-background-radius: 14; -fx-border-color: " + border + "; -fx-border-width: 2; -fx-border-radius: 14;");
-        return matchBox;
+    private ScrollPane buildTournamentBracketScrollPane(TournamentMatch nextMatch) {
+        int firstRoundMatches = tournamentRounds.isEmpty() ? 0 : tournamentRounds.getFirst().size();
+        double cardWidth;
+        double cardHeight;
+        double columnGap;
+        double leftPadding = 36.0;
+        double topPadding;
+        double labelY;
+        double baseGap;
+        double labelFont;
+        double connectorStroke;
+        boolean compact;
+
+        if (firstRoundMatches <= 2) {
+            cardWidth = 300.0;
+            cardHeight = 132.0;
+            columnGap = 138.0;
+            topPadding = 96.0;
+            labelY = 26.0;
+            baseGap = 42.0;
+            labelFont = 24.0;
+            connectorStroke = 4.0;
+            compact = false;
+        } else if (firstRoundMatches <= 4) {
+            cardWidth = 286.0;
+            cardHeight = 112.0;
+            columnGap = 118.0;
+            topPadding = 82.0;
+            labelY = 18.0;
+            baseGap = 18.0;
+            labelFont = 22.0;
+            connectorStroke = 3.5;
+            compact = true;
+        } else if (firstRoundMatches <= 8) {
+            cardWidth = 268.0;
+            cardHeight = 98.0;
+            columnGap = 106.0;
+            topPadding = 74.0;
+            labelY = 16.0;
+            baseGap = 12.0;
+            labelFont = 20.0;
+            connectorStroke = 3.0;
+            compact = true;
+        } else {
+            cardWidth = 248.0;
+            cardHeight = 92.0;
+            columnGap = 96.0;
+            topPadding = 70.0;
+            labelY = 14.0;
+            baseGap = 10.0;
+            labelFont = 18.0;
+            connectorStroke = 3.0;
+            compact = true;
+        }
+
+        List<List<Double>> centersByRound = new ArrayList<>();
+        for (int roundIndex = 0; roundIndex < tournamentRounds.size(); roundIndex++) {
+            List<TournamentMatch> round = tournamentRounds.get(roundIndex);
+            List<Double> centers = new ArrayList<>(round.size());
+            if (roundIndex == 0) {
+                for (int matchIndex = 0; matchIndex < round.size(); matchIndex++) {
+                    centers.add(topPadding + matchIndex * (cardHeight + baseGap) + cardHeight / 2.0);
+                }
+            } else {
+                List<Double> previous = centersByRound.get(roundIndex - 1);
+                for (int matchIndex = 0; matchIndex < round.size(); matchIndex++) {
+                    centers.add((previous.get(matchIndex * 2) + previous.get(matchIndex * 2 + 1)) / 2.0);
+                }
+            }
+            centersByRound.add(centers);
+        }
+
+        double width = leftPadding
+                + tournamentRounds.size() * cardWidth
+                + Math.max(0, tournamentRounds.size() - 1) * columnGap
+                + 72.0;
+        double height = centersByRound.isEmpty() || centersByRound.getFirst().isEmpty()
+                ? 540.0
+                : centersByRound.getFirst().getLast() + cardHeight / 2.0 + 70.0;
+
+        Pane bracketPane = new Pane();
+        bracketPane.setPrefSize(width, height);
+        bracketPane.setMinSize(width, height);
+        bracketPane.setMaxSize(width, height);
+
+        Group lineLayer = new Group();
+        bracketPane.getChildren().add(lineLayer);
+
+        for (int roundIndex = 0; roundIndex < tournamentRounds.size(); roundIndex++) {
+            double x = leftPadding + roundIndex * (cardWidth + columnGap);
+
+            Label roundLabel = new Label(tournamentRoundLabel(roundIndex));
+            roundLabel.setFont(Font.font("Arial Black", labelFont));
+            roundLabel.setTextFill(Color.web("#FFE082"));
+            roundLabel.setMinWidth(cardWidth);
+            roundLabel.setPrefWidth(cardWidth);
+            roundLabel.setMaxWidth(cardWidth);
+            roundLabel.setTextAlignment(TextAlignment.CENTER);
+            roundLabel.setAlignment(Pos.CENTER);
+            roundLabel.setLayoutX(x);
+            roundLabel.setLayoutY(labelY);
+            bracketPane.getChildren().add(roundLabel);
+
+            if (roundIndex > 0) {
+                double prevX = leftPadding + (roundIndex - 1) * (cardWidth + columnGap);
+                double joinX = x - columnGap * 0.55;
+                List<Double> previousCenters = centersByRound.get(roundIndex - 1);
+                List<Double> currentCenters = centersByRound.get(roundIndex);
+                for (int matchIndex = 0; matchIndex < currentCenters.size(); matchIndex++) {
+                    double topCenter = previousCenters.get(matchIndex * 2);
+                    double bottomCenter = previousCenters.get(matchIndex * 2 + 1);
+                    double currentCenter = currentCenters.get(matchIndex);
+
+                    Line topLine = new Line(prevX + cardWidth, topCenter, joinX, topCenter);
+                    Line bottomLine = new Line(prevX + cardWidth, bottomCenter, joinX, bottomCenter);
+                    Line vertical = new Line(joinX, topCenter, joinX, bottomCenter);
+                    Line finalLine = new Line(joinX, currentCenter, x, currentCenter);
+                    for (Line line : List.of(topLine, bottomLine, vertical, finalLine)) {
+                        line.setStroke(Color.web("rgba(255, 235, 160, 0.72)"));
+                        line.setStrokeWidth(connectorStroke);
+                        line.setStrokeLineCap(StrokeLineCap.ROUND);
+                    }
+                    lineLayer.getChildren().addAll(topLine, bottomLine, vertical, finalLine);
+                }
+            }
+        }
+
+        for (int roundIndex = 0; roundIndex < tournamentRounds.size(); roundIndex++) {
+            List<TournamentMatch> round = tournamentRounds.get(roundIndex);
+            double x = leftPadding + roundIndex * (cardWidth + columnGap);
+            List<Double> centers = centersByRound.get(roundIndex);
+            for (int matchIndex = 0; matchIndex < round.size(); matchIndex++) {
+                TournamentMatch match = round.get(matchIndex);
+                StackPane card = buildTournamentBracketMatchCard(match, nextMatch, roundIndex == 0, cardWidth, cardHeight, compact);
+                card.setLayoutX(x);
+                card.setLayoutY(centers.get(matchIndex) - cardHeight / 2.0);
+                bracketPane.getChildren().add(card);
+            }
+        }
+
+        ScrollPane scroll = new ScrollPane(bracketPane);
+        scroll.setFitToHeight(false);
+        scroll.setFitToWidth(false);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent;");
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroll.setPannable(true);
+        return scroll;
+    }
+
+    private StackPane buildTournamentBracketMatchCard(TournamentMatch match, TournamentMatch nextMatch, boolean firstRound,
+                                                      double cardWidth, double cardHeight, boolean compact) {
+        boolean current = nextMatch != null && match == nextMatch;
+        boolean decided = match.winner != null;
+        String border = current ? "#FFD54F" : (decided ? "#AED581" : "rgba(255,255,255,0.16)");
+        String background = current
+                ? "linear-gradient(to bottom right, rgba(55,66,15,0.96), rgba(21,28,6,0.98))"
+                : decided
+                ? "linear-gradient(to bottom right, rgba(28,46,24,0.96), rgba(10,17,9,0.98))"
+                : "linear-gradient(to bottom right, rgba(19,27,41,0.96), rgba(7,10,16,0.98))";
+
+        VBox body = new VBox(compact ? 6 : 8);
+        body.setPadding(new Insets(compact ? 8 : 10));
+        body.getChildren().add(buildTournamentBracketEntrantRow(match.a, firstRound ? "BYE" : "TBD", match.winner == match.a, compact));
+        body.getChildren().add(buildTournamentBracketEntrantRow(match.b, firstRound ? "BYE" : "TBD", match.winner == match.b, compact));
+
+        Label footer = new Label(decided
+                ? "ADVANCES: " + tournamentEntryLabel(match.winner)
+                : current ? "NEXT MATCH" : "WAITING");
+        footer.setFont(Font.font("Consolas", compact ? 13 : 14));
+        footer.setTextFill(decided ? Color.web("#C5E1A5") : (current ? Color.web("#FFE082") : Color.web("#90A4AE")));
+        footer.setMaxWidth(cardWidth - 20.0);
+        applyNoEllipsis(footer);
+        fitLabelSingleLine(footer, compact ? 13 : 14, 10, cardWidth - 20.0);
+        body.getChildren().add(footer);
+
+        StackPane card = new StackPane(body);
+        card.setPrefSize(cardWidth, cardHeight);
+        card.setMinSize(cardWidth, cardHeight);
+        card.setMaxSize(cardWidth, cardHeight);
+        card.setStyle("-fx-background-color: " + background + "; -fx-background-radius: " + (compact ? "18" : "22") + "; "
+                + "-fx-border-color: " + border + "; -fx-border-width: " + (current ? "3.5" : "2.0") + "; "
+                + "-fx-border-radius: " + (compact ? "18" : "22") + ";");
+        if (current) {
+            card.setEffect(new DropShadow(18, Color.rgb(255, 213, 79, 0.35)));
+        }
+        return card;
+    }
+
+    private HBox buildTournamentBracketEntrantRow(TournamentEntry entry, String placeholder, boolean winner, boolean compact) {
+        HBox row = new HBox(compact ? 6 : 8);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPadding(new Insets(compact ? 5 : 6, compact ? 7 : 8, compact ? 5 : 6, compact ? 7 : 8));
+
+        if (entry == null) {
+            Label bye = new Label(placeholder);
+            bye.setFont(Font.font("Consolas", compact ? 13 : 15));
+            bye.setTextFill(Color.web("#B0BEC5"));
+            row.getChildren().add(bye);
+            row.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 14;");
+            return row;
+        }
+
+        BirdType birdType = tournamentAssignedBird(entry);
+        boolean randomOrigin = entry.selectedType == null && birdType != null;
+
+        double portraitSize = compact ? 32.0 : 38.0;
+        double portraitFrameSize = compact ? 40.0 : 46.0;
+        Canvas portrait = new Canvas(portraitSize, portraitSize);
+        drawRosterSprite(portrait, birdType, null, birdType == null);
+        StackPane portraitFrame = getStackPane(new StackPane(portrait), portraitFrameSize, "-fx-background-color: rgba(0,0,0,0.48); -fx-background-radius: " + (compact ? "10" : "12") + "; "
+                + "-fx-border-color: rgba(255,255,255,0.18); -fx-border-width: 1.5; -fx-border-radius: 12;");
+
+        Label seed = new Label("#" + tournamentEntrySeedNumber(entry));
+        seed.setFont(Font.font("Arial Black", compact ? 11 : 12));
+        seed.setTextFill(Color.web("#111111"));
+        StackPane seedChip = new StackPane(seed);
+        seedChip.setPadding(new Insets(2, compact ? 7 : 8, 2, compact ? 7 : 8));
+        seedChip.setStyle("-fx-background-color: #FFE082; -fx-background-radius: 999;");
+
+        Label name = new Label(tournamentEntryLabel(entry));
+        double nameWidth = compact ? 92.0 : 104.0;
+        name.setFont(Font.font("Arial Black", compact ? 13 : 14));
+        name.setTextFill(winner ? Color.WHITE : Color.web("#ECEFF1"));
+        name.setMaxWidth(nameWidth);
+        applyNoEllipsis(name);
+        fitLabelSingleLine(name, compact ? 13 : 14, 10, nameWidth);
+
+        Label bird = new Label(birdType != null ? birdType.name.toUpperCase(Locale.ROOT) : placeholder);
+        bird.setFont(Font.font("Arial Black", compact ? 10 : 11));
+        bird.setTextFill(Color.WHITE);
+        bird.setMaxWidth(compact ? 88.0 : 102.0);
+        applyNoEllipsis(bird);
+        fitLabelSingleLine(bird, compact ? 10 : 11, 8, compact ? 88.0 : 102.0);
+        bird.setPadding(new Insets(2, compact ? 7 : 8, 2, compact ? 7 : 8));
+        bird.setStyle("-fx-background-color: " + (randomOrigin ? "#8E24AA" : "#455A64")
+                + "; -fx-background-radius: 999;");
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+
+        row.getChildren().addAll(portraitFrame, seedChip, name, spacer, bird);
+        row.setStyle("-fx-background-color: " + (winner ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)")
+                + "; -fx-background-radius: 14;");
+        return row;
+    }
+
+    private static StackPane getStackPane(StackPane portrait, double portraitFrameSize, String compact) {
+        StackPane portraitFrame = portrait;
+        portraitFrame.setMinSize(portraitFrameSize, portraitFrameSize);
+        portraitFrame.setPrefSize(portraitFrameSize, portraitFrameSize);
+        portraitFrame.setMaxSize(portraitFrameSize, portraitFrameSize);
+        portraitFrame.setStyle(compact);
+        return portraitFrame;
     }
 
     private void startNextTournamentMatch(Stage stage) {
@@ -17225,15 +18164,19 @@ public class BirdGame3 extends Application {
         activePlayers = 2;
         selectedMap = pickTournamentMap();
 
-        BirdType aType = tournamentSlotA.selectedType;
-        BirdType bType = tournamentSlotB.selectedType;
-        if (aType != null && !isBirdUnlocked(aType)) aType = null;
-        if (bType != null && !isBirdUnlocked(bType)) bType = null;
+        BirdType aType = resolveTournamentEntryBird(tournamentSlotA);
+        BirdType bType = resolveTournamentEntryBird(tournamentSlotB);
+        if (aType == null || !isBirdUnlocked(aType)) {
+            aType = firstUnlockedBird();
+        }
+        if (bType == null || !isBirdUnlocked(bType)) {
+            bType = firstUnlockedBird();
+        }
 
         fightSelectedBirds[0] = aType;
         fightSelectedBirds[1] = bType;
-        fightRandomSelected[0] = aType == null;
-        fightRandomSelected[1] = bType == null;
+        fightRandomSelected[0] = false;
+        fightRandomSelected[1] = false;
         fightSelectedSkinKeys[0] = null;
         fightSelectedSkinKeys[1] = null;
 
@@ -17259,9 +18202,9 @@ public class BirdGame3 extends Application {
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 92));
         title.setTextFill(Color.GOLD);
 
-        String left = tournamentEntryLabel(match.a);
-        String right = tournamentEntryLabel(match.b);
-        Label info = new Label(left + " vs " + right + "\nWatch the match or simulate the result.");
+        String left = tournamentEntryLabel(match.a) + "  |  " + tournamentBirdLabel(match.a, true);
+        String right = tournamentEntryLabel(match.b) + "  |  " + tournamentBirdLabel(match.b, true);
+        Label info = new Label(left + "\nvs\n" + right + "\nWatch the match or simulate the result.");
         MenuLayout.styleMenuMessage(info, 30, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
 
         Button watch = uiFactory.action("WATCH MATCH", 520, 120, 42, "#1565C0", 26, () -> launchTournamentMatch(stage, match));

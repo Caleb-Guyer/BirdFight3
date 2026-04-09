@@ -17,6 +17,8 @@ class CrowMinion {
     int variant = VARIANT_AUTO;
     int hitFlashTimer = 0;
     int retargetCooldown = 0;
+    double speedMultiplier = 1.0;
+    int overflowProtectionFrames = 0;
 
     CrowMinion(double x, double y, Bird target) {
         this.x = x;
@@ -33,6 +35,16 @@ class CrowMinion {
         if (variant == VARIANT_VOID_RAVEN) {
             this.hasCrown = true;
         }
+        return this;
+    }
+
+    CrowMinion withSpeedMultiplier(double speedMultiplier) {
+        this.speedMultiplier = Math.max(1.0, speedMultiplier);
+        return this;
+    }
+
+    CrowMinion withOverflowProtectionFrames(int overflowProtectionFrames) {
+        this.overflowProtectionFrames = Math.max(this.overflowProtectionFrames, overflowProtectionFrames);
         return this;
     }
 
@@ -62,21 +74,23 @@ class CrowMinion {
     }
 
     double homingAccel() {
-        return switch (effectiveVariant()) {
+        double base = switch (effectiveVariant()) {
             case VARIANT_GIANT_CROW -> 0.16;
             case VARIANT_RAVEN -> 0.28;
             case VARIANT_VOID_RAVEN -> 0.31;
             default -> 0.22;
         };
+        return base * (0.94 + speedMultiplier * 0.12);
     }
 
     double maxSpeed() {
-        return switch (effectiveVariant()) {
+        double base = switch (effectiveVariant()) {
             case VARIANT_GIANT_CROW -> 2.65;
             case VARIANT_RAVEN -> 3.7;
             case VARIANT_VOID_RAVEN -> 4.15;
             default -> 3.2;
         };
+        return base * speedMultiplier;
     }
 
     String displayName() {
@@ -91,6 +105,10 @@ class CrowMinion {
 
     boolean hasHeavyLifePool() {
         return defaultLife(effectiveVariant()) > 1;
+    }
+
+    boolean isOverflowProtected() {
+        return overflowProtectionFrames > 0;
     }
 
     void registerHit(double knockbackX, double knockbackY) {
