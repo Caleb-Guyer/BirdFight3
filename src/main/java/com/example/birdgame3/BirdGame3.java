@@ -11994,7 +11994,11 @@ public class BirdGame3 extends Application {
         title.setTextFill(Color.web("#111111"));
         applyNoEllipsis(title);
 
-        StackPane banner = getStackPane(new StackPane(title), width, MenuTheme.titleBannerStyle());
+        StackPane banner = new StackPane(title);
+        banner.setMinSize(width, height);
+        banner.setPrefSize(width, height);
+        banner.setMaxSize(width, height);
+        banner.setStyle(MenuTheme.titleBannerStyle());
         banner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
         return banner;
     }
@@ -12883,6 +12887,10 @@ public class BirdGame3 extends Application {
         } else if (node instanceof Button button) {
             button.setStyle(style);
         }
+    }
+
+    void drawTournamentPortrait(Canvas canvas, BirdType type) {
+        drawRosterSprite(canvas, type, null, type == null);
     }
 
     private void applyUltimateHubEffect(Node node, Effect effect) {
@@ -14007,7 +14015,7 @@ public class BirdGame3 extends Application {
         root.setStyle("-fx-background-color: #06070A;");
 
         BorderPane content = new BorderPane();
-        content.setPadding(new Insets(12));
+        content.setPadding(new Insets(14));
         content.setMinSize(layoutW, layoutH);
         content.setPrefSize(layoutW, layoutH);
         content.setMaxSize(layoutW, layoutH);
@@ -14024,7 +14032,11 @@ public class BirdGame3 extends Application {
         Label title = new Label("LOCAL BATTLE");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
         title.setTextFill(Color.web("#111111"));
-        StackPane titleBanner = getStackPane(new StackPane(title), 520, "-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
+        StackPane titleBanner = new StackPane(title);
+        titleBanner.setMinSize(520, 72);
+        titleBanner.setPrefSize(520, 72);
+        titleBanner.setMaxSize(520, 72);
+        titleBanner.setStyle("-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
                 + "-fx-background-radius: 12; -fx-border-color: black; -fx-border-width: 4; "
                 + "-fx-border-radius: 12;");
         titleBanner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
@@ -14333,7 +14345,11 @@ public class BirdGame3 extends Application {
             };
             String accentHex = toHex(accent);
 
-            StackPane playerBadge = getStackPane(new StackPane(), 78, "-fx-background-color: " + accentHex + "; "
+            StackPane playerBadge = new StackPane();
+            playerBadge.setMinSize(78, 44);
+            playerBadge.setPrefSize(78, 44);
+            playerBadge.setMaxSize(78, 44);
+            playerBadge.setStyle("-fx-background-color: " + accentHex + "; "
                     + "-fx-background-radius: 14; -fx-border-color: black; "
                     + "-fx-border-width: 3; -fx-border-radius: 14;");
 
@@ -14468,7 +14484,11 @@ public class BirdGame3 extends Application {
                 updateSlot[idx].run();
             });
 
-            StackPane portraitFrame = getStackPane(new StackPane(portraits[idx]), 170, "-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 22; "
+            StackPane portraitFrame = new StackPane(portraits[idx]);
+            portraitFrame.setMinSize(170, 170);
+            portraitFrame.setPrefSize(170, 170);
+            portraitFrame.setMaxSize(170, 170);
+            portraitFrame.setStyle("-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 22; "
                     + "-fx-border-color: rgba(255,255,255,0.20); -fx-border-width: 2; "
                     + "-fx-border-radius: 22;");
 
@@ -16661,7 +16681,56 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private void syncTournamentEntries() {
+    List<TournamentEntry> tournamentEntries() {
+        return tournamentEntries;
+    }
+
+    int tournamentEntrantCount() {
+        return tournamentEntrantCount;
+    }
+
+    void setTournamentEntrantCount(int entrantCount) {
+        tournamentEntrantCount = Math.clamp(entrantCount, 2, 32);
+        tournamentHumanCount = Math.clamp(tournamentHumanCount, 0, tournamentEntrantCount);
+    }
+
+    int tournamentHumanCount() {
+        return tournamentHumanCount;
+    }
+
+    void setTournamentHumanCount(int humanCount) {
+        tournamentHumanCount = Math.clamp(humanCount, 0, tournamentEntrantCount);
+    }
+
+    boolean isTournamentMapRandom() {
+        return tournamentMapRandom;
+    }
+
+    void setTournamentMapRandom(boolean tournamentMapRandom) {
+        this.tournamentMapRandom = tournamentMapRandom;
+    }
+
+    MapType tournamentFixedMap() {
+        List<MapType> maps = tournamentMapPool();
+        if (!maps.contains(tournamentFixedMap)) {
+            tournamentFixedMap = maps.getFirst();
+        }
+        return tournamentFixedMap;
+    }
+
+    void setTournamentFixedMap(MapType map) {
+        if (map == null) {
+            return;
+        }
+        List<MapType> maps = tournamentMapPool();
+        tournamentFixedMap = maps.contains(map) ? map : maps.getFirst();
+    }
+
+    List<List<TournamentMatch>> tournamentRounds() {
+        return tournamentRounds;
+    }
+
+    void syncTournamentEntries() {
         ensureTournamentEntries();
         for (int i = 0; i < tournamentEntries.size(); i++) {
             TournamentEntry entry = tournamentEntries.get(i);
@@ -16687,12 +16756,12 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private void shuffleTournamentSeedOrder() {
+    void shuffleTournamentSeedOrder() {
         ensureTournamentSeedOrder();
         Collections.shuffle(tournamentSeedOrder, random);
     }
 
-    private int tournamentEntrySeedNumber(TournamentEntry entry) {
+    int tournamentEntrySeedNumber(TournamentEntry entry) {
         if (entry == null) {
             return 0;
         }
@@ -16716,7 +16785,7 @@ public class BirdGame3 extends Application {
         return shortened.isEmpty() ? "" : shortened;
     }
 
-    private String tournamentEntryLabel(TournamentEntry entry) {
+    String tournamentEntryLabel(TournamentEntry entry) {
         if (entry == null) return "PLAYER";
         if (entry.customName != null && !entry.customName.isBlank()) {
             return entry.customName;
@@ -16724,7 +16793,7 @@ public class BirdGame3 extends Application {
         return "PLAYER " + entry.id;
     }
 
-    private Color tournamentEntryAccent(int index, boolean human) {
+    Color tournamentEntryAccent(int index, boolean human) {
         Color[] palette = human
                 ? new Color[]{
                 Color.web("#F44336"),
@@ -16752,7 +16821,7 @@ public class BirdGame3 extends Application {
         return "SEED " + tournamentEntrySeedNumber(entry);
     }
 
-    private void setTournamentEntrySelection(TournamentEntry entry, BirdType type) {
+    void setTournamentEntrySelection(TournamentEntry entry, BirdType type) {
         if (entry == null) {
             return;
         }
@@ -16760,7 +16829,7 @@ public class BirdGame3 extends Application {
         entry.resolvedType = null;
     }
 
-    private BirdType tournamentAssignedBird(TournamentEntry entry) {
+    BirdType tournamentAssignedBird(TournamentEntry entry) {
         if (entry == null) {
             return null;
         }
@@ -16798,7 +16867,7 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private String tournamentBirdLabel(TournamentEntry entry, boolean revealResolvedRandom) {
+    String tournamentBirdLabel(TournamentEntry entry, boolean revealResolvedRandom) {
         if (entry == null) {
             return "TBD";
         }
@@ -16864,7 +16933,7 @@ public class BirdGame3 extends Application {
         return icon;
     }
 
-    private List<MapType> tournamentMapPool() {
+    List<MapType> tournamentMapPool() {
         List<MapType> maps = new ArrayList<>();
         for (MapType map : MapType.values()) {
             if (isMapUnlocked(map)) {
@@ -16889,7 +16958,7 @@ public class BirdGame3 extends Application {
         return maps.get(random.nextInt(maps.size()));
     }
 
-    private void buildTournamentBracket() {
+    void buildTournamentBracket() {
         tournamentRounds.clear();
         ensureTournamentEntries();
         ensureTournamentSeedOrder();
@@ -16953,7 +17022,7 @@ public class BirdGame3 extends Application {
         return slotBySeed;
     }
 
-    private TournamentMatch findNextTournamentMatch() {
+    TournamentMatch findNextTournamentMatch() {
         for (List<TournamentMatch> round : tournamentRounds) {
             for (TournamentMatch match : round) {
                 if (match.winner == null && match.a != null && match.b != null) {
@@ -16981,13 +17050,13 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private boolean isTournamentComplete() {
+    boolean isTournamentComplete() {
         if (tournamentRounds.isEmpty()) return false;
         List<TournamentMatch> last = tournamentRounds.getLast();
         return !last.isEmpty() && last.getFirst().winner != null;
     }
 
-    private void resolveTournamentByes() {
+    void resolveTournamentByes() {
         if (tournamentRounds.isEmpty()) return;
         List<TournamentMatch> round0 = tournamentRounds.getFirst();
         for (TournamentMatch match : round0) {
@@ -17000,7 +17069,7 @@ public class BirdGame3 extends Application {
         }
     }
 
-    private String tournamentRoundLabel(int roundIndex) {
+    String tournamentRoundLabel(int roundIndex) {
         int totalRounds = tournamentRounds.size();
         if (totalRounds == 0) return "ROUND";
         int entrants = 1 << (totalRounds - roundIndex);
@@ -17100,7 +17169,7 @@ public class BirdGame3 extends Application {
         root.setStyle("-fx-background-color: #06070A;");
 
         BorderPane content = new BorderPane();
-        content.setPadding(new Insets(12));
+        content.setPadding(new Insets(14));
         content.setMinSize(layoutW, layoutH);
         content.setPrefSize(layoutW, layoutH);
         content.setMaxSize(layoutW, layoutH);
@@ -17114,7 +17183,7 @@ public class BirdGame3 extends Application {
         VBox rosterCard = buildTournamentSetupRosterCard(ui);
         StackPane footerPanel = buildTournamentSetupFooter(stage, ui);
 
-        VBox body = new VBox(12, rosterCard, footerPanel);
+        VBox body = new VBox(14, rosterCard, footerPanel);
         body.setAlignment(Pos.TOP_CENTER);
         content.setCenter(body);
 
@@ -17145,7 +17214,11 @@ public class BirdGame3 extends Application {
         Label title = new Label("TOURNAMENT MODE");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
         title.setTextFill(Color.web("#111111"));
-        StackPane titleBanner = getStackPane(new StackPane(title), 548, "-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
+        StackPane titleBanner = new StackPane(title);
+        titleBanner.setMinSize(560, 72);
+        titleBanner.setPrefSize(560, 72);
+        titleBanner.setMaxSize(560, 72);
+        titleBanner.setStyle("-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
                 + "-fx-background-radius: 12; -fx-border-color: black; -fx-border-width: 4; "
                 + "-fx-border-radius: 12;");
         titleBanner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
@@ -17155,8 +17228,8 @@ public class BirdGame3 extends Application {
         BorderPane.setAlignment(ui.backBtn, Pos.CENTER_LEFT);
 
         StackPane topStrip = new StackPane(topChrome, titleBanner);
-        topStrip.setPadding(new Insets(8, 12, 8, 12));
-        topStrip.setMinHeight(86);
+        topStrip.setPadding(new Insets(10, 14, 10, 14));
+        topStrip.setMinHeight(92);
         topStrip.setStyle("-fx-background-color: linear-gradient(to right, #8E0D16 0%, #C51A24 42%, #111317 42%, #111317 100%); "
                 + "-fx-background-radius: 24; -fx-border-color: black; -fx-border-width: 4; -fx-border-radius: 24;");
         topStrip.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.30)));
@@ -17165,14 +17238,14 @@ public class BirdGame3 extends Application {
 
     private VBox buildTournamentSetupRosterCard(TournamentSetupUi ui) {
         Label rosterTitle = new Label("SELECT YOUR TOURNAMENT BIRD");
-        rosterTitle.setFont(Font.font("Arial Black", 26));
+        rosterTitle.setFont(Font.font("Arial Black", 28));
         rosterTitle.setTextFill(Color.web("#FFF176"));
         rosterTitle.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.30)));
         HBox rosterHeader = new HBox(rosterTitle);
         rosterHeader.setAlignment(Pos.CENTER_LEFT);
 
-        VBox rosterCard = new VBox(8, rosterHeader, ui.selectionPane);
-        rosterCard.setPadding(new Insets(10));
+        VBox rosterCard = new VBox(10, rosterHeader, ui.selectionPane);
+        rosterCard.setPadding(new Insets(12));
         rosterCard.setStyle("-fx-background-color: rgba(4,5,8,0.90); -fx-background-radius: 28; "
                 + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 3; -fx-border-radius: 28;");
         return rosterCard;
@@ -17184,7 +17257,7 @@ public class BirdGame3 extends Application {
         gridBirds.add(null);
 
         double paneW = 1520;
-        double paneH = 406;
+        double paneH = 430;
         ui.selectionPane.setPrefSize(paneW, paneH);
         ui.selectionPane.setMinSize(paneW, paneH);
         ui.selectionPane.setMaxSize(paneW, paneH);
@@ -17247,7 +17320,11 @@ public class BirdGame3 extends Application {
         ui.activeRole.setPadding(new Insets(6, 14, 6, 14));
 
         ui.activePortrait = new Canvas(150, 150);
-        StackPane activePortraitFrame = getStackPane(new StackPane(ui.activePortrait), 168, "-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 22; "
+        StackPane activePortraitFrame = new StackPane(ui.activePortrait);
+        activePortraitFrame.setMinSize(168, 168);
+        activePortraitFrame.setPrefSize(168, 168);
+        activePortraitFrame.setMaxSize(168, 168);
+        activePortraitFrame.setStyle("-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 22; "
                 + "-fx-border-color: rgba(255,255,255,0.20); -fx-border-width: 2; "
                 + "-fx-border-radius: 22;");
 
@@ -17460,14 +17537,13 @@ public class BirdGame3 extends Application {
     }
 
     private StackPane buildTournamentSetupFooter(Stage stage, TournamentSetupUi ui) {
-        Label entrantsStripTitle = new Label("TOURNAMENT FIELD");
-        entrantsStripTitle.setFont(Font.font("Arial Black", 20));
+        Label entrantsStripTitle = new Label("ENTRANT BOXES");
+        entrantsStripTitle.setFont(Font.font("Arial Black", 22));
         entrantsStripTitle.setTextFill(Color.web("#FFE082"));
 
         ui.entrantStrip.setAlignment(Pos.TOP_LEFT);
-        ui.entrantStrip.setPrefWrapLength(960);
-        ui.entrantStrip.setPadding(new Insets(4));
-        ui.entrantStrip.setMinWidth(0);
+        ui.entrantStrip.setPrefWrapLength(1040);
+        ui.entrantStrip.setPadding(new Insets(6));
 
         ScrollPane entrantScroll = new ScrollPane(ui.entrantStrip);
         entrantScroll.setFitToWidth(true);
@@ -17475,27 +17551,25 @@ public class BirdGame3 extends Application {
         entrantScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         entrantScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         entrantScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent;");
-        entrantScroll.viewportBoundsProperty().addListener((obs, oldBounds, newBounds) ->
-                ui.entrantStrip.setPrefWrapLength(Math.max(320.0, newBounds.getWidth() - 22.0)));
 
         Label entrantsLabel = new Label("ENTRANTS");
         entrantsLabel.setFont(Font.font("Consolas", 14));
         entrantsLabel.setTextFill(Color.web("#CFD8DC"));
         ui.entrantsValue = new Label();
-        ui.entrantsValue.setFont(Font.font("Arial Black", 22));
+        ui.entrantsValue.setFont(Font.font("Arial Black", 24));
         ui.entrantsValue.setTextFill(Color.WHITE);
 
         Label humansLabel = new Label("HUMANS");
         humansLabel.setFont(Font.font("Consolas", 14));
         humansLabel.setTextFill(Color.web("#CFD8DC"));
         ui.humansValue = new Label();
-        ui.humansValue.setFont(Font.font("Arial Black", 22));
+        ui.humansValue.setFont(Font.font("Arial Black", 24));
         ui.humansValue.setTextFill(Color.WHITE);
         ui.cpuValue = new Label();
-        ui.cpuValue.setFont(Font.font("Consolas", 12));
+        ui.cpuValue.setFont(Font.font("Consolas", 13));
         ui.cpuValue.setTextFill(Color.web("#FFCCBC"));
 
-        Button entrantsMinus = uiFactory.action("-", 54, 40, 18, "#455A64", 14, () -> {
+        Button entrantsMinus = uiFactory.action("-", 72, 48, 20, "#455A64", 14, () -> {
             tournamentEntrantCount = Math.max(2, tournamentEntrantCount - 1);
             if (tournamentHumanCount > tournamentEntrantCount) {
                 tournamentHumanCount = tournamentEntrantCount;
@@ -17504,19 +17578,19 @@ public class BirdGame3 extends Application {
                 ui.refreshAll[0].run();
             }
         });
-        Button entrantsPlus = uiFactory.action("+", 54, 40, 18, "#455A64", 14, () -> {
+        Button entrantsPlus = uiFactory.action("+", 72, 48, 20, "#455A64", 14, () -> {
             tournamentEntrantCount = Math.min(32, tournamentEntrantCount + 1);
             if (ui.refreshAll[0] != null) {
                 ui.refreshAll[0].run();
             }
         });
-        Button humansMinus = uiFactory.action("-", 54, 40, 18, "#455A64", 14, () -> {
+        Button humansMinus = uiFactory.action("-", 72, 48, 20, "#455A64", 14, () -> {
             tournamentHumanCount = Math.max(0, tournamentHumanCount - 1);
             if (ui.refreshAll[0] != null) {
                 ui.refreshAll[0].run();
             }
         });
-        Button humansPlus = uiFactory.action("+", 54, 40, 18, "#455A64", 14, () -> {
+        Button humansPlus = uiFactory.action("+", 72, 48, 20, "#455A64", 14, () -> {
             tournamentHumanCount = Math.min(tournamentEntrantCount, tournamentHumanCount + 1);
             if (ui.refreshAll[0] != null) {
                 ui.refreshAll[0].run();
@@ -17533,7 +17607,6 @@ public class BirdGame3 extends Application {
                 new HBox(8, entrantsMinus, entrantsPlus));
         entrantsBox.setAlignment(Pos.CENTER);
         entrantsBox.setPadding(new Insets(8, 12, 8, 12));
-        entrantsBox.setMinWidth(162);
         entrantsBox.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 18; "
                 + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 2; -fx-border-radius: 18;");
 
@@ -17544,17 +17617,16 @@ public class BirdGame3 extends Application {
                 new HBox(8, humansMinus, humansPlus));
         humansBox.setAlignment(Pos.CENTER);
         humansBox.setPadding(new Insets(8, 12, 8, 12));
-        humansBox.setMinWidth(162);
         humansBox.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 18; "
                 + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 2; -fx-border-radius: 18;");
 
-        ui.mapModeBtn = uiFactory.action("MAP: RANDOM", 170, 48, 18, "#6D4C41", 12, () -> {
+        ui.mapModeBtn = uiFactory.action("MAP MODE: RANDOM", 250, 52, 18, "#6D4C41", 14, () -> {
             tournamentMapRandom = !tournamentMapRandom;
             if (ui.refreshMapControls[0] != null) {
                 ui.refreshMapControls[0].run();
             }
         });
-        ui.mapSelectBtn = uiFactory.action("MAP: " + mapDisplayName(tournamentFixedMap), 170, 48, 18, "#00897B", 12, () -> {
+        ui.mapSelectBtn = uiFactory.action("MAP: " + mapDisplayName(tournamentFixedMap), 250, 52, 18, "#00897B", 14, () -> {
             if (tournamentMapRandom) {
                 return;
             }
@@ -17572,7 +17644,7 @@ public class BirdGame3 extends Application {
         applyNoEllipsis(ui.mapModeBtn);
         applyNoEllipsis(ui.mapSelectBtn);
 
-        Button allRandomBtn = uiFactory.action("ALL RANDOM", 170, 48, 18, "#7B1FA2", 12, () -> {
+        Button allRandomBtn = uiFactory.action("ALL RANDOM", 250, 52, 18, "#7B1FA2", 14, () -> {
             for (TournamentEntry entry : tournamentEntries) {
                 setTournamentEntrySelection(entry, null);
             }
@@ -17585,7 +17657,7 @@ public class BirdGame3 extends Application {
         });
         applyNoEllipsis(allRandomBtn);
 
-        Button shuffleBtn = uiFactory.action("SHUFFLE BRACKET", 170, 48, 18, "#00897B", 12, () -> {
+        Button shuffleBtn = uiFactory.action("SHUFFLE BRACKET", 250, 52, 18, "#00897B", 14, () -> {
             shuffleTournamentSeedOrder();
             if (ui.refreshEntries[0] != null) {
                 ui.refreshEntries[0].run();
@@ -17596,7 +17668,7 @@ public class BirdGame3 extends Application {
         });
         applyNoEllipsis(shuffleBtn);
 
-        ui.startBtn = uiFactory.action("START TOURNAMENT", 350, 70, 22, "#00C853", 18, () -> beginTournament(stage));
+        ui.startBtn = uiFactory.action("START TOURNAMENT", 250, 78, 24, "#00C853", 20, () -> beginTournament(stage));
         applyNoEllipsis(ui.startBtn);
 
         ui.refreshCounts[0] = () -> {
@@ -17613,7 +17685,7 @@ public class BirdGame3 extends Application {
             if (!maps.contains(tournamentFixedMap)) {
                 tournamentFixedMap = maps.getFirst();
             }
-            ui.mapModeBtn.setText("MAP: " + (tournamentMapRandom ? "RANDOM" : "CHOOSE"));
+            ui.mapModeBtn.setText("MAP MODE: " + (tournamentMapRandom ? "RANDOM" : "CHOOSE"));
             ui.mapSelectBtn.setText("MAP: " + mapDisplayName(tournamentFixedMap));
             ui.mapSelectBtn.setDisable(tournamentMapRandom);
             ui.mapSelectBtn.setVisible(!tournamentMapRandom);
@@ -17635,7 +17707,11 @@ public class BirdGame3 extends Application {
                 BirdType previewType = entry.selectedType;
                 drawRosterSprite(portrait, previewType, null, previewType == null);
 
-                StackPane portraitFrame = getStackPane(new StackPane(portrait), 76, "-fx-background-color: rgba(0,0,0,0.46); -fx-background-radius: 18; "
+                StackPane portraitFrame = new StackPane(portrait);
+                portraitFrame.setMinSize(76, 76);
+                portraitFrame.setPrefSize(76, 76);
+                portraitFrame.setMaxSize(76, 76);
+                portraitFrame.setStyle("-fx-background-color: rgba(0,0,0,0.46); -fx-background-radius: 18; "
                         + "-fx-border-color: rgba(255,255,255,0.18); -fx-border-width: 2; -fx-border-radius: 18;");
 
                 Label seed = new Label("#" + tournamentEntrySeedNumber(entry));
@@ -17735,43 +17811,35 @@ public class BirdGame3 extends Application {
             }
         };
 
-        FlowPane utilityButtons = new FlowPane(10, 10,
+        FlowPane actionRow = new FlowPane(12, 12,
                 ui.mapModeBtn,
                 ui.mapSelectBtn,
                 shuffleBtn,
-                allRandomBtn
+                allRandomBtn,
+                ui.startBtn
         );
-        utilityButtons.setAlignment(Pos.TOP_CENTER);
-        utilityButtons.setPrefWrapLength(350);
-
-        VBox actionPanel = new VBox(12, utilityButtons, ui.startBtn);
-        actionPanel.setAlignment(Pos.TOP_CENTER);
-        actionPanel.setMinWidth(362);
-        actionPanel.setPrefWidth(362);
-        actionPanel.setMaxWidth(362);
+        actionRow.setAlignment(Pos.CENTER_LEFT);
+        actionRow.setPrefWrapLength(980);
 
         Region headerSpacer = new Region();
         HBox.setHgrow(headerSpacer, Priority.ALWAYS);
-        HBox counters = new HBox(10, entrantsBox, humansBox);
+        VBox counters = new VBox(0, entrantsBox, humansBox);
         counters.setAlignment(Pos.CENTER_RIGHT);
-        HBox headerRow = new HBox(14, entrantsStripTitle, headerSpacer, counters);
+        counters.setFillWidth(false);
+        HBox headerRow = new HBox(14, entrantsStripTitle, headerSpacer, actionRow, counters);
         headerRow.setAlignment(Pos.CENTER_LEFT);
-
-        HBox centerRow = new HBox(16, entrantScroll, actionPanel);
-        centerRow.setAlignment(Pos.TOP_LEFT);
-        HBox.setHgrow(entrantScroll, Priority.ALWAYS);
 
         BorderPane footerBody = new BorderPane();
         footerBody.setTop(headerRow);
-        footerBody.setCenter(centerRow);
+        footerBody.setCenter(entrantScroll);
         BorderPane.setMargin(headerRow, new Insets(0, 0, 10, 0));
-        entrantScroll.setMinHeight(206);
-        entrantScroll.setPrefViewportHeight(206);
+        entrantScroll.setMinHeight(220);
+        entrantScroll.setPrefViewportHeight(230);
 
         StackPane footerPanel = new StackPane(footerBody);
         footerPanel.setPadding(new Insets(10));
-        footerPanel.setMinHeight(292);
-        footerPanel.setPrefHeight(292);
+        footerPanel.setMinHeight(300);
+        footerPanel.setPrefHeight(320);
         footerPanel.setStyle("-fx-background-color: rgba(4,5,8,0.92); -fx-background-radius: 28; "
                 + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 3; -fx-border-radius: 28;");
         return footerPanel;
@@ -17807,46 +17875,45 @@ public class BirdGame3 extends Application {
         boolean complete = isTournamentComplete();
 
         BorderPane root = new BorderPane();
-        root.setPadding(new Insets(16, 20, 16, 20));
+        root.setPadding(new Insets(20, 24, 20, 24));
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #07111F, #142849 58%, #1B365E);");
 
         Label title = new Label("TOURNAMENT BRACKET");
-        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 58));
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 72));
         title.setTextFill(Color.GOLD);
 
         String mapLine = tournamentMapRandom
-                ? "Map: RANDOM"
+                ? "Map Mode: RANDOM"
                 : "Map: " + mapDisplayName(tournamentFixedMap);
-        Label subtitle = new Label(mapLine + "  |  Entrants: " + tournamentEntrantCount + "  |  Random picks stay locked for the run");
-        subtitle.setFont(Font.font("Consolas", 18));
+        Label subtitle = new Label(mapLine + "  |  Entrants: " + tournamentEntrantCount + "  |  Locked random picks are shown in-card");
+        subtitle.setFont(Font.font("Consolas", 20));
         subtitle.setTextFill(Color.web("#B3E5FC"));
 
         Label legend = new Label(nextMatch != null ? "Gold outline marks the next match." : "Champion crowned.");
-        legend.setFont(Font.font("Consolas", 14));
+        legend.setFont(Font.font("Consolas", 16));
         legend.setTextFill(Color.web("#FFE082"));
 
-        VBox header = new VBox(4, title, subtitle, legend);
+        VBox header = new VBox(6, title, subtitle, legend);
         header.setAlignment(Pos.CENTER);
         ScrollPane scroll = buildTournamentBracketScrollPane(nextMatch);
 
-        Button primary = uiFactory.action(complete ? "VIEW CHAMPION" : "START NEXT MATCH", 440, 86, 30, "#1565C0", 22, () -> {
+        Button primary = uiFactory.action(complete ? "VIEW CHAMPION" : "START NEXT MATCH", 520, 110, 38, "#1565C0", 26, () -> {
             if (complete) {
                 showTournamentComplete(stage);
             } else {
                 startNextTournamentMatch(stage);
             }
         });
-        Button reset = uiFactory.action("RESET TOURNAMENT", 330, 86, 28, "#00897B", 20, () -> {
+        Button reset = uiFactory.action("RESET TOURNAMENT", 420, 110, 34, "#00897B", 22, () -> {
             resetTournamentRun();
             showTournamentSetup(stage);
         });
-        Button exit = uiFactory.action("EXIT TO HUB", 330, 86, 28, "#FF1744", 20, () -> {
+        Button exit = uiFactory.action("EXIT TO HUB", 420, 110, 34, "#FF1744", 22, () -> {
             resetTournamentRun();
             showMenu(stage);
         });
-        HBox buttons = new HBox(18, primary, reset, exit);
+        HBox buttons = new HBox(24, primary, reset, exit);
         buttons.setAlignment(Pos.CENTER);
-        buttons.setPadding(new Insets(10, 0, 0, 0));
 
         root.setTop(header);
         root.setCenter(scroll);
@@ -17862,59 +17929,13 @@ public class BirdGame3 extends Application {
     }
 
     private ScrollPane buildTournamentBracketScrollPane(TournamentMatch nextMatch) {
-        int firstRoundMatches = tournamentRounds.isEmpty() ? 0 : tournamentRounds.getFirst().size();
-        double cardWidth;
-        double cardHeight;
-        double columnGap;
-        double leftPadding = 36.0;
-        double topPadding;
-        double labelY;
-        double baseGap;
-        double labelFont;
-        double connectorStroke;
-        boolean compact;
-
-        if (firstRoundMatches <= 2) {
-            cardWidth = 300.0;
-            cardHeight = 132.0;
-            columnGap = 138.0;
-            topPadding = 96.0;
-            labelY = 26.0;
-            baseGap = 42.0;
-            labelFont = 24.0;
-            connectorStroke = 4.0;
-            compact = false;
-        } else if (firstRoundMatches <= 4) {
-            cardWidth = 286.0;
-            cardHeight = 112.0;
-            columnGap = 118.0;
-            topPadding = 82.0;
-            labelY = 18.0;
-            baseGap = 18.0;
-            labelFont = 22.0;
-            connectorStroke = 3.5;
-            compact = true;
-        } else if (firstRoundMatches <= 8) {
-            cardWidth = 268.0;
-            cardHeight = 98.0;
-            columnGap = 106.0;
-            topPadding = 74.0;
-            labelY = 16.0;
-            baseGap = 12.0;
-            labelFont = 20.0;
-            connectorStroke = 3.0;
-            compact = true;
-        } else {
-            cardWidth = 248.0;
-            cardHeight = 92.0;
-            columnGap = 96.0;
-            topPadding = 70.0;
-            labelY = 14.0;
-            baseGap = 10.0;
-            labelFont = 18.0;
-            connectorStroke = 3.0;
-            compact = true;
-        }
+        double cardWidth = 306.0;
+        double cardHeight = 144.0;
+        double columnGap = 150.0;
+        double leftPadding = 48.0;
+        double topPadding = 140.0;
+        double labelY = 34.0;
+        double baseGap = 54.0;
 
         List<List<Double>> centersByRound = new ArrayList<>();
         for (int roundIndex = 0; roundIndex < tournamentRounds.size(); roundIndex++) {
@@ -17933,13 +17954,10 @@ public class BirdGame3 extends Application {
             centersByRound.add(centers);
         }
 
-        double width = leftPadding
-                + tournamentRounds.size() * cardWidth
-                + Math.max(0, tournamentRounds.size() - 1) * columnGap
-                + 72.0;
+        double width = leftPadding + tournamentRounds.size() * (cardWidth + columnGap) - columnGap + cardWidth + 96.0;
         double height = centersByRound.isEmpty() || centersByRound.getFirst().isEmpty()
                 ? 540.0
-                : centersByRound.getFirst().getLast() + cardHeight / 2.0 + 70.0;
+                : centersByRound.getFirst().getLast() + cardHeight / 2.0 + 120.0;
 
         Pane bracketPane = new Pane();
         bracketPane.setPrefSize(width, height);
@@ -17953,7 +17971,7 @@ public class BirdGame3 extends Application {
             double x = leftPadding + roundIndex * (cardWidth + columnGap);
 
             Label roundLabel = new Label(tournamentRoundLabel(roundIndex));
-            roundLabel.setFont(Font.font("Arial Black", labelFont));
+            roundLabel.setFont(Font.font("Arial Black", 24));
             roundLabel.setTextFill(Color.web("#FFE082"));
             roundLabel.setMinWidth(cardWidth);
             roundLabel.setPrefWidth(cardWidth);
@@ -17980,7 +17998,7 @@ public class BirdGame3 extends Application {
                     Line finalLine = new Line(joinX, currentCenter, x, currentCenter);
                     for (Line line : List.of(topLine, bottomLine, vertical, finalLine)) {
                         line.setStroke(Color.web("rgba(255, 235, 160, 0.72)"));
-                        line.setStrokeWidth(connectorStroke);
+                        line.setStrokeWidth(4.0);
                         line.setStrokeLineCap(StrokeLineCap.ROUND);
                     }
                     lineLayer.getChildren().addAll(topLine, bottomLine, vertical, finalLine);
@@ -17994,7 +18012,7 @@ public class BirdGame3 extends Application {
             List<Double> centers = centersByRound.get(roundIndex);
             for (int matchIndex = 0; matchIndex < round.size(); matchIndex++) {
                 TournamentMatch match = round.get(matchIndex);
-                StackPane card = buildTournamentBracketMatchCard(match, nextMatch, roundIndex == 0, cardWidth, cardHeight, compact);
+                StackPane card = buildTournamentBracketMatchCard(match, nextMatch, roundIndex == 0);
                 card.setLayoutX(x);
                 card.setLayoutY(centers.get(matchIndex) - cardHeight / 2.0);
                 bracketPane.getChildren().add(card);
@@ -18007,12 +18025,10 @@ public class BirdGame3 extends Application {
         scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent;");
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
-        scroll.setPannable(true);
         return scroll;
     }
 
-    private StackPane buildTournamentBracketMatchCard(TournamentMatch match, TournamentMatch nextMatch, boolean firstRound,
-                                                      double cardWidth, double cardHeight, boolean compact) {
+    private StackPane buildTournamentBracketMatchCard(TournamentMatch match, TournamentMatch nextMatch, boolean firstRound) {
         boolean current = nextMatch != null && match == nextMatch;
         boolean decided = match.winner != null;
         String border = current ? "#FFD54F" : (decided ? "#AED581" : "rgba(255,255,255,0.16)");
@@ -18022,42 +18038,39 @@ public class BirdGame3 extends Application {
                 ? "linear-gradient(to bottom right, rgba(28,46,24,0.96), rgba(10,17,9,0.98))"
                 : "linear-gradient(to bottom right, rgba(19,27,41,0.96), rgba(7,10,16,0.98))";
 
-        VBox body = new VBox(compact ? 6 : 8);
-        body.setPadding(new Insets(compact ? 8 : 10));
-        body.getChildren().add(buildTournamentBracketEntrantRow(match.a, firstRound ? "BYE" : "TBD", match.winner == match.a, compact));
-        body.getChildren().add(buildTournamentBracketEntrantRow(match.b, firstRound ? "BYE" : "TBD", match.winner == match.b, compact));
+        VBox body = new VBox(8);
+        body.setPadding(new Insets(10));
+        body.getChildren().add(buildTournamentBracketEntrantRow(match.a, firstRound ? "BYE" : "TBD", match.winner == match.a));
+        body.getChildren().add(buildTournamentBracketEntrantRow(match.b, firstRound ? "BYE" : "TBD", match.winner == match.b));
 
         Label footer = new Label(decided
                 ? "ADVANCES: " + tournamentEntryLabel(match.winner)
                 : current ? "NEXT MATCH" : "WAITING");
-        footer.setFont(Font.font("Consolas", compact ? 13 : 14));
+        footer.setFont(Font.font("Consolas", 14));
         footer.setTextFill(decided ? Color.web("#C5E1A5") : (current ? Color.web("#FFE082") : Color.web("#90A4AE")));
-        footer.setMaxWidth(cardWidth - 20.0);
-        applyNoEllipsis(footer);
-        fitLabelSingleLine(footer, compact ? 13 : 14, 10, cardWidth - 20.0);
         body.getChildren().add(footer);
 
         StackPane card = new StackPane(body);
-        card.setPrefSize(cardWidth, cardHeight);
-        card.setMinSize(cardWidth, cardHeight);
-        card.setMaxSize(cardWidth, cardHeight);
-        card.setStyle("-fx-background-color: " + background + "; -fx-background-radius: " + (compact ? "18" : "22") + "; "
+        card.setPrefSize(306, 144);
+        card.setMinSize(306, 144);
+        card.setMaxSize(306, 144);
+        card.setStyle("-fx-background-color: " + background + "; -fx-background-radius: 22; "
                 + "-fx-border-color: " + border + "; -fx-border-width: " + (current ? "3.5" : "2.0") + "; "
-                + "-fx-border-radius: " + (compact ? "18" : "22") + ";");
+                + "-fx-border-radius: 22;");
         if (current) {
             card.setEffect(new DropShadow(18, Color.rgb(255, 213, 79, 0.35)));
         }
         return card;
     }
 
-    private HBox buildTournamentBracketEntrantRow(TournamentEntry entry, String placeholder, boolean winner, boolean compact) {
-        HBox row = new HBox(compact ? 6 : 8);
+    private HBox buildTournamentBracketEntrantRow(TournamentEntry entry, String placeholder, boolean winner) {
+        HBox row = new HBox(8);
         row.setAlignment(Pos.CENTER_LEFT);
-        row.setPadding(new Insets(compact ? 5 : 6, compact ? 7 : 8, compact ? 5 : 6, compact ? 7 : 8));
+        row.setPadding(new Insets(6, 8, 6, 8));
 
         if (entry == null) {
             Label bye = new Label(placeholder);
-            bye.setFont(Font.font("Consolas", compact ? 13 : 15));
+            bye.setFont(Font.font("Consolas", 15));
             bye.setTextFill(Color.web("#B0BEC5"));
             row.getChildren().add(bye);
             row.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 14;");
@@ -18067,35 +18080,33 @@ public class BirdGame3 extends Application {
         BirdType birdType = tournamentAssignedBird(entry);
         boolean randomOrigin = entry.selectedType == null && birdType != null;
 
-        double portraitSize = compact ? 32.0 : 38.0;
-        double portraitFrameSize = compact ? 40.0 : 46.0;
-        Canvas portrait = new Canvas(portraitSize, portraitSize);
+        Canvas portrait = new Canvas(38, 38);
         drawRosterSprite(portrait, birdType, null, birdType == null);
-        StackPane portraitFrame = getStackPane(new StackPane(portrait), portraitFrameSize, "-fx-background-color: rgba(0,0,0,0.48); -fx-background-radius: " + (compact ? "10" : "12") + "; "
+        StackPane portraitFrame = new StackPane(portrait);
+        portraitFrame.setMinSize(46, 46);
+        portraitFrame.setPrefSize(46, 46);
+        portraitFrame.setMaxSize(46, 46);
+        portraitFrame.setStyle("-fx-background-color: rgba(0,0,0,0.48); -fx-background-radius: 12; "
                 + "-fx-border-color: rgba(255,255,255,0.18); -fx-border-width: 1.5; -fx-border-radius: 12;");
 
         Label seed = new Label("#" + tournamentEntrySeedNumber(entry));
-        seed.setFont(Font.font("Arial Black", compact ? 11 : 12));
+        seed.setFont(Font.font("Arial Black", 12));
         seed.setTextFill(Color.web("#111111"));
         StackPane seedChip = new StackPane(seed);
-        seedChip.setPadding(new Insets(2, compact ? 7 : 8, 2, compact ? 7 : 8));
+        seedChip.setPadding(new Insets(3, 8, 3, 8));
         seedChip.setStyle("-fx-background-color: #FFE082; -fx-background-radius: 999;");
 
         Label name = new Label(tournamentEntryLabel(entry));
-        double nameWidth = compact ? 92.0 : 104.0;
-        name.setFont(Font.font("Arial Black", compact ? 13 : 14));
+        name.setFont(Font.font("Arial Black", 14));
         name.setTextFill(winner ? Color.WHITE : Color.web("#ECEFF1"));
-        name.setMaxWidth(nameWidth);
+        name.setMaxWidth(104);
         applyNoEllipsis(name);
-        fitLabelSingleLine(name, compact ? 13 : 14, 10, nameWidth);
+        fitLabelSingleLine(name, 14, 10, 104);
 
         Label bird = new Label(birdType != null ? birdType.name.toUpperCase(Locale.ROOT) : placeholder);
-        bird.setFont(Font.font("Arial Black", compact ? 10 : 11));
+        bird.setFont(Font.font("Arial Black", 11));
         bird.setTextFill(Color.WHITE);
-        bird.setMaxWidth(compact ? 88.0 : 102.0);
-        applyNoEllipsis(bird);
-        fitLabelSingleLine(bird, compact ? 10 : 11, 8, compact ? 88.0 : 102.0);
-        bird.setPadding(new Insets(2, compact ? 7 : 8, 2, compact ? 7 : 8));
+        bird.setPadding(new Insets(3, 8, 3, 8));
         bird.setStyle("-fx-background-color: " + (randomOrigin ? "#8E24AA" : "#455A64")
                 + "; -fx-background-radius: 999;");
 
@@ -18106,15 +18117,6 @@ public class BirdGame3 extends Application {
         row.setStyle("-fx-background-color: " + (winner ? "rgba(255,255,255,0.12)" : "rgba(255,255,255,0.06)")
                 + "; -fx-background-radius: 14;");
         return row;
-    }
-
-    private static StackPane getStackPane(StackPane portrait, double portraitFrameSize, String compact) {
-        StackPane portraitFrame = portrait;
-        portraitFrame.setMinSize(portraitFrameSize, portraitFrameSize);
-        portraitFrame.setPrefSize(portraitFrameSize, portraitFrameSize);
-        portraitFrame.setMaxSize(portraitFrameSize, portraitFrameSize);
-        portraitFrame.setStyle(compact);
-        return portraitFrame;
     }
 
     private void startNextTournamentMatch(Stage stage) {
@@ -19092,7 +19094,7 @@ public class BirdGame3 extends Application {
         return count;
     }
 
-    private String mapDisplayName(MapType map) {
+    String mapDisplayName(MapType map) {
         if (bossRushModeActive && classicEncounter != null && classicEncounter.map == map) {
             String bossRushName = bossRushArenaName(classicEncounter);
             if (bossRushName != null) {
@@ -24651,6 +24653,49 @@ public class BirdGame3 extends Application {
         );
     }
 
+    private void reconcileAchievementUnlocksFromStoredProgress() {
+        ensureAdventureChapterState();
+        ensureAdventureRouteState(AdventureRoute.TEMPEST);
+
+        boolean[] completedAdventure = mainAdventureChapterCompletedState();
+        int unitedIdx = unitedFinaleChapterIndex();
+        boolean unitedFinaleCompleted = unitedIdx >= 0
+                && unitedIdx < completedAdventure.length
+                && completedAdventure[unitedIdx];
+
+        boolean[] tempestAdventureCompleted = adventureChapterCompletedByRoute[AdventureRoute.TEMPEST.ordinal()];
+        int tempestIdx = tempestAdventureChapters.length - 1;
+        boolean tempestFinaleCompleted = tempestIdx >= 0
+                && tempestIdx < tempestAdventureCompleted.length
+                && tempestAdventureCompleted[tempestIdx];
+
+        profileProgressController.reconcileLoadedProgress(unitedFinaleCompleted, tempestFinaleCompleted);
+
+        int towerDefenseBadgeCount = countTowerDefenseBadges();
+        int bigForestBadgeCount = countBigForestTowerDefenseBadges();
+        achievementEvaluator.syncModeMilestones(
+                bossRushClearCount,
+                towerDefenseBadgeCount,
+                pigeonEpisodeCompleted,
+                batEpisodeCompleted,
+                pelicanEpisodeCompleted,
+                bigForestBadgeCount,
+                tournamentChampionshipsWon
+        );
+        achievementEvaluator.reconcileStoredProgress(
+                classicCompleted,
+                completedAdventure,
+                bossRushClearCount,
+                towerDefenseBadgeCount,
+                pigeonEpisodeCompleted,
+                batEpisodeCompleted,
+                pelicanEpisodeCompleted,
+                bigForestBadgeCount,
+                bigForestTowerDefenseBadgeGoal(),
+                tournamentChampionshipsWon
+        );
+    }
+
     private String towerDefenseMapDescription() {
         return "A top-down Big Forest defense route with a winding dirt trail, wide clearings, and long sightlines for grove birds.";
     }
@@ -28416,7 +28461,7 @@ public class BirdGame3 extends Application {
         return trainingModeActive && target != null && target.playerIndex == trainingDummyIndex;
     }
 
-    private List<BirdType> unlockedBirdPool() {
+    List<BirdType> unlockedBirdPool() {
         List<BirdType> pool = new ArrayList<>();
         for (BirdType bt : BirdType.values()) {
             if (isBirdUnlocked(bt)) pool.add(bt);
