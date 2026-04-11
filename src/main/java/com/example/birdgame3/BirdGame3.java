@@ -18499,6 +18499,9 @@ public class BirdGame3 extends Application {
         Label prompt = new Label("Enter a relay server and room code, or join one of the public rooms below.");
         MenuLayout.styleMenuMessage(prompt, 22, "#D1C4E9", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
 
+        Label hint = new Label("Use localhost only when the relay is running on this same machine.\nTo join someone on another network, enter their public IP or hostname instead.");
+        MenuLayout.styleMenuMessage(hint, 18, "#CE93D8", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+
         Preferences prefs = saveRepository.globalPrefs();
         if (onlineRelayHost == null || onlineRelayHost.isBlank()) {
             onlineRelayHost = prefs.get("online_relay_host", OnlineRelayProtocol.DEFAULT_HOST);
@@ -18553,7 +18556,7 @@ public class BirdGame3 extends Application {
         HBox actions = new HBox(14, refresh, join, back);
         actions.setAlignment(Pos.CENTER);
 
-        root.getChildren().addAll(title, prompt, relayLabel, relayField, codeLabel, codeField, status, roomScroll, actions);
+        root.getChildren().addAll(title, prompt, hint, relayLabel, relayField, codeLabel, codeField, status, roomScroll, actions);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -18606,7 +18609,7 @@ public class BirdGame3 extends Application {
                     status.setText("Found " + rooms.size() + " public room" + (rooms.size() == 1 ? "" : "s") + '.');
                 });
             } catch (IOException e) {
-                String message = e.getMessage() == null ? "Could not load public rooms." : e.getMessage();
+                String message = formatOnlineRelayError(relay, e.getMessage(), false);
                 javafx.application.Platform.runLater(() -> {
                     if (currentStage != stage) return;
                     roomList.getChildren().clear();
@@ -18924,7 +18927,7 @@ public class BirdGame3 extends Application {
         if (message.toLowerCase(Locale.ROOT).contains("connection refused")) {
             if (shouldUseEmbeddedRelay(host)) {
                 return "No relay server is listening on " + host + ':' + OnlineRelayProtocol.DEFAULT_PORT
-                        + ". The built-in relay could not be reached. Make sure TCP port "
+                        + ". The built-in relay could not be reached. If the room is on another machine, do not use localhost; enter that machine's public IP or hostname instead. Otherwise make sure TCP port "
                         + OnlineRelayProtocol.DEFAULT_PORT + " is free and try again.";
             }
             return "No relay server is listening on " + host + ':' + OnlineRelayProtocol.DEFAULT_PORT
