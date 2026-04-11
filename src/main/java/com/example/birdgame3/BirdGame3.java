@@ -318,13 +318,14 @@ public class BirdGame3 extends Application {
     private static final int LAN_RESULTS_ACTION_EXIT = 2;
     private static final int LAN_RESULTS_MIN_SHOW_MS = 1200;
     private static final int LAN_RESULTS_CLOSE_DELAY_MS = 800;
+    private NetworkSessionMode networkSessionMode = NetworkSessionMode.NONE;
     boolean lanModeActive = false;
     boolean lanIsHost = false;
     private boolean lanIsClient = false;
     boolean lanMatchActive = false;
     private int lanPlayerIndex = -1;
-    LanHostServer lanHost;
-    private LanClient lanClient;
+    NetworkSessionHost lanHost;
+    private NetworkSessionClient lanClient;
     private final BirdType[] lanSelectedBirds = new BirdType[LAN_MAX_PLAYERS];
     private final String[] lanSelectedSkinKeys = new String[LAN_MAX_PLAYERS];
     private final boolean[] lanRandomBirds = new boolean[LAN_MAX_PLAYERS];
@@ -341,6 +342,7 @@ public class BirdGame3 extends Application {
     private long lanMatchSeed = 0L;
     private long lastLanSnapshotNs = 0L;
     private Label[] lanSlotLabels;
+    private Label lanLobbyInfoLabel;
     private Label lanStatusLabel;
     private Label lanYourBirdLabel;
     private Label lanMapLabel;
@@ -354,6 +356,11 @@ public class BirdGame3 extends Application {
     private Timeline lanCountdownTimeline;
     private int lanCountdownValue = 0;
     private String lanLastHost = "";
+    private String onlineRelayHost = OnlineRelayProtocol.DEFAULT_HOST;
+    private String onlineRoomCode = "";
+    private String onlineRoomName = "";
+    private String onlineHostName = "";
+    private OnlineRelayServer embeddedRelayServer;
     private LanState pendingLanState;
     private boolean lanResultsActionPending = false;
     private Label lanResultsStatusLabel;
@@ -3040,6 +3047,7 @@ public class BirdGame3 extends Application {
         state.controlBindingNames = captureControlBindingNames();
         state.wiimoteModeNames = captureWiimoteModeNames();
         state.lanLastHost = lanLastHost;
+        state.onlineRelayHost = onlineRelayHost;
         state.musicEnabled = musicEnabled;
         state.sfxEnabled = sfxEnabled;
         state.musicVolume = musicVolume;
@@ -3057,6 +3065,9 @@ public class BirdGame3 extends Application {
         applyControlBindingNames(resolved.controlBindingNames);
         applyWiimoteModeNames(resolved.wiimoteModeNames);
         lanLastHost = resolved.lanLastHost;
+        onlineRelayHost = resolved.onlineRelayHost == null || resolved.onlineRelayHost.isBlank()
+                ? OnlineRelayProtocol.DEFAULT_HOST
+                : resolved.onlineRelayHost.trim();
         musicEnabled = resolved.musicEnabled;
         sfxEnabled = resolved.sfxEnabled;
         musicVolume = sanitizeVolume(resolved.musicVolume);
@@ -12145,14 +12156,14 @@ public class BirdGame3 extends Application {
         AnchorPane.setLeftAnchor(shopNode, hubRightLeft);
 
         Button lanNode = buildUltimateHubMainTileButton(
-                "LOCAL NETWORK", "LAN PLAY",
+                "NETWORK MATCHES", "NETWORK PLAY",
                 hubRightWidth, hubBottomHeight, 58, new Insets(16, 42, 26, 154),
                 Pos.CENTER, hubIconLan(), 3.0, 0.15,
                 0, 0, 38, 0, () -> showLanMenu(stage));
         registerHubInteractiveNode(lanNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#F6A400", "#C97700", "#FFF2CF", 0, 0, 38, 0, false),
                 buildUltimateHubStyle("#F6A400", "#C97700", "#FFFBEA", 0, 0, 38, 0, true),
-                "LAN PLAY", "Set up local-network matches for a room full of players.", selectorPointer, medallion);
+                "NETWORK PLAY", "Host LAN matches or online relay rooms for players on any network.", selectorPointer, medallion);
         AnchorPane.setTopAnchor(lanNode, hubMidline);
         AnchorPane.setLeftAnchor(lanNode, hubRightLeft);
 
@@ -18322,20 +18333,22 @@ public class BirdGame3 extends Application {
         currentStage = stage;
 
         VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
-                MENU_PADDING, MENU_GAP);
+                MENU_PADDING, 16);
 
-        Label title = new Label("LAN PLAY");
+        Label title = new Label("NETWORK PLAY");
         title.setFont(Font.font("Impact", FontWeight.BOLD, 92));
         title.setTextFill(Color.web("#FFE082"));
 
-        Label message = new Label("Host or join a local network match.\nHost is authoritative. Up to " + LAN_MAX_PLAYERS + " players.");
-        MenuLayout.styleMenuMessage(message, 26, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+        Label message = new Label("LAN connects directly on your local network.\nOnline uses a relay server and works across the internet.\nHost remains authoritative. Up to " + LAN_MAX_PLAYERS + " players.");
+        MenuLayout.styleMenuMessage(message, 24, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
 
         Button hostBtn = uiFactory.action("HOST LAN", 360, 90, 32, "#2E7D32", 22, () -> startLanHost(stage));
         Button joinBtn = uiFactory.action("JOIN LAN", 360, 90, 32, "#1565C0", 22, () -> showLanJoin(stage, ""));
+        Button hostOnlineBtn = uiFactory.action("HOST ONLINE", 360, 90, 32, "#8E24AA", 22, () -> showOnlineHostSetup(stage, ""));
+        Button joinOnlineBtn = uiFactory.action("JOIN ONLINE", 360, 90, 32, "#5E35B1", 22, () -> showOnlineJoin(stage, ""));
         Button back = uiFactory.action("BACK TO HUB", 360, 90, 32, "#D32F2F", 22, () -> showMenu(stage));
 
-        VBox buttons = new VBox(16, hostBtn, joinBtn, back);
+        VBox buttons = new VBox(16, hostBtn, joinBtn, hostOnlineBtn, joinOnlineBtn, back);
         buttons.setAlignment(Pos.CENTER);
 
         root.getChildren().addAll(title, message, buttons);
@@ -18400,25 +18413,257 @@ public class BirdGame3 extends Application {
         hostField.requestFocus();
     }
 
-    private void showLanLobby(Stage stage) {
+    private void showOnlineHostSetup(Stage stage, String error) {
         playMenuMusic();
         currentStage = stage;
 
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #150D25, #24153B);",
+                MENU_PADDING, 14);
+
+        Label title = new Label("HOST ONLINE");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 82));
+        title.setTextFill(Color.web("#E1BEE7"));
+
+        Label prompt = new Label("Create a public relay room so anyone can join from another network.");
+        MenuLayout.styleMenuMessage(prompt, 24, "#D1C4E9", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+
+        Label hint = new Label("Use localhost or 127.0.0.1 to start the built-in relay on this machine.\nGuests on other networks must connect to your public IP or hostname on port " + OnlineRelayProtocol.DEFAULT_PORT + '.');
+        MenuLayout.styleMenuMessage(hint, 18, "#CE93D8", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+
+        Preferences prefs = saveRepository.globalPrefs();
+        if (onlineRelayHost == null || onlineRelayHost.isBlank()) {
+            onlineRelayHost = prefs.get("online_relay_host", OnlineRelayProtocol.DEFAULT_HOST);
+        }
+        String defaultName = saveRepository.activeProfile().name();
+
+        Label relayLabel = getLabel("RELAY SERVER");
+        TextField relayField = new TextField(onlineRelayHost);
+        relayField.setMaxWidth(480);
+        relayField.setFont(Font.font("Consolas", 20));
+        relayField.setPromptText("relay.example.com");
+
+        Label roomLabel = getLabel("ROOM NAME");
+        TextField roomField = new TextField(defaultName + "'s Room");
+        roomField.setMaxWidth(480);
+        roomField.setFont(Font.font("Consolas", 20));
+
+        Label nameLabel = getLabel("HOST NAME");
+        TextField nameField = new TextField(defaultName);
+        nameField.setMaxWidth(480);
+        nameField.setFont(Font.font("Consolas", 20));
+
+        Label status = new Label(error == null ? "" : error);
+        status.setFont(Font.font("Consolas", 18));
+        status.setTextFill(Color.ORANGE);
+
+        Button create = uiFactory.action("CREATE ROOM", 340, 82, 28, "#8E24AA", 20, () -> {
+            String relay = relayField.getText() == null ? "" : relayField.getText().trim();
+            if (relay.isBlank()) {
+                status.setText("Enter a relay server host.");
+                return;
+            }
+            onlineRelayHost = relay;
+            prefs.put("online_relay_host", relay);
+            startOnlineHost(stage, relay, roomField.getText(), nameField.getText());
+        });
+        Button back = uiFactory.action("BACK", 260, 70, 26, "#D32F2F", 20, () -> showLanMenu(stage));
+
+        root.getChildren().addAll(
+                title, prompt,
+                hint,
+                relayLabel, relayField,
+                roomLabel, roomField,
+                nameLabel, nameField,
+                status, create, back
+        );
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindEscape(scene, back);
+        setScenePreservingFullscreen(stage, scene);
+        relayField.requestFocus();
+    }
+
+    private void showOnlineJoin(Stage stage, String error) {
+        playMenuMusic();
+        currentStage = stage;
+
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #150D25, #24153B);",
+                MENU_PADDING, 12);
+
+        Label title = new Label("JOIN ONLINE");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 78));
+        title.setTextFill(Color.web("#E1BEE7"));
+
+        Label prompt = new Label("Enter a relay server and room code, or join one of the public rooms below.");
+        MenuLayout.styleMenuMessage(prompt, 22, "#D1C4E9", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+
+        Preferences prefs = saveRepository.globalPrefs();
+        if (onlineRelayHost == null || onlineRelayHost.isBlank()) {
+            onlineRelayHost = prefs.get("online_relay_host", OnlineRelayProtocol.DEFAULT_HOST);
+        }
+
+        Label relayLabel = getLabel("RELAY SERVER");
+        TextField relayField = new TextField(onlineRelayHost);
+        relayField.setMaxWidth(520);
+        relayField.setFont(Font.font("Consolas", 20));
+        relayField.setPromptText("relay.example.com");
+
+        Label codeLabel = getLabel("ROOM CODE");
+        TextField codeField = new TextField();
+        codeField.setMaxWidth(320);
+        codeField.setFont(Font.font("Consolas", 24));
+        codeField.setPromptText("ABC123");
+
+        Label status = new Label(error == null ? "" : error);
+        status.setFont(Font.font("Consolas", 18));
+        status.setTextFill(Color.ORANGE);
+        applyNoEllipsis(status);
+
+        VBox roomList = new VBox(10);
+        roomList.setAlignment(Pos.TOP_CENTER);
+        roomList.setFillWidth(true);
+
+        ScrollPane roomScroll = new ScrollPane(roomList);
+        roomScroll.setFitToWidth(true);
+        roomScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        roomScroll.setPrefViewportHeight(260);
+        roomScroll.setStyle("-fx-background: transparent; -fx-background-color: rgba(0,0,0,0.18); -fx-border-color: rgba(225,190,231,0.35); -fx-border-width: 1;");
+
+        Button refresh = uiFactory.action("REFRESH ROOMS", 300, 72, 24, "#6A1B9A", 18,
+                () -> refreshOnlineRoomDirectory(stage, relayField, roomList, status, codeField));
+        Button join = uiFactory.action("JOIN ROOM", 300, 72, 24, "#5E35B1", 18, () -> {
+            String relay = relayField.getText() == null ? "" : relayField.getText().trim();
+            String code = codeField.getText() == null ? "" : codeField.getText().trim().toUpperCase(Locale.ROOT);
+            if (relay.isBlank()) {
+                status.setText("Enter a relay server host.");
+                return;
+            }
+            if (code.isBlank()) {
+                status.setText("Enter a room code.");
+                return;
+            }
+            onlineRelayHost = relay;
+            prefs.put("online_relay_host", relay);
+            startOnlineClient(stage, relay, code);
+        });
+        Button back = uiFactory.action("BACK", 260, 70, 26, "#D32F2F", 20, () -> showLanMenu(stage));
+
+        HBox actions = new HBox(14, refresh, join, back);
+        actions.setAlignment(Pos.CENTER);
+
+        root.getChildren().addAll(title, prompt, relayLabel, relayField, codeLabel, codeField, status, roomScroll, actions);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindEscape(scene, back);
+        setScenePreservingFullscreen(stage, scene);
+        relayField.requestFocus();
+        refreshOnlineRoomDirectory(stage, relayField, roomList, status, codeField);
+    }
+
+    private void refreshOnlineRoomDirectory(Stage stage, TextField relayField, VBox roomList, Label status, TextField codeField) {
+        if (roomList == null || status == null) return;
+        String relay = relayField == null || relayField.getText() == null
+                ? ""
+                : relayField.getText().trim();
+        if (relay.isBlank()) {
+            status.setText("Enter a relay server host before refreshing.");
+            return;
+        }
+
+        status.setText("Loading public rooms...");
+        roomList.getChildren().setAll(getLabel("Loading..."));
+        Thread thread = new Thread(() -> {
+            try {
+                List<OnlineRoomInfo> rooms = OnlineRelayDirectory.fetchRooms(relay, OnlineRelayProtocol.DEFAULT_PORT);
+                javafx.application.Platform.runLater(() -> {
+                    if (currentStage != stage) return;
+                    roomList.getChildren().clear();
+                    if (rooms.isEmpty()) {
+                        Label empty = getLabel("No public rooms available.");
+                        empty.setFont(Font.font("Consolas", 18));
+                        empty.setTextFill(Color.web("#D1C4E9"));
+                        roomList.getChildren().add(empty);
+                        status.setText("No public rooms on " + relay + '.');
+                        return;
+                    }
+                    for (OnlineRoomInfo room : rooms) {
+                        Button joinRoom = new Button(room.roomName() + "  [" + room.code() + "]  "
+                                + room.playerCount() + "/" + room.maxPlayers() + "  Host: " + room.hostName());
+                        joinRoom.setMaxWidth(Double.MAX_VALUE);
+                        joinRoom.setWrapText(true);
+                        joinRoom.setFont(Font.font("Consolas", 17));
+                        joinRoom.setStyle("-fx-background-color: rgba(255,255,255,0.08); -fx-border-color: #CE93D8; -fx-border-width: 1; -fx-text-fill: white; -fx-padding: 12 16 12 16;");
+                        joinRoom.setOnAction(e -> {
+                            codeField.setText(room.code());
+                            startOnlineClient(stage, relay, room.code());
+                        });
+                        roomList.getChildren().add(joinRoom);
+                    }
+                    status.setText("Found " + rooms.size() + " public room" + (rooms.size() == 1 ? "" : "s") + '.');
+                });
+            } catch (IOException e) {
+                String message = e.getMessage() == null ? "Could not load public rooms." : e.getMessage();
+                javafx.application.Platform.runLater(() -> {
+                    if (currentStage != stage) return;
+                    roomList.getChildren().clear();
+                    Label empty = getLabel("Room directory unavailable.");
+                    empty.setFont(Font.font("Consolas", 18));
+                    empty.setTextFill(Color.web("#FFCCBC"));
+                    roomList.getChildren().add(empty);
+                    status.setText("Failed to load rooms: " + message);
+                });
+            }
+        }, "OnlineRoomDirectory");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private void showLanLobby(Stage stage) {
+        playMenuMusic();
+        currentStage = stage;
+        boolean onlineSession = networkSessionMode == NetworkSessionMode.ONLINE;
+
+        VBox root = MenuLayout.buildMenuRoot(onlineSession
+                        ? "-fx-background-color: linear-gradient(to bottom, #150D25, #24153B);"
+                        : "-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
                 new Insets(40, 60, 40, 60), 14);
 
-        Label title = getLabel(lanIsHost ? "LAN LOBBY (HOST)" : "LAN LOBBY");
+        Label title = getLabel(lanIsHost
+                ? ((onlineSession ? "ONLINE" : "LAN") + " LOBBY (HOST)")
+                : ((onlineSession ? "ONLINE" : "LAN") + " LOBBY"));
         title.setFont(Font.font("Impact", FontWeight.BOLD, 64));
-        title.setTextFill(Color.web("#FFE082"));
+        title.setTextFill(Color.web(onlineSession ? "#E1BEE7" : "#FFE082"));
 
-        Label info = new Label(lanIsHost
-                ? ("IP: " + findLanAddress() + "  Port: " + LanProtocol.DEFAULT_PORT)
-                : ("Connected to: " + (lanLastHost == null ? "" : lanLastHost)));
+        String infoText;
+        if (lanIsHost) {
+            if (onlineSession) {
+                String roomCodeText = onlineRoomCode == null || onlineRoomCode.isBlank() ? "(creating room)" : onlineRoomCode;
+                infoText = "Relay: " + onlineRelayHost + ":" + OnlineRelayProtocol.DEFAULT_PORT + "  Room: " + roomCodeText;
+            } else {
+                infoText = "IP: " + findLanAddress() + "  Port: " + LanProtocol.DEFAULT_PORT;
+            }
+        } else if (onlineSession) {
+            String roomCodeText = onlineRoomCode == null || onlineRoomCode.isBlank() ? "(joining)" : onlineRoomCode;
+            infoText = "Relay: " + onlineRelayHost + ":" + OnlineRelayProtocol.DEFAULT_PORT + "  Room: " + roomCodeText;
+        } else {
+            infoText = "Connected to: " + (lanLastHost == null ? "" : lanLastHost);
+        }
+
+        Label info = new Label(infoText);
         MenuLayout.styleMenuMessage(info, 20, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+        lanLobbyInfoLabel = info;
 
-        lanStatusLabel = new Label(lanIsHost ? "Waiting for players..." : "Connecting...");
+        lanStatusLabel = new Label(lanIsHost
+                ? (onlineSession && (onlineRoomCode == null || onlineRoomCode.isBlank())
+                        ? "Creating online room..."
+                        : "Waiting for players...")
+                : (onlineSession ? "Connecting to relay..." : "Connecting..."));
         lanStatusLabel.setFont(Font.font("Consolas", 18));
-        lanStatusLabel.setTextFill(Color.web("#80DEEA"));
+        lanStatusLabel.setTextFill(Color.web(onlineSession ? "#D1C4E9" : "#80DEEA"));
 
         lanSlotLabels = new Label[LAN_MAX_PLAYERS];
         VBox slots = new VBox(6);
@@ -18472,7 +18717,7 @@ public class BirdGame3 extends Application {
         applyNoEllipsis(lanCountdownLabel);
         updateLanCountdownLabel();
 
-        Button back = uiFactory.action("BACK TO HUB", 320, 80, 28, "#D32F2F", 20,
+        Button back = uiFactory.action("LEAVE SESSION", 320, 80, 28, "#D32F2F", 20,
                 () -> confirmLeaveLanSession(stage, () -> {
                     stopLanSession();
                     showMenu(stage);
@@ -18516,32 +18761,10 @@ public class BirdGame3 extends Application {
     }
 
     private void startLanHost(Stage stage) {
-        stopLanSession();
-        lanModeActive = true;
-        lanIsHost = true;
-        lanIsClient = false;
-        lanMatchActive = false;
-        lanPlayerIndex = 0;
-        Arrays.fill(lanSlotConnected, false);
-        Arrays.fill(lanSelectedSkinKeys, null);
-        Arrays.fill(lanRandomBirds, false);
-        Arrays.fill(lanReady, false);
-        Arrays.fill(lanMapVotes, null);
-        Arrays.fill(lanMapVoteRandom, false);
-        Arrays.fill(lanInputMasks, 0);
-        Arrays.fill(lanLastInputMasks, 0);
-        lanLocalInputMask = 0;
-        lanSlotConnected[0] = true;
-        lanSelectedMap = null;
-        lanSelectedMapRandom = false;
-        lanVoteSignature = 0;
-        if (lanSelectedBirds[0] == null) {
-            lanSelectedBirds[0] = firstUnlockedBird();
-        }
-        lanRandomBirds[0] = false;
-        lanSelectedSkinKeys[0] = null;
-        lanReady[0] = false;
-        lanMapVotes[0] = null;
+        prepareNetworkSessionState(NetworkSessionMode.LAN, true);
+        onlineRoomCode = "";
+        onlineRoomName = "";
+        onlineHostName = "";
         updateLanMapSelectionFromVotes();
         lanHost = new LanHostServer(this);
         if (!lanHost.start()) {
@@ -18558,12 +18781,98 @@ public class BirdGame3 extends Application {
     }
 
     private void startLanClient(Stage stage, String host) {
+        prepareNetworkSessionState(NetworkSessionMode.LAN, false);
+        lanLastHost = host;
+        onlineRoomCode = "";
+        onlineRoomName = "";
+        onlineHostName = "";
+        LanClient client = new LanClient(this, host);
+        lanClient = client;
+        showLanLobby(stage);
+
+        Thread connectThread = buildClientConnectThread("LanClient-Connect", client, () -> showLanJoin(stage, "Failed to connect: " + client.getLastError()));
+        connectThread.start();
+    }
+
+    private void startOnlineHost(Stage stage, String relayHost, String roomName, String hostName) {
+        prepareNetworkSessionState(NetworkSessionMode.ONLINE, true);
+        onlineRelayHost = relayHost;
+        onlineRoomCode = "";
+        onlineRoomName = roomName == null ? "" : roomName.trim();
+        onlineHostName = hostName == null ? "" : hostName.trim();
+        updateLanMapSelectionFromVotes();
+
+        if (shouldUseEmbeddedRelay(relayHost)) {
+            if (!ensureEmbeddedRelayRunning()) {
+                stopLanSession();
+                showOnlineHostSetup(stage, "Failed to start the built-in relay on port " + OnlineRelayProtocol.DEFAULT_PORT + '.');
+                return;
+            }
+        }
+
+        OnlineRelayHost host = new OnlineRelayHost(this, relayHost, OnlineRelayProtocol.DEFAULT_PORT, roomName, hostName);
+        lanHost = host;
+        showLanLobby(stage);
+
+        Thread connectThread = new Thread(() -> {
+            boolean ok = host.start();
+            if (!ok) {
+                String error = formatOnlineRelayError(relayHost, host.getLastError(), true);
+                javafx.application.Platform.runLater(() -> {
+                    if (lanHost != host) return;
+                    stopLanSession();
+                    showOnlineHostSetup(stage, "Failed to create room: " + error);
+                });
+            }
+        }, "OnlineRelayHost-Connect");
+        connectThread.setDaemon(true);
+        connectThread.start();
+    }
+
+    private void startOnlineClient(Stage stage, String relayHost, String roomCode) {
+        prepareNetworkSessionState(NetworkSessionMode.ONLINE, false);
+        onlineRelayHost = relayHost;
+        onlineRoomCode = roomCode == null ? "" : roomCode.trim().toUpperCase(Locale.ROOT);
+        onlineRoomName = "";
+        onlineHostName = "";
+        OnlineRelayClient client = new OnlineRelayClient(this, relayHost, OnlineRelayProtocol.DEFAULT_PORT, roomCode);
+        lanClient = client;
+        showLanLobby(stage);
+
+        Thread connectThread = buildClientConnectThread("OnlineRelayClient-Connect", client,
+                () -> showOnlineJoin(stage, "Failed to connect: "
+                        + formatOnlineRelayError(relayHost, client.getLastError(), false)));
+        connectThread.start();
+    }
+
+    private Thread buildClientConnectThread(String threadName, NetworkSessionClient client, Runnable onFailure) {
+        Thread connectThread = new Thread(() -> {
+            boolean ok = client.connect();
+            if (!ok) {
+                javafx.application.Platform.runLater(() -> {
+                    if (lanClient != client) return;
+                    stopLanSession();
+                    if (onFailure != null) {
+                        onFailure.run();
+                    }
+                });
+            }
+        }, threadName);
+        connectThread.setDaemon(true);
+        return connectThread;
+    }
+
+    private void prepareNetworkSessionState(NetworkSessionMode mode, boolean hostSession) {
         stopLanSession();
+        networkSessionMode = mode;
         lanModeActive = true;
-        lanIsHost = false;
-        lanIsClient = true;
+        lanIsHost = hostSession;
+        lanIsClient = !hostSession;
         lanMatchActive = false;
-        lanPlayerIndex = -1;
+        lanPlayerIndex = hostSession ? 0 : -1;
+        pendingLanState = null;
+        lanResultsActionPending = false;
+        lanResultsStatusLabel = null;
         Arrays.fill(lanSlotConnected, false);
         Arrays.fill(lanSelectedSkinKeys, null);
         Arrays.fill(lanRandomBirds, false);
@@ -18576,33 +18885,77 @@ public class BirdGame3 extends Application {
         lanSelectedMap = null;
         lanSelectedMapRandom = false;
         lanVoteSignature = 0;
-        LanClient client = new LanClient(this);
-        lanClient = client;
-        showLanLobby(stage);
-
-        Thread connectThread = getThread(stage, host, client);
-        connectThread.start();
+        if (hostSession) {
+            lanSlotConnected[0] = true;
+            if (lanSelectedBirds[0] == null) {
+                lanSelectedBirds[0] = firstUnlockedBird();
+            }
+            lanRandomBirds[0] = false;
+            lanSelectedSkinKeys[0] = null;
+            lanReady[0] = false;
+            lanMapVotes[0] = null;
+        }
     }
 
-    private Thread getThread(Stage stage, String host, LanClient client) {
-        Thread connectThread = new Thread(() -> {
-            boolean ok = client.connect(host);
-            if (!ok) {
-                String error = client.getLastError();
-                javafx.application.Platform.runLater(() -> {
-                    if (lanClient != client) return;
-                    stopLanSession();
-                    showLanJoin(stage, "Failed to connect: " + error);
-                });
+    private boolean shouldUseEmbeddedRelay(String relayHost) {
+        if (relayHost == null) return true;
+        String normalized = relayHost.trim().toLowerCase(Locale.ROOT);
+        return normalized.isEmpty()
+                || normalized.equals("127.0.0.1")
+                || normalized.equals("localhost")
+                || normalized.equals("::1");
+    }
+
+    private boolean ensureEmbeddedRelayRunning() {
+        if (embeddedRelayServer != null) {
+            return true;
+        }
+        OnlineRelayServer server = new OnlineRelayServer(OnlineRelayProtocol.DEFAULT_PORT);
+        if (!server.start()) {
+            return false;
+        }
+        embeddedRelayServer = server;
+        return true;
+    }
+
+    private String formatOnlineRelayError(String relayHost, String rawError, boolean hosting) {
+        String host = (relayHost == null || relayHost.isBlank()) ? OnlineRelayProtocol.DEFAULT_HOST : relayHost.trim();
+        String message = rawError == null ? "" : rawError.trim();
+        if (message.toLowerCase(Locale.ROOT).contains("connection refused")) {
+            if (shouldUseEmbeddedRelay(host)) {
+                return "No relay server is listening on " + host + ':' + OnlineRelayProtocol.DEFAULT_PORT
+                        + ". The built-in relay could not be reached. Make sure TCP port "
+                        + OnlineRelayProtocol.DEFAULT_PORT + " is free and try again.";
             }
-        }, "LanClient-Connect");
-        connectThread.setDaemon(true);
-        return connectThread;
+            return "No relay server is listening on " + host + ':' + OnlineRelayProtocol.DEFAULT_PORT
+                    + ". Start " + OnlineRelayServer.class.getSimpleName()
+                    + " on that machine before " + (hosting ? "hosting a room." : "joining a room.");
+        }
+        if (message.isBlank()) {
+            return "Could not reach relay server " + host + ':' + OnlineRelayProtocol.DEFAULT_PORT + '.';
+        }
+        return message;
     }
 
     private void refreshLanLobbyUI() {
         if (lanSlotLabels == null) return;
+        boolean onlineSession = networkSessionMode == NetworkSessionMode.ONLINE;
         int connectedCount = countLanConnected();
+        if (lanLobbyInfoLabel != null) {
+            if (lanIsHost) {
+                if (onlineSession) {
+                    String roomCodeText = onlineRoomCode == null || onlineRoomCode.isBlank() ? "(creating room)" : onlineRoomCode;
+                    lanLobbyInfoLabel.setText("Relay: " + onlineRelayHost + ":" + OnlineRelayProtocol.DEFAULT_PORT + "  Room: " + roomCodeText);
+                } else {
+                    lanLobbyInfoLabel.setText("IP: " + findLanAddress() + "  Port: " + LanProtocol.DEFAULT_PORT);
+                }
+            } else if (onlineSession) {
+                String roomCodeText = onlineRoomCode == null || onlineRoomCode.isBlank() ? "(joining)" : onlineRoomCode;
+                lanLobbyInfoLabel.setText("Relay: " + onlineRelayHost + ":" + OnlineRelayProtocol.DEFAULT_PORT + "  Room: " + roomCodeText);
+            } else {
+                lanLobbyInfoLabel.setText("Connected to: " + (lanLastHost == null ? "" : lanLastHost));
+            }
+        }
         for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
             Label slot = lanSlotLabels[i];
             if (slot == null) continue;
@@ -18644,11 +18997,15 @@ public class BirdGame3 extends Application {
         }
         if (lanStatusLabel != null) {
             if (lanIsHost) {
-                lanStatusLabel.setText("Players: " + connectedCount + "/" + LAN_MAX_PLAYERS);
+                if (onlineSession && (onlineRoomCode == null || onlineRoomCode.isBlank())) {
+                    lanStatusLabel.setText("Creating online room...");
+                } else {
+                    lanStatusLabel.setText("Players: " + connectedCount + "/" + LAN_MAX_PLAYERS);
+                }
             } else if (lanPlayerIndex >= 0) {
                 lanStatusLabel.setText("Connected as P" + (lanPlayerIndex + 1));
             } else {
-                lanStatusLabel.setText("Connecting...");
+                lanStatusLabel.setText(onlineSession ? "Connecting to relay..." : "Connecting...");
             }
         }
         if (lanYourBirdLabel != null) {
@@ -19261,6 +19618,43 @@ public class BirdGame3 extends Application {
         });
     }
 
+    void onOnlineRoomCreated(String roomCode, String roomName) {
+        javafx.application.Platform.runLater(() -> {
+            if (!lanModeActive || !lanIsHost || networkSessionMode != NetworkSessionMode.ONLINE) return;
+            onlineRoomCode = roomCode == null ? "" : roomCode;
+            onlineRoomName = roomName == null ? "" : roomName;
+            refreshLanLobbyUI();
+            broadcastLanLobby();
+        });
+    }
+
+    void onOnlineRoomJoined(String roomCode, String roomName, String hostName) {
+        javafx.application.Platform.runLater(() -> {
+            if (!lanModeActive || !lanIsClient || networkSessionMode != NetworkSessionMode.ONLINE) return;
+            onlineRoomCode = roomCode == null ? "" : roomCode;
+            onlineRoomName = roomName == null ? "" : roomName;
+            onlineHostName = hostName == null ? "" : hostName;
+            refreshLanLobbyUI();
+        });
+    }
+
+    void onOnlineRelayClosed(String reason) {
+        if (!lanModeActive || networkSessionMode != NetworkSessionMode.ONLINE) return;
+        javafx.application.Platform.runLater(() -> {
+            if (!lanModeActive || networkSessionMode != NetworkSessionMode.ONLINE) return;
+            Alert alert = new Alert(Alert.AlertType.INFORMATION,
+                    reason == null || reason.isBlank() ? "Connection closed." : reason,
+                    ButtonType.OK);
+            alert.setTitle("Online Session Closed");
+            alert.setHeaderText("The relay connection ended.");
+            alert.showAndWait();
+            stopLanSession();
+            if (currentStage != null) {
+                showLanMenu(currentStage);
+            }
+        });
+    }
+
     void onLanWelcome(int idx) {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsClient) return;
@@ -19369,7 +19763,7 @@ public class BirdGame3 extends Application {
         title.setEffect(new DropShadow(40, Color.BLACK));
         applyNoEllipsis(title);
 
-        Label subtitle = new Label("LAN RESULTS");
+        Label subtitle = new Label((networkSessionMode == NetworkSessionMode.ONLINE ? "ONLINE" : "LAN") + " RESULTS");
         subtitle.setFont(Font.font("Consolas", 26));
         subtitle.setTextFill(Color.web("#B3E5FC"));
 
@@ -19509,7 +19903,7 @@ public class BirdGame3 extends Application {
         if (!lanModeActive || !lanIsClient) return;
         javafx.application.Platform.runLater(() -> {
             Alert alert = new Alert(Alert.AlertType.INFORMATION, "Connection lost.", ButtonType.OK);
-            alert.setTitle("LAN Disconnected");
+            alert.setTitle(networkSessionMode == NetworkSessionMode.ONLINE ? "Online Disconnected" : "LAN Disconnected");
             alert.setHeaderText("Connection closed.");
             alert.showAndWait();
             stopLanSession();
@@ -19638,6 +20032,7 @@ public class BirdGame3 extends Application {
     }
 
     private void stopLanSession() {
+        networkSessionMode = NetworkSessionMode.NONE;
         lanModeActive = false;
         lanIsHost = false;
         lanIsClient = false;
@@ -19645,6 +20040,7 @@ public class BirdGame3 extends Application {
         lanPlayerIndex = -1;
         lanResultsActionPending = false;
         lanResultsStatusLabel = null;
+        lanLobbyInfoLabel = null;
         stopLanCountdown();
         if (lanHost != null) {
             lanHost.stop();
@@ -19653,6 +20049,10 @@ public class BirdGame3 extends Application {
         if (lanClient != null) {
             lanClient.disconnect();
             lanClient = null;
+        }
+        if (embeddedRelayServer != null) {
+            embeddedRelayServer.stop();
+            embeddedRelayServer = null;
         }
         Arrays.fill(lanSlotConnected, false);
         Arrays.fill(lanSelectedBirds, null);
@@ -19669,15 +20069,19 @@ public class BirdGame3 extends Application {
         lastLanSnapshotNs = 0L;
         lanSelectedMapRandom = false;
         lanVoteSignature = 0;
+        onlineRoomCode = "";
+        onlineRoomName = "";
+        onlineHostName = "";
     }
 
     private void confirmLeaveLanMatch(Stage stage) {
+        String sessionName = networkSessionMode == NetworkSessionMode.ONLINE ? "online" : "LAN";
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
                 "Leave the match?",
                 ButtonType.YES,
                 ButtonType.NO);
         alert.setTitle("Leave Match");
-        alert.setHeaderText("This will disconnect you from the LAN session.");
+        alert.setHeaderText("This will disconnect you from the " + sessionName + " session.");
         alert.initOwner(stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice == ButtonType.YES) {
@@ -19688,12 +20092,13 @@ public class BirdGame3 extends Application {
     }
 
     private void confirmLeaveLanSession(Stage stage, Runnable onConfirm) {
+        String sessionName = networkSessionMode == NetworkSessionMode.ONLINE ? "Online" : "LAN";
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "Leave LAN session?",
+                "Leave " + sessionName + " session?",
                 ButtonType.YES,
                 ButtonType.NO);
-        alert.setTitle("Leave LAN");
-        alert.setHeaderText("This will disconnect you from the LAN session.");
+        alert.setTitle("Leave " + sessionName);
+        alert.setHeaderText("This will disconnect you from the " + sessionName.toLowerCase(Locale.ROOT) + " session.");
         alert.initOwner(stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice == ButtonType.YES && onConfirm != null) {
@@ -30273,7 +30678,7 @@ public class BirdGame3 extends Application {
     }
 
     private String currentMatchHistoryMode() {
-        if (lanModeActive) return "LAN";
+        if (lanModeActive) return networkSessionMode == NetworkSessionMode.ONLINE ? "ONLINE" : "LAN";
         if (dailyChallengeModeActive) return "DAILY CHALLENGE";
         if (bossRushModeActive && classicModeActive) return "BOSS RUSH";
         if (classicModeActive) return "CLASSIC";
@@ -31988,7 +32393,7 @@ public class BirdGame3 extends Application {
         title.setFont(Font.font("Arial Black", 34));
         title.setTextFill(Color.web("#ECEFF1"));
 
-        Label body = new Label("Finish a match in Fight, LAN, Story, Adventure, Classic, Boss Rush, Tournament, or Competition to see it here.");
+        Label body = new Label("Finish a match in Fight, LAN, Online, Story, Adventure, Classic, Boss Rush, Tournament, or Competition to see it here.");
         body.setFont(Font.font("Consolas", 20));
         body.setTextFill(Color.web("#B0BEC5"));
         body.setWrapText(true);
@@ -32030,6 +32435,7 @@ public class BirdGame3 extends Application {
         if (mode == null) return Color.web("#90A4AE");
         return switch (mode) {
             case "LAN" -> Color.web("#80CBC4");
+            case "ONLINE" -> Color.web("#CE93D8");
             case "CLASSIC" -> Color.web("#90CAF9");
             case "STORY" -> Color.web("#CE93D8");
             case "ADVENTURE" -> Color.web("#A5D6A7");

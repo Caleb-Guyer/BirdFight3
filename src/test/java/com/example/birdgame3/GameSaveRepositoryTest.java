@@ -38,6 +38,7 @@ class GameSaveRepositoryTest {
     void migratesLegacyProfileDataIntoDefaultProfile() {
         prefs.putBoolean("setting_music", false);
         prefs.put("lan_last_host", "192.168.1.20");
+        prefs.put("online_relay_host", "relay.example.com");
         prefs.putInt("classic_continues", 4);
         prefs.putBoolean("char_bat_unlocked", true);
         prefs.put("daily_challenge_best_key", "2026-03-27");
@@ -48,6 +49,7 @@ class GameSaveRepositoryTest {
         assertEquals("Profile 1", repository.activeProfile().name());
         assertFalse(repository.globalPrefs().getBoolean("setting_music", true));
         assertEquals("192.168.1.20", repository.globalPrefs().get("lan_last_host", ""));
+        assertEquals("relay.example.com", repository.globalPrefs().get("online_relay_host", ""));
 
         Preferences activeProfilePrefs = repository.activeProfilePrefs();
         assertEquals(4, activeProfilePrefs.getInt("classic_continues", -1));
@@ -111,6 +113,7 @@ class GameSaveRepositoryTest {
         GameSaveRepository source = new GameSaveRepository(prefs);
         source.globalPrefs().putBoolean("setting_music", false);
         source.globalPrefs().put("lan_last_host", "192.168.0.77");
+        source.globalPrefs().put("online_relay_host", "relay2.example.com");
         Preferences sourceProfile = source.activeProfilePrefs();
         sourceProfile.putInt("bird_coins", 4030);
         sourceProfile.putBoolean("char_bat_unlocked", true);
@@ -129,6 +132,7 @@ class GameSaveRepositoryTest {
 
             assertFalse(imported.globalPrefs().getBoolean("setting_music", true));
             assertEquals("192.168.0.77", imported.globalPrefs().get("lan_last_host", ""));
+            assertEquals("relay2.example.com", imported.globalPrefs().get("online_relay_host", ""));
             assertEquals(2, imported.profiles().size());
             assertEquals("Boss Rush Slot", imported.activeProfile().name());
             assertEquals(6, imported.activeProfilePrefs().getInt("classic_continues", -1));

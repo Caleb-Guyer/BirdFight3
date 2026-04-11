@@ -3,7 +3,6 @@ package com.example.birdgame3;
 import com.example.birdgame3.BirdGame3.BirdType;
 import com.example.birdgame3.BirdGame3.MapType;
 
-import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -14,7 +13,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 
-class LanHostServer {
+class LanHostServer implements NetworkSessionHost {
     private final BirdGame3 game;
     private final List<ClientHandler> clients = new CopyOnWriteArrayList<>();
     private final boolean[] slotTaken = new boolean[4];
@@ -26,7 +25,8 @@ class LanHostServer {
         slotTaken[0] = true;
     }
 
-    boolean start() {
+    @Override
+    public boolean start() {
         if (running) return true;
         try {
             serverSocket = new ServerSocket(LanProtocol.DEFAULT_PORT);
@@ -41,7 +41,8 @@ class LanHostServer {
         return true;
     }
 
-    void stop() {
+    @Override
+    public void stop() {
         running = false;
         try {
             if (serverSocket != null) serverSocket.close();
@@ -56,11 +57,13 @@ class LanHostServer {
         }
     }
 
-    boolean hasClients() {
+    @Override
+    public boolean hasClients() {
         return !clients.isEmpty();
     }
 
-    void broadcastLobby(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds, String[] skinKeys, boolean[] ready) {
+    @Override
+    public void broadcastLobby(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds, String[] skinKeys, boolean[] ready) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_LOBBY, out -> {
                 out.writeInt(mapRandom ? LanProtocol.MAP_RANDOM : map.ordinal());
@@ -81,7 +84,8 @@ class LanHostServer {
         }
     }
 
-    void broadcastStart(MapType map, long seed, boolean[] connected, BirdType[] birds, String[] skinKeys) {
+    @Override
+    public void broadcastStart(MapType map, long seed, boolean[] connected, BirdType[] birds, String[] skinKeys) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_START, out -> {
                 out.writeInt(map.ordinal());
@@ -98,7 +102,8 @@ class LanHostServer {
         }
     }
 
-    void broadcastState(LanState state) {
+    @Override
+    public void broadcastState(LanState state) {
         if (!running) return;
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_STATE, state::write);
@@ -107,7 +112,8 @@ class LanHostServer {
         }
     }
 
-    void broadcastMatchEnd(int winnerIndex) {
+    @Override
+    public void broadcastMatchEnd(int winnerIndex) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_END, out -> out.writeInt(winnerIndex));
             sendToAll(msg);
@@ -115,7 +121,8 @@ class LanHostServer {
         }
     }
 
-    void broadcastCountdown(int seconds) {
+    @Override
+    public void broadcastCountdown(int seconds) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_COUNTDOWN, out -> out.writeInt(seconds));
             sendToAll(msg);
@@ -123,7 +130,8 @@ class LanHostServer {
         }
     }
 
-    void broadcastResultsAction(int action, int delayMs) {
+    @Override
+    public void broadcastResultsAction(int action, int delayMs) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_RESULTS_ACTION, out -> {
                 out.writeInt(action);
@@ -243,44 +251,7 @@ class LanHostServer {
             try {
                 while (active) {
                     byte[] payload = LanProtocol.readFramed(in);
-                    DataInputStream msgIn = new DataInputStream(new ByteArrayInputStream(payload));
-                    byte type = msgIn.readByte();
-                    switch (type) {
-                        case LanProtocol.MSG_HELLO -> {
-                            int version = msgIn.readInt();
-                            if (version != LanProtocol.VERSION) {
-                                active = false;
-                            }
-                        }
-                        case LanProtocol.MSG_SELECT -> {
-                            int ord = msgIn.readInt();
-                            String skinKey = msgIn.readUTF();
-                            boolean random = ord == LanProtocol.BIRD_RANDOM;
-                            BirdType typeBird = (!random && ord >= 0 && ord < BirdType.values().length)
-                                    ? BirdType.values()[ord]
-                                    : null;
-                            game.onLanClientSelected(slot, typeBird, random, skinKey.isBlank() ? null : skinKey);
-                        }
-                        case LanProtocol.MSG_MAP_VOTE -> {
-                            int ord = msgIn.readInt();
-                            boolean random = ord == LanProtocol.MAP_RANDOM;
-                            MapType map = (!random && ord >= 0 && ord < MapType.values().length)
-                                    ? MapType.values()[ord]
-                                    : null;
-                            game.onLanClientMapVote(slot, map, random);
-                        }
-                        case LanProtocol.MSG_READY -> {
-                            boolean ready = msgIn.readBoolean();
-                            game.onLanClientReady(slot, ready);
-                        }
-                        case LanProtocol.MSG_INPUT -> {
-                            int mask = msgIn.readInt();
-                            game.onLanClientInput(slot, mask);
-                        }
-                        default -> {
-                        }
-                    }
-                    if (!active) break;
+                    LanPayloadRouter.handleClientPayload(game, slot, payload);
                 }
             } catch (IOException ignored) {
             } finally {
