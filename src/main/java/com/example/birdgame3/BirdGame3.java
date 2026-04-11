@@ -367,6 +367,8 @@ public class BirdGame3 extends Application {
     private String onlineRoomCode = "";
     private String onlineRoomName = "";
     private String onlineHostName = "";
+    private UpnpPortMapper.PortMappingLease onlinePortMappingLease;
+    private String onlineInternetStatus = "";
     private String onlineDetectedPublicHost = "";
     private String onlineDetectedPublicHostStatus = "";
     private boolean onlineDetectedPublicHostLookupInFlight = false;
@@ -18859,6 +18861,7 @@ public class BirdGame3 extends Application {
         showLanLobby(stage);
 
         Thread connectThread = new Thread(() -> {
+            configureOnlineInternetReachability(relayHost);
             boolean ok = host.start();
             if (!ok) {
                 String error = formatOnlineRelayError(relayHost, host.getLastError(), true);
@@ -18906,6 +18909,44 @@ public class BirdGame3 extends Application {
         return connectThread;
     }
 
+    private void configureOnlineInternetReachability(String relayHost) {
+        if (!shouldUseEmbeddedRelay(relayHost)) {
+            onlineInternetStatus = "Using a remote relay server. Guests connect to that relay directly.";
+            javafx.application.Platform.runLater(this::refreshLanLobbyUI);
+            return;
+        }
+
+        onlineInternetStatus = "Opening internet relay port automatically...";
+        javafx.application.Platform.runLater(this::refreshLanLobbyUI);
+
+        UpnpPortMapper.PortMappingResult result = UpnpPortMapper.openTcpPort(
+                OnlineRelayProtocol.DEFAULT_PORT,
+                findLanAddress(),
+                "Bird Fight 3 Online Relay"
+        );
+
+        if (result.lease() != null) {
+            if (onlinePortMappingLease != null) {
+                onlinePortMappingLease.close();
+            }
+            onlinePortMappingLease = result.lease();
+        }
+        if (result.externalAddress() != null && !result.externalAddress().isBlank()) {
+            onlineDetectedPublicHost = result.externalAddress().trim();
+        }
+
+        if (result.mapped()) {
+            onlineInternetStatus = result.statusMessage();
+        } else {
+            onlineInternetStatus = (result.statusMessage() == null || result.statusMessage().isBlank()
+                    ? "Automatic router setup failed."
+                    : result.statusMessage())
+                    + " Remote players will need TCP port " + OnlineRelayProtocol.DEFAULT_PORT
+                    + " forwarded to this computer if UPnP is unavailable.";
+        }
+        javafx.application.Platform.runLater(this::refreshLanLobbyUI);
+    }
+
     private void prepareNetworkSessionState(NetworkSessionMode mode, boolean hostSession) {
         stopLanSession();
         networkSessionMode = mode;
@@ -18929,6 +18970,7 @@ public class BirdGame3 extends Application {
         lanSelectedMap = null;
         lanSelectedMapRandom = false;
         lanVoteSignature = 0;
+        onlineInternetStatus = "";
         onlineDetectedPublicHost = "";
         onlineDetectedPublicHostStatus = "";
         onlineDetectedPublicHostLookupInFlight = false;
@@ -18969,15 +19011,19 @@ public class BirdGame3 extends Application {
     private String formatOnlineRelayError(String relayHost, String rawError, boolean hosting) {
         String host = (relayHost == null || relayHost.isBlank()) ? OnlineRelayProtocol.DEFAULT_HOST : relayHost.trim();
         String message = rawError == null ? "" : rawError.trim();
-        if (message.toLowerCase(Locale.ROOT).contains("connection refused")) {
+        String lower = message.toLowerCase(Locale.ROOT);
+        boolean addressOnly = message.equals(host + ':' + OnlineRelayProtocol.DEFAULT_PORT)
+                || message.matches("\\d+\\.\\d+\\.\\d+\\.\\d+:\\d+");
+        if (lower.contains("connection refused") || lower.contains("timed out") || addressOnly) {
             if (shouldUseEmbeddedRelay(host)) {
                 return "No relay server is listening on " + host + ':' + OnlineRelayProtocol.DEFAULT_PORT
                         + ". The built-in relay could not be reached. If the room is on another machine, do not use localhost; enter that machine's public IP or hostname instead. Otherwise make sure TCP port "
                         + OnlineRelayProtocol.DEFAULT_PORT + " is free and try again.";
             }
             return "No relay server is listening on " + host + ':' + OnlineRelayProtocol.DEFAULT_PORT
-                    + ". Start " + OnlineRelayServer.class.getSimpleName()
-                    + " on that machine before " + (hosting ? "hosting a room." : "joining a room.");
+                    + ". If the host is using the built-in online relay, TCP port " + OnlineRelayProtocol.DEFAULT_PORT
+                    + " must be forwarded to the host computer or opened automatically by UPnP before "
+                    + (hosting ? "hosting a room." : "joining a room.");
         }
         if (message.isBlank()) {
             return "Could not reach relay server " + host + ':' + OnlineRelayProtocol.DEFAULT_PORT + '.';
@@ -19103,6 +19149,9 @@ public class BirdGame3 extends Application {
             }
 
             text = "Room code: " + roomCodeText
+                    + "\nInternet setup: " + (onlineInternetStatus == null || onlineInternetStatus.isBlank()
+                    ? "Preparing internet relay..."
+                    : onlineInternetStatus)
                     + "\nSame network / Wi-Fi: " + localAddress + ":" + relayPort
                     + "\nDifferent networks / internet: " + internetLine
                     + "\nInternet players also need TCP port " + relayPort + " forwarded to this computer.";
@@ -19124,6 +19173,9 @@ public class BirdGame3 extends Application {
                 : onlineDetectedPublicHost;
         return "Bird Fight 3 online room"
                 + "\nRoom code: " + roomCodeText
+                + "\nInternet setup: " + (onlineInternetStatus == null || onlineInternetStatus.isBlank()
+                ? "Preparing internet relay..."
+                : onlineInternetStatus)
                 + "\nSame network / Wi-Fi: " + findLanAddress() + ":" + relayPort
                 + "\nDifferent networks / internet: " + publicAddress + ":" + relayPort;
     }
@@ -20252,6 +20304,10 @@ public class BirdGame3 extends Application {
             lanClient.disconnect();
             lanClient = null;
         }
+        if (onlinePortMappingLease != null) {
+            onlinePortMappingLease.close();
+            onlinePortMappingLease = null;
+        }
         if (embeddedRelayServer != null) {
             embeddedRelayServer.stop();
             embeddedRelayServer = null;
@@ -20274,6 +20330,7 @@ public class BirdGame3 extends Application {
         onlineRoomCode = "";
         onlineRoomName = "";
         onlineHostName = "";
+        onlineInternetStatus = "";
         onlineDetectedPublicHost = "";
         onlineDetectedPublicHostStatus = "";
         onlineDetectedPublicHostLookupInFlight = false;
