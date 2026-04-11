@@ -41,6 +41,8 @@ import javafx.scene.control.ButtonType;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.Effect;
 import javafx.scene.effect.Glow;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.KeyCombination;
@@ -89,8 +91,12 @@ import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.URI;
 import java.net.SocketException;
 import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -344,6 +350,7 @@ public class BirdGame3 extends Application {
     private Label[] lanSlotLabels;
     private Label lanLobbyInfoLabel;
     private Label lanStatusLabel;
+    private Label onlineJoinInfoLabel;
     private Label lanYourBirdLabel;
     private Label lanMapLabel;
     private Label lanMapVoteLabel;
@@ -360,6 +367,10 @@ public class BirdGame3 extends Application {
     private String onlineRoomCode = "";
     private String onlineRoomName = "";
     private String onlineHostName = "";
+    private String onlineDetectedPublicHost = "";
+    private String onlineDetectedPublicHostStatus = "";
+    private boolean onlineDetectedPublicHostLookupInFlight = false;
+    private long onlineDetectedPublicHostLookupId = 0L;
     private OnlineRelayServer embeddedRelayServer;
     private LanState pendingLanState;
     private boolean lanResultsActionPending = false;
@@ -18668,6 +18679,31 @@ public class BirdGame3 extends Application {
         lanStatusLabel.setFont(Font.font("Consolas", 18));
         lanStatusLabel.setTextFill(Color.web(onlineSession ? "#D1C4E9" : "#80DEEA"));
 
+        VBox joinInfoBox = null;
+        if (onlineSession && lanIsHost) {
+            Label joinInfoTitle = new Label("GIVE THIS TO THE JOINER");
+            joinInfoTitle.setFont(Font.font("Arial Black", 24));
+            joinInfoTitle.setTextFill(Color.web("#F3E5F5"));
+
+            onlineJoinInfoLabel = new Label();
+            onlineJoinInfoLabel.setFont(Font.font("Consolas", 18));
+            onlineJoinInfoLabel.setTextFill(Color.web("#ECEFF1"));
+            onlineJoinInfoLabel.setWrapText(true);
+            onlineJoinInfoLabel.setTextAlignment(TextAlignment.CENTER);
+            onlineJoinInfoLabel.setMaxWidth(980);
+            applyNoEllipsis(onlineJoinInfoLabel);
+
+            Button copyJoinInfo = uiFactory.action("COPY JOIN INFO", 280, 68, 24, "#8E24AA", 18, this::copyOnlineJoinInfoToClipboard);
+
+            joinInfoBox = new VBox(10, joinInfoTitle, onlineJoinInfoLabel, copyJoinInfo);
+            joinInfoBox.setAlignment(Pos.CENTER);
+            joinInfoBox.setPadding(new Insets(16, 24, 16, 24));
+            joinInfoBox.setMaxWidth(1100);
+            joinInfoBox.setStyle("-fx-background-color: rgba(0,0,0,0.28); -fx-border-color: #BA68C8; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
+        } else {
+            onlineJoinInfoLabel = null;
+        }
+
         lanSlotLabels = new Label[LAN_MAX_PLAYERS];
         VBox slots = new VBox(6);
         slots.setAlignment(Pos.CENTER);
@@ -18744,7 +18780,11 @@ public class BirdGame3 extends Application {
             portraitRow.getChildren().add(slotBox);
         }
 
-        root.getChildren().addAll(title, info, lanStatusLabel, slots, controls, portraitRow, lanCountdownLabel, actions);
+        root.getChildren().addAll(title, info, lanStatusLabel);
+        if (joinInfoBox != null) {
+            root.getChildren().add(joinInfoBox);
+        }
+        root.getChildren().addAll(slots, controls, portraitRow, lanCountdownLabel, actions);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -18756,6 +18796,7 @@ public class BirdGame3 extends Application {
         setScenePreservingFullscreen(stage, scene);
 
         refreshLanLobbyUI();
+        refreshOnlineHostJoinInfo();
         if (lanIsHost && lanStartButton != null) {
             lanStartButton.requestFocus();
         } else {
@@ -18888,6 +18929,10 @@ public class BirdGame3 extends Application {
         lanSelectedMap = null;
         lanSelectedMapRandom = false;
         lanVoteSignature = 0;
+        onlineDetectedPublicHost = "";
+        onlineDetectedPublicHostStatus = "";
+        onlineDetectedPublicHostLookupInFlight = false;
+        onlineDetectedPublicHostLookupId++;
         if (hostSession) {
             lanSlotConnected[0] = true;
             if (lanSelectedBirds[0] == null) {
@@ -18940,6 +18985,158 @@ public class BirdGame3 extends Application {
         return message;
     }
 
+    private void refreshOnlineHostJoinInfo() {
+        if (!lanIsHost || networkSessionMode != NetworkSessionMode.ONLINE) {
+            updateOnlineJoinInfoUi();
+            return;
+        }
+
+        if (!shouldUseEmbeddedRelay(onlineRelayHost)) {
+            onlineDetectedPublicHost = "";
+            onlineDetectedPublicHostStatus = "";
+            onlineDetectedPublicHostLookupInFlight = false;
+            updateOnlineJoinInfoUi();
+            return;
+        }
+
+        updateOnlineJoinInfoUi();
+        if (onlineDetectedPublicHostLookupInFlight || (onlineDetectedPublicHost != null && !onlineDetectedPublicHost.isBlank())) {
+            return;
+        }
+
+        onlineDetectedPublicHostLookupInFlight = true;
+        onlineDetectedPublicHostStatus = "Detecting public internet address...";
+        updateOnlineJoinInfoUi();
+        long lookupId = ++onlineDetectedPublicHostLookupId;
+
+        Thread thread = new Thread(() -> {
+            String detected = "";
+            String status = "";
+            try {
+                detected = fetchPublicRelayAddress();
+            } catch (IOException | InterruptedException e) {
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+                status = "Could not detect your public IP automatically. Give the joiner your public IP or hostname manually.";
+            }
+
+            final String finalDetected = detected == null ? "" : detected.trim();
+            final String finalStatus = status;
+            javafx.application.Platform.runLater(() -> {
+                if (lookupId != onlineDetectedPublicHostLookupId
+                        || !lanModeActive
+                        || !lanIsHost
+                        || networkSessionMode != NetworkSessionMode.ONLINE) {
+                    return;
+                }
+                onlineDetectedPublicHostLookupInFlight = false;
+                onlineDetectedPublicHost = finalDetected;
+                onlineDetectedPublicHostStatus = finalStatus;
+                updateOnlineJoinInfoUi();
+            });
+        }, "OnlineJoinAddressLookup");
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private String fetchPublicRelayAddress() throws IOException, InterruptedException {
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(java.time.Duration.ofSeconds(4))
+                .followRedirects(HttpClient.Redirect.NORMAL)
+                .build();
+        List<String> endpoints = List.of(
+                "https://api.ipify.org",
+                "https://checkip.amazonaws.com"
+        );
+        IOException lastFailure = null;
+        for (String endpoint : endpoints) {
+            try {
+                HttpRequest request = HttpRequest.newBuilder(URI.create(endpoint))
+                        .timeout(java.time.Duration.ofSeconds(4))
+                        .GET()
+                        .build();
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() < 200 || response.statusCode() >= 300) {
+                    lastFailure = new IOException("Public IP service returned HTTP " + response.statusCode() + '.');
+                    continue;
+                }
+                String body = response.body() == null ? "" : response.body().trim();
+                if (!body.isBlank()) {
+                    return body;
+                }
+                lastFailure = new IOException("Public IP service returned an empty response.");
+            } catch (IOException e) {
+                lastFailure = e;
+            }
+        }
+        if (lastFailure != null) {
+            throw lastFailure;
+        }
+        throw new IOException("Could not detect public IP.");
+    }
+
+    private void updateOnlineJoinInfoUi() {
+        if (onlineJoinInfoLabel == null) {
+            return;
+        }
+
+        String roomCodeText = onlineRoomCode == null || onlineRoomCode.isBlank() ? "(creating room)" : onlineRoomCode;
+        String localAddress = findLanAddress();
+        String relayPort = Integer.toString(OnlineRelayProtocol.DEFAULT_PORT);
+
+        String text;
+        if (!shouldUseEmbeddedRelay(onlineRelayHost)) {
+            text = "Room code: " + roomCodeText
+                    + "\nRelay server for everyone: " + onlineRelayHost + ":" + relayPort
+                    + "\nTell joiners to enter that relay server and this room code.";
+        } else {
+            String internetLine;
+            if (onlineDetectedPublicHost != null && !onlineDetectedPublicHost.isBlank()) {
+                internetLine = onlineDetectedPublicHost + ":" + relayPort;
+            } else if (onlineDetectedPublicHostStatus != null && !onlineDetectedPublicHostStatus.isBlank()) {
+                internetLine = onlineDetectedPublicHostStatus;
+            } else if (onlineDetectedPublicHostLookupInFlight) {
+                internetLine = "Detecting public internet address...";
+            } else {
+                internetLine = "Give the joiner your public IP or hostname manually.";
+            }
+
+            text = "Room code: " + roomCodeText
+                    + "\nSame network / Wi-Fi: " + localAddress + ":" + relayPort
+                    + "\nDifferent networks / internet: " + internetLine
+                    + "\nInternet players also need TCP port " + relayPort + " forwarded to this computer.";
+        }
+        onlineJoinInfoLabel.setText(text);
+    }
+
+    private String buildOnlineJoinInfoClipboardText() {
+        String roomCodeText = onlineRoomCode == null || onlineRoomCode.isBlank() ? "(creating room)" : onlineRoomCode;
+        String relayPort = Integer.toString(OnlineRelayProtocol.DEFAULT_PORT);
+        if (!shouldUseEmbeddedRelay(onlineRelayHost)) {
+            return "Bird Fight 3 online room"
+                    + "\nRoom code: " + roomCodeText
+                    + "\nRelay server: " + onlineRelayHost + ":" + relayPort;
+        }
+
+        String publicAddress = onlineDetectedPublicHost == null || onlineDetectedPublicHost.isBlank()
+                ? "<your public IP or hostname>"
+                : onlineDetectedPublicHost;
+        return "Bird Fight 3 online room"
+                + "\nRoom code: " + roomCodeText
+                + "\nSame network / Wi-Fi: " + findLanAddress() + ":" + relayPort
+                + "\nDifferent networks / internet: " + publicAddress + ":" + relayPort;
+    }
+
+    private void copyOnlineJoinInfoToClipboard() {
+        ClipboardContent content = new ClipboardContent();
+        content.putString(buildOnlineJoinInfoClipboardText());
+        Clipboard.getSystemClipboard().setContent(content);
+        if (lanStatusLabel != null) {
+            lanStatusLabel.setText("Join info copied to clipboard.");
+        }
+    }
+
     private void refreshLanLobbyUI() {
         if (lanSlotLabels == null) return;
         boolean onlineSession = networkSessionMode == NetworkSessionMode.ONLINE;
@@ -18959,6 +19156,7 @@ public class BirdGame3 extends Application {
                 lanLobbyInfoLabel.setText("Connected to: " + (lanLastHost == null ? "" : lanLastHost));
             }
         }
+        updateOnlineJoinInfoUi();
         for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
             Label slot = lanSlotLabels[i];
             if (slot == null) continue;
@@ -20044,6 +20242,7 @@ public class BirdGame3 extends Application {
         lanResultsActionPending = false;
         lanResultsStatusLabel = null;
         lanLobbyInfoLabel = null;
+        onlineJoinInfoLabel = null;
         stopLanCountdown();
         if (lanHost != null) {
             lanHost.stop();
@@ -20075,6 +20274,10 @@ public class BirdGame3 extends Application {
         onlineRoomCode = "";
         onlineRoomName = "";
         onlineHostName = "";
+        onlineDetectedPublicHost = "";
+        onlineDetectedPublicHostStatus = "";
+        onlineDetectedPublicHostLookupInFlight = false;
+        onlineDetectedPublicHostLookupId++;
     }
 
     private void confirmLeaveLanMatch(Stage stage) {
