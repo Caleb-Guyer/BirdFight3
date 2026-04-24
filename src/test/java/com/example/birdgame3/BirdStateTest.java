@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -69,6 +70,24 @@ class BirdStateTest {
         assertTrue(game.isAttackPressed(1));
 
         game.clearGameplayInputs();
+        assertFalse(game.isAttackPressed(1));
+    }
+
+    @Test
+    void sharedKeyboardAliasesMirrorTwoPlayerLocalInputs() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        game.setLocalActionsForKey(KeyCode.Y, true);
+        game.setLocalActionsForKey(KeyCode.O, true);
+
+        assertTrue(game.isAttackPressed(0));
+        assertTrue(game.isAttackPressed(1));
+
+        game.setLocalActionsForKey(KeyCode.Y, false);
+        game.setLocalActionsForKey(KeyCode.O, false);
+
+        assertFalse(game.isAttackPressed(0));
         assertFalse(game.isAttackPressed(1));
     }
 
@@ -607,6 +626,44 @@ class BirdStateTest {
     }
 
     @Test
+    void premiumPacksIncludeRoadrunnerAndDesertRewardsAndUnlockThem() throws Exception {
+        BirdGame3 game = new BirdGame3();
+
+        Method buildShopItems = BirdGame3.class.getDeclaredMethod("buildShopItems");
+        buildShopItems.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        List<ShopItem> items = (List<ShopItem>) buildShopItems.invoke(game);
+
+        for (String packName : List.of("Rooftop Pack", "Skyline Pack", "Nebula Pack", "Ascendant Pack")) {
+            ShopItem pack = items.stream()
+                    .filter(item -> packName.equals(item.name))
+                    .findFirst()
+                    .orElseThrow();
+            assertTrue(pack.previews.stream().anyMatch(preview -> "CHAR_ROADRUNNER".equals(preview.skinKey())));
+            assertTrue(pack.previews.stream().anyMatch(preview -> "MAP_DESERT".equals(preview.skinKey())));
+        }
+
+        Method isOwned = BirdGame3.class.getDeclaredMethod("isShopPreviewOwned", ShopPreview.class);
+        isOwned.setAccessible(true);
+        Method unlock = BirdGame3.class.getDeclaredMethod("unlockShopPreview", ShopPreview.class);
+        unlock.setAccessible(true);
+
+        ShopPreview roadrunner = new ShopPreview(BirdGame3.BirdType.ROADRUNNER, "CHAR_ROADRUNNER", "Roadrunner");
+        ShopPreview desert = new ShopPreview(null, "MAP_DESERT", "Sunscorch Flats Map");
+
+        assertFalse((boolean) isOwned.invoke(game, roadrunner));
+        assertFalse((boolean) isOwned.invoke(game, desert));
+
+        unlock.invoke(game, roadrunner);
+        unlock.invoke(game, desert);
+
+        assertTrue((boolean) isOwned.invoke(game, roadrunner));
+        assertTrue((boolean) isOwned.invoke(game, desert));
+        assertTrue(game.roadrunnerUnlocked);
+        assertTrue(getPrivateBoolean(game, "desertMapUnlocked"));
+    }
+
+    @Test
     void nullRockCannotBeStunnedOrShrunkAndAscendsAtHalfHealth() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.nullRockVultureUnlocked = true;
@@ -769,6 +826,9 @@ class BirdStateTest {
         for (int i = 0; i < 24; i++) {
             game.chickMinions.add(new ChickMinion(1300.0 + i * 18.0, 320.0, 0, false, null));
         }
+        for (int i = 0; i < 18; i++) {
+            game.piranhaHazards.add(new PiranhaHazard(2600.0 + i * 12.0, 2350.0, -4.5));
+        }
 
         Method trim = BirdGame3.class.getDeclaredMethod("trimTransientEffectOverflow");
         trim.setAccessible(true);
@@ -780,14 +840,18 @@ class BirdStateTest {
         crowCapMethod.setAccessible(true);
         Method chickCapMethod = BirdGame3.class.getDeclaredMethod("activeChickMinionCap");
         chickCapMethod.setAccessible(true);
+        Method piranhaCapMethod = BirdGame3.class.getDeclaredMethod("activePiranhaHazardCap");
+        piranhaCapMethod.setAccessible(true);
 
         int particleCap = (int) particleCapMethod.invoke(game);
         int crowCap = (int) crowCapMethod.invoke(game);
         int chickCap = (int) chickCapMethod.invoke(game);
+        int piranhaCap = (int) piranhaCapMethod.invoke(game);
 
         assertTrue(game.particles.size() <= particleCap);
         assertTrue(game.crowMinions.size() <= crowCap);
         assertTrue(game.chickMinions.size() <= chickCap);
+        assertTrue(game.piranhaHazards.size() <= piranhaCap);
     }
 
     @Test
@@ -838,7 +902,36 @@ class BirdStateTest {
     }
 
     @Test
-    void resetTrainingPositionsRebuildsFreshRosterAtCapturedSpawns() throws Exception {
+    void academyTrainingRosterUsesLessonAndTrialBirds() throws Exception {
+        BirdGame3 game = new BirdGame3();
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        Class<? extends Enum> academyModeClass = (Class<? extends Enum>) Class.forName("com.example.birdgame3.BirdGame3$TrainingAcademyMode");
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        Class<? extends Enum> lessonClass = (Class<? extends Enum>) Class.forName("com.example.birdgame3.BirdGame3$GuidedTutorialLesson");
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        Class<? extends Enum> trialClass = (Class<? extends Enum>) Class.forName("com.example.birdgame3.BirdGame3$BirdTrialDefinition");
+
+        setPrivateObject(game, "trainingAcademyMode", Enum.valueOf((Class) academyModeClass, "GUIDED_TUTORIAL"));
+        setPrivateObject(game, "guidedTutorialLesson", Enum.valueOf((Class) lessonClass, "RECOVERY"));
+
+        Method setupRoster = BirdGame3.class.getDeclaredMethod("setupTrainingRoster");
+        setupRoster.setAccessible(true);
+        setupRoster.invoke(game);
+
+        assertEquals(BirdGame3.BirdType.PENGUIN, game.players[0].type);
+        assertEquals(BirdGame3.BirdType.PIGEON, game.players[1].type);
+
+        setPrivateObject(game, "trainingAcademyMode", Enum.valueOf((Class) academyModeClass, "BIRD_TRIAL"));
+        setPrivateObject(game, "activeBirdTrial", Enum.valueOf((Class) trialClass, "EAGLE"));
+        setupRoster.invoke(game);
+
+        assertEquals(BirdGame3.BirdType.EAGLE, game.players[0].type);
+        assertEquals(BirdGame3.BirdType.PIGEON, game.players[1].type);
+    }
+
+    @Test
+    void resetTrainingPositionsRebuildsFreshRosterAtBattleSpawns() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.trainingModeActive = true;
 
@@ -846,12 +939,18 @@ class BirdStateTest {
         setupRoster.setAccessible(true);
         setupRoster.invoke(game);
 
+        Method positionBattlefieldSpawns = BirdGame3.class.getDeclaredMethod("positionBattlefieldSpawns");
+        positionBattlefieldSpawns.setAccessible(true);
+        positionBattlefieldSpawns.invoke(game);
+
         Method captureSpawns = BirdGame3.class.getDeclaredMethod("captureTrainingSpawns");
         captureSpawns.setAccessible(true);
         captureSpawns.invoke(game);
 
         Bird originalPlayer = game.players[0];
         Bird originalDummy = game.players[1];
+        double capturedPlayerX = originalPlayer.x;
+        double capturedDummyX = originalDummy.x;
         originalPlayer.x = 999.0;
         originalPlayer.health = 17.0;
         originalDummy.x = 888.0;
@@ -863,8 +962,8 @@ class BirdStateTest {
 
         assertFalse(game.players[0] == originalPlayer);
         assertFalse(game.players[1] == originalDummy);
-        assertEquals(1200.0, game.players[0].x, 0.0001);
-        assertEquals(4200.0, game.players[1].x, 0.0001);
+        assertEquals(capturedPlayerX, game.players[0].x, 0.0001);
+        assertEquals(capturedDummyX, game.players[1].x, 0.0001);
         assertEquals(Bird.STARTING_HEALTH, game.players[0].health, 0.0001);
         assertEquals(Bird.STARTING_HEALTH, game.players[1].health, 0.0001);
     }
@@ -889,6 +988,42 @@ class BirdStateTest {
         assertTrue(bird.isUltimateReady());
     }
 
+    @Test
+    void roadrunnerUltimateSustainsSandstormFlightAndGusts() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird runner = new Bird(300.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        Bird target = new Bird(420.0, BirdGame3.BirdType.PIGEON, 1, game);
+        game.players[0] = runner;
+        game.players[1] = target;
+
+        setPrivateDouble(runner, "ultimateMeter", 100.0);
+        double startingHealth = target.health;
+
+        invokePrivateVoid(runner, "special");
+
+        assertTrue(getPrivateInt(runner, "roadrunnerSandstormTimer") >= 500);
+        assertTrue(target.health < startingHealth);
+
+        double healthAfterBurst = target.health;
+        runner.y = BirdGame3.GROUND_Y - 320.0;
+        runner.vy = 0.0;
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        runner.update(1.0);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        assertTrue(runner.vy < 0.0, "Sandstorm ultimate should let Roadrunner gain lift while jump is held.");
+
+        target.vx = 0.0;
+        for (int i = 0; i < 30; i++) {
+            runner.update(1.0);
+        }
+
+        assertTrue(target.health < healthAfterBurst || target.vx > 0.1,
+                "Lingering sandstorm gusts should keep hurting or blowing nearby enemies.");
+    }
+
     private static void invokePrivateVoid(Object target, String methodName) throws Exception {
         Method method = target.getClass().getDeclaredMethod(methodName);
         method.setAccessible(true);
@@ -899,6 +1034,18 @@ class BirdStateTest {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.setInt(target, value);
+    }
+
+    private static void setPrivateDouble(Object target, String fieldName, double value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setDouble(target, value);
+    }
+
+    private static void setPrivateObject(Object target, String fieldName, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 
     private static int getPrivateInt(Object target, String fieldName) throws Exception {

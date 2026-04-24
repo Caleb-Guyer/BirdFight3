@@ -40,6 +40,7 @@ class LanBirdState {
     boolean isResonanceSkin;
     boolean isIroncladSkin;
     boolean isSunforgeSkin;
+    boolean isPhotoEagleSkin;
     boolean suppressSelectEffects;
     double loungeX;
     double loungeY;
@@ -90,6 +91,9 @@ class LanBirdState {
     int thermalTimer;
     double thermalLift;
     int overchargeAttackTimer;
+    int roadrunnerSandstormTimer;
+    int roadrunnerSandGustTimer;
+    int[] roadrunnerSandHitCooldown = new int[4];
     double speedBoostTimer;
     double hoverRegenTimer;
     double hoverRegenMultiplier;
@@ -147,6 +151,7 @@ class LanBirdState {
         out.writeBoolean(isResonanceSkin);
         out.writeBoolean(isIroncladSkin);
         out.writeBoolean(isSunforgeSkin);
+        out.writeBoolean(isPhotoEagleSkin);
         out.writeBoolean(suppressSelectEffects);
         out.writeDouble(loungeX);
         out.writeDouble(loungeY);
@@ -197,6 +202,11 @@ class LanBirdState {
         out.writeInt(thermalTimer);
         out.writeDouble(thermalLift);
         out.writeInt(overchargeAttackTimer);
+        out.writeInt(roadrunnerSandstormTimer);
+        out.writeInt(roadrunnerSandGustTimer);
+        for (int cooldown : roadrunnerSandHitCooldown) {
+            out.writeInt(cooldown);
+        }
         out.writeDouble(speedBoostTimer);
         out.writeDouble(hoverRegenTimer);
         out.writeDouble(hoverRegenMultiplier);
@@ -256,6 +266,7 @@ class LanBirdState {
         state.isResonanceSkin = in.readBoolean();
         state.isIroncladSkin = in.readBoolean();
         state.isSunforgeSkin = in.readBoolean();
+        state.isPhotoEagleSkin = in.readBoolean();
         state.suppressSelectEffects = in.readBoolean();
         state.loungeX = in.readDouble();
         state.loungeY = in.readDouble();
@@ -306,6 +317,11 @@ class LanBirdState {
         state.thermalTimer = in.readInt();
         state.thermalLift = in.readDouble();
         state.overchargeAttackTimer = in.readInt();
+        state.roadrunnerSandstormTimer = in.readInt();
+        state.roadrunnerSandGustTimer = in.readInt();
+        for (int i = 0; i < state.roadrunnerSandHitCooldown.length; i++) {
+            state.roadrunnerSandHitCooldown[i] = in.readInt();
+        }
         state.speedBoostTimer = in.readDouble();
         state.hoverRegenTimer = in.readDouble();
         state.hoverRegenMultiplier = in.readDouble();

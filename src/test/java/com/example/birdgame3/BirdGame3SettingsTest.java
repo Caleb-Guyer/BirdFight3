@@ -248,6 +248,60 @@ class BirdGame3SettingsTest {
     }
 
     @Test
+    void persistAchievementsRoundTripsTrainingAcademyProgress() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        setPrivateField(game, "guidedTutorialCompleted", true);
+        setBirdTrialCompleted(game, BirdGame3.BirdType.PIGEON, true);
+        setBirdTrialCompleted(game, BirdGame3.BirdType.EAGLE, true);
+        game.persistAchievements(prefs);
+
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(reloaded, prefs);
+
+        assertTrue(reloaded.isGuidedTutorialCompleted());
+        assertTrue(reloaded.isBirdTrialCompleted(BirdGame3.BirdType.PIGEON));
+        assertTrue(reloaded.isBirdTrialCompleted(BirdGame3.BirdType.EAGLE));
+        assertFalse(reloaded.isBirdTrialCompleted(BirdGame3.BirdType.PENGUIN));
+    }
+
+    @Test
+    void developerSettingsCodeUnlocksEverythingAndRoundTripsProfileState() throws Exception {
+        BirdGame3 game = new BirdGame3();
+
+        Method applyCode = BirdGame3.class.getDeclaredMethod("tryApplySettingsCode", String.class);
+        applyCode.setAccessible(true);
+        Method isMapUnlocked = BirdGame3.class.getDeclaredMethod("isMapUnlocked", BirdGame3.MapType.class);
+        isMapUnlocked.setAccessible(true);
+        Method spendBirdCoins = BirdGame3.class.getDeclaredMethod("spendBirdCoins", int.class);
+        spendBirdCoins.setAccessible(true);
+
+        assertTrue((boolean) applyCode.invoke(game, " feather-dev "));
+        assertTrue(game.roadrunnerUnlocked);
+        assertTrue((boolean) isMapUnlocked.invoke(game, BirdGame3.MapType.DESERT));
+        assertTrue(getPrivateBoolean(game, "developerInfiniteBirdCoins"));
+        assertTrue((boolean) spendBirdCoins.invoke(game, 99_999));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.BOSS_BREAKER));
+
+        game.persistAchievements(prefs);
+
+        assertTrue(prefs.getBoolean("char_roadrunner_unlocked", false));
+        assertTrue(prefs.getBoolean("map_desert_unlocked", false));
+        assertTrue(prefs.getBoolean("developer_infinite_bird_coins", false));
+
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(reloaded, prefs);
+
+        assertTrue(reloaded.roadrunnerUnlocked);
+        assertTrue((boolean) isMapUnlocked.invoke(reloaded, BirdGame3.MapType.DESERT));
+        assertTrue(getPrivateBoolean(reloaded, "developerInfiniteBirdCoins"));
+        assertTrue((boolean) spendBirdCoins.invoke(reloaded, Integer.MAX_VALUE));
+    }
+
+    @Test
     void achievementIconVariantsAreUniquePerAchievement() throws Exception {
         BirdGame3 game = new BirdGame3();
 
@@ -344,6 +398,13 @@ class BirdGame3SettingsTest {
         badges[type.ordinal()] = value;
     }
 
+    private static void setBirdTrialCompleted(BirdGame3 game, BirdGame3.BirdType type, boolean value) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField("birdTrialCompleted");
+        field.setAccessible(true);
+        boolean[] trials = (boolean[]) field.get(game);
+        trials[type.ordinal()] = value;
+    }
+
     private static void setTowerDefenseBadge(BirdGame3 game, BirdGame3.MapType map, TowerDefenseMode.Difficulty difficulty, boolean value) throws Exception {
         Field field = BirdGame3.class.getDeclaredField("towerDefenseDifficultyBadges");
         field.setAccessible(true);
@@ -355,6 +416,12 @@ class BirdGame3SettingsTest {
         Method method = BirdGame3.class.getDeclaredMethod(methodName, double.class);
         method.setAccessible(true);
         method.invoke(game, value);
+    }
+
+    private static boolean getPrivateBoolean(BirdGame3 game, String fieldName) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.getBoolean(game);
     }
 
     private static int currentBirdCoinBalance(BirdGame3 game) throws Exception {

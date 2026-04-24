@@ -118,6 +118,10 @@ final class BirdBookUiSupport {
                 top = Color.web("#0B3D24");
                 bottom = Color.web("#2E7D32");
             }
+            case DESERT -> {
+                top = Color.web("#E08B3E");
+                bottom = Color.web("#F6D089");
+            }
             case CAVE -> {
                 top = Color.web("#1A237E");
                 bottom = Color.web("#263238");
@@ -180,6 +184,22 @@ final class BirdBookUiSupport {
                 g.setFill(Color.web("#2E7D32", 0.7));
                 g.fillOval(w * 0.05, h * 0.7, w * 0.25, h * 0.25);
                 g.fillOval(w * 0.7, h * 0.65, w * 0.25, h * 0.3);
+            }
+            case DESERT -> {
+                g.setFill(Color.web("#F2B56B", 0.58));
+                g.fillOval(-w * 0.08, h * 0.78, w * 0.4, h * 0.14);
+                g.fillOval(w * 0.18, h * 0.76, w * 0.38, h * 0.12);
+                g.fillOval(w * 0.48, h * 0.79, w * 0.24, h * 0.1);
+                g.setFill(Color.web("#2AA4B7", 0.8));
+                g.fillOval(w * 0.1, h * 0.8, w * 0.22, h * 0.07);
+                g.setStroke(Color.web("#4E342E", 0.8));
+                g.setLineWidth(3);
+                g.strokeLine(w * 0.76, h * 0.88, w * 0.76, h * 0.5);
+                g.strokeLine(w * 0.84, h * 0.88, w * 0.84, h * 0.42);
+                g.setFill(Color.web("#9C5B2E", 0.76));
+                g.fillRoundRect(w * 0.66, h * 0.6, w * 0.24, h * 0.16, 18, 18);
+                g.setFill(Color.web("#7A4520", 0.35));
+                g.fillRoundRect(w * 0.7, h * 0.54, w * 0.16, h * 0.06, 14, 14);
             }
             case CAVE -> {
                 g.setFill(Color.web("#263238", 0.75));
@@ -275,6 +295,7 @@ final class BirdBookUiSupport {
             case CITY -> Color.web("#5E35B1");
             case SKYCLIFFS -> Color.web("#8D6E63");
             case VIBRANT_JUNGLE -> Color.web("#388E3C");
+            case DESERT -> Color.web("#D18841");
             case CAVE -> Color.web("#455A64");
             case BATTLEFIELD -> Color.web("#1E88E5");
             case BEACON_CROWN -> Color.web("#8E24AA");
@@ -290,6 +311,7 @@ final class BirdBookUiSupport {
             case PHOENIX, BAT, VULTURE, OPIUMBIRD, HEISENBIRD -> BirdGame3.MapType.CAVE;
             case HUMMINGBIRD, TITMOUSE -> BirdGame3.MapType.VIBRANT_JUNGLE;
             case PELICAN -> BirdGame3.MapType.DOCK;
+            case ROADRUNNER -> BirdGame3.MapType.DESERT;
             default -> BirdGame3.MapType.FOREST;
         };
     }
@@ -310,6 +332,7 @@ final class BirdBookUiSupport {
             case HUMMINGBIRD -> "A blur with a sweet tooth and a short temper. Will duel you for a drop of nectar and win smiling.";
             case TURKEY -> "Big steps, bigger thumps. Treats the ground like an instrument and keeps the rhythm with shockwaves.";
             case ROOSTER -> "Morning alarm with a battle plan. He calls three different chicks to swarm targets and keep the pressure on.";
+            case ROADRUNNER -> "A desert menace built for pure pace. He lives low to the ground, runs rings around slower birds, and turns every straightaway into a trap.";
             case PENGUIN -> "Slides more than it flies, but it still finds a way to win. Cool, calm, and stubborn as a glacier.";
             case SHOEBILL -> "Stares too long, strikes too fast. Marsh legends say it never blinks, only decides.";
             case MOCKINGBIRD -> "Old friend of Caleb Bossk and owner of the Charles Lounge. Passed the Bossk Test to become a Bosskhead, then turned every fight into his stage.";

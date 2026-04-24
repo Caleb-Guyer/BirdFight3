@@ -3,6 +3,7 @@ package com.example.birdgame3;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.Glow;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
@@ -59,6 +60,7 @@ public class Bird {
     public boolean isResonanceSkin = false;
     public boolean isIroncladSkin = false;
     public boolean isSunforgeSkin = false;
+    public boolean isPhotoEagleSkin = false;
     public boolean suppressSelectEffects = false;
     public double loungeX, loungeY;
     public int diveTimer = 0;
@@ -127,6 +129,9 @@ public class Bird {
     public int overchargeAttackTimer = 0;
     private double ultimateMeter = 0.0;
     private int ultimateFxTimer = 0;
+    private int roadrunnerSandstormTimer = 0;
+    private int roadrunnerSandGustTimer = 0;
+    private final int[] roadrunnerSandHitCooldown = new int[4];
 
     // === NECTAR BOOST (Jungle) ===
     public double speedBoostTimer = 0;
@@ -168,6 +173,15 @@ public class Bird {
     private static final double ULTIMATE_GAIN_DEALT = 0.35;
     private static final double ULTIMATE_GAIN_TAKEN = 0.45;
     private static final int ULTIMATE_FX_FRAMES = 24;
+    private static final int ROADRUNNER_SANDSTORM_FRAMES = 540;
+    private static final int ROADRUNNER_GUST_INTERVAL = 12;
+    private static final int ROADRUNNER_GUST_HIT_COOLDOWN = 24;
+    private static final double ROADRUNNER_SANDSTORM_FLY_LIFT = 1.1;
+    private static final double ROADRUNNER_SANDSTORM_SPEED_SCALE = 1.38;
+    private static final double ROADRUNNER_SANDSTORM_GUST_RADIUS = 340.0;
+    private static Image photoEagleIdleSprite;
+    private static Image photoEagleAttackSprite;
+    private static Image photoEagleFlapSprite;
     private double penguinIceFxTimer = 0;
     private int penguinDashDamageTimer = 0;
     private final boolean[] penguinDashHit = new boolean[4];
@@ -330,12 +344,12 @@ public class Bird {
     }
 
     private boolean isInDockWater() {
-        return game.selectedMap == MapType.DOCK
+        return (game.selectedMap == MapType.DOCK || game.selectedMap == MapType.DESERT)
                 && game.isDockWaterAt(bodyCenterX(), bodyCenterY() + combatHalfHeight() * 0.25);
     }
 
     private boolean isFullySubmergedInDockWater() {
-        return game.selectedMap == MapType.DOCK
+        return (game.selectedMap == MapType.DOCK || game.selectedMap == MapType.DESERT)
                 && game.isDockWaterAt(bodyCenterX(), bodyCenterY());
     }
 
@@ -345,7 +359,7 @@ public class Bird {
     }
 
     private boolean hasSolidGroundFloorUnderBody() {
-        if (game.selectedMap == MapType.DOCK) {
+        if (game.selectedMap == MapType.DOCK || game.selectedMap == MapType.DESERT) {
             return !game.isDockWaterAt(bodyCenterX(), BirdGame3.GROUND_Y + 8);
         }
         return !usesIslandBounds();
@@ -821,6 +835,7 @@ public class Bird {
             case PHOENIX -> specialPhoenix(ultimateTriggered);
             case HUMMINGBIRD -> specialHummingbird(ultimateTriggered);
             case TURKEY -> specialTurkey(ultimateTriggered);
+            case ROADRUNNER -> specialRoadrunner(ultimateTriggered);
             case PENGUIN -> specialPenguin(ultimateTriggered);
             case SHOEBILL -> specialShoebill(ultimateTriggered);
             case MOCKINGBIRD -> specialMockingbird(ultimateTriggered);
@@ -1028,6 +1043,170 @@ public class Bird {
         }
         specialCooldown = 450;
         specialMaxCooldown = 450;
+    }
+
+    private void specialRoadrunner(boolean ultimate) {
+        boolean grounded = isOnGround();
+        double dir = facingRight ? 1.0 : -1.0;
+
+        if (ultimate) {
+            specialCooldown = 1260;
+            specialMaxCooldown = 1260;
+            roadrunnerSandstormTimer = Math.max(roadrunnerSandstormTimer, ROADRUNNER_SANDSTORM_FRAMES);
+            roadrunnerSandGustTimer = 0;
+            Arrays.fill(roadrunnerSandHitCooldown, 0);
+            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * ROADRUNNER_SANDSTORM_SPEED_SCALE);
+            speedTimer = Math.max(speedTimer, ROADRUNNER_SANDSTORM_FRAMES + 45);
+            hoverRegenTimer = Math.max(hoverRegenTimer, ROADRUNNER_SANDSTORM_FRAMES);
+            hoverRegenMultiplier = Math.max(hoverRegenMultiplier, 1.12);
+            vx = dir * (grounded ? 24.0 : 18.0);
+            vy = grounded ? Math.min(vy, -7.5) : Math.min(vy - 3.2, -11.0);
+            game.addToKillFeed(shortName() + " ASCENDED IN A GODSTORM!");
+            game.shakeIntensity = Math.max(game.shakeIntensity, 28);
+            game.hitstopFrames = Math.max(game.hitstopFrames, 12);
+            game.triggerFlash(0.45, false);
+            unleashRoadrunnerSandGust(true);
+            return;
+        }
+
+        specialCooldown = 330;
+        specialMaxCooldown = 330;
+        speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * 1.35);
+        speedTimer = Math.max(speedTimer, 180);
+        vx = dir * (grounded ? 26.0 : 20.0);
+        vy = grounded ? Math.min(vy, -2.6) : Math.min(vy - 1.5, -5.0);
+        game.addToKillFeed(shortName() + " HIT DUST SPRINT!");
+        game.shakeIntensity = Math.max(game.shakeIntensity, 14);
+        game.hitstopFrames = Math.max(game.hitstopFrames, 8);
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
+            if (Math.abs(dy) > 95 + other.combatHalfHeight()) continue;
+            if (facingRight) {
+                if (dx < -60 || dx > 320 + other.combatHalfWidth()) continue;
+            } else if (dx > 60 || dx < -(320 + other.combatHalfWidth())) {
+                continue;
+            }
+
+            int dmg = 10 + random.nextInt(4);
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+
+            other.vx += dir * 16.0;
+            other.vy -= 6.0;
+        }
+
+        int particleCount = scaledParticleCount(70);
+        for (int i = 0; i < particleCount; i++) {
+            double spread = (Math.random() - 0.5) * 0.7;
+            double speed = 4 + Math.random() * 9;
+            Color c = Math.random() < 0.6 ? Color.web("#D9A04D") : Color.web("#E2BF7B");
+            game.particles.add(new Particle(
+                    bodyCenterX() - dir * (10 + Math.random() * 20),
+                    y + 64 + (Math.random() - 0.5) * 18,
+                    dir * (5 + Math.random() * 10),
+                    -2.2 + spread * speed,
+                    c.deriveColor(0, 1, 1, 0.82)
+            ));
+        }
+    }
+
+    private void handleRoadrunnerSandstorm() {
+        if (!roadrunnerSandstormActive()) {
+            return;
+        }
+
+        speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * ROADRUNNER_SANDSTORM_SPEED_SCALE);
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        double intensity = Math.clamp(roadrunnerSandstormTimer / (double) ROADRUNNER_SANDSTORM_FRAMES, 0.32, 1.0);
+        int particleCount = Math.max(3, scaledParticleCount(5));
+        for (int i = 0; i < particleCount; i++) {
+            double angle = random.nextDouble() * Math.PI * 2;
+            double ring = 20.0 + random.nextDouble() * (105.0 + intensity * 90.0);
+            double swirl = 2.6 + random.nextDouble() * 5.5 + intensity * 1.2;
+            Color sand = random.nextDouble() < 0.72 ? Color.web("#E8C06A") : Color.web("#C68A3A");
+            game.particles.add(new Particle(
+                    centerX + Math.cos(angle) * ring * 0.32,
+                    centerY + Math.sin(angle) * ring * 0.22,
+                    Math.cos(angle + Math.PI / 2.0) * swirl + vx * 0.12,
+                    Math.sin(angle + Math.PI / 2.0) * swirl - 1.2 - intensity,
+                    sand.deriveColor(0, 1, 1, 0.56 + intensity * 0.22)
+            ));
+        }
+
+        if (roadrunnerSandGustTimer <= 0) {
+            roadrunnerSandGustTimer = ROADRUNNER_GUST_INTERVAL;
+            unleashRoadrunnerSandGust(false);
+        }
+    }
+
+    private void unleashRoadrunnerSandGust(boolean openingBurst) {
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        double radius = openingBurst ? 440.0 : ROADRUNNER_SANDSTORM_GUST_RADIUS;
+        double forwardBias = facingRight ? 1.0 : -1.0;
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            double dist = Math.hypot(dx, dy);
+            double maxReach = radius + other.combatRadius();
+            if (dist > maxReach) continue;
+
+            double safeDist = Math.max(0.001, dist);
+            double proximity = 1.0 - Math.clamp(dist / maxReach, 0.0, 1.0);
+            double push = (openingBurst ? 14.0 : 7.0) + proximity * (openingBurst ? 14.0 : 9.0);
+            other.vx += dx / safeDist * push + forwardBias * (openingBurst ? 3.2 : 1.4);
+            other.vy -= (openingBurst ? 4.5 : 2.0) + proximity * (openingBurst ? 6.0 : 4.0);
+
+            boolean canHit = openingBurst || roadrunnerSandHitCooldown[other.playerIndex] <= 0;
+            if (!canHit) {
+                continue;
+            }
+
+            int dmg;
+            if (openingBurst) {
+                dmg = dist < 170.0 ? 12 : (dist < 300.0 ? 8 : 5);
+            } else {
+                dmg = dist < 170.0 ? 5 : 3;
+            }
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) {
+                continue;
+            }
+
+            roadrunnerSandHitCooldown[other.playerIndex] = ROADRUNNER_GUST_HIT_COOLDOWN;
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+        }
+
+        int particleCount = scaledParticleCount(openingBurst ? 180 : 72);
+        for (int i = 0; i < particleCount; i++) {
+            double angle = random.nextDouble() * Math.PI * 2;
+            double ring = 36.0 + random.nextDouble() * radius;
+            double tangential = (3.5 + random.nextDouble() * 8.0) * (facingRight ? 1.0 : -1.0);
+            Color sand = random.nextDouble() < 0.72 ? Color.web("#E6C46F") : Color.web("#BA7B31");
+            game.particles.add(new Particle(
+                    centerX + Math.cos(angle) * ring * 0.24,
+                    centerY + Math.sin(angle) * ring * 0.16,
+                    Math.cos(angle) * (openingBurst ? 8.5 : 5.2) + tangential * 0.55,
+                    Math.sin(angle) * (openingBurst ? 6.0 : 3.4) - (openingBurst ? 2.8 : 1.6),
+                    sand.deriveColor(0, 1, 1, openingBurst ? 0.84 : 0.72)
+            ));
+        }
     }
 
     private void specialPenguin(boolean ultimate) {
@@ -1761,7 +1940,7 @@ public class Bird {
                 }
             }
 
-            if (!onGround && type.flyUpForce > 0) {
+            if (!onGround && currentFlyUpForce() > 0) {
                 Platform mainStage = findAIMainStagePlatform();
                 boolean recoverAltitude = y > BirdGame3.GROUND_Y - 120;
                 boolean maintainVsTarget = target.y < y + 180 && !isAIAboveCruiseCeiling(target, mainStage);
@@ -2006,7 +2185,7 @@ public class Bird {
         if (candidate.playerIndex == 0) score += 15.0;
         if (candidate.attackAnimationTimer > 3 && dist < 260.0) score += 12.0;
         score += Math.max(0.0, 55.0 - candidate.health) * 0.42;
-        score -= Math.abs(candidate.y - y) * (type.flyUpForce > 0.0 ? 0.025 : 0.055);
+        score -= Math.abs(candidate.y - y) * (currentFlyUpForce() > 0.0 ? 0.025 : 0.055);
         score -= aiTargetVoidPenalty(candidate);
         if (candidate == lockedTarget) {
             score += 18.0 + Math.min(22.0, aiTargetLockFrames * 0.45);
@@ -2174,7 +2353,7 @@ public class Bird {
         double dist = Math.hypot(dx, dy);
         double maxDist = health < 25 ? 650 : 480;
         if (dist > maxDist) return false;
-        double maxVertical = (type.flyUpForce > 0 || !isOnGround()) ? 520 : 320;
+        double maxVertical = (currentFlyUpForce() > 0 || !isOnGround()) ? 520 : 320;
         if (Math.abs(dy) > maxVertical) return false;
         if (isVoidMap()) {
             double desiredGoalX = rawPowerUpGoalX(p);
@@ -2227,7 +2406,7 @@ public class Bird {
     }
 
     private boolean aiCanUseAirRecovery() {
-        return !(type.flyUpForce > 0.0) && (type != BirdGame3.BirdType.PIGEON || !canDoubleJump);
+        return !(currentFlyUpForce() > 0.0) && (type != BirdGame3.BirdType.PIGEON || !canDoubleJump);
     }
 
     private double topCameraOverflow() {
@@ -2240,12 +2419,13 @@ public class Bird {
         return switch (type) {
             case HUMMINGBIRD -> ceiling - 140.0;
             case EAGLE, FALCON, PHOENIX, BAT -> ceiling - 60.0;
+            case ROADRUNNER -> roadrunnerSandstormActive() ? ceiling - 40.0 : ceiling;
             default -> ceiling;
         };
     }
 
     private boolean isAIAboveCruiseCeiling(Bird target, Platform mainStage) {
-        if (target == null || type.flyUpForce <= 0.0) return false;
+        if (target == null || currentFlyUpForce() <= 0.0) return false;
         if (y >= aiCruiseCeilingY(mainStage)) return false;
         return target.y > y - 180.0;
     }
@@ -2273,6 +2453,9 @@ public class Bird {
                 allowance = 55.0 + fuelRatio * 55.0 + altitude * 0.05;
             }
             case PENGUIN -> allowance = specialCooldown <= 0 ? 105.0 + altitude * 0.08 : 10.0;
+            case ROADRUNNER -> allowance = roadrunnerSandstormActive()
+                    ? 170.0 + altitude * 0.12 + Math.max(0.0, -vy) * 6.0
+                    : 50.0 + altitude * 0.04 + Math.max(0.0, -vy) * 2.4;
             case SHOEBILL, MOCKINGBIRD, RAZORBILL -> allowance = 95.0 + altitude * 0.07 + Math.max(0.0, -vy) * 4.0;
         }
         return Math.clamp(allowance, 0.0, Math.max(120.0, mainStage.w * 0.42));
@@ -2298,6 +2481,9 @@ public class Bird {
                 allowance = 110.0 + fuelRatio * 70.0;
             }
             case PENGUIN -> allowance = specialCooldown <= 0 ? 180.0 + altitude * 0.08 : 70.0;
+            case ROADRUNNER -> allowance = roadrunnerSandstormActive()
+                    ? 190.0 + Math.max(0.0, altitude - 30.0) * 0.10
+                    : 88.0 + Math.max(0.0, altitude - 30.0) * 0.04;
             default -> {
             }
         }
@@ -2565,8 +2751,9 @@ public class Bird {
 
     private double aiPlatformRiseReach() {
         double reach = type.jumpHeight * 17.5;
-        if (type.flyUpForce > 0.0) {
-            reach += 90.0 + type.flyUpForce * 190.0;
+        double flyLift = currentFlyUpForce();
+        if (flyLift > 0.0) {
+            reach += 90.0 + flyLift * 190.0;
         }
         switch (type) {
             case PIGEON -> {
@@ -2592,7 +2779,7 @@ public class Bird {
 
     private double aiPlatformHorizontalReach(double rise) {
         double reach = 155.0 + type.speed * 82.0;
-        if (type.flyUpForce > 0.0) {
+        if (currentFlyUpForce() > 0.0) {
             reach += 60.0;
         }
         switch (type) {
@@ -2615,6 +2802,7 @@ public class Bird {
     private double getAIIdealRange() {
         return switch (type) {
             case TURKEY, PELICAN, GRINCHHAWK -> 165;
+            case ROADRUNNER -> 182;
             case RAZORBILL, SHOEBILL -> 188;
             case EAGLE, VULTURE, PENGUIN, PHOENIX -> 208;
             case FALCON -> 202;
@@ -2674,6 +2862,10 @@ public class Bird {
                 return (onGround && dist > 110 && dist < 360 && Math.abs(dy) < 120)
                         || (dy < -140 && dist < 520)
                         || (!onGround && isVoidMap() && dist < 420 && dy < 140);
+            case ROADRUNNER:
+                return (onGround && dist < 330 && Math.abs(dy) < 130)
+                        || (lowHealth && dist < 260)
+                        || (onGround && target.health > health + 12 && dist < 380);
             case SHOEBILL:
                 return dist < 240 || (dist < 420 && random.nextDouble() < 0.2);
             case MOCKINGBIRD:
@@ -2714,6 +2906,105 @@ public class Bird {
                 || type == BirdGame3.BirdType.GRINCHHAWK
                 || type == BirdGame3.BirdType.PELICAN
                 || type == BirdGame3.BirdType.ROOSTER;
+    }
+
+    private boolean roadrunnerSandstormActive() {
+        return type == BirdGame3.BirdType.ROADRUNNER && roadrunnerSandstormTimer > 0;
+    }
+
+    private double currentFlyUpForce() {
+        return roadrunnerSandstormActive() ? ROADRUNNER_SANDSTORM_FLY_LIFT : type.flyUpForce;
+    }
+
+    private boolean photoEagleSkinActive() {
+        return type == BirdGame3.BirdType.EAGLE && isPhotoEagleSkin;
+    }
+
+    private static Image loadPhotoEagleImage(String resourcePath) {
+        try {
+            var url = Bird.class.getResource(resourcePath);
+            if (url == null) {
+                return null;
+            }
+            Image image = new Image(url.toExternalForm(), false);
+            return image.isError() ? null : image;
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private static Image photoEagleIdleImage() {
+        if (photoEagleIdleSprite == null) {
+            photoEagleIdleSprite = loadPhotoEagleImage("/eagle.png");
+        }
+        return photoEagleIdleSprite;
+    }
+
+    private static Image photoEagleAttackImage() {
+        if (photoEagleAttackSprite == null) {
+            photoEagleAttackSprite = loadPhotoEagleImage("/eagle_attack.png");
+        }
+        return photoEagleAttackSprite;
+    }
+
+    private static Image photoEagleFlapImage() {
+        if (photoEagleFlapSprite == null) {
+            photoEagleFlapSprite = loadPhotoEagleImage("/eagle_flap.png");
+        }
+        return photoEagleFlapSprite;
+    }
+
+    private Image currentPhotoEagleSprite() {
+        if (!photoEagleSkinActive()) {
+            return null;
+        }
+        if (attackAnimationTimer > 0) {
+            Image attack = photoEagleAttackImage();
+            if (attack != null) {
+                return attack;
+            }
+        }
+        if (!isOnGround() || diveTimer > 0 || eagleDiveActive || eagleAscentActive) {
+            Image flap = photoEagleFlapImage();
+            if (flap != null) {
+                return flap;
+            }
+        }
+        Image idle = photoEagleIdleImage();
+        return idle != null ? idle : photoEagleAttackImage();
+    }
+
+    private boolean drawPhotoEagleSprite(GraphicsContext g, double drawSize) {
+        Image sprite = currentPhotoEagleSprite();
+        if (sprite == null) {
+            return false;
+        }
+
+        double maxWidth = drawSize * 1.9;
+        double maxHeight = drawSize * 1.65;
+        double aspect = sprite.getWidth() > 0 && sprite.getHeight() > 0
+                ? sprite.getWidth() / sprite.getHeight()
+                : 1.0;
+        double renderWidth = maxWidth;
+        double renderHeight = renderWidth / aspect;
+        if (renderHeight > maxHeight) {
+            renderHeight = maxHeight;
+            renderWidth = renderHeight * aspect;
+        }
+
+        double renderX = x + drawSize / 2.0 - renderWidth / 2.0;
+        double renderY = y + drawSize / 2.0 - renderHeight / 2.0 + 4 * sizeMultiplier;
+
+        g.save();
+        if (!facingRight) {
+            g.translate(renderX + renderWidth, renderY);
+            g.scale(-1, 1);
+            g.drawImage(sprite, 0, 0, renderWidth, renderHeight);
+        } else {
+            g.drawImage(sprite, renderX, renderY, renderWidth, renderHeight);
+        }
+        g.restore();
+        return true;
     }
 
     public void update(double gameSpeed) {
@@ -2798,6 +3089,7 @@ public class Bird {
 
         // === FLY/GLIDE ===
         if (!stunned && jumpPressed() && airborne && !inDockWater) {
+            double flyLift = currentFlyUpForce();
             boolean limitedFlight = hasLimitedFlight();
             boolean thermalActive = thermalTimer > 0;
             double speedRatio = baseSpeedMultiplier > 0 ? speedMultiplier / baseSpeedMultiplier : 1.0;
@@ -2805,9 +3097,9 @@ public class Bird {
             double topOverflow = topCameraOverflow();
             boolean aboveCameraReach = topOverflow > 0.0;
             // Thermal Rise should always remain effective even if limited-flight fuel is drained.
-            if (!limitedFlight || limitedFlightFuel > 0 || thermalActive) {
+            if ((!limitedFlight || limitedFlightFuel > 0 || thermalActive) && (flyLift > 0.0 || thermalLift > 0.0)) {
                 if (!aboveCameraReach) {
-                    vy -= (type.flyUpForce + thermalLift) * hoverRegenMultiplier * flightLiftScale;
+                    vy -= (flyLift + thermalLift) * hoverRegenMultiplier * flightLiftScale;
                 } else {
                     vy += (0.65 + Math.min(4.8, topOverflow * 0.045)) * gameSpeed;
                 }
@@ -2874,6 +3166,8 @@ public class Bird {
         applyPenguinDashDamage();
         handleHummingbirdFrenzy();
         handlePhoenixAfterburn();
+        emitRoadrunnerDust();
+        handleRoadrunnerSandstorm();
 
         // Penguin ice-trail after jump dash.
         if (penguinIceFxTimer > 0) {
@@ -2956,6 +3250,8 @@ public class Bird {
         grappleTimer = Math.max(0, (int)(grappleTimer - gameSpeed));
         overchargeAttackTimer = Math.max(0, (int)(overchargeAttackTimer - gameSpeed));
         ultimateFxTimer = Math.max(0, (int)(ultimateFxTimer - gameSpeed));
+        roadrunnerSandstormTimer = Math.max(0, (int)(roadrunnerSandstormTimer - gameSpeed));
+        roadrunnerSandGustTimer = Math.max(0, (int)(roadrunnerSandGustTimer - gameSpeed));
         speedBoostTimer = Math.max(0, (int)(speedBoostTimer - gameSpeed));
         hoverRegenTimer = Math.max(0, (int)(hoverRegenTimer - gameSpeed));
         penguinIceFxTimer = Math.max(0, penguinIceFxTimer - gameSpeed);
@@ -2967,6 +3263,9 @@ public class Bird {
         phoenixAfterburnTimer = Math.max(0, (int)(phoenixAfterburnTimer - gameSpeed));
         for (int i = 0; i < phoenixAfterburnHitCooldown.length; i++) {
             phoenixAfterburnHitCooldown[i] = Math.max(0, (int)(phoenixAfterburnHitCooldown[i] - gameSpeed));
+        }
+        for (int i = 0; i < roadrunnerSandHitCooldown.length; i++) {
+            roadrunnerSandHitCooldown[i] = Math.max(0, (int)(roadrunnerSandHitCooldown[i] - gameSpeed));
         }
         nullRockInvincibilityTimer = Math.max(0, (int) (nullRockInvincibilityTimer - gameSpeed));
         nullRockShieldFxCooldown = Math.max(0, (int) (nullRockShieldFxCooldown - gameSpeed));
@@ -3145,6 +3444,9 @@ public class Bird {
         }
         if (speedTimer == 0 && speedBoostTimer <= 0) {
             speedMultiplier = baseSpeedMultiplier;
+        }
+        if (roadrunnerSandstormActive()) {
+            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * ROADRUNNER_SANDSTORM_SPEED_SCALE);
         }
         if (rageTimer <= 0) {
             powerMultiplier = basePowerMultiplier;
@@ -3411,6 +3713,18 @@ public class Bird {
                 accel *= Math.clamp(1.0 + (speedRatio - 1.0) * 0.85, 0.85, 1.55);
             } else {
                 accel *= Math.clamp(1.0 + (speedRatio - 1.0) * 0.65, 0.9, 1.45);
+            }
+            if (type == BirdGame3.BirdType.ROADRUNNER) {
+                boolean sandstorm = roadrunnerSandstormActive();
+                if (airborne) {
+                    moveSpeed *= sandstorm ? 1.18 : 0.88;
+                    airFric = sandstorm ? 0.94 : 0.91;
+                    accel = sandstorm ? 0.26 : 0.17;
+                } else {
+                    moveSpeed *= sandstorm ? 1.46 : 1.32;
+                    airFric = sandstorm ? 0.74 : 0.70;
+                    accel = sandstorm ? 0.72 : 0.62;
+                }
             }
             if (type == BirdGame3.BirdType.BAT) {
                 moveSpeed *= airborne ? 1.48 : 0.62;
@@ -3687,6 +4001,10 @@ public class Bird {
         canDoubleJump = true;
         speedTimer = 0;
         hoverRegenTimer = 0;
+        hoverRegenMultiplier = 1.0;
+        roadrunnerSandstormTimer = 0;
+        roadrunnerSandGustTimer = 0;
+        Arrays.fill(roadrunnerSandHitCooldown, 0);
         shrinkTimer = 0;
         speedMultiplier = baseSpeedMultiplier;
         powerMultiplier = basePowerMultiplier;
@@ -4038,6 +4356,21 @@ public class Bird {
             other.vx += dx / safeDist * 3.6;
             other.vy -= 2.6;
             phoenixAfterburnHitCooldown[other.playerIndex] = 12;
+        }
+    }
+
+    private void emitRoadrunnerDust() {
+        if (type != BirdGame3.BirdType.ROADRUNNER || !isOnGround() || Math.abs(vx) < 6.4) return;
+        for (int i = 0; i < 2; i++) {
+            double dir = Math.signum(vx == 0 ? (facingRight ? 1 : -1) : vx);
+            Color c = Math.random() < 0.6 ? Color.web("#D9A04D") : Color.web("#E2C388");
+            game.particles.add(new Particle(
+                    x + 34 - dir * (12 + Math.random() * 18),
+                    y + 74 + (Math.random() - 0.5) * 10,
+                    -dir * (1.2 + Math.random() * 2.0),
+                    -1.8 - Math.random() * 1.6,
+                    c.deriveColor(0, 1, 1, 0.64)
+            ));
         }
     }
 
@@ -4781,11 +5114,15 @@ public class Bird {
         leanTimer = 0;
         highTimer = 0;
         isHigh = false;
+        hoverRegenMultiplier = 1.0;
         batEchoTimer = 0;
         batHanging = false;
         batHangPlatform = null;
         batHangLockTimer = 0;
         batRehangCooldownTimer = 0;
+        roadrunnerSandstormTimer = 0;
+        roadrunnerSandGustTimer = 0;
+        Arrays.fill(roadrunnerSandHitCooldown, 0);
         attachedVine = null;
         onVine = false;
         vineRideFrames = 0;
@@ -4843,6 +5180,7 @@ public class Bird {
         state.isResonanceSkin = isResonanceSkin;
         state.isIroncladSkin = isIroncladSkin;
         state.isSunforgeSkin = isSunforgeSkin;
+        state.isPhotoEagleSkin = isPhotoEagleSkin;
         state.suppressSelectEffects = suppressSelectEffects;
         state.loungeX = loungeX;
         state.loungeY = loungeY;
@@ -4893,6 +5231,9 @@ public class Bird {
         state.thermalTimer = thermalTimer;
         state.thermalLift = thermalLift;
         state.overchargeAttackTimer = overchargeAttackTimer;
+        state.roadrunnerSandstormTimer = roadrunnerSandstormTimer;
+        state.roadrunnerSandGustTimer = roadrunnerSandGustTimer;
+        System.arraycopy(roadrunnerSandHitCooldown, 0, state.roadrunnerSandHitCooldown, 0, roadrunnerSandHitCooldown.length);
         state.speedBoostTimer = speedBoostTimer;
         state.hoverRegenTimer = hoverRegenTimer;
         state.hoverRegenMultiplier = hoverRegenMultiplier;
@@ -4957,6 +5298,7 @@ public class Bird {
         this.isResonanceSkin = state.isResonanceSkin;
         this.isIroncladSkin = state.isIroncladSkin;
         this.isSunforgeSkin = state.isSunforgeSkin;
+        this.isPhotoEagleSkin = state.isPhotoEagleSkin;
         this.suppressSelectEffects = state.suppressSelectEffects;
         this.loungeX = state.loungeX;
         this.loungeY = state.loungeY;
@@ -5007,6 +5349,20 @@ public class Bird {
         this.thermalTimer = state.thermalTimer;
         this.thermalLift = state.thermalLift;
         this.overchargeAttackTimer = state.overchargeAttackTimer;
+        this.roadrunnerSandstormTimer = state.roadrunnerSandstormTimer;
+        this.roadrunnerSandGustTimer = state.roadrunnerSandGustTimer;
+        Arrays.fill(this.roadrunnerSandHitCooldown, 0);
+        if (state.roadrunnerSandHitCooldown != null) {
+            System.arraycopy(
+                    state.roadrunnerSandHitCooldown,
+                    0,
+                    this.roadrunnerSandHitCooldown,
+                    0,
+                    Math.min(this.roadrunnerSandHitCooldown.length, state.roadrunnerSandHitCooldown.length)
+            );
+        } else {
+            Arrays.fill(this.roadrunnerSandHitCooldown, 0);
+        }
         this.speedBoostTimer = state.speedBoostTimer;
         this.hoverRegenTimer = state.hoverRegenTimer;
         this.hoverRegenMultiplier = state.hoverRegenMultiplier;
@@ -5045,6 +5401,7 @@ public class Bird {
         }
         drawNeonBuff(g, drawSize);
         drawUltimateFx(g, drawSize);
+        drawRoadrunnerSandstormAura(g, drawSize);
         drawBatEcho(g, drawSize);
         if (!suppressSelectEffects) {
             drawOpiumBirdEffects(g, drawSize);
@@ -5475,6 +5832,20 @@ public class Bird {
                 g.setLineWidth(2.0);
                 g.strokeOval(cx - 70 * s, y + drawSize + 4 * s, 140 * s, 18 * s);
             }
+            case ROADRUNNER -> {
+                Color sand = Color.web("#F0C06A").deriveColor(0, 1, 1, 0.75);
+                g.setFill(sand.deriveColor(0, 1, 1, 0.18));
+                g.fillOval(cx - 72 * s, cy - 32 * s, 144 * s, 64 * s);
+                g.setStroke(sand);
+                g.setLineWidth(3.0);
+                g.strokeArc(cx - 88 * s, cy - 42 * s, 176 * s, 92 * s, 196, 148, ArcType.OPEN);
+                g.strokeArc(cx - 94 * s, cy - 28 * s, 188 * s, 70 * s, 14, 158, ArcType.OPEN);
+                int dir = facingRight ? 1 : -1;
+                g.setStroke(Color.web("#2E5AAC").deriveColor(0, 1, 1, 0.82));
+                g.setLineWidth(2.4);
+                g.strokeLine(cx - dir * 4 * s, y - 6 * s, cx - dir * 20 * s, y - 28 * s);
+                g.strokeLine(cx + dir * 6 * s, y - 2 * s, cx - dir * 10 * s, y - 24 * s);
+            }
             case ROOSTER -> {
                 g.setStroke(gold.brighter());
                 g.setLineWidth(2.8);
@@ -5579,6 +5950,49 @@ public class Bird {
                 g.setLineWidth(2.2);
                 g.strokeArc(cx - 45 * s, cy - 35 * s, 90 * s, 70 * s, 200, 140, ArcType.OPEN);
             }
+        }
+    }
+
+    private void drawRoadrunnerSandstormAura(GraphicsContext g, double drawSize) {
+        if (!roadrunnerSandstormActive()) return;
+
+        double s = sizeMultiplier;
+        double cx = bodyCenterX();
+        double cy = bodyCenterY();
+        double intensity = Math.clamp(roadrunnerSandstormTimer / (double) ROADRUNNER_SANDSTORM_FRAMES, 0.35, 1.0);
+        double pulse = 0.55 + 0.45 * Math.sin(roadrunnerSandstormTimer * 0.18);
+        double halo = drawSize + 120 * s + pulse * 54 * s;
+        double haloOffset = halo / 2.0;
+        Color gold = Color.GOLD.deriveColor(0, 1, 1, 0.24 + 0.14 * intensity);
+        Color sand = Color.web("#E6C46F").deriveColor(0, 1, 1, 0.50 + 0.18 * intensity);
+        Color white = Color.web("#FFF8E1").deriveColor(0, 1, 1, 0.24 + 0.12 * pulse);
+
+        g.setFill(gold);
+        g.fillOval(cx - haloOffset, cy - haloOffset, halo, halo);
+        g.setFill(white);
+        g.fillOval(cx - haloOffset * 0.82, cy - haloOffset * 0.82, halo * 0.82, halo * 0.82);
+
+        g.setStroke(Color.GOLD.brighter().deriveColor(0, 1, 1, 0.82));
+        g.setLineWidth(3.2);
+        g.strokeOval(cx - haloOffset, cy - haloOffset, halo, halo);
+
+        g.setStroke(sand);
+        g.setLineWidth(2.6);
+        g.strokeArc(cx - 118 * s, cy - 82 * s, 236 * s, 164 * s, 200, 145, ArcType.OPEN);
+        g.strokeArc(cx - 128 * s, cy - 60 * s, 256 * s, 122 * s, 12, 156, ArcType.OPEN);
+
+        g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.88));
+        g.setLineWidth(2.0);
+        for (int i = 0; i < 8; i++) {
+            double ang = -Math.PI / 2.0 + (i - 3.5) * 0.22;
+            double inner = 34 * s;
+            double outer = inner + 36 * s + (i % 2 == 0 ? 12 * s : 0);
+            g.strokeLine(
+                    cx + Math.cos(ang) * inner,
+                    cy - 16 * s + Math.sin(ang) * inner,
+                    cx + Math.cos(ang) * outer,
+                    cy - 16 * s + Math.sin(ang) * outer
+            );
         }
     }
 
@@ -6085,6 +6499,9 @@ public class Bird {
             drawPhoenixBody(g, drawSize);
             return;
         }
+        if (drawPhotoEagleSprite(g, drawSize)) {
+            return;
+        }
 
         boolean noirPigeon = (type == BirdGame3.BirdType.PIGEON && isNoirSkin);
         boolean beaconPigeon = (type == BirdGame3.BirdType.PIGEON && isBeaconSkin);
@@ -6170,6 +6587,10 @@ public class Bird {
             bodyColor = Color.web("#8D6E63");
             headColor = Color.web("#BCAAA4");
             eyeOverride = Color.web("#FFF3E0");
+        } else if (type == BirdGame3.BirdType.ROADRUNNER && !classicPalette) {
+            bodyColor = Color.web("#B87333");
+            headColor = Color.web("#CC8C46");
+            eyeOverride = Color.web("#4E342E");
         } else if (classicPalette) {
             bodyColor = game.classicSkinPrimaryColor(type);
             headColor = game.classicSkinPrimaryColor(type).brighter();
@@ -6201,6 +6622,38 @@ public class Bird {
             g.fillPolygon(
                     new double[]{crestBaseX + 20 * s, crestBaseX + 26 * s, crestBaseX + 32 * s},
                     new double[]{y + 20 * s, y + 4 * s, y + 20 * s},
+                    3
+            );
+        }
+        if (type == BirdGame3.BirdType.ROADRUNNER) {
+            double s = sizeMultiplier;
+            int tailDir = facingRight ? -1 : 1;
+            double headX = facingRight ? x + 50 * s : x - 20 * s;
+            double crestBaseX = facingRight ? headX + 18 * s : headX + 32 * s;
+            Color plume = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#2E5AAC");
+            g.setFill(plume);
+            g.fillPolygon(
+                    new double[]{crestBaseX, crestBaseX + tailDir * 14 * s, crestBaseX + tailDir * 4 * s},
+                    new double[]{y + 20 * s, y - 2 * s, y + 18 * s},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{crestBaseX + 8 * s, crestBaseX + tailDir * 8 * s, crestBaseX + 12 * s},
+                    new double[]{y + 22 * s, y + 2 * s, y + 19 * s},
+                    3
+            );
+            g.setFill(Color.web("#E8D2A6").deriveColor(0, 1, 1, 0.75));
+            g.fillOval(x + 20 * s, y + 36 * s, 42 * s, 24 * s);
+            double tailBaseX = facingRight ? x + 12 * s : x + 68 * s;
+            g.setFill(plume.deriveColor(0, 1, 0.95, 0.95));
+            g.fillPolygon(
+                    new double[]{tailBaseX, tailBaseX + tailDir * 24 * s, tailBaseX + tailDir * 8 * s},
+                    new double[]{y + 48 * s, y + 42 * s, y + 64 * s},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{tailBaseX + 5 * s, tailBaseX + tailDir * 16 * s, tailBaseX + tailDir * 2 * s},
+                    new double[]{y + 44 * s, y + 28 * s, y + 60 * s},
                     3
             );
         }
@@ -6642,6 +7095,9 @@ public class Bird {
     }
 
     private void drawBeak(GraphicsContext g) {
+        if (photoEagleSkinActive()) {
+            return;
+        }
         if (type == BirdGame3.BirdType.BAT) {
             double mouthX = x + 33 * sizeMultiplier;
             double mouthY = y + 28 * sizeMultiplier;
@@ -6704,7 +7160,8 @@ public class Bird {
         boolean isAttacking = attackAnimationTimer > 0;
         double openAmount = isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) * sizeMultiplier : 3 * sizeMultiplier;
         double beakBaseY = y + 45 * sizeMultiplier;
-        double beakLength = (type == BirdGame3.BirdType.FALCON ? 34 : 28) * sizeMultiplier;
+        double beakLength = (type == BirdGame3.BirdType.FALCON ? 34
+                : type == BirdGame3.BirdType.ROADRUNNER ? 42 : 28) * sizeMultiplier;
 
         g.setFill(isAttacking ? Color.ORANGERED : Color.ORANGE);
 

@@ -12,6 +12,7 @@ final class BirdCoinLedger {
     private int balance = 0;
     private int earned = 0;
     private int spent = 0;
+    private boolean infiniteBalance = false;
 
     BirdCoinLedger(long checksumSalt, String balanceKey, String earnedKey, String spentKey, String checksumKey) {
         this.checksumSalt = checksumSalt;
@@ -23,6 +24,14 @@ final class BirdCoinLedger {
 
     int balance() {
         return balance;
+    }
+
+    boolean hasInfiniteBalance() {
+        return infiniteBalance;
+    }
+
+    void setInfiniteBalance(boolean infiniteBalance) {
+        this.infiniteBalance = infiniteBalance;
     }
 
     void load(Preferences prefs) {
@@ -82,6 +91,10 @@ final class BirdCoinLedger {
 
     boolean spend(int amount) {
         int safeAmount = Math.max(0, amount);
+        if (infiniteBalance) {
+            synchronize();
+            return true;
+        }
         int availableCoins = computeBalanceFromLedger();
         if (safeAmount > availableCoins) {
             balance = availableCoins;

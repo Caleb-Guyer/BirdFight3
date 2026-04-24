@@ -70,4 +70,15 @@ class BirdCoinLedgerTest {
         assertTrue(ledger.spend(15));
         assertEquals(25, ledger.balance());
     }
+
+    @Test
+    void infiniteBalanceAllowsSpendingWithoutReducingStoredBalance() {
+        BirdCoinLedger ledger = new BirdCoinLedger(TEST_SALT, "balance", "earned", "spent", "checksum");
+        ledger.grant(40);
+        ledger.setInfiniteBalance(true);
+
+        assertTrue(ledger.hasInfiniteBalance());
+        assertTrue(ledger.spend(500));
+        assertEquals(40, ledger.balance());
+    }
 }

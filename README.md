@@ -25,19 +25,6 @@ If IntelliJ installed a JDK for you, a usable path may be under `C:\Users\<you>\
 .\mvnw javafx:run
 ```
 
-## Online Relay Server
-
-Online play now uses a relay server so hosts and guests can connect from different networks without direct LAN visibility.
-
-Run a relay locally for testing:
-
-```powershell
-.\mvnw -q -DskipTests compile
-java -cp target\classes com.example.birdgame3.OnlineRelayServer
-```
-
-To make internet play available to other people, run that relay process on a public machine and point the in-game `HOST ONLINE` / `JOIN ONLINE` screens at that server's hostname or IP.
-
 ## Test
 
 ```powershell

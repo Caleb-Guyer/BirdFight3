@@ -4,7 +4,6 @@ import java.util.prefs.Preferences;
 
 final class BirdGame3GlobalSettingsState {
     private static final String KEY_LAN_LAST_HOST = "lan_last_host";
-    private static final String KEY_ONLINE_RELAY_HOST = "online_relay_host";
     private static final String KEY_MUSIC_ENABLED = "setting_music";
     private static final String KEY_SFX_ENABLED = "setting_sfx";
     private static final String KEY_MUSIC_VOLUME = "setting_music_volume";
@@ -19,7 +18,6 @@ final class BirdGame3GlobalSettingsState {
     String[][] controlBindingNames = new String[0][];
     String[] wiimoteModeNames = new String[0];
     String lanLastHost = "";
-    String onlineRelayHost = OnlineRelayProtocol.DEFAULT_HOST;
     boolean musicEnabled = true;
     boolean sfxEnabled = true;
     double musicVolume = 1.0;
@@ -53,7 +51,6 @@ final class BirdGame3GlobalSettingsState {
         }
 
         state.lanLastHost = prefs.get(KEY_LAN_LAST_HOST, "");
-        state.onlineRelayHost = prefs.get(KEY_ONLINE_RELAY_HOST, OnlineRelayProtocol.DEFAULT_HOST);
         state.musicEnabled = prefs.getBoolean(KEY_MUSIC_ENABLED, true);
         state.sfxEnabled = prefs.getBoolean(KEY_SFX_ENABLED, true);
         state.musicVolume = sanitizeVolume(prefs.getDouble(KEY_MUSIC_VOLUME, state.musicEnabled ? 1.0 : 0.0));
@@ -95,9 +92,6 @@ final class BirdGame3GlobalSettingsState {
         }
 
         prefs.put(KEY_LAN_LAST_HOST, nullToEmpty(lanLastHost));
-        prefs.put(KEY_ONLINE_RELAY_HOST, nullToEmpty(onlineRelayHost).isBlank()
-                ? OnlineRelayProtocol.DEFAULT_HOST
-                : onlineRelayHost.trim());
         prefs.putBoolean(KEY_MUSIC_ENABLED, musicEnabled);
         prefs.putBoolean(KEY_SFX_ENABLED, sfxEnabled);
         prefs.putDouble(KEY_MUSIC_VOLUME, sanitizeVolume(musicVolume));

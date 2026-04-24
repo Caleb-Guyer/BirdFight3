@@ -206,6 +206,142 @@ class BirdGame3BossBalanceTest {
     }
 
     @Test
+    void dynamicCameraHandlesWorldShorterThanZoomedView() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird left = new Bird(0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird right = new Bird(BirdGame3.WORLD_WIDTH - 80, BirdGame3.BirdType.EAGLE, 1, game);
+        left.y = BirdGame3.GROUND_Y - 80;
+        right.y = BirdGame3.GROUND_Y - 80;
+        game.players[0] = left;
+        game.players[1] = right;
+
+        setPrivateDouble(game, "zoom", BirdGame3.MIN_ZOOM);
+        setPrivateDouble(game, "trackedCamMinX", left.x);
+        setPrivateDouble(game, "trackedCamMaxX", right.x + 80);
+        setPrivateDouble(game, "trackedCamMinY", left.y);
+        setPrivateDouble(game, "trackedCamMaxY", right.y + 80);
+
+        Method updateDynamicCamera = BirdGame3.class.getDeclaredMethod("updateDynamicCamera");
+        updateDynamicCamera.setAccessible(true);
+        assertDoesNotThrow(() -> updateDynamicCamera.invoke(game));
+
+        assertEquals(0.0, getPrivateDouble(game, "camY"), 0.0001);
+        assertTrue(Double.isFinite(getPrivateDouble(game, "camX")));
+    }
+
+    @Test
+    void dynamicCameraCanZoomOutPastLegacyMinimumForFullMapSeparation() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird left = new Bird(0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird right = new Bird(BirdGame3.WORLD_WIDTH - 80, BirdGame3.BirdType.EAGLE, 1, game);
+        left.y = BirdGame3.GROUND_Y - 80;
+        right.y = BirdGame3.GROUND_Y - 80;
+        game.players[0] = left;
+        game.players[1] = right;
+
+        setPrivateDouble(game, "zoom", BirdGame3.MIN_ZOOM);
+        setPrivateDouble(game, "trackedCamMinX", left.x);
+        setPrivateDouble(game, "trackedCamMaxX", right.x + 80);
+        setPrivateDouble(game, "trackedCamMinY", left.y);
+        setPrivateDouble(game, "trackedCamMaxY", right.y + 80);
+
+        Method updateDynamicCamera = BirdGame3.class.getDeclaredMethod("updateDynamicCamera");
+        updateDynamicCamera.setAccessible(true);
+        updateDynamicCamera.invoke(game);
+
+        double zoomAfterUpdate = getPrivateDouble(game, "zoom");
+        assertTrue(zoomAfterUpdate < BirdGame3.MIN_ZOOM);
+        assertTrue(zoomAfterUpdate >= BirdGame3.WIDTH / BirdGame3.WORLD_WIDTH);
+    }
+
+    @Test
+    void dynamicCameraLeadsFastMoverHorizontally() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird runner = new Bird(2500, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        runner.y = BirdGame3.GROUND_Y - 80;
+        runner.vx = 38.0;
+        game.players[0] = runner;
+
+        double initialZoom = 0.9;
+        double initialCamX = Math.clamp(
+                (runner.x + 40.0) - BirdGame3.WIDTH / (2.0 * initialZoom),
+                0.0,
+                BirdGame3.WORLD_WIDTH - BirdGame3.WIDTH / initialZoom
+        );
+        setPrivateDouble(game, "zoom", initialZoom);
+        setPrivateDouble(game, "camX", initialCamX);
+        setPrivateDouble(game, "trackedCamMinX", runner.x);
+        setPrivateDouble(game, "trackedCamMaxX", runner.x + 80.0);
+        setPrivateDouble(game, "trackedCamMinY", runner.y);
+        setPrivateDouble(game, "trackedCamMaxY", runner.y + 80.0);
+
+        Method updateDynamicCamera = BirdGame3.class.getDeclaredMethod("updateDynamicCamera");
+        updateDynamicCamera.setAccessible(true);
+        updateDynamicCamera.invoke(game);
+
+        assertTrue(getPrivateDouble(game, "camX") > initialCamX);
+    }
+
+    @Test
+    void dynamicCameraDoesNotSnapBackWhenFastMoverStops() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird runner = new Bird(2500, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        runner.y = BirdGame3.GROUND_Y - 80;
+        runner.vx = 38.0;
+        game.players[0] = runner;
+
+        double initialZoom = 0.9;
+        double initialCamX = Math.clamp(
+                (runner.x + 40.0) - BirdGame3.WIDTH / (2.0 * initialZoom),
+                0.0,
+                BirdGame3.WORLD_WIDTH - BirdGame3.WIDTH / initialZoom
+        );
+        setPrivateDouble(game, "zoom", initialZoom);
+        setPrivateDouble(game, "camX", initialCamX);
+        setPrivateDouble(game, "trackedCamMinX", runner.x);
+        setPrivateDouble(game, "trackedCamMaxX", runner.x + 80.0);
+        setPrivateDouble(game, "trackedCamMinY", runner.y);
+        setPrivateDouble(game, "trackedCamMaxY", runner.y + 80.0);
+
+        Method updateDynamicCamera = BirdGame3.class.getDeclaredMethod("updateDynamicCamera");
+        updateDynamicCamera.setAccessible(true);
+        updateDynamicCamera.invoke(game);
+
+        double afterSprintCamX = getPrivateDouble(game, "camX");
+        runner.vx = 0.0;
+        updateDynamicCamera.invoke(game);
+
+        double afterStopCamX = getPrivateDouble(game, "camX");
+        assertTrue(afterStopCamX >= afterSprintCamX - 0.25,
+                "Camera should coast instead of jerking backward when a fast mover stops.");
+    }
+
+    @Test
+    void spawnPlacementUsesDifferentSidesWithoutUsingMapEdges() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.selectedMap = BirdGame3.MapType.FOREST;
+        game.activePlayers = 2;
+        game.players[0] = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
+        game.players[1] = new Bird(120, BirdGame3.BirdType.EAGLE, 1, game);
+
+        Method positionBattlefieldSpawns = BirdGame3.class.getDeclaredMethod("positionBattlefieldSpawns");
+        positionBattlefieldSpawns.setAccessible(true);
+        positionBattlefieldSpawns.invoke(game);
+
+        double leftCenter = game.players[0].x + 40 * game.players[0].sizeMultiplier;
+        double rightCenter = game.players[1].x + 40 * game.players[1].sizeMultiplier;
+        double separation = Math.abs(rightCenter - leftCenter);
+        double centerX = BirdGame3.WORLD_WIDTH / 2.0;
+
+        assertTrue(leftCenter < centerX);
+        assertTrue(rightCenter > centerX);
+        assertTrue(leftCenter > BirdGame3.WORLD_WIDTH * 0.30);
+        assertTrue(rightCenter < BirdGame3.WORLD_WIDTH * 0.70);
+        assertTrue(separation > BirdGame3.WORLD_WIDTH * 0.18);
+        assertTrue(separation < BirdGame3.WORLD_WIDTH * 0.35);
+    }
+
+    @Test
     void localNullRockSkinUsesBossTemplateStats() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.nullRockVultureUnlocked = true;
@@ -224,6 +360,32 @@ class BirdGame3BossBalanceTest {
         assertEquals(3.6, bird.baseSizeMultiplier, 0.0001);
         assertEquals(1.7266, bird.basePowerMultiplier, 0.0001);
         assertEquals(1.0192, bird.baseSpeedMultiplier, 0.0001);
+    }
+
+    @Test
+    void stockPhotoEagleSkinCanBeSelectedAndUsesNormalizedPngResources() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird bird = new Bird(100, BirdGame3.BirdType.EAGLE, 0, game);
+
+        Method applySkinChoiceToBird = BirdGame3.class.getDeclaredMethod(
+                "applySkinChoiceToBird",
+                Bird.class,
+                BirdGame3.BirdType.class,
+                String.class
+        );
+        applySkinChoiceToBird.setAccessible(true);
+        applySkinChoiceToBird.invoke(game, bird, BirdGame3.BirdType.EAGLE, "STOCK_PHOTO_EAGLE");
+
+        assertTrue(bird.isPhotoEagleSkin);
+        assertFalse(bird.isClassicSkin);
+
+        Method skinKeyForBird = BirdGame3.class.getDeclaredMethod("skinKeyForBird", Bird.class);
+        skinKeyForBird.setAccessible(true);
+        assertEquals("STOCK_PHOTO_EAGLE", skinKeyForBird.invoke(game, bird));
+
+        assertNotNull(Bird.class.getResource("/eagle.png"));
+        assertNotNull(Bird.class.getResource("/eagle_attack.png"));
+        assertNotNull(Bird.class.getResource("/eagle_flap.png"));
     }
 
     @Test

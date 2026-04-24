@@ -25,15 +25,15 @@ class BirdGame3GlobalSettingsStateTest {
     }
 
     @Test
-    void loadAndSaveRoundTripsOnlineRelayHost() {
-        prefs.put("online_relay_host", "relay.example.com");
+    void loadAndSaveRoundTripsLanLastHost() {
+        prefs.put("lan_last_host", "192.168.1.40");
 
         BirdGame3GlobalSettingsState state = BirdGame3GlobalSettingsState.load(prefs, new String[0], 0);
-        assertEquals("relay.example.com", state.onlineRelayHost);
+        assertEquals("192.168.1.40", state.lanLastHost);
 
-        state.onlineRelayHost = "relay2.example.com";
+        state.lanLastHost = "192.168.1.77";
         state.saveTo(prefs, new String[0]);
 
-        assertEquals("relay2.example.com", prefs.get("online_relay_host", ""));
+        assertEquals("192.168.1.77", prefs.get("lan_last_host", ""));
     }
 }
