@@ -9,6 +9,8 @@ import java.util.List;
 class LanState {
     int matchTimer;
     boolean matchEnded;
+    boolean suddenDeathActive;
+    boolean suddenDeathSmashStyle;
     int activePlayers;
     double camX;
     double camY;
@@ -31,6 +33,8 @@ class LanState {
     void write(DataOutputStream out) throws IOException {
         out.writeInt(matchTimer);
         out.writeBoolean(matchEnded);
+        out.writeBoolean(suddenDeathActive);
+        out.writeBoolean(suddenDeathSmashStyle);
         out.writeInt(activePlayers);
         out.writeDouble(camX);
         out.writeDouble(camY);
@@ -138,6 +142,8 @@ class LanState {
         LanState state = new LanState();
         state.matchTimer = in.readInt();
         state.matchEnded = in.readBoolean();
+        state.suddenDeathActive = in.readBoolean();
+        state.suddenDeathSmashStyle = in.readBoolean();
         state.activePlayers = in.readInt();
         state.camX = in.readDouble();
         state.camY = in.readDouble();

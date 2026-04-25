@@ -4,8 +4,10 @@ import javafx.animation.AnimationTimer;
 import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 final class MatchController {
@@ -152,6 +154,9 @@ final class MatchController {
     }
 
     Bird findTimeoutWinner() {
+        if (game.usesSmashCombatRules()) {
+            return findSmashTimeoutWinner();
+        }
         boolean teamComp = isStandardTeamMatch();
         if (teamComp) {
             int[] teamHealth = new int[3];
@@ -188,6 +193,40 @@ final class MatchController {
         return getBird();
     }
 
+    private Bird findSmashTimeoutWinner() {
+        if (isStandardTeamMatch()) {
+            Integer winnerTeam = null;
+            for (int team = 1; team <= 2; team++) {
+                if (!teamHasBirds(team)) continue;
+                if (winnerTeam == null || game.compareTeamPlacements(team, winnerTeam) < 0) {
+                    winnerTeam = team;
+                }
+            }
+            if (winnerTeam == null) {
+                return null;
+            }
+            Bird winner = null;
+            for (int i = 0; i < game.activePlayers; i++) {
+                Bird bird = game.players[i];
+                if (bird == null || game.getEffectiveTeam(i) != winnerTeam) continue;
+                if (winner == null || game.compareBirdPlacements(bird, winner) < 0) {
+                    winner = bird;
+                }
+            }
+            return winner;
+        }
+
+        Bird winner = null;
+        for (int i = 0; i < game.activePlayers; i++) {
+            Bird bird = game.players[i];
+            if (bird == null) continue;
+            if (winner == null || game.compareBirdPlacements(bird, winner) < 0) {
+                winner = bird;
+            }
+        }
+        return winner;
+    }
+
     private Bird getBird() {
         Bird winner = null;
         double bestHealth = -1;
@@ -219,6 +258,113 @@ final class MatchController {
             first = false;
         }
         return sb.toString();
+    }
+
+    private boolean hasSmashTimeoutStockTie() {
+        if (isStandardTeamMatch()) {
+            Set<Integer> leadingTeams = leadingTeamsByStocks();
+            return leadingTeams.size() > 1;
+        }
+        return leadingPlayerSlotsByStocks().size() > 1;
+    }
+
+    private List<Integer> leadingPlayerSlotsByStocks() {
+        List<Integer> leaders = new ArrayList<>();
+        int bestStocks = Integer.MIN_VALUE;
+        for (int i = 0; i < game.activePlayers; i++) {
+            if (game.players[i] == null) continue;
+            int stocks = game.matchScoreForPlayer(i);
+            if (stocks > bestStocks) {
+                leaders.clear();
+                leaders.add(i);
+                bestStocks = stocks;
+            } else if (stocks == bestStocks) {
+                leaders.add(i);
+            }
+        }
+        return leaders;
+    }
+
+    private Set<Integer> leadingTeamsByStocks() {
+        Set<Integer> leaders = new HashSet<>();
+        int bestStocks = Integer.MIN_VALUE;
+        for (int team = 1; team <= 2; team++) {
+            if (!teamHasBirds(team)) continue;
+            int stocks = game.teamMatchScore(team);
+            if (stocks > bestStocks) {
+                leaders.clear();
+                leaders.add(team);
+                bestStocks = stocks;
+            } else if (stocks == bestStocks) {
+                leaders.add(team);
+            }
+        }
+        return leaders;
+    }
+
+    private void startSmashSuddenDeath() {
+        if (game.suddenDeath.isActive()) return;
+
+        game.powerUps.clear();
+        game.crowMinions.clear();
+        game.piranhaHazards.clear();
+        game.chickMinions.clear();
+        game.clearDockShipBomb();
+        game.suddenDeath.startSmashTiebreaker();
+
+        List<Bird> contenders = new ArrayList<>();
+        if (isStandardTeamMatch()) {
+            Set<Integer> leadingTeams = leadingTeamsByStocks();
+            for (int i = 0; i < game.activePlayers; i++) {
+                Bird bird = game.players[i];
+                if (bird == null) continue;
+                boolean contender = leadingTeams.contains(game.getEffectiveTeam(i)) && game.playerHasStocksRemaining(i);
+                game.scores[i] = contender ? 1 : 0;
+                if (contender) {
+                    contenders.add(bird);
+                } else {
+                    bird.retireFromStockMatch();
+                }
+            }
+        } else {
+            List<Integer> leadingSlots = leadingPlayerSlotsByStocks();
+            for (int i = 0; i < game.activePlayers; i++) {
+                Bird bird = game.players[i];
+                if (bird == null) continue;
+                boolean contender = leadingSlots.contains(i);
+                game.scores[i] = contender ? 1 : 0;
+                if (contender) {
+                    contenders.add(bird);
+                } else {
+                    bird.retireFromStockMatch();
+                }
+            }
+        }
+
+        for (int i = 0; i < contenders.size(); i++) {
+            Bird bird = contenders.get(i);
+            bird.resetForSmashRespawn(
+                    suddenDeathSpawnX(i, contenders.size()),
+                    game.battlefieldSpawnY(bird.sizeMultiplier),
+                    game.smashSuddenDeathPercent()
+            );
+        }
+
+        game.addToKillFeed("TIME! Stocks tied.");
+        game.addToKillFeed("SUDDEN DEATH! 1 stock at 300%. The crows are coming.");
+        game.playHugewaveSfx();
+        game.shakeIntensity = Math.max(game.shakeIntensity, 20);
+        game.hitstopFrames = Math.max(game.hitstopFrames, 12);
+    }
+
+    private double suddenDeathSpawnX(int slot, int contenderCount) {
+        double center = game.battlefieldSpawnCenterX();
+        if (contenderCount <= 1) {
+            return center - 40.0;
+        }
+        double spacing = Math.clamp(240.0 - contenderCount * 18.0, 130.0, 220.0);
+        double start = center - spacing * (contenderCount - 1) / 2.0;
+        return start + slot * spacing - 40.0;
     }
 
     boolean handleCompetitionRoundEnd(Bird winner) {
@@ -321,22 +467,30 @@ final class MatchController {
     }
 
     void updateTimerAndSuddenDeath() {
-        if (isCompetitionMatch() && !game.trainingModeActive && !game.matchEnded && game.matchTimer <= 0) {
-            Bird timeoutWinner = findTimeoutWinner();
-            game.addToKillFeed("TIME! Tournament decision.");
-            triggerMatchEnd(timeoutWinner);
+        if (game.trainingModeActive || game.matchEnded) {
             return;
         }
 
-        if (!game.trainingModeActive && !game.matchEnded && game.matchTimer <= 0 && !game.suddenDeath.isActive()) {
-            game.suddenDeath.start();
+        if (game.usesSmashCombatRules()) {
+            if (game.matchTimer <= 0 && !game.suddenDeath.isActive()) {
+                if (hasSmashTimeoutStockTie()) {
+                    startSmashSuddenDeath();
+                } else {
+                    Bird timeoutWinner = findTimeoutWinner();
+                    game.addToKillFeed("TIME! Highest stock count wins.");
+                    triggerMatchEnd(timeoutWinner);
+                    return;
+                }
+            }
+        } else if (game.matchTimer <= 0 && !game.suddenDeath.isActive()) {
+            game.suddenDeath.startHazardSwarm();
             game.playHugewaveSfx();
             game.addToKillFeed("SUDDEN DEATH! A MURDER OF CROWS DESCENDS!");
             game.shakeIntensity = 40;
             game.hitstopFrames = 30;
         }
 
-        if (!isCompetitionMatch() && !game.trainingModeActive) {
+        if (game.suddenDeath.isActive()) {
             game.shakeIntensity = game.suddenDeath.updateAndSpawn(
                     game.crowMinions,
                     game.piranhaHazards,
@@ -353,6 +507,10 @@ final class MatchController {
     }
 
     void checkForMatchCompletion() {
+        if (game.usesSmashCombatRules()) {
+            checkForSmashStockCompletion();
+            return;
+        }
         int alive = 0;
         Bird winner = null;
         Set<Integer> aliveTeams = new HashSet<>();
@@ -372,6 +530,74 @@ final class MatchController {
         if (isMatchOver && !game.matchEnded) {
             triggerMatchEnd(winner);
         }
+    }
+
+    private void checkForSmashStockCompletion() {
+        if (game.matchEnded) return;
+
+        if (isStandardTeamMatch()) {
+            Set<Integer> aliveTeams = new HashSet<>();
+            for (int i = 0; i < game.activePlayers; i++) {
+                if (game.players[i] != null && game.playerHasStocksRemaining(i)) {
+                    aliveTeams.add(game.getEffectiveTeam(i));
+                }
+            }
+            if (aliveTeams.size() <= 1) {
+                Bird winner = aliveTeams.isEmpty() ? findSmashTimeoutWinner() : bestBirdOnTeam(aliveTeams.iterator().next());
+                triggerMatchEnd(winner);
+            }
+            return;
+        }
+
+        int alive = 0;
+        Bird winner = null;
+        for (int i = 0; i < game.activePlayers; i++) {
+            Bird bird = game.players[i];
+            if (bird == null || !game.playerHasStocksRemaining(i)) continue;
+            alive++;
+            if (winner == null || game.compareBirdPlacements(bird, winner) < 0) {
+                winner = bird;
+            }
+        }
+        if (alive <= 1) {
+            if (winner == null) {
+                winner = findSmashTimeoutWinner();
+            }
+            triggerMatchEnd(winner);
+        }
+    }
+
+    private Bird bestBirdOnTeam(int teamId) {
+        Bird winner = null;
+        for (int i = 0; i < game.activePlayers; i++) {
+            Bird bird = game.players[i];
+            if (bird == null || game.getEffectiveTeam(i) != teamId) continue;
+            if (winner == null) {
+                winner = bird;
+                continue;
+            }
+            boolean birdHasStocks = game.playerHasStocksRemaining(i);
+            boolean winnerHasStocks = game.playerHasStocksRemaining(winner.playerIndex);
+            if (birdHasStocks != winnerHasStocks) {
+                if (birdHasStocks) {
+                    winner = bird;
+                }
+                continue;
+            }
+            if (game.compareBirdPlacements(bird, winner) < 0) {
+                winner = bird;
+            }
+        }
+        return winner;
+    }
+
+    private boolean teamHasBirds(int teamId) {
+        for (int i = 0; i < game.activePlayers; i++) {
+            if (game.players[i] != null && game.getEffectiveTeam(i) == teamId) {
+                return true;
+            }
+        }
+        return false;
     }
 
     void triggerMatchEnd(Bird winner) {

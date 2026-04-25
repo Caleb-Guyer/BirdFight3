@@ -117,6 +117,8 @@ public class BirdGame3 extends Application {
     private static final int XBOX_CONTROLLER_SLOTS = 4;
     static final int MATCH_DURATION_FRAMES = 90 * 60;
     static final int COMPETITION_DURATION_FRAMES = 120 * 60;
+    static final int SMASH_STARTING_STOCKS = 3;
+    static final double SMASH_SUDDEN_DEATH_PERCENT = 300.0;
     private static final Insets MENU_PADDING = new Insets(60, 80, 60, 80);
     private static final double MENU_GAP = 24;
     private static final double MENU_TEXT_MAX_WIDTH = 1100;
@@ -284,7 +286,7 @@ public class BirdGame3 extends Application {
     private final int MAX_FEED_LINES = 6;
     public static final double CEILING_Y = -100;
     public int[] falls = new int[MAX_COMBATANTS];
-    public int[] scores = new int[MAX_COMBATANTS];  // live score: elims*50 + damage/2
+    public int[] scores = new int[MAX_COMBATANTS];  // legacy score or Smash stocks remaining
     public int[] specialsUsed = new int[MAX_COMBATANTS];
     public int[] specialHits = new int[MAX_COMBATANTS];
     public int[] specialDamageDealt = new int[MAX_COMBATANTS];
@@ -314,6 +316,7 @@ public class BirdGame3 extends Application {
     // === SUDDEN DEATH SYSTEM ===
     int matchTimer = MATCH_DURATION_FRAMES;
     final SuddenDeathController suddenDeath = new SuddenDeathController();
+    private boolean smashCombatRulesActive = false;
 
     boolean matchEnded = false;  // prevents double-trigger
 
@@ -8992,7 +8995,7 @@ public class BirdGame3 extends Application {
                     long now = System.nanoTime();
                     applyMatchModeRuntimeEffects(now);
                     spawnPowerUp(now);
-                    if (!matchEnded && !trainingModeActive) matchTimer--;
+                    if (!matchEnded && !trainingModeActive && matchTimer > 0) matchTimer--;
                     updateWorldFixed();
                     trimTransientEffectOverflow();
                 } else {
@@ -20326,7 +20329,14 @@ public class BirdGame3 extends Application {
                 ranking.add(i);
             }
         }
-        ranking.sort((a, b) -> Integer.compare(scores[b], scores[a]));
+        ranking.sort((a, b) -> {
+            Bird birdA = players[a];
+            Bird birdB = players[b];
+            if (usesSmashCombatRules() && birdA != null && birdB != null) {
+                return compareBirdPlacements(birdA, birdB);
+            }
+            return Integer.compare(scores[b], scores[a]);
+        });
 
         for (int idx : ranking) {
             Bird b = players[idx];
@@ -20335,7 +20345,8 @@ public class BirdGame3 extends Application {
             Canvas icon = new Canvas(60, 60);
             drawRosterSprite(icon, type, skinKey, false);
             String birdName = type != null ? type.name : "Unknown";
-            Label row = getLabel("P" + (idx + 1) + "  |  " + birdName + "  |  Score " + scores[idx]);
+            String scoreLabel = usesSmashCombatRules() ? "Stocks " + scores[idx] : "Score " + scores[idx];
+            Label row = getLabel("P" + (idx + 1) + "  |  " + birdName + "  |  " + scoreLabel);
             row.setFont(Font.font("Consolas", 22));
             row.setTextFill(Color.web("#E3F2FD"));
             applyNoEllipsis(row);
@@ -20639,6 +20650,8 @@ public class BirdGame3 extends Application {
         LanState state = new LanState();
         state.matchTimer = matchTimer;
         state.matchEnded = matchEnded;
+        state.suddenDeathActive = suddenDeath.isActive();
+        state.suddenDeathSmashStyle = suddenDeath.isSmashStyle();
         state.activePlayers = activePlayers;
         state.camX = camX;
         state.camY = camY;
@@ -20748,6 +20761,8 @@ public class BirdGame3 extends Application {
         if (state == null) return;
         matchTimer = state.matchTimer;
         matchEnded = state.matchEnded;
+        suddenDeath.syncFromRemote(state.suddenDeathActive, state.suddenDeathSmashStyle);
+        smashCombatRulesActive = true;
         activePlayers = Math.clamp(state.activePlayers > 0 ? state.activePlayers : LAN_MAX_PLAYERS, 1, LAN_MAX_PLAYERS);
         camX = state.camX;
         camY = state.camY;
@@ -22565,6 +22580,12 @@ public class BirdGame3 extends Application {
         List<WindVent> savedWindVents = new ArrayList<>(windVents);
         List<NectarNode> savedNectarNodes = new ArrayList<>(nectarNodes);
         List<SwingingVine> savedSwingingVines = new ArrayList<>(swingingVines);
+        List<Particle> savedParticles = new ArrayList<>(particles);
+        List<CrowMinion> savedCrowMinions = new ArrayList<>(crowMinions);
+        List<PiranhaHazard> savedPiranhaHazards = new ArrayList<>(piranhaHazards);
+        List<ChickMinion> savedChickMinions = new ArrayList<>(chickMinions);
+        List<PowerUp> savedPowerUps = new ArrayList<>(powerUps);
+        List<String> savedKillFeed = new ArrayList<>(killFeed);
         Bird[] savedPlayers = players;
         int[] savedScores = scores;
         int savedActivePlayers = activePlayers;
@@ -22595,13 +22616,25 @@ public class BirdGame3 extends Application {
         int savedDockLeverCooldown = dockLeverCooldown;
         DockShipBomb savedDockShipBomb = dockShipBomb;
         boolean[] savedDockLeverHeld = Arrays.copyOf(dockLeverHeld, dockLeverHeld.length);
+        double savedShakeIntensity = shakeIntensity;
+        int savedHitstopFrames = hitstopFrames;
+        double savedFlashAlpha = flashAlpha;
+        double savedRedFlashAlpha = redFlashAlpha;
+        int savedFlashTimer = flashTimer;
+        boolean savedSmashCombatRulesActive = smashCombatRulesActive;
 
-        selectedMap = MapType.DESERT;
-        platforms.clear();
-        windVents.clear();
-        nectarNodes.clear();
-        swingingVines.clear();
-        setupDesertArena();
+        prepareTrailerArena(MapType.DESERT);
+        particles.clear();
+        crowMinions.clear();
+        piranhaHazards.clear();
+        chickMinions.clear();
+        powerUps.clear();
+        killFeed.clear();
+        shakeIntensity = 0.0;
+        hitstopFrames = 0;
+        flashAlpha = 0.0;
+        redFlashAlpha = 0.0;
+        flashTimer = 0;
 
         players = new Bird[MAX_COMBATANTS];
         scores = new int[MAX_COMBATANTS];
@@ -22612,42 +22645,73 @@ public class BirdGame3 extends Application {
         storyModeActive = false;
         adventureModeActive = false;
         activeMutator = MatchMutator.NONE;
+        smashCombatRulesActive = false;
         currentFightHudOcclusionRects = List.of();
         fightHudPortraitCache.clear();
 
         Bird trailerRoadrunner = createTrailerBird(BirdType.ROADRUNNER, 0, "Dust Devil Roadrunner", null);
         Bird trailerEagle = createTrailerBird(BirdType.EAGLE, 1, "Stock Photo Eagle", STOCK_PHOTO_EAGLE_SKIN);
-        players[0] = trailerRoadrunner;
-        players[1] = trailerEagle;
-        scores[0] = 4;
-        scores[1] = 2;
+        Bird trailerPelican = createTrailerBird(BirdType.PELICAN, 2, "Harbor Pelican", IRONCLAD_PELICAN_SKIN);
+        Bird trailerPigeon = createTrailerBird(BirdType.PIGEON, 3, "Pier Pigeon", null);
+        String classicRoadrunnerSkin = classicSkinDataKey(BirdType.ROADRUNNER);
 
         Runnable resetTrailerBirds = () -> {
             trailerRoadrunner.refillTrainingResources(false);
-            trailerRoadrunner.gainUltimateFromMinionDamage(178);
+            applyPreviewSkinChoiceToBird(trailerRoadrunner, BirdType.ROADRUNNER, null);
             trailerRoadrunner.name = "Dust Devil Roadrunner";
             trailerRoadrunner.health = 82;
             trailerRoadrunner.sizeMultiplier = trailerRoadrunner.baseSizeMultiplier;
 
             trailerEagle.refillTrainingResources(true);
+            applyPreviewSkinChoiceToBird(trailerEagle, BirdType.EAGLE, STOCK_PHOTO_EAGLE_SKIN);
             trailerEagle.name = "Stock Photo Eagle";
             trailerEagle.health = 48;
             trailerEagle.sizeMultiplier = trailerEagle.baseSizeMultiplier;
+
+            trailerPelican.refillTrainingResources(false);
+            applyPreviewSkinChoiceToBird(trailerPelican, BirdType.PELICAN, IRONCLAD_PELICAN_SKIN);
+            trailerPelican.name = "Ironclad Pelican";
+            trailerPelican.health = 110;
+            trailerPelican.sizeMultiplier = trailerPelican.baseSizeMultiplier;
+
+            trailerPigeon.refillTrainingResources(false);
+            applyPreviewSkinChoiceToBird(trailerPigeon, BirdType.PIGEON, null);
+            trailerPigeon.name = "Pier Pigeon";
+            trailerPigeon.health = 76;
+            trailerPigeon.sizeMultiplier = trailerPigeon.baseSizeMultiplier;
 
             matchIntroLastAnnouncedPhase = Integer.MIN_VALUE;
             matchIntroOverlayFrames = 0;
             currentFightHudOcclusionRects = List.of();
             fightHudPortraitCache.clear();
+            particles.clear();
+            crowMinions.clear();
+            piranhaHazards.clear();
+            chickMinions.clear();
+            powerUps.clear();
+            killFeed.clear();
+            shakeIntensity = 0.0;
+            hitstopFrames = 0;
+            flashAlpha = 0.0;
+            redFlashAlpha = 0.0;
+            flashTimer = 0;
+            Arrays.fill(players, null);
+            scores = new int[MAX_COMBATANTS];
+            activePlayers = 0;
         };
         resetTrailerBirds.run();
 
-        final double desertRevealEnd = 5.0;
-        final double roadrunnerShowcaseEnd = 12.0;
-        final double cameraShowcaseEnd = 18.0;
-        final double hudShowcaseEnd = 26.0;
-        final double eagleShowcaseEnd = 32.0;
-        final double updateCardEnd = 40.0;
-        final double finalShotEnd = 48.0;
+        final double desertRevealEnd = 6.0;
+        final double oasisShowcaseEnd = 12.0;
+        final double cliffShowcaseEnd = 18.0;
+        final double roadrunnerShowcaseEnd = 26.0;
+        final double classicShowcaseEnd = 34.0;
+        final double specialShowcaseEnd = 42.0;
+        final double ultimateShowcaseEnd = 50.0;
+        final double dockShowcaseEnd = 60.0;
+        final double eagleShowcaseEnd = 68.0;
+        final double updateCardEnd = 76.0;
+        final double finalShotEnd = 84.0;
 
         Canvas canvas = new Canvas(WIDTH, HEIGHT);
         GraphicsContext g = canvas.getGraphicsContext2D();
@@ -22677,7 +22741,7 @@ public class BirdGame3 extends Application {
         long[] trailerStartNs = {0L};
         boolean[] musicCut = {false};
         boolean[] overlayHidden = {false};
-        boolean[] sfxTriggered = new boolean[7];
+        int[] trailerScene = {-1};
 
         Runnable restoreState = () -> {
             if (trailerTimer[0] != null) {
@@ -22694,6 +22758,18 @@ public class BirdGame3 extends Application {
             nectarNodes.addAll(savedNectarNodes);
             swingingVines.clear();
             swingingVines.addAll(savedSwingingVines);
+            particles.clear();
+            particles.addAll(savedParticles);
+            crowMinions.clear();
+            crowMinions.addAll(savedCrowMinions);
+            piranhaHazards.clear();
+            piranhaHazards.addAll(savedPiranhaHazards);
+            chickMinions.clear();
+            chickMinions.addAll(savedChickMinions);
+            powerUps.clear();
+            powerUps.addAll(savedPowerUps);
+            killFeed.clear();
+            killFeed.addAll(savedKillFeed);
 
             players = savedPlayers;
             scores = savedScores;
@@ -22704,6 +22780,7 @@ public class BirdGame3 extends Application {
             storyModeActive = savedStoryMode;
             adventureModeActive = savedAdventureMode;
             activeMutator = savedMutator;
+            smashCombatRulesActive = savedSmashCombatRulesActive;
             matchTimer = savedMatchTimer;
             matchIntroOverlayFrames = savedMatchIntroOverlayFrames;
             matchIntroLastAnnouncedPhase = savedMatchIntroLastAnnouncedPhase;
@@ -22725,6 +22802,11 @@ public class BirdGame3 extends Application {
             dockLeverCooldown = savedDockLeverCooldown;
             dockShipBomb = savedDockShipBomb;
             System.arraycopy(savedDockLeverHeld, 0, dockLeverHeld, 0, Math.min(savedDockLeverHeld.length, dockLeverHeld.length));
+            shakeIntensity = savedShakeIntensity;
+            hitstopFrames = savedHitstopFrames;
+            flashAlpha = savedFlashAlpha;
+            redFlashAlpha = savedRedFlashAlpha;
+            flashTimer = savedFlashTimer;
             fightHudPortraitCache.clear();
         };
 
@@ -22739,6 +22821,7 @@ public class BirdGame3 extends Application {
             resetTrailerBirds.run();
             trailerStartNs[0] = System.nanoTime();
             musicCut[0] = false;
+            trailerScene[0] = -1;
             if (trailerMusic[0] != null) {
                 trailerMusic[0].stop();
                 trailerMusic[0].seek(Duration.ZERO);
@@ -22754,7 +22837,6 @@ public class BirdGame3 extends Application {
                 }
                 e.consume();
             } else if (code == KeyCode.H) {
-                // Toggle visibility of back/controls chrome so the trailer can be viewed full-screen
                 overlayHidden[0] = !overlayHidden[0];
                 chrome.setVisible(!overlayHidden[0]);
                 e.consume();
@@ -22780,34 +22862,131 @@ public class BirdGame3 extends Application {
                 currentRenderShakeX = 0.0;
                 currentRenderShakeY = 0.0;
 
-                // Trigger one-shot SFX at phase boundaries so audio punctuates each section
-                if (elapsed >= 0.0 && elapsed < desertRevealEnd) {
-                    if (!sfxTriggered[0]) { playMatchIntroCountSfx(); sfxTriggered[0] = true; }
-                }
-                if (elapsed >= desertRevealEnd && elapsed < roadrunnerShowcaseEnd) {
-                    if (!sfxTriggered[1]) { playMatchIntroCountSfx(); sfxTriggered[1] = true; }
-                }
-                if (elapsed >= roadrunnerShowcaseEnd && elapsed < cameraShowcaseEnd) {
-                    if (!sfxTriggered[2]) { playMatchIntroCountSfx(); sfxTriggered[2] = true; }
-                }
-                if (elapsed >= cameraShowcaseEnd && elapsed < hudShowcaseEnd) {
-                    if (!sfxTriggered[3]) { playMatchIntroCountSfx(); sfxTriggered[3] = true; }
-                }
-                if (elapsed >= hudShowcaseEnd && elapsed < eagleShowcaseEnd) {
-                    if (!sfxTriggered[4]) { playMatchIntroCountSfx(); sfxTriggered[4] = true; }
-                }
-                if (elapsed >= eagleShowcaseEnd && elapsed < updateCardEnd) {
-                    if (!sfxTriggered[5]) { playMatchIntroCountSfx(); sfxTriggered[5] = true; }
+                int sceneIdx;
+                if (elapsed < desertRevealEnd) {
+                    sceneIdx = 0;
+                } else if (elapsed < oasisShowcaseEnd) {
+                    sceneIdx = 1;
+                } else if (elapsed < cliffShowcaseEnd) {
+                    sceneIdx = 2;
+                } else if (elapsed < roadrunnerShowcaseEnd) {
+                    sceneIdx = 3;
+                } else if (elapsed < classicShowcaseEnd) {
+                    sceneIdx = 4;
+                } else if (elapsed < specialShowcaseEnd) {
+                    sceneIdx = 5;
+                } else if (elapsed < ultimateShowcaseEnd) {
+                    sceneIdx = 6;
+                } else if (elapsed < dockShowcaseEnd) {
+                    sceneIdx = 7;
+                } else if (elapsed < eagleShowcaseEnd) {
+                    sceneIdx = 8;
+                } else if (elapsed < updateCardEnd) {
+                    sceneIdx = 9;
+                } else {
+                    sceneIdx = 10;
                 }
 
-                trailerRoadrunner.health = 82;
-                trailerRoadrunner.sizeMultiplier = trailerRoadrunner.baseSizeMultiplier;
-                trailerEagle.health = 48;
-                trailerEagle.sizeMultiplier = trailerEagle.baseSizeMultiplier;
+                if (sceneIdx != trailerScene[0]) {
+                    trailerScene[0] = sceneIdx;
+                    if (sceneIdx == 10) {
+                        playMatchIntroGoSfx();
+                    } else {
+                        playMatchIntroCountSfx();
+                    }
+                    switch (sceneIdx) {
+                        case 0, 1, 2, 3 -> {
+                            resetTrailerBirds.run();
+                            prepareTrailerArena(MapType.DESERT);
+                            activePlayers = 2;
+                            players[0] = trailerRoadrunner;
+                            players[1] = trailerEagle;
+                            scores[0] = 4;
+                            scores[1] = 2;
+                        }
+                        case 4 -> {
+                            resetTrailerBirds.run();
+                            prepareTrailerArena(MapType.DESERT);
+                            applyPreviewSkinChoiceToBird(trailerRoadrunner, BirdType.ROADRUNNER, classicRoadrunnerSkin);
+                            trailerRoadrunner.name = "Dust Devil Roadrunner";
+                            activePlayers = 2;
+                            players[0] = trailerRoadrunner;
+                            players[1] = trailerEagle;
+                            scores[0] = 5;
+                            scores[1] = 2;
+                        }
+                        case 5 -> {
+                            resetTrailerBirds.run();
+                            prepareTrailerArena(MapType.DESERT);
+                            activePlayers = 2;
+                            players[0] = trailerRoadrunner;
+                            players[1] = trailerEagle;
+                            scores[0] = 5;
+                            scores[1] = 3;
+                            poseTrailerBird(trailerRoadrunner, 2360.0, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                                    true, false, 0, 0.0);
+                            poseTrailerBird(trailerEagle, 2595.0, GROUND_Y - 80 * trailerEagle.sizeMultiplier,
+                                    false, false, 0, 0.0);
+                            trailerEagle.health = 70;
+                            triggerTrailerBirdSpecial(trailerRoadrunner, false);
+                        }
+                        case 6 -> {
+                            resetTrailerBirds.run();
+                            prepareTrailerArena(MapType.DESERT);
+                            activePlayers = 2;
+                            players[0] = trailerRoadrunner;
+                            players[1] = trailerEagle;
+                            scores[0] = 6;
+                            scores[1] = 3;
+                            poseTrailerBird(trailerRoadrunner, DESERT_CLIFF_MID_X + 60.0,
+                                    DESERT_CLIFF_MID_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                                    true, false, 0, 0.0);
+                            poseTrailerBird(trailerEagle, DESERT_CLIFF_HIGH_X + 130.0,
+                                    DESERT_CLIFF_HIGH_Y - 80 * trailerEagle.sizeMultiplier,
+                                    false, true, 0, 0.0);
+                            trailerEagle.health = 64;
+                            triggerTrailerBirdSpecial(trailerRoadrunner, true);
+                        }
+                        case 7 -> {
+                            resetTrailerBirds.run();
+                            prepareTrailerArena(MapType.DOCK);
+                            activePlayers = 4;
+                            players[0] = trailerRoadrunner;
+                            players[1] = trailerEagle;
+                            players[2] = trailerPelican;
+                            players[3] = trailerPigeon;
+                            scores[0] = 3;
+                            scores[1] = 2;
+                            scores[2] = 4;
+                            scores[3] = 1;
+                            trailerEagle.health = 66;
+                            trailerPelican.health = 94;
+                            trailerPigeon.health = 72;
+                        }
+                        case 8 -> {
+                            resetTrailerBirds.run();
+                            prepareTrailerArena(MapType.DOCK);
+                            activePlayers = 2;
+                            players[0] = trailerRoadrunner;
+                            players[1] = trailerEagle;
+                            scores[0] = 4;
+                            scores[1] = 4;
+                        }
+                        case 9, 10 -> {
+                            resetTrailerBirds.run();
+                            prepareTrailerArena(MapType.DESERT);
+                            activePlayers = 2;
+                            players[0] = trailerRoadrunner;
+                            players[1] = trailerEagle;
+                            scores[0] = 6;
+                            scores[1] = 4;
+                        }
+                        default -> {
+                        }
+                    }
+                }
 
-                boolean drawRoadrunner = false;
-                boolean drawEagle = false;
-                boolean drawFinalPortrait = false;
+                List<Bird> drawBirds = new ArrayList<>(4);
                 double speedLineIntensity = 0.0;
                 FightHudLayout hudLayout = null;
                 String kicker = null;
@@ -22819,101 +22998,174 @@ public class BirdGame3 extends Application {
 
                 if (elapsed < desertRevealEnd) {
                     double phase = normalizedProgress(elapsed, 0.0, desertRevealEnd);
-                    zoom = lerp(0.43, 0.50, smoothStep01(phase));
-                    camX = Math.clamp(lerp(140.0, 1340.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
-                    camY = trailerGroundCameraY(zoom, 150.0);
+                    zoom = lerp(0.42, 0.49, smoothStep01(phase));
+                    camX = Math.clamp(lerp(40.0, 1260.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
+                    camY = trailerGroundCameraY(zoom, 130.0);
 
                     kicker = "NEW STAGE";
                     title = "SUNSCORCH FLATS";
-                    subtitle = "The desert map opens the update.";
+                    subtitle = "A desert sprint lane with a left oasis pond and a right-side mesa climb.";
                     titleAccent = Color.web("#FFB74D");
                     titleAlpha = trailerOverlayAlpha(phase);
                     titleCenterY = HEIGHT * 0.72;
-                } else if (elapsed < roadrunnerShowcaseEnd) {
-                    double phase = normalizedProgress(elapsed, desertRevealEnd, roadrunnerShowcaseEnd);
-                    drawRoadrunner = true;
-                    double rrX = lerp(220.0, 2540.0, smoothStep01(phase));
+                } else if (elapsed < oasisShowcaseEnd) {
+                    double phase = normalizedProgress(elapsed, desertRevealEnd, oasisShowcaseEnd);
+                    drawBirds.add(trailerRoadrunner);
+                    double rrX = lerp(420.0, DESERT_OASIS_X + DESERT_OASIS_W + 180.0, smoothStep01(phase));
                     poseTrailerBird(trailerRoadrunner, rrX, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
                             true, false, 0, 24.0);
-                    zoom = lerp(0.78, 0.70, smoothStep01(phase));
-                    camX = Math.clamp(rrX - 480.0, 0.0, cameraMaxXForZoom(zoom));
-                    camY = trailerGroundCameraY(zoom, 122.0);
-                    speedLineIntensity = 0.85;
+                    zoom = lerp(0.80, 0.72, smoothStep01(phase));
+                    camX = Math.clamp(lerp(160.0, DESERT_OASIS_X - 160.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
+                    camY = trailerGroundCameraY(zoom, 116.0);
+                    speedLineIntensity = 0.72;
+
+                    kicker = "MAP DETAIL";
+                    title = "OASIS POND";
+                    subtitle = "The left side breaks the opener with water, reeds, and a fast low route.";
+                    titleAccent = Color.web("#F5B66C");
+                    titleAlpha = trailerOverlayAlpha(phase);
+                } else if (elapsed < cliffShowcaseEnd) {
+                    double phase = normalizedProgress(elapsed, oasisShowcaseEnd, cliffShowcaseEnd);
+                    drawBirds.add(trailerRoadrunner);
+                    drawBirds.add(trailerEagle);
+
+                    double rrX = lerp(3980.0, DESERT_CLIFF_MID_X + 60.0, smoothStep01(phase));
+                    double rrY = lerp(GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            DESERT_CLIFF_MID_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            smoothStep01(phase));
+                    double eagleX = lerp(DESERT_CLIFF_TOP_X + 70.0, DESERT_CLIFF_SUMMIT_X + 10.0, smoothStep01(phase));
+                    double eagleY = lerp(DESERT_CLIFF_TOP_Y - 80 * trailerEagle.sizeMultiplier,
+                            DESERT_CLIFF_SUMMIT_Y - 80 * trailerEagle.sizeMultiplier,
+                            smoothStep01(phase));
+                    poseTrailerBird(trailerRoadrunner, rrX, rrY, true, false, 0, 12.0);
+                    poseTrailerBird(trailerEagle, eagleX, eagleY, false, true, 0, -1.2);
+
+                    zoom = lerp(0.72, 0.60, smoothStep01(phase));
+                    camX = Math.clamp(lerp(4280.0, 5000.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(640.0, 260.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+
+                    kicker = "MAP DETAIL";
+                    title = "CLIFF-SIDE FINISH";
+                    subtitle = "The far-right mesa turns late fights into a vertical chase.";
+                    titleAccent = Color.web("#FFD180");
+                    titleAlpha = trailerOverlayAlpha(phase);
+                } else if (elapsed < roadrunnerShowcaseEnd) {
+                    double phase = normalizedProgress(elapsed, cliffShowcaseEnd, roadrunnerShowcaseEnd);
+                    drawBirds.add(trailerRoadrunner);
+
+                    double rrX = lerp(1120.0, 3480.0, smoothStep01(phase));
+                    poseTrailerBird(trailerRoadrunner, rrX, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            true, false, 0, 22.0);
+
+                    zoom = lerp(0.86, 0.70, smoothStep01(phase));
+                    camX = Math.clamp(rrX - 520.0, 0.0, cameraMaxXForZoom(zoom));
+                    camY = trailerGroundCameraY(zoom, 118.0);
+                    speedLineIntensity = 0.92;
 
                     kicker = "NEW BIRD";
                     title = "ROADRUNNER";
-                    subtitle = "Dust Devil speed tears through the desert.";
+                    subtitle = "Base form stays low, fast, and impossible to pin down.";
                     titleAccent = Color.web("#F5B66C");
                     titleAlpha = trailerOverlayAlpha(phase);
-                } else if (elapsed < cameraShowcaseEnd) {
-                    double phase = normalizedProgress(elapsed, roadrunnerShowcaseEnd, cameraShowcaseEnd);
-                    drawRoadrunner = true;
-                    drawEagle = true;
+                } else if (elapsed < classicShowcaseEnd) {
+                    double phase = normalizedProgress(elapsed, roadrunnerShowcaseEnd, classicShowcaseEnd);
+                    drawBirds.add(trailerRoadrunner);
 
-                    double rrX = lerp(1820.0, 3160.0, phase);
-                    double eagleX = lerp(3560.0, 5120.0, phase);
-                    double eagleY = lerp(GROUND_Y - 80 * trailerEagle.sizeMultiplier,
-                            DESERT_CLIFF_HIGH_Y - 80 * trailerEagle.sizeMultiplier,
+                    double rrX = lerp(4520.0, DESERT_CLIFF_TOP_X + 220.0, smoothStep01(phase));
+                    double rrY = lerp(DESERT_CLIFF_LOW_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            DESERT_CLIFF_TOP_Y - 80 * trailerRoadrunner.sizeMultiplier,
                             smoothStep01(phase));
-                    poseTrailerBird(trailerRoadrunner, rrX, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
-                            true, false, 0, 9.0);
-                    poseTrailerBird(trailerEagle, eagleX, eagleY, false, false, 0, -2.0);
+                    poseTrailerBird(trailerRoadrunner, rrX, rrY, true, false, 0, 8.0);
 
-                    zoom = lerp(0.84, 0.56, smoothStep01(phase));
-                    double focusCenter = (rrX + eagleX) / 2.0;
-                    camX = Math.clamp(focusCenter - WIDTH / (2.0 * zoom), 0.0, cameraMaxXForZoom(zoom));
-                    camY = Math.clamp(lerp(560.0, 360.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+                    zoom = lerp(0.78, 0.88, smoothStep01(phase));
+                    camX = Math.clamp(rrX - 420.0, 0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(520.0, 280.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+                    speedLineIntensity = 0.55;
 
-                    kicker = "UPGRADE";
-                    title = "BETTER CAMERA";
-                    subtitle = "Wide fights stay readable while the action moves.";
-                    titleAccent = Color.web("#80DEEA");
+                    kicker = "CLASSIC REWARD";
+                    title = "DUST DEVIL ROADRUNNER";
+                    subtitle = "Roadrunner's classic skin gets a full hero beat in the new trailer.";
+                    titleAccent = Color.web("#90CAF9");
                     titleAlpha = trailerOverlayAlpha(phase);
-                } else if (elapsed < hudShowcaseEnd) {
-                    double phase = normalizedProgress(elapsed, cameraShowcaseEnd, hudShowcaseEnd);
-                    drawRoadrunner = true;
-                    drawEagle = true;
+                } else if (elapsed < specialShowcaseEnd) {
+                    double phase = normalizedProgress(elapsed, classicShowcaseEnd, specialShowcaseEnd);
+                    drawBirds.add(trailerRoadrunner);
+                    drawBirds.add(trailerEagle);
 
-                    double rrX = lerp(2120.0, 2380.0, phase);
-                    double eagleX = lerp(2550.0, 2745.0, phase);
-                    poseTrailerBird(trailerRoadrunner, rrX, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
-                            true, false, 0, phase > 0.78 ? 7.0 : 0.0);
-                    poseTrailerBird(trailerEagle, eagleX, GROUND_Y - 80 * trailerEagle.sizeMultiplier,
-                            false, false, phase > 0.82 ? 10 : 0, 0.0);
+                    zoom = lerp(0.74, 0.80, smoothStep01(phase));
+                    camX = Math.clamp(lerp(2020.0, 2440.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
+                    camY = trailerGroundCameraY(zoom, 110.0);
+                    speedLineIntensity = 1.0;
 
-                    zoom = 0.68;
-                    double focusCenter = (rrX + eagleX) / 2.0;
-                    camX = Math.clamp(focusCenter - WIDTH / (2.0 * zoom), 0.0, cameraMaxXForZoom(zoom));
-                    camY = trailerGroundCameraY(zoom, 138.0);
-
-                    matchTimer = Math.max(0, 95 * 60 - (int) Math.round(phase * 126.0));
-                    int introFramesRemaining = Math.max(0,
-                            MATCH_INTRO_COUNTDOWN_FRAMES + MATCH_INTRO_GO_FRAMES
-                                    - (int) Math.floor((elapsed - cameraShowcaseEnd) * 60.0));
-                    matchIntroOverlayFrames = introFramesRemaining;
-                    maybePlayMatchIntroSfx();
-
+                    matchTimer = Math.max(0, 74 * 60 - (int) Math.round(phase * 90.0));
                     hudLayout = buildFightHudLayout();
                     currentFightHudOcclusionRects = hudLayout.occlusionRects();
 
-                    double titleWindow = Math.max(0.0, 1.0 - smoothStep01((phase - 0.38) / 0.62));
-                    kicker = "REFRESH";
-                    title = "NEW FIGHT UI";
-                    subtitle = "Countdown, minimap, timer, portraits, and ult bars.";
+                    kicker = "SPECIAL";
+                    title = "DUST SPRINT";
+                    subtitle = "Roadrunner bursts through the lane and slams targets downrange.";
                     titleAccent = Color.web("#FFD54F");
-                    titleAlpha = 0.78 * titleWindow;
-                    titleCenterY = HEIGHT * 0.30;
+                    titleAlpha = trailerOverlayAlpha(phase);
+                } else if (elapsed < ultimateShowcaseEnd) {
+                    double phase = normalizedProgress(elapsed, specialShowcaseEnd, ultimateShowcaseEnd);
+                    drawBirds.add(trailerRoadrunner);
+                    drawBirds.add(trailerEagle);
+
+                    zoom = lerp(0.70, 0.62, smoothStep01(phase));
+                    camX = Math.clamp(lerp(DESERT_CLIFF_LOW_X - 280.0, DESERT_CLIFF_HIGH_X - 120.0, smoothStep01(phase)),
+                            0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(820.0, 320.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+                    speedLineIntensity = 0.66;
+
+                    matchTimer = Math.max(0, 66 * 60 - (int) Math.round(phase * 110.0));
+                    hudLayout = buildFightHudLayout();
+                    currentFightHudOcclusionRects = hudLayout.occlusionRects();
+
+                    kicker = "ULTIMATE";
+                    title = "GODSTORM";
+                    subtitle = "Sandstorm speed, sand gusts, and a full-screen threat aura.";
+                    titleAccent = Color.GOLD;
+                    titleAlpha = trailerOverlayAlpha(phase);
+                } else if (elapsed < dockShowcaseEnd) {
+                    double phase = normalizedProgress(elapsed, ultimateShowcaseEnd, dockShowcaseEnd);
+                    drawBirds.add(trailerRoadrunner);
+                    drawBirds.add(trailerEagle);
+                    drawBirds.add(trailerPelican);
+                    drawBirds.add(trailerPigeon);
+
+                    poseTrailerBird(trailerRoadrunner, lerp(1420.0, 1720.0, smoothStep01(phase)),
+                            GROUND_Y - 220.0, true, false, 0, 10.0);
+                    poseTrailerBird(trailerEagle, lerp(3280.0, 3460.0, smoothStep01(phase)),
+                            GROUND_Y - 520.0, false, true, 0, -3.0);
+                    poseTrailerBird(trailerPelican, lerp(2140.0, 2340.0, smoothStep01(phase)),
+                            GROUND_Y - 140.0, true, false, 0, 3.0);
+                    poseTrailerBird(trailerPigeon, lerp(2980.0, 3180.0, smoothStep01(phase)),
+                            GROUND_Y - 220.0, false, false, 0, -2.0);
+
+                    zoom = lerp(0.56, 0.50, smoothStep01(phase));
+                    camX = Math.clamp(lerp(1120.0, 2080.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(420.0, 300.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+
+                    matchTimer = Math.max(0, 58 * 60 - (int) Math.round(phase * 160.0));
+                    hudLayout = buildFightHudLayout();
+                    currentFightHudOcclusionRects = hudLayout.occlusionRects();
+
+                    kicker = "RECENT DROP";
+                    title = "BROKEN HARBOR + LAN";
+                    subtitle = "Dock fights, four-player lobbies, and cleaner camera framing all make the cut.";
+                    titleAccent = Color.web("#80CBC4");
+                    titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < eagleShowcaseEnd) {
-                    double phase = normalizedProgress(elapsed, hudShowcaseEnd, eagleShowcaseEnd);
-                    drawEagle = true;
+                    double phase = normalizedProgress(elapsed, dockShowcaseEnd, eagleShowcaseEnd);
+                    drawBirds.add(trailerEagle);
 
-                    double eagleX = lerp(2860.0, 3800.0, phase);
-                    double eagleY = lerp(GROUND_Y - 360.0, GROUND_Y - 1040.0, smoothStep01(phase));
-                    poseTrailerBird(trailerEagle, eagleX, eagleY, true, true, phase > 0.62 ? 12 : 0, 5.0);
+                    double eagleX = lerp(2080.0, 2560.0, smoothStep01(phase));
+                    double eagleY = lerp(GROUND_Y - 980.0, GROUND_Y - 1280.0, smoothStep01(phase));
+                    poseTrailerBird(trailerEagle, eagleX, eagleY, true, true, phase > 0.58 ? 12 : 0, 4.0);
 
-                    zoom = lerp(0.74, 0.94, smoothStep01(phase));
+                    zoom = lerp(0.78, 0.92, smoothStep01(phase));
                     camX = Math.clamp(eagleX - 470.0, 0.0, cameraMaxXForZoom(zoom));
-                    camY = Math.clamp(lerp(420.0, 210.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+                    camY = Math.clamp(lerp(720.0, 340.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
 
                     kicker = "BONUS SKIN";
                     title = "STOCK PHOTO EAGLE";
@@ -22922,21 +23174,22 @@ public class BirdGame3 extends Application {
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < updateCardEnd) {
                     double phase = normalizedProgress(elapsed, eagleShowcaseEnd, updateCardEnd);
-                    drawRoadrunner = true;
-                    drawEagle = true;
+                    drawBirds.add(trailerRoadrunner);
+                    drawBirds.add(trailerEagle);
 
-                    poseTrailerBird(trailerRoadrunner, 1660.0, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                    poseTrailerBird(trailerRoadrunner, 1520.0, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
                             true, false, 0, 0.0);
-                    poseTrailerBird(trailerEagle, 4980.0, DESERT_CLIFF_MID_Y - 80 * trailerEagle.sizeMultiplier,
-                            false, false, 0, 0.0);
+                    poseTrailerBird(trailerEagle, DESERT_CLIFF_TOP_X + 180.0,
+                            DESERT_CLIFF_TOP_Y - 80 * trailerEagle.sizeMultiplier,
+                            false, true, 0, 0.0);
 
-                    zoom = lerp(0.58, 0.48, smoothStep01(phase));
-                    camX = Math.clamp(lerp(1180.0, 1820.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
-                    camY = Math.clamp(lerp(420.0, 300.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+                    zoom = lerp(0.56, 0.48, smoothStep01(phase));
+                    camX = Math.clamp(lerp(920.0, 1780.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(460.0, 280.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
 
-                    kicker = "BIRD FIGHT 3";
-                    title = "UPDATE OUT NOW";
-                    subtitle = "Desert map, Roadrunner, better camera, new fight UI, and more.";
+                    kicker = "BIRD FIGHT 3 UPDATE";
+                    title = "SUNSCORCH SPRINT";
+                    subtitle = "Sunscorch Flats, Roadrunner, Dust Devil classic, Broken Harbor LAN fights, Stock Photo Eagle, and refreshed fight presentation.";
                     titleAccent = Color.web("#FFCC80");
                     titleAlpha = Math.min(1.0, 0.32 + trailerOverlayAlpha(phase) * 0.88);
                     titleCenterY = HEIGHT * 0.52;
@@ -22946,63 +23199,65 @@ public class BirdGame3 extends Application {
                         musicCut[0] = true;
                     }
 
-                    // Final tease: fixed camera showing the Stock Photo Eagle walking across the broken dock
                     double finalPhase = normalizedProgress(elapsed, updateCardEnd, finalShotEnd);
-                    double eagleStartX = 1400.0;
-                    double eagleEndX = 1960.0;
-                    double eagleX = lerp(eagleStartX, eagleEndX, smoothStep01(finalPhase));
-                    double eagleY = GROUND_Y - 80 * trailerEagle.sizeMultiplier;
-                    poseTrailerBird(trailerEagle, eagleX, eagleY, true, false, 0, 0.0);
-                    drawEagle = true;
-                    drawRoadrunner = false;
+                    drawBirds.add(trailerRoadrunner);
+                    drawBirds.add(trailerEagle);
+                    applyPreviewSkinChoiceToBird(trailerRoadrunner, BirdType.ROADRUNNER, classicRoadrunnerSkin);
 
-                    zoom = 0.56;
-                    camX = Math.clamp(eagleX - WIDTH / (2.0 * zoom), 0.0, cameraMaxXForZoom(zoom));
-                    camY = Math.clamp(trailerGroundCameraY(zoom, 60.0), 0.0, cameraMaxYForZoom(zoom));
+                    double rrX = lerp(DESERT_CLIFF_LOW_X + 80.0, DESERT_CLIFF_TOP_X + 60.0, smoothStep01(finalPhase));
+                    double rrY = lerp(DESERT_CLIFF_LOW_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            DESERT_CLIFF_TOP_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            smoothStep01(finalPhase));
+                    double eagleX = lerp(DESERT_CLIFF_HIGH_X + 120.0, DESERT_CLIFF_SUMMIT_X + 24.0, smoothStep01(finalPhase));
+                    double eagleY = lerp(DESERT_CLIFF_HIGH_Y - 80 * trailerEagle.sizeMultiplier,
+                            DESERT_CLIFF_SUMMIT_Y - 80 * trailerEagle.sizeMultiplier,
+                            smoothStep01(finalPhase));
+                    poseTrailerBird(trailerRoadrunner, rrX, rrY, true, false, 0, 5.0);
+                    poseTrailerBird(trailerEagle, eagleX, eagleY, false, true, 0, -2.0);
 
-                    // Respect UI hide toggle
+                    zoom = lerp(0.62, 0.68, smoothStep01(finalPhase));
+                    camX = Math.clamp(lerp(DESERT_CLIFF_LOW_X - 260.0, DESERT_CLIFF_TOP_X - 140.0, smoothStep01(finalPhase)),
+                            0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(700.0, 220.0, smoothStep01(finalPhase)), 0.0, cameraMaxYForZoom(zoom));
+                    speedLineIntensity = 0.28;
                     hint.setOpacity(overlayHidden[0] ? 0.0 : 0.98);
-
-                    // Play final GO sfx once as a tease cue
-                    if (!sfxTriggered[6]) {
-                        playMatchIntroGoSfx();
-                        sfxTriggered[6] = true;
-                    }
                 }
 
                 if (elapsed < updateCardEnd) {
                     hint.setOpacity(0.76);
                 }
 
+                if (screenShakeEnabled && shakeIntensity > 0.0) {
+                    currentRenderShakeX = (Math.random() - 0.5) * shakeIntensity * 2.0;
+                    currentRenderShakeY = (Math.random() - 0.5) * shakeIntensity * 2.0;
+                    shakeIntensity *= 0.9;
+                    if (shakeIntensity < 0.5) {
+                        shakeIntensity = 0.0;
+                    }
+                } else if (!screenShakeEnabled) {
+                    shakeIntensity = 0.0;
+                }
+
                 g.clearRect(0, 0, WIDTH, HEIGHT);
                 g.save();
+                g.translate(currentRenderShakeX, currentRenderShakeY);
                 g.scale(zoom, zoom);
                 g.translate(-camX, -camY);
-                drawDesertArena(g, true);
+                drawTrailerArena(g, true);
+                drawTrailerParticles(g);
 
-                if (speedLineIntensity > 0.01 && drawRoadrunner) {
+                if (speedLineIntensity > 0.01 && drawBirds.contains(trailerRoadrunner)) {
                     drawTrailerSpeedLines(g, trailerRoadrunner, Color.web("#FFD180"), speedLineIntensity);
                 }
-                if (drawRoadrunner) {
-                    double alpha = fightHudFadeForBird(trailerRoadrunner);
+                for (Bird bird : drawBirds) {
+                    double alpha = fightHudFadeForBird(bird);
                     if (alpha < 0.999) {
                         g.save();
                         g.setGlobalAlpha(alpha);
-                        trailerRoadrunner.draw(g);
+                        bird.draw(g);
                         g.restore();
                     } else {
-                        trailerRoadrunner.draw(g);
-                    }
-                }
-                if (drawEagle) {
-                    double alpha = fightHudFadeForBird(trailerEagle);
-                    if (alpha < 0.999) {
-                        g.save();
-                        g.setGlobalAlpha(alpha);
-                        trailerEagle.draw(g);
-                        g.restore();
-                    } else {
-                        trailerEagle.draw(g);
+                        bird.draw(g);
                     }
                 }
                 g.restore();
@@ -23015,18 +23270,18 @@ public class BirdGame3 extends Application {
                     drawTrailerTitleCard(g, kicker, title, subtitle, titleAccent, titleAlpha, titleCenterY);
                 }
 
-                if (drawFinalPortrait) {
-                    double phase = normalizedProgress(elapsed, updateCardEnd, finalShotEnd);
-                    g.setFill(Color.web("#03070B", 0.58));
-                    g.fillRect(0, 0, WIDTH, HEIGHT);
-                    g.setFill(Color.web("#FFE0B2", 0.12 + 0.10 * smoothStep01(phase)));
-                    g.fillOval(310, 120, 1280, 820);
-                    g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.38));
-                    g.fillOval(760, 760, 620, 180);
-
-                    trailerEagle.sizeMultiplier = 6.0;
-                    poseTrailerBird(trailerEagle, 770.0, 170.0, true, false, 12, 0.0);
-                    trailerEagle.draw(g);
+                if (flashAlpha > 0.001 || redFlashAlpha > 0.001) {
+                    if (redFlashAlpha > 0.001) {
+                        g.setFill(Color.web("#FF7043", Math.min(0.24, redFlashAlpha * 0.28)));
+                        g.fillRect(0, 0, WIDTH, HEIGHT);
+                    }
+                    if (flashAlpha > 0.001) {
+                        g.setFill(Color.WHITE.deriveColor(0, 1, 1, Math.min(0.28, flashAlpha * 0.36)));
+                        g.fillRect(0, 0, WIDTH, HEIGHT);
+                    }
+                    flashAlpha *= 0.89;
+                    redFlashAlpha *= 0.9;
+                    flashTimer = Math.max(0, flashTimer - 1);
                 }
             }
         };
@@ -23172,6 +23427,77 @@ public class BirdGame3 extends Application {
                 0.0,
                 cameraMaxYForZoom(zoomLevel)
         );
+    }
+
+    private void prepareTrailerArena(MapType map) {
+        selectedMap = map == null ? MapType.DESERT : map;
+        platforms.clear();
+        windVents.clear();
+        nectarNodes.clear();
+        swingingVines.clear();
+        particles.clear();
+        crowMinions.clear();
+        piranhaHazards.clear();
+        chickMinions.clear();
+        powerUps.clear();
+        dockWaterX = 0;
+        dockWaterY = 0;
+        dockWaterW = 0;
+        dockWaterH = 0;
+        dockDrownY = 0;
+        dockLeverX = 0;
+        dockLeverY = 0;
+        dockLeverCooldown = 0;
+        dockShipBomb = null;
+        battlefieldIslandX = 0;
+        battlefieldIslandW = 0;
+        battlefieldIslandY = 0;
+        Arrays.fill(dockLeverHeld, false);
+        mountainPeaks = null;
+        switch (selectedMap) {
+            case DOCK -> setupDockArena();
+            case DESERT -> setupDesertArena();
+            default -> setupDesertArena();
+        }
+    }
+
+    private void drawTrailerArena(GraphicsContext g, boolean ambientFx) {
+        switch (selectedMap) {
+            case DOCK -> drawDockArena(g, ambientFx);
+            case DESERT -> drawDesertArena(g, ambientFx);
+            default -> drawForestArena(g, ambientFx);
+        }
+    }
+
+    private void drawTrailerParticles(GraphicsContext g) {
+        if (!particleEffectsEnabled || g == null) {
+            return;
+        }
+        for (Particle particle : particles) {
+            if (particle == null || particle.life <= 0) {
+                continue;
+            }
+            double alpha = Math.clamp(particle.life / 60.0, 0.14, 1.0);
+            g.setFill(particle.color.deriveColor(0, 1, 1, alpha));
+            g.fillOval(particle.x - 4, particle.y - 4, 8, 8);
+        }
+    }
+
+    private void triggerTrailerBirdSpecial(Bird bird, boolean fillUltimate) {
+        if (bird == null) {
+            return;
+        }
+        if (fillUltimate) {
+            bird.gainUltimateFromMinionDamage(999);
+        }
+        bird.specialCooldown = 0;
+        try {
+            java.lang.reflect.Method special = Bird.class.getDeclaredMethod("special");
+            special.setAccessible(true);
+            special.invoke(bird);
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("Unable to trigger trailer special for " + bird.name, ex);
+        }
     }
 
     private BorderPane buildBirdBookContent(BirdBookCategory category) {
@@ -25873,9 +26199,11 @@ public class BirdGame3 extends Application {
                 """
                         Competition Mode (Tournament Rules):
                         - No power-up spawns.
-                        - Fixed 120 second round timer.
-                        - No sudden-death crows or random city wind bursts.
-                        - On timeout, highest-health bird wins (damage dealt as tie-breaker)."""
+                        - 3 stocks each with a 120 second round timer.
+                        - No random city wind bursts.
+                        - Percent damage scales knockback and blast-zone KOs decide the round.
+                        - If time expires, highest stock count wins.
+                        - If the top stock count is tied, sudden death starts at 300% and the crow swarm kicks in."""
         );
         compInfo.setFont(Font.font("Consolas", 24));
         compInfo.setTextFill(Color.web("#FFECB3"));
@@ -30674,6 +31002,132 @@ public class BirdGame3 extends Application {
         return matchController.competitionScoreLine();
     }
 
+    boolean usesSmashCombatRules() {
+        return smashCombatRulesActive;
+    }
+
+    int smashStartingStocks() {
+        return SMASH_STARTING_STOCKS;
+    }
+
+    double smashSuddenDeathPercent() {
+        return SMASH_SUDDEN_DEATH_PERCENT;
+    }
+
+    double displayedDamageForBird(Bird bird) {
+        if (bird == null) {
+            return 0.0;
+        }
+        return usesSmashCombatRules() ? bird.smashDamagePercent() : Math.max(0.0, bird.health);
+    }
+
+    int compareBirdPlacements(Bird a, Bird b) {
+        if (a == b) return 0;
+        if (a == null) return 1;
+        if (b == null) return -1;
+        if (!usesSmashCombatRules()) {
+            int scoreA = eliminations[a.playerIndex] * 100 + damageDealt[a.playerIndex] + (int) a.health;
+            int scoreB = eliminations[b.playerIndex] * 100 + damageDealt[b.playerIndex] + (int) b.health;
+            return Integer.compare(scoreB, scoreA);
+        }
+
+        int scoreCompare = Integer.compare(matchScoreForPlayer(b.playerIndex), matchScoreForPlayer(a.playerIndex));
+        if (scoreCompare != 0) return scoreCompare;
+
+        int damagePercentCompare = Double.compare(displayedDamageForBird(a), displayedDamageForBird(b));
+        if (damagePercentCompare != 0) return damagePercentCompare;
+
+        int damageCompare = Integer.compare(damageDealt[b.playerIndex], damageDealt[a.playerIndex]);
+        if (damageCompare != 0) return damageCompare;
+
+        return Integer.compare(falls[a.playerIndex], falls[b.playerIndex]);
+    }
+
+    int compareTeamPlacements(int teamA, int teamB) {
+        if (!usesSmashCombatRules()) {
+            return Integer.compare(legacyTeamPlacementScore(teamB), legacyTeamPlacementScore(teamA));
+        }
+
+        int scoreCompare = Integer.compare(teamMatchScore(teamB), teamMatchScore(teamA));
+        if (scoreCompare != 0) return scoreCompare;
+
+        int damagePercentCompare = Double.compare(teamDisplayedDamage(teamA), teamDisplayedDamage(teamB));
+        if (damagePercentCompare != 0) return damagePercentCompare;
+
+        int damageCompare = Integer.compare(teamDamageDealt(teamB), teamDamageDealt(teamA));
+        if (damageCompare != 0) return damageCompare;
+
+        return Integer.compare(teamFalls(teamA), teamFalls(teamB));
+    }
+
+    int matchScoreForPlayer(int playerIndex) {
+        return playerIndex >= 0 && playerIndex < scores.length ? scores[playerIndex] : 0;
+    }
+
+    boolean playerHasStocksRemaining(int playerIndex) {
+        return matchScoreForPlayer(playerIndex) > 0;
+    }
+
+    int teamMatchScore(int teamId) {
+        int total = 0;
+        for (int i = 0; i < activePlayers; i++) {
+            if (players[i] != null && getEffectiveTeam(i) == teamId) {
+                total += matchScoreForPlayer(i);
+            }
+        }
+        return total;
+    }
+
+    double teamDisplayedDamage(int teamId) {
+        double total = 0.0;
+        for (int i = 0; i < activePlayers; i++) {
+            Bird bird = players[i];
+            if (bird != null && getEffectiveTeam(i) == teamId) {
+                total += displayedDamageForBird(bird);
+            }
+        }
+        return total;
+    }
+
+    int teamDamageDealt(int teamId) {
+        int total = 0;
+        for (int i = 0; i < activePlayers; i++) {
+            if (players[i] != null && getEffectiveTeam(i) == teamId) {
+                total += Math.max(0, damageDealt[i]);
+            }
+        }
+        return total;
+    }
+
+    int teamFalls(int teamId) {
+        int total = 0;
+        for (int i = 0; i < activePlayers; i++) {
+            if (players[i] != null && getEffectiveTeam(i) == teamId) {
+                total += Math.max(0, falls[i]);
+            }
+        }
+        return total;
+    }
+
+    void clearDockShipBomb() {
+        dockShipBomb = null;
+    }
+
+    private int legacyTeamPlacementScore(int teamId) {
+        int total = 0;
+        for (int i = 0; i < activePlayers; i++) {
+            Bird bird = players[i];
+            if (bird != null && getEffectiveTeam(i) == teamId) {
+                total += eliminations[i] * 100 + damageDealt[i] + (int) bird.health;
+            }
+        }
+        return total;
+    }
+
+    private String signedScoreText(int score) {
+        return score > 0 ? "+" + score : Integer.toString(score);
+    }
+
     private void applyMatchModeRuntimeEffects(long now) {
         if (bossRushModeActive && classicModeActive) {
             applyBossRushRuntimeEffects();
@@ -31855,6 +32309,16 @@ public class BirdGame3 extends Application {
             }
         }
 
+        smashCombatRulesActive = !trainingModeActive && !storyModeActive && !adventureModeActive && !classicModeActive;
+        if (smashCombatRulesActive) {
+            Arrays.fill(scores, 0);
+            for (int i = 0; i < activePlayers; i++) {
+                if (players[i] != null) {
+                    scores[i] = smashStartingStocks();
+                }
+            }
+        }
+
         if (tournamentModeActive) {
             applyTournamentSlotNames();
         }
@@ -32670,9 +33134,10 @@ public class BirdGame3 extends Application {
     }
 
     private void drawFightHudTimer(GraphicsContext g, Rectangle2D rect) {
+        boolean suddenDeathActive = suddenDeath.isActive();
         Color accent = trainingModeActive
                 ? Color.web("#80DEEA")
-                : matchTimer <= 0
+                : suddenDeathActive
                 ? Color.web("#FF7043")
                 : matchTimer <= 600
                 ? Color.web("#FFD54F")
@@ -32696,7 +33161,7 @@ public class BirdGame3 extends Application {
             g.setFill(accent);
             g.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
             g.fillText("TRAINING", centerX, rect.getMinY() + 78);
-        } else if (matchTimer <= 0) {
+        } else if (suddenDeathActive) {
             g.setFill(Color.web("#FFE0B2"));
             g.setFont(Font.font("Arial Black", FontWeight.BOLD, 26));
             g.fillText("SUDDEN", centerX, rect.getMinY() + 62);
@@ -32704,7 +33169,7 @@ public class BirdGame3 extends Application {
         } else {
             g.setFill(Color.WHITE);
             g.setFont(FIGHT_HUD_TIMER_VALUE_FONT);
-            g.fillText(formatFightHudTimer(matchTimer), centerX, rect.getMinY() + 84);
+            g.fillText(formatFightHudTimer(Math.max(0, matchTimer)), centerX, rect.getMinY() + 84);
         }
         g.setTextAlign(TextAlignment.LEFT);
     }
@@ -32783,13 +33248,25 @@ public class BirdGame3 extends Application {
         g.setFill(Color.web("#B0BEC5"));
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
         int score = bird.playerIndex >= 0 && bird.playerIndex < scores.length ? scores[bird.playerIndex] : 0;
-        g.fillText("SCORE " + score, textX, rect.getMinY() + 64);
+        if (usesSmashCombatRules()) {
+            g.fillText("STOCKS", textX, rect.getMinY() + 64);
+            double iconSize = rect.getWidth() < 330 ? 18.0 : 20.0;
+            drawFightHudStockIcons(g, bird, accent, textX + 72, rect.getMinY() + 46, iconSize);
+        } else {
+            g.fillText("SCORE " + score, textX, rect.getMinY() + 64);
+        }
 
         double maxHealth = Math.max(1.0, bird.getMaxHealth());
+        double shownDamage = displayedDamageForBird(bird);
         double healthRatio = Math.clamp(bird.health / maxHealth, 0.0, 1.0);
-        int shownHealth = (int) Math.round(Math.max(0, bird.health));
-        Color healthColor = fightHudHealthColor(healthRatio);
-        if (bird.health <= 0) {
+        double barRatio = usesSmashCombatRules()
+                ? Math.min(1.0, shownDamage / 180.0)
+                : healthRatio;
+        int shownHealth = (int) Math.round(shownDamage);
+        Color healthColor = usesSmashCombatRules()
+                ? fightHudDamageColor(shownDamage)
+                : fightHudHealthColor(healthRatio);
+        if (!usesSmashCombatRules() && bird.health <= 0) {
             healthColor = Color.web("#EF5350");
         }
 
@@ -32810,11 +33287,11 @@ public class BirdGame3 extends Application {
         double healthBarH = 14;
         g.setFill(Color.web("#111A21", 0.95));
         g.fillRoundRect(healthBarX, healthBarY, healthBarW, healthBarH, 12, 12);
-        g.setFill(Color.web("#5F1313"));
+        g.setFill(usesSmashCombatRules() ? Color.web("#16242E") : Color.web("#5F1313"));
         g.fillRoundRect(healthBarX, healthBarY, healthBarW, healthBarH, 12, 12);
         g.setFill(healthColor);
-        g.fillRoundRect(healthBarX, healthBarY, healthBarW * healthRatio, healthBarH, 12, 12);
-        if (bird.health > maxHealth) {
+        g.fillRoundRect(healthBarX, healthBarY, healthBarW * barRatio, healthBarH, 12, 12);
+        if (!usesSmashCombatRules() && bird.health > maxHealth) {
             double overMax = Math.max(1.0, Bird.STARTING_HEALTH - maxHealth);
             double overRatio = Math.min(1.0, (bird.health - maxHealth) / overMax);
             g.setFill(Color.SILVER.deriveColor(0, 1, 1, 0.84));
@@ -32852,6 +33329,33 @@ public class BirdGame3 extends Application {
         );
         g.setTextAlign(TextAlignment.LEFT);
         g.restore();
+    }
+
+    private void drawFightHudStockIcons(GraphicsContext g, Bird bird, Color accent, double startX, double y, double size) {
+        if (bird == null) {
+            return;
+        }
+        int stocks = Math.max(0, Math.min(smashStartingStocks(), matchScoreForPlayer(bird.playerIndex)));
+        WritableImage portrait = fightHudPortraitImage(bird);
+        double gap = size <= 18.0 ? 5.0 : 6.0;
+        for (int i = 0; i < smashStartingStocks(); i++) {
+            double x = startX + i * (size + gap);
+            boolean filled = i < stocks;
+            g.setFill(Color.web("#02060A", filled ? 0.98 : 0.82));
+            g.fillRoundRect(x, y, size, size, 8, 8);
+            g.setStroke(accent.deriveColor(0, 1, 1, filled ? 0.9 : 0.26));
+            g.setLineWidth(1.25);
+            g.strokeRoundRect(x, y, size, size, 8, 8);
+            if (portrait != null) {
+                g.save();
+                g.setGlobalAlpha(filled ? 1.0 : 0.18);
+                g.drawImage(portrait, x + 1.5, y + 1.5, size - 3.0, size - 3.0);
+                g.restore();
+            } else if (filled) {
+                g.setFill(accent);
+                g.fillOval(x + 3.0, y + 3.0, size - 6.0, size - 6.0);
+            }
+        }
     }
 
     private void drawFightStartCountdown(GraphicsContext g) {
@@ -32979,6 +33483,19 @@ public class BirdGame3 extends Application {
         return Color.web("#FF6E40");
     }
 
+    private Color fightHudDamageColor(double damagePercent) {
+        if (damagePercent < 40) {
+            return Color.web("#F5F7FA");
+        }
+        if (damagePercent < 90) {
+            return Color.web("#FFD54F");
+        }
+        if (damagePercent < 150) {
+            return Color.web("#FF8A65");
+        }
+        return Color.web("#EF5350");
+    }
+
     private String formatFightHudTimer(int frames) {
         int totalSeconds = Math.max(0, frames / 60);
         int minutes = totalSeconds / 60;
@@ -33004,7 +33521,8 @@ public class BirdGame3 extends Application {
     }
 
     private void drawHealthBar(GraphicsContext g, Bird b, double x, double y) {
-        int shownHealth = (int) Math.round(Math.max(0, b.health));
+        double shownDamage = displayedDamageForBird(b);
+        int shownHealth = (int) Math.round(shownDamage);
         double maxHealth = Math.max(1.0, b.getMaxHealth());
         double barWidth = 400;
         double healthHeight = 30;
@@ -33014,15 +33532,19 @@ public class BirdGame3 extends Application {
 
         g.setFill(Color.BLACK);
         g.fillRoundRect(x - 3, y - 3, barWidth + 6, totalHeight + 6, 10, 10);
-        g.setFill(Color.RED);
+        g.setFill(usesSmashCombatRules() ? Color.web("#16242E") : Color.RED);
         g.fillRoundRect(x, y, barWidth, healthHeight, 10, 10);
         boolean compStyle = competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive;
-        Color baseColor = compStyle ? Color.DODGERBLUE : Color.LIME;
-        double baseRatio = Math.clamp(b.health / maxHealth, 0.0, 1.0);
+        Color baseColor = usesSmashCombatRules()
+                ? fightHudDamageColor(shownDamage)
+                : (compStyle ? Color.DODGERBLUE : Color.LIME);
+        double baseRatio = usesSmashCombatRules()
+                ? Math.min(1.0, shownDamage / 180.0)
+                : Math.clamp(b.health / maxHealth, 0.0, 1.0);
         g.setFill(baseColor);
         g.fillRoundRect(x, y, barWidth * baseRatio, healthHeight, 10, 10);
 
-        if (b.health > maxHealth) {
+        if (!usesSmashCombatRules() && b.health > maxHealth) {
             double overMax = Math.max(1.0, Bird.STARTING_HEALTH - maxHealth);
             double overRatio = Math.min(1.0, (b.health - maxHealth) / overMax);
             g.setFill(Color.SILVER);
@@ -33180,24 +33702,32 @@ public class BirdGame3 extends Application {
             boolean isWinner = teamMode
                     ? winningTeam > 0 && getEffectiveTeam(i) == winningTeam
                     : winner != null && i == winner.playerIndex;
-            int health = bird != null ? (int) Math.round(Math.max(0, bird.health)) : 0;
+            int health = bird != null ? (int) Math.round(displayedDamageForBird(bird)) : 0;
             participants.add(new MatchHistoryEntry.Participant(
                     slotLabel,
                     type != null ? type.name : "Unknown",
                     Math.max(0, damageDealt[i]),
                     Math.max(0, eliminations[i]),
                     Math.max(0, falls[i]),
-                    Math.max(0, scores[i]),
+                    scores[i],
                     health,
                     isWinner
             ));
         }
 
         if (participants.isEmpty()) return null;
-        participants.sort(Comparator
+        Comparator<MatchHistoryEntry.Participant> participantOrder = Comparator
                 .comparing(MatchHistoryEntry.Participant::winner).reversed()
-                .thenComparing(MatchHistoryEntry.Participant::score, Comparator.reverseOrder())
-                .thenComparing(MatchHistoryEntry.Participant::damage, Comparator.reverseOrder()));
+                .thenComparing(MatchHistoryEntry.Participant::score, Comparator.reverseOrder());
+        if (usesSmashCombatRules()) {
+            participantOrder = participantOrder
+                    .thenComparing(MatchHistoryEntry.Participant::health)
+                    .thenComparing(MatchHistoryEntry.Participant::damage, Comparator.reverseOrder());
+        } else {
+            participantOrder = participantOrder
+                    .thenComparing(MatchHistoryEntry.Participant::damage, Comparator.reverseOrder());
+        }
+        participants.sort(participantOrder);
 
         return new MatchHistoryEntry(
                 System.currentTimeMillis(),
@@ -33382,9 +33912,7 @@ public class BirdGame3 extends Application {
         activeBirds.sort((a, b) -> {
             if (a == winner) return -1;
             if (b == winner) return 1;
-            int scoreA = eliminations[a.playerIndex] * 100 + damageDealt[a.playerIndex] + (int) a.health;
-            int scoreB = eliminations[b.playerIndex] * 100 + damageDealt[b.playerIndex] + (int) b.health;
-            return Integer.compare(scoreB, scoreA);
+            return compareBirdPlacements(a, b);
         });
 
         VBox showcase = buildVictoryShowcase(activeBirds);
@@ -33928,17 +34456,7 @@ public class BirdGame3 extends Application {
 
     private List<Integer> getIntegers(Map<Integer, List<Bird>> teams) {
         List<Integer> ranking = new ArrayList<>(teams.keySet());
-        ranking.sort((a, b) -> {
-            int scoreA = 0;
-            int scoreB = 0;
-            for (Bird bird : teams.get(a)) {
-                scoreA += eliminations[bird.playerIndex] * 100 + damageDealt[bird.playerIndex] + (int) bird.health;
-            }
-            for (Bird bird : teams.get(b)) {
-                scoreB += eliminations[bird.playerIndex] * 100 + damageDealt[bird.playerIndex] + (int) bird.health;
-            }
-            return Integer.compare(scoreB, scoreA);
-        });
+        ranking.sort(this::compareTeamPlacements);
         return ranking;
     }
 
@@ -34268,6 +34786,7 @@ public class BirdGame3 extends Application {
     }
 
     void resetMatchStats() {
+        Arrays.fill(scores, 0);
         Arrays.fill(falls, 0);
         Arrays.fill(damageDealt, 0);
         Arrays.fill(eliminations, 0);
@@ -34289,6 +34808,7 @@ public class BirdGame3 extends Application {
         currentRenderShakeX = 0.0;
         currentRenderShakeY = 0.0;
         currentFightHudOcclusionRects = List.of();
+        smashCombatRulesActive = false;
         fightHudPortraitCache.clear();
         resetSuddenDeathState();
         Arrays.fill(unitedFinaleEventTriggered, false);
@@ -34925,7 +35445,7 @@ public class BirdGame3 extends Application {
 
         VBox participants = new VBox(8);
         for (MatchHistoryEntry.Participant participant : entry.participants()) {
-            participants.getChildren().add(buildMatchHistoryParticipantRow(participant, accent));
+            participants.getChildren().add(buildMatchHistoryParticipantRow(entry.mode(), participant, accent));
         }
 
         card.getChildren().addAll(header, participants);
@@ -34954,7 +35474,7 @@ public class BirdGame3 extends Application {
         return card;
     }
 
-    private HBox buildMatchHistoryParticipantRow(MatchHistoryEntry.Participant participant, Color accent) {
+    private HBox buildMatchHistoryParticipantRow(String mode, MatchHistoryEntry.Participant participant, Color accent) {
         String border = participant.winner() ? toHex(accent) : "#37474F";
 
         HBox row = new HBox(16);
@@ -34966,11 +35486,13 @@ public class BirdGame3 extends Application {
         nameLabel.setFont(Font.font("Arial Black", 24));
         nameLabel.setTextFill(participant.winner() ? Color.web("#FFF59D") : Color.web("#ECEFF1"));
 
+        String meterLabel = matchHistoryUsesSmashRules(mode) ? "DMG%" : "HP";
+        String scoreLabel = matchHistoryUsesSmashRules(mode) ? "Stocks" : "Score";
         Label statsLabel = new Label("DMG " + participant.damage()
                 + "   KOs " + participant.eliminations()
                 + "   Falls " + participant.falls()
-                + "   Score " + participant.score()
-                + "   HP " + participant.health() + "%");
+                + "   " + scoreLabel + " " + participant.score()
+                + "   " + meterLabel + " " + participant.health() + "%");
         statsLabel.setFont(Font.font("Consolas", 19));
         statsLabel.setTextFill(Color.web("#CFD8DC"));
 
@@ -34979,6 +35501,10 @@ public class BirdGame3 extends Application {
 
         row.getChildren().addAll(nameLabel, spacer, statsLabel);
         return row;
+    }
+
+    private boolean matchHistoryUsesSmashRules(String mode) {
+        return "FIGHT".equals(mode) || "COMPETITION".equals(mode) || "LAN".equals(mode);
     }
 
     private Color matchHistoryAccent(String mode) {

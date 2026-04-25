@@ -40,6 +40,36 @@ class SuddenDeathControllerTest {
         assertTrue(murderCount > 0);
     }
 
+    @Test
+    void smashStyleSuddenDeathStillSpawnsCrowPressure() {
+        SuddenDeathController controller = new SuddenDeathController();
+        List<CrowMinion> crows = new ArrayList<>();
+        List<PiranhaHazard> piranhas = new ArrayList<>();
+
+        controller.startSmashTiebreaker();
+        Random random = new Random(11L);
+        double shake = 4.0;
+        for (int i = 0; i < 140; i++) {
+            shake = controller.updateAndSpawn(
+                    crows,
+                    piranhas,
+                    random,
+                    shake,
+                    false,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    false
+            );
+        }
+
+        assertTrue(controller.isSmashStyle());
+        assertEquals(15.0, shake, 0.0001);
+        assertTrue(crows.size() >= 2);
+        assertTrue(piranhas.isEmpty());
+    }
+
     private static void advance(SuddenDeathController controller, List<CrowMinion> crows, int frames) {
         List<PiranhaHazard> piranhas = new ArrayList<>();
         Random random = new Random(7L);

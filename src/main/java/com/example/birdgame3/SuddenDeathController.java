@@ -29,21 +29,53 @@ final class SuddenDeathController {
     private static final double SUDDEN_DEATH_SPEED_MULTIPLIER_CAP = 0.95;
     private static final int OVERFLOW_PROTECTION_FRAMES = FPS * 12;
 
+    private enum Mode {
+        HAZARD_SWARM,
+        SMASH_TIEBREAKER
+    }
+
     private boolean active = false;
     private int frames = 0;
+    private Mode mode = Mode.HAZARD_SWARM;
 
     boolean isActive() {
         return active;
     }
 
+    boolean isSmashStyle() {
+        return active && mode == Mode.SMASH_TIEBREAKER;
+    }
+
+    boolean spawnsHazards() {
+        return active;
+    }
+
     void start() {
+        startHazardSwarm();
+    }
+
+    void startHazardSwarm() {
         active = true;
         frames = 0;
+        mode = Mode.HAZARD_SWARM;
+    }
+
+    void startSmashTiebreaker() {
+        active = true;
+        frames = 0;
+        mode = Mode.SMASH_TIEBREAKER;
+    }
+
+    void syncFromRemote(boolean active, boolean smashStyle) {
+        this.active = active;
+        this.frames = active ? Math.max(0, frames) : 0;
+        this.mode = smashStyle ? Mode.SMASH_TIEBREAKER : Mode.HAZARD_SWARM;
     }
 
     void reset() {
         active = false;
         frames = 0;
+        mode = Mode.HAZARD_SWARM;
     }
 
     double updateAndSpawn(List<CrowMinion> crowMinions,

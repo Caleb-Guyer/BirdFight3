@@ -118,6 +118,59 @@ class BirdStateTest {
     }
 
     @Test
+    void heldAttackBuildsMuchStrongerKnockbackThanTap() {
+        double tapKnockback = attackKnockbackAfterHoldingForFrames(1);
+        double chargedKnockback = attackKnockbackAfterHoldingForFrames(36);
+
+        assertTrue(chargedKnockback > tapKnockback * 2.5,
+                "Charged attacks should launch much harder than a quick tap.");
+    }
+
+    @Test
+    void groundedAttackBiasesKnockbackHorizontally() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = target;
+
+        invokePrivateVoid(attacker, "attack");
+
+        assertTrue(target.vx > 0.0, "Attack should still push the target forward.");
+        assertTrue(target.vy < 0.0, "Attack should still pop the target upward.");
+        assertTrue(target.vx > Math.abs(target.vy) * 5.0,
+                "Basic attacks should apply noticeably more horizontal knockback than vertical launch.");
+    }
+
+    @Test
+    void smashAttackBiasesKnockbackHorizontallyAfterLaunchScaling() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game, "smashCombatRulesActive", true);
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = target;
+
+        invokePrivateVoid(attacker, "attack");
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+
+        assertTrue(target.vx > 0.0, "Smash hit should still push the target forward.");
+        assertTrue(target.vy < 0.0, "Smash hit should still launch the target upward.");
+        assertTrue(target.vx > Math.abs(target.vy) * 5.0,
+                "Smash launch scaling should keep the knockback more horizontal than vertical.");
+    }
+
+    @Test
     void battlefieldClampAdaptsToBirdRecoveryProfiles() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
@@ -1030,10 +1083,38 @@ class BirdStateTest {
         method.invoke(target);
     }
 
+    private static double attackKnockbackAfterHoldingForFrames(int holdFrames) {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = target;
+
+        KeyCode attackKey = game.attackKeyForPlayer(0);
+        game.setLocalActionsForKey(attackKey, true);
+        for (int i = 0; i < holdFrames; i++) {
+            attacker.update(1.0);
+        }
+        game.setLocalActionsForKey(attackKey, false);
+        attacker.update(1.0);
+        return target.vx;
+    }
+
     private static void setPrivateInt(Object target, String fieldName, int value) throws Exception {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.setInt(target, value);
+    }
+
+    private static void setPrivateBoolean(Object target, String fieldName, boolean value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.setBoolean(target, value);
     }
 
     private static void setPrivateDouble(Object target, String fieldName, double value) throws Exception {

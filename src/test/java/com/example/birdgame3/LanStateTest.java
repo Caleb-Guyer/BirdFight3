@@ -20,6 +20,8 @@ class LanStateTest {
         LanState state = new LanState();
         state.matchTimer = 321;
         state.matchEnded = true;
+        state.suddenDeathActive = true;
+        state.suddenDeathSmashStyle = true;
         state.activePlayers = 3;
         state.camX = 150.5;
         state.camY = -20.25;
@@ -94,6 +96,8 @@ class LanStateTest {
 
         assertEquals(321, decoded.matchTimer);
         assertTrue(decoded.matchEnded);
+        assertTrue(decoded.suddenDeathActive);
+        assertTrue(decoded.suddenDeathSmashStyle);
         assertEquals(3, decoded.activePlayers);
         assertEquals(0.8, decoded.zoom);
         assertEquals(20, decoded.scores[1]);

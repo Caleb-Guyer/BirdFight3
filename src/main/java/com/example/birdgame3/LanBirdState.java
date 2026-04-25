@@ -12,6 +12,7 @@ class LanBirdState {
     double vy;
     boolean facingRight;
     double health;
+    double smashDamage;
     double stunTime;
     int specialCooldown;
     int specialMaxCooldown;
@@ -123,6 +124,7 @@ class LanBirdState {
         out.writeDouble(vy);
         out.writeBoolean(facingRight);
         out.writeDouble(health);
+        out.writeDouble(smashDamage);
         out.writeDouble(stunTime);
         out.writeInt(specialCooldown);
         out.writeInt(specialMaxCooldown);
@@ -238,6 +240,7 @@ class LanBirdState {
         state.vy = in.readDouble();
         state.facingRight = in.readBoolean();
         state.health = in.readDouble();
+        state.smashDamage = in.readDouble();
         state.stunTime = in.readDouble();
         state.specialCooldown = in.readInt();
         state.specialMaxCooldown = in.readInt();
