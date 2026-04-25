@@ -105,9 +105,21 @@ public class Bird {
     public int batEchoTimer = 0;
     private int batHangLockTimer = 0;
     private int batRehangCooldownTimer = 0;
+    private boolean ledgeHanging = false;
+    private Platform ledgePlatform = null;
+    private boolean ledgeGrabOnRightSide = false;
+    private int ledgeLockTimer = 0;
+    private int ledgeRegrabCooldownTimer = 0;
+    private int ledgeInvulnerabilityTimer = 0;
+    private int ledgeHangFrames = 0;
 
     public boolean isBlocking = false;
     public int blockCooldown = 0;
+    private double shieldHealth = SHIELD_MAX_HEALTH;
+    private int shieldStunFrames = 0;
+    private int parryWindowFrames = 0;
+    private double shieldHoldVisual = 0.0;
+    private boolean blockHeldLastFrame = false;
 
     // === VINE SWINGING ===
     SwingingVine attachedVine = null;
@@ -192,7 +204,35 @@ public class Bird {
     private static final double SMASH_VERTICAL_LAUNCH_SCALE = 0.84;
     private static final double SMASH_MIN_UPWARD_LAUNCH_SCALE = 2.8;
     private static final double SMASH_DI_MAX_ANGLE_RADIANS = Math.toRadians(18.0);
+    private static final double LEDGE_GRAB_HORIZONTAL_REACH = 34.0;
+    private static final double LEDGE_GRAB_VERTICAL_ABOVE = 18.0;
+    private static final double LEDGE_GRAB_VERTICAL_BELOW = 46.0;
+    private static final double LEDGE_HANG_TOP_OFFSET_RATIO = 0.36;
+    private static final int LEDGE_LOCK_FRAMES = 10;
+    private static final int LEDGE_REGRAB_COOLDOWN_FRAMES = 24;
+    private static final int LEDGE_GRAB_INTANGIBILITY_FRAMES = 18;
+    private static final int LEDGE_CLIMB_INTANGIBILITY_FRAMES = 8;
+    private static final int LEDGE_ROLL_INTANGIBILITY_FRAMES = 14;
     private static final int SMASH_KO_CREDIT_FRAMES = 240;
+    private static final double SHIELD_MAX_HEALTH = 60.0;
+    private static final double SHIELD_DAMAGE_BASE = 1.8;
+    private static final double SHIELD_DAMAGE_SCALE = 0.78;
+    private static final double SHIELD_REGEN_PER_FRAME = 0.12;
+    private static final int SHIELD_PARRY_STARTUP_FRAMES = 3;
+    private static final int SHIELD_PARRY_ATTACKER_STUN_FRAMES = 28;
+    private static final int SHIELD_PARRY_RELEASE_FRAMES = 5;
+    private static final int SHIELD_PARRY_HITSTOP_FRAMES = 5;
+    private static final double SHIELD_PUSHBACK_SCALE = 0.16;
+    private static final int SHIELD_STUN_BASE_FRAMES = 6;
+    private static final double SHIELD_STUN_DAMAGE_SCALE = 0.30;
+    private static final double SHIELD_STUN_LOW_HEALTH_BONUS = 5.0;
+    private static final int SHIELD_DROP_COOLDOWN_FRAMES = 10;
+    private static final int SHIELD_BREAK_STUN_FRAMES = 80;
+    private static final int SHIELD_BREAK_COOLDOWN_FRAMES = 96;
+    private static final double SHIELD_MIN_VISUAL_SCALE = 0.52;
+    private static final double SHIELD_HOLD_VISUAL_BUILD_PER_FRAME = 0.0085;
+    private static final double SHIELD_HOLD_VISUAL_RELEASE_PER_FRAME = 0.05;
+    private static final double SHIELD_HOLD_VISUAL_SHRINK = 0.26;
     private static final double SMASH_TOP_BLAST_Y = BirdGame3.CEILING_Y - 220.0;
     private static Image photoEagleIdleSprite;
     private static Image photoEagleAttackSprite;
@@ -233,6 +273,12 @@ public class Bird {
 
     private final Random random = new Random();
 
+    private record ShieldHitResult(boolean blocked, boolean parried) {
+        private static final ShieldHitResult NONE = new ShieldHitResult(false, false);
+        private static final ShieldHitResult BLOCKED = new ShieldHitResult(true, false);
+        private static final ShieldHitResult PARRIED = new ShieldHitResult(true, true);
+    }
+
     /**
      * Create a new bird character.
      * @param startX Starting x position
@@ -272,7 +318,7 @@ public class Bird {
     }
 
     boolean isCombatInvulnerable() {
-        return isNullRockForm() && nullRockInvincibilityTimer > 0;
+        return ledgeInvulnerabilityTimer > 0 || (isNullRockForm() && nullRockInvincibilityTimer > 0);
     }
 
     private boolean isStunImmune() {
@@ -419,7 +465,7 @@ public class Bird {
     }
 
     private void handleVerticalCollision() {
-        if (onVine || batHanging) return;
+        if (onVine || batHanging || ledgeHanging) return;
 
         boolean hit = false;
         double newY = y;
@@ -468,6 +514,210 @@ public class Bird {
                 handleTurkeyGroundPound();
             }
         }
+    }
+
+    private void snapToLedge() {
+        if (ledgePlatform == null) {
+            return;
+        }
+        double edgeX = ledgeGrabOnRightSide ? ledgePlatform.x + ledgePlatform.w : ledgePlatform.x;
+        double hangInset = bodyWidth() * 0.32;
+        x = ledgeGrabOnRightSide ? edgeX - hangInset : edgeX - bodyWidth() + hangInset;
+        y = ledgePlatform.y - bodyHeight() * LEDGE_HANG_TOP_OFFSET_RATIO;
+        vx = 0;
+        vy = 0;
+        facingRight = !ledgeGrabOnRightSide;
+    }
+
+    private void beginLedgeHang(Platform platform, boolean onRightSide) {
+        ledgeHanging = true;
+        ledgePlatform = platform;
+        ledgeGrabOnRightSide = onRightSide;
+        ledgeLockTimer = LEDGE_LOCK_FRAMES;
+        ledgeHangFrames = 0;
+        ledgeInvulnerabilityTimer = Math.max(ledgeInvulnerabilityTimer, LEDGE_GRAB_INTANGIBILITY_FRAMES);
+        canDoubleJump = true;
+        snapToLedge();
+    }
+
+    private void clearLedgeHangState(int regrabCooldownFrames) {
+        ledgeHanging = false;
+        ledgePlatform = null;
+        ledgeGrabOnRightSide = false;
+        ledgeLockTimer = 0;
+        ledgeHangFrames = 0;
+        if (regrabCooldownFrames > 0) {
+            ledgeRegrabCooldownTimer = Math.max(ledgeRegrabCooldownTimer, regrabCooldownFrames);
+        }
+    }
+
+    private int ledgeStageDirection() {
+        return ledgeGrabOnRightSide ? -1 : 1;
+    }
+
+    private boolean ledgeTowardStagePressed() {
+        return ledgeStageDirection() > 0 ? rightPressed() : leftPressed();
+    }
+
+    private boolean ledgeAwayFromStagePressed() {
+        return ledgeStageDirection() > 0 ? leftPressed() : rightPressed();
+    }
+
+    private void dropFromLedge() {
+        clearLedgeHangState(LEDGE_REGRAB_COOLDOWN_FRAMES);
+        y += Math.max(10.0, bodyHeight() * 0.18);
+        vy = Math.max(vy, 3.8);
+    }
+
+    private void jumpFromLedge() {
+        int dir = ledgeStageDirection();
+        clearLedgeHangState(LEDGE_REGRAB_COOLDOWN_FRAMES);
+        x += dir * Math.max(4.0, bodyWidth() * 0.08);
+        vx = dir * Math.max(6.2, type.speed * speedMultiplier * 1.55);
+        vy = -Math.max(9.5, type.jumpHeight * 0.82);
+        canDoubleJump = true;
+        facingRight = dir > 0;
+        ledgeInvulnerabilityTimer = Math.max(ledgeInvulnerabilityTimer, 6);
+    }
+
+    private void climbFromLedge(boolean roll) {
+        Platform platform = ledgePlatform;
+        boolean onRightSide = ledgeGrabOnRightSide;
+        int dir = ledgeStageDirection();
+        clearLedgeHangState(LEDGE_REGRAB_COOLDOWN_FRAMES);
+        if (platform == null) {
+            return;
+        }
+        double desiredInset = roll ? Math.max(48.0, bodyWidth() * 0.72) : Math.max(12.0, bodyWidth() * 0.16);
+        double minX = platform.x;
+        double maxX = platform.x + platform.w - bodyWidth();
+        double desiredX = onRightSide
+                ? platform.x + platform.w - bodyWidth() - desiredInset
+                : platform.x + desiredInset;
+        x = Math.clamp(desiredX, minX, maxX);
+        y = platform.y - bodyHeight();
+        vx = dir * (roll ? 7.8 : 2.8);
+        vy = 0.0;
+        canDoubleJump = true;
+        facingRight = dir > 0;
+        ledgeInvulnerabilityTimer = Math.max(ledgeInvulnerabilityTimer,
+                roll ? LEDGE_ROLL_INTANGIBILITY_FRAMES : LEDGE_CLIMB_INTANGIBILITY_FRAMES);
+    }
+
+    private boolean handleLedgeHanging(boolean stunned) {
+        if (!ledgeHanging) {
+            return false;
+        }
+        if (ledgePlatform == null || !game.platforms.contains(ledgePlatform) || isInDockWater()) {
+            clearLedgeHangState(LEDGE_REGRAB_COOLDOWN_FRAMES);
+            return false;
+        }
+
+        snapToLedge();
+        canDoubleJump = true;
+        ledgeHangFrames++;
+
+        if (game.isAI[playerIndex]) {
+            if (!stunned && ledgeLockTimer <= 0 && ledgeHangFrames >= 12) {
+                climbFromLedge(false);
+                return false;
+            }
+            return true;
+        }
+
+        if (stunned || ledgeLockTimer > 0) {
+            return true;
+        }
+        if (blockPressed()) {
+            dropFromLedge();
+            return false;
+        }
+        if (jumpPressed()) {
+            jumpFromLedge();
+            game.playSwingSfx();
+            return false;
+        }
+        if (ledgeAwayFromStagePressed()) {
+            climbFromLedge(true);
+            return false;
+        }
+        if (ledgeTowardStagePressed() || attackPressed() || specialPressed()) {
+            climbFromLedge(false);
+            return false;
+        }
+        return true;
+    }
+
+    private boolean tryGrabUniversalLedge(double prevX, double prevY, boolean inDockWater) {
+        // Restrict ledge grabs to the main stage platform only (prevents grabbing small/aux platforms).
+        if (ledgeHanging || batHanging || onVine || isGrappling || inDockWater || health <= 0) {
+            return false;
+        }
+        if (ledgeRegrabCooldownTimer > 0 || vy < -10.0) {
+            return false;
+        }
+
+        double currentCenterX = bodyCenterX();
+        double currentTop = y;
+        double currentBottom = bodyBottomY();
+        double prevCenterX = prevX + bodyWidth() / 2.0;
+
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) return false;
+
+        // Only allow grabs on the edges of the main stage
+        double lipY = mainStage.y;
+        if (currentTop < lipY - LEDGE_GRAB_VERTICAL_ABOVE || currentTop > lipY + LEDGE_GRAB_VERTICAL_BELOW) {
+            return false;
+        }
+        if (currentBottom < lipY + 8.0) {
+            return false;
+        }
+
+        double bestDistance = Double.MAX_VALUE;
+        Platform bestPlatform = null;
+        boolean bestOnRightSide = false;
+
+        double leftEdge = mainStage.x;
+        if (prevCenterX <= leftEdge + 2.0
+                && currentCenterX >= leftEdge - LEDGE_GRAB_HORIZONTAL_REACH
+                && currentCenterX <= leftEdge + LEDGE_GRAB_HORIZONTAL_REACH * 0.35) {
+            double distance = Math.abs(currentCenterX - leftEdge) + Math.abs(currentTop - lipY);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestPlatform = mainStage;
+                bestOnRightSide = false;
+            }
+        }
+
+        double rightEdge = mainStage.x + mainStage.w;
+        if (prevCenterX >= rightEdge - 2.0
+                && currentCenterX <= rightEdge + LEDGE_GRAB_HORIZONTAL_REACH
+                && currentCenterX >= rightEdge - LEDGE_GRAB_HORIZONTAL_REACH * 0.35) {
+            double distance = Math.abs(currentCenterX - rightEdge) + Math.abs(currentTop - lipY);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                bestPlatform = mainStage;
+                bestOnRightSide = true;
+            }
+        }
+
+        if (bestPlatform == null) {
+            return false;
+        }
+        beginLedgeHang(bestPlatform, bestOnRightSide);
+        return true;
+    }
+
+    private Platform resolveClosestLedgePlatformForState() {
+        // Prefer the main stage platform for resolving ledge hang state.
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null) return null;
+        double expectedEdgeX = x + bodyWidth() * (ledgeGrabOnRightSide ? 0.32 : 0.68);
+        double expectedLipY = y + bodyHeight() * LEDGE_HANG_TOP_OFFSET_RATIO;
+        double edgeX = ledgeGrabOnRightSide ? mainStage.x + mainStage.w : mainStage.x;
+        double distance = Math.abs(edgeX - expectedEdgeX) + Math.abs(mainStage.y - expectedLipY);
+        return distance <= 80.0 ? mainStage : null;
     }
 
     private void handleTurkeyGroundPound() {
@@ -739,22 +989,19 @@ public class Bird {
                 * knockbackScale * ATTACK_HORIZONTAL_KNOCKBACK_SCALE;
         double verticalKb = (game.usesSmashCombatRules() ? 6.5 : 5.0) * verticalScale * ATTACK_VERTICAL_KNOCKBACK_SCALE;
 
-        if (other.isBlocking) {
-            dmg = (int)(dmg * 0.45);
-            game.addToKillFeed(other.shortName() + " BLOCKED the attack! -" + dmg + " HP");
-            kb *= 0.35;
-            verticalKb *= 0.35;
-
-            if (other.facingRight == (x < other.x) && random.nextDouble() < 0.25) {
-                applyStun(35);
-                game.addToKillFeed(other.shortName() + " PARRIED! Attacker stunned!");
-            }
+        double shieldPushback = Math.copySign(
+                Math.max(1.8, Math.abs(kb) * SHIELD_PUSHBACK_SCALE),
+                kb == 0.0 ? (facingRight ? 1.0 : -1.0) : kb
+        );
+        ShieldHitResult shieldHit = other.resolveShieldHit(this, scaledDamageAgainst(other, dmg), shieldPushback, true);
+        if (shieldHit.blocked()) {
+            return;
         }
 
         other.vx += kb;
         other.vy -= verticalKb;
         double oldHealth = other.health;
-        double dealtDamage = applyDamageTo(other, dmg);
+        double dealtDamage = applyUnshieldedDamageTo(other, dmg);
 
         game.damageDealt[playerIndex] += (int) dealtDamage;
         if (!game.usesSmashCombatRules() && other.health <= 0 && oldHealth > 0) {
@@ -777,6 +1024,151 @@ public class Bird {
             game.hitstopFrames = (int) Math.min(12, 4 + dealtDamage / 5);
             game.playHitSound(dealtDamage);
         }
+    }
+
+    private double scaledDamageAgainst(Bird target, double rawDamage) {
+        if (target == null || rawDamage <= 0) return 0;
+        return rawDamage * outgoingDamageMultiplier() * target.incomingDamageMultiplier();
+    }
+
+    private double shieldDurabilityRatio() {
+        return Math.clamp(shieldHealth / SHIELD_MAX_HEALTH, 0.0, 1.0);
+    }
+
+    private double shieldVisualScale() {
+        double durabilityScale = SHIELD_MIN_VISUAL_SCALE + (1.0 - SHIELD_MIN_VISUAL_SCALE) * shieldDurabilityRatio();
+        double holdScale = 1.0 - SHIELD_HOLD_VISUAL_SHRINK * Math.clamp(shieldHoldVisual, 0.0, 1.0);
+        return Math.max(0.34, durabilityScale * holdScale);
+    }
+
+    private boolean canRaiseShieldFromCurrentInput() {
+        return health > 0
+                && !isBlocking
+                && blockPressed()
+                && stunTime <= 0.0
+                && blockCooldown <= 0
+                && shieldHealth > 0.0
+                && !ledgeHanging
+                && !batHanging
+                && !onVine
+                && !isGrappling
+                && !isInDockWater()
+                && isOnGround();
+    }
+
+    private void primeShieldForIncomingHit() {
+        if (!canRaiseShieldFromCurrentInput()) {
+            return;
+        }
+        isBlocking = true;
+        if (!blockHeldLastFrame) {
+            parryWindowFrames = Math.max(parryWindowFrames, SHIELD_PARRY_STARTUP_FRAMES);
+        }
+    }
+
+    private void spawnShieldParticles(Color color, int count, double speedScale) {
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        double radius = bodyWidth() * 0.58 * shieldVisualScale();
+        for (int i = 0; i < count; i++) {
+            double angle = Math.random() * Math.PI * 2.0;
+            double speed = speedScale * (0.45 + Math.random());
+            game.particles.add(new Particle(
+                    centerX + Math.cos(angle) * radius,
+                    centerY + Math.sin(angle) * radius,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 1.0,
+                    color.deriveColor(0, 1, 1, 0.45 + Math.random() * 0.35)
+            ));
+        }
+    }
+
+    private void breakShield(Bird attacker, double pushDirection) {
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
+        shieldHealth = 0.0;
+        blockCooldown = Math.max(blockCooldown, SHIELD_BREAK_COOLDOWN_FRAMES);
+        stunTime = Math.max(stunTime, SHIELD_BREAK_STUN_FRAMES);
+        if (Math.abs(pushDirection) > 0.001) {
+            vx = pushDirection * 1.6;
+        } else {
+            vx *= 0.25;
+        }
+        vy = Math.min(vy, -4.8);
+        spawnShieldParticles(Color.web("#FFF176"), 24, 6.0);
+        shieldHoldVisual = 0.0;
+        game.hitstopFrames = Math.max(game.hitstopFrames, 6);
+        game.shakeIntensity = Math.max(game.shakeIntensity, 9.0);
+        if (attacker != null && attacker != this) {
+            game.addToKillFeed(shortName() + "'S SHIELD BROKE!");
+        } else {
+            game.addToKillFeed(shortName() + " SHIELD BROKE!");
+        }
+    }
+
+    private ShieldHitResult resolveShieldHit(Bird attacker, double scaledDamage, double shieldPushback, boolean allowParry) {
+        if (scaledDamage <= 0.0 || health <= 0) {
+            return ShieldHitResult.NONE;
+        }
+
+        primeShieldForIncomingHit();
+        if (!isBlocking || shieldHealth <= 0.0) {
+            return ShieldHitResult.NONE;
+        }
+
+        if (allowParry && parryWindowFrames > 0) {
+            isBlocking = false;
+            parryWindowFrames = 0;
+            shieldStunFrames = 0;
+            blockCooldown = Math.max(blockCooldown, SHIELD_PARRY_RELEASE_FRAMES);
+            vx *= 0.45;
+            if (attacker != null && attacker != this) {
+                attacker.cancelAttackCharge();
+                attacker.applyStun(SHIELD_PARRY_ATTACKER_STUN_FRAMES);
+                attacker.vx *= 0.35;
+            }
+            spawnShieldParticles(Color.web("#D0F8FF"), 18, 4.6);
+            game.hitstopFrames = Math.max(game.hitstopFrames, SHIELD_PARRY_HITSTOP_FRAMES);
+            game.shakeIntensity = Math.max(game.shakeIntensity, 6.0);
+            if (attacker != null && attacker != this) {
+                game.addToKillFeed(shortName() + " PARRIED " + attacker.shortName() + "!");
+            } else {
+                game.addToKillFeed(shortName() + " PARRIED the hit!");
+            }
+            return ShieldHitResult.PARRIED;
+        }
+
+        parryWindowFrames = 0;
+        double durabilityBeforeHit = shieldDurabilityRatio();
+        double shieldDamage = Math.max(1.0, SHIELD_DAMAGE_BASE + scaledDamage * SHIELD_DAMAGE_SCALE);
+        shieldHealth = Math.max(0.0, shieldHealth - shieldDamage);
+        shieldStunFrames = Math.max(
+                shieldStunFrames,
+                (int) Math.ceil(SHIELD_STUN_BASE_FRAMES
+                        + scaledDamage * SHIELD_STUN_DAMAGE_SCALE
+                        + (1.0 - durabilityBeforeHit) * SHIELD_STUN_LOW_HEALTH_BONUS)
+        );
+
+        double push = shieldPushback;
+        if (Math.abs(push) < 0.001 && attacker != null && attacker != this) {
+            double direction = Math.signum(bodyCenterX() - attacker.bodyCenterX());
+            push = (direction == 0.0 ? (attacker.facingRight ? 1.0 : -1.0) : direction) * (1.4 + scaledDamage * 0.12);
+        }
+        if (Math.abs(push) > 0.001) {
+            double durabilityPushScale = 1.0 + (1.0 - durabilityBeforeHit) * 0.55;
+            vx += push * durabilityPushScale;
+        }
+
+        shieldHoldVisual = Math.min(1.0, shieldHoldVisual + 0.08);
+        spawnShieldParticles(Color.web("#64B5F6"), 10 + (int) Math.min(8.0, scaledDamage * 0.35), 3.0);
+        game.hitstopFrames = Math.max(game.hitstopFrames, (int) Math.min(8, 2 + scaledDamage / 7.0));
+        game.shakeIntensity = Math.max(game.shakeIntensity, Math.min(8.0, 2.0 + scaledDamage * 0.12));
+
+        if (shieldHealth <= 0.0) {
+            breakShield(attacker, push);
+        }
+        return ShieldHitResult.BLOCKED;
     }
 
     private void attackLounge(int baseDamage) {
@@ -3153,7 +3545,8 @@ public class Bird {
 
         boolean stunned = stunTime > 0;
         boolean airborne = !isOnGround();
-        boolean downHeld = !stunned && blockPressed();
+        boolean blockHeld = blockPressed();
+        boolean downHeld = !stunned && blockHeld;
         boolean inDockWater = isInDockWater();
         boolean inWindNow = isInWindVent(x, y);
         boolean inUpdraft = inWindNow || thermalTimer > 0;
@@ -3164,21 +3557,19 @@ public class Bird {
         }
 
         if (type == BirdGame3.BirdType.BAT && handleBatHanging(stunned)) {
+            blockHeldLastFrame = blockHeld;
+            handleTaunts();
+            if (tauntTimer > 0) tauntTimer--;
+            return;
+        }
+        if (handleLedgeHanging(stunned)) {
+            blockHeldLastFrame = blockHeld;
             handleTaunts();
             if (tauntTimer > 0) tauntTimer--;
             return;
         }
 
-        // === BLOCKING (ground only) ===
-        if (blockCooldown > 0) blockCooldown--;
-        if (!stunned && downHeld && !airborne && blockCooldown <= 0) {
-            isBlocking = true;
-            vx *= 0.6;
-            vy *= 0.9;
-        } else {
-            if (isBlocking) blockCooldown = 30;
-            isBlocking = false;
-        }
+        updateShieldState(stunned, airborne, blockHeld, inDockWater, gameSpeed);
 
         // === GRAVITY ===
         double gravityScale = 1.0;
@@ -3292,6 +3683,11 @@ public class Bird {
         handlePhoenixAfterburn();
         emitRoadrunnerDust();
         handleRoadrunnerSandstorm();
+        if (tryGrabUniversalLedge(prevX, prevY, inDockWater)) {
+            handleTaunts();
+            if (tauntTimer > 0) tauntTimer--;
+            return;
+        }
 
         // Penguin ice-trail after jump dash.
         if (penguinIceFxTimer > 0) {
@@ -3422,15 +3818,55 @@ public class Bird {
         }
         plungeTimer = Math.max(0, (int)(plungeTimer - gameSpeed));
         blockCooldown = Math.max(0, (int)(blockCooldown - gameSpeed));
+        shieldStunFrames = Math.max(0, (int) (shieldStunFrames - gameSpeed));
+        parryWindowFrames = Math.max(0, (int) (parryWindowFrames - gameSpeed));
+        if (!isBlocking && shieldHealth < SHIELD_MAX_HEALTH) {
+            shieldHealth = Math.min(SHIELD_MAX_HEALTH, shieldHealth + SHIELD_REGEN_PER_FRAME * gameSpeed);
+        }
         batEchoTimer = Math.max(0, (int)(batEchoTimer - gameSpeed));
         batHangLockTimer = Math.max(0, (int)(batHangLockTimer - gameSpeed));
         batRehangCooldownTimer = Math.max(0, (int)(batRehangCooldownTimer - gameSpeed));
+        ledgeLockTimer = Math.max(0, (int)(ledgeLockTimer - gameSpeed));
+        ledgeRegrabCooldownTimer = Math.max(0, (int)(ledgeRegrabCooldownTimer - gameSpeed));
+        ledgeInvulnerabilityTimer = Math.max(0, (int)(ledgeInvulnerabilityTimer - gameSpeed));
         if (isShrinkImmune()) {
             shrinkTimer = 0;
             if (sizeMultiplier < baseSizeMultiplier) {
                 sizeMultiplier = baseSizeMultiplier;
             }
         }
+    }
+
+    private void updateShieldState(boolean stunned, boolean airborne, boolean blockHeld, boolean inDockWater, double gameSpeed) {
+        boolean wantsShield = blockHeld && !airborne && !inDockWater;
+        boolean justPressed = blockHeld && !blockHeldLastFrame;
+        boolean canShield = wantsShield && !stunned && blockCooldown <= 0 && shieldHealth > 0.0;
+
+        if (canShield) {
+            if (!isBlocking && justPressed) {
+                parryWindowFrames = SHIELD_PARRY_STARTUP_FRAMES;
+            }
+            isBlocking = true;
+            double movementDamping = shieldStunFrames > 0 ? 0.82 : 0.60;
+            vx *= movementDamping;
+            vy *= 0.92;
+        } else {
+            if (isBlocking && !wantsShield) {
+                blockCooldown = Math.max(blockCooldown, SHIELD_DROP_COOLDOWN_FRAMES);
+            }
+            isBlocking = false;
+            if (!blockHeld) {
+                parryWindowFrames = 0;
+            }
+        }
+
+        if (isBlocking) {
+            shieldHoldVisual = Math.min(1.0, shieldHoldVisual + SHIELD_HOLD_VISUAL_BUILD_PER_FRAME * gameSpeed);
+        } else {
+            shieldHoldVisual = Math.max(0.0, shieldHoldVisual - SHIELD_HOLD_VISUAL_RELEASE_PER_FRAME * gameSpeed);
+        }
+
+        blockHeldLastFrame = blockHeld;
     }
 
     private void handleVineGrapple() {
@@ -3862,18 +4298,23 @@ public class Bird {
 
             boolean leftPressed = leftPressed();
             boolean rightPressed = rightPressed();
+            boolean shielding = isBlocking;
+            boolean shieldLocked = shielding && shieldStunFrames > 0;
 
             if (leftPressed) {
-                targetVx = -moveSpeed;
-                if (type == BirdGame3.BirdType.HUMMINGBIRD && jumpPressed() && airborne) {
+                targetVx = shielding ? -moveSpeed * 0.16 : -moveSpeed;
+                if (!shielding && type == BirdGame3.BirdType.HUMMINGBIRD && jumpPressed() && airborne) {
                     targetVx *= 1.75;
                 }
             }
             else if (rightPressed) {
-                targetVx = moveSpeed;
-                if (type == BirdGame3.BirdType.HUMMINGBIRD && jumpPressed() && airborne) {
+                targetVx = shielding ? moveSpeed * 0.16 : moveSpeed;
+                if (!shielding && type == BirdGame3.BirdType.HUMMINGBIRD && jumpPressed() && airborne) {
                     targetVx *= 1.75;
                 }
+            }
+            if (shieldLocked) {
+                targetVx = 0.0;
             }
 
             vx = vx * airFric + targetVx * accel;
@@ -3883,14 +4324,24 @@ public class Bird {
             }
             if (Math.abs(vx) > 0.1) facingRight = vx > 0;
 
-            boolean attackLocked = handleAttackInput(!airborne);
+            boolean attackLocked = false;
+            if (!shielding) {
+                attackLocked = handleAttackInput(!airborne);
+            }
             if (attackLocked && !airborne) {
                 vx *= 0.38;
             }
 
-            boolean canJump = !attackLocked && (isOnGround() || (type == BirdGame3.BirdType.PIGEON && canDoubleJump));
+            boolean canJump = !attackLocked
+                    && shieldStunFrames <= 0
+                    && (isOnGround() || (type == BirdGame3.BirdType.PIGEON && canDoubleJump));
             if (jumpPressed() && canJump) {
                 double mult = isOnGround() ? 1.0 : 0.75;
+                if (isBlocking) {
+                    isBlocking = false;
+                    parryWindowFrames = 0;
+                    blockCooldown = Math.max(blockCooldown, SHIELD_DROP_COOLDOWN_FRAMES);
+                }
                 vy = -type.jumpHeight * mult;
                 if (!isOnGround() && type == BirdGame3.BirdType.PIGEON) canDoubleJump = false;
                 game.playSwingSfx();
@@ -3905,7 +4356,7 @@ public class Bird {
                 game.recordHighCliffJumpAchievement(playerIndex);
             }
 
-            if (!attackLocked && specialPressed()) {
+            if (!attackLocked && !shielding && specialPressed()) {
                 if (grappleUses == 0 && specialCooldown <= 0 && !isBlocking) {
                     special();
                 } else if (!game.isAI[playerIndex] && specialCooldown > 0) {
@@ -4255,9 +4706,8 @@ public class Bird {
         return verticalRange;
     }
 
-    private double applyDamageTo(Bird target, double rawDamage) {
-        if (target == null || rawDamage <= 0 || target.health <= 0) return 0;
-        double scaledDamage = rawDamage * outgoingDamageMultiplier() * target.incomingDamageMultiplier();
+    private double applyScaledDamageTo(Bird target, double scaledDamage) {
+        if (target == null || scaledDamage <= 0 || target.health <= 0) return 0;
         double dealtDamage = target.receiveScaledDamage(scaledDamage);
         if (dealtDamage > 0) {
             if (game.usesSmashCombatRules()) {
@@ -4270,13 +4720,40 @@ public class Bird {
         return dealtDamage;
     }
 
+    private double applyUnshieldedDamageTo(Bird target, double rawDamage) {
+        return applyScaledDamageTo(target, scaledDamageAgainst(target, rawDamage));
+    }
+
+    private double applyDamageTo(Bird target, double rawDamage) {
+        if (target == null || rawDamage <= 0 || target.health <= 0) return 0;
+        double scaledDamage = scaledDamageAgainst(target, rawDamage);
+        ShieldHitResult shieldHit = target.resolveShieldHit(this, scaledDamage, 0.0, true);
+        if (shieldHit.blocked()) {
+            return 0;
+        }
+        return applyScaledDamageTo(target, scaledDamage);
+    }
+
     double receiveExternalDamage(double rawDamage) {
         if (rawDamage <= 0) return 0;
         if (isCombatInvulnerable()) {
             spawnNullRockShieldBurst();
             return 0;
         }
-        return receiveScaledDamage(rawDamage * incomingDamageMultiplier());
+        double scaledDamage = rawDamage * incomingDamageMultiplier();
+        ShieldHitResult shieldHit = resolveShieldHit(null, scaledDamage, 0.0, true);
+        if (shieldHit.blocked()) {
+            return 0;
+        }
+        return receiveScaledDamage(scaledDamage);
+    }
+
+    private void interruptLedgeHangOnHit() {
+        if (!ledgeHanging) {
+            return;
+        }
+        clearLedgeHangState(LEDGE_REGRAB_COOLDOWN_FRAMES);
+        y += Math.max(8.0, bodyHeight() * 0.14);
     }
 
     private double receiveScaledDamage(double scaledDamage) {
@@ -4285,6 +4762,7 @@ public class Bird {
             spawnNullRockShieldBurst();
             return 0;
         }
+        interruptLedgeHangOnHit();
         if (game.usesSmashCombatRules()) {
             smashDamage += scaledDamage;
             return scaledDamage;
@@ -5292,6 +5770,11 @@ public class Bird {
         removeOwnedSummons();
 
         isBlocking = false;
+        shieldHealth = SHIELD_MAX_HEALTH;
+        shieldStunFrames = 0;
+        parryWindowFrames = 0;
+        shieldHoldVisual = 0.0;
+        blockHeldLastFrame = false;
         stunTime = 0;
         attackAnimationTimer = 0;
         attackChargeFrames = 0;
@@ -5328,6 +5811,13 @@ public class Bird {
         batHangPlatform = null;
         batHangLockTimer = 0;
         batRehangCooldownTimer = 0;
+        ledgeHanging = false;
+        ledgePlatform = null;
+        ledgeGrabOnRightSide = false;
+        ledgeLockTimer = 0;
+        ledgeRegrabCooldownTimer = 0;
+        ledgeInvulnerabilityTimer = 0;
+        ledgeHangFrames = 0;
         roadrunnerSandstormTimer = 0;
         roadrunnerSandGustTimer = 0;
         Arrays.fill(roadrunnerSandHitCooldown, 0);
@@ -5424,8 +5914,17 @@ public class Bird {
         state.batHanging = batHanging;
         state.batEchoTimer = batEchoTimer;
         state.batRehangCooldownTimer = batRehangCooldownTimer;
+        state.ledgeHanging = ledgeHanging;
+        state.ledgeGrabOnRightSide = ledgeGrabOnRightSide;
+        state.ledgeLockTimer = ledgeLockTimer;
+        state.ledgeRegrabCooldownTimer = ledgeRegrabCooldownTimer;
+        state.ledgeInvulnerabilityTimer = ledgeInvulnerabilityTimer;
         state.isBlocking = isBlocking;
         state.blockCooldown = blockCooldown;
+        state.shieldHealth = shieldHealth;
+        state.shieldStunFrames = shieldStunFrames;
+        state.parryWindowFrames = parryWindowFrames;
+        state.shieldHoldVisual = shieldHoldVisual;
         state.speedMultiplier = speedMultiplier;
         state.powerMultiplier = powerMultiplier;
         state.sizeMultiplier = sizeMultiplier;
@@ -5543,14 +6042,30 @@ public class Bird {
         this.batHanging = state.batHanging;
         this.batEchoTimer = state.batEchoTimer;
         this.batRehangCooldownTimer = state.batRehangCooldownTimer;
+        this.ledgeHanging = state.ledgeHanging;
+        this.ledgeGrabOnRightSide = state.ledgeGrabOnRightSide;
+        this.ledgeLockTimer = state.ledgeLockTimer;
+        this.ledgeRegrabCooldownTimer = state.ledgeRegrabCooldownTimer;
+        this.ledgeInvulnerabilityTimer = state.ledgeInvulnerabilityTimer;
+        this.ledgeHangFrames = 0;
+        this.ledgePlatform = null;
         this.isBlocking = state.isBlocking;
         this.blockCooldown = state.blockCooldown;
+        this.shieldHealth = state.shieldHealth;
+        this.shieldStunFrames = state.shieldStunFrames;
+        this.parryWindowFrames = state.parryWindowFrames;
+        this.shieldHoldVisual = state.shieldHoldVisual;
+        this.blockHeldLastFrame = false;
         this.speedMultiplier = state.speedMultiplier;
         this.powerMultiplier = state.powerMultiplier;
         this.sizeMultiplier = state.sizeMultiplier;
         this.baseSpeedMultiplier = state.baseSpeedMultiplier;
         this.basePowerMultiplier = state.basePowerMultiplier;
         this.baseSizeMultiplier = state.baseSizeMultiplier;
+        this.ledgePlatform = ledgeHanging ? resolveClosestLedgePlatformForState() : null;
+        if (ledgeHanging && ledgePlatform == null) {
+            clearLedgeHangState(0);
+        }
         this.speedTimer = state.speedTimer;
         this.rageTimer = state.rageTimer;
         this.shrinkTimer = state.shrinkTimer;
@@ -5779,7 +6294,6 @@ public class Bird {
         drawGrinchhawk(g);
         drawVulture(g, drawSize);
         drawNullRockShield(g, drawSize);
-        drawStunEffect(g);
         drawSpecialCooldown(g);
         drawLounge(g);
         drawBodyAndEyes(g, drawSize);
@@ -5793,6 +6307,7 @@ public class Bird {
         drawSpecialSkinAccent(g, drawSize);
         drawBeak(g);
         drawPelican(g);
+        drawStunEffect(g, drawSize);
         drawVineGrapple(g);
     }
 
@@ -5927,24 +6442,125 @@ public class Bird {
 
     private void drawBlockingShield(GraphicsContext g, double drawSize) {
         if (isBlocking) {
-            double birdCenterX = x + 40 * sizeMultiplier;
-            double birdCenterY = y + 40 * sizeMultiplier;
+            double s = sizeMultiplier;
+            double birdCenterX = bodyCenterX();
+            double birdCenterY = bodyCenterY();
+            double durability = shieldDurabilityRatio();
+            double shieldScale = shieldVisualScale();
+            double dir = facingRight ? 1.0 : -1.0;
+            double shellHeight = (drawSize + 58 * s) * shieldScale;
+            double shellWidth = shellHeight * 0.76;
+            double shellX = birdCenterX - shellWidth / 2.0 + dir * (18 * s + (1.0 - durability) * 6 * s);
+            double shellY = birdCenterY - shellHeight / 2.0;
+            double haloWidth = shellWidth + 18 * s;
+            double haloHeight = shellHeight + 14 * s;
+            double rimAngle = facingRight ? -70 : 110;
             double pulse = 0.6 + 0.4 * Math.sin(System.currentTimeMillis() / 200.0);
-            g.setFill(Color.BLUE.deriveColor(0, 1, 1, pulse));
-            g.fillOval(x - 20 * sizeMultiplier, y - 20 * sizeMultiplier, drawSize + 40 * sizeMultiplier, drawSize + 40 * sizeMultiplier);
-            g.setStroke(Color.BLUE.brighter());
-            g.setLineWidth(6 * sizeMultiplier);
-            double shieldAngleStart = facingRight ? 0 : Math.PI;
-            double shieldRadius = drawSize * 0.8;
-            g.strokeArc(birdCenterX - shieldRadius, birdCenterY - shieldRadius, shieldRadius * 2, shieldRadius * 2,
-                    Math.toDegrees(shieldAngleStart) - 90, 180, ArcType.OPEN);
-            if (Math.random() < 0.5) {
-                double particleAngle = shieldAngleStart + (Math.random() - 0.5) * Math.PI;
-                double px = birdCenterX + Math.cos(particleAngle) * shieldRadius;
-                double py = birdCenterY + Math.sin(particleAngle) * shieldRadius;
-                game.particles.add(new Particle(px, py, (Math.random() - 0.5) * 4, (Math.random() - 0.5) * 4 - 2, Color.BLUE.brighter()));
+            Color base = durability < 0.28 ? Color.web("#EF5350") : Color.web("#64B5F6");
+            if (parryWindowFrames > 0) {
+                base = Color.web("#D0F8FF");
+            } else if (shieldStunFrames > 0) {
+                base = base.brighter();
+            }
+
+            g.setFill(base.deriveColor(0, 1, 1, 0.14 + pulse * 0.12));
+            g.fillOval(shellX - 10 * s, shellY - 7 * s, haloWidth, haloHeight);
+
+            g.setFill(base.deriveColor(0, 1, 1, 0.24 + pulse * 0.24));
+            g.fillOval(shellX, shellY, shellWidth, shellHeight);
+
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, parryWindowFrames > 0 ? 0.16 : 0.09 + pulse * 0.06));
+            g.fillOval(shellX - dir * shellWidth * 0.14, shellY + shellHeight * 0.08, shellWidth * 0.68, shellHeight * 0.72);
+
+            double tipBaseX = facingRight ? shellX + shellWidth * 0.92 : shellX + shellWidth * 0.08;
+            double tipX = tipBaseX + dir * 16 * s;
+            g.setFill(base.deriveColor(0, 1, 1, 0.28 + pulse * 0.22));
+            g.fillPolygon(
+                    new double[]{tipBaseX, tipX, tipBaseX},
+                    new double[]{birdCenterY - 18 * s, birdCenterY, birdCenterY + 18 * s},
+                    3
+            );
+
+            g.setStroke(base.deriveColor(0, 1, 1, 0.75 + pulse * 0.20));
+            g.setLineWidth((3.0 + (1.0 - durability) * 2.2) * s);
+            g.strokeArc(shellX, shellY, shellWidth, shellHeight, rimAngle, 140, ArcType.OPEN);
+
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, parryWindowFrames > 0 ? 0.55 : 0.25));
+            g.setLineWidth(1.4 * s);
+            for (int i = 0; i < 3; i++) {
+                double inset = (8 + i * 9) * s;
+                g.strokeArc(
+                        shellX + inset * 0.55,
+                        shellY + inset,
+                        shellWidth - inset * 1.1,
+                        shellHeight - inset * 2.0,
+                        rimAngle + 2,
+                        136,
+                        ArcType.OPEN
+                );
+            }
+
+            if (durability < 0.46) {
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.22 + (0.46 - durability) * 0.9));
+                g.setLineWidth(1.2 * s);
+                double crackX = birdCenterX + dir * shellWidth * 0.12;
+                g.strokeLine(crackX, birdCenterY - 20 * s, crackX - dir * 9 * s, birdCenterY - 4 * s);
+                g.strokeLine(crackX - dir * 9 * s, birdCenterY - 4 * s, crackX + dir * 4 * s, birdCenterY + 10 * s);
+                g.strokeLine(crackX + dir * 4 * s, birdCenterY + 10 * s, crackX - dir * 7 * s, birdCenterY + 22 * s);
+            }
+
+            if (Math.random() < 0.18 + (shieldStunFrames > 0 ? 0.12 : 0.0)) {
+                double particleAngle = (facingRight ? 0.0 : Math.PI) + (Math.random() - 0.5) * Math.PI * 0.9;
+                double px = birdCenterX + dir * shellWidth * 0.12 + Math.cos(particleAngle) * shellWidth * 0.42;
+                double py = birdCenterY + Math.sin(particleAngle) * shellHeight * 0.46;
+                game.particles.add(new Particle(
+                        px,
+                        py,
+                        Math.cos(particleAngle) * 1.9,
+                        Math.sin(particleAngle) * 1.7 - 0.7,
+                        base.deriveColor(0, 1, 1, 0.75)
+                ));
             }
         }
+    }
+
+    private void drawStunStar(GraphicsContext g, double centerX, double centerY, double radius, Color fill, Color stroke) {
+        double[] xs = new double[]{
+                centerX,
+                centerX + radius * 0.32,
+                centerX + radius,
+                centerX + radius * 0.32,
+                centerX,
+                centerX - radius * 0.32,
+                centerX - radius,
+                centerX - radius * 0.32
+        };
+        double[] ys = new double[]{
+                centerY - radius,
+                centerY - radius * 0.32,
+                centerY,
+                centerY + radius * 0.32,
+                centerY + radius,
+                centerY + radius * 0.32,
+                centerY,
+                centerY - radius * 0.32
+        };
+        g.setFill(fill);
+        g.fillPolygon(xs, ys, xs.length);
+        g.setStroke(stroke);
+        g.setLineWidth(Math.max(1.0, 1.2 * sizeMultiplier));
+        g.strokePolygon(xs, ys, xs.length);
+    }
+
+    private void drawStunEyeMark(GraphicsContext g, double centerX, double centerY, double radius) {
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.92));
+        g.setLineWidth(Math.max(1.4, 2.0 * sizeMultiplier));
+        g.strokeLine(centerX - radius, centerY - radius, centerX + radius, centerY + radius);
+        g.strokeLine(centerX - radius, centerY + radius, centerX + radius, centerY - radius);
+        g.setStroke(Color.BLACK.deriveColor(0, 1, 1, 0.65));
+        g.setLineWidth(Math.max(0.8, 1.0 * sizeMultiplier));
+        g.strokeLine(centerX - radius * 0.9, centerY - radius * 0.9, centerX + radius * 0.9, centerY + radius * 0.9);
+        g.strokeLine(centerX - radius * 0.9, centerY + radius * 0.9, centerX + radius * 0.9, centerY - radius * 0.9);
     }
 
     private void drawTaunt(GraphicsContext g) {
@@ -6738,11 +7354,44 @@ public class Bird {
         g.fillOval(wattleX, y + 42 * s, 10 * s, 14 * s);
     }
 
-    private void drawStunEffect(GraphicsContext g) {
-        if (stunTime > 0) {
-            g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.7));
-            g.setFont(Font.font(28));
-            g.fillText("FROZEN!", x + 5, y - 25);
+    private void drawStunEffect(GraphicsContext g, double drawSize) {
+        if (stunTime <= 0) {
+            return;
+        }
+
+        double s = sizeMultiplier;
+        double pulse = 0.55 + 0.45 * Math.sin(System.currentTimeMillis() / 120.0);
+        double headCenterX = type == BirdGame3.BirdType.BAT
+                ? x + 40 * s
+                : x + (facingRight ? 72 : 28) * s;
+        double headCenterY = type == BirdGame3.BirdType.BAT
+                ? y + 22 * s
+                : y + 34 * s;
+        double orbitBaseY = headCenterY - 26 * s;
+
+        g.setFill(Color.web("#CFD8DC").deriveColor(0, 1, 1, 0.10 + pulse * 0.08));
+        g.fillOval(x - 6 * s, y - 4 * s, drawSize + 12 * s, drawSize + 10 * s);
+
+        g.setStroke(Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.42 + pulse * 0.16));
+        g.setLineWidth(1.6 * s);
+        g.strokeArc(headCenterX - 18 * s, headCenterY - 10 * s, 18 * s, 16 * s, 110, 150, ArcType.OPEN);
+        g.strokeArc(headCenterX + 2 * s, headCenterY - 10 * s, 18 * s, 16 * s, -80, 150, ArcType.OPEN);
+
+        for (int i = 0; i < 3; i++) {
+            double angle = System.currentTimeMillis() / 240.0 + i * (Math.PI * 2.0 / 3.0);
+            double orbitX = headCenterX + Math.cos(angle) * 22 * s;
+            double orbitY = orbitBaseY + Math.sin(angle) * 10 * s;
+            Color fill = i == 1 ? Color.web("#FFF59D") : Color.web("#FFE082");
+            drawStunStar(g, orbitX, orbitY, (4.8 + (i % 2) * 1.1) * s, fill, Color.web("#5D4037", 0.55));
+        }
+
+        if (type == BirdGame3.BirdType.BAT) {
+            double headX = facingRight ? x + 24 * s : x + 16 * s;
+            double eyeBias = (facingRight ? 3 : -3) * s;
+            drawStunEyeMark(g, headX + 13.5 * s + eyeBias, y + 21.5 * s, 4.8 * s);
+            drawStunEyeMark(g, headX + 29.5 * s + eyeBias, y + 21.5 * s, 4.8 * s);
+        } else {
+            drawStunEyeMark(g, x + (facingRight ? 62.5 : 32.5) * s, y + 32.5 * s, 6.4 * s);
         }
     }
 

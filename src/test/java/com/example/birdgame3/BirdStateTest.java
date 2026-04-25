@@ -229,6 +229,96 @@ class BirdStateTest {
     }
 
     @Test
+    void shieldAbsorbsBasicAttackIntoDurabilityInsteadOfHealth() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(1), true);
+        for (int i = 0; i < 5; i++) {
+            defender.update(1.0);
+        }
+        invokePrivateVoid(attacker, "attack");
+
+        assertEquals(Bird.STARTING_HEALTH, defender.health, 0.0001);
+        assertTrue(defender.isBlocking);
+        assertTrue(getPrivateDouble(defender, "shieldHealth") < 60.0);
+        assertTrue(getPrivateInt(defender, "shieldStunFrames") > 0);
+    }
+
+    @Test
+    void shieldHitDoesNotTriggerCooldownFlashBanner() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(1), true);
+        for (int i = 0; i < 5; i++) {
+            defender.update(1.0);
+        }
+        invokePrivateVoid(attacker, "attack");
+
+        assertEquals(0, defender.cooldownFlash);
+    }
+
+    @Test
+    void shieldStartupParryStunsAttackerWithoutConsumingShield() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(1), true);
+        defender.update(1.0);
+        double shieldBefore = getPrivateDouble(defender, "shieldHealth");
+        invokePrivateVoid(attacker, "attack");
+
+        assertTrue(attacker.stunTime >= 20.0);
+        assertEquals(Bird.STARTING_HEALTH, defender.health, 0.0001);
+        assertEquals(shieldBefore, getPrivateDouble(defender, "shieldHealth"), 0.0001);
+        assertFalse(defender.isBlocking);
+    }
+
+    @Test
+    void holdingShieldShrinksItsVisualEvenWithoutTakingDamage() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        for (int i = 0; i < 180; i++) {
+            defender.update(1.0);
+        }
+
+        assertTrue(defender.isBlocking);
+        assertEquals(60.0, getPrivateDouble(defender, "shieldHealth"), 0.0001);
+        assertTrue(getPrivateDouble(defender, "shieldHoldVisual") > 0.9);
+    }
+
+    @Test
     void battlefieldClampAdaptsToBirdRecoveryProfiles() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
@@ -487,6 +577,74 @@ class BirdStateTest {
         boolean handledRetryAfterCooldown = (boolean) handleBatHanging.invoke(bat, false);
         assertTrue(handledRetryAfterCooldown);
         assertTrue(bat.batHanging);
+    }
+
+    @Test
+    void birdsUniversallyGrabNearbyLedges() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        Platform mainIsland = new Platform(1000.0, BirdGame3.GROUND_Y - 220.0, 900.0, 70.0);
+        game.platforms.add(mainIsland);
+
+        Bird pigeon = new Bird(mainIsland.x - 84.0, BirdGame3.BirdType.PIGEON, 0, game);
+        pigeon.y = mainIsland.y - 12.0;
+        pigeon.vx = 12.0;
+        pigeon.vy = 4.0;
+        game.players[0] = pigeon;
+
+        pigeon.update(1.0);
+
+        assertTrue(getPrivateBoolean(pigeon, "ledgeHanging"));
+        assertEquals(mainIsland, getPrivateObject(pigeon, "ledgePlatform"));
+        assertTrue(pigeon.facingRight, "Bird should face back toward the stage while hanging.");
+        assertTrue(pigeon.canDoubleJump, "Ledge grab should refresh recovery resources.");
+        assertTrue(pigeon.y < mainIsland.y, "Bird should snap below the top lip instead of landing on the platform.");
+    }
+
+    @Test
+    void droppingFromLedgeAppliesRegrabLockout() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        Platform mainIsland = new Platform(1000.0, BirdGame3.GROUND_Y - 220.0, 900.0, 70.0);
+        game.platforms.add(mainIsland);
+
+        Bird pigeon = new Bird(mainIsland.x - 84.0, BirdGame3.BirdType.PIGEON, 0, game);
+        game.players[0] = pigeon;
+
+        pigeon.y = mainIsland.y - 12.0;
+        pigeon.vx = 12.0;
+        pigeon.vy = 4.0;
+        pigeon.update(1.0);
+        assertTrue(getPrivateBoolean(pigeon, "ledgeHanging"));
+
+        setPrivateInt(pigeon, "ledgeLockTimer", 0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        pigeon.update(1.0);
+
+        assertFalse(getPrivateBoolean(pigeon, "ledgeHanging"));
+        assertTrue(getPrivateInt(pigeon, "ledgeRegrabCooldownTimer") > 0,
+                "Dropping from ledge should prevent immediate regrab stalling.");
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        pigeon.x = mainIsland.x - 84.0;
+        pigeon.y = mainIsland.y - 12.0;
+        pigeon.vx = 12.0;
+        pigeon.vy = 4.0;
+        pigeon.update(1.0);
+
+        assertFalse(getPrivateBoolean(pigeon, "ledgeHanging"),
+                "Regrab cooldown should block an immediate second ledge catch.");
+
+        setPrivateInt(pigeon, "ledgeRegrabCooldownTimer", 0);
+        pigeon.x = mainIsland.x - 84.0;
+        pigeon.y = mainIsland.y - 12.0;
+        pigeon.vx = 12.0;
+        pigeon.vy = 4.0;
+        pigeon.update(1.0);
+
+        assertTrue(getPrivateBoolean(pigeon, "ledgeHanging"));
     }
 
     @Test

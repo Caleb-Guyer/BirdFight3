@@ -39,6 +39,12 @@ class LanStateTest {
         bird.facingRight = true;
         bird.specialCooldown = 18;
         bird.isCitySkin = true;
+        bird.isBlocking = true;
+        bird.blockCooldown = 11;
+        bird.shieldHealth = 37.5;
+        bird.shieldStunFrames = 8;
+        bird.parryWindowFrames = 2;
+        bird.shieldHoldVisual = 0.65;
         bird.ultimateMeter = 44.0;
         state.birds[0] = bird;
 
@@ -106,6 +112,12 @@ class LanStateTest {
         assertEquals(2, decoded.birds[0].typeOrdinal);
         assertEquals(12.5, decoded.birds[0].x);
         assertTrue(decoded.birds[0].isCitySkin);
+        assertTrue(decoded.birds[0].isBlocking);
+        assertEquals(11, decoded.birds[0].blockCooldown);
+        assertEquals(37.5, decoded.birds[0].shieldHealth);
+        assertEquals(8, decoded.birds[0].shieldStunFrames);
+        assertEquals(2, decoded.birds[0].parryWindowFrames);
+        assertEquals(0.65, decoded.birds[0].shieldHoldVisual);
         assertEquals(44.0, decoded.birds[0].ultimateMeter);
         assertEquals(1, decoded.powerUps.size());
         assertEquals(200.0, decoded.powerUps.get(0).x);

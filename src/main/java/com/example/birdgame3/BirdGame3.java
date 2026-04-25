@@ -899,6 +899,51 @@ public class BirdGame3 extends Application {
         victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, true);
     }
 
+    private void shutdownAndExit() {
+        if (shuttingDown) return;
+        shuttingDown = true;
+        appendStartLog("shutdown initiated");
+        // Quickly request JavaFX exit so UI can close without waiting for cleanup
+        try { javafx.application.Platform.exit(); } catch (Throwable ignore) {}
+
+        // Perform cleanup on a background daemon thread to avoid blocking the JavaFX thread.
+        Thread shutdownThread = new Thread(() -> {
+            appendStartLog("shutdown worker start");
+            try { if (timer != null) timer.stop(); } catch (Throwable ignore) {}
+            // Stop and dispose media players
+            try { disposeAllManagedMediaPlayers(); } catch (Throwable ignore) {}
+            // Stop audio clips
+            try { if (bonkClip != null) bonkClip.stop(); } catch (Throwable ignore) {}
+            try { if (butterClip != null) butterClip.stop(); } catch (Throwable ignore) {}
+            try { if (jalapenoClip != null) jalapenoClip.stop(); } catch (Throwable ignore) {}
+            try { if (swingClip != null) swingClip.stop(); } catch (Throwable ignore) {}
+            try { if (hugewaveClip != null) hugewaveClip.stop(); } catch (Throwable ignore) {}
+            try { if (vaseBreakingClip != null) vaseBreakingClip.stop(); } catch (Throwable ignore) {}
+            try { if (cherrybombClip != null) cherrybombClip.stop(); } catch (Throwable ignore) {}
+            try { if (steamAchievementClip != null) steamAchievementClip.stop(); } catch (Throwable ignore) {}
+            try { if (buttonClickClip != null) buttonClickClip.stop(); } catch (Throwable ignore) {}
+            try { if (zombieFallingClip != null) zombieFallingClip.stop(); } catch (Throwable ignore) {}
+
+            // Close input managers
+            try { if (wiimoteInputManager != null) wiimoteInputManager.close(); } catch (Throwable ignore) {}
+            try { if (xboxInputManager != null) xboxInputManager.close(); } catch (Throwable ignore) {}
+
+            // Disconnect LAN
+            try { if (lanClient != null) lanClient.disconnect(); } catch (Throwable ignore) {}
+            try { if (lanHost != null) lanHost.stop(); } catch (Throwable ignore) {}
+
+            // Give native subsystems a bit more time to unwind
+            try { Thread.sleep(150); } catch (InterruptedException ignore) { Thread.currentThread().interrupt(); }
+
+            appendStartLog("shutdown worker halting JVM");
+            try { System.exit(0); } catch (Throwable ignore) {}
+            // As a last-resort fallback, forcibly halt the JVM to avoid hangs from native shutdown hooks.
+            try { Runtime.getRuntime().halt(0); } catch (Throwable ignore) {}
+        }, "Shutdown-Worker");
+        shutdownThread.setDaemon(true);
+        shutdownThread.start();
+    }
+
     private void loadSounds() {
         try {
             String p = "/sounds/";
@@ -3213,7 +3258,7 @@ public class BirdGame3 extends Application {
         alert.initOwner(stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice == ButtonType.YES) {
-                stage.close();
+                shutdownAndExit();
             }
         });
     }
@@ -3361,6 +3406,9 @@ public class BirdGame3 extends Application {
     public AudioClip bonkClip, butterClip, jalapenoClip, swingClip, hugewaveClip, buttonClickClip, zombieFallingClip,
             vaseBreakingClip, cherrybombClip, steamAchievementClip;
     public MediaPlayer musicPlayer, menuMusicPlayer, victoryMusicPlayer;
+
+    // Guard to prevent reentrant shutdowns
+    private volatile boolean shuttingDown = false;
 
     public static final String[] ACHIEVEMENT_DESCRIPTIONS = BirdGame3Achievement.descriptions();
     public static final int ACHIEVEMENT_COUNT = BirdGame3Achievement.count();
@@ -10540,17 +10588,9 @@ public class BirdGame3 extends Application {
                 if (isWorldRectNearCamera(b.x, b.y, size, size, 220)) {
                     continue;
                 }
-                double hudFade = fightHudFadeForBird(b);
-                if (hudFade < 0.999) {
-                    g.save();
-                    g.setGlobalAlpha(hudFade);
-                    b.draw(g);
-                    drawPlayerTag(g, b);
-                    g.restore();
-                } else {
-                    b.draw(g);
-                    drawPlayerTag(g, b);
-                }
+                // Always draw birds at full opacity; HUD elements will fade when they overlap birds.
+                b.draw(g);
+                drawPlayerTag(g, b);
             }
         }
 
@@ -11957,25 +11997,116 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void appendStartLog(String msg) {
+        try {
+            java.io.File out = new java.io.File(System.getProperty("user.home"), "Desktop\\birdgame3-start-log.txt");
+            try (java.io.PrintStream ps = new java.io.PrintStream(new java.io.FileOutputStream(out, true))) {
+                ps.println(java.time.LocalDateTime.now() + " - " + msg);
+            }
+        } catch (Exception ignore) {
+        }
+    }
+
     @Override
     public void start(Stage stage) {
-        currentStage = stage;
-        stage.setTitle("Bird Fight 3 - Power-Up Chaos!");
-        stage.setResizable(true);
-        stage.centerOnScreen();
-        stage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
-        stage.setFullScreenExitHint("");
-        wiimoteInputManager = new WiimoteInputManager();
-        xboxInputManager = new XboxInputManager();
-        loadAchievements();
-        fullscreenEnabled = true;
-        syncWiimoteModesToManager();
-        loadSounds();
-        startWiimoteMenuTimer();
-        showMenu(stage);
-        stage.show();
-        javafx.application.Platform.runLater(() -> applyDisplaySettings(stage));
-        tryShowQueuedAchievementToast();
+        try {
+            appendStartLog("enter start");
+            currentStage = stage;
+            appendStartLog("set currentStage");
+            // Ensure the JVM exits immediately when the window is closed from OS window controls
+            stage.setOnCloseRequest(evt -> {
+                appendStartLog("stage close requested");
+                shutdownAndExit();
+            });
+            appendStartLog("set onCloseRequest");
+            stage.setTitle("Bird Fight 3 - Power-Up Chaos!");
+            appendStartLog("set title");
+            stage.setResizable(true);
+            stage.centerOnScreen();
+            stage.setFullScreenExitKeyCombination(KeyCombination.NO_MATCH);
+            stage.setFullScreenExitHint("");
+            appendStartLog("before scheduling input init");
+            // Initialize native input managers on a background thread to avoid blocking/crashing the JavaFX thread.
+            Thread inputInitThread = new Thread(() -> {
+                appendStartLog("input init thread start");
+                try {
+                    WiimoteInputManager w = null;
+                    try {
+                        w = new WiimoteInputManager();
+                        appendStartLog("wiimote init OK");
+                    } catch (Throwable t) {
+                        appendStartLog("wiimote init failed: " + t);
+                        System.err.println("WiimoteInputManager failed: " + t);
+                        try {
+                            java.io.File out = new java.io.File(System.getProperty("user.home"), "Desktop\\birdgame3-uncaught.txt");
+                            try (java.io.PrintStream ps = new java.io.PrintStream(new java.io.FileOutputStream(out, true))) {
+                                ps.println("WiimoteInputManager init failure:");
+                                t.printStackTrace(ps);
+                                ps.println();
+                            }
+                        } catch (Exception ignore) {
+                        }
+                    }
+                    wiimoteInputManager = w;
+
+                    XboxInputManager x = null;
+                    try {
+                        x = new XboxInputManager();
+                        appendStartLog("xbox init OK");
+                    } catch (Throwable t) {
+                        appendStartLog("xbox init failed: " + t);
+                        System.err.println("XboxInputManager failed: " + t);
+                        try {
+                            java.io.File out = new java.io.File(System.getProperty("user.home"), "Desktop\\birdgame3-uncaught.txt");
+                            try (java.io.PrintStream ps = new java.io.PrintStream(new java.io.FileOutputStream(out, true))) {
+                                ps.println("XboxInputManager init failure:");
+                                t.printStackTrace(ps);
+                                ps.println();
+                            }
+                        } catch (Exception ignore) {
+                        }
+                    }
+                    xboxInputManager = x;
+                } catch (Throwable t) {
+                    appendStartLog("input init thread top-level failure: " + t);
+                } finally {
+                    appendStartLog("input init thread end");
+                }
+            }, "InputInit");
+            inputInitThread.setDaemon(true);
+            inputInitThread.start();
+            appendStartLog("scheduled input init");
+            loadAchievements();
+            appendStartLog("loadAchievements done");
+            fullscreenEnabled = true;
+            syncWiimoteModesToManager();
+            appendStartLog("synced wiimote modes");
+            loadSounds();
+            appendStartLog("loadSounds done");
+            startWiimoteMenuTimer();
+            appendStartLog("before showMenu");
+            showMenu(stage);
+            appendStartLog("after showMenu");
+            appendStartLog("before stage.show");
+            stage.show();
+            appendStartLog("after stage.show");
+            javafx.application.Platform.runLater(() -> applyDisplaySettings(stage));
+            appendStartLog("scheduled applyDisplaySettings");
+            tryShowQueuedAchievementToast();
+            appendStartLog("end start");
+        } catch (Throwable t) {
+            // Print stack trace to stderr and to a file in the user's home dir to help debugging when running from an IDE.
+            t.printStackTrace();
+            try {
+                java.io.File out = new java.io.File(System.getProperty("user.home"), "birdgame3-start-error.txt");
+                try (java.io.PrintStream ps = new java.io.PrintStream(new java.io.FileOutputStream(out))) {
+                    t.printStackTrace(ps);
+                }
+            } catch (Exception ignore) {
+            }
+            // Re-throw so JavaFX still reports the error as before.
+            throw t;
+        }
     }
 
     private void showMenu(Stage stage) {
@@ -23176,15 +23307,8 @@ public class BirdGame3 extends Application {
                     drawTrailerSpeedLines(g, trailerRoadrunner, Color.web("#FFD180"), speedLineIntensity);
                 }
                 for (Bird bird : drawBirds) {
-                    double alpha = fightHudFadeForBird(bird);
-                    if (alpha < 0.999) {
-                        g.save();
-                        g.setGlobalAlpha(alpha);
-                        bird.draw(g);
-                        g.restore();
-                    } else {
-                        bird.draw(g);
-                    }
+                    // Draw trailer birds fully opaque; HUD will fade over them when necessary.
+                    bird.draw(g);
                 }
                 g.restore();
 
@@ -26009,7 +26133,36 @@ public class BirdGame3 extends Application {
         stage.setMaximized(false);
         if (fullscreenEnabled) {
             if (!stage.isFullScreen()) {
-                stage.setFullScreen(true);
+                // If the Stage isn't showing yet, skip attempting fullscreen now.
+                // start() will call applyDisplaySettings again after stage.show().
+                if (!stage.isShowing()) {
+                    return;
+                }
+                final int tries = 3;
+                final int[] attempt = {0};
+                final Runnable[] tryRef = new Runnable[1];
+                tryRef[0] = () -> {
+                    // Attempt to enter fullscreen
+                    stage.setFullScreen(true);
+                    if (stage.isFullScreen()) {
+                        return;
+                    }
+                    attempt[0]++;
+                    if (attempt[0] >= tries) {
+                        // Give up and maximize to visual bounds
+                        stage.setMaximized(true);
+                        Rectangle2D vb = Screen.getPrimary().getVisualBounds();
+                        stage.setX(vb.getMinX());
+                        stage.setY(vb.getMinY());
+                        stage.setWidth(vb.getWidth());
+                        stage.setHeight(vb.getHeight());
+                        return;
+                    }
+                    PauseTransition pt = new PauseTransition(Duration.millis(200));
+                    pt.setOnFinished(e -> tryRef[0].run());
+                    pt.play();
+                };
+                javafx.application.Platform.runLater(tryRef[0]);
             }
             return;
         }
@@ -32976,6 +33129,9 @@ public class BirdGame3 extends Application {
         double scaleX = innerW / WORLD_WIDTH;
         double scaleY = innerH / WORLD_HEIGHT;
 
+        double hudAlpha = hudAlphaForRect(rect);
+        g.save();
+        g.setGlobalAlpha(hudAlpha);
         g.setFill(Color.web("#050B11", 0.84));
         g.fillRoundRect(mapX, mapY, mapW, mapH, 24, 24);
         g.setFill(Color.web("#80DEEA", 0.16));
@@ -33009,6 +33165,7 @@ public class BirdGame3 extends Application {
         g.setFill(Color.web("#D7E3EA"));
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
         g.fillText("MAP", mapX + 16, mapY + 22);
+        g.restore();
     }
 
     private void drawFightHudInfoBanner(GraphicsContext g, Rectangle2D rect, List<String> infoLines) {
@@ -33016,6 +33173,9 @@ public class BirdGame3 extends Application {
             return;
         }
         Color accent = fightHudAccentColor(null);
+        double hudAlpha = hudAlphaForRect(rect);
+        g.save();
+        g.setGlobalAlpha(hudAlpha);
         g.setFill(Color.web("#050B11", 0.82));
         g.fillRoundRect(rect.getMinX(), rect.getMinY(), rect.getWidth(), rect.getHeight(), 24, 24);
         g.setFill(accent.deriveColor(0, 1, 1, 0.18));
@@ -33023,6 +33183,7 @@ public class BirdGame3 extends Application {
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(2.2);
         g.strokeRoundRect(rect.getMinX(), rect.getMinY(), rect.getWidth(), rect.getHeight(), 24, 24);
+        g.restore();
 
         double lineHeight = measureTextHeight(FIGHT_HUD_STATUS_FONT) * 1.16;
         double textX = rect.getMinX() + 22;
@@ -33046,6 +33207,9 @@ public class BirdGame3 extends Application {
                 ? Color.web("#FFD54F")
                 : Color.web("#8BC34A");
 
+        double hudAlpha = hudAlphaForRect(rect);
+        g.save();
+        g.setGlobalAlpha(hudAlpha);
         g.setFill(Color.web("#050B11", 0.86));
         g.fillRoundRect(rect.getMinX(), rect.getMinY(), rect.getWidth(), rect.getHeight(), 28, 28);
         g.setFill(accent.deriveColor(0, 1, 1, 0.18));
@@ -33075,6 +33239,7 @@ public class BirdGame3 extends Application {
             g.fillText(formatFightHudTimer(Math.max(0, matchTimer)), centerX, rect.getMinY() + 84);
         }
         g.setTextAlign(TextAlignment.LEFT);
+        g.restore();
     }
 
     private void drawFightHudPanel(GraphicsContext g, FightHudPanelLayout layout) {
@@ -33087,8 +33252,9 @@ public class BirdGame3 extends Application {
         Rectangle2D portraitRect = layout.portraitRect();
         Color accent = fightHudAccentColor(bird);
         double aliveAlpha = bird.health > 0 ? 1.0 : 0.68;
+        double panelHudAlpha = hudAlphaForRect(rect);
         g.save();
-        g.setGlobalAlpha(aliveAlpha);
+        g.setGlobalAlpha(aliveAlpha * panelHudAlpha);
 
         g.setFill(Color.web("#000000", 0.34));
         g.fillRoundRect(rect.getMinX(), rect.getMinY() + 7, rect.getWidth(), rect.getHeight(), 30, 30);
@@ -33306,6 +33472,18 @@ public class BirdGame3 extends Application {
                     screenBounds.getMinY(),
                     screenBounds.getWidth(),
                     screenBounds.getHeight())) {
+                return 0.26;
+            }
+        }
+        return 1.0;
+    }
+
+    private double hudAlphaForRect(Rectangle2D rect) {
+        if (rect == null) return 1.0;
+        for (Bird b : players) {
+            if (b == null || b.health <= 0) continue;
+            Rectangle2D bRect = fightHudScreenBounds(b);
+            if (rect.intersects(bRect)) {
                 return 0.26;
             }
         }
