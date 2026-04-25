@@ -191,6 +191,7 @@ public class Bird {
     private static final double SMASH_HORIZONTAL_LAUNCH_SCALE = 1.08;
     private static final double SMASH_VERTICAL_LAUNCH_SCALE = 0.84;
     private static final double SMASH_MIN_UPWARD_LAUNCH_SCALE = 2.8;
+    private static final double SMASH_DI_MAX_ANGLE_RADIANS = Math.toRadians(18.0);
     private static final int SMASH_KO_CREDIT_FRAMES = 240;
     private static final double SMASH_TOP_BLAST_Y = BirdGame3.CEILING_Y - 220.0;
     private static Image photoEagleIdleSprite;
@@ -5623,7 +5624,56 @@ public class Bird {
                 vy = -minimumUpwardLaunch;
             }
         }
+        applySmashDirectionalInfluence();
         pendingSmashLaunchScale = 1.0;
+    }
+
+    private void applySmashDirectionalInfluence() {
+        double launchSpeed = Math.hypot(vx, vy);
+        if (launchSpeed <= 0.001) {
+            return;
+        }
+
+        double inputX = 0.0;
+        if (leftPressed()) {
+            inputX -= 1.0;
+        }
+        if (rightPressed()) {
+            inputX += 1.0;
+        }
+
+        double inputY = 0.0;
+        if (jumpPressed()) {
+            inputY -= 1.0;
+        }
+        if (blockPressed()) {
+            inputY += 1.0;
+        }
+
+        if (inputX == 0.0 && inputY == 0.0) {
+            return;
+        }
+
+        double inputMagnitude = Math.hypot(inputX, inputY);
+        inputX /= inputMagnitude;
+        inputY /= inputMagnitude;
+
+        double dirX = vx / launchSpeed;
+        double dirY = vy / launchSpeed;
+        double perpendicularX = -dirY;
+        double perpendicularY = dirX;
+        double diAmount = Math.clamp(inputX * perpendicularX + inputY * perpendicularY, -1.0, 1.0);
+        if (Math.abs(diAmount) <= 0.001) {
+            return;
+        }
+
+        double diAngle = diAmount * SMASH_DI_MAX_ANGLE_RADIANS;
+        double cos = Math.cos(diAngle);
+        double sin = Math.sin(diAngle);
+        double adjustedX = dirX * cos - dirY * sin;
+        double adjustedY = dirX * sin + dirY * cos;
+        vx = adjustedX * launchSpeed;
+        vy = adjustedY * launchSpeed;
     }
 
     private void handleSmashBlastZoneKo(boolean trainingDummy, boolean islandBounds, double leftBound, double rightBound,

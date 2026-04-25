@@ -15,7 +15,7 @@ class BirdGame3KillFeedTest {
         game.addToKillFeed("OLDER EVENT");
         game.addToKillFeed("VOID CROWN: Umbra Bat and Night Raven reopen the route with a very long killfeed message.");
 
-        List<BirdGame3.KillFeedRenderBlock> blocks = game.buildKillFeedRenderBlocks(180);
+        List<BirdGame3.KillFeedRenderBlock> blocks = game.buildKillFeedRenderBlocks();
 
         assertEquals(2, blocks.size());
         assertTrue(blocks.get(0).lines().size() > 1);

@@ -171,6 +171,64 @@ class BirdStateTest {
     }
 
     @Test
+    void smashDirectionalInfluenceCanBendLaunchUpward() throws Exception {
+        BirdGame3 baselineGame = new BirdGame3();
+        baselineGame.activePlayers = 2;
+        setPrivateBoolean(baselineGame, "smashCombatRulesActive", true);
+
+        Bird baselineAttacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, baselineGame);
+        Bird baselineTarget = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, baselineGame);
+        baselineAttacker.y = BirdGame3.GROUND_Y - 80.0;
+        baselineTarget.y = BirdGame3.GROUND_Y - 80.0;
+        baselineAttacker.facingRight = true;
+        baselineGame.players[0] = baselineAttacker;
+        baselineGame.players[1] = baselineTarget;
+
+        invokePrivateVoid(baselineAttacker, "attack");
+        invokePrivateVoid(baselineTarget, "applyPendingSmashLaunch");
+
+        BirdGame3 diGame = new BirdGame3();
+        diGame.activePlayers = 2;
+        setPrivateBoolean(diGame, "smashCombatRulesActive", true);
+
+        Bird diAttacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, diGame);
+        Bird diTarget = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, diGame);
+        diAttacker.y = BirdGame3.GROUND_Y - 80.0;
+        diTarget.y = BirdGame3.GROUND_Y - 80.0;
+        diAttacker.facingRight = true;
+        diGame.players[0] = diAttacker;
+        diGame.players[1] = diTarget;
+
+        diGame.setLocalActionsForKey(diGame.jumpKeyForPlayer(1), true);
+        invokePrivateVoid(diAttacker, "attack");
+        invokePrivateVoid(diTarget, "applyPendingSmashLaunch");
+
+        assertTrue(diTarget.vx < baselineTarget.vx,
+                "Holding up during launch should trade some forward speed for a steeper escape angle.");
+        assertTrue(diTarget.vy < baselineTarget.vy,
+                "Holding up during launch should angle the target farther upward.");
+    }
+
+    @Test
+    void smashDirectionalInfluenceCanBendVerticalLaunchSideways() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game, "smashCombatRulesActive", true);
+
+        Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        game.players[1] = target;
+        target.vx = 0.0;
+        target.vy = -12.0;
+        setPrivateDouble(target, "pendingSmashLaunchScale", 1.45);
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(1), true);
+        invokePrivateVoid(target, "applyPendingSmashLaunch");
+
+        assertTrue(target.vx > 0.0, "Holding right during a vertical launch should bend the trajectory sideways.");
+        assertTrue(target.vy < 0.0, "Directional influence should preserve upward launch on a vertical hit.");
+    }
+
+    @Test
     void battlefieldClampAdaptsToBirdRecoveryProfiles() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
