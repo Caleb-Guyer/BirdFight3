@@ -41,8 +41,10 @@ class LanProtocolTest {
     void lanBirdStateRoundTripsDodgeFields() throws IOException {
         LanBirdState state = new LanBirdState();
         state.attackChargeFrames = 14;
-        state.chargingAttackVariantOrdinal = 3;
-        state.activeAttackVariantOrdinal = 7;
+        state.pendingGroundAttackFrames = 5;
+        state.pendingGroundAttackVariantOrdinal = 3;
+        state.chargingAttackVariantOrdinal = 6;
+        state.activeAttackVariantOrdinal = 10;
         state.dodgeTypeOrdinal = 2;
         state.dodgeTimer = 17;
         state.dodgeInvulnerabilityTimer = 9;
@@ -57,8 +59,10 @@ class LanProtocolTest {
         LanBirdState decoded = LanBirdState.read(new DataInputStream(new ByteArrayInputStream(bos.toByteArray())));
 
         assertEquals(14, decoded.attackChargeFrames);
-        assertEquals(3, decoded.chargingAttackVariantOrdinal);
-        assertEquals(7, decoded.activeAttackVariantOrdinal);
+        assertEquals(5, decoded.pendingGroundAttackFrames);
+        assertEquals(3, decoded.pendingGroundAttackVariantOrdinal);
+        assertEquals(6, decoded.chargingAttackVariantOrdinal);
+        assertEquals(10, decoded.activeAttackVariantOrdinal);
         assertEquals(2, decoded.dodgeTypeOrdinal);
         assertEquals(17, decoded.dodgeTimer);
         assertEquals(9, decoded.dodgeInvulnerabilityTimer);

@@ -114,12 +114,12 @@ class BirdStateTest {
     }
 
     @Test
-    void heldAttackBuildsMuchStrongerKnockbackThanTap() {
+    void groundedSmashAttackBuildsMuchStrongerKnockbackThanSideTilt() {
         double tapKnockback = attackKnockbackAfterHoldingForFrames(1);
         double chargedKnockback = attackKnockbackAfterHoldingForFrames(36);
 
-        assertTrue(chargedKnockback > tapKnockback * 2.5,
-                "Charged attacks should launch much harder than a quick tap.");
+        assertTrue(chargedKnockback > tapKnockback * 2.2,
+                "Charged smash attacks should launch much harder than a quick side tilt.");
     }
 
     @Test
@@ -144,7 +144,7 @@ class BirdStateTest {
     }
 
     @Test
-    void groundedDirectionalInputsProduceDistinctSideAndUpNormals() throws Exception {
+    void groundedTiltInputsProduceDistinctSideAndUpTilts() throws Exception {
         BirdGame3 sideGame = new BirdGame3();
         sideGame.activePlayers = 2;
 
@@ -182,7 +182,7 @@ class BirdStateTest {
     }
 
     @Test
-    void attackPlusBlockChargesAndReleasesGroundDownAttackInsteadOfShielding() throws Exception {
+    void attackPlusBlockPerformsGroundDownTiltInsteadOfShielding() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
 
@@ -201,15 +201,46 @@ class BirdStateTest {
         attacker.update(1.0);
 
         assertFalse(attacker.isBlocking, "Attack + block should reserve the input for a down normal, not raise shield.");
-        assertTrue(getPrivateInt(attacker, "attackChargeFrames") > 0, "Grounded down attack should still enter the charge system.");
+        assertEquals(0, getPrivateInt(attacker, "attackChargeFrames"), "Down tilts should not enter smash charge.");
 
         game.setLocalActionsForKey(game.attackKeyForPlayer(0), false);
         attacker.update(1.0);
 
-        assertFalse(attacker.isBlocking, "Releasing a charged down normal should not convert into shield on the release frame.");
-        assertTrue(target.health < startingHealth, "Releasing the charge should actually perform the down normal.");
+        assertTrue(target.health < startingHealth, "Quickly releasing attack + block should perform the grounded down tilt.");
         assertTrue(target.vx > 0.0);
-        assertTrue(target.vy > -3.0, "Grounded down normal should launch flatter than the default launcher.");
+        assertTrue(target.vy > -3.0, "Grounded down tilt should launch flatter than the default launcher.");
+    }
+
+    @Test
+    void attackPlusBlockHeldLongEnoughChargesAndReleasesGroundDownSmash() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+
+        for (int i = 0; i < 8; i++) {
+            attacker.update(1.0);
+        }
+
+        assertFalse(attacker.isBlocking, "Holding attack + block for a down smash should not raise shield.");
+        assertTrue(getPrivateInt(attacker, "attackChargeFrames") > 0, "Holding the input should convert the grounded down attack into smash charge.");
+
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), false);
+        attacker.update(1.0);
+
+        assertTrue(target.health < startingHealth, "Releasing after the hold should perform the down smash.");
+        assertTrue(target.vx > 0.0);
+        assertTrue(Math.abs(target.vx) > 9.0, "Down smash should launch harder than a down tilt.");
     }
 
     @Test
@@ -1806,7 +1837,9 @@ class BirdStateTest {
         game.players[0] = attacker;
         game.players[1] = target;
 
+        KeyCode rightKey = game.rightKeyForPlayer(0);
         KeyCode attackKey = game.attackKeyForPlayer(0);
+        game.setLocalActionsForKey(rightKey, true);
         game.setLocalActionsForKey(attackKey, true);
         for (int i = 0; i < holdFrames; i++) {
             attacker.update(1.0);

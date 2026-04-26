@@ -19,6 +19,8 @@ class LanBirdState {
     int attackCooldown;
     int attackAnimationTimer;
     int attackChargeFrames;
+    int pendingGroundAttackFrames;
+    int pendingGroundAttackVariantOrdinal;
     int chargingAttackVariantOrdinal;
     int activeAttackVariantOrdinal;
     boolean aerialAttackActive;
@@ -157,6 +159,8 @@ class LanBirdState {
         out.writeInt(attackCooldown);
         out.writeInt(attackAnimationTimer);
         out.writeInt(attackChargeFrames);
+        out.writeInt(pendingGroundAttackFrames);
+        out.writeInt(pendingGroundAttackVariantOrdinal);
         out.writeInt(chargingAttackVariantOrdinal);
         out.writeInt(activeAttackVariantOrdinal);
         out.writeBoolean(aerialAttackActive);
@@ -299,6 +303,8 @@ class LanBirdState {
         state.attackCooldown = in.readInt();
         state.attackAnimationTimer = in.readInt();
         state.attackChargeFrames = in.readInt();
+        state.pendingGroundAttackFrames = in.readInt();
+        state.pendingGroundAttackVariantOrdinal = in.readInt();
         state.chargingAttackVariantOrdinal = in.readInt();
         state.activeAttackVariantOrdinal = in.readInt();
         state.aerialAttackActive = in.readBoolean();
