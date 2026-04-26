@@ -651,6 +651,93 @@ class BirdStateTest {
     }
 
     @Test
+    void hitstunLandingWithShieldPressTriggersGroundTechRoll() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 96.0;
+        bird.vy = 18.0;
+        bird.stunTime = 20.0;
+        game.players[0] = bird;
+
+        double startX = bird.x;
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+
+        bird.update(1.0);
+
+        assertTrue(bird.isOnGround());
+        assertEquals(0.0, bird.stunTime, 0.0001);
+        assertEquals("ROLL", getPrivateObject(bird, "dodgeType").toString());
+        assertEquals(0, getPrivateInt(bird, "knockdownTimer"));
+        assertTrue(bird.vx > 0.0);
+
+        bird.update(1.0);
+
+        assertTrue(bird.x > startX + 4.0);
+    }
+
+    @Test
+    void missedTechLandingEntersKnockdownAndBlocksShieldUntilRecoveryEnds() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 96.0;
+        bird.vy = 18.0;
+        bird.stunTime = 20.0;
+        game.players[0] = bird;
+
+        bird.update(1.0);
+
+        assertTrue(bird.isOnGround());
+        assertEquals(0.0, bird.stunTime, 0.0001);
+        assertTrue(getPrivateInt(bird, "knockdownTimer") > 0);
+        assertEquals("NONE", getPrivateObject(bird, "dodgeType").toString());
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        bird.update(1.0);
+
+        assertFalse(bird.isBlocking);
+
+        while (getPrivateInt(bird, "knockdownTimer") > 0) {
+            bird.update(1.0);
+        }
+        bird.update(1.0);
+
+        assertTrue(bird.isBlocking);
+    }
+
+    @Test
+    void airborneShieldPressCanWallTechDuringHitstun() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+        game.platforms.clear();
+        Platform wall = new Platform(260.0, BirdGame3.GROUND_Y - 220.0, 32.0, 220.0);
+        game.platforms.add(wall);
+
+        Bird bird = new Bird(150.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = wall.y + 40.0;
+        bird.vx = 36.0;
+        bird.vy = 0.0;
+        bird.stunTime = 18.0;
+        game.players[0] = bird;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        bird.update(1.0);
+
+        assertEquals(0.0, bird.stunTime, 0.0001);
+        assertEquals(0, getPrivateInt(bird, "knockdownTimer"));
+        assertTrue(getPrivateInt(bird, "dodgeInvulnerabilityTimer") > 0);
+        assertEquals(wall.x - 80.0, bird.x, 0.0001);
+        assertEquals(0.0, bird.vx, 0.0001);
+    }
+
+    @Test
     void battlefieldClampAdaptsToBirdRecoveryProfiles() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.selectedMap = BirdGame3.MapType.BATTLEFIELD;

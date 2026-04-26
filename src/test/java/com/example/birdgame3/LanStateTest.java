@@ -50,6 +50,8 @@ class LanStateTest {
         bird.shieldStunFrames = 8;
         bird.parryWindowFrames = 2;
         bird.shieldHoldVisual = 0.65;
+        bird.techBufferTimer = 4;
+        bird.knockdownTimer = 22;
         bird.ultimateMeter = 44.0;
         state.birds[0] = bird;
 
@@ -128,6 +130,8 @@ class LanStateTest {
         assertEquals(8, decoded.birds[0].shieldStunFrames);
         assertEquals(2, decoded.birds[0].parryWindowFrames);
         assertEquals(0.65, decoded.birds[0].shieldHoldVisual);
+        assertEquals(4, decoded.birds[0].techBufferTimer);
+        assertEquals(22, decoded.birds[0].knockdownTimer);
         assertEquals(44.0, decoded.birds[0].ultimateMeter);
         assertEquals(1, decoded.powerUps.size());
         assertEquals(200.0, decoded.powerUps.getFirst().x);

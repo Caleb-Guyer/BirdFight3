@@ -97,6 +97,8 @@ class LanBirdState {
     int dodgeCooldown;
     int dodgeDirection;
     boolean airDodgeAvailable = true;
+    int techBufferTimer;
+    int knockdownTimer;
     double speedMultiplier;
     double powerMultiplier;
     double sizeMultiplier;
@@ -229,6 +231,8 @@ class LanBirdState {
         out.writeInt(dodgeCooldown);
         out.writeInt(dodgeDirection);
         out.writeBoolean(airDodgeAvailable);
+        out.writeInt(techBufferTimer);
+        out.writeInt(knockdownTimer);
         out.writeDouble(speedMultiplier);
         out.writeDouble(powerMultiplier);
         out.writeDouble(sizeMultiplier);
@@ -365,6 +369,8 @@ class LanBirdState {
         state.dodgeCooldown = in.readInt();
         state.dodgeDirection = in.readInt();
         state.airDodgeAvailable = in.readBoolean();
+        state.techBufferTimer = in.readInt();
+        state.knockdownTimer = in.readInt();
         state.speedMultiplier = in.readDouble();
         state.powerMultiplier = in.readDouble();
         state.sizeMultiplier = in.readDouble();
