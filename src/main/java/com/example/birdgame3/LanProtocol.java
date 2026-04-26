@@ -33,6 +33,7 @@ final class LanProtocol {
     static final int INPUT_BLOCK = 1 << 5;
     static final int INPUT_TAUNT_CYCLE = 1 << 6;
     static final int INPUT_TAUNT_EXEC = 1 << 7;
+    static final int INPUT_GRAB = 1 << 8;
 
     @FunctionalInterface
     interface MessageWriter {

@@ -8,6 +8,7 @@ record WiimoteMappedState(
         boolean attack,
         boolean special,
         boolean block,
+        boolean grab,
         boolean tauntCycle,
         boolean tauntExecute,
         boolean menuUp,
@@ -27,7 +28,7 @@ record WiimoteMappedState(
         String status
 ) {
     static WiimoteMappedState off(String status) {
-        return new WiimoteMappedState(false, false, false, false, false, false, false, false, false,
+        return new WiimoteMappedState(false, false, false, false, false, false, false, false, false, false,
                 false, false, false, false, false, false, false, false, false, false, false, false, false,
                 false, status);
     }

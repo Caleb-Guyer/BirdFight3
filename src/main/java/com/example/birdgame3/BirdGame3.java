@@ -101,8 +101,11 @@ import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.function.BooleanSupplier;
 import java.util.function.DoubleConsumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class BirdGame3 extends Application {
+    private static final Logger LOGGER = Logger.getLogger(BirdGame3.class.getName());
 
     public static final int WIDTH = 1920;
     public static final int HEIGHT = 1080;
@@ -539,6 +542,7 @@ public class BirdGame3 extends Application {
         JUMP("Jump", "jump", LanProtocol.INPUT_JUMP, KeyCode.W, KeyCode.UP, KeyCode.T, KeyCode.I),
         ATTACK("Attack", "attack", LanProtocol.INPUT_ATTACK, KeyCode.SPACE, KeyCode.ENTER, KeyCode.Y, KeyCode.O),
         SPECIAL("Special", "special", LanProtocol.INPUT_SPECIAL, KeyCode.SHIFT, KeyCode.SLASH, KeyCode.U, KeyCode.P),
+        GRAB("Grab", "grab", LanProtocol.INPUT_GRAB, KeyCode.R, KeyCode.BACK_SPACE, KeyCode.N, KeyCode.SEMICOLON),
         BLOCK("Block / Fast Fall", "block", LanProtocol.INPUT_BLOCK, KeyCode.S, KeyCode.DOWN, KeyCode.G, KeyCode.K),
         TAUNT_CYCLE("Taunt Cycle", "taunt_cycle", LanProtocol.INPUT_TAUNT_CYCLE, KeyCode.Q, KeyCode.NUMPAD1, KeyCode.NUMPAD2, KeyCode.NUMPAD3),
         TAUNT_EXECUTE("Taunt Execute", "taunt_execute", LanProtocol.INPUT_TAUNT_EXEC, KeyCode.E, KeyCode.NUMPAD4, KeyCode.NUMPAD5, KeyCode.NUMPAD6);
@@ -1276,6 +1280,7 @@ public class BirdGame3 extends Application {
                 a.attack() || b.attack(),
                 a.special() || b.special(),
                 a.block() || b.block(),
+                a.grab() || b.grab(),
                 a.tauntCycle() || b.tauntCycle(),
                 a.tauntExecute() || b.tauntExecute(),
                 a.menuUp() || b.menuUp(),
@@ -12027,53 +12032,7 @@ public class BirdGame3 extends Application {
             stage.setFullScreenExitHint("");
             appendStartLog("before scheduling input init");
             // Initialize native input managers on a background thread to avoid blocking/crashing the JavaFX thread.
-            Thread inputInitThread = new Thread(() -> {
-                appendStartLog("input init thread start");
-                try {
-                    WiimoteInputManager w = null;
-                    try {
-                        w = new WiimoteInputManager();
-                        appendStartLog("wiimote init OK");
-                    } catch (Throwable t) {
-                        appendStartLog("wiimote init failed: " + t);
-                        System.err.println("WiimoteInputManager failed: " + t);
-                        try {
-                            java.io.File out = new java.io.File(System.getProperty("user.home"), "Desktop\\birdgame3-uncaught.txt");
-                            try (java.io.PrintStream ps = new java.io.PrintStream(new java.io.FileOutputStream(out, true))) {
-                                ps.println("WiimoteInputManager init failure:");
-                                t.printStackTrace(ps);
-                                ps.println();
-                            }
-                        } catch (Exception ignore) {
-                        }
-                    }
-                    wiimoteInputManager = w;
-
-                    XboxInputManager x = null;
-                    try {
-                        x = new XboxInputManager();
-                        appendStartLog("xbox init OK");
-                    } catch (Throwable t) {
-                        appendStartLog("xbox init failed: " + t);
-                        System.err.println("XboxInputManager failed: " + t);
-                        try {
-                            java.io.File out = new java.io.File(System.getProperty("user.home"), "Desktop\\birdgame3-uncaught.txt");
-                            try (java.io.PrintStream ps = new java.io.PrintStream(new java.io.FileOutputStream(out, true))) {
-                                ps.println("XboxInputManager init failure:");
-                                t.printStackTrace(ps);
-                                ps.println();
-                            }
-                        } catch (Exception ignore) {
-                        }
-                    }
-                    xboxInputManager = x;
-                } catch (Throwable t) {
-                    appendStartLog("input init thread top-level failure: " + t);
-                } finally {
-                    appendStartLog("input init thread end");
-                }
-            }, "InputInit");
-            inputInitThread.setDaemon(true);
+            Thread inputInitThread = getThread();
             inputInitThread.start();
             appendStartLog("scheduled input init");
             loadAchievements();
@@ -12095,18 +12054,62 @@ public class BirdGame3 extends Application {
             tryShowQueuedAchievementToast();
             appendStartLog("end start");
         } catch (Throwable t) {
-            // Print stack trace to stderr and to a file in the user's home dir to help debugging when running from an IDE.
-            t.printStackTrace();
-            try {
-                java.io.File out = new java.io.File(System.getProperty("user.home"), "birdgame3-start-error.txt");
-                try (java.io.PrintStream ps = new java.io.PrintStream(new java.io.FileOutputStream(out))) {
-                    t.printStackTrace(ps);
-                }
-            } catch (Exception ignore) {
-            }
+            ThrowableLogSupport.log(LOGGER, Level.SEVERE, "Application startup failed", t);
+            ThrowableLogSupport.writeReport(
+                    java.nio.file.Path.of(System.getProperty("user.home"), "birdgame3-start-error.txt"),
+                    false,
+                    "Application startup failure",
+                    t
+            );
             // Re-throw so JavaFX still reports the error as before.
             throw t;
         }
+    }
+
+    private Thread getThread() {
+        Thread inputInitThread = new Thread(() -> {
+            appendStartLog("input init thread start");
+            try {
+                WiimoteInputManager w = null;
+                try {
+                    w = new WiimoteInputManager();
+                    appendStartLog("wiimote init OK");
+                } catch (Throwable t) {
+                    appendStartLog("wiimote init failed: " + t);
+                    ThrowableLogSupport.log(LOGGER, Level.WARNING, "WiimoteInputManager failed", t);
+                    ThrowableLogSupport.writeReport(
+                            java.nio.file.Path.of(System.getProperty("user.home"), "Desktop", "birdgame3-uncaught.txt"),
+                            true,
+                            "WiimoteInputManager init failure",
+                            t
+                    );
+                }
+                wiimoteInputManager = w;
+
+                XboxInputManager x = null;
+                try {
+                    x = new XboxInputManager();
+                    appendStartLog("xbox init OK");
+                } catch (Throwable t) {
+                    appendStartLog("xbox init failed: " + t);
+                    ThrowableLogSupport.log(LOGGER, Level.WARNING, "XboxInputManager failed", t);
+                    ThrowableLogSupport.writeReport(
+                            java.nio.file.Path.of(System.getProperty("user.home"), "Desktop", "birdgame3-uncaught.txt"),
+                            true,
+                            "XboxInputManager init failure",
+                            t
+                    );
+                }
+                xboxInputManager = x;
+            } catch (Throwable t) {
+                appendStartLog("input init thread top-level failure: " + t);
+                ThrowableLogSupport.log(LOGGER, Level.SEVERE, "Input init thread failed", t);
+            } finally {
+                appendStartLog("input init thread end");
+            }
+        }, "InputInit");
+        inputInitThread.setDaemon(true);
+        return inputInitThread;
     }
 
     private void showMenu(Stage stage) {
@@ -21120,6 +21123,7 @@ public class BirdGame3 extends Application {
         setLanActionState(idx, ControlAction.JUMP, (mask & LanProtocol.INPUT_JUMP) != 0);
         setLanActionState(idx, ControlAction.ATTACK, (mask & LanProtocol.INPUT_ATTACK) != 0);
         setLanActionState(idx, ControlAction.SPECIAL, (mask & LanProtocol.INPUT_SPECIAL) != 0);
+        setLanActionState(idx, ControlAction.GRAB, (mask & LanProtocol.INPUT_GRAB) != 0);
         setLanActionState(idx, ControlAction.BLOCK, (mask & LanProtocol.INPUT_BLOCK) != 0);
         setLanActionState(idx, ControlAction.TAUNT_CYCLE, (mask & LanProtocol.INPUT_TAUNT_CYCLE) != 0);
         setLanActionState(idx, ControlAction.TAUNT_EXECUTE, (mask & LanProtocol.INPUT_TAUNT_EXEC) != 0);
@@ -22741,24 +22745,36 @@ public class BirdGame3 extends Application {
             trailerRoadrunner.name = "Dust Devil Roadrunner";
             trailerRoadrunner.health = 82;
             trailerRoadrunner.sizeMultiplier = trailerRoadrunner.baseSizeMultiplier;
+            trailerRoadrunner.setTrailerAttackChargeRatio(0.0);
+            trailerRoadrunner.setTrailerShieldPreview(false, 1.0, 0);
+            trailerRoadrunner.setTrailerSmashDamagePercent(0.0);
 
             trailerEagle.refillTrainingResources(true);
             applyPreviewSkinChoiceToBird(trailerEagle, BirdType.EAGLE, STOCK_PHOTO_EAGLE_SKIN);
             trailerEagle.name = "Stock Photo Eagle";
             trailerEagle.health = 48;
             trailerEagle.sizeMultiplier = trailerEagle.baseSizeMultiplier;
+            trailerEagle.setTrailerAttackChargeRatio(0.0);
+            trailerEagle.setTrailerShieldPreview(false, 1.0, 0);
+            trailerEagle.setTrailerSmashDamagePercent(0.0);
 
             trailerPelican.refillTrainingResources(false);
             applyPreviewSkinChoiceToBird(trailerPelican, BirdType.PELICAN, IRONCLAD_PELICAN_SKIN);
             trailerPelican.name = "Ironclad Pelican";
             trailerPelican.health = 110;
             trailerPelican.sizeMultiplier = trailerPelican.baseSizeMultiplier;
+            trailerPelican.setTrailerAttackChargeRatio(0.0);
+            trailerPelican.setTrailerShieldPreview(false, 1.0, 0);
+            trailerPelican.setTrailerSmashDamagePercent(0.0);
 
             trailerPigeon.refillTrainingResources(false);
             applyPreviewSkinChoiceToBird(trailerPigeon, BirdType.PIGEON, null);
             trailerPigeon.name = "Pier Pigeon";
             trailerPigeon.health = 76;
             trailerPigeon.sizeMultiplier = trailerPigeon.baseSizeMultiplier;
+            trailerPigeon.setTrailerAttackChargeRatio(0.0);
+            trailerPigeon.setTrailerShieldPreview(false, 1.0, 0);
+            trailerPigeon.setTrailerSmashDamagePercent(0.0);
 
             matchIntroLastAnnouncedPhase = Integer.MIN_VALUE;
             matchIntroOverlayFrames = 0;
@@ -22775,23 +22791,27 @@ public class BirdGame3 extends Application {
             flashAlpha = 0.0;
             redFlashAlpha = 0.0;
             flashTimer = 0;
+            smashCombatRulesActive = false;
             Arrays.fill(players, null);
             scores = new int[MAX_COMBATANTS];
             activePlayers = 0;
         };
         resetTrailerBirds.run();
 
-        final double desertRevealEnd = 6.0;
-        final double oasisShowcaseEnd = 12.0;
-        final double cliffShowcaseEnd = 18.0;
-        final double roadrunnerShowcaseEnd = 26.0;
-        final double classicShowcaseEnd = 34.0;
-        final double specialShowcaseEnd = 42.0;
-        final double ultimateShowcaseEnd = 50.0;
-        final double dockShowcaseEnd = 60.0;
-        final double eagleShowcaseEnd = 68.0;
-        final double updateCardEnd = 76.0;
-        final double finalShotEnd = 84.0;
+        final double coldOpenEnd = 4.5;
+        final double desertRevealEnd = 10.0;
+        final double oasisShowcaseEnd = 14.5;
+        final double cliffShowcaseEnd = 19.0;
+        final double roadrunnerShowcaseEnd = 24.5;
+        final double classicShowcaseEnd = 29.5;
+        final double specialShowcaseEnd = 35.5;
+        final double ultimateShowcaseEnd = 42.5;
+        final double chargeShowcaseEnd = 49.0;
+        final double shieldShowcaseEnd = 55.0;
+        final double dockShowcaseEnd = 61.0;
+        final double eagleShowcaseEnd = 66.0;
+        final double updateCardEnd = 73.0;
+        final double finalShotEnd = 79.0;
 
         Canvas canvas = new Canvas(WIDTH, HEIGHT);
         GraphicsContext g = canvas.getGraphicsContext2D();
@@ -22822,6 +22842,7 @@ public class BirdGame3 extends Application {
         boolean[] musicCut = {false};
         boolean[] overlayHidden = {false};
         int[] trailerScene = {-1};
+        Set<String> trailerCues = new HashSet<>();
 
         Runnable restoreState = () -> {
             if (trailerTimer[0] != null) {
@@ -22902,6 +22923,7 @@ public class BirdGame3 extends Application {
             trailerStartNs[0] = System.nanoTime();
             musicCut[0] = false;
             trailerScene[0] = -1;
+            trailerCues.clear();
             if (trailerMusic[0] != null) {
                 trailerMusic[0].stop();
                 trailerMusic[0].seek(Duration.ZERO);
@@ -22943,16 +22965,25 @@ public class BirdGame3 extends Application {
                 currentRenderShakeY = 0.0;
 
                 int sceneIdx = getSceneIdx(elapsed);
-
                 if (sceneIdx != trailerScene[0]) {
                     trailerScene[0] = sceneIdx;
-                    if (sceneIdx == 10) {
-                        playMatchIntroGoSfx();
-                    } else {
-                        playMatchIntroCountSfx();
-                    }
                     switch (sceneIdx) {
-                        case 0, 1, 2, 3 -> {
+                        case 0 -> {
+                            resetTrailerBirds.run();
+                            prepareTrailerArena(MapType.DESERT);
+                            activePlayers = 2;
+                            players[0] = trailerRoadrunner;
+                            players[1] = trailerEagle;
+                            scores[0] = 5;
+                            scores[1] = 3;
+                            poseTrailerBird(trailerRoadrunner, 2140.0, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                                    true, false, 0, 0.0);
+                            poseTrailerBird(trailerEagle, 2520.0, GROUND_Y - 80 * trailerEagle.sizeMultiplier,
+                                    false, false, 0, 0.0);
+                            trailerEagle.health = 74;
+                            triggerTrailerBirdSpecial(trailerRoadrunner, false);
+                        }
+                        case 1, 2, 3, 4 -> {
                             resetTrailerBirds.run();
                             prepareTrailerArena(MapType.DESERT);
                             activePlayers = 2;
@@ -22961,7 +22992,7 @@ public class BirdGame3 extends Application {
                             scores[0] = 4;
                             scores[1] = 2;
                         }
-                        case 4 -> {
+                        case 5 -> {
                             resetTrailerBirds.run();
                             prepareTrailerArena(MapType.DESERT);
                             applyPreviewSkinChoiceToBird(trailerRoadrunner, BirdType.ROADRUNNER, classicRoadrunnerSkin);
@@ -22970,22 +23001,7 @@ public class BirdGame3 extends Application {
                             players[0] = trailerRoadrunner;
                             players[1] = trailerEagle;
                             scores[0] = 5;
-                            scores[1] = 2;
-                        }
-                        case 5 -> {
-                            resetTrailerBirds.run();
-                            prepareTrailerArena(MapType.DESERT);
-                            activePlayers = 2;
-                            players[0] = trailerRoadrunner;
-                            players[1] = trailerEagle;
-                            scores[0] = 5;
-                            scores[1] = 3;
-                            poseTrailerBird(trailerRoadrunner, 2360.0, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
-                                    true, false, 0, 0.0);
-                            poseTrailerBird(trailerEagle, 2595.0, GROUND_Y - 80 * trailerEagle.sizeMultiplier,
-                                    false, false, 0, 0.0);
-                            trailerEagle.health = 70;
-                            triggerTrailerBirdSpecial(trailerRoadrunner, false);
+                            scores[1] = 4;
                         }
                         case 6 -> {
                             resetTrailerBirds.run();
@@ -22994,17 +23010,70 @@ public class BirdGame3 extends Application {
                             players[0] = trailerRoadrunner;
                             players[1] = trailerEagle;
                             scores[0] = 6;
-                            scores[1] = 3;
-                            poseTrailerBird(trailerRoadrunner, DESERT_CLIFF_MID_X + 60.0,
-                                    DESERT_CLIFF_MID_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            scores[1] = 4;
+                            poseTrailerBird(trailerRoadrunner, 2360.0, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
                                     true, false, 0, 0.0);
-                            poseTrailerBird(trailerEagle, DESERT_CLIFF_HIGH_X + 130.0,
-                                    DESERT_CLIFF_HIGH_Y - 80 * trailerEagle.sizeMultiplier,
-                                    false, true, 0, 0.0);
-                            trailerEagle.health = 64;
-                            triggerTrailerBirdSpecial(trailerRoadrunner, true);
+                            poseTrailerBird(trailerEagle, 2595.0, GROUND_Y - 80 * trailerEagle.sizeMultiplier,
+                                    false, false, 0, 0.0);
+                            trailerEagle.health = 68;
+                            triggerTrailerBirdSpecial(trailerRoadrunner, false);
                         }
                         case 7 -> {
+                            resetTrailerBirds.run();
+                            prepareTrailerArena(MapType.DESERT);
+                            activePlayers = 2;
+                            players[0] = trailerRoadrunner;
+                            players[1] = trailerEagle;
+                            scores[0] = 6;
+                            scores[1] = 4;
+                            poseTrailerBird(trailerRoadrunner, DESERT_CLIFF_MID_X + 40.0,
+                                    DESERT_CLIFF_MID_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                                    true, false, 0, 0.0);
+                            poseTrailerBird(trailerEagle, DESERT_CLIFF_HIGH_X + 110.0,
+                                    DESERT_CLIFF_HIGH_Y - 80 * trailerEagle.sizeMultiplier,
+                                    false, true, 0, 0.0);
+                            trailerEagle.health = 62;
+                            triggerTrailerBirdSpecial(trailerRoadrunner, true);
+                        }
+                        case 8 -> {
+                            resetTrailerBirds.run();
+                            prepareTrailerArena(MapType.BATTLEFIELD);
+                            smashCombatRulesActive = true;
+                            activePlayers = 2;
+                            players[0] = trailerRoadrunner;
+                            players[1] = trailerEagle;
+                            scores[0] = 2;
+                            scores[1] = 1;
+                            poseTrailerBird(trailerRoadrunner, battlefieldIslandX + 260.0,
+                                    battlefieldIslandY - 80 * trailerRoadrunner.sizeMultiplier,
+                                    true, false, 0, 0.0);
+                            poseTrailerBird(trailerEagle, battlefieldIslandX + battlefieldIslandW - 310.0,
+                                    battlefieldIslandY - 80 * trailerEagle.sizeMultiplier,
+                                    false, false, 0, 0.0);
+                            trailerRoadrunner.setTrailerSmashDamagePercent(36.0);
+                            trailerEagle.setTrailerSmashDamagePercent(118.0);
+                            trailerRoadrunner.setTrailerAttackChargeRatio(1.0);
+                        }
+                        case 9 -> {
+                            resetTrailerBirds.run();
+                            prepareTrailerArena(MapType.BATTLEFIELD);
+                            smashCombatRulesActive = true;
+                            activePlayers = 2;
+                            players[0] = trailerRoadrunner;
+                            players[1] = trailerEagle;
+                            scores[0] = 1;
+                            scores[1] = 1;
+                            poseTrailerBird(trailerRoadrunner, battlefieldIslandX + 320.0,
+                                    battlefieldIslandY - 80 * trailerRoadrunner.sizeMultiplier,
+                                    true, false, 0, 0.0);
+                            poseTrailerBird(trailerEagle, battlefieldIslandX + battlefieldIslandW - 360.0,
+                                    battlefieldIslandY - 80 * trailerEagle.sizeMultiplier,
+                                    false, false, 0, 0.0);
+                            trailerRoadrunner.setTrailerSmashDamagePercent(72.0);
+                            trailerEagle.setTrailerSmashDamagePercent(126.0);
+                            trailerEagle.setTrailerShieldPreview(true, 0.88, 0);
+                        }
+                        case 10 -> {
                             resetTrailerBirds.run();
                             prepareTrailerArena(MapType.DOCK);
                             activePlayers = 4;
@@ -23020,16 +23089,22 @@ public class BirdGame3 extends Application {
                             trailerPelican.health = 94;
                             trailerPigeon.health = 72;
                         }
-                        case 8 -> {
+                        case 11 -> {
                             resetTrailerBirds.run();
-                            prepareTrailerArena(MapType.DOCK);
+                            prepareTrailerArena(MapType.DESERT);
                             activePlayers = 2;
                             players[0] = trailerRoadrunner;
                             players[1] = trailerEagle;
                             scores[0] = 4;
                             scores[1] = 4;
+                            poseTrailerBird(trailerRoadrunner, 2260.0, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                                    true, false, 0, 0.0);
+                            poseTrailerBird(trailerEagle, 2580.0, GROUND_Y - 1180.0,
+                                    false, true, 0, 0.0);
+                            trailerRoadrunner.health = 64;
+                            triggerTrailerBirdSpecial(trailerEagle, false);
                         }
-                        case 9, 10 -> {
+                        case 12, 13 -> {
                             resetTrailerBirds.run();
                             prepareTrailerArena(MapType.DESERT);
                             activePlayers = 2;
@@ -23037,6 +23112,8 @@ public class BirdGame3 extends Application {
                             players[1] = trailerEagle;
                             scores[0] = 6;
                             scores[1] = 4;
+                            applyPreviewSkinChoiceToBird(trailerRoadrunner, BirdType.ROADRUNNER, classicRoadrunnerSkin);
+                            trailerRoadrunner.name = "Dust Devil Roadrunner";
                         }
                         default -> {
                         }
@@ -23053,236 +23130,462 @@ public class BirdGame3 extends Application {
                 double titleAlpha = 0.0;
                 double titleCenterY = HEIGHT * 0.74;
 
-                if (elapsed < desertRevealEnd) {
-                    double phase = normalizedProgress(elapsed, 0.0, desertRevealEnd);
-                    zoom = lerp(0.42, 0.49, smoothStep01(phase));
-                    camX = Math.clamp(lerp(40.0, 1260.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
-                    camY = trailerGroundCameraY(zoom, 130.0);
+                if (elapsed < coldOpenEnd) {
+                    double phase = normalizedProgress(elapsed, 0.0, coldOpenEnd);
+                    double motion = smoothStep01(phase);
+                    drawBirds.add(trailerRoadrunner);
+                    drawBirds.add(trailerEagle);
 
-                    kicker = "NEW STAGE";
+                    double rrX = lerp(2140.0, 2820.0, motion);
+                    double eagleX = lerp(2520.0, 2940.0, motion);
+                    double eagleLift = smoothStep01(normalizedProgress(phase, 0.22, 1.0));
+                    double eagleY = lerp(
+                            GROUND_Y - 80 * trailerEagle.sizeMultiplier,
+                            GROUND_Y - 220.0,
+                            eagleLift
+                    );
+                    poseTrailerBird(trailerRoadrunner, rrX, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            true, false, phase > 0.34 ? 10 : 0, 24.0);
+                    poseTrailerBird(trailerEagle, eagleX, eagleY, false, false, 0, phase > 0.28 ? 8.0 : 0.0);
+
+                    zoom = lerp(0.92, 0.74, motion);
+                    camX = Math.clamp(rrX - 460.0, 0.0, cameraMaxXForZoom(zoom));
+                    camY = trailerGroundCameraY(zoom, 102.0);
+                    speedLineIntensity = 1.0;
+
+                    matchTimer = Math.max(0, 77 * 60 - (int) Math.round(phase * 90.0));
+                    hudLayout = buildFightHudLayout();
+                    currentFightHudOcclusionRects = hudLayout.occlusionRects();
+
+                    kicker = "NEW UPDATE";
+                    title = "ROADRUNNER STRIKES FIRST";
+                    subtitle = "Fast ground bursts, instant pressure, and a lane built to reward both.";
+                    titleAccent = Color.web("#FFB74D");
+                    titleAlpha = trailerOverlayAlpha(normalizedProgress(phase, 0.18, 1.0));
+                    titleCenterY = HEIGHT * 0.72;
+                } else if (elapsed < desertRevealEnd) {
+                    double phase = normalizedProgress(elapsed, coldOpenEnd, desertRevealEnd);
+                    double motion = smoothStep01(phase);
+                    drawBirds.add(trailerRoadrunner);
+                    drawBirds.add(trailerEagle);
+
+                    poseTrailerBird(trailerRoadrunner, lerp(320.0, 920.0, motion),
+                            GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier, true, false, 0, 16.0);
+                    poseTrailerBird(trailerEagle, DESERT_CLIFF_TOP_X + 90.0,
+                            DESERT_CLIFF_TOP_Y - 80 * trailerEagle.sizeMultiplier,
+                            false, true, 0, -1.0);
+
+                    zoom = lerp(0.46, 0.52, motion);
+                    camX = Math.clamp(lerp(40.0, 1720.0, motion), 0.0, cameraMaxXForZoom(zoom));
+                    camY = trailerGroundCameraY(zoom, 136.0);
+                    speedLineIntensity = 0.30;
+
+                    kicker = "NEW MAP";
                     title = "SUNSCORCH FLATS";
-                    subtitle = "A desert sprint lane with a left oasis pond and a right-side mesa climb.";
+                    subtitle = "Long sprint lanes, a left oasis reset, and a mesa climb that turns the finish vertical.";
                     titleAccent = Color.web("#FFB74D");
                     titleAlpha = trailerOverlayAlpha(phase);
                     titleCenterY = HEIGHT * 0.72;
                 } else if (elapsed < oasisShowcaseEnd) {
                     double phase = normalizedProgress(elapsed, desertRevealEnd, oasisShowcaseEnd);
+                    double motion = smoothStep01(phase);
                     drawBirds.add(trailerRoadrunner);
-                    double rrX = lerp(420.0, DESERT_OASIS_X + DESERT_OASIS_W + 180.0, smoothStep01(phase));
+
+                    double rrX = lerp(420.0, DESERT_OASIS_X + DESERT_OASIS_W + 200.0, motion);
                     poseTrailerBird(trailerRoadrunner, rrX, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
                             true, false, 0, 24.0);
-                    zoom = lerp(0.80, 0.72, smoothStep01(phase));
-                    camX = Math.clamp(lerp(160.0, DESERT_OASIS_X - 160.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
-                    camY = trailerGroundCameraY(zoom, 116.0);
-                    speedLineIntensity = 0.72;
+
+                    zoom = lerp(0.84, 0.74, motion);
+                    camX = Math.clamp(lerp(160.0, DESERT_OASIS_X - 180.0, motion), 0.0, cameraMaxXForZoom(zoom));
+                    camY = trailerGroundCameraY(zoom, 114.0);
+                    speedLineIntensity = 0.82;
 
                     kicker = "MAP DETAIL";
                     title = "OASIS POND";
-                    subtitle = "The left side breaks the opener with water, reeds, and a fast low route.";
+                    subtitle = "Water, reeds, and one low route that changes how the opener breaks.";
                     titleAccent = Color.web("#F5B66C");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < cliffShowcaseEnd) {
                     double phase = normalizedProgress(elapsed, oasisShowcaseEnd, cliffShowcaseEnd);
+                    double motion = smoothStep01(phase);
                     drawBirds.add(trailerRoadrunner);
                     drawBirds.add(trailerEagle);
 
-                    double rrX = lerp(3980.0, DESERT_CLIFF_MID_X + 60.0, smoothStep01(phase));
-                    double rrY = lerp(GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                    double rrX = lerp(4060.0, DESERT_CLIFF_MID_X + 80.0, motion);
+                    double rrY = lerp(
+                            GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
                             DESERT_CLIFF_MID_Y - 80 * trailerRoadrunner.sizeMultiplier,
-                            smoothStep01(phase));
-                    double eagleX = lerp(DESERT_CLIFF_TOP_X + 70.0, DESERT_CLIFF_SUMMIT_X + 10.0, smoothStep01(phase));
-                    double eagleY = lerp(DESERT_CLIFF_TOP_Y - 80 * trailerEagle.sizeMultiplier,
+                            motion
+                    );
+                    double eagleX = lerp(DESERT_CLIFF_TOP_X + 80.0, DESERT_CLIFF_SUMMIT_X + 12.0, motion);
+                    double eagleY = lerp(
+                            DESERT_CLIFF_TOP_Y - 80 * trailerEagle.sizeMultiplier,
                             DESERT_CLIFF_SUMMIT_Y - 80 * trailerEagle.sizeMultiplier,
-                            smoothStep01(phase));
+                            motion
+                    );
                     poseTrailerBird(trailerRoadrunner, rrX, rrY, true, false, 0, 12.0);
-                    poseTrailerBird(trailerEagle, eagleX, eagleY, false, true, 0, -1.2);
+                    poseTrailerBird(trailerEagle, eagleX, eagleY, false, true, 0, -1.5);
 
-                    zoom = lerp(0.72, 0.60, smoothStep01(phase));
-                    camX = Math.clamp(lerp(4280.0, 5000.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
-                    camY = Math.clamp(lerp(640.0, 260.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+                    zoom = lerp(0.74, 0.60, motion);
+                    camX = Math.clamp(lerp(4300.0, 5050.0, motion), 0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(660.0, 240.0, motion), 0.0, cameraMaxYForZoom(zoom));
 
                     kicker = "MAP DETAIL";
                     title = "CLIFF-SIDE FINISH";
-                    subtitle = "The far-right mesa turns late fights into a vertical chase.";
+                    subtitle = "The far-right mesa turns every closeout into a vertical scramble.";
                     titleAccent = Color.web("#FFD180");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < roadrunnerShowcaseEnd) {
                     double phase = normalizedProgress(elapsed, cliffShowcaseEnd, roadrunnerShowcaseEnd);
+                    double motion = smoothStep01(phase);
                     drawBirds.add(trailerRoadrunner);
 
-                    double rrX = lerp(1120.0, 3480.0, smoothStep01(phase));
-                    poseTrailerBird(trailerRoadrunner, rrX, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
-                            true, false, 0, 22.0);
+                    double rrX = lerp(1180.0, DESERT_CLIFF_LOW_X + 220.0, motion);
+                    double rrY = lerp(
+                            GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            DESERT_CLIFF_LOW_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            smoothStep01(normalizedProgress(phase, 0.58, 1.0))
+                    );
+                    poseTrailerBird(trailerRoadrunner, rrX, rrY, true, false, 0, 22.0);
 
-                    zoom = lerp(0.86, 0.70, smoothStep01(phase));
+                    zoom = lerp(0.88, 0.72, motion);
                     camX = Math.clamp(rrX - 520.0, 0.0, cameraMaxXForZoom(zoom));
-                    camY = trailerGroundCameraY(zoom, 118.0);
-                    speedLineIntensity = 0.92;
+                    camY = phase < 0.58
+                            ? trailerGroundCameraY(zoom, 116.0)
+                            : Math.clamp(lerp(520.0, 360.0, smoothStep01(normalizedProgress(phase, 0.58, 1.0))),
+                            0.0, cameraMaxYForZoom(zoom));
+                    speedLineIntensity = 0.94;
 
                     kicker = "NEW BIRD";
                     title = "ROADRUNNER";
-                    subtitle = "Base form stays low, fast, and impossible to pin down.";
+                    subtitle = "Built for low routes, burst acceleration, and cliff-to-cliff recovery.";
                     titleAccent = Color.web("#F5B66C");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < classicShowcaseEnd) {
                     double phase = normalizedProgress(elapsed, roadrunnerShowcaseEnd, classicShowcaseEnd);
+                    double motion = smoothStep01(phase);
                     drawBirds.add(trailerRoadrunner);
 
-                    double rrX = lerp(4520.0, DESERT_CLIFF_TOP_X + 220.0, smoothStep01(phase));
-                    double rrY = lerp(DESERT_CLIFF_LOW_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                    double rrX = lerp(4540.0, DESERT_CLIFF_TOP_X + 210.0, motion);
+                    double rrY = lerp(
+                            DESERT_CLIFF_LOW_Y - 80 * trailerRoadrunner.sizeMultiplier,
                             DESERT_CLIFF_TOP_Y - 80 * trailerRoadrunner.sizeMultiplier,
-                            smoothStep01(phase));
+                            motion
+                    );
                     poseTrailerBird(trailerRoadrunner, rrX, rrY, true, false, 0, 8.0);
 
-                    zoom = lerp(0.78, 0.88, smoothStep01(phase));
-                    camX = Math.clamp(rrX - 420.0, 0.0, cameraMaxXForZoom(zoom));
-                    camY = Math.clamp(lerp(520.0, 280.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
-                    speedLineIntensity = 0.55;
+                    zoom = lerp(0.80, 0.90, motion);
+                    camX = Math.clamp(rrX - 430.0, 0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(540.0, 260.0, motion), 0.0, cameraMaxYForZoom(zoom));
+                    speedLineIntensity = 0.48;
 
-                    kicker = "CLASSIC REWARD";
+                    kicker = "CLASSIC SKIN";
                     title = "DUST DEVIL ROADRUNNER";
-                    subtitle = "Roadrunner's classic skin gets a full hero beat in the new trailer.";
+                    subtitle = "A full hero shot for the classic reward instead of a blink-and-you-miss-it cameo.";
                     titleAccent = Color.web("#90CAF9");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < specialShowcaseEnd) {
                     double phase = normalizedProgress(elapsed, classicShowcaseEnd, specialShowcaseEnd);
+                    double motion = smoothStep01(phase);
                     drawBirds.add(trailerRoadrunner);
                     drawBirds.add(trailerEagle);
 
-                    zoom = lerp(0.74, 0.80, smoothStep01(phase));
-                    camX = Math.clamp(lerp(2020.0, 2440.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
-                    camY = trailerGroundCameraY(zoom, 110.0);
+                    double rrX = lerp(2360.0, 2860.0, motion);
+                    double eagleX = lerp(2595.0, 3030.0, motion);
+                    double eagleY = lerp(
+                            GROUND_Y - 80 * trailerEagle.sizeMultiplier,
+                            GROUND_Y - 220.0,
+                            smoothStep01(normalizedProgress(phase, 0.18, 1.0))
+                    );
+                    poseTrailerBird(trailerRoadrunner, rrX, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            true, false, phase > 0.28 ? 10 : 0, 25.0);
+                    poseTrailerBird(trailerEagle, eagleX, eagleY, false, false, 0, phase > 0.24 ? 8.0 : 0.0);
+
+                    zoom = lerp(0.86, 0.78, motion);
+                    camX = Math.clamp(lerp(2020.0, 2560.0, motion), 0.0, cameraMaxXForZoom(zoom));
+                    camY = trailerGroundCameraY(zoom, 108.0);
                     speedLineIntensity = 1.0;
 
-                    matchTimer = Math.max(0, 74 * 60 - (int) Math.round(phase * 90.0));
+                    matchTimer = Math.max(0, 71 * 60 - (int) Math.round(phase * 120.0));
                     hudLayout = buildFightHudLayout();
                     currentFightHudOcclusionRects = hudLayout.occlusionRects();
 
                     kicker = "SPECIAL";
                     title = "DUST SPRINT";
-                    subtitle = "Roadrunner bursts through the lane and slams targets downrange.";
+                    subtitle = "A burst dash that converts a straightaway into real damage.";
                     titleAccent = Color.web("#FFD54F");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < ultimateShowcaseEnd) {
                     double phase = normalizedProgress(elapsed, specialShowcaseEnd, ultimateShowcaseEnd);
+                    double motion = smoothStep01(phase);
                     drawBirds.add(trailerRoadrunner);
                     drawBirds.add(trailerEagle);
 
-                    zoom = lerp(0.70, 0.62, smoothStep01(phase));
-                    camX = Math.clamp(lerp(DESERT_CLIFF_LOW_X - 280.0, DESERT_CLIFF_HIGH_X - 120.0, smoothStep01(phase)),
-                            0.0, cameraMaxXForZoom(zoom));
-                    camY = Math.clamp(lerp(820.0, 320.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
-                    speedLineIntensity = 0.66;
+                    double rrX = lerp(DESERT_CLIFF_MID_X + 40.0, DESERT_CLIFF_HIGH_X - 60.0, motion);
+                    double rrY = lerp(
+                            DESERT_CLIFF_MID_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            DESERT_CLIFF_HIGH_Y - 110.0,
+                            smoothStep01(normalizedProgress(phase, 0.0, 0.78))
+                    );
+                    double eagleX = lerp(DESERT_CLIFF_HIGH_X + 110.0, DESERT_CLIFF_SUMMIT_X + 120.0, motion);
+                    double eagleY = lerp(
+                            DESERT_CLIFF_HIGH_Y - 80 * trailerEagle.sizeMultiplier,
+                            DESERT_CLIFF_SUMMIT_Y - 220.0,
+                            motion
+                    );
+                    poseTrailerBird(trailerRoadrunner, rrX, rrY, true, true, 0, 18.0);
+                    poseTrailerBird(trailerEagle, eagleX, eagleY, false, true, 0, 5.0);
 
-                    matchTimer = Math.max(0, 66 * 60 - (int) Math.round(phase * 110.0));
+                    zoom = lerp(0.72, 0.60, motion);
+                    camX = Math.clamp(lerp(DESERT_CLIFF_LOW_X - 260.0, DESERT_CLIFF_HIGH_X - 120.0, motion),
+                            0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(860.0, 260.0, motion), 0.0, cameraMaxYForZoom(zoom));
+                    speedLineIntensity = 0.70;
+
+                    matchTimer = Math.max(0, 65 * 60 - (int) Math.round(phase * 120.0));
                     hudLayout = buildFightHudLayout();
                     currentFightHudOcclusionRects = hudLayout.occlusionRects();
 
                     kicker = "ULTIMATE";
                     title = "GODSTORM";
-                    subtitle = "Sandstorm speed, sand gusts, and a full-screen threat aura.";
+                    subtitle = "The full sandstorm turns the whole lane hostile.";
                     titleAccent = Color.GOLD;
                     titleAlpha = trailerOverlayAlpha(phase);
+                } else if (elapsed < chargeShowcaseEnd) {
+                    double phase = normalizedProgress(elapsed, ultimateShowcaseEnd, chargeShowcaseEnd);
+                    double windupPhase = normalizedProgress(phase, 0.0, 0.44);
+                    double releasePhase = normalizedProgress(phase, 0.44, 1.0);
+                    drawBirds.add(trailerRoadrunner);
+                    drawBirds.add(trailerEagle);
+
+                    double rrGroundY = battlefieldIslandY - 80 * trailerRoadrunner.sizeMultiplier;
+                    double eagleGroundY = battlefieldIslandY - 80 * trailerEagle.sizeMultiplier;
+                    double rrX = phase < 0.44
+                            ? lerp(battlefieldIslandX + 180.0, battlefieldIslandX + 260.0, smoothStep01(windupPhase))
+                            : lerp(battlefieldIslandX + 260.0, battlefieldIslandX + 540.0, smoothStep01(releasePhase));
+                    double eagleX = phase < 0.44
+                            ? battlefieldIslandX + battlefieldIslandW - 310.0
+                            : lerp(battlefieldIslandX + battlefieldIslandW - 310.0,
+                            battlefieldIslandX + battlefieldIslandW - 180.0,
+                            smoothStep01(releasePhase));
+                    double eagleY = phase < 0.44
+                            ? eagleGroundY
+                            : lerp(eagleGroundY, eagleGroundY - 340.0, smoothStep01(releasePhase));
+                    poseTrailerBird(trailerRoadrunner, rrX, rrGroundY, true, false, phase > 0.46 ? 16 : 0, phase > 0.46 ? 8.0 : 0.0);
+                    poseTrailerBird(trailerEagle, eagleX, eagleY, false, phase > 0.60, 0, phase > 0.46 ? 6.0 : 0.0);
+                    trailerRoadrunner.setTrailerAttackChargeRatio(phase < 0.44 ? lerp(0.42, 1.0, smoothStep01(windupPhase)) : 0.0);
+                    trailerRoadrunner.setTrailerSmashDamagePercent(36.0);
+                    trailerEagle.setTrailerSmashDamagePercent(phase < 0.48
+                            ? 118.0
+                            : lerp(118.0, 154.0, smoothStep01(releasePhase)));
+
+                    zoom = lerp(0.86, 0.78, smoothStep01(phase));
+                    camX = Math.clamp(lerp(battlefieldIslandX + 80.0, battlefieldIslandX + 360.0, smoothStep01(phase)),
+                            0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(1320.0, 1180.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+
+                    matchTimer = Math.max(0, 55 * 60 - (int) Math.round(phase * 90.0));
+                    hudLayout = buildFightHudLayout();
+                    currentFightHudOcclusionRects = hudLayout.occlusionRects();
+
+                    kicker = "NEW COMBAT";
+                    title = "CHARGE ATTACKS";
+                    subtitle = "Hold swings for bigger launches and real percent pressure.";
+                    titleAccent = Color.web("#B3E5FC");
+                    titleAlpha = trailerOverlayAlpha(phase);
+                } else if (elapsed < shieldShowcaseEnd) {
+                    double phase = normalizedProgress(elapsed, chargeShowcaseEnd, shieldShowcaseEnd);
+                    double blockPhase = normalizedProgress(phase, 0.0, 0.52);
+                    double parryPhase = normalizedProgress(phase, 0.52, 1.0);
+                    drawBirds.add(trailerRoadrunner);
+                    drawBirds.add(trailerEagle);
+
+                    double rrGroundY = battlefieldIslandY - 80 * trailerRoadrunner.sizeMultiplier;
+                    double eagleGroundY = battlefieldIslandY - 80 * trailerEagle.sizeMultiplier;
+                    double rrX = phase < 0.52
+                            ? lerp(battlefieldIslandX + 260.0, battlefieldIslandX + 500.0, smoothStep01(blockPhase))
+                            : lerp(battlefieldIslandX + 500.0, battlefieldIslandX + 400.0, smoothStep01(parryPhase));
+                    double rrY = phase < 0.52
+                            ? rrGroundY
+                            : lerp(rrGroundY, rrGroundY - 90.0, smoothStep01(parryPhase));
+                    poseTrailerBird(trailerRoadrunner, rrX, rrY, true, false, phase > 0.54 ? 0 : 8, phase > 0.52 ? -4.0 : 0.0);
+                    poseTrailerBird(trailerEagle, battlefieldIslandX + battlefieldIslandW - 360.0, eagleGroundY,
+                            false, false, 0, 0.0);
+
+                    trailerRoadrunner.setTrailerSmashDamagePercent(72.0);
+                    trailerEagle.setTrailerSmashDamagePercent(phase < 0.52 ? 126.0 : 132.0);
+                    trailerRoadrunner.setTrailerAttackChargeRatio(phase < 0.52 ? lerp(0.55, 0.84, smoothStep01(blockPhase)) : 0.0);
+                    trailerEagle.setTrailerShieldPreview(true, phase < 0.52 ? 0.88 : 1.0, phase < 0.52 ? 0 : 12);
+
+                    zoom = lerp(0.88, 0.80, smoothStep01(phase));
+                    camX = Math.clamp(lerp(battlefieldIslandX + 240.0, battlefieldIslandX + 520.0, smoothStep01(phase)),
+                            0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(1260.0, 1180.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+
+                    matchTimer = Math.max(0, 48 * 60 - (int) Math.round(phase * 70.0));
+                    hudLayout = buildFightHudLayout();
+                    currentFightHudOcclusionRects = hudLayout.occlusionRects();
+
+                    kicker = "NEW COMBAT";
+                    title = "SHIELDS + PARRIES";
+                    subtitle = "Block pressure, catch the timing window, and flip the whole exchange.";
+                    titleAccent = Color.web("#80DEEA");
+                    titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < dockShowcaseEnd) {
-                    double phase = normalizedProgress(elapsed, ultimateShowcaseEnd, dockShowcaseEnd);
+                    double phase = normalizedProgress(elapsed, shieldShowcaseEnd, dockShowcaseEnd);
+                    double motion = smoothStep01(phase);
                     drawBirds.add(trailerRoadrunner);
                     drawBirds.add(trailerEagle);
                     drawBirds.add(trailerPelican);
                     drawBirds.add(trailerPigeon);
 
-                    poseTrailerBird(trailerRoadrunner, lerp(1420.0, 1720.0, smoothStep01(phase)),
+                    poseTrailerBird(trailerRoadrunner, lerp(1500.0, 1780.0, motion),
                             GROUND_Y - 220.0, true, false, 0, 10.0);
-                    poseTrailerBird(trailerEagle, lerp(3280.0, 3460.0, smoothStep01(phase)),
-                            GROUND_Y - 520.0, false, true, 0, -3.0);
-                    poseTrailerBird(trailerPelican, lerp(2140.0, 2340.0, smoothStep01(phase)),
+                    poseTrailerBird(trailerPelican, lerp(2240.0, 2440.0, motion),
                             GROUND_Y - 140.0, true, false, 0, 3.0);
-                    poseTrailerBird(trailerPigeon, lerp(2980.0, 3180.0, smoothStep01(phase)),
+                    poseTrailerBird(trailerPigeon, lerp(3060.0, 3240.0, motion),
                             GROUND_Y - 220.0, false, false, 0, -2.0);
+                    poseTrailerBird(trailerEagle, lerp(3360.0, 3540.0, motion),
+                            GROUND_Y - 520.0, false, true, 0, -3.0);
 
-                    zoom = lerp(0.56, 0.50, smoothStep01(phase));
-                    camX = Math.clamp(lerp(1120.0, 2080.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
-                    camY = Math.clamp(lerp(420.0, 300.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+                    zoom = lerp(0.58, 0.50, motion);
+                    camX = Math.clamp(lerp(1200.0, 2140.0, motion), 0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(440.0, 300.0, motion), 0.0, cameraMaxYForZoom(zoom));
 
-                    matchTimer = Math.max(0, 58 * 60 - (int) Math.round(phase * 160.0));
+                    matchTimer = Math.max(0, 42 * 60 - (int) Math.round(phase * 110.0));
                     hudLayout = buildFightHudLayout();
                     currentFightHudOcclusionRects = hudLayout.occlusionRects();
 
-                    kicker = "RECENT DROP";
-                    title = "BROKEN HARBOR + LAN";
-                    subtitle = "Dock fights, four-player lobbies, and cleaner camera framing all make the cut.";
+                    kicker = "4-PLAYER LAN";
+                    title = "BROKEN HARBOR";
+                    subtitle = "Wide dock shots, four-player chaos, and a map that finally sells the update in one frame.";
                     titleAccent = Color.web("#80CBC4");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < eagleShowcaseEnd) {
                     double phase = normalizedProgress(elapsed, dockShowcaseEnd, eagleShowcaseEnd);
+                    double motion = smoothStep01(phase);
+                    drawBirds.add(trailerRoadrunner);
                     drawBirds.add(trailerEagle);
 
-                    double eagleX = lerp(2080.0, 2560.0, smoothStep01(phase));
-                    double eagleY = lerp(GROUND_Y - 980.0, GROUND_Y - 1280.0, smoothStep01(phase));
-                    poseTrailerBird(trailerEagle, eagleX, eagleY, true, true, phase > 0.58 ? 12 : 0, 4.0);
+                    poseTrailerBird(trailerRoadrunner, 2260.0, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            true, false, phase > 0.76 ? 8 : 0, 0.0);
+                    double eagleX = lerp(2580.0, 2320.0, motion);
+                    double eagleY = lerp(GROUND_Y - 1180.0, GROUND_Y - 520.0, motion);
+                    poseTrailerBird(trailerEagle, eagleX, eagleY, false, true, phase > 0.58 ? 12 : 0, -5.0);
 
-                    zoom = lerp(0.78, 0.92, smoothStep01(phase));
-                    camX = Math.clamp(eagleX - 470.0, 0.0, cameraMaxXForZoom(zoom));
-                    camY = Math.clamp(lerp(720.0, 340.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+                    zoom = lerp(0.82, 0.94, motion);
+                    camX = Math.clamp(eagleX - 480.0, 0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(820.0, 300.0, motion), 0.0, cameraMaxYForZoom(zoom));
 
                     kicker = "BONUS SKIN";
                     title = "STOCK PHOTO EAGLE";
-                    subtitle = "A real bird photo. No stylization. No compromise.";
+                    subtitle = "Absurd enough to be memorable, clean enough to deserve a real beat.";
                     titleAccent = Color.web("#FFE082");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < updateCardEnd) {
                     double phase = normalizedProgress(elapsed, eagleShowcaseEnd, updateCardEnd);
+                    double motion = smoothStep01(phase);
                     drawBirds.add(trailerRoadrunner);
                     drawBirds.add(trailerEagle);
 
-                    poseTrailerBird(trailerRoadrunner, 1520.0, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
-                            true, false, 0, 0.0);
-                    poseTrailerBird(trailerEagle, DESERT_CLIFF_TOP_X + 180.0,
-                            DESERT_CLIFF_TOP_Y - 80 * trailerEagle.sizeMultiplier,
-                            false, true, 0, 0.0);
+                    double rrX = lerp(1520.0, 1920.0, motion);
+                    poseTrailerBird(trailerRoadrunner, rrX, GROUND_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                            true, false, 0, 6.0);
+                    poseTrailerBird(trailerEagle, lerp(DESERT_CLIFF_TOP_X + 180.0, DESERT_CLIFF_HIGH_X + 120.0, motion),
+                            lerp(DESERT_CLIFF_TOP_Y - 80 * trailerEagle.sizeMultiplier,
+                                    DESERT_CLIFF_HIGH_Y - 80 * trailerEagle.sizeMultiplier,
+                                    motion),
+                            false, true, 0, -1.5);
 
-                    zoom = lerp(0.56, 0.48, smoothStep01(phase));
-                    camX = Math.clamp(lerp(920.0, 1780.0, smoothStep01(phase)), 0.0, cameraMaxXForZoom(zoom));
-                    camY = Math.clamp(lerp(460.0, 280.0, smoothStep01(phase)), 0.0, cameraMaxYForZoom(zoom));
+                    zoom = lerp(0.58, 0.50, motion);
+                    camX = Math.clamp(lerp(980.0, 1900.0, motion), 0.0, cameraMaxXForZoom(zoom));
+                    camY = Math.clamp(lerp(500.0, 260.0, motion), 0.0, cameraMaxYForZoom(zoom));
+                    speedLineIntensity = 0.30;
 
-                    kicker = "BIRD FIGHT 3 UPDATE";
-                    title = "SUNSCORCH SPRINT";
-                    subtitle = "Sunscorch Flats, Roadrunner, Dust Devil classic, Broken Harbor LAN fights, Stock Photo Eagle, and refreshed fight presentation.";
+                    kicker = "BIRD FIGHT 3";
+                    title = "SUNSCORCH UPDATE";
+                    subtitle = "Roadrunner's full kit, charge attacks, shield parries, Broken Harbor LAN, and Stock Photo Eagle.";
                     titleAccent = Color.web("#FFCC80");
-                    titleAlpha = Math.min(1.0, 0.32 + trailerOverlayAlpha(phase) * 0.88);
+                    titleAlpha = Math.min(1.0, 0.30 + trailerOverlayAlpha(phase) * 0.88);
                     titleCenterY = HEIGHT * 0.52;
                 } else {
-                    if (!musicCut[0]) {
-                        trailerMusic[0] = stopMediaPlayer(trailerMusic[0], false);
-                        musicCut[0] = true;
-                    }
-
-                    double finalPhase = normalizedProgress(elapsed, updateCardEnd, finalShotEnd);
+                    double phase = normalizedProgress(elapsed, updateCardEnd, finalShotEnd);
+                    double motion = smoothStep01(phase);
                     drawBirds.add(trailerRoadrunner);
                     drawBirds.add(trailerEagle);
                     applyPreviewSkinChoiceToBird(trailerRoadrunner, BirdType.ROADRUNNER, classicRoadrunnerSkin);
 
-                    double rrX = lerp(DESERT_CLIFF_LOW_X + 80.0, DESERT_CLIFF_TOP_X + 60.0, smoothStep01(finalPhase));
-                    double rrY = lerp(DESERT_CLIFF_LOW_Y - 80 * trailerRoadrunner.sizeMultiplier,
+                    double rrX = lerp(DESERT_CLIFF_LOW_X + 80.0, DESERT_CLIFF_TOP_X + 60.0, motion);
+                    double rrY = lerp(
+                            DESERT_CLIFF_LOW_Y - 80 * trailerRoadrunner.sizeMultiplier,
                             DESERT_CLIFF_TOP_Y - 80 * trailerRoadrunner.sizeMultiplier,
-                            smoothStep01(finalPhase));
-                    double eagleX = lerp(DESERT_CLIFF_HIGH_X + 120.0, DESERT_CLIFF_SUMMIT_X + 24.0, smoothStep01(finalPhase));
-                    double eagleY = lerp(DESERT_CLIFF_HIGH_Y - 80 * trailerEagle.sizeMultiplier,
+                            motion
+                    );
+                    double eagleX = lerp(DESERT_CLIFF_HIGH_X + 120.0, DESERT_CLIFF_SUMMIT_X + 24.0, motion);
+                    double eagleY = lerp(
+                            DESERT_CLIFF_HIGH_Y - 80 * trailerEagle.sizeMultiplier,
                             DESERT_CLIFF_SUMMIT_Y - 80 * trailerEagle.sizeMultiplier,
-                            smoothStep01(finalPhase));
+                            motion
+                    );
                     poseTrailerBird(trailerRoadrunner, rrX, rrY, true, false, 0, 5.0);
                     poseTrailerBird(trailerEagle, eagleX, eagleY, false, true, 0, -2.0);
 
-                    zoom = lerp(0.62, 0.68, smoothStep01(finalPhase));
-                    camX = Math.clamp(lerp(DESERT_CLIFF_LOW_X - 260.0, DESERT_CLIFF_TOP_X - 140.0, smoothStep01(finalPhase)),
+                    zoom = lerp(0.62, 0.68, motion);
+                    camX = Math.clamp(lerp(DESERT_CLIFF_LOW_X - 260.0, DESERT_CLIFF_TOP_X - 140.0, motion),
                             0.0, cameraMaxXForZoom(zoom));
-                    camY = Math.clamp(lerp(700.0, 220.0, smoothStep01(finalPhase)), 0.0, cameraMaxYForZoom(zoom));
-                    speedLineIntensity = 0.28;
-                    hint.setOpacity(overlayHidden[0] ? 0.0 : 0.98);
+                    camY = Math.clamp(lerp(700.0, 220.0, motion), 0.0, cameraMaxYForZoom(zoom));
+                    speedLineIntensity = 0.26;
                 }
 
-                if (elapsed < updateCardEnd) {
-                    hint.setOpacity(0.76);
+                triggerTrailerCue(trailerCues, "cold-open-hit", elapsed >= 1.05, () -> {
+                    playHitSound(28);
+                    triggerFlash(0.40, false);
+                });
+                triggerTrailerCue(trailerCues, "cut-to-map", elapsed >= coldOpenEnd, BirdGame3.this::playMatchIntroCountSfx);
+                triggerTrailerCue(trailerCues, "cut-to-oasis", elapsed >= desertRevealEnd, BirdGame3.this::playSwingSfx);
+                triggerTrailerCue(trailerCues, "cut-to-cliff", elapsed >= oasisShowcaseEnd,
+                        () -> playManagedSfx(buttonClickClip, BUTTON_CLICK_BASE_VOLUME * 1.12));
+                triggerTrailerCue(trailerCues, "cut-to-bird", elapsed >= cliffShowcaseEnd, BirdGame3.this::playMatchIntroCountSfx);
+                triggerTrailerCue(trailerCues, "cut-to-classic", elapsed >= roadrunnerShowcaseEnd,
+                        () -> playManagedSfx(buttonClickClip, BUTTON_CLICK_BASE_VOLUME * 1.16));
+                triggerTrailerCue(trailerCues, "special-impact", elapsed >= classicShowcaseEnd + 1.25, () -> {
+                    playHitSound(24);
+                    triggerFlash(0.34, false);
+                });
+                triggerTrailerCue(trailerCues, "ultimate-lift", elapsed >= specialShowcaseEnd, BirdGame3.this::playHugewaveSfx);
+                triggerTrailerCue(trailerCues, "ultimate-gust-a", elapsed >= specialShowcaseEnd + 1.45, BirdGame3.this::playSwingSfx);
+                triggerTrailerCue(trailerCues, "ultimate-gust-b", elapsed >= specialShowcaseEnd + 3.05, BirdGame3.this::playSwingSfx);
+                triggerTrailerCue(trailerCues, "charge-release", elapsed >= ultimateShowcaseEnd + 2.65, () -> {
+                    playButterSfx();
+                    playHitSound(32);
+                    triggerFlash(0.36, false);
+                });
+                triggerTrailerCue(trailerCues, "shield-parry", elapsed >= chargeShowcaseEnd + 2.45, () -> {
+                    trailerRoadrunner.applyStun(36);
+                    playVaseBreakingSfx();
+                    triggerFlash(0.26, false);
+                });
+                triggerTrailerCue(trailerCues, "dock-cut", elapsed >= shieldShowcaseEnd, BirdGame3.this::playHugewaveSfx);
+                triggerTrailerCue(trailerCues, "eagle-dive-hit", elapsed >= dockShowcaseEnd + 2.0, () -> {
+                    playHitSound(22);
+                    triggerFlash(0.28, false);
+                });
+                triggerTrailerCue(trailerCues, "summary-card", elapsed >= eagleShowcaseEnd, BirdGame3.this::playMatchIntroGoSfx);
+                triggerTrailerCue(trailerCues, "final-sting", elapsed >= finalShotEnd - 0.20, () -> {
+                    if (!musicCut[0]) {
+                        trailerMusic[0] = stopMediaPlayer(trailerMusic[0], false);
+                        musicCut[0] = true;
+                    }
+                    playAchievementSfx();
+                });
+
+                for (Bird bird : drawBirds) {
+                    bird.advanceTrailerPresentationFrame();
                 }
+                updateParticlesFixed();
+
+                back.setOpacity(overlayHidden[0] ? 0.0 : (elapsed < updateCardEnd ? 0.26 : 0.82));
+                hint.setOpacity(overlayHidden[0] ? 0.0 : (elapsed < updateCardEnd ? 0.12 : 0.82));
 
                 if (screenShakeEnabled && shakeIntensity > 0.0) {
                     currentRenderShakeX = (Math.random() - 0.5) * shakeIntensity * 2.0;
@@ -23307,7 +23610,6 @@ public class BirdGame3 extends Application {
                     drawTrailerSpeedLines(g, trailerRoadrunner, Color.web("#FFD180"), speedLineIntensity);
                 }
                 for (Bird bird : drawBirds) {
-                    // Draw trailer birds fully opaque; HUD will fade over them when necessary.
                     bird.draw(g);
                 }
                 g.restore();
@@ -23316,7 +23618,7 @@ public class BirdGame3 extends Application {
                     drawFightHud(g, hudLayout);
                 }
 
-                if (titleAlpha > 0.01 && title != null) {
+                if (titleAlpha > 0.01) {
                     drawTrailerTitleCard(g, kicker, title, subtitle, titleAccent, titleAlpha, titleCenterY);
                 }
 
@@ -23336,31 +23638,20 @@ public class BirdGame3 extends Application {
             }
 
             private int getSceneIdx(double elapsed) {
-                int sceneIdx;
-                if (elapsed < desertRevealEnd) {
-                    sceneIdx = 0;
-                } else if (elapsed < oasisShowcaseEnd) {
-                    sceneIdx = 1;
-                } else if (elapsed < cliffShowcaseEnd) {
-                    sceneIdx = 2;
-                } else if (elapsed < roadrunnerShowcaseEnd) {
-                    sceneIdx = 3;
-                } else if (elapsed < classicShowcaseEnd) {
-                    sceneIdx = 4;
-                } else if (elapsed < specialShowcaseEnd) {
-                    sceneIdx = 5;
-                } else if (elapsed < ultimateShowcaseEnd) {
-                    sceneIdx = 6;
-                } else if (elapsed < dockShowcaseEnd) {
-                    sceneIdx = 7;
-                } else if (elapsed < eagleShowcaseEnd) {
-                    sceneIdx = 8;
-                } else if (elapsed < updateCardEnd) {
-                    sceneIdx = 9;
-                } else {
-                    sceneIdx = 10;
-                }
-                return sceneIdx;
+                if (elapsed < coldOpenEnd) return 0;
+                if (elapsed < desertRevealEnd) return 1;
+                if (elapsed < oasisShowcaseEnd) return 2;
+                if (elapsed < cliffShowcaseEnd) return 3;
+                if (elapsed < roadrunnerShowcaseEnd) return 4;
+                if (elapsed < classicShowcaseEnd) return 5;
+                if (elapsed < specialShowcaseEnd) return 6;
+                if (elapsed < ultimateShowcaseEnd) return 7;
+                if (elapsed < chargeShowcaseEnd) return 8;
+                if (elapsed < shieldShowcaseEnd) return 9;
+                if (elapsed < dockShowcaseEnd) return 10;
+                if (elapsed < eagleShowcaseEnd) return 11;
+                if (elapsed < updateCardEnd) return 12;
+                return 13;
             }
         };
 
@@ -23532,10 +23823,28 @@ public class BirdGame3 extends Application {
         battlefieldIslandY = 0;
         Arrays.fill(dockLeverHeld, false);
         mountainPeaks = null;
-        if (Objects.requireNonNull(selectedMap) == MapType.DOCK) {
-            setupDockArena();
-        } else {
-            setupDesertArena();
+        switch (Objects.requireNonNull(selectedMap)) {
+            case DOCK -> setupDockArena();
+            case DESERT -> setupDesertArena();
+            case BATTLEFIELD -> {
+                double islandW = 1200;
+                double islandH = 70;
+                double islandX = (WORLD_WIDTH - islandW) / 2.0;
+                double islandY = GROUND_Y - 80;
+                platforms.add(new Platform(islandX, islandY, islandW, islandH));
+                platforms.add(new Platform(islandX + 120, islandY - 260, 360, 45));
+                platforms.add(new Platform(islandX + islandW - 480, islandY - 260, 360, 45));
+                platforms.add(new Platform(islandX + (islandW - 420) / 2.0, islandY - 420, 420, 45));
+                battlefieldIslandX = islandX;
+                battlefieldIslandW = islandW;
+                battlefieldIslandY = islandY;
+            }
+            case BEACON_CROWN -> setupBeaconCrownBattlefield();
+            default -> {
+                platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
+                platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
+                platforms.add(new Platform(WORLD_WIDTH, 0, 100, WORLD_HEIGHT));
+            }
         }
     }
 
@@ -23543,7 +23852,28 @@ public class BirdGame3 extends Application {
         switch (selectedMap) {
             case DOCK -> drawDockArena(g, true);
             case DESERT -> drawDesertArena(g, true);
+            case BATTLEFIELD -> drawTrailerBattlefieldArena(g);
+            case BEACON_CROWN -> drawBeaconCrownBattlefield(g, true);
             default -> drawForestArena(g, true);
+        }
+    }
+
+    private void drawTrailerBattlefieldArena(GraphicsContext g) {
+        for (int i = 0; i < 520; i++) {
+            double ratio = i / 520.0;
+            Color c = Color.web("#7EC8FF").interpolate(Color.web("#DFF6F0"), ratio);
+            g.setFill(c);
+            g.fillRect(0, i * (WORLD_HEIGHT / 520.0), WORLD_WIDTH, WORLD_HEIGHT / 520.0 + 3);
+        }
+
+        g.setStroke(Color.web("#3E2723"));
+        g.setLineWidth(4);
+        for (Platform p : platforms) {
+            g.setFill(Color.web("#5D4037"));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 34, 34);
+            g.setFill(Color.web("#2E7D32"));
+            g.fillRoundRect(p.x + 8, p.y - 12, p.w - 16, p.h + 16, 34, 34);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 34, 34);
         }
     }
 
@@ -23559,6 +23889,16 @@ public class BirdGame3 extends Application {
             g.setFill(particle.color.deriveColor(0, 1, 1, alpha));
             g.fillOval(particle.x - 4, particle.y - 4, 8, 8);
         }
+    }
+
+    private void triggerTrailerCue(Set<String> firedCues, String key, boolean shouldFire, Runnable action) {
+        if (firedCues == null || key == null || key.isBlank() || !shouldFire || action == null) {
+            return;
+        }
+        if (!firedCues.add(key)) {
+            return;
+        }
+        action.run();
     }
 
     private void triggerTrailerBirdSpecial(Bird bird, boolean fillUltimate) {
@@ -31446,6 +31786,10 @@ public class BirdGame3 extends Application {
         return keyForPlayer(playerIdx, ControlAction.SPECIAL);
     }
 
+    KeyCode grabKeyForPlayer(int playerIdx) {
+        return keyForPlayer(playerIdx, ControlAction.GRAB);
+    }
+
     KeyCode blockKeyForPlayer(int playerIdx) {
         return keyForPlayer(playerIdx, ControlAction.BLOCK);
     }
@@ -31468,6 +31812,10 @@ public class BirdGame3 extends Application {
 
     boolean isSpecialPressed(int playerIdx) {
         return isActionPressed(playerIdx, ControlAction.SPECIAL);
+    }
+
+    boolean isGrabPressed(int playerIdx) {
+        return isActionPressed(playerIdx, ControlAction.GRAB);
     }
 
     boolean isBlockPressed(int playerIdx) {
@@ -31551,6 +31899,7 @@ public class BirdGame3 extends Application {
             boolean jump = connected && state.jump();
             boolean attack = connected && state.attack();
             boolean special = connected && state.special();
+            boolean grab = connected && state.grab();
             boolean block = connected && state.block();
             boolean tauntCycle = connected && state.tauntCycle();
             boolean tauntExecute = connected && state.tauntExecute();
@@ -31567,6 +31916,7 @@ public class BirdGame3 extends Application {
             setActionState(wiimoteActionPressed, i, ControlAction.JUMP, jump);
             setActionState(wiimoteActionPressed, i, ControlAction.ATTACK, attack);
             setActionState(wiimoteActionPressed, i, ControlAction.SPECIAL, special);
+            setActionState(wiimoteActionPressed, i, ControlAction.GRAB, grab);
             setActionState(wiimoteActionPressed, i, ControlAction.BLOCK, block);
             setActionState(wiimoteActionPressed, i, ControlAction.TAUNT_CYCLE, tauntCycle);
             setActionState(wiimoteActionPressed, i, ControlAction.TAUNT_EXECUTE, tauntExecute);
@@ -31591,6 +31941,7 @@ public class BirdGame3 extends Application {
         boolean jump = connected && state.jump();
         boolean attack = connected && state.attack();
         boolean special = connected && state.special();
+        boolean grab = connected && state.grab();
         boolean block = connected && state.block();
         boolean tauntCycle = connected && state.tauntCycle();
         boolean tauntExecute = connected && state.tauntExecute();
@@ -31600,6 +31951,7 @@ public class BirdGame3 extends Application {
         if (jump) nextMask |= LanProtocol.INPUT_JUMP;
         if (attack) nextMask |= LanProtocol.INPUT_ATTACK;
         if (special) nextMask |= LanProtocol.INPUT_SPECIAL;
+        if (grab) nextMask |= LanProtocol.INPUT_GRAB;
         if (block) nextMask |= LanProtocol.INPUT_BLOCK;
         if (tauntCycle) nextMask |= LanProtocol.INPUT_TAUNT_CYCLE;
         if (tauntExecute) nextMask |= LanProtocol.INPUT_TAUNT_EXEC;
@@ -33459,23 +33811,6 @@ public class BirdGame3 extends Application {
         g.setFill(go ? Color.web("#FFF3E0") : Color.web("#FFF8E1"));
         g.fillText(label, WIDTH / 2.0, baselineY);
         g.setTextAlign(TextAlignment.LEFT);
-    }
-
-    private double fightHudFadeForBird(Bird bird) {
-        if (bird == null || currentFightHudOcclusionRects == null || currentFightHudOcclusionRects.isEmpty()) {
-            return 1.0;
-        }
-        Rectangle2D screenBounds = fightHudScreenBounds(bird);
-        for (Rectangle2D rect : currentFightHudOcclusionRects) {
-            if (rect != null && rect.intersects(
-                    screenBounds.getMinX(),
-                    screenBounds.getMinY(),
-                    screenBounds.getWidth(),
-                    screenBounds.getHeight())) {
-                return 0.26;
-            }
-        }
-        return 1.0;
     }
 
     private double hudAlphaForRect(Rectangle2D rect) {

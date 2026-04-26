@@ -33,6 +33,7 @@ final class WiimoteControlMapper {
     private long attackPulseUntilNs = 0L;
     private long specialPulseUntilNs = 0L;
     private long blockPulseUntilNs = 0L;
+    private long grabPulseUntilNs = 0L;
     private long tauntCyclePulseUntilNs = 0L;
     private long tauntExecutePulseUntilNs = 0L;
     private long menuSelectPulseUntilNs = 0L;
@@ -42,6 +43,7 @@ final class WiimoteControlMapper {
     private long lastAttackTriggerNs = 0L;
     private long lastSpecialTriggerNs = 0L;
     private long lastBlockTriggerNs = 0L;
+    private long lastGrabTriggerNs = 0L;
     private final OpposingDirectionStabilizer directionStabilizer =
             new OpposingDirectionStabilizer(2, DIRECTION_RELEASE_DEBOUNCE_SAMPLES);
     private final HeldDirectionRepeater menuDirectionRepeater =
@@ -62,6 +64,7 @@ final class WiimoteControlMapper {
         attackPulseUntilNs = 0L;
         specialPulseUntilNs = 0L;
         blockPulseUntilNs = 0L;
+        grabPulseUntilNs = 0L;
         tauntCyclePulseUntilNs = 0L;
         tauntExecutePulseUntilNs = 0L;
         menuSelectPulseUntilNs = 0L;
@@ -71,6 +74,7 @@ final class WiimoteControlMapper {
         lastAttackTriggerNs = 0L;
         lastSpecialTriggerNs = 0L;
         lastBlockTriggerNs = 0L;
+        lastGrabTriggerNs = 0L;
         directionStabilizer.reset();
         menuDirectionRepeater.reset();
         digitalHoldStabilizer.reset();
@@ -149,14 +153,19 @@ final class WiimoteControlMapper {
         boolean rawBlockHeld;
         boolean rawAttackHeld;
         boolean rawSpecialHeld;
-        boolean rawTauntCycleHeld = raw.buttonPlus() || now < tauntCyclePulseUntilNs;
-        boolean rawTauntExecuteHeld = raw.buttonMinus() || now < tauntExecutePulseUntilNs;
+        boolean rawGrabHeld;
+        boolean rawTauntCycleHeld = raw.buttonMinus() || now < tauntCyclePulseUntilNs;
+        boolean rawTauntExecuteHeld = (raw.buttonPlus() && raw.buttonMinus()) || now < tauntExecutePulseUntilNs;
 
         if (edgePressed(previous.buttonPlus(), raw.buttonPlus())) {
+            grabPulseUntilNs = now + INPUT_PULSE_NS;
+        }
+        if (edgePressed(previous.buttonMinus(), raw.buttonMinus())) {
             tauntCyclePulseUntilNs = now + TAUNT_PULSE_NS;
             rawTauntCycleHeld = true;
         }
-        if (edgePressed(previous.buttonMinus(), raw.buttonMinus())) {
+        if (raw.buttonPlus() && raw.buttonMinus()
+                && !(previous.buttonPlus() && previous.buttonMinus())) {
             tauntExecutePulseUntilNs = now + TAUNT_PULSE_NS;
             rawTauntExecuteHeld = true;
         }
@@ -183,6 +192,7 @@ final class WiimoteControlMapper {
             rawBlockHeld = raw.buttonZ() || raw.dpadDown() || now < blockPulseUntilNs || blockGesture;
             rawAttackHeld = raw.buttonA() || now < attackPulseUntilNs || attackGesture;
             rawSpecialHeld = raw.buttonB() || now < specialPulseUntilNs || specialGesture;
+            rawGrabHeld = raw.buttonPlus() || now < grabPulseUntilNs;
         } else {
             if (edgePressed(previous.buttonTwo() || sidewaysUpHeld(previous), raw.buttonTwo() || sidewaysUpHeld(raw))) {
                 jumpPulseUntilNs = now + INPUT_PULSE_NS;
@@ -201,6 +211,7 @@ final class WiimoteControlMapper {
             rawBlockHeld = sidewaysDownHeld(raw) || now < blockPulseUntilNs;
             rawAttackHeld = raw.buttonOne() || now < attackPulseUntilNs;
             rawSpecialHeld = now < specialPulseUntilNs || specialGesture;
+            rawGrabHeld = raw.buttonPlus() || now < grabPulseUntilNs;
         }
 
         boolean rawMenuUp = digitalHoldStabilizer.stabilize(8, menuUpHeld(raw, mode));
@@ -244,6 +255,7 @@ final class WiimoteControlMapper {
         boolean attack = digitalHoldStabilizer.stabilize(1, rawAttackHeld);
         boolean special = digitalHoldStabilizer.stabilize(2, rawSpecialHeld);
         boolean block = digitalHoldStabilizer.stabilize(3, rawBlockHeld);
+        boolean grab = digitalHoldStabilizer.stabilize(13, rawGrabHeld);
         boolean tauntCycle = digitalHoldStabilizer.stabilize(4, rawTauntCycleHeld);
         boolean tauntExecute = digitalHoldStabilizer.stabilize(5 + 7, rawTauntExecuteHeld);
 
@@ -256,6 +268,7 @@ final class WiimoteControlMapper {
                 attack,
                 special,
                 block,
+                grab,
                 tauntCycle,
                 tauntExecute,
                 menuUp,

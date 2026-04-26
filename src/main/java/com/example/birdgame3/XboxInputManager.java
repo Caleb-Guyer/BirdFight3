@@ -133,8 +133,9 @@ final class XboxInputManager implements AutoCloseable {
         boolean attack = (buttons & XINPUT_GAMEPAD_X) != 0;
         boolean special = (buttons & XINPUT_GAMEPAD_B) != 0 || rightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD;
         boolean block = (buttons & XINPUT_GAMEPAD_LEFT_SHOULDER) != 0 || leftTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD;
+        boolean grab = (buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
         boolean tauntCycle = (buttons & XINPUT_GAMEPAD_Y) != 0;
-        boolean tauntExecute = (buttons & XINPUT_GAMEPAD_RIGHT_SHOULDER) != 0;
+        boolean tauntExecute = (buttons & XINPUT_GAMEPAD_BACK) != 0;
 
         boolean menuUp = (buttons & XINPUT_GAMEPAD_DPAD_UP) != 0 || leftStickY >= MENU_STICK_THRESHOLD;
         boolean menuDown = (buttons & XINPUT_GAMEPAD_DPAD_DOWN) != 0 || leftStickY <= -MENU_STICK_THRESHOLD;
@@ -152,6 +153,7 @@ final class XboxInputManager implements AutoCloseable {
                 attack,
                 special,
                 block,
+                grab,
                 tauntCycle,
                 tauntExecute,
                 menuUp,

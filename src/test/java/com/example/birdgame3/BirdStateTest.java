@@ -11,6 +11,8 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BirdStateTest {
@@ -300,6 +302,89 @@ class BirdStateTest {
     }
 
     @Test
+    void grabBeatsShieldAndCapturesTarget() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird defender = new Bird(170.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(1), true);
+        for (int i = 0; i < 3; i++) {
+            defender.update(1.0);
+        }
+
+        game.setLocalActionsForKey(game.grabKeyForPlayer(0), true);
+        attacker.update(1.0);
+        game.setLocalActionsForKey(game.grabKeyForPlayer(0), false);
+
+        assertSame(defender, getPrivateObject(attacker, "grabbedTarget"));
+        assertSame(attacker, getPrivateObject(defender, "grabbedBy"));
+        assertFalse(defender.isBlocking);
+        assertEquals(Bird.STARTING_HEALTH, defender.health, 0.0001);
+    }
+
+    @Test
+    void grabbedTargetCanBeThrownUpwardAfterHoldWindow() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird defender = new Bird(170.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = defender;
+
+        game.setLocalActionsForKey(game.grabKeyForPlayer(0), true);
+        attacker.update(1.0);
+        game.setLocalActionsForKey(game.grabKeyForPlayer(0), false);
+
+        double startingHealth = defender.health;
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        for (int i = 0; i < 10; i++) {
+            attacker.update(1.0);
+            defender.update(1.0);
+        }
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        assertNull(getPrivateObject(attacker, "grabbedTarget"));
+        assertNull(getPrivateObject(defender, "grabbedBy"));
+        assertTrue(defender.vy < 0.0);
+        assertTrue(defender.health < startingHealth);
+    }
+
+    @Test
+    void defeatedHolderReleasesGrabbedTarget() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird defender = new Bird(170.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = defender;
+
+        game.setLocalActionsForKey(game.grabKeyForPlayer(0), true);
+        attacker.update(1.0);
+        game.setLocalActionsForKey(game.grabKeyForPlayer(0), false);
+
+        attacker.health = 0.0;
+        attacker.update(1.0);
+
+        assertNull(getPrivateObject(attacker, "grabbedTarget"));
+        assertNull(getPrivateObject(defender, "grabbedBy"));
+    }
+
+    @Test
     void holdingShieldShrinksItsVisualEvenWithoutTakingDamage() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
@@ -316,6 +401,259 @@ class BirdStateTest {
         assertTrue(defender.isBlocking);
         assertEquals(60.0, getPrivateDouble(defender, "shieldHealth"), 0.0001);
         assertTrue(getPrivateDouble(defender, "shieldHoldVisual") > 0.9);
+    }
+
+    @Test
+    void spotDodgeAvoidsDamageWithoutConsumingShieldDurability() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        for (int i = 0; i < 3; i++) {
+            defender.update(1.0);
+        }
+        double shieldBefore = getPrivateDouble(defender, "shieldHealth");
+
+        game.setLocalActionsForKey(game.grabKeyForPlayer(0), true);
+        defender.update(1.0);
+        game.setLocalActionsForKey(game.grabKeyForPlayer(0), false);
+
+        double dealtDamage = defender.receiveExternalDamage(14.0);
+
+        assertEquals(0.0, dealtDamage, 0.0001);
+        assertEquals(Bird.STARTING_HEALTH, defender.health, 0.0001);
+        assertEquals(shieldBefore, getPrivateDouble(defender, "shieldHealth"), 0.0001);
+        assertFalse(defender.isBlocking);
+        assertEquals("SPOT", getPrivateObject(defender, "dodgeType").toString());
+        assertTrue(getPrivateInt(defender, "dodgeInvulnerabilityTimer") > 0);
+    }
+
+    @Test
+    void shieldRollLaunchesBirdOutOfShield() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        for (int i = 0; i < 3; i++) {
+            defender.update(1.0);
+        }
+
+        double startX = defender.x;
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        defender.update(1.0);
+
+        assertFalse(defender.isBlocking);
+        assertEquals("ROLL", getPrivateObject(defender, "dodgeType").toString());
+        assertTrue(defender.x > startX + 4.0);
+        assertTrue(getPrivateInt(defender, "dodgeDirection") > 0);
+    }
+
+    @Test
+    void shieldingWhileAlreadyMovingStopsBirdInsteadOfRolling() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = defender;
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        for (int i = 0; i < 3; i++) {
+            defender.update(1.0);
+        }
+
+        double startX = defender.x;
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        defender.update(1.0);
+
+        assertTrue(defender.isBlocking);
+        assertEquals("NONE", getPrivateObject(defender, "dodgeType").toString());
+        assertEquals(startX, defender.x, 0.0001);
+        assertEquals(0.0, defender.vx, 0.0001);
+    }
+
+    @Test
+    void airDodgeConsumesChargeUntilLanding() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 240.0;
+        bird.vy = 3.0;
+        game.players[0] = bird;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        bird.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+
+        assertEquals("AIR", getPrivateObject(bird, "dodgeType").toString());
+        assertFalse(getPrivateBoolean(bird, "airDodgeAvailable"));
+        assertEquals(0.0, bird.receiveExternalDamage(12.0), 0.0001);
+
+        bird.y = BirdGame3.GROUND_Y - 80.0;
+        bird.vy = 6.0;
+        bird.update(1.0);
+
+        assertEquals("NONE", getPrivateObject(bird, "dodgeType").toString());
+        assertTrue(getPrivateBoolean(bird, "airDodgeAvailable"));
+    }
+
+    @Test
+    void groundedJumpWaitsForJumpSquatBeforeLiftoff() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = bird;
+
+        double startY = bird.y;
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+
+        bird.update(1.0);
+        assertEquals(startY, bird.y, 0.0001);
+        assertEquals(2, getPrivateInt(bird, "jumpSquatTimer"));
+        assertTrue(bird.isOnGround());
+
+        bird.update(1.0);
+        assertEquals(startY, bird.y, 0.0001);
+        assertEquals(1, getPrivateInt(bird, "jumpSquatTimer"));
+        assertTrue(bird.isOnGround());
+
+        bird.update(1.0);
+
+        assertTrue(bird.y < startY);
+        assertTrue(bird.vy < 0.0);
+        assertEquals(0, getPrivateInt(bird, "jumpSquatTimer"));
+    }
+
+    @Test
+    void tapJumpProducesShortHopWhileHeldJumpProducesFullHop() {
+        double shortHopVy = launchVelocityAfterGroundJump(1);
+        double fullHopVy = launchVelocityAfterGroundJump(3);
+
+        assertTrue(shortHopVy < fullHopVy * 0.8,
+                "Short hop should launch lower than a full hop.");
+    }
+
+    @Test
+    void heldGroundJumpDoesNotConsumePigeonDoubleJump() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird pigeon = new Bird(190.0, BirdGame3.BirdType.PIGEON, 0, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = pigeon;
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        for (int i = 0; i < 4; i++) {
+            pigeon.update(1.0);
+        }
+
+        assertFalse(pigeon.isOnGround());
+        assertTrue(pigeon.canDoubleJump, "Holding jump through takeoff should not auto-spend the double jump.");
+    }
+
+    @Test
+    void aerialAttackAutoCancelsOnEarlyLanding() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 240.0;
+        game.players[0] = bird;
+
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
+        bird.update(1.0);
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), false);
+
+        bird.y = BirdGame3.GROUND_Y - 100.0;
+        bird.vy = 25.0;
+        bird.update(1.0);
+
+        assertTrue(bird.isOnGround());
+        assertEquals(0, getPrivateInt(bird, "landingLagTimer"));
+        assertEquals(0, bird.attackAnimationTimer);
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        bird.update(1.0);
+
+        assertTrue(bird.isBlocking);
+    }
+
+    @Test
+    void aerialAttackAutoCancelsOnLateLanding() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 320.0;
+        game.players[0] = bird;
+
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
+        bird.update(1.0);
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), false);
+
+        for (int i = 0; i < 9; i++) {
+            bird.y = BirdGame3.GROUND_Y - 320.0;
+            bird.vy = 0.0;
+            bird.update(1.0);
+        }
+
+        bird.y = BirdGame3.GROUND_Y - 100.0;
+        bird.vy = 25.0;
+        bird.update(1.0);
+
+        assertTrue(bird.isOnGround());
+        assertEquals(0, getPrivateInt(bird, "landingLagTimer"));
+        assertEquals(0, bird.attackAnimationTimer);
+    }
+
+    @Test
+    void aerialAttackLandingLagBlocksShieldUntilRecoveryEnds() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 320.0;
+        game.players[0] = bird;
+
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
+        bird.update(1.0);
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), false);
+
+        for (int i = 0; i < 4; i++) {
+            bird.y = BirdGame3.GROUND_Y - 320.0;
+            bird.vy = 0.0;
+            bird.update(1.0);
+        }
+
+        bird.y = BirdGame3.GROUND_Y - 100.0;
+        bird.vy = 25.0;
+        bird.update(1.0);
+
+        assertTrue(bird.isOnGround());
+        assertTrue(getPrivateInt(bird, "landingLagTimer") > 0);
+        assertEquals(0, bird.attackAnimationTimer);
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        bird.update(1.0);
+
+        assertFalse(bird.isBlocking);
+
+        for (int i = 0; i < 8; i++) {
+            bird.update(1.0);
+        }
+
+        assertTrue(bird.isBlocking);
     }
 
     @Test
@@ -1319,6 +1657,26 @@ class BirdStateTest {
         game.setLocalActionsForKey(attackKey, false);
         attacker.update(1.0);
         return target.vx;
+    }
+
+    private static double launchVelocityAfterGroundJump(int heldFrames) {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = bird;
+
+        KeyCode jumpKey = game.jumpKeyForPlayer(0);
+        game.setLocalActionsForKey(jumpKey, true);
+        for (int i = 0; i < heldFrames; i++) {
+            bird.update(1.0);
+        }
+        game.setLocalActionsForKey(jumpKey, false);
+        for (int i = heldFrames; i < 3; i++) {
+            bird.update(1.0);
+        }
+        return Math.abs(bird.vy);
     }
 
     private static void setPrivateInt(Object target, String fieldName, int value) throws Exception {
