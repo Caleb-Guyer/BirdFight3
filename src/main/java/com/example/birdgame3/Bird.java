@@ -22,6 +22,7 @@ import java.util.Random;
  * Handles physics, abilities, AI, rendering, and collision detection.
  */
 public class Bird {
+
     private enum GrabThrowDirection {
         NONE,
         FORWARD,
@@ -521,13 +522,6 @@ public class Bird {
         return Math.max(combatHalfWidth(), combatHalfHeight()) * 0.82;
     }
 
-    private boolean overlapsAttackBox(Bird other, double attackCenterX, double attackCenterY, double horizontalReach, double verticalReach) {
-        double dx = Math.abs(other.bodyCenterX() - attackCenterX);
-        double dy = Math.abs(other.bodyCenterY() - attackCenterY);
-        return dx <= horizontalReach + other.combatHalfWidth()
-                && dy <= verticalReach + other.combatHalfHeight();
-    }
-
     private boolean overlapsPowerUp(PowerUp powerUp) {
         double pickupHalfSize = BASE_BODY_SIZE / 2.0;
         double dx = Math.abs(powerUp.x - bodyCenterX());
@@ -663,10 +657,6 @@ public class Bird {
                 handleTurkeyGroundPound();
             }
         }
-    }
-
-    private void handleVerticalCollision() {
-        handleVerticalCollision(false);
     }
 
     private void snapToLedge() {
@@ -1075,14 +1065,6 @@ public class Bird {
         attackCrows(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
         attackChicks(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
         return profile;
-    }
-
-    private void attack(int chargeFrames) {
-        attack(chargeFrames, selectNormalAttackVariant(isOnGround()));
-    }
-
-    private void attack() {
-        attack(0);
     }
 
     private void attackCrows(double attackCenterX, double attackCenterY,
@@ -1810,10 +1792,6 @@ public class Bird {
     private double attackChargeRatio(int chargeFrames) {
         if (chargeFrames <= 0) return 0.0;
         return Math.clamp(chargeFrames / (double) MAX_ATTACK_CHARGE_FRAMES, 0.0, 1.0);
-    }
-
-    private void beginAttackCharge() {
-        beginAttackCharge(selectNormalAttackVariant(true));
     }
 
     private void beginAttackCharge(NormalAttackVariant variant) {
@@ -2758,12 +2736,9 @@ public class Bird {
     private int aiDropCommitDir = 0;
     private int aiVoidRecoveryLockFrames = 0;
     private int aiTargetLockFrames = 0;
-    private int aiAttackHoldFrames = 0;
-    private int aiShieldHoldFrames = 0;
     private int aiLockedTargetIndex = -1;
     private double aiDropOriginY = Double.NaN;
     private double aiLastHealth = STARTING_HEALTH;
-    private NormalAttackVariant aiCommittedAttackVariant = NormalAttackVariant.NEUTRAL;
 
     private int dashCooldown = 0;
     private int dashTimer = 0;
@@ -4168,7 +4143,6 @@ public class Bird {
         boolean leftHeld = leftPressed();
         boolean rightHeld = rightPressed();
         boolean jumpHeld = jumpPressed();
-        boolean attackHeld = attackPressed();
         boolean grabHeld = grabPressed();
         boolean blockHeld = blockPressed();
         boolean jumpJustPressed = jumpHeld && !jumpHeldLastFrame;
@@ -4667,7 +4641,6 @@ public class Bird {
 
         double currentLeft = x;
         double currentRight = x + bodyWidth();
-        double previousLeft = prevX;
         double previousRight = prevX + bodyWidth();
         double currentTop = y;
         double currentBottom = bodyBottomY();
@@ -4690,7 +4663,7 @@ public class Bird {
                 resolveWallImpact(p.x - bodyWidth(), -1);
                 return;
             }
-            if (previousLeft >= p.x + p.w && currentLeft <= p.x + p.w && vx < 0.0) {
+            if (prevX >= p.x + p.w && currentLeft <= p.x + p.w && vx < 0.0) {
                 resolveWallImpact(p.x + p.w, 1);
                 return;
             }
@@ -9506,9 +9479,8 @@ public class Bird {
             g.fillRect(x + 12 * s, y - 2 * s, 56 * s, 6 * s);
 
             double eyeX = headX + (facingRight ? 0 : 40) * s;
-            double eyeY = headY;
             g.setFill(Color.web("#4E342E").deriveColor(0, 1, 1, 0.55));
-            g.fillOval(eyeX, eyeY - 1 * s, 25 * s, 14 * s);
+            g.fillOval(eyeX, headY - 1 * s, 25 * s, 14 * s);
 
             g.setFill(Color.web("#ECEFF1"));
             g.fillRect(headX + (facingRight ? 35 : 5) * s, headY + 25 * s, 20 * s, 4 * s);
@@ -9626,8 +9598,9 @@ public class Bird {
         double aimAngle = headPose.aimAngleRadians();
         double dirX = Math.cos(aimAngle);
         double dirY = Math.sin(aimAngle);
-        double normalX = -dirY;
-        double normalY = dirX;
+        double perpendicularAngle = aimAngle + Math.PI * 0.5;
+        double normalX = Math.cos(perpendicularAngle);
+        double normalY = Math.sin(perpendicularAngle);
         if (Math.abs(normalY) > Math.abs(normalX) && normalY < 0.0) {
             normalX = -normalX;
             normalY = -normalY;
