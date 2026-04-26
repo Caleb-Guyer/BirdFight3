@@ -43,7 +43,6 @@ final class WiimoteControlMapper {
     private long lastAttackTriggerNs = 0L;
     private long lastSpecialTriggerNs = 0L;
     private long lastBlockTriggerNs = 0L;
-    private long lastGrabTriggerNs = 0L;
     private final OpposingDirectionStabilizer directionStabilizer =
             new OpposingDirectionStabilizer(2, DIRECTION_RELEASE_DEBOUNCE_SAMPLES);
     private final HeldDirectionRepeater menuDirectionRepeater =
@@ -74,7 +73,6 @@ final class WiimoteControlMapper {
         lastAttackTriggerNs = 0L;
         lastSpecialTriggerNs = 0L;
         lastBlockTriggerNs = 0L;
-        lastGrabTriggerNs = 0L;
         directionStabilizer.reset();
         menuDirectionRepeater.reset();
         digitalHoldStabilizer.reset();
@@ -192,7 +190,6 @@ final class WiimoteControlMapper {
             rawBlockHeld = raw.buttonZ() || raw.dpadDown() || now < blockPulseUntilNs || blockGesture;
             rawAttackHeld = raw.buttonA() || now < attackPulseUntilNs || attackGesture;
             rawSpecialHeld = raw.buttonB() || now < specialPulseUntilNs || specialGesture;
-            rawGrabHeld = raw.buttonPlus() || now < grabPulseUntilNs;
         } else {
             if (edgePressed(previous.buttonTwo() || sidewaysUpHeld(previous), raw.buttonTwo() || sidewaysUpHeld(raw))) {
                 jumpPulseUntilNs = now + INPUT_PULSE_NS;
@@ -211,8 +208,8 @@ final class WiimoteControlMapper {
             rawBlockHeld = sidewaysDownHeld(raw) || now < blockPulseUntilNs;
             rawAttackHeld = raw.buttonOne() || now < attackPulseUntilNs;
             rawSpecialHeld = now < specialPulseUntilNs || specialGesture;
-            rawGrabHeld = raw.buttonPlus() || now < grabPulseUntilNs;
         }
+        rawGrabHeld = raw.buttonPlus() || now < grabPulseUntilNs;
 
         boolean rawMenuUp = digitalHoldStabilizer.stabilize(8, menuUpHeld(raw, mode));
         boolean rawMenuDown = digitalHoldStabilizer.stabilize(9, menuDownHeld(raw, mode));
@@ -300,7 +297,7 @@ final class WiimoteControlMapper {
             neutralRemoteSamples++;
         } else if (isStill(remote, new Vector3(previous.remoteAccelX(), previous.remoteAccelY(), previous.remoteAccelZ()),
                 raw.gyroYaw(), raw.gyroRoll(), raw.gyroPitch())) {
-            neutralRemote = neutralRemote.blend(remote, 0.015);
+            neutralRemote = neutralRemote.blend(remote);
         }
 
         if (raw.nunchukConnected()) {
@@ -309,7 +306,7 @@ final class WiimoteControlMapper {
                 neutralNunchuk = neutralNunchuk.average(nunchuk, neutralNunchukSamples);
                 neutralNunchukSamples++;
             } else {
-                neutralNunchuk = neutralNunchuk.blend(nunchuk, 0.015);
+                neutralNunchuk = neutralNunchuk.blend(nunchuk);
             }
 
             if (stickCenterSamples < 30) {
@@ -317,8 +314,8 @@ final class WiimoteControlMapper {
                 stickCenterY = rollingAverage(stickCenterY, raw.nunchukStickY(), stickCenterSamples);
                 stickCenterSamples++;
             } else if (Math.abs(raw.nunchukStickX() - stickCenterX) < 0.16 && Math.abs(raw.nunchukStickY() - stickCenterY) < 0.16) {
-                stickCenterX = blend(stickCenterX, raw.nunchukStickX(), 0.015);
-                stickCenterY = blend(stickCenterY, raw.nunchukStickY(), 0.015);
+                stickCenterX = blend(stickCenterX, raw.nunchukStickX());
+                stickCenterY = blend(stickCenterY, raw.nunchukStickY());
             }
         }
     }
@@ -408,8 +405,8 @@ final class WiimoteControlMapper {
         return (currentAverage * samples + sample) / Math.max(1, samples + 1);
     }
 
-    private double blend(double base, double sample, double factor) {
-        return base + (sample - base) * factor;
+    private double blend(double base, double sample) {
+        return base + (sample - base) * 0.015;
     }
 
     private record Vector3(double x, double y, double z) {
@@ -440,11 +437,11 @@ final class WiimoteControlMapper {
                     (z * samples + sample.z) / total);
         }
 
-        Vector3 blend(Vector3 sample, double factor) {
+        Vector3 blend(Vector3 sample) {
             return new Vector3(
-                    x + (sample.x - x) * factor,
-                    y + (sample.y - y) * factor,
-                    z + (sample.z - z) * factor
+                    x + (sample.x - x) * 0.015,
+                    y + (sample.y - y) * 0.015,
+                    z + (sample.z - z) * 0.015
             );
         }
     }

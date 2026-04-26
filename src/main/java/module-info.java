@@ -1,4 +1,4 @@
-module com.example.birdgame3 {
+module com.example.birdgame {
     requires javafx.controls;
     requires java.prefs;
     requires java.net.http;

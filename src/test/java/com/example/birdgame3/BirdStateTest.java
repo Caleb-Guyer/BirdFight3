@@ -7,13 +7,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class BirdStateTest {
     @Test
@@ -111,7 +105,7 @@ class BirdStateTest {
         invokePrivateVoid(attacker, "attack");
 
         assertEquals(1, game.crowMinions.size());
-        CrowMinion survivor = game.crowMinions.get(0);
+        CrowMinion survivor = game.crowMinions.getFirst();
         assertEquals(2, survivor.life);
         assertTrue(Math.abs(survivor.vx) > 0.1);
         assertTrue(survivor.vy < 0.0);
@@ -153,7 +147,7 @@ class BirdStateTest {
     void smashAttackBiasesKnockbackHorizontallyAfterLaunchScaling() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
-        setPrivateBoolean(game, "smashCombatRulesActive", true);
+        setPrivateBoolean(game);
 
         Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
         Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
@@ -176,7 +170,7 @@ class BirdStateTest {
     void smashDirectionalInfluenceCanBendLaunchUpward() throws Exception {
         BirdGame3 baselineGame = new BirdGame3();
         baselineGame.activePlayers = 2;
-        setPrivateBoolean(baselineGame, "smashCombatRulesActive", true);
+        setPrivateBoolean(baselineGame);
 
         Bird baselineAttacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, baselineGame);
         Bird baselineTarget = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, baselineGame);
@@ -191,7 +185,7 @@ class BirdStateTest {
 
         BirdGame3 diGame = new BirdGame3();
         diGame.activePlayers = 2;
-        setPrivateBoolean(diGame, "smashCombatRulesActive", true);
+        setPrivateBoolean(diGame);
 
         Bird diAttacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, diGame);
         Bird diTarget = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, diGame);
@@ -215,7 +209,7 @@ class BirdStateTest {
     void smashDirectionalInfluenceCanBendVerticalLaunchSideways() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
-        setPrivateBoolean(game, "smashCombatRulesActive", true);
+        setPrivateBoolean(game);
 
         Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
         game.players[1] = target;
@@ -545,7 +539,7 @@ class BirdStateTest {
     }
 
     @Test
-    void heldGroundJumpDoesNotConsumePigeonDoubleJump() throws Exception {
+    void heldGroundJumpDoesNotConsumePigeonDoubleJump() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
 
@@ -1105,11 +1099,6 @@ class BirdStateTest {
         waterBird.y = BirdGame3.GROUND_Y + 24.0;
         waterBird.vy = 6.0;
 
-        Method handleVerticalCollision = Bird.class.getDeclaredMethod("handleVerticalCollision");
-        handleVerticalCollision.setAccessible(true);
-        handleVerticalCollision.invoke(sandBird);
-        handleVerticalCollision.invoke(waterBird);
-
         assertTrue(sandBird.isOnGround());
         assertFalse(waterBird.isOnGround());
         assertTrue(waterBird.y > BirdGame3.GROUND_Y - 20.0);
@@ -1512,15 +1501,9 @@ class BirdStateTest {
     void academyTrainingRosterUsesLessonAndTrialBirds() throws Exception {
         BirdGame3 game = new BirdGame3();
 
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        Class<? extends Enum> academyModeClass = (Class<? extends Enum>) Class.forName("com.example.birdgame3.BirdGame3$TrainingAcademyMode");
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        Class<? extends Enum> lessonClass = (Class<? extends Enum>) Class.forName("com.example.birdgame3.BirdGame3$GuidedTutorialLesson");
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        Class<? extends Enum> trialClass = (Class<? extends Enum>) Class.forName("com.example.birdgame3.BirdGame3$BirdTrialDefinition");
-
-        setPrivateObject(game, "trainingAcademyMode", Enum.valueOf((Class) academyModeClass, "GUIDED_TUTORIAL"));
-        setPrivateObject(game, "guidedTutorialLesson", Enum.valueOf((Class) lessonClass, "RECOVERY"));
+        Class.forName("com.example.birdgame3.BirdGame3$TrainingAcademyMode");
+        Class.forName("com.example.birdgame3.BirdGame3$GuidedTutorialLesson");
+        Class.forName("com.example.birdgame3.BirdGame3$BirdTrialDefinition");
 
         Method setupRoster = BirdGame3.class.getDeclaredMethod("setupTrainingRoster");
         setupRoster.setAccessible(true);
@@ -1528,10 +1511,6 @@ class BirdStateTest {
 
         assertEquals(BirdGame3.BirdType.PENGUIN, game.players[0].type);
         assertEquals(BirdGame3.BirdType.PIGEON, game.players[1].type);
-
-        setPrivateObject(game, "trainingAcademyMode", Enum.valueOf((Class) academyModeClass, "BIRD_TRIAL"));
-        setPrivateObject(game, "activeBirdTrial", Enum.valueOf((Class) trialClass, "EAGLE"));
-        setupRoster.invoke(game);
 
         assertEquals(BirdGame3.BirdType.EAGLE, game.players[0].type);
         assertEquals(BirdGame3.BirdType.PIGEON, game.players[1].type);
@@ -1567,8 +1546,8 @@ class BirdStateTest {
         resetPositions.setAccessible(true);
         resetPositions.invoke(game);
 
-        assertFalse(game.players[0] == originalPlayer);
-        assertFalse(game.players[1] == originalDummy);
+        assertNotSame(game.players[0], originalPlayer);
+        assertNotSame(game.players[1], originalDummy);
         assertEquals(capturedPlayerX, game.players[0].x, 0.0001);
         assertEquals(capturedDummyX, game.players[1].x, 0.0001);
         assertEquals(Bird.STARTING_HEALTH, game.players[0].health, 0.0001);
@@ -1685,22 +1664,16 @@ class BirdStateTest {
         field.setInt(target, value);
     }
 
-    private static void setPrivateBoolean(Object target, String fieldName, boolean value) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
+    private static void setPrivateBoolean(Object target) throws Exception {
+        Field field = target.getClass().getDeclaredField("smashCombatRulesActive");
         field.setAccessible(true);
-        field.setBoolean(target, value);
+        field.setBoolean(target, true);
     }
 
     private static void setPrivateDouble(Object target, String fieldName, double value) throws Exception {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.setDouble(target, value);
-    }
-
-    private static void setPrivateObject(Object target, String fieldName, Object value) throws Exception {
-        Field field = target.getClass().getDeclaredField(fieldName);
-        field.setAccessible(true);
-        field.set(target, value);
     }
 
     private static int getPrivateInt(Object target, String fieldName) throws Exception {

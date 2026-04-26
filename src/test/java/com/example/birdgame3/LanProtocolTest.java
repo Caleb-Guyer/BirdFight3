@@ -8,10 +8,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 class LanProtocolTest {
     @Test
@@ -60,6 +57,6 @@ class LanProtocolTest {
         assertEquals(9, decoded.dodgeInvulnerabilityTimer);
         assertEquals(6, decoded.dodgeCooldown);
         assertEquals(-1, decoded.dodgeDirection);
-        assertEquals(false, decoded.airDodgeAvailable);
+        assertFalse(decoded.airDodgeAvailable);
     }
 }

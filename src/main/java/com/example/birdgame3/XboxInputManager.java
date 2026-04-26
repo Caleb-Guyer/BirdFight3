@@ -80,24 +80,20 @@ final class XboxInputManager implements AutoCloseable {
         try {
             state = new XInputState();
         } catch (Throwable ignored) {
-            disable("Xbox controller unavailable");
+            disable();
             return null;
         }
         int result;
         try {
             result = xinput.XInputGetState(playerIndex, state);
         } catch (Throwable ignored) {
-            disable("Xbox controller unavailable");
+            disable();
             return null;
         }
         if (result != ERROR_SUCCESS) {
             return null;
         }
         return state;
-    }
-
-    WiimoteMappedState stateForPlayer(int playerIndex) {
-        return stateForSlot(playerIndex);
     }
 
     WiimoteMappedState menuState() {
@@ -115,9 +111,9 @@ final class XboxInputManager implements AutoCloseable {
     public void close() {
     }
 
-    private void disable(String reason) {
+    private void disable() {
         available = false;
-        unavailableReason = (reason == null || reason.isBlank()) ? "Xbox controller unavailable" : reason;
+        unavailableReason = "Xbox controller unavailable";
     }
 
     private WiimoteMappedState mapState(XInputState state, int playerIndex) {
@@ -184,8 +180,6 @@ final class XboxInputManager implements AutoCloseable {
         public byte bRightTrigger;
         public short sThumbLX;
         public short sThumbLY;
-        public short sThumbRX;
-        public short sThumbRY;
 
         @Override
         protected List<String> getFieldOrder() {
@@ -194,7 +188,6 @@ final class XboxInputManager implements AutoCloseable {
     }
 
     public static final class XInputState extends Structure {
-        public int dwPacketNumber;
         public XInputGamepad gamepad = new XInputGamepad();
 
         @Override

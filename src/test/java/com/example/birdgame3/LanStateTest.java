@@ -130,11 +130,11 @@ class LanStateTest {
         assertEquals(0.65, decoded.birds[0].shieldHoldVisual);
         assertEquals(44.0, decoded.birds[0].ultimateMeter);
         assertEquals(1, decoded.powerUps.size());
-        assertEquals(200.0, decoded.powerUps.get(0).x);
-        assertFalse(decoded.nectarNodes.get(0).active);
-        assertEquals(33.0, decoded.swingingVines.get(0).length);
-        assertEquals(4, decoded.windVents.get(0).cooldown);
-        assertTrue(decoded.crowMinions.get(0).hasCrown);
-        assertTrue(decoded.chickMinions.get(0).ultimate);
+        assertEquals(200.0, decoded.powerUps.getFirst().x);
+        assertFalse(decoded.nectarNodes.getFirst().active);
+        assertEquals(33.0, decoded.swingingVines.getFirst().length);
+        assertEquals(4, decoded.windVents.getFirst().cooldown);
+        assertTrue(decoded.crowMinions.getFirst().hasCrown);
+        assertTrue(decoded.chickMinions.getFirst().ultimate);
     }
 }

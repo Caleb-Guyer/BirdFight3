@@ -593,10 +593,6 @@ public class Bird {
         }
     }
 
-    private void handleVerticalCollision() {
-        handleVerticalCollision(!isOnGround());
-    }
-
     private void snapToLedge() {
         if (ledgePlatform == null) {
             return;
@@ -897,10 +893,6 @@ public class Bird {
         if (isKill) {
             game.addToKillFeed("ELIMINATED " + victimName + "!");
         }
-    }
-
-    private void attack() {
-        attack(0);
     }
 
     private void attack(int chargeFrames) {
@@ -4514,8 +4506,6 @@ public class Bird {
                 if (dodgeInvulnerabilityTimer > 0) {
                     vy = Math.min(vy * 0.82, AIR_DODGE_STALL_VELOCITY);
                 }
-            }
-            case NONE -> {
             }
         }
     }
