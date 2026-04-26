@@ -8361,8 +8361,8 @@ public class Bird {
                 g.setStroke(Color.web("#D7CCC8").deriveColor(0, 1, 1, 0.36 + 0.10 * pulse));
                 g.setLineWidth(2.4 * s);
                 g.strokeLine(centerX - 8.0 * s, groundY - 2.0 * s, centerX - 22.0 * s, groundY - 16.0 * s);
-                g.strokeLine(centerX + 2.0 * s, groundY - 1.0 * s, centerX + 18.0 * s, groundY - 13.0 * s);
-                g.strokeLine(centerX + 10.0 * s, groundY + 1.0 * s, centerX + 26.0 * s, groundY - 9.0 * s);
+                g.strokeLine(centerX + 2.0 * s, groundY - s, centerX + 18.0 * s, groundY - 13.0 * s);
+                g.strokeLine(centerX + 10.0 * s, groundY + s, centerX + 26.0 * s, groundY - 9.0 * s);
             }
             g.restore();
             return;
