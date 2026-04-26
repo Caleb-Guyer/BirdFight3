@@ -18,8 +18,12 @@ class LanBirdState {
     int specialMaxCooldown;
     int attackCooldown;
     int attackAnimationTimer;
+    int attackChargeFrames;
+    int chargingAttackVariantOrdinal;
+    int activeAttackVariantOrdinal;
     boolean aerialAttackActive;
     int aerialAttackTotalFrames;
+    int activeAerialLandingLagFrames;
     int landingLagTimer;
     boolean canDoubleJump;
     int jumpSquatTimer;
@@ -152,8 +156,12 @@ class LanBirdState {
         out.writeInt(specialMaxCooldown);
         out.writeInt(attackCooldown);
         out.writeInt(attackAnimationTimer);
+        out.writeInt(attackChargeFrames);
+        out.writeInt(chargingAttackVariantOrdinal);
+        out.writeInt(activeAttackVariantOrdinal);
         out.writeBoolean(aerialAttackActive);
         out.writeInt(aerialAttackTotalFrames);
+        out.writeInt(activeAerialLandingLagFrames);
         out.writeInt(landingLagTimer);
         out.writeBoolean(canDoubleJump);
         out.writeInt(jumpSquatTimer);
@@ -290,8 +298,12 @@ class LanBirdState {
         state.specialMaxCooldown = in.readInt();
         state.attackCooldown = in.readInt();
         state.attackAnimationTimer = in.readInt();
+        state.attackChargeFrames = in.readInt();
+        state.chargingAttackVariantOrdinal = in.readInt();
+        state.activeAttackVariantOrdinal = in.readInt();
         state.aerialAttackActive = in.readBoolean();
         state.aerialAttackTotalFrames = in.readInt();
+        state.activeAerialLandingLagFrames = in.readInt();
         state.landingLagTimer = in.readInt();
         state.canDoubleJump = in.readBoolean();
         state.jumpSquatTimer = in.readInt();

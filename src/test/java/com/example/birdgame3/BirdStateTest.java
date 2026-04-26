@@ -144,6 +144,97 @@ class BirdStateTest {
     }
 
     @Test
+    void groundedDirectionalInputsProduceDistinctSideAndUpNormals() throws Exception {
+        BirdGame3 sideGame = new BirdGame3();
+        sideGame.activePlayers = 2;
+
+        Bird sideAttacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, sideGame);
+        Bird sideTarget = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, sideGame);
+        sideAttacker.y = BirdGame3.GROUND_Y - 80.0;
+        sideTarget.y = BirdGame3.GROUND_Y - 80.0;
+        sideAttacker.facingRight = true;
+        sideGame.players[0] = sideAttacker;
+        sideGame.players[1] = sideTarget;
+        sideGame.setLocalActionsForKey(sideGame.rightKeyForPlayer(0), true);
+
+        invokePrivateVoid(sideAttacker, "attack");
+
+        BirdGame3 upGame = new BirdGame3();
+        upGame.activePlayers = 2;
+
+        Bird upAttacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, upGame);
+        Bird upTarget = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, upGame);
+        upAttacker.y = BirdGame3.GROUND_Y - 80.0;
+        upTarget.y = BirdGame3.GROUND_Y - 80.0;
+        upAttacker.facingRight = true;
+        upGame.players[0] = upAttacker;
+        upGame.players[1] = upTarget;
+        upGame.setLocalActionsForKey(upGame.jumpKeyForPlayer(0), true);
+
+        invokePrivateVoid(upAttacker, "attack");
+
+        assertTrue(sideTarget.vx > 0.0);
+        assertTrue(upTarget.vx > 0.0);
+        assertTrue(sideTarget.vx > upTarget.vx * 1.4,
+                "Side normals should launch much farther horizontally than up normals.");
+        assertTrue(Math.abs(upTarget.vy) > Math.abs(sideTarget.vy) * 1.8,
+                "Up normals should launch much higher than side normals.");
+    }
+
+    @Test
+    void attackPlusBlockChargesAndReleasesGroundDownAttackInsteadOfShielding() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+
+        attacker.update(1.0);
+
+        assertFalse(attacker.isBlocking, "Attack + block should reserve the input for a down normal, not raise shield.");
+        assertTrue(getPrivateInt(attacker, "attackChargeFrames") > 0, "Grounded down attack should still enter the charge system.");
+
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), false);
+        attacker.update(1.0);
+
+        assertFalse(attacker.isBlocking, "Releasing a charged down normal should not convert into shield on the release frame.");
+        assertTrue(target.health < startingHealth, "Releasing the charge should actually perform the down normal.");
+        assertTrue(target.vx > 0.0);
+        assertTrue(target.vy > -3.0, "Grounded down normal should launch flatter than the default launcher.");
+    }
+
+    @Test
+    void aerialBackAirLaunchesBehindTheAttacker() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird attacker = new Bird(200.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(120.0, BirdGame3.BirdType.EAGLE, 1, game);
+        attacker.y = BirdGame3.GROUND_Y - 280.0;
+        target.y = BirdGame3.GROUND_Y - 280.0;
+        attacker.facingRight = true;
+        game.players[0] = attacker;
+        game.players[1] = target;
+
+        game.setLocalActionsForKey(game.leftKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
+
+        attacker.update(1.0);
+
+        assertTrue(target.vx < 0.0, "Holding back in the air should create a back air that launches behind the bird.");
+        assertTrue(target.health < Bird.STARTING_HEALTH);
+    }
+
+    @Test
     void smashAttackBiasesKnockbackHorizontallyAfterLaunchScaling() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

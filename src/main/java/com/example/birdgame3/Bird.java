@@ -7,6 +7,7 @@ import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
+import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import com.example.birdgame3.BirdGame3.MapType;
@@ -29,6 +30,62 @@ public class Bird {
         DOWN
     }
 
+    private enum NormalAttackVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN,
+        NEUTRAL_AIR,
+        FORWARD_AIR,
+        BACK_AIR,
+        UP_AIR,
+        DOWN_AIR;
+
+        boolean usesDownInput() {
+            return this == DOWN || this == DOWN_AIR;
+        }
+    }
+
+    private record NormalAttackProfile(
+            double horizontalReach,
+            double verticalReach,
+            double centerOffsetX,
+            double centerOffsetY,
+            double damageMultiplier,
+            double knockbackMultiplier,
+            double horizontalLaunchScale,
+            double verticalLaunchScale,
+            double meteorVerticalLaunchScale,
+            int cooldownFrames,
+            int animationFrames,
+            int landingLagFrames
+    ) {
+        double verticalLaunchScaleFor(double targetCenterY, double attackCenterY) {
+            if (meteorVerticalLaunchScale >= 0.0 || targetCenterY < attackCenterY + 6.0) {
+                return verticalLaunchScale;
+            }
+            return meteorVerticalLaunchScale;
+        }
+    }
+
+    private record AttackVisualPose(
+            double translateX,
+            double translateY,
+            double bodyRotationDegrees,
+            double aimAngleRadians,
+            double headReachBonus,
+            double headLift,
+            double beakLengthBonus,
+            double beakOpenScale,
+            double spriteRotationDegrees,
+            double spriteScaleX,
+            double spriteScaleY
+    ) {
+    }
+
+    private record HeadPose(double centerX, double centerY, double aimAngleRadians) {
+    }
+
     // Reference to main game instance
     private final BirdGame3 game;
 
@@ -47,9 +104,12 @@ public class Bird {
     public int attackCooldown = 0;
     public int attackAnimationTimer = 0;
     private int attackChargeFrames = 0;
+    private NormalAttackVariant chargingAttackVariant = NormalAttackVariant.NEUTRAL;
+    private NormalAttackVariant activeAttackVariant = NormalAttackVariant.NEUTRAL;
     private boolean attackHeldLastFrame = false;
     private boolean aerialAttackActive = false;
     private int aerialAttackTotalFrames = 0;
+    private int activeAerialLandingLagFrames = AERIAL_LANDING_LAG_FRAMES;
     private int landingLagTimer = 0;
     public boolean canDoubleJump = true;
     private int jumpSquatTimer = 0;
@@ -911,64 +971,144 @@ public class Bird {
         }
     }
 
-    private void attack(int chargeFrames) {
-        if (health <= 0) return;
+    private NormalAttackVariant selectNormalAttackVariant(boolean grounded) {
+        if (blockPressed()) {
+            return grounded ? NormalAttackVariant.DOWN : NormalAttackVariant.DOWN_AIR;
+        }
+        boolean leftHeld = leftPressed();
+        boolean rightHeld = rightPressed();
+        if (leftHeld ^ rightHeld) {
+            if (grounded) {
+                return NormalAttackVariant.SIDE;
+            }
+            boolean towardFacing = rightHeld == facingRight;
+            return towardFacing ? NormalAttackVariant.FORWARD_AIR : NormalAttackVariant.BACK_AIR;
+        }
+        if (jumpPressed()) {
+            return grounded ? NormalAttackVariant.UP : NormalAttackVariant.UP_AIR;
+        }
+        return grounded ? NormalAttackVariant.NEUTRAL : NormalAttackVariant.NEUTRAL_AIR;
+    }
+
+    private NormalAttackProfile normalAttackProfile(NormalAttackVariant variant) {
+        double facingDir = facingRight ? 1.0 : -1.0;
+        return switch (variant) {
+            case NEUTRAL -> new NormalAttackProfile(118.0, 98.0, facingDir * 18.0, -2.0,
+                    1.00, 1.00, 1.00, 0.98, 0.98, 30, 12, AERIAL_LANDING_LAG_FRAMES);
+            case SIDE -> new NormalAttackProfile(146.0, 88.0, facingDir * 42.0, 0.0,
+                    1.08, 1.14, 1.35, 0.82, 0.82, 32, 13, AERIAL_LANDING_LAG_FRAMES);
+            case UP -> new NormalAttackProfile(90.0, 150.0, 0.0, -40.0,
+                    0.96, 1.06, 0.65, 1.75, 1.75, 31, 13, AERIAL_LANDING_LAG_FRAMES);
+            case DOWN -> new NormalAttackProfile(124.0, 78.0, facingDir * 18.0, 26.0,
+                    1.04, 1.05, 0.90, 0.40, 0.40, 34, 14, AERIAL_LANDING_LAG_FRAMES);
+            case NEUTRAL_AIR -> new NormalAttackProfile(118.0, 108.0, 0.0, -6.0,
+                    0.92, 0.95, 0.92, 1.00, 1.00, 26, 12, 7);
+            case FORWARD_AIR -> new NormalAttackProfile(138.0, 90.0, facingDir * 36.0, -6.0,
+                    0.98, 1.05, 1.22, 0.86, 0.86, 27, 13, 9);
+            case BACK_AIR -> new NormalAttackProfile(130.0, 86.0, -facingDir * 34.0, -2.0,
+                    1.08, 1.12, 1.42, 0.76, 0.76, 28, 13, 11);
+            case UP_AIR -> new NormalAttackProfile(88.0, 146.0, 0.0, -44.0,
+                    0.88, 0.98, 0.55, 1.82, 1.82, 25, 12, 6);
+            case DOWN_AIR -> new NormalAttackProfile(92.0, 136.0, 0.0, 46.0,
+                    1.02, 1.08, 0.72, 0.34, -0.95, 28, 14, 12);
+        };
+    }
+
+    private boolean overlapsAttackArea(double targetCenterX, double targetCenterY,
+                                       double targetHalfWidth, double targetHalfHeight,
+                                       double attackCenterX, double attackCenterY,
+                                       double horizontalReach, double verticalReach) {
+        double dx = Math.abs(targetCenterX - attackCenterX);
+        double dy = Math.abs(targetCenterY - attackCenterY);
+        return dx <= horizontalReach + targetHalfWidth
+                && dy <= verticalReach + targetHalfHeight;
+    }
+
+    private double launchDirectionFromAttackCenter(double targetCenterX, double attackCenterX) {
+        double dx = targetCenterX - attackCenterX;
+        if (Math.abs(dx) <= 0.001) {
+            return facingRight ? 1.0 : -1.0;
+        }
+        return Math.signum(dx);
+    }
+
+    private NormalAttackProfile attack(int chargeFrames, NormalAttackVariant variant) {
+        if (health <= 0) return normalAttackProfile(variant);
+        NormalAttackProfile profile = normalAttackProfile(variant);
         double chargeRatio = attackChargeRatio(chargeFrames);
-        double knockbackScale = 1.0 + CHARGED_ATTACK_KNOCKBACK_BONUS * chargeRatio * chargeRatio;
-        double verticalScale = 1.0 + CHARGED_ATTACK_VERTICAL_BONUS * chargeRatio;
-        double range = 120 * sizeMultiplier;
-        double verticalRange = 100 * sizeMultiplier;
+        double knockbackScale = (1.0 + CHARGED_ATTACK_KNOCKBACK_BONUS * chargeRatio * chargeRatio)
+                * profile.knockbackMultiplier();
+        double range = profile.horizontalReach() * sizeMultiplier;
+        double verticalRange = profile.verticalReach() * sizeMultiplier;
         if (chargeRatio > 0.0) {
             range *= 1.0 + chargeRatio * 0.16;
             verticalRange *= 1.0 + chargeRatio * 0.12;
         }
-        double attackCenterX = bodyCenterX();
-        double attackCenterY = bodyCenterY();
+        double attackCenterX = bodyCenterX() + profile.centerOffsetX() * sizeMultiplier;
+        double attackCenterY = bodyCenterY() + profile.centerOffsetY() * sizeMultiplier;
         if (isNullRockForm()) {
             range *= 0.86;
             verticalRange *= 0.88;
             attackCenterX += (facingRight ? 1.0 : -1.0) * combatHalfWidth() * 0.88;
             attackCenterY -= combatHalfHeight() * 0.08;
         }
-        int dmg = (int) Math.round(type.power * powerMultiplier * (1.0 + CHARGED_ATTACK_DAMAGE_BONUS * chargeRatio));
+        int dmg = (int) Math.round(type.power * powerMultiplier
+                * profile.damageMultiplier()
+                * (1.0 + CHARGED_ATTACK_DAMAGE_BONUS * chargeRatio));
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
             if (!canDamageTarget(other)) continue;
 
-            if (overlapsAttackBox(other, attackCenterX, attackCenterY, range, verticalRange)) {
-                processBirdAttack(other, dmg, knockbackScale, verticalScale);
+            if (overlapsAttackArea(other.bodyCenterX(), other.bodyCenterY(),
+                    other.combatHalfWidth(), other.combatHalfHeight(),
+                    attackCenterX, attackCenterY, range, verticalRange)) {
+                double horizontalDirection = launchDirectionFromAttackCenter(other.bodyCenterX(), attackCenterX);
+                double verticalScale = profile.verticalLaunchScaleFor(other.bodyCenterY(), attackCenterY)
+                        * (1.0 + CHARGED_ATTACK_VERTICAL_BONUS * chargeRatio);
+                processBirdAttack(other, dmg, knockbackScale, verticalScale,
+                        profile.horizontalLaunchScale(), horizontalDirection);
             }
         }
 
         // === LOUNGE CAN BE HIT ===
         attackLounge(dmg);
-        attackCrows(range, dmg, knockbackScale);
-        attackChicks(range, dmg, knockbackScale);
+        attackCrows(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
+        attackChicks(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
+        return profile;
+    }
+
+    private void attack(int chargeFrames) {
+        attack(chargeFrames, selectNormalAttackVariant(isOnGround()));
     }
 
     private void attack() {
         attack(0);
     }
 
-    private void attackCrows(double range, int dmg, double knockbackScale) {
+    private void attackCrows(double attackCenterX, double attackCenterY,
+                             double range, double verticalRange,
+                             int dmg, double knockbackScale,
+                             NormalAttackProfile profile) {
         double reach = range + 35 * sizeMultiplier;
-        double verticalReach = 120 * sizeMultiplier;
+        double verticalReach = verticalRange + 30 * sizeMultiplier;
         int kills = 0;
 
         for (Iterator<CrowMinion> it = game.crowMinions.iterator(); it.hasNext(); ) {
             CrowMinion crow = it.next();
             if (crow.owner == this) continue;
 
-            double dx = crow.x - (x + 40 * sizeMultiplier);
-            double dy = crow.y - (y + 40 * sizeMultiplier);
-            if (Math.abs(dx) > reach || Math.abs(dy) > verticalReach) continue;
-            if (facingRight && dx < -35 * sizeMultiplier) continue;
-            if (!facingRight && dx > 35 * sizeMultiplier) continue;
+            double crowHalfSize = 18.0 * crow.drawScale();
+            if (!overlapsAttackArea(crow.x, crow.y, crowHalfSize, crowHalfSize,
+                    attackCenterX, attackCenterY, reach, verticalReach)) {
+                continue;
+            }
 
             int damageTaken = Math.max(1, dmg / 10);
             crow.life -= damageTaken;
             if (crow.life > 0) {
-                reactToCrowHit(crow, dx, damageTaken, knockbackScale);
+                double dx = crow.x - attackCenterX;
+                double verticalScale = profile.verticalLaunchScaleFor(crow.y, attackCenterY);
+                reactToCrowHit(crow, dx, crow.y, attackCenterY, damageTaken, knockbackScale, verticalScale);
                 continue;
             }
 
@@ -997,11 +1137,18 @@ public class Bird {
         }
     }
 
-    private void reactToCrowHit(CrowMinion crow, double dx, int damageTaken, double knockbackScale) {
+    private void reactToCrowHit(CrowMinion crow, double dx, double targetCenterY, double attackCenterY,
+                                int damageTaken, double knockbackScale, double verticalScale) {
         if (crow == null || !crow.hasHeavyLifePool()) return;
         double direction = dx == 0 ? (facingRight ? 1.0 : -1.0) : Math.signum(dx);
         double knockback = (0.8 + damageTaken * 0.45) * Math.max(1.0, knockbackScale);
-        crow.registerHit(direction * knockback, (-0.8 - damageTaken * 0.25) * Math.max(1.0, 0.75 + knockbackScale * 0.25));
+        double verticalKnockback = (0.8 + damageTaken * 0.25)
+                * Math.max(0.65, 0.75 + knockbackScale * 0.25)
+                * Math.max(0.45, Math.abs(verticalScale));
+        double knockbackY = verticalScale < 0.0 && targetCenterY >= attackCenterY + 6.0
+                ? verticalKnockback
+                : -verticalKnockback;
+        crow.registerHit(direction * knockback, knockbackY);
 
         Color spark = switch (crow.effectiveVariant()) {
             case CrowMinion.VARIANT_GIANT_CROW -> Color.web("#FF8A80");
@@ -1019,13 +1166,16 @@ public class Bird {
                     Math.cos(angle) * speed + direction * 0.8,
                     Math.sin(angle) * speed - 1.8,
                     spark.deriveColor(0, 1, 1, 0.82)
-            ));
+                ));
         }
     }
 
-    private void attackChicks(double range, int dmg, double knockbackScale) {
+    private void attackChicks(double attackCenterX, double attackCenterY,
+                              double range, double verticalRange,
+                              int dmg, double knockbackScale,
+                              NormalAttackProfile profile) {
         double reach = range + 30 * sizeMultiplier;
-        double verticalReach = 100 * sizeMultiplier;
+        double verticalReach = verticalRange + 24 * sizeMultiplier;
         int kills = 0;
 
         for (Iterator<ChickMinion> it = game.chickMinions.iterator(); it.hasNext(); ) {
@@ -1034,11 +1184,10 @@ public class Bird {
 
             double cx = chick.x + chick.width * 0.5;
             double cy = chick.y + chick.height * 0.5;
-            double dx = cx - (x + 40 * sizeMultiplier);
-            double dy = cy - (y + 40 * sizeMultiplier);
-            if (Math.abs(dx) > reach || Math.abs(dy) > verticalReach) continue;
-            if (facingRight && dx < -35 * sizeMultiplier) continue;
-            if (!facingRight && dx > 35 * sizeMultiplier) continue;
+            if (!overlapsAttackArea(cx, cy, chick.width * 0.5, chick.height * 0.5,
+                    attackCenterX, attackCenterY, reach, verticalReach)) {
+                continue;
+            }
 
             Color hitColor = chick.ultimate ? Color.GOLD : Color.web("#FFB74D");
             int damageTaken = Math.max(1, dmg / 12);
@@ -1057,9 +1206,18 @@ public class Bird {
                 ));
             }
 
+            double dx = cx - attackCenterX;
             double kbDir = dx == 0 ? (facingRight ? 1 : -1) : Math.signum(dx);
             chick.vx += kbDir * Math.max(4.0, dmg * 0.18) * Math.max(1.0, knockbackScale);
-            chick.vy = Math.min(chick.vy, (-3.5 - dmg * 0.08) * Math.max(1.0, 0.75 + knockbackScale * 0.25));
+            double verticalScale = profile.verticalLaunchScaleFor(cy, attackCenterY);
+            double verticalKnockback = (3.5 + dmg * 0.08)
+                    * Math.max(0.75, Math.abs(verticalScale))
+                    * Math.max(1.0, 0.75 + knockbackScale * 0.25);
+            if (verticalScale < 0.0 && cy >= attackCenterY + 6.0) {
+                chick.vy = Math.max(chick.vy, verticalKnockback);
+            } else {
+                chick.vy = Math.min(chick.vy, -verticalKnockback);
+            }
             chick.onGround = false;
             chick.jumpCooldown = Math.max(chick.jumpCooldown, 10);
             chick.attackCooldown = Math.max(chick.attackCooldown, 8);
@@ -1079,14 +1237,16 @@ public class Bird {
         }
     }
 
-    private void processBirdAttack(Bird other, int dmg, double knockbackScale, double verticalScale) {
-        double kb = type.power * (facingRight ? 1 : -1) * (game.usesSmashCombatRules() ? 2.2 : 1.8)
-                * knockbackScale * ATTACK_HORIZONTAL_KNOCKBACK_SCALE;
+    private void processBirdAttack(Bird other, int dmg, double knockbackScale,
+                                   double verticalScale, double horizontalScale,
+                                   double horizontalDirection) {
+        double kb = type.power * horizontalDirection * (game.usesSmashCombatRules() ? 2.2 : 1.8)
+                * knockbackScale * ATTACK_HORIZONTAL_KNOCKBACK_SCALE * horizontalScale;
         double verticalKb = (game.usesSmashCombatRules() ? 6.5 : 5.0) * verticalScale * ATTACK_VERTICAL_KNOCKBACK_SCALE;
 
         double shieldPushback = Math.copySign(
                 Math.max(1.8, Math.abs(kb) * SHIELD_PUSHBACK_SCALE),
-                kb == 0.0 ? (facingRight ? 1.0 : -1.0) : kb
+                kb == 0.0 ? horizontalDirection : kb
         );
         ShieldHitResult shieldHit = other.resolveShieldHit(this, scaledDamageAgainst(other, dmg), shieldPushback);
         if (shieldHit.blocked()) {
@@ -1136,6 +1296,22 @@ public class Bird {
         return Math.max(0.34, durabilityScale * holdScale);
     }
 
+    private boolean shouldReserveBlockForAttack(boolean airborne) {
+        if (!blockPressed() || health <= 0) {
+            return false;
+        }
+        if (isChargingAttack()) {
+            return chargingAttackVariant.usesDownInput();
+        }
+        if (!attackPressed()) {
+            return false;
+        }
+        if (attackCooldown > 0) {
+            return false;
+        }
+        return selectNormalAttackVariant(!airborne).usesDownInput();
+    }
+
     private boolean canRaiseShieldFromCurrentInput() {
         return health > 0
                 && !isBlocking
@@ -1144,6 +1320,7 @@ public class Bird {
                 && landingLagTimer <= 0
                 && knockdownTimer <= 0
                 && blockPressed()
+                && !shouldReserveBlockForAttack(false)
                 && stunTime <= 0.0
                 && blockCooldown <= 0
                 && shieldHealth > 0.0
@@ -1636,12 +1813,18 @@ public class Bird {
     }
 
     private void beginAttackCharge() {
+        beginAttackCharge(selectNormalAttackVariant(true));
+    }
+
+    private void beginAttackCharge(NormalAttackVariant variant) {
         attackChargeFrames = 1;
+        chargingAttackVariant = variant;
         attackAnimationTimer = 0;
     }
 
     private void cancelAttackCharge() {
         attackChargeFrames = 0;
+        chargingAttackVariant = NormalAttackVariant.NEUTRAL;
     }
 
     private void emitAttackChargeParticles() {
@@ -1665,18 +1848,21 @@ public class Bird {
     }
 
     private void performAttack(int chargeFrames) {
-        attack(chargeFrames);
+        NormalAttackVariant variant = chargeFrames > 0 ? chargingAttackVariant : selectNormalAttackVariant(isOnGround());
+        NormalAttackProfile profile = attack(chargeFrames, variant);
         double chargeRatio = attackChargeRatio(chargeFrames);
         game.playButterSfx();
-        attackCooldown = scaledAttackCooldown() + (int) Math.round(chargeRatio * 18.0);
-        attackAnimationTimer = (overchargeAttackTimer > 0 ? 10 : 12) + (int) Math.round(chargeRatio * 10.0);
+        activeAttackVariant = variant;
+        attackCooldown = scaledAttackCooldown(profile.cooldownFrames()) + (int) Math.round(chargeRatio * 18.0);
+        attackAnimationTimer = profile.animationFrames() + (int) Math.round(chargeRatio * 10.0);
         if (!isOnGround()) {
             aerialAttackActive = true;
             aerialAttackTotalFrames = attackAnimationTimer;
+            activeAerialLandingLagFrames = profile.landingLagFrames();
         } else {
             clearAerialAttackState();
         }
-        attackChargeFrames = 0;
+        cancelAttackCharge();
     }
 
     private boolean handleAttackInput(boolean canCharge) {
@@ -1697,7 +1883,7 @@ public class Bird {
             }
         } else if (held && !attackHeldLastFrame && attackCooldown <= 0 && !isBlocking) {
             if (canCharge) {
-                beginAttackCharge();
+                beginAttackCharge(selectNormalAttackVariant(true));
                 emitAttackChargeParticles();
             } else {
                 performAttack(0);
@@ -2572,9 +2758,12 @@ public class Bird {
     private int aiDropCommitDir = 0;
     private int aiVoidRecoveryLockFrames = 0;
     private int aiTargetLockFrames = 0;
+    private int aiAttackHoldFrames = 0;
+    private int aiShieldHoldFrames = 0;
     private int aiLockedTargetIndex = -1;
     private double aiDropOriginY = Double.NaN;
     private double aiLastHealth = STARTING_HEALTH;
+    private NormalAttackVariant aiCommittedAttackVariant = NormalAttackVariant.NEUTRAL;
 
     private int dashCooldown = 0;
     private int dashTimer = 0;
@@ -3915,7 +4104,7 @@ public class Bird {
         return idle != null ? idle : photoEagleAttackImage();
     }
 
-    private boolean drawPhotoEagleSprite(GraphicsContext g, double drawSize) {
+    private boolean drawPhotoEagleSprite(GraphicsContext g, double drawSize, AttackVisualPose pose) {
         Image sprite = currentPhotoEagleSprite();
         if (sprite == null) {
             return false;
@@ -3933,17 +4122,17 @@ public class Bird {
             renderWidth = renderHeight * aspect;
         }
 
-        double renderX = x + drawSize / 2.0 - renderWidth / 2.0;
-        double renderY = y + drawSize / 2.0 - renderHeight / 2.0 + 4 * sizeMultiplier;
+        double renderCenterX = x + drawSize / 2.0;
+        double renderCenterY = y + drawSize / 2.0 + 4 * sizeMultiplier;
+        double rotation = pose == null ? 0.0 : pose.spriteRotationDegrees();
+        double scaleX = pose == null ? 1.0 : pose.spriteScaleX();
+        double scaleY = pose == null ? 1.0 : pose.spriteScaleY();
 
         g.save();
-        if (!facingRight) {
-            g.translate(renderX + renderWidth, renderY);
-            g.scale(-1, 1);
-            g.drawImage(sprite, 0, 0, renderWidth, renderHeight);
-        } else {
-            g.drawImage(sprite, renderX, renderY, renderWidth, renderHeight);
-        }
+        g.translate(renderCenterX, renderCenterY);
+        g.rotate(rotation);
+        g.scale((facingRight ? 1.0 : -1.0) * scaleX, scaleY);
+        g.drawImage(sprite, -renderWidth / 2.0, -renderHeight / 2.0, renderWidth, renderHeight);
         g.restore();
         return true;
     }
@@ -3979,10 +4168,10 @@ public class Bird {
         boolean leftHeld = leftPressed();
         boolean rightHeld = rightPressed();
         boolean jumpHeld = jumpPressed();
+        boolean attackHeld = attackPressed();
         boolean grabHeld = grabPressed();
         boolean blockHeld = blockPressed();
         boolean jumpJustPressed = jumpHeld && !jumpHeldLastFrame;
-        boolean blockJustPressed = blockHeld && !blockHeldLastFrame;
         boolean grabJustPressed = grabHeld && !grabHeldLastFrame;
         boolean leftJustPressed = leftHeld && !leftHeldLastFrame;
         boolean rightJustPressed = rightHeld && !rightHeldLastFrame;
@@ -3990,6 +4179,9 @@ public class Bird {
         boolean inDockWater = isInDockWater();
         boolean inWindNow = isInWindVent(x, y);
         boolean inUpdraft = inWindNow || thermalTimer > 0;
+        boolean reserveBlockForAttack = !stunned && shouldReserveBlockForAttack(airborne);
+        boolean defensiveBlockHeld = blockHeld && !reserveBlockForAttack;
+        boolean blockJustPressed = defensiveBlockHeld && !blockHeldLastFrame;
 
         if (airborne && landingLagTimer > 0) {
             landingLagTimer = 0;
@@ -4035,7 +4227,7 @@ public class Bird {
 
         handleDodgeInput(stunned, airborne, inDockWater, blockJustPressed, grabJustPressed,
                 leftHeld, rightHeld, leftJustPressed, rightJustPressed);
-        updateShieldState(stunned, airborne, blockHeld, inDockWater, gameSpeed);
+        updateShieldState(stunned, airborne, defensiveBlockHeld, inDockWater, gameSpeed);
         if (isDodging()) {
             downHeld = false;
         }
@@ -4358,6 +4550,8 @@ public class Bird {
     private void clearAerialAttackState() {
         aerialAttackActive = false;
         aerialAttackTotalFrames = 0;
+        activeAerialLandingLagFrames = AERIAL_LANDING_LAG_FRAMES;
+        activeAttackVariant = NormalAttackVariant.NEUTRAL;
     }
 
     private int aerialAttackElapsedFrames() {
@@ -4379,7 +4573,7 @@ public class Bird {
         boolean autoCancel = aerialAttackAutoCancelsOnLanding();
         attackAnimationTimer = 0;
         if (!autoCancel) {
-            landingLagTimer = Math.max(landingLagTimer, AERIAL_LANDING_LAG_FRAMES);
+            landingLagTimer = Math.max(landingLagTimer, activeAerialLandingLagFrames);
             vx *= 0.55;
         }
         clearAerialAttackState();
@@ -5825,9 +6019,9 @@ public class Bird {
         return true;
     }
 
-    private int scaledAttackCooldown() {
-        if (overchargeAttackTimer <= 0) return 30;
-        return Math.max(10, (int) Math.round(30 * 0.62));
+    private int scaledAttackCooldown(int baseCooldownFrames) {
+        if (overchargeAttackTimer <= 0) return baseCooldownFrames;
+        return Math.max(10, (int) Math.round(baseCooldownFrames * 0.62));
     }
 
     private void handleHummingbirdFrenzy() {
@@ -6710,7 +6904,7 @@ public class Bird {
         attackAnimationTimer = 0;
         clearAerialAttackState();
         landingLagTimer = 0;
-        attackChargeFrames = 0;
+        cancelAttackCharge();
         attackHeldLastFrame = false;
         cooldownFlash = 0;
         tauntTimer = 0;
@@ -6790,8 +6984,12 @@ public class Bird {
         state.specialMaxCooldown = specialMaxCooldown;
         state.attackCooldown = attackCooldown;
         state.attackAnimationTimer = attackAnimationTimer;
+        state.attackChargeFrames = attackChargeFrames;
+        state.chargingAttackVariantOrdinal = chargingAttackVariant.ordinal();
+        state.activeAttackVariantOrdinal = activeAttackVariant.ordinal();
         state.aerialAttackActive = aerialAttackActive;
         state.aerialAttackTotalFrames = aerialAttackTotalFrames;
+        state.activeAerialLandingLagFrames = activeAerialLandingLagFrames;
         state.landingLagTimer = landingLagTimer;
         state.canDoubleJump = canDoubleJump;
         state.jumpSquatTimer = jumpSquatTimer;
@@ -6931,8 +7129,23 @@ public class Bird {
         this.specialMaxCooldown = state.specialMaxCooldown;
         this.attackCooldown = state.attackCooldown;
         this.attackAnimationTimer = state.attackAnimationTimer;
+        this.attackChargeFrames = state.attackChargeFrames;
+        NormalAttackVariant[] attackVariants = NormalAttackVariant.values();
+        if (state.chargingAttackVariantOrdinal >= 0 && state.chargingAttackVariantOrdinal < attackVariants.length) {
+            this.chargingAttackVariant = attackVariants[state.chargingAttackVariantOrdinal];
+        } else {
+            this.chargingAttackVariant = NormalAttackVariant.NEUTRAL;
+        }
+        if (state.activeAttackVariantOrdinal >= 0 && state.activeAttackVariantOrdinal < attackVariants.length) {
+            this.activeAttackVariant = attackVariants[state.activeAttackVariantOrdinal];
+        } else {
+            this.activeAttackVariant = NormalAttackVariant.NEUTRAL;
+        }
         this.aerialAttackActive = state.aerialAttackActive;
         this.aerialAttackTotalFrames = state.aerialAttackTotalFrames;
+        this.activeAerialLandingLagFrames = state.activeAerialLandingLagFrames > 0
+                ? state.activeAerialLandingLagFrames
+                : AERIAL_LANDING_LAG_FRAMES;
         this.landingLagTimer = state.landingLagTimer;
         this.canDoubleJump = state.canDoubleJump;
         this.jumpSquatTimer = state.jumpSquatTimer;
@@ -7019,8 +7232,10 @@ public class Bird {
         this.airDodgeAvailable = state.airDodgeAvailable;
         this.techBufferTimer = state.techBufferTimer;
         this.knockdownTimer = state.knockdownTimer;
+        this.attackHeldLastFrame = false;
         this.jumpHeldLastFrame = false;
         this.blockHeldLastFrame = false;
+        this.grabHeldLastFrame = false;
         this.leftHeldLastFrame = false;
         this.rightHeldLastFrame = false;
         this.speedMultiplier = state.speedMultiplier;
@@ -7228,9 +7443,232 @@ public class Bird {
                 (System.currentTimeMillis() / 6.0) % 360.0, 110 + chargeRatio * 120, ArcType.OPEN);
     }
 
+    private NormalAttackVariant currentDisplayedAttackVariant() {
+        if (isChargingAttack()) {
+            return chargingAttackVariant;
+        }
+        if (attackAnimationTimer > 0) {
+            return activeAttackVariant;
+        }
+        return null;
+    }
+
+    private static double normalizeAngleRadians(double angle) {
+        double normalized = angle;
+        while (normalized <= -Math.PI) {
+            normalized += Math.PI * 2.0;
+        }
+        while (normalized > Math.PI) {
+            normalized -= Math.PI * 2.0;
+        }
+        return normalized;
+    }
+
+    private double currentAttackVisualPhase() {
+        if (isChargingAttack()) {
+            return 0.18 + 0.82 * attackChargeRatio(attackChargeFrames);
+        }
+        if (attackAnimationTimer > 0) {
+            double timerPhase = 0.5 + 0.5 * Math.sin(attackAnimationTimer * 0.72);
+            return 0.45 + 0.55 * timerPhase;
+        }
+        return 0.0;
+    }
+
+    private AttackVisualPose currentAttackVisualPose() {
+        NormalAttackVariant variant = currentDisplayedAttackVariant();
+        double dir = facingRight ? 1.0 : -1.0;
+        if (variant == null) {
+            return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
+                    0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+        }
+
+        double phase = currentAttackVisualPhase();
+        return switch (variant) {
+            case NEUTRAL -> new AttackVisualPose(dir * 3.0 * phase, -2.0 * phase, dir * 4.0 * phase,
+                    facingRight ? 0.0 : Math.PI,
+                    4.0 * phase, -1.5 * phase, 3.5 * phase, 1.04 + 0.06 * phase,
+                    dir * 3.0 * phase, 1.0 + 0.02 * phase, 1.0);
+            case SIDE -> new AttackVisualPose(dir * (10.0 + 8.0 * phase), -4.0 * phase, dir * (8.0 + 7.0 * phase),
+                    facingRight ? -0.06 : Math.PI + 0.06,
+                    12.0 * phase, -6.0 * phase, 12.0 * phase, 1.12 + 0.16 * phase,
+                    dir * 5.0 * phase, 1.05 + 0.04 * phase, 0.96);
+            case UP -> new AttackVisualPose(dir * 1.5 * phase, -10.0 * phase, dir * 5.0 * phase,
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.28),
+                    11.0 * phase, -14.0 * phase, 7.0 * phase, 1.06 + 0.12 * phase,
+                    -26.0 * phase, 0.98, 1.05 + 0.04 * phase);
+            case DOWN -> new AttackVisualPose(dir * 6.0 * phase, 8.0 * phase, dir * 8.0 * phase,
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.24),
+                    10.0 * phase, 10.0 * phase, 10.0 * phase, 1.1 + 0.15 * phase,
+                    22.0 * phase, 1.02, 0.94);
+            case NEUTRAL_AIR -> new AttackVisualPose(dir * 4.0 * phase, -5.0 * phase, dir * 6.0 * phase,
+                    facingRight ? 0.0 : Math.PI,
+                    5.0 * phase, -4.0 * phase, 4.0 * phase, 1.06 + 0.08 * phase,
+                    dir * 4.0 * phase, 1.0 + 0.03 * phase, 0.98);
+            case FORWARD_AIR -> new AttackVisualPose(dir * (12.0 + 10.0 * phase), -6.0 * phase, dir * (10.0 + 8.0 * phase),
+                    facingRight ? -0.12 : Math.PI + 0.12,
+                    15.0 * phase, -7.0 * phase, 13.0 * phase, 1.14 + 0.18 * phase,
+                    dir * 8.0 * phase, 1.07 + 0.05 * phase, 0.95);
+            case BACK_AIR -> new AttackVisualPose(-dir * (6.0 + 8.0 * phase), -4.0 * phase, -dir * (14.0 + 10.0 * phase),
+                    normalizeAngleRadians((facingRight ? Math.PI : 0.0) + dir * 0.06),
+                    12.0 * phase, -3.0 * phase, 11.0 * phase, 1.12 + 0.18 * phase,
+                    -dir * 12.0 * phase, 1.04 + 0.04 * phase, 0.96);
+            case UP_AIR -> new AttackVisualPose(dir * 1.0 * phase, -12.0 * phase, dir * 6.0 * phase,
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.18),
+                    12.0 * phase, -16.0 * phase, 8.0 * phase, 1.08 + 0.14 * phase,
+                    -34.0 * phase, 0.98, 1.07 + 0.04 * phase);
+            case DOWN_AIR -> new AttackVisualPose(dir * 4.0 * phase, 12.0 * phase, dir * 12.0 * phase,
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.12),
+                    13.0 * phase, 15.0 * phase, 12.0 * phase, 1.12 + 0.18 * phase,
+                    34.0 * phase, 1.03 + 0.02 * phase, 0.92);
+        };
+    }
+
+    private static void rotateAround(GraphicsContext g, double centerX, double centerY, double degrees) {
+        if (Math.abs(degrees) <= 0.001) {
+            return;
+        }
+        g.translate(centerX, centerY);
+        g.rotate(degrees);
+        g.translate(-centerX, -centerY);
+    }
+
+    private void applyAttackBodyPose(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        if (pose == null) {
+            return;
+        }
+        if (Math.abs(pose.translateX()) > 0.001 || Math.abs(pose.translateY()) > 0.001) {
+            g.translate(pose.translateX(), pose.translateY());
+        }
+        rotateAround(g, x + drawSize * 0.5, y + drawSize * 0.5, pose.bodyRotationDegrees());
+    }
+
+    private HeadPose standardHeadPose(AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double bodyCenterX = x + 40.0 * s;
+        double bodyCenterY = y + 40.0 * s;
+        double aimAngle = pose == null ? (facingRight ? 0.0 : Math.PI) : pose.aimAngleRadians();
+        double headReach = 35.0 * s + (pose == null ? 0.0 : pose.headReachBonus() * s);
+        double verticalReach = 8.0 * s + Math.abs(Math.sin(aimAngle)) * 14.0 * s;
+        double centerX = bodyCenterX + Math.cos(aimAngle) * headReach;
+        double centerY = bodyCenterY + Math.sin(aimAngle) * verticalReach + (pose == null ? 0.0 : pose.headLift() * s);
+        return new HeadPose(centerX, centerY, aimAngle);
+    }
+
+    private HeadPose currentHeadPose() {
+        return standardHeadPose(currentAttackVisualPose());
+    }
+
+    private void drawDirectionalAttackFx(GraphicsContext g, double drawSize) {
+        NormalAttackVariant variant = currentDisplayedAttackVariant();
+        if (variant == null) {
+            return;
+        }
+
+        double s = sizeMultiplier;
+        double centerX = x + drawSize * 0.5;
+        double centerY = y + drawSize * 0.5;
+        boolean charging = isChargingAttack();
+        double phase = charging
+                ? 0.35 + 0.65 * attackChargeRatio(attackChargeFrames)
+                : 0.45 + 0.55 * Math.sin(Math.max(1, attackAnimationTimer) * 0.72);
+        double alpha = charging ? 0.34 + 0.26 * phase : 0.46 + 0.26 * phase;
+        double glowAlpha = charging ? 0.14 + 0.12 * phase : 0.20 + 0.14 * phase;
+        double dir = facingRight ? 1.0 : -1.0;
+
+        g.save();
+        g.setEffect(new Glow(charging ? 0.45 : 0.65));
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        switch (variant) {
+            case NEUTRAL, NEUTRAL_AIR -> {
+                double ringRadius = (drawSize * 0.42) + (charging ? 8.0 : 14.0) * s + phase * 10.0 * s;
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, alpha));
+                g.setLineWidth((charging ? 2.2 : 3.2) * s);
+                g.strokeOval(centerX - ringRadius, centerY - ringRadius, ringRadius * 2, ringRadius * 2);
+                g.setStroke(Color.web("#FFD54F").deriveColor(0, 1, 1, glowAlpha + 0.12));
+                g.setLineWidth((charging ? 4.8 : 6.8) * s);
+                g.strokeArc(centerX - ringRadius * 0.78, centerY - ringRadius * 0.78,
+                        ringRadius * 1.56, ringRadius * 1.56,
+                        40 + phase * 45, 220, ArcType.OPEN);
+            }
+            case SIDE, FORWARD_AIR -> {
+                double reach = (58.0 + phase * 18.0) * s;
+                double attackY = centerY + (charging ? -4.0 : 0.0) * s;
+                double startX = centerX + dir * (18.0 * s);
+                double endX = centerX + dir * (reach + 26.0 * s);
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, alpha));
+                g.setLineWidth((charging ? 4.0 : 6.2) * s);
+                g.strokeLine(startX, attackY, endX, attackY - 8.0 * s);
+                g.setStroke(Color.web("#FFB74D").deriveColor(0, 1, 1, glowAlpha + 0.18));
+                g.setLineWidth((charging ? 10.0 : 13.0) * s);
+                g.strokeLine(startX - dir * 6.0 * s, attackY + 5.0 * s, endX, attackY - 14.0 * s);
+                g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, glowAlpha));
+                g.setLineWidth((charging ? 2.2 : 3.0) * s);
+                g.strokeArc(centerX + dir * 18.0 * s - 46.0 * s, centerY - 30.0 * s,
+                        92.0 * s, 72.0 * s,
+                        facingRight ? -48 : 228, 76, ArcType.OPEN);
+            }
+            case BACK_AIR -> {
+                double reach = (54.0 + phase * 18.0) * s;
+                double attackDir = -dir;
+                double attackY = centerY - 3.0 * s;
+                double startX = centerX + attackDir * (14.0 * s);
+                double endX = centerX + attackDir * (reach + 22.0 * s);
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, alpha));
+                g.setLineWidth(6.0 * s);
+                g.strokeLine(startX, attackY, endX, attackY - 12.0 * s);
+                g.setStroke(Color.web("#81D4FA").deriveColor(0, 1, 1, glowAlpha + 0.2));
+                g.setLineWidth(13.0 * s);
+                g.strokeLine(startX - attackDir * 4.0 * s, attackY + 6.0 * s, endX, attackY - 18.0 * s);
+                g.setStroke(Color.web("#E1F5FE").deriveColor(0, 1, 1, glowAlpha));
+                g.setLineWidth(3.0 * s);
+                g.strokeArc(centerX + attackDir * 8.0 * s - 44.0 * s, centerY - 28.0 * s,
+                        88.0 * s, 76.0 * s,
+                        attackDir > 0 ? -18 : 198, 88, ArcType.OPEN);
+            }
+            case UP, UP_AIR -> {
+                double rise = (64.0 + phase * 20.0) * s;
+                double arcW = (56.0 + phase * 10.0) * s;
+                double arcH = (78.0 + phase * 16.0) * s;
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, alpha));
+                g.setLineWidth((charging ? 4.4 : 6.0) * s);
+                g.strokeLine(centerX, centerY - 8.0 * s, centerX, centerY - rise);
+                g.setStroke(Color.web("#A5D6A7").deriveColor(0, 1, 1, glowAlpha + 0.22));
+                g.setLineWidth((charging ? 9.0 : 12.0) * s);
+                g.strokeArc(centerX - arcW * 0.5, centerY - rise,
+                        arcW, arcH,
+                        205, 130, ArcType.OPEN);
+                g.setStroke(Color.web("#E8F5E9").deriveColor(0, 1, 1, glowAlpha));
+                g.setLineWidth((charging ? 2.2 : 3.0) * s);
+                g.strokeArc(centerX - arcW * 0.72, centerY - rise - 4.0 * s,
+                        arcW * 1.44, arcH * 1.04,
+                        198, 144, ArcType.OPEN);
+            }
+            case DOWN, DOWN_AIR -> {
+                double drop = (62.0 + phase * 20.0) * s;
+                double spread = (38.0 + phase * 12.0) * s;
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, alpha));
+                g.setLineWidth((charging ? 4.4 : 6.0) * s);
+                g.strokeLine(centerX, centerY + 6.0 * s, centerX, centerY + drop);
+                g.setStroke(Color.web("#EF9A9A").deriveColor(0, 1, 1, glowAlpha + 0.22));
+                g.setLineWidth((charging ? 10.0 : 13.0) * s);
+                g.strokeLine(centerX - spread, centerY + 18.0 * s, centerX, centerY + drop);
+                g.strokeLine(centerX + spread, centerY + 18.0 * s, centerX, centerY + drop);
+                g.setStroke(Color.web("#FFCCBC").deriveColor(0, 1, 1, glowAlpha));
+                g.setLineWidth((charging ? 2.2 : 3.0) * s);
+                g.strokeArc(centerX - 38.0 * s, centerY + 12.0 * s, 76.0 * s, 66.0 * s,
+                        18, 144, ArcType.OPEN);
+            }
+        }
+
+        g.restore();
+    }
+
     public void draw(GraphicsContext g) {
         double drawSize = 80 * sizeMultiplier;
         boolean airborne = !isOnGround();
+        AttackVisualPose attackPose = currentAttackVisualPose();
 
         drawBlockingShield(g, drawSize);
         drawTaunt(g);
@@ -7258,14 +7696,16 @@ public class Bird {
             drawEagleDive(g, drawSize);
         }
         drawRazorbillBladestorm(g, drawSize);
-        drawEagleSkin(g, drawSize);
-        drawGrinchhawk(g);
-        drawVulture(g, drawSize);
         drawDodgeAura(g, drawSize);
         drawNullRockShield(g, drawSize);
         drawSpecialCooldown(g);
         drawLounge(g);
-        drawBodyAndEyes(g, drawSize);
+        g.save();
+        applyAttackBodyPose(g, drawSize, attackPose);
+        drawEagleSkin(g, drawSize);
+        drawGrinchhawk(g);
+        drawVulture(g, drawSize);
+        drawBodyAndEyes(g, drawSize, attackPose);
         drawRooster(g, drawSize);
         drawHeisenbirdAccessories(g);
         drawCitySkin(g);
@@ -7274,8 +7714,10 @@ public class Bird {
         drawBeaconSkin(g, drawSize);
         drawClassicSkinAccent(g, drawSize);
         drawSpecialSkinAccent(g, drawSize);
-        drawBeak(g);
+        drawBeak(g, attackPose);
         drawPelican(g);
+        g.restore();
+        drawDirectionalAttackFx(g, drawSize);
         drawStunEffect(g, drawSize);
         drawVineGrapple(g);
     }
@@ -8154,10 +8596,14 @@ public class Bird {
 
     private void drawGrinchhawk(GraphicsContext g) {
         if (type == BirdGame3.BirdType.GRINCHHAWK) {
+            double s = sizeMultiplier;
+            HeadPose headPose = currentHeadPose();
+            double headX = headPose.centerX() - 25.0 * s;
+            double headY = headPose.centerY() - 20.0 * s;
             g.setFill(Color.YELLOW);
-            g.fillOval(x + (facingRight ? 55 : 20) * sizeMultiplier, y + 22 * sizeMultiplier, 18 * sizeMultiplier, 18 * sizeMultiplier);
+            g.fillOval(headX + (facingRight ? 5 : 45) * s, headY + 2 * s, 18 * s, 18 * s);
             g.setFill(Color.BLACK);
-            g.fillOval(x + (facingRight ? 60 : 25) * sizeMultiplier, y + 25 * sizeMultiplier, 10 * sizeMultiplier, 10 * sizeMultiplier);
+            g.fillOval(headX + (facingRight ? 10 : 50) * s, headY + 5 * s, 10 * s, 10 * s);
         }
     }
 
@@ -8285,6 +8731,9 @@ public class Bird {
     private void drawRooster(GraphicsContext g, double drawSize) {
         if (type != BirdGame3.BirdType.ROOSTER) return;
         double s = sizeMultiplier;
+        HeadPose headPose = currentHeadPose();
+        double headX = headPose.centerX() - 25.0 * s;
+        double headY = headPose.centerY() - 20.0 * s;
         double tailBaseX = facingRight ? x + 18 * s : x + drawSize - 18 * s;
         double tailDir = facingRight ? -1 : 1;
         Color tailStroke = isSunforgeSkin ? Color.web("#FFD54F") : Color.web("#BF360C");
@@ -8306,8 +8755,8 @@ public class Bird {
         }
 
         g.setFill(isSunforgeSkin ? Color.web("#FFB300") : Color.web("#D32F2F"));
-        double combX = facingRight ? x + 44 * s : x + 16 * s;
-        double combY = y - 6 * s;
+        double combX = headX + (facingRight ? -6 : 36) * s;
+        double combY = headY - 26 * s;
         double combW = 28 * s;
         double combH = 18 * s;
         double[] xs = new double[]{
@@ -8319,8 +8768,8 @@ public class Bird {
         g.fillPolygon(xs, ys, xs.length);
 
         g.setFill(isSunforgeSkin ? Color.web("#FFE082") : Color.web("#B71C1C"));
-        double wattleX = facingRight ? x + 50 * s : x + 20 * s;
-        g.fillOval(wattleX, y + 42 * s, 10 * s, 14 * s);
+        double wattleX = headX + (facingRight ? 0 : 40) * s;
+        g.fillOval(wattleX, headY + 22 * s, 10 * s, 14 * s);
     }
 
     private void drawStunEffect(GraphicsContext g, double drawSize) {
@@ -8489,7 +8938,7 @@ public class Bird {
         }
     }
 
-    private void drawBodyAndEyes(GraphicsContext g, double drawSize) {
+    private void drawBodyAndEyes(GraphicsContext g, double drawSize, AttackVisualPose pose) {
         if (type == BirdGame3.BirdType.BAT) {
             drawBatBody(g);
             return;
@@ -8498,10 +8947,16 @@ public class Bird {
             drawPhoenixBody(g, drawSize);
             return;
         }
-        if (drawPhotoEagleSprite(g, drawSize)) {
+        if (drawPhotoEagleSprite(g, drawSize, pose)) {
             return;
         }
 
+        double s = sizeMultiplier;
+        HeadPose headPose = standardHeadPose(pose);
+        double headW = 50.0 * s;
+        double headH = 40.0 * s;
+        double headX = headPose.centerX() - headW / 2.0;
+        double headY = headPose.centerY() - headH / 2.0;
         boolean noirPigeon = (type == BirdGame3.BirdType.PIGEON && isNoirSkin);
         boolean beaconPigeon = (type == BirdGame3.BirdType.PIGEON && isBeaconSkin);
         boolean stormPigeon = (type == BirdGame3.BirdType.PIGEON && isStormSkin);
@@ -8601,10 +9056,8 @@ public class Bird {
         g.setFill(bodyColor);
         g.fillOval(x, y, drawSize, drawSize);
         g.setFill(headColor);
-        g.fillOval(facingRight ? x + 50 * sizeMultiplier : x - 20 * sizeMultiplier, y + 20 * sizeMultiplier, 50 * sizeMultiplier, 40 * sizeMultiplier);
+        g.fillOval(headX, headY, headW, headH);
         if (type == BirdGame3.BirdType.RAZORBILL) {
-            double s = sizeMultiplier;
-            double headX = facingRight ? x + 50 * s : x - 20 * s;
             double crestBaseX = facingRight ? headX + 10 * s : headX + 30 * s;
             Color crest = classicPalette ? game.classicSkinAccentColor(type) : (prismRazorbill ? Color.web("#FFD740") : Color.CYAN.brighter());
             g.setFill(crest);
@@ -8625,9 +9078,7 @@ public class Bird {
             );
         }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
-            double s = sizeMultiplier;
             int tailDir = facingRight ? -1 : 1;
-            double headX = facingRight ? x + 50 * s : x - 20 * s;
             double crestBaseX = facingRight ? headX + 18 * s : headX + 32 * s;
             Color plume = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#2E5AAC");
             g.setFill(plume);
@@ -8658,27 +9109,27 @@ public class Bird {
         }
         // Titmouse head details are handled by drawTitmouseSpecial when effects are enabled.
         if (ravenEyes) {
-            double s = sizeMultiplier;
-            double glowX = x + (facingRight ? 48 : 18) * s;
-            double glowY = y + 18 * s;
+            double glowX = headX + (facingRight ? -2 : 38) * s;
+            double glowY = headY - 2 * s;
             g.setFill(Color.web("#B71C1C").deriveColor(0, 1, 1, 0.35));
             g.fillOval(glowX, glowY, 29 * s, 29 * s);
         }
         g.setFill(Color.WHITE);
-        g.fillOval(x + (facingRight ? 50 : 20) * sizeMultiplier, y + 20 * sizeMultiplier, 25 * sizeMultiplier, 25 * sizeMultiplier);
+        g.fillOval(headX + (facingRight ? 0 : 40) * s, headY, 25 * s, 25 * s);
         Color eyeColor = classicPalette ? game.classicSkinAccentColor(type) : Color.BLACK;
         if (eyeOverride != null) eyeColor = eyeOverride;
         if (noirPigeon) eyeColor = Color.RED.brighter();
         if (ravenEyes) eyeColor = Color.web("#D50000");
         g.setFill(eyeColor);
-        g.fillOval(x + (facingRight ? 55 : 25) * sizeMultiplier, y + 25 * sizeMultiplier, 15 * sizeMultiplier, 15 * sizeMultiplier);
+        g.fillOval(headX + (facingRight ? 5 : 45) * s, headY + 5 * s, 15 * s, 15 * s);
     }
 
     private void drawHeisenbirdAccessories(GraphicsContext g) {
         if (type != BirdGame3.BirdType.HEISENBIRD) return;
         double s = sizeMultiplier;
-        double headX = facingRight ? x + 50 * s : x - 20 * s;
-        double headY = y + 20 * s;
+        HeadPose headPose = currentHeadPose();
+        double headX = headPose.centerX() - 25.0 * s;
+        double headY = headPose.centerY() - 20.0 * s;
         double headW = 50 * s;
 
         // Hat
@@ -8693,8 +9144,8 @@ public class Bird {
         g.setFill(Color.rgb(45, 25, 15));
         double goateeW = 14 * s;
         double goateeH = 10 * s;
-        double goateeX = facingRight ? x + 62 * s : x + 4 * s;
-        double goateeY = y + 54 * s;
+        double goateeX = headX + (facingRight ? 12 : 24) * s;
+        double goateeY = headY + 34 * s;
         g.fillPolygon(
                 new double[]{goateeX, goateeX + goateeW, goateeX + goateeW / 2.0},
                 new double[]{goateeY, goateeY, goateeY + goateeH},
@@ -8986,18 +9437,21 @@ public class Bird {
     private void drawCitySkin(GraphicsContext g) {
         if (type == BirdGame3.BirdType.PIGEON && isCitySkin) {
             double s = sizeMultiplier;
+            HeadPose headPose = currentHeadPose();
+            double headX = headPose.centerX() - 25.0 * s;
+            double headY = headPose.centerY() - 20.0 * s;
             g.setFill(Color.DARKGRAY.darker());
             g.fillRoundRect(x + 20 * s, y - 10 * s, 40 * s, 20 * s, 10 * s, 10 * s);
             g.fillRect(x + 10 * s, y - 5 * s, 60 * s, 8 * s);
 
             g.setFill(Color.WHITE);
-            g.fillRect(facingRight ? x + 85 * s : x - 15 * s, y + 45 * s, 20 * s, 4 * s);
+            g.fillRect(headX + (facingRight ? 35 : 5) * s, headY + 25 * s, 20 * s, 4 * s);
             g.setFill(Color.ORANGE.brighter());
-            g.fillRect(facingRight ? x + 105 * s : x - 35 * s, y + 45 * s, 8 * s, 4 * s);
+            g.fillRect(headX + (facingRight ? 55 : -15) * s, headY + 25 * s, 8 * s, 4 * s);
 
             if (Math.random() < 0.7) {
-                double smokeX = facingRight ? x + 110 * s : x - 20 * s;
-                double smokeY = y + 40 * s + Math.random() * 12 * s;
+                double smokeX = headX + (facingRight ? 60 : 0) * s;
+                double smokeY = headY + (20 + Math.random() * 12) * s;
                 game.particles.add(new Particle(
                         smokeX,
                         smokeY,
@@ -9012,6 +9466,9 @@ public class Bird {
     private void drawNoirSkin(GraphicsContext g) {
         if (type == BirdGame3.BirdType.PIGEON && isNoirSkin) {
             double s = sizeMultiplier;
+            HeadPose headPose = currentHeadPose();
+            double headX = headPose.centerX() - 25.0 * s;
+            double headY = headPose.centerY() - 20.0 * s;
             g.setFill(Color.BLACK);
             g.fillRoundRect(x + 16 * s, y - 12 * s, 48 * s, 18 * s, 10 * s, 10 * s);
             g.fillRect(x + 4 * s, y - 6 * s, 72 * s, 8 * s);
@@ -9023,8 +9480,8 @@ public class Bird {
             g.strokeLine(x + 22 * s, y + 58 * s, x + 58 * s, y + 70 * s);
 
             if (Math.random() < 0.45) {
-                double smokeX = facingRight ? x + 98 * s : x - 10 * s;
-                double smokeY = y + 42 * s + Math.random() * 10 * s;
+                double smokeX = headX + (facingRight ? 48 : 10) * s;
+                double smokeY = headY + (22 + Math.random() * 10) * s;
                 game.particles.add(new Particle(
                         smokeX,
                         smokeY,
@@ -9039,25 +9496,28 @@ public class Bird {
     private void drawFreemanSkin(GraphicsContext g) {
         if (type == BirdGame3.BirdType.PIGEON && isFreemanSkin) {
             double s = sizeMultiplier;
+            HeadPose headPose = currentHeadPose();
+            double headX = headPose.centerX() - 25.0 * s;
+            double headY = headPose.centerY() - 20.0 * s;
 
             g.setFill(Color.web("#5D4037"));
             g.fillRoundRect(x + 16 * s, y - 10 * s, 48 * s, 18 * s, 10 * s, 10 * s);
             g.setFill(Color.web("#4E342E"));
             g.fillRect(x + 12 * s, y - 2 * s, 56 * s, 6 * s);
 
-            double eyeX = x + (facingRight ? 50 : 20) * s;
-            double eyeY = y + 20 * s;
+            double eyeX = headX + (facingRight ? 0 : 40) * s;
+            double eyeY = headY;
             g.setFill(Color.web("#4E342E").deriveColor(0, 1, 1, 0.55));
             g.fillOval(eyeX, eyeY - 1 * s, 25 * s, 14 * s);
 
             g.setFill(Color.web("#ECEFF1"));
-            g.fillRect(facingRight ? x + 85 * s : x - 15 * s, y + 45 * s, 20 * s, 4 * s);
+            g.fillRect(headX + (facingRight ? 35 : 5) * s, headY + 25 * s, 20 * s, 4 * s);
             g.setFill(Color.web("#FF8F00"));
-            g.fillRect(facingRight ? x + 105 * s : x - 35 * s, y + 45 * s, 8 * s, 4 * s);
+            g.fillRect(headX + (facingRight ? 55 : -15) * s, headY + 25 * s, 8 * s, 4 * s);
 
             if (Math.random() < 0.6) {
-                double smokeX = facingRight ? x + 110 * s : x - 20 * s;
-                double smokeY = y + 40 * s + Math.random() * 12 * s;
+                double smokeX = headX + (facingRight ? 60 : 0) * s;
+                double smokeY = headY + (20 + Math.random() * 12) * s;
                 game.particles.add(new Particle(
                         smokeX,
                         smokeY,
@@ -9075,6 +9535,9 @@ public class Bird {
     private void drawBeaconSkin(GraphicsContext g, double drawSize) {
         if (type == BirdGame3.BirdType.PIGEON && isBeaconSkin) {
             double s = sizeMultiplier;
+            HeadPose headPose = currentHeadPose();
+            double headX = headPose.centerX() - 25.0 * s;
+            double headY = headPose.centerY() - 20.0 * s;
             double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 160.0);
             g.setFill(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.18 + 0.18 * pulse));
             g.fillOval(x - 14 * s, y - 14 * s, drawSize + 28 * s, drawSize + 28 * s);
@@ -9083,8 +9546,6 @@ public class Bird {
             g.setLineWidth(2.2 * s);
             g.strokeOval(x - 8 * s, y - 8 * s, drawSize + 16 * s, drawSize + 16 * s);
 
-            double headX = facingRight ? x + 50 * s : x - 20 * s;
-            double headY = y + 20 * s;
             g.setFill(Color.web("#81D4FA").deriveColor(0, 1, 1, 0.85));
             g.fillOval(headX + 18 * s, headY - 10 * s, 10 * s, 10 * s);
             g.setStroke(Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.85));
@@ -9093,21 +9554,23 @@ public class Bird {
         }
     }
 
-    private void drawBeak(GraphicsContext g) {
+    private void drawBeak(GraphicsContext g, AttackVisualPose pose) {
         if (photoEagleSkinActive()) {
             return;
         }
+        double s = sizeMultiplier;
+        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
         if (type == BirdGame3.BirdType.BAT) {
-            double mouthX = x + 33 * sizeMultiplier;
-            double mouthY = y + 28 * sizeMultiplier;
+            double mouthX = x + 33 * s;
+            double mouthY = y + 28 * s;
             boolean attacking = attackAnimationTimer > 0;
-            double biteOpen = attacking ? (4 + Math.sin(attackAnimationTimer * 0.8) * 3) * sizeMultiplier : 0;
+            double biteOpen = attacking ? (4 + Math.sin(attackAnimationTimer * 0.8) * 3) * s * openScale : 0;
             g.setFill(Color.rgb(220, 120, 170));
-            g.fillOval(mouthX, mouthY + biteOpen * 0.2, 16 * sizeMultiplier, (10 + biteOpen) * sizeMultiplier);
+            g.fillOval(mouthX, mouthY + biteOpen * 0.2, 16 * s, (10 + biteOpen) * s);
             g.setFill(Color.WHITE);
             g.fillPolygon(
-                    new double[]{mouthX + 4 * sizeMultiplier, mouthX + 7 * sizeMultiplier, mouthX + 10 * sizeMultiplier},
-                    new double[]{mouthY + (8 + biteOpen) * sizeMultiplier, mouthY + (13 + biteOpen) * sizeMultiplier, mouthY + (8 + biteOpen) * sizeMultiplier},
+                    new double[]{mouthX + 4 * s, mouthX + 7 * s, mouthX + 10 * s},
+                    new double[]{mouthY + (8 + biteOpen) * s, mouthY + (13 + biteOpen) * s, mouthY + (8 + biteOpen) * s},
                     3
             );
             if (attacking) {
@@ -9123,10 +9586,9 @@ public class Bird {
             return;
         }
         if (type == BirdGame3.BirdType.PHOENIX) {
-            double s = sizeMultiplier;
             double beakY = y + 24 * s;
             boolean attacking = attackAnimationTimer > 0;
-            double open = attacking ? (12 + Math.sin(attackAnimationTimer * 0.7) * 6) * s : 2.5 * s;
+            double open = attacking ? (12 + Math.sin(attackAnimationTimer * 0.7) * 6) * s * openScale : 2.5 * s;
             g.setFill(Color.GOLD);
             if (facingRight) {
                 double baseX = x + 72 * s;
@@ -9156,82 +9618,81 @@ public class Bird {
             return;
         }
 
+        HeadPose headPose = standardHeadPose(pose);
         boolean isAttacking = attackAnimationTimer > 0;
-        double openAmount = isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) * sizeMultiplier : 3 * sizeMultiplier;
-        double beakBaseY = y + 45 * sizeMultiplier;
-        double beakLength = (type == BirdGame3.BirdType.FALCON ? 34
-                : type == BirdGame3.BirdType.ROADRUNNER ? 42 : 28) * sizeMultiplier;
+        double openAmount = (isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) : 3) * s * openScale;
+        double beakLength = ((type == BirdGame3.BirdType.FALCON ? 34
+                : type == BirdGame3.BirdType.ROADRUNNER ? 42 : 28) + (pose == null ? 0.0 : pose.beakLengthBonus())) * s;
+        double aimAngle = headPose.aimAngleRadians();
+        double dirX = Math.cos(aimAngle);
+        double dirY = Math.sin(aimAngle);
+        double normalX = -dirY;
+        double normalY = dirX;
+        if (Math.abs(normalY) > Math.abs(normalX) && normalY < 0.0) {
+            normalX = -normalX;
+            normalY = -normalY;
+        }
+        double mouthCenterX = headPose.centerX() + dirX * 5.0 * s;
+        double mouthCenterY = headPose.centerY() + dirY * 5.0 * s + 5.0 * s;
+        double baseUpperX = mouthCenterX - normalX * 8.0 * s;
+        double baseUpperY = mouthCenterY - normalY * 8.0 * s;
+        double baseLowerX = mouthCenterX + normalX * 8.0 * s;
+        double baseLowerY = mouthCenterY + normalY * 8.0 * s;
+        double tipBaseX = mouthCenterX + dirX * beakLength;
+        double tipBaseY = mouthCenterY + dirY * beakLength;
+        double upperTipX = tipBaseX - normalX * openAmount;
+        double upperTipY = tipBaseY - normalY * openAmount;
+        double lowerTipX = tipBaseX + normalX * openAmount * 1.6;
+        double lowerTipY = tipBaseY + normalY * openAmount * 1.6;
+        double tongueCenterX = tipBaseX - dirX * 12.0 * s + normalX * 2.0 * s;
+        double tongueCenterY = tipBaseY - dirY * 12.0 * s + normalY * 2.0 * s;
 
         g.setFill(isAttacking ? Color.ORANGERED : Color.ORANGE);
+        g.fillPolygon(
+                new double[]{baseUpperX, upperTipX, baseLowerX},
+                new double[]{baseUpperY, upperTipY, baseLowerY},
+                3
+        );
+        g.fillPolygon(
+                new double[]{baseUpperX, lowerTipX, baseLowerX},
+                new double[]{baseUpperY, lowerTipY, baseLowerY},
+                3
+        );
 
-        if (facingRight) {
-            double tipX = x + 80 * sizeMultiplier + beakLength;
-
-            g.fillPolygon(
-                    new double[]{x + 80 * sizeMultiplier, tipX, x + 80 * sizeMultiplier},
-                    new double[]{beakBaseY - 8 * sizeMultiplier, beakBaseY - openAmount, beakBaseY + 8 * sizeMultiplier},
-                    3
-            );
-            g.fillPolygon(
-                    new double[]{x + 80 * sizeMultiplier, tipX, x + 80 * sizeMultiplier},
-                    new double[]{beakBaseY - 8 * sizeMultiplier, beakBaseY + openAmount * 1.6, beakBaseY + 8 * sizeMultiplier},
-                    3
-            );
-
-            if (isAttacking && attackAnimationTimer > 4) {
-                g.setFill(Color.DEEPPINK.darker());
-                g.fillOval(tipX - 12, beakBaseY - 4, 20, 14);
-            }
-        } else {
-            double tipX = x - beakLength;
-
-            g.fillPolygon(
-                    new double[]{x, tipX, x},
-                    new double[]{beakBaseY - 8 * sizeMultiplier, beakBaseY - openAmount, beakBaseY + 8 * sizeMultiplier},
-                    3
-            );
-            g.fillPolygon(
-                    new double[]{x, tipX, x},
-                    new double[]{beakBaseY - 8 * sizeMultiplier, beakBaseY + openAmount * 1.6, beakBaseY + 8 * sizeMultiplier},
-                    3
-            );
-
-            if (isAttacking && attackAnimationTimer > 4) {
-                g.setFill(Color.DEEPPINK.darker());
-                g.fillOval(tipX - 8, beakBaseY - 4, 20, 14);
-            }
+        if (isAttacking && attackAnimationTimer > 4) {
+            g.setFill(Color.DEEPPINK.darker());
+            g.fillOval(tongueCenterX - 10.0 * s, tongueCenterY - 7.0 * s, 20.0 * s, 14.0 * s);
         }
 
         int flashFrame = 12;
         if (attackAnimationTimer == flashFrame) {
             double flashOpacity = 0.7;
-            double flashSize = 36;
+            double flashSize = 36.0 * s;
+            double flashCenterX = tipBaseX + dirX * 12.0 * s;
+            double flashCenterY = tipBaseY + dirY * 12.0 * s;
             g.setFill(Color.WHITE.deriveColor(0, 1, 1, flashOpacity));
-            g.fillOval(
-                    facingRight ? x + 90 * sizeMultiplier : x - 40 * sizeMultiplier,
-                    y + 30 * sizeMultiplier,
-                    flashSize * sizeMultiplier,
-                    flashSize * sizeMultiplier
-            );
+            g.fillOval(flashCenterX - flashSize * 0.5, flashCenterY - flashSize * 0.5, flashSize, flashSize);
         }
     }
 
     private void drawPelican(GraphicsContext g) {
         if (type == BirdGame3.BirdType.PELICAN) {
-            double headX = facingRight ? x + 50 * sizeMultiplier : x - 20 * sizeMultiplier;
-            double pouchX = headX + 2 * sizeMultiplier;
-            double pouchY = y + 42 * sizeMultiplier;
-            double pouchW = (plungeTimer > 0 ? 62 : 46) * sizeMultiplier;
-            double pouchH = (plungeTimer > 0 ? 38 : 28) * sizeMultiplier;
+            double s = sizeMultiplier;
+            HeadPose headPose = currentHeadPose();
+            double headX = headPose.centerX() - 25.0 * s;
+            double headY = headPose.centerY() - 20.0 * s;
+            double pouchX = headX + 2 * s;
+            double pouchY = headY + 22 * s;
+            double pouchW = (plungeTimer > 0 ? 62 : 46) * s;
+            double pouchH = (plungeTimer > 0 ? 38 : 28) * s;
             g.setFill(isIroncladSkin ? Color.web("#A1887F") : Color.rgb(255, 180, 80));
             g.fillOval(pouchX, pouchY, pouchW, pouchH);
             g.setFill(isIroncladSkin ? Color.web("#D7CCC8") : Color.rgb(255, 200, 100));
-            g.fillOval(pouchX + 5 * sizeMultiplier, pouchY + 4 * sizeMultiplier, pouchW - 12 * sizeMultiplier, pouchH - 12 * sizeMultiplier);
+            g.fillOval(pouchX + 5 * s, pouchY + 4 * s, pouchW - 12 * s, pouchH - 12 * s);
             if (isIroncladSkin) {
                 g.setStroke(Color.web("#5D4037"));
-                g.setLineWidth(1.8 * sizeMultiplier);
-                g.strokeOval(pouchX + 3 * sizeMultiplier, pouchY + 3 * sizeMultiplier,
-                        pouchW - 6 * sizeMultiplier, pouchH - 6 * sizeMultiplier);
+                g.setLineWidth(1.8 * s);
+                g.strokeOval(pouchX + 3 * s, pouchY + 3 * s, pouchW - 6 * s, pouchH - 6 * s);
             }
         }
     }
