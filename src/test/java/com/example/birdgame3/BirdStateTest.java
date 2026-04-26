@@ -679,6 +679,262 @@ class BirdStateTest {
     }
 
     @Test
+    void pigeonJumpInputAloneStillStartsNormalJump() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird pigeon = new Bird(190.0, BirdGame3.BirdType.PIGEON, 0, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = pigeon;
+
+        double startY = pigeon.y;
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        for (int i = 0; i < 4; i++) {
+            pigeon.update(1.0);
+        }
+
+        assertTrue(pigeon.y < startY, "Pressing up alone should still make Pigeon jump.");
+        assertEquals(0, getPrivateInt(pigeon, "pigeonFlutterTimer"),
+                "Jump input by itself should not start Pigeon's recovery.");
+        assertTrue(pigeon.canDoubleJump, "A normal jump should preserve Pigeon's extra jump.");
+    }
+
+    @Test
+    void pigeonNeutralSpecialFiresFeatherBurstWithoutHealingAndCannotBeSpammed() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pigeon = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(185.0, BirdGame3.BirdType.EAGLE, 1, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        pigeon.facingRight = true;
+        pigeon.health = 60.0;
+        game.players[0] = pigeon;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertEquals(startingHealth - 4.0, target.health, 0.0001,
+                "Neutral special should hit for the lighter damage value.");
+        assertEquals(60.0, pigeon.health, 0.0001, "Neutral special should not heal Pigeon.");
+        assertTrue(getPrivateInt(pigeon, "specialCooldown") > 0,
+                "Neutral special should apply an anti-spam cooldown.");
+
+        double afterFirstBurstHealth = target.health;
+        target.x = 185.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        target.vx = 0.0;
+        target.vy = 0.0;
+        pigeon.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertEquals(afterFirstBurstHealth, target.health, 0.0001,
+                "Neutral special should have enough lockout to prevent immediate spam.");
+    }
+
+    @Test
+    void pigeonSideSpecialUsesDirectionalInputForDashStrike() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pigeon = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(200.0, BirdGame3.BirdType.EAGLE, 1, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        pigeon.facingRight = true;
+        game.players[0] = pigeon;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+
+        assertTrue(pigeon.vx > 17.0, "Side special should commit Pigeon to a faster horizontal burst.");
+        assertEquals(startingHealth - 3.0, target.health, 0.0001,
+                "Side special should now deal lighter damage.");
+        assertTrue(target.vy < -8.0, "Side special should launch targets much higher than before.");
+    }
+
+    @Test
+    void pigeonSideSpecialTravelsMuchFartherForLessDamage() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pigeon = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(430.0, BirdGame3.BirdType.EAGLE, 1, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        pigeon.facingRight = true;
+        game.players[0] = pigeon;
+        game.players[1] = target;
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+
+        for (int i = 0; i < 24; i++) {
+            pigeon.update(1.0);
+        }
+
+        assertEquals(Bird.STARTING_HEALTH - 3.0, target.health, 0.0001,
+                "Side special should trade damage for Fox-style travel distance.");
+        assertTrue(target.vy < -8.0, "The long rush should still send targets much higher on hit.");
+    }
+
+    @Test
+    void pigeonUpSpecialOverridesGroundJumpAndStartsFlutter() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird pigeon = new Bird(190.0, BirdGame3.BirdType.PIGEON, 0, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = pigeon;
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        assertEquals(0, getPrivateInt(pigeon, "jumpSquatTimer"),
+                "Up special should bypass jump squat instead of becoming a normal jump.");
+        assertTrue(getPrivateInt(pigeon, "pigeonFlutterTimer") > 0);
+        assertTrue(getPrivateBoolean(pigeon, "pigeonUpSpecialUsed"));
+        assertFalse(pigeon.canDoubleJump, "Up special should spend Pigeon's remaining air recovery.");
+        assertTrue(pigeon.vy < -8.0, "Up special should launch Pigeon upward immediately.");
+    }
+
+    @Test
+    void pigeonGroundDownSpecialUsesBlockInputWithoutRaisingShieldAndHealsOnCompletion() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird pigeon = new Bird(190.0, BirdGame3.BirdType.PIGEON, 0, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        pigeon.health = 48.0;
+        game.players[0] = pigeon;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertFalse(pigeon.isBlocking, "Down special should reserve block input instead of raising shield.");
+        for (int i = 0; i < 120; i++) {
+            pigeon.update(1.0);
+        }
+
+        assertEquals(48.0, pigeon.health, 0.0001,
+                "Grounded scavenge should take much longer before the heal resolves.");
+        for (int i = 0; i < 50; i++) {
+            pigeon.update(1.0);
+        }
+
+        assertTrue(pigeon.health > 48.0, "Completing the grounded scavenge should heal Pigeon.");
+    }
+
+    @Test
+    void pigeonShieldedSpecialConvertsIntoGroundDownSpecial() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird pigeon = new Bird(190.0, BirdGame3.BirdType.PIGEON, 0, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        pigeon.health = 48.0;
+        game.players[0] = pigeon;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        assertTrue(pigeon.isBlocking, "Setup should place Pigeon into shield first.");
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+
+        assertFalse(pigeon.isBlocking, "Pressing special out of shield should drop shield into down special.");
+        assertTrue(getPrivateInt(pigeon, "pigeonScavengeTimer") > 0,
+                "Special while shielding should activate grounded scavenge.");
+
+        for (int i = 0; i < 170; i++) {
+            pigeon.update(1.0);
+        }
+
+        assertTrue(pigeon.health > 48.0, "Shield-canceled down special should still heal on completion.");
+    }
+
+    @Test
+    void pigeonGroundDownSpecialDoesNotHealIfInterrupted() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird pigeon = new Bird(190.0, BirdGame3.BirdType.PIGEON, 0, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        pigeon.health = 48.0;
+        game.players[0] = pigeon;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        for (int i = 0; i < 8; i++) {
+            pigeon.update(1.0);
+        }
+        double damageTaken = pigeon.receiveExternalDamage(5.0);
+        assertTrue(damageTaken > 0.0, "The interruption check needs Pigeon to actually take damage.");
+        double healthAfterInterruption = pigeon.health;
+
+        for (int i = 0; i < 170; i++) {
+            pigeon.update(1.0);
+        }
+
+        assertEquals(healthAfterInterruption, pigeon.health, 0.0001,
+                "Interrupted scavenge should not heal Pigeon afterward.");
+    }
+
+    @Test
+    void pigeonAirDownSpecialStallsAndDropsAHitboxBelow() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pigeon = new Bird(160.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(170.0, BirdGame3.BirdType.EAGLE, 1, game);
+        pigeon.y = BirdGame3.GROUND_Y - 280.0;
+        target.y = BirdGame3.GROUND_Y - 170.0;
+        game.players[0] = pigeon;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        pigeon.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertTrue(pigeon.vy < 3.0, "Air down special should stall Pigeon's fall before the drop peck.");
+        for (int i = 0; i < 12; i++) {
+            pigeon.update(1.0);
+        }
+
+        assertTrue(target.health < startingHealth, "Air down special should damage targets below Pigeon.");
+        assertTrue(target.vy > 0.0, "Air down special should knock targets downward.");
+    }
+
+    @Test
     void aerialAttackAutoCancelsOnEarlyLanding() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;

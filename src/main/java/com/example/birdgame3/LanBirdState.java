@@ -123,6 +123,20 @@ class LanBirdState {
     int roadrunnerSandstormTimer;
     int roadrunnerSandGustTimer;
     int[] roadrunnerSandHitCooldown = new int[4];
+    int pigeonFeatherBurstTimer;
+    boolean pigeonFeatherBurstUltimate;
+    int pigeonRushTimer;
+    boolean pigeonRushGrounded;
+    boolean pigeonRushUltimate;
+    boolean[] pigeonRushHit = new boolean[4];
+    int pigeonFlutterTimer;
+    boolean pigeonFlutterUltimate;
+    boolean[] pigeonFlutterHit = new boolean[4];
+    int pigeonScavengeTimer;
+    boolean pigeonScavengeAirborne;
+    boolean pigeonScavengeUltimate;
+    boolean pigeonScavengeResolved;
+    boolean pigeonUpSpecialUsed;
     double speedBoostTimer;
     double hoverRegenTimer;
     double hoverRegenMultiplier;
@@ -265,6 +279,24 @@ class LanBirdState {
         for (int cooldown : roadrunnerSandHitCooldown) {
             out.writeInt(cooldown);
         }
+        out.writeInt(pigeonFeatherBurstTimer);
+        out.writeBoolean(pigeonFeatherBurstUltimate);
+        out.writeInt(pigeonRushTimer);
+        out.writeBoolean(pigeonRushGrounded);
+        out.writeBoolean(pigeonRushUltimate);
+        for (boolean hit : pigeonRushHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(pigeonFlutterTimer);
+        out.writeBoolean(pigeonFlutterUltimate);
+        for (boolean hit : pigeonFlutterHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(pigeonScavengeTimer);
+        out.writeBoolean(pigeonScavengeAirborne);
+        out.writeBoolean(pigeonScavengeUltimate);
+        out.writeBoolean(pigeonScavengeResolved);
+        out.writeBoolean(pigeonUpSpecialUsed);
         out.writeDouble(speedBoostTimer);
         out.writeDouble(hoverRegenTimer);
         out.writeDouble(hoverRegenMultiplier);
@@ -409,6 +441,24 @@ class LanBirdState {
         for (int i = 0; i < state.roadrunnerSandHitCooldown.length; i++) {
             state.roadrunnerSandHitCooldown[i] = in.readInt();
         }
+        state.pigeonFeatherBurstTimer = in.readInt();
+        state.pigeonFeatherBurstUltimate = in.readBoolean();
+        state.pigeonRushTimer = in.readInt();
+        state.pigeonRushGrounded = in.readBoolean();
+        state.pigeonRushUltimate = in.readBoolean();
+        for (int i = 0; i < state.pigeonRushHit.length; i++) {
+            state.pigeonRushHit[i] = in.readBoolean();
+        }
+        state.pigeonFlutterTimer = in.readInt();
+        state.pigeonFlutterUltimate = in.readBoolean();
+        for (int i = 0; i < state.pigeonFlutterHit.length; i++) {
+            state.pigeonFlutterHit[i] = in.readBoolean();
+        }
+        state.pigeonScavengeTimer = in.readInt();
+        state.pigeonScavengeAirborne = in.readBoolean();
+        state.pigeonScavengeUltimate = in.readBoolean();
+        state.pigeonScavengeResolved = in.readBoolean();
+        state.pigeonUpSpecialUsed = in.readBoolean();
         state.speedBoostTimer = in.readDouble();
         state.hoverRegenTimer = in.readDouble();
         state.hoverRegenMultiplier = in.readDouble();

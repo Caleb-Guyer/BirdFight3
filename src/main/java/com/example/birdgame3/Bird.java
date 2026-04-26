@@ -51,6 +51,13 @@ public class Bird {
 
     }
 
+    private enum PigeonSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record NormalAttackProfile(
             double horizontalReach,
             double verticalReach,
@@ -114,6 +121,7 @@ public class Bird {
     private NormalAttackVariant chargingAttackVariant = NormalAttackVariant.NEUTRAL;
     private NormalAttackVariant activeAttackVariant = NormalAttackVariant.NEUTRAL;
     private boolean attackHeldLastFrame = false;
+    private boolean specialHeldLastFrame = false;
     private boolean aerialAttackActive = false;
     private int aerialAttackTotalFrames = 0;
     private int activeAerialLandingLagFrames = AERIAL_LANDING_LAG_FRAMES;
@@ -244,6 +252,20 @@ public class Bird {
     private int roadrunnerSandstormTimer = 0;
     private int roadrunnerSandGustTimer = 0;
     private final int[] roadrunnerSandHitCooldown = new int[4];
+    private int pigeonFeatherBurstTimer = 0;
+    private boolean pigeonFeatherBurstUltimate = false;
+    private int pigeonRushTimer = 0;
+    private boolean pigeonRushGrounded = false;
+    private boolean pigeonRushUltimate = false;
+    private final boolean[] pigeonRushHit = new boolean[4];
+    private int pigeonFlutterTimer = 0;
+    private boolean pigeonFlutterUltimate = false;
+    private final boolean[] pigeonFlutterHit = new boolean[4];
+    private int pigeonScavengeTimer = 0;
+    private boolean pigeonScavengeAirborne = false;
+    private boolean pigeonScavengeUltimate = false;
+    private boolean pigeonScavengeResolved = false;
+    private boolean pigeonUpSpecialUsed = false;
 
     // === NECTAR BOOST (Jungle) ===
     public double speedBoostTimer = 0;
@@ -291,6 +313,14 @@ public class Bird {
     private static final double ROADRUNNER_SANDSTORM_FLY_LIFT = 1.1;
     private static final double ROADRUNNER_SANDSTORM_SPEED_SCALE = 1.38;
     private static final double ROADRUNNER_SANDSTORM_GUST_RADIUS = 340.0;
+    private static final int PIGEON_NEUTRAL_BURST_FRAMES = 12;
+    private static final int PIGEON_NEUTRAL_COOLDOWN_FRAMES = 34;
+    private static final int PIGEON_RUSH_GROUND_FRAMES = 20;
+    private static final int PIGEON_RUSH_AIR_FRAMES = 18;
+    private static final int PIGEON_FLUTTER_FRAMES = 15;
+    private static final int PIGEON_FLUTTER_ULTIMATE_FRAMES = 18;
+    private static final int PIGEON_SCAVENGE_GROUND_FRAMES = 162;
+    private static final int PIGEON_SCAVENGE_AIR_FRAMES = 14;
     private static final int MAX_ATTACK_CHARGE_FRAMES = 60;
     private static final int GROUND_SMASH_HOLD_THRESHOLD_FRAMES = 7;
     private static final double CHARGED_ATTACK_DAMAGE_BONUS = 0.35;
@@ -1335,11 +1365,13 @@ public class Bird {
         return health > 0
                 && !isBlocking
                 && !isDodging()
+                && !(type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive())
                 && jumpSquatTimer <= 0
                 && landingLagTimer <= 0
                 && knockdownTimer <= 0
                 && blockPressed()
                 && !shouldReserveBlockForAttack(false)
+                && !shouldReserveBlockForSpecial()
                 && stunTime <= 0.0
                 && blockCooldown <= 0
                 && shieldHealth > 0.0
@@ -1938,6 +1970,9 @@ public class Bird {
         if (health <= 0) {
             return;
         }
+        if (type == BirdGame3.BirdType.PIGEON && !canStartPigeonSpecial()) {
+            return;
+        }
         boolean ultimateReady = isUltimateReady();
         if (specialCooldown > 0 && !ultimateReady) {
             if (!game.isAI[playerIndex]) {
@@ -1976,7 +2011,7 @@ public class Bird {
         game.specialsUsed[playerIndex]++;
 
         switch (type) {
-            case PIGEON -> specialPigeon(ultimateTriggered);
+            case PIGEON -> specialPigeon(selectPigeonSpecialVariant(), ultimateTriggered);
             case EAGLE -> specialEagle(ultimateTriggered);
             case FALCON -> specialFalcon(ultimateTriggered);
             case PHOENIX -> specialPhoenix(ultimateTriggered);
@@ -1999,29 +2034,358 @@ public class Bird {
         }
     }
 
-    private void specialPigeon(boolean ultimate) {
-        int healAmount = ultimate ? 45 : 20;
-        heal(healAmount);
-        canDoubleJump = true;
-        if (ultimate) {
-            stunTime = 0;
-            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * 1.25);
-            speedTimer = Math.max(speedTimer, 200);
+    private void specialPigeon(PigeonSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialPigeonNeutral(ultimate);
+            case SIDE -> specialPigeonSide(ultimate);
+            case UP -> specialPigeonUp(ultimate);
+            case DOWN -> specialPigeonDown(ultimate);
         }
-        specialCooldown = 540;
-        specialMaxCooldown = 540;
-        String label = ultimate ? " ULT HEAL BURST! +" + healAmount + " HP + SPEED" : " HEAL BURST! +20 HP + DOUBLE JUMP";
-        game.addToKillFeed(shortName() + label);
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 16 : 12);
-        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 10 : 8);
-        int particleCount = scaledParticleCount(ultimate ? 70 : 40);
-        Color burstColor = ultimate ? Color.GOLD.deriveColor(0, 1, 1, 0.9) : Color.LIME.deriveColor(0, 1, 1, 0.8);
-        for (int i = 0; i < particleCount; i++) {
-            double angle = Math.random() * Math.PI * 2;
-            double speed = 3 + Math.random() * 8;
-            game.particles.add(new Particle(x + 40, y + 40,
-                    Math.cos(angle) * speed, Math.sin(angle) * speed - 4,
-                    burstColor));
+    }
+
+    private void specialPigeonNeutral(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir != 0) {
+            facingRight = dir > 0;
+        }
+        dir = facingDirection();
+        pigeonFeatherBurstTimer = PIGEON_NEUTRAL_BURST_FRAMES;
+        pigeonFeatherBurstUltimate = ultimate;
+        specialCooldown = PIGEON_NEUTRAL_COOLDOWN_FRAMES + (ultimate ? 6 : 0);
+        specialMaxCooldown = specialCooldown;
+        attackAnimationTimer = Math.max(attackAnimationTimer, pigeonFeatherBurstTimer);
+        vx *= 0.45;
+
+        double[] laneOffsets = {-20.0, 0.0, 20.0};
+        double[] laneReach = ultimate ? new double[]{116.0, 132.0, 116.0} : new double[]{102.0, 118.0, 102.0};
+        double centerX = bodyCenterX() + dir * bodyWidth() * 0.54;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - centerX;
+            if (dir > 0 && dx < -other.combatHalfWidth() * 0.2) continue;
+            if (dir < 0 && dx > other.combatHalfWidth() * 0.2) continue;
+
+            boolean hit = false;
+            for (int i = 0; i < laneOffsets.length; i++) {
+                double laneY = bodyCenterY() + laneOffsets[i] * sizeMultiplier;
+                double laneDx = Math.abs(dx);
+                double laneDy = Math.abs(other.bodyCenterY() - laneY);
+                if (laneDx > laneReach[i] * sizeMultiplier + other.combatHalfWidth()) continue;
+                if (laneDy > 18.0 * sizeMultiplier + other.combatHalfHeight()) continue;
+                hit = true;
+                break;
+            }
+            if (!hit) continue;
+
+            int dmg = ultimate ? 6 : 4;
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+
+            other.vx += dir * (ultimate ? 5.8 : 4.6);
+            other.vy -= ultimate ? 3.8 : 2.9;
+        }
+
+        for (int feather = 0; feather < 3; feather++) {
+            double laneY = bodyCenterY() + laneOffsets[feather] * sizeMultiplier;
+            for (int i = 0; i < 6; i++) {
+                double progress = i / 5.0;
+                double spread = (feather - 1) * 0.18;
+                double speed = 4.2 + progress * 6.0;
+                game.particles.add(new Particle(
+                        centerX + dir * (10 + progress * 56),
+                        laneY + Math.sin(progress * Math.PI) * 6 * spread,
+                        dir * speed,
+                        spread * 2.4 - 0.5,
+                        ultimate ? Color.GOLD.deriveColor(0, 1, 1, 0.86) : Color.WHITE.deriveColor(0, 1, 1, 0.78)
+                ));
+            }
+        }
+    }
+
+    private void specialPigeonSide(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        pigeonRushGrounded = isOnGround();
+        pigeonRushUltimate = ultimate;
+        pigeonRushTimer = pigeonRushGrounded ? PIGEON_RUSH_GROUND_FRAMES : PIGEON_RUSH_AIR_FRAMES;
+        Arrays.fill(pigeonRushHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, pigeonRushTimer);
+        vx = dir * pigeonRushSpeed();
+        if (!pigeonRushGrounded) {
+            vy = Math.min(vy, ultimate ? 0.8 : 1.4);
+        } else {
+            vy = Math.min(vy, 0.0);
+        }
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
+    }
+
+    private void specialPigeonUp(boolean ultimate) {
+        if (pigeonUpSpecialUsed) {
+            return;
+        }
+        int dir = horizontalInputDirection();
+        if (dir != 0) {
+            facingRight = dir > 0;
+        } else {
+            dir = facingDirection();
+        }
+        pigeonUpSpecialUsed = true;
+        pigeonFlutterUltimate = ultimate;
+        pigeonFlutterTimer = ultimate ? PIGEON_FLUTTER_ULTIMATE_FRAMES : PIGEON_FLUTTER_FRAMES;
+        Arrays.fill(pigeonFlutterHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, pigeonFlutterTimer);
+        canDoubleJump = false;
+        vx = dir * (ultimate ? 3.2 : 2.2);
+        vy = ultimate ? -16.4 : -14.6;
+        if (ultimate) {
+            game.triggerFlash(0.35, false);
+        }
+    }
+
+    private void specialPigeonDown(boolean ultimate) {
+        pigeonScavengeAirborne = !isOnGround();
+        pigeonScavengeUltimate = ultimate;
+        pigeonScavengeResolved = false;
+        pigeonScavengeTimer = pigeonScavengeAirborne ? PIGEON_SCAVENGE_AIR_FRAMES : PIGEON_SCAVENGE_GROUND_FRAMES;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, pigeonScavengeTimer);
+        vx *= pigeonScavengeAirborne ? 0.42 : 0.22;
+        if (pigeonScavengeAirborne) {
+            vy = Math.min(vy, ultimate ? 1.2 : 1.8);
+        } else {
+            vy = Math.min(vy, 0.0);
+        }
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
+        blockCooldown = 0;
+    }
+
+    private void handlePigeonSpecialState() {
+        if (type != BirdGame3.BirdType.PIGEON) {
+            return;
+        }
+        if (stunTime > 0.0) {
+            resetPigeonSpecialState();
+            return;
+        }
+        if (pigeonRushTimer > 0) {
+            handlePigeonRush();
+        }
+        if (pigeonFlutterTimer > 0) {
+            handlePigeonFlutter();
+        }
+        if (pigeonScavengeTimer > 0) {
+            handlePigeonScavenge();
+        }
+    }
+
+    private void handlePigeonRush() {
+        int dir = facingDirection();
+        double speed = pigeonRushSpeed();
+        vx = dir * speed;
+        if (!pigeonRushGrounded) {
+            vy = Math.min(vy, pigeonRushUltimate ? 1.4 : 1.9);
+        } else {
+            vy = Math.min(vy, 0.0);
+        }
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= pigeonRushHit.length) continue;
+            if (pigeonRushHit[other.playerIndex]) continue;
+
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
+            if (dir > 0 && dx < -other.combatHalfWidth() * 0.35) continue;
+            if (dir < 0 && dx > other.combatHalfWidth() * 0.35) continue;
+            if (Math.abs(dx) > 108 + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > 82 + other.combatHalfHeight()) continue;
+
+            int dmg = pigeonRushDamage();
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+
+            other.vx += dir * pigeonRushHorizontalLaunch();
+            other.vy -= pigeonRushVerticalLaunch();
+            pigeonRushHit[other.playerIndex] = true;
+
+            for (int i = 0; i < 14; i++) {
+                double angle = Math.random() * Math.PI * 2;
+                game.particles.add(new Particle(
+                        other.x + 40,
+                        other.y + 40,
+                        Math.cos(angle) * (4 + Math.random() * 6),
+                        Math.sin(angle) * (4 + Math.random() * 6) - 2.8,
+                        pigeonRushUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.82) : Color.web("#CFD8DC").deriveColor(0, 1, 1, 0.78)
+                ));
+            }
+        }
+
+        for (int i = 0; i < 3; i++) {
+            game.particles.add(new Particle(
+                    x + bodyWidth() * (dir > 0 ? 0.2 : 0.8),
+                    y + bodyHeight() * 0.78 + (Math.random() - 0.5) * 10,
+                    -dir * (1.6 + Math.random() * 2.4),
+                    -1.4 - Math.random() * 1.8,
+                    pigeonRushUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.8) : Color.LIGHTGRAY.deriveColor(0, 1, 1, 0.62)
+            ));
+        }
+    }
+
+    private void handlePigeonFlutter() {
+        int inputDir = horizontalInputDirection();
+        if (inputDir != 0) {
+            facingRight = inputDir > 0;
+        }
+        double steer = inputDir * (pigeonFlutterUltimate ? 0.9 : 0.72);
+        double maxHorizontal = pigeonFlutterUltimate ? 6.6 : 5.2;
+        vx = Math.clamp(vx * 0.84 + steer, -maxHorizontal, maxHorizontal);
+        double lift = pigeonFlutterTimer > (pigeonFlutterUltimate ? 8 : 6)
+                ? (pigeonFlutterUltimate ? -12.8 : -10.9)
+                : (pigeonFlutterUltimate ? -9.5 : -8.0);
+        vy = Math.min(vy, lift);
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= pigeonFlutterHit.length) continue;
+            if (pigeonFlutterHit[other.playerIndex]) continue;
+
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - (bodyCenterY() - bodyHeight() * 0.1);
+            if (Math.abs(dx) > 86 + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > 100 + other.combatHalfHeight()) continue;
+
+            int dmg = pigeonFlutterUltimate ? 9 : 6;
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+
+            double launchDir = dx == 0.0 ? facingDirection() : Math.signum(dx);
+            other.vx += launchDir * (pigeonFlutterUltimate ? 7.2 : 5.6);
+            other.vy -= pigeonFlutterUltimate ? 10.6 : 8.2;
+            pigeonFlutterHit[other.playerIndex] = true;
+        }
+
+        for (int i = 0; i < 4; i++) {
+            double angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
+            game.particles.add(new Particle(
+                    bodyCenterX() + (Math.random() - 0.5) * 26,
+                    bodyCenterY() + 18 + (Math.random() - 0.5) * 18,
+                    Math.cos(angle) * (2.4 + Math.random() * 3.2),
+                    Math.sin(angle) * (3.0 + Math.random() * 5.0),
+                    pigeonFlutterUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.85) : Color.web("#E3F2FD").deriveColor(0, 1, 1, 0.76)
+            ));
+        }
+    }
+
+    private void handlePigeonScavenge() {
+        if (pigeonScavengeAirborne && isOnGround()) {
+            pigeonScavengeAirborne = false;
+        }
+        if (!pigeonScavengeAirborne && !isOnGround()) {
+            resetPigeonSpecialState();
+            return;
+        }
+
+        if (pigeonScavengeAirborne) {
+            vx *= 0.72;
+            vy = Math.min(vy, pigeonScavengeUltimate ? 1.5 : 2.1);
+            if (!pigeonScavengeResolved && pigeonScavengeTimer <= 4) {
+                pigeonScavengeResolved = true;
+                double centerX = bodyCenterX();
+                double centerY = bodyBottomY() + 26;
+                for (Bird other : game.players) {
+                    if (!canDamageTarget(other)) continue;
+                    double dx = other.bodyCenterX() - centerX;
+                    double dy = other.bodyCenterY() - centerY;
+                    if (Math.abs(dx) > 68 + other.combatHalfWidth()) continue;
+                    if (Math.abs(dy) > 84 + other.combatHalfHeight()) continue;
+
+                    int dmg = pigeonScavengeUltimate ? 14 : 10;
+                    double oldHealth = other.health;
+                    int dealt = (int) applyDamageTo(other, dmg);
+                    if (dealt <= 0) continue;
+
+                    game.damageDealt[playerIndex] += dealt;
+                    game.recordSpecialImpact(playerIndex, dealt, true);
+                    if (other.health <= 0 && oldHealth > 0) {
+                        game.eliminations[playerIndex]++;
+                    }
+
+                    double launchDir = dx == 0.0 ? facingDirection() : Math.signum(dx);
+                    other.vx += launchDir * (pigeonScavengeUltimate ? 5.2 : 4.0);
+                    other.vy = Math.max(other.vy, pigeonScavengeUltimate ? 11.5 : 8.8);
+                }
+            }
+        } else {
+            vx *= 0.12;
+            if ((pigeonScavengeTimer & 1) == 0) {
+                for (int i = 0; i < 2; i++) {
+                    double dustDir = Math.random() - 0.5;
+                    game.particles.add(new Particle(
+                            bodyCenterX() + dustDir * 26,
+                            bodyBottomY() - 7 + Math.random() * 7,
+                            dustDir * (1.4 + Math.random() * 1.6),
+                            -1.0 - Math.random() * 1.5,
+                            Color.web("#8D6E63").deriveColor(0, 1, 1, 0.72)
+                    ));
+                }
+            }
+            if (!pigeonScavengeResolved && pigeonScavengeTimer <= 1) {
+                pigeonScavengeResolved = true;
+                heal(pigeonScavengeUltimate ? 10.0 : 6.0);
+                for (int i = 0; i < 16; i++) {
+                    double angle = Math.random() * Math.PI * 2;
+                    game.particles.add(new Particle(
+                            bodyCenterX() + Math.cos(angle) * (8 + Math.random() * 14),
+                            bodyBottomY() - 8 + Math.sin(angle) * (6 + Math.random() * 12),
+                            Math.cos(angle) * (1.8 + Math.random() * 2.2),
+                            Math.sin(angle) * (1.6 + Math.random() * 2.4) - 0.8,
+                            pigeonScavengeUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.84) : Color.web("#A5D6A7").deriveColor(0, 1, 1, 0.78)
+                    ));
+                }
+            }
+        }
+
+        for (int i = 0; i < 2; i++) {
+            game.particles.add(new Particle(
+                    bodyCenterX() + (Math.random() - 0.5) * 22,
+                    bodyBottomY() - (pigeonScavengeAirborne ? -8 : 0),
+                    (Math.random() - 0.5) * 1.6,
+                    -0.8 - Math.random() * 1.2,
+                    pigeonScavengeUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.78) : Color.web("#B0BEC5").deriveColor(0, 1, 1, 0.7)
+            ));
         }
     }
 
@@ -2738,6 +3102,10 @@ public class Bird {
         return game.isSpecialPressed(playerIndex);
     }
 
+    private boolean specialJustPressed() {
+        return specialPressed() && !specialHeldLastFrame;
+    }
+
     private boolean grabPressed() {
         return game.isGrabPressed(playerIndex);
     }
@@ -2746,8 +3114,10 @@ public class Bird {
         return game.isBlockPressed(playerIndex);
     }
 
-    private void rememberFrameInputs(boolean jumpHeld, boolean blockHeld, boolean grabHeld, boolean leftHeld, boolean rightHeld) {
+    private void rememberFrameInputs(boolean jumpHeld, boolean specialHeld, boolean blockHeld, boolean grabHeld,
+                                     boolean leftHeld, boolean rightHeld) {
         jumpHeldLastFrame = jumpHeld;
+        specialHeldLastFrame = specialHeld;
         blockHeldLastFrame = blockHeld;
         grabHeldLastFrame = grabHeld;
         leftHeldLastFrame = leftHeld;
@@ -2779,6 +3149,114 @@ public class Bird {
 
     boolean isDownHeld() {
         return blockPressed();
+    }
+
+    private int facingDirection() {
+        return facingRight ? 1 : -1;
+    }
+
+    private int horizontalInputDirection() {
+        if (leftPressed() == rightPressed()) {
+            return 0;
+        }
+        return leftPressed() ? -1 : 1;
+    }
+
+    private boolean pigeonSpecialActive() {
+        return pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0;
+    }
+
+    private double pigeonRushSpeed() {
+        if (pigeonRushGrounded) {
+            return pigeonRushUltimate ? 22.0 : 20.0;
+        }
+        return pigeonRushUltimate ? 19.4 : 17.8;
+    }
+
+    private int pigeonRushDamage() {
+        return pigeonRushUltimate ? 6 : 3;
+    }
+
+    private double pigeonRushHorizontalLaunch() {
+        return pigeonRushUltimate ? 9.0 : 7.0;
+    }
+
+    private double pigeonRushVerticalLaunch() {
+        return pigeonRushUltimate ? 11.8 : 9.2;
+    }
+
+    private boolean canConvertShieldIntoPigeonDownSpecial(PigeonSpecialVariant variant) {
+        return variant == PigeonSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+    }
+
+    private boolean canStartPigeonSpecial() {
+        PigeonSpecialVariant variant = selectPigeonSpecialVariant();
+        boolean neutralReady = variant != PigeonSpecialVariant.NEUTRAL || specialCooldown <= 0;
+        boolean shieldConversion = canConvertShieldIntoPigeonDownSpecial(variant);
+        return type == BirdGame3.BirdType.PIGEON
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && !pigeonSpecialActive()
+                && (variant != PigeonSpecialVariant.UP || !pigeonUpSpecialUsed)
+                && neutralReady;
+    }
+
+    private PigeonSpecialVariant selectPigeonSpecialVariant() {
+        if (jumpPressed()) {
+            return PigeonSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return PigeonSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return PigeonSpecialVariant.SIDE;
+        }
+        return PigeonSpecialVariant.NEUTRAL;
+    }
+
+    private boolean shouldReserveJumpForSpecial() {
+        return specialJustPressed()
+                && canStartPigeonSpecial()
+                && selectPigeonSpecialVariant() == PigeonSpecialVariant.UP
+                && !pigeonUpSpecialUsed;
+    }
+
+    private boolean shouldReserveBlockForSpecial() {
+        return specialJustPressed()
+                && canStartPigeonSpecial()
+                && selectPigeonSpecialVariant() == PigeonSpecialVariant.DOWN;
+    }
+
+    private void resetPigeonSpecialState() {
+        pigeonFeatherBurstTimer = 0;
+        pigeonFeatherBurstUltimate = false;
+        pigeonRushTimer = 0;
+        pigeonRushGrounded = false;
+        pigeonRushUltimate = false;
+        Arrays.fill(pigeonRushHit, false);
+        pigeonFlutterTimer = 0;
+        pigeonFlutterUltimate = false;
+        Arrays.fill(pigeonFlutterHit, false);
+        pigeonScavengeTimer = 0;
+        pigeonScavengeAirborne = false;
+        pigeonScavengeUltimate = false;
+        pigeonScavengeResolved = false;
+    }
+
+    private void interruptPigeonSpecialStateOnHit() {
+        if (type != BirdGame3.BirdType.PIGEON) {
+            return;
+        }
+        if (pigeonFeatherBurstTimer > 0 || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0) {
+            attackAnimationTimer = 0;
+        }
+        resetPigeonSpecialState();
     }
 
     private int aiJumpCooldown = 0;
@@ -3150,8 +3628,11 @@ public class Bird {
         if (!powerFocus && target != null && specialCooldown <= 0 && aiSpecialCooldown <= 0 &&
                 shouldUseSpecialAI(target, targetDist, onGround, lowHealth) &&
                 random.nextDouble() < (0.25 + 0.75 * skill)) {
+            if (type == BirdGame3.BirdType.PIGEON && onGround && lowHealth && targetDist > 110) {
+                game.setAiControlKey(playerIndex, blockKey(), true);
+            }
             game.setAiControlKey(playerIndex, specialKey(), true);
-            aiSpecialCooldown = 26;
+            aiSpecialCooldown = type == BirdGame3.BirdType.PIGEON ? 16 : 26;
         }
 
         if (!powerFocus && tauntCooldown <= 0 && target != null && currentDurability > 80
@@ -3817,7 +4298,9 @@ public class Bird {
         return switch (type) {
             case PENGUIN -> offstage && (offstageDistance > 14.0 || depth > 10.0 || movingAway || vy > 1.2)
                     || depth > 55.0;
-            case PIGEON -> !canDoubleJump && (depth > 48.0 || (offstage && (offstageDistance > 10.0 || movingAway || vy > 2.2)));
+            case PIGEON -> !pigeonUpSpecialUsed
+                    && (depth > 82.0
+                    || (!canDoubleJump && (depth > 48.0 || (offstage && (offstageDistance > 10.0 || movingAway || vy > 2.2)))));
             default -> false;
         };
     }
@@ -3924,6 +4407,7 @@ public class Bird {
         switch (type) {
             case PIGEON -> {
                 if (canDoubleJump) reach += 115.0;
+                if (!pigeonUpSpecialUsed) reach += 150.0;
             }
             case PENGUIN -> {
                 if (specialCooldown <= 0) reach += 210.0;
@@ -4204,9 +4688,11 @@ public class Bird {
         boolean leftHeld = leftPressed();
         boolean rightHeld = rightPressed();
         boolean jumpHeld = jumpPressed();
+        boolean specialHeld = specialPressed();
         boolean grabHeld = grabPressed();
         boolean blockHeld = blockPressed();
-        boolean jumpJustPressed = jumpHeld && !jumpHeldLastFrame;
+        boolean reserveJumpForSpecial = !stunned && shouldReserveJumpForSpecial();
+        boolean jumpJustPressed = jumpHeld && !jumpHeldLastFrame && !reserveJumpForSpecial;
         boolean grabJustPressed = grabHeld && !grabHeldLastFrame;
         boolean leftJustPressed = leftHeld && !leftHeldLastFrame;
         boolean rightJustPressed = rightHeld && !rightHeldLastFrame;
@@ -4214,9 +4700,14 @@ public class Bird {
         boolean inDockWater = isInDockWater();
         boolean inWindNow = isInWindVent(x, y);
         boolean inUpdraft = inWindNow || thermalTimer > 0;
+        boolean reserveBlockForSpecial = !stunned && shouldReserveBlockForSpecial();
         boolean reserveBlockForAttack = !stunned && shouldReserveBlockForAttack(airborne);
-        boolean defensiveBlockHeld = blockHeld && !reserveBlockForAttack;
+        boolean defensiveBlockHeld = blockHeld && !reserveBlockForAttack && !reserveBlockForSpecial;
         boolean blockJustPressed = defensiveBlockHeld && !blockHeldLastFrame;
+
+        if (type == BirdGame3.BirdType.PIGEON && (isOnGround() || ledgeHanging || batHanging || onVine || inDockWater)) {
+            pigeonUpSpecialUsed = false;
+        }
 
         if (airborne && landingLagTimer > 0) {
             landingLagTimer = 0;
@@ -4234,27 +4725,28 @@ public class Bird {
         if (stunned) {
             cancelAttackCharge();
             attackHeldLastFrame = attackPressed();
+            resetPigeonSpecialState();
         }
 
         if (handleGrabbedState()) {
-            rememberFrameInputs(jumpHeld, blockHeld, grabHeld, leftHeld, rightHeld);
+            rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
             if (tauntTimer > 0) tauntTimer--;
             return;
         }
         if (handleHoldingGrabState(stunned, inDockWater)) {
-            rememberFrameInputs(jumpHeld, blockHeld, grabHeld, leftHeld, rightHeld);
+            rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
             if (tauntTimer > 0) tauntTimer--;
             return;
         }
 
         if (type == BirdGame3.BirdType.BAT && handleBatHanging(stunned)) {
-            rememberFrameInputs(jumpHeld, blockHeld, grabHeld, leftHeld, rightHeld);
+            rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
             handleTaunts();
             if (tauntTimer > 0) tauntTimer--;
             return;
         }
         if (handleLedgeHanging(stunned)) {
-            rememberFrameInputs(jumpHeld, blockHeld, grabHeld, leftHeld, rightHeld);
+            rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
             handleTaunts();
             if (tauntTimer > 0) tauntTimer--;
             return;
@@ -4299,7 +4791,8 @@ public class Bird {
         }
 
         // === FLY/GLIDE ===
-        if (!stunned && jumpPressed() && airborne && !inDockWater) {
+        if (!stunned && jumpPressed() && airborne && !inDockWater
+                && !(type == BirdGame3.BirdType.PIGEON && pigeonFlutterTimer > 0)) {
             double flyLift = currentFlyUpForce();
             boolean limitedFlight = hasLimitedFlight();
             boolean thermalActive = thermalTimer > 0;
@@ -4362,6 +4855,7 @@ public class Bird {
             vx += dir * 0.7;
             if (Math.abs(vx) > 28) vx = Math.signum(vx) * 28;
         }
+        handlePigeonSpecialState();
 
         // === RAZORBILL DASH ===
         handleRazorbillBladeStorm();
@@ -4383,7 +4877,7 @@ public class Bird {
         emitRoadrunnerDust();
         handleRoadrunnerSandstorm();
         if (tryGrabUniversalLedge(prevX, inDockWater)) {
-            rememberFrameInputs(jumpHeld, blockHeld, grabHeld, leftHeld, rightHeld);
+            rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
             handleTaunts();
             if (tauntTimer > 0) tauntTimer--;
             return;
@@ -4418,7 +4912,7 @@ public class Bird {
         handleTaunts();
 
         if (tauntTimer > 0) tauntTimer--;
-        rememberFrameInputs(jumpHeld, blockHeld, grabHeld, leftHeld, rightHeld);
+        rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
     }
 
     private void updateDefeatedState(double gameSpeed) {
@@ -4473,6 +4967,10 @@ public class Bird {
         ultimateFxTimer = Math.max(0, (int)(ultimateFxTimer - gameSpeed));
         roadrunnerSandstormTimer = Math.max(0, (int)(roadrunnerSandstormTimer - gameSpeed));
         roadrunnerSandGustTimer = Math.max(0, (int)(roadrunnerSandGustTimer - gameSpeed));
+        pigeonFeatherBurstTimer = Math.max(0, (int)(pigeonFeatherBurstTimer - gameSpeed));
+        pigeonRushTimer = Math.max(0, (int)(pigeonRushTimer - gameSpeed));
+        pigeonFlutterTimer = Math.max(0, (int)(pigeonFlutterTimer - gameSpeed));
+        pigeonScavengeTimer = Math.max(0, (int)(pigeonScavengeTimer - gameSpeed));
         speedBoostTimer = Math.max(0, (int)(speedBoostTimer - gameSpeed));
         hoverRegenTimer = Math.max(0, (int)(hoverRegenTimer - gameSpeed));
         penguinIceFxTimer = Math.max(0, penguinIceFxTimer - gameSpeed);
@@ -4487,6 +4985,23 @@ public class Bird {
         }
         for (int i = 0; i < roadrunnerSandHitCooldown.length; i++) {
             roadrunnerSandHitCooldown[i] = Math.max(0, (int)(roadrunnerSandHitCooldown[i] - gameSpeed));
+        }
+        if (pigeonFeatherBurstTimer == 0) {
+            pigeonFeatherBurstUltimate = false;
+        }
+        if (pigeonRushTimer == 0) {
+            pigeonRushGrounded = false;
+            pigeonRushUltimate = false;
+            Arrays.fill(pigeonRushHit, false);
+        }
+        if (pigeonFlutterTimer == 0) {
+            pigeonFlutterUltimate = false;
+            Arrays.fill(pigeonFlutterHit, false);
+        }
+        if (pigeonScavengeTimer == 0) {
+            pigeonScavengeAirborne = false;
+            pigeonScavengeUltimate = false;
+            pigeonScavengeResolved = false;
         }
         nullRockInvincibilityTimer = Math.max(0, (int) (nullRockInvincibilityTimer - gameSpeed));
         nullRockShieldFxCooldown = Math.max(0, (int) (nullRockShieldFxCooldown - gameSpeed));
@@ -4821,6 +5336,9 @@ public class Bird {
                                   boolean blockJustPressed, boolean grabJustPressed,
                                   boolean leftPressed, boolean rightPressed,
                                   boolean leftJustPressed, boolean rightJustPressed) {
+        if (type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive()) {
+            return;
+        }
         if (stunned || inDockWater || health <= 0 || dodgeCooldown > 0 || isDodging()
                 || landingLagTimer > 0 || knockdownTimer > 0) {
             return;
@@ -4891,6 +5409,7 @@ public class Bird {
         boolean justPressed = blockHeld && !blockHeldLastFrame;
         boolean canShield = wantsShield
                 && !stunned
+                && !(type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive())
                 && blockCooldown <= 0
                 && shieldHealth > 0.0
                 && !isDodging()
@@ -4931,7 +5450,7 @@ public class Bird {
             grappleUses = 0;
         }
 
-        if (grappleUses > 0 && specialPressed() && !isOnGround() && !onVine && !isGrappling && specialCooldown <= 0) {
+        if (grappleUses > 0 && specialJustPressed() && !isOnGround() && !onVine && !isGrappling && specialCooldown <= 0) {
             GrappleVineAnchor anchor = findGrappleVineAnchor();
             if (anchor != null) {
                 SwingingVine vine = new SwingingVine(anchor.anchorX(), anchor.anchorY(), anchor.length());
@@ -5273,7 +5792,7 @@ public class Bird {
             if (attackLocked) {
                 vx *= 0.42;
             }
-            if (!attackLocked && specialPressed() && specialCooldown <= 0 && !isBlocking) {
+            if (!attackLocked && specialJustPressed() && specialCooldown <= 0 && !isBlocking) {
                 special();
             }
             return true;
@@ -5344,6 +5863,10 @@ public class Bird {
             }
             if (!airborne && landingLagTimer > 0) {
                 vx *= 0.76;
+                return;
+            }
+            if (type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive()) {
+                vx *= airborne ? 0.96 : 0.82;
                 return;
             }
 
@@ -5436,10 +5959,10 @@ public class Bird {
                 }
             }
 
-            if (!attackLocked && !grabLocked && !shielding && !jumpSquatting && specialPressed()) {
-                if (grappleUses == 0 && specialCooldown <= 0 && !isBlocking) {
+            if (!attackLocked && !grabLocked && !shielding && !jumpSquatting && specialJustPressed()) {
+                if (grappleUses == 0 && (type == BirdGame3.BirdType.PIGEON ? canStartPigeonSpecial() : specialCooldown <= 0) && !isBlocking) {
                     special();
-                } else if (!game.isAI[playerIndex] && specialCooldown > 0) {
+                } else if (!game.isAI[playerIndex] && specialCooldown > 0 && type != BirdGame3.BirdType.PIGEON) {
                     cooldownFlash = 15;
                 }
             }
@@ -5910,6 +6433,7 @@ public class Bird {
         }
         interruptGrabStateOnHit();
         interruptLedgeHangOnHit();
+        interruptPigeonSpecialStateOnHit();
         if (game.usesSmashCombatRules()) {
             smashDamage += scaledDamage;
             return scaledDamage;
@@ -6927,6 +7451,7 @@ public class Bird {
         resetDodgeState();
         clearJumpSquat();
         jumpHeldLastFrame = false;
+        specialHeldLastFrame = false;
         blockHeldLastFrame = false;
         leftHeldLastFrame = false;
         rightHeldLastFrame = false;
@@ -6943,6 +7468,8 @@ public class Bird {
         cooldownFlash = 0;
         tauntTimer = 0;
         currentTaunt = 0;
+        resetPigeonSpecialState();
+        pigeonUpSpecialUsed = false;
         isGroundPounding = false;
         isZipping = false;
         zipTimer = 0;
@@ -7123,6 +7650,20 @@ public class Bird {
         state.roadrunnerSandstormTimer = roadrunnerSandstormTimer;
         state.roadrunnerSandGustTimer = roadrunnerSandGustTimer;
         System.arraycopy(roadrunnerSandHitCooldown, 0, state.roadrunnerSandHitCooldown, 0, roadrunnerSandHitCooldown.length);
+        state.pigeonFeatherBurstTimer = pigeonFeatherBurstTimer;
+        state.pigeonFeatherBurstUltimate = pigeonFeatherBurstUltimate;
+        state.pigeonRushTimer = pigeonRushTimer;
+        state.pigeonRushGrounded = pigeonRushGrounded;
+        state.pigeonRushUltimate = pigeonRushUltimate;
+        System.arraycopy(pigeonRushHit, 0, state.pigeonRushHit, 0, pigeonRushHit.length);
+        state.pigeonFlutterTimer = pigeonFlutterTimer;
+        state.pigeonFlutterUltimate = pigeonFlutterUltimate;
+        System.arraycopy(pigeonFlutterHit, 0, state.pigeonFlutterHit, 0, pigeonFlutterHit.length);
+        state.pigeonScavengeTimer = pigeonScavengeTimer;
+        state.pigeonScavengeAirborne = pigeonScavengeAirborne;
+        state.pigeonScavengeUltimate = pigeonScavengeUltimate;
+        state.pigeonScavengeResolved = pigeonScavengeResolved;
+        state.pigeonUpSpecialUsed = pigeonUpSpecialUsed;
         state.speedBoostTimer = speedBoostTimer;
         state.hoverRegenTimer = hoverRegenTimer;
         state.hoverRegenMultiplier = hoverRegenMultiplier;
@@ -7276,6 +7817,7 @@ public class Bird {
         this.knockdownTimer = state.knockdownTimer;
         this.attackHeldLastFrame = false;
         this.jumpHeldLastFrame = false;
+        this.specialHeldLastFrame = false;
         this.blockHeldLastFrame = false;
         this.grabHeldLastFrame = false;
         this.leftHeldLastFrame = false;
@@ -7313,6 +7855,28 @@ public class Bird {
         } else {
             Arrays.fill(this.roadrunnerSandHitCooldown, 0);
         }
+        this.pigeonFeatherBurstTimer = state.pigeonFeatherBurstTimer;
+        this.pigeonFeatherBurstUltimate = state.pigeonFeatherBurstUltimate;
+        this.pigeonRushTimer = state.pigeonRushTimer;
+        this.pigeonRushGrounded = state.pigeonRushGrounded;
+        this.pigeonRushUltimate = state.pigeonRushUltimate;
+        Arrays.fill(this.pigeonRushHit, false);
+        if (state.pigeonRushHit != null) {
+            System.arraycopy(state.pigeonRushHit, 0, this.pigeonRushHit, 0,
+                    Math.min(this.pigeonRushHit.length, state.pigeonRushHit.length));
+        }
+        this.pigeonFlutterTimer = state.pigeonFlutterTimer;
+        this.pigeonFlutterUltimate = state.pigeonFlutterUltimate;
+        Arrays.fill(this.pigeonFlutterHit, false);
+        if (state.pigeonFlutterHit != null) {
+            System.arraycopy(state.pigeonFlutterHit, 0, this.pigeonFlutterHit, 0,
+                    Math.min(this.pigeonFlutterHit.length, state.pigeonFlutterHit.length));
+        }
+        this.pigeonScavengeTimer = state.pigeonScavengeTimer;
+        this.pigeonScavengeAirborne = state.pigeonScavengeAirborne;
+        this.pigeonScavengeUltimate = state.pigeonScavengeUltimate;
+        this.pigeonScavengeResolved = state.pigeonScavengeResolved;
+        this.pigeonUpSpecialUsed = state.pigeonUpSpecialUsed;
         this.speedBoostTimer = state.speedBoostTimer;
         this.hoverRegenTimer = state.hoverRegenTimer;
         this.hoverRegenMultiplier = state.hoverRegenMultiplier;
@@ -7485,7 +8049,108 @@ public class Bird {
                 (System.currentTimeMillis() / 6.0) % 360.0, 110 + chargeRatio * 120, ArcType.OPEN);
     }
 
+    private boolean pigeonSpecialPoseActive() {
+        return type == BirdGame3.BirdType.PIGEON
+                && (pigeonFeatherBurstTimer > 0 || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0);
+    }
+
+    private double pigeonSpecialPhase(int timer, int totalFrames) {
+        if (timer <= 0 || totalFrames <= 0) {
+            return 0.0;
+        }
+        return Math.clamp(1.0 - ((timer - 1.0) / (double) totalFrames), 0.0, 1.0);
+    }
+
+    private AttackVisualPose currentPigeonSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (pigeonFlutterTimer > 0) {
+            double phase = pigeonSpecialPhase(pigeonFlutterTimer,
+                    pigeonFlutterUltimate ? PIGEON_FLUTTER_ULTIMATE_FRAMES : PIGEON_FLUTTER_FRAMES);
+            return new AttackVisualPose(
+                    dir * (1.5 + 1.5 * phase),
+                    -10.0 - 12.0 * phase,
+                    dir * (5.0 + 3.0 * phase),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.12),
+                    14.0 * phase,
+                    -18.0 - 5.0 * phase,
+                    12.0 * phase,
+                    1.08 + 0.04 * phase,
+                    -30.0 - 8.0 * phase,
+                    0.98,
+                    1.12 + 0.08 * phase
+            );
+        }
+        if (pigeonRushTimer > 0) {
+            double phase = pigeonSpecialPhase(pigeonRushTimer,
+                    pigeonRushGrounded ? PIGEON_RUSH_GROUND_FRAMES : PIGEON_RUSH_AIR_FRAMES);
+            return new AttackVisualPose(
+                    dir * (10.0 + 7.0 * phase),
+                    pigeonRushGrounded ? -2.0 - 2.0 * phase : -6.0 - 5.0 * phase,
+                    dir * (8.0 + 4.0 * phase),
+                    facingRight ? -0.14 : Math.PI + 0.14,
+                    16.0 + 6.0 * phase,
+                    -5.0 * phase,
+                    18.0 + 8.0 * phase,
+                    0.80,
+                    dir * (8.0 + 4.0 * phase),
+                    1.18 + 0.12 * phase,
+                    0.92
+            );
+        }
+        if (pigeonScavengeTimer > 0) {
+            double phase = pigeonSpecialPhase(pigeonScavengeTimer,
+                    pigeonScavengeAirborne ? PIGEON_SCAVENGE_AIR_FRAMES : PIGEON_SCAVENGE_GROUND_FRAMES);
+            if (pigeonScavengeAirborne) {
+                return new AttackVisualPose(
+                        dir * 2.0,
+                        8.0 + 10.0 * phase,
+                        dir * (3.0 + 2.0 * phase),
+                        normalizeAngleRadians(Math.PI / 2.0 - dir * 0.10),
+                        9.0 * phase,
+                        10.0 * phase,
+                        8.0 * phase,
+                        0.82,
+                        20.0 + 10.0 * phase,
+                        1.01,
+                        0.88
+                );
+            }
+            double digPulse = 0.5 + 0.5 * Math.sin((PIGEON_SCAVENGE_GROUND_FRAMES - pigeonScavengeTimer) * 0.55);
+            return new AttackVisualPose(
+                    dir * (1.5 + 1.5 * phase),
+                    8.0 + digPulse * 5.0,
+                    dir * (4.0 + 2.0 * phase),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.34),
+                    12.0 * phase,
+                    8.0 + digPulse * 4.0,
+                    9.0 * phase,
+                    0.72,
+                    dir * (5.0 + 3.0 * phase),
+                    1.08 + 0.04 * phase,
+                    0.82
+            );
+        }
+
+        double phase = pigeonSpecialPhase(pigeonFeatherBurstTimer, PIGEON_NEUTRAL_BURST_FRAMES);
+        return new AttackVisualPose(
+                dir * (5.0 + 3.0 * phase),
+                -1.5 * phase,
+                dir * (3.0 + 2.0 * phase),
+                facingRight ? 0.0 : Math.PI,
+                10.0 + 6.0 * phase,
+                -2.0 * phase,
+                11.0 + 5.0 * phase,
+                1.10,
+                dir * (3.0 + 2.0 * phase),
+                1.05 + 0.04 * phase,
+                0.98
+        );
+    }
+
     private NormalAttackVariant currentDisplayedAttackVariant() {
+        if (pigeonSpecialPoseActive()) {
+            return null;
+        }
         if (isGroundAttackPending()) {
             return pendingGroundAttackVariant;
         }
@@ -7524,6 +8189,9 @@ public class Bird {
     }
 
     private AttackVisualPose currentAttackVisualPose() {
+        if (pigeonSpecialPoseActive()) {
+            return currentPigeonSpecialPose();
+        }
         NormalAttackVariant variant = currentDisplayedAttackVariant();
         double dir = facingRight ? 1.0 : -1.0;
         if (variant == null) {
@@ -7617,6 +8285,109 @@ public class Bird {
 
     private HeadPose currentHeadPose() {
         return standardHeadPose(currentAttackVisualPose());
+    }
+
+    private void drawPigeonSpecialFx(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.PIGEON) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double centerX = x + drawSize * 0.5;
+        double centerY = y + drawSize * 0.5;
+        double dir = facingRight ? 1.0 : -1.0;
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        if (pigeonRushTimer > 0) {
+            double phase = pigeonSpecialPhase(pigeonRushTimer,
+                    pigeonRushGrounded ? PIGEON_RUSH_GROUND_FRAMES : PIGEON_RUSH_AIR_FRAMES);
+            double reach = (108.0 + phase * 44.0) * s;
+            g.setEffect(new Glow(0.5));
+            g.setStroke(Color.web("#CFD8DC").deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth(7.0 * s);
+            for (int i = -1; i <= 1; i++) {
+                double yOffset = i * 10.0 * s;
+                g.strokeLine(centerX - dir * 26.0 * s, centerY + yOffset + 6.0 * s,
+                        centerX + dir * reach, centerY + yOffset - 8.0 * s);
+            }
+            g.setStroke(Color.web("#90CAF9").deriveColor(0, 1, 1, 0.48));
+            g.setLineWidth(3.0 * s);
+            g.strokeArc(centerX + dir * (reach - 14.0 * s) - 32.0 * s, centerY - 26.0 * s,
+                    64.0 * s, 52.0 * s,
+                    facingRight ? -42 : 222, 84, ArcType.OPEN);
+            g.restore();
+            return;
+        }
+
+        if (pigeonFlutterTimer > 0) {
+            double phase = pigeonSpecialPhase(pigeonFlutterTimer,
+                    pigeonFlutterUltimate ? PIGEON_FLUTTER_ULTIMATE_FRAMES : PIGEON_FLUTTER_FRAMES);
+            double rise = (56.0 + phase * 34.0) * s;
+            g.setEffect(new Glow(0.56));
+            g.setStroke(Color.web("#E3F2FD").deriveColor(0, 1, 1, 0.78));
+            g.setLineWidth(5.0 * s);
+            g.strokeLine(centerX, centerY + 18.0 * s, centerX, centerY - rise);
+            g.setStroke(Color.web("#81D4FA").deriveColor(0, 1, 1, 0.52));
+            g.setLineWidth(9.0 * s);
+            g.strokeArc(centerX - 34.0 * s, centerY - rise * 0.80, 68.0 * s, rise * 0.92,
+                    204, 132, ArcType.OPEN);
+            g.strokeArc(centerX - 50.0 * s, centerY - rise * 0.56, 100.0 * s, rise * 0.74,
+                    212, 116, ArcType.OPEN);
+            g.restore();
+            return;
+        }
+
+        if (pigeonScavengeTimer > 0) {
+            double phase = pigeonSpecialPhase(pigeonScavengeTimer,
+                    pigeonScavengeAirborne ? PIGEON_SCAVENGE_AIR_FRAMES : PIGEON_SCAVENGE_GROUND_FRAMES);
+            g.setEffect(new Glow(0.32));
+            if (pigeonScavengeAirborne) {
+                double drop = (34.0 + phase * 42.0) * s;
+                g.setStroke(Color.web("#8D6E63").deriveColor(0, 1, 1, 0.72));
+                g.setLineWidth(6.0 * s);
+                g.strokeLine(centerX, centerY + 12.0 * s, centerX, centerY + drop);
+                g.setStroke(Color.web("#D7CCC8").deriveColor(0, 1, 1, 0.46));
+                g.setLineWidth(3.0 * s);
+                g.strokeLine(centerX - 16.0 * s, centerY + 18.0 * s, centerX, centerY + drop);
+                g.strokeLine(centerX + 16.0 * s, centerY + 18.0 * s, centerX, centerY + drop);
+            } else {
+                double groundY = bodyBottomY() - 4.0 * s;
+                double pulse = 0.5 + 0.5 * Math.sin((PIGEON_SCAVENGE_GROUND_FRAMES - pigeonScavengeTimer) * 0.55);
+                g.setStroke(Color.web("#8D6E63").deriveColor(0, 1, 1, 0.54 + 0.16 * pulse));
+                g.setLineWidth(5.0 * s);
+                g.strokeArc(centerX - 34.0 * s, groundY - 14.0 * s, 68.0 * s, 30.0 * s,
+                        198, 144, ArcType.OPEN);
+                g.setStroke(Color.web("#D7CCC8").deriveColor(0, 1, 1, 0.36 + 0.10 * pulse));
+                g.setLineWidth(2.4 * s);
+                g.strokeLine(centerX - 8.0 * s, groundY - 2.0 * s, centerX - 22.0 * s, groundY - 16.0 * s);
+                g.strokeLine(centerX + 2.0 * s, groundY - 1.0 * s, centerX + 18.0 * s, groundY - 13.0 * s);
+                g.strokeLine(centerX + 10.0 * s, groundY + 1.0 * s, centerX + 26.0 * s, groundY - 9.0 * s);
+            }
+            g.restore();
+            return;
+        }
+
+        if (pigeonFeatherBurstTimer > 0) {
+            double phase = pigeonSpecialPhase(pigeonFeatherBurstTimer, PIGEON_NEUTRAL_BURST_FRAMES);
+            double baseX = centerX + dir * 20.0 * s;
+            double travel = (26.0 + phase * 42.0) * s;
+            double[] laneOffsets = {-18.0, 0.0, 18.0};
+            g.setEffect(new Glow(0.4));
+            g.setStroke((pigeonFeatherBurstUltimate ? Color.GOLD : Color.WHITE).deriveColor(0, 1, 1, 0.82));
+            g.setLineWidth(3.0 * s);
+            for (int i = 0; i < laneOffsets.length; i++) {
+                double laneY = centerY + laneOffsets[i] * s;
+                double tipX = baseX + dir * (travel + i * 10.0 * s);
+                g.strokeLine(tipX - dir * 12.0 * s, laneY, tipX, laneY - 6.0 * s);
+                g.strokeLine(tipX - dir * 12.0 * s, laneY, tipX, laneY + 6.0 * s);
+                g.strokeLine(baseX - dir * 8.0 * s, laneY, tipX - dir * 5.0 * s, laneY);
+            }
+            g.restore();
+            return;
+        }
+
+        g.restore();
     }
 
     private void drawDirectionalAttackFx(GraphicsContext g, double drawSize) {
@@ -7780,6 +8551,7 @@ public class Bird {
         drawBeak(g, attackPose);
         drawPelican(g);
         g.restore();
+        drawPigeonSpecialFx(g, drawSize);
         drawDirectionalAttackFx(g, drawSize);
         drawStunEffect(g, drawSize);
         drawVineGrapple(g);
@@ -8914,6 +9686,9 @@ public class Bird {
     }
 
     private void drawSpecialCooldown(GraphicsContext g) {
+        if (type == BirdGame3.BirdType.PIGEON && specialCooldown > 0) {
+            return;
+        }
         if (specialCooldown > 0 && specialMaxCooldown > 0) {
             double ratio = (double) specialCooldown / specialMaxCooldown;
 

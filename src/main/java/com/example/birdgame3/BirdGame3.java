@@ -8763,7 +8763,7 @@ public class BirdGame3 extends Application {
     }
 
     public enum BirdType {
-        PIGEON("Pigeon", 7, 16, 3.9, Color.LIGHTGRAY, 0.80, "Double Jump + Heal Burst + Light Glide"),
+        PIGEON("Pigeon", 7, 16, 3.9, Color.LIGHTGRAY, 0.80, "Peck Burst + Rooftop Rush + Alley Flutter + Scavenge"),
         EAGLE("Eagle", 9, 19, 4.2, Color.DARKRED, 0.6, "Soar (Hold Jump) + Dive Bomb"),
         FALCON("Falcon", 10, 18, 4.4, Color.rgb(176, 95, 55), 0.64, "Echo of Eagle: precision dive + sweetspot damage"),
         PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Rebirth Blaze (heal + fireburst)"),
