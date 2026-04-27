@@ -177,6 +177,16 @@ class BirdGame3SettingsTest {
     }
 
     @Test
+    void stockPhotoEagleSkinShowsLegendaryRarityInFeatherpedia() throws Exception {
+        BirdGame3 game = new BirdGame3();
+
+        Method rarityMethod = BirdGame3.class.getDeclaredMethod("skinRarityLabel", String.class);
+        rarityMethod.setAccessible(true);
+
+        assertEquals("LEGENDARY", rarityMethod.invoke(game, "STOCK_PHOTO_EAGLE"));
+    }
+
+    @Test
     void reconcileAchievementUnlocksRestoresModeAndStoryMilestones() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.setAchievementProgressValue(BirdGame3Achievement.CROWN_UNBROKEN, 1);

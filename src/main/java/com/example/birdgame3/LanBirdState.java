@@ -137,6 +137,20 @@ class LanBirdState {
     boolean pigeonScavengeUltimate;
     boolean pigeonScavengeResolved;
     boolean pigeonUpSpecialUsed;
+    int raptorCryTimer;
+    boolean raptorCryUltimate;
+    int raptorRushTimer;
+    boolean raptorRushUltimate;
+    boolean raptorRushGrounded;
+    int raptorRushDirection;
+    boolean[] raptorRushHit = new boolean[4];
+    int raptorClimbTimer;
+    boolean raptorClimbUltimate;
+    int raptorClimbDirection;
+    boolean[] raptorClimbHit = new boolean[4];
+    int raptorCryReuseTimer;
+    int raptorRushReuseTimer;
+    boolean raptorUpSpecialUsed;
     double speedBoostTimer;
     double hoverRegenTimer;
     double hoverRegenMultiplier;
@@ -297,6 +311,24 @@ class LanBirdState {
         out.writeBoolean(pigeonScavengeUltimate);
         out.writeBoolean(pigeonScavengeResolved);
         out.writeBoolean(pigeonUpSpecialUsed);
+        out.writeInt(raptorCryTimer);
+        out.writeBoolean(raptorCryUltimate);
+        out.writeInt(raptorRushTimer);
+        out.writeBoolean(raptorRushUltimate);
+        out.writeBoolean(raptorRushGrounded);
+        out.writeInt(raptorRushDirection);
+        for (boolean hit : raptorRushHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(raptorClimbTimer);
+        out.writeBoolean(raptorClimbUltimate);
+        out.writeInt(raptorClimbDirection);
+        for (boolean hit : raptorClimbHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(raptorCryReuseTimer);
+        out.writeInt(raptorRushReuseTimer);
+        out.writeBoolean(raptorUpSpecialUsed);
         out.writeDouble(speedBoostTimer);
         out.writeDouble(hoverRegenTimer);
         out.writeDouble(hoverRegenMultiplier);
@@ -459,6 +491,24 @@ class LanBirdState {
         state.pigeonScavengeUltimate = in.readBoolean();
         state.pigeonScavengeResolved = in.readBoolean();
         state.pigeonUpSpecialUsed = in.readBoolean();
+        state.raptorCryTimer = in.readInt();
+        state.raptorCryUltimate = in.readBoolean();
+        state.raptorRushTimer = in.readInt();
+        state.raptorRushUltimate = in.readBoolean();
+        state.raptorRushGrounded = in.readBoolean();
+        state.raptorRushDirection = in.readInt();
+        for (int i = 0; i < state.raptorRushHit.length; i++) {
+            state.raptorRushHit[i] = in.readBoolean();
+        }
+        state.raptorClimbTimer = in.readInt();
+        state.raptorClimbUltimate = in.readBoolean();
+        state.raptorClimbDirection = in.readInt();
+        for (int i = 0; i < state.raptorClimbHit.length; i++) {
+            state.raptorClimbHit[i] = in.readBoolean();
+        }
+        state.raptorCryReuseTimer = in.readInt();
+        state.raptorRushReuseTimer = in.readInt();
+        state.raptorUpSpecialUsed = in.readBoolean();
         state.speedBoostTimer = in.readDouble();
         state.hoverRegenTimer = in.readDouble();
         state.hoverRegenMultiplier = in.readDouble();

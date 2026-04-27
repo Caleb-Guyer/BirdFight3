@@ -58,6 +58,13 @@ public class Bird {
         DOWN
     }
 
+    private enum RaptorSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record NormalAttackProfile(
             double horizontalReach,
             double verticalReach,
@@ -208,6 +215,7 @@ public class Bird {
     private int shieldStunFrames = 0;
     private int parryWindowFrames = 0;
     private double shieldHoldVisual = 0.0;
+    private AttackVisualPose displayPose = null;
     private DodgeType dodgeType = DodgeType.NONE;
     private int dodgeTimer = 0;
     private int dodgeInvulnerabilityTimer = 0;
@@ -266,6 +274,20 @@ public class Bird {
     private boolean pigeonScavengeUltimate = false;
     private boolean pigeonScavengeResolved = false;
     private boolean pigeonUpSpecialUsed = false;
+    private int raptorCryTimer = 0;
+    private boolean raptorCryUltimate = false;
+    private int raptorRushTimer = 0;
+    private boolean raptorRushUltimate = false;
+    private boolean raptorRushGrounded = false;
+    private int raptorRushDirection = 1;
+    private final boolean[] raptorRushHit = new boolean[4];
+    private int raptorClimbTimer = 0;
+    private boolean raptorClimbUltimate = false;
+    private int raptorClimbDirection = 1;
+    private final boolean[] raptorClimbHit = new boolean[4];
+    private int raptorCryReuseTimer = 0;
+    private int raptorRushReuseTimer = 0;
+    private boolean raptorUpSpecialUsed = false;
 
     // === NECTAR BOOST (Jungle) ===
     public double speedBoostTimer = 0;
@@ -321,6 +343,26 @@ public class Bird {
     private static final int PIGEON_FLUTTER_ULTIMATE_FRAMES = 18;
     private static final int PIGEON_SCAVENGE_GROUND_FRAMES = 162;
     private static final int PIGEON_SCAVENGE_AIR_FRAMES = 14;
+    private static final int EAGLE_CRY_FRAMES = 16;
+    private static final int EAGLE_CRY_ULTIMATE_FRAMES = 20;
+    private static final int FALCON_CRY_FRAMES = 13;
+    private static final int FALCON_CRY_ULTIMATE_FRAMES = 16;
+    private static final int EAGLE_RUSH_GROUND_FRAMES = 18;
+    private static final int EAGLE_RUSH_AIR_FRAMES = 16;
+    private static final int FALCON_RUSH_GROUND_FRAMES = 16;
+    private static final int FALCON_RUSH_AIR_FRAMES = 14;
+    private static final int EAGLE_CLIMB_FRAMES = 18;
+    private static final int EAGLE_CLIMB_ULTIMATE_FRAMES = 22;
+    private static final int FALCON_CLIMB_FRAMES = 15;
+    private static final int FALCON_CLIMB_ULTIMATE_FRAMES = 18;
+    private static final int EAGLE_DIVE_FRAMES = 120;
+    private static final int EAGLE_DIVE_ULTIMATE_FRAMES = 160;
+    private static final int FALCON_DIVE_FRAMES = 92;
+    private static final int FALCON_DIVE_ULTIMATE_FRAMES = 130;
+    private static final int EAGLE_DIVE_GROUND_STARTUP_FRAMES = 10;
+    private static final int EAGLE_DIVE_GROUND_ULTIMATE_STARTUP_FRAMES = 12;
+    private static final int FALCON_DIVE_GROUND_STARTUP_FRAMES = 8;
+    private static final int FALCON_DIVE_GROUND_ULTIMATE_STARTUP_FRAMES = 10;
     private static final int MAX_ATTACK_CHARGE_FRAMES = 60;
     private static final int GROUND_SMASH_HOLD_THRESHOLD_FRAMES = 7;
     private static final double CHARGED_ATTACK_DAMAGE_BONUS = 0.35;
@@ -374,6 +416,10 @@ public class Bird {
     private static final double SHIELD_HOLD_VISUAL_BUILD_PER_FRAME = 0.0085;
     private static final double SHIELD_HOLD_VISUAL_RELEASE_PER_FRAME = 0.05;
     private static final double SHIELD_HOLD_VISUAL_SHRINK = 0.26;
+    private static final double VISUAL_POSE_IDLE_BLEND_PER_FRAME = 0.24;
+    private static final double VISUAL_POSE_AIR_BLEND_PER_FRAME = 0.34;
+    private static final double VISUAL_POSE_ACTION_BLEND_PER_FRAME = 0.48;
+    private static final double VISUAL_POSE_DODGE_BLEND_PER_FRAME = 0.82;
     private static final int JUMP_SQUAT_FRAMES = 3;
     private static final double SHORT_HOP_MULTIPLIER = 0.65;
     private static final int AERIAL_LANDING_LAG_FRAMES = 7;
@@ -1366,6 +1412,7 @@ public class Bird {
                 && !isBlocking
                 && !isDodging()
                 && !(type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive())
+                && !(isRaptor() && raptorSpecialActive())
                 && jumpSquatTimer <= 0
                 && landingLagTimer <= 0
                 && knockdownTimer <= 0
@@ -1973,8 +2020,17 @@ public class Bird {
         if (type == BirdGame3.BirdType.PIGEON && !canStartPigeonSpecial()) {
             return;
         }
+        if (isRaptor()) {
+            RaptorSpecialVariant variant = selectRaptorSpecialVariant();
+            if (!canStartRaptorSpecialVariant(variant)) {
+                if (!game.isAI[playerIndex] && raptorSpecialOnReuseLockout(variant)) {
+                    cooldownFlash = 15;
+                }
+                return;
+            }
+        }
         boolean ultimateReady = isUltimateReady();
-        if (specialCooldown > 0 && !ultimateReady) {
+        if (!isRaptor() && specialCooldown > 0 && !ultimateReady) {
             if (!game.isAI[playerIndex]) {
                 this.cooldownFlash = 15;
             }
@@ -2012,8 +2068,7 @@ public class Bird {
 
         switch (type) {
             case PIGEON -> specialPigeon(selectPigeonSpecialVariant(), ultimateTriggered);
-            case EAGLE -> specialEagle(ultimateTriggered);
-            case FALCON -> specialFalcon(ultimateTriggered);
+            case EAGLE, FALCON -> specialRaptor(selectRaptorSpecialVariant(), ultimateTriggered);
             case PHOENIX -> specialPhoenix(ultimateTriggered);
             case HUMMINGBIRD -> specialHummingbird(ultimateTriggered);
             case TURKEY -> specialTurkey(ultimateTriggered);
@@ -2040,6 +2095,21 @@ public class Bird {
             case SIDE -> specialPigeonSide(ultimate);
             case UP -> specialPigeonUp(ultimate);
             case DOWN -> specialPigeonDown(ultimate);
+        }
+    }
+
+    private void specialRaptor(RaptorSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialRaptorNeutral(ultimate);
+            case SIDE -> specialRaptorSide(ultimate);
+            case UP -> specialRaptorUp(ultimate);
+            case DOWN -> {
+                if (type == BirdGame3.BirdType.EAGLE) {
+                    specialEagle(ultimate);
+                } else {
+                    specialFalcon(ultimate);
+                }
+            }
         }
     }
 
@@ -2194,6 +2264,171 @@ public class Bird {
         }
         if (pigeonScavengeTimer > 0) {
             handlePigeonScavenge();
+        }
+    }
+
+    private void handleRaptorSpecialState() {
+        if (!isRaptor()) {
+            return;
+        }
+        if (stunTime > 0.0) {
+            resetRaptorSpecialState();
+            return;
+        }
+        if (raptorCryTimer > 0) {
+            handleRaptorCry();
+        }
+        if (raptorRushTimer > 0) {
+            handleRaptorRush();
+        }
+        if (raptorClimbTimer > 0) {
+            handleRaptorClimb();
+        }
+    }
+
+    private void handleRaptorCry() {
+        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        vx *= eagle ? 0.84 : 0.9;
+        if (!isOnGround()) {
+            vy = Math.min(vy, eagle ? 1.6 : 1.1);
+        }
+
+        if ((raptorCryTimer & 1) != 0) {
+            return;
+        }
+
+        int dir = facingDirection();
+        Color particleColor = eagle ? Color.web("#F0C766") : Color.web("#FFB56E");
+        for (int i = 0; i < 2; i++) {
+            double spread = (Math.random() - 0.5) * (eagle ? 16.0 : 10.0);
+            game.particles.add(new Particle(
+                    bodyCenterX() + dir * (28 + Math.random() * 20),
+                    bodyCenterY() - 8 + spread,
+                    dir * (2.6 + Math.random() * 2.4),
+                    spread * 0.08,
+                    particleColor.deriveColor(0, 1, 1, 0.76)
+            ));
+        }
+    }
+
+    private void handleRaptorRush() {
+        int dir = raptorRushDirection == 0 ? facingDirection() : raptorRushDirection;
+        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        vx = dir * raptorRushSpeed();
+        if (raptorRushGrounded) {
+            vy = Math.min(vy, 0.0);
+        } else {
+            vy = Math.min(vy, eagle ? 1.2 : 0.8);
+        }
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= raptorRushHit.length) continue;
+            if (raptorRushHit[other.playerIndex]) continue;
+
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
+            double forward = dx * dir;
+            if (forward < -other.combatHalfWidth() * 0.35) continue;
+            if (forward > (eagle ? 122.0 : 98.0) * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > (eagle ? 78.0 : 60.0) * sizeMultiplier + other.combatHalfHeight()) continue;
+
+            boolean sweetspot = !eagle && forward > 72.0 * sizeMultiplier;
+            int dmg = eagle
+                    ? (raptorRushUltimate ? 13 : 10)
+                    : (sweetspot ? (raptorRushUltimate ? 11 : 9) : (raptorRushUltimate ? 8 : 7));
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+
+            other.vx += dir * (sweetspot ? 13.0 : eagle ? 10.8 : 8.8);
+            other.vy -= sweetspot ? 12.2 : eagle ? 9.4 : 8.6;
+            raptorRushHit[other.playerIndex] = true;
+
+            Color spark = sweetspot ? Color.web("#FFF0A6") : eagle ? Color.web("#E7B653") : Color.web("#FF9F68");
+            for (int i = 0; i < (sweetspot ? 18 : 12); i++) {
+                double angle = Math.random() * Math.PI * 2;
+                game.particles.add(new Particle(
+                        other.x + 40,
+                        other.y + 40,
+                        Math.cos(angle) * (3 + Math.random() * 5),
+                        Math.sin(angle) * (3 + Math.random() * 5) - 2,
+                        spark
+                ));
+            }
+        }
+    }
+
+    private void handleRaptorClimb() {
+        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        int inputDir = horizontalInputDirection();
+        if (inputDir != 0) {
+            raptorClimbDirection = inputDir;
+            facingRight = inputDir > 0;
+        }
+        double steer = eagle ? 0.36 : 0.58;
+        double maxHorizontal = eagle ? 5.6 : 7.8;
+        vx = Math.clamp(vx * (eagle ? 0.9 : 0.93) + inputDir * steer, -maxHorizontal, maxHorizontal);
+
+        int strongLiftFrames = eagle
+                ? (raptorClimbUltimate ? 10 : 8)
+                : (raptorClimbUltimate ? 8 : 6);
+        double lift = raptorClimbTimer > strongLiftFrames
+                ? (eagle
+                    ? (raptorClimbUltimate ? -13.8 : -12.2)
+                    : (raptorClimbUltimate ? -12.8 : -11.1))
+                : (eagle
+                    ? (raptorClimbUltimate ? -10.0 : -8.7)
+                    : (raptorClimbUltimate ? -8.7 : -7.5));
+        vy = Math.min(vy, lift);
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= raptorClimbHit.length) continue;
+            if (raptorClimbHit[other.playerIndex]) continue;
+
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - (bodyCenterY() - bodyHeight() * 0.16);
+            if (Math.abs(dx) > (eagle ? 88.0 : 74.0) * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > (eagle ? 108.0 : 90.0) * sizeMultiplier + other.combatHalfHeight()) continue;
+
+            double forward = dx * (raptorClimbDirection == 0 ? facingDirection() : raptorClimbDirection);
+            boolean sweetspot = !eagle && forward > 44.0 * sizeMultiplier;
+            int dmg = eagle
+                    ? (raptorClimbUltimate ? 10 : 8)
+                    : (sweetspot ? (raptorClimbUltimate ? 9 : 7) : (raptorClimbUltimate ? 8 : 6));
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+
+            double launchDir = dx == 0.0 ? (raptorClimbDirection == 0 ? facingDirection() : raptorClimbDirection) : Math.signum(dx);
+            other.vx += launchDir * (sweetspot ? 8.0 : eagle ? 6.2 : 5.6);
+            other.vy -= sweetspot ? 10.2 : eagle ? 8.8 : 7.8;
+            raptorClimbHit[other.playerIndex] = true;
+
+            Color spark = eagle ? Color.web("#F3D37D") : sweetspot ? Color.web("#FFF0A6") : Color.web("#FFB86F");
+            for (int i = 0; i < (sweetspot ? 16 : 10); i++) {
+                double angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.3;
+                game.particles.add(new Particle(
+                        other.x + 40,
+                        other.y + 40,
+                        Math.cos(angle) * (4 + Math.random() * 5),
+                        Math.sin(angle) * (7 + Math.random() * 7),
+                        spark
+                ));
+            }
         }
     }
 
@@ -2389,8 +2624,138 @@ public class Bird {
         }
     }
 
+    private void specialRaptorNeutral(boolean ultimate) {
+        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        int dir = horizontalInputDirection();
+        if (dir != 0) {
+            facingRight = dir > 0;
+        }
+        dir = facingDirection();
+
+        raptorCryUltimate = ultimate;
+        raptorCryTimer = eagle
+                ? (ultimate ? EAGLE_CRY_ULTIMATE_FRAMES : EAGLE_CRY_FRAMES)
+                : (ultimate ? FALCON_CRY_ULTIMATE_FRAMES : FALCON_CRY_FRAMES);
+        raptorCryReuseTimer = raptorCryReuseFrames(ultimate);
+        attackAnimationTimer = Math.max(attackAnimationTimer, raptorCryTimer);
+        vx *= eagle ? 0.36 : 0.52;
+        if (!isOnGround()) {
+            vy = Math.min(vy, eagle ? 1.4 : 0.9);
+        }
+
+        double centerX = bodyCenterX() + dir * bodyWidth() * 0.55;
+        double centerY = bodyCenterY() - 8.0 * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+
+            double dx = other.bodyCenterX() - centerX;
+            double forward = dx * dir;
+            if (forward < -other.combatHalfWidth() * 0.2) continue;
+
+            double dy = other.bodyCenterY() - centerY;
+            double reach = eagle ? (ultimate ? 170.0 : 152.0) : (ultimate ? 160.0 : 146.0);
+            if (forward > reach + other.combatHalfWidth()) continue;
+
+            double verticalAllowance = eagle
+                    ? 46.0 + Math.max(0.0, forward) * 0.28
+                    : 24.0 + Math.max(0.0, forward) * 0.16;
+            if (Math.abs(dy) > verticalAllowance * sizeMultiplier + other.combatHalfHeight()) continue;
+
+            boolean sweetspot = !eagle && forward > 92.0 * sizeMultiplier;
+            int dmg = eagle
+                    ? (ultimate ? 10 : 8)
+                    : (sweetspot ? (ultimate ? 10 : 8) : (ultimate ? 7 : 5));
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+
+            other.vx += dir * (sweetspot ? 8.4 : eagle ? 6.5 : 5.2);
+            other.vy -= sweetspot ? 6.4 : eagle ? 4.8 : 4.0;
+        }
+
+        Color primary = eagle ? Color.web("#E3B74E") : Color.web("#FF9E57");
+        Color secondary = eagle ? Color.web("#FFF4BC") : Color.web("#FFE0A5");
+        for (int ring = 0; ring < 3; ring++) {
+            double ringReach = 18 + ring * 28;
+            for (int i = 0; i < 8; i++) {
+                double spread = (i - 3.5) * (eagle ? 0.12 : 0.08);
+                game.particles.add(new Particle(
+                        centerX + dir * (ringReach + i * 6),
+                        centerY + spread * 26,
+                        dir * (2.8 + ring * 1.2 + i * 0.2),
+                        spread * (eagle ? 2.3 : 1.5),
+                        (ring & 1) == 0 ? primary.deriveColor(0, 1, 1, 0.82) : secondary.deriveColor(0, 1, 1, 0.72)
+                ));
+            }
+        }
+    }
+
+    private void specialRaptorSide(boolean ultimate) {
+        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        raptorRushDirection = dir;
+        raptorRushGrounded = isOnGround();
+        raptorRushUltimate = ultimate;
+        raptorRushTimer = eagle
+                ? (raptorRushGrounded ? EAGLE_RUSH_GROUND_FRAMES : EAGLE_RUSH_AIR_FRAMES)
+                : (raptorRushGrounded ? FALCON_RUSH_GROUND_FRAMES : FALCON_RUSH_AIR_FRAMES);
+        if (ultimate) {
+            raptorRushTimer += eagle ? 2 : 1;
+        }
+        Arrays.fill(raptorRushHit, false);
+        raptorRushReuseTimer = raptorRushReuseFrames(ultimate);
+        attackAnimationTimer = Math.max(attackAnimationTimer, raptorRushTimer);
+        vx = dir * raptorRushSpeed();
+        if (raptorRushGrounded) {
+            vy = Math.min(vy, 0.0);
+        } else {
+            vy = Math.min(vy, eagle ? 1.0 : 0.4);
+        }
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
+    }
+
+    private void specialRaptorUp(boolean ultimate) {
+        if (raptorUpSpecialUsed) {
+            return;
+        }
+        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        int dir = horizontalInputDirection();
+        if (dir != 0) {
+            facingRight = dir > 0;
+        } else {
+            dir = facingDirection();
+        }
+        raptorClimbDirection = dir;
+        raptorUpSpecialUsed = true;
+        raptorClimbUltimate = ultimate;
+        raptorClimbTimer = eagle
+                ? (ultimate ? EAGLE_CLIMB_ULTIMATE_FRAMES : EAGLE_CLIMB_FRAMES)
+                : (ultimate ? FALCON_CLIMB_ULTIMATE_FRAMES : FALCON_CLIMB_FRAMES);
+        Arrays.fill(raptorClimbHit, false);
+        attackAnimationTimer = Math.max(attackAnimationTimer, raptorClimbTimer);
+        canDoubleJump = false;
+        vx = dir * (eagle ? (ultimate ? 3.8 : 3.1) : (ultimate ? 6.3 : 5.5));
+        vy = eagle ? (ultimate ? -17.4 : -15.6) : (ultimate ? -16.2 : -14.2);
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
+    }
+
     private void specialEagle(boolean ultimate) {
-        diveTimer = ultimate ? 160 : 120;
+        boolean grounded = isOnGround();
+        diveTimer = ultimate ? EAGLE_DIVE_ULTIMATE_FRAMES : EAGLE_DIVE_FRAMES;
         specialCooldown = 780;
         specialMaxCooldown = 780;
         eagleDiveActive = true;
@@ -2422,13 +2787,24 @@ public class Bird {
             game.particles.add(new Particle(predictX + laneOffset * 60.0, BirdGame3.GROUND_Y - 20, 0, -5 - Math.random() * 8, Color.ORANGERED.brighter()));
         }
 
-        vy = isOnGround() ? (ultimate ? -12 : -8) : Math.max(vy, ultimate ? 18 : 14);
-        vx *= ultimate ? 0.82 : 0.7;
-        eagleDiveCountdown = 0;
+        if (grounded) {
+            vy = ultimate ? -12 : -8;
+            vx *= ultimate ? 0.45 : 0.35;
+            eagleDiveCountdown = ultimate ? EAGLE_DIVE_GROUND_ULTIMATE_STARTUP_FRAMES : EAGLE_DIVE_GROUND_STARTUP_FRAMES;
+        } else {
+            vy = Math.max(vy, ultimate ? 18 : 14);
+            vx *= ultimate ? 0.82 : 0.7;
+            eagleDiveCountdown = 0;
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, 16);
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
     }
 
     private void specialFalcon(boolean ultimate) {
-        diveTimer = ultimate ? 130 : 92;
+        boolean grounded = isOnGround();
+        diveTimer = ultimate ? FALCON_DIVE_ULTIMATE_FRAMES : FALCON_DIVE_FRAMES;
         specialCooldown = 660;
         specialMaxCooldown = 660;
         eagleDiveActive = true;
@@ -2453,9 +2829,19 @@ public class Bird {
             ));
         }
 
-        vy = isOnGround() ? (ultimate ? -9 : -6) : Math.max(vy, ultimate ? 17 : 13);
-        vx += (facingRight ? 1 : -1) * (ultimate ? 12 : 8);
-        eagleDiveCountdown = 0;
+        if (grounded) {
+            vy = ultimate ? -11 : -8;
+            vx *= ultimate ? 0.55 : 0.45;
+            eagleDiveCountdown = ultimate ? FALCON_DIVE_GROUND_ULTIMATE_STARTUP_FRAMES : FALCON_DIVE_GROUND_STARTUP_FRAMES;
+        } else {
+            vy = Math.max(vy, ultimate ? 17 : 13);
+            vx += (facingRight ? 1 : -1) * (ultimate ? 12 : 8);
+            eagleDiveCountdown = 0;
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
     }
 
     private void specialPhoenix(boolean ultimate) {
@@ -3162,8 +3548,16 @@ public class Bird {
         return leftPressed() ? -1 : 1;
     }
 
+    private boolean isRaptor() {
+        return type == BirdGame3.BirdType.EAGLE || type == BirdGame3.BirdType.FALCON;
+    }
+
     private boolean pigeonSpecialActive() {
         return pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0;
+    }
+
+    private boolean raptorSpecialActive() {
+        return raptorCryTimer > 0 || raptorRushTimer > 0 || raptorClimbTimer > 0 || eagleDiveActive || eagleAscentActive;
     }
 
     private double pigeonRushSpeed() {
@@ -3185,8 +3579,56 @@ public class Bird {
         return pigeonRushUltimate ? 11.8 : 9.2;
     }
 
+    private double raptorRushSpeed() {
+        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        if (eagle) {
+            if (raptorRushGrounded) {
+                return raptorRushUltimate ? 15.1 : 13.8;
+            }
+            return raptorRushUltimate ? 13.8 : 12.4;
+        }
+        if (raptorRushGrounded) {
+            return raptorRushUltimate ? 18.4 : 16.9;
+        }
+        return raptorRushUltimate ? 16.4 : 15.0;
+    }
+
+    private int raptorCryReuseFrames(boolean ultimate) {
+        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        return eagle ? (ultimate ? 60 : 52) : (ultimate ? 44 : 36);
+    }
+
+    private int raptorRushReuseFrames(boolean ultimate) {
+        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        return eagle ? (ultimate ? 58 : 48) : (ultimate ? 42 : 34);
+    }
+
+    private boolean raptorSpecialReady(RaptorSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> raptorCryReuseTimer <= 0;
+            case SIDE -> raptorRushReuseTimer <= 0;
+            case UP -> !raptorUpSpecialUsed;
+            case DOWN -> specialCooldown <= 0;
+        };
+    }
+
+    private boolean raptorSpecialOnReuseLockout(RaptorSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> raptorCryReuseTimer > 0;
+            case SIDE -> raptorRushReuseTimer > 0;
+            case UP -> raptorUpSpecialUsed;
+            case DOWN -> specialCooldown > 0;
+        };
+    }
+
     private boolean canConvertShieldIntoPigeonDownSpecial(PigeonSpecialVariant variant) {
         return variant == PigeonSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+    }
+
+    private boolean canConvertShieldIntoRaptorDownSpecial(RaptorSpecialVariant variant) {
+        return variant == RaptorSpecialVariant.DOWN
                 && isBlocking
                 && shieldStunFrames <= 0;
     }
@@ -3207,6 +3649,23 @@ public class Bird {
                 && neutralReady;
     }
 
+    private boolean canStartRaptorSpecial() {
+        return canStartRaptorSpecialVariant(selectRaptorSpecialVariant());
+    }
+
+    private boolean canStartRaptorSpecialVariant(RaptorSpecialVariant variant) {
+        boolean shieldConversion = canConvertShieldIntoRaptorDownSpecial(variant);
+        return isRaptor()
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && !raptorSpecialActive()
+                && raptorSpecialReady(variant);
+    }
+
     private PigeonSpecialVariant selectPigeonSpecialVariant() {
         if (jumpPressed()) {
             return PigeonSpecialVariant.UP;
@@ -3220,17 +3679,49 @@ public class Bird {
         return PigeonSpecialVariant.NEUTRAL;
     }
 
+    private RaptorSpecialVariant selectRaptorSpecialVariant() {
+        if (jumpPressed()) {
+            return RaptorSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return RaptorSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return RaptorSpecialVariant.SIDE;
+        }
+        return RaptorSpecialVariant.NEUTRAL;
+    }
+
     private boolean shouldReserveJumpForSpecial() {
-        return specialJustPressed()
-                && canStartPigeonSpecial()
-                && selectPigeonSpecialVariant() == PigeonSpecialVariant.UP
-                && !pigeonUpSpecialUsed;
+        if (!specialJustPressed()) {
+            return false;
+        }
+        if (type == BirdGame3.BirdType.PIGEON) {
+            return canStartPigeonSpecial()
+                    && selectPigeonSpecialVariant() == PigeonSpecialVariant.UP
+                    && !pigeonUpSpecialUsed;
+        }
+        if (isRaptor()) {
+            return canStartRaptorSpecial()
+                    && selectRaptorSpecialVariant() == RaptorSpecialVariant.UP
+                    && !raptorUpSpecialUsed;
+        }
+        return false;
     }
 
     private boolean shouldReserveBlockForSpecial() {
-        return specialJustPressed()
-                && canStartPigeonSpecial()
-                && selectPigeonSpecialVariant() == PigeonSpecialVariant.DOWN;
+        if (!specialJustPressed()) {
+            return false;
+        }
+        if (type == BirdGame3.BirdType.PIGEON) {
+            return canStartPigeonSpecial()
+                    && selectPigeonSpecialVariant() == PigeonSpecialVariant.DOWN;
+        }
+        if (isRaptor()) {
+            return canStartRaptorSpecial()
+                    && selectRaptorSpecialVariant() == RaptorSpecialVariant.DOWN;
+        }
+        return false;
     }
 
     private void resetPigeonSpecialState() {
@@ -3249,6 +3740,26 @@ public class Bird {
         pigeonScavengeResolved = false;
     }
 
+    private void resetRaptorSpecialState() {
+        raptorCryTimer = 0;
+        raptorCryUltimate = false;
+        raptorRushTimer = 0;
+        raptorRushUltimate = false;
+        raptorRushGrounded = false;
+        raptorRushDirection = 1;
+        Arrays.fill(raptorRushHit, false);
+        raptorClimbTimer = 0;
+        raptorClimbUltimate = false;
+        raptorClimbDirection = 1;
+        Arrays.fill(raptorClimbHit, false);
+        eagleDiveActive = false;
+        eagleAscentActive = false;
+        eagleAscentFrames = 0;
+        Arrays.fill(eagleAscentHit, false);
+        eagleDiveCountdown = 0;
+        diveTimer = 0;
+    }
+
     private void interruptPigeonSpecialStateOnHit() {
         if (type != BirdGame3.BirdType.PIGEON) {
             return;
@@ -3257,6 +3768,16 @@ public class Bird {
             attackAnimationTimer = 0;
         }
         resetPigeonSpecialState();
+    }
+
+    private void interruptRaptorSpecialStateOnHit() {
+        if (!isRaptor()) {
+            return;
+        }
+        if (raptorSpecialActive()) {
+            attackAnimationTimer = 0;
+        }
+        resetRaptorSpecialState();
     }
 
     private int aiJumpCooldown = 0;
@@ -3625,7 +4146,9 @@ public class Bird {
         }
 
         // Special ability timing by bird role.
-        if (!powerFocus && target != null && specialCooldown <= 0 && aiSpecialCooldown <= 0 &&
+        if (!powerFocus && target != null
+                && (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0)
+                && aiSpecialCooldown <= 0 &&
                 shouldUseSpecialAI(target, targetDist, onGround, lowHealth) &&
                 random.nextDouble() < (0.25 + 0.75 * skill)) {
             if (type == BirdGame3.BirdType.PIGEON && onGround && lowHealth && targetDist > 110) {
@@ -4614,7 +5137,7 @@ public class Bird {
                 return attack;
             }
         }
-        if (!isOnGround() || diveTimer > 0 || eagleDiveActive || eagleAscentActive) {
+        if (!isOnGround() || raptorSpecialActive() || diveTimer > 0 || eagleDiveActive || eagleAscentActive) {
             Image flap = photoEagleFlapImage();
             if (flap != null) {
                 return flap;
@@ -4658,7 +5181,8 @@ public class Bird {
     }
 
     public void update(double gameSpeed) {
-        if (health > 0 && game.isAI[playerIndex]) aiControl();
+        try {
+            if (health > 0 && game.isAI[playerIndex]) aiControl();
 
         // === UPDATE TIMERS ===
         updateTimers(gameSpeed);
@@ -4708,6 +5232,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.PIGEON && (isOnGround() || ledgeHanging || batHanging || onVine || inDockWater)) {
             pigeonUpSpecialUsed = false;
         }
+        if (isRaptor() && isOnGround()) {
+            raptorUpSpecialUsed = false;
+        }
 
         if (airborne && landingLagTimer > 0) {
             landingLagTimer = 0;
@@ -4726,6 +5253,7 @@ public class Bird {
             cancelAttackCharge();
             attackHeldLastFrame = attackPressed();
             resetPigeonSpecialState();
+            resetRaptorSpecialState();
         }
 
         if (handleGrabbedState()) {
@@ -4792,7 +5320,8 @@ public class Bird {
 
         // === FLY/GLIDE ===
         if (!stunned && jumpPressed() && airborne && !inDockWater
-                && !(type == BirdGame3.BirdType.PIGEON && pigeonFlutterTimer > 0)) {
+                && !(type == BirdGame3.BirdType.PIGEON && pigeonFlutterTimer > 0)
+                && !(isRaptor() && raptorClimbTimer > 0)) {
             double flyLift = currentFlyUpForce();
             boolean limitedFlight = hasLimitedFlight();
             boolean thermalActive = thermalTimer > 0;
@@ -4856,6 +5385,7 @@ public class Bird {
             if (Math.abs(vx) > 28) vx = Math.signum(vx) * 28;
         }
         handlePigeonSpecialState();
+        handleRaptorSpecialState();
 
         // === RAZORBILL DASH ===
         handleRazorbillBladeStorm();
@@ -4911,8 +5441,11 @@ public class Bird {
         // === TAUNTS ===
         handleTaunts();
 
-        if (tauntTimer > 0) tauntTimer--;
-        rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
+            if (tauntTimer > 0) tauntTimer--;
+            rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
+        } finally {
+            updateDisplayPose(gameSpeed);
+        }
     }
 
     private void updateDefeatedState(double gameSpeed) {
@@ -4971,6 +5504,11 @@ public class Bird {
         pigeonRushTimer = Math.max(0, (int)(pigeonRushTimer - gameSpeed));
         pigeonFlutterTimer = Math.max(0, (int)(pigeonFlutterTimer - gameSpeed));
         pigeonScavengeTimer = Math.max(0, (int)(pigeonScavengeTimer - gameSpeed));
+        raptorCryTimer = Math.max(0, (int)(raptorCryTimer - gameSpeed));
+        raptorRushTimer = Math.max(0, (int)(raptorRushTimer - gameSpeed));
+        raptorClimbTimer = Math.max(0, (int)(raptorClimbTimer - gameSpeed));
+        raptorCryReuseTimer = Math.max(0, (int)(raptorCryReuseTimer - gameSpeed));
+        raptorRushReuseTimer = Math.max(0, (int)(raptorRushReuseTimer - gameSpeed));
         speedBoostTimer = Math.max(0, (int)(speedBoostTimer - gameSpeed));
         hoverRegenTimer = Math.max(0, (int)(hoverRegenTimer - gameSpeed));
         penguinIceFxTimer = Math.max(0, penguinIceFxTimer - gameSpeed);
@@ -5003,6 +5541,20 @@ public class Bird {
             pigeonScavengeUltimate = false;
             pigeonScavengeResolved = false;
         }
+        if (raptorCryTimer == 0) {
+            raptorCryUltimate = false;
+        }
+        if (raptorRushTimer == 0) {
+            raptorRushUltimate = false;
+            raptorRushGrounded = false;
+            raptorRushDirection = 1;
+            Arrays.fill(raptorRushHit, false);
+        }
+        if (raptorClimbTimer == 0) {
+            raptorClimbUltimate = false;
+            raptorClimbDirection = 1;
+            Arrays.fill(raptorClimbHit, false);
+        }
         nullRockInvincibilityTimer = Math.max(0, (int) (nullRockInvincibilityTimer - gameSpeed));
         nullRockShieldFxCooldown = Math.max(0, (int) (nullRockShieldFxCooldown - gameSpeed));
         if (recentSmashAttackerFrames > 0) {
@@ -5021,7 +5573,9 @@ public class Bird {
         if (attackCooldown > 0) attackCooldown = (int)Math.max(0, attackCooldown - gameSpeed);
         if (grabCooldown > 0) grabCooldown = (int)Math.max(0, grabCooldown - gameSpeed);
         if (landingLagTimer > 0) landingLagTimer = (int)Math.max(0, landingLagTimer - gameSpeed);
-        diveTimer = Math.max(0, (int)(diveTimer - gameSpeed));
+        if (!(eagleDiveActive && eagleDiveCountdown > 0 && !eagleAscentActive)) {
+            diveTimer = Math.max(0, (int)(diveTimer - gameSpeed));
+        }
         if (attackAnimationTimer > 0) {
             attackAnimationTimer = (int)Math.max(0, attackAnimationTimer - gameSpeed);
             if (attackAnimationTimer == 0) {
@@ -5336,7 +5890,8 @@ public class Bird {
                                   boolean blockJustPressed, boolean grabJustPressed,
                                   boolean leftPressed, boolean rightPressed,
                                   boolean leftJustPressed, boolean rightJustPressed) {
-        if (type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive()) {
+        if ((type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive())
+                || (isRaptor() && raptorSpecialActive())) {
             return;
         }
         if (stunned || inDockWater || health <= 0 || dodgeCooldown > 0 || isDodging()
@@ -5410,6 +5965,7 @@ public class Bird {
         boolean canShield = wantsShield
                 && !stunned
                 && !(type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive())
+                && !(isRaptor() && raptorSpecialActive())
                 && blockCooldown <= 0
                 && shieldHealth > 0.0
                 && !isDodging()
@@ -5792,7 +6348,9 @@ public class Bird {
             if (attackLocked) {
                 vx *= 0.42;
             }
-            if (!attackLocked && specialJustPressed() && specialCooldown <= 0 && !isBlocking) {
+            if (!attackLocked && specialJustPressed()
+                    && (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0)
+                    && !isBlocking) {
                 special();
             }
             return true;
@@ -5865,7 +6423,8 @@ public class Bird {
                 vx *= 0.76;
                 return;
             }
-            if (type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive()) {
+            if ((type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive())
+                    || (isRaptor() && raptorSpecialActive())) {
                 vx *= airborne ? 0.96 : 0.82;
                 return;
             }
@@ -5959,10 +6518,18 @@ public class Bird {
                 }
             }
 
-            if (!attackLocked && !grabLocked && !shielding && !jumpSquatting && specialJustPressed()) {
-                if (grappleUses == 0 && (type == BirdGame3.BirdType.PIGEON ? canStartPigeonSpecial() : specialCooldown <= 0) && !isBlocking) {
+            boolean canSpecialFromShield = type == BirdGame3.BirdType.PIGEON
+                    ? canConvertShieldIntoPigeonDownSpecial(selectPigeonSpecialVariant())
+                    : (isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant()));
+            boolean canStartSelectedSpecial = type == BirdGame3.BirdType.PIGEON
+                    ? canStartPigeonSpecial()
+                    : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
+            if (!attackLocked && !grabLocked && (!shielding || canSpecialFromShield) && !jumpSquatting && specialJustPressed()) {
+                if (grappleUses == 0 && canStartSelectedSpecial) {
                     special();
-                } else if (!game.isAI[playerIndex] && specialCooldown > 0 && type != BirdGame3.BirdType.PIGEON) {
+                } else if (!game.isAI[playerIndex]
+                        && ((isRaptor() && raptorSpecialOnReuseLockout(selectRaptorSpecialVariant()))
+                        || (specialCooldown > 0 && type != BirdGame3.BirdType.PIGEON))) {
                     cooldownFlash = 15;
                 }
             }
@@ -6078,6 +6645,7 @@ public class Bird {
     private void handleEagleDiveImpact() {
         if (type != BirdGame3.BirdType.EAGLE && type != BirdGame3.BirdType.FALCON) return;
         if (!eagleDiveActive) return;
+        if (eagleDiveCountdown > 0 && !eagleAscentActive) return;
 
         if (type == BirdGame3.BirdType.FALCON) {
             handleFalconDiveImpact();
@@ -6434,6 +7002,7 @@ public class Bird {
         interruptGrabStateOnHit();
         interruptLedgeHangOnHit();
         interruptPigeonSpecialStateOnHit();
+        interruptRaptorSpecialStateOnHit();
         if (game.usesSmashCombatRules()) {
             smashDamage += scaledDamage;
             return scaledDamage;
@@ -7448,6 +8017,7 @@ public class Bird {
         shieldStunFrames = 0;
         parryWindowFrames = 0;
         shieldHoldVisual = 0.0;
+        displayPose = null;
         resetDodgeState();
         clearJumpSquat();
         jumpHeldLastFrame = false;
@@ -7470,13 +8040,13 @@ public class Bird {
         currentTaunt = 0;
         resetPigeonSpecialState();
         pigeonUpSpecialUsed = false;
+        resetRaptorSpecialState();
+        raptorCryReuseTimer = 0;
+        raptorRushReuseTimer = 0;
+        raptorUpSpecialUsed = false;
         isGroundPounding = false;
         isZipping = false;
         zipTimer = 0;
-        eagleDiveActive = false;
-        eagleAscentActive = false;
-        eagleAscentFrames = 0;
-        Arrays.fill(eagleAscentHit, false);
         bladeStormFrames = 0;
         razorbillDashVX = 0.0;
         razorbillDashVY = 0.0;
@@ -7488,8 +8058,6 @@ public class Bird {
         Arrays.fill(hummingFrenzyHitCooldown, 0);
         phoenixAfterburnTimer = 0;
         Arrays.fill(phoenixAfterburnHitCooldown, 0);
-        eagleDiveCountdown = 0;
-        diveTimer = 0;
         leanTimer = 0;
         highTimer = 0;
         isHigh = false;
@@ -7664,6 +8232,20 @@ public class Bird {
         state.pigeonScavengeUltimate = pigeonScavengeUltimate;
         state.pigeonScavengeResolved = pigeonScavengeResolved;
         state.pigeonUpSpecialUsed = pigeonUpSpecialUsed;
+        state.raptorCryTimer = raptorCryTimer;
+        state.raptorCryUltimate = raptorCryUltimate;
+        state.raptorRushTimer = raptorRushTimer;
+        state.raptorRushUltimate = raptorRushUltimate;
+        state.raptorRushGrounded = raptorRushGrounded;
+        state.raptorRushDirection = raptorRushDirection;
+        System.arraycopy(raptorRushHit, 0, state.raptorRushHit, 0, raptorRushHit.length);
+        state.raptorClimbTimer = raptorClimbTimer;
+        state.raptorClimbUltimate = raptorClimbUltimate;
+        state.raptorClimbDirection = raptorClimbDirection;
+        System.arraycopy(raptorClimbHit, 0, state.raptorClimbHit, 0, raptorClimbHit.length);
+        state.raptorCryReuseTimer = raptorCryReuseTimer;
+        state.raptorRushReuseTimer = raptorRushReuseTimer;
+        state.raptorUpSpecialUsed = raptorUpSpecialUsed;
         state.speedBoostTimer = speedBoostTimer;
         state.hoverRegenTimer = hoverRegenTimer;
         state.hoverRegenMultiplier = hoverRegenMultiplier;
@@ -7877,6 +8459,28 @@ public class Bird {
         this.pigeonScavengeUltimate = state.pigeonScavengeUltimate;
         this.pigeonScavengeResolved = state.pigeonScavengeResolved;
         this.pigeonUpSpecialUsed = state.pigeonUpSpecialUsed;
+        this.raptorCryTimer = state.raptorCryTimer;
+        this.raptorCryUltimate = state.raptorCryUltimate;
+        this.raptorRushTimer = state.raptorRushTimer;
+        this.raptorRushUltimate = state.raptorRushUltimate;
+        this.raptorRushGrounded = state.raptorRushGrounded;
+        this.raptorRushDirection = state.raptorRushDirection == 0 ? 1 : state.raptorRushDirection;
+        Arrays.fill(this.raptorRushHit, false);
+        if (state.raptorRushHit != null) {
+            System.arraycopy(state.raptorRushHit, 0, this.raptorRushHit, 0,
+                    Math.min(this.raptorRushHit.length, state.raptorRushHit.length));
+        }
+        this.raptorClimbTimer = state.raptorClimbTimer;
+        this.raptorClimbUltimate = state.raptorClimbUltimate;
+        this.raptorClimbDirection = state.raptorClimbDirection == 0 ? 1 : state.raptorClimbDirection;
+        Arrays.fill(this.raptorClimbHit, false);
+        if (state.raptorClimbHit != null) {
+            System.arraycopy(state.raptorClimbHit, 0, this.raptorClimbHit, 0,
+                    Math.min(this.raptorClimbHit.length, state.raptorClimbHit.length));
+        }
+        this.raptorCryReuseTimer = state.raptorCryReuseTimer;
+        this.raptorRushReuseTimer = state.raptorRushReuseTimer;
+        this.raptorUpSpecialUsed = state.raptorUpSpecialUsed;
         this.speedBoostTimer = state.speedBoostTimer;
         this.hoverRegenTimer = state.hoverRegenTimer;
         this.hoverRegenMultiplier = state.hoverRegenMultiplier;
@@ -7897,6 +8501,7 @@ public class Bird {
         this.ultimateFxTimer = state.ultimateFxTimer;
         this.nullRockInvincibilityTimer = state.nullRockInvincibilityTimer;
         this.nullRockPhaseIndex = state.nullRockPhaseIndex;
+        updateDisplayPose(1.0);
     }
 
     double smashDamagePercent() {
@@ -8061,6 +8666,17 @@ public class Bird {
         return Math.clamp(1.0 - ((timer - 1.0) / (double) totalFrames), 0.0, 1.0);
     }
 
+    private boolean raptorSpecialPoseActive() {
+        return isRaptor() && (raptorCryTimer > 0 || raptorRushTimer > 0 || raptorClimbTimer > 0 || eagleDiveActive || eagleAscentActive);
+    }
+
+    private double raptorSpecialPhase(int timer, int totalFrames) {
+        if (timer <= 0 || totalFrames <= 0) {
+            return 0.0;
+        }
+        return Math.clamp(1.0 - ((timer - 1.0) / (double) totalFrames), 0.0, 1.0);
+    }
+
     private AttackVisualPose currentPigeonSpecialPose() {
         double dir = facingRight ? 1.0 : -1.0;
         if (pigeonFlutterTimer > 0) {
@@ -8147,8 +8763,136 @@ public class Bird {
         );
     }
 
+    private AttackVisualPose currentRaptorSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        if (eagleDiveActive || eagleAscentActive) {
+            if (eagleAscentActive) {
+                double phase = raptorSpecialPhase(eagleAscentFrames, 36);
+                return new AttackVisualPose(
+                        dir * (3.0 + 2.0 * phase),
+                        -14.0 - 10.0 * phase,
+                        dir * (6.0 + 4.0 * phase),
+                        normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.08),
+                        14.0 + 7.0 * phase,
+                        -18.0 - 6.0 * phase,
+                        12.0 + 7.0 * phase,
+                        1.0,
+                        -18.0 - 10.0 * phase,
+                        0.98,
+                        1.10 + 0.05 * phase
+                );
+            }
+            if (eagleDiveCountdown > 0) {
+                boolean diveUltimate = eagle ? diveTimer > EAGLE_DIVE_FRAMES : diveTimer > FALCON_DIVE_FRAMES;
+                int startupFrames = eagle
+                        ? (diveUltimate ? EAGLE_DIVE_GROUND_ULTIMATE_STARTUP_FRAMES : EAGLE_DIVE_GROUND_STARTUP_FRAMES)
+                        : (diveUltimate ? FALCON_DIVE_GROUND_ULTIMATE_STARTUP_FRAMES : FALCON_DIVE_GROUND_STARTUP_FRAMES);
+                double phase = raptorSpecialPhase(eagleDiveCountdown, startupFrames);
+                return new AttackVisualPose(
+                        dir * (2.0 + 2.0 * phase),
+                        -9.0 - 11.0 * phase,
+                        dir * (4.0 + 3.0 * phase),
+                        normalizeAngleRadians(-Math.PI / 2.0 + dir * (eagle ? 0.10 : 0.18)),
+                        12.0 + 5.0 * phase,
+                        -12.0 - 4.0 * phase,
+                        10.0 + 5.0 * phase,
+                        0.92,
+                        -12.0 - 8.0 * phase,
+                        0.98,
+                        1.08 + 0.04 * phase
+                );
+            }
+            double phase = raptorSpecialPhase(diveTimer, eagle ? EAGLE_DIVE_ULTIMATE_FRAMES : FALCON_DIVE_ULTIMATE_FRAMES);
+            if (!eagle) {
+                return new AttackVisualPose(
+                        dir * (10.0 + 8.0 * phase),
+                        4.0 + 12.0 * phase,
+                        dir * (18.0 + 10.0 * phase),
+                        normalizeAngleRadians(Math.PI / 2.0 - dir * (Math.PI / 4.0)),
+                        18.0 + 10.0 * phase,
+                        8.0 + 7.0 * phase,
+                        15.0 + 9.0 * phase,
+                        0.76,
+                        22.0 + 14.0 * phase,
+                        1.08 + 0.08 * phase,
+                        0.86
+                );
+            }
+            return new AttackVisualPose(
+                    dir * (9.0 + 7.0 * phase),
+                    6.0 + 16.0 * phase,
+                    dir * (8.0 + 5.0 * phase),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.16),
+                    16.0 + 8.0 * phase,
+                    11.0 + 8.0 * phase,
+                    14.0 + 9.0 * phase,
+                    0.74,
+                    18.0 + 12.0 * phase,
+                    1.06 + 0.08 * phase,
+                    0.84
+            );
+        }
+        if (raptorClimbTimer > 0) {
+            double phase = raptorSpecialPhase(raptorClimbTimer,
+                    eagle
+                            ? (raptorClimbUltimate ? EAGLE_CLIMB_ULTIMATE_FRAMES : EAGLE_CLIMB_FRAMES)
+                            : (raptorClimbUltimate ? FALCON_CLIMB_ULTIMATE_FRAMES : FALCON_CLIMB_FRAMES));
+            return new AttackVisualPose(
+                    dir * (2.0 + 2.0 * phase),
+                    -12.0 - 13.0 * phase,
+                    dir * (4.0 + 3.0 * phase),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * (eagle ? 0.09 : 0.18)),
+                    12.0 + 6.0 * phase,
+                    -16.0 - 4.0 * phase,
+                    10.0 + 6.0 * phase,
+                    0.92,
+                    -24.0 - 8.0 * phase,
+                    0.98,
+                    1.10 + 0.06 * phase
+            );
+        }
+        if (raptorRushTimer > 0) {
+            double phase = raptorSpecialPhase(raptorRushTimer,
+                    eagle
+                            ? (raptorRushGrounded ? EAGLE_RUSH_GROUND_FRAMES : EAGLE_RUSH_AIR_FRAMES)
+                            : (raptorRushGrounded ? FALCON_RUSH_GROUND_FRAMES : FALCON_RUSH_AIR_FRAMES));
+            return new AttackVisualPose(
+                    dir * (12.0 + 8.0 * phase),
+                    eagle ? -4.0 - 2.0 * phase : -7.0 - 5.0 * phase,
+                    dir * (8.0 + 5.0 * phase),
+                    facingRight ? -0.18 : Math.PI + 0.18,
+                    18.0 + 7.0 * phase,
+                    -4.0 * phase,
+                    16.0 + 9.0 * phase,
+                    0.78,
+                    dir * (10.0 + 5.0 * phase),
+                    1.15 + 0.08 * phase,
+                    0.90
+            );
+        }
+
+        double phase = raptorSpecialPhase(raptorCryTimer,
+                eagle
+                        ? (raptorCryUltimate ? EAGLE_CRY_ULTIMATE_FRAMES : EAGLE_CRY_FRAMES)
+                        : (raptorCryUltimate ? FALCON_CRY_ULTIMATE_FRAMES : FALCON_CRY_FRAMES));
+        return new AttackVisualPose(
+                dir * (4.0 + 3.0 * phase),
+                -3.0 - 2.0 * phase,
+                dir * (4.0 + 2.0 * phase),
+                facingRight ? 0.0 : Math.PI,
+                12.0 + 6.0 * phase,
+                -4.0 - 3.0 * phase,
+                12.0 + 6.0 * phase,
+                1.14 + 0.08 * phase,
+                dir * (4.0 + 3.0 * phase),
+                1.04 + 0.03 * phase,
+                1.0
+        );
+    }
+
     private NormalAttackVariant currentDisplayedAttackVariant() {
-        if (pigeonSpecialPoseActive()) {
+        if (pigeonSpecialPoseActive() || raptorSpecialPoseActive()) {
             return null;
         }
         if (isGroundAttackPending()) {
@@ -8174,6 +8918,77 @@ public class Bird {
         return normalized;
     }
 
+    private static double normalizeAngleDegrees(double angle) {
+        double normalized = angle;
+        while (normalized <= -180.0) {
+            normalized += 360.0;
+        }
+        while (normalized > 180.0) {
+            normalized -= 360.0;
+        }
+        return normalized;
+    }
+
+    private static double scaledBlendFactor(double perFrameBlend, double gameSpeed) {
+        return 1.0 - Math.pow(1.0 - Math.clamp(perFrameBlend, 0.0, 1.0), Math.max(0.0, gameSpeed));
+    }
+
+    private static double blendValue(double current, double target, double blend) {
+        return current + (target - current) * blend;
+    }
+
+    private static double blendDegrees(double current, double target, double blend) {
+        return current + normalizeAngleDegrees(target - current) * blend;
+    }
+
+    private static double blendRadians(double current, double target, double blend) {
+        return normalizeAngleRadians(current + normalizeAngleRadians(target - current) * blend);
+    }
+
+    private static AttackVisualPose blendAttackVisualPose(AttackVisualPose current, AttackVisualPose target, double blend) {
+        if (current == null || target == null) {
+            return target;
+        }
+        return new AttackVisualPose(
+                blendValue(current.translateX(), target.translateX(), blend),
+                blendValue(current.translateY(), target.translateY(), blend),
+                blendDegrees(current.bodyRotationDegrees(), target.bodyRotationDegrees(), blend),
+                blendRadians(current.aimAngleRadians(), target.aimAngleRadians(), blend),
+                blendValue(current.headReachBonus(), target.headReachBonus(), blend),
+                blendValue(current.headLift(), target.headLift(), blend),
+                blendValue(current.beakLengthBonus(), target.beakLengthBonus(), blend),
+                blendValue(current.beakOpenScale(), target.beakOpenScale(), blend),
+                blendValue(current.spriteRotationDegrees(), target.spriteRotationDegrees(), blend),
+                blendValue(current.spriteScaleX(), target.spriteScaleX(), blend),
+                blendValue(current.spriteScaleY(), target.spriteScaleY(), blend)
+        );
+    }
+
+    private double currentVisualPoseBlendPerFrame() {
+        if (isDodging()) {
+            return VISUAL_POSE_DODGE_BLEND_PER_FRAME;
+        }
+        if (stunTime > 0.0 || jumpSquatTimer > 0 || landingLagTimer > 0
+                || isChargingAttack() || attackAnimationTimer > 0 || aerialAttackActive
+                || pigeonSpecialPoseActive() || raptorSpecialPoseActive()) {
+            return VISUAL_POSE_ACTION_BLEND_PER_FRAME;
+        }
+        if (!isOnGround() && Math.abs(vy) > 4.0) {
+            return VISUAL_POSE_AIR_BLEND_PER_FRAME;
+        }
+        return VISUAL_POSE_IDLE_BLEND_PER_FRAME;
+    }
+
+    private void updateDisplayPose(double gameSpeed) {
+        AttackVisualPose targetPose = currentTargetAttackVisualPose();
+        if (displayPose == null || gameSpeed <= 0.0) {
+            displayPose = targetPose;
+            return;
+        }
+        double blend = scaledBlendFactor(currentVisualPoseBlendPerFrame(), gameSpeed);
+        displayPose = blendAttackVisualPose(displayPose, targetPose, blend);
+    }
+
     private double currentAttackVisualPhase() {
         if (isGroundAttackPending()) {
             return Math.clamp(pendingGroundAttackFrames / (double) GROUND_SMASH_HOLD_THRESHOLD_FRAMES, 0.12, 0.88);
@@ -8188,9 +9003,46 @@ public class Bird {
         return 0.0;
     }
 
-    private AttackVisualPose currentAttackVisualPose() {
+    private double dodgeVisualPhase(int timer, int totalFrames) {
+        if (timer <= 0 || totalFrames <= 0) {
+            return 0.0;
+        }
+        return Math.clamp(1.0 - ((timer - 1.0) / (double) totalFrames), 0.0, 1.0);
+    }
+
+    private AttackVisualPose currentDodgeVisualPose() {
+        if (dodgeType != DodgeType.ROLL || dodgeTimer <= 0) {
+            return null;
+        }
+        double dir = dodgeDirection == 0 ? (facingRight ? 1.0 : -1.0) : Math.signum(dodgeDirection);
+        double phase = dodgeVisualPhase(dodgeTimer, ROLL_DODGE_FRAMES);
+        double travelLift = -4.0 * Math.sin(phase * Math.PI);
+        double spinDegrees = dir * 540.0 * phase;
+        return new AttackVisualPose(
+                dir * 3.0 * Math.sin(phase * Math.PI),
+                travelLift,
+                spinDegrees,
+                facingRight ? 0.0 : Math.PI,
+                0.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.98,
+                0.95
+        );
+    }
+
+    private AttackVisualPose currentTargetAttackVisualPose() {
         if (pigeonSpecialPoseActive()) {
             return currentPigeonSpecialPose();
+        }
+        if (raptorSpecialPoseActive()) {
+            return currentRaptorSpecialPose();
+        }
+        AttackVisualPose dodgePose = currentDodgeVisualPose();
+        if (dodgePose != null) {
+            return dodgePose;
         }
         NormalAttackVariant variant = currentDisplayedAttackVariant();
         double dir = facingRight ? 1.0 : -1.0;
@@ -8250,6 +9102,13 @@ public class Bird {
                     13.0 * phase, 15.0 * phase, 12.0 * phase, 1.12 + 0.18 * phase,
                     34.0 * phase, 1.03 + 0.02 * phase, 0.92);
         };
+    }
+
+    private AttackVisualPose currentAttackVisualPose() {
+        if (displayPose == null) {
+            displayPose = currentTargetAttackVisualPose();
+        }
+        return displayPose;
     }
 
     private static void rotateAround(GraphicsContext g, double centerX, double centerY, double degrees) {
@@ -8527,7 +9386,6 @@ public class Bird {
         }
         if (!suppressSelectEffects) {
             drawEagleSoaring(g, airborne, drawSize);
-            drawEagleDive(g, drawSize);
         }
         drawRazorbillBladestorm(g, drawSize);
         drawDodgeAura(g, drawSize);
@@ -8552,6 +9410,7 @@ public class Bird {
         drawPelican(g);
         g.restore();
         drawPigeonSpecialFx(g, drawSize);
+        drawRaptorSpecialFx(g, drawSize);
         drawDirectionalAttackFx(g, drawSize);
         drawStunEffect(g, drawSize);
         drawVineGrapple(g);
@@ -9289,12 +10148,95 @@ public class Bird {
         }
     }
 
-    private void drawEagleDive(GraphicsContext g, double drawSize) {
+    private void drawRaptorSpecialFx(GraphicsContext g, double drawSize) {
+        if (!isRaptor()) {
+            return;
+        }
         boolean eagle = type == BirdGame3.BirdType.EAGLE;
         boolean skyKing = eagle && isClassicSkin;
         boolean falcon = type == BirdGame3.BirdType.FALCON;
         boolean duneFalcon = falcon && isDuneSkin;
-        if ((eagle || falcon) && diveTimer > 0) {
+        double s = sizeMultiplier;
+        double centerX = x + drawSize * 0.5;
+        double centerY = y + drawSize * 0.5;
+        Color primary = eagle ? Color.web("#D4A042") : Color.web("#FF9A62");
+        Color secondary = eagle ? Color.web("#FFF1A8") : Color.web("#FFE1A8");
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        if (raptorRushTimer > 0) {
+            double phase = raptorSpecialPhase(raptorRushTimer,
+                    eagle
+                            ? (raptorRushGrounded ? EAGLE_RUSH_GROUND_FRAMES : EAGLE_RUSH_AIR_FRAMES)
+                            : (raptorRushGrounded ? FALCON_RUSH_GROUND_FRAMES : FALCON_RUSH_AIR_FRAMES));
+            double dir = raptorRushDirection == 0 ? facingDirection() : raptorRushDirection;
+            double reach = (eagle ? 116.0 : 138.0) * s + phase * (eagle ? 32.0 : 42.0) * s;
+            g.setEffect(new Glow(eagle ? 0.38 : 0.52));
+            g.setStroke(primary.deriveColor(0, 1, 1, 0.78));
+            g.setLineWidth((eagle ? 7.0 : 6.0) * s);
+            for (int i = -1; i <= 1; i++) {
+                double yOffset = i * 11.0 * s;
+                g.strokeLine(centerX - dir * 26.0 * s, centerY + yOffset,
+                        centerX + dir * reach, centerY + yOffset - (eagle ? 10.0 : 18.0) * s);
+            }
+            g.setStroke(secondary.deriveColor(0, 1, 1, 0.65));
+            g.setLineWidth(3.2 * s);
+            g.strokeArc(centerX + dir * (reach - 34.0 * s) - 30.0 * s, centerY - 34.0 * s,
+                    60.0 * s, 68.0 * s, dir > 0 ? -48 : 228, 96, ArcType.OPEN);
+            g.strokeArc(centerX - dir * 8.0 * s - 42.0 * s, centerY - 28.0 * s,
+                    84.0 * s, 56.0 * s, dir > 0 ? -16 : 196, 74, ArcType.OPEN);
+            g.restore();
+            return;
+        }
+
+        if (raptorClimbTimer > 0) {
+            double phase = raptorSpecialPhase(raptorClimbTimer,
+                    eagle
+                            ? (raptorClimbUltimate ? EAGLE_CLIMB_ULTIMATE_FRAMES : EAGLE_CLIMB_FRAMES)
+                            : (raptorClimbUltimate ? FALCON_CLIMB_ULTIMATE_FRAMES : FALCON_CLIMB_FRAMES));
+            double rise = (eagle ? 78.0 : 66.0) * s + phase * (eagle ? 34.0 : 26.0) * s;
+            g.setEffect(new Glow(eagle ? 0.32 : 0.46));
+            g.setStroke(primary.deriveColor(0, 1, 1, 0.74));
+            g.setLineWidth((eagle ? 5.5 : 4.5) * s);
+            g.strokeLine(centerX, centerY + 18.0 * s, centerX, centerY - rise);
+            g.setStroke(secondary.deriveColor(0, 1, 1, 0.58));
+            g.setLineWidth(3.0 * s);
+            g.strokeArc(centerX - 34.0 * s, centerY - rise * 0.86, 68.0 * s, rise * 0.96,
+                    192, 156, ArcType.OPEN);
+            g.strokeArc(centerX - 22.0 * s, centerY - rise * 0.58, 44.0 * s, rise * 0.78,
+                    18, 152, ArcType.OPEN);
+            g.restore();
+            return;
+        }
+
+        if (raptorCryTimer > 0) {
+            double phase = raptorSpecialPhase(raptorCryTimer,
+                    eagle
+                            ? (raptorCryUltimate ? EAGLE_CRY_ULTIMATE_FRAMES : EAGLE_CRY_FRAMES)
+                            : (raptorCryUltimate ? FALCON_CRY_ULTIMATE_FRAMES : FALCON_CRY_FRAMES));
+            double dir = facingRight ? 1.0 : -1.0;
+            double originX = centerX + dir * 22.0 * s;
+            double originY = centerY - 8.0 * s;
+            g.setEffect(new Glow(eagle ? 0.28 : 0.42));
+            g.setStroke(primary.deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth((eagle ? 4.8 : 3.8) * s);
+            for (int i = 0; i < 3; i++) {
+                double width = (54.0 + i * 38.0 + phase * 16.0) * s;
+                double height = (28.0 + i * 18.0) * s;
+                g.strokeArc(originX + dir * (20.0 + i * 26.0) * s - width * 0.5,
+                        originY - height * 0.5, width, height,
+                        dir > 0 ? -34 : 214, eagle ? 68 : 56, ArcType.OPEN);
+            }
+            g.setStroke(secondary.deriveColor(0, 1, 1, 0.54));
+            g.setLineWidth(2.2 * s);
+            g.strokeLine(originX, originY - 6.0 * s, originX + dir * (92.0 + phase * 24.0) * s, originY - 16.0 * s);
+            g.strokeLine(originX, originY + 6.0 * s, originX + dir * (92.0 + phase * 24.0) * s, originY + 16.0 * s);
+            g.restore();
+            return;
+        }
+
+        if (diveTimer > 0 || eagleDiveActive || eagleAscentActive) {
             Color aura = eagle ? Color.web("#D32F2F") : Color.SADDLEBROWN;
             double pulse = 0.55 + 0.45 * Math.sin(diveTimer * 0.35);
             double auraSize = drawSize + 170 + pulse * 30;
@@ -9324,8 +10266,16 @@ public class Bird {
                         aura.brighter().deriveColor(0, 1, 1, 0.9)
                 ));
             }
+            if (eagleAscentActive) {
+                g.setStroke((eagle ? Color.GOLD : Color.web("#FFE082")).deriveColor(0, 1, 1, 0.82));
+                g.setLineWidth(6.0 * s);
+                for (int i = 0; i < 4; i++) {
+                    double offset = (i - 1.5) * 16.0 * s;
+                    g.strokeLine(centerX + offset, centerY + 18.0 * s, centerX + offset * 0.4, centerY - 76.0 * s);
+                }
+            }
         }
-        if ((skyKing || duneFalcon) && diveTimer > 0) {
+        if ((skyKing || duneFalcon) && (diveTimer > 0 || eagleDiveActive)) {
             Color core = skyKing ? Color.CRIMSON : Color.web("#FF7043");
             Color streakPrimary = skyKing ? Color.ORANGERED : Color.web("#FF8A65");
             Color streakSecondary = skyKing ? Color.YELLOW : Color.web("#FFE082");
@@ -9361,6 +10311,7 @@ public class Bird {
                 g.strokeLine(x + 40, y + 40, x + 40 + Math.cos(angle) * len, y + 40 + Math.sin(angle) * len);
             }
         }
+        g.restore();
     }
 
     private void drawRazorbillBladestorm(GraphicsContext g, double drawSize) {

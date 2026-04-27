@@ -8764,8 +8764,8 @@ public class BirdGame3 extends Application {
 
     public enum BirdType {
         PIGEON("Pigeon", 7, 16, 3.9, Color.LIGHTGRAY, 0.80, "Peck Burst + Rooftop Rush + Alley Flutter + Scavenge"),
-        EAGLE("Eagle", 9, 19, 4.2, Color.DARKRED, 0.6, "Soar (Hold Jump) + Dive Bomb"),
-        FALCON("Falcon", 10, 18, 4.4, Color.rgb(176, 95, 55), 0.64, "Echo of Eagle: precision dive + sweetspot damage"),
+        EAGLE("Eagle", 9, 19, 4.2, Color.DARKRED, 0.6, "Hunter's Cry / Talon Rush / Skyrise / Heavenfall"),
+        FALCON("Falcon", 10, 18, 4.4, Color.rgb(176, 95, 55), 0.64, "Echo of Eagle: Target Snap / Razor Rush / Jet Climb / Meteor Strike"),
         PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Rebirth Blaze (heal + fireburst)"),
         HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Hover/Fly + Nectar Frenzy (stings + lifesteal)"),
         TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Ground Pound AOE + Heavy Flap"),
@@ -23920,34 +23920,36 @@ public class BirdGame3 extends Application {
 
     private BorderPane buildBirdBookContent(BirdBookCategory category) {
         BorderPane content = new BorderPane();
-        FlowPane grid = new FlowPane(18, 18);
-        grid.setAlignment(Pos.TOP_CENTER);
-        grid.setPrefWrapLength(1100);
-        grid.setPadding(new Insets(10, 10, 10, 10));
+        FlowPane grid = new FlowPane(16, 16);
+        grid.setAlignment(Pos.TOP_LEFT);
+        grid.setPrefWrapLength(1040);
+        grid.setPadding(new Insets(6, 6, 6, 6));
 
         ScrollPane scroll = new ScrollPane(grid);
         scroll.setFitToWidth(true);
         scroll.setStyle("-fx-background-color: transparent; -fx-background: transparent; -fx-control-inner-background: transparent;");
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scroll.setPannable(true);
         StackPane gridShell = new StackPane(scroll);
-        gridShell.setPadding(new Insets(14));
-        gridShell.setStyle(MenuTheme.panelStyle("#607D8B", 28));
+        gridShell.setPadding(new Insets(16));
+        gridShell.setMinWidth(0);
+        gridShell.setStyle(MenuTheme.panelStyle("#546E7A", 28));
 
-        VBox sidebar = new VBox(14);
-        sidebar.setAlignment(Pos.TOP_CENTER);
+        VBox sidebar = new VBox(16);
+        sidebar.setAlignment(Pos.TOP_LEFT);
         sidebar.setFillWidth(true);
-        sidebar.setPadding(new Insets(18));
-        sidebar.setPrefWidth(520);
+        sidebar.setPadding(new Insets(20));
+        sidebar.setPrefWidth(500);
         sidebar.setMinHeight(Region.USE_PREF_SIZE);
-        sidebar.setStyle(MenuTheme.panelStyle("#607D8B", 20));
+        sidebar.setStyle(MenuTheme.panelStyle("#607D8B", 22));
         ScrollPane sidebarScroll = getScrollPane(sidebar);
 
         buildBirdBookGrid(category, grid, sidebar);
 
         content.setCenter(gridShell);
         content.setRight(sidebarScroll);
-        BorderPane.setMargin(sidebarScroll, new Insets(0, 0, 0, 24));
+        BorderPane.setMargin(sidebarScroll, new Insets(0, 0, 0, 18));
         return content;
     }
 
@@ -23955,7 +23957,7 @@ public class BirdGame3 extends Application {
         ScrollPane sidebarScroll = new ScrollPane(sidebar);
         sidebarScroll.setFitToWidth(true);
         sidebarScroll.setFitToHeight(false);
-        sidebarScroll.setPrefWidth(548);
+        sidebarScroll.setPrefWidth(528);
         sidebarScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         sidebarScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         sidebarScroll.setPannable(true);
@@ -24143,9 +24145,93 @@ public class BirdGame3 extends Application {
         return label;
     }
 
+    private Label featherpediaBody(String text, int size) {
+        Label label = new Label(text);
+        label.setFont(Font.font("Consolas", size));
+        label.setTextFill(Color.web("#D9E4EA"));
+        label.setAlignment(Pos.CENTER_LEFT);
+        label.setTextAlignment(TextAlignment.LEFT);
+        label.setWrapText(true);
+        label.setMaxWidth(Double.MAX_VALUE);
+        label.setMinHeight(Region.USE_PREF_SIZE);
+        applyNoEllipsis(label);
+        return label;
+    }
+
+    private Label featherpediaSectionLabel(String text) {
+        Label label = new Label(text);
+        label.setFont(Font.font("Arial Black", 13));
+        label.setTextFill(Color.web("#FFF3C4"));
+        label.setAlignment(Pos.CENTER_LEFT);
+        label.setTextAlignment(TextAlignment.LEFT);
+        applyNoEllipsis(label);
+        return label;
+    }
+
+    private Label featherpediaChip(String text, Color accent) {
+        Color resolved = accent == null ? Color.web("#607D8B") : accent;
+        Label label = new Label(text);
+        label.setFont(Font.font("Consolas", 14));
+        label.setTextFill(Color.web("#F5F7FA"));
+        label.setStyle(MenuTheme.chipStyle(toHex(resolved), "#F5F7FA", 12)
+                + "-fx-padding: 5 12 5 12;");
+        label.setAlignment(Pos.CENTER);
+        applyNoEllipsis(label);
+        return label;
+    }
+
+    private FlowPane featherpediaMetaRow(Node... nodes) {
+        FlowPane row = new FlowPane(8, 8);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setPrefWrapLength(440);
+        for (Node node : nodes) {
+            if (node != null) {
+                row.getChildren().add(node);
+            }
+        }
+        return row;
+    }
+
+    private VBox featherpediaSection(String heading, Color accent, Node... nodes) {
+        VBox box = new VBox(10);
+        box.setFillWidth(true);
+        box.setAlignment(Pos.TOP_LEFT);
+        box.setPadding(new Insets(14, 16, 14, 16));
+        box.setStyle(MenuTheme.insetPanelStyle(toHex(accent == null ? Color.web("#607D8B") : accent), 16));
+        if (heading != null && !heading.isBlank()) {
+            box.getChildren().add(featherpediaSectionLabel(heading));
+        }
+        for (Node node : nodes) {
+            if (node != null) {
+                box.getChildren().add(node);
+            }
+        }
+        return box;
+    }
+
+    private Color skinRarityColor(String key) {
+        return switch (skinRarityLabel(key)) {
+            case "COMMON" -> ShopRarity.COMMON.color;
+            case "UNCOMMON" -> ShopRarity.UNCOMMON.color;
+            case "RARE" -> ShopRarity.RARE.color;
+            case "EPIC" -> ShopRarity.EPIC.color;
+            case "LEGENDARY" -> ShopRarity.LEGENDARY.color;
+            case "CLASSIC" -> Color.web("#FFD54F");
+            default -> Color.web("#90A4AE");
+        };
+    }
+
+    private String cssRgba(Color color, double opacity) {
+        Color resolved = color == null ? Color.WHITE : color;
+        int r = (int) Math.round(resolved.getRed() * 255.0);
+        int g = (int) Math.round(resolved.getGreen() * 255.0);
+        int b = (int) Math.round(resolved.getBlue() * 255.0);
+        return String.format("rgba(%d,%d,%d,%.3f)", r, g, b, Math.clamp(opacity, 0.0, 1.0));
+    }
+
     private Button createBirdBookTile(FlowPane grid, String name, Node icon, boolean unlocked, Color accent, Runnable onSelect) {
         Button btn = new Button();
-        btn.setPrefSize(210, 220);
+        btn.setPrefSize(214, 224);
         btn.setFocusTraversable(true);
         applyNoEllipsis(btn);
 
@@ -24154,7 +24240,12 @@ public class BirdGame3 extends Application {
         label.setTextFill(unlocked ? Color.web("#ECEFF1") : Color.web("#B0BEC5"));
         fitWrappedLabelText(label, name, 180, 88, 11);
 
-        VBox box = new VBox(8, icon, label);
+        StackPane iconShell = new StackPane(icon);
+        iconShell.setPrefSize(156, 118);
+        iconShell.setMaxSize(156, 118);
+        iconShell.setStyle(MenuTheme.insetPanelStyle(toHex(accent == null ? Color.web("#607D8B") : accent), 14));
+
+        VBox box = new VBox(10, iconShell, label);
         box.setAlignment(Pos.CENTER);
         btn.setGraphic(box);
         btn.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
@@ -24180,14 +24271,23 @@ public class BirdGame3 extends Application {
     }
 
     private void applyBirdBookTileStyle(Button btn, boolean unlocked, Color accent, boolean selected) {
-        String border = toHex(accent == null ? Color.web("#607D8B") : accent);
-        String bg = unlocked ? "rgba(8,12,18,0.8)" : "rgba(20,20,20,0.6)";
+        Color resolved = accent == null ? Color.web("#607D8B") : accent;
+        String border = toHex(selected ? resolved.brighter() : resolved);
+        String bg = selected
+                ? "linear-gradient(to bottom, rgba(22,30,40,0.96), rgba(10,14,20,0.98))"
+                : (unlocked
+                ? "linear-gradient(to bottom, rgba(12,18,24,0.88), rgba(6,10,14,0.94))"
+                : "linear-gradient(to bottom, rgba(20,20,20,0.68), rgba(10,10,10,0.78))");
         int width = selected ? 3 : 2;
+        String shadow = selected
+                ? "dropshadow(gaussian, " + cssRgba(resolved, 0.32) + ", 22, 0.24, 0, 5)"
+                : "dropshadow(gaussian, rgba(0,0,0,0.26), 14, 0.18, 0, 4)";
         btn.setStyle("-fx-background-color: " + bg
                 + "; -fx-border-color: " + border
                 + "; -fx-border-width: " + width
-                + "; -fx-background-radius: 16; -fx-border-radius: 16; -fx-text-overrun: clip;");
-        btn.setOpacity(unlocked ? 1.0 : 0.75);
+                + "; -fx-background-radius: 18; -fx-border-radius: 18;"
+                + " -fx-effect: " + shadow + "; -fx-text-overrun: clip;");
+        btn.setOpacity(unlocked ? 1.0 : 0.78);
     }
 
     private Node buildBirdTileIcon(BirdType type, String skinKey, MapType map) {
@@ -24243,14 +24343,20 @@ public class BirdGame3 extends Application {
 
     private void showItemSidebar(VBox sidebar, ItemEntry entry) {
         sidebar.getChildren().clear();
+        Color accent = entry.powerUp != null ? entry.powerUp.color : Color.web("#FFD54F");
         Label name = bookTitle(entry.name, 30);
-        Label status = bookStatus(entry.unlocked);
-        sidebar.getChildren().addAll(name, status);
+        FlowPane meta = featherpediaMetaRow(
+                bookStatus(entry.unlocked),
+                featherpediaChip(entry.isContinue ? "CONTINUE" : (entry.isCoin ? "COIN" : "PICKUP"), accent)
+        );
+        sidebar.getChildren().addAll(name, meta);
         if (entry.isCoin || entry.isContinue) {
-            sidebar.getChildren().add(bookBody("OWNED: " + itemOwnedText(entry), 18));
+            sidebar.getChildren().add(featherpediaSection("Inventory", accent,
+                    featherpediaBody("Owned: " + itemOwnedText(entry), 18)));
         }
         if (!entry.unlocked) {
-            sidebar.getChildren().add(bookBody("HOW TO GET: " + entry.howToGet, 18));
+            sidebar.getChildren().add(featherpediaSection("Unlock Route", accent,
+                    featherpediaBody(entry.howToGet, 18)));
             return;
         }
         Canvas icon = new Canvas(200, 200);
@@ -24261,9 +24367,11 @@ public class BirdGame3 extends Application {
         } else if (entry.powerUp != null) {
             drawPowerUpIcon(icon, entry.powerUp);
         }
-        Label desc = bookBody(entry.description, 18);
-        Label how = bookBody("HOW TO GET: " + entry.howToGet, 16);
-        sidebar.getChildren().addAll(icon, desc, how);
+        sidebar.getChildren().addAll(
+                featherpediaSection("Preview", accent, icon),
+                featherpediaSection("Overview", accent, featherpediaBody(entry.description, 18)),
+                featherpediaSection("Unlock Route", accent, featherpediaBody(entry.howToGet, 16))
+        );
     }
 
     private void showBirdSidebar(VBox sidebar, BirdType type) {
@@ -24273,28 +24381,39 @@ public class BirdGame3 extends Application {
     private void showBirdSidebar(VBox sidebar, BirdBookBirdEntry entry) {
         sidebar.getChildren().clear();
         boolean unlocked = entry.unlocked;
+        Color accent = mapAccentColor(entry.origin);
         Label name = bookTitle(entry.displayName.toUpperCase(), 32);
-        Label status = bookStatus(unlocked);
-        sidebar.getChildren().addAll(name, status);
+        BirdType baseBird = featherpediaBaseBird(entry);
+        FlowPane meta = featherpediaMetaRow(
+                bookStatus(unlocked),
+                featherpediaChip(entry.origin.name().replace('_', ' '), accent),
+                entry.skinKey != null ? featherpediaChip("BOSS FORM", Color.web("#FFB300")) : null,
+                baseBird != null ? featherpediaChip("BASE: " + baseBird.name, Color.web("#90CAF9")) : null
+        );
+        sidebar.getChildren().addAll(name, meta);
         if (!unlocked) {
-            sidebar.getChildren().add(bookBody("HOW TO GET: " + entry.howToGet, 18));
+            sidebar.getChildren().add(featherpediaSection("Unlock Route", accent,
+                    featherpediaBody(entry.howToGet, 18)));
             return;
         }
         StackPane art = buildBirdBookArt(entry.type, entry.skinKey, entry.origin);
-        Label stats = bookBody(entry.statsLine, 18);
-        Label special = bookBody("SPECIAL: " + featherpediaSpecialLine(entry), 18);
-        sidebar.getChildren().addAll(art, stats, special);
-        BirdType baseBird = featherpediaBaseBird(entry);
-        if (baseBird != null) {
-            sidebar.getChildren().add(bookBody("BASE BIRD: " + baseBird.name, 16));
-        }
-        sidebar.getChildren().add(bookBody(entry.description, 17));
+        VBox loadout = featherpediaSection("Loadout", accent,
+                featherpediaBody(entry.statsLine, 18),
+                featherpediaBody("Special: " + featherpediaSpecialLine(entry), 18),
+                baseBird != null ? featherpediaBody("Base Bird: " + baseBird.name, 16) : null
+        );
+        sidebar.getChildren().addAll(
+                featherpediaSection("Preview", accent, art),
+                loadout,
+                featherpediaSection("Profile", accent, featherpediaBody(entry.description, 17)),
+                featherpediaSection("Unlock Route", accent, featherpediaBody(entry.howToGet, 16))
+        );
 
         List<BirdCompanionEntry> companions = entry.companions;
         if (!companions.isEmpty()) {
-            Label section = bookBody("FIELD NOTES", 15);
-            Label hint = bookBody("Select a companion entry for more detail.", 14);
-            sidebar.getChildren().addAll(section, hint, buildBirdCompanionTiles(sidebar, entry, companions));
+            sidebar.getChildren().add(featherpediaSection("Field Notes", accent,
+                    featherpediaBody("Select a companion entry for more detail.", 14),
+                    buildBirdCompanionTiles(sidebar, entry, companions)));
         }
     }
 
@@ -24527,46 +24646,69 @@ public class BirdGame3 extends Application {
         Button back = uiFactory.action("BACK TO " + parent.displayName.toUpperCase(), 320, 56, 18, toHex(entry.accent), 14,
                 () -> showBirdSidebar(sidebar, parent));
         Label name = bookTitle(entry.name.toUpperCase(), 30);
-        Label role = bookBody(entry.role, 15);
-        Label source = bookBody(entry.source, 15);
+        FlowPane meta = featherpediaMetaRow(
+                featherpediaChip(entry.role, entry.accent),
+                featherpediaChip(entry.source.replace("SOURCE: ", ""), Color.web("#90A4AE"))
+        );
         StackPane art = buildBirdCompanionArt(entry, parent.origin);
-        Label stats = bookBody(entry.stats, 16);
-        Label desc = bookBody(entry.description, 17);
-        sidebar.getChildren().addAll(back, name, role, source, art, stats, desc);
+        sidebar.getChildren().addAll(
+                back,
+                name,
+                meta,
+                featherpediaSection("Preview", entry.accent, art),
+                featherpediaSection("Combat Data", entry.accent, featherpediaBody(entry.stats, 16)),
+                featherpediaSection("Notes", entry.accent, featherpediaBody(entry.description, 17))
+        );
     }
 
     private void showSkinSidebar(VBox sidebar, SkinEntry entry) {
         sidebar.getChildren().clear();
         boolean unlocked = isSkinUnlocked(entry.key, entry.bird);
+        Color accent = skinRarityColor(entry.key);
         Label name = bookTitle(entry.name, 30);
-        Label status = bookStatus(unlocked);
-        Label rarity = bookBody("RARITY: " + skinRarityLabel(entry.key), 16);
-        sidebar.getChildren().addAll(name, status, rarity);
+        FlowPane meta = featherpediaMetaRow(
+                bookStatus(unlocked),
+                featherpediaChip(skinRarityLabel(entry.key), accent),
+                featherpediaChip(entry.bird.name, mapAccentColor(originMapForBird(entry.bird)))
+        );
+        sidebar.getChildren().addAll(name, meta);
         if (!unlocked) {
-            sidebar.getChildren().add(bookBody("HOW TO GET: " + entry.howToGet, 18));
+            sidebar.getChildren().add(featherpediaSection("Unlock Route", accent,
+                    featherpediaBody(entry.howToGet, 18)));
             return;
         }
         MapType origin = originMapForBird(entry.bird);
         StackPane art = buildBirdBookArt(entry.bird, entry.key, origin);
-        Label base = bookBody("BASE BIRD: " + entry.bird.name, 16);
-        Label desc = bookBody(entry.description, 18);
-        sidebar.getChildren().addAll(art, base, desc);
+        sidebar.getChildren().addAll(
+                featherpediaSection("Preview", accent, art),
+                featherpediaSection("Origin", accent, featherpediaBody("Base Bird: " + entry.bird.name, 16)),
+                featherpediaSection("Profile", accent, featherpediaBody(entry.description, 18)),
+                featherpediaSection("Unlock Route", accent, featherpediaBody(entry.howToGet, 16))
+        );
     }
 
     private void showMapSidebar(VBox sidebar, MapEntry entry) {
         sidebar.getChildren().clear();
         boolean unlocked = isMapUnlocked(entry.map);
+        Color accent = mapAccentColor(entry.map);
         Label name = bookTitle(entry.name, 30);
-        Label status = bookStatus(unlocked);
-        sidebar.getChildren().addAll(name, status);
+        FlowPane meta = featherpediaMetaRow(
+                bookStatus(unlocked),
+                featherpediaChip(entry.map.name().replace('_', ' '), accent)
+        );
+        sidebar.getChildren().addAll(name, meta);
         if (!unlocked) {
-            sidebar.getChildren().add(bookBody("HOW TO GET: " + entry.howToGet, 18));
+            sidebar.getChildren().add(featherpediaSection("Unlock Route", accent,
+                    featherpediaBody(entry.howToGet, 18)));
             return;
         }
         Canvas preview = new Canvas(360, 200);
         drawMapPreview(preview, entry.map);
-        Label desc = bookBody(entry.description, 18);
-        sidebar.getChildren().addAll(preview, desc);
+        sidebar.getChildren().addAll(
+                featherpediaSection("Preview", accent, preview),
+                featherpediaSection("Overview", accent, featherpediaBody(entry.description, 18)),
+                featherpediaSection("Unlock Route", accent, featherpediaBody(entry.howToGet, 16))
+        );
     }
 
     private StackPane buildBirdBookArt(BirdType type, String skinKey, MapType map) {
@@ -24810,7 +24952,7 @@ public class BirdGame3 extends Application {
             case MINT_PENGUIN_SKIN, GLACIER_SHOEBILL_SKIN -> {
                 return "UNCOMMON";
             }
-            case "CITY_PIGEON", CIRCUIT_TITMOUSE_SKIN, FREEMAN_PIGEON_SKIN, TIDE_VULTURE_SKIN, STOCK_PHOTO_EAGLE_SKIN -> {
+            case "CITY_PIGEON", CIRCUIT_TITMOUSE_SKIN, FREEMAN_PIGEON_SKIN, TIDE_VULTURE_SKIN -> {
                 return "RARE";
             }
             case "NOIR_PIGEON", "SKY_KING_EAGLE", PRISM_RAZORBILL_SKIN, ECLIPSE_MOCKINGBIRD_SKIN,
@@ -24818,6 +24960,7 @@ public class BirdGame3 extends Application {
                 return "EPIC";
             }
             case BEACON_PIGEON_SKIN, NOVA_PHOENIX_SKIN, AURORA_PELICAN_SKIN, UMBRA_BAT_SKIN, SUNFORGE_ROOSTER_SKIN,
+                    STOCK_PHOTO_EAGLE_SKIN,
                     NULL_ROCK_VULTURE_SKIN, IRONCLAD_PELICAN_SKIN -> {
                 return "LEGENDARY";
             }

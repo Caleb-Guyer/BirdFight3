@@ -573,6 +573,55 @@ class BirdStateTest {
     }
 
     @Test
+    void shieldRollUsesVisibleRollingPose() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        defender.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = defender;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        for (int i = 0; i < 3; i++) {
+            defender.update(1.0);
+        }
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        defender.update(1.0);
+
+        Object pose = invokePrivateObjectMethod(defender, "currentAttackVisualPose");
+        assertNotNull(pose);
+        assertTrue(Math.abs(invokeDoubleMethod(pose, "bodyRotationDegrees")) > 15.0,
+                "Shield rolls should visibly rotate the bird instead of reading as a pure slide.");
+    }
+
+    @Test
+    void attackVisualPoseBlendsTowardNewTargetInsteadOfSnapping() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 80.0;
+        bird.facingRight = true;
+        game.players[0] = bird;
+
+        invokePrivateObjectMethod(bird, "currentAttackVisualPose");
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
+        bird.update(1.0);
+
+        Object displayPose = invokePrivateObjectMethod(bird, "currentAttackVisualPose");
+        Object targetPose = invokePrivateObjectMethod(bird, "currentTargetAttackVisualPose");
+        double displayTranslateX = invokeDoubleMethod(displayPose, "translateX");
+        double targetTranslateX = invokeDoubleMethod(targetPose, "translateX");
+
+        assertTrue(displayTranslateX > 0.0, "The blended pose should move away from idle once an attack starts.");
+        assertTrue(displayTranslateX < targetTranslateX,
+                "The displayed pose should ease toward the attack target instead of snapping to it in one frame.");
+    }
+
+    @Test
     void shieldingWhileAlreadyMovingStopsBirdInsteadOfRolling() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
@@ -932,6 +981,381 @@ class BirdStateTest {
 
         assertTrue(target.health < startingHealth, "Air down special should damage targets below Pigeon.");
         assertTrue(target.vy > 0.0, "Air down special should knock targets downward.");
+    }
+
+    @Test
+    void eagleNeutralSpecialUsesHuntersCryConeAndStartsInvisibleReuseTimer() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird eagle = new Bird(100.0, BirdGame3.BirdType.EAGLE, 0, game);
+        Bird target = new Bird(195.0, BirdGame3.BirdType.PIGEON, 1, game);
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        eagle.facingRight = true;
+        game.players[0] = eagle;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertEquals(startingHealth - 8.0, target.health, 0.0001,
+                "Hunter's Cry should deal Eagle's heavier neutral-special damage.");
+        assertTrue(getPrivateInt(eagle, "raptorCryTimer") > 0);
+        assertTrue(getPrivateInt(eagle, "raptorCryReuseTimer") > 0);
+        assertEquals(0, getPrivateInt(eagle, "specialCooldown"),
+                "Hunter's Cry should no longer use the visible special cooldown bar.");
+        assertTrue(target.vx > 0.0, "Hunter's Cry should push targets forward.");
+        assertTrue(target.vy < 0.0, "Hunter's Cry should pop targets slightly upward.");
+    }
+
+    @Test
+    void eagleSideSpecialUsesDirectionalInputForTalonRush() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird eagle = new Bird(100.0, BirdGame3.BirdType.EAGLE, 0, game);
+        Bird target = new Bird(200.0, BirdGame3.BirdType.PIGEON, 1, game);
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        eagle.facingRight = true;
+        game.players[0] = eagle;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+
+        assertTrue(getPrivateInt(eagle, "raptorRushTimer") > 0);
+        assertTrue(getPrivateInt(eagle, "raptorRushReuseTimer") > 0);
+        assertEquals(0, getPrivateInt(eagle, "specialCooldown"),
+                "Talon Rush should not trigger the visible cooldown bar.");
+        assertTrue(eagle.vx > 13.0, "Talon Rush should commit Eagle to a strong horizontal burst.");
+        assertEquals(startingHealth - 10.0, target.health, 0.0001,
+                "Talon Rush should hit for Eagle's heavier rush damage.");
+        assertTrue(target.vy < -8.0, "Talon Rush should launch the target upward.");
+    }
+
+    @Test
+    void eagleNeutralReuseTimerOnlyBlocksRepeatingHuntersCry() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird eagle = new Bird(100.0, BirdGame3.BirdType.EAGLE, 0, game);
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        eagle.facingRight = true;
+        game.players[0] = eagle;
+        game.players[1] = target;
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        while (getPrivateInt(eagle, "raptorCryTimer") > 0) {
+            eagle.update(1.0);
+        }
+
+        assertTrue(getPrivateInt(eagle, "raptorCryReuseTimer") > 0);
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertEquals(0, getPrivateInt(eagle, "raptorCryTimer"),
+                "Hunter's Cry should stay locked until its hidden reuse timer expires.");
+
+        eagle.update(1.0);
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+
+        assertTrue(getPrivateInt(eagle, "raptorRushTimer") > 0,
+                "The hidden Hunter's Cry timer should not block Talon Rush.");
+    }
+
+    @Test
+    void eagleUpSpecialOverridesGroundJumpAndStartsSkyrise() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird eagle = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = eagle;
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        assertEquals(0, getPrivateInt(eagle, "jumpSquatTimer"),
+                "Skyrise should bypass jump squat instead of becoming a normal jump.");
+        assertTrue(getPrivateInt(eagle, "raptorClimbTimer") > 0);
+        assertTrue(getPrivateBoolean(eagle, "raptorUpSpecialUsed"));
+        assertEquals(0, getPrivateInt(eagle, "specialCooldown"),
+                "Skyrise should not trigger the visible cooldown bar.");
+        assertTrue(eagle.vy < -10.0, "Skyrise should launch Eagle sharply upward.");
+    }
+
+    @Test
+    void eagleUpSpecialCannotBeUsedAgainUntilLanding() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird eagle = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = eagle;
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        eagle.y = BirdGame3.GROUND_Y - 260.0;
+
+        while (getPrivateInt(eagle, "raptorClimbTimer") > 0) {
+            eagle.update(1.0);
+        }
+
+        assertTrue(getPrivateBoolean(eagle, "raptorUpSpecialUsed"));
+        assertFalse(eagle.isOnGround(), "Skyrise should still be spent while Eagle is airborne.");
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        assertEquals(0, getPrivateInt(eagle, "raptorClimbTimer"),
+                "Skyrise should not restart again before Eagle lands.");
+
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        eagle.vx = 0.0;
+        eagle.vy = 0.0;
+        eagle.update(1.0);
+
+        assertFalse(getPrivateBoolean(eagle, "raptorUpSpecialUsed"),
+                "Touching the ground should refresh Skyrise.");
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        assertTrue(getPrivateInt(eagle, "raptorClimbTimer") > 0,
+                "Skyrise should become available again after Eagle lands.");
+    }
+
+    @Test
+    void eagleDownSpecialUsesBlockInputWithoutRaisingShield() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird eagle = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = eagle;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertFalse(eagle.isBlocking, "Heavenfall should reserve block input instead of raising shield.");
+        assertTrue(eagle.eagleDiveActive, "Block + special should start Eagle's dive special.");
+        assertTrue(eagle.diveTimer > 0);
+    }
+
+    @Test
+    void eagleGroundDownSpecialLeapsBeforeDiveBegins() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird eagle = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = eagle;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertTrue(eagle.eagleDiveCountdown > 0, "Grounded Heavenfall should spend a few startup frames leaping first.");
+        assertFalse(eagle.isOnGround(), "Grounded Heavenfall should launch Eagle off the floor before the slam starts.");
+        assertEquals(startingHealth, target.health, 0.0001,
+                "Grounded Heavenfall should not hit on the startup hop.");
+
+        while (eagle.eagleDiveCountdown > 1) {
+            eagle.update(1.0);
+            assertFalse(eagle.isOnGround(), "Eagle should stay airborne through the leap startup.");
+        }
+
+        eagle.update(1.0);
+
+        assertEquals(0, eagle.eagleDiveCountdown);
+        assertTrue(eagle.vy >= 18.0, "After the leap, Heavenfall should transition into its fast downward slam.");
+    }
+
+    @Test
+    void falconGroundDownSpecialLeapsBeforeDiagonalDiveBegins() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird falcon = new Bird(190.0, BirdGame3.BirdType.FALCON, 0, game);
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        falcon.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        falcon.facingRight = true;
+        game.players[0] = falcon;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        falcon.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertTrue(falcon.eagleDiveCountdown > 0, "Grounded Falcon Dive should hop before it commits to the strike.");
+        assertFalse(falcon.isOnGround(), "Grounded Falcon Dive should leave the ground during startup.");
+        assertEquals(startingHealth, target.health, 0.0001,
+                "Grounded Falcon Dive should not hit during the startup hop.");
+
+        while (falcon.eagleDiveCountdown > 1) {
+            falcon.update(1.0);
+            assertFalse(falcon.isOnGround(), "Falcon should stay airborne through the startup hop.");
+        }
+
+        falcon.update(1.0);
+
+        assertEquals(0, falcon.eagleDiveCountdown);
+        assertTrue(falcon.vx > 0.0, "Falcon Dive should break forward once the hop finishes.");
+        assertTrue(falcon.vy > 0.0, "Falcon Dive should angle down once the hop finishes.");
+        assertEquals(falcon.vx, falcon.vy, 0.0001,
+                "Falcon Dive should launch along a true diagonal after the leap.");
+    }
+
+    @Test
+    void falconDownSpecialPoseFacesDiagonalDirection() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird falcon = new Bird(190.0, BirdGame3.BirdType.FALCON, 0, game);
+        falcon.y = BirdGame3.GROUND_Y - 220.0;
+        falcon.facingRight = true;
+        game.players[0] = falcon;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        falcon.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        Object pose = invokePrivateObjectMethod(falcon, "currentRaptorSpecialPose");
+        assertNotNull(pose);
+        assertEquals(Math.PI / 4.0, invokeDoubleMethod(pose, "aimAngleRadians"), 0.0001,
+                "Falcon's dive pose should face diagonally to match the actual attack path.");
+    }
+
+    @Test
+    void eagleDownSpecialCooldownDoesNotBlockHuntersCry() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird eagle = new Bird(100.0, BirdGame3.BirdType.EAGLE, 0, game);
+        Bird target = new Bird(195.0, BirdGame3.BirdType.PIGEON, 1, game);
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        eagle.facingRight = true;
+        game.players[0] = eagle;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertTrue(getPrivateInt(eagle, "specialCooldown") > 0,
+                "Heavenfall should still own the visible cooldown bar.");
+
+        eagle.eagleDiveActive = false;
+        eagle.eagleAscentActive = false;
+        eagle.eagleDiveCountdown = 0;
+        eagle.diveTimer = 0;
+        eagle.vx = 0.0;
+        eagle.vy = 0.0;
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        eagle.update(1.0);
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        eagle.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertTrue(getPrivateInt(eagle, "raptorCryTimer") > 0,
+                "Hunter's Cry should still be usable while Heavenfall cools down.");
+        assertEquals(startingHealth - 8.0, target.health, 0.0001,
+                "Hunter's Cry should still hit normally during Heavenfall's cooldown.");
+        assertTrue(getPrivateInt(eagle, "specialCooldown") > 0,
+                "Using Hunter's Cry should not erase Heavenfall's visible cooldown.");
+    }
+
+    @Test
+    void falconNeutralSpecialSweetspotDealsMoreDamageAtRange() {
+        BirdGame3 closeGame = new BirdGame3();
+        closeGame.activePlayers = 2;
+        Bird closeFalcon = new Bird(100.0, BirdGame3.BirdType.FALCON, 0, closeGame);
+        Bird closeTarget = new Bird(195.0, BirdGame3.BirdType.PIGEON, 1, closeGame);
+        closeFalcon.y = BirdGame3.GROUND_Y - 80.0;
+        closeTarget.y = BirdGame3.GROUND_Y - 80.0;
+        closeFalcon.facingRight = true;
+        closeGame.players[0] = closeFalcon;
+        closeGame.players[1] = closeTarget;
+
+        closeGame.setLocalActionsForKey(closeGame.specialKeyForPlayer(0), true);
+        closeFalcon.update(1.0);
+        closeGame.setLocalActionsForKey(closeGame.specialKeyForPlayer(0), false);
+
+        BirdGame3 farGame = new BirdGame3();
+        farGame.activePlayers = 2;
+        Bird farFalcon = new Bird(100.0, BirdGame3.BirdType.FALCON, 0, farGame);
+        Bird farTarget = new Bird(250.0, BirdGame3.BirdType.PIGEON, 1, farGame);
+        farFalcon.y = BirdGame3.GROUND_Y - 80.0;
+        farTarget.y = BirdGame3.GROUND_Y - 80.0;
+        farFalcon.facingRight = true;
+        farGame.players[0] = farFalcon;
+        farGame.players[1] = farTarget;
+
+        farGame.setLocalActionsForKey(farGame.specialKeyForPlayer(0), true);
+        farFalcon.update(1.0);
+        farGame.setLocalActionsForKey(farGame.specialKeyForPlayer(0), false);
+
+        double closeDamage = Bird.STARTING_HEALTH - closeTarget.health;
+        double farDamage = Bird.STARTING_HEALTH - farTarget.health;
+        assertTrue(farDamage > closeDamage,
+                "Target Snap should reward the farther tipper lane with stronger damage.");
+        assertTrue(farTarget.vy < closeTarget.vy,
+                "The sweetspot should also launch harder than the close hit.");
     }
 
     @Test
@@ -2079,6 +2503,18 @@ class BirdStateTest {
         Method method = target.getClass().getDeclaredMethod(methodName);
         method.setAccessible(true);
         method.invoke(target);
+    }
+
+    private static Object invokePrivateObjectMethod(Object target, String methodName) throws Exception {
+        Method method = target.getClass().getDeclaredMethod(methodName);
+        method.setAccessible(true);
+        return method.invoke(target);
+    }
+
+    private static double invokeDoubleMethod(Object target, String methodName) throws Exception {
+        Method method = target.getClass().getDeclaredMethod(methodName);
+        method.setAccessible(true);
+        return ((Number) method.invoke(target)).doubleValue();
     }
 
     private static double attackKnockbackAfterHoldingForFrames(int holdFrames) {
