@@ -347,6 +347,75 @@ class BirdStateTest {
     }
 
     @Test
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    void knockbackTuningBoostsNonSmashNormalsAndTonesDownSmashes() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird bird = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+
+        Class<?> variantClass = Class.forName("com.example.birdgame3.Bird$NormalAttackVariant");
+        Method multiplier = Bird.class.getDeclaredMethod("attackKnockbackBalanceMultiplier", variantClass);
+        multiplier.setAccessible(true);
+        Class<? extends Enum> enumClass = (Class<? extends Enum>) variantClass.asSubclass(Enum.class);
+
+        Enum<?> sideTilt = Enum.valueOf((Class) enumClass, "SIDE_TILT");
+        Enum<?> neutralAir = Enum.valueOf((Class) enumClass, "NEUTRAL_AIR");
+        Enum<?> sideSmash = Enum.valueOf((Class) enumClass, "SIDE_SMASH");
+        Enum<?> upSmash = Enum.valueOf((Class) enumClass, "UP_SMASH");
+
+        assertTrue((double) multiplier.invoke(bird, sideTilt) > 1.0);
+        assertTrue((double) multiplier.invoke(bird, neutralAir) > 1.0);
+        assertTrue((double) multiplier.invoke(bird, sideSmash) < 1.0);
+        assertTrue((double) multiplier.invoke(bird, upSmash) < 1.0);
+    }
+
+    @Test
+    void smashRespawnNestGrantsTemporaryInvulnerability() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        setPrivateBoolean(game);
+
+        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird respawned = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
+        game.players[0] = attacker;
+        game.players[1] = respawned;
+
+        respawned.resetForSmashRespawn(190.0, BirdGame3.GROUND_Y - 220.0, 0.0);
+
+        Platform nest = (Platform) getPrivateObject(respawned, "respawnNestPlatform");
+        assertNotNull(nest);
+        assertTrue(respawned.isCombatInvulnerable());
+        assertTrue(respawned.isOnGround());
+        assertFalse(game.canDamage(attacker, respawned));
+
+        setPrivateInt(respawned, "respawnInvulnerabilityTimer", 1);
+        respawned.update(1.0);
+
+        assertFalse(respawned.isCombatInvulnerable());
+        assertNull(getPrivateObject(respawned, "respawnNestPlatform"));
+        assertTrue(game.canDamage(attacker, respawned));
+    }
+
+    @Test
+    void smashBlastZoneKoRespawnsBirdOnNestPlatform() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        setPrivateBoolean(game);
+        game.scores[0] = 3;
+
+        Bird bird = new Bird(BirdGame3.WORLD_WIDTH + 420.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = bird;
+
+        bird.update(1.0);
+
+        assertEquals(2, game.scores[0]);
+        assertTrue(bird.isCombatInvulnerable());
+        assertTrue(bird.isOnGround());
+        assertTrue(bird.y < BirdGame3.GROUND_Y - 180.0);
+        assertNotNull(getPrivateObject(bird, "respawnNestPlatform"));
+    }
+
+    @Test
     void shieldAbsorbsBasicAttackIntoDurabilityInsteadOfHealth() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

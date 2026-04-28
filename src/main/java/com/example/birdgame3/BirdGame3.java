@@ -12373,7 +12373,7 @@ public class BirdGame3 extends Application {
         int bodySize = cardWidth >= 360 ? 15 : 14;
         Label title = bookTitle("", titleSize);
         title.setMaxWidth(cardWidth - 26);
-        Label category = bookBody("", bodySize);
+        Label category = bookBody(bodySize);
         category.setMaxWidth(cardWidth - 26);
 
         StackPane artHolder = new StackPane();
@@ -12383,7 +12383,7 @@ public class BirdGame3 extends Application {
         artHolder.setPrefHeight(holderHeight);
         artHolder.setMaxHeight(holderHeight);
 
-        Label counter = bookBody("", 12);
+        Label counter = bookBody(12);
         counter.setTextFill(Color.web("#90A4AE"));
         counter.setVisible(total > 1);
         counter.setManaged(total > 1);
@@ -24121,8 +24121,8 @@ public class BirdGame3 extends Application {
         return label;
     }
 
-    private Label bookBody(String text, int size) {
-        Label label = new Label(text);
+    private Label bookBody(int size) {
+        Label label = new Label("");
         label.setFont(Font.font("Consolas", size));
         label.setTextFill(Color.web("#CFD8DC"));
         label.setAlignment(Pos.CENTER);
@@ -24221,12 +24221,12 @@ public class BirdGame3 extends Application {
         };
     }
 
-    private String cssRgba(Color color, double opacity) {
+    private String cssRgba(Color color) {
         Color resolved = color == null ? Color.WHITE : color;
         int r = (int) Math.round(resolved.getRed() * 255.0);
         int g = (int) Math.round(resolved.getGreen() * 255.0);
         int b = (int) Math.round(resolved.getBlue() * 255.0);
-        return String.format("rgba(%d,%d,%d,%.3f)", r, g, b, Math.clamp(opacity, 0.0, 1.0));
+        return String.format("rgba(%d,%d,%d,%.3f)", r, g, b, Math.clamp(0.32, 0.0, 1.0));
     }
 
     private Button createBirdBookTile(FlowPane grid, String name, Node icon, boolean unlocked, Color accent, Runnable onSelect) {
@@ -24280,7 +24280,7 @@ public class BirdGame3 extends Application {
                 : "linear-gradient(to bottom, rgba(20,20,20,0.68), rgba(10,10,10,0.78))");
         int width = selected ? 3 : 2;
         String shadow = selected
-                ? "dropshadow(gaussian, " + cssRgba(resolved, 0.32) + ", 22, 0.24, 0, 5)"
+                ? "dropshadow(gaussian, " + cssRgba(resolved) + ", 22, 0.24, 0, 5)"
                 : "dropshadow(gaussian, rgba(0,0,0,0.26), 14, 0.18, 0, 4)";
         btn.setStyle("-fx-background-color: " + bg
                 + "; -fx-border-color: " + border
@@ -34654,32 +34654,93 @@ public class BirdGame3 extends Application {
         if (type == null) {
             return victoryPortraitLayout;
         }
+        final VictoryPortraitLayout victoryPortraitLayout1 = new VictoryPortraitLayout(winnerPose ? 0.96 : 1.04,
+                winnerPose ? 1.40 : 1.08,
+                winnerPose ? 2.00 : 1.60,
+                0.00,
+                0.00);
         return switch (type) {
             case BAT -> new VictoryPortraitLayout(winnerPose ? 1.48 : 1.60,
                     winnerPose ? 1.05 : 0.92,
                     winnerPose ? 1.60 : 1.28,
                     0.00,
-                    winnerPose ? 0.08 : 0.06);
+                    0.00);
             case PIGEON -> new VictoryPortraitLayout(winnerPose ? 0.98 : 1.04,
                     winnerPose ? 1.35 : 1.02,
                     winnerPose ? 1.95 : 1.52,
-                    0.08,
-                    winnerPose ? 0.11 : 0.09);
-            case EAGLE -> new VictoryPortraitLayout(winnerPose ? 0.88 : 0.95,
-                    winnerPose ? 1.55 : 1.18,
-                    winnerPose ? 2.25 : 1.82,
-                    0.02,
-                    winnerPose ? 0.13 : 0.10);
+                    0.00,
+                    0.00);
+            case EAGLE -> new VictoryPortraitLayout(winnerPose ? 0.90 : 0.98,
+                    winnerPose ? 1.35 : 1.05,
+                    winnerPose ? 1.90 : 1.55,
+                    0.00,
+                    0.00);
             case PELICAN -> new VictoryPortraitLayout(winnerPose ? 1.06 : 1.14,
                     winnerPose ? 1.28 : 1.00,
                     winnerPose ? 1.88 : 1.48,
-                    0.06,
-                    winnerPose ? 0.14 : 0.11);
+                    0.00,
+                    0.00);
             case TURKEY, VULTURE -> new VictoryPortraitLayout(winnerPose ? 1.04 : 1.12,
                     winnerPose ? 1.30 : 1.02,
                     winnerPose ? 1.90 : 1.52,
-                    0.04,
-                    winnerPose ? 0.14 : 0.11);
+                    0.00,
+                    0.00);
+            case FALCON -> new VictoryPortraitLayout(winnerPose ? 0.92 : 1.00,
+                    winnerPose ? 1.45 : 1.10,
+                    winnerPose ? 2.15 : 1.70,
+                    0.00,
+                    0.00);
+            case PHOENIX -> new VictoryPortraitLayout(winnerPose ? 0.94 : 1.02,
+                    winnerPose ? 1.50 : 1.15,
+                    winnerPose ? 2.20 : 1.75,
+                    0.00,
+                    0.00);
+            case HUMMINGBIRD -> new VictoryPortraitLayout(winnerPose ? 0.85 : 0.92,
+                    winnerPose ? 1.60 : 1.25,
+                    winnerPose ? 2.30 : 1.85,
+                    0.00,
+                    0.00);
+            case ROOSTER -> new VictoryPortraitLayout(winnerPose ? 1.00 : 1.08,
+                    winnerPose ? 1.35 : 1.05,
+                    winnerPose ? 1.95 : 1.55,
+                    0.00,
+                    0.00);
+            case PENGUIN -> new VictoryPortraitLayout(winnerPose ? 1.02 : 1.10,
+                    winnerPose ? 1.30 : 1.00,
+                    winnerPose ? 1.85 : 1.48,
+                    0.00,
+                    0.00);
+            case SHOEBILL -> new VictoryPortraitLayout(winnerPose ? 1.08 : 1.16,
+                    winnerPose ? 1.25 : 0.98,
+                    winnerPose ? 1.82 : 1.45,
+                    0.00,
+                    0.00);
+            case MOCKINGBIRD, HEISENBIRD -> {
+                VictoryPortraitLayout victoryPortraitLayout2 = victoryPortraitLayout1;
+                yield victoryPortraitLayout2;
+            }
+            case RAZORBILL -> new VictoryPortraitLayout(winnerPose ? 0.98 : 1.06,
+                    winnerPose ? 1.38 : 1.06,
+                    winnerPose ? 1.98 : 1.58,
+                    0.00,
+                    0.00);
+            case GRINCHHAWK, RAVEN -> {
+                yield new VictoryPortraitLayout(winnerPose ? 0.94 : 1.02,
+                        winnerPose ? 1.42 : 1.10,
+                        winnerPose ? 2.05 : 1.62,
+                        0.00,
+                        0.00);
+            }
+            case OPIUMBIRD -> new VictoryPortraitLayout(winnerPose ? 0.92 : 1.00,
+                    winnerPose ? 1.45 : 1.12,
+                    winnerPose ? 2.10 : 1.68,
+                    0.00,
+                    0.00);
+            case TITMOUSE -> new VictoryPortraitLayout(winnerPose ? 0.88 : 0.96,
+                    winnerPose ? 1.55 : 1.20,
+                    winnerPose ? 2.25 : 1.80,
+                    0.00,
+                    0.00);
             default -> victoryPortraitLayout;
         };
     }
@@ -34695,166 +34756,166 @@ public class BirdGame3 extends Application {
             case PIGEON -> {
                 g.setLineWidth(5);
                 g.setStroke(Color.web("#ECEFF1"));
-                g.strokeLine(w * 0.56, h * 0.57, w * 0.69, h * 0.54);
+                g.strokeLine(w * 0.52, h * 0.52, w * 0.65, h * 0.49);
                 g.setStroke(Color.web("#FF7043"));
-                g.strokeLine(w * 0.68, h * 0.54, w * 0.73, h * 0.535);
-                drawVictorySmokePuff(g, w * 0.75, h * 0.41, w * 0.075, Color.rgb(220, 225, 230, 0.58));
-                drawVictorySmokePuff(g, w * 0.83, h * 0.31, w * 0.055, Color.rgb(240, 245, 248, 0.46));
+                g.strokeLine(w * 0.64, h * 0.49, w * 0.69, h * 0.485);
+                drawVictorySmokePuff(g, w * 0.72, h * 0.36, w * 0.075, Color.rgb(220, 225, 230, 0.58));
+                drawVictorySmokePuff(g, w * 0.80, h * 0.26, w * 0.055, Color.rgb(240, 245, 248, 0.46));
             }
             case EAGLE -> {
                 g.setStroke(Color.web("#FFD54F"));
                 g.setLineWidth(10);
-                g.strokeArc(w * 0.16, h * 0.18, w * 0.68, h * 0.42, 202, 136, ArcType.OPEN);
-                g.strokeLine(w * 0.2, h * 0.34, w * 0.08, h * 0.26);
-                g.strokeLine(w * 0.8, h * 0.34, w * 0.92, h * 0.26);
-                drawVictorySparkle(g, w * 0.22, h * 0.22, w * 0.035, Color.web("#FFF59D"));
-                drawVictorySparkle(g, w * 0.78, h * 0.22, w * 0.035, Color.web("#FFF59D"));
+                g.strokeArc(w * 0.42, h * 0.48, w * 0.16, h * 0.10, 200, 140, ArcType.OPEN);
+                g.strokeLine(w * 0.44, h * 0.51, w * 0.40, h * 0.50);
+                g.strokeLine(w * 0.56, h * 0.51, w * 0.60, h * 0.50);
+                drawVictorySparkle(g, w * 0.40, h * 0.50, w * 0.03, Color.web("#FFF59D"));
+                drawVictorySparkle(g, w * 0.60, h * 0.50, w * 0.03, Color.web("#FFF59D"));
             }
             case FALCON -> {
                 g.setLineWidth(10);
                 g.setStroke(Color.web("#FF7043"));
-                g.strokeLine(w * 0.18, h * 0.66, w * 0.44, h * 0.34);
-                g.strokeLine(w * 0.24, h * 0.72, w * 0.52, h * 0.4);
+                g.strokeLine(w * 0.16, h * 0.58, w * 0.42, h * 0.26);
+                g.strokeLine(w * 0.22, h * 0.64, w * 0.50, h * 0.32);
                 g.setLineWidth(6);
                 g.setStroke(Color.web("#FFD180"));
-                g.strokeLine(w * 0.6, h * 0.28, w * 0.84, h * 0.16);
-                drawVictorySparkle(g, w * 0.8, h * 0.17, w * 0.032, Color.web("#FFE082"));
+                g.strokeLine(w * 0.58, h * 0.20, w * 0.82, h * 0.08);
+                drawVictorySparkle(g, w * 0.78, h * 0.09, w * 0.032, Color.web("#FFE082"));
             }
             case PHOENIX -> {
                 g.setStroke(Color.web("#FF7043"));
                 g.setLineWidth(10);
-                g.strokeOval(w * 0.25, h * 0.18, w * 0.5, h * 0.46);
+                g.strokeOval(w * 0.23, h * 0.10, w * 0.54, h * 0.48);
                 g.setStroke(Color.web("#FFD54F"));
                 g.setLineWidth(6);
-                g.strokeArc(w * 0.22, h * 0.16, w * 0.56, h * 0.5, 20, 120, ArcType.OPEN);
-                g.strokeArc(w * 0.22, h * 0.16, w * 0.56, h * 0.5, 200, 120, ArcType.OPEN);
-                drawVictorySparkle(g, w * 0.28, h * 0.3, w * 0.03, Color.web("#FFE082"));
-                drawVictorySparkle(g, w * 0.72, h * 0.3, w * 0.03, Color.web("#FFE082"));
+                g.strokeArc(w * 0.20, h * 0.08, w * 0.60, h * 0.52, 20, 120, ArcType.OPEN);
+                g.strokeArc(w * 0.20, h * 0.08, w * 0.60, h * 0.52, 200, 120, ArcType.OPEN);
+                drawVictorySparkle(g, w * 0.26, h * 0.22, w * 0.03, Color.web("#FFE082"));
+                drawVictorySparkle(g, w * 0.74, h * 0.22, w * 0.03, Color.web("#FFE082"));
             }
             case HUMMINGBIRD -> {
-                drawVictoryFlower(g, w * 0.78, h * 0.72, w * 0.08);
+                drawVictoryFlower(g, w * 0.74, h * 0.64, w * 0.08);
                 g.setStroke(Color.web("#80DEEA"));
                 g.setLineWidth(5);
-                g.strokeArc(w * 0.46, h * 0.28, w * 0.26, h * 0.2, 40, 250, ArcType.OPEN);
+                g.strokeArc(w * 0.44, h * 0.20, w * 0.28, h * 0.22, 40, 250, ArcType.OPEN);
             }
             case TURKEY -> {
                 Color[] fan = new Color[]{Color.web("#D84315"), Color.web("#FFB74D"), Color.web("#8D6E63"), Color.web("#F06292")};
                 for (int i = 0; i < fan.length; i++) {
                     g.setFill(fan[i].deriveColor(0, 1.0, 1.0, 0.7));
-                    g.fillOval(w * (0.16 + i * 0.1), h * (0.18 + (i % 2) * 0.03), w * 0.24, h * 0.4);
+                    g.fillOval(w * (0.14 + i * 0.1), h * (0.10 + (i % 2) * 0.03), w * 0.26, h * 0.42);
                 }
                 g.setFill(Color.rgb(0, 0, 0, 0.16));
-                g.fillOval(w * 0.3, h * 0.62, w * 0.4, h * 0.12);
+                g.fillOval(w * 0.28, h * 0.54, w * 0.44, h * 0.13);
             }
             case ROOSTER -> {
                 g.setFill(Color.web("#6D4C41"));
-                g.fillRoundRect(w * 0.46, h * 0.68, w * 0.08, h * 0.17, 12, 12);
+                g.fillRoundRect(w * 0.44, h * 0.60, w * 0.09, h * 0.18, 12, 12);
                 g.setFill(Color.web("#8D6E63"));
-                g.fillRoundRect(w * 0.3, h * 0.79, w * 0.4, h * 0.05, 12, 12);
+                g.fillRoundRect(w * 0.28, h * 0.71, w * 0.44, h * 0.05, 12, 12);
                 g.setStroke(Color.web("#FFEB3B"));
                 g.setLineWidth(6);
-                g.strokeArc(w * 0.64, h * 0.3, w * 0.16, h * 0.16, 300, 240, ArcType.OPEN);
-                g.strokeArc(w * 0.67, h * 0.27, w * 0.23, h * 0.23, 300, 210, ArcType.OPEN);
+                g.strokeArc(w * 0.62, h * 0.22, w * 0.17, h * 0.17, 300, 240, ArcType.OPEN);
+                g.strokeArc(w * 0.65, h * 0.19, w * 0.24, h * 0.24, 300, 210, ArcType.OPEN);
             }
             case PENGUIN -> {
                 g.setFill(Color.rgb(144, 202, 249, 0.85));
-                g.fillRoundRect(w * 0.24, h * 0.73, w * 0.52, h * 0.12, 28, 28);
-                drawVictoryFish(g, w * 0.72, h * 0.66, w * 0.075, Color.web("#90A4AE"), Color.web("#CFD8DC"));
+                g.fillRoundRect(w * 0.22, h * 0.65, w * 0.56, h * 0.13, 28, 28);
+                drawVictoryFish(g, w * 0.70, h * 0.58, w * 0.075, Color.web("#90A4AE"), Color.web("#CFD8DC"));
             }
             case SHOEBILL -> {
-                drawVictoryFish(g, w * 0.76, h * 0.5, w * 0.085, Color.web("#42A5F5"), Color.web("#B3E5FC"));
+                drawVictoryFish(g, w * 0.74, h * 0.42, w * 0.085, Color.web("#42A5F5"), Color.web("#B3E5FC"));
                 g.setStroke(Color.rgb(255, 255, 255, 0.35));
                 g.setLineWidth(5);
-                g.strokeOval(w * 0.32, h * 0.74, w * 0.36, h * 0.08);
+                g.strokeOval(w * 0.30, h * 0.66, w * 0.40, h * 0.09);
             }
             case MOCKINGBIRD -> {
                 g.setFill(Color.web("#111827"));
-                g.fillRoundRect(w * 0.47, h * 0.37, w * 0.15, h * 0.035, 12, 12);
-                g.fillRoundRect(w * 0.61, h * 0.375, w * 0.055, h * 0.022, 8, 8);
+                g.fillRoundRect(w * 0.45, h * 0.29, w * 0.16, h * 0.037, 12, 12);
+                g.fillRoundRect(w * 0.59, h * 0.295, w * 0.06, h * 0.024, 8, 8);
                 g.setStroke(Color.web("#AB47BC"));
                 g.setLineWidth(5);
-                g.strokeLine(w * 0.77, h * 0.46, w * 0.77, h * 0.78);
+                g.strokeLine(w * 0.75, h * 0.38, w * 0.75, h * 0.70);
                 g.setStroke(Color.web("#EC407A"));
                 g.setLineWidth(6);
-                g.strokeOval(w * 0.71, h * 0.39, w * 0.12, h * 0.14);
-                drawVictorySparkle(g, w * 0.84, h * 0.24, w * 0.03, Color.web("#F48FB1"));
+                g.strokeOval(w * 0.69, h * 0.31, w * 0.13, h * 0.15);
+                drawVictorySparkle(g, w * 0.82, h * 0.16, w * 0.03, Color.web("#F48FB1"));
             }
             case RAZORBILL -> {
                 g.setStroke(Color.web("#80DEEA"));
                 g.setLineWidth(10);
-                g.strokeLine(w * 0.22, h * 0.68, w * 0.76, h * 0.22);
-                g.strokeLine(w * 0.24, h * 0.22, w * 0.78, h * 0.68);
+                g.strokeLine(w * 0.20, h * 0.60, w * 0.74, h * 0.14);
+                g.strokeLine(w * 0.22, h * 0.14, w * 0.76, h * 0.60);
                 g.setStroke(Color.web("#E0F7FA"));
                 g.setLineWidth(4);
-                g.strokeLine(w * 0.18, h * 0.7, w * 0.72, h * 0.24);
+                g.strokeLine(w * 0.16, h * 0.62, w * 0.70, h * 0.16);
             }
             case GRINCHHAWK -> {
-                drawVictoryPresent(g, w * 0.24, h * 0.67, w * 0.16);
+                drawVictoryPresent(g, w * 0.22, h * 0.59, w * 0.16);
                 g.setStroke(Color.web("#7CB342"));
                 g.setLineWidth(7);
-                g.strokeArc(w * 0.18, h * 0.24, w * 0.22, h * 0.16, 70, 220, ArcType.OPEN);
+                g.strokeArc(w * 0.16, h * 0.16, w * 0.24, h * 0.18, 70, 220, ArcType.OPEN);
             }
             case VULTURE -> {
-                drawVictoryBone(g, w * 0.28, h * 0.77, w * 0.085);
-                drawVictoryBone(g, w * 0.68, h * 0.79, w * 0.07);
-                drawVictorySmokePuff(g, w * 0.22, h * 0.55, w * 0.07, Color.rgb(70, 58, 92, 0.42));
-                drawVictorySmokePuff(g, w * 0.79, h * 0.58, w * 0.06, Color.rgb(70, 58, 92, 0.36));
+                drawVictoryBone(g, w * 0.26, h * 0.69, w * 0.085);
+                drawVictoryBone(g, w * 0.66, h * 0.71, w * 0.07);
+                drawVictorySmokePuff(g, w * 0.20, h * 0.47, w * 0.07, Color.rgb(70, 58, 92, 0.42));
+                drawVictorySmokePuff(g, w * 0.77, h * 0.50, w * 0.06, Color.rgb(70, 58, 92, 0.36));
             }
             case OPIUMBIRD -> {
                 g.setStroke(Color.web("#CE93D8"));
                 g.setLineWidth(8);
-                g.strokeArc(w * 0.22, h * 0.46, w * 0.56, h * 0.22, 180, 180, ArcType.OPEN);
-                drawVictorySmokePuff(g, w * 0.3, h * 0.64, w * 0.11, Color.rgb(171, 71, 188, 0.36));
-                drawVictorySmokePuff(g, w * 0.48, h * 0.68, w * 0.13, Color.rgb(171, 71, 188, 0.42));
-                drawVictorySmokePuff(g, w * 0.66, h * 0.64, w * 0.11, Color.rgb(171, 71, 188, 0.36));
+                g.strokeArc(w * 0.20, h * 0.38, w * 0.60, h * 0.24, 180, 180, ArcType.OPEN);
+                drawVictorySmokePuff(g, w * 0.28, h * 0.56, w * 0.11, Color.rgb(171, 71, 188, 0.36));
+                drawVictorySmokePuff(g, w * 0.46, h * 0.60, w * 0.13, Color.rgb(171, 71, 188, 0.42));
+                drawVictorySmokePuff(g, w * 0.64, h * 0.56, w * 0.11, Color.rgb(171, 71, 188, 0.36));
             }
             case TITMOUSE -> {
                 g.setStroke(Color.web("#FFEE58"));
                 g.setLineWidth(8);
                 g.strokePolyline(
-                        new double[]{w * 0.2, w * 0.34, w * 0.3, w * 0.48, w * 0.42, w * 0.62},
-                        new double[]{h * 0.32, h * 0.24, h * 0.46, h * 0.34, h * 0.6, h * 0.5},
+                        new double[]{w * 0.18, w * 0.32, w * 0.28, w * 0.46, w * 0.40, w * 0.60},
+                        new double[]{h * 0.24, h * 0.16, h * 0.38, h * 0.26, h * 0.52, h * 0.42},
                         6
                 );
-                drawVictorySparkle(g, w * 0.68, h * 0.3, w * 0.028, Color.web("#FFF59D"));
+                drawVictorySparkle(g, w * 0.66, h * 0.22, w * 0.028, Color.web("#FFF59D"));
             }
             case BAT -> {
                 g.setStroke(Color.web("#B39DDB"));
                 g.setLineWidth(5);
-                g.strokeArc(w * 0.22, h * 0.26, w * 0.22, h * 0.16, 40, 240, ArcType.OPEN);
-                g.strokeArc(w * 0.56, h * 0.26, w * 0.22, h * 0.16, -100, 240, ArcType.OPEN);
+                g.strokeArc(w * 0.20, h * 0.18, w * 0.24, h * 0.18, 40, 240, ArcType.OPEN);
+                g.strokeArc(w * 0.54, h * 0.18, w * 0.24, h * 0.18, -100, 240, ArcType.OPEN);
                 g.setFill(Color.rgb(255, 255, 255, 0.14));
-                g.fillOval(w * 0.18, h * 0.12, w * 0.16, h * 0.16);
+                g.fillOval(w * 0.16, h * 0.04, w * 0.18, h * 0.18);
                 g.setFill(Color.rgb(5, 8, 20, 0.92));
-                g.fillOval(w * 0.23, h * 0.12, w * 0.16, h * 0.16);
+                g.fillOval(w * 0.21, h * 0.04, w * 0.18, h * 0.18);
             }
             case PELICAN -> {
-                drawVictoryFish(g, w * 0.76, h * 0.38, w * 0.075, Color.web("#4FC3F7"), Color.web("#E1F5FE"));
+                drawVictoryFish(g, w * 0.74, h * 0.30, w * 0.075, Color.web("#4FC3F7"), Color.web("#E1F5FE"));
                 g.setStroke(Color.web("#81D4FA"));
                 g.setLineWidth(6);
-                g.strokeArc(w * 0.52, h * 0.34, w * 0.24, h * 0.34, 250, 120, ArcType.OPEN);
-                g.strokeArc(w * 0.56, h * 0.62, w * 0.14, h * 0.12, 180, 180, ArcType.OPEN);
+                g.strokeArc(w * 0.50, h * 0.26, w * 0.26, h * 0.36, 250, 120, ArcType.OPEN);
+                g.strokeArc(w * 0.54, h * 0.54, w * 0.16, h * 0.13, 180, 180, ArcType.OPEN);
             }
             case HEISENBIRD -> {
-                drawVictoryCrystal(g, w * 0.28, h * 0.72, w * 0.11, Color.web("#4FC3F7"));
-                drawVictoryCrystal(g, w * 0.46, h * 0.76, w * 0.09, Color.web("#90CAF9"));
-                drawVictoryCrystal(g, w * 0.66, h * 0.71, w * 0.1, Color.web("#29B6F6"));
-                drawVictorySmokePuff(g, w * 0.68, h * 0.28, w * 0.06, Color.rgb(144, 202, 249, 0.35));
+                drawVictoryCrystal(g, w * 0.26, h * 0.64, w * 0.11, Color.web("#4FC3F7"));
+                drawVictoryCrystal(g, w * 0.44, h * 0.68, w * 0.09, Color.web("#90CAF9"));
+                drawVictoryCrystal(g, w * 0.64, h * 0.63, w * 0.1, Color.web("#29B6F6"));
+                drawVictorySmokePuff(g, w * 0.66, h * 0.20, w * 0.06, Color.rgb(144, 202, 249, 0.35));
             }
             case RAVEN -> {
                 for (int i = 0; i < 5; i++) {
-                    double x = w * (0.24 + i * 0.12);
-                    double y = h * (0.18 + Math.abs(2 - i) * 0.04);
+                    double x = w * (0.22 + i * 0.12);
+                    double y = h * (0.10 + Math.abs(2 - i) * 0.04);
                     g.setFill(Color.rgb(28, 31, 38, 0.78));
-                    g.fillOval(x, y, w * 0.08, h * 0.16);
+                    g.fillOval(x, y, w * 0.09, h * 0.17);
                 }
                 g.setStroke(Color.rgb(176, 190, 197, 0.45));
                 g.setLineWidth(4);
-                g.strokeArc(w * 0.2, h * 0.2, w * 0.6, h * 0.28, 190, 160, ArcType.OPEN);
+                g.strokeArc(w * 0.18, h * 0.12, w * 0.64, h * 0.30, 190, 160, ArcType.OPEN);
             }
         }
 
-        drawVictoryCrown(g, w * 0.5, h * 0.19, Math.min(w, h) * 0.16);
+        drawVictoryCrown(g, w * 0.5, h * 0.34, Math.min(w, h) * 0.16);
     }
 
     private void drawVictoryCrown(GraphicsContext g, double cx, double cy, double scale) {
