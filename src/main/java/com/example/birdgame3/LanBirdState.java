@@ -176,6 +176,8 @@ class LanBirdState {
     boolean phoenixRebornActive;
     int phoenixChargeTimer;
     boolean phoenixCharging;
+    boolean phoenixChargeUltimate;
+    int phoenixCastLockTimer;
     int phoenixFireballTimer;
     double phoenixFireballX;
     double phoenixFireballY;
@@ -184,10 +186,12 @@ class LanBirdState {
     boolean phoenixFireballUltimate;
     int phoenixSpiralTimer;
     boolean phoenixSpiralUsed;
+    boolean phoenixSpiralUltimate;
     int phoenixLavaTimer;
     double phoenixLavaX;
     double phoenixLavaY;
     boolean phoenixLavaUltimate;
+    boolean phoenixLavaAirborne;
     boolean[] phoenixLavaHitCooldown = new boolean[4];
     double ultimateMeter;
     int ultimateFxTimer;
@@ -376,6 +380,8 @@ class LanBirdState {
         out.writeBoolean(phoenixRebornActive);
         out.writeInt(phoenixChargeTimer);
         out.writeBoolean(phoenixCharging);
+        out.writeBoolean(phoenixChargeUltimate);
+        out.writeInt(phoenixCastLockTimer);
         out.writeInt(phoenixFireballTimer);
         out.writeDouble(phoenixFireballX);
         out.writeDouble(phoenixFireballY);
@@ -384,10 +390,12 @@ class LanBirdState {
         out.writeBoolean(phoenixFireballUltimate);
         out.writeInt(phoenixSpiralTimer);
         out.writeBoolean(phoenixSpiralUsed);
+        out.writeBoolean(phoenixSpiralUltimate);
         out.writeInt(phoenixLavaTimer);
         out.writeDouble(phoenixLavaX);
         out.writeDouble(phoenixLavaY);
         out.writeBoolean(phoenixLavaUltimate);
+        out.writeBoolean(phoenixLavaAirborne);
         for (boolean hit : phoenixLavaHitCooldown) {
             out.writeBoolean(hit);
         }
@@ -580,6 +588,8 @@ class LanBirdState {
         state.phoenixRebornActive = in.readBoolean();
         state.phoenixChargeTimer = in.readInt();
         state.phoenixCharging = in.readBoolean();
+        state.phoenixChargeUltimate = in.readBoolean();
+        state.phoenixCastLockTimer = in.readInt();
         state.phoenixFireballTimer = in.readInt();
         state.phoenixFireballX = in.readDouble();
         state.phoenixFireballY = in.readDouble();
@@ -588,10 +598,12 @@ class LanBirdState {
         state.phoenixFireballUltimate = in.readBoolean();
         state.phoenixSpiralTimer = in.readInt();
         state.phoenixSpiralUsed = in.readBoolean();
+        state.phoenixSpiralUltimate = in.readBoolean();
         state.phoenixLavaTimer = in.readInt();
         state.phoenixLavaX = in.readDouble();
         state.phoenixLavaY = in.readDouble();
         state.phoenixLavaUltimate = in.readBoolean();
+        state.phoenixLavaAirborne = in.readBoolean();
         for (int i = 0; i < state.phoenixLavaHitCooldown.length; i++) {
             state.phoenixLavaHitCooldown[i] = in.readBoolean();
         }

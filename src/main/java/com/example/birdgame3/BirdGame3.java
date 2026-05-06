@@ -8766,7 +8766,7 @@ public class BirdGame3 extends Application {
         PIGEON("Pigeon", 7, 16, 3.9, Color.LIGHTGRAY, 0.80, "Peck Burst + Rooftop Rush + Alley Flutter + Scavenge"),
         EAGLE("Eagle", 9, 19, 4.2, Color.DARKRED, 0.6, "Hunter's Cry / Talon Rush / Skyrise / Heavenfall"),
         FALCON("Falcon", 10, 18, 4.4, Color.rgb(176, 95, 55), 0.64, "Echo of Eagle: Target Snap / Razor Rush / Jet Climb / Meteor Strike"),
-        PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Rebirth Blaze (heal + fireburst)"),
+        PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Cinder Halo / Snap Fire / Firespin / Faultfire"),
         HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Hover/Fly + Nectar Frenzy (stings + lifesteal)"),
         TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Ground Pound AOE + Heavy Flap"),
         ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Summon Chicks (3 variants)"),

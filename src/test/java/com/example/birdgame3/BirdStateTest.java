@@ -1053,6 +1053,214 @@ class BirdStateTest {
     }
 
     @Test
+    void phoenixNeutralChargeBuildsWhileHeldAndCarriesUltimateToRelease() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird phoenix = new Bird(160.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        Bird target = new Bird(240.0, BirdGame3.BirdType.PIGEON, 1, game);
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = phoenix;
+        game.players[1] = target;
+
+        setPrivateDouble(phoenix, "ultimateMeter", 100.0);
+        double startingHealth = target.health;
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        phoenix.update(1.0);
+
+        assertTrue(getPrivateBoolean(phoenix, "phoenixCharging"));
+        assertTrue(getPrivateBoolean(phoenix, "phoenixChargeUltimate"),
+                "Starting neutral special with full meter should bank the ultimate for the release.");
+
+        for (int i = 0; i < 45; i++) {
+            phoenix.update(1.0);
+        }
+
+        assertTrue(getPrivateInt(phoenix, "phoenixChargeTimer") >= 40,
+                "Holding neutral special should actually build charge instead of getting reset every frame.");
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        phoenix.update(1.0);
+
+        assertFalse(getPrivateBoolean(phoenix, "phoenixCharging"));
+        assertEquals(0, phoenix.specialCooldown,
+                "Phoenix neutral special should not leave a visible cooldown after the charge detonates.");
+        assertTrue(getPrivateInt(phoenix, "phoenixAfterburnTimer") > 0,
+                "Releasing the charge should ignite Phoenix's lingering afterburn aura.");
+        assertTrue(target.health < startingHealth,
+                "A charged release should damage nearby enemies when it detonates.");
+    }
+
+    @Test
+    void phoenixUpSpecialUltimateDealsMoreDamageThanBaseVersion() throws Exception {
+        BirdGame3 normalGame = new BirdGame3();
+        normalGame.activePlayers = 2;
+        Bird normalPhoenix = new Bird(160.0, BirdGame3.BirdType.PHOENIX, 0, normalGame);
+        Bird normalTarget = new Bird(166.0, BirdGame3.BirdType.PIGEON, 1, normalGame);
+        normalPhoenix.y = BirdGame3.GROUND_Y - 80.0;
+        normalTarget.y = BirdGame3.GROUND_Y - 80.0;
+        normalGame.players[0] = normalPhoenix;
+        normalGame.players[1] = normalTarget;
+
+        invokePrivateBooleanVoid(normalPhoenix, "specialPhoenixUp", false);
+        assertEquals(0, normalPhoenix.specialCooldown);
+        normalPhoenix.update(1.0);
+        double normalDamage = Bird.STARTING_HEALTH - normalTarget.health;
+
+        BirdGame3 ultimateGame = new BirdGame3();
+        ultimateGame.activePlayers = 2;
+        Bird ultimatePhoenix = new Bird(160.0, BirdGame3.BirdType.PHOENIX, 0, ultimateGame);
+        Bird ultimateTarget = new Bird(166.0, BirdGame3.BirdType.PIGEON, 1, ultimateGame);
+        ultimatePhoenix.y = BirdGame3.GROUND_Y - 80.0;
+        ultimateTarget.y = BirdGame3.GROUND_Y - 80.0;
+        ultimateGame.players[0] = ultimatePhoenix;
+        ultimateGame.players[1] = ultimateTarget;
+
+        invokePrivateBooleanVoid(ultimatePhoenix, "specialPhoenixUp", true);
+        assertEquals(0, ultimatePhoenix.specialCooldown);
+        ultimatePhoenix.update(1.0);
+        double ultimateDamage = Bird.STARTING_HEALTH - ultimateTarget.health;
+
+        assertTrue(ultimateDamage > normalDamage,
+                "Helix Ascent should hit harder than the base Firespin.");
+    }
+
+    @Test
+    void phoenixUpSpecialStaysSpentWhenInterruptedInMidair() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird phoenix = new Bird(190.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = phoenix;
+
+        invokePrivateBooleanVoid(phoenix, "specialPhoenixUp", false);
+        assertTrue(getPrivateBoolean(phoenix, "phoenixSpiralUsed"));
+
+        phoenix.y = BirdGame3.GROUND_Y - 260.0;
+        phoenix.stunTime = 4.0;
+        phoenix.update(1.0);
+
+        assertTrue(getPrivateBoolean(phoenix, "phoenixSpiralUsed"),
+                "Getting clipped out of Phoenix's recovery should not refresh the move for free.");
+
+        while (phoenix.stunTime > 0.0) {
+            phoenix.update(1.0);
+        }
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        phoenix.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        assertEquals(0, getPrivateInt(phoenix, "phoenixSpiralTimer"),
+                "Phoenix should not restart its up special until it lands.");
+
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        phoenix.vx = 0.0;
+        phoenix.vy = 0.0;
+        phoenix.update(1.0);
+
+        assertFalse(getPrivateBoolean(phoenix, "phoenixSpiralUsed"),
+                "Landing should refresh Phoenix's spent up-special flag even if the move was interrupted.");
+    }
+
+    @Test
+    void phoenixSideSpecialHasNoCooldownAndLocksMovementDuringCast() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird phoenix = new Bird(220.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        phoenix.facingRight = true;
+        game.players[0] = phoenix;
+
+        invokePrivateBooleanVoid(phoenix, "specialPhoenixSide", false);
+
+        assertEquals(0, phoenix.specialCooldown);
+        assertTrue(getPrivateInt(phoenix, "phoenixCastLockTimer") > 0);
+
+        double startX = phoenix.x;
+        phoenix.vx = 4.5;
+        phoenix.update(1.0);
+
+        assertEquals(startX, phoenix.x, 0.0001,
+                "Phoenix should stay planted while Snap Fire is in its cast lock.");
+        assertTrue(getPrivateDouble(phoenix, "phoenixFireballX") > startX + 40.0,
+                "Snap Fire should still launch a fast projectile even while Phoenix is locked in place.");
+    }
+
+    @Test
+    void phoenixGroundDownSpecialSendsFlamesOutwardOnBothSides() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+
+        Bird phoenix = new Bird(260.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        Bird leftTarget = new Bird(120.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird rightTarget = new Bird(400.0, BirdGame3.BirdType.EAGLE, 2, game);
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        leftTarget.y = BirdGame3.GROUND_Y - 80.0;
+        rightTarget.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = phoenix;
+        game.players[1] = leftTarget;
+        game.players[2] = rightTarget;
+
+        invokePrivateBooleanVoid(phoenix, "specialPhoenixDown", false);
+
+        assertEquals(0, phoenix.specialCooldown);
+        assertFalse(getPrivateBoolean(phoenix, "phoenixLavaAirborne"));
+
+        double leftStart = leftTarget.health;
+        double rightStart = rightTarget.health;
+        for (int i = 0; i < 20; i++) {
+            phoenix.update(1.0);
+        }
+
+        assertTrue(leftTarget.health < leftStart,
+                "Ground Faultfire should reach and hit targets to Phoenix's left.");
+        assertTrue(rightTarget.health < rightStart,
+                "Ground Faultfire should also reach and hit targets to Phoenix's right.");
+        assertTrue(leftTarget.vx < 0.0 && rightTarget.vx > 0.0,
+                "The outward flame fronts should throw each target away from Phoenix.");
+    }
+
+    @Test
+    void phoenixAirDownSpecialBurnsTargetsDirectlyBelow() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+
+        Bird phoenix = new Bird(220.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        Bird belowTarget = new Bird(222.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird sideTarget = new Bird(340.0, BirdGame3.BirdType.EAGLE, 2, game);
+        phoenix.y = BirdGame3.GROUND_Y - 300.0;
+        belowTarget.y = BirdGame3.GROUND_Y - 110.0;
+        sideTarget.y = BirdGame3.GROUND_Y - 110.0;
+        game.players[0] = phoenix;
+        game.players[1] = belowTarget;
+        game.players[2] = sideTarget;
+
+        invokePrivateBooleanVoid(phoenix, "specialPhoenixDown", false);
+
+        assertTrue(getPrivateBoolean(phoenix, "phoenixLavaAirborne"));
+
+        double belowStart = belowTarget.health;
+        double sideStart = sideTarget.health;
+        for (int i = 0; i < 12; i++) {
+            phoenix.update(1.0);
+        }
+
+        assertTrue(belowTarget.health < belowStart,
+                "Air Faultfire should damage targets directly below Phoenix.");
+        assertEquals(sideStart, sideTarget.health, 0.0001,
+                "Air Faultfire should stay in a narrow vertical lane instead of splashing sideways.");
+        assertTrue(belowTarget.vy > 0.0,
+                "The vertical flame stream should force targets downward.");
+    }
+
+    @Test
     void eagleNeutralSpecialUsesHuntersCryConeAndStartsInvisibleReuseTimer() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
@@ -2578,6 +2786,12 @@ class BirdStateTest {
         Method method = target.getClass().getDeclaredMethod(methodName);
         method.setAccessible(true);
         return method.invoke(target);
+    }
+
+    private static void invokePrivateBooleanVoid(Object target, String methodName, boolean value) throws Exception {
+        Method method = target.getClass().getDeclaredMethod(methodName, boolean.class);
+        method.setAccessible(true);
+        method.invoke(target, value);
     }
 
     private static double invokeDoubleMethod(Object target, String methodName) throws Exception {
