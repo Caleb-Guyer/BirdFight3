@@ -12,6 +12,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import com.example.birdgame3.BirdGame3.MapType;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Random;
@@ -70,6 +71,13 @@ public class Bird {
     }
 
     private enum PhoenixSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
+    private enum HummingbirdSpecialVariant {
         NEUTRAL,
         SIDE,
         UP,
@@ -162,6 +170,7 @@ public class Bird {
     public boolean isBeaconSkin = false;
     public boolean isStormSkin = false;
     public boolean isSunflareSkin = false;
+    public boolean isLoreAccurateHummingbirdSkin = false;
     public boolean isGlacierSkin = false;
     public boolean isTideSkin = false;
     public boolean isNullRockSkin = false;
@@ -493,6 +502,39 @@ public class Bird {
     private final boolean[] penguinDashHit = new boolean[4];
     private int hummingFrenzyTimer = 0;
     private final int[] hummingFrenzyHitCooldown = new int[4];
+    private static final int HUMMING_NEEDLE_COMBO_WINDOW_FRAMES = 96;
+    private static final int HUMMING_NEEDLE_ACTIVE_FRAMES = 8;
+    private static final int HUMMING_NEEDLE_REUSE_FRAMES = 12;
+    private static final int HUMMING_FLASH_SIP_FRAMES = 10;
+    private static final int HUMMING_FLASH_SIP_REUSE_FRAMES = 126;
+    private static final int HUMMING_HOVER_BURST_FRAMES = 104;
+    private static final int HUMMING_HOVER_BURST_REUSE_FRAMES = 160;
+    private static final int HUMMING_NECTAR_TRAP_REUSE_FRAMES = 210;
+    private static final int HUMMING_NECTAR_TRAP_LIFE_FRAMES = 420;
+    private static final int HUMMING_NECTAR_COATED_FRAMES = 150;
+    private static final int HUMMING_NECTAR_COATED_DAMAGE_COOLDOWN = 24;
+    private int hummingNeedleComboCount = 0;
+    private int hummingNeedleComboTimer = 0;
+    private int hummingNeedleHitTimer = 0;
+    private int hummingNeedleReuseTimer = 0;
+    private int hummingNeedleDirection = 1;
+    private boolean hummingNeedleUltimate = false;
+    private final boolean[] hummingNeedleHit = new boolean[4];
+    private int hummingFlashSipTimer = 0;
+    private int hummingFlashSipReuseTimer = 0;
+    private int hummingFlashSipDirection = 1;
+    private boolean hummingFlashSipUltimate = false;
+    private final boolean[] hummingFlashSipHit = new boolean[4];
+    private int hummingHoverBurstTimer = 0;
+    private int hummingHoverBurstReuseTimer = 0;
+    private boolean hummingHoverBurstUltimate = false;
+    private boolean hummingHoverBurstUsed = false;
+    private int hummingNectarTrapReuseTimer = 0;
+    private int hummingNectarCoatedTimer = 0;
+    private int hummingNectarCoatedDamageCooldown = 0;
+    private int hummingNectarCoatedOwnerIndex = -1;
+    private boolean hummingNectarCoatedUltimate = false;
+    private final ArrayList<HummingbirdNectarTrap> hummingNectarTraps = new ArrayList<>();
     private int phoenixAfterburnTimer = 0;
     private final int[] phoenixAfterburnHitCooldown = new int[4];
     private boolean phoenixRebornUsed = false;
@@ -502,6 +544,27 @@ public class Bird {
     private static final double PHOENIX_REBORN_POWER_SCALE = 0.8;
     private static final double PHOENIX_REBORN_SPEED_SCALE = 1.35;
     private static final double PHOENIX_REBORN_DAMAGE_SCALE = 0.85;
+
+    private static final class HummingbirdNectarTrap {
+        final double x;
+        final double targetY;
+        final boolean ultimate;
+        final int[] hitCooldown = new int[4];
+        double y;
+        double vy;
+        boolean landed;
+        int lifeFrames;
+        int ageFrames;
+
+        HummingbirdNectarTrap(double x, double startY, double targetY, boolean ultimate) {
+            this.x = x;
+            this.y = startY;
+            this.targetY = targetY;
+            this.ultimate = ultimate;
+            this.vy = 5.5;
+            this.lifeFrames = ultimate ? HUMMING_NECTAR_TRAP_LIFE_FRAMES + 180 : HUMMING_NECTAR_TRAP_LIFE_FRAMES;
+        }
+    }
 
     // Phoenix directional special state
     private int phoenixChargeTimer = 0;
@@ -2158,6 +2221,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.PHOENIX && !canStartPhoenixSpecial()) {
             return;
         }
+        if (type == BirdGame3.BirdType.HUMMINGBIRD && !canStartHummingbirdSpecial()) {
+            return;
+        }
         if (isRaptor()) {
             RaptorSpecialVariant variant = selectRaptorSpecialVariant();
             if (!canStartRaptorSpecialVariant(variant)) {
@@ -2168,7 +2234,7 @@ public class Bird {
             }
         }
         boolean ultimateReady = isUltimateReady();
-        if (!isRaptor() && specialCooldown > 0 && !ultimateReady) {
+        if (!isRaptor() && type != BirdGame3.BirdType.HUMMINGBIRD && specialCooldown > 0 && !ultimateReady) {
             if (!game.isAI[playerIndex]) {
                 this.cooldownFlash = 15;
             }
@@ -2208,7 +2274,7 @@ public class Bird {
             case PIGEON -> specialPigeon(selectPigeonSpecialVariant(), ultimateTriggered);
             case EAGLE, FALCON -> specialRaptor(selectRaptorSpecialVariant(), ultimateTriggered);
             case PHOENIX -> specialPhoenix(selectPhoenixSpecialVariant(), ultimateTriggered);
-            case HUMMINGBIRD -> specialHummingbird(ultimateTriggered);
+            case HUMMINGBIRD -> specialHummingbird(selectHummingbirdSpecialVariant(), ultimateTriggered);
             case TURKEY -> specialTurkey(ultimateTriggered);
             case ROADRUNNER -> specialRoadrunner(ultimateTriggered);
             case PENGUIN -> specialPenguin(ultimateTriggered);
@@ -2443,6 +2509,160 @@ public class Bird {
         }
         if (raptorClimbTimer > 0) {
             handleRaptorClimb();
+        }
+    }
+
+    private void handleHummingbirdSpecialState() {
+        if (type != BirdGame3.BirdType.HUMMINGBIRD) {
+            return;
+        }
+        if (stunTime > 0.0) {
+            resetHummingbirdSpecialState(false);
+            return;
+        }
+        if (hummingNeedleHitTimer > 0) {
+            handleHummingbirdNeedleBarrage();
+        }
+        if (hummingFlashSipTimer > 0) {
+            handleHummingbirdFlashSip();
+        }
+        if (hummingHoverBurstTimer > 0) {
+            handleHummingbirdHoverBurst();
+        }
+    }
+
+    private void handleHummingbirdNeedleBarrage() {
+        int dir = hummingNeedleDirection == 0 ? facingDirection() : hummingNeedleDirection;
+        double originX = bodyCenterX() + dir * 16.0 * sizeMultiplier;
+        double originY = bodyCenterY() - 16.0 * sizeMultiplier;
+        double reach = (hummingNeedleUltimate ? 118.0 : 98.0) * sizeMultiplier;
+        double verticalReach = (hummingNeedleUltimate ? 34.0 : 27.0) * sizeMultiplier;
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= hummingNeedleHit.length) continue;
+            if (hummingNeedleHit[other.playerIndex]) continue;
+
+            double forward = (other.bodyCenterX() - originX) * dir;
+            if (forward < -other.combatHalfWidth() * 0.22) continue;
+            if (forward > reach + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyCenterY() - originY) > verticalReach + other.combatHalfHeight()) continue;
+
+            int nextCount = hummingNeedleComboTimer > 0 ? hummingNeedleComboCount + 1 : 1;
+            boolean finisher = nextCount >= 3;
+            int dmg = finisher ? (hummingNeedleUltimate ? 10 : 8) : (hummingNeedleUltimate ? 5 : 4);
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+
+            hummingNeedleComboCount = finisher ? 0 : nextCount;
+            hummingNeedleComboTimer = finisher ? 0 : HUMMING_NEEDLE_COMBO_WINDOW_FRAMES;
+            hummingNeedleHit[other.playerIndex] = true;
+            other.vx += dir * (finisher ? (hummingNeedleUltimate ? 21.0 : 17.0) : 5.2);
+            other.vy -= finisher ? (hummingNeedleUltimate ? 11.5 : 9.2) : 2.8;
+            if (finisher) {
+                other.applyStun(hummingNeedleUltimate ? 12 : 8);
+                game.hitstopFrames = Math.max(game.hitstopFrames, hummingNeedleUltimate ? 5 : 3);
+                game.shakeIntensity = Math.max(game.shakeIntensity, hummingNeedleUltimate ? 7 : 4);
+            }
+
+            Color spark = finisher ? Color.web("#FFF176") : Color.web("#B2FF59");
+            for (int i = 0; i < scaledParticleCount(finisher ? 18 : 9); i++) {
+                double angle = Math.random() * Math.PI * 2.0;
+                game.particles.add(new Particle(
+                        other.bodyCenterX(),
+                        other.bodyCenterY() - 6.0 * sizeMultiplier,
+                        Math.cos(angle) * (2.5 + Math.random() * (finisher ? 7.0 : 4.0)),
+                        Math.sin(angle) * (2.5 + Math.random() * (finisher ? 7.0 : 4.0)) - 1.5,
+                        spark.deriveColor(0, 1, 1, 0.86)
+                ));
+            }
+        }
+    }
+
+    private void handleHummingbirdFlashSip() {
+        int dir = hummingFlashSipDirection == 0 ? facingDirection() : hummingFlashSipDirection;
+        facingRight = dir > 0;
+        vx = dir * (hummingFlashSipUltimate ? 42.0 : 36.0);
+        vy *= 0.48;
+
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        double reach = (hummingFlashSipUltimate ? 330.0 : 270.0) * sizeMultiplier;
+        double height = (hummingFlashSipUltimate ? 72.0 : 58.0) * sizeMultiplier;
+
+        for (int i = 0; i < scaledParticleCount(3); i++) {
+            game.particles.add(new Particle(
+                    centerX - dir * (12.0 + Math.random() * 72.0),
+                    centerY + (Math.random() - 0.5) * 34.0,
+                    -dir * (2.0 + Math.random() * 3.0),
+                    (Math.random() - 0.5) * 2.0,
+                    (hummingFlashSipUltimate ? Color.GOLD : Color.CYAN).deriveColor(0, 1, 1, 0.58)
+            ));
+        }
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= hummingFlashSipHit.length) continue;
+            if (hummingFlashSipHit[other.playerIndex]) continue;
+
+            double forward = (other.bodyCenterX() - centerX) * dir;
+            if (forward < -other.combatHalfWidth() * 0.45) continue;
+            if (forward > reach + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyCenterY() - centerY) > height + other.combatHalfHeight()) continue;
+
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, hummingFlashSipUltimate ? 12 : 9);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+
+            double exitCenterX = other.bodyCenterX() + dir * (other.combatHalfWidth() + combatHalfWidth() + 18.0);
+            x = exitCenterX - bodyWidth() / 2.0;
+            other.vx += dir * (hummingFlashSipUltimate ? 14.5 : 11.5);
+            other.vy -= hummingFlashSipUltimate ? 8.4 : 6.5;
+            hummingFlashSipHit[other.playerIndex] = true;
+            game.hitstopFrames = Math.max(game.hitstopFrames, hummingFlashSipUltimate ? 4 : 2);
+
+            for (int i = 0; i < scaledParticleCount(hummingFlashSipUltimate ? 22 : 15); i++) {
+                double angle = Math.random() * Math.PI * 2.0;
+                game.particles.add(new Particle(
+                        other.bodyCenterX(),
+                        other.bodyCenterY(),
+                        Math.cos(angle) * (3.0 + Math.random() * 6.0),
+                        Math.sin(angle) * (3.0 + Math.random() * 6.0) - 2.0,
+                        (hummingFlashSipUltimate ? Color.GOLD : Color.DEEPSKYBLUE).deriveColor(0, 1, 1, 0.82)
+                ));
+            }
+        }
+    }
+
+    private void handleHummingbirdHoverBurst() {
+        vx *= 0.82;
+        if (vy > -6.0) {
+            vy -= hummingHoverBurstUltimate ? 1.3 : 0.9;
+        }
+        if ((hummingHoverBurstTimer & 1) == 0) {
+            for (int i = 0; i < scaledParticleCount(3); i++) {
+                double spread = (Math.random() - 0.5) * 48.0;
+                game.particles.add(new Particle(
+                        bodyCenterX() + spread,
+                        bodyBottomY() - 2.0 * sizeMultiplier,
+                        spread * 0.035,
+                        7.0 + Math.random() * 7.0,
+                        (hummingHoverBurstUltimate ? Color.GOLD : Color.AQUA).deriveColor(0, 1, 1, 0.62)
+                ));
+            }
         }
     }
 
@@ -3548,28 +3768,145 @@ public class Bird {
                 ultimate ? Color.web("#FF7043") : Color.ORANGERED);
     }
 
-    private void specialHummingbird(boolean ultimate) {
-        hummingFrenzyTimer = ultimate ? 150 : 105;
-        Arrays.fill(hummingFrenzyHitCooldown, 0);
-        canDoubleJump = true;
-        vy = Math.min(vy - type.jumpHeight * (ultimate ? 0.6 : 0.45),
-                -type.jumpHeight * (ultimate ? 1.1 : 0.9));
-        vx += (facingRight ? 1 : -1) * (ultimate ? 12 : 9);
-        heal(ultimate ? 12 : 6);
+    private void specialHummingbird(HummingbirdSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialHummingbirdNeedleBarrage(ultimate);
+            case SIDE -> specialHummingbirdFlashSip(ultimate);
+            case UP -> specialHummingbirdHoverBurst(ultimate);
+            case DOWN -> specialHummingbirdNectarTrap(ultimate);
+        }
+    }
+
+    private void specialHummingbirdNeedleBarrage(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir != 0) {
+            facingRight = dir > 0;
+        }
+        hummingNeedleDirection = facingDirection();
+        hummingNeedleHitTimer = ultimate ? HUMMING_NEEDLE_ACTIVE_FRAMES + 2 : HUMMING_NEEDLE_ACTIVE_FRAMES;
+        hummingNeedleReuseTimer = ultimate ? 4 : HUMMING_NEEDLE_REUSE_FRAMES;
+        hummingNeedleUltimate = ultimate;
+        Arrays.fill(hummingNeedleHit, false);
+        attackAnimationTimer = Math.max(attackAnimationTimer, ultimate ? 12 : 9);
+        vx *= isOnGround() ? 0.62 : 0.78;
+        if (!isOnGround()) {
+            vy = Math.min(vy, 1.2);
+        }
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+
+        double startX = bodyCenterX() + hummingNeedleDirection * 20.0 * sizeMultiplier;
+        double startY = bodyCenterY() - 15.0 * sizeMultiplier;
+        for (int i = 0; i < scaledParticleCount(ultimate ? 14 : 8); i++) {
+            game.particles.add(new Particle(
+                    startX + hummingNeedleDirection * Math.random() * 46.0,
+                    startY + (Math.random() - 0.5) * 18.0,
+                    hummingNeedleDirection * (3.0 + Math.random() * 4.0),
+                    (Math.random() - 0.5) * 2.0,
+                    (ultimate ? Color.GOLD : Color.LIME).deriveColor(0, 1, 1, 0.82)
+            ));
+        }
+    }
+
+    private void specialHummingbirdFlashSip(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        hummingFlashSipDirection = dir;
+        hummingFlashSipUltimate = ultimate;
+        hummingFlashSipTimer = ultimate ? HUMMING_FLASH_SIP_FRAMES + 3 : HUMMING_FLASH_SIP_FRAMES;
+        hummingFlashSipReuseTimer = ultimate ? 72 : HUMMING_FLASH_SIP_REUSE_FRAMES;
+        Arrays.fill(hummingFlashSipHit, false);
+        attackAnimationTimer = Math.max(attackAnimationTimer, hummingFlashSipTimer);
+        vx = dir * (ultimate ? 42.0 : 36.0);
+        vy *= 0.18;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
         if (ultimate) {
-            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * 1.3);
-            speedTimer = Math.max(speedTimer, 160);
+            game.addToKillFeed(shortName() + " VANISHED IN GOLDEN FLASH SIP!");
         }
-        specialCooldown = 390;
-        specialMaxCooldown = 390;
-        game.addToKillFeed(shortName() + (ultimate ? " ULT NECTAR FRENZY!" : " UNLEASHED NECTAR FRENZY!"));
-        int particleCount = scaledParticleCount(ultimate ? 80 : 55);
-        for (int i = 0; i < particleCount; i++) {
-            Color c = Math.random() < 0.55 ? Color.CYAN.brighter() : (ultimate ? Color.GOLD.brighter() : Color.YELLOW.brighter());
-            game.particles.add(new Particle(x + 40, y + 40,
-                    (Math.random() - 0.5) * 22, -8 - Math.random() * 12,
-                    c));
+    }
+
+    private void specialHummingbirdHoverBurst(boolean ultimate) {
+        if (hummingHoverBurstUsed && !ultimate) {
+            return;
         }
+        hummingHoverBurstUsed = true;
+        hummingHoverBurstUltimate = ultimate;
+        hummingHoverBurstTimer = ultimate ? 32 : 22;
+        hummingHoverBurstReuseTimer = ultimate ? 90 : HUMMING_HOVER_BURST_REUSE_FRAMES;
+        canDoubleJump = true;
+        vy = Math.min(vy, ultimate ? -36.0 : -29.0);
+        vx *= 0.16;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        if (ultimate) {
+            game.addToKillFeed(shortName() + " ULT HOVER BURST!");
+        }
+        for (int i = 0; i < scaledParticleCount(ultimate ? 44 : 30); i++) {
+            double spread = (Math.random() - 0.5) * 58.0;
+            game.particles.add(new Particle(
+                    bodyCenterX() + spread,
+                    bodyBottomY() - 8.0 * sizeMultiplier,
+                    spread * 0.035,
+                    5.0 + Math.random() * 7.0,
+                    (ultimate ? Color.GOLD : Color.AQUA).deriveColor(0, 1, 1, 0.76)
+            ));
+        }
+    }
+
+    private void specialHummingbirdNectarTrap(boolean ultimate) {
+        int dir = facingDirection();
+        double trapX = bodyCenterX() - dir * 58.0 * sizeMultiplier;
+        double targetY = hummingbirdTrapSurfaceY(trapX);
+        double startY = Math.min(bodyCenterY() - 16.0 * sizeMultiplier, targetY - 70.0 * sizeMultiplier);
+        hummingNectarTraps.add(new HummingbirdNectarTrap(trapX, startY, targetY, ultimate));
+        while (hummingNectarTraps.size() > (ultimate ? 5 : 4)) {
+            hummingNectarTraps.remove(0);
+        }
+        hummingNectarTrapReuseTimer = ultimate ? 132 : HUMMING_NECTAR_TRAP_REUSE_FRAMES;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 10);
+        vx += dir * 3.4;
+        if (ultimate) {
+            game.addToKillFeed(shortName() + " planted a royal Nectar Trap!");
+        }
+        for (int i = 0; i < scaledParticleCount(ultimate ? 28 : 18); i++) {
+            double angle = Math.random() * Math.PI * 2.0;
+            game.particles.add(new Particle(
+                    trapX,
+                    startY - 12.0,
+                    Math.cos(angle) * (2.0 + Math.random() * 4.0),
+                    Math.sin(angle) * (2.0 + Math.random() * 3.0) - 2.0,
+                    (ultimate ? Color.GOLD : Color.HOTPINK).deriveColor(0, 1, 1, 0.78)
+            ));
+        }
+    }
+
+    private double hummingbirdTrapSurfaceY(double trapX) {
+        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
+        double sourceY = bodyBottomY() - 24.0 * sizeMultiplier;
+        for (Platform p : game.platforms) {
+            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
+                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
+            if (isCaveCeiling) continue;
+            if (trapX < p.x - 18.0 || trapX > p.x + p.w + 18.0) continue;
+            if (p.y < sourceY - 12.0) continue;
+            if (p.y < bestY) {
+                bestY = p.y;
+            }
+        }
+        if (Double.isFinite(bestY)) {
+            return bestY;
+        }
+        return bodyBottomY() + 8.0 * sizeMultiplier;
     }
 
     private void specialTurkey(boolean ultimate) {
@@ -4356,6 +4693,47 @@ public class Bird {
         };
     }
 
+    private boolean hummingbirdSpecialActive() {
+        return hummingNeedleHitTimer > 0
+                || hummingFlashSipTimer > 0
+                || hummingHoverBurstTimer > 0;
+    }
+
+    private boolean hummingbirdSpecialReady(HummingbirdSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
+        return switch (variant) {
+            case NEUTRAL -> ultimateReady || hummingNeedleReuseTimer <= 0;
+            case SIDE -> ultimateReady || hummingFlashSipReuseTimer <= 0;
+            case UP -> ultimateReady || (!hummingHoverBurstUsed && hummingHoverBurstReuseTimer <= 0);
+            case DOWN -> ultimateReady || hummingNectarTrapReuseTimer <= 0;
+        };
+    }
+
+    private boolean hummingbirdSpecialOnReuseLockout(HummingbirdSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> hummingNeedleReuseTimer > 0;
+            case SIDE -> hummingFlashSipReuseTimer > 0;
+            case UP -> hummingHoverBurstUsed || hummingHoverBurstReuseTimer > 0;
+            case DOWN -> hummingNectarTrapReuseTimer > 0;
+        };
+    }
+
+    private boolean canStartHummingbirdSpecial() {
+        HummingbirdSpecialVariant variant = selectHummingbirdSpecialVariant();
+        boolean shieldConversion = variant == HummingbirdSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+        return type == BirdGame3.BirdType.HUMMINGBIRD
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && !hummingbirdSpecialActive()
+                && hummingbirdSpecialReady(variant);
+    }
+
     private PigeonSpecialVariant selectPigeonSpecialVariant() {
         if (jumpPressed()) {
             return PigeonSpecialVariant.UP;
@@ -4380,6 +4758,19 @@ public class Bird {
             return RaptorSpecialVariant.SIDE;
         }
         return RaptorSpecialVariant.NEUTRAL;
+    }
+
+    private HummingbirdSpecialVariant selectHummingbirdSpecialVariant() {
+        if (jumpPressed()) {
+            return HummingbirdSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return HummingbirdSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return HummingbirdSpecialVariant.SIDE;
+        }
+        return HummingbirdSpecialVariant.NEUTRAL;
     }
 
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
@@ -4409,6 +4800,11 @@ public class Bird {
                     && selectPhoenixSpecialVariant() == PhoenixSpecialVariant.UP
                     && !phoenixSpiralUsed;
         }
+        if (type == BirdGame3.BirdType.HUMMINGBIRD) {
+            return canStartHummingbirdSpecial()
+                    && selectHummingbirdSpecialVariant() == HummingbirdSpecialVariant.UP
+                    && !hummingHoverBurstUsed;
+        }
         if (isRaptor()) {
             return canStartRaptorSpecial()
                     && selectRaptorSpecialVariant() == RaptorSpecialVariant.UP
@@ -4428,6 +4824,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.PHOENIX) {
             return canStartPhoenixSpecial()
                     && selectPhoenixSpecialVariant() == PhoenixSpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.HUMMINGBIRD) {
+            return canStartHummingbirdSpecial()
+                    && selectHummingbirdSpecialVariant() == HummingbirdSpecialVariant.DOWN;
         }
         if (isRaptor()) {
             return canStartRaptorSpecial()
@@ -4493,6 +4893,21 @@ public class Bird {
         diveTimer = 0;
     }
 
+    private void resetHummingbirdSpecialState(boolean clearTraps) {
+        hummingNeedleHitTimer = 0;
+        hummingNeedleUltimate = false;
+        Arrays.fill(hummingNeedleHit, false);
+        hummingFlashSipTimer = 0;
+        hummingFlashSipUltimate = false;
+        hummingFlashSipDirection = facingDirection();
+        Arrays.fill(hummingFlashSipHit, false);
+        hummingHoverBurstTimer = 0;
+        hummingHoverBurstUltimate = false;
+        if (clearTraps) {
+            hummingNectarTraps.clear();
+        }
+    }
+
     private void interruptPigeonSpecialStateOnHit() {
         if (type != BirdGame3.BirdType.PIGEON) {
             return;
@@ -4511,6 +4926,16 @@ public class Bird {
             attackAnimationTimer = 0;
         }
         resetRaptorSpecialState();
+    }
+
+    private void interruptHummingbirdSpecialStateOnHit() {
+        if (type != BirdGame3.BirdType.HUMMINGBIRD) {
+            return;
+        }
+        if (hummingNeedleHitTimer > 0 || hummingFlashSipTimer > 0 || hummingHoverBurstTimer > 0) {
+            attackAnimationTimer = 0;
+        }
+        resetHummingbirdSpecialState(false);
     }
 
     private int aiJumpCooldown = 0;
@@ -5931,6 +6356,7 @@ public class Bird {
 
         // === RESET EXPIRED BUFFS ===
         resetExpiredBuffs();
+        handleHummingbirdNectarCoating();
 
         loungeHeal();
         if (type == BirdGame3.BirdType.MOCKINGBIRD && loungeActive && loungeHealth > 0) {
@@ -5971,6 +6397,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.PHOENIX && isOnGround()) {
             phoenixSpiralUsed = false;
         }
+        if (type == BirdGame3.BirdType.HUMMINGBIRD && isOnGround()) {
+            hummingHoverBurstUsed = false;
+        }
 
         if (airborne && landingLagTimer > 0) {
             landingLagTimer = 0;
@@ -5990,6 +6419,7 @@ public class Bird {
             attackHeldLastFrame = attackPressed();
             resetPigeonSpecialState();
             resetRaptorSpecialState();
+            resetHummingbirdSpecialState(false);
         }
 
         if (handleGrabbedState()) {
@@ -6123,6 +6553,7 @@ public class Bird {
         handlePigeonSpecialState();
         handlePhoenixSpecialState();
         handleRaptorSpecialState();
+        handleHummingbirdSpecialState();
 
         // === RAZORBILL DASH ===
         handleRazorbillBladeStorm();
@@ -6139,7 +6570,7 @@ public class Bird {
         // === THERMALS & WIND VENTS ===
         handleThermals(downHeld, prevX, prevY);
         applyPenguinDashDamage();
-        handleHummingbirdFrenzy();
+        handleHummingbirdNectarTraps();
         handlePhoenixAfterburn();
         emitRoadrunnerDust();
         handleRoadrunnerSandstorm();
@@ -6259,6 +6690,34 @@ public class Bird {
         penguinIceFxTimer = Math.max(0, penguinIceFxTimer - gameSpeed);
         penguinDashDamageTimer = Math.max(0, (int)(penguinDashDamageTimer - gameSpeed));
         hummingFrenzyTimer = Math.max(0, (int)(hummingFrenzyTimer - gameSpeed));
+        hummingNeedleComboTimer = Math.max(0, (int)(hummingNeedleComboTimer - gameSpeed));
+        hummingNeedleHitTimer = Math.max(0, (int)(hummingNeedleHitTimer - gameSpeed));
+        hummingNeedleReuseTimer = Math.max(0, (int)(hummingNeedleReuseTimer - gameSpeed));
+        hummingFlashSipTimer = Math.max(0, (int)(hummingFlashSipTimer - gameSpeed));
+        hummingFlashSipReuseTimer = Math.max(0, (int)(hummingFlashSipReuseTimer - gameSpeed));
+        hummingHoverBurstTimer = Math.max(0, (int)(hummingHoverBurstTimer - gameSpeed));
+        hummingHoverBurstReuseTimer = Math.max(0, (int)(hummingHoverBurstReuseTimer - gameSpeed));
+        hummingNectarTrapReuseTimer = Math.max(0, (int)(hummingNectarTrapReuseTimer - gameSpeed));
+        if (hummingNeedleComboTimer == 0) {
+            hummingNeedleComboCount = 0;
+        }
+        if (hummingNeedleHitTimer == 0) {
+            hummingNeedleUltimate = false;
+            Arrays.fill(hummingNeedleHit, false);
+        }
+        if (hummingFlashSipTimer == 0) {
+            hummingFlashSipUltimate = false;
+            Arrays.fill(hummingFlashSipHit, false);
+        }
+        if (hummingHoverBurstTimer == 0) {
+            hummingHoverBurstUltimate = false;
+        }
+        hummingNectarCoatedTimer = Math.max(0, (int)(hummingNectarCoatedTimer - gameSpeed));
+        hummingNectarCoatedDamageCooldown = Math.max(0, (int)(hummingNectarCoatedDamageCooldown - gameSpeed));
+        if (hummingNectarCoatedTimer == 0) {
+            hummingNectarCoatedOwnerIndex = -1;
+            hummingNectarCoatedUltimate = false;
+        }
         for (int i = 0; i < hummingFrenzyHitCooldown.length; i++) {
             hummingFrenzyHitCooldown[i] = Math.max(0, (int)(hummingFrenzyHitCooldown[i] - gameSpeed));
         }
@@ -7783,6 +8242,7 @@ public class Bird {
         interruptLedgeHangOnHit();
         interruptPigeonSpecialStateOnHit();
         interruptRaptorSpecialStateOnHit();
+        interruptHummingbirdSpecialStateOnHit();
         if (game.usesSmashCombatRules()) {
             smashDamage += scaledDamage;
             return scaledDamage;
@@ -7981,6 +8441,145 @@ public class Bird {
                 ));
             }
         }
+    }
+
+    private void handleHummingbirdNectarTraps() {
+        if (hummingNectarTraps.isEmpty()) {
+            return;
+        }
+        for (Iterator<HummingbirdNectarTrap> it = hummingNectarTraps.iterator(); it.hasNext(); ) {
+            HummingbirdNectarTrap trap = it.next();
+            trap.ageFrames++;
+            trap.lifeFrames--;
+            if (trap.lifeFrames <= 0 || health <= 0) {
+                it.remove();
+                continue;
+            }
+            if (!trap.landed) {
+                trap.y += trap.vy;
+                trap.vy += 0.74;
+                if (trap.y >= trap.targetY) {
+                    trap.y = trap.targetY;
+                    trap.vy = 0.0;
+                    trap.landed = true;
+                    for (int i = 0; i < scaledParticleCount(trap.ultimate ? 18 : 12); i++) {
+                        double angle = Math.random() * Math.PI * 2.0;
+                        game.particles.add(new Particle(
+                                trap.x,
+                                trap.y - 8.0,
+                                Math.cos(angle) * (2.0 + Math.random() * 4.0),
+                                Math.sin(angle) * (1.5 + Math.random() * 3.0) - 1.5,
+                                (trap.ultimate ? Color.GOLD : Color.HOTPINK).deriveColor(0, 1, 1, 0.78)
+                        ));
+                    }
+                } else if ((trap.ageFrames & 2) == 0) {
+                    game.particles.add(new Particle(
+                            trap.x + (Math.random() - 0.5) * 12.0,
+                            trap.y,
+                            (Math.random() - 0.5) * 1.0,
+                            0.8 + Math.random() * 1.2,
+                            (trap.ultimate ? Color.web("#FFF176") : Color.web("#F8BBD0")).deriveColor(0, 1, 1, 0.58)
+                    ));
+                }
+                continue;
+            }
+            for (int i = 0; i < trap.hitCooldown.length; i++) {
+                if (trap.hitCooldown[i] > 0) {
+                    trap.hitCooldown[i]--;
+                }
+            }
+
+            if ((trap.ageFrames & 7) == 0) {
+                game.particles.add(new Particle(
+                        trap.x + (Math.random() - 0.5) * 58.0,
+                        trap.y - 8.0 - Math.random() * 18.0,
+                        (Math.random() - 0.5) * 1.0,
+                        -0.6 - Math.random() * 1.8,
+                        (trap.ultimate ? Color.GOLD : Color.HOTPINK).deriveColor(0, 1, 1, 0.54)
+                ));
+            }
+
+            double radius = trap.ultimate ? 96.0 : 78.0;
+            for (Bird other : game.players) {
+                if (!canDamageTarget(other)) continue;
+                if (other.playerIndex < 0 || other.playerIndex >= trap.hitCooldown.length) continue;
+                double dx = other.bodyCenterX() - trap.x;
+                if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
+                double feetDistance = Math.abs(other.bodyBottomY() - trap.y);
+                boolean steppingInTrap = feetDistance <= 36.0 + other.combatHalfHeight() * 0.25
+                        || (other.bodyCenterY() > trap.y - 66.0 && other.bodyCenterY() < trap.y + 22.0);
+                if (!steppingInTrap) continue;
+
+                other.applyHummingbirdNectarCoating(this, trap.ultimate);
+
+                if (trap.hitCooldown[other.playerIndex] > 0) {
+                    continue;
+                }
+                trap.hitCooldown[other.playerIndex] = trap.ultimate ? 10 : 14;
+                for (int i = 0; i < scaledParticleCount(trap.ultimate ? 8 : 5); i++) {
+                    game.particles.add(new Particle(
+                            other.bodyCenterX() + (Math.random() - 0.5) * 24.0,
+                            trap.y - 10.0 + (Math.random() - 0.5) * 10.0,
+                            (Math.random() - 0.5) * 2.0,
+                            -1.0 - Math.random() * 2.2,
+                            Color.web("#F06292").deriveColor(0, 1, 1, 0.78)
+                    ));
+                }
+            }
+        }
+    }
+
+    private void applyHummingbirdNectarCoating(Bird owner, boolean ultimate) {
+        if (owner == null || owner.playerIndex < 0 || owner.playerIndex >= game.players.length) {
+            return;
+        }
+        hummingNectarCoatedOwnerIndex = owner.playerIndex;
+        hummingNectarCoatedUltimate = hummingNectarCoatedUltimate || ultimate;
+        hummingNectarCoatedTimer = Math.max(hummingNectarCoatedTimer,
+                ultimate ? HUMMING_NECTAR_COATED_FRAMES + 60 : HUMMING_NECTAR_COATED_FRAMES);
+        hummingNectarCoatedDamageCooldown = Math.min(hummingNectarCoatedDamageCooldown, 4);
+    }
+
+    private void handleHummingbirdNectarCoating() {
+        if (hummingNectarCoatedTimer <= 0 || health <= 0) {
+            return;
+        }
+        vx *= hummingNectarCoatedUltimate ? 0.76 : 0.82;
+        if (vy > -2.0) {
+            vy *= hummingNectarCoatedUltimate ? 0.82 : 0.88;
+        }
+        if ((hummingNectarCoatedTimer & 5) == 0) {
+            game.particles.add(new Particle(
+                    bodyCenterX() + (Math.random() - 0.5) * bodyWidth() * 0.86,
+                    bodyCenterY() + (Math.random() - 0.5) * bodyHeight() * 0.72,
+                    (Math.random() - 0.5) * 1.4,
+                    -0.5 - Math.random() * 1.2,
+                    Color.web("#F8BBD0").deriveColor(0, 1, 1, 0.68)
+            ));
+        }
+        if (hummingNectarCoatedDamageCooldown > 0) {
+            return;
+        }
+        Bird owner = hummingNectarCoatedOwnerIndex >= 0 && hummingNectarCoatedOwnerIndex < game.players.length
+                ? game.players[hummingNectarCoatedOwnerIndex]
+                : null;
+        if (owner == null || owner.health <= 0 || !game.canDamage(owner, this)) {
+            hummingNectarCoatedDamageCooldown = HUMMING_NECTAR_COATED_DAMAGE_COOLDOWN;
+            return;
+        }
+
+        double oldHealth = health;
+        int dealt = (int) owner.applyUnshieldedDamageTo(this, hummingNectarCoatedUltimate ? 4 : 3);
+        if (dealt > 0) {
+            game.damageDealt[owner.playerIndex] += dealt;
+            game.recordSpecialImpact(owner.playerIndex, dealt, true);
+            if (health <= 0 && oldHealth > 0) {
+                game.eliminations[owner.playerIndex]++;
+            }
+        }
+        hummingNectarCoatedDamageCooldown = hummingNectarCoatedUltimate
+                ? HUMMING_NECTAR_COATED_DAMAGE_COOLDOWN - 6
+                : HUMMING_NECTAR_COATED_DAMAGE_COOLDOWN;
     }
 
     private void handlePhoenixAfterburn() {
@@ -8799,6 +9398,18 @@ public class Bird {
         Arrays.fill(penguinDashHit, false);
         hummingFrenzyTimer = 0;
         Arrays.fill(hummingFrenzyHitCooldown, 0);
+        resetHummingbirdSpecialState(true);
+        hummingNeedleComboCount = 0;
+        hummingNeedleComboTimer = 0;
+        hummingNeedleReuseTimer = 0;
+        hummingFlashSipReuseTimer = 0;
+        hummingHoverBurstReuseTimer = 0;
+        hummingHoverBurstUsed = false;
+        hummingNectarTrapReuseTimer = 0;
+        hummingNectarCoatedTimer = 0;
+        hummingNectarCoatedDamageCooldown = 0;
+        hummingNectarCoatedOwnerIndex = -1;
+        hummingNectarCoatedUltimate = false;
         phoenixAfterburnTimer = 0;
         Arrays.fill(phoenixAfterburnHitCooldown, 0);
         leanTimer = 0;
@@ -8885,6 +9496,7 @@ public class Bird {
         state.isBeaconSkin = isBeaconSkin;
         state.isStormSkin = isStormSkin;
         state.isSunflareSkin = isSunflareSkin;
+        state.isLoreAccurateHummingbirdSkin = isLoreAccurateHummingbirdSkin;
         state.isGlacierSkin = isGlacierSkin;
         state.isTideSkin = isTideSkin;
         state.isNullRockSkin = isNullRockSkin;
@@ -9110,6 +9722,7 @@ public class Bird {
         this.isBeaconSkin = state.isBeaconSkin;
         this.isStormSkin = state.isStormSkin;
         this.isSunflareSkin = state.isSunflareSkin;
+        this.isLoreAccurateHummingbirdSkin = state.isLoreAccurateHummingbirdSkin;
         this.isGlacierSkin = state.isGlacierSkin;
         this.isTideSkin = state.isTideSkin;
         this.isNullRockSkin = state.isNullRockSkin;
@@ -10326,6 +10939,7 @@ public class Bird {
         AttackVisualPose attackPose = currentAttackVisualPose();
 
         drawRespawnNest(g);
+        drawHummingbirdNectarTraps(g);
         drawBlockingShield(g, drawSize);
         drawTaunt(g);
         drawCooldownFlash(g);
@@ -10373,6 +10987,7 @@ public class Bird {
         drawBeak(g, attackPose);
         drawPelican(g);
         g.restore();
+        drawHummingbirdNectarCoating(g, drawSize);
         drawPigeonSpecialFx(g, drawSize);
         drawRaptorSpecialFx(g, drawSize);
         drawPhoenixSpecialFx(g, drawSize);
@@ -10382,16 +10997,111 @@ public class Bird {
     }
 
     private void drawHummingbirdFrenzy(GraphicsContext g, double drawSize) {
-        if (type != BirdGame3.BirdType.HUMMINGBIRD || hummingFrenzyTimer <= 0) return;
-        double pulse = 0.5 + 0.5 * Math.sin((105 - hummingFrenzyTimer) * 0.45);
-        g.setFill(Color.CYAN.deriveColor(0, 1, 1, 0.24 + 0.18 * pulse));
-        g.fillOval(x - 22, y - 22, drawSize + 44, drawSize + 44);
+        if (type != BirdGame3.BirdType.HUMMINGBIRD) return;
+        double s = sizeMultiplier;
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        if (hummingNeedleHitTimer > 0) {
+            int dir = hummingNeedleDirection == 0 ? facingDirection() : hummingNeedleDirection;
+            double progress = hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES);
+            double extension = Math.sin(progress * Math.PI) * (hummingNeedleUltimate ? 34.0 : 26.0) * s;
+            double reach = (hummingNeedleUltimate ? 120.0 : 98.0) * s + extension;
+            g.setFill(Color.web("#E8F5E9").deriveColor(0, 1, 1, 0.18 + 0.14 * progress));
+            g.fillOval(centerX + dir * (16.0 * s + extension * 0.25) - 15.0 * s,
+                    centerY - 33.0 * s,
+                    30.0 * s + extension * 0.35,
+                    36.0 * s);
+            g.setStroke((hummingNeedleComboCount >= 2 ? Color.web("#FFF176") : Color.web("#B2FF59"))
+                    .deriveColor(0, 1, 1, 0.45 + 0.35 * progress));
+            g.setLineWidth((hummingNeedleUltimate ? 5.0 : 3.4) * s);
+            g.strokeLine(centerX + dir * 14.0 * s, centerY - 15.0 * s,
+                    centerX + dir * reach, centerY - 15.0 * s);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth(1.1 * s);
+            g.strokeLine(centerX + dir * 18.0 * s, centerY - 16.0 * s,
+                    centerX + dir * (reach + 10.0 * s), centerY - 16.0 * s);
+        }
+        if (hummingFlashSipTimer > 0) {
+            int dir = hummingFlashSipDirection == 0 ? facingDirection() : hummingFlashSipDirection;
+            double alpha = Math.clamp(hummingFlashSipTimer / (double) HUMMING_FLASH_SIP_FRAMES, 0.0, 1.0);
+            g.setStroke((hummingFlashSipUltimate ? Color.GOLD : Color.CYAN).deriveColor(0, 1, 1, 0.32 + 0.28 * alpha));
+            g.setLineWidth((hummingFlashSipUltimate ? 12.0 : 9.0) * s);
+            g.strokeLine(centerX - dir * 190.0 * s, centerY, centerX + dir * 22.0 * s, centerY - 8.0 * s);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.42));
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(centerX - dir * 220.0 * s, centerY + 11.0 * s, centerX + dir * 40.0 * s, centerY + 2.0 * s);
+        }
+        if (hummingHoverBurstTimer > 0) {
+            double pulse = 0.5 + 0.5 * Math.sin(hummingHoverBurstTimer * 0.34);
+            g.setStroke((hummingHoverBurstUltimate ? Color.GOLD : Color.AQUA).deriveColor(0, 1, 1, 0.34 + 0.24 * pulse));
+            g.setLineWidth((2.4 + pulse * 1.4) * s);
+            g.strokeOval(centerX - 36.0 * s, bodyBottomY() - 18.0 * s,
+                    72.0 * s, 28.0 * s);
+            g.setFill((hummingHoverBurstUltimate ? Color.GOLD : Color.AQUA).deriveColor(0, 1, 1, 0.16));
+            g.fillOval(centerX - 26.0 * s, y - 20.0 * s, 52.0 * s, drawSize + 48.0 * s);
+        }
+    }
 
-        g.setStroke(Color.YELLOW.deriveColor(0, 1, 1, 0.78));
-        g.setLineWidth(2.6);
-        for (int i = 0; i < 3; i++) {
-            double r = 54 + i * 17 + pulse * 9;
-            g.strokeOval(x + 40 - r, y + 40 - r, r * 2, r * 2);
+    private void drawHummingbirdNectarCoating(GraphicsContext g, double drawSize) {
+        if (hummingNectarCoatedTimer <= 0) {
+            return;
+        }
+        double ratio = Math.clamp(hummingNectarCoatedTimer / (double) (hummingNectarCoatedUltimate
+                ? HUMMING_NECTAR_COATED_FRAMES + 60
+                : HUMMING_NECTAR_COATED_FRAMES), 0.0, 1.0);
+        double pulse = 0.5 + 0.5 * Math.sin(hummingNectarCoatedTimer * 0.24);
+        Color nectar = (hummingNectarCoatedUltimate ? Color.web("#FFF176") : Color.web("#F48FB1"))
+                .deriveColor(0, 1, 1, 0.22 + 0.20 * pulse * ratio);
+        g.setFill(nectar);
+        g.fillOval(x - 8.0 * sizeMultiplier, y + 8.0 * sizeMultiplier,
+                drawSize + 16.0 * sizeMultiplier, drawSize * 0.78);
+        g.setStroke(Color.web("#FFEB3B").deriveColor(0, 1, 1, 0.42 * ratio));
+        g.setLineWidth(1.6 * sizeMultiplier);
+        for (int i = 0; i < 5; i++) {
+            double dripX = x + drawSize * (0.16 + i * 0.17);
+            double dripTop = y + drawSize * (0.18 + (i % 2) * 0.12);
+            double dripLen = (8.0 + pulse * 6.0 + i * 1.2) * sizeMultiplier;
+            g.strokeLine(dripX, dripTop, dripX - 2.0 * sizeMultiplier, dripTop + dripLen);
+            g.setFill(Color.web("#FCE4EC").deriveColor(0, 1, 1, 0.55 * ratio));
+            g.fillOval(dripX - 3.0 * sizeMultiplier, dripTop + dripLen - 1.5 * sizeMultiplier,
+                    6.0 * sizeMultiplier, 6.0 * sizeMultiplier);
+        }
+    }
+
+    private void drawHummingbirdNectarTraps(GraphicsContext g) {
+        if (hummingNectarTraps.isEmpty()) {
+            return;
+        }
+        for (HummingbirdNectarTrap trap : hummingNectarTraps) {
+            double lifeRatio = Math.clamp(trap.lifeFrames / (double) (trap.ultimate
+                    ? HUMMING_NECTAR_TRAP_LIFE_FRAMES + 180
+                    : HUMMING_NECTAR_TRAP_LIFE_FRAMES), 0.0, 1.0);
+            double pulse = 0.5 + 0.5 * Math.sin(trap.ageFrames * 0.16);
+            double radius = trap.ultimate ? 96.0 : 78.0;
+            if (trap.landed) {
+                g.setFill(Color.web("#F8BBD0").deriveColor(0, 1, 1, 0.18 * lifeRatio));
+                g.fillOval(trap.x - radius, trap.y - 20.0, radius * 2.0, 40.0);
+                g.setFill((trap.ultimate ? Color.GOLD : Color.HOTPINK).deriveColor(0, 1, 1, (0.24 + 0.16 * pulse) * lifeRatio));
+                g.fillOval(trap.x - 28.0, trap.y - 14.0, 56.0, 26.0);
+            } else {
+                g.setStroke(Color.web("#F8BBD0").deriveColor(0, 1, 1, 0.38 * lifeRatio));
+                g.setLineWidth(1.4);
+                g.strokeLine(trap.x, trap.y - 4.0, trap.x, trap.targetY - 8.0);
+            }
+            g.setStroke(Color.web("#2E7D32").deriveColor(0, 1, 0.72, lifeRatio));
+            g.setLineWidth(3.0);
+            double stemBottom = trap.landed ? trap.y - 8.0 : trap.y + 10.0;
+            double flowerCenterY = trap.landed ? trap.y - 48.0 : trap.y;
+            g.strokeLine(trap.x, stemBottom, trap.x, flowerCenterY + 4.0);
+            g.setFill(Color.web("#EC407A").deriveColor(0, 1, 1, lifeRatio));
+            for (int i = 0; i < 6; i++) {
+                double angle = i * Math.PI / 3.0 + pulse * 0.12;
+                double petalX = trap.x + Math.cos(angle) * 11.0;
+                double petalY = flowerCenterY + Math.sin(angle) * 7.0;
+                g.fillOval(petalX - 8.0, petalY - 5.0, 16.0, 10.0);
+            }
+            g.setFill((trap.ultimate ? Color.web("#FFF176") : Color.web("#FFEB3B")).deriveColor(0, 1, 1, lifeRatio));
+            g.fillOval(trap.x - 6.0, flowerCenterY - 5.0, 12.0, 12.0);
         }
     }
 
@@ -10639,7 +11349,7 @@ public class Bird {
     }
 
     private void drawCooldownFlash(GraphicsContext g) {
-        if (type == BirdGame3.BirdType.PHOENIX) {
+        if (type == BirdGame3.BirdType.PHOENIX || type == BirdGame3.BirdType.HUMMINGBIRD) {
             cooldownFlash = 0;
             return;
         }
@@ -11948,6 +12658,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.PHOENIX) {
             return;
         }
+        if (type == BirdGame3.BirdType.HUMMINGBIRD) {
+            return;
+        }
         if (type == BirdGame3.BirdType.PIGEON && specialCooldown > 0) {
             return;
         }
@@ -12048,6 +12761,10 @@ public class Bird {
             return;
         }
         if (drawPhotoEagleSprite(g, drawSize, pose)) {
+            return;
+        }
+        if (type == BirdGame3.BirdType.HUMMINGBIRD && isLoreAccurateHummingbirdSkin) {
+            drawLoreAccurateHummingbirdBody(g, drawSize, pose);
             return;
         }
 
@@ -12222,6 +12939,120 @@ public class Bird {
         if (ravenEyes) eyeColor = Color.web("#D50000");
         g.setFill(eyeColor);
         g.fillOval(headX + (facingRight ? 5 : 45) * s, headY + 5 * s, 15 * s, 15 * s);
+    }
+
+    private void drawLoreAccurateHummingbirdBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double face = facingRight ? 1.0 : -1.0;
+        double aim = pose == null ? (facingRight ? 0.0 : Math.PI) : pose.aimAngleRadians();
+        double dirX = Math.cos(aim) * face;
+        double dirY = Math.sin(aim);
+        double dirLength = Math.hypot(dirX, dirY);
+        if (dirLength < 0.001) {
+            dirX = 1.0;
+            dirY = 0.0;
+        } else {
+            dirX /= dirLength;
+            dirY /= dirLength;
+        }
+        double sideX = -dirY;
+        double sideY = dirX;
+        double bodyCenterX = x + drawSize * 0.5;
+        double bodyCenterY = y + drawSize * 0.54;
+        double headX = (11.0 + dirX * 4.5 + (pose == null ? 0.0 : pose.headReachBonus() * 0.16)) * s;
+        double headY = (-28.0 + dirY * 8.5 + (pose == null ? 0.0 : pose.headLift() * 0.18)) * s;
+        double needleProgress = hummingNeedleHitTimer > 0
+                ? Math.clamp(hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES), 0.0, 1.0)
+                : 0.0;
+        double needleLunge = Math.sin(needleProgress * Math.PI) * (hummingNeedleUltimate ? 20.0 : 15.0) * s;
+        headX += dirX * needleLunge;
+        headY += dirY * needleLunge;
+        double wingPulse = 0.5 + 0.5 * Math.sin(System.nanoTime() / 48_000_000.0);
+
+        g.save();
+        g.translate(bodyCenterX, bodyCenterY);
+        g.scale(face, 1.0);
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        g.setFill(Color.web("#B2EBF2").deriveColor(0, 1, 1, 0.16 + wingPulse * 0.10));
+        g.fillOval(-19.0 * s, (-50.0 - wingPulse * 4.0) * s,
+                26.0 * s, (66.0 + wingPulse * 8.0) * s);
+        g.setFill(Color.web("#80CBC4").deriveColor(0, 1, 1, 0.12 + wingPulse * 0.08));
+        g.fillOval(-5.0 * s, (-47.0 - wingPulse * 3.0) * s,
+                18.0 * s, (60.0 + wingPulse * 7.0) * s);
+        g.setStroke(Color.web("#E0F7FA").deriveColor(0, 1, 1, 0.26));
+        g.setLineWidth(0.7 * s);
+        g.strokeLine(-5.0 * s, -38.0 * s, -11.0 * s, 8.0 * s);
+        g.strokeLine(3.0 * s, -37.0 * s, 1.0 * s, 7.0 * s);
+
+        g.setFill(Color.web("#082719"));
+        g.fillPolygon(
+                new double[]{-9.0 * s, -18.0 * s, -35.0 * s, -18.0 * s},
+                new double[]{14.0 * s, 19.0 * s, 27.0 * s, 25.0 * s},
+                4
+        );
+        g.setFill(Color.web("#0F4A2F"));
+        g.fillPolygon(
+                new double[]{-5.0 * s, -12.0 * s, -27.0 * s, -12.0 * s},
+                new double[]{17.0 * s, 21.0 * s, 39.0 * s, 26.0 * s},
+                4
+        );
+        g.setFill(Color.web("#17633F"));
+        g.fillOval(-12.0 * s, 12.0 * s, 15.0 * s, 12.0 * s);
+
+        g.setFill(Color.web("#052C1D"));
+        g.fillOval(-15.0 * s, -22.0 * s, 31.0 * s, 48.0 * s);
+        g.setFill(Color.web("#0B7043"));
+        g.fillOval(-13.0 * s, -21.0 * s, 28.0 * s, 45.0 * s);
+        g.setFill(Color.web("#18A968").deriveColor(0, 1, 0.95, 0.78));
+        g.fillOval(-11.0 * s, -19.0 * s, 20.0 * s, 25.0 * s);
+        g.setFill(Color.web("#F4F0D8"));
+        g.fillOval(-8.0 * s, -1.0 * s, 18.0 * s, 27.0 * s);
+        g.setFill(Color.web("#FFFCE8").deriveColor(0, 1, 1, 0.65));
+        g.fillOval(-4.0 * s, 4.0 * s, 10.0 * s, 18.0 * s);
+
+        g.setStroke(Color.web("#0B5D3A"));
+        g.setLineWidth(8.5 * s);
+        g.strokeLine(4.0 * s, -18.0 * s,
+                headX - dirX * 5.0 * s,
+                headY - dirY * 5.0 * s);
+
+        g.setFill(Color.web("#064228"));
+        g.fillOval(headX - 8.8 * s, headY - 8.0 * s, 18.0 * s, 16.0 * s);
+        g.setFill(Color.web("#0E7A49"));
+        g.fillOval(headX - 7.4 * s, headY - 7.2 * s, 15.8 * s, 14.0 * s);
+        g.setFill(Color.web("#35D17F").deriveColor(0, 1, 1, 0.72));
+        g.fillOval(headX - 5.5 * s, headY - 7.0 * s, 9.0 * s, 6.0 * s);
+        g.setFill(Color.web("#C2185B"));
+        g.fillOval(headX - 4.5 * s + sideX * 2.0 * s, headY + 2.0 * s + sideY * 2.0 * s, 10.0 * s, 7.0 * s);
+
+        double beakBaseX = headX + dirX * 7.8 * s;
+        double beakBaseY = headY + dirY * 7.8 * s - 0.6 * s;
+        double beakLength = (35.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.55)) * s + needleLunge * 1.35;
+        double beakTipX = beakBaseX + dirX * beakLength;
+        double beakTipY = beakBaseY + dirY * beakLength;
+        g.setStroke(Color.web("#171717"));
+        g.setLineWidth((1.7 + 0.7 * needleProgress) * s);
+        g.strokeLine(beakBaseX, beakBaseY, beakTipX, beakTipY);
+        g.setStroke(Color.web("#FFF8E1").deriveColor(0, 1, 1, 0.45));
+        g.setLineWidth(0.55 * s);
+        g.strokeLine(beakBaseX + sideX * 0.7 * s, beakBaseY + sideY * 0.7 * s,
+                beakTipX + sideX * 0.7 * s, beakTipY + sideY * 0.7 * s);
+
+        double eyeX = headX + dirX * 3.5 * s - sideX * 2.0 * s;
+        double eyeY = headY - 4.0 * s + dirY * 1.5 * s - sideY * 1.2 * s;
+        g.setFill(Color.BLACK);
+        g.fillOval(eyeX - 2.2 * s, eyeY - 2.2 * s, 4.4 * s, 4.4 * s);
+        g.setFill(Color.WHITE);
+        g.fillOval(eyeX - 0.7 * s, eyeY - 1.0 * s, 1.3 * s, 1.3 * s);
+
+        g.setStroke(Color.web("#2D1B11"));
+        g.setLineWidth(1.0 * s);
+        g.strokeLine(-2.0 * s, 23.0 * s, -4.0 * s, 31.0 * s);
+        g.strokeLine(5.0 * s, 22.0 * s, 3.0 * s, 30.0 * s);
+        g.strokeLine(-4.0 * s, 31.0 * s, -9.0 * s, 33.0 * s);
+        g.strokeLine(3.0 * s, 30.0 * s, 8.0 * s, 32.0 * s);
+        g.restore();
     }
 
     private void drawHeisenbirdAccessories(GraphicsContext g) {
@@ -12657,6 +13488,9 @@ public class Bird {
         if (photoEagleSkinActive()) {
             return;
         }
+        if (type == BirdGame3.BirdType.HUMMINGBIRD && isLoreAccurateHummingbirdSkin) {
+            return;
+        }
         double s = sizeMultiplier;
         double openScale = pose == null ? 1.0 : pose.beakOpenScale();
         if (type == BirdGame3.BirdType.BAT) {
@@ -12722,6 +13556,11 @@ public class Bird {
         double openAmount = (isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) : 3) * s * openScale;
         double beakLength = ((type == BirdGame3.BirdType.FALCON ? 34
                 : type == BirdGame3.BirdType.ROADRUNNER ? 42 : 28) + (pose == null ? 0.0 : pose.beakLengthBonus())) * s;
+        if (type == BirdGame3.BirdType.HUMMINGBIRD && hummingNeedleHitTimer > 0) {
+            double needleProgress = Math.clamp(hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES), 0.0, 1.0);
+            beakLength += Math.sin(needleProgress * Math.PI) * (hummingNeedleUltimate ? 38.0 : 28.0) * s;
+            openAmount *= 0.35;
+        }
         double aimAngle = headPose.aimAngleRadians();
         double dirX = Math.cos(aimAngle);
         double dirY = Math.sin(aimAngle);

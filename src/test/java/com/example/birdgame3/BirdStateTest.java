@@ -31,6 +31,91 @@ class BirdStateTest {
     }
 
     @Test
+    void hummingbirdReuseLockoutsStayInvisible() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird hummingbird = new Bird(180.0, BirdGame3.BirdType.HUMMINGBIRD, 0, game);
+        hummingbird.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = hummingbird;
+
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(specialKey, true);
+        hummingbird.update(1.0);
+        game.setLocalActionsForKey(specialKey, false);
+        hummingbird.update(1.0);
+
+        assertEquals(0, hummingbird.specialCooldown);
+        assertTrue(getPrivateInt(hummingbird, "hummingNeedleReuseTimer") > 0);
+
+        game.setLocalActionsForKey(specialKey, true);
+        hummingbird.update(1.0);
+
+        assertEquals(0, hummingbird.specialCooldown,
+                "Hummingbird specials should use invisible per-move reuse gates.");
+        assertEquals(0, hummingbird.cooldownFlash,
+                "Hummingbird reuse lockouts should not display the cooldown warning.");
+    }
+
+    @Test
+    void hummingbirdUpSpecialIsOnlyAnUpwardBurst() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird hummingbird = new Bird(220.0, BirdGame3.BirdType.HUMMINGBIRD, 0, game);
+        Bird target = new Bird(224.0, BirdGame3.BirdType.PIGEON, 1, game);
+        hummingbird.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = hummingbird;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+        invokePrivateBooleanVoid(hummingbird, "specialHummingbirdHoverBurst", false);
+        hummingbird.update(1.0);
+
+        assertEquals(0, hummingbird.specialCooldown);
+        assertTrue(hummingbird.vy < -20.0,
+                "Hover Burst should be an extreme vertical launch.");
+        assertEquals(startingHealth, target.health, 0.0001,
+                "Hover Burst should not deal damage.");
+    }
+
+    @Test
+    void hummingbirdNectarTrapCoatsTargetsAfterTheyLeaveTheFlower() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird hummingbird = new Bird(300.0, BirdGame3.BirdType.HUMMINGBIRD, 0, game);
+        Bird target = new Bird(242.0, BirdGame3.BirdType.PIGEON, 1, game);
+        hummingbird.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        hummingbird.facingRight = true;
+        game.players[0] = hummingbird;
+        game.players[1] = target;
+
+        invokePrivateBooleanVoid(hummingbird, "specialHummingbirdNectarTrap", false);
+        for (int i = 0; i < 60; i++) {
+            hummingbird.update(1.0);
+        }
+
+        assertEquals(0, hummingbird.specialCooldown);
+        assertTrue(getPrivateInt(target, "hummingNectarCoatedTimer") > 0,
+                "Stepping into the flower should coat the target in nectar.");
+
+        double healthAfterFlower = target.health;
+        target.x += 260.0;
+        target.vx = 9.0;
+        for (int i = 0; i < 3; i++) {
+            target.update(1.0);
+        }
+
+        assertTrue(getPrivateInt(target, "hummingNectarCoatedTimer") > 0,
+                "Nectar should remain on the target briefly after leaving the flower.");
+        assertTrue(target.health < healthAfterFlower,
+                "The visible nectar coating should keep dealing damage after the target exits the trap.");
+    }
+
+    @Test
     void defeatedBirdRemovesOwnedSummons() {
         BirdGame3 game = new BirdGame3();
         Bird owner = new Bird(100, BirdGame3.BirdType.VULTURE, 0, game);

@@ -44,6 +44,7 @@ class LanBirdState {
     boolean isBeaconSkin;
     boolean isStormSkin;
     boolean isSunflareSkin;
+    boolean isLoreAccurateHummingbirdSkin;
     boolean isGlacierSkin;
     boolean isTideSkin;
     boolean isNullRockSkin;
@@ -244,6 +245,7 @@ class LanBirdState {
         out.writeBoolean(isBeaconSkin);
         out.writeBoolean(isStormSkin);
         out.writeBoolean(isSunflareSkin);
+        out.writeBoolean(isLoreAccurateHummingbirdSkin);
         out.writeBoolean(isGlacierSkin);
         out.writeBoolean(isTideSkin);
         out.writeBoolean(isNullRockSkin);
@@ -458,6 +460,7 @@ class LanBirdState {
         state.isBeaconSkin = in.readBoolean();
         state.isStormSkin = in.readBoolean();
         state.isSunflareSkin = in.readBoolean();
+        state.isLoreAccurateHummingbirdSkin = in.readBoolean();
         state.isGlacierSkin = in.readBoolean();
         state.isTideSkin = in.readBoolean();
         state.isNullRockSkin = in.readBoolean();

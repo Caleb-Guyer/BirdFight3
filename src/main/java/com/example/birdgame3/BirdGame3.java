@@ -83,6 +83,9 @@ import javafx.stage.FileChooser;
 import javafx.stage.Window;
 import javafx.util.Duration;
 
+import java.io.FileOutputStream;
+import java.io.PrintStream;
+import java.lang.reflect.Method;
 import java.util.*;
 import java.io.File;
 import java.io.IOException;
@@ -96,11 +99,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.function.Consumer;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.*;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
-import java.util.function.BooleanSupplier;
-import java.util.function.DoubleConsumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -3499,6 +3501,7 @@ public class BirdGame3 extends Application {
     public boolean auroraPelicanUnlocked = false;
     public boolean ironcladPelicanUnlocked = false;
     public boolean sunflareHummingbirdUnlocked = false;
+    public boolean loreAccurateHummingbirdUnlocked = false;
     public boolean glacierShoebillUnlocked = false;
     public boolean tideVultureUnlocked = false;
     public boolean nullRockVultureUnlocked = false;
@@ -3528,6 +3531,7 @@ public class BirdGame3 extends Application {
     private static final String AURORA_PELICAN_SKIN = "AURORA_PELICAN";
     private static final String IRONCLAD_PELICAN_SKIN = "IRONCLAD_PELICAN";
     private static final String SUNFLARE_HUMMINGBIRD_SKIN = "SUNFLARE_HUMMINGBIRD";
+    private static final String LORE_ACCURATE_HUMMINGBIRD_SKIN = "LORE_ACCURATE_HUMMINGBIRD";
     private static final String GLACIER_SHOEBILL_SKIN = "GLACIER_SHOEBILL";
     private static final String TIDE_VULTURE_SKIN = "TIDE_VULTURE";
     private static final String NULL_ROCK_VULTURE_SKIN = "NULL_ROCK_VULTURE";
@@ -7348,6 +7352,7 @@ public class BirdGame3 extends Application {
             }
             case HUMMINGBIRD -> {
                 if (sunflareHummingbirdUnlocked) options.add(SUNFLARE_HUMMINGBIRD_SKIN);
+                if (loreAccurateHummingbirdUnlocked) options.add(LORE_ACCURATE_HUMMINGBIRD_SKIN);
             }
             case SHOEBILL -> {
                 if (glacierShoebillUnlocked) options.add(GLACIER_SHOEBILL_SKIN);
@@ -7388,6 +7393,7 @@ public class BirdGame3 extends Application {
         if (AURORA_PELICAN_SKIN.equals(skinKey) && type == BirdType.PELICAN && auroraPelicanUnlocked) return skinKey;
         if (IRONCLAD_PELICAN_SKIN.equals(skinKey) && type == BirdType.PELICAN && ironcladPelicanUnlocked) return skinKey;
         if (SUNFLARE_HUMMINGBIRD_SKIN.equals(skinKey) && type == BirdType.HUMMINGBIRD && sunflareHummingbirdUnlocked) return skinKey;
+        if (LORE_ACCURATE_HUMMINGBIRD_SKIN.equals(skinKey) && type == BirdType.HUMMINGBIRD && loreAccurateHummingbirdUnlocked) return skinKey;
         if (GLACIER_SHOEBILL_SKIN.equals(skinKey) && type == BirdType.SHOEBILL && glacierShoebillUnlocked) return skinKey;
         if (NULL_ROCK_VULTURE_SKIN.equals(skinKey) && type == BirdType.VULTURE && nullRockVultureUnlocked) return skinKey;
         if (TIDE_VULTURE_SKIN.equals(skinKey) && type == BirdType.VULTURE && tideVultureUnlocked) return skinKey;
@@ -7450,6 +7456,9 @@ public class BirdGame3 extends Application {
             case SUNFLARE_HUMMINGBIRD_SKIN -> {
                 return "SKIN: SUNFLARE HUMMINGBIRD";
             }
+            case LORE_ACCURATE_HUMMINGBIRD_SKIN -> {
+                return "SKIN: LORE ACCURATE";
+            }
             case GLACIER_SHOEBILL_SKIN -> {
                 return "SKIN: GLACIER SHOEBILL";
             }
@@ -7502,6 +7511,7 @@ public class BirdGame3 extends Application {
         bird.isBeaconSkin = false;
         bird.isStormSkin = false;
         bird.isSunflareSkin = false;
+        bird.isLoreAccurateHummingbirdSkin = false;
         bird.isGlacierSkin = false;
         bird.isTideSkin = false;
         bird.isNullRockSkin = false;
@@ -7558,6 +7568,10 @@ public class BirdGame3 extends Application {
             bird.isSunflareSkin = true;
             return;
         }
+        if (type == BirdType.HUMMINGBIRD && LORE_ACCURATE_HUMMINGBIRD_SKIN.equals(skinKey) && loreAccurateHummingbirdUnlocked) {
+            bird.isLoreAccurateHummingbirdSkin = true;
+            return;
+        }
         if (type == BirdType.SHOEBILL && GLACIER_SHOEBILL_SKIN.equals(skinKey) && glacierShoebillUnlocked) {
             bird.isGlacierSkin = true;
             return;
@@ -7607,6 +7621,7 @@ public class BirdGame3 extends Application {
         bird.isBeaconSkin = false;
         bird.isStormSkin = false;
         bird.isSunflareSkin = false;
+        bird.isLoreAccurateHummingbirdSkin = false;
         bird.isGlacierSkin = false;
         bird.isTideSkin = false;
         bird.isNullRockSkin = false;
@@ -7663,6 +7678,10 @@ public class BirdGame3 extends Application {
         }
         if (type == BirdType.HUMMINGBIRD && SUNFLARE_HUMMINGBIRD_SKIN.equals(skinKey)) {
             bird.isSunflareSkin = true;
+            return;
+        }
+        if (type == BirdType.HUMMINGBIRD && LORE_ACCURATE_HUMMINGBIRD_SKIN.equals(skinKey)) {
+            bird.isLoreAccurateHummingbirdSkin = true;
             return;
         }
         if (type == BirdType.SHOEBILL && GLACIER_SHOEBILL_SKIN.equals(skinKey)) {
@@ -7726,6 +7745,7 @@ public class BirdGame3 extends Application {
         if (type == BirdType.EAGLE && normalizedName.contains("stock photo")) return STOCK_PHOTO_EAGLE_SKIN;
         if (type == BirdType.EAGLE && normalizedName.contains("sky king")) return "SKY_KING_EAGLE";
         if (type == BirdType.HUMMINGBIRD && normalizedName.contains("neon")) return classicSkinDataKey(type);
+        if (type == BirdType.HUMMINGBIRD && normalizedName.contains("lore accurate")) return LORE_ACCURATE_HUMMINGBIRD_SKIN;
         if (type == BirdType.PHOENIX && normalizedName.contains("nova")) return NOVA_PHOENIX_SKIN;
         if (type == BirdType.FALCON && normalizedName.contains("dune")) return DUNE_FALCON_SKIN;
         if (type == BirdType.PENGUIN && normalizedName.contains("mint")) return MINT_PENGUIN_SKIN;
@@ -7763,6 +7783,7 @@ public class BirdGame3 extends Application {
         if (type == BirdType.TITMOUSE && bird.isCircuitSkin) return CIRCUIT_TITMOUSE_SKIN;
         if (type == BirdType.RAZORBILL && bird.isPrismSkin) return PRISM_RAZORBILL_SKIN;
         if (type == BirdType.PELICAN && bird.isAuroraSkin) return AURORA_PELICAN_SKIN;
+        if (type == BirdType.HUMMINGBIRD && bird.isLoreAccurateHummingbirdSkin) return LORE_ACCURATE_HUMMINGBIRD_SKIN;
         if (type == BirdType.HUMMINGBIRD && bird.isSunflareSkin) return SUNFLARE_HUMMINGBIRD_SKIN;
         if (type == BirdType.SHOEBILL && bird.isGlacierSkin) return GLACIER_SHOEBILL_SKIN;
         if (type == BirdType.VULTURE && bird.isNullRockSkin) return NULL_ROCK_VULTURE_SKIN;
@@ -8767,7 +8788,7 @@ public class BirdGame3 extends Application {
         EAGLE("Eagle", 9, 19, 4.2, Color.DARKRED, 0.6, "Hunter's Cry / Talon Rush / Skyrise / Heavenfall"),
         FALCON("Falcon", 10, 18, 4.4, Color.rgb(176, 95, 55), 0.64, "Echo of Eagle: Target Snap / Razor Rush / Jet Climb / Meteor Strike"),
         PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Cinder Halo / Snap Fire / Firespin / Faultfire"),
-        HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Hover/Fly + Nectar Frenzy (stings + lifesteal)"),
+        HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Needle Barrage + Flash Sip + Hover Burst + Nectar Trap"),
         TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Ground Pound AOE + Heavy Flap"),
         ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Summon Chicks (3 variants)"),
         ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Dust Sprint + Sandstorm"),
@@ -12004,9 +12025,9 @@ public class BirdGame3 extends Application {
 
     private void appendStartLog(String msg) {
         try {
-            java.io.File out = new java.io.File(System.getProperty("user.home"), "Desktop\\birdgame3-start-log.txt");
-            try (java.io.PrintStream ps = new java.io.PrintStream(new java.io.FileOutputStream(out, true))) {
-                ps.println(java.time.LocalDateTime.now() + " - " + msg);
+            File out = new File(System.getProperty("user.home"), "Desktop\\birdgame3-start-log.txt");
+            try (PrintStream ps = new PrintStream(new FileOutputStream(out, true))) {
+                ps.println(LocalDateTime.now() + " - " + msg);
             }
         } catch (Exception ignore) {
         }
@@ -12199,6 +12220,7 @@ public class BirdGame3 extends Application {
         VictoryPortraitLayout layout = victoryPortraitLayout(type, winnerPose);
         double baseSize = Math.min(w, h);
         double pad = Math.max(12.0, baseSize * (winnerPose ? 0.06 : 0.07));
+        assert layout != null;
         preview.sizeMultiplier = Math.clamp((baseSize - pad * 2) / (80.0 * layout.extentFactor()),
                 layout.minScale(),
                 layout.maxScale());
@@ -12976,7 +12998,7 @@ public class BirdGame3 extends Application {
     }
 
     private String randomHubTip() {
-        int index = java.util.concurrent.ThreadLocalRandom.current().nextInt(HUB_TIPS.length);
+        int index = ThreadLocalRandom.current().nextInt(HUB_TIPS.length);
         return HUB_TIPS[index];
     }
 
@@ -16936,7 +16958,7 @@ public class BirdGame3 extends Application {
         VBox panelTop = new VBox(10, resources, panelHint);
         panelTop.setAlignment(Pos.TOP_LEFT);
 
-        java.util.function.Function<String, Button> panelButton = text -> {
+        Function<String, Button> panelButton = text -> {
             Button button = new Button(text);
             button.setWrapText(true);
             button.setTextFill(Color.web("#F1F8E9"));
@@ -16950,7 +16972,7 @@ public class BirdGame3 extends Application {
             return button;
         };
 
-        java.util.function.Function<TowerDefenseMode.TowerBirdKind, Button> shopCard = kind -> {
+        Function<TowerDefenseMode.TowerBirdKind, Button> shopCard = kind -> {
             Canvas icon = new Canvas(70, 70);
             drawRosterSprite(icon, kind.birdType, null, false, true);
 
@@ -17215,7 +17237,7 @@ public class BirdGame3 extends Application {
         final int[] rewardCoins = new int[]{0};
         final boolean[] newBadgeAwarded = new boolean[]{false};
 
-        java.util.function.BiConsumer<Button, TowerDefenseMode.TowerBirdKind> styleShopButton = (button, kind) -> {
+        BiConsumer<Button, TowerDefenseMode.TowerBirdKind> styleShopButton = (button, kind) -> {
             boolean selected = mode.buildSelection() == kind;
             boolean affordable = mode.canAfford(kind);
             button.setStyle("-fx-background-color: " + (selected ? "#2E7D32" : (affordable ? "rgba(17,53,38,0.96)" : "rgba(55,71,79,0.88)"))
@@ -17224,7 +17246,7 @@ public class BirdGame3 extends Application {
             button.setDisable(!affordable && !selected);
         };
 
-        java.util.function.BiConsumer<Button, TowerDefenseMode.UpgradeOffer> styleUpgradeButton = (button, offer) -> {
+        BiConsumer<Button, TowerDefenseMode.UpgradeOffer> styleUpgradeButton = (button, offer) -> {
             button.setText(offer.title() + (offer.cost() > 0 ? "  $" + offer.cost() : "") + "\n" + offer.description());
             boolean enabled = mode.hasSelectedTower() && offer.allowed() && offer.affordable() && offer.cost() > 0;
             button.setDisable(!enabled);
@@ -17233,7 +17255,7 @@ public class BirdGame3 extends Application {
                     + "; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
         };
 
-        java.util.function.BiConsumer<Double, Double> updateMouseWorld = (localX, localY) -> {
+        BiConsumer<Double, Double> updateMouseWorld = (localX, localY) -> {
             double scaleX = Math.max(0.0001, mapScaleX[0]);
             double scaleY = Math.max(0.0001, mapScaleY[0]);
             double worldX = (localX - mapOffsetX[0]) / scaleX;
@@ -21263,6 +21285,9 @@ public class BirdGame3 extends Application {
             case SUNFLARE_HUMMINGBIRD_SKIN -> {
                 return sunflareHummingbirdUnlocked;
             }
+            case LORE_ACCURATE_HUMMINGBIRD_SKIN -> {
+                return loreAccurateHummingbirdUnlocked;
+            }
             case GLACIER_SHOEBILL_SKIN -> {
                 return glacierShoebillUnlocked;
             }
@@ -21436,6 +21461,11 @@ public class BirdGame3 extends Application {
                 queueUnlockCardForSkin(BirdType.HUMMINGBIRD, SUNFLARE_HUMMINGBIRD_SKIN);
                 return;
             }
+            case LORE_ACCURATE_HUMMINGBIRD_SKIN -> {
+                loreAccurateHummingbirdUnlocked = true;
+                queueUnlockCardForSkin(BirdType.HUMMINGBIRD, LORE_ACCURATE_HUMMINGBIRD_SKIN);
+                return;
+            }
             case GLACIER_SHOEBILL_SKIN -> {
                 glacierShoebillUnlocked = true;
                 queueUnlockCardForSkin(BirdType.SHOEBILL, GLACIER_SHOEBILL_SKIN);
@@ -21508,6 +21538,7 @@ public class BirdGame3 extends Application {
         if (AURORA_PELICAN_SKIN.equals(key)) return "Aurora Pelican";
         if (IRONCLAD_PELICAN_SKIN.equals(key)) return "Ironclad Pelican";
         if (SUNFLARE_HUMMINGBIRD_SKIN.equals(key)) return "Sunflare Hummingbird";
+        if (LORE_ACCURATE_HUMMINGBIRD_SKIN.equals(key)) return "Lore Accurate Hummingbird";
         if (GLACIER_SHOEBILL_SKIN.equals(key)) return "Glacier Shoebill";
         if (NULL_ROCK_VULTURE_SKIN.equals(key)) return "The Null Rock";
         if (TIDE_VULTURE_SKIN.equals(key)) return "Tide Vulture";
@@ -21622,6 +21653,7 @@ public class BirdGame3 extends Application {
         auroraPelicanUnlocked = true;
         ironcladPelicanUnlocked = true;
         sunflareHummingbirdUnlocked = true;
+        loreAccurateHummingbirdUnlocked = true;
         glacierShoebillUnlocked = true;
         tideVultureUnlocked = true;
         nullRockVultureUnlocked = true;
@@ -21911,6 +21943,7 @@ public class BirdGame3 extends Application {
         ShopPreview novaPreview = new ShopPreview(BirdType.PHOENIX, NOVA_PHOENIX_SKIN, null);
         ShopPreview auroraPreview = new ShopPreview(BirdType.PELICAN, AURORA_PELICAN_SKIN, null);
         ShopPreview sunflarePreview = new ShopPreview(BirdType.HUMMINGBIRD, SUNFLARE_HUMMINGBIRD_SKIN, null);
+        ShopPreview loreAccuratePreview = new ShopPreview(BirdType.HUMMINGBIRD, LORE_ACCURATE_HUMMINGBIRD_SKIN, null);
         ShopPreview glacierPreview = new ShopPreview(BirdType.SHOEBILL, GLACIER_SHOEBILL_SKIN, null);
         ShopPreview tidePreview = new ShopPreview(BirdType.VULTURE, TIDE_VULTURE_SKIN, null);
         ShopPreview eclipsePreview = new ShopPreview(BirdType.MOCKINGBIRD, ECLIPSE_MOCKINGBIRD_SKIN, null);
@@ -21921,7 +21954,7 @@ public class BirdGame3 extends Application {
         List<ShopPreview> uncommonSkins = List.of(mintPreview, glacierPreview);
         List<ShopPreview> rareSkins = List.of(cityPreview, circuitPreview, tidePreview, freemanPreview);
         List<ShopPreview> epicSkins = List.of(noirPreview, skyPreview, prismPreview, eclipsePreview);
-        List<ShopPreview> legendarySkins = List.of(novaPreview, auroraPreview, umbraPreview, sunforgePreview);
+        List<ShopPreview> legendarySkins = List.of(novaPreview, auroraPreview, umbraPreview, sunforgePreview, loreAccuratePreview);
 
         List<ShopPreview> classicSkins = new ArrayList<>();
         for (BirdType type : BirdType.values()) {
@@ -22532,6 +22565,9 @@ public class BirdGame3 extends Application {
             }
             case SUNFLARE_HUMMINGBIRD_SKIN -> {
                 return "Sunflare Hummingbird";
+            }
+            case LORE_ACCURATE_HUMMINGBIRD_SKIN -> {
+                return "Lore Accurate Hummingbird";
             }
             case GLACIER_SHOEBILL_SKIN -> {
                 return "Glacier Shoebill";
@@ -23910,7 +23946,7 @@ public class BirdGame3 extends Application {
         }
         bird.specialCooldown = 0;
         try {
-            java.lang.reflect.Method special = Bird.class.getDeclaredMethod("special");
+            Method special = Bird.class.getDeclaredMethod("special");
             special.setAccessible(true);
             special.invoke(bird);
         } catch (ReflectiveOperationException ex) {
@@ -24851,6 +24887,9 @@ public class BirdGame3 extends Application {
             case SUNFLARE_HUMMINGBIRD_SKIN -> {
                 return sunflareHummingbirdUnlocked;
             }
+            case LORE_ACCURATE_HUMMINGBIRD_SKIN -> {
+                return loreAccurateHummingbirdUnlocked;
+            }
             case GLACIER_SHOEBILL_SKIN -> {
                 return glacierShoebillUnlocked;
             }
@@ -24927,6 +24966,7 @@ public class BirdGame3 extends Application {
         if (CIRCUIT_TITMOUSE_SKIN.equals(key)) return "Neon circuits pulse across the feathers. A tiny turbo engine disguised as a bird.";
         if (PRISM_RAZORBILL_SKIN.equals(key)) return "Prismatic edge that refracts every strike. The blade line is beautiful and dangerous.";
         if (SUNFLARE_HUMMINGBIRD_SKIN.equals(key)) return "Sun-hot wings with a citrus glow. The air smells like ozone and nectar when it passes.";
+        if (LORE_ACCURATE_HUMMINGBIRD_SKIN.equals(key)) return "A literal hummingbird: tiny emerald body, white belly, ruby throat, needle beak, blurred wings, and directional attacks that point from the beak.";
         if (GLACIER_SHOEBILL_SKIN.equals(key)) return "Ice-blue armor plates and frozen eyes. Every stomp sounds like cracking lake glass.";
         if (NULL_ROCK_VULTURE_SKIN.equals(key)) return "The giant's true body: cracked abyss feathers, a bleeding crown, and enough mass to make the whole platform feel too small.";
         if (TIDE_VULTURE_SKIN.equals(key)) return "Deep-sea hues with salt-stained edges. It circles like a stormfront rolling in.";
@@ -24964,6 +25004,9 @@ public class BirdGame3 extends Application {
                     NULL_ROCK_VULTURE_SKIN, IRONCLAD_PELICAN_SKIN -> {
                 return "LEGENDARY";
             }
+            case LORE_ACCURATE_HUMMINGBIRD_SKIN -> {
+                return "UNIQUE";
+            }
         }
         if (key.startsWith("CLASSIC_SKIN_")) return "CLASSIC";
         return "SPECIAL";
@@ -24977,7 +25020,8 @@ public class BirdGame3 extends Application {
             case "RARE" -> 3;
             case "EPIC" -> 4;
             case "LEGENDARY" -> 5;
-            default -> 6;
+            case "UNIQUE" -> 6;
+            default -> 7;
         };
     }
 
@@ -25066,6 +25110,8 @@ public class BirdGame3 extends Application {
                 skinDescription(IRONCLAD_PELICAN_SKIN, BirdType.PELICAN), skinHowToGet(IRONCLAD_PELICAN_SKIN, BirdType.PELICAN)));
         skins.add(new SkinEntry(BirdType.HUMMINGBIRD, SUNFLARE_HUMMINGBIRD_SKIN, "Sunflare Hummingbird",
                 skinDescription(SUNFLARE_HUMMINGBIRD_SKIN, BirdType.HUMMINGBIRD), skinHowToGet(SUNFLARE_HUMMINGBIRD_SKIN, BirdType.HUMMINGBIRD)));
+        skins.add(new SkinEntry(BirdType.HUMMINGBIRD, LORE_ACCURATE_HUMMINGBIRD_SKIN, "Lore Accurate Hummingbird",
+                skinDescription(LORE_ACCURATE_HUMMINGBIRD_SKIN, BirdType.HUMMINGBIRD), skinHowToGet(LORE_ACCURATE_HUMMINGBIRD_SKIN, BirdType.HUMMINGBIRD)));
         skins.add(new SkinEntry(BirdType.SHOEBILL, GLACIER_SHOEBILL_SKIN, "Glacier Shoebill",
                 skinDescription(GLACIER_SHOEBILL_SKIN, BirdType.SHOEBILL), skinHowToGet(GLACIER_SHOEBILL_SKIN, BirdType.SHOEBILL)));
         skins.add(new SkinEntry(BirdType.VULTURE, NULL_ROCK_VULTURE_SKIN, "The Null Rock",
@@ -34705,6 +34751,7 @@ public class BirdGame3 extends Application {
                     winnerPose ? 1.95 : 1.55,
                     0.00,
                     0.00);
+            case ROADRUNNER -> null;
             case PENGUIN -> new VictoryPortraitLayout(winnerPose ? 1.02 : 1.10,
                     winnerPose ? 1.30 : 1.00,
                     winnerPose ? 1.85 : 1.48,
@@ -34715,22 +34762,17 @@ public class BirdGame3 extends Application {
                     winnerPose ? 1.82 : 1.45,
                     0.00,
                     0.00);
-            case MOCKINGBIRD, HEISENBIRD -> {
-                VictoryPortraitLayout victoryPortraitLayout2 = victoryPortraitLayout1;
-                yield victoryPortraitLayout2;
-            }
+            case MOCKINGBIRD, HEISENBIRD -> victoryPortraitLayout1;
             case RAZORBILL -> new VictoryPortraitLayout(winnerPose ? 0.98 : 1.06,
                     winnerPose ? 1.38 : 1.06,
                     winnerPose ? 1.98 : 1.58,
                     0.00,
                     0.00);
-            case GRINCHHAWK, RAVEN -> {
-                yield new VictoryPortraitLayout(winnerPose ? 0.94 : 1.02,
-                        winnerPose ? 1.42 : 1.10,
-                        winnerPose ? 2.05 : 1.62,
-                        0.00,
-                        0.00);
-            }
+            case GRINCHHAWK, RAVEN -> new VictoryPortraitLayout(winnerPose ? 0.94 : 1.02,
+                    winnerPose ? 1.42 : 1.10,
+                    winnerPose ? 2.05 : 1.62,
+                    0.00,
+                    0.00);
             case OPIUMBIRD -> new VictoryPortraitLayout(winnerPose ? 0.92 : 1.00,
                     winnerPose ? 1.45 : 1.12,
                     winnerPose ? 2.10 : 1.68,
@@ -34741,7 +34783,6 @@ public class BirdGame3 extends Application {
                     winnerPose ? 2.25 : 1.80,
                     0.00,
                     0.00);
-            default -> victoryPortraitLayout;
         };
     }
 
@@ -35571,6 +35612,7 @@ public class BirdGame3 extends Application {
         state.auroraPelicanUnlocked = auroraPelicanUnlocked;
         state.ironcladPelicanUnlocked = ironcladPelicanUnlocked;
         state.sunflareHummingbirdUnlocked = sunflareHummingbirdUnlocked;
+        state.loreAccurateHummingbirdUnlocked = loreAccurateHummingbirdUnlocked;
         state.glacierShoebillUnlocked = glacierShoebillUnlocked;
         state.tideVultureUnlocked = tideVultureUnlocked;
         state.nullRockVultureUnlocked = nullRockVultureUnlocked;
@@ -35695,6 +35737,7 @@ public class BirdGame3 extends Application {
         auroraPelicanUnlocked = resolved.auroraPelicanUnlocked;
         ironcladPelicanUnlocked = resolved.ironcladPelicanUnlocked;
         sunflareHummingbirdUnlocked = resolved.sunflareHummingbirdUnlocked;
+        loreAccurateHummingbirdUnlocked = resolved.loreAccurateHummingbirdUnlocked;
         glacierShoebillUnlocked = resolved.glacierShoebillUnlocked;
         tideVultureUnlocked = resolved.tideVultureUnlocked;
         nullRockVultureUnlocked = resolved.nullRockVultureUnlocked;

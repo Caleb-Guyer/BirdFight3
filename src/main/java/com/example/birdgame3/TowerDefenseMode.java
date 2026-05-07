@@ -2423,6 +2423,7 @@ final class TowerDefenseMode {
         sprite.isBeaconSkin = false;
         sprite.isStormSkin = false;
         sprite.isSunflareSkin = false;
+        sprite.isLoreAccurateHummingbirdSkin = false;
         sprite.isGlacierSkin = false;
         sprite.isTideSkin = false;
         sprite.isNullRockSkin = false;

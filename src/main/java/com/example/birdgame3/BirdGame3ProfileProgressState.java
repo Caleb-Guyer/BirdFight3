@@ -62,6 +62,7 @@ final class BirdGame3ProfileProgressState {
     boolean auroraPelicanUnlocked = false;
     boolean ironcladPelicanUnlocked = false;
     boolean sunflareHummingbirdUnlocked = false;
+    boolean loreAccurateHummingbirdUnlocked = false;
     boolean glacierShoebillUnlocked = false;
     boolean tideVultureUnlocked = false;
     boolean nullRockVultureUnlocked = false;
@@ -274,6 +275,7 @@ final class BirdGame3ProfileProgressState {
         state.auroraPelicanUnlocked = prefs.getBoolean("skin_aurora_pelican", false);
         state.ironcladPelicanUnlocked = prefs.getBoolean("skin_ironclad_pelican", false);
         state.sunflareHummingbirdUnlocked = prefs.getBoolean("skin_sunflare_hummingbird", false);
+        state.loreAccurateHummingbirdUnlocked = prefs.getBoolean("skin_lore_accurate_hummingbird", false);
         state.glacierShoebillUnlocked = prefs.getBoolean("skin_glacier_shoebill", false);
         state.tideVultureUnlocked = prefs.getBoolean("skin_tide_vulture", false);
         state.nullRockVultureUnlocked = prefs.getBoolean("skin_null_rock_vulture", false);
@@ -298,6 +300,7 @@ final class BirdGame3ProfileProgressState {
         prefs.putBoolean("skin_aurora_pelican", auroraPelicanUnlocked);
         prefs.putBoolean("skin_ironclad_pelican", ironcladPelicanUnlocked);
         prefs.putBoolean("skin_sunflare_hummingbird", sunflareHummingbirdUnlocked);
+        prefs.putBoolean("skin_lore_accurate_hummingbird", loreAccurateHummingbirdUnlocked);
         prefs.putBoolean("skin_glacier_shoebill", glacierShoebillUnlocked);
         prefs.putBoolean("skin_tide_vulture", tideVultureUnlocked);
         prefs.putBoolean("skin_null_rock_vulture", nullRockVultureUnlocked);
