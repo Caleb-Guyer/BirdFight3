@@ -440,7 +440,7 @@ class BirdStateTest {
         Class<?> variantClass = Class.forName("com.example.birdgame3.Bird$NormalAttackVariant");
         Method multiplier = Bird.class.getDeclaredMethod("attackKnockbackBalanceMultiplier", variantClass);
         multiplier.setAccessible(true);
-        Class<? extends Enum> enumClass = (Class<? extends Enum>) variantClass.asSubclass(Enum.class);
+        Class<? extends Enum> enumClass = variantClass.asSubclass(Enum.class);
 
         Enum<?> sideTilt = Enum.valueOf((Class) enumClass, "SIDE_TILT");
         Enum<?> neutralAir = Enum.valueOf((Class) enumClass, "NEUTRAL_AIR");

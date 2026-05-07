@@ -15,7 +15,6 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Random;
 import java.util.Set;
 
@@ -29,7 +28,6 @@ final class TowerDefenseMode {
     private static final double PROJECTILE_RADIUS = 9.0;
     private static final Font HUD_FONT = Font.font("Consolas", FontWeight.BOLD, 20);
     private static final Font SMALL_FONT = Font.font("Consolas", FontWeight.BOLD, 14);
-    private static final Font BADGE_FONT = Font.font("Arial Black", 12);
     private static final Font TITLE_FONT = Font.font("Arial Black", 20);
     private static final List<Point2D> PATH = List.of(
             new Point2D(-40, 724),
@@ -53,6 +51,10 @@ final class TowerDefenseMode {
     };
     private static final List<RoundDefinition> MASTER_ROUNDS = buildRounds();
     private static final List<String> ROUND_HINTS = buildRoundHints();
+
+    public Random getRandom() {
+        return random;
+    }
 
     enum Difficulty {
         EASY("Easy", 20, 145, 700, 1.00, Color.web("#78C850")),
@@ -79,9 +81,6 @@ final class TowerDefenseMode {
             return Math.max(5, ((int) Math.round(baseCost * priceMultiplier / 5.0)) * 5);
         }
 
-        String description() {
-            return roundCount + " rounds • " + startingLives + " lives • " + Math.round(priceMultiplier * 100.0) + "% prices";
-        }
     }
 
     enum TowerBirdKind {
@@ -269,14 +268,7 @@ final class TowerDefenseMode {
 
     private record RoundDefinition(List<SpawnGroup> groups, int clearBonus) {}
 
-    private static final class PendingSpawn {
-        final EnemyKind kind;
-        final double spawnAt;
-
-        PendingSpawn(EnemyKind kind, double spawnAt) {
-            this.kind = kind;
-            this.spawnAt = spawnAt;
-        }
+    private record PendingSpawn(EnemyKind kind, double spawnAt) {
     }
 
     private static final class Tower {
@@ -337,10 +329,6 @@ final class TowerDefenseMode {
         double abilityCooldown;
         double abilityTime;
         boolean deathSpawnTriggered;
-
-        Enemy(EnemyKind kind, int id) {
-            this(kind, id, kind.cashReward);
-        }
 
         Enemy(EnemyKind kind, int id, int cashAward) {
             this.kind = kind;
@@ -541,10 +529,6 @@ final class TowerDefenseMode {
                 + " rounds. Build before round 1 starts.", 5.2);
     }
 
-    List<TowerBirdKind> shopBirds() {
-        return List.of(TowerBirdKind.values());
-    }
-
     double speedMultiplier() {
         return speedMultiplier;
     }
@@ -582,10 +566,6 @@ final class TowerDefenseMode {
         return enemies.size() + pendingSpawns.size();
     }
 
-    int towerCount() {
-        return towers.size();
-    }
-
     boolean roundActive() {
         return roundActive;
     }
@@ -596,10 +576,6 @@ final class TowerDefenseMode {
 
     boolean gameOver() {
         return gameOver;
-    }
-
-    String banner() {
-        return bannerTime > 0.0 ? banner : "";
     }
 
     TowerBirdKind buildSelection() {
@@ -631,29 +607,16 @@ final class TowerDefenseMode {
         return mode.description;
     }
 
-    boolean cycleSelectedTowerTargetMode() {
+    void cycleSelectedTowerTargetMode() {
         if (selectedTower == null) {
-            return false;
+            return;
         }
         selectedTower.targetMode = selectedTower.targetMode.next();
         showBanner(selectedTower.kind.label + " targeting: " + selectedTower.targetMode.label + ".", 1.8);
-        return true;
-    }
-
-    TowerBirdKind selectedTowerKind() {
-        return selectedTower == null ? null : selectedTower.kind;
     }
 
     int selectedTowerSellValue() {
         return selectedTower == null ? 0 : sellValue(selectedTower);
-    }
-
-    String toastTitle() {
-        return activeToast == null ? "" : activeToast.title();
-    }
-
-    String toastBody() {
-        return activeToast == null ? "" : activeToast.body();
     }
 
     boolean toastVisible() {
@@ -706,14 +669,14 @@ final class TowerDefenseMode {
         return new PlacementPreview(issue == null, issue == null ? "Place " + buildSelection.label : issue);
     }
 
-    boolean placeSelectedTower(double x, double y) {
+    void placeSelectedTower(double x, double y) {
         if (buildSelection == null) {
-            return false;
+            return;
         }
         String issue = placementIssue(x, y);
         if (issue != null) {
             showBanner(issue, 2.0);
-            return false;
+            return;
         }
         int cost = shopCost(buildSelection);
         Tower tower = new Tower(buildSelection, x, y, cost, game);
@@ -722,7 +685,6 @@ final class TowerDefenseMode {
         cash -= cost;
         showBanner(buildSelection.label + " deployed.", 1.8);
         buildSelection = null;
-        return true;
     }
 
     void selectTowerAt(double x, double y) {
@@ -747,15 +709,14 @@ final class TowerDefenseMode {
         selectedTower = null;
     }
 
-    boolean sellSelectedTower() {
+    void sellSelectedTower() {
         if (selectedTower == null) {
-            return false;
+            return;
         }
         cash += sellValue(selectedTower);
         towers.remove(selectedTower);
         showBanner(selectedTower.kind.label + " sold back to the grove.", 2.0);
         selectedTower = null;
-        return true;
     }
 
     String selectedTowerTitle() {
@@ -789,35 +750,34 @@ final class TowerDefenseMode {
         return new UpgradeOffer(tier.name(), scaledCost, tier.description(), allowed, affordable, current);
     }
 
-    boolean upgradeSelectedTower(int pathIndex) {
+    void upgradeSelectedTower(int pathIndex) {
         if (selectedTower == null || (pathIndex != 0 && pathIndex != 1)) {
-            return false;
+            return;
         }
         if (!canUpgrade(selectedTower, pathIndex)) {
             showBanner("Only one path can go beyond tier 2 on a bird.", 2.2);
-            return false;
+            return;
         }
         UpgradeTier[] path = pathIndex == 0 ? selectedTower.kind.pathA : selectedTower.kind.pathB;
         int current = selectedTower.upgrades[pathIndex];
         if (current >= path.length) {
-            return false;
+            return;
         }
         UpgradeTier tier = path[current];
         int scaledCost = difficulty.scalePrice(tier.cost());
         if (cash < scaledCost) {
             showBanner("Need $" + scaledCost + " for " + tier.name() + ".", 2.0);
-            return false;
+            return;
         }
         cash -= scaledCost;
         selectedTower.upgrades[pathIndex]++;
         selectedTower.investedCash += scaledCost;
         showBanner(selectedTower.kind.label + " learned " + tier.name() + ".", 2.0);
-        return true;
     }
 
-    boolean startRound() {
+    void startRound() {
         if (roundActive || victory || gameOver || nextRoundNumber > rounds.size()) {
-            return false;
+            return;
         }
         RoundDefinition definition = rounds.get(nextRoundNumber - 1);
         pendingSpawns.clear();
@@ -834,7 +794,6 @@ final class TowerDefenseMode {
         pendingSpawns.addAll(ordered);
         roundActive = true;
         showBanner("Round " + nextRoundNumber + " started.", 1.6);
-        return true;
     }
 
     void setCash(int value) {
@@ -844,7 +803,7 @@ final class TowerDefenseMode {
 
     void setLives(int value) {
         lives = Math.max(0, value);
-        if (lives <= 0) {
+        if (lives == 0) {
             gameOver = true;
             roundActive = false;
         }
@@ -852,8 +811,7 @@ final class TowerDefenseMode {
     }
 
     void jumpToRound(int roundNumber) {
-        int clamped = Math.clamp(roundNumber, 1, rounds.size());
-        nextRoundNumber = clamped;
+        nextRoundNumber = Math.clamp(roundNumber, 1, rounds.size());
         roundActive = false;
         roundClock = 0.0;
         pendingSpawns.clear();
@@ -1128,7 +1086,7 @@ final class TowerDefenseMode {
                     continue;
                 }
                 projectile.hitEnemyIds.add(enemy.id);
-                remove = handleProjectileHit(projectile, enemy) || remove;
+                remove = handleProjectileHit(projectile, enemy);
             }
 
             if (!remove && expired) {
@@ -1173,7 +1131,7 @@ final class TowerDefenseMode {
             if (enemy.nextWaypointIndex >= PATH.size()) {
                 enemies.remove(i);
                 lives = Math.max(0, lives - enemy.kind.leakDamage);
-                if (lives <= 0) {
+                if (lives == 0) {
                     gameOver = true;
                     roundActive = false;
                     showBanner("Big Forest fell to the Blight.", 99.0);
@@ -1188,37 +1146,7 @@ final class TowerDefenseMode {
                 enemy.nextWaypointIndex++;
                 continue;
             }
-            double slow = Math.min(enemy.ambientSlowMultiplier, enemy.forcedSlowTime > 0.0 ? enemy.forcedSlowMultiplier : 1.0);
-            if (enemy.kind == EnemyKind.IRONBARK_GOLEM) {
-                slow = Math.max(slow, 0.78);
-            }
-            if (enemy.kind == EnemyKind.HEARTWOOD_COLOSSUS && enemy.health <= enemy.maxHealth() * 0.5) {
-                slow = Math.max(slow, 0.72);
-            }
-            double speed = enemy.kind.speed * slow * enemy.speedBuffMultiplier;
-            switch (enemy.kind) {
-                case SWIFT_BLIGHT -> {
-                    if (enemy.abilityTime > 0.0) {
-                        speed *= 1.80;
-                    }
-                }
-                case IRONBARK_GOLEM -> {
-                    if (enemy.abilityTime > 0.0) {
-                        speed *= 1.08;
-                    }
-                }
-                case HEARTWOOD_COLOSSUS -> {
-                    if (enemy.health <= enemy.maxHealth() * 0.5) {
-                        speed *= 1.18;
-                    }
-                    if (enemy.abilityTime > 0.0) {
-                        speed *= 1.10;
-                    }
-                }
-                default -> {
-                }
-            }
-            double travel = speed * dt;
+            double travel = getTravel(dt, enemy);
             if (travel >= distance) {
                 enemy.x = target.getX();
                 enemy.y = target.getY();
@@ -1228,6 +1156,40 @@ final class TowerDefenseMode {
                 enemy.y += dy / distance * travel;
             }
         }
+    }
+
+    private static double getTravel(double dt, Enemy enemy) {
+        double slow = Math.min(enemy.ambientSlowMultiplier, enemy.forcedSlowTime > 0.0 ? enemy.forcedSlowMultiplier : 1.0);
+        if (enemy.kind == EnemyKind.IRONBARK_GOLEM) {
+            slow = Math.max(slow, 0.78);
+        }
+        if (enemy.kind == EnemyKind.HEARTWOOD_COLOSSUS && enemy.health <= enemy.maxHealth() * 0.5) {
+            slow = Math.max(slow, 0.72);
+        }
+        double speed = enemy.kind.speed * slow * enemy.speedBuffMultiplier;
+        switch (enemy.kind) {
+            case SWIFT_BLIGHT -> {
+                if (enemy.abilityTime > 0.0) {
+                    speed *= 1.80;
+                }
+            }
+            case IRONBARK_GOLEM -> {
+                if (enemy.abilityTime > 0.0) {
+                    speed *= 1.08;
+                }
+            }
+            case HEARTWOOD_COLOSSUS -> {
+                if (enemy.health <= enemy.maxHealth() * 0.5) {
+                    speed *= 1.18;
+                }
+                if (enemy.abilityTime > 0.0) {
+                    speed *= 1.10;
+                }
+            }
+            default -> {
+            }
+        }
+        return speed * dt;
     }
 
     private void updateEffects(double dt) {
@@ -1293,7 +1255,7 @@ final class TowerDefenseMode {
             if (enemy.kind.childKind != null && enemy.kind.childCount > 0 && !enemy.deathSpawnTriggered) {
                 enemy.deathSpawnTriggered = true;
                 for (int split = 0; split < enemy.kind.childCount; split++) {
-                    double angle = (Math.PI * 2.0 * split) / Math.max(1, enemy.kind.childCount);
+                    double angle = (Math.PI * 2.0 * split) / enemy.kind.childCount;
                     spawnEnemyAt(
                             enemy.kind.childKind,
                             enemy.x + Math.cos(angle) * 10.0,
@@ -1331,8 +1293,7 @@ final class TowerDefenseMode {
     private boolean towerCanSeeHidden(Tower tower) {
         return switch (tower.kind) {
             case PIGEON -> tower.upgrades[0] >= 2;
-            case EAGLE -> tower.upgrades[1] >= 2;
-            case OPIUMBIRD -> tower.upgrades[1] >= 2;
+            case EAGLE, OPIUMBIRD -> tower.upgrades[1] >= 2;
             case BAT -> true;
         };
     }
@@ -1410,7 +1371,7 @@ final class TowerDefenseMode {
                 Math.sin(angle) * speed,
                 eagleDamage(tower) + (precisionShot ? eaglePrecisionBonus(tower) : 0.0),
                 11 + tower.upgrades[0] * 0.8,
-                eagleRange(tower) + 120,
+                eagleRange() + 120,
                 0.0,
                 1,
                 tower.upgrades[0] >= 1,
@@ -1695,9 +1656,6 @@ final class TowerDefenseMode {
             remaining -= segmentTravel;
             enemy.x = previous.getX();
             enemy.y = previous.getY();
-            if (nextIndex <= 1) {
-                break;
-            }
             enemy.nextWaypointIndex = nextIndex - 1;
         }
     }
@@ -1705,7 +1663,7 @@ final class TowerDefenseMode {
     private double towerRange(Tower tower) {
         return switch (tower.kind) {
             case PIGEON -> pigeonRange(tower);
-            case EAGLE -> eagleRange(tower);
+            case EAGLE -> eagleRange();
             case OPIUMBIRD -> opiumRange(tower);
             case BAT -> batRange(tower);
         };
@@ -1730,7 +1688,7 @@ final class TowerDefenseMode {
             if (currentDistanceSq(tower.x, tower.y, support.x, support.y) > radius * radius) {
                 continue;
             }
-            best = Math.max(best, 2.05);
+            best = 2.05;
         }
         return best;
     }
@@ -1741,13 +1699,13 @@ final class TowerDefenseMode {
 
     private double pigeonDamage(Tower tower) {
         if (tower.upgrades[0] >= 4) return 8.0;
-        if (tower.upgrades[0] >= 3) return 4.0;
+        if (tower.upgrades[0] == 3) return 4.0;
         return tower.companionTime > 0.0 ? 2.0 : 1.0;
     }
 
     private int pigeonPierce(Tower tower) {
         if (tower.upgrades[0] >= 4) return 60;
-        if (tower.upgrades[0] >= 3) return 26;
+        if (tower.upgrades[0] == 3) return 26;
         int pierce = 1;
         if (tower.upgrades[1] >= 1) pierce += 1;
         if (tower.upgrades[1] >= 2) pierce += 1;
@@ -1766,7 +1724,7 @@ final class TowerDefenseMode {
         return shots;
     }
 
-    private double eagleRange(Tower tower) {
+    private double eagleRange() {
         return 2800;
     }
 
@@ -1826,7 +1784,7 @@ final class TowerDefenseMode {
 
     private int batShots(Tower tower) {
         if (tower.upgrades[0] >= 4) return 5;
-        if (tower.upgrades[0] >= 3) return 2;
+        if (tower.upgrades[0] == 3) return 2;
         return 1;
     }
 
@@ -2152,7 +2110,7 @@ final class TowerDefenseMode {
                     );
                     g.setStroke(Color.web("#FFF8E1", 0.85));
                     g.setLineWidth(1.4);
-                    g.strokeLine(-projectile.radius * 1.2, 0, projectile.radius * 1.0, 0);
+                    g.strokeLine(-projectile.radius * 1.2, 0, projectile.radius, 0);
                 }
                 case OPIUMBIRD -> {
                     g.setFill(projectile.accentColor.deriveColor(0, 1, 1, 0.22));
@@ -2294,7 +2252,7 @@ final class TowerDefenseMode {
         g.fillOval(x + radius * 0.4, y - radius, radius * 1.7, radius * 1.7);
         g.setFill(Color.web("#1C1B14"));
         g.fillOval(x - radius * 1.48, y - radius * 0.54, radius * 0.8, radius * 0.8);
-        g.fillOval(x + radius * 1.0, y - radius * 0.54, radius * 0.8, radius * 0.8);
+        g.fillOval(x + radius, y - radius * 0.54, radius * 0.8, radius * 0.8);
     }
 
     private void drawEnemyDamageCracks(GraphicsContext g, Enemy enemy, double wear, int count) {
@@ -2341,13 +2299,13 @@ final class TowerDefenseMode {
             g.strokeOval(tower.x - aura, tower.y - aura, aura * 2, aura * 2);
         }
 
-        drawTowerPerch(g, tower, spriteScale);
-        drawTowerUpgradeCosmetics(g, tower, spriteScale, drawSize);
+        drawTowerPerch(g, tower);
+        drawTowerUpgradeCosmetics(g, tower, drawSize);
         drawTowerBirdSprite(g, tower, spriteScale, drawSize);
         drawTowerTierPips(g, tower);
     }
 
-    private void drawTowerPerch(GraphicsContext g, Tower tower, double spriteScale) {
+    private void drawTowerPerch(GraphicsContext g, Tower tower) {
         double branchWidth = 76 + (tower.upgrades[0] + tower.upgrades[1]) * 6;
         double branchHeight = 16;
         g.setFill(Color.web("#4E342E"));
@@ -2444,16 +2402,16 @@ final class TowerDefenseMode {
         };
     }
 
-    private void drawTowerUpgradeCosmetics(GraphicsContext g, Tower tower, double spriteScale, double drawSize) {
+    private void drawTowerUpgradeCosmetics(GraphicsContext g, Tower tower, double drawSize) {
         switch (tower.kind) {
-            case PIGEON -> drawPigeonUpgradeCosmetics(g, tower, spriteScale, drawSize);
-            case EAGLE -> drawEagleUpgradeCosmetics(g, tower, spriteScale, drawSize);
-            case OPIUMBIRD -> drawOpiumUpgradeCosmetics(g, tower, spriteScale, drawSize);
-            case BAT -> drawBatUpgradeCosmetics(g, tower, spriteScale, drawSize);
+            case PIGEON -> drawPigeonUpgradeCosmetics(g, tower, drawSize);
+            case EAGLE -> drawEagleUpgradeCosmetics(g, tower, drawSize);
+            case OPIUMBIRD -> drawOpiumUpgradeCosmetics(g, tower);
+            case BAT -> drawBatUpgradeCosmetics(g, tower);
         }
     }
 
-    private void drawPigeonUpgradeCosmetics(GraphicsContext g, Tower tower, double s, double drawSize) {
+    private void drawPigeonUpgradeCosmetics(GraphicsContext g, Tower tower, double drawSize) {
         if (tower.upgrades[0] >= 1) {
             g.setStroke(Color.web("#FFCA28", 0.76));
             g.setLineWidth(2.2);
@@ -2523,7 +2481,7 @@ final class TowerDefenseMode {
         }
     }
 
-    private void drawEagleUpgradeCosmetics(GraphicsContext g, Tower tower, double s, double drawSize) {
+    private void drawEagleUpgradeCosmetics(GraphicsContext g, Tower tower, double drawSize) {
         if (tower.upgrades[0] >= 1) {
             g.setFill(Color.web("#FFD54F", 0.76));
             g.fillPolygon(
@@ -2583,7 +2541,7 @@ final class TowerDefenseMode {
         }
     }
 
-    private void drawOpiumUpgradeCosmetics(GraphicsContext g, Tower tower, double s, double drawSize) {
+    private void drawOpiumUpgradeCosmetics(GraphicsContext g, Tower tower) {
         if (tower.upgrades[0] >= 1) {
             g.setFill(Color.web("#BA68C8", 0.20 + tower.upgrades[0] * 0.06));
             g.fillOval(tower.x - 28 - tower.upgrades[0] * 5, tower.y - 24 - tower.upgrades[0] * 3,
@@ -2638,7 +2596,7 @@ final class TowerDefenseMode {
         }
     }
 
-    private void drawBatUpgradeCosmetics(GraphicsContext g, Tower tower, double s, double drawSize) {
+    private void drawBatUpgradeCosmetics(GraphicsContext g, Tower tower) {
         if (tower.upgrades[0] >= 1) {
             g.setStroke(Color.web("#5E35B1", 0.70));
             g.setLineWidth(2.4);
@@ -2715,7 +2673,7 @@ final class TowerDefenseMode {
         g.fillText("ROUND " + Math.clamp(nextRoundNumber, 1, rounds.size()) + " / " + rounds.size(), 34, 52);
 
         if (bannerTime > 0.0 && banner != null && !banner.isBlank()) {
-            double boxW = Math.min(620, Math.max(260, 120 + banner.length() * 8.2));
+            double boxW = Math.clamp(120 + banner.length() * 8.2, 260, 620);
             double boxX = (MAP_WIDTH - boxW) * 0.5;
             g.setFill(Color.rgb(0, 0, 0, 0.36));
             g.fillRoundRect(boxX, 18, boxW, 42, 18, 18);
@@ -2729,7 +2687,7 @@ final class TowerDefenseMode {
 
         if (toastVisible()) {
             double fade = Math.min(1.0, activeToastTime / 0.32);
-            List<String> bodyLines = wrapToastBody(activeToast.body(), 76);
+            List<String> bodyLines = wrapToastBody(activeToast.body());
             double cardW = 660;
             double cardH = 56 + bodyLines.size() * 18;
             double cardX = (MAP_WIDTH - cardW) * 0.5;
@@ -2752,18 +2710,18 @@ final class TowerDefenseMode {
         }
     }
 
-    private List<String> wrapToastBody(String text, int maxChars) {
+    private List<String> wrapToastBody(String text) {
         if (text == null || text.isBlank()) {
             return List.of("");
         }
         List<String> lines = new ArrayList<>();
         StringBuilder line = new StringBuilder();
         for (String word : text.split("\\s+")) {
-            if (line.length() == 0) {
+            if (line.isEmpty()) {
                 line.append(word);
                 continue;
             }
-            if (line.length() + 1 + word.length() <= maxChars) {
+            if (line.length() + 1 + word.length() <= 76) {
                 line.append(' ').append(word);
             } else {
                 lines.add(line.toString());
@@ -2771,7 +2729,7 @@ final class TowerDefenseMode {
                 line.append(word);
             }
         }
-        if (line.length() > 0) {
+        if (!line.isEmpty()) {
             lines.add(line.toString());
         }
         return lines;
