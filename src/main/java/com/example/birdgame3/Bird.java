@@ -380,17 +380,23 @@ public class Bird {
     private static final int PHOENIX_CHARGE_MAX_FRAMES = 90;
     private static final int PHOENIX_FIREBALL_FRAMES = 26;
     private static final int PHOENIX_FIREBALL_ULTIMATE_FRAMES = 34;
-    private static final int PHOENIX_FIREBALL_CAST_LOCK_FRAMES = 10;
-    private static final int PHOENIX_FIREBALL_ULTIMATE_CAST_LOCK_FRAMES = 12;
+    private static final int PHOENIX_FIREBALL_CAST_LOCK_FRAMES = 15;
+    private static final int PHOENIX_FIREBALL_ULTIMATE_CAST_LOCK_FRAMES = 17;
     private static final int PHOENIX_SPIRAL_FRAMES = 28;
     private static final int PHOENIX_SPIRAL_ULTIMATE_FRAMES = 36;
     private static final int PHOENIX_LAVA_FRAMES = 24;
     private static final int PHOENIX_LAVA_ULTIMATE_FRAMES = 30;
     private static final int PHOENIX_LAVA_CAST_LOCK_FRAMES = 10;
     private static final int PHOENIX_LAVA_ULTIMATE_CAST_LOCK_FRAMES = 12;
-    private static final int PHOENIX_AFTERBURN_FRAMES = 72;
-    private static final int PHOENIX_AFTERBURN_ULTIMATE_FRAMES = 108;
-    private static final double PHOENIX_GROUND_FLAME_REACH = 220.0;
+    private static final int PHOENIX_NEUTRAL_REUSE_FRAMES = 48;
+    private static final int PHOENIX_NEUTRAL_ULTIMATE_REUSE_FRAMES = 60;
+    private static final int PHOENIX_FIREBALL_REUSE_FRAMES = 62;
+    private static final int PHOENIX_FIREBALL_ULTIMATE_REUSE_FRAMES = 74;
+    private static final int PHOENIX_LAVA_REUSE_FRAMES = 44;
+    private static final int PHOENIX_LAVA_ULTIMATE_REUSE_FRAMES = 56;
+    private static final int PHOENIX_BURST_FX_FRAMES = 34;
+    private static final double PHOENIX_GROUND_ERUPTION_RADIUS = 52.0;
+    private static final double PHOENIX_GROUND_ERUPTION_HEIGHT = 138.0;
     private static final double PHOENIX_AIR_FLAME_LENGTH = 210.0;
     private static final double PHOENIX_NO_COOLDOWN_ATTACK_NERF = 0.78;
     private static final int MAX_ATTACK_CHARGE_FRAMES = 60;
@@ -501,7 +507,13 @@ public class Bird {
     private int phoenixChargeTimer = 0;
     private boolean phoenixCharging = false;
     private boolean phoenixChargeUltimate = false;
+    private int phoenixNeutralReuseTimer = 0;
+    private int phoenixBurstFxTimer = 0;
+    private boolean phoenixBurstFxUltimate = false;
+    private double phoenixBurstFxChargeRatio = 0.0;
     private int phoenixCastLockTimer = 0;
+    private int phoenixFireballReuseTimer = 0;
+    private int phoenixLavaReuseTimer = 0;
     private int phoenixFireballTimer = 0;
     private double phoenixFireballX = 0;
     private double phoenixFireballY = 0;
@@ -511,6 +523,7 @@ public class Bird {
     private int phoenixSpiralTimer = 0;
     private boolean phoenixSpiralUsed = false;
     private boolean phoenixSpiralUltimate = false;
+    private final int[] phoenixSpiralHitCooldown = new int[4];
     private int phoenixLavaTimer = 0;
     private double phoenixLavaX = 0;
     private double phoenixLavaY = 0;
@@ -2817,19 +2830,24 @@ public class Bird {
         phoenixChargeUltimate = false;
         int chargeLevel = Math.min(phoenixChargeTimer / 30, 3);
         double chargeRatio = Math.clamp(phoenixChargeTimer / (double) PHOENIX_CHARGE_MAX_FRAMES, 0.0, 1.0);
-        int baseDamage = 4 + chargeLevel * 3;
-        if (ultimate) baseDamage += 3 + chargeLevel;
-        int damage = Math.max(baseDamage, 4);
+        int damage = 4 + (int) Math.round(chargeRatio * 10.0);
+        if (ultimate) {
+            damage += 3 + (int) Math.round(chargeRatio * 4.0);
+        }
 
-        double radius = 80 + chargeLevel * 40;
-        if (ultimate) radius *= 1.3;
+        double radius = 76.0 + chargeRatio * 124.0;
+        if (ultimate) radius *= 1.22;
 
         specialCooldown = 0;
         specialMaxCooldown = 0;
-        phoenixAfterburnTimer = Math.max(phoenixAfterburnTimer,
-                (ultimate ? PHOENIX_AFTERBURN_ULTIMATE_FRAMES : PHOENIX_AFTERBURN_FRAMES) + chargeLevel * 12);
+        phoenixNeutralReuseTimer = Math.max(phoenixNeutralReuseTimer,
+                ultimate ? PHOENIX_NEUTRAL_ULTIMATE_REUSE_FRAMES : PHOENIX_NEUTRAL_REUSE_FRAMES);
+        phoenixBurstFxTimer = PHOENIX_BURST_FX_FRAMES;
+        phoenixBurstFxUltimate = ultimate;
+        phoenixBurstFxChargeRatio = chargeRatio;
+        phoenixAfterburnTimer = 0;
         Arrays.fill(phoenixAfterburnHitCooldown, 0);
-        heal(3.0 + chargeLevel * 2.0 + (ultimate ? 4.0 : 0.0));
+        heal(2.0 + chargeRatio * 4.0 + (ultimate ? 3.0 : 0.0));
 
         String burstName = ultimate
                 ? (chargeLevel == 3 ? "SOLAR NOVA" : "SOLAR BURST")
@@ -2855,7 +2873,7 @@ public class Bird {
             if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
 
             double safeDist = Math.max(0.001, dist);
-            double kb = 4 + chargeLevel * 2;
+            double kb = 3.8 + chargeRatio * 7.4;
             if (ultimate) kb *= 1.3;
             other.vx += dx / safeDist * kb;
             other.vy -= kb * 0.8;
@@ -2873,10 +2891,10 @@ public class Bird {
             }
         }
 
-        int particleCount = 20 + chargeLevel * 15;
+        int particleCount = 8 + chargeLevel * 4;
         for (int i = 0; i < particleCount; i++) {
             double angle = Math.random() * Math.PI * 2;
-            double speed = 6 + Math.random() * 8;
+            double speed = 3.0 + Math.random() * 4.5;
             Color c = ultimate && Math.random() < 0.35
                     ? Color.web("#FFF3B0")
                     : (Math.random() < 0.5 ? Color.ORANGERED : Color.GOLD);
@@ -2884,7 +2902,7 @@ public class Bird {
                     bodyCenterX() + Math.cos(angle) * 20,
                     bodyCenterY() + Math.sin(angle) * 20,
                     Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 4,
+                    Math.sin(angle) * speed - 2.2,
                     c.deriveColor(0, 1, 1, 0.9)
             ));
         }
@@ -2898,6 +2916,26 @@ public class Bird {
             if (!isOnGround()) {
                 vy = Math.min(vy, 1.1);
             }
+            int dir = facingDirection();
+            double startupFrames = phoenixFireballUltimate
+                    ? PHOENIX_FIREBALL_ULTIMATE_CAST_LOCK_FRAMES
+                    : PHOENIX_FIREBALL_CAST_LOCK_FRAMES;
+            double windup = 1.0 - Math.clamp(phoenixCastLockTimer / startupFrames, 0.0, 1.0);
+            phoenixFireballX = bodyCenterX() + dir * (24.0 + windup * 14.0) * sizeMultiplier;
+            phoenixFireballY = bodyCenterY() - (18.0 + windup * 18.0) * sizeMultiplier;
+            if ((phoenixCastLockTimer & 1) == 0) {
+                Color c = phoenixFireballUltimate ? Color.web("#FFD180") : Color.GOLD;
+                for (int i = 0; i < 3; i++) {
+                    game.particles.add(new Particle(
+                            phoenixFireballX - dir * (4.0 + Math.random() * 10.0) * sizeMultiplier,
+                            phoenixFireballY + (Math.random() - 0.5) * 14.0 * sizeMultiplier,
+                            -dir * (0.6 + Math.random() * 1.4),
+                            -2.0 - Math.random() * 2.2,
+                            c.deriveColor(0, 1, 1, 0.82)
+                    ));
+                }
+            }
+            return;
         }
         phoenixFireballX += phoenixFireballVX;
         phoenixFireballY += phoenixFireballVY;
@@ -2913,7 +2951,7 @@ public class Bird {
             double dist = Math.hypot(dx, dy);
             if (dist > radius + other.combatRadius()) continue;
 
-            int dmg = phoenixFireballUltimate ? 8 : 6;
+            int dmg = phoenixFireballUltimate ? 10 : 7;
             double oldHealth = other.health;
             int dealt = (int) applyDamageTo(other, dmg);
             if (dealt <= 0) continue;
@@ -2923,8 +2961,8 @@ public class Bird {
             if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
 
             int dir = phoenixFireballVX < 0.0 ? -1 : 1;
-            other.vx += dir * (phoenixFireballUltimate ? 8.2 : 6.4);
-            other.vy -= phoenixFireballUltimate ? 5.8 : 4.4;
+            other.vx += dir * (phoenixFireballUltimate ? 8.8 : 6.9);
+            other.vy -= phoenixFireballUltimate ? 6.3 : 4.8;
             spawnPhoenixImpactBurst(phoenixFireballX, phoenixFireballY,
                     phoenixFireballUltimate ? 26 : 18,
                     phoenixFireballUltimate ? Color.web("#FFD180") : Color.GOLD,
@@ -2961,7 +2999,7 @@ public class Bird {
         int totalFrames = phoenixSpiralUltimate ? PHOENIX_SPIRAL_ULTIMATE_FRAMES : PHOENIX_SPIRAL_FRAMES;
         double spiralProgress = phoenixSpecialPhase(phoenixSpiralTimer, totalFrames);
         double angle = spiralProgress * Math.PI * 4;
-        double radius = phoenixSpiralUltimate ? 34 : 28;
+        double radius = (phoenixSpiralUltimate ? 44.0 : 38.0) * sizeMultiplier;
         int inputDir = horizontalInputDirection();
         if (inputDir != 0) {
             facingRight = inputDir > 0;
@@ -2974,13 +3012,25 @@ public class Bird {
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
             if (other.playerIndex == playerIndex) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= phoenixSpiralHitCooldown.length) continue;
 
             double dx = other.bodyCenterX() - bodyCenterX();
             double dy = other.bodyCenterY() - bodyCenterY();
-            double dist = Math.hypot(dx, dy);
-            if (dist > radius + other.combatRadius()) continue;
+            double horizontalReach = (phoenixSpiralUltimate ? 56.0 : 48.0) * sizeMultiplier + other.combatHalfWidth();
+            double lowerReach = (phoenixSpiralUltimate ? 58.0 : 48.0) * sizeMultiplier + other.combatHalfHeight();
+            double upperReach = (phoenixSpiralUltimate ? 150.0 : 128.0) * sizeMultiplier + other.combatHalfHeight();
+            if (Math.abs(dx) > horizontalReach) continue;
+            if (dy > lowerReach || dy < -upperReach) continue;
 
-            int dmg = phoenixSpiralUltimate ? 7 : 4;
+            double pull = Math.clamp(-dx * (phoenixSpiralUltimate ? 0.10 : 0.085), -2.6, 2.6);
+            other.vx += pull;
+            other.vy = Math.min(other.vy, phoenixSpiralUltimate ? -9.2 : -7.6);
+
+            if (phoenixSpiralHitCooldown[other.playerIndex] > 0) {
+                continue;
+            }
+
+            int dmg = phoenixSpiralUltimate ? 3 : 2;
             double oldHealth = other.health;
             int dealt = (int) applyDamageTo(other, dmg);
             if (dealt <= 0) continue;
@@ -2989,23 +3039,47 @@ public class Bird {
             game.recordSpecialImpact(playerIndex, dealt, true);
             if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
 
-            double safeDist = Math.max(0.001, dist);
-            other.vx += dx / safeDist * (phoenixSpiralUltimate ? 4.6 : 3.0);
-            other.vy -= phoenixSpiralUltimate ? 6.5 : 5.0;
+            phoenixSpiralHitCooldown[other.playerIndex] = phoenixSpiralUltimate ? 4 : 5;
+            for (int i = 0; i < (phoenixSpiralUltimate ? 10 : 7); i++) {
+                double burstAngle = -Math.PI / 2.0 + (Math.random() - 0.5) * 1.25;
+                Color spark = phoenixSpiralUltimate && Math.random() < 0.4
+                        ? Color.web("#FFD180")
+                        : (Math.random() < 0.55 ? Color.GOLD : Color.ORANGERED);
+                game.particles.add(new Particle(
+                        other.bodyCenterX() + (Math.random() - 0.5) * 18.0,
+                        other.bodyCenterY() + (Math.random() - 0.5) * 18.0,
+                        Math.cos(burstAngle) * (2.0 + Math.random() * 3.0),
+                        Math.sin(burstAngle) * (5.0 + Math.random() * 5.0),
+                        spark.deriveColor(0, 1, 1, 0.88)
+                ));
+            }
         }
 
         if (phoenixSpiralTimer % 2 == 0) {
-            double flameAngle = angle + Math.PI / 2;
+            for (int i = 0; i < 4; i++) {
+                double flameAngle = angle + Math.PI / 2 + i * Math.PI / 2.0;
+                double flameRadius = radius * (0.72 + i * 0.10);
+                Color flame = phoenixSpiralUltimate && i % 2 == 0 ? Color.web("#FFD180") : Color.ORANGERED;
+                game.particles.add(new Particle(
+                        bodyCenterX() + Math.cos(flameAngle) * flameRadius,
+                        bodyCenterY() + Math.sin(flameAngle) * flameRadius,
+                        Math.cos(flameAngle) * (phoenixSpiralUltimate ? 4.4 : 3.4),
+                        Math.sin(flameAngle) * (phoenixSpiralUltimate ? 4.4 : 3.4) - 4.2,
+                        flame
+                ));
+            }
+        } else {
+            double plumeX = bodyCenterX() + (Math.random() - 0.5) * 28.0 * sizeMultiplier;
             game.particles.add(new Particle(
-                    bodyCenterX() + Math.cos(flameAngle) * radius,
-                    bodyCenterY() + Math.sin(flameAngle) * radius,
-                    Math.cos(flameAngle) * (phoenixSpiralUltimate ? 4.2 : 3.2),
-                    Math.sin(flameAngle) * (phoenixSpiralUltimate ? 4.2 : 3.2) - 2,
+                    plumeX,
+                    bodyBottomY() - 4.0 * sizeMultiplier,
+                    (Math.random() - 0.5) * 2.2,
+                    -4.5 - Math.random() * 4.5,
                     phoenixSpiralUltimate ? Color.web("#FFD180") : Color.ORANGERED
             ));
         }
 
-        if (isOnGround()) {
+        if (isOnGround() && vy >= 0.0) {
             phoenixSpiralTimer = 0;
             phoenixSpiralUltimate = false;
             phoenixSpiralUsed = false;
@@ -3052,14 +3126,19 @@ public class Bird {
             }
 
             if (phoenixLavaTimer % 2 == 0) {
-                for (int i = 0; i < 4; i++) {
-                    double sparkY = phoenixLavaY + (length * i / 3.0) + (Math.random() - 0.5) * 16.0;
+                for (int i = 0; i < 7; i++) {
+                    double flow = i / 6.0;
+                    double sparkY = phoenixLavaY + length * flow + (Math.random() - 0.5) * 18.0;
+                    double taper = 1.0 - flow * 0.48;
+                    Color spark = i % 3 == 0
+                            ? (phoenixLavaUltimate ? Color.web("#FFD180") : Color.GOLD)
+                            : (phoenixLavaUltimate ? Color.web("#FF7043") : Color.web("#FF9800"));
                     game.particles.add(new Particle(
-                            phoenixLavaX + (Math.random() - 0.5) * width,
+                            phoenixLavaX + (Math.random() - 0.5) * width * taper,
                             sparkY,
-                            (Math.random() - 0.5) * 1.6,
-                            -2.2 - Math.random() * 1.6,
-                            phoenixLavaUltimate ? Color.web("#FF7043") : Color.web("#FF9800")
+                            (Math.random() - 0.5) * (1.4 + flow * 1.8),
+                            -3.0 - Math.random() * 2.6 - flow * 1.4,
+                            spark.deriveColor(0, 1, 1, 0.84)
                     ));
                 }
             }
@@ -3068,10 +3147,9 @@ public class Bird {
 
         double phase = phoenixSpecialPhase(phoenixLavaTimer,
                 phoenixLavaUltimate ? PHOENIX_LAVA_ULTIMATE_FRAMES : PHOENIX_LAVA_FRAMES);
-        double reach = PHOENIX_GROUND_FLAME_REACH * (phoenixLavaUltimate ? 1.15 : 1.0) * phase * sizeMultiplier;
-        double laneRadius = (phoenixLavaUltimate ? 56.0 : 48.0) * sizeMultiplier;
-        double leftWaveX = phoenixLavaX - reach;
-        double rightWaveX = phoenixLavaX + reach;
+        double eruptionRadius = PHOENIX_GROUND_ERUPTION_RADIUS * (phoenixLavaUltimate ? 1.18 : 1.0) * sizeMultiplier;
+        double eruptionHeight = PHOENIX_GROUND_ERUPTION_HEIGHT * (phoenixLavaUltimate ? 1.20 : 1.0) * sizeMultiplier;
+        double activeHeight = eruptionHeight * (0.70 + 0.30 * Math.sin(phase * Math.PI));
 
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
@@ -3079,14 +3157,13 @@ public class Bird {
             if (other.playerIndex < 0 || other.playerIndex >= phoenixLavaHitCooldown.length) continue;
             if (phoenixLavaHitCooldown[other.playerIndex]) continue;
 
-            double dy = Math.abs(other.bodyCenterY() - phoenixLavaY);
-            if (dy > 44.0 * sizeMultiplier + other.combatHalfHeight()) continue;
+            double dxFromCenter = other.bodyCenterX() - phoenixLavaX;
+            double absDx = Math.abs(dxFromCenter);
+            if (absDx > eruptionRadius + other.combatHalfWidth()) continue;
+            if (other.bodyBottomY() < phoenixLavaY - activeHeight) continue;
+            if (other.bodyCenterY() > phoenixLavaY + 26.0 * sizeMultiplier + other.combatHalfHeight()) continue;
 
-            boolean leftHit = Math.abs(other.bodyCenterX() - leftWaveX) <= laneRadius + other.combatHalfWidth();
-            boolean rightHit = Math.abs(other.bodyCenterX() - rightWaveX) <= laneRadius + other.combatHalfWidth();
-            if (!leftHit && !rightHit) continue;
-
-            int dmg = phoenixLavaUltimate ? 8 : 6;
+            int dmg = phoenixLavaUltimate ? 9 : 7;
             double oldHealth = other.health;
             int dealt = (int) applyDamageTo(other, dmg);
             if (dealt <= 0) continue;
@@ -3095,23 +3172,40 @@ public class Bird {
             game.recordSpecialImpact(playerIndex, dealt, true);
             if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
 
-            double launchDir = other.bodyCenterX() >= phoenixLavaX ? 1.0 : -1.0;
-            other.vx += launchDir * (phoenixLavaUltimate ? 8.4 : 6.6);
-            other.vy -= phoenixLavaUltimate ? 7.8 : 6.0;
+            double launchDir = dxFromCenter >= 0.0 ? 1.0 : -1.0;
+            other.vx += launchDir * (phoenixLavaUltimate ? 3.4 : 2.6);
+            other.vy -= phoenixLavaUltimate ? 12.4 : 10.4;
             phoenixLavaHitCooldown[other.playerIndex] = true;
-        }
 
-        for (int i = 0; i < 2; i++) {
-            double flameX = i == 0 ? leftWaveX : rightWaveX;
-            for (int j = 0; j < 2; j++) {
+            for (int i = 0; i < (phoenixLavaUltimate ? 14 : 10); i++) {
+                double sparkX = phoenixLavaX + (Math.random() - 0.5) * eruptionRadius * 1.25;
+                Color spark = i % 2 == 0
+                        ? (phoenixLavaUltimate ? Color.web("#FFD180") : Color.GOLD)
+                        : Color.web("#FF7043");
                 game.particles.add(new Particle(
-                        flameX + (Math.random() - 0.5) * laneRadius * 0.42,
-                        phoenixLavaY + (Math.random() - 0.5) * 10.0,
-                        (Math.random() - 0.5) * 1.2,
-                        -1.8 - Math.random() * 1.8,
-                        phoenixLavaUltimate ? Color.web("#FF7043") : Color.web("#FF9800")
+                        sparkX,
+                        phoenixLavaY - Math.random() * 26.0 * sizeMultiplier,
+                        (Math.random() - 0.5) * (phoenixLavaUltimate ? 3.0 : 2.2),
+                        -5.2 - Math.random() * 6.4,
+                        spark.deriveColor(0, 1, 1, 0.86)
                 ));
             }
+        }
+
+        int plumeCount = phoenixLavaUltimate ? 10 : 8;
+        for (int i = 0; i < plumeCount; i++) {
+            double offset = (Math.random() - 0.5) * eruptionRadius * 1.35;
+            double lift = activeHeight * (0.36 + Math.random() * 0.44);
+            Color flame = i % 2 == 0
+                    ? (phoenixLavaUltimate ? Color.web("#FFD180") : Color.GOLD)
+                    : (phoenixLavaUltimate ? Color.web("#FF7043") : Color.web("#FF9800"));
+            game.particles.add(new Particle(
+                    phoenixLavaX + offset,
+                    phoenixLavaY - Math.random() * 12.0 * sizeMultiplier,
+                    offset * 0.018 + (Math.random() - 0.5) * 0.9,
+                    -3.6 - Math.random() * 4.8 - lift * 0.022,
+                    flame.deriveColor(0, 1, 1, 0.80)
+            ));
         }
     }
 
@@ -3378,13 +3472,17 @@ public class Bird {
             facingRight = dir > 0;
         }
         dir = facingDirection();
-        phoenixFireballTimer = ultimate ? PHOENIX_FIREBALL_ULTIMATE_FRAMES : PHOENIX_FIREBALL_FRAMES;
-        phoenixCastLockTimer = ultimate ? PHOENIX_FIREBALL_ULTIMATE_CAST_LOCK_FRAMES : PHOENIX_FIREBALL_CAST_LOCK_FRAMES;
-        phoenixFireballX = bodyCenterX() + dir * 30.0 * sizeMultiplier;
-        phoenixFireballY = bodyCenterY() - 10.0 * sizeMultiplier;
-        phoenixFireballVX = dir * (ultimate ? 13.8 : 11.6);
+        int startupFrames = ultimate ? PHOENIX_FIREBALL_ULTIMATE_CAST_LOCK_FRAMES : PHOENIX_FIREBALL_CAST_LOCK_FRAMES;
+        int flightFrames = ultimate ? PHOENIX_FIREBALL_ULTIMATE_FRAMES : PHOENIX_FIREBALL_FRAMES;
+        phoenixFireballTimer = startupFrames + flightFrames;
+        phoenixCastLockTimer = startupFrames;
+        phoenixFireballX = bodyCenterX() + dir * 24.0 * sizeMultiplier;
+        phoenixFireballY = bodyCenterY() - 18.0 * sizeMultiplier;
+        phoenixFireballVX = dir * (ultimate ? 14.4 : 12.2);
         phoenixFireballVY = 0.0;
         phoenixFireballUltimate = ultimate;
+        phoenixFireballReuseTimer = Math.max(phoenixFireballReuseTimer,
+                ultimate ? PHOENIX_FIREBALL_ULTIMATE_REUSE_FRAMES : PHOENIX_FIREBALL_REUSE_FRAMES);
         specialCooldown = 0;
         specialMaxCooldown = 0;
         attackAnimationTimer = Math.max(attackAnimationTimer, phoenixCastLockTimer);
@@ -3405,6 +3503,7 @@ public class Bird {
         phoenixSpiralTimer = ultimate ? PHOENIX_SPIRAL_ULTIMATE_FRAMES : PHOENIX_SPIRAL_FRAMES;
         phoenixSpiralUsed = true;
         phoenixSpiralUltimate = ultimate;
+        Arrays.fill(phoenixSpiralHitCooldown, 0);
         canDoubleJump = true;
         vy = -(ultimate ? 16 : 13);
         vx = (facingRight ? 1 : -1) * (ultimate ? 4 : 3);
@@ -3427,6 +3526,8 @@ public class Bird {
         phoenixLavaUltimate = ultimate;
         phoenixCastLockTimer = ultimate ? PHOENIX_LAVA_ULTIMATE_CAST_LOCK_FRAMES : PHOENIX_LAVA_CAST_LOCK_FRAMES;
         Arrays.fill(phoenixLavaHitCooldown, false);
+        phoenixLavaReuseTimer = Math.max(phoenixLavaReuseTimer,
+                ultimate ? PHOENIX_LAVA_ULTIMATE_REUSE_FRAMES : PHOENIX_LAVA_REUSE_FRAMES);
         specialCooldown = 0;
         specialMaxCooldown = 0;
         attackAnimationTimer = Math.max(attackAnimationTimer, phoenixCastLockTimer);
@@ -4222,7 +4323,6 @@ public class Bird {
 
     private boolean canStartPhoenixSpecial() {
         PhoenixSpecialVariant variant = selectPhoenixSpecialVariant();
-        boolean neutralReady = variant != PhoenixSpecialVariant.NEUTRAL || specialCooldown <= 0;
         boolean shieldConversion = variant == PhoenixSpecialVariant.DOWN
                 && isBlocking
                 && shieldStunFrames <= 0;
@@ -4235,7 +4335,25 @@ public class Bird {
                 && !isDodging()
                 && !phoenixSpecialActive()
                 && (variant != PhoenixSpecialVariant.UP || !phoenixSpiralUsed)
-                && neutralReady;
+                && phoenixSpecialReady(variant);
+    }
+
+    private boolean phoenixSpecialReady(PhoenixSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> specialCooldown <= 0 && phoenixNeutralReuseTimer <= 0;
+            case SIDE -> phoenixFireballReuseTimer <= 0;
+            case UP -> !phoenixSpiralUsed;
+            case DOWN -> phoenixLavaReuseTimer <= 0;
+        };
+    }
+
+    private boolean phoenixSpecialOnReuseLockout(PhoenixSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> specialCooldown > 0 || phoenixNeutralReuseTimer > 0;
+            case SIDE -> phoenixFireballReuseTimer > 0;
+            case UP -> phoenixSpiralUsed;
+            case DOWN -> phoenixLavaReuseTimer > 0;
+        };
     }
 
     private PigeonSpecialVariant selectPigeonSpecialVariant() {
@@ -4338,6 +4456,9 @@ public class Bird {
         phoenixCharging = false;
         phoenixChargeTimer = 0;
         phoenixChargeUltimate = false;
+        phoenixBurstFxTimer = 0;
+        phoenixBurstFxUltimate = false;
+        phoenixBurstFxChargeRatio = 0.0;
         phoenixCastLockTimer = 0;
         phoenixFireballTimer = 0;
         phoenixFireballUltimate = false;
@@ -4345,6 +4466,7 @@ public class Bird {
         phoenixFireballVY = 0.0;
         phoenixSpiralTimer = 0;
         phoenixSpiralUltimate = false;
+        Arrays.fill(phoenixSpiralHitCooldown, 0);
         phoenixLavaTimer = 0;
         phoenixLavaUltimate = false;
         phoenixLavaAirborne = false;
@@ -6119,7 +6241,11 @@ public class Bird {
         pigeonRushTimer = Math.max(0, (int)(pigeonRushTimer - gameSpeed));
         pigeonFlutterTimer = Math.max(0, (int)(pigeonFlutterTimer - gameSpeed));
         pigeonScavengeTimer = Math.max(0, (int)(pigeonScavengeTimer - gameSpeed));
+        phoenixNeutralReuseTimer = Math.max(0, (int)(phoenixNeutralReuseTimer - gameSpeed));
+        phoenixBurstFxTimer = Math.max(0, (int)(phoenixBurstFxTimer - gameSpeed));
         phoenixCastLockTimer = Math.max(0, (int)(phoenixCastLockTimer - gameSpeed));
+        phoenixFireballReuseTimer = Math.max(0, (int)(phoenixFireballReuseTimer - gameSpeed));
+        phoenixLavaReuseTimer = Math.max(0, (int)(phoenixLavaReuseTimer - gameSpeed));
         phoenixFireballTimer = Math.max(0, (int)(phoenixFireballTimer - gameSpeed));
         phoenixSpiralTimer = Math.max(0, (int)(phoenixSpiralTimer - gameSpeed));
         phoenixLavaTimer = Math.max(0, (int)(phoenixLavaTimer - gameSpeed));
@@ -6139,6 +6265,9 @@ public class Bird {
         phoenixAfterburnTimer = Math.max(0, (int)(phoenixAfterburnTimer - gameSpeed));
         for (int i = 0; i < phoenixAfterburnHitCooldown.length; i++) {
             phoenixAfterburnHitCooldown[i] = Math.max(0, (int)(phoenixAfterburnHitCooldown[i] - gameSpeed));
+        }
+        for (int i = 0; i < phoenixSpiralHitCooldown.length; i++) {
+            phoenixSpiralHitCooldown[i] = Math.max(0, (int)(phoenixSpiralHitCooldown[i] - gameSpeed));
         }
         for (int i = 0; i < roadrunnerSandHitCooldown.length; i++) {
             roadrunnerSandHitCooldown[i] = Math.max(0, (int)(roadrunnerSandHitCooldown[i] - gameSpeed));
@@ -6164,6 +6293,10 @@ public class Bird {
             phoenixChargeUltimate = false;
             phoenixChargeTimer = 0;
         }
+        if (phoenixBurstFxTimer == 0) {
+            phoenixBurstFxUltimate = false;
+            phoenixBurstFxChargeRatio = 0.0;
+        }
         if (phoenixFireballTimer == 0) {
             phoenixFireballUltimate = false;
             phoenixFireballVX = 0.0;
@@ -6171,6 +6304,7 @@ public class Bird {
         }
         if (phoenixSpiralTimer == 0) {
             phoenixSpiralUltimate = false;
+            Arrays.fill(phoenixSpiralHitCooldown, 0);
         }
         if (phoenixLavaTimer == 0) {
             phoenixLavaUltimate = false;
@@ -7850,51 +7984,9 @@ public class Bird {
     }
 
     private void handlePhoenixAfterburn() {
-        if (type != BirdGame3.BirdType.PHOENIX || phoenixAfterburnTimer <= 0) return;
-
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY();
-
-        // Flames shoot outward from Phoenix's body while the special lingers.
-        for (int i = 0; i < 5; i++) {
-            double angle = Math.random() * Math.PI * 2;
-            double speed = 6 + Math.random() * 10;
-            double spawnDist = 8 + Math.random() * 16;
-            Color c = Math.random() < 0.55 ? Color.ORANGERED : Color.GOLD;
-            game.particles.add(new Particle(
-                    centerX + Math.cos(angle) * spawnDist,
-                    centerY + Math.sin(angle) * spawnDist,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 4.5,
-                    c.deriveColor(0, 1, 1, 0.88)
-            ));
-        }
-
-        if (phoenixAfterburnTimer % 8 != 0) return;
-
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= phoenixAfterburnHitCooldown.length) continue;
-            if (phoenixAfterburnHitCooldown[other.playerIndex] > 0) continue;
-
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            double dist = Math.hypot(dx, dy);
-            if (dist > 185 + other.combatRadius()) continue;
-
-            int dmg = dist < 120 ? 4 : 3;
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
-            if (dealt <= 0) continue;
-
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-
-            double safeDist = Math.max(0.001, dist);
-            other.vx += dx / safeDist * 3.6;
-            other.vy -= 2.6;
-            phoenixAfterburnHitCooldown[other.playerIndex] = 12;
+        if (type == BirdGame3.BirdType.PHOENIX && phoenixAfterburnTimer > 0) {
+            phoenixAfterburnTimer = 0;
+            Arrays.fill(phoenixAfterburnHitCooldown, 0);
         }
     }
 
@@ -8687,6 +8779,9 @@ public class Bird {
         resetPigeonSpecialState();
         pigeonUpSpecialUsed = false;
         resetPhoenixSpecialState();
+        phoenixNeutralReuseTimer = 0;
+        phoenixFireballReuseTimer = 0;
+        phoenixLavaReuseTimer = 0;
         phoenixSpiralUsed = false;
         resetRaptorSpecialState();
         raptorCryReuseTimer = 0;
@@ -8926,7 +9021,13 @@ public class Bird {
         state.phoenixChargeTimer = phoenixChargeTimer;
         state.phoenixCharging = phoenixCharging;
         state.phoenixChargeUltimate = phoenixChargeUltimate;
+        state.phoenixNeutralReuseTimer = phoenixNeutralReuseTimer;
+        state.phoenixBurstFxTimer = phoenixBurstFxTimer;
+        state.phoenixBurstFxUltimate = phoenixBurstFxUltimate;
+        state.phoenixBurstFxChargeRatio = phoenixBurstFxChargeRatio;
         state.phoenixCastLockTimer = phoenixCastLockTimer;
+        state.phoenixFireballReuseTimer = phoenixFireballReuseTimer;
+        state.phoenixLavaReuseTimer = phoenixLavaReuseTimer;
         state.phoenixFireballTimer = phoenixFireballTimer;
         state.phoenixFireballX = phoenixFireballX;
         state.phoenixFireballY = phoenixFireballY;
@@ -9192,7 +9293,13 @@ public class Bird {
         this.phoenixChargeTimer = state.phoenixChargeTimer;
         this.phoenixCharging = state.phoenixCharging;
         this.phoenixChargeUltimate = state.phoenixChargeUltimate;
+        this.phoenixNeutralReuseTimer = state.phoenixNeutralReuseTimer;
+        this.phoenixBurstFxTimer = state.phoenixBurstFxTimer;
+        this.phoenixBurstFxUltimate = state.phoenixBurstFxUltimate;
+        this.phoenixBurstFxChargeRatio = Math.clamp(state.phoenixBurstFxChargeRatio, 0.0, 1.0);
         this.phoenixCastLockTimer = state.phoenixCastLockTimer;
+        this.phoenixFireballReuseTimer = state.phoenixFireballReuseTimer;
+        this.phoenixLavaReuseTimer = state.phoenixLavaReuseTimer;
         this.phoenixFireballTimer = state.phoenixFireballTimer;
         this.phoenixFireballX = state.phoenixFireballX;
         this.phoenixFireballY = state.phoenixFireballY;
@@ -9394,7 +9501,7 @@ public class Bird {
 
     private boolean phoenixSpecialPoseActive() {
         return type == BirdGame3.BirdType.PHOENIX
-                && (phoenixCharging || phoenixFireballTimer > 0 || phoenixSpiralTimer > 0 || phoenixLavaTimer > 0);
+                && (phoenixCharging || phoenixBurstFxTimer > 0 || phoenixFireballTimer > 0 || phoenixSpiralTimer > 0 || phoenixLavaTimer > 0);
     }
 
     private double phoenixSpecialPhase(int timer, int totalFrames) {
@@ -9622,21 +9729,58 @@ public class Bird {
         double dir = facingRight ? 1.0 : -1.0;
         if (phoenixCharging) {
             double phase = Math.clamp(phoenixChargeTimer / (double) PHOENIX_CHARGE_MAX_FRAMES, 0.0, 1.0);
+            double risePulse = Math.sin(phase * Math.PI * 6.0) * (1.0 - phase) * 2.0;
             return new AttackVisualPose(
-                    dir * (1.5 + 1.5 * phase),
-                    -11.0 - 14.0 * phase,
-                    dir * (4.0 + 3.0 * phase),
-                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10),
+                    dir * (1.0 + 2.0 * phase),
+                    -14.0 - 24.0 * phase + risePulse,
+                    dir * (5.0 + 5.0 * phase),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.06),
+                    14.0 + 12.0 * phase,
+                    -24.0 - 16.0 * phase,
                     12.0 + 10.0 * phase,
-                    -18.0 - 10.0 * phase,
-                    10.0 + 8.0 * phase,
-                    1.08 + 0.10 * phase,
-                    -16.0 - 14.0 * phase,
-                    0.98,
-                    1.10 + 0.10 * phase
+                    1.08 + 0.12 * phase,
+                    -18.0 - 22.0 * phase,
+                    0.96,
+                    1.14 + 0.12 * phase
+            );
+        }
+        if (phoenixBurstFxTimer > 0) {
+            double fade = Math.clamp(phoenixBurstFxTimer / (double) PHOENIX_BURST_FX_FRAMES, 0.0, 1.0);
+            double recoil = Math.sin(fade * Math.PI) * 5.0;
+            return new AttackVisualPose(
+                    -dir * recoil,
+                    -6.0 * fade,
+                    -dir * 5.0 * fade,
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10 * fade),
+                    10.0 * fade,
+                    -14.0 * fade,
+                    10.0 * fade,
+                    1.0 + 0.08 * fade,
+                    -12.0 * fade,
+                    1.0,
+                    1.0 + 0.06 * fade
             );
         }
         if (phoenixFireballTimer > 0) {
+            if (phoenixCastLockTimer > 0) {
+                double startupFrames = phoenixFireballUltimate
+                        ? PHOENIX_FIREBALL_ULTIMATE_CAST_LOCK_FRAMES
+                        : PHOENIX_FIREBALL_CAST_LOCK_FRAMES;
+                double windup = 1.0 - Math.clamp(phoenixCastLockTimer / startupFrames, 0.0, 1.0);
+                return new AttackVisualPose(
+                        -dir * (5.0 + 4.0 * windup),
+                        -5.0 - 4.0 * windup,
+                        -dir * (8.0 + 5.0 * windup),
+                        normalizeAngleRadians((facingRight ? -0.72 : Math.PI + 0.72) + dir * windup * 0.22),
+                        13.0 + 7.0 * windup,
+                        -12.0 - 8.0 * windup,
+                        14.0 + 6.0 * windup,
+                        0.96 + 0.18 * windup,
+                        -dir * (7.0 + 7.0 * windup),
+                        1.04,
+                        0.98
+                );
+            }
             double phase = phoenixSpecialPhase(phoenixFireballTimer,
                     phoenixFireballUltimate ? PHOENIX_FIREBALL_ULTIMATE_FRAMES : PHOENIX_FIREBALL_FRAMES);
             return new AttackVisualPose(
@@ -9656,34 +9800,36 @@ public class Bird {
         if (phoenixSpiralTimer > 0) {
             double phase = phoenixSpecialPhase(phoenixSpiralTimer,
                     phoenixSpiralUltimate ? PHOENIX_SPIRAL_ULTIMATE_FRAMES : PHOENIX_SPIRAL_FRAMES);
+            double pulse = Math.sin(phase * Math.PI * 8.0) * 3.0;
             return new AttackVisualPose(
                     dir * (2.0 + 2.0 * phase),
-                    -16.0 - 16.0 * phase,
-                    dir * (8.0 + 6.0 * phase),
+                    -18.0 - 24.0 * phase + pulse,
+                    dir * (10.0 + 8.0 * phase),
                     normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.18),
+                    18.0 + 12.0 * phase,
+                    -24.0 - 12.0 * phase,
                     16.0 + 10.0 * phase,
-                    -20.0 - 8.0 * phase,
-                    14.0 + 8.0 * phase,
                     0.90,
-                    -26.0 - 18.0 * phase,
-                    0.96,
-                    1.16 + 0.10 * phase
+                    -30.0 - 22.0 * phase,
+                    0.94,
+                    1.20 + 0.12 * phase
             );
         }
 
         double phase = phoenixSpecialPhase(phoenixLavaTimer,
                 phoenixLavaUltimate ? PHOENIX_LAVA_ULTIMATE_FRAMES : PHOENIX_LAVA_FRAMES);
         if (phoenixLavaAirborne) {
+            double streamPulse = 0.5 + 0.5 * Math.sin(phase * Math.PI * 7.0);
             return new AttackVisualPose(
-                    dir * 1.5,
-                    10.0 + 6.0 * phase,
-                    dir * (3.0 + 2.0 * phase),
+                    dir * (1.5 + streamPulse * 1.5),
+                    10.0 + 8.0 * phase,
+                    dir * (4.0 + 4.0 * phase),
                     normalizeAngleRadians(Math.PI / 2.0 - dir * 0.08),
-                    10.0 + 6.0 * phase,
-                    10.0 + 6.0 * phase,
+                    12.0 + 7.0 * phase,
                     12.0 + 8.0 * phase,
+                    14.0 + 8.0 * phase,
                     0.82,
-                    18.0 + 8.0 * phase,
+                    22.0 + 10.0 * phase,
                     1.02,
                     0.86
             );
@@ -9691,14 +9837,14 @@ public class Bird {
         double crouchPulse = 0.5 + 0.5 * Math.sin(phase * Math.PI * 8.0);
         return new AttackVisualPose(
                 dir * (3.0 + 2.0 * phase),
-                8.0 + crouchPulse * 4.0,
-                dir * (6.0 + 3.0 * phase),
+                9.0 + crouchPulse * 5.0,
+                dir * (7.0 + 5.0 * phase),
                 normalizeAngleRadians(Math.PI / 2.0 - dir * 0.22),
                 10.0 + 6.0 * phase,
-                10.0 + crouchPulse * 5.0,
+                12.0 + crouchPulse * 7.0,
                 11.0 + 6.0 * phase,
                 0.84,
-                18.0 + crouchPulse * 6.0,
+                22.0 + crouchPulse * 8.0,
                 1.06 + 0.04 * phase,
                 0.84
         );
@@ -10272,24 +10418,19 @@ public class Bird {
             g.setLineWidth(2.2);
             double r2 = (76 + pulse * 18) * s;
             g.strokeOval(centerX - r2, centerY - r2, r2 * 2, r2 * 2);
-
-            if (phoenixAfterburnTimer > 0) {
-                double burstIntensity = Math.min(1.0, phoenixAfterburnTimer / 48.0);
-                g.setStroke(rim.brighter().deriveColor(0, 1, 1, 0.9));
-                g.setLineWidth(3.2);
-                double t = System.currentTimeMillis() / 180.0;
-                for (int i = 0; i < 8; i++) {
-                    double angle = (Math.PI * 2 * i / 8.0) + t * 0.6;
-                    double len = (70 + burstIntensity * 35) * s;
-                    g.strokeLine(centerX, centerY, centerX + Math.cos(angle) * len, centerY + Math.sin(angle) * len);
-                }
-            }
-
-            if (Math.random() < 0.35) {
-                double px = centerX + (Math.random() - 0.5) * 60 * s;
-                double py = centerY + (Math.random() - 0.5) * 50 * s;
-                Color c = Math.random() < 0.5 ? rim : ring;
-                game.particles.add(new Particle(px, py, (Math.random() - 0.5) * 2.2, -1.5 - Math.random() * 2.4, c));
+            double t = System.currentTimeMillis() / 135.0;
+            for (int i = 0; i < 5; i++) {
+                double offset = (i - 2) * 15.0 * s;
+                double height = (24.0 + pulse * 10.0 + Math.sin(t + i * 0.8) * 5.0) * s;
+                drawPhoenixFlameTongue(g,
+                        centerX + offset,
+                        centerY + 43.0 * s,
+                        centerX + offset * 0.45 + Math.sin(t + i) * 6.0 * s,
+                        centerY + 43.0 * s - height,
+                        6.0 * s,
+                        ring,
+                        rim,
+                        0.28 + pulse * 0.10);
             }
             return;
         }
@@ -10300,54 +10441,19 @@ public class Bird {
         g.setLineWidth(2.4);
         double r = (52 + pulse * 10) * s;
         g.strokeOval(centerX - r, centerY - r, r * 2, r * 2);
-        if (phoenixAfterburnTimer > 0) {
-            double burstIntensity = Math.min(1.0, phoenixAfterburnTimer / 48.0);
-            drawPhoenixFlameBurst(g, burstIntensity, pulse, centerX, centerY, s);
-            g.setStroke(Color.ORANGERED.brighter().deriveColor(0, 1, 1, 0.82));
-            g.setLineWidth(3.2);
-            double ring = (60 + pulse * 14) * s;
-            g.strokeOval(centerX - ring, centerY - ring, ring * 2, ring * 2);
-        }
-
-        if (Math.random() < 0.28) {
-            double px = centerX + (Math.random() - 0.5) * 50 * s;
-            double py = centerY + 18 * s + (Math.random() - 0.5) * 35 * s;
-            Color c = Math.random() < 0.6 ? Color.ORANGE : Color.GOLD;
-            game.particles.add(new Particle(px, py, (Math.random() - 0.5) * 1.8, -1.2 - Math.random() * 2.2, c));
-        }
-    }
-
-    private void drawPhoenixFlameBurst(GraphicsContext g, double burstIntensity, double pulse, double centerX, double centerY, double s) {
-        double t = System.currentTimeMillis() / 120.0;
-        int flames = 12;
-        for (int i = 0; i < flames; i++) {
-            double angle = (Math.PI * 2 * i / flames) + t * 0.22;
-            double innerRadius = (26 + pulse * 6) * s;
-            double outerRadius = (58 + burstIntensity * 36 + Math.sin(t + i * 0.8) * 8) * s;
-            double sideRadius = (10 + burstIntensity * 7) * s;
-
-            double baseX = centerX + Math.cos(angle) * innerRadius;
-            double baseY = centerY + Math.sin(angle) * innerRadius;
-            double tipX = centerX + Math.cos(angle) * outerRadius;
-            double tipY = centerY + Math.sin(angle) * outerRadius;
-            double nx = -Math.sin(angle);
-            double ny = Math.cos(angle);
-
-            g.setFill(Color.ORANGERED.deriveColor(0, 1, 1, 0.76));
-            g.fillPolygon(
-                    new double[]{baseX + nx * sideRadius, baseX - nx * sideRadius, tipX},
-                    new double[]{baseY + ny * sideRadius, baseY - ny * sideRadius, tipY},
-                    3
-            );
-
-            double coreTip = outerRadius - (9 + burstIntensity * 7) * s;
-            double coreSide = sideRadius * 0.55;
-            g.setFill(Color.GOLD.deriveColor(0, 1, 1, 0.84));
-            g.fillPolygon(
-                    new double[]{baseX + nx * coreSide, baseX - nx * coreSide, centerX + Math.cos(angle) * coreTip},
-                    new double[]{baseY + ny * coreSide, baseY - ny * coreSide, centerY + Math.sin(angle) * coreTip},
-                    3
-            );
+        double t = System.currentTimeMillis() / 130.0;
+        for (int i = 0; i < 5; i++) {
+            double offset = (i - 2) * 13.0 * s;
+            double height = (22.0 + pulse * 12.0 + Math.sin(t + i * 0.9) * 5.0) * s;
+            drawPhoenixFlameTongue(g,
+                    centerX + offset,
+                    centerY + 42.0 * s,
+                    centerX + offset * 0.42 + Math.sin(t + i) * 5.0 * s,
+                    centerY + 42.0 * s - height,
+                    5.8 * s,
+                    Color.ORANGERED,
+                    Color.GOLD,
+                    0.24 + pulse * 0.12);
         }
     }
 
@@ -10533,6 +10639,10 @@ public class Bird {
     }
 
     private void drawCooldownFlash(GraphicsContext g) {
+        if (type == BirdGame3.BirdType.PHOENIX) {
+            cooldownFlash = 0;
+            return;
+        }
         if (this.cooldownFlash > 0) {
             g.setFill(Color.RED.deriveColor(0, 1, 1, 0.6));
             g.setFont(Font.font("Arial Black", 32));
@@ -11134,6 +11244,51 @@ public class Bird {
         g.restore();
     }
 
+    private void drawPhoenixEyeGlow(GraphicsContext g, double s, Color core, Color rim, double intensity) {
+        if (intensity <= 0.0) {
+            return;
+        }
+        double eyeX = x + (facingRight ? 62.5 : 32.5) * s;
+        double eyeY = y + 31.5 * s;
+        double glow = (15.0 + 16.0 * intensity) * s;
+        g.setEffect(new Glow(Math.clamp(0.35 + intensity * 0.55, 0.0, 1.0)));
+        g.setFill(rim.deriveColor(0, 1, 1, 0.22 + 0.28 * intensity));
+        g.fillOval(eyeX - glow * 0.5, eyeY - glow * 0.5, glow, glow);
+        g.setFill(core.deriveColor(0, 1, 1, 0.68 + 0.25 * intensity));
+        double coreSize = (7.0 + 5.0 * intensity) * s;
+        g.fillOval(eyeX - coreSize * 0.5, eyeY - coreSize * 0.5, coreSize, coreSize);
+        g.setEffect(null);
+    }
+
+    private void drawPhoenixFlameTongue(GraphicsContext g,
+                                        double baseX,
+                                        double baseY,
+                                        double tipX,
+                                        double tipY,
+                                        double width,
+                                        Color outer,
+                                        Color inner,
+                                        double alpha) {
+        double dx = tipX - baseX;
+        double dy = tipY - baseY;
+        double len = Math.max(0.001, Math.hypot(dx, dy));
+        double nx = -dy / len;
+        double ny = dx / len;
+        g.setFill(outer.deriveColor(0, 1, 1, alpha));
+        g.fillPolygon(
+                new double[]{baseX + nx * width, baseX - nx * width, tipX},
+                new double[]{baseY + ny * width, baseY - ny * width, tipY},
+                3
+        );
+        g.setFill(inner.deriveColor(0, 1, 1, Math.min(0.95, alpha + 0.14)));
+        double innerWidth = width * 0.42;
+        g.fillPolygon(
+                new double[]{baseX + nx * innerWidth, baseX - nx * innerWidth, baseX + dx * 0.72},
+                new double[]{baseY + ny * innerWidth, baseY - ny * innerWidth, baseY + dy * 0.72},
+                3
+        );
+    }
+
     private void drawPhoenixSpecialFx(GraphicsContext g, double drawSize) {
         if (type != BirdGame3.BirdType.PHOENIX) {
             return;
@@ -11148,25 +11303,45 @@ public class Bird {
 
         g.save();
         g.setLineCap(StrokeLineCap.ROUND);
+        double eyeIntensity = phoenixCharging
+                ? 0.35 + Math.clamp(phoenixChargeTimer / (double) PHOENIX_CHARGE_MAX_FRAMES, 0.0, 1.0) * 0.65
+                : phoenixBurstFxTimer > 0
+                ? Math.clamp(phoenixBurstFxTimer / (double) PHOENIX_BURST_FX_FRAMES, 0.0, 1.0)
+                : phoenixFireballTimer > 0
+                ? 0.55
+                : 0.0;
+        drawPhoenixEyeGlow(g, s, primary, secondary, eyeIntensity);
 
         if (phoenixCharging) {
             double chargeRatio = Math.clamp(phoenixChargeTimer / (double) PHOENIX_CHARGE_MAX_FRAMES, 0.0, 1.0);
-            double ringA = (40.0 + chargeRatio * 22.0) * s;
-            double ringB = (58.0 + chargeRatio * 34.0) * s;
-            double t = System.currentTimeMillis() / 140.0;
-            g.setEffect(new Glow(phoenixChargeUltimate ? 0.65 : 0.46));
+            double ringA = (46.0 + chargeRatio * 34.0) * s;
+            double ringB = (68.0 + chargeRatio * 52.0) * s;
+            double t = System.currentTimeMillis() / 105.0;
+            g.setEffect(new Glow(phoenixChargeUltimate ? 0.82 : 0.60));
+            for (int i = 0; i < 12; i++) {
+                double angle = t * 0.42 + Math.PI * 2.0 * i / 12.0;
+                double baseRadius = (30.0 + chargeRatio * 22.0 + Math.sin(t + i) * 3.0) * s;
+                double height = (42.0 + chargeRatio * 76.0 + Math.sin(t * 1.3 + i * 0.7) * 9.0) * s;
+                double baseX = centerX + Math.cos(angle) * baseRadius;
+                double baseY = centerY + Math.sin(angle) * baseRadius * 0.82;
+                double tipX = centerX + Math.cos(angle) * (baseRadius + height * 0.34);
+                double tipY = centerY + Math.sin(angle) * (baseRadius + height * 0.34) * 0.82 - height * 0.26;
+                drawPhoenixFlameTongue(g, baseX, baseY, tipX, tipY,
+                        (8.0 + chargeRatio * 8.0) * s,
+                        secondary, primary, 0.34 + chargeRatio * 0.32);
+            }
             g.setStroke(primary.deriveColor(0, 1, 1, 0.82));
-            g.setLineWidth(3.8 * s);
+            g.setLineWidth(4.8 * s);
             g.strokeOval(centerX - ringA, centerY - ringA, ringA * 2, ringA * 2);
             g.setStroke(secondary.deriveColor(0, 1, 1, 0.72));
-            g.setLineWidth(2.6 * s);
+            g.setLineWidth(3.2 * s);
             g.strokeOval(centerX - ringB, centerY - ringB, ringB * 2, ringB * 2);
             g.setStroke(tertiary.deriveColor(0, 1, 1, 0.74));
-            g.setLineWidth(4.2 * s);
-            for (int i = 0; i < 6; i++) {
-                double angle = t + Math.PI * 2 * i / 6.0;
+            g.setLineWidth(5.0 * s);
+            for (int i = 0; i < 8; i++) {
+                double angle = -t + Math.PI * 2 * i / 8.0;
                 double inner = (18.0 + chargeRatio * 8.0) * s;
-                double outer = (72.0 + chargeRatio * 38.0) * s;
+                double outer = (84.0 + chargeRatio * 58.0) * s;
                 g.strokeLine(
                         centerX + Math.cos(angle) * inner,
                         centerY + Math.sin(angle) * inner,
@@ -11178,22 +11353,105 @@ public class Bird {
             return;
         }
 
+        if (phoenixBurstFxTimer > 0) {
+            double fade = Math.clamp(phoenixBurstFxTimer / (double) PHOENIX_BURST_FX_FRAMES, 0.0, 1.0);
+            double progress = 1.0 - fade;
+            double charge = Math.max(0.18, phoenixBurstFxChargeRatio);
+            double t = System.currentTimeMillis() / 80.0;
+            double coreRadius = (48.0 + progress * (115.0 + charge * 92.0)) * s;
+            g.setEffect(new Glow(phoenixBurstFxUltimate ? 0.95 : 0.78));
+            g.setStroke(primary.deriveColor(0, 1, 1, 0.88 * fade));
+            g.setLineWidth((7.0 + charge * 5.0) * s);
+            g.strokeOval(centerX - coreRadius, centerY - coreRadius, coreRadius * 2.0, coreRadius * 2.0);
+            g.setStroke(secondary.deriveColor(0, 1, 1, 0.68 * fade));
+            g.setLineWidth((3.2 + charge * 3.0) * s);
+            double outerRadius = coreRadius + (24.0 + charge * 30.0) * s;
+            g.strokeOval(centerX - outerRadius, centerY - outerRadius, outerRadius * 2.0, outerRadius * 2.0);
+            for (int i = 0; i < 18; i++) {
+                double angle = t * 0.16 + Math.PI * 2.0 * i / 18.0;
+                double inner = (22.0 + progress * 42.0) * s;
+                double outer = (92.0 + charge * 112.0 + Math.sin(t + i) * 18.0) * s * (0.55 + progress * 0.55);
+                drawPhoenixFlameTongue(g,
+                        centerX + Math.cos(angle) * inner,
+                        centerY + Math.sin(angle) * inner,
+                        centerX + Math.cos(angle) * outer,
+                        centerY + Math.sin(angle) * outer - (14.0 + charge * 20.0) * s * fade,
+                        (9.0 + charge * 8.0) * s,
+                        secondary,
+                        primary,
+                        0.30 + 0.46 * fade);
+            }
+            for (int i = 0; i < 10; i++) {
+                double angle = -t * 0.24 + Math.PI * 2.0 * i / 10.0;
+                double len = (80.0 + charge * 80.0) * s * fade;
+                g.setStroke((i % 2 == 0 ? primary : tertiary).deriveColor(0, 1, 1, 0.65 * fade));
+                g.setLineWidth((2.4 + charge * 1.6) * s);
+                g.strokeLine(centerX, centerY, centerX + Math.cos(angle) * len, centerY + Math.sin(angle) * len);
+            }
+            g.restore();
+            return;
+        }
+
         if (phoenixFireballTimer > 0) {
+            if (phoenixCastLockTimer > 0) {
+                double startupFrames = phoenixFireballUltimate
+                        ? PHOENIX_FIREBALL_ULTIMATE_CAST_LOCK_FRAMES
+                        : PHOENIX_FIREBALL_CAST_LOCK_FRAMES;
+                double windup = 1.0 - Math.clamp(phoenixCastLockTimer / startupFrames, 0.0, 1.0);
+                double chargeRadius = (10.0 + windup * 15.0) * s;
+                double muzzleX = phoenixFireballX;
+                double muzzleY = phoenixFireballY;
+                g.setEffect(new Glow(phoenixFireballUltimate ? 0.76 : 0.54));
+                for (int i = 0; i < 6; i++) {
+                    double wave = Math.sin(System.currentTimeMillis() / 70.0 + i * 0.9);
+                    double baseY = muzzleY + (i - 2.5) * 6.0 * s;
+                    drawPhoenixFlameTongue(g,
+                            muzzleX - dir * (8.0 + windup * 6.0) * s,
+                            baseY,
+                            muzzleX + dir * (22.0 + windup * 36.0) * s,
+                            baseY - (8.0 + windup * 18.0 + wave * 5.0) * s,
+                            (5.0 + windup * 4.0) * s,
+                            secondary,
+                            primary,
+                            0.24 + windup * 0.32);
+                }
+                g.setFill(secondary.deriveColor(0, 1, 1, 0.52 + windup * 0.28));
+                g.fillOval(muzzleX - chargeRadius, muzzleY - chargeRadius, chargeRadius * 2.0, chargeRadius * 2.0);
+                g.setFill(primary.deriveColor(0, 1, 1, 0.75 + windup * 0.18));
+                g.fillOval(muzzleX - chargeRadius * 0.46, muzzleY - chargeRadius * 0.46,
+                        chargeRadius * 0.92, chargeRadius * 0.92);
+                g.setStroke(tertiary.deriveColor(0, 1, 1, 0.72));
+                g.setLineWidth(2.6 * s);
+                for (int i = 0; i < 4; i++) {
+                    double a = -Math.PI / 2.0 + (i - 1.5) * 0.28 + Math.sin(System.currentTimeMillis() / 90.0 + i) * 0.08;
+                    g.strokeLine(
+                            muzzleX,
+                            muzzleY,
+                            muzzleX + Math.cos(a) * (22.0 + windup * 16.0) * s,
+                            muzzleY + Math.sin(a) * (22.0 + windup * 16.0) * s
+                    );
+                }
+                g.restore();
+                return;
+            }
             double phase = phoenixSpecialPhase(phoenixFireballTimer,
                     phoenixFireballUltimate ? PHOENIX_FIREBALL_ULTIMATE_FRAMES : PHOENIX_FIREBALL_FRAMES);
             double radius = (phoenixFireballUltimate ? 24.0 : 19.0) * s;
             g.setEffect(new Glow(phoenixFireballUltimate ? 0.72 : 0.52));
-            for (int i = 0; i < 4; i++) {
-                double tail = (24.0 + i * 18.0 + phase * 12.0) * s;
-                double spread = (i - 1.5) * 8.0 * s;
-                g.setStroke((i % 2 == 0 ? secondary : tertiary).deriveColor(0, 1, 1, 0.68 - i * 0.10));
-                g.setLineWidth((6.0 - i) * s);
-                g.strokeLine(
-                        phoenixFireballX - dir * 6.0 * s,
-                        phoenixFireballY + spread,
+            double t = System.currentTimeMillis() / 70.0;
+            for (int i = 0; i < 8; i++) {
+                double tail = (28.0 + i * 13.0 + phase * 16.0) * s;
+                double spread = (i - 3.5) * 5.8 * s;
+                double wave = Math.sin(t + i * 0.78) * 10.0 * s;
+                drawPhoenixFlameTongue(g,
+                        phoenixFireballX - dir * (radius * 0.25),
+                        phoenixFireballY + spread * 0.35,
                         phoenixFireballX - dir * tail,
-                        phoenixFireballY + spread * 0.5 - Math.sin(phase * Math.PI * 2.0 + i) * 10.0 * s
-                );
+                        phoenixFireballY + spread + wave,
+                        (6.8 - i * 0.42) * s,
+                        i % 2 == 0 ? secondary : tertiary,
+                        primary,
+                        0.60 - i * 0.045);
             }
             g.setFill(secondary.deriveColor(0, 1, 1, 0.92));
             g.fillOval(phoenixFireballX - radius, phoenixFireballY - radius, radius * 2, radius * 2);
@@ -11206,19 +11464,35 @@ public class Bird {
         if (phoenixSpiralTimer > 0) {
             double phase = phoenixSpecialPhase(phoenixSpiralTimer,
                     phoenixSpiralUltimate ? PHOENIX_SPIRAL_ULTIMATE_FRAMES : PHOENIX_SPIRAL_FRAMES);
-            double rise = (62.0 + phase * 38.0) * s;
+            double rise = (96.0 + phase * 74.0) * s;
+            double t = System.currentTimeMillis() / 95.0;
             g.setEffect(new Glow(phoenixSpiralUltimate ? 0.60 : 0.44));
-            g.setStroke(secondary.deriveColor(0, 1, 1, 0.78));
-            g.setLineWidth(4.8 * s);
-            g.strokeArc(centerX - 34.0 * s, centerY - rise * 0.86, 68.0 * s, rise * 0.96,
-                    180 + phase * 180, 180, ArcType.OPEN);
-            g.setStroke(primary.deriveColor(0, 1, 1, 0.72));
-            g.setLineWidth(3.0 * s);
-            g.strokeArc(centerX - 22.0 * s, centerY - rise * 0.92, 44.0 * s, rise * 1.02,
-                    -phase * 180, 180, ArcType.OPEN);
-            g.setStroke(tertiary.deriveColor(0, 1, 1, 0.64));
-            g.setLineWidth(2.6 * s);
-            g.strokeLine(centerX, centerY + 16.0 * s, centerX, centerY - rise);
+            for (int i = 0; i < 7; i++) {
+                double ribbon = (i - 3) * 12.0 * s;
+                double wave = Math.sin(t + i * 0.8 + phase * Math.PI * 5.0) * 18.0 * s;
+                double baseX = centerX + ribbon + wave * 0.35;
+                double baseY = centerY + (28.0 + Math.sin(t + i) * 4.0) * s;
+                double tipX = centerX + ribbon * 0.25 - wave * 0.45;
+                double tipY = centerY - rise * (0.62 + i * 0.035);
+                g.setStroke((i % 2 == 0 ? secondary : primary).deriveColor(0, 1, 1, 0.78 - i * 0.045));
+                g.setLineWidth((7.2 - i * 0.45) * s);
+                g.strokeLine(baseX, baseY, tipX, tipY);
+                g.setStroke(tertiary.deriveColor(0, 1, 1, 0.42));
+                g.setLineWidth(2.2 * s);
+                g.strokeLine(baseX + dir * 10.0 * s, baseY - 8.0 * s, tipX - dir * 6.0 * s, tipY + 18.0 * s);
+            }
+            g.setFill(secondary.deriveColor(0, 1, 1, 0.34));
+            g.fillOval(centerX - 48.0 * s, centerY - rise * 0.92, 96.0 * s, rise * 0.58);
+            g.setStroke(primary.deriveColor(0, 1, 1, 0.76));
+            g.setLineWidth(2.8 * s);
+            for (int i = 0; i < 3; i++) {
+                double spiralW = (48.0 + i * 18.0) * s;
+                g.strokeArc(centerX - spiralW * 0.5, centerY - rise * (0.82 + i * 0.035),
+                        spiralW, rise * 0.54,
+                        40 + phase * 360.0 + i * 70.0,
+                        145,
+                        ArcType.OPEN);
+            }
             g.restore();
             return;
         }
@@ -11229,34 +11503,68 @@ public class Bird {
             g.setEffect(new Glow(phoenixLavaUltimate ? 0.46 : 0.32));
             if (phoenixLavaAirborne) {
                 double length = PHOENIX_AIR_FLAME_LENGTH * (phoenixLavaUltimate ? 1.18 : 1.0) * s;
-                double width = (phoenixLavaUltimate ? 20.0 : 16.0) * s;
-                g.setStroke(secondary.deriveColor(0, 1, 1, 0.84));
-                g.setLineWidth(width);
-                g.strokeLine(phoenixLavaX, phoenixLavaY, phoenixLavaX, phoenixLavaY + length);
-                g.setStroke(primary.deriveColor(0, 1, 1, 0.72));
-                g.setLineWidth(width * 0.52);
-                g.strokeLine(phoenixLavaX, phoenixLavaY, phoenixLavaX, phoenixLavaY + length * 0.94);
-                g.setStroke(tertiary.deriveColor(0, 1, 1, 0.62));
-                g.setLineWidth(2.6 * s);
-                g.strokeLine(phoenixLavaX - 12.0 * s, phoenixLavaY + 8.0 * s, phoenixLavaX - 8.0 * s, phoenixLavaY + length);
-                g.strokeLine(phoenixLavaX + 12.0 * s, phoenixLavaY + 8.0 * s, phoenixLavaX + 8.0 * s, phoenixLavaY + length);
+                double width = (phoenixLavaUltimate ? 42.0 : 34.0) * s;
+                double t = System.currentTimeMillis() / 110.0;
+                for (int i = 0; i < 5; i++) {
+                    double lane = (i - 2) * width * 0.18 + Math.sin(t + i) * 5.0 * s;
+                    double bottomWidth = width * (0.58 - i * 0.035);
+                    double tipX = phoenixLavaX + lane * 0.25 + Math.sin(t * 1.4 + i) * 10.0 * s;
+                    double tipY = phoenixLavaY + length * (0.86 + i * 0.035);
+                    g.setFill((i % 2 == 0 ? secondary : tertiary).deriveColor(0, 1, 1, 0.46));
+                    g.fillPolygon(
+                            new double[]{
+                                    phoenixLavaX + lane - bottomWidth * 0.5,
+                                    phoenixLavaX + lane + bottomWidth * 0.5,
+                                    tipX
+                            },
+                            new double[]{
+                                    phoenixLavaY + 4.0 * s,
+                                    phoenixLavaY + 4.0 * s,
+                                    tipY
+                            },
+                            3
+                    );
+                }
+                g.setStroke(primary.deriveColor(0, 1, 1, 0.82));
+                g.setLineWidth(width * 0.22);
+                g.strokeLine(phoenixLavaX, phoenixLavaY, phoenixLavaX + Math.sin(t) * 9.0 * s, phoenixLavaY + length * 0.92);
+                g.setFill(primary.deriveColor(0, 1, 1, 0.62));
+                g.fillOval(phoenixLavaX - width * 0.35, phoenixLavaY - 4.0 * s, width * 0.70, width * 0.42);
             } else {
-                double reach = PHOENIX_GROUND_FLAME_REACH * (phoenixLavaUltimate ? 1.15 : 1.0) * phase * s;
-                double leftWaveX = phoenixLavaX - reach;
-                double rightWaveX = phoenixLavaX + reach;
-                g.setStroke(secondary.deriveColor(0, 1, 1, 0.82));
-                g.setLineWidth(5.8 * s);
-                g.strokeLine(phoenixLavaX, phoenixLavaY, leftWaveX, phoenixLavaY - 10.0 * s);
-                g.strokeLine(phoenixLavaX, phoenixLavaY, rightWaveX, phoenixLavaY - 10.0 * s);
-                g.setStroke(primary.deriveColor(0, 1, 1, 0.72));
-                g.setLineWidth(3.0 * s);
-                g.strokeLine(phoenixLavaX, phoenixLavaY - 5.0 * s, leftWaveX, phoenixLavaY - 18.0 * s);
-                g.strokeLine(phoenixLavaX, phoenixLavaY - 5.0 * s, rightWaveX, phoenixLavaY - 18.0 * s);
-                for (double flameX : new double[]{leftWaveX, rightWaveX}) {
+                double eruptionRadius = PHOENIX_GROUND_ERUPTION_RADIUS * (phoenixLavaUltimate ? 1.18 : 1.0) * s;
+                double eruptionHeight = PHOENIX_GROUND_ERUPTION_HEIGHT * (phoenixLavaUltimate ? 1.20 : 1.0) * s;
+                double t = System.currentTimeMillis() / 100.0;
+                int columns = phoenixLavaUltimate ? 9 : 7;
+                g.setStroke(secondary.deriveColor(0, 1, 1, 0.38));
+                g.setLineWidth(2.2 * s);
+                for (int i = 0; i < 5; i++) {
+                    double angle = t * 0.15 + i * Math.PI * 2.0 / 5.0;
+                    double crackX = phoenixLavaX + Math.cos(angle) * eruptionRadius * (0.16 + i * 0.035);
+                    g.strokeLine(crackX - Math.cos(angle) * 14.0 * s, phoenixLavaY + 2.0 * s,
+                            crackX + Math.cos(angle) * 18.0 * s,
+                            phoenixLavaY - (4.0 + Math.sin(t + i) * 2.0) * s);
+                }
+                g.setFill(secondary.deriveColor(0, 1, 1, 0.22 + phase * 0.18));
+                g.fillOval(phoenixLavaX - eruptionRadius * 0.95, phoenixLavaY - eruptionRadius * 0.16,
+                        eruptionRadius * 1.9, eruptionRadius * 0.42);
+                for (int i = 0; i < columns; i++) {
+                    double lane = (i - (columns - 1) * 0.5) / columns;
+                    double flameX = phoenixLavaX + lane * eruptionRadius * 1.25 + Math.sin(t + i * 0.7) * 5.0 * s;
+                    double height = eruptionHeight * (0.44 + 0.48 * Math.sin(Math.min(1.0, phase + i * 0.035) * Math.PI * 0.5))
+                            + Math.sin(t + i * 0.9) * 10.0 * s;
+                    double base = (15.0 + (1.0 - Math.abs(lane)) * 10.0) * s;
                     g.setFill(secondary.deriveColor(0, 1, 1, 0.58));
-                    g.fillOval(flameX - 20.0 * s, phoenixLavaY - 28.0 * s, 40.0 * s, 32.0 * s);
-                    g.setFill(primary.deriveColor(0, 1, 1, 0.80));
-                    g.fillOval(flameX - 10.0 * s, phoenixLavaY - 24.0 * s, 20.0 * s, 22.0 * s);
+                    g.fillPolygon(
+                            new double[]{flameX - base, flameX + base, flameX + Math.sin(t + i) * 10.0 * s},
+                            new double[]{phoenixLavaY + 2.0 * s, phoenixLavaY + 2.0 * s, phoenixLavaY - height},
+                            3
+                    );
+                    g.setFill(primary.deriveColor(0, 1, 1, 0.78));
+                    g.fillPolygon(
+                            new double[]{flameX - base * 0.42, flameX + base * 0.42, flameX - Math.sin(t + i) * 4.0 * s},
+                            new double[]{phoenixLavaY, phoenixLavaY, phoenixLavaY - height * 0.70},
+                            3
+                    );
                 }
             }
         }
@@ -11637,6 +11945,9 @@ public class Bird {
     }
 
     private void drawSpecialCooldown(GraphicsContext g) {
+        if (type == BirdGame3.BirdType.PHOENIX) {
+            return;
+        }
         if (type == BirdGame3.BirdType.PIGEON && specialCooldown > 0) {
             return;
         }

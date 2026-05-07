@@ -1087,10 +1087,77 @@ class BirdStateTest {
         assertFalse(getPrivateBoolean(phoenix, "phoenixCharging"));
         assertEquals(0, phoenix.specialCooldown,
                 "Phoenix neutral special should not leave a visible cooldown after the charge detonates.");
-        assertTrue(getPrivateInt(phoenix, "phoenixAfterburnTimer") > 0,
-                "Releasing the charge should ignite Phoenix's lingering afterburn aura.");
+        assertEquals(0, getPrivateInt(phoenix, "phoenixAfterburnTimer"),
+                "Releasing the charge should not leave Phoenix with a lingering damaging afterburn.");
         assertTrue(target.health < startingHealth,
                 "A charged release should damage nearby enemies when it detonates.");
+    }
+
+    @Test
+    void phoenixNeutralChargeDamageAndKnockbackScaleWithHeldFramesOnlyOnBurst() throws Exception {
+        BirdGame3 quickGame = new BirdGame3();
+        quickGame.activePlayers = 2;
+        Bird quickPhoenix = new Bird(160.0, BirdGame3.BirdType.PHOENIX, 0, quickGame);
+        Bird quickTarget = new Bird(222.0, BirdGame3.BirdType.PIGEON, 1, quickGame);
+        quickPhoenix.y = BirdGame3.GROUND_Y - 80.0;
+        quickTarget.y = BirdGame3.GROUND_Y - 80.0;
+        quickGame.players[0] = quickPhoenix;
+        quickGame.players[1] = quickTarget;
+
+        invokePrivateBooleanVoid(quickPhoenix, "specialPhoenixNeutral", false);
+        setPrivateInt(quickPhoenix, "phoenixChargeTimer", 5);
+        invokePrivateVoid(quickPhoenix, "releasePhoenixCharge");
+        double quickDamage = Bird.STARTING_HEALTH - quickTarget.health;
+        double quickKnockback = Math.hypot(quickTarget.vx, quickTarget.vy);
+
+        BirdGame3 chargedGame = new BirdGame3();
+        chargedGame.activePlayers = 2;
+        Bird chargedPhoenix = new Bird(160.0, BirdGame3.BirdType.PHOENIX, 0, chargedGame);
+        Bird chargedTarget = new Bird(222.0, BirdGame3.BirdType.PIGEON, 1, chargedGame);
+        chargedPhoenix.y = BirdGame3.GROUND_Y - 80.0;
+        chargedTarget.y = BirdGame3.GROUND_Y - 80.0;
+        chargedGame.players[0] = chargedPhoenix;
+        chargedGame.players[1] = chargedTarget;
+
+        invokePrivateBooleanVoid(chargedPhoenix, "specialPhoenixNeutral", false);
+        setPrivateInt(chargedPhoenix, "phoenixChargeTimer", 70);
+        invokePrivateVoid(chargedPhoenix, "releasePhoenixCharge");
+        double chargedDamage = Bird.STARTING_HEALTH - chargedTarget.health;
+        double chargedKnockback = Math.hypot(chargedTarget.vx, chargedTarget.vy);
+
+        assertTrue(chargedDamage > quickDamage,
+                "A longer Phoenix neutral charge should deal more burst damage.");
+        assertTrue(chargedKnockback > quickKnockback,
+                "A longer Phoenix neutral charge should launch harder on the burst.");
+        assertEquals(0, getPrivateInt(chargedPhoenix, "phoenixAfterburnTimer"),
+                "The neutral special should not transition into a lingering afterburn hitbox.");
+    }
+
+    @Test
+    void phoenixNeutralSpecialCannotBeImmediatelySpamRestarted() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird phoenix = new Bird(160.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = phoenix;
+
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(specialKey, true);
+        phoenix.update(1.0);
+        assertTrue(getPrivateBoolean(phoenix, "phoenixCharging"));
+
+        game.setLocalActionsForKey(specialKey, false);
+        phoenix.update(1.0);
+        assertFalse(getPrivateBoolean(phoenix, "phoenixCharging"));
+        assertTrue(getPrivateInt(phoenix, "phoenixNeutralReuseTimer") > 0,
+                "The burst should start a short neutral-special reuse gate.");
+
+        game.setLocalActionsForKey(specialKey, true);
+        phoenix.update(1.0);
+
+        assertFalse(getPrivateBoolean(phoenix, "phoenixCharging"),
+                "Phoenix should not be able to immediately restart neutral special after bursting.");
     }
 
     @Test
@@ -1125,6 +1192,51 @@ class BirdStateTest {
 
         assertTrue(ultimateDamage > normalDamage,
                 "Helix Ascent should hit harder than the base Firespin.");
+    }
+
+    @Test
+    void phoenixUpSpecialCarriesCaughtTargetsUpwardWithTickDamage() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird phoenix = new Bird(160.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        Bird target = new Bird(164.0, BirdGame3.BirdType.PIGEON, 1, game);
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = phoenix;
+        game.players[1] = target;
+
+        invokePrivateBooleanVoid(phoenix, "specialPhoenixUp", false);
+        double startingHealth = target.health;
+        for (int i = 0; i < 8; i++) {
+            phoenix.update(1.0);
+        }
+
+        assertTrue(target.health < startingHealth,
+                "Firespin should repeatedly burn enemies caught in the rising flame column.");
+        assertTrue(target.vy < 0.0,
+                "Enemies caught by Firespin should be carried upward with the flames.");
+    }
+
+    @Test
+    void phoenixGroundedUpSpecialContinuesAsRecoveryAfterLeavingGround() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird phoenix = new Bird(160.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = phoenix;
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        phoenix.update(1.0);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        assertTrue(getPrivateInt(phoenix, "phoenixSpiralTimer") > 0,
+                "Grounded Phoenix up special should not cancel itself before the launch frame.");
+        assertTrue(phoenix.vy < 0.0,
+                "Grounded Phoenix up special should launch upward like the aerial version.");
     }
 
     @Test
@@ -1169,7 +1281,7 @@ class BirdStateTest {
     }
 
     @Test
-    void phoenixSideSpecialHasNoCooldownAndLocksMovementDuringCast() throws Exception {
+    void phoenixSideSpecialHasNoCooldownAndWaitsForHeadTiltBeforeShot() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
 
@@ -1189,42 +1301,111 @@ class BirdStateTest {
 
         assertEquals(startX, phoenix.x, 0.0001,
                 "Phoenix should stay planted while Snap Fire is in its cast lock.");
-        assertTrue(getPrivateDouble(phoenix, "phoenixFireballX") > startX + 40.0,
-                "Snap Fire should still launch a fast projectile even while Phoenix is locked in place.");
+        assertTrue(getPrivateInt(phoenix, "phoenixCastLockTimer") > 0,
+                "Snap Fire should spend its first frames tilting Phoenix's head up before the shot launches.");
+        double windupX = getPrivateDouble(phoenix, "phoenixFireballX");
+
+        while (getPrivateInt(phoenix, "phoenixCastLockTimer") > 0) {
+            phoenix.update(1.0);
+        }
+        phoenix.update(1.0);
+
+        assertTrue(getPrivateDouble(phoenix, "phoenixFireballX") > windupX + 12.0,
+                "After the head-tilt windup, Snap Fire should launch forward as a projectile.");
     }
 
     @Test
-    void phoenixGroundDownSpecialSendsFlamesOutwardOnBothSides() throws Exception {
+    void phoenixSideSpecialCannotBeImmediatelySpamRestarted() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird phoenix = new Bird(220.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        phoenix.facingRight = true;
+        game.players[0] = phoenix;
+
+        KeyCode rightKey = game.rightKeyForPlayer(0);
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(rightKey, true);
+        game.setLocalActionsForKey(specialKey, true);
+        phoenix.update(1.0);
+        game.setLocalActionsForKey(specialKey, false);
+
+        assertTrue(getPrivateInt(phoenix, "phoenixFireballReuseTimer") > 0);
+        while (getPrivateInt(phoenix, "phoenixFireballTimer") > 0) {
+            phoenix.update(1.0);
+        }
+        assertTrue(getPrivateInt(phoenix, "phoenixFireballReuseTimer") > 0,
+                "The side-special reuse gate should outlast the projectile.");
+
+        game.setLocalActionsForKey(specialKey, true);
+        phoenix.update(1.0);
+
+        assertEquals(0, getPrivateInt(phoenix, "phoenixFireballTimer"),
+                "Phoenix should not be able to immediately restart side special after a shot.");
+    }
+
+    @Test
+    void phoenixGroundDownSpecialEruptsVerticallyInsteadOfSpreadingOutward() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 3;
 
         Bird phoenix = new Bird(260.0, BirdGame3.BirdType.PHOENIX, 0, game);
-        Bird leftTarget = new Bird(120.0, BirdGame3.BirdType.PIGEON, 1, game);
-        Bird rightTarget = new Bird(400.0, BirdGame3.BirdType.EAGLE, 2, game);
+        Bird centerTarget = new Bird(262.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird sideTarget = new Bird(420.0, BirdGame3.BirdType.EAGLE, 2, game);
         phoenix.y = BirdGame3.GROUND_Y - 80.0;
-        leftTarget.y = BirdGame3.GROUND_Y - 80.0;
-        rightTarget.y = BirdGame3.GROUND_Y - 80.0;
+        centerTarget.y = BirdGame3.GROUND_Y - 80.0;
+        sideTarget.y = BirdGame3.GROUND_Y - 80.0;
         game.players[0] = phoenix;
-        game.players[1] = leftTarget;
-        game.players[2] = rightTarget;
+        game.players[1] = centerTarget;
+        game.players[2] = sideTarget;
 
         invokePrivateBooleanVoid(phoenix, "specialPhoenixDown", false);
 
         assertEquals(0, phoenix.specialCooldown);
         assertFalse(getPrivateBoolean(phoenix, "phoenixLavaAirborne"));
+        assertTrue(getPrivateInt(phoenix, "phoenixLavaReuseTimer") > 0,
+                "Ground Faultfire should use an invisible reuse timer instead of the visible cooldown bar.");
 
-        double leftStart = leftTarget.health;
-        double rightStart = rightTarget.health;
+        double centerStart = centerTarget.health;
+        double sideStart = sideTarget.health;
         for (int i = 0; i < 20; i++) {
             phoenix.update(1.0);
         }
 
-        assertTrue(leftTarget.health < leftStart,
-                "Ground Faultfire should reach and hit targets to Phoenix's left.");
-        assertTrue(rightTarget.health < rightStart,
-                "Ground Faultfire should also reach and hit targets to Phoenix's right.");
-        assertTrue(leftTarget.vx < 0.0 && rightTarget.vx > 0.0,
-                "The outward flame fronts should throw each target away from Phoenix.");
+        assertTrue(centerTarget.health < centerStart,
+                "Ground Faultfire should erupt under targets close to Phoenix.");
+        assertEquals(sideStart, sideTarget.health, 0.0001,
+                "Ground Faultfire should no longer spread outward across the floor.");
+        assertTrue(centerTarget.vy < 0.0,
+                "The eruption should launch caught targets upward.");
+    }
+
+    @Test
+    void phoenixInvisibleReuseTimersDoNotTriggerCooldownFlash() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird phoenix = new Bird(260.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = phoenix;
+
+        KeyCode blockKey = game.blockKeyForPlayer(0);
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(blockKey, true);
+        game.setLocalActionsForKey(specialKey, true);
+        phoenix.update(1.0);
+
+        game.setLocalActionsForKey(specialKey, false);
+        phoenix.update(1.0);
+
+        game.setLocalActionsForKey(specialKey, true);
+        phoenix.update(1.0);
+
+        assertEquals(0, phoenix.specialCooldown,
+                "Phoenix down special should keep its cooldown invisible.");
+        assertEquals(0, phoenix.cooldownFlash,
+                "Phoenix reuse lockouts should not display the red cooldown warning.");
     }
 
     @Test

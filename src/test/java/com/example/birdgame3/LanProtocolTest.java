@@ -52,6 +52,7 @@ class LanProtocolTest {
         state.dodgeDirection = -1;
         state.airDodgeAvailable = false;
         state.activeAerialLandingLagFrames = 12;
+        state.phoenixLavaReuseTimer = 31;
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         state.write(new DataOutputStream(bos));
@@ -70,5 +71,6 @@ class LanProtocolTest {
         assertEquals(-1, decoded.dodgeDirection);
         assertFalse(decoded.airDodgeAvailable);
         assertEquals(12, decoded.activeAerialLandingLagFrames);
+        assertEquals(31, decoded.phoenixLavaReuseTimer);
     }
 }
