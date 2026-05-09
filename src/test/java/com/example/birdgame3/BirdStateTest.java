@@ -101,6 +101,8 @@ class BirdStateTest {
         assertEquals(0, hummingbird.specialCooldown);
         assertTrue(getPrivateInt(target, "hummingNectarCoatedTimer") > 0,
                 "Stepping into the flower should coat the target in nectar.");
+        assertTrue(getPrivateInt(target, "hummingNectarCoatedTimer") <= 100,
+                "Nectar coating should use the nerfed shorter poison duration.");
 
         double healthAfterFlower = target.health;
         target.x += 260.0;
@@ -113,6 +115,228 @@ class BirdStateTest {
                 "Nectar should remain on the target briefly after leaving the flower.");
         assertTrue(target.health < healthAfterFlower,
                 "The visible nectar coating should keep dealing damage after the target exits the trap.");
+    }
+
+    @Test
+    void hummingbirdNectarCoatingOnlyAppliesPoisonDamage() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird hummingbird = new Bird(300.0, BirdGame3.BirdType.HUMMINGBIRD, 0, game);
+        Bird target = new Bird(360.0, BirdGame3.BirdType.PIGEON, 1, game);
+        game.players[0] = hummingbird;
+        game.players[1] = target;
+
+        setPrivateInt(target, "hummingNectarCoatedTimer", 60);
+        setPrivateInt(target, "hummingNectarCoatedDamageCooldown", 8);
+        target.vx = 9.0;
+        target.vy = 4.0;
+
+        invokePrivateVoid(target, "handleHummingbirdNectarCoating");
+
+        assertEquals(9.0, target.vx, 0.0001,
+                "Hummingbird nectar should not slow horizontal movement.");
+        assertEquals(4.0, target.vy, 0.0001,
+                "Hummingbird nectar should not slow vertical movement.");
+    }
+
+    @Test
+    void turkeyNeutralSpecialUsesInvisibleReuseTimer() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird turkey = new Bird(180.0, BirdGame3.BirdType.TURKEY, 0, game);
+        turkey.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = turkey;
+
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(specialKey, true);
+        turkey.update(1.0);
+        game.setLocalActionsForKey(specialKey, false);
+        turkey.update(1.0);
+
+        assertEquals(0, turkey.specialCooldown);
+        assertTrue(getPrivateInt(turkey, "turkeyGobbleReuseTimer") > 0);
+
+        game.setLocalActionsForKey(specialKey, true);
+        turkey.update(1.0);
+
+        assertEquals(0, turkey.specialCooldown,
+                "Turkey's 4-special kit should use invisible per-move reuse timers.");
+        assertEquals(0, turkey.cooldownFlash,
+                "Turkey reuse lockouts should not show the cooldown warning.");
+    }
+
+    @Test
+    void turkeyNeutralSpecialChargesBeforeAttackingOnRelease() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird turkey = new Bird(180.0, BirdGame3.BirdType.TURKEY, 0, game);
+        Bird target = new Bird(244.0, BirdGame3.BirdType.PIGEON, 1, game);
+        turkey.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = turkey;
+        game.players[1] = target;
+
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(specialKey, true);
+        for (int i = 0; i < 48; i++) {
+            turkey.update(1.0);
+        }
+
+        double targetHealthBeforeRelease = target.health;
+        assertTrue(getPrivateBoolean(turkey, "turkeyGobbleCharging"),
+                "Holding neutral special should charge Gobble Guard instead of attacking immediately.");
+        assertEquals(0, getPrivateInt(turkey, "turkeyGobbleTimer"),
+                "The Gobble Guard hitbox should not come out before release.");
+        assertTrue(getPrivateInt(turkey, "turkeyGobbleHoldTimer") >= 40,
+                "Gobble Guard should track charge duration.");
+        assertEquals(targetHealthBeforeRelease, target.health, 0.0001,
+                "Charging neutral special should not damage nearby targets.");
+
+        game.setLocalActionsForKey(specialKey, false);
+        turkey.update(1.0);
+
+        assertFalse(getPrivateBoolean(turkey, "turkeyGobbleCharging"));
+        assertTrue(getPrivateInt(turkey, "turkeyGobbleTimer") > 0,
+                "Releasing neutral special should start the charged attack.");
+        assertTrue(target.health < targetHealthBeforeRelease,
+                "The charged neutral special should hit after release.");
+        assertTrue(target.vx > 14.0,
+                "The charged neutral special should launch with much stronger knockback.");
+        assertTrue(getPrivateInt(turkey, "turkeyGobbleReuseTimer") <= 30,
+                "Turkey neutral should use only a short immediate reuse lockout.");
+    }
+
+    @Test
+    void turkeySideSpecialStaysActiveWhileHeldWithShortReuse() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird turkey = new Bird(300.0, BirdGame3.BirdType.TURKEY, 0, game);
+        Bird target = new Bird(382.0, BirdGame3.BirdType.PIGEON, 1, game);
+        turkey.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = turkey;
+        game.players[1] = target;
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        for (int i = 0; i < 36; i++) {
+            turkey.update(1.0);
+        }
+
+        assertTrue(getPrivateInt(turkey, "turkeyStampedeTimer") > 0,
+                "Side special should stay active while special is held.");
+        assertTrue(getPrivateInt(turkey, "turkeyStampedeHoldFrames") >= 30,
+                "Side special should track the held shove duration.");
+        assertTrue(target.vx > 10.0,
+                "Held side special should shove targets away with strong knockback.");
+        assertTrue(getPrivateInt(turkey, "turkeyStampedeReuseTimer") <= 28,
+                "Turkey side special should use only a short immediate reuse lockout.");
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        turkey.update(1.0);
+
+        assertEquals(0, getPrivateInt(turkey, "turkeyStampedeTimer"),
+                "Releasing special should end the held side special.");
+    }
+
+    @Test
+    void turkeyPanicFlapRecoversUpwardAndOnlyHitsBelow() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+
+        Bird turkey = new Bird(260.0, BirdGame3.BirdType.TURKEY, 0, game);
+        Bird belowTarget = new Bird(262.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird sideTarget = new Bird(430.0, BirdGame3.BirdType.PIGEON, 2, game);
+        turkey.y = BirdGame3.GROUND_Y - 280.0;
+        belowTarget.y = BirdGame3.GROUND_Y - 145.0;
+        sideTarget.y = BirdGame3.GROUND_Y - 145.0;
+        game.players[0] = turkey;
+        game.players[1] = belowTarget;
+        game.players[2] = sideTarget;
+
+        double belowStart = belowTarget.health;
+        double sideStart = sideTarget.health;
+        invokePrivateBooleanVoid(turkey, "specialTurkeyPanicFlap", false);
+        turkey.update(1.0);
+
+        assertEquals(0, turkey.specialCooldown);
+        assertEquals(0, getPrivateInt(turkey, "turkeyPanicFlapReuseTimer"),
+                "Panic Flap should not use a time-based cooldown.");
+        assertTrue(getPrivateBoolean(turkey, "turkeyPanicFlapUsed"),
+                "Panic Flap should be locked only by the once-per-airtime flag.");
+        assertTrue(turkey.vy < -10.0,
+                "Panic Flap should launch Turkey upward as a recovery.");
+        assertTrue(belowTarget.health < belowStart,
+                "Panic Flap should lightly damage enemies directly below Turkey.");
+        assertEquals(sideStart, sideTarget.health, 0.0001,
+                "Panic Flap should not be a wide side hitbox.");
+        assertTrue(belowTarget.vy > 0.0,
+                "The wing blast should push caught enemies downward.");
+
+        setPrivateInt(turkey, "turkeyPanicFlapTimer", 0);
+        turkey.vy = 0.0;
+        invokePrivateBooleanVoid(turkey, "specialTurkeyPanicFlap", false);
+        assertEquals(0, getPrivateInt(turkey, "turkeyPanicFlapTimer"),
+                "Panic Flap should not restart before Turkey lands.");
+
+        turkey.y = BirdGame3.GROUND_Y - 10.0;
+        turkey.update(1.0);
+        assertFalse(getPrivateBoolean(turkey, "turkeyPanicFlapUsed"),
+                "Landing should refresh Turkey's up special.");
+    }
+
+    @Test
+    void turkeyFeastTrapSlowsWithoutDamageOrFullStun() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird turkey = new Bird(300.0, BirdGame3.BirdType.TURKEY, 0, game);
+        Bird target = new Bird(258.0, BirdGame3.BirdType.PIGEON, 1, game);
+        turkey.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        turkey.facingRight = true;
+        game.players[0] = turkey;
+        game.players[1] = target;
+
+        invokePrivateBooleanVoid(turkey, "specialTurkeyFeastTrap", false);
+        double targetHealthBeforeTrap = target.health;
+        turkey.update(1.0);
+
+        assertEquals(0, turkey.specialCooldown);
+        assertTrue(getPrivateInt(turkey, "turkeyFeastTrapReuseTimer") <= 42,
+                "Turkey down special should use only a short immediate reuse lockout.");
+        assertTrue(getPrivateInt(target, "turkeyStuffedTimer") > 0,
+                "Stepping into Feast Trap should apply the stuffed debuff.");
+        assertTrue(getPrivateInt(target, "turkeyStuffedTimer") <= 110,
+                "Stuffing should use the nerfed shorter slow duration.");
+        assertEquals(targetHealthBeforeTrap, target.health, 0.0001,
+                "Turkey stuffing should not deal damage when applied.");
+
+        target.vx = 12.0;
+        target.vy = -6.0;
+        invokePrivateVoid(target, "handleTurkeyStuffedEffect");
+        assertTrue(target.vx > 8.0 && target.vx < 12.0,
+                "Stuffed birds should be lightly slowed, not heavily crippled or frozen.");
+        assertTrue(target.vy < 0.0 && target.vy > -6.0,
+                "Stuffing should slow vertical movement without fully stopping it.");
+        assertEquals(0.0, target.stunTime, 0.0001,
+                "Stuffing should not stun the target.");
+
+        target.x = 390.0;
+        target.vx = 0.0;
+        target.vy = 0.0;
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        turkey.update(1.0);
+
+        assertEquals(0, getPrivateInt(target, "turkeyStuffedTimer"),
+                "Turkey's next hit should consume the stuffed debuff.");
+        assertTrue(target.vx > 22.0,
+                "Stuffed targets should take extra knockback from Turkey's next hit.");
     }
 
     @Test
