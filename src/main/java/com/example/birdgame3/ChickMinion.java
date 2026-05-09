@@ -20,6 +20,10 @@ class ChickMinion {
     int damage = 2;
     int maxAge = 2100;
     int retargetCooldown = 0;
+    boolean followingOwner = false;
+    int commandFlashFrames = 0;
+    int thrownFrames = 0;
+    int boostSparkFrames = 0;
 
     ChickMinion(double x, double y, int variant, boolean ultimate, Bird owner) {
         this.x = x;

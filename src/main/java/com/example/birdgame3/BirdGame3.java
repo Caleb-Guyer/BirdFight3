@@ -8790,7 +8790,7 @@ public class BirdGame3 extends Application {
         PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Cinder Halo / Snap Fire / Firespin / Faultfire"),
         HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Needle Barrage + Flash Sip + Hover Burst + Nectar Trap"),
         TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Charged Gobble Guard + Held Stampede + Panic Flap + Feast Trap"),
-        ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Summon Chicks (3 variants)"),
+        ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Chick Call + Chick Toss + Coop Boost + Brood Recall"),
         ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Dust Sprint + Sandstorm"),
         PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Ice Jump Dash"),
         SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "AoE Stun"),
@@ -9118,6 +9118,74 @@ public class BirdGame3 extends Application {
         if (piranhaHazards.size() > piranhaCap) {
             piranhaHazards.subList(0, piranhaHazards.size() - piranhaCap).clear();
         }
+    }
+
+    private int roosterFollowerIndex(ChickMinion chick) {
+        int index = 0;
+        for (ChickMinion other : chickMinions) {
+            if (other == chick) {
+                return index;
+            }
+            if (other.owner == chick.owner && other.followingOwner && other.life > 0) {
+                index++;
+            }
+        }
+        return index;
+    }
+
+    private void steerChickTowardOwnerFormation(ChickMinion chick) {
+        Bird owner = chick.owner;
+        if (owner == null) {
+            return;
+        }
+        int slot = roosterFollowerIndex(chick);
+        double ownerScale = owner.sizeMultiplier;
+        double side = owner.facingRight ? -1.0 : 1.0;
+        double ownerCenterX = owner.x + 40.0 * ownerScale;
+        double ownerBottomY = owner.y + 80.0 * ownerScale;
+        double homeX = ownerCenterX + side * (52.0 + slot * 25.0) * ownerScale - chick.width * 0.5;
+        double homeY = ownerBottomY - chick.height - (slot % 2 == 0 ? 4.0 : 22.0) * ownerScale;
+        double dx = homeX - chick.x;
+        double dy = homeY - chick.y;
+        double dist = Math.hypot(dx, dy);
+
+        if (dist > 620.0) {
+            chick.x = homeX;
+            chick.y = homeY;
+            chick.vx = side * (0.8 + slot * 0.12);
+            chick.vy = -2.2;
+            chick.onGround = false;
+            chick.commandFlashFrames = Math.max(chick.commandFlashFrames, 18);
+            for (int i = 0; i < scaledParticleBurstCount(10); i++) {
+                double angle = Math.random() * Math.PI * 2.0;
+                particles.add(new Particle(
+                        chick.x + chick.width * 0.5,
+                        chick.y + chick.height * 0.5,
+                        Math.cos(angle) * (2.0 + Math.random() * 4.0),
+                        Math.sin(angle) * (2.0 + Math.random() * 4.0) - 2.0,
+                        Color.web("#FFF176").deriveColor(0, 1, 1, 0.72)
+                ));
+            }
+            return;
+        }
+
+        double desiredVx = Math.clamp(dx * 0.075, -chick.speed * 1.35, chick.speed * 1.35);
+        chick.vx += (desiredVx - chick.vx) * Math.max(chick.accel, 0.28);
+        if (Math.abs(dx) < 8.0) {
+            chick.vx *= 0.72;
+        }
+
+        if (dy < -34.0 && chick.onGround && chick.jumpCooldown <= 0) {
+            chick.vy = -Math.max(chick.jumpStrength * 0.72, 9.0);
+            chick.jumpCooldown = chick.variant == 1 ? 14 : 20;
+            chick.onGround = false;
+        } else if (dy < -86.0) {
+            chick.vy -= 0.78;
+        } else if (dy > 70.0) {
+            chick.vy += 0.18;
+        }
+
+        chick.age = Math.min(chick.age, Math.max(0, chick.maxAge - 240));
     }
 
     private boolean isWorldRectNearCamera(double x, double y, double width, double height, double margin) {
@@ -9574,10 +9642,25 @@ public class BirdGame3 extends Application {
             if (chick.attackCooldown > 0) chick.attackCooldown--;
             if (chick.jumpCooldown > 0) chick.jumpCooldown--;
             if (chick.retargetCooldown > 0) chick.retargetCooldown--;
+            if (chick.commandFlashFrames > 0) chick.commandFlashFrames--;
+            if (chick.thrownFrames > 0) chick.thrownFrames--;
+            if (chick.boostSparkFrames > 0) chick.boostSparkFrames--;
 
             Bird target = chick.target;
-            if (target == null || target.health <= 0 || (chick.owner != null && !canDamage(chick.owner, target))
-                    || chick.retargetCooldown <= 0) {
+            boolean followingOwner = chick.followingOwner
+                    && chick.owner != null
+                    && chick.owner.health > 0;
+            if (followingOwner) {
+                chick.target = null;
+                target = null;
+                steerChickTowardOwnerFormation(chick);
+            } else if (chick.followingOwner) {
+                chick.followingOwner = false;
+            }
+
+            if (!followingOwner
+                    && (target == null || target.health <= 0 || (chick.owner != null && !canDamage(chick.owner, target))
+                    || chick.retargetCooldown <= 0)) {
                 Bird closest = null;
                 double bestSq = Double.MAX_VALUE;
                 double ccx = chick.x + chick.width * 0.5;
@@ -9599,7 +9682,7 @@ public class BirdGame3 extends Application {
             }
 
             boolean wasOnGround = chick.onGround;
-            if (target != null) {
+            if (!followingOwner && target != null) {
                 double ccx = chick.x + chick.width * 0.5;
                 double ccy = chick.y + chick.height * 0.5;
                 double dx = (target.x + 40) - ccx;
@@ -9623,7 +9706,7 @@ public class BirdGame3 extends Application {
                         }
                         chick.onGround = false;
                     }
-            } else {
+            } else if (!followingOwner) {
                 chick.vx *= 0.92;
             }
 
@@ -9659,7 +9742,7 @@ public class BirdGame3 extends Application {
                 chick.vx *= 0.85;
             }
 
-            if (target != null && chick.attackCooldown <= 0) {
+            if (!followingOwner && target != null && chick.attackCooldown <= 0) {
                 if (chick.owner != null && !canDamage(chick.owner, target)) {
                     chick.target = null;
                 } else {
@@ -11703,6 +11786,16 @@ public class BirdGame3 extends Application {
         boolean sunforgeBrood = chick.owner != null
                 && chick.owner.type == BirdType.ROOSTER
                 && chick.owner.isSunforgeSkin;
+        if (chick.owner != null && chick.owner.type == BirdType.ROOSTER && chick.followingOwner) {
+            double ownerCx = chick.owner.x + 40.0 * chick.owner.sizeMultiplier;
+            double ownerCy = chick.owner.y + 54.0 * chick.owner.sizeMultiplier;
+            Color tether = sunforgeBrood ? Color.web("#FFD54F") : Color.web("#FFF176");
+            g.setStroke(tether.deriveColor(0, 1, 1, 0.22 + 0.10 * Math.sin(chick.age * 0.22)));
+            g.setLineWidth(Math.max(1.0, 1.4 * chick.owner.sizeMultiplier));
+            g.setLineDashes(5.0, 8.0);
+            g.strokeLine(ownerCx, ownerCy, x + w * 0.55, y + h * 0.54);
+            g.setLineDashes();
+        }
 
         Color body;
         Color accent;
@@ -11749,6 +11842,32 @@ public class BirdGame3 extends Application {
             g.setFill(aura.deriveColor(0, 1, 1, 0.25));
             g.fillOval(x - w * 0.6, y - h * 0.7, w * 2.2, h * 2.0);
             body = body.brighter();
+        }
+        if (chick.thrownFrames > 0) {
+            double fade = Math.clamp(chick.thrownFrames / 30.0, 0.0, 1.0);
+            double dir = chick.vx >= 0 ? -1.0 : 1.0;
+            g.setStroke(Color.web("#FF7043").deriveColor(0, 1, 1, 0.22 + 0.30 * fade));
+            g.setLineWidth(Math.max(2.0, h * 0.16));
+            for (int i = 0; i < 3; i++) {
+                double trailY = y + h * (0.32 + i * 0.18);
+                g.strokeLine(x + w * 0.5, trailY, x + w * 0.5 + dir * (30.0 + i * 12.0) * fade, trailY + (i - 1) * 4.0);
+            }
+        }
+        if (chick.boostSparkFrames > 0) {
+            double fade = Math.clamp(chick.boostSparkFrames / 36.0, 0.0, 1.0);
+            g.setStroke((sunforgeBrood ? Color.web("#FFF59D") : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.30 + 0.34 * fade));
+            g.setLineWidth(2.0);
+            g.strokeOval(x - w * 0.26, y + h * 0.55, w * 1.58, h * 0.74);
+            g.setFill(Color.web("#FFFFFF").deriveColor(0, 1, 1, 0.12 * fade));
+            g.fillOval(x - w * 0.12, y + h * 0.76, w * 1.32, h * 0.42);
+        }
+        if (chick.commandFlashFrames > 0) {
+            double fade = Math.clamp(chick.commandFlashFrames / 36.0, 0.0, 1.0);
+            Color ring = sunforgeBrood ? Color.web("#FFD54F") : Color.web("#FFF176");
+            g.setStroke(ring.deriveColor(0, 1, 1, 0.28 + 0.42 * fade));
+            g.setLineWidth(1.8 + 1.6 * fade);
+            g.strokeOval(x - w * (0.22 + 0.18 * fade), y - h * (0.18 + 0.16 * fade),
+                    w * (1.54 + 0.36 * fade), h * (1.44 + 0.32 * fade));
         }
 
         g.setFill(body);
@@ -20857,6 +20976,10 @@ public class BirdGame3 extends Application {
             cs.variant = chick.variant;
             cs.life = chick.life;
             cs.ultimate = chick.ultimate;
+            cs.followingOwner = chick.followingOwner;
+            cs.commandFlashFrames = chick.commandFlashFrames;
+            cs.thrownFrames = chick.thrownFrames;
+            cs.boostSparkFrames = chick.boostSparkFrames;
             state.chickMinions.add(cs);
         }
         return state;
@@ -21118,6 +21241,10 @@ public class BirdGame3 extends Application {
             chick.age = cs.age;
             chick.life = Math.clamp(cs.life, 0, chick.maxLife);
             chick.owner = cs.ownerIndex >= 0 && cs.ownerIndex < players.length ? players[cs.ownerIndex] : null;
+            chick.followingOwner = cs.followingOwner;
+            chick.commandFlashFrames = cs.commandFlashFrames;
+            chick.thrownFrames = cs.thrownFrames;
+            chick.boostSparkFrames = cs.boostSparkFrames;
             chick.target = null;
         }
     }

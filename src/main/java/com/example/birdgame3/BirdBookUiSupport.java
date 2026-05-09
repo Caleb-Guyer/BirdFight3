@@ -331,7 +331,7 @@ final class BirdBookUiSupport {
             case PHOENIX -> "Flies like a blaze and lands like a firework. Somehow always returns, as if it is insulting the concept of defeat.";
             case HUMMINGBIRD -> "A blur with a sweet tooth and a short temper. Will duel you for a drop of nectar and win smiling.";
             case TURKEY -> "Big steps, bigger thumps. Treats the ground like an instrument and keeps the rhythm with shockwaves.";
-            case ROOSTER -> "Morning alarm with a battle plan. He calls three different chicks to swarm targets and keep the pressure on.";
+            case ROOSTER -> "Morning alarm with a battle plan. He commands a rotating brood of chicks, throws them into fights, launches off them, and recalls the whole flock on demand.";
             case ROADRUNNER -> "A desert menace built for pure pace. He lives low to the ground, runs rings around slower birds, and turns every straightaway into a trap.";
             case PENGUIN -> "Slides more than it flies, but it still finds a way to win. Cool, calm, and stubborn as a glacier.";
             case SHOEBILL -> "Stares too long, strikes too fast. Marsh legends say it never blinks, only decides.";

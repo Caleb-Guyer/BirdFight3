@@ -91,6 +91,13 @@ public class Bird {
         DOWN
     }
 
+    private enum RoosterSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record NormalAttackProfile(
             double horizontalReach,
             double verticalReach,
@@ -574,6 +581,18 @@ public class Bird {
     private int turkeyStuffedOwnerIndex = -1;
     private boolean turkeyStuffedUltimate = false;
     private final ArrayList<TurkeyFeastTrap> turkeyFeastTraps = new ArrayList<>();
+    private static final int ROOSTER_MAX_CHICKS = 5;
+    private static final int ROOSTER_STARTING_CHICKS = 3;
+    private static final int ROOSTER_NEUTRAL_REUSE_FRAMES = 34;
+    private static final int ROOSTER_SIDE_REUSE_FRAMES = 18;
+    private static final int ROOSTER_DOWN_REUSE_FRAMES = 28;
+    private boolean roosterInitialChicksSpawned = false;
+    private int roosterNeutralReuseTimer = 0;
+    private int roosterSideReuseTimer = 0;
+    private int roosterDownReuseTimer = 0;
+    private int roosterCommandFxTimer = 0;
+    private int roosterCommandFxKind = 0;
+    private boolean roosterUpSpecialUsed = false;
     private int phoenixAfterburnTimer = 0;
     private final int[] phoenixAfterburnHitCooldown = new int[4];
     private boolean phoenixRebornUsed = false;
@@ -2290,6 +2309,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.TURKEY && !canStartTurkeySpecial()) {
             return;
         }
+        if (type == BirdGame3.BirdType.ROOSTER && !canStartRoosterSpecial()) {
+            return;
+        }
         if (isRaptor()) {
             RaptorSpecialVariant variant = selectRaptorSpecialVariant();
             if (!canStartRaptorSpecialVariant(variant)) {
@@ -2303,6 +2325,7 @@ public class Bird {
         if (!isRaptor()
                 && type != BirdGame3.BirdType.HUMMINGBIRD
                 && type != BirdGame3.BirdType.TURKEY
+                && type != BirdGame3.BirdType.ROOSTER
                 && specialCooldown > 0
                 && !ultimateReady) {
             if (!game.isAI[playerIndex]) {
@@ -2353,7 +2376,7 @@ public class Bird {
             case RAZORBILL -> specialRazorbill(ultimateTriggered);
             case GRINCHHAWK -> specialGrinchhawk(ultimateTriggered);
             case VULTURE -> specialVulture(ultimateTriggered);
-            case ROOSTER -> specialRooster(ultimateTriggered);
+            case ROOSTER -> specialRooster(selectRoosterSpecialVariant(), ultimateTriggered);
             case OPIUMBIRD -> specialOpiumBird(ultimateTriggered);
             case HEISENBIRD -> specialHeisenbird(ultimateTriggered);
             case TITMOUSE -> specialTitmouse(ultimateTriggered);
@@ -4743,34 +4766,286 @@ public class Bird {
         }
     }
 
-    private void specialRooster(boolean ultimate) {
-        specialCooldown = 900;
-        specialMaxCooldown = 900;
-        game.addToKillFeed(shortName() + (ultimate ? " ULT COOP CALL!" : " calls the chicks!"));
-
-        double centerX = x + 40 * sizeMultiplier;
-        double spawnY = y + 50 * sizeMultiplier;
-        for (int i = 0; i < 3; i++) {
-            double offset = (i - 1) * 36 * sizeMultiplier;
-            ChickMinion chick = new ChickMinion(centerX + offset, spawnY, i, ultimate, this);
-            chick.x -= chick.width * 0.5;
-            chick.onGround = isOnGround();
-            game.chickMinions.add(chick);
+    private void specialRooster(RoosterSpecialVariant variant, boolean ultimate) {
+        ensureRoosterStartingChicks();
+        switch (variant) {
+            case NEUTRAL -> specialRoosterCallChick(ultimate);
+            case SIDE -> specialRoosterThrowChick(ultimate);
+            case UP -> specialRoosterCoopBoost(ultimate);
+            case DOWN -> specialRoosterRecallChicks(ultimate);
         }
+    }
 
-        int particleCount = scaledParticleCount(ultimate ? 180 : 120);
-        Color burst = ultimate ? Color.GOLD : Color.ORANGE;
+    private boolean isRoosterActivePlayerSlot() {
+        return playerIndex >= 0
+                && playerIndex < game.players.length
+                && game.players[playerIndex] == this;
+    }
+
+    private ArrayList<ChickMinion> ownedRoosterChicks() {
+        ArrayList<ChickMinion> owned = new ArrayList<>();
+        for (ChickMinion chick : game.chickMinions) {
+            if (chick.owner == this && chick.life > 0) {
+                owned.add(chick);
+            }
+        }
+        return owned;
+    }
+
+    private int ownedRoosterChickCount() {
+        int count = 0;
+        for (ChickMinion chick : game.chickMinions) {
+            if (chick.owner == this && chick.life > 0) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private int nextRoosterChickVariant() {
+        int[] counts = new int[ROOSTER_STARTING_CHICKS];
+        for (ChickMinion chick : game.chickMinions) {
+            if (chick.owner == this && chick.life > 0 && chick.variant >= 0 && chick.variant < counts.length) {
+                counts[chick.variant]++;
+            }
+        }
+        int bestVariant = 0;
+        for (int i = 1; i < counts.length; i++) {
+            if (counts[i] < counts[bestVariant]) {
+                bestVariant = i;
+            }
+        }
+        return bestVariant;
+    }
+
+    private ChickMinion spawnRoosterFollowerChick(int variant, boolean ultimate, int slotHint) {
+        if (ownedRoosterChickCount() >= ROOSTER_MAX_CHICKS) {
+            return null;
+        }
+        double s = sizeMultiplier;
+        int dir = facingDirection();
+        double centerX = bodyCenterX() - dir * (46.0 + slotHint * 18.0) * s;
+        double spawnY = bodyBottomY() - (30.0 + (slotHint % 2) * 16.0) * s;
+        ChickMinion chick = new ChickMinion(centerX, spawnY, Math.floorMod(variant, ROOSTER_STARTING_CHICKS), ultimate, this);
+        chick.x -= chick.width * 0.5;
+        chick.followingOwner = true;
+        chick.target = null;
+        chick.commandFlashFrames = ultimate ? 42 : 30;
+        chick.boostSparkFrames = Math.max(chick.boostSparkFrames, 14);
+        chick.maxAge = Math.max(chick.maxAge, 18000);
+        chick.onGround = isOnGround();
+        chick.vx = -dir * (1.2 + slotHint * 0.45);
+        chick.vy = -4.5 - slotHint;
+        game.chickMinions.add(chick);
+        emitRoosterCommandBurst(chick.x + chick.width * 0.5, chick.y + chick.height * 0.5,
+                ultimate ? Color.GOLD : roosterChickColor(chick.variant), ultimate ? 22 : 14);
+        return chick;
+    }
+
+    private void ensureRoosterStartingChicks() {
+        if (type != BirdGame3.BirdType.ROOSTER
+                || roosterInitialChicksSpawned
+                || health <= 0
+                || !isRoosterActivePlayerSlot()) {
+            return;
+        }
+        roosterInitialChicksSpawned = true;
+        boolean[] hasVariant = new boolean[ROOSTER_STARTING_CHICKS];
+        int owned = 0;
+        for (ChickMinion chick : game.chickMinions) {
+            if (chick.owner != this || chick.life <= 0) continue;
+            owned++;
+            if (chick.variant >= 0 && chick.variant < hasVariant.length) {
+                hasVariant[chick.variant] = true;
+            }
+        }
+        for (int variant = 0; variant < ROOSTER_STARTING_CHICKS && owned < ROOSTER_STARTING_CHICKS; variant++) {
+            if (hasVariant[variant]) continue;
+            if (spawnRoosterFollowerChick(variant, false, owned) != null) {
+                owned++;
+            }
+        }
+    }
+
+    private Color roosterChickColor(int variant) {
+        return switch (variant) {
+            case 1 -> Color.web("#4FC3F7");
+            case 2 -> Color.web("#8D6E63");
+            default -> Color.web("#FFD54F");
+        };
+    }
+
+    private void emitRoosterCommandBurst(double centerX, double centerY, Color color, int baseCount) {
+        int particleCount = scaledParticleCount(baseCount);
         for (int i = 0; i < particleCount; i++) {
-            double angle = Math.random() * Math.PI * 2;
-            double speed = 5 + Math.random() * 10;
-            game.particles.add(new Particle(x + 40, y + 40,
+            double angle = Math.random() * Math.PI * 2.0;
+            double speed = 2.0 + Math.random() * 5.8;
+            game.particles.add(new Particle(
+                    centerX,
+                    centerY,
                     Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 4,
-                    burst.deriveColor(0, 1, 1, 0.85)));
+                    Math.sin(angle) * speed - 2.2,
+                    color.deriveColor(0, 1, 1, 0.78)
+            ));
+        }
+    }
+
+    private void specialRoosterCallChick(boolean ultimate) {
+        int before = ownedRoosterChickCount();
+        int toSpawn = ultimate ? Math.max(1, ROOSTER_MAX_CHICKS - before) : 1;
+        int spawned = 0;
+        for (int i = 0; i < toSpawn && ownedRoosterChickCount() < ROOSTER_MAX_CHICKS; i++) {
+            if (spawnRoosterFollowerChick(nextRoosterChickVariant(), ultimate, before + spawned) != null) {
+                spawned++;
+            }
         }
 
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 20 : 14);
-        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 10 : 8);
+        roosterNeutralReuseTimer = ultimate ? 22 : ROOSTER_NEUTRAL_REUSE_FRAMES;
+        roosterCommandFxTimer = Math.max(roosterCommandFxTimer, spawned > 0 ? 34 : 16);
+        roosterCommandFxKind = 1;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
+        if (spawned > 0) {
+            game.addToKillFeed(shortName() + (ultimate ? " assembled the royal brood!" : " called another chick into formation!"));
+        }
+    }
+
+    private ChickMinion nextRoosterFollowerChick() {
+        for (ChickMinion chick : game.chickMinions) {
+            if (chick.owner == this && chick.life > 0 && chick.followingOwner) {
+                return chick;
+            }
+        }
+        return null;
+    }
+
+    private Bird findRoosterThrowTarget(ChickMinion chick, int dir) {
+        Bird best = null;
+        double bestScore = Double.MAX_VALUE;
+        double cx = chick.x + chick.width * 0.5;
+        double cy = chick.y + chick.height * 0.5;
+        for (Bird candidate : game.players) {
+            if (candidate == null || candidate.health <= 0 || !game.canDamage(this, candidate)) continue;
+            double dx = candidate.bodyCenterX() - cx;
+            double dy = candidate.bodyCenterY() - cy;
+            double forwardPenalty = dx * dir < -30.0 ? 900.0 : 0.0;
+            double score = Math.hypot(dx, dy) + Math.abs(dy) * 0.25 + forwardPenalty;
+            if (score < bestScore) {
+                bestScore = score;
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private void specialRoosterThrowChick(boolean ultimate) {
+        ChickMinion chick = nextRoosterFollowerChick();
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+
+        if (chick == null) {
+            roosterSideReuseTimer = 10;
+            roosterCommandFxTimer = Math.max(roosterCommandFxTimer, 12);
+            roosterCommandFxKind = 2;
+            return;
+        }
+
+        chick.followingOwner = false;
+        chick.target = findRoosterThrowTarget(chick, dir);
+        chick.retargetCooldown = 0;
+        chick.commandFlashFrames = ultimate ? 42 : 30;
+        chick.thrownFrames = ultimate ? 34 : 26;
+        chick.attackCooldown = Math.min(chick.attackCooldown, 8);
+        chick.onGround = false;
+        chick.vx = dir * (ultimate ? 27.0 : 22.0);
+        chick.vy = ultimate ? -9.0 : -7.0;
+        chick.maxAge = Math.max(chick.maxAge, 18000);
+
+        roosterSideReuseTimer = ultimate ? 12 : ROOSTER_SIDE_REUSE_FRAMES;
+        roosterCommandFxTimer = Math.max(roosterCommandFxTimer, 26);
+        roosterCommandFxKind = 2;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
+        vx -= dir * 2.2;
+        emitRoosterCommandBurst(chick.x + chick.width * 0.5, chick.y + chick.height * 0.5,
+                ultimate ? Color.GOLD : Color.web("#FF7043"), ultimate ? 28 : 18);
+    }
+
+    private void specialRoosterCoopBoost(boolean ultimate) {
+        if (roosterUpSpecialUsed && !ultimate) {
+            return;
+        }
+        ArrayList<ChickMinion> chicks = ownedRoosterChicks();
+        if (chicks.isEmpty()) {
+            spawnRoosterFollowerChick(nextRoosterChickVariant(), ultimate, 0);
+            chicks = ownedRoosterChicks();
+        }
+
+        roosterUpSpecialUsed = true;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        int count = Math.max(1, chicks.size());
+        vy = Math.min(vy, -(ultimate ? 19.5 : 15.5) - Math.min(5, count) * (ultimate ? 2.8 : 2.15));
+        vx *= 0.36;
+        canDoubleJump = true;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 18);
+        roosterCommandFxTimer = Math.max(roosterCommandFxTimer, 38);
+        roosterCommandFxKind = 3;
+
+        double centerX = bodyCenterX();
+        double baseY = bodyBottomY() - 10.0 * sizeMultiplier;
+        for (int i = 0; i < chicks.size(); i++) {
+            ChickMinion chick = chicks.get(i);
+            double fan = (i - (chicks.size() - 1) / 2.0);
+            chick.followingOwner = true;
+            chick.target = null;
+            chick.commandFlashFrames = ultimate ? 44 : 32;
+            chick.boostSparkFrames = ultimate ? 46 : 36;
+            chick.thrownFrames = 0;
+            chick.x = centerX - chick.width * 0.5 + fan * 23.0 * sizeMultiplier;
+            chick.y = baseY - chick.height - Math.abs(fan) * 7.0 * sizeMultiplier;
+            chick.vx = fan * (ultimate ? 3.2 : 2.5);
+            chick.vy = -(ultimate ? 18.0 : 14.5) - i * 0.8;
+            chick.onGround = false;
+            emitRoosterCommandBurst(chick.x + chick.width * 0.5, chick.y + chick.height * 0.5,
+                    ultimate ? Color.GOLD : Color.web("#FFF59D"), 8);
+        }
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 9 : 6);
+    }
+
+    private void specialRoosterRecallChicks(boolean ultimate) {
+        ArrayList<ChickMinion> chicks = ownedRoosterChicks();
+        int dir = facingDirection();
+        double s = sizeMultiplier;
+        for (int i = 0; i < chicks.size(); i++) {
+            ChickMinion chick = chicks.get(i);
+            double side = dir > 0 ? -1.0 : 1.0;
+            double row = i % 2 == 0 ? 0.0 : -18.0 * s;
+            chick.followingOwner = true;
+            chick.target = null;
+            chick.retargetCooldown = ultimate ? 28 : 18;
+            chick.commandFlashFrames = ultimate ? 44 : 32;
+            chick.thrownFrames = 0;
+            chick.boostSparkFrames = Math.max(chick.boostSparkFrames, ultimate ? 24 : 16);
+            chick.x = bodyCenterX() + side * (54.0 + i * 18.0) * s - chick.width * 0.5;
+            chick.y = bodyBottomY() - chick.height - 4.0 * s + row;
+            chick.vx = side * (1.0 + i * 0.25);
+            chick.vy = -5.0 - i * 0.35;
+            chick.onGround = isOnGround();
+            emitRoosterCommandBurst(chick.x + chick.width * 0.5, chick.y + chick.height * 0.5,
+                    ultimate ? Color.GOLD : Color.web("#FFF176"), 10);
+        }
+        roosterDownReuseTimer = ultimate ? 18 : ROOSTER_DOWN_REUSE_FRAMES;
+        roosterCommandFxTimer = Math.max(roosterCommandFxTimer, ultimate ? 42 : 32);
+        roosterCommandFxKind = 4;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
     }
 
     private void specialOpiumBird(boolean ultimate) {
@@ -5248,6 +5523,41 @@ public class Bird {
                 && turkeySpecialReady(variant);
     }
 
+    private boolean roosterSpecialReady(RoosterSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
+        return switch (variant) {
+            case NEUTRAL -> ultimateReady || (roosterNeutralReuseTimer <= 0 && ownedRoosterChickCount() < ROOSTER_MAX_CHICKS);
+            case SIDE -> ultimateReady || (roosterSideReuseTimer <= 0 && nextRoosterFollowerChick() != null);
+            case UP -> ultimateReady || !roosterUpSpecialUsed;
+            case DOWN -> ultimateReady || roosterDownReuseTimer <= 0;
+        };
+    }
+
+    private boolean roosterSpecialOnReuseLockout(RoosterSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> roosterNeutralReuseTimer > 0 || ownedRoosterChickCount() >= ROOSTER_MAX_CHICKS;
+            case SIDE -> roosterSideReuseTimer > 0 || nextRoosterFollowerChick() == null;
+            case UP -> roosterUpSpecialUsed;
+            case DOWN -> roosterDownReuseTimer > 0;
+        };
+    }
+
+    private boolean canStartRoosterSpecial() {
+        ensureRoosterStartingChicks();
+        RoosterSpecialVariant variant = selectRoosterSpecialVariant();
+        boolean shieldConversion = variant == RoosterSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+        return type == BirdGame3.BirdType.ROOSTER
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && roosterSpecialReady(variant);
+    }
+
     private PigeonSpecialVariant selectPigeonSpecialVariant() {
         if (jumpPressed()) {
             return PigeonSpecialVariant.UP;
@@ -5300,6 +5610,19 @@ public class Bird {
         return TurkeySpecialVariant.NEUTRAL;
     }
 
+    private RoosterSpecialVariant selectRoosterSpecialVariant() {
+        if (jumpPressed()) {
+            return RoosterSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return RoosterSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return RoosterSpecialVariant.SIDE;
+        }
+        return RoosterSpecialVariant.NEUTRAL;
+    }
+
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -5337,6 +5660,11 @@ public class Bird {
                     && selectTurkeySpecialVariant() == TurkeySpecialVariant.UP
                     && !turkeyPanicFlapUsed;
         }
+        if (type == BirdGame3.BirdType.ROOSTER) {
+            return canStartRoosterSpecial()
+                    && selectRoosterSpecialVariant() == RoosterSpecialVariant.UP
+                    && !roosterUpSpecialUsed;
+        }
         if (isRaptor()) {
             return canStartRaptorSpecial()
                     && selectRaptorSpecialVariant() == RaptorSpecialVariant.UP
@@ -5364,6 +5692,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.TURKEY) {
             return canStartTurkeySpecial()
                     && selectTurkeySpecialVariant() == TurkeySpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.ROOSTER) {
+            return canStartRoosterSpecial()
+                    && selectRoosterSpecialVariant() == RoosterSpecialVariant.DOWN;
         }
         if (isRaptor()) {
             return canStartRaptorSpecial()
@@ -6553,6 +6885,9 @@ public class Bird {
                     || (!canDoubleJump && (depth > 48.0 || (offstage && (offstageDistance > 10.0 || movingAway || vy > 2.2)))));
             case TURKEY -> !turkeyPanicFlapUsed
                     && (depth > 115.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.4)));
+            case ROOSTER -> !roosterUpSpecialUsed
+                    && ownedRoosterChickCount() > 0
+                    && (depth > 92.0 || (offstage && (offstageDistance > 14.0 || movingAway || vy > 2.0)));
             default -> false;
         };
     }
@@ -6610,7 +6945,9 @@ public class Bird {
             game.setAiControlKey(playerIndex, jumpKey(), true);
         }
         if (shouldAIUseRecoverySpecial(onGround, mainStage)) {
-            if (type == BirdGame3.BirdType.PIGEON || type == BirdGame3.BirdType.TURKEY) {
+            if (type == BirdGame3.BirdType.PIGEON
+                    || type == BirdGame3.BirdType.TURKEY
+                    || type == BirdGame3.BirdType.ROOSTER) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
             }
             game.setAiControlKey(playerIndex, specialKey(), true);
@@ -6786,11 +7123,10 @@ public class Bird {
             case VULTURE:
                 return crowSwarmCooldown <= 0 && (dist < 380 || lowHealth);
             case ROOSTER: {
-                int owned = 0;
-                for (ChickMinion chick : game.chickMinions) {
-                    if (chick.owner == this) owned++;
-                }
-                return owned < 3 && (dist < 360 || lowHealth);
+                int owned = ownedRoosterChickCount();
+                boolean hasFollower = nextRoosterFollowerChick() != null;
+                return (owned < ROOSTER_MAX_CHICKS && (dist < 430 || lowHealth))
+                        || (hasFollower && dist < 460 && Math.abs(dy) < 210);
             }
             case OPIUMBIRD:
                 return onGround && dist < 270 && random.nextDouble() < 0.85;
@@ -6928,6 +7264,7 @@ public class Bird {
             updateDefeatedState(gameSpeed);
             return;
         }
+        ensureRoosterStartingChicks();
 
         // === VINE GRAPPLE ===
         handleVineGrapple();
@@ -6981,6 +7318,9 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.TURKEY && isOnGround()) {
             turkeyPanicFlapUsed = false;
+        }
+        if (type == BirdGame3.BirdType.ROOSTER && isOnGround()) {
+            roosterUpSpecialUsed = false;
         }
 
         if (airborne && landingLagTimer > 0) {
@@ -7292,6 +7632,10 @@ public class Bird {
         turkeyPanicFlapReuseTimer = Math.max(0, (int)(turkeyPanicFlapReuseTimer - gameSpeed));
         turkeyFeastTrapReuseTimer = Math.max(0, (int)(turkeyFeastTrapReuseTimer - gameSpeed));
         turkeyStuffedTimer = Math.max(0, (int)(turkeyStuffedTimer - gameSpeed));
+        roosterNeutralReuseTimer = Math.max(0, (int)(roosterNeutralReuseTimer - gameSpeed));
+        roosterSideReuseTimer = Math.max(0, (int)(roosterSideReuseTimer - gameSpeed));
+        roosterDownReuseTimer = Math.max(0, (int)(roosterDownReuseTimer - gameSpeed));
+        roosterCommandFxTimer = Math.max(0, (int)(roosterCommandFxTimer - gameSpeed));
         if (hummingNeedleComboTimer == 0) {
             hummingNeedleComboCount = 0;
         }
@@ -8390,6 +8734,8 @@ public class Bird {
                     ? selectHummingbirdSpecialVariant() == HummingbirdSpecialVariant.DOWN && isBlocking && shieldStunFrames <= 0
                     : type == BirdGame3.BirdType.TURKEY
                     ? canConvertShieldIntoTurkeyDownSpecial()
+                    : type == BirdGame3.BirdType.ROOSTER
+                    ? selectRoosterSpecialVariant() == RoosterSpecialVariant.DOWN && isBlocking && shieldStunFrames <= 0
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
             boolean canStartSelectedSpecial = type == BirdGame3.BirdType.PIGEON
                     ? canStartPigeonSpecial()
@@ -8399,6 +8745,8 @@ public class Bird {
                     ? canStartHummingbirdSpecial()
                     : type == BirdGame3.BirdType.TURKEY
                     ? canStartTurkeySpecial()
+                    : type == BirdGame3.BirdType.ROOSTER
+                    ? canStartRoosterSpecial()
                     : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
             if (!attackLocked && !grabLocked && (!shielding || canSpecialFromShield) && !jumpSquatting && specialJustPressed()) {
                 if (grappleUses == 0 && canStartSelectedSpecial) {
@@ -10142,6 +10490,13 @@ public class Bird {
         turkeyStuffedTimer = 0;
         turkeyStuffedOwnerIndex = -1;
         turkeyStuffedUltimate = false;
+        roosterInitialChicksSpawned = false;
+        roosterNeutralReuseTimer = 0;
+        roosterSideReuseTimer = 0;
+        roosterDownReuseTimer = 0;
+        roosterCommandFxTimer = 0;
+        roosterCommandFxKind = 0;
+        roosterUpSpecialUsed = false;
         isZipping = false;
         zipTimer = 0;
         bladeStormFrames = 0;
@@ -12327,7 +12682,8 @@ public class Bird {
     private void drawCooldownFlash(GraphicsContext g) {
         if (type == BirdGame3.BirdType.PHOENIX
                 || type == BirdGame3.BirdType.HUMMINGBIRD
-                || type == BirdGame3.BirdType.TURKEY) {
+                || type == BirdGame3.BirdType.TURKEY
+                || type == BirdGame3.BirdType.ROOSTER) {
             cooldownFlash = 0;
             return;
         }
@@ -13502,6 +13858,39 @@ public class Bird {
         g.setFill(isSunforgeSkin ? Color.web("#FFE082") : Color.web("#B71C1C"));
         double wattleX = headX + (facingRight ? 0 : 40) * s;
         g.fillOval(wattleX, headY + 22 * s, 10 * s, 14 * s);
+
+        if (roosterCommandFxTimer > 0) {
+            double fade = Math.clamp(roosterCommandFxTimer / 38.0, 0.0, 1.0);
+            double cx = bodyCenterX();
+            double cy = bodyCenterY() - 10.0 * s;
+            Color commandColor = switch (roosterCommandFxKind) {
+                case 2 -> Color.web("#FF7043");
+                case 3 -> Color.web("#B3E5FC");
+                case 4 -> Color.web("#FFF176");
+                default -> Color.web("#FFD54F");
+            };
+            g.setStroke(commandColor.deriveColor(0, 1, 1, 0.26 + 0.42 * fade));
+            g.setLineWidth((2.0 + 2.2 * fade) * s);
+            double ringW = (98.0 + 28.0 * (1.0 - fade)) * s;
+            double ringH = (74.0 + 20.0 * (1.0 - fade)) * s;
+            g.strokeOval(cx - ringW * 0.5, cy - ringH * 0.5, ringW, ringH);
+
+            double dir = facingRight ? 1.0 : -1.0;
+            g.setLineWidth((2.0 + fade) * s);
+            for (int i = 0; i < 3; i++) {
+                double offset = (i - 1) * 13.0 * s;
+                double startX = cx - dir * (10.0 + i * 5.0) * s;
+                double startY = cy + offset;
+                double endX = startX + dir * (34.0 + 9.0 * i) * s;
+                double lift = roosterCommandFxKind == 3 ? 22.0 : 6.0 - i * 4.0;
+                g.strokeLine(startX, startY, endX, startY - lift * s);
+            }
+
+            if (roosterCommandFxKind == 3) {
+                g.setFill(Color.web("#E3F2FD").deriveColor(0, 1, 1, 0.14 + 0.20 * fade));
+                g.fillOval(cx - 44.0 * s, y + drawSize - 16.0 * s, 88.0 * s, 24.0 * s);
+            }
+        }
     }
 
     private void drawStunEffect(GraphicsContext g, double drawSize) {
@@ -13640,6 +14029,9 @@ public class Bird {
             return;
         }
         if (type == BirdGame3.BirdType.TURKEY) {
+            return;
+        }
+        if (type == BirdGame3.BirdType.ROOSTER) {
             return;
         }
         if (type == BirdGame3.BirdType.PIGEON && specialCooldown > 0) {

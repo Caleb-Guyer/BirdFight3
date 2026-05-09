@@ -100,6 +100,10 @@ class LanStateTest {
         chick.variant = 3;
         chick.life = 8;
         chick.ultimate = true;
+        chick.followingOwner = true;
+        chick.commandFlashFrames = 11;
+        chick.thrownFrames = 12;
+        chick.boostSparkFrames = 13;
         state.chickMinions.add(chick);
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -140,5 +144,9 @@ class LanStateTest {
         assertEquals(4, decoded.windVents.getFirst().cooldown);
         assertTrue(decoded.crowMinions.getFirst().hasCrown);
         assertTrue(decoded.chickMinions.getFirst().ultimate);
+        assertTrue(decoded.chickMinions.getFirst().followingOwner);
+        assertEquals(11, decoded.chickMinions.getFirst().commandFlashFrames);
+        assertEquals(12, decoded.chickMinions.getFirst().thrownFrames);
+        assertEquals(13, decoded.chickMinions.getFirst().boostSparkFrames);
     }
 }

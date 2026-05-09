@@ -340,6 +340,152 @@ class BirdStateTest {
     }
 
     @Test
+    void roosterSpawnsWithThreeFollowerChicks() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird rooster = new Bird(220.0, BirdGame3.BirdType.ROOSTER, 0, game);
+        rooster.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = rooster;
+
+        rooster.update(1.0);
+
+        List<ChickMinion> chicks = ownedChicks(game, rooster);
+        boolean[] variants = new boolean[3];
+        assertEquals(3, chicks.size(), "Rooster should spawn in with one chick of each type.");
+        for (ChickMinion chick : chicks) {
+            variants[chick.variant] = true;
+            assertTrue(chick.followingOwner, "Starting chicks should follow Rooster in formation.");
+            assertNull(chick.target, "Follower chicks should not be in fighting mode yet.");
+        }
+        assertArrayEquals(new boolean[]{true, true, true}, variants);
+    }
+
+    @Test
+    void roosterNeutralAddsFollowerChicksUpToFiveWithoutVisibleCooldown() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird rooster = new Bird(220.0, BirdGame3.BirdType.ROOSTER, 0, game);
+        rooster.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = rooster;
+        rooster.update(1.0);
+
+        invokePrivateVoid(rooster, "special");
+        assertEquals(4, ownedChicks(game, rooster).size());
+        assertEquals(0, rooster.specialCooldown);
+        assertTrue(getPrivateInt(rooster, "roosterNeutralReuseTimer") > 0);
+
+        setPrivateInt(rooster, "roosterNeutralReuseTimer", 0);
+        invokePrivateVoid(rooster, "special");
+
+        List<ChickMinion> chicks = ownedChicks(game, rooster);
+        assertEquals(5, chicks.size(), "Neutral should fill Rooster's brood to the five-chick cap.");
+        assertTrue(chicks.stream().allMatch(chick -> chick.followingOwner));
+        assertEquals(0, rooster.specialCooldown,
+                "Rooster's four-special kit should not show a cooldown bar.");
+        assertEquals(0, rooster.cooldownFlash,
+                "Rooster's invisible reuse gates should not show the cooldown warning.");
+    }
+
+    @Test
+    void roosterSideThrowsNextFollowerIntoFightingMode() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird rooster = new Bird(240.0, BirdGame3.BirdType.ROOSTER, 0, game);
+        Bird target = new Bird(470.0, BirdGame3.BirdType.PIGEON, 1, game);
+        rooster.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = rooster;
+        game.players[1] = target;
+        rooster.update(1.0);
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        invokePrivateVoid(rooster, "special");
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+
+        List<ChickMinion> chicks = ownedChicks(game, rooster);
+        List<ChickMinion> fightingChicks = chicks.stream()
+                .filter(chick -> !chick.followingOwner)
+                .toList();
+        assertEquals(1, fightingChicks.size(),
+                "Side special should throw exactly the next follower into independent fighting mode.");
+        ChickMinion thrown = fightingChicks.getFirst();
+        assertSame(target, thrown.target);
+        assertTrue(thrown.vx > 18.0, "Thrown chicks should launch fast enough to read as a toss.");
+        assertTrue(thrown.thrownFrames > 0, "Thrown chicks should carry throw streak animation frames.");
+        assertEquals(2, chicks.stream().filter(chick -> chick.followingOwner).count());
+        assertEquals(0, rooster.specialCooldown);
+        assertTrue(getPrivateInt(rooster, "roosterSideReuseTimer") > 0);
+    }
+
+    @Test
+    void roosterUpBoostThrowsChicksUpAndOnlyUsesOncePerAirtime() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird rooster = new Bird(260.0, BirdGame3.BirdType.ROOSTER, 0, game);
+        rooster.y = BirdGame3.GROUND_Y - 220.0;
+        game.players[0] = rooster;
+        rooster.update(1.0);
+        rooster.y = BirdGame3.GROUND_Y - 220.0;
+        rooster.vy = 0.0;
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        invokePrivateVoid(rooster, "special");
+
+        assertTrue(rooster.vy < -20.0, "Up special should be a strong chick-assisted vertical boost.");
+        assertTrue(getPrivateBoolean(rooster, "roosterUpSpecialUsed"),
+                "Rooster's up special should be locked by a once-per-airtime flag.");
+        assertEquals(0, rooster.specialCooldown);
+        assertTrue(ownedChicks(game, rooster).stream().allMatch(chick -> chick.followingOwner && chick.boostSparkFrames > 0),
+                "Boosting should pull the brood into the launch animation.");
+
+        rooster.vy = 0.0;
+        invokePrivateVoid(rooster, "special");
+        assertEquals(0.0, rooster.vy, 0.0001,
+                "Rooster should not get another up special until he lands.");
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+    }
+
+    @Test
+    void roosterDownRecallsFightingChicksBackToFormation() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird rooster = new Bird(300.0, BirdGame3.BirdType.ROOSTER, 0, game);
+        Bird target = new Bird(620.0, BirdGame3.BirdType.PIGEON, 1, game);
+        rooster.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = rooster;
+        game.players[1] = target;
+        rooster.update(1.0);
+
+        for (int i = 0; i < game.chickMinions.size(); i++) {
+            ChickMinion chick = game.chickMinions.get(i);
+            chick.followingOwner = false;
+            chick.target = target;
+            chick.x = 740.0 + i * 45.0;
+            chick.y = BirdGame3.GROUND_Y - 160.0;
+        }
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        invokePrivateVoid(rooster, "special");
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+
+        for (ChickMinion chick : ownedChicks(game, rooster)) {
+            assertTrue(chick.followingOwner, "Down special should recall chicks from fighting mode.");
+            assertNull(chick.target);
+            assertTrue(Math.abs((chick.x + chick.width * 0.5) - (rooster.x + 40.0 * rooster.sizeMultiplier)) < 130.0,
+                    "Recalled chicks should snap back near Rooster.");
+            assertTrue(chick.commandFlashFrames > 0);
+        }
+        assertEquals(0, rooster.specialCooldown);
+        assertTrue(getPrivateInt(rooster, "roosterDownReuseTimer") > 0);
+    }
+
+    @Test
     void defeatedBirdRemovesOwnedSummons() {
         BirdGame3 game = new BirdGame3();
         Bird owner = new Bird(100, BirdGame3.BirdType.VULTURE, 0, game);
@@ -3332,6 +3478,12 @@ class BirdStateTest {
             bird.update(1.0);
         }
         return Math.abs(bird.vy);
+    }
+
+    private static List<ChickMinion> ownedChicks(BirdGame3 game, Bird owner) {
+        return game.chickMinions.stream()
+                .filter(chick -> chick.owner == owner && chick.life > 0)
+                .toList();
     }
 
     private static void setPrivateInt(Object target, String fieldName, int value) throws Exception {

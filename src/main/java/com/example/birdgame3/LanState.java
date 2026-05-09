@@ -135,6 +135,10 @@ class LanState {
             out.writeInt(c.variant);
             out.writeInt(c.life);
             out.writeBoolean(c.ultimate);
+            out.writeBoolean(c.followingOwner);
+            out.writeInt(c.commandFlashFrames);
+            out.writeInt(c.thrownFrames);
+            out.writeInt(c.boostSparkFrames);
         }
     }
 
@@ -268,6 +272,10 @@ class LanState {
             c.variant = in.readInt();
             c.life = in.readInt();
             c.ultimate = in.readBoolean();
+            c.followingOwner = in.readBoolean();
+            c.commandFlashFrames = in.readInt();
+            c.thrownFrames = in.readInt();
+            c.boostSparkFrames = in.readInt();
             state.chickMinions.add(c);
         }
         return state;
@@ -350,5 +358,9 @@ class LanState {
         int variant;
         int life;
         boolean ultimate;
+        boolean followingOwner;
+        int commandFlashFrames;
+        int thrownFrames;
+        int boostSparkFrames;
     }
 }

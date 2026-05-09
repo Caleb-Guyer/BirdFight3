@@ -45,6 +45,10 @@ class BirdGame3LanStateTest {
         assertEquals(57.0, game.chickMinions.getFirst().y);
         assertEquals(3.5, game.chickMinions.getFirst().vx);
         assertEquals(5, game.chickMinions.getFirst().life);
+        assertEquals(false, game.chickMinions.getFirst().followingOwner);
+        assertEquals(14, game.chickMinions.getFirst().commandFlashFrames);
+        assertEquals(15, game.chickMinions.getFirst().thrownFrames);
+        assertEquals(16, game.chickMinions.getFirst().boostSparkFrames);
     }
 
     @Test
@@ -115,6 +119,10 @@ class BirdGame3LanStateTest {
         chick.variant = 1;
         chick.life = 5;
         chick.ultimate = true;
+        chick.followingOwner = isSpeed;
+        chick.commandFlashFrames = 14;
+        chick.thrownFrames = 15;
+        chick.boostSparkFrames = 16;
         state.chickMinions.add(chick);
 
         return state;
