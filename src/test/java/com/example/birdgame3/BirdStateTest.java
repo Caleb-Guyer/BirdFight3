@@ -2767,6 +2767,28 @@ class BirdStateTest {
     }
 
     @Test
+    void penguinUpSpecialCanBeSteeredWhileRising() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird penguin = new Bird(220.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        penguin.y = BirdGame3.GROUND_Y - 260.0;
+        game.players[0] = penguin;
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+
+        for (int i = 0; i < 8; i++) {
+            penguin.update(1.0);
+        }
+
+        assertTrue(penguin.vx > 2.0, "Penguin should keep fluid horizontal control during the rocket rise.");
+        assertTrue(penguin.vy < -4.0, "Penguin should still be rising while steering.");
+        assertEquals(0, penguin.specialCooldown);
+    }
+
+    @Test
     void penguinSnowFortGuardsAndTurnsIcebergIntoSnowball() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
@@ -2838,6 +2860,60 @@ class BirdStateTest {
         int healthAfter = getPrivateInt(fort, "health");
 
         assertTrue(healthAfter < healthBefore, "Enemy attacks should damage the Snow Fort.");
+    }
+
+    @Test
+    void penguinSnowFortDoesNotExpireByTimerAndClearsOnDeath() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird penguin = new Bird(120.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        penguin.y = BirdGame3.GROUND_Y - 80.0;
+        penguin.facingRight = true;
+        game.players[0] = penguin;
+
+        invokePrivateBooleanVoid(penguin, "specialPenguinSnowFort", false);
+        Object fort = getPrivateObject(penguin, "penguinSnowFort");
+        assertNotNull(fort);
+        setPrivateInt(fort, "lifeFrames", 1);
+
+        for (int i = 0; i < 90; i++) {
+            penguin.update(1.0);
+        }
+
+        assertSame(fort, getPrivateObject(penguin, "penguinSnowFort"),
+                "Snow Fort should stay up after its old lifetime would have expired.");
+
+        penguin.health = 0;
+        penguin.update(1.0);
+
+        assertNull(getPrivateObject(penguin, "penguinSnowFort"),
+                "Snow Fort should disappear when Penguin dies.");
+    }
+
+    @Test
+    void penguinSnowFortBlocksAlliedBirdsInTeamMode() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        game.teamModeEnabled = true;
+
+        Bird penguin = new Bird(120.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        Bird ally = new Bird(245.0, BirdGame3.BirdType.EAGLE, 1, game);
+        penguin.y = BirdGame3.GROUND_Y - 80.0;
+        ally.y = BirdGame3.GROUND_Y - 80.0;
+        penguin.facingRight = true;
+        game.players[0] = penguin;
+        game.players[1] = ally;
+
+        invokePrivateBooleanVoid(penguin, "specialPenguinSnowFort", false);
+        Object fort = getPrivateObject(penguin, "penguinSnowFort");
+        double fortX = getPrivateDouble(fort, "x");
+        ally.x = fortX - 40.0;
+
+        penguin.update(1.0);
+
+        assertTrue(Math.abs((ally.x + 40.0) - fortX) > 90.0,
+                "Snow Fort should physically block allied birds too, not only enemies.");
     }
 
     @Test

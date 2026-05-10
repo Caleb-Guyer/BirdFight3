@@ -551,7 +551,6 @@ public class Bird {
     private static final int PENGUIN_ROCKET_FRAMES = 24;
     private static final int PENGUIN_FLOP_FRAMES = 70;
     private static final int PENGUIN_SNOW_FORT_REUSE_FRAMES = 44;
-    private static final int PENGUIN_SNOW_FORT_LIFE_FRAMES = 420;
     private static final int PENGUIN_SNOW_FORT_HEALTH = 82;
     private double penguinIceFxTimer = 0;
     private int penguinDashDamageTimer = 0;
@@ -796,7 +795,7 @@ public class Bird {
             this.direction = direction == 0 ? 1 : direction;
             this.ultimate = ultimate;
             this.health = ultimate ? PENGUIN_SNOW_FORT_HEALTH + 34 : PENGUIN_SNOW_FORT_HEALTH;
-            this.lifeFrames = ultimate ? PENGUIN_SNOW_FORT_LIFE_FRAMES + 160 : PENGUIN_SNOW_FORT_LIFE_FRAMES;
+            this.lifeFrames = Integer.MAX_VALUE;
         }
     }
 
@@ -2964,26 +2963,74 @@ public class Bird {
         }
     }
 
+    private int penguinRocketTotalFrames() {
+        return penguinRocketUltimate ? PENGUIN_ROCKET_FRAMES + 6 : PENGUIN_ROCKET_FRAMES;
+    }
+
+    private int penguinFlopTotalFrames() {
+        return penguinRocketUltimate ? PENGUIN_FLOP_FRAMES + 16 : PENGUIN_FLOP_FRAMES;
+    }
+
+    private double penguinRocketProgress() {
+        return penguinSpecialPhase(penguinRocketTimer, penguinRocketTotalFrames());
+    }
+
+    private double penguinFlopProgress() {
+        return penguinSpecialPhase(penguinFlopTimer, penguinFlopTotalFrames());
+    }
+
+    private static double easePenguin01(double t) {
+        double clamped = Math.clamp(t, 0.0, 1.0);
+        return clamped * clamped * (3.0 - 2.0 * clamped);
+    }
+
+    private void startPenguinFlopFromRocket() {
+        penguinRocketTimer = 0;
+        penguinFlopTimer = penguinFlopTotalFrames();
+        double entryFallSpeed = penguinRocketUltimate ? 1.35 : 1.05;
+        vy = Math.max(vy * 0.28 + entryFallSpeed, entryFallSpeed);
+        vx *= 0.96;
+        attackAnimationTimer = Math.max(attackAnimationTimer, penguinFlopTimer);
+    }
+
     private void handlePenguinRocket(boolean specialHeld) {
-        vx *= 0.84;
-        if (vy > -13.5) {
-            vy -= penguinRocketUltimate ? 1.05 : 0.82;
+        int inputDir = horizontalInputDirection();
+        if (inputDir != 0) {
+            facingRight = inputDir > 0;
         }
-        if (!isOnGround() && specialHeld && penguinRocketTimer <= 2) {
-            penguinRocketTimer = 0;
-            penguinFlopTimer = penguinRocketUltimate ? PENGUIN_FLOP_FRAMES + 16 : PENGUIN_FLOP_FRAMES;
-            vy = Math.max(vy, penguinRocketUltimate ? 2.2 : 1.7);
-            attackAnimationTimer = Math.max(attackAnimationTimer, penguinFlopTimer);
+        double progress = penguinRocketProgress();
+        double eased = easePenguin01(progress);
+        double thrustLeft = 1.0 - eased;
+        double targetVy = (penguinRocketUltimate ? -19.4 : -16.8)
+                + eased * (penguinRocketUltimate ? 8.9 : 7.5);
+        double liftBlend = 0.17 + thrustLeft * 0.16;
+        vy += (targetVy - vy) * liftBlend;
+        if (vy > targetVy) {
+            vy -= (penguinRocketUltimate ? 0.50 : 0.40) * (0.7 + thrustLeft * 0.8);
+        }
+        vy = Math.max(vy, penguinRocketUltimate ? -20.8 : -17.8);
+
+        double steerSpeed = (penguinRocketUltimate ? 8.4 : 6.9) * (0.55 + eased * 0.45);
+        if (inputDir != 0) {
+            vx += (inputDir * steerSpeed - vx) * (0.16 + eased * 0.09);
+        } else {
+            vx *= 0.965;
+        }
+
+        if (!isOnGround() && specialHeld && progress >= 0.82) {
+            startPenguinFlopFromRocket();
             return;
         }
         if ((penguinRocketTimer & 1) == 0) {
+            Color exhaust = penguinRocketUltimate ? Color.GOLD : Color.web("#E1F5FE");
+            double drift = Math.clamp(vx / 10.0, -1.0, 1.0);
             for (int side = -1; side <= 1; side += 2) {
                 game.particles.add(new Particle(
-                        bodyCenterX() + side * 24.0 * sizeMultiplier,
-                        bodyBottomY() - 4.0 * sizeMultiplier,
-                        side * (0.7 + Math.random() * 1.4),
-                        5.0 + Math.random() * 4.4,
-                        (penguinRocketUltimate ? Color.GOLD : Color.web("#E1F5FE")).deriveColor(0, 1, 1, 0.66)
+                        bodyCenterX() + side * 20.0 * sizeMultiplier - drift * 14.0 * sizeMultiplier,
+                        bodyBottomY() - 5.0 * sizeMultiplier,
+                        side * (0.6 + Math.random() * 1.2) - drift * (1.7 + Math.random() * 1.1),
+                        4.5 + Math.random() * 4.8,
+                        exhaust.deriveColor(0, 1, 1, 0.60 + thrustLeft * 0.14)
                 ));
             }
         }
@@ -3018,20 +3065,32 @@ public class Bird {
     }
 
     private void handlePenguinFlop() {
-        vx *= 0.88;
+        int inputDir = horizontalInputDirection();
+        if (inputDir != 0) {
+            facingRight = inputDir > 0;
+        }
+        double progress = penguinFlopProgress();
+        double eased = easePenguin01(progress);
+        double steerSpeed = (penguinRocketUltimate ? 6.2 : 5.0) * (1.0 - eased * 0.22);
+        if (inputDir != 0) {
+            vx += (inputDir * steerSpeed - vx) * (0.10 + eased * 0.08);
+        } else {
+            vx *= 0.935;
+        }
         if (isOnGround()) {
             triggerPenguinIcyGroundBlast();
             return;
         }
-        double fallCap = penguinRocketUltimate ? 10.5 : 8.4;
-        double fallAccel = penguinRocketUltimate ? 0.42 : 0.34;
-        vy = Math.min(fallCap, Math.max(vy + fallAccel, penguinRocketUltimate ? 2.2 : 1.7));
+        double fallCap = penguinRocketUltimate ? 9.8 : 7.8;
+        double fallAccel = (penguinRocketUltimate ? 0.24 : 0.19) + eased * (penguinRocketUltimate ? 0.34 : 0.28);
+        double fallFloor = (penguinRocketUltimate ? 1.25 : 0.95) + eased * (penguinRocketUltimate ? 2.30 : 1.75);
+        vy = Math.min(fallCap, Math.max(vy + fallAccel, fallFloor));
         if ((penguinFlopTimer & 2) == 0) {
             game.particles.add(new Particle(
-                    bodyCenterX() + (Math.random() - 0.5) * 32.0 * sizeMultiplier,
-                    bodyCenterY() - 10.0 * sizeMultiplier,
-                    (Math.random() - 0.5) * 1.8,
-                    -2.0 - Math.random() * 2.5,
+                    bodyCenterX() + (Math.random() - 0.5) * 36.0 * sizeMultiplier,
+                    bodyCenterY() - 12.0 * sizeMultiplier,
+                    (Math.random() - 0.5) * 1.7 - Math.signum(vx) * 0.35,
+                    -2.4 - Math.random() * 2.8,
                     (penguinRocketUltimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.58)
             ));
         }
@@ -5602,9 +5661,12 @@ public class Bird {
         }
         facingRight = dir > 0;
         boolean snowball = false;
+        boolean airborne = !isOnGround();
         double spawnX = bodyCenterX() + dir * 74.0 * sizeMultiplier;
-        double spawnY = penguinObjectSurfaceY(spawnX) - 42.0 * sizeMultiplier;
-        if (penguinSnowFort != null && penguinSnowFort.health > 0) {
+        double spawnY = airborne
+                ? bodyCenterY() + 2.0 * sizeMultiplier
+                : penguinObjectSurfaceY(spawnX) - 42.0 * sizeMultiplier;
+        if (!airborne && penguinSnowFort != null && penguinSnowFort.health > 0) {
             double fortForward = (penguinSnowFort.x - bodyCenterX()) * dir;
             if (fortForward > 16.0 * sizeMultiplier && fortForward < 190.0 * sizeMultiplier
                     && Math.abs(penguinSnowFort.y - penguinObjectSurfaceY(penguinSnowFort.x)) < 26.0 * sizeMultiplier) {
@@ -5639,17 +5701,21 @@ public class Bird {
             return;
         }
         penguinUpSpecialUsed = true;
-        penguinRocketTimer = ultimate ? PENGUIN_ROCKET_FRAMES + 6 : PENGUIN_ROCKET_FRAMES;
         penguinFlopTimer = 0;
         penguinRocketUltimate = ultimate;
+        penguinRocketTimer = penguinRocketTotalFrames();
         Arrays.fill(penguinRocketHit, false);
         Arrays.fill(penguinFlopHit, false);
         canDoubleJump = true;
         specialCooldown = 0;
         specialMaxCooldown = 0;
         attackAnimationTimer = Math.max(attackAnimationTimer, penguinRocketTimer);
-        vx *= 0.32;
-        vy = Math.min(vy, ultimate ? -20.5 : -17.2);
+        int launchDir = horizontalInputDirection();
+        if (launchDir != 0) {
+            facingRight = launchDir > 0;
+        }
+        vx = vx * 0.46 + launchDir * (ultimate ? 4.9 : 3.9);
+        vy = Math.min(vy, ultimate ? -19.2 : -16.5);
         if (ultimate) {
             game.addToKillFeed(shortName() + " ULT ROCKET FLOP!");
         }
@@ -11212,14 +11278,13 @@ public class Bird {
         }
         PenguinSnowFort fort = penguinSnowFort;
         fort.ageFrames++;
-        fort.lifeFrames--;
         for (int i = 0; i < fort.hitCooldown.length; i++) {
             fort.hitCooldown[i] = Math.max(0, fort.hitCooldown[i] - 1);
         }
         if (fort.damageFlash > 0) {
             fort.damageFlash--;
         }
-        if (fort.lifeFrames <= 0 || fort.health <= 0) {
+        if (fort.health <= 0) {
             emitPenguinIceBurst(fort.x, fort.y - 24.0 * sizeMultiplier, fort.direction,
                     fort.ultimate ? 32 : 22, fort.ultimate ? Color.GOLD : Color.web("#E1F5FE"));
             penguinSnowFort = null;
@@ -11228,19 +11293,57 @@ public class Bird {
         double halfWidth = penguinFortHalfWidth(fort);
         double height = penguinFortHeight(fort);
         for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - fort.x;
-            if (Math.abs(dx) > halfWidth + other.combatHalfWidth()) continue;
-            if (other.bodyBottomY() < fort.y - height || other.bodyCenterY() > fort.y + other.combatHalfHeight()) continue;
-
-            double pushDir = Math.signum(dx == 0.0 ? -fort.direction : dx);
-            double targetCenterX = fort.x + pushDir * (halfWidth + other.combatHalfWidth() + 1.5 * sizeMultiplier);
-            other.x += targetCenterX - other.bodyCenterX();
-            if (other.vx * pushDir < 0.0) {
-                other.vx = 0.0;
-            }
-            other.vx += pushDir * 0.55;
+            resolvePenguinSnowFortCollision(other, fort, halfWidth, height);
         }
+    }
+
+    private void resolvePenguinSnowFortCollision(Bird other, PenguinSnowFort fort, double halfWidth, double height) {
+        if (other == null || other == this || other.health <= 0 || fort == null || fort.health <= 0) {
+            return;
+        }
+        double fortLeft = fort.x - halfWidth;
+        double fortRight = fort.x + halfWidth;
+        double fortTop = fort.y - height;
+        double fortBottom = fort.y;
+        double otherLeft = other.x;
+        double otherRight = other.x + other.bodyWidth();
+        double otherTop = other.y;
+        double otherBottom = other.bodyBottomY();
+        double overlapX = Math.min(otherRight, fortRight) - Math.max(otherLeft, fortLeft);
+        double overlapY = Math.min(otherBottom, fortBottom) - Math.max(otherTop, fortTop);
+        if (overlapX <= 0.0 || overlapY <= 0.0) {
+            return;
+        }
+
+        double previousBottom = otherBottom - other.vy;
+        boolean landingOnTop = previousBottom <= fortTop + 8.0
+                && otherBottom >= fortTop
+                && other.vy >= -1.0
+                && overlapY <= Math.max(34.0 * other.sizeMultiplier, overlapX * 0.75);
+        if (landingOnTop) {
+            other.y = fortTop - other.bodyHeight() - 0.5;
+            if (other.vy > 0.0) {
+                other.vy = 0.0;
+            }
+            other.canDoubleJump = true;
+            other.refreshAirDodge();
+            return;
+        }
+
+        if (overlapY < overlapX * 0.55 && otherTop >= fortBottom - 12.0 && other.vy < 0.0) {
+            other.y = fortBottom + 0.5;
+            other.vy = Math.max(0.0, other.vy);
+            return;
+        }
+
+        double dx = other.bodyCenterX() - fort.x;
+        double pushDir = Math.signum(dx == 0.0 ? -fort.direction : dx);
+        double targetCenterX = fort.x + pushDir * (halfWidth + other.combatHalfWidth() + 1.5 * Math.max(sizeMultiplier, other.sizeMultiplier));
+        other.x += targetCenterX - other.bodyCenterX();
+        if (other.vx * pushDir < 0.0) {
+            other.vx = 0.0;
+        }
+        other.vx += pushDir * 0.55;
     }
 
     private double penguinFortHalfWidth(PenguinSnowFort fort) {
@@ -13497,37 +13600,37 @@ public class Bird {
             );
         }
         if (penguinRocketTimer > 0) {
-            double phase = penguinSpecialPhase(penguinRocketTimer,
-                    penguinRocketUltimate ? PENGUIN_ROCKET_FRAMES + 6 : PENGUIN_ROCKET_FRAMES);
+            double phase = penguinRocketProgress();
+            double lean = Math.clamp(vx / 10.0, -1.0, 1.0);
             return new AttackVisualPose(
-                    dir * 1.0,
-                    -18.0 - 18.0 * phase,
-                    dir * 4.0,
-                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.08),
-                    14.0 + 6.0 * phase,
-                    -24.0 - 6.0 * phase,
-                    12.0 + 5.0 * phase,
-                    0.98,
-                    -24.0 - 10.0 * phase,
-                    0.90,
-                    1.20
+                    lean * 7.0,
+                    -20.0 - 16.0 * phase,
+                    lean * 10.0,
+                    normalizeAngleRadians(-Math.PI / 2.0 + lean * 0.22),
+                    15.0 + 7.0 * phase,
+                    -25.0 - 8.0 * phase,
+                    13.0 + 6.0 * phase,
+                    0.94,
+                    -28.0 - 12.0 * phase,
+                    0.86,
+                    1.24
             );
         }
         if (penguinFlopTimer > 0) {
-            double phase = penguinSpecialPhase(penguinFlopTimer,
-                    penguinRocketUltimate ? PENGUIN_FLOP_FRAMES + 8 : PENGUIN_FLOP_FRAMES);
+            double phase = penguinFlopProgress();
+            double lean = Math.clamp(vx / 9.0, -1.0, 1.0);
             return new AttackVisualPose(
-                    dir * 2.0,
-                    17.0 + 8.0 * phase,
-                    dir * 6.0,
-                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.08),
-                    16.0,
-                    14.0 + 8.0 * phase,
-                    15.0,
+                    lean * 5.0,
+                    16.0 + 9.0 * phase,
+                    lean * 8.0,
+                    normalizeAngleRadians(Math.PI / 2.0 - lean * 0.16),
+                    15.0 + 3.0 * phase,
+                    14.0 + 9.0 * phase,
+                    14.0 + 3.0 * phase,
                     1.04,
-                    24.0 + 18.0 * phase,
-                    1.30,
-                    0.66
+                    25.0 + 20.0 * phase,
+                    1.26,
+                    0.68
             );
         }
         return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
@@ -15176,26 +15279,68 @@ public class Bird {
             double pulse = 0.5 + 0.5 * Math.sin(fort.ageFrames * 0.16);
             Color base = fort.ultimate ? Color.web("#FFF59D") : Color.web("#E1F5FE");
             Color edge = fort.damageFlash > 0 ? Color.web("#FFAB91") : (fort.ultimate ? Color.GOLD : Color.web("#90CAF9"));
+            double healthRatio = Math.clamp(fort.health / (double) penguinFortMaxHealth(fort), 0.0, 1.0);
 
             g.save();
-            g.setFill(base.deriveColor(0, 1, 1, 0.50 + pulse * 0.08));
-            g.fillRoundRect(fort.x - width * 0.5, fort.y - height, width, height, 12.0 * s, 12.0 * s);
-            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.38));
-            for (int row = 0; row < 3; row++) {
-                double blockY = fort.y - height + (10.0 + row * 18.0) * s;
-                for (int col = 0; col < 3; col++) {
-                    double blockX = fort.x - width * 0.42 + (col * 28.0 + (row % 2) * 10.0) * s;
-                    g.fillRoundRect(blockX, blockY, 24.0 * s, 12.0 * s, 5.0 * s, 5.0 * s);
+            double left = fort.x - width * 0.5;
+            double top = fort.y - height;
+            g.setFill(Color.web("#071A25", 0.26));
+            g.fillOval(left + width * 0.08, fort.y - 10.0 * s, width * 0.84, 22.0 * s);
+            g.setFill(base.deriveColor(0, 0.82, 0.82, 0.62 + pulse * 0.05));
+            g.fillRoundRect(left, top + 8.0 * s, width, height - 6.0 * s, 12.0 * s, 12.0 * s);
+
+            int rows = 4;
+            for (int row = 0; row < rows; row++) {
+                int cols = row % 2 == 0 ? 4 : 3;
+                double rowTop = top + (17.0 + row * 19.5) * s;
+                double blockH = 15.5 * s;
+                double gap = 4.0 * s;
+                double inset = (row % 2 == 0 ? 13.0 : 27.0) * s;
+                double usable = width - inset * 2.0;
+                double blockW = (usable - gap * (cols - 1)) / cols;
+                for (int col = 0; col < cols; col++) {
+                    double blockX = left + inset + col * (blockW + gap);
+                    Color block = base.interpolate(Color.web("#74CFE6"), row * 0.08 + col * 0.025);
+                    if (fort.damageFlash > 0) {
+                        block = block.interpolate(Color.web("#FFF3E0"), 0.38);
+                    }
+                    g.setFill(block.deriveColor(0, 0.96, 1.0, 0.84));
+                    g.fillRoundRect(blockX, rowTop, blockW, blockH, 5.0 * s, 5.0 * s);
+                    g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.28));
+                    g.setLineWidth(1.1 * s);
+                    g.strokeLine(blockX + 4.0 * s, rowTop + 3.0 * s, blockX + blockW - 5.0 * s, rowTop + 2.0 * s);
                 }
             }
+
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.84));
+            g.fillRoundRect(left - 5.0 * s, top - 8.0 * s, width + 10.0 * s, 26.0 * s, 18.0 * s, 18.0 * s);
+            g.setFill(Color.web("#E1F5FE", 0.78));
+            for (int lump = 0; lump < 6; lump++) {
+                double lumpX = left + width * (0.08 + lump * 0.155);
+                double lumpW = width * (0.14 + (lump % 2) * 0.03);
+                g.fillOval(lumpX, top - (6.0 + (lump % 3) * 2.0) * s, lumpW, 22.0 * s);
+            }
+
+            if (healthRatio < 0.82) {
+                g.setStroke(Color.web("#2A6A83", 0.42 + (1.0 - healthRatio) * 0.35));
+                g.setLineWidth(2.0 * s);
+                g.strokeLine(left + width * 0.28, top + height * 0.24, left + width * 0.38, top + height * 0.48);
+                g.strokeLine(left + width * 0.38, top + height * 0.48, left + width * 0.32, top + height * 0.64);
+            }
+            if (healthRatio < 0.48) {
+                g.setStroke(Color.web("#1D5368", 0.58));
+                g.setLineWidth(2.4 * s);
+                g.strokeLine(left + width * 0.66, top + height * 0.20, left + width * 0.54, top + height * 0.50);
+                g.strokeLine(left + width * 0.54, top + height * 0.50, left + width * 0.70, top + height * 0.76);
+            }
+
             g.setStroke(edge.deriveColor(0, 1, 1, 0.88));
             g.setLineWidth((fort.damageFlash > 0 ? 5.0 : 3.0) * s);
-            g.strokeRoundRect(fort.x - width * 0.5, fort.y - height, width, height, 12.0 * s, 12.0 * s);
-            double healthRatio = Math.clamp(fort.health / (double) penguinFortMaxHealth(fort), 0.0, 1.0);
+            g.strokeRoundRect(left, top + 8.0 * s, width, height - 6.0 * s, 12.0 * s, 12.0 * s);
             g.setFill(Color.web("#263238", 0.58));
-            g.fillRoundRect(fort.x - width * 0.42, fort.y - height - 12.0 * s, width * 0.84, 6.0 * s, 4.0 * s, 4.0 * s);
+            g.fillRoundRect(fort.x - width * 0.42, top - 20.0 * s, width * 0.84, 6.0 * s, 4.0 * s, 4.0 * s);
             g.setFill(edge.deriveColor(0, 1, 1, 0.85));
-            g.fillRoundRect(fort.x - width * 0.42, fort.y - height - 12.0 * s, width * 0.84 * healthRatio, 6.0 * s, 4.0 * s, 4.0 * s);
+            g.fillRoundRect(fort.x - width * 0.42, top - 20.0 * s, width * 0.84 * healthRatio, 6.0 * s, 4.0 * s, 4.0 * s);
             g.restore();
         }
 
@@ -15255,19 +15400,39 @@ public class Bird {
             g.strokeOval(cx - width * 0.5, bodyBottomY() - height * 0.85, width, height);
         }
         if (penguinRocketTimer > 0) {
-            double fade = Math.clamp(penguinRocketTimer / (double) (penguinRocketUltimate ? PENGUIN_ROCKET_FRAMES + 6 : PENGUIN_ROCKET_FRAMES), 0.0, 1.0);
-            g.setStroke((penguinRocketUltimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.38 + fade * 0.30));
-            g.setLineWidth(3.0 * s);
-            for (int i = 0; i < 5; i++) {
-                double offset = (i - 2.0) * 13.0 * s;
-                g.strokeLine(cx + offset, bodyBottomY() - 8.0 * s,
-                        cx + offset * 0.30, bodyBottomY() + (36.0 + i * 4.0) * s);
+            double progress = penguinRocketProgress();
+            double fade = Math.clamp(penguinRocketTimer / (double) penguinRocketTotalFrames(), 0.0, 1.0);
+            double drift = Math.clamp(vx / 10.0, -1.0, 1.0);
+            Color jet = penguinRocketUltimate ? Color.GOLD : Color.web("#B3E5FC");
+            g.setStroke(jet.deriveColor(0, 1, 1, 0.34 + fade * 0.34));
+            g.setLineWidth((2.2 + fade * 1.5) * s);
+            for (int i = 0; i < 7; i++) {
+                double spread = (i - 3.0) * (9.0 + progress * 3.0) * s;
+                double baseX = cx + spread - drift * 16.0 * s;
+                double baseY = bodyBottomY() - (7.0 + i % 2 * 3.0) * s;
+                g.strokeLine(baseX, baseY,
+                        cx + spread * 0.18 - drift * (35.0 + progress * 22.0) * s,
+                        bodyBottomY() + (34.0 + fade * 34.0 + i * 3.0) * s);
             }
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.22 + fade * 0.16));
+            g.setLineWidth(1.2 * s);
+            g.strokeOval(cx - (30.0 + progress * 18.0) * s, bodyBottomY() - 3.0 * s,
+                    (60.0 + progress * 36.0) * s, (16.0 + progress * 8.0) * s);
         }
         if (penguinFlopTimer > 0) {
-            double fade = Math.clamp(penguinFlopTimer / (double) (penguinRocketUltimate ? PENGUIN_FLOP_FRAMES + 8 : PENGUIN_FLOP_FRAMES), 0.0, 1.0);
-            g.setFill((penguinRocketUltimate ? Color.GOLD : Color.web("#E1F5FE")).deriveColor(0, 1, 1, 0.16 + fade * 0.14));
-            g.fillOval(cx - 64.0 * s, bodyBottomY() - 8.0 * s, 128.0 * s, 28.0 * s);
+            double progress = penguinFlopProgress();
+            double fade = Math.clamp(penguinFlopTimer / (double) penguinFlopTotalFrames(), 0.0, 1.0);
+            Color frost = penguinRocketUltimate ? Color.GOLD : Color.web("#E1F5FE");
+            g.setFill(frost.deriveColor(0, 1, 1, 0.14 + fade * 0.13));
+            g.fillOval(cx - (60.0 + progress * 20.0) * s, bodyBottomY() - 8.0 * s,
+                    (120.0 + progress * 40.0) * s, (28.0 + progress * 12.0) * s);
+            g.setStroke(frost.deriveColor(0, 1, 1, 0.32 + fade * 0.18));
+            g.setLineWidth(2.2 * s);
+            for (int i = 0; i < 4; i++) {
+                double offset = (i - 1.5) * 18.0 * s;
+                g.strokeLine(cx + offset - vx * 0.9 * s, cy - (26.0 + i * 5.0) * s,
+                        cx + offset * 0.55, bodyBottomY() + (12.0 + progress * 22.0) * s);
+            }
         }
     }
 
