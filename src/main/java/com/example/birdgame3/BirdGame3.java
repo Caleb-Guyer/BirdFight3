@@ -534,7 +534,7 @@ public class BirdGame3 extends Application {
     private record AchievementClaimResult(ShopPreview preview, String detail, boolean usesUnlockCards) {}
 
     // === MAPS ===
-    public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, DESERT, CAVE, BATTLEFIELD, BEACON_CROWN, DOCK }
+    public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, DESERT, CAVE, BATTLEFIELD, BEACON_CROWN, DOCK, FROSTBITE_FJORD }
 
     private enum BirdBookCategory { ITEMS, POWERUPS, BIRDS, SKINS, MAPS }
 
@@ -643,6 +643,10 @@ public class BirdGame3 extends Application {
     private static final double DOCK_BOMB_GRAVITY = 0.24;
     private static final double DOCK_BOMB_WARNING_RADIUS = 112.0;
     private static final double DOCK_SHIP_SCALE = 1.75;
+    private static final double FROSTBITE_MAIN_X = 1180.0;
+    private static final double FROSTBITE_MAIN_Y = GROUND_Y - 122.0;
+    private static final double FROSTBITE_MAIN_W = 3640.0;
+    private static final double FROSTBITE_MAIN_H = 92.0;
     private double battlefieldIslandX = 0;
     private double battlefieldIslandW = 0;
     private double battlefieldIslandY = 0;
@@ -661,6 +665,7 @@ public class BirdGame3 extends Application {
     List<CrowMinion> crowMinions = new ArrayList<>();
     List<PiranhaHazard> piranhaHazards = new ArrayList<>();
     List<ChickMinion> chickMinions = new ArrayList<>();
+    private final List<FrostbiteSnowbank> frostbiteSnowbanks = new ArrayList<>();
     private static final int PARTICLE_SOFT_CAP = 2600;
     private static final int PARTICLE_FLOOR_CAP = 900;
     private static final int LARGE_FIGHT_PARTICLE_CAP = 1700;
@@ -1011,6 +1016,7 @@ public class BirdGame3 extends Application {
                     case CAVE -> "dark-ages-ultimate-battle.mp3";
                     case BATTLEFIELD -> "skycity.mp3";
                     case DOCK -> "pirate-seas.mp3";
+                    case FROSTBITE_FJORD -> "treasure-yeti-high.mp3";
             default -> throw new IllegalStateException("Unexpected value: " + selectedMap);
         };
     }
@@ -10420,6 +10426,7 @@ public class BirdGame3 extends Application {
             }
             case DESERT -> drawDesertArena(g, ambientFx);
             case DOCK -> drawDockArena(g, ambientFx);
+            case FROSTBITE_FJORD -> drawFrostbiteFjordArena(g, ambientFx);
             case BATTLEFIELD -> {
                 if (isBeaconCrownBattlefieldContext()) {
                     drawBeaconCrownBattlefield(g, ambientFx);
@@ -10947,6 +10954,235 @@ public class BirdGame3 extends Application {
             g.setFill(glowing ? Color.web("#FFF59D", 0.54) : Color.web("#C5E1A5", 0.3));
             double size = glowing ? 6.2 : 3.8;
             g.fillOval(x - size * 0.5, y - size * 0.5, size, size * 0.78);
+        }
+    }
+
+    private void drawFrostbiteFjordArena(GraphicsContext g, boolean ambientFx) {
+        for (int i = 0; i < 660; i++) {
+            double ratio = i / 660.0;
+            Color top = Color.web("#08142C");
+            Color mid = Color.web("#13436A");
+            Color bottom = Color.web("#AEEBFF");
+            Color c = ratio < 0.55
+                    ? top.interpolate(mid, ratio / 0.55)
+                    : mid.interpolate(bottom, (ratio - 0.55) / 0.45);
+            g.setFill(c);
+            g.fillRect(0, i * (WORLD_HEIGHT / 660.0), WORLD_WIDTH, WORLD_HEIGHT / 660.0 + 3);
+        }
+
+        double time = System.currentTimeMillis() / 1000.0;
+        g.setFill(Color.web("#E3F2FD", 0.78));
+        g.fillOval(4680, 150, 320, 320);
+        g.setFill(Color.web("#B2EBF2", 0.12));
+        g.fillOval(4588, 62, 504, 504);
+
+        renderRandom.setSeed(77_401L);
+        for (int i = 0; i < 120; i++) {
+            double sx = renderRandom.nextDouble() * WORLD_WIDTH;
+            double sy = 70 + renderRandom.nextDouble() * 950;
+            double twinkle = ambientFx ? 0.48 + 0.36 * Math.sin(time * 1.8 + i * 0.71) : 0.52;
+            g.setFill(Color.web("#E1F5FE", twinkle * 0.48));
+            double size = 1.5 + renderRandom.nextDouble() * 2.4;
+            g.fillOval(sx, sy, size, size);
+        }
+
+        if (ambientFx) {
+            drawFrostbiteAurora(g, time);
+        } else {
+            g.setFill(Color.web("#80DEEA", 0.10));
+            g.fillPolygon(new double[]{580, 1360, 2390, 3180, 4200, 5050},
+                    new double[]{320, 450, 260, 410, 240, 380}, 6);
+        }
+
+        for (int layer = 0; layer < 3; layer++) {
+            double baseY = FROSTBITE_MAIN_Y + 270 + layer * 120;
+            double alpha = 0.22 + layer * 0.13;
+            Color ridge = switch (layer) {
+                case 0 -> Color.web("#10233C", alpha);
+                case 1 -> Color.web("#1C4864", alpha);
+                default -> Color.web("#7DD8F0", alpha);
+            };
+            g.setFill(ridge);
+            renderRandom.setSeed(88_220L + layer);
+            double[] xs = new double[10];
+            double[] ys = new double[10];
+            for (int i = 0; i < 8; i++) {
+                double worldX = -420 + i * (WORLD_WIDTH + 840.0) / 7.0;
+                xs[i] = parallaxAdjustedWorldX(worldX, 0.12 + layer * 0.09);
+                double peak = baseY - 520 - renderRandom.nextDouble() * (350 - layer * 70);
+                ys[i] = i % 2 == 0 ? peak : peak + 140 + renderRandom.nextDouble() * 90;
+            }
+            xs[8] = parallaxAdjustedWorldX(WORLD_WIDTH + 520, 0.12 + layer * 0.09);
+            ys[8] = WORLD_HEIGHT + 120;
+            xs[9] = parallaxAdjustedWorldX(-520, 0.12 + layer * 0.09);
+            ys[9] = WORLD_HEIGHT + 120;
+            g.fillPolygon(xs, ys, xs.length);
+        }
+
+        double waterY = FROSTBITE_MAIN_Y + 138;
+        g.setFill(Color.web("#082339", 0.92));
+        g.fillRect(0, waterY, WORLD_WIDTH, WORLD_HEIGHT - waterY);
+        g.setFill(Color.web("#1BA9C8", 0.20));
+        for (int i = 0; i < 8; i++) {
+            double waveY = waterY + 36 + i * 82;
+            double offset = ambientFx ? Math.sin(time * 0.8 + i * 0.62) * 34.0 : 0.0;
+            g.fillOval(-260 + offset + i * 36, waveY, WORLD_WIDTH + 520, 34 + (i % 3) * 12);
+        }
+        g.setStroke(Color.web("#E1F5FE", 0.23));
+        g.setLineWidth(2.5);
+        for (int i = 0; i < 18; i++) {
+            double y = waterY + 28 + i * 46;
+            double shift = ambientFx ? Math.sin(time * 1.25 + i * 0.5) * 42 : 0;
+            g.strokeLine(160 + shift, y, WORLD_WIDTH - 160 - shift * 0.35, y + Math.sin(i) * 10);
+        }
+
+        drawFrostbiteIceberg(g, 310, waterY + 86, 520, 0.34);
+        drawFrostbiteIceberg(g, 5070, waterY + 68, 610, 0.38);
+        drawFrostbiteIceberg(g, 2700, waterY + 170, 420, 0.22);
+
+        if (ambientFx) {
+            renderRandom.setSeed(95_603L);
+            g.setFill(Color.web("#FFFFFF", 0.55));
+            for (int i = 0; i < 130; i++) {
+                double sx = (renderRandom.nextDouble() * WORLD_WIDTH + time * (18 + i % 7) + i * 47) % (WORLD_WIDTH + 160) - 80;
+                double sy = 120 + (renderRandom.nextDouble() * (WORLD_HEIGHT - 120) + time * (22 + i % 5) + i * 31) % (WORLD_HEIGHT - 120);
+                double drift = Math.sin(time * 0.6 + i) * 16;
+                double size = 2.0 + renderRandom.nextDouble() * 4.6;
+                g.fillOval(sx + drift, sy, size, size);
+            }
+        }
+
+        for (Platform p : platforms) {
+            drawFrostbitePlatform(g, p);
+        }
+        drawFrostbiteSnowbanks(g);
+
+        for (WindVent v : windVents) {
+            double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 3.2 + v.x * 0.018) : 0.45;
+            double centerX = v.x + v.w * 0.5;
+            g.setFill(Color.web("#E1F5FE", 0.14 + pulse * 0.12));
+            g.fillOval(centerX - v.w * 0.43, v.y - 270, v.w * 0.86, 390);
+            g.setFill(Color.web("#80DEEA", 0.10 + pulse * 0.10));
+            g.fillOval(centerX - v.w * 0.28, v.y - 215, v.w * 0.56, 300);
+            g.setStroke(Color.web("#FFFFFF", 0.18 + pulse * 0.18));
+            g.setLineWidth(2.2);
+            g.strokeOval(centerX - v.w * 0.34, v.y - 190, v.w * 0.68, 248);
+        }
+    }
+
+    private void drawFrostbiteAurora(GraphicsContext g, double time) {
+        Color[] colors = {
+                Color.web("#64FFDA", 0.30),
+                Color.web("#B388FF", 0.22),
+                Color.web("#FF80AB", 0.18),
+                Color.web("#A7FFEB", 0.24)
+        };
+        for (int band = 0; band < colors.length; band++) {
+            int segments = 15;
+            double[] xs = new double[(segments + 1) * 2];
+            double[] ys = new double[(segments + 1) * 2];
+            double startX = -280 + band * 260;
+            double width = WORLD_WIDTH + 420;
+            double baseY = 260 + band * 78;
+            double height = 340 + band * 42;
+            for (int i = 0; i <= segments; i++) {
+                double t = i / (double) segments;
+                double x = startX + t * width;
+                double wave = Math.sin(time * (0.55 + band * 0.08) + t * 7.2 + band) * 64
+                        + Math.cos(time * 0.42 + t * 11.0 + band * 1.7) * 28;
+                xs[i] = parallaxAdjustedWorldX(x, 0.06);
+                ys[i] = baseY + wave;
+                xs[xs.length - 1 - i] = parallaxAdjustedWorldX(x + 40, 0.06);
+                ys[ys.length - 1 - i] = baseY + height + wave * 0.35;
+            }
+            g.setFill(colors[band]);
+            g.fillPolygon(xs, ys, xs.length);
+        }
+    }
+
+    private void drawFrostbiteIceberg(GraphicsContext g, double x, double y, double width, double alpha) {
+        g.setFill(Color.web("#D7F7FF", alpha));
+        g.fillPolygon(
+                new double[]{x, x + width * 0.18, x + width * 0.42, x + width * 0.64, x + width, x + width * 0.78, x + width * 0.28},
+                new double[]{y + 82, y - 42, y + 12, y - 86, y + 70, y + 122, y + 116},
+                7
+        );
+        g.setFill(Color.web("#80DEEA", alpha * 0.58));
+        g.fillPolygon(
+                new double[]{x + width * 0.18, x + width * 0.42, x + width * 0.34},
+                new double[]{y - 42, y + 12, y + 88},
+                3
+        );
+    }
+
+    private void drawFrostbitePlatform(GraphicsContext g, Platform p) {
+        boolean main = Math.abs(p.x - FROSTBITE_MAIN_X) < 2.0 && Math.abs(p.w - FROSTBITE_MAIN_W) < 2.0;
+        double round = main ? 42.0 : 30.0;
+        double keel = main ? 76.0 : 42.0;
+        g.setFill(Color.web("#062239", 0.78));
+        g.fillRoundRect(p.x + 8, p.y + p.h * 0.42, p.w - 16, p.h + keel, round, round);
+        g.setFill(new LinearGradient(0, p.y, 0, p.y + p.h + keel, false, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#E8FBFF")),
+                new Stop(0.42, Color.web("#86DDF2")),
+                new Stop(1, Color.web("#1A5A7A"))));
+        g.fillRoundRect(p.x, p.y, p.w, p.h + (main ? 18 : 10), round, round);
+        g.setFill(Color.web("#FFFFFF", 0.86));
+        g.fillRoundRect(p.x + 12, p.y - 18, Math.max(24, p.w - 24), Math.max(22, p.h * 0.45), round, round);
+        g.setFill(Color.web("#B2EBF2", 0.42));
+        g.fillRoundRect(p.x + 26, p.y + p.h * 0.25, Math.max(18, p.w - 52), Math.max(12, p.h * 0.26), round * 0.7, round * 0.7);
+        g.setStroke(Color.web("#E1F5FE", 0.88));
+        g.setLineWidth(main ? 4.4 : 3.2);
+        g.strokeRoundRect(p.x, p.y, p.w, p.h + (main ? 18 : 10), round, round);
+
+        renderRandom.setSeed(Double.doubleToLongBits(p.x * 13.0 + p.y * 7.0 + p.w * 3.0));
+        g.setStroke(Color.web("#0C4A63", 0.42));
+        g.setLineWidth(2.1);
+        int cracks = Math.clamp((int) Math.round(p.w / 260.0), 1, main ? 14 : 4);
+        for (int i = 0; i < cracks; i++) {
+            double cx = p.x + 34 + renderRandom.nextDouble() * Math.max(20, p.w - 68);
+            double cy = p.y + 12 + renderRandom.nextDouble() * Math.max(8, p.h * 0.52);
+            double len = 38 + renderRandom.nextDouble() * 94;
+            double dir = renderRandom.nextBoolean() ? 1.0 : -1.0;
+            g.strokeLine(cx, cy, cx + dir * len * 0.42, cy + 10 + renderRandom.nextDouble() * 24);
+            if (renderRandom.nextDouble() < 0.55) {
+                g.strokeLine(cx + dir * len * 0.18, cy + 5, cx + dir * len * 0.35, cy - 12);
+            }
+        }
+
+        if (p.y < FROSTBITE_MAIN_Y - 70 || main) {
+            g.setFill(Color.web("#D7F7FF", 0.74));
+            int icicles = Math.clamp((int) Math.round(p.w / 180.0), 2, main ? 18 : 6);
+            for (int i = 0; i < icicles; i++) {
+                double ix = p.x + 28 + i * (p.w - 56) / Math.max(1, icicles - 1);
+                double ih = 22 + ((i * 37) % 34);
+                g.fillPolygon(new double[]{ix - 10, ix + 10, ix}, new double[]{p.y + p.h, p.y + p.h, p.y + p.h + ih}, 3);
+            }
+        }
+    }
+
+    private void drawFrostbiteSnowbanks(GraphicsContext g) {
+        for (FrostbiteSnowbank bank : frostbiteSnowbanks) {
+            if (bank.health <= 0) {
+                continue;
+            }
+            if (bank.damageFlash > 0) {
+                bank.damageFlash--;
+            }
+            double ratio = Math.clamp(bank.health / (double) bank.maxHealth, 0.0, 1.0);
+            double slump = (1.0 - ratio) * bank.h * 0.20;
+            Color snow = bank.damageFlash > 0 ? Color.web("#FFF59D") : Color.web("#F8FDFF");
+            g.setFill(Color.web("#082339", 0.22));
+            g.fillOval(bank.x + 8, bank.y + bank.h - 12, bank.w - 16, 28);
+            g.setFill(snow);
+            g.fillOval(bank.x, bank.y + 12 + slump, bank.w * 0.58, bank.h * 0.86);
+            g.fillOval(bank.x + bank.w * 0.30, bank.y + slump, bank.w * 0.55, bank.h * 0.96);
+            g.fillOval(bank.x + bank.w * 0.62, bank.y + 18 + slump, bank.w * 0.38, bank.h * 0.72);
+            g.setFill(Color.web("#B3E5FC", 0.58));
+            g.fillOval(bank.x + bank.w * 0.08, bank.y + bank.h * 0.52 + slump, bank.w * 0.46, bank.h * 0.22);
+            g.fillOval(bank.x + bank.w * 0.52, bank.y + bank.h * 0.48 + slump, bank.w * 0.32, bank.h * 0.18);
+            g.setStroke(bank.damageFlash > 0 ? Color.web("#FFFDE7") : Color.web("#D7F7FF", 0.88));
+            g.setLineWidth(2.6);
+            g.strokeOval(bank.x + bank.w * 0.27, bank.y + slump, bank.w * 0.58, bank.h * 0.92);
         }
     }
 
@@ -20213,6 +20449,7 @@ public class BirdGame3 extends Application {
             case BATTLEFIELD -> "Battlefield";
             case BEACON_CROWN -> "Beacon Crown";
             case DOCK -> "Broken Harbor";
+            case FROSTBITE_FJORD -> "Frostbite Fjord";
             default -> "Big Forest";
         };
     }
@@ -22875,6 +23112,7 @@ public class BirdGame3 extends Application {
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
+        frostbiteSnowbanks.clear();
         powerUps.clear();
         killFeed.clear();
         shakeIntensity = 0.0;
@@ -23971,6 +24209,7 @@ public class BirdGame3 extends Application {
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
+        frostbiteSnowbanks.clear();
         powerUps.clear();
         dockWaterX = 0;
         dockWaterY = 0;
@@ -24003,6 +24242,7 @@ public class BirdGame3 extends Application {
                 battlefieldIslandY = islandY;
             }
             case BEACON_CROWN -> setupBeaconCrownBattlefield();
+            case FROSTBITE_FJORD -> setupFrostbiteFjordArena(new Random(74_021L));
             default -> {
                 platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
                 platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
@@ -24017,6 +24257,7 @@ public class BirdGame3 extends Application {
             case DESERT -> drawDesertArena(g, true);
             case BATTLEFIELD -> drawTrailerBattlefieldArena(g);
             case BEACON_CROWN -> drawBeaconCrownBattlefield(g, true);
+            case FROSTBITE_FJORD ->  drawFrostbiteFjordArena(g, true);
             default -> drawForestArena(g, true);
         }
     }
@@ -25276,6 +25517,7 @@ public class BirdGame3 extends Application {
                 new MapEntry(MapType.CAVE, "Echo Cavern", mapDescription(MapType.CAVE), mapHowToGet(MapType.CAVE)),
                 new MapEntry(MapType.BATTLEFIELD, "Battlefield", mapDescription(MapType.BATTLEFIELD), mapHowToGet(MapType.BATTLEFIELD)),
                 new MapEntry(MapType.DOCK, "Broken Harbor", mapDescription(MapType.DOCK), mapHowToGet(MapType.DOCK)),
+                new MapEntry(MapType.FROSTBITE_FJORD, "Frostbite Fjord", mapDescription(MapType.FROSTBITE_FJORD), mapHowToGet(MapType.FROSTBITE_FJORD)),
                 new MapEntry(MapType.BEACON_CROWN, "Beacon Crown", mapDescription(MapType.BEACON_CROWN), mapHowToGet(MapType.BEACON_CROWN))
         );
     }
@@ -25308,6 +25550,7 @@ public class BirdGame3 extends Application {
             case CAVE -> "Tight corridors and hanging ledges that turn every chase into an ambush. Echoes hide footsteps and reward patient play.";
             case BATTLEFIELD -> "A floating island ringed by open sky. Clean side platforms and a central perch make it perfect for classic duels.";
             case DOCK -> "Storm-battered piers, rigging perches, and rescue skiffs over open water. Pull the top-dock lever to call in a pirate-ship bomb on a rival.";
+            case FROSTBITE_FJORD -> "A frozen fjord under bright auroras with slick ice, breakable snowbanks, and glacier shelves built for slides, traps, and vertical recoveries.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -30818,6 +31061,7 @@ public class BirdGame3 extends Application {
                 new MapCard("ECHO CAVERN", "Tight cave corridors and hang ledges.", "#455A64", MapType.CAVE),
                 new MapCard("BATTLEFIELD", "A tight floating island with clean side perches and open edges.", "#1E88E5", MapType.BATTLEFIELD),
                 new MapCard("BROKEN HARBOR", "Storm piers, mast perches, rescue skiffs, and a bombardment lever on the high dock.", "#26A69A", MapType.DOCK),
+                new MapCard("FROSTBITE FJORD", "Aurora-lit ice shelves with slick movement, snowbanks, and glacier routes.", "#4FC3F7", MapType.FROSTBITE_FJORD),
                 new MapCard("BEACON CROWN", "A huge crown-top arena with long lanes, layered perches, and a lethal void.", "#6A1B9A", MapType.BEACON_CROWN)
         ));
         cards.removeIf(card -> !isMapUnlocked(card.map));
@@ -31890,7 +32134,10 @@ public class BirdGame3 extends Application {
     }
 
     private double[] pickPowerUpSpawnPoint() {
-        boolean battlefield = (selectedMap == MapType.BATTLEFIELD || selectedMap == MapType.BEACON_CROWN || selectedMap == MapType.DOCK)
+        boolean battlefield = (selectedMap == MapType.BATTLEFIELD
+                || selectedMap == MapType.BEACON_CROWN
+                || selectedMap == MapType.DOCK
+                || selectedMap == MapType.FROSTBITE_FJORD)
                 && battlefieldIslandW > 0;
         double battlefieldMinX = 0;
         double battlefieldMaxX = 0;
@@ -32567,6 +32814,184 @@ public class BirdGame3 extends Application {
         battlefieldIslandY = islandY;
     }
 
+    private void setupFrostbiteFjordArena(Random mapRandom) {
+        platforms.add(new Platform(FROSTBITE_MAIN_X, FROSTBITE_MAIN_Y, FROSTBITE_MAIN_W, FROSTBITE_MAIN_H));
+
+        platforms.add(new Platform(FROSTBITE_MAIN_X + 270, FROSTBITE_MAIN_Y - 275, 720, 46));
+        platforms.add(new Platform(FROSTBITE_MAIN_X + FROSTBITE_MAIN_W - 990, FROSTBITE_MAIN_Y - 275, 720, 46));
+        platforms.add(new Platform(FROSTBITE_MAIN_X + 1320, FROSTBITE_MAIN_Y - 455, 1000, 52));
+        platforms.add(new Platform(FROSTBITE_MAIN_X + 610, FROSTBITE_MAIN_Y - 690, 360, 38));
+        platforms.add(new Platform(FROSTBITE_MAIN_X + FROSTBITE_MAIN_W - 970, FROSTBITE_MAIN_Y - 690, 360, 38));
+        platforms.add(new Platform(FROSTBITE_MAIN_X + 1540, FROSTBITE_MAIN_Y - 840, 560, 40));
+
+        // Low side floes give offstage recoveries a readable landing target without removing the icy water threat.
+        platforms.add(new Platform(FROSTBITE_MAIN_X - 430, FROSTBITE_MAIN_Y + 145, 460, 42));
+        platforms.add(new Platform(FROSTBITE_MAIN_X + FROSTBITE_MAIN_W - 30, FROSTBITE_MAIN_Y + 130, 520, 42));
+
+        frostbiteSnowbanks.add(new FrostbiteSnowbank(FROSTBITE_MAIN_X + 430, FROSTBITE_MAIN_Y - 66, 190, 66, 42));
+        frostbiteSnowbanks.add(new FrostbiteSnowbank(FROSTBITE_MAIN_X + 1690, FROSTBITE_MAIN_Y - 76, 250, 76, 54));
+        frostbiteSnowbanks.add(new FrostbiteSnowbank(FROSTBITE_MAIN_X + FROSTBITE_MAIN_W - 700, FROSTBITE_MAIN_Y - 68, 220, 68, 48));
+
+        windVents.add(new WindVent(FROSTBITE_MAIN_X + 940, FROSTBITE_MAIN_Y - 40, 300));
+        windVents.add(new WindVent(FROSTBITE_MAIN_X + FROSTBITE_MAIN_W - 1250, FROSTBITE_MAIN_Y - 48, 330));
+        windVents.add(new WindVent(FROSTBITE_MAIN_X + 1720, FROSTBITE_MAIN_Y - 510, 360));
+
+        battlefieldIslandX = FROSTBITE_MAIN_X;
+        battlefieldIslandW = FROSTBITE_MAIN_W;
+        battlefieldIslandY = FROSTBITE_MAIN_Y;
+
+        mountainPeaks = new double[MOUNTAIN_X.length - 1];
+        for (int i = 0; i < mountainPeaks.length; i++) {
+            mountainPeaks[i] = GROUND_Y - 900 - mapRandom.nextDouble() * 520;
+        }
+    }
+
+    boolean isFrostbiteFjordActive() {
+        return selectedMap == MapType.FROSTBITE_FJORD;
+    }
+
+    boolean isStandingOnFrostbiteSnowbank(Bird bird) {
+        return !Double.isNaN(frostbiteSnowbankLandingY(bird, true));
+    }
+
+    double frostbiteSnowbankLandingY(Bird bird, boolean currentFrameOnly) {
+        if (!isFrostbiteFjordActive() || bird == null || frostbiteSnowbanks.isEmpty()) {
+            return Double.NaN;
+        }
+        double bodyW = 80.0 * bird.sizeMultiplier;
+        double bodyH = 80.0 * bird.sizeMultiplier;
+        double centerX = bird.x + bodyW * 0.5;
+        double bottom = bird.y + bodyH;
+        for (FrostbiteSnowbank bank : frostbiteSnowbanks) {
+            if (bank.health <= 0) {
+                continue;
+            }
+            if (centerX < bank.x + 8.0 || centerX > bank.x + bank.w - 8.0) {
+                continue;
+            }
+            if (currentFrameOnly) {
+                if (bottom >= bank.y && bottom <= bank.y + Math.max(12.0, bank.h * 0.32)
+                        && bird.y <= bank.y + 2.0) {
+                    return bank.y;
+                }
+            } else if (bottom >= bank.y && bird.y < bank.y + bank.h && bird.vy >= 0.0 && bird.y <= bank.y) {
+                return bank.y;
+            }
+        }
+        return Double.NaN;
+    }
+
+    void resolveFrostbiteSnowbankCollision(Bird bird, double prevX, double prevY) {
+        if (!isFrostbiteFjordActive() || bird == null || bird.health <= 0 || frostbiteSnowbanks.isEmpty()) {
+            return;
+        }
+        double bodyW = 80.0 * bird.sizeMultiplier;
+        double bodyH = 80.0 * bird.sizeMultiplier;
+        double left = bird.x;
+        double right = bird.x + bodyW;
+        double top = bird.y;
+        double bottom = bird.y + bodyH;
+        double prevRight = prevX + bodyW;
+        double prevBottom = prevY + bodyH;
+
+        for (FrostbiteSnowbank bank : frostbiteSnowbanks) {
+            if (bank.health <= 0) {
+                continue;
+            }
+            double overlapX = Math.min(right, bank.x + bank.w) - Math.max(left, bank.x);
+            double overlapY = Math.min(bottom, bank.y + bank.h) - Math.max(top, bank.y);
+            if (overlapX <= 0 || overlapY <= 0) {
+                continue;
+            }
+            if (prevBottom <= bank.y + 8.0 && bottom > bank.y && bird.vy >= 0.0) {
+                bird.y = bank.y - bodyH;
+                bird.vy = Math.min(0.0, bird.vy);
+                continue;
+            }
+            if (prevRight <= bank.x && bird.vx > 0.0) {
+                bird.x = bank.x - bodyW - 0.5;
+                bird.vx = Math.min(0.0, bird.vx) * 0.35;
+            } else if (prevX >= bank.x + bank.w && bird.vx < 0.0) {
+                bird.x = bank.x + bank.w + 0.5;
+                bird.vx = Math.max(0.0, bird.vx) * 0.35;
+            } else if (overlapX < overlapY) {
+                double bankCenter = bank.centerX();
+                if (bird.x + bodyW * 0.5 < bankCenter) {
+                    bird.x -= overlapX + 0.5;
+                    bird.vx = Math.min(0.0, bird.vx) * 0.35;
+                } else {
+                    bird.x += overlapX + 0.5;
+                    bird.vx = Math.max(0.0, bird.vx) * 0.35;
+                }
+            }
+        }
+    }
+
+    void damageFrostbiteSnowbanks(Bird attacker, double attackCenterX, double attackCenterY,
+                                  double horizontalReach, double verticalReach, int rawDamage) {
+        if (!isFrostbiteFjordActive() || attacker == null || frostbiteSnowbanks.isEmpty()) {
+            return;
+        }
+        for (Iterator<FrostbiteSnowbank> it = frostbiteSnowbanks.iterator(); it.hasNext(); ) {
+            FrostbiteSnowbank bank = it.next();
+            double halfW = bank.w * 0.5;
+            double halfH = bank.h * 0.5;
+            if (Math.abs(bank.centerX() - attackCenterX) > halfW + horizontalReach
+                    || Math.abs(bank.centerY() - attackCenterY) > halfH + verticalReach) {
+                continue;
+            }
+            int damage = Math.max(7, (int) Math.round(rawDamage * 0.72));
+            bank.health = Math.max(0, bank.health - damage);
+            bank.damageFlash = 10;
+            emitFrostbiteSnowbankChips(bank.centerX(), bank.y + bank.h * 0.36,
+                    Math.signum(bank.centerX() - attackCenterX), 12, Color.web("#E1F5FE"));
+            shakeIntensity = Math.max(shakeIntensity, 3.5);
+            if (bank.health <= 0) {
+                shatterFrostbiteSnowbank(it, bank, false, 0);
+            }
+        }
+    }
+
+    boolean hitFrostbiteSnowbankWithIce(double x, double y, double radius, int direction, boolean ultimate) {
+        if (!isFrostbiteFjordActive() || frostbiteSnowbanks.isEmpty()) {
+            return false;
+        }
+        for (Iterator<FrostbiteSnowbank> it = frostbiteSnowbanks.iterator(); it.hasNext(); ) {
+            FrostbiteSnowbank bank = it.next();
+            if (Math.abs(bank.centerX() - x) > bank.w * 0.5 + radius
+                    || Math.abs(bank.centerY() - y) > bank.h * 0.5 + radius) {
+                continue;
+            }
+            shatterFrostbiteSnowbank(it, bank, true, direction == 0 ? 1 : direction);
+            shakeIntensity = Math.max(shakeIntensity, ultimate ? 8.0 : 5.5);
+            return true;
+        }
+        return false;
+    }
+
+    private void shatterFrostbiteSnowbank(Iterator<FrostbiteSnowbank> iterator, FrostbiteSnowbank bank,
+                                          boolean iceImpact, int direction) {
+        emitFrostbiteSnowbankChips(bank.centerX(), bank.y + bank.h * 0.4,
+                direction == 0 ? 1.0 : direction, iceImpact ? 34 : 24,
+                iceImpact ? Color.web("#B3E5FC") : Color.WHITE);
+        iterator.remove();
+    }
+
+    private void emitFrostbiteSnowbankChips(double x, double y, double direction, int count, Color color) {
+        double dir = direction == 0.0 ? 1.0 : Math.signum(direction);
+        for (int i = 0; i < Math.max(1, count); i++) {
+            double spray = -Math.PI * 0.62 + (Math.random() - 0.5) * 1.2;
+            double speed = 2.0 + Math.random() * 6.2;
+            particles.add(new Particle(
+                    x + (Math.random() - 0.5) * 46.0,
+                    y + (Math.random() - 0.5) * 28.0,
+                    Math.cos(spray) * speed * dir + (Math.random() - 0.5) * 1.2,
+                    Math.sin(spray) * speed - 1.8,
+                    color.deriveColor(0, 1, 1, 0.78)
+            ));
+        }
+    }
+
     private void positionBattlefieldSpawns() {
         List<Bird> active = new ArrayList<>();
         for (Bird b : players) {
@@ -32604,7 +33029,7 @@ public class BirdGame3 extends Application {
             return;
         }
 
-        if ((selectedMap != MapType.BATTLEFIELD && selectedMap != MapType.BEACON_CROWN)
+        if ((selectedMap != MapType.BATTLEFIELD && selectedMap != MapType.BEACON_CROWN && selectedMap != MapType.FROSTBITE_FJORD)
                 || battlefieldIslandW <= 0) {
             double[] spawnCenters = buildSpawnCenters(active.size(), 420.0, WORLD_WIDTH - 420.0);
             for (int i = 0; i < active.size(); i++) {
@@ -32679,6 +33104,9 @@ public class BirdGame3 extends Application {
         if (selectedMap == MapType.DOCK) {
             return 1760;
         }
+        if (selectedMap == MapType.FROSTBITE_FJORD) {
+            return FROSTBITE_MAIN_X + FROSTBITE_MAIN_W / 2.0;
+        }
         if (battlefieldIslandW > 0) {
             return battlefieldIslandX + battlefieldIslandW / 2.0;
         }
@@ -32688,6 +33116,9 @@ public class BirdGame3 extends Application {
     double battlefieldSpawnY(double sizeMultiplier) {
         if (selectedMap == MapType.DOCK) {
             return GROUND_Y - 220 * sizeMultiplier;
+        }
+        if (selectedMap == MapType.FROSTBITE_FJORD && battlefieldIslandW > 0) {
+            return battlefieldIslandY - 80 * sizeMultiplier;
         }
         if (battlefieldIslandW > 0) {
             return battlefieldIslandY - 80 * sizeMultiplier;
@@ -33054,6 +33485,7 @@ public class BirdGame3 extends Application {
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
+        frostbiteSnowbanks.clear();
         particles.clear();
         powerUps.clear();
         dockWaterX = 0;
@@ -33095,6 +33527,8 @@ public class BirdGame3 extends Application {
             battlefieldIslandY = islandY;
         } else if (selectedMap == MapType.BEACON_CROWN) {
             setupBeaconCrownBattlefield();
+        } else if (selectedMap == MapType.FROSTBITE_FJORD) {
+            setupFrostbiteFjordArena(mapRandom);
         } else if (selectedMap == MapType.DOCK) {
             setupDockArena();
         } else if (selectedMap == MapType.DESERT) {
@@ -33212,6 +33646,7 @@ public class BirdGame3 extends Application {
             }
         } else if (selectedMap == MapType.BATTLEFIELD
                 || selectedMap == MapType.BEACON_CROWN
+                || selectedMap == MapType.FROSTBITE_FJORD
                 || selectedMap == MapType.DOCK
                 || selectedMap == MapType.DESERT) {
             mountainPeaks = null;
@@ -33285,6 +33720,8 @@ public class BirdGame3 extends Application {
         gameRoot = root;
         root.setStyle(selectedMap == MapType.DOCK
                 ? "-fx-background-color: linear-gradient(to bottom, #0F3047 0%, #1E5D78 55%, #0A171F 100%);"
+                : selectedMap == MapType.FROSTBITE_FJORD
+                ? "-fx-background-color: linear-gradient(to bottom, #08142C 0%, #13436A 52%, #AEEBFF 100%);"
                 : selectedMap == MapType.DESERT
                 ? "-fx-background-color: linear-gradient(to bottom, #F3A85A 0%, #F7D28B 48%, #D59A52 100%);"
                 : (selectedMap == MapType.FOREST || selectedMap == MapType.BATTLEFIELD)

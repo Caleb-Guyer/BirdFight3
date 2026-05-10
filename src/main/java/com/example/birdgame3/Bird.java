@@ -1019,7 +1019,8 @@ public class Bird {
 
     private boolean usesIslandBounds() {
         return game.selectedMap == MapType.BATTLEFIELD
-                || game.selectedMap == MapType.BEACON_CROWN;
+                || game.selectedMap == MapType.BEACON_CROWN
+                || game.selectedMap == MapType.FROSTBITE_FJORD;
     }
 
     private boolean isInDockWater() {
@@ -1053,6 +1054,7 @@ public class Bird {
         double bottom = bodyBottomY();
         if (hasSolidGroundFloorUnderBody() && bottom >= BirdGame3.GROUND_Y) return true;
         if (canStandInVoid() && bottom >= voidStandFloorY()) return true;
+        if (game.isStandingOnFrostbiteSnowbank(this)) return true;
         Platform respawnNest = activeRespawnNestPlatform();
         if (respawnNest != null
                 && bodyCenterX() >= respawnNest.x && bodyCenterX() <= respawnNest.x + respawnNest.w
@@ -1139,6 +1141,14 @@ public class Bird {
         if (!hit && canStandInVoid() && bodyBottomY() > voidStandFloorY()) {
             newY = voidStandFloorY() - bodyHeight();
             hit = true;
+        }
+
+        if (!hit) {
+            double snowbankY = game.frostbiteSnowbankLandingY(this, false);
+            if (!Double.isNaN(snowbankY)) {
+                newY = snowbankY - bodyHeight();
+                hit = true;
+            }
         }
 
         if (!hit && hasSolidGroundFloorUnderBody() && y + 80 * sizeMultiplier > BirdGame3.GROUND_Y) {
@@ -1615,6 +1625,7 @@ public class Bird {
         attackCrows(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
         attackChicks(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
         attackPenguinSnowForts(attackCenterX, attackCenterY, range, verticalRange, dmg);
+        game.damageFrostbiteSnowbanks(this, attackCenterX, attackCenterY, range, verticalRange, dmg);
         return profile;
     }
 
@@ -7883,7 +7894,9 @@ public class Bird {
     }
 
     private boolean isVoidMap() {
-        return game.selectedMap == MapType.BATTLEFIELD || game.selectedMap == MapType.BEACON_CROWN;
+        return game.selectedMap == MapType.BATTLEFIELD
+                || game.selectedMap == MapType.BEACON_CROWN
+                || game.selectedMap == MapType.FROSTBITE_FJORD;
     }
 
     private Platform findAIMainStagePlatform() {
@@ -8756,6 +8769,17 @@ public class Bird {
             } else if (type == BirdGame3.BirdType.ROADRUNNER && !airborne && Math.abs(vx) > 10.0) {
                 vx *= 0.96;
                 roadrunnerMomentumFxTimer = Math.max(roadrunnerMomentumFxTimer, 16);
+            } else if (game.isFrostbiteFjordActive() && !airborne) {
+                vx *= type == BirdGame3.BirdType.PENGUIN ? 0.91 : 0.94;
+                if (Math.abs(vx) > 2.0 && Math.random() < 0.42) {
+                    game.particles.add(new Particle(
+                            x + 40 * sizeMultiplier - Math.signum(vx) * 22 * sizeMultiplier,
+                            y + 76 * sizeMultiplier,
+                            -Math.signum(vx) * (0.5 + Math.random() * 1.2),
+                            -0.7 - Math.random() * 1.5,
+                            Color.web("#E1F5FE", 0.66)
+                    ));
+                }
             } else {
                 vx *= airborne ? 0.96 : 0.80;
             }
@@ -8783,6 +8807,7 @@ public class Bird {
         if (grabbedTarget != null) {
             syncGrabbedTargetPosition();
         }
+        game.resolveFrostbiteSnowbankCollision(this, prevX, prevY);
 
         // === THERMALS & WIND VENTS ===
         handleThermals(downHeld, prevX, prevY);
@@ -10025,6 +10050,16 @@ public class Bird {
                 airFric = airborne
                         ? Math.min(airFric, turkeyStuffedUltimate ? 0.90 : 0.92)
                         : Math.min(airFric, turkeyStuffedUltimate ? 0.72 : 0.78);
+            }
+            if (game.isFrostbiteFjordActive() && !airborne && health > 0) {
+                if (type == BirdGame3.BirdType.PENGUIN) {
+                    moveSpeed *= 1.08;
+                    accel *= 1.08;
+                    airFric = Math.max(airFric, 0.82);
+                } else {
+                    accel *= 0.76;
+                    airFric = Math.max(airFric, 0.89);
+                }
             }
 
             boolean leftPressed = leftPressed();
@@ -11285,7 +11320,25 @@ public class Bird {
                 object.vx *= object.snowball ? 0.994 : 0.982;
             }
 
-            if (penguinSnowFort != null && penguinSnowFort.health > 0 && !object.snowball
+            int objectDir = (int) Math.signum(object.vx == 0.0 ? object.direction : object.vx);
+            if (!object.shattered && game.hitFrostbiteSnowbankWithIce(object.x, object.y, radius * 0.86, objectDir, object.ultimate)) {
+                if (!object.snowball) {
+                    object.shattered = true;
+                    spawnedObjects.add(new PenguinIceObject(
+                            object.x + objectDir * 38.0 * sizeMultiplier,
+                            object.y,
+                            objectDir * (object.ultimate ? 14.6 : 12.2),
+                            -2.2,
+                            objectDir,
+                            object.ultimate,
+                            true));
+                } else {
+                    object.vx *= 0.90;
+                    object.vy -= 1.4;
+                }
+            }
+
+            if (!object.shattered && penguinSnowFort != null && penguinSnowFort.health > 0 && !object.snowball
                     && Math.abs(object.x - penguinSnowFort.x) < 82.0 * sizeMultiplier
                     && Math.abs(object.y - (penguinSnowFort.y - 56.0 * sizeMultiplier)) < 86.0 * sizeMultiplier) {
                 PenguinSnowFort fort = penguinSnowFort;

@@ -138,6 +138,10 @@ final class BirdBookUiSupport {
                 top = Color.web("#0F3047");
                 bottom = Color.web("#2A6A83");
             }
+            case FROSTBITE_FJORD -> {
+                top = Color.web("#08142C");
+                bottom = Color.web("#AEEBFF");
+            }
             default -> {
                 top = Color.web("#1B5E20");
                 bottom = Color.web("#4CAF50");
@@ -264,6 +268,29 @@ final class BirdBookUiSupport {
                         3
                 );
             }
+            case FROSTBITE_FJORD -> {
+                g.setFill(Color.web("#64FFDA", 0.24));
+                g.fillPolygon(
+                        new double[]{0, w * 0.22, w * 0.46, w * 0.72, w},
+                        new double[]{h * 0.28, h * 0.18, h * 0.34, h * 0.15, h * 0.3},
+                        5
+                );
+                g.setFill(Color.web("#B388FF", 0.18));
+                g.fillPolygon(
+                        new double[]{w * 0.08, w * 0.34, w * 0.58, w * 0.86},
+                        new double[]{h * 0.42, h * 0.24, h * 0.44, h * 0.25},
+                        4
+                );
+                g.setFill(Color.web("#0A2942", 0.72));
+                g.fillRect(0, h * 0.76, w, h * 0.24);
+                g.setFill(Color.web("#E8FBFF", 0.92));
+                g.fillRoundRect(w * 0.12, h * 0.62, w * 0.76, h * 0.12, 18, 18);
+                g.setFill(Color.web("#80DEEA", 0.62));
+                g.fillRoundRect(w * 0.18, h * 0.66, w * 0.64, h * 0.08, 14, 14);
+                g.setFill(Color.web("#FFFFFF", 0.88));
+                g.fillOval(w * 0.23, h * 0.55, w * 0.18, h * 0.16);
+                g.fillOval(w * 0.58, h * 0.53, w * 0.22, h * 0.18);
+            }
             default -> {
                 g.setFill(Color.web("#1B5E20", 0.75));
                 g.fillPolygon(new double[]{0, w * 0.1, w * 0.2}, new double[]{h, h * 0.55, h}, 3);
@@ -300,6 +327,7 @@ final class BirdBookUiSupport {
             case BATTLEFIELD -> Color.web("#1E88E5");
             case BEACON_CROWN -> Color.web("#8E24AA");
             case DOCK -> Color.web("#26A69A");
+            case FROSTBITE_FJORD -> Color.web("#4FC3F7");
             default -> Color.web("#2E7D32");
         };
     }
@@ -307,7 +335,8 @@ final class BirdBookUiSupport {
     static BirdGame3.MapType originMapForBird(BirdGame3.BirdType type) {
         return switch (type) {
             case PIGEON, MOCKINGBIRD, RAVEN -> BirdGame3.MapType.CITY;
-            case EAGLE, FALCON, PENGUIN, RAZORBILL -> BirdGame3.MapType.SKYCLIFFS;
+            case EAGLE, FALCON, RAZORBILL -> BirdGame3.MapType.SKYCLIFFS;
+            case PENGUIN -> BirdGame3.MapType.FROSTBITE_FJORD;
             case PHOENIX, BAT, VULTURE, OPIUMBIRD, HEISENBIRD -> BirdGame3.MapType.CAVE;
             case HUMMINGBIRD, TITMOUSE -> BirdGame3.MapType.VIBRANT_JUNGLE;
             case PELICAN -> BirdGame3.MapType.DOCK;
