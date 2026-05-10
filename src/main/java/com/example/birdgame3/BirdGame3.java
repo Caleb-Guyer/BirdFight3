@@ -8791,7 +8791,7 @@ public class BirdGame3 extends Application {
         HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Needle Barrage + Flash Sip + Hover Burst + Nectar Trap"),
         TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Charged Gobble Guard + Held Stampede + Panic Flap + Feast Trap"),
         ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Chick Call + Chick Toss + Coop Boost + Brood Recall"),
-        ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Dust Sprint + Sandstorm"),
+        ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road"),
         PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Ice Jump Dash"),
         SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "AoE Stun"),
         MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Spawn Charles Lounge (Heal zone)"),

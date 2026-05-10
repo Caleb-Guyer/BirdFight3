@@ -486,6 +486,203 @@ class BirdStateTest {
     }
 
     @Test
+    void roadrunnerNeutralChargesThenReleasesMomentumBurst() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird runner = new Bird(220.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        Bird target = new Bird(345.0, BirdGame3.BirdType.PIGEON, 1, game);
+        runner.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = runner;
+        game.players[1] = target;
+
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(specialKey, true);
+        for (int i = 0; i < 42; i++) {
+            runner.update(1.0);
+        }
+
+        double targetHealthBeforeRelease = target.health;
+        assertTrue(getPrivateBoolean(runner, "roadrunnerBeepCharging"));
+        assertTrue(getPrivateInt(runner, "roadrunnerBeepChargeFrames") >= 35);
+        assertEquals(targetHealthBeforeRelease, target.health, 0.0001,
+                "Beep-Beep Blitz should not hit until the held neutral is released.");
+
+        game.setLocalActionsForKey(specialKey, false);
+        runner.update(1.0);
+
+        assertFalse(getPrivateBoolean(runner, "roadrunnerBeepCharging"));
+        assertTrue(getPrivateInt(runner, "roadrunnerBeepBurstTimer") > 0);
+        assertTrue(target.health < targetHealthBeforeRelease,
+                "Releasing neutral should fire the charged burst hit.");
+        assertTrue(target.vx > 10.0,
+                "Charged Beep-Beep Blitz should launch forward with real knockback.");
+        assertTrue(runner.vx > 25.0,
+                "Charged neutral should release Roadrunner at high speed even without horizontal input held.");
+        assertEquals(0, runner.specialCooldown);
+        assertTrue(getPrivateInt(runner, "roadrunnerBeepReuseTimer") > 0);
+    }
+
+    @Test
+    void roadrunnerNeutralAutoReleasesAtFullChargeSpeed() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird runner = new Bird(220.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        runner.y = BirdGame3.GROUND_Y - 80.0;
+        runner.facingRight = true;
+        game.players[0] = runner;
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        for (int i = 0; i < 72; i++) {
+            runner.update(1.0);
+        }
+
+        assertFalse(getPrivateBoolean(runner, "roadrunnerBeepCharging"),
+                "Neutral should auto-release as soon as it reaches full charge.");
+        assertTrue(getPrivateInt(runner, "roadrunnerBeepBurstTimer") > 0);
+        assertTrue(runner.vx > 45.0,
+                "A full-charge neutral should immediately propel Roadrunner at full speed.");
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+    }
+
+    @Test
+    void roadrunnerHighSpeedCoastsDownInsteadOfStoppingHard() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird runner = new Bird(260.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        runner.y = BirdGame3.GROUND_Y - 80.0;
+        runner.vx = 30.0;
+        game.players[0] = runner;
+
+        runner.update(1.0);
+
+        assertTrue(runner.vx > 24.0,
+                "Roadrunner should bleed off high speed instead of instantly stopping when input drops.");
+    }
+
+    @Test
+    void roadrunnerSideRicochetUsesInvisibleReuseAndHitsFast() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird runner = new Bird(240.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        Bird target = new Bird(328.0, BirdGame3.BirdType.PIGEON, 1, game);
+        runner.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = runner;
+        game.players[1] = target;
+        setPrivateDouble(runner, "roadrunnerMomentum", 80.0);
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        invokePrivateVoid(runner, "special");
+        double targetHealthBefore = target.health;
+        runner.update(1.0);
+
+        assertTrue(getPrivateInt(runner, "roadrunnerRicochetTimer") > 0);
+        assertTrue(Math.abs(runner.vx) > 18.0,
+                "Canyon Ricochet should be a high-speed dash.");
+        assertTrue(target.health < targetHealthBefore,
+                "Ricochet should damage birds in its lane.");
+        assertEquals(0, runner.specialCooldown);
+        assertTrue(getPrivateInt(runner, "roadrunnerRicochetReuseTimer") > 0);
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+    }
+
+    @Test
+    void roadrunnerUpSpecialIsOncePerAirtimeDustDevilRecovery() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird runner = new Bird(260.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        Bird target = new Bird(300.0, BirdGame3.BirdType.PIGEON, 1, game);
+        runner.y = BirdGame3.GROUND_Y - 260.0;
+        target.y = BirdGame3.GROUND_Y - 260.0;
+        runner.vy = 0.0;
+        target.vy = 0.0;
+        game.players[0] = runner;
+        game.players[1] = target;
+        setPrivateDouble(runner, "roadrunnerMomentum", 70.0);
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        invokePrivateVoid(runner, "special");
+        runner.update(1.0);
+
+        assertTrue(runner.vy < -20.0,
+                "Dust Devil Lift should provide strong vertical recovery.");
+        assertTrue(target.vy < -14.0,
+                "Dust Devil Lift should knock nearby birds upward.");
+        assertTrue(getPrivateBoolean(runner, "roadrunnerDustDevilUsed"));
+        assertEquals(0, runner.specialCooldown);
+
+        setPrivateInt(runner, "roadrunnerDustDevilTimer", 0);
+        runner.vy = 0.0;
+        invokePrivateVoid(runner, "special");
+        assertEquals(0.0, runner.vy, 0.0001,
+                "Roadrunner should not get another up special before landing.");
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+    }
+
+    @Test
+    void roadrunnerPaintedRoadSlipsEnemiesAndBoostsOwnerMomentum() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird runner = new Bird(300.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        Bird target = new Bird(365.0, BirdGame3.BirdType.PIGEON, 1, game);
+        runner.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        runner.facingRight = true;
+        game.players[0] = runner;
+        game.players[1] = target;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        invokePrivateVoid(runner, "special");
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+
+        assertEquals(0, runner.specialCooldown);
+        assertTrue(getPrivateInt(runner, "roadrunnerPaintedRoadReuseTimer") > 0);
+        assertEquals(1, ((List<?>) getPrivateObject(runner, "roadrunnerPaintedRoads")).size());
+        assertTrue(runner.vx > 8.0,
+                "Down special should propel Roadrunner forward when no horizontal input is held.");
+
+        runner.update(1.0);
+        assertTrue(getPrivateInt(target, "roadrunnerSlipTimer") > 0,
+                "Enemies standing on Painted Road should receive the slip debuff.");
+        assertEquals(0, getPrivateInt(runner, "roadrunnerRoadBoostTimer"),
+                "Roadrunner should not trigger his road boost before stepping off the road once.");
+
+        target.vx = 0.0;
+        target.update(1.0);
+        assertTrue(target.vx < -8.0,
+                "Stepping on the road should launch enemies opposite the road direction.");
+
+        Object road = ((List<?>) getPrivateObject(runner, "roadrunnerPaintedRoads")).getFirst();
+        double roadX = getPrivateDouble(road, "x");
+        double roadY = getPrivateDouble(road, "y");
+        target.x = 800.0;
+        runner.x = roadX - 220.0;
+        runner.y = roadY - 80.0;
+        runner.vx = 0.0;
+        runner.vy = 0.0;
+        runner.update(1.0);
+
+        runner.x = roadX - 40.0;
+        runner.y = roadY - 80.0;
+        runner.vx = 0.0;
+        runner.vy = 0.0;
+        runner.update(1.0);
+
+        assertTrue(getPrivateInt(runner, "roadrunnerRoadBoostTimer") > 0,
+                "Roadrunner should trigger the road boost after leaving and re-entering it.");
+        assertTrue(runner.vx > 20.0,
+                "Roadrunner's road should launch him hard in the road direction once armed.");
+    }
+
+    @Test
     void defeatedBirdRemovesOwnedSummons() {
         BirdGame3 game = new BirdGame3();
         Bird owner = new Bird(100, BirdGame3.BirdType.VULTURE, 0, game);

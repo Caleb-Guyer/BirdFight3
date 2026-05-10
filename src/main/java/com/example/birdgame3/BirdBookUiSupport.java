@@ -332,7 +332,7 @@ final class BirdBookUiSupport {
             case HUMMINGBIRD -> "A blur with a sweet tooth and a short temper. Will duel you for a drop of nectar and win smiling.";
             case TURKEY -> "Big steps, bigger thumps. Treats the ground like an instrument and keeps the rhythm with shockwaves.";
             case ROOSTER -> "Morning alarm with a battle plan. He commands a rotating brood of chicks, throws them into fights, launches off them, and recalls the whole flock on demand.";
-            case ROADRUNNER -> "A desert menace built for pure pace. He lives low to the ground, runs rings around slower birds, and turns every straightaway into a trap.";
+            case ROADRUNNER -> "A desert menace built around momentum. He charges blitzes, ricochets through lanes, rides dust devils upward, and paints fake roads that turn enemy movement against them.";
             case PENGUIN -> "Slides more than it flies, but it still finds a way to win. Cool, calm, and stubborn as a glacier.";
             case SHOEBILL -> "Stares too long, strikes too fast. Marsh legends say it never blinks, only decides.";
             case MOCKINGBIRD -> "Old friend of Caleb Bossk and owner of the Charles Lounge. Passed the Bossk Test to become a Bosskhead, then turned every fight into his stage.";

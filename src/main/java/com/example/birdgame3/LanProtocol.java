@@ -6,7 +6,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 final class LanProtocol {
-    static final int VERSION = 6;
+    static final int VERSION = 8;
     static final int DEFAULT_PORT = 28999;
 
     static final byte MSG_HELLO = 1;

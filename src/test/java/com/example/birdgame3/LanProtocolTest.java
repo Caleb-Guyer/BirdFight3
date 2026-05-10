@@ -53,6 +53,16 @@ class LanProtocolTest {
         state.airDodgeAvailable = false;
         state.activeAerialLandingLagFrames = 12;
         state.phoenixLavaReuseTimer = 31;
+        state.roadrunnerMomentum = 74.5;
+        state.roadrunnerBeepCharging = true;
+        state.roadrunnerBeepChargeFrames = 28;
+        state.roadrunnerBeepMaxChargeHoldFrames = 6;
+        state.roadrunnerRicochetTimer = 9;
+        state.roadrunnerRicochetSpeed = 27.5;
+        state.roadrunnerDustDevilUsed = true;
+        state.roadrunnerRoadBoostTimer = 18;
+        state.roadrunnerSlipTimer = 44;
+        state.roadrunnerSlipDirection = -1;
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         state.write(new DataOutputStream(bos));
@@ -72,5 +82,15 @@ class LanProtocolTest {
         assertFalse(decoded.airDodgeAvailable);
         assertEquals(12, decoded.activeAerialLandingLagFrames);
         assertEquals(31, decoded.phoenixLavaReuseTimer);
+        assertEquals(74.5, decoded.roadrunnerMomentum);
+        assertTrue(decoded.roadrunnerBeepCharging);
+        assertEquals(28, decoded.roadrunnerBeepChargeFrames);
+        assertEquals(6, decoded.roadrunnerBeepMaxChargeHoldFrames);
+        assertEquals(9, decoded.roadrunnerRicochetTimer);
+        assertEquals(27.5, decoded.roadrunnerRicochetSpeed);
+        assertTrue(decoded.roadrunnerDustDevilUsed);
+        assertEquals(18, decoded.roadrunnerRoadBoostTimer);
+        assertEquals(44, decoded.roadrunnerSlipTimer);
+        assertEquals(-1, decoded.roadrunnerSlipDirection);
     }
 }
