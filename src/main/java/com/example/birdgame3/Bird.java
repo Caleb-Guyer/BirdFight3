@@ -105,6 +105,13 @@ public class Bird {
         DOWN
     }
 
+    private enum PenguinSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record NormalAttackProfile(
             double horizontalReach,
             double verticalReach,
@@ -536,9 +543,37 @@ public class Bird {
     private static Image photoEagleIdleSprite;
     private static Image photoEagleAttackSprite;
     private static Image photoEagleFlapSprite;
+    private static final int PENGUIN_BELLY_CHARGE_MAX_FRAMES = 72;
+    private static final int PENGUIN_BELLY_SLIDE_FRAMES = 30;
+    private static final int PENGUIN_BELLY_REUSE_FRAMES = 22;
+    private static final int PENGUIN_ICEBERG_REUSE_FRAMES = 34;
+    private static final int PENGUIN_ICE_OBJECT_LIFE_FRAMES = 156;
+    private static final int PENGUIN_ROCKET_FRAMES = 24;
+    private static final int PENGUIN_FLOP_FRAMES = 70;
+    private static final int PENGUIN_SNOW_FORT_REUSE_FRAMES = 44;
+    private static final int PENGUIN_SNOW_FORT_LIFE_FRAMES = 420;
+    private static final int PENGUIN_SNOW_FORT_HEALTH = 82;
     private double penguinIceFxTimer = 0;
     private int penguinDashDamageTimer = 0;
     private final boolean[] penguinDashHit = new boolean[4];
+    private boolean penguinBellyCharging = false;
+    private int penguinBellyChargeFrames = 0;
+    private int penguinBellySlideTimer = 0;
+    private int penguinBellyReuseTimer = 0;
+    private int penguinBellyDirection = 1;
+    private boolean penguinBellyUltimate = false;
+    private final boolean[] penguinBellyHit = new boolean[4];
+    private int penguinIcebergReuseTimer = 0;
+    private final ArrayList<PenguinIceObject> penguinIceObjects = new ArrayList<>();
+    private int penguinRocketTimer = 0;
+    private int penguinFlopTimer = 0;
+    private boolean penguinRocketUltimate = false;
+    private boolean penguinUpSpecialUsed = false;
+    private final boolean[] penguinRocketHit = new boolean[4];
+    private final boolean[] penguinFlopHit = new boolean[4];
+    private int penguinSnowFortReuseTimer = 0;
+    private PenguinSnowFort penguinSnowFort = null;
+    private int penguinFortGuardFxTimer = 0;
     private int hummingFrenzyTimer = 0;
     private final int[] hummingFrenzyHitCooldown = new int[4];
     private static final int HUMMING_NEEDLE_COMBO_WINDOW_FRAMES = 96;
@@ -715,6 +750,53 @@ public class Bird {
             this.ultimate = ultimate;
             this.lifeFrames = ultimate ? ROADRUNNER_PAINTED_ROAD_LIFE_FRAMES + 120 : ROADRUNNER_PAINTED_ROAD_LIFE_FRAMES;
             this.usesRemaining = ROADRUNNER_PAINTED_ROAD_USES;
+        }
+    }
+
+    private static final class PenguinIceObject {
+        double x;
+        double y;
+        double vx;
+        double vy;
+        final int direction;
+        final boolean ultimate;
+        final boolean snowball;
+        final int[] hitCooldown = new int[4];
+        int lifeFrames;
+        int ageFrames;
+        boolean shattered;
+
+        PenguinIceObject(double x, double y, double vx, double vy, int direction, boolean ultimate, boolean snowball) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.direction = direction == 0 ? 1 : direction;
+            this.ultimate = ultimate;
+            this.snowball = snowball;
+            this.lifeFrames = (ultimate ? PENGUIN_ICE_OBJECT_LIFE_FRAMES + 72 : PENGUIN_ICE_OBJECT_LIFE_FRAMES)
+                    + (snowball ? 170 : 0);
+        }
+    }
+
+    private static final class PenguinSnowFort {
+        final double x;
+        final double y;
+        final int direction;
+        final boolean ultimate;
+        final int[] hitCooldown = new int[4];
+        int health;
+        int lifeFrames;
+        int ageFrames;
+        int damageFlash;
+
+        PenguinSnowFort(double x, double y, int direction, boolean ultimate) {
+            this.x = x;
+            this.y = y;
+            this.direction = direction == 0 ? 1 : direction;
+            this.ultimate = ultimate;
+            this.health = ultimate ? PENGUIN_SNOW_FORT_HEALTH + 34 : PENGUIN_SNOW_FORT_HEALTH;
+            this.lifeFrames = ultimate ? PENGUIN_SNOW_FORT_LIFE_FRAMES + 160 : PENGUIN_SNOW_FORT_LIFE_FRAMES;
         }
     }
 
@@ -1532,6 +1614,7 @@ public class Bird {
         attackLounge(dmg);
         attackCrows(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
         attackChicks(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
+        attackPenguinSnowForts(attackCenterX, attackCenterY, range, verticalRange, dmg);
         return profile;
     }
 
@@ -2393,6 +2476,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.ROADRUNNER && !canStartRoadrunnerSpecial()) {
             return;
         }
+        if (type == BirdGame3.BirdType.PENGUIN && !canStartPenguinSpecial()) {
+            return;
+        }
         if (isRaptor()) {
             RaptorSpecialVariant variant = selectRaptorSpecialVariant();
             if (!canStartRaptorSpecialVariant(variant)) {
@@ -2408,6 +2494,7 @@ public class Bird {
                 && type != BirdGame3.BirdType.TURKEY
                 && type != BirdGame3.BirdType.ROOSTER
                 && type != BirdGame3.BirdType.ROADRUNNER
+                && type != BirdGame3.BirdType.PENGUIN
                 && specialCooldown > 0
                 && !ultimateReady) {
             if (!game.isAI[playerIndex]) {
@@ -2452,7 +2539,7 @@ public class Bird {
             case HUMMINGBIRD -> specialHummingbird(selectHummingbirdSpecialVariant(), ultimateTriggered);
             case TURKEY -> specialTurkey(selectTurkeySpecialVariant(), ultimateTriggered);
             case ROADRUNNER -> specialRoadrunner(selectRoadrunnerSpecialVariant(), ultimateTriggered);
-            case PENGUIN -> specialPenguin(ultimateTriggered);
+            case PENGUIN -> specialPenguin(selectPenguinSpecialVariant(), ultimateTriggered);
             case SHOEBILL -> specialShoebill(ultimateTriggered);
             case MOCKINGBIRD -> specialMockingbird(ultimateTriggered);
             case RAZORBILL -> specialRazorbill(ultimateTriggered);
@@ -2726,6 +2813,286 @@ public class Bird {
         if (turkeyPanicFlapTimer > 0) {
             handleTurkeyPanicFlap();
         }
+    }
+
+    private void handlePenguinSpecialState(boolean specialHeld) {
+        if (type != BirdGame3.BirdType.PENGUIN) {
+            return;
+        }
+        if (stunTime > 0.0) {
+            resetPenguinSpecialState(false);
+            return;
+        }
+        if (penguinBellyCharging) {
+            handlePenguinBellyCharge(specialHeld);
+        }
+        if (penguinBellySlideTimer > 0) {
+            handlePenguinBellySlide();
+        }
+        if (penguinRocketTimer > 0) {
+            handlePenguinRocket(specialHeld);
+        }
+        if (penguinFlopTimer > 0) {
+            handlePenguinFlop();
+        }
+    }
+
+    private double penguinBellyChargeRatio() {
+        return Math.clamp(penguinBellyChargeFrames / (double) PENGUIN_BELLY_CHARGE_MAX_FRAMES, 0.0, 1.0);
+    }
+
+    private void handlePenguinBellyCharge(boolean specialHeld) {
+        int inputDir = horizontalInputDirection();
+        if (inputDir != 0) {
+            penguinBellyDirection = inputDir;
+            facingRight = inputDir > 0;
+        }
+        boolean directionalVariantRequested = jumpPressed()
+                || blockPressed();
+        boolean keepCharging = specialHeld
+                && !directionalVariantRequested
+                && penguinBellyChargeFrames < PENGUIN_BELLY_CHARGE_MAX_FRAMES;
+        if (!keepCharging) {
+            releasePenguinBellySlide();
+            return;
+        }
+
+        penguinBellyChargeFrames = Math.min(PENGUIN_BELLY_CHARGE_MAX_FRAMES, penguinBellyChargeFrames + 1);
+        attackAnimationTimer = Math.max(attackAnimationTimer, 5);
+        vx *= isOnGround() ? 0.50 : 0.78;
+        if (!isOnGround()) {
+            vy = Math.min(vy, 1.4);
+        }
+        double ratio = penguinBellyChargeRatio();
+        if ((penguinBellyChargeFrames & 3) == 0) {
+            double skidDir = penguinBellyDirection == 0 ? facingDirection() : penguinBellyDirection;
+            game.particles.add(new Particle(
+                    bodyCenterX() - skidDir * (24.0 + ratio * 26.0) * sizeMultiplier,
+                    bodyBottomY() - 5.0 * sizeMultiplier,
+                    -skidDir * (1.0 + ratio * 2.3 + Math.random() * 1.4),
+                    -0.8 - Math.random() * (1.4 + ratio * 1.8),
+                    (penguinBellyUltimate ? Color.GOLD : Color.web("#E1F5FE")).deriveColor(0, 1, 1, 0.66 + ratio * 0.16)
+            ));
+        }
+    }
+
+    private void releasePenguinBellySlide() {
+        if (!penguinBellyCharging) {
+            return;
+        }
+        penguinBellyCharging = false;
+        penguinBellySlideTimer = penguinBellyUltimate ? PENGUIN_BELLY_SLIDE_FRAMES + 8 : PENGUIN_BELLY_SLIDE_FRAMES;
+        Arrays.fill(penguinBellyHit, false);
+        double ratio = penguinBellyChargeRatio();
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = penguinBellyDirection == 0 ? facingDirection() : penguinBellyDirection;
+        }
+        penguinBellyDirection = dir;
+        facingRight = dir > 0;
+        double speed = (penguinBellyUltimate ? 7.4 : 5.8) + ratio * (penguinBellyUltimate ? 27.5 : 23.5);
+        vx = dir * speed;
+        if (isOnGround()) {
+            vy = Math.min(vy, -(penguinBellyUltimate ? 9.4 : 7.8) - ratio * (penguinBellyUltimate ? 7.2 : 5.8));
+        } else {
+            vy = Math.min(vy * 0.35, -(penguinBellyUltimate ? 5.0 : 3.8) - ratio * 3.0);
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, penguinBellySlideTimer);
+        penguinIceFxTimer = Math.max(penguinIceFxTimer, penguinBellySlideTimer + 10);
+        emitPenguinIceBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier, dir,
+                18 + (int) Math.round(ratio * 30.0), penguinBellyUltimate ? Color.GOLD : Color.web("#80DEEA"));
+    }
+
+    private void handlePenguinBellySlide() {
+        int dir = penguinBellyDirection == 0 ? facingDirection() : penguinBellyDirection;
+        facingRight = dir > 0;
+        double ratio = penguinBellyChargeRatio();
+        double desired = dir * ((penguinBellyUltimate ? 7.8 : 6.0) + ratio * (penguinBellyUltimate ? 28.0 : 24.0));
+        vx += (desired - vx) * (isOnGround() ? 0.24 : 0.14);
+        if (isOnGround()) {
+            vy = Math.min(vy, -0.25);
+        }
+        if ((penguinBellySlideTimer & 2) == 0) {
+            game.particles.add(new Particle(
+                    bodyCenterX() - dir * 34.0 * sizeMultiplier,
+                    bodyBottomY() - 4.0 * sizeMultiplier,
+                    -dir * (1.8 + Math.random() * 2.8),
+                    -1.0 - Math.random() * 2.4,
+                    (penguinBellyUltimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.70)
+            ));
+        }
+        double centerX = bodyCenterX() + dir * 18.0 * sizeMultiplier;
+        double centerY = bodyCenterY() + 12.0 * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= penguinBellyHit.length) continue;
+            if (penguinBellyHit[other.playerIndex]) continue;
+
+            double forward = (other.bodyCenterX() - centerX) * dir;
+            if (forward < -other.combatHalfWidth() * 0.55) continue;
+            if (forward > (penguinBellyUltimate ? 112.0 : 94.0) * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyCenterY() - centerY) > (penguinBellyUltimate ? 70.0 : 58.0) * sizeMultiplier + other.combatHalfHeight()) continue;
+
+            penguinBellyHit[other.playerIndex] = true;
+            int dmg = (penguinBellyUltimate ? 10 : 7) + (int) Math.round(ratio * (penguinBellyUltimate ? 8.0 : 6.0));
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+            other.vx += dir * ((penguinBellyUltimate ? 15.5 : 12.5) + ratio * 10.0);
+            other.vy -= (penguinBellyUltimate ? 8.8 : 6.8) + ratio * 5.5;
+            game.hitstopFrames = Math.max(game.hitstopFrames, penguinBellyUltimate ? 4 : 2);
+            game.shakeIntensity = Math.max(game.shakeIntensity, penguinBellyUltimate ? 8 : 5);
+            emitPenguinIceBurst(other.bodyCenterX(), other.bodyCenterY(), dir, penguinBellyUltimate ? 22 : 14,
+                    penguinBellyUltimate ? Color.GOLD : Color.web("#90CAF9"));
+        }
+    }
+
+    private void handlePenguinRocket(boolean specialHeld) {
+        vx *= 0.84;
+        if (vy > -13.5) {
+            vy -= penguinRocketUltimate ? 1.05 : 0.82;
+        }
+        if (!isOnGround() && specialHeld && penguinRocketTimer <= 2) {
+            penguinRocketTimer = 0;
+            penguinFlopTimer = penguinRocketUltimate ? PENGUIN_FLOP_FRAMES + 16 : PENGUIN_FLOP_FRAMES;
+            vy = Math.max(vy, penguinRocketUltimate ? 2.2 : 1.7);
+            attackAnimationTimer = Math.max(attackAnimationTimer, penguinFlopTimer);
+            return;
+        }
+        if ((penguinRocketTimer & 1) == 0) {
+            for (int side = -1; side <= 1; side += 2) {
+                game.particles.add(new Particle(
+                        bodyCenterX() + side * 24.0 * sizeMultiplier,
+                        bodyBottomY() - 4.0 * sizeMultiplier,
+                        side * (0.7 + Math.random() * 1.4),
+                        5.0 + Math.random() * 4.4,
+                        (penguinRocketUltimate ? Color.GOLD : Color.web("#E1F5FE")).deriveColor(0, 1, 1, 0.66)
+                ));
+            }
+        }
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY() - 28.0 * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= penguinRocketHit.length) continue;
+            if (penguinRocketHit[other.playerIndex]) continue;
+
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.abs(dx) > (penguinRocketUltimate ? 78.0 : 62.0) * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (dy < -other.combatHalfHeight() || dy > (penguinRocketUltimate ? 112.0 : 92.0) * sizeMultiplier + other.combatHalfHeight()) continue;
+
+            penguinRocketHit[other.playerIndex] = true;
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, penguinRocketUltimate ? 8 : 5);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+            double launchDir = Math.signum(dx == 0.0 ? facingDirection() : dx);
+            other.vx += launchDir * (penguinRocketUltimate ? 6.5 : 4.2);
+            other.vy -= penguinRocketUltimate ? 11.0 : 8.5;
+            emitPenguinIceBurst(other.bodyCenterX(), other.bodyCenterY(), (int) launchDir,
+                    penguinRocketUltimate ? 18 : 12, penguinRocketUltimate ? Color.GOLD : Color.web("#B3E5FC"));
+        }
+    }
+
+    private void handlePenguinFlop() {
+        vx *= 0.88;
+        if (isOnGround()) {
+            triggerPenguinIcyGroundBlast();
+            return;
+        }
+        double fallCap = penguinRocketUltimate ? 10.5 : 8.4;
+        double fallAccel = penguinRocketUltimate ? 0.42 : 0.34;
+        vy = Math.min(fallCap, Math.max(vy + fallAccel, penguinRocketUltimate ? 2.2 : 1.7));
+        if ((penguinFlopTimer & 2) == 0) {
+            game.particles.add(new Particle(
+                    bodyCenterX() + (Math.random() - 0.5) * 32.0 * sizeMultiplier,
+                    bodyCenterY() - 10.0 * sizeMultiplier,
+                    (Math.random() - 0.5) * 1.8,
+                    -2.0 - Math.random() * 2.5,
+                    (penguinRocketUltimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.58)
+            ));
+        }
+        double centerX = bodyCenterX();
+        double centerY = bodyBottomY() + 14.0 * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= penguinFlopHit.length) continue;
+            if (penguinFlopHit[other.playerIndex]) continue;
+
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.abs(dx) > (penguinRocketUltimate ? 86.0 : 70.0) * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (dy < -30.0 * sizeMultiplier - other.combatHalfHeight()
+                    || dy > (penguinRocketUltimate ? 74.0 : 58.0) * sizeMultiplier + other.combatHalfHeight()) continue;
+
+            penguinFlopHit[other.playerIndex] = true;
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, penguinRocketUltimate ? 14 : 10);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
+            other.vx += dir * (penguinRocketUltimate ? 7.5 : 5.4);
+            other.vy += penguinRocketUltimate ? 11.0 : 8.0;
+            game.hitstopFrames = Math.max(game.hitstopFrames, penguinRocketUltimate ? 5 : 3);
+            game.shakeIntensity = Math.max(game.shakeIntensity, penguinRocketUltimate ? 12 : 8);
+            emitPenguinIceBurst(other.bodyCenterX(), other.bodyBottomY(), (int) dir,
+                    penguinRocketUltimate ? 30 : 20, penguinRocketUltimate ? Color.GOLD : Color.web("#E1F5FE"));
+        }
+    }
+
+    private void triggerPenguinIcyGroundBlast() {
+        boolean ultimate = penguinRocketUltimate;
+        double centerX = bodyCenterX();
+        double groundY = bodyBottomY();
+        double radius = (ultimate ? 205.0 : 165.0) * sizeMultiplier;
+        double verticalReach = (ultimate ? 116.0 : 92.0) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double feetGap = Math.abs(other.bodyBottomY() - groundY);
+            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
+            if (feetGap > verticalReach && other.bodyCenterY() < groundY - verticalReach) continue;
+
+            double edgeRatio = 1.0 - Math.clamp(Math.abs(dx) / Math.max(1.0, radius), 0.0, 1.0);
+            int dmg = (int) Math.round((ultimate ? 16.0 : 12.0) * (0.62 + edgeRatio * 0.38));
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
+            other.vx += dir * (ultimate ? 17.0 : 13.2) * (0.50 + edgeRatio * 0.50);
+            other.vy -= (ultimate ? 17.5 : 13.4) * (0.56 + edgeRatio * 0.44);
+        }
+        penguinFlopTimer = 0;
+        penguinRocketUltimate = false;
+        Arrays.fill(penguinFlopHit, false);
+        penguinIceFxTimer = Math.max(penguinIceFxTimer, 34);
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 16 : 11);
+        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 6 : 4);
+        emitPenguinIceBurst(centerX, groundY - 8.0 * sizeMultiplier, facingDirection(),
+                ultimate ? 70 : 50, ultimate ? Color.GOLD : Color.web("#B3E5FC"));
     }
 
     private double turkeyGobbleChargeRatio() {
@@ -5184,23 +5551,146 @@ public class Bird {
         }
     }
 
-    private void specialPenguin(boolean ultimate) {
-        boolean grounded = isOnGround();
-        vx = (facingRight ? 1 : -1) * (grounded ? (ultimate ? 21.0 : 17.0) : (ultimate ? 17.0 : 14.0));
-        // Mobility special: gives penguin a reliable vertical burst to reach upper lanes.
-        vy = grounded ? -type.jumpHeight * (ultimate ? 2.4 : 2.0) : Math.min(vy - (ultimate ? 13.0 : 11.0), -(ultimate ? 20.0 : 16.0));
+    private void specialPenguin(PenguinSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialPenguinBellySlide(ultimate);
+            case SIDE -> specialPenguinIcebergShove(ultimate);
+            case UP -> specialPenguinRocketFlop(ultimate);
+            case DOWN -> specialPenguinSnowFort(ultimate);
+        }
+    }
+
+    private void specialPenguinBellySlide(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        penguinBellyDirection = dir;
+        penguinBellyCharging = true;
+        penguinBellyChargeFrames = 1;
+        penguinBellySlideTimer = 0;
+        penguinBellyReuseTimer = ultimate ? 8 : PENGUIN_BELLY_REUSE_FRAMES;
+        penguinBellyUltimate = ultimate;
+        Arrays.fill(penguinBellyHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 10);
+        vx *= isOnGround() ? 0.48 : 0.70;
+        if (ultimate) {
+            game.addToKillFeed(shortName() + " ULT BELLY SLIDE CHARGE!");
+        }
+        emitPenguinIceBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier, dir, ultimate ? 26 : 16,
+                ultimate ? Color.GOLD : Color.web("#B3E5FC"));
+    }
+
+    private void specialPenguinIcebergShove(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        boolean snowball = false;
+        double spawnX = bodyCenterX() + dir * 74.0 * sizeMultiplier;
+        double spawnY = penguinObjectSurfaceY(spawnX) - 42.0 * sizeMultiplier;
+        if (penguinSnowFort != null && penguinSnowFort.health > 0) {
+            double fortForward = (penguinSnowFort.x - bodyCenterX()) * dir;
+            if (fortForward > 16.0 * sizeMultiplier && fortForward < 190.0 * sizeMultiplier
+                    && Math.abs(penguinSnowFort.y - penguinObjectSurfaceY(penguinSnowFort.x)) < 26.0 * sizeMultiplier) {
+                snowball = true;
+                spawnX = penguinSnowFort.x + dir * 24.0 * sizeMultiplier;
+                spawnY = penguinSnowFort.y - 54.0 * sizeMultiplier;
+                penguinSnowFort.health = 0;
+                penguinSnowFort.damageFlash = 8;
+                game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 11 : 7);
+            }
+        }
+        double speed = snowball ? (ultimate ? 13.2 : 11.0) : (ultimate ? 8.2 : 6.7);
+        PenguinIceObject object = new PenguinIceObject(spawnX, spawnY, dir * speed, snowball ? -2.1 : -0.6,
+                dir, ultimate, snowball);
+        penguinIceObjects.add(object);
+        while (penguinIceObjects.size() > (ultimate ? 5 : 4)) {
+            penguinIceObjects.removeFirst();
+        }
+        penguinIcebergReuseTimer = ultimate ? 18 : PENGUIN_ICEBERG_REUSE_FRAMES;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
+        vx -= dir * (snowball ? 3.4 : 1.8);
+        if (ultimate) {
+            game.addToKillFeed(shortName() + (snowball ? " ULT FORT SNOWBALL!" : " ULT ICEBERG SHOVE!"));
+        }
+        emitPenguinIceBurst(spawnX, spawnY, dir, snowball ? 54 : 32, ultimate ? Color.GOLD : Color.web("#90CAF9"));
+    }
+
+    private void specialPenguinRocketFlop(boolean ultimate) {
+        if (penguinUpSpecialUsed && !ultimate) {
+            return;
+        }
+        penguinUpSpecialUsed = true;
+        penguinRocketTimer = ultimate ? PENGUIN_ROCKET_FRAMES + 6 : PENGUIN_ROCKET_FRAMES;
+        penguinFlopTimer = 0;
+        penguinRocketUltimate = ultimate;
+        Arrays.fill(penguinRocketHit, false);
+        Arrays.fill(penguinFlopHit, false);
         canDoubleJump = true;
-        specialCooldown = 135;
-        specialMaxCooldown = 135;
-        penguinIceFxTimer = ultimate ? 100 : 70;
-        penguinDashDamageTimer = ultimate ? 26 : 18;
-        Arrays.fill(penguinDashHit, false);
-        game.addToKillFeed(shortName() + (ultimate ? " ULT ICE JUMP DASH!" : " ICE JUMP DASH!"));
-        int particleCount = scaledParticleCount(ultimate ? 130 : 90);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, penguinRocketTimer);
+        vx *= 0.32;
+        vy = Math.min(vy, ultimate ? -20.5 : -17.2);
+        if (ultimate) {
+            game.addToKillFeed(shortName() + " ULT ROCKET FLOP!");
+        }
+        emitPenguinIceBurst(bodyCenterX(), bodyBottomY() - 4.0 * sizeMultiplier, facingDirection(),
+                ultimate ? 54 : 36, ultimate ? Color.GOLD : Color.web("#E1F5FE"));
+    }
+
+    private void specialPenguinSnowFort(boolean ultimate) {
+        int dir = facingDirection();
+        double fortX = bodyCenterX() + dir * 92.0 * sizeMultiplier;
+        double fortY = penguinObjectSurfaceY(fortX);
+        penguinSnowFort = new PenguinSnowFort(fortX, fortY, dir, ultimate);
+        penguinSnowFortReuseTimer = ultimate ? 22 : PENGUIN_SNOW_FORT_REUSE_FRAMES;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
+        vx *= isOnGround() ? 0.54 : 0.78;
+        if (ultimate) {
+            game.addToKillFeed(shortName() + " BUILT A ROYAL SNOW FORT!");
+        }
+        emitPenguinIceBurst(fortX, fortY - 20.0 * sizeMultiplier, dir, ultimate ? 44 : 30,
+                ultimate ? Color.GOLD : Color.WHITE);
+    }
+
+    private double penguinObjectSurfaceY(double objectX) {
+        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
+        double sourceY = bodyBottomY() - 36.0 * sizeMultiplier;
+        for (Platform p : game.platforms) {
+            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
+                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
+            if (isCaveCeiling) continue;
+            if (objectX < p.x - 24.0 || objectX > p.x + p.w + 24.0) continue;
+            if (p.y < sourceY - 24.0) continue;
+            if (p.y < bestY) {
+                bestY = p.y;
+            }
+        }
+        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+    }
+
+    private void emitPenguinIceBurst(double originX, double originY, int dir, int count, Color baseColor) {
+        int particleCount = scaledParticleCount(count);
         for (int i = 0; i < particleCount; i++) {
-            game.particles.add(new Particle(x + 40 + (Math.random() - 0.5) * 100,
-                    y + 70, (Math.random() - 0.5) * 10, -5 - Math.random() * 9,
-                    Color.CYAN.deriveColor(0, 1, 1, 0.7)));
+            double angle = -Math.PI / 2.0 + (Math.random() - 0.5) * Math.PI * 1.3;
+            double speed = 1.4 + Math.random() * 5.4;
+            game.particles.add(new Particle(
+                    originX + (Math.random() - 0.5) * 18.0 * sizeMultiplier,
+                    originY + (Math.random() - 0.5) * 12.0 * sizeMultiplier,
+                    Math.cos(angle) * speed + dir * (0.4 + Math.random() * 1.3),
+                    Math.sin(angle) * speed - Math.random() * 2.4,
+                    baseColor.deriveColor(0, 1, 1, 0.70 + Math.random() * 0.18)
+            ));
         }
     }
 
@@ -5983,6 +6473,12 @@ public class Bird {
                 && shieldStunFrames <= 0;
     }
 
+    private boolean canConvertShieldIntoPenguinDownSpecial() {
+        return selectPenguinSpecialVariant() == PenguinSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+    }
+
     private boolean canStartPigeonSpecial() {
         PigeonSpecialVariant variant = selectPigeonSpecialVariant();
         boolean neutralReady = variant != PigeonSpecialVariant.NEUTRAL || specialCooldown <= 0;
@@ -6166,6 +6662,37 @@ public class Bird {
                 && roadrunnerSpecialReady(variant);
     }
 
+    private boolean penguinSpecialActive() {
+        return penguinBellyCharging
+                || penguinBellySlideTimer > 0
+                || penguinRocketTimer > 0
+                || penguinFlopTimer > 0;
+    }
+
+    private boolean penguinSpecialReady(PenguinSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
+        return switch (variant) {
+            case NEUTRAL -> ultimateReady || penguinBellyReuseTimer <= 0;
+            case SIDE -> ultimateReady || penguinIcebergReuseTimer <= 0;
+            case UP -> ultimateReady || !penguinUpSpecialUsed;
+            case DOWN -> ultimateReady || penguinSnowFortReuseTimer <= 0;
+        };
+    }
+
+    private boolean canStartPenguinSpecial() {
+        PenguinSpecialVariant variant = selectPenguinSpecialVariant();
+        boolean shieldConversion = canConvertShieldIntoPenguinDownSpecial();
+        return type == BirdGame3.BirdType.PENGUIN
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && !penguinSpecialActive()
+                && penguinSpecialReady(variant);
+    }
+
     private PigeonSpecialVariant selectPigeonSpecialVariant() {
         if (jumpPressed()) {
             return PigeonSpecialVariant.UP;
@@ -6244,6 +6771,19 @@ public class Bird {
         return RoadrunnerSpecialVariant.NEUTRAL;
     }
 
+    private PenguinSpecialVariant selectPenguinSpecialVariant() {
+        if (jumpPressed()) {
+            return PenguinSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return PenguinSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return PenguinSpecialVariant.SIDE;
+        }
+        return PenguinSpecialVariant.NEUTRAL;
+    }
+
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -6291,6 +6831,11 @@ public class Bird {
                     && selectRoadrunnerSpecialVariant() == RoadrunnerSpecialVariant.UP
                     && !roadrunnerDustDevilUsed;
         }
+        if (type == BirdGame3.BirdType.PENGUIN) {
+            return canStartPenguinSpecial()
+                    && selectPenguinSpecialVariant() == PenguinSpecialVariant.UP
+                    && !penguinUpSpecialUsed;
+        }
         if (isRaptor()) {
             return canStartRaptorSpecial()
                     && selectRaptorSpecialVariant() == RaptorSpecialVariant.UP
@@ -6326,6 +6871,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.ROADRUNNER) {
             return canStartRoadrunnerSpecial()
                     && selectRoadrunnerSpecialVariant() == RoadrunnerSpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.PENGUIN) {
+            return canStartPenguinSpecial()
+                    && selectPenguinSpecialVariant() == PenguinSpecialVariant.DOWN;
         }
         if (isRaptor()) {
             return canStartRaptorSpecial()
@@ -6459,6 +7008,26 @@ public class Bird {
         }
     }
 
+    private void resetPenguinSpecialState(boolean clearObjects) {
+        penguinBellyCharging = false;
+        penguinBellyChargeFrames = 0;
+        penguinBellySlideTimer = 0;
+        penguinBellyUltimate = false;
+        Arrays.fill(penguinBellyHit, false);
+        penguinRocketTimer = 0;
+        penguinFlopTimer = 0;
+        penguinRocketUltimate = false;
+        Arrays.fill(penguinRocketHit, false);
+        Arrays.fill(penguinFlopHit, false);
+        penguinIceFxTimer = 0;
+        penguinDashDamageTimer = 0;
+        Arrays.fill(penguinDashHit, false);
+        if (clearObjects) {
+            penguinIceObjects.clear();
+            penguinSnowFort = null;
+        }
+    }
+
     private void interruptPigeonSpecialStateOnHit() {
         if (type != BirdGame3.BirdType.PIGEON) {
             return;
@@ -6517,6 +7086,16 @@ public class Bird {
         Arrays.fill(roadrunnerBeepHit, false);
         Arrays.fill(roadrunnerRicochetHitCooldown, 0);
         Arrays.fill(roadrunnerDustDevilHit, false);
+    }
+
+    private void interruptPenguinSpecialStateOnHit() {
+        if (type != BirdGame3.BirdType.PENGUIN) {
+            return;
+        }
+        if (penguinSpecialActive()) {
+            attackAnimationTimer = 0;
+        }
+        resetPenguinSpecialState(false);
     }
 
     private int aiJumpCooldown = 0;
@@ -6861,6 +7440,9 @@ public class Bird {
         }
 
         if (shouldAIUseUtilitySpecial(target, powerUp, onGround, climbPlatform, powerFocus)) {
+            if (type == BirdGame3.BirdType.PENGUIN) {
+                game.setAiControlKey(playerIndex, jumpKey(), true);
+            }
             game.setAiControlKey(playerIndex, specialKey(), true);
             aiSpecialCooldown = 18;
             aiLastHealth = currentDurability;
@@ -6888,6 +7470,7 @@ public class Bird {
         if (!powerFocus && target != null
                 && (isRaptor() ? canStartRaptorSpecial()
                 : type == BirdGame3.BirdType.TURKEY ? canStartTurkeySpecial()
+                : type == BirdGame3.BirdType.PENGUIN ? canStartPenguinSpecial()
                 : specialCooldown <= 0)
                 && aiSpecialCooldown <= 0 &&
                 shouldUseSpecialAI(target, targetDist, onGround, lowHealth) &&
@@ -7363,7 +7946,7 @@ public class Bird {
                 double fuelRatio = Math.clamp(limitedFlightFuel / LIMITED_FLIGHT_MAX, 0.0, 1.0);
                 allowance = 55.0 + fuelRatio * 55.0 + altitude * 0.05;
             }
-            case PENGUIN -> allowance = specialCooldown <= 0 ? 105.0 + altitude * 0.08 : 10.0;
+            case PENGUIN -> allowance = !penguinUpSpecialUsed ? 105.0 + altitude * 0.08 : 10.0;
             case ROADRUNNER -> allowance = roadrunnerSandstormActive()
                     ? 170.0 + altitude * 0.12 + Math.max(0.0, -vy) * 6.0
                     : 50.0 + altitude * 0.04 + Math.max(0.0, -vy) * 2.4;
@@ -7391,7 +7974,7 @@ public class Bird {
                 double fuelRatio = Math.clamp(limitedFlightFuel / LIMITED_FLIGHT_MAX, 0.0, 1.0);
                 allowance = 110.0 + fuelRatio * 70.0;
             }
-            case PENGUIN -> allowance = specialCooldown <= 0 ? 180.0 + altitude * 0.08 : 70.0;
+            case PENGUIN -> allowance = !penguinUpSpecialUsed ? 180.0 + altitude * 0.08 : 70.0;
             case ROADRUNNER -> allowance = roadrunnerSandstormActive()
                     ? 190.0 + Math.max(0.0, altitude - 30.0) * 0.10
                     : 88.0 + Math.max(0.0, altitude - 30.0) * 0.04;
@@ -7560,8 +8143,9 @@ public class Bird {
                 : (centerX > stageRight ? centerX - stageRight : 0.0);
         boolean movingAway = (centerX < stageLeft && vx < -1.2) || (centerX > stageRight && vx > 1.2);
         return switch (type) {
-            case PENGUIN -> offstage && (offstageDistance > 14.0 || depth > 10.0 || movingAway || vy > 1.2)
-                    || depth > 55.0;
+            case PENGUIN -> !penguinUpSpecialUsed
+                    && (offstage && (offstageDistance > 14.0 || depth > 10.0 || movingAway || vy > 1.2)
+                    || depth > 55.0);
             case PIGEON -> !pigeonUpSpecialUsed
                     && (depth > 82.0
                     || (!canDoubleJump && (depth > 48.0 || (offstage && (offstageDistance > 10.0 || movingAway || vy > 2.2)))));
@@ -7593,6 +8177,9 @@ public class Bird {
         double dx = Math.abs(objectiveX - bodyCenterX());
         double dy = objectiveY - bodyCenterY();
         if (type != BirdGame3.BirdType.PENGUIN) {
+            return false;
+        }
+        if (penguinUpSpecialUsed) {
             return false;
         }
         return onGround
@@ -7632,7 +8219,8 @@ public class Bird {
             if (type == BirdGame3.BirdType.PIGEON
                     || type == BirdGame3.BirdType.TURKEY
                     || type == BirdGame3.BirdType.ROOSTER
-                    || type == BirdGame3.BirdType.ROADRUNNER) {
+                    || type == BirdGame3.BirdType.ROADRUNNER
+                    || type == BirdGame3.BirdType.PENGUIN) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
             }
             game.setAiControlKey(playerIndex, specialKey(), true);
@@ -7687,7 +8275,7 @@ public class Bird {
                 if (!pigeonUpSpecialUsed) reach += 150.0;
             }
             case PENGUIN -> {
-                if (specialCooldown <= 0) reach += 210.0;
+                if (!penguinUpSpecialUsed) reach += 210.0;
             }
             case ROADRUNNER -> {
                 if (!roadrunnerDustDevilUsed) reach += 145.0;
@@ -7714,7 +8302,7 @@ public class Bird {
         }
         switch (type) {
             case PENGUIN -> {
-                if (specialCooldown <= 0) reach += 85.0;
+                if (!penguinUpSpecialUsed) reach += 85.0;
             }
             case ROADRUNNER -> reach += 60.0 + roadrunnerMomentumRatio() * 80.0;
             case TITMOUSE, HUMMINGBIRD, BAT -> reach += 95.0;
@@ -8015,6 +8603,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.ROADRUNNER && isOnGround()) {
             roadrunnerDustDevilUsed = false;
         }
+        if (type == BirdGame3.BirdType.PENGUIN && isOnGround()) {
+            penguinUpSpecialUsed = false;
+        }
 
         if (airborne && landingLagTimer > 0) {
             landingLagTimer = 0;
@@ -8036,6 +8627,7 @@ public class Bird {
             resetRaptorSpecialState();
             resetHummingbirdSpecialState(false);
             resetTurkeySpecialState(false);
+            resetPenguinSpecialState(false);
         }
 
         if (handleGrabbedState()) {
@@ -8178,6 +8770,7 @@ public class Bird {
         handleRaptorSpecialState();
         handleHummingbirdSpecialState();
         handleTurkeySpecialState();
+        handlePenguinSpecialState(specialHeld);
 
         // === RAZORBILL DASH ===
         handleRazorbillBladeStorm();
@@ -8194,6 +8787,7 @@ public class Bird {
         // === THERMALS & WIND VENTS ===
         handleThermals(downHeld, prevX, prevY);
         applyPenguinDashDamage();
+        handlePenguinSpecialObjects();
         handleHummingbirdNectarTraps();
         handleTurkeyFeastTraps();
         handlePhoenixAfterburn();
@@ -8325,6 +8919,13 @@ public class Bird {
         hoverRegenTimer = Math.max(0, (int)(hoverRegenTimer - gameSpeed));
         penguinIceFxTimer = Math.max(0, penguinIceFxTimer - gameSpeed);
         penguinDashDamageTimer = Math.max(0, (int)(penguinDashDamageTimer - gameSpeed));
+        penguinBellySlideTimer = Math.max(0, (int)(penguinBellySlideTimer - gameSpeed));
+        penguinBellyReuseTimer = Math.max(0, (int)(penguinBellyReuseTimer - gameSpeed));
+        penguinIcebergReuseTimer = Math.max(0, (int)(penguinIcebergReuseTimer - gameSpeed));
+        penguinRocketTimer = Math.max(0, (int)(penguinRocketTimer - gameSpeed));
+        penguinFlopTimer = Math.max(0, (int)(penguinFlopTimer - gameSpeed));
+        penguinSnowFortReuseTimer = Math.max(0, (int)(penguinSnowFortReuseTimer - gameSpeed));
+        penguinFortGuardFxTimer = Math.max(0, (int)(penguinFortGuardFxTimer - gameSpeed));
         hummingFrenzyTimer = Math.max(0, (int)(hummingFrenzyTimer - gameSpeed));
         hummingNeedleComboTimer = Math.max(0, (int)(hummingNeedleComboTimer - gameSpeed));
         hummingNeedleHitTimer = Math.max(0, (int)(hummingNeedleHitTimer - gameSpeed));
@@ -8386,6 +8987,16 @@ public class Bird {
         if (turkeyStuffedTimer == 0) {
             turkeyStuffedOwnerIndex = -1;
             turkeyStuffedUltimate = false;
+        }
+        if (!penguinBellyCharging && penguinBellySlideTimer == 0) {
+            penguinBellyChargeFrames = 0;
+            penguinBellyUltimate = false;
+            Arrays.fill(penguinBellyHit, false);
+        }
+        if (penguinRocketTimer == 0 && penguinFlopTimer == 0) {
+            penguinRocketUltimate = false;
+            Arrays.fill(penguinRocketHit, false);
+            Arrays.fill(penguinFlopHit, false);
         }
         for (int i = 0; i < hummingFrenzyHitCooldown.length; i++) {
             hummingFrenzyHitCooldown[i] = Math.max(0, (int)(hummingFrenzyHitCooldown[i] - gameSpeed));
@@ -9508,6 +10119,8 @@ public class Bird {
                     ? selectRoosterSpecialVariant() == RoosterSpecialVariant.DOWN && isBlocking && shieldStunFrames <= 0
                     : type == BirdGame3.BirdType.ROADRUNNER
                     ? selectRoadrunnerSpecialVariant() == RoadrunnerSpecialVariant.DOWN && isBlocking && shieldStunFrames <= 0
+                    : type == BirdGame3.BirdType.PENGUIN
+                    ? canConvertShieldIntoPenguinDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
             boolean canStartSelectedSpecial = type == BirdGame3.BirdType.PIGEON
                     ? canStartPigeonSpecial()
@@ -9521,6 +10134,8 @@ public class Bird {
                     ? canStartRoosterSpecial()
                     : type == BirdGame3.BirdType.ROADRUNNER
                     ? canStartRoadrunnerSpecial()
+                    : type == BirdGame3.BirdType.PENGUIN
+                    ? canStartPenguinSpecial()
                     : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
             if (!attackLocked && !grabLocked && (!shielding || canSpecialFromShield) && !jumpSquatting && specialJustPressed()) {
                 if (grappleUses == 0 && canStartSelectedSpecial) {
@@ -9528,7 +10143,8 @@ public class Bird {
                 } else if (!game.isAI[playerIndex]
                         && ((isRaptor() && raptorSpecialOnReuseLockout(selectRaptorSpecialVariant()))
                         || (specialCooldown > 0 && type != BirdGame3.BirdType.PIGEON
-                        && type != BirdGame3.BirdType.ROADRUNNER))) {
+                        && type != BirdGame3.BirdType.ROADRUNNER
+                        && type != BirdGame3.BirdType.PENGUIN))) {
                     cooldownFlash = 15;
                 }
             }
@@ -9944,6 +10560,7 @@ public class Bird {
 
     private double applyScaledDamageTo(Bird target, double scaledDamage) {
         if (target == null || scaledDamage <= 0 || target.health <= 0) return 0;
+        scaledDamage = target.adjustDamageForPenguinSnowFort(this, scaledDamage);
         double dealtDamage = target.receiveScaledDamage(scaledDamage);
         if (dealtDamage > 0) {
             if (game.usesSmashCombatRules()) {
@@ -9954,6 +10571,36 @@ public class Bird {
             game.recordTrainingHit(this, target, dealtDamage);
         }
         return dealtDamage;
+    }
+
+    private double adjustDamageForPenguinSnowFort(Bird attacker, double scaledDamage) {
+        if (type != BirdGame3.BirdType.PENGUIN || attacker == null || penguinSnowFort == null
+                || penguinSnowFort.health <= 0 || scaledDamage <= 0) {
+            return scaledDamage;
+        }
+        PenguinSnowFort fort = penguinSnowFort;
+        double penguinCenterX = bodyCenterX();
+        double attackerCenterX = attacker.bodyCenterX();
+        boolean fortBetween = (penguinCenterX - fort.x) * (attackerCenterX - fort.x) <= 0.0;
+        if (!fortBetween) {
+            return scaledDamage;
+        }
+        double verticalWindow = (fort.ultimate ? 122.0 : 102.0) * sizeMultiplier;
+        if (Math.abs(attacker.bodyCenterY() - (fort.y - 42.0 * sizeMultiplier)) > verticalWindow) {
+            return scaledDamage;
+        }
+        double guardedDistance = Math.abs(penguinCenterX - fort.x);
+        if (guardedDistance > (fort.ultimate ? 150.0 : 128.0) * sizeMultiplier) {
+            return scaledDamage;
+        }
+        double reduction = fort.ultimate ? 0.46 : 0.36;
+        double absorbed = scaledDamage * reduction;
+        fort.health = Math.max(0, fort.health - Math.max(1, (int) Math.ceil(absorbed * 1.15)));
+        fort.damageFlash = Math.max(fort.damageFlash, 8);
+        penguinFortGuardFxTimer = Math.max(penguinFortGuardFxTimer, 12);
+        emitPenguinIceBurst(fort.x, fort.y - 38.0 * sizeMultiplier,
+                attackerCenterX < fort.x ? -1 : 1, 7, fort.ultimate ? Color.GOLD : Color.web("#E1F5FE"));
+        return Math.max(0.0, scaledDamage - absorbed);
     }
 
     private double applyUnshieldedDamageTo(Bird target, double rawDamage) {
@@ -10009,6 +10656,7 @@ public class Bird {
             interruptHummingbirdSpecialStateOnHit();
             interruptTurkeySpecialStateOnHit();
             interruptRoadrunnerSpecialStateOnHit();
+            interruptPenguinSpecialStateOnHit();
         }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
             roadrunnerMomentum = Math.max(0.0, roadrunnerMomentum - 38.0);
@@ -10512,6 +11160,211 @@ public class Bird {
                         Color.web("#B3E5FC")
                 ));
             }
+        }
+    }
+
+    private void handlePenguinSpecialObjects() {
+        if (type != BirdGame3.BirdType.PENGUIN) {
+            return;
+        }
+        updatePenguinSnowFort();
+        updatePenguinIceObjects();
+    }
+
+    private void updatePenguinSnowFort() {
+        if (penguinSnowFort == null) {
+            return;
+        }
+        PenguinSnowFort fort = penguinSnowFort;
+        fort.ageFrames++;
+        fort.lifeFrames--;
+        for (int i = 0; i < fort.hitCooldown.length; i++) {
+            fort.hitCooldown[i] = Math.max(0, fort.hitCooldown[i] - 1);
+        }
+        if (fort.damageFlash > 0) {
+            fort.damageFlash--;
+        }
+        if (fort.lifeFrames <= 0 || fort.health <= 0) {
+            emitPenguinIceBurst(fort.x, fort.y - 24.0 * sizeMultiplier, fort.direction,
+                    fort.ultimate ? 32 : 22, fort.ultimate ? Color.GOLD : Color.web("#E1F5FE"));
+            penguinSnowFort = null;
+            return;
+        }
+        double halfWidth = penguinFortHalfWidth(fort);
+        double height = penguinFortHeight(fort);
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - fort.x;
+            if (Math.abs(dx) > halfWidth + other.combatHalfWidth()) continue;
+            if (other.bodyBottomY() < fort.y - height || other.bodyCenterY() > fort.y + other.combatHalfHeight()) continue;
+
+            double pushDir = Math.signum(dx == 0.0 ? -fort.direction : dx);
+            double targetCenterX = fort.x + pushDir * (halfWidth + other.combatHalfWidth() + 1.5 * sizeMultiplier);
+            other.x += targetCenterX - other.bodyCenterX();
+            if (other.vx * pushDir < 0.0) {
+                other.vx = 0.0;
+            }
+            other.vx += pushDir * 0.55;
+        }
+    }
+
+    private double penguinFortHalfWidth(PenguinSnowFort fort) {
+        return (fort.ultimate ? 82.0 : 68.0) * sizeMultiplier;
+    }
+
+    private double penguinFortHeight(PenguinSnowFort fort) {
+        return (fort.ultimate ? 112.0 : 96.0) * sizeMultiplier;
+    }
+
+    private int penguinFortMaxHealth(PenguinSnowFort fort) {
+        return fort.ultimate ? PENGUIN_SNOW_FORT_HEALTH + 34 : PENGUIN_SNOW_FORT_HEALTH;
+    }
+
+    private void damagePenguinSnowFort(Bird attacker, double rawDamage, double attackCenterX, double attackCenterY,
+                                       double horizontalReach, double verticalReach) {
+        if (attacker == null || attacker == this || penguinSnowFort == null || penguinSnowFort.health <= 0) {
+            return;
+        }
+        PenguinSnowFort fort = penguinSnowFort;
+        if (attacker.playerIndex >= 0 && attacker.playerIndex < fort.hitCooldown.length && fort.hitCooldown[attacker.playerIndex] > 0) {
+            return;
+        }
+        double halfWidth = penguinFortHalfWidth(fort);
+        double height = penguinFortHeight(fort);
+        double fortCenterY = fort.y - height * 0.5;
+        if (!overlapsAttackArea(fort.x, fortCenterY, halfWidth, height * 0.5,
+                attackCenterX, attackCenterY, horizontalReach, verticalReach)) {
+            return;
+        }
+        if (attacker.playerIndex >= 0 && attacker.playerIndex < fort.hitCooldown.length) {
+            fort.hitCooldown[attacker.playerIndex] = 12;
+        }
+        int damage = Math.max(8, (int) Math.round(rawDamage * 0.78));
+        fort.health = Math.max(0, fort.health - damage);
+        fort.damageFlash = Math.max(fort.damageFlash, 10);
+        double dir = Math.signum(fort.x - attackCenterX);
+        if (dir == 0.0) {
+            dir = -fort.direction;
+        }
+        emitPenguinIceBurst(fort.x + dir * halfWidth * 0.75, fort.y - height * 0.48,
+                (int) dir, fort.ultimate ? 16 : 11, fort.ultimate ? Color.GOLD : Color.WHITE);
+        game.shakeIntensity = Math.max(game.shakeIntensity, fort.ultimate ? 5 : 3);
+    }
+
+    private void attackPenguinSnowForts(double attackCenterX, double attackCenterY,
+                                        double range, double verticalRange, int dmg) {
+        for (Bird candidate : game.players) {
+            if (candidate == null || candidate == this || candidate.type != BirdGame3.BirdType.PENGUIN) continue;
+            if (!canDamageTarget(candidate)) continue;
+            candidate.damagePenguinSnowFort(this, dmg, attackCenterX, attackCenterY, range, verticalRange);
+        }
+    }
+
+    private void updatePenguinIceObjects() {
+        if (penguinIceObjects.isEmpty()) {
+            return;
+        }
+        ArrayList<PenguinIceObject> spawnedObjects = new ArrayList<>();
+        Iterator<PenguinIceObject> it = penguinIceObjects.iterator();
+        while (it.hasNext()) {
+            PenguinIceObject object = it.next();
+            object.ageFrames++;
+            object.lifeFrames--;
+            for (int i = 0; i < object.hitCooldown.length; i++) {
+                object.hitCooldown[i] = Math.max(0, object.hitCooldown[i] - 1);
+            }
+
+            object.vy += object.snowball ? 0.30 : 0.24;
+            object.x += object.vx;
+            object.y += object.vy;
+            double surfaceY = penguinObjectSurfaceY(object.x);
+            double radius = (object.snowball ? 58.0 : 42.0) * sizeMultiplier;
+            if (object.y + radius >= surfaceY) {
+                object.y = surfaceY - radius;
+                object.vy = object.snowball ? -Math.abs(object.vx) * 0.08 : 0.0;
+                object.vx *= object.snowball ? 0.994 : 0.982;
+            }
+
+            if (penguinSnowFort != null && penguinSnowFort.health > 0 && !object.snowball
+                    && Math.abs(object.x - penguinSnowFort.x) < 82.0 * sizeMultiplier
+                    && Math.abs(object.y - (penguinSnowFort.y - 56.0 * sizeMultiplier)) < 86.0 * sizeMultiplier) {
+                PenguinSnowFort fort = penguinSnowFort;
+                object.shattered = true;
+                fort.health = 0;
+                spawnedObjects.add(new PenguinIceObject(fort.x + object.direction * 34.0 * sizeMultiplier,
+                        fort.y - 58.0 * sizeMultiplier,
+                        object.direction * (object.ultimate ? 13.8 : 11.4),
+                        -2.0,
+                        object.direction,
+                        object.ultimate,
+                        true));
+                emitPenguinIceBurst(fort.x, fort.y - 34.0 * sizeMultiplier, object.direction,
+                        object.ultimate ? 42 : 30, object.ultimate ? Color.GOLD : Color.web("#E1F5FE"));
+            }
+
+            double worldLeft = game.battlefieldLeftBound() - 70.0;
+            double worldRight = game.battlefieldRightBound() + 70.0;
+            if (object.lifeFrames <= 0 || object.x < worldLeft || object.x > worldRight || Math.abs(object.vx) < 0.45) {
+                object.shattered = true;
+            }
+
+            handlePenguinIceObjectHits(object);
+            if ((object.ageFrames & 3) == 0) {
+                game.particles.add(new Particle(
+                        object.x - Math.signum(object.vx == 0.0 ? object.direction : object.vx) * radius * 0.7,
+                        object.y + radius * 0.65,
+                        -Math.signum(object.vx == 0.0 ? object.direction : object.vx) * (0.8 + Math.random() * 1.8),
+                        -0.4 - Math.random() * 1.5,
+                        (object.ultimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.58)
+                ));
+            }
+
+            if (object.shattered) {
+                emitPenguinIceBurst(object.x, object.y, object.direction,
+                        object.snowball ? 24 : 14, object.ultimate ? Color.GOLD : Color.web("#90CAF9"));
+                it.remove();
+            }
+        }
+        penguinIceObjects.addAll(spawnedObjects);
+        while (penguinIceObjects.size() > 5) {
+            penguinIceObjects.removeFirst();
+        }
+    }
+
+    private void handlePenguinIceObjectHits(PenguinIceObject object) {
+        double radius = (object.snowball ? 72.0 : 58.0) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= object.hitCooldown.length) continue;
+            if (object.hitCooldown[other.playerIndex] > 0) continue;
+
+            double dx = other.bodyCenterX() - object.x;
+            double dy = other.bodyCenterY() - object.y;
+            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > radius + other.combatHalfHeight()) continue;
+
+            object.hitCooldown[other.playerIndex] = object.snowball ? 12 : 28;
+            int dmg = object.snowball ? (object.ultimate ? 18 : 13) : (object.ultimate ? 12 : 9);
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+            double launchDir = Math.signum(dx == 0.0 ? object.direction : dx);
+            other.vx += launchDir * (object.snowball ? (object.ultimate ? 20.0 : 15.8) : (object.ultimate ? 14.0 : 10.8));
+            other.vy -= object.snowball ? (object.ultimate ? 11.0 : 8.2) : (object.ultimate ? 7.8 : 5.8);
+            if (!object.snowball) {
+                object.shattered = true;
+            } else {
+                object.vx *= 0.88;
+                object.vy -= 0.8;
+            }
+            game.hitstopFrames = Math.max(game.hitstopFrames, object.snowball ? 4 : 2);
+            game.shakeIntensity = Math.max(game.shakeIntensity, object.snowball ? 8 : 5);
         }
     }
 
@@ -11286,9 +12139,12 @@ public class Bird {
         razorbillDashVX = 0.0;
         razorbillDashVY = 0.0;
         Arrays.fill(razorbillDashHit, false);
-        penguinIceFxTimer = 0;
-        penguinDashDamageTimer = 0;
-        Arrays.fill(penguinDashHit, false);
+        resetPenguinSpecialState(true);
+        penguinBellyReuseTimer = 0;
+        penguinIcebergReuseTimer = 0;
+        penguinUpSpecialUsed = false;
+        penguinSnowFortReuseTimer = 0;
+        penguinFortGuardFxTimer = 0;
         hummingFrenzyTimer = 0;
         Arrays.fill(hummingFrenzyHitCooldown, 0);
         resetHummingbirdSpecialState(true);
@@ -11543,6 +12399,29 @@ public class Bird {
         state.limitedFlightFuel = limitedFlightFuel;
         state.penguinIceFxTimer = penguinIceFxTimer;
         state.penguinDashDamageTimer = penguinDashDamageTimer;
+        state.penguinBellyCharging = penguinBellyCharging;
+        state.penguinBellyChargeFrames = penguinBellyChargeFrames;
+        state.penguinBellySlideTimer = penguinBellySlideTimer;
+        state.penguinBellyReuseTimer = penguinBellyReuseTimer;
+        state.penguinBellyDirection = penguinBellyDirection;
+        state.penguinBellyUltimate = penguinBellyUltimate;
+        state.penguinIcebergReuseTimer = penguinIcebergReuseTimer;
+        state.penguinRocketTimer = penguinRocketTimer;
+        state.penguinFlopTimer = penguinFlopTimer;
+        state.penguinRocketUltimate = penguinRocketUltimate;
+        state.penguinUpSpecialUsed = penguinUpSpecialUsed;
+        state.penguinSnowFortReuseTimer = penguinSnowFortReuseTimer;
+        state.penguinSnowFortActive = penguinSnowFort != null && penguinSnowFort.health > 0;
+        if (state.penguinSnowFortActive) {
+            state.penguinSnowFortX = penguinSnowFort.x;
+            state.penguinSnowFortY = penguinSnowFort.y;
+            state.penguinSnowFortDirection = penguinSnowFort.direction;
+            state.penguinSnowFortUltimate = penguinSnowFort.ultimate;
+            state.penguinSnowFortHealth = penguinSnowFort.health;
+            state.penguinSnowFortLifeFrames = penguinSnowFort.lifeFrames;
+            state.penguinSnowFortAgeFrames = penguinSnowFort.ageFrames;
+        }
+        state.penguinFortGuardFxTimer = penguinFortGuardFxTimer;
         state.hummingFrenzyTimer = hummingFrenzyTimer;
         state.phoenixAfterburnTimer = phoenixAfterburnTimer;
         state.phoenixRebornUsed = phoenixRebornUsed;
@@ -11840,6 +12719,32 @@ public class Bird {
         this.limitedFlightFuel = state.limitedFlightFuel;
         this.penguinIceFxTimer = state.penguinIceFxTimer;
         this.penguinDashDamageTimer = state.penguinDashDamageTimer;
+        this.penguinBellyCharging = state.penguinBellyCharging;
+        this.penguinBellyChargeFrames = Math.max(0, state.penguinBellyChargeFrames);
+        this.penguinBellySlideTimer = Math.max(0, state.penguinBellySlideTimer);
+        this.penguinBellyReuseTimer = Math.max(0, state.penguinBellyReuseTimer);
+        this.penguinBellyDirection = state.penguinBellyDirection == 0 ? 1 : state.penguinBellyDirection;
+        this.penguinBellyUltimate = state.penguinBellyUltimate;
+        this.penguinIcebergReuseTimer = Math.max(0, state.penguinIcebergReuseTimer);
+        this.penguinRocketTimer = Math.max(0, state.penguinRocketTimer);
+        this.penguinFlopTimer = Math.max(0, state.penguinFlopTimer);
+        this.penguinRocketUltimate = state.penguinRocketUltimate;
+        this.penguinUpSpecialUsed = state.penguinUpSpecialUsed;
+        this.penguinSnowFortReuseTimer = Math.max(0, state.penguinSnowFortReuseTimer);
+        if (state.penguinSnowFortActive) {
+            this.penguinSnowFort = new PenguinSnowFort(
+                    state.penguinSnowFortX,
+                    state.penguinSnowFortY,
+                    state.penguinSnowFortDirection == 0 ? 1 : state.penguinSnowFortDirection,
+                    state.penguinSnowFortUltimate
+            );
+            this.penguinSnowFort.health = Math.max(0, state.penguinSnowFortHealth);
+            this.penguinSnowFort.lifeFrames = Math.max(0, state.penguinSnowFortLifeFrames);
+            this.penguinSnowFort.ageFrames = Math.max(0, state.penguinSnowFortAgeFrames);
+        } else {
+            this.penguinSnowFort = null;
+        }
+        this.penguinFortGuardFxTimer = Math.max(0, state.penguinFortGuardFxTimer);
         this.hummingFrenzyTimer = state.hummingFrenzyTimer;
         this.phoenixAfterburnTimer = state.phoenixAfterburnTimer;
         this.phoenixRebornUsed = state.phoenixRebornUsed;
@@ -12070,7 +12975,19 @@ public class Bird {
                 && (turkeyGobbleCharging || turkeyGobbleTimer > 0 || turkeyStampedeTimer > 0 || turkeyPanicFlapTimer > 0);
     }
 
+    private boolean penguinSpecialPoseActive() {
+        return type == BirdGame3.BirdType.PENGUIN
+                && (penguinBellyCharging || penguinBellySlideTimer > 0 || penguinRocketTimer > 0 || penguinFlopTimer > 0);
+    }
+
     private double turkeySpecialPhase(int timer, int totalFrames) {
+        if (timer <= 0 || totalFrames <= 0) {
+            return 0.0;
+        }
+        return Math.clamp(1.0 - ((timer - 1.0) / (double) totalFrames), 0.0, 1.0);
+    }
+
+    private double penguinSpecialPhase(int timer, int totalFrames) {
         if (timer <= 0 || totalFrames <= 0) {
             return 0.0;
         }
@@ -12490,8 +13407,83 @@ public class Bird {
                 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
     }
 
+    private AttackVisualPose currentPenguinSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (penguinBellyCharging) {
+            double ratio = penguinBellyChargeRatio();
+            double pulse = 0.5 + 0.5 * Math.sin(penguinBellyChargeFrames * (0.22 + ratio * 0.18));
+            return new AttackVisualPose(
+                    -dir * (4.0 + ratio * 6.0),
+                    13.0 + ratio * 5.0,
+                    dir * (8.0 + pulse * 3.0),
+                    facingRight ? 0.0 : Math.PI,
+                    6.0 + ratio * 8.0,
+                    4.0 + ratio * 3.0,
+                    5.0 + ratio * 4.0,
+                    1.04,
+                    dir * (6.0 + pulse * 3.0),
+                    1.18 + ratio * 0.10,
+                    0.72 - ratio * 0.06
+            );
+        }
+        if (penguinBellySlideTimer > 0) {
+            double phase = penguinSpecialPhase(penguinBellySlideTimer,
+                    penguinBellyUltimate ? PENGUIN_BELLY_SLIDE_FRAMES + 8 : PENGUIN_BELLY_SLIDE_FRAMES);
+            return new AttackVisualPose(
+                    dir * (11.0 + 6.0 * phase),
+                    17.0,
+                    dir * (18.0 + 5.0 * phase),
+                    facingRight ? -0.02 : Math.PI + 0.02,
+                    16.0 + 8.0 * phase,
+                    4.0,
+                    16.0 + 6.0 * phase,
+                    1.18,
+                    dir * 86.0,
+                    1.42,
+                    0.58
+            );
+        }
+        if (penguinRocketTimer > 0) {
+            double phase = penguinSpecialPhase(penguinRocketTimer,
+                    penguinRocketUltimate ? PENGUIN_ROCKET_FRAMES + 6 : PENGUIN_ROCKET_FRAMES);
+            return new AttackVisualPose(
+                    dir * 1.0,
+                    -18.0 - 18.0 * phase,
+                    dir * 4.0,
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.08),
+                    14.0 + 6.0 * phase,
+                    -24.0 - 6.0 * phase,
+                    12.0 + 5.0 * phase,
+                    0.98,
+                    -24.0 - 10.0 * phase,
+                    0.90,
+                    1.20
+            );
+        }
+        if (penguinFlopTimer > 0) {
+            double phase = penguinSpecialPhase(penguinFlopTimer,
+                    penguinRocketUltimate ? PENGUIN_FLOP_FRAMES + 8 : PENGUIN_FLOP_FRAMES);
+            return new AttackVisualPose(
+                    dir * 2.0,
+                    17.0 + 8.0 * phase,
+                    dir * 6.0,
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.08),
+                    16.0,
+                    14.0 + 8.0 * phase,
+                    15.0,
+                    1.04,
+                    24.0 + 18.0 * phase,
+                    1.30,
+                    0.66
+            );
+        }
+        return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
+                0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+    }
+
     private NormalAttackVariant currentDisplayedAttackVariant() {
-        if (pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive() || turkeySpecialPoseActive()) {
+        if (pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
+                || turkeySpecialPoseActive() || penguinSpecialPoseActive()) {
             return null;
         }
         if (isGroundAttackPending()) {
@@ -12569,7 +13561,8 @@ public class Bird {
         }
         if (stunTime > 0.0 || jumpSquatTimer > 0 || landingLagTimer > 0
                 || isChargingAttack() || attackAnimationTimer > 0 || aerialAttackActive
-                || pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive() || turkeySpecialPoseActive()) {
+                || pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
+                || turkeySpecialPoseActive() || penguinSpecialPoseActive()) {
             return VISUAL_POSE_ACTION_BLEND_PER_FRAME;
         }
         if (!isOnGround() && Math.abs(vy) > 4.0) {
@@ -12644,6 +13637,9 @@ public class Bird {
         }
         if (turkeySpecialPoseActive()) {
             return currentTurkeySpecialPose();
+        }
+        if (penguinSpecialPoseActive()) {
+            return currentPenguinSpecialPose();
         }
         AttackVisualPose dodgePose = currentDodgeVisualPose();
         if (dodgePose != null) {
@@ -12972,6 +13968,7 @@ public class Bird {
         drawHummingbirdNectarTraps(g);
         drawTurkeyFeastTraps(g);
         drawRoadrunnerPaintedRoads(g);
+        drawPenguinSpecialObjects(g);
         drawBlockingShield(g, drawSize);
         drawTaunt(g);
         drawCooldownFlash(g);
@@ -12988,6 +13985,7 @@ public class Bird {
         drawUltimateFx(g, drawSize);
         drawRoadrunnerSandstormAura(g, drawSize);
         drawRoadrunnerSpecialFx(g);
+        drawPenguinSpecialFx(g, drawSize);
         drawBatEcho(g, drawSize);
         if (!suppressSelectEffects) {
             drawOpiumBirdEffects(g, drawSize);
@@ -13027,6 +14025,7 @@ public class Bird {
         drawPigeonSpecialFx(g, drawSize);
         drawRaptorSpecialFx(g, drawSize);
         drawPhoenixSpecialFx(g, drawSize);
+        drawPenguinSpecialStrikeFx(g, drawSize);
         drawDirectionalAttackFx(g, drawSize);
         drawStunEffect(g, drawSize);
         drawVineGrapple(g);
@@ -13518,7 +14517,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.HUMMINGBIRD
                 || type == BirdGame3.BirdType.TURKEY
                 || type == BirdGame3.BirdType.ROOSTER
-                || type == BirdGame3.BirdType.ROADRUNNER) {
+                || type == BirdGame3.BirdType.ROADRUNNER
+                || type == BirdGame3.BirdType.PENGUIN) {
             cooldownFlash = 0;
             return;
         }
@@ -14108,6 +15108,133 @@ public class Bird {
                     footY + offset * 0.16,
                     bodyCenterX() - roadrunnerSlipDirection * (48.0 + i * 11.0) * sizeMultiplier,
                     footY + offset * 0.16 + (i % 2 == 0 ? -3.0 : 3.0) * sizeMultiplier);
+        }
+    }
+
+    private void drawPenguinSpecialObjects(GraphicsContext g) {
+        if (type != BirdGame3.BirdType.PENGUIN) {
+            return;
+        }
+        double s = sizeMultiplier;
+        if (penguinSnowFort != null && penguinSnowFort.health > 0) {
+            PenguinSnowFort fort = penguinSnowFort;
+            double width = penguinFortHalfWidth(fort) * 2.0;
+            double height = penguinFortHeight(fort);
+            double pulse = 0.5 + 0.5 * Math.sin(fort.ageFrames * 0.16);
+            Color base = fort.ultimate ? Color.web("#FFF59D") : Color.web("#E1F5FE");
+            Color edge = fort.damageFlash > 0 ? Color.web("#FFAB91") : (fort.ultimate ? Color.GOLD : Color.web("#90CAF9"));
+
+            g.save();
+            g.setFill(base.deriveColor(0, 1, 1, 0.50 + pulse * 0.08));
+            g.fillRoundRect(fort.x - width * 0.5, fort.y - height, width, height, 12.0 * s, 12.0 * s);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.38));
+            for (int row = 0; row < 3; row++) {
+                double blockY = fort.y - height + (10.0 + row * 18.0) * s;
+                for (int col = 0; col < 3; col++) {
+                    double blockX = fort.x - width * 0.42 + (col * 28.0 + (row % 2) * 10.0) * s;
+                    g.fillRoundRect(blockX, blockY, 24.0 * s, 12.0 * s, 5.0 * s, 5.0 * s);
+                }
+            }
+            g.setStroke(edge.deriveColor(0, 1, 1, 0.88));
+            g.setLineWidth((fort.damageFlash > 0 ? 5.0 : 3.0) * s);
+            g.strokeRoundRect(fort.x - width * 0.5, fort.y - height, width, height, 12.0 * s, 12.0 * s);
+            double healthRatio = Math.clamp(fort.health / (double) penguinFortMaxHealth(fort), 0.0, 1.0);
+            g.setFill(Color.web("#263238", 0.58));
+            g.fillRoundRect(fort.x - width * 0.42, fort.y - height - 12.0 * s, width * 0.84, 6.0 * s, 4.0 * s, 4.0 * s);
+            g.setFill(edge.deriveColor(0, 1, 1, 0.85));
+            g.fillRoundRect(fort.x - width * 0.42, fort.y - height - 12.0 * s, width * 0.84 * healthRatio, 6.0 * s, 4.0 * s, 4.0 * s);
+            g.restore();
+        }
+
+        for (PenguinIceObject object : penguinIceObjects) {
+            double radius = (object.snowball ? 58.0 : 42.0) * s;
+            double pulse = 0.5 + 0.5 * Math.sin(object.ageFrames * 0.22);
+            Color base = object.ultimate ? Color.web("#FFF176") : Color.web("#B3E5FC");
+            Color edge = object.ultimate ? Color.GOLD : Color.web("#4FC3F7");
+            g.save();
+            g.translate(object.x, object.y);
+            g.rotate(object.snowball ? object.ageFrames * object.direction * 13.0 : object.direction * 8.0);
+            if (object.snowball) {
+                g.setFill(base.deriveColor(0, 1, 1, 0.74));
+                g.fillOval(-radius, -radius, radius * 2.0, radius * 2.0);
+                g.setStroke(edge.deriveColor(0, 1, 1, 0.84));
+                g.setLineWidth(3.0 * s);
+                g.strokeOval(-radius, -radius, radius * 2.0, radius * 2.0);
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.52 + pulse * 0.14));
+                g.setLineWidth(2.0 * s);
+                g.strokeArc(-radius * 0.64, -radius * 0.64, radius * 1.28, radius * 1.28,
+                        20 + object.ageFrames * 18, 120, ArcType.OPEN);
+            } else {
+                double w = radius * 1.18;
+                double h = radius * 1.18;
+                g.setFill(base.deriveColor(0, 1, 1, 0.72));
+                g.fillPolygon(new double[]{-w, -w * 0.40, w * 0.58, w, w * 0.32, -w * 0.82},
+                        new double[]{h * 0.34, -h * 0.70, -h * 0.82, h * 0.08, h * 0.76, h * 0.78}, 6);
+                g.setStroke(edge.deriveColor(0, 1, 1, 0.88));
+                g.setLineWidth(3.0 * s);
+                g.strokePolygon(new double[]{-w, -w * 0.40, w * 0.58, w, w * 0.32, -w * 0.82},
+                        new double[]{h * 0.34, -h * 0.70, -h * 0.82, h * 0.08, h * 0.76, h * 0.78}, 6);
+            }
+            g.restore();
+        }
+    }
+
+    private void drawPenguinSpecialFx(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.PENGUIN) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double cx = bodyCenterX();
+        double cy = bodyCenterY();
+        if (penguinFortGuardFxTimer > 0 && penguinSnowFort != null) {
+            double fade = Math.clamp(penguinFortGuardFxTimer / 12.0, 0.0, 1.0);
+            g.setStroke(Color.web("#E1F5FE").deriveColor(0, 1, 1, 0.30 + fade * 0.38));
+            g.setLineWidth(3.5 * s);
+            g.strokeArc(penguinSnowFort.x - 60.0 * s, penguinSnowFort.y - 104.0 * s,
+                    120.0 * s, 120.0 * s, 210, 120, ArcType.OPEN);
+        }
+        if (penguinBellyCharging) {
+            double ratio = penguinBellyChargeRatio();
+            double width = (78.0 + ratio * 80.0) * s;
+            double height = (26.0 + ratio * 18.0) * s;
+            g.setStroke((penguinBellyUltimate ? Color.GOLD : Color.web("#90CAF9")).deriveColor(0, 1, 1, 0.42 + ratio * 0.30));
+            g.setLineWidth((2.0 + ratio * 3.4) * s);
+            g.strokeOval(cx - width * 0.5, bodyBottomY() - height * 0.85, width, height);
+        }
+        if (penguinRocketTimer > 0) {
+            double fade = Math.clamp(penguinRocketTimer / (double) (penguinRocketUltimate ? PENGUIN_ROCKET_FRAMES + 6 : PENGUIN_ROCKET_FRAMES), 0.0, 1.0);
+            g.setStroke((penguinRocketUltimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.38 + fade * 0.30));
+            g.setLineWidth(3.0 * s);
+            for (int i = 0; i < 5; i++) {
+                double offset = (i - 2.0) * 13.0 * s;
+                g.strokeLine(cx + offset, bodyBottomY() - 8.0 * s,
+                        cx + offset * 0.30, bodyBottomY() + (36.0 + i * 4.0) * s);
+            }
+        }
+        if (penguinFlopTimer > 0) {
+            double fade = Math.clamp(penguinFlopTimer / (double) (penguinRocketUltimate ? PENGUIN_FLOP_FRAMES + 8 : PENGUIN_FLOP_FRAMES), 0.0, 1.0);
+            g.setFill((penguinRocketUltimate ? Color.GOLD : Color.web("#E1F5FE")).deriveColor(0, 1, 1, 0.16 + fade * 0.14));
+            g.fillOval(cx - 64.0 * s, bodyBottomY() - 8.0 * s, 128.0 * s, 28.0 * s);
+        }
+    }
+
+    private void drawPenguinSpecialStrikeFx(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.PENGUIN) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double cx = bodyCenterX();
+        double cy = bodyCenterY();
+        int dir = facingDirection();
+        if (penguinBellySlideTimer > 0) {
+            g.setStroke((penguinBellyUltimate ? Color.GOLD : Color.web("#90CAF9")).deriveColor(0, 1, 1, 0.58));
+            g.setLineWidth(5.0 * s);
+            g.strokeLine(cx - dir * 34.0 * s, cy + 22.0 * s, cx + dir * 104.0 * s, cy + 14.0 * s);
+        }
+        if (penguinFlopTimer > 0) {
+            g.setStroke((penguinRocketUltimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.62));
+            g.setLineWidth(4.5 * s);
+            g.strokeLine(cx - 48.0 * s, bodyBottomY() + 10.0 * s, cx + 48.0 * s, bodyBottomY() + 10.0 * s);
         }
     }
 
@@ -15095,6 +16222,9 @@ public class Bird {
             return;
         }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
+            return;
+        }
+        if (type == BirdGame3.BirdType.PENGUIN) {
             return;
         }
         if (type == BirdGame3.BirdType.PIGEON && specialCooldown > 0) {

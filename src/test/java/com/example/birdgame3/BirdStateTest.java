@@ -2703,6 +2703,144 @@ class BirdStateTest {
     }
 
     @Test
+    void penguinNeutralChargesThenReleasesBellySlideWithoutCooldownUi() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird penguin = new Bird(120.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        Bird target = new Bird(210.0, BirdGame3.BirdType.EAGLE, 1, game);
+        penguin.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = penguin;
+        game.players[1] = target;
+
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(specialKey, true);
+        for (int i = 0; i < 24; i++) {
+            penguin.update(1.0);
+        }
+
+        assertTrue(getPrivateBoolean(penguin, "penguinBellyCharging"));
+        assertEquals(0, penguin.specialCooldown);
+
+        game.setLocalActionsForKey(specialKey, false);
+        penguin.update(1.0);
+
+        assertTrue(getPrivateInt(penguin, "penguinBellySlideTimer") > 0);
+        assertTrue(target.health < Bird.STARTING_HEALTH || target.vx > 0.0);
+        assertEquals(0, penguin.specialCooldown);
+    }
+
+    @Test
+    void penguinUpSpecialUsesAirRecoveryRuleAndNoVisibleCooldown() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird penguin = new Bird(220.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        penguin.y = BirdGame3.GROUND_Y - 260.0;
+        game.players[0] = penguin;
+
+        KeyCode jumpKey = game.jumpKeyForPlayer(0);
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(jumpKey, true);
+        game.setLocalActionsForKey(specialKey, true);
+        penguin.update(1.0);
+
+        assertTrue(getPrivateBoolean(penguin, "penguinUpSpecialUsed"));
+        assertTrue(getPrivateInt(penguin, "penguinRocketTimer") > 0);
+        assertTrue(penguin.vy < -12.0);
+        assertEquals(0, penguin.specialCooldown);
+
+        for (int i = 0; i < 28; i++) {
+            penguin.update(1.0);
+        }
+        assertTrue(getPrivateInt(penguin, "penguinFlopTimer") > 0,
+                "Holding up special should enter the slow falling blast only after the flap window.");
+        assertTrue(penguin.vy > 0.0 && penguin.vy < 12.0);
+
+        game.setLocalActionsForKey(specialKey, false);
+        penguin.update(1.0);
+        game.setLocalActionsForKey(specialKey, true);
+        penguin.update(1.0);
+
+        assertTrue(getPrivateBoolean(penguin, "penguinUpSpecialUsed"));
+    }
+
+    @Test
+    void penguinSnowFortGuardsAndTurnsIcebergIntoSnowball() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird penguin = new Bird(120.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        Bird attacker = new Bird(285.0, BirdGame3.BirdType.EAGLE, 1, game);
+        penguin.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        penguin.facingRight = true;
+        game.players[0] = penguin;
+        game.players[1] = attacker;
+
+        KeyCode blockKey = game.blockKeyForPlayer(0);
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(blockKey, true);
+        game.setLocalActionsForKey(specialKey, true);
+        penguin.update(1.0);
+
+        assertNotNull(getPrivateObject(penguin, "penguinSnowFort"));
+        double dealt = applyPrivateDamage(attacker, penguin, 20.0);
+        assertTrue(dealt < 20.0);
+        assertTrue(penguin.health > Bird.STARTING_HEALTH - 20.0);
+
+        game.setLocalActionsForKey(blockKey, false);
+        game.setLocalActionsForKey(specialKey, false);
+        penguin.update(1.0);
+
+        KeyCode rightKey = game.rightKeyForPlayer(0);
+        game.setLocalActionsForKey(rightKey, true);
+        game.setLocalActionsForKey(specialKey, true);
+        penguin.update(1.0);
+
+        Object iceObjects = getPrivateObject(penguin, "penguinIceObjects");
+        assertTrue(iceObjects instanceof List<?> list && !list.isEmpty());
+        Object firstObject = ((List<?>) iceObjects).get(0);
+        assertTrue(getPrivateBoolean(firstObject, "snowball"));
+        assertEquals(0, penguin.specialCooldown);
+    }
+
+    @Test
+    void penguinSnowFortBlocksMovementAndTakesAttackDamage() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird penguin = new Bird(120.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        Bird attacker = new Bird(245.0, BirdGame3.BirdType.EAGLE, 1, game);
+        penguin.y = BirdGame3.GROUND_Y - 80.0;
+        attacker.y = BirdGame3.GROUND_Y - 80.0;
+        penguin.facingRight = true;
+        attacker.facingRight = false;
+        attacker.vx = -8.0;
+        game.players[0] = penguin;
+        game.players[1] = attacker;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        penguin.update(1.0);
+
+        Object fort = getPrivateObject(penguin, "penguinSnowFort");
+        double fortX = getPrivateDouble(fort, "x");
+        attacker.x = fortX - 40.0;
+        penguin.update(1.0);
+
+        assertTrue(Math.abs((attacker.x + 40.0) - fortX) > 62.0,
+                "Snow Fort should push enemy bodies out instead of letting them walk through.");
+
+        int healthBefore = getPrivateInt(fort, "health");
+        invokePrivateIntVoid(attacker, "performAttack", 0);
+        int healthAfter = getPrivateInt(fort, "health");
+
+        assertTrue(healthAfter < healthBefore, "Enemy attacks should damage the Snow Fort.");
+    }
+
+    @Test
     void pigeonAiRefreshesRecoveryBeforeItFallsTooLow() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
@@ -3627,10 +3765,22 @@ class BirdStateTest {
         method.invoke(target, value);
     }
 
+    private static void invokePrivateIntVoid(Object target, String methodName, int value) throws Exception {
+        Method method = target.getClass().getDeclaredMethod(methodName, int.class);
+        method.setAccessible(true);
+        method.invoke(target, value);
+    }
+
     private static double invokeDoubleMethod(Object target, String methodName) throws Exception {
         Method method = target.getClass().getDeclaredMethod(methodName);
         method.setAccessible(true);
         return ((Number) method.invoke(target)).doubleValue();
+    }
+
+    private static double applyPrivateDamage(Bird attacker, Bird target, double rawDamage) throws Exception {
+        Method method = Bird.class.getDeclaredMethod("applyDamageTo", Bird.class, double.class);
+        method.setAccessible(true);
+        return ((Number) method.invoke(attacker, target, rawDamage)).doubleValue();
     }
 
     private static double attackKnockbackAfterHoldingForFrames(int holdFrames) {

@@ -63,6 +63,16 @@ class LanProtocolTest {
         state.roadrunnerRoadBoostTimer = 18;
         state.roadrunnerSlipTimer = 44;
         state.roadrunnerSlipDirection = -1;
+        state.penguinBellyCharging = true;
+        state.penguinBellyChargeFrames = 41;
+        state.penguinBellySlideTimer = 13;
+        state.penguinBellyDirection = -1;
+        state.penguinRocketTimer = 21;
+        state.penguinUpSpecialUsed = true;
+        state.penguinSnowFortActive = true;
+        state.penguinSnowFortX = 1234.5;
+        state.penguinSnowFortY = 2100.25;
+        state.penguinSnowFortHealth = 33;
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         state.write(new DataOutputStream(bos));
@@ -92,5 +102,15 @@ class LanProtocolTest {
         assertEquals(18, decoded.roadrunnerRoadBoostTimer);
         assertEquals(44, decoded.roadrunnerSlipTimer);
         assertEquals(-1, decoded.roadrunnerSlipDirection);
+        assertTrue(decoded.penguinBellyCharging);
+        assertEquals(41, decoded.penguinBellyChargeFrames);
+        assertEquals(13, decoded.penguinBellySlideTimer);
+        assertEquals(-1, decoded.penguinBellyDirection);
+        assertEquals(21, decoded.penguinRocketTimer);
+        assertTrue(decoded.penguinUpSpecialUsed);
+        assertTrue(decoded.penguinSnowFortActive);
+        assertEquals(1234.5, decoded.penguinSnowFortX);
+        assertEquals(2100.25, decoded.penguinSnowFortY);
+        assertEquals(33, decoded.penguinSnowFortHealth);
     }
 }
