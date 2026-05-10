@@ -9185,7 +9185,7 @@ public class BirdGame3 extends Application {
             chick.vy += 0.18;
         }
 
-        chick.age = Math.min(chick.age, Math.max(0, chick.maxAge - 240));
+        chick.age = Math.clamp(chick.maxAge - 240, 0, chick.age);
     }
 
     private boolean isWorldRectNearCamera(double x, double y, double width, double height, double margin) {

@@ -2774,7 +2774,7 @@ public class Bird {
             return;
         }
         turkeyGobbleCharging = false;
-        turkeyGobbleHoldTimer = Math.max(1, Math.min(TURKEY_GOBBLE_CHARGE_MAX_FRAMES, turkeyGobbleHoldTimer));
+        turkeyGobbleHoldTimer = Math.clamp(turkeyGobbleHoldTimer, 1, TURKEY_GOBBLE_CHARGE_MAX_FRAMES);
         turkeyGobbleTimer = turkeyGobbleUltimate ? TURKEY_GOBBLE_GUARD_FRAMES + 6 : TURKEY_GOBBLE_GUARD_FRAMES;
         turkeyGobbleReuseTimer = Math.max(turkeyGobbleReuseTimer,
                 turkeyGobbleUltimate ? 22 : TURKEY_GOBBLE_GUARD_REUSE_FRAMES);
@@ -4467,7 +4467,7 @@ public class Bird {
         double trapY = turkeyTrapSurfaceY(trapX);
         turkeyFeastTraps.add(new TurkeyFeastTrap(trapX, trapY, ultimate));
         while (turkeyFeastTraps.size() > (ultimate ? 5 : 3)) {
-            turkeyFeastTraps.remove(0);
+            turkeyFeastTraps.removeFirst();
         }
         turkeyFeastTrapReuseTimer = Math.max(turkeyFeastTrapReuseTimer,
                 ultimate ? 32 : TURKEY_FEAST_TRAP_REUSE_FRAMES);
@@ -4885,7 +4885,7 @@ public class Bird {
 
         if (roadrunnerBeepBurstTimer > 0) {
             double maxFrames = roadrunnerBeepUltimate ? ROADRUNNER_BEEP_BURST_FRAMES + 4.0 : ROADRUNNER_BEEP_BURST_FRAMES;
-            double powerRatio = Math.clamp(roadrunnerBeepBurstTimer / Math.max(1.0, maxFrames), 0.0, 1.0);
+            double powerRatio = Math.clamp(roadrunnerBeepBurstTimer / maxFrames, 0.0, 1.0);
             applyRoadrunnerBeepBlitzHit(0.35 + powerRatio * 0.65);
         }
 
@@ -6091,15 +6091,6 @@ public class Bird {
         };
     }
 
-    private boolean turkeySpecialOnReuseLockout(TurkeySpecialVariant variant) {
-        return switch (variant) {
-            case NEUTRAL -> turkeyGobbleReuseTimer > 0;
-            case SIDE -> turkeyStampedeReuseTimer > 0;
-            case UP -> turkeyPanicFlapUsed;
-            case DOWN -> turkeyFeastTrapReuseTimer > 0;
-        };
-    }
-
     private boolean canStartTurkeySpecial() {
         TurkeySpecialVariant variant = selectTurkeySpecialVariant();
         boolean shieldConversion = variant == TurkeySpecialVariant.DOWN
@@ -6123,15 +6114,6 @@ public class Bird {
             case SIDE -> ultimateReady || (roosterSideReuseTimer <= 0 && nextRoosterFollowerChick() != null);
             case UP -> ultimateReady || !roosterUpSpecialUsed;
             case DOWN -> ultimateReady || roosterDownReuseTimer <= 0;
-        };
-    }
-
-    private boolean roosterSpecialOnReuseLockout(RoosterSpecialVariant variant) {
-        return switch (variant) {
-            case NEUTRAL -> roosterNeutralReuseTimer > 0 || ownedRoosterChickCount() >= ROOSTER_MAX_CHICKS;
-            case SIDE -> roosterSideReuseTimer > 0 || nextRoosterFollowerChick() == null;
-            case UP -> roosterUpSpecialUsed;
-            case DOWN -> roosterDownReuseTimer > 0;
         };
     }
 
@@ -6165,15 +6147,6 @@ public class Bird {
             case SIDE -> ultimateReady || roadrunnerRicochetReuseTimer <= 0;
             case UP -> ultimateReady || !roadrunnerDustDevilUsed;
             case DOWN -> ultimateReady || roadrunnerPaintedRoadReuseTimer <= 0;
-        };
-    }
-
-    private boolean roadrunnerSpecialOnReuseLockout(RoadrunnerSpecialVariant variant) {
-        return switch (variant) {
-            case NEUTRAL -> roadrunnerBeepReuseTimer > 0;
-            case SIDE -> roadrunnerRicochetReuseTimer > 0;
-            case UP -> roadrunnerDustDevilUsed;
-            case DOWN -> roadrunnerPaintedRoadReuseTimer > 0;
         };
     }
 
@@ -6377,7 +6350,7 @@ public class Bird {
         pigeonScavengeResolved = false;
     }
 
-    private void resetRoadrunnerSpecialState(boolean clearRoads) {
+    private void resetRoadrunnerSpecialState() {
         roadrunnerMomentum = 0.0;
         roadrunnerMomentumFxTimer = 0;
         roadrunnerBeepCharging = false;
@@ -6401,9 +6374,8 @@ public class Bird {
         Arrays.fill(roadrunnerDustDevilHit, false);
         roadrunnerPaintedRoadReuseTimer = 0;
         roadrunnerRoadBoostTimer = 0;
-        if (clearRoads) {
-            roadrunnerPaintedRoads.clear();
-        }
+        roadrunnerPaintedRoads.clear();
+
         roadrunnerSlipTimer = 0;
         roadrunnerSlipDirection = 1;
         roadrunnerSlipOwnerIndex = -1;
@@ -9825,7 +9797,7 @@ public class Bird {
         roadrunnerSandstormTimer = 0;
         roadrunnerSandGustTimer = 0;
         Arrays.fill(roadrunnerSandHitCooldown, 0);
-        resetRoadrunnerSpecialState(true);
+        resetRoadrunnerSpecialState();
         shrinkTimer = 0;
         speedMultiplier = baseSpeedMultiplier;
         powerMultiplier = basePowerMultiplier;
@@ -10378,7 +10350,7 @@ public class Bird {
                     bodyCenterX() + (Math.random() - 0.5) * bodyWidth() * 0.78,
                     bodyCenterY() + (Math.random() - 0.5) * bodyHeight() * 0.52,
                     (Math.random() - 0.5) * 1.2,
-                    -0.4 - Math.random() * 1.0,
+                    -0.4 - Math.random(),
                     crumb.deriveColor(0, 1, 1, 0.62)
             ));
         }
@@ -11281,7 +11253,7 @@ public class Bird {
         currentTaunt = 0;
         resetPigeonSpecialState();
         pigeonUpSpecialUsed = false;
-        resetRoadrunnerSpecialState(true);
+        resetRoadrunnerSpecialState();
         resetPhoenixSpecialState();
         phoenixNeutralReuseTimer = 0;
         phoenixFireballReuseTimer = 0;
@@ -13008,14 +12980,14 @@ public class Bird {
         drawThermalBuff(g, drawSize);
         drawPenguinIceBuff(g, drawSize);
         drawHummingbirdFrenzy(g, drawSize);
-        drawTurkeySpecialFx(g, drawSize);
+        drawTurkeySpecialFx(g);
         if (!suppressSelectEffects) {
             drawPhoenixAura(g, drawSize);
         }
         drawNeonBuff(g, drawSize);
         drawUltimateFx(g, drawSize);
         drawRoadrunnerSandstormAura(g, drawSize);
-        drawRoadrunnerSpecialFx(g, drawSize);
+        drawRoadrunnerSpecialFx(g);
         drawBatEcho(g, drawSize);
         if (!suppressSelectEffects) {
             drawOpiumBirdEffects(g, drawSize);
@@ -13051,7 +13023,7 @@ public class Bird {
         g.restore();
         drawHummingbirdNectarCoating(g, drawSize);
         drawTurkeyStuffedEffect(g, drawSize);
-        drawRoadrunnerSlipEffect(g, drawSize);
+        drawRoadrunnerSlipEffect(g);
         drawPigeonSpecialFx(g, drawSize);
         drawRaptorSpecialFx(g, drawSize);
         drawPhoenixSpecialFx(g, drawSize);
@@ -13169,7 +13141,7 @@ public class Bird {
         }
     }
 
-    private void drawTurkeySpecialFx(GraphicsContext g, double drawSize) {
+    private void drawTurkeySpecialFx(GraphicsContext g) {
         if (type != BirdGame3.BirdType.TURKEY) return;
         double s = sizeMultiplier;
         double centerX = bodyCenterX();
@@ -13188,7 +13160,7 @@ public class Bird {
         }
         if (turkeyGobbleTimer > 0) {
             double maxFrames = turkeyGobbleUltimate ? TURKEY_GOBBLE_GUARD_FRAMES + 6.0 : TURKEY_GOBBLE_GUARD_FRAMES;
-            double phase = 1.0 - Math.clamp(turkeyGobbleTimer / Math.max(1.0, maxFrames), 0.0, 1.0);
+            double phase = 1.0 - Math.clamp(turkeyGobbleTimer / maxFrames, 0.0, 1.0);
             double pulse = 0.5 + 0.5 * Math.sin(turkeyGobbleTimer * 0.5);
             Color ring = (turkeyGobbleCountered ? Color.GOLD : Color.web("#EFEBE9"))
                     .deriveColor(0, 1, 1, 0.45 + 0.25 * pulse);
@@ -13919,15 +13891,7 @@ public class Bird {
             return;
         }
         for (RoadrunnerPaintedRoad road : roadrunnerPaintedRoads) {
-            double totalLife = road.ultimate ? ROADRUNNER_PAINTED_ROAD_LIFE_FRAMES + 120.0 : ROADRUNNER_PAINTED_ROAD_LIFE_FRAMES;
-            double lifeRatio = Math.clamp(road.lifeFrames / totalLife, 0.0, 1.0);
-            double fadeRatio = 1.0;
-            if (road.collapsed) {
-                fadeRatio = road.fadeTimer > 0
-                        ? Math.clamp(road.fadeTimer / (double) ROADRUNNER_PAINTED_ROAD_FADE_FRAMES, 0.0, 1.0)
-                        : 0.0;
-            }
-            double alpha = Math.clamp(0.25 + lifeRatio * 0.70, 0.0, 1.0) * fadeRatio;
+            double alpha = getAlpha(road);
             if (alpha <= 0.01) {
                 continue;
             }
@@ -13994,7 +13958,19 @@ public class Bird {
         }
     }
 
-    private void drawRoadrunnerSpecialFx(GraphicsContext g, double drawSize) {
+    private static double getAlpha(RoadrunnerPaintedRoad road) {
+        double totalLife = road.ultimate ? ROADRUNNER_PAINTED_ROAD_LIFE_FRAMES + 120.0 : ROADRUNNER_PAINTED_ROAD_LIFE_FRAMES;
+        double lifeRatio = Math.clamp(road.lifeFrames / totalLife, 0.0, 1.0);
+        double fadeRatio = 1.0;
+        if (road.collapsed) {
+            fadeRatio = road.fadeTimer > 0
+                    ? Math.clamp(road.fadeTimer / (double) ROADRUNNER_PAINTED_ROAD_FADE_FRAMES, 0.0, 1.0)
+                    : 0.0;
+        }
+        return Math.clamp(0.25 + lifeRatio * 0.70, 0.0, 1.0) * fadeRatio;
+    }
+
+    private void drawRoadrunnerSpecialFx(GraphicsContext g) {
         if (type != BirdGame3.BirdType.ROADRUNNER) {
             return;
         }
@@ -14113,7 +14089,7 @@ public class Bird {
         }
     }
 
-    private void drawRoadrunnerSlipEffect(GraphicsContext g, double drawSize) {
+    private void drawRoadrunnerSlipEffect(GraphicsContext g) {
         if (roadrunnerSlipTimer <= 0) {
             return;
         }
