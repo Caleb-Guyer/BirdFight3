@@ -265,6 +265,12 @@ public class Bird {
     private int ledgeHangFrames = 0;
     private Platform respawnNestPlatform = null;
     private int respawnInvulnerabilityTimer = 0;
+    private int respawnReturnTimer = 0;
+    private int respawnNestLockTimer = 0;
+    private double respawnReturnStartX = 0.0;
+    private double respawnReturnStartY = 0.0;
+    private double respawnLandingX = 0.0;
+    private double respawnLandingY = 0.0;
     private boolean wasOnRespawnNestLastFrame = false;
 
     public boolean isBlocking = false;
@@ -487,6 +493,8 @@ public class Bird {
     private static final double SMASH_RESPAWN_NEST_MIN_WIDTH = 180.0;
     private static final double SMASH_RESPAWN_NEST_HEIGHT = 28.0;
     private static final int SMASH_RESPAWN_INVULNERABILITY_FRAMES = 120;
+    private static final int SMASH_RESPAWN_RETURN_FRAMES = 38;
+    private static final int SMASH_RESPAWN_NEST_LOCK_FRAMES = 24;
     private static final int SMASH_KO_CREDIT_FRAMES = 240;
     private static final double SHIELD_MAX_HEALTH = 60.0;
     private static final double SHIELD_DAMAGE_BASE = 1.8;
@@ -972,8 +980,104 @@ public class Bird {
         double nestHeight = SMASH_RESPAWN_NEST_HEIGHT * sizeMultiplier;
         respawnNestPlatform = new Platform(centerX - nestWidth / 2.0, nestTopY, nestWidth, nestHeight);
         respawnInvulnerabilityTimer = SMASH_RESPAWN_INVULNERABILITY_FRAMES;
-        x = centerX - currentBodyWidth / 2.0;
-        y = nestTopY - currentBodyHeight;
+        respawnLandingX = centerX - currentBodyWidth / 2.0;
+        respawnLandingY = nestTopY - currentBodyHeight;
+        double returnDirection = playerIndex % 2 == 0 ? -1.0 : 1.0;
+        double returnOffset = returnDirection * 520.0 * sizeMultiplier;
+        if (respawnLandingX + returnOffset < 0.0
+                || respawnLandingX + returnOffset > BirdGame3.WORLD_WIDTH - currentBodyWidth) {
+            returnOffset = -returnOffset;
+        }
+        respawnReturnStartX = Math.clamp(respawnLandingX + returnOffset, 0.0,
+                Math.max(0.0, BirdGame3.WORLD_WIDTH - currentBodyWidth));
+        respawnReturnStartY = Math.max(BirdGame3.CEILING_Y + 60.0,
+                respawnLandingY - 340.0 * sizeMultiplier);
+        respawnReturnTimer = SMASH_RESPAWN_RETURN_FRAMES;
+        respawnNestLockTimer = SMASH_RESPAWN_NEST_LOCK_FRAMES;
+        wasOnRespawnNestLastFrame = false;
+        facingRight = respawnLandingX >= respawnReturnStartX;
+        x = respawnReturnStartX;
+        y = respawnReturnStartY;
+    }
+
+    private boolean respawnReturnActive() {
+        return respawnReturnTimer > 0 || respawnNestLockTimer > 0;
+    }
+
+    private void emitRespawnLandingBurst() {
+        int burstCount = scaledParticleCount(26);
+        Platform nest = activeRespawnNestPlatform();
+        double burstY = nest == null ? bodyBottomY() : nest.y;
+        for (int i = 0; i < burstCount; i++) {
+            double angle = Math.PI + Math.random() * Math.PI;
+            double speed = 1.2 + Math.random() * 3.6;
+            game.particles.add(new Particle(
+                    bodyCenterX() + (Math.random() - 0.5) * bodyWidth() * 0.7,
+                    burstY + (Math.random() - 0.5) * 10.0 * sizeMultiplier,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 0.5,
+                    (i % 3 == 0 ? Color.web("#FFF8E1") : Color.web("#BCAAA4"))
+                            .deriveColor(0, 1, 1, 0.72)
+            ));
+        }
+    }
+
+    private boolean handleRespawnReturn(double gameSpeed) {
+        if (!respawnReturnActive()) {
+            return false;
+        }
+        if (!hasRespawnInvulnerability() || respawnNestPlatform == null) {
+            respawnReturnTimer = 0;
+            respawnNestLockTimer = 0;
+            return false;
+        }
+
+        if (game.isAI[playerIndex]) {
+            clearAIInputs();
+        }
+        vx = 0.0;
+        vy = 0.0;
+        stunTime = 0.0;
+        canDoubleJump = true;
+        isBlocking = false;
+        clearJumpSquat();
+        cancelAttackCharge();
+        clearAerialAttackState();
+        attackAnimationTimer = 0;
+        landingLagTimer = 0;
+        knockdownTimer = 0;
+
+        if (respawnReturnTimer > 0) {
+            double t = 1.0 - respawnReturnTimer / (double) SMASH_RESPAWN_RETURN_FRAMES;
+            t = Math.clamp(t, 0.0, 1.0);
+            double eased = 1.0 - Math.pow(1.0 - t, 3.0);
+            double arc = Math.sin(t * Math.PI) * 88.0 * sizeMultiplier;
+            x = respawnReturnStartX + (respawnLandingX - respawnReturnStartX) * eased;
+            y = respawnReturnStartY + (respawnLandingY - respawnReturnStartY) * eased - arc;
+            facingRight = respawnLandingX >= x;
+            respawnReturnTimer = Math.max(0, (int) (respawnReturnTimer - gameSpeed));
+            if (respawnReturnTimer == 0) {
+                x = respawnLandingX;
+                y = respawnLandingY;
+                wasOnRespawnNestLastFrame = true;
+                emitRespawnLandingBurst();
+            }
+        } else {
+            x = respawnLandingX;
+            y = respawnLandingY;
+            wasOnRespawnNestLastFrame = true;
+            respawnNestLockTimer = Math.max(0, (int) (respawnNestLockTimer - gameSpeed));
+        }
+
+        boolean jumpHeld = jumpPressed();
+        boolean specialHeld = specialPressed();
+        boolean blockHeld = blockPressed();
+        boolean grabHeld = grabPressed();
+        boolean leftHeld = leftPressed();
+        boolean rightHeld = rightPressed();
+        attackHeldLastFrame = attackPressed();
+        rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
+        return true;
     }
 
     private boolean isStunImmune() {
@@ -1086,6 +1190,7 @@ public class Bird {
     }
 
     public boolean isOnGround() {
+        if (respawnReturnActive() && activeRespawnNestPlatform() != null) return true;
         double bottom = bodyBottomY();
         if (hasSolidGroundFloorUnderBody() && bottom >= BirdGame3.GROUND_Y) return true;
         if (canStandInVoid() && bottom >= voidStandFloorY()) return true;
@@ -1167,7 +1272,7 @@ public class Bird {
         }
 
         // Despawn nest when player steps off it
-        if (wasOnRespawnNestLastFrame && !onNestThisFrame && respawnNestPlatform != null) {
+        if (wasOnRespawnNestLastFrame && !onNestThisFrame && respawnNestPlatform != null && !respawnReturnActive()) {
             respawnNestPlatform = null;
             respawnInvulnerabilityTimer = 0;
         }
@@ -9205,7 +9310,7 @@ public class Bird {
 
     public void update(double gameSpeed) {
         try {
-            if (health > 0 && game.isAI[playerIndex]) aiControl();
+            if (health > 0 && game.isAI[playerIndex] && !respawnReturnActive()) aiControl();
 
         // === UPDATE TIMERS ===
         updateTimers(gameSpeed);
@@ -9213,6 +9318,9 @@ public class Bird {
 
         if (health <= 0) {
             updateDefeatedState(gameSpeed);
+            return;
+        }
+        if (handleRespawnReturn(gameSpeed)) {
             return;
         }
         ensureRoosterStartingChicks();
@@ -9851,6 +9959,8 @@ public class Bird {
         respawnInvulnerabilityTimer = Math.max(0, (int)(respawnInvulnerabilityTimer - gameSpeed));
         if (respawnInvulnerabilityTimer == 0) {
             respawnNestPlatform = null;
+            respawnReturnTimer = 0;
+            respawnNestLockTimer = 0;
         }
         if (dodgeTimer == 0) {
             clearActiveDodge();
@@ -12521,6 +12631,20 @@ public class Bird {
         return health <= 0;
     }
 
+    private double crossingCenterYAtX(double prevX, double prevY, double boundaryX) {
+        double denom = x - prevX;
+        double t = Math.abs(denom) < 0.001 ? 1.0 : Math.clamp((boundaryX - prevX) / denom, 0.0, 1.0);
+        double previousCenterY = prevY + bodyHeight() / 2.0;
+        return previousCenterY + (bodyCenterY() - previousCenterY) * t;
+    }
+
+    private double crossingCenterXAtY(double prevX, double prevY, double boundaryY) {
+        double denom = y - prevY;
+        double t = Math.abs(denom) < 0.001 ? 1.0 : Math.clamp((boundaryY - prevY) / denom, 0.0, 1.0);
+        double previousCenterX = prevX + bodyWidth() / 2.0;
+        return previousCenterX + (bodyCenterX() - previousCenterX) * t;
+    }
+
     private void handleBoundaries(double gameSpeed, boolean wasAirborne, double prevX, double prevY) {
         double leftBound = 50;
         double rightBound = BirdGame3.WORLD_WIDTH - 150 * sizeMultiplier;
@@ -12548,7 +12672,7 @@ public class Bird {
             if (smashRules) {
                 handleSmashBlastZoneKo(trainingDummy, islandBounds, leftBound, rightBound,
                         2000 + playerIndex * 600, BirdGame3.GROUND_Y - 400,
-                        "off the top", false);
+                        "off the top", false, bodyCenterX(), SMASH_TOP_BLAST_Y);
             }
             return;
         }
@@ -12556,10 +12680,14 @@ public class Bird {
         handleWallTechCollision(prevX, prevY);
 
         if (x < outLeft || x > outRight) {
+            boolean leftExit = x < outLeft;
+            double sideX = leftExit ? outLeft : outRight;
+            double sideY = crossingCenterYAtX(prevX, prevY, sideX);
+            String sideLabel = leftExit ? "off the left side" : "off the right side";
             if (smashRules) {
                 handleSmashBlastZoneKo(trainingDummy, islandBounds, leftBound, rightBound,
                         2000 + playerIndex * 600, BirdGame3.GROUND_Y - 400,
-                        x < outLeft ? "off the left side" : "off the right side", false);
+                        sideLabel, false, sideX, sideY);
                 return;
             }
             health = Math.max(0, health - 50);
@@ -12568,6 +12696,7 @@ public class Bird {
             }
             if (health <= 0 && !trainingDummy) {
                 game.addToKillFeed(shortName() + " FLEW INTO THE VOID!");
+                game.emitBlastZoneKoEffect(this, sideX, sideY, vx, vy, sideLabel);
             }
             respawnAfterStageLoss(trainingDummy, islandBounds, leftBound, rightBound,
                     2000 + playerIndex * 600, BirdGame3.GROUND_Y - 400);
@@ -12585,13 +12714,14 @@ public class Bird {
             if (smashRules) {
                 handleSmashBlastZoneKo(trainingDummy, true, leftBound, rightBound,
                         game.battlefieldSpawnCenterX(), game.battlefieldSpawnY(sizeMultiplier),
-                        "in the harbor", true);
+                        "in the harbor", true, bodyCenterX(), game.dockDrownDepthY());
                 return;
             }
             game.falls[playerIndex]++;
             health = 0;
             if (!trainingDummy) {
                 game.addToKillFeed(shortName() + " DROWNED IN THE HARBOR!");
+                game.emitBlastZoneKoEffect(this, bodyCenterX(), game.dockDrownDepthY(), vx, vy, "in the harbor");
             }
             respawnAfterStageLoss(trainingDummy, true, leftBound, rightBound,
                     game.battlefieldSpawnCenterX(), game.battlefieldSpawnY(sizeMultiplier));
@@ -12599,10 +12729,13 @@ public class Bird {
         }
 
         if (y > BirdGame3.WORLD_HEIGHT + 300) {
+            double bottomY = BirdGame3.WORLD_HEIGHT + 300;
+            double bottomX = crossingCenterXAtY(prevX, prevY, bottomY);
+            String bottomLabel = isVoidMap() ? "into the lower blast zone" : "off the bottom";
             if (smashRules) {
                 handleSmashBlastZoneKo(trainingDummy, islandBounds, leftBound, rightBound,
                         1000 + playerIndex * 800, BirdGame3.GROUND_Y - 300,
-                        isVoidMap() ? "into the lower blast zone" : "off the bottom", true);
+                        bottomLabel, true, bottomX, bottomY);
                 return;
             }
             game.falls[playerIndex]++;
@@ -12619,6 +12752,7 @@ public class Bird {
                         ? shortName() + " FELL INTO THE VOID!"
                         : shortName() + " FELL TO THEIR DOOM!";
                 game.addToKillFeed(msg);
+                game.emitBlastZoneKoEffect(this, bottomX, bottomY, vx, vy, bottomLabel);
             }
             respawnAfterStageLoss(trainingDummy, islandBounds, leftBound, rightBound,
                     1000 + playerIndex * 800, BirdGame3.GROUND_Y - 300);
@@ -12989,6 +13123,8 @@ public class Bird {
         ledgeHangFrames = 0;
         respawnNestPlatform = null;
         respawnInvulnerabilityTimer = 0;
+        respawnReturnTimer = 0;
+        respawnNestLockTimer = 0;
         wasOnRespawnNestLastFrame = false;
         roadrunnerSandstormTimer = 0;
         roadrunnerSandGustTimer = 0;
@@ -13398,6 +13534,8 @@ public class Bird {
         this.ledgeHangFrames = 0;
         this.ledgePlatform = null;
         this.respawnInvulnerabilityTimer = state.respawnInvulnerabilityTimer;
+        this.respawnReturnTimer = 0;
+        this.respawnNestLockTimer = 0;
         if (state.respawnNestActive && state.respawnInvulnerabilityTimer > 0) {
             this.respawnNestPlatform = new Platform(
                     state.respawnNestX,
@@ -13727,9 +13865,17 @@ public class Bird {
     private void handleSmashBlastZoneKo(boolean trainingDummy, boolean islandBounds, double leftBound, double rightBound,
                                         double fallbackX, double fallbackY, String zoneLabel,
                                         boolean awardStageFallAchievement) {
+        handleSmashBlastZoneKo(trainingDummy, islandBounds, leftBound, rightBound, fallbackX, fallbackY, zoneLabel,
+                awardStageFallAchievement, bodyCenterX(), bodyCenterY());
+    }
+
+    private void handleSmashBlastZoneKo(boolean trainingDummy, boolean islandBounds, double leftBound, double rightBound,
+                                        double fallbackX, double fallbackY, String zoneLabel,
+                                        boolean awardStageFallAchievement, double effectX, double effectY) {
         game.falls[playerIndex]++;
         game.shakeIntensity = Math.max(game.shakeIntensity, 18);
         game.hitstopFrames = Math.max(game.hitstopFrames, 6);
+        game.emitBlastZoneKoEffect(this, effectX, effectY, vx, vy, zoneLabel);
 
         int stocksRemaining = game.matchScoreForPlayer(playerIndex);
         if (!trainingDummy) {
@@ -14921,6 +15067,7 @@ public class Bird {
         AttackVisualPose attackPose = currentAttackVisualPose();
 
         drawRespawnNest(g);
+        drawRespawnReturnTrail(g, drawSize);
         drawHummingbirdNectarTraps(g);
         drawTurkeyFeastTraps(g);
         drawRoadrunnerPaintedRoads(g);
@@ -17248,6 +17395,49 @@ public class Bird {
         g.strokeOval(centerX - ring * 0.66, centerY - ring * 0.66, ring * 1.32, ring * 1.32);
     }
 
+    private void drawRespawnReturnTrail(GraphicsContext g, double drawSize) {
+        if (respawnReturnTimer <= 0) return;
+        double progress = 1.0 - respawnReturnTimer / (double) SMASH_RESPAWN_RETURN_FRAMES;
+        progress = Math.clamp(progress, 0.0, 1.0);
+        double s = sizeMultiplier;
+        double startCenterX = respawnReturnStartX + bodyWidth() / 2.0;
+        double startCenterY = respawnReturnStartY + bodyHeight() / 2.0;
+        double landCenterX = respawnLandingX + bodyWidth() / 2.0;
+        double landCenterY = respawnLandingY + bodyHeight() / 2.0;
+        double currentCenterX = x + drawSize / 2.0;
+        double currentCenterY = y + drawSize / 2.0;
+        Color accent = type.color.interpolate(Color.WHITE, 0.34);
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < 5; i++) {
+            double sample = Math.clamp(progress - i * 0.075, 0.0, 1.0);
+            double eased = 1.0 - Math.pow(1.0 - sample, 3.0);
+            double arc = Math.sin(sample * Math.PI) * 88.0 * s;
+            double sx = startCenterX + (landCenterX - startCenterX) * eased;
+            double sy = startCenterY + (landCenterY - startCenterY) * eased - arc;
+            double alpha = (0.42 - i * 0.055) * Math.clamp(progress * 2.8, 0.0, 1.0);
+            g.setStroke((i % 2 == 0 ? Color.web("#FFF8E1") : accent).deriveColor(0, 1, 1, alpha));
+            g.setLineWidth((12.0 - i * 1.7) * s);
+            g.strokeLine(sx, sy, currentCenterX, currentCenterY);
+        }
+
+        double wingBeat = Math.sin(progress * Math.PI * 8.0);
+        double trailDir = respawnLandingX >= respawnReturnStartX ? -1.0 : 1.0;
+        g.setFill(accent.deriveColor(0, 1, 1, 0.30 + 0.16 * Math.abs(wingBeat)));
+        for (int i = 0; i < 4; i++) {
+            double featherX = currentCenterX + trailDir * (34.0 + i * 21.0) * s;
+            double featherY = currentCenterY
+                    + ((i % 2 == 0 ? -1.0 : 1.0) * (18.0 + Math.abs(wingBeat) * 9.0) + i * 3.0) * s;
+            g.fillOval(featherX - 12.0 * s, featherY - 4.0 * s, 24.0 * s, 8.0 * s);
+        }
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.48));
+        g.setLineWidth(2.2 * s);
+        g.strokeOval(currentCenterX - drawSize * 0.58, currentCenterY - drawSize * 0.54,
+                drawSize * 1.16, drawSize * 1.08);
+        g.restore();
+    }
+
     private void drawRespawnAura(GraphicsContext g, double drawSize) {
         if (!hasRespawnInvulnerability()) return;
         double centerX = x + drawSize / 2.0;
@@ -17287,6 +17477,25 @@ public class Bird {
             double strandStartX = nest.x + nest.w * (0.08 + i * 0.18);
             double strandStartY = nest.y + nest.h * (0.42 + (i % 2) * 0.07);
             g.strokeArc(strandStartX, strandStartY, nest.w * 0.18, nest.h * 0.58, 200, 120, ArcType.OPEN);
+        }
+
+        if (respawnNestLockTimer > 0 && respawnReturnTimer <= 0) {
+            double lockRatio = respawnNestLockTimer / (double) SMASH_RESPAWN_NEST_LOCK_FRAMES;
+            double settle = 1.0 - lockRatio;
+            double ringW = nest.w * (0.72 + settle * 0.28);
+            double ringH = (34.0 + settle * 20.0) * s;
+            g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.72 * lockRatio));
+            g.setLineWidth(3.0 * s);
+            g.strokeOval(nest.x + nest.w / 2.0 - ringW / 2.0,
+                    nest.y - ringH * 0.58,
+                    ringW,
+                    ringH);
+            g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.44 * lockRatio));
+            g.setLineWidth(1.6 * s);
+            g.strokeOval(nest.x + nest.w / 2.0 - ringW * 0.62,
+                    nest.y - ringH * 0.82,
+                    ringW * 1.24,
+                    ringH * 1.36);
         }
 
         g.setFill(Color.web("#FFF8E1").deriveColor(0, 1, 1, 0.84));
@@ -17468,6 +17677,17 @@ public class Bird {
         boolean eclipseMockingbird = (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin);
         boolean sunforgeRooster = (type == BirdGame3.BirdType.ROOSTER && isSunforgeSkin);
         boolean freemanPigeon = (type == BirdGame3.BirdType.PIGEON && isFreemanSkin);
+        boolean regularPigeon = type == BirdGame3.BirdType.PIGEON
+                && !isCitySkin
+                && !noirPigeon
+                && !beaconPigeon
+                && !stormPigeon
+                && !freemanPigeon;
+        boolean stylizedEagle = type == BirdGame3.BirdType.EAGLE;
+        boolean stylizedFalcon = type == BirdGame3.BirdType.FALCON;
+        boolean stylizedHummingbird = type == BirdGame3.BirdType.HUMMINGBIRD;
+        boolean stylizedTurkey = type == BirdGame3.BirdType.TURKEY;
+        boolean stylizedPenguin = type == BirdGame3.BirdType.PENGUIN;
         boolean ravenEyes = (type == BirdGame3.BirdType.RAVEN);
         Color bodyColor;
         Color headColor;
@@ -17555,10 +17775,145 @@ public class Bird {
             headColor = type.color.brighter();
         }
 
+        if (stylizedHummingbird) {
+            double wingPulse = 0.5 + 0.5 * Math.sin(System.nanoTime() / 52_000_000.0);
+            Color wingBlur = (sunflareHummingbird ? Color.web("#FFE082") : Color.web("#B2EBF2"))
+                    .deriveColor(0, 1, 1, (isClassicSkin ? 0.14 : 0.18) + wingPulse * 0.08);
+            Color wingLine = (classicPalette ? game.classicSkinAccentColor(type)
+                    : sunflareHummingbird ? Color.web("#FFF59D") : Color.web("#69F0AE"))
+                    .deriveColor(0, 1, 1, 0.28 + wingPulse * 0.10);
+            double wingX = x + (facingRight ? 9.0 : 42.0) * s;
+            double wingY = y - (16.0 + wingPulse * 5.0) * s;
+            g.setFill(wingBlur);
+            g.fillOval(wingX, wingY, 29.0 * s, (66.0 + wingPulse * 9.0) * s);
+            g.setFill(wingBlur.deriveColor(0, 1, 1, 0.64));
+            g.fillOval(wingX + (facingRight ? 12.0 : -6.0) * s, wingY + 7.0 * s,
+                    18.0 * s, (54.0 + wingPulse * 7.0) * s);
+            g.setStroke(wingLine);
+            g.setLineWidth(1.0 * s);
+            g.strokeArc(wingX + (facingRight ? 2.0 : -3.0) * s, wingY + 5.0 * s,
+                    26.0 * s, 56.0 * s, facingRight ? 82 : 18, 82, ArcType.OPEN);
+        }
+        if (stylizedTurkey) {
+            double tailBaseX = facingRight ? x + 17.0 * s : x + 63.0 * s;
+            double tailDir = facingRight ? -1.0 : 1.0;
+            Color fanFill = (classicPalette ? game.classicSkinPrimaryColor(type) : Color.web("#8D5A2B"))
+                    .deriveColor(0, 1, 1, isClassicSkin ? 0.24 : 0.32);
+            Color fanLine = (classicPalette ? game.classicSkinAccentColor(type) : Color.web("#4E2416"))
+                    .deriveColor(0, 1, 1, 0.58);
+            g.setFill(fanFill);
+            g.fillArc(tailBaseX - 39.0 * s, y + 5.0 * s, 78.0 * s, 68.0 * s,
+                    facingRight ? 74 : 28, 156, ArcType.ROUND);
+            g.setStroke(fanLine);
+            g.setLineWidth(1.35 * s);
+            for (int i = -2; i <= 2; i++) {
+                double spread = i * 9.0 * s;
+                double tipX = tailBaseX + tailDir * (36.0 - Math.abs(i) * 3.0) * s;
+                double tipY = y + (18.0 + Math.abs(i) * 7.0) * s + spread * 0.18;
+                g.strokeLine(tailBaseX, y + 53.0 * s, tipX, tipY);
+            }
+        }
+        if (stylizedPenguin) {
+            Color flipper = (mintPenguin ? Color.web("#4DB6AC")
+                    : classicPalette ? game.classicSkinPrimaryColor(type)
+                    : Color.web("#263238")).deriveColor(0, 1, 1, mintPenguin ? 0.50 : 0.56);
+            g.setFill(flipper);
+            g.fillOval(x + 7.0 * s, y + 35.0 * s, 20.0 * s, 42.0 * s);
+            g.fillOval(x + 53.0 * s, y + 35.0 * s, 20.0 * s, 42.0 * s);
+        }
+
         g.setFill(bodyColor);
         g.fillOval(x, y, drawSize, drawSize);
         g.setFill(headColor);
         g.fillOval(headX, headY, headW, headH);
+        if (stylizedEagle) {
+            g.setFill(Color.web("#F5F1DD").deriveColor(0, 1, 1, isClassicSkin ? 0.34 : 0.42));
+            g.fillOval(headX + 7.0 * s, headY + 1.0 * s, 36.0 * s, 26.0 * s);
+            g.setFill(Color.web("#F5F1DD").deriveColor(0, 1, 1, isClassicSkin ? 0.20 : 0.26));
+            g.fillOval(x + 24.0 * s, y + 30.0 * s, 34.0 * s, 22.0 * s);
+            g.setStroke(Color.web("#2A1111").deriveColor(0, 1, 1, 0.34));
+            g.setLineWidth(1.7 * s);
+            g.strokeArc(x + 15.0 * s, y + 34.0 * s, 50.0 * s, 32.0 * s,
+                    facingRight ? 202 : -22, 112, ArcType.OPEN);
+            g.setStroke(Color.web("#3E1B16").deriveColor(0, 1, 1, 0.28));
+            g.setLineWidth(1.2 * s);
+            g.strokeLine(x + 24.0 * s, y + 54.0 * s, x + 55.0 * s, y + 58.0 * s);
+        }
+        if (stylizedFalcon) {
+            Color paleMark = (duneFalcon ? Color.web("#FFF3D6") : Color.web("#FFE0B2"))
+                    .deriveColor(0, 1, 1, isClassicSkin ? 0.26 : 0.34);
+            Color darkMark = (duneFalcon ? Color.web("#5D4037") : Color.web("#4E2416"))
+                    .deriveColor(0, 1, 1, isClassicSkin ? 0.34 : 0.44);
+            g.setFill(paleMark);
+            g.fillOval(headX + 8.0 * s, headY + 6.0 * s, 34.0 * s, 23.0 * s);
+            g.setStroke(darkMark);
+            g.setLineWidth(2.0 * s);
+            double stripeStartX = headX + (facingRight ? 14.0 : 36.0) * s;
+            double stripeEndX = headX + (facingRight ? 29.0 : 21.0) * s;
+            g.strokeLine(stripeStartX, headY + 18.0 * s, stripeEndX, headY + 36.0 * s);
+            g.setStroke(darkMark.deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth(1.35 * s);
+            g.strokeArc(x + 17.0 * s, y + 35.0 * s, 48.0 * s, 27.0 * s,
+                    facingRight ? 204 : -24, 102, ArcType.OPEN);
+        }
+        if (stylizedHummingbird) {
+            Color belly = (sunflareHummingbird ? Color.web("#FFF8E1") : Color.web("#E8F5E9"))
+                    .deriveColor(0, 1, 1, isClassicSkin ? 0.22 : 0.30);
+            Color throat = (classicPalette ? game.classicSkinAccentColor(type)
+                    : sunflareHummingbird ? Color.web("#FF7043") : Color.web("#C2185B"))
+                    .deriveColor(0, 1, 1, isClassicSkin ? 0.42 : 0.58);
+            Color glint = (sunflareHummingbird ? Color.web("#FFF176") : Color.web("#00E676"))
+                    .deriveColor(0, 1, 1, 0.34);
+            g.setFill(belly);
+            g.fillOval(x + 27.0 * s, y + 38.0 * s, 26.0 * s, 28.0 * s);
+            g.setFill(throat);
+            g.fillOval(headX + (facingRight ? 18.0 : 16.0) * s, headY + 25.0 * s, 16.0 * s, 10.0 * s);
+            g.setFill(glint);
+            g.fillOval(headX + (facingRight ? 24.0 : 19.0) * s, headY + 27.0 * s, 6.0 * s, 4.0 * s);
+        }
+        if (stylizedTurkey) {
+            Color chest = (classicPalette ? game.classicSkinAccentColor(type) : Color.web("#C17A34"))
+                    .deriveColor(0, 1, 1, isClassicSkin ? 0.18 : 0.25);
+            Color feather = (classicPalette ? game.classicSkinAccentColor(type) : Color.web("#3E1B16"))
+                    .deriveColor(0, 1, 1, 0.42);
+            Color wattle = Color.web("#B71C1C").deriveColor(0, 1, 1, isClassicSkin ? 0.58 : 0.76);
+            g.setFill(chest);
+            g.fillOval(x + 20.0 * s, y + 36.0 * s, 40.0 * s, 28.0 * s);
+            g.setStroke(feather);
+            g.setLineWidth(1.45 * s);
+            g.strokeArc(x + 15.0 * s, y + 35.0 * s, 50.0 * s, 30.0 * s,
+                    facingRight ? 202 : -22, 110, ArcType.OPEN);
+            g.setFill(wattle);
+            g.fillOval(headX + (facingRight ? 4.0 : 36.0) * s, headY + 22.0 * s, 10.0 * s, 17.0 * s);
+            g.fillOval(headX + (facingRight ? 9.0 : 31.0) * s, headY + 29.0 * s, 9.0 * s, 10.0 * s);
+        }
+        if (stylizedPenguin) {
+            Color belly = (mintPenguin ? Color.web("#E0F7FA")
+                    : classicPalette ? Color.web("#E1F5FE")
+                    : Color.web("#F5F5F5")).deriveColor(0, 1, 1, isClassicSkin ? 0.56 : 0.72);
+            Color cap = (mintPenguin ? Color.web("#00695C")
+                    : classicPalette ? Color.web("#102027")
+                    : Color.web("#111111")).deriveColor(0, 1, 1, mintPenguin ? 0.26 : 0.30);
+            g.setFill(belly);
+            g.fillOval(x + 20.0 * s, y + 32.0 * s, 40.0 * s, 40.0 * s);
+            g.setFill(cap);
+            g.fillOval(headX + 5.0 * s, headY + 1.0 * s, 40.0 * s, 22.0 * s);
+            g.setFill(Color.web("#FFA726").deriveColor(0, 1, 1, 0.68));
+            g.fillOval(x + 21.0 * s, y + 72.0 * s, 17.0 * s, 8.0 * s);
+            g.fillOval(x + 43.0 * s, y + 72.0 * s, 17.0 * s, 8.0 * s);
+        }
+        if (regularPigeon) {
+            g.setFill(Color.web("#78909C").deriveColor(0, 1, 1, 0.18));
+            g.fillOval(x + 22.0 * s, y + 38.0 * s, 36.0 * s, 22.0 * s);
+            g.setStroke(Color.web("#607D8B").deriveColor(0, 1, 1, 0.38));
+            g.setLineWidth(1.35 * s);
+            g.strokeArc(x + 20.0 * s, y + 34.0 * s, 40.0 * s, 30.0 * s,
+                    facingRight ? 204 : -24, 110, ArcType.OPEN);
+            g.setFill(Color.web("#26A69A").deriveColor(0, 1, 1, 0.16));
+            g.fillOval(headX + (facingRight ? 20.0 : 12.0) * s, headY + 25.0 * s, 18.0 * s, 10.0 * s);
+            g.setFill(Color.web("#7E57C2").deriveColor(0, 1, 1, 0.10));
+            g.fillOval(headX + (facingRight ? 13.0 : 19.0) * s, headY + 27.0 * s, 16.0 * s, 8.0 * s);
+        }
         if (type == BirdGame3.BirdType.RAZORBILL) {
             double crestBaseX = facingRight ? headX + 10 * s : headX + 30 * s;
             Color crest = classicPalette ? game.classicSkinAccentColor(type) : (prismRazorbill ? Color.web("#FFD740") : Color.CYAN.brighter());
@@ -18357,13 +18712,22 @@ public class Bird {
 
         HeadPose headPose = standardHeadPose(pose);
         boolean isAttacking = attackAnimationTimer > 0;
+        boolean stylizedHummingbird = type == BirdGame3.BirdType.HUMMINGBIRD;
+        boolean stylizedTurkey = type == BirdGame3.BirdType.TURKEY;
+        boolean stylizedPenguin = type == BirdGame3.BirdType.PENGUIN;
         double openAmount = (isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) : 3) * s * openScale;
+        if (stylizedHummingbird) {
+            openAmount *= 0.34;
+        }
         double beakLength = ((type == BirdGame3.BirdType.FALCON ? 34
+                : type == BirdGame3.BirdType.EAGLE ? 32
+                : stylizedHummingbird ? 40
+                : stylizedPenguin ? 22
+                : stylizedTurkey ? 25
                 : type == BirdGame3.BirdType.ROADRUNNER ? 42 : 28) + (pose == null ? 0.0 : pose.beakLengthBonus())) * s;
         if (type == BirdGame3.BirdType.HUMMINGBIRD && hummingNeedleHitTimer > 0) {
             double needleProgress = Math.clamp(hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES), 0.0, 1.0);
             beakLength += Math.sin(needleProgress * Math.PI) * (hummingNeedleUltimate ? 38.0 : 28.0) * s;
-            openAmount *= 0.35;
         }
         double aimAngle = headPose.aimAngleRadians();
         double dirX = Math.cos(aimAngle);
@@ -18390,7 +18754,19 @@ public class Bird {
         double tongueCenterX = tipBaseX - dirX * 12.0 * s + normalX * 2.0 * s;
         double tongueCenterY = tipBaseY - dirY * 12.0 * s + normalY * 2.0 * s;
 
-        g.setFill(isAttacking ? Color.ORANGERED : Color.ORANGE);
+        boolean stylizedEagle = type == BirdGame3.BirdType.EAGLE;
+        boolean stylizedFalcon = type == BirdGame3.BirdType.FALCON;
+        g.setFill(stylizedEagle
+                ? (isAttacking ? Color.web("#F9A825") : Color.web("#FBC02D"))
+                : stylizedFalcon
+                ? (isAttacking ? Color.web("#F57C00") : Color.web("#FFB74D"))
+                : stylizedHummingbird
+                ? (isAttacking ? Color.web("#2D2415") : Color.web("#171717"))
+                : stylizedTurkey
+                ? (isAttacking ? Color.web("#F57C00") : Color.web("#FFB74D"))
+                : stylizedPenguin
+                ? (isAttacking ? Color.web("#F9A825") : Color.web("#FFA726"))
+                : (isAttacking ? Color.ORANGERED : Color.ORANGE));
         g.fillPolygon(
                 new double[]{baseUpperX, upperTipX, baseLowerX},
                 new double[]{baseUpperY, upperTipY, baseLowerY},
@@ -18401,6 +18777,35 @@ public class Bird {
                 new double[]{baseUpperY, lowerTipY, baseLowerY},
                 3
         );
+        if (stylizedEagle) {
+            g.setStroke(Color.web("#5D4037").deriveColor(0, 1, 1, 0.50));
+            g.setLineWidth(1.35 * s);
+            g.strokeLine(tipBaseX - dirX * 5.0 * s - normalX * 1.5 * s,
+                    tipBaseY - dirY * 5.0 * s - normalY * 1.5 * s,
+                    lowerTipX - dirX * 1.0 * s,
+                    lowerTipY);
+        }
+        if (stylizedFalcon) {
+            g.setStroke(Color.web("#4E342E").deriveColor(0, 1, 1, 0.42));
+            g.setLineWidth(1.15 * s);
+            g.strokeLine(tipBaseX - dirX * 4.0 * s - normalX * 1.0 * s,
+                    tipBaseY - dirY * 4.0 * s - normalY * 1.0 * s,
+                    lowerTipX - dirX * 0.5 * s,
+                    lowerTipY);
+        }
+        if (stylizedHummingbird) {
+            g.setStroke(Color.web("#FFFDE7").deriveColor(0, 1, 1, 0.34));
+            g.setLineWidth(0.55 * s);
+            g.strokeLine(mouthCenterX + normalX * 1.1 * s, mouthCenterY + normalY * 1.1 * s,
+                    tipBaseX + normalX * 1.1 * s, tipBaseY + normalY * 1.1 * s);
+        }
+        if (stylizedTurkey || stylizedPenguin) {
+            g.setStroke((stylizedTurkey ? Color.web("#6D4C41") : Color.web("#5D4037"))
+                    .deriveColor(0, 1, 1, 0.36));
+            g.setLineWidth(0.95 * s);
+            g.strokeLine(mouthCenterX - normalX * 2.0 * s, mouthCenterY - normalY * 2.0 * s,
+                    tipBaseX - dirX * 3.0 * s, tipBaseY - dirY * 3.0 * s);
+        }
 
         if (isAttacking && attackAnimationTimer > 4) {
             g.setFill(Color.DEEPPINK.darker());

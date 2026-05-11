@@ -675,6 +675,33 @@ public class BirdGame3 extends Application {
     private static final int LARGE_FIGHT_CHICK_CAP = 12;
     private static final int PIRANHA_HAZARD_CAP = 10;
     private static final int LARGE_FIGHT_PIRANHA_CAP = 6;
+    private static final int BLAST_ZONE_KO_EFFECT_FRAMES = 72;
+    private static final int BLAST_ZONE_KO_EFFECT_CAP = 16;
+
+    private enum BlastZoneSide {
+        LEFT,
+        RIGHT,
+        TOP,
+        BOTTOM
+    }
+
+    private static final class BlastZoneKoEffect {
+        final double x;
+        final double y;
+        final BlastZoneSide side;
+        final Color accent;
+        final double impactScale;
+        int life = BLAST_ZONE_KO_EFFECT_FRAMES;
+
+        BlastZoneKoEffect(double x, double y, BlastZoneSide side, Color accent, double impactScale) {
+            this.x = x;
+            this.y = y;
+            this.side = side;
+            this.accent = accent == null ? Color.WHITE : accent;
+            this.impactScale = impactScale;
+        }
+    }
+    private final List<BlastZoneKoEffect> blastZoneKoEffects = new ArrayList<>();
 
     // === CITY WIND BURSTS ===
     List<WindVent> windVents = new ArrayList<>();
@@ -9029,6 +9056,7 @@ public class BirdGame3 extends Application {
 
             if (!introLocked) {
                 updateParticlesFixed();
+                updateBlastZoneKoEffectsFixed();
                 trimTransientEffectOverflow();
             }
 
@@ -9101,6 +9129,9 @@ public class BirdGame3 extends Application {
         int particleCap = activeParticleSoftCap();
         if (particles.size() > particleCap) {
             particles.subList(0, particles.size() - particleCap).clear();
+        }
+        if (blastZoneKoEffects.size() > BLAST_ZONE_KO_EFFECT_CAP) {
+            blastZoneKoEffects.subList(0, blastZoneKoEffects.size() - BLAST_ZONE_KO_EFFECT_CAP).clear();
         }
         int crowCap = activeCrowMinionCap();
         long protectedCrows = crowMinions.stream().filter(CrowMinion::isOverflowProtected).count();
@@ -10262,6 +10293,150 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void updateBlastZoneKoEffectsFixed() {
+        for (Iterator<BlastZoneKoEffect> it = blastZoneKoEffects.iterator(); it.hasNext(); ) {
+            BlastZoneKoEffect effect = it.next();
+            effect.life--;
+            if (effect.life <= 0) {
+                it.remove();
+            }
+        }
+    }
+
+    void emitBlastZoneKoEffect(Bird bird, double x, double y, double vx, double vy, String zoneLabel) {
+        if (bird == null) {
+            return;
+        }
+        BlastZoneSide side = resolveBlastZoneSide(zoneLabel, vx, vy);
+        Color accent = bird.type == null ? Color.web("#FFF176") : bird.type.color;
+        double speed = Math.hypot(vx, vy);
+        double impactScale = Math.clamp(0.95 + speed / 34.0, 1.0, 1.85);
+        blastZoneKoEffects.add(new BlastZoneKoEffect(x, y, side, accent, impactScale));
+        if (blastZoneKoEffects.size() > BLAST_ZONE_KO_EFFECT_CAP) {
+            blastZoneKoEffects.subList(0, blastZoneKoEffects.size() - BLAST_ZONE_KO_EFFECT_CAP).clear();
+        }
+    }
+
+    private BlastZoneSide resolveBlastZoneSide(String zoneLabel, double vx, double vy) {
+        String label = zoneLabel == null ? "" : zoneLabel.toLowerCase(Locale.ROOT);
+        if (label.contains("left")) return BlastZoneSide.LEFT;
+        if (label.contains("right")) return BlastZoneSide.RIGHT;
+        if (label.contains("top")) return BlastZoneSide.TOP;
+        if (label.contains("bottom") || label.contains("lower") || label.contains("harbor")) {
+            return BlastZoneSide.BOTTOM;
+        }
+        if (Math.abs(vx) > Math.abs(vy)) {
+            return vx < 0 ? BlastZoneSide.LEFT : BlastZoneSide.RIGHT;
+        }
+        return vy < 0 ? BlastZoneSide.TOP : BlastZoneSide.BOTTOM;
+    }
+
+    private void drawBlastZoneKoEffects(GraphicsContext g) {
+        if (blastZoneKoEffects.isEmpty()) {
+            return;
+        }
+        double safeZoom = Math.max(0.01, zoom);
+        double pixel = 1.0 / safeZoom;
+        double viewW = WIDTH / safeZoom;
+        double viewH = HEIGHT / safeZoom;
+        double edgePad = 70.0 * pixel;
+        double minX = camX + edgePad;
+        double maxX = camX + viewW - edgePad;
+        double minY = camY + edgePad;
+        double maxY = camY + viewH - edgePad;
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setTextAlign(TextAlignment.CENTER);
+        for (BlastZoneKoEffect effect : blastZoneKoEffects) {
+            double progress = 1.0 - effect.life / (double) BLAST_ZONE_KO_EFFECT_FRAMES;
+            double fadeIn = Math.clamp(progress / 0.13, 0.0, 1.0);
+            double fadeOut = Math.clamp(effect.life / 18.0, 0.0, 1.0);
+            double alpha = Math.min(fadeIn, fadeOut);
+            if (alpha <= 0.0) {
+                continue;
+            }
+
+            double outwardX = switch (effect.side) {
+                case LEFT -> -1.0;
+                case RIGHT -> 1.0;
+                case TOP, BOTTOM -> 0.0;
+            };
+            double outwardY = switch (effect.side) {
+                case TOP -> -1.0;
+                case BOTTOM -> 1.0;
+                case LEFT, RIGHT -> 0.0;
+            };
+            double tangentX = -outwardY;
+            double tangentY = outwardX;
+
+            double anchorX = Math.clamp(effect.x, minX, maxX);
+            double anchorY = Math.clamp(effect.y, minY, maxY);
+            if (effect.side == BlastZoneSide.LEFT) anchorX = minX;
+            if (effect.side == BlastZoneSide.RIGHT) anchorX = maxX;
+            if (effect.side == BlastZoneSide.TOP) anchorY = minY;
+            if (effect.side == BlastZoneSide.BOTTOM) anchorY = maxY;
+
+            double scale = effect.impactScale * pixel;
+            double burst = 1.0 - Math.pow(1.0 - Math.clamp(progress, 0.0, 1.0), 3.0);
+            double centerX = anchorX - outwardX * 58.0 * scale;
+            double centerY = anchorY - outwardY * 58.0 * scale;
+            Color accent = effect.accent.interpolate(Color.WHITE, 0.18);
+
+            double glowRadius = (42.0 + burst * 86.0) * scale;
+            g.setFill(accent.deriveColor(0, 1, 1, 0.14 * alpha));
+            g.fillOval(centerX - glowRadius, centerY - glowRadius, glowRadius * 2.0, glowRadius * 2.0);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.70 * alpha));
+            g.setLineWidth(5.0 * scale);
+            g.strokeOval(centerX - glowRadius * 0.58, centerY - glowRadius * 0.58,
+                    glowRadius * 1.16, glowRadius * 1.16);
+            g.setStroke(accent.deriveColor(0, 1, 1, 0.78 * alpha));
+            g.setLineWidth(2.4 * scale);
+            g.strokeOval(centerX - glowRadius * 0.92, centerY - glowRadius * 0.92,
+                    glowRadius * 1.84, glowRadius * 1.84);
+
+            for (int i = -4; i <= 4; i++) {
+                double spread = (i * 18.0 + Math.sin(progress * 10.0 + i) * 5.0) * scale;
+                double inner = 18.0 * scale;
+                double outer = (96.0 + Math.abs(i) * 7.0 + burst * 36.0) * scale;
+                double tx = tangentX * spread;
+                double ty = tangentY * spread;
+                g.setStroke((i & 1) == 0
+                        ? Color.WHITE.deriveColor(0, 1, 1, 0.58 * alpha)
+                        : accent.deriveColor(0, 1, 1, 0.66 * alpha));
+                g.setLineWidth((i == 0 ? 7.0 : 4.0) * scale);
+                g.strokeLine(anchorX + tx - outwardX * outer, anchorY + ty - outwardY * outer,
+                        anchorX + tx + outwardX * inner, anchorY + ty + outwardY * inner);
+            }
+
+            double slash = 60.0 * scale;
+            g.setStroke(Color.web("#1B0B12", 0.58 * alpha));
+            g.setLineWidth(11.0 * scale);
+            g.strokeLine(centerX - tangentX * slash - outwardX * slash * 0.30,
+                    centerY - tangentY * slash - outwardY * slash * 0.30,
+                    centerX + tangentX * slash + outwardX * slash * 0.30,
+                    centerY + tangentY * slash + outwardY * slash * 0.30);
+            g.setStroke(accent.deriveColor(0, 1, 1, 0.86 * alpha));
+            g.setLineWidth(5.2 * scale);
+            g.strokeLine(centerX - tangentX * slash - outwardX * slash * 0.30,
+                    centerY - tangentY * slash - outwardY * slash * 0.30,
+                    centerX + tangentX * slash + outwardX * slash * 0.30,
+                    centerY + tangentY * slash + outwardY * slash * 0.30);
+
+            double fontSize = 50.0 * scale;
+            double textY = centerY + fontSize * 0.34;
+            g.setFont(Font.font("Impact", FontWeight.BOLD, fontSize));
+            g.setStroke(Color.web("#1B0B12", 0.92 * alpha));
+            g.setLineWidth(5.0 * scale);
+            g.strokeText("KO", centerX, textY);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.96 * alpha));
+            g.fillText("KO", centerX, textY);
+            g.setFill(accent.deriveColor(0, 1, 1, 0.38 * alpha));
+            g.fillText("KO", centerX + 2.5 * scale, textY - 2.0 * scale);
+        }
+        g.restore();
+    }
+
     private void drawGame(GraphicsContext g) {
         g.clearRect(0, 0, WIDTH, HEIGHT);
         g.save();
@@ -10709,6 +10884,7 @@ public class BirdGame3 extends Application {
                 drawPlayerTag(g, b);
             }
         }
+        drawBlastZoneKoEffects(g);
 
         if (trainingModeActive && trainingCombatOverlayEnabled) {
             drawTrainingCombatOverlay(g);
@@ -23065,6 +23241,7 @@ public class BirdGame3 extends Application {
         List<NectarNode> savedNectarNodes = new ArrayList<>(nectarNodes);
         List<SwingingVine> savedSwingingVines = new ArrayList<>(swingingVines);
         List<Particle> savedParticles = new ArrayList<>(particles);
+        List<BlastZoneKoEffect> savedBlastZoneKoEffects = new ArrayList<>(blastZoneKoEffects);
         List<CrowMinion> savedCrowMinions = new ArrayList<>(crowMinions);
         List<PiranhaHazard> savedPiranhaHazards = new ArrayList<>(piranhaHazards);
         List<ChickMinion> savedChickMinions = new ArrayList<>(chickMinions);
@@ -23109,6 +23286,7 @@ public class BirdGame3 extends Application {
 
         prepareTrailerArena(MapType.DESERT);
         particles.clear();
+        blastZoneKoEffects.clear();
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
@@ -23182,6 +23360,7 @@ public class BirdGame3 extends Application {
             currentFightHudOcclusionRects = List.of();
             fightHudPortraitCache.clear();
             particles.clear();
+            blastZoneKoEffects.clear();
             crowMinions.clear();
             piranhaHazards.clear();
             chickMinions.clear();
@@ -23262,6 +23441,8 @@ public class BirdGame3 extends Application {
             swingingVines.addAll(savedSwingingVines);
             particles.clear();
             particles.addAll(savedParticles);
+            blastZoneKoEffects.clear();
+            blastZoneKoEffects.addAll(savedBlastZoneKoEffects);
             crowMinions.clear();
             crowMinions.addAll(savedCrowMinions);
             piranhaHazards.clear();
@@ -24206,6 +24387,7 @@ public class BirdGame3 extends Application {
         nectarNodes.clear();
         swingingVines.clear();
         particles.clear();
+        blastZoneKoEffects.clear();
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
@@ -31738,6 +31920,7 @@ public class BirdGame3 extends Application {
         crowMinions.clear();
         chickMinions.clear();
         particles.clear();
+        blastZoneKoEffects.clear();
         powerUps.clear();
         setupTrainingRoster();
         positionBattlefieldSpawns();
@@ -33487,6 +33670,7 @@ public class BirdGame3 extends Application {
         chickMinions.clear();
         frostbiteSnowbanks.clear();
         particles.clear();
+        blastZoneKoEffects.clear();
         powerUps.clear();
         dockWaterX = 0;
         dockWaterY = 0;
