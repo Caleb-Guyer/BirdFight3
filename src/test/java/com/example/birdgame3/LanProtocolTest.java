@@ -73,6 +73,12 @@ class LanProtocolTest {
         state.penguinSnowFortX = 1234.5;
         state.penguinSnowFortY = 2100.25;
         state.penguinSnowFortHealth = 33;
+        state.shoebillThrustTimer = 19;
+        state.shoebillThrustDirection = -1;
+        state.shoebillMarshLiftTimer = 12;
+        state.shoebillUpSpecialUsed = true;
+        state.shoebillStatueCountered = true;
+        state.shoebillCounterBurstTimer = 7;
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         state.write(new DataOutputStream(bos));
@@ -112,5 +118,11 @@ class LanProtocolTest {
         assertEquals(1234.5, decoded.penguinSnowFortX);
         assertEquals(2100.25, decoded.penguinSnowFortY);
         assertEquals(33, decoded.penguinSnowFortHealth);
+        assertEquals(19, decoded.shoebillThrustTimer);
+        assertEquals(-1, decoded.shoebillThrustDirection);
+        assertEquals(12, decoded.shoebillMarshLiftTimer);
+        assertTrue(decoded.shoebillUpSpecialUsed);
+        assertTrue(decoded.shoebillStatueCountered);
+        assertEquals(7, decoded.shoebillCounterBurstTimer);
     }
 }

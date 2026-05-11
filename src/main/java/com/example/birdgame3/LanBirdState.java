@@ -216,6 +216,25 @@ class LanBirdState {
     int penguinSnowFortLifeFrames;
     int penguinSnowFortAgeFrames;
     int penguinFortGuardFxTimer;
+    int shoebillStareFxTimer;
+    int shoebillStareReuseTimer;
+    boolean shoebillStareUltimate;
+    int shoebillThrustTimer;
+    int shoebillThrustReuseTimer;
+    int shoebillThrustDirection;
+    boolean shoebillThrustUltimate;
+    boolean[] shoebillThrustHit = new boolean[4];
+    int shoebillMarshLiftTimer;
+    boolean shoebillMarshLiftUltimate;
+    boolean shoebillUpSpecialUsed;
+    boolean[] shoebillMarshLiftHit = new boolean[4];
+    int shoebillStatueTimer;
+    int shoebillStatueReuseTimer;
+    boolean shoebillStatueUltimate;
+    boolean shoebillStatueCountered;
+    int shoebillCounterBurstTimer;
+    boolean shoebillCounterBurstUltimate;
+    boolean[] shoebillCounterHit = new boolean[4];
     int hummingFrenzyTimer;
     int phoenixAfterburnTimer;
     boolean phoenixRebornUsed;
@@ -472,6 +491,31 @@ class LanBirdState {
         out.writeInt(penguinSnowFortLifeFrames);
         out.writeInt(penguinSnowFortAgeFrames);
         out.writeInt(penguinFortGuardFxTimer);
+        out.writeInt(shoebillStareFxTimer);
+        out.writeInt(shoebillStareReuseTimer);
+        out.writeBoolean(shoebillStareUltimate);
+        out.writeInt(shoebillThrustTimer);
+        out.writeInt(shoebillThrustReuseTimer);
+        out.writeInt(shoebillThrustDirection);
+        out.writeBoolean(shoebillThrustUltimate);
+        for (boolean hit : shoebillThrustHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(shoebillMarshLiftTimer);
+        out.writeBoolean(shoebillMarshLiftUltimate);
+        out.writeBoolean(shoebillUpSpecialUsed);
+        for (boolean hit : shoebillMarshLiftHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(shoebillStatueTimer);
+        out.writeInt(shoebillStatueReuseTimer);
+        out.writeBoolean(shoebillStatueUltimate);
+        out.writeBoolean(shoebillStatueCountered);
+        out.writeInt(shoebillCounterBurstTimer);
+        out.writeBoolean(shoebillCounterBurstUltimate);
+        for (boolean hit : shoebillCounterHit) {
+            out.writeBoolean(hit);
+        }
         out.writeInt(hummingFrenzyTimer);
         out.writeInt(phoenixAfterburnTimer);
         out.writeBoolean(phoenixRebornUsed);
@@ -732,6 +776,31 @@ class LanBirdState {
         state.penguinSnowFortLifeFrames = in.readInt();
         state.penguinSnowFortAgeFrames = in.readInt();
         state.penguinFortGuardFxTimer = in.readInt();
+        state.shoebillStareFxTimer = in.readInt();
+        state.shoebillStareReuseTimer = in.readInt();
+        state.shoebillStareUltimate = in.readBoolean();
+        state.shoebillThrustTimer = in.readInt();
+        state.shoebillThrustReuseTimer = in.readInt();
+        state.shoebillThrustDirection = in.readInt();
+        state.shoebillThrustUltimate = in.readBoolean();
+        for (int i = 0; i < state.shoebillThrustHit.length; i++) {
+            state.shoebillThrustHit[i] = in.readBoolean();
+        }
+        state.shoebillMarshLiftTimer = in.readInt();
+        state.shoebillMarshLiftUltimate = in.readBoolean();
+        state.shoebillUpSpecialUsed = in.readBoolean();
+        for (int i = 0; i < state.shoebillMarshLiftHit.length; i++) {
+            state.shoebillMarshLiftHit[i] = in.readBoolean();
+        }
+        state.shoebillStatueTimer = in.readInt();
+        state.shoebillStatueReuseTimer = in.readInt();
+        state.shoebillStatueUltimate = in.readBoolean();
+        state.shoebillStatueCountered = in.readBoolean();
+        state.shoebillCounterBurstTimer = in.readInt();
+        state.shoebillCounterBurstUltimate = in.readBoolean();
+        for (int i = 0; i < state.shoebillCounterHit.length; i++) {
+            state.shoebillCounterHit[i] = in.readBoolean();
+        }
         state.hummingFrenzyTimer = in.readInt();
         state.phoenixAfterburnTimer = in.readInt();
         state.phoenixRebornUsed = in.readBoolean();

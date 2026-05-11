@@ -363,7 +363,7 @@ final class BirdBookUiSupport {
             case ROOSTER -> "Morning alarm with a battle plan. He commands a rotating brood of chicks, throws them into fights, launches off them, and recalls the whole flock on demand.";
             case ROADRUNNER -> "A desert menace built around momentum. He charges blitzes, ricochets through lanes, rides dust devils upward, and paints fake roads that turn enemy movement against them.";
             case PENGUIN -> "Charges belly slides, shoves icebergs, rockets upward, and builds snow forts. Cool, calm, and stubborn as a glacier.";
-            case SHOEBILL -> "Stares too long, strikes too fast. Marsh legends say it never blinks, only decides.";
+            case SHOEBILL -> "Stares too long, then decides. It dazes back-turned targets directly in front of its bill, winds up crushing bill thrusts, rides marsh reeds upward, and holds a stone-still statue counter.";
             case MOCKINGBIRD -> "Old friend of Caleb Bossk and owner of the Charles Lounge. Passed the Bossk Test to become a Bosskhead, then turned every fight into his stage.";
             case RAZORBILL -> "Cut-clean wings and sharper intent. Prefers clean lines, clean hits, and no wasted motion.";
             case GRINCHHAWK -> "Holiday menace with a grudge. Brings chaos instead of gifts and calls it tradition.";

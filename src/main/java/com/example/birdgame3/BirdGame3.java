@@ -8799,7 +8799,7 @@ public class BirdGame3 extends Application {
         ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Chick Call + Chick Toss + Coop Boost + Brood Recall"),
         ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road"),
         PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Belly Slide / Iceberg / Rocket Flop / Snow Fort"),
-        SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "AoE Stun"),
+        SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "Death Stare / Heavy Bill Thrust / Marsh Lift / Statue Counter"),
         MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Spawn Charles Lounge (Heal zone)"),
         RAZORBILL("Razorbill", 8, 12, 3.6, Color.INDIGO, 0.25, "Razor Slash + Razor Dash"),
         GRINCHHAWK("Grinch-Hawk", 10, 10, 2.8, Color.rgb(102, 153, 0), 0.80, "Steal HP from everyone + Heavy Flap"),

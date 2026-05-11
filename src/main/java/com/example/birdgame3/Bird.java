@@ -112,6 +112,13 @@ public class Bird {
         DOWN
     }
 
+    private enum ShoebillSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record NormalAttackProfile(
             double horizontalReach,
             double verticalReach,
@@ -552,6 +559,16 @@ public class Bird {
     private static final int PENGUIN_FLOP_FRAMES = 70;
     private static final int PENGUIN_SNOW_FORT_REUSE_FRAMES = 44;
     private static final int PENGUIN_SNOW_FORT_HEALTH = 82;
+    private static final int SHOEBILL_STARE_FX_FRAMES = 18;
+    private static final int SHOEBILL_STARE_REUSE_FRAMES = 0;
+    private static final int SHOEBILL_THRUST_FRAMES = 46;
+    private static final int SHOEBILL_THRUST_STARTUP_FRAMES = 24;
+    private static final int SHOEBILL_THRUST_ACTIVE_FRAMES = 11;
+    private static final int SHOEBILL_THRUST_REUSE_FRAMES = 82;
+    private static final int SHOEBILL_MARSH_LIFT_FRAMES = 24;
+    private static final int SHOEBILL_STATUE_FRAMES = 96;
+    private static final int SHOEBILL_STATUE_REUSE_FRAMES = 70;
+    private static final int SHOEBILL_COUNTER_BURST_FRAMES = 14;
     private double penguinIceFxTimer = 0;
     private int penguinDashDamageTimer = 0;
     private final boolean[] penguinDashHit = new boolean[4];
@@ -573,6 +590,25 @@ public class Bird {
     private int penguinSnowFortReuseTimer = 0;
     private PenguinSnowFort penguinSnowFort = null;
     private int penguinFortGuardFxTimer = 0;
+    private int shoebillStareFxTimer = 0;
+    private int shoebillStareReuseTimer = 0;
+    private boolean shoebillStareUltimate = false;
+    private int shoebillThrustTimer = 0;
+    private int shoebillThrustReuseTimer = 0;
+    private int shoebillThrustDirection = 1;
+    private boolean shoebillThrustUltimate = false;
+    private final boolean[] shoebillThrustHit = new boolean[4];
+    private int shoebillMarshLiftTimer = 0;
+    private boolean shoebillMarshLiftUltimate = false;
+    private boolean shoebillUpSpecialUsed = false;
+    private final boolean[] shoebillMarshLiftHit = new boolean[4];
+    private int shoebillStatueTimer = 0;
+    private int shoebillStatueReuseTimer = 0;
+    private boolean shoebillStatueUltimate = false;
+    private boolean shoebillStatueCountered = false;
+    private int shoebillCounterBurstTimer = 0;
+    private boolean shoebillCounterBurstUltimate = false;
+    private final boolean[] shoebillCounterHit = new boolean[4];
     private int hummingFrenzyTimer = 0;
     private final int[] hummingFrenzyHitCooldown = new int[4];
     private static final int HUMMING_NEEDLE_COMBO_WINDOW_FRAMES = 96;
@@ -1791,8 +1827,12 @@ public class Bird {
                 Math.max(1.8, Math.abs(kb) * SHIELD_PUSHBACK_SCALE),
                 kb == 0.0 ? horizontalDirection : kb
         );
-        ShieldHitResult shieldHit = other.resolveShieldHit(this, scaledDamageAgainst(other, dmg), shieldPushback);
+        double scaledDamage = scaledDamageAgainst(other, dmg);
+        ShieldHitResult shieldHit = other.resolveShieldHit(this, scaledDamage, shieldPushback);
         if (shieldHit.blocked()) {
+            return;
+        }
+        if (other.tryShoebillStatueCounter(this, scaledDamage)) {
             return;
         }
 
@@ -1800,7 +1840,7 @@ public class Bird {
         other.vy -= verticalKb;
         applyTurkeyStuffedKnockbackBonus(other, horizontalDirection);
         double oldHealth = other.health;
-        double dealtDamage = applyUnshieldedDamageTo(other, dmg);
+        double dealtDamage = applyScaledDamageTo(other, scaledDamage);
 
         game.damageDealt[playerIndex] += (int) dealtDamage;
         if (!game.usesSmashCombatRules() && other.health <= 0 && oldHealth > 0) {
@@ -1870,6 +1910,7 @@ public class Bird {
                 && blockPressed()
                 && !shouldReserveBlockForAttack(false)
                 && !shouldReserveBlockForSpecial()
+                && !shouldReserveBlockForShoebillStatueHold()
                 && stunTime <= 0.0
                 && blockCooldown <= 0
                 && shieldHealth > 0.0
@@ -1934,6 +1975,9 @@ public class Bird {
 
     private ShieldHitResult resolveShieldHit(Bird attacker, double scaledDamage, double shieldPushback) {
         if (scaledDamage <= 0.0 || health <= 0) {
+            return ShieldHitResult.NONE;
+        }
+        if (shoebillStatueCounterWindowActive()) {
             return ShieldHitResult.NONE;
         }
 
@@ -2489,6 +2533,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.PENGUIN && !canStartPenguinSpecial()) {
             return;
         }
+        if (type == BirdGame3.BirdType.SHOEBILL && !canStartShoebillSpecial()) {
+            return;
+        }
         if (isRaptor()) {
             RaptorSpecialVariant variant = selectRaptorSpecialVariant();
             if (!canStartRaptorSpecialVariant(variant)) {
@@ -2505,6 +2552,7 @@ public class Bird {
                 && type != BirdGame3.BirdType.ROOSTER
                 && type != BirdGame3.BirdType.ROADRUNNER
                 && type != BirdGame3.BirdType.PENGUIN
+                && type != BirdGame3.BirdType.SHOEBILL
                 && specialCooldown > 0
                 && !ultimateReady) {
             if (!game.isAI[playerIndex]) {
@@ -2550,7 +2598,7 @@ public class Bird {
             case TURKEY -> specialTurkey(selectTurkeySpecialVariant(), ultimateTriggered);
             case ROADRUNNER -> specialRoadrunner(selectRoadrunnerSpecialVariant(), ultimateTriggered);
             case PENGUIN -> specialPenguin(selectPenguinSpecialVariant(), ultimateTriggered);
-            case SHOEBILL -> specialShoebill(ultimateTriggered);
+            case SHOEBILL -> specialShoebill(selectShoebillSpecialVariant(), ultimateTriggered);
             case MOCKINGBIRD -> specialMockingbird(ultimateTriggered);
             case RAZORBILL -> specialRazorbill(ultimateTriggered);
             case GRINCHHAWK -> specialGrinchhawk(ultimateTriggered);
@@ -2844,6 +2892,25 @@ public class Bird {
         }
         if (penguinFlopTimer > 0) {
             handlePenguinFlop();
+        }
+    }
+
+    private void handleShoebillSpecialState() {
+        if (type != BirdGame3.BirdType.SHOEBILL) {
+            return;
+        }
+        if (stunTime > 0.0) {
+            resetShoebillSpecialState();
+            return;
+        }
+        if (shoebillThrustTimer > 0) {
+            handleShoebillHeavyThrust();
+        }
+        if (shoebillMarshLiftTimer > 0) {
+            handleShoebillMarshLift();
+        }
+        if (shoebillStatueTimer > 0) {
+            handleShoebillStatueTrap();
         }
     }
 
@@ -5771,18 +5838,405 @@ public class Bird {
         }
     }
 
-    private void specialShoebill(boolean ultimate) {
+    private void specialShoebill(ShoebillSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialShoebillDeathStare(ultimate);
+            case SIDE -> specialShoebillHeavyThrust(ultimate);
+            case UP -> specialShoebillMarshLift(ultimate);
+            case DOWN -> specialShoebillStatueTrap(ultimate);
+        }
+    }
+
+    private void specialShoebillDeathStare(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir != 0) {
+            facingRight = dir > 0;
+        }
+        dir = facingDirection();
+        shoebillStareFxTimer = ultimate ? SHOEBILL_STARE_FX_FRAMES + 8 : SHOEBILL_STARE_FX_FRAMES;
+        shoebillStareUltimate = ultimate;
+        shoebillStareReuseTimer = SHOEBILL_STARE_REUSE_FRAMES;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillStareFxTimer + 4);
+        vx *= isOnGround() ? 0.22 : 0.55;
+
+        int stunnedTargets = 0;
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
-            double dist = combatDistanceTo(other);
-            if (dist < (ultimate ? 420 : 320) + other.combatRadius()) {
-                other.applyStun(ultimate ? 180 : 120);
-            }
+            if (!shoebillHasDirectStareLine(other, ultimate)) continue;
+            other.applyStun(ultimate ? 180 : 120);
+            other.vx *= 0.28;
+            other.vy *= 0.52;
+            stunnedTargets++;
         }
-        specialCooldown = 780;
-        specialMaxCooldown = 780;
-        game.addToKillFeed(shortName() + (ultimate ? " ULT DEATH STARE! Wider stun!" : " DEATH STARE! Nearby birds stunned!"));
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 26 : 20);
+
+        game.recordSpecialImpact(playerIndex, 0, stunnedTargets > 0);
+        game.addToKillFeed(shortName() + (stunnedTargets > 0
+                ? (ultimate ? " ULT DEATH STARE! Back-facing gaze dazed " : " DEATH STARE! Back-facing gaze dazed ") + stunnedTargets + "!"
+                : " DEATH STARE missed the back-facing gaze!"));
+        game.shakeIntensity = Math.max(game.shakeIntensity, stunnedTargets > 0 ? (ultimate ? 24 : 18) : 8);
+        if (stunnedTargets > 0) {
+            game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 8 : 5);
+        }
+
+        Color stareColor = ultimate ? Color.GOLD : Color.web("#B39DDB");
+        for (int i = 0; i < scaledParticleCount(ultimate ? 44 : 28); i++) {
+            double lane = (Math.random() - 0.5) * (ultimate ? 18.0 : 10.0) * sizeMultiplier;
+            double travel = 26.0 + Math.random() * (ultimate ? 165.0 : 108.0);
+            game.particles.add(new Particle(
+                    bodyCenterX() + dir * (18.0 + travel * 0.15) * sizeMultiplier,
+                    bodyCenterY() - 18.0 * sizeMultiplier + lane,
+                    dir * (1.6 + Math.random() * 4.2),
+                    (Math.random() - 0.5) * 1.8,
+                    stareColor.deriveColor(0, 1, 1, 0.68 + Math.random() * 0.22)
+            ));
+        }
+    }
+
+    private boolean shoebillHasDirectStareLine(Bird other, boolean ultimate) {
+        int dir = facingDirection();
+        double s = sizeMultiplier;
+        double eyeX = bodyCenterX() + dir * 26.0 * s;
+        double eyeY = bodyCenterY() - 18.0 * s;
+        double targetOffsetFromShoebill = other.bodyCenterX() - bodyCenterX();
+        int targetFacingDir = other.facingDirection();
+        if (Math.abs(targetOffsetFromShoebill) < 1.0
+                || targetFacingDir != (targetOffsetFromShoebill > 0.0 ? 1 : -1)) {
+            return false;
+        }
+        double forward = (other.bodyCenterX() - eyeX) * dir;
+        double maxReach = (ultimate ? 190.0 : 126.0) * s + other.combatHalfWidth();
+        double verticalReach = (ultimate ? 42.0 : 28.0) * s + other.combatHalfHeight() * 0.55;
+        if (forward < 0.0 || forward > maxReach) {
+            return false;
+        }
+        return Math.abs(other.bodyCenterY() - eyeY) <= verticalReach;
+    }
+
+    private void specialShoebillHeavyThrust(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        shoebillThrustTimer = ultimate ? SHOEBILL_THRUST_FRAMES + 8 : SHOEBILL_THRUST_FRAMES;
+        shoebillThrustReuseTimer = ultimate ? 54 : SHOEBILL_THRUST_REUSE_FRAMES;
+        shoebillThrustDirection = dir;
+        shoebillThrustUltimate = ultimate;
+        Arrays.fill(shoebillThrustHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillThrustTimer);
+        vx *= isOnGround() ? 0.32 : 0.58;
+        vy = Math.min(vy, isOnGround() ? 0.0 : 2.4);
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
+        game.addToKillFeed(shortName() + (ultimate ? " wound up an ULT HEAVY BILL THRUST!" : " wound up Heavy Bill Thrust!"));
+    }
+
+    private void handleShoebillHeavyThrust() {
+        int total = shoebillThrustUltimate ? SHOEBILL_THRUST_FRAMES + 8 : SHOEBILL_THRUST_FRAMES;
+        int elapsed = total - shoebillThrustTimer;
+        int dir = shoebillThrustDirection == 0 ? facingDirection() : shoebillThrustDirection;
+        facingRight = dir > 0;
+
+        if (elapsed < SHOEBILL_THRUST_STARTUP_FRAMES) {
+            vx *= isOnGround() ? 0.56 : 0.76;
+            if (!isOnGround()) {
+                vy = Math.min(vy, 2.7);
+            }
+            if ((elapsed & 3) == 0) {
+                game.particles.add(new Particle(
+                        bodyCenterX() + dir * 34.0 * sizeMultiplier,
+                        bodyCenterY() - 14.0 * sizeMultiplier,
+                        -dir * (0.6 + Math.random() * 1.4),
+                        -0.7 - Math.random() * 1.2,
+                        (shoebillThrustUltimate ? Color.GOLD : Color.web("#78909C")).deriveColor(0, 1, 1, 0.62)
+                ));
+            }
+            return;
+        }
+
+        int activeEnd = SHOEBILL_THRUST_STARTUP_FRAMES + SHOEBILL_THRUST_ACTIVE_FRAMES;
+        if (elapsed < activeEnd) {
+            double activePhase = Math.clamp((elapsed - SHOEBILL_THRUST_STARTUP_FRAMES + 1.0)
+                    / SHOEBILL_THRUST_ACTIVE_FRAMES, 0.0, 1.0);
+            double thrustSpeed = (shoebillThrustUltimate ? 7.0 : 5.4) + activePhase * (shoebillThrustUltimate ? 2.4 : 1.6);
+            vx = vx * 0.35 + dir * thrustSpeed;
+            vy *= isOnGround() ? 0.70 : 0.88;
+            applyShoebillThrustHits(activePhase);
+            if ((elapsed & 1) == 0) {
+                emitShoebillReedBurst(
+                        bodyCenterX() + dir * (66.0 + activePhase * 50.0) * sizeMultiplier,
+                        bodyCenterY() - 8.0 * sizeMultiplier,
+                        dir,
+                        shoebillThrustUltimate ? 7 : 5,
+                        shoebillThrustUltimate ? Color.GOLD : Color.web("#A7C7B2")
+                );
+            }
+        } else {
+            vx *= isOnGround() ? 0.50 : 0.78;
+        }
+    }
+
+    private void applyShoebillThrustHits(double activePhase) {
+        int dir = shoebillThrustDirection == 0 ? facingDirection() : shoebillThrustDirection;
+        double s = sizeMultiplier;
+        double originX = bodyCenterX() + dir * 18.0 * s;
+        double originY = bodyCenterY() - 9.0 * s;
+        double reach = (shoebillThrustUltimate ? 188.0 : 154.0) * s;
+        double verticalReach = (shoebillThrustUltimate ? 76.0 : 62.0) * s;
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= shoebillThrustHit.length) continue;
+            if (shoebillThrustHit[other.playerIndex]) continue;
+
+            double forward = (other.bodyCenterX() - originX) * dir;
+            if (forward < -other.combatHalfWidth() * 0.25 || forward > reach + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyCenterY() - originY) > verticalReach + other.combatHalfHeight()) continue;
+
+            shoebillThrustHit[other.playerIndex] = true;
+            double oldHealth = other.health;
+            int dmg = (shoebillThrustUltimate ? 25 : 18) + (int) Math.round(activePhase * (shoebillThrustUltimate ? 5.0 : 3.0));
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+            other.vx += dir * (shoebillThrustUltimate ? 28.0 : 22.0);
+            other.vy -= shoebillThrustUltimate ? 8.6 : 6.2;
+            other.applyStun(shoebillThrustUltimate ? 16 : 8);
+            game.hitstopFrames = Math.max(game.hitstopFrames, shoebillThrustUltimate ? 8 : 5);
+            game.shakeIntensity = Math.max(game.shakeIntensity, shoebillThrustUltimate ? 17 : 11);
+            emitShoebillReedBurst(other.bodyCenterX(), other.bodyCenterY(), dir,
+                    shoebillThrustUltimate ? 24 : 16,
+                    shoebillThrustUltimate ? Color.GOLD : Color.web("#CFD8DC"));
+        }
+    }
+
+    private void specialShoebillMarshLift(boolean ultimate) {
+        if (shoebillUpSpecialUsed && !ultimate) {
+            return;
+        }
+        int dir = horizontalInputDirection();
+        if (dir != 0) {
+            facingRight = dir > 0;
+        }
+        shoebillUpSpecialUsed = true;
+        shoebillMarshLiftUltimate = ultimate;
+        shoebillMarshLiftTimer = ultimate ? SHOEBILL_MARSH_LIFT_FRAMES + 8 : SHOEBILL_MARSH_LIFT_FRAMES;
+        Arrays.fill(shoebillMarshLiftHit, false);
+        canDoubleJump = true;
+        vx *= 0.34;
+        vy = Math.min(vy, ultimate ? -20.8 : -17.4);
+        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillMarshLiftTimer);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
+        emitShoebillReedBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier,
+                facingDirection(), ultimate ? 42 : 28, ultimate ? Color.GOLD : Color.web("#81C784"));
+    }
+
+    private void handleShoebillMarshLift() {
+        int total = shoebillMarshLiftUltimate ? SHOEBILL_MARSH_LIFT_FRAMES + 8 : SHOEBILL_MARSH_LIFT_FRAMES;
+        int elapsed = total - shoebillMarshLiftTimer;
+        double s = sizeMultiplier;
+        vx *= 0.88;
+        if (elapsed < total * 0.70 && vy > (shoebillMarshLiftUltimate ? -12.0 : -9.4)) {
+            vy -= shoebillMarshLiftUltimate ? 0.84 : 0.64;
+        }
+        if ((elapsed & 1) == 0) {
+            double spread = (Math.random() - 0.5) * (shoebillMarshLiftUltimate ? 92.0 : 72.0) * s;
+            game.particles.add(new Particle(
+                    bodyCenterX() + spread,
+                    bodyBottomY() - 5.0 * s,
+                    spread * 0.015,
+                    -4.0 - Math.random() * (shoebillMarshLiftUltimate ? 6.2 : 4.6),
+                    (shoebillMarshLiftUltimate ? Color.GOLD : Color.web("#66BB6A")).deriveColor(0, 1, 1, 0.62)
+            ));
+        }
+
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY() + 22.0 * s;
+        double horizontalReach = (shoebillMarshLiftUltimate ? 104.0 : 82.0) * s;
+        double lowerReach = (shoebillMarshLiftUltimate ? 94.0 : 76.0) * s;
+        double upperReach = (shoebillMarshLiftUltimate ? 210.0 : 168.0) * s;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= shoebillMarshLiftHit.length) continue;
+            if (shoebillMarshLiftHit[other.playerIndex]) continue;
+
+            double dx = Math.abs(other.bodyCenterX() - centerX);
+            double dy = other.bodyCenterY() - centerY;
+            if (dx > horizontalReach + other.combatHalfWidth()) continue;
+            if (dy < -upperReach - other.combatHalfHeight() || dy > lowerReach + other.combatHalfHeight()) continue;
+
+            shoebillMarshLiftHit[other.playerIndex] = true;
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, shoebillMarshLiftUltimate ? 10 : 7);
+            if (dealt <= 0) continue;
+
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+            double pushDir = Math.signum(other.bodyCenterX() - centerX);
+            if (pushDir == 0.0) {
+                pushDir = facingDirection();
+            }
+            other.vx += pushDir * (shoebillMarshLiftUltimate ? 8.0 : 5.6);
+            other.vy = Math.min(other.vy, -(shoebillMarshLiftUltimate ? 17.0 : 13.4));
+            other.applyStun(shoebillMarshLiftUltimate ? 12 : 7);
+            game.shakeIntensity = Math.max(game.shakeIntensity, shoebillMarshLiftUltimate ? 10 : 6);
+            emitShoebillReedBurst(other.bodyCenterX(), other.bodyBottomY(), (int) pushDir,
+                    shoebillMarshLiftUltimate ? 22 : 14,
+                    shoebillMarshLiftUltimate ? Color.GOLD : Color.web("#A5D6A7"));
+        }
+    }
+
+    private void specialShoebillStatueTrap(boolean ultimate) {
+        shoebillStatueTimer = ultimate ? SHOEBILL_STATUE_FRAMES + 30 : SHOEBILL_STATUE_FRAMES;
+        shoebillStatueReuseTimer = ultimate ? 48 : SHOEBILL_STATUE_REUSE_FRAMES;
+        shoebillStatueUltimate = ultimate;
+        shoebillStatueCountered = false;
+        shoebillCounterBurstTimer = 0;
+        shoebillCounterBurstUltimate = false;
+        Arrays.fill(shoebillCounterHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillStatueTimer);
+        vx *= isOnGround() ? 0.12 : 0.36;
+        vy = Math.min(vy, isOnGround() ? 0.0 : 2.2);
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
+        blockCooldown = 0;
+    }
+
+    private void handleShoebillStatueTrap() {
+        if (shoebillStatueTimer <= 0) {
+            return;
+        }
+        if (!blockPressed() && !shoebillStatueCountered) {
+            shoebillStatueTimer = 0;
+            shoebillStatueUltimate = false;
+            attackAnimationTimer = Math.min(attackAnimationTimer, 2);
+            return;
+        }
+        vx *= isOnGround() ? 0.05 : 0.42;
+        if (!isOnGround()) {
+            vy = Math.min(vy, 1.8);
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillStatueCountered ? 4 : 10);
+        if ((shoebillStatueTimer & 3) == 0) {
+            game.particles.add(new Particle(
+                    bodyCenterX() + (Math.random() - 0.5) * 34.0 * sizeMultiplier,
+                    bodyBottomY() - 8.0 * sizeMultiplier,
+                    (Math.random() - 0.5) * 0.8,
+                    -0.8 - Math.random() * 1.4,
+                    (shoebillStatueUltimate ? Color.GOLD : Color.web("#455A64")).deriveColor(0, 1, 1, 0.58)
+            ));
+        }
+    }
+
+    private boolean shoebillStatueCounterWindowActive() {
+        return type == BirdGame3.BirdType.SHOEBILL
+                && health > 0
+                && shoebillStatueTimer > 0
+                && !shoebillStatueCountered
+                && blockPressed();
+    }
+
+    private boolean tryShoebillStatueCounter(Bird attacker, double scaledDamage) {
+        if (!shoebillStatueCounterWindowActive()) {
+            return false;
+        }
+        shoebillStatueCountered = true;
+        shoebillStatueTimer = Math.min(shoebillStatueTimer, SHOEBILL_COUNTER_BURST_FRAMES);
+        shoebillCounterBurstTimer = SHOEBILL_COUNTER_BURST_FRAMES;
+        shoebillCounterBurstUltimate = shoebillStatueUltimate;
+        Arrays.fill(shoebillCounterHit, false);
+        stunTime = 0.0;
+        knockdownTimer = 0;
+        vx *= 0.08;
+        vy = Math.min(vy, -3.6);
+        attackAnimationTimer = Math.max(attackAnimationTimer, SHOEBILL_COUNTER_BURST_FRAMES + 4);
+        game.shakeIntensity = Math.max(game.shakeIntensity, shoebillStatueUltimate ? 18 : 13);
+        game.hitstopFrames = Math.max(game.hitstopFrames, shoebillStatueUltimate ? 8 : 5);
+        game.addToKillFeed(shortName() + (shoebillStatueUltimate ? " ULT STATUE COUNTER!" : " STATUE COUNTER!"));
+        applyShoebillCounterBurstHits(attacker, Math.max(0.0, scaledDamage));
+        emitShoebillReedBurst(bodyCenterX(), bodyCenterY(), facingDirection(),
+                shoebillStatueUltimate ? 46 : 32,
+                shoebillStatueUltimate ? Color.GOLD : Color.web("#B0BEC5"));
+        return true;
+    }
+
+    private void applyShoebillCounterBurstHits(Bird primaryTarget, double absorbedDamage) {
+        double radius = (shoebillCounterBurstUltimate ? 190.0 : 145.0) * sizeMultiplier;
+        double verticalRadius = (shoebillCounterBurstUltimate ? 132.0 : 104.0) * sizeMultiplier;
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY() - 5.0 * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= shoebillCounterHit.length) continue;
+            if (shoebillCounterHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            boolean directCounterTarget = other == primaryTarget;
+            if (!directCounterTarget) {
+                double normalized = Math.hypot(dx / Math.max(1.0, radius), dy / Math.max(1.0, verticalRadius));
+                if (normalized > 1.0 + other.combatRadius() / Math.max(radius, verticalRadius)) continue;
+            }
+
+            shoebillCounterHit[other.playerIndex] = true;
+            double oldHealth = other.health;
+            int dmg = (shoebillCounterBurstUltimate ? 13 : 8)
+                    + (int) Math.round(Math.clamp(absorbedDamage / 32.0, 0.0, 1.0) * (shoebillCounterBurstUltimate ? 5.0 : 3.0));
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0 && !directCounterTarget) continue;
+
+            if (dealt > 0) {
+                game.damageDealt[playerIndex] += dealt;
+                game.recordSpecialImpact(playerIndex, dealt, true);
+                if (other.health <= 0 && oldHealth > 0) {
+                    game.eliminations[playerIndex]++;
+                }
+            } else {
+                game.recordSpecialImpact(playerIndex, 0, true);
+            }
+            double pushDir = Math.signum(dx);
+            if (pushDir == 0.0) {
+                pushDir = facingDirection();
+            }
+            other.vx += pushDir * (shoebillCounterBurstUltimate ? 13.0 : 9.0);
+            other.vy -= shoebillCounterBurstUltimate ? 8.2 : 5.8;
+            other.applyStun(shoebillCounterBurstUltimate ? 92 : 66);
+        }
+    }
+
+    private void emitShoebillReedBurst(double originX, double originY, int dir, int count, Color baseColor) {
+        int particleCount = scaledParticleCount(count);
+        int safeDir = dir == 0 ? facingDirection() : dir;
+        for (int i = 0; i < particleCount; i++) {
+            double angle = -Math.PI / 2.0 + (Math.random() - 0.5) * Math.PI * 0.85;
+            double speed = 1.2 + Math.random() * 5.0;
+            game.particles.add(new Particle(
+                    originX + (Math.random() - 0.5) * 22.0 * sizeMultiplier,
+                    originY + (Math.random() - 0.5) * 16.0 * sizeMultiplier,
+                    Math.cos(angle) * speed + safeDir * (0.2 + Math.random() * 1.0),
+                    Math.sin(angle) * speed - Math.random() * 2.2,
+                    baseColor.deriveColor(0, 1, 1, 0.62 + Math.random() * 0.25)
+            ));
+        }
     }
 
     private void specialMockingbird(boolean ultimate) {
@@ -6465,6 +6919,19 @@ public class Bird {
         return raptorCryTimer > 0 || raptorRushTimer > 0 || raptorClimbTimer > 0 || eagleDiveActive || eagleAscentActive;
     }
 
+    private boolean shoebillSpecialActive() {
+        return shoebillStareFxTimer > 0
+                || shoebillThrustTimer > 0
+                || shoebillMarshLiftTimer > 0
+                || shoebillStatueTimer > 0
+                || shoebillCounterBurstTimer > 0;
+    }
+
+    private boolean shoebillStoneVisualActive() {
+        return type == BirdGame3.BirdType.SHOEBILL
+                && (shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0);
+    }
+
     private double pigeonRushSpeed() {
         if (pigeonRushGrounded) {
             return pigeonRushUltimate ? 22.0 : 20.0;
@@ -6554,6 +7021,19 @@ public class Bird {
         return selectPenguinSpecialVariant() == PenguinSpecialVariant.DOWN
                 && isBlocking
                 && shieldStunFrames <= 0;
+    }
+
+    private boolean canConvertShieldIntoShoebillDownSpecial() {
+        return selectShoebillSpecialVariant() == ShoebillSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+    }
+
+    private boolean shouldReserveBlockForShoebillStatueHold() {
+        return type == BirdGame3.BirdType.SHOEBILL
+                && shoebillStatueTimer > 0
+                && !shoebillStatueCountered
+                && blockPressed();
     }
 
     private boolean canStartPigeonSpecial() {
@@ -6770,6 +7250,40 @@ public class Bird {
                 && penguinSpecialReady(variant);
     }
 
+    private boolean shoebillSpecialReady(ShoebillSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
+        return switch (variant) {
+            case NEUTRAL -> true;
+            case SIDE -> ultimateReady || shoebillThrustReuseTimer <= 0;
+            case UP -> ultimateReady || !shoebillUpSpecialUsed;
+            case DOWN -> ultimateReady || shoebillStatueReuseTimer <= 0;
+        };
+    }
+
+    private boolean shoebillAnySpecialReady() {
+        return type == BirdGame3.BirdType.SHOEBILL
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && !isDodging()
+                && !shoebillSpecialActive();
+    }
+
+    private boolean canStartShoebillSpecial() {
+        ShoebillSpecialVariant variant = selectShoebillSpecialVariant();
+        boolean shieldConversion = canConvertShieldIntoShoebillDownSpecial();
+        return type == BirdGame3.BirdType.SHOEBILL
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && !shoebillSpecialActive()
+                && shoebillSpecialReady(variant);
+    }
+
     private PigeonSpecialVariant selectPigeonSpecialVariant() {
         if (jumpPressed()) {
             return PigeonSpecialVariant.UP;
@@ -6861,6 +7375,19 @@ public class Bird {
         return PenguinSpecialVariant.NEUTRAL;
     }
 
+    private ShoebillSpecialVariant selectShoebillSpecialVariant() {
+        if (jumpPressed()) {
+            return ShoebillSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return ShoebillSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return ShoebillSpecialVariant.SIDE;
+        }
+        return ShoebillSpecialVariant.NEUTRAL;
+    }
+
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -6913,6 +7440,11 @@ public class Bird {
                     && selectPenguinSpecialVariant() == PenguinSpecialVariant.UP
                     && !penguinUpSpecialUsed;
         }
+        if (type == BirdGame3.BirdType.SHOEBILL) {
+            return canStartShoebillSpecial()
+                    && selectShoebillSpecialVariant() == ShoebillSpecialVariant.UP
+                    && !shoebillUpSpecialUsed;
+        }
         if (isRaptor()) {
             return canStartRaptorSpecial()
                     && selectRaptorSpecialVariant() == RaptorSpecialVariant.UP
@@ -6952,6 +7484,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.PENGUIN) {
             return canStartPenguinSpecial()
                     && selectPenguinSpecialVariant() == PenguinSpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.SHOEBILL) {
+            return canStartShoebillSpecial()
+                    && selectShoebillSpecialVariant() == ShoebillSpecialVariant.DOWN;
         }
         if (isRaptor()) {
             return canStartRaptorSpecial()
@@ -7105,6 +7641,24 @@ public class Bird {
         }
     }
 
+    private void resetShoebillSpecialState() {
+        shoebillStareFxTimer = 0;
+        shoebillStareUltimate = false;
+        shoebillThrustTimer = 0;
+        shoebillThrustUltimate = false;
+        shoebillThrustDirection = facingDirection();
+        Arrays.fill(shoebillThrustHit, false);
+        shoebillMarshLiftTimer = 0;
+        shoebillMarshLiftUltimate = false;
+        Arrays.fill(shoebillMarshLiftHit, false);
+        shoebillStatueTimer = 0;
+        shoebillStatueUltimate = false;
+        shoebillStatueCountered = false;
+        shoebillCounterBurstTimer = 0;
+        shoebillCounterBurstUltimate = false;
+        Arrays.fill(shoebillCounterHit, false);
+    }
+
     private void interruptPigeonSpecialStateOnHit() {
         if (type != BirdGame3.BirdType.PIGEON) {
             return;
@@ -7173,6 +7727,16 @@ public class Bird {
             attackAnimationTimer = 0;
         }
         resetPenguinSpecialState(false);
+    }
+
+    private void interruptShoebillSpecialStateOnHit() {
+        if (type != BirdGame3.BirdType.SHOEBILL || shoebillStatueCounterWindowActive()) {
+            return;
+        }
+        if (shoebillSpecialActive()) {
+            attackAnimationTimer = 0;
+        }
+        resetShoebillSpecialState();
     }
 
     private int aiJumpCooldown = 0;
@@ -7548,6 +8112,7 @@ public class Bird {
                 && (isRaptor() ? canStartRaptorSpecial()
                 : type == BirdGame3.BirdType.TURKEY ? canStartTurkeySpecial()
                 : type == BirdGame3.BirdType.PENGUIN ? canStartPenguinSpecial()
+                : type == BirdGame3.BirdType.SHOEBILL ? shoebillAnySpecialReady()
                 : specialCooldown <= 0)
                 && aiSpecialCooldown <= 0 &&
                 shouldUseSpecialAI(target, targetDist, onGround, lowHealth) &&
@@ -7555,8 +8120,11 @@ public class Bird {
             if (type == BirdGame3.BirdType.PIGEON && onGround && lowHealth && targetDist > 110) {
                 game.setAiControlKey(playerIndex, blockKey(), true);
             }
+            if (type == BirdGame3.BirdType.SHOEBILL) {
+                configureShoebillAISpecialInputs(target, targetDist, onGround);
+            }
             game.setAiControlKey(playerIndex, specialKey(), true);
-            aiSpecialCooldown = type == BirdGame3.BirdType.PIGEON ? 16 : 26;
+            aiSpecialCooldown = type == BirdGame3.BirdType.PIGEON ? 16 : (type == BirdGame3.BirdType.SHOEBILL ? 20 : 26);
         }
 
         if (!powerFocus && tauntCooldown <= 0 && target != null && currentDurability > 80
@@ -8235,6 +8803,8 @@ public class Bird {
                     && (depth > 92.0 || (offstage && (offstageDistance > 14.0 || movingAway || vy > 2.0)));
             case ROADRUNNER -> !roadrunnerDustDevilUsed
                     && (depth > 90.0 || (offstage && (offstageDistance > 22.0 || movingAway || vy > 2.0)));
+            case SHOEBILL -> !shoebillUpSpecialUsed
+                    && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.1)));
             default -> false;
         };
     }
@@ -8299,7 +8869,8 @@ public class Bird {
                     || type == BirdGame3.BirdType.TURKEY
                     || type == BirdGame3.BirdType.ROOSTER
                     || type == BirdGame3.BirdType.ROADRUNNER
-                    || type == BirdGame3.BirdType.PENGUIN) {
+                    || type == BirdGame3.BirdType.PENGUIN
+                    || type == BirdGame3.BirdType.SHOEBILL) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
             }
             game.setAiControlKey(playerIndex, specialKey(), true);
@@ -8359,6 +8930,9 @@ public class Bird {
             case ROADRUNNER -> {
                 if (!roadrunnerDustDevilUsed) reach += 145.0;
             }
+            case SHOEBILL -> {
+                if (!shoebillUpSpecialUsed) reach += 165.0;
+            }
             case TITMOUSE, HUMMINGBIRD, BAT -> reach += 95.0;
             case VULTURE -> {
                 if (!isOnGround() || isFlying) {
@@ -8384,6 +8958,9 @@ public class Bird {
                 if (!penguinUpSpecialUsed) reach += 85.0;
             }
             case ROADRUNNER -> reach += 60.0 + roadrunnerMomentumRatio() * 80.0;
+            case SHOEBILL -> {
+                if (!shoebillUpSpecialUsed) reach += 38.0;
+            }
             case TITMOUSE, HUMMINGBIRD, BAT -> reach += 95.0;
             case TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> reach += 35.0;
             default -> {
@@ -8443,6 +9020,22 @@ public class Bird {
         return true;
     }
 
+    private void configureShoebillAISpecialInputs(Bird target, double dist, boolean onGround) {
+        if (target == null || type != BirdGame3.BirdType.SHOEBILL) {
+            return;
+        }
+        int dir = target.bodyCenterX() >= bodyCenterX() ? 1 : -1;
+        facingRight = dir > 0;
+        boolean targetAttacking = target.attackAnimationTimer > 2 || target.grabThrowLockTimer > 0;
+        if (onGround && targetAttacking && dist < 185.0 && shoebillStatueReuseTimer <= 0) {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            return;
+        }
+        if (dist > 155.0 && dist < 330.0 && shoebillThrustReuseTimer <= 0) {
+            game.setAiControlKey(playerIndex, dir < 0 ? leftKey() : rightKey(), true);
+        }
+    }
+
     private boolean shouldUseSpecialAI(Bird target, double dist, boolean onGround, boolean lowHealth) {
         double dy = target.y - y;
         switch (type) {
@@ -8469,7 +9062,9 @@ public class Bird {
                         || (lowHealth && dist < 260)
                         || (onGround && target.health > health + 12 && dist < 380);
             case SHOEBILL:
-                return dist < 240 || (dist < 420 && random.nextDouble() < 0.2);
+                return dist < 155
+                        || (dist > 140 && dist < 330 && Math.abs(dy) < 125 && shoebillThrustReuseTimer <= 0)
+                        || (onGround && dist < 190 && target.attackAnimationTimer > 2 && shoebillStatueReuseTimer <= 0);
             case MOCKINGBIRD:
                 return onGround && !loungeActive && (lowHealth || dist < 210);
             case RAZORBILL:
@@ -8656,7 +9251,8 @@ public class Bird {
         boolean inDockWater = isInDockWater();
         boolean inWindNow = isInWindVent(x, y);
         boolean inUpdraft = inWindNow || thermalTimer > 0;
-        boolean reserveBlockForSpecial = !stunned && shouldReserveBlockForSpecial();
+        boolean reserveBlockForSpecial = !stunned
+                && (shouldReserveBlockForSpecial() || shouldReserveBlockForShoebillStatueHold());
         boolean reserveBlockForAttack = !stunned && shouldReserveBlockForAttack(airborne);
         boolean defensiveBlockHeld = blockHeld && !reserveBlockForAttack && !reserveBlockForSpecial;
         boolean blockJustPressed = defensiveBlockHeld && !blockHeldLastFrame;
@@ -8684,6 +9280,9 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.PENGUIN && isOnGround()) {
             penguinUpSpecialUsed = false;
+        }
+        if (type == BirdGame3.BirdType.SHOEBILL && isOnGround()) {
+            shoebillUpSpecialUsed = false;
         }
 
         if (airborne && landingLagTimer > 0) {
@@ -8861,6 +9460,7 @@ public class Bird {
         handleHummingbirdSpecialState();
         handleTurkeySpecialState();
         handlePenguinSpecialState(specialHeld);
+        handleShoebillSpecialState();
 
         // === RAZORBILL DASH ===
         handleRazorbillBladeStorm();
@@ -9017,6 +9617,14 @@ public class Bird {
         penguinFlopTimer = Math.max(0, (int)(penguinFlopTimer - gameSpeed));
         penguinSnowFortReuseTimer = Math.max(0, (int)(penguinSnowFortReuseTimer - gameSpeed));
         penguinFortGuardFxTimer = Math.max(0, (int)(penguinFortGuardFxTimer - gameSpeed));
+        shoebillStareFxTimer = Math.max(0, (int)(shoebillStareFxTimer - gameSpeed));
+        shoebillStareReuseTimer = Math.max(0, (int)(shoebillStareReuseTimer - gameSpeed));
+        shoebillThrustTimer = Math.max(0, (int)(shoebillThrustTimer - gameSpeed));
+        shoebillThrustReuseTimer = Math.max(0, (int)(shoebillThrustReuseTimer - gameSpeed));
+        shoebillMarshLiftTimer = Math.max(0, (int)(shoebillMarshLiftTimer - gameSpeed));
+        shoebillStatueTimer = Math.max(0, (int)(shoebillStatueTimer - gameSpeed));
+        shoebillStatueReuseTimer = Math.max(0, (int)(shoebillStatueReuseTimer - gameSpeed));
+        shoebillCounterBurstTimer = Math.max(0, (int)(shoebillCounterBurstTimer - gameSpeed));
         hummingFrenzyTimer = Math.max(0, (int)(hummingFrenzyTimer - gameSpeed));
         hummingNeedleComboTimer = Math.max(0, (int)(hummingNeedleComboTimer - gameSpeed));
         hummingNeedleHitTimer = Math.max(0, (int)(hummingNeedleHitTimer - gameSpeed));
@@ -9088,6 +9696,26 @@ public class Bird {
             penguinRocketUltimate = false;
             Arrays.fill(penguinRocketHit, false);
             Arrays.fill(penguinFlopHit, false);
+        }
+        if (shoebillStareFxTimer == 0) {
+            shoebillStareUltimate = false;
+        }
+        if (shoebillThrustTimer == 0) {
+            shoebillThrustUltimate = false;
+            shoebillThrustDirection = facingDirection();
+            Arrays.fill(shoebillThrustHit, false);
+        }
+        if (shoebillMarshLiftTimer == 0) {
+            shoebillMarshLiftUltimate = false;
+            Arrays.fill(shoebillMarshLiftHit, false);
+        }
+        if (shoebillStatueTimer == 0) {
+            shoebillStatueUltimate = false;
+            shoebillStatueCountered = false;
+        }
+        if (shoebillCounterBurstTimer == 0) {
+            shoebillCounterBurstUltimate = false;
+            Arrays.fill(shoebillCounterHit, false);
         }
         for (int i = 0; i < hummingFrenzyHitCooldown.length; i++) {
             hummingFrenzyHitCooldown[i] = Math.max(0, (int)(hummingFrenzyHitCooldown[i] - gameSpeed));
@@ -10052,10 +10680,13 @@ public class Bird {
             }
         if ((type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive())
                     || (isRaptor() && raptorSpecialActive())
+                    || (type == BirdGame3.BirdType.SHOEBILL && shoebillSpecialActive())
                     || (type == BirdGame3.BirdType.ROADRUNNER
                     && (roadrunnerBeepCharging || roadrunnerRicochetTimer > 0 || roadrunnerDustDevilTimer > 0))) {
                 if (type == BirdGame3.BirdType.ROADRUNNER && roadrunnerBeepBurstTimer > 0) {
                     vx *= airborne ? 0.99 : 0.985;
+                } else if (type == BirdGame3.BirdType.SHOEBILL && shoebillThrustTimer > 0) {
+                    vx *= airborne ? 0.94 : 0.88;
                 } else {
                     vx *= airborne ? 0.96 : 0.82;
                 }
@@ -10222,6 +10853,8 @@ public class Bird {
                     ? selectRoadrunnerSpecialVariant() == RoadrunnerSpecialVariant.DOWN && isBlocking && shieldStunFrames <= 0
                     : type == BirdGame3.BirdType.PENGUIN
                     ? canConvertShieldIntoPenguinDownSpecial()
+                    : type == BirdGame3.BirdType.SHOEBILL
+                    ? canConvertShieldIntoShoebillDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
             boolean canStartSelectedSpecial = type == BirdGame3.BirdType.PIGEON
                     ? canStartPigeonSpecial()
@@ -10237,6 +10870,8 @@ public class Bird {
                     ? canStartRoadrunnerSpecial()
                     : type == BirdGame3.BirdType.PENGUIN
                     ? canStartPenguinSpecial()
+                    : type == BirdGame3.BirdType.SHOEBILL
+                    ? canStartShoebillSpecial()
                     : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
             if (!attackLocked && !grabLocked && (!shielding || canSpecialFromShield) && !jumpSquatting && specialJustPressed()) {
                 if (grappleUses == 0 && canStartSelectedSpecial) {
@@ -10662,7 +11297,7 @@ public class Bird {
     private double applyScaledDamageTo(Bird target, double scaledDamage) {
         if (target == null || scaledDamage <= 0 || target.health <= 0) return 0;
         scaledDamage = target.adjustDamageForPenguinSnowFort(this, scaledDamage);
-        double dealtDamage = target.receiveScaledDamage(scaledDamage);
+        double dealtDamage = target.receiveScaledDamage(scaledDamage, this);
         if (dealtDamage > 0) {
             if (game.usesSmashCombatRules()) {
                 target.registerSmashHit(this, dealtDamage);
@@ -10711,6 +11346,9 @@ public class Bird {
     private double applyDamageTo(Bird target, double rawDamage) {
         if (target == null || rawDamage <= 0 || target.health <= 0) return 0;
         double scaledDamage = scaledDamageAgainst(target, rawDamage);
+        if (target.tryShoebillStatueCounter(this, scaledDamage)) {
+            return 0;
+        }
         ShieldHitResult shieldHit = target.resolveShieldHit(this, scaledDamage, 0.0);
         if (shieldHit.blocked()) {
             return 0;
@@ -10720,16 +11358,19 @@ public class Bird {
 
     double receiveExternalDamage(double rawDamage) {
         if (rawDamage <= 0) return 0;
+        double scaledDamage = rawDamage * incomingDamageMultiplier();
+        if (tryShoebillStatueCounter(null, scaledDamage)) {
+            return 0;
+        }
         if (isCombatInvulnerable()) {
             spawnNullRockShieldBurst();
             return 0;
         }
-        double scaledDamage = rawDamage * incomingDamageMultiplier();
         ShieldHitResult shieldHit = resolveShieldHit(null, scaledDamage, 0.0);
         if (shieldHit.blocked()) {
             return 0;
         }
-        return receiveScaledDamage(scaledDamage);
+        return receiveScaledDamage(scaledDamage, null);
     }
 
     private void interruptLedgeHangOnHit() {
@@ -10741,7 +11382,14 @@ public class Bird {
     }
 
     private double receiveScaledDamage(double scaledDamage) {
+        return receiveScaledDamage(scaledDamage, null);
+    }
+
+    private double receiveScaledDamage(double scaledDamage, Bird attacker) {
         if (scaledDamage <= 0 || health <= 0) return 0;
+        if (tryShoebillStatueCounter(attacker, scaledDamage)) {
+            return 0;
+        }
         if (isCombatInvulnerable()) {
             spawnNullRockShieldBurst();
             return 0;
@@ -10758,6 +11406,7 @@ public class Bird {
             interruptTurkeySpecialStateOnHit();
             interruptRoadrunnerSpecialStateOnHit();
             interruptPenguinSpecialStateOnHit();
+            interruptShoebillSpecialStateOnHit();
         }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
             roadrunnerMomentum = Math.max(0.0, roadrunnerMomentum - 38.0);
@@ -12301,6 +12950,11 @@ public class Bird {
         penguinUpSpecialUsed = false;
         penguinSnowFortReuseTimer = 0;
         penguinFortGuardFxTimer = 0;
+        resetShoebillSpecialState();
+        shoebillStareReuseTimer = 0;
+        shoebillThrustReuseTimer = 0;
+        shoebillUpSpecialUsed = false;
+        shoebillStatueReuseTimer = 0;
         hummingFrenzyTimer = 0;
         Arrays.fill(hummingFrenzyHitCooldown, 0);
         resetHummingbirdSpecialState(true);
@@ -12578,6 +13232,25 @@ public class Bird {
             state.penguinSnowFortAgeFrames = penguinSnowFort.ageFrames;
         }
         state.penguinFortGuardFxTimer = penguinFortGuardFxTimer;
+        state.shoebillStareFxTimer = shoebillStareFxTimer;
+        state.shoebillStareReuseTimer = shoebillStareReuseTimer;
+        state.shoebillStareUltimate = shoebillStareUltimate;
+        state.shoebillThrustTimer = shoebillThrustTimer;
+        state.shoebillThrustReuseTimer = shoebillThrustReuseTimer;
+        state.shoebillThrustDirection = shoebillThrustDirection;
+        state.shoebillThrustUltimate = shoebillThrustUltimate;
+        System.arraycopy(shoebillThrustHit, 0, state.shoebillThrustHit, 0, shoebillThrustHit.length);
+        state.shoebillMarshLiftTimer = shoebillMarshLiftTimer;
+        state.shoebillMarshLiftUltimate = shoebillMarshLiftUltimate;
+        state.shoebillUpSpecialUsed = shoebillUpSpecialUsed;
+        System.arraycopy(shoebillMarshLiftHit, 0, state.shoebillMarshLiftHit, 0, shoebillMarshLiftHit.length);
+        state.shoebillStatueTimer = shoebillStatueTimer;
+        state.shoebillStatueReuseTimer = shoebillStatueReuseTimer;
+        state.shoebillStatueUltimate = shoebillStatueUltimate;
+        state.shoebillStatueCountered = shoebillStatueCountered;
+        state.shoebillCounterBurstTimer = shoebillCounterBurstTimer;
+        state.shoebillCounterBurstUltimate = shoebillCounterBurstUltimate;
+        System.arraycopy(shoebillCounterHit, 0, state.shoebillCounterHit, 0, shoebillCounterHit.length);
         state.hummingFrenzyTimer = hummingFrenzyTimer;
         state.phoenixAfterburnTimer = phoenixAfterburnTimer;
         state.phoenixRebornUsed = phoenixRebornUsed;
@@ -12901,6 +13574,37 @@ public class Bird {
             this.penguinSnowFort = null;
         }
         this.penguinFortGuardFxTimer = Math.max(0, state.penguinFortGuardFxTimer);
+        this.shoebillStareFxTimer = Math.max(0, state.shoebillStareFxTimer);
+        this.shoebillStareReuseTimer = Math.max(0, state.shoebillStareReuseTimer);
+        this.shoebillStareUltimate = state.shoebillStareUltimate;
+        this.shoebillThrustTimer = Math.max(0, state.shoebillThrustTimer);
+        this.shoebillThrustReuseTimer = Math.max(0, state.shoebillThrustReuseTimer);
+        this.shoebillThrustDirection = state.shoebillThrustDirection == 0 ? 1 : state.shoebillThrustDirection;
+        this.shoebillThrustUltimate = state.shoebillThrustUltimate;
+        Arrays.fill(this.shoebillThrustHit, false);
+        if (state.shoebillThrustHit != null) {
+            System.arraycopy(state.shoebillThrustHit, 0, this.shoebillThrustHit, 0,
+                    Math.min(this.shoebillThrustHit.length, state.shoebillThrustHit.length));
+        }
+        this.shoebillMarshLiftTimer = Math.max(0, state.shoebillMarshLiftTimer);
+        this.shoebillMarshLiftUltimate = state.shoebillMarshLiftUltimate;
+        this.shoebillUpSpecialUsed = state.shoebillUpSpecialUsed;
+        Arrays.fill(this.shoebillMarshLiftHit, false);
+        if (state.shoebillMarshLiftHit != null) {
+            System.arraycopy(state.shoebillMarshLiftHit, 0, this.shoebillMarshLiftHit, 0,
+                    Math.min(this.shoebillMarshLiftHit.length, state.shoebillMarshLiftHit.length));
+        }
+        this.shoebillStatueTimer = Math.max(0, state.shoebillStatueTimer);
+        this.shoebillStatueReuseTimer = Math.max(0, state.shoebillStatueReuseTimer);
+        this.shoebillStatueUltimate = state.shoebillStatueUltimate;
+        this.shoebillStatueCountered = state.shoebillStatueCountered;
+        this.shoebillCounterBurstTimer = Math.max(0, state.shoebillCounterBurstTimer);
+        this.shoebillCounterBurstUltimate = state.shoebillCounterBurstUltimate;
+        Arrays.fill(this.shoebillCounterHit, false);
+        if (state.shoebillCounterHit != null) {
+            System.arraycopy(state.shoebillCounterHit, 0, this.shoebillCounterHit, 0,
+                    Math.min(this.shoebillCounterHit.length, state.shoebillCounterHit.length));
+        }
         this.hummingFrenzyTimer = state.hummingFrenzyTimer;
         this.phoenixAfterburnTimer = state.phoenixAfterburnTimer;
         this.phoenixRebornUsed = state.phoenixRebornUsed;
@@ -13136,6 +13840,12 @@ public class Bird {
                 && (penguinBellyCharging || penguinBellySlideTimer > 0 || penguinRocketTimer > 0 || penguinFlopTimer > 0);
     }
 
+    private boolean shoebillSpecialPoseActive() {
+        return type == BirdGame3.BirdType.SHOEBILL
+                && (shoebillStareFxTimer > 0 || shoebillThrustTimer > 0
+                || shoebillMarshLiftTimer > 0 || shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0);
+    }
+
     private double turkeySpecialPhase(int timer, int totalFrames) {
         if (timer <= 0 || totalFrames <= 0) {
             return 0.0;
@@ -13144,6 +13854,13 @@ public class Bird {
     }
 
     private double penguinSpecialPhase(int timer, int totalFrames) {
+        if (timer <= 0 || totalFrames <= 0) {
+            return 0.0;
+        }
+        return Math.clamp(1.0 - ((timer - 1.0) / (double) totalFrames), 0.0, 1.0);
+    }
+
+    private double shoebillSpecialPhase(int timer, int totalFrames) {
         if (timer <= 0 || totalFrames <= 0) {
             return 0.0;
         }
@@ -13637,9 +14354,89 @@ public class Bird {
                 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
     }
 
+    private AttackVisualPose currentShoebillSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (shoebillMarshLiftTimer > 0) {
+            double phase = shoebillSpecialPhase(shoebillMarshLiftTimer,
+                    shoebillMarshLiftUltimate ? SHOEBILL_MARSH_LIFT_FRAMES + 8 : SHOEBILL_MARSH_LIFT_FRAMES);
+            return new AttackVisualPose(
+                    dir * 0.8,
+                    -18.0 - 14.0 * phase,
+                    dir * (3.0 + 3.0 * phase),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.08),
+                    10.0 + 5.0 * phase,
+                    -18.0 - 9.0 * phase,
+                    7.0 + 4.0 * phase,
+                    0.98,
+                    -22.0 - 8.0 * phase,
+                    0.96,
+                    1.12
+            );
+        }
+        if (shoebillThrustTimer > 0) {
+            int total = shoebillThrustUltimate ? SHOEBILL_THRUST_FRAMES + 8 : SHOEBILL_THRUST_FRAMES;
+            int elapsed = total - shoebillThrustTimer;
+            double windup = Math.clamp(elapsed / (double) SHOEBILL_THRUST_STARTUP_FRAMES, 0.0, 1.0);
+            double active = elapsed >= SHOEBILL_THRUST_STARTUP_FRAMES
+                    ? Math.clamp((elapsed - SHOEBILL_THRUST_STARTUP_FRAMES + 1.0) / SHOEBILL_THRUST_ACTIVE_FRAMES, 0.0, 1.0)
+                    : 0.0;
+            double lunge = Math.sin(active * Math.PI) * 14.0;
+            return new AttackVisualPose(
+                    -dir * (8.0 + windup * 7.0) + dir * lunge,
+                    5.0 + windup * 3.0 - active * 6.0,
+                    -dir * (10.0 + windup * 8.0) + dir * active * 18.0,
+                    facingRight ? -0.08 : Math.PI + 0.08,
+                    12.0 + windup * 7.0 + active * 12.0,
+                    -3.0 - active * 5.0,
+                    18.0 + windup * 11.0 + active * 18.0,
+                    0.86,
+                    -dir * (7.0 + windup * 7.0) + dir * active * 18.0,
+                    1.12,
+                    0.90
+            );
+        }
+        if (shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0) {
+            double pulse = shoebillCounterBurstTimer > 0
+                    ? Math.sin(shoebillSpecialPhase(shoebillCounterBurstTimer, SHOEBILL_COUNTER_BURST_FRAMES) * Math.PI)
+                    : 0.0;
+            return new AttackVisualPose(
+                    0.0,
+                    8.0 - pulse * 3.0,
+                    dir * (0.8 + pulse * 3.0),
+                    facingRight ? 0.0 : Math.PI,
+                    3.0 + pulse * 8.0,
+                    2.0 - pulse * 5.0,
+                    2.0 + pulse * 8.0,
+                    1.02 + pulse * 0.18,
+                    dir * (0.8 + pulse * 3.0),
+                    1.02 + pulse * 0.04,
+                    0.90
+            );
+        }
+        if (shoebillStareFxTimer > 0) {
+            double phase = shoebillSpecialPhase(shoebillStareFxTimer,
+                    shoebillStareUltimate ? SHOEBILL_STARE_FX_FRAMES + 8 : SHOEBILL_STARE_FX_FRAMES);
+            return new AttackVisualPose(
+                    dir * (1.0 + phase * 2.0),
+                    -2.0 - phase * 2.0,
+                    dir * (1.0 + phase * 2.0),
+                    facingRight ? 0.0 : Math.PI,
+                    8.0 + phase * 6.0,
+                    -4.0 - phase * 3.0,
+                    6.0 + phase * 4.0,
+                    0.74,
+                    dir * (1.0 + phase * 2.0),
+                    1.03,
+                    1.0
+            );
+        }
+        return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
+                0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+    }
+
     private NormalAttackVariant currentDisplayedAttackVariant() {
         if (pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
-                || turkeySpecialPoseActive() || penguinSpecialPoseActive()) {
+                || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()) {
             return null;
         }
         if (isGroundAttackPending()) {
@@ -13718,7 +14515,7 @@ public class Bird {
         if (stunTime > 0.0 || jumpSquatTimer > 0 || landingLagTimer > 0
                 || isChargingAttack() || attackAnimationTimer > 0 || aerialAttackActive
                 || pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
-                || turkeySpecialPoseActive() || penguinSpecialPoseActive()) {
+                || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()) {
             return VISUAL_POSE_ACTION_BLEND_PER_FRAME;
         }
         if (!isOnGround() && Math.abs(vy) > 4.0) {
@@ -13796,6 +14593,9 @@ public class Bird {
         }
         if (penguinSpecialPoseActive()) {
             return currentPenguinSpecialPose();
+        }
+        if (shoebillSpecialPoseActive()) {
+            return currentShoebillSpecialPose();
         }
         AttackVisualPose dodgePose = currentDodgeVisualPose();
         if (dodgePose != null) {
@@ -14142,6 +14942,7 @@ public class Bird {
         drawRoadrunnerSandstormAura(g, drawSize);
         drawRoadrunnerSpecialFx(g);
         drawPenguinSpecialFx(g, drawSize);
+        drawShoebillSpecialFx(g, drawSize);
         drawBatEcho(g, drawSize);
         if (!suppressSelectEffects) {
             drawOpiumBirdEffects(g, drawSize);
@@ -14674,7 +15475,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.TURKEY
                 || type == BirdGame3.BirdType.ROOSTER
                 || type == BirdGame3.BirdType.ROADRUNNER
-                || type == BirdGame3.BirdType.PENGUIN) {
+                || type == BirdGame3.BirdType.PENGUIN
+                || type == BirdGame3.BirdType.SHOEBILL) {
             cooldownFlash = 0;
             return;
         }
@@ -15242,6 +16044,93 @@ public class Bird {
             }
             g.setFill(sand.deriveColor(0, 1, 1, 0.14 + fade * 0.10));
             g.fillOval(cx - 56.0 * s, bodyBottomY() - 18.0 * s, 112.0 * s, 28.0 * s);
+        }
+    }
+
+    private void drawShoebillSpecialFx(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.SHOEBILL) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double cx = bodyCenterX();
+        double cy = bodyCenterY();
+        int dir = facingDirection();
+
+        if (shoebillStareFxTimer > 0) {
+            double total = shoebillStareUltimate ? SHOEBILL_STARE_FX_FRAMES + 8.0 : SHOEBILL_STARE_FX_FRAMES;
+            double fade = Math.clamp(shoebillStareFxTimer / total, 0.0, 1.0);
+            double length = (shoebillStareUltimate ? 202.0 : 138.0) * s;
+            double height = (shoebillStareUltimate ? 30.0 : 20.0) * s;
+            double startX = cx + dir * 26.0 * s;
+            double startY = cy - 18.0 * s;
+            Color gaze = (shoebillStareUltimate ? Color.GOLD : Color.web("#B39DDB")).deriveColor(0, 1, 1, 0.30 + fade * 0.34);
+            g.setFill(gaze.deriveColor(0, 1, 1, 0.12 + fade * 0.12));
+            g.fillPolygon(
+                    new double[]{startX, cx + dir * length, cx + dir * length, startX},
+                    new double[]{startY - height * 0.42, startY - height * 0.72, startY + height * 0.72, startY + height * 0.42},
+                    4
+            );
+            g.setStroke(gaze);
+            g.setLineWidth((2.0 + fade * 2.0) * s);
+            g.strokeLine(startX, startY, cx + dir * length, startY - height * 0.45);
+            g.strokeLine(startX, startY, cx + dir * length, startY + height * 0.45);
+        }
+
+        if (shoebillThrustTimer > 0) {
+            int total = shoebillThrustUltimate ? SHOEBILL_THRUST_FRAMES + 8 : SHOEBILL_THRUST_FRAMES;
+            int elapsed = total - shoebillThrustTimer;
+            double windup = Math.clamp(elapsed / (double) SHOEBILL_THRUST_STARTUP_FRAMES, 0.0, 1.0);
+            double active = elapsed >= SHOEBILL_THRUST_STARTUP_FRAMES
+                    ? Math.clamp((elapsed - SHOEBILL_THRUST_STARTUP_FRAMES + 1.0) / SHOEBILL_THRUST_ACTIVE_FRAMES, 0.0, 1.0)
+                    : 0.0;
+            Color bill = (shoebillThrustUltimate ? Color.GOLD : Color.web("#CFD8DC")).deriveColor(0, 1, 1, 0.38 + windup * 0.22 + active * 0.22);
+            double startX = cx + dir * (18.0 + windup * 10.0) * s;
+            double endX = cx + dir * (84.0 + windup * 54.0 + active * 58.0) * s;
+            double yLine = cy - (10.0 + active * 8.0) * s;
+            g.setStroke(bill);
+            g.setLineWidth((8.0 + windup * 5.0 + active * 3.0) * s);
+            g.strokeLine(startX, yLine, endX, yLine - active * 6.0 * s);
+            g.setStroke(Color.web("#37474F").deriveColor(0, 1, 1, 0.48 + active * 0.20));
+            g.setLineWidth((2.0 + active * 1.4) * s);
+            g.strokeLine(startX - dir * 5.0 * s, yLine + 4.0 * s, endX + dir * 12.0 * s, yLine - active * 5.0 * s);
+        }
+
+        if (shoebillMarshLiftTimer > 0) {
+            double total = shoebillMarshLiftUltimate ? SHOEBILL_MARSH_LIFT_FRAMES + 8.0 : SHOEBILL_MARSH_LIFT_FRAMES;
+            double fade = Math.clamp(shoebillMarshLiftTimer / total, 0.0, 1.0);
+            Color reed = (shoebillMarshLiftUltimate ? Color.GOLD : Color.web("#66BB6A")).deriveColor(0, 1, 1, 0.34 + fade * 0.24);
+            double topY = bodyBottomY() - (shoebillMarshLiftUltimate ? 210.0 : 170.0) * s;
+            double bottomY = bodyBottomY() - 2.0 * s;
+            g.setFill(reed.deriveColor(0, 1, 1, 0.10 + fade * 0.10));
+            g.fillOval(cx - 58.0 * s, bottomY - 22.0 * s, 116.0 * s, 34.0 * s);
+            g.setStroke(reed);
+            g.setLineWidth((2.0 + fade * 2.4) * s);
+            for (int i = -3; i <= 3; i++) {
+                double offset = i * 15.0 * s;
+                double sway = Math.sin(shoebillMarshLiftTimer * 0.42 + i) * 9.0 * s;
+                g.strokeLine(cx + offset, bottomY, cx + offset * 0.32 + sway, topY + Math.abs(i) * 7.0 * s);
+            }
+        }
+
+        if (shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0) {
+            double pulse = shoebillCounterBurstTimer > 0
+                    ? Math.sin(shoebillSpecialPhase(shoebillCounterBurstTimer, SHOEBILL_COUNTER_BURST_FRAMES) * Math.PI)
+                    : 0.18;
+            Color stone = (shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.GOLD : Color.web("#607D8B"))
+                    .deriveColor(0, 1, 1, 0.30 + pulse * 0.22);
+            double width = (drawSize + 30.0 * s) * (1.0 + pulse * 0.06);
+            double height = (drawSize + 18.0 * s) * 0.82;
+            g.setFill(stone.deriveColor(0, 1, 1, shoebillCounterBurstTimer > 0 ? 0.20 : 0.12));
+            g.fillOval(cx - width * 0.5, cy - height * 0.45, width, height);
+            g.setStroke(stone);
+            g.setLineWidth((2.6 + pulse * 2.0) * s);
+            g.strokeOval(cx - width * 0.5, cy - height * 0.45, width, height);
+            if (shoebillCounterBurstTimer > 0) {
+                double radius = (shoebillCounterBurstUltimate ? 190.0 : 145.0) * s * (0.72 + pulse * 0.28);
+                g.setStroke((shoebillCounterBurstUltimate ? Color.GOLD : Color.web("#ECEFF1")).deriveColor(0, 1, 1, 0.55));
+                g.setLineWidth(4.0 * s);
+                g.strokeOval(cx - radius, cy - radius * 0.72, radius * 2.0, radius * 1.44);
+            }
         }
     }
 
@@ -16445,6 +17334,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.PENGUIN) {
             return;
         }
+        if (type == BirdGame3.BirdType.SHOEBILL) {
+            return;
+        }
         if (type == BirdGame3.BirdType.PIGEON && specialCooldown > 0) {
             return;
         }
@@ -16570,6 +17462,7 @@ public class Bird {
         boolean ironcladPelican = (type == BirdGame3.BirdType.PELICAN && isIroncladSkin);
         boolean sunflareHummingbird = (type == BirdGame3.BirdType.HUMMINGBIRD && isSunflareSkin);
         boolean glacierShoebill = (type == BirdGame3.BirdType.SHOEBILL && isGlacierSkin);
+        boolean stoneShoebill = shoebillStoneVisualActive();
         boolean tideVulture = (type == BirdGame3.BirdType.VULTURE && isTideSkin);
         boolean nullRockVulture = (type == BirdGame3.BirdType.VULTURE && isNullRockSkin);
         boolean eclipseMockingbird = (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin);
@@ -16598,10 +17491,18 @@ public class Bird {
             bodyColor = Color.web("#FFB74D");
             headColor = Color.web("#FFE082");
             eyeOverride = Color.web("#E65100");
+        } else if (stoneShoebill) {
+            bodyColor = shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.web("#A99F74") : Color.web("#69747A");
+            headColor = shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.web("#D2C68C") : Color.web("#9EA7AB");
+            eyeOverride = shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.GOLD : Color.web("#ECEFF1");
         } else if (glacierShoebill) {
             bodyColor = Color.web("#90CAF9");
             headColor = Color.web("#BBDEFB");
             eyeOverride = Color.web("#01579B");
+        } else if (type == BirdGame3.BirdType.SHOEBILL) {
+            bodyColor = Color.web("#5F7581");
+            headColor = Color.web("#AAB7BE");
+            eyeOverride = Color.web("#FDD835");
         } else if (tideVulture) {
             bodyColor = Color.web("#26A69A");
             headColor = Color.web("#80CBC4");
@@ -16707,6 +17608,36 @@ public class Bird {
                     new double[]{y + 44 * s, y + 28 * s, y + 60 * s},
                     3
             );
+        }
+        if (type == BirdGame3.BirdType.SHOEBILL) {
+            int tailDir = facingRight ? -1 : 1;
+            Color crest = stoneShoebill
+                    ? (shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.web("#EFE6A8") : Color.web("#B8C0C4"))
+                    : (glacierShoebill ? Color.web("#E1F5FE") : Color.web("#CFD8DC"));
+            Color chest = stoneShoebill
+                    ? (shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.web("#CFC589") : Color.web("#AEB6BA"))
+                    : (glacierShoebill ? Color.web("#E3F2FD") : Color.web("#D5DDE0"));
+            double crestBaseX = facingRight ? headX + 17 * s : headX + 33 * s;
+            g.setFill(crest);
+            g.fillPolygon(
+                    new double[]{crestBaseX - 5 * s, crestBaseX, crestBaseX + 5 * s},
+                    new double[]{headY + 2 * s, headY - 18 * s, headY + 2 * s},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{crestBaseX + tailDir * 4 * s, crestBaseX + tailDir * 16 * s, crestBaseX + tailDir * 8 * s},
+                    new double[]{headY + 4 * s, headY - 10 * s, headY + 7 * s},
+                    3
+            );
+            g.setFill(chest.deriveColor(0, 1, 1, 0.78));
+            g.fillOval(x + 19 * s, y + 34 * s, 42 * s, 35 * s);
+            Color legColor = stoneShoebill
+                    ? (shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.web("#B7AD78") : Color.web("#828B90"))
+                    : (glacierShoebill ? Color.web("#E1F5FE") : Color.web("#78909C"));
+            g.setStroke(legColor.deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(x + 24 * s, y + 68 * s, x + 18 * s, y + 88 * s);
+            g.strokeLine(x + 56 * s, y + 68 * s, x + 62 * s, y + 88 * s);
         }
         // Titmouse head details are handled by drawTitmouseSpecial when effects are enabled.
         if (ravenEyes) {
@@ -17333,6 +18264,94 @@ public class Bird {
                         3
                 );
             }
+            return;
+        }
+        if (type == BirdGame3.BirdType.SHOEBILL) {
+            HeadPose headPose = standardHeadPose(pose);
+            double aimAngle = headPose.aimAngleRadians();
+            double dirX = Math.cos(aimAngle);
+            double dirY = Math.sin(aimAngle);
+            double normalX = Math.cos(aimAngle + Math.PI * 0.5);
+            double normalY = Math.sin(aimAngle + Math.PI * 0.5);
+            boolean attacking = attackAnimationTimer > 0 || shoebillThrustTimer > 0 || shoebillStareFxTimer > 0;
+            double thrustStretch = shoebillThrustTimer > 0
+                    ? Math.sin(Math.clamp((SHOEBILL_THRUST_FRAMES - shoebillThrustTimer)
+                    / (double) SHOEBILL_THRUST_FRAMES, 0.0, 1.0) * Math.PI) * 18.0 * s
+                    : 0.0;
+            double length = (48.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.72)) * s + thrustStretch;
+            double baseWidth = 17.0 * s;
+            double midWidth = 23.0 * s;
+            double tipWidth = 12.0 * s;
+            double open = (attacking ? 5.0 : 1.6) * s * openScale;
+            double baseX = headPose.centerX() + dirX * 4.0 * s;
+            double baseY = headPose.centerY() + dirY * 4.0 * s + 5.0 * s;
+            double midX = baseX + dirX * length * 0.55;
+            double midY = baseY + dirY * length * 0.55;
+            double tipX = baseX + dirX * length;
+            double tipY = baseY + dirY * length + 2.0 * s;
+            boolean stoneShoebill = shoebillStoneVisualActive();
+            boolean goldStone = shoebillStatueUltimate || shoebillCounterBurstUltimate;
+            Color upper = stoneShoebill
+                    ? (goldStone ? Color.web("#CFC58D") : Color.web("#9AA3A7"))
+                    : (isGlacierSkin ? Color.web("#E1F5FE") : Color.web("#C8BE94"));
+            Color lower = stoneShoebill
+                    ? (goldStone ? Color.web("#AFA56F") : Color.web("#737D82"))
+                    : (isGlacierSkin ? Color.web("#B3E5FC") : Color.web("#A99D78"));
+            Color ridge = stoneShoebill
+                    ? (goldStone ? Color.web("#5F5635") : Color.web("#3F474B"))
+                    : (isGlacierSkin ? Color.web("#607D8B") : Color.web("#5D5344"));
+
+            double[] upperX = {
+                    baseX - normalX * baseWidth,
+                    midX - normalX * midWidth,
+                    tipX - normalX * tipWidth,
+                    tipX + normalX * (tipWidth * 0.42),
+                    midX + normalX * (midWidth * 0.32),
+                    baseX + normalX * (baseWidth * 0.28)
+            };
+            double[] upperY = {
+                    baseY - normalY * baseWidth - open * 0.40,
+                    midY - normalY * midWidth - open * 0.45,
+                    tipY - normalY * tipWidth - open * 0.25,
+                    tipY + normalY * (tipWidth * 0.42),
+                    midY + normalY * (midWidth * 0.32),
+                    baseY + normalY * (baseWidth * 0.28)
+            };
+            g.setFill(upper);
+            g.fillPolygon(upperX, upperY, upperX.length);
+
+            double[] lowerX = {
+                    baseX + normalX * (baseWidth * 0.20),
+                    midX + normalX * (midWidth * 0.52),
+                    tipX + normalX * (tipWidth * 0.72),
+                    tipX - normalX * (tipWidth * 0.20),
+                    midX - normalX * (midWidth * 0.20)
+            };
+            double[] lowerY = {
+                    baseY + normalY * (baseWidth * 0.20) + open,
+                    midY + normalY * (midWidth * 0.52) + open * 0.70,
+                    tipY + normalY * (tipWidth * 0.72) + open * 0.55,
+                    tipY - normalY * (tipWidth * 0.20) + open * 0.25,
+                    midY - normalY * (midWidth * 0.20) + open * 0.25
+            };
+            g.setFill(lower);
+            g.fillPolygon(lowerX, lowerY, lowerX.length);
+
+            g.setStroke(ridge);
+            g.setLineWidth(2.1 * s);
+            g.strokePolyline(upperX, upperY, upperX.length);
+            g.strokePolyline(lowerX, lowerY, lowerX.length);
+            g.setLineWidth(1.25 * s);
+            g.strokeLine(baseX - normalX * 4.0 * s, baseY - normalY * 4.0 * s,
+                    tipX - dirX * 10.0 * s, tipY - dirY * 10.0 * s);
+            g.setFill(ridge.deriveColor(0, 1, 1, 0.75));
+            g.fillOval(midX - normalX * 8.0 * s - 2.2 * s, midY - normalY * 8.0 * s - 1.6 * s,
+                    4.4 * s, 3.2 * s);
+            g.setStroke(ridge.darker());
+            g.setLineWidth(2.4 * s);
+            g.strokeLine(tipX - dirX * 2.0 * s, tipY - dirY * 2.0 * s,
+                    tipX - dirX * 10.0 * s + normalX * 8.0 * s,
+                    tipY - dirY * 10.0 * s + normalY * 8.0 * s);
             return;
         }
 
