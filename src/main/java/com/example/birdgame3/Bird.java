@@ -119,6 +119,13 @@ public class Bird {
         DOWN
     }
 
+    private enum MockingbirdSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record NormalAttackProfile(
             double horizontalReach,
             double verticalReach,
@@ -365,6 +372,21 @@ public class Bird {
     private int loungeMaxHealth = LOUNGE_MAX_HEALTH;
     public int loungeDamageFlash = 0;
     private boolean loungeRoyal = false;
+    private static final int MOCKINGBIRD_LOUNGE_UNCAPTURE_FRAMES = 180;
+    private static final int MOCKINGBIRD_QUESTION_FRAMES = 44;
+    private static final int MOCKINGBIRD_SIDE_FX_FRAMES = 18;
+    private static final int MOCKINGBIRD_SIDE_REUSE_FRAMES = 30;
+    private static final int MOCKINGBIRD_UP_FX_FRAMES = 26;
+    private static final int MOCKINGBIRD_UP_REUSE_FRAMES = 34;
+    private BirdGame3.BirdType mockingbirdCapturedType = null;
+    private BirdGame3.BirdType mockingbirdCopiedNeutralSource = null;
+    private int mockingbirdUncaptureTimer = 0;
+    private int mockingbirdQuestionTimer = 0;
+    private int mockingbirdSideFxTimer = 0;
+    private int mockingbirdSideReuseTimer = 0;
+    private int mockingbirdUpFxTimer = 0;
+    private int mockingbirdUpReuseTimer = 0;
+    private boolean mockingbirdUpSpecialUsed = false;
 
     // === VINE GRAPPLE ===
     private int grappleTimer = 0;
@@ -1216,14 +1238,86 @@ public class Bird {
 
     private void loungeHeal() {
         if (type == BirdGame3.BirdType.MOCKINGBIRD && loungeActive && loungeHealth > 0) {
-            double birdCenterX = x + 40;
-            double birdCenterY = y + 40;
-            double distToLounge = Math.hypot(birdCenterX - loungeX, birdCenterY - loungeY);
-
-            if (distToLounge < 70) {
+            boolean charlesInside = isInsideMockingbirdLounge(this);
+            if (charlesInside) {
                 double healthBefore = health;
                 heal(LOUNGE_HEAL_PER_SECOND / 60.0);
                 game.recordLoungeHealing(this, health - healthBefore);
+
+                if (mockingbirdCapturedType != null) {
+                    mockingbirdUncaptureTimer++;
+                    if (mockingbirdUncaptureTimer >= MOCKINGBIRD_LOUNGE_UNCAPTURE_FRAMES) {
+                        clearMockingbirdCapturedAbility(true);
+                    }
+                }
+            } else {
+                mockingbirdUncaptureTimer = 0;
+            }
+
+            if (mockingbirdCapturedType == null) {
+                captureMockingbirdLoungeAbility();
+            }
+        } else {
+            mockingbirdUncaptureTimer = 0;
+        }
+    }
+
+    private boolean isInsideMockingbirdLounge(Bird bird) {
+        if (bird == null || !loungeActive || loungeHealth <= 0 || bird.health <= 0) {
+            return false;
+        }
+        return Math.hypot(bird.bodyCenterX() - loungeX, bird.bodyCenterY() - loungeY) < 72.0 * Math.max(0.85, sizeMultiplier);
+    }
+
+    private void captureMockingbirdLoungeAbility() {
+        for (Bird other : game.players) {
+            if (other == null || other == this || other.health <= 0) continue;
+            if (other.type == BirdGame3.BirdType.MOCKINGBIRD) continue;
+            if (!isInsideMockingbirdLounge(other)) continue;
+
+            mockingbirdCapturedType = other.type;
+            mockingbirdCopiedNeutralSource = null;
+            mockingbirdUncaptureTimer = 0;
+            loungeDamageFlash = Math.max(loungeDamageFlash, 10);
+            game.addToKillFeed(shortName() + " captured " + other.type.name + "'s neutral!");
+            for (int i = 0; i < scaledParticleCount(34); i++) {
+                double angle = Math.random() * Math.PI * 2;
+                double speed = 1.8 + Math.random() * 5.6;
+                Color c = Math.random() < 0.5 ? other.type.color : Color.web("#D7FFD9");
+                game.particles.add(new Particle(
+                        loungeX + Math.cos(angle) * (16.0 + Math.random() * 46.0),
+                        loungeY + Math.sin(angle) * (10.0 + Math.random() * 26.0),
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed - 1.8,
+                        c.deriveColor(0, 1, 1, 0.78)
+                ));
+            }
+            break;
+        }
+    }
+
+    private void clearMockingbirdCapturedAbility(boolean fromLounge) {
+        if (mockingbirdCapturedType == null && mockingbirdCopiedNeutralSource == null && !fromLounge) {
+            return;
+        }
+        BirdGame3.BirdType clearedType = mockingbirdCapturedType;
+        mockingbirdCapturedType = null;
+        mockingbirdCopiedNeutralSource = null;
+        mockingbirdUncaptureTimer = 0;
+        if (fromLounge) {
+            loungeDamageFlash = Math.max(loungeDamageFlash, 14);
+            game.addToKillFeed(shortName() + " let the mimic fade.");
+            Color base = clearedType == null ? Color.WHITE : clearedType.color;
+            for (int i = 0; i < scaledParticleCount(26); i++) {
+                double angle = Math.random() * Math.PI * 2;
+                double speed = 1.0 + Math.random() * 4.8;
+                game.particles.add(new Particle(
+                        loungeX + Math.cos(angle) * (18.0 + Math.random() * 36.0),
+                        loungeY + Math.sin(angle) * (12.0 + Math.random() * 24.0),
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed - 1.2,
+                        base.deriveColor(0, 0.65, 1.15, 0.68)
+                ));
             }
         }
     }
@@ -2641,6 +2735,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.SHOEBILL && !canStartShoebillSpecial()) {
             return;
         }
+        if (type == BirdGame3.BirdType.MOCKINGBIRD && !canStartMockingbirdSpecial()) {
+            return;
+        }
         if (isRaptor()) {
             RaptorSpecialVariant variant = selectRaptorSpecialVariant();
             if (!canStartRaptorSpecialVariant(variant)) {
@@ -2658,6 +2755,7 @@ public class Bird {
                 && type != BirdGame3.BirdType.ROADRUNNER
                 && type != BirdGame3.BirdType.PENGUIN
                 && type != BirdGame3.BirdType.SHOEBILL
+                && type != BirdGame3.BirdType.MOCKINGBIRD
                 && specialCooldown > 0
                 && !ultimateReady) {
             if (!game.isAI[playerIndex]) {
@@ -2704,7 +2802,7 @@ public class Bird {
             case ROADRUNNER -> specialRoadrunner(selectRoadrunnerSpecialVariant(), ultimateTriggered);
             case PENGUIN -> specialPenguin(selectPenguinSpecialVariant(), ultimateTriggered);
             case SHOEBILL -> specialShoebill(selectShoebillSpecialVariant(), ultimateTriggered);
-            case MOCKINGBIRD -> specialMockingbird(ultimateTriggered);
+            case MOCKINGBIRD -> specialMockingbird(selectMockingbirdSpecialVariant(), ultimateTriggered);
             case RAZORBILL -> specialRazorbill(ultimateTriggered);
             case GRINCHHAWK -> specialGrinchhawk(ultimateTriggered);
             case VULTURE -> specialVulture(ultimateTriggered);
@@ -2878,11 +2976,14 @@ public class Bird {
     }
 
     private void handlePigeonSpecialState() {
-        if (type != BirdGame3.BirdType.PIGEON) {
+        if (type != BirdGame3.BirdType.PIGEON && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PIGEON)) {
             return;
         }
         if (stunTime > 0.0) {
             resetPigeonSpecialState();
+            if (mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PIGEON)) {
+                mockingbirdCopiedNeutralSource = null;
+            }
             return;
         }
         if (pigeonRushTimer > 0) {
@@ -2897,11 +2998,14 @@ public class Bird {
     }
 
     private void handlePhoenixSpecialState() {
-        if (type != BirdGame3.BirdType.PHOENIX) {
+        if (type != BirdGame3.BirdType.PHOENIX && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PHOENIX)) {
             return;
         }
         if (stunTime > 0.0) {
             resetPhoenixSpecialState();
+            if (mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PHOENIX)) {
+                mockingbirdCopiedNeutralSource = null;
+            }
             return;
         }
         if (phoenixCharging) {
@@ -2919,11 +3023,14 @@ public class Bird {
     }
 
     private void handleRaptorSpecialState() {
-        if (!isRaptor()) {
+        if (!isRaptor() && !mockingbirdCopiedNeutralFromAny(BirdGame3.BirdType.EAGLE, BirdGame3.BirdType.FALCON)) {
             return;
         }
         if (stunTime > 0.0) {
             resetRaptorSpecialState();
+            if (mockingbirdCopiedNeutralFromAny(BirdGame3.BirdType.EAGLE, BirdGame3.BirdType.FALCON)) {
+                mockingbirdCopiedNeutralSource = null;
+            }
             return;
         }
         if (raptorCryTimer > 0) {
@@ -2938,11 +3045,14 @@ public class Bird {
     }
 
     private void handleHummingbirdSpecialState() {
-        if (type != BirdGame3.BirdType.HUMMINGBIRD) {
+        if (type != BirdGame3.BirdType.HUMMINGBIRD && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.HUMMINGBIRD)) {
             return;
         }
         if (stunTime > 0.0) {
             resetHummingbirdSpecialState(false);
+            if (mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.HUMMINGBIRD)) {
+                mockingbirdCopiedNeutralSource = null;
+            }
             return;
         }
         if (hummingNeedleHitTimer > 0) {
@@ -2957,11 +3067,14 @@ public class Bird {
     }
 
     private void handleTurkeySpecialState() {
-        if (type != BirdGame3.BirdType.TURKEY) {
+        if (type != BirdGame3.BirdType.TURKEY && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.TURKEY)) {
             return;
         }
         if (stunTime > 0.0) {
             resetTurkeySpecialState(false);
+            if (mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.TURKEY)) {
+                mockingbirdCopiedNeutralSource = null;
+            }
             return;
         }
         if (turkeyGobbleCharging) {
@@ -2979,11 +3092,14 @@ public class Bird {
     }
 
     private void handlePenguinSpecialState(boolean specialHeld) {
-        if (type != BirdGame3.BirdType.PENGUIN) {
+        if (type != BirdGame3.BirdType.PENGUIN && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PENGUIN)) {
             return;
         }
         if (stunTime > 0.0) {
             resetPenguinSpecialState(false);
+            if (mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PENGUIN)) {
+                mockingbirdCopiedNeutralSource = null;
+            }
             return;
         }
         if (penguinBellyCharging) {
@@ -3001,11 +3117,14 @@ public class Bird {
     }
 
     private void handleShoebillSpecialState() {
-        if (type != BirdGame3.BirdType.SHOEBILL) {
+        if (type != BirdGame3.BirdType.SHOEBILL && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.SHOEBILL)) {
             return;
         }
         if (stunTime > 0.0) {
             resetShoebillSpecialState();
+            if (mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.SHOEBILL)) {
+                mockingbirdCopiedNeutralSource = null;
+            }
             return;
         }
         if (shoebillThrustTimer > 0) {
@@ -3732,7 +3851,7 @@ public class Bird {
     }
 
     private void handleRaptorCry() {
-        boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        boolean eagle = type == BirdGame3.BirdType.EAGLE || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.EAGLE);
         vx *= eagle ? 0.84 : 0.9;
         if (!isOnGround()) {
             vy = Math.min(vy, eagle ? 1.6 : 1.1);
@@ -5459,7 +5578,7 @@ public class Bird {
     }
 
     private void handleRoadrunnerSpecials(boolean specialHeld) {
-        if (type != BirdGame3.BirdType.ROADRUNNER) {
+        if (type != BirdGame3.BirdType.ROADRUNNER && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.ROADRUNNER)) {
             return;
         }
 
@@ -6344,16 +6463,216 @@ public class Bird {
         }
     }
 
-    private void specialMockingbird(boolean ultimate) {
+    private void specialMockingbird(MockingbirdSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialMockingbirdNeutral(ultimate);
+            case SIDE -> specialMockingbirdSide(ultimate);
+            case UP -> specialMockingbirdUp(ultimate);
+            case DOWN -> specialMockingbirdLounge(ultimate);
+        }
+    }
+
+    private void specialMockingbirdNeutral(boolean ultimate) {
+        if (mockingbirdCapturedType == null) {
+            mockingbirdQuestionTimer = MOCKINGBIRD_QUESTION_FRAMES;
+            attackAnimationTimer = Math.max(attackAnimationTimer, 14);
+            specialCooldown = 18;
+            specialMaxCooldown = 18;
+            vx *= 0.72;
+            for (int i = 0; i < scaledParticleCount(12); i++) {
+                double angle = -Math.PI / 2.0 + (Math.random() - 0.5) * 1.4;
+                double speed = 1.4 + Math.random() * 3.2;
+                game.particles.add(new Particle(
+                        bodyCenterX() + (Math.random() - 0.5) * 24.0 * sizeMultiplier,
+                        bodyCenterY() - 34.0 * sizeMultiplier,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed,
+                        Color.WHITE.deriveColor(0, 1, 1, 0.72)
+                ));
+            }
+            return;
+        }
+
+        performMockingbirdCopiedNeutral(mockingbirdCapturedType, ultimate);
+    }
+
+    private void performMockingbirdCopiedNeutral(BirdGame3.BirdType source, boolean ultimate) {
+        if (source == null || source == BirdGame3.BirdType.MOCKINGBIRD) {
+            mockingbirdCapturedType = null;
+            mockingbirdCopiedNeutralSource = null;
+            return;
+        }
+
+        BirdGame3.BirdType originalType = type;
+        BirdGame3.BirdType originalCopiedSource = mockingbirdCopiedNeutralSource;
+        type = source;
+        try {
+            switch (source) {
+                case PIGEON -> specialPigeonNeutral(ultimate);
+                case EAGLE, FALCON -> specialRaptorNeutral(ultimate);
+                case PHOENIX -> specialPhoenixNeutral(ultimate);
+                case HUMMINGBIRD -> specialHummingbirdNeedleBarrage(ultimate);
+                case TURKEY -> specialTurkeyGobbleGuard(ultimate);
+                case ROOSTER -> specialRoosterCallChick(ultimate);
+                case ROADRUNNER -> specialRoadrunnerBeepBlitz(ultimate);
+                case PENGUIN -> specialPenguinBellySlide(ultimate);
+                case SHOEBILL -> specialShoebillDeathStare(ultimate);
+                case RAZORBILL -> specialRazorbill(ultimate);
+                case GRINCHHAWK -> specialGrinchhawk(ultimate);
+                case VULTURE -> specialVulture(ultimate);
+                case OPIUMBIRD -> specialOpiumBird(ultimate);
+                case HEISENBIRD -> specialHeisenbird(ultimate);
+                case TITMOUSE -> specialTitmouse(ultimate);
+                case BAT -> specialBat(ultimate);
+                case PELICAN -> specialPelican(ultimate);
+                case RAVEN -> specialRaven(ultimate);
+                case MOCKINGBIRD -> {
+                    mockingbirdCopiedNeutralSource = originalCopiedSource;
+                    return;
+                }
+            }
+            mockingbirdCopiedNeutralSource = source;
+        } finally {
+            type = originalType;
+        }
+    }
+
+    private void specialMockingbirdSide(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        mockingbirdSideFxTimer = MOCKINGBIRD_SIDE_FX_FRAMES + (ultimate ? 5 : 0);
+        mockingbirdSideReuseTimer = ultimate ? 10 : MOCKINGBIRD_SIDE_REUSE_FRAMES;
+        attackAnimationTimer = Math.max(attackAnimationTimer, mockingbirdSideFxTimer);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        vx = vx * 0.45 - dir * (ultimate ? 3.2 : 2.2);
+        if (!isOnGround()) {
+            vy = Math.min(vy, ultimate ? 0.4 : 0.9);
+        }
+
+        double centerX = bodyCenterX() + dir * 74.0 * sizeMultiplier;
+        double centerY = bodyCenterY() - 6.0 * sizeMultiplier;
+        double reach = (ultimate ? 164.0 : 142.0) * sizeMultiplier;
+        double verticalReach = (ultimate ? 62.0 : 52.0) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double forward = dx * dir;
+            if (forward < -other.combatHalfWidth() * 0.45 || forward > reach + other.combatHalfWidth()) continue;
+            double dy = Math.abs(other.bodyCenterY() - centerY);
+            if (dy > verticalReach + other.combatHalfHeight()) continue;
+
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, ultimate ? 11 : 8);
+            if (dealt <= 0) continue;
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+            other.vx += dir * (ultimate ? 10.8 : 8.6);
+            other.vy -= ultimate ? 5.6 : 4.2;
+            other.applyStun(ultimate ? 28 : 18);
+        }
+
+        Color pulse = ultimate ? Color.GOLD : Color.web("#D7B5FF");
+        for (int ring = 0; ring < 3; ring++) {
+            for (int i = 0; i < scaledParticleCount(7); i++) {
+                double spread = (Math.random() - 0.5) * (28.0 + ring * 14.0);
+                game.particles.add(new Particle(
+                        bodyCenterX() + dir * (26.0 + ring * 30.0 + Math.random() * 22.0),
+                        centerY + spread,
+                        dir * (2.6 + ring * 0.8 + Math.random() * 2.4),
+                        spread * 0.045,
+                        pulse.deriveColor(0, 1, 1, 0.68)
+                ));
+            }
+        }
+    }
+
+    private void specialMockingbirdUp(boolean ultimate) {
+        if (mockingbirdUpSpecialUsed) {
+            return;
+        }
+        int dir = horizontalInputDirection();
+        if (dir != 0) {
+            facingRight = dir > 0;
+        }
+        mockingbirdUpSpecialUsed = true;
+        mockingbirdUpFxTimer = MOCKINGBIRD_UP_FX_FRAMES + (ultimate ? 8 : 0);
+        mockingbirdUpReuseTimer = ultimate ? 12 : MOCKINGBIRD_UP_REUSE_FRAMES;
+        attackAnimationTimer = Math.max(attackAnimationTimer, mockingbirdUpFxTimer);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        canDoubleJump = true;
+        vx = vx * 0.48 + dir * (ultimate ? 4.8 : 3.4);
+        vy = ultimate ? -18.4 : -15.9;
+
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY() + 22.0 * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = Math.abs(other.bodyCenterX() - centerX);
+            double dy = Math.abs(other.bodyCenterY() - centerY);
+            if (dx > (ultimate ? 74.0 : 58.0) * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (dy > (ultimate ? 76.0 : 62.0) * sizeMultiplier + other.combatHalfHeight()) continue;
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, ultimate ? 8 : 5);
+            if (dealt <= 0) continue;
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+            double pushDir = Math.signum(other.bodyCenterX() - centerX);
+            if (pushDir == 0.0) {
+                pushDir = facingDirection();
+            }
+            other.vx += pushDir * (ultimate ? 5.8 : 4.0);
+            other.vy -= ultimate ? 10.5 : 8.0;
+        }
+
+        Color leaf = ultimate ? Color.GOLD : Color.web("#66BB6A");
+        for (int i = 0; i < scaledParticleCount(36); i++) {
+            double angle = -Math.PI / 2.0 + (Math.random() - 0.5) * 1.8;
+            double speed = 2.4 + Math.random() * 6.2;
+            game.particles.add(new Particle(
+                    bodyCenterX() + (Math.random() - 0.5) * 56.0 * sizeMultiplier,
+                    bodyBottomY() - Math.random() * 22.0 * sizeMultiplier,
+                    Math.cos(angle) * speed + dir * 0.7,
+                    Math.sin(angle) * speed,
+                    leaf.deriveColor(0, 0.85 + Math.random() * 0.2, 0.86 + Math.random() * 0.24, 0.72)
+            ));
+        }
+    }
+
+    private void specialMockingbirdLounge(boolean ultimate) {
         loungeActive = true;
         loungeX = x + 40;
         loungeY = y + 40;
         loungeMaxHealth = ultimate ? 200 : LOUNGE_MAX_HEALTH;
         loungeRoyal = ultimate;
         loungeHealth = loungeMaxHealth;
-        specialCooldown = 660;
-        specialMaxCooldown = 660;
-        game.addToKillFeed(shortName() + (ultimate ? " ROYAL LOUNGE OPENED!" : " opened the LOUNGE!"));
+        mockingbirdUncaptureTimer = 0;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
+        Color leaf = ultimate ? Color.GOLD : Color.web("#2E7D32");
+        for (int i = 0; i < scaledParticleCount(42); i++) {
+            double angle = Math.random() * Math.PI * 2;
+            double ring = 18.0 + Math.random() * 62.0;
+            game.particles.add(new Particle(
+                    loungeX + Math.cos(angle) * ring,
+                    loungeY + Math.sin(angle) * ring * 0.58,
+                    Math.cos(angle) * (0.6 + Math.random() * 3.2),
+                    Math.sin(angle) * (0.6 + Math.random() * 2.4) - 1.8,
+                    leaf.deriveColor(0, 0.85, 1.05, 0.70)
+            ));
+        }
+        game.addToKillFeed(shortName() + (ultimate ? " raised the ROYAL FOREST!" : " moved the forest lounge!"));
     }
 
     private void specialRazorbill(boolean ultimate) {
@@ -7012,6 +7331,22 @@ public class Bird {
         return type == BirdGame3.BirdType.EAGLE || type == BirdGame3.BirdType.FALCON;
     }
 
+    private boolean mockingbirdCopiedNeutralFrom(BirdGame3.BirdType source) {
+        return type == BirdGame3.BirdType.MOCKINGBIRD && mockingbirdCopiedNeutralSource == source;
+    }
+
+    private boolean mockingbirdCopiedNeutralFromAny(BirdGame3.BirdType... sources) {
+        if (type != BirdGame3.BirdType.MOCKINGBIRD || mockingbirdCopiedNeutralSource == null) {
+            return false;
+        }
+        for (BirdGame3.BirdType source : sources) {
+            if (mockingbirdCopiedNeutralSource == source) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean pigeonSpecialActive() {
         return pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0;
     }
@@ -7389,6 +7724,86 @@ public class Bird {
                 && shoebillSpecialReady(variant);
     }
 
+    private boolean canConvertShieldIntoMockingbirdDownSpecial() {
+        return selectMockingbirdSpecialVariant() == MockingbirdSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+    }
+
+    private boolean canStartMockingbirdSpecial() {
+        MockingbirdSpecialVariant variant = selectMockingbirdSpecialVariant();
+        boolean shieldConversion = canConvertShieldIntoMockingbirdDownSpecial();
+        return type == BirdGame3.BirdType.MOCKINGBIRD
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && mockingbirdSpecialReady(variant);
+    }
+
+    private boolean mockingbirdSpecialReady(MockingbirdSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> mockingbirdCapturedType == null
+                    ? mockingbirdQuestionTimer <= 0
+                    : !mockingbirdCopiedNeutralActive() && mockingbirdCopiedNeutralReady(mockingbirdCapturedType);
+            case SIDE -> mockingbirdSideReuseTimer <= 0 && mockingbirdSideFxTimer <= 0;
+            case UP -> !mockingbirdUpSpecialUsed && mockingbirdUpReuseTimer <= 0 && mockingbirdUpFxTimer <= 0;
+            case DOWN -> true;
+        };
+    }
+
+    private boolean mockingbirdCopiedNeutralReady(BirdGame3.BirdType source) {
+        if (source == null || source == BirdGame3.BirdType.MOCKINGBIRD) {
+            return false;
+        }
+        boolean ultimateReady = isUltimateReady();
+        return switch (source) {
+            case PIGEON -> specialCooldown <= 0;
+            case EAGLE, FALCON -> raptorCryReuseTimer <= 0;
+            case PHOENIX -> specialCooldown <= 0 && phoenixNeutralReuseTimer <= 0 && !phoenixCharging;
+            case HUMMINGBIRD -> ultimateReady || hummingNeedleReuseTimer <= 0;
+            case TURKEY -> ultimateReady || turkeyGobbleReuseTimer <= 0;
+            case ROOSTER -> ultimateReady || (roosterNeutralReuseTimer <= 0 && ownedRoosterChickCount() < ROOSTER_MAX_CHICKS);
+            case ROADRUNNER -> ultimateReady || roadrunnerBeepReuseTimer <= 0;
+            case PENGUIN -> ultimateReady || penguinBellyReuseTimer <= 0;
+            case SHOEBILL -> true;
+            case RAZORBILL, GRINCHHAWK, VULTURE, OPIUMBIRD, HEISENBIRD, TITMOUSE, BAT, PELICAN, RAVEN ->
+                    ultimateReady || specialCooldown <= 0;
+            case MOCKINGBIRD -> false;
+        };
+    }
+
+    private boolean mockingbirdCopiedNeutralActive() {
+        if (mockingbirdCopiedNeutralSource == null) {
+            return false;
+        }
+        return switch (mockingbirdCopiedNeutralSource) {
+            case PIGEON -> pigeonFeatherBurstTimer > 0 || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0;
+            case EAGLE, FALCON -> raptorCryTimer > 0 || raptorRushTimer > 0 || raptorClimbTimer > 0;
+            case PHOENIX -> phoenixCharging || phoenixBurstFxTimer > 0 || phoenixFireballTimer > 0 || phoenixSpiralTimer > 0 || phoenixLavaTimer > 0;
+            case HUMMINGBIRD -> hummingNeedleHitTimer > 0 || hummingFlashSipTimer > 0 || hummingHoverBurstTimer > 0;
+            case TURKEY -> turkeyGobbleCharging || turkeyGobbleTimer > 0 || turkeyStampedeTimer > 0 || turkeyPanicFlapTimer > 0;
+            case ROOSTER -> false;
+            case ROADRUNNER -> roadrunnerBeepCharging || roadrunnerBeepBurstTimer > 0 || roadrunnerRicochetTimer > 0 || roadrunnerDustDevilTimer > 0;
+            case PENGUIN -> penguinBellyCharging || penguinBellySlideTimer > 0 || penguinRocketTimer > 0 || penguinFlopTimer > 0;
+            case SHOEBILL -> shoebillStareFxTimer > 0 || shoebillThrustTimer > 0 || shoebillMarshLiftTimer > 0 || shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0;
+            case RAZORBILL -> bladeStormFrames > 0;
+            case OPIUMBIRD, HEISENBIRD -> leanTimer > 0;
+            case TITMOUSE -> isZipping;
+            case BAT -> batEchoTimer > 0;
+            case PELICAN -> plungeTimer > 0;
+            case GRINCHHAWK, VULTURE, RAVEN, MOCKINGBIRD -> false;
+        };
+    }
+
+    private void refreshMockingbirdCopiedNeutralSource() {
+        if (type == BirdGame3.BirdType.MOCKINGBIRD && mockingbirdCopiedNeutralSource != null && !mockingbirdCopiedNeutralActive()) {
+            mockingbirdCopiedNeutralSource = null;
+        }
+    }
+
     private PigeonSpecialVariant selectPigeonSpecialVariant() {
         if (jumpPressed()) {
             return PigeonSpecialVariant.UP;
@@ -7493,6 +7908,19 @@ public class Bird {
         return ShoebillSpecialVariant.NEUTRAL;
     }
 
+    private MockingbirdSpecialVariant selectMockingbirdSpecialVariant() {
+        if (jumpPressed()) {
+            return MockingbirdSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return MockingbirdSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return MockingbirdSpecialVariant.SIDE;
+        }
+        return MockingbirdSpecialVariant.NEUTRAL;
+    }
+
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -7550,6 +7978,11 @@ public class Bird {
                     && selectShoebillSpecialVariant() == ShoebillSpecialVariant.UP
                     && !shoebillUpSpecialUsed;
         }
+        if (type == BirdGame3.BirdType.MOCKINGBIRD) {
+            return canStartMockingbirdSpecial()
+                    && selectMockingbirdSpecialVariant() == MockingbirdSpecialVariant.UP
+                    && !mockingbirdUpSpecialUsed;
+        }
         if (isRaptor()) {
             return canStartRaptorSpecial()
                     && selectRaptorSpecialVariant() == RaptorSpecialVariant.UP
@@ -7593,6 +8026,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.SHOEBILL) {
             return canStartShoebillSpecial()
                     && selectShoebillSpecialVariant() == ShoebillSpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.MOCKINGBIRD) {
+            return canStartMockingbirdSpecial()
+                    && selectMockingbirdSpecialVariant() == MockingbirdSpecialVariant.DOWN;
         }
         if (isRaptor()) {
             return canStartRaptorSpecial()
@@ -8218,6 +8655,7 @@ public class Bird {
                 : type == BirdGame3.BirdType.TURKEY ? canStartTurkeySpecial()
                 : type == BirdGame3.BirdType.PENGUIN ? canStartPenguinSpecial()
                 : type == BirdGame3.BirdType.SHOEBILL ? shoebillAnySpecialReady()
+                : type == BirdGame3.BirdType.MOCKINGBIRD ? canStartMockingbirdSpecial()
                 : specialCooldown <= 0)
                 && aiSpecialCooldown <= 0 &&
                 shouldUseSpecialAI(target, targetDist, onGround, lowHealth) &&
@@ -9392,6 +9830,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.SHOEBILL && isOnGround()) {
             shoebillUpSpecialUsed = false;
         }
+        if (type == BirdGame3.BirdType.MOCKINGBIRD && isOnGround()) {
+            mockingbirdUpSpecialUsed = false;
+        }
 
         if (airborne && landingLagTimer > 0) {
             landingLagTimer = 0;
@@ -9755,6 +10196,11 @@ public class Bird {
         roosterSideReuseTimer = Math.max(0, (int)(roosterSideReuseTimer - gameSpeed));
         roosterDownReuseTimer = Math.max(0, (int)(roosterDownReuseTimer - gameSpeed));
         roosterCommandFxTimer = Math.max(0, (int)(roosterCommandFxTimer - gameSpeed));
+        mockingbirdQuestionTimer = Math.max(0, (int)(mockingbirdQuestionTimer - gameSpeed));
+        mockingbirdSideFxTimer = Math.max(0, (int)(mockingbirdSideFxTimer - gameSpeed));
+        mockingbirdSideReuseTimer = Math.max(0, (int)(mockingbirdSideReuseTimer - gameSpeed));
+        mockingbirdUpFxTimer = Math.max(0, (int)(mockingbirdUpFxTimer - gameSpeed));
+        mockingbirdUpReuseTimer = Math.max(0, (int)(mockingbirdUpReuseTimer - gameSpeed));
         if (hummingNeedleComboTimer == 0) {
             hummingNeedleComboCount = 0;
         }
@@ -9911,6 +10357,7 @@ public class Bird {
             raptorClimbDirection = 1;
             Arrays.fill(raptorClimbHit, false);
         }
+        refreshMockingbirdCopiedNeutralSource();
         nullRockInvincibilityTimer = Math.max(0, (int) (nullRockInvincibilityTimer - gameSpeed));
         nullRockShieldFxCooldown = Math.max(0, (int) (nullRockShieldFxCooldown - gameSpeed));
         if (recentSmashAttackerFrames > 0) {
@@ -10534,15 +10981,15 @@ public class Bird {
         if (thermalTimer <= 0) {
             thermalLift = 0.0;
         }
-        if (type == BirdGame3.BirdType.PELICAN && plungeTimer <= 0 && enlargedByPlunge) {
+        if (plungeTimer <= 0 && enlargedByPlunge) {
             sizeMultiplier /= 1.18;
             enlargedByPlunge = false;
         }
     }
 
     private void handleOpiumBirdEffects() {
-        boolean opium = type == BirdGame3.BirdType.OPIUMBIRD;
-        boolean heisen = type == BirdGame3.BirdType.HEISENBIRD;
+        boolean opium = type == BirdGame3.BirdType.OPIUMBIRD || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.OPIUMBIRD);
+        boolean heisen = type == BirdGame3.BirdType.HEISENBIRD || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.HEISENBIRD);
         if (!opium && !heisen) return;
 
         if (leanTimer > 0 && opium) {
@@ -10616,7 +11063,7 @@ public class Bird {
     }
 
     private void handleTitmouseZip() {
-        if (type == BirdGame3.BirdType.TITMOUSE && isZipping) {
+        if ((type == BirdGame3.BirdType.TITMOUSE || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.TITMOUSE)) && isZipping) {
             zipTimer--;
             if (zipTimer > 0) {
                 double progress = 1.0 - (zipTimer / 30.0);
@@ -10965,6 +11412,8 @@ public class Bird {
                     ? canConvertShieldIntoPenguinDownSpecial()
                     : type == BirdGame3.BirdType.SHOEBILL
                     ? canConvertShieldIntoShoebillDownSpecial()
+                    : type == BirdGame3.BirdType.MOCKINGBIRD
+                    ? canConvertShieldIntoMockingbirdDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
             boolean canStartSelectedSpecial = type == BirdGame3.BirdType.PIGEON
                     ? canStartPigeonSpecial()
@@ -10982,6 +11431,8 @@ public class Bird {
                     ? canStartPenguinSpecial()
                     : type == BirdGame3.BirdType.SHOEBILL
                     ? canStartShoebillSpecial()
+                    : type == BirdGame3.BirdType.MOCKINGBIRD
+                    ? canStartMockingbirdSpecial()
                     : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
             if (!attackLocked && !grabLocked && (!shielding || canSpecialFromShield) && !jumpSquatting && specialJustPressed()) {
                 if (grappleUses == 0 && canStartSelectedSpecial) {
@@ -10990,7 +11441,8 @@ public class Bird {
                         && ((isRaptor() && raptorSpecialOnReuseLockout(selectRaptorSpecialVariant()))
                         || (specialCooldown > 0 && type != BirdGame3.BirdType.PIGEON
                         && type != BirdGame3.BirdType.ROADRUNNER
-                        && type != BirdGame3.BirdType.PENGUIN))) {
+                        && type != BirdGame3.BirdType.PENGUIN
+                        && type != BirdGame3.BirdType.MOCKINGBIRD))) {
                     cooldownFlash = 15;
                 }
             }
@@ -12490,7 +12942,8 @@ public class Bird {
     }
 
     private void handleRazorbillBladeStorm() {
-        if (type != BirdGame3.BirdType.RAZORBILL || bladeStormFrames <= 0) return;
+        if ((type != BirdGame3.BirdType.RAZORBILL && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.RAZORBILL))
+                || bladeStormFrames <= 0) return;
 
         double dashX = razorbillDashVX;
         double dashY = razorbillDashVY;
@@ -13138,6 +13591,13 @@ public class Bird {
         loungeHealth = 0;
         loungeRoyal = false;
         loungeDamageFlash = 0;
+        clearMockingbirdCapturedAbility(false);
+        mockingbirdQuestionTimer = 0;
+        mockingbirdSideFxTimer = 0;
+        mockingbirdSideReuseTimer = 0;
+        mockingbirdUpFxTimer = 0;
+        mockingbirdUpReuseTimer = 0;
+        mockingbirdUpSpecialUsed = false;
         nullRockInvincibilityTimer = 0;
         nullRockPhaseIndex = 0;
         nullRockShieldFxCooldown = 0;
@@ -15130,9 +15590,79 @@ public class Bird {
         drawRaptorSpecialFx(g, drawSize);
         drawPhoenixSpecialFx(g, drawSize);
         drawPenguinSpecialStrikeFx(g, drawSize);
+        drawMockingbirdSpecialFx(g, drawSize);
         drawDirectionalAttackFx(g, drawSize);
         drawStunEffect(g, drawSize);
         drawVineGrapple(g);
+    }
+
+    private void drawMockingbirdSpecialFx(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.MOCKINGBIRD) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        int dir = facingDirection();
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        if (mockingbirdQuestionTimer > 0) {
+            double phase = mockingbirdQuestionTimer / (double) MOCKINGBIRD_QUESTION_FRAMES;
+            double bob = Math.sin((1.0 - phase) * Math.PI * 3.0) * 6.0 * s;
+            double qx = centerX - 10.0 * s;
+            double qy = centerY - (68.0 + (1.0 - phase) * 16.0) * s + bob;
+            g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.40 * phase));
+            g.setFont(Font.font("Arial Black", 38.0 * s));
+            g.fillText("?", qx + 3.0 * s, qy + 3.0 * s);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.95 * phase));
+            g.fillText("?", qx, qy);
+            g.setStroke(Color.web("#B388FF").deriveColor(0, 1, 1, 0.64 * phase));
+            g.setLineWidth(2.0 * s);
+            g.strokeOval(centerX - 20.0 * s, qy - 29.0 * s, 42.0 * s, 42.0 * s);
+        }
+
+        if (mockingbirdSideFxTimer > 0) {
+            double phase = mockingbirdSideFxTimer / (double) (MOCKINGBIRD_SIDE_FX_FRAMES + 5);
+            double alpha = Math.clamp(0.22 + phase * 0.58, 0.0, 0.82);
+            g.setEffect(new Glow(0.42));
+            for (int i = 0; i < 3; i++) {
+                double reach = (44.0 + i * 34.0 + (1.0 - phase) * 14.0) * s;
+                double h = (34.0 + i * 12.0) * s;
+                g.setStroke((i == 1 ? Color.WHITE : Color.web("#D7B5FF")).deriveColor(0, 1, 1, alpha - i * 0.12));
+                g.setLineWidth((4.4 - i * 0.7) * s);
+                if (dir > 0) {
+                    g.strokeArc(centerX + 10.0 * s + i * 7.0 * s, centerY - h * 0.5,
+                            reach, h, -42, 84, ArcType.OPEN);
+                } else {
+                    g.strokeArc(centerX - 10.0 * s - reach - i * 7.0 * s, centerY - h * 0.5,
+                            reach, h, 138, 84, ArcType.OPEN);
+                }
+            }
+            g.setEffect(null);
+        }
+
+        if (mockingbirdUpFxTimer > 0) {
+            double phase = mockingbirdUpFxTimer / (double) (MOCKINGBIRD_UP_FX_FRAMES + 8);
+            double alpha = Math.clamp(0.20 + phase * 0.55, 0.0, 0.76);
+            g.setEffect(new Glow(0.36));
+            g.setStroke(Color.web("#A5D6A7").deriveColor(0, 1, 1, alpha));
+            g.setLineWidth(3.0 * s);
+            for (int i = 0; i < 4; i++) {
+                double side = (i - 1.5) * 18.0 * s;
+                double lift = (1.0 - phase) * 42.0 * s + i * 7.0 * s;
+                g.strokeArc(centerX + side - 18.0 * s, centerY + 22.0 * s - lift,
+                        36.0 * s, 64.0 * s, 238, 64, ArcType.OPEN);
+                g.setFill((i % 2 == 0 ? Color.web("#66BB6A") : Color.web("#2E7D32")).deriveColor(0, 0.9, 1.05, alpha));
+                g.fillOval(centerX + side + Math.sin(i + phase * 5.0) * 8.0 * s,
+                        centerY + 18.0 * s - lift,
+                        10.0 * s, 6.0 * s);
+            }
+            g.setEffect(null);
+        }
+
+        g.restore();
     }
 
     private void drawHummingbirdFrenzy(GraphicsContext g, double drawSize) {
@@ -15436,7 +15966,7 @@ public class Bird {
     }
 
     private void drawBatEcho(GraphicsContext g, double drawSize) {
-        if (type != BirdGame3.BirdType.BAT || batEchoTimer <= 0) return;
+        if ((type != BirdGame3.BirdType.BAT && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.BAT)) || batEchoTimer <= 0) return;
         double pulse = 0.5 + 0.5 * Math.sin((150 - batEchoTimer) * 0.33);
         g.setStroke(Color.CYAN.deriveColor(0, 1, 1, 0.6));
         g.setLineWidth(4);
@@ -17603,13 +18133,39 @@ public class Bird {
     private void drawLounge(GraphicsContext g) {
         if (type == BirdGame3.BirdType.MOCKINGBIRD && loungeActive && loungeHealth > 0) {
             boolean royal = loungeRoyal;
-            Color baseFill = royal ? Color.web("#5E35B1") : Color.LIME;
-            Color baseStroke = loungeDamageFlash > 0 ? Color.ORANGERED : (royal ? Color.GOLD : Color.DARKGREEN);
-            g.setFill(baseFill.deriveColor(0, 1, 1, 0.75));
-            g.fillRoundRect(loungeX - 62, loungeY - 42, 124, 84, 32, 32);
-            g.setStroke(baseStroke);
-            g.setLineWidth(loungeDamageFlash > 0 ? 8 : (royal ? 6 : 5));
-            g.strokeRoundRect(loungeX - 62, loungeY - 42, 124, 84, 32, 32);
+            Color stroke = loungeDamageFlash > 0 ? Color.ORANGERED : (royal ? Color.GOLD : Color.web("#143E1E"));
+
+            g.setFill(Color.web("#0B2414", 0.34));
+            g.fillOval(loungeX - 78, loungeY + 16, 156, 40);
+
+            g.setFill((royal ? Color.web("#3D2B62") : Color.web("#23431F")).deriveColor(0, 1, 1, 0.78));
+            g.fillOval(loungeX - 70, loungeY - 34, 140, 82);
+            g.setStroke(stroke);
+            g.setLineWidth(loungeDamageFlash > 0 ? 7 : (royal ? 5 : 4));
+            g.strokeOval(loungeX - 70, loungeY - 34, 140, 82);
+
+            double[] trunkXs = {-48, -24, 0, 26, 49};
+            double[] trunkHs = {56, 64, 72, 60, 52};
+            for (int i = 0; i < trunkXs.length; i++) {
+                double tx = loungeX + trunkXs[i];
+                double h = trunkHs[i];
+                g.setFill(Color.web(i % 2 == 0 ? "#4A2D16" : "#5D371B", 0.88));
+                g.fillRoundRect(tx - 5, loungeY + 20 - h, 10, h, 5, 5);
+            }
+
+            Color[] leafColors = royal
+                    ? new Color[]{Color.web("#244B2A"), Color.web("#412A69"), Color.web("#2E6B35"), Color.web("#6A4FB2")}
+                    : new Color[]{Color.web("#123F24"), Color.web("#1D6A34"), Color.web("#2E7D32"), Color.web("#0E2C1B")};
+            double[][] canopies = {
+                    {-56, -36, 48, 38}, {-34, -50, 58, 46}, {-5, -57, 70, 52},
+                    {31, -48, 60, 44}, {56, -34, 46, 36}, {-14, -28, 100, 42},
+                    {-45, -10, 54, 34}, {43, -9, 56, 34}
+            };
+            for (int i = 0; i < canopies.length; i++) {
+                double[] leaf = canopies[i];
+                g.setFill(leafColors[i % leafColors.length].deriveColor(0, 1, 1, 0.90));
+                g.fillOval(loungeX + leaf[0] - leaf[2] * 0.5, loungeY + leaf[1] - leaf[3] * 0.5, leaf[2], leaf[3]);
+            }
 
             int maxHealth = Math.max(1, loungeMaxHealth);
             double ratio = Math.clamp(loungeHealth / (double) maxHealth, 0.0, 1.0);
@@ -17624,16 +18180,49 @@ public class Bird {
             g.setFont(Font.font("Arial Black", 20));
             g.fillText(loungeHealth + " HP", loungeX - 48, loungeY - 55);
 
-            g.setFill(royal ? Color.GOLD : Color.BLACK);
-            g.setFont(Font.font("Arial Black", 24));
-            g.fillText(royal ? "ROYAL LOUNGE" : "LOUNGE", loungeX - (royal ? 74 : 52), loungeY + 8);
-
             if (royal) {
                 drawRoyalCrown(g, loungeX, loungeY - 58, 46, 22, Color.GOLD, Color.web("#FFF59D"));
             }
 
+            if (mockingbirdCapturedType != null) {
+                drawMockingbirdCapturedIcon(g, loungeX, loungeY - 96, mockingbirdCapturedType);
+            }
+
+            if (mockingbirdCapturedType != null && mockingbirdUncaptureTimer > 0) {
+                int count = Math.max(1, 3 - mockingbirdUncaptureTimer / 60);
+                g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.42));
+                g.fillOval(loungeX - 24, loungeY - 19, 48, 48);
+                g.setFill(royal ? Color.GOLD : Color.WHITE);
+                g.setFont(Font.font("Arial Black", 34));
+                g.fillText(Integer.toString(count), loungeX - 10, loungeY + 17);
+            }
+
             if (loungeDamageFlash > 0) loungeDamageFlash--;
         }
+    }
+
+    private void drawMockingbirdCapturedIcon(GraphicsContext g, double centerX, double centerY, BirdGame3.BirdType capturedType) {
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.48));
+        g.fillOval(centerX - 23, centerY - 20, 46, 42);
+        g.setStroke(Color.WHITE);
+        g.setLineWidth(3);
+        g.strokeOval(centerX - 23, centerY - 20, 46, 42);
+
+        g.setFill(capturedType.color.deriveColor(0, 0.92, 1.15, 0.96));
+        g.fillOval(centerX - 14, centerY - 10, 28, 22);
+        g.setFill(capturedType.color.darker().deriveColor(0, 1, 0.92, 0.92));
+        g.fillOval(centerX - 5, centerY - 4, 22, 16);
+
+        int dir = facingDirection();
+        g.setFill(Color.web("#FDD835"));
+        double[] beakX = {centerX + dir * 13, centerX + dir * 24, centerX + dir * 13};
+        double[] beakY = {centerY - 3, centerY + 1, centerY + 5};
+        g.fillPolygon(beakX, beakY, 3);
+
+        g.setFill(Color.WHITE);
+        g.fillOval(centerX + dir * 4 - 3, centerY - 6, 6, 6);
+        g.setFill(Color.BLACK);
+        g.fillOval(centerX + dir * 5 - 1.5, centerY - 4.5, 3, 3);
     }
 
     private void drawBodyAndEyes(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -17688,6 +18277,7 @@ public class Bird {
         boolean stylizedHummingbird = type == BirdGame3.BirdType.HUMMINGBIRD;
         boolean stylizedTurkey = type == BirdGame3.BirdType.TURKEY;
         boolean stylizedPenguin = type == BirdGame3.BirdType.PENGUIN;
+        boolean stylizedMockingbird = type == BirdGame3.BirdType.MOCKINGBIRD;
         boolean ravenEyes = (type == BirdGame3.BirdType.RAVEN);
         Color bodyColor;
         Color headColor;
@@ -17821,6 +18411,24 @@ public class Bird {
             g.fillOval(x + 7.0 * s, y + 35.0 * s, 20.0 * s, 42.0 * s);
             g.fillOval(x + 53.0 * s, y + 35.0 * s, 20.0 * s, 42.0 * s);
         }
+        if (stylizedMockingbird) {
+            double tailBaseX = facingRight ? x + 15.0 * s : x + 65.0 * s;
+            double tailDir = facingRight ? -1.0 : 1.0;
+            Color tail = (eclipseMockingbird ? Color.web("#16091E")
+                    : classicPalette ? game.classicSkinPrimaryColor(type).darker()
+                    : Color.web("#4B4F58")).deriveColor(0, 1, 1, 0.70);
+            Color tailEdge = Color.web("#F5F5F5").deriveColor(0, 1, 1, eclipseMockingbird ? 0.50 : 0.62);
+            g.setFill(tail);
+            g.fillPolygon(
+                    new double[]{tailBaseX, tailBaseX + tailDir * 44.0 * s, tailBaseX + tailDir * 34.0 * s, tailBaseX + tailDir * 8.0 * s},
+                    new double[]{y + 45.0 * s, y + 34.0 * s, y + 70.0 * s, y + 63.0 * s},
+                    4
+            );
+            g.setStroke(tailEdge);
+            g.setLineWidth(1.7 * s);
+            g.strokeLine(tailBaseX + tailDir * 34.0 * s, y + 42.0 * s,
+                    tailBaseX + tailDir * 27.0 * s, y + 67.0 * s);
+        }
 
         g.setFill(bodyColor);
         g.fillOval(x, y, drawSize, drawSize);
@@ -17901,6 +18509,22 @@ public class Bird {
             g.setFill(Color.web("#FFA726").deriveColor(0, 1, 1, 0.68));
             g.fillOval(x + 21.0 * s, y + 72.0 * s, 17.0 * s, 8.0 * s);
             g.fillOval(x + 43.0 * s, y + 72.0 * s, 17.0 * s, 8.0 * s);
+        }
+        if (stylizedMockingbird) {
+            Color pale = Color.web("#F5F5F5").deriveColor(0, 1, 1, eclipseMockingbird ? 0.44 : 0.60);
+            Color wingLine = (eclipseMockingbird ? Color.web("#CE93D8") : Color.web("#ECEFF1"))
+                    .deriveColor(0, 1, 1, eclipseMockingbird ? 0.46 : 0.62);
+            Color mask = (eclipseMockingbird ? Color.web("#1A0F24") : Color.web("#30343B"))
+                    .deriveColor(0, 1, 1, 0.38);
+            g.setFill(pale);
+            g.fillOval(x + 23.0 * s, y + 39.0 * s, 34.0 * s, 24.0 * s);
+            g.setStroke(wingLine);
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(x + 19.0 * s, y + 43.0 * s, x + 59.0 * s, y + 33.0 * s);
+            g.setLineWidth(1.35 * s);
+            g.strokeLine(x + 24.0 * s, y + 52.0 * s, x + 56.0 * s, y + 44.0 * s);
+            g.setFill(mask);
+            g.fillOval(headX + (facingRight ? 2.0 : 34.0) * s, headY + 6.0 * s, 21.0 * s, 19.0 * s);
         }
         if (regularPigeon) {
             g.setFill(Color.web("#78909C").deriveColor(0, 1, 1, 0.18));
@@ -18009,6 +18633,18 @@ public class Bird {
         if (ravenEyes) eyeColor = Color.web("#D50000");
         g.setFill(eyeColor);
         g.fillOval(headX + (facingRight ? 5 : 45) * s, headY + 5 * s, 15 * s, 15 * s);
+        if (stylizedMockingbird) {
+            double eyeCenterX = headX + (facingRight ? 12.5 : 52.5) * s;
+            double eyeCenterY = headY + 12.5 * s;
+            g.setStroke(Color.web("#F5D0C8").deriveColor(0, 1, 1, eclipseMockingbird ? 0.82 : 0.92));
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(eyeCenterX - 8.0 * s, eyeCenterY - 10.0 * s,
+                    eyeCenterX + 6.0 * s, eyeCenterY + 9.0 * s);
+            g.setStroke(Color.web("#7B1F1F").deriveColor(0, 1, 1, 0.78));
+            g.setLineWidth(0.85 * s);
+            g.strokeLine(eyeCenterX - 5.5 * s, eyeCenterY - 7.0 * s,
+                    eyeCenterX + 4.0 * s, eyeCenterY + 6.5 * s);
+        }
     }
 
     private void drawLoreAccurateHummingbirdBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -18715,13 +19351,17 @@ public class Bird {
         boolean stylizedHummingbird = type == BirdGame3.BirdType.HUMMINGBIRD;
         boolean stylizedTurkey = type == BirdGame3.BirdType.TURKEY;
         boolean stylizedPenguin = type == BirdGame3.BirdType.PENGUIN;
+        boolean stylizedMockingbird = type == BirdGame3.BirdType.MOCKINGBIRD;
         double openAmount = (isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) : 3) * s * openScale;
         if (stylizedHummingbird) {
             openAmount *= 0.34;
+        } else if (stylizedMockingbird) {
+            openAmount *= 0.62;
         }
         double beakLength = ((type == BirdGame3.BirdType.FALCON ? 34
                 : type == BirdGame3.BirdType.EAGLE ? 32
                 : stylizedHummingbird ? 40
+                : stylizedMockingbird ? 31
                 : stylizedPenguin ? 22
                 : stylizedTurkey ? 25
                 : type == BirdGame3.BirdType.ROADRUNNER ? 42 : 28) + (pose == null ? 0.0 : pose.beakLengthBonus())) * s;
@@ -18761,11 +19401,13 @@ public class Bird {
                 : stylizedFalcon
                 ? (isAttacking ? Color.web("#F57C00") : Color.web("#FFB74D"))
                 : stylizedHummingbird
-                ? (isAttacking ? Color.web("#2D2415") : Color.web("#171717"))
+                ? (isAttacking ? Color.web("#F9A825") : Color.web("#FDD835"))
                 : stylizedTurkey
                 ? (isAttacking ? Color.web("#F57C00") : Color.web("#FFB74D"))
                 : stylizedPenguin
                 ? (isAttacking ? Color.web("#F9A825") : Color.web("#FFA726"))
+                : stylizedMockingbird
+                ? (isAttacking ? Color.web("#F9A825") : Color.web("#FDD835"))
                 : (isAttacking ? Color.ORANGERED : Color.ORANGE));
         g.fillPolygon(
                 new double[]{baseUpperX, upperTipX, baseLowerX},
@@ -18805,6 +19447,12 @@ public class Bird {
             g.setLineWidth(0.95 * s);
             g.strokeLine(mouthCenterX - normalX * 2.0 * s, mouthCenterY - normalY * 2.0 * s,
                     tipBaseX - dirX * 3.0 * s, tipBaseY - dirY * 3.0 * s);
+        }
+        if (stylizedMockingbird) {
+            g.setStroke(Color.web("#ECEFF1").deriveColor(0, 1, 1, 0.30));
+            g.setLineWidth(0.65 * s);
+            g.strokeLine(mouthCenterX - normalX * 1.2 * s, mouthCenterY - normalY * 1.2 * s,
+                    tipBaseX - dirX * 4.0 * s, tipBaseY - dirY * 4.0 * s);
         }
 
         if (isAttacking && attackAnimationTimer > 4) {
