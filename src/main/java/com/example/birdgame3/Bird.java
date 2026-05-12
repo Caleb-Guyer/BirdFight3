@@ -1278,6 +1278,7 @@ public class Bird {
             mockingbirdCapturedType = other.type;
             mockingbirdCopiedNeutralSource = null;
             mockingbirdUncaptureTimer = 0;
+            resetMockingbirdNeutralReuseLocks();
             loungeDamageFlash = Math.max(loungeDamageFlash, 10);
             game.addToKillFeed(shortName() + " captured " + other.type.name + "'s neutral!");
             for (int i = 0; i < scaledParticleCount(34); i++) {
@@ -1301,6 +1302,7 @@ public class Bird {
             return;
         }
         BirdGame3.BirdType clearedType = mockingbirdCapturedType;
+        resetMockingbirdCopiedNeutralRuntime();
         mockingbirdCapturedType = null;
         mockingbirdCopiedNeutralSource = null;
         mockingbirdUncaptureTimer = 0;
@@ -1320,6 +1322,68 @@ public class Bird {
                 ));
             }
         }
+    }
+
+    private void resetMockingbirdNeutralReuseLocks() {
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        raptorCryReuseTimer = 0;
+        phoenixNeutralReuseTimer = 0;
+        hummingNeedleReuseTimer = 0;
+        turkeyGobbleReuseTimer = 0;
+        roosterNeutralReuseTimer = 0;
+        roadrunnerBeepReuseTimer = 0;
+        penguinBellyReuseTimer = 0;
+        shoebillStareReuseTimer = 0;
+        crowSwarmCooldown = 0;
+        leanCooldown = 0;
+    }
+
+    private void resetMockingbirdCopiedNeutralRuntime() {
+        BirdGame3.BirdType source = mockingbirdCopiedNeutralSource != null
+                ? mockingbirdCopiedNeutralSource
+                : mockingbirdCapturedType;
+        if (source == null) {
+            resetMockingbirdNeutralReuseLocks();
+            return;
+        }
+        switch (source) {
+            case PIGEON -> resetPigeonSpecialState();
+            case EAGLE, FALCON -> resetRaptorSpecialState();
+            case PHOENIX -> resetPhoenixSpecialState();
+            case HUMMINGBIRD -> resetHummingbirdSpecialState(false);
+            case TURKEY -> resetTurkeySpecialState(false);
+            case ROADRUNNER -> {
+                roadrunnerBeepCharging = false;
+                roadrunnerBeepChargeFrames = 0;
+                roadrunnerBeepBurstTimer = 0;
+                Arrays.fill(roadrunnerBeepHit, false);
+            }
+            case PENGUIN -> resetPenguinSpecialState(false);
+            case SHOEBILL -> resetShoebillSpecialState();
+            case RAZORBILL -> {
+                bladeStormFrames = 0;
+                razorbillDashVX = 0.0;
+                razorbillDashVY = 0.0;
+                Arrays.fill(razorbillDashHit, false);
+            }
+            case OPIUMBIRD, HEISENBIRD -> leanTimer = 0;
+            case TITMOUSE -> {
+                isZipping = false;
+                zipTimer = 0;
+            }
+            case BAT -> batEchoTimer = 0;
+            case PELICAN -> {
+                plungeTimer = 0;
+                if (enlargedByPlunge) {
+                    sizeMultiplier /= 1.18;
+                    enlargedByPlunge = false;
+                }
+            }
+            case ROOSTER, GRINCHHAWK, VULTURE, RAVEN, MOCKINGBIRD -> {
+            }
+        }
+        resetMockingbirdNeutralReuseLocks();
     }
 
     private void handleVerticalCollision(boolean wasAirborne) {
@@ -2747,7 +2811,10 @@ public class Bird {
                 return;
             }
         }
-        boolean ultimateReady = isUltimateReady();
+        boolean mockingbirdEmptyNeutral = type == BirdGame3.BirdType.MOCKINGBIRD
+                && selectMockingbirdSpecialVariant() == MockingbirdSpecialVariant.NEUTRAL
+                && mockingbirdCapturedType == null;
+        boolean ultimateReady = !mockingbirdEmptyNeutral && isUltimateReady();
         if (!isRaptor()
                 && type != BirdGame3.BirdType.HUMMINGBIRD
                 && type != BirdGame3.BirdType.TURKEY
@@ -13668,6 +13735,15 @@ public class Bird {
         state.loungeDamageFlash = loungeDamageFlash;
         state.loungeMaxHealth = loungeMaxHealth;
         state.loungeRoyal = loungeRoyal;
+        state.mockingbirdCapturedTypeOrdinal = mockingbirdCapturedType == null ? -1 : mockingbirdCapturedType.ordinal();
+        state.mockingbirdCopiedNeutralSourceOrdinal = mockingbirdCopiedNeutralSource == null ? -1 : mockingbirdCopiedNeutralSource.ordinal();
+        state.mockingbirdUncaptureTimer = mockingbirdUncaptureTimer;
+        state.mockingbirdQuestionTimer = mockingbirdQuestionTimer;
+        state.mockingbirdSideFxTimer = mockingbirdSideFxTimer;
+        state.mockingbirdSideReuseTimer = mockingbirdSideReuseTimer;
+        state.mockingbirdUpFxTimer = mockingbirdUpFxTimer;
+        state.mockingbirdUpReuseTimer = mockingbirdUpReuseTimer;
+        state.mockingbirdUpSpecialUsed = mockingbirdUpSpecialUsed;
         state.diveTimer = diveTimer;
         state.isZipping = isZipping;
         state.zipTargetX = zipTargetX;
@@ -13960,6 +14036,19 @@ public class Bird {
         this.loungeDamageFlash = state.loungeDamageFlash;
         this.loungeMaxHealth = state.loungeMaxHealth > 0 ? state.loungeMaxHealth : LOUNGE_MAX_HEALTH;
         this.loungeRoyal = state.loungeRoyal;
+        this.mockingbirdCapturedType = state.mockingbirdCapturedTypeOrdinal >= 0 && state.mockingbirdCapturedTypeOrdinal < types.length
+                ? types[state.mockingbirdCapturedTypeOrdinal]
+                : null;
+        this.mockingbirdCopiedNeutralSource = state.mockingbirdCopiedNeutralSourceOrdinal >= 0 && state.mockingbirdCopiedNeutralSourceOrdinal < types.length
+                ? types[state.mockingbirdCopiedNeutralSourceOrdinal]
+                : null;
+        this.mockingbirdUncaptureTimer = Math.max(0, state.mockingbirdUncaptureTimer);
+        this.mockingbirdQuestionTimer = Math.max(0, state.mockingbirdQuestionTimer);
+        this.mockingbirdSideFxTimer = Math.max(0, state.mockingbirdSideFxTimer);
+        this.mockingbirdSideReuseTimer = Math.max(0, state.mockingbirdSideReuseTimer);
+        this.mockingbirdUpFxTimer = Math.max(0, state.mockingbirdUpFxTimer);
+        this.mockingbirdUpReuseTimer = Math.max(0, state.mockingbirdUpReuseTimer);
+        this.mockingbirdUpSpecialUsed = state.mockingbirdUpSpecialUsed;
         this.diveTimer = state.diveTimer;
         this.isZipping = state.isZipping;
         this.zipTargetX = state.zipTargetX;
@@ -18213,7 +18302,7 @@ public class Bird {
         g.setFill(capturedType.color.darker().deriveColor(0, 1, 0.92, 0.92));
         g.fillOval(centerX - 5, centerY - 4, 22, 16);
 
-        int dir = facingDirection();
+        int dir = 1;
         g.setFill(Color.web("#FDD835"));
         double[] beakX = {centerX + dir * 13, centerX + dir * 24, centerX + dir * 13};
         double[] beakY = {centerY - 3, centerY + 1, centerY + 5};

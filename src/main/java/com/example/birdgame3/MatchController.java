@@ -609,6 +609,7 @@ final class MatchController {
             int winnerIndex = winner != null ? winner.playerIndex : -1;
             if (game.lanIsHost && game.lanHost != null) {
                 game.lanHost.broadcastMatchEnd(winnerIndex);
+                game.publishLanCompanionMatchEnd(winnerIndex);
             }
             final Stage finalStage = game.currentStage;
             new AnimationTimer() {

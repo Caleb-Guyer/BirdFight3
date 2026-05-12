@@ -330,6 +330,7 @@ public class BirdGame3 extends Application {
     // === LAN MODE ===
     private static final int LAN_MAX_PLAYERS = 4;
     private static final long LAN_SNAPSHOT_INTERVAL_NS = 16_666_666L;
+    private static final long LAN_COMPANION_SNAPSHOT_INTERVAL_NS = 100_000_000L;
     private static final int LAN_RESULTS_ACTION_LOBBY = 1;
     private static final int LAN_RESULTS_ACTION_EXIT = 2;
     private static final int LAN_RESULTS_MIN_SHOW_MS = 1200;
@@ -368,6 +369,8 @@ public class BirdGame3 extends Application {
     private Button lanSelectBirdButton;
     private Button lanSelectMapButton;
     private Button lanReadyButton;
+    private Button lanCompanionFeedButton;
+    private Label lanCompanionFeedLabel;
     private Timeline lanCountdownTimeline;
     private int lanCountdownValue = 0;
     private String lanLastHost = "";
@@ -375,6 +378,8 @@ public class BirdGame3 extends Application {
     private boolean lanResultsActionPending = false;
     private Label lanResultsStatusLabel;
     private int lanVoteSignature = 0;
+    private long lastLanCompanionSnapshotNs = 0L;
+    private int lanLastWinnerIndex = -1;
 
     // === LONG-TERM BALANCE TELEMETRY ===
     private static final int BALANCE_MIN_SAMPLE = 6;
@@ -8827,7 +8832,7 @@ public class BirdGame3 extends Application {
         ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road"),
         PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Belly Slide / Iceberg / Rocket Flop / Snow Fort"),
         SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "Death Stare / Heavy Bill Thrust / Marsh Lift / Statue Counter"),
-        MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Spawn Charles Lounge (Heal zone)"),
+        MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Mimic neutral / Mimic Call / Forest Lift / Forest Lounge"),
         RAZORBILL("Razorbill", 8, 12, 3.6, Color.INDIGO, 0.25, "Razor Slash + Razor Dash"),
         GRINCHHAWK("Grinch-Hawk", 10, 10, 2.8, Color.rgb(102, 153, 0), 0.80, "Steal HP from everyone + Heavy Flap"),
         VULTURE("Vulture", 7, 14, 3.1, Color.rgb(45, 25, 55), 0.2, "Summon Crows + Feast"),
@@ -12723,14 +12728,52 @@ public class BirdGame3 extends Application {
         }
         double baseSize = Math.min(w, h);
         double pad = Math.min(8, baseSize * 0.08);
-        double extentFactor = (type == BirdType.BAT) ? 2.9 : 1.35;
+        double extentFactor = rosterSpriteExtentFactor(type);
         preview.sizeMultiplier = Math.clamp((baseSize - pad * 2) / (80.0 * extentFactor), 0.28, 0.72);
         double drawSize = 80 * preview.sizeMultiplier;
-        preview.x = (w - drawSize) / 2.0;
-        preview.y = (h - drawSize) / 2.0 + pad;
+        preview.x = (w - drawSize) / 2.0 + w * rosterSpriteXBias(type);
+        preview.y = (h - drawSize) / 2.0 + pad + h * rosterSpriteYBias(type);
         preview.facingRight = true;
         preview.draw(g);
         // Titmouse crest is rendered in Bird.draw now for consistent previews.
+    }
+
+    private double rosterSpriteExtentFactor(BirdType type) {
+        if (type == null) {
+            return 1.35;
+        }
+        return switch (type) {
+            case BAT -> 2.9;
+            case SHOEBILL -> 1.84;
+            case ROADRUNNER -> 1.70;
+            case HUMMINGBIRD -> 1.66;
+            case PELICAN -> 1.64;
+            case FALCON -> 1.62;
+            case PHOENIX -> 1.56;
+            case ROOSTER -> 1.50;
+            case EAGLE, PIGEON, TURKEY, RAVEN, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD -> 1.46;
+            default -> 1.42;
+        };
+    }
+
+    private double rosterSpriteXBias(BirdType type) {
+        if (type == null) {
+            return 0.0;
+        }
+        return switch (type) {
+            case SHOEBILL -> -0.14;
+            case FALCON -> -0.09;
+            case HUMMINGBIRD -> -0.085;
+            case ROADRUNNER, PELICAN -> -0.08;
+            case PHOENIX -> -0.055;
+            case ROOSTER -> -0.04;
+            case EAGLE, PIGEON, RAVEN, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD -> -0.025;
+            default -> -0.015;
+        };
+    }
+
+    private double rosterSpriteYBias(BirdType type) {
+        return type == BirdType.BAT ? 0.04 : 0.0;
     }
 
     private void drawVictoryRosterSprite(Canvas canvas, BirdType type, String skinKey, boolean winnerPose) {
@@ -15309,9 +15352,9 @@ public class BirdGame3 extends Application {
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
         title.setTextFill(Color.web("#111111"));
         StackPane titleBanner = new StackPane(title);
-        titleBanner.setMinSize(520, 72);
-        titleBanner.setPrefSize(520, 72);
-        titleBanner.setMaxSize(520, 72);
+        titleBanner.setMinSize(440, 72);
+        titleBanner.setPrefSize(440, 72);
+        titleBanner.setMaxSize(440, 72);
         titleBanner.setStyle("-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
                 + "-fx-background-radius: 12; -fx-border-color: black; -fx-border-width: 4; "
                 + "-fx-border-radius: 12;");
@@ -15355,7 +15398,7 @@ public class BirdGame3 extends Application {
         }
         refreshCountButtons.run();
 
-        teamModeToggleButton = uiFactory.action("TEAM MODE: OFF", 228, 52, 18, "#3A434D", 16, () -> {
+        teamModeToggleButton = uiFactory.action("TEAM MODE: OFF", 206, 52, 18, "#3A434D", 16, () -> {
             teamModeEnabled = !teamModeEnabled;
             refreshTeamToggleButton();
         });
@@ -15542,18 +15585,30 @@ public class BirdGame3 extends Application {
         Button[] inputButtons = new Button[4];
         Button[] aiToggleButtons = new Button[4];
 
-        Button readyBtn = uiFactory.action("FLY INTO BATTLE!", 760, 102, 30, "#F6C431", 28, () -> {
+        Runnable startBattle = () -> {
             stageSelectReturn = () -> showFightSetup(stage);
             showStageSelect(stage);
-        });
-        readyBtn.setStyle("-fx-background-color: linear-gradient(to right, #CF2F14, #F59E0B 58%, #FFE96A 100%); "
-                + "-fx-text-fill: #111111; -fx-font-family: 'Arial Black'; -fx-font-size: 34px; "
-                + "-fx-font-style: italic; -fx-font-weight: bold; -fx-background-radius: 24; "
-                + "-fx-border-color: white, black; -fx-border-insets: 0, 3; -fx-border-width: 3, 4; "
-                + "-fx-border-radius: 24, 20; -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.45), 18, 0.35, 0, 10);");
-        applyNoEllipsis(readyBtn);
-        readyBtn.setVisible(false);
-        readyBtn.setManaged(false);
+        };
+        Label readyText = new Label("FLY INTO BATTLE!");
+        readyText.setFont(Font.font("Arial Black", FontWeight.BOLD, 44));
+        readyText.setTextFill(Color.web("#08090B"));
+        readyText.setMouseTransparent(true);
+
+        StackPane readyBanner = new StackPane(readyText);
+        readyBanner.setManaged(false);
+        readyBanner.setMouseTransparent(true);
+        readyBanner.setPrefSize(paneW + 34, 124);
+        readyBanner.setMinSize(paneW + 34, 124);
+        readyBanner.setMaxSize(paneW + 34, 124);
+        readyBanner.resizeRelocate(-17, 206, paneW + 34, 124);
+        readyBanner.setOpacity(0.9);
+        readyBanner.setStyle("-fx-background-color: linear-gradient(to right, rgba(181, 18, 27, 0.76), "
+                + "rgba(245, 158, 11, 0.70) 52%, rgba(255, 238, 102, 0.66)); "
+                + "-fx-background-radius: 8; -fx-border-color: rgba(255,255,255,0.72), rgba(0,0,0,0.74); "
+                + "-fx-border-insets: 0, 5; -fx-border-width: 3, 5; -fx-border-radius: 8, 4; "
+                + "-fx-effect: dropshadow(gaussian, rgba(255, 193, 7, 0.40), 32, 0.30, 0, 0);");
+        readyBanner.setVisible(false);
+        selectionPane.getChildren().add(readyBanner);
 
         Label playerCountLabel = new Label();
         playerCountLabel.setFont(Font.font("Arial Black", 20));
@@ -15602,8 +15657,7 @@ public class BirdGame3 extends Application {
                     break;
                 }
             }
-            readyBtn.setVisible(ready);
-            readyBtn.setManaged(ready);
+            readyBanner.setVisible(ready);
         };
 
         Runnable[] updateSlot = new Runnable[4];
@@ -15959,6 +16013,33 @@ public class BirdGame3 extends Application {
             });
         }
 
+        selectionPane.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
+            if (!readyBanner.isVisible() || !e.isStillSincePress()) {
+                return;
+            }
+            double mx = e.getX();
+            double my = e.getY();
+            if (!readyBanner.getBoundsInParent().contains(mx, my)) {
+                return;
+            }
+            for (int i = 0; i < activePlayers && i < selectors.length; i++) {
+                Circle selector = selectors[i];
+                if (selector == null || !selector.isVisible()) continue;
+                if (Math.hypot(mx - selector.getCenterX(), my - selector.getCenterY()) <= selector.getRadius() + 20.0) {
+                    return;
+                }
+            }
+            double iconPassThroughRadius = Math.max(54.0, selectorSnapDistance * 0.95);
+            for (BirdIconSpot spot : spots) {
+                if (Math.hypot(mx - spot.cx(), my - spot.cy()) <= iconPassThroughRadius) {
+                    return;
+                }
+            }
+            playButtonClick();
+            startBattle.run();
+            e.consume();
+        });
+
         final BirdIconSpot finalRandomSpot = randomSpot;
         Runnable refreshLayout = () -> {
             if (fightSceneRef[0] != null) {
@@ -16048,20 +16129,13 @@ public class BirdGame3 extends Application {
         VBox body = new VBox(14, rosterCard, playersPanel);
         body.setAlignment(Pos.TOP_CENTER);
 
-        StackPane readyOverlay = new StackPane(readyBtn);
-        readyOverlay.visibleProperty().bind(readyBtn.visibleProperty());
-        readyOverlay.managedProperty().bind(readyBtn.managedProperty());
-        readyOverlay.setPickOnBounds(false);
-        StackPane.setAlignment(readyOverlay, Pos.BOTTOM_CENTER);
-        StackPane.setMargin(readyOverlay, new Insets(0, 0, 176, 0));
-
-        StackPane interactionLayer = new StackPane(body, readyOverlay, interactionOverlay);
+        StackPane interactionLayer = new StackPane(body, interactionOverlay);
         content.setCenter(interactionLayer);
 
         BooleanSupplier tryStartMatch = () -> {
-            if (!readyBtn.isVisible()) return false;
+            if (!readyBanner.isVisible()) return false;
             playButtonClick();
-            readyBtn.fire();
+            startBattle.run();
             return true;
         };
 
@@ -19929,6 +20003,19 @@ public class BirdGame3 extends Application {
         lanStatusLabel.setFont(Font.font("Consolas", 18));
         lanStatusLabel.setTextFill(Color.web("#80DEEA"));
 
+        lanCompanionFeedLabel = null;
+        lanCompanionFeedButton = null;
+        VBox companionBox = null;
+        if (lanIsHost) {
+            lanCompanionFeedLabel = new Label();
+            lanCompanionFeedLabel.setFont(Font.font("Consolas", 17));
+            lanCompanionFeedLabel.setTextFill(Color.web("#B2DFDB"));
+            applyNoEllipsis(lanCompanionFeedLabel);
+            lanCompanionFeedButton = uiFactory.action("COMPANION FEED", 300, 58, 22, "#00695C", 16, this::toggleLanCompanionFeed);
+            companionBox = new VBox(6, lanCompanionFeedLabel, lanCompanionFeedButton);
+            companionBox.setAlignment(Pos.CENTER);
+        }
+
         lanSlotLabels = new Label[LAN_MAX_PLAYERS];
         VBox slots = new VBox(6);
         slots.setAlignment(Pos.CENTER);
@@ -20005,7 +20092,11 @@ public class BirdGame3 extends Application {
             portraitRow.getChildren().add(slotBox);
         }
 
-        root.getChildren().addAll(title, info, lanStatusLabel, slots, controls, portraitRow, lanCountdownLabel, actions);
+        root.getChildren().addAll(title, info, lanStatusLabel);
+        if (companionBox != null) {
+            root.getChildren().add(companionBox);
+        }
+        root.getChildren().addAll(slots, controls, portraitRow, lanCountdownLabel, actions);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         setupKeyboardNavigation(scene);
@@ -20079,6 +20170,8 @@ public class BirdGame3 extends Application {
         pendingLanState = null;
         lanResultsActionPending = false;
         lanResultsStatusLabel = null;
+        lastLanCompanionSnapshotNs = 0L;
+        lanLastWinnerIndex = -1;
         Arrays.fill(lanSlotConnected, false);
         Arrays.fill(lanSelectedSkinKeys, null);
         Arrays.fill(lanRandomBirds, false);
@@ -20187,6 +20280,7 @@ public class BirdGame3 extends Application {
         if (lanStartButton != null) {
             lanStartButton.setDisable(connectedCount < 2 || lanCountdownTimeline != null);
         }
+        refreshLanCompanionFeedUI();
         if (lanPortraits != null) {
             for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
                 Canvas canvas = lanPortraits[i];
@@ -20200,6 +20294,55 @@ public class BirdGame3 extends Application {
                 drawRosterSprite(canvas, type, skinKey, randomPick);
             }
         }
+    }
+
+    private void refreshLanCompanionFeedUI() {
+        if (lanCompanionFeedLabel == null && lanCompanionFeedButton == null) return;
+        if (!lanIsHost || lanHost == null) {
+            if (lanCompanionFeedLabel != null) {
+                lanCompanionFeedLabel.setText("");
+            }
+            if (lanCompanionFeedButton != null) {
+                lanCompanionFeedButton.setDisable(true);
+            }
+            return;
+        }
+
+        boolean enabled = lanHost.isCompanionFeedEnabled();
+        boolean available = lanHost.isCompanionFeedAvailable();
+        int viewers = lanHost.companionViewerCount();
+        if (lanCompanionFeedLabel != null) {
+            String endpoint = findLanAddress() + ":" + LanProtocol.COMPANION_PORT;
+            if (!enabled) {
+                lanCompanionFeedLabel.setText("Companion feed: OFF");
+                lanCompanionFeedLabel.setTextFill(Color.web("#B0BEC5"));
+            } else if (available) {
+                lanCompanionFeedLabel.setText("Companion feed: " + endpoint + "  Viewers: " + viewers);
+                lanCompanionFeedLabel.setTextFill(Color.web("#B2DFDB"));
+            } else {
+                lanCompanionFeedLabel.setText("Companion feed: port " + LanProtocol.COMPANION_PORT + " unavailable");
+                lanCompanionFeedLabel.setTextFill(Color.web("#FFB74D"));
+            }
+        }
+        if (lanCompanionFeedButton != null) {
+            lanCompanionFeedButton.setDisable(false);
+            lanCompanionFeedButton.setText(enabled && !available ? "RETRY FEED" : (enabled ? "FEED ON" : "FEED OFF"));
+            lanCompanionFeedButton.setStyle(enabled && available
+                    ? "-fx-background-color: #00897B; -fx-text-fill: white;"
+                    : "-fx-background-color: #546E7A; -fx-text-fill: white;");
+        }
+    }
+
+    private void toggleLanCompanionFeed() {
+        if (!lanIsHost || lanHost == null) return;
+        if (lanHost.isCompanionFeedEnabled() && !lanHost.isCompanionFeedAvailable()) {
+            lanHost.setCompanionFeedEnabled(false);
+            lanHost.setCompanionFeedEnabled(true);
+        } else {
+            lanHost.setCompanionFeedEnabled(!lanHost.isCompanionFeedEnabled());
+        }
+        refreshLanCompanionFeedUI();
+        publishLanCompanionSnapshot();
     }
 
     private void toggleLanReady() {
@@ -20222,6 +20365,7 @@ public class BirdGame3 extends Application {
         if (lanHost != null) {
             lanHost.broadcastCountdown(lanCountdownValue);
         }
+        publishLanCompanionSnapshot();
         lanCountdownTimeline = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             lanCountdownValue--;
             if (lanCountdownValue <= 0) {
@@ -20233,10 +20377,12 @@ public class BirdGame3 extends Application {
             if (lanHost != null) {
                 lanHost.broadcastCountdown(lanCountdownValue);
             }
+            publishLanCompanionSnapshot();
         }));
         lanCountdownTimeline.setCycleCount(Timeline.INDEFINITE);
         lanCountdownTimeline.play();
         refreshLanLobbyUI();
+        publishLanCompanionSnapshot();
     }
 
     private void stopLanCountdown() {
@@ -20726,6 +20872,7 @@ public class BirdGame3 extends Application {
             boolean mapRandom = lanSelectedMap == null || lanSelectedMapRandom;
             lanHost.broadcastLobby(mapToSend, mapRandom, lanSlotConnected, lanSelectedBirds, lanRandomBirds, lanSelectedSkinKeys, lanReady);
         }
+        publishLanCompanionSnapshot();
     }
 
     void onLanClientConnected(int slot) {
@@ -20812,6 +20959,13 @@ public class BirdGame3 extends Application {
         synchronized (lanInputLock) {
             lanInputMasks[slot] = mask;
         }
+    }
+
+    void onLanCompanionViewerChanged() {
+        javafx.application.Platform.runLater(() -> {
+            if (!lanModeActive || !lanIsHost) return;
+            refreshLanCompanionFeedUI();
+        });
     }
 
     void onLanServerError(IOException e) {
@@ -20906,6 +21060,9 @@ public class BirdGame3 extends Application {
 
     void showLanResults(Stage stage, int winnerIndex) {
         if (stage == null) return;
+        lanMatchActive = false;
+        lanLastWinnerIndex = winnerIndex;
+        publishLanCompanionSnapshot();
         lanResultsActionPending = false;
         lanResultsStatusLabel = null;
         disposeGameplayMusicPlayer();
@@ -21122,6 +21279,8 @@ public class BirdGame3 extends Application {
         activePlayers = LAN_MAX_PLAYERS;
         lanMatchActive = true;
         lastLanSnapshotNs = 0L;
+        lastLanCompanionSnapshotNs = 0L;
+        lanLastWinnerIndex = -1;
         List<BirdType> pool = unlockedBirdPool();
         for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
             if (!lanSlotConnected[i]) continue;
@@ -21136,6 +21295,7 @@ public class BirdGame3 extends Application {
             lanHost.broadcastStart(mapToPlay, lanMatchSeed, lanSlotConnected, lanSelectedBirds, lanSelectedSkinKeys);
         }
         startMatch(stage);
+        publishLanCompanionSnapshot();
     }
 
     private void startLanMatchClient(Stage stage, MapType map, long seed, boolean[] connected, BirdType[] birds, String[] skinKeys) {
@@ -21196,6 +21356,8 @@ public class BirdGame3 extends Application {
         pendingLanState = null;
         lanResultsActionPending = false;
         lanResultsStatusLabel = null;
+        lastLanCompanionSnapshotNs = 0L;
+        lanLastWinnerIndex = -1;
         stopLanCountdown();
         synchronized (lanInputLock) {
             Arrays.fill(lanInputMasks, 0);
@@ -21248,6 +21410,8 @@ public class BirdGame3 extends Application {
         }
         lanLocalInputMask = 0;
         lastLanSnapshotNs = 0L;
+        lastLanCompanionSnapshotNs = 0L;
+        lanLastWinnerIndex = -1;
         lanSelectedMapRandom = false;
         lanVoteSignature = 0;
     }
@@ -21281,6 +21445,88 @@ public class BirdGame3 extends Application {
                 onConfirm.run();
             }
         });
+    }
+
+    void publishLanCompanionMatchEnd(int winnerIndex) {
+        lanLastWinnerIndex = winnerIndex;
+        publishLanCompanionSnapshot();
+    }
+
+    private void publishLanCompanionSnapshot() {
+        if (!lanModeActive || !lanIsHost || lanHost == null || !lanHost.isCompanionFeedEnabled()) return;
+        lanHost.broadcastCompanionSnapshot(buildLanCompanionSnapshot());
+    }
+
+    private NetworkSessionHost.CompanionSnapshot buildLanCompanionSnapshot() {
+        NetworkSessionHost.CompanionSnapshot snapshot = new NetworkSessionHost.CompanionSnapshot();
+        snapshot.phase = lanCompanionPhase();
+        snapshot.status = lanCompanionStatus(snapshot.phase);
+        MapType map = (lanMatchActive || matchEnded) ? selectedMap : lanSelectedMap;
+        if (map == null || (!lanMatchActive && !matchEnded && lanSelectedMapRandom)) {
+            snapshot.mapName = "Random Map";
+        } else {
+            snapshot.mapName = mapDisplayName(map);
+        }
+        snapshot.matchTimerFrames = Math.max(0, matchTimer);
+        snapshot.matchEnded = matchEnded;
+        snapshot.suddenDeathActive = suddenDeath.isActive();
+        snapshot.suddenDeathSmashStyle = suddenDeath.isSmashStyle();
+        snapshot.smashRules = usesSmashCombatRules();
+        snapshot.countdownSeconds = Math.max(0, lanCountdownValue);
+        snapshot.winnerIndex = lanLastWinnerIndex;
+        snapshot.generatedAtMillis = System.currentTimeMillis();
+        snapshot.killFeed = new ArrayList<>(killFeed.subList(0, Math.min(killFeed.size(), 6)));
+
+        for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
+            populateLanCompanionPlayer(snapshot.players[i], i);
+        }
+        return snapshot;
+    }
+
+    private int lanCompanionPhase() {
+        if (matchEnded) {
+            return NetworkSessionHost.COMPANION_PHASE_RESULTS;
+        }
+        if (lanMatchActive) {
+            return NetworkSessionHost.COMPANION_PHASE_MATCH;
+        }
+        if (lanCountdownValue > 0) {
+            return NetworkSessionHost.COMPANION_PHASE_COUNTDOWN;
+        }
+        return NetworkSessionHost.COMPANION_PHASE_LOBBY;
+    }
+
+    private String lanCompanionStatus(int phase) {
+        if (phase == NetworkSessionHost.COMPANION_PHASE_RESULTS) {
+            if (lanLastWinnerIndex >= 0 && lanLastWinnerIndex < LAN_MAX_PLAYERS) {
+                return "P" + (lanLastWinnerIndex + 1) + " wins";
+            }
+            return "Match complete";
+        }
+        if (phase == NetworkSessionHost.COMPANION_PHASE_MATCH) {
+            return suddenDeath.isActive() ? "Sudden Death" : "Match live";
+        }
+        if (phase == NetworkSessionHost.COMPANION_PHASE_COUNTDOWN) {
+            return "Match starts in " + lanCountdownValue;
+        }
+        return "LAN lobby";
+    }
+
+    private void populateLanCompanionPlayer(NetworkSessionHost.CompanionSnapshot.Player player, int index) {
+        if (player == null || index < 0 || index >= LAN_MAX_PLAYERS) return;
+        Bird bird = players[index];
+        boolean hasBird = bird != null && (lanMatchActive || matchEnded);
+        BirdType type = hasBird ? bird.type : lanSelectedBirds[index];
+        boolean randomPick = !hasBird && lanRandomBirds[index];
+
+        player.connected = lanSlotConnected[index] || hasBird;
+        player.ready = lanReady[index];
+        player.birdName = randomPick ? "Random" : (type != null ? type.name : "");
+        player.colorHex = type != null ? toHex(type.color) : "#90A4AE";
+        player.score = index < scores.length ? scores[index] : 0;
+        player.health = hasBird ? Math.max(0.0, bird.health) : 0.0;
+        player.damage = hasBird ? Math.max(0.0, bird.smashDamagePercent()) : 0.0;
+        player.alive = hasBird && (usesSmashCombatRules() ? playerHasStocksRemaining(index) : bird.health > 0);
     }
 
     private LanState buildLanState() {
@@ -33938,6 +34184,10 @@ public class BirdGame3 extends Application {
                             lanHost.broadcastState(buildLanState());
                         }
                         lastLanSnapshotNs = now;
+                    }
+                    if (lanHost != null && now - lastLanCompanionSnapshotNs >= LAN_COMPANION_SNAPSHOT_INTERVAL_NS) {
+                        publishLanCompanionSnapshot();
+                        lastLanCompanionSnapshotNs = now;
                     }
                 }
                 if (!shouldRenderFrame(now)) {

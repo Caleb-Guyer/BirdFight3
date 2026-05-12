@@ -6,6 +6,7 @@ import com.example.birdgame3.BirdGame3.MapType;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.List;
@@ -16,8 +17,13 @@ import java.util.concurrent.LinkedBlockingQueue;
 class LanHostServer implements NetworkSessionHost {
     private final BirdGame3 game;
     private final List<ClientHandler> clients = new CopyOnWriteArrayList<>();
+    private final List<CompanionHandler> companionClients = new CopyOnWriteArrayList<>();
     private final boolean[] slotTaken = new boolean[4];
     private ServerSocket serverSocket;
+    private ServerSocket companionServerSocket;
+    private volatile boolean companionFeedEnabled = true;
+    private volatile boolean companionFeedAvailable;
+    private volatile byte[] lastCompanionSnapshot;
     private volatile boolean running;
 
     LanHostServer(BirdGame3 game) {
@@ -38,6 +44,7 @@ class LanHostServer implements NetworkSessionHost {
         Thread acceptThread = new Thread(this::acceptLoop, "LanHost-Accept");
         acceptThread.setDaemon(true);
         acceptThread.start();
+        startCompanionServer();
         return true;
     }
 
@@ -48,6 +55,7 @@ class LanHostServer implements NetworkSessionHost {
             if (serverSocket != null) serverSocket.close();
         } catch (IOException ignored) {
         }
+        stopCompanionServer();
         for (ClientHandler client : clients) {
             client.close();
         }
@@ -60,6 +68,31 @@ class LanHostServer implements NetworkSessionHost {
     @Override
     public boolean hasClients() {
         return !clients.isEmpty();
+    }
+
+    @Override
+    public void setCompanionFeedEnabled(boolean enabled) {
+        companionFeedEnabled = enabled;
+        if (enabled) {
+            startCompanionServer();
+        } else {
+            stopCompanionServer();
+        }
+    }
+
+    @Override
+    public boolean isCompanionFeedEnabled() {
+        return companionFeedEnabled;
+    }
+
+    @Override
+    public boolean isCompanionFeedAvailable() {
+        return companionFeedEnabled && companionFeedAvailable;
+    }
+
+    @Override
+    public int companionViewerCount() {
+        return companionClients.size();
     }
 
     @Override
@@ -142,10 +175,65 @@ class LanHostServer implements NetworkSessionHost {
         }
     }
 
+    @Override
+    public void broadcastCompanionSnapshot(CompanionSnapshot snapshot) {
+        if (!running || !companionFeedEnabled || snapshot == null) return;
+        try {
+            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_COMPANION_SNAPSHOT, snapshot::write);
+            lastCompanionSnapshot = msg;
+            sendToCompanions(msg);
+        } catch (IOException ignored) {
+        }
+    }
+
     private void sendToAll(byte[] payload) {
         for (ClientHandler client : clients) {
             client.enqueue(payload);
         }
+    }
+
+    private void sendToCompanions(byte[] payload) {
+        for (CompanionHandler client : companionClients) {
+            client.enqueue(payload);
+        }
+    }
+
+    private synchronized void startCompanionServer() {
+        if (!running || !companionFeedEnabled) return;
+        if (companionServerSocket != null && !companionServerSocket.isClosed()) {
+            companionFeedAvailable = true;
+            return;
+        }
+        try {
+            ServerSocket socket = new ServerSocket();
+            socket.setReuseAddress(true);
+            socket.bind(new InetSocketAddress(LanProtocol.COMPANION_PORT));
+            companionServerSocket = socket;
+            companionFeedAvailable = true;
+            Thread acceptThread = new Thread(this::companionAcceptLoop, "LanCompanion-Accept");
+            acceptThread.setDaemon(true);
+            acceptThread.start();
+        } catch (IOException ignored) {
+            companionFeedAvailable = false;
+            try {
+                if (companionServerSocket != null) companionServerSocket.close();
+            } catch (IOException ignoredClose) {
+            }
+            companionServerSocket = null;
+        }
+    }
+
+    private synchronized void stopCompanionServer() {
+        companionFeedAvailable = false;
+        try {
+            if (companionServerSocket != null) companionServerSocket.close();
+        } catch (IOException ignored) {
+        }
+        companionServerSocket = null;
+        for (CompanionHandler client : companionClients) {
+            client.close();
+        }
+        companionClients.clear();
     }
 
     private void acceptLoop() {
@@ -180,6 +268,26 @@ class LanHostServer implements NetworkSessionHost {
         return -1;
     }
 
+    private void companionAcceptLoop() {
+        while (running && companionFeedEnabled) {
+            try {
+                ServerSocket socket = companionServerSocket;
+                if (socket == null || socket.isClosed()) return;
+                Socket companionSocket = socket.accept();
+                companionSocket.setTcpNoDelay(true);
+                CompanionHandler handler = new CompanionHandler(companionSocket);
+                companionClients.add(handler);
+                handler.start();
+                game.onLanCompanionViewerChanged();
+            } catch (IOException ignored) {
+                if (running && companionFeedEnabled) {
+                    companionFeedAvailable = false;
+                }
+                return;
+            }
+        }
+    }
+
     private synchronized void releaseSlot(int slot) {
         if (slot > 0 && slot < slotTaken.length) {
             slotTaken[slot] = false;
@@ -190,6 +298,11 @@ class LanHostServer implements NetworkSessionHost {
         clients.remove(handler);
         releaseSlot(handler.slot);
         game.onLanClientDisconnected(handler.slot);
+    }
+
+    private void handleCompanionDisconnect(CompanionHandler handler) {
+        companionClients.remove(handler);
+        game.onLanCompanionViewerChanged();
     }
 
     private final class ClientHandler {
@@ -271,6 +384,63 @@ class LanHostServer implements NetworkSessionHost {
             } catch (IOException ignored) {
             } finally {
                 close();
+            }
+        }
+    }
+
+    private final class CompanionHandler {
+        private final Socket socket;
+        private final DataOutputStream out;
+        private final BlockingQueue<byte[]> outbound = new LinkedBlockingQueue<>(3);
+        private volatile boolean active = true;
+        private Thread writeThread;
+
+        CompanionHandler(Socket socket) throws IOException {
+            this.socket = socket;
+            this.out = new DataOutputStream(socket.getOutputStream());
+        }
+
+        void start() {
+            writeThread = new Thread(this::writeLoop, "LanCompanion-Write");
+            writeThread.setDaemon(true);
+            writeThread.start();
+            byte[] latest = lastCompanionSnapshot;
+            if (latest != null) {
+                enqueue(latest);
+            }
+        }
+
+        void enqueue(byte[] payload) {
+            if (!active || payload == null) return;
+            if (!outbound.offer(payload)) {
+                outbound.poll();
+                if (!outbound.offer(payload)) {
+                    close();
+                }
+            }
+        }
+
+        void close() {
+            active = false;
+            if (writeThread != null) writeThread.interrupt();
+            try {
+                socket.close();
+            } catch (IOException ignored) {
+            }
+        }
+
+        private void writeLoop() {
+            try {
+                while (active) {
+                    byte[] payload = outbound.take();
+                    LanProtocol.writeFramed(out, payload);
+                }
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            } catch (IOException ignored) {
+            } finally {
+                close();
+                handleCompanionDisconnect(this);
             }
         }
     }
