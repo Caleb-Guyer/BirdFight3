@@ -126,6 +126,13 @@ public class Bird {
         DOWN
     }
 
+    private enum RazorbillSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record NormalAttackProfile(
             double horizontalReach,
             double verticalReach,
@@ -254,9 +261,41 @@ public class Bird {
     public int bladeStormFrames = 0;
     private static final int RAZORBILL_DASH_FRAMES = 26;
     private static final double RAZORBILL_DASH_SPEED = 22.0;
+    private static final int RAZORBILL_MAX_CUT_LINES = 6;
+    private static final int RAZORBILL_CUT_LINE_LIFE_FRAMES = 360;
+    private static final int RAZORBILL_NEUTRAL_REUSE_FRAMES = 24;
+    private static final int RAZORBILL_SIDE_REUSE_FRAMES = 38;
+    private static final int RAZORBILL_SNAP_REUSE_FRAMES = 46;
+    private static final int RAZORBILL_NEEDLE_FRAMES = 12;
+    private static final int RAZORBILL_SHEAR_FRAMES = 24;
+    private static final int RAZORBILL_SNAP_FRAMES = 18;
     private double razorbillDashVX = 0.0;
     private double razorbillDashVY = 0.0;
     private final boolean[] razorbillDashHit = new boolean[4];
+    private final double[] razorbillCutX1 = new double[RAZORBILL_MAX_CUT_LINES];
+    private final double[] razorbillCutY1 = new double[RAZORBILL_MAX_CUT_LINES];
+    private final double[] razorbillCutX2 = new double[RAZORBILL_MAX_CUT_LINES];
+    private final double[] razorbillCutY2 = new double[RAZORBILL_MAX_CUT_LINES];
+    private final int[] razorbillCutLife = new int[RAZORBILL_MAX_CUT_LINES];
+    private final int[] razorbillCutArmDelay = new int[RAZORBILL_MAX_CUT_LINES];
+    private final boolean[] razorbillCutUltimate = new boolean[RAZORBILL_MAX_CUT_LINES];
+    private final boolean[][] razorbillCutHit = new boolean[RAZORBILL_MAX_CUT_LINES][4];
+    private final int[] razorbillNicks = new int[4];
+    private final int[] razorbillNickFx = new int[4];
+    private int razorbillNeedleTimer = 0;
+    private int razorbillNeedleReuseTimer = 0;
+    private int razorbillNeedleDirection = 1;
+    private boolean razorbillNeedleUltimate = false;
+    private int razorbillSideReuseTimer = 0;
+    private boolean razorbillSideUltimate = false;
+    private int razorbillShearTimer = 0;
+    private int razorbillShearDirection = 1;
+    private boolean razorbillShearUltimate = false;
+    private boolean razorbillUpSpecialUsed = false;
+    private final boolean[] razorbillShearHit = new boolean[4];
+    private int razorbillSnapTimer = 0;
+    private int razorbillSnapReuseTimer = 0;
+    private boolean razorbillSnapUltimate = false;
     public int plungeTimer = 0;
     public boolean batHanging = false;
     private Platform batHangPlatform = null;
@@ -1335,6 +1374,7 @@ public class Bird {
         roadrunnerBeepReuseTimer = 0;
         penguinBellyReuseTimer = 0;
         shoebillStareReuseTimer = 0;
+        razorbillNeedleReuseTimer = 0;
         crowSwarmCooldown = 0;
         leanCooldown = 0;
     }
@@ -1362,10 +1402,7 @@ public class Bird {
             case PENGUIN -> resetPenguinSpecialState(false);
             case SHOEBILL -> resetShoebillSpecialState();
             case RAZORBILL -> {
-                bladeStormFrames = 0;
-                razorbillDashVX = 0.0;
-                razorbillDashVY = 0.0;
-                Arrays.fill(razorbillDashHit, false);
+                resetRazorbillSpecialState(false);
             }
             case OPIUMBIRD, HEISENBIRD -> leanTimer = 0;
             case TITMOUSE -> {
@@ -2802,6 +2839,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.MOCKINGBIRD && !canStartMockingbirdSpecial()) {
             return;
         }
+        if (type == BirdGame3.BirdType.RAZORBILL && !canStartRazorbillSpecial()) {
+            return;
+        }
         if (isRaptor()) {
             RaptorSpecialVariant variant = selectRaptorSpecialVariant();
             if (!canStartRaptorSpecialVariant(variant)) {
@@ -2823,6 +2863,7 @@ public class Bird {
                 && type != BirdGame3.BirdType.PENGUIN
                 && type != BirdGame3.BirdType.SHOEBILL
                 && type != BirdGame3.BirdType.MOCKINGBIRD
+                && type != BirdGame3.BirdType.RAZORBILL
                 && specialCooldown > 0
                 && !ultimateReady) {
             if (!game.isAI[playerIndex]) {
@@ -2870,7 +2911,7 @@ public class Bird {
             case PENGUIN -> specialPenguin(selectPenguinSpecialVariant(), ultimateTriggered);
             case SHOEBILL -> specialShoebill(selectShoebillSpecialVariant(), ultimateTriggered);
             case MOCKINGBIRD -> specialMockingbird(selectMockingbirdSpecialVariant(), ultimateTriggered);
-            case RAZORBILL -> specialRazorbill(ultimateTriggered);
+            case RAZORBILL -> specialRazorbill(selectRazorbillSpecialVariant(), ultimateTriggered);
             case GRINCHHAWK -> specialGrinchhawk(ultimateTriggered);
             case VULTURE -> specialVulture(ultimateTriggered);
             case ROOSTER -> specialRooster(selectRoosterSpecialVariant(), ultimateTriggered);
@@ -6584,7 +6625,7 @@ public class Bird {
                 case ROADRUNNER -> specialRoadrunnerBeepBlitz(ultimate);
                 case PENGUIN -> specialPenguinBellySlide(ultimate);
                 case SHOEBILL -> specialShoebillDeathStare(ultimate);
-                case RAZORBILL -> specialRazorbill(ultimate);
+                case RAZORBILL -> specialRazorbillNeutral(ultimate);
                 case GRINCHHAWK -> specialGrinchhawk(ultimate);
                 case VULTURE -> specialVulture(ultimate);
                 case OPIUMBIRD -> specialOpiumBird(ultimate);
@@ -6742,42 +6783,383 @@ public class Bird {
         game.addToKillFeed(shortName() + (ultimate ? " raised the ROYAL FOREST!" : " moved the forest lounge!"));
     }
 
-    private void specialRazorbill(boolean ultimate) {
-        specialCooldown = 780;
-        specialMaxCooldown = 780;
-
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 22 : 18);
-        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 12 : 10);
-        game.addToKillFeed("RAZOR DASH! " + shortName() + (ultimate ? " ULT PIERCES THE SKY!" : " PIERCES THE SKY!"));
-
-        double dirX = vx;
-        double dirY = vy;
-        double mag = Math.hypot(dirX, dirY);
-        if (mag < 0.35) {
-            dirX = facingRight ? 1 : -1;
-            dirY = 0;
-            mag = 1.0;
+    private void specialRazorbill(RazorbillSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialRazorbillNeutral(ultimate);
+            case SIDE -> specialRazorbillSide(ultimate);
+            case UP -> specialRazorbillUp(ultimate);
+            case DOWN -> specialRazorbillSnapline(ultimate);
         }
-        double dashSpeed = Math.max(12.0, RAZORBILL_DASH_SPEED * (ultimate ? 1.35 : 1.0) * speedMultiplier);
-        razorbillDashVX = dirX / mag * dashSpeed;
-        razorbillDashVY = dirY / mag * dashSpeed;
-        vx = razorbillDashVX;
-        vy = razorbillDashVY;
-        bladeStormFrames = ultimate ? (int) Math.round(RAZORBILL_DASH_FRAMES * 1.4) : RAZORBILL_DASH_FRAMES;
+    }
+
+    private void specialRazorbillNeutral(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        razorbillNeedleDirection = dir;
+        razorbillNeedleTimer = ultimate ? RAZORBILL_NEEDLE_FRAMES + 4 : RAZORBILL_NEEDLE_FRAMES;
+        razorbillNeedleUltimate = ultimate;
+        razorbillNeedleReuseTimer = ultimate ? 12 : RAZORBILL_NEUTRAL_REUSE_FRAMES;
+        specialCooldown = razorbillNeedleReuseTimer;
+        specialMaxCooldown = Math.max(1, razorbillNeedleReuseTimer);
+        attackAnimationTimer = Math.max(attackAnimationTimer, 10);
+
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY() - 4.0 * sizeMultiplier;
+        double reach = (ultimate ? 226.0 : 172.0) * sizeMultiplier;
+        double x1 = centerX + dir * 16.0 * sizeMultiplier;
+        double y1 = centerY + 8.0 * sizeMultiplier;
+        double x2 = centerX + dir * reach;
+        double y2 = centerY - 10.0 * sizeMultiplier;
+        addRazorbillCutLine(x1, y1, x2, y2, ultimate ? 280 : 210, ultimate);
+        int hits = applyRazorbillLineStrike(x1, y1, x2, y2,
+                (ultimate ? 36.0 : 28.0) * sizeMultiplier,
+                ultimate ? 8 : 5,
+                dir * (ultimate ? 7.8 : 5.8),
+                ultimate ? -5.6 : -3.4,
+                true,
+                true,
+                ultimate);
+        emitRazorbillLineParticles(x1, y1, x2, y2, ultimate ? 34 : 22, ultimate ? Color.GOLD : Color.CYAN.brighter());
+        if (hits > 0) {
+            game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 7 : 4);
+        }
+    }
+
+    private void specialRazorbillSide(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        razorbillSideReuseTimer = ultimate ? 18 : RAZORBILL_SIDE_REUSE_FRAMES;
+        specialCooldown = razorbillSideReuseTimer;
+        specialMaxCooldown = Math.max(1, razorbillSideReuseTimer);
+        razorbillSideUltimate = ultimate;
+        bladeStormFrames = ultimate ? RAZORBILL_DASH_FRAMES + 10 : RAZORBILL_DASH_FRAMES;
         Arrays.fill(razorbillDashHit, false);
 
-        double trailAngle = Math.atan2(razorbillDashVY, razorbillDashVX);
-        int trailCount = scaledParticleCount(ultimate ? 90 : 60);
-        for (int i = 0; i < trailCount; i++) {
-            double angle = trailAngle + (Math.random() - 0.5) * 0.7;
-            double speed = 6 + Math.random() * 10;
-            double back = 20 + Math.random() * 70;
+        double dashSpeed = Math.max(14.0, RAZORBILL_DASH_SPEED * (ultimate ? 1.22 : 1.0) * speedMultiplier);
+        razorbillDashVX = dir * dashSpeed;
+        razorbillDashVY = Math.min(vy * 0.35, isOnGround() ? -1.2 : 2.0);
+        vx = razorbillDashVX;
+        vy = razorbillDashVY;
+
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY() + 6.0 * sizeMultiplier;
+        double length = (ultimate ? 382.0 : 306.0) * sizeMultiplier;
+        addRazorbillCutLine(centerX - dir * 32.0 * sizeMultiplier,
+                centerY + 8.0 * sizeMultiplier,
+                centerX + dir * length,
+                centerY - 5.0 * sizeMultiplier,
+                ultimate ? RAZORBILL_CUT_LINE_LIFE_FRAMES + 90 : RAZORBILL_CUT_LINE_LIFE_FRAMES,
+                ultimate);
+
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 12 : 7);
+        emitRazorbillLineParticles(centerX - dir * 56.0 * sizeMultiplier, centerY,
+                centerX + dir * length, centerY - 5.0 * sizeMultiplier,
+                ultimate ? 46 : 30,
+                ultimate ? Color.GOLD.brighter() : Color.web("#80DEEA"));
+    }
+
+    private void specialRazorbillUp(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        razorbillUpSpecialUsed = true;
+        razorbillShearDirection = dir;
+        razorbillShearTimer = ultimate ? RAZORBILL_SHEAR_FRAMES + 8 : RAZORBILL_SHEAR_FRAMES;
+        razorbillShearUltimate = ultimate;
+        Arrays.fill(razorbillShearHit, false);
+        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
+        canDoubleJump = true;
+
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        double endX = centerX + dir * (ultimate ? 156.0 : 118.0) * sizeMultiplier;
+        double endY = centerY - (ultimate ? 242.0 : 194.0) * sizeMultiplier;
+        boolean crossedLine = razorbillLineIntersectsActiveLine(centerX, centerY, endX, endY);
+        double extraLift = crossedLine ? (ultimate ? 6.5 : 4.6) : 0.0;
+        vx = vx * 0.28 + dir * (ultimate ? 10.5 : 8.6) * speedMultiplier;
+        vy = -Math.max(15.0, (ultimate ? 20.6 : 17.2) * speedMultiplier + extraLift);
+        addRazorbillCutLine(centerX - dir * 8.0 * sizeMultiplier,
+                centerY + 20.0 * sizeMultiplier,
+                endX,
+                endY,
+                ultimate ? 310 : 235,
+                ultimate);
+        if (crossedLine) {
+            game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 14 : 9);
+            game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 7 : 4);
+            emitRazorbillSlashBurst(centerX, centerY, dir, ultimate ? Color.GOLD : Color.CYAN.brighter(), ultimate ? 34 : 22);
+        } else {
+            emitRazorbillLineParticles(centerX, centerY, endX, endY, ultimate ? 34 : 22,
+                    ultimate ? Color.GOLD.brighter() : Color.web("#B2EBF2"));
+        }
+    }
+
+    private void specialRazorbillSnapline(boolean ultimate) {
+        razorbillSnapTimer = ultimate ? RAZORBILL_SNAP_FRAMES + 7 : RAZORBILL_SNAP_FRAMES;
+        razorbillSnapUltimate = ultimate;
+        razorbillSnapReuseTimer = ultimate ? 20 : RAZORBILL_SNAP_REUSE_FRAMES;
+        specialCooldown = razorbillSnapReuseTimer;
+        specialMaxCooldown = Math.max(1, razorbillSnapReuseTimer);
+        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
+
+        if (!hasRazorbillCutLines()) {
+            double cx = bodyCenterX();
+            double cy = bodyCenterY();
+            double span = (ultimate ? 176.0 : 132.0) * sizeMultiplier;
+            addRazorbillCutLine(cx - span, cy - span * 0.32, cx + span, cy + span * 0.32, razorbillSnapTimer, ultimate);
+            addRazorbillCutLine(cx - span * 0.72, cy + span * 0.56, cx + span * 0.72, cy - span * 0.56, razorbillSnapTimer, ultimate);
+        }
+
+        int hits = 0;
+        for (int i = 0; i < RAZORBILL_MAX_CUT_LINES; i++) {
+            if (razorbillCutLife[i] <= 0) continue;
+            hits += applyRazorbillLineStrike(
+                    razorbillCutX1[i],
+                    razorbillCutY1[i],
+                    razorbillCutX2[i],
+                    razorbillCutY2[i],
+                    (ultimate ? 62.0 : 48.0) * sizeMultiplier,
+                    ultimate ? 10 : 7,
+                    Math.signum(razorbillCutX2[i] - razorbillCutX1[i]) * (ultimate ? 8.4 : 6.4),
+                    ultimate ? -10.0 : -7.4,
+                    false,
+                    true,
+                    ultimate
+            );
+            razorbillCutLife[i] = Math.min(razorbillCutLife[i], razorbillSnapTimer);
+            razorbillCutUltimate[i] = razorbillCutUltimate[i] || ultimate;
+            Arrays.fill(razorbillCutHit[i], true);
+            emitRazorbillLineParticles(razorbillCutX1[i], razorbillCutY1[i], razorbillCutX2[i], razorbillCutY2[i],
+                    ultimate ? 28 : 18,
+                    ultimate ? Color.GOLD.brighter() : Color.WHITE);
+        }
+
+        game.shakeIntensity = Math.max(game.shakeIntensity, hits > 0 ? (ultimate ? 18 : 12) : 6);
+        game.hitstopFrames = Math.max(game.hitstopFrames, hits > 0 ? (ultimate ? 8 : 5) : 2);
+        game.addToKillFeed(shortName() + (ultimate ? " ULT SNAPPED EVERY RAZOR WAKE!" : " snapped the razor wake!"));
+    }
+
+    private boolean isRazorbillSpecialOwner() {
+        return type == BirdGame3.BirdType.RAZORBILL
+                || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.RAZORBILL)
+                || (type == BirdGame3.BirdType.MOCKINGBIRD && mockingbirdCapturedType == BirdGame3.BirdType.RAZORBILL);
+    }
+
+    private boolean hasRazorbillCutLines() {
+        for (int life : razorbillCutLife) {
+            if (life > 0) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void clearRazorbillCutLines() {
+        Arrays.fill(razorbillCutLife, 0);
+        Arrays.fill(razorbillCutArmDelay, 0);
+        Arrays.fill(razorbillCutUltimate, false);
+        for (boolean[] hit : razorbillCutHit) {
+            Arrays.fill(hit, false);
+        }
+    }
+
+    private void addRazorbillCutLine(double x1, double y1, double x2, double y2, int lifeFrames, boolean ultimate) {
+        int slot = -1;
+        int lowestLife = Integer.MAX_VALUE;
+        for (int i = 0; i < RAZORBILL_MAX_CUT_LINES; i++) {
+            if (razorbillCutLife[i] <= 0) {
+                slot = i;
+                break;
+            }
+            if (razorbillCutLife[i] < lowestLife) {
+                lowestLife = razorbillCutLife[i];
+                slot = i;
+            }
+        }
+        if (slot < 0) {
+            return;
+        }
+        razorbillCutX1[slot] = x1;
+        razorbillCutY1[slot] = y1;
+        razorbillCutX2[slot] = x2;
+        razorbillCutY2[slot] = y2;
+        razorbillCutLife[slot] = Math.max(1, lifeFrames);
+        razorbillCutArmDelay[slot] = 6;
+        razorbillCutUltimate[slot] = ultimate;
+        Arrays.fill(razorbillCutHit[slot], false);
+    }
+
+    private boolean razorbillLineIntersectsActiveLine(double x1, double y1, double x2, double y2) {
+        for (int i = 0; i < RAZORBILL_MAX_CUT_LINES; i++) {
+            if (razorbillCutLife[i] <= 0) continue;
+            if (segmentsIntersect(x1, y1, x2, y2, razorbillCutX1[i], razorbillCutY1[i], razorbillCutX2[i], razorbillCutY2[i])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int applyRazorbillLineStrike(double x1, double y1, double x2, double y2,
+                                         double radius, int damage, double launchX, double launchY,
+                                         boolean addNick, boolean canBurst, boolean ultimate) {
+        int hits = 0;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dist = distancePointToSegment(other.bodyCenterX(), other.bodyCenterY(), x1, y1, x2, y2);
+            if (dist > radius + other.combatRadius()) continue;
+            double dir = Math.signum(other.bodyCenterX() - bodyCenterX());
+            if (dir == 0.0) {
+                dir = Math.signum(launchX);
+            }
+            if (dir == 0.0) {
+                dir = facingDirection();
+            }
+            int dealt = applyRazorbillSpecialHit(other, damage, launchX == 0.0 ? dir * 4.0 : launchX, launchY,
+                    addNick, canBurst, ultimate);
+            if (dealt > 0) {
+                hits++;
+            }
+        }
+        return hits;
+    }
+
+    private int applyRazorbillSpecialHit(Bird other, int damage, double launchX, double launchY,
+                                         boolean addNick, boolean canBurst, boolean ultimate) {
+        if (other == null || !canDamageTarget(other)) {
+            return 0;
+        }
+        double oldHealth = other.health;
+        int dealt = (int) applyDamageTo(other, damage);
+        if (dealt <= 0) {
+            return 0;
+        }
+
+        int totalDealt = dealt;
+        game.damageDealt[playerIndex] += dealt;
+        game.recordSpecialImpact(playerIndex, dealt, true);
+        other.vx += launchX;
+        other.vy += launchY;
+
+        int idx = other.playerIndex;
+        boolean burst = false;
+        if (idx >= 0 && idx < razorbillNicks.length && canBurst && razorbillNicks[idx] >= 3) {
+            burst = true;
+            razorbillNicks[idx] = 0;
+            razorbillNickFx[idx] = 26;
+            int burstDamage = ultimate ? 10 : 7;
+            int burstDealt = (int) applyDamageTo(other, burstDamage);
+            if (burstDealt > 0) {
+                totalDealt += burstDealt;
+                game.damageDealt[playerIndex] += burstDealt;
+                game.recordSpecialImpact(playerIndex, burstDealt, true);
+            }
+            double popDir = Math.signum(other.bodyCenterX() - bodyCenterX());
+            if (popDir == 0.0) {
+                popDir = facingDirection();
+            }
+            other.vx += popDir * (ultimate ? 8.5 : 6.2);
+            other.vy -= ultimate ? 14.0 : 10.5;
+            game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 18 : 12);
+            game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 9 : 6);
+            emitRazorbillSlashBurst(other.bodyCenterX(), other.bodyCenterY(), popDir,
+                    ultimate ? Color.GOLD.brighter() : Color.CYAN.brighter(),
+                    ultimate ? 44 : 30);
+            game.addToKillFeed(shortName() + " popped " + other.shortName() + "'s Nicks!");
+        } else if (idx >= 0 && idx < razorbillNicks.length && addNick) {
+            razorbillNicks[idx] = Math.min(3, razorbillNicks[idx] + 1);
+            razorbillNickFx[idx] = 32;
+        }
+
+        if (other.health <= 0 && oldHealth > 0) {
+            game.eliminations[playerIndex]++;
+            if (idx >= 0 && idx < razorbillNicks.length) {
+                razorbillNicks[idx] = 0;
+                razorbillNickFx[idx] = 0;
+            }
+        }
+        if (!burst) {
+            emitRazorbillSlashBurst(other.bodyCenterX(), other.bodyCenterY(), Math.signum(launchX),
+                    ultimate ? Color.GOLD : Color.web("#80DEEA"), ultimate ? 18 : 12);
+        }
+        return totalDealt;
+    }
+
+    private static double distancePointToSegment(double px, double py, double x1, double y1, double x2, double y2) {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double lenSq = dx * dx + dy * dy;
+        if (lenSq <= 0.0001) {
+            return Math.hypot(px - x1, py - y1);
+        }
+        double t = Math.clamp(((px - x1) * dx + (py - y1) * dy) / lenSq, 0.0, 1.0);
+        double closestX = x1 + t * dx;
+        double closestY = y1 + t * dy;
+        return Math.hypot(px - closestX, py - closestY);
+    }
+
+    private static boolean segmentsIntersect(double ax, double ay, double bx, double by,
+                                             double cx, double cy, double dx, double dy) {
+        double d1 = direction(cx, cy, dx, dy, ax, ay);
+        double d2 = direction(cx, cy, dx, dy, bx, by);
+        double d3 = direction(ax, ay, bx, by, cx, cy);
+        double d4 = direction(ax, ay, bx, by, dx, dy);
+        if (((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0))
+                && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0))) {
+            return true;
+        }
+        return Math.abs(d1) < 0.001 && onSegment(cx, cy, dx, dy, ax, ay)
+                || Math.abs(d2) < 0.001 && onSegment(cx, cy, dx, dy, bx, by)
+                || Math.abs(d3) < 0.001 && onSegment(ax, ay, bx, by, cx, cy)
+                || Math.abs(d4) < 0.001 && onSegment(ax, ay, bx, by, dx, dy);
+    }
+
+    private static double direction(double ax, double ay, double bx, double by, double px, double py) {
+        return (px - ax) * (by - ay) - (py - ay) * (bx - ax);
+    }
+
+    private static boolean onSegment(double ax, double ay, double bx, double by, double px, double py) {
+        return px >= Math.min(ax, bx) - 0.001 && px <= Math.max(ax, bx) + 0.001
+                && py >= Math.min(ay, by) - 0.001 && py <= Math.max(ay, by) + 0.001;
+    }
+
+    private void emitRazorbillLineParticles(double x1, double y1, double x2, double y2, int count, Color color) {
+        int particles = scaledParticleCount(count);
+        for (int i = 0; i < particles; i++) {
+            double t = Math.random();
+            double px = x1 + (x2 - x1) * t;
+            double py = y1 + (y2 - y1) * t;
+            double angle = Math.atan2(y2 - y1, x2 - x1) + Math.PI * 0.5 + (Math.random() - 0.5) * 0.75;
+            double speed = 2.5 + Math.random() * 6.5;
             game.particles.add(new Particle(
-                    x + 40 - Math.cos(angle) * back,
-                    y + 40 - Math.sin(angle) * back,
+                    px,
+                    py,
                     Math.cos(angle) * speed,
-                    Math.sin(angle) * speed,
-                    ultimate ? Color.GOLD.brighter() : Color.CYAN.brighter()
+                    Math.sin(angle) * speed - 1.6,
+                    color.deriveColor(0, 1, 1, 0.78)
+            ));
+        }
+    }
+
+    private void emitRazorbillSlashBurst(double cx, double cy, double dir, Color color, int count) {
+        double baseAngle = dir == 0.0 ? 0.0 : (dir > 0.0 ? 0.0 : Math.PI);
+        int particles = scaledParticleCount(count);
+        for (int i = 0; i < particles; i++) {
+            double angle = baseAngle + (Math.random() - 0.5) * 1.7;
+            double speed = 4.5 + Math.random() * 9.5;
+            game.particles.add(new Particle(
+                    cx + (Math.random() - 0.5) * 18.0,
+                    cy + (Math.random() - 0.5) * 18.0,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 2.5,
+                    color.deriveColor(0, 1, 1, 0.82)
             ));
         }
     }
@@ -7810,6 +8192,43 @@ public class Bird {
                 && mockingbirdSpecialReady(variant);
     }
 
+    private boolean canConvertShieldIntoRazorbillDownSpecial() {
+        return selectRazorbillSpecialVariant() == RazorbillSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+    }
+
+    private boolean canStartRazorbillSpecial() {
+        RazorbillSpecialVariant variant = selectRazorbillSpecialVariant();
+        boolean shieldConversion = canConvertShieldIntoRazorbillDownSpecial();
+        return type == BirdGame3.BirdType.RAZORBILL
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && !razorbillSpecialActive()
+                && razorbillSpecialReady(variant);
+    }
+
+    private boolean razorbillSpecialActive() {
+        return razorbillNeedleTimer > 0
+                || bladeStormFrames > 0
+                || razorbillShearTimer > 0
+                || razorbillSnapTimer > 0;
+    }
+
+    private boolean razorbillSpecialReady(RazorbillSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
+        return switch (variant) {
+            case NEUTRAL -> ultimateReady || razorbillNeedleReuseTimer <= 0;
+            case SIDE -> ultimateReady || (razorbillSideReuseTimer <= 0 && bladeStormFrames <= 0);
+            case UP -> ultimateReady || (!razorbillUpSpecialUsed && razorbillShearTimer <= 0);
+            case DOWN -> ultimateReady || razorbillSnapReuseTimer <= 0;
+        };
+    }
+
     private boolean mockingbirdSpecialReady(MockingbirdSpecialVariant variant) {
         return switch (variant) {
             case NEUTRAL -> mockingbirdCapturedType == null
@@ -7836,8 +8255,8 @@ public class Bird {
             case ROADRUNNER -> ultimateReady || roadrunnerBeepReuseTimer <= 0;
             case PENGUIN -> ultimateReady || penguinBellyReuseTimer <= 0;
             case SHOEBILL -> true;
-            case RAZORBILL, GRINCHHAWK, VULTURE, OPIUMBIRD, HEISENBIRD, TITMOUSE, BAT, PELICAN, RAVEN ->
-                    ultimateReady || specialCooldown <= 0;
+            case RAZORBILL -> ultimateReady || razorbillNeedleReuseTimer <= 0;
+            case GRINCHHAWK, VULTURE, OPIUMBIRD, HEISENBIRD, TITMOUSE, BAT, PELICAN, RAVEN -> ultimateReady || specialCooldown <= 0;
             case MOCKINGBIRD -> false;
         };
     }
@@ -7856,7 +8275,7 @@ public class Bird {
             case ROADRUNNER -> roadrunnerBeepCharging || roadrunnerBeepBurstTimer > 0 || roadrunnerRicochetTimer > 0 || roadrunnerDustDevilTimer > 0;
             case PENGUIN -> penguinBellyCharging || penguinBellySlideTimer > 0 || penguinRocketTimer > 0 || penguinFlopTimer > 0;
             case SHOEBILL -> shoebillStareFxTimer > 0 || shoebillThrustTimer > 0 || shoebillMarshLiftTimer > 0 || shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0;
-            case RAZORBILL -> bladeStormFrames > 0;
+            case RAZORBILL -> razorbillNeedleTimer > 0 || bladeStormFrames > 0 || razorbillShearTimer > 0 || razorbillSnapTimer > 0;
             case OPIUMBIRD, HEISENBIRD -> leanTimer > 0;
             case TITMOUSE -> isZipping;
             case BAT -> batEchoTimer > 0;
@@ -7988,6 +8407,19 @@ public class Bird {
         return MockingbirdSpecialVariant.NEUTRAL;
     }
 
+    private RazorbillSpecialVariant selectRazorbillSpecialVariant() {
+        if (jumpPressed()) {
+            return RazorbillSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return RazorbillSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return RazorbillSpecialVariant.SIDE;
+        }
+        return RazorbillSpecialVariant.NEUTRAL;
+    }
+
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -8050,6 +8482,11 @@ public class Bird {
                     && selectMockingbirdSpecialVariant() == MockingbirdSpecialVariant.UP
                     && !mockingbirdUpSpecialUsed;
         }
+        if (type == BirdGame3.BirdType.RAZORBILL) {
+            return canStartRazorbillSpecial()
+                    && selectRazorbillSpecialVariant() == RazorbillSpecialVariant.UP
+                    && !razorbillUpSpecialUsed;
+        }
         if (isRaptor()) {
             return canStartRaptorSpecial()
                     && selectRaptorSpecialVariant() == RaptorSpecialVariant.UP
@@ -8097,6 +8534,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.MOCKINGBIRD) {
             return canStartMockingbirdSpecial()
                     && selectMockingbirdSpecialVariant() == MockingbirdSpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.RAZORBILL) {
+            return canStartRazorbillSpecial()
+                    && selectRazorbillSpecialVariant() == RazorbillSpecialVariant.DOWN;
         }
         if (isRaptor()) {
             return canStartRaptorSpecial()
@@ -8192,6 +8633,26 @@ public class Bird {
         Arrays.fill(eagleAscentHit, false);
         eagleDiveCountdown = 0;
         diveTimer = 0;
+    }
+
+    private void resetRazorbillSpecialState(boolean clearLinesAndMarks) {
+        bladeStormFrames = 0;
+        razorbillDashVX = 0.0;
+        razorbillDashVY = 0.0;
+        razorbillSideUltimate = false;
+        Arrays.fill(razorbillDashHit, false);
+        razorbillNeedleTimer = 0;
+        razorbillNeedleUltimate = false;
+        razorbillShearTimer = 0;
+        razorbillShearUltimate = false;
+        Arrays.fill(razorbillShearHit, false);
+        razorbillSnapTimer = 0;
+        razorbillSnapUltimate = false;
+        if (clearLinesAndMarks) {
+            clearRazorbillCutLines();
+            Arrays.fill(razorbillNicks, 0);
+            Arrays.fill(razorbillNickFx, 0);
+        }
     }
 
     private void resetHummingbirdSpecialState(boolean clearTraps) {
@@ -8723,6 +9184,7 @@ public class Bird {
                 : type == BirdGame3.BirdType.PENGUIN ? canStartPenguinSpecial()
                 : type == BirdGame3.BirdType.SHOEBILL ? shoebillAnySpecialReady()
                 : type == BirdGame3.BirdType.MOCKINGBIRD ? canStartMockingbirdSpecial()
+                : type == BirdGame3.BirdType.RAZORBILL ? canStartRazorbillSpecial()
                 : specialCooldown <= 0)
                 && aiSpecialCooldown <= 0 &&
                 shouldUseSpecialAI(target, targetDist, onGround, lowHealth) &&
@@ -8733,8 +9195,12 @@ public class Bird {
             if (type == BirdGame3.BirdType.SHOEBILL) {
                 configureShoebillAISpecialInputs(target, targetDist, onGround);
             }
+            if (type == BirdGame3.BirdType.RAZORBILL) {
+                configureRazorbillAISpecialInputs(target, targetDist, onGround);
+            }
             game.setAiControlKey(playerIndex, specialKey(), true);
-            aiSpecialCooldown = type == BirdGame3.BirdType.PIGEON ? 16 : (type == BirdGame3.BirdType.SHOEBILL ? 20 : 26);
+            aiSpecialCooldown = type == BirdGame3.BirdType.PIGEON ? 16
+                    : (type == BirdGame3.BirdType.SHOEBILL || type == BirdGame3.BirdType.RAZORBILL ? 20 : 26);
         }
 
         if (!powerFocus && tauntCooldown <= 0 && target != null && currentDurability > 80
@@ -9389,7 +9855,8 @@ public class Bird {
     }
 
     private boolean shouldAIUseRecoverySpecial(boolean onGround, Platform mainStage) {
-        if (onGround || mainStage == null || specialCooldown > 0) return false;
+        if (onGround || mainStage == null) return false;
+        if (type != BirdGame3.BirdType.RAZORBILL && specialCooldown > 0) return false;
         double centerX = x + 40 * sizeMultiplier;
         double bottomY = y + 80 * sizeMultiplier;
         double stageLeft = mainStage.x;
@@ -9415,6 +9882,8 @@ public class Bird {
                     && (depth > 90.0 || (offstage && (offstageDistance > 22.0 || movingAway || vy > 2.0)));
             case SHOEBILL -> !shoebillUpSpecialUsed
                     && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.1)));
+            case RAZORBILL -> !razorbillUpSpecialUsed
+                    && (depth > 92.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             default -> false;
         };
     }
@@ -9480,7 +9949,8 @@ public class Bird {
                     || type == BirdGame3.BirdType.ROOSTER
                     || type == BirdGame3.BirdType.ROADRUNNER
                     || type == BirdGame3.BirdType.PENGUIN
-                    || type == BirdGame3.BirdType.SHOEBILL) {
+                    || type == BirdGame3.BirdType.SHOEBILL
+                    || type == BirdGame3.BirdType.RAZORBILL) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
             }
             game.setAiControlKey(playerIndex, specialKey(), true);
@@ -9543,6 +10013,9 @@ public class Bird {
             case SHOEBILL -> {
                 if (!shoebillUpSpecialUsed) reach += 165.0;
             }
+            case RAZORBILL -> {
+                if (!razorbillUpSpecialUsed) reach += 160.0;
+            }
             case TITMOUSE, HUMMINGBIRD, BAT -> reach += 95.0;
             case VULTURE -> {
                 if (!isOnGround() || isFlying) {
@@ -9570,6 +10043,9 @@ public class Bird {
             case ROADRUNNER -> reach += 60.0 + roadrunnerMomentumRatio() * 80.0;
             case SHOEBILL -> {
                 if (!shoebillUpSpecialUsed) reach += 38.0;
+            }
+            case RAZORBILL -> {
+                if (!razorbillUpSpecialUsed) reach += 42.0;
             }
             case TITMOUSE, HUMMINGBIRD, BAT -> reach += 95.0;
             case TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> reach += 35.0;
@@ -9646,6 +10122,29 @@ public class Bird {
         }
     }
 
+    private void configureRazorbillAISpecialInputs(Bird target, double dist, boolean onGround) {
+        if (target == null || type != BirdGame3.BirdType.RAZORBILL) {
+            return;
+        }
+        int dir = target.bodyCenterX() >= bodyCenterX() ? 1 : -1;
+        facingRight = dir > 0;
+        double dy = target.bodyCenterY() - bodyCenterY();
+        boolean hasLines = hasRazorbillCutLines();
+        int targetIndex = target.playerIndex;
+        boolean targetPrimed = targetIndex >= 0 && targetIndex < razorbillNicks.length && razorbillNicks[targetIndex] >= 3;
+        if (hasLines && (targetPrimed || dist < 230.0) && razorbillSnapReuseTimer <= 0) {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            return;
+        }
+        if (dy < -120.0 && dist < 360.0 && !razorbillUpSpecialUsed) {
+            game.setAiControlKey(playerIndex, jumpKey(), true);
+            return;
+        }
+        if (dist > 105.0 && dist < 380.0 && razorbillSideReuseTimer <= 0) {
+            game.setAiControlKey(playerIndex, dir < 0 ? leftKey() : rightKey(), true);
+        }
+    }
+
     private boolean shouldUseSpecialAI(Bird target, double dist, boolean onGround, boolean lowHealth) {
         double dy = target.y - y;
         switch (type) {
@@ -9678,7 +10177,9 @@ public class Bird {
             case MOCKINGBIRD:
                 return onGround && !loungeActive && (lowHealth || dist < 210);
             case RAZORBILL:
-                return !onGround && dist < 320 && dy > -90;
+                return (dist < 290 && Math.abs(dy) < 150)
+                        || (hasRazorbillCutLines() && dist < 380)
+                        || (!onGround && dy > -120 && dist < 330);
             case GRINCHHAWK:
                 return dist < 260 && health < 95;
             case VULTURE:
@@ -9900,6 +10401,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.MOCKINGBIRD && isOnGround()) {
             mockingbirdUpSpecialUsed = false;
         }
+        if (type == BirdGame3.BirdType.RAZORBILL && isOnGround()) {
+            razorbillUpSpecialUsed = false;
+        }
 
         if (airborne && landingLagTimer > 0) {
             landingLagTimer = 0;
@@ -9922,6 +10426,7 @@ public class Bird {
             resetHummingbirdSpecialState(false);
             resetTurkeySpecialState(false);
             resetPenguinSpecialState(false);
+            resetRazorbillSpecialState(false);
         }
 
         if (handleGrabbedState()) {
@@ -10078,8 +10583,8 @@ public class Bird {
         handlePenguinSpecialState(specialHeld);
         handleShoebillSpecialState();
 
-        // === RAZORBILL DASH ===
-        handleRazorbillBladeStorm();
+        // === RAZORBILL RAZOR WAKE ===
+        handleRazorbillSpecials();
 
         // === APPLY VELOCITY ===
         double prevX = x;
@@ -10209,6 +10714,12 @@ public class Bird {
         pigeonRushTimer = Math.max(0, (int)(pigeonRushTimer - gameSpeed));
         pigeonFlutterTimer = Math.max(0, (int)(pigeonFlutterTimer - gameSpeed));
         pigeonScavengeTimer = Math.max(0, (int)(pigeonScavengeTimer - gameSpeed));
+        razorbillNeedleTimer = Math.max(0, (int)(razorbillNeedleTimer - gameSpeed));
+        razorbillNeedleReuseTimer = Math.max(0, (int)(razorbillNeedleReuseTimer - gameSpeed));
+        razorbillSideReuseTimer = Math.max(0, (int)(razorbillSideReuseTimer - gameSpeed));
+        razorbillShearTimer = Math.max(0, (int)(razorbillShearTimer - gameSpeed));
+        razorbillSnapTimer = Math.max(0, (int)(razorbillSnapTimer - gameSpeed));
+        razorbillSnapReuseTimer = Math.max(0, (int)(razorbillSnapReuseTimer - gameSpeed));
         phoenixNeutralReuseTimer = Math.max(0, (int)(phoenixNeutralReuseTimer - gameSpeed));
         phoenixBurstFxTimer = Math.max(0, (int)(phoenixBurstFxTimer - gameSpeed));
         phoenixCastLockTimer = Math.max(0, (int)(phoenixCastLockTimer - gameSpeed));
@@ -10462,6 +10973,34 @@ public class Bird {
         if (bladeStormFrames == 0) {
             razorbillDashVX = 0.0;
             razorbillDashVY = 0.0;
+            razorbillSideUltimate = false;
+        }
+        if (razorbillShearTimer == 0) {
+            razorbillShearUltimate = false;
+            Arrays.fill(razorbillShearHit, false);
+        }
+        if (razorbillNeedleTimer == 0) {
+            razorbillNeedleUltimate = false;
+        }
+        if (razorbillSnapTimer == 0) {
+            razorbillSnapUltimate = false;
+        }
+        for (int i = 0; i < RAZORBILL_MAX_CUT_LINES; i++) {
+            if (razorbillCutLife[i] > 0) {
+                razorbillCutLife[i] = Math.max(0, (int)(razorbillCutLife[i] - gameSpeed));
+                if (razorbillCutLife[i] == 0) {
+                    razorbillCutArmDelay[i] = 0;
+                    razorbillCutUltimate[i] = false;
+                    Arrays.fill(razorbillCutHit[i], false);
+                }
+            }
+            if (i < razorbillNickFx.length) {
+                razorbillNickFx[i] = Math.max(0, (int)(razorbillNickFx[i] - gameSpeed));
+                if (i < game.players.length && (game.players[i] == null || game.players[i].health <= 0)) {
+                    razorbillNicks[i] = 0;
+                    razorbillNickFx[i] = 0;
+                }
+            }
         }
         plungeTimer = Math.max(0, (int)(plungeTimer - gameSpeed));
         blockCooldown = Math.max(0, (int)(blockCooldown - gameSpeed));
@@ -11305,10 +11844,16 @@ public class Bird {
         if ((type == BirdGame3.BirdType.PIGEON && pigeonSpecialActive())
                     || (isRaptor() && raptorSpecialActive())
                     || (type == BirdGame3.BirdType.SHOEBILL && shoebillSpecialActive())
+                    || (type == BirdGame3.BirdType.RAZORBILL
+                    && (bladeStormFrames > 0 || razorbillShearTimer > 0 || razorbillSnapTimer > 0))
                     || (type == BirdGame3.BirdType.ROADRUNNER
                     && (roadrunnerBeepCharging || roadrunnerRicochetTimer > 0 || roadrunnerDustDevilTimer > 0))) {
                 if (type == BirdGame3.BirdType.ROADRUNNER && roadrunnerBeepBurstTimer > 0) {
                     vx *= airborne ? 0.99 : 0.985;
+                } else if (type == BirdGame3.BirdType.RAZORBILL && bladeStormFrames > 0) {
+                    vx *= 0.98;
+                } else if (type == BirdGame3.BirdType.RAZORBILL && razorbillShearTimer > 0) {
+                    vx *= 0.94;
                 } else if (type == BirdGame3.BirdType.SHOEBILL && shoebillThrustTimer > 0) {
                     vx *= airborne ? 0.94 : 0.88;
                 } else {
@@ -11481,6 +12026,8 @@ public class Bird {
                     ? canConvertShieldIntoShoebillDownSpecial()
                     : type == BirdGame3.BirdType.MOCKINGBIRD
                     ? canConvertShieldIntoMockingbirdDownSpecial()
+                    : type == BirdGame3.BirdType.RAZORBILL
+                    ? canConvertShieldIntoRazorbillDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
             boolean canStartSelectedSpecial = type == BirdGame3.BirdType.PIGEON
                     ? canStartPigeonSpecial()
@@ -11500,6 +12047,8 @@ public class Bird {
                     ? canStartShoebillSpecial()
                     : type == BirdGame3.BirdType.MOCKINGBIRD
                     ? canStartMockingbirdSpecial()
+                    : type == BirdGame3.BirdType.RAZORBILL
+                    ? canStartRazorbillSpecial()
                     : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
             if (!attackLocked && !grabLocked && (!shielding || canSpecialFromShield) && !jumpSquatting && specialJustPressed()) {
                 if (grappleUses == 0 && canStartSelectedSpecial) {
@@ -11509,7 +12058,8 @@ public class Bird {
                         || (specialCooldown > 0 && type != BirdGame3.BirdType.PIGEON
                         && type != BirdGame3.BirdType.ROADRUNNER
                         && type != BirdGame3.BirdType.PENGUIN
-                        && type != BirdGame3.BirdType.MOCKINGBIRD))) {
+                        && type != BirdGame3.BirdType.MOCKINGBIRD
+                        && type != BirdGame3.BirdType.RAZORBILL))) {
                     cooldownFlash = 15;
                 }
             }
@@ -13008,9 +13558,57 @@ public class Bird {
         }
     }
 
+    private void handleRazorbillSpecials() {
+        handleRazorbillCutLines();
+        if (!isRazorbillSpecialOwner()) {
+            return;
+        }
+        handleRazorbillBladeStorm();
+        handleRazorbillCliffShear();
+    }
+
+    private void handleRazorbillCutLines() {
+        if (!isRazorbillSpecialOwner()) {
+            return;
+        }
+        for (int i = 0; i < RAZORBILL_MAX_CUT_LINES; i++) {
+            if (razorbillCutLife[i] <= 0) continue;
+            if (razorbillCutArmDelay[i] > 0) {
+                razorbillCutArmDelay[i]--;
+                continue;
+            }
+            boolean snapping = razorbillSnapTimer > 0 && razorbillCutLife[i] <= razorbillSnapTimer + 1;
+            double radius = ((snapping ? 38.0 : 18.0) + (razorbillCutUltimate[i] ? 8.0 : 0.0)) * sizeMultiplier;
+            int damage = snapping ? (razorbillCutUltimate[i] ? 6 : 4) : (razorbillCutUltimate[i] ? 4 : 2);
+            for (Bird other : game.players) {
+                if (!canDamageTarget(other)) continue;
+                if (other.playerIndex < 0 || other.playerIndex >= razorbillCutHit[i].length) continue;
+                if (razorbillCutHit[i][other.playerIndex]) continue;
+                double dist = distancePointToSegment(other.bodyCenterX(), other.bodyCenterY(),
+                        razorbillCutX1[i], razorbillCutY1[i], razorbillCutX2[i], razorbillCutY2[i]);
+                if (dist > radius + other.combatRadius()) continue;
+                double dir = Math.signum(other.bodyCenterX() - bodyCenterX());
+                if (dir == 0.0) {
+                    dir = Math.signum(razorbillCutX2[i] - razorbillCutX1[i]);
+                }
+                if (dir == 0.0) {
+                    dir = facingDirection();
+                }
+                int dealt = applyRazorbillSpecialHit(other, damage,
+                        dir * (snapping ? 4.8 : 2.2),
+                        snapping ? -5.8 : -2.2,
+                        !snapping,
+                        snapping,
+                        razorbillCutUltimate[i]);
+                if (dealt > 0) {
+                    razorbillCutHit[i][other.playerIndex] = true;
+                }
+            }
+        }
+    }
+
     private void handleRazorbillBladeStorm() {
-        if ((type != BirdGame3.BirdType.RAZORBILL && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.RAZORBILL))
-                || bladeStormFrames <= 0) return;
+        if (bladeStormFrames <= 0) return;
 
         double dashX = razorbillDashVX;
         double dashY = razorbillDashVY;
@@ -13048,30 +13646,19 @@ public class Bird {
             double dist = Math.hypot(dx, dy);
             if (dist > 85 + other.combatRadius()) continue;
 
-            int dmg = Math.max(6, (int) Math.round((11 + random.nextInt(5)) * powerMultiplier));
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
+            int dmg = Math.max(5, (int) Math.round((razorbillSideUltimate ? 10 : 7) * powerMultiplier));
+            int dealt = applyRazorbillSpecialHit(other, dmg,
+                    dirX * (razorbillSideUltimate ? 10.5 : 8.0),
+                    dirY * 8.0 - (razorbillSideUltimate ? 4.2 : 2.8),
+                    true,
+                    true,
+                    razorbillSideUltimate);
             if (dealt <= 0) continue;
 
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-
-            other.vx += dirX * 12;
-            other.vy += dirY * 12;
             razorbillDashHit[other.playerIndex] = true;
+            vy = Math.min(vy, -5.8);
+            vx -= dirX * 2.2;
 
-            game.addToKillFeed(shortName() + " PIERCED " +
-                    other.shortName() + "! -" + dealt + " HP");
-
-            for (int k = 0; k < 16; k++) {
-                double angle = Math.atan2(dirY, dirX) + (Math.random() - 0.5) * 1.4;
-                double speed = 6 + Math.random() * 9;
-                game.particles.add(new Particle(other.x + 40, other.y + 40,
-                        Math.cos(angle) * speed,
-                        Math.sin(angle) * speed,
-                        Color.CYAN.brighter()));
-            }
             game.shakeIntensity = Math.max(game.shakeIntensity, 14);
             game.hitstopFrames = Math.max(game.hitstopFrames, 6);
         }
@@ -13088,6 +13675,50 @@ public class Bird {
                         Color.WHITE.deriveColor(0, 1, 1, 0.9)
                 ));
             }
+        }
+    }
+
+    private void handleRazorbillCliffShear() {
+        if (razorbillShearTimer <= 0) {
+            return;
+        }
+        int dir = razorbillShearDirection == 0 ? facingDirection() : razorbillShearDirection;
+        double phase = Math.clamp(razorbillShearTimer / (double) (razorbillShearUltimate ? RAZORBILL_SHEAR_FRAMES + 8 : RAZORBILL_SHEAR_FRAMES), 0.0, 1.0);
+        vx = vx * 0.86 + dir * (razorbillShearUltimate ? 2.0 : 1.5);
+        vy = Math.min(vy, -3.0 - phase * (razorbillShearUltimate ? 7.8 : 5.8));
+
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= razorbillShearHit.length) continue;
+            if (razorbillShearHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
+            if (dir > 0 && dx < -other.combatHalfWidth() * 0.25) continue;
+            if (dir < 0 && dx > other.combatHalfWidth() * 0.25) continue;
+            if (Math.abs(dx) > (razorbillShearUltimate ? 118.0 : 96.0) * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (dy > 48.0 * sizeMultiplier + other.combatHalfHeight()
+                    || dy < -(razorbillShearUltimate ? 150.0 : 118.0) * sizeMultiplier - other.combatHalfHeight()) {
+                continue;
+            }
+            int dealt = applyRazorbillSpecialHit(other,
+                    razorbillShearUltimate ? 9 : 6,
+                    dir * (razorbillShearUltimate ? 7.5 : 5.6),
+                    razorbillShearUltimate ? -12.0 : -9.0,
+                    true,
+                    true,
+                    razorbillShearUltimate);
+            if (dealt > 0) {
+                razorbillShearHit[other.playerIndex] = true;
+            }
+        }
+
+        if (razorbillShearTimer % 4 == 0) {
+            double cx = bodyCenterX();
+            double cy = bodyCenterY();
+            emitRazorbillLineParticles(cx - dir * 18.0 * sizeMultiplier, cy + 20.0 * sizeMultiplier,
+                    cx + dir * 72.0 * sizeMultiplier, cy - 92.0 * sizeMultiplier,
+                    razorbillShearUltimate ? 9 : 6,
+                    razorbillShearUltimate ? Color.GOLD : Color.web("#B2EBF2"));
         }
     }
 
@@ -13594,10 +14225,11 @@ public class Bird {
         roosterUpSpecialUsed = false;
         isZipping = false;
         zipTimer = 0;
-        bladeStormFrames = 0;
-        razorbillDashVX = 0.0;
-        razorbillDashVY = 0.0;
-        Arrays.fill(razorbillDashHit, false);
+        resetRazorbillSpecialState(true);
+        razorbillNeedleReuseTimer = 0;
+        razorbillSideReuseTimer = 0;
+        razorbillUpSpecialUsed = false;
+        razorbillSnapReuseTimer = 0;
         resetPenguinSpecialState(true);
         penguinBellyReuseTimer = 0;
         penguinIcebergReuseTimer = 0;
@@ -13766,6 +14398,27 @@ public class Bird {
         state.eagleAscentActive = eagleAscentActive;
         state.eagleAscentFrames = eagleAscentFrames;
         state.bladeStormFrames = bladeStormFrames;
+        state.razorbillNeedleTimer = razorbillNeedleTimer;
+        state.razorbillNeedleReuseTimer = razorbillNeedleReuseTimer;
+        state.razorbillNeedleDirection = razorbillNeedleDirection;
+        state.razorbillNeedleUltimate = razorbillNeedleUltimate;
+        state.razorbillSideReuseTimer = razorbillSideReuseTimer;
+        state.razorbillSideUltimate = razorbillSideUltimate;
+        state.razorbillShearTimer = razorbillShearTimer;
+        state.razorbillShearDirection = razorbillShearDirection;
+        state.razorbillShearUltimate = razorbillShearUltimate;
+        state.razorbillUpSpecialUsed = razorbillUpSpecialUsed;
+        state.razorbillSnapTimer = razorbillSnapTimer;
+        state.razorbillSnapReuseTimer = razorbillSnapReuseTimer;
+        state.razorbillSnapUltimate = razorbillSnapUltimate;
+        System.arraycopy(razorbillCutX1, 0, state.razorbillCutX1, 0, razorbillCutX1.length);
+        System.arraycopy(razorbillCutY1, 0, state.razorbillCutY1, 0, razorbillCutY1.length);
+        System.arraycopy(razorbillCutX2, 0, state.razorbillCutX2, 0, razorbillCutX2.length);
+        System.arraycopy(razorbillCutY2, 0, state.razorbillCutY2, 0, razorbillCutY2.length);
+        System.arraycopy(razorbillCutLife, 0, state.razorbillCutLife, 0, razorbillCutLife.length);
+        System.arraycopy(razorbillCutUltimate, 0, state.razorbillCutUltimate, 0, razorbillCutUltimate.length);
+        System.arraycopy(razorbillNicks, 0, state.razorbillNicks, 0, razorbillNicks.length);
+        System.arraycopy(razorbillNickFx, 0, state.razorbillNickFx, 0, razorbillNickFx.length);
         state.plungeTimer = plungeTimer;
         state.batHanging = batHanging;
         state.batEchoTimer = batEchoTimer;
@@ -13959,6 +14612,27 @@ public class Bird {
         return state;
     }
 
+    private static void copyDoubleArray(double[] source, double[] target) {
+        Arrays.fill(target, 0.0);
+        if (source != null) {
+            System.arraycopy(source, 0, target, 0, Math.min(source.length, target.length));
+        }
+    }
+
+    private static void copyIntArray(int[] source, int[] target) {
+        Arrays.fill(target, 0);
+        if (source != null) {
+            System.arraycopy(source, 0, target, 0, Math.min(source.length, target.length));
+        }
+    }
+
+    private static void copyBooleanArray(boolean[] source, boolean[] target) {
+        Arrays.fill(target, false);
+        if (source != null) {
+            System.arraycopy(source, 0, target, 0, Math.min(source.length, target.length));
+        }
+    }
+
     void applyLanState(LanBirdState state) {
         if (state == null) return;
         BirdGame3.BirdType[] types = BirdGame3.BirdType.values();
@@ -14071,6 +14745,28 @@ public class Bird {
         this.eagleAscentActive = state.eagleAscentActive;
         this.eagleAscentFrames = state.eagleAscentFrames;
         this.bladeStormFrames = state.bladeStormFrames;
+        this.razorbillNeedleTimer = Math.max(0, state.razorbillNeedleTimer);
+        this.razorbillNeedleReuseTimer = Math.max(0, state.razorbillNeedleReuseTimer);
+        this.razorbillNeedleDirection = state.razorbillNeedleDirection == 0 ? 1 : state.razorbillNeedleDirection;
+        this.razorbillNeedleUltimate = state.razorbillNeedleUltimate;
+        this.razorbillSideReuseTimer = Math.max(0, state.razorbillSideReuseTimer);
+        this.razorbillSideUltimate = state.razorbillSideUltimate;
+        this.razorbillShearTimer = Math.max(0, state.razorbillShearTimer);
+        this.razorbillShearDirection = state.razorbillShearDirection == 0 ? 1 : state.razorbillShearDirection;
+        this.razorbillShearUltimate = state.razorbillShearUltimate;
+        this.razorbillUpSpecialUsed = state.razorbillUpSpecialUsed;
+        this.razorbillSnapTimer = Math.max(0, state.razorbillSnapTimer);
+        this.razorbillSnapReuseTimer = Math.max(0, state.razorbillSnapReuseTimer);
+        this.razorbillSnapUltimate = state.razorbillSnapUltimate;
+        copyDoubleArray(state.razorbillCutX1, this.razorbillCutX1);
+        copyDoubleArray(state.razorbillCutY1, this.razorbillCutY1);
+        copyDoubleArray(state.razorbillCutX2, this.razorbillCutX2);
+        copyDoubleArray(state.razorbillCutY2, this.razorbillCutY2);
+        copyIntArray(state.razorbillCutLife, this.razorbillCutLife);
+        Arrays.fill(this.razorbillCutArmDelay, 0);
+        copyBooleanArray(state.razorbillCutUltimate, this.razorbillCutUltimate);
+        copyIntArray(state.razorbillNicks, this.razorbillNicks);
+        copyIntArray(state.razorbillNickFx, this.razorbillNickFx);
         this.plungeTimer = state.plungeTimer;
         this.batHanging = state.batHanging;
         this.batEchoTimer = state.batEchoTimer;
@@ -15649,7 +16345,9 @@ public class Bird {
         if (!suppressSelectEffects) {
             drawEagleSoaring(g, airborne, drawSize);
         }
+        drawRazorbillCutLines(g);
         drawRazorbillBladestorm(g, drawSize);
+        drawRazorbillSpecialFx(g, drawSize);
         drawRespawnAura(g, drawSize);
         drawDodgeAura(g, drawSize);
         drawNullRockShield(g, drawSize);
@@ -17676,8 +18374,49 @@ public class Bird {
         g.restore();
     }
 
+    private void drawRazorbillCutLines(GraphicsContext g) {
+        if (!isRazorbillSpecialOwner() && !hasRazorbillCutLines()) {
+            return;
+        }
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < RAZORBILL_MAX_CUT_LINES; i++) {
+            if (razorbillCutLife[i] <= 0) continue;
+            boolean snapping = razorbillSnapTimer > 0 && razorbillCutLife[i] <= razorbillSnapTimer + 1;
+            double fade = Math.clamp(razorbillCutLife[i] / 90.0, 0.18, 1.0);
+            double alpha = snapping ? 0.86 : 0.34 + fade * 0.34;
+            Color core = razorbillCutUltimate[i] ? Color.GOLD.brighter() : Color.web("#80DEEA");
+            g.setEffect(new Glow(snapping ? 0.88 : 0.38));
+            g.setStroke(core.deriveColor(0, 1, 1, alpha * 0.52));
+            g.setLineWidth((snapping ? 16.0 : 9.0) * sizeMultiplier);
+            g.strokeLine(razorbillCutX1[i], razorbillCutY1[i], razorbillCutX2[i], razorbillCutY2[i]);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, Math.min(0.95, alpha + 0.12)));
+            g.setLineWidth((snapping ? 5.2 : 2.8) * sizeMultiplier);
+            g.strokeLine(razorbillCutX1[i], razorbillCutY1[i], razorbillCutX2[i], razorbillCutY2[i]);
+            g.setEffect(null);
+        }
+
+        for (int i = 0; i < razorbillNicks.length && i < game.players.length; i++) {
+            int marks = razorbillNicks[i];
+            Bird target = game.players[i];
+            if (marks <= 0 || target == null || target.health <= 0) continue;
+            double pulse = razorbillNickFx[i] > 0 ? 1.0 + Math.sin(razorbillNickFx[i] * 0.7) * 0.18 : 1.0;
+            double tx = target.bodyCenterX();
+            double ty = target.y - 18.0 * target.sizeMultiplier;
+            g.setLineCap(StrokeLineCap.ROUND);
+            for (int mark = 0; mark < marks; mark++) {
+                double offset = (mark - (marks - 1) * 0.5) * 13.0 * target.sizeMultiplier;
+                g.setStroke((marks >= 3 ? Color.GOLD : Color.CYAN).deriveColor(0, 1, 1, 0.86));
+                g.setLineWidth(3.2 * target.sizeMultiplier * pulse);
+                g.strokeLine(tx + offset - 5.0 * target.sizeMultiplier, ty + 8.0 * target.sizeMultiplier,
+                        tx + offset + 5.0 * target.sizeMultiplier, ty - 8.0 * target.sizeMultiplier);
+            }
+        }
+        g.restore();
+    }
+
     private void drawRazorbillBladestorm(GraphicsContext g, double drawSize) {
-        if ((type == BirdGame3.BirdType.RAZORBILL) && (bladeStormFrames > 0)) {
+        if (isRazorbillSpecialOwner() && (bladeStormFrames > 0)) {
             double dirX = razorbillDashVX;
             double dirY = razorbillDashVY;
             double mag = Math.hypot(dirX, dirY);
@@ -17689,14 +18428,15 @@ public class Bird {
             dirX /= mag;
             dirY /= mag;
 
-            g.setStroke(Color.CYAN.brighter());
-            g.setLineWidth(6);
+            Color slash = razorbillSideUltimate ? Color.GOLD.brighter() : Color.CYAN.brighter();
+            g.setStroke(slash);
+            g.setLineWidth(6 * sizeMultiplier);
             for (int i = 0; i < 7; i++) {
-                double offset = i * 18;
+                double offset = i * 18 * sizeMultiplier;
                 double jitter = (Math.random() - 0.5) * 10;
-                double px = x + 40 - dirX * offset - dirY * jitter;
-                double py = y + 40 - dirY * offset + dirX * jitter;
-                g.strokeLine(px, py, px - dirX * 26, py - dirY * 26);
+                double px = bodyCenterX() - dirX * offset - dirY * jitter;
+                double py = bodyCenterY() - dirY * offset + dirX * jitter;
+                g.strokeLine(px, py, px - dirX * 26 * sizeMultiplier, py - dirY * 26 * sizeMultiplier);
             }
 
             double pulse = 0.45 + 0.25 * Math.sin(bladeStormFrames * 0.6);
@@ -17711,6 +18451,66 @@ public class Bird {
                 g.setEffect(null);
             }
         }
+    }
+
+    private void drawRazorbillSpecialFx(GraphicsContext g, double drawSize) {
+        if (!isRazorbillSpecialOwner()) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        if (razorbillNeedleTimer > 0) {
+            double phase = razorbillNeedleTimer / (double) (razorbillNeedleUltimate ? RAZORBILL_NEEDLE_FRAMES + 4 : RAZORBILL_NEEDLE_FRAMES);
+            double reach = (razorbillNeedleUltimate ? 210.0 : 160.0) * s;
+            int dir = razorbillNeedleDirection == 0 ? facingDirection() : razorbillNeedleDirection;
+            g.setEffect(new Glow(0.62));
+            g.setStroke((razorbillNeedleUltimate ? Color.GOLD : Color.web("#B2EBF2")).deriveColor(0, 1, 1, 0.45 + phase * 0.42));
+            g.setLineWidth((razorbillNeedleUltimate ? 11.0 : 8.0) * s);
+            g.strokeLine(centerX + dir * 16.0 * s, centerY + 9.0 * s,
+                    centerX + dir * reach, centerY - 10.0 * s);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.72 + phase * 0.2));
+            g.setLineWidth(3.0 * s);
+            g.strokeLine(centerX + dir * 22.0 * s, centerY + 7.0 * s,
+                    centerX + dir * reach, centerY - 10.0 * s);
+            g.setEffect(null);
+        }
+
+        if (razorbillShearTimer > 0) {
+            double maxFrames = razorbillShearUltimate ? RAZORBILL_SHEAR_FRAMES + 8.0 : RAZORBILL_SHEAR_FRAMES;
+            double phase = razorbillShearTimer / maxFrames;
+            int dir = razorbillShearDirection == 0 ? facingDirection() : razorbillShearDirection;
+            double alpha = 0.34 + phase * 0.46;
+            g.setEffect(new Glow(0.52));
+            g.setStroke((razorbillShearUltimate ? Color.GOLD : Color.web("#80DEEA")).deriveColor(0, 1, 1, alpha));
+            g.setLineWidth((razorbillShearUltimate ? 11.0 : 8.0) * s);
+            g.strokeLine(centerX - dir * 18.0 * s, centerY + 28.0 * s,
+                    centerX + dir * 94.0 * s, centerY - 122.0 * s);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, Math.min(0.95, alpha + 0.18)));
+            g.setLineWidth(3.0 * s);
+            g.strokeLine(centerX - dir * 8.0 * s, centerY + 16.0 * s,
+                    centerX + dir * 78.0 * s, centerY - 104.0 * s);
+            g.setEffect(null);
+        }
+
+        if (razorbillSnapTimer > 0) {
+            double maxFrames = razorbillSnapUltimate ? RAZORBILL_SNAP_FRAMES + 7.0 : RAZORBILL_SNAP_FRAMES;
+            double phase = razorbillSnapTimer / maxFrames;
+            double radius = (120.0 + (1.0 - phase) * 72.0) * s;
+            g.setEffect(new Glow(0.70));
+            g.setStroke((razorbillSnapUltimate ? Color.GOLD : Color.CYAN).deriveColor(0, 1, 1, 0.22 + phase * 0.48));
+            g.setLineWidth(5.0 * s);
+            g.strokeOval(centerX - radius * 0.5, centerY - radius * 0.5, radius, radius);
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 30.0 * s));
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.72 * phase));
+            g.fillText("SNAP", centerX - 42.0 * s, centerY - 74.0 * s);
+            g.setEffect(null);
+        }
+
+        g.restore();
     }
 
     private void drawEagleSkin(GraphicsContext g, double drawSize) {
