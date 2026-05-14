@@ -8834,7 +8834,7 @@ public class BirdGame3 extends Application {
         SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "Death Stare / Heavy Bill Thrust / Marsh Lift / Statue Counter"),
         MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Mimic neutral / Mimic Call / Forest Lift / Forest Lounge"),
         RAZORBILL("Razorbill", 8, 12, 3.6, Color.INDIGO, 0.25, "Razor Storm / Skimming Razor / Cliff Shear / Counter Cut"),
-        GRINCHHAWK("Grinch-Hawk", 10, 10, 2.8, Color.rgb(102, 153, 0), 0.80, "Steal HP from everyone + Heavy Flap"),
+        GRINCHHAWK("Grinch-Hawk", 10, 10, 2.8, Color.rgb(102, 153, 0), 0.80, "Heart Snatch / Sleigh Crash / Chimney Flap / Fake Present"),
         VULTURE("Vulture", 7, 14, 3.1, Color.rgb(45, 25, 55), 0.2, "Summon Crows + Feast"),
         OPIUMBIRD("Opium Bird", 7, 19, 4.4, Color.rgb(138, 43, 226), 0.7, "Lean Cloud (DoT + Slow)"),
         TITMOUSE("Tufted Titmouse", 6, 21, 5.4, Color.SLATEGRAY, 0.9, "Zip Dash"),

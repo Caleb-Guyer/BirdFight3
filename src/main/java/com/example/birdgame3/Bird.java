@@ -133,6 +133,13 @@ public class Bird {
         DOWN
     }
 
+    private enum GrinchhawkSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record NormalAttackProfile(
             double horizontalReach,
             double verticalReach,
@@ -770,6 +777,28 @@ public class Bird {
     private int roadrunnerSlipDirection = 1;
     private int roadrunnerSlipOwnerIndex = -1;
     private boolean roadrunnerSlipUltimate = false;
+    private static final int GRINCH_HEART_SNATCH_FRAMES = 18;
+    private static final int GRINCH_SLEIGH_LIFE_FRAMES = 180;
+    private static final double GRINCH_SLEIGH_SPEED = 18.0;
+    private static final int GRINCH_CHIMNEY_FLAP_FRAMES = 24;
+    private static final int GRINCH_PRESENT_ARM_FRAMES = 18;
+    private static final int GRINCH_PRESENT_FUSE_FRAMES = 118;
+    private int grinchHeartSnatchTimer = 0;
+    private boolean grinchHeartSnatchUltimate = false;
+    private final boolean[] grinchHeartSnatchHit = new boolean[4];
+    private boolean grinchSleighActive = false;
+    private boolean grinchSleighRiding = false;
+    private int grinchSleighTimer = 0;
+    private int grinchSleighDirection = 1;
+    private double grinchSleighX = 0.0;
+    private double grinchSleighY = 0.0;
+    private boolean grinchSleighUltimate = false;
+    private final boolean[] grinchSleighHit = new boolean[4];
+    private int grinchChimneyFlapTimer = 0;
+    private boolean grinchChimneyFlapUltimate = false;
+    private boolean grinchUpSpecialUsed = false;
+    private final boolean[] grinchChimneyFlapHit = new boolean[4];
+    private GrinchPresent grinchPresent = null;
     private static final int ROOSTER_MAX_CHICKS = 5;
     private static final int ROOSTER_STARTING_CHICKS = 3;
     private static final int ROOSTER_NEUTRAL_REUSE_FRAMES = 34;
@@ -851,6 +880,26 @@ public class Bird {
             this.ultimate = ultimate;
             this.lifeFrames = ultimate ? ROADRUNNER_PAINTED_ROAD_LIFE_FRAMES + 120 : ROADRUNNER_PAINTED_ROAD_LIFE_FRAMES;
             this.usesRemaining = ROADRUNNER_PAINTED_ROAD_USES;
+        }
+    }
+
+    private static final class GrinchPresent {
+        final double x;
+        final double y;
+        final boolean ultimate;
+        final int[] hitCooldown = new int[4];
+        int ageFrames;
+        int fuseFrames;
+
+        GrinchPresent(double x, double y, boolean ultimate) {
+            this.x = x;
+            this.y = y;
+            this.ultimate = ultimate;
+            this.fuseFrames = ultimate ? GRINCH_PRESENT_FUSE_FRAMES + 30 : GRINCH_PRESENT_FUSE_FRAMES;
+        }
+
+        boolean armed() {
+            return ageFrames >= GRINCH_PRESENT_ARM_FRAMES;
         }
     }
 
@@ -1401,6 +1450,7 @@ public class Bird {
             case RAZORBILL -> {
                 resetRazorbillSpecialState(false);
             }
+            case GRINCHHAWK -> resetGrinchhawkSpecialState(false);
             case OPIUMBIRD, HEISENBIRD -> leanTimer = 0;
             case TITMOUSE -> {
                 isZipping = false;
@@ -1414,7 +1464,7 @@ public class Bird {
                     enlargedByPlunge = false;
                 }
             }
-            case ROOSTER, GRINCHHAWK, VULTURE, RAVEN, MOCKINGBIRD -> {
+            case ROOSTER, VULTURE, RAVEN, MOCKINGBIRD -> {
             }
         }
         resetMockingbirdNeutralReuseLocks();
@@ -1957,6 +2007,7 @@ public class Bird {
         attackCrows(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
         attackChicks(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
         attackPenguinSnowForts(attackCenterX, attackCenterY, range, verticalRange, dmg);
+        attackGrinchhawkPresents(attackCenterX, attackCenterY, range, verticalRange);
         game.damageFrostbiteSnowbanks(this, attackCenterX, attackCenterY, range, verticalRange, dmg);
         return profile;
     }
@@ -2843,6 +2894,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.RAZORBILL && !canStartRazorbillSpecial()) {
             return;
         }
+        if (type == BirdGame3.BirdType.GRINCHHAWK && !canStartGrinchhawkSpecial()) {
+            return;
+        }
         if (isRaptor()) {
             RaptorSpecialVariant variant = selectRaptorSpecialVariant();
             if (!canStartRaptorSpecialVariant(variant)) {
@@ -2865,6 +2919,7 @@ public class Bird {
                 && type != BirdGame3.BirdType.SHOEBILL
                 && type != BirdGame3.BirdType.MOCKINGBIRD
                 && type != BirdGame3.BirdType.RAZORBILL
+                && type != BirdGame3.BirdType.GRINCHHAWK
                 && specialCooldown > 0
                 && !ultimateReady) {
             if (!game.isAI[playerIndex]) {
@@ -2913,7 +2968,7 @@ public class Bird {
             case SHOEBILL -> specialShoebill(selectShoebillSpecialVariant(), ultimateTriggered);
             case MOCKINGBIRD -> specialMockingbird(selectMockingbirdSpecialVariant(), ultimateTriggered);
             case RAZORBILL -> specialRazorbill(selectRazorbillSpecialVariant(), ultimateTriggered);
-            case GRINCHHAWK -> specialGrinchhawk(ultimateTriggered);
+            case GRINCHHAWK -> specialGrinchhawk(selectGrinchhawkSpecialVariant(), ultimateTriggered);
             case VULTURE -> specialVulture(ultimateTriggered);
             case ROOSTER -> specialRooster(selectRoosterSpecialVariant(), ultimateTriggered);
             case OPIUMBIRD -> specialOpiumBird(ultimateTriggered);
@@ -3245,6 +3300,263 @@ public class Bird {
         if (shoebillStatueTimer > 0) {
             handleShoebillStatueTrap();
         }
+    }
+
+    private void handleGrinchhawkSpecialState(boolean jumpJustPressed, double gameSpeed) {
+        boolean neutralCopy = mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.GRINCHHAWK);
+        if (type != BirdGame3.BirdType.GRINCHHAWK && !neutralCopy) {
+            return;
+        }
+
+        if (stunTime > 0.0) {
+            resetGrinchhawkSpecialState(false);
+            if (neutralCopy) {
+                mockingbirdCopiedNeutralSource = null;
+            }
+        }
+
+        if (grinchHeartSnatchTimer > 0) {
+            grinchHeartSnatchTimer--;
+        }
+
+        if (type != BirdGame3.BirdType.GRINCHHAWK) {
+            return;
+        }
+
+        handleGrinchhawkSleigh(jumpJustPressed, gameSpeed);
+        handleGrinchhawkChimneyFlap();
+        handleGrinchhawkPresent();
+    }
+
+    private void handleGrinchhawkSleigh(boolean jumpJustPressed, double gameSpeed) {
+        if (!grinchSleighActive) {
+            return;
+        }
+
+        grinchSleighTimer = Math.max(0, grinchSleighTimer - Math.max(1, (int) Math.ceil(gameSpeed)));
+        int dir = grinchSleighDirection == 0 ? facingDirection() : grinchSleighDirection;
+        double speed = (grinchSleighUltimate ? GRINCH_SLEIGH_SPEED + 4.0 : GRINCH_SLEIGH_SPEED) * Math.max(0.6, gameSpeed);
+        boolean gettingOff = blockPressed() && !blockHeldLastFrame;
+        boolean forcedOff = stunTime > 0.0 || health <= 0 || grabbedBy != null || grabbedTarget != null;
+
+        if (grinchSleighRiding) {
+            grinchSleighX = bodyCenterX();
+            grinchSleighY = bodyBottomY() + 8.0 * sizeMultiplier;
+            facingRight = dir > 0;
+            if (jumpJustPressed || gettingOff || forcedOff) {
+                dismountGrinchhawkSleigh(jumpJustPressed && !forcedOff);
+            } else {
+                vx = dir * speed;
+                vy = Math.min(vy, isOnGround() ? -0.6 : 1.2);
+                applyGrinchhawkSleighHits(false);
+            }
+        } else {
+            grinchSleighX += dir * speed;
+            grinchSleighY = grinchhawkSleighSurfaceY(grinchSleighX);
+            applyGrinchhawkSleighHits(true);
+        }
+
+        double leftBound = usesIslandBounds() ? game.battlefieldLeftBound() - 80.0 : -120.0;
+        double rightBound = usesIslandBounds() ? game.battlefieldRightBound() + 80.0 : BirdGame3.WORLD_WIDTH + 120.0;
+        if (grinchSleighTimer <= 0 || grinchSleighX < leftBound || grinchSleighX > rightBound || health <= 0) {
+            crashGrinchhawkSleigh();
+        } else if ((grinchSleighTimer & 3) == 0) {
+            emitGrinchhawkBurst(grinchSleighX - dir * 42.0 * sizeMultiplier,
+                    grinchSleighY - 9.0 * sizeMultiplier, -dir, grinchSleighUltimate ? 4 : 3,
+                    grinchSleighUltimate ? Color.GOLD : Color.web("#EF9A9A"));
+        }
+    }
+
+    private double grinchhawkSleighSurfaceY(double sleighX) {
+        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y + 8.0 * sizeMultiplier : Double.POSITIVE_INFINITY;
+        double sourceY = Double.isFinite(grinchSleighY) && grinchSleighY != 0.0
+                ? grinchSleighY - 42.0 * sizeMultiplier
+                : bodyBottomY() - 18.0 * sizeMultiplier;
+        for (Platform p : game.platforms) {
+            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
+                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
+            if (isCaveCeiling || p.w <= 0 || p.h <= 0) continue;
+            if (sleighX < p.x - 28.0 || sleighX > p.x + p.w + 28.0) continue;
+            if (p.y < sourceY - 42.0) continue;
+            if (p.y + 8.0 * sizeMultiplier < bestY) {
+                bestY = p.y + 8.0 * sizeMultiplier;
+            }
+        }
+        return Double.isFinite(bestY) ? bestY : grinchSleighY;
+    }
+
+    private void dismountGrinchhawkSleigh(boolean jumpOff) {
+        if (!grinchSleighRiding) {
+            return;
+        }
+        grinchSleighRiding = false;
+        grinchSleighX = bodyCenterX();
+        grinchSleighY = bodyBottomY() + 8.0 * sizeMultiplier;
+        if (jumpOff) {
+            vy = Math.min(vy, -type.jumpHeight * 0.70);
+            vx = -grinchSleighDirection * 3.0;
+            canDoubleJump = true;
+        } else {
+            vx *= 0.35;
+            vy = Math.min(vy, -5.0);
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, 8);
+    }
+
+    private void crashGrinchhawkSleigh() {
+        if (!grinchSleighActive) {
+            return;
+        }
+        emitGrinchhawkBurst(grinchSleighX, grinchSleighY - 16.0 * sizeMultiplier,
+                -grinchSleighDirection, grinchSleighUltimate ? 42 : 28,
+                grinchSleighUltimate ? Color.GOLD : Color.web("#C62828"));
+        game.shakeIntensity = Math.max(game.shakeIntensity, grinchSleighUltimate ? 14 : 9);
+        grinchSleighActive = false;
+        grinchSleighRiding = false;
+        grinchSleighTimer = 0;
+        Arrays.fill(grinchSleighHit, false);
+    }
+
+    private void applyGrinchhawkSleighHits(boolean crashOnHit) {
+        if (!grinchSleighActive) {
+            return;
+        }
+        int dir = grinchSleighDirection == 0 ? facingDirection() : grinchSleighDirection;
+        double hitX = grinchSleighRiding ? bodyCenterX() + dir * 26.0 * sizeMultiplier : grinchSleighX;
+        double hitY = grinchSleighRiding ? bodyCenterY() + 18.0 * sizeMultiplier : grinchSleighY - 34.0 * sizeMultiplier;
+        boolean hitAny = false;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= grinchSleighHit.length) continue;
+            if (grinchSleighHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - hitX;
+            double dy = other.bodyCenterY() - hitY;
+            if (Math.abs(dx) > (grinchSleighUltimate ? 104.0 : 88.0) * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > (grinchSleighUltimate ? 70.0 : 58.0) * sizeMultiplier + other.combatHalfHeight()) continue;
+
+            grinchSleighHit[other.playerIndex] = true;
+            int dealt = dealGrinchhawkSpecialDamage(
+                    other,
+                    grinchSleighUltimate ? 16 : 12,
+                    dir * (grinchSleighUltimate ? 18.0 : 14.0),
+                    grinchSleighUltimate ? -6.2 : -4.6,
+                    false,
+                    crashOnHit ? "crashed into" : "sledded through",
+                    grinchSleighUltimate ? Color.GOLD : Color.web("#EF5350")
+            );
+            hitAny |= dealt > 0;
+        }
+        if (crashOnHit && hitAny) {
+            crashGrinchhawkSleigh();
+        }
+    }
+
+    private void handleGrinchhawkChimneyFlap() {
+        if (grinchChimneyFlapTimer <= 0) {
+            return;
+        }
+        grinchChimneyFlapTimer--;
+        if (grinchChimneyFlapTimer > GRINCH_CHIMNEY_FLAP_FRAMES / 2) {
+            vy = Math.min(vy, grinchChimneyFlapUltimate ? -13.0 : -10.8);
+        } else {
+            vx *= 0.94;
+        }
+        applyGrinchhawkChimneyFlapHits();
+        if ((grinchChimneyFlapTimer & 3) == 0) {
+            emitGrinchhawkBurst(bodyCenterX(), bodyBottomY() - 12.0 * sizeMultiplier,
+                    facingDirection(), grinchChimneyFlapUltimate ? 5 : 3,
+                    grinchChimneyFlapUltimate ? Color.GOLD : Color.web("#F1F8E9"));
+        }
+    }
+
+    private void applyGrinchhawkChimneyFlapHits() {
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY() - 28.0 * sizeMultiplier;
+        double reach = (grinchChimneyFlapUltimate ? 104.0 : 84.0) * sizeMultiplier;
+        double verticalReach = (grinchChimneyFlapUltimate ? 132.0 : 108.0) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= grinchChimneyFlapHit.length) continue;
+            if (grinchChimneyFlapHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.abs(dx) > reach + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > verticalReach + other.combatHalfHeight()) continue;
+
+            grinchChimneyFlapHit[other.playerIndex] = true;
+            dealGrinchhawkSpecialDamage(
+                    other,
+                    grinchChimneyFlapUltimate ? 11 : 8,
+                    Math.signum(dx == 0.0 ? facingDirection() : dx) * (grinchChimneyFlapUltimate ? 7.5 : 5.5),
+                    grinchChimneyFlapUltimate ? -12.5 : -9.5,
+                    false,
+                    "chimney-flapped",
+                    grinchChimneyFlapUltimate ? Color.GOLD : Color.web("#F1F8E9")
+            );
+        }
+    }
+
+    private void handleGrinchhawkPresent() {
+        if (grinchPresent == null) {
+            return;
+        }
+        GrinchPresent present = grinchPresent;
+        present.ageFrames++;
+        present.fuseFrames--;
+        if (present.fuseFrames <= 0 || health <= 0) {
+            explodeGrinchhawkPresent(present);
+            return;
+        }
+        if ((present.ageFrames & 9) == 0) {
+            emitGrinchhawkBurst(present.x, present.y - 15.0 * sizeMultiplier,
+                    0.0, present.ultimate ? 3 : 2, present.ultimate ? Color.GOLD : Color.web("#C62828"));
+        }
+        if (!present.armed()) {
+            return;
+        }
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - present.x;
+            double feetGap = Math.abs(other.bodyBottomY() - present.y);
+            boolean touching = Math.abs(dx) <= (present.ultimate ? 72.0 : 56.0) * sizeMultiplier + other.combatHalfWidth()
+                    && (feetGap <= 34.0 * sizeMultiplier || other.bodyCenterY() > present.y - 68.0 * sizeMultiplier);
+            if (touching) {
+                explodeGrinchhawkPresent(present);
+                return;
+            }
+        }
+    }
+
+    private void explodeGrinchhawkPresent(GrinchPresent present) {
+        if (present == null || grinchPresent != present) {
+            return;
+        }
+        grinchPresent = null;
+        double radius = (present.ultimate ? 128.0 : 96.0) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - present.x;
+            double dy = other.bodyCenterY() - (present.y - 32.0 * sizeMultiplier);
+            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > radius * 0.78 + other.combatHalfHeight()) continue;
+
+            double pushDir = Math.signum(dx);
+            if (pushDir == 0.0) {
+                pushDir = facingDirection();
+            }
+            dealGrinchhawkSpecialDamage(
+                    other,
+                    present.ultimate ? 14 : 10,
+                    pushDir * (present.ultimate ? 10.0 : 7.0),
+                    present.ultimate ? -13.0 : -9.5,
+                    false,
+                    "gift-trapped",
+                    present.ultimate ? Color.GOLD : Color.web("#C62828")
+            );
+        }
+        emitGrinchhawkBurst(present.x, present.y - 28.0 * sizeMultiplier,
+                0.0, present.ultimate ? 58 : 38, present.ultimate ? Color.GOLD : Color.web("#C62828"));
+        game.shakeIntensity = Math.max(game.shakeIntensity, present.ultimate ? 16 : 10);
     }
 
     private double penguinBellyChargeRatio() {
@@ -6998,25 +7310,189 @@ public class Bird {
         }
     }
 
+    private void specialGrinchhawk(GrinchhawkSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialGrinchhawkHeartSnatch(ultimate);
+            case SIDE -> specialGrinchhawkSleighCrash(ultimate);
+            case UP -> specialGrinchhawkChimneyFlap(ultimate);
+            case DOWN -> specialGrinchhawkFakePresent(ultimate);
+        }
+    }
+
     private void specialGrinchhawk(boolean ultimate) {
-        int stolen = 0;
+        specialGrinchhawkHeartSnatch(ultimate);
+    }
+
+    private void specialGrinchhawkHeartSnatch(boolean ultimate) {
+        grinchHeartSnatchTimer = ultimate ? GRINCH_HEART_SNATCH_FRAMES + 6 : GRINCH_HEART_SNATCH_FRAMES;
+        grinchHeartSnatchUltimate = ultimate;
+        Arrays.fill(grinchHeartSnatchHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, ultimate ? 18 : 14);
+        vx *= isOnGround() ? 0.46 : 0.68;
+        applyGrinchhawkHeartSnatchHit();
+        emitGrinchhawkBurst(bodyCenterX() + facingDirection() * 48.0 * sizeMultiplier,
+                bodyCenterY() - 4.0 * sizeMultiplier, facingDirection(),
+                ultimate ? 26 : 16, ultimate ? Color.GOLD : Color.web("#AED581"));
+    }
+
+    private void applyGrinchhawkHeartSnatchHit() {
+        int dir = facingDirection();
+        double reach = (grinchHeartSnatchUltimate ? 116.0 : 92.0) * sizeMultiplier;
+        double verticalReach = (grinchHeartSnatchUltimate ? 84.0 : 66.0) * sizeMultiplier;
+        double originX = bodyCenterX() + dir * 26.0 * sizeMultiplier;
+        double originY = bodyCenterY() - 2.0 * sizeMultiplier;
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
-            int base = ultimate ? 12 : 8;
-            int bonus = (health > 80 ? (ultimate ? 6 : 4) : 0);
-            int take = (int) Math.min(base + bonus, other.health);
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, take);
-            stolen += dealt;
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
-            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-            game.addToKillFeed(shortName() + " STOLE " + dealt + " HP from " + other.shortName() + "!");
+            if (other.playerIndex < 0 || other.playerIndex >= grinchHeartSnatchHit.length) continue;
+            if (grinchHeartSnatchHit[other.playerIndex]) continue;
+            double forward = (other.bodyCenterX() - originX) * dir;
+            if (forward < -other.combatHalfWidth() * 0.25 || forward > reach + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyCenterY() - originY) > verticalReach + other.combatHalfHeight()) continue;
+
+            grinchHeartSnatchHit[other.playerIndex] = true;
+            int dealt = dealGrinchhawkSpecialDamage(
+                    other,
+                    grinchHeartSnatchUltimate ? 12 : 8,
+                    dir * (grinchHeartSnatchUltimate ? 9.5 : 6.5),
+                    grinchHeartSnatchUltimate ? -5.5 : -3.4,
+                    true,
+                    "snatched",
+                    grinchHeartSnatchUltimate ? Color.GOLD : Color.web("#8BC34A")
+            );
+            if (dealt > 0) {
+                heal(Math.max(2.0, dealt * (grinchHeartSnatchUltimate ? 0.90 : 0.65)));
+            }
         }
-        heal(stolen);
-        specialCooldown = 840;
-        specialMaxCooldown = 840;
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 26 : 20);
+    }
+
+    private void specialGrinchhawkSleighCrash(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        grinchSleighActive = true;
+        grinchSleighRiding = true;
+        grinchSleighTimer = ultimate ? GRINCH_SLEIGH_LIFE_FRAMES + 60 : GRINCH_SLEIGH_LIFE_FRAMES;
+        grinchSleighDirection = dir;
+        grinchSleighUltimate = ultimate;
+        grinchSleighX = bodyCenterX();
+        grinchSleighY = bodyBottomY() + 8.0 * sizeMultiplier;
+        Arrays.fill(grinchSleighHit, false);
+        vx = dir * (ultimate ? GRINCH_SLEIGH_SPEED + 4.0 : GRINCH_SLEIGH_SPEED);
+        vy = Math.min(vy, isOnGround() ? -1.0 : 1.0);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
+        emitGrinchhawkBurst(grinchSleighX - dir * 34.0 * sizeMultiplier, grinchSleighY,
+                -dir, ultimate ? 30 : 20, ultimate ? Color.GOLD : Color.web("#C62828"));
+    }
+
+    private void specialGrinchhawkChimneyFlap(boolean ultimate) {
+        if (grinchUpSpecialUsed && !ultimate) {
+            return;
+        }
+        grinchUpSpecialUsed = true;
+        grinchChimneyFlapTimer = ultimate ? GRINCH_CHIMNEY_FLAP_FRAMES + 8 : GRINCH_CHIMNEY_FLAP_FRAMES;
+        grinchChimneyFlapUltimate = ultimate;
+        Arrays.fill(grinchChimneyFlapHit, false);
+        canDoubleJump = true;
+        vx *= isOnGround() ? 0.44 : 0.64;
+        vy = Math.min(vy, -(ultimate ? 19.5 : 16.4));
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 16);
+        emitGrinchhawkBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier,
+                facingDirection(), ultimate ? 40 : 28, ultimate ? Color.GOLD : Color.web("#F5F5F5"));
+    }
+
+    private void specialGrinchhawkFakePresent(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        double presentX = bodyCenterX() + dir * 56.0 * sizeMultiplier;
+        double presentY = grinchhawkPresentSurfaceY(presentX);
+        grinchPresent = new GrinchPresent(presentX, presentY, ultimate);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
+        vx *= isOnGround() ? 0.54 : 0.78;
+        emitGrinchhawkBurst(presentX, presentY - 12.0 * sizeMultiplier,
+                dir, ultimate ? 22 : 14, ultimate ? Color.GOLD : Color.web("#C62828"));
+    }
+
+    private double grinchhawkPresentSurfaceY(double presentX) {
+        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
+        double sourceY = bodyBottomY() - 24.0 * sizeMultiplier;
+        for (Platform p : game.platforms) {
+            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
+                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
+            if (isCaveCeiling || p.w <= 0 || p.h <= 0) continue;
+            if (presentX < p.x - 18.0 || presentX > p.x + p.w + 18.0) continue;
+            if (p.y < sourceY - 18.0) continue;
+            if (p.y < bestY) {
+                bestY = p.y;
+            }
+        }
+        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+    }
+
+    private int dealGrinchhawkSpecialDamage(Bird other, double rawDamage, double launchX, double launchY,
+                                            boolean steal, String verb, Color particleColor) {
+        if (other == null) {
+            return 0;
+        }
+        double oldHealth = other.health;
+        int dealt = (int) applyDamageTo(other, rawDamage);
+        if (dealt <= 0) {
+            game.recordSpecialImpact(playerIndex, 0, false);
+            return 0;
+        }
+
+        game.damageDealt[playerIndex] += dealt;
+        game.recordSpecialImpact(playerIndex, dealt, true);
+        other.vx += launchX;
+        other.vy += launchY;
+        if (other.health <= 0 && oldHealth > 0) {
+            game.eliminations[playerIndex]++;
+        }
+        game.addToKillFeed(shortName() + " " + verb + " " + other.shortName() + "! -" + dealt + " HP");
+        game.playHitSound(dealt);
+        if (steal) {
+            for (int i = 0; i < scaledParticleCount(7); i++) {
+                double angle = Math.random() * Math.PI * 2.0;
+                game.particles.add(new Particle(
+                        other.bodyCenterX(),
+                        other.bodyCenterY(),
+                        Math.cos(angle) * (1.2 + Math.random() * 2.8),
+                        Math.sin(angle) * (1.2 + Math.random() * 2.8) - 1.2,
+                        Color.web("#AED581").deriveColor(0, 1, 1, 0.76)
+                ));
+            }
+        }
+        emitGrinchhawkBurst(other.bodyCenterX(), other.bodyCenterY(), Math.signum(launchX),
+                12, particleColor);
+        return dealt;
+    }
+
+    private void emitGrinchhawkBurst(double cx, double cy, double dir, int count, Color color) {
+        int particles = scaledParticleCount(count);
+        double baseAngle = dir == 0.0 ? -Math.PI / 2.0 : (dir > 0.0 ? 0.0 : Math.PI);
+        for (int i = 0; i < particles; i++) {
+            double angle = baseAngle + (Math.random() - 0.5) * 1.8;
+            double speed = 2.0 + Math.random() * 7.0;
+            game.particles.add(new Particle(
+                    cx + (Math.random() - 0.5) * 22.0 * sizeMultiplier,
+                    cy + (Math.random() - 0.5) * 18.0 * sizeMultiplier,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 1.8,
+                    color.deriveColor(0, 1, 1, 0.72 + Math.random() * 0.16)
+            ));
+        }
     }
 
     private void specialVulture(boolean ultimate) {
@@ -8046,6 +8522,41 @@ public class Bird {
                 && razorbillSpecialReady(variant);
     }
 
+    private boolean canConvertShieldIntoGrinchhawkDownSpecial() {
+        return selectGrinchhawkSpecialVariant() == GrinchhawkSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+    }
+
+    private boolean canStartGrinchhawkSpecial() {
+        GrinchhawkSpecialVariant variant = selectGrinchhawkSpecialVariant();
+        boolean shieldConversion = canConvertShieldIntoGrinchhawkDownSpecial();
+        return type == BirdGame3.BirdType.GRINCHHAWK
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && grinchhawkSpecialReady(variant);
+    }
+
+    private boolean grinchhawkSpecialActive() {
+        return grinchHeartSnatchTimer > 0
+                || grinchSleighRiding
+                || grinchChimneyFlapTimer > 0;
+    }
+
+    private boolean grinchhawkSpecialReady(GrinchhawkSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
+        return switch (variant) {
+            case NEUTRAL -> grinchHeartSnatchTimer <= 0;
+            case SIDE -> ultimateReady || !grinchSleighActive;
+            case UP -> ultimateReady || !grinchUpSpecialUsed;
+            case DOWN -> ultimateReady || grinchPresent == null;
+        };
+    }
+
     private boolean razorbillSpecialActive() {
         return razorbillStormTimer > 0
                 || bladeStormFrames > 0
@@ -8092,7 +8603,8 @@ public class Bird {
             case PENGUIN -> ultimateReady || penguinBellyReuseTimer <= 0;
             case SHOEBILL -> true;
             case RAZORBILL -> ultimateReady || razorbillStormReuseTimer <= 0;
-            case GRINCHHAWK, VULTURE, OPIUMBIRD, HEISENBIRD, TITMOUSE, BAT, PELICAN, RAVEN -> ultimateReady || specialCooldown <= 0;
+            case GRINCHHAWK -> true;
+            case VULTURE, OPIUMBIRD, HEISENBIRD, TITMOUSE, BAT, PELICAN, RAVEN -> ultimateReady || specialCooldown <= 0;
             case MOCKINGBIRD -> false;
         };
     }
@@ -8117,7 +8629,8 @@ public class Bird {
             case TITMOUSE -> isZipping;
             case BAT -> batEchoTimer > 0;
             case PELICAN -> plungeTimer > 0;
-            case GRINCHHAWK, VULTURE, RAVEN, MOCKINGBIRD -> false;
+            case GRINCHHAWK -> grinchHeartSnatchTimer > 0;
+            case VULTURE, RAVEN, MOCKINGBIRD -> false;
         };
     }
 
@@ -8257,6 +8770,19 @@ public class Bird {
         return RazorbillSpecialVariant.NEUTRAL;
     }
 
+    private GrinchhawkSpecialVariant selectGrinchhawkSpecialVariant() {
+        if (jumpPressed()) {
+            return GrinchhawkSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return GrinchhawkSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return GrinchhawkSpecialVariant.SIDE;
+        }
+        return GrinchhawkSpecialVariant.NEUTRAL;
+    }
+
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -8324,6 +8850,11 @@ public class Bird {
                     && selectRazorbillSpecialVariant() == RazorbillSpecialVariant.UP
                     && !razorbillUpSpecialUsed;
         }
+        if (type == BirdGame3.BirdType.GRINCHHAWK) {
+            return canStartGrinchhawkSpecial()
+                    && selectGrinchhawkSpecialVariant() == GrinchhawkSpecialVariant.UP
+                    && !grinchUpSpecialUsed;
+        }
         if (isRaptor()) {
             return canStartRaptorSpecial()
                     && selectRaptorSpecialVariant() == RaptorSpecialVariant.UP
@@ -8375,6 +8906,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.RAZORBILL) {
             return canStartRazorbillSpecial()
                     && selectRazorbillSpecialVariant() == RazorbillSpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.GRINCHHAWK) {
+            return canStartGrinchhawkSpecial()
+                    && selectGrinchhawkSpecialVariant() == GrinchhawkSpecialVariant.DOWN;
         }
         if (isRaptor()) {
             return canStartRaptorSpecial()
@@ -8492,6 +9027,21 @@ public class Bird {
         razorbillCounterUltimate = false;
         razorbillCountered = false;
         razorbillCounterAttemptActive = false;
+    }
+
+    private void resetGrinchhawkSpecialState(boolean clearObjects) {
+        grinchHeartSnatchTimer = 0;
+        grinchHeartSnatchUltimate = false;
+        Arrays.fill(grinchHeartSnatchHit, false);
+        grinchSleighRiding = false;
+        if (clearObjects) {
+            grinchSleighActive = false;
+            grinchSleighTimer = 0;
+            grinchPresent = null;
+        }
+        grinchChimneyFlapTimer = 0;
+        grinchChimneyFlapUltimate = false;
+        Arrays.fill(grinchChimneyFlapHit, false);
     }
 
     private void resetHummingbirdSpecialState(boolean clearTraps) {
@@ -9024,6 +9574,7 @@ public class Bird {
                 : type == BirdGame3.BirdType.SHOEBILL ? shoebillAnySpecialReady()
                 : type == BirdGame3.BirdType.MOCKINGBIRD ? canStartMockingbirdSpecial()
                 : type == BirdGame3.BirdType.RAZORBILL ? canStartRazorbillSpecial()
+                : type == BirdGame3.BirdType.GRINCHHAWK ? canStartGrinchhawkSpecial()
                 : specialCooldown <= 0)
                 && aiSpecialCooldown <= 0 &&
                 shouldUseSpecialAI(target, targetDist, onGround, lowHealth) &&
@@ -9695,7 +10246,9 @@ public class Bird {
 
     private boolean shouldAIUseRecoverySpecial(boolean onGround, Platform mainStage) {
         if (onGround || mainStage == null) return false;
-        if (type != BirdGame3.BirdType.RAZORBILL && specialCooldown > 0) return false;
+        if (type != BirdGame3.BirdType.RAZORBILL
+                && type != BirdGame3.BirdType.GRINCHHAWK
+                && specialCooldown > 0) return false;
         double centerX = x + 40 * sizeMultiplier;
         double bottomY = y + 80 * sizeMultiplier;
         double stageLeft = mainStage.x;
@@ -9723,6 +10276,8 @@ public class Bird {
                     && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.1)));
             case RAZORBILL -> !razorbillUpSpecialUsed
                     && (depth > 92.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
+            case GRINCHHAWK -> !grinchUpSpecialUsed
+                    && (depth > 108.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.2)));
             default -> false;
         };
     }
@@ -9789,7 +10344,8 @@ public class Bird {
                     || type == BirdGame3.BirdType.ROADRUNNER
                     || type == BirdGame3.BirdType.PENGUIN
                     || type == BirdGame3.BirdType.SHOEBILL
-                    || type == BirdGame3.BirdType.RAZORBILL) {
+                    || type == BirdGame3.BirdType.RAZORBILL
+                    || type == BirdGame3.BirdType.GRINCHHAWK) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
             }
             game.setAiControlKey(playerIndex, specialKey(), true);
@@ -10244,6 +10800,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.RAZORBILL && isOnGround()) {
             razorbillUpSpecialUsed = false;
         }
+        if (type == BirdGame3.BirdType.GRINCHHAWK && isOnGround() && !grinchSleighRiding) {
+            grinchUpSpecialUsed = false;
+        }
 
         if (airborne && landingLagTimer > 0) {
             landingLagTimer = 0;
@@ -10267,6 +10826,7 @@ public class Bird {
             resetTurkeySpecialState(false);
             resetPenguinSpecialState(false);
             resetRazorbillSpecialState(false);
+            resetGrinchhawkSpecialState(false);
         }
 
         if (handleGrabbedState()) {
@@ -10422,6 +10982,7 @@ public class Bird {
         handleTurkeySpecialState();
         handlePenguinSpecialState(specialHeld);
         handleShoebillSpecialState();
+        handleGrinchhawkSpecialState(jumpJustPressed, gameSpeed);
 
         // === RAZORBILL SPECIALS ===
         handleRazorbillSpecials();
@@ -11689,9 +12250,16 @@ public class Bird {
                     && (razorbillStormTimer > 0 || bladeStormFrames > 0 || razorbillShearTimer > 0
                     || razorbillCounterTimer > 0 || razorbillCounterWhiffTimer > 0 || razorbillCounterBurstTimer > 0))
                     || (type == BirdGame3.BirdType.ROADRUNNER
-                    && (roadrunnerBeepCharging || roadrunnerRicochetTimer > 0 || roadrunnerDustDevilTimer > 0))) {
+                    && (roadrunnerBeepCharging || roadrunnerRicochetTimer > 0 || roadrunnerDustDevilTimer > 0))
+                    || (type == BirdGame3.BirdType.GRINCHHAWK && grinchhawkSpecialActive())) {
                 if (type == BirdGame3.BirdType.ROADRUNNER && roadrunnerBeepBurstTimer > 0) {
                     vx *= airborne ? 0.99 : 0.985;
+                } else if (type == BirdGame3.BirdType.GRINCHHAWK && grinchSleighRiding) {
+                    vx = grinchSleighDirection * (grinchSleighUltimate ? GRINCH_SLEIGH_SPEED + 4.0 : GRINCH_SLEIGH_SPEED);
+                } else if (type == BirdGame3.BirdType.GRINCHHAWK && grinchChimneyFlapTimer > 0) {
+                    vx *= airborne ? 0.94 : 0.82;
+                } else if (type == BirdGame3.BirdType.GRINCHHAWK) {
+                    vx *= airborne ? 0.86 : 0.58;
                 } else if (type == BirdGame3.BirdType.RAZORBILL && razorbillStormTimer > 0) {
                     vx *= airborne ? 0.96 : 0.88;
                 } else if (type == BirdGame3.BirdType.RAZORBILL && bladeStormFrames > 0) {
@@ -11874,6 +12442,8 @@ public class Bird {
                     ? canConvertShieldIntoMockingbirdDownSpecial()
                     : type == BirdGame3.BirdType.RAZORBILL
                     ? canConvertShieldIntoRazorbillDownSpecial()
+                    : type == BirdGame3.BirdType.GRINCHHAWK
+                    ? canConvertShieldIntoGrinchhawkDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
             boolean canStartSelectedSpecial = type == BirdGame3.BirdType.PIGEON
                     ? canStartPigeonSpecial()
@@ -11895,6 +12465,8 @@ public class Bird {
                     ? canStartMockingbirdSpecial()
                     : type == BirdGame3.BirdType.RAZORBILL
                     ? canStartRazorbillSpecial()
+                    : type == BirdGame3.BirdType.GRINCHHAWK
+                    ? canStartGrinchhawkSpecial()
                     : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
             if (!attackLocked && !grabLocked && (!shielding || canSpecialFromShield) && !jumpSquatting && specialJustPressed()) {
                 if (grappleUses == 0 && canStartSelectedSpecial) {
@@ -11905,7 +12477,8 @@ public class Bird {
                         && type != BirdGame3.BirdType.ROADRUNNER
                         && type != BirdGame3.BirdType.PENGUIN
                         && type != BirdGame3.BirdType.MOCKINGBIRD
-                        && type != BirdGame3.BirdType.RAZORBILL))) {
+                        && type != BirdGame3.BirdType.RAZORBILL
+                        && type != BirdGame3.BirdType.GRINCHHAWK))) {
                     cooldownFlash = 15;
                 }
             }
@@ -13082,6 +13655,22 @@ public class Bird {
         }
     }
 
+    private void attackGrinchhawkPresents(double attackCenterX, double attackCenterY,
+                                          double range, double verticalRange) {
+        for (Bird candidate : game.players) {
+            if (candidate == null || candidate.grinchPresent == null) continue;
+            GrinchPresent present = candidate.grinchPresent;
+            double presentHalfWidth = (present.ultimate ? 42.0 : 34.0) * candidate.sizeMultiplier;
+            double presentHalfHeight = (present.ultimate ? 36.0 : 30.0) * candidate.sizeMultiplier;
+            double presentCenterY = present.y - presentHalfHeight;
+            if (!overlapsAttackArea(present.x, presentCenterY, presentHalfWidth, presentHalfHeight,
+                    attackCenterX, attackCenterY, range, verticalRange)) {
+                continue;
+            }
+            candidate.explodeGrinchhawkPresent(present);
+        }
+    }
+
     private void updatePenguinIceObjects() {
         if (penguinIceObjects.isEmpty()) {
             return;
@@ -14173,6 +14762,8 @@ public class Bird {
         razorbillSideReuseTimer = 0;
         razorbillUpSpecialUsed = false;
         razorbillCounterReuseTimer = 0;
+        resetGrinchhawkSpecialState(true);
+        grinchUpSpecialUsed = false;
         resetPenguinSpecialState(true);
         penguinBellyReuseTimer = 0;
         penguinIcebergReuseTimer = 0;
@@ -15158,6 +15749,11 @@ public class Bird {
                 || shoebillMarshLiftTimer > 0 || shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0);
     }
 
+    private boolean grinchhawkSpecialPoseActive() {
+        return type == BirdGame3.BirdType.GRINCHHAWK
+                && (grinchHeartSnatchTimer > 0 || grinchSleighRiding || grinchChimneyFlapTimer > 0);
+    }
+
     private double turkeySpecialPhase(int timer, int totalFrames) {
         if (timer <= 0 || totalFrames <= 0) {
             return 0.0;
@@ -15746,9 +16342,65 @@ public class Bird {
                 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
     }
 
+    private AttackVisualPose currentGrinchhawkSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (grinchSleighRiding) {
+            return new AttackVisualPose(
+                    dir * 5.0,
+                    8.0,
+                    dir * 5.0,
+                    facingRight ? 0.0 : Math.PI,
+                    5.0,
+                    -1.0,
+                    2.0,
+                    0.94,
+                    dir * 4.0,
+                    1.05,
+                    0.92
+            );
+        }
+        if (grinchChimneyFlapTimer > 0) {
+            double phase = pigeonSpecialPhase(grinchChimneyFlapTimer,
+                    grinchChimneyFlapUltimate ? GRINCH_CHIMNEY_FLAP_FRAMES + 8 : GRINCH_CHIMNEY_FLAP_FRAMES);
+            return new AttackVisualPose(
+                    dir * 1.0,
+                    -18.0 - phase * 12.0,
+                    dir * (3.0 + phase * 4.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.12),
+                    11.0 + phase * 5.0,
+                    -16.0 - phase * 7.0,
+                    7.0 + phase * 3.0,
+                    0.98,
+                    -20.0 - phase * 8.0,
+                    1.02,
+                    1.08
+            );
+        }
+        if (grinchHeartSnatchTimer > 0) {
+            double phase = pigeonSpecialPhase(grinchHeartSnatchTimer,
+                    grinchHeartSnatchUltimate ? GRINCH_HEART_SNATCH_FRAMES + 6 : GRINCH_HEART_SNATCH_FRAMES);
+            return new AttackVisualPose(
+                    dir * (8.0 + phase * 8.0),
+                    -2.0,
+                    dir * (8.0 + phase * 6.0),
+                    facingRight ? -0.08 : Math.PI + 0.08,
+                    13.0 + phase * 8.0,
+                    -4.0,
+                    10.0 + phase * 6.0,
+                    1.12,
+                    dir * (6.0 + phase * 5.0),
+                    1.08,
+                    0.94
+            );
+        }
+        return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
+                0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+    }
+
     private NormalAttackVariant currentDisplayedAttackVariant() {
         if (pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
-                || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()) {
+                || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
+                || grinchhawkSpecialPoseActive()) {
             return null;
         }
         if (isGroundAttackPending()) {
@@ -15827,7 +16479,8 @@ public class Bird {
         if (stunTime > 0.0 || jumpSquatTimer > 0 || landingLagTimer > 0
                 || isChargingAttack() || attackAnimationTimer > 0 || aerialAttackActive
                 || pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
-                || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()) {
+                || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
+                || grinchhawkSpecialPoseActive()) {
             return VISUAL_POSE_ACTION_BLEND_PER_FRAME;
         }
         if (!isOnGround() && Math.abs(vy) > 4.0) {
@@ -15908,6 +16561,9 @@ public class Bird {
         }
         if (shoebillSpecialPoseActive()) {
             return currentShoebillSpecialPose();
+        }
+        if (grinchhawkSpecialPoseActive()) {
+            return currentGrinchhawkSpecialPose();
         }
         AttackVisualPose dodgePose = currentDodgeVisualPose();
         if (dodgePose != null) {
@@ -16238,6 +16894,7 @@ public class Bird {
         drawTurkeyFeastTraps(g);
         drawRoadrunnerPaintedRoads(g);
         drawPenguinSpecialObjects(g);
+        drawGrinchhawkObjects(g);
         drawBlockingShield(g, drawSize);
         drawTaunt(g);
         drawCooldownFlash(g);
@@ -16256,6 +16913,7 @@ public class Bird {
         drawRoadrunnerSpecialFx(g);
         drawPenguinSpecialFx(g, drawSize);
         drawShoebillSpecialFx(g, drawSize);
+        drawGrinchhawkSpecialFx(g, drawSize);
         drawBatEcho(g, drawSize);
         if (!suppressSelectEffects) {
             drawOpiumBirdEffects(g, drawSize);
@@ -16277,9 +16935,9 @@ public class Bird {
         g.save();
         applyAttackBodyPose(g, drawSize, attackPose);
         drawEagleSkin(g, drawSize);
-        drawGrinchhawk(g);
         drawVulture(g, drawSize);
         drawBodyAndEyes(g, drawSize, attackPose);
+        drawGrinchhawk(g);
         drawRooster(g, drawSize);
         drawHeisenbirdAccessories(g);
         drawCitySkin(g);
@@ -16302,6 +16960,118 @@ public class Bird {
         drawDirectionalAttackFx(g, drawSize);
         drawStunEffect(g, drawSize);
         drawVineGrapple(g);
+    }
+
+    private void drawGrinchhawkObjects(GraphicsContext g) {
+        if (type != BirdGame3.BirdType.GRINCHHAWK) {
+            return;
+        }
+        double s = sizeMultiplier;
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        if (grinchSleighActive) {
+            int dir = grinchSleighDirection == 0 ? facingDirection() : grinchSleighDirection;
+            double cx = grinchSleighRiding ? bodyCenterX() : grinchSleighX;
+            double baseY = grinchSleighRiding ? bodyBottomY() + 12.0 * s : grinchSleighY;
+            double w = (grinchSleighUltimate ? 128.0 : 112.0) * s;
+            double h = (grinchSleighUltimate ? 38.0 : 32.0) * s;
+            Color body = grinchSleighUltimate ? Color.web("#F9A825") : Color.web("#B71C1C");
+            Color trim = grinchSleighUltimate ? Color.GOLD : Color.web("#FFF8E1");
+            Color rail = grinchSleighUltimate ? Color.web("#FFF59D") : Color.web("#795548");
+
+            g.setFill(Color.rgb(0, 0, 0, 0.22));
+            g.fillOval(cx - w * 0.50, baseY - 4.0 * s, w, 16.0 * s);
+            g.setFill(body);
+            g.fillRoundRect(cx - w * 0.48, baseY - h, w * 0.86, h * 0.62, 10.0 * s, 10.0 * s);
+            g.setFill(trim);
+            g.fillRoundRect(cx - w * 0.46, baseY - h - 5.0 * s, w * 0.78, 8.0 * s, 5.0 * s, 5.0 * s);
+            g.setFill(body.darker());
+            g.fillPolygon(
+                    new double[]{cx + dir * w * 0.34, cx + dir * w * 0.52, cx + dir * w * 0.35},
+                    new double[]{baseY - h, baseY - h * 0.66, baseY - h * 0.24},
+                    3
+            );
+            g.setStroke(rail);
+            g.setLineWidth(4.0 * s);
+            g.strokeLine(cx - w * 0.52, baseY - 4.0 * s, cx + w * 0.46, baseY - 4.0 * s);
+            g.strokeArc(cx - w * 0.58, baseY - 22.0 * s, 34.0 * s, 20.0 * s, 206, 118, ArcType.OPEN);
+            g.strokeArc(cx + w * 0.34, baseY - 22.0 * s, 34.0 * s, 20.0 * s, 216, 118, ArcType.OPEN);
+            g.setStroke(trim.deriveColor(0, 1, 1, 0.82));
+            g.setLineWidth(1.5 * s);
+            g.strokeLine(cx - w * 0.26, baseY - h - 3.0 * s, cx + w * 0.10, baseY - h - 3.0 * s);
+        }
+
+        if (grinchPresent != null) {
+            GrinchPresent present = grinchPresent;
+            double boxW = (present.ultimate ? 58.0 : 48.0) * s;
+            double boxH = (present.ultimate ? 48.0 : 40.0) * s;
+            double x0 = present.x - boxW * 0.5;
+            double y0 = present.y - boxH;
+            Color wrap = present.ultimate ? Color.GOLD : Color.web("#C62828");
+            Color ribbon = present.ultimate ? Color.web("#FFFDE7") : Color.web("#F1F8E9");
+            double pulse = present.armed() ? 0.5 + 0.5 * Math.sin(present.ageFrames * 0.42) : 0.0;
+            g.setFill(Color.rgb(0, 0, 0, 0.22));
+            g.fillOval(present.x - boxW * 0.50, present.y - 4.0 * s, boxW, 12.0 * s);
+            g.setFill(wrap.deriveColor(0, 1, 1.0 + pulse * 0.16, 0.98));
+            g.fillRoundRect(x0, y0, boxW, boxH, 6.0 * s, 6.0 * s);
+            g.setFill(ribbon);
+            g.fillRect(present.x - 5.0 * s, y0, 10.0 * s, boxH);
+            g.fillRect(x0, y0 + boxH * 0.40, boxW, 9.0 * s);
+            g.setStroke(ribbon);
+            g.setLineWidth(2.2 * s);
+            g.strokeOval(present.x - 18.0 * s, y0 - 9.0 * s, 18.0 * s, 14.0 * s);
+            g.strokeOval(present.x, y0 - 9.0 * s, 18.0 * s, 14.0 * s);
+        }
+
+        g.restore();
+    }
+
+    private void drawGrinchhawkSpecialFx(GraphicsContext g, double drawSize) {
+        if (grinchHeartSnatchTimer <= 0 && grinchChimneyFlapTimer <= 0) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double cx = bodyCenterX();
+        double cy = bodyCenterY();
+        int dir = facingDirection();
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        if (grinchHeartSnatchTimer > 0) {
+            double phase = grinchHeartSnatchTimer / (double) (grinchHeartSnatchUltimate
+                    ? GRINCH_HEART_SNATCH_FRAMES + 6
+                    : GRINCH_HEART_SNATCH_FRAMES);
+            Color claw = grinchHeartSnatchUltimate ? Color.GOLD : Color.web("#AED581");
+            g.setEffect(new Glow(0.46));
+            g.setStroke(claw.deriveColor(0, 1, 1, 0.78));
+            g.setLineWidth(4.0 * s);
+            for (int i = -1; i <= 1; i++) {
+                double yOff = i * 13.0 * s;
+                g.strokeArc(cx + dir * (10.0 + i * 4.0) * s - 54.0 * s,
+                        cy - 34.0 * s + yOff,
+                        108.0 * s,
+                        58.0 * s,
+                        dir > 0 ? -32 - phase * 32.0 : 212 + phase * 32.0,
+                        dir > 0 ? 86 : -86,
+                        ArcType.OPEN);
+            }
+            g.setEffect(null);
+        }
+        if (grinchChimneyFlapTimer > 0) {
+            double total = grinchChimneyFlapUltimate ? GRINCH_CHIMNEY_FLAP_FRAMES + 8.0 : GRINCH_CHIMNEY_FLAP_FRAMES;
+            double phase = grinchChimneyFlapTimer / total;
+            Color wind = grinchChimneyFlapUltimate ? Color.GOLD : Color.web("#F1F8E9");
+            g.setStroke(wind.deriveColor(0, 1, 1, 0.34 + phase * 0.34));
+            g.setLineWidth(5.0 * s);
+            for (int i = 0; i < 3; i++) {
+                double w = (70.0 + i * 28.0 + phase * 22.0) * s;
+                double h = (36.0 + i * 18.0) * s;
+                g.strokeArc(cx - w * 0.5, bodyBottomY() - (24.0 + i * 28.0) * s,
+                        w, h, 18 + i * 22, 154, ArcType.OPEN);
+            }
+        }
+        g.restore();
     }
 
     private void drawMockingbirdSpecialFx(GraphicsContext g, double drawSize) {
@@ -18562,10 +19332,36 @@ public class Bird {
             HeadPose headPose = currentHeadPose();
             double headX = headPose.centerX() - 25.0 * s;
             double headY = headPose.centerY() - 20.0 * s;
-            g.setFill(Color.YELLOW);
-            g.fillOval(headX + (facingRight ? 5 : 45) * s, headY + 2 * s, 18 * s, 18 * s);
-            g.setFill(Color.BLACK);
-            g.fillOval(headX + (facingRight ? 10 : 50) * s, headY + 5 * s, 10 * s, 10 * s);
+            int dir = facingRight ? 1 : -1;
+            double eyeX = headX + (facingRight ? 5 : 45) * s;
+            double eyeY = headY + 2 * s;
+
+            g.setFill(Color.web("#FDD835"));
+            g.fillOval(eyeX, eyeY, 18 * s, 18 * s);
+            g.setFill(Color.web("#1B1B1B"));
+            g.fillOval(eyeX + (facingRight ? 6 : 2) * s, eyeY + 5 * s, 8 * s, 9 * s);
+
+            g.setStroke(Color.web("#1B5E20"));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(3.0 * s);
+            double browStartX = eyeX - dir * 4.0 * s;
+            double browEndX = eyeX + dir * 20.0 * s;
+            g.strokeLine(browStartX, eyeY - 2.0 * s, browEndX, eyeY + 7.0 * s);
+
+            Color hatRed = Color.web("#C62828");
+            Color hatTrim = Color.web("#FFF8E1");
+            double hatBaseX = headX + (facingRight ? 4.0 : 10.0) * s;
+            double hatBaseY = headY - 11.0 * s;
+            g.setFill(hatTrim);
+            g.fillRoundRect(hatBaseX, hatBaseY + 14.0 * s, 34.0 * s, 8.0 * s, 5.0 * s, 5.0 * s);
+            g.setFill(hatRed);
+            g.fillPolygon(
+                    new double[]{hatBaseX + 4.0 * s, hatBaseX + 26.0 * s, hatBaseX + dir * 46.0 * s},
+                    new double[]{hatBaseY + 16.0 * s, hatBaseY + 16.0 * s, hatBaseY - 12.0 * s},
+                    3
+            );
+            g.setFill(hatTrim);
+            g.fillOval(hatBaseX + dir * 40.0 * s - 6.0 * s, hatBaseY - 17.0 * s, 12.0 * s, 12.0 * s);
         }
     }
 
@@ -19185,6 +19981,7 @@ public class Bird {
         boolean stylizedPenguin = type == BirdGame3.BirdType.PENGUIN;
         boolean stylizedMockingbird = type == BirdGame3.BirdType.MOCKINGBIRD;
         boolean stylizedRazorbill = type == BirdGame3.BirdType.RAZORBILL;
+        boolean stylizedGrinchhawk = type == BirdGame3.BirdType.GRINCHHAWK;
         boolean ravenEyes = (type == BirdGame3.BirdType.RAVEN);
         Color bodyColor;
         Color headColor;
@@ -19266,6 +20063,10 @@ public class Bird {
             bodyColor = Color.web("#B87333");
             headColor = Color.web("#CC8C46");
             eyeOverride = Color.web("#4E342E");
+        } else if (stylizedGrinchhawk && !classicPalette) {
+            bodyColor = Color.web("#4F8A28");
+            headColor = Color.web("#7CB342");
+            eyeOverride = Color.web("#FDD835");
         } else if (classicPalette) {
             bodyColor = game.classicSkinPrimaryColor(type);
             headColor = game.classicSkinPrimaryColor(type).brighter();
@@ -19337,6 +20138,25 @@ public class Bird {
             g.setLineWidth(1.7 * s);
             g.strokeLine(tailBaseX + tailDir * 34.0 * s, y + 42.0 * s,
                     tailBaseX + tailDir * 27.0 * s, y + 67.0 * s);
+        }
+        if (stylizedGrinchhawk) {
+            double tailBaseX = facingRight ? x + 12.0 * s : x + 68.0 * s;
+            double tailDir = facingRight ? -1.0 : 1.0;
+            Color darkGreen = classicPalette ? game.classicSkinPrimaryColor(type).darker() : Color.web("#1B5E20");
+            Color wingGreen = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#33691E");
+            g.setFill(darkGreen.deriveColor(0, 1, 1, 0.78));
+            g.fillPolygon(
+                    new double[]{tailBaseX, tailBaseX + tailDir * 48.0 * s, tailBaseX + tailDir * 20.0 * s},
+                    new double[]{y + 43.0 * s, y + 28.0 * s, y + 70.0 * s},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{tailBaseX + tailDir * 5.0 * s, tailBaseX + tailDir * 40.0 * s, tailBaseX + tailDir * 12.0 * s},
+                    new double[]{y + 55.0 * s, y + 60.0 * s, y + 76.0 * s},
+                    3
+            );
+            g.setFill(wingGreen.deriveColor(0, 1, 1, 0.44));
+            g.fillOval(x + (facingRight ? 7.0 : 38.0) * s, y + 23.0 * s, 36.0 * s, 50.0 * s);
         }
 
         g.setFill(bodyColor);
@@ -19465,6 +20285,30 @@ public class Bird {
             g.setStroke(pale.deriveColor(0, 1, 1, 0.68));
             g.setLineWidth(1.35 * s);
             g.strokeLine(eyeLineStartX, headY + 14.0 * s, eyeLineEndX, headY + 10.0 * s);
+        }
+        if (stylizedGrinchhawk) {
+            Color chest = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#C5E1A5");
+            Color darkGreen = classicPalette ? game.classicSkinPrimaryColor(type).darker() : Color.web("#1B5E20");
+            g.setFill(chest.deriveColor(0, 1, 1, 0.48));
+            g.fillOval(x + 22.0 * s, y + 35.0 * s, 36.0 * s, 34.0 * s);
+            g.setStroke(darkGreen.deriveColor(0, 1, 1, 0.58));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(1.8 * s);
+            g.strokeArc(x + 18.0 * s, y + 34.0 * s, 48.0 * s, 32.0 * s,
+                    facingRight ? 204 : -24, 104, ArcType.OPEN);
+            double crestBaseX = headX + (facingRight ? 18.0 : 32.0) * s;
+            int crestDir = facingRight ? -1 : 1;
+            g.setFill(darkGreen);
+            g.fillPolygon(
+                    new double[]{crestBaseX, crestBaseX + crestDir * 16.0 * s, crestBaseX + crestDir * 4.0 * s},
+                    new double[]{headY + 5.0 * s, headY - 13.0 * s, headY + 10.0 * s},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{crestBaseX + crestDir * 8.0 * s, crestBaseX + crestDir * 24.0 * s, crestBaseX + crestDir * 11.0 * s},
+                    new double[]{headY + 10.0 * s, headY - 3.0 * s, headY + 15.0 * s},
+                    3
+            );
         }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
             int tailDir = facingRight ? -1 : 1;
@@ -20260,11 +21104,14 @@ public class Bird {
         boolean stylizedTurkey = type == BirdGame3.BirdType.TURKEY;
         boolean stylizedPenguin = type == BirdGame3.BirdType.PENGUIN;
         boolean stylizedMockingbird = type == BirdGame3.BirdType.MOCKINGBIRD;
+        boolean stylizedGrinchhawk = type == BirdGame3.BirdType.GRINCHHAWK;
         double openAmount = (isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) : 3) * s * openScale;
         if (stylizedHummingbird) {
             openAmount *= 0.34;
         } else if (stylizedMockingbird) {
             openAmount *= 0.62;
+        } else if (stylizedGrinchhawk) {
+            openAmount *= 0.78;
         }
         double beakLength = ((type == BirdGame3.BirdType.FALCON ? 34
                 : type == BirdGame3.BirdType.EAGLE ? 32
@@ -20272,6 +21119,7 @@ public class Bird {
                 : stylizedMockingbird ? 31
                 : stylizedPenguin ? 22
                 : stylizedTurkey ? 25
+                : stylizedGrinchhawk ? 36
                 : type == BirdGame3.BirdType.ROADRUNNER ? 42 : 28) + (pose == null ? 0.0 : pose.beakLengthBonus())) * s;
         if (type == BirdGame3.BirdType.HUMMINGBIRD && hummingNeedleHitTimer > 0) {
             double needleProgress = Math.clamp(hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES), 0.0, 1.0);
@@ -20316,6 +21164,8 @@ public class Bird {
                 ? (isAttacking ? Color.web("#F9A825") : Color.web("#FFA726"))
                 : stylizedMockingbird
                 ? (isAttacking ? Color.web("#F9A825") : Color.web("#FDD835"))
+                : stylizedGrinchhawk
+                ? (isAttacking ? Color.web("#F9A825") : Color.web("#FBC02D"))
                 : (isAttacking ? Color.ORANGERED : Color.ORANGE));
         g.fillPolygon(
                 new double[]{baseUpperX, upperTipX, baseLowerX},
@@ -20361,6 +21211,14 @@ public class Bird {
             g.setLineWidth(0.65 * s);
             g.strokeLine(mouthCenterX - normalX * 1.2 * s, mouthCenterY - normalY * 1.2 * s,
                     tipBaseX - dirX * 4.0 * s, tipBaseY - dirY * 4.0 * s);
+        }
+        if (stylizedGrinchhawk) {
+            g.setStroke(Color.web("#4E342E").deriveColor(0, 1, 1, 0.48));
+            g.setLineWidth(1.25 * s);
+            g.strokeLine(tipBaseX - dirX * 5.0 * s - normalX * 1.6 * s,
+                    tipBaseY - dirY * 5.0 * s - normalY * 1.6 * s,
+                    lowerTipX - dirX * 0.8 * s,
+                    lowerTipY + normalY * 2.4 * s);
         }
 
         if (isAttacking && attackAnimationTimer > 4) {

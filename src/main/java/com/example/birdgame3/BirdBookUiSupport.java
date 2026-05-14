@@ -366,7 +366,7 @@ final class BirdBookUiSupport {
             case SHOEBILL -> "Stares too long, then decides. It dazes back-turned targets directly in front of its bill, winds up crushing bill thrusts, rides marsh reeds upward, and holds a stone-still statue counter.";
             case MOCKINGBIRD -> "Old friend of Caleb Bossk and owner of the Charles Lounge. Passed the Bossk Test to become a Bosskhead, then turned every fight into his stage.";
             case RAZORBILL -> "Cut-clean wings and sharper intent. Prefers clean lines, clean hits, and no wasted motion.";
-            case GRINCHHAWK -> "Holiday menace with a grudge. Brings chaos instead of gifts and calls it tradition.";
+            case GRINCHHAWK -> "Holiday menace with a grudge. Snatches hearts up close, rides a runaway sleigh, blasts upward with chimney flaps, and leaves fake presents where enemies least want them.";
             case VULTURE -> "Patient and dangerous, Vulture circles until the moment is right. \"You are lucky to be on my side. My crows could end you in seconds,\" he warns.";
             case OPIUMBIRD -> "Drifts in a haze and leaves trouble behind. Calm, then suddenly cruel when the cloud rolls in.";
             case HEISENBIRD -> "Blue-hatted and bald, Heisenbird cooks sky-blue crystals in a hidden roost. The coop whispers \"say my name\" when he lands, and he is the one who pecks.";
