@@ -92,27 +92,25 @@ class LanBirdState {
     boolean eagleAscentActive;
     int eagleAscentFrames;
     int bladeStormFrames;
-    int razorbillNeedleTimer;
-    int razorbillNeedleReuseTimer;
-    int razorbillNeedleDirection;
-    boolean razorbillNeedleUltimate;
+    int razorbillStormTimer;
+    int razorbillStormHoldFrames;
+    int razorbillStormReuseTimer;
+    boolean razorbillStormUltimate;
+    boolean razorbillStormReleased;
+    int[] razorbillStormHitCooldown = new int[4];
     int razorbillSideReuseTimer;
     boolean razorbillSideUltimate;
     int razorbillShearTimer;
     int razorbillShearDirection;
     boolean razorbillShearUltimate;
     boolean razorbillUpSpecialUsed;
-    int razorbillSnapTimer;
-    int razorbillSnapReuseTimer;
-    boolean razorbillSnapUltimate;
-    double[] razorbillCutX1 = new double[6];
-    double[] razorbillCutY1 = new double[6];
-    double[] razorbillCutX2 = new double[6];
-    double[] razorbillCutY2 = new double[6];
-    int[] razorbillCutLife = new int[6];
-    boolean[] razorbillCutUltimate = new boolean[6];
-    int[] razorbillNicks = new int[4];
-    int[] razorbillNickFx = new int[4];
+    int razorbillCounterTimer;
+    int razorbillCounterReuseTimer;
+    int razorbillCounterWhiffTimer;
+    int razorbillCounterBurstTimer;
+    boolean razorbillCounterUltimate;
+    boolean razorbillCountered;
+    boolean razorbillCounterAttemptActive;
     int plungeTimer;
     boolean batHanging;
     int batEchoTimer;
@@ -387,33 +385,27 @@ class LanBirdState {
         out.writeBoolean(eagleAscentActive);
         out.writeInt(eagleAscentFrames);
         out.writeInt(bladeStormFrames);
-        out.writeInt(razorbillNeedleTimer);
-        out.writeInt(razorbillNeedleReuseTimer);
-        out.writeInt(razorbillNeedleDirection);
-        out.writeBoolean(razorbillNeedleUltimate);
+        out.writeInt(razorbillStormTimer);
+        out.writeInt(razorbillStormHoldFrames);
+        out.writeInt(razorbillStormReuseTimer);
+        out.writeBoolean(razorbillStormUltimate);
+        out.writeBoolean(razorbillStormReleased);
+        for (int cooldown : razorbillStormHitCooldown) {
+            out.writeInt(cooldown);
+        }
         out.writeInt(razorbillSideReuseTimer);
         out.writeBoolean(razorbillSideUltimate);
         out.writeInt(razorbillShearTimer);
         out.writeInt(razorbillShearDirection);
         out.writeBoolean(razorbillShearUltimate);
         out.writeBoolean(razorbillUpSpecialUsed);
-        out.writeInt(razorbillSnapTimer);
-        out.writeInt(razorbillSnapReuseTimer);
-        out.writeBoolean(razorbillSnapUltimate);
-        for (int i = 0; i < razorbillCutLife.length; i++) {
-            out.writeDouble(razorbillCutX1[i]);
-            out.writeDouble(razorbillCutY1[i]);
-            out.writeDouble(razorbillCutX2[i]);
-            out.writeDouble(razorbillCutY2[i]);
-            out.writeInt(razorbillCutLife[i]);
-            out.writeBoolean(razorbillCutUltimate[i]);
-        }
-        for (int nick : razorbillNicks) {
-            out.writeInt(nick);
-        }
-        for (int fx : razorbillNickFx) {
-            out.writeInt(fx);
-        }
+        out.writeInt(razorbillCounterTimer);
+        out.writeInt(razorbillCounterReuseTimer);
+        out.writeInt(razorbillCounterWhiffTimer);
+        out.writeInt(razorbillCounterBurstTimer);
+        out.writeBoolean(razorbillCounterUltimate);
+        out.writeBoolean(razorbillCountered);
+        out.writeBoolean(razorbillCounterAttemptActive);
         out.writeInt(plungeTimer);
         out.writeBoolean(batHanging);
         out.writeInt(batEchoTimer);
@@ -708,33 +700,27 @@ class LanBirdState {
         state.eagleAscentActive = in.readBoolean();
         state.eagleAscentFrames = in.readInt();
         state.bladeStormFrames = in.readInt();
-        state.razorbillNeedleTimer = in.readInt();
-        state.razorbillNeedleReuseTimer = in.readInt();
-        state.razorbillNeedleDirection = in.readInt();
-        state.razorbillNeedleUltimate = in.readBoolean();
+        state.razorbillStormTimer = in.readInt();
+        state.razorbillStormHoldFrames = in.readInt();
+        state.razorbillStormReuseTimer = in.readInt();
+        state.razorbillStormUltimate = in.readBoolean();
+        state.razorbillStormReleased = in.readBoolean();
+        for (int i = 0; i < state.razorbillStormHitCooldown.length; i++) {
+            state.razorbillStormHitCooldown[i] = in.readInt();
+        }
         state.razorbillSideReuseTimer = in.readInt();
         state.razorbillSideUltimate = in.readBoolean();
         state.razorbillShearTimer = in.readInt();
         state.razorbillShearDirection = in.readInt();
         state.razorbillShearUltimate = in.readBoolean();
         state.razorbillUpSpecialUsed = in.readBoolean();
-        state.razorbillSnapTimer = in.readInt();
-        state.razorbillSnapReuseTimer = in.readInt();
-        state.razorbillSnapUltimate = in.readBoolean();
-        for (int i = 0; i < state.razorbillCutLife.length; i++) {
-            state.razorbillCutX1[i] = in.readDouble();
-            state.razorbillCutY1[i] = in.readDouble();
-            state.razorbillCutX2[i] = in.readDouble();
-            state.razorbillCutY2[i] = in.readDouble();
-            state.razorbillCutLife[i] = in.readInt();
-            state.razorbillCutUltimate[i] = in.readBoolean();
-        }
-        for (int i = 0; i < state.razorbillNicks.length; i++) {
-            state.razorbillNicks[i] = in.readInt();
-        }
-        for (int i = 0; i < state.razorbillNickFx.length; i++) {
-            state.razorbillNickFx[i] = in.readInt();
-        }
+        state.razorbillCounterTimer = in.readInt();
+        state.razorbillCounterReuseTimer = in.readInt();
+        state.razorbillCounterWhiffTimer = in.readInt();
+        state.razorbillCounterBurstTimer = in.readInt();
+        state.razorbillCounterUltimate = in.readBoolean();
+        state.razorbillCountered = in.readBoolean();
+        state.razorbillCounterAttemptActive = in.readBoolean();
         state.plungeTimer = in.readInt();
         state.batHanging = in.readBoolean();
         state.batEchoTimer = in.readInt();
