@@ -17,8 +17,6 @@ $env:JAVA_HOME = "C:\Path\To\jdk-21"
 $env:Path = "$env:JAVA_HOME\bin;$env:Path"
 ```
 
-If IntelliJ installed a JDK for you, a usable path may be under `C:\Users\<you>\.jdks\`.
-
 ## Run
 
 ```powershell
