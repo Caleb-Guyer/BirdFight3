@@ -703,6 +703,81 @@ class BirdStateTest {
     }
 
     @Test
+    void vultureNeutralConsumesHeldCrowTicksAndRecharges() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird vulture = new Bird(100.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird target = new Bird(260.0, BirdGame3.BirdType.PIGEON, 1, game);
+        vulture.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = vulture;
+        game.players[1] = target;
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        vulture.update(1.0);
+
+        assertEquals(1, game.crowMinions.size());
+        assertEquals(2, getPrivateInt(vulture, "vultureCrowTicks"));
+        assertEquals(0, vulture.specialCooldown);
+
+        for (int i = 0; i < 40 && game.crowMinions.size() < 3; i++) {
+            vulture.update(1.0);
+        }
+
+        assertEquals(3, game.crowMinions.size(),
+                "Holding neutral should walk through all available Vulture crow ticks.");
+        assertEquals(0, getPrivateInt(vulture, "vultureCrowTicks"));
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        for (int i = 0; i < 165; i++) {
+            vulture.update(1.0);
+        }
+
+        assertTrue(getPrivateInt(vulture, "vultureCrowTicks") >= 1,
+                "Spent Vulture crow ticks should recharge over time.");
+    }
+
+    @Test
+    void vultureBoneOfferingSpawnsDelayedAnchoredCrowSwarm() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird vulture = new Bird(100.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.PIGEON, 1, game);
+        vulture.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = vulture;
+        game.players[1] = target;
+
+        invokePrivateBooleanVoid(vulture, "specialVultureBoneOffering", false);
+        Object bait = getPrivateObject(vulture, "vultureBait");
+
+        assertTrue(getPrivateInt(bait, "lifeFrames") >= 700,
+                "Vulture's bone offering should last much longer than before.");
+        for (int i = 0; i < 120; i++) {
+            vulture.update(1.0);
+        }
+        assertTrue(game.crowMinions.isEmpty(),
+                "Bone offering crows should not appear immediately.");
+
+        for (int i = 0; i < 45; i++) {
+            vulture.update(1.0);
+        }
+        int firstWave = game.crowMinions.size();
+        assertTrue(firstWave > 0);
+        assertTrue(game.crowMinions.stream().allMatch(CrowMinion::guardsAnchor));
+
+        for (int i = 0; i < 160; i++) {
+            vulture.update(1.0);
+        }
+        assertTrue(game.crowMinions.size() > firstWave,
+                "Bone offering should build crow pressure gradually.");
+        assertTrue(game.crowMinions.stream().allMatch(CrowMinion::guardsAnchor),
+                "Bone offering crows should stay leashed to the bone.");
+    }
+
+    @Test
     void localAndAiInputsStaySeparated() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

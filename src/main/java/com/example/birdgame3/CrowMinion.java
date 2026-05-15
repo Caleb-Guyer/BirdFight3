@@ -19,6 +19,12 @@ class CrowMinion {
     int retargetCooldown = 0;
     double speedMultiplier = 1.0;
     int overflowProtectionFrames = 0;
+    boolean anchorGuard = false;
+    double anchorX = 0.0;
+    double anchorY = 0.0;
+    double anchorRadius = 0.0;
+    double anchorOrbitOffset = 0.0;
+    int anchorGuardFrames = 0;
 
     CrowMinion(double x, double y, Bird target) {
         this.x = x;
@@ -46,6 +52,27 @@ class CrowMinion {
     CrowMinion withOverflowProtectionFrames(int overflowProtectionFrames) {
         this.overflowProtectionFrames = Math.max(this.overflowProtectionFrames, overflowProtectionFrames);
         return this;
+    }
+
+    CrowMinion withAnchorGuard(double anchorX, double anchorY, double anchorRadius, int anchorGuardFrames) {
+        this.anchorGuard = true;
+        this.anchorX = anchorX;
+        this.anchorY = anchorY;
+        this.anchorRadius = Math.max(48.0, anchorRadius);
+        this.anchorGuardFrames = Math.max(this.anchorGuardFrames, anchorGuardFrames);
+        this.anchorOrbitOffset = Math.random() * Math.PI * 2.0;
+        this.target = null;
+        this.retargetCooldown = 0;
+        return this;
+    }
+
+    boolean guardsAnchor() {
+        return anchorGuard;
+    }
+
+    boolean guardsAnchorNear(double x, double y, double tolerance) {
+        if (!anchorGuard) return false;
+        return Math.hypot(anchorX - x, anchorY - y) <= tolerance;
     }
 
     int effectiveVariant() {

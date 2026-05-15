@@ -19,6 +19,7 @@ final class MatchController {
 
     void prepareMatchStart(Stage stage) {
         game.clearGameplayInputs();
+        game.resetMatchStats();
         game.matchTimer = BirdGame3.MATCH_DURATION_FRAMES;
         game.storyMatchTimerOverride = -1;
         game.storyTeamMode = false;

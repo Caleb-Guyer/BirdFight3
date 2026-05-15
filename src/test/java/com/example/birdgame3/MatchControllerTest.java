@@ -20,15 +20,29 @@ class MatchControllerTest {
         game.players[1] = new Bird(250, BirdGame3.BirdType.EAGLE, 1, game);
         game.scores[0] = 120;
         game.scores[1] = 80;
+        game.falls[0] = 1;
+        game.damageDealt[0] = 50;
+        game.eliminations[0] = 2;
         game.killFeed.add("OLD EVENT");
+        game.matchEnded = true;
+        game.matchHistoryRecorded = true;
+        game.balanceOutcomeRecorded = true;
+        game.hitstopFrames = 12;
         game.matchTimer = 1;
 
         controller.prepareMatchStart(null);
 
         assertEquals(BirdGame3.MATCH_DURATION_FRAMES, game.matchTimer);
+        assertFalse(game.matchEnded);
+        assertFalse(game.matchHistoryRecorded);
+        assertFalse(game.balanceOutcomeRecorded);
+        assertEquals(0, game.hitstopFrames);
         assertTrue(game.killFeed.isEmpty());
         assertEquals(0, game.scores[0]);
         assertEquals(0, game.scores[1]);
+        assertEquals(0, game.falls[0]);
+        assertEquals(0, game.damageDealt[0]);
+        assertEquals(0, game.eliminations[0]);
         assertNull(game.players[0]);
         assertNull(game.players[1]);
     }

@@ -9438,6 +9438,12 @@ public class BirdGame3 extends Application {
             if (c.retargetCooldown > 0) {
                 c.retargetCooldown--;
             }
+            if (c.guardsAnchor()) {
+                if (updateAnchoredCrowMinion(c)) {
+                    it.remove();
+                }
+                continue;
+            }
             Bird closest = c.target;
             if (closest != null && (closest.health <= 0 || (c.owner != null && !canDamage(c.owner, closest)))) {
                 closest = null;
@@ -10373,7 +10379,6 @@ public class BirdGame3 extends Application {
                 case LEFT, RIGHT -> 0.0;
             };
             double tangentX = -outwardY;
-            double tangentY = outwardX;
 
             double anchorX = Math.clamp(effect.x, minX, maxX);
             double anchorY = Math.clamp(effect.y, minY, maxY);
@@ -10405,7 +10410,7 @@ public class BirdGame3 extends Application {
                 double inner = 18.0 * scale;
                 double outer = (96.0 + Math.abs(i) * 7.0 + burst * 36.0) * scale;
                 double tx = tangentX * spread;
-                double ty = tangentY * spread;
+                double ty = outwardX * spread;
                 g.setStroke((i & 1) == 0
                         ? Color.WHITE.deriveColor(0, 1, 1, 0.58 * alpha)
                         : accent.deriveColor(0, 1, 1, 0.66 * alpha));
@@ -10417,16 +10422,20 @@ public class BirdGame3 extends Application {
             double slash = 60.0 * scale;
             g.setStroke(Color.web("#1B0B12", 0.58 * alpha));
             g.setLineWidth(11.0 * scale);
-            g.strokeLine(centerX - tangentX * slash - outwardX * slash * 0.30,
-                    centerY - tangentY * slash - outwardY * slash * 0.30,
-                    centerX + tangentX * slash + outwardX * slash * 0.30,
-                    centerY + tangentY * slash + outwardY * slash * 0.30);
+            double x1 = centerX - tangentX * slash - outwardX * slash * 0.30;
+            double y1 = centerY - outwardX * slash - outwardY * slash * 0.30;
+            double x2 = centerX + tangentX * slash + outwardX * slash * 0.30;
+            double y2 = centerY + outwardX * slash + outwardY * slash * 0.30;
+            g.strokeLine(x1,
+                    y1,
+                    x2,
+                    y2);
             g.setStroke(accent.deriveColor(0, 1, 1, 0.86 * alpha));
             g.setLineWidth(5.2 * scale);
-            g.strokeLine(centerX - tangentX * slash - outwardX * slash * 0.30,
-                    centerY - tangentY * slash - outwardY * slash * 0.30,
-                    centerX + tangentX * slash + outwardX * slash * 0.30,
-                    centerY + tangentY * slash + outwardY * slash * 0.30);
+            g.strokeLine(x1,
+                    y1,
+                    x2,
+                    y2);
 
             double fontSize = 50.0 * scale;
             double textY = centerY + fontSize * 0.34;
@@ -12007,6 +12016,118 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private boolean updateAnchoredCrowMinion(CrowMinion c) {
+        if (c.anchorGuardFrames > 0) {
+            c.anchorGuardFrames--;
+        }
+        if (c.anchorGuardFrames <= 0) {
+            return true;
+        }
+
+        Bird closest = c.target;
+        if (!isValidAnchoredCrowTarget(c, closest)) {
+            closest = null;
+        }
+        if (closest == null || c.retargetCooldown <= 0) {
+            double bestSq = Double.MAX_VALUE;
+            for (Bird b : players) {
+                if (!isValidAnchoredCrowTarget(c, b)) continue;
+                double dx = b.x + 40 - c.x;
+                double dy = b.y + 40 - c.y;
+                double distSq = dx * dx + dy * dy;
+                if (distSq < bestSq) {
+                    bestSq = distSq;
+                    closest = b;
+                }
+            }
+            c.target = closest;
+            c.retargetCooldown = isLargeFightLoad() ? 12 : 6;
+        }
+
+        double targetX;
+        double targetY;
+        if (closest != null) {
+            targetX = closest.x + 40;
+            targetY = closest.y + 40;
+        } else {
+            double orbit = c.anchorOrbitOffset + c.age * 0.055;
+            targetX = c.anchorX + Math.cos(orbit) * c.anchorRadius * 0.54;
+            targetY = c.anchorY + Math.sin(orbit) * c.anchorRadius * 0.34;
+        }
+
+        double dx = targetX - c.x;
+        double dy = targetY - c.y;
+        double dist = Math.hypot(dx, dy);
+        if (dist > 0.001) {
+            double accel = closest == null ? 0.13 : 0.20;
+            c.vx += dx / dist * accel;
+            c.vy += dy / dist * accel;
+        }
+
+        double anchorDx = c.x - c.anchorX;
+        double anchorDy = c.y - c.anchorY;
+        double anchorDist = Math.hypot(anchorDx, anchorDy);
+        if (anchorDist > c.anchorRadius * 0.72) {
+            c.vx -= anchorDx / Math.max(1.0, anchorDist) * 0.24;
+            c.vy -= anchorDy / Math.max(1.0, anchorDist) * 0.24;
+        }
+
+        double maxSpeed = closest == null ? 2.25 : 3.05;
+        double speedSq = c.vx * c.vx + c.vy * c.vy;
+        if (speedSq > maxSpeed * maxSpeed) {
+            double speedNow = Math.sqrt(speedSq);
+            c.vx = c.vx / speedNow * maxSpeed;
+            c.vy = c.vy / speedNow * maxSpeed;
+        }
+
+        c.x += c.vx;
+        c.y += c.vy;
+
+        anchorDx = c.x - c.anchorX;
+        anchorDy = c.y - c.anchorY;
+        anchorDist = Math.hypot(anchorDx, anchorDy);
+        if (anchorDist > c.anchorRadius) {
+            c.x = c.anchorX + anchorDx / anchorDist * c.anchorRadius;
+            c.y = c.anchorY + anchorDy / anchorDist * c.anchorRadius;
+            c.vx *= 0.42;
+            c.vy *= 0.42;
+        }
+
+        if (closest != null && isValidAnchoredCrowTarget(c, closest)) {
+            double hitDx = (closest.x + 40) - c.x;
+            double hitDy = (closest.y + 40) - c.y;
+            if (Math.hypot(hitDx, hitDy) < 48.0) {
+                double dealtDamage = closest.receiveExternalDamage(c.contactDamage());
+                if (dealtDamage <= 0) {
+                    return true;
+                }
+                int shownDamage = (int) Math.round(dealtDamage);
+                addToKillFeed(c.displayName() + " guards the bone from " + shortName(closest.name) + "! -" + shownDamage + " HP");
+                closest.vx += Math.signum(hitDx == 0.0 ? c.vx : hitDx) * 5.5;
+                closest.vy -= 7.5;
+                int particleCount = scaledParticleBurstCount(16);
+                for (int i = 0; i < particleCount; i++) {
+                    double angle = Math.random() * Math.PI * 2;
+                    double spd = 4 + Math.random() * 12;
+                    particles.add(new Particle(c.x, c.y, Math.cos(angle) * spd, Math.sin(angle) * spd - 5,
+                            Color.DARKRED.deriveColor(0, 1, 1, 0.86)));
+                }
+                return true;
+            }
+        }
+
+        return c.x < -1500 || c.x > WORLD_WIDTH + 1500 || c.y < -1500 || c.y > WORLD_HEIGHT + 1500;
+    }
+
+    private boolean isValidAnchoredCrowTarget(CrowMinion c, Bird b) {
+        if (b == null || b.health <= 0) return false;
+        if (c.owner != null && !canDamage(c.owner, b)) return false;
+        double dx = b.x + 40 - c.anchorX;
+        double dy = b.y + 40 - c.anchorY;
+        double allowed = c.anchorRadius + 40.0 * Math.max(0.75, b.sizeMultiplier);
+        return dx * dx + dy * dy <= allowed * allowed;
+    }
+
     private void drawCrowMinion(GraphicsContext g, CrowMinion crow) {
         int variant = crow.effectiveVariant();
         double pulseVal = 1.0 + 0.3 * Math.sin(crow.age * 0.4);
@@ -12749,6 +12870,7 @@ public class BirdGame3 extends Application {
             case HUMMINGBIRD -> 1.66;
             case PELICAN -> 1.64;
             case FALCON -> 1.62;
+            case VULTURE -> 1.62;
             case PHOENIX -> 1.56;
             case ROOSTER -> 1.50;
             case EAGLE, PIGEON, TURKEY, RAVEN, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD -> 1.46;
@@ -12767,6 +12889,7 @@ public class BirdGame3 extends Application {
             case ROADRUNNER, PELICAN -> -0.08;
             case PHOENIX -> -0.055;
             case ROOSTER -> -0.04;
+            case VULTURE -> 0.0;
             case EAGLE, PIGEON, RAVEN, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD -> -0.025;
             default -> -0.015;
         };
@@ -33813,6 +33936,7 @@ public class BirdGame3 extends Application {
     }
 
     void startMatch(Stage stage) {
+        isPaused = false;
         prepareMatchStart(stage);
         boolean[] menuAI = Arrays.copyOf(isAI, isAI.length);
         Arrays.fill(players, null);
@@ -36460,6 +36584,7 @@ public class BirdGame3 extends Application {
         matchEnded = false;
         balanceOutcomeRecorded = false;
         matchHistoryRecorded = false;
+        hitstopFrames = 0;
         matchTimer = MATCH_DURATION_FRAMES;
         matchStartNano = 0L;
         matchIntroOverlayFrames = 0;
@@ -38601,7 +38726,14 @@ public class BirdGame3 extends Application {
             exitButton.setFont(Font.font("Arial Black", 30));
             exitButton.setStyle("-fx-background-color: #F44336; -fx-text-fill: white; -fx-background-radius: 20;");
             exitButton.setFocusTraversable(true);
-            exitButton.setOnAction(ev -> { playButtonClick(); showMenu(stage); });
+            exitButton.setOnAction(ev -> {
+                playButtonClick();
+                clearGameplayInputs();
+                isPaused = false;
+                if (timer != null) timer.stop();
+                resetMatchStats();
+                showMenu(stage);
+            });
 
             pauseMenu.getChildren().addAll(pauseLabel, glyphLegend);
             if (disconnectBox != null) {
