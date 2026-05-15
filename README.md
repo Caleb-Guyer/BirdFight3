@@ -10,10 +10,6 @@ Bird Fight 3 is a JavaFX platform fighter with local play, AI opponents, LAN mat
 
 This project targets Java 21 in `pom.xml`. Maven Enforcer now fails fast on older JDKs. If `.\mvnw` fails with `JAVA_HOME not found` or launches under Java 8, point it at a JDK 21+ install first.
 
-## CI
-
-GitHub Actions runs the Windows test workflow from `.github/workflows/ci.yml` on every push and pull request.
-
 ## Links
 
 - Official Bird Fight 3 Wiki: https://bird-fight-3.fandom.com/wiki/Bird_Fight_3_Wiki
