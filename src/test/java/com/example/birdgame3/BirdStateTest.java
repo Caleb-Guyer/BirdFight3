@@ -778,6 +778,57 @@ class BirdStateTest {
     }
 
     @Test
+    void crowContactLaunchesMoreSidewaysThanUpward() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird bystander = new Bird(980.0, BirdGame3.BirdType.EAGLE, 1, game);
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        bystander.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = target;
+        game.players[1] = bystander;
+
+        CrowMinion crow = new CrowMinion(target.x + 16.0, target.y + 40.0, target);
+        crow.vx = 3.2;
+        crow.vy = 0.0;
+        game.crowMinions.add(crow);
+
+        invokePrivateVoid(game, "updateWorldFixed");
+
+        assertTrue(game.crowMinions.isEmpty());
+        assertTrue(target.health < Bird.STARTING_HEALTH);
+        assertTrue(target.vx > Math.abs(target.vy),
+                "Crow contact should shove targets sideways more than it launches them upward.");
+    }
+
+    @Test
+    void anchoredCrowContactLaunchesMoreSidewaysThanUpward() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird bystander = new Bird(980.0, BirdGame3.BirdType.EAGLE, 1, game);
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        bystander.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = target;
+        game.players[1] = bystander;
+
+        CrowMinion crow = new CrowMinion(target.x + 16.0, target.y + 40.0, target)
+                .withAnchorGuard(target.x + 40.0, target.y + 40.0, 120.0, 20);
+        crow.vx = 0.0;
+        crow.vy = 0.0;
+        game.crowMinions.add(crow);
+
+        invokePrivateVoid(game, "updateWorldFixed");
+
+        assertTrue(game.crowMinions.isEmpty());
+        assertTrue(target.health < Bird.STARTING_HEALTH);
+        assertTrue(target.vx > Math.abs(target.vy),
+                "Bone-guarding crows should shove targets sideways more than they launch them upward.");
+    }
+
+    @Test
     void localAndAiInputsStaySeparated() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

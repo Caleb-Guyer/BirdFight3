@@ -14,6 +14,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
 import javafx.event.EventHandler;
+import javafx.event.EventType;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Point2D;
@@ -192,6 +193,10 @@ public class BirdGame3 extends Application {
     private static final double FIGHT_SELECTOR_BOUND_MARGIN = 40.0;
     private static final double WINDOW_CHROME_WIDTH_ESTIMATE = 16.0;
     private static final double WINDOW_CHROME_HEIGHT_ESTIMATE = 39.0;
+    private static final String SCENE_TARGET_WIDTH_PROPERTY = "birdFightTargetSceneWidth";
+    private static final String SCENE_TARGET_HEIGHT_PROPERTY = "birdFightTargetSceneHeight";
+    private static final String SCENE_ACTIVE_TARGET_PROPERTY = "birdFightActiveSceneTarget";
+    private static final String SCENE_EVENT_FILTERS_PROPERTY = "birdFightSceneEventFilters";
     private static final double WIIMOTE_SELECTOR_CURSOR_SPEED = 720.0;
     private static final double FIGHT_SELECTOR_CLAW_SIZE = 48.0;
     private static final double FIGHT_SELECTOR_CLAW_GRAB_RADIUS = 56.0;
@@ -200,6 +205,16 @@ public class BirdGame3 extends Application {
     private static final double WIIMOTE_UI_CURSOR_SPEED = 900.0;
     private static final DateTimeFormatter MATCH_HISTORY_TIME_FORMAT =
             DateTimeFormatter.ofPattern("MMM d, yyyy  h:mm a", Locale.US);
+
+    private static final class SceneEventFilterRegistration<T extends Event> {
+        final EventType<T> eventType;
+        final EventHandler<? super T> handler;
+
+        SceneEventFilterRegistration(EventType<T> eventType, EventHandler<? super T> handler) {
+            this.eventType = eventType;
+            this.handler = handler;
+        }
+    }
 
     private static long[] filledLongArray(int length) {
         long[] values = new long[Math.max(0, length)];
@@ -1241,24 +1256,92 @@ public class BirdGame3 extends Application {
     }
 
     // === WIIMOTE-FRIENDLY MENU NAVIGATION (WASD + Space) ===
+    private Scene activeSceneFor(Scene scene) {
+        if (scene == null) {
+            return null;
+        }
+        Object active = scene.getProperties().get(SCENE_ACTIVE_TARGET_PROPERTY);
+        return active instanceof Scene activeScene ? activeScene : scene;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<SceneEventFilterRegistration<? extends Event>> registeredSceneFilters(Scene scene) {
+        if (scene == null) {
+            return new ArrayList<>();
+        }
+        Object raw = scene.getProperties().get(SCENE_EVENT_FILTERS_PROPERTY);
+        if (raw instanceof List<?> list) {
+            return (List<SceneEventFilterRegistration<? extends Event>>) list;
+        }
+        List<SceneEventFilterRegistration<? extends Event>> filters = new ArrayList<>();
+        scene.getProperties().put(SCENE_EVENT_FILTERS_PROPERTY, filters);
+        return filters;
+    }
+
+    private <T extends Event> void addSceneEventFilter(Scene scene, EventType<T> eventType, EventHandler<? super T> handler) {
+        if (scene == null || eventType == null || handler == null) {
+            return;
+        }
+        Scene target = activeSceneFor(scene);
+        if (target == null) {
+            return;
+        }
+        target.addEventFilter(eventType, handler);
+        registeredSceneFilters(target).add(new SceneEventFilterRegistration<>(eventType, handler));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void removeRegisteredSceneFilters(Scene scene) {
+        if (scene == null) {
+            return;
+        }
+        Object raw = scene.getProperties().get(SCENE_EVENT_FILTERS_PROPERTY);
+        if (!(raw instanceof List<?> filters)) {
+            return;
+        }
+        for (Object filter : filters) {
+            if (filter instanceof SceneEventFilterRegistration registration) {
+                scene.removeEventFilter(registration.eventType, registration.handler);
+            }
+        }
+        filters.clear();
+    }
+
     private void setupKeyboardNavigation(Scene scene) {
         fitSceneButtons(scene.getRoot());
-        javafx.application.Platform.runLater(() -> fitSceneButtons(scene.getRoot()));
-        scene.widthProperty().addListener((obs, oldV, newV) -> fitSceneButtons(scene.getRoot()));
-        scene.heightProperty().addListener((obs, oldV, newV) -> fitSceneButtons(scene.getRoot()));
+        javafx.application.Platform.runLater(() -> {
+            Scene targetScene = activeSceneFor(scene);
+            if (targetScene != null) {
+                fitSceneButtons(targetScene.getRoot());
+            }
+        });
+        scene.widthProperty().addListener((obs, oldV, newV) -> {
+            Scene targetScene = activeSceneFor(scene);
+            if (targetScene != null) {
+                fitSceneButtons(targetScene.getRoot());
+            }
+        });
+        scene.heightProperty().addListener((obs, oldV, newV) -> {
+            Scene targetScene = activeSceneFor(scene);
+            if (targetScene != null) {
+                fitSceneButtons(targetScene.getRoot());
+            }
+        });
         applyFocusRingStyle(scene);
-        scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
-            setConsoleHighlightActive(false, scene);
+        addSceneEventFilter(scene, MouseEvent.MOUSE_PRESSED, e -> {
+            Scene targetScene = activeSceneFor(scene);
+            setConsoleHighlightActive(false, targetScene);
             if (!(e.getTarget() instanceof Node target)) return;
             if (isInteractiveTarget(target)) return;
-            Node focus = scene.getFocusOwner();
+            Node focus = targetScene == null ? null : targetScene.getFocusOwner();
             if (focus != null) focus.requestFocus();
             e.consume();
         });
         scene.setOnKeyPressed(e -> {
+            Scene targetScene = activeSceneFor(scene);
             KeyCode code = e.getCode();
 
-            if (code == KeyCode.F11 && scene.getWindow() instanceof Stage s) {
+            if (code == KeyCode.F11 && targetScene != null && targetScene.getWindow() instanceof Stage s) {
                 fullscreenEnabled = !fullscreenEnabled;
                 applyDisplaySettings(s);
                 saveAchievements();
@@ -1276,7 +1359,7 @@ public class BirdGame3 extends Application {
             };
             if (arrow != null) {
                 e.consume();
-                Node focus = scene.getFocusOwner();
+                Node focus = targetScene == null ? null : targetScene.getFocusOwner();
                 if (focus != null) {
                     focus.fireEvent(new KeyEvent(KeyEvent.KEY_PRESSED, "", "", arrow, false, false, false, false));
                 }
@@ -1284,7 +1367,7 @@ public class BirdGame3 extends Application {
 
             // SPACE/ENTER = SELECT + CLICK SOUND ON EVERY BUTTON
             if (code == KeyCode.SPACE || code == KeyCode.ENTER) {
-                Node focus = scene.getFocusOwner();
+                Node focus = targetScene == null ? null : targetScene.getFocusOwner();
                 if (activateInteractiveNode(focus)) {
                     e.consume();
                 }
@@ -1664,6 +1747,7 @@ public class BirdGame3 extends Application {
     }
 
     private boolean pollWiimotePausedGameplayMenu(Scene scene, WiimoteMappedState state) {
+        scene = activeSceneFor(scene);
         if (scene != gameplayScene || !isPaused) {
             resetWiimotePauseMenuHeldState();
             return false;
@@ -1783,6 +1867,7 @@ public class BirdGame3 extends Application {
     }
 
     private boolean usesWiimoteUiPointer(Scene scene) {
+        scene = activeSceneFor(scene);
         return scene != null && scene != gameplayScene && !isWiimoteSelectorScene(scene);
     }
 
@@ -1799,18 +1884,20 @@ public class BirdGame3 extends Application {
     }
 
     private void installWiimoteMenuPointerTracking(Scene scene) {
-        if (scene == null || Boolean.TRUE.equals(scene.getProperties().get(SCENE_PROP_WIIMOTE_POINTER_TRACKING))) {
+        Scene targetScene = activeSceneFor(scene);
+        if (targetScene == null || Boolean.TRUE.equals(targetScene.getProperties().get(SCENE_PROP_WIIMOTE_POINTER_TRACKING))) {
             return;
         }
-        scene.getProperties().put(SCENE_PROP_WIIMOTE_POINTER_TRACKING, Boolean.TRUE);
-        EventHandler<MouseEvent> tracker = e -> updateWiimoteMenuPointerScenePosition(scene, e.getSceneX(), e.getSceneY());
-        scene.addEventFilter(MouseEvent.MOUSE_MOVED, tracker);
-        scene.addEventFilter(MouseEvent.MOUSE_DRAGGED, tracker);
-        scene.addEventFilter(MouseEvent.MOUSE_PRESSED, tracker);
-        scene.addEventFilter(MouseEvent.MOUSE_RELEASED, tracker);
+        targetScene.getProperties().put(SCENE_PROP_WIIMOTE_POINTER_TRACKING, Boolean.TRUE);
+        EventHandler<MouseEvent> tracker = e -> updateWiimoteMenuPointerScenePosition(targetScene, e.getSceneX(), e.getSceneY());
+        addSceneEventFilter(targetScene, MouseEvent.MOUSE_MOVED, tracker);
+        addSceneEventFilter(targetScene, MouseEvent.MOUSE_DRAGGED, tracker);
+        addSceneEventFilter(targetScene, MouseEvent.MOUSE_PRESSED, tracker);
+        addSceneEventFilter(targetScene, MouseEvent.MOUSE_RELEASED, tracker);
     }
 
     private void syncWiimoteMenuPointer(Scene scene) {
+        scene = activeSceneFor(scene);
         if (scene == null) {
             return;
         }
@@ -1833,6 +1920,7 @@ public class BirdGame3 extends Application {
     }
 
     private Point2D wiimoteMenuPointerSceneFromRobot(Scene scene) {
+        scene = activeSceneFor(scene);
         Robot robot = wiimoteUiRobot();
         if (scene == null || robot == null) {
             return null;
@@ -1849,6 +1937,7 @@ public class BirdGame3 extends Application {
     }
 
     private void moveWiimoteMenuPointer(Scene scene, double horizontal, double vertical, double dtSeconds) {
+        scene = activeSceneFor(scene);
         if (scene == null) {
             return;
         }
@@ -1863,6 +1952,7 @@ public class BirdGame3 extends Application {
     }
 
     private void moveWiimoteMenuPointerTo(Scene scene, double sceneX, double sceneY) {
+        scene = activeSceneFor(scene);
         Robot robot = wiimoteUiRobot();
         Point2D screenPoint = sceneToScreenPoint(scene, sceneX, sceneY);
         if (scene == null || robot == null || screenPoint == null) {
@@ -1873,6 +1963,7 @@ public class BirdGame3 extends Application {
     }
 
     private Point2D sceneToScreenPoint(Scene scene, double sceneX, double sceneY) {
+        scene = activeSceneFor(scene);
         if (scene == null) {
             return null;
         }
@@ -1885,6 +1976,10 @@ public class BirdGame3 extends Application {
     }
 
     private void updateWiimoteMenuPointerScenePosition(Scene scene, double sceneX, double sceneY) {
+        scene = activeSceneFor(scene);
+        if (scene == null) {
+            return;
+        }
         wiimoteMenuPointerScene = scene;
         wiimoteMenuPointerSceneX = clampWiimoteMenuPointerSceneX(sceneX, scene);
         wiimoteMenuPointerSceneY = clampWiimoteMenuPointerSceneY(sceneY, scene);
@@ -1892,6 +1987,10 @@ public class BirdGame3 extends Application {
     }
 
     private void clampWiimoteMenuPointerToScene(Scene scene) {
+        scene = activeSceneFor(scene);
+        if (scene == null) {
+            return;
+        }
         wiimoteMenuPointerSceneX = clampWiimoteMenuPointerSceneX(wiimoteMenuPointerSceneX, scene);
         wiimoteMenuPointerSceneY = clampWiimoteMenuPointerSceneY(wiimoteMenuPointerSceneY, scene);
     }
@@ -1927,10 +2026,12 @@ public class BirdGame3 extends Application {
     }
 
     private boolean isWiimoteSelectorScene(Scene scene) {
+        scene = activeSceneFor(scene);
         return scene != null && Boolean.TRUE.equals(scene.getProperties().get(SCENE_PROP_WIIMOTE_SELECTOR));
     }
 
     private int wiimoteSelectorPlayerCount(Scene scene) {
+        scene = activeSceneFor(scene);
         if (scene == null) {
             return 0;
         }
@@ -1942,6 +2043,7 @@ public class BirdGame3 extends Application {
     }
 
     private void pollWiimoteSelectorNavigation(Scene scene) {
+        scene = activeSceneFor(scene);
         if (scene == null || (wiimoteInputManager == null && xboxInputManager == null)) {
             resetWiimoteSelectorHeldState();
             resetXboxJoinHeldState();
@@ -2276,6 +2378,7 @@ public class BirdGame3 extends Application {
     }
 
     private void dispatchWiimoteMenuDirectional(Scene scene, KeyCode code) {
+        scene = activeSceneFor(scene);
         if (scene == null || code == null) return;
         Node focus = scene.getFocusOwner();
         if (focus != null) {
@@ -2286,13 +2389,14 @@ public class BirdGame3 extends Application {
     }
 
     private void dispatchWiimoteMenuKey(Scene scene, KeyCode code) {
+        scene = activeSceneFor(scene);
         if (scene == null || code == null) return;
         Event.fireEvent(scene, new KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false));
     }
 
     private void bindEscape(Scene scene, Runnable action) {
         if (scene == null || action == null) return;
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.ESCAPE) {
                 action.run();
                 e.consume();
@@ -2704,7 +2808,11 @@ public class BirdGame3 extends Application {
 
     private void bindScaleToFit(Scene scene, Node content) {
         Runnable apply = () -> {
-            if (scene.getRoot() instanceof StackPane sp && "uiFrame".equals(sp.getId())) {
+            Scene targetScene = activeSceneFor(scene);
+            if (targetScene == null) {
+                targetScene = scene;
+            }
+            if (targetScene.getRoot() instanceof StackPane sp && "uiFrame".equals(sp.getId())) {
                 return;
             }
             content.applyCss();
@@ -2717,8 +2825,8 @@ public class BirdGame3 extends Application {
                 content.setScaleY(1.0);
                 return;
             }
-            double availW = Math.max(1.0, scene.getWidth() - (double) 40 * 2);
-            double availH = Math.max(1.0, scene.getHeight() - (double) 40 * 2);
+            double availW = Math.max(1.0, initialLayoutSceneWidth(targetScene) - (double) 40 * 2);
+            double availH = Math.max(1.0, initialLayoutSceneHeight(targetScene) - (double) 40 * 2);
             double scale = Math.min(1.0, Math.min(availW / w, availH / h));
             content.setScaleX(scale);
             content.setScaleY(scale);
@@ -2735,8 +2843,12 @@ public class BirdGame3 extends Application {
 
     private void bindFixedFrameScale(Scene scene, Node content, double margin) {
         Runnable apply = () -> {
-            double availW = Math.max(1.0, scene.getWidth() - margin * 2.0);
-            double availH = Math.max(1.0, scene.getHeight() - margin * 2.0);
+            Scene targetScene = activeSceneFor(scene);
+            if (targetScene == null) {
+                targetScene = scene;
+            }
+            double availW = Math.max(1.0, initialLayoutSceneWidth(targetScene) - margin * 2.0);
+            double availH = Math.max(1.0, initialLayoutSceneHeight(targetScene) - margin * 2.0);
             double scale = Math.min(availW / 1600.0, availH / 950.0);
             content.setScaleX(scale);
             content.setScaleY(scale);
@@ -2786,7 +2898,7 @@ public class BirdGame3 extends Application {
             }
         }
         if (Boolean.TRUE.equals(root.getProperties().get("noAutoScale"))) return;
-        javafx.application.Platform.runLater(() -> wrapAndScaleUiScene(scene));
+        wrapAndScaleUiScene(scene);
     }
 
     private void applyFocusRingStyle(Scene scene) {
@@ -2799,6 +2911,28 @@ public class BirdGame3 extends Application {
         if (!style.contains("-fx-focus-color")) {
             region.setStyle(style + (style.isBlank() ? "" : "; ") + focusStyle);
         }
+    }
+
+    private double initialLayoutSceneWidth(Scene scene) {
+        return initialLayoutSceneDimension(scene, SCENE_TARGET_WIDTH_PROPERTY, WIDTH);
+    }
+
+    private double initialLayoutSceneHeight(Scene scene) {
+        return initialLayoutSceneDimension(scene, SCENE_TARGET_HEIGHT_PROPERTY, HEIGHT);
+    }
+
+    private double initialLayoutSceneDimension(Scene scene, String propertyName, double fallback) {
+        if (scene == null) {
+            return fallback;
+        }
+        if (scene.getWindow() == null) {
+            Object seeded = scene.getProperties().get(propertyName);
+            if (seeded instanceof Number number && number.doubleValue() > 0.0) {
+                return number.doubleValue();
+            }
+        }
+        double value = SCENE_TARGET_WIDTH_PROPERTY.equals(propertyName) ? scene.getWidth() : scene.getHeight();
+        return value > 0.0 ? value : fallback;
     }
 
     private void wrapAndScaleUiScene(Scene scene) {
@@ -2859,8 +2993,8 @@ public class BirdGame3 extends Application {
         frame.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
         scene.setRoot(frame);
         Runnable sizeFrame = () -> {
-            double w = scene.getWidth();
-            double h = scene.getHeight();
+            double w = initialLayoutSceneWidth(scene);
+            double h = initialLayoutSceneHeight(scene);
             if (w > 0 && h > 0) {
                 frame.setMinSize(w, h);
                 frame.setPrefSize(w, h);
@@ -2879,6 +3013,7 @@ public class BirdGame3 extends Application {
             frame.setPrefHeight(h);
             frame.setMaxHeight(h);
         });
+        sizeFrame.run();
         javafx.application.Platform.runLater(sizeFrame);
 
         if (!hasScroll) {
@@ -2892,8 +3027,8 @@ public class BirdGame3 extends Application {
                 double scale = computeUiFitScale(
                         bounds.getWidth(),
                         bounds.getHeight(),
-                        scene.getWidth(),
-                        scene.getHeight()
+                        initialLayoutSceneWidth(scene),
+                        initialLayoutSceneHeight(scene)
                 );
                 root.setScaleX(scale);
                 root.setScaleY(scale);
@@ -2901,6 +3036,7 @@ public class BirdGame3 extends Application {
             scene.widthProperty().addListener((obs, oldV, newV) -> applyScale.run());
             scene.heightProperty().addListener((obs, oldV, newV) -> applyScale.run());
             root.layoutBoundsProperty().addListener((obs, oldV, newV) -> applyScale.run());
+            applyScale.run();
             javafx.application.Platform.runLater(applyScale);
         }
     }
@@ -3311,22 +3447,245 @@ public class BirdGame3 extends Application {
     private void setScenePreservingFullscreen(Stage stage, Scene scene) {
         currentStage = stage;
         releaseWiimoteMenuPointerPress();
-        stage.setScene(scene);
-        applyDisplaySettings(stage);
+        prepareStageForSceneSwap(stage, scene);
+        seedSceneTargetSize(stage, scene);
         ensureSceneAutoScaled(scene);
-        installWiimoteMenuPointerTracking(scene);
-        if (usesWiimoteUiPointer(scene)) {
-            setFightSetupClawCursor(scene, false);
-            syncWiimoteMenuPointer(scene);
-        } else if (isWiimoteSelectorScene(scene)) {
-            setFightSetupClawCursor(scene, false);
-        } else if (scene != null) {
-            scene.setCursor(Cursor.DEFAULT);
+        Scene installedScene = installScenePreservingCurrentFullscreen(stage, scene);
+        restoreDisplayModeAfterSceneSwap(stage);
+        installWiimoteMenuPointerTracking(installedScene);
+        if (usesWiimoteUiPointer(installedScene)) {
+            setFightSetupClawCursor(installedScene, false);
+            syncWiimoteMenuPointer(installedScene);
+        } else if (isWiimoteSelectorScene(installedScene)) {
+            setFightSetupClawCursor(installedScene, false);
+        } else if (installedScene != null) {
+            installedScene.setCursor(Cursor.DEFAULT);
         }
         if (achievementToastShowing && achievementToastPopup != null) {
             positionAchievementToast(achievementToastPopup);
         }
         tryShowQueuedAchievementToast();
+    }
+
+    private Scene installScenePreservingCurrentFullscreen(Stage stage, Scene scene) {
+        if (stage == null || scene == null) {
+            return scene;
+        }
+        Scene currentScene = stage.getScene();
+        if (fullscreenEnabled && stage.isShowing() && stage.isFullScreen() && currentScene != null) {
+            swapFullscreenSceneRoot(currentScene, scene);
+            if (gameplayScene == scene) {
+                gameplayScene = currentScene;
+            } else if (gameplayScene == currentScene) {
+                gameplayScene = null;
+            }
+            if (wiimoteMenuPointerScene == scene) {
+                wiimoteMenuPointerScene = currentScene;
+            }
+            scene.getProperties().put(SCENE_ACTIVE_TARGET_PROPERTY, currentScene);
+            refreshTransferredSceneLayout(currentScene);
+            return currentScene;
+        }
+        stage.setScene(scene);
+        return scene;
+    }
+
+    private void swapFullscreenSceneRoot(Scene targetScene, Scene sourceScene) {
+        removeRegisteredSceneFilters(targetScene);
+
+        Parent sourceRoot = sourceScene.getRoot();
+        sourceScene.setRoot(new Group());
+        targetScene.setRoot(sourceRoot);
+        targetScene.setFill(sourceScene.getFill());
+        targetScene.setCursor(sourceScene.getCursor());
+        targetScene.getStylesheets().setAll(sourceScene.getStylesheets());
+        targetScene.getAccelerators().clear();
+        targetScene.getAccelerators().putAll(sourceScene.getAccelerators());
+
+        targetScene.setOnKeyPressed(sourceScene.getOnKeyPressed());
+        targetScene.setOnKeyReleased(sourceScene.getOnKeyReleased());
+        targetScene.setOnKeyTyped(sourceScene.getOnKeyTyped());
+        targetScene.setOnMouseClicked(sourceScene.getOnMouseClicked());
+        targetScene.setOnMousePressed(sourceScene.getOnMousePressed());
+        targetScene.setOnMouseReleased(sourceScene.getOnMouseReleased());
+        targetScene.setOnMouseMoved(sourceScene.getOnMouseMoved());
+        targetScene.setOnMouseDragged(sourceScene.getOnMouseDragged());
+        targetScene.setOnScroll(sourceScene.getOnScroll());
+
+        List<SceneEventFilterRegistration<? extends Event>> sourceFilters = new ArrayList<>(registeredSceneFilters(sourceScene));
+        targetScene.getProperties().clear();
+        targetScene.getProperties().putAll(sourceScene.getProperties());
+        targetScene.getProperties().remove(SCENE_ACTIVE_TARGET_PROPERTY);
+        targetScene.getProperties().put(SCENE_EVENT_FILTERS_PROPERTY, new ArrayList<SceneEventFilterRegistration<? extends Event>>());
+        for (SceneEventFilterRegistration<? extends Event> filter : sourceFilters) {
+            addSceneEventFilterRaw(targetScene, filter);
+        }
+        sourceScene.getProperties().put(SCENE_ACTIVE_TARGET_PROPERTY, targetScene);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void addSceneEventFilterRaw(Scene scene, SceneEventFilterRegistration<? extends Event> filter) {
+        if (scene == null || filter == null) {
+            return;
+        }
+        scene.addEventFilter((EventType) filter.eventType, (EventHandler) filter.handler);
+        registeredSceneFilters(scene).add(filter);
+    }
+
+    private void refreshTransferredSceneLayout(Scene scene) {
+        if (scene == null) {
+            return;
+        }
+        Node root = scene.getRoot();
+        if (root == null) {
+            return;
+        }
+        fitSceneButtons(root);
+        refreshResponsiveContainerScale(scene, root);
+        refreshUiFrameScale(scene, root);
+    }
+
+    private void refreshResponsiveContainerScale(Scene scene, Node root) {
+        if (!(root instanceof StackPane container) || !"responsiveContainer".equals(container.getId())
+                || container.getChildren().isEmpty()) {
+            return;
+        }
+        Node content = container.getChildren().getFirst();
+        Runnable applyScale = () -> {
+            double sx = scene.getWidth() / WIDTH;
+            double sy = scene.getHeight() / HEIGHT;
+            content.setScaleX(Math.max(0.01, sx));
+            content.setScaleY(Math.max(0.01, sy));
+        };
+        scene.widthProperty().addListener((obs, oldV, newV) -> applyScale.run());
+        scene.heightProperty().addListener((obs, oldV, newV) -> applyScale.run());
+        applyScale.run();
+    }
+
+    private void refreshUiFrameScale(Scene scene, Node root) {
+        if (!(root instanceof StackPane frame) || !"uiFrame".equals(frame.getId())) {
+            return;
+        }
+        Runnable sizeFrame = () -> {
+            double w = scene.getWidth() > 0.0 ? scene.getWidth() : initialLayoutSceneWidth(scene);
+            double h = scene.getHeight() > 0.0 ? scene.getHeight() : initialLayoutSceneHeight(scene);
+            if (w > 0.0 && h > 0.0) {
+                frame.setMinSize(w, h);
+                frame.setPrefSize(w, h);
+                frame.setMaxSize(w, h);
+            }
+        };
+        scene.widthProperty().addListener((obs, oldV, newV) -> sizeFrame.run());
+        scene.heightProperty().addListener((obs, oldV, newV) -> sizeFrame.run());
+        sizeFrame.run();
+
+        if (frame.getChildren().isEmpty()) {
+            return;
+        }
+        Node content = frame.getChildren().getFirst();
+        if (sceneContainsScrollPane(content)) {
+            return;
+        }
+        Runnable applyScale = () -> {
+            Bounds bounds = measureUiContentBounds(content);
+            if (bounds == null) {
+                content.setScaleX(1.0);
+                content.setScaleY(1.0);
+                return;
+            }
+            double scale = computeUiFitScale(bounds.getWidth(), bounds.getHeight(), scene.getWidth(), scene.getHeight());
+            content.setScaleX(scale);
+            content.setScaleY(scale);
+        };
+        scene.widthProperty().addListener((obs, oldV, newV) -> applyScale.run());
+        scene.heightProperty().addListener((obs, oldV, newV) -> applyScale.run());
+        content.layoutBoundsProperty().addListener((obs, oldV, newV) -> applyScale.run());
+        applyScale.run();
+    }
+
+    private void prepareStageForSceneSwap(Stage stage, Scene scene) {
+        if (stage == null || scene == null || !stage.isShowing() || fullscreenEnabled || stage.isFullScreen()) {
+            return;
+        }
+        applyWindowedStageSize(stage);
+    }
+
+    private void restoreDisplayModeAfterSceneSwap(Stage stage) {
+        if (stage == null) {
+            return;
+        }
+        if (fullscreenEnabled) {
+            if (!stage.isShowing()) {
+                return;
+            }
+            try {
+                if (stage.isMaximized()) {
+                    stage.setMaximized(false);
+                }
+                stage.setFullScreen(true);
+            } catch (Exception ignored) {
+                applyDisplaySettings(stage);
+                return;
+            }
+            if (!stage.isFullScreen()) {
+                javafx.application.Platform.runLater(() -> applyDisplaySettings(stage));
+            }
+            return;
+        }
+        if (stage.isFullScreen()) {
+            applyDisplaySettings(stage);
+        }
+    }
+
+    private void seedSceneTargetSize(Stage stage, Scene scene) {
+        if (stage == null || scene == null) {
+            return;
+        }
+        double[] target = estimateTargetSceneSize(stage, scene);
+        if (target[0] > 0.0 && target[1] > 0.0) {
+            scene.getProperties().put(SCENE_TARGET_WIDTH_PROPERTY, target[0]);
+            scene.getProperties().put(SCENE_TARGET_HEIGHT_PROPERTY, target[1]);
+        }
+    }
+
+    private double[] estimateTargetSceneSize(Stage stage, Scene candidateScene) {
+        if (fullscreenEnabled || stage.isFullScreen()) {
+            Rectangle2D bounds = getStageScreenFullBounds(stage, candidateScene);
+            return new double[]{bounds.getWidth(), bounds.getHeight()};
+        }
+
+        Scene currentScene = stage.getScene();
+        if (stage.isShowing() && currentScene != null
+                && currentScene.getWidth() > 1.0 && currentScene.getHeight() > 1.0) {
+            return new double[]{currentScene.getWidth(), currentScene.getHeight()};
+        }
+
+        if (stage.isShowing() && stage.getWidth() > 1.0 && stage.getHeight() > 1.0) {
+            double sceneW = stage.getWidth() - currentWindowChromeWidth(stage);
+            double sceneH = stage.getHeight() - currentWindowChromeHeight(stage);
+            if (sceneW > 1.0 && sceneH > 1.0) {
+                return new double[]{sceneW, sceneH};
+            }
+        }
+
+        Rectangle2D bounds = getStageScreenBounds(stage, candidateScene);
+        double sceneW = Math.clamp(bounds.getWidth() - currentWindowChromeWidth(stage), 640.0, WIDTH);
+        double sceneH = Math.clamp(bounds.getHeight() - currentWindowChromeHeight(stage), 360.0, HEIGHT);
+        return new double[]{sceneW, sceneH};
+    }
+
+    private Rectangle2D getStageScreenFullBounds(Stage stage, Scene scene) {
+        try {
+            double x = stage.getX();
+            double y = stage.getY();
+            double w = stage.getWidth() > 0 ? stage.getWidth() : (scene.getWidth() > 0 ? scene.getWidth() : WIDTH);
+            double h = stage.getHeight() > 0 ? stage.getHeight() : (scene.getHeight() > 0 ? scene.getHeight() : HEIGHT);
+            List<Screen> screens = Screen.getScreensForRectangle(x, y, w, h);
+            Screen screen = screens.isEmpty() ? Screen.getPrimary() : screens.getFirst();
+            return screen.getBounds();
+        } catch (Exception e) {
+            return Screen.getPrimary().getBounds();
+        }
     }
 
     private Rectangle2D getStageScreenBounds(Stage stage, Scene scene) {
@@ -3362,28 +3721,30 @@ public class BirdGame3 extends Application {
 
     // === WIIMOTE HIGHLIGHT ===
     private void applyConsoleHighlight(Scene scene) {
-        if (scene == null) return;
-        if (!Boolean.TRUE.equals(scene.getProperties().get("consoleHighlightInstalled"))) {
-            scene.getProperties().put("consoleHighlightInstalled", true);
-            scene.focusOwnerProperty().addListener((obs, oldFocus, newFocus) -> {
+        Scene targetScene = activeSceneFor(scene);
+        if (targetScene == null) return;
+        if (!Boolean.TRUE.equals(targetScene.getProperties().get("consoleHighlightInstalled"))) {
+            targetScene.getProperties().put("consoleHighlightInstalled", true);
+            targetScene.focusOwnerProperty().addListener((obs, oldFocus, newFocus) -> {
                 if (oldFocus instanceof Control oldCtrl) updateControlHighlight(oldCtrl);
                 if (newFocus instanceof Control newCtrl) updateControlHighlight(newCtrl);
             });
-            scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> setConsoleHighlightActive(true, scene));
-            scene.addEventFilter(MouseEvent.MOUSE_MOVED, e -> setConsoleHighlightActive(false, scene));
-            scene.addEventFilter(MouseEvent.MOUSE_DRAGGED, e -> setConsoleHighlightActive(false, scene));
-            scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> setConsoleHighlightActive(false, scene));
+            addSceneEventFilter(targetScene, KeyEvent.KEY_PRESSED, e -> setConsoleHighlightActive(true, targetScene));
+            addSceneEventFilter(targetScene, MouseEvent.MOUSE_MOVED, e -> setConsoleHighlightActive(false, targetScene));
+            addSceneEventFilter(targetScene, MouseEvent.MOUSE_DRAGGED, e -> setConsoleHighlightActive(false, targetScene));
+            addSceneEventFilter(targetScene, MouseEvent.MOUSE_PRESSED, e -> setConsoleHighlightActive(false, targetScene));
         }
-        refreshSceneHighlights(scene);
+        refreshSceneHighlights(targetScene);
     }
 
     private void setConsoleHighlightActive(boolean active, Scene scene) {
         if (consoleHighlightActive == active) return;
         consoleHighlightActive = active;
-        refreshSceneHighlights(scene);
+        refreshSceneHighlights(activeSceneFor(scene));
     }
 
     private void refreshSceneHighlights(Scene scene) {
+        scene = activeSceneFor(scene);
         if (scene == null) return;
         installHighlightHandlers(scene.getRoot());
     }
@@ -9494,8 +9855,15 @@ public class BirdGame3 extends Application {
                     int shownDamage = (int) Math.round(dealtDamage);
                     String source = c.displayName();
                     addToKillFeed(source + " devours " + shortName(closest.name) + "! -" + shownDamage + " HP");
-                    closest.vx += c.vx * 1.5;
-                    closest.vy -= 12;
+                    double hitDirection = Math.signum((closest.x + 40.0) - c.x);
+                    if (hitDirection == 0.0) {
+                        hitDirection = Math.signum(c.vx);
+                    }
+                    if (hitDirection == 0.0) {
+                        hitDirection = closest.facingRight ? -1.0 : 1.0;
+                    }
+                    closest.vx += c.vx * 1.65 + hitDirection * 4.8;
+                    closest.vy -= 7.0;
                     boolean hostile = c.effectiveVariant() != CrowMinion.VARIANT_ALLIED_CROW;
                     int particleCount = scaledParticleBurstCount(hostile ? 35 : 18);
                     Color particleColor = hostile
@@ -10872,6 +11240,12 @@ public class BirdGame3 extends Application {
             drawPiranhaHazard(g, piranha);
         }
 
+        for (Bird b : players) {
+            if (b != null && b.health > 0) {
+                b.drawWorldObjects(g);
+            }
+        }
+
         for (CrowMinion c : crowMinions) {
             double size = 70 * c.drawScale();
             if (isWorldRectNearCamera(c.x - size * 0.6, c.y - size * 0.5, size * 1.2, size, 220)) {
@@ -12103,8 +12477,12 @@ public class BirdGame3 extends Application {
                 }
                 int shownDamage = (int) Math.round(dealtDamage);
                 addToKillFeed(c.displayName() + " guards the bone from " + shortName(closest.name) + "! -" + shownDamage + " HP");
-                closest.vx += Math.signum(hitDx == 0.0 ? c.vx : hitDx) * 5.5;
-                closest.vy -= 7.5;
+                double hitDirection = Math.signum(hitDx == 0.0 ? c.vx : hitDx);
+                if (hitDirection == 0.0) {
+                    hitDirection = closest.facingRight ? -1.0 : 1.0;
+                }
+                closest.vx += hitDirection * 8.0 + c.vx * 0.35;
+                closest.vy -= 5.0;
                 int particleCount = scaledParticleBurstCount(16);
                 for (int i = 0; i < particleCount; i++) {
                     double angle = Math.random() * Math.PI * 2;
@@ -12724,6 +13102,8 @@ public class BirdGame3 extends Application {
             appendStartLog("before showMenu");
             showMenu(stage);
             appendStartLog("after showMenu");
+            prepareStageForInitialShow(stage);
+            appendStartLog("prepared initial stage size");
             appendStartLog("before stage.show");
             stage.show();
             appendStartLog("after stage.show");
@@ -13676,7 +14056,7 @@ public class BirdGame3 extends Application {
         root.getChildren().add(frame);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.ESCAPE) {
                 playButtonClick();
                 confirmExitGame(stage);
@@ -15073,13 +15453,15 @@ public class BirdGame3 extends Application {
     }
 
     private void setFightSetupClawCursor(Scene scene, boolean clenched) {
-        if (scene == null) {
+        Scene targetScene = activeSceneFor(scene);
+        if (targetScene == null) {
             return;
         }
-        scene.setCursor(fightSetupClawCursor(clenched));
+        targetScene.setCursor(fightSetupClawCursor(clenched));
     }
 
     private FightSetupSelectorController fightSetupSelectorController(Scene scene) {
+        scene = activeSceneFor(scene);
         if (scene == null) {
             return null;
         }
@@ -16288,9 +16670,9 @@ public class BirdGame3 extends Application {
                 )
         );
         setFightSetupClawCursor(scene, false);
-        scene.addEventFilter(MouseEvent.MOUSE_RELEASED, e -> setFightSetupClawCursor(scene, false));
+        addSceneEventFilter(scene, MouseEvent.MOUSE_RELEASED, e -> setFightSetupClawCursor(scene, false));
         bindEscape(scene, back);
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             for (int idx = 0; idx < activePlayers; idx++) {
                 if (keyboardControlsPlayer(idx)) {
                     continue;
@@ -18201,7 +18583,7 @@ public class BirdGame3 extends Application {
         });
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             KeyCode code = e.getCode();
             if (code == KeyCode.ESCAPE) {
                 if (mode.victory() || mode.gameOver()) {
@@ -18222,7 +18604,8 @@ public class BirdGame3 extends Application {
 
             if (mode.victory() || mode.gameOver()) {
                 if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
-                    Node focus = scene.getFocusOwner();
+                    Scene targetScene = activeSceneFor(scene);
+                    Node focus = targetScene == null ? null : targetScene.getFocusOwner();
                     if (focus instanceof Button button) {
                         playButtonClick();
                         button.fire();
@@ -18250,7 +18633,8 @@ public class BirdGame3 extends Application {
                         return;
                     }
                     if (code == KeyCode.ENTER || code == KeyCode.SPACE) {
-                        Node focus = scene.getFocusOwner();
+                        Scene targetScene = activeSceneFor(scene);
+                        Node focus = targetScene == null ? null : targetScene.getFocusOwner();
                         if (focus instanceof Button button) {
                             playButtonClick();
                             button.fire();
@@ -20681,7 +21065,7 @@ public class BirdGame3 extends Application {
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         StringBuilder nullRockCode = new StringBuilder();
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             if (!nullRockVultureUnlocked || lanPlayerIndex < 0 || lanRandomBirds[lanPlayerIndex]) return;
             String text = e.getText();
             if (text == null || text.length() != 1 || !Character.isLetter(text.charAt(0))) return;
@@ -23402,7 +23786,7 @@ public class BirdGame3 extends Application {
             playButtonClick();
             advance.run();
         });
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
                 playButtonClick();
                 advance.run();
@@ -23882,7 +24266,7 @@ public class BirdGame3 extends Application {
             }
         };
 
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             KeyCode code = e.getCode();
             if (code == KeyCode.R || code == KeyCode.SPACE || code == KeyCode.ENTER) {
                 if (restartAction[0] != null) {
@@ -25425,19 +25809,26 @@ public class BirdGame3 extends Application {
 
     private List<BirdBookBirdEntry> birdBookBirdEntries() {
         List<BirdBookBirdEntry> entries = new ArrayList<>();
-        List<BirdType> ordered = new ArrayList<>(Arrays.asList(BirdType.values()));
-        if (ordered.remove(BirdType.HEISENBIRD)) {
-            int opiumIndex = ordered.indexOf(BirdType.OPIUMBIRD);
-            if (opiumIndex >= 0) ordered.add(opiumIndex + 1, BirdType.HEISENBIRD);
-            else ordered.add(BirdType.HEISENBIRD);
-        }
-        for (BirdType type : ordered) {
+        for (BirdType type : characterSelectBirdOrder()) {
             entries.add(birdBookEntry(type, false));
             if (type == BirdType.VULTURE) {
                 entries.add(nullRockBirdBookEntry());
             }
         }
         return entries;
+    }
+
+    private static List<BirdType> characterSelectBirdOrder() {
+        List<BirdType> ordered = new ArrayList<>(Arrays.asList(BirdType.values()));
+        if (ordered.remove(BirdType.HEISENBIRD)) {
+            int opiumIndex = ordered.indexOf(BirdType.OPIUMBIRD);
+            if (opiumIndex >= 0) {
+                ordered.add(opiumIndex + 1, BirdType.HEISENBIRD);
+            } else {
+                ordered.add(BirdType.HEISENBIRD);
+            }
+        }
+        return ordered;
     }
 
     private List<BirdCompanionEntry> birdCompanionEntries(BirdType type) {
@@ -27401,7 +27792,7 @@ public class BirdGame3 extends Application {
             playButtonClick();
             advance.run();
         });
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
                 playButtonClick();
                 advance.run();
@@ -27574,6 +27965,27 @@ public class BirdGame3 extends Application {
         btn.setText("DISPLAY MODE: " + (fullscreenEnabled ? "FULLSCREEN" : "WINDOWED"));
         String color = fullscreenEnabled ? "#2E7D32" : "#455A64";
         btn.setStyle(MenuTheme.buttonStyle(color, 24));
+    }
+
+    private void prepareStageForInitialShow(Stage stage) {
+        if (stage == null || stage.isShowing()) {
+            return;
+        }
+        stage.setMaximized(false);
+        if (fullscreenEnabled) {
+            Rectangle2D bounds = Screen.getPrimary().getBounds();
+            stage.setX(bounds.getMinX());
+            stage.setY(bounds.getMinY());
+            stage.setWidth(bounds.getWidth());
+            stage.setHeight(bounds.getHeight());
+            try {
+                stage.setFullScreen(true);
+            } catch (Exception ignored) {
+                // applyDisplaySettings retries after show() if the platform rejects pre-show fullscreen.
+            }
+            return;
+        }
+        applyWindowedStageSize(stage);
     }
 
     private void applyDisplaySettings(Stage stage) {
@@ -28164,7 +28576,7 @@ public class BirdGame3 extends Application {
 
         root.getChildren().addAll(title, card, buttons);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             if (pendingBinding[0] == null) return;
             e.consume();
             KeyCode code = e.getCode();
@@ -32467,7 +32879,7 @@ public class BirdGame3 extends Application {
 
     List<BirdType> unlockedBirdPool() {
         List<BirdType> pool = new ArrayList<>();
-        for (BirdType bt : BirdType.values()) {
+        for (BirdType bt : characterSelectBirdOrder()) {
             if (isBirdUnlocked(bt)) pool.add(bt);
         }
         if (pool.isEmpty()) pool.add(firstUnlockedBird());
@@ -32815,6 +33227,7 @@ public class BirdGame3 extends Application {
     }
 
     private boolean movePauseMenuFocus(Scene scene, VBox pauseMenu, KeyCode direction) {
+        scene = activeSceneFor(scene);
         if (pauseMenu == null) {
             return false;
         }
@@ -35627,7 +36040,9 @@ public class BirdGame3 extends Application {
                 fitLabelSingleLine(title, 110, 56, maxWidth);
             });
             javafx.application.Platform.runLater(() -> {
-                double maxWidth = Math.max(300, scene.getWidth() - 120);
+                Scene targetScene = activeSceneFor(scene);
+                double sceneWidth = targetScene != null ? initialLayoutSceneWidth(targetScene) : scene.getWidth();
+                double maxWidth = Math.max(300, sceneWidth - 120);
                 fitLabelSingleLine(title, 110, 56, maxWidth);
             });
             setScenePreservingFullscreen(stage, scene);
@@ -35662,7 +36077,9 @@ public class BirdGame3 extends Application {
             fitLabelSingleLine(title, 110, 56, maxWidth);
         });
         javafx.application.Platform.runLater(() -> {
-            double maxWidth = Math.max(300, scene.getWidth() - 120);
+            Scene targetScene = activeSceneFor(scene);
+            double sceneWidth = targetScene != null ? initialLayoutSceneWidth(targetScene) : scene.getWidth();
+            double maxWidth = Math.max(300, sceneWidth - 120);
             fitLabelSingleLine(title, 110, 56, maxWidth);
         });
         setScenePreservingFullscreen(stage, scene);
@@ -37650,7 +38067,7 @@ public class BirdGame3 extends Application {
             playButtonClick();
             advance.run();
         });
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.ENTER) {
                 playButtonClick();
                 advance.run();
@@ -38617,7 +39034,8 @@ public class BirdGame3 extends Application {
                 }
                 if (code == KeyCode.SPACE || code == KeyCode.ENTER) {
                     playButtonClick();
-                    Node focus = scene.getFocusOwner();
+                    Scene targetScene = activeSceneFor(scene);
+                    Node focus = targetScene == null ? null : targetScene.getFocusOwner();
                     if (focus instanceof Button btn) btn.fire();
                     e.consume();
                 }
