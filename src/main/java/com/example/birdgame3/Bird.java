@@ -322,7 +322,12 @@ public class Bird {
     private static final int OPIUM_DROWSY_FRAMES = 120;
     private static final int OPIUM_ULTIMATE_FRAMES = 360;
     private static final int HEISEN_ULTIMATE_FRAMES = 300;
-    private static final int HEISEN_ULTIMATE_VOLLEY_FRAMES = 36;
+    private static final int HEISEN_ULTIMATE_SHARD_COUNT = 8;
+    private static final int HEISEN_ULTIMATE_SHARD_LAUNCH_SPACING_FRAMES = 9;
+    private static final int HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES = 84;
+    private static final int HEISEN_ULTIMATE_VOLLEY_FRAMES = HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES
+            + HEISEN_ULTIMATE_SHARD_LAUNCH_SPACING_FRAMES * (HEISEN_ULTIMATE_SHARD_COUNT - 1);
+    private static final int HEISEN_ULTIMATE_ORBIT_HIT_COOLDOWN_FRAMES = 26;
     private static final double OPIUM_RESOURCE_MAX = 100.0;
     private static final double OPIUM_NEUTRAL_RESOURCE_COST = 24.0;
     private static final double HEISEN_NEUTRAL_RESOURCE_COST = 20.0;
@@ -330,8 +335,8 @@ public class Bird {
     private static final double HEISEN_SIDE_RESOURCE_COST = 18.0;
     private static final double OPIUM_UP_RESOURCE_COST = 20.0;
     private static final double HEISEN_UP_RESOURCE_COST = 20.0;
-    private static final double OPIUM_PATCH_REFILL_PER_FRAME = 0.82;
-    private static final double HEISEN_NODE_REFILL_PER_FRAME = 0.72;
+    private static final double OPIUM_PATCH_REFILL_PER_FRAME = 0.12;
+    private static final double HEISEN_NODE_REFILL_PER_FRAME = 0.10;
     public int leanTimer = 0;
     public int leanCooldown = 0;
     public boolean isHigh = false;
@@ -362,6 +367,13 @@ public class Bird {
     private double heisenUltimateVolleyTargetX = 0.0;
     private double heisenUltimateVolleyTargetY = 0.0;
     private boolean heisenUltimateVolleyHit = false;
+    private final int[] heisenUltimateOrbitHitCooldown = new int[4];
+    private final boolean[] heisenUltimateShardLaunched = new boolean[HEISEN_ULTIMATE_SHARD_COUNT];
+    private final boolean[] heisenUltimateShardSpent = new boolean[HEISEN_ULTIMATE_SHARD_COUNT];
+    private final double[] heisenUltimateShardX = new double[HEISEN_ULTIMATE_SHARD_COUNT];
+    private final double[] heisenUltimateShardY = new double[HEISEN_ULTIMATE_SHARD_COUNT];
+    private final double[] heisenUltimateShardVX = new double[HEISEN_ULTIMATE_SHARD_COUNT];
+    private final double[] heisenUltimateShardVY = new double[HEISEN_ULTIMATE_SHARD_COUNT];
     private int opiumDrowsyTimer = 0;
     private int opiumDrowsyOwnerIndex = -1;
     private boolean opiumDrowsyUltimate = false;
@@ -8851,6 +8863,7 @@ public class Bird {
         heisenUltimateShatterPending = true;
         heisenUltimateVolleyTimer = 0;
         heisenUltimateVolleyHit = false;
+        resetHeisenUltimateShardState(true);
         specialCooldown = 0;
         specialMaxCooldown = 0;
         attackAnimationTimer = Math.max(attackAnimationTimer, 22);
@@ -10246,6 +10259,7 @@ public class Bird {
         }
         heisenUltimateVolleyTimer = 0;
         heisenUltimateVolleyHit = false;
+        resetHeisenUltimateShardState(true);
     }
 
     private void resetHummingbirdSpecialState(boolean clearTraps) {
@@ -12010,7 +12024,7 @@ public class Bird {
         }
 
         // === OPIUM / HEISENBIRD ===
-        handleOpiumBirdEffects();
+        handleOpiumBirdEffects(gameSpeed);
 
         boolean stunned = stunTime > 0;
         boolean airborne = !isOnGround();
@@ -12666,6 +12680,9 @@ public class Bird {
         opiumUltimateTimer = Math.max(0, (int) (opiumUltimateTimer - gameSpeed));
         heisenUltimateTimer = Math.max(0, (int) (heisenUltimateTimer - gameSpeed));
         heisenUltimateVolleyTimer = Math.max(0, (int) (heisenUltimateVolleyTimer - gameSpeed));
+        for (int i = 0; i < heisenUltimateOrbitHitCooldown.length; i++) {
+            heisenUltimateOrbitHitCooldown[i] = Math.max(0, (int) (heisenUltimateOrbitHitCooldown[i] - gameSpeed));
+        }
         opiumDrowsyTimer = Math.max(0, (int) (opiumDrowsyTimer - gameSpeed));
         heisenBrittleTimer = Math.max(0, (int) (heisenBrittleTimer - gameSpeed));
         if (leanTimer == 0) {
@@ -12689,6 +12706,7 @@ public class Bird {
         }
         if (heisenUltimateVolleyTimer == 0) {
             heisenUltimateVolleyHit = false;
+            resetHeisenUltimateShardState(false);
         }
         tauntCooldown = Math.max(0, (int)(tauntCooldown - gameSpeed));
         tauntTimer = Math.max(0, (int)(tauntTimer - gameSpeed));
@@ -13316,7 +13334,7 @@ public class Bird {
         }
     }
 
-    private void handleOpiumBirdEffects() {
+    private void handleOpiumBirdEffects(double gameSpeed) {
         boolean opium = type == BirdGame3.BirdType.OPIUMBIRD || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.OPIUMBIRD);
         boolean heisen = type == BirdGame3.BirdType.HEISENBIRD || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.HEISENBIRD);
         if (!opium && !heisen) return;
@@ -13360,12 +13378,15 @@ public class Bird {
             collapseOpiumUltimateHaze();
             opiumUltimateCollapsePending = false;
         }
+        if (type == BirdGame3.BirdType.HEISENBIRD && heisenUltimateTimer > 0) {
+            applyHeisenUltimateOrbitShardHits(heisenUltimateTimer, -1);
+        }
         if (type == BirdGame3.BirdType.HEISENBIRD && heisenUltimateShatterPending && heisenUltimateTimer <= 0) {
             launchHeisenUltimateCrystals();
             heisenUltimateShatterPending = false;
         }
         if (type == BirdGame3.BirdType.HEISENBIRD && heisenUltimateVolleyTimer > 0) {
-            handleHeisenUltimateCrystalVolley();
+            handleHeisenUltimateCrystalVolley(gameSpeed);
         }
     }
 
@@ -13448,16 +13469,74 @@ public class Bird {
         }
         heisenUltimateVolleyTimer = HEISEN_ULTIMATE_VOLLEY_FRAMES;
         heisenUltimateVolleyHit = false;
+        resetHeisenUltimateShardState(false);
         emitOpiumBurst(heisenUltimateVolleyOriginX, heisenUltimateVolleyOriginY, 72, Color.web("#B3E5FC"));
         game.shakeIntensity = Math.max(game.shakeIntensity, 10);
     }
 
+    private void resetHeisenUltimateShardState(boolean clearOrbitCooldowns) {
+        Arrays.fill(heisenUltimateShardLaunched, false);
+        Arrays.fill(heisenUltimateShardSpent, false);
+        Arrays.fill(heisenUltimateShardX, 0.0);
+        Arrays.fill(heisenUltimateShardY, 0.0);
+        Arrays.fill(heisenUltimateShardVX, 0.0);
+        Arrays.fill(heisenUltimateShardVY, 0.0);
+        if (clearOrbitCooldowns) {
+            Arrays.fill(heisenUltimateOrbitHitCooldown, 0);
+        }
+    }
+
+    private void applyHeisenUltimateOrbitShardHits(double clock, int volleyElapsed) {
+        double anchorX = bodyCenterX();
+        double anchorY = bodyCenterY() - 10.0 * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            int targetIndex = other.playerIndex;
+            if (targetIndex < 0 || targetIndex >= heisenUltimateOrbitHitCooldown.length) continue;
+            if (heisenUltimateOrbitHitCooldown[targetIndex] > 0) continue;
+
+            for (int i = 0; i < HEISEN_ULTIMATE_SHARD_COUNT; i++) {
+                if (volleyElapsed >= 0 && volleyElapsed - i * HEISEN_ULTIMATE_SHARD_LAUNCH_SPACING_FRAMES >= 0) {
+                    continue;
+                }
+                double shardX = heisenUltimateOrbitX(i, anchorX, clock);
+                double shardY = heisenUltimateOrbitY(i, anchorY, clock);
+                double radius = (30.0 + (i % 2) * 5.0) * sizeMultiplier;
+                double dx = other.bodyCenterX() - shardX;
+                double dy = other.bodyCenterY() - shardY;
+                if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
+
+                int dealt = applyTrackedSpecialDamage(other, 1);
+                if (dealt <= 0) continue;
+                other.applyHeisenBrittle(this, true);
+                double safe = Math.max(1.0, Math.hypot(dx, dy));
+                other.vx += dx / safe * 2.8;
+                other.vy += dy / safe * 1.6 - 0.8;
+                heisenUltimateOrbitHitCooldown[targetIndex] = HEISEN_ULTIMATE_ORBIT_HIT_COOLDOWN_FRAMES;
+                if ((heisenUltimateTimer & 1) == 0) {
+                    game.particles.add(new Particle(
+                            shardX,
+                            shardY,
+                            (Math.random() - 0.5) * 2.2,
+                            -0.6 - Math.random() * 1.2,
+                            Color.web("#B3E5FC", 0.76)
+                    ));
+                }
+                break;
+            }
+        }
+    }
+
     private Bird nearestOpiumDamageTarget(double maxDistance) {
+        return nearestOpiumDamageTargetFrom(bodyCenterX(), bodyCenterY(), maxDistance);
+    }
+
+    private Bird nearestOpiumDamageTargetFrom(double sourceX, double sourceY, double maxDistance) {
         Bird best = null;
         double bestDist = maxDistance;
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
-            double dist = Math.hypot(other.bodyCenterX() - bodyCenterX(), other.bodyCenterY() - bodyCenterY());
+            double dist = Math.hypot(other.bodyCenterX() - sourceX, other.bodyCenterY() - sourceY);
             if (dist < bestDist) {
                 bestDist = dist;
                 best = other;
@@ -13466,37 +13545,120 @@ public class Bird {
         return best;
     }
 
-    private void handleHeisenUltimateCrystalVolley() {
-        double elapsed = HEISEN_ULTIMATE_VOLLEY_FRAMES - heisenUltimateVolleyTimer;
-        double progress = Math.clamp(elapsed / (double) HEISEN_ULTIMATE_VOLLEY_FRAMES, 0.0, 1.0);
-        if (progress < 0.70 || heisenUltimateVolleyHit) {
-            return;
+    private double heisenUltimateOrbitAngle(int shardIndex, double clock) {
+        return shardIndex / (double) HEISEN_ULTIMATE_SHARD_COUNT * Math.PI * 2.0 + clock * 0.040;
+    }
+
+    private double heisenUltimateOrbitX(int shardIndex, double anchorX, double clock) {
+        double pulse = 0.5 + 0.5 * Math.sin(clock * 0.22);
+        double angle = heisenUltimateOrbitAngle(shardIndex, clock);
+        double radius = (104.0 + (shardIndex % 2) * 20.0 + pulse * 12.0) * sizeMultiplier;
+        return anchorX + Math.cos(angle) * radius;
+    }
+
+    private double heisenUltimateOrbitY(int shardIndex, double anchorY, double clock) {
+        double pulse = 0.5 + 0.5 * Math.sin(clock * 0.22);
+        double angle = heisenUltimateOrbitAngle(shardIndex, clock);
+        double radius = (104.0 + (shardIndex % 2) * 20.0 + pulse * 12.0) * sizeMultiplier;
+        return anchorY + Math.sin(angle) * radius * 0.72;
+    }
+
+    private void handleHeisenUltimateCrystalVolley(double gameSpeed) {
+        int elapsed = HEISEN_ULTIMATE_VOLLEY_FRAMES - heisenUltimateVolleyTimer;
+        applyHeisenUltimateOrbitShardHits(-elapsed, elapsed);
+        for (int i = 0; i < HEISEN_ULTIMATE_SHARD_COUNT; i++) {
+            int shardElapsed = elapsed - i * HEISEN_ULTIMATE_SHARD_LAUNCH_SPACING_FRAMES;
+            if (shardElapsed < 0 || heisenUltimateShardSpent[i]) continue;
+            if (shardElapsed >= HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES) {
+                heisenUltimateShardSpent[i] = true;
+                continue;
+            }
+            if (!heisenUltimateShardLaunched[i]) {
+                launchHeisenUltimateShard(i, elapsed);
+            }
+            updateHeisenUltimateFlyingShard(i, shardElapsed, gameSpeed);
+        }
+    }
+
+    private void launchHeisenUltimateShard(int shardIndex, int volleyElapsed) {
+        double anchorX = bodyCenterX();
+        double anchorY = bodyCenterY() - 10.0 * sizeMultiplier;
+        double clock = -volleyElapsed;
+        double angle = heisenUltimateOrbitAngle(shardIndex, clock);
+        heisenUltimateShardX[shardIndex] = heisenUltimateOrbitX(shardIndex, anchorX, clock);
+        heisenUltimateShardY[shardIndex] = heisenUltimateOrbitY(shardIndex, anchorY, clock);
+        Bird target = nearestOpiumDamageTargetFrom(heisenUltimateShardX[shardIndex], heisenUltimateShardY[shardIndex], 940.0);
+        double nx = Math.cos(angle);
+        double ny = Math.sin(angle) * 0.72;
+        if (target != null) {
+            double dx = target.bodyCenterX() - heisenUltimateShardX[shardIndex];
+            double dy = target.bodyCenterY() - heisenUltimateShardY[shardIndex];
+            double safe = Math.max(1.0, Math.hypot(dx, dy));
+            nx = dx / safe;
+            ny = dy / safe;
+            heisenUltimateVolleyTargetX = target.bodyCenterX();
+            heisenUltimateVolleyTargetY = target.bodyCenterY();
+        }
+        heisenUltimateShardVX[shardIndex] = nx * 10.8 + Math.cos(angle) * 2.0;
+        heisenUltimateShardVY[shardIndex] = ny * 10.8 + Math.sin(angle) * 1.2 - 0.6;
+        heisenUltimateShardLaunched[shardIndex] = true;
+    }
+
+    private void updateHeisenUltimateFlyingShard(int shardIndex, int shardElapsed, double gameSpeed) {
+        double scale = heisenUltimateShardScale(shardElapsed);
+        Bird target = nearestOpiumDamageTargetFrom(heisenUltimateShardX[shardIndex], heisenUltimateShardY[shardIndex], 980.0);
+        if (target != null) {
+            double dx = target.bodyCenterX() - heisenUltimateShardX[shardIndex];
+            double dy = target.bodyCenterY() - heisenUltimateShardY[shardIndex];
+            double safe = Math.max(1.0, Math.hypot(dx, dy));
+            double desiredSpeed = 12.8 + (1.0 - scale) * 4.8;
+            double turn = 0.18 + (1.0 - scale) * 0.05;
+            heisenUltimateShardVX[shardIndex] = heisenUltimateShardVX[shardIndex] * (1.0 - turn)
+                    + dx / safe * desiredSpeed * turn;
+            heisenUltimateShardVY[shardIndex] = heisenUltimateShardVY[shardIndex] * (1.0 - turn)
+                    + dy / safe * desiredSpeed * turn;
+            heisenUltimateVolleyTargetX = target.bodyCenterX();
+            heisenUltimateVolleyTargetY = target.bodyCenterY();
         }
 
-        heisenUltimateVolleyHit = true;
-        double radius = 118.0;
-        boolean hitAny = false;
+        double speed = Math.hypot(heisenUltimateShardVX[shardIndex], heisenUltimateShardVY[shardIndex]);
+        double maxSpeed = 18.8;
+        if (speed > maxSpeed) {
+            heisenUltimateShardVX[shardIndex] = heisenUltimateShardVX[shardIndex] / speed * maxSpeed;
+            heisenUltimateShardVY[shardIndex] = heisenUltimateShardVY[shardIndex] / speed * maxSpeed;
+        }
+        heisenUltimateShardX[shardIndex] += heisenUltimateShardVX[shardIndex] * gameSpeed;
+        heisenUltimateShardY[shardIndex] += heisenUltimateShardVY[shardIndex] * gameSpeed;
+
+        double hitRadius = Math.max(4.0, 38.0 * scale) * sizeMultiplier;
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - heisenUltimateVolleyTargetX;
-            double dy = other.bodyCenterY() - heisenUltimateVolleyTargetY;
-            if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
+            double dx = other.bodyCenterX() - heisenUltimateShardX[shardIndex];
+            double dy = other.bodyCenterY() - heisenUltimateShardY[shardIndex];
+            if (Math.hypot(dx, dy) > hitRadius + other.combatRadius()) continue;
 
             boolean marked = other.hasHeisenBrittleFrom(this);
-            int dealt = applyTrackedSpecialDamage(other, marked ? 13 : 10);
+            int dealt = applyTrackedSpecialDamage(other, marked ? 7 : 5);
             if (dealt <= 0) continue;
-            hitAny = true;
-            double fromOwnerX = other.bodyCenterX() - bodyCenterX();
-            double dir = Math.signum(fromOwnerX == 0.0 ? facingDirection() : fromOwnerX);
-            other.vx += dir * (marked ? 15.6 : 11.8);
-            other.vy -= marked ? 10.6 : 7.8;
-            other.applyStun(marked ? 24 : 16);
+            heisenUltimateShardSpent[shardIndex] = true;
+            heisenUltimateVolleyHit = true;
+            double safe = Math.max(1.0, Math.hypot(heisenUltimateShardVX[shardIndex], heisenUltimateShardVY[shardIndex]));
+            other.vx += heisenUltimateShardVX[shardIndex] / safe * (marked ? 12.6 : 9.2);
+            other.vy += heisenUltimateShardVY[shardIndex] / safe * (marked ? 7.0 : 5.0) - (marked ? 6.0 : 4.2);
+            other.applyStun(marked ? 18 : 12);
             if (marked) {
                 other.clearHeisenBrittle();
             }
+            emitOpiumBurst(heisenUltimateShardX[shardIndex], heisenUltimateShardY[shardIndex],
+                    marked ? 42 : 30, Color.web("#B3E5FC"));
+            game.shakeIntensity = Math.max(game.shakeIntensity, marked ? 9 : 6);
+            break;
         }
-        emitOpiumBurst(heisenUltimateVolleyTargetX, heisenUltimateVolleyTargetY, hitAny ? 104 : 46, Color.web("#B3E5FC"));
-        game.shakeIntensity = Math.max(game.shakeIntensity, hitAny ? 15 : 8);
+    }
+
+    private double heisenUltimateShardScale(int shardElapsed) {
+        double progress = Math.clamp(shardElapsed / (double) HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES, 0.0, 1.0);
+        return Math.max(0.0, 1.0 - Math.pow(progress, 1.18));
     }
 
     private void handleOpiumSpecialState() {
@@ -16623,6 +16785,7 @@ public class Bird {
         heisenUltimateShatterPending = false;
         heisenUltimateVolleyTimer = 0;
         heisenUltimateVolleyHit = false;
+        resetHeisenUltimateShardState(true);
         opiumDrowsyTimer = 0;
         opiumDrowsyOwnerIndex = -1;
         opiumDrowsyUltimate = false;
@@ -19887,11 +20050,9 @@ public class Bird {
             double pulse = 0.5 + 0.5 * Math.sin(heisenUltimateTimer * 0.22);
             g.setStroke(Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.50 + 0.24 * pulse));
             g.setLineWidth(3.0 * s);
-            for (int i = 0; i < 8; i++) {
-                double angle = i / 8.0 * Math.PI * 2.0 + heisenUltimateTimer * 0.040;
-                double radius = (104.0 + (i % 2) * 20.0 + pulse * 12.0) * s;
-                double cx = centerX + Math.cos(angle) * radius;
-                double cy = centerY + Math.sin(angle) * radius * 0.72;
+            for (int i = 0; i < HEISEN_ULTIMATE_SHARD_COUNT; i++) {
+                double cx = heisenUltimateOrbitX(i, centerX, heisenUltimateTimer);
+                double cy = heisenUltimateOrbitY(i, centerY - 10.0 * s, heisenUltimateTimer);
                 double shardW = (26.0 + (i % 3) * 5.0) * s;
                 double shardH = (58.0 + (i % 2) * 12.0) * s;
                 g.setFill(Color.web(i % 2 == 0 ? "#81D4FA" : "#E1F5FE")
@@ -19909,22 +20070,43 @@ public class Bird {
             }
         }
         if (heisen && heisenUltimateVolleyTimer > 0) {
-            double elapsed = HEISEN_ULTIMATE_VOLLEY_FRAMES - heisenUltimateVolleyTimer;
-            double progress = Math.clamp(elapsed / (double) HEISEN_ULTIMATE_VOLLEY_FRAMES, 0.0, 1.0);
-            double eased = 1.0 - Math.pow(1.0 - progress, 2.0);
-            for (int i = 0; i < 8; i++) {
-                double orbitAngle = i / 8.0 * Math.PI * 2.0 + elapsed * 0.16;
-                double startX = heisenUltimateVolleyOriginX + Math.cos(orbitAngle) * (92.0 + (i % 2) * 22.0) * s;
-                double startY = heisenUltimateVolleyOriginY + Math.sin(orbitAngle) * (58.0 + (i % 2) * 12.0) * s;
-                double arc = Math.sin(progress * Math.PI) * (42.0 + i * 3.0) * s;
-                double cx = startX + (heisenUltimateVolleyTargetX - startX) * eased;
-                double cy = startY + (heisenUltimateVolleyTargetY - startY) * eased - arc;
-                double shardW = (30.0 + (i % 3) * 5.0) * s;
-                double shardH = (68.0 + (i % 2) * 12.0) * s;
-                g.setStroke(Color.web("#B3E5FC", 0.34 + 0.36 * progress));
-                g.setLineWidth(3.2 * s);
-                g.strokeLine(startX, startY, cx, cy);
-                g.setFill(Color.web(i % 2 == 0 ? "#4FC3F7" : "#E1F5FE").deriveColor(0, 1, 1, 0.70));
+            int elapsed = HEISEN_ULTIMATE_VOLLEY_FRAMES - heisenUltimateVolleyTimer;
+            for (int i = 0; i < HEISEN_ULTIMATE_SHARD_COUNT; i++) {
+                int shardElapsed = elapsed - i * HEISEN_ULTIMATE_SHARD_LAUNCH_SPACING_FRAMES;
+                if (heisenUltimateShardSpent[i] || shardElapsed >= HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES) continue;
+                boolean launched = shardElapsed >= 0;
+                double scale = launched ? heisenUltimateShardScale(shardElapsed) : 1.0;
+                if (scale <= 0.0) continue;
+
+                double cx;
+                double cy;
+                if (launched && heisenUltimateShardLaunched[i]) {
+                    cx = heisenUltimateShardX[i];
+                    cy = heisenUltimateShardY[i];
+                    g.setStroke(Color.web("#B3E5FC", 0.18 + 0.42 * scale));
+                    g.setLineWidth((1.4 + 2.1 * scale) * s);
+                    g.strokeLine(cx - heisenUltimateShardVX[i] * 3.4, cy - heisenUltimateShardVY[i] * 3.4, cx, cy);
+                } else if (launched) {
+                    double progress = Math.clamp(shardElapsed / (double) HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES, 0.0, 1.0);
+                    double eased = 1.0 - Math.pow(1.0 - progress, 2.0);
+                    double startClock = -i * HEISEN_ULTIMATE_SHARD_LAUNCH_SPACING_FRAMES;
+                    double startX = heisenUltimateOrbitX(i, heisenUltimateVolleyOriginX, startClock);
+                    double startY = heisenUltimateOrbitY(i, heisenUltimateVolleyOriginY, startClock);
+                    double arc = Math.sin(progress * Math.PI) * (42.0 + i * 3.0) * s;
+                    cx = startX + (heisenUltimateVolleyTargetX - startX) * eased;
+                    cy = startY + (heisenUltimateVolleyTargetY - startY) * eased - arc;
+                    g.setStroke(Color.web("#B3E5FC", 0.18 + 0.42 * scale));
+                    g.setLineWidth((1.4 + 2.1 * scale) * s);
+                    g.strokeLine(startX, startY, cx, cy);
+                } else {
+                    double clock = -elapsed;
+                    cx = heisenUltimateOrbitX(i, centerX, clock);
+                    cy = heisenUltimateOrbitY(i, centerY - 10.0 * s, clock);
+                }
+
+                double shardW = (30.0 + (i % 3) * 5.0) * s * scale;
+                double shardH = (68.0 + (i % 2) * 12.0) * s * scale;
+                g.setFill(Color.web(i % 2 == 0 ? "#4FC3F7" : "#E1F5FE").deriveColor(0, 1, 1, 0.36 + 0.36 * scale));
                 g.fillPolygon(
                         new double[]{cx - shardW * 0.48, cx, cx + shardW * 0.48, cx},
                         new double[]{cy, cy - shardH, cy, cy + shardH * 0.56},

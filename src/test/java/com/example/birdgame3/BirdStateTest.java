@@ -433,12 +433,16 @@ class BirdStateTest {
         }
         assertTrue(getPrivateDouble(opium, "opiumResourceMeter") > 0.0,
                 "Standing in Opium Bird's puddle should refill his opium meter.");
+        assertEquals(0.48, getPrivateDouble(opium, "opiumResourceMeter"), 0.0001,
+                "Opium Bird's puddle should refill slowly enough to prevent quick farming.");
 
         setPrivateDouble(heisen, "opiumResourceMeter", 0.0);
         invokePrivateBooleanVoid(heisen, "specialOpiumDown", true);
         heisen.update(1.0);
         assertTrue(getPrivateDouble(heisen, "opiumResourceMeter") > 0.0,
                 "Standing in Heisenbird's crystal should refill his crystal meter.");
+        assertEquals(0.10, getPrivateDouble(heisen, "opiumResourceMeter"), 0.0001,
+                "Heisenbird's crystal should refill slowly enough to prevent quick farming.");
         List<?> crystals = (List<?>) getPrivateObject(heisen, "opiumTraps");
         assertFalse(crystals.isEmpty());
         assertTrue(getPrivateInt(crystals.get(0), "lifeFrames") > 500,
@@ -472,14 +476,14 @@ class BirdStateTest {
     }
 
     @Test
-    void opiumUltimateAppliesDrowsyAndHeisenUltimateLaunchesCrystalVolley() throws Exception {
+    void opiumUltimateAppliesDrowsyAndHeisenUltimateLaunchesHomingCrystalShards() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 4;
 
         Bird opium = new Bird(200.0, BirdGame3.BirdType.OPIUMBIRD, 0, game);
         Bird opiumTarget = new Bird(260.0, BirdGame3.BirdType.PIGEON, 1, game);
         Bird heisen = new Bird(560.0, BirdGame3.BirdType.HEISENBIRD, 2, game);
-        Bird heisenTarget = new Bird(620.0, BirdGame3.BirdType.EAGLE, 3, game);
+        Bird heisenTarget = new Bird(664.0, BirdGame3.BirdType.EAGLE, 3, game);
         opium.y = opiumTarget.y = heisen.y = heisenTarget.y = BirdGame3.GROUND_Y - 80.0;
         game.players[0] = opium;
         game.players[1] = opiumTarget;
@@ -509,17 +513,31 @@ class BirdStateTest {
         assertTrue(getPrivateInt(heisenTarget, "heisenBrittleTimer") > 0,
                 "Say My Name should immediately mark nearby enemies brittle.");
 
+        double healthBeforeOrbit = heisenTarget.health;
+        for (int i = 0; i < 70; i++) {
+            heisen.update(1.0);
+        }
+        assertTrue(heisenTarget.health < healthBeforeOrbit,
+                "Orbiting crystals should damage enemies that stay in their path before they launch.");
+
         double healthBeforeVolley = heisenTarget.health;
         setPrivateInt(heisen, "heisenUltimateTimer", 1);
         heisen.update(1.0);
         assertTrue(getPrivateInt(heisen, "heisenUltimateVolleyTimer") > 0,
-                "When Heisenbird's ultimate ends, the orbiting crystals should launch as a visible volley.");
-        for (int i = 0; i < 30; i++) {
+                "When Heisenbird's ultimate ends, the orbiting crystals should launch as a staggered visible volley.");
+        for (int i = 0; i < 130 && heisenTarget.health >= healthBeforeVolley; i++) {
             heisen.update(1.0);
         }
 
         assertTrue(heisenTarget.health < healthBeforeVolley,
-                "The launched crystal volley should damage the nearest enemy.");
+                "A launched crystal shard should hone toward and damage the nearest enemy.");
+        boolean[] spentShards = (boolean[]) getPrivateObject(heisen, "heisenUltimateShardSpent");
+        boolean anyShardSpent = false;
+        for (boolean spent : spentShards) {
+            anyShardSpent |= spent;
+        }
+        assertTrue(anyShardSpent,
+                "A shard that hits or times out should leave the active volley instead of lingering forever.");
         assertEquals(0, getPrivateInt(heisenTarget, "heisenBrittleTimer"));
     }
 

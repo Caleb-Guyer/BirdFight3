@@ -26310,11 +26310,10 @@ public class BirdGame3 extends Application {
                 return "EPIC";
             }
             case BEACON_PIGEON_SKIN, NOVA_PHOENIX_SKIN, AURORA_PELICAN_SKIN, UMBRA_BAT_SKIN, SUNFORGE_ROOSTER_SKIN,
-                    STOCK_PHOTO_EAGLE_SKIN,
                     NULL_ROCK_VULTURE_SKIN, IRONCLAD_PELICAN_SKIN -> {
                 return "LEGENDARY";
             }
-            case LORE_ACCURATE_HUMMINGBIRD_SKIN -> {
+            case LORE_ACCURATE_HUMMINGBIRD_SKIN, STOCK_PHOTO_EAGLE_SKIN -> {
                 return "UNIQUE";
             }
         }
