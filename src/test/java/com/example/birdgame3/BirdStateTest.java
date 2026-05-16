@@ -340,6 +340,190 @@ class BirdStateTest {
     }
 
     @Test
+    void opiumAndHeisenNeutralSpecialsUseInvisibleReuseTimers() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird opium = new Bird(180.0, BirdGame3.BirdType.OPIUMBIRD, 0, game);
+        Bird heisen = new Bird(320.0, BirdGame3.BirdType.HEISENBIRD, 1, game);
+        opium.y = BirdGame3.GROUND_Y - 80.0;
+        heisen.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = opium;
+        game.players[1] = heisen;
+
+        invokePrivateBooleanVoid(opium, "specialOpiumNeutral", false);
+        invokePrivateBooleanVoid(heisen, "specialHeisenNeutral", false);
+
+        assertEquals(0, opium.specialCooldown);
+        assertEquals(0, heisen.specialCooldown);
+        assertTrue(getPrivateInt(opium, "opiumNeutralReuseTimer") > 0);
+        assertTrue(getPrivateInt(heisen, "opiumNeutralReuseTimer") > 0);
+        assertTrue(getPrivateDouble(opium, "opiumResourceMeter") < 100.0);
+        assertTrue(getPrivateDouble(heisen, "opiumResourceMeter") < 100.0);
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        opium.update(1.0);
+        assertEquals(0, opium.cooldownFlash,
+                "Opium Bird should use hidden reuse gates instead of visible cooldown warnings.");
+    }
+
+    @Test
+    void heisenCrystalCloudMarksTargetsBrittleAndNextHitConsumesIt() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird heisen = new Bird(260.0, BirdGame3.BirdType.HEISENBIRD, 0, game);
+        Bird target = new Bird(330.0, BirdGame3.BirdType.PIGEON, 1, game);
+        heisen.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = heisen;
+        game.players[1] = target;
+
+        invokePrivateBooleanVoid(heisen, "specialHeisenNeutral", false);
+        heisen.update(1.0);
+
+        assertTrue(getPrivateInt(target, "heisenBrittleTimer") > 0,
+                "Crystal Cloud should visibly mark nearby enemies as brittle.");
+
+        double healthBeforeHit = target.health;
+        double dealt = applyPrivateDamage(heisen, target, 6.0);
+
+        assertTrue(dealt > 6.0,
+                "Heisenbird's next hit should gain bonus damage against a brittle target.");
+        assertTrue(target.health < healthBeforeHit);
+        assertEquals(0, getPrivateInt(target, "heisenBrittleTimer"),
+                "A normal brittle mark should be consumed by the next Heisenbird hit.");
+    }
+
+    @Test
+    void opiumAndHeisenMetersGateEffectsAndRefillFromDownSpecials() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird opium = new Bird(220.0, BirdGame3.BirdType.OPIUMBIRD, 0, game);
+        Bird heisen = new Bird(380.0, BirdGame3.BirdType.HEISENBIRD, 1, game);
+        opium.y = heisen.y = BirdGame3.GROUND_Y - 80.0;
+        opium.facingRight = true;
+        heisen.facingRight = true;
+        game.players[0] = opium;
+        game.players[1] = heisen;
+
+        setPrivateDouble(opium, "opiumResourceMeter", 0.0);
+        invokePrivateBooleanVoid(opium, "specialOpiumSide", false);
+        assertFalse(getPrivateBoolean(opium, "opiumSideFueled"),
+                "Empty Opium side special should keep the dash but not create a lean trail.");
+        invokePrivateBooleanVoid(opium, "specialOpiumUp", false);
+        assertFalse(getPrivateBoolean(opium, "opiumUpFueled"),
+                "Empty Opium up special should not create the lean plume.");
+
+        setPrivateDouble(heisen, "opiumResourceMeter", 0.0);
+        invokePrivateBooleanVoid(heisen, "specialHeisenNeutral", false);
+        heisen.update(1.0);
+        assertEquals(0, getPrivateInt(opium, "heisenBrittleTimer"),
+                "Empty Heisen neutral should not apply useful brittle pressure.");
+
+        setPrivateDouble(opium, "opiumResourceMeter", 0.0);
+        setPrivateInt(opium, "opiumSideTimer", 0);
+        setPrivateInt(opium, "opiumUpTimer", 0);
+        opium.vx = 0.0;
+        opium.vy = 0.0;
+        invokePrivateBooleanVoid(opium, "specialOpiumDown", false);
+        for (int i = 0; i < 4; i++) {
+            opium.update(1.0);
+        }
+        assertTrue(getPrivateDouble(opium, "opiumResourceMeter") > 0.0,
+                "Standing in Opium Bird's puddle should refill his opium meter.");
+
+        setPrivateDouble(heisen, "opiumResourceMeter", 0.0);
+        invokePrivateBooleanVoid(heisen, "specialOpiumDown", true);
+        heisen.update(1.0);
+        assertTrue(getPrivateDouble(heisen, "opiumResourceMeter") > 0.0,
+                "Standing in Heisenbird's crystal should refill his crystal meter.");
+        List<?> crystals = (List<?>) getPrivateObject(heisen, "opiumTraps");
+        assertFalse(crystals.isEmpty());
+        assertTrue(getPrivateInt(crystals.get(0), "lifeFrames") > 500,
+                "Heisenbird's refill crystal should stay long enough to be used intentionally.");
+    }
+
+    @Test
+    void lotusPatchSlowsTargetsAndRefreshesLeanCloud() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird opium = new Bird(300.0, BirdGame3.BirdType.OPIUMBIRD, 0, game);
+        Bird target = new Bird(292.0, BirdGame3.BirdType.PIGEON, 1, game);
+        opium.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        opium.facingRight = true;
+        target.vx = 10.0;
+        game.players[0] = opium;
+        game.players[1] = target;
+
+        setPrivateInt(opium, "leanTimer", 5);
+        invokePrivateBooleanVoid(opium, "specialOpiumDown", false);
+        opium.update(1.0);
+
+        assertEquals(0, opium.specialCooldown);
+        assertTrue(getPrivateInt(opium, "opiumDownReuseTimer") > 0);
+        assertTrue(target.vx < 10.0,
+                "Lotus Patch should slow enemies standing inside it.");
+        assertTrue(opium.leanTimer >= 72,
+                "Enemies standing in Lotus Patch should refresh the active Lean Cloud.");
+    }
+
+    @Test
+    void opiumUltimateAppliesDrowsyAndHeisenUltimateLaunchesCrystalVolley() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 4;
+
+        Bird opium = new Bird(200.0, BirdGame3.BirdType.OPIUMBIRD, 0, game);
+        Bird opiumTarget = new Bird(260.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird heisen = new Bird(560.0, BirdGame3.BirdType.HEISENBIRD, 2, game);
+        Bird heisenTarget = new Bird(620.0, BirdGame3.BirdType.EAGLE, 3, game);
+        opium.y = opiumTarget.y = heisen.y = heisenTarget.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = opium;
+        game.players[1] = opiumTarget;
+        game.players[2] = heisen;
+        game.players[3] = heisenTarget;
+
+        setPrivateDouble(opium, "opiumResourceMeter", 0.0);
+        setPrivateDouble(opium, "ultimateMeter", 100.0);
+        invokePrivateVoid(opium, "special");
+        opium.update(1.0);
+
+        assertTrue(getPrivateInt(opium, "opiumUltimateTimer") > 0,
+                "Opium Bird should spend ultimate meter on Purple Haze instead of a buffed normal special.");
+        assertEquals(100.0, getPrivateDouble(opium, "opiumResourceMeter"), 0.0001,
+                "Opium Bird's ultimate should refill his opium meter.");
+        assertTrue(getPrivateInt(opiumTarget, "opiumDrowsyTimer") > 0,
+                "Purple Haze should apply a readable drowsy debuff to enemies in range.");
+        assertTrue(getPrivateDouble(opium, "opiumUltimateCloudX") > 0.0,
+                "Purple Haze should spawn a persistent lean cloud in the arena.");
+
+        setPrivateDouble(heisen, "opiumResourceMeter", 0.0);
+        setPrivateDouble(heisen, "ultimateMeter", 100.0);
+        invokePrivateVoid(heisen, "special");
+        assertTrue(getPrivateInt(heisen, "heisenUltimateTimer") > 0);
+        assertEquals(100.0, getPrivateDouble(heisen, "opiumResourceMeter"), 0.0001,
+                "Heisenbird's ultimate should refill his crystal meter.");
+        assertTrue(getPrivateInt(heisenTarget, "heisenBrittleTimer") > 0,
+                "Say My Name should immediately mark nearby enemies brittle.");
+
+        double healthBeforeVolley = heisenTarget.health;
+        setPrivateInt(heisen, "heisenUltimateTimer", 1);
+        heisen.update(1.0);
+        assertTrue(getPrivateInt(heisen, "heisenUltimateVolleyTimer") > 0,
+                "When Heisenbird's ultimate ends, the orbiting crystals should launch as a visible volley.");
+        for (int i = 0; i < 30; i++) {
+            heisen.update(1.0);
+        }
+
+        assertTrue(heisenTarget.health < healthBeforeVolley,
+                "The launched crystal volley should damage the nearest enemy.");
+        assertEquals(0, getPrivateInt(heisenTarget, "heisenBrittleTimer"));
+    }
+
+    @Test
     void roosterSpawnsWithThreeFollowerChicks() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;

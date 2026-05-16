@@ -147,6 +147,13 @@ public class Bird {
         DOWN
     }
 
+    private enum OpiumSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record NormalAttackProfile(
             double horizontalReach,
             double verticalReach,
@@ -296,11 +303,71 @@ public class Bird {
     private boolean vultureBlackSkyFinalHit = false;
     private final boolean[] vultureBlackSkyHit = new boolean[4];
 
-    // === OPIUM BIRD ===
+    // === OPIUM / HEISENBIRD ===
+    private static final int OPIUM_NEUTRAL_FRAMES = 300;
+    private static final int HEISEN_NEUTRAL_FRAMES = 250;
+    private static final int OPIUM_NEUTRAL_REUSE_FRAMES = 52;
+    private static final int HEISEN_NEUTRAL_REUSE_FRAMES = 46;
+    private static final int OPIUM_SIDE_FRAMES = 18;
+    private static final int HEISEN_SIDE_FRAMES = 15;
+    private static final int OPIUM_SIDE_REUSE_FRAMES = 34;
+    private static final int HEISEN_SIDE_REUSE_FRAMES = 30;
+    private static final int OPIUM_UP_FRAMES = 22;
+    private static final int HEISEN_UP_FRAMES = 20;
+    private static final int OPIUM_DOWN_REUSE_FRAMES = 44;
+    private static final int HEISEN_DOWN_REUSE_FRAMES = 42;
+    private static final int OPIUM_PATCH_LIFE_FRAMES = 540;
+    private static final int HEISEN_NODE_LIFE_FRAMES = 660;
+    private static final int HEISEN_BRITTLE_FRAMES = 180;
+    private static final int OPIUM_DROWSY_FRAMES = 120;
+    private static final int OPIUM_ULTIMATE_FRAMES = 360;
+    private static final int HEISEN_ULTIMATE_FRAMES = 300;
+    private static final int HEISEN_ULTIMATE_VOLLEY_FRAMES = 36;
+    private static final double OPIUM_RESOURCE_MAX = 100.0;
+    private static final double OPIUM_NEUTRAL_RESOURCE_COST = 24.0;
+    private static final double HEISEN_NEUTRAL_RESOURCE_COST = 20.0;
+    private static final double OPIUM_SIDE_RESOURCE_COST = 18.0;
+    private static final double HEISEN_SIDE_RESOURCE_COST = 18.0;
+    private static final double OPIUM_UP_RESOURCE_COST = 20.0;
+    private static final double HEISEN_UP_RESOURCE_COST = 20.0;
+    private static final double OPIUM_PATCH_REFILL_PER_FRAME = 0.82;
+    private static final double HEISEN_NODE_REFILL_PER_FRAME = 0.72;
     public int leanTimer = 0;
     public int leanCooldown = 0;
     public boolean isHigh = false;
     public int highTimer = 0;
+    private double opiumResourceMeter = OPIUM_RESOURCE_MAX;
+    private boolean opiumNeutralFueled = false;
+    private int opiumNeutralReuseTimer = 0;
+    private int opiumSideTimer = 0;
+    private int opiumSideReuseTimer = 0;
+    private int opiumSideDirection = 1;
+    private boolean opiumSideFueled = false;
+    private final boolean[] opiumSideHit = new boolean[4];
+    private int opiumUpTimer = 0;
+    private boolean opiumUpSpecialUsed = false;
+    private boolean opiumUpFueled = false;
+    private final boolean[] opiumUpHit = new boolean[4];
+    private int opiumDownReuseTimer = 0;
+    private final ArrayList<OpiumTrap> opiumTraps = new ArrayList<>();
+    private int opiumUltimateTimer = 0;
+    private boolean opiumUltimateCollapsePending = false;
+    private double opiumUltimateCloudX = 0.0;
+    private double opiumUltimateCloudY = 0.0;
+    private int heisenUltimateTimer = 0;
+    private boolean heisenUltimateShatterPending = false;
+    private int heisenUltimateVolleyTimer = 0;
+    private double heisenUltimateVolleyOriginX = 0.0;
+    private double heisenUltimateVolleyOriginY = 0.0;
+    private double heisenUltimateVolleyTargetX = 0.0;
+    private double heisenUltimateVolleyTargetY = 0.0;
+    private boolean heisenUltimateVolleyHit = false;
+    private int opiumDrowsyTimer = 0;
+    private int opiumDrowsyOwnerIndex = -1;
+    private boolean opiumDrowsyUltimate = false;
+    private int heisenBrittleTimer = 0;
+    private int heisenBrittleOwnerIndex = -1;
+    private boolean heisenBrittleUltimate = false;
     public int tauntCooldown = 0;
     public int tauntTimer = 0;
     public int cooldownFlash = 0;
@@ -903,6 +970,26 @@ public class Bird {
         }
     }
 
+    private static final class OpiumTrap {
+        final double x;
+        final double y;
+        final boolean heisen;
+        final boolean ultimate;
+        final int[] hitCooldown = new int[4];
+        int lifeFrames;
+        int ageFrames;
+
+        OpiumTrap(double x, double y, boolean heisen, boolean ultimate) {
+            this.x = x;
+            this.y = y;
+            this.heisen = heisen;
+            this.ultimate = ultimate;
+            this.lifeFrames = heisen
+                    ? (ultimate ? HEISEN_NODE_LIFE_FRAMES + 120 : HEISEN_NODE_LIFE_FRAMES)
+                    : (ultimate ? OPIUM_PATCH_LIFE_FRAMES + 120 : OPIUM_PATCH_LIFE_FRAMES);
+        }
+    }
+
     private static final class RoadrunnerPaintedRoad {
         final double x;
         final double y;
@@ -1500,6 +1587,7 @@ public class Bird {
         vultureCrowTickRechargeTimer = 0;
         crowSwarmCooldown = 0;
         leanCooldown = 0;
+        opiumNeutralReuseTimer = 0;
     }
 
     private void resetMockingbirdCopiedNeutralRuntime() {
@@ -1529,7 +1617,10 @@ public class Bird {
             }
             case GRINCHHAWK -> resetGrinchhawkSpecialState(false);
             case VULTURE -> resetVultureSpecialState(false);
-            case OPIUMBIRD, HEISENBIRD -> leanTimer = 0;
+            case OPIUMBIRD, HEISENBIRD -> {
+                leanTimer = 0;
+                opiumNeutralFueled = false;
+            }
             case TITMOUSE -> {
                 isZipping = false;
                 zipTimer = 0;
@@ -2978,6 +3069,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE && !canStartVultureSpecial()) {
             return;
         }
+        if (isOpiumEchoPair() && !canStartOpiumSpecial()) {
+            return;
+        }
         if (isRaptor()) {
             RaptorSpecialVariant variant = selectRaptorSpecialVariant();
             if (!canStartRaptorSpecialVariant(variant)) {
@@ -3002,6 +3096,7 @@ public class Bird {
                 && type != BirdGame3.BirdType.RAZORBILL
                 && type != BirdGame3.BirdType.GRINCHHAWK
                 && type != BirdGame3.BirdType.VULTURE
+                && !isOpiumEchoPair()
                 && specialCooldown > 0
                 && !ultimateReady) {
             if (!game.isAI[playerIndex]) {
@@ -3053,8 +3148,20 @@ public class Bird {
             case GRINCHHAWK -> specialGrinchhawk(selectGrinchhawkSpecialVariant(), ultimateTriggered);
             case VULTURE -> specialVulture(selectVultureSpecialVariant(), ultimateTriggered);
             case ROOSTER -> specialRooster(selectRoosterSpecialVariant(), ultimateTriggered);
-            case OPIUMBIRD -> specialOpiumBird(ultimateTriggered);
-            case HEISENBIRD -> specialHeisenbird(ultimateTriggered);
+            case OPIUMBIRD -> {
+                if (ultimateTriggered) {
+                    specialOpiumUltimate();
+                } else {
+                    specialOpiumBird(selectOpiumSpecialVariant(), false);
+                }
+            }
+            case HEISENBIRD -> {
+                if (ultimateTriggered) {
+                    specialHeisenUltimate();
+                } else {
+                    specialHeisenbird(selectOpiumSpecialVariant(), false);
+                }
+            }
             case TITMOUSE -> specialTitmouse(ultimateTriggered);
             case BAT -> specialBat(ultimateTriggered);
             case PELICAN -> specialPelican(ultimateTriggered);
@@ -7023,8 +7130,8 @@ public class Bird {
                 case RAZORBILL -> specialRazorbillNeutral(ultimate);
                 case GRINCHHAWK -> specialGrinchhawk(ultimate);
                 case VULTURE -> specialVultureCarrionCall(ultimate);
-                case OPIUMBIRD -> specialOpiumBird(ultimate);
-                case HEISENBIRD -> specialHeisenbird(ultimate);
+                case OPIUMBIRD -> specialOpiumNeutral(ultimate);
+                case HEISENBIRD -> specialHeisenNeutral(ultimate);
                 case TITMOUSE -> specialTitmouse(ultimate);
                 case BAT -> specialBat(ultimate);
                 case PELICAN -> specialPelican(ultimate);
@@ -8604,45 +8711,185 @@ public class Bird {
         attackAnimationTimer = Math.max(attackAnimationTimer, 12);
     }
 
-    private void specialOpiumBird(boolean ultimate) {
-        leanTimer = ultimate ? 520 : 360;
-        leanCooldown = 840;
-        specialCooldown = 840;
-        specialMaxCooldown = 840;
-        if (ultimate) {
-            powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.25);
-            rageTimer = Math.max(rageTimer, 240);
-        }
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 26 : 20);
-        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 18 : 15);
-        int particleCount = scaledParticleCount(ultimate ? 220 : 150);
-        for (int i = 0; i < particleCount; i++) {
-            double angle = Math.random() * Math.PI * 2;
-            game.particles.add(new Particle(x + 40, y + 40,
-                    Math.cos(angle) * (2 + Math.random() * 10),
-                    Math.sin(angle) * (2 + Math.random() * 10) - 4,
-                    (ultimate ? Color.GOLD : Color.PURPLE).deriveColor(0, 1, 1, 0.7)));
+    private void specialOpiumBird(OpiumSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialOpiumNeutral(ultimate);
+            case SIDE -> specialOpiumSide(false);
+            case UP -> specialOpiumUp(false);
+            case DOWN -> specialOpiumDown(false);
         }
     }
 
-    private void specialHeisenbird(boolean ultimate) {
-        leanTimer = ultimate ? 460 : 300;
-        leanCooldown = 720;
-        specialCooldown = 720;
-        specialMaxCooldown = 720;
-        if (ultimate) {
-            powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.2);
-            rageTimer = Math.max(rageTimer, 220);
+    private void specialHeisenbird(OpiumSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialHeisenNeutral(ultimate);
+            case SIDE -> specialOpiumSide(true);
+            case UP -> specialOpiumUp(true);
+            case DOWN -> specialOpiumDown(true);
         }
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 24 : 18);
-        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 15 : 12);
-        int particleCount = scaledParticleCount(ultimate ? 220 : 150);
-        for (int i = 0; i < particleCount; i++) {
-            double angle = Math.random() * Math.PI * 2;
-            game.particles.add(new Particle(x + 40, y + 40,
-                    Math.cos(angle) * (2 + Math.random() * 10),
-                    Math.sin(angle) * (2 + Math.random() * 10) - 4,
-                    (ultimate ? Color.GOLD : Color.web("#29B6F6")).deriveColor(0, 1, 1, 0.75)));
+    }
+
+    private void specialOpiumNeutral(boolean ultimate) {
+        boolean fueled = ultimate || spendOpiumResource(OPIUM_NEUTRAL_RESOURCE_COST);
+        opiumNeutralFueled = fueled;
+        leanTimer = Math.max(leanTimer, ultimate
+                ? OPIUM_NEUTRAL_FRAMES + 110
+                : (fueled ? OPIUM_NEUTRAL_FRAMES : 34));
+        opiumNeutralReuseTimer = ultimate ? 28 : OPIUM_NEUTRAL_REUSE_FRAMES;
+        leanCooldown = 0;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, ultimate ? 18 : (fueled ? 14 : 9));
+        vx *= isOnGround() ? (fueled ? 0.52 : 0.72) : (fueled ? 0.72 : 0.84);
+        if (!isOnGround()) {
+            vy = Math.min(vy, 1.0);
+        }
+        emitOpiumBurst(bodyCenterX(), bodyCenterY(), ultimate ? 54 : (fueled ? 38 : 10),
+                ultimate ? Color.GOLD : (fueled ? Color.web("#AB47BC") : Color.web("#6A1B9A").deriveColor(0, 0.65, 0.72, 0.45)));
+    }
+
+    private void specialHeisenNeutral(boolean ultimate) {
+        boolean fueled = ultimate || spendOpiumResource(HEISEN_NEUTRAL_RESOURCE_COST);
+        opiumNeutralFueled = fueled;
+        leanTimer = Math.max(leanTimer, ultimate
+                ? HEISEN_NEUTRAL_FRAMES + 90
+                : (fueled ? HEISEN_NEUTRAL_FRAMES : 30));
+        opiumNeutralReuseTimer = ultimate ? 24 : HEISEN_NEUTRAL_REUSE_FRAMES;
+        leanCooldown = 0;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, ultimate ? 16 : (fueled ? 12 : 8));
+        vx *= isOnGround() ? (fueled ? 0.56 : 0.74) : (fueled ? 0.76 : 0.86);
+        if (!isOnGround()) {
+            vy = Math.min(vy, 1.1);
+        }
+        emitOpiumBurst(bodyCenterX(), bodyCenterY(), ultimate ? 52 : (fueled ? 28 : 8),
+                ultimate ? Color.GOLD : (fueled ? Color.web("#29B6F6") : Color.web("#455A64").deriveColor(0, 0.55, 0.78, 0.42)));
+    }
+
+    private void specialOpiumSide(boolean heisen) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        opiumSideDirection = dir;
+        opiumSideTimer = heisen ? HEISEN_SIDE_FRAMES : OPIUM_SIDE_FRAMES;
+        opiumSideReuseTimer = heisen ? HEISEN_SIDE_REUSE_FRAMES : OPIUM_SIDE_REUSE_FRAMES;
+        opiumSideFueled = spendOpiumResource(heisen ? HEISEN_SIDE_RESOURCE_COST : OPIUM_SIDE_RESOURCE_COST);
+        Arrays.fill(opiumSideHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, opiumSideTimer + 4);
+        vx = dir * (heisen ? (opiumSideFueled ? 24.0 : 18.0) : (opiumSideFueled ? 21.8 : 16.8));
+        if (!isOnGround()) {
+            vy = Math.min(vy, heisen ? 0.6 : 0.9);
+        }
+        emitOpiumBurst(bodyCenterX(), bodyCenterY(), opiumSideFueled ? (heisen ? 24 : 32) : 7,
+                opiumSideFueled
+                        ? (heisen ? Color.web("#81D4FA") : Color.web("#CE93D8"))
+                        : Color.web("#78909C").deriveColor(0, 0.5, 0.85, 0.42));
+    }
+
+    private void specialOpiumUp(boolean heisen) {
+        if (opiumUpSpecialUsed) {
+            return;
+        }
+        opiumUpSpecialUsed = true;
+        opiumUpTimer = heisen ? HEISEN_UP_FRAMES : OPIUM_UP_FRAMES;
+        opiumUpFueled = spendOpiumResource(heisen ? HEISEN_UP_RESOURCE_COST : OPIUM_UP_RESOURCE_COST);
+        Arrays.fill(opiumUpHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, opiumUpTimer + 4);
+        canDoubleJump = true;
+        vx *= heisen ? 0.24 : 0.34;
+        vy = Math.min(vy, heisen
+                ? (opiumUpFueled ? -18.2 : -15.2)
+                : (opiumUpFueled ? -17.4 : -14.8));
+        emitOpiumBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier, opiumUpFueled ? (heisen ? 30 : 38) : 8,
+                opiumUpFueled
+                        ? (heisen ? Color.web("#81D4FA") : Color.web("#CE93D8"))
+                        : Color.web("#78909C").deriveColor(0, 0.5, 0.85, 0.42));
+    }
+
+    private void specialOpiumDown(boolean heisen) {
+        int dir = facingDirection();
+        double trapX = bodyCenterX() - dir * 48.0 * sizeMultiplier;
+        double trapY = opiumTrapSurfaceY(trapX);
+        opiumTraps.add(new OpiumTrap(trapX, trapY, heisen, false));
+        while (opiumTraps.size() > (heisen ? 3 : 4)) {
+            opiumTraps.removeFirst();
+        }
+        opiumDownReuseTimer = heisen ? HEISEN_DOWN_REUSE_FRAMES : OPIUM_DOWN_REUSE_FRAMES;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
+        vx *= 0.58;
+        emitOpiumBurst(trapX, trapY - 10.0, heisen ? 18 : 20,
+                heisen ? Color.web("#81D4FA") : Color.web("#CE93D8"));
+    }
+
+    private void specialOpiumUltimate() {
+        refillOpiumResource(OPIUM_RESOURCE_MAX);
+        opiumNeutralFueled = true;
+        leanTimer = Math.max(leanTimer, OPIUM_NEUTRAL_FRAMES);
+        opiumUltimateTimer = OPIUM_ULTIMATE_FRAMES;
+        opiumUltimateCollapsePending = true;
+        opiumUltimateCloudX = bodyCenterX();
+        opiumUltimateCloudY = bodyCenterY() + 12.0 * sizeMultiplier;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 24);
+        game.addToKillFeed(shortName() + " DROPPED A LEAN CLOUD!");
+        emitOpiumBurst(opiumUltimateCloudX, opiumUltimateCloudY, 118, Color.GOLD);
+    }
+
+    private void specialHeisenUltimate() {
+        refillOpiumResource(OPIUM_RESOURCE_MAX);
+        heisenUltimateTimer = HEISEN_ULTIMATE_FRAMES;
+        heisenUltimateShatterPending = true;
+        heisenUltimateVolleyTimer = 0;
+        heisenUltimateVolleyHit = false;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 22);
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (combatDistanceTo(other) > 520.0 + other.combatRadius()) continue;
+            other.applyHeisenBrittle(this, true);
+        }
+        game.addToKillFeed(shortName() + " COOKED A CRYSTAL STORM!");
+        emitOpiumBurst(bodyCenterX(), bodyCenterY(), 92, Color.web("#B3E5FC"));
+    }
+
+    private double opiumTrapSurfaceY(double trapX) {
+        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
+        double sourceY = bodyBottomY() - 18.0 * sizeMultiplier;
+        for (Platform p : game.platforms) {
+            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
+                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
+            if (isCaveCeiling) continue;
+            if (trapX < p.x - 20.0 || trapX > p.x + p.w + 20.0) continue;
+            if (p.y < sourceY - 14.0) continue;
+            if (p.y < bestY) {
+                bestY = p.y;
+            }
+        }
+        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+    }
+
+    private void emitOpiumBurst(double originX, double originY, int count, Color color) {
+        for (int i = 0; i < scaledParticleCount(count); i++) {
+            double angle = Math.random() * Math.PI * 2.0;
+            double speed = 1.2 + Math.random() * 5.8;
+            game.particles.add(new Particle(
+                    originX + Math.cos(angle) * (8.0 + Math.random() * 18.0),
+                    originY + Math.sin(angle) * (8.0 + Math.random() * 18.0),
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 1.2,
+                    color.deriveColor(0, 1, 1, 0.72)
+            ));
         }
     }
 
@@ -8847,6 +9094,45 @@ public class Bird {
 
     private boolean isRaptor() {
         return type == BirdGame3.BirdType.EAGLE || type == BirdGame3.BirdType.FALCON;
+    }
+
+    private boolean isOpiumEchoPair() {
+        return type == BirdGame3.BirdType.OPIUMBIRD || type == BirdGame3.BirdType.HEISENBIRD;
+    }
+
+    boolean hasOpiumResourceMeter() {
+        return isOpiumEchoPair();
+    }
+
+    double getOpiumResourceRatio() {
+        return Math.clamp(opiumResourceMeter / OPIUM_RESOURCE_MAX, 0.0, 1.0);
+    }
+
+    String getOpiumResourceLabel() {
+        return type == BirdGame3.BirdType.HEISENBIRD ? "CRYSTAL" : "OPIUM";
+    }
+
+    private boolean hasOpiumResource() {
+        return opiumResourceMeter > 0.5;
+    }
+
+    private boolean spendOpiumResource(double amount) {
+        if (amount <= 0.0) {
+            return true;
+        }
+        if (!hasOpiumResource()) {
+            opiumResourceMeter = 0.0;
+            return false;
+        }
+        opiumResourceMeter = Math.max(0.0, opiumResourceMeter - amount);
+        return true;
+    }
+
+    private void refillOpiumResource(double amount) {
+        if (amount <= 0.0) {
+            return;
+        }
+        opiumResourceMeter = Math.clamp(opiumResourceMeter + amount, 0.0, OPIUM_RESOURCE_MAX);
     }
 
     private boolean mockingbirdCopiedNeutralFrom(BirdGame3.BirdType source) {
@@ -9324,6 +9610,41 @@ public class Bird {
                 && ready;
     }
 
+    private boolean opiumSpecialActive() {
+        return opiumSideTimer > 0
+                || opiumUpTimer > 0;
+    }
+
+    private boolean opiumSpecialReady(OpiumSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
+        return switch (variant) {
+            case NEUTRAL -> ultimateReady || opiumNeutralReuseTimer <= 0;
+            case SIDE -> ultimateReady || opiumSideReuseTimer <= 0;
+            case UP -> ultimateReady || !opiumUpSpecialUsed;
+            case DOWN -> ultimateReady || opiumDownReuseTimer <= 0;
+        };
+    }
+
+    private boolean canStartOpiumSpecial() {
+        OpiumSpecialVariant variant = selectOpiumSpecialVariant();
+        boolean shieldConversion = canConvertShieldIntoOpiumDownSpecial();
+        return isOpiumEchoPair()
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && !opiumSpecialActive()
+                && opiumSpecialReady(variant);
+    }
+
+    private boolean canConvertShieldIntoOpiumDownSpecial() {
+        return selectOpiumSpecialVariant() == OpiumSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+    }
+
     private boolean vultureSpecialActive() {
         return vultureCallTimer > 0
                 || vultureGlideTimer > 0
@@ -9405,7 +9726,8 @@ public class Bird {
             case RAZORBILL -> ultimateReady || razorbillStormReuseTimer <= 0;
             case GRINCHHAWK -> true;
             case VULTURE -> ultimateReady || (vultureNeutralReuseTimer <= 0 && vultureCrowTicks > 0 && ownedVultureCrowCount() < 7);
-            case OPIUMBIRD, HEISENBIRD, TITMOUSE, BAT, PELICAN, RAVEN -> ultimateReady || specialCooldown <= 0;
+            case OPIUMBIRD, HEISENBIRD -> ultimateReady || opiumNeutralReuseTimer <= 0;
+            case TITMOUSE, BAT, PELICAN, RAVEN -> ultimateReady || specialCooldown <= 0;
             case MOCKINGBIRD -> false;
         };
     }
@@ -9598,6 +9920,19 @@ public class Bird {
         return VultureSpecialVariant.NEUTRAL;
     }
 
+    private OpiumSpecialVariant selectOpiumSpecialVariant() {
+        if (jumpPressed()) {
+            return OpiumSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return OpiumSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return OpiumSpecialVariant.SIDE;
+        }
+        return OpiumSpecialVariant.NEUTRAL;
+    }
+
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -9675,6 +10010,11 @@ public class Bird {
                     && selectVultureSpecialVariant() == VultureSpecialVariant.UP
                     && !vultureUpSpecialUsed;
         }
+        if (isOpiumEchoPair()) {
+            return canStartOpiumSpecial()
+                    && selectOpiumSpecialVariant() == OpiumSpecialVariant.UP
+                    && !opiumUpSpecialUsed;
+        }
         if (isRaptor()) {
             return canStartRaptorSpecial()
                     && selectRaptorSpecialVariant() == RaptorSpecialVariant.UP
@@ -9734,6 +10074,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE) {
             return canStartVultureSpecial()
                     && selectVultureSpecialVariant() == VultureSpecialVariant.DOWN;
+        }
+        if (isOpiumEchoPair()) {
+            return canStartOpiumSpecial()
+                    && selectOpiumSpecialVariant() == OpiumSpecialVariant.DOWN;
         }
         if (isRaptor()) {
             return canStartRaptorSpecial()
@@ -9887,6 +10231,21 @@ public class Bird {
         if (clearObjects) {
             vultureBait = null;
         }
+    }
+
+    private void resetOpiumSpecialState(boolean clearTraps) {
+        opiumSideTimer = 0;
+        opiumSideDirection = facingDirection();
+        opiumSideFueled = false;
+        Arrays.fill(opiumSideHit, false);
+        opiumUpTimer = 0;
+        opiumUpFueled = false;
+        Arrays.fill(opiumUpHit, false);
+        if (clearTraps) {
+            opiumTraps.clear();
+        }
+        heisenUltimateVolleyTimer = 0;
+        heisenUltimateVolleyHit = false;
     }
 
     private void resetHummingbirdSpecialState(boolean clearTraps) {
@@ -10051,6 +10410,16 @@ public class Bird {
             attackAnimationTimer = 0;
         }
         resetVultureSpecialState(false);
+    }
+
+    private void interruptOpiumSpecialStateOnHit() {
+        if (!isOpiumEchoPair()) {
+            return;
+        }
+        if (opiumSpecialActive()) {
+            attackAnimationTimer = 0;
+        }
+        resetOpiumSpecialState(false);
     }
 
     private int aiJumpCooldown = 0;
@@ -10431,6 +10800,7 @@ public class Bird {
                 : type == BirdGame3.BirdType.RAZORBILL ? canStartRazorbillSpecial()
                 : type == BirdGame3.BirdType.GRINCHHAWK ? canStartGrinchhawkSpecial()
                 : type == BirdGame3.BirdType.VULTURE ? canStartVultureSpecial()
+                : isOpiumEchoPair() ? canStartOpiumSpecial()
                 : specialCooldown <= 0)
                 && aiSpecialCooldown <= 0 &&
                 shouldUseSpecialAI(target, targetDist, onGround, lowHealth) &&
@@ -10444,9 +10814,14 @@ public class Bird {
             if (type == BirdGame3.BirdType.RAZORBILL) {
                 configureRazorbillAISpecialInputs(target, targetDist, onGround);
             }
+            if (isOpiumEchoPair()) {
+                configureOpiumAISpecialInputs(target, targetDist, onGround);
+            }
             game.setAiControlKey(playerIndex, specialKey(), true);
             aiSpecialCooldown = type == BirdGame3.BirdType.PIGEON ? 16
-                    : (type == BirdGame3.BirdType.SHOEBILL || type == BirdGame3.BirdType.RAZORBILL ? 20 : 26);
+                    : (type == BirdGame3.BirdType.SHOEBILL
+                    || type == BirdGame3.BirdType.RAZORBILL
+                    || isOpiumEchoPair() ? 20 : 26);
         }
 
         if (!powerFocus && tauntCooldown <= 0 && target != null && currentDurability > 80
@@ -11134,6 +11509,8 @@ public class Bird {
                     && (depth > 92.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case GRINCHHAWK -> !grinchUpSpecialUsed
                     && (depth > 108.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.2)));
+            case OPIUMBIRD, HEISENBIRD -> !opiumUpSpecialUsed
+                    && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             default -> false;
         };
     }
@@ -11201,7 +11578,8 @@ public class Bird {
                     || type == BirdGame3.BirdType.PENGUIN
                     || type == BirdGame3.BirdType.SHOEBILL
                     || type == BirdGame3.BirdType.RAZORBILL
-                    || type == BirdGame3.BirdType.GRINCHHAWK) {
+                    || type == BirdGame3.BirdType.GRINCHHAWK
+                    || isOpiumEchoPair()) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
             }
             game.setAiControlKey(playerIndex, specialKey(), true);
@@ -11267,6 +11645,9 @@ public class Bird {
             case RAZORBILL -> {
                 if (!razorbillUpSpecialUsed) reach += 160.0;
             }
+            case OPIUMBIRD, HEISENBIRD -> {
+                if (!opiumUpSpecialUsed) reach += 160.0;
+            }
             case TITMOUSE, HUMMINGBIRD, BAT -> reach += 95.0;
             case VULTURE -> {
                 if (!isOnGround() || isFlying) {
@@ -11300,6 +11681,9 @@ public class Bird {
             }
             case RAZORBILL -> {
                 if (!razorbillUpSpecialUsed) reach += 42.0;
+            }
+            case OPIUMBIRD, HEISENBIRD -> {
+                if (!opiumUpSpecialUsed) reach += 42.0;
             }
             case TITMOUSE, HUMMINGBIRD, BAT -> reach += 95.0;
             case TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> reach += 35.0;
@@ -11400,6 +11784,30 @@ public class Bird {
         }
     }
 
+    private void configureOpiumAISpecialInputs(Bird target, double dist, boolean onGround) {
+        if (target == null || !isOpiumEchoPair()) {
+            return;
+        }
+        int dir = target.bodyCenterX() >= bodyCenterX() ? 1 : -1;
+        facingRight = dir > 0;
+        double dy = target.bodyCenterY() - bodyCenterY();
+        if (!onGround && dy > 95.0 && !opiumUpSpecialUsed) {
+            game.setAiControlKey(playerIndex, jumpKey(), true);
+            return;
+        }
+        if (onGround && opiumResourceMeter < OPIUM_RESOURCE_MAX * 0.34 && opiumDownReuseTimer <= 0) {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            return;
+        }
+        if (onGround && dist < 180.0 && opiumDownReuseTimer <= 0 && random.nextDouble() < 0.42) {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            return;
+        }
+        if (dist > 138.0 && dist < 320.0 && opiumSideReuseTimer <= 0) {
+            game.setAiControlKey(playerIndex, dir < 0 ? leftKey() : rightKey(), true);
+        }
+    }
+
     private boolean shouldUseSpecialAI(Bird target, double dist, boolean onGround, boolean lowHealth) {
         double dy = target.y - y;
         switch (type) {
@@ -11446,9 +11854,9 @@ public class Bird {
                         || (hasFollower && dist < 460 && Math.abs(dy) < 210);
             }
             case OPIUMBIRD:
-                return onGround && dist < 270 && random.nextDouble() < 0.85;
+                return dist < 300 && Math.abs(dy) < 190;
             case HEISENBIRD:
-                return onGround && dist < 250 && random.nextDouble() < 0.9;
+                return dist < 290 && Math.abs(dy) < 190;
             case TITMOUSE:
                 return dist > 140 && dist < 560;
             case BAT:
@@ -11593,6 +12001,7 @@ public class Bird {
         resetExpiredBuffs();
         handleHummingbirdNectarCoating();
         handleTurkeyStuffedEffect();
+        handleOpiumStatusEffects();
         handleRoadrunnerSlipEffect();
 
         loungeHeal();
@@ -11665,6 +12074,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE && isOnGround()) {
             vultureUpSpecialUsed = false;
         }
+        if (isOpiumEchoPair() && isOnGround()) {
+            opiumUpSpecialUsed = false;
+        }
 
         if (airborne && landingLagTimer > 0) {
             landingLagTimer = 0;
@@ -11690,6 +12102,7 @@ public class Bird {
             resetRazorbillSpecialState(false);
             resetGrinchhawkSpecialState(false);
             resetVultureSpecialState(false);
+            resetOpiumSpecialState(false);
         }
 
         if (handleGrabbedState()) {
@@ -11847,6 +12260,7 @@ public class Bird {
         handleShoebillSpecialState();
         handleGrinchhawkSpecialState(jumpJustPressed, gameSpeed);
         handleVultureSpecialState(specialHeld);
+        handleOpiumSpecialState();
 
         // === RAZORBILL SPECIALS ===
         handleRazorbillSpecials();
@@ -11867,6 +12281,7 @@ public class Bird {
         handlePenguinSpecialObjects();
         handleHummingbirdNectarTraps();
         handleTurkeyFeastTraps();
+        handleOpiumTraps();
         handlePhoenixAfterburn();
         emitRoadrunnerDust();
         handleRoadrunnerSandstorm();
@@ -12243,6 +12658,38 @@ public class Bird {
         leanCooldown = Math.max(0, (int)(leanCooldown - gameSpeed));
         leanTimer = Math.max(0, (int)(leanTimer - gameSpeed));
         highTimer = Math.max(0, (int)(highTimer - gameSpeed));
+        opiumNeutralReuseTimer = Math.max(0, (int) (opiumNeutralReuseTimer - gameSpeed));
+        opiumSideTimer = Math.max(0, (int) (opiumSideTimer - gameSpeed));
+        opiumSideReuseTimer = Math.max(0, (int) (opiumSideReuseTimer - gameSpeed));
+        opiumUpTimer = Math.max(0, (int) (opiumUpTimer - gameSpeed));
+        opiumDownReuseTimer = Math.max(0, (int) (opiumDownReuseTimer - gameSpeed));
+        opiumUltimateTimer = Math.max(0, (int) (opiumUltimateTimer - gameSpeed));
+        heisenUltimateTimer = Math.max(0, (int) (heisenUltimateTimer - gameSpeed));
+        heisenUltimateVolleyTimer = Math.max(0, (int) (heisenUltimateVolleyTimer - gameSpeed));
+        opiumDrowsyTimer = Math.max(0, (int) (opiumDrowsyTimer - gameSpeed));
+        heisenBrittleTimer = Math.max(0, (int) (heisenBrittleTimer - gameSpeed));
+        if (leanTimer == 0) {
+            opiumNeutralFueled = false;
+        }
+        if (opiumDrowsyTimer == 0) {
+            opiumDrowsyOwnerIndex = -1;
+            opiumDrowsyUltimate = false;
+        }
+        if (heisenBrittleTimer == 0) {
+            heisenBrittleOwnerIndex = -1;
+            heisenBrittleUltimate = false;
+        }
+        if (opiumSideTimer == 0) {
+            opiumSideFueled = false;
+            Arrays.fill(opiumSideHit, false);
+        }
+        if (opiumUpTimer == 0) {
+            opiumUpFueled = false;
+            Arrays.fill(opiumUpHit, false);
+        }
+        if (heisenUltimateVolleyTimer == 0) {
+            heisenUltimateVolleyHit = false;
+        }
         tauntCooldown = Math.max(0, (int)(tauntCooldown - gameSpeed));
         tauntTimer = Math.max(0, (int)(tauntTimer - gameSpeed));
         eagleDiveCountdown = Math.max(0, (int)(eagleDiveCountdown - gameSpeed));
@@ -12510,6 +12957,9 @@ public class Bird {
         double jumpScale = shortHopQueued ? SHORT_HOP_MULTIPLIER : 1.0;
         if (turkeyStuffedTimer > 0) {
             jumpScale *= turkeyStuffedUltimate ? 0.72 : 0.82;
+        }
+        if (opiumDrowsyTimer > 0) {
+            jumpScale *= opiumDrowsyUltimate ? 0.76 : 0.86;
         }
         clearJumpSquat();
         vy = -type.jumpHeight * jumpScale;
@@ -12878,39 +13328,412 @@ public class Bird {
             game.leanTime[playerIndex]++;
         }
 
-        if (leanTimer > 0) {
-            double outerRadius = heisen ? 280 : 300;
-            double innerRadius = heisen ? 220 : 250;
-            double highRadius = heisen ? 110 : 120;
-            int damageRoll = heisen ? 45 : 60;
-            int highRoll = heisen ? 24 : 20;
-            int highDuration = heisen ? 140 : 180;
-            double slowX = heisen ? 0.96 : 0.94;
-            double slowY = heisen ? 0.985 : 0.98;
+        if (leanTimer > 0 && opiumNeutralFueled) {
+            double outerRadius = heisen ? 250.0 : 330.0;
+            double innerRadius = heisen ? 190.0 : 270.0;
+            int damageRoll = heisen ? 96 : 24;
+            double slowX = heisen ? 0.978 : 0.93;
+            double slowY = heisen ? 0.992 : 0.974;
+            boolean firstFrame = heisen && leanTimer >= HEISEN_NEUTRAL_FRAMES - 2;
             for (Bird other : game.players) {
                 if (!canDamageTarget(other)) continue;
-                double dx = other.x - x;
-                double dy = other.y - y;
+                double dx = other.bodyCenterX() - bodyCenterX();
+                double dy = other.bodyCenterY() - bodyCenterY();
                 double dist = Math.hypot(dx, dy);
-                if (dist < outerRadius) {
-                    if (dist < innerRadius) {
-                        if (random.nextInt(damageRoll) == 0) {
-                            applyDamageTo(other, 1);
-                        }
-                        other.vx *= slowX;
-                        other.vy *= slowY;
-                    }
-
-                    if (dist < highRadius && random.nextInt(highRoll) == 0) {
-                        other.highTimer = highDuration;
-                    }
+                if (dist > outerRadius + other.combatRadius()) continue;
+                if (dist > innerRadius + other.combatRadius()) continue;
+                if (random.nextInt(damageRoll) == 0) {
+                    applyTrackedSpecialDamage(other, 1);
+                }
+                other.vx *= slowX;
+                other.vy *= slowY;
+                if (heisen && (firstFrame || (leanTimer % 24) == 0)) {
+                    other.applyHeisenBrittle(this, false);
                 }
             }
-
-            if (Math.random() < (heisen ? 0.08 : 0.1)) highTimer = heisen ? 100 : 120;
         }
 
-        if (highTimer > 0) highTimer--;
+        if (type == BirdGame3.BirdType.OPIUMBIRD && opiumUltimateTimer > 0) {
+            applyOpiumUltimateHaze();
+        }
+        if (type == BirdGame3.BirdType.OPIUMBIRD && opiumUltimateCollapsePending && opiumUltimateTimer <= 0) {
+            collapseOpiumUltimateHaze();
+            opiumUltimateCollapsePending = false;
+        }
+        if (type == BirdGame3.BirdType.HEISENBIRD && heisenUltimateShatterPending && heisenUltimateTimer <= 0) {
+            launchHeisenUltimateCrystals();
+            heisenUltimateShatterPending = false;
+        }
+        if (type == BirdGame3.BirdType.HEISENBIRD && heisenUltimateVolleyTimer > 0) {
+            handleHeisenUltimateCrystalVolley();
+        }
+    }
+
+    private void handleOpiumStatusEffects() {
+        if (opiumDrowsyTimer > 0) {
+            vx *= opiumDrowsyUltimate ? 0.972 : 0.982;
+            if (vy > 0.0) {
+                vy *= opiumDrowsyUltimate ? 0.985 : 0.992;
+            }
+            if ((opiumDrowsyTimer & 7) == 0) {
+                game.particles.add(new Particle(
+                        bodyCenterX() + (Math.random() - 0.5) * bodyWidth() * 0.86,
+                        bodyCenterY() - 18.0 * sizeMultiplier + (Math.random() - 0.5) * bodyHeight() * 0.32,
+                        (Math.random() - 0.5) * 1.2,
+                        -0.7 - Math.random() * 1.2,
+                        (opiumDrowsyUltimate ? Color.GOLD : Color.web("#CE93D8")).deriveColor(0, 1, 1, 0.58)
+                ));
+            }
+        }
+        if (heisenBrittleTimer > 0 && (heisenBrittleTimer & 5) == 0) {
+            game.particles.add(new Particle(
+                    bodyCenterX() + (Math.random() - 0.5) * bodyWidth() * 0.78,
+                    bodyCenterY() + (Math.random() - 0.5) * bodyHeight() * 0.58,
+                    (Math.random() - 0.5) * 1.8,
+                    -0.9 - Math.random() * 1.5,
+                    (heisenBrittleUltimate ? Color.GOLD : Color.web("#81D4FA")).deriveColor(0, 1, 1, 0.72)
+            ));
+        }
+    }
+
+    private void applyOpiumUltimateHaze() {
+        double radius = 500.0;
+        double cloudX = opiumUltimateCloudX == 0.0 ? bodyCenterX() : opiumUltimateCloudX;
+        double cloudY = opiumUltimateCloudY == 0.0 ? bodyCenterY() : opiumUltimateCloudY;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - cloudX;
+            double dy = other.bodyCenterY() - cloudY;
+            if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
+            other.vx *= 0.925;
+            other.vy *= 0.978;
+            other.applyOpiumDrowsy(this, true);
+            if ((opiumUltimateTimer % 16) == 0) {
+                applyTrackedSpecialDamage(other, 1);
+            }
+        }
+    }
+
+    private void collapseOpiumUltimateHaze() {
+        double radius = 500.0;
+        double cloudX = opiumUltimateCloudX == 0.0 ? bodyCenterX() : opiumUltimateCloudX;
+        double cloudY = opiumUltimateCloudY == 0.0 ? bodyCenterY() : opiumUltimateCloudY;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - cloudX;
+            double dy = other.bodyCenterY() - cloudY;
+            double dist = Math.hypot(dx, dy);
+            if (dist > radius + other.combatRadius()) continue;
+            int dealt = applyTrackedSpecialDamage(other, 14);
+            if (dealt <= 0) continue;
+            double safe = Math.max(1.0, dist);
+            other.vx += dx / safe * 15.0;
+            other.vy -= 10.6;
+            other.applyStun(26);
+        }
+        emitOpiumBurst(cloudX, cloudY, 132, Color.GOLD);
+        game.shakeIntensity = Math.max(game.shakeIntensity, 16);
+    }
+
+    private void launchHeisenUltimateCrystals() {
+        heisenUltimateVolleyOriginX = bodyCenterX();
+        heisenUltimateVolleyOriginY = bodyCenterY() - 10.0 * sizeMultiplier;
+        Bird target = nearestOpiumDamageTarget(760.0);
+        if (target != null) {
+            heisenUltimateVolleyTargetX = target.bodyCenterX();
+            heisenUltimateVolleyTargetY = target.bodyCenterY();
+        } else {
+            heisenUltimateVolleyTargetX = heisenUltimateVolleyOriginX + facingDirection() * 520.0;
+            heisenUltimateVolleyTargetY = heisenUltimateVolleyOriginY - 26.0 * sizeMultiplier;
+        }
+        heisenUltimateVolleyTimer = HEISEN_ULTIMATE_VOLLEY_FRAMES;
+        heisenUltimateVolleyHit = false;
+        emitOpiumBurst(heisenUltimateVolleyOriginX, heisenUltimateVolleyOriginY, 72, Color.web("#B3E5FC"));
+        game.shakeIntensity = Math.max(game.shakeIntensity, 10);
+    }
+
+    private Bird nearestOpiumDamageTarget(double maxDistance) {
+        Bird best = null;
+        double bestDist = maxDistance;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dist = Math.hypot(other.bodyCenterX() - bodyCenterX(), other.bodyCenterY() - bodyCenterY());
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = other;
+            }
+        }
+        return best;
+    }
+
+    private void handleHeisenUltimateCrystalVolley() {
+        double elapsed = HEISEN_ULTIMATE_VOLLEY_FRAMES - heisenUltimateVolleyTimer;
+        double progress = Math.clamp(elapsed / (double) HEISEN_ULTIMATE_VOLLEY_FRAMES, 0.0, 1.0);
+        if (progress < 0.70 || heisenUltimateVolleyHit) {
+            return;
+        }
+
+        heisenUltimateVolleyHit = true;
+        double radius = 118.0;
+        boolean hitAny = false;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - heisenUltimateVolleyTargetX;
+            double dy = other.bodyCenterY() - heisenUltimateVolleyTargetY;
+            if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
+
+            boolean marked = other.hasHeisenBrittleFrom(this);
+            int dealt = applyTrackedSpecialDamage(other, marked ? 13 : 10);
+            if (dealt <= 0) continue;
+            hitAny = true;
+            double fromOwnerX = other.bodyCenterX() - bodyCenterX();
+            double dir = Math.signum(fromOwnerX == 0.0 ? facingDirection() : fromOwnerX);
+            other.vx += dir * (marked ? 15.6 : 11.8);
+            other.vy -= marked ? 10.6 : 7.8;
+            other.applyStun(marked ? 24 : 16);
+            if (marked) {
+                other.clearHeisenBrittle();
+            }
+        }
+        emitOpiumBurst(heisenUltimateVolleyTargetX, heisenUltimateVolleyTargetY, hitAny ? 104 : 46, Color.web("#B3E5FC"));
+        game.shakeIntensity = Math.max(game.shakeIntensity, hitAny ? 15 : 8);
+    }
+
+    private void handleOpiumSpecialState() {
+        if (!isOpiumEchoPair()) {
+            return;
+        }
+        boolean heisen = type == BirdGame3.BirdType.HEISENBIRD;
+        if (opiumSideTimer > 0) {
+            applyOpiumSideHits(heisen);
+            if (opiumSideFueled && (opiumSideTimer & 1) == 0) {
+                game.particles.add(new Particle(
+                        bodyCenterX() - opiumSideDirection * 34.0 * sizeMultiplier,
+                        bodyCenterY() + (Math.random() - 0.5) * 34.0 * sizeMultiplier,
+                        -opiumSideDirection * (1.0 + Math.random() * 2.4),
+                        (Math.random() - 0.5) * 1.8,
+                        (heisen ? Color.web("#81D4FA") : Color.web("#CE93D8")).deriveColor(0, 1, 1, 0.62)
+                ));
+            }
+        }
+        if (opiumUpTimer > 0) {
+            applyOpiumUpHits(heisen);
+            if (opiumUpFueled && (opiumUpTimer & 1) == 0) {
+                game.particles.add(new Particle(
+                        bodyCenterX() + (Math.random() - 0.5) * 32.0 * sizeMultiplier,
+                        bodyBottomY() - 4.0 * sizeMultiplier,
+                        (Math.random() - 0.5) * 1.8,
+                        2.0 + Math.random() * 3.0,
+                        (heisen ? Color.web("#81D4FA") : Color.web("#CE93D8")).deriveColor(0, 1, 1, 0.64)
+                ));
+            }
+        }
+    }
+
+    private void applyOpiumSideHits(boolean heisen) {
+        boolean fueled = opiumSideFueled;
+        double centerX = bodyCenterX() + opiumSideDirection * (heisen ? 74.0 : 70.0) * sizeMultiplier;
+        double centerY = bodyCenterY() - 4.0 * sizeMultiplier;
+        double reach = (heisen ? (fueled ? 118.0 : 94.0) : (fueled ? 132.0 : 100.0)) * sizeMultiplier;
+        double verticalReach = (heisen ? (fueled ? 58.0 : 48.0) : (fueled ? 68.0 : 52.0)) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= opiumSideHit.length) continue;
+            if (opiumSideHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double forward = dx * opiumSideDirection;
+            if (forward < -other.combatHalfWidth() * 0.45 || forward > reach + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyCenterY() - centerY) > verticalReach + other.combatHalfHeight()) continue;
+
+            boolean brittle = heisen && other.hasHeisenBrittleFrom(this);
+            int dealt = applyTrackedSpecialDamage(other, heisen
+                    ? (fueled ? 8 : 5)
+                    : (fueled ? 11 : 5));
+            if (dealt <= 0) continue;
+            opiumSideHit[other.playerIndex] = true;
+            other.vx += opiumSideDirection * (heisen
+                    ? (fueled ? (brittle ? 13.8 : 10.8) : 7.2)
+                    : (fueled ? 11.0 : 6.8));
+            other.vy -= heisen
+                    ? (fueled ? (brittle ? 6.3 : 4.8) : 3.4)
+                    : (fueled ? 5.2 : 3.2);
+            other.applyStun(heisen ? (fueled ? 16 : 10) : (fueled ? 15 : 9));
+            if (!heisen) {
+                other.vx *= 0.90;
+            }
+        }
+    }
+
+    private void applyOpiumUpHits(boolean heisen) {
+        boolean fueled = opiumUpFueled;
+        double centerX = bodyCenterX();
+        double centerY = bodyBottomY() + (heisen ? 28.0 : 34.0) * sizeMultiplier;
+        double radius = (heisen ? (fueled ? 96.0 : 74.0) : (fueled ? 114.0 : 84.0)) * sizeMultiplier;
+        double verticalRadius = (heisen ? (fueled ? 128.0 : 102.0) : (fueled ? 146.0 : 112.0)) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= opiumUpHit.length) continue;
+            if (opiumUpHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
+            if (dy < -26.0 * sizeMultiplier || dy > verticalRadius + other.combatHalfHeight()) continue;
+
+            int dealt = applyTrackedSpecialDamage(other, heisen
+                    ? (fueled ? 7 : 4)
+                    : (fueled ? 9 : 4));
+            if (dealt <= 0) continue;
+            opiumUpHit[other.playerIndex] = true;
+            other.vx += Math.signum(dx == 0.0 ? facingDirection() : dx) * (heisen
+                    ? (fueled ? 6.0 : 3.8)
+                    : (fueled ? 5.2 : 3.4));
+            other.vy += heisen
+                    ? (fueled ? 9.8 : 6.8)
+                    : (fueled ? 8.8 : 6.2);
+            other.applyStun(heisen ? (fueled ? 12 : 8) : (fueled ? 11 : 7));
+            if (heisen && fueled) {
+                other.applyHeisenBrittle(this, false);
+            }
+        }
+    }
+
+    private void handleOpiumTraps() {
+        if (opiumTraps.isEmpty()) {
+            return;
+        }
+        for (Iterator<OpiumTrap> it = opiumTraps.iterator(); it.hasNext(); ) {
+            OpiumTrap trap = it.next();
+            trap.ageFrames++;
+            trap.lifeFrames--;
+            for (int i = 0; i < trap.hitCooldown.length; i++) {
+                if (trap.hitCooldown[i] > 0) {
+                    trap.hitCooldown[i]--;
+                }
+            }
+            if (health <= 0) {
+                it.remove();
+                continue;
+            }
+            if (trap.heisen) {
+                if (birdStandingInOpiumTrap(this, trap, 74.0, 42.0)) {
+                    refillOpiumResource(HEISEN_NODE_REFILL_PER_FRAME);
+                    if ((trap.ageFrames & 5) == 0) {
+                        game.particles.add(new Particle(
+                                bodyCenterX() + (Math.random() - 0.5) * 28.0 * sizeMultiplier,
+                                bodyBottomY() - 20.0 * sizeMultiplier,
+                                (Math.random() - 0.5) * 0.8,
+                                -0.7 - Math.random() * 1.2,
+                                Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.72)
+                        ));
+                    }
+                }
+                if ((trap.ageFrames & 3) == 0) {
+                    game.particles.add(new Particle(
+                            trap.x + (Math.random() - 0.5) * 42.0,
+                            trap.y - 20.0 - Math.random() * 34.0,
+                            (Math.random() - 0.5) * 0.8,
+                            -0.8 - Math.random() * 1.6,
+                            Color.web("#81D4FA").deriveColor(0, 1, 1, 0.66)
+                    ));
+                }
+                double radius = 92.0;
+                for (Bird other : game.players) {
+                    if (!canDamageTarget(other)) continue;
+                    if (other.playerIndex < 0 || other.playerIndex >= trap.hitCooldown.length) continue;
+                    if (!birdStandingInOpiumTrap(other, trap, radius, 54.0)) continue;
+                    other.vx *= 0.93;
+                    if ((trap.ageFrames % 28) == 0) {
+                        other.applyHeisenBrittle(this, false);
+                    }
+                    if (trap.hitCooldown[other.playerIndex] <= 0) {
+                        trap.hitCooldown[other.playerIndex] = 34;
+                        applyTrackedSpecialDamage(other, 1);
+                    }
+                }
+                if (trap.lifeFrames <= 0) {
+                    explodeHeisenTrap(trap);
+                    it.remove();
+                }
+                continue;
+            }
+
+            if (trap.lifeFrames <= 0) {
+                it.remove();
+                continue;
+            }
+            if (birdStandingInOpiumTrap(this, trap, 108.0, 42.0)) {
+                refillOpiumResource(OPIUM_PATCH_REFILL_PER_FRAME);
+                if ((trap.ageFrames & 7) == 0) {
+                    game.particles.add(new Particle(
+                            bodyCenterX() + (Math.random() - 0.5) * 36.0 * sizeMultiplier,
+                            bodyBottomY() - 12.0 * sizeMultiplier,
+                            (Math.random() - 0.5) * 0.7,
+                            -0.5 - Math.random() * 1.0,
+                            Color.web("#E1BEE7").deriveColor(0, 1, 1, 0.62)
+                    ));
+                }
+            }
+            if ((trap.ageFrames & 7) == 0) {
+                game.particles.add(new Particle(
+                        trap.x + (Math.random() - 0.5) * 88.0,
+                        trap.y - 8.0 - Math.random() * 18.0,
+                        (Math.random() - 0.5) * 0.9,
+                        -0.5 - Math.random() * 1.2,
+                        Color.web("#CE93D8").deriveColor(0, 1, 1, 0.48)
+                ));
+            }
+            double radius = 94.0;
+            for (Bird other : game.players) {
+                if (!canDamageTarget(other)) continue;
+                if (other.playerIndex < 0 || other.playerIndex >= trap.hitCooldown.length) continue;
+                if (!birdStandingInOpiumTrap(other, trap, radius, 58.0)) continue;
+
+                other.vx *= 0.86;
+                other.vy *= 0.94;
+                if (leanTimer > 0) {
+                    leanTimer = Math.max(leanTimer, 72);
+                }
+                if (trap.hitCooldown[other.playerIndex] <= 0) {
+                    trap.hitCooldown[other.playerIndex] = 20;
+                    applyTrackedSpecialDamage(other, 2);
+                }
+            }
+        }
+    }
+
+    private boolean birdStandingInOpiumTrap(Bird bird, OpiumTrap trap, double radius, double verticalWindow) {
+        if (bird == null) {
+            return false;
+        }
+        double dx = bird.bodyCenterX() - trap.x;
+        if (Math.abs(dx) > radius + bird.combatHalfWidth()) {
+            return false;
+        }
+        double feetDistance = Math.abs(bird.bodyBottomY() - trap.y);
+        return feetDistance <= verticalWindow + bird.combatHalfHeight() * 0.22
+                || (bird.bodyCenterY() > trap.y - verticalWindow - 16.0 && bird.bodyCenterY() < trap.y + 24.0);
+    }
+
+    private void explodeHeisenTrap(OpiumTrap trap) {
+        double radius = 132.0;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - trap.x;
+            double dy = other.bodyCenterY() - (trap.y - 18.0);
+            if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
+            boolean brittle = other.hasHeisenBrittleFrom(this);
+            int dealt = applyTrackedSpecialDamage(other, brittle ? 12 : 7);
+            if (dealt <= 0) continue;
+            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
+            other.vx += dir * (brittle ? 15.0 : 10.4);
+            other.vy -= brittle ? 10.2 : 6.4;
+            other.applyStun(brittle ? 24 : 14);
+            if (brittle) {
+                other.clearHeisenBrittle();
+            }
+        }
+        emitOpiumBurst(trap.x, trap.y - 18.0, 46, Color.web("#81D4FA"));
+        game.shakeIntensity = Math.max(game.shakeIntensity, 8);
     }
 
     private void handleEaglePassive(boolean airborne) {
@@ -13122,7 +13945,8 @@ public class Bird {
                     || razorbillCounterTimer > 0 || razorbillCounterWhiffTimer > 0 || razorbillCounterBurstTimer > 0))
                     || (type == BirdGame3.BirdType.ROADRUNNER
                     && (roadrunnerBeepCharging || roadrunnerRicochetTimer > 0 || roadrunnerDustDevilTimer > 0))
-                    || (type == BirdGame3.BirdType.GRINCHHAWK && grinchhawkSpecialActive())) {
+                    || (type == BirdGame3.BirdType.GRINCHHAWK && grinchhawkSpecialActive())
+                    || (isOpiumEchoPair() && opiumSpecialActive())) {
                 if (type == BirdGame3.BirdType.ROADRUNNER && roadrunnerBeepBurstTimer > 0) {
                     vx *= airborne ? 0.99 : 0.985;
                 } else if (type == BirdGame3.BirdType.GRINCHHAWK && grinchSleighRiding) {
@@ -13131,6 +13955,10 @@ public class Bird {
                     vx *= airborne ? 0.94 : 0.82;
                 } else if (type == BirdGame3.BirdType.GRINCHHAWK) {
                     vx *= airborne ? 0.86 : 0.58;
+                } else if (isOpiumEchoPair() && opiumSideTimer > 0) {
+                    vx *= 0.98;
+                } else if (isOpiumEchoPair() && opiumUpTimer > 0) {
+                    vx *= airborne ? 0.90 : 0.72;
                 } else if (type == BirdGame3.BirdType.RAZORBILL && razorbillStormTimer > 0) {
                     vx *= airborne ? 0.96 : 0.88;
                 } else if (type == BirdGame3.BirdType.RAZORBILL && bladeStormFrames > 0) {
@@ -13201,6 +14029,13 @@ public class Bird {
                 airFric = airborne
                         ? Math.min(airFric, turkeyStuffedUltimate ? 0.90 : 0.92)
                         : Math.min(airFric, turkeyStuffedUltimate ? 0.72 : 0.78);
+            }
+            if (opiumDrowsyTimer > 0 && health > 0) {
+                moveSpeed *= opiumDrowsyUltimate ? 0.68 : 0.78;
+                accel *= opiumDrowsyUltimate ? 0.74 : 0.84;
+                if (airborne) {
+                    airFric = Math.min(airFric, opiumDrowsyUltimate ? 0.90 : 0.93);
+                }
             }
             if (game.isFrostbiteFjordActive() && !airborne && health > 0) {
                 if (type == BirdGame3.BirdType.PENGUIN) {
@@ -13286,6 +14121,9 @@ public class Bird {
                     double jumpScale = turkeyStuffedTimer > 0
                             ? (turkeyStuffedUltimate ? 0.60 : 0.68)
                             : 0.75;
+                    if (opiumDrowsyTimer > 0) {
+                        jumpScale *= opiumDrowsyUltimate ? 0.76 : 0.86;
+                    }
                     vy = -type.jumpHeight * jumpScale;
                     if (type == BirdGame3.BirdType.PIGEON) canDoubleJump = false;
                     game.playSwingSfx();
@@ -13317,6 +14155,8 @@ public class Bird {
                     ? canConvertShieldIntoGrinchhawkDownSpecial()
                     : type == BirdGame3.BirdType.VULTURE
                     ? canConvertShieldIntoVultureDownSpecial()
+                    : isOpiumEchoPair()
+                    ? canConvertShieldIntoOpiumDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
             boolean canStartSelectedSpecial = type == BirdGame3.BirdType.PIGEON
                     ? canStartPigeonSpecial()
@@ -13342,6 +14182,8 @@ public class Bird {
                     ? canStartGrinchhawkSpecial()
                     : type == BirdGame3.BirdType.VULTURE
                     ? canStartVultureSpecial()
+                    : isOpiumEchoPair()
+                    ? canStartOpiumSpecial()
                     : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
             if (!attackLocked && !grabLocked && (!shielding || canSpecialFromShield) && !jumpSquatting && specialJustPressed()) {
                 if (grappleUses == 0 && canStartSelectedSpecial) {
@@ -13354,7 +14196,8 @@ public class Bird {
                         && type != BirdGame3.BirdType.MOCKINGBIRD
                         && type != BirdGame3.BirdType.RAZORBILL
                         && type != BirdGame3.BirdType.GRINCHHAWK
-                        && type != BirdGame3.BirdType.VULTURE))) {
+                        && type != BirdGame3.BirdType.VULTURE
+                        && !isOpiumEchoPair()))) {
                     cooldownFlash = 15;
                 }
             }
@@ -13831,7 +14674,86 @@ public class Bird {
         if (shieldHit.blocked()) {
             return 0;
         }
+        scaledDamage += target.consumeHeisenBrittleBonusFrom(this);
         return applyScaledDamageTo(target, scaledDamage);
+    }
+
+    private int applyTrackedSpecialDamage(Bird target, int rawDamage) {
+        if (target == null || rawDamage <= 0) {
+            return 0;
+        }
+        double oldHealth = target.health;
+        int dealt = (int) applyDamageTo(target, rawDamage);
+        if (dealt <= 0) {
+            return 0;
+        }
+        game.damageDealt[playerIndex] += dealt;
+        game.recordSpecialImpact(playerIndex, dealt, true);
+        if (target.health <= 0 && oldHealth > 0) {
+            game.eliminations[playerIndex]++;
+        }
+        return dealt;
+    }
+
+    private void applyOpiumDrowsy(Bird owner, boolean ultimate) {
+        if (owner == null || owner.playerIndex < 0 || owner.playerIndex >= game.players.length) {
+            return;
+        }
+        opiumDrowsyOwnerIndex = owner.playerIndex;
+        opiumDrowsyUltimate = opiumDrowsyUltimate || ultimate;
+        opiumDrowsyTimer = Math.max(opiumDrowsyTimer,
+                ultimate ? OPIUM_DROWSY_FRAMES + 48 : OPIUM_DROWSY_FRAMES);
+    }
+
+    private void applyHeisenBrittle(Bird owner, boolean ultimate) {
+        if (owner == null || owner.playerIndex < 0 || owner.playerIndex >= game.players.length) {
+            return;
+        }
+        heisenBrittleOwnerIndex = owner.playerIndex;
+        heisenBrittleUltimate = heisenBrittleUltimate || ultimate;
+        heisenBrittleTimer = Math.max(heisenBrittleTimer,
+                ultimate ? HEISEN_ULTIMATE_FRAMES + 12 : HEISEN_BRITTLE_FRAMES);
+    }
+
+    private boolean hasHeisenBrittleFrom(Bird owner) {
+        return owner != null
+                && heisenBrittleTimer > 0
+                && heisenBrittleOwnerIndex == owner.playerIndex;
+    }
+
+    private void clearHeisenBrittle() {
+        heisenBrittleTimer = 0;
+        heisenBrittleOwnerIndex = -1;
+        heisenBrittleUltimate = false;
+    }
+
+    private double consumeHeisenBrittleBonusFrom(Bird attacker) {
+        if (!hasHeisenBrittleFrom(attacker)) {
+            return 0.0;
+        }
+        boolean repeatableUltimateMark = attacker.type == BirdGame3.BirdType.HEISENBIRD
+                && attacker.heisenUltimateTimer > 0
+                && heisenBrittleUltimate;
+        double bonus = repeatableUltimateMark ? 4.0 : 5.0;
+        emitBrittleShatterParticles(repeatableUltimateMark ? 10 : 14);
+        if (!repeatableUltimateMark) {
+            clearHeisenBrittle();
+        }
+        return bonus;
+    }
+
+    private void emitBrittleShatterParticles(int count) {
+        for (int i = 0; i < scaledParticleCount(count); i++) {
+            double angle = Math.random() * Math.PI * 2.0;
+            double speed = 1.4 + Math.random() * 4.4;
+            game.particles.add(new Particle(
+                    bodyCenterX(),
+                    bodyCenterY(),
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 1.2,
+                    (heisenBrittleUltimate ? Color.GOLD : Color.web("#81D4FA")).deriveColor(0, 1, 1, 0.82)
+            ));
+        }
     }
 
     double receiveExternalDamage(double rawDamage) {
@@ -13892,6 +14814,7 @@ public class Bird {
             interruptPenguinSpecialStateOnHit();
             interruptShoebillSpecialStateOnHit();
             interruptVultureSpecialStateOnHit();
+            interruptOpiumSpecialStateOnHit();
         }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
             roadrunnerMomentum = Math.max(0.0, roadrunnerMomentum - 38.0);
@@ -15678,6 +16601,34 @@ public class Bird {
         leanTimer = 0;
         highTimer = 0;
         isHigh = false;
+        opiumResourceMeter = OPIUM_RESOURCE_MAX;
+        opiumNeutralFueled = false;
+        opiumNeutralReuseTimer = 0;
+        opiumSideTimer = 0;
+        opiumSideReuseTimer = 0;
+        opiumSideDirection = facingDirection();
+        opiumSideFueled = false;
+        Arrays.fill(opiumSideHit, false);
+        opiumUpTimer = 0;
+        opiumUpSpecialUsed = false;
+        opiumUpFueled = false;
+        Arrays.fill(opiumUpHit, false);
+        opiumDownReuseTimer = 0;
+        opiumTraps.clear();
+        opiumUltimateTimer = 0;
+        opiumUltimateCollapsePending = false;
+        opiumUltimateCloudX = 0.0;
+        opiumUltimateCloudY = 0.0;
+        heisenUltimateTimer = 0;
+        heisenUltimateShatterPending = false;
+        heisenUltimateVolleyTimer = 0;
+        heisenUltimateVolleyHit = false;
+        opiumDrowsyTimer = 0;
+        opiumDrowsyOwnerIndex = -1;
+        opiumDrowsyUltimate = false;
+        heisenBrittleTimer = 0;
+        heisenBrittleOwnerIndex = -1;
+        heisenBrittleUltimate = false;
         hoverRegenMultiplier = 1.0;
         batEchoTimer = 0;
         batHanging = false;
@@ -15807,6 +16758,37 @@ public class Bird {
         state.leanCooldown = leanCooldown;
         state.isHigh = isHigh;
         state.highTimer = highTimer;
+        state.opiumResourceMeter = opiumResourceMeter;
+        state.opiumNeutralFueled = opiumNeutralFueled;
+        state.opiumNeutralReuseTimer = opiumNeutralReuseTimer;
+        state.opiumSideTimer = opiumSideTimer;
+        state.opiumSideReuseTimer = opiumSideReuseTimer;
+        state.opiumSideDirection = opiumSideDirection;
+        state.opiumSideFueled = opiumSideFueled;
+        System.arraycopy(opiumSideHit, 0, state.opiumSideHit, 0, opiumSideHit.length);
+        state.opiumUpTimer = opiumUpTimer;
+        state.opiumUpSpecialUsed = opiumUpSpecialUsed;
+        state.opiumUpFueled = opiumUpFueled;
+        System.arraycopy(opiumUpHit, 0, state.opiumUpHit, 0, opiumUpHit.length);
+        state.opiumDownReuseTimer = opiumDownReuseTimer;
+        state.opiumUltimateTimer = opiumUltimateTimer;
+        state.opiumUltimateCollapsePending = opiumUltimateCollapsePending;
+        state.opiumUltimateCloudX = opiumUltimateCloudX;
+        state.opiumUltimateCloudY = opiumUltimateCloudY;
+        state.heisenUltimateTimer = heisenUltimateTimer;
+        state.heisenUltimateShatterPending = heisenUltimateShatterPending;
+        state.heisenUltimateVolleyTimer = heisenUltimateVolleyTimer;
+        state.heisenUltimateVolleyOriginX = heisenUltimateVolleyOriginX;
+        state.heisenUltimateVolleyOriginY = heisenUltimateVolleyOriginY;
+        state.heisenUltimateVolleyTargetX = heisenUltimateVolleyTargetX;
+        state.heisenUltimateVolleyTargetY = heisenUltimateVolleyTargetY;
+        state.heisenUltimateVolleyHit = heisenUltimateVolleyHit;
+        state.opiumDrowsyTimer = opiumDrowsyTimer;
+        state.opiumDrowsyOwnerIndex = opiumDrowsyOwnerIndex;
+        state.opiumDrowsyUltimate = opiumDrowsyUltimate;
+        state.heisenBrittleTimer = heisenBrittleTimer;
+        state.heisenBrittleOwnerIndex = heisenBrittleOwnerIndex;
+        state.heisenBrittleUltimate = heisenBrittleUltimate;
         state.tauntCooldown = tauntCooldown;
         state.tauntTimer = tauntTimer;
         state.cooldownFlash = cooldownFlash;
@@ -16131,6 +17113,45 @@ public class Bird {
         this.leanCooldown = state.leanCooldown;
         this.isHigh = state.isHigh;
         this.highTimer = state.highTimer;
+        this.opiumResourceMeter = Math.clamp(state.opiumResourceMeter, 0.0, OPIUM_RESOURCE_MAX);
+        this.opiumNeutralFueled = state.opiumNeutralFueled;
+        this.opiumNeutralReuseTimer = Math.max(0, state.opiumNeutralReuseTimer);
+        this.opiumSideTimer = Math.max(0, state.opiumSideTimer);
+        this.opiumSideReuseTimer = Math.max(0, state.opiumSideReuseTimer);
+        this.opiumSideDirection = state.opiumSideDirection == 0 ? facingDirection() : state.opiumSideDirection;
+        this.opiumSideFueled = state.opiumSideFueled;
+        Arrays.fill(this.opiumSideHit, false);
+        if (state.opiumSideHit != null) {
+            System.arraycopy(state.opiumSideHit, 0, this.opiumSideHit, 0,
+                    Math.min(this.opiumSideHit.length, state.opiumSideHit.length));
+        }
+        this.opiumUpTimer = Math.max(0, state.opiumUpTimer);
+        this.opiumUpSpecialUsed = state.opiumUpSpecialUsed;
+        this.opiumUpFueled = state.opiumUpFueled;
+        Arrays.fill(this.opiumUpHit, false);
+        if (state.opiumUpHit != null) {
+            System.arraycopy(state.opiumUpHit, 0, this.opiumUpHit, 0,
+                    Math.min(this.opiumUpHit.length, state.opiumUpHit.length));
+        }
+        this.opiumDownReuseTimer = Math.max(0, state.opiumDownReuseTimer);
+        this.opiumUltimateTimer = Math.max(0, state.opiumUltimateTimer);
+        this.opiumUltimateCollapsePending = state.opiumUltimateCollapsePending;
+        this.opiumUltimateCloudX = state.opiumUltimateCloudX;
+        this.opiumUltimateCloudY = state.opiumUltimateCloudY;
+        this.heisenUltimateTimer = Math.max(0, state.heisenUltimateTimer);
+        this.heisenUltimateShatterPending = state.heisenUltimateShatterPending;
+        this.heisenUltimateVolleyTimer = Math.max(0, state.heisenUltimateVolleyTimer);
+        this.heisenUltimateVolleyOriginX = state.heisenUltimateVolleyOriginX;
+        this.heisenUltimateVolleyOriginY = state.heisenUltimateVolleyOriginY;
+        this.heisenUltimateVolleyTargetX = state.heisenUltimateVolleyTargetX;
+        this.heisenUltimateVolleyTargetY = state.heisenUltimateVolleyTargetY;
+        this.heisenUltimateVolleyHit = state.heisenUltimateVolleyHit;
+        this.opiumDrowsyTimer = Math.max(0, state.opiumDrowsyTimer);
+        this.opiumDrowsyOwnerIndex = state.opiumDrowsyOwnerIndex;
+        this.opiumDrowsyUltimate = state.opiumDrowsyUltimate;
+        this.heisenBrittleTimer = Math.max(0, state.heisenBrittleTimer);
+        this.heisenBrittleOwnerIndex = state.heisenBrittleOwnerIndex;
+        this.heisenBrittleUltimate = state.heisenBrittleUltimate;
         this.tauntCooldown = state.tauntCooldown;
         this.tauntTimer = state.tauntTimer;
         this.cooldownFlash = state.cooldownFlash;
@@ -17776,6 +18797,7 @@ public class Bird {
         drawRespawnReturnTrail(g, drawSize);
         drawHummingbirdNectarTraps(g);
         drawTurkeyFeastTraps(g);
+        drawOpiumTraps(g);
         drawRoadrunnerPaintedRoads(g);
         drawPenguinSpecialObjects(g);
         drawGrinchhawkObjects(g);
@@ -17823,6 +18845,7 @@ public class Bird {
         drawBodyAndEyes(g, drawSize, attackPose);
         drawGrinchhawk(g);
         drawRooster(g, drawSize);
+        drawOpiumBirdAccessories(g);
         drawHeisenbirdAccessories(g);
         drawCitySkin(g);
         drawNoirSkin(g);
@@ -17835,6 +18858,8 @@ public class Bird {
         g.restore();
         drawHummingbirdNectarCoating(g, drawSize);
         drawTurkeyStuffedEffect(g, drawSize);
+        drawOpiumDrowsyEffect(g, drawSize);
+        drawHeisenBrittleEffect(g, drawSize);
         drawRoadrunnerSlipEffect(g);
         drawPigeonSpecialFx(g, drawSize);
         drawRaptorSpecialFx(g, drawSize);
@@ -18269,6 +19294,111 @@ public class Bird {
         }
     }
 
+    private void drawOpiumTraps(GraphicsContext g) {
+        if (opiumTraps.isEmpty()) {
+            return;
+        }
+        for (OpiumTrap trap : opiumTraps) {
+            if (trap.heisen) {
+                double lifeRatio = Math.clamp(trap.lifeFrames / (double) HEISEN_NODE_LIFE_FRAMES, 0.0, 1.0);
+                double progress = Math.clamp(trap.ageFrames / 54.0, 0.0, 1.0);
+                double pulse = 0.5 + 0.5 * Math.sin(trap.ageFrames * 0.18);
+                double size = 32.0 + progress * 18.0 + pulse * 4.0;
+                g.setFill(Color.web("#0D47A1").deriveColor(0, 1, 1, (0.16 + 0.16 * pulse) * lifeRatio));
+                g.fillOval(trap.x - 58.0, trap.y - 30.0, 116.0, 48.0);
+                g.setFill(Color.web("#01579B").deriveColor(0, 1, 1, 0.72 * lifeRatio));
+                g.fillPolygon(
+                        new double[]{trap.x - size * 0.62, trap.x - size * 0.18, trap.x + size * 0.48, trap.x + size * 0.20},
+                        new double[]{trap.y - 8.0, trap.y - size * 1.05, trap.y - size * 0.54, trap.y + size * 0.22},
+                        4
+                );
+                g.setFill(Color.web("#81D4FA").deriveColor(0, 1, 1, 0.78 * lifeRatio));
+                g.fillPolygon(
+                        new double[]{trap.x - size * 0.36, trap.x + size * 0.10, trap.x + size * 0.66, trap.x + size * 0.24},
+                        new double[]{trap.y - 6.0, trap.y - size * 1.42, trap.y - size * 0.34, trap.y + size * 0.30},
+                        4
+                );
+                g.setStroke(Color.web("#E1F5FE").deriveColor(0, 1, 1, (0.36 + 0.28 * pulse) * lifeRatio));
+                g.setLineWidth(2.0 + progress * 1.4);
+                g.strokeOval(trap.x - 66.0, trap.y - 34.0, 132.0, 56.0);
+                g.strokeLine(trap.x - 22.0, trap.y - size * 0.76, trap.x + 12.0, trap.y - 12.0);
+                continue;
+            }
+
+            double lifeRatio = Math.clamp(trap.lifeFrames / (double) OPIUM_PATCH_LIFE_FRAMES, 0.0, 1.0);
+            double pulse = 0.5 + 0.5 * Math.sin(trap.ageFrames * 0.16);
+            double radius = 108.0;
+            g.setFill(Color.web("#4A0D67").deriveColor(0, 1, 1, 0.18 * lifeRatio));
+            g.fillOval(trap.x - radius, trap.y - 20.0, radius * 2.0, 40.0);
+            g.setFill(Color.web("#7B1FA2").deriveColor(0, 1, 1, (0.20 + 0.10 * pulse) * lifeRatio));
+            g.fillOval(trap.x - 74.0, trap.y - 24.0, 148.0, 42.0);
+            g.setFill(Color.web("#CE93D8").deriveColor(0, 1, 1, (0.30 + 0.18 * pulse) * lifeRatio));
+            g.fillOval(trap.x - 42.0, trap.y - 26.0, 84.0, 34.0);
+            g.setStroke(Color.web("#E1BEE7").deriveColor(0, 1, 1, 0.54 * lifeRatio));
+            g.setLineWidth(2.1);
+            g.strokeOval(trap.x - radius, trap.y - 20.0, radius * 2.0, 40.0);
+            g.setStroke(Color.web("#F3E5F5").deriveColor(0, 1, 1, (0.34 + 0.16 * pulse) * lifeRatio));
+            g.setLineWidth(1.4);
+            for (int i = 0; i < 3; i++) {
+                double wave = -46.0 + i * 42.0;
+                g.strokeArc(trap.x + wave - 20.0, trap.y - 22.0 + i * 2.0, 54.0, 18.0,
+                        8 + i * 18 + trap.ageFrames * 0.8, 140, ArcType.OPEN);
+            }
+        }
+    }
+
+    private void drawOpiumDrowsyEffect(GraphicsContext g, double drawSize) {
+        if (opiumDrowsyTimer <= 0) {
+            return;
+        }
+        double ratio = Math.clamp(opiumDrowsyTimer / (double) (opiumDrowsyUltimate
+                ? OPIUM_DROWSY_FRAMES + 48
+                : OPIUM_DROWSY_FRAMES), 0.0, 1.0);
+        double pulse = 0.5 + 0.5 * Math.sin(opiumDrowsyTimer * 0.24);
+        g.setStroke((opiumDrowsyUltimate ? Color.GOLD : Color.web("#CE93D8"))
+                .deriveColor(0, 1, 1, (0.28 + 0.18 * pulse) * ratio));
+        g.setLineWidth(2.0 * sizeMultiplier);
+        double centerX = bodyCenterX();
+        double topY = y - 22.0 * sizeMultiplier;
+        for (int i = 0; i < 3; i++) {
+            double offset = i * 18.0 * sizeMultiplier;
+            g.strokeArc(centerX - 32.0 * sizeMultiplier - offset * 0.18,
+                    topY - offset * 0.24,
+                    64.0 * sizeMultiplier + offset * 0.36,
+                    24.0 * sizeMultiplier + offset * 0.16,
+                    12 + i * 8,
+                    200,
+                    ArcType.OPEN);
+        }
+    }
+
+    private void drawHeisenBrittleEffect(GraphicsContext g, double drawSize) {
+        if (heisenBrittleTimer <= 0) {
+            return;
+        }
+        double ratio = Math.clamp(heisenBrittleTimer / (double) (heisenBrittleUltimate
+                ? HEISEN_ULTIMATE_FRAMES + 12
+                : HEISEN_BRITTLE_FRAMES), 0.0, 1.0);
+        double pulse = 0.5 + 0.5 * Math.sin(heisenBrittleTimer * 0.32);
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        Color shard = (heisenBrittleUltimate ? Color.GOLD : Color.web("#81D4FA"))
+                .deriveColor(0, 1, 1, (0.42 + 0.30 * pulse) * ratio);
+        g.setStroke(shard);
+        g.setLineWidth(2.1 * sizeMultiplier);
+        for (int i = 0; i < 5; i++) {
+            double angle = i / 5.0 * Math.PI * 2.0 + heisenBrittleTimer * 0.04;
+            double radius = (drawSize * 0.52) + (i % 2) * 8.0 * sizeMultiplier;
+            double sx = centerX + Math.cos(angle) * radius;
+            double sy = centerY + Math.sin(angle) * radius * 0.76;
+            g.strokePolygon(
+                    new double[]{sx - 6.0 * sizeMultiplier, sx, sx + 6.0 * sizeMultiplier, sx},
+                    new double[]{sy, sy - 10.0 * sizeMultiplier, sy, sy + 10.0 * sizeMultiplier},
+                    4
+            );
+        }
+    }
+
     private void drawPhoenixAura(GraphicsContext g, double drawSize) {
         if (type != BirdGame3.BirdType.PHOENIX) return;
 
@@ -18596,14 +19726,17 @@ public class Bird {
             }
 
             if (leanTimer > 0) {
-                double cloudAlpha = 0.3 + 0.3 * Math.sin(System.currentTimeMillis() / 200.0);
+                double cloudAlpha = opiumNeutralFueled
+                        ? 0.28 + 0.22 * Math.sin(System.currentTimeMillis() / 200.0)
+                        : 0.08;
                 g.setFill(Color.rgb(138, 43, 226, cloudAlpha));
-                g.fillOval(x - 120, y - 100, 300, 300);
-            }
-
-            if (leanCooldown > 0) {
-                g.setFill(Color.PURPLE.darker());
-                g.fillRoundRect(x - 10, y + 100, 100, 20, 15, 15);
+                g.fillOval(x - 140, y - 124, 344, 344);
+                if (opiumNeutralFueled) {
+                    g.setFill(Color.web("#F3E5F5", 0.16 + cloudAlpha * 0.18));
+                    g.fillOval(x - 86, y - 78, 112, 92);
+                    g.fillOval(x + 24, y - 112, 138, 112);
+                    g.fillOval(x - 34, y + 74, 148, 86);
+                }
             }
         } else {
             g.setFill(Color.web("#0D47A1", 0.25));
@@ -18644,14 +19777,169 @@ public class Bird {
             }
 
             if (leanTimer > 0) {
-                double cloudAlpha = 0.28 + 0.28 * Math.sin(System.currentTimeMillis() / 200.0);
+                double cloudAlpha = opiumNeutralFueled
+                        ? 0.22 + 0.18 * Math.sin(System.currentTimeMillis() / 200.0)
+                        : 0.06;
                 g.setFill(Color.web("#29B6F6", cloudAlpha));
-                g.fillOval(x - 110, y - 90, 280, 280);
+                g.fillOval(x - 116, y - 98, 292, 292);
+                if (opiumNeutralFueled) {
+                    g.setStroke(Color.web("#E1F5FE", 0.34 + cloudAlpha * 0.24));
+                    g.setLineWidth(2.1 * sizeMultiplier);
+                    for (int i = 0; i < 4; i++) {
+                        double r = 76.0 + i * 34.0 + Math.sin(System.currentTimeMillis() / 180.0 + i) * 8.0;
+                        g.strokeOval(bodyCenterX() - r, bodyCenterY() - r * 0.72, r * 2.0, r * 1.44);
+                    }
+                }
             }
+        }
 
-            if (leanCooldown > 0) {
-                g.setFill(Color.web("#0D47A1"));
-                g.fillRoundRect(x - 10, y + 100, 100, 20, 15, 15);
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        double s = sizeMultiplier;
+        if (opiumSideTimer > 0) {
+            double ratio = opiumSideTimer / (double) (heisen ? HEISEN_SIDE_FRAMES : OPIUM_SIDE_FRAMES);
+            double trail = (heisen ? 126.0 : 148.0) * s * (0.7 + ratio * 0.3);
+            if (!opiumSideFueled) {
+                g.setStroke(Color.web("#B0BEC5", 0.34 + 0.20 * ratio));
+                g.setLineWidth(4.0 * s);
+                g.strokeLine(centerX - opiumSideDirection * trail * 0.72, centerY + 5.0 * s,
+                        centerX + opiumSideDirection * 26.0 * s, centerY - 2.0 * s);
+            } else if (heisen) {
+                g.setStroke(Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.40 + 0.28 * ratio));
+                g.setLineWidth(4.5 * s);
+                g.strokeLine(centerX - opiumSideDirection * trail, centerY + 6.0 * s,
+                        centerX + opiumSideDirection * 42.0 * s, centerY - 6.0 * s);
+                for (int i = 0; i < 5; i++) {
+                    double shardX = centerX - opiumSideDirection * (trail * (0.18 + i * 0.15));
+                    double shardY = centerY - 18.0 * s + Math.sin(opiumSideTimer * 0.5 + i) * 16.0 * s;
+                    double shard = (16.0 + i * 2.0) * s;
+                    g.setFill(Color.web(i % 2 == 0 ? "#81D4FA" : "#E1F5FE").deriveColor(0, 1, 1, 0.38 + 0.18 * ratio));
+                    g.fillPolygon(
+                            new double[]{shardX - shard * 0.42, shardX, shardX + shard * 0.42, shardX},
+                            new double[]{shardY, shardY - shard, shardY, shardY + shard * 0.78},
+                            4
+                    );
+                }
+            } else {
+                for (int i = 0; i < 6; i++) {
+                    double puffX = centerX - opiumSideDirection * (trail * (0.08 + i * 0.14));
+                    double puffY = centerY - 16.0 * s + Math.sin(opiumSideTimer * 0.42 + i) * 20.0 * s;
+                    double puff = (34.0 - i * 2.0) * s * (0.78 + ratio * 0.22);
+                    g.setFill(Color.web(i % 2 == 0 ? "#CE93D8" : "#F3E5F5")
+                            .deriveColor(0, 1, 1, 0.20 + 0.16 * ratio));
+                    g.fillOval(puffX - puff * 0.65, puffY - puff * 0.38, puff * 1.30, puff * 0.76);
+                }
+                g.setStroke(Color.web("#E1BEE7").deriveColor(0, 1, 1, 0.40 + 0.18 * ratio));
+                g.setLineWidth(3.0 * s);
+                g.strokeLine(centerX - opiumSideDirection * trail, centerY + 12.0 * s,
+                        centerX + opiumSideDirection * 36.0 * s, centerY - 4.0 * s);
+            }
+        }
+        if (opiumUpTimer > 0) {
+            double ratio = opiumUpTimer / (double) (heisen ? HEISEN_UP_FRAMES : OPIUM_UP_FRAMES);
+            if (!opiumUpFueled) {
+                g.setFill(Color.web("#B0BEC5", 0.12 + 0.10 * ratio));
+                double width = 50.0 * s;
+                double height = 112.0 * s;
+                g.fillOval(centerX - width / 2.0, bodyBottomY() - 4.0 * s, width, height);
+            } else if (heisen) {
+                double baseY = bodyBottomY() + 18.0 * s;
+                double spikeH = (176.0 + 20.0 * ratio) * s;
+                double spikeW = (62.0 + 10.0 * ratio) * s;
+                g.setFill(Color.web("#01579B", 0.34 + 0.20 * ratio));
+                g.fillPolygon(
+                        new double[]{centerX - spikeW * 0.80, centerX, centerX + spikeW * 0.80, centerX + spikeW * 0.18, centerX - spikeW * 0.18},
+                        new double[]{baseY, baseY - spikeH, baseY, baseY - 34.0 * s, baseY - 34.0 * s},
+                        5
+                );
+                g.setStroke(Color.web("#E1F5FE", 0.72));
+                g.setLineWidth(2.4 * s);
+                g.strokeLine(centerX, baseY - spikeH, centerX, baseY - 24.0 * s);
+                g.strokeLine(centerX - spikeW * 0.34, baseY - 18.0 * s, centerX, baseY - spikeH);
+                g.strokeLine(centerX + spikeW * 0.34, baseY - 18.0 * s, centerX, baseY - spikeH);
+            } else {
+                double baseY = bodyBottomY() - 8.0 * s;
+                double width = (104.0 + 18.0 * ratio) * s;
+                double height = (178.0 + 20.0 * ratio) * s;
+                g.setFill(Color.web("#7B1FA2", 0.20 + 0.16 * ratio));
+                g.fillOval(centerX - width / 2.0, baseY, width, height);
+                g.setFill(Color.web("#CE93D8", 0.22 + 0.18 * ratio));
+                g.fillOval(centerX - width * 0.32, baseY + 24.0 * s, width * 0.64, height * 0.60);
+                g.setStroke(Color.web("#F3E5F5", 0.48 + 0.20 * ratio));
+                g.setLineWidth(2.0 * s);
+                for (int i = 0; i < 3; i++) {
+                    g.strokeArc(centerX - width * (0.34 + i * 0.08), baseY + i * 24.0 * s,
+                            width * (0.68 + i * 0.16), 44.0 * s, 212, 116, ArcType.OPEN);
+                }
+            }
+        }
+        if (opium && opiumUltimateTimer > 0) {
+            double ratio = opiumUltimateTimer / (double) OPIUM_ULTIMATE_FRAMES;
+            double pulse = 0.5 + 0.5 * Math.sin(opiumUltimateTimer * 0.18);
+            double cloudX = opiumUltimateCloudX == 0.0 ? centerX : opiumUltimateCloudX;
+            double cloudY = opiumUltimateCloudY == 0.0 ? centerY : opiumUltimateCloudY;
+            double radius = 500.0 * (0.94 + pulse * 0.06);
+            g.setFill(Color.web("#4A0D67").deriveColor(0, 1, 1, 0.10 + 0.10 * ratio));
+            g.fillOval(cloudX - radius, cloudY - radius * 0.66, radius * 2.0, radius * 1.32);
+            g.setFill(Color.web("#AB47BC").deriveColor(0, 1, 1, 0.11 + 0.12 * ratio));
+            for (int i = 0; i < 7; i++) {
+                double angle = i / 7.0 * Math.PI * 2.0 + opiumUltimateTimer * 0.014;
+                double puffX = cloudX + Math.cos(angle) * radius * 0.34;
+                double puffY = cloudY + Math.sin(angle) * radius * 0.20;
+                double puffR = radius * (0.28 + (i % 3) * 0.035);
+                g.fillOval(puffX - puffR, puffY - puffR * 0.62, puffR * 2.0, puffR * 1.24);
+            }
+            g.setStroke(Color.GOLD.deriveColor(0, 1, 1, 0.24 + 0.22 * pulse));
+            g.setLineWidth(3.0);
+            g.strokeOval(cloudX - radius, cloudY - radius * 0.66, radius * 2.0, radius * 1.32);
+        }
+        if (heisen && heisenUltimateTimer > 0) {
+            double pulse = 0.5 + 0.5 * Math.sin(heisenUltimateTimer * 0.22);
+            g.setStroke(Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.50 + 0.24 * pulse));
+            g.setLineWidth(3.0 * s);
+            for (int i = 0; i < 8; i++) {
+                double angle = i / 8.0 * Math.PI * 2.0 + heisenUltimateTimer * 0.040;
+                double radius = (104.0 + (i % 2) * 20.0 + pulse * 12.0) * s;
+                double cx = centerX + Math.cos(angle) * radius;
+                double cy = centerY + Math.sin(angle) * radius * 0.72;
+                double shardW = (26.0 + (i % 3) * 5.0) * s;
+                double shardH = (58.0 + (i % 2) * 12.0) * s;
+                g.setFill(Color.web(i % 2 == 0 ? "#81D4FA" : "#E1F5FE")
+                        .deriveColor(0, 1, 1, 0.38 + 0.18 * pulse));
+                g.fillPolygon(
+                        new double[]{cx - shardW * 0.48, cx, cx + shardW * 0.48, cx},
+                        new double[]{cy, cy - shardH, cy, cy + shardH * 0.54},
+                        4
+                );
+                g.strokePolygon(
+                        new double[]{cx - shardW * 0.48, cx, cx + shardW * 0.48, cx},
+                        new double[]{cy, cy - shardH, cy, cy + shardH * 0.54},
+                        4
+                );
+            }
+        }
+        if (heisen && heisenUltimateVolleyTimer > 0) {
+            double elapsed = HEISEN_ULTIMATE_VOLLEY_FRAMES - heisenUltimateVolleyTimer;
+            double progress = Math.clamp(elapsed / (double) HEISEN_ULTIMATE_VOLLEY_FRAMES, 0.0, 1.0);
+            double eased = 1.0 - Math.pow(1.0 - progress, 2.0);
+            for (int i = 0; i < 8; i++) {
+                double orbitAngle = i / 8.0 * Math.PI * 2.0 + elapsed * 0.16;
+                double startX = heisenUltimateVolleyOriginX + Math.cos(orbitAngle) * (92.0 + (i % 2) * 22.0) * s;
+                double startY = heisenUltimateVolleyOriginY + Math.sin(orbitAngle) * (58.0 + (i % 2) * 12.0) * s;
+                double arc = Math.sin(progress * Math.PI) * (42.0 + i * 3.0) * s;
+                double cx = startX + (heisenUltimateVolleyTargetX - startX) * eased;
+                double cy = startY + (heisenUltimateVolleyTargetY - startY) * eased - arc;
+                double shardW = (30.0 + (i % 3) * 5.0) * s;
+                double shardH = (68.0 + (i % 2) * 12.0) * s;
+                g.setStroke(Color.web("#B3E5FC", 0.34 + 0.36 * progress));
+                g.setLineWidth(3.2 * s);
+                g.strokeLine(startX, startY, cx, cy);
+                g.setFill(Color.web(i % 2 == 0 ? "#4FC3F7" : "#E1F5FE").deriveColor(0, 1, 1, 0.70));
+                g.fillPolygon(
+                        new double[]{cx - shardW * 0.48, cx, cx + shardW * 0.48, cx},
+                        new double[]{cy, cy - shardH, cy, cy + shardH * 0.56},
+                        4
+                );
             }
         }
     }
@@ -21058,6 +22346,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE) {
             return;
         }
+        if (isOpiumEchoPair()) {
+            return;
+        }
         if (type == BirdGame3.BirdType.PIGEON && specialCooldown > 0) {
             return;
         }
@@ -21797,6 +23088,46 @@ public class Bird {
         g.restore();
     }
 
+    private void drawOpiumBirdAccessories(GraphicsContext g) {
+        if (type != BirdGame3.BirdType.OPIUMBIRD) return;
+        double s = sizeMultiplier;
+        HeadPose headPose = currentHeadPose();
+        double headX = headPose.centerX() - 25.0 * s;
+        double headY = headPose.centerY() - 20.0 * s;
+        double dir = facingRight ? 1.0 : -1.0;
+
+        g.setFill(Color.web("#4A0D67").deriveColor(0, 1, 1, 0.34));
+        g.fillOval(x + 12.0 * s, y + 34.0 * s, 58.0 * s, 34.0 * s);
+        g.setStroke(Color.web("#CE93D8").deriveColor(0, 1, 1, 0.86));
+        g.setLineWidth(2.4 * s);
+        g.strokeArc(x + 14.0 * s, y + 28.0 * s, 52.0 * s, 38.0 * s, 202, 130, ArcType.OPEN);
+
+        double cupX = x + (facingRight ? 11.0 : 55.0) * s;
+        double cupY = y + 47.0 * s;
+        g.setFill(Color.web("#F3E5F5"));
+        g.fillRoundRect(cupX, cupY, 18.0 * s, 25.0 * s, 4.0 * s, 4.0 * s);
+        g.setFill(Color.web("#7B1FA2"));
+        g.fillRoundRect(cupX + 2.0 * s, cupY + 4.0 * s, 14.0 * s, 17.0 * s, 3.0 * s, 3.0 * s);
+        g.setStroke(Color.web("#CE93D8"));
+        g.setLineWidth(1.3 * s);
+        g.strokeLine(cupX + 4.0 * s, cupY - 4.0 * s, cupX + 13.0 * s, cupY + 4.0 * s);
+
+        double eyeY = headY + 14.0 * s;
+        double frontEyeX = headX + (facingRight ? 34.0 : 16.0) * s;
+        double backEyeX = headX + (facingRight ? 18.0 : 32.0) * s;
+        g.setStroke(Color.web("#6A1B9A"));
+        g.setLineWidth(2.2 * s);
+        g.strokeLine(frontEyeX - 5.0 * s * dir, eyeY, frontEyeX + 6.0 * s * dir, eyeY + 2.0 * s);
+        g.strokeLine(backEyeX - 4.0 * s * dir, eyeY + 1.0 * s, backEyeX + 5.0 * s * dir, eyeY + 3.0 * s);
+
+        g.setFill(Color.web("#AB47BC").deriveColor(0, 1, 1, 0.82));
+        for (int i = 0; i < 3; i++) {
+            double dripX = x + (facingRight ? 58.0 + i * 5.0 : 16.0 - i * 5.0) * s;
+            double dripY = y + (61.0 + i * 4.0) * s;
+            g.fillOval(dripX, dripY, 5.0 * s, (10.0 + i * 2.0) * s);
+        }
+    }
+
     private void drawHeisenbirdAccessories(GraphicsContext g) {
         if (type != BirdGame3.BirdType.HEISENBIRD) return;
         double s = sizeMultiplier;
@@ -21804,6 +23135,7 @@ public class Bird {
         double headX = headPose.centerX() - 25.0 * s;
         double headY = headPose.centerY() - 20.0 * s;
         double headW = 50 * s;
+        double dir = facingRight ? 1.0 : -1.0;
 
         // Hat
         g.setFill(Color.rgb(20, 20, 20));
@@ -21812,6 +23144,19 @@ public class Bird {
         g.fillRoundRect(headX + 8 * s, headY - 34 * s, headW - 16 * s, 22 * s, 6 * s, 6 * s);
         g.setFill(Color.rgb(90, 90, 90));
         g.fillRect(headX + 10 * s, headY - 24 * s, headW - 20 * s, 5 * s);
+
+        // Glasses
+        double glassesY = headY + 13.0 * s;
+        double lensA = headX + (facingRight ? 15.0 : 28.0) * s;
+        double lensB = headX + (facingRight ? 31.0 : 12.0) * s;
+        g.setStroke(Color.web("#111111"));
+        g.setLineWidth(2.0 * s);
+        g.strokeOval(lensA - 5.0 * s, glassesY - 4.0 * s, 10.0 * s, 8.0 * s);
+        g.strokeOval(lensB - 5.0 * s, glassesY - 4.0 * s, 10.0 * s, 8.0 * s);
+        g.strokeLine(lensA + 5.0 * s * dir, glassesY, lensB - 5.0 * s * dir, glassesY);
+        g.setFill(Color.web("#E1F5FE").deriveColor(0, 1, 1, 0.34));
+        g.fillOval(lensA - 4.2 * s, glassesY - 3.2 * s, 8.4 * s, 6.4 * s);
+        g.fillOval(lensB - 4.2 * s, glassesY - 3.2 * s, 8.4 * s, 6.4 * s);
 
         // Goatee
         g.setFill(Color.rgb(45, 25, 15));
@@ -21824,6 +23169,22 @@ public class Bird {
                 new double[]{goateeY, goateeY, goateeY + goateeH},
                 3
         );
+
+        double pouchX = x + (facingRight ? 58.0 : 12.0) * s;
+        double pouchY = y + 54.0 * s;
+        g.setFill(Color.web("#263238").deriveColor(0, 1, 1, 0.86));
+        g.fillRoundRect(pouchX, pouchY, 18.0 * s, 14.0 * s, 4.0 * s, 4.0 * s);
+        g.setFill(Color.web("#4FC3F7"));
+        for (int i = 0; i < 3; i++) {
+            double cx = pouchX + (4.0 + i * 5.0) * s;
+            double cy = pouchY - (2.0 + i * 3.0) * s;
+            double h = (14.0 + i * 3.0) * s;
+            g.fillPolygon(
+                    new double[]{cx - 3.0 * s, cx, cx + 3.0 * s, cx},
+                    new double[]{cy + 4.0 * s, cy - h, cy + 4.0 * s, cy + 8.0 * s},
+                    4
+            );
+        }
     }
 
     private void drawClassicSkinAccent(GraphicsContext g, double drawSize) {

@@ -9197,11 +9197,11 @@ public class BirdGame3 extends Application {
         RAZORBILL("Razorbill", 8, 12, 3.6, Color.INDIGO, 0.25, "Razor Storm / Skimming Razor / Cliff Shear / Counter Cut"),
         GRINCHHAWK("Grinch-Hawk", 10, 10, 2.8, Color.rgb(102, 153, 0), 0.80, "Heart Snatch / Sleigh Crash / Chimney Flap / Fake Present"),
         VULTURE("Vulture", 7, 14, 3.1, Color.rgb(45, 25, 55), 0.2, "Summon Crows + Feast"),
-        OPIUMBIRD("Opium Bird", 7, 19, 4.4, Color.rgb(138, 43, 226), 0.7, "Lean Cloud (DoT + Slow)"),
+        OPIUMBIRD("Opium Bird", 7, 19, 4.4, Color.rgb(138, 43, 226), 0.7, "Lean Cloud + Haze Drift + Rising Vapors + Lotus Patch"),
         TITMOUSE("Tufted Titmouse", 6, 21, 5.4, Color.SLATEGRAY, 0.9, "Zip Dash"),
         BAT("Bat", 7, 14, 3.7, Color.rgb(55, 35, 85), 0.65, "Sonar Screech + Ceiling Hang"),
         PELICAN("Pelican", 11, 9, 2.9, Color.rgb(245, 220, 180), 0.84, "Pelican Plunge + Glide"),
-        HEISENBIRD("Heisenbird", 7, 18, 4.6, Color.web("#D7D1C5"), 0.68, "Echo of Opium: Crystal Cloud (DoT + Slow)"),
+        HEISENBIRD("Heisenbird", 7, 18, 4.6, Color.web("#D7D1C5"), 0.68, "Echo of Opium: Crystal Cloud + Blue Rush + Crystal Column + Glass Cook"),
         RAVEN("Raven", 8, 18, 4.3, Color.web("#1C1F26"), 0.72, "Shadow Warp (blink strike + short haste)");
 
         final String name;
@@ -25787,7 +25787,7 @@ public class BirdGame3 extends Application {
         if (entry == null) return "";
         return switch (entry.type) {
             case FALCON -> "Precision dive + sweetspot damage";
-            case HEISENBIRD -> "Crystal Cloud (DoT + Slow)";
+            case HEISENBIRD -> "Crystal Cloud + Blue Rush + Crystal Column + Glass Cook";
             default -> entry.specialLine;
         };
     }
@@ -35429,6 +35429,9 @@ public class BirdGame3 extends Application {
         double healthBarY = rect.getMinY() + 82;
         double healthBarW = rect.getWidth() - (healthBarX - rect.getMinX()) - 26;
         double healthBarH = 14;
+        if (bird.hasOpiumResourceMeter()) {
+            drawOpiumResourceHudBar(g, bird, healthBarX, healthBarY - 12, healthBarW, 7, true);
+        }
         g.setFill(Color.web("#111A21", 0.95));
         g.fillRoundRect(healthBarX, healthBarY, healthBarW, healthBarH, 12, 12);
         g.setFill(usesSmashCombatRules() ? Color.web("#16242E") : Color.web("#5F1313"));
@@ -35668,11 +35671,19 @@ public class BirdGame3 extends Application {
         double ultimateHeight = 8;
         double gap = 2;
         double totalHeight = healthHeight + ultimateHeight + gap;
+        boolean hasOpiumResource = b.hasOpiumResourceMeter();
+        double resourceY = 70.0;
+        double healthY = 82.0;
+        double panelY = hasOpiumResource ? resourceY : healthY;
+        double panelHeight = hasOpiumResource ? totalHeight + (healthY - resourceY) : totalHeight;
 
         g.setFill(Color.BLACK);
-        g.fillRoundRect(x - 3, (double) 82 - 3, barWidth + 6, totalHeight + 6, 10, 10);
+        g.fillRoundRect(x - 3, panelY - 3, barWidth + 6, panelHeight + 6, 10, 10);
+        if (hasOpiumResource) {
+            drawOpiumResourceHudBar(g, b, x, resourceY, barWidth, 8, false);
+        }
         g.setFill(usesSmashCombatRules() ? Color.web("#16242E") : Color.RED);
-        g.fillRoundRect(x, 82, barWidth, healthHeight, 10, 10);
+        g.fillRoundRect(x, healthY, barWidth, healthHeight, 10, 10);
         boolean compStyle = competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive;
         Color baseColor = usesSmashCombatRules()
                 ? fightHudDamageColor(shownDamage)
@@ -35681,16 +35692,16 @@ public class BirdGame3 extends Application {
                 ? Math.min(1.0, shownDamage / 180.0)
                 : Math.clamp(b.health / maxHealth, 0.0, 1.0);
         g.setFill(baseColor);
-        g.fillRoundRect(x, 82, barWidth * baseRatio, healthHeight, 10, 10);
+        g.fillRoundRect(x, healthY, barWidth * baseRatio, healthHeight, 10, 10);
 
         if (!usesSmashCombatRules() && b.health > maxHealth) {
             double overMax = Math.max(1.0, Bird.STARTING_HEALTH - maxHealth);
             double overRatio = Math.min(1.0, (b.health - maxHealth) / overMax);
             g.setFill(Color.SILVER);
-            g.fillRoundRect(x, 82, barWidth * overRatio, healthHeight, 10, 10);
+            g.fillRoundRect(x, healthY, barWidth * overRatio, healthHeight, 10, 10);
         }
 
-        double ultimateY = (double) 82 + healthHeight + gap;
+        double ultimateY = healthY + healthHeight + gap;
         g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.75));
         g.fillRoundRect(x, ultimateY, barWidth, ultimateHeight, 8, 8);
         double ultimateRatio = b.getUltimateRatio();
@@ -35702,7 +35713,31 @@ public class BirdGame3 extends Application {
 
         g.setFill(Color.WHITE);
         g.setFont(HUD_HEALTH_FONT);
-        g.fillText(healthBarLabel(b) + " " + shownHealth + "%", x + 20, (double) 82 + healthHeight - 6);
+        g.fillText(healthBarLabel(b) + " " + shownHealth + "%", x + 20, healthY + healthHeight - 6);
+    }
+
+    private void drawOpiumResourceHudBar(GraphicsContext g, Bird bird, double x, double y,
+                                         double width, double height, boolean compact) {
+        double ratio = Math.clamp(bird.getOpiumResourceRatio(), 0.0, 1.0);
+        boolean heisen = bird.type == BirdType.HEISENBIRD;
+        Color fill = heisen ? Color.web("#4FC3F7") : Color.web("#AB47BC");
+        Color rim = heisen ? Color.web("#E1F5FE") : Color.web("#F3E5F5");
+        Color back = heisen ? Color.web("#082334", 0.90) : Color.web("#21062E", 0.90);
+        double arc = Math.max(4.0, height);
+
+        g.setFill(back);
+        g.fillRoundRect(x, y, width, height, arc, arc);
+        g.setFill(fill.deriveColor(0, 1, 1, 0.88));
+        g.fillRoundRect(x, y, width * ratio, height, arc, arc);
+        g.setStroke(rim.deriveColor(0, 1, 1, compact ? 0.56 : 0.70));
+        g.setLineWidth(compact ? 0.9 : 1.2);
+        g.strokeRoundRect(x, y, width, height, arc, arc);
+
+        if (!compact) {
+            g.setFill(rim.deriveColor(0, 1, 1, 0.82));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 10));
+            g.fillText(bird.getOpiumResourceLabel(), x + 7, y - 3);
+        }
     }
 
     String healthBarLabel(Bird bird) {
