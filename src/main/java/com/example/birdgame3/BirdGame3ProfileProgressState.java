@@ -70,6 +70,8 @@ final class BirdGame3ProfileProgressState {
     boolean umbraBatUnlocked = false;
     boolean resonanceBatUnlocked = false;
     boolean sunforgeRoosterUnlocked = false;
+    boolean mirageRoadrunnerUnlocked = false;
+    boolean voidHeraldRavenUnlocked = false;
     boolean batUnlocked = false;
     boolean falconUnlocked = false;
     boolean heisenbirdUnlocked = false;
@@ -283,6 +285,8 @@ final class BirdGame3ProfileProgressState {
         state.umbraBatUnlocked = prefs.getBoolean("skin_umbra_bat", false);
         state.resonanceBatUnlocked = prefs.getBoolean("skin_resonance_bat", false);
         state.sunforgeRoosterUnlocked = prefs.getBoolean("skin_sunforge_rooster", false);
+        state.mirageRoadrunnerUnlocked = prefs.getBoolean("skin_mirage_roadrunner", false);
+        state.voidHeraldRavenUnlocked = prefs.getBoolean("skin_void_herald_raven", false);
     }
 
     private void saveSkinUnlocks(Preferences prefs) {
@@ -308,6 +312,8 @@ final class BirdGame3ProfileProgressState {
         prefs.putBoolean("skin_umbra_bat", umbraBatUnlocked);
         prefs.putBoolean("skin_resonance_bat", resonanceBatUnlocked);
         prefs.putBoolean("skin_sunforge_rooster", sunforgeRoosterUnlocked);
+        prefs.putBoolean("skin_mirage_roadrunner", mirageRoadrunnerUnlocked);
+        prefs.putBoolean("skin_void_herald_raven", voidHeraldRavenUnlocked);
     }
 
     private static void loadCharacterUnlocks(Preferences prefs, BirdGame3ProfileProgressState state) {

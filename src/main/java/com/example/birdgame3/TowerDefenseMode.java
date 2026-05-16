@@ -2390,6 +2390,9 @@ final class TowerDefenseMode {
         sprite.isResonanceSkin = false;
         sprite.isIroncladSkin = false;
         sprite.isSunforgeSkin = false;
+        sprite.isPhotoTurkeySkin = false;
+        sprite.isMirageSkin = false;
+        sprite.isVoidHeraldSkin = false;
     }
 
     private double towerSpriteScale(Tower tower) {

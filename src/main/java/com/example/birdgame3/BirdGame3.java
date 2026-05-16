@@ -3908,6 +3908,8 @@ public class BirdGame3 extends Application {
     public boolean umbraBatUnlocked = false;
     public boolean resonanceBatUnlocked = false;
     public boolean sunforgeRoosterUnlocked = false;
+    public boolean mirageRoadrunnerUnlocked = false;
+    public boolean voidHeraldRavenUnlocked = false;
     public boolean batUnlocked = false;
     public boolean falconUnlocked = false;
     public boolean heisenbirdUnlocked = false;
@@ -3922,6 +3924,7 @@ public class BirdGame3 extends Application {
     private static final String BEACON_PIGEON_SKIN = "BEACON_PIGEON";
     private static final String STORM_PIGEON_SKIN = "STORM_PIGEON";
     private static final String STOCK_PHOTO_EAGLE_SKIN = "STOCK_PHOTO_EAGLE";
+    private static final String STOCK_PHOTO_TURKEY_SKIN = "STOCK_PHOTO_TURKEY";
     private static final String NOVA_PHOENIX_SKIN = "NOVA_PHOENIX";
     private static final String DUNE_FALCON_SKIN = "DUNE_FALCON";
     private static final String MINT_PENGUIN_SKIN = "MINT_PENGUIN";
@@ -3938,6 +3941,8 @@ public class BirdGame3 extends Application {
     private static final String UMBRA_BAT_SKIN = "UMBRA_BAT";
     private static final String RESONANCE_BAT_SKIN = "RESONANCE_BAT";
     private static final String SUNFORGE_ROOSTER_SKIN = "SUNFORGE_ROOSTER";
+    private static final String MIRAGE_ROADRUNNER_SKIN = "MIRAGE_ROADRUNNER";
+    private static final String VOID_HERALD_RAVEN_SKIN = "VOID_HERALD_RAVEN";
     private static final String CLASSIC_CONTINUE_KEY = "CLASSIC_CONTINUE";
     private static final String CHAR_BAT_KEY = "CHAR_BAT";
     private static final String CHAR_FALCON_KEY = "CHAR_FALCON";
@@ -7736,6 +7741,10 @@ public class BirdGame3 extends Application {
             case FALCON -> {
                 if (duneFalconUnlocked) options.add(DUNE_FALCON_SKIN);
             }
+            case TURKEY -> options.add(STOCK_PHOTO_TURKEY_SKIN);
+            case ROADRUNNER -> {
+                if (mirageRoadrunnerUnlocked) options.add(MIRAGE_ROADRUNNER_SKIN);
+            }
             case PENGUIN -> {
                 if (mintPenguinUnlocked) options.add(MINT_PENGUIN_SKIN);
             }
@@ -7769,6 +7778,9 @@ public class BirdGame3 extends Application {
             case ROOSTER -> {
                 if (sunforgeRoosterUnlocked) options.add(SUNFORGE_ROOSTER_SKIN);
             }
+            case RAVEN -> {
+                if (voidHeraldRavenUnlocked) options.add(VOID_HERALD_RAVEN_SKIN);
+            }
             default -> {
             }
         }
@@ -7783,6 +7795,7 @@ public class BirdGame3 extends Application {
         if (BEACON_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON && beaconPigeonUnlocked) return skinKey;
         if (STORM_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON && stormPigeonUnlocked) return skinKey;
         if (STOCK_PHOTO_EAGLE_SKIN.equals(skinKey) && type == BirdType.EAGLE) return skinKey;
+        if (STOCK_PHOTO_TURKEY_SKIN.equals(skinKey) && type == BirdType.TURKEY) return skinKey;
         if ("SKY_KING_EAGLE".equals(skinKey) && type == BirdType.EAGLE && eagleSkinUnlocked) return skinKey;
         if (NOVA_PHOENIX_SKIN.equals(skinKey) && type == BirdType.PHOENIX && novaPhoenixUnlocked) return skinKey;
         if (DUNE_FALCON_SKIN.equals(skinKey) && type == BirdType.FALCON && duneFalconUnlocked) return skinKey;
@@ -7800,6 +7813,8 @@ public class BirdGame3 extends Application {
         if (UMBRA_BAT_SKIN.equals(skinKey) && type == BirdType.BAT && umbraBatUnlocked) return skinKey;
         if (RESONANCE_BAT_SKIN.equals(skinKey) && type == BirdType.BAT && resonanceBatUnlocked) return skinKey;
         if (SUNFORGE_ROOSTER_SKIN.equals(skinKey) && type == BirdType.ROOSTER && sunforgeRoosterUnlocked) return skinKey;
+        if (MIRAGE_ROADRUNNER_SKIN.equals(skinKey) && type == BirdType.ROADRUNNER && mirageRoadrunnerUnlocked) return skinKey;
+        if (VOID_HERALD_RAVEN_SKIN.equals(skinKey) && type == BirdType.RAVEN && voidHeraldRavenUnlocked) return skinKey;
         if (skinKey.startsWith("CLASSIC_SKIN_") && type != BirdType.PIGEON && type != BirdType.EAGLE) {
             String expected = classicSkinDataKey(type);
             if (skinKey.equals(expected) && isClassicRewardUnlocked(type)) return skinKey;
@@ -7827,6 +7842,9 @@ public class BirdGame3 extends Application {
             }
             case STOCK_PHOTO_EAGLE_SKIN -> {
                 return "SKIN: STOCK PHOTO";
+            }
+            case STOCK_PHOTO_TURKEY_SKIN -> {
+                return "SKIN: STOCK PHOTO TURKEY";
             }
             case "SKY_KING_EAGLE" -> {
                 return "SKIN: SKY KING";
@@ -7879,6 +7897,12 @@ public class BirdGame3 extends Application {
             case SUNFORGE_ROOSTER_SKIN -> {
                 return "SKIN: SUNFORGE ROOSTER";
             }
+            case MIRAGE_ROADRUNNER_SKIN -> {
+                return "SKIN: MIRAGE ROADRUNNER";
+            }
+            case VOID_HERALD_RAVEN_SKIN -> {
+                return "SKIN: VOID HERALD";
+            }
         }
         if (skinKey.startsWith("CLASSIC_SKIN_")) return "SKIN: " + classicRewardFor(type);
         return "SKIN: BASE";
@@ -7920,6 +7944,9 @@ public class BirdGame3 extends Application {
         bird.isIroncladSkin = false;
         bird.isSunforgeSkin = false;
         bird.isPhotoEagleSkin = false;
+        bird.isPhotoTurkeySkin = false;
+        bird.isMirageSkin = false;
+        bird.isVoidHeraldSkin = false;
 
         if (skinKey == null) return;
         if (type == BirdType.PIGEON) {
@@ -7933,6 +7960,10 @@ public class BirdGame3 extends Application {
         if (type == BirdType.EAGLE) {
             if (STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) bird.isPhotoEagleSkin = true;
             else if ("SKY_KING_EAGLE".equals(skinKey)) bird.isClassicSkin = true;
+            return;
+        }
+        if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
+            bird.isPhotoTurkeySkin = true;
             return;
         }
         if (type == BirdType.PHOENIX && NOVA_PHOENIX_SKIN.equals(skinKey) && novaPhoenixUnlocked) {
@@ -8000,6 +8031,14 @@ public class BirdGame3 extends Application {
             bird.isSunforgeSkin = true;
             return;
         }
+        if (type == BirdType.ROADRUNNER && MIRAGE_ROADRUNNER_SKIN.equals(skinKey) && mirageRoadrunnerUnlocked) {
+            bird.isMirageSkin = true;
+            return;
+        }
+        if (type == BirdType.RAVEN && VOID_HERALD_RAVEN_SKIN.equals(skinKey) && voidHeraldRavenUnlocked) {
+            bird.isVoidHeraldSkin = true;
+            return;
+        }
         if (skinKey.equals(classicSkinDataKey(type)) && isClassicRewardUnlocked(type)) {
             bird.isClassicSkin = true;
         }
@@ -8030,6 +8069,9 @@ public class BirdGame3 extends Application {
         bird.isIroncladSkin = false;
         bird.isSunforgeSkin = false;
         bird.isPhotoEagleSkin = false;
+        bird.isPhotoTurkeySkin = false;
+        bird.isMirageSkin = false;
+        bird.isVoidHeraldSkin = false;
 
         if (skinKey == null) return;
         if (type == BirdType.PIGEON) {
@@ -8045,6 +8087,10 @@ public class BirdGame3 extends Application {
         if (type == BirdType.EAGLE) {
             if (STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) bird.isPhotoEagleSkin = true;
             else if ("SKY_KING_EAGLE".equals(skinKey)) bird.isClassicSkin = true;
+            return;
+        }
+        if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
+            bird.isPhotoTurkeySkin = true;
             return;
         }
         if (type == BirdType.PHOENIX && NOVA_PHOENIX_SKIN.equals(skinKey)) {
@@ -8112,6 +8158,14 @@ public class BirdGame3 extends Application {
             bird.isSunforgeSkin = true;
             return;
         }
+        if (type == BirdType.ROADRUNNER && MIRAGE_ROADRUNNER_SKIN.equals(skinKey)) {
+            bird.isMirageSkin = true;
+            return;
+        }
+        if (type == BirdType.RAVEN && VOID_HERALD_RAVEN_SKIN.equals(skinKey)) {
+            bird.isVoidHeraldSkin = true;
+            return;
+        }
         if (skinKey.startsWith("CLASSIC_SKIN_")) {
             bird.isClassicSkin = true;
         }
@@ -8143,6 +8197,7 @@ public class BirdGame3 extends Application {
         if (type == BirdType.PIGEON && normalizedName.contains("city")) return "CITY_PIGEON";
         if (type == BirdType.EAGLE && normalizedName.contains("stock photo")) return STOCK_PHOTO_EAGLE_SKIN;
         if (type == BirdType.EAGLE && normalizedName.contains("sky king")) return "SKY_KING_EAGLE";
+        if (type == BirdType.TURKEY && normalizedName.contains("stock photo")) return STOCK_PHOTO_TURKEY_SKIN;
         if (type == BirdType.HUMMINGBIRD && normalizedName.contains("neon")) return classicSkinDataKey(type);
         if (type == BirdType.HUMMINGBIRD && normalizedName.contains("lore accurate")) return LORE_ACCURATE_HUMMINGBIRD_SKIN;
         if (type == BirdType.PHOENIX && normalizedName.contains("nova")) return NOVA_PHOENIX_SKIN;
@@ -8151,6 +8206,8 @@ public class BirdGame3 extends Application {
         if (type == BirdType.TITMOUSE && normalizedName.contains("volt")) return CIRCUIT_TITMOUSE_SKIN;
         if (type == BirdType.RAZORBILL && normalizedName.contains("prism")) return PRISM_RAZORBILL_SKIN;
         if (type == BirdType.PELICAN && normalizedName.contains("aurora")) return AURORA_PELICAN_SKIN;
+        if (type == BirdType.ROADRUNNER && normalizedName.contains("mirage")) return MIRAGE_ROADRUNNER_SKIN;
+        if (type == BirdType.RAVEN && normalizedName.contains("void herald")) return VOID_HERALD_RAVEN_SKIN;
         if (type == BirdType.VULTURE && normalizedName.contains("null rock")) return NULL_ROCK_VULTURE_SKIN;
         if (type == BirdType.VULTURE && normalizedName.contains("null roc")) return TIDE_VULTURE_SKIN;
         return null;
@@ -8176,6 +8233,7 @@ public class BirdGame3 extends Application {
             if (bird.isClassicSkin) return "SKY_KING_EAGLE";
             return null;
         }
+        if (type == BirdType.TURKEY && bird.isPhotoTurkeySkin) return STOCK_PHOTO_TURKEY_SKIN;
         if (type == BirdType.PHOENIX && bird.isNovaSkin) return NOVA_PHOENIX_SKIN;
         if (type == BirdType.FALCON && bird.isDuneSkin) return DUNE_FALCON_SKIN;
         if (type == BirdType.PENGUIN && bird.isMintSkin) return MINT_PENGUIN_SKIN;
@@ -8189,7 +8247,10 @@ public class BirdGame3 extends Application {
         if (type == BirdType.VULTURE && bird.isTideSkin) return TIDE_VULTURE_SKIN;
         if (type == BirdType.MOCKINGBIRD && bird.isEclipseSkin) return ECLIPSE_MOCKINGBIRD_SKIN;
         if (type == BirdType.BAT && bird.isUmbraSkin) return UMBRA_BAT_SKIN;
+        if (type == BirdType.BAT && bird.isResonanceSkin) return RESONANCE_BAT_SKIN;
         if (type == BirdType.ROOSTER && bird.isSunforgeSkin) return SUNFORGE_ROOSTER_SKIN;
+        if (type == BirdType.ROADRUNNER && bird.isMirageSkin) return MIRAGE_ROADRUNNER_SKIN;
+        if (type == BirdType.RAVEN && bird.isVoidHeraldSkin) return VOID_HERALD_RAVEN_SKIN;
         if (bird.isClassicSkin) return classicSkinDataKey(type);
         return null;
     }
@@ -22602,6 +22663,12 @@ public class BirdGame3 extends Application {
             case SUNFORGE_ROOSTER_SKIN -> {
                 return sunforgeRoosterUnlocked;
             }
+            case MIRAGE_ROADRUNNER_SKIN -> {
+                return mirageRoadrunnerUnlocked;
+            }
+            case VOID_HERALD_RAVEN_SKIN -> {
+                return voidHeraldRavenUnlocked;
+            }
         }
         if (key.startsWith("CLASSIC_SKIN_")) return isClassicRewardUnlocked(preview.type());
         return false;
@@ -22794,6 +22861,16 @@ public class BirdGame3 extends Application {
                 queueUnlockCardForSkin(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN);
                 return;
             }
+            case MIRAGE_ROADRUNNER_SKIN -> {
+                mirageRoadrunnerUnlocked = true;
+                queueUnlockCardForSkin(BirdType.ROADRUNNER, MIRAGE_ROADRUNNER_SKIN);
+                return;
+            }
+            case VOID_HERALD_RAVEN_SKIN -> {
+                voidHeraldRavenUnlocked = true;
+                queueUnlockCardForSkin(BirdType.RAVEN, VOID_HERALD_RAVEN_SKIN);
+                return;
+            }
         }
         if (key.startsWith("CLASSIC_SKIN_")) {
             unlockClassicReward(preview.type());
@@ -22822,6 +22899,7 @@ public class BirdGame3 extends Application {
         if (FREEMAN_PIGEON_SKIN.equals(key)) return "Freeman Bird";
         if (BEACON_PIGEON_SKIN.equals(key)) return "Beacon Pigeon";
         if (STORM_PIGEON_SKIN.equals(key)) return "Storm Pigeon";
+        if (STOCK_PHOTO_TURKEY_SKIN.equals(key)) return "Stock Photo Turkey";
         if ("SKY_KING_EAGLE".equals(key)) return "Sky King Eagle";
         if (NOVA_PHOENIX_SKIN.equals(key)) return "Nova Phoenix";
         if (DUNE_FALCON_SKIN.equals(key)) return "Dune Falcon";
@@ -22839,6 +22917,8 @@ public class BirdGame3 extends Application {
         if (UMBRA_BAT_SKIN.equals(key)) return "Umbra Bat";
         if (RESONANCE_BAT_SKIN.equals(key)) return "Resonance Bat";
         if (SUNFORGE_ROOSTER_SKIN.equals(key)) return "Sunforge Rooster";
+        if (MIRAGE_ROADRUNNER_SKIN.equals(key)) return "Mirage Roadrunner";
+        if (VOID_HERALD_RAVEN_SKIN.equals(key)) return "Void Herald Raven";
         if (key != null && key.startsWith("CLASSIC_SKIN_") && preview.type() != null) {
             return classicRewardFor(preview.type());
         }
@@ -22954,6 +23034,8 @@ public class BirdGame3 extends Application {
         umbraBatUnlocked = true;
         resonanceBatUnlocked = true;
         sunforgeRoosterUnlocked = true;
+        mirageRoadrunnerUnlocked = true;
+        voidHeraldRavenUnlocked = true;
 
         batUnlocked = true;
         falconUnlocked = true;
@@ -23242,12 +23324,14 @@ public class BirdGame3 extends Application {
         ShopPreview eclipsePreview = new ShopPreview(BirdType.MOCKINGBIRD, ECLIPSE_MOCKINGBIRD_SKIN, null);
         ShopPreview umbraPreview = new ShopPreview(BirdType.BAT, UMBRA_BAT_SKIN, null);
         ShopPreview sunforgePreview = new ShopPreview(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN, null);
+        ShopPreview miragePreview = new ShopPreview(BirdType.ROADRUNNER, MIRAGE_ROADRUNNER_SKIN, null);
+        ShopPreview voidHeraldPreview = new ShopPreview(BirdType.RAVEN, VOID_HERALD_RAVEN_SKIN, null);
 
         List<ShopPreview> commonSkins = List.of(dunePreview, sunflarePreview);
         List<ShopPreview> uncommonSkins = List.of(mintPreview, glacierPreview);
         List<ShopPreview> rareSkins = List.of(cityPreview, circuitPreview, tidePreview, freemanPreview);
-        List<ShopPreview> epicSkins = List.of(noirPreview, skyPreview, prismPreview, eclipsePreview);
-        List<ShopPreview> legendarySkins = List.of(novaPreview, auroraPreview, umbraPreview, sunforgePreview, loreAccuratePreview);
+        List<ShopPreview> epicSkins = List.of(noirPreview, skyPreview, prismPreview, eclipsePreview, miragePreview);
+        List<ShopPreview> legendarySkins = List.of(novaPreview, auroraPreview, umbraPreview, sunforgePreview, loreAccuratePreview, voidHeraldPreview);
 
         List<ShopPreview> classicSkins = new ArrayList<>();
         for (BirdType type : BirdType.values()) {
@@ -23832,6 +23916,9 @@ public class BirdGame3 extends Application {
             case STOCK_PHOTO_EAGLE_SKIN -> {
                 return "Stock Photo Eagle";
             }
+            case STOCK_PHOTO_TURKEY_SKIN -> {
+                return "Stock Photo Turkey";
+            }
             case "SKY_KING_EAGLE" -> {
                 return "Sky King Eagle";
             }
@@ -23882,6 +23969,12 @@ public class BirdGame3 extends Application {
             }
             case SUNFORGE_ROOSTER_SKIN -> {
                 return "Sunforge Rooster";
+            }
+            case MIRAGE_ROADRUNNER_SKIN -> {
+                return "Mirage Roadrunner";
+            }
+            case VOID_HERALD_RAVEN_SKIN -> {
+                return "Void Herald Raven";
             }
         }
         if (key.startsWith("CLASSIC_SKIN_") && type != null) return classicRewardFor(type);
@@ -26170,6 +26263,9 @@ public class BirdGame3 extends Application {
             case STOCK_PHOTO_EAGLE_SKIN -> {
                 return true;
             }
+            case STOCK_PHOTO_TURKEY_SKIN -> {
+                return true;
+            }
             case "SKY_KING_EAGLE" -> {
                 return eagleSkinUnlocked;
             }
@@ -26221,6 +26317,12 @@ public class BirdGame3 extends Application {
             case SUNFORGE_ROOSTER_SKIN -> {
                 return sunforgeRoosterUnlocked;
             }
+            case MIRAGE_ROADRUNNER_SKIN -> {
+                return mirageRoadrunnerUnlocked;
+            }
+            case VOID_HERALD_RAVEN_SKIN -> {
+                return voidHeraldRavenUnlocked;
+            }
         }
         if (key.startsWith("CLASSIC_SKIN_")) return isClassicRewardUnlocked(type);
         return false;
@@ -26229,7 +26331,7 @@ public class BirdGame3 extends Application {
     private String skinHowToGet(String key, BirdType type) {
         if (key == null) return "Card Packs";
         switch (key) {
-            case "CITY_PIGEON", STOCK_PHOTO_EAGLE_SKIN -> {
+            case "CITY_PIGEON", STOCK_PHOTO_EAGLE_SKIN, STOCK_PHOTO_TURKEY_SKIN -> {
                 return "Unlocked by default";
             }
             case "NOIR_PIGEON" -> {
@@ -26270,6 +26372,7 @@ public class BirdGame3 extends Application {
         if (STORM_PIGEON_SKIN.equals(key)) return "Slate feathers, lightning scars, and skyline-static eyes. It looks like a rooftop storm decided to become a bird.";
         if (FREEMAN_PIGEON_SKIN.equals(key)) return "A bleary-eyed pigeon with a worn beanie and a constant cigarette. Very addicted to smoking.";
         if (STOCK_PHOTO_EAGLE_SKIN.equals(key)) return "A brutally literal eagle skin. No stylization, no compromise, just a real bird photo entering the bracket like the renderer lost a bet.";
+        if (STOCK_PHOTO_TURKEY_SKIN.equals(key)) return "A brutally literal turkey skin with real bird cutouts and a bowl of stuffing for the feast trap. The sprite sheet has fully committed to the bit.";
         if ("SKY_KING_EAGLE".equals(key)) return "Crowned and gilded, a ruler of the highest drafts. The sky feels smaller when this one arrives.";
         if (DUNE_FALCON_SKIN.equals(key)) return "Sandstorm tones and desert grit. A heat-haze blur that hits before you hear it.";
         if (MINT_PENGUIN_SKIN.equals(key)) return "Fresh icy sheen with a minty chill. Slides look cleaner and landings feel colder.";
@@ -26287,6 +26390,8 @@ public class BirdGame3 extends Application {
         if (UMBRA_BAT_SKIN.equals(key)) return "Void-black membrane with starlit edges. A silent dive that leaves only afterimages.";
         if (RESONANCE_BAT_SKIN.equals(key)) return "Ultrasonic veins glow through the wings, and every flap looks like it should leave a sonar shockwave behind.";
         if (SUNFORGE_ROOSTER_SKIN.equals(key)) return "A first-light warlord with molten crestwork and a sun-stamped brood. Every summoned chick hatches in matching forged colors.";
+        if (MIRAGE_ROADRUNNER_SKIN.equals(key)) return "Pale desert feathers, cyan speed marks, and glassy heat-haze trails. Every dash looks like three Roadrunners arrived at once.";
+        if (VOID_HERALD_RAVEN_SKIN.equals(key)) return "A black-and-bone herald with a cracked white mask, violet eyes, and feathers that fall like torn pieces of the arena shadow.";
         if (key != null && key.startsWith("CLASSIC_SKIN_")) {
             return "Classic reward skin for " + type.name + ". Earned by clearing a full Classic run and wearing the badge with pride.";
         }
@@ -26306,14 +26411,14 @@ public class BirdGame3 extends Application {
                 return "RARE";
             }
             case "NOIR_PIGEON", "SKY_KING_EAGLE", PRISM_RAZORBILL_SKIN, ECLIPSE_MOCKINGBIRD_SKIN,
-                    STORM_PIGEON_SKIN, RESONANCE_BAT_SKIN -> {
+                    STORM_PIGEON_SKIN, RESONANCE_BAT_SKIN, MIRAGE_ROADRUNNER_SKIN -> {
                 return "EPIC";
             }
             case BEACON_PIGEON_SKIN, NOVA_PHOENIX_SKIN, AURORA_PELICAN_SKIN, UMBRA_BAT_SKIN, SUNFORGE_ROOSTER_SKIN,
-                    NULL_ROCK_VULTURE_SKIN, IRONCLAD_PELICAN_SKIN -> {
+                    NULL_ROCK_VULTURE_SKIN, IRONCLAD_PELICAN_SKIN, VOID_HERALD_RAVEN_SKIN -> {
                 return "LEGENDARY";
             }
-            case LORE_ACCURATE_HUMMINGBIRD_SKIN, STOCK_PHOTO_EAGLE_SKIN -> {
+            case LORE_ACCURATE_HUMMINGBIRD_SKIN, STOCK_PHOTO_EAGLE_SKIN, STOCK_PHOTO_TURKEY_SKIN -> {
                 return "UNIQUE";
             }
         }
@@ -26407,6 +26512,8 @@ public class BirdGame3 extends Application {
                 skinDescription(STORM_PIGEON_SKIN, BirdType.PIGEON), skinHowToGet(STORM_PIGEON_SKIN, BirdType.PIGEON)));
         skins.add(new SkinEntry(BirdType.EAGLE, STOCK_PHOTO_EAGLE_SKIN, "Stock Photo Eagle",
                 skinDescription(STOCK_PHOTO_EAGLE_SKIN, BirdType.EAGLE), skinHowToGet(STOCK_PHOTO_EAGLE_SKIN, BirdType.EAGLE)));
+        skins.add(new SkinEntry(BirdType.TURKEY, STOCK_PHOTO_TURKEY_SKIN, "Stock Photo Turkey",
+                skinDescription(STOCK_PHOTO_TURKEY_SKIN, BirdType.TURKEY), skinHowToGet(STOCK_PHOTO_TURKEY_SKIN, BirdType.TURKEY)));
         skins.add(new SkinEntry(BirdType.EAGLE, "SKY_KING_EAGLE", "Sky King Eagle",
                 skinDescription("SKY_KING_EAGLE", BirdType.EAGLE), skinHowToGet("SKY_KING_EAGLE", BirdType.EAGLE)));
         skins.add(new SkinEntry(BirdType.RAZORBILL, PRISM_RAZORBILL_SKIN, "Prism Razorbill",
@@ -26435,6 +26542,10 @@ public class BirdGame3 extends Application {
                 skinDescription(RESONANCE_BAT_SKIN, BirdType.BAT), skinHowToGet(RESONANCE_BAT_SKIN, BirdType.BAT)));
         skins.add(new SkinEntry(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN, "Sunforge Rooster",
                 skinDescription(SUNFORGE_ROOSTER_SKIN, BirdType.ROOSTER), skinHowToGet(SUNFORGE_ROOSTER_SKIN, BirdType.ROOSTER)));
+        skins.add(new SkinEntry(BirdType.ROADRUNNER, MIRAGE_ROADRUNNER_SKIN, "Mirage Roadrunner",
+                skinDescription(MIRAGE_ROADRUNNER_SKIN, BirdType.ROADRUNNER), skinHowToGet(MIRAGE_ROADRUNNER_SKIN, BirdType.ROADRUNNER)));
+        skins.add(new SkinEntry(BirdType.RAVEN, VOID_HERALD_RAVEN_SKIN, "Void Herald Raven",
+                skinDescription(VOID_HERALD_RAVEN_SKIN, BirdType.RAVEN), skinHowToGet(VOID_HERALD_RAVEN_SKIN, BirdType.RAVEN)));
 
         for (BirdType type : BirdType.values()) {
             if (type == BirdType.PIGEON || type == BirdType.EAGLE) continue;
@@ -37194,6 +37305,8 @@ public class BirdGame3 extends Application {
         state.umbraBatUnlocked = umbraBatUnlocked;
         state.resonanceBatUnlocked = resonanceBatUnlocked;
         state.sunforgeRoosterUnlocked = sunforgeRoosterUnlocked;
+        state.mirageRoadrunnerUnlocked = mirageRoadrunnerUnlocked;
+        state.voidHeraldRavenUnlocked = voidHeraldRavenUnlocked;
         state.batUnlocked = batUnlocked;
         state.falconUnlocked = falconUnlocked;
         state.heisenbirdUnlocked = heisenbirdUnlocked;
@@ -37319,6 +37432,8 @@ public class BirdGame3 extends Application {
         umbraBatUnlocked = resolved.umbraBatUnlocked;
         resonanceBatUnlocked = resolved.resonanceBatUnlocked;
         sunforgeRoosterUnlocked = resolved.sunforgeRoosterUnlocked;
+        mirageRoadrunnerUnlocked = resolved.mirageRoadrunnerUnlocked;
+        voidHeraldRavenUnlocked = resolved.voidHeraldRavenUnlocked;
         batUnlocked = resolved.batUnlocked;
         falconUnlocked = resolved.falconUnlocked;
         heisenbirdUnlocked = resolved.heisenbirdUnlocked;

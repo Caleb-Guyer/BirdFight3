@@ -250,6 +250,9 @@ public class Bird {
     public boolean isIroncladSkin = false;
     public boolean isSunforgeSkin = false;
     public boolean isPhotoEagleSkin = false;
+    public boolean isPhotoTurkeySkin = false;
+    public boolean isMirageSkin = false;
+    public boolean isVoidHeraldSkin = false;
     public boolean suppressSelectEffects = false;
     public double loungeX, loungeY;
     public int diveTimer = 0;
@@ -747,6 +750,10 @@ public class Bird {
     private static Image photoEagleIdleSprite;
     private static Image photoEagleAttackSprite;
     private static Image photoEagleFlapSprite;
+    private static Image photoTurkeyIdleSprite;
+    private static Image photoTurkeyAttackSprite;
+    private static Image photoTurkeyFlapSprite;
+    private static Image stuffingSprite;
     private static final int PENGUIN_BELLY_CHARGE_MAX_FRAMES = 72;
     private static final int PENGUIN_BELLY_SLIDE_FRAMES = 30;
     private static final int PENGUIN_BELLY_REUSE_FRAMES = 22;
@@ -5966,7 +5973,7 @@ public class Bird {
         applyRoadrunnerBeepBlitzHit(powerRatio);
         emitRoadrunnerBurstDust(bodyCenterX(), bodyBottomY() - 12.0 * sizeMultiplier,
                 roadrunnerBeepDirection, roadrunnerBeepUltimate ? 36 : 24,
-                roadrunnerBeepUltimate ? Color.GOLD : Color.web("#F0C06A"));
+                roadrunnerSandColor(roadrunnerBeepUltimate));
     }
 
     private void applyRoadrunnerBeepBlitzHit(double powerRatio) {
@@ -5997,7 +6004,7 @@ public class Bird {
             other.vy -= 4.0 + powerRatio * 5.5;
             addRoadrunnerMomentum(7.0 + dealt * 0.75);
             emitRoadrunnerBurstDust(other.bodyCenterX(), other.bodyCenterY(), dir, 16,
-                    roadrunnerBeepUltimate ? Color.GOLD : Color.web("#90CAF9"));
+                    roadrunnerTrailColor(roadrunnerBeepUltimate));
         }
     }
 
@@ -6029,7 +6036,7 @@ public class Bird {
         spendRoadrunnerMomentum(ultimate ? 0.18 : 0.38);
         emitRoadrunnerBurstDust(bodyCenterX() - dir * 24.0 * sizeMultiplier,
                 bodyBottomY() - 10.0 * sizeMultiplier, dir, ultimate ? 42 : 28,
-                ultimate ? Color.GOLD : Color.web("#D9A04D"));
+                roadrunnerWarmDustColor(ultimate));
     }
 
     private void specialRoadrunnerDustDevilLift(boolean ultimate) {
@@ -6049,7 +6056,7 @@ public class Bird {
         specialMaxCooldown = 0;
         spendRoadrunnerMomentum(ultimate ? 0.16 : 0.34);
         emitRoadrunnerBurstDust(bodyCenterX(), bodyBottomY() - 4.0 * sizeMultiplier,
-                facingDirection(), ultimate ? 54 : 36, ultimate ? Color.GOLD : Color.web("#E6C46F"));
+                facingDirection(), ultimate ? 54 : 36, roadrunnerSandColor(ultimate));
     }
 
     private void specialRoadrunnerPaintedRoad(boolean ultimate) {
@@ -6074,7 +6081,7 @@ public class Bird {
             game.addToKillFeed(shortName() + " painted a golden fake road!");
         }
         emitRoadrunnerBurstDust(roadX, roadY - 8.0, dir, ultimate ? 30 : 20,
-                ultimate ? Color.GOLD : Color.web("#2E5AAC"));
+                roadrunnerTrailColor(ultimate));
     }
 
     private double roadrunnerRoadSurfaceY(double roadX) {
@@ -6091,6 +6098,27 @@ public class Bird {
             }
         }
         return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+    }
+
+    private Color roadrunnerTrailColor(boolean ultimate) {
+        if (ultimate) {
+            return Color.GOLD;
+        }
+        return isMirageSkin ? Color.web("#80DEEA") : Color.web("#90CAF9");
+    }
+
+    private Color roadrunnerSandColor(boolean ultimate) {
+        if (ultimate) {
+            return Color.GOLD;
+        }
+        return isMirageSkin ? Color.web("#DFFBFF") : Color.web("#E6C46F");
+    }
+
+    private Color roadrunnerWarmDustColor(boolean ultimate) {
+        if (ultimate) {
+            return Color.GOLD;
+        }
+        return isMirageSkin ? Color.web("#B2EBF2") : Color.web("#D9A04D");
     }
 
     private void emitRoadrunnerBurstDust(double centerX, double centerY, int dir, int baseCount, Color color) {
@@ -6123,6 +6151,9 @@ public class Bird {
             double ring = 20.0 + random.nextDouble() * (105.0 + intensity * 90.0);
             double swirl = 2.6 + random.nextDouble() * 5.5 + intensity * 1.2;
             Color sand = random.nextDouble() < 0.72 ? Color.web("#E8C06A") : Color.web("#C68A3A");
+            if (isMirageSkin) {
+                sand = random.nextDouble() < 0.72 ? Color.web("#DFFBFF") : Color.web("#80DEEA");
+            }
             game.particles.add(new Particle(
                     centerX + Math.cos(angle) * ring * 0.32,
                     centerY + Math.sin(angle) * ring * 0.22,
@@ -6189,6 +6220,9 @@ public class Bird {
             double ring = 36.0 + random.nextDouble() * radius;
             double tangential = (3.5 + random.nextDouble() * 8.0) * (facingRight ? 1.0 : -1.0);
             Color sand = random.nextDouble() < 0.72 ? Color.web("#E6C46F") : Color.web("#BA7B31");
+            if (isMirageSkin) {
+                sand = random.nextDouble() < 0.72 ? Color.web("#DFFBFF") : Color.web("#80DEEA");
+            }
             game.particles.add(new Particle(
                     centerX + Math.cos(angle) * ring * 0.24,
                     centerY + Math.sin(angle) * ring * 0.16,
@@ -6219,7 +6253,7 @@ public class Bird {
                         bodyBottomY() - 8.0 * sizeMultiplier,
                         facingDirection(),
                         roadrunnerBeepUltimate ? 5 : 3,
-                        roadrunnerBeepUltimate ? Color.GOLD : Color.web("#F0C06A"));
+                        roadrunnerSandColor(roadrunnerBeepUltimate));
             }
             if (roadrunnerBeepChargeFrames >= ROADRUNNER_BEEP_CHARGE_MAX_FRAMES) {
                 roadrunnerBeepMaxChargeHoldFrames++;
@@ -6317,7 +6351,7 @@ public class Bird {
                 other.vy -= roadrunnerRicochetUltimate ? 8.5 : 6.2;
                 addRoadrunnerMomentum(6.0 + dealt * 0.55);
                 emitRoadrunnerBurstDust(other.bodyCenterX(), other.bodyCenterY(), dir, 18,
-                        roadrunnerRicochetUltimate ? Color.GOLD : Color.web("#FFCC80"));
+                        roadrunnerWarmDustColor(roadrunnerRicochetUltimate));
             }
             if (roadrunnerRicochetBounces > 0) {
                 tryRoadrunnerRicochetBounce(dx >= 0 ? -1 : 1, -6.8);
@@ -6329,7 +6363,7 @@ public class Bird {
                     bodyBottomY() - 12.0 * sizeMultiplier,
                     dir,
                     roadrunnerRicochetUltimate ? 8 : 5,
-                    roadrunnerRicochetUltimate ? Color.GOLD : Color.web("#D9A04D"));
+                    roadrunnerWarmDustColor(roadrunnerRicochetUltimate));
         }
     }
 
@@ -6350,7 +6384,7 @@ public class Bird {
         game.shakeIntensity = Math.max(game.shakeIntensity, 5);
         emitRoadrunnerBurstDust(bodyCenterX(), bodyCenterY(), roadrunnerRicochetDirection,
                 roadrunnerRicochetUltimate ? 24 : 16,
-                roadrunnerRicochetUltimate ? Color.GOLD : Color.web("#90CAF9"));
+                roadrunnerTrailColor(roadrunnerRicochetUltimate));
         return true;
     }
 
@@ -6367,7 +6401,7 @@ public class Bird {
             double spin = (roadrunnerDustDevilTimer * 0.38 + i * 1.55);
             double radius = (18.0 + i * 9.0 + random.nextDouble() * 14.0) * sizeMultiplier;
             double liftBand = Math.min(96.0, i * 15.0 + random.nextDouble() * 22.0) * sizeMultiplier;
-            Color sand = (roadrunnerDustDevilUltimate ? Color.GOLD : Color.web("#E6C46F"))
+            Color sand = roadrunnerSandColor(roadrunnerDustDevilUltimate)
                     .deriveColor(0, 1, 1, 0.44 + Math.random() * 0.20);
             game.particles.add(new Particle(
                     centerX + Math.cos(spin) * radius * 0.7,
@@ -6392,12 +6426,12 @@ public class Bird {
             roadrunnerDustDevilHit[other.playerIndex] = true;
             emitRoadrunnerBurstDust(other.bodyCenterX(), other.bodyBottomY() - 8.0 * other.sizeMultiplier,
                     dx >= 0.0 ? 1 : -1, roadrunnerDustDevilUltimate ? 18 : 12,
-                    roadrunnerDustDevilUltimate ? Color.GOLD : Color.web("#E6C46F"));
+                    roadrunnerSandColor(roadrunnerDustDevilUltimate));
         }
         if ((roadrunnerDustDevilTimer & 1) == 0) {
             emitRoadrunnerBurstDust(centerX, bodyBottomY() - 6.0 * sizeMultiplier,
                     facingDirection(), roadrunnerDustDevilUltimate ? 8 : 5,
-                    roadrunnerDustDevilUltimate ? Color.GOLD : Color.web("#E6C46F"));
+                    roadrunnerSandColor(roadrunnerDustDevilUltimate));
         }
     }
 
@@ -6453,7 +6487,7 @@ public class Bird {
                 roadrunnerMomentumFxTimer = Math.max(roadrunnerMomentumFxTimer, 36);
                 emitRoadrunnerBurstDust(bodyCenterX(), road.y - 8.0, road.direction,
                         road.ultimate ? 20 : 14,
-                        road.ultimate ? Color.GOLD : Color.web("#90CAF9"));
+                        roadrunnerTrailColor(road.ultimate));
                 if (road.usesRemaining <= 0) {
                     collapseRoadrunnerPaintedRoad(road);
                     continue;
@@ -6473,7 +6507,7 @@ public class Bird {
                 other.vy = Math.min(other.vy, road.ultimate ? -4.2 : -3.0);
                 emitRoadrunnerBurstDust(other.bodyCenterX(), road.y - 6.0, road.direction,
                         road.ultimate ? 16 : 10,
-                        road.ultimate ? Color.GOLD : Color.web("#2E5AAC"));
+                        roadrunnerTrailColor(road.ultimate));
                 if (road.usesRemaining <= 0) {
                     collapseRoadrunnerPaintedRoad(road);
                     break;
@@ -6529,7 +6563,7 @@ public class Bird {
                     bodyBottomY() - 7.0 * sizeMultiplier,
                     -roadrunnerSlipDirection * (1.4 + Math.random() * 2.0),
                     -0.8 - Math.random() * 1.8,
-                    (roadrunnerSlipUltimate ? Color.GOLD : Color.web("#90CAF9")).deriveColor(0, 1, 1, 0.62)
+                    roadrunnerTrailColor(roadrunnerSlipUltimate).deriveColor(0, 1, 1, 0.62)
             ));
         }
     }
@@ -10949,12 +10983,13 @@ public class Bird {
             for (int i = 0; i < particleCount; i++) {
                 double angle = Math.random() * Math.PI * 2;
                 double speed = 5 + Math.random() * 12;
+                Color warpColor = ultimate ? Color.GOLD : (isVoidHeraldSkin ? Color.web("#B388FF") : Color.web("#263238"));
                 game.particles.add(new Particle(
                         x + 40 + Math.cos(angle) * 20,
                         y + 40 + Math.sin(angle) * 20,
                         Math.cos(angle) * speed,
                         Math.sin(angle) * speed - 4,
-                        (ultimate ? Color.GOLD : Color.web("#263238")).deriveColor(0, 1, 1, 0.85)
+                        warpColor.deriveColor(0, 1, 1, 0.85)
                 ));
             }
 
@@ -10970,12 +11005,13 @@ public class Bird {
             int particleCount = scaledParticleCount(ultimate ? 80 : 50);
             for (int i = 0; i < particleCount; i++) {
                 double angle = Math.random() * Math.PI * 2;
+                Color dashColor = ultimate ? Color.GOLD : (isVoidHeraldSkin ? Color.web("#7E57C2") : Color.web("#455A64"));
                 game.particles.add(new Particle(
                         x + 40,
                         y + 40,
                         Math.cos(angle) * (4 + Math.random() * 8),
                         Math.sin(angle) * (4 + Math.random() * 8) - 3,
-                        (ultimate ? Color.GOLD : Color.web("#455A64")).deriveColor(0, 1, 1, 0.8)
+                        dashColor.deriveColor(0, 1, 1, 0.8)
                 ));
             }
             specialCooldown = 240;
@@ -11938,6 +11974,38 @@ public class Bird {
         return photoEagleFlapSprite;
     }
 
+    private boolean photoTurkeySkinActive() {
+        return type == BirdGame3.BirdType.TURKEY && isPhotoTurkeySkin;
+    }
+
+    private static Image photoTurkeyIdleImage() {
+        if (photoTurkeyIdleSprite == null) {
+            photoTurkeyIdleSprite = loadPhotoEagleImage("/idle-turkey.png");
+        }
+        return photoTurkeyIdleSprite;
+    }
+
+    private static Image photoTurkeyAttackImage() {
+        if (photoTurkeyAttackSprite == null) {
+            photoTurkeyAttackSprite = loadPhotoEagleImage("/turkey-attack.png");
+        }
+        return photoTurkeyAttackSprite;
+    }
+
+    private static Image photoTurkeyFlapImage() {
+        if (photoTurkeyFlapSprite == null) {
+            photoTurkeyFlapSprite = loadPhotoEagleImage("/turkey_flap.png");
+        }
+        return photoTurkeyFlapSprite;
+    }
+
+    private static Image stuffingImage() {
+        if (stuffingSprite == null) {
+            stuffingSprite = loadPhotoEagleImage("/stuffing.png");
+        }
+        return stuffingSprite;
+    }
+
     private Image currentPhotoEagleSprite() {
         if (!photoEagleSkinActive()) {
             return null;
@@ -11956,6 +12024,26 @@ public class Bird {
         }
         Image idle = photoEagleIdleImage();
         return idle != null ? idle : photoEagleAttackImage();
+    }
+
+    private Image currentPhotoTurkeySprite() {
+        if (!photoTurkeySkinActive()) {
+            return null;
+        }
+        if (attackAnimationTimer > 0 || isGroundPounding || turkeyGobbleTimer > 0 || turkeyStampedeTimer > 0) {
+            Image attack = photoTurkeyAttackImage();
+            if (attack != null) {
+                return attack;
+            }
+        }
+        if (!isOnGround() || turkeyPanicFlapTimer > 0) {
+            Image flap = photoTurkeyFlapImage();
+            if (flap != null) {
+                return flap;
+            }
+        }
+        Image idle = photoTurkeyIdleImage();
+        return idle != null ? idle : photoTurkeyAttackImage();
     }
 
     private boolean drawPhotoEagleSprite(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -11986,6 +12074,41 @@ public class Bird {
         g.translate(renderCenterX, renderCenterY);
         g.rotate(rotation);
         g.scale((facingRight ? 1.0 : -1.0) * scaleX, scaleY);
+        g.drawImage(sprite, -renderWidth / 2.0, -renderHeight / 2.0, renderWidth, renderHeight);
+        g.restore();
+        return true;
+    }
+
+    private boolean drawPhotoTurkeySprite(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        Image sprite = currentPhotoTurkeySprite();
+        if (sprite == null) {
+            return false;
+        }
+
+        double maxWidth = drawSize * 1.95;
+        double maxHeight = drawSize * 1.92;
+        double aspect = sprite.getWidth() > 0 && sprite.getHeight() > 0
+                ? sprite.getWidth() / sprite.getHeight()
+                : 1.0;
+        double renderWidth = maxWidth;
+        double renderHeight = renderWidth / aspect;
+        if (renderHeight > maxHeight) {
+            renderHeight = maxHeight;
+            renderWidth = renderHeight * aspect;
+        }
+
+        double renderCenterX = x + drawSize / 2.0;
+        double renderCenterY = y + drawSize / 2.0 + 8 * sizeMultiplier;
+        double rotation = pose == null ? 0.0 : pose.spriteRotationDegrees();
+        double scaleX = pose == null ? 1.0 : pose.spriteScaleX();
+        double scaleY = pose == null ? 1.0 : pose.spriteScaleY();
+        boolean spriteFacesRight = sprite != photoTurkeyFlapImage();
+        double orientationScale = facingRight == spriteFacesRight ? 1.0 : -1.0;
+
+        g.save();
+        g.translate(renderCenterX, renderCenterY);
+        g.rotate(rotation);
+        g.scale(orientationScale * scaleX, scaleY);
         g.drawImage(sprite, -renderWidth / 2.0, -renderHeight / 2.0, renderWidth, renderHeight);
         g.restore();
         return true;
@@ -15437,7 +15560,9 @@ public class Bird {
         int burstCount = speed > 26.0 ? 5 : (speed > 16.0 ? 4 : (speed > 10.0 ? 3 : 2));
         for (int i = 0; i < burstCount; i++) {
             double dir = Math.signum(vx == 0 ? (facingRight ? 1 : -1) : vx);
-            Color c = Math.random() < 0.6 ? Color.web("#D9A04D") : Color.web("#E2C388");
+            Color c = isMirageSkin
+                    ? (Math.random() < 0.6 ? Color.web("#B2EBF2") : Color.web("#E0F7FA"))
+                    : (Math.random() < 0.6 ? Color.web("#D9A04D") : Color.web("#E2C388"));
             game.particles.add(new Particle(
                     x + 34 - dir * (12 + Math.random() * 18),
                     y + 74 + (Math.random() - 0.5) * 10,
@@ -16892,6 +17017,9 @@ public class Bird {
         state.isIroncladSkin = isIroncladSkin;
         state.isSunforgeSkin = isSunforgeSkin;
         state.isPhotoEagleSkin = isPhotoEagleSkin;
+        state.isPhotoTurkeySkin = isPhotoTurkeySkin;
+        state.isMirageSkin = isMirageSkin;
+        state.isVoidHeraldSkin = isVoidHeraldSkin;
         state.suppressSelectEffects = suppressSelectEffects;
         state.loungeX = loungeX;
         state.loungeY = loungeY;
@@ -17243,6 +17371,9 @@ public class Bird {
         this.isIroncladSkin = state.isIroncladSkin;
         this.isSunforgeSkin = state.isSunforgeSkin;
         this.isPhotoEagleSkin = state.isPhotoEagleSkin;
+        this.isPhotoTurkeySkin = state.isPhotoTurkeySkin;
+        this.isMirageSkin = state.isMirageSkin;
+        this.isVoidHeraldSkin = state.isVoidHeraldSkin;
         this.suppressSelectEffects = state.suppressSelectEffects;
         this.loungeX = state.loungeX;
         this.loungeY = state.loungeY;
@@ -19437,6 +19568,10 @@ public class Bird {
                     : TURKEY_FEAST_TRAP_LIFE_FRAMES), 0.0, 1.0);
             double pulse = 0.5 + 0.5 * Math.sin(trap.ageFrames * 0.15);
             double radius = trap.ultimate ? 92.0 : 74.0;
+            if (photoTurkeySkinActive()) {
+                drawStockPhotoStuffingTrap(g, trap, lifeRatio, pulse, radius);
+                continue;
+            }
             g.setFill(Color.web("#A1887F").deriveColor(0, 1, 1, 0.18 * lifeRatio));
             g.fillOval(trap.x - radius, trap.y - 18.0, radius * 2.0, 36.0);
             g.setFill((trap.ultimate ? Color.GOLD : Color.web("#FFCC80")).deriveColor(0, 1, 1, (0.26 + 0.16 * pulse) * lifeRatio));
@@ -19455,6 +19590,28 @@ public class Bird {
             g.setLineWidth(1.8);
             g.strokeOval(trap.x - radius, trap.y - 18.0, radius * 2.0, 36.0);
         }
+    }
+
+    private void drawStockPhotoStuffingTrap(GraphicsContext g, TurkeyFeastTrap trap, double lifeRatio, double pulse, double radius) {
+        Image stuffing = stuffingImage();
+        g.setFill(Color.web("#FFF3E0").deriveColor(0, 1, 1, (0.20 + pulse * 0.08) * lifeRatio));
+        g.fillOval(trap.x - radius, trap.y - 20.0, radius * 2.0, 40.0);
+        g.setStroke((trap.ultimate ? Color.GOLD : Color.web("#FFB74D")).deriveColor(0, 1, 1, 0.62 * lifeRatio));
+        g.setLineWidth(2.0);
+        g.strokeOval(trap.x - radius, trap.y - 20.0, radius * 2.0, 40.0);
+        if (stuffing == null) {
+            g.setFill(Color.web("#D7A24A").deriveColor(0, 1, 1, 0.92 * lifeRatio));
+            g.fillOval(trap.x - 42.0, trap.y - 34.0, 84.0, 38.0);
+            return;
+        }
+
+        double width = trap.ultimate ? 112.0 : 88.0;
+        double aspect = stuffing.getWidth() > 0 && stuffing.getHeight() > 0 ? stuffing.getWidth() / stuffing.getHeight() : 1.0;
+        double height = width / aspect;
+        g.save();
+        g.setGlobalAlpha(lifeRatio);
+        g.drawImage(stuffing, trap.x - width * 0.5, trap.y - height + 10.0 + pulse * 3.0, width, height);
+        g.restore();
     }
 
     private void drawOpiumTraps(GraphicsContext g) {
@@ -20186,7 +20343,7 @@ public class Bird {
                 g.strokeOval(cx - 70 * s, y + drawSize + 4 * s, 140 * s, 18 * s);
             }
             case ROADRUNNER -> {
-                Color sand = Color.web("#F0C06A").deriveColor(0, 1, 1, 0.75);
+                Color sand = roadrunnerSandColor(false).deriveColor(0, 1, 1, 0.75);
                 g.setFill(sand.deriveColor(0, 1, 1, 0.18));
                 g.fillOval(cx - 72 * s, cy - 32 * s, 144 * s, 64 * s);
                 g.setStroke(sand);
@@ -20194,7 +20351,7 @@ public class Bird {
                 g.strokeArc(cx - 88 * s, cy - 42 * s, 176 * s, 92 * s, 196, 148, ArcType.OPEN);
                 g.strokeArc(cx - 94 * s, cy - 28 * s, 188 * s, 70 * s, 14, 158, ArcType.OPEN);
                 int dir = facingRight ? 1 : -1;
-                g.setStroke(Color.web("#2E5AAC").deriveColor(0, 1, 1, 0.82));
+                g.setStroke(roadrunnerTrailColor(false).deriveColor(0, 1, 1, 0.82));
                 g.setLineWidth(2.4);
                 g.strokeLine(cx - dir * 4 * s, y - 6 * s, cx - dir * 20 * s, y - 28 * s);
                 g.strokeLine(cx + dir * 6 * s, y - 2 * s, cx - dir * 10 * s, y - 24 * s);
@@ -20316,16 +20473,16 @@ public class Bird {
         double pulse = 0.55 + 0.45 * Math.sin(roadrunnerSandstormTimer * 0.18);
         double halo = drawSize + 120 * s + pulse * 54 * s;
         double haloOffset = halo / 2.0;
-        Color gold = Color.GOLD.deriveColor(0, 1, 1, 0.24 + 0.14 * intensity);
-        Color sand = Color.web("#E6C46F").deriveColor(0, 1, 1, 0.50 + 0.18 * intensity);
-        Color white = Color.web("#FFF8E1").deriveColor(0, 1, 1, 0.24 + 0.12 * pulse);
+        Color gold = (isMirageSkin ? Color.web("#80DEEA") : Color.GOLD).deriveColor(0, 1, 1, 0.24 + 0.14 * intensity);
+        Color sand = roadrunnerSandColor(false).deriveColor(0, 1, 1, 0.50 + 0.18 * intensity);
+        Color white = (isMirageSkin ? Color.web("#E0F7FA") : Color.web("#FFF8E1")).deriveColor(0, 1, 1, 0.24 + 0.12 * pulse);
 
         g.setFill(gold);
         g.fillOval(cx - haloOffset, cy - haloOffset, halo, halo);
         g.setFill(white);
         g.fillOval(cx - haloOffset * 0.82, cy - haloOffset * 0.82, halo * 0.82, halo * 0.82);
 
-        g.setStroke(Color.GOLD.brighter().deriveColor(0, 1, 1, 0.82));
+        g.setStroke((isMirageSkin ? Color.web("#B2EBF2") : Color.GOLD.brighter()).deriveColor(0, 1, 1, 0.82));
         g.setLineWidth(3.2);
         g.strokeOval(cx - haloOffset, cy - haloOffset, halo, halo);
 
@@ -20334,7 +20491,7 @@ public class Bird {
         g.strokeArc(cx - 118 * s, cy - 82 * s, 236 * s, 164 * s, 200, 145, ArcType.OPEN);
         g.strokeArc(cx - 128 * s, cy - 60 * s, 256 * s, 122 * s, 12, 156, ArcType.OPEN);
 
-        g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.88));
+        g.setStroke((isMirageSkin ? Color.web("#E0F7FA") : Color.web("#FFF59D")).deriveColor(0, 1, 1, 0.88));
         g.setLineWidth(2.0);
         for (int i = 0; i < 8; i++) {
             double ang = -Math.PI / 2.0 + (i - 3.5) * 0.22;
@@ -20361,9 +20518,9 @@ public class Bird {
             double pulse = 0.5 + 0.5 * Math.sin(road.ageFrames * 0.17);
             double width = road.ultimate ? 228.0 : 188.0;
             double height = road.ultimate ? 30.0 : 24.0;
-            Color asphalt = road.ultimate ? Color.web("#9C7D2E") : Color.web("#202C4A");
-            Color stripe = road.ultimate ? Color.web("#FFF59D") : Color.web("#E3F2FD");
-            Color shoulder = road.ultimate ? Color.web("#D5B25C") : Color.web("#425EAA");
+            Color asphalt = road.ultimate ? Color.web("#9C7D2E") : (isMirageSkin ? Color.web("#D7F6FA") : Color.web("#202C4A"));
+            Color stripe = road.ultimate ? Color.web("#FFF59D") : (isMirageSkin ? Color.web("#00B8D4") : Color.web("#E3F2FD"));
+            Color shoulder = road.ultimate ? Color.web("#D5B25C") : (isMirageSkin ? Color.web("#80DEEA") : Color.web("#425EAA"));
 
             g.setFill(asphalt.deriveColor(0, 1, 1, (0.36 + pulse * 0.08) * alpha));
             g.fillRoundRect(road.x - width * 0.5, road.y - height * 0.78, width, height, 14.0, 14.0);
@@ -20443,7 +20600,7 @@ public class Bird {
         double momentumRatio = roadrunnerMomentumRatio();
         if (momentumRatio > 0.06 || roadrunnerMomentumFxTimer > 0) {
             double alpha = Math.clamp(0.10 + momentumRatio * 0.32 + roadrunnerMomentumFxTimer / 100.0, 0.12, 0.52);
-            Color speed = Color.web("#90CAF9").deriveColor(0, 1, 1, alpha);
+            Color speed = roadrunnerTrailColor(false).deriveColor(0, 1, 1, alpha);
             g.setStroke(speed);
             g.setLineWidth((1.6 + momentumRatio * 2.2) * s);
             int dir = Math.abs(vx) > 0.2 ? (vx > 0 ? 1 : -1) : facingDirection();
@@ -20458,7 +20615,7 @@ public class Bird {
         if (roadrunnerBeepCharging) {
             double charge = Math.clamp(roadrunnerBeepChargeFrames / (double) ROADRUNNER_BEEP_CHARGE_MAX_FRAMES, 0.0, 1.0);
             double pulse = 0.5 + 0.5 * Math.sin(roadrunnerBeepChargeFrames * (0.24 + charge * 0.55));
-            Color ring = (roadrunnerBeepUltimate ? Color.GOLD : Color.web("#F0C06A"))
+            Color ring = roadrunnerSandColor(roadrunnerBeepUltimate)
                     .deriveColor(0, 1, 1, 0.34 + charge * 0.30 + pulse * 0.12);
             double width = (70.0 + charge * 76.0) * s;
             double height = (34.0 + charge * 30.0) * s;
@@ -20470,7 +20627,7 @@ public class Bird {
             g.setLineWidth((1.2 + charge * 1.6) * s);
             g.strokeOval(cx - width * 0.5 + vibOffset, bodyBottomY() - height * 0.70, width, height);
             g.strokeOval(cx - width * 0.5 - vibOffset, bodyBottomY() - height * 0.70, width, height);
-            g.setStroke(Color.web("#2E5AAC").deriveColor(0, 1, 1, 0.36 + charge * 0.22));
+            g.setStroke(roadrunnerTrailColor(false).deriveColor(0, 1, 1, 0.36 + charge * 0.22));
             g.setLineWidth((1.8 + pulse) * s);
             int dir = roadrunnerBeepDirection == 0 ? facingDirection() : roadrunnerBeepDirection;
             g.strokeLine(cx - dir * 24.0 * s, cy - 20.0 * s, cx + dir * (34.0 + charge * 46.0) * s, cy - 20.0 * s);
@@ -20479,7 +20636,7 @@ public class Bird {
         if (roadrunnerBeepBurstTimer > 0) {
             int dir = roadrunnerBeepDirection == 0 ? facingDirection() : roadrunnerBeepDirection;
             double fade = Math.clamp(roadrunnerBeepBurstTimer / (double) ROADRUNNER_BEEP_BURST_FRAMES, 0.0, 1.0);
-            g.setStroke((roadrunnerBeepUltimate ? Color.GOLD : Color.web("#90CAF9")).deriveColor(0, 1, 1, 0.42 + fade * 0.30));
+            g.setStroke(roadrunnerTrailColor(roadrunnerBeepUltimate).deriveColor(0, 1, 1, 0.42 + fade * 0.30));
             g.setLineWidth((4.0 + fade * 2.5) * s);
             g.strokeLine(cx + dir * 10.0 * s, cy - 12.0 * s, cx + dir * (126.0 + fade * 26.0) * s, cy - 18.0 * s);
             g.setLineWidth((1.8 + fade) * s);
@@ -20492,7 +20649,7 @@ public class Bird {
             double fade = Math.clamp(roadrunnerRicochetTimer / (double) (roadrunnerRicochetUltimate
                     ? ROADRUNNER_RICOCHET_FRAMES + 7
                     : ROADRUNNER_RICOCHET_FRAMES), 0.0, 1.0);
-            g.setStroke((roadrunnerRicochetUltimate ? Color.GOLD : Color.web("#FFCC80")).deriveColor(0, 1, 1, 0.46 + fade * 0.24));
+            g.setStroke(roadrunnerWarmDustColor(roadrunnerRicochetUltimate).deriveColor(0, 1, 1, 0.46 + fade * 0.24));
             g.setLineWidth((5.0 + fade * 2.0) * s);
             for (int i = 0; i < 4; i++) {
                 double yLine = cy - 20.0 * s + i * 13.0 * s;
@@ -20505,7 +20662,7 @@ public class Bird {
             double fade = Math.clamp(roadrunnerDustDevilTimer / (double) (roadrunnerDustDevilUltimate
                     ? ROADRUNNER_DUST_DEVIL_FRAMES + 8
                     : ROADRUNNER_DUST_DEVIL_FRAMES), 0.0, 1.0);
-            Color sand = (roadrunnerDustDevilUltimate ? Color.GOLD : Color.web("#E6C46F"))
+            Color sand = roadrunnerSandColor(roadrunnerDustDevilUltimate)
                     .deriveColor(0, 1, 1, 0.34 + fade * 0.28);
             double funnelTopY = bodyBottomY() - (134.0 + fade * 14.0) * s;
             double funnelBottomY = bodyBottomY() - 8.0 * s;
@@ -20647,7 +20804,7 @@ public class Bird {
                 ? ROADRUNNER_SLIP_FRAMES + 22
                 : ROADRUNNER_SLIP_FRAMES), 0.0, 1.0);
         double pulse = 0.5 + 0.5 * Math.sin(roadrunnerSlipTimer * 0.42);
-        Color paint = (roadrunnerSlipUltimate ? Color.GOLD : Color.web("#90CAF9"))
+        Color paint = roadrunnerTrailColor(roadrunnerSlipUltimate)
                 .deriveColor(0, 1, 1, 0.22 + 0.20 * pulse * ratio);
         g.setStroke(paint);
         g.setLineWidth(2.4 * sizeMultiplier);
@@ -22682,6 +22839,9 @@ public class Bird {
         if (drawPhotoEagleSprite(g, drawSize, pose)) {
             return;
         }
+        if (drawPhotoTurkeySprite(g, drawSize, pose)) {
+            return;
+        }
         if (type == BirdGame3.BirdType.HUMMINGBIRD && isLoreAccurateHummingbirdSkin) {
             drawLoreAccurateHummingbirdBody(g, drawSize, pose);
             return;
@@ -22713,6 +22873,8 @@ public class Bird {
         boolean nullRockVulture = (type == BirdGame3.BirdType.VULTURE && isNullRockSkin);
         boolean eclipseMockingbird = (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin);
         boolean sunforgeRooster = (type == BirdGame3.BirdType.ROOSTER && isSunforgeSkin);
+        boolean mirageRoadrunner = (type == BirdGame3.BirdType.ROADRUNNER && isMirageSkin);
+        boolean voidHeraldRaven = (type == BirdGame3.BirdType.RAVEN && isVoidHeraldSkin);
         boolean freemanPigeon = (type == BirdGame3.BirdType.PIGEON && isFreemanSkin);
         boolean regularPigeon = type == BirdGame3.BirdType.PIGEON
                 && !isCitySkin
@@ -22775,6 +22937,14 @@ public class Bird {
             bodyColor = Color.web("#311B92");
             headColor = Color.web("#4A148C");
             eyeOverride = Color.web("#E040FB");
+        } else if (mirageRoadrunner) {
+            bodyColor = Color.web("#F5E6BE");
+            headColor = Color.web("#E3F7FF");
+            eyeOverride = Color.web("#00B8D4");
+        } else if (voidHeraldRaven) {
+            bodyColor = Color.web("#09070F");
+            headColor = Color.web("#171020");
+            eyeOverride = Color.web("#B388FF");
         } else if (freemanPigeon) {
             bodyColor = Color.web("#7B7B7B");
             headColor = Color.web("#9E9E9E");
@@ -23059,7 +23229,8 @@ public class Bird {
         if (type == BirdGame3.BirdType.ROADRUNNER) {
             int tailDir = facingRight ? -1 : 1;
             double crestBaseX = facingRight ? headX + 18 * s : headX + 32 * s;
-            Color plume = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#2E5AAC");
+            Color plume = mirageRoadrunner ? Color.web("#00B8D4")
+                    : classicPalette ? game.classicSkinAccentColor(type) : Color.web("#2E5AAC");
             g.setFill(plume);
             g.fillPolygon(
                     new double[]{crestBaseX, crestBaseX + tailDir * 14 * s, crestBaseX + tailDir * 4 * s},
@@ -23071,7 +23242,7 @@ public class Bird {
                     new double[]{y + 22 * s, y + 2 * s, y + 19 * s},
                     3
             );
-            g.setFill(Color.web("#E8D2A6").deriveColor(0, 1, 1, 0.75));
+            g.setFill((mirageRoadrunner ? Color.web("#B2EBF2") : Color.web("#E8D2A6")).deriveColor(0, 1, 1, 0.75));
             g.fillOval(x + 20 * s, y + 36 * s, 42 * s, 24 * s);
             double tailBaseX = facingRight ? x + 12 * s : x + 68 * s;
             g.setFill(plume.deriveColor(0, 1, 0.95, 0.95));
@@ -23120,15 +23291,25 @@ public class Bird {
         if (ravenEyes) {
             double glowX = headX + (facingRight ? -2 : 38) * s;
             double glowY = headY - 2 * s;
-            g.setFill(Color.web("#B71C1C").deriveColor(0, 1, 1, 0.35));
+            g.setFill((voidHeraldRaven ? Color.web("#7E57C2") : Color.web("#B71C1C")).deriveColor(0, 1, 1, 0.35));
             g.fillOval(glowX, glowY, 29 * s, 29 * s);
+        }
+        if (voidHeraldRaven) {
+            g.setFill(Color.web("#E8E1D2").deriveColor(0, 1, 1, 0.82));
+            g.fillOval(headX + (facingRight ? -1.0 : 27.0) * s, headY + 1.0 * s, 25.0 * s, 26.0 * s);
+            g.setStroke(Color.web("#5E35B1").deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth(1.4 * s);
+            double crackX = headX + (facingRight ? 12.0 : 39.0) * s;
+            g.strokeLine(crackX, headY + 3.0 * s, crackX - (facingRight ? 4.0 : -4.0) * s, headY + 16.0 * s);
+            g.strokeLine(crackX - (facingRight ? 4.0 : -4.0) * s, headY + 16.0 * s,
+                    crackX + (facingRight ? 3.0 : -3.0) * s, headY + 25.0 * s);
         }
         g.setFill(Color.WHITE);
         g.fillOval(headX + (facingRight ? 0 : 40) * s, headY, 25 * s, 25 * s);
         Color eyeColor = classicPalette ? game.classicSkinAccentColor(type) : Color.BLACK;
         if (eyeOverride != null) eyeColor = eyeOverride;
         if (noirPigeon) eyeColor = Color.RED.brighter();
-        if (ravenEyes) eyeColor = Color.web("#D50000");
+        if (ravenEyes) eyeColor = voidHeraldRaven ? Color.web("#B388FF") : Color.web("#D50000");
         g.setFill(eyeColor);
         g.fillOval(headX + (facingRight ? 5 : 45) * s, headY + 5 * s, 15 * s, 15 * s);
         if (stylizedMockingbird) {
@@ -23450,6 +23631,24 @@ public class Bird {
             g.fillOval(x + 24 * s, y + 20 * s, 8 * s, 8 * s);
             g.fillOval(x + 52 * s, y + 26 * s, 7 * s, 7 * s);
         }
+        if (type == BirdGame3.BirdType.ROADRUNNER && isMirageSkin) {
+            g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth(2.2 * s);
+            for (int i = 0; i < 3; i++) {
+                double offset = i * 9.0 * s;
+                g.strokeLine(x + 14 * s - offset, y + 60 * s + i * 4.0 * s,
+                        x + 66 * s - offset, y + 42 * s + i * 3.0 * s);
+            }
+            g.setFill(Color.web("#E0F7FA").deriveColor(0, 1, 1, 0.18));
+            g.fillOval(x + 8 * s, y + 28 * s, 62 * s, 34 * s);
+        }
+        if (type == BirdGame3.BirdType.RAVEN && isVoidHeraldSkin) {
+            g.setStroke(Color.web("#B388FF").deriveColor(0, 1, 1, 0.66));
+            g.setLineWidth(2.6 * s);
+            g.strokeArc(x - 10 * s, y + 2 * s, drawSize + 20 * s, drawSize + 18 * s, 216, 108, ArcType.OPEN);
+            g.setFill(Color.web("#E8E1D2").deriveColor(0, 1, 1, 0.18));
+            g.fillOval(x + 16 * s, y + 34 * s, 48 * s, 20 * s);
+        }
     }
 
     private void drawPenguinIceBuff(GraphicsContext g, double drawSize) {
@@ -23730,6 +23929,9 @@ public class Bird {
 
     private void drawBeak(GraphicsContext g, AttackVisualPose pose) {
         if (photoEagleSkinActive()) {
+            return;
+        }
+        if (photoTurkeySkinActive()) {
             return;
         }
         if (type == BirdGame3.BirdType.HUMMINGBIRD && isLoreAccurateHummingbirdSkin) {

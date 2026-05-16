@@ -54,6 +54,9 @@ class LanBirdState {
     boolean isIroncladSkin;
     boolean isSunforgeSkin;
     boolean isPhotoEagleSkin;
+    boolean isPhotoTurkeySkin;
+    boolean isMirageSkin;
+    boolean isVoidHeraldSkin;
     boolean suppressSelectEffects;
     double loungeX;
     double loungeY;
@@ -378,6 +381,9 @@ class LanBirdState {
         out.writeBoolean(isIroncladSkin);
         out.writeBoolean(isSunforgeSkin);
         out.writeBoolean(isPhotoEagleSkin);
+        out.writeBoolean(isPhotoTurkeySkin);
+        out.writeBoolean(isMirageSkin);
+        out.writeBoolean(isVoidHeraldSkin);
         out.writeBoolean(suppressSelectEffects);
         out.writeDouble(loungeX);
         out.writeDouble(loungeY);
@@ -728,6 +734,9 @@ class LanBirdState {
         state.isIroncladSkin = in.readBoolean();
         state.isSunforgeSkin = in.readBoolean();
         state.isPhotoEagleSkin = in.readBoolean();
+        state.isPhotoTurkeySkin = in.readBoolean();
+        state.isMirageSkin = in.readBoolean();
+        state.isVoidHeraldSkin = in.readBoolean();
         state.suppressSelectEffects = in.readBoolean();
         state.loungeX = in.readDouble();
         state.loungeY = in.readDouble();
