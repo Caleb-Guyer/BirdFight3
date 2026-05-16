@@ -19711,10 +19711,10 @@ public class Bird {
 
             g.setFill(Color.PURPLE.darker());
             double dripBaseX = facingRight ? x + 85 : x - 21;
-            for (int i = 0; i < 5; i++) {
+            for (int i = 0; i < 3; i++) {
                 double offset = Math.sin((System.currentTimeMillis() / 100.0) + i) * 4;
                 double facingOffset = facingRight ? offset : -offset;
-                g.fillOval(dripBaseX + facingOffset, y + 50 + i * 12, 16, 24);
+                g.fillOval(dripBaseX + facingOffset, y + 54 + i * 14, 14, 22);
             }
 
             if (highTimer > 0) {
@@ -19744,26 +19744,16 @@ public class Bird {
 
             g.setFill(Color.web("#1E88E5"));
             double crystalBaseX = facingRight ? x + 85 : x - 21;
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 3; i++) {
                 double offset = Math.sin((System.currentTimeMillis() / 110.0) + i) * 3;
                 double facingOffset = facingRight ? offset : -offset;
                 double cx = crystalBaseX + facingOffset;
-                double cy = y + 50 + i * 14;
+                double cy = y + 52 + i * 16;
                 double w = 14;
                 double h = 18;
                 g.fillPolygon(
                         new double[]{cx, cx + w / 2.0, cx + w, cx + w / 2.0},
                         new double[]{cy + h / 2.0, cy, cy + h / 2.0, cy + h},
-                        4
-                );
-            }
-            g.setFill(Color.web("#81D4FA"));
-            for (int i = 0; i < 3; i++) {
-                double cx = (facingRight ? x + 66 : x + 6) + i * 8;
-                double cy = y + 46 + i * 10;
-                g.fillPolygon(
-                        new double[]{cx, cx + 6, cx + 12, cx + 6},
-                        new double[]{cy + 6, cy, cy + 6, cy + 12},
                         4
                 );
             }
@@ -23096,36 +23086,26 @@ public class Bird {
         double headY = headPose.centerY() - 20.0 * s;
         double dir = facingRight ? 1.0 : -1.0;
 
-        g.setFill(Color.web("#4A0D67").deriveColor(0, 1, 1, 0.34));
-        g.fillOval(x + 12.0 * s, y + 34.0 * s, 58.0 * s, 34.0 * s);
         g.setStroke(Color.web("#CE93D8").deriveColor(0, 1, 1, 0.86));
-        g.setLineWidth(2.4 * s);
-        g.strokeArc(x + 14.0 * s, y + 28.0 * s, 52.0 * s, 38.0 * s, 202, 130, ArcType.OPEN);
+        g.setLineWidth(2.2 * s);
+        g.strokeArc(x + 16.0 * s, y + 30.0 * s, 48.0 * s, 34.0 * s, 202, 128, ArcType.OPEN);
 
         double cupX = x + (facingRight ? 11.0 : 55.0) * s;
         double cupY = y + 47.0 * s;
         g.setFill(Color.web("#F3E5F5"));
-        g.fillRoundRect(cupX, cupY, 18.0 * s, 25.0 * s, 4.0 * s, 4.0 * s);
+        g.fillRoundRect(cupX, cupY, 17.0 * s, 23.0 * s, 4.0 * s, 4.0 * s);
         g.setFill(Color.web("#7B1FA2"));
-        g.fillRoundRect(cupX + 2.0 * s, cupY + 4.0 * s, 14.0 * s, 17.0 * s, 3.0 * s, 3.0 * s);
-        g.setStroke(Color.web("#CE93D8"));
-        g.setLineWidth(1.3 * s);
-        g.strokeLine(cupX + 4.0 * s, cupY - 4.0 * s, cupX + 13.0 * s, cupY + 4.0 * s);
+        g.fillRoundRect(cupX + 2.0 * s, cupY + 5.0 * s, 13.0 * s, 14.0 * s, 3.0 * s, 3.0 * s);
 
         double eyeY = headY + 14.0 * s;
         double frontEyeX = headX + (facingRight ? 34.0 : 16.0) * s;
-        double backEyeX = headX + (facingRight ? 18.0 : 32.0) * s;
         g.setStroke(Color.web("#6A1B9A"));
         g.setLineWidth(2.2 * s);
         g.strokeLine(frontEyeX - 5.0 * s * dir, eyeY, frontEyeX + 6.0 * s * dir, eyeY + 2.0 * s);
-        g.strokeLine(backEyeX - 4.0 * s * dir, eyeY + 1.0 * s, backEyeX + 5.0 * s * dir, eyeY + 3.0 * s);
 
         g.setFill(Color.web("#AB47BC").deriveColor(0, 1, 1, 0.82));
-        for (int i = 0; i < 3; i++) {
-            double dripX = x + (facingRight ? 58.0 + i * 5.0 : 16.0 - i * 5.0) * s;
-            double dripY = y + (61.0 + i * 4.0) * s;
-            g.fillOval(dripX, dripY, 5.0 * s, (10.0 + i * 2.0) * s);
-        }
+        double dripX = x + (facingRight ? 61.0 : 14.0) * s;
+        g.fillOval(dripX, y + 63.0 * s, 6.0 * s, 12.0 * s);
     }
 
     private void drawHeisenbirdAccessories(GraphicsContext g) {
@@ -23135,7 +23115,6 @@ public class Bird {
         double headX = headPose.centerX() - 25.0 * s;
         double headY = headPose.centerY() - 20.0 * s;
         double headW = 50 * s;
-        double dir = facingRight ? 1.0 : -1.0;
 
         // Hat
         g.setFill(Color.rgb(20, 20, 20));
@@ -23144,19 +23123,6 @@ public class Bird {
         g.fillRoundRect(headX + 8 * s, headY - 34 * s, headW - 16 * s, 22 * s, 6 * s, 6 * s);
         g.setFill(Color.rgb(90, 90, 90));
         g.fillRect(headX + 10 * s, headY - 24 * s, headW - 20 * s, 5 * s);
-
-        // Glasses
-        double glassesY = headY + 13.0 * s;
-        double lensA = headX + (facingRight ? 15.0 : 28.0) * s;
-        double lensB = headX + (facingRight ? 31.0 : 12.0) * s;
-        g.setStroke(Color.web("#111111"));
-        g.setLineWidth(2.0 * s);
-        g.strokeOval(lensA - 5.0 * s, glassesY - 4.0 * s, 10.0 * s, 8.0 * s);
-        g.strokeOval(lensB - 5.0 * s, glassesY - 4.0 * s, 10.0 * s, 8.0 * s);
-        g.strokeLine(lensA + 5.0 * s * dir, glassesY, lensB - 5.0 * s * dir, glassesY);
-        g.setFill(Color.web("#E1F5FE").deriveColor(0, 1, 1, 0.34));
-        g.fillOval(lensA - 4.2 * s, glassesY - 3.2 * s, 8.4 * s, 6.4 * s);
-        g.fillOval(lensB - 4.2 * s, glassesY - 3.2 * s, 8.4 * s, 6.4 * s);
 
         // Goatee
         g.setFill(Color.rgb(45, 25, 15));
@@ -23170,21 +23136,14 @@ public class Bird {
                 3
         );
 
-        double pouchX = x + (facingRight ? 58.0 : 12.0) * s;
-        double pouchY = y + 54.0 * s;
-        g.setFill(Color.web("#263238").deriveColor(0, 1, 1, 0.86));
-        g.fillRoundRect(pouchX, pouchY, 18.0 * s, 14.0 * s, 4.0 * s, 4.0 * s);
-        g.setFill(Color.web("#4FC3F7"));
-        for (int i = 0; i < 3; i++) {
-            double cx = pouchX + (4.0 + i * 5.0) * s;
-            double cy = pouchY - (2.0 + i * 3.0) * s;
-            double h = (14.0 + i * 3.0) * s;
-            g.fillPolygon(
-                    new double[]{cx - 3.0 * s, cx, cx + 3.0 * s, cx},
-                    new double[]{cy + 4.0 * s, cy - h, cy + 4.0 * s, cy + 8.0 * s},
-                    4
-            );
-        }
+        double shardX = x + (facingRight ? 63.0 : 12.0) * s;
+        double shardY = y + 60.0 * s;
+        g.setFill(Color.web("#4FC3F7").deriveColor(0, 1, 1, 0.82));
+        g.fillPolygon(
+                new double[]{shardX - 4.0 * s, shardX, shardX + 4.0 * s, shardX},
+                new double[]{shardY + 3.0 * s, shardY - 15.0 * s, shardY + 3.0 * s, shardY + 10.0 * s},
+                4
+        );
     }
 
     private void drawClassicSkinAccent(GraphicsContext g, double drawSize) {
