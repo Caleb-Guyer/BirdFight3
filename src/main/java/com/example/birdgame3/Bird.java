@@ -161,6 +161,16 @@ public class Bird {
         DOWN
     }
 
+    private enum BatSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
+    private record BatEchoCollision(double distance, double normalX, double normalY) {
+    }
+
     private record NormalAttackProfile(
             double horizontalReach,
             double verticalReach,
@@ -478,6 +488,49 @@ public class Bird {
     public boolean batHanging = false;
     private Platform batHangPlatform = null;
     public int batEchoTimer = 0;
+    private static final int BAT_NEUTRAL_REUSE_FRAMES = 30;
+    private static final int BAT_WINGCUT_FRAMES = 18;
+    private static final int BAT_WINGCUT_REUSE_FRAMES = 38;
+    private static final int BAT_MOONRISE_FRAMES = 20;
+    private static final int BAT_SILENT_STALL_FRAMES = 10;
+    private static final int BAT_SILENT_DIVE_FRAMES = 22;
+    private static final int BAT_SILENT_REUSE_FRAMES = 46;
+    private static final int BAT_AMBUSH_WINDOW_FRAMES = 48;
+    private static final int BAT_CATHEDRAL_FRAMES = 168;
+    private static final int BAT_CATHEDRAL_PULSE_INTERVAL = 24;
+    private static final int BAT_ECHO_FX_FRAMES = 12;
+    private int batNeutralReuseTimer = 0;
+    private int batWingcutTimer = 0;
+    private int batWingcutReuseTimer = 0;
+    private int batWingcutDirection = 1;
+    private boolean batWingcutUltimate = false;
+    private boolean batWingcutAmbush = false;
+    private final boolean[] batWingcutHit = new boolean[4];
+    private int batMoonriseTimer = 0;
+    private boolean batMoonriseUsed = false;
+    private boolean batMoonriseUltimate = false;
+    private boolean batMoonriseBurstResolved = false;
+    private boolean batMoonriseAmbush = false;
+    private final boolean[] batMoonriseHit = new boolean[4];
+    private int batSilentStallTimer = 0;
+    private int batSilentDiveTimer = 0;
+    private int batSilentReuseTimer = 0;
+    private boolean batSilentFromHang = false;
+    private boolean batSilentUltimate = false;
+    private boolean batSilentAmbush = false;
+    private final boolean[] batSilentHit = new boolean[4];
+    private int batAmbushWindowTimer = 0;
+    private int batCathedralTimer = 0;
+    private int batCathedralPulseCooldown = 0;
+    private int batCathedralWaveIndex = 0;
+    private double batEchoFxStartX = 0.0;
+    private double batEchoFxStartY = 0.0;
+    private double batEchoFxMidX = 0.0;
+    private double batEchoFxMidY = 0.0;
+    private double batEchoFxEndX = 0.0;
+    private double batEchoFxEndY = 0.0;
+    private boolean batEchoFxBounced = false;
+    private boolean batEchoFxUltimate = false;
     private int batHangLockTimer = 0;
     private int batRehangCooldownTimer = 0;
     private boolean ledgeHanging = false;
@@ -2226,6 +2279,7 @@ public class Bird {
     private NormalAttackProfile attack(int chargeFrames, NormalAttackVariant variant) {
         if (health <= 0) return normalAttackProfile(variant);
         NormalAttackProfile profile = normalAttackProfile(variant);
+        double batAmbushScale = consumeBatAmbushNormalScale(variant);
         double chargeRatio = attackChargeRatio(chargeFrames);
         double knockbackScale = (1.0 + CHARGED_ATTACK_KNOCKBACK_BONUS * chargeRatio * chargeRatio)
                 * profile.knockbackMultiplier()
@@ -2246,6 +2300,7 @@ public class Bird {
         }
         int dmg = (int) Math.round(normalAttackPowerStat() * powerMultiplier
                 * profile.damageMultiplier()
+                * batAmbushScale
                 * (1.0 + CHARGED_ATTACK_DAMAGE_BONUS * chargeRatio));
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
@@ -2270,6 +2325,22 @@ public class Bird {
         attackGrinchhawkPresents(attackCenterX, attackCenterY, range, verticalRange);
         game.damageFrostbiteSnowbanks(this, attackCenterX, attackCenterY, range, verticalRange, dmg);
         return profile;
+    }
+
+    private double consumeBatAmbushNormalScale(NormalAttackVariant variant) {
+        if (type != BirdGame3.BirdType.BAT || batAmbushWindowTimer <= 0 || !isAerialNormalAttackVariant(variant)) {
+            return 1.0;
+        }
+        batAmbushWindowTimer = 0;
+        return 1.22;
+    }
+
+    private boolean isAerialNormalAttackVariant(NormalAttackVariant variant) {
+        return variant == NormalAttackVariant.NEUTRAL_AIR
+                || variant == NormalAttackVariant.FORWARD_AIR
+                || variant == NormalAttackVariant.BACK_AIR
+                || variant == NormalAttackVariant.UP_AIR
+                || variant == NormalAttackVariant.DOWN_AIR;
     }
 
     private void attackCrows(double attackCenterX, double attackCenterY,
@@ -2516,6 +2587,7 @@ public class Bird {
                 && !(type == BirdGame3.BirdType.TURKEY && turkeySpecialActive())
                 && !(isRaptor() && raptorSpecialActive())
                 && !(type == BirdGame3.BirdType.RAZORBILL && razorbillSpecialActive())
+                && !(type == BirdGame3.BirdType.BAT && batSpecialActive())
                 && jumpSquatTimer <= 0
                 && landingLagTimer <= 0
                 && knockdownTimer <= 0
@@ -3163,6 +3235,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.TITMOUSE && !canStartTitmouseSpecial()) {
             return;
         }
+        if (type == BirdGame3.BirdType.BAT && !canStartBatSpecial()) {
+            return;
+        }
         if (isOpiumEchoPair() && !canStartOpiumSpecial()) {
             return;
         }
@@ -3191,6 +3266,7 @@ public class Bird {
                 && type != BirdGame3.BirdType.GRINCHHAWK
                 && type != BirdGame3.BirdType.VULTURE
                 && type != BirdGame3.BirdType.TITMOUSE
+                && type != BirdGame3.BirdType.BAT
                 && !isOpiumEchoPair()
                 && specialCooldown > 0
                 && !ultimateReady) {
@@ -3264,7 +3340,13 @@ public class Bird {
                     specialTitmouse(selectTitmouseSpecialVariant(), false);
                 }
             }
-            case BAT -> specialBat(ultimateTriggered);
+            case BAT -> {
+                if (ultimateTriggered) {
+                    specialBatCathedralEcho();
+                } else {
+                    specialBat(selectBatSpecialVariant(), false);
+                }
+            }
             case PELICAN -> specialPelican(ultimateTriggered);
             case RAVEN -> specialRaven(ultimateTriggered);
         }
@@ -7261,7 +7343,7 @@ public class Bird {
                 case OPIUMBIRD -> specialOpiumNeutral(ultimate);
                 case HEISENBIRD -> specialHeisenNeutral(ultimate);
                 case TITMOUSE -> specialTitmouseScoldChorus(ultimate);
-                case BAT -> specialBat(ultimate);
+                case BAT -> specialBatNeutral(ultimate);
                 case PELICAN -> specialPelican(ultimate);
                 case RAVEN -> specialRaven(ultimate);
                 case MOCKINGBIRD -> {
@@ -9875,6 +9957,44 @@ public class Bird {
                 && titmouseSpecialReady(variant);
     }
 
+    private boolean batSpecialActive() {
+        return batWingcutTimer > 0
+                || batMoonriseTimer > 0
+                || batSilentStallTimer > 0
+                || batSilentDiveTimer > 0
+                || batCathedralTimer > 0;
+    }
+
+    private boolean batSpecialReady(BatSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
+        return switch (variant) {
+            case NEUTRAL -> ultimateReady || batNeutralReuseTimer <= 0;
+            case SIDE -> ultimateReady || batWingcutReuseTimer <= 0;
+            case UP -> ultimateReady || !batMoonriseUsed;
+            case DOWN -> ultimateReady || batSilentReuseTimer <= 0;
+        };
+    }
+
+    private boolean canConvertShieldIntoBatDownSpecial() {
+        return selectBatSpecialVariant() == BatSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+    }
+
+    private boolean canStartBatSpecial() {
+        BatSpecialVariant variant = selectBatSpecialVariant();
+        boolean shieldConversion = canConvertShieldIntoBatDownSpecial();
+        return type == BirdGame3.BirdType.BAT
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && !batSpecialActive()
+                && batSpecialReady(variant);
+    }
+
     private boolean penguinSpecialActive() {
         return penguinBellyCharging
                 || penguinBellySlideTimer > 0
@@ -10134,7 +10254,8 @@ public class Bird {
             case VULTURE -> ultimateReady || (vultureNeutralReuseTimer <= 0 && vultureCrowTicks > 0 && ownedVultureCrowCount() < 7);
             case OPIUMBIRD, HEISENBIRD -> ultimateReady || opiumNeutralReuseTimer <= 0;
             case TITMOUSE -> ultimateReady || titmouseScoldReuseTimer <= 0;
-            case BAT, PELICAN, RAVEN -> ultimateReady || specialCooldown <= 0;
+            case BAT -> ultimateReady || batNeutralReuseTimer <= 0;
+            case PELICAN, RAVEN -> ultimateReady || specialCooldown <= 0;
             case MOCKINGBIRD -> false;
         };
     }
@@ -10353,6 +10474,19 @@ public class Bird {
         return TitmouseSpecialVariant.NEUTRAL;
     }
 
+    private BatSpecialVariant selectBatSpecialVariant() {
+        if (jumpPressed()) {
+            return BatSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return BatSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return BatSpecialVariant.SIDE;
+        }
+        return BatSpecialVariant.NEUTRAL;
+    }
+
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -10435,6 +10569,11 @@ public class Bird {
                     && selectTitmouseSpecialVariant() == TitmouseSpecialVariant.UP
                     && !titmouseVaultUsed;
         }
+        if (type == BirdGame3.BirdType.BAT) {
+            return canStartBatSpecial()
+                    && selectBatSpecialVariant() == BatSpecialVariant.UP
+                    && !batMoonriseUsed;
+        }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
                     && selectOpiumSpecialVariant() == OpiumSpecialVariant.UP
@@ -10503,6 +10642,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.TITMOUSE) {
             return canStartTitmouseSpecial()
                     && selectTitmouseSpecialVariant() == TitmouseSpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.BAT) {
+            return canStartBatSpecial()
+                    && selectBatSpecialVariant() == BatSpecialVariant.DOWN;
         }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
@@ -10684,6 +10827,29 @@ public class Bird {
         zipTimer = 0;
         if (clearObjects) {
             titmouseSeedStashes.clear();
+        }
+    }
+
+    private void resetBatSpecialState(boolean clearUltimate) {
+        batWingcutTimer = 0;
+        batWingcutUltimate = false;
+        batWingcutAmbush = false;
+        Arrays.fill(batWingcutHit, false);
+        batMoonriseTimer = 0;
+        batMoonriseUltimate = false;
+        batMoonriseBurstResolved = false;
+        batMoonriseAmbush = false;
+        Arrays.fill(batMoonriseHit, false);
+        batSilentStallTimer = 0;
+        batSilentDiveTimer = 0;
+        batSilentFromHang = false;
+        batSilentUltimate = false;
+        batSilentAmbush = false;
+        Arrays.fill(batSilentHit, false);
+        if (clearUltimate) {
+            batCathedralTimer = 0;
+            batCathedralPulseCooldown = 0;
+            batCathedralWaveIndex = 0;
         }
     }
 
@@ -10875,6 +11041,16 @@ public class Bird {
             attackAnimationTimer = 0;
         }
         resetTitmouseSpecialState(false);
+    }
+
+    private void interruptBatSpecialStateOnHit() {
+        if (type != BirdGame3.BirdType.BAT) {
+            return;
+        }
+        if (batSpecialActive()) {
+            attackAnimationTimer = 0;
+        }
+        resetBatSpecialState(false);
     }
 
     private void interruptOpiumSpecialStateOnHit() {
@@ -11266,6 +11442,7 @@ public class Bird {
                 : type == BirdGame3.BirdType.GRINCHHAWK ? canStartGrinchhawkSpecial()
                 : type == BirdGame3.BirdType.VULTURE ? canStartVultureSpecial()
                 : type == BirdGame3.BirdType.TITMOUSE ? canStartTitmouseSpecial()
+                : type == BirdGame3.BirdType.BAT ? canStartBatSpecial()
                 : isOpiumEchoPair() ? canStartOpiumSpecial()
                 : specialCooldown <= 0)
                 && aiSpecialCooldown <= 0 &&
@@ -11282,6 +11459,9 @@ public class Bird {
             }
             if (type == BirdGame3.BirdType.TITMOUSE) {
                 configureTitmouseAISpecialInputs(target, targetDist, onGround);
+            }
+            if (type == BirdGame3.BirdType.BAT) {
+                configureBatAISpecialInputs(target, targetDist, onGround);
             }
             if (isOpiumEchoPair()) {
                 configureOpiumAISpecialInputs(target, targetDist, onGround);
@@ -11305,55 +11485,516 @@ public class Bird {
         aiLastHealth = currentDurability;
     }
 
-    private void specialBat(boolean ultimate) {
-        batEchoTimer = ultimate ? 220 : 150;
-        specialCooldown = 660;
-        specialMaxCooldown = 660;
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 28 : 22);
-        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 15 : 12);
+    private void specialBat(BatSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialBatNeutral(ultimate);
+            case SIDE -> specialBatWingcut(ultimate);
+            case UP -> specialBatMoonrise(ultimate);
+            case DOWN -> specialBatSilentDescent(ultimate);
+        }
+    }
 
+    private void specialBatNeutral(boolean ultimate) {
+        boolean boosted = consumeBatAmbushSpecialBonus();
+        batNeutralReuseTimer = ultimate ? BAT_NEUTRAL_REUSE_FRAMES + 8 : BAT_NEUTRAL_REUSE_FRAMES;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        double angle;
+        if (batHanging) {
+            angle = facingRight ? Math.toRadians(64.0) : Math.toRadians(116.0);
+        } else if (!isOnGround()) {
+            angle = facingRight ? Math.toRadians(12.0) : Math.toRadians(168.0);
+        } else {
+            angle = facingRight ? 0.0 : Math.PI;
+        }
+        emitBatEchoLance(angle,
+                ultimate ? 11 : 8,
+                ultimate ? 17 : 13,
+                ultimate ? 12 : 8,
+                ultimate ? 28 : 18,
+                ultimate,
+                boosted,
+                true);
+        game.addToKillFeed(shortName() + (ultimate ? " FIRED ULT ECHO LANCE!" : " FIRED ECHO LANCE!"));
+    }
+
+    private void specialBatWingcut(boolean ultimate) {
+        boolean fromHang = batHanging;
+        if (fromHang) {
+            releaseBatHang();
+        }
+        batWingcutTimer = ultimate ? BAT_WINGCUT_FRAMES + 4 : BAT_WINGCUT_FRAMES;
+        batWingcutReuseTimer = ultimate ? BAT_WINGCUT_REUSE_FRAMES - 6 : BAT_WINGCUT_REUSE_FRAMES;
+        batWingcutDirection = leftPressed() != rightPressed()
+                ? (rightPressed() ? 1 : -1)
+                : facingDirection();
+        batWingcutUltimate = ultimate;
+        batWingcutAmbush = consumeBatAmbushSpecialBonus();
+        Arrays.fill(batWingcutHit, false);
+        facingRight = batWingcutDirection > 0;
+        vx = batWingcutDirection * (ultimate ? 22.0 : 19.0);
+        vy = fromHang ? (ultimate ? 11.0 : 9.0) : (isOnGround() ? -8.0 : -6.0);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        game.addToKillFeed(shortName() + (ultimate ? " CARVED AN ULT WINGCUT!" : " CARVED A WINGCUT!"));
+    }
+
+    private void specialBatMoonrise(boolean ultimate) {
         if (batHanging) {
             releaseBatHang();
-            vy = -16;
-            vx += (facingRight ? 1 : -1) * 9;
+        }
+        batMoonriseTimer = ultimate ? BAT_MOONRISE_FRAMES + 4 : BAT_MOONRISE_FRAMES;
+        batMoonriseUsed = true;
+        batMoonriseUltimate = ultimate;
+        batMoonriseBurstResolved = false;
+        batMoonriseAmbush = consumeBatAmbushSpecialBonus();
+        Arrays.fill(batMoonriseHit, false);
+        vx *= 0.38;
+        vy = ultimate ? -24.0 : -21.0;
+        canDoubleJump = false;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        game.addToKillFeed(shortName() + (ultimate ? " ROSE IN ULT MOONRISE!" : " ROSE IN MOONRISE!"));
+    }
+
+    private void specialBatSilentDescent(boolean ultimate) {
+        boolean fromHang = batHanging;
+        if (fromHang) {
+            releaseBatHang();
+        }
+        batSilentStallTimer = fromHang ? 4 : BAT_SILENT_STALL_FRAMES;
+        batSilentDiveTimer = 0;
+        batSilentReuseTimer = ultimate ? BAT_SILENT_REUSE_FRAMES - 8 : BAT_SILENT_REUSE_FRAMES;
+        batSilentFromHang = fromHang;
+        batSilentUltimate = ultimate;
+        batSilentAmbush = consumeBatAmbushSpecialBonus();
+        Arrays.fill(batSilentHit, false);
+        vx *= 0.24;
+        vy = isOnGround() ? -7.0 : Math.min(vy, 0.0);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        game.addToKillFeed(shortName() + (ultimate ? " VANISHED INTO ULT SILENT DESCENT!" : " VANISHED INTO SILENT DESCENT!"));
+    }
+
+    private void specialBatCathedralEcho() {
+        if (batHanging) {
+            releaseBatHang();
+            vy = Math.min(vy, -12.0);
+        }
+        boolean boosted = consumeBatAmbushSpecialBonus();
+        batCathedralTimer = BAT_CATHEDRAL_FRAMES;
+        batCathedralPulseCooldown = 0;
+        batCathedralWaveIndex = 0;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        game.shakeIntensity = Math.max(game.shakeIntensity, 24);
+        game.hitstopFrames = Math.max(game.hitstopFrames, 12);
+        applyBatCathedralInitialBurst(boosted);
+        fireBatCathedralPulse();
+        game.addToKillFeed(shortName() + " OPENED CATHEDRAL ECHO!");
+    }
+
+    private boolean consumeBatAmbushSpecialBonus() {
+        if (type != BirdGame3.BirdType.BAT || batAmbushWindowTimer <= 0) {
+            return false;
+        }
+        batAmbushWindowTimer = 0;
+        return true;
+    }
+
+    private double batSpecialDamageScale(boolean boosted) {
+        return boosted ? 1.22 : 1.0;
+    }
+
+    private void handleBatSpecialState() {
+        if (type != BirdGame3.BirdType.BAT) {
+            return;
         }
 
-        game.addToKillFeed(shortName() + (ultimate ? " ULT SONAR SCREECH!" : " UNLEASHED SONAR SCREECH!"));
+        if (batWingcutTimer > 0) {
+            vx = batWingcutDirection * (batWingcutUltimate ? 22.0 : 19.0);
+            vy = Math.min(vy, batWingcutUltimate ? -3.0 : -2.0);
+            applyBatWingcutHits();
+            if (Math.random() < 0.86) {
+                game.particles.add(new Particle(
+                        bodyCenterX() - batWingcutDirection * 26.0,
+                        bodyCenterY() + 12.0,
+                        -batWingcutDirection * (2.0 + Math.random() * 3.0),
+                        0.4 + Math.random() * 1.6,
+                        batWingcutUltimate ? Color.GOLD : Color.MEDIUMPURPLE.brighter()
+                ));
+            }
+        }
 
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - bodyCenterX();
-            double dy = other.bodyCenterY() - bodyCenterY();
-            double centerDist = Math.hypot(dx, dy);
-            double dist = Math.max(0.0, centerDist - other.combatRadius());
-            if (dist > (ultimate ? 460 : 360)) continue;
+        if (batMoonriseTimer > 0) {
+            vx *= 0.92;
+            vy = Math.min(vy, batMoonriseUltimate ? -18.0 : -15.5);
+            applyBatMoonriseHits();
+            if (!batMoonriseBurstResolved && batMoonriseTimer <= 4) {
+                resolveBatMoonriseBurst();
+            }
+        }
 
-            int dmg = dist < 150 ? (ultimate ? 26 : 18) : (dist < 260 ? (ultimate ? 18 : 12) : (ultimate ? 12 : 8));
+        if (batSilentStallTimer > 0) {
+            vx *= 0.72;
+            vy *= 0.18;
+            if (batSilentStallTimer == 1) {
+                batSilentDiveTimer = batSilentUltimate ? BAT_SILENT_DIVE_FRAMES + 4 : BAT_SILENT_DIVE_FRAMES;
+                vy = batSilentUltimate ? 24.0 : (batSilentFromHang ? 23.0 : 20.0);
+            }
+        } else if (batSilentDiveTimer > 0) {
+            vx *= 0.96;
+            vy = Math.max(vy, batSilentUltimate ? 24.0 : (batSilentFromHang ? 23.0 : 20.0));
+            applyBatSilentDiveHits();
+        }
+
+        if (batCathedralTimer > 0 && batCathedralPulseCooldown <= 0) {
+            fireBatCathedralPulse();
+        }
+    }
+
+    private void handleBatPostMoveSpecialState() {
+        if (type != BirdGame3.BirdType.BAT) {
+            return;
+        }
+        if ((batWingcutTimer > 0 || batMoonriseTimer > 0) && vy < -1.0) {
+            Platform hangable = findBatHangablePlatform();
+            if (hangable != null) {
+                beginBatHang(hangable);
+                batWingcutTimer = 0;
+                batMoonriseTimer = 0;
+                return;
+            }
+        }
+        if (batSilentDiveTimer > 0 && isOnGround()) {
+            batSilentDiveTimer = 0;
+            emitBatLandingBurst();
+        }
+    }
+
+    private void applyBatWingcutHits() {
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        for (int i = 0; i < game.players.length; i++) {
+            Bird other = game.players[i];
+            if (other == null || other == this || other.health <= 0 || batWingcutHit[i] || !canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.abs(dx) > 88.0 * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > 72.0 * sizeMultiplier + other.combatHalfHeight()) continue;
+            if (Math.signum(dx == 0.0 ? batWingcutDirection : dx) != Math.signum(batWingcutDirection)) continue;
+            int rawDamage = (int) Math.round((batWingcutUltimate ? 14.0 : 10.0) * batSpecialDamageScale(batWingcutAmbush));
             double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
+            int dealt = (int) applyDamageTo(other, rawDamage);
             game.damageDealt[playerIndex] += dealt;
             game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
             if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+            other.applyStun(batWingcutUltimate ? 24 : 16);
+            other.vx += batWingcutDirection * (batWingcutUltimate ? 17.0 : 13.0);
+            other.vy -= batWingcutUltimate ? 10.0 : 7.5;
+            batWingcutHit[i] = true;
+        }
+    }
 
-            other.applyStun(ultimate ? 45 : 28);
-            double safeDist = Math.max(0.001, centerDist);
-            other.vx += dx / safeDist * (ultimate ? 20 : 16);
-            other.vy -= ultimate ? 10 : 8;
+    private void applyBatMoonriseHits() {
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        for (int i = 0; i < game.players.length; i++) {
+            Bird other = game.players[i];
+            if (other == null || other == this || other.health <= 0 || batMoonriseHit[i] || !canDamageTarget(other)) continue;
+            double dx = Math.abs(other.bodyCenterX() - centerX);
+            double dy = other.bodyCenterY() - centerY;
+            if (dx > 68.0 * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (dy < -other.combatHalfHeight() || dy > 118.0 * sizeMultiplier + other.combatHalfHeight()) continue;
+            int rawDamage = (int) Math.round((batMoonriseUltimate ? 8.0 : 5.0) * batSpecialDamageScale(batMoonriseAmbush));
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, rawDamage);
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
+            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+            other.applyStun(batMoonriseUltimate ? 16 : 10);
+            other.vx += Math.signum(other.bodyCenterX() - centerX) * (batMoonriseUltimate ? 7.0 : 5.0);
+            other.vy -= batMoonriseUltimate ? 14.0 : 10.0;
+            batMoonriseHit[i] = true;
+        }
+    }
+
+    private void resolveBatMoonriseBurst() {
+        batMoonriseBurstResolved = true;
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        double radius = batMoonriseUltimate ? 112.0 : 90.0;
+        for (Bird other : game.players) {
+            if (other == null || other == this || other.health <= 0 || !canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.hypot(dx, dy) > radius * sizeMultiplier + other.combatRadius()) continue;
+            int rawDamage = (int) Math.round((batMoonriseUltimate ? 12.0 : 8.0) * batSpecialDamageScale(batMoonriseAmbush));
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, rawDamage);
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
+            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+            other.applyStun(batMoonriseUltimate ? 22 : 14);
+            other.vx += Math.signum(dx == 0.0 ? facingDirection() : dx) * (batMoonriseUltimate ? 10.0 : 7.0);
+            other.vy -= batMoonriseUltimate ? 18.0 : 13.0;
+        }
+        emitBatRingParticles(centerX, centerY, batMoonriseUltimate ? 5 : 4,
+                batMoonriseUltimate ? Color.GOLD : Color.CYAN.brighter());
+    }
+
+    private void applyBatSilentDiveHits() {
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        for (int i = 0; i < game.players.length; i++) {
+            Bird other = game.players[i];
+            if (other == null || other == this || other.health <= 0 || batSilentHit[i] || !canDamageTarget(other)) continue;
+            double dx = Math.abs(other.bodyCenterX() - centerX);
+            double dy = other.bodyCenterY() - centerY;
+            if (dx > 62.0 * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (dy < -other.combatHalfHeight() || dy > 128.0 * sizeMultiplier + other.combatHalfHeight()) continue;
+            int rawDamage = (int) Math.round((batSilentUltimate ? 16.0 : (batSilentFromHang ? 14.0 : 11.0))
+                    * batSpecialDamageScale(batSilentAmbush));
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, rawDamage);
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
+            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+            other.applyStun(batSilentUltimate ? 26 : 18);
+            other.vx += Math.signum(other.bodyCenterX() - centerX) * (batSilentUltimate ? 8.0 : 5.0);
+            if (batSilentFromHang) {
+                other.vy = Math.max(other.vy, batSilentUltimate ? 23.0 : 19.0);
+            } else {
+                other.vy += batSilentUltimate ? 14.0 : 11.0;
+            }
+            batSilentHit[i] = true;
+        }
+    }
+
+    private void applyBatCathedralInitialBurst(boolean boosted) {
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        for (Bird other : game.players) {
+            if (other == null || other == this || other.health <= 0 || !canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            double dist = Math.max(0.001, Math.hypot(dx, dy));
+            if (dist > 240.0 + other.combatRadius()) continue;
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, 14.0 * batSpecialDamageScale(boosted));
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
+            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+            other.applyStun(24);
+            other.vx += dx / dist * 16.0;
+            other.vy -= 8.0;
+        }
+        emitBatRingParticles(centerX, centerY, 6, Color.GOLD);
+    }
+
+    private void fireBatCathedralPulse() {
+        if (batCathedralTimer <= 0 && batCathedralWaveIndex > 0) {
+            return;
+        }
+        double[] rightAngles = {0.0, Math.toRadians(24.0), Math.toRadians(-24.0), Math.toRadians(42.0), Math.toRadians(-42.0)};
+        double baseAngle = rightAngles[batCathedralWaveIndex % rightAngles.length];
+        if (!facingRight) {
+            baseAngle = Math.PI - baseAngle;
+        }
+        emitBatEchoLance(baseAngle, 4, 10, 5, 16, true, false, true);
+        emitBatEchoLance(Math.PI - baseAngle, 4, 10, 5, 16, true, false, false);
+        batCathedralWaveIndex++;
+        batCathedralPulseCooldown = BAT_CATHEDRAL_PULSE_INTERVAL;
+    }
+
+    private void emitBatEchoLance(double angle,
+                                  int directDamage,
+                                  int bounceDamage,
+                                  int directStun,
+                                  int bounceStun,
+                                  boolean ultimate,
+                                  boolean boosted,
+                                  boolean recordFx) {
+        double dirX = Math.cos(angle);
+        double dirY = Math.sin(angle);
+        double startX = bodyCenterX() + dirX * 34.0 * sizeMultiplier;
+        double startY = bodyCenterY() + dirY * 18.0 * sizeMultiplier;
+        double maxDistance = ultimate ? 520.0 : 440.0;
+        BatEchoCollision collision = findBatEchoCollision(startX, startY, dirX, dirY, maxDistance);
+        double firstDistance = collision == null ? maxDistance : collision.distance();
+        double midX = startX + dirX * firstDistance;
+        double midY = startY + dirY * firstDistance;
+        boolean[] hitTargets = new boolean[game.players.length];
+        applyBatEchoSegmentHits(startX, startY, midX, midY, directDamage, directStun,
+                ultimate ? 16.0 : 13.0, boosted, hitTargets);
+
+        double endX = midX;
+        double endY = midY;
+        boolean bounced = false;
+        if (collision != null) {
+            double dot = dirX * collision.normalX() + dirY * collision.normalY();
+            double reflectX = dirX - 2.0 * dot * collision.normalX();
+            double reflectY = dirY - 2.0 * dot * collision.normalY();
+            double reflectLength = Math.max(1.0, Math.hypot(reflectX, reflectY));
+            reflectX /= reflectLength;
+            reflectY /= reflectLength;
+            double secondDistance = ultimate ? 420.0 : 330.0;
+            endX = midX + reflectX * secondDistance;
+            endY = midY + reflectY * secondDistance;
+            applyBatEchoSegmentHits(midX, midY, endX, endY, bounceDamage, bounceStun,
+                    ultimate ? 22.0 : 18.0, boosted, hitTargets);
+            bounced = true;
         }
 
-        int ringCount = ultimate ? 6 : 4;
+        if (recordFx) {
+            batEchoTimer = BAT_ECHO_FX_FRAMES;
+            batEchoFxStartX = startX;
+            batEchoFxStartY = startY;
+            batEchoFxMidX = midX;
+            batEchoFxMidY = midY;
+            batEchoFxEndX = endX;
+            batEchoFxEndY = endY;
+            batEchoFxBounced = bounced;
+            batEchoFxUltimate = ultimate;
+        }
+    }
+
+    private void applyBatEchoSegmentHits(double startX, double startY, double endX, double endY,
+                                         int rawDamage, int stunFrames, double width,
+                                         boolean boosted, boolean[] hitTargets) {
+        if (rawDamage <= 0) {
+            return;
+        }
+        double damageScale = batSpecialDamageScale(boosted);
+        for (int i = 0; i < game.players.length; i++) {
+            Bird other = game.players[i];
+            if (other == null || other == this || other.health <= 0 || hitTargets[i] || !canDamageTarget(other)) continue;
+            double distance = pointToSegmentDistance(other.bodyCenterX(), other.bodyCenterY(), startX, startY, endX, endY);
+            if (distance > width * sizeMultiplier + other.combatRadius()) continue;
+            int damage = (int) Math.round(rawDamage * damageScale);
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, damage);
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
+            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+            other.applyStun(stunFrames);
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
+            double dist = Math.max(0.001, Math.hypot(dx, dy));
+            other.vx += dx / dist * (stunFrames >= 18 ? 11.0 : 7.0);
+            other.vy -= stunFrames >= 18 ? 6.0 : 3.5;
+            hitTargets[i] = true;
+        }
+    }
+
+    private BatEchoCollision findBatEchoCollision(double startX, double startY, double dirX, double dirY, double maxDistance) {
+        BatEchoCollision best = null;
+        if (dirX > 0.0001) {
+            best = chooseCloserBatEchoCollision(best, (BirdGame3.WORLD_WIDTH - startX) / dirX, -1.0, 0.0, maxDistance);
+        } else if (dirX < -0.0001) {
+            best = chooseCloserBatEchoCollision(best, (0.0 - startX) / dirX, 1.0, 0.0, maxDistance);
+        }
+        if (dirY > 0.0001) {
+            best = chooseCloserBatEchoCollision(best, (BirdGame3.GROUND_Y - startY) / dirY, 0.0, -1.0, maxDistance);
+        } else if (dirY < -0.0001) {
+            best = chooseCloserBatEchoCollision(best, (0.0 - startY) / dirY, 0.0, 1.0, maxDistance);
+        }
+        for (Platform platform : game.platforms) {
+            BatEchoCollision collision = rayRectBatEchoCollision(startX, startY, dirX, dirY, maxDistance,
+                    platform.x, platform.y, platform.w, platform.h);
+            if (collision != null && (best == null || collision.distance() < best.distance())) {
+                best = collision;
+            }
+        }
+        return best;
+    }
+
+    private BatEchoCollision chooseCloserBatEchoCollision(BatEchoCollision best, double distance,
+                                                           double normalX, double normalY, double maxDistance) {
+        if (distance <= 1.0 || distance > maxDistance) {
+            return best;
+        }
+        if (best == null || distance < best.distance()) {
+            return new BatEchoCollision(distance, normalX, normalY);
+        }
+        return best;
+    }
+
+    private BatEchoCollision rayRectBatEchoCollision(double startX, double startY, double dirX, double dirY,
+                                                      double maxDistance,
+                                                      double rectX, double rectY, double rectW, double rectH) {
+        double tx1 = Double.NEGATIVE_INFINITY;
+        double tx2 = Double.POSITIVE_INFINITY;
+        if (Math.abs(dirX) > 0.0001) {
+            tx1 = (rectX - startX) / dirX;
+            tx2 = (rectX + rectW - startX) / dirX;
+        } else if (startX < rectX || startX > rectX + rectW) {
+            return null;
+        }
+        double ty1 = Double.NEGATIVE_INFINITY;
+        double ty2 = Double.POSITIVE_INFINITY;
+        if (Math.abs(dirY) > 0.0001) {
+            ty1 = (rectY - startY) / dirY;
+            ty2 = (rectY + rectH - startY) / dirY;
+        } else if (startY < rectY || startY > rectY + rectH) {
+            return null;
+        }
+
+        double txMin = Math.min(tx1, tx2);
+        double txMax = Math.max(tx1, tx2);
+        double tyMin = Math.min(ty1, ty2);
+        double tyMax = Math.max(ty1, ty2);
+        double entry = Math.max(txMin, tyMin);
+        double exit = Math.min(txMax, tyMax);
+        if (exit < 0.0 || entry <= 1.0 || entry > exit || entry > maxDistance) {
+            return null;
+        }
+        if (txMin > tyMin) {
+            return new BatEchoCollision(entry, dirX > 0.0 ? -1.0 : 1.0, 0.0);
+        }
+        return new BatEchoCollision(entry, 0.0, dirY > 0.0 ? -1.0 : 1.0);
+    }
+
+    private double pointToSegmentDistance(double px, double py, double x1, double y1, double x2, double y2) {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double lenSq = dx * dx + dy * dy;
+        if (lenSq <= 0.0001) {
+            return Math.hypot(px - x1, py - y1);
+        }
+        double t = Math.clamp(((px - x1) * dx + (py - y1) * dy) / lenSq, 0.0, 1.0);
+        double cx = x1 + dx * t;
+        double cy = y1 + dy * t;
+        return Math.hypot(px - cx, py - cy);
+    }
+
+    private void emitBatRingParticles(double centerX, double centerY, int ringCount, Color color) {
         for (int ring = 1; ring <= ringCount; ring++) {
-            double radius = 70 + ring * 55;
-            for (int i = 0; i < 42; i++) {
-                double ang = i / 42.0 * Math.PI * 2;
+            double radius = 34.0 + ring * 26.0;
+            for (int i = 0; i < 22; i++) {
+                double angle = i / 22.0 * Math.PI * 2.0;
                 game.particles.add(new Particle(
-                        x + 40 + Math.cos(ang) * radius,
-                        y + 40 + Math.sin(ang) * radius,
-                        Math.cos(ang) * 2.4,
-                        Math.sin(ang) * 2.4,
-                        ultimate ? Color.GOLD.brighter() : (ring % 2 == 0 ? Color.MEDIUMPURPLE.brighter() : Color.CYAN.brighter())
+                        centerX + Math.cos(angle) * radius,
+                        centerY + Math.sin(angle) * radius,
+                        Math.cos(angle) * 2.0,
+                        Math.sin(angle) * 2.0,
+                        color.deriveColor(0, 1, 1, 0.82)
                 ));
             }
+        }
+    }
+
+    private void emitBatLandingBurst() {
+        for (int i = 0; i < 28; i++) {
+            double angle = Math.PI + Math.random() * Math.PI;
+            double speed = 2.0 + Math.random() * 5.0;
+            game.particles.add(new Particle(
+                    bodyCenterX(),
+                    bodyBottomY() - 6.0,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    batSilentUltimate ? Color.GOLD : Color.MEDIUMPURPLE.brighter()
+            ));
         }
     }
 
@@ -11950,6 +12591,7 @@ public class Bird {
         if (onGround || mainStage == null) return false;
         if (type != BirdGame3.BirdType.RAZORBILL
                 && type != BirdGame3.BirdType.GRINCHHAWK
+                && type != BirdGame3.BirdType.BAT
                 && specialCooldown > 0) return false;
         double centerX = x + 40 * sizeMultiplier;
         double bottomY = y + 80 * sizeMultiplier;
@@ -11982,6 +12624,8 @@ public class Bird {
                     && (depth > 108.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.2)));
             case TITMOUSE -> !titmouseVaultUsed
                     && (depth > 92.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
+            case BAT -> !batMoonriseUsed
+                    && (depth > 88.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case OPIUMBIRD, HEISENBIRD -> !opiumUpSpecialUsed
                     && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             default -> false;
@@ -12053,6 +12697,7 @@ public class Bird {
                     || type == BirdGame3.BirdType.RAZORBILL
                     || type == BirdGame3.BirdType.GRINCHHAWK
                     || type == BirdGame3.BirdType.TITMOUSE
+                    || type == BirdGame3.BirdType.BAT
                     || isOpiumEchoPair()) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
             }
@@ -12122,7 +12767,13 @@ public class Bird {
             case OPIUMBIRD, HEISENBIRD -> {
                 if (!opiumUpSpecialUsed) reach += 160.0;
             }
-            case TITMOUSE, HUMMINGBIRD, BAT -> reach += 95.0;
+            case TITMOUSE, HUMMINGBIRD -> reach += 95.0;
+            case BAT -> {
+                reach += 95.0;
+                if (!batMoonriseUsed) {
+                    reach += 150.0;
+                }
+            }
             case VULTURE -> {
                 if (!isOnGround() || isFlying) {
                     reach += 80.0 + Math.max(0.0, -vy) * 12.0;
@@ -12159,7 +12810,13 @@ public class Bird {
             case OPIUMBIRD, HEISENBIRD -> {
                 if (!opiumUpSpecialUsed) reach += 42.0;
             }
-            case TITMOUSE, HUMMINGBIRD, BAT -> reach += 95.0;
+            case TITMOUSE, HUMMINGBIRD -> reach += 95.0;
+            case BAT -> {
+                reach += 95.0;
+                if (!batMoonriseUsed) {
+                    reach += 42.0;
+                }
+            }
             case TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> reach += 35.0;
             default -> {
             }
@@ -12276,6 +12933,26 @@ public class Bird {
             return;
         }
         if (!titmouseSeedStashes.isEmpty() && (target.isTitmouseMarkedBy(this) || dist > 170.0)) {
+            game.setAiControlKey(playerIndex, dir < 0 ? leftKey() : rightKey(), true);
+        }
+    }
+
+    private void configureBatAISpecialInputs(Bird target, double dist, boolean onGround) {
+        if (target == null || type != BirdGame3.BirdType.BAT) {
+            return;
+        }
+        int dir = target.bodyCenterX() >= bodyCenterX() ? 1 : -1;
+        facingRight = dir > 0;
+        double dy = target.bodyCenterY() - bodyCenterY();
+        if (!onGround && dy < -115.0 && !batMoonriseUsed) {
+            game.setAiControlKey(playerIndex, jumpKey(), true);
+            return;
+        }
+        if (!onGround && dy > 76.0 && batSilentReuseTimer <= 0 && random.nextDouble() < 0.50) {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            return;
+        }
+        if (dist > 130.0 && dist < 320.0 && batWingcutReuseTimer <= 0 && random.nextDouble() < 0.62) {
             game.setAiControlKey(playerIndex, dir < 0 ? leftKey() : rightKey(), true);
         }
     }
@@ -12660,6 +13337,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.TITMOUSE && isOnGround()) {
             titmouseVaultUsed = false;
         }
+        if (type == BirdGame3.BirdType.BAT && isOnGround()) {
+            batMoonriseUsed = false;
+        }
         if (isOpiumEchoPair() && isOnGround()) {
             opiumUpSpecialUsed = false;
         }
@@ -12689,6 +13369,7 @@ public class Bird {
             resetGrinchhawkSpecialState(false);
             resetVultureSpecialState(false);
             resetTitmouseSpecialState(false);
+            resetBatSpecialState(false);
             resetOpiumSpecialState(false);
         }
 
@@ -12845,6 +13526,7 @@ public class Bird {
         handleGrinchhawkSpecialState(jumpJustPressed, gameSpeed);
         handleVultureSpecialState(specialHeld);
         handleTitmouseSpecialState();
+        handleBatSpecialState();
         handleOpiumSpecialState();
 
         // === RAZORBILL SPECIALS ===
@@ -12873,6 +13555,7 @@ public class Bird {
         handleRoadrunnerSandstorm();
         handleRoadrunnerSpecials(specialHeld);
         handleRoadrunnerPaintedRoads();
+        handleBatPostMoveSpecialState();
         if (tryGrabUniversalLedge(prevX, inDockWater)) {
             rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
             handleTaunts();
@@ -13360,6 +14043,36 @@ public class Bird {
             shieldHealth = Math.min(SHIELD_MAX_HEALTH, shieldHealth + SHIELD_REGEN_PER_FRAME * gameSpeed);
         }
         batEchoTimer = Math.max(0, (int)(batEchoTimer - gameSpeed));
+        batNeutralReuseTimer = Math.max(0, (int)(batNeutralReuseTimer - gameSpeed));
+        batWingcutTimer = Math.max(0, (int)(batWingcutTimer - gameSpeed));
+        batWingcutReuseTimer = Math.max(0, (int)(batWingcutReuseTimer - gameSpeed));
+        batMoonriseTimer = Math.max(0, (int)(batMoonriseTimer - gameSpeed));
+        batSilentStallTimer = Math.max(0, (int)(batSilentStallTimer - gameSpeed));
+        batSilentDiveTimer = Math.max(0, (int)(batSilentDiveTimer - gameSpeed));
+        batSilentReuseTimer = Math.max(0, (int)(batSilentReuseTimer - gameSpeed));
+        batAmbushWindowTimer = Math.max(0, (int)(batAmbushWindowTimer - gameSpeed));
+        batCathedralTimer = Math.max(0, (int)(batCathedralTimer - gameSpeed));
+        batCathedralPulseCooldown = Math.max(0, (int)(batCathedralPulseCooldown - gameSpeed));
+        if (batWingcutTimer == 0) {
+            batWingcutUltimate = false;
+            batWingcutAmbush = false;
+            Arrays.fill(batWingcutHit, false);
+        }
+        if (batMoonriseTimer == 0) {
+            batMoonriseUltimate = false;
+            batMoonriseAmbush = false;
+            Arrays.fill(batMoonriseHit, false);
+        }
+        if (batSilentDiveTimer == 0 && batSilentStallTimer == 0) {
+            batSilentFromHang = false;
+            batSilentUltimate = false;
+            batSilentAmbush = false;
+            Arrays.fill(batSilentHit, false);
+        }
+        if (batCathedralTimer == 0) {
+            batCathedralPulseCooldown = 0;
+            batCathedralWaveIndex = 0;
+        }
         batHangLockTimer = Math.max(0, (int)(batHangLockTimer - gameSpeed));
         batRehangCooldownTimer = Math.max(0, (int)(batRehangCooldownTimer - gameSpeed));
         ledgeLockTimer = Math.max(0, (int)(ledgeLockTimer - gameSpeed));
@@ -14767,7 +15480,7 @@ public class Bird {
     private boolean handleBatHanging(boolean stunned) {
         if (batHanging) {
             if (stunned || batHangPlatform == null || !game.platforms.contains(batHangPlatform)) {
-                releaseBatHang();
+                releaseBatHang(false);
                 return false;
             }
 
@@ -14801,8 +15514,7 @@ public class Bird {
                 vx *= 0.42;
             }
             if (!attackLocked && specialJustPressed()
-                    && (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0)
-                    && !isBlocking) {
+                    && canStartBatSpecial()) {
                 special();
             }
             return true;
@@ -14811,18 +15523,7 @@ public class Bird {
         if (!stunned && batRehangCooldownTimer <= 0 && !isOnGround() && vy < -2 && jumpPressed()) {
             Platform hangable = findBatHangablePlatform();
             if (hangable != null) {
-                batHanging = true;
-                batHangPlatform = hangable;
-                batHangLockTimer = 14; // prevents immediate unlatch from the same jump press
-                batRehangCooldownTimer = 0;
-                vx *= 0.35;
-                vy = 0;
-                attackAnimationTimer = 0;
-                clearAerialAttackState();
-                landingLagTimer = 0;
-                y = hangable.y + hangable.h + 2;
-                canDoubleJump = true;
-                refreshAirDodge();
+                beginBatHang(hangable);
                 return true;
             }
         }
@@ -14830,10 +15531,33 @@ public class Bird {
     }
 
     private void releaseBatHang() {
+        releaseBatHang(true);
+    }
+
+    private void releaseBatHang(boolean grantAmbush) {
+        boolean wasHanging = batHanging;
         batHanging = false;
         batHangPlatform = null;
         batHangLockTimer = 0;
         batRehangCooldownTimer = Math.max(batRehangCooldownTimer, Bird.BAT_REHANG_COOLDOWN_FRAMES);
+        if (wasHanging && grantAmbush && type == BirdGame3.BirdType.BAT) {
+            batAmbushWindowTimer = BAT_AMBUSH_WINDOW_FRAMES;
+        }
+    }
+
+    private void beginBatHang(Platform hangable) {
+        batHanging = true;
+        batHangPlatform = hangable;
+        batHangLockTimer = 14; // prevents immediate unlatch from the same jump press
+        batRehangCooldownTimer = 0;
+        vx *= 0.35;
+        vy = 0;
+        attackAnimationTimer = 0;
+        clearAerialAttackState();
+        landingLagTimer = 0;
+        y = hangable.y + hangable.h + 2;
+        canDoubleJump = true;
+        refreshAirDodge();
     }
 
     private Platform findBatHangablePlatform() {
@@ -15095,6 +15819,8 @@ public class Bird {
                     ? canConvertShieldIntoVultureDownSpecial()
                     : type == BirdGame3.BirdType.TITMOUSE
                     ? selectTitmouseSpecialVariant() == TitmouseSpecialVariant.DOWN && isBlocking && shieldStunFrames <= 0
+                    : type == BirdGame3.BirdType.BAT
+                    ? canConvertShieldIntoBatDownSpecial()
                     : isOpiumEchoPair()
                     ? canConvertShieldIntoOpiumDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
@@ -15124,6 +15850,8 @@ public class Bird {
                     ? canStartVultureSpecial()
                     : type == BirdGame3.BirdType.TITMOUSE
                     ? canStartTitmouseSpecial()
+                    : type == BirdGame3.BirdType.BAT
+                    ? canStartBatSpecial()
                     : isOpiumEchoPair()
                     ? canStartOpiumSpecial()
                     : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
@@ -15140,6 +15868,7 @@ public class Bird {
                         && type != BirdGame3.BirdType.GRINCHHAWK
                         && type != BirdGame3.BirdType.VULTURE
                         && type != BirdGame3.BirdType.TITMOUSE
+                        && type != BirdGame3.BirdType.BAT
                         && !isOpiumEchoPair()))) {
                     cooldownFlash = 15;
                 }
@@ -15758,6 +16487,7 @@ public class Bird {
             interruptShoebillSpecialStateOnHit();
             interruptVultureSpecialStateOnHit();
             interruptTitmouseSpecialStateOnHit();
+            interruptBatSpecialStateOnHit();
             interruptOpiumSpecialStateOnHit();
         }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
@@ -17625,6 +18355,20 @@ public class Bird {
         heisenBrittleUltimate = false;
         hoverRegenMultiplier = 1.0;
         batEchoTimer = 0;
+        batNeutralReuseTimer = 0;
+        batWingcutReuseTimer = 0;
+        batSilentReuseTimer = 0;
+        batMoonriseUsed = false;
+        batAmbushWindowTimer = 0;
+        batEchoFxStartX = 0.0;
+        batEchoFxStartY = 0.0;
+        batEchoFxMidX = 0.0;
+        batEchoFxMidY = 0.0;
+        batEchoFxEndX = 0.0;
+        batEchoFxEndY = 0.0;
+        batEchoFxBounced = false;
+        batEchoFxUltimate = false;
+        resetBatSpecialState(true);
         batHanging = false;
         batHangPlatform = null;
         batHangLockTimer = 0;
@@ -17839,6 +18583,38 @@ public class Bird {
         state.plungeTimer = plungeTimer;
         state.batHanging = batHanging;
         state.batEchoTimer = batEchoTimer;
+        state.batNeutralReuseTimer = batNeutralReuseTimer;
+        state.batWingcutTimer = batWingcutTimer;
+        state.batWingcutReuseTimer = batWingcutReuseTimer;
+        state.batWingcutDirection = batWingcutDirection;
+        state.batWingcutUltimate = batWingcutUltimate;
+        state.batWingcutAmbush = batWingcutAmbush;
+        System.arraycopy(batWingcutHit, 0, state.batWingcutHit, 0, batWingcutHit.length);
+        state.batMoonriseTimer = batMoonriseTimer;
+        state.batMoonriseUsed = batMoonriseUsed;
+        state.batMoonriseUltimate = batMoonriseUltimate;
+        state.batMoonriseBurstResolved = batMoonriseBurstResolved;
+        state.batMoonriseAmbush = batMoonriseAmbush;
+        System.arraycopy(batMoonriseHit, 0, state.batMoonriseHit, 0, batMoonriseHit.length);
+        state.batSilentStallTimer = batSilentStallTimer;
+        state.batSilentDiveTimer = batSilentDiveTimer;
+        state.batSilentReuseTimer = batSilentReuseTimer;
+        state.batSilentFromHang = batSilentFromHang;
+        state.batSilentUltimate = batSilentUltimate;
+        state.batSilentAmbush = batSilentAmbush;
+        System.arraycopy(batSilentHit, 0, state.batSilentHit, 0, batSilentHit.length);
+        state.batAmbushWindowTimer = batAmbushWindowTimer;
+        state.batCathedralTimer = batCathedralTimer;
+        state.batCathedralPulseCooldown = batCathedralPulseCooldown;
+        state.batCathedralWaveIndex = batCathedralWaveIndex;
+        state.batEchoFxStartX = batEchoFxStartX;
+        state.batEchoFxStartY = batEchoFxStartY;
+        state.batEchoFxMidX = batEchoFxMidX;
+        state.batEchoFxMidY = batEchoFxMidY;
+        state.batEchoFxEndX = batEchoFxEndX;
+        state.batEchoFxEndY = batEchoFxEndY;
+        state.batEchoFxBounced = batEchoFxBounced;
+        state.batEchoFxUltimate = batEchoFxUltimate;
         state.batRehangCooldownTimer = batRehangCooldownTimer;
         state.ledgeHanging = ledgeHanging;
         state.ledgeGrabOnRightSide = ledgeGrabOnRightSide;
@@ -18231,6 +19007,50 @@ public class Bird {
         this.plungeTimer = state.plungeTimer;
         this.batHanging = state.batHanging;
         this.batEchoTimer = state.batEchoTimer;
+        this.batNeutralReuseTimer = Math.max(0, state.batNeutralReuseTimer);
+        this.batWingcutTimer = Math.max(0, state.batWingcutTimer);
+        this.batWingcutReuseTimer = Math.max(0, state.batWingcutReuseTimer);
+        this.batWingcutDirection = state.batWingcutDirection == 0 ? facingDirection() : state.batWingcutDirection;
+        this.batWingcutUltimate = state.batWingcutUltimate;
+        this.batWingcutAmbush = state.batWingcutAmbush;
+        Arrays.fill(this.batWingcutHit, false);
+        if (state.batWingcutHit != null) {
+            System.arraycopy(state.batWingcutHit, 0, this.batWingcutHit, 0,
+                    Math.min(this.batWingcutHit.length, state.batWingcutHit.length));
+        }
+        this.batMoonriseTimer = Math.max(0, state.batMoonriseTimer);
+        this.batMoonriseUsed = state.batMoonriseUsed;
+        this.batMoonriseUltimate = state.batMoonriseUltimate;
+        this.batMoonriseBurstResolved = state.batMoonriseBurstResolved;
+        this.batMoonriseAmbush = state.batMoonriseAmbush;
+        Arrays.fill(this.batMoonriseHit, false);
+        if (state.batMoonriseHit != null) {
+            System.arraycopy(state.batMoonriseHit, 0, this.batMoonriseHit, 0,
+                    Math.min(this.batMoonriseHit.length, state.batMoonriseHit.length));
+        }
+        this.batSilentStallTimer = Math.max(0, state.batSilentStallTimer);
+        this.batSilentDiveTimer = Math.max(0, state.batSilentDiveTimer);
+        this.batSilentReuseTimer = Math.max(0, state.batSilentReuseTimer);
+        this.batSilentFromHang = state.batSilentFromHang;
+        this.batSilentUltimate = state.batSilentUltimate;
+        this.batSilentAmbush = state.batSilentAmbush;
+        Arrays.fill(this.batSilentHit, false);
+        if (state.batSilentHit != null) {
+            System.arraycopy(state.batSilentHit, 0, this.batSilentHit, 0,
+                    Math.min(this.batSilentHit.length, state.batSilentHit.length));
+        }
+        this.batAmbushWindowTimer = Math.max(0, state.batAmbushWindowTimer);
+        this.batCathedralTimer = Math.max(0, state.batCathedralTimer);
+        this.batCathedralPulseCooldown = Math.max(0, state.batCathedralPulseCooldown);
+        this.batCathedralWaveIndex = Math.max(0, state.batCathedralWaveIndex);
+        this.batEchoFxStartX = state.batEchoFxStartX;
+        this.batEchoFxStartY = state.batEchoFxStartY;
+        this.batEchoFxMidX = state.batEchoFxMidX;
+        this.batEchoFxMidY = state.batEchoFxMidY;
+        this.batEchoFxEndX = state.batEchoFxEndX;
+        this.batEchoFxEndY = state.batEchoFxEndY;
+        this.batEchoFxBounced = state.batEchoFxBounced;
+        this.batEchoFxUltimate = state.batEchoFxUltimate;
         this.batRehangCooldownTimer = state.batRehangCooldownTimer;
         this.ledgeHanging = state.ledgeHanging;
         this.ledgeGrabOnRightSide = state.ledgeGrabOnRightSide;
@@ -20575,16 +21395,53 @@ public class Bird {
     }
 
     private void drawBatEcho(GraphicsContext g, double drawSize) {
-        if ((type != BirdGame3.BirdType.BAT && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.BAT)) || batEchoTimer <= 0) return;
-        double pulse = 0.5 + 0.5 * Math.sin((150 - batEchoTimer) * 0.33);
-        g.setStroke(Color.CYAN.deriveColor(0, 1, 1, 0.6));
-        g.setLineWidth(4);
-        for (int i = 0; i < 3; i++) {
-            double r = 70 + i * 48 + pulse * 18;
-            g.strokeOval(x + 40 - r, y + 40 - r, r * 2, r * 2);
+        boolean copiedBatNeutral = mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.BAT);
+        if (type != BirdGame3.BirdType.BAT && !copiedBatNeutral) return;
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        if (batEchoTimer > 0) {
+            double ratio = batEchoTimer / (double) BAT_ECHO_FX_FRAMES;
+            Color base = batEchoFxUltimate ? Color.GOLD : Color.CYAN.brighter();
+            g.setStroke(base.deriveColor(0, 1, 1, 0.34 + ratio * 0.48));
+            g.setLineWidth((batEchoFxUltimate ? 9.0 : 6.0) * sizeMultiplier);
+            g.strokeLine(batEchoFxStartX, batEchoFxStartY, batEchoFxMidX, batEchoFxMidY);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.34 + ratio * 0.44));
+            g.setLineWidth((batEchoFxUltimate ? 3.4 : 2.5) * sizeMultiplier);
+            g.strokeLine(batEchoFxStartX, batEchoFxStartY, batEchoFxMidX, batEchoFxMidY);
+            if (batEchoFxBounced) {
+                g.setStroke((batEchoFxUltimate ? Color.GOLD : Color.MEDIUMPURPLE.brighter())
+                        .deriveColor(0, 1, 1, 0.38 + ratio * 0.46));
+                g.setLineWidth((batEchoFxUltimate ? 10.0 : 7.0) * sizeMultiplier);
+                g.strokeLine(batEchoFxMidX, batEchoFxMidY, batEchoFxEndX, batEchoFxEndY);
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.32 + ratio * 0.44));
+                g.setLineWidth((batEchoFxUltimate ? 3.6 : 2.8) * sizeMultiplier);
+                g.strokeLine(batEchoFxMidX, batEchoFxMidY, batEchoFxEndX, batEchoFxEndY);
+            }
         }
-        g.setFill(Color.MEDIUMPURPLE.deriveColor(0, 1, 1, 0.4));
-        g.fillOval(x - 20, y - 20, drawSize + 40, drawSize + 40);
+
+        if (type == BirdGame3.BirdType.BAT && batCathedralTimer > 0) {
+            double pulse = 0.5 + 0.5 * Math.sin((BAT_CATHEDRAL_FRAMES - batCathedralTimer) * 0.24);
+            double radius = (74.0 + pulse * 18.0) * sizeMultiplier;
+            g.setStroke(Color.GOLD.deriveColor(0, 1, 1, 0.34 + pulse * 0.24));
+            g.setLineWidth(4.0 * sizeMultiplier);
+            g.strokeOval(bodyCenterX() - radius, bodyCenterY() - radius, radius * 2.0, radius * 2.0);
+            g.setStroke(Color.CYAN.deriveColor(0, 1, 1, 0.22 + pulse * 0.18));
+            g.setLineWidth(2.2 * sizeMultiplier);
+            g.strokeOval(bodyCenterX() - radius * 1.34, bodyCenterY() - radius * 1.34,
+                    radius * 2.68, radius * 2.68);
+        }
+
+        if (type == BirdGame3.BirdType.BAT && batAmbushWindowTimer > 0) {
+            double pulse = 0.5 + 0.5 * Math.sin(batAmbushWindowTimer * 0.32);
+            g.setStroke(Color.MEDIUMPURPLE.brighter().deriveColor(0, 1, 1, 0.24 + pulse * 0.22));
+            g.setLineWidth(2.0 * sizeMultiplier);
+            g.strokeOval(x - 14.0 * sizeMultiplier, y - 14.0 * sizeMultiplier,
+                    drawSize + 28.0 * sizeMultiplier, drawSize + 28.0 * sizeMultiplier);
+        }
+
+        g.restore();
     }
 
     private void drawBlockingShield(GraphicsContext g, double drawSize) {

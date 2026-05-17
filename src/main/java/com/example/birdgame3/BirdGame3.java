@@ -9266,7 +9266,7 @@ public class BirdGame3 extends Application {
         VULTURE("Vulture", 7, 14, 3.1, Color.rgb(45, 25, 55), 0.2, "Summon Crows + Feast"),
         OPIUMBIRD("Opium Bird", 7, 19, 4.4, Color.rgb(138, 43, 226), 0.7, "Lean Cloud + Haze Drift + Rising Vapors + Lotus Patch"),
         TITMOUSE("Tufted Titmouse", 6, 21, 5.4, Color.SLATEGRAY, 0.9, "Scold Chorus / Barkskip / Tuft Vault / Seed Stash"),
-        BAT("Bat", 7, 14, 3.7, Color.rgb(55, 35, 85), 0.65, "Sonar Screech + Ceiling Hang"),
+        BAT("Bat", 7, 14, 3.7, Color.rgb(55, 35, 85), 0.65, "Echo Lance / Wingcut / Moonrise / Silent Descent + Ceiling Hang"),
         PELICAN("Pelican", 11, 9, 2.9, Color.rgb(245, 220, 180), 0.84, "Pelican Plunge + Glide"),
         HEISENBIRD("Heisenbird", 7, 18, 4.6, Color.web("#D7D1C5"), 0.68, "Echo of Opium: Crystal Cloud + Blue Rush + Crystal Column + Glass Cook"),
         RAVEN("Raven", 8, 18, 4.3, Color.web("#1C1F26"), 0.72, "Shadow Warp (blink strike + short haste)");

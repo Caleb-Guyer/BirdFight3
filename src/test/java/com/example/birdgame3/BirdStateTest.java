@@ -3453,6 +3453,157 @@ class BirdStateTest {
     }
 
     @Test
+    void batEchoLanceBouncesIntoTargetsOffPlatforms() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird bat = new Bird(200.0, BirdGame3.BirdType.BAT, 0, game);
+        Bird target = new Bird(300.0, BirdGame3.BirdType.PIGEON, 1, game);
+        bat.y = 200.0;
+        target.y = 230.0;
+        bat.facingRight = true;
+        bat.batHanging = true;
+        game.players[0] = bat;
+        game.players[1] = target;
+        game.platforms.add(new Platform(170.0, 360.0, 260.0, 24.0));
+
+        invokePrivateBooleanVoid(bat, "specialBatNeutral", false);
+
+        assertTrue(getPrivateBoolean(bat, "batEchoFxBounced"),
+                "Echo Lance should record a platform ricochet.");
+        assertTrue(target.health <= Bird.STARTING_HEALTH - 13.0,
+                "The rebound lane should land the stronger bounced Echo Lance hit.");
+    }
+
+    @Test
+    void batWingcutCanSnapIntoCeilingHang() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Platform ceiling = new Platform(160.0, 300.0, 420.0, 40.0);
+        game.platforms.add(ceiling);
+
+        Bird bat = new Bird(220.0, BirdGame3.BirdType.BAT, 0, game);
+        bat.y = ceiling.y + ceiling.h + 28.0;
+        bat.facingRight = true;
+        game.players[0] = bat;
+
+        invokePrivateBooleanVoid(bat, "specialBatWingcut", false);
+        bat.update(1.0);
+
+        assertTrue(bat.batHanging,
+                "Wingcut should convert an underside touch into Ceiling Hang.");
+        assertEquals(0, getPrivateInt(bat, "batWingcutTimer"));
+    }
+
+    @Test
+    void batMoonriseIsOncePerAirtimeRecovery() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bat = new Bird(240.0, BirdGame3.BirdType.BAT, 0, game);
+        bat.y = BirdGame3.GROUND_Y - 260.0;
+        game.players[0] = bat;
+
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        invokePrivateVoid(bat, "special");
+
+        assertTrue(getPrivateBoolean(bat, "batMoonriseUsed"));
+        assertTrue(bat.vy < -18.0,
+                "Moonrise should give Bat a strong vertical recovery.");
+
+        setPrivateInt(bat, "batMoonriseTimer", 0);
+        bat.vy = 0.0;
+        invokePrivateVoid(bat, "special");
+
+        assertEquals(0.0, bat.vy, 0.0001,
+                "Moonrise should not restart before Bat lands.");
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        bat.y = BirdGame3.GROUND_Y - 10.0;
+        bat.update(1.0);
+
+        assertFalse(getPrivateBoolean(bat, "batMoonriseUsed"),
+                "Landing should refresh Bat's up special.");
+    }
+
+    @Test
+    void batCeilingReleaseEmpowersNextAerial() throws Exception {
+        double baselineDamage = batForwardAirDamageAfterCeilingRelease(false);
+        double ambushDamage = batForwardAirDamageAfterCeilingRelease(true);
+
+        assertTrue(ambushDamage > baselineDamage,
+                "Dropping from Ceiling Hang should empower Bat's next aerial attack.");
+    }
+
+    @Test
+    void batSilentDescentFromHangMeteorsTargetsBelow() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird bat = new Bird(260.0, BirdGame3.BirdType.BAT, 0, game);
+        Bird target = new Bird(262.0, BirdGame3.BirdType.PIGEON, 1, game);
+        bat.y = 240.0;
+        target.y = 338.0;
+        bat.batHanging = true;
+        game.players[0] = bat;
+        game.players[1] = target;
+
+        invokePrivateBooleanVoid(bat, "specialBatSilentDescent", false);
+        for (int i = 0; i < 8; i++) {
+            bat.update(1.0);
+        }
+
+        assertTrue(target.health < Bird.STARTING_HEALTH,
+                "Silent Descent should hit targets underneath Bat.");
+        assertTrue(target.vy > 0.0,
+                "Starting Silent Descent from Ceiling Hang should meteor targets downward.");
+    }
+
+    @Test
+    void batCathedralEchoStartsLingeringUltimateState() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird bat = new Bird(220.0, BirdGame3.BirdType.BAT, 0, game);
+        Bird target = new Bird(312.0, BirdGame3.BirdType.PIGEON, 1, game);
+        bat.y = target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = bat;
+        game.players[1] = target;
+
+        invokePrivateVoid(bat, "specialBatCathedralEcho");
+
+        assertTrue(getPrivateInt(bat, "batCathedralTimer") > 0,
+                "Cathedral Echo should persist after activation.");
+        assertTrue(target.health < Bird.STARTING_HEALTH,
+                "Cathedral Echo should open with an outward burst.");
+        assertTrue(getPrivateInt(bat, "batCathedralWaveIndex") > 0,
+                "Cathedral Echo should immediately begin its pulse sequence.");
+    }
+
+    private static double batForwardAirDamageAfterCeilingRelease(boolean releaseFromHang) throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird bat = new Bird(220.0, BirdGame3.BirdType.BAT, 0, game);
+        Bird target = new Bird(332.0, BirdGame3.BirdType.PIGEON, 1, game);
+        bat.y = target.y = BirdGame3.GROUND_Y - 260.0;
+        bat.facingRight = true;
+        game.players[0] = bat;
+        game.players[1] = target;
+
+        if (releaseFromHang) {
+            bat.batHanging = true;
+            invokePrivateVoid(bat, "releaseBatHang");
+        }
+
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
+        bat.update(1.0);
+
+        return Bird.STARTING_HEALTH - target.health;
+    }
+
+    @Test
     void birdsUniversallyGrabNearbyLedges() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;

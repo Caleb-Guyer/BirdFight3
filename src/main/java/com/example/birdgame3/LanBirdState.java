@@ -170,6 +170,38 @@ class LanBirdState {
     int plungeTimer;
     boolean batHanging;
     int batEchoTimer;
+    int batNeutralReuseTimer;
+    int batWingcutTimer;
+    int batWingcutReuseTimer;
+    int batWingcutDirection;
+    boolean batWingcutUltimate;
+    boolean batWingcutAmbush;
+    boolean[] batWingcutHit = new boolean[4];
+    int batMoonriseTimer;
+    boolean batMoonriseUsed;
+    boolean batMoonriseUltimate;
+    boolean batMoonriseBurstResolved;
+    boolean batMoonriseAmbush;
+    boolean[] batMoonriseHit = new boolean[4];
+    int batSilentStallTimer;
+    int batSilentDiveTimer;
+    int batSilentReuseTimer;
+    boolean batSilentFromHang;
+    boolean batSilentUltimate;
+    boolean batSilentAmbush;
+    boolean[] batSilentHit = new boolean[4];
+    int batAmbushWindowTimer;
+    int batCathedralTimer;
+    int batCathedralPulseCooldown;
+    int batCathedralWaveIndex;
+    double batEchoFxStartX;
+    double batEchoFxStartY;
+    double batEchoFxMidX;
+    double batEchoFxMidY;
+    double batEchoFxEndX;
+    double batEchoFxEndY;
+    boolean batEchoFxBounced;
+    boolean batEchoFxUltimate;
     int batRehangCooldownTimer;
     boolean ledgeHanging;
     boolean ledgeGrabOnRightSide;
@@ -525,6 +557,44 @@ class LanBirdState {
         out.writeInt(plungeTimer);
         out.writeBoolean(batHanging);
         out.writeInt(batEchoTimer);
+        out.writeInt(batNeutralReuseTimer);
+        out.writeInt(batWingcutTimer);
+        out.writeInt(batWingcutReuseTimer);
+        out.writeInt(batWingcutDirection);
+        out.writeBoolean(batWingcutUltimate);
+        out.writeBoolean(batWingcutAmbush);
+        for (boolean hit : batWingcutHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(batMoonriseTimer);
+        out.writeBoolean(batMoonriseUsed);
+        out.writeBoolean(batMoonriseUltimate);
+        out.writeBoolean(batMoonriseBurstResolved);
+        out.writeBoolean(batMoonriseAmbush);
+        for (boolean hit : batMoonriseHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(batSilentStallTimer);
+        out.writeInt(batSilentDiveTimer);
+        out.writeInt(batSilentReuseTimer);
+        out.writeBoolean(batSilentFromHang);
+        out.writeBoolean(batSilentUltimate);
+        out.writeBoolean(batSilentAmbush);
+        for (boolean hit : batSilentHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(batAmbushWindowTimer);
+        out.writeInt(batCathedralTimer);
+        out.writeInt(batCathedralPulseCooldown);
+        out.writeInt(batCathedralWaveIndex);
+        out.writeDouble(batEchoFxStartX);
+        out.writeDouble(batEchoFxStartY);
+        out.writeDouble(batEchoFxMidX);
+        out.writeDouble(batEchoFxMidY);
+        out.writeDouble(batEchoFxEndX);
+        out.writeDouble(batEchoFxEndY);
+        out.writeBoolean(batEchoFxBounced);
+        out.writeBoolean(batEchoFxUltimate);
         out.writeInt(batRehangCooldownTimer);
         out.writeBoolean(ledgeHanging);
         out.writeBoolean(ledgeGrabOnRightSide);
@@ -900,6 +970,44 @@ class LanBirdState {
         state.plungeTimer = in.readInt();
         state.batHanging = in.readBoolean();
         state.batEchoTimer = in.readInt();
+        state.batNeutralReuseTimer = in.readInt();
+        state.batWingcutTimer = in.readInt();
+        state.batWingcutReuseTimer = in.readInt();
+        state.batWingcutDirection = in.readInt();
+        state.batWingcutUltimate = in.readBoolean();
+        state.batWingcutAmbush = in.readBoolean();
+        for (int i = 0; i < state.batWingcutHit.length; i++) {
+            state.batWingcutHit[i] = in.readBoolean();
+        }
+        state.batMoonriseTimer = in.readInt();
+        state.batMoonriseUsed = in.readBoolean();
+        state.batMoonriseUltimate = in.readBoolean();
+        state.batMoonriseBurstResolved = in.readBoolean();
+        state.batMoonriseAmbush = in.readBoolean();
+        for (int i = 0; i < state.batMoonriseHit.length; i++) {
+            state.batMoonriseHit[i] = in.readBoolean();
+        }
+        state.batSilentStallTimer = in.readInt();
+        state.batSilentDiveTimer = in.readInt();
+        state.batSilentReuseTimer = in.readInt();
+        state.batSilentFromHang = in.readBoolean();
+        state.batSilentUltimate = in.readBoolean();
+        state.batSilentAmbush = in.readBoolean();
+        for (int i = 0; i < state.batSilentHit.length; i++) {
+            state.batSilentHit[i] = in.readBoolean();
+        }
+        state.batAmbushWindowTimer = in.readInt();
+        state.batCathedralTimer = in.readInt();
+        state.batCathedralPulseCooldown = in.readInt();
+        state.batCathedralWaveIndex = in.readInt();
+        state.batEchoFxStartX = in.readDouble();
+        state.batEchoFxStartY = in.readDouble();
+        state.batEchoFxMidX = in.readDouble();
+        state.batEchoFxMidY = in.readDouble();
+        state.batEchoFxEndX = in.readDouble();
+        state.batEchoFxEndY = in.readDouble();
+        state.batEchoFxBounced = in.readBoolean();
+        state.batEchoFxUltimate = in.readBoolean();
         state.batRehangCooldownTimer = in.readInt();
         state.ledgeHanging = in.readBoolean();
         state.ledgeGrabOnRightSide = in.readBoolean();

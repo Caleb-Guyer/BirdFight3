@@ -107,6 +107,17 @@ class LanProtocolTest {
         state.heisenBrittleTimer = 88;
         state.heisenBrittleOwnerIndex = 3;
         state.heisenBrittleUltimate = true;
+        state.batNeutralReuseTimer = 17;
+        state.batWingcutTimer = 9;
+        state.batWingcutDirection = -1;
+        state.batWingcutHit[2] = true;
+        state.batMoonriseUsed = true;
+        state.batSilentDiveTimer = 12;
+        state.batSilentFromHang = true;
+        state.batSilentHit[1] = true;
+        state.batCathedralTimer = 144;
+        state.batEchoFxEndX = 777.25;
+        state.batEchoFxBounced = true;
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         state.write(new DataOutputStream(bos));
@@ -180,5 +191,16 @@ class LanProtocolTest {
         assertEquals(88, decoded.heisenBrittleTimer);
         assertEquals(3, decoded.heisenBrittleOwnerIndex);
         assertTrue(decoded.heisenBrittleUltimate);
+        assertEquals(17, decoded.batNeutralReuseTimer);
+        assertEquals(9, decoded.batWingcutTimer);
+        assertEquals(-1, decoded.batWingcutDirection);
+        assertTrue(decoded.batWingcutHit[2]);
+        assertTrue(decoded.batMoonriseUsed);
+        assertEquals(12, decoded.batSilentDiveTimer);
+        assertTrue(decoded.batSilentFromHang);
+        assertTrue(decoded.batSilentHit[1]);
+        assertEquals(144, decoded.batCathedralTimer);
+        assertEquals(777.25, decoded.batEchoFxEndX);
+        assertTrue(decoded.batEchoFxBounced);
     }
 }

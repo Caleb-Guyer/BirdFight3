@@ -71,6 +71,10 @@ class LanStateTest {
         bird.razorbillCounterUltimate = true;
         bird.razorbillCountered = true;
         bird.razorbillCounterAttemptActive = true;
+        bird.batWingcutTimer = 13;
+        bird.batMoonriseUsed = true;
+        bird.batSilentFromHang = true;
+        bird.batCathedralTimer = 77;
         bird.ultimateMeter = 44.0;
         state.birds[0] = bird;
 
@@ -174,6 +178,10 @@ class LanStateTest {
         assertTrue(decoded.birds[0].razorbillCounterUltimate);
         assertTrue(decoded.birds[0].razorbillCountered);
         assertTrue(decoded.birds[0].razorbillCounterAttemptActive);
+        assertEquals(13, decoded.birds[0].batWingcutTimer);
+        assertTrue(decoded.birds[0].batMoonriseUsed);
+        assertTrue(decoded.birds[0].batSilentFromHang);
+        assertEquals(77, decoded.birds[0].batCathedralTimer);
         assertEquals(44.0, decoded.birds[0].ultimateMeter);
         assertEquals(1, decoded.powerUps.size());
         assertEquals(200.0, decoded.powerUps.getFirst().x);
