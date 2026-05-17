@@ -154,6 +154,13 @@ public class Bird {
         DOWN
     }
 
+    private enum TitmouseSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record NormalAttackProfile(
             double horizontalReach,
             double verticalReach,
@@ -257,7 +264,47 @@ public class Bird {
     public double loungeX, loungeY;
     public int diveTimer = 0;
 
-    // === TITMOUSE ZIP DASH ===
+    // === TITMOUSE ===
+    private static final int TITMOUSE_SCOLD_ACTIVE_FRAMES = 14;
+    private static final int TITMOUSE_SCOLD_REUSE_FRAMES = 34;
+    private static final int TITMOUSE_MARK_FRAMES = 220;
+    private static final int TITMOUSE_BARKSKIP_FRAMES = 18;
+    private static final int TITMOUSE_BARKSKIP_REUSE_FRAMES = 38;
+    private static final int TITMOUSE_VAULT_FRAMES = 22;
+    private static final int TITMOUSE_VAULT_REUSE_FRAMES = 14;
+    private static final int TITMOUSE_STASH_REUSE_FRAMES = 28;
+    private static final int TITMOUSE_STASH_LIFE_FRAMES = 780;
+    private static final int TITMOUSE_MAX_STASHES = 3;
+    private static final int TITMOUSE_STASH_HOLD_FRAMES = 18;
+    private static final int TITMOUSE_MOBBING_STEP_FRAMES = 8;
+    private int titmouseScoldTimer = 0;
+    private int titmouseScoldReuseTimer = 0;
+    private boolean titmouseScoldUltimate = false;
+    private final boolean[] titmouseScoldHit = new boolean[4];
+    private int titmouseBarkskipTimer = 0;
+    private int titmouseBarkskipReuseTimer = 0;
+    private int titmouseBarkskipDirection = 1;
+    private boolean titmouseBarkskipUltimate = false;
+    private boolean titmouseBarkskipRebounded = false;
+    private final boolean[] titmouseBarkskipHit = new boolean[4];
+    private int titmouseVaultTimer = 0;
+    private int titmouseVaultReuseTimer = 0;
+    private boolean titmouseVaultUsed = false;
+    private boolean titmouseVaultUltimate = false;
+    private boolean titmouseVaultBoosted = false;
+    private final boolean[] titmouseVaultHit = new boolean[4];
+    private int titmouseStashReuseTimer = 0;
+    private boolean titmouseStashCharging = false;
+    private int titmouseStashHoldFrames = 0;
+    private boolean titmouseStashUltimate = false;
+    private final ArrayList<TitmouseSeedStash> titmouseSeedStashes = new ArrayList<>();
+    private int titmouseMarkedTimer = 0;
+    private int titmouseMarkedOwnerIndex = -1;
+    private boolean titmouseMarkedUltimate = false;
+    private final ArrayList<TitmouseMobbingNode> titmouseMobbingNodes = new ArrayList<>();
+    private int titmouseMobbingTimer = 0;
+    private int titmouseMobbingNodeIndex = 0;
+
     public boolean isZipping = false;
     public double zipTargetX = 0;
     public double zipTargetY = 0;
@@ -1009,6 +1056,33 @@ public class Bird {
         }
     }
 
+    private static final class TitmouseSeedStash {
+        final double x;
+        final double y;
+        final boolean ultimate;
+        int lifeFrames;
+        int ageFrames;
+
+        TitmouseSeedStash(double x, double y, boolean ultimate) {
+            this.x = x;
+            this.y = y;
+            this.ultimate = ultimate;
+            this.lifeFrames = ultimate ? TITMOUSE_STASH_LIFE_FRAMES + 180 : TITMOUSE_STASH_LIFE_FRAMES;
+        }
+    }
+
+    private static final class TitmouseMobbingNode {
+        final double x;
+        final double y;
+        final Bird target;
+
+        TitmouseMobbingNode(double x, double y, Bird target) {
+            this.x = x;
+            this.y = y;
+            this.target = target;
+        }
+    }
+
     private static final class RoadrunnerPaintedRoad {
         final double x;
         final double y;
@@ -1607,6 +1681,7 @@ public class Bird {
         crowSwarmCooldown = 0;
         leanCooldown = 0;
         opiumNeutralReuseTimer = 0;
+        titmouseScoldReuseTimer = 0;
     }
 
     private void resetMockingbirdCopiedNeutralRuntime() {
@@ -1640,10 +1715,7 @@ public class Bird {
                 leanTimer = 0;
                 opiumNeutralFueled = false;
             }
-            case TITMOUSE -> {
-                isZipping = false;
-                zipTimer = 0;
-            }
+            case TITMOUSE -> resetTitmouseSpecialState(false);
             case BAT -> batEchoTimer = 0;
             case PELICAN -> {
                 plungeTimer = 0;
@@ -3088,6 +3160,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE && !canStartVultureSpecial()) {
             return;
         }
+        if (type == BirdGame3.BirdType.TITMOUSE && !canStartTitmouseSpecial()) {
+            return;
+        }
         if (isOpiumEchoPair() && !canStartOpiumSpecial()) {
             return;
         }
@@ -3115,6 +3190,7 @@ public class Bird {
                 && type != BirdGame3.BirdType.RAZORBILL
                 && type != BirdGame3.BirdType.GRINCHHAWK
                 && type != BirdGame3.BirdType.VULTURE
+                && type != BirdGame3.BirdType.TITMOUSE
                 && !isOpiumEchoPair()
                 && specialCooldown > 0
                 && !ultimateReady) {
@@ -3181,7 +3257,13 @@ public class Bird {
                     specialHeisenbird(selectOpiumSpecialVariant(), false);
                 }
             }
-            case TITMOUSE -> specialTitmouse(ultimateTriggered);
+            case TITMOUSE -> {
+                if (ultimateTriggered) {
+                    specialTitmouseMobbingRun();
+                } else {
+                    specialTitmouse(selectTitmouseSpecialVariant(), false);
+                }
+            }
             case BAT -> specialBat(ultimateTriggered);
             case PELICAN -> specialPelican(ultimateTriggered);
             case RAVEN -> specialRaven(ultimateTriggered);
@@ -7178,7 +7260,7 @@ public class Bird {
                 case VULTURE -> specialVultureCarrionCall(ultimate);
                 case OPIUMBIRD -> specialOpiumNeutral(ultimate);
                 case HEISENBIRD -> specialHeisenNeutral(ultimate);
-                case TITMOUSE -> specialTitmouse(ultimate);
+                case TITMOUSE -> specialTitmouseScoldChorus(ultimate);
                 case BAT -> specialBat(ultimate);
                 case PELICAN -> specialPelican(ultimate);
                 case RAVEN -> specialRaven(ultimate);
@@ -8940,47 +9022,282 @@ public class Bird {
         }
     }
 
-    private void specialTitmouse(boolean ultimate) {
-        Bird target = null;
-        double bestDist = Double.MAX_VALUE;
-        for (Bird b : game.players) {
-            if (!canDamageTarget(b)) continue;
-            double d = Math.hypot(b.x - x, b.y - y);
-            if (d < bestDist) {
-                bestDist = d;
-                target = b;
-            }
+    private void specialTitmouse(TitmouseSpecialVariant variant, boolean ultimate) {
+        switch (variant) {
+            case NEUTRAL -> specialTitmouseScoldChorus(ultimate);
+            case SIDE -> specialTitmouseBarkskip(ultimate);
+            case UP -> specialTitmouseTuftVault(ultimate);
+            case DOWN -> specialTitmouseSeedStash(ultimate);
         }
-        if (target == null) {
-            game.addToKillFeed(shortName() + (ultimate ? " tried ULT ZIP... but no target!" : " tried to ZIP... but no target!"));
-            specialCooldown = 240;
-            specialMaxCooldown = 240;
+    }
+
+    private void specialTitmouseScoldChorus(boolean ultimate) {
+        titmouseScoldTimer = ultimate ? TITMOUSE_SCOLD_ACTIVE_FRAMES + 4 : TITMOUSE_SCOLD_ACTIVE_FRAMES;
+        titmouseScoldReuseTimer = ultimate ? 10 : TITMOUSE_SCOLD_REUSE_FRAMES;
+        titmouseScoldUltimate = ultimate;
+        Arrays.fill(titmouseScoldHit, false);
+        attackAnimationTimer = Math.max(attackAnimationTimer, titmouseScoldTimer + 3);
+        vx *= isOnGround() ? 0.55 : 0.72;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        if (ultimate) {
+            game.addToKillFeed(shortName() + " raised a golden Scold Chorus!");
+        }
+        emitTitmouseBurst(bodyCenterX(), bodyCenterY() - 8.0 * sizeMultiplier,
+                ultimate ? 28 : 18,
+                ultimate ? Color.GOLD : Color.web("#CFD8DC"));
+    }
+
+    private void specialTitmouseBarkskip(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        titmouseBarkskipDirection = dir;
+        titmouseBarkskipUltimate = ultimate;
+        titmouseBarkskipTimer = ultimate ? TITMOUSE_BARKSKIP_FRAMES + 4 : TITMOUSE_BARKSKIP_FRAMES;
+        titmouseBarkskipReuseTimer = ultimate ? 18 : TITMOUSE_BARKSKIP_REUSE_FRAMES;
+        Arrays.fill(titmouseBarkskipHit, false);
+        TitmouseSeedStash stash = preferredTitmouseRouteStash(dir, 230.0 * sizeMultiplier);
+        titmouseBarkskipRebounded = stash != null;
+        if (stash != null) {
+            x = stash.x - bodyWidth() * 0.5;
+            y = stash.y - bodyHeight();
+            vy = Math.min(vy, ultimate ? -11.0 : -8.0);
+            emitTitmouseBurst(stash.x, stash.y - 14.0, ultimate ? 24 : 16,
+                    ultimate ? Color.GOLD : Color.web("#90CAF9"));
+        } else {
+            vy *= 0.22;
+        }
+        vx = dir * (titmouseBarkskipRebounded
+                ? (ultimate ? 39.0 : 33.0)
+                : (ultimate ? 34.0 : 28.0));
+        attackAnimationTimer = Math.max(attackAnimationTimer, titmouseBarkskipTimer + 2);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
+    }
+
+    private void specialTitmouseTuftVault(boolean ultimate) {
+        if (titmouseVaultUsed && !ultimate) {
             return;
         }
+        titmouseVaultUsed = true;
+        titmouseVaultUltimate = ultimate;
+        titmouseVaultTimer = ultimate ? TITMOUSE_VAULT_FRAMES + 5 : TITMOUSE_VAULT_FRAMES;
+        titmouseVaultReuseTimer = ultimate ? 12 : TITMOUSE_VAULT_REUSE_FRAMES;
+        titmouseVaultBoosted = nearestTitmouseStash(150.0 * sizeMultiplier) != null;
+        Arrays.fill(titmouseVaultHit, false);
+        canDoubleJump = true;
+        vx *= 0.24;
+        vy = Math.min(vy, -(titmouseVaultBoosted
+                ? (ultimate ? 35.0 : 30.0)
+                : (ultimate ? 29.0 : 24.0)));
+        attackAnimationTimer = Math.max(attackAnimationTimer, titmouseVaultTimer);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        emitTitmouseBurst(bodyCenterX(), bodyBottomY() - 6.0 * sizeMultiplier,
+                titmouseVaultBoosted ? (ultimate ? 36 : 28) : (ultimate ? 28 : 20),
+                ultimate ? Color.GOLD : Color.web("#B0BEC5"));
+    }
 
-        isZipping = true;
-        zipTargetX = target.x;
-        zipTargetY = target.y;
-        zipTimer = 30;
-        if (ultimate) {
-            powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.35);
-            rageTimer = Math.max(rageTimer, 200);
+    private void specialTitmouseSeedStash(boolean ultimate) {
+        titmouseStashCharging = true;
+        titmouseStashHoldFrames = 0;
+        titmouseStashUltimate = ultimate;
+        titmouseStashReuseTimer = ultimate ? 16 : TITMOUSE_STASH_REUSE_FRAMES;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, TITMOUSE_STASH_HOLD_FRAMES + 4);
+    }
+
+    private void placeTitmouseSeedStash(boolean ultimate) {
+        while (titmouseSeedStashes.size() >= TITMOUSE_MAX_STASHES) {
+            titmouseSeedStashes.removeFirst();
         }
+        double stashX = bodyCenterX();
+        double stashY = titmouseStashSurfaceY(stashX);
+        titmouseSeedStashes.add(new TitmouseSeedStash(stashX, stashY, ultimate));
+        emitTitmouseBurst(stashX, stashY - 10.0, ultimate ? 20 : 14,
+                ultimate ? Color.GOLD : Color.web("#A1887F"));
+        if (ultimate) {
+            game.addToKillFeed(shortName() + " planted a golden Seed Stash!");
+        }
+    }
 
-        specialCooldown = 780;
-        specialMaxCooldown = 780;
+    private void specialTitmouseMobbingRun() {
+        titmouseMobbingNodes.clear();
+        ArrayList<TitmouseSeedStash> remaining = new ArrayList<>(titmouseSeedStashes);
+        double routeX = bodyCenterX();
+        double routeY = bodyCenterY();
+        while (!remaining.isEmpty()) {
+            TitmouseSeedStash next = null;
+            double nextDist = Double.MAX_VALUE;
+            for (TitmouseSeedStash stash : remaining) {
+                double dist = Math.hypot(stash.x - routeX, stash.y - routeY);
+                if (dist < nextDist) {
+                    nextDist = dist;
+                    next = stash;
+                }
+            }
+            if (next == null) break;
+            titmouseMobbingNodes.add(new TitmouseMobbingNode(next.x, next.y - bodyHeight(), null));
+            routeX = next.x;
+            routeY = next.y - bodyHeight();
+            remaining.remove(next);
+        }
+        Bird target = nearestMarkedTitmouseTarget();
+        if (target == null) {
+            target = nearestDamageableTarget();
+        }
+        if (target == null && titmouseMobbingNodes.isEmpty()) {
+            specialTitmouseScoldChorus(true);
+            return;
+        }
+        if (target != null) {
+            titmouseMobbingNodes.add(new TitmouseMobbingNode(target.bodyCenterX(), target.bodyCenterY(), target));
+        }
+        titmouseMobbingTimer = TITMOUSE_MOBBING_STEP_FRAMES;
+        titmouseMobbingNodeIndex = 0;
+        isZipping = true;
+        zipTimer = titmouseMobbingTimer;
+        attackAnimationTimer = Math.max(attackAnimationTimer,
+                TITMOUSE_MOBBING_STEP_FRAMES * Math.max(1, titmouseMobbingNodes.size()) + 6);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.22);
+        rageTimer = Math.max(rageTimer, 150);
+        game.addToKillFeed(shortName() + " launched MOBBING RUN!");
+    }
 
-        game.addToKillFeed(shortName() + (ultimate ? " ULT ZIPPED to " : " ZIPPED to ") + target.shortName() + "!");
+    private double titmouseStashSurfaceY(double stashX) {
+        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
+        double sourceY = bodyBottomY() - 20.0 * sizeMultiplier;
+        for (Platform p : game.platforms) {
+            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
+                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
+            if (isCaveCeiling) continue;
+            if (stashX < p.x - 20.0 || stashX > p.x + p.w + 20.0) continue;
+            if (p.y < sourceY - 16.0) continue;
+            if (p.y < bestY) {
+                bestY = p.y;
+            }
+        }
+        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+    }
 
-        int particleCount = scaledParticleCount(ultimate ? 80 : 50);
-        for (int i = 0; i < particleCount; i++) {
-            double offset = i * 8;
+    private TitmouseSeedStash nearestTitmouseStash(double maxDistance) {
+        TitmouseSeedStash best = null;
+        double bestDistance = maxDistance;
+        for (TitmouseSeedStash stash : titmouseSeedStashes) {
+            double dist = Math.hypot(stash.x - bodyCenterX(), stash.y - bodyBottomY());
+            if (dist <= bestDistance) {
+                bestDistance = dist;
+                best = stash;
+            }
+        }
+        return best;
+    }
+
+    private TitmouseSeedStash preferredTitmouseRouteStash(int dir, double maxDistance) {
+        TitmouseSeedStash best = null;
+        double bestScore = Double.POSITIVE_INFINITY;
+        double centerX = bodyCenterX();
+        double feetY = bodyBottomY();
+        for (TitmouseSeedStash stash : titmouseSeedStashes) {
+            double dx = stash.x - centerX;
+            double dy = stash.y - feetY;
+            double dist = Math.hypot(dx, dy);
+            if (dist > maxDistance) continue;
+            double forward = dx * dir;
+            double score = dist - Math.max(0.0, forward) * 0.28 + Math.max(0.0, -forward) * 0.42;
+            if (score < bestScore) {
+                bestScore = score;
+                best = stash;
+            }
+        }
+        return best != null ? best : nearestTitmouseStash(maxDistance);
+    }
+
+    private Bird nearestMarkedTitmouseTarget() {
+        Bird best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other) || !other.isTitmouseMarkedBy(this)) continue;
+            double dist = combatDistanceTo(other);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = other;
+            }
+        }
+        return best;
+    }
+
+    private Bird nearestDamageableTarget() {
+        Bird best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dist = combatDistanceTo(other);
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = other;
+            }
+        }
+        return best;
+    }
+
+    private void detonateTitmouseSeedStashes(boolean ultimate) {
+        if (titmouseSeedStashes.isEmpty()) {
+            return;
+        }
+        for (TitmouseSeedStash stash : titmouseSeedStashes) {
+            double radius = (ultimate || stash.ultimate ? 112.0 : 92.0) * sizeMultiplier;
+            for (Bird other : game.players) {
+                if (!canDamageTarget(other)) continue;
+                double dx = other.bodyCenterX() - stash.x;
+                double dy = other.bodyCenterY() - (stash.y - 18.0 * sizeMultiplier);
+                if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
+                boolean marked = other.isTitmouseMarkedBy(this);
+                int dmg = (ultimate || stash.ultimate ? 12 : 8) + (marked ? 4 : 0);
+                double oldHealth = other.health;
+                int dealt = (int) applyDamageTo(other, dmg);
+                if (dealt <= 0) continue;
+                game.damageDealt[playerIndex] += dealt;
+                game.recordSpecialImpact(playerIndex, dealt, true);
+                if (other.health <= 0 && oldHealth > 0) {
+                    game.eliminations[playerIndex]++;
+                }
+                double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
+                other.vx += dir * ((ultimate || stash.ultimate ? 14.0 : 10.0) + (marked ? 3.0 : 0.0));
+                other.vy -= (ultimate || stash.ultimate ? 11.0 : 8.0) + (marked ? 2.5 : 0.0);
+                if (marked) {
+                    other.applyStun(ultimate || stash.ultimate ? 14 : 9);
+                    emitTitmouseBurst(other.bodyCenterX(), other.bodyCenterY(),
+                            ultimate || stash.ultimate ? 18 : 12,
+                            ultimate || stash.ultimate ? Color.GOLD : Color.web("#64B5F6"));
+                }
+            }
+            emitTitmouseBurst(stash.x, stash.y - 12.0, ultimate || stash.ultimate ? 34 : 24,
+                    ultimate || stash.ultimate ? Color.GOLD : Color.web("#BCAAA4"));
+        }
+        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 10 : 6);
+        titmouseSeedStashes.clear();
+    }
+
+    private void emitTitmouseBurst(double originX, double originY, int count, Color color) {
+        for (int i = 0; i < scaledParticleCount(count); i++) {
+            double angle = Math.random() * Math.PI * 2.0;
+            double speed = 1.8 + Math.random() * 4.8;
             game.particles.add(new Particle(
-                    x + 40 - vx * offset / 10,
-                    y + 40 - vy * offset / 10,
-                    (Math.random() - 0.5) * 8,
-                    (Math.random() - 0.5) * 8 - 2,
-                    (ultimate ? Color.GOLD : Color.SKYBLUE).deriveColor(0, 1, 1, 0.8 - i / 60.0)
+                    originX,
+                    originY,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 1.5,
+                    color.deriveColor(0, 1, 1, 0.78)
             ));
         }
     }
@@ -9524,6 +9841,40 @@ public class Bird {
                 && roadrunnerSpecialReady(variant);
     }
 
+    private boolean titmouseSpecialActive() {
+        return titmouseScoldTimer > 0
+                || titmouseBarkskipTimer > 0
+                || titmouseVaultTimer > 0
+                || titmouseStashCharging
+                || titmouseMobbingTimer > 0;
+    }
+
+    private boolean titmouseSpecialReady(TitmouseSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
+        return switch (variant) {
+            case NEUTRAL -> ultimateReady || titmouseScoldReuseTimer <= 0;
+            case SIDE -> ultimateReady || titmouseBarkskipReuseTimer <= 0;
+            case UP -> ultimateReady || (!titmouseVaultUsed && titmouseVaultReuseTimer <= 0);
+            case DOWN -> ultimateReady || titmouseStashReuseTimer <= 0;
+        };
+    }
+
+    private boolean canStartTitmouseSpecial() {
+        TitmouseSpecialVariant variant = selectTitmouseSpecialVariant();
+        boolean shieldConversion = variant == TitmouseSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+        return type == BirdGame3.BirdType.TITMOUSE
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && !titmouseSpecialActive()
+                && titmouseSpecialReady(variant);
+    }
+
     private boolean penguinSpecialActive() {
         return penguinBellyCharging
                 || penguinBellySlideTimer > 0
@@ -9782,7 +10133,8 @@ public class Bird {
             case GRINCHHAWK -> true;
             case VULTURE -> ultimateReady || (vultureNeutralReuseTimer <= 0 && vultureCrowTicks > 0 && ownedVultureCrowCount() < 7);
             case OPIUMBIRD, HEISENBIRD -> ultimateReady || opiumNeutralReuseTimer <= 0;
-            case TITMOUSE, BAT, PELICAN, RAVEN -> ultimateReady || specialCooldown <= 0;
+            case TITMOUSE -> ultimateReady || titmouseScoldReuseTimer <= 0;
+            case BAT, PELICAN, RAVEN -> ultimateReady || specialCooldown <= 0;
             case MOCKINGBIRD -> false;
         };
     }
@@ -9804,7 +10156,7 @@ public class Bird {
             case RAZORBILL -> razorbillStormTimer > 0 || bladeStormFrames > 0 || razorbillShearTimer > 0
                     || razorbillCounterTimer > 0 || razorbillCounterBurstTimer > 0;
             case OPIUMBIRD, HEISENBIRD -> leanTimer > 0;
-            case TITMOUSE -> isZipping;
+            case TITMOUSE -> titmouseScoldTimer > 0;
             case BAT -> batEchoTimer > 0;
             case PELICAN -> plungeTimer > 0;
             case GRINCHHAWK -> grinchHeartSnatchTimer > 0;
@@ -9988,6 +10340,19 @@ public class Bird {
         return OpiumSpecialVariant.NEUTRAL;
     }
 
+    private TitmouseSpecialVariant selectTitmouseSpecialVariant() {
+        if (jumpPressed()) {
+            return TitmouseSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return TitmouseSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return TitmouseSpecialVariant.SIDE;
+        }
+        return TitmouseSpecialVariant.NEUTRAL;
+    }
+
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -10065,6 +10430,11 @@ public class Bird {
                     && selectVultureSpecialVariant() == VultureSpecialVariant.UP
                     && !vultureUpSpecialUsed;
         }
+        if (type == BirdGame3.BirdType.TITMOUSE) {
+            return canStartTitmouseSpecial()
+                    && selectTitmouseSpecialVariant() == TitmouseSpecialVariant.UP
+                    && !titmouseVaultUsed;
+        }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
                     && selectOpiumSpecialVariant() == OpiumSpecialVariant.UP
@@ -10129,6 +10499,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE) {
             return canStartVultureSpecial()
                     && selectVultureSpecialVariant() == VultureSpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.TITMOUSE) {
+            return canStartTitmouseSpecial()
+                    && selectTitmouseSpecialVariant() == TitmouseSpecialVariant.DOWN;
         }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
@@ -10285,6 +10659,31 @@ public class Bird {
         Arrays.fill(vultureBlackSkyHit, false);
         if (clearObjects) {
             vultureBait = null;
+        }
+    }
+
+    private void resetTitmouseSpecialState(boolean clearObjects) {
+        titmouseScoldTimer = 0;
+        titmouseScoldUltimate = false;
+        Arrays.fill(titmouseScoldHit, false);
+        titmouseBarkskipTimer = 0;
+        titmouseBarkskipUltimate = false;
+        titmouseBarkskipRebounded = false;
+        Arrays.fill(titmouseBarkskipHit, false);
+        titmouseVaultTimer = 0;
+        titmouseVaultUltimate = false;
+        titmouseVaultBoosted = false;
+        Arrays.fill(titmouseVaultHit, false);
+        titmouseStashCharging = false;
+        titmouseStashHoldFrames = 0;
+        titmouseStashUltimate = false;
+        titmouseMobbingNodes.clear();
+        titmouseMobbingTimer = 0;
+        titmouseMobbingNodeIndex = 0;
+        isZipping = false;
+        zipTimer = 0;
+        if (clearObjects) {
+            titmouseSeedStashes.clear();
         }
     }
 
@@ -10466,6 +10865,16 @@ public class Bird {
             attackAnimationTimer = 0;
         }
         resetVultureSpecialState(false);
+    }
+
+    private void interruptTitmouseSpecialStateOnHit() {
+        if (type != BirdGame3.BirdType.TITMOUSE) {
+            return;
+        }
+        if (titmouseSpecialActive()) {
+            attackAnimationTimer = 0;
+        }
+        resetTitmouseSpecialState(false);
     }
 
     private void interruptOpiumSpecialStateOnHit() {
@@ -10856,6 +11265,7 @@ public class Bird {
                 : type == BirdGame3.BirdType.RAZORBILL ? canStartRazorbillSpecial()
                 : type == BirdGame3.BirdType.GRINCHHAWK ? canStartGrinchhawkSpecial()
                 : type == BirdGame3.BirdType.VULTURE ? canStartVultureSpecial()
+                : type == BirdGame3.BirdType.TITMOUSE ? canStartTitmouseSpecial()
                 : isOpiumEchoPair() ? canStartOpiumSpecial()
                 : specialCooldown <= 0)
                 && aiSpecialCooldown <= 0 &&
@@ -10869,6 +11279,9 @@ public class Bird {
             }
             if (type == BirdGame3.BirdType.RAZORBILL) {
                 configureRazorbillAISpecialInputs(target, targetDist, onGround);
+            }
+            if (type == BirdGame3.BirdType.TITMOUSE) {
+                configureTitmouseAISpecialInputs(target, targetDist, onGround);
             }
             if (isOpiumEchoPair()) {
                 configureOpiumAISpecialInputs(target, targetDist, onGround);
@@ -11567,6 +11980,8 @@ public class Bird {
                     && (depth > 92.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case GRINCHHAWK -> !grinchUpSpecialUsed
                     && (depth > 108.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.2)));
+            case TITMOUSE -> !titmouseVaultUsed
+                    && (depth > 92.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case OPIUMBIRD, HEISENBIRD -> !opiumUpSpecialUsed
                     && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             default -> false;
@@ -11637,6 +12052,7 @@ public class Bird {
                     || type == BirdGame3.BirdType.SHOEBILL
                     || type == BirdGame3.BirdType.RAZORBILL
                     || type == BirdGame3.BirdType.GRINCHHAWK
+                    || type == BirdGame3.BirdType.TITMOUSE
                     || isOpiumEchoPair()) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
             }
@@ -11786,7 +12202,9 @@ public class Bird {
         if (target.type == BirdGame3.BirdType.EAGLE && target.diveTimer > 0 && dx < 430 && dy < 120) dodge = true;
         if (target.type == BirdGame3.BirdType.FALCON && target.diveTimer > 0 && dx < 370 && dy < 120) dodge = true;
         if (target.type == BirdGame3.BirdType.PENGUIN && Math.abs(target.vx) > 14 && dx < 380 && Math.abs(dy) < 110) dodge = true;
-        if (target.type == BirdGame3.BirdType.TITMOUSE && target.isZipping && dx < 420) dodge = true;
+        if (target.type == BirdGame3.BirdType.TITMOUSE
+                && (target.titmouseBarkskipTimer > 0 || target.titmouseMobbingTimer > 0)
+                && dx < 420) dodge = true;
 
         if (!dodge) return false;
         int cpuLevel = game.getCpuLevel(playerIndex);
@@ -11838,6 +12256,26 @@ public class Bird {
             return;
         }
         if (dist > 105.0 && dist < 380.0 && razorbillSideReuseTimer <= 0) {
+            game.setAiControlKey(playerIndex, dir < 0 ? leftKey() : rightKey(), true);
+        }
+    }
+
+    private void configureTitmouseAISpecialInputs(Bird target, double dist, boolean onGround) {
+        if (target == null || type != BirdGame3.BirdType.TITMOUSE) {
+            return;
+        }
+        int dir = target.bodyCenterX() >= bodyCenterX() ? 1 : -1;
+        facingRight = dir > 0;
+        double dy = target.bodyCenterY() - bodyCenterY();
+        if (!onGround && dy < -110.0 && !titmouseVaultUsed) {
+            game.setAiControlKey(playerIndex, jumpKey(), true);
+            return;
+        }
+        if (onGround && titmouseSeedStashes.isEmpty() && dist > 150.0) {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            return;
+        }
+        if (!titmouseSeedStashes.isEmpty() && (target.isTitmouseMarkedBy(this) || dist > 170.0)) {
             game.setAiControlKey(playerIndex, dir < 0 ? leftKey() : rightKey(), true);
         }
     }
@@ -12219,6 +12657,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE && isOnGround()) {
             vultureUpSpecialUsed = false;
         }
+        if (type == BirdGame3.BirdType.TITMOUSE && isOnGround()) {
+            titmouseVaultUsed = false;
+        }
         if (isOpiumEchoPair() && isOnGround()) {
             opiumUpSpecialUsed = false;
         }
@@ -12247,6 +12688,7 @@ public class Bird {
             resetRazorbillSpecialState(false);
             resetGrinchhawkSpecialState(false);
             resetVultureSpecialState(false);
+            resetTitmouseSpecialState(false);
             resetOpiumSpecialState(false);
         }
 
@@ -12363,9 +12805,6 @@ public class Bird {
             vy *= 0.85;
         }
 
-        // === TITMOUSE ZIP ===
-        handleTitmouseZip();
-
         // === HORIZONTAL MOVEMENT & JUMPING ===
         handleHorizontalMovement(stunned, airborne, jumpHeld, jumpJustPressed, gameSpeed);
 
@@ -12405,6 +12844,7 @@ public class Bird {
         handleShoebillSpecialState();
         handleGrinchhawkSpecialState(jumpJustPressed, gameSpeed);
         handleVultureSpecialState(specialHeld);
+        handleTitmouseSpecialState();
         handleOpiumSpecialState();
 
         // === RAZORBILL SPECIALS ===
@@ -12426,6 +12866,7 @@ public class Bird {
         handlePenguinSpecialObjects();
         handleHummingbirdNectarTraps();
         handleTurkeyFeastTraps();
+        handleTitmouseSeedStashes();
         handleOpiumTraps();
         handlePhoenixAfterburn();
         emitRoadrunnerDust();
@@ -12598,6 +13039,15 @@ public class Bird {
         hummingHoverBurstTimer = Math.max(0, (int)(hummingHoverBurstTimer - gameSpeed));
         hummingHoverBurstReuseTimer = Math.max(0, (int)(hummingHoverBurstReuseTimer - gameSpeed));
         hummingNectarTrapReuseTimer = Math.max(0, (int)(hummingNectarTrapReuseTimer - gameSpeed));
+        titmouseScoldTimer = Math.max(0, (int)(titmouseScoldTimer - gameSpeed));
+        titmouseScoldReuseTimer = Math.max(0, (int)(titmouseScoldReuseTimer - gameSpeed));
+        titmouseBarkskipTimer = Math.max(0, (int)(titmouseBarkskipTimer - gameSpeed));
+        titmouseBarkskipReuseTimer = Math.max(0, (int)(titmouseBarkskipReuseTimer - gameSpeed));
+        titmouseVaultTimer = Math.max(0, (int)(titmouseVaultTimer - gameSpeed));
+        titmouseVaultReuseTimer = Math.max(0, (int)(titmouseVaultReuseTimer - gameSpeed));
+        titmouseStashReuseTimer = Math.max(0, (int)(titmouseStashReuseTimer - gameSpeed));
+        titmouseMobbingTimer = Math.max(0, (int)(titmouseMobbingTimer - gameSpeed));
+        titmouseMarkedTimer = Math.max(0, (int)(titmouseMarkedTimer - gameSpeed));
         turkeyGobbleTimer = Math.max(0, (int)(turkeyGobbleTimer - gameSpeed));
         turkeyGobbleReuseTimer = Math.max(0, (int)(turkeyGobbleReuseTimer - gameSpeed));
         turkeyGobbleArmorTimer = Math.max(0, (int)(turkeyGobbleArmorTimer - gameSpeed));
@@ -12629,6 +13079,24 @@ public class Bird {
         }
         if (hummingHoverBurstTimer == 0) {
             hummingHoverBurstUltimate = false;
+        }
+        if (titmouseScoldTimer == 0) {
+            titmouseScoldUltimate = false;
+            Arrays.fill(titmouseScoldHit, false);
+        }
+        if (titmouseBarkskipTimer == 0) {
+            titmouseBarkskipUltimate = false;
+            titmouseBarkskipRebounded = false;
+            Arrays.fill(titmouseBarkskipHit, false);
+        }
+        if (titmouseVaultTimer == 0) {
+            titmouseVaultUltimate = false;
+            titmouseVaultBoosted = false;
+            Arrays.fill(titmouseVaultHit, false);
+        }
+        if (titmouseMarkedTimer == 0) {
+            titmouseMarkedOwnerIndex = -1;
+            titmouseMarkedUltimate = false;
         }
         hummingNectarCoatedTimer = Math.max(0, (int)(hummingNectarCoatedTimer - gameSpeed));
         hummingNectarCoatedDamageCooldown = Math.max(0, (int)(hummingNectarCoatedDamageCooldown - gameSpeed));
@@ -14057,66 +14525,243 @@ public class Bird {
         }
     }
 
-    private void handleTitmouseZip() {
-        if ((type == BirdGame3.BirdType.TITMOUSE || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.TITMOUSE)) && isZipping) {
-            zipTimer--;
-            if (zipTimer > 0) {
-                double progress = 1.0 - (zipTimer / 30.0);
-                x = x + (zipTargetX - x) * progress * 0.4;
-                y = y + (zipTargetY - y) * progress * 0.4;
+    private void handleTitmouseSpecialState() {
+        if (type != BirdGame3.BirdType.TITMOUSE
+                && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.TITMOUSE)) {
+            return;
+        }
+        handleTitmouseScoldChorus();
+        handleTitmouseBarkskip();
+        handleTitmouseTuftVault();
+        handleTitmouseSeedStashCharge();
+        handleTitmouseMobbingRun();
+    }
 
-                for (int i = 0; i < 5; i++) {
-                    game.particles.add(new Particle(
-                            x + 40 + (Math.random() - 0.5) * 30,
-                            y + 40 + (Math.random() - 0.5) * 30,
-                            (Math.random() - 0.5) * 20,
-                            (Math.random() - 0.5) * 20,
-                            Color.SKYBLUE.deriveColor(0, 1, 1, 0.6)
-                    ));
-                }
-            } else {
-                handleTitmouseZipImpact();
-                isZipping = false;
+    private void handleTitmouseScoldChorus() {
+        if (titmouseScoldTimer <= 0) {
+            return;
+        }
+        double radius = (titmouseScoldUltimate ? 152.0 : 124.0) * sizeMultiplier;
+        double verticalRadius = radius * 0.72;
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY() - 8.0 * sizeMultiplier;
+        if ((titmouseScoldTimer & 2) == 0) {
+            emitTitmouseBurst(centerX, centerY, titmouseScoldUltimate ? 4 : 3,
+                    titmouseScoldUltimate ? Color.GOLD : Color.web("#ECEFF1"));
+        }
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= titmouseScoldHit.length) continue;
+            if (titmouseScoldHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            double normalized = Math.hypot(dx / Math.max(1.0, radius), dy / Math.max(1.0, verticalRadius));
+            if (normalized > 1.0 + other.combatRadius() / Math.max(radius, verticalRadius)) continue;
+
+            titmouseScoldHit[other.playerIndex] = true;
+            int dmg = titmouseScoldUltimate ? 8 : 5;
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
             }
-            vx = vy = 0;
+            other.applyTitmouseMark(this, titmouseScoldUltimate);
+            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
+            other.vx += dir * (titmouseScoldUltimate ? 7.5 : 5.6);
+            other.vy -= titmouseScoldUltimate ? 5.8 : 4.2;
         }
     }
 
-    private void handleTitmouseZipImpact() {
+    private void handleTitmouseBarkskip() {
+        if (titmouseBarkskipTimer <= 0) {
+            return;
+        }
+        int dir = titmouseBarkskipDirection == 0 ? facingDirection() : titmouseBarkskipDirection;
+        facingRight = dir > 0;
+        vx = dir * Math.max(Math.abs(vx), titmouseBarkskipRebounded
+                ? (titmouseBarkskipUltimate ? 39.0 : 33.0)
+                : (titmouseBarkskipUltimate ? 34.0 : 28.0));
+        vy *= 0.82;
+        if ((titmouseBarkskipTimer & 1) == 0) {
+            emitTitmouseBurst(bodyCenterX() - dir * 28.0 * sizeMultiplier, bodyCenterY(),
+                    titmouseBarkskipUltimate ? 4 : 3,
+                    titmouseBarkskipUltimate ? Color.GOLD : Color.web("#90CAF9"));
+        }
         for (Bird other : game.players) {
             if (!canDamageTarget(other)) continue;
-            double dist = combatDistanceTo(other);
-            if (dist < 120 + other.combatRadius()) {
-                int dmg = (int) (20 * powerMultiplier);
-                double oldHealth = other.health;
-                double dealt = applyDamageTo(other, dmg);
-                game.damageDealt[playerIndex] += (int) dealt;
-                game.recordSpecialImpact(playerIndex, (int) dealt, dealt > 0);
-                if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-        game.playZombieFallSfx();
+            if (other.playerIndex < 0 || other.playerIndex >= titmouseBarkskipHit.length) continue;
+            if (titmouseBarkskipHit[other.playerIndex]) continue;
+            double forward = (other.bodyCenterX() - bodyCenterX()) * dir;
+            if (forward < -other.combatHalfWidth() * 0.25) continue;
+            if (forward > (titmouseBarkskipRebounded ? 116.0 : 96.0) * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyCenterY() - bodyCenterY()) > 68.0 * sizeMultiplier + other.combatHalfHeight()) continue;
 
-                other.vx += (other.bodyCenterX() > bodyCenterX() ? 1 : -1) * 25;
-                other.vy -= 18;
-
-                game.addToKillFeed(shortName() + " ZAPPED " + other.shortName() + "! -" + dmg + " HP");
-
-                game.hitstopFrames = 12;
-                game.shakeIntensity = 28;
-                game.triggerFlash(0.8, other.health <= 0);
-
-                for (int i = 0; i < 60; i++) {
-                    double angle = Math.random() * Math.PI * 2;
-                    double speed = 8 + Math.random() * 16;
-                    game.particles.add(new Particle(
-                            other.x + 40,
-                            other.y + 40,
-                            Math.cos(angle) * speed,
-                            Math.sin(angle) * speed - 6,
-                            Color.SKYBLUE.brighter()
-                    ));
-                }
+            titmouseBarkskipHit[other.playerIndex] = true;
+            boolean marked = other.isTitmouseMarkedBy(this);
+            int dmg = titmouseBarkskipUltimate
+                    ? (marked ? 16 : 12)
+                    : (marked ? 12 : 8);
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+            other.vx += dir * (marked ? (titmouseBarkskipUltimate ? 20.0 : 16.0) : (titmouseBarkskipUltimate ? 16.0 : 12.0));
+            other.vy -= marked ? (titmouseBarkskipUltimate ? 12.0 : 9.0) : (titmouseBarkskipUltimate ? 9.0 : 6.5);
+            if (marked && titmouseBarkskipRebounded) {
+                canDoubleJump = true;
+                vy = Math.min(vy, titmouseBarkskipUltimate ? -13.0 : -10.0);
+                titmouseVaultUsed = false;
+                emitTitmouseBurst(other.bodyCenterX(), other.bodyCenterY(),
+                        titmouseBarkskipUltimate ? 24 : 16,
+                        titmouseBarkskipUltimate ? Color.GOLD : Color.web("#4FC3F7"));
             }
         }
+    }
+
+    private void handleTitmouseTuftVault() {
+        if (titmouseVaultTimer <= 0) {
+            return;
+        }
+        if ((titmouseVaultTimer & 2) == 0) {
+            emitTitmouseBurst(bodyCenterX(), bodyCenterY() + 18.0 * sizeMultiplier,
+                    titmouseVaultUltimate ? 4 : 3,
+                    titmouseVaultUltimate ? Color.GOLD : Color.web("#CFD8DC"));
+        }
+        double radius = (titmouseVaultBoosted ? 88.0 : 72.0) * sizeMultiplier;
+        double verticalReach = (titmouseVaultBoosted ? 94.0 : 78.0) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= titmouseVaultHit.length) continue;
+            if (titmouseVaultHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
+            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > verticalReach + other.combatHalfHeight()) continue;
+            titmouseVaultHit[other.playerIndex] = true;
+            int dmg = titmouseVaultUltimate
+                    ? (titmouseVaultBoosted ? 15 : 12)
+                    : (titmouseVaultBoosted ? 11 : 8);
+            double oldHealth = other.health;
+            int dealt = (int) applyDamageTo(other, dmg);
+            if (dealt <= 0) continue;
+            game.damageDealt[playerIndex] += dealt;
+            game.recordSpecialImpact(playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                game.eliminations[playerIndex]++;
+            }
+            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
+            other.vx += dir * (titmouseVaultBoosted ? (titmouseVaultUltimate ? 13.0 : 10.0) : (titmouseVaultUltimate ? 10.0 : 7.5));
+            other.vy -= titmouseVaultBoosted ? (titmouseVaultUltimate ? 15.0 : 12.0) : (titmouseVaultUltimate ? 12.0 : 9.0);
+        }
+    }
+
+    private void handleTitmouseSeedStashCharge() {
+        if (!titmouseStashCharging) {
+            return;
+        }
+        boolean stillHolding = specialHeld() && blockPressed();
+        if (stillHolding && titmouseStashHoldFrames < TITMOUSE_STASH_HOLD_FRAMES) {
+            titmouseStashHoldFrames++;
+            attackAnimationTimer = Math.max(attackAnimationTimer, 4);
+            vx *= isOnGround() ? 0.56 : 0.78;
+            if ((titmouseStashHoldFrames & 3) == 0) {
+                emitTitmouseBurst(bodyCenterX(), bodyBottomY() - 10.0 * sizeMultiplier,
+                        3,
+                        titmouseStashUltimate ? Color.GOLD : Color.web("#BCAAA4"));
+            }
+            if (titmouseStashHoldFrames < TITMOUSE_STASH_HOLD_FRAMES) {
+                return;
+            }
+        }
+
+        if (titmouseStashHoldFrames >= TITMOUSE_STASH_HOLD_FRAMES && !titmouseSeedStashes.isEmpty()) {
+            detonateTitmouseSeedStashes(titmouseStashUltimate);
+        } else {
+            placeTitmouseSeedStash(titmouseStashUltimate);
+        }
+        titmouseStashCharging = false;
+        titmouseStashHoldFrames = 0;
+        titmouseStashUltimate = false;
+    }
+
+    private void handleTitmouseMobbingRun() {
+        if (titmouseMobbingNodes.isEmpty()) {
+            if (titmouseMobbingTimer <= 0) {
+                isZipping = false;
+                zipTimer = 0;
+            }
+            return;
+        }
+        if (titmouseMobbingNodeIndex >= titmouseMobbingNodes.size()) {
+            titmouseMobbingNodes.clear();
+            titmouseMobbingTimer = 0;
+            isZipping = false;
+            zipTimer = 0;
+            return;
+        }
+        TitmouseMobbingNode node = titmouseMobbingNodes.get(titmouseMobbingNodeIndex);
+        double targetX = node.target != null ? node.target.bodyCenterX() - bodyWidth() * 0.5 : node.x - bodyWidth() * 0.5;
+        double targetY = node.target != null ? node.target.bodyCenterY() - bodyHeight() * 0.5 : node.y;
+        zipTargetX = targetX;
+        zipTargetY = targetY;
+        zipTimer = titmouseMobbingTimer;
+        double dx = targetX - x;
+        double dy = targetY - y;
+        x += dx * 0.58;
+        y += dy * 0.58;
+        vx = 0.0;
+        vy = 0.0;
+        emitTitmouseBurst(bodyCenterX(), bodyCenterY(), 5, Color.GOLD);
+        if (titmouseMobbingTimer > 0) {
+            return;
+        }
+        x = targetX;
+        y = targetY;
+        if (node.target != null && canDamageTarget(node.target)) {
+            applyTitmouseMobbingImpact(node.target);
+        }
+        titmouseMobbingNodeIndex++;
+        if (titmouseMobbingNodeIndex < titmouseMobbingNodes.size()) {
+            titmouseMobbingTimer = TITMOUSE_MOBBING_STEP_FRAMES;
+        } else {
+            titmouseMobbingNodes.clear();
+            titmouseMobbingTimer = 0;
+            isZipping = false;
+            zipTimer = 0;
+            titmouseSeedStashes.clear();
+        }
+    }
+
+    private void applyTitmouseMobbingImpact(Bird target) {
+        boolean marked = target.isTitmouseMarkedBy(this);
+        int dmg = marked ? 28 : 22;
+        double oldHealth = target.health;
+        int dealt = (int) applyDamageTo(target, dmg);
+        if (dealt <= 0) {
+            return;
+        }
+        game.damageDealt[playerIndex] += dealt;
+        game.recordSpecialImpact(playerIndex, dealt, true);
+        if (target.health <= 0 && oldHealth > 0) {
+            game.eliminations[playerIndex]++;
+        }
+        double dir = Math.signum(target.bodyCenterX() - bodyCenterX());
+        if (dir == 0.0) {
+            dir = facingDirection();
+        }
+        target.vx += dir * (marked ? 28.0 : 24.0);
+        target.vy -= marked ? 20.0 : 17.0;
+        game.hitstopFrames = Math.max(game.hitstopFrames, 10);
+        game.shakeIntensity = Math.max(game.shakeIntensity, 22);
+        game.triggerFlash(0.6, target.health <= 0);
+        emitTitmouseBurst(target.bodyCenterX(), target.bodyCenterY(), 48, Color.GOLD);
     }
 
     private boolean handleBatHanging(boolean stunned) {
@@ -14448,6 +15093,8 @@ public class Bird {
                     ? canConvertShieldIntoGrinchhawkDownSpecial()
                     : type == BirdGame3.BirdType.VULTURE
                     ? canConvertShieldIntoVultureDownSpecial()
+                    : type == BirdGame3.BirdType.TITMOUSE
+                    ? selectTitmouseSpecialVariant() == TitmouseSpecialVariant.DOWN && isBlocking && shieldStunFrames <= 0
                     : isOpiumEchoPair()
                     ? canConvertShieldIntoOpiumDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
@@ -14475,6 +15122,8 @@ public class Bird {
                     ? canStartGrinchhawkSpecial()
                     : type == BirdGame3.BirdType.VULTURE
                     ? canStartVultureSpecial()
+                    : type == BirdGame3.BirdType.TITMOUSE
+                    ? canStartTitmouseSpecial()
                     : isOpiumEchoPair()
                     ? canStartOpiumSpecial()
                     : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
@@ -14490,6 +15139,7 @@ public class Bird {
                         && type != BirdGame3.BirdType.RAZORBILL
                         && type != BirdGame3.BirdType.GRINCHHAWK
                         && type != BirdGame3.BirdType.VULTURE
+                        && type != BirdGame3.BirdType.TITMOUSE
                         && !isOpiumEchoPair()))) {
                     cooldownFlash = 15;
                 }
@@ -15107,6 +15757,7 @@ public class Bird {
             interruptPenguinSpecialStateOnHit();
             interruptShoebillSpecialStateOnHit();
             interruptVultureSpecialStateOnHit();
+            interruptTitmouseSpecialStateOnHit();
             interruptOpiumSpecialStateOnHit();
         }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
@@ -15382,6 +16033,46 @@ public class Bird {
                 }
             }
         }
+    }
+
+    private void handleTitmouseSeedStashes() {
+        if (titmouseSeedStashes.isEmpty()) {
+            return;
+        }
+        for (Iterator<TitmouseSeedStash> it = titmouseSeedStashes.iterator(); it.hasNext(); ) {
+            TitmouseSeedStash stash = it.next();
+            stash.ageFrames++;
+            stash.lifeFrames--;
+            if (stash.lifeFrames <= 0 || health <= 0) {
+                it.remove();
+                continue;
+            }
+            if ((stash.ageFrames & 15) == 0) {
+                game.particles.add(new Particle(
+                        stash.x + (Math.random() - 0.5) * 28.0,
+                        stash.y - 8.0,
+                        (Math.random() - 0.5) * 0.9,
+                        -0.4 - Math.random() * 1.1,
+                        (stash.ultimate ? Color.GOLD : Color.web("#BCAAA4")).deriveColor(0, 1, 1, 0.56)
+                ));
+            }
+        }
+    }
+
+    private void applyTitmouseMark(Bird owner, boolean ultimate) {
+        if (owner == null || owner.playerIndex < 0 || owner.playerIndex >= game.players.length) {
+            return;
+        }
+        titmouseMarkedOwnerIndex = owner.playerIndex;
+        titmouseMarkedUltimate = titmouseMarkedUltimate || ultimate;
+        titmouseMarkedTimer = Math.max(titmouseMarkedTimer,
+                ultimate ? TITMOUSE_MARK_FRAMES + 80 : TITMOUSE_MARK_FRAMES);
+    }
+
+    private boolean isTitmouseMarkedBy(Bird owner) {
+        return owner != null
+                && titmouseMarkedTimer > 0
+                && titmouseMarkedOwnerIndex == owner.playerIndex;
     }
 
     private void applyHummingbirdNectarCoating(Bird owner, boolean ultimate) {
@@ -16857,8 +17548,15 @@ public class Bird {
         roosterCommandFxTimer = 0;
         roosterCommandFxKind = 0;
         roosterUpSpecialUsed = false;
-        isZipping = false;
-        zipTimer = 0;
+        resetTitmouseSpecialState(true);
+        titmouseScoldReuseTimer = 0;
+        titmouseBarkskipReuseTimer = 0;
+        titmouseVaultReuseTimer = 0;
+        titmouseVaultUsed = false;
+        titmouseStashReuseTimer = 0;
+        titmouseMarkedTimer = 0;
+        titmouseMarkedOwnerIndex = -1;
+        titmouseMarkedUltimate = false;
         resetRazorbillSpecialState(true);
         razorbillStormReuseTimer = 0;
         razorbillSideReuseTimer = 0;
@@ -17049,6 +17747,28 @@ public class Bird {
         state.zipTargetX = zipTargetX;
         state.zipTargetY = zipTargetY;
         state.zipTimer = zipTimer;
+        state.titmouseScoldTimer = titmouseScoldTimer;
+        state.titmouseScoldReuseTimer = titmouseScoldReuseTimer;
+        state.titmouseScoldUltimate = titmouseScoldUltimate;
+        state.titmouseBarkskipTimer = titmouseBarkskipTimer;
+        state.titmouseBarkskipReuseTimer = titmouseBarkskipReuseTimer;
+        state.titmouseBarkskipDirection = titmouseBarkskipDirection;
+        state.titmouseBarkskipUltimate = titmouseBarkskipUltimate;
+        state.titmouseBarkskipRebounded = titmouseBarkskipRebounded;
+        state.titmouseVaultTimer = titmouseVaultTimer;
+        state.titmouseVaultReuseTimer = titmouseVaultReuseTimer;
+        state.titmouseVaultUsed = titmouseVaultUsed;
+        state.titmouseVaultUltimate = titmouseVaultUltimate;
+        state.titmouseVaultBoosted = titmouseVaultBoosted;
+        state.titmouseStashReuseTimer = titmouseStashReuseTimer;
+        state.titmouseStashCharging = titmouseStashCharging;
+        state.titmouseStashHoldFrames = titmouseStashHoldFrames;
+        state.titmouseStashUltimate = titmouseStashUltimate;
+        state.titmouseMarkedTimer = titmouseMarkedTimer;
+        state.titmouseMarkedOwnerIndex = titmouseMarkedOwnerIndex;
+        state.titmouseMarkedUltimate = titmouseMarkedUltimate;
+        state.titmouseMobbingTimer = titmouseMobbingTimer;
+        state.titmouseMobbingNodeIndex = titmouseMobbingNodeIndex;
         state.isGroundPounding = isGroundPounding;
         state.carrionSwarmTimer = carrionSwarmTimer;
         state.crowSwarmCooldown = crowSwarmCooldown;
@@ -17407,6 +18127,28 @@ public class Bird {
         this.zipTargetX = state.zipTargetX;
         this.zipTargetY = state.zipTargetY;
         this.zipTimer = state.zipTimer;
+        this.titmouseScoldTimer = Math.max(0, state.titmouseScoldTimer);
+        this.titmouseScoldReuseTimer = Math.max(0, state.titmouseScoldReuseTimer);
+        this.titmouseScoldUltimate = state.titmouseScoldUltimate;
+        this.titmouseBarkskipTimer = Math.max(0, state.titmouseBarkskipTimer);
+        this.titmouseBarkskipReuseTimer = Math.max(0, state.titmouseBarkskipReuseTimer);
+        this.titmouseBarkskipDirection = state.titmouseBarkskipDirection == 0 ? facingDirection() : state.titmouseBarkskipDirection;
+        this.titmouseBarkskipUltimate = state.titmouseBarkskipUltimate;
+        this.titmouseBarkskipRebounded = state.titmouseBarkskipRebounded;
+        this.titmouseVaultTimer = Math.max(0, state.titmouseVaultTimer);
+        this.titmouseVaultReuseTimer = Math.max(0, state.titmouseVaultReuseTimer);
+        this.titmouseVaultUsed = state.titmouseVaultUsed;
+        this.titmouseVaultUltimate = state.titmouseVaultUltimate;
+        this.titmouseVaultBoosted = state.titmouseVaultBoosted;
+        this.titmouseStashReuseTimer = Math.max(0, state.titmouseStashReuseTimer);
+        this.titmouseStashCharging = state.titmouseStashCharging;
+        this.titmouseStashHoldFrames = Math.max(0, state.titmouseStashHoldFrames);
+        this.titmouseStashUltimate = state.titmouseStashUltimate;
+        this.titmouseMarkedTimer = Math.max(0, state.titmouseMarkedTimer);
+        this.titmouseMarkedOwnerIndex = state.titmouseMarkedOwnerIndex;
+        this.titmouseMarkedUltimate = state.titmouseMarkedUltimate;
+        this.titmouseMobbingTimer = Math.max(0, state.titmouseMobbingTimer);
+        this.titmouseMobbingNodeIndex = Math.max(0, state.titmouseMobbingNodeIndex);
         this.isGroundPounding = state.isGroundPounding;
         this.carrionSwarmTimer = state.carrionSwarmTimer;
         this.crowSwarmCooldown = state.crowSwarmCooldown;
@@ -19099,6 +19841,7 @@ public class Bird {
         drawRespawnReturnTrail(g, drawSize);
         drawHummingbirdNectarTraps(g);
         drawTurkeyFeastTraps(g);
+        drawTitmouseSeedStashes(g);
         drawOpiumTraps(g);
         drawRoadrunnerPaintedRoads(g);
         drawPenguinSpecialObjects(g);
@@ -19160,6 +19903,7 @@ public class Bird {
         g.restore();
         drawHummingbirdNectarCoating(g, drawSize);
         drawTurkeyStuffedEffect(g, drawSize);
+        drawTitmouseMarkEffect(g, drawSize);
         drawOpiumDrowsyEffect(g, drawSize);
         drawHeisenBrittleEffect(g, drawSize);
         drawRoadrunnerSlipEffect(g);
@@ -19430,6 +20174,27 @@ public class Bird {
         }
     }
 
+    private void drawTitmouseMarkEffect(GraphicsContext g, double drawSize) {
+        if (titmouseMarkedTimer <= 0) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double pulse = 0.5 + 0.5 * Math.sin(titmouseMarkedTimer * 0.28);
+        Color ring = (titmouseMarkedUltimate ? Color.GOLD : Color.web("#90CAF9"))
+                .deriveColor(0, 1, 1, 0.54 + pulse * 0.18);
+        double cx = bodyCenterX();
+        double cy = bodyCenterY();
+        g.save();
+        g.setStroke(ring);
+        g.setLineWidth(2.4 * s);
+        g.strokeOval(cx - drawSize * 0.46, cy - drawSize * 0.42,
+                drawSize * 0.92, drawSize * 0.84);
+        g.setLineWidth(1.8 * s);
+        g.strokeArc(cx - drawSize * 0.32, cy - drawSize * 0.58,
+                drawSize * 0.64, drawSize * 0.42, 204, 132, ArcType.OPEN);
+        g.restore();
+    }
+
     private void drawHummingbirdNectarTraps(GraphicsContext g) {
         if (hummingNectarTraps.isEmpty()) {
             return;
@@ -19464,6 +20229,26 @@ public class Bird {
             }
             g.setFill((trap.ultimate ? Color.web("#FFF176") : Color.web("#FFEB3B")).deriveColor(0, 1, 1, lifeRatio));
             g.fillOval(trap.x - 6.0, flowerCenterY - 5.0, 12.0, 12.0);
+        }
+    }
+
+    private void drawTitmouseSeedStashes(GraphicsContext g) {
+        if (titmouseSeedStashes.isEmpty()) {
+            return;
+        }
+        for (TitmouseSeedStash stash : titmouseSeedStashes) {
+            double pulse = 0.5 + 0.5 * Math.sin(stash.ageFrames * 0.18);
+            Color shell = stash.ultimate ? Color.GOLD : Color.web("#8D6E63");
+            Color glow = shell.deriveColor(0, 1, 1, 0.18 + pulse * 0.12);
+            g.save();
+            g.setFill(glow);
+            g.fillOval(stash.x - 26.0, stash.y - 22.0, 52.0, 28.0);
+            g.setFill(shell);
+            g.fillOval(stash.x - 12.0, stash.y - 18.0, 24.0, 16.0);
+            g.setStroke((stash.ultimate ? Color.web("#FFF59D") : Color.web("#D7CCC8")).deriveColor(0, 1, 1, 0.82));
+            g.setLineWidth(2.0);
+            g.strokeArc(stash.x - 18.0, stash.y - 24.0, 36.0, 24.0, 8, 164, ArcType.OPEN);
+            g.restore();
         }
     }
 
@@ -21045,24 +21830,114 @@ public class Bird {
     private void drawTitmouseSpecial(GraphicsContext g) {
         if (type == BirdGame3.BirdType.TITMOUSE) {
             double s = sizeMultiplier;
-            g.setFill(Color.SILVER);
-            g.fillOval(x + 20 * s, y - 20 * s, 40 * s, 60 * s);
+            g.save();
+            g.setLineCap(StrokeLineCap.ROUND);
 
-            g.setFill(Color.BLACK);
-            g.fillOval(x + 25 * s, y + 15 * s, 25 * s, 25 * s);
-            g.fillOval(x + 45 * s, y + 15 * s, 25 * s, 25 * s);
-            g.setFill(Color.WHITE);
-            g.fillOval(x + 32 * s, y + 20 * s, 10 * s, 10 * s);
-            g.fillOval(x + 52 * s, y + 20 * s, 10 * s, 10 * s);
-
-            if (isZipping) {
-                g.setStroke(Color.SKYBLUE.brighter());
+            if (titmouseScoldTimer > 0) {
+                double ratio = titmouseScoldTimer / (double) (titmouseScoldUltimate
+                        ? TITMOUSE_SCOLD_ACTIVE_FRAMES + 4
+                        : TITMOUSE_SCOLD_ACTIVE_FRAMES);
+                double radius = (1.0 - ratio) * (titmouseScoldUltimate ? 150.0 : 122.0) * s;
+                g.setStroke((titmouseScoldUltimate ? Color.GOLD : Color.web("#ECEFF1")).deriveColor(0, 1, 1, 0.74));
+                g.setLineWidth(3.2 * s);
+                g.strokeOval(bodyCenterX() - radius, bodyCenterY() - radius * 0.72,
+                        radius * 2.0, radius * 1.44);
+                double dir = facingDirection();
+                double beakX = bodyCenterX() + dir * 36.0 * s;
+                double beakY = bodyCenterY() - 10.0 * s;
+                for (int i = 0; i < 3; i++) {
+                    double wave = (26.0 + i * 22.0 + (1.0 - ratio) * 18.0) * s;
+                    g.setStroke((titmouseScoldUltimate ? Color.GOLD : Color.web("#B3E5FC"))
+                            .deriveColor(0, 1, 1, 0.60 - i * 0.12));
+                    g.setLineWidth((3.0 - i * 0.35) * s);
+                    g.strokeArc(beakX + dir * (8.0 + i * 13.0) * s - wave * 0.5,
+                            beakY - wave * 0.34,
+                            wave,
+                            wave * 0.68,
+                            dir > 0 ? -42 : 222,
+                            84,
+                            ArcType.OPEN);
+                }
+            }
+            if (titmouseBarkskipTimer > 0) {
+                double dir = titmouseBarkskipDirection == 0 ? facingDirection() : titmouseBarkskipDirection;
+                Color trail = titmouseBarkskipUltimate ? Color.GOLD : Color.web("#90CAF9");
+                for (int i = 1; i <= 4; i++) {
+                    double fade = 0.26 - i * 0.045;
+                    g.setFill(trail.deriveColor(0, 1, 1, fade));
+                    g.fillOval(x - dir * i * 18.0 * s + 10.0 * s,
+                            y + 11.0 * s + i * 1.8 * s,
+                            56.0 * s,
+                            54.0 * s);
+                }
+                g.setStroke(trail.deriveColor(0, 1, 1, 0.78));
+                g.setLineWidth((titmouseBarkskipRebounded ? 7.0 : 5.0) * s);
+                g.strokeLine(bodyCenterX() - dir * 36.0 * s, bodyCenterY(),
+                        bodyCenterX() + dir * 38.0 * s, bodyCenterY());
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.56));
+                g.setLineWidth(1.8 * s);
+                g.strokeArc(bodyCenterX() - 48.0 * s, bodyCenterY() - 28.0 * s,
+                        96.0 * s, 56.0 * s,
+                        dir > 0 ? 202 : -22,
+                        136,
+                        ArcType.OPEN);
+            }
+            if (titmouseVaultTimer > 0) {
+                g.setStroke((titmouseVaultUltimate ? Color.GOLD : Color.web("#CFD8DC")).deriveColor(0, 1, 1, 0.74));
+                g.setLineWidth((titmouseVaultBoosted ? 4.2 : 3.0) * s);
+                g.strokeArc(bodyCenterX() - 34.0 * s, bodyCenterY() - 44.0 * s,
+                        68.0 * s, 88.0 * s, 208, 124, ArcType.OPEN);
+                Color plume = titmouseVaultUltimate ? Color.GOLD : Color.web("#ECEFF1");
+                for (int i = -2; i <= 2; i++) {
+                    double spread = i * 12.0 * s;
+                    g.setStroke(plume.deriveColor(0, 1, 1, 0.62 - Math.abs(i) * 0.08));
+                    g.setLineWidth((2.6 - Math.abs(i) * 0.3) * s);
+                    g.strokeLine(bodyCenterX() + spread,
+                            bodyCenterY() + 18.0 * s,
+                            bodyCenterX() + spread * 0.35,
+                            bodyCenterY() - (52.0 + (titmouseVaultBoosted ? 18.0 : 0.0)) * s);
+                }
+            }
+            if (titmouseStashCharging) {
+                double ratio = Math.clamp(titmouseStashHoldFrames / (double) TITMOUSE_STASH_HOLD_FRAMES, 0.0, 1.0);
+                double radius = (18.0 + ratio * 28.0) * s;
+                g.setStroke((titmouseStashUltimate ? Color.GOLD : Color.web("#BCAAA4"))
+                        .deriveColor(0, 1, 1, 0.44 + ratio * 0.28));
+                g.setLineWidth((2.0 + ratio * 2.0) * s);
+                g.strokeOval(bodyCenterX() - radius, bodyBottomY() - radius * 0.48,
+                        radius * 2.0, radius * 0.96);
+                g.setFill((titmouseStashUltimate ? Color.GOLD : Color.web("#8D6E63"))
+                        .deriveColor(0, 1, 1, 0.52 + ratio * 0.24));
+                for (int i = 0; i < 4; i++) {
+                    double angle = ratio * Math.PI * 2.0 + i * Math.PI * 0.5;
+                    g.fillOval(bodyCenterX() + Math.cos(angle) * radius * 0.72 - 3.0 * s,
+                            bodyBottomY() - 12.0 * s + Math.sin(angle) * radius * 0.34 - 2.0 * s,
+                            6.0 * s,
+                            4.0 * s);
+                }
+            }
+            if (isZipping && titmouseMobbingTimer > 0) {
+                g.setStroke(Color.GOLD.deriveColor(0, 1, 1, 0.52));
+                g.setLineWidth(2.2 * s);
+                double routeX = bodyCenterX();
+                double routeY = bodyCenterY();
+                for (int i = titmouseMobbingNodeIndex; i < titmouseMobbingNodes.size(); i++) {
+                    TitmouseMobbingNode node = titmouseMobbingNodes.get(i);
+                    double nodeX = node.target != null ? node.target.bodyCenterX() : node.x;
+                    double nodeY = node.target != null ? node.target.bodyCenterY() : node.y + bodyHeight() * 0.5;
+                    g.strokeLine(routeX, routeY, nodeX, nodeY);
+                    g.strokeOval(nodeX - 8.0 * s, nodeY - 8.0 * s, 16.0 * s, 16.0 * s);
+                    routeX = nodeX;
+                    routeY = nodeY;
+                }
+                g.setStroke(Color.GOLD.brighter());
                 g.setLineWidth(8);
-                g.strokeLine(x + 40 * s, y + 40 * s, zipTargetX + 40 * s, zipTargetY + 40 * s);
+                g.strokeLine(bodyCenterX(), bodyCenterY(), zipTargetX + 40 * s, zipTargetY + 40 * s);
                 g.setLineWidth(4);
                 g.setStroke(Color.WHITE);
-                g.strokeLine(x + 40 * s, y + 40 * s, zipTargetX + 40 * s, zipTargetY + 40 * s);
+                g.strokeLine(bodyCenterX(), bodyCenterY(), zipTargetX + 40 * s, zipTargetY + 40 * s);
             }
+            g.restore();
         }
     }
 
@@ -22898,6 +23773,7 @@ public class Bird {
         boolean stylizedMockingbird = type == BirdGame3.BirdType.MOCKINGBIRD;
         boolean stylizedRazorbill = type == BirdGame3.BirdType.RAZORBILL;
         boolean stylizedGrinchhawk = type == BirdGame3.BirdType.GRINCHHAWK;
+        boolean stylizedTitmouse = type == BirdGame3.BirdType.TITMOUSE;
         boolean ravenEyes = (type == BirdGame3.BirdType.RAVEN);
         Color bodyColor;
         Color headColor;
@@ -22969,6 +23845,10 @@ public class Bird {
             bodyColor = Color.web("#455A64");
             headColor = Color.web("#607D8B");
             eyeOverride = Color.web("#00E5FF");
+        } else if (stylizedTitmouse) {
+            bodyColor = Color.web("#A8B1B7");
+            headColor = Color.web("#C7CDD1");
+            eyeOverride = Color.web("#111111");
         } else if (prismRazorbill) {
             bodyColor = Color.web("#1A237E");
             headColor = Color.web("#3949AB");
@@ -23081,6 +23961,24 @@ public class Bird {
             );
             g.setFill(wingGreen.deriveColor(0, 1, 1, 0.44));
             g.fillOval(x + (facingRight ? 7.0 : 38.0) * s, y + 23.0 * s, 36.0 * s, 50.0 * s);
+        }
+        if (stylizedTitmouse) {
+            double tailBaseX = facingRight ? x + 14.0 * s : x + 66.0 * s;
+            double tailDir = facingRight ? -1.0 : 1.0;
+            Color tail = circuitTitmouse
+                    ? Color.web("#37474F")
+                    : Color.web("#7D8890");
+            g.setFill(tail.deriveColor(0, 1, 1, 0.78));
+            g.fillPolygon(
+                    new double[]{tailBaseX, tailBaseX + tailDir * 34.0 * s, tailBaseX + tailDir * 15.0 * s},
+                    new double[]{y + 45.0 * s, y + 35.0 * s, y + 65.0 * s},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{tailBaseX + tailDir * 4.0 * s, tailBaseX + tailDir * 26.0 * s, tailBaseX + tailDir * 10.0 * s},
+                    new double[]{y + 52.0 * s, y + 58.0 * s, y + 70.0 * s},
+                    3
+            );
         }
 
         g.setFill(bodyColor);
@@ -23234,6 +24132,36 @@ public class Bird {
                     3
             );
         }
+        if (stylizedTitmouse) {
+            Color belly = circuitTitmouse ? Color.web("#CFD8DC") : Color.web("#F5F6F4");
+            Color flank = circuitTitmouse ? Color.web("#FF8A65") : Color.web("#D8A078");
+            Color crest = circuitTitmouse ? Color.web("#90A4AE") : Color.web("#9CA8AF");
+            Color forehead = circuitTitmouse ? Color.web("#102027") : Color.web("#202124");
+            double crestBaseX = headX + (facingRight ? 18.0 : 32.0) * s;
+            double crestDir = facingRight ? -1.0 : 1.0;
+
+            g.setFill(belly.deriveColor(0, 1, 1, circuitTitmouse ? 0.50 : 0.82));
+            g.fillOval(x + 22.0 * s, y + 34.0 * s, 38.0 * s, 35.0 * s);
+            g.setFill(flank.deriveColor(0, 1, 1, circuitTitmouse ? 0.42 : 0.58));
+            g.fillOval(x + (facingRight ? 13.0 : 47.0) * s, y + 43.0 * s, 20.0 * s, 21.0 * s);
+
+            g.setFill(crest);
+            g.fillPolygon(
+                    new double[]{crestBaseX - 8.0 * s, crestBaseX, crestBaseX + 8.0 * s},
+                    new double[]{headY + 4.0 * s, headY - 22.0 * s, headY + 6.0 * s},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{crestBaseX + crestDir * 2.0 * s, crestBaseX + crestDir * 14.0 * s, crestBaseX + crestDir * 7.0 * s},
+                    new double[]{headY + 5.0 * s, headY - 13.0 * s, headY + 10.0 * s},
+                    3
+            );
+
+            g.setFill(forehead);
+            g.fillOval(headX + (facingRight ? 1.0 : 31.0) * s, headY + 7.0 * s, 18.0 * s, 12.0 * s);
+            g.setFill(belly.deriveColor(0, 1, 1, circuitTitmouse ? 0.34 : 0.46));
+            g.fillOval(headX + (facingRight ? 10.0 : 18.0) * s, headY + 19.0 * s, 22.0 * s, 15.0 * s);
+        }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
             int tailDir = facingRight ? -1 : 1;
             double crestBaseX = facingRight ? headX + 18 * s : headX + 32 * s;
@@ -23295,7 +24223,6 @@ public class Bird {
             g.strokeLine(x + 24 * s, y + 68 * s, x + 18 * s, y + 88 * s);
             g.strokeLine(x + 56 * s, y + 68 * s, x + 62 * s, y + 88 * s);
         }
-        // Titmouse head details are handled by drawTitmouseSpecial when effects are enabled.
         if (ravenEyes) {
             double glowX = headX + (facingRight ? -2 : 38) * s;
             double glowY = headY - 2 * s;
@@ -23312,14 +24239,23 @@ public class Bird {
             g.strokeLine(crackX - (facingRight ? 4.0 : -4.0) * s, headY + 16.0 * s,
                     crackX + (facingRight ? 3.0 : -3.0) * s, headY + 25.0 * s);
         }
-        g.setFill(Color.WHITE);
-        g.fillOval(headX + (facingRight ? 0 : 40) * s, headY, 25 * s, 25 * s);
-        Color eyeColor = classicPalette ? game.classicSkinAccentColor(type) : Color.BLACK;
-        if (eyeOverride != null) eyeColor = eyeOverride;
-        if (noirPigeon) eyeColor = Color.RED.brighter();
-        if (ravenEyes) eyeColor = voidHeraldRaven ? Color.web("#B388FF") : Color.web("#D50000");
-        g.setFill(eyeColor);
-        g.fillOval(headX + (facingRight ? 5 : 45) * s, headY + 5 * s, 15 * s, 15 * s);
+        if (stylizedTitmouse) {
+            double eyeX = headX + (facingRight ? 4.0 : 34.0) * s;
+            double eyeY = headY + 4.0 * s;
+            g.setFill(eyeOverride == null ? Color.BLACK : eyeOverride);
+            g.fillOval(eyeX, eyeY, 21.0 * s, 21.0 * s);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, circuitTitmouse ? 0.75 : 0.92));
+            g.fillOval(eyeX + (facingRight ? 5.0 : 11.0) * s, eyeY + 4.0 * s, 5.0 * s, 5.0 * s);
+        } else {
+            g.setFill(Color.WHITE);
+            g.fillOval(headX + (facingRight ? 0 : 40) * s, headY, 25 * s, 25 * s);
+            Color eyeColor = classicPalette ? game.classicSkinAccentColor(type) : Color.BLACK;
+            if (eyeOverride != null) eyeColor = eyeOverride;
+            if (noirPigeon) eyeColor = Color.RED.brighter();
+            if (ravenEyes) eyeColor = voidHeraldRaven ? Color.web("#B388FF") : Color.web("#D50000");
+            g.setFill(eyeColor);
+            g.fillOval(headX + (facingRight ? 5 : 45) * s, headY + 5 * s, 15 * s, 15 * s);
+        }
         if (stylizedMockingbird) {
             double eyeCenterX = headX + (facingRight ? 12.5 : 52.5) * s;
             double eyeCenterY = headY + 12.5 * s;
@@ -24103,6 +25039,7 @@ public class Bird {
         boolean stylizedPenguin = type == BirdGame3.BirdType.PENGUIN;
         boolean stylizedMockingbird = type == BirdGame3.BirdType.MOCKINGBIRD;
         boolean stylizedGrinchhawk = type == BirdGame3.BirdType.GRINCHHAWK;
+        boolean stylizedTitmouse = type == BirdGame3.BirdType.TITMOUSE;
         double openAmount = (isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) : 3) * s * openScale;
         if (stylizedHummingbird) {
             openAmount *= 0.34;
@@ -24110,6 +25047,8 @@ public class Bird {
             openAmount *= 0.62;
         } else if (stylizedGrinchhawk) {
             openAmount *= 0.78;
+        } else if (stylizedTitmouse) {
+            openAmount *= 0.42;
         }
         double beakLength = ((type == BirdGame3.BirdType.FALCON ? 34
                 : type == BirdGame3.BirdType.EAGLE ? 32
@@ -24118,6 +25057,7 @@ public class Bird {
                 : stylizedPenguin ? 22
                 : stylizedTurkey ? 25
                 : stylizedGrinchhawk ? 36
+                : stylizedTitmouse ? 20
                 : type == BirdGame3.BirdType.ROADRUNNER ? 42 : 28) + (pose == null ? 0.0 : pose.beakLengthBonus())) * s;
         if (type == BirdGame3.BirdType.HUMMINGBIRD && hummingNeedleHitTimer > 0) {
             double needleProgress = Math.clamp(hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES), 0.0, 1.0);
@@ -24164,6 +25104,8 @@ public class Bird {
                 ? (isAttacking ? Color.web("#F9A825") : Color.web("#FDD835"))
                 : stylizedGrinchhawk
                 ? (isAttacking ? Color.web("#F9A825") : Color.web("#FBC02D"))
+                : stylizedTitmouse
+                ? (isAttacking ? Color.web("#4E342E") : Color.web("#5D4037"))
                 : (isAttacking ? Color.ORANGERED : Color.ORANGE));
         g.fillPolygon(
                 new double[]{baseUpperX, upperTipX, baseLowerX},
@@ -24217,6 +25159,12 @@ public class Bird {
                     tipBaseY - dirY * 5.0 * s - normalY * 1.6 * s,
                     lowerTipX - dirX * 0.8 * s,
                     lowerTipY + normalY * 2.4 * s);
+        }
+        if (stylizedTitmouse) {
+            g.setStroke(Color.web("#EFEBE9").deriveColor(0, 1, 1, 0.24));
+            g.setLineWidth(0.8 * s);
+            g.strokeLine(mouthCenterX - normalX * 1.1 * s, mouthCenterY - normalY * 1.1 * s,
+                    tipBaseX - dirX * 2.0 * s, tipBaseY - dirY * 2.0 * s);
         }
 
         if (isAttacking && attackAnimationTimer > 4) {
