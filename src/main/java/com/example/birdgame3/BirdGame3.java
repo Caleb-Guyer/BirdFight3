@@ -254,6 +254,10 @@ public class BirdGame3 extends Application {
     private final boolean[][] aiActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[][] lanActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[][] wiimoteActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
+    private final boolean[] controllerAttackUpHeld = new boolean[MAX_COMBATANTS];
+    private final boolean[] controllerAttackDownHeld = new boolean[MAX_COMBATANTS];
+    private final boolean[] lanAttackUpHeld = new boolean[MAX_COMBATANTS];
+    private final boolean[] lanAttackDownHeld = new boolean[MAX_COMBATANTS];
     private final boolean[] wiimoteLeftHeld = new boolean[MAX_COMBATANTS];
     private final boolean[] wiimoteRightHeld = new boolean[MAX_COMBATANTS];
     private final int[] xboxAssignedSlotByPlayer = createFilledIntArray(MAX_COMBATANTS);
@@ -1399,6 +1403,8 @@ public class BirdGame3 extends Application {
                 connected,
                 a.left() || b.left(),
                 a.right() || b.right(),
+                a.attackUp() || b.attackUp(),
+                a.attackDown() || b.attackDown(),
                 a.jump() || b.jump(),
                 a.attack() || b.attack(),
                 a.special() || b.special(),
@@ -22503,6 +22509,8 @@ public class BirdGame3 extends Application {
         setLanActionState(idx, ControlAction.BLOCK, (mask & LanProtocol.INPUT_BLOCK) != 0);
         setLanActionState(idx, ControlAction.TAUNT_CYCLE, (mask & LanProtocol.INPUT_TAUNT_CYCLE) != 0);
         setLanActionState(idx, ControlAction.TAUNT_EXECUTE, (mask & LanProtocol.INPUT_TAUNT_EXEC) != 0);
+        lanAttackUpHeld[idx] = (mask & LanProtocol.INPUT_ATTACK_UP) != 0;
+        lanAttackDownHeld[idx] = (mask & LanProtocol.INPUT_ATTACK_DOWN) != 0;
     }
 
     private void handleLanKeyPress(Stage stage, KeyEvent e) {
@@ -33448,6 +33456,16 @@ public class BirdGame3 extends Application {
         return isActionPressed(playerIdx, ControlAction.ATTACK);
     }
 
+    boolean isAttackUpPressed(int playerIdx) {
+        if (isValidPlayerIndex(playerIdx)) return false;
+        return controllerAttackUpHeld[playerIdx] || lanAttackUpHeld[playerIdx];
+    }
+
+    boolean isAttackDownPressed(int playerIdx) {
+        if (isValidPlayerIndex(playerIdx)) return false;
+        return controllerAttackDownHeld[playerIdx] || lanAttackDownHeld[playerIdx];
+    }
+
     boolean isSpecialPressed(int playerIdx) {
         return isActionPressed(playerIdx, ControlAction.SPECIAL);
     }
@@ -33480,6 +33498,10 @@ public class BirdGame3 extends Application {
         clearActionStates(aiActionPressed);
         clearActionStates(lanActionPressed);
         clearActionStates(wiimoteActionPressed);
+        Arrays.fill(controllerAttackUpHeld, false);
+        Arrays.fill(controllerAttackDownHeld, false);
+        Arrays.fill(lanAttackUpHeld, false);
+        Arrays.fill(lanAttackDownHeld, false);
         Arrays.fill(wiimoteLeftHeld, false);
         Arrays.fill(wiimoteRightHeld, false);
         Arrays.fill(wiimoteGameplayPauseHeld, false);
@@ -33503,6 +33525,8 @@ public class BirdGame3 extends Application {
     private void pollWiimoteGameplayInputs() {
         clearActionStates(wiimoteActionPressed);
         if (wiimoteInputManager == null && xboxInputManager == null) {
+            Arrays.fill(controllerAttackUpHeld, false);
+            Arrays.fill(controllerAttackDownHeld, false);
             Arrays.fill(wiimoteLeftHeld, false);
             Arrays.fill(wiimoteRightHeld, false);
             Arrays.fill(wiimoteGameplayPauseHeld, false);
@@ -33534,6 +33558,8 @@ public class BirdGame3 extends Application {
             boolean connected = state.connected();
             boolean left = connected && state.left();
             boolean right = connected && state.right();
+            boolean attackUp = connected && state.attackUp();
+            boolean attackDown = connected && state.attackDown();
             boolean jump = connected && state.jump();
             boolean attack = connected && state.attack();
             boolean special = connected && state.special();
@@ -33558,6 +33584,8 @@ public class BirdGame3 extends Application {
             setActionState(wiimoteActionPressed, i, ControlAction.BLOCK, block);
             setActionState(wiimoteActionPressed, i, ControlAction.TAUNT_CYCLE, tauntCycle);
             setActionState(wiimoteActionPressed, i, ControlAction.TAUNT_EXECUTE, tauntExecute);
+            controllerAttackUpHeld[i] = attackUp;
+            controllerAttackDownHeld[i] = attackDown;
 
             if (left && !wiimoteLeftHeld[i]) {
                 players[i].registerDashTap(-1);
@@ -33576,6 +33604,8 @@ public class BirdGame3 extends Application {
         boolean connected = state.connected();
         boolean left = connected && state.left();
         boolean right = connected && state.right();
+        boolean attackUp = connected && state.attackUp();
+        boolean attackDown = connected && state.attackDown();
         boolean jump = connected && state.jump();
         boolean attack = connected && state.attack();
         boolean special = connected && state.special();
@@ -33593,6 +33623,8 @@ public class BirdGame3 extends Application {
         if (block) nextMask |= LanProtocol.INPUT_BLOCK;
         if (tauntCycle) nextMask |= LanProtocol.INPUT_TAUNT_CYCLE;
         if (tauntExecute) nextMask |= LanProtocol.INPUT_TAUNT_EXEC;
+        if (attackUp) nextMask |= LanProtocol.INPUT_ATTACK_UP;
+        if (attackDown) nextMask |= LanProtocol.INPUT_ATTACK_DOWN;
         if (nextMask != lanLocalInputMask) {
             lanLocalInputMask = nextMask;
             if (lanClient != null) {
@@ -33607,6 +33639,8 @@ public class BirdGame3 extends Application {
         }
         wiimoteLeftHeld[playerIdx] = false;
         wiimoteRightHeld[playerIdx] = false;
+        controllerAttackUpHeld[playerIdx] = false;
+        controllerAttackDownHeld[playerIdx] = false;
     }
 
     void setLocalActionsForKey(KeyCode code, boolean down) {

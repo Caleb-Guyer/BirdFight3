@@ -125,6 +125,8 @@ final class XboxInputManager implements AutoCloseable {
 
         boolean left = (buttons & XINPUT_GAMEPAD_DPAD_LEFT) != 0 || leftStickX <= -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE;
         boolean right = (buttons & XINPUT_GAMEPAD_DPAD_RIGHT) != 0 || leftStickX >= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE;
+        boolean attackUp = (buttons & XINPUT_GAMEPAD_DPAD_UP) != 0 || leftStickY >= XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE;
+        boolean attackDown = (buttons & XINPUT_GAMEPAD_DPAD_DOWN) != 0 || leftStickY <= -XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE;
         boolean jump = (buttons & XINPUT_GAMEPAD_A) != 0;
         boolean attack = (buttons & XINPUT_GAMEPAD_X) != 0;
         boolean special = (buttons & XINPUT_GAMEPAD_B) != 0 || rightTrigger > XINPUT_GAMEPAD_TRIGGER_THRESHOLD;
@@ -145,6 +147,8 @@ final class XboxInputManager implements AutoCloseable {
                 true,
                 left,
                 right,
+                attackUp,
+                attackDown,
                 jump,
                 attack,
                 special,
@@ -180,6 +184,8 @@ final class XboxInputManager implements AutoCloseable {
         public byte bRightTrigger;
         public short sThumbLX;
         public short sThumbLY;
+        public short sThumbRX;
+        public short sThumbRY;
 
         @Override
         protected List<String> getFieldOrder() {
@@ -188,6 +194,7 @@ final class XboxInputManager implements AutoCloseable {
     }
 
     public static final class XInputState extends Structure {
+        public int dwPacketNumber;
         public XInputGamepad gamepad = new XInputGamepad();
 
         @Override

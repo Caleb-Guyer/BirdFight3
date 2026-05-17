@@ -261,6 +261,8 @@ final class WiimoteControlMapper {
                 true,
                 left,
                 right,
+                false,
+                false,
                 jump,
                 attack,
                 special,

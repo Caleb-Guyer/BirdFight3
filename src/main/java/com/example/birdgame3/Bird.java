@@ -2056,25 +2056,25 @@ public class Bird {
         boolean leftHeld = leftPressed();
         boolean rightHeld = rightPressed();
         if (grounded) {
-            if (blockPressed()) {
+            if (downAttackPressed()) {
                 return NormalAttackVariant.DOWN_TILT;
             }
             if (leftHeld ^ rightHeld) {
                 return NormalAttackVariant.SIDE_TILT;
             }
-            if (jumpPressed()) {
+            if (upAttackPressed()) {
                 return NormalAttackVariant.UP_TILT;
             }
             return NormalAttackVariant.NEUTRAL;
         }
-        if (blockPressed()) {
+        if (downAttackPressed()) {
             return NormalAttackVariant.DOWN_AIR;
         }
         if (leftHeld ^ rightHeld) {
             boolean towardFacing = rightHeld == facingRight;
             return towardFacing ? NormalAttackVariant.FORWARD_AIR : NormalAttackVariant.BACK_AIR;
         }
-        if (jumpPressed()) {
+        if (upAttackPressed()) {
             return NormalAttackVariant.UP_AIR;
         }
         return NormalAttackVariant.NEUTRAL_AIR;
@@ -9069,6 +9069,14 @@ public class Bird {
 
     private boolean attackPressed() {
         return game.isAttackPressed(playerIndex);
+    }
+
+    private boolean upAttackPressed() {
+        return jumpPressed() || game.isAttackUpPressed(playerIndex);
+    }
+
+    private boolean downAttackPressed() {
+        return blockPressed() || game.isAttackDownPressed(playerIndex);
     }
 
     private boolean specialPressed() {

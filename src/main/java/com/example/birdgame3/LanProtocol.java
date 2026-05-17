@@ -6,7 +6,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 final class LanProtocol {
-    static final int VERSION = 9;
+    static final int VERSION = 10;
     static final int DEFAULT_PORT = 28999;
     static final int COMPANION_PORT = DEFAULT_PORT + 1;
     static final int COMPANION_VERSION = 1;
@@ -37,6 +37,8 @@ final class LanProtocol {
     static final int INPUT_TAUNT_CYCLE = 1 << 6;
     static final int INPUT_TAUNT_EXEC = 1 << 7;
     static final int INPUT_GRAB = 1 << 8;
+    static final int INPUT_ATTACK_UP = 1 << 9;
+    static final int INPUT_ATTACK_DOWN = 1 << 10;
 
     @FunctionalInterface
     interface MessageWriter {

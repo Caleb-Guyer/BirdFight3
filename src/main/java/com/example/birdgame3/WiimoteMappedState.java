@@ -4,6 +4,8 @@ record WiimoteMappedState(
         boolean connected,
         boolean left,
         boolean right,
+        boolean attackUp,
+        boolean attackDown,
         boolean jump,
         boolean attack,
         boolean special,
@@ -30,7 +32,7 @@ record WiimoteMappedState(
     static WiimoteMappedState off(String status) {
         return new WiimoteMappedState(false, false, false, false, false, false, false, false, false, false,
                 false, false, false, false, false, false, false, false, false, false, false, false, false,
-                false, status);
+                false, false, false, status);
     }
 
     static WiimoteMappedState waiting(String status) {
