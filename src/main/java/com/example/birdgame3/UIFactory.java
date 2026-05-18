@@ -22,9 +22,6 @@ public final class UIFactory {
         this.clickSound = clickSound;
         this.noEllipsis = noEllipsis;
         this.fitter = fitter;
-        // Ensure CPU label UI fix installer runs early when UIFactory is created.
-        // This starts a lightweight runtime helper to keep CPU labels visible above overlays.
-        BirdGame3CpuLevelUiFix.installGlobal();
     }
 
     public Button action(String text, double width, double height, double fontSize, String bgColor, double radius, Runnable onAction) {

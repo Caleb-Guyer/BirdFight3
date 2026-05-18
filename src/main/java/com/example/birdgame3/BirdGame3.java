@@ -16153,10 +16153,17 @@ public class BirdGame3 extends Application {
 
         StackPane[] fightSlots = new StackPane[4];
         Canvas[] portraits = new Canvas[4];
+        StackPane[] portraitFrames = new StackPane[4];
+        StackPane[] playerBadges = new StackPane[4];
+        HBox[] slotHeaders = new HBox[4];
+        HBox[] slotBodies = new HBox[4];
+        VBox[] slotDetails = new VBox[4];
+        VBox[] slotContents = new VBox[4];
         Label[] nameLabels = new Label[4];
         Button[] skinButtons = new Button[4];
         Button[] inputButtons = new Button[4];
         Button[] aiToggleButtons = new Button[4];
+        Runnable[] syncAiToggleButtons = new Runnable[4];
 
         Runnable startBattle = () -> {
             stageSelectReturn = () -> showFightSetup(stage);
@@ -16260,6 +16267,7 @@ public class BirdGame3 extends Application {
             pLabel.setFont(Font.font("Arial Black", 24));
             pLabel.setTextFill(idx == 2 ? Color.web("#111111") : Color.WHITE);
             playerBadge.getChildren().add(pLabel);
+            playerBadges[idx] = playerBadge;
 
             Button aiToggle = new Button();
             aiToggle.setPrefSize(132, 40);
@@ -16271,11 +16279,13 @@ public class BirdGame3 extends Application {
                 aiToggle.setText(isAI[idx] ? "CPU" : "PLAYER");
                 String bg = isAI[idx] ? "#D7D9DD" : accentHex;
                 String fg = isAI[idx] ? "#111111" : (idx == 2 ? "#111111" : "#FFFFFF");
+                double fontSize = activePlayers >= 4 ? 13.0 : 15.0;
                 aiToggle.setStyle("-fx-background-color: " + bg + "; -fx-text-fill: " + fg + "; "
-                        + "-fx-font-family: 'Arial Black'; -fx-font-size: 15px; -fx-font-weight: bold; "
+                        + "-fx-font-family: 'Arial Black'; -fx-font-size: " + fontSize + "px; -fx-font-weight: bold; "
                         + "-fx-background-radius: 14; -fx-border-color: black; -fx-border-width: 2.5; "
                         + "-fx-border-radius: 14;");
             };
+            syncAiToggleButtons[idx] = syncAiToggle;
             aiToggle.setOnAction(e -> {
                 playButtonClick();
                 isAI[idx] = !isAI[idx];
@@ -16360,7 +16370,12 @@ public class BirdGame3 extends Application {
                 }
                 drawRosterSprite(portraits[idx], type, skinKey, randomPick);
                 nameLabels[idx].setText(randomPick ? "RANDOM" : (type != null ? type.name.toUpperCase() : "SELECT A BIRD"));
-                fitLabelSingleLine(nameLabels[idx], 30, 16, 260);
+                boolean compactSlot = activePlayers >= 4;
+                double nameFitWidth = compactSlot ? 150.0 : activePlayers == 3 ? 190.0 : 260.0;
+                fitLabelSingleLine(nameLabels[idx],
+                        compactSlot ? 20 : 30,
+                        compactSlot ? 12 : 16,
+                        nameFitWidth);
                 if (type == null) {
                     skinButtons[idx].setDisable(true);
                     skinButtons[idx].setOpacity(0.6);
@@ -16394,23 +16409,28 @@ public class BirdGame3 extends Application {
             portraitFrame.setStyle("-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 22; "
                     + "-fx-border-color: rgba(255,255,255,0.20); -fx-border-width: 2; "
                     + "-fx-border-radius: 22;");
+            portraitFrames[idx] = portraitFrame;
 
             Region slotSpacer = new Region();
             HBox.setHgrow(slotSpacer, Priority.ALWAYS);
             HBox slotHeader = new HBox(10, playerBadge, slotSpacer, aiToggle);
             slotHeader.setAlignment(Pos.CENTER_LEFT);
+            slotHeaders[idx] = slotHeader;
 
             VBox detailColumn = new VBox(10, nameLabels[idx], inputBtn, skinButtons[idx], cpuBtn);
             detailColumn.setAlignment(Pos.TOP_LEFT);
             detailColumn.setFillWidth(true);
             HBox.setHgrow(detailColumn, Priority.ALWAYS);
+            slotDetails[idx] = detailColumn;
 
             HBox slotBody = new HBox(18, portraitFrame, detailColumn);
             slotBody.setAlignment(Pos.CENTER_LEFT);
+            slotBodies[idx] = slotBody;
 
             VBox slot = new VBox(14, slotHeader, slotBody);
             slot.setAlignment(Pos.TOP_LEFT);
             slot.setPadding(new Insets(16));
+            slotContents[idx] = slot;
 
             Region cardBase = new Region();
             cardBase.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
@@ -16473,8 +16493,9 @@ public class BirdGame3 extends Application {
                 inputBtn.setText(text);
                 inputBtn.setDisable(disabled);
                 inputBtn.setOpacity(opacity);
+                double inputFontSize = activePlayers >= 4 ? 11.5 : 13.0;
                 inputBtn.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; "
-                        + "-fx-font-family: 'Arial Black'; -fx-font-size: 13px; -fx-font-weight: bold; "
+                        + "-fx-font-family: 'Arial Black'; -fx-font-size: " + inputFontSize + "px; -fx-font-weight: bold; "
                         + "-fx-background-radius: 16; -fx-border-color: rgba(255,255,255,0.16); "
                         + "-fx-border-width: 2; -fx-border-radius: 16;");
             }
@@ -16631,6 +16652,23 @@ public class BirdGame3 extends Application {
                 fightSlots[i].setMinWidth(slotWidth);
                 fightSlots[i].setPrefWidth(slotWidth);
                 fightSlots[i].setMaxWidth(slotWidth);
+                applyFightSetupSlotLayout(
+                        fightSlots[i],
+                        slotContents[i],
+                        slotHeaders[i],
+                        slotBodies[i],
+                        slotDetails[i],
+                        playerBadges[i],
+                        portraitFrames[i],
+                        portraits[i],
+                        nameLabels[i],
+                        aiToggleButtons[i],
+                        inputButtons[i],
+                        skinButtons[i],
+                        cpuButtons[i],
+                        activePlayers >= 4,
+                        slotWidth
+                );
                 selectors[i].setVisible(active);
                 if (!active) {
                     setFightSelectorClawVisible(selectorClaws[i], selectorClawLabels[i], false);
@@ -16638,6 +16676,10 @@ public class BirdGame3 extends Application {
                 selectorLabels[i].setVisible(active);
                 selectorLocked[i] = selectorLocked[i] && active;
                 if (!active) continue;
+                if (syncAiToggleButtons[i] != null) {
+                    syncAiToggleButtons[i].run();
+                }
+                refreshCpuButton(i);
                 refreshFightSelectorVisual(selectors[i], selectorLocked[i]);
                 BirdIconSpot spot = fightRandomSelected[i] ? finalRandomSpot : spotByType.get(fightSelectedBirds[i]);
                 if (spot != null) {
@@ -33020,17 +33062,110 @@ public class BirdGame3 extends Application {
         Button cpuBtn = cpuButtons[idx];
         if (cpuBtn == null) return;
         int level = cpuLevels[idx];
-        cpuBtn.setText("CPU LV: " + level);
+        boolean compact = activePlayers >= 4;
+        cpuBtn.setText(compact ? "CPU LV " + level : "CPU LV: " + level);
         boolean aiActive = isAI[idx];
         cpuBtn.setDisable(!aiActive);
         cpuBtn.setOpacity(aiActive ? 1.0 : 0.65);
         cpuBtn.setVisible(aiActive);
         cpuBtn.setManaged(aiActive);
         cpuBtn.setStyle("-fx-background-color: " + (aiActive ? "#5D4037" : "#455A64") + "; "
-                + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 14px; "
+                + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: "
+                + (compact ? "12px; " : "14px; ")
                 + "-fx-font-weight: bold; -fx-background-radius: 16; "
                 + "-fx-border-color: rgba(255,255,255,0.16); -fx-border-width: 2; "
                 + "-fx-border-radius: 16;");
+    }
+
+    private void applyFightSetupSlotLayout(
+            StackPane slotCard,
+            VBox slot,
+            HBox slotHeader,
+            HBox slotBody,
+            VBox detailColumn,
+            StackPane playerBadge,
+            StackPane portraitFrame,
+            Canvas portrait,
+            Label nameLabel,
+            Button aiToggle,
+            Button inputButton,
+            Button skinButton,
+            Button cpuButton,
+            boolean compact,
+            double slotWidth
+    ) {
+        if (slotCard == null || slot == null || slotHeader == null || slotBody == null
+                || detailColumn == null || playerBadge == null || portraitFrame == null
+                || portrait == null || nameLabel == null) {
+            return;
+        }
+
+        double cardHeight = compact ? 228.0 : 248.0;
+        double padding = compact ? 10.0 : 16.0;
+        double slotGap = compact ? 8.0 : 14.0;
+        double bodyGap = compact ? 10.0 : 18.0;
+        double detailGap = compact ? 6.0 : 10.0;
+        double portraitFrameSize = compact ? 108.0 : 170.0;
+        double portraitCanvasSize = compact ? 102.0 : 156.0;
+        double badgeWidth = compact ? 58.0 : 78.0;
+        double badgeHeight = compact ? 34.0 : 44.0;
+        double aiWidth = compact ? 96.0 : 132.0;
+        double aiHeight = compact ? 34.0 : 40.0;
+        double buttonHeight = compact ? 32.0 : 42.0;
+        double buttonFontSize = compact ? 11.5 : 14.0;
+        double nameFontSize = compact ? 20.0 : 30.0;
+        double detailWidth = Math.max(110.0, slotWidth - padding * 2.0 - portraitFrameSize - bodyGap);
+        double nameWidth = compact ? 150.0 : Math.min(260.0, detailWidth);
+
+        slotCard.setMinHeight(cardHeight);
+        slotCard.setPrefHeight(cardHeight);
+        slotCard.setMaxHeight(cardHeight);
+        slot.setPadding(new Insets(padding));
+        slot.setSpacing(slotGap);
+        slotHeader.setSpacing(compact ? 7.0 : 10.0);
+        slotBody.setSpacing(bodyGap);
+        detailColumn.setSpacing(detailGap);
+        detailColumn.setMaxWidth(detailWidth);
+        detailColumn.setPrefWidth(detailWidth);
+
+        playerBadge.setMinSize(badgeWidth, badgeHeight);
+        playerBadge.setPrefSize(badgeWidth, badgeHeight);
+        playerBadge.setMaxSize(badgeWidth, badgeHeight);
+        for (Node child : playerBadge.getChildren()) {
+            if (child instanceof Label label) {
+                label.setFont(Font.font("Arial Black", compact ? 18.0 : 24.0));
+            }
+        }
+
+        portraitFrame.setMinSize(portraitFrameSize, portraitFrameSize);
+        portraitFrame.setPrefSize(portraitFrameSize, portraitFrameSize);
+        portraitFrame.setMaxSize(portraitFrameSize, portraitFrameSize);
+        if (Math.abs(portrait.getWidth() - portraitCanvasSize) > 0.01
+                || Math.abs(portrait.getHeight() - portraitCanvasSize) > 0.01) {
+            portrait.setWidth(portraitCanvasSize);
+            portrait.setHeight(portraitCanvasSize);
+        }
+
+        nameLabel.setFont(Font.font("Arial Black", nameFontSize));
+        nameLabel.setMaxWidth(nameWidth);
+
+        if (aiToggle != null) {
+            aiToggle.setMinSize(aiWidth, aiHeight);
+            aiToggle.setPrefSize(aiWidth, aiHeight);
+            aiToggle.setMaxSize(aiWidth, aiHeight);
+        }
+        applyFightSetupCompactButtonMetrics(inputButton, buttonHeight, buttonFontSize);
+        applyFightSetupCompactButtonMetrics(skinButton, buttonHeight, buttonFontSize);
+        applyFightSetupCompactButtonMetrics(cpuButton, buttonHeight, compact ? 12.0 : buttonFontSize);
+    }
+
+    private void applyFightSetupCompactButtonMetrics(Button button, double height, double fontSize) {
+        if (button == null) return;
+        button.setMinHeight(height);
+        button.setPrefHeight(height);
+        button.setMaxHeight(height);
+        button.setMaxWidth(Double.MAX_VALUE);
+        button.setFont(Font.font("Arial Black", fontSize));
     }
 
     private String toHex(Color c) {
