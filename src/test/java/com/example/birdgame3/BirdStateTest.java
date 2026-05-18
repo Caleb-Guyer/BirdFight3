@@ -4661,6 +4661,52 @@ class BirdStateTest {
                 "Raven's grounded down tilt should seed one Portent.");
     }
 
+    @Test
+    void ravenUltimateStagesPortalsRoutesThenVoidRavens() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird raven = new Bird(180.0, BirdGame3.BirdType.RAVEN, 0, game);
+        Bird target = new Bird(380.0, BirdGame3.BirdType.PIGEON, 1, game);
+        raven.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        raven.facingRight = true;
+        game.players[0] = raven;
+        game.players[1] = target;
+
+        invokePrivateBirdBooleanVoid(raven, "applyRavenPortent", target, true);
+        double startingHealth = target.health;
+        invokePrivateVoid(raven, "specialRavenUnkindness");
+
+        assertTrue(getPrivateInt(raven, "ravenUltimateWindupTimer") > 0,
+                "The Unkindness should begin with a portal windup.");
+        assertTrue(((List<?>) getPrivateObject(raven, "ravenUltimatePortals")).size() >= 5,
+                "The opener should create several visible portals.");
+        assertEquals(0, ((List<?>) getPrivateObject(raven, "ravenUltimateRoutes")).size(),
+                "The main route strike should wait until after the opener.");
+        assertEquals(startingHealth, target.health, 0.0001,
+                "The windup should not apply the main route damage immediately.");
+
+        for (int i = 0; i < 32; i++) {
+            raven.update(1.0);
+        }
+
+        assertTrue(((List<?>) getPrivateObject(raven, "ravenUltimateRoutes")).size() > 0,
+                "The delayed main strike should create route slashes.");
+        assertTrue(target.health < startingHealth,
+                "The delayed route strike should damage targets on the route.");
+
+        for (int i = 0; i < 16; i++) {
+            raven.update(1.0);
+        }
+
+        long ownedVoidRavens = game.crowMinions.stream()
+                .filter(crow -> crow.owner == raven && crow.effectiveVariant() == CrowMinion.VARIANT_VOID_RAVEN)
+                .count();
+        assertTrue(ownedVoidRavens >= 5,
+                "The finale should summon a flock of allied void ravens.");
+    }
+
     private static void invokePrivateVoid(Object target, String methodName) throws Exception {
         Method method = target.getClass().getDeclaredMethod(methodName);
         method.setAccessible(true);
