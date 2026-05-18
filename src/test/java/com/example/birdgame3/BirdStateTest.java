@@ -3496,6 +3496,41 @@ class BirdStateTest {
     }
 
     @Test
+    void batWingcutFromHangSkimsCeilingBeforeRelatching() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Platform ceiling = new Platform(160.0, 300.0, 420.0, 40.0);
+        game.platforms.add(ceiling);
+
+        Bird bat = new Bird(220.0, BirdGame3.BirdType.BAT, 0, game);
+        bat.y = ceiling.y + ceiling.h + 2.0;
+        bat.facingRight = true;
+        bat.batHanging = true;
+        game.players[0] = bat;
+        Field batHangPlatformField = Bird.class.getDeclaredField("batHangPlatform");
+        batHangPlatformField.setAccessible(true);
+        batHangPlatformField.set(bat, ceiling);
+
+        invokePrivateBooleanVoid(bat, "specialBatWingcut", false);
+        double startX = bat.x;
+        for (int i = 0; i < 6; i++) {
+            bat.update(1.0);
+        }
+
+        assertTrue(bat.x > startX + 80.0,
+                "Wingcut from Ceiling Hang should travel sideways along the underside.");
+        assertTrue(Math.abs(bat.y - (ceiling.y + ceiling.h + 2.0)) < 10.0,
+                "Ceiling Wingcut should keep Bat near the platform underside instead of dropping immediately.");
+
+        for (int i = 0; i < 20; i++) {
+            bat.update(1.0);
+        }
+
+        assertTrue(bat.batHanging,
+                "Ceiling Wingcut should relatch when the dash ends under a hangable platform.");
+    }
+
+    @Test
     void batMoonriseIsOncePerAirtimeRecovery() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
@@ -3557,6 +3592,37 @@ class BirdStateTest {
                 "Silent Descent should hit targets underneath Bat.");
         assertTrue(target.vy > 0.0,
                 "Starting Silent Descent from Ceiling Hang should meteor targets downward.");
+    }
+
+    @Test
+    void batSilentDescentFromGroundRisesBeforeDiving() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bat = new Bird(260.0, BirdGame3.BirdType.BAT, 0, game);
+        bat.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = bat;
+
+        invokePrivateBooleanVoid(bat, "specialBatSilentDescent", false);
+        double startY = bat.y;
+
+        for (int i = 0; i < 4; i++) {
+            bat.update(1.0);
+        }
+
+        assertTrue(bat.y < startY - 20.0,
+                "Grounded Silent Descent should launch Bat upward before the stall.");
+        assertTrue(getPrivateInt(bat, "batSilentStallTimer") > 0,
+                "Grounded Silent Descent should still be in its startup sequence after the rise.");
+
+        boolean sawDive = false;
+        for (int i = 0; i < 16; i++) {
+            bat.update(1.0);
+            sawDive |= getPrivateInt(bat, "batSilentDiveTimer") > 0 || bat.vy > 0.0;
+        }
+
+        assertTrue(sawDive,
+                "Grounded Silent Descent should transition into a downward dive.");
     }
 
     @Test
@@ -4300,6 +4366,161 @@ class BirdStateTest {
 
         assertTrue(target.health < healthAfterBurst || target.vx > 0.1,
                 "Lingering sandstorm gusts should keep hurting or blowing nearby enemies.");
+    }
+
+    @Test
+    void pelicanEmptyBilgeTapLoadsOneCargoAndHoldLoadsTwo() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird pelican = new Bird(260.0, BirdGame3.BirdType.PELICAN, 0, game);
+        pelican.y = BirdGame3.GROUND_Y - 96.0;
+        game.players[0] = pelican;
+
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        KeyCode blockKey = game.blockKeyForPlayer(0);
+
+        game.setLocalActionsForKey(blockKey, true);
+        game.setLocalActionsForKey(specialKey, true);
+        pelican.update(1.0);
+        game.setLocalActionsForKey(specialKey, false);
+        game.setLocalActionsForKey(blockKey, false);
+        pelican.update(1.0);
+
+        assertEquals(1, getPrivateInt(pelican, "pelicanCargoCount"));
+
+        setPrivateInt(pelican, "pelicanCargoCount", 0);
+        setPrivateInt(pelican, "pelicanDownReuseTimer", 0);
+        pelican.update(1.0);
+
+        game.setLocalActionsForKey(blockKey, true);
+        game.setLocalActionsForKey(specialKey, true);
+        pelican.update(1.0);
+        for (int i = 0; i < 24; i++) {
+            pelican.update(1.0);
+        }
+
+        assertEquals(2, getPrivateInt(pelican, "pelicanCargoCount"));
+    }
+
+    @Test
+    void pelicanBreakwaterRunSpendsCargoForAHeavyHit() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pelican = new Bird(260.0, BirdGame3.BirdType.PELICAN, 0, game);
+        Bird target = new Bird(360.0, BirdGame3.BirdType.PIGEON, 1, game);
+        pelican.y = BirdGame3.GROUND_Y - 96.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        pelican.facingRight = true;
+        game.players[0] = pelican;
+        game.players[1] = target;
+
+        setPrivateInt(pelican, "pelicanCargoCount", 2);
+        double startingHealth = target.health;
+
+        invokePrivateBooleanVoid(pelican, "specialPelicanBreakwaterRun", false);
+        pelican.update(1.0);
+
+        assertEquals(0, getPrivateInt(pelican, "pelicanCargoCount"));
+        assertTrue(target.health < startingHealth);
+        assertTrue(target.vx > 20.0);
+    }
+
+    @Test
+    void pelicanPouchSnareKnocksTargetsAwayAndLoadsCargo() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pelican = new Bird(260.0, BirdGame3.BirdType.PELICAN, 0, game);
+        Bird target = new Bird(360.0, BirdGame3.BirdType.PIGEON, 1, game);
+        pelican.y = BirdGame3.GROUND_Y - 96.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        pelican.facingRight = true;
+        game.players[0] = pelican;
+        game.players[1] = target;
+
+        invokePrivateBooleanVoid(pelican, "specialPelicanPouchSnare", false);
+        pelican.update(1.0);
+
+        assertTrue(target.vx > 0.0, "Neutral special should knock targets away from Pelican.");
+        assertTrue(target.vy < 0.0, "Neutral special should pop targets upward.");
+        assertEquals(1, getPrivateInt(pelican, "pelicanCargoCount"));
+    }
+
+    @Test
+    void pelicanThermalSailAutomaticallyTurnsIntoKeelDive() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird pelican = new Bird(260.0, BirdGame3.BirdType.PELICAN, 0, game);
+        pelican.y = BirdGame3.GROUND_Y - 360.0;
+        game.players[0] = pelican;
+
+        invokePrivateBooleanVoid(pelican, "specialPelicanThermalSail", false);
+        for (int i = 0; i < 18; i++) {
+            pelican.update(1.0);
+        }
+
+        assertTrue(getPrivateBoolean(pelican, "pelicanKeelDiveActive"),
+                "Up special should force the dive after its ascent without extra input.");
+        assertTrue(pelican.vy > 0.0, "Forced dive should drive Pelican downward.");
+
+        for (int i = 0; i < 16; i++) {
+            pelican.update(1.0);
+        }
+
+        assertEquals(0, getPrivateInt(pelican, "pelicanUpTimer"));
+        assertTrue(getPrivateBoolean(pelican, "pelicanKeelDiveActive"),
+                "The forced dive should keep running until Pelican lands.");
+        assertTrue(pelican.vy > 0.0, "Pelican should still be slamming downward after the ascent timer expires.");
+    }
+
+    @Test
+    void pelicanKeelDiveDamageScalesWithCargo() throws Exception {
+        double emptyCargoDamage = pelicanKeelDiveDamageAtCargo(0);
+        double fullCargoDamage = pelicanKeelDiveDamageAtCargo(2);
+
+        assertTrue(fullCargoDamage > emptyCargoDamage,
+                "More cargo should make the forced landing hit harder.");
+    }
+
+    private static double pelicanKeelDiveDamageAtCargo(int cargo) throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pelican = new Bird(260.0, BirdGame3.BirdType.PELICAN, 0, game);
+        Bird target = new Bird(280.0, BirdGame3.BirdType.PIGEON, 1, game);
+        pelican.y = BirdGame3.GROUND_Y - 96.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = pelican;
+        game.players[1] = target;
+
+        setPrivateInt(pelican, "pelicanCargoCount", cargo);
+        double startingHealth = target.health;
+        invokePrivateVoid(pelican, "resolvePelicanKeelDiveLanding");
+        return startingHealth - target.health;
+    }
+
+    @Test
+    void pelicanFullHoldPreservesCargoUntilItExpires() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird pelican = new Bird(260.0, BirdGame3.BirdType.PELICAN, 0, game);
+        pelican.y = BirdGame3.GROUND_Y - 96.0;
+        game.players[0] = pelican;
+
+        invokePrivateVoid(pelican, "beginPelicanFullHold");
+        assertEquals(2, getPrivateInt(pelican, "pelicanCargoCount"));
+
+        invokePrivateBooleanVoid(pelican, "specialPelicanBreakwaterRun", false);
+        assertEquals(2, getPrivateInt(pelican, "pelicanCargoCount"));
+
+        setPrivateInt(pelican, "pelicanFullHoldTimer", 1);
+        pelican.update(1.0);
+
+        assertEquals(0, getPrivateInt(pelican, "pelicanCargoCount"));
     }
 
     private static void invokePrivateVoid(Object target, String methodName) throws Exception {

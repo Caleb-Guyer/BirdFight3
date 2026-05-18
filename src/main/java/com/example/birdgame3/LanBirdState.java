@@ -168,6 +168,30 @@ class LanBirdState {
     boolean razorbillCountered;
     boolean razorbillCounterAttemptActive;
     int plungeTimer;
+    int pelicanCargoCount;
+    int pelicanNeutralTimer;
+    int pelicanNeutralReuseTimer;
+    boolean pelicanNeutralUltimate;
+    boolean[] pelicanNeutralHit = new boolean[4];
+    int pelicanSideTimer;
+    int pelicanSideReuseTimer;
+    int pelicanSideDirection;
+    int pelicanSideCargoSpent;
+    boolean pelicanSideUltimate;
+    boolean[] pelicanSideHit = new boolean[4];
+    int pelicanUpTimer;
+    boolean pelicanUpSpecialUsed;
+    boolean pelicanUpUltimate;
+    boolean pelicanKeelDiveActive;
+    boolean[] pelicanUpHit = new boolean[4];
+    boolean pelicanDownCharging;
+    int pelicanDownHoldFrames;
+    int pelicanDownReuseTimer;
+    boolean pelicanDownUltimate;
+    int pelicanBilgeFxTimer;
+    int pelicanBilgeCargoSpent;
+    boolean pelicanBilgeUltimate;
+    int pelicanFullHoldTimer;
     boolean batHanging;
     int batEchoTimer;
     int batNeutralReuseTimer;
@@ -176,6 +200,7 @@ class LanBirdState {
     int batWingcutDirection;
     boolean batWingcutUltimate;
     boolean batWingcutAmbush;
+    boolean batWingcutFromHang;
     boolean[] batWingcutHit = new boolean[4];
     int batMoonriseTimer;
     boolean batMoonriseUsed;
@@ -555,6 +580,36 @@ class LanBirdState {
         out.writeBoolean(razorbillCountered);
         out.writeBoolean(razorbillCounterAttemptActive);
         out.writeInt(plungeTimer);
+        out.writeInt(pelicanCargoCount);
+        out.writeInt(pelicanNeutralTimer);
+        out.writeInt(pelicanNeutralReuseTimer);
+        out.writeBoolean(pelicanNeutralUltimate);
+        for (boolean hit : pelicanNeutralHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(pelicanSideTimer);
+        out.writeInt(pelicanSideReuseTimer);
+        out.writeInt(pelicanSideDirection);
+        out.writeInt(pelicanSideCargoSpent);
+        out.writeBoolean(pelicanSideUltimate);
+        for (boolean hit : pelicanSideHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(pelicanUpTimer);
+        out.writeBoolean(pelicanUpSpecialUsed);
+        out.writeBoolean(pelicanUpUltimate);
+        out.writeBoolean(pelicanKeelDiveActive);
+        for (boolean hit : pelicanUpHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeBoolean(pelicanDownCharging);
+        out.writeInt(pelicanDownHoldFrames);
+        out.writeInt(pelicanDownReuseTimer);
+        out.writeBoolean(pelicanDownUltimate);
+        out.writeInt(pelicanBilgeFxTimer);
+        out.writeInt(pelicanBilgeCargoSpent);
+        out.writeBoolean(pelicanBilgeUltimate);
+        out.writeInt(pelicanFullHoldTimer);
         out.writeBoolean(batHanging);
         out.writeInt(batEchoTimer);
         out.writeInt(batNeutralReuseTimer);
@@ -563,6 +618,7 @@ class LanBirdState {
         out.writeInt(batWingcutDirection);
         out.writeBoolean(batWingcutUltimate);
         out.writeBoolean(batWingcutAmbush);
+        out.writeBoolean(batWingcutFromHang);
         for (boolean hit : batWingcutHit) {
             out.writeBoolean(hit);
         }
@@ -968,6 +1024,36 @@ class LanBirdState {
         state.razorbillCountered = in.readBoolean();
         state.razorbillCounterAttemptActive = in.readBoolean();
         state.plungeTimer = in.readInt();
+        state.pelicanCargoCount = in.readInt();
+        state.pelicanNeutralTimer = in.readInt();
+        state.pelicanNeutralReuseTimer = in.readInt();
+        state.pelicanNeutralUltimate = in.readBoolean();
+        for (int i = 0; i < state.pelicanNeutralHit.length; i++) {
+            state.pelicanNeutralHit[i] = in.readBoolean();
+        }
+        state.pelicanSideTimer = in.readInt();
+        state.pelicanSideReuseTimer = in.readInt();
+        state.pelicanSideDirection = in.readInt();
+        state.pelicanSideCargoSpent = in.readInt();
+        state.pelicanSideUltimate = in.readBoolean();
+        for (int i = 0; i < state.pelicanSideHit.length; i++) {
+            state.pelicanSideHit[i] = in.readBoolean();
+        }
+        state.pelicanUpTimer = in.readInt();
+        state.pelicanUpSpecialUsed = in.readBoolean();
+        state.pelicanUpUltimate = in.readBoolean();
+        state.pelicanKeelDiveActive = in.readBoolean();
+        for (int i = 0; i < state.pelicanUpHit.length; i++) {
+            state.pelicanUpHit[i] = in.readBoolean();
+        }
+        state.pelicanDownCharging = in.readBoolean();
+        state.pelicanDownHoldFrames = in.readInt();
+        state.pelicanDownReuseTimer = in.readInt();
+        state.pelicanDownUltimate = in.readBoolean();
+        state.pelicanBilgeFxTimer = in.readInt();
+        state.pelicanBilgeCargoSpent = in.readInt();
+        state.pelicanBilgeUltimate = in.readBoolean();
+        state.pelicanFullHoldTimer = in.readInt();
         state.batHanging = in.readBoolean();
         state.batEchoTimer = in.readInt();
         state.batNeutralReuseTimer = in.readInt();
@@ -976,6 +1062,7 @@ class LanBirdState {
         state.batWingcutDirection = in.readInt();
         state.batWingcutUltimate = in.readBoolean();
         state.batWingcutAmbush = in.readBoolean();
+        state.batWingcutFromHang = in.readBoolean();
         for (int i = 0; i < state.batWingcutHit.length; i++) {
             state.batWingcutHit[i] = in.readBoolean();
         }

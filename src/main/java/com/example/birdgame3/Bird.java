@@ -168,6 +168,13 @@ public class Bird {
         DOWN
     }
 
+    private enum PelicanSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record BatEchoCollision(double distance, double normalX, double normalY) {
     }
 
@@ -485,6 +492,42 @@ public class Bird {
     private boolean razorbillCountered = false;
     private boolean razorbillCounterAttemptActive = false;
     public int plungeTimer = 0;
+    private static final int PELICAN_CARGO_MAX = 2;
+    private static final int PELICAN_NEUTRAL_FRAMES = 14;
+    private static final int PELICAN_NEUTRAL_REUSE_FRAMES = 24;
+    private static final int PELICAN_SIDE_FRAMES = 18;
+    private static final int PELICAN_SIDE_REUSE_FRAMES = 36;
+    private static final int PELICAN_UP_FRAMES = 32;
+    private static final int PELICAN_UP_ASCENT_FRAMES = 18;
+    private static final int PELICAN_UP_ULTIMATE_ASCENT_FRAMES = 22;
+    private static final int PELICAN_DOWN_HOLD_FRAMES = 24;
+    private static final int PELICAN_DOWN_REUSE_FRAMES = 28;
+    private static final int PELICAN_BILGE_FX_FRAMES = 16;
+    private static final int PELICAN_FULL_HOLD_FRAMES = 300;
+    private int pelicanCargoCount = 0;
+    private int pelicanNeutralTimer = 0;
+    private int pelicanNeutralReuseTimer = 0;
+    private boolean pelicanNeutralUltimate = false;
+    private final boolean[] pelicanNeutralHit = new boolean[4];
+    private int pelicanSideTimer = 0;
+    private int pelicanSideReuseTimer = 0;
+    private int pelicanSideDirection = 1;
+    private int pelicanSideCargoSpent = 0;
+    private boolean pelicanSideUltimate = false;
+    private final boolean[] pelicanSideHit = new boolean[4];
+    private int pelicanUpTimer = 0;
+    private boolean pelicanUpSpecialUsed = false;
+    private boolean pelicanUpUltimate = false;
+    private boolean pelicanKeelDiveActive = false;
+    private final boolean[] pelicanUpHit = new boolean[4];
+    private boolean pelicanDownCharging = false;
+    private int pelicanDownHoldFrames = 0;
+    private int pelicanDownReuseTimer = 0;
+    private boolean pelicanDownUltimate = false;
+    private int pelicanBilgeFxTimer = 0;
+    private int pelicanBilgeCargoSpent = 0;
+    private boolean pelicanBilgeUltimate = false;
+    private int pelicanFullHoldTimer = 0;
     public boolean batHanging = false;
     private Platform batHangPlatform = null;
     public int batEchoTimer = 0;
@@ -492,19 +535,21 @@ public class Bird {
     private static final int BAT_WINGCUT_FRAMES = 18;
     private static final int BAT_WINGCUT_REUSE_FRAMES = 38;
     private static final int BAT_MOONRISE_FRAMES = 20;
+    private static final int BAT_SILENT_GROUND_RISE_FRAMES = 7;
     private static final int BAT_SILENT_STALL_FRAMES = 10;
     private static final int BAT_SILENT_DIVE_FRAMES = 22;
     private static final int BAT_SILENT_REUSE_FRAMES = 46;
     private static final int BAT_AMBUSH_WINDOW_FRAMES = 48;
     private static final int BAT_CATHEDRAL_FRAMES = 168;
     private static final int BAT_CATHEDRAL_PULSE_INTERVAL = 24;
-    private static final int BAT_ECHO_FX_FRAMES = 12;
+    private static final int BAT_ECHO_FX_FRAMES = 20;
     private int batNeutralReuseTimer = 0;
     private int batWingcutTimer = 0;
     private int batWingcutReuseTimer = 0;
     private int batWingcutDirection = 1;
     private boolean batWingcutUltimate = false;
     private boolean batWingcutAmbush = false;
+    private boolean batWingcutFromHang = false;
     private final boolean[] batWingcutHit = new boolean[4];
     private int batMoonriseTimer = 0;
     private boolean batMoonriseUsed = false;
@@ -1735,6 +1780,7 @@ public class Bird {
         leanCooldown = 0;
         opiumNeutralReuseTimer = 0;
         titmouseScoldReuseTimer = 0;
+        pelicanNeutralReuseTimer = 0;
     }
 
     private void resetMockingbirdCopiedNeutralRuntime() {
@@ -1771,11 +1817,7 @@ public class Bird {
             case TITMOUSE -> resetTitmouseSpecialState(false);
             case BAT -> batEchoTimer = 0;
             case PELICAN -> {
-                plungeTimer = 0;
-                if (enlargedByPlunge) {
-                    sizeMultiplier /= 1.18;
-                    enlargedByPlunge = false;
-                }
+                resetPelicanSpecialState(false);
             }
             case ROOSTER, RAVEN, MOCKINGBIRD -> {
             }
@@ -3238,6 +3280,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.BAT && !canStartBatSpecial()) {
             return;
         }
+        if (type == BirdGame3.BirdType.PELICAN && !canStartPelicanSpecial()) {
+            return;
+        }
         if (isOpiumEchoPair() && !canStartOpiumSpecial()) {
             return;
         }
@@ -3267,6 +3312,7 @@ public class Bird {
                 && type != BirdGame3.BirdType.VULTURE
                 && type != BirdGame3.BirdType.TITMOUSE
                 && type != BirdGame3.BirdType.BAT
+                && type != BirdGame3.BirdType.PELICAN
                 && !isOpiumEchoPair()
                 && specialCooldown > 0
                 && !ultimateReady) {
@@ -3347,7 +3393,7 @@ public class Bird {
                     specialBat(selectBatSpecialVariant(), false);
                 }
             }
-            case PELICAN -> specialPelican(ultimateTriggered);
+            case PELICAN -> specialPelican(selectPelicanSpecialVariant(), ultimateTriggered);
             case RAVEN -> specialRaven(ultimateTriggered);
         }
     }
@@ -7344,7 +7390,7 @@ public class Bird {
                 case HEISENBIRD -> specialHeisenNeutral(ultimate);
                 case TITMOUSE -> specialTitmouseScoldChorus(ultimate);
                 case BAT -> specialBatNeutral(ultimate);
-                case PELICAN -> specialPelican(ultimate);
+                case PELICAN -> specialPelicanPouchSnare(ultimate);
                 case RAVEN -> specialRaven(ultimate);
                 case MOCKINGBIRD -> {
                     mockingbirdCopiedNeutralSource = originalCopiedSource;
@@ -9384,45 +9430,192 @@ public class Bird {
         }
     }
 
-    private void specialPelican(boolean ultimate) {
-        Bird target = null;
-        double bestDist = Double.MAX_VALUE;
-        for (Bird b : game.players) {
-            if (!canDamageTarget(b)) continue;
-            double d = Math.hypot(b.x - x, b.y - y);
-            if (d < bestDist && d < (ultimate ? 360 : 280)) {
-                bestDist = d;
-                target = b;
-            }
+    private void specialPelican(PelicanSpecialVariant variant, boolean ultimate) {
+        if (ultimate) {
+            beginPelicanFullHold();
         }
-        if (target != null) {
-            plungeTimer = ultimate ? 60 : 45;
-            sizeMultiplier *= ultimate ? 1.28 : 1.18;
-            enlargedByPlunge = true;
-            specialCooldown = 720;
-            specialMaxCooldown = 720;
-            game.addToKillFeed(shortName() + (ultimate ? " ULT PELICAN PLUNGE!!!" : " PELICAN PLUNGE!!!"));
-            game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 38 : 32);
-            game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 22 : 18);
-            target.vx += (target.x > x ? 1 : -1) * (ultimate ? 44 : 36);
-            target.vy = ultimate ? -32 : -26;
-            int dmg = (int)((ultimate ? 32 : 24) * powerMultiplier);
-            double old = target.health;
-            int dealt = (int) applyDamageTo(target, dmg);
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
-            if (target.health <= 0 && old > 0) game.eliminations[playerIndex]++;
-            int particleCount = scaledParticleCount(ultimate ? 170 : 120);
-            for (int i = 0; i < particleCount; i++) {
-                double ang = Math.random() * Math.PI * 2;
-                game.particles.add(new Particle(target.x + 40, target.y + 40,
-                        Math.cos(ang) * (8 + Math.random() * 22),
-                        Math.sin(ang) * (8 + Math.random() * 22) - 12,
-                        ultimate ? Color.GOLD.brighter() : Color.ORANGE.brighter()));
-            }
-            game.recordPelicanPlungeAchievement();
+        switch (variant) {
+            case NEUTRAL -> specialPelicanPouchSnare(ultimate);
+            case SIDE -> specialPelicanBreakwaterRun(ultimate);
+            case UP -> specialPelicanThermalSail(ultimate);
+            case DOWN -> specialPelicanBilgeCommand(ultimate);
+        }
+    }
+
+    private void beginPelicanFullHold() {
+        pelicanCargoCount = PELICAN_CARGO_MAX;
+        pelicanFullHoldTimer = PELICAN_FULL_HOLD_FRAMES;
+        emitPelicanCargoBurst(bodyCenterX(), bodyCenterY(), 34, Color.GOLD);
+        game.addToKillFeed(shortName() + " opened the FULL HOLD!");
+    }
+
+    private void specialPelicanPouchSnare(boolean ultimate) {
+        boolean empowered = pelicanEmpowered(ultimate);
+        pelicanNeutralTimer = empowered ? PELICAN_NEUTRAL_FRAMES + 5 : PELICAN_NEUTRAL_FRAMES;
+        pelicanNeutralReuseTimer = empowered ? 16 : PELICAN_NEUTRAL_REUSE_FRAMES;
+        pelicanNeutralUltimate = empowered;
+        Arrays.fill(pelicanNeutralHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, pelicanNeutralTimer + 2);
+        vx *= isOnGround() ? 0.52 : 0.72;
+        emitPelicanCargoBurst(bodyCenterX() + facingDirection() * 34.0 * sizeMultiplier,
+                bodyCenterY() + 2.0 * sizeMultiplier,
+                empowered ? 20 : 14,
+                empowered ? Color.GOLD : Color.web("#FFCC80"));
+    }
+
+    private void specialPelicanBreakwaterRun(boolean ultimate) {
+        boolean empowered = pelicanEmpowered(ultimate);
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        int effectiveCargo = pelicanEffectiveCargo();
+        pelicanSideTimer = empowered ? PELICAN_SIDE_FRAMES + 5 : PELICAN_SIDE_FRAMES;
+        pelicanSideReuseTimer = empowered ? 22 : PELICAN_SIDE_REUSE_FRAMES;
+        pelicanSideDirection = dir;
+        pelicanSideCargoSpent = Math.min(effectiveCargo, PELICAN_CARGO_MAX);
+        pelicanSideUltimate = empowered;
+        Arrays.fill(pelicanSideHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, pelicanSideTimer);
+
+        double cargoBoost = pelicanSideCargoSpent;
+        double speed = 12.4 + cargoBoost * 2.6 + (empowered ? 2.8 : 0.0);
+        vx = dir * speed;
+        vy = Math.min(vy, isOnGround() ? -0.8 : 1.2);
+        if (!pelicanFullHoldActive()) {
+            pelicanCargoCount = Math.max(0, pelicanCargoCount - pelicanSideCargoSpent);
+        }
+        emitPelicanCargoBurst(bodyCenterX() - dir * 22.0 * sizeMultiplier, bodyCenterY(),
+                16 + pelicanSideCargoSpent * 8 + (empowered ? 10 : 0),
+                empowered ? Color.GOLD : Color.web("#B0BEC5"));
+    }
+
+    private void specialPelicanThermalSail(boolean ultimate) {
+        if (pelicanUpSpecialUsed) {
+            return;
+        }
+        boolean empowered = pelicanEmpowered(ultimate);
+        int dir = horizontalInputDirection();
+        if (dir != 0) {
+            facingRight = dir > 0;
+        }
+        pelicanUpSpecialUsed = true;
+        pelicanUpTimer = empowered ? PELICAN_UP_FRAMES + 10 : PELICAN_UP_FRAMES;
+        pelicanUpUltimate = empowered;
+        pelicanKeelDiveActive = false;
+        Arrays.fill(pelicanUpHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, pelicanUpTimer);
+        canDoubleJump = true;
+
+        vx = vx * 0.42 + dir * (empowered ? 5.0 : 3.8);
+        vy = -(empowered ? 18.8 : 16.6);
+        emitPelicanCargoBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier,
+                empowered ? 28 : 20,
+                empowered ? Color.GOLD : Color.web("#B3E5FC"));
+    }
+
+    private void specialPelicanBilgeCommand(boolean ultimate) {
+        boolean empowered = pelicanEmpowered(ultimate);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 8);
+        if (pelicanCargoCount <= 0 && !pelicanFullHoldActive()) {
+            pelicanDownCharging = true;
+            pelicanDownHoldFrames = 0;
+            pelicanDownUltimate = empowered;
+            pelicanDownReuseTimer = empowered ? 14 : PELICAN_DOWN_REUSE_FRAMES;
+            vx *= isOnGround() ? 0.54 : 0.78;
+            return;
+        }
+        releasePelicanBilgeDump(empowered);
+    }
+
+    private void releasePelicanBilgeDump(boolean empowered) {
+        int cargoSpent = pelicanFullHoldActive()
+                ? PELICAN_CARGO_MAX
+                : Math.max(1, Math.min(PELICAN_CARGO_MAX, pelicanCargoCount));
+        pelicanBilgeFxTimer = empowered ? PELICAN_BILGE_FX_FRAMES + 6 : PELICAN_BILGE_FX_FRAMES;
+        pelicanBilgeCargoSpent = cargoSpent;
+        pelicanBilgeUltimate = empowered;
+        pelicanDownReuseTimer = empowered ? 16 : PELICAN_DOWN_REUSE_FRAMES;
+        attackAnimationTimer = Math.max(attackAnimationTimer, pelicanBilgeFxTimer + 2);
+        if (!pelicanFullHoldActive()) {
+            pelicanCargoCount = 0;
+        }
+        if (isOnGround()) {
+            resolvePelicanGroundBilgeDump(cargoSpent, empowered);
         } else {
-            specialCooldown = 210;
+            resolvePelicanAirBilgeDump(cargoSpent, empowered);
+        }
+    }
+
+    private void resolvePelicanGroundBilgeDump(int cargoSpent, boolean empowered) {
+        int dir = facingDirection();
+        double centerX = bodyCenterX() + dir * (54.0 + cargoSpent * 16.0) * sizeMultiplier;
+        double centerY = bodyCenterY() + 14.0 * sizeMultiplier;
+        double reach = (118.0 + cargoSpent * 34.0 + (empowered ? 28.0 : 0.0)) * sizeMultiplier;
+        double verticalReach = (70.0 + cargoSpent * 12.0) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double forward = dx * dir;
+            if (forward < -other.combatHalfWidth() || forward > reach + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyCenterY() - centerY) > verticalReach + other.combatHalfHeight()) continue;
+            int dealt = applyTrackedSpecialDamage(other, 7 + cargoSpent * 4 + (empowered ? 4 : 0));
+            if (dealt <= 0) continue;
+            other.vx += dir * (8.0 + cargoSpent * 4.4 + (empowered ? 3.8 : 0.0));
+            other.vy -= 4.2 + cargoSpent * 1.6 + (empowered ? 1.8 : 0.0);
+        }
+        emitPelicanCargoBurst(centerX, centerY, 22 + cargoSpent * 12 + (empowered ? 18 : 0),
+                empowered ? Color.GOLD : Color.web("#90CAF9"));
+    }
+
+    private void resolvePelicanAirBilgeDump(int cargoSpent, boolean empowered) {
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY() + (64.0 + cargoSpent * 10.0) * sizeMultiplier;
+        double reach = (74.0 + cargoSpent * 18.0) * sizeMultiplier;
+        double depth = (122.0 + cargoSpent * 26.0) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = Math.abs(other.bodyCenterX() - centerX);
+            double dy = other.bodyCenterY() - centerY;
+            if (dx > reach + other.combatHalfWidth()) continue;
+            if (dy < -other.combatHalfHeight() || dy > depth + other.combatHalfHeight()) continue;
+            int dealt = applyTrackedSpecialDamage(other, 8 + cargoSpent * 4 + (empowered ? 4 : 0));
+            if (dealt <= 0) continue;
+            other.vx += Math.signum(other.bodyCenterX() - centerX) * (4.0 + cargoSpent * 1.4);
+            other.vy += 11.0 + cargoSpent * 3.0 + (empowered ? 2.0 : 0.0);
+        }
+        vy = Math.min(vy, -(4.8 + cargoSpent * 1.6 + (empowered ? 1.2 : 0.0)));
+        emitPelicanCargoBurst(centerX, centerY, 20 + cargoSpent * 12 + (empowered ? 18 : 0),
+                empowered ? Color.GOLD : Color.web("#81D4FA"));
+    }
+
+    private void loadPelicanCargo(int cargo, boolean empowered) {
+        pelicanCargoCount = Math.max(pelicanCargoCount, Math.clamp(cargo, 0, PELICAN_CARGO_MAX));
+        emitPelicanCargoBurst(bodyCenterX(), bodyCenterY() + 12.0 * sizeMultiplier,
+                cargo >= PELICAN_CARGO_MAX ? 24 : 16,
+                empowered ? Color.GOLD : Color.web("#FFCC80"));
+    }
+
+    private void emitPelicanCargoBurst(double originX, double originY, int count, Color color) {
+        for (int i = 0; i < scaledParticleCount(count); i++) {
+            double angle = Math.random() * Math.PI * 2.0;
+            double speed = 1.8 + Math.random() * 4.8;
+            game.particles.add(new Particle(
+                    originX,
+                    originY,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 1.5,
+                    color.deriveColor(0, 1, 1, 0.78)
+            ));
         }
     }
 
@@ -9552,6 +9745,21 @@ public class Bird {
 
     private boolean isOpiumEchoPair() {
         return type == BirdGame3.BirdType.OPIUMBIRD || type == BirdGame3.BirdType.HEISENBIRD;
+    }
+
+    private boolean pelicanFullHoldActive() {
+        return type == BirdGame3.BirdType.PELICAN && pelicanFullHoldTimer > 0;
+    }
+
+    private int pelicanEffectiveCargo() {
+        if (type != BirdGame3.BirdType.PELICAN) {
+            return 0;
+        }
+        return pelicanFullHoldActive() ? PELICAN_CARGO_MAX : Math.clamp(pelicanCargoCount, 0, PELICAN_CARGO_MAX);
+    }
+
+    private boolean pelicanEmpowered(boolean ultimate) {
+        return ultimate || pelicanFullHoldActive();
     }
 
     boolean hasOpiumResourceMeter() {
@@ -9995,6 +10203,45 @@ public class Bird {
                 && batSpecialReady(variant);
     }
 
+    private boolean pelicanSpecialActive() {
+        return pelicanNeutralTimer > 0
+                || pelicanSideTimer > 0
+                || pelicanUpTimer > 0
+                || pelicanKeelDiveActive
+                || pelicanDownCharging
+                || pelicanBilgeFxTimer > 0;
+    }
+
+    private boolean pelicanSpecialReady(PelicanSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
+        return switch (variant) {
+            case NEUTRAL -> ultimateReady || pelicanNeutralReuseTimer <= 0;
+            case SIDE -> ultimateReady || pelicanSideReuseTimer <= 0;
+            case UP -> ultimateReady || !pelicanUpSpecialUsed;
+            case DOWN -> ultimateReady || pelicanDownReuseTimer <= 0;
+        };
+    }
+
+    private boolean canConvertShieldIntoPelicanDownSpecial() {
+        return selectPelicanSpecialVariant() == PelicanSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+    }
+
+    private boolean canStartPelicanSpecial() {
+        PelicanSpecialVariant variant = selectPelicanSpecialVariant();
+        boolean shieldConversion = canConvertShieldIntoPelicanDownSpecial();
+        return type == BirdGame3.BirdType.PELICAN
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && !pelicanSpecialActive()
+                && pelicanSpecialReady(variant);
+    }
+
     private boolean penguinSpecialActive() {
         return penguinBellyCharging
                 || penguinBellySlideTimer > 0
@@ -10255,7 +10502,8 @@ public class Bird {
             case OPIUMBIRD, HEISENBIRD -> ultimateReady || opiumNeutralReuseTimer <= 0;
             case TITMOUSE -> ultimateReady || titmouseScoldReuseTimer <= 0;
             case BAT -> ultimateReady || batNeutralReuseTimer <= 0;
-            case PELICAN, RAVEN -> ultimateReady || specialCooldown <= 0;
+            case PELICAN -> ultimateReady || pelicanNeutralReuseTimer <= 0;
+            case RAVEN -> ultimateReady || specialCooldown <= 0;
             case MOCKINGBIRD -> false;
         };
     }
@@ -10279,7 +10527,7 @@ public class Bird {
             case OPIUMBIRD, HEISENBIRD -> leanTimer > 0;
             case TITMOUSE -> titmouseScoldTimer > 0;
             case BAT -> batEchoTimer > 0;
-            case PELICAN -> plungeTimer > 0;
+            case PELICAN -> pelicanNeutralTimer > 0;
             case GRINCHHAWK -> grinchHeartSnatchTimer > 0;
             case VULTURE -> vultureCallTimer > 0;
             case RAVEN, MOCKINGBIRD -> false;
@@ -10487,6 +10735,19 @@ public class Bird {
         return BatSpecialVariant.NEUTRAL;
     }
 
+    private PelicanSpecialVariant selectPelicanSpecialVariant() {
+        if (jumpPressed()) {
+            return PelicanSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return PelicanSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return PelicanSpecialVariant.SIDE;
+        }
+        return PelicanSpecialVariant.NEUTRAL;
+    }
+
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -10574,6 +10835,11 @@ public class Bird {
                     && selectBatSpecialVariant() == BatSpecialVariant.UP
                     && !batMoonriseUsed;
         }
+        if (type == BirdGame3.BirdType.PELICAN) {
+            return canStartPelicanSpecial()
+                    && selectPelicanSpecialVariant() == PelicanSpecialVariant.UP
+                    && !pelicanUpSpecialUsed;
+        }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
                     && selectOpiumSpecialVariant() == OpiumSpecialVariant.UP
@@ -10646,6 +10912,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.BAT) {
             return canStartBatSpecial()
                     && selectBatSpecialVariant() == BatSpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.PELICAN) {
+            return canStartPelicanSpecial()
+                    && selectPelicanSpecialVariant() == PelicanSpecialVariant.DOWN;
         }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
@@ -10830,10 +11100,36 @@ public class Bird {
         }
     }
 
+    private void resetPelicanSpecialState(boolean clearCargo) {
+        plungeTimer = 0;
+        pelicanNeutralTimer = 0;
+        pelicanNeutralUltimate = false;
+        Arrays.fill(pelicanNeutralHit, false);
+        pelicanSideTimer = 0;
+        pelicanSideCargoSpent = 0;
+        pelicanSideUltimate = false;
+        Arrays.fill(pelicanSideHit, false);
+        pelicanUpTimer = 0;
+        pelicanUpUltimate = false;
+        pelicanKeelDiveActive = false;
+        Arrays.fill(pelicanUpHit, false);
+        pelicanDownCharging = false;
+        pelicanDownHoldFrames = 0;
+        pelicanDownUltimate = false;
+        pelicanBilgeFxTimer = 0;
+        pelicanBilgeCargoSpent = 0;
+        pelicanBilgeUltimate = false;
+        if (clearCargo) {
+            pelicanCargoCount = 0;
+            pelicanFullHoldTimer = 0;
+        }
+    }
+
     private void resetBatSpecialState(boolean clearUltimate) {
         batWingcutTimer = 0;
         batWingcutUltimate = false;
         batWingcutAmbush = false;
+        batWingcutFromHang = false;
         Arrays.fill(batWingcutHit, false);
         batMoonriseTimer = 0;
         batMoonriseUltimate = false;
@@ -11530,10 +11826,11 @@ public class Bird {
                 : facingDirection();
         batWingcutUltimate = ultimate;
         batWingcutAmbush = consumeBatAmbushSpecialBonus();
+        batWingcutFromHang = fromHang;
         Arrays.fill(batWingcutHit, false);
         facingRight = batWingcutDirection > 0;
-        vx = batWingcutDirection * (ultimate ? 22.0 : 19.0);
-        vy = fromHang ? (ultimate ? 11.0 : 9.0) : (isOnGround() ? -8.0 : -6.0);
+        vx = batWingcutDirection * (fromHang ? (ultimate ? 20.0 : 17.0) : (ultimate ? 22.0 : 19.0));
+        vy = fromHang ? 0.0 : (isOnGround() ? -8.0 : -6.0);
         specialCooldown = 0;
         specialMaxCooldown = 0;
         game.addToKillFeed(shortName() + (ultimate ? " CARVED AN ULT WINGCUT!" : " CARVED A WINGCUT!"));
@@ -11559,10 +11856,12 @@ public class Bird {
 
     private void specialBatSilentDescent(boolean ultimate) {
         boolean fromHang = batHanging;
+        boolean fromGround = isOnGround();
         if (fromHang) {
             releaseBatHang();
         }
-        batSilentStallTimer = fromHang ? 4 : BAT_SILENT_STALL_FRAMES;
+        batSilentStallTimer = fromHang ? 4 : BAT_SILENT_STALL_FRAMES
+                + (fromGround ? BAT_SILENT_GROUND_RISE_FRAMES : 0);
         batSilentDiveTimer = 0;
         batSilentReuseTimer = ultimate ? BAT_SILENT_REUSE_FRAMES - 8 : BAT_SILENT_REUSE_FRAMES;
         batSilentFromHang = fromHang;
@@ -11570,7 +11869,7 @@ public class Bird {
         batSilentAmbush = consumeBatAmbushSpecialBonus();
         Arrays.fill(batSilentHit, false);
         vx *= 0.24;
-        vy = isOnGround() ? -7.0 : Math.min(vy, 0.0);
+        vy = fromGround ? (ultimate ? -15.0 : -13.0) : Math.min(vy, 0.0);
         specialCooldown = 0;
         specialMaxCooldown = 0;
         game.addToKillFeed(shortName() + (ultimate ? " VANISHED INTO ULT SILENT DESCENT!" : " VANISHED INTO SILENT DESCENT!"));
@@ -11612,8 +11911,14 @@ public class Bird {
         }
 
         if (batWingcutTimer > 0) {
-            vx = batWingcutDirection * (batWingcutUltimate ? 22.0 : 19.0);
-            vy = Math.min(vy, batWingcutUltimate ? -3.0 : -2.0);
+            vx = batWingcutDirection * (batWingcutFromHang
+                    ? (batWingcutUltimate ? 20.0 : 17.0)
+                    : (batWingcutUltimate ? 22.0 : 19.0));
+            if (batWingcutFromHang) {
+                vy *= 0.12;
+            } else {
+                vy = Math.min(vy, batWingcutUltimate ? -3.0 : -2.0);
+            }
             applyBatWingcutHits();
             if (Math.random() < 0.86) {
                 game.particles.add(new Particle(
@@ -11635,7 +11940,10 @@ public class Bird {
             }
         }
 
-        if (batSilentStallTimer > 0) {
+        if (batSilentStallTimer > BAT_SILENT_STALL_FRAMES) {
+            vx *= 0.84;
+            vy = Math.min(vy, batSilentUltimate ? -15.0 : -13.0);
+        } else if (batSilentStallTimer > 0) {
             vx *= 0.72;
             vy *= 0.18;
             if (batSilentStallTimer == 1) {
@@ -11657,7 +11965,30 @@ public class Bird {
         if (type != BirdGame3.BirdType.BAT) {
             return;
         }
-        if ((batWingcutTimer > 0 || batMoonriseTimer > 0) && vy < -1.0) {
+        if (batWingcutFromHang && batWingcutTimer > 0 && batWingcutTimer <= 2) {
+            Platform hangable = findBatHangablePlatform();
+            if (hangable != null) {
+                beginBatHang(hangable);
+                batWingcutTimer = 0;
+                return;
+            }
+        }
+        if (batWingcutFromHang && batWingcutTimer > 0) {
+            Platform hangable = findBatHangablePlatform();
+            if (hangable != null) {
+                double leftBound = hangable.x + 10;
+                double rightBound = hangable.x + hangable.w - (80 * sizeMultiplier) - 10;
+                boolean nearingEdge = batWingcutDirection > 0
+                        ? x >= rightBound - 12.0 * sizeMultiplier
+                        : x <= leftBound + 12.0 * sizeMultiplier;
+                if (nearingEdge) {
+                    beginBatHang(hangable);
+                    batWingcutTimer = 0;
+                    return;
+                }
+            }
+        }
+        if (((batWingcutTimer > 0 && !batWingcutFromHang) || batMoonriseTimer > 0) && vy < -1.0) {
             Platform hangable = findBatHangablePlatform();
             if (hangable != null) {
                 beginBatHang(hangable);
@@ -13035,7 +13366,9 @@ public class Bird {
             case BAT:
                 return dist < 320 && (Math.abs(dy) < 180 || !onGround);
             case PELICAN:
-                return plungeTimer <= 0 && onGround && dist < 260 && Math.abs(dy) < 130;
+                return (pelicanCargoCount <= 0 && dist < 220 && Math.abs(dy) < 120)
+                        || (pelicanCargoCount > 0 && onGround && dist < 320 && Math.abs(dy) < 140)
+                        || (!onGround && dy > -120 && dist < 250);
             case RAVEN:
                 return dist < 420 && (lowHealth || Math.abs(dy) < 200);
             default:
@@ -13056,7 +13389,13 @@ public class Bird {
     }
 
     private double currentFlyUpForce() {
-        return roadrunnerSandstormActive() ? ROADRUNNER_SANDSTORM_FLY_LIFT : type.flyUpForce;
+        if (roadrunnerSandstormActive()) {
+            return ROADRUNNER_SANDSTORM_FLY_LIFT;
+        }
+        if (type == BirdGame3.BirdType.PELICAN) {
+            return type.flyUpForce * (1.0 - pelicanEffectiveCargo() * 0.18);
+        }
+        return type.flyUpForce;
     }
 
     private boolean photoEagleSkinActive() {
@@ -13340,6 +13679,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.BAT && isOnGround()) {
             batMoonriseUsed = false;
         }
+        if (type == BirdGame3.BirdType.PELICAN && isOnGround()) {
+            pelicanUpSpecialUsed = false;
+        }
         if (isOpiumEchoPair() && isOnGround()) {
             opiumUpSpecialUsed = false;
         }
@@ -13370,6 +13712,7 @@ public class Bird {
             resetVultureSpecialState(false);
             resetTitmouseSpecialState(false);
             resetBatSpecialState(false);
+            resetPelicanSpecialState(false);
             resetOpiumSpecialState(false);
         }
 
@@ -13456,7 +13799,11 @@ public class Bird {
                 double limitedFlightCap = type == BirdGame3.BirdType.ROOSTER ? -12.4 : -6.4;
                 double limitedFlightThermalCap = type == BirdGame3.BirdType.ROOSTER ? -14.2 : -9.2;
                 if (limitedFlight && !thermalActive) {
-                    limitedFlightFuel = Math.max(0, limitedFlightFuel - gameSpeed);
+                    double fuelDrain = gameSpeed;
+                    if (type == BirdGame3.BirdType.PELICAN) {
+                        fuelDrain *= 1.0 + pelicanEffectiveCargo() * 0.35;
+                    }
+                    limitedFlightFuel = Math.max(0, limitedFlightFuel - fuelDrain);
                     if (vy < limitedFlightCap && !aboveCameraReach) vy = limitedFlightCap;
                 } else if (limitedFlight) {
                     if (vy < limitedFlightThermalCap && !aboveCameraReach) vy = limitedFlightThermalCap;
@@ -13526,6 +13873,7 @@ public class Bird {
         handleGrinchhawkSpecialState(jumpJustPressed, gameSpeed);
         handleVultureSpecialState(specialHeld);
         handleTitmouseSpecialState();
+        handlePelicanSpecialState();
         handleBatSpecialState();
         handleOpiumSpecialState();
 
@@ -13731,6 +14079,13 @@ public class Bird {
         titmouseStashReuseTimer = Math.max(0, (int)(titmouseStashReuseTimer - gameSpeed));
         titmouseMobbingTimer = Math.max(0, (int)(titmouseMobbingTimer - gameSpeed));
         titmouseMarkedTimer = Math.max(0, (int)(titmouseMarkedTimer - gameSpeed));
+        pelicanNeutralTimer = Math.max(0, (int)(pelicanNeutralTimer - gameSpeed));
+        pelicanNeutralReuseTimer = Math.max(0, (int)(pelicanNeutralReuseTimer - gameSpeed));
+        pelicanSideTimer = Math.max(0, (int)(pelicanSideTimer - gameSpeed));
+        pelicanSideReuseTimer = Math.max(0, (int)(pelicanSideReuseTimer - gameSpeed));
+        pelicanUpTimer = Math.max(0, (int)(pelicanUpTimer - gameSpeed));
+        pelicanDownReuseTimer = Math.max(0, (int)(pelicanDownReuseTimer - gameSpeed));
+        pelicanBilgeFxTimer = Math.max(0, (int)(pelicanBilgeFxTimer - gameSpeed));
         turkeyGobbleTimer = Math.max(0, (int)(turkeyGobbleTimer - gameSpeed));
         turkeyGobbleReuseTimer = Math.max(0, (int)(turkeyGobbleReuseTimer - gameSpeed));
         turkeyGobbleArmorTimer = Math.max(0, (int)(turkeyGobbleArmorTimer - gameSpeed));
@@ -14021,6 +14376,23 @@ public class Bird {
             razorbillCounterUltimate = false;
             razorbillCounterAttemptActive = false;
         }
+        if (pelicanNeutralTimer == 0) {
+            pelicanNeutralUltimate = false;
+            Arrays.fill(pelicanNeutralHit, false);
+        }
+        if (pelicanSideTimer == 0) {
+            pelicanSideCargoSpent = 0;
+            pelicanSideUltimate = false;
+            Arrays.fill(pelicanSideHit, false);
+        }
+        if (pelicanUpTimer == 0 && !pelicanKeelDiveActive) {
+            pelicanUpUltimate = false;
+            Arrays.fill(pelicanUpHit, false);
+        }
+        if (pelicanBilgeFxTimer == 0) {
+            pelicanBilgeCargoSpent = 0;
+            pelicanBilgeUltimate = false;
+        }
         plungeTimer = Math.max(0, (int)(plungeTimer - gameSpeed));
         blockCooldown = Math.max(0, (int)(blockCooldown - gameSpeed));
         techBufferTimer = Math.max(0, (int)(techBufferTimer - gameSpeed));
@@ -14056,6 +14428,7 @@ public class Bird {
         if (batWingcutTimer == 0) {
             batWingcutUltimate = false;
             batWingcutAmbush = false;
+            batWingcutFromHang = false;
             Arrays.fill(batWingcutHit, false);
         }
         if (batMoonriseTimer == 0) {
@@ -14285,6 +14658,9 @@ public class Bird {
 
     private void launchGroundJump() {
         double jumpScale = shortHopQueued ? SHORT_HOP_MULTIPLIER : 1.0;
+        if (type == BirdGame3.BirdType.PELICAN) {
+            jumpScale *= 1.0 - pelicanEffectiveCargo() * 0.11;
+        }
         if (turkeyStuffedTimer > 0) {
             jumpScale *= turkeyStuffedUltimate ? 0.72 : 0.82;
         }
@@ -15250,6 +15626,185 @@ public class Bird {
         handleTitmouseMobbingRun();
     }
 
+    private void handlePelicanSpecialState() {
+        if (type != BirdGame3.BirdType.PELICAN
+                && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PELICAN)) {
+            return;
+        }
+        handlePelicanPouchSnare();
+        handlePelicanBreakwaterRun();
+        handlePelicanThermalSail();
+        handlePelicanBilgeCharge();
+        handlePelicanFullHold();
+    }
+
+    private void handlePelicanPouchSnare() {
+        if (pelicanNeutralTimer <= 0) {
+            return;
+        }
+        int dir = facingDirection();
+        double centerX = bodyCenterX() + dir * 56.0 * sizeMultiplier;
+        double centerY = bodyCenterY() + 4.0 * sizeMultiplier;
+        double reach = (pelicanNeutralUltimate ? 132.0 : 106.0) * sizeMultiplier;
+        double verticalReach = (pelicanNeutralUltimate ? 72.0 : 58.0) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= pelicanNeutralHit.length) continue;
+            if (pelicanNeutralHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double forward = dx * dir;
+            if (forward < -other.combatHalfWidth() || forward > reach + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyCenterY() - centerY) > verticalReach + other.combatHalfHeight()) continue;
+
+            pelicanNeutralHit[other.playerIndex] = true;
+            int dealt = applyTrackedSpecialDamage(other, pelicanNeutralUltimate ? 10 : 7);
+            if (dealt <= 0) continue;
+            other.vx += dir * (pelicanNeutralUltimate ? 11.0 : 8.0);
+            other.vy -= pelicanNeutralUltimate ? 6.2 : 4.4;
+            game.hitstopFrames = Math.max(game.hitstopFrames, pelicanNeutralUltimate ? 5 : 3);
+            loadPelicanCargo(Math.min(PELICAN_CARGO_MAX, pelicanCargoCount + 1), pelicanNeutralUltimate);
+        }
+    }
+
+    private void handlePelicanBreakwaterRun() {
+        if (pelicanSideTimer <= 0) {
+            return;
+        }
+        int dir = pelicanSideDirection == 0 ? facingDirection() : pelicanSideDirection;
+        facingRight = dir > 0;
+        double speed = 11.8 + pelicanSideCargoSpent * 2.8 + (pelicanSideUltimate ? 2.8 : 0.0);
+        vx = dir * Math.max(Math.abs(vx), speed);
+        vy *= 0.88;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= pelicanSideHit.length) continue;
+            if (pelicanSideHit[other.playerIndex]) continue;
+            double forward = (other.bodyCenterX() - bodyCenterX()) * dir;
+            if (forward < -other.combatHalfWidth() * 0.35) continue;
+            if (forward > (92.0 + pelicanSideCargoSpent * 20.0) * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (Math.abs(other.bodyCenterY() - bodyCenterY()) > (72.0 + pelicanSideCargoSpent * 6.0) * sizeMultiplier + other.combatHalfHeight()) continue;
+
+            pelicanSideHit[other.playerIndex] = true;
+            int dealt = applyTrackedSpecialDamage(other,
+                    9 + pelicanSideCargoSpent * 5 + (pelicanSideUltimate ? 5 : 0));
+            if (dealt <= 0) continue;
+            other.vx += dir * (12.0 + pelicanSideCargoSpent * 5.0 + (pelicanSideUltimate ? 4.0 : 0.0));
+            other.vy -= 5.0 + pelicanSideCargoSpent * 2.0 + (pelicanSideUltimate ? 2.0 : 0.0);
+            if (pelicanSideCargoSpent >= PELICAN_CARGO_MAX || pelicanSideUltimate) {
+                other.applyStun(pelicanSideUltimate ? 18 : 12);
+            }
+        }
+    }
+
+    private void handlePelicanThermalSail() {
+        if (pelicanUpTimer <= 0 && !pelicanKeelDiveActive) {
+            return;
+        }
+        int totalFrames = pelicanUpUltimate ? PELICAN_UP_FRAMES + 10 : PELICAN_UP_FRAMES;
+        int ascentFrames = pelicanUpUltimate ? PELICAN_UP_ULTIMATE_ASCENT_FRAMES : PELICAN_UP_ASCENT_FRAMES;
+        boolean ascentFinished = pelicanUpTimer <= totalFrames - ascentFrames;
+        if (!pelicanKeelDiveActive && ascentFinished) {
+            beginPelicanKeelDive();
+        }
+        if (pelicanKeelDiveActive) {
+            vy = Math.max(vy, pelicanUpUltimate ? 20.0 : 17.0);
+            vx *= 0.96;
+            if (isOnGround()) {
+                resolvePelicanKeelDiveLanding();
+            }
+            return;
+        }
+
+        vy = Math.min(vy, -(pelicanUpUltimate ? 1.35 : 0.9));
+        vx *= 0.94;
+        if ((pelicanUpTimer & 3) == 0) {
+            emitPelicanCargoBurst(bodyCenterX(), bodyCenterY() + 18.0 * sizeMultiplier,
+                    pelicanUpUltimate ? 4 : 3,
+                    pelicanUpUltimate ? Color.GOLD : Color.web("#B3E5FC"));
+        }
+    }
+
+    private void beginPelicanKeelDive() {
+        pelicanKeelDiveActive = true;
+        plungeTimer = Math.max(plungeTimer, pelicanUpUltimate ? 28 : 20);
+        vy = pelicanUpUltimate ? 20.0 : 17.0;
+        vx *= 0.56;
+        emitPelicanCargoBurst(bodyCenterX(), bodyCenterY(), pelicanUpUltimate ? 26 : 18,
+                pelicanUpUltimate ? Color.GOLD : Color.web("#B0BEC5"));
+    }
+
+    private void resolvePelicanKeelDiveLanding() {
+        int effectiveCargo = pelicanEffectiveCargo();
+        double centerX = bodyCenterX();
+        double centerY = bodyBottomY() - 6.0 * sizeMultiplier;
+        double radius = (118.0 + effectiveCargo * 28.0 + (pelicanUpUltimate ? 32.0 : 0.0)) * sizeMultiplier;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= pelicanUpHit.length) continue;
+            if (pelicanUpHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
+            pelicanUpHit[other.playerIndex] = true;
+            int dealt = applyTrackedSpecialDamage(other,
+                    11 + effectiveCargo * 4 + (pelicanUpUltimate ? 5 : 0));
+            if (dealt <= 0) continue;
+            double safeDist = Math.max(1.0, Math.hypot(dx, dy));
+            other.vx += dx / safeDist * (11.0 + effectiveCargo * 3.0 + (pelicanUpUltimate ? 3.0 : 0.0));
+            other.vy -= 10.0 + effectiveCargo * 2.4 + (pelicanUpUltimate ? 3.0 : 0.0);
+        }
+        emitPelicanCargoBurst(centerX, centerY, 42 + effectiveCargo * 12 + (pelicanUpUltimate ? 24 : 0),
+                pelicanUpUltimate ? Color.GOLD : Color.web("#90A4AE"));
+        game.shakeIntensity = Math.max(game.shakeIntensity, pelicanUpUltimate ? 16 : 10);
+        game.hitstopFrames = Math.max(game.hitstopFrames, pelicanUpUltimate ? 8 : 5);
+        pelicanKeelDiveActive = false;
+        pelicanUpTimer = 0;
+        plungeTimer = 0;
+        game.recordPelicanPlungeAchievement();
+    }
+
+    private void handlePelicanBilgeCharge() {
+        if (!pelicanDownCharging) {
+            return;
+        }
+        boolean stillHolding = specialHeld() && blockPressed();
+        if (stillHolding && pelicanDownHoldFrames < PELICAN_DOWN_HOLD_FRAMES) {
+            pelicanDownHoldFrames++;
+            attackAnimationTimer = Math.max(attackAnimationTimer, 4);
+            vx *= isOnGround() ? 0.56 : 0.78;
+            if ((pelicanDownHoldFrames & 3) == 0) {
+                emitPelicanCargoBurst(bodyCenterX(), bodyCenterY() + 18.0 * sizeMultiplier,
+                        3,
+                        pelicanDownUltimate ? Color.GOLD : Color.web("#FFCC80"));
+            }
+            if (pelicanDownHoldFrames < PELICAN_DOWN_HOLD_FRAMES) {
+                return;
+            }
+        }
+
+        int cargo = pelicanDownHoldFrames >= PELICAN_DOWN_HOLD_FRAMES
+                ? PELICAN_CARGO_MAX
+                : 1;
+        loadPelicanCargo(cargo, pelicanDownUltimate);
+        pelicanDownCharging = false;
+        pelicanDownHoldFrames = 0;
+        pelicanDownUltimate = false;
+    }
+
+    private void handlePelicanFullHold() {
+        if (pelicanFullHoldTimer <= 0) {
+            return;
+        }
+        pelicanFullHoldTimer--;
+        if ((pelicanFullHoldTimer & 7) == 0) {
+            emitPelicanCargoBurst(bodyCenterX(), bodyCenterY() + 10.0 * sizeMultiplier, 3, Color.GOLD);
+        }
+        if (pelicanFullHoldTimer == 0) {
+            pelicanCargoCount = 0;
+            emitPelicanCargoBurst(bodyCenterX(), bodyCenterY(), 20, Color.GOLD);
+        }
+    }
+
     private void handleTitmouseScoldChorus() {
         if (titmouseScoldTimer <= 0) {
             return;
@@ -15685,6 +16240,16 @@ public class Bird {
                 airFric = airborne ? 0.93 : 0.70;
                 accel = airborne ? 0.28 : 0.34;
             }
+            if (type == BirdGame3.BirdType.PELICAN) {
+                int cargo = pelicanEffectiveCargo();
+                if (cargo > 0) {
+                    moveSpeed *= 1.0 - cargo * (airborne ? 0.13 : 0.10);
+                    accel *= 1.0 - cargo * (airborne ? 0.16 : 0.12);
+                    if (airborne) {
+                        airFric = Math.min(airFric, 0.90 - cargo * 0.02);
+                    }
+                }
+            }
             if (turkeyStuffedTimer > 0 && health > 0) {
                 moveSpeed *= turkeyStuffedUltimate ? 0.58 : 0.68;
                 accel *= turkeyStuffedUltimate ? 0.70 : 0.78;
@@ -15783,6 +16348,9 @@ public class Bird {
                     double jumpScale = turkeyStuffedTimer > 0
                             ? (turkeyStuffedUltimate ? 0.60 : 0.68)
                             : 0.75;
+                    if (type == BirdGame3.BirdType.PELICAN) {
+                        jumpScale *= 1.0 - pelicanEffectiveCargo() * 0.11;
+                    }
                     if (opiumDrowsyTimer > 0) {
                         jumpScale *= opiumDrowsyUltimate ? 0.76 : 0.86;
                     }
@@ -15821,6 +16389,8 @@ public class Bird {
                     ? selectTitmouseSpecialVariant() == TitmouseSpecialVariant.DOWN && isBlocking && shieldStunFrames <= 0
                     : type == BirdGame3.BirdType.BAT
                     ? canConvertShieldIntoBatDownSpecial()
+                    : type == BirdGame3.BirdType.PELICAN
+                    ? canConvertShieldIntoPelicanDownSpecial()
                     : isOpiumEchoPair()
                     ? canConvertShieldIntoOpiumDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
@@ -15852,6 +16422,8 @@ public class Bird {
                     ? canStartTitmouseSpecial()
                     : type == BirdGame3.BirdType.BAT
                     ? canStartBatSpecial()
+                    : type == BirdGame3.BirdType.PELICAN
+                    ? canStartPelicanSpecial()
                     : isOpiumEchoPair()
                     ? canStartOpiumSpecial()
                     : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
@@ -15869,6 +16441,7 @@ public class Bird {
                         && type != BirdGame3.BirdType.VULTURE
                         && type != BirdGame3.BirdType.TITMOUSE
                         && type != BirdGame3.BirdType.BAT
+                        && type != BirdGame3.BirdType.PELICAN
                         && !isOpiumEchoPair()))) {
                     cooldownFlash = 15;
                 }
@@ -16056,6 +16629,9 @@ public class Bird {
     private double incomingDamageMultiplier() {
         double mult = 1.0;
         if (isCombatInvulnerable()) return 0.0;
+        if (type == BirdGame3.BirdType.PELICAN) {
+            mult *= 1.0 - pelicanEffectiveCargo() * 0.08;
+        }
         if (titanActive && titanTimer > 0) mult *= 0.75;
         if (shrinkTimer > 0) mult *= 1.22;
         if (type == BirdGame3.BirdType.RAZORBILL && razorbillCounterWhiffTimer > 0) mult *= 1.30;
@@ -16102,6 +16678,7 @@ public class Bird {
     private double outgoingDamageMultiplier() {
         double mult = 1.0;
         if (type == BirdGame3.BirdType.PHOENIX && phoenixRebornActive) mult *= PHOENIX_REBORN_DAMAGE_SCALE;
+        if (type == BirdGame3.BirdType.PELICAN) mult *= 1.0 + pelicanEffectiveCargo() * 0.06;
         return mult;
     }
 
@@ -18287,6 +18864,11 @@ public class Bird {
         titmouseMarkedTimer = 0;
         titmouseMarkedOwnerIndex = -1;
         titmouseMarkedUltimate = false;
+        resetPelicanSpecialState(true);
+        pelicanNeutralReuseTimer = 0;
+        pelicanSideReuseTimer = 0;
+        pelicanUpSpecialUsed = false;
+        pelicanDownReuseTimer = 0;
         resetRazorbillSpecialState(true);
         razorbillStormReuseTimer = 0;
         razorbillSideReuseTimer = 0;
@@ -18581,6 +19163,30 @@ public class Bird {
         state.razorbillCountered = razorbillCountered;
         state.razorbillCounterAttemptActive = razorbillCounterAttemptActive;
         state.plungeTimer = plungeTimer;
+        state.pelicanCargoCount = pelicanCargoCount;
+        state.pelicanNeutralTimer = pelicanNeutralTimer;
+        state.pelicanNeutralReuseTimer = pelicanNeutralReuseTimer;
+        state.pelicanNeutralUltimate = pelicanNeutralUltimate;
+        System.arraycopy(pelicanNeutralHit, 0, state.pelicanNeutralHit, 0, pelicanNeutralHit.length);
+        state.pelicanSideTimer = pelicanSideTimer;
+        state.pelicanSideReuseTimer = pelicanSideReuseTimer;
+        state.pelicanSideDirection = pelicanSideDirection;
+        state.pelicanSideCargoSpent = pelicanSideCargoSpent;
+        state.pelicanSideUltimate = pelicanSideUltimate;
+        System.arraycopy(pelicanSideHit, 0, state.pelicanSideHit, 0, pelicanSideHit.length);
+        state.pelicanUpTimer = pelicanUpTimer;
+        state.pelicanUpSpecialUsed = pelicanUpSpecialUsed;
+        state.pelicanUpUltimate = pelicanUpUltimate;
+        state.pelicanKeelDiveActive = pelicanKeelDiveActive;
+        System.arraycopy(pelicanUpHit, 0, state.pelicanUpHit, 0, pelicanUpHit.length);
+        state.pelicanDownCharging = pelicanDownCharging;
+        state.pelicanDownHoldFrames = pelicanDownHoldFrames;
+        state.pelicanDownReuseTimer = pelicanDownReuseTimer;
+        state.pelicanDownUltimate = pelicanDownUltimate;
+        state.pelicanBilgeFxTimer = pelicanBilgeFxTimer;
+        state.pelicanBilgeCargoSpent = pelicanBilgeCargoSpent;
+        state.pelicanBilgeUltimate = pelicanBilgeUltimate;
+        state.pelicanFullHoldTimer = pelicanFullHoldTimer;
         state.batHanging = batHanging;
         state.batEchoTimer = batEchoTimer;
         state.batNeutralReuseTimer = batNeutralReuseTimer;
@@ -18589,6 +19195,7 @@ public class Bird {
         state.batWingcutDirection = batWingcutDirection;
         state.batWingcutUltimate = batWingcutUltimate;
         state.batWingcutAmbush = batWingcutAmbush;
+        state.batWingcutFromHang = batWingcutFromHang;
         System.arraycopy(batWingcutHit, 0, state.batWingcutHit, 0, batWingcutHit.length);
         state.batMoonriseTimer = batMoonriseTimer;
         state.batMoonriseUsed = batMoonriseUsed;
@@ -19005,6 +19612,42 @@ public class Bird {
         this.razorbillCountered = state.razorbillCountered;
         this.razorbillCounterAttemptActive = state.razorbillCounterAttemptActive;
         this.plungeTimer = state.plungeTimer;
+        this.pelicanCargoCount = Math.clamp(state.pelicanCargoCount, 0, PELICAN_CARGO_MAX);
+        this.pelicanNeutralTimer = Math.max(0, state.pelicanNeutralTimer);
+        this.pelicanNeutralReuseTimer = Math.max(0, state.pelicanNeutralReuseTimer);
+        this.pelicanNeutralUltimate = state.pelicanNeutralUltimate;
+        Arrays.fill(this.pelicanNeutralHit, false);
+        if (state.pelicanNeutralHit != null) {
+            System.arraycopy(state.pelicanNeutralHit, 0, this.pelicanNeutralHit, 0,
+                    Math.min(this.pelicanNeutralHit.length, state.pelicanNeutralHit.length));
+        }
+        this.pelicanSideTimer = Math.max(0, state.pelicanSideTimer);
+        this.pelicanSideReuseTimer = Math.max(0, state.pelicanSideReuseTimer);
+        this.pelicanSideDirection = state.pelicanSideDirection == 0 ? facingDirection() : state.pelicanSideDirection;
+        this.pelicanSideCargoSpent = Math.clamp(state.pelicanSideCargoSpent, 0, PELICAN_CARGO_MAX);
+        this.pelicanSideUltimate = state.pelicanSideUltimate;
+        Arrays.fill(this.pelicanSideHit, false);
+        if (state.pelicanSideHit != null) {
+            System.arraycopy(state.pelicanSideHit, 0, this.pelicanSideHit, 0,
+                    Math.min(this.pelicanSideHit.length, state.pelicanSideHit.length));
+        }
+        this.pelicanUpTimer = Math.max(0, state.pelicanUpTimer);
+        this.pelicanUpSpecialUsed = state.pelicanUpSpecialUsed;
+        this.pelicanUpUltimate = state.pelicanUpUltimate;
+        this.pelicanKeelDiveActive = state.pelicanKeelDiveActive;
+        Arrays.fill(this.pelicanUpHit, false);
+        if (state.pelicanUpHit != null) {
+            System.arraycopy(state.pelicanUpHit, 0, this.pelicanUpHit, 0,
+                    Math.min(this.pelicanUpHit.length, state.pelicanUpHit.length));
+        }
+        this.pelicanDownCharging = state.pelicanDownCharging;
+        this.pelicanDownHoldFrames = Math.max(0, state.pelicanDownHoldFrames);
+        this.pelicanDownReuseTimer = Math.max(0, state.pelicanDownReuseTimer);
+        this.pelicanDownUltimate = state.pelicanDownUltimate;
+        this.pelicanBilgeFxTimer = Math.max(0, state.pelicanBilgeFxTimer);
+        this.pelicanBilgeCargoSpent = Math.clamp(state.pelicanBilgeCargoSpent, 0, PELICAN_CARGO_MAX);
+        this.pelicanBilgeUltimate = state.pelicanBilgeUltimate;
+        this.pelicanFullHoldTimer = Math.max(0, state.pelicanFullHoldTimer);
         this.batHanging = state.batHanging;
         this.batEchoTimer = state.batEchoTimer;
         this.batNeutralReuseTimer = Math.max(0, state.batNeutralReuseTimer);
@@ -19013,6 +19656,7 @@ public class Bird {
         this.batWingcutDirection = state.batWingcutDirection == 0 ? facingDirection() : state.batWingcutDirection;
         this.batWingcutUltimate = state.batWingcutUltimate;
         this.batWingcutAmbush = state.batWingcutAmbush;
+        this.batWingcutFromHang = state.batWingcutFromHang;
         Arrays.fill(this.batWingcutHit, false);
         if (state.batWingcutHit != null) {
             System.arraycopy(state.batWingcutHit, 0, this.batWingcutHit, 0,
@@ -21402,23 +22046,119 @@ public class Bird {
         g.setLineCap(StrokeLineCap.ROUND);
 
         if (batEchoTimer > 0) {
-            double ratio = batEchoTimer / (double) BAT_ECHO_FX_FRAMES;
-            Color base = batEchoFxUltimate ? Color.GOLD : Color.CYAN.brighter();
-            g.setStroke(base.deriveColor(0, 1, 1, 0.34 + ratio * 0.48));
-            g.setLineWidth((batEchoFxUltimate ? 9.0 : 6.0) * sizeMultiplier);
-            g.strokeLine(batEchoFxStartX, batEchoFxStartY, batEchoFxMidX, batEchoFxMidY);
-            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.34 + ratio * 0.44));
-            g.setLineWidth((batEchoFxUltimate ? 3.4 : 2.5) * sizeMultiplier);
-            g.strokeLine(batEchoFxStartX, batEchoFxStartY, batEchoFxMidX, batEchoFxMidY);
-            if (batEchoFxBounced) {
-                g.setStroke((batEchoFxUltimate ? Color.GOLD : Color.MEDIUMPURPLE.brighter())
-                        .deriveColor(0, 1, 1, 0.38 + ratio * 0.46));
-                g.setLineWidth((batEchoFxUltimate ? 10.0 : 7.0) * sizeMultiplier);
-                g.strokeLine(batEchoFxMidX, batEchoFxMidY, batEchoFxEndX, batEchoFxEndY);
-                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.32 + ratio * 0.44));
-                g.setLineWidth((batEchoFxUltimate ? 3.6 : 2.8) * sizeMultiplier);
-                g.strokeLine(batEchoFxMidX, batEchoFxMidY, batEchoFxEndX, batEchoFxEndY);
+            double progress = 1.0 - batEchoTimer / (double) BAT_ECHO_FX_FRAMES;
+            double firstLength = Math.hypot(batEchoFxMidX - batEchoFxStartX, batEchoFxMidY - batEchoFxStartY);
+            double secondLength = batEchoFxBounced
+                    ? Math.hypot(batEchoFxEndX - batEchoFxMidX, batEchoFxEndY - batEchoFxMidY)
+                    : 0.0;
+            double totalLength = Math.max(1.0, firstLength + secondLength);
+            double travel = totalLength * Math.min(1.0, progress * 1.12);
+            double headX;
+            double headY;
+            boolean onBounceSegment = batEchoFxBounced && travel > firstLength;
+            if (onBounceSegment) {
+                double segmentProgress = Math.min(1.0, (travel - firstLength) / Math.max(1.0, secondLength));
+                headX = batEchoFxMidX + (batEchoFxEndX - batEchoFxMidX) * segmentProgress;
+                headY = batEchoFxMidY + (batEchoFxEndY - batEchoFxMidY) * segmentProgress;
+            } else {
+                double segmentProgress = Math.min(1.0, travel / Math.max(1.0, firstLength));
+                headX = batEchoFxStartX + (batEchoFxMidX - batEchoFxStartX) * segmentProgress;
+                headY = batEchoFxStartY + (batEchoFxMidY - batEchoFxStartY) * segmentProgress;
             }
+
+            Color primary = batEchoFxUltimate ? Color.GOLD : Color.CYAN.brighter();
+            Color secondary = batEchoFxUltimate ? Color.web("#FFF59D") : Color.MEDIUMPURPLE.brighter();
+            double fade = Math.max(0.18, 1.0 - progress * 0.72);
+            g.setStroke(primary.deriveColor(0, 1, 1, 0.16 * fade));
+            g.setLineWidth((batEchoFxUltimate ? 4.4 : 3.1) * sizeMultiplier);
+            if (onBounceSegment) {
+                g.strokeLine(batEchoFxStartX, batEchoFxStartY, batEchoFxMidX, batEchoFxMidY);
+                g.strokeLine(batEchoFxMidX, batEchoFxMidY, headX, headY);
+            } else {
+                g.strokeLine(batEchoFxStartX, batEchoFxStartY, headX, headY);
+            }
+
+            for (int i = 0; i < 3; i++) {
+                double lag = i * (batEchoFxUltimate ? 44.0 : 34.0) * sizeMultiplier;
+                double waveTravel = Math.max(0.0, travel - lag);
+                if (waveTravel <= 0.0) continue;
+                double waveX;
+                double waveY;
+                if (batEchoFxBounced && waveTravel > firstLength) {
+                    double segmentProgress = Math.min(1.0, (waveTravel - firstLength) / Math.max(1.0, secondLength));
+                    waveX = batEchoFxMidX + (batEchoFxEndX - batEchoFxMidX) * segmentProgress;
+                    waveY = batEchoFxMidY + (batEchoFxEndY - batEchoFxMidY) * segmentProgress;
+                } else {
+                    double segmentProgress = Math.min(1.0, waveTravel / Math.max(1.0, firstLength));
+                    waveX = batEchoFxStartX + (batEchoFxMidX - batEchoFxStartX) * segmentProgress;
+                    waveY = batEchoFxStartY + (batEchoFxMidY - batEchoFxStartY) * segmentProgress;
+                }
+                double radius = ((batEchoFxUltimate ? 18.0 : 14.0) + i * 7.0 + progress * 12.0) * sizeMultiplier;
+                double alpha = Math.max(0.0, 0.56 - i * 0.14 - progress * 0.18);
+                g.setStroke((i == 0 ? primary : secondary).deriveColor(0, 1, 1, alpha));
+                g.setLineWidth((batEchoFxUltimate ? 3.4 : 2.4) * sizeMultiplier);
+                g.strokeOval(waveX - radius, waveY - radius, radius * 2.0, radius * 2.0);
+            }
+
+            double headRadius = (batEchoFxUltimate ? 12.0 : 9.0) * sizeMultiplier;
+            g.setFill(primary.deriveColor(0, 1, 1, 0.34 + fade * 0.24));
+            g.fillOval(headX - headRadius, headY - headRadius, headRadius * 2.0, headRadius * 2.0);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.52 + fade * 0.22));
+            g.setLineWidth((batEchoFxUltimate ? 2.2 : 1.7) * sizeMultiplier);
+            g.strokeOval(headX - headRadius * 0.72, headY - headRadius * 0.72,
+                    headRadius * 1.44, headRadius * 1.44);
+        }
+
+        if (type == BirdGame3.BirdType.BAT && batWingcutTimer > 0) {
+            double phase = 1.0 - batWingcutTimer / (double) (batWingcutUltimate ? BAT_WINGCUT_FRAMES + 4 : BAT_WINGCUT_FRAMES);
+            double dir = batWingcutDirection;
+            double slashX = bodyCenterX() - dir * 54.0 * sizeMultiplier;
+            double slashY = bodyCenterY() - (batWingcutFromHang ? 4.0 : 2.0) * sizeMultiplier;
+            g.setStroke((batWingcutUltimate ? Color.GOLD : Color.MEDIUMPURPLE.brighter())
+                    .deriveColor(0, 1, 1, 0.28 + (1.0 - phase) * 0.34));
+            g.setLineWidth((batWingcutUltimate ? 8.0 : 5.2) * sizeMultiplier);
+            g.strokeArc(slashX - 42.0 * sizeMultiplier, slashY - 32.0 * sizeMultiplier,
+                    84.0 * sizeMultiplier, 64.0 * sizeMultiplier,
+                    dir > 0 ? -52 : 148, 104, ArcType.OPEN);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.32 + (1.0 - phase) * 0.28));
+            g.setLineWidth((batWingcutUltimate ? 2.8 : 2.0) * sizeMultiplier);
+            g.strokeLine(bodyCenterX() - dir * 68.0 * sizeMultiplier, bodyCenterY(),
+                    bodyCenterX() + dir * 58.0 * sizeMultiplier, bodyCenterY() - 6.0 * sizeMultiplier);
+        }
+
+        if (type == BirdGame3.BirdType.BAT && batMoonriseTimer > 0) {
+            double phase = 1.0 - batMoonriseTimer / (double) (batMoonriseUltimate ? BAT_MOONRISE_FRAMES + 4 : BAT_MOONRISE_FRAMES);
+            double radius = (28.0 + phase * 42.0) * sizeMultiplier;
+            g.setStroke((batMoonriseUltimate ? Color.GOLD : Color.CYAN.brighter())
+                    .deriveColor(0, 1, 1, 0.38 - phase * 0.16));
+            g.setLineWidth((batMoonriseUltimate ? 4.2 : 3.0) * sizeMultiplier);
+            g.strokeArc(bodyCenterX() - radius, bodyCenterY() - radius * 1.18,
+                    radius * 2.0, radius * 1.6, 204, 132, ArcType.OPEN);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.34 - phase * 0.12));
+            g.setLineWidth(1.8 * sizeMultiplier);
+            g.strokeLine(bodyCenterX(), bodyCenterY() + 30.0 * sizeMultiplier,
+                    bodyCenterX(), bodyCenterY() - radius);
+        }
+
+        if (type == BirdGame3.BirdType.BAT && batSilentStallTimer > 0) {
+            double chargeRatio = Math.min(1.0, batSilentStallTimer / (double) (BAT_SILENT_STALL_FRAMES + BAT_SILENT_GROUND_RISE_FRAMES));
+            double radius = (22.0 + chargeRatio * 24.0) * sizeMultiplier;
+            g.setStroke(Color.MEDIUMPURPLE.deriveColor(0, 1, 1, 0.22 + chargeRatio * 0.26));
+            g.setLineWidth(2.6 * sizeMultiplier);
+            g.strokeOval(bodyCenterX() - radius, bodyCenterY() - radius, radius * 2.0, radius * 2.0);
+        }
+
+        if (type == BirdGame3.BirdType.BAT && batSilentDiveTimer > 0) {
+            double diveRatio = batSilentDiveTimer / (double) (batSilentUltimate ? BAT_SILENT_DIVE_FRAMES + 4 : BAT_SILENT_DIVE_FRAMES);
+            g.setStroke((batSilentUltimate ? Color.GOLD : Color.MEDIUMPURPLE.brighter())
+                    .deriveColor(0, 1, 1, 0.22 + diveRatio * 0.24));
+            g.setLineWidth((batSilentUltimate ? 8.0 : 5.0) * sizeMultiplier);
+            g.strokeLine(bodyCenterX(), bodyCenterY() - 54.0 * sizeMultiplier,
+                    bodyCenterX(), bodyCenterY() + 62.0 * sizeMultiplier);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.28 + diveRatio * 0.16));
+            g.setLineWidth(2.0 * sizeMultiplier);
+            g.strokeLine(bodyCenterX(), bodyCenterY() - 42.0 * sizeMultiplier,
+                    bodyCenterX(), bodyCenterY() + 54.0 * sizeMultiplier);
         }
 
         if (type == BirdGame3.BirdType.BAT && batCathedralTimer > 0) {
@@ -24631,6 +25371,7 @@ public class Bird {
         boolean stylizedRazorbill = type == BirdGame3.BirdType.RAZORBILL;
         boolean stylizedGrinchhawk = type == BirdGame3.BirdType.GRINCHHAWK;
         boolean stylizedTitmouse = type == BirdGame3.BirdType.TITMOUSE;
+        boolean stylizedPelican = type == BirdGame3.BirdType.PELICAN;
         boolean ravenEyes = (type == BirdGame3.BirdType.RAVEN);
         Color bodyColor;
         Color headColor;
@@ -24720,6 +25461,10 @@ public class Bird {
             bodyColor = Color.web("#8D6E63");
             headColor = Color.web("#BCAAA4");
             eyeOverride = Color.web("#FFF3E0");
+        } else if (stylizedPelican) {
+            bodyColor = Color.web("#E7D6B4");
+            headColor = Color.web("#FFF4DA");
+            eyeOverride = Color.web("#263238");
         } else if (type == BirdGame3.BirdType.ROADRUNNER && !classicPalette) {
             bodyColor = Color.web("#B87333");
             headColor = Color.web("#CC8C46");
@@ -24945,6 +25690,26 @@ public class Bird {
             g.fillOval(headX + (facingRight ? 20.0 : 12.0) * s, headY + 25.0 * s, 18.0 * s, 10.0 * s);
             g.setFill(Color.web("#7E57C2").deriveColor(0, 1, 1, 0.10));
             g.fillOval(headX + (facingRight ? 13.0 : 19.0) * s, headY + 27.0 * s, 16.0 * s, 8.0 * s);
+        }
+        if (stylizedPelican) {
+            Color breast = ironcladPelican ? Color.web("#D7CCC8") : Color.web("#FFF8E8");
+            Color wing = ironcladPelican ? Color.web("#5D4037") : Color.web("#8D7A5D");
+            Color neckShade = ironcladPelican ? Color.web("#A1887F") : Color.web("#F1DFC0");
+            Color feather = ironcladPelican ? Color.web("#D7CCC8") : Color.web("#FFF6DF");
+            Color crest = ironcladPelican ? Color.web("#8D6E63") : Color.web("#DCC9A5");
+            g.setFill(breast.deriveColor(0, 1, 1, ironcladPelican ? 0.38 : 0.72));
+            g.fillOval(x + 18.0 * s, y + 34.0 * s, 44.0 * s, 38.0 * s);
+            g.setFill(neckShade.deriveColor(0, 1, 1, 0.68));
+            g.fillOval(headX + (facingRight ? 15.0 : 13.0) * s, headY + 22.0 * s, 22.0 * s, 18.0 * s);
+            g.setFill(feather.deriveColor(0, 1, 1, 0.90));
+            g.fillOval(headX + 7.0 * s, headY - 7.0 * s, 36.0 * s, 18.0 * s);
+            g.setFill(crest.deriveColor(0, 1, 1, 0.64));
+            g.fillOval(headX + (facingRight ? 9.0 : 17.0) * s, headY - 10.0 * s, 24.0 * s, 12.0 * s);
+            g.setStroke(wing.deriveColor(0, 1, 1, ironcladPelican ? 0.52 : 0.42));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.0 * s);
+            g.strokeArc(x + 13.0 * s, y + 31.0 * s, 54.0 * s, 34.0 * s,
+                    facingRight ? 202 : -22, 116, ArcType.OPEN);
         }
         if (stylizedRazorbill) {
             Color pale = (prismRazorbill ? Color.web("#E8EAF6") : Color.web("#F5F7F4"))
@@ -25467,7 +26232,10 @@ public class Bird {
         double cx = x + 40 * s;
         double cy = y + 40 * s;
         boolean airborne = !isOnGround();
-        if (batHanging) {
+        boolean ceilingWingcut = batWingcutFromHang && batWingcutTimer > 0;
+        boolean silentPose = batSilentStallTimer > 0 || batSilentDiveTimer > 0;
+        boolean invertedPose = batHanging || ceilingWingcut || silentPose;
+        if (invertedPose) {
             g.save();
             g.translate(cx, cy);
             g.scale(1, -1);
@@ -25476,57 +26244,118 @@ public class Bird {
 
         boolean umbra = isUmbraSkin;
         boolean resonance = isResonanceSkin;
-        Color wing = umbra ? Color.web("#0B0F1A") : (resonance ? Color.web("#162447") : Color.rgb(28, 16, 48));
-        Color wingInner = umbra ? Color.web("#182032") : (resonance ? Color.web("#244A6A") : Color.rgb(50, 30, 76));
-        Color body = umbra ? Color.web("#1C1033") : (resonance ? Color.web("#355C7D") : Color.rgb(70, 40, 102));
-        Color head = umbra ? Color.web("#2D1B4D") : (resonance ? Color.web("#4E7BA7") : Color.rgb(88, 54, 124));
-        double flap = airborne ? Math.sin(System.currentTimeMillis() / 90.0) * 10 * s : 0;
-        double leftWingY = y + 18 * s - flap;
-        double rightWingY = y + 18 * s - flap;
-        double wingSpread = airborne ? 1.15 : 1.0;
+        Color wing = umbra ? Color.web("#0B0F1A") : (resonance ? Color.web("#162447") : Color.rgb(22, 14, 34));
+        Color wingInner = umbra ? Color.web("#182032") : (resonance ? Color.web("#244A6A") : Color.rgb(58, 34, 78));
+        Color body = umbra ? Color.web("#1C1033") : (resonance ? Color.web("#355C7D") : Color.rgb(76, 44, 92));
+        Color head = umbra ? Color.web("#2D1B4D") : (resonance ? Color.web("#4E7BA7") : Color.rgb(92, 56, 112));
+        Color edge = umbra ? Color.web("#343A58") : (resonance ? Color.web("#7BDFF6") : Color.rgb(118, 82, 146));
+        double flap = airborne ? Math.sin(System.currentTimeMillis() / 84.0) * 9.0 * s : 0.0;
+        if (batWingcutTimer > 0) {
+            flap = -10.0 * s;
+        } else if (batMoonriseTimer > 0) {
+            flap = 13.0 * s;
+        } else if (silentPose) {
+            flap = -6.0 * s;
+        }
+        double wingReach = airborne || batWingcutTimer > 0 ? 1.18 : 1.0;
+        double shoulderY = y + 36.0 * s;
+        double upperWingY = y + 18.0 * s - flap;
+        double lowerWingY = y + 72.0 * s - flap * 0.2;
+        double sideReach = (batWingcutTimer > 0 ? 72.0 : 62.0) * wingReach * s;
 
-        // outer wings
+        // Fingered wing frames and scalloped membranes.
         g.setFill(wing);
-        g.fillOval(x - 64 * wingSpread * s, leftWingY, 88 * wingSpread * s, 54 * s);
-        g.fillOval(x + 56 * s, rightWingY, 88 * wingSpread * s, 54 * s);
         g.fillPolygon(
-                new double[]{x + 6 * s, x - 52 * wingSpread * s, x - 8 * s},
-                new double[]{y + 48 * s - flap * 0.6, y + 72 * s - flap * 0.2, y + 86 * s},
-                3
+                new double[]{x + 34 * s, x - 6 * s, x - sideReach, x - 42 * s, x - 10 * s, x + 8 * s},
+                new double[]{shoulderY, upperWingY + 2 * s, upperWingY + 16 * s, lowerWingY - 6 * s,
+                        lowerWingY + 10 * s, y + 60 * s},
+                6
         );
         g.fillPolygon(
-                new double[]{x + 74 * s, x + 132 * wingSpread * s, x + 88 * s},
-                new double[]{y + 48 * s - flap * 0.6, y + 72 * s - flap * 0.2, y + 86 * s},
-                3
+                new double[]{x + 46 * s, x + 86 * s, x + 80 * s + sideReach, x + 122 * s, x + 90 * s, x + 72 * s},
+                new double[]{shoulderY, upperWingY + 2 * s, upperWingY + 16 * s, lowerWingY - 6 * s,
+                        lowerWingY + 10 * s, y + 60 * s},
+                6
         );
 
-        // inner wing membrane
         g.setFill(wingInner);
-        g.fillOval(x - 36 * wingSpread * s, y + 26 * s - flap * 0.45, 64 * wingSpread * s, 42 * s);
-        g.fillOval(x + 52 * s, y + 26 * s - flap * 0.45, 64 * wingSpread * s, 42 * s);
+        g.fillPolygon(
+                new double[]{x + 31 * s, x - 7 * s, x - 40 * s, x - 18 * s, x + 8 * s},
+                new double[]{shoulderY + 2 * s, upperWingY + 10 * s, lowerWingY - 2 * s,
+                        lowerWingY + 6 * s, y + 58 * s},
+                5
+        );
+        g.fillPolygon(
+                new double[]{x + 49 * s, x + 87 * s, x + 120 * s, x + 98 * s, x + 72 * s},
+                new double[]{shoulderY + 2 * s, upperWingY + 10 * s, lowerWingY - 2 * s,
+                        lowerWingY + 6 * s, y + 58 * s},
+                5
+        );
+        g.setStroke(edge.deriveColor(0, 1, 1, 0.58));
+        g.setLineWidth(2.2 * s);
+        g.strokePolyline(
+                new double[]{x + 34 * s, x - 6 * s, x - sideReach, x - 42 * s, x - 10 * s, x + 8 * s},
+                new double[]{shoulderY, upperWingY + 2 * s, upperWingY + 16 * s, lowerWingY - 6 * s,
+                        lowerWingY + 10 * s, y + 60 * s},
+                6
+        );
+        g.strokePolyline(
+                new double[]{x + 46 * s, x + 86 * s, x + 80 * s + sideReach, x + 122 * s, x + 90 * s, x + 72 * s},
+                new double[]{shoulderY, upperWingY + 2 * s, upperWingY + 16 * s, lowerWingY - 6 * s,
+                        lowerWingY + 10 * s, y + 60 * s},
+                6
+        );
 
-        // torso and head
         g.setFill(body);
-        g.fillOval(x + 20 * s, y + 22 * s, 40 * s, 54 * s);
-        double headX = facingRight ? x + 24 * s : x + 16 * s;
+        g.fillOval(x + 24 * s, y + 25 * s, 32 * s, 45 * s);
+        g.fillPolygon(
+                new double[]{x + 34 * s, x + 40 * s, x + 46 * s},
+                new double[]{y + 64 * s, y + 82 * s, y + 64 * s},
+                3
+        );
+        double headX = facingRight ? x + 20 * s : x + 18 * s;
         g.setFill(head);
-        g.fillOval(headX, y + 6 * s, 44 * s, 32 * s);
+        g.fillOval(headX, y + 7 * s, 42 * s, 31 * s);
 
-        // ears
         Color ear = umbra ? Color.web("#4C537A") : (resonance ? Color.web("#8AD7FF") : Color.rgb(110, 74, 150));
         g.setFill(ear);
-        g.fillPolygon(new double[]{headX + 6 * s, headX + 12 * s, headX + 18 * s}, new double[]{y + 8 * s, y - 10 * s, y + 8 * s}, 3);
-        g.fillPolygon(new double[]{headX + 26 * s, headX + 32 * s, headX + 38 * s}, new double[]{y + 8 * s, y - 10 * s, y + 8 * s}, 3);
+        g.fillPolygon(new double[]{headX + 4 * s, headX + 12 * s, headX + 18 * s},
+                new double[]{y + 12 * s, y - 13 * s, y + 10 * s}, 3);
+        g.fillPolygon(new double[]{headX + 24 * s, headX + 31 * s, headX + 38 * s},
+                new double[]{y + 10 * s, y - 14 * s, y + 12 * s}, 3);
 
-        // eyes
         g.setFill(Color.WHITE);
-        double eyeBias = (facingRight ? 3 : -3) * s;
-        g.fillOval(headX + 8 * s + eyeBias, y + 16 * s, 11 * s, 11 * s);
-        g.fillOval(headX + 24 * s + eyeBias, y + 16 * s, 11 * s, 11 * s);
+        double eyeBias = (facingRight ? 2.5 : -2.5) * s;
+        g.fillOval(headX + 8 * s + eyeBias, y + 16 * s, 10 * s, 10 * s);
+        g.fillOval(headX + 23 * s + eyeBias, y + 16 * s, 10 * s, 10 * s);
         Color iris = umbra ? Color.web("#00E5FF") : (resonance ? Color.web("#B2EBF2") : Color.CRIMSON.brighter());
         g.setFill(iris);
-        g.fillOval(headX + 11 * s + eyeBias, y + 19 * s, 6 * s, 6 * s);
-        g.fillOval(headX + 27 * s + eyeBias, y + 19 * s, 6 * s, 6 * s);
+        g.fillOval(headX + 11 * s + eyeBias, y + 19 * s, 5 * s, 5 * s);
+        g.fillOval(headX + 26 * s + eyeBias, y + 19 * s, 5 * s, 5 * s);
+
+        g.setFill(head.darker());
+        double snoutX = facingRight ? headX + 30 * s : headX + 2 * s;
+        g.fillOval(snoutX, y + 23 * s, 10 * s, 8 * s);
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.86));
+        g.fillOval(facingRight ? snoutX + 6 * s : snoutX + 1 * s, y + 25 * s, 4 * s, 4 * s);
+        g.setStroke(Color.web("#F5F5F5").deriveColor(0, 1, 1, 0.9));
+        g.setLineWidth(1.4 * s);
+        if (facingRight) {
+            g.strokeLine(headX + 33 * s, y + 31 * s, headX + 35 * s, y + 37 * s);
+            g.strokeLine(headX + 28 * s, y + 31 * s, headX + 30 * s, y + 37 * s);
+        } else {
+            g.strokeLine(headX + 9 * s, y + 31 * s, headX + 7 * s, y + 37 * s);
+            g.strokeLine(headX + 14 * s, y + 31 * s, headX + 12 * s, y + 37 * s);
+        }
+
+        g.setStroke(edge.deriveColor(0, 1, 1, 0.88));
+        g.setLineWidth(2.0 * s);
+        g.strokeLine(x + 31 * s, y + 68 * s, x + 24 * s, y + 80 * s);
+        g.strokeLine(x + 49 * s, y + 68 * s, x + 56 * s, y + 80 * s);
+        g.strokeLine(x + 24 * s, y + 80 * s, x + 18 * s, y + 84 * s);
+        g.strokeLine(x + 24 * s, y + 80 * s, x + 28 * s, y + 85 * s);
+        g.strokeLine(x + 56 * s, y + 80 * s, x + 52 * s, y + 85 * s);
+        g.strokeLine(x + 56 * s, y + 80 * s, x + 62 * s, y + 84 * s);
 
         if (resonance) {
             g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.8));
@@ -25540,6 +26369,8 @@ public class Bird {
             g.setLineWidth(2 * s);
             g.strokeLine(x + 30 * s, y + 76 * s, x + 30 * s, y + 92 * s);
             g.strokeLine(x + 50 * s, y + 76 * s, x + 50 * s, y + 92 * s);
+        }
+        if (invertedPose) {
             g.restore();
         }
     }
@@ -25888,6 +26719,74 @@ public class Bird {
                     tipY - dirY * 10.0 * s + normalY * 8.0 * s);
             return;
         }
+        if (type == BirdGame3.BirdType.PELICAN) {
+            HeadPose headPose = standardHeadPose(pose);
+            double aimAngle = headPose.aimAngleRadians();
+            double dirX = Math.cos(aimAngle);
+            double dirY = Math.sin(aimAngle);
+            double normalX = Math.cos(aimAngle + Math.PI * 0.5);
+            double normalY = Math.sin(aimAngle + Math.PI * 0.5);
+            if (Math.abs(normalY) > Math.abs(normalX) && normalY < 0.0) {
+                normalX = -normalX;
+                normalY = -normalY;
+            }
+            boolean attacking = attackAnimationTimer > 0 || pelicanNeutralTimer > 0;
+            double open = (attacking ? 7.0 + Math.sin(attackAnimationTimer * 0.65) * 2.4 : 2.4) * s * openScale;
+            double length = (54.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.68)) * s;
+            double baseX = headPose.centerX() + dirX * 4.0 * s;
+            double baseY = headPose.centerY() + dirY * 4.0 * s + 5.0 * s;
+            double midX = baseX + dirX * length * 0.54;
+            double midY = baseY + dirY * length * 0.54;
+            double tipX = baseX + dirX * length;
+            double tipY = baseY + dirY * length + 1.4 * s;
+            Color upper = isIroncladSkin ? Color.web("#C59B5E") : Color.web("#F4B860");
+            Color lower = isIroncladSkin ? Color.web("#A1887F") : Color.web("#E99B45");
+            Color ridge = isIroncladSkin ? Color.web("#5D4037") : Color.web("#8D5B22");
+
+            double[] upperX = {
+                    baseX - normalX * 8.2 * s,
+                    midX - normalX * 9.6 * s,
+                    tipX - normalX * 6.4 * s,
+                    tipX + normalX * 2.6 * s,
+                    midX + normalX * 4.2 * s,
+                    baseX + normalX * 4.0 * s
+            };
+            double[] upperY = {
+                    baseY - normalY * 8.2 * s - open * 0.18,
+                    midY - normalY * 9.6 * s - open * 0.22,
+                    tipY - normalY * 6.4 * s - open * 0.18,
+                    tipY + normalY * 2.6 * s,
+                    midY + normalY * 4.2 * s,
+                    baseY + normalY * 4.0 * s
+            };
+            g.setFill(upper);
+            g.fillPolygon(upperX, upperY, upperX.length);
+
+            double[] lowerX = {
+                    baseX + normalX * 3.0 * s,
+                    midX + normalX * 7.2 * s,
+                    tipX + normalX * 5.6 * s,
+                    tipX - normalX * 1.4 * s,
+                    midX - normalX * 1.8 * s
+            };
+            double[] lowerY = {
+                    baseY + normalY * 3.0 * s + open,
+                    midY + normalY * 7.2 * s + open * 0.74,
+                    tipY + normalY * 5.6 * s + open * 0.52,
+                    tipY - normalY * 1.4 * s + open * 0.18,
+                    midY - normalY * 1.8 * s + open * 0.18
+            };
+            g.setFill(lower);
+            g.fillPolygon(lowerX, lowerY, lowerX.length);
+
+            g.setStroke(ridge.deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth(1.45 * s);
+            g.strokePolyline(upperX, upperY, upperX.length);
+            g.strokePolyline(lowerX, lowerY, lowerX.length);
+            g.strokeLine(baseX - normalX * 2.0 * s, baseY - normalY * 2.0 * s,
+                    tipX - dirX * 7.0 * s, tipY - dirY * 7.0 * s);
+            return;
+        }
 
         HeadPose headPose = standardHeadPose(pose);
         boolean isAttacking = attackAnimationTimer > 0;
@@ -26046,14 +26945,37 @@ public class Bird {
             HeadPose headPose = currentHeadPose();
             double headX = headPose.centerX() - 25.0 * s;
             double headY = headPose.centerY() - 20.0 * s;
-            double pouchX = headX + 2 * s;
-            double pouchY = headY + 22 * s;
-            double pouchW = (plungeTimer > 0 ? 62 : 46) * s;
-            double pouchH = (plungeTimer > 0 ? 38 : 28) * s;
+            int cargo = pelicanEffectiveCargo();
+            double neutralInflation = pelicanNeutralTimer > 0
+                    ? (8.0 + Math.sin(pelicanNeutralTimer * 0.58) * 3.0) * s
+                    : 0.0;
+            double cargoScale = cargo * 8.0;
+            double pouchW = (plungeTimer > 0 ? 62 : 46 + cargoScale) * s + neutralInflation;
+            double pouchH = (plungeTimer > 0 ? 38 : 28 + cargo * 5.0) * s + neutralInflation * 0.42;
+            double pouchX = facingRight
+                    ? headPose.centerX() - 8.0 * s
+                    : headPose.centerX() - pouchW + 8.0 * s;
+            double pouchY = headY + (pelicanKeelDiveActive ? 25.0 : 22.0) * s;
+            g.setStroke((isIroncladSkin ? Color.web("#5D4037") : Color.web("#A67C46"))
+                    .deriveColor(0, 1, 1, 0.52));
+            g.setLineWidth(1.3 * s);
+            g.strokeArc(pouchX + 2.0 * s, pouchY - 4.0 * s, pouchW - 4.0 * s, pouchH + 4.0 * s,
+                    facingRight ? 16 : 164, 148, ArcType.OPEN);
             g.setFill(isIroncladSkin ? Color.web("#A1887F") : Color.rgb(255, 180, 80));
             g.fillOval(pouchX, pouchY, pouchW, pouchH);
             g.setFill(isIroncladSkin ? Color.web("#D7CCC8") : Color.rgb(255, 200, 100));
-            g.fillOval(pouchX + 5 * s, pouchY + 4 * s, pouchW - 12 * s, pouchH - 12 * s);
+            g.fillOval(pouchX + 6 * s, pouchY + 4 * s, pouchW - 12 * s, pouchH - 12 * s);
+            if (cargo > 0) {
+                g.setFill(pelicanFullHoldActive() ? Color.GOLD : Color.web("#90A4AE"));
+                for (int i = 0; i < cargo; i++) {
+                    double cargoOffset = (18.0 + i * 16.0) * s;
+                    double cargoX = facingRight
+                            ? pouchX + cargoOffset
+                            : pouchX + pouchW - cargoOffset - 10.0 * s;
+                    double cargoY = pouchY + (14.0 + (i % 2) * 3.0) * s;
+                    g.fillOval(cargoX, cargoY, 10.0 * s, 8.0 * s);
+                }
+            }
             if (isIroncladSkin) {
                 g.setStroke(Color.web("#5D4037"));
                 g.setLineWidth(1.8 * s);

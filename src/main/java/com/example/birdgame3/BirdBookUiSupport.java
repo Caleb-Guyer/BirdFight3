@@ -372,7 +372,7 @@ final class BirdBookUiSupport {
             case HEISENBIRD -> "Blue-hatted and bald, Heisenbird cooks sky-blue crystals in a hidden roost. The coop whispers \"say my name\" when he lands, and he is the one who pecks.";
             case TITMOUSE -> "Tiny rocket with a fearless heart. Loves speed, hates standing still, and dares you to keep up.";
             case BAT -> "Night specialist who hears everything and hides in the shadows. It knows the cave better than the cave knows itself.";
-            case PELICAN -> "Iron beak, iron will. Hauls momentum like cargo and hits like a loaded ship.";
+            case PELICAN -> "Iron beak, iron will. Stores cargo in his pouch, trades mobility for weight, and hits like a loaded ship.";
             case RAVEN -> "A shadow on the skyline with a talent for misdirection. It appears, it hits, and then it is already gone.";
         };
     }
