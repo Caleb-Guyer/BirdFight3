@@ -348,6 +348,26 @@ class BirdGame3SettingsTest {
     }
 
     @Test
+    void localTeamAssignmentsCanBeChangedForOneVersusThreeCpuSetup() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 4;
+        game.teamModeEnabled = true;
+
+        assertEquals(1, game.getEffectiveTeam(0));
+        assertEquals(2, game.getEffectiveTeam(1));
+        assertEquals(1, game.getEffectiveTeam(2));
+        assertEquals(2, game.getEffectiveTeam(3));
+
+        assertTrue(game.cycleLocalTeamForPlayer(2));
+
+        assertEquals(1, game.getEffectiveTeam(0));
+        assertEquals(2, game.getEffectiveTeam(1));
+        assertEquals(2, game.getEffectiveTeam(2));
+        assertEquals(2, game.getEffectiveTeam(3));
+        assertFalse(game.cycleLocalTeamForPlayer(-1));
+    }
+
+    @Test
     void computeUiFitScaleShrinksOversizedLayoutsUsingMeasuredBounds() throws Exception {
         BirdGame3 game = new BirdGame3();
 

@@ -15974,6 +15974,7 @@ public class BirdGame3 extends Application {
         teamModeToggleButton = uiFactory.action("TEAM MODE: OFF", 206, 52, 18, "#3A434D", 16, () -> {
             teamModeEnabled = !teamModeEnabled;
             refreshTeamToggleButton();
+            if (refreshLayoutRef[0] != null) refreshLayoutRef[0].run();
         });
         applyNoEllipsis(teamModeToggleButton);
         refreshTeamToggleButton();
@@ -16163,7 +16164,9 @@ public class BirdGame3 extends Application {
         Button[] skinButtons = new Button[4];
         Button[] inputButtons = new Button[4];
         Button[] aiToggleButtons = new Button[4];
+        Button[] teamButtons = new Button[4];
         Runnable[] syncAiToggleButtons = new Runnable[4];
+        Runnable[] syncTeamButtons = new Runnable[4];
 
         Runnable startBattle = () -> {
             stageSelectReturn = () -> showFightSetup(stage);
@@ -16299,6 +16302,23 @@ public class BirdGame3 extends Application {
             syncAiToggle.run();
             aiToggleButtons[idx] = aiToggle;
 
+            Button teamBtn = new Button();
+            teamBtn.setPrefSize(112, 40);
+            teamBtn.setMinSize(112, 40);
+            teamBtn.setMaxSize(112, 40);
+            teamBtn.setFont(Font.font("Arial Black", 13));
+            applyNoEllipsis(teamBtn);
+            Runnable syncTeamButton = () -> refreshFightSetupTeamButton(teamBtn, idx);
+            teamBtn.setOnAction(e -> {
+                playButtonClick();
+                if (!teamModeEnabled || idx >= activePlayers) return;
+                cycleLocalTeamForPlayer(idx);
+                syncTeamButton.run();
+            });
+            teamButtons[idx] = teamBtn;
+            syncTeamButtons[idx] = syncTeamButton;
+            syncTeamButton.run();
+
             Button inputBtn = new Button("INPUT: KEYBOARD");
             inputBtn.setMinHeight(42);
             inputBtn.setPrefHeight(42);
@@ -16413,7 +16433,7 @@ public class BirdGame3 extends Application {
 
             Region slotSpacer = new Region();
             HBox.setHgrow(slotSpacer, Priority.ALWAYS);
-            HBox slotHeader = new HBox(10, playerBadge, slotSpacer, aiToggle);
+            HBox slotHeader = new HBox(10, playerBadge, slotSpacer, teamBtn, aiToggle);
             slotHeader.setAlignment(Pos.CENTER_LEFT);
             slotHeaders[idx] = slotHeader;
 
@@ -16439,13 +16459,7 @@ public class BirdGame3 extends Application {
                     + "-fx-background-radius: 26; -fx-border-color: rgba(255,255,255,0.16); "
                     + "-fx-border-width: 3; -fx-border-radius: 26;");
 
-            Rectangle cardSlash = new Rectangle(220, 320, accent.deriveColor(0.0, 1.0, 1.0, 0.24));
-            cardSlash.setRotate(-13.0);
-            cardSlash.setTranslateX(-120.0);
-            cardSlash.setTranslateY(-24.0);
-            cardSlash.setMouseTransparent(true);
-
-            StackPane slotCard = new StackPane(cardBase, cardSlash, slot);
+            StackPane slotCard = new StackPane(cardBase, slot);
             slotCard.setMinWidth(320);
             slotCard.setPrefWidth(320);
             slotCard.setPrefHeight(248);
@@ -16504,7 +16518,7 @@ public class BirdGame3 extends Application {
         refreshInputAssignments.run();
         Button[][] playerControlButtons = new Button[4][];
         for (int i = 0; i < playerControlButtons.length; i++) {
-            playerControlButtons[i] = new Button[]{aiToggleButtons[i], inputButtons[i], skinButtons[i], cpuButtons[i]};
+            playerControlButtons[i] = new Button[]{aiToggleButtons[i], teamButtons[i], inputButtons[i], skinButtons[i], cpuButtons[i]};
         }
         Pane interactionOverlay = new Pane();
         interactionOverlay.setPickOnBounds(false);
@@ -16663,6 +16677,7 @@ public class BirdGame3 extends Application {
                         portraits[i],
                         nameLabels[i],
                         aiToggleButtons[i],
+                        teamButtons[i],
                         inputButtons[i],
                         skinButtons[i],
                         cpuButtons[i],
@@ -16678,6 +16693,9 @@ public class BirdGame3 extends Application {
                 if (!active) continue;
                 if (syncAiToggleButtons[i] != null) {
                     syncAiToggleButtons[i].run();
+                }
+                if (syncTeamButtons[i] != null) {
+                    syncTeamButtons[i].run();
                 }
                 refreshCpuButton(i);
                 refreshFightSelectorVisual(selectors[i], selectorLocked[i]);
@@ -33057,6 +33075,35 @@ public class BirdGame3 extends Application {
                 + "-fx-border-radius: 16;");
     }
 
+    boolean cycleLocalTeamForPlayer(int playerIdx) {
+        if (playerIdx < 0 || playerIdx >= playerTeams.length) return false;
+        playerTeams[playerIdx] = localTeamForPlayer(playerIdx) == 2 ? 1 : 2;
+        return true;
+    }
+
+    int localTeamForPlayer(int playerIdx) {
+        if (playerIdx < 0 || playerIdx >= playerTeams.length) return 1;
+        return playerTeams[playerIdx] == 2 ? 2 : 1;
+    }
+
+    private void refreshFightSetupTeamButton(Button teamBtn, int idx) {
+        if (teamBtn == null) return;
+        boolean visible = teamModeEnabled && idx >= 0 && idx < activePlayers;
+        int team = localTeamForPlayer(idx);
+        teamBtn.setText(teamLabel(team));
+        teamBtn.setVisible(visible);
+        teamBtn.setManaged(visible);
+        teamBtn.setDisable(!visible);
+        boolean compact = activePlayers >= 4;
+        String bg = toHex(teamColor(team));
+        String fg = team == 1 ? "#06131F" : "#FFFFFF";
+        teamBtn.setStyle("-fx-background-color: " + bg + "; -fx-text-fill: " + fg + "; "
+                + "-fx-font-family: 'Arial Black'; -fx-font-size: " + (compact ? 12 : 13) + "px; "
+                + "-fx-font-weight: bold; -fx-background-radius: 14; "
+                + "-fx-border-color: rgba(0,0,0,0.82); -fx-border-width: 2.5; "
+                + "-fx-border-radius: 14;");
+    }
+
     private void refreshCpuButton(int idx) {
         if (idx < 0 || idx >= cpuButtons.length) return;
         Button cpuBtn = cpuButtons[idx];
@@ -33088,6 +33135,7 @@ public class BirdGame3 extends Application {
             Canvas portrait,
             Label nameLabel,
             Button aiToggle,
+            Button teamButton,
             Button inputButton,
             Button skinButton,
             Button cpuButton,
@@ -33111,6 +33159,7 @@ public class BirdGame3 extends Application {
         double badgeHeight = compact ? 34.0 : 44.0;
         double aiWidth = compact ? 96.0 : 132.0;
         double aiHeight = compact ? 34.0 : 40.0;
+        double teamWidth = compact ? 78.0 : 112.0;
         double buttonHeight = compact ? 32.0 : 42.0;
         double buttonFontSize = compact ? 11.5 : 14.0;
         double nameFontSize = compact ? 20.0 : 30.0;
@@ -33153,6 +33202,12 @@ public class BirdGame3 extends Application {
             aiToggle.setMinSize(aiWidth, aiHeight);
             aiToggle.setPrefSize(aiWidth, aiHeight);
             aiToggle.setMaxSize(aiWidth, aiHeight);
+        }
+        if (teamButton != null) {
+            teamButton.setMinSize(teamWidth, aiHeight);
+            teamButton.setPrefSize(teamWidth, aiHeight);
+            teamButton.setMaxSize(teamWidth, aiHeight);
+            teamButton.setFont(Font.font("Arial Black", compact ? 12.0 : 13.0));
         }
         applyFightSetupCompactButtonMetrics(inputButton, buttonHeight, buttonFontSize);
         applyFightSetupCompactButtonMetrics(skinButton, buttonHeight, buttonFontSize);
@@ -33991,7 +34046,7 @@ public class BirdGame3 extends Application {
             return playerIdx;
         }
         if (!teamModeEnabled) return playerIdx;
-        return playerTeams[playerIdx] == 2 ? 2 : 1;
+        return localTeamForPlayer(playerIdx);
     }
 
     public boolean areAllies(int playerA, int playerB) {
