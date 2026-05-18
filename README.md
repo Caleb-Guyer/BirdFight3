@@ -206,7 +206,7 @@ Bird Fight 3 natively supports Wii remotes for enhanced gameplay. Connect your W
 
 ## License
 
-[Not Yet in Place]
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Contributing
 
