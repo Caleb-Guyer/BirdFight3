@@ -9269,7 +9269,8 @@ public class BirdGame3 extends Application {
         BAT("Bat", 7, 14, 3.7, Color.rgb(55, 35, 85), 0.65, "Echo Lance / Wingcut / Moonrise / Silent Descent + Ceiling Hang"),
         PELICAN("Pelican", 11, 9, 2.9, Color.rgb(245, 220, 180), 0.84, "Pouch Snare / Breakwater Run / Thermal Sail / Bilge Dump"),
         HEISENBIRD("Heisenbird", 7, 18, 4.6, Color.web("#D7D1C5"), 0.68, "Echo of Opium: Crystal Cloud + Blue Rush + Crystal Column + Glass Cook"),
-        RAVEN("Raven", 8, 18, 4.3, Color.web("#1C1F26"), 0.72, "Shadow Warp (blink strike + short haste)");
+        RAVEN("Raven", 8, 18, 4.3, Color.web("#1C1F26"), 0.72,
+                "Black Quill / Shadow Warp / Murder Lift / Nevermore / The Unkindness");
 
         final String name;
         final int power;

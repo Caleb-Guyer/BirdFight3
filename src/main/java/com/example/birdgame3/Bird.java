@@ -175,7 +175,17 @@ public class Bird {
         DOWN
     }
 
+    private enum RavenSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record BatEchoCollision(double distance, double normalX, double normalY) {
+    }
+
+    private record RavenNode(double x, double y, Bird target, RavenPortent ground, int serial, boolean ultimate) {
     }
 
     private record NormalAttackProfile(
@@ -578,6 +588,55 @@ public class Bird {
     private boolean batEchoFxUltimate = false;
     private int batHangLockTimer = 0;
     private int batRehangCooldownTimer = 0;
+    private static final int RAVEN_MAX_PORTENTS = 3;
+    private static final int RAVEN_PORTENT_LIFE_FRAMES = 420;
+    private static final int RAVEN_PORTENT_ULTIMATE_LIFE_FRAMES = 540;
+    private static final int RAVEN_MARK_LIFE_FRAMES = 360;
+    private static final int RAVEN_MARK_ULTIMATE_LIFE_FRAMES = 480;
+    private static final int RAVEN_QUILL_CHARGE_FAN_FRAMES = 18;
+    private static final int RAVEN_QUILL_LIFE_FRAMES = 72;
+    private static final int RAVEN_QUILL_ULTIMATE_LIFE_FRAMES = 86;
+    private static final int RAVEN_NEUTRAL_REUSE_FRAMES = 22;
+    private static final int RAVEN_SIDE_FRAMES = 14;
+    private static final int RAVEN_SIDE_REUSE_FRAMES = 34;
+    private static final int RAVEN_LIFT_FRAMES = 24;
+    private static final int RAVEN_LIFT_ULTIMATE_FRAMES = 30;
+    private static final int RAVEN_DECOY_LIFE_FRAMES = 180;
+    private static final int RAVEN_DECOY_ULTIMATE_LIFE_FRAMES = 240;
+    private static final int RAVEN_DOWN_REUSE_FRAMES = 38;
+    private static final int RAVEN_ULTIMATE_ROUTE_LIFE_FRAMES = 42;
+    private static final double RAVEN_LIFT_SNAP_RADIUS = 230.0;
+    private final ArrayList<RavenPortent> ravenGroundPortents = new ArrayList<>();
+    private final ArrayList<RavenQuill> ravenQuills = new ArrayList<>();
+    private final ArrayList<RavenUltimateRoute> ravenUltimateRoutes = new ArrayList<>();
+    private RavenDecoy ravenDecoy = null;
+    private int ravenPortentSerialCounter = 0;
+    private boolean ravenQuillCharging = false;
+    private int ravenQuillChargeFrames = 0;
+    private boolean ravenQuillChargeUltimate = false;
+    private int ravenNeutralReuseTimer = 0;
+    private int ravenSideTimer = 0;
+    private int ravenSideReuseTimer = 0;
+    private int ravenSideDirection = 1;
+    private boolean ravenSideUltimate = false;
+    private boolean ravenSideEmpowered = false;
+    private boolean ravenSideResolved = false;
+    private double ravenSideStartX = 0.0;
+    private double ravenSideStartY = 0.0;
+    private double ravenSideEndX = 0.0;
+    private double ravenSideEndY = 0.0;
+    private final boolean[] ravenSideHit = new boolean[4];
+    private int ravenLiftTimer = 0;
+    private boolean ravenLiftUsed = false;
+    private boolean ravenLiftUltimate = false;
+    private boolean ravenLiftSnapped = false;
+    private final boolean[] ravenLiftHit = new boolean[4];
+    private int ravenDownReuseTimer = 0;
+    private int ravenUltimateTimer = 0;
+    private int ravenPortentTimer = 0;
+    private int ravenPortentOwnerIndex = -1;
+    private int ravenPortentSerial = 0;
+    private boolean ravenPortentUltimate = false;
     private boolean ledgeHanging = false;
     private Platform ledgePlatform = null;
     private boolean ledgeGrabOnRightSide = false;
@@ -1302,6 +1361,75 @@ public class Bird {
         }
     }
 
+    private static final class RavenPortent {
+        double x;
+        double y;
+        int lifeFrames;
+        int ageFrames;
+        boolean ultimate;
+        int serial;
+
+        RavenPortent(double x, double y, boolean ultimate, int serial) {
+            this.x = x;
+            this.y = y;
+            this.ultimate = ultimate;
+            this.serial = serial;
+            this.lifeFrames = ultimate ? RAVEN_PORTENT_ULTIMATE_LIFE_FRAMES : RAVEN_PORTENT_LIFE_FRAMES;
+        }
+    }
+
+    private static final class RavenQuill {
+        double x;
+        double y;
+        double vx;
+        double vy;
+        int lifeFrames;
+        boolean ultimate;
+
+        RavenQuill(double x, double y, double vx, double vy, boolean ultimate) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.ultimate = ultimate;
+            this.lifeFrames = ultimate ? RAVEN_QUILL_ULTIMATE_LIFE_FRAMES : RAVEN_QUILL_LIFE_FRAMES;
+        }
+    }
+
+    private static final class RavenDecoy {
+        double x;
+        double y;
+        int lifeFrames;
+        int ageFrames;
+        boolean ultimate;
+        boolean swapped;
+        final boolean[] hit = new boolean[4];
+
+        RavenDecoy(double x, double y, boolean ultimate) {
+            this.x = x;
+            this.y = y;
+            this.ultimate = ultimate;
+            this.lifeFrames = ultimate ? RAVEN_DECOY_ULTIMATE_LIFE_FRAMES : RAVEN_DECOY_LIFE_FRAMES;
+        }
+    }
+
+    private static final class RavenUltimateRoute {
+        double startX;
+        double startY;
+        double endX;
+        double endY;
+        int lifeFrames;
+        int ageFrames;
+
+        RavenUltimateRoute(double startX, double startY, double endX, double endY) {
+            this.startX = startX;
+            this.startY = startY;
+            this.endX = endX;
+            this.endY = endY;
+            this.lifeFrames = RAVEN_ULTIMATE_ROUTE_LIFE_FRAMES;
+        }
+    }
+
     // Phoenix directional special state
     private int phoenixChargeTimer = 0;
     private boolean phoenixCharging = false;
@@ -1781,6 +1909,7 @@ public class Bird {
         opiumNeutralReuseTimer = 0;
         titmouseScoldReuseTimer = 0;
         pelicanNeutralReuseTimer = 0;
+        ravenNeutralReuseTimer = 0;
     }
 
     private void resetMockingbirdCopiedNeutralRuntime() {
@@ -1819,7 +1948,8 @@ public class Bird {
             case PELICAN -> {
                 resetPelicanSpecialState(false);
             }
-            case ROOSTER, RAVEN, MOCKINGBIRD -> {
+            case RAVEN -> resetRavenSpecialState(false);
+            case ROOSTER, MOCKINGBIRD -> {
             }
         }
         resetMockingbirdNeutralReuseLocks();
@@ -2264,6 +2394,9 @@ public class Bird {
 
     private NormalAttackProfile normalAttackProfile(NormalAttackVariant variant) {
         double facingDir = facingRight ? 1.0 : -1.0;
+        if (type == BirdGame3.BirdType.RAVEN) {
+            return ravenNormalAttackProfile(variant, facingDir);
+        }
         return switch (variant) {
             case NEUTRAL -> new NormalAttackProfile(104.0, 84.0, facingDir * 14.0, -2.0,
                     0.80, 0.76, 0.92, 0.82, 0.82, 18, 8, AERIAL_LANDING_LAG_FRAMES);
@@ -2289,6 +2422,35 @@ public class Bird {
                     0.88, 0.98, 0.55, 1.82, 1.82, 25, 12, 6);
             case DOWN_AIR -> new NormalAttackProfile(92.0, 136.0, 0.0, 46.0,
                     1.02, 1.08, 0.72, 0.34, -0.95, 28, 14, 12);
+        };
+    }
+
+    private NormalAttackProfile ravenNormalAttackProfile(NormalAttackVariant variant, double facingDir) {
+        return switch (variant) {
+            case NEUTRAL -> new NormalAttackProfile(108.0, 80.0, facingDir * 18.0, -3.0,
+                    0.82, 0.78, 0.94, 0.80, 0.80, 16, 9, AERIAL_LANDING_LAG_FRAMES);
+            case SIDE_TILT -> new NormalAttackProfile(140.0, 82.0, facingDir * 34.0, -2.0,
+                    0.92, 0.92, 1.08, 0.66, 0.66, 19, 10, AERIAL_LANDING_LAG_FRAMES);
+            case UP_TILT -> new NormalAttackProfile(88.0, 138.0, 0.0, -38.0,
+                    0.86, 0.90, 0.52, 1.56, 1.56, 18, 10, AERIAL_LANDING_LAG_FRAMES);
+            case DOWN_TILT -> new NormalAttackProfile(120.0, 64.0, facingDir * 22.0, 22.0,
+                    0.84, 0.80, 0.74, 0.22, 0.22, 20, 10, AERIAL_LANDING_LAG_FRAMES);
+            case SIDE_SMASH -> new NormalAttackProfile(160.0, 92.0, facingDir * 48.0, -1.0,
+                    1.20, 1.30, 1.52, 0.84, 0.84, 34, 15, AERIAL_LANDING_LAG_FRAMES);
+            case UP_SMASH -> new NormalAttackProfile(98.0, 166.0, 0.0, -52.0,
+                    1.12, 1.24, 0.68, 2.02, 2.02, 33, 15, AERIAL_LANDING_LAG_FRAMES);
+            case DOWN_SMASH -> new NormalAttackProfile(136.0, 84.0, facingDir * 16.0, 32.0,
+                    1.14, 1.18, 1.00, 0.42, 0.42, 35, 15, AERIAL_LANDING_LAG_FRAMES);
+            case NEUTRAL_AIR -> new NormalAttackProfile(120.0, 108.0, 0.0, -7.0,
+                    0.92, 0.96, 0.92, 1.02, 1.02, 25, 12, 7);
+            case FORWARD_AIR -> new NormalAttackProfile(144.0, 88.0, facingDir * 40.0, -7.0,
+                    1.00, 1.08, 1.26, 0.84, 0.84, 27, 13, 9);
+            case BACK_AIR -> new NormalAttackProfile(136.0, 86.0, -facingDir * 38.0, -2.0,
+                    1.10, 1.16, 1.48, 0.74, 0.74, 27, 13, 10);
+            case UP_AIR -> new NormalAttackProfile(90.0, 152.0, 0.0, -48.0,
+                    0.90, 1.00, 0.54, 1.88, 1.88, 24, 12, 6);
+            case DOWN_AIR -> new NormalAttackProfile(94.0, 142.0, 0.0, 50.0,
+                    1.04, 1.10, 0.72, 0.32, -1.02, 28, 14, 12);
         };
     }
 
@@ -3188,6 +3350,10 @@ public class Bird {
             activeAerialLandingLagFrames = profile.landingLagFrames();
         } else {
             clearAerialAttackState();
+            if (type == BirdGame3.BirdType.RAVEN && variant == NormalAttackVariant.DOWN_TILT) {
+                double portentX = bodyCenterX() + facingDirection() * 42.0 * sizeMultiplier;
+                addRavenGroundPortent(portentX, ravenPortentSurfaceY(portentX), false);
+            }
         }
         cancelAttackCharge();
     }
@@ -3283,6 +3449,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.PELICAN && !canStartPelicanSpecial()) {
             return;
         }
+        if (type == BirdGame3.BirdType.RAVEN && !canStartRavenSpecial()) {
+            return;
+        }
         if (isOpiumEchoPair() && !canStartOpiumSpecial()) {
             return;
         }
@@ -3313,6 +3482,7 @@ public class Bird {
                 && type != BirdGame3.BirdType.TITMOUSE
                 && type != BirdGame3.BirdType.BAT
                 && type != BirdGame3.BirdType.PELICAN
+                && type != BirdGame3.BirdType.RAVEN
                 && !isOpiumEchoPair()
                 && specialCooldown > 0
                 && !ultimateReady) {
@@ -3394,7 +3564,7 @@ public class Bird {
                 }
             }
             case PELICAN -> specialPelican(selectPelicanSpecialVariant(), ultimateTriggered);
-            case RAVEN -> specialRaven(ultimateTriggered);
+            case RAVEN -> specialRaven(selectRavenSpecialVariant(), ultimateTriggered);
         }
     }
 
@@ -7391,7 +7561,7 @@ public class Bird {
                 case TITMOUSE -> specialTitmouseScoldChorus(ultimate);
                 case BAT -> specialBatNeutral(ultimate);
                 case PELICAN -> specialPelicanPouchSnare(ultimate);
-                case RAVEN -> specialRaven(ultimate);
+                case RAVEN -> fireRavenBlackQuillVolley(false, ultimate);
                 case MOCKINGBIRD -> {
                     mockingbirdCopiedNeutralSource = originalCopiedSource;
                     return;
@@ -10242,6 +10412,43 @@ public class Bird {
                 && pelicanSpecialReady(variant);
     }
 
+    private boolean ravenSpecialActive() {
+        return ravenQuillCharging
+                || ravenSideTimer > 0
+                || ravenLiftTimer > 0
+                || ravenUltimateTimer > 0;
+    }
+
+    private boolean ravenSpecialReady(RavenSpecialVariant variant) {
+        boolean ultimateReady = isUltimateReady();
+        return switch (variant) {
+            case NEUTRAL -> ultimateReady || ravenNeutralReuseTimer <= 0;
+            case SIDE -> ultimateReady || ravenSideReuseTimer <= 0;
+            case UP -> ultimateReady || !ravenLiftUsed;
+            case DOWN -> ultimateReady || ravenDecoy != null || ravenDownReuseTimer <= 0;
+        };
+    }
+
+    private boolean canConvertShieldIntoRavenDownSpecial() {
+        return selectRavenSpecialVariant() == RavenSpecialVariant.DOWN
+                && isBlocking
+                && shieldStunFrames <= 0;
+    }
+
+    private boolean canStartRavenSpecial() {
+        RavenSpecialVariant variant = selectRavenSpecialVariant();
+        boolean shieldConversion = canConvertShieldIntoRavenDownSpecial();
+        return type == BirdGame3.BirdType.RAVEN
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && (!isBlocking || shieldConversion)
+                && !isDodging()
+                && (!ravenSpecialActive() || variant == RavenSpecialVariant.DOWN)
+                && ravenSpecialReady(variant);
+    }
+
     private boolean penguinSpecialActive() {
         return penguinBellyCharging
                 || penguinBellySlideTimer > 0
@@ -10503,7 +10710,7 @@ public class Bird {
             case TITMOUSE -> ultimateReady || titmouseScoldReuseTimer <= 0;
             case BAT -> ultimateReady || batNeutralReuseTimer <= 0;
             case PELICAN -> ultimateReady || pelicanNeutralReuseTimer <= 0;
-            case RAVEN -> ultimateReady || specialCooldown <= 0;
+            case RAVEN -> ultimateReady || ravenNeutralReuseTimer <= 0;
             case MOCKINGBIRD -> false;
         };
     }
@@ -10530,7 +10737,8 @@ public class Bird {
             case PELICAN -> pelicanNeutralTimer > 0;
             case GRINCHHAWK -> grinchHeartSnatchTimer > 0;
             case VULTURE -> vultureCallTimer > 0;
-            case RAVEN, MOCKINGBIRD -> false;
+            case RAVEN -> ravenQuillCharging;
+            case MOCKINGBIRD -> false;
         };
     }
 
@@ -10748,6 +10956,19 @@ public class Bird {
         return PelicanSpecialVariant.NEUTRAL;
     }
 
+    private RavenSpecialVariant selectRavenSpecialVariant() {
+        if (jumpPressed()) {
+            return RavenSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return RavenSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return RavenSpecialVariant.SIDE;
+        }
+        return RavenSpecialVariant.NEUTRAL;
+    }
+
     private PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -10840,6 +11061,11 @@ public class Bird {
                     && selectPelicanSpecialVariant() == PelicanSpecialVariant.UP
                     && !pelicanUpSpecialUsed;
         }
+        if (type == BirdGame3.BirdType.RAVEN) {
+            return canStartRavenSpecial()
+                    && selectRavenSpecialVariant() == RavenSpecialVariant.UP
+                    && !ravenLiftUsed;
+        }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
                     && selectOpiumSpecialVariant() == OpiumSpecialVariant.UP
@@ -10916,6 +11142,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.PELICAN) {
             return canStartPelicanSpecial()
                     && selectPelicanSpecialVariant() == PelicanSpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.RAVEN) {
+            return canStartRavenSpecial()
+                    && selectRavenSpecialVariant() == RavenSpecialVariant.DOWN;
         }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
@@ -11149,6 +11379,29 @@ public class Bird {
         }
     }
 
+    private void resetRavenSpecialState(boolean clearObjects) {
+        ravenQuillCharging = false;
+        ravenQuillChargeFrames = 0;
+        ravenQuillChargeUltimate = false;
+        ravenSideTimer = 0;
+        ravenSideUltimate = false;
+        ravenSideEmpowered = false;
+        ravenSideResolved = false;
+        ravenLiftTimer = 0;
+        ravenLiftUltimate = false;
+        ravenLiftSnapped = false;
+        ravenUltimateTimer = 0;
+        Arrays.fill(ravenSideHit, false);
+        Arrays.fill(ravenLiftHit, false);
+        if (clearObjects) {
+            ravenQuills.clear();
+            ravenGroundPortents.clear();
+            ravenUltimateRoutes.clear();
+            ravenDecoy = null;
+            clearOwnedRavenPortents();
+        }
+    }
+
     private void resetOpiumSpecialState(boolean clearTraps) {
         opiumSideTimer = 0;
         opiumSideDirection = facingDirection();
@@ -11347,6 +11600,16 @@ public class Bird {
             attackAnimationTimer = 0;
         }
         resetBatSpecialState(false);
+    }
+
+    private void interruptRavenSpecialStateOnHit() {
+        if (type != BirdGame3.BirdType.RAVEN) {
+            return;
+        }
+        if (ravenSpecialActive()) {
+            attackAnimationTimer = 0;
+        }
+        resetRavenSpecialState(false);
     }
 
     private void interruptOpiumSpecialStateOnHit() {
@@ -11739,6 +12002,7 @@ public class Bird {
                 : type == BirdGame3.BirdType.VULTURE ? canStartVultureSpecial()
                 : type == BirdGame3.BirdType.TITMOUSE ? canStartTitmouseSpecial()
                 : type == BirdGame3.BirdType.BAT ? canStartBatSpecial()
+                : type == BirdGame3.BirdType.RAVEN ? canStartRavenSpecial()
                 : isOpiumEchoPair() ? canStartOpiumSpecial()
                 : specialCooldown <= 0)
                 && aiSpecialCooldown <= 0 &&
@@ -11759,6 +12023,9 @@ public class Bird {
             if (type == BirdGame3.BirdType.BAT) {
                 configureBatAISpecialInputs(target, targetDist, onGround);
             }
+            if (type == BirdGame3.BirdType.RAVEN) {
+                configureRavenAISpecialInputs(target, targetDist, onGround);
+            }
             if (isOpiumEchoPair()) {
                 configureOpiumAISpecialInputs(target, targetDist, onGround);
             }
@@ -11766,6 +12033,7 @@ public class Bird {
             aiSpecialCooldown = type == BirdGame3.BirdType.PIGEON ? 16
                     : (type == BirdGame3.BirdType.SHOEBILL
                     || type == BirdGame3.BirdType.RAZORBILL
+                    || type == BirdGame3.BirdType.RAVEN
                     || isOpiumEchoPair() ? 20 : 26);
         }
 
@@ -12001,6 +12269,285 @@ public class Bird {
             batSilentDiveTimer = 0;
             emitBatLandingBurst();
         }
+    }
+
+    private void handleRavenSpecialState(boolean specialHeld) {
+        if (type != BirdGame3.BirdType.RAVEN) {
+            return;
+        }
+
+        if (ravenQuillCharging) {
+            ravenQuillChargeFrames++;
+            vx *= isOnGround() ? 0.84 : 0.94;
+            if (!specialHeld || ravenQuillChargeFrames >= RAVEN_QUILL_CHARGE_FAN_FRAMES + 18) {
+                fireRavenBlackQuillVolley(ravenQuillChargeFrames >= RAVEN_QUILL_CHARGE_FAN_FRAMES, ravenQuillChargeUltimate);
+            }
+        }
+
+        if (ravenSideTimer > 0) {
+            vx = ravenSideDirection * (ravenSideUltimate ? 11.0 : 8.0);
+            vy *= 0.36;
+            if (!ravenSideResolved) {
+                applyRavenShadowWarpHits();
+                ravenSideResolved = true;
+            }
+            if ((ravenSideTimer & 1) == 0) {
+                emitRavenBurst(bodyCenterX() - ravenSideDirection * 18.0 * sizeMultiplier,
+                        bodyCenterY() + 4.0 * sizeMultiplier,
+                        ravenSideUltimate ? 6 : 4,
+                        ravenSideUltimate ? Color.GOLD : ravenShadowColor(false));
+            }
+        }
+
+        if (ravenLiftTimer > 0) {
+            vx *= 0.86;
+            vy = Math.min(vy, ravenLiftUltimate ? -18.5 : -15.5);
+            if (!ravenLiftSnapped) {
+                RavenNode snapNode = nearestRavenSnapNode();
+                if (snapNode != null) {
+                    double oldX = bodyCenterX();
+                    double oldY = bodyCenterY();
+                    consumeRavenNode(snapNode);
+                    x = clampRavenWarpX(snapNode.x() - 40.0 * sizeMultiplier);
+                    y = clampRavenWarpY(snapNode.y() - 72.0 * sizeMultiplier);
+                    vy = Math.min(vy, ravenLiftUltimate ? -24.0 : -20.5);
+                    ravenLiftSnapped = true;
+                    emitRavenBurst(oldX, oldY, ravenLiftUltimate ? 30 : 20, ravenShadowColor(false));
+                    emitRavenBurst(bodyCenterX(), bodyCenterY(), ravenLiftUltimate ? 36 : 24,
+                            ravenLiftUltimate ? Color.GOLD : ravenAccentColor());
+                }
+            }
+            applyRavenLiftHits();
+            if ((ravenLiftTimer & 1) == 0) {
+                emitRavenBurst(bodyCenterX(), bodyBottomY() - 6.0 * sizeMultiplier,
+                        ravenLiftUltimate ? 7 : 4,
+                        ravenLiftUltimate ? Color.GOLD : ravenAccentColor());
+            }
+        }
+    }
+
+    private void handleRavenPostMoveSpecialState() {
+        if (type != BirdGame3.BirdType.RAVEN) {
+            return;
+        }
+        handleRavenQuills();
+        handleRavenGroundPortents();
+        handleRavenDecoy();
+        handleRavenUltimateRoutes();
+    }
+
+    private void handleRavenQuills() {
+        for (Iterator<RavenQuill> it = ravenQuills.iterator(); it.hasNext(); ) {
+            RavenQuill quill = it.next();
+            double prevX = quill.x;
+            double prevY = quill.y;
+            quill.x += quill.vx;
+            quill.y += quill.vy;
+            quill.lifeFrames--;
+
+            boolean consumed = false;
+            for (Bird other : game.players) {
+                if (!canDamageTarget(other)) continue;
+                if (Math.abs(other.bodyCenterX() - quill.x) > 18.0 * sizeMultiplier + other.combatHalfWidth()) continue;
+                if (Math.abs(other.bodyCenterY() - quill.y) > 18.0 * sizeMultiplier + other.combatHalfHeight()) continue;
+                int dealt = applyTrackedSpecialDamage(other, quill.ultimate ? 7 : 5);
+                if (dealt > 0) {
+                    double dir = Math.signum(quill.vx == 0.0 ? facingDirection() : quill.vx);
+                    other.vx += dir * (quill.ultimate ? 7.0 : 5.0);
+                    other.vy -= quill.ultimate ? 4.6 : 3.2;
+                    applyRavenPortent(other, quill.ultimate);
+                    game.playHitSound(dealt);
+                    emitRavenBurst(quill.x, quill.y, quill.ultimate ? 18 : 12,
+                            quill.ultimate ? Color.GOLD : ravenAccentColor());
+                }
+                consumed = true;
+                break;
+            }
+            if (consumed) {
+                it.remove();
+                continue;
+            }
+
+            Double surfaceY = ravenQuillImpactSurfaceY(prevX, prevY, quill.x, quill.y);
+            if (surfaceY != null) {
+                addRavenGroundPortent(quill.x, surfaceY, quill.ultimate);
+                emitRavenBurst(quill.x, surfaceY - 10.0 * sizeMultiplier, quill.ultimate ? 18 : 12,
+                        quill.ultimate ? Color.GOLD : ravenAccentColor());
+                it.remove();
+                continue;
+            }
+            if (quill.lifeFrames <= 0
+                    || quill.x < -40.0
+                    || quill.x > BirdGame3.WORLD_WIDTH + 40.0
+                    || quill.y < -80.0
+                    || quill.y > BirdGame3.GROUND_Y + 80.0) {
+                it.remove();
+            }
+        }
+    }
+
+    private Double ravenQuillImpactSurfaceY(double prevX, double prevY, double nextX, double nextY) {
+        if (prevY <= BirdGame3.GROUND_Y && nextY >= BirdGame3.GROUND_Y) {
+            return (double) BirdGame3.GROUND_Y;
+        }
+        for (Platform platform : game.platforms) {
+            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
+                    && platform.y <= 1 && platform.h >= 60 && platform.w >= BirdGame3.WORLD_WIDTH - 10;
+            if (isCaveCeiling || platform.w <= 0 || platform.h <= 0) continue;
+            if (nextX < platform.x - 6.0 || nextX > platform.x + platform.w + 6.0) continue;
+            if (prevY <= platform.y && nextY >= platform.y) {
+                return platform.y;
+            }
+        }
+        return null;
+    }
+
+    private void handleRavenGroundPortents() {
+        for (Iterator<RavenPortent> it = ravenGroundPortents.iterator(); it.hasNext(); ) {
+            RavenPortent portent = it.next();
+            portent.ageFrames++;
+            portent.lifeFrames--;
+            if (portent.lifeFrames <= 0) {
+                it.remove();
+            } else if ((portent.ageFrames & 15) == 0) {
+                emitRavenBurst(portent.x, portent.y - 10.0 * sizeMultiplier,
+                        portent.ultimate ? 4 : 3,
+                        portent.ultimate ? Color.GOLD : ravenAccentColor());
+            }
+        }
+    }
+
+    private void handleRavenDecoy() {
+        if (ravenDecoy == null) {
+            return;
+        }
+        ravenDecoy.ageFrames++;
+        ravenDecoy.lifeFrames--;
+        if (ravenDecoy.lifeFrames <= 0) {
+            ravenDecoy = null;
+            return;
+        }
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= ravenDecoy.hit.length) continue;
+            if (ravenDecoy.hit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - ravenDecoy.x;
+            double dy = other.bodyCenterY() - ravenDecoy.y;
+            if (Math.abs(dx) > 54.0 * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > 68.0 * sizeMultiplier + other.combatHalfHeight()) continue;
+            int dealt = applyTrackedSpecialDamage(other, ravenDecoy.ultimate ? 12 : 8);
+            if (dealt > 0) {
+                other.applyStun(ravenDecoy.ultimate ? 20 : 14);
+                other.vx += Math.signum(dx == 0.0 ? facingDirection() : dx) * (ravenDecoy.ultimate ? 12.0 : 8.5);
+                other.vy -= ravenDecoy.ultimate ? 8.0 : 5.8;
+                applyRavenPortent(other, ravenDecoy.ultimate);
+                game.playHitSound(dealt);
+            }
+            ravenDecoy.hit[other.playerIndex] = true;
+            emitRavenBurst(ravenDecoy.x, ravenDecoy.y, ravenDecoy.ultimate ? 44 : 28,
+                    ravenDecoy.ultimate ? Color.GOLD : ravenAccentColor());
+            ravenDecoy = null;
+            return;
+        }
+    }
+
+    private void handleRavenUltimateRoutes() {
+        for (Iterator<RavenUltimateRoute> it = ravenUltimateRoutes.iterator(); it.hasNext(); ) {
+            RavenUltimateRoute route = it.next();
+            route.ageFrames++;
+            route.lifeFrames--;
+            if (route.lifeFrames <= 0) {
+                it.remove();
+                continue;
+            }
+            if ((route.ageFrames & 3) == 0) {
+                double t = route.ageFrames / (double) Math.max(1, RAVEN_ULTIMATE_ROUTE_LIFE_FRAMES);
+                emitRavenBurst(
+                        route.startX + (route.endX - route.startX) * t,
+                        route.startY + (route.endY - route.startY) * t,
+                        5,
+                        Color.GOLD
+                );
+            }
+        }
+    }
+
+    private void applyRavenShadowWarpHits() {
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= ravenSideHit.length) continue;
+            if (ravenSideHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.abs(dx) > (ravenSideEmpowered ? 108.0 : 84.0) * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > (ravenSideEmpowered ? 82.0 : 68.0) * sizeMultiplier + other.combatHalfHeight()) continue;
+            int rawDamage = ravenSideUltimate ? 18 : (ravenSideEmpowered ? 13 : 9);
+            int dealt = applyTrackedSpecialDamage(other, rawDamage);
+            if (dealt > 0) {
+                other.applyStun(ravenSideUltimate ? 34 : (ravenSideEmpowered ? 24 : 16));
+                other.vx += ravenSideDirection * (ravenSideUltimate ? 18.0 : (ravenSideEmpowered ? 14.0 : 10.0));
+                other.vy -= ravenSideUltimate ? 10.0 : (ravenSideEmpowered ? 7.6 : 5.4);
+                game.playHitSound(dealt);
+            }
+            ravenSideHit[other.playerIndex] = true;
+        }
+    }
+
+    private void applyRavenLiftHits() {
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= ravenLiftHit.length) continue;
+            if (ravenLiftHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - bodyCenterX();
+            double dy = other.bodyCenterY() - bodyCenterY();
+            if (Math.abs(dx) > 72.0 * sizeMultiplier + other.combatHalfWidth()) continue;
+            if (dy > 58.0 * sizeMultiplier + other.combatHalfHeight()
+                    || dy < -(ravenLiftUltimate ? 148.0 : 122.0) * sizeMultiplier - other.combatHalfHeight()) {
+                continue;
+            }
+            int dealt = applyTrackedSpecialDamage(other, ravenLiftUltimate ? 11 : 7);
+            if (dealt > 0) {
+                other.vx += Math.signum(dx == 0.0 ? facingDirection() : dx) * (ravenLiftUltimate ? 7.0 : 4.8);
+                other.vy -= ravenLiftUltimate ? 13.0 : 10.0;
+                game.playHitSound(dealt);
+            }
+            ravenLiftHit[other.playerIndex] = true;
+        }
+    }
+
+    private void applyRavenRouteDamage(double startX, double startY, double endX, double endY, boolean ultimate) {
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double distance = pointToSegmentDistance(other.bodyCenterX(), other.bodyCenterY(), startX, startY, endX, endY);
+            if (distance > (ultimate ? 30.0 : 22.0) * sizeMultiplier + other.combatRadius()) continue;
+            int dealt = applyTrackedSpecialDamage(other, ultimate ? 14 : 10);
+            if (dealt > 0) {
+                double launchDir = Math.signum(other.bodyCenterX() - startX);
+                if (launchDir == 0.0) launchDir = facingDirection();
+                other.vx += launchDir * (ultimate ? 13.0 : 9.0);
+                other.vy -= ultimate ? 8.5 : 6.0;
+                other.applyStun(ultimate ? 24 : 16);
+                game.playHitSound(dealt);
+            }
+        }
+    }
+
+    private double ravenPortentSurfaceY(double portentX) {
+        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
+        double sourceY = bodyBottomY() - 22.0 * sizeMultiplier;
+        for (Platform platform : game.platforms) {
+            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
+                    && platform.y <= 1 && platform.h >= 60 && platform.w >= BirdGame3.WORLD_WIDTH - 10;
+            if (isCaveCeiling || platform.w <= 0 || platform.h <= 0) continue;
+            if (portentX < platform.x - 18.0 || portentX > platform.x + platform.w + 18.0) continue;
+            if (platform.y < sourceY - 18.0) continue;
+            if (platform.y < bestY) {
+                bestY = platform.y;
+            }
+        }
+        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
     }
 
     private void applyBatWingcutHits() {
@@ -12329,86 +12876,357 @@ public class Bird {
         }
     }
 
-    private void specialRaven(boolean ultimate) {
-        Bird target = null;
-        double bestDist = Double.MAX_VALUE;
-        for (Bird b : game.players) {
-            if (!canDamageTarget(b)) continue;
-            double d = Math.hypot(b.x - x, b.y - y);
-            if (d < bestDist) {
-                bestDist = d;
-                target = b;
-            }
+    private void specialRaven(RavenSpecialVariant variant, boolean ultimate) {
+        if (ultimate) {
+            specialRavenUnkindness();
+            return;
+        }
+        switch (variant) {
+            case NEUTRAL -> specialRavenBlackQuill(false);
+            case SIDE -> specialRavenShadowWarp(false);
+            case UP -> specialRavenMurderLift(false);
+            case DOWN -> specialRavenNevermore(false);
+        }
+    }
+
+    private void specialRavenBlackQuill(boolean ultimate) {
+        ravenQuillCharging = true;
+        ravenQuillChargeFrames = 0;
+        ravenQuillChargeUltimate = ultimate;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 10);
+        vx *= isOnGround() ? 0.62 : 0.78;
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+    }
+
+    private void fireRavenBlackQuillVolley(boolean fan, boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+        int count = ultimate ? (fan ? 5 : 3) : (fan ? 3 : 1);
+        double spread = ultimate ? 0.22 : 0.18;
+        double startX = bodyCenterX() + dir * 32.0 * sizeMultiplier;
+        double startY = bodyCenterY() - 10.0 * sizeMultiplier;
+        for (int i = 0; i < count; i++) {
+            double lane = count == 1 ? 0.0 : i - (count - 1) / 2.0;
+            double angle = lane * spread;
+            double speed = ultimate ? 18.0 : 15.5;
+            ravenQuills.add(new RavenQuill(
+                    startX,
+                    startY + lane * 5.0 * sizeMultiplier,
+                    Math.cos(angle) * speed * dir,
+                    Math.sin(angle) * speed * dir,
+                    ultimate
+            ));
+        }
+        ravenNeutralReuseTimer = ultimate ? 12 : RAVEN_NEUTRAL_REUSE_FRAMES;
+        ravenQuillCharging = false;
+        ravenQuillChargeFrames = 0;
+        ravenQuillChargeUltimate = false;
+        attackAnimationTimer = Math.max(attackAnimationTimer, fan ? 14 : 11);
+        emitRavenBurst(startX, startY, ultimate ? 28 : 18, ultimate ? Color.GOLD : ravenAccentColor());
+        if (ultimate) {
+            game.addToKillFeed(shortName() + " loosed the royal Black Quill volley!");
+        }
+    }
+
+    private void specialRavenShadowWarp(boolean ultimate) {
+        int dir = horizontalInputDirection();
+        if (dir == 0) {
+            dir = facingDirection();
+        }
+        facingRight = dir > 0;
+
+        RavenNode node = bestRavenWarpNode(dir, ultimate ? 780.0 : 560.0);
+        boolean empowered = node != null;
+        ravenSideStartX = bodyCenterX();
+        ravenSideStartY = bodyCenterY();
+        if (node != null) {
+            consumeRavenNode(node);
+            double arrivalOffset = (node.target() != null ? 56.0 : 34.0) * sizeMultiplier;
+            double arrivalDir = node.x() >= bodyCenterX() ? -1.0 : 1.0;
+            x = clampRavenWarpX(node.x() + arrivalDir * arrivalOffset - 40.0 * sizeMultiplier);
+            y = clampRavenWarpY(node.y() - 40.0 * sizeMultiplier);
+            facingRight = arrivalDir < 0.0;
+        } else {
+            x = clampRavenWarpX(x + dir * (ultimate ? 190.0 : 126.0) * sizeMultiplier);
+            y = clampRavenWarpY(y - (ultimate ? 14.0 : 8.0) * sizeMultiplier);
+        }
+        ravenSideEndX = bodyCenterX();
+        ravenSideEndY = bodyCenterY();
+        ravenSideDirection = facingDirection();
+        ravenSideUltimate = ultimate;
+        ravenSideEmpowered = empowered;
+        ravenSideResolved = false;
+        ravenSideTimer = ultimate ? RAVEN_SIDE_FRAMES + 4 : RAVEN_SIDE_FRAMES;
+        ravenSideReuseTimer = ultimate ? 16 : RAVEN_SIDE_REUSE_FRAMES;
+        Arrays.fill(ravenSideHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, ravenSideTimer + 2);
+        vx = facingDirection() * (ultimate ? 8.0 : 5.4);
+        vy *= 0.18;
+        isBlocking = false;
+        parryWindowFrames = 0;
+        shieldStunFrames = 0;
+        emitRavenBurst(ravenSideStartX, ravenSideStartY, empowered ? 28 : 18, ravenShadowColor(false));
+        emitRavenBurst(ravenSideEndX, ravenSideEndY, empowered ? 34 : 22, ultimate ? Color.GOLD : ravenAccentColor());
+    }
+
+    private void specialRavenMurderLift(boolean ultimate) {
+        if (ravenLiftUsed && !ultimate) {
+            return;
+        }
+        ravenLiftUsed = true;
+        ravenLiftUltimate = ultimate;
+        ravenLiftSnapped = false;
+        ravenLiftTimer = ultimate ? RAVEN_LIFT_ULTIMATE_FRAMES : RAVEN_LIFT_FRAMES;
+        Arrays.fill(ravenLiftHit, false);
+        canDoubleJump = true;
+        vy = Math.min(vy, ultimate ? -28.0 : -23.0);
+        vx *= 0.28;
+        attackAnimationTimer = Math.max(attackAnimationTimer, ravenLiftTimer);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        emitRavenBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier,
+                ultimate ? 42 : 28, ultimate ? Color.GOLD : ravenAccentColor());
+    }
+
+    private void specialRavenNevermore(boolean ultimate) {
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        if (ravenDecoy != null && ravenDecoy.lifeFrames > 0) {
+            double oldCenterX = bodyCenterX();
+            double oldCenterY = bodyCenterY();
+            x = clampRavenWarpX(ravenDecoy.x - 40.0 * sizeMultiplier);
+            y = clampRavenWarpY(ravenDecoy.y - 40.0 * sizeMultiplier);
+            ravenDecoy.x = oldCenterX;
+            ravenDecoy.y = oldCenterY;
+            ravenDecoy.swapped = true;
+            ravenDecoy.lifeFrames = Math.min(ravenDecoy.lifeFrames, ultimate ? 150 : 112);
+            attackAnimationTimer = Math.max(attackAnimationTimer, 12);
+            emitRavenBurst(oldCenterX, oldCenterY, ultimate ? 26 : 18, ravenShadowColor(false));
+            emitRavenBurst(bodyCenterX(), bodyCenterY(), ultimate ? 30 : 22, ultimate ? Color.GOLD : ravenAccentColor());
+            return;
         }
 
-        if (target != null && bestDist < (ultimate ? 720 : 520)) {
-            double dir = (target.x + 40 >= x + 40) ? -1 : 1;
-            double warpX = target.x + dir * (ultimate ? 150 : 120);
-            double warpY = target.y;
-            double maxX = BirdGame3.WORLD_WIDTH - 80 * sizeMultiplier;
-            double maxY = BirdGame3.GROUND_Y - 80 * sizeMultiplier;
-            warpX = Math.clamp(warpX, 0.0, maxX);
-            warpY = Math.clamp(warpY, 0.0, maxY);
-            x = warpX;
-            y = warpY;
-            facingRight = dir < 0;
+        ravenDecoy = new RavenDecoy(bodyCenterX(), bodyCenterY(), ultimate);
+        ravenDownReuseTimer = ultimate ? 16 : RAVEN_DOWN_REUSE_FRAMES;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
+        vx *= 0.72;
+        emitRavenBurst(ravenDecoy.x, ravenDecoy.y, ultimate ? 30 : 20, ultimate ? Color.GOLD : ravenAccentColor());
+    }
 
-            int dmg = Math.max(8, (int) Math.round((ultimate ? 20 : 14) * powerMultiplier));
-            double oldHealth = target.health;
-            int dealt = (int) applyDamageTo(target, dmg);
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
-            if (target.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
+    private void specialRavenUnkindness() {
+        ArrayList<RavenNode> nodes = activeOwnedRavenNodes();
+        if (nodes.isEmpty()) {
+            addRavenGroundPortent(bodyCenterX() - 110.0 * sizeMultiplier, ravenPortentSurfaceY(bodyCenterX() - 110.0 * sizeMultiplier), true);
+            addRavenGroundPortent(bodyCenterX() + 110.0 * sizeMultiplier, ravenPortentSurfaceY(bodyCenterX() + 110.0 * sizeMultiplier), true);
+            nodes = activeOwnedRavenNodes();
+        }
+        if (nodes.size() == 1) {
+            nodes.add(new RavenNode(bodyCenterX(), bodyCenterY(), null, null, ++ravenPortentSerialCounter, true));
+        }
 
-            target.applyStun(ultimate ? 70 : 40);
-            double kbDir = (target.x > x) ? 1 : -1;
-            target.vx += kbDir * (ultimate ? 14 : 10);
-            target.vy -= ultimate ? 9 : 6;
+        ravenUltimateRoutes.clear();
+        for (int i = 0; i < nodes.size(); i++) {
+            RavenNode start = nodes.get(i);
+            RavenNode end = nodes.get((i + 1) % nodes.size());
+            ravenUltimateRoutes.add(new RavenUltimateRoute(start.x(), start.y(), end.x(), end.y()));
+            applyRavenRouteDamage(start.x(), start.y(), end.x(), end.y(), true);
+        }
+        ravenUltimateTimer = RAVEN_ULTIMATE_ROUTE_LIFE_FRAMES;
+        Bird latestMarked = latestOwnedRavenMarkedTarget();
+        if (latestMarked != null) {
+            performRavenFinalWarp(latestMarked);
+        } else if (!nodes.isEmpty()) {
+            RavenNode last = nodes.get(nodes.size() - 1);
+            x = clampRavenWarpX(last.x() - 40.0 * sizeMultiplier);
+            y = clampRavenWarpY(last.y() - 40.0 * sizeMultiplier);
+        }
+        clearOwnedRavenPortents();
+        ravenQuillCharging = false;
+        ravenQuillChargeFrames = 0;
+        ravenQuillChargeUltimate = false;
+        ravenNeutralReuseTimer = 14;
+        ravenSideReuseTimer = 18;
+        ravenDownReuseTimer = 18;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 20);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        game.addToKillFeed(shortName() + " opened THE UNKINDNESS!");
+        emitRavenBurst(bodyCenterX(), bodyCenterY(), 64, Color.GOLD);
+    }
 
-            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * (ultimate ? 1.55 : 1.35));
-            speedTimer = Math.max(speedTimer, ultimate ? 180 : 120);
+    private void performRavenFinalWarp(Bird target) {
+        double startX = bodyCenterX();
+        double startY = bodyCenterY();
+        double arrivalDir = target.bodyCenterX() >= startX ? -1.0 : 1.0;
+        x = clampRavenWarpX(target.bodyCenterX() + arrivalDir * 66.0 * sizeMultiplier - 40.0 * sizeMultiplier);
+        y = clampRavenWarpY(target.bodyCenterY() - 40.0 * sizeMultiplier);
+        facingRight = arrivalDir < 0.0;
+        ravenSideStartX = startX;
+        ravenSideStartY = startY;
+        ravenSideEndX = bodyCenterX();
+        ravenSideEndY = bodyCenterY();
+        ravenSideDirection = facingDirection();
+        ravenSideUltimate = true;
+        ravenSideEmpowered = true;
+        ravenSideResolved = false;
+        ravenSideTimer = RAVEN_SIDE_FRAMES + 6;
+        Arrays.fill(ravenSideHit, false);
+    }
 
-            game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 22 : 16);
-            game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 11 : 8);
-            game.addToKillFeed(shortName() + (ultimate ? " ULT SHADOW WARPED " : " SHADOW WARPED ") + target.shortName() + "! -" + dealt + " HP");
-
-            int particleCount = scaledParticleCount(ultimate ? 140 : 90);
-            for (int i = 0; i < particleCount; i++) {
-                double angle = Math.random() * Math.PI * 2;
-                double speed = 5 + Math.random() * 12;
-                Color warpColor = ultimate ? Color.GOLD : (isVoidHeraldSkin ? Color.web("#B388FF") : Color.web("#263238"));
-                game.particles.add(new Particle(
-                        x + 40 + Math.cos(angle) * 20,
-                        y + 40 + Math.sin(angle) * 20,
-                        Math.cos(angle) * speed,
-                        Math.sin(angle) * speed - 4,
-                        warpColor.deriveColor(0, 1, 1, 0.85)
-                ));
+    private RavenNode bestRavenWarpNode(int dir, double maxRange) {
+        RavenNode best = null;
+        double bestScore = Double.MAX_VALUE;
+        for (RavenNode node : activeOwnedRavenNodes()) {
+            double dx = node.x() - bodyCenterX();
+            double dy = node.y() - bodyCenterY();
+            double distance = Math.hypot(dx, dy);
+            if (distance > maxRange) continue;
+            double score = distance + Math.abs(dy) * 0.18;
+            if (dx * dir < -28.0) {
+                score += 280.0;
             }
-
-            specialCooldown = 660;
-            specialMaxCooldown = 660;
-        } else {
-            vx += (facingRight ? 1 : -1) * (ultimate ? 24 : 18);
-            vy = Math.min(vy, ultimate ? -12 : -10);
-            canDoubleJump = true;
-            speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * (ultimate ? 1.4 : 1.2));
-            speedTimer = Math.max(speedTimer, ultimate ? 120 : 80);
-            game.addToKillFeed(shortName() + (ultimate ? " ULT SHADOW DASH!" : " SHADOW DASH!"));
-            int particleCount = scaledParticleCount(ultimate ? 80 : 50);
-            for (int i = 0; i < particleCount; i++) {
-                double angle = Math.random() * Math.PI * 2;
-                Color dashColor = ultimate ? Color.GOLD : (isVoidHeraldSkin ? Color.web("#7E57C2") : Color.web("#455A64"));
-                game.particles.add(new Particle(
-                        x + 40,
-                        y + 40,
-                        Math.cos(angle) * (4 + Math.random() * 8),
-                        Math.sin(angle) * (4 + Math.random() * 8) - 3,
-                        dashColor.deriveColor(0, 1, 1, 0.8)
-                ));
+            if (score < bestScore) {
+                bestScore = score;
+                best = node;
             }
-            specialCooldown = 240;
-            specialMaxCooldown = 240;
+        }
+        return best;
+    }
+
+    private RavenNode nearestRavenSnapNode() {
+        RavenNode best = null;
+        double bestDist = Double.MAX_VALUE;
+        for (RavenNode node : activeOwnedRavenNodes()) {
+            double dist = Math.hypot(node.x() - bodyCenterX(), node.y() - bodyCenterY());
+            if (dist <= RAVEN_LIFT_SNAP_RADIUS * sizeMultiplier && dist < bestDist) {
+                bestDist = dist;
+                best = node;
+            }
+        }
+        return best;
+    }
+
+    private ArrayList<RavenNode> activeOwnedRavenNodes() {
+        ArrayList<RavenNode> nodes = new ArrayList<>();
+        for (RavenPortent portent : ravenGroundPortents) {
+            nodes.add(new RavenNode(portent.x, portent.y - 18.0 * sizeMultiplier, null, portent, portent.serial, portent.ultimate));
+        }
+        for (Bird other : game.players) {
+            if (other == null || other.health <= 0) continue;
+            if (other.ravenPortentOwnerIndex != playerIndex || other.ravenPortentTimer <= 0) continue;
+            nodes.add(new RavenNode(other.bodyCenterX(), other.bodyCenterY(), other, null,
+                    other.ravenPortentSerial, other.ravenPortentUltimate));
+        }
+        nodes.sort((a, b) -> Integer.compare(a.serial(), b.serial()));
+        return nodes;
+    }
+
+    private Bird latestOwnedRavenMarkedTarget() {
+        Bird best = null;
+        int bestSerial = Integer.MIN_VALUE;
+        for (Bird other : game.players) {
+            if (other == null || other.health <= 0) continue;
+            if (other.ravenPortentOwnerIndex != playerIndex || other.ravenPortentTimer <= 0) continue;
+            if (other.ravenPortentSerial > bestSerial) {
+                bestSerial = other.ravenPortentSerial;
+                best = other;
+            }
+        }
+        return best;
+    }
+
+    private void consumeRavenNode(RavenNode node) {
+        if (node == null) return;
+        if (node.ground() != null) {
+            ravenGroundPortents.remove(node.ground());
+        }
+        if (node.target() != null) {
+            clearRavenPortent(node.target());
+        }
+    }
+
+    private void clearOwnedRavenPortents() {
+        ravenGroundPortents.clear();
+        for (Bird other : game.players) {
+            if (other != null && other.ravenPortentOwnerIndex == playerIndex) {
+                clearRavenPortent(other);
+            }
+        }
+    }
+
+    private void applyRavenPortent(Bird target, boolean ultimate) {
+        if (target == null || target.health <= 0) {
+            return;
+        }
+        target.ravenPortentOwnerIndex = playerIndex;
+        target.ravenPortentUltimate = target.ravenPortentUltimate || ultimate;
+        target.ravenPortentTimer = Math.max(target.ravenPortentTimer,
+                ultimate ? RAVEN_MARK_ULTIMATE_LIFE_FRAMES : RAVEN_MARK_LIFE_FRAMES);
+        target.ravenPortentSerial = ++ravenPortentSerialCounter;
+        trimOwnedRavenPortents();
+    }
+
+    private void clearRavenPortent(Bird target) {
+        if (target == null) {
+            return;
+        }
+        target.ravenPortentTimer = 0;
+        target.ravenPortentOwnerIndex = -1;
+        target.ravenPortentSerial = 0;
+        target.ravenPortentUltimate = false;
+    }
+
+    private void addRavenGroundPortent(double x, double y, boolean ultimate) {
+        ravenGroundPortents.add(new RavenPortent(
+                Math.clamp(x, 12.0, BirdGame3.WORLD_WIDTH - 12.0),
+                y,
+                ultimate,
+                ++ravenPortentSerialCounter
+        ));
+        trimOwnedRavenPortents();
+    }
+
+    private void trimOwnedRavenPortents() {
+        while (activeOwnedRavenNodes().size() > RAVEN_MAX_PORTENTS) {
+            RavenNode oldest = activeOwnedRavenNodes().get(0);
+            consumeRavenNode(oldest);
+        }
+    }
+
+    private double clampRavenWarpX(double desiredX) {
+        return Math.clamp(desiredX, 0.0, BirdGame3.WORLD_WIDTH - 80.0 * sizeMultiplier);
+    }
+
+    private double clampRavenWarpY(double desiredY) {
+        return Math.clamp(desiredY, 0.0, BirdGame3.GROUND_Y - 80.0 * sizeMultiplier);
+    }
+
+    private Color ravenAccentColor() {
+        return isVoidHeraldSkin ? Color.web("#B388FF") : Color.web("#90A4AE");
+    }
+
+    private Color ravenShadowColor(boolean ultimate) {
+        return ultimate ? Color.GOLD : (isVoidHeraldSkin ? Color.web("#4A148C") : Color.web("#10151D"));
+    }
+
+    private void emitRavenBurst(double centerX, double centerY, int baseCount, Color color) {
+        int particleCount = scaledParticleCount(baseCount);
+        for (int i = 0; i < particleCount; i++) {
+            double angle = Math.random() * Math.PI * 2.0;
+            double speed = 2.0 + Math.random() * 8.0;
+            game.particles.add(new Particle(
+                    centerX,
+                    centerY,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 2.2,
+                    color.deriveColor(0, 1, 1, 0.82)
+            ));
         }
     }
 
@@ -13288,6 +14106,35 @@ public class Bird {
         }
     }
 
+    private void configureRavenAISpecialInputs(Bird target, double dist, boolean onGround) {
+        if (target == null || type != BirdGame3.BirdType.RAVEN) {
+            return;
+        }
+        int dir = target.bodyCenterX() >= bodyCenterX() ? 1 : -1;
+        facingRight = dir > 0;
+        double dy = target.bodyCenterY() - bodyCenterY();
+        boolean targetMarked = target.ravenPortentOwnerIndex == playerIndex && target.ravenPortentTimer > 0;
+        boolean hasNode = !activeOwnedRavenNodes().isEmpty();
+
+        if (!onGround && dy < -92.0 && !ravenLiftUsed) {
+            game.setAiControlKey(playerIndex, jumpKey(), true);
+            return;
+        }
+        if (hasNode && dist > 132.0 && dist < 520.0 && ravenSideReuseTimer <= 0
+                && (targetMarked || random.nextDouble() < 0.72)) {
+            game.setAiControlKey(playerIndex, dir < 0 ? leftKey() : rightKey(), true);
+            return;
+        }
+        if (onGround && ravenDecoy == null && ravenDownReuseTimer <= 0
+                && (dist < 150.0 || target.attackAnimationTimer > 2) && random.nextDouble() < 0.58) {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            return;
+        }
+        if (ravenDecoy != null && dist > 230.0 && random.nextDouble() < 0.42) {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+        }
+    }
+
     private void configureOpiumAISpecialInputs(Bird target, double dist, boolean onGround) {
         if (target == null || !isOpiumEchoPair()) {
             return;
@@ -13682,6 +14529,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.PELICAN && isOnGround()) {
             pelicanUpSpecialUsed = false;
         }
+        if (type == BirdGame3.BirdType.RAVEN && isOnGround()) {
+            ravenLiftUsed = false;
+        }
         if (isOpiumEchoPair() && isOnGround()) {
             opiumUpSpecialUsed = false;
         }
@@ -13875,6 +14725,7 @@ public class Bird {
         handleTitmouseSpecialState();
         handlePelicanSpecialState();
         handleBatSpecialState();
+        handleRavenSpecialState(specialHeld);
         handleOpiumSpecialState();
 
         // === RAZORBILL SPECIALS ===
@@ -13904,6 +14755,7 @@ public class Bird {
         handleRoadrunnerSpecials(specialHeld);
         handleRoadrunnerPaintedRoads();
         handleBatPostMoveSpecialState();
+        handleRavenPostMoveSpecialState();
         if (tryGrabUniversalLedge(prevX, inDockWater)) {
             rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
             handleTaunts();
@@ -14425,6 +15277,18 @@ public class Bird {
         batAmbushWindowTimer = Math.max(0, (int)(batAmbushWindowTimer - gameSpeed));
         batCathedralTimer = Math.max(0, (int)(batCathedralTimer - gameSpeed));
         batCathedralPulseCooldown = Math.max(0, (int)(batCathedralPulseCooldown - gameSpeed));
+        ravenNeutralReuseTimer = Math.max(0, (int) (ravenNeutralReuseTimer - gameSpeed));
+        ravenSideTimer = Math.max(0, (int) (ravenSideTimer - gameSpeed));
+        ravenSideReuseTimer = Math.max(0, (int) (ravenSideReuseTimer - gameSpeed));
+        ravenLiftTimer = Math.max(0, (int) (ravenLiftTimer - gameSpeed));
+        ravenDownReuseTimer = Math.max(0, (int) (ravenDownReuseTimer - gameSpeed));
+        ravenUltimateTimer = Math.max(0, (int) (ravenUltimateTimer - gameSpeed));
+        ravenPortentTimer = Math.max(0, (int) (ravenPortentTimer - gameSpeed));
+        if (ravenPortentTimer == 0) {
+            ravenPortentOwnerIndex = -1;
+            ravenPortentSerial = 0;
+            ravenPortentUltimate = false;
+        }
         if (batWingcutTimer == 0) {
             batWingcutUltimate = false;
             batWingcutAmbush = false;
@@ -14445,6 +15309,17 @@ public class Bird {
         if (batCathedralTimer == 0) {
             batCathedralPulseCooldown = 0;
             batCathedralWaveIndex = 0;
+        }
+        if (ravenSideTimer == 0) {
+            ravenSideUltimate = false;
+            ravenSideEmpowered = false;
+            ravenSideResolved = false;
+            Arrays.fill(ravenSideHit, false);
+        }
+        if (ravenLiftTimer == 0) {
+            ravenLiftUltimate = false;
+            ravenLiftSnapped = false;
+            Arrays.fill(ravenLiftHit, false);
         }
         batHangLockTimer = Math.max(0, (int)(batHangLockTimer - gameSpeed));
         batRehangCooldownTimer = Math.max(0, (int)(batRehangCooldownTimer - gameSpeed));
@@ -16391,6 +17266,8 @@ public class Bird {
                     ? canConvertShieldIntoBatDownSpecial()
                     : type == BirdGame3.BirdType.PELICAN
                     ? canConvertShieldIntoPelicanDownSpecial()
+                    : type == BirdGame3.BirdType.RAVEN
+                    ? canConvertShieldIntoRavenDownSpecial()
                     : isOpiumEchoPair()
                     ? canConvertShieldIntoOpiumDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
@@ -16424,6 +17301,8 @@ public class Bird {
                     ? canStartBatSpecial()
                     : type == BirdGame3.BirdType.PELICAN
                     ? canStartPelicanSpecial()
+                    : type == BirdGame3.BirdType.RAVEN
+                    ? canStartRavenSpecial()
                     : isOpiumEchoPair()
                     ? canStartOpiumSpecial()
                     : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
@@ -16442,6 +17321,7 @@ public class Bird {
                         && type != BirdGame3.BirdType.TITMOUSE
                         && type != BirdGame3.BirdType.BAT
                         && type != BirdGame3.BirdType.PELICAN
+                        && type != BirdGame3.BirdType.RAVEN
                         && !isOpiumEchoPair()))) {
                     cooldownFlash = 15;
                 }
@@ -17065,6 +17945,7 @@ public class Bird {
             interruptVultureSpecialStateOnHit();
             interruptTitmouseSpecialStateOnHit();
             interruptBatSpecialStateOnHit();
+            interruptRavenSpecialStateOnHit();
             interruptOpiumSpecialStateOnHit();
         }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
@@ -18955,6 +19836,15 @@ public class Bird {
         batHangPlatform = null;
         batHangLockTimer = 0;
         batRehangCooldownTimer = 0;
+        resetRavenSpecialState(true);
+        ravenNeutralReuseTimer = 0;
+        ravenSideReuseTimer = 0;
+        ravenLiftUsed = false;
+        ravenDownReuseTimer = 0;
+        ravenPortentTimer = 0;
+        ravenPortentOwnerIndex = -1;
+        ravenPortentSerial = 0;
+        ravenPortentUltimate = false;
         ledgeHanging = false;
         ledgePlatform = null;
         ledgeGrabOnRightSide = false;
@@ -19223,6 +20113,37 @@ public class Bird {
         state.batEchoFxBounced = batEchoFxBounced;
         state.batEchoFxUltimate = batEchoFxUltimate;
         state.batRehangCooldownTimer = batRehangCooldownTimer;
+        state.ravenQuillCharging = ravenQuillCharging;
+        state.ravenQuillChargeFrames = ravenQuillChargeFrames;
+        state.ravenQuillChargeUltimate = ravenQuillChargeUltimate;
+        state.ravenNeutralReuseTimer = ravenNeutralReuseTimer;
+        state.ravenSideTimer = ravenSideTimer;
+        state.ravenSideReuseTimer = ravenSideReuseTimer;
+        state.ravenSideDirection = ravenSideDirection;
+        state.ravenSideUltimate = ravenSideUltimate;
+        state.ravenSideEmpowered = ravenSideEmpowered;
+        state.ravenSideStartX = ravenSideStartX;
+        state.ravenSideStartY = ravenSideStartY;
+        state.ravenSideEndX = ravenSideEndX;
+        state.ravenSideEndY = ravenSideEndY;
+        state.ravenLiftTimer = ravenLiftTimer;
+        state.ravenLiftUsed = ravenLiftUsed;
+        state.ravenLiftUltimate = ravenLiftUltimate;
+        state.ravenDownReuseTimer = ravenDownReuseTimer;
+        state.ravenUltimateTimer = ravenUltimateTimer;
+        state.ravenPortentTimer = ravenPortentTimer;
+        state.ravenPortentOwnerIndex = ravenPortentOwnerIndex;
+        state.ravenPortentSerial = ravenPortentSerial;
+        state.ravenPortentUltimate = ravenPortentUltimate;
+        state.ravenDecoyActive = ravenDecoy != null;
+        if (ravenDecoy != null) {
+            state.ravenDecoyX = ravenDecoy.x;
+            state.ravenDecoyY = ravenDecoy.y;
+            state.ravenDecoyLifeFrames = ravenDecoy.lifeFrames;
+            state.ravenDecoyAgeFrames = ravenDecoy.ageFrames;
+            state.ravenDecoyUltimate = ravenDecoy.ultimate;
+            state.ravenDecoySwapped = ravenDecoy.swapped;
+        }
         state.ledgeHanging = ledgeHanging;
         state.ledgeGrabOnRightSide = ledgeGrabOnRightSide;
         state.ledgeLockTimer = ledgeLockTimer;
@@ -19696,6 +20617,41 @@ public class Bird {
         this.batEchoFxBounced = state.batEchoFxBounced;
         this.batEchoFxUltimate = state.batEchoFxUltimate;
         this.batRehangCooldownTimer = state.batRehangCooldownTimer;
+        this.ravenQuillCharging = state.ravenQuillCharging;
+        this.ravenQuillChargeFrames = Math.max(0, state.ravenQuillChargeFrames);
+        this.ravenQuillChargeUltimate = state.ravenQuillChargeUltimate;
+        this.ravenNeutralReuseTimer = Math.max(0, state.ravenNeutralReuseTimer);
+        this.ravenSideTimer = Math.max(0, state.ravenSideTimer);
+        this.ravenSideReuseTimer = Math.max(0, state.ravenSideReuseTimer);
+        this.ravenSideDirection = state.ravenSideDirection == 0 ? facingDirection() : state.ravenSideDirection;
+        this.ravenSideUltimate = state.ravenSideUltimate;
+        this.ravenSideEmpowered = state.ravenSideEmpowered;
+        this.ravenSideStartX = state.ravenSideStartX;
+        this.ravenSideStartY = state.ravenSideStartY;
+        this.ravenSideEndX = state.ravenSideEndX;
+        this.ravenSideEndY = state.ravenSideEndY;
+        this.ravenLiftTimer = Math.max(0, state.ravenLiftTimer);
+        this.ravenLiftUsed = state.ravenLiftUsed;
+        this.ravenLiftUltimate = state.ravenLiftUltimate;
+        this.ravenDownReuseTimer = Math.max(0, state.ravenDownReuseTimer);
+        this.ravenUltimateTimer = Math.max(0, state.ravenUltimateTimer);
+        this.ravenPortentTimer = Math.max(0, state.ravenPortentTimer);
+        this.ravenPortentOwnerIndex = state.ravenPortentOwnerIndex;
+        this.ravenPortentSerial = Math.max(0, state.ravenPortentSerial);
+        this.ravenPortentUltimate = state.ravenPortentUltimate;
+        if (state.ravenDecoyActive) {
+            if (this.ravenDecoy == null) {
+                this.ravenDecoy = new RavenDecoy(state.ravenDecoyX, state.ravenDecoyY, state.ravenDecoyUltimate);
+            }
+            this.ravenDecoy.x = state.ravenDecoyX;
+            this.ravenDecoy.y = state.ravenDecoyY;
+            this.ravenDecoy.lifeFrames = Math.max(0, state.ravenDecoyLifeFrames);
+            this.ravenDecoy.ageFrames = Math.max(0, state.ravenDecoyAgeFrames);
+            this.ravenDecoy.ultimate = state.ravenDecoyUltimate;
+            this.ravenDecoy.swapped = state.ravenDecoySwapped;
+        } else {
+            this.ravenDecoy = null;
+        }
         this.ledgeHanging = state.ledgeHanging;
         this.ledgeGrabOnRightSide = state.ledgeGrabOnRightSide;
         this.ledgeLockTimer = state.ledgeLockTimer;
@@ -20165,6 +21121,11 @@ public class Bird {
     private boolean grinchhawkSpecialPoseActive() {
         return type == BirdGame3.BirdType.GRINCHHAWK
                 && (grinchHeartSnatchTimer > 0 || grinchSleighRiding || grinchChimneyFlapTimer > 0);
+    }
+
+    private boolean ravenSpecialPoseActive() {
+        return type == BirdGame3.BirdType.RAVEN
+                && (ravenQuillCharging || ravenSideTimer > 0 || ravenLiftTimer > 0 || ravenUltimateTimer > 0);
     }
 
     private double turkeySpecialPhase(int timer, int totalFrames) {
@@ -20810,10 +21771,83 @@ public class Bird {
                 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
     }
 
+    private AttackVisualPose currentRavenSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (ravenLiftTimer > 0) {
+            double phase = pigeonSpecialPhase(ravenLiftTimer,
+                    ravenLiftUltimate ? RAVEN_LIFT_ULTIMATE_FRAMES : RAVEN_LIFT_FRAMES);
+            return new AttackVisualPose(
+                    dir * (1.0 + phase * 2.0),
+                    -18.0 - phase * 16.0,
+                    dir * (4.0 + phase * 4.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.08),
+                    15.0 + phase * 6.0,
+                    -22.0 - phase * 8.0,
+                    13.0 + phase * 5.0,
+                    0.90,
+                    -24.0 - phase * 10.0,
+                    0.96,
+                    1.16 + phase * 0.08
+            );
+        }
+        if (ravenSideTimer > 0) {
+            double phase = pigeonSpecialPhase(ravenSideTimer,
+                    ravenSideUltimate ? RAVEN_SIDE_FRAMES + 4 : RAVEN_SIDE_FRAMES);
+            return new AttackVisualPose(
+                    dir * (11.0 + phase * 7.0),
+                    -4.0 - phase * 2.0,
+                    dir * (12.0 + phase * 7.0),
+                    facingRight ? -0.12 : Math.PI + 0.12,
+                    18.0 + phase * 8.0,
+                    -6.0 - phase * 3.0,
+                    18.0 + phase * 8.0,
+                    0.78,
+                    dir * (11.0 + phase * 6.0),
+                    1.15 + phase * 0.08,
+                    0.88
+            );
+        }
+        if (ravenQuillCharging) {
+            double ratio = Math.clamp(ravenQuillChargeFrames / (double) RAVEN_QUILL_CHARGE_FAN_FRAMES, 0.0, 1.0);
+            double pulse = 0.5 + 0.5 * Math.sin(ravenQuillChargeFrames * 0.32);
+            return new AttackVisualPose(
+                    -dir * (4.0 + ratio * 5.0),
+                    -3.0 - ratio * 4.0,
+                    -dir * (7.0 + ratio * 8.0),
+                    facingRight ? -0.04 : Math.PI + 0.04,
+                    12.0 + ratio * 10.0,
+                    -5.0 - ratio * 4.0,
+                    12.0 + ratio * 8.0,
+                    1.04 + ratio * 0.10,
+                    -dir * (6.0 + pulse * 3.0),
+                    1.04,
+                    0.98
+            );
+        }
+        if (ravenUltimateTimer > 0) {
+            double phase = pigeonSpecialPhase(ravenUltimateTimer, RAVEN_ULTIMATE_ROUTE_LIFE_FRAMES);
+            return new AttackVisualPose(
+                    0.0,
+                    -8.0 - phase * 5.0,
+                    dir * (4.0 + phase * 2.0),
+                    facingRight ? 0.0 : Math.PI,
+                    12.0 + phase * 8.0,
+                    -8.0 - phase * 5.0,
+                    10.0 + phase * 6.0,
+                    1.08 + phase * 0.08,
+                    dir * (5.0 + phase * 3.0),
+                    1.04,
+                    1.02
+            );
+        }
+        return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
+                0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+    }
+
     private NormalAttackVariant currentDisplayedAttackVariant() {
         if (pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
                 || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
-                || grinchhawkSpecialPoseActive()) {
+                || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive()) {
             return null;
         }
         if (isGroundAttackPending()) {
@@ -20893,7 +21927,7 @@ public class Bird {
                 || isChargingAttack() || attackAnimationTimer > 0 || aerialAttackActive
                 || pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
                 || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
-                || grinchhawkSpecialPoseActive()) {
+                || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive()) {
             return VISUAL_POSE_ACTION_BLEND_PER_FRAME;
         }
         if (!isOnGround() && Math.abs(vy) > 4.0) {
@@ -20977,6 +22011,9 @@ public class Bird {
         }
         if (grinchhawkSpecialPoseActive()) {
             return currentGrinchhawkSpecialPose();
+        }
+        if (ravenSpecialPoseActive()) {
+            return currentRavenSpecialPose();
         }
         AttackVisualPose dodgePose = currentDodgeVisualPose();
         if (dodgePose != null) {
@@ -21307,6 +22344,7 @@ public class Bird {
         drawTurkeyFeastTraps(g);
         drawTitmouseSeedStashes(g);
         drawOpiumTraps(g);
+        drawRavenObjects(g);
         drawRoadrunnerPaintedRoads(g);
         drawPenguinSpecialObjects(g);
         drawGrinchhawkObjects(g);
@@ -21330,6 +22368,7 @@ public class Bird {
         drawShoebillSpecialFx(g, drawSize);
         drawGrinchhawkSpecialFx(g, drawSize);
         drawBatEcho(g, drawSize);
+        drawRavenSpecialFx(g, drawSize);
         if (!suppressSelectEffects) {
             drawOpiumBirdEffects(g, drawSize);
         }
@@ -21371,6 +22410,7 @@ public class Bird {
         drawOpiumDrowsyEffect(g, drawSize);
         drawHeisenBrittleEffect(g, drawSize);
         drawRoadrunnerSlipEffect(g);
+        drawRavenPortentMarkEffect(g, drawSize);
         drawPigeonSpecialFx(g, drawSize);
         drawRaptorSpecialFx(g, drawSize);
         drawPhoenixSpecialFx(g, drawSize);
@@ -21714,6 +22754,130 @@ public class Bird {
             g.strokeArc(stash.x - 18.0, stash.y - 24.0, 36.0, 24.0, 8, 164, ArcType.OPEN);
             g.restore();
         }
+    }
+
+    private void drawRavenObjects(GraphicsContext g) {
+        if (type != BirdGame3.BirdType.RAVEN) {
+            return;
+        }
+        double s = sizeMultiplier;
+        for (RavenPortent portent : ravenGroundPortents) {
+            double lifeRatio = Math.clamp(portent.lifeFrames / (double) (portent.ultimate
+                    ? RAVEN_PORTENT_ULTIMATE_LIFE_FRAMES : RAVEN_PORTENT_LIFE_FRAMES), 0.0, 1.0);
+            double pulse = 0.5 + 0.5 * Math.sin(portent.ageFrames * 0.18);
+            Color core = portent.ultimate ? Color.GOLD : ravenAccentColor();
+            g.setFill(ravenShadowColor(false).deriveColor(0, 1, 1, (0.18 + pulse * 0.10) * lifeRatio));
+            g.fillOval(portent.x - 40.0 * s, portent.y - 18.0 * s, 80.0 * s, 28.0 * s);
+            g.setStroke(core.deriveColor(0, 1, 1, (0.50 + pulse * 0.30) * lifeRatio));
+            g.setLineWidth((2.0 + pulse * 1.2) * s);
+            g.strokeArc(portent.x - 24.0 * s, portent.y - 34.0 * s, 48.0 * s, 42.0 * s,
+                    205, 130, ArcType.OPEN);
+            g.strokeLine(portent.x, portent.y - 6.0 * s, portent.x - 10.0 * s, portent.y - 28.0 * s);
+            g.strokeLine(portent.x, portent.y - 6.0 * s, portent.x + 12.0 * s, portent.y - 31.0 * s);
+        }
+
+        for (RavenQuill quill : ravenQuills) {
+            double angle = Math.atan2(quill.vy, quill.vx);
+            double dirX = Math.cos(angle);
+            double dirY = Math.sin(angle);
+            double normalX = -dirY;
+            double normalY = dirX;
+            double len = (quill.ultimate ? 28.0 : 22.0) * s;
+            double width = (quill.ultimate ? 6.5 : 5.0) * s;
+            g.setFill((quill.ultimate ? Color.GOLD : ravenAccentColor()).deriveColor(0, 1, 1, 0.88));
+            g.fillPolygon(
+                    new double[]{quill.x + dirX * len, quill.x - dirX * len * 0.42 + normalX * width,
+                            quill.x - dirX * len * 0.42, quill.x - dirX * len * 0.42 - normalX * width},
+                    new double[]{quill.y + dirY * len, quill.y - dirY * len * 0.42 + normalY * width,
+                            quill.y - dirY * len * 0.42, quill.y - dirY * len * 0.42 - normalY * width},
+                    4
+            );
+        }
+
+        if (ravenDecoy != null) {
+            double lifeRatio = Math.clamp(ravenDecoy.lifeFrames / (double) (ravenDecoy.ultimate
+                    ? RAVEN_DECOY_ULTIMATE_LIFE_FRAMES : RAVEN_DECOY_LIFE_FRAMES), 0.0, 1.0);
+            double pulse = 0.5 + 0.5 * Math.sin(ravenDecoy.ageFrames * 0.22);
+            Color outline = ravenDecoy.ultimate ? Color.GOLD : ravenAccentColor();
+            g.setFill(ravenShadowColor(false).deriveColor(0, 1, 1, (0.24 + pulse * 0.12) * lifeRatio));
+            g.fillOval(ravenDecoy.x - 34.0 * s, ravenDecoy.y - 46.0 * s, 68.0 * s, 84.0 * s);
+            g.setStroke(outline.deriveColor(0, 1, 1, (0.55 + pulse * 0.25) * lifeRatio));
+            g.setLineWidth((2.4 + pulse) * s);
+            g.strokeOval(ravenDecoy.x - 30.0 * s, ravenDecoy.y - 40.0 * s, 60.0 * s, 72.0 * s);
+            g.strokeArc(ravenDecoy.x - 42.0 * s, ravenDecoy.y - 18.0 * s, 84.0 * s, 36.0 * s,
+                    208, 124, ArcType.OPEN);
+        }
+
+        if (!ravenUltimateRoutes.isEmpty()) {
+            g.setLineCap(StrokeLineCap.ROUND);
+            for (RavenUltimateRoute route : ravenUltimateRoutes) {
+                double lifeRatio = Math.clamp(route.lifeFrames / (double) RAVEN_ULTIMATE_ROUTE_LIFE_FRAMES, 0.0, 1.0);
+                double pulse = 0.5 + 0.5 * Math.sin(route.ageFrames * 0.42);
+                g.setStroke(Color.web("#120B18").deriveColor(0, 1, 1, 0.48 * lifeRatio));
+                g.setLineWidth((12.0 + pulse * 4.0) * s);
+                g.strokeLine(route.startX, route.startY, route.endX, route.endY);
+                g.setStroke(Color.GOLD.deriveColor(0, 1, 1, (0.42 + pulse * 0.32) * lifeRatio));
+                g.setLineWidth((3.0 + pulse * 1.6) * s);
+                g.strokeLine(route.startX, route.startY, route.endX, route.endY);
+            }
+        }
+    }
+
+    private void drawRavenSpecialFx(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.RAVEN) {
+            return;
+        }
+        double s = sizeMultiplier;
+        if (ravenQuillCharging) {
+            double ratio = Math.clamp(ravenQuillChargeFrames / (double) RAVEN_QUILL_CHARGE_FAN_FRAMES, 0.0, 1.0);
+            double pulse = 0.5 + 0.5 * Math.sin(ravenQuillChargeFrames * 0.34);
+            g.setStroke((ravenQuillChargeUltimate ? Color.GOLD : ravenAccentColor())
+                    .deriveColor(0, 1, 1, 0.36 + ratio * 0.34));
+            g.setLineWidth((2.0 + ratio * 2.4) * s);
+            double radius = (28.0 + ratio * 28.0 + pulse * 4.0) * s;
+            g.strokeOval(bodyCenterX() - radius, bodyCenterY() - radius * 0.66, radius * 2.0, radius * 1.32);
+        }
+        if (ravenSideTimer > 0) {
+            double pulse = 0.5 + 0.5 * Math.sin(ravenSideTimer * 0.64);
+            g.setStroke((ravenSideUltimate ? Color.GOLD : ravenAccentColor()).deriveColor(0, 1, 1, 0.50 + pulse * 0.28));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth((ravenSideEmpowered ? 5.2 : 3.4) * s);
+            g.strokeLine(ravenSideStartX, ravenSideStartY, ravenSideEndX, ravenSideEndY);
+            g.setStroke(ravenShadowColor(false).deriveColor(0, 1, 1, 0.38 + pulse * 0.16));
+            g.setLineWidth((ravenSideEmpowered ? 12.0 : 8.0) * s);
+            g.strokeLine(ravenSideStartX, ravenSideStartY, ravenSideEndX, ravenSideEndY);
+        }
+        if (ravenLiftTimer > 0) {
+            double phase = 1.0 - Math.clamp(ravenLiftTimer / (double) (ravenLiftUltimate
+                    ? RAVEN_LIFT_ULTIMATE_FRAMES : RAVEN_LIFT_FRAMES), 0.0, 1.0);
+            Color lift = ravenLiftUltimate ? Color.GOLD : ravenAccentColor();
+            g.setStroke(lift.deriveColor(0, 1, 1, 0.52));
+            g.setLineCap(StrokeLineCap.ROUND);
+            for (int i = 0; i < 4; i++) {
+                double width = (36.0 + i * 20.0) * s;
+                double height = (72.0 + i * 18.0 + phase * 24.0) * s;
+                g.setLineWidth((2.0 + i * 0.45) * s);
+                g.strokeArc(bodyCenterX() - width * 0.5, bodyCenterY() - height * 0.88,
+                        width, height, 205 + i * 18, 130, ArcType.OPEN);
+            }
+        }
+    }
+
+    private void drawRavenPortentMarkEffect(GraphicsContext g, double drawSize) {
+        if (ravenPortentTimer <= 0) {
+            return;
+        }
+        double lifeRatio = Math.clamp(ravenPortentTimer / (double) (ravenPortentUltimate
+                ? RAVEN_MARK_ULTIMATE_LIFE_FRAMES : RAVEN_MARK_LIFE_FRAMES), 0.0, 1.0);
+        double pulse = 0.5 + 0.5 * Math.sin(ravenPortentTimer * 0.18);
+        double s = sizeMultiplier;
+        Color color = ravenPortentUltimate ? Color.GOLD : Color.web("#B0BEC5");
+        g.setStroke(color.deriveColor(0, 1, 1, (0.42 + pulse * 0.32) * lifeRatio));
+        g.setLineWidth((2.0 + pulse * 1.2) * s);
+        g.strokeArc(bodyCenterX() - 26.0 * s, y - 22.0 * s, 52.0 * s, 30.0 * s,
+                204, 132, ArcType.OPEN);
+        g.strokeLine(bodyCenterX(), y - 4.0 * s, bodyCenterX() - 11.0 * s, y - 27.0 * s);
+        g.strokeLine(bodyCenterX(), y - 4.0 * s, bodyCenterX() + 12.0 * s, y - 29.0 * s);
     }
 
     private void drawTurkeySpecialFx(GraphicsContext g) {
@@ -25312,6 +26476,10 @@ public class Bird {
             drawBatBody(g);
             return;
         }
+        if (type == BirdGame3.BirdType.RAVEN) {
+            drawRavenBody(g, drawSize, pose);
+            return;
+        }
         if (type == BirdGame3.BirdType.PHOENIX) {
             drawPhoenixBody(g, drawSize);
             return;
@@ -25890,6 +27058,84 @@ public class Bird {
             g.strokeLine(eyeCenterX - 5.5 * s, eyeCenterY - 7.0 * s,
                     eyeCenterX + 4.0 * s, eyeCenterY + 6.5 * s);
         }
+    }
+
+    private void drawRavenBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        HeadPose headPose = standardHeadPose(pose);
+        double headCx = headPose.centerX();
+        double headCy = headPose.centerY();
+        double bodyCx = x + drawSize * 0.5;
+        double bodyCy = y + drawSize * 0.53;
+        boolean voidHerald = isVoidHeraldSkin;
+        Color body = voidHerald ? Color.web("#08060D") : Color.web("#10141A");
+        Color neck = voidHerald ? Color.web("#14101E") : Color.web("#171D25");
+        Color wing = voidHerald ? Color.web("#20162D") : Color.web("#202933");
+        Color edge = voidHerald ? Color.web("#8C73C8") : Color.web("#58636E");
+        Color sheen = voidHerald ? Color.web("#4B3568") : Color.web("#2D3945");
+        Color eye = voidHerald ? Color.web("#B388FF") : Color.web("#D50000");
+
+        double tailBaseX = bodyCx - dir * 28.0 * s;
+        g.setFill(body.deriveColor(0, 1, 1, 0.96));
+        g.fillPolygon(
+                new double[]{tailBaseX, tailBaseX - dir * 54.0 * s, tailBaseX - dir * 42.0 * s,
+                        tailBaseX - dir * 18.0 * s},
+                new double[]{bodyCy + 8.0 * s, bodyCy - 8.0 * s, bodyCy + 24.0 * s,
+                        bodyCy + 28.0 * s},
+                4
+        );
+        g.fillPolygon(
+                new double[]{tailBaseX - dir * 4.0 * s, tailBaseX - dir * 46.0 * s,
+                        tailBaseX - dir * 20.0 * s},
+                new double[]{bodyCy + 18.0 * s, bodyCy + 30.0 * s, bodyCy + 40.0 * s},
+                3
+        );
+
+        g.setFill(body);
+        g.fillOval(x + 9.0 * s, y + 17.0 * s, 63.0 * s, 58.0 * s);
+        g.setFill(neck);
+        g.fillOval(bodyCx - 16.0 * s, bodyCy - 34.0 * s, 34.0 * s, 44.0 * s);
+        g.setFill(wing);
+        double wingX = facingRight ? x + 10.0 * s : x + 27.0 * s;
+        g.fillPolygon(
+                new double[]{wingX, wingX + 35.0 * s, wingX + 43.0 * s, wingX + 14.0 * s},
+                new double[]{y + 30.0 * s, y + 24.0 * s, y + 56.0 * s, y + 71.0 * s},
+                4
+        );
+        g.setStroke(edge.deriveColor(0, 1, 1, 0.56));
+        g.setLineWidth(1.8 * s);
+        g.strokeLine(wingX + 10.0 * s, y + 40.0 * s, wingX + 34.0 * s, y + 29.0 * s);
+        g.strokeLine(wingX + 12.0 * s, y + 49.0 * s, wingX + 40.0 * s, y + 42.0 * s);
+        g.strokeLine(wingX + 10.0 * s, y + 58.0 * s, wingX + 35.0 * s, y + 58.0 * s);
+
+        g.setFill(neck);
+        g.fillOval(headCx - 24.0 * s, headCy - 22.0 * s, 48.0 * s, 40.0 * s);
+        g.setFill(sheen.deriveColor(0, 1, 1, 0.58));
+        g.fillOval(headCx - 12.0 * s, headCy - 15.0 * s, 22.0 * s, 22.0 * s);
+        g.setFill(body);
+        g.fillPolygon(
+                new double[]{headCx - dir * 16.0 * s, headCx - dir * 2.0 * s, headCx + dir * 8.0 * s},
+                new double[]{headCy - 19.0 * s, headCy - 35.0 * s, headCy - 15.0 * s},
+                3
+        );
+
+        double legY = y + 72.0 * s;
+        g.setStroke(edge.deriveColor(0, 1, 1, 0.72));
+        g.setLineWidth(2.0 * s);
+        g.strokeLine(bodyCx - 12.0 * s, legY - 6.0 * s, bodyCx - 16.0 * s, legY + 16.0 * s);
+        g.strokeLine(bodyCx + 12.0 * s, legY - 6.0 * s, bodyCx + 16.0 * s, legY + 16.0 * s);
+        g.strokeLine(bodyCx - 16.0 * s, legY + 16.0 * s, bodyCx - 25.0 * s, legY + 20.0 * s);
+        g.strokeLine(bodyCx + 16.0 * s, legY + 16.0 * s, bodyCx + 25.0 * s, legY + 20.0 * s);
+
+        double eyeCx = headCx + dir * 9.0 * s;
+        double eyeCy = headCy - 5.0 * s;
+        g.setFill(eye.deriveColor(0, 1, 1, 0.24));
+        g.fillOval(eyeCx - 11.0 * s, eyeCy - 11.0 * s, 22.0 * s, 22.0 * s);
+        g.setFill(Color.web("#ECEFF1"));
+        g.fillOval(eyeCx - 6.5 * s, eyeCy - 6.0 * s, 13.0 * s, 12.0 * s);
+        g.setFill(eye);
+        g.fillOval(eyeCx - 2.8 * s, eyeCy - 4.2 * s, 6.2 * s, 8.4 * s);
     }
 
     private void drawLoreAccurateHummingbirdBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -26560,6 +27806,8 @@ public class Bird {
     }
 
     private void drawBeak(GraphicsContext g, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
         if (photoEagleSkinActive()) {
             return;
         }
@@ -26569,11 +27817,36 @@ public class Bird {
         if (type == BirdGame3.BirdType.HUMMINGBIRD && isLoreAccurateHummingbirdSkin) {
             return;
         }
+        if (type == BirdGame3.BirdType.RAVEN) {
+            HeadPose headPose = standardHeadPose(pose);
+            double dir = facingRight ? 1.0 : -1.0;
+            double open = (attackAnimationTimer > 0 || ravenQuillCharging || ravenSideTimer > 0
+                    ? 4.8 : 2.0) * sizeMultiplier * openScale;
+            double baseX = headPose.centerX() + dir * 16.0 * sizeMultiplier;
+            double baseY = headPose.centerY() - 1.0 * sizeMultiplier;
+            Color upper = isVoidHeraldSkin ? Color.web("#2B213A") : Color.web("#252C34");
+            Color lower = isVoidHeraldSkin ? Color.web("#17111F") : Color.web("#12171D");
+            g.setFill(upper);
+            g.fillPolygon(
+                    new double[]{baseX - dir * 2.0 * sizeMultiplier, baseX + dir * 28.0 * sizeMultiplier,
+                            baseX - dir * 1.0 * sizeMultiplier},
+                    new double[]{baseY - 8.0 * sizeMultiplier, baseY - 1.0 * sizeMultiplier,
+                            baseY + 2.0 * sizeMultiplier},
+                    3
+            );
+            g.setFill(lower);
+            g.fillPolygon(
+                    new double[]{baseX - dir * 1.0 * sizeMultiplier, baseX + dir * 25.0 * sizeMultiplier,
+                            baseX - dir * 1.0 * sizeMultiplier},
+                    new double[]{baseY + 1.0 * sizeMultiplier, baseY + open,
+                            baseY + 8.0 * sizeMultiplier},
+                    3
+            );
+            return;
+        }
         if (type == BirdGame3.BirdType.VULTURE && !isNullRockSkin) {
             return;
         }
-        double s = sizeMultiplier;
-        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
         if (type == BirdGame3.BirdType.BAT) {
             double mouthX = x + 33 * s;
             double mouthY = y + 28 * s;

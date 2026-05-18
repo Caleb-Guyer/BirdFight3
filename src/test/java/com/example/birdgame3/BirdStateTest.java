@@ -4523,6 +4523,144 @@ class BirdStateTest {
         assertEquals(0, getPrivateInt(pelican, "pelicanCargoCount"));
     }
 
+    @Test
+    void ravenReuseLockoutsStayInvisible() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird raven = new Bird(180.0, BirdGame3.BirdType.RAVEN, 0, game);
+        raven.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = raven;
+
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(specialKey, true);
+        raven.update(1.0);
+        game.setLocalActionsForKey(specialKey, false);
+        raven.update(1.0);
+
+        assertEquals(0, raven.specialCooldown);
+        assertTrue(getPrivateInt(raven, "ravenNeutralReuseTimer") > 0);
+
+        game.setLocalActionsForKey(specialKey, true);
+        raven.update(1.0);
+
+        assertEquals(0, raven.specialCooldown,
+                "Raven specials should use invisible per-move reuse gates.");
+        assertEquals(0, raven.cooldownFlash,
+                "Raven reuse lockouts should not display the cooldown warning.");
+    }
+
+    @Test
+    void ravenChargedBlackQuillFansIntoThreeProjectiles() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird raven = new Bird(180.0, BirdGame3.BirdType.RAVEN, 0, game);
+        raven.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = raven;
+
+        KeyCode specialKey = game.specialKeyForPlayer(0);
+        game.setLocalActionsForKey(specialKey, true);
+        for (int i = 0; i < 20; i++) {
+            raven.update(1.0);
+        }
+        game.setLocalActionsForKey(specialKey, false);
+        raven.update(1.0);
+
+        List<?> quills = (List<?>) getPrivateObject(raven, "ravenQuills");
+        assertEquals(3, quills.size(),
+                "Holding Black Quill long enough should release the charged fan.");
+        assertFalse(getPrivateBoolean(raven, "ravenQuillCharging"));
+    }
+
+    @Test
+    void ravenShadowWarpConsumesPortentAndEmpowersSlash() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird raven = new Bird(180.0, BirdGame3.BirdType.RAVEN, 0, game);
+        Bird target = new Bird(360.0, BirdGame3.BirdType.PIGEON, 1, game);
+        raven.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        raven.facingRight = true;
+        game.players[0] = raven;
+        game.players[1] = target;
+
+        invokePrivateBirdBooleanVoid(raven, "applyRavenPortent", target, false);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        raven.update(1.0);
+
+        assertEquals(0, getPrivateInt(target, "ravenPortentTimer"),
+                "Shadow Warp should consume the selected Portent.");
+        assertTrue(getPrivateBoolean(raven, "ravenSideEmpowered"),
+                "Warping through a Portent should empower the slash.");
+        assertTrue(raven.x > 240.0,
+                "Shadow Warp should relocate Raven near the consumed Portent.");
+    }
+
+    @Test
+    void ravenMurderLiftRefreshesAfterLanding() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird raven = new Bird(220.0, BirdGame3.BirdType.RAVEN, 0, game);
+        raven.y = BirdGame3.GROUND_Y - 240.0;
+        game.players[0] = raven;
+
+        invokePrivateBooleanVoid(raven, "specialRavenMurderLift", false);
+
+        assertTrue(getPrivateBoolean(raven, "ravenLiftUsed"));
+        assertTrue(raven.vy < -20.0, "Murder Lift should launch upward decisively.");
+
+        raven.y = BirdGame3.GROUND_Y - 80.0;
+        raven.vy = 0.0;
+        raven.update(1.0);
+
+        assertFalse(getPrivateBoolean(raven, "ravenLiftUsed"),
+                "Landing should refresh Raven's once-per-airtime lift.");
+    }
+
+    @Test
+    void ravenNevermorePlacesAndSwapsWithDecoy() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird raven = new Bird(220.0, BirdGame3.BirdType.RAVEN, 0, game);
+        raven.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = raven;
+
+        double originalX = raven.x;
+        invokePrivateBooleanVoid(raven, "specialRavenNevermore", false);
+        assertNotNull(getPrivateObject(raven, "ravenDecoy"));
+
+        raven.x = 480.0;
+        invokePrivateBooleanVoid(raven, "specialRavenNevermore", false);
+
+        assertEquals(originalX, raven.x, 0.0001,
+                "Recasting Nevermore should return Raven to the decoy.");
+    }
+
+    @Test
+    void ravenDownTiltPlantsGroundPortent() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird raven = new Bird(180.0, BirdGame3.BirdType.RAVEN, 0, game);
+        raven.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = raven;
+
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        raven.update(1.0);
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), false);
+        raven.update(1.0);
+
+        List<?> portents = (List<?>) getPrivateObject(raven, "ravenGroundPortents");
+        assertEquals(1, portents.size(),
+                "Raven's grounded down tilt should seed one Portent.");
+    }
+
     private static void invokePrivateVoid(Object target, String methodName) throws Exception {
         Method method = target.getClass().getDeclaredMethod(methodName);
         method.setAccessible(true);
@@ -4539,6 +4677,12 @@ class BirdStateTest {
         Method method = target.getClass().getDeclaredMethod(methodName, boolean.class);
         method.setAccessible(true);
         method.invoke(target, value);
+    }
+
+    private static void invokePrivateBirdBooleanVoid(Object target, String methodName, Bird bird, boolean value) throws Exception {
+        Method method = target.getClass().getDeclaredMethod(methodName, Bird.class, boolean.class);
+        method.setAccessible(true);
+        method.invoke(target, bird, value);
     }
 
     private static void invokePrivateIntVoid(Object target, String methodName, int value) throws Exception {

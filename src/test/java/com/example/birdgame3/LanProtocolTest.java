@@ -143,6 +143,23 @@ class LanProtocolTest {
         state.batCathedralTimer = 144;
         state.batEchoFxEndX = 777.25;
         state.batEchoFxBounced = true;
+        state.ravenQuillCharging = true;
+        state.ravenQuillChargeFrames = 18;
+        state.ravenNeutralReuseTimer = 22;
+        state.ravenSideTimer = 11;
+        state.ravenSideDirection = -1;
+        state.ravenSideEmpowered = true;
+        state.ravenSideStartX = 123.5;
+        state.ravenSideEndY = 456.25;
+        state.ravenLiftTimer = 9;
+        state.ravenLiftUsed = true;
+        state.ravenPortentTimer = 210;
+        state.ravenPortentOwnerIndex = 2;
+        state.ravenPortentSerial = 7;
+        state.ravenDecoyActive = true;
+        state.ravenDecoyX = 333.0;
+        state.ravenDecoyLifeFrames = 144;
+        state.ravenDecoyUltimate = true;
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         state.write(new DataOutputStream(bos));
@@ -252,5 +269,22 @@ class LanProtocolTest {
         assertEquals(144, decoded.batCathedralTimer);
         assertEquals(777.25, decoded.batEchoFxEndX);
         assertTrue(decoded.batEchoFxBounced);
+        assertTrue(decoded.ravenQuillCharging);
+        assertEquals(18, decoded.ravenQuillChargeFrames);
+        assertEquals(22, decoded.ravenNeutralReuseTimer);
+        assertEquals(11, decoded.ravenSideTimer);
+        assertEquals(-1, decoded.ravenSideDirection);
+        assertTrue(decoded.ravenSideEmpowered);
+        assertEquals(123.5, decoded.ravenSideStartX);
+        assertEquals(456.25, decoded.ravenSideEndY);
+        assertEquals(9, decoded.ravenLiftTimer);
+        assertTrue(decoded.ravenLiftUsed);
+        assertEquals(210, decoded.ravenPortentTimer);
+        assertEquals(2, decoded.ravenPortentOwnerIndex);
+        assertEquals(7, decoded.ravenPortentSerial);
+        assertTrue(decoded.ravenDecoyActive);
+        assertEquals(333.0, decoded.ravenDecoyX);
+        assertEquals(144, decoded.ravenDecoyLifeFrames);
+        assertTrue(decoded.ravenDecoyUltimate);
     }
 }
