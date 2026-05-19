@@ -15556,13 +15556,7 @@ public class BirdGame3 extends Application {
         private final Canvas[] clawCanvases;
         private final Text[] clawLabels;
         private final Button[][] playerControlButtons;
-        private final double[] clawX;
-        private final double[] clawY;
-        private final int[] grabbedSelectorByClaw;
-        private final double[] grabOffsetX;
-        private final double[] grabOffsetY;
-        private final boolean[] clawVisible;
-        private final boolean[] clawClosed;
+        private final FightSetupClawState clawState;
 
         private FightSetupSelectorController(Circle[] selectors,
                                              Text[] selectorLabels,
@@ -15594,21 +15588,15 @@ public class BirdGame3 extends Application {
             this.clawCanvases = clawCanvases;
             this.clawLabels = clawLabels;
             this.playerControlButtons = playerControlButtons;
-            this.clawX = new double[clawCanvases == null ? 0 : clawCanvases.length];
-            this.clawY = new double[clawCanvases == null ? 0 : clawCanvases.length];
-            this.grabbedSelectorByClaw = new int[clawCanvases == null ? 0 : clawCanvases.length];
-            this.grabOffsetX = new double[clawCanvases == null ? 0 : clawCanvases.length];
-            this.grabOffsetY = new double[clawCanvases == null ? 0 : clawCanvases.length];
-            this.clawVisible = new boolean[clawCanvases == null ? 0 : clawCanvases.length];
-            this.clawClosed = new boolean[clawCanvases == null ? 0 : clawCanvases.length];
-            Arrays.fill(this.grabbedSelectorByClaw, -1);
-            for (int i = 0; i < this.clawX.length; i++) {
+            this.clawState = new FightSetupClawState(clawCanvases == null ? 0 : clawCanvases.length,
+                    FIGHT_SELECTOR_BOUND_MARGIN,
+                    54.0);
+            for (int i = 0; i < this.clawState.clawCount(); i++) {
                 Point2D dock = dockPositions != null && i < dockPositions.length
                         ? dockPositions[i]
                         : new Point2D(FIGHT_SELECTOR_BOUND_MARGIN, FIGHT_SELECTOR_BOUND_MARGIN);
-                clawX[i] = dock.getX();
-                clawY[i] = Math.max(FIGHT_SELECTOR_BOUND_MARGIN, dock.getY() - 54.0);
-                positionFightSelectorClaw(clawCanvases[i], clawLabels[i], clawX[i], clawY[i]);
+                clawState.moveHomeFromDock(i, dock.getX(), dock.getY());
+                positionFightSelectorClaw(clawCanvases[i], clawLabels[i], clawState.x(i), clawState.y(i));
                 updateClawPresentation(i, false, false);
             }
         }
@@ -15620,15 +15608,14 @@ public class BirdGame3 extends Application {
         }
 
         private void relayoutClaws() {
-            for (int sourceIdx = 0; sourceIdx < clawX.length; sourceIdx++) {
-                if (grabbedSelectorByClaw[sourceIdx] >= 0) {
+            for (int sourceIdx = 0; sourceIdx < clawState.clawCount(); sourceIdx++) {
+                if (clawState.isGrabbing(sourceIdx)) {
                     updateGrabbedSelectorPosition(sourceIdx);
                     continue;
                 }
                 Point2D home = clawDockInInteraction(sourceIdx);
-                clawX[sourceIdx] = home.getX();
-                clawY[sourceIdx] = home.getY();
-                positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawX[sourceIdx], clawY[sourceIdx]);
+                clawState.setPosition(sourceIdx, home.getX(), home.getY());
+                positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawState.x(sourceIdx), clawState.y(sourceIdx));
             }
         }
 
@@ -15640,13 +15627,12 @@ public class BirdGame3 extends Application {
                 cancelClawGrab(sourceIdx, true);
                 return;
             }
-            if (!clawVisible[sourceIdx]) {
+            if (!clawState.isVisible(sourceIdx)) {
                 Point2D home = clawDockInInteraction(sourceIdx);
-                clawX[sourceIdx] = home.getX();
-                clawY[sourceIdx] = home.getY();
+                clawState.setPosition(sourceIdx, home.getX(), home.getY());
             }
-            updateClawPresentation(sourceIdx, true, grabbedSelectorByClaw[sourceIdx] >= 0);
-            positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawX[sourceIdx], clawY[sourceIdx]);
+            updateClawPresentation(sourceIdx, true, clawState.isGrabbing(sourceIdx));
+            positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawState.x(sourceIdx), clawState.y(sourceIdx));
             focusButtonUnderClaw(sourceIdx);
         }
 
@@ -15658,9 +15644,6 @@ public class BirdGame3 extends Application {
             if (length <= 0.0) {
                 return;
             }
-            double distance = WIIMOTE_SELECTOR_CURSOR_SPEED * Math.max(0.0, dtSeconds);
-            double dx = horizontal / length * distance;
-            double dy = vertical / length * distance;
             double boundW = Math.max(interactionPane == null ? 0.0 : interactionPane.getWidth(),
                     interactionPane == null ? 0.0 : interactionPane.getLayoutBounds().getWidth());
             double boundH = Math.max(interactionPane == null ? 0.0 : interactionPane.getHeight(),
@@ -15669,9 +15652,8 @@ public class BirdGame3 extends Application {
                 boundW = Math.max(selectionPane.getWidth(), selectionPane.getPrefWidth());
                 boundH = Math.max(selectionPane.getHeight(), selectionPane.getPrefHeight());
             }
-            clawX[sourceIdx] = Math.clamp(clawX[sourceIdx] + dx, FIGHT_SELECTOR_BOUND_MARGIN, boundW - FIGHT_SELECTOR_BOUND_MARGIN);
-            clawY[sourceIdx] = Math.clamp(clawY[sourceIdx] + dy, FIGHT_SELECTOR_BOUND_MARGIN, boundH - FIGHT_SELECTOR_BOUND_MARGIN);
-            positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawX[sourceIdx], clawY[sourceIdx]);
+            clawState.moveByDirection(sourceIdx, horizontal, vertical, dtSeconds, WIIMOTE_SELECTOR_CURSOR_SPEED, boundW, boundH);
+            positionFightSelectorClaw(clawCanvases[sourceIdx], clawLabels[sourceIdx], clawState.x(sourceIdx), clawState.y(sourceIdx));
             updateGrabbedSelectorPosition(sourceIdx);
             focusButtonUnderClaw(sourceIdx);
         }
@@ -15693,7 +15675,7 @@ public class BirdGame3 extends Application {
             if (isValidClawIndex(sourceIdx) || sourceIdx >= activePlayers) {
                 return;
             }
-            if (grabbedSelectorByClaw[sourceIdx] >= 0) {
+            if (clawState.isGrabbing(sourceIdx)) {
                 return;
             }
             Button button = buttonUnderClaw(sourceIdx);
@@ -15715,9 +15697,7 @@ public class BirdGame3 extends Application {
                 clearFightSelectorChoice(targetSelector, selectors[targetSelector], selectorLocked, updateSlot[targetSelector], updateReady);
             }
             Point2D selectorCenter = selectorCenterInInteraction(targetSelector);
-            grabbedSelectorByClaw[sourceIdx] = targetSelector;
-            grabOffsetX[sourceIdx] = selectorCenter.getX() - clawX[sourceIdx];
-            grabOffsetY[sourceIdx] = selectorCenter.getY() - clawY[sourceIdx];
+            clawState.beginGrab(sourceIdx, targetSelector, selectorCenter.getX(), selectorCenter.getY());
             updateClawPresentation(sourceIdx, true, true);
             updateGrabbedSelectorPosition(sourceIdx);
         }
@@ -15736,7 +15716,7 @@ public class BirdGame3 extends Application {
             if (isValidClawIndex(sourceIdx)) {
                 return;
             }
-            int selectorIdx = grabbedSelectorByClaw[sourceIdx];
+            int selectorIdx = clawState.grabbedSelector(sourceIdx);
             if (selectorIdx >= 0 && selectorIdx < activePlayers) {
                 Circle selector = selectors[selectorIdx];
                 Text label = selectorLabels[selectorIdx];
@@ -15747,9 +15727,7 @@ public class BirdGame3 extends Application {
                     dockFightSelector(selectorIdx, selector, label, dockPositions);
                 }
             }
-            grabbedSelectorByClaw[sourceIdx] = -1;
-            grabOffsetX[sourceIdx] = 0.0;
-            grabOffsetY[sourceIdx] = 0.0;
+            clawState.clearGrab(sourceIdx);
             updateClawPresentation(sourceIdx, !hideAfter && sourceIdx < activePlayers, false);
         }
 
@@ -15757,12 +15735,12 @@ public class BirdGame3 extends Application {
             if (isValidClawIndex(sourceIdx)) {
                 return;
             }
-            int selectorIdx = grabbedSelectorByClaw[sourceIdx];
+            int selectorIdx = clawState.grabbedSelector(sourceIdx);
             if (selectorIdx < 0 || selectorIdx >= activePlayers) {
                 return;
             }
-            Point2D selectionLocal = interactionToSelection(clawX[sourceIdx] + grabOffsetX[sourceIdx],
-                    clawY[sourceIdx] + grabOffsetY[sourceIdx]);
+            Point2D selectionLocal = interactionToSelection(clawState.grabbedSelectorX(sourceIdx),
+                    clawState.grabbedSelectorY(sourceIdx));
             moveFightSelectorWithinPane(
                     selectors[selectorIdx],
                     selectorLabels[selectorIdx],
@@ -15786,8 +15764,8 @@ public class BirdGame3 extends Application {
                     continue;
                 }
                 Point2D center = selectorCenterInInteraction(selectorIdx);
-                double dx = center.getX() - clawX[sourceIdx];
-                double dy = center.getY() - clawY[sourceIdx];
+                double dx = center.getX() - clawState.x(sourceIdx);
+                double dy = center.getY() - clawState.y(sourceIdx);
                 double distance = dx * dx + dy * dy;
                 if (distance <= bestDistance) {
                     bestDistance = distance;
@@ -15798,12 +15776,7 @@ public class BirdGame3 extends Application {
         }
 
         private boolean selectorGrabbedByOtherClaw(int selectorIdx, int sourceIdx) {
-            for (int clawIdx = 0; clawIdx < grabbedSelectorByClaw.length; clawIdx++) {
-                if (clawIdx != sourceIdx && grabbedSelectorByClaw[clawIdx] == selectorIdx) {
-                    return true;
-                }
-            }
-            return false;
+            return clawState.selectorGrabbedByOtherClaw(selectorIdx, sourceIdx);
         }
 
         private boolean isValidClawIndex(int sourceIdx) {
@@ -15818,13 +15791,11 @@ public class BirdGame3 extends Application {
             if (isValidClawIndex(sourceIdx)) {
                 return;
             }
-            boolean visibleChanged = clawVisible[sourceIdx] != visible;
-            if (clawVisible[sourceIdx] != visible) {
-                clawVisible[sourceIdx] = visible;
+            FightSetupClawState.PresentationChange change = clawState.setPresentation(sourceIdx, visible, closed);
+            if (change.visibleChanged()) {
                 setFightSelectorClawVisible(clawCanvases[sourceIdx], clawLabels[sourceIdx], visible);
             }
-            if (visibleChanged || clawClosed[sourceIdx] != closed) {
-                clawClosed[sourceIdx] = closed;
+            if (change.needsImageRefresh()) {
                 refreshFightSelectorClaw(clawCanvases[sourceIdx], closed);
             }
         }
@@ -15877,7 +15848,7 @@ public class BirdGame3 extends Application {
                     continue;
                 }
                 Bounds localBounds = interactionPane.sceneToLocal(sceneBounds);
-                if (localBounds.contains(clawX[sourceIdx], clawY[sourceIdx])) {
+                if (localBounds.contains(clawState.x(sourceIdx), clawState.y(sourceIdx))) {
                     return button;
                 }
             }
