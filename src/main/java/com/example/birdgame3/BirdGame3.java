@@ -265,9 +265,8 @@ public class BirdGame3 extends Application {
     public Bird[] players = new Bird[MAX_COMBATANTS];
     public boolean[] isAI = new boolean[MAX_COMBATANTS];
     private final int[] cpuLevels = createFilledIntArray();
-    private final BirdType[] fightSelectedBirds = new BirdType[4];
-    private final boolean[] fightRandomSelected = new boolean[4];
-    private final String[] fightSelectedSkinKeys = new String[4];
+    private final FightSetupSelectionState fightSetupSelection = new FightSetupSelectionState(4);
+    // Raw aliases stay in place for older setup helpers while selection behavior moves into the model.
     int activePlayers = 2;
     AnimationTimer timer;
     List<Platform> platforms = new ArrayList<>();
@@ -1149,11 +1148,8 @@ public class BirdGame3 extends Application {
                 && selectorLocked != null
                 && idx >= 0
                 && idx < selectorLocked.length
-                && idx < fightSelectedBirds.length
-                && idx < fightRandomSelected.length
                 && selectorLocked[idx]
-                && !fightRandomSelected[idx]
-                && fightSelectedBirds[idx] == BirdType.VULTURE;
+                && fightSetupSelection.isSelectedBird(idx);
     }
 
     private char localNullRockSelectorDirection(int idx, KeyCode code) {
@@ -1181,8 +1177,8 @@ public class BirdGame3 extends Application {
             return false;
         }
         if (result.complete()) {
-            if (!NULL_ROCK_VULTURE_SKIN.equals(fightSelectedSkinKeys[idx])) {
-                fightSelectedSkinKeys[idx] = NULL_ROCK_VULTURE_SKIN;
+            if (!NULL_ROCK_VULTURE_SKIN.equals(fightSetupSelection.selectedSkinKey(idx))) {
+                fightSetupSelection.setSelectedSkinKey(idx, NULL_ROCK_VULTURE_SKIN);
                 if (updateSlot != null) updateSlot.run();
             }
             playButtonClick();
@@ -15382,9 +15378,7 @@ public class BirdGame3 extends Application {
             return;
         }
         selectorLocked[playerIdx] = false;
-        fightRandomSelected[playerIdx] = false;
-        fightSelectedBirds[playerIdx] = null;
-        fightSelectedSkinKeys[playerIdx] = null;
+        fightSetupSelection.clearSelection(playerIdx);
         refreshFightSelectorVisual(selector, false);
         if (updateSlot != null) {
             updateSlot.run();
@@ -15405,11 +15399,9 @@ public class BirdGame3 extends Application {
         }
         positionFightSelector(selector, label, spot.cx(), spot.cy());
         if (spot.random()) {
-            fightRandomSelected[playerIdx] = true;
-            fightSelectedBirds[playerIdx] = null;
+            fightSetupSelection.selectRandom(playerIdx);
         } else {
-            fightRandomSelected[playerIdx] = false;
-            fightSelectedBirds[playerIdx] = spot.type();
+            fightSetupSelection.selectBird(playerIdx, spot.type());
         }
         selectorLocked[playerIdx] = true;
         refreshFightSelectorVisual(selector, true);
@@ -16243,16 +16235,7 @@ public class BirdGame3 extends Application {
                     + "-fx-border-radius: 14;");
         };
 
-        Runnable updateReadyBanner = () -> {
-            boolean ready = true;
-            for (int i = 0; i < activePlayers; i++) {
-                if (!fightRandomSelected[i] && fightSelectedBirds[i] == null) {
-                    ready = false;
-                    break;
-                }
-            }
-            readyBanner.setVisible(ready);
-        };
+        Runnable updateReadyBanner = () -> readyBanner.setVisible(fightSetupSelection.allReady(activePlayers));
 
         Runnable[] updateSlot = new Runnable[4];
         int[] nullRockSequenceProgress = new int[4];
@@ -16389,15 +16372,15 @@ public class BirdGame3 extends Application {
 
             updateSlot[idx] = () -> {
                 nullRockSequenceProgress[idx] = 0;
-                boolean randomPick = fightRandomSelected[idx];
-                BirdType type = fightSelectedBirds[idx];
-                String skinKey = fightSelectedSkinKeys[idx];
+                boolean randomPick = fightSetupSelection.isRandomSelected(idx);
+                BirdType type = fightSetupSelection.selectedBird(idx);
+                String skinKey = fightSetupSelection.selectedSkinKey(idx);
                 if (randomPick) {
                     type = null;
                     skinKey = null;
                 } else {
                     skinKey = normalizeAdventureSkinChoice(type, skinKey);
-                    fightSelectedSkinKeys[idx] = skinKey;
+                    fightSetupSelection.setSelectedSkinKey(idx, skinKey);
                 }
                 drawRosterSprite(portraits[idx], type, skinKey, randomPick);
                 nameLabels[idx].setText(randomPick ? "RANDOM" : (type != null ? type.name.toUpperCase() : "SELECT A BIRD"));
@@ -16422,14 +16405,14 @@ public class BirdGame3 extends Application {
 
             skinButtons[idx].setOnAction(e -> {
                 playButtonClick();
-                BirdType type = fightSelectedBirds[idx];
-                if (type == null || fightRandomSelected[idx]) return;
+                BirdType type = fightSetupSelection.selectedBird(idx);
+                if (type == null || fightSetupSelection.isRandomSelected(idx)) return;
                 List<String> options = adventureSkinOptions(type);
                 if (options.size() <= 1) return;
-                String current = fightSelectedSkinKeys[idx];
+                String current = fightSetupSelection.selectedSkinKey(idx);
                 int pos = options.indexOf(current);
                 if (pos < 0) pos = 0;
-                fightSelectedSkinKeys[idx] = options.get((pos + 1) % options.size());
+                fightSetupSelection.setSelectedSkinKey(idx, options.get((pos + 1) % options.size()));
                 updateSlot[idx].run();
             });
 
@@ -16697,7 +16680,9 @@ public class BirdGame3 extends Application {
                 }
                 refreshCpuButton(i);
                 refreshFightSelectorVisual(selectors[i], selectorLocked[i]);
-                BirdIconSpot spot = fightRandomSelected[i] ? finalRandomSpot : spotByType.get(fightSelectedBirds[i]);
+                BirdIconSpot spot = fightSetupSelection.isRandomSelected(i)
+                        ? finalRandomSpot
+                        : spotByType.get(fightSetupSelection.selectedBird(i));
                 if (spot != null) {
                     positionFightSelector(selectors[i], selectorLabels[i], spot.cx(), spot.cy());
                 } else {
@@ -20578,12 +20563,8 @@ public class BirdGame3 extends Application {
             bType = firstUnlockedBird();
         }
 
-        fightSelectedBirds[0] = aType;
-        fightSelectedBirds[1] = bType;
-        fightRandomSelected[0] = false;
-        fightRandomSelected[1] = false;
-        fightSelectedSkinKeys[0] = tournamentEntrySkinKey(tournamentSlotA, aType);
-        fightSelectedSkinKeys[1] = tournamentEntrySkinKey(tournamentSlotB, bType);
+        fightSetupSelection.selectBirdWithSkin(0, aType, tournamentEntrySkinKey(tournamentSlotA, aType));
+        fightSetupSelection.selectBirdWithSkin(1, bType, tournamentEntrySkinKey(tournamentSlotB, bType));
 
         isAI[0] = !tournamentSlotA.human;
         isAI[1] = !tournamentSlotB.human;
@@ -34936,8 +34917,8 @@ public class BirdGame3 extends Application {
                     isAI[i] = false;
                     continue;
                 }
-                BirdType type = lanModeActive ? lanSelectedBirds[i] : fightSelectedBirds[i];
-                boolean randomPick = lanModeActive ? lanRandomBirds[i] : fightRandomSelected[i];
+                BirdType type = lanModeActive ? lanSelectedBirds[i] : fightSetupSelection.selectedBird(i);
+                boolean randomPick = lanModeActive ? lanRandomBirds[i] : fightSetupSelection.isRandomSelected(i);
                 if (type == null || (lanModeActive && randomPick) || (!lanModeActive && (randomPick || !isBirdUnlocked(type)))) {
                     type = pool.get(random.nextInt(pool.size()));
                     if (lanModeActive) {
@@ -34952,9 +34933,9 @@ public class BirdGame3 extends Application {
                     String skinKey = randomPick ? randomAdventureSkinChoice(type) : lanSelectedSkinKeys[i];
                     applyPreviewSkinChoiceToBird(players[i], type, skinKey);
                 } else {
-                    String skinKey = randomPick ? randomAdventureSkinChoice(type) : fightSelectedSkinKeys[i];
+                    String skinKey = randomPick ? randomAdventureSkinChoice(type) : fightSetupSelection.selectedSkinKey(i);
                     skinKey = normalizeAdventureSkinChoice(type, skinKey);
-                    fightSelectedSkinKeys[i] = skinKey;
+                    fightSetupSelection.setSelectedSkinKey(i, skinKey);
                     applySkinChoiceToBird(players[i], type, skinKey);
                 }
 
