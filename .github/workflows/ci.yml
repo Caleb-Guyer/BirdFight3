@@ -31,6 +31,13 @@ jobs:
         shell: pwsh
         run: ./scripts/verify-dist.cmd
 
+      - name: Upload distribution package
+        uses: actions/upload-artifact@v4
+        with:
+          name: birdfight3-windows-dist
+          path: target/*-dist.zip
+          if-no-files-found: error
+
       - name: Audit bundled audio
         shell: pwsh
         run: ./scripts/audit-sounds.cmd -OutputPath audit/audio-audit.md -FailOnFindings
