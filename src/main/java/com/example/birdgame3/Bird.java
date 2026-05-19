@@ -1240,16 +1240,7 @@ public class Bird {
         }
     }
 
-    private static final class TitmouseMobbingNode {
-        final double x;
-        final double y;
-        final Bird target;
-
-        TitmouseMobbingNode(double x, double y, Bird target) {
-            this.x = x;
-            this.y = y;
-            this.target = target;
-        }
+    private record TitmouseMobbingNode(double x, double y, Bird target) {
     }
 
     private static final class RoadrunnerPaintedRoad {
@@ -1281,7 +1272,6 @@ public class Bird {
         final double x;
         final double y;
         final boolean ultimate;
-        final int[] hitCooldown = new int[4];
         int ageFrames;
         int fuseFrames;
 
@@ -1963,9 +1953,7 @@ public class Bird {
             }
             case PENGUIN -> resetPenguinSpecialState(false);
             case SHOEBILL -> resetShoebillSpecialState();
-            case RAZORBILL -> {
-                resetRazorbillSpecialState(false);
-            }
+            case RAZORBILL -> resetRazorbillSpecialState(false);
             case GRINCHHAWK -> resetGrinchhawkSpecialState(false);
             case VULTURE -> resetVultureSpecialState(false);
             case OPIUMBIRD, HEISENBIRD -> {
@@ -1974,9 +1962,7 @@ public class Bird {
             }
             case TITMOUSE -> resetTitmouseSpecialState(false);
             case BAT -> batEchoTimer = 0;
-            case PELICAN -> {
-                resetPelicanSpecialState(false);
-            }
+            case PELICAN -> resetPelicanSpecialState(false);
             case RAVEN -> resetRavenSpecialState(false);
             case ROOSTER, MOCKINGBIRD -> {
             }
@@ -4413,7 +4399,7 @@ public class Bird {
         double fallCap = penguinRocketUltimate ? 9.8 : 7.8;
         double fallAccel = (penguinRocketUltimate ? 0.24 : 0.19) + eased * (penguinRocketUltimate ? 0.34 : 0.28);
         double fallFloor = (penguinRocketUltimate ? 1.25 : 0.95) + eased * (penguinRocketUltimate ? 2.30 : 1.75);
-        vy = Math.min(fallCap, Math.max(vy + fallAccel, fallFloor));
+        vy = Math.clamp(vy + fallAccel, fallFloor, fallCap);
         if ((penguinFlopTimer & 2) == 0) {
             game.particles.add(new Particle(
                     bodyCenterX() + (Math.random() - 0.5) * 36.0 * sizeMultiplier,
@@ -7521,7 +7507,7 @@ public class Bird {
             game.particles.add(new Particle(
                     originX + (Math.random() - 0.5) * 22.0 * sizeMultiplier,
                     originY + (Math.random() - 0.5) * 16.0 * sizeMultiplier,
-                    Math.cos(angle) * speed + safeDir * (0.2 + Math.random() * 1.0),
+                    Math.cos(angle) * speed + safeDir * (0.2 + Math.random()),
                     Math.sin(angle) * speed - Math.random() * 2.2,
                     baseColor.deriveColor(0, 1, 1, 0.62 + Math.random() * 0.25)
             ));
@@ -7569,7 +7555,6 @@ public class Bird {
         }
 
         BirdGame3.BirdType originalType = type;
-        BirdGame3.BirdType originalCopiedSource = mockingbirdCopiedNeutralSource;
         type = source;
         try {
             switch (source) {
@@ -7591,10 +7576,6 @@ public class Bird {
                 case BAT -> specialBatNeutral(ultimate);
                 case PELICAN -> specialPelicanPouchSnare(ultimate);
                 case RAVEN -> fireRavenBlackQuillVolley(false, ultimate);
-                case MOCKINGBIRD -> {
-                    mockingbirdCopiedNeutralSource = originalCopiedSource;
-                    return;
-                }
             }
             mockingbirdCopiedNeutralSource = source;
         } finally {
@@ -7772,7 +7753,7 @@ public class Bird {
         facingRight = dir > 0;
         razorbillSideReuseTimer = ultimate ? 18 : RAZORBILL_SIDE_REUSE_FRAMES;
         specialCooldown = razorbillSideReuseTimer;
-        specialMaxCooldown = Math.max(1, razorbillSideReuseTimer);
+        specialMaxCooldown = razorbillSideReuseTimer;
         razorbillSideUltimate = ultimate;
         bladeStormFrames = ultimate ? RAZORBILL_DASH_FRAMES + 10 : RAZORBILL_DASH_FRAMES;
         Arrays.fill(razorbillDashHit, false);
@@ -8139,10 +8120,6 @@ public class Bird {
         }
     }
 
-    private void specialVulture(boolean ultimate) {
-        specialVulture(VultureSpecialVariant.NEUTRAL, ultimate);
-    }
-
     private void specialVulture(VultureSpecialVariant variant, boolean ultimate) {
         if (isNullRockForm()) {
             specialNullRock(ultimate);
@@ -8154,7 +8131,7 @@ public class Bird {
         }
         switch (variant) {
             case NEUTRAL -> specialVultureCarrionCall(false);
-            case SIDE -> specialVultureGravewindGlide(false);
+            case SIDE -> specialVultureGravewindGlide();
             case UP -> specialVultureThermalSpiral(false);
             case DOWN -> specialVultureBoneOffering(false);
         }
@@ -8188,25 +8165,24 @@ public class Bird {
                 facingDirection(), ultimate ? 28 : 18, ultimate ? Color.GOLD : Color.web("#21162B"));
     }
 
-    private void specialVultureGravewindGlide(boolean ultimate) {
+    private void specialVultureGravewindGlide() {
         int dir = horizontalInputDirection();
-        if (dir == 0) {
+        if (dir == 0)
             dir = facingDirection();
-        }
         facingRight = dir > 0;
-        vultureGlideTimer = VULTURE_GLIDE_FRAMES + (ultimate ? 8 : 0);
+        vultureGlideTimer = VULTURE_GLIDE_FRAMES;
         vultureGlideDirection = dir;
-        vultureGlideUltimate = ultimate;
+        vultureGlideUltimate = false;
         Arrays.fill(vultureGlideHit, false);
-        vultureSideReuseTimer = ultimate ? 14 : VULTURE_GLIDE_REUSE_FRAMES;
+        vultureSideReuseTimer = VULTURE_GLIDE_REUSE_FRAMES;
         specialCooldown = 0;
         specialMaxCooldown = 0;
         crowSwarmCooldown = 0;
         attackAnimationTimer = Math.max(attackAnimationTimer, vultureGlideTimer);
-        vx = dir * (ultimate ? 20.0 : 16.4);
+        vx = dir * (16.4);
         vy = Math.min(vy, isOnGround() ? -2.0 : 1.2);
         emitVultureBurst(bodyCenterX() - dir * 28.0 * sizeMultiplier, bodyCenterY(),
-                -dir, ultimate ? 22 : 15, ultimate ? Color.GOLD : Color.web("#394049"));
+                -dir, 15, Color.web("#394049"));
     }
 
     private void specialVultureThermalSpiral(boolean ultimate) {
@@ -16578,7 +16554,7 @@ public class Bird {
                             bodyCenterX() + (Math.random() - 0.5) * 36.0 * sizeMultiplier,
                             bodyBottomY() - 12.0 * sizeMultiplier,
                             (Math.random() - 0.5) * 0.7,
-                            -0.5 - Math.random() * 1.0,
+                            -0.5 - Math.random(),
                             Color.web("#E1BEE7").deriveColor(0, 1, 1, 0.62)
                     ));
                 }
@@ -21923,7 +21899,7 @@ public class Bird {
             double phase = pigeonSpecialPhase(grinchChimneyFlapTimer,
                     grinchChimneyFlapUltimate ? GRINCH_CHIMNEY_FLAP_FRAMES + 8 : GRINCH_CHIMNEY_FLAP_FRAMES);
             return new AttackVisualPose(
-                    dir * 1.0,
+                    dir,
                     -18.0 - phase * 12.0,
                     dir * (3.0 + phase * 4.0),
                     normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.12),
@@ -23096,7 +23072,7 @@ public class Bird {
             g.setLineWidth((3.0 + ratio * 2.4) * s);
             g.strokeOval(bodyCenterX() - radius, bodyCenterY() - radius * 0.58, radius * 2.0, radius * 1.16);
             g.setStroke(Color.GOLD.deriveColor(0, 1, 1, 0.18 + pulse * 0.18));
-            g.setLineWidth((1.4 + pulse * 1.0) * s);
+            g.setLineWidth((1.4 + pulse) * s);
             for (int i = 0; i < 5; i++) {
                 double angle = i * 72.0 + ratio * 80.0;
                 g.strokeArc(bodyCenterX() - radius * 0.74, bodyCenterY() - radius * 0.43,
@@ -26192,7 +26168,7 @@ public class Bird {
         );
         g.setStroke(Color.web("#5D4037", 0.48));
         g.setLineWidth(1.15 * s);
-        g.strokeLine(beakTipX - dir * 4.0 * s, beakY + 1.0 * s + beakOpen * 0.48,
+        g.strokeLine(beakTipX - dir * 4.0 * s, beakY + s + beakOpen * 0.48,
                 beakTipX - dir * 10.0 * s, beakY + 8.0 * s + beakOpen * 0.34);
 
         g.setFill(Color.WHITE);
@@ -26930,7 +26906,7 @@ public class Bird {
             g.fillOval(wingX + (facingRight ? 12.0 : -6.0) * s, wingY + 7.0 * s,
                     18.0 * s, (54.0 + wingPulse * 7.0) * s);
             g.setStroke(wingLine);
-            g.setLineWidth(1.0 * s);
+            g.setLineWidth(s);
             g.strokeArc(wingX + (facingRight ? 2.0 : -3.0) * s, wingY + 5.0 * s,
                     26.0 * s, 56.0 * s, facingRight ? 82 : 18, 82, ArcType.OPEN);
         }
@@ -27023,7 +26999,7 @@ public class Bird {
         g.fillOval(headX, headY, headW, headH);
         if (stylizedEagle) {
             g.setFill(Color.web("#F5F1DD").deriveColor(0, 1, 1, isClassicSkin ? 0.34 : 0.42));
-            g.fillOval(headX + 7.0 * s, headY + 1.0 * s, 36.0 * s, 26.0 * s);
+            g.fillOval(headX + 7.0 * s, headY + s, 36.0 * s, 26.0 * s);
             g.setFill(Color.web("#F5F1DD").deriveColor(0, 1, 1, isClassicSkin ? 0.20 : 0.26));
             g.fillOval(x + 24.0 * s, y + 30.0 * s, 34.0 * s, 22.0 * s);
             g.setStroke(Color.web("#2A1111").deriveColor(0, 1, 1, 0.34));
@@ -27092,7 +27068,7 @@ public class Bird {
             g.setFill(belly);
             g.fillOval(x + 20.0 * s, y + 32.0 * s, 40.0 * s, 40.0 * s);
             g.setFill(cap);
-            g.fillOval(headX + 5.0 * s, headY + 1.0 * s, 40.0 * s, 22.0 * s);
+            g.fillOval(headX + 5.0 * s, headY + s, 40.0 * s, 22.0 * s);
             g.setFill(Color.web("#FFA726").deriveColor(0, 1, 1, 0.68));
             g.fillOval(x + 21.0 * s, y + 72.0 * s, 17.0 * s, 8.0 * s);
             g.fillOval(x + 43.0 * s, y + 72.0 * s, 17.0 * s, 8.0 * s);
@@ -27287,7 +27263,7 @@ public class Bird {
         }
         if (voidHeraldRaven) {
             g.setFill(Color.web("#E8E1D2").deriveColor(0, 1, 1, 0.82));
-            g.fillOval(headX + (facingRight ? -1.0 : 27.0) * s, headY + 1.0 * s, 25.0 * s, 26.0 * s);
+            g.fillOval(headX + (facingRight ? -1.0 : 27.0) * s, headY + s, 25.0 * s, 26.0 * s);
             g.setStroke(Color.web("#5E35B1").deriveColor(0, 1, 1, 0.72));
             g.setLineWidth(1.4 * s);
             double crackX = headX + (facingRight ? 12.0 : 39.0) * s;

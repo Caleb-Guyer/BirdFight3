@@ -141,14 +141,13 @@ class BirdGame3SettingsTest {
         game.setAchievementUnlocked(BirdGame3Achievement.URBAN_KING.legacyIndex);
 
         Class<?> categoryClass = Class.forName("com.example.birdgame3.BirdGame3AchievementCategory");
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        Object mapCategory = Enum.valueOf((Class<? extends Enum>) categoryClass.asSubclass(Enum.class), "MAP");
+        Enum.valueOf((Class<? extends Enum>) categoryClass.asSubclass(Enum.class), "MAP");
 
         Method orderMethod = BirdGame3.class.getDeclaredMethod("achievementDisplayOrder", categoryClass);
         orderMethod.setAccessible(true);
 
         @SuppressWarnings("unchecked")
-        List<Integer> order = (List<Integer>) orderMethod.invoke(game, mapCategory);
+        List<Integer> order = (List<Integer>) orderMethod.invoke(game);
 
         assertEquals(12, order.getLast());
     }

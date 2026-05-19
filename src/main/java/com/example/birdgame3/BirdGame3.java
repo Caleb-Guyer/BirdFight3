@@ -206,14 +206,8 @@ public class BirdGame3 extends Application {
     private static final DateTimeFormatter MATCH_HISTORY_TIME_FORMAT =
             DateTimeFormatter.ofPattern("MMM d, yyyy  h:mm a", Locale.US);
 
-    private static final class SceneEventFilterRegistration<T extends Event> {
-        final EventType<T> eventType;
-        final EventHandler<? super T> handler;
-
-        SceneEventFilterRegistration(EventType<T> eventType, EventHandler<? super T> handler) {
-            this.eventType = eventType;
-            this.handler = handler;
-        }
+    private record SceneEventFilterRegistration<T extends Event>(EventType<T> eventType,
+                                                                 EventHandler<? super T> handler) {
     }
 
     private static long[] filledLongArray(int length) {
@@ -1304,8 +1298,8 @@ public class BirdGame3 extends Application {
             return;
         }
         for (Object filter : filters) {
-            if (filter instanceof SceneEventFilterRegistration registration) {
-                scene.removeEventFilter(registration.eventType, registration.handler);
+            if (filter instanceof SceneEventFilterRegistration(EventType eventType, EventHandler handler)) {
+                scene.removeEventFilter(eventType, handler);
             }
         }
         filters.clear();
@@ -12535,7 +12529,7 @@ public class BirdGame3 extends Application {
             c.vy *= 0.42;
         }
 
-        if (closest != null && isValidAnchoredCrowTarget(c, closest)) {
+        if (isValidAnchoredCrowTarget(c, closest)) {
             double hitDx = (closest.x + 40) - c.x;
             double hitDy = (closest.y + 40) - c.y;
             if (Math.hypot(hitDx, hitDy) < 48.0) {
@@ -13317,8 +13311,7 @@ public class BirdGame3 extends Application {
             case ROADRUNNER -> 1.70;
             case HUMMINGBIRD -> 1.66;
             case PELICAN -> 1.64;
-            case FALCON -> 1.62;
-            case VULTURE -> 1.62;
+            case FALCON, VULTURE -> 1.62;
             case PHOENIX -> 1.56;
             case ROOSTER -> 1.50;
             case EAGLE, PIGEON, TURKEY, RAVEN, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD -> 1.46;
@@ -16452,20 +16445,7 @@ public class BirdGame3 extends Application {
             slot.setPadding(new Insets(16));
             slotContents[idx] = slot;
 
-            Region cardBase = new Region();
-            cardBase.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
-            cardBase.setStyle("-fx-background-color: linear-gradient(to bottom right, "
-                    + accentHex + ", #0C0E12); "
-                    + "-fx-background-radius: 26; -fx-border-color: rgba(255,255,255,0.16); "
-                    + "-fx-border-width: 3; -fx-border-radius: 26;");
-
-            StackPane slotCard = new StackPane(cardBase, slot);
-            slotCard.setMinWidth(320);
-            slotCard.setPrefWidth(320);
-            slotCard.setPrefHeight(248);
-            slotCard.setMinHeight(248);
-            slotCard.setMaxHeight(248);
-            slotCard.setMaxWidth(320);
+            StackPane slotCard = getStackPane(accentHex, slot);
             fightSlots[idx] = slotCard;
         }
 
@@ -16823,6 +16803,24 @@ public class BirdGame3 extends Application {
         bindFixedFrameScale(scene, content);
         setScenePreservingFullscreen(stage, scene);
         back.requestFocus();
+    }
+
+    private static StackPane getStackPane(String accentHex, VBox slot) {
+        Region cardBase = new Region();
+        cardBase.setMaxSize(Double.MAX_VALUE, Double.MAX_VALUE);
+        cardBase.setStyle("-fx-background-color: linear-gradient(to bottom right, "
+                + accentHex + ", #0C0E12); "
+                + "-fx-background-radius: 26; -fx-border-color: rgba(255,255,255,0.16); "
+                + "-fx-border-width: 3; -fx-border-radius: 26;");
+
+        StackPane slotCard = new StackPane(cardBase, slot);
+        slotCard.setMinWidth(320);
+        slotCard.setPrefWidth(320);
+        slotCard.setPrefHeight(248);
+        slotCard.setMinHeight(248);
+        slotCard.setMaxHeight(248);
+        slotCard.setMaxWidth(320);
+        return slotCard;
     }
 
     private Button getButton(Stage stage, Node settingsIcon) {
@@ -26329,10 +26327,7 @@ public class BirdGame3 extends Application {
             case STORM_PIGEON_SKIN -> {
                 return stormPigeonUnlocked;
             }
-            case STOCK_PHOTO_EAGLE_SKIN -> {
-                return true;
-            }
-            case STOCK_PHOTO_TURKEY_SKIN -> {
+            case STOCK_PHOTO_EAGLE_SKIN, STOCK_PHOTO_TURKEY_SKIN -> {
                 return true;
             }
             case "SKY_KING_EAGLE" -> {
