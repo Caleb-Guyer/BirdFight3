@@ -73,66 +73,66 @@ The game will launch with the main menu. Choose your game mode and start battlin
 
 ```
 src/main/java/com/example/birdgame3/
-├── Launcher.java                          # Entry point for the application
-├── BirdGame3.java                         # Main game controller
-├── Bird.java                              # Base bird character class
-├── MatchController.java                   # Match game logic
-├── MenuLayout.java & MenuTheme.java       # UI framework
-├── UIFactory.java                         # Dynamic UI generation
-│
-├── Game Modes
-│   ├── TowerDefenseMode.java
-│   ├── BirdGame3TournamentSetupUi.java
-│   └── BirdGame3TournamentUi.java
-│
-├── Characters & Minions
-│   ├── ChickMinion.java
-│   ├── CrowMinion.java
-│   └── various bird AI implementations
-│
-├── Maps & Environment
-│   ├── Platform.java                      # Map platforms
-│   ├── PiranhaHazard.java                 # Water hazard
-│   ├── WindVent.java                      # Air hazard
-│   ├── SwingingVine.java                  # Interactive element
-│   ├── FrostbiteSnowbank.java             # Snow hazard
-│   ├── DockShipBomb.java                  # Explosive hazard
-│   └── NectarNode.java                    # Collectible
-│
-├── Power-ups & Items
-│   ├── PowerUp.java & PowerUpType.java
-│   ├── ShopItem.java
-│   ├── ShopPackResult.java
-│   ├── ShopRarity.java
-│   └── PackReward.java
-│
-├── Input & Controls
-│   ├── WiimoteController.java             # Wii Remote support
-│   ├── WiimoteInputManager.java
-│   ├── WiimoteControlMapper.java
-│   ├── XboxInputManager.java              # Xbox controller support
-│   └── DirectionalSecretCode.java         # Input pattern detection
-│
-├── Networking (LAN)
-│   ├── LanClient.java
-│   ├── LanHostServer.java
-│   ├── LanPayloadRouter.java
-│   ├── LanProtocol.java
-│   └── NetworkSessionClient/Host.java
-│
-├── Progression & Unlocks
-│   ├── BirdGame3AchievementProfile.java   # Achievement tracking
-│   ├── BirdGame3AchievementEvaluator.java
-│   ├── BirdCoinLedger.java                # Currency system
-│   ├── GameSaveRepository.java            # Save data persistence
-│   ├── BirdGame3ProfileProgressState.java
-│   └── BirdGame3ProgressionService.java
-│
-└── Utilities
-    ├── Particle.java                      # Visual effects
-    ├── FrameRateLimiter.java              # Performance control
-    ├── DigitalHoldStabilizer.java         # Input smoothing
-    └── ThrowableLogSupport.java           # Debugging
+|-- Launcher.java                          # Entry point for the application
+|-- BirdGame3.java                         # Main game controller
+|-- Bird.java                              # Base bird character class
+|-- MatchController.java                   # Match game logic
+|-- MenuLayout.java & MenuTheme.java       # UI framework
+|-- UIFactory.java                         # Dynamic UI generation
+|
+|-- Game Modes
+|   |-- TowerDefenseMode.java
+|   |-- BirdGame3TournamentSetupUi.java
+|   `-- BirdGame3TournamentUi.java
+|
+|-- Characters & Minions
+|   |-- ChickMinion.java
+|   |-- CrowMinion.java
+|   `-- various bird AI implementations
+|
+|-- Maps & Environment
+|   |-- Platform.java                      # Map platforms
+|   |-- PiranhaHazard.java                 # Water hazard
+|   |-- WindVent.java                      # Air hazard
+|   |-- SwingingVine.java                  # Interactive element
+|   |-- FrostbiteSnowbank.java             # Snow hazard
+|   |-- DockShipBomb.java                  # Explosive hazard
+|   `-- NectarNode.java                    # Collectible
+|
+|-- Power-ups & Items
+|   |-- PowerUp.java & PowerUpType.java
+|   |-- ShopItem.java
+|   |-- ShopPackResult.java
+|   |-- ShopRarity.java
+|   `-- PackReward.java
+|
+|-- Input & Controls
+|   |-- WiimoteController.java             # Wii Remote support
+|   |-- WiimoteInputManager.java
+|   |-- WiimoteControlMapper.java
+|   |-- XboxInputManager.java              # Xbox controller support
+|   `-- DirectionalSecretCode.java         # Input pattern detection
+|
+|-- Networking (LAN)
+|   |-- LanClient.java
+|   |-- LanHostServer.java
+|   |-- LanPayloadRouter.java
+|   |-- LanProtocol.java
+|   `-- NetworkSessionClient/Host.java
+|
+|-- Progression & Unlocks
+|   |-- BirdGame3AchievementProfile.java   # Achievement tracking
+|   |-- BirdGame3AchievementEvaluator.java
+|   |-- BirdCoinLedger.java                # Currency system
+|   |-- GameSaveRepository.java            # Save data persistence
+|   |-- BirdGame3ProfileProgressState.java
+|   `-- BirdGame3ProgressionService.java
+|
+`-- Utilities
+    |-- Particle.java                      # Visual effects
+    |-- FrameRateLimiter.java              # Performance control
+    |-- DigitalHoldStabilizer.java         # Input smoothing
+    `-- ThrowableLogSupport.java           # Debugging
 
 ```
 
@@ -222,4 +222,4 @@ Contributions are welcome! Please feel free to submit pull requests or open issu
 
 ---
 
-**Made with ❤️ and lots of flapping!**
+**Made with love and lots of flapping!**
