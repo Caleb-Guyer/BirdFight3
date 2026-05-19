@@ -183,6 +183,14 @@ Bird Fight 3 natively supports Wii remotes for enhanced gameplay. Connect your W
 ./mvnw package
 ```
 
+The package command creates `target/BirdGame3-1.0-SNAPSHOT-dist.zip` and an expanded
+`target/BirdGame3-1.0-SNAPSHOT-dist/` directory. On Windows, run the packaged game
+with:
+
+```powershell
+.\target\BirdGame3-1.0-SNAPSHOT-dist\BirdGame3-1.0-SNAPSHOT\bin\birdfight3.cmd
+```
+
 ## Troubleshooting
 
 **"JAVA_HOME not found" or Maven launches with Java 8**
