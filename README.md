@@ -36,7 +36,7 @@ Bird Fight 3 is a feature-rich platform fighter that supports local play, AI opp
 - **Progression & Unlocks**
   - Achievement system with categories
   - Bird Coin currency for shop purchases
-  - Raritry-based reward packs
+  - Rarity-based reward packs
   - Match history tracking
   - Profile-based progression
 
