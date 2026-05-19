@@ -25,7 +25,7 @@ jobs:
 
       - name: Audit bundled audio
         shell: pwsh
-        run: ./scripts/audit-sounds.cmd -OutputPath audit/audio-audit.md
+        run: ./scripts/audit-sounds.cmd -OutputPath audit/audio-audit.md -FailOnFindings
 
       - name: Upload audio audit
         if: always()

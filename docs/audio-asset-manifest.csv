@@ -1,19 +1,24 @@
 file,status,source,license,action,notes
-bonk.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-braniac_maniac.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,No hostname detected in quick scan; source still undocumented
-butter.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-buttonclick.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-choose_your_seeds.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,No hostname detected in quick scan; source still undocumented
-dark-ages-ultimate-battle.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-finalfanfare.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-GW2ops.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-hugewave.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-jalapeno.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-loonboon.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,No hostname detected in quick scan; source still undocumented
-rvthrow.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-skycity.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-swing.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-ultimate_battle.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,No hostname detected in quick scan; source still undocumented
-vase-breaking.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-zombie-falling.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,Embedded 101soundboards.com marker detected
-zombotany.mp3,UNVERIFIED,UNKNOWN,UNKNOWN,REPLACE OR DOCUMENT,No hostname detected in quick scan; source still undocumented
+bonk.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+braniac_maniac.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+butter.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+buttonclick.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+cherrybomb.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+choose_your_seeds.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+dark-ages-ultimate-battle.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+finalfanfare.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+GW2ops.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+hugewave.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+jalapeno.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+loonboon.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+pirate-seas.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+rvthrow.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+skycity.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+steam-achievement.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+swing.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+treasure-yeti-high.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+ultimate_battle.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+vase-breaking.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+wild-west-ultimate-battle.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+zombie-falling.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
+zombotany.mp3,OWNED,PROJECT_OWNER,PROJECT_OWNED,NONE,ID3 metadata stripped and no embedded hostnames detected
