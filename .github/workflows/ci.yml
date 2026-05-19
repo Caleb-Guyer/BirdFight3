@@ -23,6 +23,14 @@ jobs:
         shell: pwsh
         run: ./scripts/test.cmd -NoAudioAudit
 
+      - name: Build distribution package
+        shell: pwsh
+        run: ./mvnw.cmd -B -ntp package -DskipTests
+
+      - name: Verify distribution package
+        shell: pwsh
+        run: ./scripts/verify-dist.cmd
+
       - name: Audit bundled audio
         shell: pwsh
         run: ./scripts/audit-sounds.cmd -OutputPath audit/audio-audit.md -FailOnFindings
