@@ -2782,6 +2782,22 @@ public class BirdGame3 extends Application {
         label.setFont(Font.font("Arial Black", minSize));
     }
 
+    private void fitButtonSingleLine(Button button, double maxSize, double minSize, double maxWidth) {
+        if (button == null) return;
+        String text = button.getText();
+        if (text == null || text.isBlank()) return;
+        double size = maxSize;
+        while (size > minSize) {
+            Font f = Font.font("Arial Black", size);
+            if (measureTextWidth(text, f) <= maxWidth) {
+                button.setFont(f);
+                return;
+            }
+            size -= 1.0;
+        }
+        button.setFont(Font.font("Arial Black", minSize));
+    }
+
     private void lockRegionSize(Region region, double width, double height) {
         if (region == null) return;
         region.setMinSize(width, height);
@@ -4089,7 +4105,9 @@ public class BirdGame3 extends Application {
         boolean human = true;
         BirdType selectedType = null;
         BirdType resolvedType = null;
+        String selectedSkinKey = null;
         String customName = "";
+        int cpuLevel = 5;
 
         TournamentEntry(int id) {
             this.id = id;
@@ -14776,6 +14794,10 @@ public class BirdGame3 extends Application {
         drawRosterSprite(canvas, type, null, type == null);
     }
 
+    void drawTournamentPortrait(Canvas canvas, BirdType type, String skinKey) {
+        drawRosterSprite(canvas, type, skinKey, type == null);
+    }
+
     private void applyUltimateHubEffect(Node node, Effect effect) {
         if (node == null) return;
         boolean useShadow = !Boolean.FALSE.equals(node.getProperties().get("hubUseShadow"));
@@ -18955,7 +18977,10 @@ public class BirdGame3 extends Application {
             if (entry.resolvedType != null && !isBirdUnlocked(entry.resolvedType)) {
                 entry.resolvedType = null;
             }
+            BirdType skinType = entry.selectedType != null ? entry.selectedType : entry.resolvedType;
+            entry.selectedSkinKey = normalizeAdventureSkinChoice(skinType, entry.selectedSkinKey);
             entry.customName = normalizeTournamentEntryName(entry.customName);
+            entry.cpuLevel = Math.clamp(entry.cpuLevel, 1, 9);
         }
         ensureTournamentSeedOrder();
     }
@@ -19040,6 +19065,59 @@ public class BirdGame3 extends Application {
         }
         entry.selectedType = type;
         entry.resolvedType = null;
+        entry.selectedSkinKey = normalizeAdventureSkinChoice(type, entry.selectedSkinKey);
+    }
+
+    String tournamentEntrySkinKey(TournamentEntry entry, BirdType type) {
+        if (entry == null || type == null) {
+            return null;
+        }
+        String normalized = normalizeAdventureSkinChoice(type, entry.selectedSkinKey);
+        entry.selectedSkinKey = normalized;
+        return normalized;
+    }
+
+    String tournamentEntrySkinLabel(TournamentEntry entry, BirdType type) {
+        return adventureSkinLabel(type, tournamentEntrySkinKey(entry, type));
+    }
+
+    boolean tournamentEntryCanCycleSkin(TournamentEntry entry) {
+        if (entry == null || entry.selectedType == null) {
+            return false;
+        }
+        return adventureSkinOptions(entry.selectedType).size() > 1;
+    }
+
+    void cycleTournamentEntrySkin(TournamentEntry entry) {
+        if (entry == null || entry.selectedType == null) {
+            return;
+        }
+        List<String> options = adventureSkinOptions(entry.selectedType);
+        if (options.size() <= 1) {
+            entry.selectedSkinKey = null;
+            return;
+        }
+        String current = normalizeAdventureSkinChoice(entry.selectedType, entry.selectedSkinKey);
+        int index = options.indexOf(current);
+        if (index < 0) {
+            index = 0;
+        }
+        entry.selectedSkinKey = options.get((index + 1) % options.size());
+    }
+
+    int tournamentEntryCpuLevel(TournamentEntry entry) {
+        if (entry == null) {
+            return 5;
+        }
+        entry.cpuLevel = Math.clamp(entry.cpuLevel, 1, 9);
+        return entry.cpuLevel;
+    }
+
+    void cycleTournamentEntryCpuLevel(TournamentEntry entry) {
+        if (entry == null) {
+            return;
+        }
+        entry.cpuLevel = tournamentEntryCpuLevel(entry) % 9 + 1;
     }
 
     BirdType tournamentAssignedBird(TournamentEntry entry) {
@@ -19091,6 +19169,20 @@ public class BirdGame3 extends Application {
             return "RANDOM -> " + entry.resolvedType.name.toUpperCase(Locale.ROOT);
         }
         return "RANDOM";
+    }
+
+    private String tournamentBracketBirdLabel(BirdType birdType, String skinKey) {
+        if (birdType == null) {
+            return "TBD";
+        }
+        if (skinKey == null) {
+            return birdType.name.toUpperCase(Locale.ROOT);
+        }
+        String label = adventureSkinLabel(birdType, skinKey);
+        if (label.startsWith("SKIN: ")) {
+            label = label.substring("SKIN: ".length());
+        }
+        return label.toUpperCase(Locale.ROOT);
     }
 
     private void renameTournamentEntryPrompt(Stage stage, TournamentEntry entry, Runnable onComplete) {
@@ -19364,6 +19456,8 @@ public class BirdGame3 extends Application {
         Label activeRole;
         Canvas activePortrait;
         Label activeBird;
+        Button activeSkinBtn;
+        Button activeCpuBtn;
         Label entrantsValue;
         Label humansValue;
         Label cpuValue;
@@ -19450,7 +19544,7 @@ public class BirdGame3 extends Application {
     }
 
     private VBox buildTournamentSetupRosterCard(TournamentSetupUi ui) {
-        Label rosterTitle = new Label("SELECT YOUR TOURNAMENT BIRD");
+        Label rosterTitle = new Label("PICK ENTRANT, BIRD, AND SKIN");
         rosterTitle.setFont(Font.font("Arial Black", 28));
         rosterTitle.setTextFill(Color.web("#FFF176"));
         rosterTitle.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.30)));
@@ -19519,7 +19613,7 @@ public class BirdGame3 extends Application {
         applyNoEllipsis(ui.activeSeed);
 
         ui.activeName = new Label();
-        ui.activeName.setFont(Font.font("Arial Black", 26));
+        ui.activeName.setFont(Font.font("Arial Black", 23));
         ui.activeName.setTextFill(Color.WHITE);
         ui.activeName.setWrapText(true);
         ui.activeName.setTextAlignment(TextAlignment.CENTER);
@@ -19532,17 +19626,17 @@ public class BirdGame3 extends Application {
         ui.activeRole.setTextFill(Color.WHITE);
         ui.activeRole.setPadding(new Insets(6, 14, 6, 14));
 
-        ui.activePortrait = new Canvas(150, 150);
+        ui.activePortrait = new Canvas(106, 106);
         StackPane activePortraitFrame = new StackPane(ui.activePortrait);
-        activePortraitFrame.setMinSize(168, 168);
-        activePortraitFrame.setPrefSize(168, 168);
-        activePortraitFrame.setMaxSize(168, 168);
+        activePortraitFrame.setMinSize(118, 118);
+        activePortraitFrame.setPrefSize(118, 118);
+        activePortraitFrame.setMaxSize(118, 118);
         activePortraitFrame.setStyle("-fx-background-color: rgba(0,0,0,0.44); -fx-background-radius: 22; "
                 + "-fx-border-color: rgba(255,255,255,0.20); -fx-border-width: 2; "
                 + "-fx-border-radius: 22;");
 
         ui.activeBird = new Label();
-        ui.activeBird.setFont(Font.font("Arial Black", 18));
+        ui.activeBird.setFont(Font.font("Arial Black", 15));
         ui.activeBird.setTextFill(Color.web("#FFF4C3"));
         ui.activeBird.setWrapText(true);
         ui.activeBird.setTextAlignment(TextAlignment.CENTER);
@@ -19550,17 +19644,45 @@ public class BirdGame3 extends Application {
         ui.activeBird.setMaxWidth(dockW - 40);
         applyNoEllipsis(ui.activeBird);
 
-        Label focusHint = new Label("Random locks one bird for the entire tournament.");
-        focusHint.setFont(Font.font("Consolas", 15));
-        focusHint.setTextFill(Color.web("#B0BEC5"));
-        focusHint.setWrapText(true);
-        focusHint.setTextAlignment(TextAlignment.CENTER);
-        focusHint.setAlignment(Pos.CENTER);
-        focusHint.setMaxWidth(dockW - 40);
+        ui.activeSkinBtn = uiFactory.action("SKIN: BASE", 190, 34, 13, "#37474F", 10, () -> {
+            if (tournamentEntries.isEmpty()) {
+                return;
+            }
+            playButtonClick();
+            int idx = Math.clamp(ui.activeEntryIndex[0], 0, tournamentEntries.size() - 1);
+            cycleTournamentEntrySkin(tournamentEntries.get(idx));
+            if (ui.refreshEntries[0] != null) {
+                ui.refreshEntries[0].run();
+            }
+            if (ui.refreshFocus[0] != null) {
+                ui.refreshFocus[0].run();
+            }
+        });
+        applyNoEllipsis(ui.activeSkinBtn);
 
-        VBox focusCard = new VBox(10, ui.activeSeed, ui.activeName, ui.activeRole, activePortraitFrame, ui.activeBird, focusHint);
+        ui.activeCpuBtn = uiFactory.action("CPU LEVEL: 5", 190, 34, 13, "#6D4C41", 10, () -> {
+            if (tournamentEntries.isEmpty()) {
+                return;
+            }
+            int idx = Math.clamp(ui.activeEntryIndex[0], 0, tournamentEntries.size() - 1);
+            TournamentEntry entry = tournamentEntries.get(idx);
+            if (entry.human) {
+                return;
+            }
+            playButtonClick();
+            cycleTournamentEntryCpuLevel(entry);
+            if (ui.refreshEntries[0] != null) {
+                ui.refreshEntries[0].run();
+            }
+            if (ui.refreshFocus[0] != null) {
+                ui.refreshFocus[0].run();
+            }
+        });
+        applyNoEllipsis(ui.activeCpuBtn);
+
+        VBox focusCard = new VBox(6, ui.activeSeed, ui.activeName, ui.activeRole, activePortraitFrame, ui.activeBird, ui.activeSkinBtn, ui.activeCpuBtn);
         focusCard.setAlignment(Pos.TOP_CENTER);
-        focusCard.setPadding(new Insets(18, 12, 14, 12));
+        focusCard.setPadding(new Insets(12, 12, 10, 12));
         focusCard.setLayoutX(dockX + 8);
         focusCard.setLayoutY(dockY + 8);
         focusCard.setPrefSize(dockW - 16, dockH - 16);
@@ -19726,15 +19848,28 @@ public class BirdGame3 extends Application {
             TournamentEntry entry = tournamentEntries.get(idx);
             BirdType previewType = entry.selectedType;
             Color accent = tournamentEntryAccent(idx, entry.human);
+            String skinKey = tournamentEntrySkinKey(entry, previewType);
 
             ui.activeSeed.setText(tournamentEntrySeedLabel(entry));
             ui.activeName.setText(tournamentEntryLabel(entry));
-            fitLabelSingleLine(ui.activeName, 26, 16, dockW - 36);
-            ui.activeRole.setText(entry.human ? "HUMAN SLOT" : "CPU SLOT");
+            fitLabelSingleLine(ui.activeName, 23, 14, dockW - 36);
+            ui.activeRole.setText(entry.human ? "HUMAN SLOT" : "CPU LEVEL " + tournamentEntryCpuLevel(entry));
             ui.activeRole.setStyle("-fx-background-color: " + (entry.human ? "#1565C0" : "#6D4C41")
                     + "; -fx-background-radius: 999;");
             ui.activeBird.setText(previewType == null ? "RANDOM BIRD" : previewType.name.toUpperCase(Locale.ROOT));
-            drawRosterSprite(ui.activePortrait, previewType, null, previewType == null);
+            drawRosterSprite(ui.activePortrait, previewType, skinKey, previewType == null);
+            fitLabelSingleLine(ui.activeBird, 15, 10, dockW - 40);
+
+            boolean canCycleSkin = tournamentEntryCanCycleSkin(entry);
+            ui.activeSkinBtn.setText(previewType == null ? "SKIN: PICK BIRD" : tournamentEntrySkinLabel(entry, previewType));
+            ui.activeSkinBtn.setDisable(!canCycleSkin);
+            ui.activeSkinBtn.setOpacity(canCycleSkin ? 1.0 : 0.58);
+            fitButtonSingleLine(ui.activeSkinBtn, 13, 9, 178);
+
+            ui.activeCpuBtn.setText(entry.human ? "HUMAN CONTROL" : "CPU LEVEL: " + tournamentEntryCpuLevel(entry));
+            ui.activeCpuBtn.setDisable(entry.human);
+            ui.activeCpuBtn.setOpacity(entry.human ? 0.58 : 1.0);
+            fitButtonSingleLine(ui.activeCpuBtn, 13, 9, 178);
 
             ui.selector.getProperties().put(FIGHT_SELECTOR_COLOR_PROP, accent);
             ui.selectorLabel.setFill(accent.interpolate(Color.WHITE, 0.22));
@@ -19750,7 +19885,7 @@ public class BirdGame3 extends Application {
     }
 
     private StackPane buildTournamentSetupFooter(Stage stage, TournamentSetupUi ui) {
-        Label entrantsStripTitle = new Label("ENTRANT BOXES");
+        Label entrantsStripTitle = new Label("ENTRANTS");
         entrantsStripTitle.setFont(Font.font("Arial Black", 22));
         entrantsStripTitle.setTextFill(Color.web("#FFE082"));
 
@@ -19765,7 +19900,7 @@ public class BirdGame3 extends Application {
         entrantScroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
         entrantScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent; -fx-control-inner-background: transparent;");
 
-        Label entrantsLabel = new Label("ENTRANTS");
+        Label entrantsLabel = new Label("FIELD");
         entrantsLabel.setFont(Font.font("Consolas", 14));
         entrantsLabel.setTextFill(Color.web("#CFD8DC"));
         ui.entrantsValue = new Label();
@@ -19833,7 +19968,7 @@ public class BirdGame3 extends Application {
         humansBox.setStyle("-fx-background-color: rgba(255,255,255,0.05); -fx-background-radius: 18; "
                 + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 2; -fx-border-radius: 18;");
 
-        ui.mapModeBtn = uiFactory.action("MAP MODE: RANDOM", 250, 52, 18, "#6D4C41", 14, () -> {
+        ui.mapModeBtn = uiFactory.action("MAP: RANDOM", 250, 52, 18, "#6D4C41", 14, () -> {
             tournamentMapRandom = !tournamentMapRandom;
             if (ui.refreshMapControls[0] != null) {
                 ui.refreshMapControls[0].run();
@@ -19898,7 +20033,7 @@ public class BirdGame3 extends Application {
             if (!maps.contains(tournamentFixedMap)) {
                 tournamentFixedMap = maps.getFirst();
             }
-            ui.mapModeBtn.setText("MAP MODE: " + (tournamentMapRandom ? "RANDOM" : "CHOOSE"));
+            ui.mapModeBtn.setText("MAP: " + (tournamentMapRandom ? "RANDOM" : "CHOOSE"));
             ui.mapSelectBtn.setText("MAP: " + mapDisplayName(tournamentFixedMap));
             ui.mapSelectBtn.setDisable(tournamentMapRandom);
             ui.mapSelectBtn.setVisible(!tournamentMapRandom);
@@ -19918,7 +20053,8 @@ public class BirdGame3 extends Application {
 
                 Canvas portrait = new Canvas(68, 68);
                 BirdType previewType = entry.selectedType;
-                drawRosterSprite(portrait, previewType, null, previewType == null);
+                String skinKey = tournamentEntrySkinKey(entry, previewType);
+                drawRosterSprite(portrait, previewType, skinKey, previewType == null);
 
                 StackPane portraitFrame = new StackPane(portrait);
                 portraitFrame.setMinSize(76, 76);
@@ -19941,7 +20077,7 @@ public class BirdGame3 extends Application {
                 applyNoEllipsis(name);
                 fitLabelSingleLine(name, 18, 11, 172);
 
-                Label role = new Label(entry.human ? "HUMAN" : "CPU");
+                Label role = new Label(entry.human ? "HUMAN" : "CPU LV " + tournamentEntryCpuLevel(entry));
                 role.setFont(Font.font("Arial Black", 12));
                 role.setTextFill(Color.WHITE);
                 role.setPadding(new Insets(4, 10, 4, 10));
@@ -19955,11 +20091,65 @@ public class BirdGame3 extends Application {
                 applyNoEllipsis(bird);
                 fitLabelSingleLine(bird, 14, 10, 172);
 
-                VBox info = new VBox(4, seedChip, name, role, bird);
+                Label skin = new Label(previewType == null ? "SKIN: PICK BIRD" : tournamentEntrySkinLabel(entry, previewType));
+                skin.setFont(Font.font("Consolas", 12));
+                skin.setTextFill(Color.web("#D7CCC8"));
+                skin.setMaxWidth(172);
+                applyNoEllipsis(skin);
+                fitLabelSingleLine(skin, 12, 9, 172);
+
+                final int selectedIndex = i;
+                Button skinChip = new Button("SKIN");
+                skinChip.setMinSize(54, 28);
+                skinChip.setPrefSize(54, 28);
+                skinChip.setMaxSize(54, 28);
+                skinChip.setFont(Font.font("Arial Black", 10));
+                skinChip.setFocusTraversable(false);
+                skinChip.setDisable(!tournamentEntryCanCycleSkin(entry));
+                skinChip.setOpacity(tournamentEntryCanCycleSkin(entry) ? 1.0 : 0.55);
+                skinChip.setStyle("-fx-background-color: rgba(16,22,28,0.96); -fx-text-fill: white; "
+                        + "-fx-background-radius: 999; -fx-border-color: rgba(255,255,255,0.20); "
+                        + "-fx-border-width: 1.5; -fx-border-radius: 999;");
+                applyNoEllipsis(skinChip);
+                skinChip.setOnAction(e -> {
+                    playButtonClick();
+                    ui.activeEntryIndex[0] = selectedIndex;
+                    cycleTournamentEntrySkin(entry);
+                    if (ui.refreshAll[0] != null) {
+                        ui.refreshAll[0].run();
+                    }
+                });
+                skinChip.addEventFilter(MouseEvent.MOUSE_CLICKED, MouseEvent::consume);
+
+                Button cpuChip = new Button("CPU");
+                cpuChip.setMinSize(54, 28);
+                cpuChip.setPrefSize(54, 28);
+                cpuChip.setMaxSize(54, 28);
+                cpuChip.setFont(Font.font("Arial Black", 10));
+                cpuChip.setFocusTraversable(false);
+                cpuChip.setVisible(!entry.human);
+                cpuChip.setManaged(!entry.human);
+                cpuChip.setStyle("-fx-background-color: rgba(109,76,65,0.96); -fx-text-fill: white; "
+                        + "-fx-background-radius: 999; -fx-border-color: rgba(255,224,130,0.34); "
+                        + "-fx-border-width: 1.5; -fx-border-radius: 999;");
+                applyNoEllipsis(cpuChip);
+                cpuChip.setOnAction(e -> {
+                    playButtonClick();
+                    ui.activeEntryIndex[0] = selectedIndex;
+                    cycleTournamentEntryCpuLevel(entry);
+                    if (ui.refreshAll[0] != null) {
+                        ui.refreshAll[0].run();
+                    }
+                });
+                cpuChip.addEventFilter(MouseEvent.MOUSE_CLICKED, MouseEvent::consume);
+
+                HBox quickControls = new HBox(6, skinChip, cpuChip);
+                quickControls.setAlignment(Pos.CENTER_LEFT);
+
+                VBox info = new VBox(3, seedChip, name, role, bird, skin, quickControls);
                 info.setAlignment(Pos.CENTER_LEFT);
                 HBox body = new HBox(10, portraitFrame, info);
                 body.setAlignment(Pos.CENTER_LEFT);
-                final int selectedIndex = i;
 
                 Button renameChip = new Button();
                 renameChip.setGraphic(buildTournamentRenameChipIcon());
@@ -19983,9 +20173,9 @@ public class BirdGame3 extends Application {
 
                 StackPane card = new StackPane(body, renameChip);
                 card.setPadding(new Insets(12));
-                card.setMinWidth(272);
-                card.setPrefWidth(272);
-                card.setMaxWidth(272);
+                card.setMinWidth(304);
+                card.setPrefWidth(304);
+                card.setMaxWidth(304);
                 card.setStyle("-fx-background-color: linear-gradient(to bottom right, "
                         + accentHex + ", #0C0E12); "
                         + "-fx-background-radius: 24; -fx-border-color: "
@@ -20292,9 +20482,10 @@ public class BirdGame3 extends Application {
 
         BirdType birdType = tournamentAssignedBird(entry);
         boolean randomOrigin = entry.selectedType == null && birdType != null;
+        String skinKey = tournamentEntrySkinKey(entry, birdType);
 
         Canvas portrait = new Canvas(38, 38);
-        drawRosterSprite(portrait, birdType, null, birdType == null);
+        drawRosterSprite(portrait, birdType, skinKey, birdType == null);
         StackPane portraitFrame = new StackPane(portrait);
         portraitFrame.setMinSize(46, 46);
         portraitFrame.setPrefSize(46, 46);
@@ -20316,9 +20507,12 @@ public class BirdGame3 extends Application {
         applyNoEllipsis(name);
         fitLabelSingleLine(name, 14, 10, 104);
 
-        Label bird = new Label(birdType != null ? birdType.name.toUpperCase(Locale.ROOT) : placeholder);
+        Label bird = new Label(birdType != null ? tournamentBracketBirdLabel(birdType, skinKey) : placeholder);
         bird.setFont(Font.font("Arial Black", 11));
         bird.setTextFill(Color.WHITE);
+        bird.setMaxWidth(102);
+        applyNoEllipsis(bird);
+        fitLabelSingleLine(bird, 11, 8, 102);
         bird.setPadding(new Insets(3, 8, 3, 8));
         bird.setStyle("-fx-background-color: " + (randomOrigin ? "#8E24AA" : "#455A64")
                 + "; -fx-background-radius: 999;");
@@ -20392,11 +20586,13 @@ public class BirdGame3 extends Application {
         fightSelectedBirds[1] = bType;
         fightRandomSelected[0] = false;
         fightRandomSelected[1] = false;
-        fightSelectedSkinKeys[0] = null;
-        fightSelectedSkinKeys[1] = null;
+        fightSelectedSkinKeys[0] = tournamentEntrySkinKey(tournamentSlotA, aType);
+        fightSelectedSkinKeys[1] = tournamentEntrySkinKey(tournamentSlotB, bType);
 
         isAI[0] = !tournamentSlotA.human;
         isAI[1] = !tournamentSlotB.human;
+        cpuLevels[0] = tournamentEntryCpuLevel(tournamentSlotA);
+        cpuLevels[1] = tournamentEntryCpuLevel(tournamentSlotB);
 
         competitionSeriesActive = false;
         Arrays.fill(competitionRoundWins, 0);
@@ -20446,11 +20642,21 @@ public class BirdGame3 extends Application {
             startNextTournamentMatch(stage);
             return;
         }
-        TournamentEntry winner = random.nextBoolean() ? match.a : match.b;
+        TournamentEntry winner = simulatedTournamentWinner(match);
         recordTournamentWinner(match, winner);
         tournamentMatchResolved = true;
         currentTournamentMatch = null;
         showTournamentSimResult(stage, winner);
+    }
+
+    private TournamentEntry simulatedTournamentWinner(TournamentMatch match) {
+        if (match == null || match.a == null || match.b == null) {
+            return null;
+        }
+        double aWeight = match.a.human ? 5.0 : tournamentEntryCpuLevel(match.a);
+        double bWeight = match.b.human ? 5.0 : tournamentEntryCpuLevel(match.b);
+        double total = Math.max(0.1, aWeight + bWeight);
+        return random.nextDouble() * total < aWeight ? match.a : match.b;
     }
 
     private void showTournamentSimResult(Stage stage, TournamentEntry winner) {

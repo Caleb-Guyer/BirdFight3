@@ -88,6 +88,49 @@ class BirdGame3TournamentTest {
         assertEquals(4, round0.get(1).b.id);
     }
 
+    @Test
+    void tournamentSkinChoiceStaysCompatibleWithSelectedBird() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        setPrivateField(game, "tournamentEntrantCount", 2);
+
+        invoke(game, "ensureTournamentEntries");
+
+        @SuppressWarnings("unchecked")
+        List<BirdGame3.TournamentEntry> entries =
+                (List<BirdGame3.TournamentEntry>) getPrivateField(game, "tournamentEntries");
+        BirdGame3.TournamentEntry entry = entries.getFirst();
+
+        game.setTournamentEntrySelection(entry, BirdGame3.BirdType.EAGLE);
+        game.cycleTournamentEntrySkin(entry);
+        assertEquals("SKIN: STOCK PHOTO", game.tournamentEntrySkinLabel(entry, BirdGame3.BirdType.EAGLE));
+
+        game.setTournamentEntrySelection(entry, BirdGame3.BirdType.TURKEY);
+
+        assertEquals("SKIN: BASE", game.tournamentEntrySkinLabel(entry, BirdGame3.BirdType.TURKEY));
+    }
+
+    @Test
+    void tournamentCpuLevelCyclesPerEntry() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        setPrivateField(game, "tournamentEntrantCount", 2);
+
+        invoke(game, "ensureTournamentEntries");
+
+        @SuppressWarnings("unchecked")
+        List<BirdGame3.TournamentEntry> entries =
+                (List<BirdGame3.TournamentEntry>) getPrivateField(game, "tournamentEntries");
+        BirdGame3.TournamentEntry entry = entries.getFirst();
+
+        assertEquals(5, game.tournamentEntryCpuLevel(entry));
+
+        game.cycleTournamentEntryCpuLevel(entry);
+        assertEquals(6, game.tournamentEntryCpuLevel(entry));
+
+        entry.cpuLevel = 9;
+        game.cycleTournamentEntryCpuLevel(entry);
+        assertEquals(1, game.tournamentEntryCpuLevel(entry));
+    }
+
     private static void invoke(BirdGame3 game, String methodName) throws Exception {
         Method method = BirdGame3.class.getDeclaredMethod(methodName);
         method.setAccessible(true);
