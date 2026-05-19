@@ -2782,20 +2782,20 @@ public class BirdGame3 extends Application {
         label.setFont(Font.font("Arial Black", minSize));
     }
 
-    private void fitButtonSingleLine(Button button, double maxSize, double minSize, double maxWidth) {
+    private void fitButtonSingleLine(Button button) {
         if (button == null) return;
         String text = button.getText();
         if (text == null || text.isBlank()) return;
-        double size = maxSize;
-        while (size > minSize) {
+        double size = 13;
+        while (size > (double) 9) {
             Font f = Font.font("Arial Black", size);
-            if (measureTextWidth(text, f) <= maxWidth) {
+            if (measureTextWidth(text, f) <= (double) 178) {
                 button.setFont(f);
                 return;
             }
             size -= 1.0;
         }
-        button.setFont(Font.font("Arial Black", minSize));
+        button.setFont(Font.font("Arial Black", 9));
     }
 
     private void lockRegionSize(Region region, double width, double height) {
@@ -14794,10 +14794,6 @@ public class BirdGame3 extends Application {
         drawRosterSprite(canvas, type, null, type == null);
     }
 
-    void drawTournamentPortrait(Canvas canvas, BirdType type, String skinKey) {
-        drawRosterSprite(canvas, type, skinKey, type == null);
-    }
-
     private void applyUltimateHubEffect(Node node, Effect effect) {
         if (node == null) return;
         boolean useShadow = !Boolean.FALSE.equals(node.getProperties().get("hubUseShadow"));
@@ -19864,12 +19860,12 @@ public class BirdGame3 extends Application {
             ui.activeSkinBtn.setText(previewType == null ? "SKIN: PICK BIRD" : tournamentEntrySkinLabel(entry, previewType));
             ui.activeSkinBtn.setDisable(!canCycleSkin);
             ui.activeSkinBtn.setOpacity(canCycleSkin ? 1.0 : 0.58);
-            fitButtonSingleLine(ui.activeSkinBtn, 13, 9, 178);
+            fitButtonSingleLine(ui.activeSkinBtn);
 
             ui.activeCpuBtn.setText(entry.human ? "HUMAN CONTROL" : "CPU LEVEL: " + tournamentEntryCpuLevel(entry));
             ui.activeCpuBtn.setDisable(entry.human);
             ui.activeCpuBtn.setOpacity(entry.human ? 0.58 : 1.0);
-            fitButtonSingleLine(ui.activeCpuBtn, 13, 9, 178);
+            fitButtonSingleLine(ui.activeCpuBtn);
 
             ui.selector.getProperties().put(FIGHT_SELECTOR_COLOR_PROP, accent);
             ui.selectorLabel.setFill(accent.interpolate(Color.WHITE, 0.22));
@@ -29078,21 +29074,6 @@ public class BirdGame3 extends Application {
 
     private void refreshModeAchievementUnlocks() {
         achievementEvaluator.refreshModeAchievementUnlocks(
-                bossRushClearCount,
-                countTowerDefenseBadges(),
-                pigeonEpisodeCompleted,
-                batEpisodeCompleted,
-                pelicanEpisodeCompleted,
-                countBigForestTowerDefenseBadges(),
-                bigForestTowerDefenseBadgeGoal(),
-                tournamentChampionshipsWon
-        );
-    }
-
-    private void reconcileAchievementUnlocksFromStoredProgress() {
-        achievementEvaluator.reconcileStoredProgress(
-                classicCompleted,
-                mainAdventureChapterCompletedState(),
                 bossRushClearCount,
                 countTowerDefenseBadges(),
                 pigeonEpisodeCompleted,

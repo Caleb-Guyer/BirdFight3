@@ -186,7 +186,7 @@ class BirdGame3SettingsTest {
     }
 
     @Test
-    void reconcileAchievementUnlocksRestoresModeAndStoryMilestones() throws Exception {
+    void loadProfileProgressReconcilesModeAndStoryAchievementUnlocks() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.setAchievementProgressValue(BirdGame3Achievement.CROWN_UNBROKEN, 1);
 
@@ -198,23 +198,21 @@ class BirdGame3SettingsTest {
         setTowerDefenseBadge(game, BirdGame3.MapType.FOREST, TowerDefenseMode.Difficulty.EASY, true);
         setTowerDefenseBadge(game, BirdGame3.MapType.FOREST, TowerDefenseMode.Difficulty.MEDIUM, true);
         setTowerDefenseBadge(game, BirdGame3.MapType.FOREST, TowerDefenseMode.Difficulty.HARD, true);
+        game.persistAchievements(prefs);
 
-        Method ensureAdventureState = BirdGame3.class.getDeclaredMethod("ensureAdventureChapterState");
-        ensureAdventureState.setAccessible(true);
-        ensureAdventureState.invoke(game);
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(reloaded, prefs);
 
-        Method reconcile = BirdGame3.class.getDeclaredMethod("reconcileAchievementUnlocksFromStoredProgress");
-        reconcile.setAccessible(true);
-        reconcile.invoke(game);
-
-        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.BOSS_BREAKER));
-        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.CROWN_UNBROKEN));
-        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.GROVE_SENTINEL));
-        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.ROOFTOP_LEGACY));
-        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.ECHO_SOVEREIGN));
-        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.IRON_TEMPEST));
-        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.BLIGHT_BUSTER));
-        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.BRACKET_BOSS));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.BOSS_BREAKER));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.CROWN_UNBROKEN));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.GROVE_SENTINEL));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.ROOFTOP_LEGACY));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.ECHO_SOVEREIGN));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.IRON_TEMPEST));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.BLIGHT_BUSTER));
+        assertTrue(reloaded.isAchievementUnlocked(BirdGame3Achievement.BRACKET_BOSS));
     }
 
     @Test
