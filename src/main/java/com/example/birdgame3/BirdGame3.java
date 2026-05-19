@@ -28883,6 +28883,21 @@ public class BirdGame3 extends Application {
         );
     }
 
+    private void reconcileAchievementUnlocksFromStoredProgress() {
+        achievementEvaluator.reconcileStoredProgress(
+                classicCompleted,
+                mainAdventureChapterCompletedState(),
+                bossRushClearCount,
+                countTowerDefenseBadges(),
+                pigeonEpisodeCompleted,
+                batEpisodeCompleted,
+                pelicanEpisodeCompleted,
+                countBigForestTowerDefenseBadges(),
+                bigForestTowerDefenseBadgeGoal(),
+                tournamentChampionshipsWon
+        );
+    }
+
     private String towerDefenseMapDescription() {
         return "A top-down Big Forest defense route with a winding dirt trail, wide clearings, and long sightlines for grove birds.";
     }

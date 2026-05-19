@@ -5784,8 +5784,8 @@ public class Bird {
     private void specialEagle(boolean ultimate) {
         boolean grounded = isOnGround();
         diveTimer = ultimate ? EAGLE_DIVE_ULTIMATE_FRAMES : EAGLE_DIVE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
+        specialCooldown = diveTimer;
+        specialMaxCooldown = specialCooldown;
         eagleDiveActive = true;
         eagleAscentActive = false;
         eagleAscentFrames = 0;
@@ -5833,8 +5833,8 @@ public class Bird {
     private void specialFalcon(boolean ultimate) {
         boolean grounded = isOnGround();
         diveTimer = ultimate ? FALCON_DIVE_ULTIMATE_FRAMES : FALCON_DIVE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
+        specialCooldown = diveTimer;
+        specialMaxCooldown = specialCooldown;
         eagleDiveActive = true;
         eagleAscentActive = false;
         eagleAscentFrames = 0;

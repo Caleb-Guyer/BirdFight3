@@ -4259,16 +4259,27 @@ class BirdStateTest {
     void academyTrainingRosterUsesLessonAndTrialBirds() throws Exception {
         BirdGame3 game = new BirdGame3();
 
-        Class.forName("com.example.birdgame3.BirdGame3$TrainingAcademyMode");
-        Class.forName("com.example.birdgame3.BirdGame3$GuidedTutorialLesson");
-        Class.forName("com.example.birdgame3.BirdGame3$BirdTrialDefinition");
+        Class<?> academyModeClass = Class.forName("com.example.birdgame3.BirdGame3$TrainingAcademyMode");
+        Class<?> lessonClass = Class.forName("com.example.birdgame3.BirdGame3$GuidedTutorialLesson");
+        Class<?> trialClass = Class.forName("com.example.birdgame3.BirdGame3$BirdTrialDefinition");
+        Object guidedMode = Enum.valueOf((Class<? extends Enum>) academyModeClass.asSubclass(Enum.class), "GUIDED_TUTORIAL");
+        Object trialMode = Enum.valueOf((Class<? extends Enum>) academyModeClass.asSubclass(Enum.class), "BIRD_TRIAL");
+        Object recoveryLesson = Enum.valueOf((Class<? extends Enum>) lessonClass.asSubclass(Enum.class), "RECOVERY");
+        Object eagleTrial = Enum.valueOf((Class<? extends Enum>) trialClass.asSubclass(Enum.class), "EAGLE");
 
         Method setupRoster = BirdGame3.class.getDeclaredMethod("setupTrainingRoster");
         setupRoster.setAccessible(true);
+
+        setPrivateObject(game, "trainingAcademyMode", guidedMode);
+        setPrivateObject(game, "guidedTutorialLesson", recoveryLesson);
         setupRoster.invoke(game);
 
         assertEquals(BirdGame3.BirdType.PENGUIN, game.players[0].type);
         assertEquals(BirdGame3.BirdType.PIGEON, game.players[1].type);
+
+        setPrivateObject(game, "trainingAcademyMode", trialMode);
+        setPrivateObject(game, "activeBirdTrial", eagleTrial);
+        setupRoster.invoke(game);
 
         assertEquals(BirdGame3.BirdType.EAGLE, game.players[0].type);
         assertEquals(BirdGame3.BirdType.PIGEON, game.players[1].type);
@@ -4708,9 +4719,24 @@ class BirdStateTest {
     }
 
     private static void invokePrivateVoid(Object target, String methodName) throws Exception {
-        Method method = target.getClass().getDeclaredMethod(methodName);
+        Method method;
+        Object[] args;
+        try {
+            method = target.getClass().getDeclaredMethod(methodName);
+            args = new Object[0];
+        } catch (NoSuchMethodException ex) {
+            if ("attack".equals(methodName)) {
+                method = target.getClass().getDeclaredMethod("performAttack", int.class);
+                args = new Object[]{0};
+            } else if ("handleVerticalCollision".equals(methodName)) {
+                method = target.getClass().getDeclaredMethod(methodName, boolean.class);
+                args = new Object[]{false};
+            } else {
+                throw ex;
+            }
+        }
         method.setAccessible(true);
-        method.invoke(target);
+        method.invoke(target, args);
     }
 
     private static Object invokePrivateObjectMethod(Object target, String methodName) throws Exception {
@@ -4815,6 +4841,12 @@ class BirdStateTest {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.setDouble(target, value);
+    }
+
+    private static void setPrivateObject(Object target, String fieldName, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 
     private static int getPrivateInt(Object target, String fieldName) throws Exception {
