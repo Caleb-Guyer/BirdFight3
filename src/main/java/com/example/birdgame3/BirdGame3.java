@@ -405,6 +405,7 @@ public class BirdGame3 extends Application {
     // === FIXED TIMESTEP PAUSE FIX ===
     private long lastUpdate = 0;
     private long accumulator = 0L;
+    private boolean gameplayFrameExceptionReported = false;
 
     private StackPane gameRoot;
     Stage currentStage;
@@ -9515,6 +9516,50 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void handleGameplayFrameException(RuntimeException ex) {
+        if (!gameplayFrameExceptionReported) {
+            ThrowableLogSupport.log(LOGGER, Level.SEVERE, "Gameplay frame failed; recovering transient state", ex);
+            ThrowableLogSupport.writeReport(
+                    java.nio.file.Path.of(System.getProperty("user.home"), "Desktop", "birdgame3-gameplay-frame.txt"),
+                    true,
+                    "Gameplay frame failed",
+                    ex
+            );
+            gameplayFrameExceptionReported = true;
+        }
+
+        recoverTransientFrameState(ex);
+        accumulator = 0L;
+        lastUpdate = System.nanoTime();
+    }
+
+    private void recoverTransientFrameState(RuntimeException ex) {
+        if (particles != null) {
+            particles.removeIf(p -> p == null || p.color == null);
+        }
+        if (isPhoenixFrameException(ex) && players != null) {
+            for (Bird bird : players) {
+                if (bird != null && PhoenixSpecials.active(bird)) {
+                    PhoenixSpecials.reset(bird);
+                }
+            }
+        }
+    }
+
+    private boolean isPhoenixFrameException(Throwable throwable) {
+        for (Throwable current = throwable; current != null; current = current.getCause()) {
+            for (StackTraceElement frame : current.getStackTrace()) {
+                String className = frame.getClassName();
+                String methodName = frame.getMethodName();
+                if ((className != null && className.endsWith(".PhoenixSpecials"))
+                        || (methodName != null && methodName.contains("Phoenix"))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     int scaledParticleBurstCount(int requested) {
         if (!particleEffectsEnabled || requested <= 0) {
             return 0;
@@ -10734,6 +10779,10 @@ public class BirdGame3 extends Application {
         if (!particleEffectsEnabled) return;
         for (Iterator<Particle> it = particles.iterator(); it.hasNext(); ) {
             Particle p = it.next();
+            if (p == null || p.color == null) {
+                it.remove();
+                continue;
+            }
             p.x += p.vx;
             p.y += p.vy;
             p.vy += 0.4;
@@ -11288,6 +11337,9 @@ public class BirdGame3 extends Application {
 
         if (particleEffectsEnabled) {
             for (Particle p : particles) {
+                if (p == null || p.color == null) {
+                    continue;
+                }
                 if (p.life <= 0 || isWorldRectNearCamera(p.x - 4, p.y - 4, 8, 8, 96)) {
                     continue;
                 }
@@ -35193,38 +35245,45 @@ public class BirdGame3 extends Application {
         lastUpdate = 0;
         accumulator = 0;
         resetRenderTimer();
+        gameplayFrameExceptionReported = false;
 
         timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
-                gameTick();
-                if (lanModeActive && lanIsHost) {
-                    boolean hasClients = lanHost != null && lanHost.hasClients();
-                    if (hasClients && now - lastLanSnapshotNs >= LAN_SNAPSHOT_INTERVAL_NS) {
-                        if (lanHost != null) {
-                            lanHost.broadcastState(buildLanState());
+                try {
+                    gameTick();
+                    if (lanModeActive && lanIsHost) {
+                        boolean hasClients = lanHost != null && lanHost.hasClients();
+                        if (hasClients && now - lastLanSnapshotNs >= LAN_SNAPSHOT_INTERVAL_NS) {
+                            if (lanHost != null) {
+                                lanHost.broadcastState(buildLanState());
+                            }
+                            lastLanSnapshotNs = now;
                         }
-                        lastLanSnapshotNs = now;
+                        if (lanHost != null) {
+                            if (now - lastLanCompanionSnapshotNs >= LAN_COMPANION_SNAPSHOT_INTERVAL_NS) {
+                                publishLanCompanionSnapshot();
+                                lastLanCompanionSnapshotNs = now;
+                            }
+                        }
                     }
-                    if (lanHost != null && now - lastLanCompanionSnapshotNs >= LAN_COMPANION_SNAPSHOT_INTERVAL_NS) {
-                        publishLanCompanionSnapshot();
-                        lastLanCompanionSnapshotNs = now;
+                    if (!shouldRenderFrame(now)) {
+                        return;
                     }
-                }
-                if (!shouldRenderFrame(now)) {
-                    return;
-                }
-                FightHudLayout hudLayout = buildFightHudLayout();
-                currentFightHudOcclusionRects = hudLayout.occlusionRects();
-                drawGame(g);
+                    FightHudLayout hudLayout = buildFightHudLayout();
+                    currentFightHudOcclusionRects = hudLayout.occlusionRects();
+                    drawGame(g);
 
-                ui.clearRect(0, 0, WIDTH, HEIGHT);
-                drawFightHud(ui, hudLayout);
-                if (trainingModeActive) {
-                    drawTrainingLabHud(ui);
+                    ui.clearRect(0, 0, WIDTH, HEIGHT);
+                    drawFightHud(ui, hudLayout);
+                    if (trainingModeActive) {
+                        drawTrainingLabHud(ui);
+                    }
+                    drawDebugBalanceHud(ui);
+                    drawFightFlashOverlay(ui);
+                } catch (RuntimeException ex) {
+                    handleGameplayFrameException(ex);
                 }
-                drawDebugBalanceHud(ui);
-                drawFightFlashOverlay(ui);
             }
         };
 

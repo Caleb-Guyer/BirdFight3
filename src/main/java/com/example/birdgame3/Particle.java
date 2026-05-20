@@ -12,6 +12,6 @@ class Particle {
         this.y = y;
         this.vx = vx;
         this.vy = vy;
-        this.color = color;
+        this.color = color != null ? color : Color.WHITE;
     }
 }

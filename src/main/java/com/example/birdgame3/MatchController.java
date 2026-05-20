@@ -632,7 +632,9 @@ final class MatchController {
 
         if (handleCompetitionRoundEnd(winner)) {
             game.matchEnded = true;
-            game.timer.stop();
+            if (game.timer != null) {
+                game.timer.stop();
+            }
             return;
         }
 
@@ -662,7 +664,9 @@ final class MatchController {
                     return;
                 }
                 stop();
-                game.timer.stop();
+                if (game.timer != null) {
+                    game.timer.stop();
+                }
                 game.recordBalanceOutcome(finalWinner);
                 if (game.tournamentModeActive && game.currentTournamentMatch != null && !game.tournamentMatchResolved) {
                     BirdGame3.TournamentEntry winnerEntry = game.resolveTournamentWinnerEntry(finalWinner);

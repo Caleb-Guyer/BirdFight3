@@ -29,40 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class RaptorSpecials {
-    private RaptorSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        switch (bird.selectRaptorSpecialVariant()) {
-            case NEUTRAL -> bird.specialRaptorNeutral(ultimate);
-            case SIDE -> bird.specialRaptorSide(ultimate);
-            case UP -> bird.specialRaptorUp(ultimate);
-            case DOWN -> {
-                if (bird.type == BirdGame3.BirdType.EAGLE) {
-                    bird.specialEagle(ultimate);
-                } else {
-                    bird.specialFalcon(ultimate);
-                }
-            }
-        }
-    }
-}
-
-final class PhoenixSpecials {
-    private PhoenixSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        switch (bird.selectPhoenixSpecialVariant()) {
-            case NEUTRAL -> bird.specialPhoenixNeutral(ultimate);
-            case SIDE -> bird.specialPhoenixSide(ultimate);
-            case UP -> bird.specialPhoenixUp(ultimate);
-            case DOWN -> bird.specialPhoenixDown(ultimate);
-        }
-    }
-}
-
 final class HummingbirdSpecials {
     private HummingbirdSpecials() {
     }
