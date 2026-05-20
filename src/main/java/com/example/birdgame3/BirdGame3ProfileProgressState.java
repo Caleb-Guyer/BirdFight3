@@ -34,7 +34,6 @@ final class BirdGame3ProfileProgressState {
     private static final String KEY_BOSS_RUSH_BEST_RANK_PREFIX = "boss_rush_best_rank_";
     private static final String KEY_BOSS_RUSH_PERFECT_PREFIX = "boss_rush_perfect_";
     private static final String KEY_GUIDED_TUTORIAL_COMPLETED = "academy_guided_tutorial_completed";
-    private static final String KEY_BIRD_TRIAL_PREFIX = "academy_bird_trial_";
     private static final String KEY_DEVELOPER_INFINITE_BIRD_COINS = "developer_infinite_bird_coins";
 
     int achievementSchemaVersion = 0;
@@ -82,7 +81,6 @@ final class BirdGame3ProfileProgressState {
     boolean roosterUnlocked = false;
     boolean developerInfiniteBirdCoins = false;
     boolean guidedTutorialCompleted = false;
-    boolean[] birdTrialCompleted = new boolean[BirdGame3.BirdType.values().length];
     String dailyChallengeBestKey = "";
     int dailyChallengeBestProgress = 0;
     BirdGame3.BirdType dailyChallengeBestBird = null;
@@ -199,7 +197,6 @@ final class BirdGame3ProfileProgressState {
         thermalPickups = new int[schema.maxCombatants()];
         highCliffJumps = new int[schema.maxCombatants()];
         vineGrapplePickups = new int[schema.maxCombatants()];
-        birdTrialCompleted = new boolean[BirdGame3.BirdType.values().length];
     }
 
     private static void loadAchievements(Preferences prefs, BirdGame3ProfileProgressState state) {
@@ -487,23 +484,10 @@ final class BirdGame3ProfileProgressState {
                 KEY_GUIDED_TUTORIAL_COMPLETED,
                 prefs.getBoolean("start_here_completed", false)
         );
-        for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
-            int idx = type.ordinal();
-            if (idx < state.birdTrialCompleted.length) {
-                state.birdTrialCompleted[idx] = prefs.getBoolean(KEY_BIRD_TRIAL_PREFIX + type.name(), false);
-            }
-        }
     }
 
     private void saveTrainingAcademy(Preferences prefs) {
         prefs.putBoolean(KEY_GUIDED_TUTORIAL_COMPLETED, guidedTutorialCompleted);
-        for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
-            int idx = type.ordinal();
-            prefs.putBoolean(
-                    KEY_BIRD_TRIAL_PREFIX + type.name(),
-                    idx < birdTrialCompleted.length && birdTrialCompleted[idx]
-            );
-        }
     }
 
     private void savePlayerProgressStats(Preferences prefs, int maxCombatants) {

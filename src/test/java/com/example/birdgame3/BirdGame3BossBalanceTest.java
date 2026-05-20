@@ -403,10 +403,8 @@ class BirdGame3BossBalanceTest {
         preDialogueField.setAccessible(true);
         Object lines = preDialogueField.get(finalBattle);
 
-        @SuppressWarnings("unchecked")
-        Class<? extends Enum<?>> dialogueSideClass = (Class<? extends Enum<?>>) Class.forName("com.example.birdgame3.BirdGame3$DialogueSide");
-        @SuppressWarnings({"rawtypes", "unchecked"})
-        Object rightSide = Enum.valueOf((Class) dialogueSideClass, "RIGHT");
+        Class<?> dialogueSideClass = Class.forName("com.example.birdgame3.BirdGame3$DialogueSide");
+        Object rightSide = enumConstant(dialogueSideClass, "RIGHT");
 
         Method resolve = BirdGame3.class.getDeclaredMethod("resolveAdventureDialogueSideSkinKey", lines.getClass(), dialogueSideClass);
         resolve.setAccessible(true);
@@ -824,5 +822,18 @@ class BirdGame3BossBalanceTest {
         Method method = target.getClass().getDeclaredMethod(accessor);
         method.setAccessible(true);
         return method.invoke(target);
+    }
+
+    private static Enum<?> enumConstant(Class<?> enumClass, String name) {
+        Object[] constants = enumClass.getEnumConstants();
+        if (constants == null) {
+            throw new IllegalArgumentException(enumClass.getName() + " is not an enum");
+        }
+        for (Object constant : constants) {
+            if (constant instanceof Enum<?> enumConstant && enumConstant.name().equals(name)) {
+                return enumConstant;
+            }
+        }
+        throw new IllegalArgumentException("Missing enum constant " + enumClass.getName() + "." + name);
     }
 }

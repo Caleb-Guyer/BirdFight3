@@ -445,7 +445,7 @@ class BirdStateTest {
                 "Heisenbird's crystal should refill slowly enough to prevent quick farming.");
         List<?> crystals = (List<?>) getPrivateObject(heisen, "opiumTraps");
         assertFalse(crystals.isEmpty());
-        assertTrue(getPrivateInt(crystals.get(0), "lifeFrames") > 500,
+        assertTrue(getPrivateInt(crystals.getFirst(), "lifeFrames") > 500,
                 "Heisenbird's refill crystal should stay long enough to be used intentionally.");
     }
 
@@ -1327,7 +1327,6 @@ class BirdStateTest {
     }
 
     @Test
-    @SuppressWarnings({"rawtypes", "unchecked"})
     void knockbackTuningBoostsNonSmashNormalsAndTonesDownSmashes() throws Exception {
         BirdGame3 game = new BirdGame3();
         Bird bird = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
@@ -1335,12 +1334,11 @@ class BirdStateTest {
         Class<?> variantClass = Class.forName("com.example.birdgame3.Bird$NormalAttackVariant");
         Method multiplier = Bird.class.getDeclaredMethod("attackKnockbackBalanceMultiplier", variantClass);
         multiplier.setAccessible(true);
-        Class<? extends Enum> enumClass = variantClass.asSubclass(Enum.class);
 
-        Enum<?> sideTilt = Enum.valueOf((Class) enumClass, "SIDE_TILT");
-        Enum<?> neutralAir = Enum.valueOf((Class) enumClass, "NEUTRAL_AIR");
-        Enum<?> sideSmash = Enum.valueOf((Class) enumClass, "SIDE_SMASH");
-        Enum<?> upSmash = Enum.valueOf((Class) enumClass, "UP_SMASH");
+        Enum<?> sideTilt = enumConstant(variantClass, "SIDE_TILT");
+        Enum<?> neutralAir = enumConstant(variantClass, "NEUTRAL_AIR");
+        Enum<?> sideSmash = enumConstant(variantClass, "SIDE_SMASH");
+        Enum<?> upSmash = enumConstant(variantClass, "UP_SMASH");
 
         assertTrue((double) multiplier.invoke(bird, sideTilt) > 1.0);
         assertTrue((double) multiplier.invoke(bird, neutralAir) > 1.0);
@@ -3151,7 +3149,7 @@ class BirdStateTest {
 
         Object iceObjects = getPrivateObject(penguin, "penguinIceObjects");
         assertTrue(iceObjects instanceof List<?> list && !list.isEmpty());
-        Object firstObject = ((List<?>) iceObjects).get(0);
+        Object firstObject = ((List<?>) iceObjects).getFirst();
         assertTrue(getPrivateBoolean(firstObject, "snowball"));
         assertEquals(0, penguin.specialCooldown);
     }
@@ -3184,7 +3182,7 @@ class BirdStateTest {
                 "Snow Fort should push enemy bodies out instead of letting them walk through.");
 
         int healthBefore = getPrivateInt(fort, "health");
-        invokePrivateIntVoid(attacker, "performAttack", 0);
+        invokePrivateIntVoid(attacker);
         int healthAfter = getPrivateInt(fort, "health");
 
         assertTrue(healthAfter < healthBefore, "Enemy attacks should damage the Snow Fort.");
@@ -4256,16 +4254,13 @@ class BirdStateTest {
     }
 
     @Test
-    void academyTrainingRosterUsesLessonAndTrialBirds() throws Exception {
+    void academyTrainingRosterUsesGuidedLessonBirds() throws Exception {
         BirdGame3 game = new BirdGame3();
 
         Class<?> academyModeClass = Class.forName("com.example.birdgame3.BirdGame3$TrainingAcademyMode");
         Class<?> lessonClass = Class.forName("com.example.birdgame3.BirdGame3$GuidedTutorialLesson");
-        Class<?> trialClass = Class.forName("com.example.birdgame3.BirdGame3$BirdTrialDefinition");
-        Object guidedMode = Enum.valueOf((Class<? extends Enum>) academyModeClass.asSubclass(Enum.class), "GUIDED_TUTORIAL");
-        Object trialMode = Enum.valueOf((Class<? extends Enum>) academyModeClass.asSubclass(Enum.class), "BIRD_TRIAL");
-        Object recoveryLesson = Enum.valueOf((Class<? extends Enum>) lessonClass.asSubclass(Enum.class), "RECOVERY");
-        Object eagleTrial = Enum.valueOf((Class<? extends Enum>) trialClass.asSubclass(Enum.class), "EAGLE");
+        Object guidedMode = enumConstant(academyModeClass, "GUIDED_TUTORIAL");
+        Object recoveryLesson = enumConstant(lessonClass, "RECOVERY_AND_LEDGE");
 
         Method setupRoster = BirdGame3.class.getDeclaredMethod("setupTrainingRoster");
         setupRoster.setAccessible(true);
@@ -4275,13 +4270,6 @@ class BirdStateTest {
         setupRoster.invoke(game);
 
         assertEquals(BirdGame3.BirdType.PENGUIN, game.players[0].type);
-        assertEquals(BirdGame3.BirdType.PIGEON, game.players[1].type);
-
-        setPrivateObject(game, "trainingAcademyMode", trialMode);
-        setPrivateObject(game, "activeBirdTrial", eagleTrial);
-        setupRoster.invoke(game);
-
-        assertEquals(BirdGame3.BirdType.EAGLE, game.players[0].type);
         assertEquals(BirdGame3.BirdType.PIGEON, game.players[1].type);
     }
 
@@ -4597,7 +4585,7 @@ class BirdStateTest {
         game.players[0] = raven;
         game.players[1] = target;
 
-        invokePrivateBirdBooleanVoid(raven, "applyRavenPortent", target, false);
+        invokePrivateBirdBooleanVoid(raven, target, false);
         game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
         raven.update(1.0);
@@ -4685,7 +4673,7 @@ class BirdStateTest {
         game.players[0] = raven;
         game.players[1] = target;
 
-        invokePrivateBirdBooleanVoid(raven, "applyRavenPortent", target, true);
+        invokePrivateBirdBooleanVoid(raven, target, true);
         double startingHealth = target.health;
         invokePrivateVoid(raven, "specialRavenUnkindness");
 
@@ -4702,8 +4690,7 @@ class BirdStateTest {
             raven.update(1.0);
         }
 
-        assertTrue(((List<?>) getPrivateObject(raven, "ravenUltimateRoutes")).size() > 0,
-                "The delayed main strike should create route slashes.");
+        assertFalse(((List<?>) getPrivateObject(raven, "ravenUltimateRoutes")).isEmpty(), "The delayed main strike should create route slashes.");
         assertTrue(target.health < startingHealth,
                 "The delayed route strike should damage targets on the route.");
 
@@ -4751,16 +4738,16 @@ class BirdStateTest {
         method.invoke(target, value);
     }
 
-    private static void invokePrivateBirdBooleanVoid(Object target, String methodName, Bird bird, boolean value) throws Exception {
-        Method method = target.getClass().getDeclaredMethod(methodName, Bird.class, boolean.class);
+    private static void invokePrivateBirdBooleanVoid(Object target, Bird bird, boolean value) throws Exception {
+        Method method = target.getClass().getDeclaredMethod("applyRavenPortent", Bird.class, boolean.class);
         method.setAccessible(true);
         method.invoke(target, bird, value);
     }
 
-    private static void invokePrivateIntVoid(Object target, String methodName, int value) throws Exception {
-        Method method = target.getClass().getDeclaredMethod(methodName, int.class);
+    private static void invokePrivateIntVoid(Object target) throws Exception {
+        Method method = target.getClass().getDeclaredMethod("performAttack", int.class);
         method.setAccessible(true);
-        method.invoke(target, value);
+        method.invoke(target, 0);
     }
 
     private static double invokeDoubleMethod(Object target, String methodName) throws Exception {
@@ -4871,5 +4858,18 @@ class BirdStateTest {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         return field.get(target);
+    }
+
+    private static Enum<?> enumConstant(Class<?> enumClass, String name) {
+        Object[] constants = enumClass.getEnumConstants();
+        if (constants == null) {
+            throw new IllegalArgumentException(enumClass.getName() + " is not an enum");
+        }
+        for (Object constant : constants) {
+            if (constant instanceof Enum<?> enumConstant && enumConstant.name().equals(name)) {
+                return enumConstant;
+            }
+        }
+        throw new IllegalArgumentException("Missing enum constant " + enumClass.getName() + "." + name);
     }
 }

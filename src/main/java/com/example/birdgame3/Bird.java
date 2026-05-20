@@ -182,6 +182,13 @@ public class Bird {
         DOWN
     }
 
+    enum DirectionalSpecialInput {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     private record BatEchoCollision(double distance, double normalX, double normalY) {
     }
 
@@ -2908,6 +2915,7 @@ public class Bird {
             } else {
                 game.addToKillFeed(shortName() + " PARRIED the hit!");
             }
+            game.recordTrainingShieldHit(this, true);
             return ShieldHitResult.PARRIED;
         }
 
@@ -2936,6 +2944,7 @@ public class Bird {
         spawnShieldParticles(Color.web("#64B5F6"), 10 + (int) Math.min(8.0, scaledDamage * 0.35), 3.0);
         game.hitstopFrames = Math.max(game.hitstopFrames, (int) Math.min(8, 2 + scaledDamage / 7.0));
         game.shakeIntensity = Math.clamp(2.0 + scaledDamage * 0.12, game.shakeIntensity, 8.0);
+        game.recordTrainingShieldHit(this, false);
 
         if (shieldHealth <= 0.0) {
             breakShield(attacker, push);
@@ -3082,6 +3091,7 @@ public class Bird {
         target.vx = 0.0;
         target.vy = 0.0;
         syncGrabbedTargetPosition();
+        game.recordTrainingGrab(this);
         game.addToKillFeed(shortName() + " grabbed " + target.shortName() + "!");
     }
 
@@ -3229,6 +3239,7 @@ public class Bird {
         grabCooldown = Math.max(grabCooldown, GRAB_THROW_COOLDOWN_FRAMES);
         attackCooldown = Math.max(attackCooldown, 8);
         attackAnimationTimer = Math.max(attackAnimationTimer, 10);
+        game.recordTrainingThrow(this);
 
         double oldHealth = target.health;
         double dealtDamage = applyUnshieldedDamageTo(target, rawDamage);
@@ -3355,6 +3366,7 @@ public class Bird {
     private void performAttack(int chargeFrames, NormalAttackVariant variant) {
         NormalAttackProfile profile = attack(chargeFrames, variant);
         double chargeRatio = attackChargeRatio(chargeFrames);
+        game.recordTrainingAttack(this, chargeFrames);
         game.playButterSfx();
         activeAttackVariant = variant;
         attackCooldown = scaledAttackCooldown(profile.cooldownFrames()) + (int) Math.round(chargeRatio * 18.0);
@@ -4480,14 +4492,6 @@ public class Bird {
                 ));
             }
         }
-    }
-
-    void specialPhoenixNeutral(boolean ultimate) {
-        PhoenixSpecials.neutral(this, ultimate);
-    }
-
-    private void releasePhoenixCharge() {
-        PhoenixSpecials.releaseCharge(this);
     }
 
     void specialPhoenixSide(boolean ultimate) {
@@ -9297,6 +9301,19 @@ public class Bird {
             return PhoenixSpecialVariant.SIDE;
         }
         return PhoenixSpecialVariant.NEUTRAL;
+    }
+
+    DirectionalSpecialInput selectDirectionalSpecialInput() {
+        if (jumpPressed()) {
+            return DirectionalSpecialInput.UP;
+        }
+        if (blockPressed()) {
+            return DirectionalSpecialInput.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return DirectionalSpecialInput.SIDE;
+        }
+        return DirectionalSpecialInput.NEUTRAL;
     }
 
     private boolean shouldReserveJumpForSpecial() {
@@ -15872,6 +15889,7 @@ public class Bird {
         if (dir == lastTapDir && (now - lastTapTimeNs) <= window) {
             dashTimer = 12;
             dashCooldown = 20;
+            game.recordTrainingDash(this);
             lastTapTimeNs = 0L;
         } else {
             lastTapDir = dir;

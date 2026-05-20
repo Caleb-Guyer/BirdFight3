@@ -30,6 +30,7 @@ final class BirdSpecialSystem {
 
         playSpecialSound(bird);
         game.specialsUsed[bird.playerIndex]++;
+        game.recordTrainingSpecialUse(bird, bird.selectDirectionalSpecialInput());
         BirdSpecialExecutor.execute(bird, ultimateTriggered);
     }
 

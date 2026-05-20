@@ -635,8 +635,7 @@ public class BirdGame3 extends Application {
 
     private enum TrainingAcademyMode {
         NONE,
-        GUIDED_TUTORIAL,
-        BIRD_TRIAL
+        GUIDED_TUTORIAL
     }
 
     private record ControlBindingTarget(int playerIdx, ControlAction action) {}
@@ -3872,14 +3871,13 @@ public class BirdGame3 extends Application {
     private static final double TRAINING_SLOW_MOTION_SCALE = 0.35;
     private static final int TRAINING_ACADEMY_ADVANCE_FRAMES = 90;
     private static final int TRAINING_ACADEMY_BLOCK_GOAL_FRAMES = 8;
+    private static final int TRAINING_ACADEMY_EDGE_GOAL_FRAMES = 12;
     private BirdType trainingPlayerBird = BirdType.PIGEON;
     private BirdType trainingOpponentBird = BirdType.PIGEON;
     private final int trainingDummyIndex = 1;
     private TrainingAcademyMode trainingAcademyMode = TrainingAcademyMode.NONE;
-    private GuidedTutorialLesson guidedTutorialLesson = GuidedTutorialLesson.MOVEMENT;
-    private BirdTrialDefinition activeBirdTrial = null;
+    private GuidedTutorialLesson guidedTutorialLesson = GuidedTutorialLesson.STAGE_CONTROL;
     private boolean guidedTutorialCompleted = false;
-    private final boolean[] birdTrialCompleted = new boolean[BirdType.values().length];
     private TrainingDummyBehavior trainingDummyBehavior = TrainingDummyBehavior.IDLE;
     private boolean trainingCombatOverlayEnabled = false;
     private boolean trainingSlowMotionEnabled = false;
@@ -3896,6 +3894,17 @@ public class BirdGame3 extends Application {
     private boolean trainingAcademyMoveLeftSeen = false;
     private boolean trainingAcademyMoveRightSeen = false;
     private boolean trainingAcademyJumpSeen = false;
+    private boolean trainingAcademyDashSeen = false;
+    private boolean trainingAcademyQuickAttackSeen = false;
+    private boolean trainingAcademyChargedAttackSeen = false;
+    private int trainingAcademyHitsLanded = 0;
+    private boolean trainingAcademyShieldHitSeen = false;
+    private boolean trainingAcademyGrabSeen = false;
+    private boolean trainingAcademyThrowSeen = false;
+    private boolean trainingAcademyNeutralSpecialSeen = false;
+    private boolean trainingAcademySideSpecialSeen = false;
+    private boolean trainingAcademyUpSpecialSeen = false;
+    private boolean trainingAcademyDownSpecialSeen = false;
     private boolean trainingAcademyRecoveryStarted = false;
     private int trainingAcademyRecoveriesCompleted = 0;
     private int trainingAcademyBlockFrames = 0;
@@ -9300,58 +9309,67 @@ public class BirdGame3 extends Application {
     }
 
     private enum GuidedTutorialLesson {
-        MOVEMENT(
-                "Movement",
-                "Move left, move right, and jump.",
-                "Use your movement keys to get comfortable with spacing before you fight.",
+        STAGE_CONTROL(
+                "Stage Control",
+                "Move both ways, jump, and dash.",
+                "Double-tap left or right to dash. Platform control matters before every hit.",
                 MapType.BATTLEFIELD,
                 BirdType.PIGEON,
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
-        RECOVERY(
-                "Recovery",
-                "Return to the platform after spawning offstage.",
-                "Save your jump, then use Penguin's recovery to get back to safety.",
+        DAMAGE_AND_CHARGE(
+                "Damage And Charge",
+                "Hit the dummy with quick attacks, then land a charged attack.",
+                "Damage increases pressure; charged grounded attacks launch harder.",
                 MapType.BATTLEFIELD,
-                BirdType.PENGUIN,
+                BirdType.PIGEON,
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
-        BLOCKING(
-                "Shield / Block",
-                "Hold block while the dummy swings at close range.",
-                "Blocking stabilizes you under pressure and is the safest way to learn close defense.",
+        DIRECTIONAL_SPECIALS(
+                "Directional Specials",
+                "Use neutral, side, up, and down special.",
+                "Special changes when you hold no direction, left/right, jump/up, or block/down.",
+                MapType.BATTLEFIELD,
+                BirdType.EAGLE,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        DEFENSE_AND_PUNISH(
+                "Defense And Punish",
+                "Block a close hit, then strike back.",
+                "A timed block can parry. A held shield still lets you survive pressure and reset.",
                 MapType.BATTLEFIELD,
                 BirdType.EAGLE,
                 BirdType.PIGEON,
                 TrainingDummyBehavior.MASH_ATTACK
         ),
-        SPECIALS(
-                "Specials",
-                "Use your special once.",
-                "Every bird has a different special. Watch the cooldown to learn its rhythm.",
-                MapType.BATTLEFIELD,
-                BirdType.EAGLE,
-                BirdType.PIGEON,
-                TrainingDummyBehavior.IDLE
-        ),
-        EDGE_PLAY(
-                "Edge Play",
-                "Force the dummy off the stage edge.",
-                "Pressure at the ledge until the dummy has to start recovering.",
+        GRABS_AND_THROWS(
+                "Grabs And Throws",
+                "Grab the dummy, then throw it.",
+                "Throws beat shielding and let you choose forward, back, up, or down launch.",
                 MapType.BATTLEFIELD,
                 BirdType.PIGEON,
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
-        MAP_HAZARDS(
-                "Map Hazards",
-                "Pull the dock lever with attack or special.",
-                "Stage hazards change positioning. Use the lever when your target is exposed.",
-                MapType.DOCK,
+        RECOVERY_AND_LEDGE(
+                "Recovery And Ledge",
+                "Return to the platform after spawning offstage.",
+                "Save your jump, aim toward the stage, then use Penguin's up special.",
+                MapType.BATTLEFIELD,
+                BirdType.PENGUIN,
                 BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        RING_OUT(
+                "Ring Out",
+                "Launch the dummy past the stage edge.",
+                "Bird Fight is about damage, knockback, recovery, and finishing the position.",
+                MapType.BATTLEFIELD,
                 BirdType.EAGLE,
+                BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         );
 
@@ -9379,56 +9397,6 @@ public class BirdGame3 extends Application {
             int nextIndex = ordinal() + 1;
             return nextIndex >= lessons.length ? null : lessons[nextIndex];
         }
-    }
-
-    private enum BirdTrialDefinition {
-        PIGEON(
-                BirdType.PIGEON,
-                "Pigeon Trial: String Builder",
-                "Land a 3-hit combo on the dummy.",
-                "Stay close enough to keep the combo timer alive between hits.",
-                MapType.BATTLEFIELD,
-                BirdType.EAGLE,
-                TrainingDummyBehavior.IDLE
-        ),
-        EAGLE(
-                BirdType.EAGLE,
-                "Eagle Trial: Guard Break",
-                "Block a close swing, then answer with a special.",
-                "Hold guard until the dummy commits, then punish immediately.",
-                MapType.BATTLEFIELD,
-                BirdType.PIGEON,
-                TrainingDummyBehavior.MASH_ATTACK
-        ),
-        PENGUIN(
-                BirdType.PENGUIN,
-                "Penguin Trial: Cold Return",
-                "Recover back to the platform twice.",
-                "You will be reset offstage after the first successful return.",
-                MapType.BATTLEFIELD,
-                BirdType.PIGEON,
-                TrainingDummyBehavior.IDLE
-        );
-
-        final BirdType playerBird;
-        final String title;
-        final String objective;
-        final String hint;
-        final MapType map;
-        final BirdType dummyBird;
-        final TrainingDummyBehavior dummyBehavior;
-
-        BirdTrialDefinition(BirdType playerBird, String title, String objective, String hint,
-                            MapType map, BirdType dummyBird, TrainingDummyBehavior dummyBehavior) {
-            this.playerBird = playerBird;
-            this.title = title;
-            this.objective = objective;
-            this.hint = hint;
-            this.map = map;
-            this.dummyBird = dummyBird;
-            this.dummyBehavior = dummyBehavior;
-        }
-
     }
 
     private void gameTick() {
@@ -9551,8 +9519,7 @@ public class BirdGame3 extends Application {
             for (StackTraceElement frame : current.getStackTrace()) {
                 String className = frame.getClassName();
                 String methodName = frame.getMethodName();
-                if ((className != null && className.endsWith(".PhoenixSpecials"))
-                        || (methodName != null && methodName.contains("Phoenix"))) {
+                if (className.endsWith(".PhoenixSpecials") || methodName.contains("Phoenix")) {
                     return true;
                 }
             }
@@ -15625,6 +15592,8 @@ public class BirdGame3 extends Application {
                                              Canvas[] clawCanvases,
                                              Text[] clawLabels,
                                              Button[][] playerControlButtons) {
+            Canvas[] safeClawCanvases = clawCanvases == null ? new Canvas[0] : clawCanvases;
+            Text[] safeClawLabels = clawLabels == null ? new Text[0] : clawLabels;
             this.selectors = selectors;
             this.selectorLabels = selectorLabels;
             this.selectorLocked = selectorLocked;
@@ -15637,10 +15606,10 @@ public class BirdGame3 extends Application {
             this.updateControllerAssignments = updateControllerAssignments;
             this.tryStartMatch = tryStartMatch;
             this.nullRockSequenceProgress = nullRockSequenceProgress;
-            this.clawCanvases = clawCanvases;
-            this.clawLabels = clawLabels;
+            this.clawCanvases = safeClawCanvases;
+            this.clawLabels = safeClawLabels;
             this.playerControlButtons = playerControlButtons;
-            this.clawState = new FightSetupClawState(clawCanvases == null ? 0 : clawCanvases.length,
+            this.clawState = new FightSetupClawState(Math.min(safeClawCanvases.length, safeClawLabels.length),
                     FIGHT_SELECTOR_BOUND_MARGIN,
                     54.0);
             for (int i = 0; i < this.clawState.clawCount(); i++) {
@@ -15648,7 +15617,7 @@ public class BirdGame3 extends Application {
                         ? dockPositions[i]
                         : new Point2D(FIGHT_SELECTOR_BOUND_MARGIN, FIGHT_SELECTOR_BOUND_MARGIN);
                 clawState.moveHomeFromDock(i, dock.getX(), dock.getY());
-                positionFightSelectorClaw(clawCanvases[i], clawLabels[i], clawState.x(i), clawState.y(i));
+                positionFightSelectorClaw(this.clawCanvases[i], this.clawLabels[i], clawState.x(i), clawState.y(i));
                 updateClawPresentation(i, false, false);
             }
         }
@@ -15672,7 +15641,7 @@ public class BirdGame3 extends Application {
         }
 
         private void setClawConnected(int sourceIdx, boolean connected) {
-            if (isValidClawIndex(sourceIdx)) {
+            if (isInvalidClawIndex(sourceIdx)) {
                 return;
             }
             if (!connected || sourceIdx >= activePlayers) {
@@ -15689,7 +15658,7 @@ public class BirdGame3 extends Application {
         }
 
         private void moveClaw(int sourceIdx, double horizontal, double vertical, double dtSeconds) {
-            if (isValidClawIndex(sourceIdx) || sourceIdx >= activePlayers) {
+            if (isInvalidClawIndex(sourceIdx) || sourceIdx >= activePlayers) {
                 return;
             }
             double length = Math.hypot(horizontal, vertical);
@@ -15724,7 +15693,7 @@ public class BirdGame3 extends Application {
         }
 
         private void beginClawGrab(int sourceIdx) {
-            if (isValidClawIndex(sourceIdx) || sourceIdx >= activePlayers) {
+            if (isInvalidClawIndex(sourceIdx) || sourceIdx >= activePlayers) {
                 return;
             }
             if (clawState.isGrabbing(sourceIdx)) {
@@ -15765,7 +15734,7 @@ public class BirdGame3 extends Application {
         }
 
         private void cancelClawGrab(int sourceIdx, boolean hideAfter) {
-            if (isValidClawIndex(sourceIdx)) {
+            if (isInvalidClawIndex(sourceIdx)) {
                 return;
             }
             int selectorIdx = clawState.grabbedSelector(sourceIdx);
@@ -15784,7 +15753,7 @@ public class BirdGame3 extends Application {
         }
 
         private void updateGrabbedSelectorPosition(int sourceIdx) {
-            if (isValidClawIndex(sourceIdx)) {
+            if (isInvalidClawIndex(sourceIdx)) {
                 return;
             }
             int selectorIdx = clawState.grabbedSelector(sourceIdx);
@@ -15803,7 +15772,7 @@ public class BirdGame3 extends Application {
         }
 
         private int nearestSelectorForClaw(int sourceIdx) {
-            if (isValidClawIndex(sourceIdx)) {
+            if (isInvalidClawIndex(sourceIdx)) {
                 return -1;
             }
             double bestDistance = FIGHT_SELECTOR_CLAW_GRAB_RADIUS * FIGHT_SELECTOR_CLAW_GRAB_RADIUS;
@@ -15831,16 +15800,14 @@ public class BirdGame3 extends Application {
             return clawState.selectorGrabbedByOtherClaw(selectorIdx, sourceIdx);
         }
 
-        private boolean isValidClawIndex(int sourceIdx) {
+        private boolean isInvalidClawIndex(int sourceIdx) {
             return sourceIdx < 0
-                    || clawCanvases == null
                     || sourceIdx >= clawCanvases.length
-                    || clawLabels == null
                     || sourceIdx >= clawLabels.length;
         }
 
         private void updateClawPresentation(int sourceIdx, boolean visible, boolean closed) {
-            if (isValidClawIndex(sourceIdx)) {
+            if (isInvalidClawIndex(sourceIdx)) {
                 return;
             }
             FightSetupClawState.PresentationChange change = clawState.setPresentation(sourceIdx, visible, closed);
@@ -16916,7 +16883,6 @@ public class BirdGame3 extends Application {
         competitionRoundNumber = 1;
         trainingModeActive = false;
         trainingAcademyMode = TrainingAcademyMode.NONE;
-        activeBirdTrial = null;
         clearTrainingAcademyRuntimeState();
         stageSelectHandler = null;
         playMenuMusic();
@@ -17179,7 +17145,6 @@ public class BirdGame3 extends Application {
             stageSelectReturn = () -> showTrainingSetup(stage);
             stageSelectHandler = map -> {
                 trainingAcademyMode = TrainingAcademyMode.NONE;
-                activeBirdTrial = null;
                 clearTrainingAcademyRuntimeState();
                 beginTrainingMatchOnMap(stage, map);
             };
@@ -17192,32 +17157,18 @@ public class BirdGame3 extends Application {
         applyNoEllipsis(academyLabel);
 
         Label academyStatus = new Label(guidedTutorialCompleted
-                ? "Guided tutorial completed. Bird trials are unlocked."
-                : "Play the six-step guided tutorial, then unlock bird-specific trials.");
+                ? "Guided tutorial completed."
+                : "Play the " + GuidedTutorialLesson.values().length + "-lesson guided tutorial.");
         academyStatus.setFont(Font.font("Consolas", 18));
         academyStatus.setTextFill(Color.web("#E1F5FE"));
         academyStatus.setWrapText(true);
         academyStatus.setMaxWidth(620);
         applyNoEllipsis(academyStatus);
 
-        Label academyProgress = new Label("Trials cleared: "
-                + completedBirdTrialCount()
-                + " / "
-                + BirdTrialDefinition.values().length);
-        academyProgress.setFont(Font.font("Consolas", 18));
-        academyProgress.setTextFill(Color.web("#B2DFDB"));
-        academyProgress.setWrapText(true);
-        academyProgress.setMaxWidth(620);
-        applyNoEllipsis(academyProgress);
-
         Button guidedTutorialButton = uiFactory.action("GUIDED TUTORIAL", 320, 82, 26, "#1565C0", 18,
                 () -> beginGuidedTutorial(stage));
-        Button birdTrialsButton = uiFactory.action("BIRD TRIALS", 320, 82, 26, "#6A1B9A", 18,
-                () -> showBirdTrialsMenu(stage));
-        birdTrialsButton.setDisable(!guidedTutorialCompleted);
-        birdTrialsButton.setOpacity(guidedTutorialCompleted ? 1.0 : 0.6);
 
-        VBox academyCard = new VBox(10, academyLabel, academyStatus, academyProgress, guidedTutorialButton, birdTrialsButton);
+        VBox academyCard = new VBox(10, academyLabel, academyStatus, guidedTutorialButton);
         academyCard.setAlignment(Pos.TOP_LEFT);
         academyCard.setPadding(new Insets(18));
         academyCard.setStyle("-fx-background-color: rgba(7,32,48,0.82); -fx-border-color: #FFF176; "
@@ -17289,183 +17240,13 @@ public class BirdGame3 extends Application {
         }
         playButtonClick();
         trainingAcademyMode = TrainingAcademyMode.GUIDED_TUTORIAL;
-        guidedTutorialLesson = GuidedTutorialLesson.MOVEMENT;
-        activeBirdTrial = null;
+        guidedTutorialLesson = GuidedTutorialLesson.STAGE_CONTROL;
         clearTrainingAcademyRuntimeState();
         beginTrainingMatchOnMap(stage, guidedTutorialLesson.map);
     }
 
-    private void startBirdTrial(Stage stage, BirdTrialDefinition trial) {
-        if (stage == null || trial == null || !guidedTutorialCompleted) {
-            return;
-        }
-        playButtonClick();
-        trainingAcademyMode = TrainingAcademyMode.BIRD_TRIAL;
-        activeBirdTrial = trial;
-        clearTrainingAcademyRuntimeState();
-        beginTrainingMatchOnMap(stage, trial.map);
-    }
-
-    private void showBirdTrialsMenu(Stage stage) {
-        storyModeActive = false;
-        storyReplayMode = false;
-        adventureModeActive = false;
-        adventureReplayMode = false;
-        currentAdventureBattle = null;
-        adventureTeamMode = false;
-        Arrays.fill(adventureTeams, 1);
-        classicModeActive = false;
-        classicEncounter = null;
-        classicRun.clear();
-        classicRoundIndex = 0;
-        classicDeaths = 0;
-        classicTeamMode = false;
-        Arrays.fill(classicTeams, 1);
-        clearBossRushState();
-        competitionSeriesActive = false;
-        Arrays.fill(competitionRoundWins, 0);
-        Arrays.fill(competitionTeamWins, 0);
-        competitionRoundNumber = 1;
-        trainingModeActive = false;
-        trainingAcademyMode = TrainingAcademyMode.NONE;
-        activeBirdTrial = null;
-        clearTrainingAcademyRuntimeState();
-        stageSelectHandler = null;
-        playMenuMusic();
-
-        VBox root = MenuLayout.buildMenuRoot(
-                "-fx-background-color: linear-gradient(to bottom, #06131C, #133248, #0A1822);",
-                MENU_PADDING,
-                24
-        );
-        root.setAlignment(Pos.TOP_CENTER);
-
-        Label title = new Label("BIRD TRIALS");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 88));
-        title.setTextFill(Color.web("#FFF59D"));
-        title.setEffect(new DropShadow(28, Color.BLACK));
-
-        Label subtitle = new Label(guidedTutorialCompleted
-                ? "Short, bird-specific drills unlocked by the guided tutorial."
-                : "Finish the guided tutorial first to unlock these focused drills.");
-        subtitle.setFont(Font.font("Consolas", 24));
-        subtitle.setTextFill(Color.web("#B2EBF2"));
-        subtitle.setWrapText(true);
-        subtitle.setMaxWidth(1180);
-        subtitle.setTextAlignment(TextAlignment.CENTER);
-        applyNoEllipsis(subtitle);
-
-        Button back = uiFactory.action("BACK TO TRAINING", 360, 92, 30, "#C62828", 20,
-                () -> showTrainingSetup(stage));
-
-        if (!guidedTutorialCompleted) {
-            Label locked = new Label("The academy is locked to the guided tutorial until you clear the six lesson sequence.");
-            locked.setFont(Font.font("Consolas", 20));
-            locked.setTextFill(Color.web("#E1F5FE"));
-            locked.setWrapText(true);
-            locked.setMaxWidth(980);
-            locked.setTextAlignment(TextAlignment.CENTER);
-            applyNoEllipsis(locked);
-
-            Button tutorial = uiFactory.action("START GUIDED TUTORIAL", 420, 92, 30, "#1565C0", 20,
-                    () -> beginGuidedTutorial(stage));
-
-            root.getChildren().addAll(title, subtitle, locked, tutorial, back);
-            Scene scene = new Scene(root, WIDTH, HEIGHT);
-            bindEscape(scene, back);
-            setupKeyboardNavigation(scene);
-            applyConsoleHighlight(scene);
-            setScenePreservingFullscreen(stage, scene);
-            tutorial.requestFocus();
-            return;
-        }
-
-        Label progress = new Label("Completed: " + completedBirdTrialCount() + " / " + BirdTrialDefinition.values().length);
-        progress.setFont(Font.font("Consolas", 20));
-        progress.setTextFill(Color.web("#C8E6C9"));
-
-        VBox cards = new VBox(18);
-        cards.setAlignment(Pos.CENTER);
-        for (BirdTrialDefinition trial : BirdTrialDefinition.values()) {
-            cards.getChildren().add(buildBirdTrialCard(stage, trial));
-        }
-
-        root.getChildren().addAll(title, subtitle, progress, cards, back);
-
-        Scene scene = new Scene(root, WIDTH, HEIGHT);
-        bindEscape(scene, back);
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        setScenePreservingFullscreen(stage, scene);
-        back.requestFocus();
-    }
-
-    private VBox buildBirdTrialCard(Stage stage, BirdTrialDefinition trial) {
-        boolean completed = isBirdTrialCompleted(trial.playerBird);
-
-        Label title = new Label(trial.title);
-        title.setFont(Font.font("Arial Black", 28));
-        title.setTextFill(completed ? Color.web("#C8E6C9") : Color.WHITE);
-        applyNoEllipsis(title);
-
-        Label bird = new Label("Bird: " + trial.playerBird.name);
-        bird.setFont(Font.font("Consolas", 18));
-        bird.setTextFill(Color.web("#FFE082"));
-
-        Label objective = new Label("Objective: " + trial.objective);
-        objective.setFont(Font.font("Consolas", 18));
-        objective.setTextFill(Color.web("#E1F5FE"));
-        objective.setWrapText(true);
-        objective.setMaxWidth(760);
-        applyNoEllipsis(objective);
-
-        Label hint = new Label("Hint: " + trial.hint);
-        hint.setFont(Font.font("Consolas", 16));
-        hint.setTextFill(Color.web("#B0BEC5"));
-        hint.setWrapText(true);
-        hint.setMaxWidth(760);
-        applyNoEllipsis(hint);
-
-        Label status = new Label(completed ? "Status: Completed" : "Status: Ready");
-        status.setFont(Font.font("Consolas", 18));
-        status.setTextFill(completed ? Color.web("#A5D6A7") : Color.web("#FFECB3"));
-
-        Button start = uiFactory.action(completed ? "REPLAY TRIAL" : "START TRIAL", 250, 74, 22,
-                completed ? "#2E7D32" : "#00897B", 17, () -> startBirdTrial(stage, trial));
-
-        VBox copy = new VBox(6, title, bird, objective, hint, status);
-        copy.setAlignment(Pos.CENTER_LEFT);
-        copy.setMaxWidth(780);
-
-        HBox row = new HBox(24, copy, start);
-        row.setAlignment(Pos.CENTER_LEFT);
-
-        VBox card = new VBox(row);
-        card.setAlignment(Pos.CENTER_LEFT);
-        card.setPadding(new Insets(20, 26, 20, 26));
-        card.setMaxWidth(1120);
-        card.setStyle("-fx-background-color: rgba(0,0,0,0.44); -fx-border-color: "
-                + (completed ? "#81C784" : "#4DD0E1")
-                + "; -fx-border-width: 2; -fx-border-radius: 20; -fx-background-radius: 20;");
-        return card;
-    }
-
     boolean isGuidedTutorialCompleted() {
         return guidedTutorialCompleted;
-    }
-
-    boolean isBirdTrialCompleted(BirdType birdType) {
-        return birdType != null && birdType.ordinal() < birdTrialCompleted.length && birdTrialCompleted[birdType.ordinal()];
-    }
-
-    private int completedBirdTrialCount() {
-        int count = 0;
-        for (BirdTrialDefinition trial : BirdTrialDefinition.values()) {
-            if (isBirdTrialCompleted(trial.playerBird)) {
-                count++;
-            }
-        }
-        return count;
     }
 
     private void showClassicMoreMenu(Stage stage) {
@@ -23323,7 +23104,6 @@ public class BirdGame3 extends Application {
         applyDeveloperBirdCoinMode();
 
         guidedTutorialCompleted = true;
-        Arrays.fill(birdTrialCompleted, true);
         Arrays.fill(classicCompleted, true);
         Arrays.fill(classicSkinUnlocked, true);
         for (boolean[] row : towerDefenseDifficultyBadges) {
@@ -32548,6 +32328,14 @@ public class BirdGame3 extends Application {
         trainingAcademyMoveLeftSeen = false;
         trainingAcademyMoveRightSeen = false;
         trainingAcademyJumpSeen = false;
+        trainingAcademyDashSeen = false;
+        trainingAcademyQuickAttackSeen = false;
+        trainingAcademyChargedAttackSeen = false;
+        trainingAcademyHitsLanded = 0;
+        trainingAcademyShieldHitSeen = false;
+        trainingAcademyGrabSeen = false;
+        trainingAcademyThrowSeen = false;
+        clearTrainingSpecialProgress();
         trainingAcademyRecoveryStarted = false;
         trainingAcademyRecoveriesCompleted = 0;
         trainingAcademyBlockFrames = 0;
@@ -32558,20 +32346,20 @@ public class BirdGame3 extends Application {
         trainingAcademySceneTransitionPending = false;
     }
 
-    private GuidedTutorialLesson currentGuidedTutorialLesson() {
-        return guidedTutorialLesson == null ? GuidedTutorialLesson.MOVEMENT : guidedTutorialLesson;
+    private void clearTrainingSpecialProgress() {
+        trainingAcademyNeutralSpecialSeen = false;
+        trainingAcademySideSpecialSeen = false;
+        trainingAcademyUpSpecialSeen = false;
+        trainingAcademyDownSpecialSeen = false;
     }
 
-    private BirdTrialDefinition currentBirdTrialDefinition() {
-        return activeBirdTrial;
+    private GuidedTutorialLesson currentGuidedTutorialLesson() {
+        return guidedTutorialLesson == null ? GuidedTutorialLesson.STAGE_CONTROL : guidedTutorialLesson;
     }
 
     private TrainingDummyBehavior trainingAcademyDummyBehavior() {
         if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
             return currentGuidedTutorialLesson().dummyBehavior;
-        }
-        if (trainingAcademyMode == TrainingAcademyMode.BIRD_TRIAL && currentBirdTrialDefinition() != null) {
-            return currentBirdTrialDefinition().dummyBehavior;
         }
         return null;
     }
@@ -32591,10 +32379,6 @@ public class BirdGame3 extends Application {
             GuidedTutorialLesson lesson = currentGuidedTutorialLesson();
             playerType = lesson.playerBird;
             opponentType = lesson.dummyBird;
-        } else if (trainingAcademyMode == TrainingAcademyMode.BIRD_TRIAL && currentBirdTrialDefinition() != null) {
-            BirdTrialDefinition trial = currentBirdTrialDefinition();
-            playerType = trial.playerBird;
-            opponentType = trial.dummyBird;
         } else {
             playerType = isBirdUnlocked(trainingPlayerBird) ? trainingPlayerBird : firstUnlockedBird();
             if (playerType == null) playerType = BirdType.PIGEON;
@@ -32652,55 +32436,33 @@ public class BirdGame3 extends Application {
         double stageCenter = stage.x + stage.w / 2.0;
         double groundY = stage.y;
         switch (lesson) {
-            case MOVEMENT -> {
+            case STAGE_CONTROL -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 240, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 240, groundY);
             }
-            case RECOVERY -> {
-                setTrainingBirdAirbornePosition(player, stage.x + stage.w * 0.22, stage.y + 160);
-                setTrainingBirdStandingPosition(dummy, stageCenter + 220, groundY);
-            }
-            case BLOCKING -> {
-                setTrainingBirdStandingPosition(player, stageCenter - 90, groundY);
-                setTrainingBirdStandingPosition(dummy, stageCenter + 90, groundY);
-            }
-            case SPECIALS -> {
-                setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
-                setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
-            }
-            case EDGE_PLAY -> {
-                setTrainingBirdStandingPosition(player, stage.x + stage.w - 220, groundY);
-                setTrainingBirdStandingPosition(dummy, stage.x + stage.w - 80, groundY);
-            }
-            case MAP_HAZARDS -> {
-                setTrainingBirdStandingPosition(player, dockLeverX - 28, dockLeverY + 32);
-                setTrainingBirdStandingPosition(dummy, battlefieldIslandX + battlefieldIslandW * 0.72, battlefieldIslandY);
-            }
-        }
-        faceTrainingBirds(player, dummy);
-    }
-
-    private void positionBirdTrialSpawns(Bird player, Bird dummy) {
-        BirdTrialDefinition trial = currentBirdTrialDefinition();
-        Platform stage = trainingPrimaryPlatform();
-        if (trial == null || player == null || dummy == null || stage == null) {
-            return;
-        }
-
-        double stageCenter = stage.x + stage.w / 2.0;
-        double groundY = stage.y;
-        switch (trial) {
-            case PIGEON -> {
+            case DAMAGE_AND_CHARGE -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 160, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 120, groundY);
             }
-            case EAGLE -> {
+            case DIRECTIONAL_SPECIALS -> {
+                setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
+                setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
+            }
+            case DEFENSE_AND_PUNISH -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 90, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 90, groundY);
             }
-            case PENGUIN -> {
-                setTrainingBirdAirbornePosition(player, stage.x + stage.w * 0.24, stage.y + 170);
-                setTrainingBirdStandingPosition(dummy, stageCenter + 240, groundY);
+            case GRABS_AND_THROWS -> {
+                setTrainingBirdStandingPosition(player, stageCenter - 74, groundY);
+                setTrainingBirdStandingPosition(dummy, stageCenter + 74, groundY);
+            }
+            case RECOVERY_AND_LEDGE -> {
+                setTrainingBirdAirbornePosition(player, stage.x + stage.w * 0.22, stage.y + 160);
+                setTrainingBirdStandingPosition(dummy, stageCenter + 220, groundY);
+            }
+            case RING_OUT -> {
+                setTrainingBirdStandingPosition(player, stage.x + stage.w - 220, groundY);
+                setTrainingBirdStandingPosition(dummy, stage.x + stage.w - 80, groundY);
             }
         }
         faceTrainingBirds(player, dummy);
@@ -32711,8 +32473,6 @@ public class BirdGame3 extends Application {
         Bird dummy = players[trainingDummyIndex];
         if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
             positionGuidedTutorialSpawns(player, dummy);
-        } else if (trainingAcademyMode == TrainingAcademyMode.BIRD_TRIAL) {
-            positionBirdTrialSpawns(player, dummy);
         }
     }
 
@@ -32752,7 +32512,47 @@ public class BirdGame3 extends Application {
         trainingComboTimer = TRAINING_COMBO_WINDOW_FRAMES;
         trainingSessionDamage += damage;
         trainingLastHitDamage = damage;
+        trainingAcademyHitsLanded++;
         trainingDummyBlockFrames = Math.max(trainingDummyBlockFrames, TRAINING_DUMMY_BLOCK_FRAMES);
+    }
+
+    void recordTrainingAttack(Bird attacker, int chargeFrames) {
+        if (!trainingModeActive || attacker == null || attacker.playerIndex != 0) return;
+        if (chargeFrames > 0) {
+            trainingAcademyChargedAttackSeen = true;
+        } else {
+            trainingAcademyQuickAttackSeen = true;
+        }
+    }
+
+    void recordTrainingSpecialUse(Bird user, Bird.DirectionalSpecialInput input) {
+        if (!trainingModeActive || user == null || user.playerIndex != 0 || input == null) return;
+        switch (input) {
+            case NEUTRAL -> trainingAcademyNeutralSpecialSeen = true;
+            case SIDE -> trainingAcademySideSpecialSeen = true;
+            case UP -> trainingAcademyUpSpecialSeen = true;
+            case DOWN -> trainingAcademyDownSpecialSeen = true;
+        }
+    }
+
+    void recordTrainingDash(Bird bird) {
+        if (!trainingModeActive || bird == null || bird.playerIndex != 0) return;
+        trainingAcademyDashSeen = true;
+    }
+
+    void recordTrainingShieldHit(Bird defender, boolean parried) {
+        if (!trainingModeActive || defender == null || defender.playerIndex != 0) return;
+        trainingAcademyShieldHitSeen = true;
+    }
+
+    void recordTrainingGrab(Bird attacker) {
+        if (!trainingModeActive || attacker == null || attacker.playerIndex != 0) return;
+        trainingAcademyGrabSeen = true;
+    }
+
+    void recordTrainingThrow(Bird attacker) {
+        if (!trainingModeActive || attacker == null || attacker.playerIndex != 0) return;
+        trainingAcademyThrowSeen = true;
     }
 
     private void updateTrainingLabState() {
@@ -32798,11 +32598,8 @@ public class BirdGame3 extends Application {
             return;
         }
 
-        switch (trainingAcademyMode) {
-            case GUIDED_TUTORIAL -> updateGuidedTutorialState(player, dummy);
-            case BIRD_TRIAL -> updateBirdTrialState(player, dummy);
-            default -> {
-            }
+        if (Objects.requireNonNull(trainingAcademyMode) == TrainingAcademyMode.GUIDED_TUTORIAL) {
+            updateGuidedTutorialState(player, dummy);
         }
     }
 
@@ -32813,96 +32610,72 @@ public class BirdGame3 extends Application {
         }
 
         switch (currentGuidedTutorialLesson()) {
-            case MOVEMENT -> {
+            case STAGE_CONTROL -> {
                 trainingAcademyMoveLeftSeen |= isLeftPressed(0);
                 trainingAcademyMoveRightSeen |= isRightPressed(0);
                 trainingAcademyJumpSeen |= isJumpPressed(0) || !player.isOnGround();
-                if (trainingAcademyMoveLeftSeen && trainingAcademyMoveRightSeen && trainingAcademyJumpSeen) {
-                    queueTrainingAcademyCompletion("Movement cleared");
+                trainingAcademyDashSeen |= Math.abs(player.vx) >= Math.max(7.0, player.type.speed * 1.8);
+                if (trainingAcademyMoveLeftSeen
+                        && trainingAcademyMoveRightSeen
+                        && trainingAcademyJumpSeen
+                        && trainingAcademyDashSeen) {
+                    queueTrainingAcademyCompletion("Stage control cleared");
                 }
             }
-            case RECOVERY -> {
+            case DAMAGE_AND_CHARGE -> {
+                if (trainingAcademyQuickAttackSeen
+                        && trainingAcademyChargedAttackSeen
+                        && trainingAcademyHitsLanded >= 2) {
+                    queueTrainingAcademyCompletion("Damage cleared");
+                }
+            }
+            case DIRECTIONAL_SPECIALS -> {
+                if (hasCompletedDirectionalSpecialLesson()) {
+                    queueTrainingAcademyCompletion("Specials cleared");
+                }
+            }
+            case DEFENSE_AND_PUNISH -> {
+                if (isSuccessfulTrainingBlock(player, dummy)) {
+                    trainingAcademyBlockFrames = Math.max(trainingAcademyBlockFrames, TRAINING_ACADEMY_BLOCK_GOAL_FRAMES);
+                }
+                if (!trainingAcademyPunishReady && trainingAcademyShieldHitSeen) {
+                    trainingAcademyPunishReady = true;
+                    trainingAcademyHitsLanded = 0;
+                    addToKillFeed("BLOCKED. PUNISH NOW.");
+                } else if (trainingAcademyPunishReady && trainingAcademyHitsLanded > 0) {
+                    queueTrainingAcademyCompletion("Defense cleared");
+                }
+            }
+            case GRABS_AND_THROWS -> {
+                if (trainingAcademyGrabSeen && trainingAcademyThrowSeen) {
+                    queueTrainingAcademyCompletion("Throws cleared");
+                }
+            }
+            case RECOVERY_AND_LEDGE -> {
                 trainingAcademyRecoveryStarted |= isRecoveryStart(player, stage);
                 if (trainingAcademyRecoveryStarted && hasRecoveredToStage(player, stage)) {
                     trainingAcademyRecoveriesCompleted = 1;
                     queueTrainingAcademyCompletion("Recovery cleared");
                 }
             }
-            case BLOCKING -> {
-                if (isSuccessfulTrainingBlock(player, dummy)) {
-                    trainingAcademyBlockFrames++;
-                } else if (trainingAcademyBlockFrames > 0) {
-                    trainingAcademyBlockFrames--;
-                }
-                if (trainingAcademyBlockFrames >= TRAINING_ACADEMY_BLOCK_GOAL_FRAMES) {
-                    queueTrainingAcademyCompletion("Blocking cleared");
-                }
-            }
-            case SPECIALS -> {
-                if (player.specialCooldown > 0) {
-                    queueTrainingAcademyCompletion("Special cleared");
-                }
-            }
-            case EDGE_PLAY -> {
+            case RING_OUT -> {
                 if (isBirdForcedOffstage(dummy, stage)) {
                     trainingAcademyDummyOffstageFrames++;
                 } else {
                     trainingAcademyDummyOffstageFrames = 0;
                 }
-                if (trainingAcademyDummyOffstageFrames >= 12) {
-                    queueTrainingAcademyCompletion("Edge play cleared");
-                }
-            }
-            case MAP_HAZARDS -> {
-                if (dockLeverCooldown > 0 || dockShipBomb != null) {
-                    queueTrainingAcademyCompletion("Hazard cleared");
+                if (trainingAcademyDummyOffstageFrames >= TRAINING_ACADEMY_EDGE_GOAL_FRAMES) {
+                    queueTrainingAcademyCompletion("Ring out cleared");
                 }
             }
         }
     }
 
-    private void updateBirdTrialState(Bird player, Bird dummy) {
-        BirdTrialDefinition trial = currentBirdTrialDefinition();
-        Platform stage = trainingPrimaryPlatform();
-        if (trial == null || stage == null) {
-            return;
-        }
-
-        switch (trial) {
-            case PIGEON -> {
-                if (trainingComboHits >= 3) {
-                    queueTrainingAcademyCompletion("Pigeon trial cleared");
-                }
-            }
-            case EAGLE -> {
-                if (!trainingAcademyPunishReady) {
-                    if (isSuccessfulTrainingBlock(player, dummy)) {
-                        trainingAcademyBlockFrames++;
-                    } else if (trainingAcademyBlockFrames > 0) {
-                        trainingAcademyBlockFrames--;
-                    }
-                    if (trainingAcademyBlockFrames >= TRAINING_ACADEMY_BLOCK_GOAL_FRAMES) {
-                        trainingAcademyPunishReady = true;
-                        addToKillFeed("BLOCKED. NOW SPECIAL.");
-                    }
-                } else if (player.specialCooldown > 0) {
-                    queueTrainingAcademyCompletion("Eagle trial cleared");
-                }
-            }
-            case PENGUIN -> {
-                trainingAcademyRecoveryStarted |= isRecoveryStart(player, stage);
-                if (trainingAcademyRecoveryStarted && hasRecoveredToStage(player, stage)) {
-                    trainingAcademyRecoveriesCompleted++;
-                    if (trainingAcademyRecoveriesCompleted >= 2) {
-                        queueTrainingAcademyCompletion("Penguin trial cleared");
-                    } else {
-                        addToKillFeed("RETURN 1/2");
-                        resetTrainingPositions();
-                        trainingAcademyRecoveriesCompleted = 1;
-                    }
-                }
-            }
-        }
+    private boolean hasCompletedDirectionalSpecialLesson() {
+        return trainingAcademyNeutralSpecialSeen
+                && trainingAcademySideSpecialSeen
+                && trainingAcademyUpSpecialSeen
+                && trainingAcademyDownSpecialSeen;
     }
 
     private boolean isSuccessfulTrainingBlock(Bird player, Bird dummy) {
@@ -32972,11 +32745,10 @@ public class BirdGame3 extends Application {
                     saveAchievements();
                 }
                 trainingAcademyMode = TrainingAcademyMode.NONE;
-                activeBirdTrial = null;
                 trainingAcademySceneTransitionPending = true;
-                addToKillFeed("BIRD TRIALS UNLOCKED");
+                addToKillFeed("GUIDED TUTORIAL COMPLETE");
                 if (currentStage != null) {
-                    javafx.application.Platform.runLater(() -> showBirdTrialsMenu(currentStage));
+                    javafx.application.Platform.runLater(() -> showTrainingSetup(currentStage));
                 } else {
                     trainingAcademySceneTransitionPending = false;
                 }
@@ -32994,21 +32766,6 @@ public class BirdGame3 extends Application {
             trainingAcademySceneTransitionPending = true;
             if (currentStage != null) {
                 javafx.application.Platform.runLater(() -> beginTrainingMatchOnMap(currentStage, nextLesson.map));
-            } else {
-                trainingAcademySceneTransitionPending = false;
-            }
-            return;
-        }
-
-        if (trainingAcademyMode == TrainingAcademyMode.BIRD_TRIAL && currentBirdTrialDefinition() != null) {
-            BirdTrialDefinition trial = currentBirdTrialDefinition();
-            birdTrialCompleted[trial.playerBird.ordinal()] = true;
-            saveAchievements();
-            trainingAcademyMode = TrainingAcademyMode.NONE;
-            activeBirdTrial = null;
-            trainingAcademySceneTransitionPending = true;
-            if (currentStage != null) {
-                javafx.application.Platform.runLater(() -> showBirdTrialsMenu(currentStage));
             } else {
                 trainingAcademySceneTransitionPending = false;
             }
@@ -33212,7 +32969,10 @@ public class BirdGame3 extends Application {
         if (dy < -120 && dummy.isOnGround()) {
             pressTrainingDummy(ControlAction.JUMP);
         }
-        if (Math.abs(dx) < 170 && Math.abs(dy) < 130) {
+        if (Math.abs(dx) < 170
+                && Math.abs(dy) < 130
+                && dummy.attackCooldown <= 0
+                && dummy.attackAnimationTimer <= 0) {
             pressTrainingDummy(ControlAction.ATTACK);
         }
     }
@@ -35331,6 +35091,11 @@ public class BirdGame3 extends Application {
     }
 
     private void drawTrainingLabHud(GraphicsContext g) {
+        if (trainingAcademyMode != TrainingAcademyMode.NONE) {
+            drawTrainingAcademyHud(g);
+            return;
+        }
+
         double panelX = 28;
         double panelY = 250;
         double panelW = 440;
@@ -35374,30 +35139,33 @@ public class BirdGame3 extends Application {
         double tipsY = panelY + panelH - 76;
         g.fillText("F4 Dummy  F5 Reset  F6 Refill", panelX + 18, tipsY);
         g.fillText("F7 Boxes  F8 Slomo  F9 Freeze  F10 Step", panelX + 18, tipsY + 24);
-
-        if (trainingAcademyMode != TrainingAcademyMode.NONE) {
-            drawTrainingAcademyHud(g);
-        }
     }
 
     private void drawTrainingAcademyHud(GraphicsContext g) {
-        double panelW = 500;
-        double panelH = 278;
-        double panelX = WIDTH - panelW - 28;
-        double panelY = 250;
+        double panelW = 820;
+        double panelX = (WIDTH - panelW) / 2.0;
+        double panelY = 28;
 
-        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.78));
-        g.fillRoundRect(panelX, panelY, panelW, panelH, 24, 24);
-        g.setStroke(Color.web("#FFF176"));
-        g.setLineWidth(2);
-        g.strokeRoundRect(panelX, panelY, panelW, panelH, 24, 24);
-
-        Font headerFont = Font.font("Consolas", FontWeight.BOLD, 21);
-        Font titleFont = Font.font("Arial Black", 26);
+        Font headerFont = Font.font("Consolas", FontWeight.BOLD, 19);
+        Font titleFont = Font.font("Arial Black", 24);
         Font bodyFont = Font.font("Consolas", 18);
         Font hintFont = Font.font("Consolas", 16);
         double textX = panelX + 18;
         double maxWidth = panelW - 36;
+        List<String> objectiveLines = wrapTextToLines("Objective: " + trainingAcademyObjectiveText(), bodyFont, maxWidth);
+        List<String> hintLines = wrapTextToLines("Hint: " + trainingAcademyHintText(), hintFont, maxWidth);
+        List<String> statusLines = wrapTextToLines("Status: " + trainingAcademyStatusText(), bodyFont, maxWidth);
+        double panelH = 112
+                + objectiveLines.size() * 24
+                + hintLines.size() * 20
+                + statusLines.size() * 24;
+        panelH = Math.clamp(panelH, 214.0, 326.0);
+
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.80));
+        g.fillRoundRect(panelX, panelY, panelW, panelH, 20, 20);
+        g.setStroke(Color.web("#FFF176"));
+        g.setLineWidth(2);
+        g.strokeRoundRect(panelX, panelY, panelW, panelH, 20, 20);
 
         g.setFill(Color.web("#FFF59D"));
         g.setFont(headerFont);
@@ -35410,7 +35178,7 @@ public class BirdGame3 extends Application {
         double rowY = panelY + 96;
         g.setFill(Color.web("#B2EBF2"));
         g.setFont(bodyFont);
-        for (String line : wrapTextToLines("Objective: " + trainingAcademyObjectiveText(), bodyFont, maxWidth)) {
+        for (String line : objectiveLines) {
             g.fillText(line, textX, rowY);
             rowY += 24;
         }
@@ -35418,7 +35186,7 @@ public class BirdGame3 extends Application {
         rowY += 6;
         g.setFill(Color.web("#CFD8DC"));
         g.setFont(hintFont);
-        for (String line : wrapTextToLines("Hint: " + trainingAcademyHintText(), hintFont, maxWidth)) {
+        for (String line : hintLines) {
             g.fillText(line, textX, rowY);
             rowY += 20;
         }
@@ -35426,7 +35194,7 @@ public class BirdGame3 extends Application {
         rowY += 8;
         g.setFill(trainingAcademyCompletionFrames > 0 ? Color.web("#C5E1A5") : Color.web("#FFE082"));
         g.setFont(bodyFont);
-        for (String line : wrapTextToLines("Status: " + trainingAcademyStatusText(), bodyFont, maxWidth)) {
+        for (String line : statusLines) {
             g.fillText(line, textX, rowY);
             rowY += 24;
         }
@@ -35437,32 +35205,28 @@ public class BirdGame3 extends Application {
             GuidedTutorialLesson lesson = currentGuidedTutorialLesson();
             return "GUIDED TUTORIAL  " + (lesson.ordinal() + 1) + " / " + GuidedTutorialLesson.values().length;
         }
-        BirdTrialDefinition trial = currentBirdTrialDefinition();
-        return trial == null ? "BIRD TRIAL" : "BIRD TRIAL  " + (isBirdTrialCompleted(trial.playerBird) ? "COMPLETED" : "ACTIVE");
+        return "TRAINING";
     }
 
     private String trainingAcademyTitleText() {
         if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
             return currentGuidedTutorialLesson().title;
         }
-        BirdTrialDefinition trial = currentBirdTrialDefinition();
-        return trial == null ? "Bird Trial" : trial.title;
+        return "";
     }
 
     private String trainingAcademyObjectiveText() {
         if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
             return currentGuidedTutorialLesson().objective;
         }
-        BirdTrialDefinition trial = currentBirdTrialDefinition();
-        return trial == null ? "" : trial.objective;
+        return "";
     }
 
     private String trainingAcademyHintText() {
         if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
             return currentGuidedTutorialLesson().hint;
         }
-        BirdTrialDefinition trial = currentBirdTrialDefinition();
-        return trial == null ? "" : trial.hint;
+        return "";
     }
 
     private String trainingAcademyStatusText() {
@@ -35471,32 +35235,29 @@ public class BirdGame3 extends Application {
         }
         if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
             return switch (currentGuidedTutorialLesson()) {
-                case MOVEMENT -> "Left: " + yesNoText(trainingAcademyMoveLeftSeen)
+                case STAGE_CONTROL -> "Left: " + yesNoText(trainingAcademyMoveLeftSeen)
                         + "  Right: " + yesNoText(trainingAcademyMoveRightSeen)
-                        + "  Jump: " + yesNoText(trainingAcademyJumpSeen);
-                case RECOVERY -> "Returns: " + trainingAcademyRecoveriesCompleted + " / 1";
-                case BLOCKING -> "Guard frames: "
-                        + Math.min(trainingAcademyBlockFrames, TRAINING_ACADEMY_BLOCK_GOAL_FRAMES)
-                        + " / " + TRAINING_ACADEMY_BLOCK_GOAL_FRAMES;
-                case SPECIALS -> "Use your special once.";
-                case EDGE_PLAY -> "Dummy offstage frames: " + Math.min(trainingAcademyDummyOffstageFrames, 12) + " / 12";
-                case MAP_HAZARDS -> "Pull the lever with attack or special.";
+                        + "  Jump: " + yesNoText(trainingAcademyJumpSeen)
+                        + "  Dash: " + yesNoText(trainingAcademyDashSeen);
+                case DAMAGE_AND_CHARGE -> "Hits: " + Math.min(trainingAcademyHitsLanded, 2)
+                        + " / 2  Quick: " + yesNoText(trainingAcademyQuickAttackSeen)
+                        + "  Charged: " + yesNoText(trainingAcademyChargedAttackSeen);
+                case DIRECTIONAL_SPECIALS -> "Neutral: " + yesNoText(trainingAcademyNeutralSpecialSeen)
+                        + "  Side: " + yesNoText(trainingAcademySideSpecialSeen)
+                        + "  Up: " + yesNoText(trainingAcademyUpSpecialSeen)
+                        + "  Down: " + yesNoText(trainingAcademyDownSpecialSeen);
+                case DEFENSE_AND_PUNISH -> "Blocked: " + yesNoText(trainingAcademyShieldHitSeen)
+                        + "  Punish hit: " + yesNoText(trainingAcademyHitsLanded > 0);
+                case GRABS_AND_THROWS -> "Grab: " + yesNoText(trainingAcademyGrabSeen)
+                        + "  Throw: " + yesNoText(trainingAcademyThrowSeen);
+                case RECOVERY_AND_LEDGE -> "Returns: " + trainingAcademyRecoveriesCompleted + " / 1";
+                case RING_OUT -> "Dummy offstage frames: "
+                        + Math.min(trainingAcademyDummyOffstageFrames, TRAINING_ACADEMY_EDGE_GOAL_FRAMES)
+                        + " / " + TRAINING_ACADEMY_EDGE_GOAL_FRAMES;
             };
         }
 
-        BirdTrialDefinition trial = currentBirdTrialDefinition();
-        if (trial == null) {
-            return "";
-        }
-        return switch (trial) {
-            case PIGEON -> "Combo hits: " + Math.min(trainingComboHits, 3) + " / 3";
-            case EAGLE -> trainingAcademyPunishReady
-                    ? "Blocked. Use your special now."
-                    : "Guard frames: "
-                    + Math.min(trainingAcademyBlockFrames, TRAINING_ACADEMY_BLOCK_GOAL_FRAMES)
-                    + " / " + TRAINING_ACADEMY_BLOCK_GOAL_FRAMES;
-            case PENGUIN -> "Returns: " + trainingAcademyRecoveriesCompleted + " / 2";
-        };
+        return "";
     }
 
     private String yesNoText(boolean value) {
@@ -35600,19 +35361,27 @@ public class BirdGame3 extends Application {
     private FightHudLayout buildFightHudLayout() {
         List<FightHudPanelLayout> panels = buildFightHudPanels();
         List<String> infoLines = fightHudInfoLines();
-        Rectangle2D minimapRect = new Rectangle2D(24, 24, 190, 138);
+        boolean academyActive = trainingAcademyMode != TrainingAcademyMode.NONE;
+        Rectangle2D minimapRect = academyActive ? null : new Rectangle2D(24, 24, 190, 138);
         Rectangle2D infoRect = buildFightHudInfoRect(infoLines, minimapRect);
-        Rectangle2D timerRect = new Rectangle2D(WIDTH - 274, 28, 240, 102);
+        Rectangle2D timerRect = academyActive ? null : new Rectangle2D(WIDTH - 274, 28, 240, 102);
 
         List<Rectangle2D> occlusionRects = new ArrayList<>();
         for (FightHudPanelLayout panel : panels) {
             occlusionRects.add(panel.panelRect());
         }
-        occlusionRects.add(minimapRect);
+        if (minimapRect != null) {
+            occlusionRects.add(minimapRect);
+        }
         if (infoRect != null) {
             occlusionRects.add(infoRect);
         }
-        occlusionRects.add(timerRect);
+        if (timerRect != null) {
+            occlusionRects.add(timerRect);
+        }
+        if (academyActive) {
+            occlusionRects.add(new Rectangle2D((WIDTH - 820.0) / 2.0, 28, 820, 326));
+        }
         Rectangle2D countdownRect = fightHudCountdownRect();
         if (countdownRect != null) {
             occlusionRects.add(countdownRect);
@@ -35720,7 +35489,9 @@ public class BirdGame3 extends Application {
         if (layout.infoRect() != null) {
             drawFightHudInfoBanner(g, layout.infoRect(), layout.infoLines());
         }
-        drawFightHudTimer(g, layout.timerRect());
+        if (layout.timerRect() != null) {
+            drawFightHudTimer(g, layout.timerRect());
+        }
         if (isUnitedFinaleMassBattleContext() && activePlayers > 6) {
             drawUnitedFinaleRaidHud(g);
         } else {
@@ -37750,7 +37521,6 @@ public class BirdGame3 extends Application {
         state.roosterUnlocked = roosterUnlocked;
         state.developerInfiniteBirdCoins = developerInfiniteBirdCoins;
         state.guidedTutorialCompleted = guidedTutorialCompleted;
-        state.birdTrialCompleted = Arrays.copyOf(birdTrialCompleted, birdTrialCompleted.length);
         state.dailyChallengeBestKey = dailyChallengeBestKey;
         state.dailyChallengeBestProgress = dailyChallengeBestProgress;
         state.dailyChallengeBestBird = dailyChallengeBestBird;
@@ -37878,7 +37648,6 @@ public class BirdGame3 extends Application {
         developerInfiniteBirdCoins = resolved.developerInfiniteBirdCoins;
         applyDeveloperBirdCoinMode();
         guidedTutorialCompleted = resolved.guidedTutorialCompleted;
-        copyInto(resolved.birdTrialCompleted, birdTrialCompleted);
 
         dailyChallengeBestKey = resolved.dailyChallengeBestKey;
         dailyChallengeBestProgress = resolved.dailyChallengeBestProgress;

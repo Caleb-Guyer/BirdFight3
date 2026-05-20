@@ -140,7 +140,6 @@ class BirdGame3SettingsTest {
         game.setAchievementUnlocked(BirdGame3Achievement.URBAN_KING.legacyIndex);
 
         Class<?> categoryClass = Class.forName("com.example.birdgame3.BirdGame3AchievementCategory");
-        //Object category = Enum.valueOf((Class<? extends Enum>) categoryClass.asSubclass(Enum.class), "MAP");
 
         Method orderMethod = BirdGame3.class.getDeclaredMethod("achievementDisplayOrder", categoryClass);
         orderMethod.setAccessible(true);
@@ -252,8 +251,6 @@ class BirdGame3SettingsTest {
     void persistAchievementsRoundTripsTrainingAcademyProgress() throws Exception {
         BirdGame3 game = new BirdGame3();
         setPrivateField(game, "guidedTutorialCompleted", true);
-        setBirdTrialCompleted(game, BirdGame3.BirdType.PIGEON);
-        setBirdTrialCompleted(game, BirdGame3.BirdType.EAGLE);
         game.persistAchievements(prefs);
 
         BirdGame3 reloaded = new BirdGame3();
@@ -262,9 +259,6 @@ class BirdGame3SettingsTest {
         loadProfileProgress.invoke(reloaded, prefs);
 
         assertTrue(reloaded.isGuidedTutorialCompleted());
-        assertTrue(reloaded.isBirdTrialCompleted(BirdGame3.BirdType.PIGEON));
-        assertTrue(reloaded.isBirdTrialCompleted(BirdGame3.BirdType.EAGLE));
-        assertFalse(reloaded.isBirdTrialCompleted(BirdGame3.BirdType.PENGUIN));
     }
 
     @Test
@@ -417,13 +411,6 @@ class BirdGame3SettingsTest {
         field.setAccessible(true);
         boolean[] badges = (boolean[]) field.get(game);
         badges[BirdGame3.BirdType.BAT.ordinal()] = true;
-    }
-
-    private static void setBirdTrialCompleted(BirdGame3 game, BirdGame3.BirdType type) throws Exception {
-        Field field = BirdGame3.class.getDeclaredField("birdTrialCompleted");
-        field.setAccessible(true);
-        boolean[] trials = (boolean[]) field.get(game);
-        trials[type.ordinal()] = true;
     }
 
     private static void setTowerDefenseBadge(BirdGame3 game, TowerDefenseMode.Difficulty difficulty) throws Exception {
