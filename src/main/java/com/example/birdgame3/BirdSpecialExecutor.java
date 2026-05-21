@@ -160,8 +160,8 @@ final class VultureSpecials {
         switch (bird.selectVultureSpecialVariant()) {
             case NEUTRAL -> bird.specialVultureCarrionCall(false);
             case SIDE -> bird.specialVultureGravewindGlide();
-            case UP -> bird.specialVultureThermalSpiral(false);
-            case DOWN -> bird.specialVultureBoneOffering(false);
+            case UP -> bird.specialVultureThermalSpiral();
+            case DOWN -> bird.specialVultureBoneOffering();
         }
     }
 }
@@ -223,9 +223,9 @@ final class TitmouseSpecials {
         }
         switch (bird.selectTitmouseSpecialVariant()) {
             case NEUTRAL -> bird.specialTitmouseScoldChorus(false);
-            case SIDE -> bird.specialTitmouseBarkskip(false);
-            case UP -> bird.specialTitmouseTuftVault(false);
-            case DOWN -> bird.specialTitmouseSeedStash(false);
+            case SIDE -> bird.specialTitmouseBarkskip();
+            case UP -> bird.specialTitmouseTuftVault();
+            case DOWN -> bird.specialTitmouseSeedStash();
         }
     }
 }

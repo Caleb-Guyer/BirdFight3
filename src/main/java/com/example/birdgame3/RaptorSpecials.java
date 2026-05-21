@@ -244,12 +244,12 @@ final class RaptorSpecials {
     }
 
     static void handleState(Bird bird) {
-        if (!bird.isRaptor() && !bird.mockingbirdCopiedNeutralFromAny(BirdGame3.BirdType.EAGLE, BirdGame3.BirdType.FALCON)) {
+        if (!bird.isRaptor() && !bird.mockingbirdCopiedRaptorNeutral()) {
             return;
         }
         if (bird.stunTime > 0.0) {
             reset(bird);
-            if (bird.mockingbirdCopiedNeutralFromAny(BirdGame3.BirdType.EAGLE, BirdGame3.BirdType.FALCON)) {
+            if (bird.mockingbirdCopiedRaptorNeutral()) {
                 bird.mockingbirdCopiedNeutralSource = null;
             }
             return;

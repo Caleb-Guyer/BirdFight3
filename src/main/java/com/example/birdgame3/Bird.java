@@ -1960,7 +1960,7 @@ public class Bird {
             }
             case PENGUIN -> resetPenguinSpecialState(false);
             case SHOEBILL -> resetShoebillSpecialState();
-            case RAZORBILL -> resetRazorbillSpecialState(false);
+            case RAZORBILL -> resetRazorbillSpecialState();
             case GRINCHHAWK -> resetGrinchhawkSpecialState(false);
             case VULTURE -> resetVultureSpecialState(false);
             case OPIUMBIRD, HEISENBIRD -> {
@@ -3116,10 +3116,10 @@ public class Bird {
     }
 
     private boolean handleHoldingGrabState(boolean stunned, boolean inDockWater) {
-        if (grabbedTarget == null) {
+        Bird target = grabbedTarget;
+        if (target == null) {
             return false;
         }
-        Bird target = grabbedTarget;
         if (stunned || inDockWater || !isOnGround() || target.health <= 0 || target.grabbedBy != this) {
             releaseGrabState(true);
             return false;
@@ -3172,10 +3172,10 @@ public class Bird {
     }
 
     private void syncGrabbedTargetPosition() {
-        if (grabbedTarget == null || grabbedTarget.grabbedBy != this) {
+        Bird target = grabbedTarget;
+        if (target == null || target.grabbedBy != this) {
             return;
         }
-        Bird target = grabbedTarget;
         double xDir = facingRight ? 1.0 : -1.0;
         double separation = combatHalfWidth() + target.combatHalfWidth() - GRAB_HOLD_X_PADDING;
         double targetCenterX = bodyCenterX() + xDir * separation;
@@ -3282,8 +3282,8 @@ public class Bird {
     }
 
     private void releaseGrabState(boolean applyCooldown) {
-        if (grabbedTarget != null) {
-            Bird target = grabbedTarget;
+        Bird target = grabbedTarget;
+        if (target != null) {
             grabbedTarget = null;
             if (target.grabbedBy == this) {
                 target.grabbedBy = null;
@@ -4492,18 +4492,6 @@ public class Bird {
                 ));
             }
         }
-    }
-
-    void specialPhoenixSide(boolean ultimate) {
-        PhoenixSpecials.side(this, ultimate);
-    }
-
-    void specialPhoenixUp(boolean ultimate) {
-        PhoenixSpecials.up(this, ultimate);
-    }
-
-    void specialPhoenixDown(boolean ultimate) {
-        PhoenixSpecials.down(this, ultimate);
     }
 
     void specialHummingbirdNeedleBarrage(boolean ultimate) {
@@ -6623,8 +6611,8 @@ public class Bird {
                 -dir, 15, Color.web("#394049"));
     }
 
-    void specialVultureThermalSpiral(boolean ultimate) {
-        if (vultureUpSpecialUsed && !ultimate) {
+    void specialVultureThermalSpiral() {
+        if (vultureUpSpecialUsed) {
             return;
         }
         int dir = horizontalInputDirection();
@@ -6632,20 +6620,20 @@ public class Bird {
             facingRight = dir > 0;
         }
         vultureUpSpecialUsed = true;
-        vultureThermalTimer = VULTURE_THERMAL_FRAMES + (ultimate ? 10 : 0);
-        vultureThermalUltimate = ultimate;
+        vultureThermalTimer = VULTURE_THERMAL_FRAMES;
+        vultureThermalUltimate = false;
         Arrays.fill(vultureThermalHitCooldown, 0);
         specialCooldown = 0;
         specialMaxCooldown = 0;
         attackAnimationTimer = Math.max(attackAnimationTimer, vultureThermalTimer);
-        vy = Math.min(vy, ultimate ? -15.0 : -12.4);
-        vx += horizontalInputDirection() * (ultimate ? 4.2 : 2.8);
+        vy = Math.min(vy, -12.4);
+        vx += horizontalInputDirection() * (2.8);
         canDoubleJump = true;
         emitVultureBurst(bodyCenterX(), bodyBottomY() - 10.0 * sizeMultiplier,
-                facingDirection(), ultimate ? 30 : 20, ultimate ? Color.GOLD : Color.web("#B0BEC5"));
+                facingDirection(), 20, Color.web("#B0BEC5"));
     }
 
-    void specialVultureBoneOffering(boolean ultimate) {
+    void specialVultureBoneOffering() {
         int dir = horizontalInputDirection();
         if (dir == 0) {
             dir = facingDirection();
@@ -6655,8 +6643,8 @@ public class Bird {
                 usesIslandBounds() ? game.battlefieldLeftBound() + 36.0 : 36.0,
                 usesIslandBounds() ? game.battlefieldRightBound() - 36.0 : BirdGame3.WORLD_WIDTH - 36.0);
         double baitY = vultureBaitSurfaceY(baitX);
-        vultureBait = new VultureBait(baitX, baitY, ultimate);
-        vultureDownReuseTimer = ultimate ? 22 : VULTURE_DOWN_REUSE_FRAMES;
+        vultureBait = new VultureBait(baitX, baitY, false);
+        vultureDownReuseTimer = VULTURE_DOWN_REUSE_FRAMES;
         specialCooldown = 0;
         specialMaxCooldown = 0;
         crowSwarmCooldown = 0;
@@ -6669,7 +6657,7 @@ public class Bird {
         }
         game.addToKillFeed(shortName() + " set a bone offering.");
         emitVultureBurst(baitX, baitY - 18.0 * sizeMultiplier, dir,
-                ultimate ? 26 : 16, ultimate ? Color.GOLD : Color.web("#D7CCC8"));
+                16, Color.web("#D7CCC8"));
     }
 
     void specialVultureBlackSkyFeast() {
@@ -6688,7 +6676,7 @@ public class Bird {
         game.addToKillFeed(shortName() + " opened the Black Sky Feast!");
         game.shakeIntensity = Math.max(game.shakeIntensity, 24);
         game.hitstopFrames = Math.max(game.hitstopFrames, 10);
-        spawnVultureCrowWave(8, true, 620.0, 1.24);
+        spawnVultureCrowWave(8, 620.0, 1.24);
         emitVultureBurst(bodyCenterX(), bodyCenterY(), facingDirection(), 80, Color.BLACK);
     }
 
@@ -7006,7 +6994,7 @@ public class Bird {
         carrionSwarmTimer = Math.max(carrionSwarmTimer, 2);
         vx *= 0.94;
         if (vultureBlackSkySpawnTimer <= 0) {
-            spawnVultureCrowWave(vultureBlackSkyTimer > 56 ? 2 : 3, true, 820.0, 1.30);
+            spawnVultureCrowWave(vultureBlackSkyTimer > 56 ? 2 : 3, 820.0, 1.30);
             vultureBlackSkySpawnTimer = vultureBlackSkyTimer > 56 ? 16 : 12;
         }
         double centerX = bodyCenterX();
@@ -7063,7 +7051,7 @@ public class Bird {
                     Color.BLACK
             );
         }
-        spawnVultureCrowWave(5, true, 520.0, 1.36);
+        spawnVultureCrowWave(5, 520.0, 1.36);
         emitVultureBurst(centerX, centerY, facingDirection(), 90, Color.BLACK);
     }
 
@@ -7128,14 +7116,14 @@ public class Bird {
         return crow;
     }
 
-    private void spawnVultureCrowWave(int count, boolean ultimate, double horizontalSpread, double speedMultiplier) {
+    private void spawnVultureCrowWave(int count, double horizontalSpread, double speedMultiplier) {
         for (int i = 0; i < count; i++) {
             double spawnX = Math.clamp(bodyCenterX() + (Math.random() - 0.5) * horizontalSpread,
                     usesIslandBounds() ? game.battlefieldLeftBound() - 120.0 : -120.0,
                     usesIslandBounds() ? game.battlefieldRightBound() + 120.0 : BirdGame3.WORLD_WIDTH + 120.0);
             double spawnY = bodyCenterY() - (360.0 + Math.random() * 260.0) * sizeMultiplier;
             Bird target = nearestVultureTarget(spawnX, spawnY, 1200.0);
-            CrowMinion crow = spawnVultureCrow(spawnX, spawnY, target, ultimate, speedMultiplier);
+            CrowMinion crow = spawnVultureCrow(spawnX, spawnY, target, true, speedMultiplier);
             double targetX = target == null ? bodyCenterX() : target.bodyCenterX();
             double targetY = target == null ? bodyCenterY() : target.bodyCenterY();
             double dx = targetX - spawnX;
@@ -7752,31 +7740,31 @@ public class Bird {
                 ultimate ? Color.GOLD : Color.web("#CFD8DC"));
     }
 
-    void specialTitmouseBarkskip(boolean ultimate) {
+    void specialTitmouseBarkskip() {
         int dir = horizontalInputDirection();
         if (dir == 0) {
             dir = facingDirection();
         }
         facingRight = dir > 0;
         titmouseBarkskipDirection = dir;
-        titmouseBarkskipUltimate = ultimate;
-        titmouseBarkskipTimer = ultimate ? TITMOUSE_BARKSKIP_FRAMES + 4 : TITMOUSE_BARKSKIP_FRAMES;
-        titmouseBarkskipReuseTimer = ultimate ? 18 : TITMOUSE_BARKSKIP_REUSE_FRAMES;
+        titmouseBarkskipUltimate = false;
+        titmouseBarkskipTimer = TITMOUSE_BARKSKIP_FRAMES;
+        titmouseBarkskipReuseTimer = TITMOUSE_BARKSKIP_REUSE_FRAMES;
         Arrays.fill(titmouseBarkskipHit, false);
         TitmouseSeedStash stash = preferredTitmouseRouteStash(dir, 230.0 * sizeMultiplier);
         titmouseBarkskipRebounded = stash != null;
         if (stash != null) {
             x = stash.x - bodyWidth() * 0.5;
             y = stash.y - bodyHeight();
-            vy = Math.min(vy, ultimate ? -11.0 : -8.0);
-            emitTitmouseBurst(stash.x, stash.y - 14.0, ultimate ? 24 : 16,
-                    ultimate ? Color.GOLD : Color.web("#90CAF9"));
+            vy = Math.min(vy, -8.0);
+            emitTitmouseBurst(stash.x, stash.y - 14.0, 16,
+                    Color.web("#90CAF9"));
         } else {
             vy *= 0.22;
         }
         vx = dir * (titmouseBarkskipRebounded
-                ? (ultimate ? 39.0 : 33.0)
-                : (ultimate ? 34.0 : 28.0));
+                ? (33.0)
+                : (28.0));
         attackAnimationTimer = Math.max(attackAnimationTimer, titmouseBarkskipTimer + 2);
         specialCooldown = 0;
         specialMaxCooldown = 0;
@@ -7785,34 +7773,34 @@ public class Bird {
         shieldStunFrames = 0;
     }
 
-    void specialTitmouseTuftVault(boolean ultimate) {
-        if (titmouseVaultUsed && !ultimate) {
+    void specialTitmouseTuftVault() {
+        if (titmouseVaultUsed) {
             return;
         }
         titmouseVaultUsed = true;
-        titmouseVaultUltimate = ultimate;
-        titmouseVaultTimer = ultimate ? TITMOUSE_VAULT_FRAMES + 5 : TITMOUSE_VAULT_FRAMES;
-        titmouseVaultReuseTimer = ultimate ? 12 : TITMOUSE_VAULT_REUSE_FRAMES;
+        titmouseVaultUltimate = false;
+        titmouseVaultTimer = TITMOUSE_VAULT_FRAMES;
+        titmouseVaultReuseTimer = TITMOUSE_VAULT_REUSE_FRAMES;
         titmouseVaultBoosted = nearestTitmouseStash(150.0 * sizeMultiplier) != null;
         Arrays.fill(titmouseVaultHit, false);
         canDoubleJump = true;
         vx *= 0.24;
         vy = Math.min(vy, -(titmouseVaultBoosted
-                ? (ultimate ? 35.0 : 30.0)
-                : (ultimate ? 29.0 : 24.0)));
+                ? (30.0)
+                : (24.0)));
         attackAnimationTimer = Math.max(attackAnimationTimer, titmouseVaultTimer);
         specialCooldown = 0;
         specialMaxCooldown = 0;
         emitTitmouseBurst(bodyCenterX(), bodyBottomY() - 6.0 * sizeMultiplier,
-                titmouseVaultBoosted ? (ultimate ? 36 : 28) : (ultimate ? 28 : 20),
-                ultimate ? Color.GOLD : Color.web("#B0BEC5"));
+                titmouseVaultBoosted ? (28) : (20),
+                Color.web("#B0BEC5"));
     }
 
-    void specialTitmouseSeedStash(boolean ultimate) {
+    void specialTitmouseSeedStash() {
         titmouseStashCharging = true;
         titmouseStashHoldFrames = 0;
-        titmouseStashUltimate = ultimate;
-        titmouseStashReuseTimer = ultimate ? 16 : TITMOUSE_STASH_REUSE_FRAMES;
+        titmouseStashUltimate = false;
+        titmouseStashReuseTimer = TITMOUSE_STASH_REUSE_FRAMES;
         specialCooldown = 0;
         specialMaxCooldown = 0;
         attackAnimationTimer = Math.max(attackAnimationTimer, TITMOUSE_STASH_HOLD_FRAMES + 4);
@@ -7869,7 +7857,7 @@ public class Bird {
         isZipping = true;
         zipTimer = titmouseMobbingTimer;
         attackAnimationTimer = Math.max(attackAnimationTimer,
-                TITMOUSE_MOBBING_STEP_FRAMES * Math.max(1, titmouseMobbingNodes.size()) + 6);
+                TITMOUSE_MOBBING_STEP_FRAMES * titmouseMobbingNodes.size() + 6);
         specialCooldown = 0;
         specialMaxCooldown = 0;
         powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.22);
@@ -8104,7 +8092,7 @@ public class Bird {
     private void releasePelicanBilgeDump(boolean empowered) {
         int cargoSpent = pelicanFullHoldActive()
                 ? PELICAN_CARGO_MAX
-                : Math.max(1, Math.min(PELICAN_CARGO_MAX, pelicanCargoCount));
+                : Math.clamp(pelicanCargoCount, 1, PELICAN_CARGO_MAX);
         pelicanBilgeFxTimer = empowered ? PELICAN_BILGE_FX_FRAMES + 6 : PELICAN_BILGE_FX_FRAMES;
         pelicanBilgeCargoSpent = cargoSpent;
         pelicanBilgeUltimate = empowered;
@@ -8365,16 +8353,10 @@ public class Bird {
         return type == BirdGame3.BirdType.MOCKINGBIRD && mockingbirdCopiedNeutralSource == source;
     }
 
-    boolean mockingbirdCopiedNeutralFromAny(BirdGame3.BirdType... sources) {
-        if (type != BirdGame3.BirdType.MOCKINGBIRD || mockingbirdCopiedNeutralSource == null) {
-            return false;
-        }
-        for (BirdGame3.BirdType source : sources) {
-            if (mockingbirdCopiedNeutralSource == source) {
-                return true;
-            }
-        }
-        return false;
+    boolean mockingbirdCopiedRaptorNeutral() {
+        return type == BirdGame3.BirdType.MOCKINGBIRD
+                && (mockingbirdCopiedNeutralSource == BirdGame3.BirdType.EAGLE
+                || mockingbirdCopiedNeutralSource == BirdGame3.BirdType.FALCON);
     }
 
     private boolean shoebillSpecialActive() {
@@ -8998,7 +8980,7 @@ public class Bird {
         return switch (variant) {
             case NEUTRAL -> mockingbirdCapturedType == null
                     ? mockingbirdQuestionTimer <= 0
-                    : !mockingbirdCopiedNeutralActive() && mockingbirdCopiedNeutralReady(mockingbirdCapturedType);
+                    : mockingbirdCopiedNeutralActive() && mockingbirdCopiedNeutralReady(mockingbirdCapturedType);
             case SIDE -> mockingbirdSideReuseTimer <= 0 && mockingbirdSideFxTimer <= 0;
             case UP -> !mockingbirdUpSpecialUsed && mockingbirdUpReuseTimer <= 0 && mockingbirdUpFxTimer <= 0;
             case DOWN -> true;
@@ -9028,24 +9010,30 @@ public class Bird {
             case BAT -> ultimateReady || batNeutralReuseTimer <= 0;
             case PELICAN -> ultimateReady || pelicanNeutralReuseTimer <= 0;
             case RAVEN -> ultimateReady || ravenNeutralReuseTimer <= 0;
-            case MOCKINGBIRD -> false;
+            default -> throw new IllegalStateException("Unexpected value: " + source);
         };
     }
 
     private boolean mockingbirdCopiedNeutralActive() {
         if (mockingbirdCopiedNeutralSource == null) {
-            return false;
+            return true;
         }
-        return switch (mockingbirdCopiedNeutralSource) {
-            case PIGEON -> pigeonFeatherBurstTimer > 0 || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0;
+        return !switch (mockingbirdCopiedNeutralSource) {
+            case PIGEON ->
+                    pigeonFeatherBurstTimer > 0 || pigeonRushTimer > 0 || pigeonFlutterTimer > 0 || pigeonScavengeTimer > 0;
             case EAGLE, FALCON -> raptorCryTimer > 0 || raptorRushTimer > 0 || raptorClimbTimer > 0;
-            case PHOENIX -> phoenixCharging || phoenixBurstFxTimer > 0 || phoenixFireballTimer > 0 || phoenixSpiralTimer > 0 || phoenixLavaTimer > 0;
+            case PHOENIX ->
+                    phoenixCharging || phoenixBurstFxTimer > 0 || phoenixFireballTimer > 0 || phoenixSpiralTimer > 0 || phoenixLavaTimer > 0;
             case HUMMINGBIRD -> hummingNeedleHitTimer > 0 || hummingFlashSipTimer > 0 || hummingHoverBurstTimer > 0;
-            case TURKEY -> turkeyGobbleCharging || turkeyGobbleTimer > 0 || turkeyStampedeTimer > 0 || turkeyPanicFlapTimer > 0;
+            case TURKEY ->
+                    turkeyGobbleCharging || turkeyGobbleTimer > 0 || turkeyStampedeTimer > 0 || turkeyPanicFlapTimer > 0;
             case ROOSTER -> false;
-            case ROADRUNNER -> roadrunnerBeepCharging || roadrunnerBeepBurstTimer > 0 || roadrunnerRicochetTimer > 0 || roadrunnerDustDevilTimer > 0;
-            case PENGUIN -> penguinBellyCharging || penguinBellySlideTimer > 0 || penguinRocketTimer > 0 || penguinFlopTimer > 0;
-            case SHOEBILL -> shoebillStareFxTimer > 0 || shoebillThrustTimer > 0 || shoebillMarshLiftTimer > 0 || shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0;
+            case ROADRUNNER ->
+                    roadrunnerBeepCharging || roadrunnerBeepBurstTimer > 0 || roadrunnerRicochetTimer > 0 || roadrunnerDustDevilTimer > 0;
+            case PENGUIN ->
+                    penguinBellyCharging || penguinBellySlideTimer > 0 || penguinRocketTimer > 0 || penguinFlopTimer > 0;
+            case SHOEBILL ->
+                    shoebillStareFxTimer > 0 || shoebillThrustTimer > 0 || shoebillMarshLiftTimer > 0 || shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0;
             case RAZORBILL -> razorbillStormTimer > 0 || bladeStormFrames > 0 || razorbillShearTimer > 0
                     || razorbillCounterTimer > 0 || razorbillCounterBurstTimer > 0;
             case OPIUMBIRD, HEISENBIRD -> leanTimer > 0;
@@ -9060,7 +9048,7 @@ public class Bird {
     }
 
     private void refreshMockingbirdCopiedNeutralSource() {
-        if (type == BirdGame3.BirdType.MOCKINGBIRD && mockingbirdCopiedNeutralSource != null && !mockingbirdCopiedNeutralActive()) {
+        if (type == BirdGame3.BirdType.MOCKINGBIRD && mockingbirdCopiedNeutralSource != null && mockingbirdCopiedNeutralActive()) {
             mockingbirdCopiedNeutralSource = null;
         }
     }
@@ -9524,7 +9512,7 @@ public class Bird {
         roadrunnerSlipUltimate = false;
     }
 
-    private void resetRazorbillSpecialState(boolean clearLinesAndMarks) {
+    private void resetRazorbillSpecialState() {
         bladeStormFrames = 0;
         razorbillDashVX = 0.0;
         razorbillDashVY = 0.0;
@@ -9685,7 +9673,7 @@ public class Bird {
         }
     }
 
-    private void resetOpiumSpecialState(boolean clearTraps) {
+    private void resetOpiumSpecialState() {
         opiumSideTimer = 0;
         opiumSideDirection = facingDirection();
         opiumSideFueled = false;
@@ -9693,9 +9681,6 @@ public class Bird {
         opiumUpTimer = 0;
         opiumUpFueled = false;
         Arrays.fill(opiumUpHit, false);
-        if (clearTraps) {
-            opiumTraps.clear();
-        }
         heisenUltimateVolleyTimer = 0;
         heisenUltimateVolleyHit = false;
         resetHeisenUltimateShardState(true);
@@ -9902,7 +9887,7 @@ public class Bird {
         if (opiumSpecialActive()) {
             attackAnimationTimer = 0;
         }
-        resetOpiumSpecialState(false);
+        resetOpiumSpecialState();
     }
 
     private int aiJumpCooldown = 0;
@@ -12965,13 +12950,13 @@ public class Bird {
             resetHummingbirdSpecialState(false);
             resetTurkeySpecialState(false);
             resetPenguinSpecialState(false);
-            resetRazorbillSpecialState(false);
+            resetRazorbillSpecialState();
             resetGrinchhawkSpecialState(false);
             resetVultureSpecialState(false);
             resetTitmouseSpecialState(false);
             resetBatSpecialState(false);
             resetPelicanSpecialState(false);
-            resetOpiumSpecialState(false);
+            resetOpiumSpecialState();
         }
 
         if (handleGrabbedState()) {
@@ -18161,7 +18146,7 @@ public class Bird {
         pelicanSideReuseTimer = 0;
         pelicanUpSpecialUsed = false;
         pelicanDownReuseTimer = 0;
-        resetRazorbillSpecialState(true);
+        resetRazorbillSpecialState();
         razorbillStormReuseTimer = 0;
         razorbillSideReuseTimer = 0;
         razorbillUpSpecialUsed = false;
