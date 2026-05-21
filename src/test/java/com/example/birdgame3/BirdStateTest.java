@@ -952,7 +952,7 @@ class BirdStateTest {
         game.players[0] = vulture;
         game.players[1] = target;
 
-        invokePrivateBooleanVoid(vulture, "specialVultureBoneOffering", false);
+        vulture.specialVultureBoneOffering();
         Object bait = getPrivateObject(vulture, "vultureBait");
 
         assertTrue(getPrivateInt(bait, "lifeFrames") >= 700,
@@ -2082,9 +2082,9 @@ class BirdStateTest {
         quickGame.players[0] = quickPhoenix;
         quickGame.players[1] = quickTarget;
 
-        invokePrivateBooleanVoid(quickPhoenix, "specialPhoenixNeutral", false);
+        PhoenixSpecials.neutral(quickPhoenix, false);
         setPrivateInt(quickPhoenix, "phoenixChargeTimer", 5);
-        invokePrivateVoid(quickPhoenix, "releasePhoenixCharge");
+        PhoenixSpecials.releaseCharge(quickPhoenix);
         double quickDamage = Bird.STARTING_HEALTH - quickTarget.health;
         double quickKnockback = Math.hypot(quickTarget.vx, quickTarget.vy);
 
@@ -2097,9 +2097,9 @@ class BirdStateTest {
         chargedGame.players[0] = chargedPhoenix;
         chargedGame.players[1] = chargedTarget;
 
-        invokePrivateBooleanVoid(chargedPhoenix, "specialPhoenixNeutral", false);
+        PhoenixSpecials.neutral(chargedPhoenix, false);
         setPrivateInt(chargedPhoenix, "phoenixChargeTimer", 70);
-        invokePrivateVoid(chargedPhoenix, "releasePhoenixCharge");
+        PhoenixSpecials.releaseCharge(chargedPhoenix);
         double chargedDamage = Bird.STARTING_HEALTH - chargedTarget.health;
         double chargedKnockback = Math.hypot(chargedTarget.vx, chargedTarget.vy);
 
@@ -2149,7 +2149,7 @@ class BirdStateTest {
         normalGame.players[0] = normalPhoenix;
         normalGame.players[1] = normalTarget;
 
-        invokePrivateBooleanVoid(normalPhoenix, "specialPhoenixUp", false);
+        PhoenixSpecials.up(normalPhoenix, false);
         assertEquals(0, normalPhoenix.specialCooldown);
         normalPhoenix.update(1.0);
         double normalDamage = Bird.STARTING_HEALTH - normalTarget.health;
@@ -2163,7 +2163,7 @@ class BirdStateTest {
         ultimateGame.players[0] = ultimatePhoenix;
         ultimateGame.players[1] = ultimateTarget;
 
-        invokePrivateBooleanVoid(ultimatePhoenix, "specialPhoenixUp", true);
+        PhoenixSpecials.up(ultimatePhoenix, true);
         assertEquals(0, ultimatePhoenix.specialCooldown);
         ultimatePhoenix.update(1.0);
         double ultimateDamage = Bird.STARTING_HEALTH - ultimateTarget.health;
@@ -2184,7 +2184,7 @@ class BirdStateTest {
         game.players[0] = phoenix;
         game.players[1] = target;
 
-        invokePrivateBooleanVoid(phoenix, "specialPhoenixUp", false);
+        PhoenixSpecials.up(phoenix, false);
         double startingHealth = target.health;
         for (int i = 0; i < 8; i++) {
             phoenix.update(1.0);
@@ -2226,7 +2226,7 @@ class BirdStateTest {
         phoenix.y = BirdGame3.GROUND_Y - 80.0;
         game.players[0] = phoenix;
 
-        invokePrivateBooleanVoid(phoenix, "specialPhoenixUp", false);
+        PhoenixSpecials.up(phoenix, false);
         assertTrue(getPrivateBoolean(phoenix, "phoenixSpiralUsed"));
 
         phoenix.y = BirdGame3.GROUND_Y - 260.0;
@@ -2268,7 +2268,7 @@ class BirdStateTest {
         phoenix.facingRight = true;
         game.players[0] = phoenix;
 
-        invokePrivateBooleanVoid(phoenix, "specialPhoenixSide", false);
+        PhoenixSpecials.side(phoenix, false);
 
         assertEquals(0, phoenix.specialCooldown);
         assertTrue(getPrivateInt(phoenix, "phoenixCastLockTimer") > 0);
@@ -2338,7 +2338,7 @@ class BirdStateTest {
         game.players[1] = centerTarget;
         game.players[2] = sideTarget;
 
-        invokePrivateBooleanVoid(phoenix, "specialPhoenixDown", false);
+        PhoenixSpecials.down(phoenix, false);
 
         assertEquals(0, phoenix.specialCooldown);
         assertFalse(getPrivateBoolean(phoenix, "phoenixLavaAirborne"));
@@ -2401,7 +2401,7 @@ class BirdStateTest {
         game.players[1] = belowTarget;
         game.players[2] = sideTarget;
 
-        invokePrivateBooleanVoid(phoenix, "specialPhoenixDown", false);
+        PhoenixSpecials.down(phoenix, false);
 
         assertTrue(getPrivateBoolean(phoenix, "phoenixLavaAirborne"));
 
