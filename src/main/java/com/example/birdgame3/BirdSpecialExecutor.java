@@ -74,20 +74,6 @@ final class RoadrunnerSpecials {
     }
 }
 
-final class ShoebillSpecials {
-    private ShoebillSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        switch (bird.selectShoebillSpecialVariant()) {
-            case NEUTRAL -> bird.specialShoebillDeathStare(ultimate);
-            case SIDE -> bird.specialShoebillHeavyThrust(ultimate);
-            case UP -> bird.specialShoebillMarshLift(ultimate);
-            case DOWN -> bird.specialShoebillStatueTrap(ultimate);
-        }
-    }
-}
-
 final class MockingbirdSpecials {
     private MockingbirdSpecials() {
     }

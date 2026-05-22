@@ -688,7 +688,7 @@ public class Bird {
     private boolean airDodgeAvailable = true;
     private boolean blockHeldLastFrame = false;
     private int techBufferTimer = 0;
-    private int knockdownTimer = 0;
+    int knockdownTimer = 0;
     private boolean leftHeldLastFrame = false;
     private boolean rightHeldLastFrame = false;
     private int grabCooldown = 0;
@@ -986,16 +986,16 @@ public class Bird {
     static final int PENGUIN_FLOP_FRAMES = 70;
     static final int PENGUIN_SNOW_FORT_REUSE_FRAMES = 44;
     static final int PENGUIN_SNOW_FORT_HEALTH = 82;
-    private static final int SHOEBILL_STARE_FX_FRAMES = 18;
-    private static final int SHOEBILL_STARE_REUSE_FRAMES = 0;
-    private static final int SHOEBILL_THRUST_FRAMES = 46;
-    private static final int SHOEBILL_THRUST_STARTUP_FRAMES = 24;
-    private static final int SHOEBILL_THRUST_ACTIVE_FRAMES = 11;
-    private static final int SHOEBILL_THRUST_REUSE_FRAMES = 82;
-    private static final int SHOEBILL_MARSH_LIFT_FRAMES = 24;
-    private static final int SHOEBILL_STATUE_FRAMES = 96;
-    private static final int SHOEBILL_STATUE_REUSE_FRAMES = 70;
-    private static final int SHOEBILL_COUNTER_BURST_FRAMES = 14;
+    static final int SHOEBILL_STARE_FX_FRAMES = 18;
+    static final int SHOEBILL_STARE_REUSE_FRAMES = 0;
+    static final int SHOEBILL_THRUST_FRAMES = 46;
+    static final int SHOEBILL_THRUST_STARTUP_FRAMES = 24;
+    static final int SHOEBILL_THRUST_ACTIVE_FRAMES = 11;
+    static final int SHOEBILL_THRUST_REUSE_FRAMES = 82;
+    static final int SHOEBILL_MARSH_LIFT_FRAMES = 24;
+    static final int SHOEBILL_STATUE_FRAMES = 96;
+    static final int SHOEBILL_STATUE_REUSE_FRAMES = 70;
+    static final int SHOEBILL_COUNTER_BURST_FRAMES = 14;
     double penguinIceFxTimer = 0;
     int penguinDashDamageTimer = 0;
     final boolean[] penguinDashHit = new boolean[4];
@@ -1017,25 +1017,25 @@ public class Bird {
     int penguinSnowFortReuseTimer = 0;
     PenguinSnowFort penguinSnowFort = null;
     int penguinFortGuardFxTimer = 0;
-    private int shoebillStareFxTimer = 0;
-    private int shoebillStareReuseTimer = 0;
-    private boolean shoebillStareUltimate = false;
-    private int shoebillThrustTimer = 0;
-    private int shoebillThrustReuseTimer = 0;
-    private int shoebillThrustDirection = 1;
-    private boolean shoebillThrustUltimate = false;
-    private final boolean[] shoebillThrustHit = new boolean[4];
-    private int shoebillMarshLiftTimer = 0;
-    private boolean shoebillMarshLiftUltimate = false;
-    private boolean shoebillUpSpecialUsed = false;
-    private final boolean[] shoebillMarshLiftHit = new boolean[4];
-    private int shoebillStatueTimer = 0;
-    private int shoebillStatueReuseTimer = 0;
-    private boolean shoebillStatueUltimate = false;
-    private boolean shoebillStatueCountered = false;
-    private int shoebillCounterBurstTimer = 0;
-    private boolean shoebillCounterBurstUltimate = false;
-    private final boolean[] shoebillCounterHit = new boolean[4];
+    int shoebillStareFxTimer = 0;
+    int shoebillStareReuseTimer = 0;
+    boolean shoebillStareUltimate = false;
+    int shoebillThrustTimer = 0;
+    int shoebillThrustReuseTimer = 0;
+    int shoebillThrustDirection = 1;
+    boolean shoebillThrustUltimate = false;
+    final boolean[] shoebillThrustHit = new boolean[4];
+    int shoebillMarshLiftTimer = 0;
+    boolean shoebillMarshLiftUltimate = false;
+    boolean shoebillUpSpecialUsed = false;
+    final boolean[] shoebillMarshLiftHit = new boolean[4];
+    int shoebillStatueTimer = 0;
+    int shoebillStatueReuseTimer = 0;
+    boolean shoebillStatueUltimate = false;
+    boolean shoebillStatueCountered = false;
+    int shoebillCounterBurstTimer = 0;
+    boolean shoebillCounterBurstUltimate = false;
+    final boolean[] shoebillCounterHit = new boolean[4];
     private int hummingFrenzyTimer = 0;
     private final int[] hummingFrenzyHitCooldown = new int[4];
     private static final int HUMMING_NEEDLE_COMBO_WINDOW_FRAMES = 96;
@@ -3483,25 +3483,7 @@ public class Bird {
     }
 
     private void handleShoebillSpecialState() {
-        if (type != BirdGame3.BirdType.SHOEBILL && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.SHOEBILL)) {
-            return;
-        }
-        if (stunTime > 0.0) {
-            resetShoebillSpecialState();
-            if (mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.SHOEBILL)) {
-                mockingbirdCopiedNeutralSource = null;
-            }
-            return;
-        }
-        if (shoebillThrustTimer > 0) {
-            handleShoebillHeavyThrust();
-        }
-        if (shoebillMarshLiftTimer > 0) {
-            handleShoebillMarshLift();
-        }
-        if (shoebillStatueTimer > 0) {
-            handleShoebillStatueTrap();
-        }
+        ShoebillSpecials.handleState(this);
     }
 
     private void handleGrinchhawkSpecialState(boolean jumpJustPressed, double gameSpeed) {
@@ -5157,395 +5139,31 @@ public class Bird {
     }
 
     void specialShoebillDeathStare(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir != 0) {
-            facingRight = dir > 0;
-        }
-        dir = facingDirection();
-        shoebillStareFxTimer = ultimate ? SHOEBILL_STARE_FX_FRAMES + 8 : SHOEBILL_STARE_FX_FRAMES;
-        shoebillStareUltimate = ultimate;
-        shoebillStareReuseTimer = SHOEBILL_STARE_REUSE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillStareFxTimer + 4);
-        vx *= isOnGround() ? 0.22 : 0.55;
-
-        int stunnedTargets = 0;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (!shoebillHasDirectStareLine(other, ultimate)) continue;
-            other.applyStun(ultimate ? 180 : 120);
-            other.vx *= 0.28;
-            other.vy *= 0.52;
-            stunnedTargets++;
-        }
-
-        game.recordSpecialImpact(playerIndex, 0, stunnedTargets > 0);
-        game.addToKillFeed(shortName() + (stunnedTargets > 0
-                ? (ultimate ? " ULT DEATH STARE! Back-facing gaze dazed " : " DEATH STARE! Back-facing gaze dazed ") + stunnedTargets + "!"
-                : " DEATH STARE missed the back-facing gaze!"));
-        game.shakeIntensity = Math.max(game.shakeIntensity, stunnedTargets > 0 ? (ultimate ? 24 : 18) : 8);
-        if (stunnedTargets > 0) {
-            game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 8 : 5);
-        }
-
-        Color stareColor = ultimate ? Color.GOLD : Color.web("#B39DDB");
-        for (int i = 0; i < scaledParticleCount(ultimate ? 44 : 28); i++) {
-            double lane = (Math.random() - 0.5) * (ultimate ? 18.0 : 10.0) * sizeMultiplier;
-            double travel = 26.0 + Math.random() * (ultimate ? 165.0 : 108.0);
-            game.particles.add(new Particle(
-                    bodyCenterX() + dir * (18.0 + travel * 0.15) * sizeMultiplier,
-                    bodyCenterY() - 18.0 * sizeMultiplier + lane,
-                    dir * (1.6 + Math.random() * 4.2),
-                    (Math.random() - 0.5) * 1.8,
-                    stareColor.deriveColor(0, 1, 1, 0.68 + Math.random() * 0.22)
-            ));
-        }
-    }
-
-    private boolean shoebillHasDirectStareLine(Bird other, boolean ultimate) {
-        int dir = facingDirection();
-        double s = sizeMultiplier;
-        double eyeX = bodyCenterX() + dir * 26.0 * s;
-        double eyeY = bodyCenterY() - 18.0 * s;
-        double targetOffsetFromShoebill = other.bodyCenterX() - bodyCenterX();
-        int targetFacingDir = other.facingDirection();
-        if (Math.abs(targetOffsetFromShoebill) < 1.0
-                || targetFacingDir != (targetOffsetFromShoebill > 0.0 ? 1 : -1)) {
-            return false;
-        }
-        double forward = (other.bodyCenterX() - eyeX) * dir;
-        double maxReach = (ultimate ? 190.0 : 126.0) * s + other.combatHalfWidth();
-        double verticalReach = (ultimate ? 42.0 : 28.0) * s + other.combatHalfHeight() * 0.55;
-        if (forward < 0.0 || forward > maxReach) {
-            return false;
-        }
-        return Math.abs(other.bodyCenterY() - eyeY) <= verticalReach;
+        ShoebillSpecials.neutral(this, ultimate);
     }
 
     void specialShoebillHeavyThrust(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        shoebillThrustTimer = ultimate ? SHOEBILL_THRUST_FRAMES + 8 : SHOEBILL_THRUST_FRAMES;
-        shoebillThrustReuseTimer = ultimate ? 54 : SHOEBILL_THRUST_REUSE_FRAMES;
-        shoebillThrustDirection = dir;
-        shoebillThrustUltimate = ultimate;
-        Arrays.fill(shoebillThrustHit, false);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillThrustTimer);
-        vx *= isOnGround() ? 0.32 : 0.58;
-        vy = Math.min(vy, isOnGround() ? 0.0 : 2.4);
-        isBlocking = false;
-        parryWindowFrames = 0;
-        shieldStunFrames = 0;
-        game.addToKillFeed(shortName() + (ultimate ? " wound up an ULT HEAVY BILL THRUST!" : " wound up Heavy Bill Thrust!"));
-    }
-
-    private void handleShoebillHeavyThrust() {
-        int total = shoebillThrustUltimate ? SHOEBILL_THRUST_FRAMES + 8 : SHOEBILL_THRUST_FRAMES;
-        int elapsed = total - shoebillThrustTimer;
-        int dir = shoebillThrustDirection == 0 ? facingDirection() : shoebillThrustDirection;
-        facingRight = dir > 0;
-
-        if (elapsed < SHOEBILL_THRUST_STARTUP_FRAMES) {
-            vx *= isOnGround() ? 0.56 : 0.76;
-            if (!isOnGround()) {
-                vy = Math.min(vy, 2.7);
-            }
-            if ((elapsed & 3) == 0) {
-                game.particles.add(new Particle(
-                        bodyCenterX() + dir * 34.0 * sizeMultiplier,
-                        bodyCenterY() - 14.0 * sizeMultiplier,
-                        -dir * (0.6 + Math.random() * 1.4),
-                        -0.7 - Math.random() * 1.2,
-                        (shoebillThrustUltimate ? Color.GOLD : Color.web("#78909C")).deriveColor(0, 1, 1, 0.62)
-                ));
-            }
-            return;
-        }
-
-        int activeEnd = SHOEBILL_THRUST_STARTUP_FRAMES + SHOEBILL_THRUST_ACTIVE_FRAMES;
-        if (elapsed < activeEnd) {
-            double activePhase = Math.clamp((elapsed - SHOEBILL_THRUST_STARTUP_FRAMES + 1.0)
-                    / SHOEBILL_THRUST_ACTIVE_FRAMES, 0.0, 1.0);
-            double thrustSpeed = (shoebillThrustUltimate ? 7.0 : 5.4) + activePhase * (shoebillThrustUltimate ? 2.4 : 1.6);
-            vx = vx * 0.35 + dir * thrustSpeed;
-            vy *= isOnGround() ? 0.70 : 0.88;
-            applyShoebillThrustHits(activePhase);
-            if ((elapsed & 1) == 0) {
-                emitShoebillReedBurst(
-                        bodyCenterX() + dir * (66.0 + activePhase * 50.0) * sizeMultiplier,
-                        bodyCenterY() - 8.0 * sizeMultiplier,
-                        dir,
-                        shoebillThrustUltimate ? 7 : 5,
-                        shoebillThrustUltimate ? Color.GOLD : Color.web("#A7C7B2")
-                );
-            }
-        } else {
-            vx *= isOnGround() ? 0.50 : 0.78;
-        }
-    }
-
-    private void applyShoebillThrustHits(double activePhase) {
-        int dir = shoebillThrustDirection == 0 ? facingDirection() : shoebillThrustDirection;
-        double s = sizeMultiplier;
-        double originX = bodyCenterX() + dir * 18.0 * s;
-        double originY = bodyCenterY() - 9.0 * s;
-        double reach = (shoebillThrustUltimate ? 188.0 : 154.0) * s;
-        double verticalReach = (shoebillThrustUltimate ? 76.0 : 62.0) * s;
-
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= shoebillThrustHit.length) continue;
-            if (shoebillThrustHit[other.playerIndex]) continue;
-
-            double forward = (other.bodyCenterX() - originX) * dir;
-            if (forward < -other.combatHalfWidth() * 0.25 || forward > reach + other.combatHalfWidth()) continue;
-            if (Math.abs(other.bodyCenterY() - originY) > verticalReach + other.combatHalfHeight()) continue;
-
-            shoebillThrustHit[other.playerIndex] = true;
-            double oldHealth = other.health;
-            int dmg = (shoebillThrustUltimate ? 25 : 18) + (int) Math.round(activePhase * (shoebillThrustUltimate ? 5.0 : 3.0));
-            int dealt = (int) applyDamageTo(other, dmg);
-            if (dealt <= 0) continue;
-
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            other.vx += dir * (shoebillThrustUltimate ? 28.0 : 22.0);
-            other.vy -= shoebillThrustUltimate ? 8.6 : 6.2;
-            other.applyStun(shoebillThrustUltimate ? 16 : 8);
-            game.hitstopFrames = Math.max(game.hitstopFrames, shoebillThrustUltimate ? 8 : 5);
-            game.shakeIntensity = Math.max(game.shakeIntensity, shoebillThrustUltimate ? 17 : 11);
-            emitShoebillReedBurst(other.bodyCenterX(), other.bodyCenterY(), dir,
-                    shoebillThrustUltimate ? 24 : 16,
-                    shoebillThrustUltimate ? Color.GOLD : Color.web("#CFD8DC"));
-        }
+        ShoebillSpecials.side(this, ultimate);
     }
 
     void specialShoebillMarshLift(boolean ultimate) {
-        if (shoebillUpSpecialUsed && !ultimate) {
-            return;
-        }
-        int dir = horizontalInputDirection();
-        if (dir != 0) {
-            facingRight = dir > 0;
-        }
-        shoebillUpSpecialUsed = true;
-        shoebillMarshLiftUltimate = ultimate;
-        shoebillMarshLiftTimer = ultimate ? SHOEBILL_MARSH_LIFT_FRAMES + 8 : SHOEBILL_MARSH_LIFT_FRAMES;
-        Arrays.fill(shoebillMarshLiftHit, false);
-        canDoubleJump = true;
-        vx *= 0.34;
-        vy = Math.min(vy, ultimate ? -20.8 : -17.4);
-        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillMarshLiftTimer);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        isBlocking = false;
-        parryWindowFrames = 0;
-        shieldStunFrames = 0;
-        emitShoebillReedBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier,
-                facingDirection(), ultimate ? 42 : 28, ultimate ? Color.GOLD : Color.web("#81C784"));
-    }
-
-    private void handleShoebillMarshLift() {
-        int total = shoebillMarshLiftUltimate ? SHOEBILL_MARSH_LIFT_FRAMES + 8 : SHOEBILL_MARSH_LIFT_FRAMES;
-        int elapsed = total - shoebillMarshLiftTimer;
-        double s = sizeMultiplier;
-        vx *= 0.88;
-        if (elapsed < total * 0.70 && vy > (shoebillMarshLiftUltimate ? -12.0 : -9.4)) {
-            vy -= shoebillMarshLiftUltimate ? 0.84 : 0.64;
-        }
-        if ((elapsed & 1) == 0) {
-            double spread = (Math.random() - 0.5) * (shoebillMarshLiftUltimate ? 92.0 : 72.0) * s;
-            game.particles.add(new Particle(
-                    bodyCenterX() + spread,
-                    bodyBottomY() - 5.0 * s,
-                    spread * 0.015,
-                    -4.0 - Math.random() * (shoebillMarshLiftUltimate ? 6.2 : 4.6),
-                    (shoebillMarshLiftUltimate ? Color.GOLD : Color.web("#66BB6A")).deriveColor(0, 1, 1, 0.62)
-            ));
-        }
-
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY() + 22.0 * s;
-        double horizontalReach = (shoebillMarshLiftUltimate ? 104.0 : 82.0) * s;
-        double lowerReach = (shoebillMarshLiftUltimate ? 94.0 : 76.0) * s;
-        double upperReach = (shoebillMarshLiftUltimate ? 210.0 : 168.0) * s;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= shoebillMarshLiftHit.length) continue;
-            if (shoebillMarshLiftHit[other.playerIndex]) continue;
-
-            double dx = Math.abs(other.bodyCenterX() - centerX);
-            double dy = other.bodyCenterY() - centerY;
-            if (dx > horizontalReach + other.combatHalfWidth()) continue;
-            if (dy < -upperReach - other.combatHalfHeight() || dy > lowerReach + other.combatHalfHeight()) continue;
-
-            shoebillMarshLiftHit[other.playerIndex] = true;
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, shoebillMarshLiftUltimate ? 10 : 7);
-            if (dealt <= 0) continue;
-
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            double pushDir = Math.signum(other.bodyCenterX() - centerX);
-            if (pushDir == 0.0) {
-                pushDir = facingDirection();
-            }
-            other.vx += pushDir * (shoebillMarshLiftUltimate ? 8.0 : 5.6);
-            other.vy = Math.min(other.vy, -(shoebillMarshLiftUltimate ? 17.0 : 13.4));
-            other.applyStun(shoebillMarshLiftUltimate ? 12 : 7);
-            game.shakeIntensity = Math.max(game.shakeIntensity, shoebillMarshLiftUltimate ? 10 : 6);
-            emitShoebillReedBurst(other.bodyCenterX(), other.bodyBottomY(), (int) pushDir,
-                    shoebillMarshLiftUltimate ? 22 : 14,
-                    shoebillMarshLiftUltimate ? Color.GOLD : Color.web("#A5D6A7"));
-        }
+        ShoebillSpecials.up(this, ultimate);
     }
 
     void specialShoebillStatueTrap(boolean ultimate) {
-        shoebillStatueTimer = ultimate ? SHOEBILL_STATUE_FRAMES + 30 : SHOEBILL_STATUE_FRAMES;
-        shoebillStatueReuseTimer = ultimate ? 48 : SHOEBILL_STATUE_REUSE_FRAMES;
-        shoebillStatueUltimate = ultimate;
-        shoebillStatueCountered = false;
-        shoebillCounterBurstTimer = 0;
-        shoebillCounterBurstUltimate = false;
-        Arrays.fill(shoebillCounterHit, false);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillStatueTimer);
-        vx *= isOnGround() ? 0.12 : 0.36;
-        vy = Math.min(vy, isOnGround() ? 0.0 : 2.2);
-        isBlocking = false;
-        parryWindowFrames = 0;
-        shieldStunFrames = 0;
-        blockCooldown = 0;
-    }
-
-    private void handleShoebillStatueTrap() {
-        if (shoebillStatueTimer <= 0) {
-            return;
-        }
-        if (!blockPressed() && !shoebillStatueCountered) {
-            shoebillStatueTimer = 0;
-            shoebillStatueUltimate = false;
-            attackAnimationTimer = Math.min(attackAnimationTimer, 2);
-            return;
-        }
-        vx *= isOnGround() ? 0.05 : 0.42;
-        if (!isOnGround()) {
-            vy = Math.min(vy, 1.8);
-        }
-        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillStatueCountered ? 4 : 10);
-        if ((shoebillStatueTimer & 3) == 0) {
-            game.particles.add(new Particle(
-                    bodyCenterX() + (Math.random() - 0.5) * 34.0 * sizeMultiplier,
-                    bodyBottomY() - 8.0 * sizeMultiplier,
-                    (Math.random() - 0.5) * 0.8,
-                    -0.8 - Math.random() * 1.4,
-                    (shoebillStatueUltimate ? Color.GOLD : Color.web("#455A64")).deriveColor(0, 1, 1, 0.58)
-            ));
-        }
+        ShoebillSpecials.down(this, ultimate);
     }
 
     private boolean shoebillStatueCounterWindowActive() {
-        return type == BirdGame3.BirdType.SHOEBILL
-                && health > 0
-                && shoebillStatueTimer > 0
-                && !shoebillStatueCountered
-                && blockPressed();
+        return ShoebillSpecials.statueCounterWindowActive(this);
     }
 
     private boolean tryShoebillStatueCounter(Bird attacker, double scaledDamage) {
-        if (!shoebillStatueCounterWindowActive()) {
-            return false;
-        }
-        shoebillStatueCountered = true;
-        shoebillStatueTimer = Math.min(shoebillStatueTimer, SHOEBILL_COUNTER_BURST_FRAMES);
-        shoebillCounterBurstTimer = SHOEBILL_COUNTER_BURST_FRAMES;
-        shoebillCounterBurstUltimate = shoebillStatueUltimate;
-        Arrays.fill(shoebillCounterHit, false);
-        stunTime = 0.0;
-        knockdownTimer = 0;
-        vx *= 0.08;
-        vy = Math.min(vy, -3.6);
-        attackAnimationTimer = Math.max(attackAnimationTimer, SHOEBILL_COUNTER_BURST_FRAMES + 4);
-        game.shakeIntensity = Math.max(game.shakeIntensity, shoebillStatueUltimate ? 18 : 13);
-        game.hitstopFrames = Math.max(game.hitstopFrames, shoebillStatueUltimate ? 8 : 5);
-        game.addToKillFeed(shortName() + (shoebillStatueUltimate ? " ULT STATUE COUNTER!" : " STATUE COUNTER!"));
-        applyShoebillCounterBurstHits(attacker, Math.max(0.0, scaledDamage));
-        emitShoebillReedBurst(bodyCenterX(), bodyCenterY(), facingDirection(),
-                shoebillStatueUltimate ? 46 : 32,
-                shoebillStatueUltimate ? Color.GOLD : Color.web("#B0BEC5"));
-        return true;
-    }
-
-    private void applyShoebillCounterBurstHits(Bird primaryTarget, double absorbedDamage) {
-        double radius = (shoebillCounterBurstUltimate ? 190.0 : 145.0) * sizeMultiplier;
-        double verticalRadius = (shoebillCounterBurstUltimate ? 132.0 : 104.0) * sizeMultiplier;
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY() - 5.0 * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= shoebillCounterHit.length) continue;
-            if (shoebillCounterHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            boolean directCounterTarget = other == primaryTarget;
-            if (!directCounterTarget) {
-                double normalized = Math.hypot(dx / Math.max(1.0, radius), dy / Math.max(1.0, verticalRadius));
-                if (normalized > 1.0 + other.combatRadius() / Math.max(radius, verticalRadius)) continue;
-            }
-
-            shoebillCounterHit[other.playerIndex] = true;
-            double oldHealth = other.health;
-            int dmg = (shoebillCounterBurstUltimate ? 13 : 8)
-                    + (int) Math.round(Math.clamp(absorbedDamage / 32.0, 0.0, 1.0) * (shoebillCounterBurstUltimate ? 5.0 : 3.0));
-            int dealt = (int) applyDamageTo(other, dmg);
-            if (dealt <= 0 && !directCounterTarget) continue;
-
-            if (dealt > 0) {
-                game.damageDealt[playerIndex] += dealt;
-                game.recordSpecialImpact(playerIndex, dealt, true);
-                if (other.health <= 0 && oldHealth > 0) {
-                    game.eliminations[playerIndex]++;
-                }
-            } else {
-                game.recordSpecialImpact(playerIndex, 0, true);
-            }
-            double pushDir = Math.signum(dx);
-            if (pushDir == 0.0) {
-                pushDir = facingDirection();
-            }
-            other.vx += pushDir * (shoebillCounterBurstUltimate ? 13.0 : 9.0);
-            other.vy -= shoebillCounterBurstUltimate ? 8.2 : 5.8;
-            other.applyStun(shoebillCounterBurstUltimate ? 92 : 66);
-        }
+        return ShoebillSpecials.tryStatueCounter(this, attacker, scaledDamage);
     }
 
     private void emitShoebillReedBurst(double originX, double originY, int dir, int count, Color baseColor) {
-        int particleCount = scaledParticleCount(count);
-        int safeDir = dir == 0 ? facingDirection() : dir;
-        for (int i = 0; i < particleCount; i++) {
-            double angle = -Math.PI / 2.0 + (Math.random() - 0.5) * Math.PI * 0.85;
-            double speed = 1.2 + Math.random() * 5.0;
-            game.particles.add(new Particle(
-                    originX + (Math.random() - 0.5) * 22.0 * sizeMultiplier,
-                    originY + (Math.random() - 0.5) * 16.0 * sizeMultiplier,
-                    Math.cos(angle) * speed + safeDir * (0.2 + Math.random()),
-                    Math.sin(angle) * speed - Math.random() * 2.2,
-                    baseColor.deriveColor(0, 1, 1, 0.62 + Math.random() * 0.25)
-            ));
-        }
+        ShoebillSpecials.emitReedBurst(this, originX, originY, dir, count, baseColor);
     }
 
     void specialMockingbirdNeutral(boolean ultimate) {
@@ -5591,7 +5209,7 @@ public class Bird {
                 case ROOSTER -> specialRoosterCallChick(ultimate);
                 case ROADRUNNER -> specialRoadrunnerBeepBlitz(ultimate);
                 case PENGUIN -> PenguinSpecials.neutral(this, ultimate);
-                case SHOEBILL -> specialShoebillDeathStare(ultimate);
+                case SHOEBILL -> ShoebillSpecials.neutral(this, ultimate);
                 case RAZORBILL -> specialRazorbillNeutral(ultimate);
                 case GRINCHHAWK -> specialGrinchhawk(ultimate);
                 case VULTURE -> specialVultureCarrionCall(ultimate);
@@ -7924,11 +7542,7 @@ public class Bird {
     }
 
     private boolean shoebillSpecialActive() {
-        return shoebillStareFxTimer > 0
-                || shoebillThrustTimer > 0
-                || shoebillMarshLiftTimer > 0
-                || shoebillStatueTimer > 0
-                || shoebillCounterBurstTimer > 0;
+        return ShoebillSpecials.active(this);
     }
 
     private boolean shoebillStoneVisualActive() {
@@ -7969,9 +7583,7 @@ public class Bird {
     }
 
     private boolean canConvertShieldIntoShoebillDownSpecial() {
-        return selectShoebillSpecialVariant() == ShoebillSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
+        return ShoebillSpecials.canConvertShieldIntoDown(this);
     }
 
     private boolean canConvertShieldIntoVultureDownSpecial() {
@@ -8333,13 +7945,7 @@ public class Bird {
     }
 
     private boolean shoebillSpecialReady(ShoebillSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> true;
-            case SIDE -> ultimateReady || shoebillThrustReuseTimer <= 0;
-            case UP -> ultimateReady || !shoebillUpSpecialUsed;
-            case DOWN -> ultimateReady || shoebillStatueReuseTimer <= 0;
-        };
+        return ShoebillSpecials.ready(this, variant);
     }
 
     private boolean shoebillAnySpecialReady() {
@@ -9280,21 +8886,7 @@ public class Bird {
     }
 
     private void resetShoebillSpecialState() {
-        shoebillStareFxTimer = 0;
-        shoebillStareUltimate = false;
-        shoebillThrustTimer = 0;
-        shoebillThrustUltimate = false;
-        shoebillThrustDirection = facingDirection();
-        Arrays.fill(shoebillThrustHit, false);
-        shoebillMarshLiftTimer = 0;
-        shoebillMarshLiftUltimate = false;
-        Arrays.fill(shoebillMarshLiftHit, false);
-        shoebillStatueTimer = 0;
-        shoebillStatueUltimate = false;
-        shoebillStatueCountered = false;
-        shoebillCounterBurstTimer = 0;
-        shoebillCounterBurstUltimate = false;
-        Arrays.fill(shoebillCounterHit, false);
+        ShoebillSpecials.reset(this);
     }
 
     private void interruptPigeonSpecialStateOnHit() {
@@ -9362,13 +8954,7 @@ public class Bird {
     }
 
     private void interruptShoebillSpecialStateOnHit() {
-        if (type != BirdGame3.BirdType.SHOEBILL || shoebillStatueCounterWindowActive()) {
-            return;
-        }
-        if (shoebillSpecialActive()) {
-            attackAnimationTimer = 0;
-        }
-        resetShoebillSpecialState();
+        ShoebillSpecials.interruptOnHit(this);
     }
 
     private void interruptVultureSpecialStateOnHit() {
