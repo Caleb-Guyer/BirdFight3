@@ -74,20 +74,6 @@ final class RoadrunnerSpecials {
     }
 }
 
-final class PenguinSpecials {
-    private PenguinSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        switch (bird.selectPenguinSpecialVariant()) {
-            case NEUTRAL -> bird.specialPenguinBellySlide(ultimate);
-            case SIDE -> bird.specialPenguinIcebergShove(ultimate);
-            case UP -> bird.specialPenguinRocketFlop(ultimate);
-            case DOWN -> bird.specialPenguinSnowFort(ultimate);
-        }
-    }
-}
-
 final class ShoebillSpecials {
     private ShoebillSpecials() {
     }

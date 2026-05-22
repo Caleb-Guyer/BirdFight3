@@ -977,15 +977,15 @@ public class Bird {
     private static Image photoTurkeyAttackSprite;
     private static Image photoTurkeyFlapSprite;
     private static Image stuffingSprite;
-    private static final int PENGUIN_BELLY_CHARGE_MAX_FRAMES = 72;
-    private static final int PENGUIN_BELLY_SLIDE_FRAMES = 30;
-    private static final int PENGUIN_BELLY_REUSE_FRAMES = 22;
-    private static final int PENGUIN_ICEBERG_REUSE_FRAMES = 34;
-    private static final int PENGUIN_ICE_OBJECT_LIFE_FRAMES = 156;
-    private static final int PENGUIN_ROCKET_FRAMES = 24;
-    private static final int PENGUIN_FLOP_FRAMES = 70;
-    private static final int PENGUIN_SNOW_FORT_REUSE_FRAMES = 44;
-    private static final int PENGUIN_SNOW_FORT_HEALTH = 82;
+    static final int PENGUIN_BELLY_CHARGE_MAX_FRAMES = 72;
+    static final int PENGUIN_BELLY_SLIDE_FRAMES = 30;
+    static final int PENGUIN_BELLY_REUSE_FRAMES = 22;
+    static final int PENGUIN_ICEBERG_REUSE_FRAMES = 34;
+    static final int PENGUIN_ICE_OBJECT_LIFE_FRAMES = 156;
+    static final int PENGUIN_ROCKET_FRAMES = 24;
+    static final int PENGUIN_FLOP_FRAMES = 70;
+    static final int PENGUIN_SNOW_FORT_REUSE_FRAMES = 44;
+    static final int PENGUIN_SNOW_FORT_HEALTH = 82;
     private static final int SHOEBILL_STARE_FX_FRAMES = 18;
     private static final int SHOEBILL_STARE_REUSE_FRAMES = 0;
     private static final int SHOEBILL_THRUST_FRAMES = 46;
@@ -996,27 +996,27 @@ public class Bird {
     private static final int SHOEBILL_STATUE_FRAMES = 96;
     private static final int SHOEBILL_STATUE_REUSE_FRAMES = 70;
     private static final int SHOEBILL_COUNTER_BURST_FRAMES = 14;
-    private double penguinIceFxTimer = 0;
-    private int penguinDashDamageTimer = 0;
-    private final boolean[] penguinDashHit = new boolean[4];
-    private boolean penguinBellyCharging = false;
-    private int penguinBellyChargeFrames = 0;
-    private int penguinBellySlideTimer = 0;
-    private int penguinBellyReuseTimer = 0;
-    private int penguinBellyDirection = 1;
-    private boolean penguinBellyUltimate = false;
-    private final boolean[] penguinBellyHit = new boolean[4];
-    private int penguinIcebergReuseTimer = 0;
-    private final ArrayList<PenguinIceObject> penguinIceObjects = new ArrayList<>();
-    private int penguinRocketTimer = 0;
-    private int penguinFlopTimer = 0;
-    private boolean penguinRocketUltimate = false;
-    private boolean penguinUpSpecialUsed = false;
-    private final boolean[] penguinRocketHit = new boolean[4];
-    private final boolean[] penguinFlopHit = new boolean[4];
-    private int penguinSnowFortReuseTimer = 0;
-    private PenguinSnowFort penguinSnowFort = null;
-    private int penguinFortGuardFxTimer = 0;
+    double penguinIceFxTimer = 0;
+    int penguinDashDamageTimer = 0;
+    final boolean[] penguinDashHit = new boolean[4];
+    boolean penguinBellyCharging = false;
+    int penguinBellyChargeFrames = 0;
+    int penguinBellySlideTimer = 0;
+    int penguinBellyReuseTimer = 0;
+    int penguinBellyDirection = 1;
+    boolean penguinBellyUltimate = false;
+    final boolean[] penguinBellyHit = new boolean[4];
+    int penguinIcebergReuseTimer = 0;
+    final ArrayList<PenguinIceObject> penguinIceObjects = new ArrayList<>();
+    int penguinRocketTimer = 0;
+    int penguinFlopTimer = 0;
+    boolean penguinRocketUltimate = false;
+    boolean penguinUpSpecialUsed = false;
+    final boolean[] penguinRocketHit = new boolean[4];
+    final boolean[] penguinFlopHit = new boolean[4];
+    int penguinSnowFortReuseTimer = 0;
+    PenguinSnowFort penguinSnowFort = null;
+    int penguinFortGuardFxTimer = 0;
     private int shoebillStareFxTimer = 0;
     private int shoebillStareReuseTimer = 0;
     private boolean shoebillStareUltimate = false;
@@ -1323,7 +1323,7 @@ public class Bird {
         }
     }
 
-    private static final class PenguinIceObject {
+    static final class PenguinIceObject {
         double x;
         double y;
         double vx;
@@ -1349,7 +1349,7 @@ public class Bird {
         }
     }
 
-    private static final class PenguinSnowFort {
+    static final class PenguinSnowFort {
         final double x;
         final double y;
         final int direction;
@@ -1503,7 +1503,7 @@ public class Bird {
     private int recentSmashAttackerFrames = 0;
     private double pendingSmashLaunchScale = 1.0;
 
-    private final Random random = new Random();
+    final Random random = new Random();
 
     private enum DodgeType {
         NONE,
@@ -1790,7 +1790,7 @@ public class Bird {
                 && bodyBottomY() >= game.dockDrownDepthY();
     }
 
-    private boolean hasSolidGroundFloorUnderBody() {
+    boolean hasSolidGroundFloorUnderBody() {
         if (game.selectedMap == MapType.DOCK || game.selectedMap == MapType.DESERT) {
             return !game.isDockWaterAt(bodyCenterX(), BirdGame3.GROUND_Y + 8);
         }
@@ -2476,10 +2476,10 @@ public class Bird {
         };
     }
 
-    private boolean overlapsAttackArea(double targetCenterX, double targetCenterY,
-                                       double targetHalfWidth, double targetHalfHeight,
-                                       double attackCenterX, double attackCenterY,
-                                       double horizontalReach, double verticalReach) {
+    boolean overlapsAttackArea(double targetCenterX, double targetCenterY,
+                               double targetHalfWidth, double targetHalfHeight,
+                               double attackCenterX, double attackCenterY,
+                               double horizontalReach, double verticalReach) {
         double dx = Math.abs(targetCenterX - attackCenterX);
         double dy = Math.abs(targetCenterY - attackCenterY);
         return dx <= horizontalReach + targetHalfWidth
@@ -3479,28 +3479,7 @@ public class Bird {
     }
 
     private void handlePenguinSpecialState(boolean specialHeld) {
-        if (type != BirdGame3.BirdType.PENGUIN && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PENGUIN)) {
-            return;
-        }
-        if (stunTime > 0.0) {
-            resetPenguinSpecialState(false);
-            if (mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PENGUIN)) {
-                mockingbirdCopiedNeutralSource = null;
-            }
-            return;
-        }
-        if (penguinBellyCharging) {
-            handlePenguinBellyCharge(specialHeld);
-        }
-        if (penguinBellySlideTimer > 0) {
-            handlePenguinBellySlide();
-        }
-        if (penguinRocketTimer > 0) {
-            handlePenguinRocket(specialHeld);
-        }
-        if (penguinFlopTimer > 0) {
-            handlePenguinFlop();
-        }
+        PenguinSpecials.handleState(this, specialHeld);
     }
 
     private void handleShoebillSpecialState() {
@@ -3783,321 +3762,23 @@ public class Bird {
     }
 
     private double penguinBellyChargeRatio() {
-        return Math.clamp(penguinBellyChargeFrames / (double) PENGUIN_BELLY_CHARGE_MAX_FRAMES, 0.0, 1.0);
-    }
-
-    private void handlePenguinBellyCharge(boolean specialHeld) {
-        int inputDir = horizontalInputDirection();
-        if (inputDir != 0) {
-            penguinBellyDirection = inputDir;
-            facingRight = inputDir > 0;
-        }
-        boolean directionalVariantRequested = jumpPressed()
-                || blockPressed();
-        boolean keepCharging = specialHeld
-                && !directionalVariantRequested
-                && penguinBellyChargeFrames < PENGUIN_BELLY_CHARGE_MAX_FRAMES;
-        if (!keepCharging) {
-            releasePenguinBellySlide();
-            return;
-        }
-
-        penguinBellyChargeFrames = Math.min(PENGUIN_BELLY_CHARGE_MAX_FRAMES, penguinBellyChargeFrames + 1);
-        attackAnimationTimer = Math.max(attackAnimationTimer, 5);
-        vx *= isOnGround() ? 0.50 : 0.78;
-        if (!isOnGround()) {
-            vy = Math.min(vy, 1.4);
-        }
-        double ratio = penguinBellyChargeRatio();
-        if ((penguinBellyChargeFrames & 3) == 0) {
-            double skidDir = penguinBellyDirection == 0 ? facingDirection() : penguinBellyDirection;
-            game.particles.add(new Particle(
-                    bodyCenterX() - skidDir * (24.0 + ratio * 26.0) * sizeMultiplier,
-                    bodyBottomY() - 5.0 * sizeMultiplier,
-                    -skidDir * (1.0 + ratio * 2.3 + Math.random() * 1.4),
-                    -0.8 - Math.random() * (1.4 + ratio * 1.8),
-                    (penguinBellyUltimate ? Color.GOLD : Color.web("#E1F5FE")).deriveColor(0, 1, 1, 0.66 + ratio * 0.16)
-            ));
-        }
-    }
-
-    private void releasePenguinBellySlide() {
-        if (!penguinBellyCharging) {
-            return;
-        }
-        penguinBellyCharging = false;
-        penguinBellySlideTimer = penguinBellyUltimate ? PENGUIN_BELLY_SLIDE_FRAMES + 8 : PENGUIN_BELLY_SLIDE_FRAMES;
-        Arrays.fill(penguinBellyHit, false);
-        double ratio = penguinBellyChargeRatio();
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = penguinBellyDirection == 0 ? facingDirection() : penguinBellyDirection;
-        }
-        penguinBellyDirection = dir;
-        facingRight = dir > 0;
-        double speed = (penguinBellyUltimate ? 7.4 : 5.8) + ratio * (penguinBellyUltimate ? 27.5 : 23.5);
-        vx = dir * speed;
-        if (isOnGround()) {
-            vy = Math.min(vy, -(penguinBellyUltimate ? 9.4 : 7.8) - ratio * (penguinBellyUltimate ? 7.2 : 5.8));
-        } else {
-            vy = Math.min(vy * 0.35, -(penguinBellyUltimate ? 5.0 : 3.8) - ratio * 3.0);
-        }
-        attackAnimationTimer = Math.max(attackAnimationTimer, penguinBellySlideTimer);
-        penguinIceFxTimer = Math.max(penguinIceFxTimer, penguinBellySlideTimer + 10);
-        emitPenguinIceBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier, dir,
-                18 + (int) Math.round(ratio * 30.0), penguinBellyUltimate ? Color.GOLD : Color.web("#80DEEA"));
-    }
-
-    private void handlePenguinBellySlide() {
-        int dir = penguinBellyDirection == 0 ? facingDirection() : penguinBellyDirection;
-        facingRight = dir > 0;
-        double ratio = penguinBellyChargeRatio();
-        double desired = dir * ((penguinBellyUltimate ? 7.8 : 6.0) + ratio * (penguinBellyUltimate ? 28.0 : 24.0));
-        vx += (desired - vx) * (isOnGround() ? 0.24 : 0.14);
-        if (isOnGround()) {
-            vy = Math.min(vy, -0.25);
-        }
-        if ((penguinBellySlideTimer & 2) == 0) {
-            game.particles.add(new Particle(
-                    bodyCenterX() - dir * 34.0 * sizeMultiplier,
-                    bodyBottomY() - 4.0 * sizeMultiplier,
-                    -dir * (1.8 + Math.random() * 2.8),
-                    -1.0 - Math.random() * 2.4,
-                    (penguinBellyUltimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.70)
-            ));
-        }
-        double centerX = bodyCenterX() + dir * 18.0 * sizeMultiplier;
-        double centerY = bodyCenterY() + 12.0 * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= penguinBellyHit.length) continue;
-            if (penguinBellyHit[other.playerIndex]) continue;
-
-            double forward = (other.bodyCenterX() - centerX) * dir;
-            if (forward < -other.combatHalfWidth() * 0.55) continue;
-            if (forward > (penguinBellyUltimate ? 112.0 : 94.0) * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (Math.abs(other.bodyCenterY() - centerY) > (penguinBellyUltimate ? 70.0 : 58.0) * sizeMultiplier + other.combatHalfHeight()) continue;
-
-            penguinBellyHit[other.playerIndex] = true;
-            int dmg = (penguinBellyUltimate ? 10 : 7) + (int) Math.round(ratio * (penguinBellyUltimate ? 8.0 : 6.0));
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
-            if (dealt <= 0) continue;
-
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            other.vx += dir * ((penguinBellyUltimate ? 15.5 : 12.5) + ratio * 10.0);
-            other.vy -= (penguinBellyUltimate ? 8.8 : 6.8) + ratio * 5.5;
-            game.hitstopFrames = Math.max(game.hitstopFrames, penguinBellyUltimate ? 4 : 2);
-            game.shakeIntensity = Math.max(game.shakeIntensity, penguinBellyUltimate ? 8 : 5);
-            emitPenguinIceBurst(other.bodyCenterX(), other.bodyCenterY(), dir, penguinBellyUltimate ? 22 : 14,
-                    penguinBellyUltimate ? Color.GOLD : Color.web("#90CAF9"));
-        }
+        return PenguinSpecials.bellyChargeRatio(this);
     }
 
     private int penguinRocketTotalFrames() {
-        return penguinRocketUltimate ? PENGUIN_ROCKET_FRAMES + 6 : PENGUIN_ROCKET_FRAMES;
+        return PenguinSpecials.rocketTotalFrames(this);
     }
 
     private int penguinFlopTotalFrames() {
-        return penguinRocketUltimate ? PENGUIN_FLOP_FRAMES + 16 : PENGUIN_FLOP_FRAMES;
+        return PenguinSpecials.flopTotalFrames(this);
     }
 
     private double penguinRocketProgress() {
-        return penguinSpecialPhase(penguinRocketTimer, penguinRocketTotalFrames());
+        return PenguinSpecials.rocketProgress(this);
     }
 
     private double penguinFlopProgress() {
-        return penguinSpecialPhase(penguinFlopTimer, penguinFlopTotalFrames());
-    }
-
-    private static double easePenguin01(double t) {
-        double clamped = Math.clamp(t, 0.0, 1.0);
-        return clamped * clamped * (3.0 - 2.0 * clamped);
-    }
-
-    private void startPenguinFlopFromRocket() {
-        penguinRocketTimer = 0;
-        penguinFlopTimer = penguinFlopTotalFrames();
-        double entryFallSpeed = penguinRocketUltimate ? 1.35 : 1.05;
-        vy = Math.max(vy * 0.28 + entryFallSpeed, entryFallSpeed);
-        vx *= 0.96;
-        attackAnimationTimer = Math.max(attackAnimationTimer, penguinFlopTimer);
-    }
-
-    private void handlePenguinRocket(boolean specialHeld) {
-        int inputDir = horizontalInputDirection();
-        if (inputDir != 0) {
-            facingRight = inputDir > 0;
-        }
-        double progress = penguinRocketProgress();
-        double eased = easePenguin01(progress);
-        double thrustLeft = 1.0 - eased;
-        double targetVy = (penguinRocketUltimate ? -19.4 : -16.8)
-                + eased * (penguinRocketUltimate ? 8.9 : 7.5);
-        double liftBlend = 0.17 + thrustLeft * 0.16;
-        vy += (targetVy - vy) * liftBlend;
-        if (vy > targetVy) {
-            vy -= (penguinRocketUltimate ? 0.50 : 0.40) * (0.7 + thrustLeft * 0.8);
-        }
-        vy = Math.max(vy, penguinRocketUltimate ? -20.8 : -17.8);
-
-        double steerSpeed = (penguinRocketUltimate ? 8.4 : 6.9) * (0.55 + eased * 0.45);
-        if (inputDir != 0) {
-            vx += (inputDir * steerSpeed - vx) * (0.16 + eased * 0.09);
-        } else {
-            vx *= 0.965;
-        }
-
-        if (!isOnGround() && specialHeld && progress >= 0.82) {
-            startPenguinFlopFromRocket();
-            return;
-        }
-        if ((penguinRocketTimer & 1) == 0) {
-            Color exhaust = penguinRocketUltimate ? Color.GOLD : Color.web("#E1F5FE");
-            double drift = Math.clamp(vx / 10.0, -1.0, 1.0);
-            for (int side = -1; side <= 1; side += 2) {
-                game.particles.add(new Particle(
-                        bodyCenterX() + side * 20.0 * sizeMultiplier - drift * 14.0 * sizeMultiplier,
-                        bodyBottomY() - 5.0 * sizeMultiplier,
-                        side * (0.6 + Math.random() * 1.2) - drift * (1.7 + Math.random() * 1.1),
-                        4.5 + Math.random() * 4.8,
-                        exhaust.deriveColor(0, 1, 1, 0.60 + thrustLeft * 0.14)
-                ));
-            }
-        }
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY() - 28.0 * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= penguinRocketHit.length) continue;
-            if (penguinRocketHit[other.playerIndex]) continue;
-
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            if (Math.abs(dx) > (penguinRocketUltimate ? 78.0 : 62.0) * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (dy < -other.combatHalfHeight() || dy > (penguinRocketUltimate ? 112.0 : 92.0) * sizeMultiplier + other.combatHalfHeight()) continue;
-
-            penguinRocketHit[other.playerIndex] = true;
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, penguinRocketUltimate ? 8 : 5);
-            if (dealt <= 0) continue;
-
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            double launchDir = Math.signum(dx == 0.0 ? facingDirection() : dx);
-            other.vx += launchDir * (penguinRocketUltimate ? 6.5 : 4.2);
-            other.vy -= penguinRocketUltimate ? 11.0 : 8.5;
-            emitPenguinIceBurst(other.bodyCenterX(), other.bodyCenterY(), (int) launchDir,
-                    penguinRocketUltimate ? 18 : 12, penguinRocketUltimate ? Color.GOLD : Color.web("#B3E5FC"));
-        }
-    }
-
-    private void handlePenguinFlop() {
-        int inputDir = horizontalInputDirection();
-        if (inputDir != 0) {
-            facingRight = inputDir > 0;
-        }
-        double progress = penguinFlopProgress();
-        double eased = easePenguin01(progress);
-        double steerSpeed = (penguinRocketUltimate ? 6.2 : 5.0) * (1.0 - eased * 0.22);
-        if (inputDir != 0) {
-            vx += (inputDir * steerSpeed - vx) * (0.10 + eased * 0.08);
-        } else {
-            vx *= 0.935;
-        }
-        if (isOnGround()) {
-            triggerPenguinIcyGroundBlast();
-            return;
-        }
-        double fallCap = penguinRocketUltimate ? 9.8 : 7.8;
-        double fallAccel = (penguinRocketUltimate ? 0.24 : 0.19) + eased * (penguinRocketUltimate ? 0.34 : 0.28);
-        double fallFloor = (penguinRocketUltimate ? 1.25 : 0.95) + eased * (penguinRocketUltimate ? 2.30 : 1.75);
-        vy = Math.clamp(vy + fallAccel, fallFloor, fallCap);
-        if ((penguinFlopTimer & 2) == 0) {
-            game.particles.add(new Particle(
-                    bodyCenterX() + (Math.random() - 0.5) * 36.0 * sizeMultiplier,
-                    bodyCenterY() - 12.0 * sizeMultiplier,
-                    (Math.random() - 0.5) * 1.7 - Math.signum(vx) * 0.35,
-                    -2.4 - Math.random() * 2.8,
-                    (penguinRocketUltimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.58)
-            ));
-        }
-        double centerX = bodyCenterX();
-        double centerY = bodyBottomY() + 14.0 * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= penguinFlopHit.length) continue;
-            if (penguinFlopHit[other.playerIndex]) continue;
-
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            if (Math.abs(dx) > (penguinRocketUltimate ? 86.0 : 70.0) * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (dy < -30.0 * sizeMultiplier - other.combatHalfHeight()
-                    || dy > (penguinRocketUltimate ? 74.0 : 58.0) * sizeMultiplier + other.combatHalfHeight()) continue;
-
-            penguinFlopHit[other.playerIndex] = true;
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, penguinRocketUltimate ? 14 : 10);
-            if (dealt <= 0) continue;
-
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
-            other.vx += dir * (penguinRocketUltimate ? 7.5 : 5.4);
-            other.vy += penguinRocketUltimate ? 11.0 : 8.0;
-            game.hitstopFrames = Math.max(game.hitstopFrames, penguinRocketUltimate ? 5 : 3);
-            game.shakeIntensity = Math.max(game.shakeIntensity, penguinRocketUltimate ? 12 : 8);
-            emitPenguinIceBurst(other.bodyCenterX(), other.bodyBottomY(), (int) dir,
-                    penguinRocketUltimate ? 30 : 20, penguinRocketUltimate ? Color.GOLD : Color.web("#E1F5FE"));
-        }
-    }
-
-    private void triggerPenguinIcyGroundBlast() {
-        boolean ultimate = penguinRocketUltimate;
-        double centerX = bodyCenterX();
-        double groundY = bodyBottomY();
-        double radius = (ultimate ? 205.0 : 165.0) * sizeMultiplier;
-        double verticalReach = (ultimate ? 116.0 : 92.0) * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double feetGap = Math.abs(other.bodyBottomY() - groundY);
-            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
-            if (feetGap > verticalReach && other.bodyCenterY() < groundY - verticalReach) continue;
-
-            double edgeRatio = 1.0 - Math.clamp(Math.abs(dx) / Math.max(1.0, radius), 0.0, 1.0);
-            int dmg = (int) Math.round((ultimate ? 16.0 : 12.0) * (0.62 + edgeRatio * 0.38));
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
-            if (dealt <= 0) continue;
-
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
-            other.vx += dir * (ultimate ? 17.0 : 13.2) * (0.50 + edgeRatio * 0.50);
-            other.vy -= (ultimate ? 17.5 : 13.4) * (0.56 + edgeRatio * 0.44);
-        }
-        penguinFlopTimer = 0;
-        penguinRocketUltimate = false;
-        Arrays.fill(penguinFlopHit, false);
-        penguinIceFxTimer = Math.max(penguinIceFxTimer, 34);
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 16 : 11);
-        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 6 : 4);
-        emitPenguinIceBurst(centerX, groundY - 8.0 * sizeMultiplier, facingDirection(),
-                ultimate ? 70 : 50, ultimate ? Color.GOLD : Color.web("#B3E5FC"));
+        return PenguinSpecials.flopProgress(this);
     }
 
     private double turkeyGobbleChargeRatio() {
@@ -5452,144 +5133,27 @@ public class Bird {
     }
 
     void specialPenguinBellySlide(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        penguinBellyDirection = dir;
-        penguinBellyCharging = true;
-        penguinBellyChargeFrames = 1;
-        penguinBellySlideTimer = 0;
-        penguinBellyReuseTimer = ultimate ? 8 : PENGUIN_BELLY_REUSE_FRAMES;
-        penguinBellyUltimate = ultimate;
-        Arrays.fill(penguinBellyHit, false);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 10);
-        vx *= isOnGround() ? 0.48 : 0.70;
-        if (ultimate) {
-            game.addToKillFeed(shortName() + " ULT BELLY SLIDE CHARGE!");
-        }
-        emitPenguinIceBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier, dir, ultimate ? 26 : 16,
-                ultimate ? Color.GOLD : Color.web("#B3E5FC"));
+        PenguinSpecials.neutral(this, ultimate);
     }
 
     void specialPenguinIcebergShove(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        boolean snowball = false;
-        boolean airborne = !isOnGround();
-        double spawnX = bodyCenterX() + dir * 74.0 * sizeMultiplier;
-        double spawnY = airborne
-                ? bodyCenterY() + 2.0 * sizeMultiplier
-                : penguinObjectSurfaceY(spawnX) - 42.0 * sizeMultiplier;
-        if (!airborne && penguinSnowFort != null && penguinSnowFort.health > 0) {
-            double fortForward = (penguinSnowFort.x - bodyCenterX()) * dir;
-            if (fortForward > 16.0 * sizeMultiplier && fortForward < 190.0 * sizeMultiplier
-                    && Math.abs(penguinSnowFort.y - penguinObjectSurfaceY(penguinSnowFort.x)) < 26.0 * sizeMultiplier) {
-                snowball = true;
-                spawnX = penguinSnowFort.x + dir * 24.0 * sizeMultiplier;
-                spawnY = penguinSnowFort.y - 54.0 * sizeMultiplier;
-                penguinSnowFort.health = 0;
-                penguinSnowFort.damageFlash = 8;
-                game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 11 : 7);
-            }
-        }
-        double speed = snowball ? (ultimate ? 13.2 : 11.0) : (ultimate ? 8.2 : 6.7);
-        PenguinIceObject object = new PenguinIceObject(spawnX, spawnY, dir * speed, snowball ? -2.1 : -0.6,
-                dir, ultimate, snowball);
-        penguinIceObjects.add(object);
-        while (penguinIceObjects.size() > (ultimate ? 5 : 4)) {
-            penguinIceObjects.removeFirst();
-        }
-        penguinIcebergReuseTimer = ultimate ? 18 : PENGUIN_ICEBERG_REUSE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
-        vx -= dir * (snowball ? 3.4 : 1.8);
-        if (ultimate) {
-            game.addToKillFeed(shortName() + (snowball ? " ULT FORT SNOWBALL!" : " ULT ICEBERG SHOVE!"));
-        }
-        emitPenguinIceBurst(spawnX, spawnY, dir, snowball ? 54 : 32, ultimate ? Color.GOLD : Color.web("#90CAF9"));
+        PenguinSpecials.side(this, ultimate);
     }
 
     void specialPenguinRocketFlop(boolean ultimate) {
-        if (penguinUpSpecialUsed && !ultimate) {
-            return;
-        }
-        penguinUpSpecialUsed = true;
-        penguinFlopTimer = 0;
-        penguinRocketUltimate = ultimate;
-        penguinRocketTimer = penguinRocketTotalFrames();
-        Arrays.fill(penguinRocketHit, false);
-        Arrays.fill(penguinFlopHit, false);
-        canDoubleJump = true;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, penguinRocketTimer);
-        int launchDir = horizontalInputDirection();
-        if (launchDir != 0) {
-            facingRight = launchDir > 0;
-        }
-        vx = vx * 0.46 + launchDir * (ultimate ? 4.9 : 3.9);
-        vy = Math.min(vy, ultimate ? -19.2 : -16.5);
-        if (ultimate) {
-            game.addToKillFeed(shortName() + " ULT ROCKET FLOP!");
-        }
-        emitPenguinIceBurst(bodyCenterX(), bodyBottomY() - 4.0 * sizeMultiplier, facingDirection(),
-                ultimate ? 54 : 36, ultimate ? Color.GOLD : Color.web("#E1F5FE"));
+        PenguinSpecials.up(this, ultimate);
     }
 
     void specialPenguinSnowFort(boolean ultimate) {
-        int dir = facingDirection();
-        double fortX = bodyCenterX() + dir * 92.0 * sizeMultiplier;
-        double fortY = penguinObjectSurfaceY(fortX);
-        penguinSnowFort = new PenguinSnowFort(fortX, fortY, dir, ultimate);
-        penguinSnowFortReuseTimer = ultimate ? 22 : PENGUIN_SNOW_FORT_REUSE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
-        vx *= isOnGround() ? 0.54 : 0.78;
-        if (ultimate) {
-            game.addToKillFeed(shortName() + " BUILT A ROYAL SNOW FORT!");
-        }
-        emitPenguinIceBurst(fortX, fortY - 20.0 * sizeMultiplier, dir, ultimate ? 44 : 30,
-                ultimate ? Color.GOLD : Color.WHITE);
+        PenguinSpecials.down(this, ultimate);
     }
 
     private double penguinObjectSurfaceY(double objectX) {
-        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
-        double sourceY = bodyBottomY() - 36.0 * sizeMultiplier;
-        for (Platform p : game.platforms) {
-            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
-                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
-            if (isCaveCeiling) continue;
-            if (objectX < p.x - 24.0 || objectX > p.x + p.w + 24.0) continue;
-            if (p.y < sourceY - 24.0) continue;
-            if (p.y < bestY) {
-                bestY = p.y;
-            }
-        }
-        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+        return PenguinSpecials.objectSurfaceY(this, objectX);
     }
 
     private void emitPenguinIceBurst(double originX, double originY, int dir, int count, Color baseColor) {
-        int particleCount = scaledParticleCount(count);
-        for (int i = 0; i < particleCount; i++) {
-            double angle = -Math.PI / 2.0 + (Math.random() - 0.5) * Math.PI * 1.3;
-            double speed = 1.4 + Math.random() * 5.4;
-            game.particles.add(new Particle(
-                    originX + (Math.random() - 0.5) * 18.0 * sizeMultiplier,
-                    originY + (Math.random() - 0.5) * 12.0 * sizeMultiplier,
-                    Math.cos(angle) * speed + dir * (0.4 + Math.random() * 1.3),
-                    Math.sin(angle) * speed - Math.random() * 2.4,
-                    baseColor.deriveColor(0, 1, 1, 0.70 + Math.random() * 0.18)
-            ));
-        }
+        PenguinSpecials.emitIceBurst(this, originX, originY, dir, count, baseColor);
     }
 
     void specialShoebillDeathStare(boolean ultimate) {
@@ -6026,7 +5590,7 @@ public class Bird {
                 case TURKEY -> specialTurkeyGobbleGuard(ultimate);
                 case ROOSTER -> specialRoosterCallChick(ultimate);
                 case ROADRUNNER -> specialRoadrunnerBeepBlitz(ultimate);
-                case PENGUIN -> specialPenguinBellySlide(ultimate);
+                case PENGUIN -> PenguinSpecials.neutral(this, ultimate);
                 case SHOEBILL -> specialShoebillDeathStare(ultimate);
                 case RAZORBILL -> specialRazorbillNeutral(ultimate);
                 case GRINCHHAWK -> specialGrinchhawk(ultimate);
@@ -8207,7 +7771,7 @@ public class Bird {
         return game.isRightPressed(playerIndex);
     }
 
-    private boolean jumpPressed() {
+    boolean jumpPressed() {
         return game.isJumpPressed(playerIndex);
     }
 
@@ -8239,7 +7803,7 @@ public class Bird {
         return game.isGrabPressed(playerIndex);
     }
 
-    private boolean blockPressed() {
+    boolean blockPressed() {
         return game.isBlockPressed(playerIndex);
     }
 
@@ -8401,9 +7965,7 @@ public class Bird {
     }
 
     private boolean canConvertShieldIntoPenguinDownSpecial() {
-        return selectPenguinSpecialVariant() == PenguinSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
+        return PenguinSpecials.canConvertShieldIntoDown(this);
     }
 
     private boolean canConvertShieldIntoShoebillDownSpecial() {
@@ -8749,20 +8311,11 @@ public class Bird {
     }
 
     private boolean penguinSpecialActive() {
-        return penguinBellyCharging
-                || penguinBellySlideTimer > 0
-                || penguinRocketTimer > 0
-                || penguinFlopTimer > 0;
+        return PenguinSpecials.active(this);
     }
 
     private boolean penguinSpecialReady(PenguinSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> ultimateReady || penguinBellyReuseTimer <= 0;
-            case SIDE -> ultimateReady || penguinIcebergReuseTimer <= 0;
-            case UP -> ultimateReady || !penguinUpSpecialUsed;
-            case DOWN -> ultimateReady || penguinSnowFortReuseTimer <= 0;
-        };
+        return PenguinSpecials.ready(this, variant);
     }
 
     boolean canStartPenguinSpecial() {
@@ -9723,23 +9276,7 @@ public class Bird {
     }
 
     private void resetPenguinSpecialState(boolean clearObjects) {
-        penguinBellyCharging = false;
-        penguinBellyChargeFrames = 0;
-        penguinBellySlideTimer = 0;
-        penguinBellyUltimate = false;
-        Arrays.fill(penguinBellyHit, false);
-        penguinRocketTimer = 0;
-        penguinFlopTimer = 0;
-        penguinRocketUltimate = false;
-        Arrays.fill(penguinRocketHit, false);
-        Arrays.fill(penguinFlopHit, false);
-        penguinIceFxTimer = 0;
-        penguinDashDamageTimer = 0;
-        Arrays.fill(penguinDashHit, false);
-        if (clearObjects) {
-            penguinIceObjects.clear();
-            penguinSnowFort = null;
-        }
+        PenguinSpecials.reset(this, clearObjects);
     }
 
     private void resetShoebillSpecialState() {
@@ -9821,13 +9358,7 @@ public class Bird {
     }
 
     private void interruptPenguinSpecialStateOnHit() {
-        if (type != BirdGame3.BirdType.PENGUIN) {
-            return;
-        }
-        if (penguinSpecialActive()) {
-            attackAnimationTimer = 0;
-        }
-        resetPenguinSpecialState(false);
+        PenguinSpecials.interruptOnHit(this);
     }
 
     private void interruptShoebillSpecialStateOnHit() {
@@ -13746,7 +13277,7 @@ public class Bird {
         airDodgeAvailable = true;
     }
 
-    private void refreshAirDodge() {
+    void refreshAirDodge() {
         airDodgeAvailable = true;
         if (dodgeType == DodgeType.AIR) {
             clearActiveDodge();
@@ -16153,33 +15684,7 @@ public class Bird {
     }
 
     private double adjustDamageForPenguinSnowFort(Bird attacker, double scaledDamage) {
-        if (type != BirdGame3.BirdType.PENGUIN || attacker == null || penguinSnowFort == null
-                || penguinSnowFort.health <= 0 || scaledDamage <= 0) {
-            return scaledDamage;
-        }
-        PenguinSnowFort fort = penguinSnowFort;
-        double penguinCenterX = bodyCenterX();
-        double attackerCenterX = attacker.bodyCenterX();
-        boolean fortBetween = (penguinCenterX - fort.x) * (attackerCenterX - fort.x) <= 0.0;
-        if (!fortBetween) {
-            return scaledDamage;
-        }
-        double verticalWindow = (fort.ultimate ? 122.0 : 102.0) * sizeMultiplier;
-        if (Math.abs(attacker.bodyCenterY() - (fort.y - 42.0 * sizeMultiplier)) > verticalWindow) {
-            return scaledDamage;
-        }
-        double guardedDistance = Math.abs(penguinCenterX - fort.x);
-        if (guardedDistance > (fort.ultimate ? 150.0 : 128.0) * sizeMultiplier) {
-            return scaledDamage;
-        }
-        double reduction = fort.ultimate ? 0.46 : 0.36;
-        double absorbed = scaledDamage * reduction;
-        fort.health = Math.max(0, fort.health - Math.max(1, (int) Math.ceil(absorbed * 1.15)));
-        fort.damageFlash = Math.max(fort.damageFlash, 8);
-        penguinFortGuardFxTimer = Math.max(penguinFortGuardFxTimer, 12);
-        emitPenguinIceBurst(fort.x, fort.y - 38.0 * sizeMultiplier,
-                attackerCenterX < fort.x ? -1 : 1, 7, fort.ultimate ? Color.GOLD : Color.web("#E1F5FE"));
-        return Math.max(0.0, scaledDamage - absorbed);
+        return PenguinSpecials.adjustDamageForSnowFort(this, attacker, scaledDamage);
     }
 
     private double applyUnshieldedDamageTo(Bird target, double rawDamage) {
@@ -16857,172 +16362,28 @@ public class Bird {
     }
 
     private void applyPenguinDashDamage() {
-        if (type != BirdGame3.BirdType.PENGUIN || penguinDashDamageTimer <= 0) return;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= penguinDashHit.length) continue;
-            if (penguinDashHit[other.playerIndex]) continue;
-
-            double dx = other.bodyCenterX() - bodyCenterX();
-            double dy = other.bodyCenterY() - bodyCenterY();
-            if (Math.abs(dx) > 90 + other.combatHalfWidth() || Math.abs(dy) > 95 + other.combatHalfHeight()) continue;
-
-            int dmg = 10 + random.nextInt(5);
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, dealt > 0);
-            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-
-            other.vx += (dx >= 0 ? 1 : -1) * 11;
-            other.vy -= 9;
-            penguinDashHit[other.playerIndex] = true;
-            game.addToKillFeed(shortName() + " ICE-CHECKED " + other.shortName() + "! -" + dmg + " HP");
-
-            for (int i = 0; i < 14; i++) {
-                double ang = Math.random() * Math.PI * 2;
-                game.particles.add(new Particle(
-                        other.x + 40, other.y + 40,
-                        Math.cos(ang) * (4 + Math.random() * 7),
-                        Math.sin(ang) * (4 + Math.random() * 7) - 3,
-                        Color.web("#B3E5FC")
-                ));
-            }
-        }
+        PenguinSpecials.applyDashDamage(this);
     }
 
     private void handlePenguinSpecialObjects() {
-        if (type != BirdGame3.BirdType.PENGUIN) {
-            return;
-        }
-        updatePenguinSnowFort();
-        updatePenguinIceObjects();
-    }
-
-    private void updatePenguinSnowFort() {
-        if (penguinSnowFort == null) {
-            return;
-        }
-        PenguinSnowFort fort = penguinSnowFort;
-        fort.ageFrames++;
-        for (int i = 0; i < fort.hitCooldown.length; i++) {
-            fort.hitCooldown[i] = Math.max(0, fort.hitCooldown[i] - 1);
-        }
-        if (fort.damageFlash > 0) {
-            fort.damageFlash--;
-        }
-        if (fort.health <= 0) {
-            emitPenguinIceBurst(fort.x, fort.y - 24.0 * sizeMultiplier, fort.direction,
-                    fort.ultimate ? 32 : 22, fort.ultimate ? Color.GOLD : Color.web("#E1F5FE"));
-            penguinSnowFort = null;
-            return;
-        }
-        double halfWidth = penguinFortHalfWidth(fort);
-        double height = penguinFortHeight(fort);
-        for (Bird other : game.players) {
-            resolvePenguinSnowFortCollision(other, fort, halfWidth, height);
-        }
-    }
-
-    private void resolvePenguinSnowFortCollision(Bird other, PenguinSnowFort fort, double halfWidth, double height) {
-        if (other == null || other == this || other.health <= 0 || fort == null || fort.health <= 0) {
-            return;
-        }
-        double fortLeft = fort.x - halfWidth;
-        double fortRight = fort.x + halfWidth;
-        double fortTop = fort.y - height;
-        double fortBottom = fort.y;
-        double otherLeft = other.x;
-        double otherRight = other.x + other.bodyWidth();
-        double otherTop = other.y;
-        double otherBottom = other.bodyBottomY();
-        double overlapX = Math.min(otherRight, fortRight) - Math.max(otherLeft, fortLeft);
-        double overlapY = Math.min(otherBottom, fortBottom) - Math.max(otherTop, fortTop);
-        if (overlapX <= 0.0 || overlapY <= 0.0) {
-            return;
-        }
-
-        double previousBottom = otherBottom - other.vy;
-        boolean landingOnTop = previousBottom <= fortTop + 8.0
-                && otherBottom >= fortTop
-                && other.vy >= -1.0
-                && overlapY <= Math.max(34.0 * other.sizeMultiplier, overlapX * 0.75);
-        if (landingOnTop) {
-            other.y = fortTop - other.bodyHeight() - 0.5;
-            if (other.vy > 0.0) {
-                other.vy = 0.0;
-            }
-            other.canDoubleJump = true;
-            other.refreshAirDodge();
-            return;
-        }
-
-        if (overlapY < overlapX * 0.55 && otherTop >= fortBottom - 12.0 && other.vy < 0.0) {
-            other.y = fortBottom + 0.5;
-            other.vy = Math.max(0.0, other.vy);
-            return;
-        }
-
-        double dx = other.bodyCenterX() - fort.x;
-        double pushDir = Math.signum(dx == 0.0 ? -fort.direction : dx);
-        double targetCenterX = fort.x + pushDir * (halfWidth + other.combatHalfWidth() + 1.5 * Math.max(sizeMultiplier, other.sizeMultiplier));
-        other.x += targetCenterX - other.bodyCenterX();
-        if (other.vx * pushDir < 0.0) {
-            other.vx = 0.0;
-        }
-        other.vx += pushDir * 0.55;
+        PenguinSpecials.handleObjects(this);
     }
 
     private double penguinFortHalfWidth(PenguinSnowFort fort) {
-        return (fort.ultimate ? 82.0 : 68.0) * sizeMultiplier;
+        return PenguinSpecials.fortHalfWidth(this, fort);
     }
 
     private double penguinFortHeight(PenguinSnowFort fort) {
-        return (fort.ultimate ? 112.0 : 96.0) * sizeMultiplier;
+        return PenguinSpecials.fortHeight(this, fort);
     }
 
     private int penguinFortMaxHealth(PenguinSnowFort fort) {
-        return fort.ultimate ? PENGUIN_SNOW_FORT_HEALTH + 34 : PENGUIN_SNOW_FORT_HEALTH;
-    }
-
-    private void damagePenguinSnowFort(Bird attacker, double rawDamage, double attackCenterX, double attackCenterY,
-                                       double horizontalReach, double verticalReach) {
-        if (attacker == null || attacker == this || penguinSnowFort == null || penguinSnowFort.health <= 0) {
-            return;
-        }
-        PenguinSnowFort fort = penguinSnowFort;
-        if (attacker.playerIndex >= 0 && attacker.playerIndex < fort.hitCooldown.length && fort.hitCooldown[attacker.playerIndex] > 0) {
-            return;
-        }
-        double halfWidth = penguinFortHalfWidth(fort);
-        double height = penguinFortHeight(fort);
-        double fortCenterY = fort.y - height * 0.5;
-        if (!overlapsAttackArea(fort.x, fortCenterY, halfWidth, height * 0.5,
-                attackCenterX, attackCenterY, horizontalReach, verticalReach)) {
-            return;
-        }
-        if (attacker.playerIndex >= 0 && attacker.playerIndex < fort.hitCooldown.length) {
-            fort.hitCooldown[attacker.playerIndex] = 12;
-        }
-        int damage = Math.max(8, (int) Math.round(rawDamage * 0.78));
-        fort.health = Math.max(0, fort.health - damage);
-        fort.damageFlash = Math.max(fort.damageFlash, 10);
-        double dir = Math.signum(fort.x - attackCenterX);
-        if (dir == 0.0) {
-            dir = -fort.direction;
-        }
-        emitPenguinIceBurst(fort.x + dir * halfWidth * 0.75, fort.y - height * 0.48,
-                (int) dir, fort.ultimate ? 16 : 11, fort.ultimate ? Color.GOLD : Color.WHITE);
-        game.shakeIntensity = Math.max(game.shakeIntensity, fort.ultimate ? 5 : 3);
+        return PenguinSpecials.fortMaxHealth(fort);
     }
 
     private void attackPenguinSnowForts(double attackCenterX, double attackCenterY,
                                         double range, double verticalRange, int dmg) {
-        for (Bird candidate : game.players) {
-            if (candidate == null || candidate == this || candidate.type != BirdGame3.BirdType.PENGUIN) continue;
-            if (!canDamageTarget(candidate)) continue;
-            candidate.damagePenguinSnowFort(this, dmg, attackCenterX, attackCenterY, range, verticalRange);
-        }
+        PenguinSpecials.attackSnowForts(this, attackCenterX, attackCenterY, range, verticalRange, dmg);
     }
 
     private void attackGrinchhawkPresents(double attackCenterX, double attackCenterY,
@@ -17038,132 +16399,6 @@ public class Bird {
                 continue;
             }
             candidate.explodeGrinchhawkPresent(present);
-        }
-    }
-
-    private void updatePenguinIceObjects() {
-        if (penguinIceObjects.isEmpty()) {
-            return;
-        }
-        ArrayList<PenguinIceObject> spawnedObjects = new ArrayList<>();
-        Iterator<PenguinIceObject> it = penguinIceObjects.iterator();
-        while (it.hasNext()) {
-            PenguinIceObject object = it.next();
-            object.ageFrames++;
-            object.lifeFrames--;
-            for (int i = 0; i < object.hitCooldown.length; i++) {
-                object.hitCooldown[i] = Math.max(0, object.hitCooldown[i] - 1);
-            }
-
-            object.vy += object.snowball ? 0.30 : 0.24;
-            object.x += object.vx;
-            object.y += object.vy;
-            double surfaceY = penguinObjectSurfaceY(object.x);
-            double radius = (object.snowball ? 58.0 : 42.0) * sizeMultiplier;
-            if (object.y + radius >= surfaceY) {
-                object.y = surfaceY - radius;
-                object.vy = object.snowball ? -Math.abs(object.vx) * 0.08 : 0.0;
-                object.vx *= object.snowball ? 0.994 : 0.982;
-            }
-
-            int objectDir = (int) Math.signum(object.vx == 0.0 ? object.direction : object.vx);
-            if (!object.shattered && game.hitFrostbiteSnowbankWithIce(object.x, object.y, radius * 0.86, objectDir, object.ultimate)) {
-                if (!object.snowball) {
-                    object.shattered = true;
-                    spawnedObjects.add(new PenguinIceObject(
-                            object.x + objectDir * 38.0 * sizeMultiplier,
-                            object.y,
-                            objectDir * (object.ultimate ? 14.6 : 12.2),
-                            -2.2,
-                            objectDir,
-                            object.ultimate,
-                            true));
-                } else {
-                    object.vx *= 0.90;
-                    object.vy -= 1.4;
-                }
-            }
-
-            if (!object.shattered && penguinSnowFort != null && penguinSnowFort.health > 0 && !object.snowball
-                    && Math.abs(object.x - penguinSnowFort.x) < 82.0 * sizeMultiplier
-                    && Math.abs(object.y - (penguinSnowFort.y - 56.0 * sizeMultiplier)) < 86.0 * sizeMultiplier) {
-                PenguinSnowFort fort = penguinSnowFort;
-                object.shattered = true;
-                fort.health = 0;
-                spawnedObjects.add(new PenguinIceObject(fort.x + object.direction * 34.0 * sizeMultiplier,
-                        fort.y - 58.0 * sizeMultiplier,
-                        object.direction * (object.ultimate ? 13.8 : 11.4),
-                        -2.0,
-                        object.direction,
-                        object.ultimate,
-                        true));
-                emitPenguinIceBurst(fort.x, fort.y - 34.0 * sizeMultiplier, object.direction,
-                        object.ultimate ? 42 : 30, object.ultimate ? Color.GOLD : Color.web("#E1F5FE"));
-            }
-
-            double worldLeft = game.battlefieldLeftBound() - 70.0;
-            double worldRight = game.battlefieldRightBound() + 70.0;
-            if (object.lifeFrames <= 0 || object.x < worldLeft || object.x > worldRight || Math.abs(object.vx) < 0.45) {
-                object.shattered = true;
-            }
-
-            handlePenguinIceObjectHits(object);
-            if ((object.ageFrames & 3) == 0) {
-                game.particles.add(new Particle(
-                        object.x - Math.signum(object.vx == 0.0 ? object.direction : object.vx) * radius * 0.7,
-                        object.y + radius * 0.65,
-                        -Math.signum(object.vx == 0.0 ? object.direction : object.vx) * (0.8 + Math.random() * 1.8),
-                        -0.4 - Math.random() * 1.5,
-                        (object.ultimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.58)
-                ));
-            }
-
-            if (object.shattered) {
-                emitPenguinIceBurst(object.x, object.y, object.direction,
-                        object.snowball ? 24 : 14, object.ultimate ? Color.GOLD : Color.web("#90CAF9"));
-                it.remove();
-            }
-        }
-        penguinIceObjects.addAll(spawnedObjects);
-        while (penguinIceObjects.size() > 5) {
-            penguinIceObjects.removeFirst();
-        }
-    }
-
-    private void handlePenguinIceObjectHits(PenguinIceObject object) {
-        double radius = (object.snowball ? 72.0 : 58.0) * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= object.hitCooldown.length) continue;
-            if (object.hitCooldown[other.playerIndex] > 0) continue;
-
-            double dx = other.bodyCenterX() - object.x;
-            double dy = other.bodyCenterY() - object.y;
-            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
-            if (Math.abs(dy) > radius + other.combatHalfHeight()) continue;
-
-            object.hitCooldown[other.playerIndex] = object.snowball ? 12 : 28;
-            int dmg = object.snowball ? (object.ultimate ? 18 : 13) : (object.ultimate ? 12 : 9);
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
-            if (dealt <= 0) continue;
-
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            double launchDir = Math.signum(dx == 0.0 ? object.direction : dx);
-            other.vx += launchDir * (object.snowball ? (object.ultimate ? 20.0 : 15.8) : (object.ultimate ? 14.0 : 10.8));
-            other.vy -= object.snowball ? (object.ultimate ? 11.0 : 8.2) : (object.ultimate ? 7.8 : 5.8);
-            if (!object.snowball) {
-                object.shattered = true;
-            } else {
-                object.vx *= 0.88;
-                object.vy -= 0.8;
-            }
-            game.hitstopFrames = Math.max(game.hitstopFrames, object.snowball ? 4 : 2);
-            game.shakeIntensity = Math.max(game.shakeIntensity, object.snowball ? 8 : 5);
         }
     }
 
