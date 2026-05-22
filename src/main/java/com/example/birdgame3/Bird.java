@@ -1070,39 +1070,39 @@ public class Bird {
     private int hummingNectarCoatedOwnerIndex = -1;
     private boolean hummingNectarCoatedUltimate = false;
     final ArrayList<HummingbirdNectarTrap> hummingNectarTraps = new ArrayList<>();
-    private static final int TURKEY_GOBBLE_GUARD_FRAMES = 18;
-    private static final int TURKEY_GOBBLE_CHARGE_MAX_FRAMES = 96;
-    private static final int TURKEY_GOBBLE_GUARD_REUSE_FRAMES = 30;
-    private static final int TURKEY_GOBBLE_ARMOR_FRAMES = 10;
-    private static final int TURKEY_STAMPEDE_REUSE_FRAMES = 28;
-    private static final int TURKEY_PANIC_FLAP_FRAMES = 22;
-    private static final int TURKEY_FEAST_TRAP_REUSE_FRAMES = 42;
-    private static final int TURKEY_FEAST_TRAP_LIFE_FRAMES = 480;
-    private static final int TURKEY_STUFFED_FRAMES = 110;
-    private int turkeyGobbleTimer = 0;
-    private int turkeyGobbleHoldTimer = 0;
-    private int turkeyGobbleReuseTimer = 0;
-    private int turkeyGobbleArmorTimer = 0;
-    private boolean turkeyGobbleCharging = false;
-    private boolean turkeyGobbleUltimate = false;
-    private boolean turkeyGobbleCountered = false;
-    private final boolean[] turkeyGobbleHit = new boolean[4];
-    private int turkeyStampedeTimer = 0;
-    private int turkeyStampedeHoldFrames = 0;
-    private int turkeyStampedeReuseTimer = 0;
-    private int turkeyStampedeDirection = 1;
-    private boolean turkeyStampedeUltimate = false;
-    private final int[] turkeyStampedeHitCooldown = new int[4];
-    private int turkeyPanicFlapTimer = 0;
-    private int turkeyPanicFlapReuseTimer = 0;
-    private boolean turkeyPanicFlapUltimate = false;
-    private boolean turkeyPanicFlapUsed = false;
-    private final boolean[] turkeyPanicFlapHit = new boolean[4];
-    private int turkeyFeastTrapReuseTimer = 0;
-    private int turkeyStuffedTimer = 0;
-    private int turkeyStuffedOwnerIndex = -1;
-    private boolean turkeyStuffedUltimate = false;
-    private final ArrayList<TurkeyFeastTrap> turkeyFeastTraps = new ArrayList<>();
+    static final int TURKEY_GOBBLE_GUARD_FRAMES = 18;
+    static final int TURKEY_GOBBLE_CHARGE_MAX_FRAMES = 96;
+    static final int TURKEY_GOBBLE_GUARD_REUSE_FRAMES = 30;
+    static final int TURKEY_GOBBLE_ARMOR_FRAMES = 10;
+    static final int TURKEY_STAMPEDE_REUSE_FRAMES = 28;
+    static final int TURKEY_PANIC_FLAP_FRAMES = 22;
+    static final int TURKEY_FEAST_TRAP_REUSE_FRAMES = 42;
+    static final int TURKEY_FEAST_TRAP_LIFE_FRAMES = 480;
+    static final int TURKEY_STUFFED_FRAMES = 110;
+    int turkeyGobbleTimer = 0;
+    int turkeyGobbleHoldTimer = 0;
+    int turkeyGobbleReuseTimer = 0;
+    int turkeyGobbleArmorTimer = 0;
+    boolean turkeyGobbleCharging = false;
+    boolean turkeyGobbleUltimate = false;
+    boolean turkeyGobbleCountered = false;
+    final boolean[] turkeyGobbleHit = new boolean[4];
+    int turkeyStampedeTimer = 0;
+    int turkeyStampedeHoldFrames = 0;
+    int turkeyStampedeReuseTimer = 0;
+    int turkeyStampedeDirection = 1;
+    boolean turkeyStampedeUltimate = false;
+    final int[] turkeyStampedeHitCooldown = new int[4];
+    int turkeyPanicFlapTimer = 0;
+    int turkeyPanicFlapReuseTimer = 0;
+    boolean turkeyPanicFlapUltimate = false;
+    boolean turkeyPanicFlapUsed = false;
+    final boolean[] turkeyPanicFlapHit = new boolean[4];
+    int turkeyFeastTrapReuseTimer = 0;
+    int turkeyStuffedTimer = 0;
+    int turkeyStuffedOwnerIndex = -1;
+    boolean turkeyStuffedUltimate = false;
+    final ArrayList<TurkeyFeastTrap> turkeyFeastTraps = new ArrayList<>();
     private double roadrunnerMomentum = 0.0;
     private int roadrunnerMomentumFxTimer = 0;
     private boolean roadrunnerBeepCharging = false;
@@ -1196,7 +1196,7 @@ public class Bird {
         }
     }
 
-    private static final class TurkeyFeastTrap {
+    static final class TurkeyFeastTrap {
         final double x;
         final double y;
         final boolean ultimate;
@@ -2335,7 +2335,7 @@ public class Bird {
         }
     }
 
-    private void recordTurkeyHeavyMoveProgress() {
+    void recordTurkeyHeavyMoveProgress() {
         if (playerIndex >= 0 && playerIndex < game.groundPounds.length) {
             game.groundPounds[playerIndex]++;
             game.checkAchievements(this);
@@ -3436,28 +3436,7 @@ public class Bird {
     }
 
     private void handleTurkeySpecialState() {
-        if (type != BirdGame3.BirdType.TURKEY && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.TURKEY)) {
-            return;
-        }
-        if (stunTime > 0.0) {
-            resetTurkeySpecialState(false);
-            if (mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.TURKEY)) {
-                mockingbirdCopiedNeutralSource = null;
-            }
-            return;
-        }
-        if (turkeyGobbleCharging) {
-            handleTurkeyGobbleCharge();
-        }
-        if (turkeyGobbleTimer > 0) {
-            handleTurkeyGobbleGuard();
-        }
-        if (turkeyStampedeTimer > 0) {
-            handleTurkeyStampede();
-        }
-        if (turkeyPanicFlapTimer > 0) {
-            handleTurkeyPanicFlap();
-        }
+        TurkeySpecials.handleState(this);
     }
 
     private void handlePenguinSpecialState(boolean specialHeld) {
@@ -3746,262 +3725,7 @@ public class Bird {
     }
 
     private double turkeyGobbleChargeRatio() {
-        return Math.clamp(turkeyGobbleHoldTimer / (double) TURKEY_GOBBLE_CHARGE_MAX_FRAMES, 0.0, 1.0);
-    }
-
-    private void handleTurkeyGobbleCharge() {
-        boolean stillCharging = specialHeld()
-                && !jumpPressed()
-                && !blockPressed()
-                && leftPressed() == rightPressed()
-                && turkeyGobbleHoldTimer < TURKEY_GOBBLE_CHARGE_MAX_FRAMES;
-        if (!stillCharging) {
-            releaseTurkeyGobbleGuardCharge();
-            return;
-        }
-
-        turkeyGobbleHoldTimer = Math.min(TURKEY_GOBBLE_CHARGE_MAX_FRAMES, turkeyGobbleHoldTimer + 1);
-        turkeyGobbleArmorTimer = Math.max(turkeyGobbleArmorTimer, turkeyGobbleCountered ? 4 : 2);
-        attackAnimationTimer = Math.max(attackAnimationTimer, 5);
-        vx *= isOnGround() ? 0.64 : 0.82;
-        if (!isOnGround()) {
-            vy = Math.min(vy, 1.8);
-        }
-
-        double ratio = turkeyGobbleChargeRatio();
-        if ((turkeyGobbleHoldTimer & 3) == 0) {
-            double centerX = bodyCenterX();
-            double centerY = bodyCenterY() - 5.0 * sizeMultiplier;
-            double orbit = (28.0 + ratio * 42.0) * sizeMultiplier;
-            for (int i = 0; i < scaledParticleCount(ratio > 0.75 ? 3 : 2); i++) {
-                double angle = Math.random() * Math.PI * 2.0;
-                game.particles.add(new Particle(
-                        centerX + Math.cos(angle) * orbit,
-                        centerY + Math.sin(angle) * orbit * 0.62,
-                        -Math.cos(angle) * (0.8 + ratio * 1.8),
-                        -0.6 - Math.random() * (1.0 + ratio * 1.6),
-                        (turkeyGobbleCountered ? Color.GOLD : Color.web("#EFEBE9")).deriveColor(0, 1, 1, 0.62 + ratio * 0.20)
-                ));
-            }
-        }
-    }
-
-    private void releaseTurkeyGobbleGuardCharge() {
-        if (!turkeyGobbleCharging) {
-            return;
-        }
-        turkeyGobbleCharging = false;
-        turkeyGobbleHoldTimer = Math.clamp(turkeyGobbleHoldTimer, 1, TURKEY_GOBBLE_CHARGE_MAX_FRAMES);
-        turkeyGobbleTimer = turkeyGobbleUltimate ? TURKEY_GOBBLE_GUARD_FRAMES + 6 : TURKEY_GOBBLE_GUARD_FRAMES;
-        turkeyGobbleReuseTimer = Math.max(turkeyGobbleReuseTimer,
-                turkeyGobbleUltimate ? 22 : TURKEY_GOBBLE_GUARD_REUSE_FRAMES);
-        turkeyGobbleArmorTimer = Math.max(turkeyGobbleArmorTimer, turkeyGobbleCountered ? 8 : 4);
-        Arrays.fill(turkeyGobbleHit, false);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, turkeyGobbleTimer + 3);
-        vx *= isOnGround() ? 0.46 : 0.68;
-
-        double ratio = turkeyGobbleChargeRatio();
-        int burstCount = scaledParticleCount(14 + (int) Math.round(ratio * 22.0));
-        for (int i = 0; i < burstCount; i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 2.0 + Math.random() * (3.4 + ratio * 4.0);
-            game.particles.add(new Particle(
-                    bodyCenterX(),
-                    bodyCenterY() - 4.0 * sizeMultiplier,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 1.4,
-                    (turkeyGobbleCountered ? Color.GOLD : Color.web("#D7CCC8")).deriveColor(0, 1, 1, 0.78)
-            ));
-        }
-    }
-
-    private void handleTurkeyGobbleGuard() {
-        double chargeRatio = turkeyGobbleChargeRatio();
-        double chargeScale = 1.0 + chargeRatio * 1.15;
-
-        double s = sizeMultiplier;
-        double radius = (turkeyGobbleCountered ? 230.0 : 132.0 + chargeRatio * 92.0)
-                * (turkeyGobbleUltimate ? 1.15 : 1.0) * s;
-        double verticalRadius = (turkeyGobbleCountered ? 150.0 : 92.0 + chargeRatio * 60.0)
-                * (turkeyGobbleUltimate ? 1.12 : 1.0) * s;
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY() - 8.0 * s;
-
-        if ((turkeyGobbleTimer & 2) == 0) {
-            int particles = scaledParticleCount(turkeyGobbleCountered ? 8 : 5);
-            for (int i = 0; i < particles; i++) {
-                double angle = Math.random() * Math.PI * 2.0;
-                game.particles.add(new Particle(
-                        centerX + Math.cos(angle) * radius * 0.24,
-                        centerY + Math.sin(angle) * verticalRadius * 0.18,
-                        Math.cos(angle) * (2.0 + Math.random() * 3.0),
-                        Math.sin(angle) * (1.4 + Math.random() * 2.4) - 0.6,
-                        (turkeyGobbleCountered ? Color.GOLD : Color.web("#EFEBE9")).deriveColor(0, 1, 1, 0.55)
-                ));
-            }
-        }
-
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= turkeyGobbleHit.length) continue;
-            if (turkeyGobbleHit[other.playerIndex]) continue;
-
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            double normalized = Math.hypot(dx / Math.max(1.0, radius), dy / Math.max(1.0, verticalRadius));
-            if (normalized > 1.0 + other.combatRadius() / Math.max(radius, verticalRadius)) continue;
-
-            turkeyGobbleHit[other.playerIndex] = true;
-            int dmg = turkeyGobbleCountered
-                    ? (turkeyGobbleUltimate ? 24 : 18)
-                    : (turkeyGobbleUltimate ? 11 : 8) + (int) Math.round(chargeRatio * (turkeyGobbleUltimate ? 13.0 : 10.0));
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
-            if (dealt <= 0) continue;
-
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-
-            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
-            other.vx += dir * (turkeyGobbleCountered
-                    ? (turkeyGobbleUltimate ? 23.0 : 18.0)
-                    : (turkeyGobbleUltimate ? 13.5 : 10.8) * chargeScale);
-            other.vy -= turkeyGobbleCountered
-                    ? (turkeyGobbleUltimate ? 13.0 : 10.0)
-                    : (turkeyGobbleUltimate ? 7.4 : 6.2) * chargeScale;
-            if (turkeyGobbleCountered) {
-                other.applyStun(turkeyGobbleUltimate ? 16 : 10);
-                game.hitstopFrames = Math.max(game.hitstopFrames, turkeyGobbleUltimate ? 5 : 3);
-                game.shakeIntensity = Math.max(game.shakeIntensity, turkeyGobbleUltimate ? 9 : 5);
-            }
-            applyTurkeyStuffedKnockbackBonus(other, dir);
-        }
-    }
-
-    private void handleTurkeyStampede() {
-        if (!specialHeld()) {
-            turkeyStampedeTimer = 0;
-            turkeyStampedeHoldFrames = 0;
-            return;
-        }
-        for (int i = 0; i < turkeyStampedeHitCooldown.length; i++) {
-            if (turkeyStampedeHitCooldown[i] > 0) {
-                turkeyStampedeHitCooldown[i]--;
-            }
-        }
-        int inputDir = horizontalInputDirection();
-        if (inputDir != 0) {
-            turkeyStampedeDirection = inputDir;
-        }
-        int dir = turkeyStampedeDirection == 0 ? facingDirection() : turkeyStampedeDirection;
-        facingRight = dir > 0;
-        turkeyStampedeTimer = Math.max(turkeyStampedeTimer, 2);
-        turkeyStampedeHoldFrames++;
-        double speed = (turkeyStampedeUltimate ? 7.2 : 5.7) * (isOnGround() ? 1.0 : 0.86);
-        vx = vx * 0.42 + dir * speed;
-        vy *= isOnGround() ? 0.74 : 0.90;
-
-        if ((turkeyStampedeHoldFrames & 3) == 0) {
-            game.particles.add(new Particle(
-                    bodyCenterX() - dir * 34.0 * sizeMultiplier,
-                    bodyBottomY() - 5.0 * sizeMultiplier,
-                    -dir * (1.1 + Math.random() * 1.8),
-                    -0.8 - Math.random() * 1.8,
-                    (turkeyStampedeUltimate ? Color.GOLD : Color.SADDLEBROWN).deriveColor(0, 1, 1, 0.65)
-            ));
-        }
-
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY();
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= turkeyStampedeHitCooldown.length) continue;
-            if (turkeyStampedeHitCooldown[other.playerIndex] > 0) continue;
-
-            double forward = (other.bodyCenterX() - centerX) * dir;
-            if (forward < -other.combatHalfWidth() * 0.45) continue;
-            if (forward > (turkeyStampedeUltimate ? 100.0 : 84.0) * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (Math.abs(other.bodyCenterY() - centerY) > (turkeyStampedeUltimate ? 78.0 : 66.0) * sizeMultiplier + other.combatHalfHeight()) continue;
-
-            turkeyStampedeHitCooldown[other.playerIndex] = turkeyStampedeUltimate ? 12 : 16;
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, turkeyStampedeUltimate ? 12 : 8);
-            if (dealt <= 0) continue;
-
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-
-            other.vx += dir * (turkeyStampedeUltimate ? 25.0 : 19.5);
-            other.vy -= turkeyStampedeUltimate ? 8.8 : 6.2;
-            game.hitstopFrames = Math.max(game.hitstopFrames, turkeyStampedeUltimate ? 3 : 1);
-            game.shakeIntensity = Math.max(game.shakeIntensity, turkeyStampedeUltimate ? 9 : 5);
-            applyTurkeyStuffedKnockbackBonus(other, dir);
-        }
-    }
-
-    private void handleTurkeyPanicFlap() {
-        vx *= 0.82;
-        if (vy > -7.0) {
-            vy -= turkeyPanicFlapUltimate ? 0.95 : 0.68;
-        }
-        if ((turkeyPanicFlapTimer & 1) == 0) {
-            for (int side = -1; side <= 1; side += 2) {
-                double wingX = bodyCenterX() + side * 42.0 * sizeMultiplier;
-                double wingY = bodyCenterY() + 8.0 * sizeMultiplier;
-                game.particles.add(new Particle(
-                        wingX,
-                        wingY,
-                        side * (1.4 + Math.random() * 1.6),
-                        4.8 + Math.random() * 3.2,
-                        (turkeyPanicFlapUltimate ? Color.GOLD : Color.web("#F5F5F5")).deriveColor(0, 1, 1, 0.68)
-                ));
-            }
-            if ((turkeyPanicFlapTimer & 3) == 0) {
-                game.particles.add(new Particle(
-                        bodyCenterX() + (Math.random() - 0.5) * 36.0 * sizeMultiplier,
-                        bodyBottomY() - 4.0 * sizeMultiplier,
-                        (Math.random() - 0.5) * 0.8,
-                        7.0 + Math.random() * 4.5,
-                        (turkeyPanicFlapUltimate ? Color.web("#FFF59D") : Color.web("#D7CCC8")).deriveColor(0, 1, 1, 0.52)
-                ));
-            }
-        }
-
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY();
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= turkeyPanicFlapHit.length) continue;
-            if (turkeyPanicFlapHit[other.playerIndex]) continue;
-
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            if (Math.abs(dx) > (turkeyPanicFlapUltimate ? 96.0 : 78.0) * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (dy < 18.0 * sizeMultiplier || dy > (turkeyPanicFlapUltimate ? 205.0 : 165.0) * sizeMultiplier + other.combatHalfHeight()) continue;
-
-            turkeyPanicFlapHit[other.playerIndex] = true;
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, turkeyPanicFlapUltimate ? 9 : 6);
-            if (dealt <= 0) continue;
-
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
-            other.vx += dir * (turkeyPanicFlapUltimate ? 5.5 : 3.8);
-            other.vy = Math.max(other.vy, turkeyPanicFlapUltimate ? 13.0 : 10.0);
-            applyTurkeyStuffedKnockbackBonus(other, dir);
-        }
+        return TurkeySpecials.gobbleChargeRatio(this);
     }
 
     void specialHummingbirdNeedleBarrage(boolean ultimate) {
@@ -4025,138 +3749,23 @@ public class Bird {
     }
 
     void specialTurkeyGobbleGuard(boolean ultimate) {
-        turkeyGobbleCharging = true;
-        turkeyGobbleTimer = 0;
-        turkeyGobbleHoldTimer = 1;
-        turkeyGobbleReuseTimer = Math.max(turkeyGobbleReuseTimer,
-                ultimate ? 22 : TURKEY_GOBBLE_GUARD_REUSE_FRAMES);
-        turkeyGobbleArmorTimer = ultimate ? TURKEY_GOBBLE_ARMOR_FRAMES + 5 : TURKEY_GOBBLE_ARMOR_FRAMES;
-        turkeyGobbleUltimate = ultimate;
-        turkeyGobbleCountered = false;
-        Arrays.fill(turkeyGobbleHit, false);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 8);
-        vx *= isOnGround() ? 0.62 : 0.78;
-        if (ultimate) {
-            game.addToKillFeed(shortName() + " ULT GOBBLE GUARD!");
-        }
-        for (int i = 0; i < scaledParticleCount(ultimate ? 16 : 10); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            game.particles.add(new Particle(
-                    bodyCenterX(),
-                    bodyCenterY(),
-                    Math.cos(angle) * (0.8 + Math.random() * 2.2),
-                    Math.sin(angle) * (0.8 + Math.random() * 2.2) - 0.8,
-                    (ultimate ? Color.GOLD : Color.web("#D7CCC8")).deriveColor(0, 1, 1, 0.72)
-            ));
-        }
+        TurkeySpecials.neutral(this, ultimate);
     }
 
     void specialTurkeyStampede(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        turkeyStampedeDirection = dir;
-        turkeyStampedeTimer = 2;
-        turkeyStampedeHoldFrames = 0;
-        turkeyStampedeReuseTimer = Math.max(turkeyStampedeReuseTimer,
-                ultimate ? 20 : TURKEY_STAMPEDE_REUSE_FRAMES);
-        turkeyStampedeUltimate = ultimate;
-        Arrays.fill(turkeyStampedeHitCooldown, 0);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 10);
-        vx = dir * (ultimate ? 7.2 : 5.7);
-        vy *= isOnGround() ? 0.70 : 0.82;
-        isBlocking = false;
-        parryWindowFrames = 0;
-        shieldStunFrames = 0;
-        recordTurkeyHeavyMoveProgress();
-        if (ultimate) {
-            game.addToKillFeed(shortName() + " ULT DRUMSTICK STAMPEDE!");
-        }
+        TurkeySpecials.side(this, ultimate);
     }
 
     void specialTurkeyPanicFlap(boolean ultimate) {
-        if (turkeyPanicFlapUsed && !ultimate) {
-            return;
-        }
-        turkeyPanicFlapUsed = true;
-        turkeyPanicFlapUltimate = ultimate;
-        turkeyPanicFlapTimer = ultimate ? TURKEY_PANIC_FLAP_FRAMES + 7 : TURKEY_PANIC_FLAP_FRAMES;
-        turkeyPanicFlapReuseTimer = 0;
-        Arrays.fill(turkeyPanicFlapHit, false);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, turkeyPanicFlapTimer);
-        canDoubleJump = false;
-        vy = Math.min(vy, ultimate ? -20.5 : -17.0);
-        vx *= 0.22;
-        if (ultimate) {
-            game.addToKillFeed(shortName() + " ULT PANIC FLAP!");
-        }
-        for (int i = 0; i < scaledParticleCount(ultimate ? 34 : 22); i++) {
-            int side = i % 2 == 0 ? -1 : 1;
-            double spread = side * (20.0 + Math.random() * 48.0);
-            game.particles.add(new Particle(
-                    bodyCenterX() + spread,
-                    bodyCenterY() + (Math.random() - 0.5) * 26.0 * sizeMultiplier,
-                    side * (2.0 + Math.random() * 2.6),
-                    4.2 + Math.random() * 4.4,
-                    (ultimate ? Color.GOLD : Color.web("#F5F5F5")).deriveColor(0, 1, 1, 0.70)
-            ));
-        }
+        TurkeySpecials.up(this, ultimate);
     }
 
     void specialTurkeyFeastTrap(boolean ultimate) {
-        int dir = facingDirection();
-        double trapX = bodyCenterX() - dir * 44.0 * sizeMultiplier;
-        double trapY = turkeyTrapSurfaceY(trapX);
-        turkeyFeastTraps.add(new TurkeyFeastTrap(trapX, trapY, ultimate));
-        while (turkeyFeastTraps.size() > (ultimate ? 5 : 3)) {
-            turkeyFeastTraps.removeFirst();
-        }
-        turkeyFeastTrapReuseTimer = Math.max(turkeyFeastTrapReuseTimer,
-                ultimate ? 32 : TURKEY_FEAST_TRAP_REUSE_FRAMES);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
-        vx += dir * 2.4;
-        isBlocking = false;
-        parryWindowFrames = 0;
-        shieldStunFrames = 0;
-        blockCooldown = 0;
-        if (ultimate) {
-            game.addToKillFeed(shortName() + " SET A ROYAL FEAST TRAP!");
-        }
-        for (int i = 0; i < scaledParticleCount(ultimate ? 34 : 22); i++) {
-            game.particles.add(new Particle(
-                    trapX + (Math.random() - 0.5) * 28.0,
-                    trapY - 24.0,
-                    (Math.random() - 0.5) * 5.0,
-                    -2.0 - Math.random() * 5.0,
-                    (ultimate ? Color.GOLD : Color.web("#FFCC80")).deriveColor(0, 1, 1, 0.78)
-            ));
-        }
+        TurkeySpecials.down(this, ultimate);
     }
 
     private double turkeyTrapSurfaceY(double trapX) {
-        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
-        double sourceY = bodyBottomY() - 18.0 * sizeMultiplier;
-        for (Platform p : game.platforms) {
-            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
-                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
-            if (isCaveCeiling) continue;
-            if (trapX < p.x - 20.0 || trapX > p.x + p.w + 20.0) continue;
-            if (p.y < sourceY - 14.0) continue;
-            if (p.y < bestY) {
-                bestY = p.y;
-            }
-        }
-        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+        return TurkeySpecials.trapSurfaceY(this, trapX);
     }
 
     void activateRoadrunnerSandstorm() {
@@ -4940,7 +4549,7 @@ public class Bird {
                 case EAGLE, FALCON -> RaptorSpecials.neutral(this, ultimate);
                 case PHOENIX -> PhoenixSpecials.neutral(this, ultimate);
                 case HUMMINGBIRD -> HummingbirdSpecials.neutral(this, ultimate);
-                case TURKEY -> specialTurkeyGobbleGuard(ultimate);
+                case TURKEY -> TurkeySpecials.neutral(this, ultimate);
                 case ROOSTER -> specialRoosterCallChick(ultimate);
                 case ROADRUNNER -> specialRoadrunnerBeepBlitz(ultimate);
                 case PENGUIN -> PenguinSpecials.neutral(this, ultimate);
@@ -7407,27 +7016,16 @@ public class Bird {
     }
 
     private boolean turkeySpecialActive() {
-        return turkeyGobbleCharging
-                || turkeyGobbleTimer > 0
-                || turkeyStampedeTimer > 0
-                || turkeyPanicFlapTimer > 0;
+        return TurkeySpecials.active(this);
     }
 
     private boolean turkeySpecialReady(TurkeySpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> ultimateReady || turkeyGobbleReuseTimer <= 0;
-            case SIDE -> ultimateReady || turkeyStampedeReuseTimer <= 0;
-            case UP -> ultimateReady || !turkeyPanicFlapUsed;
-            case DOWN -> ultimateReady || turkeyFeastTrapReuseTimer <= 0;
-        };
+        return TurkeySpecials.ready(this, variant);
     }
 
     boolean canStartTurkeySpecial() {
         TurkeySpecialVariant variant = selectTurkeySpecialVariant();
-        boolean shieldConversion = variant == TurkeySpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
+        boolean shieldConversion = TurkeySpecials.canConvertShieldIntoDown(this);
         return type == BirdGame3.BirdType.TURKEY
                 && health > 0
                 && stunTime <= 0.0
@@ -8575,24 +8173,7 @@ public class Bird {
     }
 
     private void resetTurkeySpecialState(boolean clearTraps) {
-        turkeyGobbleTimer = 0;
-        turkeyGobbleCharging = false;
-        turkeyGobbleHoldTimer = 0;
-        turkeyGobbleArmorTimer = 0;
-        turkeyGobbleUltimate = false;
-        turkeyGobbleCountered = false;
-        Arrays.fill(turkeyGobbleHit, false);
-        turkeyStampedeTimer = 0;
-        turkeyStampedeHoldFrames = 0;
-        turkeyStampedeUltimate = false;
-        turkeyStampedeDirection = facingDirection();
-        Arrays.fill(turkeyStampedeHitCooldown, 0);
-        turkeyPanicFlapTimer = 0;
-        turkeyPanicFlapUltimate = false;
-        Arrays.fill(turkeyPanicFlapHit, false);
-        if (clearTraps) {
-            turkeyFeastTraps.clear();
-        }
+        TurkeySpecials.reset(this, clearTraps);
     }
 
     private void resetPenguinSpecialState(boolean clearObjects) {
@@ -8628,13 +8209,7 @@ public class Bird {
     }
 
     private void interruptTurkeySpecialStateOnHit() {
-        if (type != BirdGame3.BirdType.TURKEY || turkeySpecialArmorActive()) {
-            return;
-        }
-        if (turkeySpecialActive()) {
-            attackAnimationTimer = 0;
-        }
-        resetTurkeySpecialState(false);
+        TurkeySpecials.interruptOnHit(this);
     }
 
     private void interruptRoadrunnerSpecialStateOnHit() {
@@ -15173,41 +14748,11 @@ public class Bird {
     }
 
     private boolean turkeySpecialArmorActive() {
-        return type == BirdGame3.BirdType.TURKEY
-                && health > 0
-                && (turkeyGobbleArmorTimer > 0 || turkeyStampedeTimer > 0);
+        return TurkeySpecials.armorActive(this);
     }
 
     private double applyTurkeySpecialArmor(double scaledDamage) {
-        boolean guarding = turkeyGobbleArmorTimer > 0;
-        if (guarding) {
-            turkeyGobbleCountered = true;
-            if (turkeyGobbleCharging) {
-                turkeyGobbleCharging = false;
-                turkeyGobbleHoldTimer = Math.max(turkeyGobbleHoldTimer, TURKEY_GOBBLE_CHARGE_MAX_FRAMES / 2);
-                turkeyGobbleTimer = Math.max(turkeyGobbleTimer, TURKEY_GOBBLE_GUARD_FRAMES + 4);
-                turkeyGobbleReuseTimer = Math.max(turkeyGobbleReuseTimer, TURKEY_GOBBLE_GUARD_REUSE_FRAMES);
-            } else {
-                turkeyGobbleTimer = Math.max(turkeyGobbleTimer, 14);
-            }
-            Arrays.fill(turkeyGobbleHit, false);
-        }
-        vx *= guarding ? 0.22 : 0.48;
-        vy *= guarding ? 0.45 : 0.65;
-        stunTime = 0.0;
-        knockdownTimer = 0;
-        game.shakeIntensity = Math.max(game.shakeIntensity, guarding ? 8 : 5);
-        for (int i = 0; i < scaledParticleCount(guarding ? 16 : 9); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            game.particles.add(new Particle(
-                    bodyCenterX(),
-                    bodyCenterY(),
-                    Math.cos(angle) * (2.0 + Math.random() * 4.0),
-                    Math.sin(angle) * (2.0 + Math.random() * 4.0) - 1.4,
-                    (guarding ? Color.GOLD : Color.SADDLEBROWN).deriveColor(0, 1, 1, 0.75)
-            ));
-        }
-        return scaledDamage * (guarding ? 0.35 : 0.58);
+        return TurkeySpecials.applyArmor(this, scaledDamage);
     }
 
     private double applyNullRockPhaseGate(double scaledDamage) {
@@ -15539,35 +15084,7 @@ public class Bird {
     }
 
     private void applyTurkeyStuffedKnockbackBonus(Bird target, double direction) {
-        if (type != BirdGame3.BirdType.TURKEY || target == null || target.turkeyStuffedTimer <= 0) {
-            return;
-        }
-        if (target.turkeyStuffedOwnerIndex != playerIndex) {
-            return;
-        }
-        double dir = Math.signum(direction);
-        if (dir == 0.0) {
-            dir = Math.signum(target.bodyCenterX() - bodyCenterX());
-            if (dir == 0.0) {
-                dir = facingDirection();
-            }
-        }
-        boolean ultimate = target.turkeyStuffedUltimate;
-        target.vx += dir * (ultimate ? 6.5 : 4.5);
-        target.vy -= ultimate ? 4.0 : 2.8;
-        target.turkeyStuffedTimer = 0;
-        target.turkeyStuffedOwnerIndex = -1;
-        target.turkeyStuffedUltimate = false;
-        for (int i = 0; i < scaledParticleCount(ultimate ? 18 : 12); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            game.particles.add(new Particle(
-                    target.bodyCenterX(),
-                    target.bodyCenterY(),
-                    Math.cos(angle) * (2.0 + Math.random() * 5.0),
-                    Math.sin(angle) * (2.0 + Math.random() * 5.0) - 2.0,
-                    (ultimate ? Color.GOLD : Color.web("#FFB74D")).deriveColor(0, 1, 1, 0.82)
-            ));
-        }
+        TurkeySpecials.applyStuffedKnockbackBonus(this, target, direction);
     }
 
     private void handleTurkeyFeastTraps() {

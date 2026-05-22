@@ -29,20 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class TurkeySpecials {
-    private TurkeySpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        switch (bird.selectTurkeySpecialVariant()) {
-            case NEUTRAL -> bird.specialTurkeyGobbleGuard(ultimate);
-            case SIDE -> bird.specialTurkeyStampede(ultimate);
-            case UP -> bird.specialTurkeyPanicFlap(ultimate);
-            case DOWN -> bird.specialTurkeyFeastTrap(ultimate);
-        }
-    }
-}
-
 final class RoadrunnerSpecials {
     private RoadrunnerSpecials() {
     }
