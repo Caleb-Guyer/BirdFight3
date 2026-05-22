@@ -29,23 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class RoadrunnerSpecials {
-    private RoadrunnerSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        if (ultimate) {
-            bird.activateRoadrunnerSandstorm();
-        }
-        switch (bird.selectRoadrunnerSpecialVariant()) {
-            case NEUTRAL -> bird.specialRoadrunnerBeepBlitz(ultimate);
-            case SIDE -> bird.specialRoadrunnerCanyonRicochet(ultimate);
-            case UP -> bird.specialRoadrunnerDustDevilLift(ultimate);
-            case DOWN -> bird.specialRoadrunnerPaintedRoad(ultimate);
-        }
-    }
-}
-
 final class MockingbirdSpecials {
     private MockingbirdSpecials() {
     }

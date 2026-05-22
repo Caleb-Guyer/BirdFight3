@@ -721,9 +721,9 @@ public class Bird {
     public int overchargeAttackTimer = 0;
     private double ultimateMeter = 0.0;
     private int ultimateFxTimer = 0;
-    private int roadrunnerSandstormTimer = 0;
-    private int roadrunnerSandGustTimer = 0;
-    private final int[] roadrunnerSandHitCooldown = new int[4];
+    int roadrunnerSandstormTimer = 0;
+    int roadrunnerSandGustTimer = 0;
+    final int[] roadrunnerSandHitCooldown = new int[4];
     int pigeonFeatherBurstTimer = 0;
     boolean pigeonFeatherBurstUltimate = false;
     int pigeonRushTimer = 0;
@@ -808,30 +808,30 @@ public class Bird {
     private static final double ULTIMATE_GAIN_DEALT = 0.35;
     private static final double ULTIMATE_GAIN_TAKEN = 0.45;
     private static final int ULTIMATE_FX_FRAMES = 24;
-    private static final int ROADRUNNER_SANDSTORM_FRAMES = 540;
-    private static final int ROADRUNNER_GUST_INTERVAL = 12;
-    private static final int ROADRUNNER_GUST_HIT_COOLDOWN = 24;
-    private static final double ROADRUNNER_SANDSTORM_FLY_LIFT = 1.1;
-    private static final double ROADRUNNER_SANDSTORM_SPEED_SCALE = 1.38;
-    private static final double ROADRUNNER_SANDSTORM_GUST_RADIUS = 340.0;
-    private static final double ROADRUNNER_MOMENTUM_MAX = 160.0;
-    private static final double ROADRUNNER_RUN_BASE_SPEED_SCALE = 1.08;
-    private static final double ROADRUNNER_RUN_MAX_SPEED_SCALE = 2.62;
-    private static final double ROADRUNNER_RUN_BASE_ACCEL = 0.46;
-    private static final double ROADRUNNER_RUN_MAX_ACCEL = 0.82;
-    private static final int ROADRUNNER_BEEP_CHARGE_MAX_FRAMES = 72;
-    private static final int ROADRUNNER_BEEP_MAX_HOLD_RELEASE_FRAMES = 1;
-    private static final int ROADRUNNER_BEEP_BURST_FRAMES = 12;
-    private static final int ROADRUNNER_BEEP_REUSE_FRAMES = 30;
-    private static final int ROADRUNNER_RICOCHET_FRAMES = 18;
-    private static final int ROADRUNNER_RICOCHET_REUSE_FRAMES = 50;
-    private static final int ROADRUNNER_DUST_DEVIL_FRAMES = 24;
-    private static final int ROADRUNNER_PAINTED_ROAD_REUSE_FRAMES = 58;
-    private static final int ROADRUNNER_PAINTED_ROAD_LIFE_FRAMES = 360;
-    private static final int ROADRUNNER_PAINTED_ROAD_USES = 3;
-    private static final int ROADRUNNER_PAINTED_ROAD_COLLAPSE_FRAMES = 26;
-    private static final int ROADRUNNER_PAINTED_ROAD_FADE_FRAMES = 48;
-    private static final int ROADRUNNER_SLIP_FRAMES = 56;
+    static final int ROADRUNNER_SANDSTORM_FRAMES = 540;
+    static final int ROADRUNNER_GUST_INTERVAL = 12;
+    static final int ROADRUNNER_GUST_HIT_COOLDOWN = 24;
+    static final double ROADRUNNER_SANDSTORM_FLY_LIFT = 1.1;
+    static final double ROADRUNNER_SANDSTORM_SPEED_SCALE = 1.38;
+    static final double ROADRUNNER_SANDSTORM_GUST_RADIUS = 340.0;
+    static final double ROADRUNNER_MOMENTUM_MAX = 160.0;
+    static final double ROADRUNNER_RUN_BASE_SPEED_SCALE = 1.08;
+    static final double ROADRUNNER_RUN_MAX_SPEED_SCALE = 2.62;
+    static final double ROADRUNNER_RUN_BASE_ACCEL = 0.46;
+    static final double ROADRUNNER_RUN_MAX_ACCEL = 0.82;
+    static final int ROADRUNNER_BEEP_CHARGE_MAX_FRAMES = 72;
+    static final int ROADRUNNER_BEEP_MAX_HOLD_RELEASE_FRAMES = 1;
+    static final int ROADRUNNER_BEEP_BURST_FRAMES = 12;
+    static final int ROADRUNNER_BEEP_REUSE_FRAMES = 30;
+    static final int ROADRUNNER_RICOCHET_FRAMES = 18;
+    static final int ROADRUNNER_RICOCHET_REUSE_FRAMES = 50;
+    static final int ROADRUNNER_DUST_DEVIL_FRAMES = 24;
+    static final int ROADRUNNER_PAINTED_ROAD_REUSE_FRAMES = 58;
+    static final int ROADRUNNER_PAINTED_ROAD_LIFE_FRAMES = 360;
+    static final int ROADRUNNER_PAINTED_ROAD_USES = 3;
+    static final int ROADRUNNER_PAINTED_ROAD_COLLAPSE_FRAMES = 26;
+    static final int ROADRUNNER_PAINTED_ROAD_FADE_FRAMES = 48;
+    static final int ROADRUNNER_SLIP_FRAMES = 56;
     static final int PIGEON_NEUTRAL_BURST_FRAMES = 12;
     static final int PIGEON_NEUTRAL_COOLDOWN_FRAMES = 34;
     static final int PIGEON_RUSH_GROUND_FRAMES = 20;
@@ -1103,34 +1103,34 @@ public class Bird {
     int turkeyStuffedOwnerIndex = -1;
     boolean turkeyStuffedUltimate = false;
     final ArrayList<TurkeyFeastTrap> turkeyFeastTraps = new ArrayList<>();
-    private double roadrunnerMomentum = 0.0;
-    private int roadrunnerMomentumFxTimer = 0;
-    private boolean roadrunnerBeepCharging = false;
-    private int roadrunnerBeepChargeFrames = 0;
-    private int roadrunnerBeepMaxChargeHoldFrames = 0;
-    private int roadrunnerBeepBurstTimer = 0;
-    private int roadrunnerBeepReuseTimer = 0;
-    private int roadrunnerBeepDirection = 1;
-    private boolean roadrunnerBeepUltimate = false;
-    private final boolean[] roadrunnerBeepHit = new boolean[4];
-    private int roadrunnerRicochetTimer = 0;
-    private int roadrunnerRicochetReuseTimer = 0;
-    private int roadrunnerRicochetDirection = 1;
-    private int roadrunnerRicochetBounces = 0;
-    private double roadrunnerRicochetSpeed = 0.0;
-    private boolean roadrunnerRicochetUltimate = false;
-    private final int[] roadrunnerRicochetHitCooldown = new int[4];
-    private int roadrunnerDustDevilTimer = 0;
-    private boolean roadrunnerDustDevilUsed = false;
-    private boolean roadrunnerDustDevilUltimate = false;
-    private final boolean[] roadrunnerDustDevilHit = new boolean[4];
-    private int roadrunnerPaintedRoadReuseTimer = 0;
-    private int roadrunnerRoadBoostTimer = 0;
-    private final ArrayList<RoadrunnerPaintedRoad> roadrunnerPaintedRoads = new ArrayList<>();
-    private int roadrunnerSlipTimer = 0;
-    private int roadrunnerSlipDirection = 1;
-    private int roadrunnerSlipOwnerIndex = -1;
-    private boolean roadrunnerSlipUltimate = false;
+    double roadrunnerMomentum = 0.0;
+    int roadrunnerMomentumFxTimer = 0;
+    boolean roadrunnerBeepCharging = false;
+    int roadrunnerBeepChargeFrames = 0;
+    int roadrunnerBeepMaxChargeHoldFrames = 0;
+    int roadrunnerBeepBurstTimer = 0;
+    int roadrunnerBeepReuseTimer = 0;
+    int roadrunnerBeepDirection = 1;
+    boolean roadrunnerBeepUltimate = false;
+    final boolean[] roadrunnerBeepHit = new boolean[4];
+    int roadrunnerRicochetTimer = 0;
+    int roadrunnerRicochetReuseTimer = 0;
+    int roadrunnerRicochetDirection = 1;
+    int roadrunnerRicochetBounces = 0;
+    double roadrunnerRicochetSpeed = 0.0;
+    boolean roadrunnerRicochetUltimate = false;
+    final int[] roadrunnerRicochetHitCooldown = new int[4];
+    int roadrunnerDustDevilTimer = 0;
+    boolean roadrunnerDustDevilUsed = false;
+    boolean roadrunnerDustDevilUltimate = false;
+    final boolean[] roadrunnerDustDevilHit = new boolean[4];
+    int roadrunnerPaintedRoadReuseTimer = 0;
+    int roadrunnerRoadBoostTimer = 0;
+    final ArrayList<RoadrunnerPaintedRoad> roadrunnerPaintedRoads = new ArrayList<>();
+    int roadrunnerSlipTimer = 0;
+    int roadrunnerSlipDirection = 1;
+    int roadrunnerSlipOwnerIndex = -1;
+    boolean roadrunnerSlipUltimate = false;
     private static final int GRINCH_HEART_SNATCH_FRAMES = 18;
     private static final int GRINCH_SLEIGH_LIFE_FRAMES = 180;
     private static final double GRINCH_SLEIGH_SPEED = 18.0;
@@ -1250,7 +1250,7 @@ public class Bird {
     private record TitmouseMobbingNode(double x, double y, Bird target) {
     }
 
-    private static final class RoadrunnerPaintedRoad {
+    static final class RoadrunnerPaintedRoad {
         final double x;
         final double y;
         final int direction;
@@ -1769,7 +1769,7 @@ public class Bird {
         return isNullRockForm() && isVoidMap();
     }
 
-    private boolean usesIslandBounds() {
+    boolean usesIslandBounds() {
         return game.selectedMap == MapType.BATTLEFIELD
                 || game.selectedMap == MapType.BEACON_CROWN
                 || game.selectedMap == MapType.FROSTBITE_FJORD;
@@ -3769,693 +3769,111 @@ public class Bird {
     }
 
     void activateRoadrunnerSandstorm() {
-        roadrunnerSandstormTimer = Math.max(roadrunnerSandstormTimer, ROADRUNNER_SANDSTORM_FRAMES);
-        roadrunnerSandGustTimer = 0;
-        Arrays.fill(roadrunnerSandHitCooldown, 0);
-        roadrunnerMomentum = ROADRUNNER_MOMENTUM_MAX;
-        roadrunnerMomentumFxTimer = Math.max(roadrunnerMomentumFxTimer, 90);
-        speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * ROADRUNNER_SANDSTORM_SPEED_SCALE);
-        speedTimer = Math.max(speedTimer, ROADRUNNER_SANDSTORM_FRAMES + 45);
-        hoverRegenTimer = Math.max(hoverRegenTimer, ROADRUNNER_SANDSTORM_FRAMES);
-        hoverRegenMultiplier = Math.max(hoverRegenMultiplier, 1.12);
-        game.addToKillFeed(shortName() + " ASCENDED IN A GODSTORM!");
-        game.shakeIntensity = Math.max(game.shakeIntensity, 28);
-        game.hitstopFrames = Math.max(game.hitstopFrames, 12);
-        game.triggerFlash(0.45, false);
-        unleashRoadrunnerSandGust(true);
+        RoadrunnerSpecials.activateSandstorm(this);
     }
 
     private double roadrunnerMomentumRatio() {
-        return Math.clamp(roadrunnerMomentum / ROADRUNNER_MOMENTUM_MAX, 0.0, 1.0);
+        return RoadrunnerSpecials.momentumRatio(this);
     }
 
     private void addRoadrunnerMomentum(double amount) {
-        if (type != BirdGame3.BirdType.ROADRUNNER || amount <= 0.0) {
-            return;
-        }
-        double before = roadrunnerMomentum;
-        roadrunnerMomentum = Math.clamp(roadrunnerMomentum + amount, 0.0, ROADRUNNER_MOMENTUM_MAX);
-        if (roadrunnerMomentum > before + 0.5) {
-            roadrunnerMomentumFxTimer = Math.max(roadrunnerMomentumFxTimer, 18);
-        }
+        RoadrunnerSpecials.addMomentum(this, amount);
     }
 
     private void spendRoadrunnerMomentum(double fraction) {
-        if (fraction <= 0.0) {
-            return;
-        }
-        roadrunnerMomentum = Math.max(0.0, roadrunnerMomentum * (1.0 - fraction));
+        RoadrunnerSpecials.spendMomentum(this, fraction);
     }
 
     void specialRoadrunnerBeepBlitz(boolean ultimate) {
-        roadrunnerBeepCharging = true;
-        roadrunnerBeepChargeFrames = Math.max(1, roadrunnerBeepChargeFrames);
-        roadrunnerBeepMaxChargeHoldFrames = 0;
-        roadrunnerBeepUltimate = ultimate;
-        int inputDir = horizontalInputDirection();
-        roadrunnerBeepDirection = inputDir == 0 ? facingDirection() : inputDir;
-        facingRight = roadrunnerBeepDirection > 0;
-        Arrays.fill(roadrunnerBeepHit, false);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 8);
-        vx *= isOnGround() ? 0.72 : 0.84;
-        if (ultimate) {
-            game.addToKillFeed(shortName() + " wound up a golden Beep-Beep Blitz!");
-        }
+        RoadrunnerSpecials.neutral(this, ultimate);
     }
 
     private void releaseRoadrunnerBeepBlitz() {
-        if (!roadrunnerBeepCharging) {
-            return;
-        }
-        int chargeFrames = roadrunnerBeepChargeFrames;
-        roadrunnerBeepCharging = false;
-        roadrunnerBeepChargeFrames = 0;
-        roadrunnerBeepMaxChargeHoldFrames = 0;
-        roadrunnerBeepBurstTimer = roadrunnerBeepUltimate
-                ? ROADRUNNER_BEEP_BURST_FRAMES + 4
-                : ROADRUNNER_BEEP_BURST_FRAMES;
-        roadrunnerBeepReuseTimer = roadrunnerBeepUltimate ? 20 : ROADRUNNER_BEEP_REUSE_FRAMES;
-        int releaseDir = horizontalInputDirection();
-        roadrunnerBeepDirection = releaseDir == 0
-                ? (roadrunnerBeepDirection == 0 ? facingDirection() : roadrunnerBeepDirection)
-                : releaseDir;
-        facingRight = roadrunnerBeepDirection > 0;
-        Arrays.fill(roadrunnerBeepHit, false);
-
-        double chargeRatio = Math.clamp(chargeFrames / (double) ROADRUNNER_BEEP_CHARGE_MAX_FRAMES, 0.0, 1.0);
-        double carriedSpeedRatio = Math.clamp(Math.abs(vx) / 26.0, 0.0, 1.0);
-        double powerRatio = Math.clamp(chargeRatio * 0.82 + roadrunnerMomentumRatio() * 0.55 + carriedSpeedRatio * 0.34, 0.0, 1.35);
-        double burstSpeed = 14.0 + powerRatio * 20.5;
-        double chargeSpeedFloor = 18.0 + chargeRatio * 22.0;
-        if (chargeRatio >= 0.98) {
-            chargeSpeedFloor = (roadrunnerBeepUltimate ? 54.0 : 48.0) + roadrunnerMomentumRatio() * 4.0;
-        }
-        burstSpeed = Math.max(burstSpeed, chargeSpeedFloor);
-        vx = roadrunnerBeepDirection * burstSpeed;
-        vy = Math.min(vy, isOnGround() ? -1.6 - powerRatio * 2.2 : -3.0 - powerRatio * 2.0);
-        attackAnimationTimer = Math.max(attackAnimationTimer, roadrunnerBeepBurstTimer + 2);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        spendRoadrunnerMomentum(roadrunnerBeepUltimate ? 0.22 : 0.42);
-        game.shakeIntensity = Math.max(game.shakeIntensity, 4 + powerRatio * 5.0);
-        applyRoadrunnerBeepBlitzHit(powerRatio);
-        emitRoadrunnerBurstDust(bodyCenterX(), bodyBottomY() - 12.0 * sizeMultiplier,
-                roadrunnerBeepDirection, roadrunnerBeepUltimate ? 36 : 24,
-                roadrunnerSandColor(roadrunnerBeepUltimate));
+        RoadrunnerSpecials.releaseBeepBlitz(this);
     }
 
     private void applyRoadrunnerBeepBlitzHit(double powerRatio) {
-        if (roadrunnerBeepBurstTimer <= 0) {
-            return;
-        }
-        int dir = roadrunnerBeepDirection == 0 ? facingDirection() : roadrunnerBeepDirection;
-        double reach = (120.0 + powerRatio * 44.0) * sizeMultiplier;
-        double verticalReach = (76.0 + powerRatio * 24.0) * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= roadrunnerBeepHit.length) continue;
-            if (roadrunnerBeepHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - bodyCenterX();
-            double dy = other.bodyCenterY() - (bodyCenterY() - 6.0 * sizeMultiplier);
-            if (dx * dir < -30.0 * sizeMultiplier || dx * dir > reach + other.combatHalfWidth()) continue;
-            if (Math.abs(dy) > verticalReach + other.combatHalfHeight()) continue;
-
-            double oldHealth = other.health;
-            int dmg = (int) Math.round((roadrunnerBeepUltimate ? 8 : 6) + powerRatio * (roadrunnerBeepUltimate ? 7 : 5));
-            int dealt = (int) applyDamageTo(other, dmg);
-            roadrunnerBeepHit[other.playerIndex] = true;
-            if (dealt <= 0) continue;
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-            other.vx += dir * (10.0 + powerRatio * 13.0);
-            other.vy -= 4.0 + powerRatio * 5.5;
-            addRoadrunnerMomentum(7.0 + dealt * 0.75);
-            emitRoadrunnerBurstDust(other.bodyCenterX(), other.bodyCenterY(), dir, 16,
-                    roadrunnerTrailColor(roadrunnerBeepUltimate));
-        }
+        RoadrunnerSpecials.applyBeepBlitzHit(this, powerRatio);
     }
 
     void specialRoadrunnerCanyonRicochet(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        double ratio = roadrunnerMomentumRatio();
-        double existingSpeed = Math.abs(vx);
-        roadrunnerRicochetDirection = dir;
-        int travelBonusFrames = Math.min(14, (int) Math.round(existingSpeed * 0.36));
-        roadrunnerRicochetTimer = (ultimate ? ROADRUNNER_RICOCHET_FRAMES + 7 : ROADRUNNER_RICOCHET_FRAMES) + travelBonusFrames;
-        roadrunnerRicochetReuseTimer = ultimate ? 34 : ROADRUNNER_RICOCHET_REUSE_FRAMES;
-        roadrunnerRicochetBounces = ultimate ? 2 : 1;
-        roadrunnerRicochetSpeed = Math.clamp(16.5 + ratio * 10.5 + existingSpeed * 0.90 + (ultimate ? 4.0 : 0.0),
-                20.0, ultimate ? 46.0 : 40.0);
-        roadrunnerRicochetUltimate = ultimate;
-        Arrays.fill(roadrunnerRicochetHitCooldown, 0);
-        vx = dir * roadrunnerRicochetSpeed;
-        vy *= 0.22;
-        attackAnimationTimer = Math.max(attackAnimationTimer, roadrunnerRicochetTimer);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        isBlocking = false;
-        parryWindowFrames = 0;
-        shieldStunFrames = 0;
-        spendRoadrunnerMomentum(ultimate ? 0.18 : 0.38);
-        emitRoadrunnerBurstDust(bodyCenterX() - dir * 24.0 * sizeMultiplier,
-                bodyBottomY() - 10.0 * sizeMultiplier, dir, ultimate ? 42 : 28,
-                roadrunnerWarmDustColor(ultimate));
+        RoadrunnerSpecials.side(this, ultimate);
     }
 
     void specialRoadrunnerDustDevilLift(boolean ultimate) {
-        if (roadrunnerDustDevilUsed && !ultimate) {
-            return;
-        }
-        double ratio = roadrunnerMomentumRatio();
-        roadrunnerDustDevilUsed = true;
-        roadrunnerDustDevilUltimate = ultimate;
-        roadrunnerDustDevilTimer = ultimate ? ROADRUNNER_DUST_DEVIL_FRAMES + 8 : ROADRUNNER_DUST_DEVIL_FRAMES;
-        Arrays.fill(roadrunnerDustDevilHit, false);
-        canDoubleJump = true;
-        vx *= 0.32;
-        vy = Math.min(vy, -(17.0 + ratio * 10.0 + (ultimate ? 5.0 : 0.0)));
-        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        spendRoadrunnerMomentum(ultimate ? 0.16 : 0.34);
-        emitRoadrunnerBurstDust(bodyCenterX(), bodyBottomY() - 4.0 * sizeMultiplier,
-                facingDirection(), ultimate ? 54 : 36, roadrunnerSandColor(ultimate));
+        RoadrunnerSpecials.up(this, ultimate);
     }
 
     void specialRoadrunnerPaintedRoad(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        double roadX = bodyCenterX() + dir * 64.0 * sizeMultiplier;
-        double roadY = roadrunnerRoadSurfaceY(roadX);
-        roadrunnerPaintedRoads.clear();
-        roadrunnerPaintedRoads.add(new RoadrunnerPaintedRoad(roadX, roadY, dir, ultimate));
-        roadrunnerPaintedRoadReuseTimer = ultimate ? 38 : ROADRUNNER_PAINTED_ROAD_REUSE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
-        double launchSpeed = ultimate ? 14.0 : 10.5;
-        vx = dir * Math.max(Math.abs(vx) * 0.55, launchSpeed);
-        vy = Math.min(vy, isOnGround() ? -1.2 : -2.4);
-        addRoadrunnerMomentum(ultimate ? 10.0 : 6.0);
-        if (ultimate) {
-            game.addToKillFeed(shortName() + " painted a golden fake road!");
-        }
-        emitRoadrunnerBurstDust(roadX, roadY - 8.0, dir, ultimate ? 30 : 20,
-                roadrunnerTrailColor(ultimate));
+        RoadrunnerSpecials.down(this, ultimate);
     }
 
     private double roadrunnerRoadSurfaceY(double roadX) {
-        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
-        double sourceY = bodyBottomY() - 22.0 * sizeMultiplier;
-        for (Platform p : game.platforms) {
-            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
-                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
-            if (isCaveCeiling) continue;
-            if (roadX < p.x - 36.0 || roadX > p.x + p.w + 36.0) continue;
-            if (p.y < sourceY - 18.0) continue;
-            if (p.y < bestY) {
-                bestY = p.y;
-            }
-        }
-        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+        return RoadrunnerSpecials.roadSurfaceY(this, roadX);
     }
 
     private Color roadrunnerTrailColor(boolean ultimate) {
-        if (ultimate) {
-            return Color.GOLD;
-        }
-        return isMirageSkin ? Color.web("#80DEEA") : Color.web("#90CAF9");
+        return RoadrunnerSpecials.trailColor(this, ultimate);
     }
 
     private Color roadrunnerSandColor(boolean ultimate) {
-        if (ultimate) {
-            return Color.GOLD;
-        }
-        return isMirageSkin ? Color.web("#DFFBFF") : Color.web("#E6C46F");
+        return RoadrunnerSpecials.sandColor(this, ultimate);
     }
 
     private Color roadrunnerWarmDustColor(boolean ultimate) {
-        if (ultimate) {
-            return Color.GOLD;
-        }
-        return isMirageSkin ? Color.web("#B2EBF2") : Color.web("#D9A04D");
+        return RoadrunnerSpecials.warmDustColor(this, ultimate);
     }
 
     private void emitRoadrunnerBurstDust(double centerX, double centerY, int dir, int baseCount, Color color) {
-        int particleCount = scaledParticleCount(baseCount);
-        for (int i = 0; i < particleCount; i++) {
-            double side = (Math.random() - 0.5) * 2.0;
-            double speed = 2.0 + Math.random() * 7.5;
-            game.particles.add(new Particle(
-                    centerX + side * 22.0 * sizeMultiplier,
-                    centerY + (Math.random() - 0.5) * 15.0 * sizeMultiplier,
-                    -dir * (1.0 + Math.random() * 2.0) + side * 0.8,
-                    -1.2 - Math.random() * speed * 0.38,
-                    color.deriveColor(0, 1, 1, 0.62 + Math.random() * 0.18)
-            ));
-        }
+        RoadrunnerSpecials.emitBurstDust(this, centerX, centerY, dir, baseCount, color);
     }
 
     private void handleRoadrunnerSandstorm() {
-        if (!roadrunnerSandstormActive()) {
-            return;
-        }
-
-        speedMultiplier = Math.max(speedMultiplier, baseSpeedMultiplier * ROADRUNNER_SANDSTORM_SPEED_SCALE);
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY();
-        double intensity = Math.clamp(roadrunnerSandstormTimer / (double) ROADRUNNER_SANDSTORM_FRAMES, 0.32, 1.0);
-        int particleCount = Math.max(3, scaledParticleCount(5));
-        for (int i = 0; i < particleCount; i++) {
-            double angle = random.nextDouble() * Math.PI * 2;
-            double ring = 20.0 + random.nextDouble() * (105.0 + intensity * 90.0);
-            double swirl = 2.6 + random.nextDouble() * 5.5 + intensity * 1.2;
-            Color sand = random.nextDouble() < 0.72 ? Color.web("#E8C06A") : Color.web("#C68A3A");
-            if (isMirageSkin) {
-                sand = random.nextDouble() < 0.72 ? Color.web("#DFFBFF") : Color.web("#80DEEA");
-            }
-            game.particles.add(new Particle(
-                    centerX + Math.cos(angle) * ring * 0.32,
-                    centerY + Math.sin(angle) * ring * 0.22,
-                    Math.cos(angle + Math.PI / 2.0) * swirl + vx * 0.12,
-                    Math.sin(angle + Math.PI / 2.0) * swirl - 1.2 - intensity,
-                    sand.deriveColor(0, 1, 1, 0.56 + intensity * 0.22)
-            ));
-        }
-
-        if (roadrunnerSandGustTimer <= 0) {
-            roadrunnerSandGustTimer = ROADRUNNER_GUST_INTERVAL;
-            unleashRoadrunnerSandGust(false);
-        }
+        RoadrunnerSpecials.handleSandstorm(this);
     }
 
     private void unleashRoadrunnerSandGust(boolean openingBurst) {
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY();
-        double radius = openingBurst ? 440.0 : ROADRUNNER_SANDSTORM_GUST_RADIUS;
-        double forwardBias = facingRight ? 1.0 : -1.0;
-
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            double dist = Math.hypot(dx, dy);
-            double maxReach = radius + other.combatRadius();
-            if (dist > maxReach) continue;
-
-            double safeDist = Math.max(0.001, dist);
-            double proximity = 1.0 - Math.clamp(dist / maxReach, 0.0, 1.0);
-            double push = (openingBurst ? 14.0 : 7.0) + proximity * (openingBurst ? 14.0 : 9.0);
-            other.vx += dx / safeDist * push + forwardBias * (openingBurst ? 3.2 : 1.4);
-            other.vy -= (openingBurst ? 4.5 : 2.0) + proximity * (openingBurst ? 6.0 : 4.0);
-
-            boolean canHit = openingBurst || roadrunnerSandHitCooldown[other.playerIndex] <= 0;
-            if (!canHit) {
-                continue;
-            }
-
-            int dmg;
-            if (openingBurst) {
-                dmg = dist < 170.0 ? 12 : (dist < 300.0 ? 8 : 5);
-            } else {
-                dmg = dist < 170.0 ? 5 : 3;
-            }
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
-            if (dealt <= 0) {
-                continue;
-            }
-
-            roadrunnerSandHitCooldown[other.playerIndex] = ROADRUNNER_GUST_HIT_COOLDOWN;
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-        }
-
-        int particleCount = scaledParticleCount(openingBurst ? 180 : 72);
-        for (int i = 0; i < particleCount; i++) {
-            double angle = random.nextDouble() * Math.PI * 2;
-            double ring = 36.0 + random.nextDouble() * radius;
-            double tangential = (3.5 + random.nextDouble() * 8.0) * (facingRight ? 1.0 : -1.0);
-            Color sand = random.nextDouble() < 0.72 ? Color.web("#E6C46F") : Color.web("#BA7B31");
-            if (isMirageSkin) {
-                sand = random.nextDouble() < 0.72 ? Color.web("#DFFBFF") : Color.web("#80DEEA");
-            }
-            game.particles.add(new Particle(
-                    centerX + Math.cos(angle) * ring * 0.24,
-                    centerY + Math.sin(angle) * ring * 0.16,
-                    Math.cos(angle) * (openingBurst ? 8.5 : 5.2) + tangential * 0.55,
-                    Math.sin(angle) * (openingBurst ? 6.0 : 3.4) - (openingBurst ? 2.8 : 1.6),
-                    sand.deriveColor(0, 1, 1, openingBurst ? 0.84 : 0.72)
-            ));
-        }
+        RoadrunnerSpecials.unleashSandGust(this, openingBurst);
     }
 
     private void handleRoadrunnerSpecials(boolean specialHeld) {
-        if (type != BirdGame3.BirdType.ROADRUNNER && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.ROADRUNNER)) {
-            return;
-        }
-
-        handleRoadrunnerMomentum();
-
-        if (roadrunnerBeepCharging) {
-            roadrunnerBeepChargeFrames = Math.min(ROADRUNNER_BEEP_CHARGE_MAX_FRAMES, roadrunnerBeepChargeFrames + 1);
-            addRoadrunnerMomentum(roadrunnerBeepUltimate ? 0.72 : 0.42);
-            double chargeRatio = Math.clamp(roadrunnerBeepChargeFrames / (double) ROADRUNNER_BEEP_CHARGE_MAX_FRAMES, 0.0, 1.0);
-            double vibration = 0.10 + chargeRatio * 0.45;
-            double vibrationRate = 0.26 + chargeRatio * 0.48;
-            vx = vx * (isOnGround() ? 0.88 : 0.92) + Math.sin(roadrunnerBeepChargeFrames * vibrationRate) * vibration;
-            int dustInterval = Math.max(1, 4 - (int) Math.floor(chargeRatio * 3.0));
-            if (roadrunnerBeepChargeFrames % dustInterval == 0) {
-                emitRoadrunnerBurstDust(bodyCenterX() - facingDirection() * 18.0 * sizeMultiplier,
-                        bodyBottomY() - 8.0 * sizeMultiplier,
-                        facingDirection(),
-                        roadrunnerBeepUltimate ? 5 : 3,
-                        roadrunnerSandColor(roadrunnerBeepUltimate));
-            }
-            if (roadrunnerBeepChargeFrames >= ROADRUNNER_BEEP_CHARGE_MAX_FRAMES) {
-                roadrunnerBeepMaxChargeHoldFrames++;
-            } else {
-                roadrunnerBeepMaxChargeHoldFrames = 0;
-            }
-            if (!specialHeld || health <= 0 || stunTime > 0.0 || grabbedBy != null || grabbedTarget != null) {
-                releaseRoadrunnerBeepBlitz();
-            } else if (roadrunnerBeepMaxChargeHoldFrames >= ROADRUNNER_BEEP_MAX_HOLD_RELEASE_FRAMES) {
-                releaseRoadrunnerBeepBlitz();
-            }
-        }
-
-        if (roadrunnerBeepBurstTimer > 0) {
-            double maxFrames = roadrunnerBeepUltimate ? ROADRUNNER_BEEP_BURST_FRAMES + 4.0 : ROADRUNNER_BEEP_BURST_FRAMES;
-            double powerRatio = Math.clamp(roadrunnerBeepBurstTimer / maxFrames, 0.0, 1.0);
-            applyRoadrunnerBeepBlitzHit(0.35 + powerRatio * 0.65);
-        }
-
-        if (roadrunnerRicochetTimer > 0) {
-            handleRoadrunnerRicochet();
-        }
-
-        if (roadrunnerDustDevilTimer > 0) {
-            handleRoadrunnerDustDevil();
-        }
+        RoadrunnerSpecials.handleState(this, specialHeld, grabbedBy != null || grabbedTarget != null);
     }
 
     private void handleRoadrunnerMomentum() {
-        if (type != BirdGame3.BirdType.ROADRUNNER || health <= 0) {
-            roadrunnerMomentum = Math.max(0.0, roadrunnerMomentum - 1.0);
-            return;
-        }
-        boolean grounded = isOnGround();
-        double speed = Math.abs(vx);
-        boolean pressingMove = leftPressed() || rightPressed();
-        if (stunTime > 0.0 || isBlocking || shieldStunFrames > 0) {
-            roadrunnerMomentum = Math.max(0.0, roadrunnerMomentum - 1.8);
-        } else if (grounded && pressingMove && speed > 3.2) {
-            addRoadrunnerMomentum((speed - 3.2) * 0.18 + 0.26);
-        } else if (grounded && speed > 8.0) {
-            addRoadrunnerMomentum((speed - 8.0) * 0.06 + 0.10);
-        } else if (roadrunnerSandstormActive()) {
-            addRoadrunnerMomentum(0.10);
-        } else {
-            roadrunnerMomentum = Math.max(0.0, roadrunnerMomentum - (grounded ? 0.50 : 0.28));
-        }
+        RoadrunnerSpecials.handleMomentum(this);
     }
 
     private void handleRoadrunnerRicochet() {
-        int dir = roadrunnerRicochetDirection == 0 ? facingDirection() : roadrunnerRicochetDirection;
-        roadrunnerRicochetDirection = dir;
-        facingRight = dir > 0;
-        vx = dir * Math.max(20.0, roadrunnerRicochetSpeed);
-        vy *= 0.78;
-
-        boolean bounced = false;
-        double leftBound = usesIslandBounds() ? game.battlefieldLeftBound() + 4.0 : 50.0;
-        double rightBound = usesIslandBounds() ? game.battlefieldRightBound() - bodyWidth() - 4.0 : BirdGame3.WORLD_WIDTH - 150.0 * sizeMultiplier;
-        if ((x <= leftBound + 5.0 && dir < 0) || (x >= rightBound - 5.0 && dir > 0)) {
-            bounced = tryRoadrunnerRicochetBounce(-dir, jumpPressed() ? -9.0 : 0.0);
-        }
-
-        if (!bounced) {
-            for (Platform p : game.platforms) {
-                if (Math.abs(bodyCenterY() - (p.y + p.h * 0.5)) > p.h * 0.5 + combatHalfHeight() + 28.0) continue;
-                boolean hitLeftEdge = dir > 0 && bodyCenterX() < p.x && bodyCenterX() + combatHalfWidth() + 14.0 >= p.x;
-                boolean hitRightEdge = dir < 0 && bodyCenterX() > p.x + p.w && bodyCenterX() - combatHalfWidth() - 14.0 <= p.x + p.w;
-                if (hitLeftEdge || hitRightEdge) {
-                    bounced = tryRoadrunnerRicochetBounce(-dir, jumpPressed() ? -8.5 : 0.0);
-                    if (bounced) break;
-                }
-            }
-        }
-
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= roadrunnerRicochetHitCooldown.length) continue;
-            if (roadrunnerRicochetHitCooldown[other.playerIndex] > 0) continue;
-            double dx = other.bodyCenterX() - bodyCenterX();
-            double dy = other.bodyCenterY() - bodyCenterY();
-            if (Math.abs(dx) > 84.0 * sizeMultiplier + other.combatHalfWidth()
-                    || Math.abs(dy) > 82.0 * sizeMultiplier + other.combatHalfHeight()) {
-                continue;
-            }
-            double oldHealth = other.health;
-            int dmg = roadrunnerRicochetUltimate ? 10 : 7;
-            int dealt = (int) applyDamageTo(other, dmg);
-            roadrunnerRicochetHitCooldown[other.playerIndex] = roadrunnerRicochetUltimate ? 10 : 14;
-            if (dealt > 0) {
-                game.damageDealt[playerIndex] += dealt;
-                game.recordSpecialImpact(playerIndex, dealt, true);
-                if (other.health <= 0 && oldHealth > 0) game.eliminations[playerIndex]++;
-                other.vx += dir * (12.0 + roadrunnerMomentumRatio() * 7.0);
-                other.vy -= roadrunnerRicochetUltimate ? 8.5 : 6.2;
-                addRoadrunnerMomentum(6.0 + dealt * 0.55);
-                emitRoadrunnerBurstDust(other.bodyCenterX(), other.bodyCenterY(), dir, 18,
-                        roadrunnerWarmDustColor(roadrunnerRicochetUltimate));
-            }
-            if (roadrunnerRicochetBounces > 0) {
-                tryRoadrunnerRicochetBounce(dx >= 0 ? -1 : 1, -6.8);
-            }
-        }
-
-        if ((roadrunnerRicochetTimer & 1) == 0) {
-            emitRoadrunnerBurstDust(bodyCenterX() - dir * 26.0 * sizeMultiplier,
-                    bodyBottomY() - 12.0 * sizeMultiplier,
-                    dir,
-                    roadrunnerRicochetUltimate ? 8 : 5,
-                    roadrunnerWarmDustColor(roadrunnerRicochetUltimate));
-        }
+        RoadrunnerSpecials.handleRicochet(this);
     }
 
     private boolean tryRoadrunnerRicochetBounce(int newDir, double verticalKick) {
-        if (roadrunnerRicochetBounces <= 0) {
-            roadrunnerRicochetTimer = Math.min(roadrunnerRicochetTimer, 4);
-            return false;
-        }
-        roadrunnerRicochetBounces--;
-        roadrunnerRicochetDirection = newDir == 0 ? -roadrunnerRicochetDirection : newDir;
-        facingRight = roadrunnerRicochetDirection > 0;
-        roadrunnerRicochetSpeed = Math.max(19.0, roadrunnerRicochetSpeed * 0.84);
-        vx = roadrunnerRicochetDirection * roadrunnerRicochetSpeed;
-        if (verticalKick < 0.0) {
-            vy = Math.min(vy, verticalKick);
-        }
-        roadrunnerRicochetTimer = Math.max(roadrunnerRicochetTimer, 8);
-        game.shakeIntensity = Math.max(game.shakeIntensity, 5);
-        emitRoadrunnerBurstDust(bodyCenterX(), bodyCenterY(), roadrunnerRicochetDirection,
-                roadrunnerRicochetUltimate ? 24 : 16,
-                roadrunnerTrailColor(roadrunnerRicochetUltimate));
-        return true;
+        return RoadrunnerSpecials.tryRicochetBounce(this, newDir, verticalKick);
     }
 
     private void handleRoadrunnerDustDevil() {
-        double ratio = Math.clamp(roadrunnerDustDevilTimer / (double) (roadrunnerDustDevilUltimate
-                ? ROADRUNNER_DUST_DEVIL_FRAMES + 8
-                : ROADRUNNER_DUST_DEVIL_FRAMES), 0.0, 1.0);
-        if (ratio > 0.35) {
-            vy = Math.min(vy, -(8.5 + ratio * (roadrunnerDustDevilUltimate ? 8.5 : 6.0)));
-        }
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY();
-        for (int i = 0; i < scaledParticleCount(roadrunnerDustDevilUltimate ? 7 : 5); i++) {
-            double spin = (roadrunnerDustDevilTimer * 0.38 + i * 1.55);
-            double radius = (18.0 + i * 9.0 + random.nextDouble() * 14.0) * sizeMultiplier;
-            double liftBand = Math.min(96.0, i * 15.0 + random.nextDouble() * 22.0) * sizeMultiplier;
-            Color sand = roadrunnerSandColor(roadrunnerDustDevilUltimate)
-                    .deriveColor(0, 1, 1, 0.44 + Math.random() * 0.20);
-            game.particles.add(new Particle(
-                    centerX + Math.cos(spin) * radius * 0.7,
-                    bodyBottomY() - 12.0 * sizeMultiplier - liftBand + Math.sin(spin * 1.2) * 4.0,
-                    Math.cos(spin + Math.PI * 0.5) * (2.0 + i * 0.45),
-                    -3.2 - i * 0.42 + Math.sin(spin) * 0.5,
-                    sand
-            ));
-        }
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= roadrunnerDustDevilHit.length) continue;
-            if (roadrunnerDustDevilHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            double radius = (roadrunnerDustDevilUltimate ? 168.0 : 138.0) * sizeMultiplier;
-            if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
-            double safe = Math.max(1.0, Math.hypot(dx, dy));
-            double lift = roadrunnerDustDevilUltimate ? 21.0 : 17.0;
-            other.vx += dx / safe * (roadrunnerDustDevilUltimate ? 7.0 : 5.1);
-            other.vy = Math.min(other.vy, -lift);
-            roadrunnerDustDevilHit[other.playerIndex] = true;
-            emitRoadrunnerBurstDust(other.bodyCenterX(), other.bodyBottomY() - 8.0 * other.sizeMultiplier,
-                    dx >= 0.0 ? 1 : -1, roadrunnerDustDevilUltimate ? 18 : 12,
-                    roadrunnerSandColor(roadrunnerDustDevilUltimate));
-        }
-        if ((roadrunnerDustDevilTimer & 1) == 0) {
-            emitRoadrunnerBurstDust(centerX, bodyBottomY() - 6.0 * sizeMultiplier,
-                    facingDirection(), roadrunnerDustDevilUltimate ? 8 : 5,
-                    roadrunnerSandColor(roadrunnerDustDevilUltimate));
-        }
+        RoadrunnerSpecials.handleDustDevil(this);
     }
 
     private void handleRoadrunnerPaintedRoads() {
-        if (type != BirdGame3.BirdType.ROADRUNNER || roadrunnerPaintedRoads.isEmpty()) {
-            return;
-        }
-        for (Iterator<RoadrunnerPaintedRoad> it = roadrunnerPaintedRoads.iterator(); it.hasNext(); ) {
-            RoadrunnerPaintedRoad road = it.next();
-            road.ageFrames++;
-            if (road.ownerBoostCooldown > 0) road.ownerBoostCooldown--;
-            for (int i = 0; i < road.hitCooldown.length; i++) {
-                if (road.hitCooldown[i] > 0) road.hitCooldown[i]--;
-            }
-            if (!road.collapsed && road.lifeFrames > 0) {
-                road.lifeFrames--;
-            }
-            if (road.collapsed && road.collapseTimer > 0) {
-                road.collapseTimer--;
-            } else if (road.collapsed && road.fadeTimer > 0) {
-                road.fadeTimer--;
-            }
-            if (!road.collapsed && road.lifeFrames <= 0) {
-                collapseRoadrunnerPaintedRoad(road);
-            }
-            if (road.usesRemaining <= 0 && !road.collapsed) {
-                collapseRoadrunnerPaintedRoad(road);
-            }
-            if (health <= 0) {
-                it.remove();
-                continue;
-            }
-            if (road.collapsed && road.fadeTimer <= 0 && road.usesRemaining <= 0) {
-                it.remove();
-                continue;
-            }
-            if (road.collapsed) {
-                continue;
-            }
-
-            double halfWidth = road.ultimate ? 104.0 : 86.0;
-            boolean ownerStandingOnRoad = isStandingOnRoad(road, this, halfWidth + 8.0);
-            if (!ownerStandingOnRoad) {
-                road.ownerClearedRoad = true;
-            }
-            if (road.ownerClearedRoad && ownerStandingOnRoad && road.ownerBoostCooldown <= 0) {
-                road.ownerBoostCooldown = road.ultimate ? 24 : 34;
-                road.usesRemaining--;
-                roadrunnerRoadBoostTimer = Math.max(roadrunnerRoadBoostTimer, road.ultimate ? 42 : 30);
-                addRoadrunnerMomentum(road.ultimate ? 40.0 : 30.0);
-                double roadBoostSpeed = (road.ultimate ? 31.0 : 26.0) + roadrunnerMomentumRatio() * 6.0;
-                vx = road.direction * Math.max(Math.abs(vx), roadBoostSpeed);
-                roadrunnerMomentumFxTimer = Math.max(roadrunnerMomentumFxTimer, 36);
-                emitRoadrunnerBurstDust(bodyCenterX(), road.y - 8.0, road.direction,
-                        road.ultimate ? 20 : 14,
-                        roadrunnerTrailColor(road.ultimate));
-                if (road.usesRemaining <= 0) {
-                    collapseRoadrunnerPaintedRoad(road);
-                    continue;
-                }
-            }
-
-            for (Bird other : game.players) {
-                if (!canDamageTarget(other)) continue;
-                if (other.playerIndex < 0 || other.playerIndex >= road.hitCooldown.length) continue;
-                if (road.hitCooldown[other.playerIndex] > 0) continue;
-                if (!isStandingOnRoad(road, other, halfWidth + other.combatHalfWidth())) continue;
-                road.hitCooldown[other.playerIndex] = road.ultimate ? 26 : 34;
-                road.usesRemaining--;
-                int bounceDir = -road.direction;
-                other.applyRoadrunnerSlip(this, bounceDir, road.ultimate);
-                other.vx = bounceDir * (road.ultimate ? 25.0 : 20.0);
-                other.vy = Math.min(other.vy, road.ultimate ? -4.2 : -3.0);
-                emitRoadrunnerBurstDust(other.bodyCenterX(), road.y - 6.0, road.direction,
-                        road.ultimate ? 16 : 10,
-                        roadrunnerTrailColor(road.ultimate));
-                if (road.usesRemaining <= 0) {
-                    collapseRoadrunnerPaintedRoad(road);
-                    break;
-                }
-            }
-        }
+        RoadrunnerSpecials.handlePaintedRoads(this);
     }
 
     private void collapseRoadrunnerPaintedRoad(RoadrunnerPaintedRoad road) {
-        if (road == null || road.collapsed) {
-            return;
-        }
-        road.collapsed = true;
-        road.collapseTimer = ROADRUNNER_PAINTED_ROAD_COLLAPSE_FRAMES;
-        road.fadeTimer = ROADRUNNER_PAINTED_ROAD_FADE_FRAMES;
-        road.ownerBoostCooldown = 0;
+        RoadrunnerSpecials.collapsePaintedRoad(road);
     }
 
     private boolean isStandingOnRoad(RoadrunnerPaintedRoad road, Bird bird, double horizontalReach) {
-        double dx = bird.bodyCenterX() - road.x;
-        if (Math.abs(dx) > horizontalReach) return false;
-        double feetDistance = Math.abs(bird.bodyBottomY() - road.y);
-        return feetDistance <= 34.0 + bird.combatHalfHeight() * 0.22
-                || (bird.bodyCenterY() > road.y - 58.0 && bird.bodyCenterY() < road.y + 20.0);
+        return RoadrunnerSpecials.isStandingOnRoad(road, bird, horizontalReach);
     }
 
     private void applyRoadrunnerSlip(Bird owner, int direction, boolean ultimate) {
-        if (owner == null || owner.playerIndex < 0 || owner.playerIndex >= game.players.length) {
-            return;
-        }
-        roadrunnerSlipOwnerIndex = owner.playerIndex;
-        roadrunnerSlipDirection = direction == 0 ? 1 : direction;
-        roadrunnerSlipUltimate = roadrunnerSlipUltimate || ultimate;
-        roadrunnerSlipTimer = Math.max(roadrunnerSlipTimer,
-                ultimate ? ROADRUNNER_SLIP_FRAMES + 22 : ROADRUNNER_SLIP_FRAMES);
+        RoadrunnerSpecials.applySlip(this, owner, direction, ultimate);
     }
 
     private void handleRoadrunnerSlipEffect() {
-        if (roadrunnerSlipTimer <= 0 || health <= 0) {
-            return;
-        }
-        double desired = roadrunnerSlipDirection * (roadrunnerSlipUltimate ? 48.0 : 40.0);
-        if (Math.signum(vx) != Math.signum(desired) && Math.abs(vx) > 1.2) {
-            vx *= roadrunnerSlipUltimate ? 0.28 : 0.22;
-        }
-        vx += (desired - vx) * (roadrunnerSlipUltimate ? 0.50 : 0.42);
-        if (isOnGround()) {
-            vy = Math.min(vy, -0.45);
-        }
-        if ((roadrunnerSlipTimer & 3) == 0) {
-            game.particles.add(new Particle(
-                    bodyCenterX() - roadrunnerSlipDirection * 22.0 * sizeMultiplier,
-                    bodyBottomY() - 7.0 * sizeMultiplier,
-                    -roadrunnerSlipDirection * (1.4 + Math.random() * 2.0),
-                    -0.8 - Math.random() * 1.8,
-                    roadrunnerTrailColor(roadrunnerSlipUltimate).deriveColor(0, 1, 1, 0.62)
-            ));
-        }
+        RoadrunnerSpecials.handleSlipEffect(this);
     }
 
     void specialPenguinBellySlide(boolean ultimate) {
@@ -6725,11 +6143,11 @@ public class Bird {
         return game.blockKeyForPlayer(playerIndex);
     }
 
-    private boolean leftPressed() {
+    boolean leftPressed() {
         return game.isLeftPressed(playerIndex);
     }
 
-    private boolean rightPressed() {
+    boolean rightPressed() {
         return game.isRightPressed(playerIndex);
     }
 
@@ -7064,36 +6482,15 @@ public class Bird {
     }
 
     private boolean roadrunnerSpecialActive() {
-        return roadrunnerBeepCharging
-                || roadrunnerBeepBurstTimer > 0
-                || roadrunnerRicochetTimer > 0
-                || roadrunnerDustDevilTimer > 0;
+        return RoadrunnerSpecials.active(this);
     }
 
     private boolean roadrunnerSpecialReady(RoadrunnerSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> ultimateReady || roadrunnerBeepReuseTimer <= 0;
-            case SIDE -> ultimateReady || roadrunnerRicochetReuseTimer <= 0;
-            case UP -> ultimateReady || !roadrunnerDustDevilUsed;
-            case DOWN -> ultimateReady || roadrunnerPaintedRoadReuseTimer <= 0;
-        };
+        return RoadrunnerSpecials.ready(this, variant);
     }
 
     boolean canStartRoadrunnerSpecial() {
-        RoadrunnerSpecialVariant variant = selectRoadrunnerSpecialVariant();
-        boolean shieldConversion = variant == RoadrunnerSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
-        return type == BirdGame3.BirdType.ROADRUNNER
-                && health > 0
-                && stunTime <= 0.0
-                && grabbedBy == null
-                && grabbedTarget == null
-                && (!isBlocking || shieldConversion)
-                && !isDodging()
-                && !roadrunnerSpecialActive()
-                && roadrunnerSpecialReady(variant);
+        return RoadrunnerSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
     private boolean titmouseSpecialActive() {
@@ -7963,35 +7360,7 @@ public class Bird {
     }
 
     private void resetRoadrunnerSpecialState() {
-        roadrunnerMomentum = 0.0;
-        roadrunnerMomentumFxTimer = 0;
-        roadrunnerBeepCharging = false;
-        roadrunnerBeepChargeFrames = 0;
-        roadrunnerBeepMaxChargeHoldFrames = 0;
-        roadrunnerBeepBurstTimer = 0;
-        roadrunnerBeepReuseTimer = 0;
-        roadrunnerBeepDirection = 1;
-        roadrunnerBeepUltimate = false;
-        Arrays.fill(roadrunnerBeepHit, false);
-        roadrunnerRicochetTimer = 0;
-        roadrunnerRicochetReuseTimer = 0;
-        roadrunnerRicochetDirection = 1;
-        roadrunnerRicochetBounces = 0;
-        roadrunnerRicochetSpeed = 0.0;
-        roadrunnerRicochetUltimate = false;
-        Arrays.fill(roadrunnerRicochetHitCooldown, 0);
-        roadrunnerDustDevilTimer = 0;
-        roadrunnerDustDevilUsed = false;
-        roadrunnerDustDevilUltimate = false;
-        Arrays.fill(roadrunnerDustDevilHit, false);
-        roadrunnerPaintedRoadReuseTimer = 0;
-        roadrunnerRoadBoostTimer = 0;
-        roadrunnerPaintedRoads.clear();
-
-        roadrunnerSlipTimer = 0;
-        roadrunnerSlipDirection = 1;
-        roadrunnerSlipOwnerIndex = -1;
-        roadrunnerSlipUltimate = false;
+        RoadrunnerSpecials.reset(this);
     }
 
     private void resetRazorbillSpecialState() {
@@ -8213,23 +7582,7 @@ public class Bird {
     }
 
     private void interruptRoadrunnerSpecialStateOnHit() {
-        if (type != BirdGame3.BirdType.ROADRUNNER) {
-            return;
-        }
-        if (roadrunnerSpecialActive()) {
-            attackAnimationTimer = 0;
-        }
-        roadrunnerBeepCharging = false;
-        roadrunnerBeepChargeFrames = 0;
-        roadrunnerBeepMaxChargeHoldFrames = 0;
-        roadrunnerBeepBurstTimer = 0;
-        roadrunnerRicochetTimer = 0;
-        roadrunnerRicochetSpeed = 0.0;
-        roadrunnerDustDevilTimer = 0;
-        roadrunnerRoadBoostTimer = 0;
-        Arrays.fill(roadrunnerBeepHit, false);
-        Arrays.fill(roadrunnerRicochetHitCooldown, 0);
-        Arrays.fill(roadrunnerDustDevilHit, false);
+        RoadrunnerSpecials.interruptOnHit(this);
     }
 
     private void interruptPenguinSpecialStateOnHit() {
@@ -11025,7 +10378,7 @@ public class Bird {
     }
 
     private boolean roadrunnerSandstormActive() {
-        return type == BirdGame3.BirdType.ROADRUNNER && roadrunnerSandstormTimer > 0;
+        return RoadrunnerSpecials.sandstormActive(this);
     }
 
     private double currentFlyUpForce() {
