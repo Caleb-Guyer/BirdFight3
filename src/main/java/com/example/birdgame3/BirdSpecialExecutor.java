@@ -29,20 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class HummingbirdSpecials {
-    private HummingbirdSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        switch (bird.selectHummingbirdSpecialVariant()) {
-            case NEUTRAL -> bird.specialHummingbirdNeedleBarrage(ultimate);
-            case SIDE -> bird.specialHummingbirdFlashSip(ultimate);
-            case UP -> bird.specialHummingbirdHoverBurst(ultimate);
-            case DOWN -> bird.specialHummingbirdNectarTrap(ultimate);
-        }
-    }
-}
-
 final class TurkeySpecials {
     private TurkeySpecials() {
     }
