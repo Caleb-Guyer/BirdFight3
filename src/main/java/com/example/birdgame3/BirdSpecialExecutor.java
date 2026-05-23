@@ -28,21 +28,3 @@ final class BirdSpecialExecutor {
         }
     }
 }
-
-final class RavenSpecials {
-    private RavenSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        if (ultimate) {
-            bird.specialRavenUnkindness();
-            return;
-        }
-        switch (bird.selectRavenSpecialVariant()) {
-            case NEUTRAL -> bird.specialRavenBlackQuill(false);
-            case SIDE -> bird.specialRavenShadowWarp(false);
-            case UP -> bird.specialRavenMurderLift(false);
-            case DOWN -> bird.specialRavenNevermore(false);
-        }
-    }
-}

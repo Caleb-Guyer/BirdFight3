@@ -624,34 +624,34 @@ public class Bird {
     private final ArrayList<RavenUltimatePortal> ravenUltimatePortals = new ArrayList<>();
     private RavenDecoy ravenDecoy = null;
     private int ravenPortentSerialCounter = 0;
-    private boolean ravenQuillCharging = false;
-    private int ravenQuillChargeFrames = 0;
-    private boolean ravenQuillChargeUltimate = false;
-    private int ravenNeutralReuseTimer = 0;
-    private int ravenSideTimer = 0;
-    private int ravenSideReuseTimer = 0;
+    boolean ravenQuillCharging = false;
+    int ravenQuillChargeFrames = 0;
+    boolean ravenQuillChargeUltimate = false;
+    int ravenNeutralReuseTimer = 0;
+    int ravenSideTimer = 0;
+    int ravenSideReuseTimer = 0;
     private int ravenSideDirection = 1;
-    private boolean ravenSideUltimate = false;
-    private boolean ravenSideEmpowered = false;
-    private boolean ravenSideResolved = false;
+    boolean ravenSideUltimate = false;
+    boolean ravenSideEmpowered = false;
+    boolean ravenSideResolved = false;
     private double ravenSideStartX = 0.0;
     private double ravenSideStartY = 0.0;
     private double ravenSideEndX = 0.0;
     private double ravenSideEndY = 0.0;
-    private final boolean[] ravenSideHit = new boolean[4];
-    private int ravenLiftTimer = 0;
-    private boolean ravenLiftUsed = false;
-    private boolean ravenLiftUltimate = false;
-    private boolean ravenLiftSnapped = false;
-    private final boolean[] ravenLiftHit = new boolean[4];
-    private int ravenDownReuseTimer = 0;
-    private int ravenUltimateWindupTimer = 0;
-    private int ravenUltimateFlockTimer = 0;
-    private boolean ravenUltimateFlockSpawned = false;
-    private int ravenUltimateFinalTargetIndex = -1;
+    final boolean[] ravenSideHit = new boolean[4];
+    int ravenLiftTimer = 0;
+    boolean ravenLiftUsed = false;
+    boolean ravenLiftUltimate = false;
+    boolean ravenLiftSnapped = false;
+    final boolean[] ravenLiftHit = new boolean[4];
+    int ravenDownReuseTimer = 0;
+    int ravenUltimateWindupTimer = 0;
+    int ravenUltimateFlockTimer = 0;
+    boolean ravenUltimateFlockSpawned = false;
+    int ravenUltimateFinalTargetIndex = -1;
     private double ravenUltimateRitualCenterX = 0.0;
     private double ravenUltimateRitualCenterY = 0.0;
-    private int ravenUltimateTimer = 0;
+    int ravenUltimateTimer = 0;
     private int ravenPortentTimer = 0;
     private int ravenPortentOwnerIndex = -1;
     private int ravenPortentSerial = 0;
@@ -5017,41 +5017,19 @@ public class Bird {
     }
 
     private boolean ravenSpecialActive() {
-        return ravenQuillCharging
-                || ravenSideTimer > 0
-                || ravenLiftTimer > 0
-                || ravenUltimateWindupTimer > 0
-                || ravenUltimateTimer > 0;
+        return RavenSpecials.active(this);
     }
 
     private boolean ravenSpecialReady(RavenSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> ultimateReady || ravenNeutralReuseTimer <= 0;
-            case SIDE -> ultimateReady || ravenSideReuseTimer <= 0;
-            case UP -> ultimateReady || !ravenLiftUsed;
-            case DOWN -> ultimateReady || ravenDecoy != null || ravenDownReuseTimer <= 0;
-        };
+        return RavenSpecials.ready(this, variant);
     }
 
     private boolean canConvertShieldIntoRavenDownSpecial() {
-        return selectRavenSpecialVariant() == RavenSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
+        return RavenSpecials.canConvertShieldIntoDown(this);
     }
 
     boolean canStartRavenSpecial() {
-        RavenSpecialVariant variant = selectRavenSpecialVariant();
-        boolean shieldConversion = canConvertShieldIntoRavenDownSpecial();
-        return type == BirdGame3.BirdType.RAVEN
-                && health > 0
-                && stunTime <= 0.0
-                && grabbedBy == null
-                && grabbedTarget == null
-                && (!isBlocking || shieldConversion)
-                && !isDodging()
-                && (!ravenSpecialActive() || variant == RavenSpecialVariant.DOWN)
-                && ravenSpecialReady(variant);
+        return RavenSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
     private boolean penguinSpecialActive() {
@@ -5716,32 +5694,7 @@ public class Bird {
     }
 
     private void resetRavenSpecialState(boolean clearObjects) {
-        ravenQuillCharging = false;
-        ravenQuillChargeFrames = 0;
-        ravenQuillChargeUltimate = false;
-        ravenSideTimer = 0;
-        ravenSideUltimate = false;
-        ravenSideEmpowered = false;
-        ravenSideResolved = false;
-        ravenLiftTimer = 0;
-        ravenLiftUltimate = false;
-        ravenLiftSnapped = false;
-        ravenUltimateWindupTimer = 0;
-        ravenUltimateFlockTimer = 0;
-        ravenUltimateFlockSpawned = false;
-        ravenUltimateFinalTargetIndex = -1;
-        ravenUltimateTimer = 0;
-        Arrays.fill(ravenSideHit, false);
-        Arrays.fill(ravenLiftHit, false);
-        if (clearObjects) {
-            ravenQuills.clear();
-            ravenGroundPortents.clear();
-            ravenUltimateRoutes.clear();
-            ravenUltimatePendingRoutes.clear();
-            ravenUltimatePortals.clear();
-            ravenDecoy = null;
-            clearOwnedRavenPortents();
-        }
+        RavenSpecials.reset(this, clearObjects);
     }
 
     private void resetOpiumSpecialState() {
@@ -5817,13 +5770,7 @@ public class Bird {
     }
 
     private void interruptRavenSpecialStateOnHit() {
-        if (type != BirdGame3.BirdType.RAVEN) {
-            return;
-        }
-        if (ravenSpecialActive()) {
-            attackAnimationTimer = 0;
-        }
-        resetRavenSpecialState(false);
+        RavenSpecials.interruptOnHit(this);
     }
 
     private void interruptOpiumSpecialStateOnHit() {
@@ -7482,6 +7429,20 @@ public class Bird {
         if (node.target() != null) {
             clearRavenPortent(node.target());
         }
+    }
+
+    boolean hasRavenDecoy() {
+        return ravenDecoy != null;
+    }
+
+    void clearRavenSpecialObjects() {
+        ravenQuills.clear();
+        ravenGroundPortents.clear();
+        ravenUltimateRoutes.clear();
+        ravenUltimatePendingRoutes.clear();
+        ravenUltimatePortals.clear();
+        ravenDecoy = null;
+        clearOwnedRavenPortents();
     }
 
     private void clearOwnedRavenPortents() {
