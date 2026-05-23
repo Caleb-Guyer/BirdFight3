@@ -29,23 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class PelicanSpecials {
-    private PelicanSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        if (ultimate) {
-            bird.beginPelicanFullHold();
-        }
-        switch (bird.selectPelicanSpecialVariant()) {
-            case NEUTRAL -> bird.specialPelicanPouchSnare(ultimate);
-            case SIDE -> bird.specialPelicanBreakwaterRun(ultimate);
-            case UP -> bird.specialPelicanThermalSail(ultimate);
-            case DOWN -> bird.specialPelicanBilgeCommand(ultimate);
-        }
-    }
-}
-
 final class RavenSpecials {
     private RavenSpecials() {
     }

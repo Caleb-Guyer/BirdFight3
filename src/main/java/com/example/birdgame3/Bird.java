@@ -521,30 +521,30 @@ public class Bird {
     private static final int PELICAN_DOWN_REUSE_FRAMES = 28;
     private static final int PELICAN_BILGE_FX_FRAMES = 16;
     private static final int PELICAN_FULL_HOLD_FRAMES = 300;
-    private int pelicanCargoCount = 0;
-    private int pelicanNeutralTimer = 0;
-    private int pelicanNeutralReuseTimer = 0;
-    private boolean pelicanNeutralUltimate = false;
-    private final boolean[] pelicanNeutralHit = new boolean[4];
-    private int pelicanSideTimer = 0;
-    private int pelicanSideReuseTimer = 0;
-    private int pelicanSideDirection = 1;
-    private int pelicanSideCargoSpent = 0;
-    private boolean pelicanSideUltimate = false;
-    private final boolean[] pelicanSideHit = new boolean[4];
-    private int pelicanUpTimer = 0;
-    private boolean pelicanUpSpecialUsed = false;
-    private boolean pelicanUpUltimate = false;
-    private boolean pelicanKeelDiveActive = false;
-    private final boolean[] pelicanUpHit = new boolean[4];
-    private boolean pelicanDownCharging = false;
-    private int pelicanDownHoldFrames = 0;
-    private int pelicanDownReuseTimer = 0;
-    private boolean pelicanDownUltimate = false;
-    private int pelicanBilgeFxTimer = 0;
-    private int pelicanBilgeCargoSpent = 0;
-    private boolean pelicanBilgeUltimate = false;
-    private int pelicanFullHoldTimer = 0;
+    int pelicanCargoCount = 0;
+    int pelicanNeutralTimer = 0;
+    int pelicanNeutralReuseTimer = 0;
+    boolean pelicanNeutralUltimate = false;
+    final boolean[] pelicanNeutralHit = new boolean[4];
+    int pelicanSideTimer = 0;
+    int pelicanSideReuseTimer = 0;
+    int pelicanSideDirection = 1;
+    int pelicanSideCargoSpent = 0;
+    boolean pelicanSideUltimate = false;
+    final boolean[] pelicanSideHit = new boolean[4];
+    int pelicanUpTimer = 0;
+    boolean pelicanUpSpecialUsed = false;
+    boolean pelicanUpUltimate = false;
+    boolean pelicanKeelDiveActive = false;
+    final boolean[] pelicanUpHit = new boolean[4];
+    boolean pelicanDownCharging = false;
+    int pelicanDownHoldFrames = 0;
+    int pelicanDownReuseTimer = 0;
+    boolean pelicanDownUltimate = false;
+    int pelicanBilgeFxTimer = 0;
+    int pelicanBilgeCargoSpent = 0;
+    boolean pelicanBilgeUltimate = false;
+    int pelicanFullHoldTimer = 0;
     public boolean batHanging = false;
     private Platform batHangPlatform = null;
     public int batEchoTimer = 0;
@@ -5001,42 +5001,19 @@ public class Bird {
     }
 
     private boolean pelicanSpecialActive() {
-        return pelicanNeutralTimer > 0
-                || pelicanSideTimer > 0
-                || pelicanUpTimer > 0
-                || pelicanKeelDiveActive
-                || pelicanDownCharging
-                || pelicanBilgeFxTimer > 0;
+        return PelicanSpecials.active(this);
     }
 
     private boolean pelicanSpecialReady(PelicanSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> ultimateReady || pelicanNeutralReuseTimer <= 0;
-            case SIDE -> ultimateReady || pelicanSideReuseTimer <= 0;
-            case UP -> ultimateReady || !pelicanUpSpecialUsed;
-            case DOWN -> ultimateReady || pelicanDownReuseTimer <= 0;
-        };
+        return PelicanSpecials.ready(this, variant);
     }
 
     private boolean canConvertShieldIntoPelicanDownSpecial() {
-        return selectPelicanSpecialVariant() == PelicanSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
+        return PelicanSpecials.canConvertShieldIntoDown(this);
     }
 
     boolean canStartPelicanSpecial() {
-        PelicanSpecialVariant variant = selectPelicanSpecialVariant();
-        boolean shieldConversion = canConvertShieldIntoPelicanDownSpecial();
-        return type == BirdGame3.BirdType.PELICAN
-                && health > 0
-                && stunTime <= 0.0
-                && grabbedBy == null
-                && grabbedTarget == null
-                && (!isBlocking || shieldConversion)
-                && !isDodging()
-                && !pelicanSpecialActive()
-                && pelicanSpecialReady(variant);
+        return PelicanSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
     private boolean ravenSpecialActive() {
@@ -5731,28 +5708,7 @@ public class Bird {
     }
 
     private void resetPelicanSpecialState(boolean clearCargo) {
-        plungeTimer = 0;
-        pelicanNeutralTimer = 0;
-        pelicanNeutralUltimate = false;
-        Arrays.fill(pelicanNeutralHit, false);
-        pelicanSideTimer = 0;
-        pelicanSideCargoSpent = 0;
-        pelicanSideUltimate = false;
-        Arrays.fill(pelicanSideHit, false);
-        pelicanUpTimer = 0;
-        pelicanUpUltimate = false;
-        pelicanKeelDiveActive = false;
-        Arrays.fill(pelicanUpHit, false);
-        pelicanDownCharging = false;
-        pelicanDownHoldFrames = 0;
-        pelicanDownUltimate = false;
-        pelicanBilgeFxTimer = 0;
-        pelicanBilgeCargoSpent = 0;
-        pelicanBilgeUltimate = false;
-        if (clearCargo) {
-            pelicanCargoCount = 0;
-            pelicanFullHoldTimer = 0;
-        }
+        PelicanSpecials.reset(this, clearCargo);
     }
 
     private void resetBatSpecialState(boolean clearUltimate) {
