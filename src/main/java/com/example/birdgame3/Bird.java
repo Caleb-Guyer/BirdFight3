@@ -299,18 +299,18 @@ public class Bird {
     public int diveTimer = 0;
 
     // === TITMOUSE ===
-    private static final int TITMOUSE_SCOLD_ACTIVE_FRAMES = 14;
-    private static final int TITMOUSE_SCOLD_REUSE_FRAMES = 34;
-    private static final int TITMOUSE_MARK_FRAMES = 220;
-    private static final int TITMOUSE_BARKSKIP_FRAMES = 18;
-    private static final int TITMOUSE_BARKSKIP_REUSE_FRAMES = 38;
-    private static final int TITMOUSE_VAULT_FRAMES = 22;
-    private static final int TITMOUSE_VAULT_REUSE_FRAMES = 14;
-    private static final int TITMOUSE_STASH_REUSE_FRAMES = 28;
-    private static final int TITMOUSE_STASH_LIFE_FRAMES = 780;
-    private static final int TITMOUSE_MAX_STASHES = 3;
-    private static final int TITMOUSE_STASH_HOLD_FRAMES = 18;
-    private static final int TITMOUSE_MOBBING_STEP_FRAMES = 8;
+    static final int TITMOUSE_SCOLD_ACTIVE_FRAMES = 14;
+    static final int TITMOUSE_SCOLD_REUSE_FRAMES = 34;
+    static final int TITMOUSE_MARK_FRAMES = 220;
+    static final int TITMOUSE_BARKSKIP_FRAMES = 18;
+    static final int TITMOUSE_BARKSKIP_REUSE_FRAMES = 38;
+    static final int TITMOUSE_VAULT_FRAMES = 22;
+    static final int TITMOUSE_VAULT_REUSE_FRAMES = 14;
+    static final int TITMOUSE_STASH_REUSE_FRAMES = 28;
+    static final int TITMOUSE_STASH_LIFE_FRAMES = 780;
+    static final int TITMOUSE_MAX_STASHES = 3;
+    static final int TITMOUSE_STASH_HOLD_FRAMES = 18;
+    static final int TITMOUSE_MOBBING_STEP_FRAMES = 8;
     int titmouseScoldTimer = 0;
     int titmouseScoldReuseTimer = 0;
     boolean titmouseScoldUltimate = false;
@@ -388,45 +388,45 @@ public class Bird {
     final boolean[] vultureBlackSkyHit = new boolean[4];
 
     // === OPIUM / HEISENBIRD ===
-    private static final int OPIUM_NEUTRAL_FRAMES = 300;
-    private static final int HEISEN_NEUTRAL_FRAMES = 250;
-    private static final int OPIUM_NEUTRAL_REUSE_FRAMES = 52;
-    private static final int HEISEN_NEUTRAL_REUSE_FRAMES = 46;
-    private static final int OPIUM_SIDE_FRAMES = 18;
-    private static final int HEISEN_SIDE_FRAMES = 15;
-    private static final int OPIUM_SIDE_REUSE_FRAMES = 34;
-    private static final int HEISEN_SIDE_REUSE_FRAMES = 30;
-    private static final int OPIUM_UP_FRAMES = 22;
-    private static final int HEISEN_UP_FRAMES = 20;
-    private static final int OPIUM_DOWN_REUSE_FRAMES = 44;
-    private static final int HEISEN_DOWN_REUSE_FRAMES = 42;
-    private static final int OPIUM_PATCH_LIFE_FRAMES = 540;
-    private static final int HEISEN_NODE_LIFE_FRAMES = 660;
-    private static final int HEISEN_BRITTLE_FRAMES = 180;
-    private static final int OPIUM_DROWSY_FRAMES = 120;
-    private static final int OPIUM_ULTIMATE_FRAMES = 360;
-    private static final int HEISEN_ULTIMATE_FRAMES = 300;
-    private static final int HEISEN_ULTIMATE_SHARD_COUNT = 8;
-    private static final int HEISEN_ULTIMATE_SHARD_LAUNCH_SPACING_FRAMES = 9;
-    private static final int HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES = 84;
-    private static final int HEISEN_ULTIMATE_VOLLEY_FRAMES = HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES
+    static final int OPIUM_NEUTRAL_FRAMES = 300;
+    static final int HEISEN_NEUTRAL_FRAMES = 250;
+    static final int OPIUM_NEUTRAL_REUSE_FRAMES = 52;
+    static final int HEISEN_NEUTRAL_REUSE_FRAMES = 46;
+    static final int OPIUM_SIDE_FRAMES = 18;
+    static final int HEISEN_SIDE_FRAMES = 15;
+    static final int OPIUM_SIDE_REUSE_FRAMES = 34;
+    static final int HEISEN_SIDE_REUSE_FRAMES = 30;
+    static final int OPIUM_UP_FRAMES = 22;
+    static final int HEISEN_UP_FRAMES = 20;
+    static final int OPIUM_DOWN_REUSE_FRAMES = 44;
+    static final int HEISEN_DOWN_REUSE_FRAMES = 42;
+    static final int OPIUM_PATCH_LIFE_FRAMES = 540;
+    static final int HEISEN_NODE_LIFE_FRAMES = 660;
+    static final int HEISEN_BRITTLE_FRAMES = 180;
+    static final int OPIUM_DROWSY_FRAMES = 120;
+    static final int OPIUM_ULTIMATE_FRAMES = 360;
+    static final int HEISEN_ULTIMATE_FRAMES = 300;
+    static final int HEISEN_ULTIMATE_SHARD_COUNT = 8;
+    static final int HEISEN_ULTIMATE_SHARD_LAUNCH_SPACING_FRAMES = 9;
+    static final int HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES = 84;
+    static final int HEISEN_ULTIMATE_VOLLEY_FRAMES = HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES
             + HEISEN_ULTIMATE_SHARD_LAUNCH_SPACING_FRAMES * (HEISEN_ULTIMATE_SHARD_COUNT - 1);
-    private static final int HEISEN_ULTIMATE_ORBIT_HIT_COOLDOWN_FRAMES = 26;
-    private static final double OPIUM_RESOURCE_MAX = 100.0;
-    private static final double OPIUM_NEUTRAL_RESOURCE_COST = 24.0;
-    private static final double HEISEN_NEUTRAL_RESOURCE_COST = 20.0;
-    private static final double OPIUM_SIDE_RESOURCE_COST = 18.0;
-    private static final double HEISEN_SIDE_RESOURCE_COST = 18.0;
-    private static final double OPIUM_UP_RESOURCE_COST = 20.0;
-    private static final double HEISEN_UP_RESOURCE_COST = 20.0;
-    private static final double OPIUM_PATCH_REFILL_PER_FRAME = 0.12;
-    private static final double HEISEN_NODE_REFILL_PER_FRAME = 0.10;
+    static final int HEISEN_ULTIMATE_ORBIT_HIT_COOLDOWN_FRAMES = 26;
+    static final double OPIUM_RESOURCE_MAX = 100.0;
+    static final double OPIUM_NEUTRAL_RESOURCE_COST = 24.0;
+    static final double HEISEN_NEUTRAL_RESOURCE_COST = 20.0;
+    static final double OPIUM_SIDE_RESOURCE_COST = 18.0;
+    static final double HEISEN_SIDE_RESOURCE_COST = 18.0;
+    static final double OPIUM_UP_RESOURCE_COST = 20.0;
+    static final double HEISEN_UP_RESOURCE_COST = 20.0;
+    static final double OPIUM_PATCH_REFILL_PER_FRAME = 0.12;
+    static final double HEISEN_NODE_REFILL_PER_FRAME = 0.10;
     public int leanTimer = 0;
     public int leanCooldown = 0;
     public boolean isHigh = false;
     public int highTimer = 0;
-    private double opiumResourceMeter = OPIUM_RESOURCE_MAX;
-    private boolean opiumNeutralFueled = false;
+    double opiumResourceMeter = OPIUM_RESOURCE_MAX;
+    boolean opiumNeutralFueled = false;
     int opiumNeutralReuseTimer = 0;
     int opiumSideTimer = 0;
     int opiumSideReuseTimer = 0;
@@ -438,32 +438,32 @@ public class Bird {
     boolean opiumUpFueled = false;
     final boolean[] opiumUpHit = new boolean[4];
     int opiumDownReuseTimer = 0;
-    private final ArrayList<OpiumTrap> opiumTraps = new ArrayList<>();
-    private int opiumUltimateTimer = 0;
-    private boolean opiumUltimateCollapsePending = false;
-    private double opiumUltimateCloudX = 0.0;
-    private double opiumUltimateCloudY = 0.0;
-    private int heisenUltimateTimer = 0;
-    private boolean heisenUltimateShatterPending = false;
+    final ArrayList<OpiumTrap> opiumTraps = new ArrayList<>();
+    int opiumUltimateTimer = 0;
+    boolean opiumUltimateCollapsePending = false;
+    double opiumUltimateCloudX = 0.0;
+    double opiumUltimateCloudY = 0.0;
+    int heisenUltimateTimer = 0;
+    boolean heisenUltimateShatterPending = false;
     int heisenUltimateVolleyTimer = 0;
-    private double heisenUltimateVolleyOriginX = 0.0;
-    private double heisenUltimateVolleyOriginY = 0.0;
-    private double heisenUltimateVolleyTargetX = 0.0;
-    private double heisenUltimateVolleyTargetY = 0.0;
+    double heisenUltimateVolleyOriginX = 0.0;
+    double heisenUltimateVolleyOriginY = 0.0;
+    double heisenUltimateVolleyTargetX = 0.0;
+    double heisenUltimateVolleyTargetY = 0.0;
     boolean heisenUltimateVolleyHit = false;
-    private final int[] heisenUltimateOrbitHitCooldown = new int[4];
-    private final boolean[] heisenUltimateShardLaunched = new boolean[HEISEN_ULTIMATE_SHARD_COUNT];
-    private final boolean[] heisenUltimateShardSpent = new boolean[HEISEN_ULTIMATE_SHARD_COUNT];
-    private final double[] heisenUltimateShardX = new double[HEISEN_ULTIMATE_SHARD_COUNT];
-    private final double[] heisenUltimateShardY = new double[HEISEN_ULTIMATE_SHARD_COUNT];
-    private final double[] heisenUltimateShardVX = new double[HEISEN_ULTIMATE_SHARD_COUNT];
-    private final double[] heisenUltimateShardVY = new double[HEISEN_ULTIMATE_SHARD_COUNT];
-    private int opiumDrowsyTimer = 0;
-    private int opiumDrowsyOwnerIndex = -1;
-    private boolean opiumDrowsyUltimate = false;
-    private int heisenBrittleTimer = 0;
-    private int heisenBrittleOwnerIndex = -1;
-    private boolean heisenBrittleUltimate = false;
+    final int[] heisenUltimateOrbitHitCooldown = new int[4];
+    final boolean[] heisenUltimateShardLaunched = new boolean[HEISEN_ULTIMATE_SHARD_COUNT];
+    final boolean[] heisenUltimateShardSpent = new boolean[HEISEN_ULTIMATE_SHARD_COUNT];
+    final double[] heisenUltimateShardX = new double[HEISEN_ULTIMATE_SHARD_COUNT];
+    final double[] heisenUltimateShardY = new double[HEISEN_ULTIMATE_SHARD_COUNT];
+    final double[] heisenUltimateShardVX = new double[HEISEN_ULTIMATE_SHARD_COUNT];
+    final double[] heisenUltimateShardVY = new double[HEISEN_ULTIMATE_SHARD_COUNT];
+    int opiumDrowsyTimer = 0;
+    int opiumDrowsyOwnerIndex = -1;
+    boolean opiumDrowsyUltimate = false;
+    int heisenBrittleTimer = 0;
+    int heisenBrittleOwnerIndex = -1;
+    boolean heisenBrittleUltimate = false;
     public int tauntCooldown = 0;
     public int tauntTimer = 0;
     public int cooldownFlash = 0;
@@ -1212,7 +1212,7 @@ public class Bird {
         }
     }
 
-    private static final class OpiumTrap {
+    static final class OpiumTrap {
         final double x;
         final double y;
         final boolean heisen;
@@ -1232,7 +1232,7 @@ public class Bird {
         }
     }
 
-    private static final class TitmouseSeedStash {
+    static final class TitmouseSeedStash {
         final double x;
         final double y;
         final boolean ultimate;
@@ -1247,7 +1247,7 @@ public class Bird {
         }
     }
 
-    private record TitmouseMobbingNode(double x, double y, Bird target) {
+    record TitmouseMobbingNode(double x, double y, Bird target) {
     }
 
     static final class RoadrunnerPaintedRoad {
@@ -1761,7 +1761,7 @@ public class Bird {
                 && dy <= combatHalfHeight() + pickupHalfSize;
     }
 
-    private double combatDistanceTo(Bird other) {
+    double combatDistanceTo(Bird other) {
         return Math.hypot(other.bodyCenterX() - bodyCenterX(), other.bodyCenterY() - bodyCenterY());
     }
 
@@ -3998,439 +3998,91 @@ public class Bird {
     }
 
     void specialOpiumNeutral(boolean ultimate) {
-        boolean fueled = ultimate || spendOpiumResource(OPIUM_NEUTRAL_RESOURCE_COST);
-        opiumNeutralFueled = fueled;
-        leanTimer = Math.max(leanTimer, ultimate
-                ? OPIUM_NEUTRAL_FRAMES + 110
-                : (fueled ? OPIUM_NEUTRAL_FRAMES : 34));
-        opiumNeutralReuseTimer = ultimate ? 28 : OPIUM_NEUTRAL_REUSE_FRAMES;
-        leanCooldown = 0;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, ultimate ? 18 : (fueled ? 14 : 9));
-        vx *= isOnGround() ? (fueled ? 0.52 : 0.72) : (fueled ? 0.72 : 0.84);
-        if (!isOnGround()) {
-            vy = Math.min(vy, 1.0);
-        }
-        emitOpiumBurst(bodyCenterX(), bodyCenterY(), ultimate ? 54 : (fueled ? 38 : 10),
-                ultimate ? Color.GOLD : (fueled ? Color.web("#AB47BC") : Color.web("#6A1B9A").deriveColor(0, 0.65, 0.72, 0.45)));
+        OpiumSpecials.neutral(this, ultimate);
     }
 
     void specialHeisenNeutral(boolean ultimate) {
-        boolean fueled = ultimate || spendOpiumResource(HEISEN_NEUTRAL_RESOURCE_COST);
-        opiumNeutralFueled = fueled;
-        leanTimer = Math.max(leanTimer, ultimate
-                ? HEISEN_NEUTRAL_FRAMES + 90
-                : (fueled ? HEISEN_NEUTRAL_FRAMES : 30));
-        opiumNeutralReuseTimer = ultimate ? 24 : HEISEN_NEUTRAL_REUSE_FRAMES;
-        leanCooldown = 0;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, ultimate ? 16 : (fueled ? 12 : 8));
-        vx *= isOnGround() ? (fueled ? 0.56 : 0.74) : (fueled ? 0.76 : 0.86);
-        if (!isOnGround()) {
-            vy = Math.min(vy, 1.1);
-        }
-        emitOpiumBurst(bodyCenterX(), bodyCenterY(), ultimate ? 52 : (fueled ? 28 : 8),
-                ultimate ? Color.GOLD : (fueled ? Color.web("#29B6F6") : Color.web("#455A64").deriveColor(0, 0.55, 0.78, 0.42)));
+        OpiumSpecials.heisenNeutral(this, ultimate);
     }
 
     void specialOpiumSide(boolean heisen) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        opiumSideDirection = dir;
-        opiumSideTimer = heisen ? HEISEN_SIDE_FRAMES : OPIUM_SIDE_FRAMES;
-        opiumSideReuseTimer = heisen ? HEISEN_SIDE_REUSE_FRAMES : OPIUM_SIDE_REUSE_FRAMES;
-        opiumSideFueled = spendOpiumResource(heisen ? HEISEN_SIDE_RESOURCE_COST : OPIUM_SIDE_RESOURCE_COST);
-        Arrays.fill(opiumSideHit, false);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, opiumSideTimer + 4);
-        vx = dir * (heisen ? (opiumSideFueled ? 24.0 : 18.0) : (opiumSideFueled ? 21.8 : 16.8));
-        if (!isOnGround()) {
-            vy = Math.min(vy, heisen ? 0.6 : 0.9);
-        }
-        emitOpiumBurst(bodyCenterX(), bodyCenterY(), opiumSideFueled ? (heisen ? 24 : 32) : 7,
-                opiumSideFueled
-                        ? (heisen ? Color.web("#81D4FA") : Color.web("#CE93D8"))
-                        : Color.web("#78909C").deriveColor(0, 0.5, 0.85, 0.42));
+        OpiumSpecials.side(this, heisen);
     }
 
     void specialOpiumUp(boolean heisen) {
-        if (opiumUpSpecialUsed) {
-            return;
-        }
-        opiumUpSpecialUsed = true;
-        opiumUpTimer = heisen ? HEISEN_UP_FRAMES : OPIUM_UP_FRAMES;
-        opiumUpFueled = spendOpiumResource(heisen ? HEISEN_UP_RESOURCE_COST : OPIUM_UP_RESOURCE_COST);
-        Arrays.fill(opiumUpHit, false);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, opiumUpTimer + 4);
-        canDoubleJump = true;
-        vx *= heisen ? 0.24 : 0.34;
-        vy = Math.min(vy, heisen
-                ? (opiumUpFueled ? -18.2 : -15.2)
-                : (opiumUpFueled ? -17.4 : -14.8));
-        emitOpiumBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier, opiumUpFueled ? (heisen ? 30 : 38) : 8,
-                opiumUpFueled
-                        ? (heisen ? Color.web("#81D4FA") : Color.web("#CE93D8"))
-                        : Color.web("#78909C").deriveColor(0, 0.5, 0.85, 0.42));
+        OpiumSpecials.up(this, heisen);
     }
 
     void specialOpiumDown(boolean heisen) {
-        int dir = facingDirection();
-        double trapX = bodyCenterX() - dir * 48.0 * sizeMultiplier;
-        double trapY = opiumTrapSurfaceY(trapX);
-        opiumTraps.add(new OpiumTrap(trapX, trapY, heisen, false));
-        while (opiumTraps.size() > (heisen ? 3 : 4)) {
-            opiumTraps.removeFirst();
-        }
-        opiumDownReuseTimer = heisen ? HEISEN_DOWN_REUSE_FRAMES : OPIUM_DOWN_REUSE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
-        vx *= 0.58;
-        emitOpiumBurst(trapX, trapY - 10.0, heisen ? 18 : 20,
-                heisen ? Color.web("#81D4FA") : Color.web("#CE93D8"));
+        OpiumSpecials.down(this, heisen);
     }
 
     void specialOpiumUltimate() {
-        refillOpiumResource(OPIUM_RESOURCE_MAX);
-        opiumNeutralFueled = true;
-        leanTimer = Math.max(leanTimer, OPIUM_NEUTRAL_FRAMES);
-        opiumUltimateTimer = OPIUM_ULTIMATE_FRAMES;
-        opiumUltimateCollapsePending = true;
-        opiumUltimateCloudX = bodyCenterX();
-        opiumUltimateCloudY = bodyCenterY() + 12.0 * sizeMultiplier;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 24);
-        game.addToKillFeed(shortName() + " DROPPED A LEAN CLOUD!");
-        emitOpiumBurst(opiumUltimateCloudX, opiumUltimateCloudY, 118, Color.GOLD);
+        OpiumSpecials.ultimate(this);
     }
 
     void specialHeisenUltimate() {
-        refillOpiumResource(OPIUM_RESOURCE_MAX);
-        heisenUltimateTimer = HEISEN_ULTIMATE_FRAMES;
-        heisenUltimateShatterPending = true;
-        heisenUltimateVolleyTimer = 0;
-        heisenUltimateVolleyHit = false;
-        resetHeisenUltimateShardState(true);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 22);
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (combatDistanceTo(other) > 520.0 + other.combatRadius()) continue;
-            other.applyHeisenBrittle(this, true);
-        }
-        game.addToKillFeed(shortName() + " COOKED A CRYSTAL STORM!");
-        emitOpiumBurst(bodyCenterX(), bodyCenterY(), 92, Color.web("#B3E5FC"));
+        OpiumSpecials.heisenUltimate(this);
     }
 
-    private double opiumTrapSurfaceY(double trapX) {
-        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
-        double sourceY = bodyBottomY() - 18.0 * sizeMultiplier;
-        for (Platform p : game.platforms) {
-            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
-                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
-            if (isCaveCeiling) continue;
-            if (trapX < p.x - 20.0 || trapX > p.x + p.w + 20.0) continue;
-            if (p.y < sourceY - 14.0) continue;
-            if (p.y < bestY) {
-                bestY = p.y;
-            }
-        }
-        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+    double opiumTrapSurfaceY(double trapX) {
+        return OpiumSpecials.trapSurfaceY(this, trapX);
     }
 
-    private void emitOpiumBurst(double originX, double originY, int count, Color color) {
-        for (int i = 0; i < scaledParticleCount(count); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 1.2 + Math.random() * 5.8;
-            game.particles.add(new Particle(
-                    originX + Math.cos(angle) * (8.0 + Math.random() * 18.0),
-                    originY + Math.sin(angle) * (8.0 + Math.random() * 18.0),
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 1.2,
-                    color.deriveColor(0, 1, 1, 0.72)
-            ));
-        }
+    void emitOpiumBurst(double originX, double originY, int count, Color color) {
+        OpiumSpecials.emitBurst(this, originX, originY, count, color);
     }
 
     void specialTitmouseScoldChorus(boolean ultimate) {
-        titmouseScoldTimer = ultimate ? TITMOUSE_SCOLD_ACTIVE_FRAMES + 4 : TITMOUSE_SCOLD_ACTIVE_FRAMES;
-        titmouseScoldReuseTimer = ultimate ? 10 : TITMOUSE_SCOLD_REUSE_FRAMES;
-        titmouseScoldUltimate = ultimate;
-        Arrays.fill(titmouseScoldHit, false);
-        attackAnimationTimer = Math.max(attackAnimationTimer, titmouseScoldTimer + 3);
-        vx *= isOnGround() ? 0.55 : 0.72;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        if (ultimate) {
-            game.addToKillFeed(shortName() + " raised a golden Scold Chorus!");
-        }
-        emitTitmouseBurst(bodyCenterX(), bodyCenterY() - 8.0 * sizeMultiplier,
-                ultimate ? 28 : 18,
-                ultimate ? Color.GOLD : Color.web("#CFD8DC"));
+        TitmouseSpecials.neutral(this, ultimate);
     }
 
     void specialTitmouseBarkskip() {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        titmouseBarkskipDirection = dir;
-        titmouseBarkskipUltimate = false;
-        titmouseBarkskipTimer = TITMOUSE_BARKSKIP_FRAMES;
-        titmouseBarkskipReuseTimer = TITMOUSE_BARKSKIP_REUSE_FRAMES;
-        Arrays.fill(titmouseBarkskipHit, false);
-        TitmouseSeedStash stash = preferredTitmouseRouteStash(dir, 230.0 * sizeMultiplier);
-        titmouseBarkskipRebounded = stash != null;
-        if (stash != null) {
-            x = stash.x - bodyWidth() * 0.5;
-            y = stash.y - bodyHeight();
-            vy = Math.min(vy, -8.0);
-            emitTitmouseBurst(stash.x, stash.y - 14.0, 16,
-                    Color.web("#90CAF9"));
-        } else {
-            vy *= 0.22;
-        }
-        vx = dir * (titmouseBarkskipRebounded
-                ? (33.0)
-                : (28.0));
-        attackAnimationTimer = Math.max(attackAnimationTimer, titmouseBarkskipTimer + 2);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        isBlocking = false;
-        parryWindowFrames = 0;
-        shieldStunFrames = 0;
+        TitmouseSpecials.side(this);
     }
 
     void specialTitmouseTuftVault() {
-        if (titmouseVaultUsed) {
-            return;
-        }
-        titmouseVaultUsed = true;
-        titmouseVaultUltimate = false;
-        titmouseVaultTimer = TITMOUSE_VAULT_FRAMES;
-        titmouseVaultReuseTimer = TITMOUSE_VAULT_REUSE_FRAMES;
-        titmouseVaultBoosted = nearestTitmouseStash(150.0 * sizeMultiplier) != null;
-        Arrays.fill(titmouseVaultHit, false);
-        canDoubleJump = true;
-        vx *= 0.24;
-        vy = Math.min(vy, -(titmouseVaultBoosted
-                ? (30.0)
-                : (24.0)));
-        attackAnimationTimer = Math.max(attackAnimationTimer, titmouseVaultTimer);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        emitTitmouseBurst(bodyCenterX(), bodyBottomY() - 6.0 * sizeMultiplier,
-                titmouseVaultBoosted ? (28) : (20),
-                Color.web("#B0BEC5"));
+        TitmouseSpecials.up(this);
     }
 
     void specialTitmouseSeedStash() {
-        titmouseStashCharging = true;
-        titmouseStashHoldFrames = 0;
-        titmouseStashUltimate = false;
-        titmouseStashReuseTimer = TITMOUSE_STASH_REUSE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, TITMOUSE_STASH_HOLD_FRAMES + 4);
+        TitmouseSpecials.down(this);
     }
 
-    private void placeTitmouseSeedStash(boolean ultimate) {
-        while (titmouseSeedStashes.size() >= TITMOUSE_MAX_STASHES) {
-            titmouseSeedStashes.removeFirst();
-        }
-        double stashX = bodyCenterX();
-        double stashY = titmouseStashSurfaceY(stashX);
-        titmouseSeedStashes.add(new TitmouseSeedStash(stashX, stashY, ultimate));
-        emitTitmouseBurst(stashX, stashY - 10.0, ultimate ? 20 : 14,
-                ultimate ? Color.GOLD : Color.web("#A1887F"));
-        if (ultimate) {
-            game.addToKillFeed(shortName() + " planted a golden Seed Stash!");
-        }
+    void placeTitmouseSeedStash(boolean ultimate) {
+        TitmouseSpecials.placeSeedStash(this, ultimate);
     }
 
     void specialTitmouseMobbingRun() {
-        titmouseMobbingNodes.clear();
-        ArrayList<TitmouseSeedStash> remaining = new ArrayList<>(titmouseSeedStashes);
-        double routeX = bodyCenterX();
-        double routeY = bodyCenterY();
-        while (!remaining.isEmpty()) {
-            TitmouseSeedStash next = null;
-            double nextDist = Double.MAX_VALUE;
-            for (TitmouseSeedStash stash : remaining) {
-                double dist = Math.hypot(stash.x - routeX, stash.y - routeY);
-                if (dist < nextDist) {
-                    nextDist = dist;
-                    next = stash;
-                }
-            }
-            if (next == null) break;
-            titmouseMobbingNodes.add(new TitmouseMobbingNode(next.x, next.y - bodyHeight(), null));
-            routeX = next.x;
-            routeY = next.y - bodyHeight();
-            remaining.remove(next);
-        }
-        Bird target = nearestMarkedTitmouseTarget();
-        if (target == null) {
-            target = nearestDamageableTarget();
-        }
-        if (target == null && titmouseMobbingNodes.isEmpty()) {
-            specialTitmouseScoldChorus(true);
-            return;
-        }
-        if (target != null) {
-            titmouseMobbingNodes.add(new TitmouseMobbingNode(target.bodyCenterX(), target.bodyCenterY(), target));
-        }
-        titmouseMobbingTimer = TITMOUSE_MOBBING_STEP_FRAMES;
-        titmouseMobbingNodeIndex = 0;
-        isZipping = true;
-        zipTimer = titmouseMobbingTimer;
-        attackAnimationTimer = Math.max(attackAnimationTimer,
-                TITMOUSE_MOBBING_STEP_FRAMES * titmouseMobbingNodes.size() + 6);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        powerMultiplier = Math.max(powerMultiplier, basePowerMultiplier * 1.22);
-        rageTimer = Math.max(rageTimer, 150);
-        game.addToKillFeed(shortName() + " launched MOBBING RUN!");
+        TitmouseSpecials.ultimate(this);
     }
 
-    private double titmouseStashSurfaceY(double stashX) {
-        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
-        double sourceY = bodyBottomY() - 20.0 * sizeMultiplier;
-        for (Platform p : game.platforms) {
-            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
-                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
-            if (isCaveCeiling) continue;
-            if (stashX < p.x - 20.0 || stashX > p.x + p.w + 20.0) continue;
-            if (p.y < sourceY - 16.0) continue;
-            if (p.y < bestY) {
-                bestY = p.y;
-            }
-        }
-        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+    double titmouseStashSurfaceY(double stashX) {
+        return TitmouseSpecials.stashSurfaceY(this, stashX);
     }
 
-    private TitmouseSeedStash nearestTitmouseStash(double maxDistance) {
-        TitmouseSeedStash best = null;
-        double bestDistance = maxDistance;
-        for (TitmouseSeedStash stash : titmouseSeedStashes) {
-            double dist = Math.hypot(stash.x - bodyCenterX(), stash.y - bodyBottomY());
-            if (dist <= bestDistance) {
-                bestDistance = dist;
-                best = stash;
-            }
-        }
-        return best;
+    TitmouseSeedStash nearestTitmouseStash(double maxDistance) {
+        return TitmouseSpecials.nearestStash(this, maxDistance);
     }
 
-    private TitmouseSeedStash preferredTitmouseRouteStash(int dir, double maxDistance) {
-        TitmouseSeedStash best = null;
-        double bestScore = Double.POSITIVE_INFINITY;
-        double centerX = bodyCenterX();
-        double feetY = bodyBottomY();
-        for (TitmouseSeedStash stash : titmouseSeedStashes) {
-            double dx = stash.x - centerX;
-            double dy = stash.y - feetY;
-            double dist = Math.hypot(dx, dy);
-            if (dist > maxDistance) continue;
-            double forward = dx * dir;
-            double score = dist - Math.max(0.0, forward) * 0.28 + Math.max(0.0, -forward) * 0.42;
-            if (score < bestScore) {
-                bestScore = score;
-                best = stash;
-            }
-        }
-        return best != null ? best : nearestTitmouseStash(maxDistance);
+    TitmouseSeedStash preferredTitmouseRouteStash(int dir, double maxDistance) {
+        return TitmouseSpecials.preferredRouteStash(this, dir, maxDistance);
     }
 
-    private Bird nearestMarkedTitmouseTarget() {
-        Bird best = null;
-        double bestDist = Double.MAX_VALUE;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other) || !other.isTitmouseMarkedBy(this)) continue;
-            double dist = combatDistanceTo(other);
-            if (dist < bestDist) {
-                bestDist = dist;
-                best = other;
-            }
-        }
-        return best;
+    Bird nearestMarkedTitmouseTarget() {
+        return TitmouseSpecials.nearestMarkedTarget(this);
     }
 
-    private Bird nearestDamageableTarget() {
-        Bird best = null;
-        double bestDist = Double.MAX_VALUE;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dist = combatDistanceTo(other);
-            if (dist < bestDist) {
-                bestDist = dist;
-                best = other;
-            }
-        }
-        return best;
+    Bird nearestDamageableTarget() {
+        return TitmouseSpecials.nearestDamageableTarget(this);
     }
 
-    private void detonateTitmouseSeedStashes(boolean ultimate) {
-        if (titmouseSeedStashes.isEmpty()) {
-            return;
-        }
-        for (TitmouseSeedStash stash : titmouseSeedStashes) {
-            double radius = (ultimate || stash.ultimate ? 112.0 : 92.0) * sizeMultiplier;
-            for (Bird other : game.players) {
-                if (!canDamageTarget(other)) continue;
-                double dx = other.bodyCenterX() - stash.x;
-                double dy = other.bodyCenterY() - (stash.y - 18.0 * sizeMultiplier);
-                if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
-                boolean marked = other.isTitmouseMarkedBy(this);
-                int dmg = (ultimate || stash.ultimate ? 12 : 8) + (marked ? 4 : 0);
-                double oldHealth = other.health;
-                int dealt = (int) applyDamageTo(other, dmg);
-                if (dealt <= 0) continue;
-                game.damageDealt[playerIndex] += dealt;
-                game.recordSpecialImpact(playerIndex, dealt, true);
-                if (other.health <= 0 && oldHealth > 0) {
-                    game.eliminations[playerIndex]++;
-                }
-                double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
-                other.vx += dir * ((ultimate || stash.ultimate ? 14.0 : 10.0) + (marked ? 3.0 : 0.0));
-                other.vy -= (ultimate || stash.ultimate ? 11.0 : 8.0) + (marked ? 2.5 : 0.0);
-                if (marked) {
-                    other.applyStun(ultimate || stash.ultimate ? 14 : 9);
-                    emitTitmouseBurst(other.bodyCenterX(), other.bodyCenterY(),
-                            ultimate || stash.ultimate ? 18 : 12,
-                            ultimate || stash.ultimate ? Color.GOLD : Color.web("#64B5F6"));
-                }
-            }
-            emitTitmouseBurst(stash.x, stash.y - 12.0, ultimate || stash.ultimate ? 34 : 24,
-                    ultimate || stash.ultimate ? Color.GOLD : Color.web("#BCAAA4"));
-        }
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 10 : 6);
-        titmouseSeedStashes.clear();
+    void detonateTitmouseSeedStashes(boolean ultimate) {
+        TitmouseSpecials.detonateSeedStashes(this, ultimate);
     }
 
-    private void emitTitmouseBurst(double originX, double originY, int count, Color color) {
-        for (int i = 0; i < scaledParticleCount(count); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 1.8 + Math.random() * 4.8;
-            game.particles.add(new Particle(
-                    originX,
-                    originY,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 1.5,
-                    color.deriveColor(0, 1, 1, 0.78)
-            ));
-        }
+    void emitTitmouseBurst(double originX, double originY, int count, Color color) {
+        TitmouseSpecials.emitBurst(this, originX, originY, count, color);
     }
 
     void beginPelicanFullHold() {
@@ -4769,7 +4421,7 @@ public class Bird {
         return opiumResourceMeter > 0.5;
     }
 
-    private boolean spendOpiumResource(double amount) {
+    boolean spendOpiumResource(double amount) {
         if (amount <= 0.0) {
             return true;
         }
@@ -4781,7 +4433,7 @@ public class Bird {
         return true;
     }
 
-    private void refillOpiumResource(double amount) {
+    void refillOpiumResource(double amount) {
         if (amount <= 0.0) {
             return;
         }
@@ -10194,567 +9846,91 @@ public class Bird {
     }
 
     private void handleOpiumBirdEffects(double gameSpeed) {
-        boolean opium = type == BirdGame3.BirdType.OPIUMBIRD || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.OPIUMBIRD);
-        boolean heisen = type == BirdGame3.BirdType.HEISENBIRD || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.HEISENBIRD);
-        if (!opium && !heisen) return;
-
-        if (leanTimer > 0 && opium) {
-            game.leanTime[playerIndex]++;
-            game.recordLeanFrame(this);
-        } else if (leanTimer > 0) {
-            game.leanTime[playerIndex]++;
-        }
-
-        if (leanTimer > 0 && opiumNeutralFueled) {
-            double outerRadius = heisen ? 250.0 : 330.0;
-            double innerRadius = heisen ? 190.0 : 270.0;
-            int damageRoll = heisen ? 96 : 24;
-            double slowX = heisen ? 0.978 : 0.93;
-            double slowY = heisen ? 0.992 : 0.974;
-            boolean firstFrame = heisen && leanTimer >= HEISEN_NEUTRAL_FRAMES - 2;
-            for (Bird other : game.players) {
-                if (!canDamageTarget(other)) continue;
-                double dx = other.bodyCenterX() - bodyCenterX();
-                double dy = other.bodyCenterY() - bodyCenterY();
-                double dist = Math.hypot(dx, dy);
-                if (dist > outerRadius + other.combatRadius()) continue;
-                if (dist > innerRadius + other.combatRadius()) continue;
-                if (random.nextInt(damageRoll) == 0) {
-                    applyTrackedSpecialDamage(other, 1);
-                }
-                other.vx *= slowX;
-                other.vy *= slowY;
-                if (heisen && (firstFrame || (leanTimer % 24) == 0)) {
-                    other.applyHeisenBrittle(this, false);
-                }
-            }
-        }
-
-        if (type == BirdGame3.BirdType.OPIUMBIRD && opiumUltimateTimer > 0) {
-            applyOpiumUltimateHaze();
-        }
-        if (type == BirdGame3.BirdType.OPIUMBIRD && opiumUltimateCollapsePending && opiumUltimateTimer <= 0) {
-            collapseOpiumUltimateHaze();
-            opiumUltimateCollapsePending = false;
-        }
-        if (type == BirdGame3.BirdType.HEISENBIRD && heisenUltimateTimer > 0) {
-            applyHeisenUltimateOrbitShardHits(heisenUltimateTimer, -1);
-        }
-        if (type == BirdGame3.BirdType.HEISENBIRD && heisenUltimateShatterPending && heisenUltimateTimer <= 0) {
-            launchHeisenUltimateCrystals();
-            heisenUltimateShatterPending = false;
-        }
-        if (type == BirdGame3.BirdType.HEISENBIRD && heisenUltimateVolleyTimer > 0) {
-            handleHeisenUltimateCrystalVolley(gameSpeed);
-        }
+        OpiumSpecials.handleBirdEffects(this, gameSpeed);
     }
 
     private void handleOpiumStatusEffects() {
-        if (opiumDrowsyTimer > 0) {
-            vx *= opiumDrowsyUltimate ? 0.972 : 0.982;
-            if (vy > 0.0) {
-                vy *= opiumDrowsyUltimate ? 0.985 : 0.992;
-            }
-            if ((opiumDrowsyTimer & 7) == 0) {
-                game.particles.add(new Particle(
-                        bodyCenterX() + (Math.random() - 0.5) * bodyWidth() * 0.86,
-                        bodyCenterY() - 18.0 * sizeMultiplier + (Math.random() - 0.5) * bodyHeight() * 0.32,
-                        (Math.random() - 0.5) * 1.2,
-                        -0.7 - Math.random() * 1.2,
-                        (opiumDrowsyUltimate ? Color.GOLD : Color.web("#CE93D8")).deriveColor(0, 1, 1, 0.58)
-                ));
-            }
-        }
-        if (heisenBrittleTimer > 0 && (heisenBrittleTimer & 5) == 0) {
-            game.particles.add(new Particle(
-                    bodyCenterX() + (Math.random() - 0.5) * bodyWidth() * 0.78,
-                    bodyCenterY() + (Math.random() - 0.5) * bodyHeight() * 0.58,
-                    (Math.random() - 0.5) * 1.8,
-                    -0.9 - Math.random() * 1.5,
-                    (heisenBrittleUltimate ? Color.GOLD : Color.web("#81D4FA")).deriveColor(0, 1, 1, 0.72)
-            ));
-        }
+        OpiumSpecials.handleStatusEffects(this);
     }
 
     private void applyOpiumUltimateHaze() {
-        double radius = 500.0;
-        double cloudX = opiumUltimateCloudX == 0.0 ? bodyCenterX() : opiumUltimateCloudX;
-        double cloudY = opiumUltimateCloudY == 0.0 ? bodyCenterY() : opiumUltimateCloudY;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - cloudX;
-            double dy = other.bodyCenterY() - cloudY;
-            if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
-            other.vx *= 0.925;
-            other.vy *= 0.978;
-            other.applyOpiumDrowsy(this, true);
-            if ((opiumUltimateTimer % 16) == 0) {
-                applyTrackedSpecialDamage(other, 1);
-            }
-        }
+        OpiumSpecials.applyUltimateHaze(this);
     }
 
     private void collapseOpiumUltimateHaze() {
-        double radius = 500.0;
-        double cloudX = opiumUltimateCloudX == 0.0 ? bodyCenterX() : opiumUltimateCloudX;
-        double cloudY = opiumUltimateCloudY == 0.0 ? bodyCenterY() : opiumUltimateCloudY;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - cloudX;
-            double dy = other.bodyCenterY() - cloudY;
-            double dist = Math.hypot(dx, dy);
-            if (dist > radius + other.combatRadius()) continue;
-            int dealt = applyTrackedSpecialDamage(other, 14);
-            if (dealt <= 0) continue;
-            double safe = Math.max(1.0, dist);
-            other.vx += dx / safe * 15.0;
-            other.vy -= 10.6;
-            other.applyStun(26);
-        }
-        emitOpiumBurst(cloudX, cloudY, 132, Color.GOLD);
-        game.shakeIntensity = Math.max(game.shakeIntensity, 16);
+        OpiumSpecials.collapseUltimateHaze(this);
     }
 
     private void launchHeisenUltimateCrystals() {
-        heisenUltimateVolleyOriginX = bodyCenterX();
-        heisenUltimateVolleyOriginY = bodyCenterY() - 10.0 * sizeMultiplier;
-        Bird target = nearestOpiumDamageTarget(760.0);
-        if (target != null) {
-            heisenUltimateVolleyTargetX = target.bodyCenterX();
-            heisenUltimateVolleyTargetY = target.bodyCenterY();
-        } else {
-            heisenUltimateVolleyTargetX = heisenUltimateVolleyOriginX + facingDirection() * 520.0;
-            heisenUltimateVolleyTargetY = heisenUltimateVolleyOriginY - 26.0 * sizeMultiplier;
-        }
-        heisenUltimateVolleyTimer = HEISEN_ULTIMATE_VOLLEY_FRAMES;
-        heisenUltimateVolleyHit = false;
-        resetHeisenUltimateShardState(false);
-        emitOpiumBurst(heisenUltimateVolleyOriginX, heisenUltimateVolleyOriginY, 72, Color.web("#B3E5FC"));
-        game.shakeIntensity = Math.max(game.shakeIntensity, 10);
+        OpiumSpecials.launchHeisenUltimateCrystals(this);
     }
 
     void resetHeisenUltimateShardState(boolean clearOrbitCooldowns) {
-        Arrays.fill(heisenUltimateShardLaunched, false);
-        Arrays.fill(heisenUltimateShardSpent, false);
-        Arrays.fill(heisenUltimateShardX, 0.0);
-        Arrays.fill(heisenUltimateShardY, 0.0);
-        Arrays.fill(heisenUltimateShardVX, 0.0);
-        Arrays.fill(heisenUltimateShardVY, 0.0);
-        if (clearOrbitCooldowns) {
-            Arrays.fill(heisenUltimateOrbitHitCooldown, 0);
-        }
+        OpiumSpecials.resetHeisenUltimateShardState(this, clearOrbitCooldowns);
     }
 
     private void applyHeisenUltimateOrbitShardHits(double clock, int volleyElapsed) {
-        double anchorX = bodyCenterX();
-        double anchorY = bodyCenterY() - 10.0 * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            int targetIndex = other.playerIndex;
-            if (targetIndex < 0 || targetIndex >= heisenUltimateOrbitHitCooldown.length) continue;
-            if (heisenUltimateOrbitHitCooldown[targetIndex] > 0) continue;
-
-            for (int i = 0; i < HEISEN_ULTIMATE_SHARD_COUNT; i++) {
-                if (volleyElapsed >= 0 && volleyElapsed - i * HEISEN_ULTIMATE_SHARD_LAUNCH_SPACING_FRAMES >= 0) {
-                    continue;
-                }
-                double shardX = heisenUltimateOrbitX(i, anchorX, clock);
-                double shardY = heisenUltimateOrbitY(i, anchorY, clock);
-                double radius = (30.0 + (i % 2) * 5.0) * sizeMultiplier;
-                double dx = other.bodyCenterX() - shardX;
-                double dy = other.bodyCenterY() - shardY;
-                if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
-
-                int dealt = applyTrackedSpecialDamage(other, 1);
-                if (dealt <= 0) continue;
-                other.applyHeisenBrittle(this, true);
-                double safe = Math.max(1.0, Math.hypot(dx, dy));
-                other.vx += dx / safe * 2.8;
-                other.vy += dy / safe * 1.6 - 0.8;
-                heisenUltimateOrbitHitCooldown[targetIndex] = HEISEN_ULTIMATE_ORBIT_HIT_COOLDOWN_FRAMES;
-                if ((heisenUltimateTimer & 1) == 0) {
-                    game.particles.add(new Particle(
-                            shardX,
-                            shardY,
-                            (Math.random() - 0.5) * 2.2,
-                            -0.6 - Math.random() * 1.2,
-                            Color.web("#B3E5FC", 0.76)
-                    ));
-                }
-                break;
-            }
-        }
+        OpiumSpecials.applyHeisenUltimateOrbitShardHits(this, clock, volleyElapsed);
     }
 
     private Bird nearestOpiumDamageTarget(double maxDistance) {
-        return nearestOpiumDamageTargetFrom(bodyCenterX(), bodyCenterY(), maxDistance);
+        return OpiumSpecials.nearestOpiumDamageTarget(this, maxDistance);
     }
 
     private Bird nearestOpiumDamageTargetFrom(double sourceX, double sourceY, double maxDistance) {
-        Bird best = null;
-        double bestDist = maxDistance;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dist = Math.hypot(other.bodyCenterX() - sourceX, other.bodyCenterY() - sourceY);
-            if (dist < bestDist) {
-                bestDist = dist;
-                best = other;
-            }
-        }
-        return best;
+        return OpiumSpecials.nearestOpiumDamageTargetFrom(this, sourceX, sourceY, maxDistance);
     }
 
     private double heisenUltimateOrbitAngle(int shardIndex, double clock) {
-        return shardIndex / (double) HEISEN_ULTIMATE_SHARD_COUNT * Math.PI * 2.0 + clock * 0.040;
+        return OpiumSpecials.heisenUltimateOrbitAngle(shardIndex, clock);
     }
 
     private double heisenUltimateOrbitX(int shardIndex, double anchorX, double clock) {
-        double pulse = 0.5 + 0.5 * Math.sin(clock * 0.22);
-        double angle = heisenUltimateOrbitAngle(shardIndex, clock);
-        double radius = (104.0 + (shardIndex % 2) * 20.0 + pulse * 12.0) * sizeMultiplier;
-        return anchorX + Math.cos(angle) * radius;
+        return OpiumSpecials.heisenUltimateOrbitX(this, shardIndex, anchorX, clock);
     }
 
     private double heisenUltimateOrbitY(int shardIndex, double anchorY, double clock) {
-        double pulse = 0.5 + 0.5 * Math.sin(clock * 0.22);
-        double angle = heisenUltimateOrbitAngle(shardIndex, clock);
-        double radius = (104.0 + (shardIndex % 2) * 20.0 + pulse * 12.0) * sizeMultiplier;
-        return anchorY + Math.sin(angle) * radius * 0.72;
+        return OpiumSpecials.heisenUltimateOrbitY(this, shardIndex, anchorY, clock);
     }
 
     private void handleHeisenUltimateCrystalVolley(double gameSpeed) {
-        int elapsed = HEISEN_ULTIMATE_VOLLEY_FRAMES - heisenUltimateVolleyTimer;
-        applyHeisenUltimateOrbitShardHits(-elapsed, elapsed);
-        for (int i = 0; i < HEISEN_ULTIMATE_SHARD_COUNT; i++) {
-            int shardElapsed = elapsed - i * HEISEN_ULTIMATE_SHARD_LAUNCH_SPACING_FRAMES;
-            if (shardElapsed < 0 || heisenUltimateShardSpent[i]) continue;
-            if (shardElapsed >= HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES) {
-                heisenUltimateShardSpent[i] = true;
-                continue;
-            }
-            if (!heisenUltimateShardLaunched[i]) {
-                launchHeisenUltimateShard(i, elapsed);
-            }
-            updateHeisenUltimateFlyingShard(i, shardElapsed, gameSpeed);
-        }
+        OpiumSpecials.handleHeisenUltimateCrystalVolley(this, gameSpeed);
     }
 
     private void launchHeisenUltimateShard(int shardIndex, int volleyElapsed) {
-        double anchorX = bodyCenterX();
-        double anchorY = bodyCenterY() - 10.0 * sizeMultiplier;
-        double clock = -volleyElapsed;
-        double angle = heisenUltimateOrbitAngle(shardIndex, clock);
-        heisenUltimateShardX[shardIndex] = heisenUltimateOrbitX(shardIndex, anchorX, clock);
-        heisenUltimateShardY[shardIndex] = heisenUltimateOrbitY(shardIndex, anchorY, clock);
-        Bird target = nearestOpiumDamageTargetFrom(heisenUltimateShardX[shardIndex], heisenUltimateShardY[shardIndex], 940.0);
-        double nx = Math.cos(angle);
-        double ny = Math.sin(angle) * 0.72;
-        if (target != null) {
-            double dx = target.bodyCenterX() - heisenUltimateShardX[shardIndex];
-            double dy = target.bodyCenterY() - heisenUltimateShardY[shardIndex];
-            double safe = Math.max(1.0, Math.hypot(dx, dy));
-            nx = dx / safe;
-            ny = dy / safe;
-            heisenUltimateVolleyTargetX = target.bodyCenterX();
-            heisenUltimateVolleyTargetY = target.bodyCenterY();
-        }
-        heisenUltimateShardVX[shardIndex] = nx * 10.8 + Math.cos(angle) * 2.0;
-        heisenUltimateShardVY[shardIndex] = ny * 10.8 + Math.sin(angle) * 1.2 - 0.6;
-        heisenUltimateShardLaunched[shardIndex] = true;
+        OpiumSpecials.launchHeisenUltimateShard(this, shardIndex, volleyElapsed);
     }
 
     private void updateHeisenUltimateFlyingShard(int shardIndex, int shardElapsed, double gameSpeed) {
-        double scale = heisenUltimateShardScale(shardElapsed);
-        Bird target = nearestOpiumDamageTargetFrom(heisenUltimateShardX[shardIndex], heisenUltimateShardY[shardIndex], 980.0);
-        if (target != null) {
-            double dx = target.bodyCenterX() - heisenUltimateShardX[shardIndex];
-            double dy = target.bodyCenterY() - heisenUltimateShardY[shardIndex];
-            double safe = Math.max(1.0, Math.hypot(dx, dy));
-            double desiredSpeed = 12.8 + (1.0 - scale) * 4.8;
-            double turn = 0.18 + (1.0 - scale) * 0.05;
-            heisenUltimateShardVX[shardIndex] = heisenUltimateShardVX[shardIndex] * (1.0 - turn)
-                    + dx / safe * desiredSpeed * turn;
-            heisenUltimateShardVY[shardIndex] = heisenUltimateShardVY[shardIndex] * (1.0 - turn)
-                    + dy / safe * desiredSpeed * turn;
-            heisenUltimateVolleyTargetX = target.bodyCenterX();
-            heisenUltimateVolleyTargetY = target.bodyCenterY();
-        }
-
-        double speed = Math.hypot(heisenUltimateShardVX[shardIndex], heisenUltimateShardVY[shardIndex]);
-        double maxSpeed = 18.8;
-        if (speed > maxSpeed) {
-            heisenUltimateShardVX[shardIndex] = heisenUltimateShardVX[shardIndex] / speed * maxSpeed;
-            heisenUltimateShardVY[shardIndex] = heisenUltimateShardVY[shardIndex] / speed * maxSpeed;
-        }
-        heisenUltimateShardX[shardIndex] += heisenUltimateShardVX[shardIndex] * gameSpeed;
-        heisenUltimateShardY[shardIndex] += heisenUltimateShardVY[shardIndex] * gameSpeed;
-
-        double hitRadius = Math.max(4.0, 38.0 * scale) * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - heisenUltimateShardX[shardIndex];
-            double dy = other.bodyCenterY() - heisenUltimateShardY[shardIndex];
-            if (Math.hypot(dx, dy) > hitRadius + other.combatRadius()) continue;
-
-            boolean marked = other.hasHeisenBrittleFrom(this);
-            int dealt = applyTrackedSpecialDamage(other, marked ? 7 : 5);
-            if (dealt <= 0) continue;
-            heisenUltimateShardSpent[shardIndex] = true;
-            heisenUltimateVolleyHit = true;
-            double safe = Math.max(1.0, Math.hypot(heisenUltimateShardVX[shardIndex], heisenUltimateShardVY[shardIndex]));
-            other.vx += heisenUltimateShardVX[shardIndex] / safe * (marked ? 12.6 : 9.2);
-            other.vy += heisenUltimateShardVY[shardIndex] / safe * (marked ? 7.0 : 5.0) - (marked ? 6.0 : 4.2);
-            other.applyStun(marked ? 18 : 12);
-            if (marked) {
-                other.clearHeisenBrittle();
-            }
-            emitOpiumBurst(heisenUltimateShardX[shardIndex], heisenUltimateShardY[shardIndex],
-                    marked ? 42 : 30, Color.web("#B3E5FC"));
-            game.shakeIntensity = Math.max(game.shakeIntensity, marked ? 9 : 6);
-            break;
-        }
+        OpiumSpecials.updateHeisenUltimateFlyingShard(this, shardIndex, shardElapsed, gameSpeed);
     }
 
     private double heisenUltimateShardScale(int shardElapsed) {
-        double progress = Math.clamp(shardElapsed / (double) HEISEN_ULTIMATE_SHARD_FLIGHT_FRAMES, 0.0, 1.0);
-        return Math.max(0.0, 1.0 - Math.pow(progress, 1.18));
+        return OpiumSpecials.heisenUltimateShardScale(shardElapsed);
     }
 
     private void handleOpiumSpecialState() {
-        if (!isOpiumEchoPair()) {
-            return;
-        }
-        boolean heisen = type == BirdGame3.BirdType.HEISENBIRD;
-        if (opiumSideTimer > 0) {
-            applyOpiumSideHits(heisen);
-            if (opiumSideFueled && (opiumSideTimer & 1) == 0) {
-                game.particles.add(new Particle(
-                        bodyCenterX() - opiumSideDirection * 34.0 * sizeMultiplier,
-                        bodyCenterY() + (Math.random() - 0.5) * 34.0 * sizeMultiplier,
-                        -opiumSideDirection * (1.0 + Math.random() * 2.4),
-                        (Math.random() - 0.5) * 1.8,
-                        (heisen ? Color.web("#81D4FA") : Color.web("#CE93D8")).deriveColor(0, 1, 1, 0.62)
-                ));
-            }
-        }
-        if (opiumUpTimer > 0) {
-            applyOpiumUpHits(heisen);
-            if (opiumUpFueled && (opiumUpTimer & 1) == 0) {
-                game.particles.add(new Particle(
-                        bodyCenterX() + (Math.random() - 0.5) * 32.0 * sizeMultiplier,
-                        bodyBottomY() - 4.0 * sizeMultiplier,
-                        (Math.random() - 0.5) * 1.8,
-                        2.0 + Math.random() * 3.0,
-                        (heisen ? Color.web("#81D4FA") : Color.web("#CE93D8")).deriveColor(0, 1, 1, 0.64)
-                ));
-            }
-        }
+        OpiumSpecials.handleState(this);
     }
 
     private void applyOpiumSideHits(boolean heisen) {
-        boolean fueled = opiumSideFueled;
-        double centerX = bodyCenterX() + opiumSideDirection * (heisen ? 74.0 : 70.0) * sizeMultiplier;
-        double centerY = bodyCenterY() - 4.0 * sizeMultiplier;
-        double reach = (heisen ? (fueled ? 118.0 : 94.0) : (fueled ? 132.0 : 100.0)) * sizeMultiplier;
-        double verticalReach = (heisen ? (fueled ? 58.0 : 48.0) : (fueled ? 68.0 : 52.0)) * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= opiumSideHit.length) continue;
-            if (opiumSideHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double forward = dx * opiumSideDirection;
-            if (forward < -other.combatHalfWidth() * 0.45 || forward > reach + other.combatHalfWidth()) continue;
-            if (Math.abs(other.bodyCenterY() - centerY) > verticalReach + other.combatHalfHeight()) continue;
-
-            boolean brittle = heisen && other.hasHeisenBrittleFrom(this);
-            int dealt = applyTrackedSpecialDamage(other, heisen
-                    ? (fueled ? 8 : 5)
-                    : (fueled ? 11 : 5));
-            if (dealt <= 0) continue;
-            opiumSideHit[other.playerIndex] = true;
-            other.vx += opiumSideDirection * (heisen
-                    ? (fueled ? (brittle ? 13.8 : 10.8) : 7.2)
-                    : (fueled ? 11.0 : 6.8));
-            other.vy -= heisen
-                    ? (fueled ? (brittle ? 6.3 : 4.8) : 3.4)
-                    : (fueled ? 5.2 : 3.2);
-            other.applyStun(heisen ? (fueled ? 16 : 10) : (fueled ? 15 : 9));
-            if (!heisen) {
-                other.vx *= 0.90;
-            }
-        }
+        OpiumSpecials.applySideHits(this, heisen);
     }
 
     private void applyOpiumUpHits(boolean heisen) {
-        boolean fueled = opiumUpFueled;
-        double centerX = bodyCenterX();
-        double centerY = bodyBottomY() + (heisen ? 28.0 : 34.0) * sizeMultiplier;
-        double radius = (heisen ? (fueled ? 96.0 : 74.0) : (fueled ? 114.0 : 84.0)) * sizeMultiplier;
-        double verticalRadius = (heisen ? (fueled ? 128.0 : 102.0) : (fueled ? 146.0 : 112.0)) * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= opiumUpHit.length) continue;
-            if (opiumUpHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
-            if (dy < -26.0 * sizeMultiplier || dy > verticalRadius + other.combatHalfHeight()) continue;
-
-            int dealt = applyTrackedSpecialDamage(other, heisen
-                    ? (fueled ? 7 : 4)
-                    : (fueled ? 9 : 4));
-            if (dealt <= 0) continue;
-            opiumUpHit[other.playerIndex] = true;
-            other.vx += Math.signum(dx == 0.0 ? facingDirection() : dx) * (heisen
-                    ? (fueled ? 6.0 : 3.8)
-                    : (fueled ? 5.2 : 3.4));
-            other.vy += heisen
-                    ? (fueled ? 9.8 : 6.8)
-                    : (fueled ? 8.8 : 6.2);
-            other.applyStun(heisen ? (fueled ? 12 : 8) : (fueled ? 11 : 7));
-            if (heisen && fueled) {
-                other.applyHeisenBrittle(this, false);
-            }
-        }
+        OpiumSpecials.applyUpHits(this, heisen);
     }
 
     private void handleOpiumTraps() {
-        if (opiumTraps.isEmpty()) {
-            return;
-        }
-        for (Iterator<OpiumTrap> it = opiumTraps.iterator(); it.hasNext(); ) {
-            OpiumTrap trap = it.next();
-            trap.ageFrames++;
-            trap.lifeFrames--;
-            for (int i = 0; i < trap.hitCooldown.length; i++) {
-                if (trap.hitCooldown[i] > 0) {
-                    trap.hitCooldown[i]--;
-                }
-            }
-            if (health <= 0) {
-                it.remove();
-                continue;
-            }
-            if (trap.heisen) {
-                if (birdStandingInOpiumTrap(this, trap, 74.0, 42.0)) {
-                    refillOpiumResource(HEISEN_NODE_REFILL_PER_FRAME);
-                    if ((trap.ageFrames & 5) == 0) {
-                        game.particles.add(new Particle(
-                                bodyCenterX() + (Math.random() - 0.5) * 28.0 * sizeMultiplier,
-                                bodyBottomY() - 20.0 * sizeMultiplier,
-                                (Math.random() - 0.5) * 0.8,
-                                -0.7 - Math.random() * 1.2,
-                                Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.72)
-                        ));
-                    }
-                }
-                if ((trap.ageFrames & 3) == 0) {
-                    game.particles.add(new Particle(
-                            trap.x + (Math.random() - 0.5) * 42.0,
-                            trap.y - 20.0 - Math.random() * 34.0,
-                            (Math.random() - 0.5) * 0.8,
-                            -0.8 - Math.random() * 1.6,
-                            Color.web("#81D4FA").deriveColor(0, 1, 1, 0.66)
-                    ));
-                }
-                double radius = 92.0;
-                for (Bird other : game.players) {
-                    if (!canDamageTarget(other)) continue;
-                    if (other.playerIndex < 0 || other.playerIndex >= trap.hitCooldown.length) continue;
-                    if (!birdStandingInOpiumTrap(other, trap, radius, 54.0)) continue;
-                    other.vx *= 0.93;
-                    if ((trap.ageFrames % 28) == 0) {
-                        other.applyHeisenBrittle(this, false);
-                    }
-                    if (trap.hitCooldown[other.playerIndex] <= 0) {
-                        trap.hitCooldown[other.playerIndex] = 34;
-                        applyTrackedSpecialDamage(other, 1);
-                    }
-                }
-                if (trap.lifeFrames <= 0) {
-                    explodeHeisenTrap(trap);
-                    it.remove();
-                }
-                continue;
-            }
-
-            if (trap.lifeFrames <= 0) {
-                it.remove();
-                continue;
-            }
-            if (birdStandingInOpiumTrap(this, trap, 108.0, 42.0)) {
-                refillOpiumResource(OPIUM_PATCH_REFILL_PER_FRAME);
-                if ((trap.ageFrames & 7) == 0) {
-                    game.particles.add(new Particle(
-                            bodyCenterX() + (Math.random() - 0.5) * 36.0 * sizeMultiplier,
-                            bodyBottomY() - 12.0 * sizeMultiplier,
-                            (Math.random() - 0.5) * 0.7,
-                            -0.5 - Math.random(),
-                            Color.web("#E1BEE7").deriveColor(0, 1, 1, 0.62)
-                    ));
-                }
-            }
-            if ((trap.ageFrames & 7) == 0) {
-                game.particles.add(new Particle(
-                        trap.x + (Math.random() - 0.5) * 88.0,
-                        trap.y - 8.0 - Math.random() * 18.0,
-                        (Math.random() - 0.5) * 0.9,
-                        -0.5 - Math.random() * 1.2,
-                        Color.web("#CE93D8").deriveColor(0, 1, 1, 0.48)
-                ));
-            }
-            double radius = 94.0;
-            for (Bird other : game.players) {
-                if (!canDamageTarget(other)) continue;
-                if (other.playerIndex < 0 || other.playerIndex >= trap.hitCooldown.length) continue;
-                if (!birdStandingInOpiumTrap(other, trap, radius, 58.0)) continue;
-
-                other.vx *= 0.86;
-                other.vy *= 0.94;
-                if (leanTimer > 0) {
-                    leanTimer = Math.max(leanTimer, 72);
-                }
-                if (trap.hitCooldown[other.playerIndex] <= 0) {
-                    trap.hitCooldown[other.playerIndex] = 20;
-                    applyTrackedSpecialDamage(other, 2);
-                }
-            }
-        }
+        OpiumSpecials.handleTraps(this);
     }
 
     private boolean birdStandingInOpiumTrap(Bird bird, OpiumTrap trap, double radius, double verticalWindow) {
-        if (bird == null) {
-            return false;
-        }
-        double dx = bird.bodyCenterX() - trap.x;
-        if (Math.abs(dx) > radius + bird.combatHalfWidth()) {
-            return false;
-        }
-        double feetDistance = Math.abs(bird.bodyBottomY() - trap.y);
-        return feetDistance <= verticalWindow + bird.combatHalfHeight() * 0.22
-                || (bird.bodyCenterY() > trap.y - verticalWindow - 16.0 && bird.bodyCenterY() < trap.y + 24.0);
+        return OpiumSpecials.birdStandingInTrap(this, bird, trap, radius, verticalWindow);
     }
 
     private void explodeHeisenTrap(OpiumTrap trap) {
-        double radius = 132.0;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - trap.x;
-            double dy = other.bodyCenterY() - (trap.y - 18.0);
-            if (Math.hypot(dx, dy) > radius + other.combatRadius()) continue;
-            boolean brittle = other.hasHeisenBrittleFrom(this);
-            int dealt = applyTrackedSpecialDamage(other, brittle ? 12 : 7);
-            if (dealt <= 0) continue;
-            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
-            other.vx += dir * (brittle ? 15.0 : 10.4);
-            other.vy -= brittle ? 10.2 : 6.4;
-            other.applyStun(brittle ? 24 : 14);
-            if (brittle) {
-                other.clearHeisenBrittle();
-            }
-        }
-        emitOpiumBurst(trap.x, trap.y - 18.0, 46, Color.web("#81D4FA"));
-        game.shakeIntensity = Math.max(game.shakeIntensity, 8);
+        OpiumSpecials.explodeHeisenTrap(this, trap);
     }
 
     private void handleEaglePassive(boolean airborne) {
@@ -10786,15 +9962,7 @@ public class Bird {
     }
 
     private void handleTitmouseSpecialState() {
-        if (type != BirdGame3.BirdType.TITMOUSE
-                && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.TITMOUSE)) {
-            return;
-        }
-        handleTitmouseScoldChorus();
-        handleTitmouseBarkskip();
-        handleTitmouseTuftVault();
-        handleTitmouseSeedStashCharge();
-        handleTitmouseMobbingRun();
+        TitmouseSpecials.handleState(this);
     }
 
     private void handlePelicanSpecialState() {
@@ -10977,230 +10145,27 @@ public class Bird {
     }
 
     private void handleTitmouseScoldChorus() {
-        if (titmouseScoldTimer <= 0) {
-            return;
-        }
-        double radius = (titmouseScoldUltimate ? 152.0 : 124.0) * sizeMultiplier;
-        double verticalRadius = radius * 0.72;
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY() - 8.0 * sizeMultiplier;
-        if ((titmouseScoldTimer & 2) == 0) {
-            emitTitmouseBurst(centerX, centerY, titmouseScoldUltimate ? 4 : 3,
-                    titmouseScoldUltimate ? Color.GOLD : Color.web("#ECEFF1"));
-        }
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= titmouseScoldHit.length) continue;
-            if (titmouseScoldHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            double normalized = Math.hypot(dx / Math.max(1.0, radius), dy / Math.max(1.0, verticalRadius));
-            if (normalized > 1.0 + other.combatRadius() / Math.max(radius, verticalRadius)) continue;
-
-            titmouseScoldHit[other.playerIndex] = true;
-            int dmg = titmouseScoldUltimate ? 8 : 5;
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
-            if (dealt <= 0) continue;
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            other.applyTitmouseMark(this, titmouseScoldUltimate);
-            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
-            other.vx += dir * (titmouseScoldUltimate ? 7.5 : 5.6);
-            other.vy -= titmouseScoldUltimate ? 5.8 : 4.2;
-        }
+        TitmouseSpecials.handleScoldChorus(this);
     }
 
     private void handleTitmouseBarkskip() {
-        if (titmouseBarkskipTimer <= 0) {
-            return;
-        }
-        int dir = titmouseBarkskipDirection == 0 ? facingDirection() : titmouseBarkskipDirection;
-        facingRight = dir > 0;
-        vx = dir * Math.max(Math.abs(vx), titmouseBarkskipRebounded
-                ? (titmouseBarkskipUltimate ? 39.0 : 33.0)
-                : (titmouseBarkskipUltimate ? 34.0 : 28.0));
-        vy *= 0.82;
-        if ((titmouseBarkskipTimer & 1) == 0) {
-            emitTitmouseBurst(bodyCenterX() - dir * 28.0 * sizeMultiplier, bodyCenterY(),
-                    titmouseBarkskipUltimate ? 4 : 3,
-                    titmouseBarkskipUltimate ? Color.GOLD : Color.web("#90CAF9"));
-        }
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= titmouseBarkskipHit.length) continue;
-            if (titmouseBarkskipHit[other.playerIndex]) continue;
-            double forward = (other.bodyCenterX() - bodyCenterX()) * dir;
-            if (forward < -other.combatHalfWidth() * 0.25) continue;
-            if (forward > (titmouseBarkskipRebounded ? 116.0 : 96.0) * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (Math.abs(other.bodyCenterY() - bodyCenterY()) > 68.0 * sizeMultiplier + other.combatHalfHeight()) continue;
-
-            titmouseBarkskipHit[other.playerIndex] = true;
-            boolean marked = other.isTitmouseMarkedBy(this);
-            int dmg = titmouseBarkskipUltimate
-                    ? (marked ? 16 : 12)
-                    : (marked ? 12 : 8);
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
-            if (dealt <= 0) continue;
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            other.vx += dir * (marked ? (titmouseBarkskipUltimate ? 20.0 : 16.0) : (titmouseBarkskipUltimate ? 16.0 : 12.0));
-            other.vy -= marked ? (titmouseBarkskipUltimate ? 12.0 : 9.0) : (titmouseBarkskipUltimate ? 9.0 : 6.5);
-            if (marked && titmouseBarkskipRebounded) {
-                canDoubleJump = true;
-                vy = Math.min(vy, titmouseBarkskipUltimate ? -13.0 : -10.0);
-                titmouseVaultUsed = false;
-                emitTitmouseBurst(other.bodyCenterX(), other.bodyCenterY(),
-                        titmouseBarkskipUltimate ? 24 : 16,
-                        titmouseBarkskipUltimate ? Color.GOLD : Color.web("#4FC3F7"));
-            }
-        }
+        TitmouseSpecials.handleBarkskip(this);
     }
 
     private void handleTitmouseTuftVault() {
-        if (titmouseVaultTimer <= 0) {
-            return;
-        }
-        if ((titmouseVaultTimer & 2) == 0) {
-            emitTitmouseBurst(bodyCenterX(), bodyCenterY() + 18.0 * sizeMultiplier,
-                    titmouseVaultUltimate ? 4 : 3,
-                    titmouseVaultUltimate ? Color.GOLD : Color.web("#CFD8DC"));
-        }
-        double radius = (titmouseVaultBoosted ? 88.0 : 72.0) * sizeMultiplier;
-        double verticalReach = (titmouseVaultBoosted ? 94.0 : 78.0) * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= titmouseVaultHit.length) continue;
-            if (titmouseVaultHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - bodyCenterX();
-            double dy = other.bodyCenterY() - bodyCenterY();
-            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
-            if (Math.abs(dy) > verticalReach + other.combatHalfHeight()) continue;
-            titmouseVaultHit[other.playerIndex] = true;
-            int dmg = titmouseVaultUltimate
-                    ? (titmouseVaultBoosted ? 15 : 12)
-                    : (titmouseVaultBoosted ? 11 : 8);
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, dmg);
-            if (dealt <= 0) continue;
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            double dir = Math.signum(dx == 0.0 ? facingDirection() : dx);
-            other.vx += dir * (titmouseVaultBoosted ? (titmouseVaultUltimate ? 13.0 : 10.0) : (titmouseVaultUltimate ? 10.0 : 7.5));
-            other.vy -= titmouseVaultBoosted ? (titmouseVaultUltimate ? 15.0 : 12.0) : (titmouseVaultUltimate ? 12.0 : 9.0);
-        }
+        TitmouseSpecials.handleTuftVault(this);
     }
 
     private void handleTitmouseSeedStashCharge() {
-        if (!titmouseStashCharging) {
-            return;
-        }
-        boolean stillHolding = specialHeld() && blockPressed();
-        if (stillHolding && titmouseStashHoldFrames < TITMOUSE_STASH_HOLD_FRAMES) {
-            titmouseStashHoldFrames++;
-            attackAnimationTimer = Math.max(attackAnimationTimer, 4);
-            vx *= isOnGround() ? 0.56 : 0.78;
-            if ((titmouseStashHoldFrames & 3) == 0) {
-                emitTitmouseBurst(bodyCenterX(), bodyBottomY() - 10.0 * sizeMultiplier,
-                        3,
-                        titmouseStashUltimate ? Color.GOLD : Color.web("#BCAAA4"));
-            }
-            if (titmouseStashHoldFrames < TITMOUSE_STASH_HOLD_FRAMES) {
-                return;
-            }
-        }
-
-        if (titmouseStashHoldFrames >= TITMOUSE_STASH_HOLD_FRAMES && !titmouseSeedStashes.isEmpty()) {
-            detonateTitmouseSeedStashes(titmouseStashUltimate);
-        } else {
-            placeTitmouseSeedStash(titmouseStashUltimate);
-        }
-        titmouseStashCharging = false;
-        titmouseStashHoldFrames = 0;
-        titmouseStashUltimate = false;
+        TitmouseSpecials.handleSeedStashCharge(this);
     }
 
     private void handleTitmouseMobbingRun() {
-        if (titmouseMobbingNodes.isEmpty()) {
-            if (titmouseMobbingTimer <= 0) {
-                isZipping = false;
-                zipTimer = 0;
-            }
-            return;
-        }
-        if (titmouseMobbingNodeIndex >= titmouseMobbingNodes.size()) {
-            titmouseMobbingNodes.clear();
-            titmouseMobbingTimer = 0;
-            isZipping = false;
-            zipTimer = 0;
-            return;
-        }
-        TitmouseMobbingNode node = titmouseMobbingNodes.get(titmouseMobbingNodeIndex);
-        double targetX = node.target != null ? node.target.bodyCenterX() - bodyWidth() * 0.5 : node.x - bodyWidth() * 0.5;
-        double targetY = node.target != null ? node.target.bodyCenterY() - bodyHeight() * 0.5 : node.y;
-        zipTargetX = targetX;
-        zipTargetY = targetY;
-        zipTimer = titmouseMobbingTimer;
-        double dx = targetX - x;
-        double dy = targetY - y;
-        x += dx * 0.58;
-        y += dy * 0.58;
-        vx = 0.0;
-        vy = 0.0;
-        emitTitmouseBurst(bodyCenterX(), bodyCenterY(), 5, Color.GOLD);
-        if (titmouseMobbingTimer > 0) {
-            return;
-        }
-        x = targetX;
-        y = targetY;
-        if (node.target != null && canDamageTarget(node.target)) {
-            applyTitmouseMobbingImpact(node.target);
-        }
-        titmouseMobbingNodeIndex++;
-        if (titmouseMobbingNodeIndex < titmouseMobbingNodes.size()) {
-            titmouseMobbingTimer = TITMOUSE_MOBBING_STEP_FRAMES;
-        } else {
-            titmouseMobbingNodes.clear();
-            titmouseMobbingTimer = 0;
-            isZipping = false;
-            zipTimer = 0;
-            titmouseSeedStashes.clear();
-        }
+        TitmouseSpecials.handleMobbingRun(this);
     }
 
     private void applyTitmouseMobbingImpact(Bird target) {
-        boolean marked = target.isTitmouseMarkedBy(this);
-        int dmg = marked ? 28 : 22;
-        double oldHealth = target.health;
-        int dealt = (int) applyDamageTo(target, dmg);
-        if (dealt <= 0) {
-            return;
-        }
-        game.damageDealt[playerIndex] += dealt;
-        game.recordSpecialImpact(playerIndex, dealt, true);
-        if (target.health <= 0 && oldHealth > 0) {
-            game.eliminations[playerIndex]++;
-        }
-        double dir = Math.signum(target.bodyCenterX() - bodyCenterX());
-        if (dir == 0.0) {
-            dir = facingDirection();
-        }
-        target.vx += dir * (marked ? 28.0 : 24.0);
-        target.vy -= marked ? 20.0 : 17.0;
-        game.hitstopFrames = Math.max(game.hitstopFrames, 10);
-        game.shakeIntensity = Math.max(game.shakeIntensity, 22);
-        game.triggerFlash(0.6, target.health <= 0);
-        emitTitmouseBurst(target.bodyCenterX(), target.bodyCenterY(), 48, Color.GOLD);
+        TitmouseSpecials.applyMobbingImpact(this, target);
     }
 
     private boolean handleBatHanging(boolean stunned) {
@@ -12044,7 +11009,7 @@ public class Bird {
         return applyScaledDamageTo(target, scaledDamage);
     }
 
-    private int applyTrackedSpecialDamage(Bird target, int rawDamage) {
+    int applyTrackedSpecialDamage(Bird target, int rawDamage) {
         if (target == null || rawDamage <= 0) {
             return 0;
         }
@@ -12061,7 +11026,7 @@ public class Bird {
         return dealt;
     }
 
-    private void applyOpiumDrowsy(Bird owner, boolean ultimate) {
+    void applyOpiumDrowsy(Bird owner, boolean ultimate) {
         if (owner == null || owner.playerIndex < 0 || owner.playerIndex >= game.players.length) {
             return;
         }
@@ -12071,7 +11036,7 @@ public class Bird {
                 ultimate ? OPIUM_DROWSY_FRAMES + 48 : OPIUM_DROWSY_FRAMES);
     }
 
-    private void applyHeisenBrittle(Bird owner, boolean ultimate) {
+    void applyHeisenBrittle(Bird owner, boolean ultimate) {
         if (owner == null || owner.playerIndex < 0 || owner.playerIndex >= game.players.length) {
             return;
         }
@@ -12081,13 +11046,13 @@ public class Bird {
                 ultimate ? HEISEN_ULTIMATE_FRAMES + 12 : HEISEN_BRITTLE_FRAMES);
     }
 
-    private boolean hasHeisenBrittleFrom(Bird owner) {
+    boolean hasHeisenBrittleFrom(Bird owner) {
         return owner != null
                 && heisenBrittleTimer > 0
                 && heisenBrittleOwnerIndex == owner.playerIndex;
     }
 
-    private void clearHeisenBrittle() {
+    void clearHeisenBrittle() {
         heisenBrittleTimer = 0;
         heisenBrittleOwnerIndex = -1;
         heisenBrittleUltimate = false;
@@ -12431,30 +11396,10 @@ public class Bird {
     }
 
     private void handleTitmouseSeedStashes() {
-        if (titmouseSeedStashes.isEmpty()) {
-            return;
-        }
-        for (Iterator<TitmouseSeedStash> it = titmouseSeedStashes.iterator(); it.hasNext(); ) {
-            TitmouseSeedStash stash = it.next();
-            stash.ageFrames++;
-            stash.lifeFrames--;
-            if (stash.lifeFrames <= 0 || health <= 0) {
-                it.remove();
-                continue;
-            }
-            if ((stash.ageFrames & 15) == 0) {
-                game.particles.add(new Particle(
-                        stash.x + (Math.random() - 0.5) * 28.0,
-                        stash.y - 8.0,
-                        (Math.random() - 0.5) * 0.9,
-                        -0.4 - Math.random() * 1.1,
-                        (stash.ultimate ? Color.GOLD : Color.web("#BCAAA4")).deriveColor(0, 1, 1, 0.56)
-                ));
-            }
-        }
+        TitmouseSpecials.handleSeedStashes(this);
     }
 
-    private void applyTitmouseMark(Bird owner, boolean ultimate) {
+    void applyTitmouseMark(Bird owner, boolean ultimate) {
         if (owner == null || owner.playerIndex < 0 || owner.playerIndex >= game.players.length) {
             return;
         }
@@ -12464,7 +11409,7 @@ public class Bird {
                 ultimate ? TITMOUSE_MARK_FRAMES + 80 : TITMOUSE_MARK_FRAMES);
     }
 
-    private boolean isTitmouseMarkedBy(Bird owner) {
+    boolean isTitmouseMarkedBy(Bird owner) {
         return owner != null
                 && titmouseMarkedTimer > 0
                 && titmouseMarkedOwnerIndex == owner.playerIndex;
