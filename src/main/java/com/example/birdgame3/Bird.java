@@ -311,33 +311,33 @@ public class Bird {
     private static final int TITMOUSE_MAX_STASHES = 3;
     private static final int TITMOUSE_STASH_HOLD_FRAMES = 18;
     private static final int TITMOUSE_MOBBING_STEP_FRAMES = 8;
-    private int titmouseScoldTimer = 0;
-    private int titmouseScoldReuseTimer = 0;
-    private boolean titmouseScoldUltimate = false;
-    private final boolean[] titmouseScoldHit = new boolean[4];
-    private int titmouseBarkskipTimer = 0;
-    private int titmouseBarkskipReuseTimer = 0;
-    private int titmouseBarkskipDirection = 1;
-    private boolean titmouseBarkskipUltimate = false;
-    private boolean titmouseBarkskipRebounded = false;
-    private final boolean[] titmouseBarkskipHit = new boolean[4];
-    private int titmouseVaultTimer = 0;
-    private int titmouseVaultReuseTimer = 0;
-    private boolean titmouseVaultUsed = false;
-    private boolean titmouseVaultUltimate = false;
-    private boolean titmouseVaultBoosted = false;
-    private final boolean[] titmouseVaultHit = new boolean[4];
-    private int titmouseStashReuseTimer = 0;
-    private boolean titmouseStashCharging = false;
-    private int titmouseStashHoldFrames = 0;
-    private boolean titmouseStashUltimate = false;
-    private final ArrayList<TitmouseSeedStash> titmouseSeedStashes = new ArrayList<>();
+    int titmouseScoldTimer = 0;
+    int titmouseScoldReuseTimer = 0;
+    boolean titmouseScoldUltimate = false;
+    final boolean[] titmouseScoldHit = new boolean[4];
+    int titmouseBarkskipTimer = 0;
+    int titmouseBarkskipReuseTimer = 0;
+    int titmouseBarkskipDirection = 1;
+    boolean titmouseBarkskipUltimate = false;
+    boolean titmouseBarkskipRebounded = false;
+    final boolean[] titmouseBarkskipHit = new boolean[4];
+    int titmouseVaultTimer = 0;
+    int titmouseVaultReuseTimer = 0;
+    boolean titmouseVaultUsed = false;
+    boolean titmouseVaultUltimate = false;
+    boolean titmouseVaultBoosted = false;
+    final boolean[] titmouseVaultHit = new boolean[4];
+    int titmouseStashReuseTimer = 0;
+    boolean titmouseStashCharging = false;
+    int titmouseStashHoldFrames = 0;
+    boolean titmouseStashUltimate = false;
+    final ArrayList<TitmouseSeedStash> titmouseSeedStashes = new ArrayList<>();
     private int titmouseMarkedTimer = 0;
     private int titmouseMarkedOwnerIndex = -1;
     private boolean titmouseMarkedUltimate = false;
-    private final ArrayList<TitmouseMobbingNode> titmouseMobbingNodes = new ArrayList<>();
-    private int titmouseMobbingTimer = 0;
-    private int titmouseMobbingNodeIndex = 0;
+    final ArrayList<TitmouseMobbingNode> titmouseMobbingNodes = new ArrayList<>();
+    int titmouseMobbingTimer = 0;
+    int titmouseMobbingNodeIndex = 0;
 
     public boolean isZipping = false;
     public double zipTargetX = 0;
@@ -4847,6 +4847,10 @@ public class Bird {
         return VultureSpecials.canConvertShieldIntoDown(this);
     }
 
+    private boolean canConvertShieldIntoTitmouseDownSpecial() {
+        return TitmouseSpecials.canConvertShieldIntoDown(this);
+    }
+
     private boolean shouldReserveBlockForShoebillStatueHold() {
         return type == BirdGame3.BirdType.SHOEBILL
                 && shoebillStatueTimer > 0
@@ -4969,37 +4973,15 @@ public class Bird {
     }
 
     private boolean titmouseSpecialActive() {
-        return titmouseScoldTimer > 0
-                || titmouseBarkskipTimer > 0
-                || titmouseVaultTimer > 0
-                || titmouseStashCharging
-                || titmouseMobbingTimer > 0;
+        return TitmouseSpecials.active(this);
     }
 
     private boolean titmouseSpecialReady(TitmouseSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> ultimateReady || titmouseScoldReuseTimer <= 0;
-            case SIDE -> ultimateReady || titmouseBarkskipReuseTimer <= 0;
-            case UP -> ultimateReady || (!titmouseVaultUsed && titmouseVaultReuseTimer <= 0);
-            case DOWN -> ultimateReady || titmouseStashReuseTimer <= 0;
-        };
+        return TitmouseSpecials.ready(this, variant);
     }
 
     boolean canStartTitmouseSpecial() {
-        TitmouseSpecialVariant variant = selectTitmouseSpecialVariant();
-        boolean shieldConversion = variant == TitmouseSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
-        return type == BirdGame3.BirdType.TITMOUSE
-                && health > 0
-                && stunTime <= 0.0
-                && grabbedBy == null
-                && grabbedTarget == null
-                && (!isBlocking || shieldConversion)
-                && !isDodging()
-                && !titmouseSpecialActive()
-                && titmouseSpecialReady(variant);
+        return TitmouseSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
     private boolean batSpecialActive() {
@@ -5767,28 +5749,7 @@ public class Bird {
     }
 
     private void resetTitmouseSpecialState(boolean clearObjects) {
-        titmouseScoldTimer = 0;
-        titmouseScoldUltimate = false;
-        Arrays.fill(titmouseScoldHit, false);
-        titmouseBarkskipTimer = 0;
-        titmouseBarkskipUltimate = false;
-        titmouseBarkskipRebounded = false;
-        Arrays.fill(titmouseBarkskipHit, false);
-        titmouseVaultTimer = 0;
-        titmouseVaultUltimate = false;
-        titmouseVaultBoosted = false;
-        Arrays.fill(titmouseVaultHit, false);
-        titmouseStashCharging = false;
-        titmouseStashHoldFrames = 0;
-        titmouseStashUltimate = false;
-        titmouseMobbingNodes.clear();
-        titmouseMobbingTimer = 0;
-        titmouseMobbingNodeIndex = 0;
-        isZipping = false;
-        zipTimer = 0;
-        if (clearObjects) {
-            titmouseSeedStashes.clear();
-        }
+        TitmouseSpecials.reset(this, clearObjects);
     }
 
     private void resetPelicanSpecialState(boolean clearCargo) {
@@ -5934,13 +5895,7 @@ public class Bird {
     }
 
     private void interruptTitmouseSpecialStateOnHit() {
-        if (type != BirdGame3.BirdType.TITMOUSE) {
-            return;
-        }
-        if (titmouseSpecialActive()) {
-            attackAnimationTimer = 0;
-        }
-        resetTitmouseSpecialState(false);
+        TitmouseSpecials.interruptOnHit(this);
     }
 
     private void interruptBatSpecialStateOnHit() {
@@ -11733,7 +11688,7 @@ public class Bird {
                     : type == BirdGame3.BirdType.VULTURE
                     ? canConvertShieldIntoVultureDownSpecial()
                     : type == BirdGame3.BirdType.TITMOUSE
-                    ? selectTitmouseSpecialVariant() == TitmouseSpecialVariant.DOWN && isBlocking && shieldStunFrames <= 0
+                    ? canConvertShieldIntoTitmouseDownSpecial()
                     : type == BirdGame3.BirdType.BAT
                     ? canConvertShieldIntoBatDownSpecial()
                     : type == BirdGame3.BirdType.PELICAN

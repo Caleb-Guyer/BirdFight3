@@ -29,24 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class TitmouseSpecials {
-    private TitmouseSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        if (ultimate) {
-            bird.specialTitmouseMobbingRun();
-            return;
-        }
-        switch (bird.selectTitmouseSpecialVariant()) {
-            case NEUTRAL -> bird.specialTitmouseScoldChorus(false);
-            case SIDE -> bird.specialTitmouseBarkskip();
-            case UP -> bird.specialTitmouseTuftVault();
-            case DOWN -> bird.specialTitmouseSeedStash();
-        }
-    }
-}
-
 final class BatSpecials {
     private BatSpecials() {
     }
