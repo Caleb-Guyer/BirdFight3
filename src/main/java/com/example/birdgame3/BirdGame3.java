@@ -35184,6 +35184,7 @@ public class BirdGame3 extends Application {
     private void drawTrainingLabHud(GraphicsContext g) {
         if (trainingAcademyMode != TrainingAcademyMode.NONE) {
             drawTrainingAcademyHud(g);
+            drawTrainingLiveSpecialOverlay(g);
             return;
         }
 
@@ -35230,6 +35231,126 @@ public class BirdGame3 extends Application {
         double tipsY = panelY + panelH - 76;
         g.fillText("F4 Dummy  F5 Reset  F6 Refill", panelX + 18, tipsY);
         g.fillText("F7 Boxes  F8 Slomo  F9 Freeze  F10 Step", panelX + 18, tipsY + 24);
+        drawTrainingLiveSpecialOverlay(g);
+    }
+
+    private void drawTrainingLiveSpecialOverlay(GraphicsContext g) {
+        if (!trainingModeActive || players == null || players.length == 0) {
+            return;
+        }
+        Bird player = players[0];
+        if (player == null || player.type == null) {
+            return;
+        }
+
+        Bird.DirectionalSpecialInput input = player.selectDirectionalSpecialInput();
+        int selectedIndex = directionalSpecialInputIndex(input);
+        String[] moves = specialMoveNames(player.type);
+        String inputLabel = directionalSpecialInputLabel(input);
+        String moveName = moves[Math.clamp(selectedIndex, 0, moves.length - 1)];
+        String status = player.specialHeld() ? "SPECIAL HELD" : "INPUT PREVIEW";
+        String note = trainingLiveSpecialNote(player);
+
+        double panelW = 472;
+        double panelX = WIDTH - panelW - 28;
+        double panelY = 250;
+        double textX = panelX + 18;
+        double maxTextW = panelW - 36;
+        Font noteFont = Font.font("Consolas", 16);
+        List<String> noteLines = wrapTextToLines(note, noteFont, maxTextW);
+        double panelH = 178 + noteLines.size() * 19.0;
+        Color accent = player.type.color == null ? Color.web("#80DEEA") : player.type.color;
+
+        g.save();
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.74));
+        g.fillRoundRect(panelX, panelY, panelW, panelH, 24, 24);
+        g.setStroke(accent.interpolate(Color.WHITE, 0.35));
+        g.setLineWidth(2.0);
+        g.strokeRoundRect(panelX, panelY, panelW, panelH, 24, 24);
+
+        g.setFill(Color.web("#FFF59D"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        g.fillText("LIVE SPECIAL", textX, panelY + 30);
+
+        g.setFill(Color.web("#CFD8DC"));
+        g.setFont(Font.font("Consolas", 16));
+        g.fillText(shortName(player.name).toUpperCase(Locale.ROOT) + "  |  " + status, textX, panelY + 54);
+
+        g.setFill(accent.deriveColor(0, 1, 1.18, 0.22));
+        g.fillRoundRect(textX, panelY + 70, panelW - 36, 46, 14, 14);
+        g.setStroke(accent.interpolate(Color.WHITE, 0.25));
+        g.setLineWidth(1.4);
+        g.strokeRoundRect(textX, panelY + 70, panelW - 36, 46, 14, 14);
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Arial Black", 20));
+        g.fillText(inputLabel + " SPECIAL: " + moveName, textX + 14, panelY + 100);
+
+        double pillY = panelY + 128;
+        double pillW = 104;
+        double pillGap = 7;
+        String[] labels = {"N", "S", "U", "D"};
+        for (int i = 0; i < labels.length; i++) {
+            drawTrainingSpecialInputPill(g, labels[i], moves[i], i == selectedIndex,
+                    textX + i * (pillW + pillGap), pillY, pillW, 32, accent);
+        }
+
+        g.setFill(Color.web("#B2EBF2"));
+        g.setFont(noteFont);
+        double rowY = panelY + 178;
+        for (String line : noteLines) {
+            g.fillText(line, textX, rowY);
+            rowY += 19;
+        }
+        g.restore();
+    }
+
+    private void drawTrainingSpecialInputPill(GraphicsContext g, String label, String moveName, boolean selected,
+                                              double x, double y, double w, double h, Color accent) {
+        Color fill = selected ? accent.deriveColor(0, 1, 1.10, 0.90) : Color.web("#263238", 0.82);
+        Color stroke = selected ? Color.WHITE.deriveColor(0, 1, 1, 0.82) : Color.web("#90A4AE", 0.48);
+        Color text = selected ? Color.web("#111111") : Color.web("#ECEFF1");
+        g.setFill(fill);
+        g.fillRoundRect(x, y, w, h, 10, 10);
+        g.setStroke(stroke);
+        g.setLineWidth(selected ? 1.8 : 1.1);
+        g.strokeRoundRect(x, y, w, h, 10, 10);
+        g.setFill(text);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 12));
+        String shortMove = moveName == null ? "-" : moveName;
+        if (shortMove.length() > 11) {
+            shortMove = shortMove.substring(0, 10) + ".";
+        }
+        g.fillText(label + " " + shortMove, x + 8, y + 21);
+    }
+
+    private int directionalSpecialInputIndex(Bird.DirectionalSpecialInput input) {
+        return switch (input) {
+            case SIDE -> 1;
+            case UP -> 2;
+            case DOWN -> 3;
+            default -> 0;
+        };
+    }
+
+    private String directionalSpecialInputLabel(Bird.DirectionalSpecialInput input) {
+        return switch (input) {
+            case SIDE -> "SIDE";
+            case UP -> "UP";
+            case DOWN -> "DOWN";
+            default -> "NEUTRAL";
+        };
+    }
+
+    private String trainingLiveSpecialNote(Bird player) {
+        return switch (player.type) {
+            case TITMOUSE -> "MARK improves follow-ups. STASH count: "
+                    + player.titmouseSeedStashes.size() + "/" + Bird.TITMOUSE_MAX_STASHES + ".";
+            case OPIUMBIRD -> "DROWSY slows targets. OPIUM: "
+                    + Math.round(player.getOpiumResourceRatio() * 100.0) + "%. PATCH refuels it.";
+            case HEISENBIRD -> "BRITTLE boosts crystal damage. CRYSTAL: "
+                    + Math.round(player.getOpiumResourceRatio() * 100.0) + "%. NODE refuels it.";
+            default -> specialMoveGuideNote(player.type);
+        };
     }
 
     private void drawTrainingAcademyHud(GraphicsContext g) {
