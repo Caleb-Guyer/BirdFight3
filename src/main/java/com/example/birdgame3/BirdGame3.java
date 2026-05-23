@@ -16230,6 +16230,27 @@ public class BirdGame3 extends Application {
         Runnable[] updateSlot = new Runnable[4];
         int[] nullRockSequenceProgress = new int[4];
         Runnable[] refreshInputAssignmentsRef = new Runnable[1];
+        Label[] specialGuideCards = new Label[4];
+        FlowPane specialGuideStrip = new FlowPane(8, 6);
+        specialGuideStrip.setAlignment(Pos.CENTER_RIGHT);
+        specialGuideStrip.setPrefWrapLength(1080);
+        specialGuideStrip.setMaxWidth(1080);
+        specialGuideStrip.setMinHeight(58);
+        specialGuideStrip.setPrefHeight(58);
+        Runnable[] refreshSpecialGuideRef = new Runnable[1];
+        for (int i = 0; i < specialGuideCards.length; i++) {
+            Label card = createFightSetupSpecialGuideCard(i);
+            specialGuideCards[i] = card;
+            specialGuideStrip.getChildren().add(card);
+        }
+        refreshSpecialGuideRef[0] = () -> {
+            for (int guideIdx = 0; guideIdx < specialGuideCards.length; guideIdx++) {
+                boolean active = guideIdx < activePlayers;
+                BirdType type = active ? fightSetupSelection.selectedBird(guideIdx) : null;
+                boolean randomPick = active && fightSetupSelection.isRandomSelected(guideIdx);
+                refreshFightSetupSpecialGuideCard(specialGuideCards[guideIdx], guideIdx, type, randomPick, active, activePlayers);
+            }
+        };
 
         for (int i = 0; i < 4; i++) {
             int idx = i;
@@ -16389,6 +16410,9 @@ public class BirdGame3 extends Application {
                     skinButtons[idx].setDisable(options.size() <= 1);
                     skinButtons[idx].setOpacity(options.size() <= 1 ? 0.6 : 1.0);
                     skinButtons[idx].setText(adventureSkinLabel(type, skinKey));
+                }
+                if (refreshSpecialGuideRef[0] != null) {
+                    refreshSpecialGuideRef[0].run();
                 }
                 updateReadyBanner.run();
             };
@@ -16682,6 +16706,9 @@ public class BirdGame3 extends Application {
             }
             refreshInputAssignments.run();
             refreshPlayerCountControls.run();
+            if (refreshSpecialGuideRef[0] != null) {
+                refreshSpecialGuideRef[0].run();
+            }
             updateReadyBanner.run();
             if (fightSceneRef[0] != null) {
                 javafx.application.Platform.runLater(() -> {
@@ -16705,7 +16732,9 @@ public class BirdGame3 extends Application {
         rosterTitle.setFont(Font.font("Arial Black", 28));
         rosterTitle.setTextFill(Color.web("#FFF176"));
         rosterTitle.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.30)));
-        HBox rosterHeader = new HBox(rosterTitle);
+        Region rosterSpacer = new Region();
+        HBox.setHgrow(rosterSpacer, Priority.ALWAYS);
+        HBox rosterHeader = new HBox(16, rosterTitle, rosterSpacer, specialGuideStrip);
         rosterHeader.setAlignment(Pos.CENTER_LEFT);
 
         VBox rosterCard = new VBox(10, rosterHeader, selectionPane);
@@ -33083,6 +33112,68 @@ public class BirdGame3 extends Application {
                 + "-fx-font-weight: bold; -fx-background-radius: 16; "
                 + "-fx-border-color: rgba(255,255,255,0.16); -fx-border-width: 2; "
                 + "-fx-border-radius: 16;");
+    }
+
+    private Label createFightSetupSpecialGuideCard(int playerIdx) {
+        Label card = new Label();
+        card.setWrapText(true);
+        card.setTextAlignment(TextAlignment.CENTER);
+        card.setAlignment(Pos.CENTER);
+        card.setPadding(new Insets(6, 8, 6, 8));
+        card.setFont(Font.font("Consolas", FontWeight.BOLD, 11.5));
+        applyNoEllipsis(card);
+        refreshFightSetupSpecialGuideCard(card, playerIdx, null, false, false, activePlayers);
+        return card;
+    }
+
+    private void refreshFightSetupSpecialGuideCard(Label card, int playerIdx, BirdType type,
+                                                   boolean randomPick, boolean active, int activeCount) {
+        if (card == null) {
+            return;
+        }
+        double width = activeCount >= 4 ? 252.0 : activeCount == 3 ? 292.0 : 368.0;
+        double height = activeCount >= 4 ? 56.0 : 58.0;
+        Color accent = switch (playerIdx) {
+            case 0 -> Color.web("#F44336");
+            case 1 -> Color.web("#42A5F5");
+            case 2 -> Color.web("#FDD835");
+            default -> Color.web("#66BB6A");
+        };
+        String accentHex = toHex(accent);
+
+        card.setVisible(active);
+        card.setManaged(active);
+        card.setMinSize(width, height);
+        card.setPrefSize(width, height);
+        card.setMaxSize(width, height);
+        if (!active) {
+            return;
+        }
+
+        boolean waitingForPick = type == null && !randomPick;
+        String text = fightSetupSpecialGuideText(playerIdx, type, randomPick);
+        card.setFont(Font.font("Consolas", FontWeight.BOLD, activeCount >= 4 ? 10.6 : 11.5));
+        card.setTextFill(waitingForPick && playerIdx == 2 ? Color.web("#111111") : Color.WHITE);
+        card.setStyle("-fx-background-color: " + (waitingForPick ? accentHex : "rgba(12, 17, 24, 0.94)") + "; "
+                + "-fx-background-radius: 12; -fx-border-color: " + accentHex + "; "
+                + "-fx-border-width: 2; -fx-border-radius: 12;");
+        fitWrappedLabelText(card, text, width - 18.0, height - 12.0, activeCount >= 4 ? 8.4 : 9.0);
+    }
+
+    private String fightSetupSpecialGuideText(int playerIdx, BirdType type, boolean randomPick) {
+        String prefix = "P" + (playerIdx + 1) + " ";
+        if (randomPick) {
+            return prefix + "RANDOM | SPECIALS REVEALED AT START";
+        }
+        if (type == null) {
+            return prefix + "SELECT BIRD | NEUTRAL | SIDE | UP | DOWN";
+        }
+        String[] moves = specialMoveNames(type);
+        return prefix + type.name.toUpperCase(Locale.ROOT)
+                + " | N " + moves[0]
+                + " | S " + moves[1]
+                + " | U " + moves[2]
+                + " | D " + moves[3];
     }
 
     private void applyFightSetupSlotLayout(
