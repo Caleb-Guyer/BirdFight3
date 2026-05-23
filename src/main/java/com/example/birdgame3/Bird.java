@@ -10,6 +10,7 @@ import javafx.scene.shape.ArcType;
 import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.scene.text.TextAlignment;
 import com.example.birdgame3.BirdGame3.MapType;
 
 import java.util.ArrayList;
@@ -250,6 +251,10 @@ public class Bird {
     public double stunTime = 0;
     public int specialCooldown = 0;
     public int specialMaxCooldown = 120;
+    private static final int SPECIAL_HIT_CONFIRM_FRAMES = 22;
+    int specialHitConfirmTimer = 0;
+    int specialHitConfirmDamage = 0;
+    Color specialHitConfirmColor = Color.WHITE;
     public int attackCooldown = 0;
     public int attackAnimationTimer = 0;
     private int attackChargeFrames = 0;
@@ -11020,10 +11025,35 @@ public class Bird {
         }
         game.damageDealt[playerIndex] += dealt;
         game.recordSpecialImpact(playerIndex, dealt, true);
+        confirmSpecialHit(dealt, specialHitConfirmAccent());
         if (target.health <= 0 && oldHealth > 0) {
             game.eliminations[playerIndex]++;
         }
         return dealt;
+    }
+
+    void confirmSpecialHit(int dealt, Color color) {
+        if (dealt <= 0) {
+            return;
+        }
+        specialHitConfirmDamage = specialHitConfirmTimer > 0
+                ? Math.min(999, specialHitConfirmDamage + dealt)
+                : dealt;
+        specialHitConfirmTimer = SPECIAL_HIT_CONFIRM_FRAMES;
+        specialHitConfirmColor = color == null ? Color.WHITE : color;
+    }
+
+    private Color specialHitConfirmAccent() {
+        if (type == BirdGame3.BirdType.TITMOUSE) {
+            return Color.web("#CFD8DC");
+        }
+        if (type == BirdGame3.BirdType.HEISENBIRD) {
+            return Color.web("#81D4FA");
+        }
+        if (type == BirdGame3.BirdType.OPIUMBIRD) {
+            return Color.web("#CE93D8");
+        }
+        return Color.web("#FFF176");
     }
 
     void applyOpiumDrowsy(Bird owner, boolean ultimate) {
@@ -15050,6 +15080,7 @@ public class Bird {
         drawTitmouseMarkEffect(g, drawSize);
         drawOpiumDrowsyEffect(g, drawSize);
         drawHeisenBrittleEffect(g, drawSize);
+        drawSpecialHitConfirm(g, drawSize);
         drawRoadrunnerSlipEffect(g);
         drawRavenPortentMarkEffect(g, drawSize);
         drawPigeonSpecialFx(g, drawSize);
@@ -15338,6 +15369,10 @@ public class Bird {
         g.strokeArc(cx - drawSize * 0.32, cy - drawSize * 0.58,
                 drawSize * 0.64, drawSize * 0.42, 204, 132, ArcType.OPEN);
         g.restore();
+        double labelRatio = Math.clamp(titmouseMarkedTimer / (double) (titmouseMarkedUltimate
+                ? TITMOUSE_MARK_FRAMES + 80
+                : TITMOUSE_MARK_FRAMES), 0.0, 1.0);
+        drawFloatingStatusLabel(g, cx, y - 8.0 * s, "MARK", ring, 0.68 * labelRatio);
     }
 
     private void drawHummingbirdNectarTraps(GraphicsContext g) {
@@ -15381,19 +15416,29 @@ public class Bird {
         if (titmouseSeedStashes.isEmpty()) {
             return;
         }
-        for (TitmouseSeedStash stash : titmouseSeedStashes) {
+        double s = sizeMultiplier;
+        for (int i = 0; i < titmouseSeedStashes.size(); i++) {
+            TitmouseSeedStash stash = titmouseSeedStashes.get(i);
             double pulse = 0.5 + 0.5 * Math.sin(stash.ageFrames * 0.18);
             Color shell = stash.ultimate ? Color.GOLD : Color.web("#8D6E63");
             Color glow = shell.deriveColor(0, 1, 1, 0.18 + pulse * 0.12);
+            double radius = (stash.ultimate ? 112.0 : 92.0) * s;
             g.save();
+            g.setStroke((stash.ultimate ? Color.GOLD : Color.web("#BCAAA4"))
+                    .deriveColor(0, 1, 1, 0.18 + pulse * 0.16));
+            g.setLineWidth(1.5 * s);
+            g.strokeOval(stash.x - radius, stash.y - 20.0 * s - radius * 0.50,
+                    radius * 2.0, radius);
             g.setFill(glow);
-            g.fillOval(stash.x - 26.0, stash.y - 22.0, 52.0, 28.0);
+            g.fillOval(stash.x - 26.0 * s, stash.y - 22.0 * s, 52.0 * s, 28.0 * s);
             g.setFill(shell);
-            g.fillOval(stash.x - 12.0, stash.y - 18.0, 24.0, 16.0);
+            g.fillOval(stash.x - 12.0 * s, stash.y - 18.0 * s, 24.0 * s, 16.0 * s);
             g.setStroke((stash.ultimate ? Color.web("#FFF59D") : Color.web("#D7CCC8")).deriveColor(0, 1, 1, 0.82));
-            g.setLineWidth(2.0);
-            g.strokeArc(stash.x - 18.0, stash.y - 24.0, 36.0, 24.0, 8, 164, ArcType.OPEN);
+            g.setLineWidth(2.0 * s);
+            g.strokeArc(stash.x - 18.0 * s, stash.y - 24.0 * s, 36.0 * s, 24.0 * s, 8, 164, ArcType.OPEN);
             g.restore();
+            drawFloatingStatusLabel(g, stash.x, stash.y - 34.0 * s,
+                    "STASH " + (i + 1), shell, 0.42 + pulse * 0.16);
         }
     }
 
@@ -15767,6 +15812,14 @@ public class Bird {
                 g.setLineWidth(2.0 + progress * 1.4);
                 g.strokeOval(trap.x - 66.0, trap.y - 34.0, 132.0, 56.0);
                 g.strokeLine(trap.x - 22.0, trap.y - size * 0.76, trap.x + 12.0, trap.y - 12.0);
+                g.setStroke(Color.web("#B3E5FC").deriveColor(0, 1, 1, (0.18 + 0.16 * pulse) * lifeRatio));
+                g.setLineWidth(1.6);
+                g.strokeOval(trap.x - 92.0, trap.y - 54.0, 184.0, 108.0);
+                g.setStroke(Color.web("#E1F5FE").deriveColor(0, 1, 1, 0.14 * lifeRatio));
+                g.setLineWidth(1.2);
+                g.strokeOval(trap.x - 132.0, trap.y - 84.0, 264.0, 132.0);
+                drawFloatingStatusLabel(g, trap.x, trap.y - 58.0, "NODE",
+                        Color.web("#81D4FA"), 0.46 + pulse * 0.14);
                 continue;
             }
 
@@ -15789,6 +15842,11 @@ public class Bird {
                 g.strokeArc(trap.x + wave - 20.0, trap.y - 22.0 + i * 2.0, 54.0, 18.0,
                         8 + i * 18 + trap.ageFrames * 0.8, 140, ArcType.OPEN);
             }
+            g.setStroke(Color.web("#F3E5F5").deriveColor(0, 1, 1, (0.16 + 0.12 * pulse) * lifeRatio));
+            g.setLineWidth(1.4);
+            g.strokeOval(trap.x - 94.0, trap.y - 58.0, 188.0, 116.0);
+            drawFloatingStatusLabel(g, trap.x, trap.y - 48.0, "PATCH",
+                    Color.web("#CE93D8"), 0.44 + pulse * 0.12);
         }
     }
 
@@ -15815,6 +15873,8 @@ public class Bird {
                     200,
                     ArcType.OPEN);
         }
+        drawFloatingStatusLabel(g, centerX, y - 8.0 * sizeMultiplier, "DROWSY",
+                opiumDrowsyUltimate ? Color.GOLD : Color.web("#CE93D8"), 0.72 * ratio);
     }
 
     private void drawHeisenBrittleEffect(GraphicsContext g, double drawSize) {
@@ -15841,6 +15901,78 @@ public class Bird {
                     new double[]{sy, sy - 10.0 * sizeMultiplier, sy, sy + 10.0 * sizeMultiplier},
                     4
             );
+        }
+        drawFloatingStatusLabel(g, centerX, y - 8.0 * sizeMultiplier, "BRITTLE", shard, 0.72 * ratio);
+    }
+
+    private void drawFloatingStatusLabel(GraphicsContext g, double centerX, double baselineY,
+                                         String text, Color color, double alpha) {
+        alpha = Math.clamp(alpha, 0.0, 0.82);
+        if (alpha <= 0.02 || text == null || text.isEmpty()) {
+            return;
+        }
+        double s = Math.clamp(sizeMultiplier, 0.78, 1.25);
+        double fontSize = 10.0 * s;
+        double tagWidth = Math.max(44.0 * s, text.length() * fontSize * 0.68 + 14.0 * s);
+        double tagHeight = 16.0 * s;
+        double tagX = centerX - tagWidth * 0.5;
+        Color accent = color == null ? Color.WHITE : color;
+
+        g.save();
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.46 * alpha));
+        g.fillRoundRect(tagX, baselineY - tagHeight + 3.0 * s, tagWidth, tagHeight, 6.0 * s, 6.0 * s);
+        g.setStroke(accent.deriveColor(0, 1, 1, 0.72 * alpha));
+        g.setLineWidth(1.0 * s);
+        g.strokeRoundRect(tagX, baselineY - tagHeight + 3.0 * s, tagWidth, tagHeight, 6.0 * s, 6.0 * s);
+        g.setFont(Font.font("Arial Black", fontSize));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.94 * alpha));
+        g.fillText(text, centerX, baselineY - 3.0 * s);
+        g.restore();
+    }
+
+    private void drawSpecialHitConfirm(GraphicsContext g, double drawSize) {
+        if (specialHitConfirmTimer <= 0) {
+            return;
+        }
+
+        double ratio = Math.clamp(specialHitConfirmTimer / (double) SPECIAL_HIT_CONFIRM_FRAMES, 0.0, 1.0);
+        double s = Math.clamp(sizeMultiplier, 0.78, 1.35);
+        double centerX = bodyCenterX();
+        double centerY = bodyCenterY();
+        double spread = 1.0 - ratio;
+        double ringW = drawSize * (0.70 + spread * 0.28);
+        double ringH = drawSize * (0.54 + spread * 0.18);
+        Color accent = specialHitConfirmColor == null ? Color.WHITE : specialHitConfirmColor;
+        String text = "HIT " + specialHitConfirmDamage;
+        double fontSize = 13.0 * s;
+        double tagWidth = Math.max(58.0 * s, text.length() * fontSize * 0.66 + 16.0 * s);
+        double tagHeight = 20.0 * s;
+        double tagX = centerX - tagWidth * 0.5;
+        double tagY = y - (13.0 + spread * 18.0) * s;
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setEffect(new Glow(0.44));
+        g.setStroke(accent.deriveColor(0, 1, 1, 0.22 + ratio * 0.58));
+        g.setLineWidth((2.0 + ratio * 2.4) * s);
+        g.strokeOval(centerX - ringW, centerY - ringH, ringW * 2.0, ringH * 2.0);
+        g.setEffect(null);
+
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.62 * ratio));
+        g.fillRoundRect(tagX, tagY - tagHeight, tagWidth, tagHeight, 7.0 * s, 7.0 * s);
+        g.setStroke(accent.deriveColor(0, 1, 1, 0.72 * ratio));
+        g.setLineWidth(1.3 * s);
+        g.strokeRoundRect(tagX, tagY - tagHeight, tagWidth, tagHeight, 7.0 * s, 7.0 * s);
+        g.setFont(Font.font("Arial Black", fontSize));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.96 * ratio));
+        g.fillText(text, centerX, tagY - 5.0 * s);
+        g.restore();
+
+        specialHitConfirmTimer = Math.max(0, specialHitConfirmTimer - 1);
+        if (specialHitConfirmTimer <= 0) {
+            specialHitConfirmDamage = 0;
         }
     }
 
@@ -18995,7 +19127,214 @@ public class Bird {
         g.fillText(isTrueNullRockForm() ? "DIVINE SHELL" : "VOID SHELL", x - 6 * sizeMultiplier, y - 34 * sizeMultiplier);
     }
 
+    private boolean drawDirectedSpecialReadiness(GraphicsContext g) {
+        if (isOpiumEchoPair()) {
+            if (!suppressSelectEffects && health > 0) {
+                drawOpiumSpecialReadiness(g);
+            }
+            return true;
+        }
+        if (type == BirdGame3.BirdType.TITMOUSE) {
+            if (!suppressSelectEffects && health > 0) {
+                drawTitmouseSpecialReadiness(g);
+            }
+            return true;
+        }
+        return false;
+    }
+
+    private void drawOpiumSpecialReadiness(GraphicsContext g) {
+        OpiumSpecialVariant variant = selectOpiumSpecialVariant();
+        boolean heisen = type == BirdGame3.BirdType.HEISENBIRD;
+        boolean ready = opiumSpecialReady(variant);
+        int cooldown = selectedOpiumSpecialCooldown(variant);
+        int maxCooldown = selectedOpiumSpecialMaxCooldown(variant);
+        double progress = ready ? 1.0 : cooldownProgress(cooldown, maxCooldown);
+        boolean warning = false;
+        String stateText;
+
+        if (opiumSpecialActive()) {
+            stateText = "ACTIVE";
+            progress = 0.86;
+        } else if (isUltimateReady()) {
+            stateText = "ULT READY";
+            progress = 1.0;
+        } else if (ready) {
+            if (variant == OpiumSpecialVariant.DOWN) {
+                int trapCount = opiumTraps.size();
+                stateText = trapCount > 0
+                        ? (heisen ? "NODE " : "PATCH ") + trapCount
+                        : "READY";
+            } else {
+                int fuel = (int) Math.round(getOpiumResourceRatio() * 100.0);
+                if (hasOpiumResource()) {
+                    stateText = "FUEL " + fuel + "%";
+                } else {
+                    stateText = "DRY";
+                    warning = true;
+                }
+            }
+        } else if (variant == OpiumSpecialVariant.UP && opiumUpSpecialUsed) {
+            stateText = "LAND";
+            progress = 0.0;
+            warning = true;
+        } else {
+            stateText = cooldownFramesText(cooldown);
+        }
+
+        drawSpecialReadinessPanel(g, opiumSpecialLabel(variant, heisen), stateText, progress,
+                ready || isUltimateReady() || opiumSpecialActive(), warning,
+                heisen ? Color.web("#81D4FA") : Color.web("#CE93D8"));
+    }
+
+    private void drawTitmouseSpecialReadiness(GraphicsContext g) {
+        TitmouseSpecialVariant variant = selectTitmouseSpecialVariant();
+        boolean ready = titmouseSpecialReady(variant);
+        int cooldown = selectedTitmouseSpecialCooldown(variant);
+        int maxCooldown = selectedTitmouseSpecialMaxCooldown(variant);
+        double progress = ready ? 1.0 : cooldownProgress(cooldown, maxCooldown);
+        boolean warning = false;
+        String stateText;
+
+        if (titmouseStashCharging) {
+            stateText = "ARMING";
+            progress = Math.clamp(titmouseStashHoldFrames / (double) TITMOUSE_STASH_HOLD_FRAMES, 0.0, 1.0);
+        } else if (titmouseSpecialActive()) {
+            stateText = "ACTIVE";
+            progress = 0.86;
+        } else if (isUltimateReady()) {
+            stateText = "ULT READY";
+            progress = 1.0;
+        } else if (ready) {
+            stateText = switch (variant) {
+                case NEUTRAL -> "READY";
+                case SIDE -> TitmouseSpecials.preferredRouteStash(this, facingDirection(),
+                        230.0 * sizeMultiplier) == null ? "READY" : "REBOUND";
+                case UP -> TitmouseSpecials.nearestStash(this, 150.0 * sizeMultiplier) == null
+                        ? "READY"
+                        : "BOOST";
+                case DOWN -> titmouseSeedStashes.size() + "/" + TITMOUSE_MAX_STASHES;
+            };
+        } else if (variant == TitmouseSpecialVariant.UP && titmouseVaultUsed) {
+            stateText = "LAND";
+            progress = 0.0;
+            warning = true;
+        } else {
+            stateText = cooldownFramesText(cooldown);
+        }
+
+        drawSpecialReadinessPanel(g, titmouseSpecialLabel(variant), stateText, progress,
+                ready || isUltimateReady() || titmouseSpecialActive(), warning, Color.web("#90CAF9"));
+    }
+
+    private String opiumSpecialLabel(OpiumSpecialVariant variant, boolean heisen) {
+        return switch (variant) {
+            case NEUTRAL -> heisen ? "SHARDS" : "CLOUD";
+            case SIDE -> heisen ? "SLICE" : "RUSH";
+            case UP -> heisen ? "SPIRE" : "RISE";
+            case DOWN -> heisen ? "NODE" : "PATCH";
+        };
+    }
+
+    private String titmouseSpecialLabel(TitmouseSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> "SCOLD";
+            case SIDE -> "SKIP";
+            case UP -> "VAULT";
+            case DOWN -> "STASH";
+        };
+    }
+
+    private int selectedOpiumSpecialCooldown(OpiumSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> opiumNeutralReuseTimer;
+            case SIDE -> opiumSideReuseTimer;
+            case UP -> opiumUpSpecialUsed ? 1 : 0;
+            case DOWN -> opiumDownReuseTimer;
+        };
+    }
+
+    private int selectedOpiumSpecialMaxCooldown(OpiumSpecialVariant variant) {
+        boolean heisen = type == BirdGame3.BirdType.HEISENBIRD;
+        return switch (variant) {
+            case NEUTRAL -> heisen ? HEISEN_NEUTRAL_REUSE_FRAMES : OPIUM_NEUTRAL_REUSE_FRAMES;
+            case SIDE -> heisen ? HEISEN_SIDE_REUSE_FRAMES : OPIUM_SIDE_REUSE_FRAMES;
+            case UP -> 1;
+            case DOWN -> heisen ? HEISEN_DOWN_REUSE_FRAMES : OPIUM_DOWN_REUSE_FRAMES;
+        };
+    }
+
+    private int selectedTitmouseSpecialCooldown(TitmouseSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> titmouseScoldReuseTimer;
+            case SIDE -> titmouseBarkskipReuseTimer;
+            case UP -> titmouseVaultUsed ? 1 : titmouseVaultReuseTimer;
+            case DOWN -> titmouseStashReuseTimer;
+        };
+    }
+
+    private int selectedTitmouseSpecialMaxCooldown(TitmouseSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> TITMOUSE_SCOLD_REUSE_FRAMES;
+            case SIDE -> TITMOUSE_BARKSKIP_REUSE_FRAMES;
+            case UP -> titmouseVaultUsed ? 1 : TITMOUSE_VAULT_REUSE_FRAMES;
+            case DOWN -> TITMOUSE_STASH_REUSE_FRAMES;
+        };
+    }
+
+    private double cooldownProgress(int cooldown, int maxCooldown) {
+        if (maxCooldown <= 0) {
+            return 0.0;
+        }
+        return 1.0 - Math.clamp(cooldown / (double) maxCooldown, 0.0, 1.0);
+    }
+
+    private String cooldownFramesText(int cooldown) {
+        return Math.max(1, (int) Math.ceil(Math.max(1, cooldown) / 60.0)) + "s";
+    }
+
+    private void drawSpecialReadinessPanel(GraphicsContext g, String moveLabel, String stateText,
+                                           double progress, boolean ready, boolean warning, Color accent) {
+        double drawSize = 80.0 * sizeMultiplier;
+        double s = Math.clamp(sizeMultiplier, 0.82, 1.18);
+        double width = 118.0 * s;
+        double height = 31.0 * s;
+        double panelX = x + drawSize * 0.5 - width * 0.5;
+        double panelY = y + drawSize + 9.0 * s;
+        double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 120.0);
+        Color safeAccent = accent == null ? Color.WHITE : accent;
+        Color stateColor = warning
+                ? Color.web("#FFB74D")
+                : ready ? safeAccent.deriveColor(0, 1, 1.0 + pulse * 0.24, 1)
+                : Color.web("#B0BEC5");
+        double fillWidth = Math.max(0.0, (width - 14.0 * s) * Math.clamp(progress, 0.0, 1.0));
+
+        g.save();
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.70));
+        g.fillRoundRect(panelX, panelY, width, height, 8.0 * s, 8.0 * s);
+        g.setStroke(stateColor.deriveColor(0, 1, 1, ready ? 0.76 : 0.56));
+        g.setLineWidth((ready ? 1.8 : 1.3) * s);
+        g.strokeRoundRect(panelX, panelY, width, height, 8.0 * s, 8.0 * s);
+
+        g.setFont(Font.font("Arial Black", 9.0 * s));
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.94));
+        g.setTextAlign(TextAlignment.LEFT);
+        g.fillText(moveLabel, panelX + 8.0 * s, panelY + 12.5 * s);
+        g.setTextAlign(TextAlignment.RIGHT);
+        g.setFill(stateColor.deriveColor(0, 1, 1, 0.96));
+        g.fillText(stateText, panelX + width - 8.0 * s, panelY + 12.5 * s);
+
+        g.setFill(Color.web("#263238").deriveColor(0, 1, 1, 0.82));
+        g.fillRoundRect(panelX + 7.0 * s, panelY + 20.0 * s, width - 14.0 * s, 5.0 * s, 4.0 * s, 4.0 * s);
+        g.setFill(stateColor.deriveColor(0, 1, 1, ready ? 0.90 : 0.72));
+        g.fillRoundRect(panelX + 7.0 * s, panelY + 20.0 * s, fillWidth, 5.0 * s, 4.0 * s, 4.0 * s);
+        g.restore();
+    }
+
     private void drawSpecialCooldown(GraphicsContext g) {
+        if (drawDirectedSpecialReadiness(g)) {
+            return;
+        }
         if (type == BirdGame3.BirdType.PHOENIX) {
             return;
         }

@@ -256,6 +256,7 @@ final class TitmouseSpecials {
                 if (dealt <= 0) continue;
                 bird.game.damageDealt[bird.playerIndex] += dealt;
                 bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
+                bird.confirmSpecialHit(dealt, ultimate || stash.ultimate ? Color.GOLD : Color.web("#BCAAA4"));
                 if (other.health <= 0 && oldHealth > 0) {
                     bird.game.eliminations[bird.playerIndex]++;
                 }
@@ -330,6 +331,7 @@ final class TitmouseSpecials {
             if (dealt <= 0) continue;
             bird.game.damageDealt[bird.playerIndex] += dealt;
             bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
+            bird.confirmSpecialHit(dealt, bird.titmouseScoldUltimate ? Color.GOLD : Color.web("#CFD8DC"));
             if (other.health <= 0 && oldHealth > 0) {
                 bird.game.eliminations[bird.playerIndex]++;
             }
@@ -376,6 +378,7 @@ final class TitmouseSpecials {
             if (dealt <= 0) continue;
             bird.game.damageDealt[bird.playerIndex] += dealt;
             bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
+            bird.confirmSpecialHit(dealt, bird.titmouseBarkskipUltimate ? Color.GOLD : Color.web("#90CAF9"));
             if (other.health <= 0 && oldHealth > 0) {
                 bird.game.eliminations[bird.playerIndex]++;
             }
@@ -424,6 +427,7 @@ final class TitmouseSpecials {
             if (dealt <= 0) continue;
             bird.game.damageDealt[bird.playerIndex] += dealt;
             bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
+            bird.confirmSpecialHit(dealt, bird.titmouseVaultUltimate ? Color.GOLD : Color.web("#CFD8DC"));
             if (other.health <= 0 && oldHealth > 0) {
                 bird.game.eliminations[bird.playerIndex]++;
             }
@@ -526,6 +530,7 @@ final class TitmouseSpecials {
         }
         bird.game.damageDealt[bird.playerIndex] += dealt;
         bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
+        bird.confirmSpecialHit(dealt, Color.GOLD);
         if (target.health <= 0 && oldHealth > 0) {
             bird.game.eliminations[bird.playerIndex]++;
         }
