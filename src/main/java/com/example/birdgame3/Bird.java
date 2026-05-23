@@ -760,26 +760,26 @@ public class Bird {
 
     // === MOCKINGBIRD LOUNGE ===
     public int loungeHealth = 0;
-    private static final int LOUNGE_MAX_HEALTH = 100;
+    static final int LOUNGE_MAX_HEALTH = 100;
     private static final double LOUNGE_HEAL_PER_SECOND = 12.0;
-    private int loungeMaxHealth = LOUNGE_MAX_HEALTH;
+    int loungeMaxHealth = LOUNGE_MAX_HEALTH;
     public int loungeDamageFlash = 0;
-    private boolean loungeRoyal = false;
+    boolean loungeRoyal = false;
     private static final int MOCKINGBIRD_LOUNGE_UNCAPTURE_FRAMES = 180;
-    private static final int MOCKINGBIRD_QUESTION_FRAMES = 44;
-    private static final int MOCKINGBIRD_SIDE_FX_FRAMES = 18;
-    private static final int MOCKINGBIRD_SIDE_REUSE_FRAMES = 30;
-    private static final int MOCKINGBIRD_UP_FX_FRAMES = 26;
-    private static final int MOCKINGBIRD_UP_REUSE_FRAMES = 34;
-    private BirdGame3.BirdType mockingbirdCapturedType = null;
+    static final int MOCKINGBIRD_QUESTION_FRAMES = 44;
+    static final int MOCKINGBIRD_SIDE_FX_FRAMES = 18;
+    static final int MOCKINGBIRD_SIDE_REUSE_FRAMES = 30;
+    static final int MOCKINGBIRD_UP_FX_FRAMES = 26;
+    static final int MOCKINGBIRD_UP_REUSE_FRAMES = 34;
+    BirdGame3.BirdType mockingbirdCapturedType = null;
     BirdGame3.BirdType mockingbirdCopiedNeutralSource = null;
-    private int mockingbirdUncaptureTimer = 0;
-    private int mockingbirdQuestionTimer = 0;
-    private int mockingbirdSideFxTimer = 0;
-    private int mockingbirdSideReuseTimer = 0;
-    private int mockingbirdUpFxTimer = 0;
-    private int mockingbirdUpReuseTimer = 0;
-    private boolean mockingbirdUpSpecialUsed = false;
+    int mockingbirdUncaptureTimer = 0;
+    int mockingbirdQuestionTimer = 0;
+    int mockingbirdSideFxTimer = 0;
+    int mockingbirdSideReuseTimer = 0;
+    int mockingbirdUpFxTimer = 0;
+    int mockingbirdUpReuseTimer = 0;
+    boolean mockingbirdUpSpecialUsed = false;
 
     // === VINE GRAPPLE ===
     private int grappleTimer = 0;
@@ -3929,201 +3929,23 @@ public class Bird {
     }
 
     void specialMockingbirdNeutral(boolean ultimate) {
-        if (mockingbirdCapturedType == null) {
-            mockingbirdQuestionTimer = MOCKINGBIRD_QUESTION_FRAMES;
-            attackAnimationTimer = Math.max(attackAnimationTimer, 14);
-            specialCooldown = 18;
-            specialMaxCooldown = 18;
-            vx *= 0.72;
-            for (int i = 0; i < scaledParticleCount(12); i++) {
-                double angle = -Math.PI / 2.0 + (Math.random() - 0.5) * 1.4;
-                double speed = 1.4 + Math.random() * 3.2;
-                game.particles.add(new Particle(
-                        bodyCenterX() + (Math.random() - 0.5) * 24.0 * sizeMultiplier,
-                        bodyCenterY() - 34.0 * sizeMultiplier,
-                        Math.cos(angle) * speed,
-                        Math.sin(angle) * speed,
-                        Color.WHITE.deriveColor(0, 1, 1, 0.72)
-                ));
-            }
-            return;
-        }
-
-        performMockingbirdCopiedNeutral(mockingbirdCapturedType, ultimate);
+        MockingbirdSpecials.neutral(this, ultimate);
     }
 
     private void performMockingbirdCopiedNeutral(BirdGame3.BirdType source, boolean ultimate) {
-        if (source == null || source == BirdGame3.BirdType.MOCKINGBIRD) {
-            mockingbirdCapturedType = null;
-            mockingbirdCopiedNeutralSource = null;
-            return;
-        }
-
-        BirdGame3.BirdType originalType = type;
-        type = source;
-        try {
-            switch (source) {
-                case PIGEON -> PigeonSpecials.neutral(this, ultimate);
-                case EAGLE, FALCON -> RaptorSpecials.neutral(this, ultimate);
-                case PHOENIX -> PhoenixSpecials.neutral(this, ultimate);
-                case HUMMINGBIRD -> HummingbirdSpecials.neutral(this, ultimate);
-                case TURKEY -> TurkeySpecials.neutral(this, ultimate);
-                case ROOSTER -> specialRoosterCallChick(ultimate);
-                case ROADRUNNER -> specialRoadrunnerBeepBlitz(ultimate);
-                case PENGUIN -> PenguinSpecials.neutral(this, ultimate);
-                case SHOEBILL -> ShoebillSpecials.neutral(this, ultimate);
-                case RAZORBILL -> specialRazorbillNeutral(ultimate);
-                case GRINCHHAWK -> specialGrinchhawk(ultimate);
-                case VULTURE -> specialVultureCarrionCall(ultimate);
-                case OPIUMBIRD -> specialOpiumNeutral(ultimate);
-                case HEISENBIRD -> specialHeisenNeutral(ultimate);
-                case TITMOUSE -> specialTitmouseScoldChorus(ultimate);
-                case BAT -> specialBatNeutral(ultimate);
-                case PELICAN -> specialPelicanPouchSnare(ultimate);
-                case RAVEN -> fireRavenBlackQuillVolley(false, ultimate);
-            }
-            mockingbirdCopiedNeutralSource = source;
-        } finally {
-            type = originalType;
-        }
+        MockingbirdSpecials.performCopiedNeutral(this, source, ultimate);
     }
 
     void specialMockingbirdSide(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        mockingbirdSideFxTimer = MOCKINGBIRD_SIDE_FX_FRAMES + (ultimate ? 5 : 0);
-        mockingbirdSideReuseTimer = ultimate ? 10 : MOCKINGBIRD_SIDE_REUSE_FRAMES;
-        attackAnimationTimer = Math.max(attackAnimationTimer, mockingbirdSideFxTimer);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        vx = vx * 0.45 - dir * (ultimate ? 3.2 : 2.2);
-        if (!isOnGround()) {
-            vy = Math.min(vy, ultimate ? 0.4 : 0.9);
-        }
-
-        double centerX = bodyCenterX() + dir * 74.0 * sizeMultiplier;
-        double centerY = bodyCenterY() - 6.0 * sizeMultiplier;
-        double reach = (ultimate ? 164.0 : 142.0) * sizeMultiplier;
-        double verticalReach = (ultimate ? 62.0 : 52.0) * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double forward = dx * dir;
-            if (forward < -other.combatHalfWidth() * 0.45 || forward > reach + other.combatHalfWidth()) continue;
-            double dy = Math.abs(other.bodyCenterY() - centerY);
-            if (dy > verticalReach + other.combatHalfHeight()) continue;
-
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, ultimate ? 11 : 8);
-            if (dealt <= 0) continue;
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            other.vx += dir * (ultimate ? 10.8 : 8.6);
-            other.vy -= ultimate ? 5.6 : 4.2;
-            other.applyStun(ultimate ? 28 : 18);
-        }
-
-        Color pulse = ultimate ? Color.GOLD : Color.web("#D7B5FF");
-        for (int ring = 0; ring < 3; ring++) {
-            for (int i = 0; i < scaledParticleCount(7); i++) {
-                double spread = (Math.random() - 0.5) * (28.0 + ring * 14.0);
-                game.particles.add(new Particle(
-                        bodyCenterX() + dir * (26.0 + ring * 30.0 + Math.random() * 22.0),
-                        centerY + spread,
-                        dir * (2.6 + ring * 0.8 + Math.random() * 2.4),
-                        spread * 0.045,
-                        pulse.deriveColor(0, 1, 1, 0.68)
-                ));
-            }
-        }
+        MockingbirdSpecials.side(this, ultimate);
     }
 
     void specialMockingbirdUp(boolean ultimate) {
-        if (mockingbirdUpSpecialUsed) {
-            return;
-        }
-        int dir = horizontalInputDirection();
-        if (dir != 0) {
-            facingRight = dir > 0;
-        }
-        mockingbirdUpSpecialUsed = true;
-        mockingbirdUpFxTimer = MOCKINGBIRD_UP_FX_FRAMES + (ultimate ? 8 : 0);
-        mockingbirdUpReuseTimer = ultimate ? 12 : MOCKINGBIRD_UP_REUSE_FRAMES;
-        attackAnimationTimer = Math.max(attackAnimationTimer, mockingbirdUpFxTimer);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        canDoubleJump = true;
-        vx = vx * 0.48 + dir * (ultimate ? 4.8 : 3.4);
-        vy = ultimate ? -18.4 : -15.9;
-
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY() + 22.0 * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = Math.abs(other.bodyCenterX() - centerX);
-            double dy = Math.abs(other.bodyCenterY() - centerY);
-            if (dx > (ultimate ? 74.0 : 58.0) * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (dy > (ultimate ? 76.0 : 62.0) * sizeMultiplier + other.combatHalfHeight()) continue;
-            double oldHealth = other.health;
-            int dealt = (int) applyDamageTo(other, ultimate ? 8 : 5);
-            if (dealt <= 0) continue;
-            game.damageDealt[playerIndex] += dealt;
-            game.recordSpecialImpact(playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-            double pushDir = Math.signum(other.bodyCenterX() - centerX);
-            if (pushDir == 0.0) {
-                pushDir = facingDirection();
-            }
-            other.vx += pushDir * (ultimate ? 5.8 : 4.0);
-            other.vy -= ultimate ? 10.5 : 8.0;
-        }
-
-        Color leaf = ultimate ? Color.GOLD : Color.web("#66BB6A");
-        for (int i = 0; i < scaledParticleCount(36); i++) {
-            double angle = -Math.PI / 2.0 + (Math.random() - 0.5) * 1.8;
-            double speed = 2.4 + Math.random() * 6.2;
-            game.particles.add(new Particle(
-                    bodyCenterX() + (Math.random() - 0.5) * 56.0 * sizeMultiplier,
-                    bodyBottomY() - Math.random() * 22.0 * sizeMultiplier,
-                    Math.cos(angle) * speed + dir * 0.7,
-                    Math.sin(angle) * speed,
-                    leaf.deriveColor(0, 0.85 + Math.random() * 0.2, 0.86 + Math.random() * 0.24, 0.72)
-            ));
-        }
+        MockingbirdSpecials.up(this, ultimate);
     }
 
     void specialMockingbirdLounge(boolean ultimate) {
-        loungeActive = true;
-        loungeX = x + 40;
-        loungeY = y + 40;
-        loungeMaxHealth = ultimate ? 200 : LOUNGE_MAX_HEALTH;
-        loungeRoyal = ultimate;
-        loungeHealth = loungeMaxHealth;
-        mockingbirdUncaptureTimer = 0;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
-        Color leaf = ultimate ? Color.GOLD : Color.web("#2E7D32");
-        for (int i = 0; i < scaledParticleCount(42); i++) {
-            double angle = Math.random() * Math.PI * 2;
-            double ring = 18.0 + Math.random() * 62.0;
-            game.particles.add(new Particle(
-                    loungeX + Math.cos(angle) * ring,
-                    loungeY + Math.sin(angle) * ring * 0.58,
-                    Math.cos(angle) * (0.6 + Math.random() * 3.2),
-                    Math.sin(angle) * (0.6 + Math.random() * 2.4) - 1.8,
-                    leaf.deriveColor(0, 0.85, 1.05, 0.70)
-            ));
-        }
-        game.addToKillFeed(shortName() + (ultimate ? " raised the ROYAL FOREST!" : " moved the forest lounge!"));
+        MockingbirdSpecials.down(this, ultimate);
     }
 
     void specialRazorbillNeutral(boolean ultimate) {
@@ -8941,7 +8763,7 @@ public class Bird {
         specialMaxCooldown = 0;
     }
 
-    private void fireRavenBlackQuillVolley(boolean fan, boolean ultimate) {
+    void fireRavenBlackQuillVolley(boolean fan, boolean ultimate) {
         int dir = horizontalInputDirection();
         if (dir == 0) {
             dir = facingDirection();

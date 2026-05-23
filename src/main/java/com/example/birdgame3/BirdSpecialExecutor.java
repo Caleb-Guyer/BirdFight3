@@ -29,20 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class MockingbirdSpecials {
-    private MockingbirdSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        switch (bird.selectMockingbirdSpecialVariant()) {
-            case NEUTRAL -> bird.specialMockingbirdNeutral(ultimate);
-            case SIDE -> bird.specialMockingbirdSide(ultimate);
-            case UP -> bird.specialMockingbirdUp(ultimate);
-            case DOWN -> bird.specialMockingbirdLounge(ultimate);
-        }
-    }
-}
-
 final class RazorbillSpecials {
     private RazorbillSpecials() {
     }
