@@ -29,24 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class BatSpecials {
-    private BatSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        if (ultimate) {
-            bird.specialBatCathedralEcho();
-            return;
-        }
-        switch (bird.selectBatSpecialVariant()) {
-            case NEUTRAL -> bird.specialBatNeutral(false);
-            case SIDE -> bird.specialBatWingcut(false);
-            case UP -> bird.specialBatMoonrise(false);
-            case DOWN -> bird.specialBatSilentDescent(false);
-        }
-    }
-}
-
 final class PelicanSpecials {
     private PelicanSpecials() {
     }

@@ -560,31 +560,31 @@ public class Bird {
     private static final int BAT_CATHEDRAL_FRAMES = 168;
     private static final int BAT_CATHEDRAL_PULSE_INTERVAL = 24;
     private static final int BAT_ECHO_FX_FRAMES = 20;
-    private int batNeutralReuseTimer = 0;
-    private int batWingcutTimer = 0;
-    private int batWingcutReuseTimer = 0;
-    private int batWingcutDirection = 1;
-    private boolean batWingcutUltimate = false;
-    private boolean batWingcutAmbush = false;
-    private boolean batWingcutFromHang = false;
-    private final boolean[] batWingcutHit = new boolean[4];
-    private int batMoonriseTimer = 0;
-    private boolean batMoonriseUsed = false;
-    private boolean batMoonriseUltimate = false;
-    private boolean batMoonriseBurstResolved = false;
-    private boolean batMoonriseAmbush = false;
-    private final boolean[] batMoonriseHit = new boolean[4];
-    private int batSilentStallTimer = 0;
-    private int batSilentDiveTimer = 0;
-    private int batSilentReuseTimer = 0;
-    private boolean batSilentFromHang = false;
-    private boolean batSilentUltimate = false;
-    private boolean batSilentAmbush = false;
-    private final boolean[] batSilentHit = new boolean[4];
+    int batNeutralReuseTimer = 0;
+    int batWingcutTimer = 0;
+    int batWingcutReuseTimer = 0;
+    int batWingcutDirection = 1;
+    boolean batWingcutUltimate = false;
+    boolean batWingcutAmbush = false;
+    boolean batWingcutFromHang = false;
+    final boolean[] batWingcutHit = new boolean[4];
+    int batMoonriseTimer = 0;
+    boolean batMoonriseUsed = false;
+    boolean batMoonriseUltimate = false;
+    boolean batMoonriseBurstResolved = false;
+    boolean batMoonriseAmbush = false;
+    final boolean[] batMoonriseHit = new boolean[4];
+    int batSilentStallTimer = 0;
+    int batSilentDiveTimer = 0;
+    int batSilentReuseTimer = 0;
+    boolean batSilentFromHang = false;
+    boolean batSilentUltimate = false;
+    boolean batSilentAmbush = false;
+    final boolean[] batSilentHit = new boolean[4];
     private int batAmbushWindowTimer = 0;
-    private int batCathedralTimer = 0;
-    private int batCathedralPulseCooldown = 0;
-    private int batCathedralWaveIndex = 0;
+    int batCathedralTimer = 0;
+    int batCathedralPulseCooldown = 0;
+    int batCathedralWaveIndex = 0;
     private double batEchoFxStartX = 0.0;
     private double batEchoFxStartY = 0.0;
     private double batEchoFxMidX = 0.0;
@@ -4985,41 +4985,19 @@ public class Bird {
     }
 
     private boolean batSpecialActive() {
-        return batWingcutTimer > 0
-                || batMoonriseTimer > 0
-                || batSilentStallTimer > 0
-                || batSilentDiveTimer > 0
-                || batCathedralTimer > 0;
+        return BatSpecials.active(this);
     }
 
     private boolean batSpecialReady(BatSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> ultimateReady || batNeutralReuseTimer <= 0;
-            case SIDE -> ultimateReady || batWingcutReuseTimer <= 0;
-            case UP -> ultimateReady || !batMoonriseUsed;
-            case DOWN -> ultimateReady || batSilentReuseTimer <= 0;
-        };
+        return BatSpecials.ready(this, variant);
     }
 
     private boolean canConvertShieldIntoBatDownSpecial() {
-        return selectBatSpecialVariant() == BatSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
+        return BatSpecials.canConvertShieldIntoDown(this);
     }
 
     boolean canStartBatSpecial() {
-        BatSpecialVariant variant = selectBatSpecialVariant();
-        boolean shieldConversion = canConvertShieldIntoBatDownSpecial();
-        return type == BirdGame3.BirdType.BAT
-                && health > 0
-                && stunTime <= 0.0
-                && grabbedBy == null
-                && grabbedTarget == null
-                && (!isBlocking || shieldConversion)
-                && !isDodging()
-                && !batSpecialActive()
-                && batSpecialReady(variant);
+        return BatSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
     private boolean pelicanSpecialActive() {
@@ -5778,27 +5756,7 @@ public class Bird {
     }
 
     private void resetBatSpecialState(boolean clearUltimate) {
-        batWingcutTimer = 0;
-        batWingcutUltimate = false;
-        batWingcutAmbush = false;
-        batWingcutFromHang = false;
-        Arrays.fill(batWingcutHit, false);
-        batMoonriseTimer = 0;
-        batMoonriseUltimate = false;
-        batMoonriseBurstResolved = false;
-        batMoonriseAmbush = false;
-        Arrays.fill(batMoonriseHit, false);
-        batSilentStallTimer = 0;
-        batSilentDiveTimer = 0;
-        batSilentFromHang = false;
-        batSilentUltimate = false;
-        batSilentAmbush = false;
-        Arrays.fill(batSilentHit, false);
-        if (clearUltimate) {
-            batCathedralTimer = 0;
-            batCathedralPulseCooldown = 0;
-            batCathedralWaveIndex = 0;
-        }
+        BatSpecials.reset(this, clearUltimate);
     }
 
     private void resetRavenSpecialState(boolean clearObjects) {
@@ -5899,13 +5857,7 @@ public class Bird {
     }
 
     private void interruptBatSpecialStateOnHit() {
-        if (type != BirdGame3.BirdType.BAT) {
-            return;
-        }
-        if (batSpecialActive()) {
-            attackAnimationTimer = 0;
-        }
-        resetBatSpecialState(false);
+        BatSpecials.interruptOnHit(this);
     }
 
     private void interruptRavenSpecialStateOnHit() {
