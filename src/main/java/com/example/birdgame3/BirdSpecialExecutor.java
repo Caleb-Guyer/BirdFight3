@@ -29,20 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class GrinchhawkSpecials {
-    private GrinchhawkSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        switch (bird.selectGrinchhawkSpecialVariant()) {
-            case NEUTRAL -> bird.specialGrinchhawkHeartSnatch(ultimate);
-            case SIDE -> bird.specialGrinchhawkSleighCrash(ultimate);
-            case UP -> bird.specialGrinchhawkChimneyFlap(ultimate);
-            case DOWN -> bird.specialGrinchhawkFakePresent(ultimate);
-        }
-    }
-}
-
 final class VultureSpecials {
     private VultureSpecials() {
     }

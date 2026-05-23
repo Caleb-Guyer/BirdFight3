@@ -1131,28 +1131,28 @@ public class Bird {
     int roadrunnerSlipDirection = 1;
     int roadrunnerSlipOwnerIndex = -1;
     boolean roadrunnerSlipUltimate = false;
-    private static final int GRINCH_HEART_SNATCH_FRAMES = 18;
-    private static final int GRINCH_SLEIGH_LIFE_FRAMES = 180;
-    private static final double GRINCH_SLEIGH_SPEED = 18.0;
-    private static final int GRINCH_CHIMNEY_FLAP_FRAMES = 24;
-    private static final int GRINCH_PRESENT_ARM_FRAMES = 18;
-    private static final int GRINCH_PRESENT_FUSE_FRAMES = 118;
-    private int grinchHeartSnatchTimer = 0;
-    private boolean grinchHeartSnatchUltimate = false;
-    private final boolean[] grinchHeartSnatchHit = new boolean[4];
-    private boolean grinchSleighActive = false;
-    private boolean grinchSleighRiding = false;
-    private int grinchSleighTimer = 0;
-    private int grinchSleighDirection = 1;
-    private double grinchSleighX = 0.0;
-    private double grinchSleighY = 0.0;
-    private boolean grinchSleighUltimate = false;
-    private final boolean[] grinchSleighHit = new boolean[4];
-    private int grinchChimneyFlapTimer = 0;
-    private boolean grinchChimneyFlapUltimate = false;
-    private boolean grinchUpSpecialUsed = false;
-    private final boolean[] grinchChimneyFlapHit = new boolean[4];
-    private GrinchPresent grinchPresent = null;
+    static final int GRINCH_HEART_SNATCH_FRAMES = 18;
+    static final int GRINCH_SLEIGH_LIFE_FRAMES = 180;
+    static final double GRINCH_SLEIGH_SPEED = 18.0;
+    static final int GRINCH_CHIMNEY_FLAP_FRAMES = 24;
+    static final int GRINCH_PRESENT_ARM_FRAMES = 18;
+    static final int GRINCH_PRESENT_FUSE_FRAMES = 118;
+    int grinchHeartSnatchTimer = 0;
+    boolean grinchHeartSnatchUltimate = false;
+    final boolean[] grinchHeartSnatchHit = new boolean[4];
+    boolean grinchSleighActive = false;
+    boolean grinchSleighRiding = false;
+    int grinchSleighTimer = 0;
+    int grinchSleighDirection = 1;
+    double grinchSleighX = 0.0;
+    double grinchSleighY = 0.0;
+    boolean grinchSleighUltimate = false;
+    final boolean[] grinchSleighHit = new boolean[4];
+    int grinchChimneyFlapTimer = 0;
+    boolean grinchChimneyFlapUltimate = false;
+    boolean grinchUpSpecialUsed = false;
+    final boolean[] grinchChimneyFlapHit = new boolean[4];
+    GrinchPresent grinchPresent = null;
     private static final int ROOSTER_MAX_CHICKS = 5;
     private static final int ROOSTER_STARTING_CHICKS = 3;
     private static final int ROOSTER_NEUTRAL_REUSE_FRAMES = 34;
@@ -1275,7 +1275,7 @@ public class Bird {
         }
     }
 
-    private static final class GrinchPresent {
+    static final class GrinchPresent {
         final double x;
         final double y;
         final boolean ultimate;
@@ -3448,260 +3448,47 @@ public class Bird {
     }
 
     private void handleGrinchhawkSpecialState(boolean jumpJustPressed, double gameSpeed) {
-        boolean neutralCopy = mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.GRINCHHAWK);
-        if (type != BirdGame3.BirdType.GRINCHHAWK && !neutralCopy) {
-            return;
-        }
-
-        if (stunTime > 0.0) {
-            resetGrinchhawkSpecialState(false);
-            if (neutralCopy) {
-                mockingbirdCopiedNeutralSource = null;
-            }
-        }
-
-        if (grinchHeartSnatchTimer > 0) {
-            grinchHeartSnatchTimer--;
-        }
-
-        if (type != BirdGame3.BirdType.GRINCHHAWK) {
-            return;
-        }
-
-        handleGrinchhawkSleigh(jumpJustPressed, gameSpeed);
-        handleGrinchhawkChimneyFlap();
-        handleGrinchhawkPresent();
+        boolean gettingOff = blockPressed() && !blockHeldLastFrame;
+        boolean forcedOff = stunTime > 0.0 || health <= 0 || grabbedBy != null || grabbedTarget != null;
+        GrinchhawkSpecials.handleState(this, jumpJustPressed, gameSpeed, gettingOff, forcedOff);
     }
 
     private void handleGrinchhawkSleigh(boolean jumpJustPressed, double gameSpeed) {
-        if (!grinchSleighActive) {
-            return;
-        }
-
-        grinchSleighTimer = Math.max(0, grinchSleighTimer - Math.max(1, (int) Math.ceil(gameSpeed)));
-        int dir = grinchSleighDirection == 0 ? facingDirection() : grinchSleighDirection;
-        double speed = (grinchSleighUltimate ? GRINCH_SLEIGH_SPEED + 4.0 : GRINCH_SLEIGH_SPEED) * Math.max(0.6, gameSpeed);
         boolean gettingOff = blockPressed() && !blockHeldLastFrame;
         boolean forcedOff = stunTime > 0.0 || health <= 0 || grabbedBy != null || grabbedTarget != null;
-
-        if (grinchSleighRiding) {
-            grinchSleighX = bodyCenterX();
-            grinchSleighY = bodyBottomY() + 8.0 * sizeMultiplier;
-            facingRight = dir > 0;
-            if (jumpJustPressed || gettingOff || forcedOff) {
-                dismountGrinchhawkSleigh(jumpJustPressed && !forcedOff);
-            } else {
-                vx = dir * speed;
-                vy = Math.min(vy, isOnGround() ? -0.6 : 1.2);
-                applyGrinchhawkSleighHits(false);
-            }
-        } else {
-            grinchSleighX += dir * speed;
-            grinchSleighY = grinchhawkSleighSurfaceY(grinchSleighX);
-            applyGrinchhawkSleighHits(true);
-        }
-
-        double leftBound = usesIslandBounds() ? game.battlefieldLeftBound() - 80.0 : -120.0;
-        double rightBound = usesIslandBounds() ? game.battlefieldRightBound() + 80.0 : BirdGame3.WORLD_WIDTH + 120.0;
-        if (grinchSleighTimer <= 0 || grinchSleighX < leftBound || grinchSleighX > rightBound || health <= 0) {
-            crashGrinchhawkSleigh();
-        } else if ((grinchSleighTimer & 3) == 0) {
-            emitGrinchhawkBurst(grinchSleighX - dir * 42.0 * sizeMultiplier,
-                    grinchSleighY - 9.0 * sizeMultiplier, -dir, grinchSleighUltimate ? 4 : 3,
-                    grinchSleighUltimate ? Color.GOLD : Color.web("#EF9A9A"));
-        }
+        GrinchhawkSpecials.handleSleigh(this, jumpJustPressed, gameSpeed, gettingOff, forcedOff);
     }
 
     private double grinchhawkSleighSurfaceY(double sleighX) {
-        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y + 8.0 * sizeMultiplier : Double.POSITIVE_INFINITY;
-        double sourceY = Double.isFinite(grinchSleighY) && grinchSleighY != 0.0
-                ? grinchSleighY - 42.0 * sizeMultiplier
-                : bodyBottomY() - 18.0 * sizeMultiplier;
-        for (Platform p : game.platforms) {
-            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
-                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
-            if (isCaveCeiling || p.w <= 0 || p.h <= 0) continue;
-            if (sleighX < p.x - 28.0 || sleighX > p.x + p.w + 28.0) continue;
-            if (p.y < sourceY - 42.0) continue;
-            if (p.y + 8.0 * sizeMultiplier < bestY) {
-                bestY = p.y + 8.0 * sizeMultiplier;
-            }
-        }
-        return Double.isFinite(bestY) ? bestY : grinchSleighY;
+        return GrinchhawkSpecials.sleighSurfaceY(this, sleighX);
     }
 
     private void dismountGrinchhawkSleigh(boolean jumpOff) {
-        if (!grinchSleighRiding) {
-            return;
-        }
-        grinchSleighRiding = false;
-        grinchSleighX = bodyCenterX();
-        grinchSleighY = bodyBottomY() + 8.0 * sizeMultiplier;
-        if (jumpOff) {
-            vy = Math.min(vy, -type.jumpHeight * 0.70);
-            vx = -grinchSleighDirection * 3.0;
-            canDoubleJump = true;
-        } else {
-            vx *= 0.35;
-            vy = Math.min(vy, -5.0);
-        }
-        attackAnimationTimer = Math.max(attackAnimationTimer, 8);
+        GrinchhawkSpecials.dismountSleigh(this, jumpOff);
     }
 
     private void crashGrinchhawkSleigh() {
-        if (!grinchSleighActive) {
-            return;
-        }
-        emitGrinchhawkBurst(grinchSleighX, grinchSleighY - 16.0 * sizeMultiplier,
-                -grinchSleighDirection, grinchSleighUltimate ? 42 : 28,
-                grinchSleighUltimate ? Color.GOLD : Color.web("#C62828"));
-        game.shakeIntensity = Math.max(game.shakeIntensity, grinchSleighUltimate ? 14 : 9);
-        grinchSleighActive = false;
-        grinchSleighRiding = false;
-        grinchSleighTimer = 0;
-        Arrays.fill(grinchSleighHit, false);
+        GrinchhawkSpecials.crashSleigh(this);
     }
 
     private void applyGrinchhawkSleighHits(boolean crashOnHit) {
-        if (!grinchSleighActive) {
-            return;
-        }
-        int dir = grinchSleighDirection == 0 ? facingDirection() : grinchSleighDirection;
-        double hitX = grinchSleighRiding ? bodyCenterX() + dir * 26.0 * sizeMultiplier : grinchSleighX;
-        double hitY = grinchSleighRiding ? bodyCenterY() + 18.0 * sizeMultiplier : grinchSleighY - 34.0 * sizeMultiplier;
-        boolean hitAny = false;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= grinchSleighHit.length) continue;
-            if (grinchSleighHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - hitX;
-            double dy = other.bodyCenterY() - hitY;
-            if (Math.abs(dx) > (grinchSleighUltimate ? 104.0 : 88.0) * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (Math.abs(dy) > (grinchSleighUltimate ? 70.0 : 58.0) * sizeMultiplier + other.combatHalfHeight()) continue;
-
-            grinchSleighHit[other.playerIndex] = true;
-            int dealt = dealGrinchhawkSpecialDamage(
-                    other,
-                    grinchSleighUltimate ? 16 : 12,
-                    dir * (grinchSleighUltimate ? 18.0 : 14.0),
-                    grinchSleighUltimate ? -6.2 : -4.6,
-                    false,
-                    crashOnHit ? "crashed into" : "sledded through",
-                    grinchSleighUltimate ? Color.GOLD : Color.web("#EF5350")
-            );
-            hitAny |= dealt > 0;
-        }
-        if (crashOnHit && hitAny) {
-            crashGrinchhawkSleigh();
-        }
+        GrinchhawkSpecials.applySleighHits(this, crashOnHit);
     }
 
     private void handleGrinchhawkChimneyFlap() {
-        if (grinchChimneyFlapTimer <= 0) {
-            return;
-        }
-        grinchChimneyFlapTimer--;
-        if (grinchChimneyFlapTimer > GRINCH_CHIMNEY_FLAP_FRAMES / 2) {
-            vy = Math.min(vy, grinchChimneyFlapUltimate ? -13.0 : -10.8);
-        } else {
-            vx *= 0.94;
-        }
-        applyGrinchhawkChimneyFlapHits();
-        if ((grinchChimneyFlapTimer & 3) == 0) {
-            emitGrinchhawkBurst(bodyCenterX(), bodyBottomY() - 12.0 * sizeMultiplier,
-                    facingDirection(), grinchChimneyFlapUltimate ? 5 : 3,
-                    grinchChimneyFlapUltimate ? Color.GOLD : Color.web("#F1F8E9"));
-        }
+        GrinchhawkSpecials.handleChimneyFlap(this);
     }
 
     private void applyGrinchhawkChimneyFlapHits() {
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY() - 28.0 * sizeMultiplier;
-        double reach = (grinchChimneyFlapUltimate ? 104.0 : 84.0) * sizeMultiplier;
-        double verticalReach = (grinchChimneyFlapUltimate ? 132.0 : 108.0) * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= grinchChimneyFlapHit.length) continue;
-            if (grinchChimneyFlapHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            if (Math.abs(dx) > reach + other.combatHalfWidth()) continue;
-            if (Math.abs(dy) > verticalReach + other.combatHalfHeight()) continue;
-
-            grinchChimneyFlapHit[other.playerIndex] = true;
-            dealGrinchhawkSpecialDamage(
-                    other,
-                    grinchChimneyFlapUltimate ? 11 : 8,
-                    Math.signum(dx == 0.0 ? facingDirection() : dx) * (grinchChimneyFlapUltimate ? 7.5 : 5.5),
-                    grinchChimneyFlapUltimate ? -12.5 : -9.5,
-                    false,
-                    "chimney-flapped",
-                    grinchChimneyFlapUltimate ? Color.GOLD : Color.web("#F1F8E9")
-            );
-        }
+        GrinchhawkSpecials.applyChimneyFlapHits(this);
     }
 
     private void handleGrinchhawkPresent() {
-        if (grinchPresent == null) {
-            return;
-        }
-        GrinchPresent present = grinchPresent;
-        present.ageFrames++;
-        present.fuseFrames--;
-        if (present.fuseFrames <= 0 || health <= 0) {
-            explodeGrinchhawkPresent(present);
-            return;
-        }
-        if ((present.ageFrames & 9) == 0) {
-            emitGrinchhawkBurst(present.x, present.y - 15.0 * sizeMultiplier,
-                    0.0, present.ultimate ? 3 : 2, present.ultimate ? Color.GOLD : Color.web("#C62828"));
-        }
-        if (!present.armed()) {
-            return;
-        }
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - present.x;
-            double feetGap = Math.abs(other.bodyBottomY() - present.y);
-            boolean touching = Math.abs(dx) <= (present.ultimate ? 72.0 : 56.0) * sizeMultiplier + other.combatHalfWidth()
-                    && (feetGap <= 34.0 * sizeMultiplier || other.bodyCenterY() > present.y - 68.0 * sizeMultiplier);
-            if (touching) {
-                explodeGrinchhawkPresent(present);
-                return;
-            }
-        }
+        GrinchhawkSpecials.handlePresent(this);
     }
 
     private void explodeGrinchhawkPresent(GrinchPresent present) {
-        if (present == null || grinchPresent != present) {
-            return;
-        }
-        grinchPresent = null;
-        double radius = (present.ultimate ? 128.0 : 96.0) * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - present.x;
-            double dy = other.bodyCenterY() - (present.y - 32.0 * sizeMultiplier);
-            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
-            if (Math.abs(dy) > radius * 0.78 + other.combatHalfHeight()) continue;
-
-            double pushDir = Math.signum(dx);
-            if (pushDir == 0.0) {
-                pushDir = facingDirection();
-            }
-            dealGrinchhawkSpecialDamage(
-                    other,
-                    present.ultimate ? 14 : 10,
-                    pushDir * (present.ultimate ? 10.0 : 7.0),
-                    present.ultimate ? -13.0 : -9.5,
-                    false,
-                    "gift-trapped",
-                    present.ultimate ? Color.GOLD : Color.web("#C62828")
-            );
-        }
-        emitGrinchhawkBurst(present.x, present.y - 28.0 * sizeMultiplier,
-                0.0, present.ultimate ? 58 : 38, present.ultimate ? Color.GOLD : Color.web("#C62828"));
-        game.shakeIntensity = Math.max(game.shakeIntensity, present.ultimate ? 16 : 10);
+        GrinchhawkSpecials.explodePresent(this, present);
     }
 
     private double penguinBellyChargeRatio() {
@@ -3989,179 +3776,40 @@ public class Bird {
     }
 
     private void specialGrinchhawk(boolean ultimate) {
-        specialGrinchhawkHeartSnatch(ultimate);
+        GrinchhawkSpecials.neutral(this, ultimate);
     }
 
     void specialGrinchhawkHeartSnatch(boolean ultimate) {
-        grinchHeartSnatchTimer = ultimate ? GRINCH_HEART_SNATCH_FRAMES + 6 : GRINCH_HEART_SNATCH_FRAMES;
-        grinchHeartSnatchUltimate = ultimate;
-        Arrays.fill(grinchHeartSnatchHit, false);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, ultimate ? 18 : 14);
-        vx *= isOnGround() ? 0.46 : 0.68;
-        applyGrinchhawkHeartSnatchHit();
-        emitGrinchhawkBurst(bodyCenterX() + facingDirection() * 48.0 * sizeMultiplier,
-                bodyCenterY() - 4.0 * sizeMultiplier, facingDirection(),
-                ultimate ? 26 : 16, ultimate ? Color.GOLD : Color.web("#AED581"));
+        GrinchhawkSpecials.neutral(this, ultimate);
     }
 
     private void applyGrinchhawkHeartSnatchHit() {
-        int dir = facingDirection();
-        double reach = (grinchHeartSnatchUltimate ? 116.0 : 92.0) * sizeMultiplier;
-        double verticalReach = (grinchHeartSnatchUltimate ? 84.0 : 66.0) * sizeMultiplier;
-        double originX = bodyCenterX() + dir * 26.0 * sizeMultiplier;
-        double originY = bodyCenterY() - 2.0 * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= grinchHeartSnatchHit.length) continue;
-            if (grinchHeartSnatchHit[other.playerIndex]) continue;
-            double forward = (other.bodyCenterX() - originX) * dir;
-            if (forward < -other.combatHalfWidth() * 0.25 || forward > reach + other.combatHalfWidth()) continue;
-            if (Math.abs(other.bodyCenterY() - originY) > verticalReach + other.combatHalfHeight()) continue;
-
-            grinchHeartSnatchHit[other.playerIndex] = true;
-            int dealt = dealGrinchhawkSpecialDamage(
-                    other,
-                    grinchHeartSnatchUltimate ? 12 : 8,
-                    dir * (grinchHeartSnatchUltimate ? 9.5 : 6.5),
-                    grinchHeartSnatchUltimate ? -5.5 : -3.4,
-                    true,
-                    "snatched",
-                    grinchHeartSnatchUltimate ? Color.GOLD : Color.web("#8BC34A")
-            );
-            if (dealt > 0) {
-                heal(Math.max(2.0, dealt * (grinchHeartSnatchUltimate ? 0.90 : 0.65)));
-            }
-        }
+        GrinchhawkSpecials.applyHeartSnatchHit(this);
     }
 
     void specialGrinchhawkSleighCrash(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        grinchSleighActive = true;
-        grinchSleighRiding = true;
-        grinchSleighTimer = ultimate ? GRINCH_SLEIGH_LIFE_FRAMES + 60 : GRINCH_SLEIGH_LIFE_FRAMES;
-        grinchSleighDirection = dir;
-        grinchSleighUltimate = ultimate;
-        grinchSleighX = bodyCenterX();
-        grinchSleighY = bodyBottomY() + 8.0 * sizeMultiplier;
-        Arrays.fill(grinchSleighHit, false);
-        vx = dir * (ultimate ? GRINCH_SLEIGH_SPEED + 4.0 : GRINCH_SLEIGH_SPEED);
-        vy = Math.min(vy, isOnGround() ? -1.0 : 1.0);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
-        emitGrinchhawkBurst(grinchSleighX - dir * 34.0 * sizeMultiplier, grinchSleighY,
-                -dir, ultimate ? 30 : 20, ultimate ? Color.GOLD : Color.web("#C62828"));
+        GrinchhawkSpecials.side(this, ultimate);
     }
 
     void specialGrinchhawkChimneyFlap(boolean ultimate) {
-        if (grinchUpSpecialUsed && !ultimate) {
-            return;
-        }
-        grinchUpSpecialUsed = true;
-        grinchChimneyFlapTimer = ultimate ? GRINCH_CHIMNEY_FLAP_FRAMES + 8 : GRINCH_CHIMNEY_FLAP_FRAMES;
-        grinchChimneyFlapUltimate = ultimate;
-        Arrays.fill(grinchChimneyFlapHit, false);
-        canDoubleJump = true;
-        vx *= isOnGround() ? 0.44 : 0.64;
-        vy = Math.min(vy, -(ultimate ? 19.5 : 16.4));
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 16);
-        emitGrinchhawkBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier,
-                facingDirection(), ultimate ? 40 : 28, ultimate ? Color.GOLD : Color.web("#F5F5F5"));
+        GrinchhawkSpecials.up(this, ultimate);
     }
 
     void specialGrinchhawkFakePresent(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        double presentX = bodyCenterX() + dir * 56.0 * sizeMultiplier;
-        double presentY = grinchhawkPresentSurfaceY(presentX);
-        grinchPresent = new GrinchPresent(presentX, presentY, ultimate);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
-        vx *= isOnGround() ? 0.54 : 0.78;
-        emitGrinchhawkBurst(presentX, presentY - 12.0 * sizeMultiplier,
-                dir, ultimate ? 22 : 14, ultimate ? Color.GOLD : Color.web("#C62828"));
+        GrinchhawkSpecials.down(this, ultimate);
     }
 
     private double grinchhawkPresentSurfaceY(double presentX) {
-        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
-        double sourceY = bodyBottomY() - 24.0 * sizeMultiplier;
-        for (Platform p : game.platforms) {
-            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
-                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
-            if (isCaveCeiling || p.w <= 0 || p.h <= 0) continue;
-            if (presentX < p.x - 18.0 || presentX > p.x + p.w + 18.0) continue;
-            if (p.y < sourceY - 18.0) continue;
-            if (p.y < bestY) {
-                bestY = p.y;
-            }
-        }
-        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+        return GrinchhawkSpecials.presentSurfaceY(this, presentX);
     }
 
     private int dealGrinchhawkSpecialDamage(Bird other, double rawDamage, double launchX, double launchY,
                                             boolean steal, String verb, Color particleColor) {
-        if (other == null) {
-            return 0;
-        }
-        double oldHealth = other.health;
-        int dealt = (int) applyDamageTo(other, rawDamage);
-        if (dealt <= 0) {
-            game.recordSpecialImpact(playerIndex, 0, false);
-            return 0;
-        }
-
-        game.damageDealt[playerIndex] += dealt;
-        game.recordSpecialImpact(playerIndex, dealt, true);
-        other.vx += launchX;
-        other.vy += launchY;
-        if (other.health <= 0 && oldHealth > 0) {
-            game.eliminations[playerIndex]++;
-        }
-        game.addToKillFeed(shortName() + " " + verb + " " + other.shortName() + "! -" + dealt + " HP");
-        game.playHitSound(dealt);
-        if (steal) {
-            for (int i = 0; i < scaledParticleCount(7); i++) {
-                double angle = Math.random() * Math.PI * 2.0;
-                game.particles.add(new Particle(
-                        other.bodyCenterX(),
-                        other.bodyCenterY(),
-                        Math.cos(angle) * (1.2 + Math.random() * 2.8),
-                        Math.sin(angle) * (1.2 + Math.random() * 2.8) - 1.2,
-                        Color.web("#AED581").deriveColor(0, 1, 1, 0.76)
-                ));
-            }
-        }
-        emitGrinchhawkBurst(other.bodyCenterX(), other.bodyCenterY(), Math.signum(launchX),
-                12, particleColor);
-        return dealt;
+        return GrinchhawkSpecials.dealDamage(this, other, rawDamage, launchX, launchY, steal, verb, particleColor);
     }
 
     private void emitGrinchhawkBurst(double cx, double cy, double dir, int count, Color color) {
-        int particles = scaledParticleCount(count);
-        double baseAngle = dir == 0.0 ? -Math.PI / 2.0 : (dir > 0.0 ? 0.0 : Math.PI);
-        for (int i = 0; i < particles; i++) {
-            double angle = baseAngle + (Math.random() - 0.5) * 1.8;
-            double speed = 2.0 + Math.random() * 7.0;
-            game.particles.add(new Particle(
-                    cx + (Math.random() - 0.5) * 22.0 * sizeMultiplier,
-                    cy + (Math.random() - 0.5) * 18.0 * sizeMultiplier,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 1.8,
-                    color.deriveColor(0, 1, 1, 0.72 + Math.random() * 0.16)
-            ));
-        }
+        GrinchhawkSpecials.emitBurst(this, cx, cy, dir, count, color);
     }
 
     void specialVultureCarrionCall(boolean ultimate) {
@@ -6377,22 +6025,11 @@ public class Bird {
     }
 
     private boolean canConvertShieldIntoGrinchhawkDownSpecial() {
-        return selectGrinchhawkSpecialVariant() == GrinchhawkSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
+        return GrinchhawkSpecials.canConvertShieldIntoDown(this);
     }
 
     boolean canStartGrinchhawkSpecial() {
-        GrinchhawkSpecialVariant variant = selectGrinchhawkSpecialVariant();
-        boolean shieldConversion = canConvertShieldIntoGrinchhawkDownSpecial();
-        return type == BirdGame3.BirdType.GRINCHHAWK
-                && health > 0
-                && stunTime <= 0.0
-                && grabbedBy == null
-                && grabbedTarget == null
-                && (!isBlocking || shieldConversion)
-                && !isDodging()
-                && grinchhawkSpecialReady(variant);
+        return GrinchhawkSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
     boolean canStartVultureSpecial() {
@@ -6466,19 +6103,11 @@ public class Bird {
     }
 
     private boolean grinchhawkSpecialActive() {
-        return grinchHeartSnatchTimer > 0
-                || grinchSleighRiding
-                || grinchChimneyFlapTimer > 0;
+        return GrinchhawkSpecials.active(this);
     }
 
     private boolean grinchhawkSpecialReady(GrinchhawkSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> grinchHeartSnatchTimer <= 0;
-            case SIDE -> ultimateReady || !grinchSleighActive;
-            case UP -> ultimateReady || !grinchUpSpecialUsed;
-            case DOWN -> ultimateReady || grinchPresent == null;
-        };
+        return GrinchhawkSpecials.ready(this, variant);
     }
 
     private boolean razorbillSpecialActive() {
@@ -7002,18 +6631,7 @@ public class Bird {
     }
 
     private void resetGrinchhawkSpecialState(boolean clearObjects) {
-        grinchHeartSnatchTimer = 0;
-        grinchHeartSnatchUltimate = false;
-        Arrays.fill(grinchHeartSnatchHit, false);
-        grinchSleighRiding = false;
-        if (clearObjects) {
-            grinchSleighActive = false;
-            grinchSleighTimer = 0;
-            grinchPresent = null;
-        }
-        grinchChimneyFlapTimer = 0;
-        grinchChimneyFlapUltimate = false;
-        Arrays.fill(grinchChimneyFlapHit, false);
+        GrinchhawkSpecials.reset(this, clearObjects);
     }
 
     private void resetVultureSpecialState(boolean clearObjects) {
