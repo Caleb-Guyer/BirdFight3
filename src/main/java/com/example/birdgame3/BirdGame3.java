@@ -9330,7 +9330,7 @@ public class BirdGame3 extends Application {
         DIRECTIONAL_SPECIALS(
                 "Directional Specials",
                 "Use neutral, side, up, and down special.",
-                "Special changes when you hold no direction, left/right, jump/up, or block/down.",
+                "Watch the Live Special panel while you hold no direction, left/right, jump/up, or block/down.",
                 MapType.BATTLEFIELD,
                 BirdType.EAGLE,
                 BirdType.PIGEON,
@@ -35250,6 +35250,7 @@ public class BirdGame3 extends Application {
         String moveName = moves[Math.clamp(selectedIndex, 0, moves.length - 1)];
         String status = player.specialHeld() ? "SPECIAL HELD" : "INPUT PREVIEW";
         String note = trainingLiveSpecialNote(player);
+        boolean academySpecialLesson = isGuidedDirectionalSpecialLesson();
 
         double panelW = 472;
         double panelX = WIDTH - panelW - 28;
@@ -35291,6 +35292,7 @@ public class BirdGame3 extends Application {
         String[] labels = {"N", "S", "U", "D"};
         for (int i = 0; i < labels.length; i++) {
             drawTrainingSpecialInputPill(g, labels[i], moves[i], i == selectedIndex,
+                    academySpecialLesson && trainingSpecialInputCompleted(i),
                     textX + i * (pillW + pillGap), pillY, pillW, 32, accent);
         }
 
@@ -35305,9 +35307,14 @@ public class BirdGame3 extends Application {
     }
 
     private void drawTrainingSpecialInputPill(GraphicsContext g, String label, String moveName, boolean selected,
+                                              boolean completed,
                                               double x, double y, double w, double h, Color accent) {
-        Color fill = selected ? accent.deriveColor(0, 1, 1.10, 0.90) : Color.web("#263238", 0.82);
-        Color stroke = selected ? Color.WHITE.deriveColor(0, 1, 1, 0.82) : Color.web("#90A4AE", 0.48);
+        Color fill = selected
+                ? accent.deriveColor(0, 1, 1.10, 0.90)
+                : completed ? Color.web("#2E7D32", 0.88) : Color.web("#263238", 0.82);
+        Color stroke = selected
+                ? Color.WHITE.deriveColor(0, 1, 1, 0.82)
+                : completed ? Color.web("#A5D6A7", 0.86) : Color.web("#90A4AE", 0.48);
         Color text = selected ? Color.web("#111111") : Color.web("#ECEFF1");
         g.setFill(fill);
         g.fillRoundRect(x, y, w, h, 10, 10);
@@ -35320,7 +35327,7 @@ public class BirdGame3 extends Application {
         if (shortMove.length() > 11) {
             shortMove = shortMove.substring(0, 10) + ".";
         }
-        g.fillText(label + " " + shortMove, x + 8, y + 21);
+        g.fillText(completed && !selected ? label + " OK" : label + " " + shortMove, x + 8, y + 21);
     }
 
     private int directionalSpecialInputIndex(Bird.DirectionalSpecialInput input) {
@@ -35342,6 +35349,9 @@ public class BirdGame3 extends Application {
     }
 
     private String trainingLiveSpecialNote(Bird player) {
+        if (isGuidedDirectionalSpecialLesson()) {
+            return trainingDirectionalSpecialProgressText();
+        }
         return switch (player.type) {
             case TITMOUSE -> "MARK improves follow-ups. STASH count: "
                     + player.titmouseSeedStashes.size() + "/" + Bird.TITMOUSE_MAX_STASHES + ".";
@@ -35351,6 +35361,38 @@ public class BirdGame3 extends Application {
                     + Math.round(player.getOpiumResourceRatio() * 100.0) + "%. NODE refuels it.";
             default -> specialMoveGuideNote(player.type);
         };
+    }
+
+    private boolean isGuidedDirectionalSpecialLesson() {
+        return trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL
+                && currentGuidedTutorialLesson() == GuidedTutorialLesson.DIRECTIONAL_SPECIALS;
+    }
+
+    private boolean trainingSpecialInputCompleted(int index) {
+        return switch (index) {
+            case 1 -> trainingAcademySideSpecialSeen;
+            case 2 -> trainingAcademyUpSpecialSeen;
+            case 3 -> trainingAcademyDownSpecialSeen;
+            default -> trainingAcademyNeutralSpecialSeen;
+        };
+    }
+
+    private String trainingDirectionalSpecialProgressText() {
+        int completed = 0;
+        for (int i = 0; i < 4; i++) {
+            if (trainingSpecialInputCompleted(i)) {
+                completed++;
+            }
+        }
+        String[] directionNames = {"Neutral", "Side", "Up", "Down"};
+        String next = "complete";
+        for (int i = 0; i < directionNames.length; i++) {
+            if (!trainingSpecialInputCompleted(i)) {
+                next = directionNames[i];
+                break;
+            }
+        }
+        return "Academy goal: use every direction. Progress: " + completed + "/4. Next: " + next + ".";
     }
 
     private void drawTrainingAcademyHud(GraphicsContext g) {
