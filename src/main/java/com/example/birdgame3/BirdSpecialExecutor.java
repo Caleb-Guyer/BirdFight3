@@ -29,21 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class RoosterSpecials {
-    private RoosterSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        bird.ensureRoosterStartingChicks();
-        switch (bird.selectRoosterSpecialVariant()) {
-            case NEUTRAL -> bird.specialRoosterCallChick(ultimate);
-            case SIDE -> bird.specialRoosterThrowChick(ultimate);
-            case UP -> bird.specialRoosterCoopBoost(ultimate);
-            case DOWN -> bird.specialRoosterRecallChicks(ultimate);
-        }
-    }
-}
-
 final class OpiumSpecials {
     private OpiumSpecials() {
     }

@@ -1153,18 +1153,18 @@ public class Bird {
     boolean grinchUpSpecialUsed = false;
     final boolean[] grinchChimneyFlapHit = new boolean[4];
     GrinchPresent grinchPresent = null;
-    private static final int ROOSTER_MAX_CHICKS = 5;
-    private static final int ROOSTER_STARTING_CHICKS = 3;
-    private static final int ROOSTER_NEUTRAL_REUSE_FRAMES = 34;
-    private static final int ROOSTER_SIDE_REUSE_FRAMES = 18;
-    private static final int ROOSTER_DOWN_REUSE_FRAMES = 28;
-    private boolean roosterInitialChicksSpawned = false;
-    private int roosterNeutralReuseTimer = 0;
-    private int roosterSideReuseTimer = 0;
-    private int roosterDownReuseTimer = 0;
-    private int roosterCommandFxTimer = 0;
-    private int roosterCommandFxKind = 0;
-    private boolean roosterUpSpecialUsed = false;
+    static final int ROOSTER_MAX_CHICKS = 5;
+    static final int ROOSTER_STARTING_CHICKS = 3;
+    static final int ROOSTER_NEUTRAL_REUSE_FRAMES = 34;
+    static final int ROOSTER_SIDE_REUSE_FRAMES = 18;
+    static final int ROOSTER_DOWN_REUSE_FRAMES = 28;
+    boolean roosterInitialChicksSpawned = false;
+    int roosterNeutralReuseTimer = 0;
+    int roosterSideReuseTimer = 0;
+    int roosterDownReuseTimer = 0;
+    int roosterCommandFxTimer = 0;
+    int roosterCommandFxKind = 0;
+    boolean roosterUpSpecialUsed = false;
     int phoenixAfterburnTimer = 0;
     final int[] phoenixAfterburnHitCooldown = new int[4];
     private boolean phoenixRebornUsed = false;
@@ -3942,275 +3942,59 @@ public class Bird {
     }
 
     private boolean isRoosterActivePlayerSlot() {
-        return playerIndex >= 0
-                && playerIndex < game.players.length
-                && game.players[playerIndex] == this;
+        return RoosterSpecials.isActivePlayerSlot(this);
     }
 
     private ArrayList<ChickMinion> ownedRoosterChicks() {
-        ArrayList<ChickMinion> owned = new ArrayList<>();
-        for (ChickMinion chick : game.chickMinions) {
-            if (chick.owner == this && chick.life > 0) {
-                owned.add(chick);
-            }
-        }
-        return owned;
+        return RoosterSpecials.ownedChicks(this);
     }
 
     private int ownedRoosterChickCount() {
-        int count = 0;
-        for (ChickMinion chick : game.chickMinions) {
-            if (chick.owner == this && chick.life > 0) {
-                count++;
-            }
-        }
-        return count;
+        return RoosterSpecials.ownedCount(this);
     }
 
     private int nextRoosterChickVariant() {
-        int[] counts = new int[ROOSTER_STARTING_CHICKS];
-        for (ChickMinion chick : game.chickMinions) {
-            if (chick.owner == this && chick.life > 0 && chick.variant >= 0 && chick.variant < counts.length) {
-                counts[chick.variant]++;
-            }
-        }
-        int bestVariant = 0;
-        for (int i = 1; i < counts.length; i++) {
-            if (counts[i] < counts[bestVariant]) {
-                bestVariant = i;
-            }
-        }
-        return bestVariant;
+        return RoosterSpecials.nextVariant(this);
     }
 
     private ChickMinion spawnRoosterFollowerChick(int variant, boolean ultimate, int slotHint) {
-        if (ownedRoosterChickCount() >= ROOSTER_MAX_CHICKS) {
-            return null;
-        }
-        double s = sizeMultiplier;
-        int dir = facingDirection();
-        double centerX = bodyCenterX() - dir * (46.0 + slotHint * 18.0) * s;
-        double spawnY = bodyBottomY() - (30.0 + (slotHint % 2) * 16.0) * s;
-        ChickMinion chick = new ChickMinion(centerX, spawnY, Math.floorMod(variant, ROOSTER_STARTING_CHICKS), ultimate, this);
-        chick.x -= chick.width * 0.5;
-        chick.followingOwner = true;
-        chick.target = null;
-        chick.commandFlashFrames = ultimate ? 42 : 30;
-        chick.boostSparkFrames = Math.max(chick.boostSparkFrames, 14);
-        chick.maxAge = Math.max(chick.maxAge, 18000);
-        chick.onGround = isOnGround();
-        chick.vx = -dir * (1.2 + slotHint * 0.45);
-        chick.vy = -4.5 - slotHint;
-        game.chickMinions.add(chick);
-        emitRoosterCommandBurst(chick.x + chick.width * 0.5, chick.y + chick.height * 0.5,
-                ultimate ? Color.GOLD : roosterChickColor(chick.variant), ultimate ? 22 : 14);
-        return chick;
+        return RoosterSpecials.spawnFollower(this, variant, ultimate, slotHint);
     }
 
     void ensureRoosterStartingChicks() {
-        if (type != BirdGame3.BirdType.ROOSTER
-                || roosterInitialChicksSpawned
-                || health <= 0
-                || !isRoosterActivePlayerSlot()) {
-            return;
-        }
-        roosterInitialChicksSpawned = true;
-        boolean[] hasVariant = new boolean[ROOSTER_STARTING_CHICKS];
-        int owned = 0;
-        for (ChickMinion chick : game.chickMinions) {
-            if (chick.owner != this || chick.life <= 0) continue;
-            owned++;
-            if (chick.variant >= 0 && chick.variant < hasVariant.length) {
-                hasVariant[chick.variant] = true;
-            }
-        }
-        for (int variant = 0; variant < ROOSTER_STARTING_CHICKS && owned < ROOSTER_STARTING_CHICKS; variant++) {
-            if (hasVariant[variant]) continue;
-            if (spawnRoosterFollowerChick(variant, false, owned) != null) {
-                owned++;
-            }
-        }
+        RoosterSpecials.ensureStartingChicks(this);
     }
 
     private Color roosterChickColor(int variant) {
-        return switch (variant) {
-            case 1 -> Color.web("#4FC3F7");
-            case 2 -> Color.web("#8D6E63");
-            default -> Color.web("#FFD54F");
-        };
+        return RoosterSpecials.chickColor(variant);
     }
 
     private void emitRoosterCommandBurst(double centerX, double centerY, Color color, int baseCount) {
-        int particleCount = scaledParticleCount(baseCount);
-        for (int i = 0; i < particleCount; i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 2.0 + Math.random() * 5.8;
-            game.particles.add(new Particle(
-                    centerX,
-                    centerY,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 2.2,
-                    color.deriveColor(0, 1, 1, 0.78)
-            ));
-        }
+        RoosterSpecials.emitCommandBurst(this, centerX, centerY, color, baseCount);
     }
 
     void specialRoosterCallChick(boolean ultimate) {
-        int before = ownedRoosterChickCount();
-        int toSpawn = ultimate ? Math.max(1, ROOSTER_MAX_CHICKS - before) : 1;
-        int spawned = 0;
-        for (int i = 0; i < toSpawn && ownedRoosterChickCount() < ROOSTER_MAX_CHICKS; i++) {
-            if (spawnRoosterFollowerChick(nextRoosterChickVariant(), ultimate, before + spawned) != null) {
-                spawned++;
-            }
-        }
-
-        roosterNeutralReuseTimer = ultimate ? 22 : ROOSTER_NEUTRAL_REUSE_FRAMES;
-        roosterCommandFxTimer = Math.max(roosterCommandFxTimer, spawned > 0 ? 34 : 16);
-        roosterCommandFxKind = 1;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
-        if (spawned > 0) {
-            game.addToKillFeed(shortName() + (ultimate ? " assembled the royal brood!" : " called another chick into formation!"));
-        }
+        RoosterSpecials.neutral(this, ultimate);
     }
 
     private ChickMinion nextRoosterFollowerChick() {
-        for (ChickMinion chick : game.chickMinions) {
-            if (chick.owner == this && chick.life > 0 && chick.followingOwner) {
-                return chick;
-            }
-        }
-        return null;
+        return RoosterSpecials.nextFollower(this);
     }
 
     private Bird findRoosterThrowTarget(ChickMinion chick, int dir) {
-        Bird best = null;
-        double bestScore = Double.MAX_VALUE;
-        double cx = chick.x + chick.width * 0.5;
-        double cy = chick.y + chick.height * 0.5;
-        for (Bird candidate : game.players) {
-            if (candidate == null || candidate.health <= 0 || !game.canDamage(this, candidate)) continue;
-            double dx = candidate.bodyCenterX() - cx;
-            double dy = candidate.bodyCenterY() - cy;
-            double forwardPenalty = dx * dir < -30.0 ? 900.0 : 0.0;
-            double score = Math.hypot(dx, dy) + Math.abs(dy) * 0.25 + forwardPenalty;
-            if (score < bestScore) {
-                bestScore = score;
-                best = candidate;
-            }
-        }
-        return best;
+        return RoosterSpecials.findThrowTarget(this, chick, dir);
     }
 
     void specialRoosterThrowChick(boolean ultimate) {
-        ChickMinion chick = nextRoosterFollowerChick();
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-
-        if (chick == null) {
-            roosterSideReuseTimer = 10;
-            roosterCommandFxTimer = Math.max(roosterCommandFxTimer, 12);
-            roosterCommandFxKind = 2;
-            return;
-        }
-
-        chick.followingOwner = false;
-        chick.target = findRoosterThrowTarget(chick, dir);
-        chick.retargetCooldown = 0;
-        chick.commandFlashFrames = ultimate ? 42 : 30;
-        chick.thrownFrames = ultimate ? 34 : 26;
-        chick.attackCooldown = Math.min(chick.attackCooldown, 8);
-        chick.onGround = false;
-        chick.vx = dir * (ultimate ? 27.0 : 22.0);
-        chick.vy = ultimate ? -9.0 : -7.0;
-        chick.maxAge = Math.max(chick.maxAge, 18000);
-
-        roosterSideReuseTimer = ultimate ? 12 : ROOSTER_SIDE_REUSE_FRAMES;
-        roosterCommandFxTimer = Math.max(roosterCommandFxTimer, 26);
-        roosterCommandFxKind = 2;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
-        vx -= dir * 2.2;
-        emitRoosterCommandBurst(chick.x + chick.width * 0.5, chick.y + chick.height * 0.5,
-                ultimate ? Color.GOLD : Color.web("#FF7043"), ultimate ? 28 : 18);
+        RoosterSpecials.side(this, ultimate);
     }
 
     void specialRoosterCoopBoost(boolean ultimate) {
-        if (roosterUpSpecialUsed && !ultimate) {
-            return;
-        }
-        ArrayList<ChickMinion> chicks = ownedRoosterChicks();
-        if (chicks.isEmpty()) {
-            spawnRoosterFollowerChick(nextRoosterChickVariant(), ultimate, 0);
-            chicks = ownedRoosterChicks();
-        }
-
-        roosterUpSpecialUsed = true;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        int count = Math.max(1, chicks.size());
-        vy = Math.min(vy, -(ultimate ? 19.5 : 15.5) - Math.min(5, count) * (ultimate ? 2.8 : 2.15));
-        vx *= 0.36;
-        canDoubleJump = true;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 18);
-        roosterCommandFxTimer = Math.max(roosterCommandFxTimer, 38);
-        roosterCommandFxKind = 3;
-
-        double centerX = bodyCenterX();
-        double baseY = bodyBottomY() - 10.0 * sizeMultiplier;
-        for (int i = 0; i < chicks.size(); i++) {
-            ChickMinion chick = chicks.get(i);
-            double fan = (i - (chicks.size() - 1) / 2.0);
-            chick.followingOwner = true;
-            chick.target = null;
-            chick.commandFlashFrames = ultimate ? 44 : 32;
-            chick.boostSparkFrames = ultimate ? 46 : 36;
-            chick.thrownFrames = 0;
-            chick.x = centerX - chick.width * 0.5 + fan * 23.0 * sizeMultiplier;
-            chick.y = baseY - chick.height - Math.abs(fan) * 7.0 * sizeMultiplier;
-            chick.vx = fan * (ultimate ? 3.2 : 2.5);
-            chick.vy = -(ultimate ? 18.0 : 14.5) - i * 0.8;
-            chick.onGround = false;
-            emitRoosterCommandBurst(chick.x + chick.width * 0.5, chick.y + chick.height * 0.5,
-                    ultimate ? Color.GOLD : Color.web("#FFF59D"), 8);
-        }
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 9 : 6);
+        RoosterSpecials.up(this, ultimate);
     }
 
     void specialRoosterRecallChicks(boolean ultimate) {
-        ArrayList<ChickMinion> chicks = ownedRoosterChicks();
-        int dir = facingDirection();
-        double s = sizeMultiplier;
-        for (int i = 0; i < chicks.size(); i++) {
-            ChickMinion chick = chicks.get(i);
-            double side = dir > 0 ? -1.0 : 1.0;
-            double row = i % 2 == 0 ? 0.0 : -18.0 * s;
-            chick.followingOwner = true;
-            chick.target = null;
-            chick.retargetCooldown = ultimate ? 28 : 18;
-            chick.commandFlashFrames = ultimate ? 44 : 32;
-            chick.thrownFrames = 0;
-            chick.boostSparkFrames = Math.max(chick.boostSparkFrames, ultimate ? 24 : 16);
-            chick.x = bodyCenterX() + side * (54.0 + i * 18.0) * s - chick.width * 0.5;
-            chick.y = bodyBottomY() - chick.height - 4.0 * s + row;
-            chick.vx = side * (1.0 + i * 0.25);
-            chick.vy = -5.0 - i * 0.35;
-            chick.onGround = isOnGround();
-            emitRoosterCommandBurst(chick.x + chick.width * 0.5, chick.y + chick.height * 0.5,
-                    ultimate ? Color.GOLD : Color.web("#FFF176"), 10);
-        }
-        roosterDownReuseTimer = ultimate ? 18 : ROOSTER_DOWN_REUSE_FRAMES;
-        roosterCommandFxTimer = Math.max(roosterCommandFxTimer, ultimate ? 42 : 32);
-        roosterCommandFxKind = 4;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
+        RoosterSpecials.down(this, ultimate);
     }
 
     void specialOpiumNeutral(boolean ultimate) {
@@ -5165,29 +4949,11 @@ public class Bird {
     }
 
     private boolean roosterSpecialReady(RoosterSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> ultimateReady || (roosterNeutralReuseTimer <= 0 && ownedRoosterChickCount() < ROOSTER_MAX_CHICKS);
-            case SIDE -> ultimateReady || (roosterSideReuseTimer <= 0 && nextRoosterFollowerChick() != null);
-            case UP -> ultimateReady || !roosterUpSpecialUsed;
-            case DOWN -> ultimateReady || roosterDownReuseTimer <= 0;
-        };
+        return RoosterSpecials.ready(this, variant);
     }
 
     boolean canStartRoosterSpecial() {
-        ensureRoosterStartingChicks();
-        RoosterSpecialVariant variant = selectRoosterSpecialVariant();
-        boolean shieldConversion = variant == RoosterSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
-        return type == BirdGame3.BirdType.ROOSTER
-                && health > 0
-                && stunTime <= 0.0
-                && grabbedBy == null
-                && grabbedTarget == null
-                && (!isBlocking || shieldConversion)
-                && !isDodging()
-                && roosterSpecialReady(variant);
+        return RoosterSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
     private boolean roadrunnerSpecialActive() {
