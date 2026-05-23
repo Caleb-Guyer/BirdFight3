@@ -29,37 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class OpiumSpecials {
-    private OpiumSpecials() {
-    }
-
-    static void useOpium(Bird bird, boolean ultimate) {
-        if (ultimate) {
-            bird.specialOpiumUltimate();
-            return;
-        }
-        switch (bird.selectOpiumSpecialVariant()) {
-            case NEUTRAL -> bird.specialOpiumNeutral(false);
-            case SIDE -> bird.specialOpiumSide(false);
-            case UP -> bird.specialOpiumUp(false);
-            case DOWN -> bird.specialOpiumDown(false);
-        }
-    }
-
-    static void useHeisenbird(Bird bird, boolean ultimate) {
-        if (ultimate) {
-            bird.specialHeisenUltimate();
-            return;
-        }
-        switch (bird.selectOpiumSpecialVariant()) {
-            case NEUTRAL -> bird.specialHeisenNeutral(false);
-            case SIDE -> bird.specialOpiumSide(true);
-            case UP -> bird.specialOpiumUp(true);
-            case DOWN -> bird.specialOpiumDown(true);
-        }
-    }
-}
-
 final class TitmouseSpecials {
     private TitmouseSpecials() {
     }

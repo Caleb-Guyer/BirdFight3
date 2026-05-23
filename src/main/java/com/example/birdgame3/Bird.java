@@ -427,17 +427,17 @@ public class Bird {
     public int highTimer = 0;
     private double opiumResourceMeter = OPIUM_RESOURCE_MAX;
     private boolean opiumNeutralFueled = false;
-    private int opiumNeutralReuseTimer = 0;
-    private int opiumSideTimer = 0;
-    private int opiumSideReuseTimer = 0;
-    private int opiumSideDirection = 1;
-    private boolean opiumSideFueled = false;
-    private final boolean[] opiumSideHit = new boolean[4];
-    private int opiumUpTimer = 0;
-    private boolean opiumUpSpecialUsed = false;
-    private boolean opiumUpFueled = false;
-    private final boolean[] opiumUpHit = new boolean[4];
-    private int opiumDownReuseTimer = 0;
+    int opiumNeutralReuseTimer = 0;
+    int opiumSideTimer = 0;
+    int opiumSideReuseTimer = 0;
+    int opiumSideDirection = 1;
+    boolean opiumSideFueled = false;
+    final boolean[] opiumSideHit = new boolean[4];
+    int opiumUpTimer = 0;
+    boolean opiumUpSpecialUsed = false;
+    boolean opiumUpFueled = false;
+    final boolean[] opiumUpHit = new boolean[4];
+    int opiumDownReuseTimer = 0;
     private final ArrayList<OpiumTrap> opiumTraps = new ArrayList<>();
     private int opiumUltimateTimer = 0;
     private boolean opiumUltimateCollapsePending = false;
@@ -445,12 +445,12 @@ public class Bird {
     private double opiumUltimateCloudY = 0.0;
     private int heisenUltimateTimer = 0;
     private boolean heisenUltimateShatterPending = false;
-    private int heisenUltimateVolleyTimer = 0;
+    int heisenUltimateVolleyTimer = 0;
     private double heisenUltimateVolleyOriginX = 0.0;
     private double heisenUltimateVolleyOriginY = 0.0;
     private double heisenUltimateVolleyTargetX = 0.0;
     private double heisenUltimateVolleyTargetY = 0.0;
-    private boolean heisenUltimateVolleyHit = false;
+    boolean heisenUltimateVolleyHit = false;
     private final int[] heisenUltimateOrbitHitCooldown = new int[4];
     private final boolean[] heisenUltimateShardLaunched = new boolean[HEISEN_ULTIMATE_SHARD_COUNT];
     private final boolean[] heisenUltimateShardSpent = new boolean[HEISEN_ULTIMATE_SHARD_COUNT];
@@ -5207,38 +5207,19 @@ public class Bird {
     }
 
     private boolean opiumSpecialActive() {
-        return opiumSideTimer > 0
-                || opiumUpTimer > 0;
+        return OpiumSpecials.active(this);
     }
 
     private boolean opiumSpecialReady(OpiumSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> ultimateReady || opiumNeutralReuseTimer <= 0;
-            case SIDE -> ultimateReady || opiumSideReuseTimer <= 0;
-            case UP -> ultimateReady || !opiumUpSpecialUsed;
-            case DOWN -> ultimateReady || opiumDownReuseTimer <= 0;
-        };
+        return OpiumSpecials.ready(this, variant);
     }
 
     boolean canStartOpiumSpecial() {
-        OpiumSpecialVariant variant = selectOpiumSpecialVariant();
-        boolean shieldConversion = canConvertShieldIntoOpiumDownSpecial();
-        return isOpiumEchoPair()
-                && health > 0
-                && stunTime <= 0.0
-                && grabbedBy == null
-                && grabbedTarget == null
-                && (!isBlocking || shieldConversion)
-                && !isDodging()
-                && !opiumSpecialActive()
-                && opiumSpecialReady(variant);
+        return OpiumSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
     private boolean canConvertShieldIntoOpiumDownSpecial() {
-        return selectOpiumSpecialVariant() == OpiumSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
+        return OpiumSpecials.canConvertShieldIntoDown(this);
     }
 
     private boolean vultureSpecialActive() {
@@ -5889,16 +5870,7 @@ public class Bird {
     }
 
     private void resetOpiumSpecialState() {
-        opiumSideTimer = 0;
-        opiumSideDirection = facingDirection();
-        opiumSideFueled = false;
-        Arrays.fill(opiumSideHit, false);
-        opiumUpTimer = 0;
-        opiumUpFueled = false;
-        Arrays.fill(opiumUpHit, false);
-        heisenUltimateVolleyTimer = 0;
-        heisenUltimateVolleyHit = false;
-        resetHeisenUltimateShardState(true);
+        OpiumSpecials.reset(this);
     }
 
     private void resetHummingbirdSpecialState(boolean clearTraps) {
@@ -5992,13 +5964,7 @@ public class Bird {
     }
 
     private void interruptOpiumSpecialStateOnHit() {
-        if (!isOpiumEchoPair()) {
-            return;
-        }
-        if (opiumSpecialActive()) {
-            attackAnimationTimer = 0;
-        }
-        resetOpiumSpecialState();
+        OpiumSpecials.interruptOnHit(this);
     }
 
     private int aiJumpCooldown = 0;
@@ -10543,7 +10509,7 @@ public class Bird {
         game.shakeIntensity = Math.max(game.shakeIntensity, 10);
     }
 
-    private void resetHeisenUltimateShardState(boolean clearOrbitCooldowns) {
+    void resetHeisenUltimateShardState(boolean clearOrbitCooldowns) {
         Arrays.fill(heisenUltimateShardLaunched, false);
         Arrays.fill(heisenUltimateShardSpent, false);
         Arrays.fill(heisenUltimateShardX, 0.0);
