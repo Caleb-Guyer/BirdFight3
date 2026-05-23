@@ -32540,7 +32540,7 @@ public class BirdGame3 extends Application {
         trainingAcademyDashSeen = true;
     }
 
-    void recordTrainingShieldHit(Bird defender, boolean parried) {
+    void recordTrainingShieldHit(Bird defender) {
         if (!trainingModeActive || defender == null || defender.playerIndex != 0) return;
         trainingAcademyShieldHitSeen = true;
     }

@@ -2915,7 +2915,7 @@ public class Bird {
             } else {
                 game.addToKillFeed(shortName() + " PARRIED the hit!");
             }
-            game.recordTrainingShieldHit(this, true);
+            game.recordTrainingShieldHit(this);
             return ShieldHitResult.PARRIED;
         }
 
@@ -2944,7 +2944,7 @@ public class Bird {
         spawnShieldParticles(Color.web("#64B5F6"), 10 + (int) Math.min(8.0, scaledDamage * 0.35), 3.0);
         game.hitstopFrames = Math.max(game.hitstopFrames, (int) Math.min(8, 2 + scaledDamage / 7.0));
         game.shakeIntensity = Math.clamp(2.0 + scaledDamage * 0.12, game.shakeIntensity, 8.0);
-        game.recordTrainingShieldHit(this, false);
+        game.recordTrainingShieldHit(this);
 
         if (shieldHealth <= 0.0) {
             breakShield(attacker, push);
