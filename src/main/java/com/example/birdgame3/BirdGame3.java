@@ -39335,6 +39335,176 @@ public class BirdGame3 extends Application {
         return cleaned;
     }
 
+    private Node buildPauseSpecialMoveGuide() {
+        int count = Math.min(activePlayers, players.length);
+        FlowPane cards = new FlowPane(12, 10);
+        cards.setAlignment(Pos.CENTER);
+        cards.setPrefWrapLength(1320);
+
+        for (int i = 0; i < count; i++) {
+            Bird bird = players[i];
+            if (bird == null || bird.type == null) {
+                continue;
+            }
+            cards.getChildren().add(buildPauseSpecialMoveGuideCard(i, bird));
+        }
+
+        if (cards.getChildren().isEmpty()) {
+            return null;
+        }
+
+        Label title = new Label("SPECIAL MOVE GUIDE");
+        title.setFont(Font.font("Arial Black", 22));
+        title.setTextFill(Color.web("#FFF59D"));
+        title.setAlignment(Pos.CENTER);
+        title.setMaxWidth(Double.MAX_VALUE);
+        applyNoEllipsis(title);
+
+        Label hint = new Label("Press Special alone, with left/right, with up/jump, or with down/block.");
+        hint.setFont(Font.font("Consolas", 16));
+        hint.setTextFill(Color.web("#CFD8DC"));
+        hint.setAlignment(Pos.CENTER);
+        hint.setTextAlignment(TextAlignment.CENTER);
+        hint.setMaxWidth(Double.MAX_VALUE);
+        applyNoEllipsis(hint);
+
+        VBox guide = new VBox(8, title, hint, cards);
+        guide.setAlignment(Pos.CENTER);
+        guide.setMaxWidth(1360);
+        guide.setPadding(new Insets(14, 18, 16, 18));
+        guide.setStyle("-fx-background-color: rgba(7, 12, 18, 0.88); -fx-background-radius: 18; "
+                + "-fx-border-color: rgba(255, 245, 157, 0.34); -fx-border-width: 2; "
+                + "-fx-border-radius: 18;");
+        return guide;
+    }
+
+    private Node buildPauseSpecialMoveGuideCard(int playerIdx, Bird bird) {
+        Color accent = switch (playerIdx) {
+            case 0 -> Color.web("#F44336");
+            case 1 -> Color.web("#42A5F5");
+            case 2 -> Color.web("#FDD835");
+            default -> Color.web("#66BB6A");
+        };
+        String accentHex = toHex(accent);
+        String[][] moves = specialMoveGuideRows(bird.type);
+        double cardWidth = activePlayers >= 4 ? 306.0 : 330.0;
+
+        Label header = new Label("P" + (playerIdx + 1) + "  " + shortName(bird.name).toUpperCase(Locale.ROOT));
+        header.setFont(Font.font("Arial Black", activePlayers >= 4 ? 15 : 17));
+        header.setTextFill(playerIdx == 2 ? Color.web("#111111") : Color.WHITE);
+        header.setAlignment(Pos.CENTER);
+        header.setTextAlignment(TextAlignment.CENTER);
+        header.setMaxWidth(Double.MAX_VALUE);
+        StackPane headerBar = new StackPane(header);
+        headerBar.setPadding(new Insets(6, 10, 7, 10));
+        headerBar.setStyle("-fx-background-color: " + accentHex + "; -fx-background-radius: 12;");
+
+        GridPane moveGrid = new GridPane();
+        moveGrid.setHgap(8);
+        moveGrid.setVgap(6);
+        moveGrid.setAlignment(Pos.CENTER);
+        ColumnConstraints inputCol = new ColumnConstraints(74);
+        inputCol.setMinWidth(74);
+        inputCol.setMaxWidth(74);
+        ColumnConstraints moveCol = new ColumnConstraints(cardWidth - 118);
+        moveCol.setHgrow(Priority.ALWAYS);
+        moveGrid.getColumnConstraints().addAll(inputCol, moveCol);
+
+        for (int row = 0; row < moves.length; row++) {
+            Label input = new Label(moves[row][0]);
+            input.setFont(Font.font("Arial Black", 12));
+            input.setTextFill(accent.interpolate(Color.WHITE, 0.26));
+            input.setAlignment(Pos.CENTER_RIGHT);
+            input.setMaxWidth(Double.MAX_VALUE);
+            applyNoEllipsis(input);
+
+            Label move = new Label(moves[row][1]);
+            move.setFont(Font.font("Consolas", FontWeight.BOLD, activePlayers >= 4 ? 13 : 14));
+            move.setTextFill(Color.WHITE);
+            move.setWrapText(true);
+            move.setMaxWidth(cardWidth - 118);
+            fitWrappedLabelText(move, moves[row][1], cardWidth - 118, 34, 10);
+
+            moveGrid.add(input, 0, row);
+            moveGrid.add(move, 1, row);
+        }
+
+        Label note = new Label(specialMoveGuideNote(bird.type));
+        note.setFont(Font.font("Consolas", activePlayers >= 4 ? 11 : 12));
+        note.setTextFill(Color.web("#B0BEC5"));
+        note.setWrapText(true);
+        note.setTextAlignment(TextAlignment.CENTER);
+        note.setAlignment(Pos.CENTER);
+        note.setMaxWidth(cardWidth - 28);
+        fitWrappedLabelText(note, note.getText(), cardWidth - 28, 34, 9);
+
+        VBox card = new VBox(8, headerBar, moveGrid, note);
+        card.setAlignment(Pos.TOP_CENTER);
+        card.setPadding(new Insets(10));
+        card.setPrefWidth(cardWidth);
+        card.setMinWidth(cardWidth);
+        card.setMaxWidth(cardWidth);
+        card.setStyle("-fx-background-color: rgba(14, 19, 26, 0.94); -fx-background-radius: 16; "
+                + "-fx-border-color: " + accentHex + "; -fx-border-width: 2; -fx-border-radius: 16;");
+        return card;
+    }
+
+    private String[][] specialMoveGuideRows(BirdType type) {
+        String[] names = specialMoveNames(type);
+        return new String[][]{
+                {"Neutral", names[0]},
+                {"Side", names[1]},
+                {"Up", names[2]},
+                {"Down", names[3]}
+        };
+    }
+
+    private String[] specialMoveNames(BirdType type) {
+        if (type == null) {
+            return new String[]{"-", "-", "-", "-"};
+        }
+        return switch (type) {
+            case VULTURE -> new String[]{"Summon Crows", "Carrion Glide", "Thermal Lift", "Bone Offering"};
+            case BAT -> new String[]{"Echo Lance", "Wingcut", "Moonrise", "Silent Descent + Ceiling Hang"};
+            case RAVEN -> new String[]{"Black Quill", "Shadow Warp", "Murder Lift", "Nevermore"};
+            case FALCON -> splitSpecialAbility("Target Snap / Razor Rush / Jet Climb / Meteor Strike");
+            case HEISENBIRD -> splitSpecialAbility("Crystal Cloud / Blue Rush / Crystal Column / Glass Cook");
+            default -> splitSpecialAbility(type.ability);
+        };
+    }
+
+    private String[] splitSpecialAbility(String ability) {
+        String source = ability == null ? "" : ability;
+        int colon = source.indexOf(':');
+        if (colon >= 0 && colon + 1 < source.length()) {
+            source = source.substring(colon + 1).trim();
+        }
+        String[] parts = source.contains("/")
+                ? source.split("\\s*/\\s*")
+                : source.split("\\s*\\+\\s*");
+        String[] moves = {"-", "-", "-", "-"};
+        for (int i = 0; i < moves.length && i < parts.length; i++) {
+            moves[i] = parts[i].trim().isEmpty() ? "-" : parts[i].trim();
+        }
+        return moves;
+    }
+
+    private String specialMoveGuideNote(BirdType type) {
+        if (type == null) {
+            return "";
+        }
+        return switch (type) {
+            case TITMOUSE -> "MARK improves follow-ups. STASH can be detonated after arming.";
+            case OPIUMBIRD -> "DROWSY slows targets. PATCH refuels the opium meter.";
+            case HEISENBIRD -> "BRITTLE boosts crystal damage. NODE refuels the crystal meter.";
+            case VULTURE -> "Crows persist as pressure. Bone Offering turns space into a trap.";
+            case RAVEN -> "Marks and routes set up larger follow-ups, including the ultimate.";
+            case MOCKINGBIRD -> "Mimic steals neutral specials; Lounge controls space.";
+            case BAT -> "Ceiling Hang gives the down special a second movement state.";
+            default -> "Directional input changes the special before startup.";
+        };
+    }
+
     private void togglePause(Stage stage) {
         Scene scene = stage.getScene();
         if (isPaused) {
@@ -39507,6 +39677,10 @@ public class BirdGame3 extends Application {
             pauseMenu.getChildren().addAll(pauseLabel, glyphLegend);
             if (disconnectBox != null) {
                 pauseMenu.getChildren().add(disconnectBox);
+            }
+            Node specialGuide = buildPauseSpecialMoveGuide();
+            if (specialGuide != null) {
+                pauseMenu.getChildren().add(specialGuide);
             }
             pauseMenu.getChildren().addAll(resumeButton, restartButton, exitButton);
             gameRoot.getChildren().add(pauseMenu);
