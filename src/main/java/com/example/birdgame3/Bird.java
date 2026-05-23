@@ -348,44 +348,44 @@ public class Bird {
     public int carrionSwarmTimer = 0;
     public int crowSwarmCooldown = 0;
     public boolean isFlying = false;
-    private static final int VULTURE_CALL_FRAMES = 42;
-    private static final int VULTURE_CALL_SPAWN_INTERVAL = 14;
-    private static final int VULTURE_CALL_MAX_CROWS = 3;
-    private static final int VULTURE_CROW_TICK_MAX = 3;
-    private static final int VULTURE_CROW_TICK_RECHARGE_FRAMES = 150;
-    private static final int VULTURE_NEUTRAL_REUSE_FRAMES = 8;
-    private static final int VULTURE_GLIDE_FRAMES = 24;
-    private static final int VULTURE_GLIDE_REUSE_FRAMES = 42;
-    private static final int VULTURE_THERMAL_FRAMES = 30;
-    private static final int VULTURE_BAIT_ARM_FRAMES = 18;
-    private static final int VULTURE_BAIT_CALL_FRAMES = 150;
-    private static final int VULTURE_BAIT_LIFE_FRAMES = 780;
-    private static final int VULTURE_BAIT_MAX_CROWS = 12;
-    private static final int VULTURE_BAIT_CROW_SPAWN_INTERVAL = 34;
-    private static final int VULTURE_DOWN_REUSE_FRAMES = 70;
-    private static final int VULTURE_BLACK_SKY_FRAMES = 150;
-    private int vultureNeutralReuseTimer = 0;
-    private int vultureCrowTicks = VULTURE_CROW_TICK_MAX;
-    private int vultureCrowTickRechargeTimer = 0;
-    private int vultureCallTimer = 0;
-    private int vultureCallHoldFrames = 0;
-    private int vultureCallCrowsSummoned = 0;
-    private boolean vultureCallUltimate = false;
-    private int vultureGlideTimer = 0;
-    private int vultureGlideDirection = 1;
-    private boolean vultureGlideUltimate = false;
-    private final boolean[] vultureGlideHit = new boolean[4];
-    private int vultureSideReuseTimer = 0;
-    private int vultureThermalTimer = 0;
-    private boolean vultureThermalUltimate = false;
-    private boolean vultureUpSpecialUsed = false;
-    private final int[] vultureThermalHitCooldown = new int[4];
-    private VultureBait vultureBait = null;
-    private int vultureDownReuseTimer = 0;
-    private int vultureBlackSkyTimer = 0;
-    private int vultureBlackSkySpawnTimer = 0;
-    private boolean vultureBlackSkyFinalHit = false;
-    private final boolean[] vultureBlackSkyHit = new boolean[4];
+    static final int VULTURE_CALL_FRAMES = 42;
+    static final int VULTURE_CALL_SPAWN_INTERVAL = 14;
+    static final int VULTURE_CALL_MAX_CROWS = 3;
+    static final int VULTURE_CROW_TICK_MAX = 3;
+    static final int VULTURE_CROW_TICK_RECHARGE_FRAMES = 150;
+    static final int VULTURE_NEUTRAL_REUSE_FRAMES = 8;
+    static final int VULTURE_GLIDE_FRAMES = 24;
+    static final int VULTURE_GLIDE_REUSE_FRAMES = 42;
+    static final int VULTURE_THERMAL_FRAMES = 30;
+    static final int VULTURE_BAIT_ARM_FRAMES = 18;
+    static final int VULTURE_BAIT_CALL_FRAMES = 150;
+    static final int VULTURE_BAIT_LIFE_FRAMES = 780;
+    static final int VULTURE_BAIT_MAX_CROWS = 12;
+    static final int VULTURE_BAIT_CROW_SPAWN_INTERVAL = 34;
+    static final int VULTURE_DOWN_REUSE_FRAMES = 70;
+    static final int VULTURE_BLACK_SKY_FRAMES = 150;
+    int vultureNeutralReuseTimer = 0;
+    int vultureCrowTicks = VULTURE_CROW_TICK_MAX;
+    int vultureCrowTickRechargeTimer = 0;
+    int vultureCallTimer = 0;
+    int vultureCallHoldFrames = 0;
+    int vultureCallCrowsSummoned = 0;
+    boolean vultureCallUltimate = false;
+    int vultureGlideTimer = 0;
+    int vultureGlideDirection = 1;
+    boolean vultureGlideUltimate = false;
+    final boolean[] vultureGlideHit = new boolean[4];
+    int vultureSideReuseTimer = 0;
+    int vultureThermalTimer = 0;
+    boolean vultureThermalUltimate = false;
+    boolean vultureUpSpecialUsed = false;
+    final int[] vultureThermalHitCooldown = new int[4];
+    VultureBait vultureBait = null;
+    int vultureDownReuseTimer = 0;
+    int vultureBlackSkyTimer = 0;
+    int vultureBlackSkySpawnTimer = 0;
+    boolean vultureBlackSkyFinalHit = false;
+    final boolean[] vultureBlackSkyHit = new boolean[4];
 
     // === OPIUM / HEISENBIRD ===
     private static final int OPIUM_NEUTRAL_FRAMES = 300;
@@ -678,7 +678,7 @@ public class Bird {
     private double shieldHealth = SHIELD_MAX_HEALTH;
     int shieldStunFrames = 0;
     int parryWindowFrames = 0;
-    private double shieldHoldVisual = 0.0;
+    double shieldHoldVisual = 0.0;
     private AttackVisualPose displayPose = null;
     private DodgeType dodgeType = DodgeType.NONE;
     private int dodgeTimer = 0;
@@ -1294,7 +1294,7 @@ public class Bird {
         }
     }
 
-    private static final class VultureBait {
+    static final class VultureBait {
         final double x;
         final double y;
         final boolean ultimate;
@@ -3813,726 +3813,132 @@ public class Bird {
     }
 
     void specialVultureCarrionCall(boolean ultimate) {
-        if (!ultimate && vultureCrowTicks <= 0) {
-            return;
-        }
-        int dir = horizontalInputDirection();
-        if (dir != 0) {
-            facingRight = dir > 0;
-        }
-        vultureCallTimer = VULTURE_CALL_FRAMES + (ultimate ? 10 : 0);
-        vultureCallHoldFrames = 0;
-        vultureCallCrowsSummoned = 0;
-        vultureCallUltimate = ultimate;
-        vultureNeutralReuseTimer = ultimate ? 24 : VULTURE_NEUTRAL_REUSE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        crowSwarmCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 18);
-        vx *= isOnGround() ? 0.42 : 0.68;
-        if (!isOnGround()) {
-            vy = Math.min(vy, 1.4);
-        }
-
-        spawnVultureCallCrow(ultimate);
-        game.addToKillFeed(shortName() + " called carrion crows!");
-        emitVultureBurst(bodyCenterX(), bodyCenterY() - 12.0 * sizeMultiplier,
-                facingDirection(), ultimate ? 28 : 18, ultimate ? Color.GOLD : Color.web("#21162B"));
+        VultureSpecials.neutral(this, ultimate);
     }
 
     void specialVultureGravewindGlide() {
-        int dir = horizontalInputDirection();
-        if (dir == 0)
-            dir = facingDirection();
-        facingRight = dir > 0;
-        vultureGlideTimer = VULTURE_GLIDE_FRAMES;
-        vultureGlideDirection = dir;
-        vultureGlideUltimate = false;
-        Arrays.fill(vultureGlideHit, false);
-        vultureSideReuseTimer = VULTURE_GLIDE_REUSE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        crowSwarmCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, vultureGlideTimer);
-        vx = dir * (16.4);
-        vy = Math.min(vy, isOnGround() ? -2.0 : 1.2);
-        emitVultureBurst(bodyCenterX() - dir * 28.0 * sizeMultiplier, bodyCenterY(),
-                -dir, 15, Color.web("#394049"));
+        VultureSpecials.side(this);
     }
 
     void specialVultureThermalSpiral() {
-        if (vultureUpSpecialUsed) {
-            return;
-        }
-        int dir = horizontalInputDirection();
-        if (dir != 0) {
-            facingRight = dir > 0;
-        }
-        vultureUpSpecialUsed = true;
-        vultureThermalTimer = VULTURE_THERMAL_FRAMES;
-        vultureThermalUltimate = false;
-        Arrays.fill(vultureThermalHitCooldown, 0);
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, vultureThermalTimer);
-        vy = Math.min(vy, -12.4);
-        vx += horizontalInputDirection() * (2.8);
-        canDoubleJump = true;
-        emitVultureBurst(bodyCenterX(), bodyBottomY() - 10.0 * sizeMultiplier,
-                facingDirection(), 20, Color.web("#B0BEC5"));
+        VultureSpecials.up(this);
     }
 
     void specialVultureBoneOffering() {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        double baitX = Math.clamp(bodyCenterX() + dir * 72.0 * sizeMultiplier,
-                usesIslandBounds() ? game.battlefieldLeftBound() + 36.0 : 36.0,
-                usesIslandBounds() ? game.battlefieldRightBound() - 36.0 : BirdGame3.WORLD_WIDTH - 36.0);
-        double baitY = vultureBaitSurfaceY(baitX);
-        vultureBait = new VultureBait(baitX, baitY, false);
-        vultureDownReuseTimer = VULTURE_DOWN_REUSE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        crowSwarmCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 16);
-        isBlocking = false;
-        shieldHoldVisual = 0.0;
-        vx *= isOnGround() ? 0.45 : 0.70;
-        if (!isOnGround()) {
-            vy = Math.min(vy, 2.0);
-        }
-        game.addToKillFeed(shortName() + " set a bone offering.");
-        emitVultureBurst(baitX, baitY - 18.0 * sizeMultiplier, dir,
-                16, Color.web("#D7CCC8"));
+        VultureSpecials.down(this);
     }
 
     void specialVultureBlackSkyFeast() {
-        resetVultureSpecialState(false);
-        vultureBlackSkyTimer = VULTURE_BLACK_SKY_FRAMES;
-        vultureBlackSkySpawnTimer = 0;
-        vultureBlackSkyFinalHit = false;
-        Arrays.fill(vultureBlackSkyHit, false);
-        carrionSwarmTimer = Math.max(carrionSwarmTimer, 190);
-        crowSwarmCooldown = 0;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 48);
-        vx *= 0.35;
-        vy = Math.min(vy, -4.0);
-        game.addToKillFeed(shortName() + " opened the Black Sky Feast!");
-        game.shakeIntensity = Math.max(game.shakeIntensity, 24);
-        game.hitstopFrames = Math.max(game.hitstopFrames, 10);
-        spawnVultureCrowWave(8, 620.0, 1.24);
-        emitVultureBurst(bodyCenterX(), bodyCenterY(), facingDirection(), 80, Color.BLACK);
+        VultureSpecials.blackSky(this);
     }
 
     private void handleVultureSpecialState(boolean specialHeld) {
-        if (vultureCallTimer > 0) {
-            handleVultureCall(specialHeld);
-        }
-        if (type != BirdGame3.BirdType.VULTURE) {
-            return;
-        }
-        handleVultureGlide();
-        handleVultureThermal();
-        handleVultureBait();
-        handleVultureBlackSky();
+        VultureSpecials.handleState(this, specialHeld);
     }
 
     private void handleVultureCall(boolean specialHeld) {
-        vultureCallTimer--;
-        vultureCallHoldFrames++;
-        vx *= isOnGround() ? 0.78 : 0.90;
-        if (!isOnGround()) {
-            vy = Math.min(vy, 2.4);
-        }
-
-        int maxCrows = vultureCallUltimate ? VULTURE_CALL_MAX_CROWS + 2 : VULTURE_CALL_MAX_CROWS;
-        int nextCallFrame = VULTURE_CALL_SPAWN_INTERVAL * vultureCallCrowsSummoned;
-        if (specialHeld && vultureCallCrowsSummoned < maxCrows && vultureCallHoldFrames >= nextCallFrame) {
-            if (!spawnVultureCallCrow(vultureCallUltimate)) {
-                vultureCallTimer = Math.min(vultureCallTimer, 3);
-            }
-        }
-        if (!specialHeld && vultureCallHoldFrames > 8) {
-            vultureCallTimer = Math.min(vultureCallTimer, 6);
-        }
-        if (!vultureCallUltimate && vultureCrowTicks <= 0 && vultureCallHoldFrames > 8) {
-            vultureCallTimer = Math.min(vultureCallTimer, 3);
-        }
-        if (vultureCallCrowsSummoned >= maxCrows && vultureCallHoldFrames > VULTURE_CALL_SPAWN_INTERVAL) {
-            vultureCallTimer = Math.min(vultureCallTimer, 3);
-        }
-        if ((vultureCallHoldFrames & 3) == 0) {
-            emitVultureBurst(bodyCenterX(), bodyCenterY() - 16.0 * sizeMultiplier,
-                    facingDirection(), vultureCallUltimate ? 5 : 3,
-                    vultureCallUltimate ? Color.GOLD : Color.web("#2B1B34"));
-        }
-        if (vultureCallTimer <= 0) {
-            int reuse = vultureCallUltimate ? 34 + vultureCallCrowsSummoned * 12 : VULTURE_NEUTRAL_REUSE_FRAMES;
-            vultureNeutralReuseTimer = Math.max(vultureNeutralReuseTimer, reuse);
-            specialCooldown = 0;
-            specialMaxCooldown = 0;
-            crowSwarmCooldown = 0;
-            vultureCallHoldFrames = 0;
-            vultureCallCrowsSummoned = 0;
-            vultureCallUltimate = false;
-        }
+        VultureSpecials.handleCall(this, specialHeld);
     }
 
     private void handleVultureGlide() {
-        if (vultureGlideTimer <= 0) {
-            return;
-        }
-        int dir = vultureGlideDirection == 0 ? facingDirection() : vultureGlideDirection;
-        facingRight = dir > 0;
-        int total = VULTURE_GLIDE_FRAMES + (vultureGlideUltimate ? 8 : 0);
-        double progress = 1.0 - Math.clamp(vultureGlideTimer / (double) Math.max(1, total), 0.0, 1.0);
-        double speed = (vultureGlideUltimate ? 20.0 : 16.4) * (0.72 + 0.28 * Math.cos(progress * Math.PI * 0.5));
-        if (vultureGlideTimer > 5) {
-            vx = dir * speed;
-            vy = Math.min(vy * 0.74, vultureGlideUltimate ? 0.2 : 0.8);
-        } else {
-            vx *= 0.86;
-            vy *= 0.92;
-        }
-        applyVultureGlideHits();
-        if ((vultureGlideTimer & 1) == 0) {
-            emitVultureBurst(bodyCenterX() - dir * 48.0 * sizeMultiplier,
-                    bodyCenterY() + 4.0 * sizeMultiplier, -dir,
-                    vultureGlideUltimate ? 5 : 3,
-                    vultureGlideUltimate ? Color.GOLD : Color.web("#263238"));
-        }
-        vultureGlideTimer--;
-        if (vultureGlideTimer <= 0) {
-            vultureGlideUltimate = false;
-            Arrays.fill(vultureGlideHit, false);
-        }
+        VultureSpecials.handleGlide(this);
     }
 
     private void applyVultureGlideHits() {
-        int dir = vultureGlideDirection == 0 ? facingDirection() : vultureGlideDirection;
-        double hitX = bodyCenterX() + dir * 66.0 * sizeMultiplier;
-        double hitY = bodyCenterY() + 3.0 * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= vultureGlideHit.length) continue;
-            if (vultureGlideHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - hitX;
-            double forward = dx * dir;
-            if (forward < -other.combatHalfWidth() * 0.65) continue;
-            if (forward > (vultureGlideUltimate ? 142.0 : 118.0) * sizeMultiplier + other.combatHalfWidth()) continue;
-            double dy = Math.abs(other.bodyCenterY() - hitY);
-            if (dy > (vultureGlideUltimate ? 74.0 : 60.0) * sizeMultiplier + other.combatHalfHeight()) continue;
-
-            vultureGlideHit[other.playerIndex] = true;
-            int assists = consumeNearbyOwnedVultureCrows(hitX, hitY, (vultureGlideUltimate ? 190.0 : 150.0) * sizeMultiplier,
-                    vultureGlideUltimate ? 2 : 1);
-            int dealt = dealVultureSpecialDamage(
-                    other,
-                    (vultureGlideUltimate ? 15 : 11) + assists * 3,
-                    dir * ((vultureGlideUltimate ? 15.0 : 11.5) + assists * 2.2),
-                    (vultureGlideUltimate ? -5.8 : -4.2) - assists * 1.4,
-                    assists > 0 ? "dove with a crow through" : "gravewind-glided through",
-                    vultureGlideUltimate ? 22 : 14,
-                    assists > 0 ? Color.web("#151515") : Color.web("#455A64")
-            );
-            if (dealt > 0) {
-                game.shakeIntensity = Math.max(game.shakeIntensity, assists > 0 ? 10 : 6);
-            }
-        }
+        VultureSpecials.applyGlideHits(this);
     }
 
     private void handleVultureThermal() {
-        if (vultureThermalTimer <= 0) {
-            return;
-        }
-        int total = VULTURE_THERMAL_FRAMES + (vultureThermalUltimate ? 10 : 0);
-        int dir = horizontalInputDirection();
-        if (dir != 0) {
-            facingRight = dir > 0;
-            double desired = dir * (vultureThermalUltimate ? 8.2 : 6.4);
-            vx += (desired - vx) * 0.16;
-        } else {
-            vx *= 0.98;
-        }
-        if (vultureThermalTimer > total * 0.42) {
-            vy = Math.min(vy, vultureThermalUltimate ? -10.4 : -8.8);
-        } else {
-            vy = Math.min(vy, vultureThermalUltimate ? -3.8 : -2.6);
-        }
-        canDoubleJump = true;
-        steerOwnedCrowsAroundVulture();
-        applyVultureThermalHits();
-        if ((vultureThermalTimer & 2) == 0) {
-            emitVultureBurst(bodyCenterX(), bodyBottomY() - 8.0 * sizeMultiplier,
-                    facingDirection(), vultureThermalUltimate ? 6 : 4,
-                    vultureThermalUltimate ? Color.GOLD : Color.web("#CFD8DC"));
-        }
-        vultureThermalTimer--;
-        if (vultureThermalTimer <= 0) {
-            vultureThermalUltimate = false;
-            Arrays.fill(vultureThermalHitCooldown, 0);
-        }
+        VultureSpecials.handleThermal(this);
     }
 
     private void applyVultureThermalHits() {
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY() - 18.0 * sizeMultiplier;
-        double reach = (vultureThermalUltimate ? 94.0 : 76.0) * sizeMultiplier;
-        double height = (vultureThermalUltimate ? 156.0 : 126.0) * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= vultureThermalHitCooldown.length) continue;
-            if (vultureThermalHitCooldown[other.playerIndex] > 0) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            if (Math.abs(dx) > reach + other.combatHalfWidth()) continue;
-            if (Math.abs(dy) > height * 0.55 + other.combatHalfHeight()) continue;
-            vultureThermalHitCooldown[other.playerIndex] = vultureThermalUltimate ? 7 : 9;
-            double pushDir = Math.signum(dx);
-            if (pushDir == 0.0) {
-                pushDir = facingDirection();
-            }
-            dealVultureSpecialDamage(
-                    other,
-                    vultureThermalUltimate ? 7 : 5,
-                    pushDir * (vultureThermalUltimate ? 5.2 : 3.6),
-                    vultureThermalUltimate ? -10.5 : -8.0,
-                    "thermal-lifted",
-                    vultureThermalUltimate ? 14 : 8,
-                    vultureThermalUltimate ? Color.GOLD : Color.web("#B0BEC5")
-            );
-        }
+        VultureSpecials.applyThermalHits(this);
     }
 
     private void handleVultureBait() {
-        if (vultureBait == null) {
-            return;
-        }
-        VultureBait bait = vultureBait;
-        bait.ageFrames++;
-        bait.lifeFrames--;
-        if (bait.damageFlash > 0) {
-            bait.damageFlash--;
-        }
-        if (bait.damageCooldown > 0) {
-            bait.damageCooldown--;
-        }
-        if (bait.lifeFrames <= 0 || health <= 0) {
-            removeVultureBaitCrows(bait);
-            vultureBait = null;
-            return;
-        }
-        if (!bait.releasedCrows) {
-            bait.callFrames--;
-            if (tryDestroyVultureBait(bait)) {
-                return;
-            }
-            if (bait.callFrames <= 0) {
-                releaseVultureBaitCrows(bait);
-            }
-        } else {
-            updateVultureBaitCrowSwarm(bait);
-        }
-        if ((bait.ageFrames & 7) == 0) {
-            emitVultureBurst(bait.x, bait.y - 18.0 * sizeMultiplier, 0.0,
-                    bait.ultimate ? 4 : 2,
-                    bait.releasedCrows ? Color.web("#1A121F") : Color.web("#D7CCC8"));
-        }
+        VultureSpecials.handleBait(this);
     }
 
     private boolean tryDestroyVultureBait(VultureBait bait) {
-        if (!bait.armed() || bait.damageCooldown > 0) {
-            return false;
-        }
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.attackAnimationTimer <= 0 && other.vultureGlideTimer <= 0 && other.bladeStormFrames <= 0) continue;
-            double dx = other.bodyCenterX() - bait.x;
-            double dy = other.bodyCenterY() - (bait.y - 22.0 * sizeMultiplier);
-            if (Math.abs(dx) > 62.0 * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (Math.abs(dy) > 54.0 * sizeMultiplier + other.combatHalfHeight()) continue;
-            bait.health--;
-            bait.damageFlash = 10;
-            bait.damageCooldown = 12;
-            emitVultureBurst(bait.x, bait.y - 20.0 * sizeMultiplier,
-                    Math.signum(dx), 12, Color.web("#EF5350"));
-            if (bait.health <= 0) {
-                game.addToKillFeed(shortName(other.name) + " broke " + shortName() + "'s offering!");
-                removeVultureBaitCrows(bait);
-                vultureBait = null;
-                return true;
-            }
-            return false;
-        }
-        return false;
+        return VultureSpecials.tryDestroyBait(this, bait);
     }
 
     private void releaseVultureBaitCrows(VultureBait bait) {
-        bait.releasedCrows = true;
-        bait.spawnCooldown = 0;
-        updateVultureBaitCrowSwarm(bait);
-        game.addToKillFeed(shortName() + "'s offering drew the flock!");
-        emitVultureBurst(bait.x, bait.y - 24.0 * sizeMultiplier,
-                0.0, bait.ultimate ? 36 : 24, bait.ultimate ? Color.GOLD : Color.web("#21162B"));
+        VultureSpecials.releaseBaitCrows(this, bait);
     }
 
     private void updateVultureBaitCrowSwarm(VultureBait bait) {
-        int maxCrows = bait.ultimate ? VULTURE_BAIT_MAX_CROWS + 6 : VULTURE_BAIT_MAX_CROWS;
-        if (bait.crowsReleased >= maxCrows) {
-            return;
-        }
-        if (bait.spawnCooldown > 0) {
-            bait.spawnCooldown--;
-            return;
-        }
-        int waveSize = bait.crowsReleased >= 8 ? 3 : bait.crowsReleased >= 4 ? 2 : 1;
-        if (bait.ultimate && bait.crowsReleased >= 6) {
-            waveSize++;
-        }
-        waveSize = Math.min(waveSize, maxCrows - bait.crowsReleased);
-        for (int i = 0; i < waveSize; i++) {
-            spawnVultureBaitCrow(bait, bait.crowsReleased + i);
-        }
-        bait.crowsReleased += waveSize;
-        bait.spawnCooldown = Math.max(14,
-                (bait.ultimate ? VULTURE_BAIT_CROW_SPAWN_INTERVAL - 8 : VULTURE_BAIT_CROW_SPAWN_INTERVAL)
-                        - bait.crowsReleased * 2);
+        VultureSpecials.updateBaitCrowSwarm(this, bait);
     }
 
     private void spawnVultureBaitCrow(VultureBait bait, int index) {
-        double anchorY = bait.y - 58.0 * sizeMultiplier;
-        double angle = -Math.PI / 2.0 + index * 0.76 + (Math.random() - 0.5) * 0.26;
-        double spawnRadius = (42.0 + Math.random() * 44.0) * sizeMultiplier;
-        double spawnX = bait.x + Math.cos(angle) * spawnRadius;
-        double spawnY = anchorY + Math.sin(angle) * spawnRadius * 0.62;
-        double guardRadius = (bait.ultimate ? 190.0 : 160.0) * sizeMultiplier;
-        CrowMinion crow = spawnVultureCrow(spawnX, spawnY,
-                null,
-                bait.ultimate, bait.ultimate ? 1.08 : 1.0);
-        crow.withAnchorGuard(bait.x, anchorY, guardRadius, bait.lifeFrames + 30);
-        double tangent = angle + Math.PI * 0.5;
-        crow.vx += Math.cos(tangent) * (bait.ultimate ? 2.9 : 2.3);
-        crow.vy += Math.sin(tangent) * (bait.ultimate ? 2.4 : 1.9) - 1.4;
+        VultureSpecials.spawnBaitCrow(this, bait, index);
     }
 
     private void removeVultureBaitCrows(VultureBait bait) {
-        if (bait == null) {
-            return;
-        }
-        double anchorY = bait.y - 58.0 * sizeMultiplier;
-        for (Iterator<CrowMinion> it = game.crowMinions.iterator(); it.hasNext(); ) {
-            CrowMinion crow = it.next();
-            if (crow.owner == this && crow.guardsAnchorNear(bait.x, anchorY, 12.0 * sizeMultiplier)) {
-                emitVultureBurst(crow.x, crow.y, 0.0, 8, Color.web("#21162B"));
-                it.remove();
-            }
-        }
+        VultureSpecials.removeBaitCrows(this, bait);
     }
 
     private void handleVultureBlackSky() {
-        if (vultureBlackSkyTimer <= 0) {
-            return;
-        }
-        vultureBlackSkyTimer--;
-        vultureBlackSkySpawnTimer--;
-        carrionSwarmTimer = Math.max(carrionSwarmTimer, 2);
-        vx *= 0.94;
-        if (vultureBlackSkySpawnTimer <= 0) {
-            spawnVultureCrowWave(vultureBlackSkyTimer > 56 ? 2 : 3, 820.0, 1.30);
-            vultureBlackSkySpawnTimer = vultureBlackSkyTimer > 56 ? 16 : 12;
-        }
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY() - 60.0 * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = centerX - other.bodyCenterX();
-            double dy = centerY - other.bodyCenterY();
-            if (Math.abs(dx) > 980.0 + other.combatHalfWidth()) continue;
-            if (Math.abs(dy) > 520.0 + other.combatHalfHeight()) continue;
-            other.vx += Math.signum(dx) * 0.22;
-            other.vy += Math.signum(dy) * 0.08 - 0.06;
-        }
-        if (!vultureBlackSkyFinalHit && vultureBlackSkyTimer <= 38) {
-            vultureBlackSkyFinalHit = true;
-            applyVultureBlackSkyFinalHit();
-            game.shakeIntensity = Math.max(game.shakeIntensity, 28);
-            game.hitstopFrames = Math.max(game.hitstopFrames, 12);
-            game.triggerFlash(0.74, false);
-        }
-        if ((vultureBlackSkyTimer & 3) == 0) {
-            emitVultureBurst(centerX + (Math.random() - 0.5) * 220.0 * sizeMultiplier,
-                    centerY + (Math.random() - 0.5) * 160.0 * sizeMultiplier,
-                    0.0, 5, Color.BLACK);
-        }
-        if (vultureBlackSkyTimer <= 0) {
-            Arrays.fill(vultureBlackSkyHit, false);
-        }
+        VultureSpecials.handleBlackSky(this);
     }
 
     private void applyVultureBlackSkyFinalHit() {
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY() - 40.0 * sizeMultiplier;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= vultureBlackSkyHit.length) continue;
-            if (vultureBlackSkyHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            if (Math.abs(dx) > 760.0 * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (Math.abs(dy) > 420.0 * sizeMultiplier + other.combatHalfHeight()) continue;
-            vultureBlackSkyHit[other.playerIndex] = true;
-            double pushDir = Math.signum(dx);
-            if (pushDir == 0.0) {
-                pushDir = facingDirection();
-            }
-            dealVultureSpecialDamage(
-                    other,
-                    24,
-                    pushDir * 13.5,
-                    -15.5,
-                    "feasted on",
-                    34,
-                    Color.BLACK
-            );
-        }
-        spawnVultureCrowWave(5, 520.0, 1.36);
-        emitVultureBurst(centerX, centerY, facingDirection(), 90, Color.BLACK);
+        VultureSpecials.applyBlackSkyFinalHit(this);
     }
 
     private boolean spawnVultureCallCrow(boolean ultimate) {
-        if (!ultimate) {
-            if (vultureCrowTicks <= 0 || ownedVultureCrowCount() >= 7) {
-                return false;
-            }
-            consumeVultureCrowTick();
-        }
-        int dir = facingDirection();
-        double lift = -28.0 - vultureCallCrowsSummoned * 8.0;
-        double spawnX = bodyCenterX() - dir * (18.0 + vultureCallCrowsSummoned * 8.0) * sizeMultiplier;
-        double spawnY = bodyCenterY() + lift * sizeMultiplier;
-        CrowMinion crow = spawnVultureCrow(spawnX, spawnY,
-                nearestVultureTarget(spawnX, spawnY, 700.0),
-                ultimate, ultimate ? 1.20 : 1.08);
-        crow.vx += dir * (ultimate ? 5.8 : 4.3);
-        crow.vy -= ultimate ? 5.0 : 3.8;
-        vultureCallCrowsSummoned++;
-        return true;
+        return VultureSpecials.spawnCallCrow(this, ultimate);
     }
 
     private void consumeVultureCrowTick() {
-        vultureCrowTicks = Math.max(0, vultureCrowTicks - 1);
-        if (vultureCrowTicks < VULTURE_CROW_TICK_MAX && vultureCrowTickRechargeTimer <= 0) {
-            vultureCrowTickRechargeTimer = VULTURE_CROW_TICK_RECHARGE_FRAMES;
-        }
+        VultureSpecials.consumeCrowTick(this);
     }
 
     private void updateVultureCrowTicks(double gameSpeed) {
-        if (type != BirdGame3.BirdType.VULTURE || isNullRockForm()) {
-            return;
-        }
-        if (vultureCrowTicks >= VULTURE_CROW_TICK_MAX) {
-            vultureCrowTicks = VULTURE_CROW_TICK_MAX;
-            vultureCrowTickRechargeTimer = 0;
-            return;
-        }
-        if (vultureCrowTickRechargeTimer <= 0) {
-            vultureCrowTickRechargeTimer = VULTURE_CROW_TICK_RECHARGE_FRAMES;
-            return;
-        }
-        vultureCrowTickRechargeTimer = Math.max(0, (int) (vultureCrowTickRechargeTimer - gameSpeed));
-        if (vultureCrowTickRechargeTimer <= 0) {
-            vultureCrowTicks = Math.min(VULTURE_CROW_TICK_MAX, vultureCrowTicks + 1);
-            if (vultureCrowTicks < VULTURE_CROW_TICK_MAX) {
-                vultureCrowTickRechargeTimer = VULTURE_CROW_TICK_RECHARGE_FRAMES;
-            }
-        }
+        VultureSpecials.updateCrowTicks(this, gameSpeed);
     }
 
     private CrowMinion spawnVultureCrow(double spawnX, double spawnY, Bird target, boolean ultimate, double speedMultiplier) {
-        CrowMinion crow = new CrowMinion(spawnX, spawnY, target)
-                .withVariant(CrowMinion.VARIANT_ALLIED_CROW)
-                .withSpeedMultiplier(speedMultiplier)
-                .withOverflowProtectionFrames(ultimate ? 140 : 80);
-        crow.owner = this;
-        crow.life = Math.max(crow.life, ultimate ? 2 : 1);
-        crow.hasCrown = ultimate;
-        game.crowMinions.add(crow);
-        return crow;
+        return VultureSpecials.spawnCrow(this, spawnX, spawnY, target, ultimate, speedMultiplier);
     }
 
     private void spawnVultureCrowWave(int count, double horizontalSpread, double speedMultiplier) {
-        for (int i = 0; i < count; i++) {
-            double spawnX = Math.clamp(bodyCenterX() + (Math.random() - 0.5) * horizontalSpread,
-                    usesIslandBounds() ? game.battlefieldLeftBound() - 120.0 : -120.0,
-                    usesIslandBounds() ? game.battlefieldRightBound() + 120.0 : BirdGame3.WORLD_WIDTH + 120.0);
-            double spawnY = bodyCenterY() - (360.0 + Math.random() * 260.0) * sizeMultiplier;
-            Bird target = nearestVultureTarget(spawnX, spawnY, 1200.0);
-            CrowMinion crow = spawnVultureCrow(spawnX, spawnY, target, true, speedMultiplier);
-            double targetX = target == null ? bodyCenterX() : target.bodyCenterX();
-            double targetY = target == null ? bodyCenterY() : target.bodyCenterY();
-            double dx = targetX - spawnX;
-            double dy = targetY - spawnY;
-            double len = Math.max(1.0, Math.hypot(dx, dy));
-            crow.vx += dx / len * (4.4 + Math.random() * 2.8);
-            crow.vy += dy / len * (5.0 + Math.random() * 3.2);
-        }
+        VultureSpecials.spawnCrowWave(this, count, horizontalSpread, speedMultiplier);
     }
 
     private Bird nearestVultureTarget(double sourceX, double sourceY, double maxRange) {
-        Bird best = null;
-        double bestSq = maxRange * maxRange;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - sourceX;
-            double dy = other.bodyCenterY() - sourceY;
-            double distSq = dx * dx + dy * dy;
-            if (distSq < bestSq) {
-                bestSq = distSq;
-                best = other;
-            }
-        }
-        return best;
+        return VultureSpecials.nearestTarget(this, sourceX, sourceY, maxRange);
     }
 
     private int ownedVultureCrowCount() {
-        int count = 0;
-        for (CrowMinion crow : game.crowMinions) {
-            if (crow.owner == this) {
-                count++;
-            }
-        }
-        return count;
+        return VultureSpecials.ownedCrowCount(this);
     }
 
     private int consumeNearbyOwnedVultureCrows(double centerX, double centerY, double radius, int maxCount) {
-        int count = 0;
-        double radiusSq = radius * radius;
-        for (Iterator<CrowMinion> it = game.crowMinions.iterator(); it.hasNext() && count < maxCount; ) {
-            CrowMinion crow = it.next();
-            if (crow.owner != this) continue;
-            double dx = crow.x - centerX;
-            double dy = crow.y - centerY;
-            if (dx * dx + dy * dy > radiusSq) continue;
-            emitVultureBurst(crow.x, crow.y, Math.signum(dx), 18, Color.BLACK);
-            it.remove();
-            count++;
-        }
-        return count;
+        return VultureSpecials.consumeNearbyOwnedCrows(this, centerX, centerY, radius, maxCount);
     }
 
     private void steerOwnedCrowsAroundVulture() {
-        int index = 0;
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY() - 10.0 * sizeMultiplier;
-        for (CrowMinion crow : game.crowMinions) {
-            if (crow.owner != this || index >= 8) continue;
-            double dx = crow.x - centerX;
-            double dy = crow.y - centerY;
-            if (dx * dx + dy * dy > 360.0 * 360.0) continue;
-            double angle = vultureThermalTimer * 0.24 + index * (Math.PI * 2.0 / 3.0);
-            double targetX = centerX + Math.cos(angle) * 92.0 * sizeMultiplier;
-            double targetY = centerY + Math.sin(angle) * 58.0 * sizeMultiplier;
-            crow.vx += (targetX - crow.x) * 0.035;
-            crow.vy += (targetY - crow.y) * 0.035;
-            crow.retargetCooldown = Math.max(crow.retargetCooldown, 5);
-            index++;
-        }
+        VultureSpecials.steerOwnedCrowsAroundVulture(this);
     }
 
     private double vultureBaitSurfaceY(double baitX) {
-        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
-        double sourceY = bodyBottomY() - 18.0 * sizeMultiplier;
-        for (Platform p : game.platforms) {
-            boolean isCaveCeiling = game.selectedMap == MapType.CAVE
-                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
-            if (isCaveCeiling || p.w <= 0 || p.h <= 0) continue;
-            if (baitX < p.x - 24.0 || baitX > p.x + p.w + 24.0) continue;
-            if (p.y < sourceY - 34.0) continue;
-            if (p.y < bestY) {
-                bestY = p.y;
-            }
-        }
-        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 8.0 * sizeMultiplier;
+        return VultureSpecials.baitSurfaceY(this, baitX);
     }
 
     private int dealVultureSpecialDamage(Bird other, double rawDamage, double launchX, double launchY,
                                          String verb, int stunFrames, Color particleColor) {
-        if (other == null) {
-            return 0;
-        }
-        double oldHealth = other.health;
-        int dealt = (int) applyDamageTo(other, rawDamage);
-        if (dealt <= 0) {
-            game.recordSpecialImpact(playerIndex, 0, false);
-            return 0;
-        }
-        game.damageDealt[playerIndex] += dealt;
-        game.recordSpecialImpact(playerIndex, dealt, true);
-        other.vx += launchX;
-        other.vy += launchY;
-        other.applyStun(stunFrames);
-        if (other.health <= 0 && oldHealth > 0) {
-            game.eliminations[playerIndex]++;
-        }
-        game.addToKillFeed(shortName() + " " + verb + " " + other.shortName() + "! -" + dealt + " HP");
-        game.playHitSound(dealt);
-        emitVultureBurst(other.bodyCenterX(), other.bodyCenterY(), Math.signum(launchX), 14, particleColor);
-        return dealt;
+        return VultureSpecials.dealDamage(this, other, rawDamage, launchX, launchY, verb, stunFrames, particleColor);
     }
 
     private void emitVultureBurst(double centerX, double centerY, double dir, int count, Color color) {
-        int particles = scaledParticleCount(count);
-        double baseAngle = dir == 0.0 ? -Math.PI / 2.0 : (dir > 0.0 ? 0.0 : Math.PI);
-        for (int i = 0; i < particles; i++) {
-            double angle = dir == 0.0
-                    ? Math.random() * Math.PI * 2.0
-                    : baseAngle + (Math.random() - 0.5) * 1.45;
-            double speed = 1.4 + Math.random() * 7.2;
-            Color shade = color == Color.BLACK
-                    ? (Math.random() < 0.5 ? Color.web("#050308") : Color.web("#190B1F"))
-                    : color;
-            game.particles.add(new Particle(
-                    centerX + (Math.random() - 0.5) * 18.0 * sizeMultiplier,
-                    centerY + (Math.random() - 0.5) * 16.0 * sizeMultiplier,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 1.3,
-                    shade.deriveColor(0, 1, 1, 0.68 + Math.random() * 0.18)
-            ));
-        }
+        VultureSpecials.emitBurst(this, centerX, centerY, dir, count, color);
     }
 
     void specialNullRock(boolean ultimate) {
-        crowSwarmCooldown = ultimate ? 960 : 1080;
-        specialCooldown = crowSwarmCooldown;
-        specialMaxCooldown = crowSwarmCooldown;
-        game.summonNullRockSpecialFlock(this, ultimate);
-
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 30 : 24);
-        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 18 : 14);
-        carrionSwarmTimer = ultimate ? 240 : 180;
-
-        int particleCount = scaledParticleCount(ultimate ? 360 : 260);
-        for (int i = 0; i < particleCount; i++) {
-            double angle = Math.random() * Math.PI * 2;
-            double speed = 9 + Math.random() * 18;
-            Color shade = switch (i % 3) {
-                case 1 -> Color.web("#16020C");
-                case 2 -> Color.web("#25102B");
-                default -> Color.BLACK;
-            };
-            game.particles.add(new Particle(
-                    x + 40,
-                    y + 40,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 6,
-                    shade.deriveColor(0, 1, 1, ultimate ? 0.95 : 0.82)
-            ));
-        }
+        VultureSpecials.nullRock(this, ultimate);
     }
 
     private boolean isRoosterActivePlayerSlot() {
@@ -5654,9 +5060,7 @@ public class Bird {
     }
 
     private boolean canConvertShieldIntoVultureDownSpecial() {
-        return selectVultureSpecialVariant() == VultureSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
+        return VultureSpecials.canConvertShieldIntoDown(this);
     }
 
     private boolean shouldReserveBlockForShoebillStatueHold() {
@@ -6033,21 +5437,7 @@ public class Bird {
     }
 
     boolean canStartVultureSpecial() {
-        VultureSpecialVariant variant = selectVultureSpecialVariant();
-        boolean shieldConversion = canConvertShieldIntoVultureDownSpecial();
-        boolean ultimateReady = isUltimateReady();
-        boolean ready = isNullRockForm()
-                ? ultimateReady || specialCooldown <= 0
-                : vultureSpecialReady(variant);
-        return type == BirdGame3.BirdType.VULTURE
-                && health > 0
-                && stunTime <= 0.0
-                && grabbedBy == null
-                && grabbedTarget == null
-                && (!isBlocking || shieldConversion)
-                && !isDodging()
-                && !vultureSpecialActive()
-                && ready;
+        return VultureSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
     private boolean opiumSpecialActive() {
@@ -6086,20 +5476,11 @@ public class Bird {
     }
 
     private boolean vultureSpecialActive() {
-        return vultureCallTimer > 0
-                || vultureGlideTimer > 0
-                || vultureThermalTimer > 0
-                || vultureBlackSkyTimer > 0;
+        return VultureSpecials.active(this);
     }
 
     private boolean vultureSpecialReady(VultureSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> ultimateReady || (vultureNeutralReuseTimer <= 0 && vultureCrowTicks > 0 && ownedVultureCrowCount() < 7);
-            case SIDE -> ultimateReady || vultureSideReuseTimer <= 0;
-            case UP -> ultimateReady || !vultureUpSpecialUsed;
-            case DOWN -> ultimateReady || (vultureDownReuseTimer <= 0 && vultureBait == null);
-        };
+        return VultureSpecials.ready(this, variant);
     }
 
     private boolean grinchhawkSpecialActive() {
@@ -6635,24 +6016,7 @@ public class Bird {
     }
 
     private void resetVultureSpecialState(boolean clearObjects) {
-        vultureCallTimer = 0;
-        vultureCallHoldFrames = 0;
-        vultureCallCrowsSummoned = 0;
-        vultureCallUltimate = false;
-        vultureGlideTimer = 0;
-        vultureGlideDirection = facingDirection();
-        vultureGlideUltimate = false;
-        Arrays.fill(vultureGlideHit, false);
-        vultureThermalTimer = 0;
-        vultureThermalUltimate = false;
-        Arrays.fill(vultureThermalHitCooldown, 0);
-        vultureBlackSkyTimer = 0;
-        vultureBlackSkySpawnTimer = 0;
-        vultureBlackSkyFinalHit = false;
-        Arrays.fill(vultureBlackSkyHit, false);
-        if (clearObjects) {
-            vultureBait = null;
-        }
+        VultureSpecials.reset(this, clearObjects);
     }
 
     private void resetTitmouseSpecialState(boolean clearObjects) {
@@ -6828,13 +6192,7 @@ public class Bird {
     }
 
     private void interruptVultureSpecialStateOnHit() {
-        if (type != BirdGame3.BirdType.VULTURE) {
-            return;
-        }
-        if (vultureCallTimer > 0 || vultureGlideTimer > 0 || vultureThermalTimer > 0) {
-            attackAnimationTimer = 0;
-        }
-        resetVultureSpecialState(false);
+        VultureSpecials.interruptOnHit(this);
     }
 
     private void interruptTitmouseSpecialStateOnHit() {

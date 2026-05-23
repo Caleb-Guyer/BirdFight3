@@ -29,28 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class VultureSpecials {
-    private VultureSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        if (bird.isNullRockForm()) {
-            bird.specialNullRock(ultimate);
-            return;
-        }
-        if (ultimate) {
-            bird.specialVultureBlackSkyFeast();
-            return;
-        }
-        switch (bird.selectVultureSpecialVariant()) {
-            case NEUTRAL -> bird.specialVultureCarrionCall(false);
-            case SIDE -> bird.specialVultureGravewindGlide();
-            case UP -> bird.specialVultureThermalSpiral();
-            case DOWN -> bird.specialVultureBoneOffering();
-        }
-    }
-}
-
 final class RoosterSpecials {
     private RoosterSpecials() {
     }
