@@ -11567,41 +11567,7 @@ public class Bird {
                     : isOpiumEchoPair()
                     ? canConvertShieldIntoOpiumDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
-            boolean canStartSelectedSpecial = type == BirdGame3.BirdType.PIGEON
-                    ? canStartPigeonSpecial()
-                    : type == BirdGame3.BirdType.PHOENIX
-                    ? canStartPhoenixSpecial()
-                    : type == BirdGame3.BirdType.HUMMINGBIRD
-                    ? canStartHummingbirdSpecial()
-                    : type == BirdGame3.BirdType.TURKEY
-                    ? canStartTurkeySpecial()
-                    : type == BirdGame3.BirdType.ROOSTER
-                    ? canStartRoosterSpecial()
-                    : type == BirdGame3.BirdType.ROADRUNNER
-                    ? canStartRoadrunnerSpecial()
-                    : type == BirdGame3.BirdType.PENGUIN
-                    ? canStartPenguinSpecial()
-                    : type == BirdGame3.BirdType.SHOEBILL
-                    ? canStartShoebillSpecial()
-                    : type == BirdGame3.BirdType.MOCKINGBIRD
-                    ? canStartMockingbirdSpecial()
-                    : type == BirdGame3.BirdType.RAZORBILL
-                    ? canStartRazorbillSpecial()
-                    : type == BirdGame3.BirdType.GRINCHHAWK
-                    ? canStartGrinchhawkSpecial()
-                    : type == BirdGame3.BirdType.VULTURE
-                    ? canStartVultureSpecial()
-                    : type == BirdGame3.BirdType.TITMOUSE
-                    ? canStartTitmouseSpecial()
-                    : type == BirdGame3.BirdType.BAT
-                    ? canStartBatSpecial()
-                    : type == BirdGame3.BirdType.PELICAN
-                    ? canStartPelicanSpecial()
-                    : type == BirdGame3.BirdType.RAVEN
-                    ? canStartRavenSpecial()
-                    : isOpiumEchoPair()
-                    ? canStartOpiumSpecial()
-                    : (isRaptor() ? canStartRaptorSpecial() : specialCooldown <= 0);
+            boolean canStartSelectedSpecial = BirdSpecialReadiness.canStart(this);
             if (!attackLocked && !grabLocked && (!shielding || canSpecialFromShield) && !jumpSquatting && specialJustPressed()) {
                 if (grappleUses == 0 && canStartSelectedSpecial) {
                     special();
