@@ -474,40 +474,40 @@ public class Bird {
     public int eagleAscentFrames = 0;
     final boolean[] eagleAscentHit = new boolean[4];
     public int bladeStormFrames = 0;
-    private static final int RAZORBILL_DASH_FRAMES = 26;
-    private static final double RAZORBILL_DASH_SPEED = 22.0;
-    private static final int RAZORBILL_STORM_MAX_HOLD_FRAMES = 78;
-    private static final int RAZORBILL_STORM_RELEASE_FRAMES = 10;
-    private static final int RAZORBILL_NEUTRAL_REUSE_FRAMES = 36;
-    private static final int RAZORBILL_SIDE_REUSE_FRAMES = 38;
-    private static final int RAZORBILL_COUNTER_REUSE_FRAMES = 54;
-    private static final int RAZORBILL_COUNTER_WINDOW_FRAMES = 22;
-    private static final int RAZORBILL_COUNTER_WHIFF_FRAMES = 20;
-    private static final int RAZORBILL_COUNTER_BURST_FRAMES = 14;
-    private static final int RAZORBILL_SHEAR_FRAMES = 24;
-    private double razorbillDashVX = 0.0;
-    private double razorbillDashVY = 0.0;
-    private final boolean[] razorbillDashHit = new boolean[4];
-    private int razorbillStormTimer = 0;
-    private int razorbillStormHoldFrames = 0;
-    private int razorbillStormReuseTimer = 0;
-    private boolean razorbillStormUltimate = false;
-    private boolean razorbillStormReleased = false;
-    private final int[] razorbillStormHitCooldown = new int[4];
-    private int razorbillSideReuseTimer = 0;
-    private boolean razorbillSideUltimate = false;
-    private int razorbillShearTimer = 0;
-    private int razorbillShearDirection = 1;
-    private boolean razorbillShearUltimate = false;
-    private boolean razorbillUpSpecialUsed = false;
-    private final boolean[] razorbillShearHit = new boolean[4];
-    private int razorbillCounterTimer = 0;
-    private int razorbillCounterReuseTimer = 0;
-    private int razorbillCounterWhiffTimer = 0;
-    private int razorbillCounterBurstTimer = 0;
-    private boolean razorbillCounterUltimate = false;
-    private boolean razorbillCountered = false;
-    private boolean razorbillCounterAttemptActive = false;
+    static final int RAZORBILL_DASH_FRAMES = 26;
+    static final double RAZORBILL_DASH_SPEED = 22.0;
+    static final int RAZORBILL_STORM_MAX_HOLD_FRAMES = 78;
+    static final int RAZORBILL_STORM_RELEASE_FRAMES = 10;
+    static final int RAZORBILL_NEUTRAL_REUSE_FRAMES = 36;
+    static final int RAZORBILL_SIDE_REUSE_FRAMES = 38;
+    static final int RAZORBILL_COUNTER_REUSE_FRAMES = 54;
+    static final int RAZORBILL_COUNTER_WINDOW_FRAMES = 22;
+    static final int RAZORBILL_COUNTER_WHIFF_FRAMES = 20;
+    static final int RAZORBILL_COUNTER_BURST_FRAMES = 14;
+    static final int RAZORBILL_SHEAR_FRAMES = 24;
+    double razorbillDashVX = 0.0;
+    double razorbillDashVY = 0.0;
+    final boolean[] razorbillDashHit = new boolean[4];
+    int razorbillStormTimer = 0;
+    int razorbillStormHoldFrames = 0;
+    int razorbillStormReuseTimer = 0;
+    boolean razorbillStormUltimate = false;
+    boolean razorbillStormReleased = false;
+    final int[] razorbillStormHitCooldown = new int[4];
+    int razorbillSideReuseTimer = 0;
+    boolean razorbillSideUltimate = false;
+    int razorbillShearTimer = 0;
+    int razorbillShearDirection = 1;
+    boolean razorbillShearUltimate = false;
+    boolean razorbillUpSpecialUsed = false;
+    final boolean[] razorbillShearHit = new boolean[4];
+    int razorbillCounterTimer = 0;
+    int razorbillCounterReuseTimer = 0;
+    int razorbillCounterWhiffTimer = 0;
+    int razorbillCounterBurstTimer = 0;
+    boolean razorbillCounterUltimate = false;
+    boolean razorbillCountered = false;
+    boolean razorbillCounterAttemptActive = false;
     public int plungeTimer = 0;
     private static final int PELICAN_CARGO_MAX = 2;
     private static final int PELICAN_NEUTRAL_FRAMES = 14;
@@ -3949,208 +3949,43 @@ public class Bird {
     }
 
     void specialRazorbillNeutral(boolean ultimate) {
-        razorbillStormTimer = RAZORBILL_STORM_RELEASE_FRAMES;
-        razorbillStormHoldFrames = 0;
-        razorbillStormUltimate = ultimate;
-        razorbillStormReleased = false;
-        razorbillStormReuseTimer = ultimate ? 44 : RAZORBILL_NEUTRAL_REUSE_FRAMES;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
-        vx *= 0.52;
-        vy = Math.min(vy, ultimate ? -1.4 : -0.85);
-        Arrays.fill(razorbillStormHitCooldown, 0);
-        game.addToKillFeed(shortName() + (ultimate ? " WHIPS UP AN ULT RAZOR STORM!" : " whips up a razor storm!"));
+        RazorbillSpecials.neutral(this, ultimate);
     }
 
     void specialRazorbillSide(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        razorbillSideReuseTimer = ultimate ? 18 : RAZORBILL_SIDE_REUSE_FRAMES;
-        specialCooldown = razorbillSideReuseTimer;
-        specialMaxCooldown = razorbillSideReuseTimer;
-        razorbillSideUltimate = ultimate;
-        bladeStormFrames = ultimate ? RAZORBILL_DASH_FRAMES + 10 : RAZORBILL_DASH_FRAMES;
-        Arrays.fill(razorbillDashHit, false);
-
-        double dashSpeed = Math.max(14.0, RAZORBILL_DASH_SPEED * (ultimate ? 1.22 : 1.0) * speedMultiplier);
-        razorbillDashVX = dir * dashSpeed;
-        razorbillDashVY = Math.min(vy * 0.35, isOnGround() ? -1.2 : 2.0);
-        vx = razorbillDashVX;
-        vy = razorbillDashVY;
-
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 12 : 7);
-        emitRazorbillSlashTrail(bodyCenterX() - dir * 40.0 * sizeMultiplier, bodyCenterY(),
-                bodyCenterX() + dir * (ultimate ? 190.0 : 150.0) * sizeMultiplier,
-                bodyCenterY() - 8.0 * sizeMultiplier,
-                ultimate ? 32 : 22,
-                ultimate ? Color.GOLD.brighter() : Color.web("#80DEEA"));
+        RazorbillSpecials.side(this, ultimate);
     }
 
     void specialRazorbillUp(boolean ultimate) {
-        int dir = horizontalInputDirection();
-        if (dir == 0) {
-            dir = facingDirection();
-        }
-        facingRight = dir > 0;
-        razorbillUpSpecialUsed = true;
-        razorbillShearDirection = dir;
-        razorbillShearTimer = ultimate ? RAZORBILL_SHEAR_FRAMES + 8 : RAZORBILL_SHEAR_FRAMES;
-        razorbillShearUltimate = ultimate;
-        Arrays.fill(razorbillShearHit, false);
-        attackAnimationTimer = Math.max(attackAnimationTimer, 12);
-        canDoubleJump = true;
-
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY();
-        double endX = centerX + dir * (ultimate ? 124.0 : 92.0) * sizeMultiplier;
-        double endY = centerY - (ultimate ? 188.0 : 145.0) * sizeMultiplier;
-        vx = vx * 0.28 + dir * (ultimate ? 10.5 : 8.6) * speedMultiplier;
-        vy = -Math.max(15.0, (ultimate ? 20.6 : 17.2) * speedMultiplier);
-        emitRazorbillSlashTrail(centerX - dir * 8.0 * sizeMultiplier,
-                centerY + 20.0 * sizeMultiplier,
-                endX,
-                endY,
-                ultimate ? 30 : 20,
-                ultimate ? Color.GOLD.brighter() : Color.web("#B2EBF2"));
+        RazorbillSpecials.up(this, ultimate);
     }
 
     void specialRazorbillCounter(boolean ultimate) {
-        razorbillCounterTimer = ultimate ? RAZORBILL_COUNTER_WINDOW_FRAMES + 8 : RAZORBILL_COUNTER_WINDOW_FRAMES;
-        razorbillCounterReuseTimer = ultimate ? 42 : RAZORBILL_COUNTER_REUSE_FRAMES;
-        razorbillCounterWhiffTimer = 0;
-        razorbillCounterBurstTimer = 0;
-        razorbillCounterUltimate = ultimate;
-        razorbillCountered = false;
-        razorbillCounterAttemptActive = true;
-        specialCooldown = 0;
-        specialMaxCooldown = 0;
-        attackAnimationTimer = Math.max(attackAnimationTimer, razorbillCounterTimer);
-        isBlocking = false;
-        parryWindowFrames = 0;
-        vx *= 0.35;
-        vy *= 0.55;
-        emitRazorbillSlashBurst(bodyCenterX(), bodyCenterY(), facingDirection(),
-                ultimate ? Color.GOLD : Color.web("#ECEFF1"), ultimate ? 22 : 14);
+        RazorbillSpecials.counter(this, ultimate);
     }
 
     private boolean razorbillCounterWindowActive() {
-        return type == BirdGame3.BirdType.RAZORBILL
-                && health > 0
-                && razorbillCounterTimer > 0
-                && razorbillCounterAttemptActive
-                && !razorbillCountered;
+        return RazorbillSpecials.counterWindowActive(this);
     }
 
     private boolean tryRazorbillCounter(Bird attacker, double scaledDamage) {
-        if (!razorbillCounterWindowActive() || attacker == null || attacker == this || attacker.health <= 0) {
-            return false;
-        }
-        boolean ultimate = razorbillCounterUltimate;
-        razorbillCountered = true;
-        razorbillCounterAttemptActive = false;
-        razorbillCounterTimer = 0;
-        razorbillCounterWhiffTimer = 0;
-        razorbillCounterBurstTimer = ultimate ? RAZORBILL_COUNTER_BURST_FRAMES + 5 : RAZORBILL_COUNTER_BURST_FRAMES;
-        attackAnimationTimer = Math.max(attackAnimationTimer, razorbillCounterBurstTimer);
-        stunTime = 0.0;
-        knockdownTimer = 0;
-        isBlocking = false;
-        parryWindowFrames = 0;
-        vx *= 0.18;
-        vy = Math.min(vy * 0.25, -3.5);
-
-        double dir = Math.signum(attacker.bodyCenterX() - bodyCenterX());
-        if (dir == 0.0) {
-            dir = facingDirection();
-        }
-        int rawDamage = (ultimate ? 14 : 10)
-                + (int) Math.round(Math.clamp(scaledDamage / 24.0, 0.0, 1.0) * (ultimate ? 7.0 : 4.0));
-        double oldHealth = attacker.health;
-        double dealt = applyUnshieldedDamageTo(attacker, rawDamage);
-        if (dealt > 0) {
-            game.damageDealt[playerIndex] += (int) dealt;
-            game.recordSpecialImpact(playerIndex, (int) dealt, true);
-            if (!game.usesSmashCombatRules() && attacker.health <= 0 && oldHealth > 0) {
-                game.eliminations[playerIndex]++;
-            }
-        }
-        attacker.vx += dir * (ultimate ? 13.0 : 9.2);
-        attacker.vy -= ultimate ? 10.2 : 7.0;
-        attacker.applyStun(ultimate ? 42 : 28);
-        emitRazorbillSlashBurst(attacker.bodyCenterX(), attacker.bodyCenterY(), dir,
-                ultimate ? Color.GOLD.brighter() : Color.web("#ECEFF1"),
-                ultimate ? 42 : 28);
-        game.shakeIntensity = Math.max(game.shakeIntensity, ultimate ? 18 : 12);
-        game.hitstopFrames = Math.max(game.hitstopFrames, ultimate ? 8 : 5);
-        game.addToKillFeed(shortName() + (ultimate ? " ULT COUNTER CUT!" : " counter cut!"));
-        return true;
+        return RazorbillSpecials.tryCounter(this, attacker, scaledDamage);
     }
 
     private boolean isRazorbillSpecialOwner() {
-        return type == BirdGame3.BirdType.RAZORBILL
-                || mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.RAZORBILL)
-                || (type == BirdGame3.BirdType.MOCKINGBIRD && mockingbirdCapturedType == BirdGame3.BirdType.RAZORBILL);
+        return RazorbillSpecials.owner(this);
     }
 
     private int applyRazorbillSpecialHit(Bird other, int damage, double launchX, double launchY, boolean ultimate) {
-        if (other == null || !canDamageTarget(other)) {
-            return 0;
-        }
-        double oldHealth = other.health;
-        int dealt = (int) applyDamageTo(other, damage);
-        if (dealt <= 0) {
-            return 0;
-        }
-
-        game.damageDealt[playerIndex] += dealt;
-        game.recordSpecialImpact(playerIndex, dealt, true);
-        other.vx += launchX;
-        other.vy += launchY;
-
-        if (other.health <= 0 && oldHealth > 0) {
-            game.eliminations[playerIndex]++;
-        }
-        emitRazorbillSlashBurst(other.bodyCenterX(), other.bodyCenterY(), Math.signum(launchX),
-                ultimate ? Color.GOLD : Color.web("#80DEEA"), ultimate ? 18 : 12);
-        return dealt;
+        return RazorbillSpecials.applySpecialHit(this, other, damage, launchX, launchY, ultimate);
     }
 
     private void emitRazorbillSlashTrail(double x1, double y1, double x2, double y2, int count, Color color) {
-        int particles = scaledParticleCount(count);
-        for (int i = 0; i < particles; i++) {
-            double t = Math.random();
-            double px = x1 + (x2 - x1) * t;
-            double py = y1 + (y2 - y1) * t;
-            double angle = Math.atan2(y2 - y1, x2 - x1) + Math.PI * 0.5 + (Math.random() - 0.5) * 0.75;
-            double speed = 2.5 + Math.random() * 6.5;
-            game.particles.add(new Particle(
-                    px,
-                    py,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 1.6,
-                    color.deriveColor(0, 1, 1, 0.78)
-            ));
-        }
+        RazorbillSpecials.emitSlashTrail(this, x1, y1, x2, y2, count, color);
     }
 
     private void emitRazorbillSlashBurst(double cx, double cy, double dir, Color color, int count) {
-        double baseAngle = dir == 0.0 ? 0.0 : (dir > 0.0 ? 0.0 : Math.PI);
-        int particles = scaledParticleCount(count);
-        for (int i = 0; i < particles; i++) {
-            double angle = baseAngle + (Math.random() - 0.5) * 1.7;
-            double speed = 4.5 + Math.random() * 9.5;
-            game.particles.add(new Particle(
-                    cx + (Math.random() - 0.5) * 18.0,
-                    cy + (Math.random() - 0.5) * 18.0,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 2.5,
-                    color.deriveColor(0, 1, 1, 0.82)
-            ));
-        }
+        RazorbillSpecials.emitSlashBurst(this, cx, cy, dir, color, count);
     }
 
     private void specialGrinchhawk(boolean ultimate) {
@@ -6534,23 +6369,11 @@ public class Bird {
     }
 
     private boolean canConvertShieldIntoRazorbillDownSpecial() {
-        return selectRazorbillSpecialVariant() == RazorbillSpecialVariant.DOWN
-                && isBlocking
-                && shieldStunFrames <= 0;
+        return RazorbillSpecials.canConvertShieldIntoDown(this);
     }
 
     boolean canStartRazorbillSpecial() {
-        RazorbillSpecialVariant variant = selectRazorbillSpecialVariant();
-        boolean shieldConversion = canConvertShieldIntoRazorbillDownSpecial();
-        return type == BirdGame3.BirdType.RAZORBILL
-                && health > 0
-                && stunTime <= 0.0
-                && grabbedBy == null
-                && grabbedTarget == null
-                && (!isBlocking || shieldConversion)
-                && !isDodging()
-                && !razorbillSpecialActive()
-                && razorbillSpecialReady(variant);
+        return RazorbillSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
     private boolean canConvertShieldIntoGrinchhawkDownSpecial() {
@@ -6659,22 +6482,11 @@ public class Bird {
     }
 
     private boolean razorbillSpecialActive() {
-        return razorbillStormTimer > 0
-                || bladeStormFrames > 0
-                || razorbillShearTimer > 0
-                || razorbillCounterTimer > 0
-                || razorbillCounterBurstTimer > 0
-                || razorbillCounterWhiffTimer > 0;
+        return RazorbillSpecials.active(this);
     }
 
     private boolean razorbillSpecialReady(RazorbillSpecialVariant variant) {
-        boolean ultimateReady = isUltimateReady();
-        return switch (variant) {
-            case NEUTRAL -> ultimateReady || razorbillStormReuseTimer <= 0;
-            case SIDE -> ultimateReady || (razorbillSideReuseTimer <= 0 && bladeStormFrames <= 0);
-            case UP -> ultimateReady || (!razorbillUpSpecialUsed && razorbillShearTimer <= 0);
-            case DOWN -> ultimateReady || razorbillCounterReuseTimer <= 0;
-        };
+        return RazorbillSpecials.ready(this, variant);
     }
 
     private boolean mockingbirdSpecialReady(MockingbirdSpecialVariant variant) {
@@ -7186,25 +6998,7 @@ public class Bird {
     }
 
     private void resetRazorbillSpecialState() {
-        bladeStormFrames = 0;
-        razorbillDashVX = 0.0;
-        razorbillDashVY = 0.0;
-        razorbillSideUltimate = false;
-        Arrays.fill(razorbillDashHit, false);
-        razorbillStormTimer = 0;
-        razorbillStormHoldFrames = 0;
-        razorbillStormUltimate = false;
-        razorbillStormReleased = false;
-        Arrays.fill(razorbillStormHitCooldown, 0);
-        razorbillShearTimer = 0;
-        razorbillShearUltimate = false;
-        Arrays.fill(razorbillShearHit, false);
-        razorbillCounterTimer = 0;
-        razorbillCounterWhiffTimer = 0;
-        razorbillCounterBurstTimer = 0;
-        razorbillCounterUltimate = false;
-        razorbillCountered = false;
-        razorbillCounterAttemptActive = false;
+        RazorbillSpecials.reset(this);
     }
 
     private void resetGrinchhawkSpecialState(boolean clearObjects) {
@@ -13731,7 +13525,7 @@ public class Bird {
         return PenguinSpecials.adjustDamageForSnowFort(this, attacker, scaledDamage);
     }
 
-    private double applyUnshieldedDamageTo(Bird target, double rawDamage) {
+    double applyUnshieldedDamageTo(Bird target, double rawDamage) {
         return applyScaledDamageTo(target, scaledDamageAgainst(target, rawDamage));
     }
 
@@ -14595,254 +14389,23 @@ public class Bird {
     }
 
     private void handleRazorbillSpecials() {
-        if (!isRazorbillSpecialOwner()) {
-            return;
-        }
-        handleRazorbillRisingStorm();
-        handleRazorbillBladeStorm();
-        handleRazorbillCliffShear();
+        RazorbillSpecials.handleState(this);
     }
 
     private void handleRazorbillRisingStorm() {
-        if (razorbillStormTimer <= 0) {
-            return;
-        }
-
-        int maxHoldFrames = razorbillStormUltimate
-                ? RAZORBILL_STORM_MAX_HOLD_FRAMES + 24
-                : RAZORBILL_STORM_MAX_HOLD_FRAMES;
-        boolean canHold = specialHeld()
-                && !razorbillStormReleased
-                && razorbillStormHoldFrames < maxHoldFrames;
-        if (canHold) {
-            razorbillStormTimer = Math.max(razorbillStormTimer, RAZORBILL_STORM_RELEASE_FRAMES);
-            razorbillStormHoldFrames++;
-        } else {
-            releaseRazorbillStorm();
-        }
-
-        if (!razorbillStormReleased) {
-            int inputDir = horizontalInputDirection();
-            if (inputDir != 0) {
-                facingRight = inputDir > 0;
-                vx = Math.clamp(vx * 0.80 + inputDir * (razorbillStormUltimate ? 0.72 : 0.52), -4.8, 4.8);
-            } else {
-                vx *= 0.86;
-            }
-
-            double holdRatio = Math.clamp(razorbillStormHoldFrames / (double) RAZORBILL_STORM_MAX_HOLD_FRAMES, 0.0, 1.0);
-            vy = Math.min(vy, -(razorbillStormUltimate ? 1.75 : 1.25) - holdRatio * (razorbillStormUltimate ? 1.1 : 0.75));
-            y = Math.max(96.0, y - (razorbillStormUltimate ? 0.22 : 0.14));
-            attackAnimationTimer = Math.max(attackAnimationTimer, 4);
-
-            if ((razorbillStormHoldFrames + razorbillStormTimer) % 3 == 0) {
-                Color slash = razorbillStormUltimate ? Color.GOLD.brighter() : Color.web("#CFD8DC");
-                double angle = (razorbillStormHoldFrames * 0.56) % (Math.PI * 2.0);
-                for (int i = 0; i < (razorbillStormUltimate ? 4 : 3); i++) {
-                    double a = angle + i * Math.PI * 2.0 / (razorbillStormUltimate ? 4 : 3);
-                    double orbit = (34.0 + Math.random() * 42.0) * sizeMultiplier;
-                    game.particles.add(new Particle(
-                            bodyCenterX() + Math.cos(a) * orbit,
-                            bodyCenterY() + Math.sin(a) * orbit * 0.72,
-                            -Math.sin(a) * (3.0 + Math.random() * 3.2),
-                            Math.cos(a) * (2.2 + Math.random() * 2.6) - 2.0,
-                            slash.deriveColor(0, 1, 1, 0.82)
-                    ));
-                }
-            }
-            return;
-        }
-
-        vx *= 0.91;
-        attackAnimationTimer = Math.max(attackAnimationTimer, 3);
-        if (razorbillStormTimer % 2 == 0) {
-            Color slash = razorbillStormUltimate ? Color.GOLD.brighter() : Color.web("#ECEFF1");
-            double angle = Math.random() * Math.PI * 2.0;
-            double distance = (46.0 + Math.random() * 46.0) * sizeMultiplier;
-            game.particles.add(new Particle(
-                    bodyCenterX() + Math.cos(angle) * distance,
-                    bodyCenterY() + Math.sin(angle) * distance * 0.72,
-                    Math.cos(angle) * (2.6 + Math.random() * 3.8),
-                    Math.sin(angle) * (1.9 + Math.random() * 2.8) - 1.0,
-                    slash.deriveColor(0, 1, 1, 0.78)
-            ));
-        }
+        RazorbillSpecials.handleRisingStorm(this);
     }
 
     private void releaseRazorbillStorm() {
-        if (razorbillStormReleased || razorbillStormTimer <= 0) {
-            return;
-        }
-
-        razorbillStormReleased = true;
-        razorbillStormTimer = Math.max(razorbillStormTimer, RAZORBILL_STORM_RELEASE_FRAMES);
-        attackAnimationTimer = Math.max(attackAnimationTimer, RAZORBILL_STORM_RELEASE_FRAMES + 3);
-        vx *= 0.72;
-        vy = Math.min(vy, razorbillStormUltimate ? -2.8 : -2.0);
-        game.playJalapenoSfx();
-
-        double centerX = bodyCenterX();
-        double centerY = bodyCenterY();
-        double holdRatio = Math.clamp(razorbillStormHoldFrames / (double) RAZORBILL_STORM_MAX_HOLD_FRAMES, 0.0, 1.0);
-        double radius = ((razorbillStormUltimate ? 118.0 : 94.0)
-                + holdRatio * (razorbillStormUltimate ? 34.0 : 24.0)) * sizeMultiplier;
-        double verticalRadius = ((razorbillStormUltimate ? 100.0 : 82.0)
-                + holdRatio * (razorbillStormUltimate ? 26.0 : 18.0)) * sizeMultiplier;
-        boolean hitAny = false;
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            double dx = other.bodyCenterX() - centerX;
-            double dy = other.bodyCenterY() - centerY;
-            if (Math.abs(dx) > radius + other.combatHalfWidth()
-                    || Math.abs(dy) > verticalRadius + other.combatHalfHeight()) {
-                continue;
-            }
-            double dir = Math.signum(dx);
-            if (dir == 0.0) {
-                dir = facingDirection();
-            }
-            double stormDamage = (razorbillStormUltimate ? 7.0 : 4.0)
-                    + holdRatio * (razorbillStormUltimate ? 18.0 : 13.0);
-            int dmg = Math.max(3, (int) Math.round(stormDamage * powerMultiplier));
-            int dealt = applyRazorbillSpecialHit(other, dmg,
-                    dir * ((razorbillStormUltimate ? 8.6 : 6.6) + holdRatio * (razorbillStormUltimate ? 2.6 : 1.8)),
-                    -((razorbillStormUltimate ? 10.5 : 8.0) + holdRatio * (razorbillStormUltimate ? 3.0 : 2.0)),
-                    razorbillStormUltimate);
-            if (dealt > 0) {
-                hitAny = true;
-            }
-        }
-
-        Color slash = razorbillStormUltimate ? Color.GOLD.brighter() : Color.web("#ECEFF1");
-        int bladeCount = razorbillStormUltimate ? 10 : 8;
-        double spin = razorbillStormHoldFrames * 0.13;
-        for (int i = 0; i < bladeCount; i++) {
-            double angle = spin + i * Math.PI * 2.0 / bladeCount;
-            double inner = (20.0 + Math.random() * 10.0) * sizeMultiplier;
-            double outer = radius * (0.72 + Math.random() * 0.22);
-            emitRazorbillSlashTrail(
-                    centerX + Math.cos(angle) * inner,
-                    centerY + Math.sin(angle) * inner * 0.74,
-                    centerX + Math.cos(angle) * outer,
-                    centerY + Math.sin(angle) * outer * 0.74,
-                    razorbillStormUltimate ? 5 : 3,
-                    slash
-            );
-        }
-        emitRazorbillSlashBurst(centerX, centerY, facingDirection(), slash, razorbillStormUltimate ? 24 : 16);
-        game.shakeIntensity = Math.max(game.shakeIntensity, hitAny ? (razorbillStormUltimate ? 16 : 11) : 6);
-        game.hitstopFrames = Math.max(game.hitstopFrames, hitAny ? (razorbillStormUltimate ? 7 : 5) : 2);
+        RazorbillSpecials.releaseStorm(this);
     }
 
     private void handleRazorbillBladeStorm() {
-        if (bladeStormFrames <= 0) return;
-
-        double dashX = razorbillDashVX;
-        double dashY = razorbillDashVY;
-        double dashMag = Math.hypot(dashX, dashY);
-        if (dashMag < 0.1) {
-            dashX = vx;
-            dashY = vy;
-            dashMag = Math.hypot(dashX, dashY);
-            if (dashMag < 0.1) {
-                dashX = facingRight ? 1 : -1;
-                dashY = 0;
-                dashMag = 1.0;
-            }
-            double dashSpeed = Math.max(12.0, RAZORBILL_DASH_SPEED * speedMultiplier);
-            razorbillDashVX = dashX / dashMag * dashSpeed;
-            razorbillDashVY = dashY / dashMag * dashSpeed;
-            dashX = razorbillDashVX;
-            dashY = razorbillDashVY;
-            dashMag = Math.hypot(dashX, dashY);
-        }
-
-        vx = dashX;
-        vy = dashY;
-
-        double dirX = dashX / dashMag;
-        double dirY = dashY / dashMag;
-
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= razorbillDashHit.length) continue;
-            if (razorbillDashHit[other.playerIndex]) continue;
-
-            double dx = other.bodyCenterX() - bodyCenterX();
-            double dy = other.bodyCenterY() - bodyCenterY();
-            double dist = Math.hypot(dx, dy);
-            if (dist > 85 + other.combatRadius()) continue;
-
-            int dmg = Math.max(5, (int) Math.round((razorbillSideUltimate ? 10 : 7) * powerMultiplier));
-            int dealt = applyRazorbillSpecialHit(other, dmg,
-                    dirX * (razorbillSideUltimate ? 10.5 : 8.0),
-                    dirY * 8.0 - (razorbillSideUltimate ? 4.2 : 2.8),
-                    razorbillSideUltimate);
-            if (dealt <= 0) continue;
-
-            razorbillDashHit[other.playerIndex] = true;
-            vy = Math.min(vy, -5.8);
-            vx -= dirX * 2.2;
-
-            game.shakeIntensity = Math.max(game.shakeIntensity, 14);
-            game.hitstopFrames = Math.max(game.hitstopFrames, 6);
-        }
-
-        if (bladeStormFrames % 3 == 0) {
-            for (int i = 0; i < 6; i++) {
-                double angle = Math.atan2(dirY, dirX) + Math.PI + (Math.random() - 0.5) * 0.9;
-                double speed = 4 + Math.random() * 6;
-                game.particles.add(new Particle(
-                        x + 40 + (Math.random() - 0.5) * 16,
-                        y + 40 + (Math.random() - 0.5) * 16,
-                        Math.cos(angle) * speed,
-                        Math.sin(angle) * speed,
-                        Color.WHITE.deriveColor(0, 1, 1, 0.9)
-                ));
-            }
-        }
+        RazorbillSpecials.handleBladeStorm(this);
     }
 
     private void handleRazorbillCliffShear() {
-        if (razorbillShearTimer <= 0) {
-            return;
-        }
-        int dir = razorbillShearDirection == 0 ? facingDirection() : razorbillShearDirection;
-        double phase = Math.clamp(razorbillShearTimer / (double) (razorbillShearUltimate ? RAZORBILL_SHEAR_FRAMES + 8 : RAZORBILL_SHEAR_FRAMES), 0.0, 1.0);
-        vx = vx * 0.86 + dir * (razorbillShearUltimate ? 2.0 : 1.5);
-        vy = Math.min(vy, -3.0 - phase * (razorbillShearUltimate ? 7.8 : 5.8));
-
-        for (Bird other : game.players) {
-            if (!canDamageTarget(other)) continue;
-            if (other.playerIndex < 0 || other.playerIndex >= razorbillShearHit.length) continue;
-            if (razorbillShearHit[other.playerIndex]) continue;
-            double dx = other.bodyCenterX() - bodyCenterX();
-            double dy = other.bodyCenterY() - bodyCenterY();
-            if (dir > 0 && dx < -other.combatHalfWidth() * 0.25) continue;
-            if (dir < 0 && dx > other.combatHalfWidth() * 0.25) continue;
-            if (Math.abs(dx) > (razorbillShearUltimate ? 118.0 : 96.0) * sizeMultiplier + other.combatHalfWidth()) continue;
-            if (dy > 48.0 * sizeMultiplier + other.combatHalfHeight()
-                    || dy < -(razorbillShearUltimate ? 150.0 : 118.0) * sizeMultiplier - other.combatHalfHeight()) {
-                continue;
-            }
-            int dealt = applyRazorbillSpecialHit(other,
-                    razorbillShearUltimate ? 9 : 6,
-                    dir * (razorbillShearUltimate ? 7.5 : 5.6),
-                    razorbillShearUltimate ? -12.0 : -9.0,
-                    razorbillShearUltimate);
-            if (dealt > 0) {
-                razorbillShearHit[other.playerIndex] = true;
-            }
-        }
-
-        if (razorbillShearTimer % 4 == 0) {
-            double cx = bodyCenterX();
-            double cy = bodyCenterY();
-            emitRazorbillSlashTrail(cx - dir * 18.0 * sizeMultiplier, cy + 20.0 * sizeMultiplier,
-                    cx + dir * 72.0 * sizeMultiplier, cy - 92.0 * sizeMultiplier,
-                    razorbillShearUltimate ? 9 : 6,
-                    razorbillShearUltimate ? Color.GOLD : Color.web("#B2EBF2"));
-        }
+        RazorbillSpecials.handleCliffShear(this);
     }
 
     private void handleThermals(boolean downHeld, double prevX, double prevY) {

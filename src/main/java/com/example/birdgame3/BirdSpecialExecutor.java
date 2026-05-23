@@ -29,20 +29,6 @@ final class BirdSpecialExecutor {
     }
 }
 
-final class RazorbillSpecials {
-    private RazorbillSpecials() {
-    }
-
-    static void use(Bird bird, boolean ultimate) {
-        switch (bird.selectRazorbillSpecialVariant()) {
-            case NEUTRAL -> bird.specialRazorbillNeutral(ultimate);
-            case SIDE -> bird.specialRazorbillSide(ultimate);
-            case UP -> bird.specialRazorbillUp(ultimate);
-            case DOWN -> bird.specialRazorbillCounter(ultimate);
-        }
-    }
-}
-
 final class GrinchhawkSpecials {
     private GrinchhawkSpecials() {
     }
