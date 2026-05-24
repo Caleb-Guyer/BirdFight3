@@ -3953,6 +3953,18 @@ public class BirdGame3 extends Application {
     private boolean trainingAcademyHummingNeedleFinisherSeen = false;
     private boolean trainingAcademyHummingFlashSipHitSeen = false;
     private boolean trainingAcademyHummingTrapPlacedSeen = false;
+    private boolean trainingAcademyTurkeyFeastPlacedSeen = false;
+    private boolean trainingAcademyTurkeyGobbleHitSeen = false;
+    private boolean trainingAcademyTurkeyStampedeHitSeen = false;
+    private boolean trainingAcademyTurkeyPanicFlapHitSeen = false;
+    private boolean trainingAcademyPenguinFortBuiltSeen = false;
+    private boolean trainingAcademyPenguinSnowballSeen = false;
+    private boolean trainingAcademyPenguinBellyHitSeen = false;
+    private boolean trainingAcademyPenguinRocketHitSeen = false;
+    private boolean trainingAcademyShoebillStareSeen = false;
+    private boolean trainingAcademyShoebillThrustHitSeen = false;
+    private boolean trainingAcademyShoebillLiftHitSeen = false;
+    private boolean trainingAcademyShoebillStatueSeen = false;
     private boolean trainingAcademyRecoveryStarted = false;
     private int trainingAcademyRecoveriesCompleted = 0;
     private int trainingAcademyBlockFrames = 0;
@@ -9490,6 +9502,33 @@ public class BirdGame3 extends Application {
                 "Needle confirms build a finisher. Flash Sip crosses distance. Down special leaves Nectar behind.",
                 MapType.BATTLEFIELD,
                 BirdType.HUMMINGBIRD,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        TURKEY_DRILL(
+                "Turkey Feast Pressure",
+                "Place Feast Trap, land Gobble Guard, land Stampede, then hit Panic Flap.",
+                "Feast Trap slows space. Gobble Guard bursts after a hold. Stampede keeps pressure. Panic Flap covers below.",
+                MapType.BATTLEFIELD,
+                BirdType.TURKEY,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        PENGUIN_DRILL(
+                "Penguin Fort Routes",
+                "Build Snow Fort, shove it into a snowball, land Belly Slide, then connect Rocket Flop.",
+                "Down builds the fort. Side turns a nearby fort into a rolling snowball. Neutral charges a slide. Up rockets into a flop.",
+                MapType.BATTLEFIELD,
+                BirdType.PENGUIN,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        SHOEBILL_DRILL(
+                "Shoebill Stance Control",
+                "Use Death Stare, land Heavy Bill Thrust, land Marsh Lift, then enter Statue Counter.",
+                "Death Stare checks back-facing targets. Thrust and Lift control lanes. Hold Down special to keep Statue Counter active.",
+                MapType.BATTLEFIELD,
+                BirdType.SHOEBILL,
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
@@ -29085,6 +29124,9 @@ public class BirdGame3 extends Application {
             case ROOSTER -> GuidedTutorialLesson.ROOSTER_DRILL;
             case PELICAN -> GuidedTutorialLesson.PELICAN_DRILL;
             case HUMMINGBIRD -> GuidedTutorialLesson.HUMMINGBIRD_DRILL;
+            case TURKEY -> GuidedTutorialLesson.TURKEY_DRILL;
+            case PENGUIN -> GuidedTutorialLesson.PENGUIN_DRILL;
+            case SHOEBILL -> GuidedTutorialLesson.SHOEBILL_DRILL;
             default -> null;
         };
     }
@@ -29106,6 +29148,9 @@ public class BirdGame3 extends Application {
             case ROOSTER_DRILL -> BirdType.ROOSTER;
             case PELICAN_DRILL -> BirdType.PELICAN;
             case HUMMINGBIRD_DRILL -> BirdType.HUMMINGBIRD;
+            case TURKEY_DRILL -> BirdType.TURKEY;
+            case PENGUIN_DRILL -> BirdType.PENGUIN;
+            case SHOEBILL_DRILL -> BirdType.SHOEBILL;
             default -> null;
         };
     }
@@ -32743,6 +32788,18 @@ public class BirdGame3 extends Application {
         trainingAcademyHummingNeedleFinisherSeen = false;
         trainingAcademyHummingFlashSipHitSeen = false;
         trainingAcademyHummingTrapPlacedSeen = false;
+        trainingAcademyTurkeyFeastPlacedSeen = false;
+        trainingAcademyTurkeyGobbleHitSeen = false;
+        trainingAcademyTurkeyStampedeHitSeen = false;
+        trainingAcademyTurkeyPanicFlapHitSeen = false;
+        trainingAcademyPenguinFortBuiltSeen = false;
+        trainingAcademyPenguinSnowballSeen = false;
+        trainingAcademyPenguinBellyHitSeen = false;
+        trainingAcademyPenguinRocketHitSeen = false;
+        trainingAcademyShoebillStareSeen = false;
+        trainingAcademyShoebillThrustHitSeen = false;
+        trainingAcademyShoebillLiftHitSeen = false;
+        trainingAcademyShoebillStatueSeen = false;
     }
 
     private GuidedTutorialLesson currentGuidedTutorialLesson() {
@@ -32871,7 +32928,8 @@ public class BirdGame3 extends Application {
                 }
             }
             case RAVEN_DRILL, VULTURE_DRILL, FALCON_DRILL, PHOENIX_DRILL,
-                 ROOSTER_DRILL, PELICAN_DRILL, HUMMINGBIRD_DRILL -> {
+                 ROOSTER_DRILL, PELICAN_DRILL, HUMMINGBIRD_DRILL,
+                 TURKEY_DRILL, PENGUIN_DRILL, SHOEBILL_DRILL -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
             }
@@ -33075,6 +33133,42 @@ public class BirdGame3 extends Application {
                     }
                     if (attacker.hummingFlashSipTimer > 0) {
                         trainingAcademyHummingFlashSipHitSeen = true;
+                    }
+                }
+            }
+            case TURKEY_DRILL -> {
+                if (attacker.type == BirdType.TURKEY) {
+                    if (attacker.turkeyGobbleTimer > 0) {
+                        trainingAcademyTurkeyGobbleHitSeen = true;
+                    }
+                    if (attacker.turkeyStampedeTimer > 0) {
+                        trainingAcademyTurkeyStampedeHitSeen = true;
+                    }
+                    if (attacker.turkeyPanicFlapTimer > 0) {
+                        trainingAcademyTurkeyPanicFlapHitSeen = true;
+                    }
+                }
+            }
+            case PENGUIN_DRILL -> {
+                if (attacker.type == BirdType.PENGUIN) {
+                    if (attacker.penguinBellySlideTimer > 0) {
+                        trainingAcademyPenguinBellyHitSeen = true;
+                    }
+                    if (attacker.penguinRocketTimer > 0 || attacker.penguinFlopTimer > 0) {
+                        trainingAcademyPenguinRocketHitSeen = true;
+                    }
+                }
+            }
+            case SHOEBILL_DRILL -> {
+                if (attacker.type == BirdType.SHOEBILL) {
+                    if (attacker.shoebillThrustTimer > 0) {
+                        trainingAcademyShoebillThrustHitSeen = true;
+                    }
+                    if (attacker.shoebillMarshLiftTimer > 0) {
+                        trainingAcademyShoebillLiftHitSeen = true;
+                    }
+                    if (attacker.shoebillCounterBurstTimer > 0) {
+                        trainingAcademyShoebillStatueSeen = true;
                     }
                 }
             }
@@ -33389,6 +33483,27 @@ public class BirdGame3 extends Application {
                     queueTrainingAcademyCompletion("Hummingbird route cleared");
                 }
             }
+            case TURKEY_DRILL -> {
+                updateTurkeyTrainingDrill(player, dummy);
+                if (hasCompletedTurkeyTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.TURKEY);
+                    queueTrainingAcademyCompletion("Turkey pressure cleared");
+                }
+            }
+            case PENGUIN_DRILL -> {
+                updatePenguinTrainingDrill(player, dummy);
+                if (hasCompletedPenguinTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.PENGUIN);
+                    queueTrainingAcademyCompletion("Penguin route cleared");
+                }
+            }
+            case SHOEBILL_DRILL -> {
+                updateShoebillTrainingDrill(player, dummy);
+                if (hasCompletedShoebillTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.SHOEBILL);
+                    queueTrainingAcademyCompletion("Shoebill control cleared");
+                }
+            }
             case DEFENSE_AND_PUNISH -> {
                 if (isSuccessfulTrainingBlock(player, dummy)) {
                     trainingAcademyBlockFrames = Math.max(trainingAcademyBlockFrames, TRAINING_ACADEMY_BLOCK_GOAL_FRAMES);
@@ -33679,6 +33794,63 @@ public class BirdGame3 extends Application {
                 && trainingAcademyHummingNeedleFinisherSeen
                 && trainingAcademyHummingFlashSipHitSeen
                 && trainingAcademyHummingTrapPlacedSeen;
+    }
+
+    private void updateTurkeyTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.TURKEY) {
+            return;
+        }
+        if (!player.turkeyFeastTraps.isEmpty()) {
+            trainingAcademyTurkeyFeastPlacedSeen = true;
+        }
+    }
+
+    private boolean hasCompletedTurkeyTrainingDrill() {
+        return trainingAcademyTurkeyFeastPlacedSeen
+                && trainingAcademyTurkeyGobbleHitSeen
+                && trainingAcademyTurkeyStampedeHitSeen
+                && trainingAcademyTurkeyPanicFlapHitSeen;
+    }
+
+    private void updatePenguinTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.PENGUIN) {
+            return;
+        }
+        if (player.penguinSnowFort != null && player.penguinSnowFort.health > 0) {
+            trainingAcademyPenguinFortBuiltSeen = true;
+        }
+        for (Bird.PenguinIceObject object : player.penguinIceObjects) {
+            if (object.snowball) {
+                trainingAcademyPenguinSnowballSeen = true;
+                break;
+            }
+        }
+    }
+
+    private boolean hasCompletedPenguinTrainingDrill() {
+        return trainingAcademyPenguinFortBuiltSeen
+                && trainingAcademyPenguinSnowballSeen
+                && trainingAcademyPenguinBellyHitSeen
+                && trainingAcademyPenguinRocketHitSeen;
+    }
+
+    private void updateShoebillTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.SHOEBILL) {
+            return;
+        }
+        if (player.shoebillStareFxTimer > 0 || trainingAcademyNeutralSpecialSeen) {
+            trainingAcademyShoebillStareSeen = true;
+        }
+        if (player.shoebillStatueTimer > 0 || player.shoebillCounterBurstTimer > 0 || player.shoebillStatueCountered) {
+            trainingAcademyShoebillStatueSeen = true;
+        }
+    }
+
+    private boolean hasCompletedShoebillTrainingDrill() {
+        return trainingAcademyShoebillStareSeen
+                && trainingAcademyShoebillThrustHitSeen
+                && trainingAcademyShoebillLiftHitSeen
+                && trainingAcademyShoebillStatueSeen;
     }
 
     private boolean isSuccessfulTrainingBlock(Bird player, Bird dummy) {
@@ -36342,6 +36514,9 @@ public class BirdGame3 extends Application {
                 case ROOSTER_DRILL -> trainingRoosterDrillProgressText(player);
                 case PELICAN_DRILL -> trainingPelicanDrillProgressText(player);
                 case HUMMINGBIRD_DRILL -> trainingHummingbirdDrillProgressText();
+                case TURKEY_DRILL -> trainingTurkeyDrillProgressText();
+                case PENGUIN_DRILL -> trainingPenguinDrillProgressText();
+                case SHOEBILL_DRILL -> trainingShoebillDrillProgressText();
                 default -> specialMoveGuideNote(player.type);
             };
         }
@@ -36577,6 +36752,54 @@ public class BirdGame3 extends Application {
         return "Hummingbird route complete.";
     }
 
+    private String trainingTurkeyDrillProgressText() {
+        if (!trainingAcademyTurkeyFeastPlacedSeen) {
+            return "Academy goal: use DOWN special to place Feast Trap.";
+        }
+        if (!trainingAcademyTurkeyGobbleHitSeen) {
+            return "Trap set. Hold and release NEUTRAL Gobble Guard into the dummy.";
+        }
+        if (!trainingAcademyTurkeyStampedeHitSeen) {
+            return "Gobble hit. Hold SIDE Stampede through the dummy.";
+        }
+        if (!trainingAcademyTurkeyPanicFlapHitSeen) {
+            return "Stampede hit. Use UP Panic Flap above the dummy.";
+        }
+        return "Turkey pressure complete.";
+    }
+
+    private String trainingPenguinDrillProgressText() {
+        if (!trainingAcademyPenguinFortBuiltSeen) {
+            return "Academy goal: use DOWN special to build Snow Fort.";
+        }
+        if (!trainingAcademyPenguinSnowballSeen) {
+            return "Fort built. Stand behind it and use SIDE Iceberg to roll it into a snowball.";
+        }
+        if (!trainingAcademyPenguinBellyHitSeen) {
+            return "Snowball made. Hold and release NEUTRAL Belly Slide into the dummy.";
+        }
+        if (!trainingAcademyPenguinRocketHitSeen) {
+            return "Belly Slide hit. Use UP Rocket Flop and connect.";
+        }
+        return "Penguin route complete.";
+    }
+
+    private String trainingShoebillDrillProgressText() {
+        if (!trainingAcademyShoebillStareSeen) {
+            return "Academy goal: use NEUTRAL Death Stare.";
+        }
+        if (!trainingAcademyShoebillThrustHitSeen) {
+            return "Stare shown. Land SIDE Heavy Bill Thrust.";
+        }
+        if (!trainingAcademyShoebillLiftHitSeen) {
+            return "Thrust hit. Land UP Marsh Lift.";
+        }
+        if (!trainingAcademyShoebillStatueSeen) {
+            return "Lift hit. Hold DOWN special to enter Statue Counter.";
+        }
+        return "Shoebill control complete.";
+    }
+
     private void drawTrainingAcademyHud(GraphicsContext g) {
         double panelW = 820;
         double panelX = (WIDTH - panelW) / 2.0;
@@ -36728,6 +36951,18 @@ public class BirdGame3 extends Application {
                         + "  Finisher: " + yesNoText(trainingAcademyHummingNeedleFinisherSeen)
                         + "  Flash Sip: " + yesNoText(trainingAcademyHummingFlashSipHitSeen)
                         + "  Trap: " + yesNoText(trainingAcademyHummingTrapPlacedSeen);
+                case TURKEY_DRILL -> "Feast: " + yesNoText(trainingAcademyTurkeyFeastPlacedSeen)
+                        + "  Gobble: " + yesNoText(trainingAcademyTurkeyGobbleHitSeen)
+                        + "  Stampede: " + yesNoText(trainingAcademyTurkeyStampedeHitSeen)
+                        + "  Flap: " + yesNoText(trainingAcademyTurkeyPanicFlapHitSeen);
+                case PENGUIN_DRILL -> "Fort: " + yesNoText(trainingAcademyPenguinFortBuiltSeen)
+                        + "  Snowball: " + yesNoText(trainingAcademyPenguinSnowballSeen)
+                        + "  Belly: " + yesNoText(trainingAcademyPenguinBellyHitSeen)
+                        + "  Rocket: " + yesNoText(trainingAcademyPenguinRocketHitSeen);
+                case SHOEBILL_DRILL -> "Stare: " + yesNoText(trainingAcademyShoebillStareSeen)
+                        + "  Thrust: " + yesNoText(trainingAcademyShoebillThrustHitSeen)
+                        + "  Lift: " + yesNoText(trainingAcademyShoebillLiftHitSeen)
+                        + "  Statue: " + yesNoText(trainingAcademyShoebillStatueSeen);
                 case DEFENSE_AND_PUNISH -> "Blocked: " + yesNoText(trainingAcademyShieldHitSeen)
                         + "  Punish hit: " + yesNoText(trainingAcademyHitsLanded > 0);
                 case GRABS_AND_THROWS -> "Grab: " + yesNoText(trainingAcademyGrabSeen)
