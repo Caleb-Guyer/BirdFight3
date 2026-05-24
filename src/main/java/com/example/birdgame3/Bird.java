@@ -7092,6 +7092,12 @@ public class Bird {
         return ravenDecoy != null;
     }
 
+    boolean hasRavenPortentFrom(Bird owner) {
+        return owner != null
+                && ravenPortentTimer > 0
+                && ravenPortentOwnerIndex == owner.playerIndex;
+    }
+
     void clearRavenSpecialObjects() {
         ravenQuills.clear();
         ravenGroundPortents.clear();

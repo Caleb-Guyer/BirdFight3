@@ -3919,6 +3919,16 @@ public class BirdGame3 extends Application {
     private boolean trainingAcademyHeisenBrittleSeen = false;
     private boolean trainingAcademyHeisenBrittleShatterSeen = false;
     private double trainingAcademyHeisenPreviousResourceRatio = -1.0;
+    private boolean trainingAcademyBatEchoSeen = false;
+    private boolean trainingAcademyBatHangSeen = false;
+    private boolean trainingAcademyBatAmbushHitSeen = false;
+    private boolean trainingAcademyRavenNevermoreSeen = false;
+    private boolean trainingAcademyRavenMarkedSeen = false;
+    private boolean trainingAcademyRavenRouteSeen = false;
+    private boolean trainingAcademyRavenPayoffHitSeen = false;
+    private boolean trainingAcademyVultureCrowSummonedSeen = false;
+    private boolean trainingAcademyVultureBaitPlacedSeen = false;
+    private boolean trainingAcademyVultureFollowupHitSeen = false;
     private boolean trainingAcademyRecoveryStarted = false;
     private int trainingAcademyRecoveriesCompleted = 0;
     private int trainingAcademyBlockFrames = 0;
@@ -9378,6 +9388,33 @@ public class BirdGame3 extends Application {
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
+        BAT_DRILL(
+                "Bat Ambush Routes",
+                "Ping with Echo, enter Ceiling Hang, then land an ambush special hit.",
+                "Echo checks the lane. Ceiling Hang creates the ambush window for Side, Up, or Down special.",
+                MapType.CAVE,
+                BirdType.BAT,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        RAVEN_DRILL(
+                "Raven Route Payoff",
+                "Place Nevermore, mark with Black Quill, then land an empowered Shadow Warp or Murder Lift.",
+                "Nevermore and Black Quill create route points. Side or Up special cashes out the route.",
+                MapType.BATTLEFIELD,
+                BirdType.RAVEN,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        VULTURE_DRILL(
+                "Vulture Flock Trap",
+                "Summon Crows, place Bone Offering, then land a crow or offering follow-up.",
+                "Crows create pressure. Bone Offering turns a position into delayed flock control.",
+                MapType.BATTLEFIELD,
+                BirdType.VULTURE,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
         DEFENSE_AND_PUNISH(
                 "Defense And Punish",
                 "Block a close hit, then strike back.",
@@ -9992,6 +10029,7 @@ public class BirdGame3 extends Application {
                     if (hitDirection == 0.0) {
                         hitDirection = closest.facingRight ? -1.0 : 1.0;
                     }
+                    recordTrainingVultureCrowHit(c.owner, closest);
                     closest.vx += c.vx * 1.65 + hitDirection * 4.8;
                     closest.vy -= 7.0;
                     boolean hostile = c.effectiveVariant() != CrowMinion.VARIANT_ALLIED_CROW;
@@ -12618,6 +12656,7 @@ public class BirdGame3 extends Application {
                 if (hitDirection == 0.0) {
                     hitDirection = closest.facingRight ? -1.0 : 1.0;
                 }
+                recordTrainingVultureCrowHit(c.owner, closest);
                 closest.vx += hitDirection * 8.0 + c.vx * 0.35;
                 closest.vy -= 5.0;
                 int particleCount = scaledParticleBurstCount(16);
@@ -28959,6 +28998,9 @@ public class BirdGame3 extends Application {
             case TITMOUSE -> GuidedTutorialLesson.TITMOUSE_DRILL;
             case OPIUMBIRD -> GuidedTutorialLesson.OPIUM_DRILL;
             case HEISENBIRD -> GuidedTutorialLesson.HEISEN_DRILL;
+            case BAT -> GuidedTutorialLesson.BAT_DRILL;
+            case RAVEN -> GuidedTutorialLesson.RAVEN_DRILL;
+            case VULTURE -> GuidedTutorialLesson.VULTURE_DRILL;
             default -> null;
         };
     }
@@ -28971,6 +29013,9 @@ public class BirdGame3 extends Application {
             case TITMOUSE_DRILL -> BirdType.TITMOUSE;
             case OPIUM_DRILL -> BirdType.OPIUMBIRD;
             case HEISEN_DRILL -> BirdType.HEISENBIRD;
+            case BAT_DRILL -> BirdType.BAT;
+            case RAVEN_DRILL -> BirdType.RAVEN;
+            case VULTURE_DRILL -> BirdType.VULTURE;
             default -> null;
         };
     }
@@ -32574,6 +32619,16 @@ public class BirdGame3 extends Application {
         trainingAcademyHeisenBrittleSeen = false;
         trainingAcademyHeisenBrittleShatterSeen = false;
         trainingAcademyHeisenPreviousResourceRatio = -1.0;
+        trainingAcademyBatEchoSeen = false;
+        trainingAcademyBatHangSeen = false;
+        trainingAcademyBatAmbushHitSeen = false;
+        trainingAcademyRavenNevermoreSeen = false;
+        trainingAcademyRavenMarkedSeen = false;
+        trainingAcademyRavenRouteSeen = false;
+        trainingAcademyRavenPayoffHitSeen = false;
+        trainingAcademyVultureCrowSummonedSeen = false;
+        trainingAcademyVultureBaitPlacedSeen = false;
+        trainingAcademyVultureFollowupHitSeen = false;
     }
 
     private GuidedTutorialLesson currentGuidedTutorialLesson() {
@@ -32649,6 +32704,25 @@ public class BirdGame3 extends Application {
         dummy.facingRight = dummy.x > player.x;
     }
 
+    private Platform trainingBatDrillHangPlatform() {
+        Platform best = null;
+        double bestScore = Double.NEGATIVE_INFINITY;
+        for (Platform platform : platforms) {
+            if (platform == null || platform.w < 240 || platform.y <= 1 || platform.y >= GROUND_Y - 180) {
+                continue;
+            }
+            double centerX = platform.x + platform.w / 2.0;
+            double score = platform.w
+                    - Math.abs(centerX - WORLD_WIDTH / 2.0) * 0.34
+                    - Math.abs(platform.y - (GROUND_Y - 500.0)) * 0.20;
+            if (best == null || score > bestScore) {
+                best = platform;
+                bestScore = score;
+            }
+        }
+        return best;
+    }
+
     private void positionGuidedTutorialSpawns(Bird player, Bird dummy) {
         GuidedTutorialLesson lesson = currentGuidedTutorialLesson();
         Platform stage = trainingPrimaryPlatform();
@@ -32668,6 +32742,21 @@ public class BirdGame3 extends Application {
                 setTrainingBirdStandingPosition(dummy, stageCenter + 120, groundY);
             }
             case DIRECTIONAL_SPECIALS, TITMOUSE_DRILL, OPIUM_DRILL, HEISEN_DRILL -> {
+                setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
+                setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
+            }
+            case BAT_DRILL -> {
+                Platform hangPlatform = trainingBatDrillHangPlatform();
+                if (hangPlatform == null) {
+                    setTrainingBirdStandingPosition(player, stageCenter - 110, groundY);
+                    setTrainingBirdStandingPosition(dummy, stageCenter + 20, groundY);
+                } else {
+                    double hangCenter = hangPlatform.x + hangPlatform.w / 2.0;
+                    setTrainingBirdAirbornePosition(player, hangCenter - 35, hangPlatform.y + hangPlatform.h + 4);
+                    setTrainingBirdStandingPosition(dummy, hangCenter + 15, groundY);
+                }
+            }
+            case RAVEN_DRILL, VULTURE_DRILL -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
             }
@@ -32699,6 +32788,10 @@ public class BirdGame3 extends Application {
         switch (currentGuidedTutorialLesson()) {
             case OPIUM_DRILL, HEISEN_DRILL ->
                     player.opiumResourceMeter = 0.0;
+            case VULTURE_DRILL -> {
+                player.vultureCrowTicks = Bird.VULTURE_CROW_TICK_MAX;
+                player.vultureCrowTickRechargeTimer = 0;
+            }
             default -> {
             }
         }
@@ -32774,6 +32867,29 @@ public class BirdGame3 extends Application {
                     trainingAcademyOpiumFueledHitSeen = true;
                 }
             }
+            case BAT_DRILL -> {
+                if (attacker.type == BirdType.BAT
+                        && trainingAcademyBatHangSeen
+                        && isActiveBatAmbushSpecialHit(attacker)) {
+                    trainingAcademyBatAmbushHitSeen = true;
+                }
+            }
+            case RAVEN_DRILL -> {
+                if (attacker.type == BirdType.RAVEN
+                        && trainingAcademyRavenMarkedSeen
+                        && isActiveRavenRoutePayoffHit(attacker)) {
+                    trainingAcademyRavenRouteSeen = true;
+                    trainingAcademyRavenPayoffHitSeen = true;
+                }
+            }
+            case VULTURE_DRILL -> {
+                if (attacker.type == BirdType.VULTURE
+                        && trainingAcademyVultureCrowSummonedSeen
+                        && trainingAcademyVultureBaitPlacedSeen
+                        && isActiveVultureFollowupHit(attacker)) {
+                    trainingAcademyVultureFollowupHitSeen = true;
+                }
+            }
             default -> {
             }
         }
@@ -32791,6 +32907,27 @@ public class BirdGame3 extends Application {
                 && ((attacker.opiumSideTimer > 0 && attacker.opiumSideFueled)
                 || (attacker.opiumUpTimer > 0 && attacker.opiumUpFueled)
                 || (attacker.leanTimer > 0 && attacker.opiumNeutralFueled));
+    }
+
+    private boolean isActiveBatAmbushSpecialHit(Bird attacker) {
+        return attacker != null
+                && ((attacker.batWingcutTimer > 0 && (attacker.batWingcutAmbush || attacker.batWingcutFromHang))
+                || (attacker.batMoonriseTimer > 0 && attacker.batMoonriseAmbush)
+                || ((attacker.batSilentStallTimer > 0 || attacker.batSilentDiveTimer > 0)
+                && (attacker.batSilentAmbush || attacker.batSilentFromHang)));
+    }
+
+    private boolean isActiveRavenRoutePayoffHit(Bird attacker) {
+        return attacker != null
+                && ((attacker.ravenSideTimer > 0 && attacker.ravenSideEmpowered)
+                || (attacker.ravenLiftTimer > 0 && attacker.ravenLiftSnapped));
+    }
+
+    private boolean isActiveVultureFollowupHit(Bird attacker) {
+        return attacker != null
+                && (attacker.vultureGlideTimer > 0
+                || attacker.vultureThermalTimer > 0
+                || attacker.vultureBlackSkyTimer > 0);
     }
 
     void recordTrainingTitmouseStashDetonation(Bird user, boolean hitAny) {
@@ -32826,6 +32963,24 @@ public class BirdGame3 extends Application {
                 && trainingAcademyHeisenBrittleSeen) {
             trainingAcademyHeisenBrittleSeen = true;
             trainingAcademyHeisenBrittleShatterSeen = true;
+        }
+    }
+
+    void recordTrainingVultureCrowHit(Bird owner, Bird target) {
+        if (!trainingModeActive || owner == null || target == null || owner.playerIndex != 0 || !isTrainingDummy(target)) {
+            return;
+        }
+        if (trainingAcademyMode != TrainingAcademyMode.GUIDED_TUTORIAL
+                || currentGuidedTutorialLesson() != GuidedTutorialLesson.VULTURE_DRILL
+                || owner.type != BirdType.VULTURE) {
+            return;
+        }
+        trainingAcademyVultureCrowSummonedSeen = true;
+        if (owner.vultureBait != null) {
+            trainingAcademyVultureBaitPlacedSeen = true;
+        }
+        if (trainingAcademyVultureCrowSummonedSeen && trainingAcademyVultureBaitPlacedSeen) {
+            trainingAcademyVultureFollowupHitSeen = true;
         }
     }
 
@@ -32968,6 +33123,27 @@ public class BirdGame3 extends Application {
                     queueTrainingAcademyCompletion("Heisen setup cleared");
                 }
             }
+            case BAT_DRILL -> {
+                updateBatTrainingDrill(player, dummy);
+                if (hasCompletedBatTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.BAT);
+                    queueTrainingAcademyCompletion("Bat ambush cleared");
+                }
+            }
+            case RAVEN_DRILL -> {
+                updateRavenTrainingDrill(player, dummy);
+                if (hasCompletedRavenTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.RAVEN);
+                    queueTrainingAcademyCompletion("Raven route cleared");
+                }
+            }
+            case VULTURE_DRILL -> {
+                updateVultureTrainingDrill(player, dummy);
+                if (hasCompletedVultureTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.VULTURE);
+                    queueTrainingAcademyCompletion("Vulture flock cleared");
+                }
+            }
             case DEFENSE_AND_PUNISH -> {
                 if (isSuccessfulTrainingBlock(player, dummy)) {
                     trainingAcademyBlockFrames = Math.max(trainingAcademyBlockFrames, TRAINING_ACADEMY_BLOCK_GOAL_FRAMES);
@@ -33095,6 +33271,67 @@ public class BirdGame3 extends Application {
                 && trainingAcademyHeisenRefueledSeen
                 && trainingAcademyHeisenBrittleSeen
                 && trainingAcademyHeisenBrittleShatterSeen;
+    }
+
+    private void updateBatTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.BAT) {
+            return;
+        }
+        if (player.batEchoTimer > 0 || trainingAcademyNeutralSpecialSeen) {
+            trainingAcademyBatEchoSeen = true;
+        }
+        if (player.batHanging) {
+            trainingAcademyBatHangSeen = true;
+        }
+    }
+
+    private boolean hasCompletedBatTrainingDrill() {
+        return trainingAcademyBatEchoSeen
+                && trainingAcademyBatHangSeen
+                && trainingAcademyBatAmbushHitSeen;
+    }
+
+    private void updateRavenTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.RAVEN) {
+            return;
+        }
+        if (player.hasRavenDecoy()) {
+            trainingAcademyRavenNevermoreSeen = true;
+        }
+        if (dummy != null && dummy.hasRavenPortentFrom(player)) {
+            trainingAcademyRavenMarkedSeen = true;
+        }
+        if ((player.ravenSideTimer > 0 && player.ravenSideEmpowered)
+                || (player.ravenLiftTimer > 0 && player.ravenLiftSnapped)) {
+            trainingAcademyRavenRouteSeen = true;
+        }
+    }
+
+    private boolean hasCompletedRavenTrainingDrill() {
+        return trainingAcademyRavenNevermoreSeen
+                && trainingAcademyRavenMarkedSeen
+                && trainingAcademyRavenRouteSeen
+                && trainingAcademyRavenPayoffHitSeen;
+    }
+
+    private void updateVultureTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.VULTURE) {
+            return;
+        }
+        if (trainingAcademyNeutralSpecialSeen
+                || player.vultureCallCrowsSummoned > 0
+                || VultureSpecials.ownedCrowCount(player) > 0) {
+            trainingAcademyVultureCrowSummonedSeen = true;
+        }
+        if (player.vultureBait != null) {
+            trainingAcademyVultureBaitPlacedSeen = true;
+        }
+    }
+
+    private boolean hasCompletedVultureTrainingDrill() {
+        return trainingAcademyVultureCrowSummonedSeen
+                && trainingAcademyVultureBaitPlacedSeen
+                && trainingAcademyVultureFollowupHitSeen;
     }
 
     private boolean isSuccessfulTrainingBlock(Bird player, Bird dummy) {
@@ -35749,6 +35986,9 @@ public class BirdGame3 extends Application {
                 case TITMOUSE_DRILL -> trainingTitmouseDrillProgressText();
                 case OPIUM_DRILL -> trainingOpiumDrillProgressText();
                 case HEISEN_DRILL -> trainingHeisenDrillProgressText();
+                case BAT_DRILL -> trainingBatDrillProgressText();
+                case RAVEN_DRILL -> trainingRavenDrillProgressText();
+                case VULTURE_DRILL -> trainingVultureDrillProgressText();
                 default -> specialMoveGuideNote(player.type);
             };
         }
@@ -35841,6 +36081,48 @@ public class BirdGame3 extends Application {
             return "Brittle applied. Hit the dummy to shatter it.";
         }
         return "Heisen setup complete.";
+    }
+
+    private String trainingBatDrillProgressText() {
+        if (!trainingAcademyBatEchoSeen) {
+            return "Academy goal: NEUTRAL Echo Lance pings the lane.";
+        }
+        if (!trainingAcademyBatHangSeen) {
+            return "Echo set. Jump under a platform to enter Ceiling Hang.";
+        }
+        if (!trainingAcademyBatAmbushHitSeen) {
+            return "Hang set. Release with SIDE, UP, or DOWN special and hit the dummy.";
+        }
+        return "Bat ambush complete.";
+    }
+
+    private String trainingRavenDrillProgressText() {
+        if (!trainingAcademyRavenNevermoreSeen) {
+            return "Academy goal: DOWN special places Nevermore.";
+        }
+        if (!trainingAcademyRavenMarkedSeen) {
+            return "Nevermore set. Use NEUTRAL Black Quill to mark the dummy.";
+        }
+        if (!trainingAcademyRavenRouteSeen) {
+            return "Mark set. Use SIDE Shadow Warp or UP Murder Lift through the route.";
+        }
+        if (!trainingAcademyRavenPayoffHitSeen) {
+            return "Route found. Land the empowered hit on the dummy.";
+        }
+        return "Raven route complete.";
+    }
+
+    private String trainingVultureDrillProgressText() {
+        if (!trainingAcademyVultureCrowSummonedSeen) {
+            return "Academy goal: NEUTRAL special summons Crows.";
+        }
+        if (!trainingAcademyVultureBaitPlacedSeen) {
+            return "Crows called. Use DOWN special to place Bone Offering.";
+        }
+        if (!trainingAcademyVultureFollowupHitSeen) {
+            return "Offering set. Let a crow hit or follow with SIDE or UP special.";
+        }
+        return "Vulture flock complete.";
     }
 
     private void drawTrainingAcademyHud(GraphicsContext g) {
@@ -35960,6 +36242,16 @@ public class BirdGame3 extends Application {
                         + "  Refuel: " + yesNoText(trainingAcademyHeisenRefueledSeen)
                         + "  Brittle: " + yesNoText(trainingAcademyHeisenBrittleSeen)
                         + "  Shatter: " + yesNoText(trainingAcademyHeisenBrittleShatterSeen);
+                case BAT_DRILL -> "Echo: " + yesNoText(trainingAcademyBatEchoSeen)
+                        + "  Hang: " + yesNoText(trainingAcademyBatHangSeen)
+                        + "  Ambush hit: " + yesNoText(trainingAcademyBatAmbushHitSeen);
+                case RAVEN_DRILL -> "Nevermore: " + yesNoText(trainingAcademyRavenNevermoreSeen)
+                        + "  Mark: " + yesNoText(trainingAcademyRavenMarkedSeen)
+                        + "  Route: " + yesNoText(trainingAcademyRavenRouteSeen)
+                        + "  Payoff: " + yesNoText(trainingAcademyRavenPayoffHitSeen);
+                case VULTURE_DRILL -> "Crows: " + yesNoText(trainingAcademyVultureCrowSummonedSeen)
+                        + "  Offering: " + yesNoText(trainingAcademyVultureBaitPlacedSeen)
+                        + "  Follow-up: " + yesNoText(trainingAcademyVultureFollowupHitSeen);
                 case DEFENSE_AND_PUNISH -> "Blocked: " + yesNoText(trainingAcademyShieldHitSeen)
                         + "  Punish hit: " + yesNoText(trainingAcademyHitsLanded > 0);
                 case GRABS_AND_THROWS -> "Grab: " + yesNoText(trainingAcademyGrabSeen)
