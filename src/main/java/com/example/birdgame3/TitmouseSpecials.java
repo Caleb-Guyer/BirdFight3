@@ -242,6 +242,7 @@ final class TitmouseSpecials {
         if (bird.titmouseSeedStashes.isEmpty()) {
             return;
         }
+        boolean hitAny = false;
         for (Bird.TitmouseSeedStash stash : bird.titmouseSeedStashes) {
             double radius = (ultimate || stash.ultimate ? 112.0 : 92.0) * bird.sizeMultiplier;
             for (Bird other : bird.game.players) {
@@ -254,6 +255,7 @@ final class TitmouseSpecials {
                 double oldHealth = other.health;
                 int dealt = (int) bird.applyDamageTo(other, dmg);
                 if (dealt <= 0) continue;
+                hitAny = true;
                 bird.game.damageDealt[bird.playerIndex] += dealt;
                 bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
                 bird.confirmSpecialHit(dealt, ultimate || stash.ultimate ? Color.GOLD : Color.web("#BCAAA4"));
@@ -274,6 +276,7 @@ final class TitmouseSpecials {
                     ultimate || stash.ultimate ? Color.GOLD : Color.web("#BCAAA4"));
         }
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, ultimate ? 10 : 6);
+        bird.game.recordTrainingTitmouseStashDetonation(bird, hitAny);
         bird.titmouseSeedStashes.clear();
     }
 

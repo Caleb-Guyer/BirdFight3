@@ -11074,6 +11074,7 @@ public class Bird {
         heisenBrittleUltimate = heisenBrittleUltimate || ultimate;
         heisenBrittleTimer = Math.max(heisenBrittleTimer,
                 ultimate ? HEISEN_ULTIMATE_FRAMES + 12 : HEISEN_BRITTLE_FRAMES);
+        game.recordTrainingHeisenBrittleApplied(owner, this);
     }
 
     boolean hasHeisenBrittleFrom(Bird owner) {
@@ -11097,6 +11098,7 @@ public class Bird {
                 && heisenBrittleUltimate;
         double bonus = repeatableUltimateMark ? 4.0 : 5.0;
         emitBrittleShatterParticles(repeatableUltimateMark ? 10 : 14);
+        game.recordTrainingHeisenBrittleShatter(attacker, this);
         if (!repeatableUltimateMark) {
             clearHeisenBrittle();
         }

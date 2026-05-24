@@ -3905,6 +3905,20 @@ public class BirdGame3 extends Application {
     private boolean trainingAcademySideSpecialSeen = false;
     private boolean trainingAcademyUpSpecialSeen = false;
     private boolean trainingAcademyDownSpecialSeen = false;
+    private boolean trainingAcademyTitmouseMarkedSeen = false;
+    private boolean trainingAcademyTitmouseMarkedFollowupSeen = false;
+    private boolean trainingAcademyTitmouseStashPlacedSeen = false;
+    private boolean trainingAcademyTitmouseStashHitSeen = false;
+    private boolean trainingAcademyOpiumPatchPlacedSeen = false;
+    private boolean trainingAcademyOpiumRefueledSeen = false;
+    private boolean trainingAcademyOpiumCloudSeen = false;
+    private boolean trainingAcademyOpiumFueledHitSeen = false;
+    private double trainingAcademyOpiumPreviousResourceRatio = -1.0;
+    private boolean trainingAcademyHeisenNodePlacedSeen = false;
+    private boolean trainingAcademyHeisenRefueledSeen = false;
+    private boolean trainingAcademyHeisenBrittleSeen = false;
+    private boolean trainingAcademyHeisenBrittleShatterSeen = false;
+    private double trainingAcademyHeisenPreviousResourceRatio = -1.0;
     private boolean trainingAcademyRecoveryStarted = false;
     private int trainingAcademyRecoveriesCompleted = 0;
     private int trainingAcademyBlockFrames = 0;
@@ -9333,6 +9347,33 @@ public class BirdGame3 extends Application {
                 "Watch the Live Special panel while you hold no direction, left/right, jump/up, or block/down.",
                 MapType.BATTLEFIELD,
                 BirdType.EAGLE,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        TITMOUSE_DRILL(
+                "Titmouse Routes",
+                "Mark the dummy, land a marked route hit, then land a Seed Stash detonation.",
+                "Scold marks. Barkskip or Vault cashes out the mark. Down special plants and detonates stashes.",
+                MapType.BATTLEFIELD,
+                BirdType.TITMOUSE,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        OPIUM_DRILL(
+                "Opium Resource Flow",
+                "Place a Patch, refuel in it, start a fueled Cloud, then land a fueled special hit.",
+                "Patch is your refill point. Spend the refill on Cloud, Side, or Up pressure.",
+                MapType.BATTLEFIELD,
+                BirdType.OPIUMBIRD,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        HEISEN_DRILL(
+                "Heisen Brittle Setup",
+                "Place a Node, refuel in it, apply Brittle, then shatter Brittle with a hit.",
+                "Node builds the setup. Brittle makes the next real hit launch harder.",
+                MapType.BATTLEFIELD,
+                BirdType.HEISENBIRD,
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
@@ -17187,17 +17228,58 @@ public class BirdGame3 extends Application {
 
         Label academyStatus = new Label(guidedTutorialCompleted
                 ? "Guided tutorial completed."
-                : "Play the " + GuidedTutorialLesson.values().length + "-lesson guided tutorial.");
+                : GuidedTutorialLesson.values().length + "-lesson guided tutorial.");
         academyStatus.setFont(Font.font("Consolas", 18));
         academyStatus.setTextFill(Color.web("#E1F5FE"));
         academyStatus.setWrapText(true);
         academyStatus.setMaxWidth(620);
         applyNoEllipsis(academyStatus);
 
-        Button guidedTutorialButton = uiFactory.action("GUIDED TUTORIAL", 320, 82, 26, "#1565C0", 18,
-                () -> beginGuidedTutorial(stage));
+        final GuidedTutorialLesson[] academyLessonPick = {currentGuidedTutorialLesson()};
+        Label lessonPicker = new Label();
+        lessonPicker.setFont(Font.font("Arial Black", 20));
+        lessonPicker.setTextFill(Color.WHITE);
+        lessonPicker.setWrapText(true);
+        lessonPicker.setMaxWidth(430);
+        applyNoEllipsis(lessonPicker);
 
-        VBox academyCard = new VBox(10, academyLabel, academyStatus, guidedTutorialButton);
+        Label lessonObjective = new Label();
+        lessonObjective.setFont(Font.font("Consolas", 15));
+        lessonObjective.setTextFill(Color.web("#CFD8DC"));
+        lessonObjective.setWrapText(true);
+        lessonObjective.setMaxWidth(520);
+        applyNoEllipsis(lessonObjective);
+
+        Runnable refreshLessonPicker = () -> {
+            GuidedTutorialLesson lesson = academyLessonPick[0] == null
+                    ? GuidedTutorialLesson.STAGE_CONTROL
+                    : academyLessonPick[0];
+            lessonPicker.setText(guidedTutorialLessonPickerText(lesson));
+            lessonObjective.setText(lesson.playerBird.name + "  |  " + lesson.objective);
+            fitWrappedLabelText(lessonPicker, lessonPicker.getText(), 430, 50, 13);
+            fitWrappedLabelText(lessonObjective, lessonObjective.getText(), 520, 42, 10);
+        };
+
+        Button previousLesson = uiFactory.action("<", 58, 52, 24, "#263238", 14, () -> {
+            academyLessonPick[0] = shiftGuidedTutorialLesson(academyLessonPick[0], -1);
+            refreshLessonPicker.run();
+        });
+        Button nextLesson = uiFactory.action(">", 58, 52, 24, "#263238", 14, () -> {
+            academyLessonPick[0] = shiftGuidedTutorialLesson(academyLessonPick[0], 1);
+            refreshLessonPicker.run();
+        });
+        HBox lessonPickerRow = new HBox(10, previousLesson, lessonPicker, nextLesson);
+        lessonPickerRow.setAlignment(Pos.CENTER_LEFT);
+        refreshLessonPicker.run();
+
+        Button guidedTutorialButton = uiFactory.action("START FROM FIRST", 248, 68, 20, "#1565C0", 18,
+                () -> beginGuidedTutorial(stage));
+        Button selectedLessonButton = uiFactory.action("START LESSON", 226, 68, 20, "#00897B", 18,
+                () -> beginGuidedTutorial(stage, academyLessonPick[0]));
+        HBox academyActions = new HBox(12, guidedTutorialButton, selectedLessonButton);
+        academyActions.setAlignment(Pos.CENTER_LEFT);
+
+        VBox academyCard = new VBox(10, academyLabel, academyStatus, lessonPickerRow, lessonObjective, academyActions);
         academyCard.setAlignment(Pos.TOP_LEFT);
         academyCard.setPadding(new Insets(18));
         academyCard.setStyle("-fx-background-color: rgba(7,32,48,0.82); -fx-border-color: #FFF176; "
@@ -17263,13 +17345,29 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private String guidedTutorialLessonPickerText(GuidedTutorialLesson lesson) {
+        GuidedTutorialLesson safeLesson = lesson == null ? GuidedTutorialLesson.STAGE_CONTROL : lesson;
+        return "LESSON " + (safeLesson.ordinal() + 1) + " / " + GuidedTutorialLesson.values().length
+                + "  " + safeLesson.title.toUpperCase(Locale.ROOT);
+    }
+
+    private GuidedTutorialLesson shiftGuidedTutorialLesson(GuidedTutorialLesson lesson, int delta) {
+        GuidedTutorialLesson[] lessons = GuidedTutorialLesson.values();
+        int current = lesson == null ? GuidedTutorialLesson.STAGE_CONTROL.ordinal() : lesson.ordinal();
+        int next = Math.floorMod(current + delta, lessons.length);
+        return lessons[next];
+    }
+
     private void beginGuidedTutorial(Stage stage) {
+        beginGuidedTutorial(stage, GuidedTutorialLesson.STAGE_CONTROL);
+    }
+
+    private void beginGuidedTutorial(Stage stage, GuidedTutorialLesson startingLesson) {
         if (stage == null) {
             return;
         }
-        playButtonClick();
         trainingAcademyMode = TrainingAcademyMode.GUIDED_TUTORIAL;
-        guidedTutorialLesson = GuidedTutorialLesson.STAGE_CONTROL;
+        guidedTutorialLesson = startingLesson == null ? GuidedTutorialLesson.STAGE_CONTROL : startingLesson;
         clearTrainingAcademyRuntimeState();
         beginTrainingMatchOnMap(stage, guidedTutorialLesson.map);
     }
@@ -32365,6 +32463,7 @@ public class BirdGame3 extends Application {
         trainingAcademyGrabSeen = false;
         trainingAcademyThrowSeen = false;
         clearTrainingSpecialProgress();
+        clearTrainingCharacterDrillProgress();
         trainingAcademyRecoveryStarted = false;
         trainingAcademyRecoveriesCompleted = 0;
         trainingAcademyBlockFrames = 0;
@@ -32380,6 +32479,23 @@ public class BirdGame3 extends Application {
         trainingAcademySideSpecialSeen = false;
         trainingAcademyUpSpecialSeen = false;
         trainingAcademyDownSpecialSeen = false;
+    }
+
+    private void clearTrainingCharacterDrillProgress() {
+        trainingAcademyTitmouseMarkedSeen = false;
+        trainingAcademyTitmouseMarkedFollowupSeen = false;
+        trainingAcademyTitmouseStashPlacedSeen = false;
+        trainingAcademyTitmouseStashHitSeen = false;
+        trainingAcademyOpiumPatchPlacedSeen = false;
+        trainingAcademyOpiumRefueledSeen = false;
+        trainingAcademyOpiumCloudSeen = false;
+        trainingAcademyOpiumFueledHitSeen = false;
+        trainingAcademyOpiumPreviousResourceRatio = -1.0;
+        trainingAcademyHeisenNodePlacedSeen = false;
+        trainingAcademyHeisenRefueledSeen = false;
+        trainingAcademyHeisenBrittleSeen = false;
+        trainingAcademyHeisenBrittleShatterSeen = false;
+        trainingAcademyHeisenPreviousResourceRatio = -1.0;
     }
 
     private GuidedTutorialLesson currentGuidedTutorialLesson() {
@@ -32473,7 +32589,7 @@ public class BirdGame3 extends Application {
                 setTrainingBirdStandingPosition(player, stageCenter - 160, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 120, groundY);
             }
-            case DIRECTIONAL_SPECIALS -> {
+            case DIRECTIONAL_SPECIALS, TITMOUSE_DRILL, OPIUM_DRILL, HEISEN_DRILL -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
             }
@@ -32497,11 +32613,25 @@ public class BirdGame3 extends Application {
         faceTrainingBirds(player, dummy);
     }
 
+    private void prepareGuidedTutorialLessonResources(Bird player) {
+        if (trainingAcademyMode != TrainingAcademyMode.GUIDED_TUTORIAL || player == null) {
+            return;
+        }
+
+        switch (currentGuidedTutorialLesson()) {
+            case OPIUM_DRILL, HEISEN_DRILL ->
+                    player.opiumResourceMeter = 0.0;
+            default -> {
+            }
+        }
+    }
+
     private void captureTrainingSpawns() {
         Bird player = players[0];
         Bird dummy = players[trainingDummyIndex];
         if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
             positionGuidedTutorialSpawns(player, dummy);
+            prepareGuidedTutorialLessonResources(player);
         }
     }
 
@@ -32542,7 +32672,83 @@ public class BirdGame3 extends Application {
         trainingSessionDamage += damage;
         trainingLastHitDamage = damage;
         trainingAcademyHitsLanded++;
+        recordTrainingCharacterDrillHit(attacker, target);
         trainingDummyBlockFrames = Math.max(trainingDummyBlockFrames, TRAINING_DUMMY_BLOCK_FRAMES);
+    }
+
+    private void recordTrainingCharacterDrillHit(Bird attacker, Bird target) {
+        if (trainingAcademyMode != TrainingAcademyMode.GUIDED_TUTORIAL) {
+            return;
+        }
+
+        switch (currentGuidedTutorialLesson()) {
+            case TITMOUSE_DRILL -> {
+                if (attacker.type == BirdType.TITMOUSE
+                        && target.isTitmouseMarkedBy(attacker)
+                        && isActiveTitmouseMarkedFollowup(attacker)) {
+                    trainingAcademyTitmouseMarkedFollowupSeen = true;
+                }
+            }
+            case OPIUM_DRILL -> {
+                if (attacker.type == BirdType.OPIUMBIRD
+                        && trainingAcademyOpiumCloudSeen
+                        && isActiveOpiumFueledSpecialHit(attacker)) {
+                    trainingAcademyOpiumFueledHitSeen = true;
+                }
+            }
+            default -> {
+            }
+        }
+    }
+
+    private boolean isActiveTitmouseMarkedFollowup(Bird attacker) {
+        return attacker != null
+                && (attacker.titmouseBarkskipTimer > 0
+                || attacker.titmouseVaultTimer > 0
+                || attacker.titmouseMobbingTimer > 0);
+    }
+
+    private boolean isActiveOpiumFueledSpecialHit(Bird attacker) {
+        return attacker != null
+                && ((attacker.opiumSideTimer > 0 && attacker.opiumSideFueled)
+                || (attacker.opiumUpTimer > 0 && attacker.opiumUpFueled)
+                || (attacker.leanTimer > 0 && attacker.opiumNeutralFueled));
+    }
+
+    void recordTrainingTitmouseStashDetonation(Bird user, boolean hitAny) {
+        if (!trainingModeActive || !hitAny || user == null || user.playerIndex != 0) {
+            return;
+        }
+        if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL
+                && currentGuidedTutorialLesson() == GuidedTutorialLesson.TITMOUSE_DRILL
+                && user.type == BirdType.TITMOUSE) {
+            trainingAcademyTitmouseStashHitSeen = true;
+        }
+    }
+
+    void recordTrainingHeisenBrittleApplied(Bird owner, Bird target) {
+        if (!trainingModeActive || owner == null || target == null || owner.playerIndex != 0 || !isTrainingDummy(target)) {
+            return;
+        }
+        if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL
+                && currentGuidedTutorialLesson() == GuidedTutorialLesson.HEISEN_DRILL
+                && owner.type == BirdType.HEISENBIRD
+                && trainingAcademyHeisenRefueledSeen) {
+            trainingAcademyHeisenBrittleSeen = true;
+        }
+    }
+
+    void recordTrainingHeisenBrittleShatter(Bird attacker, Bird target) {
+        if (!trainingModeActive || attacker == null || target == null || attacker.playerIndex != 0 || !isTrainingDummy(target)) {
+            return;
+        }
+        if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL
+                && currentGuidedTutorialLesson() == GuidedTutorialLesson.HEISEN_DRILL
+                && attacker.type == BirdType.HEISENBIRD
+                && trainingAcademyHeisenBrittleSeen) {
+            trainingAcademyHeisenBrittleSeen = true;
+            trainingAcademyHeisenBrittleShatterSeen = true;
+        }
     }
 
     void recordTrainingAttack(Bird attacker, int chargeFrames) {
@@ -32663,6 +32869,24 @@ public class BirdGame3 extends Application {
                     queueTrainingAcademyCompletion("Specials cleared");
                 }
             }
+            case TITMOUSE_DRILL -> {
+                updateTitmouseTrainingDrill(player, dummy);
+                if (hasCompletedTitmouseTrainingDrill()) {
+                    queueTrainingAcademyCompletion("Titmouse routes cleared");
+                }
+            }
+            case OPIUM_DRILL -> {
+                updateOpiumTrainingDrill(player, dummy);
+                if (hasCompletedOpiumTrainingDrill()) {
+                    queueTrainingAcademyCompletion("Opium flow cleared");
+                }
+            }
+            case HEISEN_DRILL -> {
+                updateHeisenTrainingDrill(player, dummy);
+                if (hasCompletedHeisenTrainingDrill()) {
+                    queueTrainingAcademyCompletion("Heisen setup cleared");
+                }
+            }
             case DEFENSE_AND_PUNISH -> {
                 if (isSuccessfulTrainingBlock(player, dummy)) {
                     trainingAcademyBlockFrames = Math.max(trainingAcademyBlockFrames, TRAINING_ACADEMY_BLOCK_GOAL_FRAMES);
@@ -32705,6 +32929,91 @@ public class BirdGame3 extends Application {
                 && trainingAcademySideSpecialSeen
                 && trainingAcademyUpSpecialSeen
                 && trainingAcademyDownSpecialSeen;
+    }
+
+    private void updateTitmouseTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.TITMOUSE) {
+            return;
+        }
+        if (dummy != null && dummy.isTitmouseMarkedBy(player)) {
+            trainingAcademyTitmouseMarkedSeen = true;
+        }
+        if (!player.titmouseSeedStashes.isEmpty()) {
+            trainingAcademyTitmouseStashPlacedSeen = true;
+        }
+    }
+
+    private boolean hasCompletedTitmouseTrainingDrill() {
+        return trainingAcademyTitmouseMarkedSeen
+                && trainingAcademyTitmouseMarkedFollowupSeen
+                && trainingAcademyTitmouseStashPlacedSeen
+                && trainingAcademyTitmouseStashHitSeen;
+    }
+
+    private void updateOpiumTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.OPIUMBIRD) {
+            return;
+        }
+        for (Bird.OpiumTrap trap : player.opiumTraps) {
+            if (!trap.heisen) {
+                trainingAcademyOpiumPatchPlacedSeen = true;
+                break;
+            }
+        }
+        updateOpiumDrillResourceProgress(player);
+        if (trainingAcademyOpiumRefueledSeen && player.leanTimer > 0 && player.opiumNeutralFueled) {
+            trainingAcademyOpiumCloudSeen = true;
+        }
+    }
+
+    private void updateOpiumDrillResourceProgress(Bird player) {
+        double ratio = player.getOpiumResourceRatio();
+        if (trainingAcademyOpiumPreviousResourceRatio >= 0.0
+                && trainingAcademyOpiumPatchPlacedSeen
+                && ratio > trainingAcademyOpiumPreviousResourceRatio + 0.0005) {
+            trainingAcademyOpiumRefueledSeen = true;
+        }
+        trainingAcademyOpiumPreviousResourceRatio = ratio;
+    }
+
+    private boolean hasCompletedOpiumTrainingDrill() {
+        return trainingAcademyOpiumPatchPlacedSeen
+                && trainingAcademyOpiumRefueledSeen
+                && trainingAcademyOpiumCloudSeen
+                && trainingAcademyOpiumFueledHitSeen;
+    }
+
+    private void updateHeisenTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.HEISENBIRD) {
+            return;
+        }
+        for (Bird.OpiumTrap trap : player.opiumTraps) {
+            if (trap.heisen) {
+                trainingAcademyHeisenNodePlacedSeen = true;
+                break;
+            }
+        }
+        updateHeisenDrillResourceProgress(player);
+        if (trainingAcademyHeisenRefueledSeen && dummy != null && dummy.hasHeisenBrittleFrom(player)) {
+            trainingAcademyHeisenBrittleSeen = true;
+        }
+    }
+
+    private void updateHeisenDrillResourceProgress(Bird player) {
+        double ratio = player.getOpiumResourceRatio();
+        if (trainingAcademyHeisenPreviousResourceRatio >= 0.0
+                && trainingAcademyHeisenNodePlacedSeen
+                && ratio > trainingAcademyHeisenPreviousResourceRatio + 0.0005) {
+            trainingAcademyHeisenRefueledSeen = true;
+        }
+        trainingAcademyHeisenPreviousResourceRatio = ratio;
+    }
+
+    private boolean hasCompletedHeisenTrainingDrill() {
+        return trainingAcademyHeisenNodePlacedSeen
+                && trainingAcademyHeisenRefueledSeen
+                && trainingAcademyHeisenBrittleSeen
+                && trainingAcademyHeisenBrittleShatterSeen;
     }
 
     private boolean isSuccessfulTrainingBlock(Bird player, Bird dummy) {
@@ -32880,6 +33189,7 @@ public class BirdGame3 extends Application {
         if (dummy != null) {
             dummy.refillTrainingResources(true);
         }
+        prepareGuidedTutorialLessonResources(player);
         if (player != null && dummy != null) {
             player.facingRight = player.x <= dummy.x;
             dummy.facingRight = dummy.x > player.x;
@@ -32903,6 +33213,7 @@ public class BirdGame3 extends Application {
         if (dummy != null) {
             dummy.refillTrainingResources(true);
         }
+        prepareGuidedTutorialLessonResources(player);
         trainingDummyBlockFrames = 0;
         trainingFrameAdvanceRequests = 0;
         resetTrainingComboState();
@@ -35352,6 +35663,14 @@ public class BirdGame3 extends Application {
         if (isGuidedDirectionalSpecialLesson()) {
             return trainingDirectionalSpecialProgressText();
         }
+        if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
+            return switch (currentGuidedTutorialLesson()) {
+                case TITMOUSE_DRILL -> trainingTitmouseDrillProgressText();
+                case OPIUM_DRILL -> trainingOpiumDrillProgressText();
+                case HEISEN_DRILL -> trainingHeisenDrillProgressText();
+                default -> specialMoveGuideNote(player.type);
+            };
+        }
         return switch (player.type) {
             case TITMOUSE -> "MARK improves follow-ups. STASH count: "
                     + player.titmouseSeedStashes.size() + "/" + Bird.TITMOUSE_MAX_STASHES + ".";
@@ -35393,6 +35712,54 @@ public class BirdGame3 extends Application {
             }
         }
         return "Academy goal: use every direction. Progress: " + completed + "/4. Next: " + next + ".";
+    }
+
+    private String trainingTitmouseDrillProgressText() {
+        if (!trainingAcademyTitmouseMarkedSeen) {
+            return "Academy goal: NEUTRAL Scold marks the dummy.";
+        }
+        if (!trainingAcademyTitmouseMarkedFollowupSeen) {
+            return "Marked. Use SIDE Barkskip or UP Vault to cash it out.";
+        }
+        if (!trainingAcademyTitmouseStashPlacedSeen) {
+            return "Route hit done. Use DOWN special to plant a Seed Stash.";
+        }
+        if (!trainingAcademyTitmouseStashHitSeen) {
+            return "Hold DOWN special again near the dummy to detonate the stash.";
+        }
+        return "Titmouse route complete.";
+    }
+
+    private String trainingOpiumDrillProgressText() {
+        if (!trainingAcademyOpiumPatchPlacedSeen) {
+            return "Academy goal: DOWN special places a Patch.";
+        }
+        if (!trainingAcademyOpiumRefueledSeen) {
+            return "Stand in the Patch until OPIUM rises.";
+        }
+        if (!trainingAcademyOpiumCloudSeen) {
+            return "Refueled. Use NEUTRAL special to start a fueled Cloud.";
+        }
+        if (!trainingAcademyOpiumFueledHitSeen) {
+            return "Cloud done. Land a fueled SIDE or UP special hit.";
+        }
+        return "Opium flow complete.";
+    }
+
+    private String trainingHeisenDrillProgressText() {
+        if (!trainingAcademyHeisenNodePlacedSeen) {
+            return "Academy goal: DOWN special places a Node.";
+        }
+        if (!trainingAcademyHeisenRefueledSeen) {
+            return "Stand in the Node until CRYSTAL rises.";
+        }
+        if (!trainingAcademyHeisenBrittleSeen) {
+            return "Refueled. Use NEUTRAL shards or Node pressure to apply Brittle.";
+        }
+        if (!trainingAcademyHeisenBrittleShatterSeen) {
+            return "Brittle applied. Hit the dummy to shatter it.";
+        }
+        return "Heisen setup complete.";
     }
 
     private void drawTrainingAcademyHud(GraphicsContext g) {
@@ -35500,6 +35867,18 @@ public class BirdGame3 extends Application {
                         + "  Side: " + yesNoText(trainingAcademySideSpecialSeen)
                         + "  Up: " + yesNoText(trainingAcademyUpSpecialSeen)
                         + "  Down: " + yesNoText(trainingAcademyDownSpecialSeen);
+                case TITMOUSE_DRILL -> "Mark: " + yesNoText(trainingAcademyTitmouseMarkedSeen)
+                        + "  Route hit: " + yesNoText(trainingAcademyTitmouseMarkedFollowupSeen)
+                        + "  Stash: " + yesNoText(trainingAcademyTitmouseStashPlacedSeen)
+                        + "  Stash hit: " + yesNoText(trainingAcademyTitmouseStashHitSeen);
+                case OPIUM_DRILL -> "Patch: " + yesNoText(trainingAcademyOpiumPatchPlacedSeen)
+                        + "  Refuel: " + yesNoText(trainingAcademyOpiumRefueledSeen)
+                        + "  Cloud: " + yesNoText(trainingAcademyOpiumCloudSeen)
+                        + "  Fueled hit: " + yesNoText(trainingAcademyOpiumFueledHitSeen);
+                case HEISEN_DRILL -> "Node: " + yesNoText(trainingAcademyHeisenNodePlacedSeen)
+                        + "  Refuel: " + yesNoText(trainingAcademyHeisenRefueledSeen)
+                        + "  Brittle: " + yesNoText(trainingAcademyHeisenBrittleSeen)
+                        + "  Shatter: " + yesNoText(trainingAcademyHeisenBrittleShatterSeen);
                 case DEFENSE_AND_PUNISH -> "Blocked: " + yesNoText(trainingAcademyShieldHitSeen)
                         + "  Punish hit: " + yesNoText(trainingAcademyHitsLanded > 0);
                 case GRABS_AND_THROWS -> "Grab: " + yesNoText(trainingAcademyGrabSeen)
@@ -39759,6 +40138,112 @@ public class BirdGame3 extends Application {
         };
     }
 
+    private Node buildPauseAcademyControls(Stage stage) {
+        if (trainingAcademyMode != TrainingAcademyMode.GUIDED_TUTORIAL) {
+            return null;
+        }
+
+        GuidedTutorialLesson lesson = currentGuidedTutorialLesson();
+        Label title = new Label(guidedTutorialLessonPickerText(lesson));
+        title.setFont(Font.font("Arial Black", 20));
+        title.setTextFill(Color.web("#FFF59D"));
+        title.setAlignment(Pos.CENTER);
+        title.setTextAlignment(TextAlignment.CENTER);
+        title.setMaxWidth(Double.MAX_VALUE);
+        applyNoEllipsis(title);
+
+        Label objective = new Label(lesson.objective);
+        objective.setFont(Font.font("Consolas", 15));
+        objective.setTextFill(Color.web("#CFD8DC"));
+        objective.setWrapText(true);
+        objective.setAlignment(Pos.CENTER);
+        objective.setTextAlignment(TextAlignment.CENTER);
+        objective.setMaxWidth(760);
+        fitWrappedLabelText(objective, lesson.objective, 760, 38, 10);
+
+        Button restartLesson = pauseAcademyButton("RESTART LESSON", "#00897B", () -> restartGuidedTutorialLesson(stage));
+        Button skipLesson = pauseAcademyButton(
+                lesson.next() == null ? "FINISH ACADEMY" : "SKIP LESSON",
+                "#1565C0",
+                () -> skipGuidedTutorialLesson(stage)
+        );
+        HBox actions = new HBox(12, restartLesson, skipLesson);
+        actions.setAlignment(Pos.CENTER);
+
+        VBox controls = new VBox(8, title, objective, actions);
+        controls.setAlignment(Pos.CENTER);
+        controls.setMaxWidth(860);
+        controls.setPadding(new Insets(12, 18, 14, 18));
+        controls.setStyle("-fx-background-color: rgba(7, 32, 48, 0.90); -fx-background-radius: 18; "
+                + "-fx-border-color: rgba(255, 241, 118, 0.55); -fx-border-width: 2; "
+                + "-fx-border-radius: 18;");
+        return controls;
+    }
+
+    private Button pauseAcademyButton(String text, String color, Runnable action) {
+        Button button = new Button(text);
+        button.setPrefSize(230, 48);
+        button.setMinSize(230, 48);
+        button.setMaxSize(230, 48);
+        button.setFont(Font.font("Arial Black", 17));
+        button.setStyle("-fx-background-color: " + color + "; -fx-text-fill: white; -fx-background-radius: 15;");
+        button.setFocusTraversable(true);
+        applyNoEllipsis(button);
+        button.setOnAction(ev -> {
+            playButtonClick();
+            if (action != null) {
+                action.run();
+            }
+        });
+        return button;
+    }
+
+    private void closePauseMenuWithoutResuming() {
+        clearGameplayInputs();
+        if (gameRoot != null) {
+            gameRoot.getChildren().removeIf(node -> node instanceof VBox && "pauseMenu".equals(node.getId()));
+        }
+        isPaused = false;
+    }
+
+    private void restartGuidedTutorialLesson(Stage stage) {
+        if (stage == null || trainingAcademyMode != TrainingAcademyMode.GUIDED_TUTORIAL) {
+            return;
+        }
+        closePauseMenuWithoutResuming();
+        resetMatchStats();
+        beginTrainingMatchOnMap(stage, currentGuidedTutorialLesson().map);
+        addToKillFeed("LESSON RESTARTED: " + currentGuidedTutorialLesson().title.toUpperCase(Locale.ROOT));
+    }
+
+    private void skipGuidedTutorialLesson(Stage stage) {
+        if (stage == null || trainingAcademyMode != TrainingAcademyMode.GUIDED_TUTORIAL) {
+            return;
+        }
+        GuidedTutorialLesson nextLesson = currentGuidedTutorialLesson().next();
+        closePauseMenuWithoutResuming();
+        resetMatchStats();
+
+        if (nextLesson == null) {
+            if (!guidedTutorialCompleted) {
+                guidedTutorialCompleted = true;
+                saveAchievements();
+            }
+            trainingAcademyMode = TrainingAcademyMode.NONE;
+            if (timer != null) {
+                timer.stop();
+            }
+            showTrainingSetup(stage);
+            return;
+        }
+
+        guidedTutorialLesson = nextLesson;
+        clearTrainingAcademyRuntimeState();
+        beginTrainingMatchOnMap(stage, nextLesson.map);
+        addToKillFeed("LESSON " + (guidedTutorialLesson.ordinal() + 1) + " / "
+                + GuidedTutorialLesson.values().length + ": " + guidedTutorialLesson.title.toUpperCase(Locale.ROOT));
+    }
+
     private void togglePause(Stage stage) {
         Scene scene = stage.getScene();
         if (isPaused) {
@@ -39931,6 +40416,10 @@ public class BirdGame3 extends Application {
             pauseMenu.getChildren().addAll(pauseLabel, glyphLegend);
             if (disconnectBox != null) {
                 pauseMenu.getChildren().add(disconnectBox);
+            }
+            Node academyControls = buildPauseAcademyControls(stage);
+            if (academyControls != null) {
+                pauseMenu.getChildren().add(academyControls);
             }
             Node specialGuide = buildPauseSpecialMoveGuide();
             if (specialGuide != null) {
