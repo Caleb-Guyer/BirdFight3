@@ -34,6 +34,7 @@ final class BirdGame3ProfileProgressState {
     private static final String KEY_BOSS_RUSH_BEST_RANK_PREFIX = "boss_rush_best_rank_";
     private static final String KEY_BOSS_RUSH_PERFECT_PREFIX = "boss_rush_perfect_";
     private static final String KEY_GUIDED_TUTORIAL_COMPLETED = "academy_guided_tutorial_completed";
+    private static final String KEY_ACADEMY_DRILL_COMPLETED_PREFIX = "academy_drill_completed_";
     private static final String KEY_DEVELOPER_INFINITE_BIRD_COINS = "developer_infinite_bird_coins";
 
     int achievementSchemaVersion = 0;
@@ -81,6 +82,7 @@ final class BirdGame3ProfileProgressState {
     boolean roosterUnlocked = false;
     boolean developerInfiniteBirdCoins = false;
     boolean guidedTutorialCompleted = false;
+    boolean[] trainingAcademyDrillCompleted = new boolean[BirdGame3.BirdType.values().length];
     String dailyChallengeBestKey = "";
     int dailyChallengeBestProgress = 0;
     BirdGame3.BirdType dailyChallengeBestBird = null;
@@ -484,10 +486,20 @@ final class BirdGame3ProfileProgressState {
                 KEY_GUIDED_TUTORIAL_COMPLETED,
                 prefs.getBoolean("start_here_completed", false)
         );
+        for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
+            int idx = type.ordinal();
+            state.trainingAcademyDrillCompleted[idx] =
+                    prefs.getBoolean(KEY_ACADEMY_DRILL_COMPLETED_PREFIX + type.name(), false);
+        }
     }
 
     private void saveTrainingAcademy(Preferences prefs) {
         prefs.putBoolean(KEY_GUIDED_TUTORIAL_COMPLETED, guidedTutorialCompleted);
+        for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
+            int idx = type.ordinal();
+            boolean complete = idx < trainingAcademyDrillCompleted.length && trainingAcademyDrillCompleted[idx];
+            prefs.putBoolean(KEY_ACADEMY_DRILL_COMPLETED_PREFIX + type.name(), complete);
+        }
     }
 
     private void savePlayerProgressStats(Preferences prefs, int maxCombatants) {

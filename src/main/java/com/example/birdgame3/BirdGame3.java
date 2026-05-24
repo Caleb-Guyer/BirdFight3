@@ -4002,6 +4002,7 @@ public class BirdGame3 extends Application {
     private int classicDeaths = 0;
     private final boolean[] classicCompleted = new boolean[BirdType.values().length];
     private final boolean[] classicSkinUnlocked = new boolean[BirdType.values().length];
+    private final boolean[] trainingAcademyDrillCompleted = new boolean[BirdType.values().length];
     private final List<ClassicEncounter> classicRun = new ArrayList<>();
     private int classicRoundIndex = 0;
     ClassicEncounter classicEncounter = null;
@@ -17059,7 +17060,14 @@ public class BirdGame3 extends Application {
             }
             fitWrappedLabelText(name, name.getText(), Math.max(84.0, cellW - 18.0), 42.0, 10.0);
 
-            VBox card = new VBox(6, iconNode, name);
+            VBox nameStack = new VBox(2, name);
+            nameStack.setAlignment(Pos.CENTER);
+            if (hasTrainingAcademyDrill(type)) {
+                nameStack.getChildren().add(createRouteBadge("ACADEMY", "#80DEEA", "#00343D",
+                        hasTrainingAcademyDrillBadge(type)));
+            }
+
+            VBox card = new VBox(6, iconNode, nameStack);
             card.setAlignment(Pos.CENTER);
             lockRegionSize(card, cellW, cellH);
             card.setLayoutX(cellX);
@@ -17254,8 +17262,10 @@ public class BirdGame3 extends Application {
             GuidedTutorialLesson lesson = academyLessonPick[0] == null
                     ? GuidedTutorialLesson.STAGE_CONTROL
                     : academyLessonPick[0];
+            BirdType drillBird = trainingAcademyDrillBirdFor(lesson);
+            String badgeText = drillBird != null && hasTrainingAcademyDrillBadge(drillBird) ? "  |  BADGE EARNED" : "";
             lessonPicker.setText(guidedTutorialLessonPickerText(lesson));
-            lessonObjective.setText(lesson.playerBird.name + "  |  " + lesson.objective);
+            lessonObjective.setText(lesson.playerBird.name + badgeText + "  |  " + lesson.objective);
             fitWrappedLabelText(lessonPicker, lessonPicker.getText(), 430, 50, 13);
             fitWrappedLabelText(lessonObjective, lessonObjective.getText(), 520, 42, 10);
         };
@@ -23233,6 +23243,7 @@ public class BirdGame3 extends Application {
         guidedTutorialCompleted = true;
         Arrays.fill(classicCompleted, true);
         Arrays.fill(classicSkinUnlocked, true);
+        Arrays.fill(trainingAcademyDrillCompleted, true);
         for (boolean[] row : towerDefenseDifficultyBadges) {
             Arrays.fill(row, true);
         }
@@ -25629,7 +25640,9 @@ public class BirdGame3 extends Application {
                     ? buildBirdTileIcon(entry.type, entry.skinKey, entry.origin)
                     : buildLockedTileIcon(accent);
             String label = unlocked
-                    ? (entry.displayName.toUpperCase() + (entry.skinKey != null ? "\nBOSS FORM" : ""))
+                    ? (entry.displayName.toUpperCase()
+                    + (entry.skinKey != null ? "\nBOSS FORM" : "")
+                    + (entry.skinKey == null && hasTrainingAcademyDrillBadge(entry.type) ? "\nACADEMY" : ""))
                     : entry.displayName.toUpperCase();
             Button tile = createBirdBookTile(grid, label, icon, unlocked, accent,
                     () -> showBirdSidebar(sidebar, entry));
@@ -25918,6 +25931,13 @@ public class BirdGame3 extends Application {
             StackPane.setMargin(echo, new Insets(6, 0, 0, 6));
             stack.getChildren().add(echo);
         }
+        if (skinKey == null && hasTrainingAcademyDrillBadge(type)) {
+            Label badge = createRouteBadge("ACADEMY", "#80DEEA", "#00343D", true);
+            badge.setFont(Font.font("Consolas", FontWeight.BOLD, 10));
+            StackPane.setAlignment(badge, Pos.BOTTOM_CENTER);
+            StackPane.setMargin(badge, new Insets(0, 0, 2, 0));
+            stack.getChildren().add(badge);
+        }
         stack.setPrefSize(130, 110);
         stack.setMaxSize(130, 110);
         return stack;
@@ -26000,7 +26020,10 @@ public class BirdGame3 extends Application {
                 bookStatus(unlocked),
                 featherpediaChip(entry.origin.name().replace('_', ' '), accent),
                 entry.skinKey != null ? featherpediaChip("BOSS FORM", Color.web("#FFB300")) : null,
-                baseBird != null ? featherpediaChip("BASE: " + baseBird.name, Color.web("#90CAF9")) : null
+                baseBird != null ? featherpediaChip("BASE: " + baseBird.name, Color.web("#90CAF9")) : null,
+                entry.skinKey == null && hasTrainingAcademyDrillBadge(entry.type)
+                        ? featherpediaChip("ACADEMY BADGE", Color.web("#80DEEA"))
+                        : null
         );
         sidebar.getChildren().addAll(name, meta);
         if (!unlocked) {
@@ -26014,12 +26037,21 @@ public class BirdGame3 extends Application {
                 featherpediaBody("Special: " + featherpediaSpecialLine(entry), 18),
                 baseBird != null ? featherpediaBody("Base Bird: " + baseBird.name, 16) : null
         );
+        GuidedTutorialLesson drillLesson = entry.skinKey == null ? trainingAcademyDrillLessonFor(entry.type) : null;
+        Node academySection = drillLesson == null ? null : featherpediaSection("Training Academy", accent,
+                featherpediaBody(hasTrainingAcademyDrillBadge(entry.type)
+                        ? "Academy Drill Badge: earned."
+                        : "Academy Drill Badge: clear " + drillLesson.title + " in Training Mode.",
+                        16));
         sidebar.getChildren().addAll(
                 featherpediaSection("Preview", accent, art),
                 loadout,
                 featherpediaSection("Profile", accent, featherpediaBody(entry.description, 17)),
                 featherpediaSection("Unlock Route", accent, featherpediaBody(entry.howToGet, 16))
         );
+        if (academySection != null) {
+            sidebar.getChildren().add(2, academySection);
+        }
 
         List<BirdCompanionEntry> companions = entry.companions;
         if (!companions.isEmpty()) {
@@ -28907,6 +28939,52 @@ public class BirdGame3 extends Application {
 
     boolean shouldShowClassicSelectBadge(BirdType type, boolean bossRush) {
         return !bossRush && isClassicCompleted(type);
+    }
+
+    private boolean hasTrainingAcademyDrill(BirdType type) {
+        return trainingAcademyDrillLessonFor(type) != null;
+    }
+
+    private boolean hasTrainingAcademyDrillBadge(BirdType type) {
+        return type != null
+                && type.ordinal() < trainingAcademyDrillCompleted.length
+                && trainingAcademyDrillCompleted[type.ordinal()];
+    }
+
+    private GuidedTutorialLesson trainingAcademyDrillLessonFor(BirdType type) {
+        if (type == null) {
+            return null;
+        }
+        return switch (type) {
+            case TITMOUSE -> GuidedTutorialLesson.TITMOUSE_DRILL;
+            case OPIUMBIRD -> GuidedTutorialLesson.OPIUM_DRILL;
+            case HEISENBIRD -> GuidedTutorialLesson.HEISEN_DRILL;
+            default -> null;
+        };
+    }
+
+    private BirdType trainingAcademyDrillBirdFor(GuidedTutorialLesson lesson) {
+        if (lesson == null) {
+            return null;
+        }
+        return switch (lesson) {
+            case TITMOUSE_DRILL -> BirdType.TITMOUSE;
+            case OPIUM_DRILL -> BirdType.OPIUMBIRD;
+            case HEISEN_DRILL -> BirdType.HEISENBIRD;
+            default -> null;
+        };
+    }
+
+    private void markTrainingAcademyDrillCompleted(BirdType type) {
+        if (type == null || type.ordinal() >= trainingAcademyDrillCompleted.length) {
+            return;
+        }
+        if (trainingAcademyDrillCompleted[type.ordinal()]) {
+            return;
+        }
+        trainingAcademyDrillCompleted[type.ordinal()] = true;
+        saveAchievements();
+        addToKillFeed(type.name.toUpperCase(Locale.ROOT) + " ACADEMY BADGE EARNED");
     }
 
     private Label createRouteBadge(String text, String background, String textColor, boolean visible) {
@@ -32872,18 +32950,21 @@ public class BirdGame3 extends Application {
             case TITMOUSE_DRILL -> {
                 updateTitmouseTrainingDrill(player, dummy);
                 if (hasCompletedTitmouseTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.TITMOUSE);
                     queueTrainingAcademyCompletion("Titmouse routes cleared");
                 }
             }
             case OPIUM_DRILL -> {
                 updateOpiumTrainingDrill(player, dummy);
                 if (hasCompletedOpiumTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.OPIUMBIRD);
                     queueTrainingAcademyCompletion("Opium flow cleared");
                 }
             }
             case HEISEN_DRILL -> {
                 updateHeisenTrainingDrill(player, dummy);
                 if (hasCompletedHeisenTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.HEISENBIRD);
                     queueTrainingAcademyCompletion("Heisen setup cleared");
                 }
             }
@@ -38154,6 +38235,10 @@ public class BirdGame3 extends Application {
         state.roosterUnlocked = roosterUnlocked;
         state.developerInfiniteBirdCoins = developerInfiniteBirdCoins;
         state.guidedTutorialCompleted = guidedTutorialCompleted;
+        state.trainingAcademyDrillCompleted = Arrays.copyOf(
+                trainingAcademyDrillCompleted,
+                trainingAcademyDrillCompleted.length
+        );
         state.dailyChallengeBestKey = dailyChallengeBestKey;
         state.dailyChallengeBestProgress = dailyChallengeBestProgress;
         state.dailyChallengeBestBird = dailyChallengeBestBird;
@@ -38281,6 +38366,7 @@ public class BirdGame3 extends Application {
         developerInfiniteBirdCoins = resolved.developerInfiniteBirdCoins;
         applyDeveloperBirdCoinMode();
         guidedTutorialCompleted = resolved.guidedTutorialCompleted;
+        copyInto(resolved.trainingAcademyDrillCompleted, trainingAcademyDrillCompleted);
 
         dailyChallengeBestKey = resolved.dailyChallengeBestKey;
         dailyChallengeBestProgress = resolved.dailyChallengeBestProgress;
