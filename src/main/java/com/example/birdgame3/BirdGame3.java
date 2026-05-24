@@ -3941,6 +3941,18 @@ public class BirdGame3 extends Application {
     private boolean trainingAcademyRoadrunnerBeepHitSeen = false;
     private boolean trainingAcademyRoadrunnerRoadPlacedSeen = false;
     private boolean trainingAcademyRoadrunnerFollowupHitSeen = false;
+    private boolean trainingAcademyRoosterBroodSeen = false;
+    private boolean trainingAcademyRoosterThrowSeen = false;
+    private boolean trainingAcademyRoosterLiftSeen = false;
+    private boolean trainingAcademyRoosterRecallSeen = false;
+    private boolean trainingAcademyPelicanCargoLoadedSeen = false;
+    private boolean trainingAcademyPelicanBreakwaterHitSeen = false;
+    private boolean trainingAcademyPelicanThermalSeen = false;
+    private boolean trainingAcademyPelicanBilgeHitSeen = false;
+    private boolean trainingAcademyHummingNeedleHitSeen = false;
+    private boolean trainingAcademyHummingNeedleFinisherSeen = false;
+    private boolean trainingAcademyHummingFlashSipHitSeen = false;
+    private boolean trainingAcademyHummingTrapPlacedSeen = false;
     private boolean trainingAcademyRecoveryStarted = false;
     private int trainingAcademyRecoveriesCompleted = 0;
     private int trainingAcademyBlockFrames = 0;
@@ -9451,6 +9463,33 @@ public class BirdGame3 extends Application {
                 "Running fills momentum. Beep-Blitz and Ricochet cash out speed; Painted Road reloads the route.",
                 MapType.BATTLEFIELD,
                 BirdType.ROADRUNNER,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        ROOSTER_DRILL(
+                "Rooster Brood Command",
+                "Call a chick, throw a chick, lift with the brood, then recall formation.",
+                "Neutral builds the brood. Side throws a follower. Up converts chicks into lift. Down regroups them.",
+                MapType.BATTLEFIELD,
+                BirdType.ROOSTER,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        PELICAN_DRILL(
+                "Pelican Cargo Routes",
+                "Load cargo, land Breakwater Run, sail upward, then land a Bilge Dump.",
+                "Pouch Snare loads cargo. Side and Down get stronger when cargo is stocked. Up turns into a keel dive.",
+                MapType.BATTLEFIELD,
+                BirdType.PELICAN,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        HUMMINGBIRD_DRILL(
+                "Hummingbird Needle Route",
+                "Land Needle hits into the finisher, land Flash Sip, then place a Nectar Trap.",
+                "Needle confirms build a finisher. Flash Sip crosses distance. Down special leaves Nectar behind.",
+                MapType.BATTLEFIELD,
+                BirdType.HUMMINGBIRD,
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
@@ -29043,6 +29082,9 @@ public class BirdGame3 extends Application {
             case FALCON -> GuidedTutorialLesson.FALCON_DRILL;
             case PHOENIX -> GuidedTutorialLesson.PHOENIX_DRILL;
             case ROADRUNNER -> GuidedTutorialLesson.ROADRUNNER_DRILL;
+            case ROOSTER -> GuidedTutorialLesson.ROOSTER_DRILL;
+            case PELICAN -> GuidedTutorialLesson.PELICAN_DRILL;
+            case HUMMINGBIRD -> GuidedTutorialLesson.HUMMINGBIRD_DRILL;
             default -> null;
         };
     }
@@ -29061,6 +29103,9 @@ public class BirdGame3 extends Application {
             case FALCON_DRILL -> BirdType.FALCON;
             case PHOENIX_DRILL -> BirdType.PHOENIX;
             case ROADRUNNER_DRILL -> BirdType.ROADRUNNER;
+            case ROOSTER_DRILL -> BirdType.ROOSTER;
+            case PELICAN_DRILL -> BirdType.PELICAN;
+            case HUMMINGBIRD_DRILL -> BirdType.HUMMINGBIRD;
             default -> null;
         };
     }
@@ -32686,6 +32731,18 @@ public class BirdGame3 extends Application {
         trainingAcademyRoadrunnerBeepHitSeen = false;
         trainingAcademyRoadrunnerRoadPlacedSeen = false;
         trainingAcademyRoadrunnerFollowupHitSeen = false;
+        trainingAcademyRoosterBroodSeen = false;
+        trainingAcademyRoosterThrowSeen = false;
+        trainingAcademyRoosterLiftSeen = false;
+        trainingAcademyRoosterRecallSeen = false;
+        trainingAcademyPelicanCargoLoadedSeen = false;
+        trainingAcademyPelicanBreakwaterHitSeen = false;
+        trainingAcademyPelicanThermalSeen = false;
+        trainingAcademyPelicanBilgeHitSeen = false;
+        trainingAcademyHummingNeedleHitSeen = false;
+        trainingAcademyHummingNeedleFinisherSeen = false;
+        trainingAcademyHummingFlashSipHitSeen = false;
+        trainingAcademyHummingTrapPlacedSeen = false;
     }
 
     private GuidedTutorialLesson currentGuidedTutorialLesson() {
@@ -32813,7 +32870,8 @@ public class BirdGame3 extends Application {
                     setTrainingBirdStandingPosition(dummy, hangCenter + 15, groundY);
                 }
             }
-            case RAVEN_DRILL, VULTURE_DRILL, FALCON_DRILL, PHOENIX_DRILL -> {
+            case RAVEN_DRILL, VULTURE_DRILL, FALCON_DRILL, PHOENIX_DRILL,
+                 ROOSTER_DRILL, PELICAN_DRILL, HUMMINGBIRD_DRILL -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
             }
@@ -32991,6 +33049,35 @@ public class BirdGame3 extends Application {
                     }
                 }
             }
+            case PELICAN_DRILL -> {
+                if (attacker.type == BirdType.PELICAN) {
+                    if (attacker.pelicanNeutralTimer > 0) {
+                        trainingAcademyPelicanCargoLoadedSeen = true;
+                    }
+                    if (attacker.pelicanSideTimer > 0) {
+                        trainingAcademyPelicanBreakwaterHitSeen = true;
+                    }
+                    if (attacker.pelicanUpTimer > 0 || attacker.pelicanKeelDiveActive) {
+                        trainingAcademyPelicanThermalSeen = true;
+                    }
+                    if (attacker.pelicanBilgeFxTimer > 0) {
+                        trainingAcademyPelicanBilgeHitSeen = true;
+                    }
+                }
+            }
+            case HUMMINGBIRD_DRILL -> {
+                if (attacker.type == BirdType.HUMMINGBIRD) {
+                    if (attacker.hummingNeedleHitTimer > 0) {
+                        trainingAcademyHummingNeedleHitSeen = true;
+                        if (isActiveHummingbirdNeedleFinisher(attacker)) {
+                            trainingAcademyHummingNeedleFinisherSeen = true;
+                        }
+                    }
+                    if (attacker.hummingFlashSipTimer > 0) {
+                        trainingAcademyHummingFlashSipHitSeen = true;
+                    }
+                }
+            }
             default -> {
             }
         }
@@ -33035,6 +33122,16 @@ public class BirdGame3 extends Application {
         return attacker != null
                 && attacker.type == BirdType.FALCON
                 && (attacker.eagleDiveActive || attacker.diveTimer > 0);
+    }
+
+    private boolean isActiveHummingbirdNeedleFinisher(Bird attacker) {
+        if (attacker == null || attacker.type != BirdType.HUMMINGBIRD || attacker.hummingNeedleHitTimer <= 0) {
+            return false;
+        }
+        int nextCount = attacker.hummingNeedleComboTimer > 0
+                ? attacker.hummingNeedleComboCount + 1
+                : 1;
+        return nextCount >= 3;
     }
 
     void recordTrainingTitmouseStashDetonation(Bird user, boolean hitAny) {
@@ -33271,6 +33368,27 @@ public class BirdGame3 extends Application {
                     queueTrainingAcademyCompletion("Roadrunner route cleared");
                 }
             }
+            case ROOSTER_DRILL -> {
+                updateRoosterTrainingDrill(player, dummy);
+                if (hasCompletedRoosterTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.ROOSTER);
+                    queueTrainingAcademyCompletion("Rooster command cleared");
+                }
+            }
+            case PELICAN_DRILL -> {
+                updatePelicanTrainingDrill(player, dummy);
+                if (hasCompletedPelicanTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.PELICAN);
+                    queueTrainingAcademyCompletion("Pelican route cleared");
+                }
+            }
+            case HUMMINGBIRD_DRILL -> {
+                updateHummingbirdTrainingDrill(player, dummy);
+                if (hasCompletedHummingbirdTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.HUMMINGBIRD);
+                    queueTrainingAcademyCompletion("Hummingbird route cleared");
+                }
+            }
             case DEFENSE_AND_PUNISH -> {
                 if (isSuccessfulTrainingBlock(player, dummy)) {
                     trainingAcademyBlockFrames = Math.max(trainingAcademyBlockFrames, TRAINING_ACADEMY_BLOCK_GOAL_FRAMES);
@@ -33501,6 +33619,66 @@ public class BirdGame3 extends Application {
                 && trainingAcademyRoadrunnerBeepHitSeen
                 && trainingAcademyRoadrunnerRoadPlacedSeen
                 && trainingAcademyRoadrunnerFollowupHitSeen;
+    }
+
+    private void updateRoosterTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.ROOSTER) {
+            return;
+        }
+        if (trainingAcademyNeutralSpecialSeen) {
+            trainingAcademyRoosterBroodSeen = true;
+        }
+        if (player.roosterCommandFxTimer > 0) {
+            switch (player.roosterCommandFxKind) {
+                case 2 -> trainingAcademyRoosterThrowSeen = true;
+                case 3 -> trainingAcademyRoosterLiftSeen = true;
+                case 4 -> trainingAcademyRoosterRecallSeen = true;
+                default -> {
+                }
+            }
+        }
+    }
+
+    private boolean hasCompletedRoosterTrainingDrill() {
+        return trainingAcademyRoosterBroodSeen
+                && trainingAcademyRoosterThrowSeen
+                && trainingAcademyRoosterLiftSeen
+                && trainingAcademyRoosterRecallSeen;
+    }
+
+    private void updatePelicanTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.PELICAN) {
+            return;
+        }
+        if (player.pelicanCargoCount > 0 || player.pelicanFullHoldTimer > 0) {
+            trainingAcademyPelicanCargoLoadedSeen = true;
+        }
+        if (player.pelicanUpTimer > 0 || player.pelicanKeelDiveActive || trainingAcademyUpSpecialSeen) {
+            trainingAcademyPelicanThermalSeen = true;
+        }
+    }
+
+    private boolean hasCompletedPelicanTrainingDrill() {
+        return trainingAcademyPelicanCargoLoadedSeen
+                && trainingAcademyPelicanBreakwaterHitSeen
+                && trainingAcademyPelicanThermalSeen
+                && trainingAcademyPelicanBilgeHitSeen;
+    }
+
+    private void updateHummingbirdTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.HUMMINGBIRD) {
+            return;
+        }
+        if (!player.hummingNectarTraps.isEmpty()) {
+            trainingAcademyHummingTrapPlacedSeen = true;
+        }
+    }
+
+    private boolean hasCompletedHummingbirdTrainingDrill() {
+        return trainingAcademyHummingNeedleHitSeen
+                && trainingAcademyHummingNeedleFinisherSeen
+                && trainingAcademyHummingFlashSipHitSeen
+                && trainingAcademyHummingTrapPlacedSeen;
     }
 
     private boolean isSuccessfulTrainingBlock(Bird player, Bird dummy) {
@@ -36161,6 +36339,9 @@ public class BirdGame3 extends Application {
                 case FALCON_DRILL -> trainingFalconDrillProgressText();
                 case PHOENIX_DRILL -> trainingPhoenixDrillProgressText();
                 case ROADRUNNER_DRILL -> trainingRoadrunnerDrillProgressText(player);
+                case ROOSTER_DRILL -> trainingRoosterDrillProgressText(player);
+                case PELICAN_DRILL -> trainingPelicanDrillProgressText(player);
+                case HUMMINGBIRD_DRILL -> trainingHummingbirdDrillProgressText();
                 default -> specialMoveGuideNote(player.type);
             };
         }
@@ -36346,6 +36527,56 @@ public class BirdGame3 extends Application {
         return "Roadrunner route complete.";
     }
 
+    private String trainingRoosterDrillProgressText(Bird player) {
+        int chicks = player == null ? 0 : RoosterSpecials.ownedCount(player);
+        if (!trainingAcademyRoosterBroodSeen) {
+            return "Academy goal: use NEUTRAL special to call a chick. Brood: " + chicks + ".";
+        }
+        if (!trainingAcademyRoosterThrowSeen) {
+            return "Brood ready. Use SIDE special to throw a follower chick.";
+        }
+        if (!trainingAcademyRoosterLiftSeen) {
+            return "Throw command done. Use UP special to lift with the brood.";
+        }
+        if (!trainingAcademyRoosterRecallSeen) {
+            return "Lift done. Use DOWN special to recall and regroup the chicks.";
+        }
+        return "Rooster command complete.";
+    }
+
+    private String trainingPelicanDrillProgressText(Bird player) {
+        int cargo = player == null ? 0 : player.pelicanCargoCount;
+        if (!trainingAcademyPelicanCargoLoadedSeen) {
+            return "Academy goal: land NEUTRAL Pouch Snare to load cargo. Cargo: " + cargo + ".";
+        }
+        if (!trainingAcademyPelicanBreakwaterHitSeen) {
+            return "Cargo loaded. Land SIDE Breakwater Run on the dummy.";
+        }
+        if (!trainingAcademyPelicanThermalSeen) {
+            return "Breakwater hit. Use UP Thermal Sail to start the keel route.";
+        }
+        if (!trainingAcademyPelicanBilgeHitSeen) {
+            return "Thermal done. Reload cargo if needed, then land DOWN Bilge Dump.";
+        }
+        return "Pelican route complete.";
+    }
+
+    private String trainingHummingbirdDrillProgressText() {
+        if (!trainingAcademyHummingNeedleHitSeen) {
+            return "Academy goal: land NEUTRAL Needle Barrage on the dummy.";
+        }
+        if (!trainingAcademyHummingNeedleFinisherSeen) {
+            return "Needle hit. Land two more Needle confirms before the combo window ends.";
+        }
+        if (!trainingAcademyHummingFlashSipHitSeen) {
+            return "Needle finisher done. Land SIDE Flash Sip.";
+        }
+        if (!trainingAcademyHummingTrapPlacedSeen) {
+            return "Flash Sip hit. Use DOWN special to place a Nectar Trap.";
+        }
+        return "Hummingbird route complete.";
+    }
+
     private void drawTrainingAcademyHud(GraphicsContext g) {
         double panelW = 820;
         double panelX = (WIDTH - panelW) / 2.0;
@@ -36485,6 +36716,18 @@ public class BirdGame3 extends Application {
                         + "  Beep: " + yesNoText(trainingAcademyRoadrunnerBeepHitSeen)
                         + "  Road: " + yesNoText(trainingAcademyRoadrunnerRoadPlacedSeen)
                         + "  Follow-up: " + yesNoText(trainingAcademyRoadrunnerFollowupHitSeen);
+                case ROOSTER_DRILL -> "Brood: " + yesNoText(trainingAcademyRoosterBroodSeen)
+                        + "  Throw: " + yesNoText(trainingAcademyRoosterThrowSeen)
+                        + "  Lift: " + yesNoText(trainingAcademyRoosterLiftSeen)
+                        + "  Recall: " + yesNoText(trainingAcademyRoosterRecallSeen);
+                case PELICAN_DRILL -> "Cargo: " + yesNoText(trainingAcademyPelicanCargoLoadedSeen)
+                        + "  Breakwater: " + yesNoText(trainingAcademyPelicanBreakwaterHitSeen)
+                        + "  Thermal: " + yesNoText(trainingAcademyPelicanThermalSeen)
+                        + "  Bilge: " + yesNoText(trainingAcademyPelicanBilgeHitSeen);
+                case HUMMINGBIRD_DRILL -> "Needle: " + yesNoText(trainingAcademyHummingNeedleHitSeen)
+                        + "  Finisher: " + yesNoText(trainingAcademyHummingNeedleFinisherSeen)
+                        + "  Flash Sip: " + yesNoText(trainingAcademyHummingFlashSipHitSeen)
+                        + "  Trap: " + yesNoText(trainingAcademyHummingTrapPlacedSeen);
                 case DEFENSE_AND_PUNISH -> "Blocked: " + yesNoText(trainingAcademyShieldHitSeen)
                         + "  Punish hit: " + yesNoText(trainingAcademyHitsLanded > 0);
                 case GRABS_AND_THROWS -> "Grab: " + yesNoText(trainingAcademyGrabSeen)
