@@ -11,6 +11,185 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class BirdStateTest {
     @Test
+    void ultimateVisualReadyRequiresFilledUsableUlt() {
+        BirdGame3 game = new BirdGame3();
+
+        Bird pigeon = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
+        assertFalse(pigeon.isUltimateVisualReady());
+
+        pigeon.refillTrainingResources(true);
+        assertTrue(pigeon.isUltimateVisualReady());
+
+        pigeon.health = 0;
+        assertFalse(pigeon.isUltimateVisualReady());
+
+        Bird mockingbird = new Bird(160, BirdGame3.BirdType.MOCKINGBIRD, 1, game);
+        mockingbird.refillTrainingResources(true);
+        assertFalse(mockingbird.isUltimateVisualReady(),
+                "Mockingbird should not glow on an empty neutral copy because the ult will not trigger.");
+
+        mockingbird.mockingbirdCapturedType = BirdGame3.BirdType.PIGEON;
+        assertTrue(mockingbird.isUltimateVisualReady());
+    }
+
+    @Test
+    void pigeonUltimateStartsCoronationInsteadOfBoostedSpecial() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird pigeon = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
+        game.players[0] = pigeon;
+        pigeon.refillTrainingResources(true);
+
+        BirdSpecialSystem.useSpecial(pigeon);
+
+        assertTrue(pigeon.pigeonCoronationActive);
+        assertEquals(Bird.PIGEON_CORONATION_FRAMES, pigeon.pigeonCoronationTimer);
+        assertEquals(0, pigeon.pigeonFeatherBurstTimer);
+        assertEquals(0, pigeon.pigeonRushTimer);
+        assertEquals(0, pigeon.pigeonFlutterTimer);
+        assertEquals(0, pigeon.pigeonScavengeTimer);
+        assertFalse(pigeon.isUltimateReady());
+    }
+
+    @Test
+    void pigeonCoronationTicksAndFinalLaunchesTargetsInZone() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pigeon = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird target = new Bird(190, BirdGame3.BirdType.EAGLE, 1, game);
+        pigeon.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = pigeon;
+        game.players[1] = target;
+        pigeon.refillTrainingResources(true);
+
+        BirdSpecialSystem.useSpecial(pigeon);
+        double startingHealth = target.health;
+
+        pigeon.update(1.0);
+        assertTrue(target.health <= startingHealth - Bird.PIGEON_CORONATION_TICK_DAMAGE);
+
+        for (int i = 0; i < Bird.PIGEON_CORONATION_FRAMES; i++) {
+            pigeon.update(1.0);
+        }
+
+        assertFalse(pigeon.pigeonCoronationActive);
+        assertEquals(0, pigeon.pigeonCoronationTimer);
+        assertTrue(target.health <= startingHealth
+                - Bird.PIGEON_CORONATION_TICK_DAMAGE
+                - Bird.PIGEON_CORONATION_FINAL_DAMAGE);
+        assertTrue(target.vy < -0.1 || Math.abs(target.vx) > 0.1);
+    }
+
+    @Test
+    void eagleUltimateStartsSkySovereignInsteadOfBoostedRaptorSpecial() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird eagle = new Bird(100, BirdGame3.BirdType.EAGLE, 0, game);
+        Bird target = new Bird(190, BirdGame3.BirdType.PIGEON, 1, game);
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = eagle;
+        game.players[1] = target;
+        eagle.refillTrainingResources(true);
+
+        BirdSpecialSystem.useSpecial(eagle);
+
+        assertTrue(eagle.eagleSkySovereignActive);
+        assertFalse(eagle.eagleSkySovereignDiving);
+        assertEquals(Bird.EAGLE_SKY_SOVEREIGN_TARGET_FRAMES, eagle.eagleSkySovereignTimer);
+        assertEquals(0, eagle.raptorCryTimer);
+        assertEquals(0, eagle.raptorRushTimer);
+        assertEquals(0, eagle.raptorClimbTimer);
+        assertFalse(eagle.eagleDiveActive);
+        assertFalse(eagle.isUltimateReady());
+    }
+
+    @Test
+    void eagleSkySovereignImpactsTargetZoneAfterTargeting() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird eagle = new Bird(100, BirdGame3.BirdType.EAGLE, 0, game);
+        Bird target = new Bird(190, BirdGame3.BirdType.PIGEON, 1, game);
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = eagle;
+        game.players[1] = target;
+        eagle.refillTrainingResources(true);
+
+        BirdSpecialSystem.useSpecial(eagle);
+        double startingHealth = target.health;
+
+        for (int i = 0; i < Bird.EAGLE_SKY_SOVEREIGN_TARGET_FRAMES
+                + Bird.EAGLE_SKY_SOVEREIGN_DIVE_FRAMES + 6; i++) {
+            eagle.update(1.0);
+        }
+
+        assertFalse(eagle.eagleSkySovereignActive);
+        assertTrue(target.health <= startingHealth - Bird.EAGLE_SKY_SOVEREIGN_DAMAGE);
+        assertTrue(target.vy < -1.0 || Math.abs(target.vx) > 1.0);
+        assertFalse(eagle.isUltimateReady());
+    }
+
+    @Test
+    void falconUltimateStartsTerminalVelocityInsteadOfBoostedRaptorSpecial() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird falcon = new Bird(100, BirdGame3.BirdType.FALCON, 0, game);
+        Bird target = new Bird(240, BirdGame3.BirdType.PIGEON, 1, game);
+        falcon.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        falcon.facingRight = true;
+        game.players[0] = falcon;
+        game.players[1] = target;
+        falcon.refillTrainingResources(true);
+
+        BirdSpecialSystem.useSpecial(falcon);
+
+        assertTrue(falcon.falconTerminalVelocityActive);
+        assertFalse(falcon.falconTerminalVelocityStriking);
+        assertEquals(Bird.FALCON_TERMINAL_VELOCITY_WARNING_FRAMES, falcon.falconTerminalVelocityTimer);
+        assertEquals(0, falcon.raptorCryTimer);
+        assertEquals(0, falcon.raptorRushTimer);
+        assertEquals(0, falcon.raptorClimbTimer);
+        assertFalse(falcon.eagleDiveActive);
+        assertFalse(falcon.isUltimateReady());
+    }
+
+    @Test
+    void falconTerminalVelocitySweetspotsMarkedTarget() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird falcon = new Bird(100, BirdGame3.BirdType.FALCON, 0, game);
+        Bird target = new Bird(260, BirdGame3.BirdType.PIGEON, 1, game);
+        falcon.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        falcon.facingRight = true;
+        game.players[0] = falcon;
+        game.players[1] = target;
+        falcon.refillTrainingResources(true);
+
+        BirdSpecialSystem.useSpecial(falcon);
+        double startingHealth = target.health;
+
+        for (int i = 0; i < Bird.FALCON_TERMINAL_VELOCITY_WARNING_FRAMES
+                + Bird.FALCON_TERMINAL_VELOCITY_STRIKE_FRAMES + 4; i++) {
+            falcon.update(1.0);
+        }
+
+        assertFalse(falcon.falconTerminalVelocityActive);
+        assertTrue(target.health <= startingHealth - Bird.FALCON_TERMINAL_VELOCITY_SWEETSPOT_DAMAGE);
+        assertTrue(target.vx > 10.0);
+        assertTrue(target.vy < -8.0);
+    }
+
+    @Test
     void defeatedBirdCancelsLingeringFrenzyWithoutReviving() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
@@ -685,6 +864,84 @@ class BirdStateTest {
         }
         assertEquals(0, rooster.specialCooldown);
         assertTrue(getPrivateInt(rooster, "roosterDownReuseTimer") > 0);
+    }
+
+    @Test
+    void mockingbirdLoungeCaptureUsesBodyOverlapForLargeBirds() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird charles = new Bird(220.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        Bird pelican = new Bird(500.0, BirdGame3.BirdType.PELICAN, 1, game);
+        charles.y = BirdGame3.GROUND_Y - 80.0;
+        charles.loungeActive = true;
+        charles.loungeHealth = Bird.LOUNGE_MAX_HEALTH;
+        charles.loungeX = charles.bodyCenterX();
+        charles.loungeY = charles.bodyCenterY();
+        pelican.x = charles.loungeX + 92.0 - pelican.bodyWidth() * 0.5;
+        pelican.y = charles.loungeY - pelican.bodyHeight() * 0.5;
+        game.players[0] = charles;
+        game.players[1] = pelican;
+
+        invokePrivateVoid(charles, "captureMockingbirdLoungeAbility");
+
+        assertEquals(BirdGame3.BirdType.PELICAN, charles.mockingbirdCapturedType,
+                "Lounge capture should use the target's body, not only its center point.");
+    }
+
+    @Test
+    void mockingbirdLoungeCapturesEnemyChickOwnersType() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird charles = new Bird(240.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        Bird rooster = new Bird(900.0, BirdGame3.BirdType.ROOSTER, 1, game);
+        charles.y = BirdGame3.GROUND_Y - 80.0;
+        rooster.y = BirdGame3.GROUND_Y - 80.0;
+        charles.loungeActive = true;
+        charles.loungeHealth = Bird.LOUNGE_MAX_HEALTH;
+        charles.loungeX = charles.bodyCenterX();
+        charles.loungeY = charles.bodyCenterY();
+        game.players[0] = charles;
+        game.players[1] = rooster;
+
+        ChickMinion chick = new ChickMinion(charles.loungeX, charles.loungeY, 0, false, rooster);
+        chick.x = charles.loungeX - chick.width * 0.5;
+        chick.y = charles.loungeY - chick.height * 0.5;
+        game.chickMinions.add(chick);
+
+        invokePrivateVoid(charles, "captureMockingbirdLoungeAbility");
+
+        assertEquals(BirdGame3.BirdType.ROOSTER, charles.mockingbirdCapturedType,
+                "Capturing an enemy chick should steal the owner's Rooster neutral.");
+    }
+
+    @Test
+    void copiedRoosterNeutralLaunchesHuntingChicksForMockingbird() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird charles = new Bird(260.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        Bird target = new Bird(560.0, BirdGame3.BirdType.PIGEON, 1, game);
+        charles.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        charles.facingRight = true;
+        charles.mockingbirdCapturedType = BirdGame3.BirdType.ROOSTER;
+        game.players[0] = charles;
+        game.players[1] = target;
+
+        MockingbirdSpecials.performCopiedNeutral(charles, BirdGame3.BirdType.ROOSTER, false);
+
+        List<ChickMinion> chicks = ownedChicks(game, charles);
+        assertEquals(2, chicks.size(), "Copied Rooster neutral should create an immediate attacking threat.");
+        for (ChickMinion chick : chicks) {
+            assertFalse(chick.followingOwner, "Charles cannot use Rooster commands, so copied chicks should not idle in formation.");
+            assertSame(target, chick.target);
+            assertTrue(chick.vx > 15.0);
+            assertTrue(chick.thrownFrames > 0);
+        }
+        assertEquals(BirdGame3.BirdType.MOCKINGBIRD, charles.type);
+        assertEquals(BirdGame3.BirdType.ROOSTER, charles.mockingbirdCopiedNeutralSource);
     }
 
     @Test

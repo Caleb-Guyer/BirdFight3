@@ -233,8 +233,106 @@ public class Bird {
     ) {
     }
 
+    private enum BirdVisualProfileStyle {
+        DEFAULT,
+        PIGEON,
+        PHOENIX,
+        ROOSTER,
+        MOCKINGBIRD,
+        GRINCHHAWK,
+        OPIUM,
+        HEISEN,
+        BAT,
+        RAVEN,
+        HUMMINGBIRD,
+        RAZORBILL,
+        FALCON,
+        ROADRUNNER,
+        PELICAN,
+        SHOEBILL,
+        VULTURE,
+        TURKEY,
+        PENGUIN,
+        TITMOUSE
+    }
+
+    private record BirdVisualProfile(
+            double agility,
+            double mass,
+            double idleBob,
+            double idleLean,
+            double airLift,
+            double airPitch,
+            double recoil,
+            double shieldCrouch,
+            double koSlump,
+            BirdVisualProfileStyle style
+    ) {
+    }
+
     private record HeadPose(double centerX, double centerY, double aimAngleRadians) {
     }
+
+    private static final BirdVisualProfile DEFAULT_BIRD_VISUAL_PROFILE =
+            new BirdVisualProfile(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
+                    BirdVisualProfileStyle.DEFAULT);
+    private static final BirdVisualProfile PIGEON_VISUAL_PROFILE =
+            new BirdVisualProfile(1.08, 0.96, 1.12, 1.08, 1.08, 1.08, 1.02, 0.92, 0.96,
+                    BirdVisualProfileStyle.PIGEON);
+    private static final BirdVisualProfile PHOENIX_VISUAL_PROFILE =
+            new BirdVisualProfile(1.10, 0.94, 1.18, 1.06, 1.28, 1.24, 0.92, 0.88, 0.84,
+                    BirdVisualProfileStyle.PHOENIX);
+    private static final BirdVisualProfile ROOSTER_VISUAL_PROFILE =
+            new BirdVisualProfile(0.94, 1.08, 0.98, 0.96, 0.94, 0.94, 1.06, 1.02, 1.04,
+                    BirdVisualProfileStyle.ROOSTER);
+    private static final BirdVisualProfile MOCKINGBIRD_VISUAL_PROFILE =
+            new BirdVisualProfile(1.12, 0.88, 1.16, 1.18, 1.12, 1.10, 0.92, 0.86, 0.82,
+                    BirdVisualProfileStyle.MOCKINGBIRD);
+    private static final BirdVisualProfile GRINCHHAWK_VISUAL_PROFILE =
+            new BirdVisualProfile(0.86, 1.18, 0.76, 1.04, 0.92, 0.98, 1.18, 1.08, 1.12,
+                    BirdVisualProfileStyle.GRINCHHAWK);
+    private static final BirdVisualProfile OPIUM_VISUAL_PROFILE =
+            new BirdVisualProfile(1.04, 0.92, 1.22, 1.10, 1.18, 1.14, 0.88, 0.84, 0.86,
+                    BirdVisualProfileStyle.OPIUM);
+    private static final BirdVisualProfile HEISEN_VISUAL_PROFILE =
+            new BirdVisualProfile(1.10, 0.94, 0.98, 1.12, 1.08, 1.18, 0.94, 0.88, 0.90,
+                    BirdVisualProfileStyle.HEISEN);
+    private static final BirdVisualProfile HUMMINGBIRD_VISUAL_PROFILE =
+            new BirdVisualProfile(1.38, 0.84, 1.16, 1.18, 1.22, 1.18, 0.92, 0.90, 0.86,
+                    BirdVisualProfileStyle.HUMMINGBIRD);
+    private static final BirdVisualProfile RAZORBILL_VISUAL_PROFILE =
+            new BirdVisualProfile(1.20, 0.98, 1.06, 1.18, 1.14, 1.20, 0.96, 0.92, 0.94,
+                    BirdVisualProfileStyle.RAZORBILL);
+    private static final BirdVisualProfile BAT_VISUAL_PROFILE =
+            new BirdVisualProfile(1.26, 0.82, 1.18, 1.26, 1.30, 1.28, 0.90, 0.80, 0.78,
+                    BirdVisualProfileStyle.BAT);
+    private static final BirdVisualProfile RAVEN_VISUAL_PROFILE =
+            new BirdVisualProfile(1.02, 1.05, 0.82, 1.02, 1.04, 1.12, 1.04, 0.96, 1.00,
+                    BirdVisualProfileStyle.RAVEN);
+    private static final BirdVisualProfile FALCON_VISUAL_PROFILE =
+            new BirdVisualProfile(1.24, 0.92, 1.08, 1.18, 1.24, 1.28, 0.96, 0.92, 0.92,
+                    BirdVisualProfileStyle.FALCON);
+    private static final BirdVisualProfile ROADRUNNER_VISUAL_PROFILE =
+            new BirdVisualProfile(1.30, 0.90, 1.12, 1.30, 0.96, 1.18, 0.92, 0.86, 0.88,
+                    BirdVisualProfileStyle.ROADRUNNER);
+    private static final BirdVisualProfile PELICAN_VISUAL_PROFILE =
+            new BirdVisualProfile(0.80, 1.24, 0.84, 0.78, 0.82, 0.86, 1.12, 1.16, 1.16,
+                    BirdVisualProfileStyle.PELICAN);
+    private static final BirdVisualProfile SHOEBILL_VISUAL_PROFILE =
+            new BirdVisualProfile(0.70, 1.32, 0.58, 0.54, 0.72, 0.72, 1.06, 1.06, 1.22,
+                    BirdVisualProfileStyle.SHOEBILL);
+    private static final BirdVisualProfile VULTURE_VISUAL_PROFILE =
+            new BirdVisualProfile(0.86, 1.16, 0.76, 0.94, 0.96, 1.05, 1.20, 1.08, 1.18,
+                    BirdVisualProfileStyle.VULTURE);
+    private static final BirdVisualProfile TURKEY_VISUAL_PROFILE =
+            new BirdVisualProfile(0.72, 1.24, 0.82, 0.72, 0.78, 0.80, 1.22, 1.18, 1.24,
+                    BirdVisualProfileStyle.TURKEY);
+    private static final BirdVisualProfile PENGUIN_VISUAL_PROFILE =
+            new BirdVisualProfile(0.76, 1.18, 0.90, 0.76, 0.82, 0.78, 1.12, 1.24, 1.18,
+                    BirdVisualProfileStyle.PENGUIN);
+    private static final BirdVisualProfile TITMOUSE_VISUAL_PROFILE =
+            new BirdVisualProfile(1.34, 0.76, 1.30, 1.34, 1.26, 1.30, 0.86, 0.78, 0.74,
+                    BirdVisualProfileStyle.TITMOUSE);
 
     // Reference to main game instance
     final BirdGame3 game;
@@ -743,6 +841,14 @@ public class Bird {
     boolean pigeonScavengeUltimate = false;
     boolean pigeonScavengeResolved = false;
     boolean pigeonUpSpecialUsed = false;
+    boolean pigeonCoronationActive = false;
+    int pigeonCoronationTimer = 0;
+    double pigeonCoronationX = 0.0;
+    double pigeonCoronationY = 0.0;
+    boolean pigeonCoronationFinalResolved = false;
+    boolean pigeonCoronationStayedInside = false;
+    final int[] pigeonCoronationTickCooldown = new int[4];
+    final boolean[] pigeonCoronationFinalHit = new boolean[4];
     int raptorCryTimer = 0;
     boolean raptorCryUltimate = false;
     int raptorRushTimer = 0;
@@ -757,6 +863,24 @@ public class Bird {
     int raptorCryReuseTimer = 0;
     int raptorRushReuseTimer = 0;
     boolean raptorUpSpecialUsed = false;
+    boolean eagleSkySovereignActive = false;
+    boolean eagleSkySovereignDiving = false;
+    int eagleSkySovereignTimer = 0;
+    double eagleSkySovereignTargetX = 0.0;
+    double eagleSkySovereignTargetY = 0.0;
+    double eagleSkySovereignDiveStartY = 0.0;
+    boolean eagleSkySovereignHitResolved = false;
+    final boolean[] eagleSkySovereignHit = new boolean[4];
+    boolean falconTerminalVelocityActive = false;
+    boolean falconTerminalVelocityStriking = false;
+    boolean falconTerminalVelocityHitAny = false;
+    int falconTerminalVelocityTimer = 0;
+    int falconTerminalVelocityDirection = 1;
+    double falconTerminalVelocityStartX = 0.0;
+    double falconTerminalVelocityStartY = 0.0;
+    double falconTerminalVelocityEndX = 0.0;
+    double falconTerminalVelocityEndY = 0.0;
+    final boolean[] falconTerminalVelocityHit = new boolean[4];
 
     // === NECTAR BOOST (Jungle) ===
     public double speedBoostTimer = 0;
@@ -845,6 +969,14 @@ public class Bird {
     static final int PIGEON_FLUTTER_ULTIMATE_FRAMES = 18;
     static final int PIGEON_SCAVENGE_GROUND_FRAMES = 162;
     static final int PIGEON_SCAVENGE_AIR_FRAMES = 14;
+    static final int PIGEON_CORONATION_FRAMES = 240;
+    static final int PIGEON_CORONATION_TICK_INTERVAL = 24;
+    static final double PIGEON_CORONATION_RADIUS = 260.0;
+    static final int PIGEON_CORONATION_TICK_DAMAGE = 2;
+    static final int PIGEON_CORONATION_FINAL_DAMAGE = 18;
+    static final int PIGEON_CORONATION_WEAK_FINAL_DAMAGE = 10;
+    static final double PIGEON_CORONATION_HEAL_PER_FRAME = 1.5 / 60.0;
+    static final double PIGEON_CORONATION_KNOCKBACK_MULTIPLIER = 0.65;
     static final int EAGLE_CRY_FRAMES = 16;
     static final int EAGLE_CRY_ULTIMATE_FRAMES = 20;
     static final int FALCON_CRY_FRAMES = 13;
@@ -865,6 +997,23 @@ public class Bird {
     static final int EAGLE_DIVE_GROUND_ULTIMATE_STARTUP_FRAMES = 12;
     static final int FALCON_DIVE_GROUND_STARTUP_FRAMES = 8;
     static final int FALCON_DIVE_GROUND_ULTIMATE_STARTUP_FRAMES = 10;
+    static final int EAGLE_SKY_SOVEREIGN_TARGET_FRAMES = 90;
+    static final int EAGLE_SKY_SOVEREIGN_DIVE_FRAMES = 28;
+    static final int EAGLE_SKY_SOVEREIGN_RELEASE_LOCK_FRAMES = 12;
+    static final double EAGLE_SKY_SOVEREIGN_TARGET_SPEED_X = 12.5;
+    static final double EAGLE_SKY_SOVEREIGN_TARGET_SPEED_Y = 10.0;
+    static final double EAGLE_SKY_SOVEREIGN_RADIUS = 210.0;
+    static final double EAGLE_SKY_SOVEREIGN_SWEETSPOT_RADIUS = 72.0;
+    static final int EAGLE_SKY_SOVEREIGN_DAMAGE = 18;
+    static final int EAGLE_SKY_SOVEREIGN_SWEETSPOT_DAMAGE = 30;
+    static final int EAGLE_SKY_SOVEREIGN_MISS_LANDING_LAG_FRAMES = 28;
+    static final int FALCON_TERMINAL_VELOCITY_WARNING_FRAMES = 28;
+    static final int FALCON_TERMINAL_VELOCITY_STRIKE_FRAMES = 8;
+    static final double FALCON_TERMINAL_VELOCITY_PATH_WIDTH = 74.0;
+    static final double FALCON_TERMINAL_VELOCITY_SWEETSPOT_WIDTH = 28.0;
+    static final int FALCON_TERMINAL_VELOCITY_DAMAGE = 16;
+    static final int FALCON_TERMINAL_VELOCITY_SWEETSPOT_DAMAGE = 34;
+    static final int FALCON_TERMINAL_VELOCITY_MISS_LANDING_LAG_FRAMES = 32;
     static final int PHOENIX_CHARGE_MAX_FRAMES = 90;
     static final int PHOENIX_FIREBALL_FRAMES = 26;
     static final int PHOENIX_FIREBALL_ULTIMATE_FRAMES = 34;
@@ -1517,6 +1666,17 @@ public class Bird {
         AIR
     }
 
+    private enum BirdAnimationState {
+        IDLE,
+        FLAP,
+        FALL,
+        ATTACK,
+        HITSTUN,
+        SHIELD,
+        DODGE,
+        KO
+    }
+
     private record ShieldHitResult(boolean blocked, boolean parried) {
         private static final ShieldHitResult NONE = new ShieldHitResult(false, false);
         private static final ShieldHitResult BLOCKED = new ShieldHitResult(true, false);
@@ -1575,6 +1735,8 @@ public class Bird {
 
     boolean isCombatInvulnerable() {
         return ledgeInvulnerabilityTimer > 0
+                || eagleSkySovereignActive
+                || falconTerminalVelocityActive
                 || hasNullRockInvulnerability()
                 || hasDodgeInvulnerability()
                 || hasRespawnInvulnerability();
@@ -1862,34 +2024,105 @@ public class Bird {
         if (bird == null || !loungeActive || loungeHealth <= 0 || bird.health <= 0) {
             return false;
         }
-        return Math.hypot(bird.bodyCenterX() - loungeX, bird.bodyCenterY() - loungeY) < 72.0 * Math.max(0.85, sizeMultiplier);
+        return mockingbirdLoungeContactScore(
+                bird.bodyCenterX(),
+                bird.bodyCenterY(),
+                bird.combatHalfWidth(),
+                bird.combatHalfHeight()
+        ) <= 1.0;
+    }
+
+    private double mockingbirdLoungeContactScore(double centerX, double centerY, double halfWidth, double halfHeight) {
+        if (!loungeActive || loungeHealth <= 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+        double scale = Math.max(0.85, sizeMultiplier);
+        double radiusX = 82.0 * scale;
+        double radiusY = 64.0 * scale;
+        double dx = Math.max(0.0, Math.abs(centerX - loungeX) - Math.max(1.0, halfWidth));
+        double dy = Math.max(0.0, Math.abs(centerY - loungeY) - Math.max(1.0, halfHeight));
+        double nx = dx / radiusX;
+        double ny = dy / radiusY;
+        return nx * nx + ny * ny;
     }
 
     private void captureMockingbirdLoungeAbility() {
+        Bird source = null;
+        double bestScore = Double.POSITIVE_INFINITY;
+        double effectX = loungeX;
+        double effectY = loungeY;
         for (Bird other : game.players) {
             if (other == null || other == this || other.health <= 0) continue;
             if (other.type == BirdGame3.BirdType.MOCKINGBIRD) continue;
-            if (!isInsideMockingbirdLounge(other)) continue;
-
-            mockingbirdCapturedType = other.type;
-            mockingbirdCopiedNeutralSource = null;
-            mockingbirdUncaptureTimer = 0;
-            resetMockingbirdNeutralReuseLocks();
-            loungeDamageFlash = Math.max(loungeDamageFlash, 10);
-            game.addToKillFeed(shortName() + " captured " + other.type.name + "'s neutral!");
-            for (int i = 0; i < scaledParticleCount(34); i++) {
-                double angle = Math.random() * Math.PI * 2;
-                double speed = 1.8 + Math.random() * 5.6;
-                Color c = Math.random() < 0.5 ? other.type.color : Color.web("#D7FFD9");
-                game.particles.add(new Particle(
-                        loungeX + Math.cos(angle) * (16.0 + Math.random() * 46.0),
-                        loungeY + Math.sin(angle) * (10.0 + Math.random() * 26.0),
-                        Math.cos(angle) * speed,
-                        Math.sin(angle) * speed - 1.8,
-                        c.deriveColor(0, 1, 1, 0.78)
-                ));
+            double score = mockingbirdLoungeContactScore(
+                    other.bodyCenterX(),
+                    other.bodyCenterY(),
+                    other.combatHalfWidth(),
+                    other.combatHalfHeight()
+            );
+            if (score <= 1.0 && score < bestScore) {
+                source = other;
+                bestScore = score;
+                effectX = other.bodyCenterX();
+                effectY = other.bodyCenterY();
             }
-            break;
+        }
+        if (source == null) {
+            for (ChickMinion chick : game.chickMinions) {
+                if (chick == null || chick.life <= 0 || chick.owner == null || chick.owner == this
+                        || chick.owner.health <= 0 || chick.owner.type == BirdGame3.BirdType.MOCKINGBIRD) {
+                    continue;
+                }
+                double centerX = chick.x + chick.width * 0.5;
+                double centerY = chick.y + chick.height * 0.5;
+                double score = mockingbirdLoungeContactScore(centerX, centerY, chick.width * 0.5, chick.height * 0.5);
+                if (score <= 1.0 && score < bestScore) {
+                    source = chick.owner;
+                    bestScore = score;
+                    effectX = centerX;
+                    effectY = centerY;
+                }
+            }
+        }
+        if (source == null) {
+            for (CrowMinion crow : game.crowMinions) {
+                if (crow == null || crow.life <= 0 || crow.owner == null || crow.owner == this
+                        || crow.owner.health <= 0 || crow.owner.type == BirdGame3.BirdType.MOCKINGBIRD) {
+                    continue;
+                }
+                double halfSize = 22.0 * crow.drawScale();
+                double score = mockingbirdLoungeContactScore(crow.x, crow.y, halfSize, halfSize);
+                if (score <= 1.0 && score < bestScore) {
+                    source = crow.owner;
+                    bestScore = score;
+                    effectX = crow.x;
+                    effectY = crow.y;
+                }
+            }
+        }
+        if (source != null) {
+            completeMockingbirdLoungeCapture(source, effectX, effectY);
+        }
+    }
+
+    private void completeMockingbirdLoungeCapture(Bird source, double effectX, double effectY) {
+        mockingbirdCapturedType = source.type;
+        mockingbirdCopiedNeutralSource = null;
+        mockingbirdUncaptureTimer = 0;
+        resetMockingbirdNeutralReuseLocks();
+        loungeDamageFlash = Math.max(loungeDamageFlash, 10);
+        game.addToKillFeed(shortName() + " captured " + source.type.name + "'s neutral!");
+        for (int i = 0; i < scaledParticleCount(34); i++) {
+            double angle = Math.random() * Math.PI * 2;
+            double speed = 1.8 + Math.random() * 5.6;
+            Color c = Math.random() < 0.5 ? source.type.color : Color.web("#D7FFD9");
+            game.particles.add(new Particle(
+                    effectX + Math.cos(angle) * (16.0 + Math.random() * 46.0),
+                    effectY + Math.sin(angle) * (10.0 + Math.random() * 26.0),
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 1.8,
+                    c.deriveColor(0, 1, 1, 0.78)
+            ));
         }
     }
 
@@ -2485,6 +2718,7 @@ public class Bird {
                                double targetHalfWidth, double targetHalfHeight,
                                double attackCenterX, double attackCenterY,
                                double horizontalReach, double verticalReach) {
+        game.recordTelemetryCollisionCheck();
         double dx = Math.abs(targetCenterX - attackCenterX);
         double dy = Math.abs(targetCenterY - attackCenterY);
         return dx <= horizontalReach + targetHalfWidth
@@ -2507,7 +2741,7 @@ public class Bird {
         return stat;
     }
 
-    private NormalAttackProfile attack(int chargeFrames, NormalAttackVariant variant) {
+    private NormalAttackProfile attack(int chargeFrames, NormalAttackVariant variant, String moveName) {
         if (health <= 0) return normalAttackProfile(variant);
         NormalAttackProfile profile = normalAttackProfile(variant);
         double batAmbushScale = consumeBatAmbushNormalScale(variant);
@@ -2544,7 +2778,7 @@ public class Bird {
                 double verticalScale = profile.verticalLaunchScaleFor(other.bodyCenterY(), attackCenterY)
                         * (1.0 + CHARGED_ATTACK_VERTICAL_BONUS * chargeRatio);
                 processBirdAttack(other, dmg, knockbackScale, verticalScale,
-                        profile.horizontalLaunchScale(), horizontalDirection);
+                        profile.horizontalLaunchScale(), horizontalDirection, moveName);
             }
         }
 
@@ -2728,7 +2962,7 @@ public class Bird {
 
     private void processBirdAttack(Bird other, int dmg, double knockbackScale,
                                    double verticalScale, double horizontalScale,
-                                   double horizontalDirection) {
+                                   double horizontalDirection, String moveName) {
         double kb = normalAttackPowerStat() * horizontalDirection * (game.usesSmashCombatRules() ? 2.2 : 1.8)
                 * knockbackScale * ATTACK_HORIZONTAL_KNOCKBACK_SCALE * horizontalScale;
         double verticalKb = (game.usesSmashCombatRules() ? 6.5 : 5.0) * verticalScale * ATTACK_VERTICAL_KNOCKBACK_SCALE;
@@ -2749,15 +2983,20 @@ public class Bird {
             return;
         }
 
-        other.vx += kb;
-        other.vy -= verticalKb;
+        double targetKnockbackMult = other.incomingKnockbackMultiplier();
+        other.vx += kb * targetKnockbackMult;
+        other.vy -= verticalKb * targetKnockbackMult;
         applyTurkeyStuffedKnockbackBonus(other, horizontalDirection);
         double oldHealth = other.health;
         double dealtDamage = applyScaledDamageTo(other, scaledDamage);
 
         game.damageDealt[playerIndex] += (int) dealtDamage;
+        if (dealtDamage > 0) {
+            game.recordNormalMoveImpact(this, moveName, (int) Math.round(dealtDamage), true);
+        }
         if (!game.usesSmashCombatRules() && other.health <= 0 && oldHealth > 0) {
             game.eliminations[playerIndex]++;
+            game.recordMoveKo(this, other, moveName);
             game.checkAchievements(this);
             game.playZombieFallSfx();
             game.scores[playerIndex] += 50;
@@ -3245,6 +3484,8 @@ public class Bird {
         attackCooldown = Math.max(attackCooldown, 8);
         attackAnimationTimer = Math.max(attackAnimationTimer, 10);
         game.recordTrainingThrow(this);
+        String moveName = throwTelemetryName(direction);
+        game.recordNormalMoveUse(this, moveName);
 
         double oldHealth = target.health;
         double dealtDamage = applyUnshieldedDamageTo(target, rawDamage);
@@ -3256,8 +3497,12 @@ public class Bird {
         }
 
         game.damageDealt[playerIndex] += (int) Math.round(dealtDamage);
+        if (dealtDamage > 0) {
+            game.recordNormalMoveImpact(this, moveName, (int) Math.round(dealtDamage), true);
+        }
         if (!game.usesSmashCombatRules() && target.health <= 0 && oldHealth > 0) {
             game.eliminations[playerIndex]++;
+            game.recordMoveKo(this, target, moveName);
             game.checkAchievements(this);
             game.playZombieFallSfx();
             game.scores[playerIndex] += 50;
@@ -3275,6 +3520,16 @@ public class Bird {
         }
         game.hitstopFrames = Math.max(game.hitstopFrames, 4);
         game.shakeIntensity = Math.max(game.shakeIntensity, 5.0);
+    }
+
+    private String throwTelemetryName(GrabThrowDirection direction) {
+        String label = switch (direction) {
+            case BACK -> "Back Throw";
+            case UP -> "Up Throw";
+            case DOWN -> "Down Throw";
+            case FORWARD, NONE -> "Forward Throw";
+        };
+        return type.name + " " + label;
     }
 
     private void clearGrabLink(Bird target) {
@@ -3369,7 +3624,9 @@ public class Bird {
     }
 
     private void performAttack(int chargeFrames, NormalAttackVariant variant) {
-        NormalAttackProfile profile = attack(chargeFrames, variant);
+        String moveName = normalAttackTelemetryName(variant);
+        game.recordNormalMoveUse(this, moveName);
+        NormalAttackProfile profile = attack(chargeFrames, variant, moveName);
         double chargeRatio = attackChargeRatio(chargeFrames);
         game.recordTrainingAttack(this, chargeFrames);
         game.playButterSfx();
@@ -3388,6 +3645,24 @@ public class Bird {
             }
         }
         cancelAttackCharge();
+    }
+
+    private String normalAttackTelemetryName(NormalAttackVariant variant) {
+        String label = switch (variant) {
+            case NEUTRAL -> "Neutral Attack";
+            case SIDE_TILT -> "Side Tilt";
+            case UP_TILT -> "Up Tilt";
+            case DOWN_TILT -> "Down Tilt";
+            case SIDE_SMASH -> "Side Smash";
+            case UP_SMASH -> "Up Smash";
+            case DOWN_SMASH -> "Down Smash";
+            case NEUTRAL_AIR -> "Neutral Air";
+            case FORWARD_AIR -> "Forward Air";
+            case BACK_AIR -> "Back Air";
+            case UP_AIR -> "Up Air";
+            case DOWN_AIR -> "Down Air";
+        };
+        return type.name + " " + label;
     }
 
     private boolean handleAttackInput(boolean canCharge) {
@@ -4531,8 +4806,42 @@ public class Bird {
                 && neutralReady;
     }
 
+    boolean canStartPigeonUltimate() {
+        return type == BirdGame3.BirdType.PIGEON
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && !isBlocking
+                && !isDodging()
+                && !PigeonSpecials.active(this)
+                && !pigeonCoronationActive;
+    }
+
     boolean canStartRaptorSpecial() {
         return canStartRaptorSpecialVariant(selectRaptorSpecialVariant());
+    }
+
+    boolean canStartEagleUltimate() {
+        return type == BirdGame3.BirdType.EAGLE
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && !isBlocking
+                && !isDodging()
+                && !RaptorSpecials.active(this);
+    }
+
+    boolean canStartFalconUltimate() {
+        return type == BirdGame3.BirdType.FALCON
+                && health > 0
+                && stunTime <= 0.0
+                && grabbedBy == null
+                && grabbedTarget == null
+                && !isBlocking
+                && !isDodging()
+                && !RaptorSpecials.active(this);
     }
 
     boolean canStartRaptorSpecialVariant(RaptorSpecialVariant variant) {
@@ -8272,44 +8581,353 @@ public class Bird {
         return stuffingSprite;
     }
 
+    private static Image firstAvailableImage(Image... images) {
+        for (Image image : images) {
+            if (image != null) {
+                return image;
+            }
+        }
+        return null;
+    }
+
     private Image currentPhotoEagleSprite() {
         if (!photoEagleSkinActive()) {
             return null;
         }
-        if (attackAnimationTimer > 0) {
-            Image attack = photoEagleAttackImage();
-            if (attack != null) {
-                return attack;
-            }
-        }
-        if (!isOnGround() || RaptorSpecials.active(this) || diveTimer > 0) {
-            Image flap = photoEagleFlapImage();
-            if (flap != null) {
-                return flap;
-            }
-        }
-        Image idle = photoEagleIdleImage();
-        return idle != null ? idle : photoEagleAttackImage();
+        BirdAnimationState state = currentBirdAnimationState();
+        return switch (state) {
+            case ATTACK -> firstAvailableImage(photoEagleAttackImage(), photoEagleFlapImage(), photoEagleIdleImage());
+            case FLAP, FALL, DODGE, HITSTUN -> firstAvailableImage(photoEagleFlapImage(), photoEagleAttackImage(), photoEagleIdleImage());
+            case SHIELD, IDLE, KO -> firstAvailableImage(photoEagleIdleImage(), photoEagleFlapImage(), photoEagleAttackImage());
+        };
     }
 
     private Image currentPhotoTurkeySprite() {
         if (!photoTurkeySkinActive()) {
             return null;
         }
-        if (attackAnimationTimer > 0 || isGroundPounding || turkeyGobbleTimer > 0 || turkeyStampedeTimer > 0) {
-            Image attack = photoTurkeyAttackImage();
-            if (attack != null) {
-                return attack;
-            }
+        BirdAnimationState state = currentPhotoTurkeyAnimationState();
+        return switch (state) {
+            case ATTACK -> firstAvailableImage(photoTurkeyAttackImage(), photoTurkeyFlapImage(), photoTurkeyIdleImage());
+            case FLAP, FALL, DODGE, HITSTUN -> firstAvailableImage(photoTurkeyFlapImage(), photoTurkeyAttackImage(), photoTurkeyIdleImage());
+            case SHIELD, IDLE, KO -> firstAvailableImage(photoTurkeyIdleImage(), photoTurkeyAttackImage(), photoTurkeyFlapImage());
+        };
+    }
+
+    private BirdAnimationState currentPhotoTurkeyAnimationState() {
+        if (health <= 0) {
+            return BirdAnimationState.KO;
+        }
+        if (suppressSelectEffects) {
+            return BirdAnimationState.IDLE;
+        }
+        if (stunTime > 0.0 || knockdownTimer > 0) {
+            return BirdAnimationState.HITSTUN;
+        }
+        if (isDodging()) {
+            return BirdAnimationState.DODGE;
+        }
+        if (isBlocking || shieldStunFrames > 0 || parryWindowFrames > 0) {
+            return BirdAnimationState.SHIELD;
+        }
+        if (attackAnimationTimer > 0 || isGroundPounding || turkeyGobbleCharging
+                || turkeyGobbleTimer > 0 || turkeyStampedeTimer > 0) {
+            return BirdAnimationState.ATTACK;
         }
         if (!isOnGround() || turkeyPanicFlapTimer > 0) {
-            Image flap = photoTurkeyFlapImage();
-            if (flap != null) {
-                return flap;
+            return vy > 1.2 && turkeyPanicFlapTimer <= 0 ? BirdAnimationState.FALL : BirdAnimationState.FLAP;
+        }
+        return BirdAnimationState.IDLE;
+    }
+
+    private void drawEagleGroundShadow(GraphicsContext g, double drawSize, BirdAnimationState state) {
+        if (type != BirdGame3.BirdType.EAGLE || suppressSelectEffects) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 20.0);
+        double airborneFade = isOnGround() ? 1.0 : 0.52;
+        double width = drawSize * (switch (state) {
+            case ATTACK, DODGE -> 1.04 + speed * 0.18;
+            case FLAP, FALL -> 0.84;
+            case HITSTUN -> 0.92;
+            default -> 0.96;
+        });
+        double height = drawSize * (switch (state) {
+            case ATTACK, DODGE -> 0.22;
+            case FLAP, FALL -> 0.16;
+            default -> 0.20;
+        });
+        double centerX = x + drawSize * 0.5 - vx * 0.55;
+        double centerY = y + drawSize + 9.0 * s;
+
+        g.save();
+        g.setFill(Color.rgb(0, 0, 0, 0.18 * airborneFade));
+        g.fillOval(centerX - width * 0.5, centerY - height * 0.5, width, height);
+        g.setFill(Color.rgb(0, 0, 0, 0.08 * airborneFade));
+        g.fillOval(centerX - width * 0.34, centerY - height * 0.32, width * 0.68, height * 0.64);
+        g.restore();
+    }
+
+    private double photoEagleStateRotation(BirdAnimationState state) {
+        double dir = facingRight ? 1.0 : -1.0;
+        return switch (state) {
+            case ATTACK -> dir * (7.0 + Math.min(10.0, Math.abs(vx) * 0.38));
+            case FLAP -> -15.0 - Math.min(9.0, Math.max(0.0, -vy) * 0.85);
+            case FALL -> 12.0 + Math.min(10.0, Math.max(0.0, vy) * 0.45);
+            case HITSTUN -> -dir * (18.0 + Math.min(12.0, Math.hypot(vx, vy) * 0.55));
+            case DODGE -> dir * 14.0;
+            case SHIELD -> -dir * 4.0;
+            case KO -> 24.0;
+            case IDLE -> dir * Math.sin(System.currentTimeMillis() / 360.0) * 1.8;
+        };
+    }
+
+    private double photoEagleStateScaleX(BirdAnimationState state) {
+        return switch (state) {
+            case ATTACK -> 1.16;
+            case FLAP -> 1.08;
+            case FALL -> 0.96;
+            case HITSTUN -> 0.90;
+            case SHIELD -> 0.88;
+            case DODGE -> 1.18;
+            case KO -> 0.92;
+            case IDLE -> 1.0;
+        };
+    }
+
+    private double photoEagleStateScaleY(BirdAnimationState state) {
+        double idleBreath = 1.0 + Math.sin(System.currentTimeMillis() / 420.0) * 0.018;
+        double landingSquash = landingLagTimer > 0 ? Math.max(0.84, 1.0 - landingLagTimer * 0.018) : 1.0;
+        return switch (state) {
+            case ATTACK -> 0.92;
+            case FLAP -> 1.12;
+            case FALL -> 1.04;
+            case HITSTUN -> 1.08;
+            case SHIELD -> 0.92;
+            case DODGE -> 0.82;
+            case KO -> 0.86;
+            case IDLE -> idleBreath * landingSquash;
+        };
+    }
+
+    private double photoEagleStateCenterYOffset(BirdAnimationState state) {
+        double s = sizeMultiplier;
+        return switch (state) {
+            case ATTACK -> -2.0 * s;
+            case FLAP -> -7.0 * s;
+            case FALL -> 4.0 * s;
+            case HITSTUN -> -3.0 * s;
+            case SHIELD -> 5.0 * s;
+            case DODGE -> 7.0 * s;
+            case KO -> 14.0 * s;
+            case IDLE -> 4.0 * s + Math.sin(System.currentTimeMillis() / 420.0) * 1.8 * s;
+        };
+    }
+
+    private void drawPhotoEagleStateFx(GraphicsContext g, double drawSize, BirdAnimationState state) {
+        if (suppressSelectEffects) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double cx = x + drawSize * 0.5;
+        double cy = y + drawSize * 0.5;
+        double dir = facingRight ? 1.0 : -1.0;
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        if (state == BirdAnimationState.FLAP) {
+            double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 48.0);
+            g.setStroke(Color.web("#E3F2FD", 0.18 + pulse * 0.16));
+            g.setLineWidth(4.0 * s);
+            for (int i = 0; i < 3; i++) {
+                double wingW = (86.0 + i * 22.0 + pulse * 18.0) * s;
+                double wingH = (42.0 + i * 11.0) * s;
+                g.strokeArc(cx - dir * (22.0 + i * 6.0) * s - wingW * 0.5,
+                        cy - (44.0 + i * 10.0) * s,
+                        wingW,
+                        wingH,
+                        facingRight ? 205.0 : -25.0,
+                        facingRight ? 118.0 : -118.0,
+                        ArcType.OPEN);
+            }
+        } else if (state == BirdAnimationState.ATTACK) {
+            g.setStroke(Color.web("#FFF59D", 0.34));
+            g.setLineWidth(5.0 * s);
+            for (int i = 0; i < 3; i++) {
+                double startX = cx - dir * (46.0 + i * 18.0) * s;
+                double startY = cy + (-20.0 + i * 18.0) * s;
+                g.strokeLine(startX, startY, startX + dir * (106.0 + i * 14.0) * s, startY - (16.0 - i * 4.0) * s);
+            }
+        } else if (state == BirdAnimationState.HITSTUN) {
+            g.setStroke(Color.web("#EF5350", 0.42));
+            g.setLineWidth(4.0 * s);
+            double recoilDir = vx == 0.0 ? -dir : -Math.signum(vx);
+            for (int i = 0; i < 4; i++) {
+                double yLane = cy + (-28.0 + i * 18.0) * s;
+                g.strokeLine(cx - recoilDir * (18.0 + i * 8.0) * s, yLane,
+                        cx - recoilDir * (80.0 + i * 18.0) * s, yLane + (i - 1.5) * 5.0 * s);
             }
         }
-        Image idle = photoTurkeyIdleImage();
-        return idle != null ? idle : photoTurkeyAttackImage();
+        g.restore();
+    }
+
+    private void drawTurkeyGroundShadow(GraphicsContext g, double drawSize, BirdAnimationState state) {
+        if (type != BirdGame3.BirdType.TURKEY || !photoTurkeySkinActive() || suppressSelectEffects) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double airborneFade = isOnGround() ? 1.0 : 0.50;
+        double width = drawSize * (switch (state) {
+            case ATTACK -> 1.18;
+            case DODGE -> 1.10;
+            case FLAP, FALL -> 0.82;
+            case HITSTUN -> 0.96;
+            default -> 1.02;
+        });
+        double height = drawSize * (switch (state) {
+            case ATTACK, DODGE -> 0.24;
+            case FLAP, FALL -> 0.17;
+            default -> 0.21;
+        });
+        double centerX = x + drawSize * 0.5 - vx * 0.35;
+        double centerY = y + drawSize + 12.0 * s;
+
+        g.save();
+        g.setFill(Color.rgb(0, 0, 0, 0.20 * airborneFade));
+        g.fillOval(centerX - width * 0.5, centerY - height * 0.5, width, height);
+        g.setFill(Color.rgb(0, 0, 0, 0.08 * airborneFade));
+        g.fillOval(centerX - width * 0.32, centerY - height * 0.28, width * 0.64, height * 0.56);
+        g.restore();
+    }
+
+    private double photoTurkeyStateRotation(BirdAnimationState state) {
+        double dir = facingRight ? 1.0 : -1.0;
+        return switch (state) {
+            case ATTACK -> turkeyStampedeTimer > 0 ? dir * 9.0 : -dir * 6.0;
+            case FLAP -> -8.0 - Math.min(8.0, Math.max(0.0, -vy) * 0.48);
+            case FALL -> 10.0 + Math.min(8.0, Math.max(0.0, vy) * 0.38);
+            case HITSTUN -> -dir * (12.0 + Math.min(10.0, Math.hypot(vx, vy) * 0.40));
+            case DODGE -> dir * 10.0;
+            case SHIELD -> -dir * 3.0;
+            case KO -> 18.0;
+            case IDLE -> dir * Math.sin(System.currentTimeMillis() / 460.0) * 1.1;
+        };
+    }
+
+    private double photoTurkeyStateScaleX(BirdAnimationState state) {
+        return switch (state) {
+            case ATTACK -> turkeyStampedeTimer > 0 ? 1.22 : 1.12;
+            case FLAP -> 1.06;
+            case FALL -> 0.98;
+            case HITSTUN -> 0.92;
+            case SHIELD -> 0.90;
+            case DODGE -> 1.16;
+            case KO -> 0.94;
+            case IDLE -> 1.0;
+        };
+    }
+
+    private double photoTurkeyStateScaleY(BirdAnimationState state) {
+        double idleBreath = 1.0 + Math.sin(System.currentTimeMillis() / 480.0) * 0.014;
+        double landingSquash = landingLagTimer > 0 ? Math.max(0.82, 1.0 - landingLagTimer * 0.020) : 1.0;
+        return switch (state) {
+            case ATTACK -> turkeyStampedeTimer > 0 ? 0.86 : 0.93;
+            case FLAP -> 1.10;
+            case FALL -> 1.03;
+            case HITSTUN -> 1.08;
+            case SHIELD -> 0.91;
+            case DODGE -> 0.84;
+            case KO -> 0.86;
+            case IDLE -> idleBreath * landingSquash;
+        };
+    }
+
+    private double photoTurkeyStateCenterYOffset(BirdAnimationState state) {
+        double s = sizeMultiplier;
+        return switch (state) {
+            case ATTACK -> turkeyStampedeTimer > 0 ? 9.0 * s : 2.0 * s;
+            case FLAP -> -5.0 * s;
+            case FALL -> 6.0 * s;
+            case HITSTUN -> -1.0 * s;
+            case SHIELD -> 7.0 * s;
+            case DODGE -> 9.0 * s;
+            case KO -> 15.0 * s;
+            case IDLE -> 8.0 * s + Math.sin(System.currentTimeMillis() / 480.0) * 1.3 * s;
+        };
+    }
+
+    private boolean photoTurkeyGroundAnchored(BirdAnimationState state) {
+        return switch (state) {
+            case IDLE, ATTACK, SHIELD, DODGE, HITSTUN -> true;
+            case FLAP, FALL, KO -> false;
+        };
+    }
+
+    private double photoTurkeyBottomTransparentRatio(Image sprite) {
+        if (sprite == photoTurkeyAttackImage()) {
+            return 31.0 / 360.0;
+        }
+        if (sprite == photoTurkeyFlapImage()) {
+            return 45.0 / 500.0;
+        }
+        return 18.0 / 536.0;
+    }
+
+    private double photoTurkeyGroundedCenterY(Image sprite, double renderHeight, double scaleY) {
+        double visibleBottomInset = renderHeight * photoTurkeyBottomTransparentRatio(sprite);
+        double visibleHalfHeight = (renderHeight * 0.5 - visibleBottomInset) * Math.max(0.01, scaleY);
+        double groundY = bodyBottomY() + 1.0 * sizeMultiplier;
+        return groundY - visibleHalfHeight;
+    }
+
+    private void drawPhotoTurkeyStateFx(GraphicsContext g, double drawSize, BirdAnimationState state) {
+        if (suppressSelectEffects) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double cx = x + drawSize * 0.5;
+        double cy = y + drawSize * 0.58;
+        double dir = facingRight ? 1.0 : -1.0;
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        if (state == BirdAnimationState.FLAP) {
+            double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 62.0);
+            g.setStroke(Color.web("#F5F5F5", 0.17 + pulse * 0.15));
+            g.setLineWidth(5.0 * s);
+            for (int i = 0; i < 3; i++) {
+                double arcW = (88.0 + i * 24.0 + pulse * 14.0) * s;
+                double arcH = (36.0 + i * 12.0) * s;
+                g.strokeArc(cx - dir * (18.0 + i * 4.0) * s - arcW * 0.5,
+                        cy - (38.0 + i * 10.0) * s,
+                        arcW,
+                        arcH,
+                        facingRight ? 198.0 : -18.0,
+                        facingRight ? 126.0 : -126.0,
+                        ArcType.OPEN);
+            }
+        } else if (state == BirdAnimationState.ATTACK) {
+            Color slash = turkeyStampedeTimer > 0 ? Color.web("#D7CCC8", 0.38) : Color.web("#FFCC80", 0.36);
+            g.setStroke(slash);
+            g.setLineWidth((turkeyStampedeTimer > 0 ? 8.0 : 5.0) * s);
+            for (int i = 0; i < 3; i++) {
+                double laneY = cy + (-18.0 + i * 17.0) * s;
+                double reach = (82.0 + i * 18.0) * s;
+                g.strokeLine(cx - dir * (42.0 + i * 8.0) * s, laneY,
+                        cx + dir * reach, laneY + (i - 1.0) * 4.0 * s);
+            }
+        } else if (state == BirdAnimationState.HITSTUN) {
+            g.setStroke(Color.web("#EF5350", 0.36));
+            g.setLineWidth(4.0 * s);
+            double recoilDir = vx == 0.0 ? -dir : -Math.signum(vx);
+            for (int i = 0; i < 3; i++) {
+                double yLane = cy + (-22.0 + i * 20.0) * s;
+                g.strokeLine(cx - recoilDir * 20.0 * s, yLane,
+                        cx - recoilDir * (78.0 + i * 16.0) * s, yLane + (i - 1.0) * 6.0 * s);
+            }
+        }
+        g.restore();
     }
 
     private boolean drawPhotoEagleSprite(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -8317,6 +8935,7 @@ public class Bird {
         if (sprite == null) {
             return false;
         }
+        BirdAnimationState state = currentBirdAnimationState();
 
         double maxWidth = drawSize * 1.9;
         double maxHeight = drawSize * 1.65;
@@ -8331,15 +8950,27 @@ public class Bird {
         }
 
         double renderCenterX = x + drawSize / 2.0;
-        double renderCenterY = y + drawSize / 2.0 + 4 * sizeMultiplier;
-        double rotation = pose == null ? 0.0 : pose.spriteRotationDegrees();
-        double scaleX = pose == null ? 1.0 : pose.spriteScaleX();
-        double scaleY = pose == null ? 1.0 : pose.spriteScaleY();
+        double renderCenterY = y + drawSize / 2.0 + photoEagleStateCenterYOffset(state);
+        double rotation = (pose == null ? 0.0 : pose.spriteRotationDegrees()) + photoEagleStateRotation(state);
+        double scaleX = (pose == null ? 1.0 : pose.spriteScaleX()) * photoEagleStateScaleX(state);
+        double scaleY = (pose == null ? 1.0 : pose.spriteScaleY()) * photoEagleStateScaleY(state);
+
+        drawPhotoEagleStateFx(g, drawSize, state);
 
         g.save();
         g.translate(renderCenterX, renderCenterY);
         g.rotate(rotation);
         g.scale((facingRight ? 1.0 : -1.0) * scaleX, scaleY);
+        if (!suppressSelectEffects && state == BirdAnimationState.ATTACK) {
+            g.save();
+            g.setGlobalAlpha(0.28);
+            g.drawImage(sprite, -renderWidth / 2.0 - 18.0 * sizeMultiplier, -renderHeight / 2.0,
+                    renderWidth, renderHeight);
+            g.setGlobalAlpha(0.14);
+            g.drawImage(sprite, -renderWidth / 2.0 - 34.0 * sizeMultiplier, -renderHeight / 2.0 + 3.0 * sizeMultiplier,
+                    renderWidth, renderHeight);
+            g.restore();
+        }
         g.drawImage(sprite, -renderWidth / 2.0, -renderHeight / 2.0, renderWidth, renderHeight);
         g.restore();
         return true;
@@ -8350,6 +8981,7 @@ public class Bird {
         if (sprite == null) {
             return false;
         }
+        BirdAnimationState state = currentPhotoTurkeyAnimationState();
 
         double maxWidth = drawSize * 1.95;
         double maxHeight = drawSize * 1.92;
@@ -8363,18 +8995,32 @@ public class Bird {
             renderWidth = renderHeight * aspect;
         }
 
+        double rotation = (pose == null ? 0.0 : pose.spriteRotationDegrees()) + photoTurkeyStateRotation(state);
+        double scaleX = (pose == null ? 1.0 : pose.spriteScaleX()) * photoTurkeyStateScaleX(state);
+        double scaleY = (pose == null ? 1.0 : pose.spriteScaleY()) * photoTurkeyStateScaleY(state);
         double renderCenterX = x + drawSize / 2.0;
-        double renderCenterY = y + drawSize / 2.0 + 8 * sizeMultiplier;
-        double rotation = pose == null ? 0.0 : pose.spriteRotationDegrees();
-        double scaleX = pose == null ? 1.0 : pose.spriteScaleX();
-        double scaleY = pose == null ? 1.0 : pose.spriteScaleY();
+        double renderCenterY = photoTurkeyGroundAnchored(state)
+                ? photoTurkeyGroundedCenterY(sprite, renderHeight, scaleY)
+                : y + drawSize / 2.0 + photoTurkeyStateCenterYOffset(state);
         boolean spriteFacesRight = sprite != photoTurkeyFlapImage();
         double orientationScale = facingRight == spriteFacesRight ? 1.0 : -1.0;
+
+        drawPhotoTurkeyStateFx(g, drawSize, state);
 
         g.save();
         g.translate(renderCenterX, renderCenterY);
         g.rotate(rotation);
         g.scale(orientationScale * scaleX, scaleY);
+        if (!suppressSelectEffects && state == BirdAnimationState.ATTACK) {
+            g.save();
+            g.setGlobalAlpha(turkeyStampedeTimer > 0 ? 0.26 : 0.18);
+            g.drawImage(sprite, -renderWidth / 2.0 - 16.0 * sizeMultiplier, -renderHeight / 2.0,
+                    renderWidth, renderHeight);
+            g.setGlobalAlpha(turkeyStampedeTimer > 0 ? 0.12 : 0.08);
+            g.drawImage(sprite, -renderWidth / 2.0 - 32.0 * sizeMultiplier, -renderHeight / 2.0 + 4.0 * sizeMultiplier,
+                    renderWidth, renderHeight);
+            g.restore();
+        }
         g.drawImage(sprite, -renderWidth / 2.0, -renderHeight / 2.0, renderWidth, renderHeight);
         g.restore();
         return true;
@@ -8820,6 +9466,10 @@ public class Bird {
         pigeonRushTimer = Math.max(0, (int)(pigeonRushTimer - gameSpeed));
         pigeonFlutterTimer = Math.max(0, (int)(pigeonFlutterTimer - gameSpeed));
         pigeonScavengeTimer = Math.max(0, (int)(pigeonScavengeTimer - gameSpeed));
+        pigeonCoronationTimer = Math.max(0, (int)(pigeonCoronationTimer - gameSpeed));
+        for (int i = 0; i < pigeonCoronationTickCooldown.length; i++) {
+            pigeonCoronationTickCooldown[i] = Math.max(0, (int)(pigeonCoronationTickCooldown[i] - gameSpeed));
+        }
         razorbillStormTimer = Math.max(0, (int)(razorbillStormTimer - gameSpeed));
         razorbillStormReuseTimer = Math.max(0, (int)(razorbillStormReuseTimer - gameSpeed));
         razorbillSideReuseTimer = Math.max(0, (int)(razorbillSideReuseTimer - gameSpeed));
@@ -9087,6 +9737,12 @@ public class Bird {
             raptorClimbDirection = 1;
             Arrays.fill(raptorClimbHit, false);
         }
+        if (eagleSkySovereignActive) {
+            eagleSkySovereignTimer = Math.max(0, (int) (eagleSkySovereignTimer - gameSpeed));
+        }
+        if (falconTerminalVelocityActive) {
+            falconTerminalVelocityTimer = Math.max(0, (int) (falconTerminalVelocityTimer - gameSpeed));
+        }
         refreshMockingbirdCopiedNeutralSource();
         nullRockInvincibilityTimer = Math.max(0, (int) (nullRockInvincibilityTimer - gameSpeed));
         nullRockShieldFxCooldown = Math.max(0, (int) (nullRockShieldFxCooldown - gameSpeed));
@@ -9295,6 +9951,35 @@ public class Bird {
 
     private boolean isDodging() {
         return dodgeType != DodgeType.NONE && dodgeTimer > 0;
+    }
+
+    private BirdAnimationState currentBirdAnimationState() {
+        if (health <= 0) {
+            return BirdAnimationState.KO;
+        }
+        if (suppressSelectEffects) {
+            return BirdAnimationState.IDLE;
+        }
+        if (stunTime > 0.0 || knockdownTimer > 0) {
+            return BirdAnimationState.HITSTUN;
+        }
+        if (isDodging()) {
+            return BirdAnimationState.DODGE;
+        }
+        if (isBlocking || shieldStunFrames > 0 || parryWindowFrames > 0) {
+            return BirdAnimationState.SHIELD;
+        }
+        if (isGroundAttackPending() || isChargingAttack() || attackAnimationTimer > 0
+                || raptorRushTimer > 0 || eagleDiveActive || diveTimer > 0 || eagleSkySovereignDiving) {
+            return BirdAnimationState.ATTACK;
+        }
+        if (!isOnGround()) {
+            if (vy < -1.2 || raptorClimbTimer > 0 || eagleAscentActive) {
+                return BirdAnimationState.FLAP;
+            }
+            return BirdAnimationState.FALL;
+        }
+        return BirdAnimationState.IDLE;
     }
 
     private void clearActiveDodge() {
@@ -10543,7 +11228,16 @@ public class Bird {
                     : isOpiumEchoPair()
                     ? canConvertShieldIntoOpiumDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
-            boolean canStartSelectedSpecial = BirdSpecialReadiness.canStart(this);
+            boolean canStartSelectedSpecial = BirdSpecialReadiness.canStart(this)
+                    || (type == BirdGame3.BirdType.PIGEON
+                    && isUltimateReady()
+                    && canStartPigeonUltimate())
+                    || (type == BirdGame3.BirdType.EAGLE
+                    && isUltimateReady()
+                    && canStartEagleUltimate())
+                    || (type == BirdGame3.BirdType.FALCON
+                    && isUltimateReady()
+                    && canStartFalconUltimate());
             if (!attackLocked && !grabLocked && (!shielding || canSpecialFromShield) && !jumpSquatting && specialJustPressed()) {
                 if (grappleUses == 0 && canStartSelectedSpecial) {
                     special();
@@ -10757,6 +11451,21 @@ public class Bird {
         return mult;
     }
 
+    private double incomingKnockbackMultiplier() {
+        double mult = 1.0;
+        if (isInsideOwnPigeonCoronationZone()) {
+            mult *= PIGEON_CORONATION_KNOCKBACK_MULTIPLIER;
+        }
+        return mult;
+    }
+
+    boolean isInsideOwnPigeonCoronationZone() {
+        if (type != BirdGame3.BirdType.PIGEON || !pigeonCoronationActive) return false;
+        double dx = bodyCenterX() - pigeonCoronationX;
+        double dy = bodyCenterY() - pigeonCoronationY;
+        return dx * dx + dy * dy <= PIGEON_CORONATION_RADIUS * PIGEON_CORONATION_RADIUS;
+    }
+
     void heal(double amount) {
         if (amount <= 0) return;
         if (health <= 0) return;
@@ -10769,12 +11478,23 @@ public class Bird {
         health = Math.min(maxHealth, health + amount);
     }
 
+    void applySpecialLandingLag(int frames) {
+        if (frames <= 0) return;
+        landingLagTimer = Math.max(landingLagTimer, frames);
+    }
+
     public double getUltimateRatio() {
         return Math.clamp(ultimateMeter / ULTIMATE_MAX, 0.0, 1.0);
     }
 
     public boolean isUltimateReady() {
         return ultimateMeter >= ULTIMATE_MAX;
+    }
+
+    boolean isUltimateVisualReady() {
+        return health > 0
+                && isUltimateReady()
+                && !BirdSpecialReadiness.hasEmptyMockingbirdNeutral(this);
     }
 
     private void gainUltimate(double amount) {
@@ -11034,6 +11754,7 @@ public class Bird {
         confirmSpecialHit(dealt, specialHitConfirmAccent());
         if (target.health <= 0 && oldHealth > 0) {
             game.eliminations[playerIndex]++;
+            game.recordMoveKo(this, target, game.lastTelemetryMoveName(playerIndex, type.name + " Special"));
         }
         return dealt;
     }
@@ -12015,6 +12736,7 @@ public class Bird {
             if (health <= 0 && !trainingDummy) {
                 game.addToKillFeed(shortName() + " FLEW INTO THE VOID!");
                 game.emitBlastZoneKoEffect(this, sideX, sideY, vx, vy, sideLabel);
+                game.recordRecoveryFailure(this);
             }
             respawnAfterStageLoss(trainingDummy, islandBounds, leftBound, rightBound,
                     2000 + playerIndex * 600, BirdGame3.GROUND_Y - 400);
@@ -12036,6 +12758,9 @@ public class Bird {
                 return;
             }
             game.falls[playerIndex]++;
+            if (!trainingDummy) {
+                game.recordRecoveryFailure(this);
+            }
             health = 0;
             if (!trainingDummy) {
                 game.addToKillFeed(shortName() + " DROWNED IN THE HARBOR!");
@@ -12057,6 +12782,9 @@ public class Bird {
                 return;
             }
             game.falls[playerIndex]++;
+            if (!trainingDummy) {
+                game.recordRecoveryFailure(this);
+            }
             if (isVoidMap()) {
                 health = 0;
             } else {
@@ -12362,6 +13090,7 @@ public class Bird {
         tauntTimer = 0;
         currentTaunt = 0;
         PigeonSpecials.reset(this);
+        PigeonSpecials.resetCoronation(this);
         pigeonUpSpecialUsed = false;
         resetRoadrunnerSpecialState();
         PhoenixSpecials.reset(this);
@@ -12373,6 +13102,8 @@ public class Bird {
         raptorCryReuseTimer = 0;
         raptorRushReuseTimer = 0;
         raptorUpSpecialUsed = false;
+        RaptorSpecials.resetSkySovereign(this);
+        RaptorSpecials.resetTerminalVelocity(this);
         isGroundPounding = false;
         resetVultureSpecialState(true);
         vultureNeutralReuseTimer = 0;
@@ -12890,6 +13621,16 @@ public class Bird {
         state.pigeonScavengeUltimate = pigeonScavengeUltimate;
         state.pigeonScavengeResolved = pigeonScavengeResolved;
         state.pigeonUpSpecialUsed = pigeonUpSpecialUsed;
+        state.pigeonCoronationActive = pigeonCoronationActive;
+        state.pigeonCoronationTimer = pigeonCoronationTimer;
+        state.pigeonCoronationX = pigeonCoronationX;
+        state.pigeonCoronationY = pigeonCoronationY;
+        state.pigeonCoronationFinalResolved = pigeonCoronationFinalResolved;
+        state.pigeonCoronationStayedInside = pigeonCoronationStayedInside;
+        System.arraycopy(pigeonCoronationTickCooldown, 0, state.pigeonCoronationTickCooldown, 0,
+                pigeonCoronationTickCooldown.length);
+        System.arraycopy(pigeonCoronationFinalHit, 0, state.pigeonCoronationFinalHit, 0,
+                pigeonCoronationFinalHit.length);
         state.raptorCryTimer = raptorCryTimer;
         state.raptorCryUltimate = raptorCryUltimate;
         state.raptorRushTimer = raptorRushTimer;
@@ -12904,6 +13645,26 @@ public class Bird {
         state.raptorCryReuseTimer = raptorCryReuseTimer;
         state.raptorRushReuseTimer = raptorRushReuseTimer;
         state.raptorUpSpecialUsed = raptorUpSpecialUsed;
+        state.eagleSkySovereignActive = eagleSkySovereignActive;
+        state.eagleSkySovereignDiving = eagleSkySovereignDiving;
+        state.eagleSkySovereignTimer = eagleSkySovereignTimer;
+        state.eagleSkySovereignTargetX = eagleSkySovereignTargetX;
+        state.eagleSkySovereignTargetY = eagleSkySovereignTargetY;
+        state.eagleSkySovereignDiveStartY = eagleSkySovereignDiveStartY;
+        state.eagleSkySovereignHitResolved = eagleSkySovereignHitResolved;
+        System.arraycopy(eagleSkySovereignHit, 0, state.eagleSkySovereignHit, 0,
+                eagleSkySovereignHit.length);
+        state.falconTerminalVelocityActive = falconTerminalVelocityActive;
+        state.falconTerminalVelocityStriking = falconTerminalVelocityStriking;
+        state.falconTerminalVelocityHitAny = falconTerminalVelocityHitAny;
+        state.falconTerminalVelocityTimer = falconTerminalVelocityTimer;
+        state.falconTerminalVelocityDirection = falconTerminalVelocityDirection;
+        state.falconTerminalVelocityStartX = falconTerminalVelocityStartX;
+        state.falconTerminalVelocityStartY = falconTerminalVelocityStartY;
+        state.falconTerminalVelocityEndX = falconTerminalVelocityEndX;
+        state.falconTerminalVelocityEndY = falconTerminalVelocityEndY;
+        System.arraycopy(falconTerminalVelocityHit, 0, state.falconTerminalVelocityHit, 0,
+                falconTerminalVelocityHit.length);
         state.speedBoostTimer = speedBoostTimer;
         state.hoverRegenTimer = hoverRegenTimer;
         state.hoverRegenMultiplier = hoverRegenMultiplier;
@@ -13439,6 +14200,22 @@ public class Bird {
         this.pigeonScavengeUltimate = state.pigeonScavengeUltimate;
         this.pigeonScavengeResolved = state.pigeonScavengeResolved;
         this.pigeonUpSpecialUsed = state.pigeonUpSpecialUsed;
+        this.pigeonCoronationActive = state.pigeonCoronationActive;
+        this.pigeonCoronationTimer = state.pigeonCoronationTimer;
+        this.pigeonCoronationX = state.pigeonCoronationX;
+        this.pigeonCoronationY = state.pigeonCoronationY;
+        this.pigeonCoronationFinalResolved = state.pigeonCoronationFinalResolved;
+        this.pigeonCoronationStayedInside = state.pigeonCoronationStayedInside;
+        Arrays.fill(this.pigeonCoronationTickCooldown, 0);
+        if (state.pigeonCoronationTickCooldown != null) {
+            System.arraycopy(state.pigeonCoronationTickCooldown, 0, this.pigeonCoronationTickCooldown, 0,
+                    Math.min(this.pigeonCoronationTickCooldown.length, state.pigeonCoronationTickCooldown.length));
+        }
+        Arrays.fill(this.pigeonCoronationFinalHit, false);
+        if (state.pigeonCoronationFinalHit != null) {
+            System.arraycopy(state.pigeonCoronationFinalHit, 0, this.pigeonCoronationFinalHit, 0,
+                    Math.min(this.pigeonCoronationFinalHit.length, state.pigeonCoronationFinalHit.length));
+        }
         this.raptorCryTimer = state.raptorCryTimer;
         this.raptorCryUltimate = state.raptorCryUltimate;
         this.raptorRushTimer = state.raptorRushTimer;
@@ -13461,6 +14238,34 @@ public class Bird {
         this.raptorCryReuseTimer = state.raptorCryReuseTimer;
         this.raptorRushReuseTimer = state.raptorRushReuseTimer;
         this.raptorUpSpecialUsed = state.raptorUpSpecialUsed;
+        this.eagleSkySovereignActive = state.eagleSkySovereignActive;
+        this.eagleSkySovereignDiving = state.eagleSkySovereignDiving;
+        this.eagleSkySovereignTimer = state.eagleSkySovereignTimer;
+        this.eagleSkySovereignTargetX = state.eagleSkySovereignTargetX;
+        this.eagleSkySovereignTargetY = state.eagleSkySovereignTargetY;
+        this.eagleSkySovereignDiveStartY = state.eagleSkySovereignDiveStartY;
+        this.eagleSkySovereignHitResolved = state.eagleSkySovereignHitResolved;
+        Arrays.fill(this.eagleSkySovereignHit, false);
+        if (state.eagleSkySovereignHit != null) {
+            System.arraycopy(state.eagleSkySovereignHit, 0, this.eagleSkySovereignHit, 0,
+                    Math.min(this.eagleSkySovereignHit.length, state.eagleSkySovereignHit.length));
+        }
+        this.falconTerminalVelocityActive = state.falconTerminalVelocityActive;
+        this.falconTerminalVelocityStriking = state.falconTerminalVelocityStriking;
+        this.falconTerminalVelocityHitAny = state.falconTerminalVelocityHitAny;
+        this.falconTerminalVelocityTimer = state.falconTerminalVelocityTimer;
+        this.falconTerminalVelocityDirection = state.falconTerminalVelocityDirection == 0
+                ? facingDirection()
+                : state.falconTerminalVelocityDirection;
+        this.falconTerminalVelocityStartX = state.falconTerminalVelocityStartX;
+        this.falconTerminalVelocityStartY = state.falconTerminalVelocityStartY;
+        this.falconTerminalVelocityEndX = state.falconTerminalVelocityEndX;
+        this.falconTerminalVelocityEndY = state.falconTerminalVelocityEndY;
+        Arrays.fill(this.falconTerminalVelocityHit, false);
+        if (state.falconTerminalVelocityHit != null) {
+            System.arraycopy(state.falconTerminalVelocityHit, 0, this.falconTerminalVelocityHit, 0,
+                    Math.min(this.falconTerminalVelocityHit.length, state.falconTerminalVelocityHit.length));
+        }
         this.speedBoostTimer = state.speedBoostTimer;
         this.hoverRegenTimer = state.hoverRegenTimer;
         this.hoverRegenMultiplier = state.hoverRegenMultiplier;
@@ -13676,9 +14481,11 @@ public class Bird {
                     : "OUT OF STOCKS!";
             if (creditedKo) {
                 game.eliminations[attackerIndex]++;
+                game.recordMoveKo(attacker, this, game.lastTelemetryMoveName(attackerIndex, "Blast Zone"));
                 game.checkAchievements(attacker);
                 game.addToKillFeed(attacker.shortName() + " KO'd " + shortName() + " " + zoneLabel + "! " + stockText);
             } else {
+                game.recordRecoveryFailure(this);
                 game.addToKillFeed(shortName() + " blasted out " + zoneLabel + "! " + stockText);
             }
             game.playZombieFallSfx();
@@ -13782,6 +14589,17 @@ public class Bird {
     private boolean grinchhawkSpecialPoseActive() {
         return type == BirdGame3.BirdType.GRINCHHAWK
                 && (grinchHeartSnatchTimer > 0 || grinchSleighRiding || grinchChimneyFlapTimer > 0);
+    }
+
+    private boolean mockingbirdSpecialPoseActive() {
+        return type == BirdGame3.BirdType.MOCKINGBIRD
+                && (mockingbirdQuestionTimer > 0 || mockingbirdSideFxTimer > 0 || mockingbirdUpFxTimer > 0);
+    }
+
+    private boolean opiumSpecialPoseActive() {
+        return isOpiumEchoPair()
+                && (opiumSideTimer > 0 || opiumUpTimer > 0
+                || opiumUltimateTimer > 0 || heisenUltimateTimer > 0 || heisenUltimateVolleyTimer > 0);
     }
 
     private boolean ravenSpecialPoseActive() {
@@ -13900,6 +14718,28 @@ public class Bird {
     private AttackVisualPose currentRaptorSpecialPose() {
         double dir = facingRight ? 1.0 : -1.0;
         boolean eagle = type == BirdGame3.BirdType.EAGLE;
+        if (falconTerminalVelocityActive) {
+            double phase = falconTerminalVelocityStriking
+                    ? raptorSpecialPhase(falconTerminalVelocityTimer, FALCON_TERMINAL_VELOCITY_STRIKE_FRAMES)
+                    : 0.0;
+            double angle = Math.atan2(
+                    falconTerminalVelocityEndY - falconTerminalVelocityStartY,
+                    falconTerminalVelocityEndX - falconTerminalVelocityStartX
+            );
+            return new AttackVisualPose(
+                    dir * (8.0 + 10.0 * phase),
+                    -7.0 + 12.0 * phase,
+                    dir * (18.0 + 14.0 * phase),
+                    normalizeAngleRadians(angle),
+                    18.0 + 10.0 * phase,
+                    4.0 + 8.0 * phase,
+                    15.0 + 10.0 * phase,
+                    0.72,
+                    18.0 + 16.0 * phase,
+                    1.10 + 0.10 * phase,
+                    0.84
+            );
+        }
         if (eagleDiveActive || eagleAscentActive) {
             if (eagleAscentActive) {
                 double phase = raptorSpecialPhase(eagleAscentFrames, 36);
@@ -14378,6 +15218,139 @@ public class Bird {
                 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
     }
 
+    private AttackVisualPose currentMockingbirdSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (mockingbirdUpFxTimer > 0) {
+            double phase = pigeonSpecialPhase(mockingbirdUpFxTimer, MOCKINGBIRD_UP_FX_FRAMES + 8);
+            return new AttackVisualPose(
+                    dir * (1.2 + phase * 2.0),
+                    -16.0 - phase * 12.0,
+                    dir * (4.0 + phase * 4.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10),
+                    11.0 + phase * 5.0,
+                    -17.0 - phase * 7.0,
+                    8.0 + phase * 4.0,
+                    1.04 + phase * 0.04,
+                    -20.0 - phase * 9.0,
+                    0.96,
+                    1.12 + phase * 0.06
+            );
+        }
+        if (mockingbirdSideFxTimer > 0) {
+            double phase = pigeonSpecialPhase(mockingbirdSideFxTimer, MOCKINGBIRD_SIDE_FX_FRAMES + 5);
+            double snap = Math.sin(phase * Math.PI);
+            return new AttackVisualPose(
+                    dir * (7.0 + snap * 8.0),
+                    -4.0 - snap * 2.0,
+                    dir * (8.0 + snap * 7.0),
+                    facingRight ? -0.10 : Math.PI + 0.10,
+                    14.0 + snap * 7.0,
+                    -5.0 - snap * 3.0,
+                    13.0 + snap * 7.0,
+                    0.86,
+                    dir * (8.0 + snap * 5.0),
+                    1.10 + snap * 0.08,
+                    0.90
+            );
+        }
+        if (mockingbirdQuestionTimer > 0) {
+            double phase = pigeonSpecialPhase(mockingbirdQuestionTimer, MOCKINGBIRD_QUESTION_FRAMES);
+            double wobble = Math.sin(phase * Math.PI * 5.0);
+            return new AttackVisualPose(
+                    -dir * (2.5 + phase * 1.5),
+                    -3.0 - phase * 2.0,
+                    -dir * (5.0 + wobble * 3.0),
+                    facingRight ? 0.03 : Math.PI - 0.03,
+                    4.0 + phase * 4.0,
+                    -7.0 - phase * 3.0,
+                    3.0 + phase * 3.0,
+                    1.20 + phase * 0.12,
+                    -dir * (5.0 + wobble * 4.0),
+                    0.98,
+                    1.04
+            );
+        }
+        return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
+                0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+    }
+
+    private AttackVisualPose currentOpiumSpecialPose() {
+        boolean heisen = type == BirdGame3.BirdType.HEISENBIRD;
+        double dir = facingRight ? 1.0 : -1.0;
+        double sideDir = opiumSideDirection == 0 ? dir : Math.signum(opiumSideDirection);
+        if (heisen && heisenUltimateVolleyTimer > 0) {
+            double phase = pigeonSpecialPhase(heisenUltimateVolleyTimer, HEISEN_ULTIMATE_VOLLEY_FRAMES);
+            double pulse = 0.5 + 0.5 * Math.sin(heisenUltimateVolleyTimer * 0.32);
+            return new AttackVisualPose(
+                    -dir * (4.0 + pulse * 3.0),
+                    -10.0 - phase * 6.0,
+                    -dir * (8.0 + phase * 8.0),
+                    facingRight ? -0.08 : Math.PI + 0.08,
+                    16.0 + phase * 10.0,
+                    -13.0 - phase * 7.0,
+                    14.0 + phase * 8.0,
+                    0.84,
+                    -dir * (9.0 + pulse * 4.0),
+                    1.02,
+                    1.04
+            );
+        }
+        if ((heisen && heisenUltimateTimer > 0) || (!heisen && opiumUltimateTimer > 0)) {
+            int timer = heisen ? heisenUltimateTimer : opiumUltimateTimer;
+            int total = heisen ? HEISEN_ULTIMATE_FRAMES : OPIUM_ULTIMATE_FRAMES;
+            double phase = pigeonSpecialPhase(timer, total);
+            double pulse = 0.5 + 0.5 * Math.sin(timer * (heisen ? 0.22 : 0.18));
+            return new AttackVisualPose(
+                    0.0,
+                    -8.0 - phase * 9.0,
+                    dir * (3.0 + pulse * 4.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.05),
+                    14.0 + phase * 9.0,
+                    -12.0 - phase * 8.0,
+                    12.0 + phase * 8.0,
+                    heisen ? 0.90 : 1.20,
+                    -17.0 - phase * 9.0,
+                    heisen ? 0.98 : 1.06,
+                    1.08 + phase * 0.06
+            );
+        }
+        if (opiumUpTimer > 0) {
+            double phase = pigeonSpecialPhase(opiumUpTimer, heisen ? HEISEN_UP_FRAMES : OPIUM_UP_FRAMES);
+            return new AttackVisualPose(
+                    dir * (0.8 + phase * 1.5),
+                    -18.0 - phase * (heisen ? 14.0 : 17.0),
+                    dir * (3.0 + phase * 4.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.08),
+                    12.0 + phase * 6.0,
+                    -19.0 - phase * 8.0,
+                    10.0 + phase * 5.0,
+                    heisen ? 0.92 : 1.10,
+                    -24.0 - phase * 10.0,
+                    heisen ? 0.94 : 1.02,
+                    1.16 + phase * 0.08
+            );
+        }
+        if (opiumSideTimer > 0) {
+            double phase = pigeonSpecialPhase(opiumSideTimer, heisen ? HEISEN_SIDE_FRAMES : OPIUM_SIDE_FRAMES);
+            double surge = Math.sin(phase * Math.PI);
+            return new AttackVisualPose(
+                    sideDir * (10.0 + surge * (heisen ? 8.0 : 10.0)),
+                    -5.0 - surge * 3.0,
+                    sideDir * (10.0 + surge * (heisen ? 8.0 : 7.0)),
+                    sideDir > 0 ? -0.10 : Math.PI + 0.10,
+                    15.0 + surge * 8.0,
+                    -7.0 - surge * 4.0,
+                    15.0 + surge * 8.0,
+                    heisen ? 0.82 : 1.08,
+                    sideDir * (10.0 + surge * 7.0),
+                    1.14 + surge * 0.06,
+                    0.88
+            );
+        }
+        return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
+                0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+    }
+
     private AttackVisualPose currentGrinchhawkSpecialPose() {
         double dir = facingRight ? 1.0 : -1.0;
         if (grinchSleighRiding) {
@@ -14526,6 +15499,7 @@ public class Bird {
     private NormalAttackVariant currentDisplayedAttackVariant() {
         if (pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
                 || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
+                || mockingbirdSpecialPoseActive() || opiumSpecialPoseActive()
                 || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive()) {
             return null;
         }
@@ -14602,10 +15576,12 @@ public class Bird {
         if (isDodging()) {
             return VISUAL_POSE_DODGE_BLEND_PER_FRAME;
         }
-        if (stunTime > 0.0 || jumpSquatTimer > 0 || landingLagTimer > 0
+        if (health <= 0 || stunTime > 0.0 || knockdownTimer > 0 || jumpSquatTimer > 0 || landingLagTimer > 0
+                || isBlocking || shieldStunFrames > 0 || parryWindowFrames > 0
                 || isChargingAttack() || attackAnimationTimer > 0 || aerialAttackActive
                 || pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
                 || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
+                || mockingbirdSpecialPoseActive() || opiumSpecialPoseActive()
                 || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive()) {
             return VISUAL_POSE_ACTION_BLEND_PER_FRAME;
         }
@@ -14669,6 +15645,2456 @@ public class Bird {
         );
     }
 
+    private AttackVisualPose currentEagleStatePose(BirdAnimationState state) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 18.0);
+        return switch (state) {
+            case FLAP -> new AttackVisualPose(
+                    dir * (2.0 + speed * 2.0),
+                    -8.0 - speed * 6.0,
+                    dir * (4.0 + speed * 3.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10),
+                    11.0 + speed * 6.0,
+                    -14.0 - speed * 7.0,
+                    9.0 + speed * 5.0,
+                    1.04 + speed * 0.06,
+                    -16.0 - speed * 9.0,
+                    0.98,
+                    1.08 + speed * 0.06
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * 1.5,
+                    4.0 + speed * 5.0,
+                    dir * (2.0 + speed * 3.0),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.12),
+                    7.0 + speed * 3.0,
+                    7.0 + speed * 5.0,
+                    7.0 + speed * 3.0,
+                    0.92,
+                    12.0 + speed * 8.0,
+                    0.97,
+                    1.03
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (5.0 + speed * 8.0),
+                    -2.0 - speed * 5.0,
+                    -dir * (11.0 + speed * 10.0),
+                    facingRight ? Math.PI - 0.10 : 0.10,
+                    4.0,
+                    1.0,
+                    3.0,
+                    0.86,
+                    -dir * (14.0 + speed * 15.0),
+                    0.90,
+                    1.08
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 3.0,
+                    3.5,
+                    -dir * 5.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    3.0,
+                    -2.0,
+                    0.82,
+                    -dir * 4.0,
+                    0.92,
+                    0.94
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 4.0,
+                    -2.0,
+                    dir * 20.0,
+                    facingRight ? 0.0 : Math.PI,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    dir * 12.0,
+                    1.10,
+                    0.88
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (8.0 + speed * 5.0),
+                    -3.0,
+                    dir * (7.0 + speed * 5.0),
+                    facingRight ? -0.10 : Math.PI + 0.10,
+                    12.0,
+                    -5.0,
+                    12.0,
+                    1.08,
+                    dir * 7.0,
+                    1.08,
+                    0.94
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    11.0,
+                    dir * 28.0,
+                    facingRight ? Math.PI : 0.0,
+                    0.0,
+                    6.0,
+                    0.0,
+                    0.75,
+                    dir * 24.0,
+                    0.92,
+                    0.82
+            );
+            case IDLE -> {
+                double squash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 10.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * Math.sin(System.currentTimeMillis() / 520.0) * 0.6,
+                        4.0 * squash,
+                        dir * Math.sin(System.currentTimeMillis() / 560.0) * 1.4,
+                        facingRight ? 0.0 : Math.PI,
+                        0.0,
+                        -1.2 * Math.sin(System.currentTimeMillis() / 420.0),
+                        0.0,
+                        1.0,
+                        dir * Math.sin(System.currentTimeMillis() / 680.0) * 1.5,
+                        1.0 + squash * 0.10,
+                        1.0 - squash * 0.12
+                );
+            }
+        };
+    }
+
+    private BirdVisualProfile currentVisualProfile() {
+        return switch (type) {
+            case PIGEON -> PIGEON_VISUAL_PROFILE;
+            case PHOENIX -> PHOENIX_VISUAL_PROFILE;
+            case ROOSTER -> ROOSTER_VISUAL_PROFILE;
+            case MOCKINGBIRD -> MOCKINGBIRD_VISUAL_PROFILE;
+            case GRINCHHAWK -> GRINCHHAWK_VISUAL_PROFILE;
+            case OPIUMBIRD -> OPIUM_VISUAL_PROFILE;
+            case HEISENBIRD -> HEISEN_VISUAL_PROFILE;
+            case TITMOUSE -> TITMOUSE_VISUAL_PROFILE;
+            case HUMMINGBIRD -> HUMMINGBIRD_VISUAL_PROFILE;
+            case ROADRUNNER -> ROADRUNNER_VISUAL_PROFILE;
+            case RAZORBILL -> RAZORBILL_VISUAL_PROFILE;
+            case FALCON -> FALCON_VISUAL_PROFILE;
+            case BAT -> BAT_VISUAL_PROFILE;
+            case RAVEN -> RAVEN_VISUAL_PROFILE;
+            case PELICAN -> PELICAN_VISUAL_PROFILE;
+            case SHOEBILL -> SHOEBILL_VISUAL_PROFILE;
+            case VULTURE -> VULTURE_VISUAL_PROFILE;
+            case TURKEY -> TURKEY_VISUAL_PROFILE;
+            case PENGUIN -> PENGUIN_VISUAL_PROFILE;
+            default -> DEFAULT_BIRD_VISUAL_PROFILE;
+        };
+    }
+
+    private AttackVisualPose currentSharedBirdStatePose(BirdAnimationState state) {
+        BirdVisualProfile profile = currentVisualProfile();
+        if (profile.style() == BirdVisualProfileStyle.PIGEON) {
+            return currentPigeonStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.PHOENIX) {
+            return currentPhoenixStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.ROOSTER) {
+            return currentRoosterStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.MOCKINGBIRD) {
+            return currentMockingbirdStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.GRINCHHAWK) {
+            return currentGrinchhawkStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.OPIUM) {
+            return currentOpiumStatePose(state, profile, false);
+        }
+        if (profile.style() == BirdVisualProfileStyle.HEISEN) {
+            return currentOpiumStatePose(state, profile, true);
+        }
+        if (profile.style() == BirdVisualProfileStyle.TITMOUSE) {
+            return currentTitmouseStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.HUMMINGBIRD) {
+            return currentHummingbirdStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.RAZORBILL) {
+            return currentRazorbillStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.BAT) {
+            return currentBatStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.RAVEN) {
+            return currentRavenStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.FALCON) {
+            return currentFalconStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.ROADRUNNER) {
+            return currentRoadrunnerStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.PELICAN) {
+            return currentPelicanStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.SHOEBILL) {
+            return currentShoebillStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.VULTURE) {
+            return currentVultureStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.TURKEY) {
+            return currentTurkeyStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.PENGUIN) {
+            return currentPenguinStatePose(state, profile);
+        }
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 16.0);
+        double agility = profile.agility();
+        double mass = profile.mass();
+        double now = System.currentTimeMillis() + playerIndex * 137.0;
+        return switch (state) {
+            case FLAP -> new AttackVisualPose(
+                    dir * (1.5 + speed * 2.2) * agility,
+                    (-5.5 - speed * 4.8) * agility * profile.airLift(),
+                    dir * (3.0 + speed * 4.0) * agility * profile.airPitch(),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.12),
+                    8.0 + speed * 5.0,
+                    -10.0 - speed * 6.0,
+                    6.0 + speed * 3.0,
+                    1.02,
+                    (-14.0 - speed * 9.0) * profile.airPitch(),
+                    0.97,
+                    1.08 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (0.8 + speed * 1.6) * agility,
+                    (3.5 + speed * 4.2) * mass,
+                    dir * (2.0 + speed * 4.0) * agility * profile.airPitch(),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.12),
+                    5.5 + speed * 3.0,
+                    5.0 + speed * 5.0,
+                    4.0 + speed * 3.0,
+                    0.93,
+                    (10.0 + speed * 8.0) * profile.airPitch(),
+                    0.97,
+                    1.04
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.0 + speed * 7.0) * mass * profile.recoil(),
+                    -2.0 - speed * 3.0,
+                    -dir * (9.0 + speed * 10.0) * mass * profile.recoil(),
+                    facingRight ? Math.PI - 0.10 : 0.10,
+                    3.0,
+                    2.0,
+                    2.0,
+                    0.82,
+                    -dir * (12.0 + speed * 12.0) * profile.recoil(),
+                    0.91,
+                    1.09
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 2.4 * mass,
+                    3.8 * mass * profile.shieldCrouch(),
+                    -dir * 4.5 * mass * profile.shieldCrouch(),
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    3.0,
+                    -1.0,
+                    0.86,
+                    -dir * 4.0,
+                    1.0 + 0.04 * profile.shieldCrouch(),
+                    1.0 - 0.10 * profile.shieldCrouch()
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 3.0 * agility,
+                    -2.0 * agility,
+                    dir * 14.0 * agility,
+                    facingRight ? 0.0 : Math.PI,
+                    0.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    dir * 9.0,
+                    1.08,
+                    0.88
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (5.0 + speed * 4.0) * agility,
+                    -2.0,
+                    dir * (5.0 + speed * 4.0) * agility,
+                    facingRight ? -0.06 : Math.PI + 0.06,
+                    8.0,
+                    -4.0,
+                    7.0,
+                    1.05,
+                    dir * 5.0,
+                    1.06,
+                    0.96
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    10.0 * mass * profile.koSlump(),
+                    dir * 24.0 * mass * profile.koSlump(),
+                    facingRight ? Math.PI : 0.0,
+                    0.0,
+                    6.0,
+                    0.0,
+                    0.72,
+                    dir * 22.0 * profile.koSlump(),
+                    1.0 + 0.08 * profile.koSlump(),
+                    1.0 - 0.22 * profile.koSlump()
+            );
+            case IDLE -> {
+                double breath = Math.sin(now / Math.max(260.0, 430.0 / Math.max(0.65, agility)));
+                double glance = Math.sin(now / Math.max(360.0, 670.0 / Math.max(0.65, agility)));
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 10.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * glance * 0.55 * agility * profile.idleLean(),
+                        breath * 0.7 * agility * profile.idleBob() + landingSquash * 3.0 * mass,
+                        dir * breath * 0.85 * agility * profile.idleLean(),
+                        facingRight ? 0.0 : Math.PI,
+                        0.0,
+                        -breath * 1.2 * agility * profile.idleBob(),
+                        0.0,
+                        1.0,
+                        dir * glance * 1.2 * agility * profile.idleLean(),
+                        1.0 + landingSquash * 0.10,
+                        1.0 - landingSquash * 0.12
+                );
+            }
+        };
+    }
+
+    private AttackVisualPose currentMockingbirdStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 15.0);
+        double now = System.currentTimeMillis() + playerIndex * 149.0;
+        double tilt = Math.sin(now / 240.0);
+        double trill = Math.sin(now / 118.0);
+        double copied = mockingbirdCapturedType != null || mockingbirdCopiedNeutralSource != null ? 1.0 : 0.0;
+        double lounging = isInsideMockingbirdLounge(this) ? 1.0 : 0.0;
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 9.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * (tilt * 0.9 + copied * 0.8) - dir * lounging * 1.8,
+                        Math.abs(trill) * 0.55 + landingSquash * 2.2 + lounging * 3.2,
+                        dir * (tilt * 2.4 + copied * 2.0) - dir * lounging * 5.0,
+                        facingRight ? 0.02 : Math.PI - 0.02,
+                        1.5 + copied * 1.8 + lounging * 1.6,
+                        -2.0 - Math.max(0.0, trill) * 1.2 + lounging * 2.6,
+                        1.0 + copied * 1.6 + lounging,
+                        1.02 + copied * 0.06 + lounging * 0.06,
+                        dir * (tilt * 3.0 + copied * 2.0) - dir * lounging * 6.0,
+                        1.0 + landingSquash * 0.08,
+                        1.0 - landingSquash * 0.10 - lounging * 0.08
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (1.8 + speed * 2.8),
+                    (-7.0 - speed * 5.2) * profile.airLift(),
+                    dir * (4.0 + speed * 4.4),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.12),
+                    9.0 + speed * 5.0,
+                    -13.0 - speed * 5.0,
+                    6.0 + speed * 4.0,
+                    1.04,
+                    -18.0 - speed * 8.0,
+                    0.94,
+                    1.14 + speed * 0.04
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (1.0 + speed * 1.9),
+                    3.4 + speed * 4.0,
+                    dir * (3.0 + speed * 4.0),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.12),
+                    6.0 + speed * 4.0,
+                    5.0 + speed * 4.0,
+                    5.0 + speed * 3.0,
+                    0.92,
+                    12.0 + speed * 8.0,
+                    0.97,
+                    1.06
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 5.4,
+                    -2.4,
+                    dir * 20.0,
+                    facingRight ? -0.02 : Math.PI + 0.02,
+                    1.0,
+                    -1.0,
+                    1.0,
+                    1.0,
+                    dir * 13.0,
+                    1.12,
+                    0.84
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.0 + speed * 6.0) * profile.recoil(),
+                    -3.0 - speed * 2.0,
+                    -dir * (11.0 + speed * 8.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.10 : 0.10,
+                    3.0,
+                    3.0,
+                    2.0,
+                    0.78,
+                    -dir * (14.0 + speed * 10.0),
+                    0.90,
+                    1.10
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 2.2,
+                    4.0 * profile.shieldCrouch(),
+                    -dir * 5.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -1.0,
+                    3.0,
+                    -1.0,
+                    0.84,
+                    -dir * 5.0,
+                    1.06,
+                    0.90
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    8.0 * profile.koSlump(),
+                    dir * 20.0 * profile.koSlump(),
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    6.0,
+                    -1.0,
+                    0.70,
+                    dir * 20.0 * profile.koSlump(),
+                    1.08,
+                    0.78
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (6.0 + speed * 4.0),
+                    -3.0,
+                    dir * (7.0 + speed * 5.0),
+                    facingRight ? -0.08 : Math.PI + 0.08,
+                    11.0,
+                    -5.0,
+                    9.0,
+                    1.06,
+                    dir * 7.0,
+                    1.08,
+                    0.94
+            );
+        };
+    }
+
+    private AttackVisualPose currentGrinchhawkStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 14.0);
+        double now = System.currentTimeMillis() + playerIndex * 157.0;
+        double hunch = Math.sin(now / 360.0);
+        double snarl = Math.sin(now / 180.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 11.0) : 0.0;
+                yield new AttackVisualPose(
+                        -dir * (0.8 + Math.max(0.0, snarl) * 0.7),
+                        2.2 + Math.abs(hunch) * 0.6 + landingSquash * 3.0,
+                        -dir * (2.4 + hunch * 1.6),
+                        facingRight ? -0.03 : Math.PI + 0.03,
+                        2.0 + Math.max(0.0, snarl) * 2.0,
+                        -0.5 - Math.max(0.0, snarl) * 1.4,
+                        2.0 + Math.max(0.0, snarl) * 1.8,
+                        1.04 + Math.max(0.0, snarl) * 0.08,
+                        -dir * (2.5 + hunch * 1.8),
+                        1.0 + landingSquash * 0.10,
+                        1.0 - landingSquash * 0.12
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (1.2 + speed * 2.6),
+                    (-6.0 - speed * 5.0) * profile.airLift(),
+                    dir * (3.6 + speed * 4.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10),
+                    8.0 + speed * 4.0,
+                    -12.0 - speed * 5.0,
+                    6.0 + speed * 3.0,
+                    1.00,
+                    -16.0 - speed * 8.0,
+                    0.98,
+                    1.10 + speed * 0.04
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (0.8 + speed * 1.8),
+                    (4.0 + speed * 4.8) * profile.mass(),
+                    dir * (3.0 + speed * 4.0),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.10),
+                    5.0 + speed * 3.0,
+                    6.0 + speed * 5.0,
+                    4.0 + speed * 3.0,
+                    0.90,
+                    13.0 + speed * 9.0,
+                    1.02,
+                    1.04
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 4.0,
+                    0.0,
+                    dir * 16.0,
+                    facingRight ? -0.04 : Math.PI + 0.04,
+                    1.0,
+                    0.0,
+                    1.0,
+                    0.96,
+                    dir * 10.0,
+                    1.14,
+                    0.84
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (5.0 + speed * 7.0) * profile.mass() * profile.recoil(),
+                    -1.0 - speed * 2.0,
+                    -dir * (10.0 + speed * 9.0) * profile.mass(),
+                    facingRight ? Math.PI - 0.10 : 0.10,
+                    2.0,
+                    2.0,
+                    2.0,
+                    0.76,
+                    -dir * (13.0 + speed * 11.0),
+                    0.92,
+                    1.08
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 3.0 * profile.mass(),
+                    5.4 * profile.shieldCrouch(),
+                    -dir * 7.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    4.0,
+                    -1.0,
+                    0.78,
+                    -dir * 6.0,
+                    1.10,
+                    0.86
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    10.0 * profile.koSlump(),
+                    dir * 25.0 * profile.koSlump(),
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    7.0,
+                    -1.0,
+                    0.68,
+                    dir * 24.0 * profile.koSlump(),
+                    1.12,
+                    0.74
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (8.0 + speed * 5.0),
+                    -2.0,
+                    dir * (9.0 + speed * 5.0),
+                    facingRight ? -0.10 : Math.PI + 0.10,
+                    13.0,
+                    -5.0,
+                    11.0,
+                    1.12,
+                    dir * 9.0,
+                    1.12,
+                    0.90
+            );
+        };
+    }
+
+    private AttackVisualPose currentOpiumStatePose(BirdAnimationState state, BirdVisualProfile profile, boolean heisen) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / (heisen ? 16.0 : 14.0));
+        double now = System.currentTimeMillis() + playerIndex * (heisen ? 173.0 : 167.0);
+        double drift = Math.sin(now / (heisen ? 300.0 : 360.0));
+        double pulse = Math.sin(now / (heisen ? 150.0 : 220.0));
+        double resourceLow = 1.0 - Math.clamp(opiumResourceMeter / OPIUM_RESOURCE_MAX, 0.0, 1.0);
+        double activeCloud = leanTimer > 0 ? (opiumNeutralFueled ? 1.0 : 0.35) : 0.0;
+        double activeHigh = highTimer > 0 ? 1.0 : 0.0;
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 10.0) : 0.0;
+                double floatLift = heisen ? Math.abs(pulse) * 0.35 : Math.abs(drift) * (1.1 + activeCloud * 0.8);
+                yield new AttackVisualPose(
+                        dir * drift * (heisen ? 0.7 + activeHigh * 0.4 : 1.2 + activeCloud * 0.6),
+                        -floatLift + landingSquash * (heisen ? 2.0 : 2.6) + resourceLow * 1.4 - activeHigh * 1.4,
+                        dir * (drift * (heisen ? 1.4 : 2.2) + pulse * (heisen ? 0.9 + activeHigh : 0.5 + activeCloud)),
+                        facingRight ? 0.0 : Math.PI,
+                        heisen ? 1.0 + resourceLow + activeHigh * 1.5 : 1.4 + activeCloud * 2.0,
+                        -2.0 - floatLift - activeHigh * 2.0,
+                        heisen ? 1.0 + resourceLow * 1.5 + activeHigh : 1.6 + activeCloud * 1.8,
+                        heisen ? 0.96 - activeHigh * 0.04 : 1.08 + activeCloud * 0.08,
+                        dir * drift * (heisen ? 2.0 + activeHigh : 3.0 + activeCloud * 2.0),
+                        1.0 + landingSquash * 0.08,
+                        1.0 - landingSquash * 0.10
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (1.3 + speed * (heisen ? 2.3 : 2.8)),
+                    (-7.0 - speed * (heisen ? 4.6 : 5.8)) * profile.airLift(),
+                    dir * (3.6 + speed * (heisen ? 4.2 : 4.8)),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10),
+                    9.0 + speed * 5.0,
+                    -13.0 - speed * 5.0,
+                    7.0 + speed * 4.0,
+                    heisen ? 0.94 : 1.08,
+                    -18.0 - speed * 9.0,
+                    heisen ? 0.95 : 0.98,
+                    1.12 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (1.0 + speed * (heisen ? 1.6 : 2.0)),
+                    3.0 + speed * (heisen ? 3.6 : 4.2),
+                    dir * (2.6 + speed * (heisen ? 4.0 : 4.4)),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.10),
+                    6.0 + speed * 4.0,
+                    5.0 + speed * 4.0,
+                    5.0 + speed * 3.0,
+                    heisen ? 0.88 : 1.02,
+                    11.0 + speed * 8.0,
+                    0.98,
+                    1.05
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * (heisen ? 4.8 : 5.6),
+                    -2.0,
+                    dir * (heisen ? 18.0 : 20.0),
+                    facingRight ? -0.03 : Math.PI + 0.03,
+                    1.0,
+                    -1.0,
+                    1.0,
+                    heisen ? 0.84 : 1.12,
+                    dir * (heisen ? 12.0 : 15.0),
+                    1.12,
+                    0.84
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.0 + speed * 6.0) * profile.recoil(),
+                    -2.0 - speed * 3.0,
+                    -dir * (9.0 + speed * 9.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.10 : 0.10,
+                    3.0,
+                    3.0,
+                    2.0,
+                    heisen ? 0.78 : 0.84,
+                    -dir * (13.0 + speed * 10.0),
+                    0.92,
+                    1.10
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * (heisen ? 2.0 : 2.4),
+                    4.2 * profile.shieldCrouch(),
+                    -dir * (heisen ? 4.5 : 5.5),
+                    facingRight ? 0.0 : Math.PI,
+                    -1.0,
+                    3.4,
+                    -1.0,
+                    heisen ? 0.78 : 0.92,
+                    -dir * (heisen ? 5.0 : 6.0),
+                    1.07,
+                    0.88
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    (heisen ? 7.0 : 8.0) * profile.koSlump(),
+                    dir * (heisen ? 18.0 : 21.0) * profile.koSlump(),
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    6.0,
+                    -1.0,
+                    heisen ? 0.66 : 0.72,
+                    dir * (heisen ? 19.0 : 22.0) * profile.koSlump(),
+                    1.08,
+                    0.78
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (6.0 + speed * (heisen ? 4.0 : 4.8)),
+                    -3.0,
+                    dir * (7.0 + speed * (heisen ? 5.0 : 5.8)),
+                    facingRight ? -0.08 : Math.PI + 0.08,
+                    11.0,
+                    -5.0,
+                    9.0,
+                    heisen ? 0.88 : 1.12,
+                    dir * (7.0 + speed * 3.0),
+                    1.08,
+                    0.94
+            );
+        };
+    }
+
+    private AttackVisualPose currentPigeonStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 15.0);
+        double now = System.currentTimeMillis() + playerIndex * 131.0;
+        double bob = Math.sin(now / 210.0);
+        double peck = Math.sin(now / 115.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 9.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * peck * 0.65,
+                        Math.abs(bob) * 0.85 + landingSquash * 2.6,
+                        dir * (bob * 1.4 + peck * 0.6),
+                        facingRight ? -0.02 : Math.PI + 0.02,
+                        1.2 + Math.max(0.0, peck) * 1.2,
+                        -1.2 - Math.abs(peck) * 0.9,
+                        1.0,
+                        1.0,
+                        dir * peck * 2.0,
+                        1.0 + landingSquash * 0.08,
+                        1.0 - landingSquash * 0.10
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (2.2 + speed * 3.0),
+                    (-6.6 - speed * 5.6) * profile.airLift(),
+                    dir * (5.0 + speed * 4.6),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.14),
+                    9.0 + speed * 5.0,
+                    -12.0 - speed * 5.0,
+                    6.0 + speed * 3.0,
+                    1.04,
+                    -18.0 - speed * 9.0,
+                    0.92,
+                    1.14 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (1.8 + speed * 2.4),
+                    4.2 + speed * 4.6,
+                    dir * (4.2 + speed * 5.0),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.12),
+                    7.0 + speed * 3.0,
+                    5.8 + speed * 4.5,
+                    5.0 + speed * 3.0,
+                    0.92,
+                    13.0 + speed * 9.0,
+                    0.96,
+                    1.06
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 5.2,
+                    -1.6,
+                    dir * 18.0,
+                    facingRight ? -0.03 : Math.PI + 0.03,
+                    1.0,
+                    -1.0,
+                    0.5,
+                    0.94,
+                    dir * 13.0,
+                    1.18,
+                    0.82
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.6 + speed * 7.0) * profile.recoil(),
+                    -3.0 - speed * 3.6,
+                    -dir * (12.0 + speed * 10.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    1.0,
+                    1.0,
+                    0.78,
+                    -dir * (17.0 + speed * 12.0),
+                    0.88,
+                    1.14
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 1.8,
+                    4.8,
+                    -dir * 3.6,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    4.0,
+                    -1.0,
+                    0.82,
+                    -dir * 3.4,
+                    1.12,
+                    0.82
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    8.5 * profile.mass(),
+                    dir * 22.0,
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    5.0,
+                    -1.0,
+                    0.70,
+                    dir * 20.0,
+                    1.15,
+                    0.74
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (7.0 + speed * 4.0),
+                    -2.0,
+                    dir * (8.0 + speed * 4.0),
+                    facingRight ? -0.08 : Math.PI + 0.08,
+                    11.0,
+                    -4.5,
+                    10.0,
+                    1.08,
+                    dir * 8.0,
+                    1.12,
+                    0.90
+            );
+        };
+    }
+
+    private AttackVisualPose currentPhoenixStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 17.0);
+        double rebornBoost = phoenixRebornActive ? 1.18 : 1.0;
+        double now = System.currentTimeMillis() + playerIndex * 199.0;
+        double ember = Math.sin(now / 300.0);
+        double flare = Math.sin(now / 150.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 9.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * ember * 0.45 * rebornBoost,
+                        -1.0 + flare * 0.8 - Math.abs(ember) * 0.4 + landingSquash * 1.8,
+                        dir * ember * 1.5 * rebornBoost,
+                        facingRight ? -0.03 : Math.PI + 0.03,
+                        1.0 + Math.max(0.0, flare) * 1.4,
+                        -2.2 - Math.max(0.0, flare) * 1.2,
+                        1.0 + Math.max(0.0, flare),
+                        1.02,
+                        dir * ember * 2.2 * rebornBoost,
+                        0.98 + landingSquash * 0.07,
+                        1.02 - landingSquash * 0.08
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (2.8 + speed * 3.4) * rebornBoost,
+                    (-8.8 - speed * 7.0) * profile.airLift() * rebornBoost,
+                    dir * (6.2 + speed * 5.5) * rebornBoost,
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.17),
+                    12.0 + speed * 7.0,
+                    -16.0 - speed * 7.0,
+                    8.0 + speed * 5.0,
+                    1.06,
+                    -24.0 - speed * 12.0,
+                    0.88,
+                    1.20 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (2.2 + speed * 3.0),
+                    3.5 + speed * 4.6,
+                    dir * (5.2 + speed * 5.8),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.14),
+                    8.0 + speed * 4.0,
+                    5.8 + speed * 5.0,
+                    7.0 + speed * 4.0,
+                    0.90,
+                    15.0 + speed * 11.0,
+                    0.92,
+                    1.08
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 5.8 * rebornBoost,
+                    -2.8,
+                    dir * 22.0 * rebornBoost,
+                    facingRight ? -0.05 : Math.PI + 0.05,
+                    2.0,
+                    -1.5,
+                    1.0,
+                    0.94,
+                    dir * 17.0,
+                    1.16,
+                    0.82
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.8 + speed * 7.0) * profile.recoil(),
+                    -3.8 - speed * 4.0,
+                    -dir * (14.0 + speed * 12.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    0.5,
+                    1.0,
+                    0.76,
+                    -dir * (20.0 + speed * 14.0),
+                    0.84,
+                    1.18
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 2.0,
+                    3.8,
+                    -dir * 3.8,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    3.4,
+                    -1.0,
+                    0.84,
+                    -dir * 4.0,
+                    1.10,
+                    0.84
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    7.5 * profile.mass(),
+                    dir * 25.0,
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    5.5,
+                    -1.0,
+                    0.68,
+                    dir * 24.0,
+                    1.12,
+                    0.74
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (8.0 + speed * 5.0) * rebornBoost,
+                    -4.0,
+                    dir * (9.0 + speed * 5.0) * rebornBoost,
+                    facingRight ? -0.10 : Math.PI + 0.10,
+                    13.0,
+                    -6.0,
+                    12.0,
+                    1.12,
+                    dir * 9.0,
+                    1.12,
+                    0.88
+            );
+        };
+    }
+
+    private AttackVisualPose currentRoosterStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 15.0);
+        double now = System.currentTimeMillis() + playerIndex * 163.0;
+        double strut = Math.sin(now / 280.0);
+        double chest = Math.sin(now / 420.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 10.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * strut * 0.45,
+                        Math.abs(strut) * 0.65 + landingSquash * 3.0,
+                        dir * (chest * 1.8 + strut * 0.6),
+                        facingRight ? -0.02 : Math.PI + 0.02,
+                        0.5 + Math.max(0.0, chest) * 1.0,
+                        -1.8 - Math.max(0.0, chest) * 1.0,
+                        0.8,
+                        1.0,
+                        dir * chest * 2.2,
+                        1.0 + landingSquash * 0.09,
+                        1.0 - landingSquash * 0.11
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (1.8 + speed * 2.4),
+                    (-5.6 - speed * 5.0) * profile.airLift(),
+                    dir * (4.0 + speed * 4.2),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.12),
+                    8.0 + speed * 5.0,
+                    -11.0 - speed * 5.0,
+                    6.0 + speed * 3.0,
+                    1.04,
+                    -16.0 - speed * 9.0,
+                    0.94,
+                    1.12 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (1.2 + speed * 2.2),
+                    5.0 + speed * 4.8,
+                    dir * (3.4 + speed * 4.6),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.11),
+                    6.0 + speed * 3.0,
+                    6.0 + speed * 4.5,
+                    5.0 + speed * 3.0,
+                    0.92,
+                    12.0 + speed * 9.0,
+                    1.00,
+                    1.04
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 3.6,
+                    4.8,
+                    dir * 9.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -1.0,
+                    3.0,
+                    -0.5,
+                    0.84,
+                    dir * 7.0,
+                    1.20,
+                    0.78
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.8 + speed * 7.0) * profile.recoil(),
+                    -2.0 - speed * 3.4,
+                    -dir * (11.0 + speed * 10.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    1.5,
+                    1.0,
+                    0.80,
+                    -dir * (15.0 + speed * 12.0),
+                    0.90,
+                    1.12
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 2.4,
+                    5.8,
+                    -dir * 4.5,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.5,
+                    4.6,
+                    -1.5,
+                    0.80,
+                    -dir * 4.0,
+                    1.16,
+                    0.78
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    10.0 * profile.mass(),
+                    dir * 25.0,
+                    facingRight ? Math.PI : 0.0,
+                    -2.0,
+                    6.5,
+                    -1.5,
+                    0.70,
+                    dir * 23.0,
+                    1.18,
+                    0.72
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (7.2 + speed * 4.0),
+                    -1.5,
+                    dir * (8.0 + speed * 4.5),
+                    facingRight ? -0.08 : Math.PI + 0.08,
+                    12.0,
+                    -5.0,
+                    11.0,
+                    1.12,
+                    dir * 8.0,
+                    1.14,
+                    0.86
+            );
+        };
+    }
+
+    private AttackVisualPose currentHummingbirdStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 17.0);
+        double now = System.currentTimeMillis() + playerIndex * 223.0;
+        double hover = Math.sin(now / 46.0);
+        double dart = Math.sin(now / 170.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 7.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * (dart * 0.9 + hover * 0.35),
+                        hover * 1.35 + landingSquash * 1.8,
+                        dir * (dart * 1.8 + hover * 0.8),
+                        facingRight ? -0.04 : Math.PI + 0.04,
+                        1.5 + Math.abs(hover) * 1.2,
+                        -2.6 - hover * 1.4,
+                        1.0,
+                        1.02,
+                        dir * (dart * 2.8 + hover * 1.3),
+                        0.96 + landingSquash * 0.07,
+                        1.04 - landingSquash * 0.08
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (3.2 + speed * 3.4 + hover * 0.8),
+                    (-9.5 - speed * 7.5) * profile.airLift(),
+                    dir * (8.0 + speed * 6.0 + hover * 2.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.20),
+                    13.0 + speed * 7.0,
+                    -18.0 - speed * 7.0,
+                    8.0 + speed * 5.0,
+                    1.06,
+                    -28.0 - speed * 13.0,
+                    0.82,
+                    1.24 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (2.4 + speed * 3.0),
+                    3.0 + speed * 4.0,
+                    dir * (5.5 + speed * 6.0),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.15),
+                    8.0 + speed * 4.0,
+                    5.0 + speed * 5.0,
+                    6.0 + speed * 4.0,
+                    0.92,
+                    16.0 + speed * 11.0,
+                    0.88,
+                    1.09
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 6.6,
+                    -4.0,
+                    dir * 28.0,
+                    facingRight ? -0.02 : Math.PI + 0.02,
+                    2.0,
+                    -2.0,
+                    1.0,
+                    0.92,
+                    dir * 20.0,
+                    1.20,
+                    0.78
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.2 + speed * 6.5) * profile.recoil(),
+                    -5.0 - speed * 4.0,
+                    -dir * (18.0 + speed * 14.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.06 : 0.06,
+                    1.0,
+                    0.0,
+                    0.5,
+                    0.72,
+                    -dir * (24.0 + speed * 16.0),
+                    0.78,
+                    1.22
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 1.2,
+                    3.0,
+                    -dir * 3.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    3.4,
+                    -1.0,
+                    0.82,
+                    -dir * 4.0,
+                    1.08,
+                    0.86
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    6.5 * profile.mass(),
+                    dir * 26.0,
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    5.0,
+                    -1.0,
+                    0.66,
+                    dir * 24.0,
+                    1.10,
+                    0.76
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (8.5 + speed * 5.0),
+                    -4.5,
+                    dir * (11.0 + speed * 5.0),
+                    facingRight ? -0.12 : Math.PI + 0.12,
+                    14.0,
+                    -7.0,
+                    12.0,
+                    1.12,
+                    dir * 10.0,
+                    1.12,
+                    0.88
+            );
+        };
+    }
+
+    private AttackVisualPose currentRazorbillStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 17.0);
+        double now = System.currentTimeMillis() + playerIndex * 191.0;
+        double edge = Math.sin(now / 390.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 9.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * edge * 0.55,
+                        edge * 0.45 + landingSquash * 2.2,
+                        dir * edge * 1.8,
+                        facingRight ? -0.05 : Math.PI + 0.05,
+                        1.0 + Math.max(0.0, edge) * 0.8,
+                        -1.2 - edge * 0.8,
+                        1.4,
+                        1.0,
+                        dir * edge * 2.4,
+                        1.0 + landingSquash * 0.08,
+                        1.0 - landingSquash * 0.10
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (2.8 + speed * 3.2),
+                    (-7.0 - speed * 6.2) * profile.airLift(),
+                    dir * (6.0 + speed * 5.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.15),
+                    11.0 + speed * 6.0,
+                    -14.0 - speed * 6.0,
+                    7.0 + speed * 4.0,
+                    1.04,
+                    -21.0 - speed * 11.0,
+                    0.90,
+                    1.15 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (2.5 + speed * 3.0),
+                    4.5 + speed * 5.0,
+                    dir * (6.0 + speed * 6.0),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.14),
+                    9.0 + speed * 4.0,
+                    6.5 + speed * 5.0,
+                    8.0 + speed * 4.0,
+                    0.90,
+                    17.0 + speed * 11.0,
+                    0.92,
+                    1.06
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 6.8,
+                    -1.4,
+                    dir * 19.0,
+                    facingRight ? -0.04 : Math.PI + 0.04,
+                    2.0,
+                    -1.0,
+                    1.0,
+                    0.94,
+                    dir * 15.0,
+                    1.22,
+                    0.80
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.8 + speed * 7.0) * profile.recoil(),
+                    -3.5 - speed * 4.0,
+                    -dir * (14.0 + speed * 12.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    0.5,
+                    1.0,
+                    0.78,
+                    -dir * (20.0 + speed * 14.0),
+                    0.86,
+                    1.15
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 2.0,
+                    4.2,
+                    -dir * 4.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    3.8,
+                    -1.0,
+                    0.82,
+                    -dir * 4.0,
+                    1.10,
+                    0.84
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    8.0 * profile.mass(),
+                    dir * 23.0,
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    5.5,
+                    -1.0,
+                    0.70,
+                    dir * 22.0,
+                    1.13,
+                    0.75
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (9.0 + speed * 5.0),
+                    -3.0,
+                    dir * (10.0 + speed * 5.5),
+                    facingRight ? -0.10 : Math.PI + 0.10,
+                    15.0,
+                    -6.0,
+                    14.0,
+                    1.12,
+                    dir * 10.0,
+                    1.14,
+                    0.88
+            );
+        };
+    }
+
+    private AttackVisualPose currentBatStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 17.0);
+        double now = System.currentTimeMillis() + playerIndex * 113.0;
+        double twitch = Math.sin(now / 82.0);
+        double flutter = Math.sin(now / 54.0);
+        if (batHanging) {
+            return new AttackVisualPose(
+                    dir * twitch * 0.7,
+                    -1.5 + flutter * 0.5,
+                    dir * twitch * 2.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -1.0,
+                    1.0 + Math.abs(flutter) * 0.8,
+                    -1.0,
+                    0.88,
+                    dir * twitch * 2.4,
+                    0.92,
+                    1.08
+            );
+        }
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 8.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * twitch * 0.8,
+                        flutter * 0.7 + landingSquash * 2.0,
+                        dir * (twitch * 2.8 + flutter * 1.0),
+                        facingRight ? 0.02 : Math.PI - 0.02,
+                        0.5,
+                        -1.2 - Math.abs(flutter) * 0.8,
+                        0.5,
+                        1.0,
+                        dir * twitch * 3.0,
+                        1.0 + landingSquash * 0.07,
+                        1.0 - landingSquash * 0.08
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (2.5 + speed * 3.2 + twitch * 0.8),
+                    (-8.0 - speed * 6.0) * profile.airLift(),
+                    dir * (7.0 + speed * 5.0 + flutter * 2.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.18),
+                    10.0 + speed * 6.0,
+                    -14.0 - speed * 6.0,
+                    7.0 + speed * 4.0,
+                    1.04,
+                    -23.0 - speed * 11.0,
+                    0.82,
+                    1.23 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (1.8 + speed * 2.6),
+                    3.5 + speed * 5.0,
+                    dir * (5.5 + speed * 5.0),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.13),
+                    7.0 + speed * 3.0,
+                    5.0 + speed * 5.0,
+                    5.0 + speed * 3.0,
+                    0.90,
+                    15.0 + speed * 10.0,
+                    0.88,
+                    1.10
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 6.2,
+                    -2.5,
+                    dir * 28.0,
+                    facingRight ? 0.02 : Math.PI - 0.02,
+                    1.0,
+                    -1.0,
+                    0.5,
+                    0.92,
+                    dir * 19.0,
+                    1.18,
+                    0.80
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.2 + speed * 7.0) * profile.recoil(),
+                    -4.0 - speed * 4.0,
+                    -dir * (17.0 + speed * 12.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.06 : 0.06,
+                    1.0,
+                    0.0,
+                    0.5,
+                    0.74,
+                    -dir * (22.0 + speed * 14.0),
+                    0.78,
+                    1.20
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 1.4,
+                    4.0,
+                    -dir * 3.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    4.0,
+                    -1.0,
+                    0.80,
+                    -dir * 3.0,
+                    1.16,
+                    0.78
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    7.0 * profile.mass(),
+                    dir * 26.0,
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    5.0,
+                    -1.0,
+                    0.66,
+                    dir * 24.0,
+                    1.14,
+                    0.74
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (8.0 + speed * 4.5),
+                    -3.5,
+                    dir * (10.0 + speed * 5.0),
+                    facingRight ? -0.10 : Math.PI + 0.10,
+                    12.0,
+                    -6.0,
+                    11.0,
+                    1.10,
+                    dir * 9.0,
+                    1.16,
+                    0.86
+            );
+        };
+    }
+
+    private AttackVisualPose currentRavenStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 16.0);
+        double now = System.currentTimeMillis() + playerIndex * 251.0;
+        double omen = Math.sin(now / 620.0);
+        double feather = Math.sin(now / 360.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 10.0) : 0.0;
+                yield new AttackVisualPose(
+                        -dir * 0.25 + dir * omen * 0.45,
+                        feather * 0.45 + landingSquash * 2.6,
+                        -dir * 1.4 + dir * omen * 1.5,
+                        facingRight ? 0.03 : Math.PI - 0.03,
+                        0.5 + Math.max(0.0, omen) * 1.0,
+                        -0.8 - feather * 0.9,
+                        1.0,
+                        1.0,
+                        -dir * 1.2 + dir * omen * 2.2,
+                        1.0 + landingSquash * 0.08,
+                        1.0 - landingSquash * 0.10
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (2.0 + speed * 3.0),
+                    (-7.0 - speed * 6.0) * profile.airLift(),
+                    dir * (5.0 + speed * 5.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.14),
+                    10.0 + speed * 6.0,
+                    -13.0 - speed * 6.0,
+                    7.0 + speed * 4.0,
+                    1.04,
+                    -20.0 - speed * 11.0,
+                    0.90,
+                    1.16 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (2.0 + speed * 3.0),
+                    4.5 + speed * 5.0,
+                    dir * (5.5 + speed * 5.8),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.13),
+                    8.0 + speed * 4.0,
+                    6.0 + speed * 5.0,
+                    7.0 + speed * 4.0,
+                    0.90,
+                    16.0 + speed * 11.0,
+                    0.94,
+                    1.08
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 5.0,
+                    -1.5,
+                    dir * 18.0,
+                    facingRight ? -0.04 : Math.PI + 0.04,
+                    2.0,
+                    -1.0,
+                    1.0,
+                    0.94,
+                    dir * 14.0,
+                    1.18,
+                    0.82
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (5.0 + speed * 7.5) * profile.recoil(),
+                    -3.0 - speed * 4.0,
+                    -dir * (14.0 + speed * 12.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    1.0,
+                    1.0,
+                    0.78,
+                    -dir * (19.0 + speed * 14.0),
+                    0.86,
+                    1.16
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 2.2,
+                    4.8,
+                    -dir * 4.4,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    4.2,
+                    -1.0,
+                    0.82,
+                    -dir * 4.0,
+                    1.12,
+                    0.82
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    9.5 * profile.mass(),
+                    dir * 25.0,
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    6.0,
+                    -1.0,
+                    0.70,
+                    dir * 24.0,
+                    1.16,
+                    0.74
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (7.5 + speed * 4.5),
+                    -3.0,
+                    dir * (8.5 + speed * 5.0),
+                    facingRight ? -0.09 : Math.PI + 0.09,
+                    13.0,
+                    -5.0,
+                    12.0,
+                    1.10,
+                    dir * 8.5,
+                    1.12,
+                    0.88
+            );
+        };
+    }
+
+    private AttackVisualPose currentPelicanStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 14.0);
+        double now = System.currentTimeMillis() + playerIndex * 157.0;
+        double sway = Math.sin(now / 520.0);
+        double pouch = Math.sin(now / 260.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 12.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * sway * 0.55,
+                        Math.abs(pouch) * 0.5 + landingSquash * 4.0,
+                        dir * sway * 1.4,
+                        facingRight ? 0.0 : Math.PI,
+                        -1.0 + Math.max(0.0, pouch) * 1.0,
+                        0.5 + pouch * 0.8,
+                        -0.5 + Math.max(0.0, pouch) * 1.2,
+                        1.06 + Math.max(0.0, pouch) * 0.08,
+                        dir * sway * 1.6,
+                        1.0 + landingSquash * 0.12,
+                        1.0 - landingSquash * 0.14
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (1.4 + speed * 2.0),
+                    (-5.8 - speed * 5.0) * profile.airLift(),
+                    dir * (3.8 + speed * 4.2),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10),
+                    9.0 + speed * 5.0,
+                    -11.0 - speed * 5.0,
+                    6.0 + speed * 3.0,
+                    1.04,
+                    -15.0 - speed * 9.0,
+                    0.94,
+                    1.12 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (1.2 + speed * 2.2),
+                    6.0 + speed * 5.0,
+                    dir * (3.2 + speed * 4.8),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.10),
+                    6.0 + speed * 3.0,
+                    7.0 + speed * 5.0,
+                    5.0 + speed * 3.0,
+                    0.90,
+                    12.0 + speed * 9.0,
+                    1.04,
+                    1.02
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 3.6,
+                    7.0,
+                    dir * 7.5,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    5.0,
+                    -1.0,
+                    0.78,
+                    dir * 6.0,
+                    1.24,
+                    0.74
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (5.0 + speed * 7.0) * profile.recoil(),
+                    -2.0 - speed * 3.0,
+                    -dir * (10.0 + speed * 10.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    2.5,
+                    1.0,
+                    0.78,
+                    -dir * (12.0 + speed * 12.0),
+                    0.92,
+                    1.14
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 3.0,
+                    7.0,
+                    -dir * 5.2,
+                    facingRight ? 0.0 : Math.PI,
+                    -3.0,
+                    6.0,
+                    -2.0,
+                    0.76,
+                    -dir * 4.5,
+                    1.18,
+                    0.76
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    12.0 * profile.mass(),
+                    dir * 26.0,
+                    facingRight ? Math.PI : 0.0,
+                    -2.0,
+                    7.5,
+                    -2.0,
+                    0.68,
+                    dir * 24.0,
+                    1.24,
+                    0.68
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (6.0 + speed * 4.0),
+                    1.0,
+                    dir * (6.0 + speed * 4.0),
+                    facingRight ? -0.05 : Math.PI + 0.05,
+                    9.0,
+                    -2.5,
+                    9.0,
+                    1.10,
+                    dir * 6.5,
+                    1.16,
+                    0.86
+            );
+        };
+    }
+
+    private AttackVisualPose currentShoebillStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 13.0);
+        double now = System.currentTimeMillis() + playerIndex * 239.0;
+        double stare = Math.sin(now / 940.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 14.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * stare * 0.18,
+                        landingSquash * 5.0,
+                        dir * stare * 0.55,
+                        facingRight ? 0.0 : Math.PI,
+                        -2.0,
+                        -0.3,
+                        -1.0,
+                        0.96,
+                        dir * stare * 0.7,
+                        1.0 + landingSquash * 0.10,
+                        1.0 - landingSquash * 0.12
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (0.8 + speed * 1.5),
+                    (-4.4 - speed * 4.4) * profile.airLift(),
+                    dir * (2.0 + speed * 3.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.08),
+                    6.0 + speed * 4.0,
+                    -8.0 - speed * 5.0,
+                    4.0 + speed * 3.0,
+                    0.98,
+                    -10.0 - speed * 7.0,
+                    0.96,
+                    1.08 + speed * 0.04
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * 0.45,
+                    6.8 + speed * 5.0,
+                    dir * (1.8 + speed * 3.0),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.08),
+                    4.0 + speed * 2.0,
+                    7.0 + speed * 5.0,
+                    3.0 + speed * 2.0,
+                    0.86,
+                    9.0 + speed * 7.0,
+                    1.05,
+                    1.02
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 1.2,
+                    8.0,
+                    dir * 4.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -3.0,
+                    6.0,
+                    -2.0,
+                    0.74,
+                    dir * 4.0,
+                    1.20,
+                    0.72
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (3.8 + speed * 6.0) * profile.recoil(),
+                    -1.0 - speed * 3.0,
+                    -dir * (7.0 + speed * 8.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.06 : 0.06,
+                    1.0,
+                    3.0,
+                    0.0,
+                    0.82,
+                    -dir * (9.0 + speed * 10.0),
+                    0.95,
+                    1.10
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 1.8,
+                    5.8,
+                    -dir * 2.8,
+                    facingRight ? 0.0 : Math.PI,
+                    -4.0,
+                    5.5,
+                    -2.0,
+                    0.80,
+                    -dir * 3.0,
+                    1.12,
+                    0.82
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    12.5 * profile.mass(),
+                    dir * 18.0,
+                    facingRight ? Math.PI : 0.0,
+                    -3.0,
+                    8.0,
+                    -2.0,
+                    0.70,
+                    dir * 18.0,
+                    1.20,
+                    0.70
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (5.2 + speed * 3.4),
+                    1.5,
+                    dir * (4.0 + speed * 3.0),
+                    facingRight ? -0.04 : Math.PI + 0.04,
+                    10.0,
+                    -2.0,
+                    10.0,
+                    1.06,
+                    dir * 5.0,
+                    1.10,
+                    0.88
+            );
+        };
+    }
+
+    private AttackVisualPose currentVultureStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 15.0);
+        double now = System.currentTimeMillis() + playerIndex * 167.0;
+        double hunch = Math.sin(now / 480.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 12.0) : 0.0;
+                yield new AttackVisualPose(
+                        -dir * 0.4 + dir * hunch * 0.35,
+                        Math.abs(hunch) * 0.5 + landingSquash * 3.5,
+                        -dir * 2.0 + dir * hunch * 1.2,
+                        facingRight ? 0.03 : Math.PI - 0.03,
+                        -1.0,
+                        1.2 + hunch * 0.8,
+                        -0.5,
+                        0.94,
+                        -dir * 2.0 + dir * hunch * 1.8,
+                        1.0 + landingSquash * 0.10,
+                        1.0 - landingSquash * 0.12
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (1.6 + speed * 2.4),
+                    (-6.4 - speed * 5.6) * profile.airLift(),
+                    dir * (4.0 + speed * 4.5),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.12),
+                    9.0 + speed * 5.0,
+                    -12.0 - speed * 6.0,
+                    6.0 + speed * 4.0,
+                    1.02,
+                    -17.0 - speed * 10.0,
+                    0.94,
+                    1.13 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (1.8 + speed * 2.5),
+                    4.8 + speed * 5.2,
+                    dir * (4.6 + speed * 5.4),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.12),
+                    7.0 + speed * 4.0,
+                    6.5 + speed * 5.0,
+                    6.0 + speed * 4.0,
+                    0.88,
+                    14.0 + speed * 10.0,
+                    0.96,
+                    1.08
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 3.4,
+                    4.8,
+                    dir * 10.0,
+                    facingRight ? 0.02 : Math.PI - 0.02,
+                    -1.0,
+                    3.5,
+                    -0.5,
+                    0.82,
+                    dir * 8.0,
+                    1.18,
+                    0.78
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (5.5 + speed * 8.0) * profile.recoil(),
+                    -2.5 - speed * 3.8,
+                    -dir * (12.0 + speed * 12.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    1.5,
+                    1.0,
+                    0.78,
+                    -dir * (15.0 + speed * 13.0),
+                    0.88,
+                    1.16
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 2.8,
+                    5.8,
+                    -dir * 5.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -3.0,
+                    4.8,
+                    -2.0,
+                    0.78,
+                    -dir * 5.0,
+                    1.16,
+                    0.80
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    11.0 * profile.mass(),
+                    dir * 27.0,
+                    facingRight ? Math.PI : 0.0,
+                    -2.0,
+                    7.0,
+                    -2.0,
+                    0.68,
+                    dir * 25.0,
+                    1.18,
+                    0.70
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (6.5 + speed * 4.0),
+                    -1.0,
+                    dir * (7.0 + speed * 4.5),
+                    facingRight ? -0.08 : Math.PI + 0.08,
+                    11.0,
+                    -4.0,
+                    10.0,
+                    1.08,
+                    dir * 7.0,
+                    1.12,
+                    0.88
+            );
+        };
+    }
+
+    private AttackVisualPose currentFalconStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 18.0);
+        double horizontal = Math.min(1.0, Math.abs(vx) / 14.0);
+        double now = System.currentTimeMillis() + playerIndex * 181.0;
+        double breath = Math.sin(now / 330.0);
+        return switch (state) {
+            case IDLE -> {
+                double scan = Math.sin(now / 520.0);
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 9.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * (scan * 0.55 + horizontal * 1.2),
+                        breath * 0.55 + landingSquash * 2.4,
+                        dir * (breath * 0.9 + horizontal * 2.2),
+                        facingRight ? -0.035 : Math.PI + 0.035,
+                        1.0 + horizontal * 1.5,
+                        -1.4 - breath * 1.0,
+                        0.8 + horizontal * 1.2,
+                        1.0,
+                        dir * (scan * 1.6 + horizontal * 2.0),
+                        1.0 + landingSquash * 0.08,
+                        1.0 - landingSquash * 0.10
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (2.6 + speed * 3.5),
+                    (-8.5 - speed * 7.0) * profile.airLift(),
+                    dir * (6.0 + speed * 5.5),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.16),
+                    12.0 + speed * 7.0,
+                    -16.0 - speed * 7.0,
+                    8.0 + speed * 4.0,
+                    1.05,
+                    -24.0 - speed * 12.0,
+                    0.90,
+                    1.18 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (2.8 + speed * 3.2),
+                    4.0 + speed * 5.0,
+                    dir * (6.5 + speed * 6.5),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.13),
+                    9.0 + speed * 4.0,
+                    7.0 + speed * 5.0,
+                    7.0 + speed * 4.0,
+                    0.90,
+                    17.0 + speed * 12.0,
+                    0.92,
+                    1.06
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 5.8,
+                    -2.2,
+                    dir * 22.0,
+                    facingRight ? 0.0 : Math.PI,
+                    2.0,
+                    -1.0,
+                    1.0,
+                    0.94,
+                    dir * 16.0,
+                    1.18,
+                    0.82
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (5.0 + speed * 8.0) * profile.recoil(),
+                    -4.0 - speed * 4.5,
+                    -dir * (15.0 + speed * 14.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    0.5,
+                    1.0,
+                    0.78,
+                    -dir * (20.0 + speed * 16.0),
+                    0.86,
+                    1.15
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 2.2,
+                    4.2,
+                    -dir * 4.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    3.8,
+                    -1.0,
+                    0.82,
+                    -dir * 4.0,
+                    1.10,
+                    0.84
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    8.5 * profile.mass(),
+                    dir * 24.0,
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    5.0,
+                    -1.0,
+                    0.70,
+                    dir * 23.0,
+                    1.14,
+                    0.75
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (8.0 + speed * 5.0),
+                    -3.5,
+                    dir * (9.0 + speed * 6.0),
+                    facingRight ? -0.10 : Math.PI + 0.10,
+                    13.0,
+                    -6.0,
+                    12.0,
+                    1.10,
+                    dir * 9.0,
+                    1.10,
+                    0.91
+            );
+        };
+    }
+
+    private AttackVisualPose currentRoadrunnerStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 18.0);
+        double groundSpeed = Math.min(1.0, Math.abs(vx) / 12.0);
+        double runDir = Math.abs(vx) > 0.4 ? Math.signum(vx) : dir;
+        double now = System.currentTimeMillis() + playerIndex * 197.0;
+        double foot = Math.sin(now / Math.max(56.0, 116.0 - groundSpeed * 42.0));
+        return switch (state) {
+            case IDLE -> {
+                double glance = Math.sin(now / 390.0);
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 8.0) : 0.0;
+                yield new AttackVisualPose(
+                        runDir * groundSpeed * 4.5 + dir * glance * 0.35,
+                        Math.abs(foot) * (0.45 + groundSpeed * 1.35) + landingSquash * 2.4,
+                        runDir * groundSpeed * 7.5 + dir * foot * 1.1,
+                        facingRight ? -0.05 : Math.PI + 0.05,
+                        2.0 + groundSpeed * 4.0,
+                        -1.5 - groundSpeed * 2.0,
+                        1.5 + groundSpeed * 3.0,
+                        1.0,
+                        runDir * groundSpeed * 7.0 + dir * glance * 1.4,
+                        1.0 + groundSpeed * 0.08 + landingSquash * 0.08,
+                        1.0 - groundSpeed * 0.05 - landingSquash * 0.10
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (2.0 + speed * 3.0),
+                    (-5.5 - speed * 5.0) * profile.airLift(),
+                    dir * (4.5 + speed * 5.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.13),
+                    9.0 + speed * 5.0,
+                    -11.0 - speed * 5.0,
+                    6.0 + speed * 3.0,
+                    1.04,
+                    -16.0 - speed * 9.0,
+                    0.94,
+                    1.11 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (2.5 + speed * 3.0),
+                    5.0 + speed * 5.0,
+                    dir * (5.5 + speed * 6.0),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.12),
+                    8.0 + speed * 4.0,
+                    6.0 + speed * 5.0,
+                    6.0 + speed * 4.0,
+                    0.91,
+                    14.0 + speed * 11.0,
+                    1.02,
+                    0.98
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 8.5,
+                    5.5,
+                    dir * 5.0,
+                    facingRight ? -0.04 : Math.PI + 0.04,
+                    3.0,
+                    2.0,
+                    2.0,
+                    0.88,
+                    dir * 7.0,
+                    1.30,
+                    0.70
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.8 + speed * 7.0) * profile.recoil(),
+                    -3.0 - speed * 3.5,
+                    -dir * (13.0 + speed * 12.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    1.0,
+                    1.0,
+                    0.80,
+                    -dir * (18.0 + speed * 14.0),
+                    0.90,
+                    1.12
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 1.8,
+                    5.0,
+                    -dir * 3.5,
+                    facingRight ? 0.0 : Math.PI,
+                    -2.0,
+                    4.2,
+                    -1.0,
+                    0.82,
+                    -dir * 3.5,
+                    1.14,
+                    0.80
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    8.0 * profile.mass(),
+                    dir * 22.0,
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    5.5,
+                    -1.0,
+                    0.70,
+                    dir * 21.0,
+                    1.18,
+                    0.72
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (9.0 + speed * 5.0),
+                    -2.0,
+                    dir * (8.0 + speed * 5.0),
+                    facingRight ? -0.08 : Math.PI + 0.08,
+                    12.0,
+                    -5.0,
+                    10.0,
+                    1.08,
+                    dir * 8.0,
+                    1.16,
+                    0.88
+            );
+        };
+    }
+
+    private AttackVisualPose currentTurkeyStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 14.0);
+        double now = System.currentTimeMillis() + playerIndex * 149.0;
+        double strut = Math.sin(now / 360.0);
+        double gobble = Math.sin(now / 145.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 12.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * strut * 0.45,
+                        Math.abs(strut) * 0.45 + landingSquash * 4.0,
+                        dir * strut * 1.2,
+                        facingRight ? 0.0 : Math.PI,
+                        -1.0,
+                        -0.8 - gobble * 0.7,
+                        0.0,
+                        1.02 + Math.max(0.0, gobble) * 0.08,
+                        dir * strut * 1.4,
+                        1.0 + landingSquash * 0.12,
+                        1.0 - landingSquash * 0.14
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (0.8 + speed * 1.4),
+                    (-4.2 - speed * 4.0) * profile.airLift(),
+                    dir * (3.0 + speed * 3.5),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10),
+                    7.0 + speed * 4.0,
+                    -9.0 - speed * 5.0,
+                    5.0 + speed * 3.0,
+                    1.03,
+                    -12.0 - speed * 8.0,
+                    0.98,
+                    1.07 + speed * 0.04
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * 0.7,
+                    5.5 + speed * 5.0,
+                    dir * (2.0 + speed * 4.2),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.10),
+                    5.0,
+                    6.0 + speed * 4.0,
+                    4.0,
+                    0.92,
+                    10.0 + speed * 8.0,
+                    1.02,
+                    1.03
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 2.0,
+                    6.0,
+                    dir * 8.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -1.0,
+                    4.0,
+                    -1.0,
+                    0.82,
+                    dir * 7.0,
+                    1.22,
+                    0.78
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (5.0 + speed * 8.0) * profile.recoil(),
+                    -1.0 - speed * 3.0,
+                    -dir * (11.0 + speed * 10.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    2.0,
+                    1.0,
+                    0.78,
+                    -dir * (12.0 + speed * 12.0),
+                    0.92,
+                    1.13
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 3.6,
+                    6.8,
+                    -dir * 6.5,
+                    facingRight ? 0.0 : Math.PI,
+                    -3.0,
+                    5.0,
+                    -2.0,
+                    0.78,
+                    -dir * 5.0,
+                    1.17,
+                    0.78
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    12.0 * profile.mass(),
+                    dir * 28.0,
+                    facingRight ? Math.PI : 0.0,
+                    -2.0,
+                    7.0,
+                    -2.0,
+                    0.70,
+                    dir * 24.0,
+                    1.22,
+                    0.68
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (6.0 + speed * 4.0),
+                    1.5,
+                    dir * (7.0 + speed * 4.0),
+                    facingRight ? -0.06 : Math.PI + 0.06,
+                    9.0,
+                    -3.0,
+                    8.0,
+                    1.08,
+                    dir * 7.0,
+                    1.14,
+                    0.88
+            );
+        };
+    }
+
+    private AttackVisualPose currentPenguinStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 14.0);
+        double now = System.currentTimeMillis() + playerIndex * 211.0;
+        double wobble = Math.sin(now / 330.0);
+        double foot = Math.sin(now / 180.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 11.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * wobble * 0.35,
+                        Math.abs(foot) * 0.5 + landingSquash * 4.5,
+                        dir * wobble * 1.5,
+                        facingRight ? -0.02 : Math.PI + 0.02,
+                        -1.0,
+                        -0.6 - Math.abs(wobble) * 0.6,
+                        0.0,
+                        1.0,
+                        dir * wobble * 1.6,
+                        1.0 + landingSquash * 0.14,
+                        1.0 - landingSquash * 0.16
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (0.9 + speed * 1.6),
+                    (-4.5 - speed * 3.5) * profile.airLift(),
+                    dir * (2.2 + speed * 3.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.09),
+                    6.0 + speed * 3.0,
+                    -8.0 - speed * 4.0,
+                    4.0 + speed * 2.0,
+                    1.02,
+                    -10.0 - speed * 7.0,
+                    0.96,
+                    1.08 + speed * 0.04
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (0.9 + speed * 1.8),
+                    6.0 + speed * 4.5,
+                    dir * (4.0 + speed * 4.0),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.10),
+                    5.0,
+                    6.0 + speed * 4.0,
+                    4.0,
+                    0.90,
+                    11.0 + speed * 8.0,
+                    1.05,
+                    0.96
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 5.2,
+                    6.0,
+                    dir * 7.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -1.0,
+                    4.0,
+                    -1.0,
+                    0.86,
+                    dir * 6.0,
+                    1.24,
+                    0.74
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.5 + speed * 6.5) * profile.recoil(),
+                    -2.0 - speed * 3.0,
+                    -dir * (10.0 + speed * 9.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    1.0,
+                    1.0,
+                    0.80,
+                    -dir * (12.0 + speed * 10.0),
+                    0.96,
+                    1.08
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 2.0,
+                    7.5,
+                    -dir * 4.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -3.0,
+                    5.5,
+                    -2.0,
+                    0.80,
+                    -dir * 4.0,
+                    1.22,
+                    0.72
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    11.0 * profile.mass(),
+                    dir * 20.0,
+                    facingRight ? Math.PI : 0.0,
+                    -2.0,
+                    6.0,
+                    -2.0,
+                    0.72,
+                    dir * 20.0,
+                    1.25,
+                    0.70
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (6.0 + speed * 4.0),
+                    3.0,
+                    dir * (5.0 + speed * 4.0),
+                    facingRight ? -0.04 : Math.PI + 0.04,
+                    8.0,
+                    -2.0,
+                    7.0,
+                    1.06,
+                    dir * 5.0,
+                    1.16,
+                    0.82
+            );
+        };
+    }
+
+    private AttackVisualPose currentTitmouseStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 15.0);
+        double now = System.currentTimeMillis() + playerIndex * 173.0;
+        double wingBeat = Math.sin(now / 72.0);
+        return switch (state) {
+            case IDLE -> {
+                double breath = Math.sin(now / 270.0);
+                double glance = Math.sin(now / 410.0);
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 9.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * glance * 0.95,
+                        breath * 1.25 + landingSquash * 2.2,
+                        dir * breath * 1.55,
+                        facingRight ? -0.03 : Math.PI + 0.03,
+                        1.0 + glance * 0.8,
+                        -1.8 - breath * 1.8,
+                        0.8,
+                        1.0,
+                        dir * glance * 2.4,
+                        1.0 + landingSquash * 0.08,
+                        1.0 - landingSquash * 0.10
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (2.6 + speed * 2.8),
+                    (-7.5 - speed * 7.0) * profile.airLift(),
+                    dir * (5.5 + speed * 4.5 + wingBeat * 1.2),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.18),
+                    11.0 + speed * 6.0,
+                    -15.0 - speed * 6.0,
+                    7.0 + speed * 4.0,
+                    1.04,
+                    -21.0 - speed * 10.0,
+                    0.91,
+                    1.17 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (1.8 + speed * 2.2),
+                    4.0 + speed * 5.0,
+                    dir * (4.2 + speed * 5.6),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.15),
+                    7.0 + speed * 3.0,
+                    6.0 + speed * 5.0,
+                    5.0 + speed * 3.0,
+                    0.92,
+                    15.0 + speed * 9.0,
+                    0.94,
+                    1.05
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 5.0,
+                    -3.5,
+                    dir * 24.0,
+                    facingRight ? 0.0 : Math.PI,
+                    1.0,
+                    -1.0,
+                    0.0,
+                    0.96,
+                    dir * 16.0,
+                    1.16,
+                    0.80
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (5.2 + speed * 8.0) * profile.recoil(),
+                    -4.0 - speed * 4.0,
+                    -dir * (17.0 + speed * 12.0) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    2.0,
+                    1.0,
+                    1.0,
+                    0.78,
+                    -dir * (20.0 + speed * 14.0),
+                    0.84,
+                    1.16
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 1.4,
+                    4.6,
+                    -dir * 3.0,
+                    facingRight ? 0.0 : Math.PI,
+                    -3.0,
+                    4.5,
+                    -1.5,
+                    0.78,
+                    -dir * 3.0,
+                    1.13,
+                    0.79
+            );
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    7.0 * profile.mass(),
+                    dir * 18.0,
+                    facingRight ? Math.PI : 0.0,
+                    -1.0,
+                    5.0,
+                    -1.0,
+                    0.70,
+                    dir * 18.0,
+                    1.12,
+                    0.74
+            );
+            case ATTACK -> new AttackVisualPose(
+                    dir * (6.5 + speed * 4.0),
+                    -3.0,
+                    dir * (8.0 + speed * 4.0),
+                    facingRight ? -0.08 : Math.PI + 0.08,
+                    10.0,
+                    -5.0,
+                    8.0,
+                    1.08,
+                    dir * 8.0,
+                    1.08,
+                    0.93
+            );
+        };
+    }
+
+    private AttackVisualPose neutralVisualPose() {
+        return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
+                0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+    }
+
     private AttackVisualPose currentTargetAttackVisualPose() {
         if (pigeonSpecialPoseActive()) {
             return currentPigeonSpecialPose();
@@ -14688,6 +18114,12 @@ public class Bird {
         if (shoebillSpecialPoseActive()) {
             return currentShoebillSpecialPose();
         }
+        if (mockingbirdSpecialPoseActive()) {
+            return currentMockingbirdSpecialPose();
+        }
+        if (opiumSpecialPoseActive()) {
+            return currentOpiumSpecialPose();
+        }
         if (grinchhawkSpecialPoseActive()) {
             return currentGrinchhawkSpecialPose();
         }
@@ -14701,8 +18133,13 @@ public class Bird {
         NormalAttackVariant variant = currentDisplayedAttackVariant();
         double dir = facingRight ? 1.0 : -1.0;
         if (variant == null) {
-            return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
-                    0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+            if (suppressSelectEffects || photoEagleSkinActive() || photoTurkeySkinActive()) {
+                return neutralVisualPose();
+            }
+            if (type == BirdGame3.BirdType.EAGLE && !photoEagleSkinActive()) {
+                return currentEagleStatePose(currentBirdAnimationState());
+            }
+            return currentSharedBirdStatePose(currentBirdAnimationState());
         }
 
         double phase = currentAttackVisualPhase();
@@ -14765,15 +18202,6 @@ public class Bird {
         return displayPose;
     }
 
-    private static void rotateAround(GraphicsContext g, double centerX, double centerY, double degrees) {
-        if (Math.abs(degrees) <= 0.001) {
-            return;
-        }
-        g.translate(centerX, centerY);
-        g.rotate(degrees);
-        g.translate(-centerX, -centerY);
-    }
-
     private void applyAttackBodyPose(GraphicsContext g, double drawSize, AttackVisualPose pose) {
         if (pose == null) {
             return;
@@ -14781,7 +18209,27 @@ public class Bird {
         if (Math.abs(pose.translateX()) > 0.001 || Math.abs(pose.translateY()) > 0.001) {
             g.translate(pose.translateX(), pose.translateY());
         }
-        rotateAround(g, x + drawSize * 0.5, y + drawSize * 0.5, pose.bodyRotationDegrees());
+        double scaleX = pose.spriteScaleX();
+        double scaleY = pose.spriteScaleY();
+        boolean applySharedScale = !photoSpriteSkinActive()
+                && (Math.abs(scaleX - 1.0) > 0.001 || Math.abs(scaleY - 1.0) > 0.001);
+        if (Math.abs(pose.bodyRotationDegrees()) <= 0.001 && !applySharedScale) {
+            return;
+        }
+        double centerX = x + drawSize * 0.5;
+        double centerY = y + drawSize * 0.5;
+        g.translate(centerX, centerY);
+        if (Math.abs(pose.bodyRotationDegrees()) > 0.001) {
+            g.rotate(pose.bodyRotationDegrees());
+        }
+        if (applySharedScale) {
+            g.scale(scaleX, scaleY);
+        }
+        g.translate(-centerX, -centerY);
+    }
+
+    private boolean photoSpriteSkinActive() {
+        return photoEagleSkinActive() || photoTurkeySkinActive();
     }
 
     private HeadPose standardHeadPose(AttackVisualPose pose) {
@@ -15025,6 +18473,9 @@ public class Bird {
         drawOpiumTraps(g);
         drawRavenObjects(g);
         drawRoadrunnerPaintedRoads(g);
+        drawPigeonCoronation(g);
+        drawEagleSkySovereignReticle(g);
+        drawFalconTerminalVelocityPath(g);
         drawPenguinSpecialObjects(g);
         drawGrinchhawkObjects(g);
         drawBlockingShield(g, drawSize);
@@ -15040,6 +18491,7 @@ public class Bird {
             drawPhoenixAura(g, drawSize);
         }
         drawNeonBuff(g, drawSize);
+        drawUltimateReadyAura(g, drawSize);
         drawUltimateFx(g, drawSize);
         drawRoadrunnerSandstormAura(g, drawSize);
         drawRoadrunnerSpecialFx(g);
@@ -15065,6 +18517,8 @@ public class Bird {
         drawNullRockShield(g, drawSize);
         drawSpecialCooldown(g);
         drawLounge(g);
+        drawEagleGroundShadow(g, drawSize, currentBirdAnimationState());
+        drawTurkeyGroundShadow(g, drawSize, currentPhotoTurkeyAnimationState());
         g.save();
         applyAttackBodyPose(g, drawSize, attackPose);
         drawEagleSkin(g, drawSize);
@@ -16671,6 +20125,46 @@ public class Bird {
         }
     }
 
+    private void drawUltimateReadyAura(GraphicsContext g, double drawSize) {
+        if (!isUltimateVisualReady()) return;
+        double s = sizeMultiplier;
+        double t = System.currentTimeMillis() / 220.0 + playerIndex * 0.9;
+        double pulse = 0.5 + 0.5 * Math.sin(t);
+        double cx = x + drawSize / 2.0;
+        double cy = y + drawSize / 2.0;
+        double radius = drawSize * (0.70 + pulse * 0.08);
+        Color core = Color.web("#FFD54F");
+        Color edge = Color.web("#FFF59D");
+
+        g.save();
+        g.setEffect(new Glow(0.82));
+        g.setFill(core.deriveColor(0, 1, 1, 0.12 + pulse * 0.08));
+        g.fillOval(cx - radius, cy - radius * 0.92, radius * 2.0, radius * 1.84);
+
+        double outer = radius + (14.0 + pulse * 8.0) * s;
+        g.setStroke(edge.deriveColor(0, 1, 1, 0.64 + pulse * 0.18));
+        g.setLineWidth((2.4 + pulse * 1.8) * s);
+        g.strokeOval(cx - outer, cy - outer * 0.92, outer * 2.0, outer * 1.84);
+
+        g.setStroke(core.deriveColor(0, 1, 1, 0.30 + pulse * 0.18));
+        g.setLineWidth(1.6 * s);
+        double sparkRadius = outer + 8.0 * s;
+        for (int i = 0; i < 6; i++) {
+            double angle = t * 0.55 + i * Math.PI / 3.0;
+            double sx = cx + Math.cos(angle) * sparkRadius;
+            double sy = cy + Math.sin(angle) * sparkRadius * 0.78;
+            double ray = (5.0 + pulse * 4.0) * s;
+            g.strokeLine(
+                    sx - Math.cos(angle) * ray,
+                    sy - Math.sin(angle) * ray,
+                    sx + Math.cos(angle) * ray,
+                    sy + Math.sin(angle) * ray
+            );
+        }
+        g.setEffect(null);
+        g.restore();
+    }
+
     private void drawUltimateFx(GraphicsContext g, double drawSize) {
         if (ultimateFxTimer <= 0) return;
         double s = sizeMultiplier;
@@ -16902,6 +20396,143 @@ public class Bird {
                     cy - 16 * s + Math.sin(ang) * outer
             );
         }
+    }
+
+    private void drawPigeonCoronation(GraphicsContext g) {
+        if (type != BirdGame3.BirdType.PIGEON || !pigeonCoronationActive) {
+            return;
+        }
+
+        double progress = 1.0 - Math.clamp(pigeonCoronationTimer / (double) PIGEON_CORONATION_FRAMES, 0.0, 1.0);
+        double pulse = 0.5 + 0.5 * Math.sin(progress * Math.PI * 12.0);
+        double radius = PIGEON_CORONATION_RADIUS * (0.95 + pulse * 0.05);
+        double cx = pigeonCoronationX;
+        double cy = pigeonCoronationY;
+        double alpha = 0.16 + pulse * 0.07;
+
+        g.save();
+        g.setFill(Color.web("#FFD54F").deriveColor(0, 1, 1, alpha * 0.62));
+        g.fillOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
+
+        g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.58 + pulse * 0.18));
+        g.setLineWidth(4.0);
+        g.setLineDashes(22.0, 13.0);
+        g.strokeOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
+
+        g.setLineDashes();
+        g.setStroke(Color.web("#FFB300").deriveColor(0, 1, 1, 0.70));
+        g.setLineWidth(2.0);
+        double inner = radius * (0.63 + pulse * 0.04);
+        g.strokeOval(cx - inner, cy - inner, inner * 2.0, inner * 2.0);
+
+        double crumbBaseY = cy + Math.min(radius * 0.22, 72.0 * sizeMultiplier);
+        g.setFill(Color.web("#F9A825").deriveColor(0, 1, 1, 0.92));
+        for (int i = 0; i < 10; i++) {
+            double angle = i * Math.PI * 0.4 + progress * 0.9;
+            double scatter = 10.0 + (i % 4) * 7.0;
+            double crumbSize = 4.0 + (i % 3) * 1.7;
+            g.fillOval(
+                    cx + Math.cos(angle) * scatter - crumbSize * 0.5,
+                    crumbBaseY + Math.sin(angle) * scatter * 0.38 - crumbSize * 0.5,
+                    crumbSize,
+                    crumbSize
+            );
+        }
+
+        if (!pigeonCoronationStayedInside) {
+            g.setStroke(Color.web("#FF8A65").deriveColor(0, 1, 1, 0.56 + pulse * 0.18));
+            g.setLineWidth(2.4);
+            g.strokeOval(cx - radius * 0.78, cy - radius * 0.78, radius * 1.56, radius * 1.56);
+        }
+        g.restore();
+    }
+
+    private void drawEagleSkySovereignReticle(GraphicsContext g) {
+        if (type != BirdGame3.BirdType.EAGLE || !eagleSkySovereignActive) {
+            return;
+        }
+
+        double pulse = 0.5 + 0.5 * Math.sin((EAGLE_SKY_SOVEREIGN_TARGET_FRAMES - eagleSkySovereignTimer) * 0.22);
+        double radius = EAGLE_SKY_SOVEREIGN_RADIUS * (0.96 + pulse * 0.04);
+        double sweet = EAGLE_SKY_SOVEREIGN_SWEETSPOT_RADIUS * (0.94 + pulse * 0.08);
+        double cx = eagleSkySovereignTargetX;
+        double cy = eagleSkySovereignTargetY;
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setFill(Color.web("#FFD54F").deriveColor(0, 1, 1, eagleSkySovereignDiving ? 0.18 : 0.12));
+        g.fillOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
+        g.setStroke(Color.GOLD.deriveColor(0, 1, 1, 0.68 + pulse * 0.18));
+        g.setLineWidth(eagleSkySovereignDiving ? 5.0 : 3.5);
+        g.strokeOval(cx - radius, cy - radius, radius * 2.0, radius * 2.0);
+        g.setStroke(Color.web("#FFFDE7").deriveColor(0, 1, 1, 0.72));
+        g.setLineWidth(2.2);
+        g.strokeOval(cx - sweet, cy - sweet, sweet * 2.0, sweet * 2.0);
+
+        double talon = 34.0 + pulse * 9.0;
+        g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.82));
+        g.setLineWidth(3.0);
+        for (int i = -1; i <= 1; i++) {
+            double angle = Math.PI / 2.0 + i * 0.46;
+            g.strokeLine(cx + Math.cos(angle) * sweet * 0.28, cy + Math.sin(angle) * sweet * 0.28,
+                    cx + Math.cos(angle) * (sweet + talon), cy + Math.sin(angle) * (sweet + talon));
+        }
+
+        if (eagleSkySovereignDiving) {
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.54 + pulse * 0.24));
+            g.setLineWidth(6.0);
+            g.strokeLine(bodyCenterX(), bodyCenterY(), cx, cy);
+        }
+        g.restore();
+    }
+
+    private void drawFalconTerminalVelocityPath(GraphicsContext g) {
+        if (type != BirdGame3.BirdType.FALCON || !falconTerminalVelocityActive) {
+            return;
+        }
+
+        double pulse = 0.5 + 0.5 * Math.sin((FALCON_TERMINAL_VELOCITY_WARNING_FRAMES - falconTerminalVelocityTimer) * 0.46);
+        double sx = falconTerminalVelocityStartX;
+        double sy = falconTerminalVelocityStartY;
+        double ex = falconTerminalVelocityEndX;
+        double ey = falconTerminalVelocityEndY;
+        double mx = (sx + ex) * 0.5;
+        double my = (sy + ey) * 0.5;
+        double pathWidth = FALCON_TERMINAL_VELOCITY_PATH_WIDTH * (falconTerminalVelocityStriking ? 1.0 : 0.72);
+        double sweetWidth = FALCON_TERMINAL_VELOCITY_SWEETSPOT_WIDTH * (1.0 + pulse * 0.16);
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setStroke(Color.web("#FF7043").deriveColor(0, 1, 1, falconTerminalVelocityStriking ? 0.34 : 0.22));
+        g.setLineWidth(pathWidth);
+        g.strokeLine(sx, sy, ex, ey);
+
+        g.setStroke(Color.web("#FFE0B2").deriveColor(0, 1, 1, 0.72 + pulse * 0.18));
+        g.setLineWidth(falconTerminalVelocityStriking ? 8.0 : 4.0);
+        g.strokeLine(sx, sy, ex, ey);
+
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.60));
+        g.setLineWidth(falconTerminalVelocityStriking ? 3.0 : 1.8);
+        g.strokeLine(sx, sy, ex, ey);
+
+        g.setFill(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.24 + pulse * 0.14));
+        g.fillOval(mx - sweetWidth, my - sweetWidth, sweetWidth * 2.0, sweetWidth * 2.0);
+        g.setStroke(Color.GOLD.deriveColor(0, 1, 1, 0.82));
+        g.setLineWidth(2.4);
+        g.strokeOval(mx - sweetWidth, my - sweetWidth, sweetWidth * 2.0, sweetWidth * 2.0);
+
+        if (falconTerminalVelocityStriking) {
+            double progress = 1.0 - Math.clamp(
+                    falconTerminalVelocityTimer / (double) FALCON_TERMINAL_VELOCITY_STRIKE_FRAMES,
+                    0.0,
+                    1.0
+            );
+            double cx = sx + (ex - sx) * progress;
+            double cy = sy + (ey - sy) * progress;
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.68));
+            g.fillOval(cx - 24.0, cy - 24.0, 48.0, 48.0);
+        }
+        g.restore();
     }
 
     private void drawRoadrunnerPaintedRoads(GraphicsContext g) {
@@ -19362,6 +22993,9 @@ public class Bird {
             return;
         }
         if (type == BirdGame3.BirdType.SHOEBILL) {
+            return;
+        }
+        if (type == BirdGame3.BirdType.MOCKINGBIRD) {
             return;
         }
         if (type == BirdGame3.BirdType.RAZORBILL) {

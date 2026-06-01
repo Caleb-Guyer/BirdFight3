@@ -339,6 +339,14 @@ class LanBirdState {
     boolean pigeonScavengeUltimate;
     boolean pigeonScavengeResolved;
     boolean pigeonUpSpecialUsed;
+    boolean pigeonCoronationActive;
+    int pigeonCoronationTimer;
+    double pigeonCoronationX;
+    double pigeonCoronationY;
+    boolean pigeonCoronationFinalResolved;
+    boolean pigeonCoronationStayedInside;
+    int[] pigeonCoronationTickCooldown = new int[4];
+    boolean[] pigeonCoronationFinalHit = new boolean[4];
     int raptorCryTimer;
     boolean raptorCryUltimate;
     int raptorRushTimer;
@@ -353,6 +361,24 @@ class LanBirdState {
     int raptorCryReuseTimer;
     int raptorRushReuseTimer;
     boolean raptorUpSpecialUsed;
+    boolean eagleSkySovereignActive;
+    boolean eagleSkySovereignDiving;
+    int eagleSkySovereignTimer;
+    double eagleSkySovereignTargetX;
+    double eagleSkySovereignTargetY;
+    double eagleSkySovereignDiveStartY;
+    boolean eagleSkySovereignHitResolved;
+    boolean[] eagleSkySovereignHit = new boolean[4];
+    boolean falconTerminalVelocityActive;
+    boolean falconTerminalVelocityStriking;
+    boolean falconTerminalVelocityHitAny;
+    int falconTerminalVelocityTimer;
+    int falconTerminalVelocityDirection;
+    double falconTerminalVelocityStartX;
+    double falconTerminalVelocityStartY;
+    double falconTerminalVelocityEndX;
+    double falconTerminalVelocityEndY;
+    boolean[] falconTerminalVelocityHit = new boolean[4];
     double speedBoostTimer;
     double hoverRegenTimer;
     double hoverRegenMultiplier;
@@ -798,6 +824,18 @@ class LanBirdState {
         out.writeBoolean(pigeonScavengeUltimate);
         out.writeBoolean(pigeonScavengeResolved);
         out.writeBoolean(pigeonUpSpecialUsed);
+        out.writeBoolean(pigeonCoronationActive);
+        out.writeInt(pigeonCoronationTimer);
+        out.writeDouble(pigeonCoronationX);
+        out.writeDouble(pigeonCoronationY);
+        out.writeBoolean(pigeonCoronationFinalResolved);
+        out.writeBoolean(pigeonCoronationStayedInside);
+        for (int cooldown : pigeonCoronationTickCooldown) {
+            out.writeInt(cooldown);
+        }
+        for (boolean hit : pigeonCoronationFinalHit) {
+            out.writeBoolean(hit);
+        }
         out.writeInt(raptorCryTimer);
         out.writeBoolean(raptorCryUltimate);
         out.writeInt(raptorRushTimer);
@@ -816,6 +854,28 @@ class LanBirdState {
         out.writeInt(raptorCryReuseTimer);
         out.writeInt(raptorRushReuseTimer);
         out.writeBoolean(raptorUpSpecialUsed);
+        out.writeBoolean(eagleSkySovereignActive);
+        out.writeBoolean(eagleSkySovereignDiving);
+        out.writeInt(eagleSkySovereignTimer);
+        out.writeDouble(eagleSkySovereignTargetX);
+        out.writeDouble(eagleSkySovereignTargetY);
+        out.writeDouble(eagleSkySovereignDiveStartY);
+        out.writeBoolean(eagleSkySovereignHitResolved);
+        for (boolean hit : eagleSkySovereignHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeBoolean(falconTerminalVelocityActive);
+        out.writeBoolean(falconTerminalVelocityStriking);
+        out.writeBoolean(falconTerminalVelocityHitAny);
+        out.writeInt(falconTerminalVelocityTimer);
+        out.writeInt(falconTerminalVelocityDirection);
+        out.writeDouble(falconTerminalVelocityStartX);
+        out.writeDouble(falconTerminalVelocityStartY);
+        out.writeDouble(falconTerminalVelocityEndX);
+        out.writeDouble(falconTerminalVelocityEndY);
+        for (boolean hit : falconTerminalVelocityHit) {
+            out.writeBoolean(hit);
+        }
         out.writeDouble(speedBoostTimer);
         out.writeDouble(hoverRegenTimer);
         out.writeDouble(hoverRegenMultiplier);
@@ -1271,6 +1331,18 @@ class LanBirdState {
         state.pigeonScavengeUltimate = in.readBoolean();
         state.pigeonScavengeResolved = in.readBoolean();
         state.pigeonUpSpecialUsed = in.readBoolean();
+        state.pigeonCoronationActive = in.readBoolean();
+        state.pigeonCoronationTimer = in.readInt();
+        state.pigeonCoronationX = in.readDouble();
+        state.pigeonCoronationY = in.readDouble();
+        state.pigeonCoronationFinalResolved = in.readBoolean();
+        state.pigeonCoronationStayedInside = in.readBoolean();
+        for (int i = 0; i < state.pigeonCoronationTickCooldown.length; i++) {
+            state.pigeonCoronationTickCooldown[i] = in.readInt();
+        }
+        for (int i = 0; i < state.pigeonCoronationFinalHit.length; i++) {
+            state.pigeonCoronationFinalHit[i] = in.readBoolean();
+        }
         state.raptorCryTimer = in.readInt();
         state.raptorCryUltimate = in.readBoolean();
         state.raptorRushTimer = in.readInt();
@@ -1289,6 +1361,28 @@ class LanBirdState {
         state.raptorCryReuseTimer = in.readInt();
         state.raptorRushReuseTimer = in.readInt();
         state.raptorUpSpecialUsed = in.readBoolean();
+        state.eagleSkySovereignActive = in.readBoolean();
+        state.eagleSkySovereignDiving = in.readBoolean();
+        state.eagleSkySovereignTimer = in.readInt();
+        state.eagleSkySovereignTargetX = in.readDouble();
+        state.eagleSkySovereignTargetY = in.readDouble();
+        state.eagleSkySovereignDiveStartY = in.readDouble();
+        state.eagleSkySovereignHitResolved = in.readBoolean();
+        for (int i = 0; i < state.eagleSkySovereignHit.length; i++) {
+            state.eagleSkySovereignHit[i] = in.readBoolean();
+        }
+        state.falconTerminalVelocityActive = in.readBoolean();
+        state.falconTerminalVelocityStriking = in.readBoolean();
+        state.falconTerminalVelocityHitAny = in.readBoolean();
+        state.falconTerminalVelocityTimer = in.readInt();
+        state.falconTerminalVelocityDirection = in.readInt();
+        state.falconTerminalVelocityStartX = in.readDouble();
+        state.falconTerminalVelocityStartY = in.readDouble();
+        state.falconTerminalVelocityEndX = in.readDouble();
+        state.falconTerminalVelocityEndY = in.readDouble();
+        for (int i = 0; i < state.falconTerminalVelocityHit.length; i++) {
+            state.falconTerminalVelocityHit[i] = in.readBoolean();
+        }
         state.speedBoostTimer = in.readDouble();
         state.hoverRegenTimer = in.readDouble();
         state.hoverRegenMultiplier = in.readDouble();

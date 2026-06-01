@@ -394,6 +394,7 @@ public class BirdGame3 extends Application {
     private int lanLastWinnerIndex = -1;
 
     // === LONG-TERM BALANCE TELEMETRY ===
+    private static final boolean ADAPTIVE_BALANCE_ENABLED = false;
     private static final int BALANCE_MIN_SAMPLE = 6;
     private static final double BALANCE_HIGH_WINRATE = 0.60;
     private static final double BALANCE_LOW_WINRATE = 0.40;
@@ -401,6 +402,10 @@ public class BirdGame3 extends Application {
     private final int[] typeWins = new int[BirdType.values().length];
     private final int[] typeDamage = new int[BirdType.values().length];
     private final int[] typeElims = new int[BirdType.values().length];
+    private final GameplayTelemetry gameplayTelemetry = new GameplayTelemetry();
+    private final FramePerformanceTelemetry framePerformance = new FramePerformanceTelemetry();
+    private final String[] lastTelemetryMoveNames = new String[MAX_COMBATANTS];
+    private final String[] lastSpecialTelemetryMoveNames = new String[MAX_COMBATANTS];
 
     // === FIXED TIMESTEP PAUSE FIX ===
     private long lastUpdate = 0;
@@ -3965,6 +3970,18 @@ public class BirdGame3 extends Application {
     private boolean trainingAcademyShoebillThrustHitSeen = false;
     private boolean trainingAcademyShoebillLiftHitSeen = false;
     private boolean trainingAcademyShoebillStatueSeen = false;
+    private boolean trainingAcademyMockingbirdLoungePlacedSeen = false;
+    private boolean trainingAcademyMockingbirdCaptureSeen = false;
+    private boolean trainingAcademyMockingbirdCopiedNeutralSeen = false;
+    private boolean trainingAcademyMockingbirdRouteHitSeen = false;
+    private boolean trainingAcademyRazorbillStormHitSeen = false;
+    private boolean trainingAcademyRazorbillDashHitSeen = false;
+    private boolean trainingAcademyRazorbillShearHitSeen = false;
+    private boolean trainingAcademyRazorbillCounterSeen = false;
+    private boolean trainingAcademyGrinchHeartHitSeen = false;
+    private boolean trainingAcademyGrinchSleighHitSeen = false;
+    private boolean trainingAcademyGrinchChimneyHitSeen = false;
+    private boolean trainingAcademyGrinchPresentPlacedSeen = false;
     private boolean trainingAcademyRecoveryStarted = false;
     private int trainingAcademyRecoveriesCompleted = 0;
     private int trainingAcademyBlockFrames = 0;
@@ -9532,6 +9549,33 @@ public class BirdGame3 extends Application {
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
+        MOCKINGBIRD_DRILL(
+                "Mockingbird Lounge Route",
+                "Place Lounge, capture the dummy's neutral, use the copied neutral, then land a route hit.",
+                "Down places Lounge. Bring the dummy inside to capture. Neutral spends the copied move; Side or Up gives the follow-up.",
+                MapType.BATTLEFIELD,
+                BirdType.MOCKINGBIRD,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        RAZORBILL_DRILL(
+                "Razorbill Razor Sequence",
+                "Release Razor Storm, land Skimming Razor, land Cliff Shear, then enter Counter Cut.",
+                "Hold Neutral to grow Storm before release. Side cuts sideways. Up shears upward. Down enters counter stance.",
+                MapType.BATTLEFIELD,
+                BirdType.RAZORBILL,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        GRINCHHAWK_DRILL(
+                "Grinch-Hawk Gift Route",
+                "Land Heart Snatch, hit with Sleigh Crash, hit Chimney Flap, then place Fake Present.",
+                "Neutral steals health. Side rides or launches the sleigh. Up covers vertical space. Down leaves the present trap.",
+                MapType.BATTLEFIELD,
+                BirdType.GRINCHHAWK,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
         DEFENSE_AND_PUNISH(
                 "Defense And Punish",
                 "Block a close hit, then strike back.",
@@ -9637,6 +9681,9 @@ public class BirdGame3 extends Application {
         int updates = 0;
 
         while (accumulator >= FRAME_TIME && updates < MAX_UPDATES) {
+            long playerUpdateNs = 0L;
+            long worldUpdateNs = 0L;
+            long effectsUpdateNs = 0L;
             pollWiimoteGameplayInputs();
             if (lanModeActive && lanIsHost && lanMatchActive) {
                 applyLanInputMasks();
@@ -9645,27 +9692,36 @@ public class BirdGame3 extends Application {
             boolean introLocked = isMatchIntroLocked();
             if (!lanClientViewOnly) {
                 if (!introLocked) {
+                    long playerUpdateStart = System.nanoTime();
                     for (int i = 0; i < activePlayers; i++) {
                         if (players[i] != null) {
                             players[i].update(1.0);
                         }
                     }
+                    playerUpdateNs += System.nanoTime() - playerUpdateStart;
+                    long worldUpdateStart = System.nanoTime();
                     long now = System.nanoTime();
                     applyMatchModeRuntimeEffects(now);
                     spawnPowerUp(now);
                     if (!matchEnded && !trainingModeActive && matchTimer > 0) matchTimer--;
                     updateWorldFixed();
                     trimTransientEffectOverflow();
+                    worldUpdateNs += System.nanoTime() - worldUpdateStart;
                 } else {
+                    long worldUpdateStart = System.nanoTime();
                     updateDynamicCamera();
+                    worldUpdateNs += System.nanoTime() - worldUpdateStart;
                 }
             }
 
             if (!introLocked) {
+                long effectsUpdateStart = System.nanoTime();
                 updateParticlesFixed();
                 updateBlastZoneKoEffectsFixed();
                 trimTransientEffectOverflow();
+                effectsUpdateNs += System.nanoTime() - effectsUpdateStart;
             }
+            framePerformance.recordFixedUpdate(playerUpdateNs, worldUpdateNs, effectsUpdateNs);
 
             accumulator -= FRAME_TIME;
             updates++;
@@ -9678,6 +9734,16 @@ public class BirdGame3 extends Application {
         if (!particleEffectsEnabled && !particles.isEmpty()) {
             particles.clear();
         }
+    }
+
+    private void recordFrameEntityCounts() {
+        framePerformance.recordEntityCounts(
+                particles.size(),
+                crowMinions.size(),
+                chickMinions.size(),
+                piranhaHazards.size(),
+                powerUps.size()
+        );
     }
 
     private void handleGameplayFrameException(RuntimeException ex) {
@@ -9875,14 +9941,13 @@ public class BirdGame3 extends Application {
         chick.age = Math.clamp(chick.maxAge - 240, 0, chick.age);
     }
 
-    private boolean isWorldRectNearCamera(double x, double y, double width, double height, double margin) {
+    private boolean isWorldRectOutsideCamera(double x, double y, double width, double height, double margin) {
         double viewWidth = WIDTH / Math.max(0.01, zoom);
         double viewHeight = HEIGHT / Math.max(0.01, zoom);
-        double minX = camX - margin;
-        double minY = camY - margin;
-        double maxX = camX + viewWidth + margin;
-        double maxY = camY + viewHeight + margin;
-        return !(x + width >= minX) || !(x <= maxX) || !(y + height >= minY) || !(y <= maxY);
+        boolean outside = EntityCulling.isWorldRectOutsideCamera(
+                x, y, width, height, margin, camX, camY, viewWidth, viewHeight);
+        framePerformance.recordCullCheck(outside);
+        return outside;
     }
 
     private void resetTrackedCameraBounds() {
@@ -11495,6 +11560,8 @@ public class BirdGame3 extends Application {
             }
         }
 
+        drawUltimateReadyScreenDarken(g);
+
         if (!swingingVines.isEmpty()) {
             drawSwingingVines(g, ambientFx);
         }
@@ -11504,7 +11571,7 @@ public class BirdGame3 extends Application {
                 if (p == null || p.color == null) {
                     continue;
                 }
-                if (p.life <= 0 || isWorldRectNearCamera(p.x - 4, p.y - 4, 8, 8, 96)) {
+                if (p.life <= 0 || isWorldRectOutsideCamera(p.x - 4, p.y - 4, 8, 8, 96)) {
                     continue;
                 }
                 g.setFill(p.color.deriveColor(0, 1, 1, p.life / 60.0));
@@ -11515,7 +11582,7 @@ public class BirdGame3 extends Application {
         for (PowerUp p : powerUps) {
             p.floatOffset += 0.1;
             double offset = Math.sin(p.floatOffset) * 10;
-            if (isWorldRectNearCamera(p.x - 44, p.y - 44, 88, 88, 160)) {
+            if (isWorldRectOutsideCamera(p.x - 44, p.y - 44, 88, 88, 160)) {
                 continue;
             }
             drawPowerUpSprite(g, p, offset);
@@ -11526,7 +11593,7 @@ public class BirdGame3 extends Application {
         }
 
         for (PiranhaHazard piranha : piranhaHazards) {
-            if (isWorldRectNearCamera(piranha.x - 42, piranha.y - 28, 84, 56, 180)) {
+            if (isWorldRectOutsideCamera(piranha.x - 42, piranha.y - 28, 84, 56, 180)) {
                 continue;
             }
             drawPiranhaHazard(g, piranha);
@@ -11540,14 +11607,14 @@ public class BirdGame3 extends Application {
 
         for (CrowMinion c : crowMinions) {
             double size = 70 * c.drawScale();
-            if (isWorldRectNearCamera(c.x - size * 0.6, c.y - size * 0.5, size * 1.2, size, 220)) {
+            if (isWorldRectOutsideCamera(c.x - size * 0.6, c.y - size * 0.5, size * 1.2, size, 220)) {
                 continue;
             }
             drawCrowMinion(g, c);
         }
 
         for (ChickMinion chick : chickMinions) {
-            if (isWorldRectNearCamera(chick.x, chick.y, chick.width, chick.height, 180)) {
+            if (isWorldRectOutsideCamera(chick.x, chick.y, chick.width, chick.height, 180)) {
                 continue;
             }
             drawChickMinion(g, chick);
@@ -11556,7 +11623,7 @@ public class BirdGame3 extends Application {
         for (Bird b : players) {
             if (b != null && b.health > 0) {
                 double size = 80 * b.sizeMultiplier;
-                if (isWorldRectNearCamera(b.x, b.y, size, size, 220)) {
+                if (isWorldRectOutsideCamera(b.x, b.y, size, size, 220)) {
                     continue;
                 }
                 // Always draw birds at full opacity; HUD elements will fade when they overlap birds.
@@ -11571,6 +11638,29 @@ public class BirdGame3 extends Application {
         }
 
         g.restore();
+    }
+
+    private void drawUltimateReadyScreenDarken(GraphicsContext g) {
+        if (!hasUltimateReadyBird()) return;
+        double safeZoom = Math.max(0.01, zoom);
+        double viewWidth = WIDTH / safeZoom;
+        double viewHeight = HEIGHT / safeZoom;
+        double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 360.0);
+        double alpha = 0.22 + pulse * 0.06;
+        double pad = 220.0 / safeZoom + Math.max(80.0, shakeIntensity * 3.0);
+
+        g.setFill(Color.rgb(0, 0, 0, alpha));
+        g.fillRect(camX - pad, camY - pad, viewWidth + pad * 2.0, viewHeight + pad * 2.0);
+    }
+
+    private boolean hasUltimateReadyBird() {
+        for (int i = 0; i < activePlayers; i++) {
+            Bird bird = players[i];
+            if (bird != null && bird.isUltimateVisualReady()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void drawSwingingVines(GraphicsContext g, boolean ambientFx) {
@@ -13514,7 +13604,7 @@ public class BirdGame3 extends Application {
         }
 
         Bird preview = new Bird(0, type, 0, this);
-        preview.suppressSelectEffects = type != BirdType.TITMOUSE;
+        preview.suppressSelectEffects = true;
         if (forceSkin) {
             applyPreviewSkinChoiceToBird(preview, type, skinKey);
         } else {
@@ -13522,19 +13612,31 @@ public class BirdGame3 extends Application {
         }
         double baseSize = Math.min(w, h);
         double pad = Math.min(8, baseSize * 0.08);
-        double extentFactor = rosterSpriteExtentFactor(type);
-        preview.sizeMultiplier = Math.clamp((baseSize - pad * 2) / (80.0 * extentFactor), 0.28, 0.72);
+        double extentFactor = rosterSpriteExtentFactor(type, skinKey);
+        preview.sizeMultiplier = Math.clamp((baseSize - pad * 2) / (80.0 * extentFactor),
+                rosterSpriteMinScale(type, skinKey),
+                rosterSpriteMaxScale(type, skinKey));
         double drawSize = 80 * preview.sizeMultiplier;
-        preview.x = (w - drawSize) / 2.0 + w * rosterSpriteXBias(type);
-        preview.y = (h - drawSize) / 2.0 + pad + h * rosterSpriteYBias(type);
+        preview.x = (w - drawSize) / 2.0 + w * rosterSpriteXBias(type, skinKey);
+        preview.y = (h - drawSize) / 2.0 + pad + h * rosterSpriteYBias(type, skinKey);
         preview.facingRight = true;
         preview.draw(g);
         // Titmouse crest is rendered in Bird.draw now for consistent previews.
     }
 
     private double rosterSpriteExtentFactor(BirdType type) {
+        return rosterSpriteExtentFactor(type, null);
+    }
+
+    private double rosterSpriteExtentFactor(BirdType type, String skinKey) {
         if (type == null) {
             return 1.35;
+        }
+        if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
+            return 1.92;
+        }
+        if (type == BirdType.EAGLE && STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) {
+            return 1.74;
         }
         return switch (type) {
             case BAT -> 2.9;
@@ -13550,9 +13652,39 @@ public class BirdGame3 extends Application {
         };
     }
 
+    private double rosterSpriteMinScale(BirdType type, String skinKey) {
+        if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
+            return 0.18;
+        }
+        if (type == BirdType.EAGLE && STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) {
+            return 0.24;
+        }
+        return 0.28;
+    }
+
+    private double rosterSpriteMaxScale(BirdType type, String skinKey) {
+        if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
+            return 0.62;
+        }
+        if (type == BirdType.EAGLE && STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) {
+            return 0.66;
+        }
+        return 0.72;
+    }
+
     private double rosterSpriteXBias(BirdType type) {
+        return rosterSpriteXBias(type, null);
+    }
+
+    private double rosterSpriteXBias(BirdType type, String skinKey) {
         if (type == null) {
             return 0.0;
+        }
+        if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
+            return -0.065;
+        }
+        if (type == BirdType.EAGLE && STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) {
+            return -0.04;
         }
         return switch (type) {
             case SHOEBILL -> -0.14;
@@ -13568,6 +13700,16 @@ public class BirdGame3 extends Application {
     }
 
     private double rosterSpriteYBias(BirdType type) {
+        return rosterSpriteYBias(type, null);
+    }
+
+    private double rosterSpriteYBias(BirdType type, String skinKey) {
+        if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
+            return 0.06;
+        }
+        if (type == BirdType.EAGLE && STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) {
+            return -0.025;
+        }
         return type == BirdType.BAT ? 0.04 : 0.0;
     }
 
@@ -13583,7 +13725,7 @@ public class BirdGame3 extends Application {
         }
 
         Bird preview = new Bird(0, type, 0, this);
-        preview.suppressSelectEffects = type != BirdType.TITMOUSE;
+        preview.suppressSelectEffects = true;
         applyPreviewSkinChoiceToBird(preview, type, skinKey);
 
         VictoryPortraitLayout layout = victoryPortraitLayout(type, winnerPose);
@@ -21994,6 +22136,7 @@ public class BirdGame3 extends Application {
                 winnerText = winner.name.toUpperCase() + " WINS!";
             }
         }
+        recordBalanceOutcome(winner);
 
         VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);",
                 MENU_PADDING, 30);
@@ -22078,7 +22221,7 @@ public class BirdGame3 extends Application {
         }
 
         root.getChildren().addAll(title, subtitle, coinsLabel, mapLabel);
-        root.getChildren().addAll(scoreboard, actions);
+        root.getChildren().addAll(scoreboard, buildPostMatchTelemetryPanel(), actions);
 
         ScrollPane scroll = wrapInScroll(root);
         Scene scene = new Scene(scroll, WIDTH, HEIGHT);
@@ -29127,6 +29270,9 @@ public class BirdGame3 extends Application {
             case TURKEY -> GuidedTutorialLesson.TURKEY_DRILL;
             case PENGUIN -> GuidedTutorialLesson.PENGUIN_DRILL;
             case SHOEBILL -> GuidedTutorialLesson.SHOEBILL_DRILL;
+            case MOCKINGBIRD -> GuidedTutorialLesson.MOCKINGBIRD_DRILL;
+            case RAZORBILL -> GuidedTutorialLesson.RAZORBILL_DRILL;
+            case GRINCHHAWK -> GuidedTutorialLesson.GRINCHHAWK_DRILL;
             default -> null;
         };
     }
@@ -29151,6 +29297,9 @@ public class BirdGame3 extends Application {
             case TURKEY_DRILL -> BirdType.TURKEY;
             case PENGUIN_DRILL -> BirdType.PENGUIN;
             case SHOEBILL_DRILL -> BirdType.SHOEBILL;
+            case MOCKINGBIRD_DRILL -> BirdType.MOCKINGBIRD;
+            case RAZORBILL_DRILL -> BirdType.RAZORBILL;
+            case GRINCHHAWK_DRILL -> BirdType.GRINCHHAWK;
             default -> null;
         };
     }
@@ -32800,6 +32949,18 @@ public class BirdGame3 extends Application {
         trainingAcademyShoebillThrustHitSeen = false;
         trainingAcademyShoebillLiftHitSeen = false;
         trainingAcademyShoebillStatueSeen = false;
+        trainingAcademyMockingbirdLoungePlacedSeen = false;
+        trainingAcademyMockingbirdCaptureSeen = false;
+        trainingAcademyMockingbirdCopiedNeutralSeen = false;
+        trainingAcademyMockingbirdRouteHitSeen = false;
+        trainingAcademyRazorbillStormHitSeen = false;
+        trainingAcademyRazorbillDashHitSeen = false;
+        trainingAcademyRazorbillShearHitSeen = false;
+        trainingAcademyRazorbillCounterSeen = false;
+        trainingAcademyGrinchHeartHitSeen = false;
+        trainingAcademyGrinchSleighHitSeen = false;
+        trainingAcademyGrinchChimneyHitSeen = false;
+        trainingAcademyGrinchPresentPlacedSeen = false;
     }
 
     private GuidedTutorialLesson currentGuidedTutorialLesson() {
@@ -32929,7 +33090,8 @@ public class BirdGame3 extends Application {
             }
             case RAVEN_DRILL, VULTURE_DRILL, FALCON_DRILL, PHOENIX_DRILL,
                  ROOSTER_DRILL, PELICAN_DRILL, HUMMINGBIRD_DRILL,
-                 TURKEY_DRILL, PENGUIN_DRILL, SHOEBILL_DRILL -> {
+                 TURKEY_DRILL, PENGUIN_DRILL, SHOEBILL_DRILL,
+                 MOCKINGBIRD_DRILL, RAZORBILL_DRILL, GRINCHHAWK_DRILL -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
             }
@@ -33172,6 +33334,41 @@ public class BirdGame3 extends Application {
                     }
                 }
             }
+            case MOCKINGBIRD_DRILL -> {
+                if (attacker.type == BirdType.MOCKINGBIRD
+                        && (attacker.mockingbirdSideFxTimer > 0 || attacker.mockingbirdUpFxTimer > 0)) {
+                    trainingAcademyMockingbirdRouteHitSeen = true;
+                }
+            }
+            case RAZORBILL_DRILL -> {
+                if (attacker.type == BirdType.RAZORBILL) {
+                    if (attacker.razorbillStormTimer > 0 && attacker.razorbillStormReleased) {
+                        trainingAcademyRazorbillStormHitSeen = true;
+                    }
+                    if (attacker.bladeStormFrames > 0) {
+                        trainingAcademyRazorbillDashHitSeen = true;
+                    }
+                    if (attacker.razorbillShearTimer > 0) {
+                        trainingAcademyRazorbillShearHitSeen = true;
+                    }
+                    if (attacker.razorbillCounterBurstTimer > 0) {
+                        trainingAcademyRazorbillCounterSeen = true;
+                    }
+                }
+            }
+            case GRINCHHAWK_DRILL -> {
+                if (attacker.type == BirdType.GRINCHHAWK) {
+                    if (attacker.grinchHeartSnatchTimer > 0) {
+                        trainingAcademyGrinchHeartHitSeen = true;
+                    }
+                    if (attacker.grinchSleighActive) {
+                        trainingAcademyGrinchSleighHitSeen = true;
+                    }
+                    if (attacker.grinchChimneyFlapTimer > 0) {
+                        trainingAcademyGrinchChimneyHitSeen = true;
+                    }
+                }
+            }
             default -> {
             }
         }
@@ -33298,6 +33495,13 @@ public class BirdGame3 extends Application {
             case SIDE -> trainingAcademySideSpecialSeen = true;
             case UP -> trainingAcademyUpSpecialSeen = true;
             case DOWN -> trainingAcademyDownSpecialSeen = true;
+        }
+        if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL
+                && currentGuidedTutorialLesson() == GuidedTutorialLesson.MOCKINGBIRD_DRILL
+                && user.type == BirdType.MOCKINGBIRD
+                && input == Bird.DirectionalSpecialInput.NEUTRAL
+                && user.mockingbirdCapturedType != null) {
+            trainingAcademyMockingbirdCopiedNeutralSeen = true;
         }
     }
 
@@ -33502,6 +33706,27 @@ public class BirdGame3 extends Application {
                 if (hasCompletedShoebillTrainingDrill()) {
                     markTrainingAcademyDrillCompleted(BirdType.SHOEBILL);
                     queueTrainingAcademyCompletion("Shoebill control cleared");
+                }
+            }
+            case MOCKINGBIRD_DRILL -> {
+                updateMockingbirdTrainingDrill(player, dummy);
+                if (hasCompletedMockingbirdTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.MOCKINGBIRD);
+                    queueTrainingAcademyCompletion("Mockingbird lounge cleared");
+                }
+            }
+            case RAZORBILL_DRILL -> {
+                updateRazorbillTrainingDrill(player, dummy);
+                if (hasCompletedRazorbillTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.RAZORBILL);
+                    queueTrainingAcademyCompletion("Razorbill sequence cleared");
+                }
+            }
+            case GRINCHHAWK_DRILL -> {
+                updateGrinchhawkTrainingDrill(player, dummy);
+                if (hasCompletedGrinchhawkTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.GRINCHHAWK);
+                    queueTrainingAcademyCompletion("Grinch-Hawk route cleared");
                 }
             }
             case DEFENSE_AND_PUNISH -> {
@@ -33851,6 +34076,63 @@ public class BirdGame3 extends Application {
                 && trainingAcademyShoebillThrustHitSeen
                 && trainingAcademyShoebillLiftHitSeen
                 && trainingAcademyShoebillStatueSeen;
+    }
+
+    private void updateMockingbirdTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.MOCKINGBIRD) {
+            return;
+        }
+        if (player.loungeActive && player.loungeHealth > 0) {
+            trainingAcademyMockingbirdLoungePlacedSeen = true;
+        }
+        if (player.mockingbirdCapturedType != null) {
+            trainingAcademyMockingbirdCaptureSeen = true;
+        }
+        if (player.mockingbirdCopiedNeutralSource != null) {
+            trainingAcademyMockingbirdCopiedNeutralSeen = true;
+        }
+    }
+
+    private boolean hasCompletedMockingbirdTrainingDrill() {
+        return trainingAcademyMockingbirdLoungePlacedSeen
+                && trainingAcademyMockingbirdCaptureSeen
+                && trainingAcademyMockingbirdCopiedNeutralSeen
+                && trainingAcademyMockingbirdRouteHitSeen;
+    }
+
+    private void updateRazorbillTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.RAZORBILL) {
+            return;
+        }
+        if (player.razorbillCounterTimer > 0
+                || player.razorbillCounterBurstTimer > 0
+                || player.razorbillCountered
+                || player.razorbillCounterAttemptActive) {
+            trainingAcademyRazorbillCounterSeen = true;
+        }
+    }
+
+    private boolean hasCompletedRazorbillTrainingDrill() {
+        return trainingAcademyRazorbillStormHitSeen
+                && trainingAcademyRazorbillDashHitSeen
+                && trainingAcademyRazorbillShearHitSeen
+                && trainingAcademyRazorbillCounterSeen;
+    }
+
+    private void updateGrinchhawkTrainingDrill(Bird player, Bird dummy) {
+        if (player == null || player.type != BirdType.GRINCHHAWK) {
+            return;
+        }
+        if (player.grinchPresent != null) {
+            trainingAcademyGrinchPresentPlacedSeen = true;
+        }
+    }
+
+    private boolean hasCompletedGrinchhawkTrainingDrill() {
+        return trainingAcademyGrinchHeartHitSeen
+                && trainingAcademyGrinchSleighHitSeen
+                && trainingAcademyGrinchChimneyHitSeen
+                && trainingAcademyGrinchPresentPlacedSeen;
     }
 
     private boolean isSuccessfulTrainingBlock(Bird player, Bird dummy) {
@@ -35123,13 +35405,14 @@ public class BirdGame3 extends Application {
         return 0;
     }
 
-    private void drawDebugBalanceHud(GraphicsContext g) {
+    private void drawDebugTelemetryHud(GraphicsContext g) {
         if (!debugHudEnabled) return;
 
+        List<GameplayTelemetry.MoveSnapshot> topMoves = gameplayTelemetry.topMoves(7);
         double panelX = 20;
         double panelY = 20;
-        double panelW = 760;
-        double panelH = 170 + activePlayers * 26;
+        double panelW = 1240;
+        double panelH = 268 + activePlayers * 24 + Math.max(1, topMoves.size()) * 22;
 
         g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.78));
         g.fillRoundRect(panelX, panelY, panelW, panelH, 18, 18);
@@ -35143,54 +35426,253 @@ public class BirdGame3 extends Application {
 
         g.setFill(Color.CYAN.brighter());
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
-        g.fillText("DEBUG BALANCE HUD (F3)", panelX + 18, panelY + 32);
+        g.fillText("DEBUG TELEMETRY HUD (F3)", panelX + 18, panelY + 32);
 
         g.setFill(Color.LIGHTGRAY);
         g.setFont(Font.font("Consolas", 17));
-        g.fillText("Match " + (int) elapsedSec + "s | Map: " + mapDisplayName(selectedMap),
+        g.fillText("Match " + (int) elapsedSec + "s | Map: " + mapDisplayName(selectedMap)
+                        + " | Adaptive balance: diagnostics only, scaling OFF",
                 panelX + 18, panelY + 58);
+
+        g.setFont(Font.font("Consolas", 15));
+        g.setFill(Color.web("#B2EBF2"));
+        g.fillText(String.format(Locale.ROOT,
+                        "Perf frame %.1fms | update %.1fms (birds %.1f world %.1f fx %.1f, %d fixed) | draw %.1fms hud %.1fms",
+                        framePerformance.frameMs(),
+                        framePerformance.updateMs(),
+                        framePerformance.playerUpdateMs(),
+                        framePerformance.worldUpdateMs(),
+                        framePerformance.effectsUpdateMs(),
+                        framePerformance.fixedUpdates(),
+                        framePerformance.drawWorldMs(),
+                        framePerformance.drawHudMs()),
+                panelX + 18, panelY + 84);
+        g.fillText(String.format(Locale.ROOT,
+                        "Entities particles %d | crows %d | chicks %d | piranhas %d | powerups %d | collision checks %d | culled %d/%d",
+                        framePerformance.particles(),
+                        framePerformance.crows(),
+                        framePerformance.chicks(),
+                        framePerformance.piranhas(),
+                        framePerformance.powerUps(),
+                        framePerformance.collisionChecks(),
+                        framePerformance.culledRects(),
+                        framePerformance.cullChecks()),
+                panelX + 18, panelY + 106);
 
         g.setFill(Color.WHITE);
         g.setFont(Font.font("Consolas", 16));
-        g.fillText("Player                        DPS   Specials  Elims  Falls  WRd", panelX + 18, panelY + 84);
+        g.fillText("Player                        DPS  SpUse  Hit%  SpDMG  Elims  Falls  WRd", panelX + 18, panelY + 134);
 
         for (int i = 0; i < activePlayers; i++) {
             Bird b = players[i];
             if (b == null) continue;
 
-            String row = getString(i, elapsedSec, b);
+            String row = debugPlayerTelemetryRow(i, elapsedSec, b);
             g.setFill(b.type.color.brighter());
-            g.fillText(row, panelX + 18, panelY + 112 + i * 26);
+            g.fillText(row, panelX + 18, panelY + 160 + i * 24);
+        }
+
+        double moveY = panelY + 178 + activePlayers * 24;
+        g.setFill(Color.WHITE);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+        g.fillText("Move telemetry: top damage rows this session", panelX + 18, moveY);
+        g.setFont(Font.font("Consolas", 14));
+        g.setFill(Color.LIGHTGRAY);
+        g.fillText("Move                                      H/C   Hit%   DMG   KO Self Rec  AvgSurv  Context",
+                panelX + 18, moveY + 22);
+
+        if (topMoves.isEmpty()) {
+            g.setFill(Color.GRAY.brighter());
+            g.fillText("No move samples yet.", panelX + 18, moveY + 46);
+        } else {
+            for (int i = 0; i < topMoves.size(); i++) {
+                GameplayTelemetry.MoveSnapshot row = topMoves.get(i);
+                g.setFill(i % 2 == 0 ? Color.WHITE : Color.LIGHTGRAY);
+                g.fillText(debugMoveTelemetryRow(row), panelX + 18, moveY + 46 + i * 22);
+            }
         }
 
         g.setFill(Color.GRAY.brighter());
         g.setFont(Font.font("Consolas", 14));
-        g.fillText("WRd = bird type lifetime win-rate delta from 50%", panelX + 18, panelY + panelH - 10);
+        g.fillText("WRd = bird type lifetime win-rate delta from 50%. Balance stats are recorded but no longer change bird stats.",
+                panelX + 18, panelY + panelH - 10);
     }
 
-    private String getString(int i, double elapsedSec, Bird b) {
+    private String debugPlayerTelemetryRow(int i, double elapsedSec, Bird b) {
         double dps = damageDealt[i] / elapsedSec;
         int picks = typePicks[b.type.ordinal()];
         int wins = typeWins[b.type.ordinal()];
         double wr = picks > 0 ? wins / (double) picks : 0.5;
         int wrDelta = (int) Math.round((wr - 0.5) * 100.0);
         String wrText = (wrDelta >= 0 ? "+" : "") + wrDelta + "%";
+        String hitRate = specialsUsed[i] <= 0 ? "--" : Math.round(specialHits[i] * 100.0 / specialsUsed[i]) + "%";
 
-        return String.format(
-                "%-28s %5.1f %8d %7d %6d %6s",
+        return String.format(Locale.ROOT,
+                "%-28s %5.1f %6d %5s %6d %6d %6d %6s",
                 b.name.length() > 28 ? b.name.substring(0, 28) : b.name,
                 dps,
                 specialsUsed[i],
+                hitRate,
+                specialDamageDealt[i],
                 eliminations[i],
                 falls[i],
                 wrText
         );
     }
 
+    private String debugMoveTelemetryRow(GameplayTelemetry.MoveSnapshot row) {
+        int uses = Math.max(0, row.uses());
+        String hitRate = uses <= 0 ? "--" : Math.round(row.hits() * 100.0 / uses) + "%";
+        String move = row.moveName();
+        if (GameplayTelemetry.MATCH_SURVIVAL_MOVE.equals(move)
+                || GameplayTelemetry.RECOVERY_FAILURE_MOVE.equals(move)) {
+            move = row.birdName() + " " + move;
+        }
+        String context = row.mode() + "/" + row.map();
+        return String.format(Locale.ROOT,
+                "%-40s %2d/%-2d %5s %5d %4d %4d %3d %7.1fs  %-28s",
+                hudTrim(move, 40),
+                row.humanUses(),
+                row.cpuUses(),
+                hitRate,
+                row.damage(),
+                row.kos(),
+                row.selfKos(),
+                row.recoveryFailures(),
+                row.averageSurvivalSeconds(),
+                hudTrim(context, 28)
+        );
+    }
+
+    private String hudTrim(String text, int maxChars) {
+        if (text == null) return "";
+        if (text.length() <= maxChars) return text;
+        return text.substring(0, Math.max(0, maxChars - 1)) + ".";
+    }
+
     public void recordSpecialImpact(int playerIdx, int damage, boolean didHit) {
         if (playerIdx < 0 || playerIdx >= specialHits.length) return;
         if (didHit) specialHits[playerIdx]++;
         if (damage > 0) specialDamageDealt[playerIdx] += damage;
+        Bird bird = playerIdx < players.length ? players[playerIdx] : null;
+        if (bird != null) {
+            String moveName = lastSpecialTelemetryMoveNames[playerIdx];
+            if (moveName == null || moveName.isBlank()) {
+                moveName = bird.type.name + " Special";
+            }
+            recordTelemetryMoveImpact(bird, moveName, damage, didHit);
+        }
+    }
+
+    void recordSpecialMoveUse(Bird bird, Bird.DirectionalSpecialInput input, boolean ultimate) {
+        if (bird == null) return;
+        String moveName = specialTelemetryMoveName(bird, input, ultimate);
+        setLastTelemetryMoveName(bird.playerIndex, moveName);
+        if (bird.playerIndex >= 0 && bird.playerIndex < lastSpecialTelemetryMoveNames.length) {
+            lastSpecialTelemetryMoveNames[bird.playerIndex] = moveName;
+        }
+        recordTelemetryMoveUse(bird, moveName);
+    }
+
+    void recordUltimateMoveUse(Bird bird, String moveName) {
+        if (bird == null) return;
+        setLastTelemetryMoveName(bird.playerIndex, moveName);
+        if (bird.playerIndex >= 0 && bird.playerIndex < lastSpecialTelemetryMoveNames.length) {
+            lastSpecialTelemetryMoveNames[bird.playerIndex] = moveName;
+        }
+        recordTelemetryMoveUse(bird, moveName);
+    }
+
+    void recordNormalMoveUse(Bird bird, String moveName) {
+        recordTelemetryMoveUse(bird, moveName);
+    }
+
+    void recordNormalMoveImpact(Bird bird, String moveName, int damage, boolean didHit) {
+        recordTelemetryMoveImpact(bird, moveName, damage, didHit);
+    }
+
+    void recordMoveKo(Bird attacker, Bird victim, String moveName) {
+        if (attacker == null && victim == null) return;
+        Bird source = attacker != null ? attacker : victim;
+        String resolvedMove = moveName;
+        if (resolvedMove == null || resolvedMove.isBlank()) {
+            resolvedMove = lastTelemetryMoveName(source.playerIndex, "Unknown KO");
+        }
+        gameplayTelemetry.recordKo(
+                source.type,
+                resolvedMove,
+                isTelemetryCpu(source.playerIndex),
+                currentMatchHistoryMode(),
+                selectedMap,
+                attacker == null || attacker == victim
+        );
+    }
+
+    void recordRecoveryFailure(Bird bird) {
+        if (bird == null) return;
+        gameplayTelemetry.recordRecoveryFailure(
+                bird.type,
+                isTelemetryCpu(bird.playerIndex),
+                currentMatchHistoryMode(),
+                selectedMap
+        );
+    }
+
+    void recordTelemetryCollisionCheck() {
+        framePerformance.recordCollisionCheck();
+    }
+
+    String lastTelemetryMoveName(int playerIdx, String fallback) {
+        if (playerIdx < 0 || playerIdx >= lastTelemetryMoveNames.length) {
+            return fallback;
+        }
+        String moveName = lastTelemetryMoveNames[playerIdx];
+        return moveName == null || moveName.isBlank() ? fallback : moveName;
+    }
+
+    private void recordTelemetryMoveUse(Bird bird, String moveName) {
+        if (bird == null || bird.playerIndex < 0) return;
+        setLastTelemetryMoveName(bird.playerIndex, moveName);
+        gameplayTelemetry.recordUse(
+                bird.type,
+                moveName,
+                isTelemetryCpu(bird.playerIndex),
+                currentMatchHistoryMode(),
+                selectedMap
+        );
+    }
+
+    private void recordTelemetryMoveImpact(Bird bird, String moveName, int damage, boolean didHit) {
+        if (bird == null || bird.playerIndex < 0) return;
+        setLastTelemetryMoveName(bird.playerIndex, moveName);
+        gameplayTelemetry.recordImpact(
+                bird.type,
+                moveName,
+                isTelemetryCpu(bird.playerIndex),
+                currentMatchHistoryMode(),
+                selectedMap,
+                damage,
+                didHit
+        );
+    }
+
+    private void setLastTelemetryMoveName(int playerIdx, String moveName) {
+        if (playerIdx < 0 || playerIdx >= lastTelemetryMoveNames.length) return;
+        lastTelemetryMoveNames[playerIdx] = moveName;
+    }
+
+    private boolean isTelemetryCpu(int playerIdx) {
+        return playerIdx >= 0 && playerIdx < isAI.length && isAI[playerIdx];
+    }
+
+    private String specialTelemetryMoveName(Bird bird, Bird.DirectionalSpecialInput input, boolean ultimate) {
+        String direction = switch (input == null ? Bird.DirectionalSpecialInput.NEUTRAL : input) {
+            case NEUTRAL -> "Neutral";
+            case SIDE -> "Side";
+            case UP -> "Up";
+            case DOWN -> "Down";
+        };
+        return bird.type.name + " " + direction + (ultimate ? " Ultimate" : " Special");
     }
 
     public int getCpuLevel(int playerIdx) {
@@ -36249,6 +36731,7 @@ public class BirdGame3 extends Application {
         timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
+                framePerformance.beginFrame();
                 try {
                     gameTick();
                     if (lanModeActive && lanIsHost) {
@@ -36267,20 +36750,30 @@ public class BirdGame3 extends Application {
                         }
                     }
                     if (!shouldRenderFrame(now)) {
+                        recordFrameEntityCounts();
+                        framePerformance.finishFrame();
                         return;
                     }
                     FightHudLayout hudLayout = buildFightHudLayout();
                     currentFightHudOcclusionRects = hudLayout.occlusionRects();
+                    long drawWorldStart = System.nanoTime();
                     drawGame(g);
+                    framePerformance.recordDrawWorld(System.nanoTime() - drawWorldStart);
 
+                    long drawHudStart = System.nanoTime();
                     ui.clearRect(0, 0, WIDTH, HEIGHT);
                     drawFightHud(ui, hudLayout);
                     if (trainingModeActive) {
                         drawTrainingLabHud(ui);
                     }
-                    drawDebugBalanceHud(ui);
+                    framePerformance.recordDrawHud(System.nanoTime() - drawHudStart);
+                    drawDebugTelemetryHud(ui);
                     drawFightFlashOverlay(ui);
+                    framePerformance.recordDrawHud(System.nanoTime() - drawHudStart);
+                    recordFrameEntityCounts();
+                    framePerformance.finishFrame();
                 } catch (RuntimeException ex) {
+                    framePerformance.finishFrame();
                     handleGameplayFrameException(ex);
                 }
             }
@@ -36517,6 +37010,9 @@ public class BirdGame3 extends Application {
                 case TURKEY_DRILL -> trainingTurkeyDrillProgressText();
                 case PENGUIN_DRILL -> trainingPenguinDrillProgressText();
                 case SHOEBILL_DRILL -> trainingShoebillDrillProgressText();
+                case MOCKINGBIRD_DRILL -> trainingMockingbirdDrillProgressText(player);
+                case RAZORBILL_DRILL -> trainingRazorbillDrillProgressText();
+                case GRINCHHAWK_DRILL -> trainingGrinchhawkDrillProgressText();
                 default -> specialMoveGuideNote(player.type);
             };
         }
@@ -36800,6 +37296,57 @@ public class BirdGame3 extends Application {
         return "Shoebill control complete.";
     }
 
+    private String trainingMockingbirdDrillProgressText(Bird player) {
+        if (!trainingAcademyMockingbirdLoungePlacedSeen) {
+            return "Academy goal: use DOWN special to place Lounge.";
+        }
+        if (!trainingAcademyMockingbirdCaptureSeen) {
+            return "Lounge placed. Bring the dummy into Lounge to capture its neutral.";
+        }
+        if (!trainingAcademyMockingbirdCopiedNeutralSeen) {
+            String copied = player != null && player.mockingbirdCapturedType != null
+                    ? player.mockingbirdCapturedType.name
+                    : "copied";
+            return "Neutral captured. Use NEUTRAL to perform the " + copied + " move.";
+        }
+        if (!trainingAcademyMockingbirdRouteHitSeen) {
+            return "Copied neutral used. Land SIDE Mimic Call or UP Forest Lift.";
+        }
+        return "Mockingbird lounge route complete.";
+    }
+
+    private String trainingRazorbillDrillProgressText() {
+        if (!trainingAcademyRazorbillStormHitSeen) {
+            return "Academy goal: hold and release NEUTRAL Razor Storm into the dummy.";
+        }
+        if (!trainingAcademyRazorbillDashHitSeen) {
+            return "Storm hit. Land SIDE Skimming Razor.";
+        }
+        if (!trainingAcademyRazorbillShearHitSeen) {
+            return "Skimming Razor hit. Land UP Cliff Shear.";
+        }
+        if (!trainingAcademyRazorbillCounterSeen) {
+            return "Cliff Shear hit. Use DOWN special to enter Counter Cut stance.";
+        }
+        return "Razorbill sequence complete.";
+    }
+
+    private String trainingGrinchhawkDrillProgressText() {
+        if (!trainingAcademyGrinchHeartHitSeen) {
+            return "Academy goal: land NEUTRAL Heart Snatch on the dummy.";
+        }
+        if (!trainingAcademyGrinchSleighHitSeen) {
+            return "Heart Snatch hit. Use SIDE Sleigh Crash through the dummy.";
+        }
+        if (!trainingAcademyGrinchChimneyHitSeen) {
+            return "Sleigh hit. Land UP Chimney Flap.";
+        }
+        if (!trainingAcademyGrinchPresentPlacedSeen) {
+            return "Chimney Flap hit. Use DOWN special to place Fake Present.";
+        }
+        return "Grinch-Hawk gift route complete.";
+    }
+
     private void drawTrainingAcademyHud(GraphicsContext g) {
         double panelW = 820;
         double panelX = (WIDTH - panelW) / 2.0;
@@ -36963,6 +37510,18 @@ public class BirdGame3 extends Application {
                         + "  Thrust: " + yesNoText(trainingAcademyShoebillThrustHitSeen)
                         + "  Lift: " + yesNoText(trainingAcademyShoebillLiftHitSeen)
                         + "  Statue: " + yesNoText(trainingAcademyShoebillStatueSeen);
+                case MOCKINGBIRD_DRILL -> "Lounge: " + yesNoText(trainingAcademyMockingbirdLoungePlacedSeen)
+                        + "  Capture: " + yesNoText(trainingAcademyMockingbirdCaptureSeen)
+                        + "  Copy: " + yesNoText(trainingAcademyMockingbirdCopiedNeutralSeen)
+                        + "  Route: " + yesNoText(trainingAcademyMockingbirdRouteHitSeen);
+                case RAZORBILL_DRILL -> "Storm: " + yesNoText(trainingAcademyRazorbillStormHitSeen)
+                        + "  Dash: " + yesNoText(trainingAcademyRazorbillDashHitSeen)
+                        + "  Shear: " + yesNoText(trainingAcademyRazorbillShearHitSeen)
+                        + "  Counter: " + yesNoText(trainingAcademyRazorbillCounterSeen);
+                case GRINCHHAWK_DRILL -> "Heart: " + yesNoText(trainingAcademyGrinchHeartHitSeen)
+                        + "  Sleigh: " + yesNoText(trainingAcademyGrinchSleighHitSeen)
+                        + "  Chimney: " + yesNoText(trainingAcademyGrinchChimneyHitSeen)
+                        + "  Present: " + yesNoText(trainingAcademyGrinchPresentPlacedSeen);
                 case DEFENSE_AND_PUNISH -> "Blocked: " + yesNoText(trainingAcademyShieldHitSeen)
                         + "  Punish hit: " + yesNoText(trainingAcademyHitsLanded > 0);
                 case GRABS_AND_THROWS -> "Grab: " + yesNoText(trainingAcademyGrabSeen)
@@ -38088,11 +38647,12 @@ public class BirdGame3 extends Application {
             }
 
             VBox classicPanel = buildClassicSummaryPanel(winner);
+            VBox telemetryPanel = buildPostMatchTelemetryPanel();
             root.getChildren().addAll(title, coinsLabel);
             if (classicPanel != null) {
                 root.getChildren().add(classicPanel);
             }
-            root.getChildren().addAll(podium, buttons);
+            root.getChildren().addAll(podium, telemetryPanel, buttons);
             String bgStyle = root.getStyle();
             root.setStyle("-fx-background-color: transparent;");
             StackPane container = new StackPane(root);
@@ -38125,11 +38685,12 @@ public class BirdGame3 extends Application {
         VBox showcase = buildVictoryShowcase(activeBirds);
 
         VBox classicPanel = buildClassicSummaryPanel(winner);
+        VBox telemetryPanel = buildPostMatchTelemetryPanel();
         root.getChildren().addAll(title, coinsLabel, showcase);
         if (classicPanel != null) {
             root.getChildren().add(classicPanel);
         }
-        root.getChildren().add(buttons);
+        root.getChildren().addAll(telemetryPanel, buttons);
         String bgStyle = root.getStyle();
         root.setStyle("-fx-background-color: transparent;");
         StackPane container = new StackPane(root);
@@ -38812,6 +39373,142 @@ public class BirdGame3 extends Application {
         return box;
     }
 
+    private VBox buildPostMatchTelemetryPanel() {
+        List<GameplayTelemetry.MoveSnapshot> moveRows = postMatchTelemetryMoveRows(5);
+        List<GameplayTelemetry.BirdSnapshot> birdRows = gameplayTelemetry.currentMatchBirds();
+
+        VBox panel = new VBox(12);
+        panel.setAlignment(Pos.CENTER_LEFT);
+        panel.setPadding(new Insets(18, 24, 20, 24));
+        panel.setMaxWidth(1500);
+        panel.setStyle("-fx-background-color: rgba(0,0,0,0.58);"
+                + "-fx-background-radius: 22;"
+                + "-fx-border-color: #80DEEA;"
+                + "-fx-border-width: 2;"
+                + "-fx-border-radius: 22;");
+
+        Label title = telemetryPanelLabel("MATCH TELEMETRY", 30, Color.web("#80DEEA"), true);
+        Label context = telemetryPanelLabel(currentMatchHistoryMode() + "  |  " + mapDisplayName(selectedMap),
+                18, Color.web("#B2EBF2"), false);
+
+        VBox moves = buildTelemetryColumn(
+                "TOP DAMAGE MOVES",
+                "Move                                DMG  KO Self Rec",
+                postMatchMoveLines(moveRows),
+                "No damaging moves recorded.",
+                790
+        );
+        VBox birds = buildTelemetryColumn(
+                "BIRD SURVIVAL",
+                "Bird                         DMG  KO Self Rec AvgSurv",
+                postMatchBirdLines(birdRows),
+                "No bird survival samples recorded.",
+                620
+        );
+
+        HBox columns = new HBox(18, moves, birds);
+        columns.setAlignment(Pos.TOP_CENTER);
+        panel.getChildren().addAll(title, context, columns);
+        return panel;
+    }
+
+    private VBox buildTelemetryColumn(String titleText, String headerText, List<String> rows,
+                                      String emptyText, double width) {
+        VBox column = new VBox(7);
+        column.setAlignment(Pos.TOP_LEFT);
+        column.setPadding(new Insets(12, 14, 14, 14));
+        column.setPrefWidth(width);
+        column.setMinWidth(width);
+        column.setMaxWidth(width);
+        column.setStyle("-fx-background-color: rgba(255,255,255,0.07);"
+                + "-fx-background-radius: 14;"
+                + "-fx-border-color: rgba(255,255,255,0.14);"
+                + "-fx-border-width: 1;"
+                + "-fx-border-radius: 14;");
+
+        Label title = telemetryPanelLabel(titleText, 19, Color.web("#FFF59D"), true);
+        Label header = telemetryPanelLabel(headerText, 16, Color.web("#B0BEC5"), false);
+        column.getChildren().addAll(title, header);
+
+        if (rows.isEmpty()) {
+            column.getChildren().add(telemetryPanelLabel(emptyText, 16, Color.web("#90A4AE"), false));
+        } else {
+            for (String row : rows) {
+                column.getChildren().add(telemetryPanelLabel(row, 17, Color.web("#E3F2FD"), false));
+            }
+        }
+        return column;
+    }
+
+    private List<GameplayTelemetry.MoveSnapshot> postMatchTelemetryMoveRows(int limit) {
+        List<GameplayTelemetry.MoveSnapshot> rows = new ArrayList<>();
+        for (GameplayTelemetry.MoveSnapshot row : gameplayTelemetry.currentMatchTopMoves(24)) {
+            if (row == null || isSyntheticTelemetryMove(row.moveName())) continue;
+            if (row.damage() <= 0 && row.kos() <= 0 && row.selfKos() <= 0 && row.recoveryFailures() <= 0) continue;
+            rows.add(row);
+            if (rows.size() >= limit) break;
+        }
+        return rows;
+    }
+
+    private List<String> postMatchMoveLines(List<GameplayTelemetry.MoveSnapshot> rows) {
+        List<String> lines = new ArrayList<>();
+        for (GameplayTelemetry.MoveSnapshot row : rows) {
+            String move = postMatchMoveName(row);
+            lines.add(String.format(Locale.ROOT,
+                    "%-35s %4d %3d %4d %3d",
+                    hudTrim(move, 35),
+                    row.damage(),
+                    row.kos(),
+                    row.selfKos(),
+                    row.recoveryFailures()));
+        }
+        return lines;
+    }
+
+    private List<String> postMatchBirdLines(List<GameplayTelemetry.BirdSnapshot> rows) {
+        List<String> lines = new ArrayList<>();
+        for (GameplayTelemetry.BirdSnapshot row : rows) {
+            lines.add(String.format(Locale.ROOT,
+                    "%-24s %4d %3d %4d %3d %6.1fs",
+                    hudTrim(row.birdName(), 24),
+                    row.damage(),
+                    row.kos(),
+                    row.selfKos(),
+                    row.recoveryFailures(),
+                    row.averageSurvivalSeconds()));
+        }
+        return lines;
+    }
+
+    private String postMatchMoveName(GameplayTelemetry.MoveSnapshot row) {
+        String move = row.moveName();
+        String bird = row.birdName();
+        if (move == null || move.isBlank()) {
+            return bird == null || bird.isBlank() ? "Unknown Move" : bird;
+        }
+        if (bird == null || bird.isBlank()) {
+            return move;
+        }
+        return move.toLowerCase(Locale.ROOT).contains(bird.toLowerCase(Locale.ROOT))
+                ? move
+                : bird + " " + move;
+    }
+
+    private boolean isSyntheticTelemetryMove(String moveName) {
+        return GameplayTelemetry.MATCH_SURVIVAL_MOVE.equals(moveName)
+                || GameplayTelemetry.RECOVERY_FAILURE_MOVE.equals(moveName);
+    }
+
+    private Label telemetryPanelLabel(String text, int fontSize, Color color, boolean bold) {
+        Label label = new Label(text);
+        label.setFont(bold ? Font.font("Consolas", FontWeight.BOLD, fontSize) : Font.font("Consolas", fontSize));
+        label.setTextFill(color);
+        label.setWrapText(false);
+        applyNoEllipsis(label);
+        return label;
+    }
+
     private Label getLabel(String daily) {
         return new Label(daily);
     }
@@ -39005,6 +39702,7 @@ public class BirdGame3 extends Application {
     }
 
     private void applyAdaptiveBalance(Bird bird) {
+        if (!ADAPTIVE_BALANCE_ENABLED) return;
         if (bird == null) return;
         if (bird.isNullRockForm()) return;
 
@@ -39035,6 +39733,8 @@ public class BirdGame3 extends Application {
         if (balanceOutcomeRecorded) return;
         balanceOutcomeRecorded = true;
 
+        recordTelemetryMatchSurvival();
+
         if (storyModeActive || adventureModeActive || trainingModeActive) return;
 
         for (int i = 0; i < activePlayers; i++) {
@@ -39047,6 +39747,18 @@ public class BirdGame3 extends Application {
         }
         if (winner != null) {
             typeWins[winner.type.ordinal()]++;
+        }
+    }
+
+    private void recordTelemetryMatchSurvival() {
+        int elapsedFrames = matchStartNano > 0L
+                ? (int) Math.max(0L, (System.nanoTime() - matchStartNano) / 16_666_666L)
+                : Math.max(0, MATCH_DURATION_FRAMES - matchTimer);
+        String mode = currentMatchHistoryMode();
+        for (int i = 0; i < activePlayers; i++) {
+            Bird b = players[i];
+            if (b == null) continue;
+            gameplayTelemetry.recordSurvival(b.type, isTelemetryCpu(i), mode, selectedMap, elapsedFrames);
         }
     }
 
@@ -39063,6 +39775,9 @@ public class BirdGame3 extends Application {
         Arrays.fill(specialsUsed, 0);
         Arrays.fill(specialHits, 0);
         Arrays.fill(specialDamageDealt, 0);
+        Arrays.fill(lastTelemetryMoveNames, null);
+        Arrays.fill(lastSpecialTelemetryMoveNames, null);
+        gameplayTelemetry.resetCurrentMatch();
         killFeed.clear();
         matchEnded = false;
         balanceOutcomeRecorded = false;

@@ -8,6 +8,8 @@ final class PigeonSpecials {
     private PigeonSpecials() {
     }
 
+    static final String ROOFTOP_CORONATION_MOVE = "Pigeon Rooftop Coronation";
+
     static void use(Bird bird, boolean ultimate) {
         switch (bird.selectPigeonSpecialVariant()) {
             case NEUTRAL -> neutral(bird, ultimate);
@@ -153,29 +155,68 @@ final class PigeonSpecials {
     }
 
     static void handleState(Bird bird) {
-        if (bird.type != BirdGame3.BirdType.PIGEON && !bird.mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PIGEON)) {
+        boolean realPigeon = bird.type == BirdGame3.BirdType.PIGEON;
+        boolean copiedPigeon = bird.mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PIGEON);
+        if (!realPigeon && !copiedPigeon) {
             return;
         }
         if (bird.stunTime > 0.0) {
             reset(bird);
-            if (bird.mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PIGEON)) {
+            if (copiedPigeon) {
                 bird.mockingbirdCopiedNeutralSource = null;
             }
-            return;
+        } else {
+            if (bird.pigeonRushTimer > 0) {
+                handleRush(bird);
+            }
+            if (bird.pigeonFlutterTimer > 0) {
+                handleFlutter(bird);
+            }
+            if (bird.pigeonScavengeTimer > 0) {
+                handleScavenge(bird);
+            }
         }
-        if (bird.pigeonRushTimer > 0) {
-            handleRush(bird);
-        }
-        if (bird.pigeonFlutterTimer > 0) {
-            handleFlutter(bird);
-        }
-        if (bird.pigeonScavengeTimer > 0) {
-            handleScavenge(bird);
+        if (realPigeon && bird.pigeonCoronationActive) {
+            handleCoronation(bird);
         }
     }
 
     static boolean active(Bird bird) {
         return bird.pigeonRushTimer > 0 || bird.pigeonFlutterTimer > 0 || bird.pigeonScavengeTimer > 0;
+    }
+
+    static void startCoronation(Bird bird) {
+        reset(bird);
+        bird.pigeonCoronationActive = true;
+        bird.pigeonCoronationTimer = Bird.PIGEON_CORONATION_FRAMES;
+        bird.pigeonCoronationX = bird.bodyCenterX();
+        bird.pigeonCoronationY = bird.bodyCenterY();
+        bird.pigeonCoronationFinalResolved = false;
+        bird.pigeonCoronationStayedInside = true;
+        Arrays.fill(bird.pigeonCoronationTickCooldown, 0);
+        Arrays.fill(bird.pigeonCoronationFinalHit, false);
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 36);
+        bird.vx *= 0.24;
+        bird.vy = Math.min(bird.vy, 0.0);
+        bird.isBlocking = false;
+        bird.parryWindowFrames = 0;
+        bird.shieldStunFrames = 0;
+        bird.blockCooldown = 0;
+        bird.game.addToKillFeed(bird.shortName() + " claimed the rooftop!");
+
+        for (int i = 0; i < bird.scaledParticleCount(42); i++) {
+            double angle = Math.random() * Math.PI * 2.0;
+            double speed = 1.5 + Math.random() * 5.0;
+            bird.game.particles.add(new Particle(
+                    bird.pigeonCoronationX + Math.cos(angle) * (18.0 + Math.random() * 48.0),
+                    bird.pigeonCoronationY + Math.sin(angle) * (18.0 + Math.random() * 48.0),
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 1.2,
+                    Color.web("#FFD54F").deriveColor(0, 1, 1, 0.86)
+            ));
+        }
     }
 
     static void reset(Bird bird) {
@@ -192,6 +233,17 @@ final class PigeonSpecials {
         bird.pigeonScavengeAirborne = false;
         bird.pigeonScavengeUltimate = false;
         bird.pigeonScavengeResolved = false;
+    }
+
+    static void resetCoronation(Bird bird) {
+        bird.pigeonCoronationActive = false;
+        bird.pigeonCoronationTimer = 0;
+        bird.pigeonCoronationX = 0.0;
+        bird.pigeonCoronationY = 0.0;
+        bird.pigeonCoronationFinalResolved = false;
+        bird.pigeonCoronationStayedInside = false;
+        Arrays.fill(bird.pigeonCoronationTickCooldown, 0);
+        Arrays.fill(bird.pigeonCoronationFinalHit, false);
     }
 
     private static void handleRush(Bird bird) {
@@ -382,6 +434,148 @@ final class PigeonSpecials {
                     (Math.random() - 0.5) * 1.6,
                     -0.8 - Math.random() * 1.2,
                     bird.pigeonScavengeUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.78) : Color.web("#B0BEC5").deriveColor(0, 1, 1, 0.7)
+            ));
+        }
+    }
+
+    private static void handleCoronation(Bird bird) {
+        if (bird.health <= 0) {
+            resetCoronation(bird);
+            return;
+        }
+
+        if (bird.pigeonCoronationTimer <= 0) {
+            if (!bird.pigeonCoronationFinalResolved) {
+                resolveCoronationFinal(bird);
+            }
+            resetCoronation(bird);
+            return;
+        }
+
+        boolean inside = bird.isInsideOwnPigeonCoronationZone();
+        if (inside) {
+            bird.heal(Bird.PIGEON_CORONATION_HEAL_PER_FRAME);
+        } else {
+            bird.pigeonCoronationStayedInside = false;
+        }
+
+        if ((bird.pigeonCoronationTimer & 7) == 0) {
+            double angle = Math.random() * Math.PI * 2.0;
+            double distance = 24.0 + Math.random() * Bird.PIGEON_CORONATION_RADIUS * 0.82;
+            bird.game.particles.add(new Particle(
+                    bird.pigeonCoronationX + Math.cos(angle) * distance,
+                    bird.pigeonCoronationY + Math.sin(angle) * distance,
+                    -Math.cos(angle) * 0.7,
+                    -Math.sin(angle) * 0.7 - 0.4,
+                    Color.web("#FFF59D").deriveColor(0, 1, 1, 0.48)
+            ));
+        }
+
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other) || !inCoronationZone(bird, other)) {
+                continue;
+            }
+            int targetIndex = other.playerIndex;
+            if (targetIndex < 0 || targetIndex >= bird.pigeonCoronationTickCooldown.length) {
+                continue;
+            }
+            if (bird.pigeonCoronationTickCooldown[targetIndex] > 0) {
+                continue;
+            }
+            bird.pigeonCoronationTickCooldown[targetIndex] = Bird.PIGEON_CORONATION_TICK_INTERVAL;
+            int dealt = bird.applyTrackedSpecialDamage(other, Bird.PIGEON_CORONATION_TICK_DAMAGE);
+            if (dealt <= 0) {
+                continue;
+            }
+
+            double dx = other.bodyCenterX() - bird.pigeonCoronationX;
+            double dy = other.bodyCenterY() - bird.pigeonCoronationY;
+            double distance = Math.max(1.0, Math.hypot(dx, dy));
+            other.vx += dx / distance * 1.25;
+            other.vy -= 0.95 + Math.max(0.0, -dy / distance) * 0.55;
+            emitCoronationHitParticles(bird, other, 8, Color.web("#FFD54F"));
+        }
+    }
+
+    private static void resolveCoronationFinal(Bird bird) {
+        bird.pigeonCoronationFinalResolved = true;
+        boolean strong = bird.pigeonCoronationStayedInside;
+        int damage = strong ? Bird.PIGEON_CORONATION_FINAL_DAMAGE : Bird.PIGEON_CORONATION_WEAK_FINAL_DAMAGE;
+        boolean hitAny = false;
+
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other) || !inCoronationZone(bird, other)) {
+                continue;
+            }
+            int targetIndex = other.playerIndex;
+            if (targetIndex < 0 || targetIndex >= bird.pigeonCoronationFinalHit.length) {
+                continue;
+            }
+            if (bird.pigeonCoronationFinalHit[targetIndex]) {
+                continue;
+            }
+            bird.pigeonCoronationFinalHit[targetIndex] = true;
+
+            int dealt = bird.applyTrackedSpecialDamage(other, damage);
+            if (dealt <= 0) {
+                continue;
+            }
+            hitAny = true;
+
+            double dx = other.bodyCenterX() - bird.pigeonCoronationX;
+            double dy = other.bodyCenterY() - bird.pigeonCoronationY;
+            double distance = Math.max(1.0, Math.hypot(dx, dy));
+            double launchDir = Math.abs(dx) < 0.001 ? bird.facingDirection() : Math.signum(dx);
+            double horizontal = (strong ? 10.8 : 7.0) * Math.max(0.48, Math.abs(dx) / distance);
+            other.vx += launchDir * horizontal;
+            other.vy -= strong ? 13.2 : 8.8;
+            if (dy > 0.0) {
+                other.vy -= strong ? 1.8 : 1.0;
+            }
+            emitCoronationHitParticles(bird, other, strong ? 28 : 18,
+                    strong ? Color.GOLD : Color.web("#FFCC80"));
+        }
+
+        if (hitAny) {
+            bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, strong ? 28.0 : 18.0);
+            bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, strong ? 10 : 6);
+            bird.game.triggerFlash(strong ? 0.38 : 0.22, false);
+            if (bird.game.isSfxEnabled()) {
+                bird.game.playCherrybombSfx();
+            }
+        }
+
+        for (int i = 0; i < bird.scaledParticleCount(strong ? 72 : 44); i++) {
+            double angle = Math.random() * Math.PI * 2.0;
+            double speed = (strong ? 5.0 : 3.2) + Math.random() * (strong ? 9.0 : 5.5);
+            bird.game.particles.add(new Particle(
+                    bird.pigeonCoronationX + Math.cos(angle) * (18.0 + Math.random() * 30.0),
+                    bird.pigeonCoronationY + Math.sin(angle) * (18.0 + Math.random() * 30.0),
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 2.6,
+                    strong ? Color.GOLD.deriveColor(0, 1, 1, 0.88)
+                            : Color.web("#FFCC80").deriveColor(0, 1, 1, 0.74)
+            ));
+        }
+    }
+
+    private static boolean inCoronationZone(Bird bird, Bird other) {
+        double dx = other.bodyCenterX() - bird.pigeonCoronationX;
+        double dy = other.bodyCenterY() - bird.pigeonCoronationY;
+        double radius = Bird.PIGEON_CORONATION_RADIUS + Math.max(other.combatHalfWidth(), other.combatHalfHeight()) * 0.55;
+        return dx * dx + dy * dy <= radius * radius;
+    }
+
+    private static void emitCoronationHitParticles(Bird bird, Bird other, int requested, Color color) {
+        for (int i = 0; i < bird.scaledParticleCount(requested); i++) {
+            double angle = Math.random() * Math.PI * 2.0;
+            double speed = 2.0 + Math.random() * 5.5;
+            bird.game.particles.add(new Particle(
+                    other.bodyCenterX() + (Math.random() - 0.5) * other.bodyWidth() * 0.5,
+                    other.bodyCenterY() + (Math.random() - 0.5) * other.bodyHeight() * 0.5,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 1.4,
+                    color.deriveColor(0, 1, 1, 0.76)
             ));
         }
     }

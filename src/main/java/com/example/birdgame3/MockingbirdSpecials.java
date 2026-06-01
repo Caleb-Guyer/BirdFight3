@@ -55,7 +55,7 @@ final class MockingbirdSpecials {
                 case PHOENIX -> PhoenixSpecials.neutral(bird, ultimate);
                 case HUMMINGBIRD -> HummingbirdSpecials.neutral(bird, ultimate);
                 case TURKEY -> TurkeySpecials.neutral(bird, ultimate);
-                case ROOSTER -> bird.specialRoosterCallChick(ultimate);
+                case ROOSTER -> copiedRoosterNeutral(bird, ultimate);
                 case ROADRUNNER -> RoadrunnerSpecials.neutral(bird, ultimate);
                 case PENGUIN -> PenguinSpecials.neutral(bird, ultimate);
                 case SHOEBILL -> ShoebillSpecials.neutral(bird, ultimate);
@@ -75,6 +75,60 @@ final class MockingbirdSpecials {
         } finally {
             bird.type = originalType;
         }
+    }
+
+    private static void copiedRoosterNeutral(Bird bird, boolean ultimate) {
+        int before = RoosterSpecials.ownedCount(bird);
+        int openSlots = Math.max(0, Bird.ROOSTER_MAX_CHICKS - before);
+        int toSpawn = ultimate ? Math.max(1, openSlots) : Math.min(2, openSlots);
+        int spawned = 0;
+        for (int i = 0; i < toSpawn && RoosterSpecials.ownedCount(bird) < Bird.ROOSTER_MAX_CHICKS; i++) {
+            ChickMinion chick = RoosterSpecials.spawnFollower(bird, RoosterSpecials.nextVariant(bird), ultimate, before + spawned);
+            if (chick == null) {
+                break;
+            }
+            launchCopiedRoosterChick(bird, chick, ultimate);
+            spawned++;
+        }
+
+        bird.roosterNeutralReuseTimer = ultimate ? 18 : Bird.ROOSTER_NEUTRAL_REUSE_FRAMES;
+        bird.roosterCommandFxTimer = Math.max(bird.roosterCommandFxTimer, spawned > 0 ? 34 : 16);
+        bird.roosterCommandFxKind = 2;
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 12);
+        if (spawned > 0) {
+            bird.game.addToKillFeed(bird.shortName() + (ultimate
+                    ? " copied Rooster and sent the royal brood hunting!"
+                    : " copied Rooster and sent mimic chicks hunting!"));
+        }
+    }
+
+    private static void launchCopiedRoosterChick(Bird bird, ChickMinion chick, boolean ultimate) {
+        int dir = bird.horizontalInputDirection();
+        if (dir == 0) {
+            dir = bird.facingDirection();
+        }
+        bird.facingRight = dir > 0;
+        chick.followingOwner = false;
+        chick.target = RoosterSpecials.findThrowTarget(bird, chick, dir);
+        chick.retargetCooldown = 0;
+        chick.commandFlashFrames = ultimate ? 42 : 30;
+        chick.thrownFrames = ultimate ? 34 : 28;
+        chick.boostSparkFrames = Math.max(chick.boostSparkFrames, ultimate ? 28 : 20);
+        chick.attackCooldown = Math.min(chick.attackCooldown, 6);
+        chick.onGround = false;
+        double launchDir = dir;
+        if (chick.target != null) {
+            double targetDir = Math.signum(chick.target.bodyCenterX() - (chick.x + chick.width * 0.5));
+            if (targetDir != 0.0) {
+                launchDir = targetDir;
+            }
+        }
+        chick.vx = launchDir * (ultimate ? 24.0 : 19.0);
+        chick.vy = ultimate ? -8.5 : -6.4;
+        RoosterSpecials.emitCommandBurst(bird, chick.x + chick.width * 0.5, chick.y + chick.height * 0.5,
+                ultimate ? Color.GOLD : Color.web("#D7B5FF"), ultimate ? 24 : 16);
     }
 
     static void side(Bird bird, boolean ultimate) {
