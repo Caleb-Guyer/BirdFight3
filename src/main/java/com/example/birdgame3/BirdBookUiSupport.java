@@ -339,7 +339,7 @@ final class BirdBookUiSupport {
             case PENGUIN -> BirdGame3.MapType.FROSTBITE_FJORD;
             case PHOENIX, BAT, VULTURE, OPIUMBIRD, HEISENBIRD -> BirdGame3.MapType.CAVE;
             case HUMMINGBIRD, TITMOUSE -> BirdGame3.MapType.VIBRANT_JUNGLE;
-            case PELICAN -> BirdGame3.MapType.DOCK;
+            case PELICAN, GOOSE -> BirdGame3.MapType.DOCK;
             case ROADRUNNER -> BirdGame3.MapType.DESERT;
             default -> BirdGame3.MapType.FOREST;
         };
@@ -374,6 +374,7 @@ final class BirdBookUiSupport {
             case BAT -> "Night specialist who hears everything and hides in the shadows. It knows the cave better than the cave knows itself.";
             case PELICAN -> "Iron beak, iron will. Stores cargo in his pouch, trades mobility for weight, and hits like a loaded ship.";
             case RAVEN -> "A shadow on the skyline with a talent for misdirection. It appears, it hits, and then it is already gone.";
+            case GOOSE -> "Territorial heavyweight with a long neck and no respect for personal space. It guards nests, shoves lanes, and turns one honk into a flock problem.";
         };
     }
 

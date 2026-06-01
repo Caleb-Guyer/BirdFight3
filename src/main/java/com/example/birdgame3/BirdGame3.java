@@ -9366,7 +9366,9 @@ public class BirdGame3 extends Application {
         PELICAN("Pelican", 11, 9, 2.9, Color.rgb(245, 220, 180), 0.84, "Pouch Snare / Breakwater Run / Thermal Sail / Bilge Dump"),
         HEISENBIRD("Heisenbird", 7, 18, 4.6, Color.web("#D7D1C5"), 0.68, "Echo of Opium: Crystal Cloud + Blue Rush + Crystal Column + Glass Cook"),
         RAVEN("Raven", 8, 18, 4.3, Color.web("#1C1F26"), 0.72,
-                "Black Quill / Shadow Warp / Murder Lift / Nevermore / The Unkindness");
+                "Black Quill / Shadow Warp / Murder Lift / Nevermore / The Unkindness"),
+        GOOSE("Goose", 11, 11, 3.2, Color.web("#687456"), 0.32,
+                "Threatening Honk / Bite and Barge / V-Formation Lift / Nest Guard / The Whole Flock");
 
         final String name;
         final int power;
@@ -13643,7 +13645,7 @@ public class BirdGame3 extends Application {
             case SHOEBILL -> 1.84;
             case ROADRUNNER -> 1.70;
             case HUMMINGBIRD -> 1.66;
-            case PELICAN -> 1.64;
+            case PELICAN, GOOSE -> 1.64;
             case FALCON, VULTURE -> 1.62;
             case PHOENIX -> 1.56;
             case ROOSTER -> 1.50;
@@ -13690,7 +13692,7 @@ public class BirdGame3 extends Application {
             case SHOEBILL -> -0.14;
             case FALCON -> -0.09;
             case HUMMINGBIRD -> -0.085;
-            case ROADRUNNER, PELICAN -> -0.08;
+            case ROADRUNNER, PELICAN, GOOSE -> -0.08;
             case PHOENIX -> -0.055;
             case ROOSTER -> -0.04;
             case VULTURE -> 0.0;
@@ -25940,8 +25942,7 @@ public class BirdGame3 extends Application {
                     : buildLockedTileIcon(accent);
             String label = unlocked
                     ? (entry.displayName.toUpperCase()
-                    + (entry.skinKey != null ? "\nBOSS FORM" : "")
-                    + (entry.skinKey == null && hasTrainingAcademyDrillBadge(entry.type) ? "\nACADEMY" : ""))
+                    + (entry.skinKey != null ? "\nBOSS FORM" : ""))
                     : entry.displayName.toUpperCase();
             Button tile = createBirdBookTile(grid, label, icon, unlocked, accent,
                     () -> showBirdSidebar(sidebar, entry));
@@ -26231,15 +26232,33 @@ public class BirdGame3 extends Application {
             stack.getChildren().add(echo);
         }
         if (skinKey == null && hasTrainingAcademyDrillBadge(type)) {
-            Label badge = createRouteBadge("ACADEMY", "#80DEEA", "#00343D", true);
-            badge.setFont(Font.font("Consolas", FontWeight.BOLD, 10));
-            StackPane.setAlignment(badge, Pos.BOTTOM_CENTER);
-            StackPane.setMargin(badge, new Insets(0, 0, 2, 0));
+            Node badge = buildAcademyBadgeIcon();
+            StackPane.setAlignment(badge, Pos.BOTTOM_RIGHT);
+            StackPane.setMargin(badge, new Insets(0, 5, 5, 0));
             stack.getChildren().add(badge);
         }
         stack.setPrefSize(130, 110);
         stack.setMaxSize(130, 110);
         return stack;
+    }
+
+    private Node buildAcademyBadgeIcon() {
+        Canvas badge = new Canvas(34, 34);
+        GraphicsContext g = badge.getGraphicsContext2D();
+        g.setFill(Color.rgb(0, 0, 0, 0.34));
+        g.fillOval(4, 5, 26, 26);
+        g.setFill(Color.web("#006064"));
+        g.fillPolygon(new double[]{10, 16, 22}, new double[]{24, 33, 24}, 3);
+        g.setFill(Color.web("#4DD0E1"));
+        g.fillOval(5, 3, 24, 24);
+        g.setStroke(Color.web("#E0F7FA"));
+        g.setLineWidth(2.2);
+        g.strokeOval(6.2, 4.2, 21.6, 21.6);
+        g.setStroke(Color.web("#00343D"));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(3.0);
+        g.strokePolyline(new double[]{11.5, 15.0, 23.0}, new double[]{15.0, 19.0, 10.8}, 3);
+        return badge;
     }
 
     private Node buildMapTileIcon(MapType map) {
@@ -29429,6 +29448,7 @@ public class BirdGame3 extends Application {
             case BAT -> "Moonlit Bat";
             case PELICAN -> "Titan Pelican";
             case RAVEN -> "Nightshade Raven";
+            case GOOSE -> "Royal Guard Goose";
         };
     }
 
@@ -29564,6 +29584,7 @@ public class BirdGame3 extends Application {
             case BAT -> Color.web("#5E35B1");
             case PELICAN -> Color.web("#FFB74D");
             case RAVEN -> Color.web("#263238");
+            case GOOSE -> Color.web("#7CB342");
             case EAGLE -> Color.GOLD;
             case PIGEON -> Color.rgb(18, 18, 18);
         };
@@ -29586,6 +29607,7 @@ public class BirdGame3 extends Application {
             case BAT -> Color.web("#D1C4E9");
             case PELICAN -> Color.web("#FFE0B2");
             case RAVEN -> Color.web("#B0BEC5");
+            case GOOSE -> Color.web("#FFF59D");
             case EAGLE -> Color.web("#FFF176");
             case PIGEON -> Color.web("#F44336");
         };
@@ -38892,7 +38914,7 @@ public class BirdGame3 extends Application {
                     winnerPose ? 1.88 : 1.48,
                     0.00,
                     0.00);
-            case TURKEY, VULTURE -> new VictoryPortraitLayout(winnerPose ? 1.04 : 1.12,
+            case TURKEY, VULTURE, GOOSE -> new VictoryPortraitLayout(winnerPose ? 1.04 : 1.12,
                     winnerPose ? 1.30 : 1.02,
                     winnerPose ? 1.90 : 1.52,
                     0.00,
@@ -39119,6 +39141,16 @@ public class BirdGame3 extends Application {
                 g.setStroke(Color.rgb(176, 190, 197, 0.45));
                 g.setLineWidth(4);
                 g.strokeArc(w * 0.18, h * 0.12, w * 0.64, h * 0.30, 190, 160, ArcType.OPEN);
+            }
+            case GOOSE -> {
+                g.setStroke(Color.web("#FFF59D"));
+                g.setLineWidth(7);
+                g.strokeArc(w * 0.20, h * 0.34, w * 0.60, h * 0.24, 190, 160, ArcType.OPEN);
+                g.setFill(Color.web("#8D6E63"));
+                g.fillOval(w * 0.30, h * 0.66, w * 0.40, h * 0.11);
+                g.setFill(Color.web("#FFF8E1"));
+                g.fillOval(w * 0.42, h * 0.60, w * 0.08, h * 0.12);
+                g.fillOval(w * 0.52, h * 0.60, w * 0.08, h * 0.12);
             }
         }
 
@@ -41904,6 +41936,7 @@ public class BirdGame3 extends Application {
             case VULTURE -> new String[]{"Summon Crows", "Carrion Glide", "Thermal Lift", "Bone Offering"};
             case BAT -> new String[]{"Echo Lance", "Wingcut", "Moonrise", "Silent Descent + Ceiling Hang"};
             case RAVEN -> new String[]{"Black Quill", "Shadow Warp", "Murder Lift", "Nevermore"};
+            case GOOSE -> new String[]{"Threatening Honk", "Bite and Barge", "V-Formation Lift", "Nest Guard"};
             case FALCON -> splitSpecialAbility("Target Snap / Razor Rush / Jet Climb / Meteor Strike");
             case HEISENBIRD -> splitSpecialAbility("Crystal Cloud / Blue Rush / Crystal Column / Glass Cook");
             default -> splitSpecialAbility(type.ability);
@@ -41936,6 +41969,7 @@ public class BirdGame3 extends Application {
             case HEISENBIRD -> "BRITTLE boosts crystal damage. NODE refuels the crystal meter.";
             case VULTURE -> "Crows persist as pressure. Bone Offering turns space into a trap.";
             case RAVEN -> "Marks and routes set up larger follow-ups, including the ultimate.";
+            case GOOSE -> "Territory empowers the next special. Nest Guard counters hits near the nest.";
             case MOCKINGBIRD -> "Mimic steals neutral specials; Lounge controls space.";
             case BAT -> "Ceiling Hang gives the down special a second movement state.";
             default -> "Directional input changes the special before startup.";

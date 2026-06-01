@@ -68,6 +68,7 @@ final class MockingbirdSpecials {
                 case BAT -> bird.specialBatNeutral(ultimate);
                 case PELICAN -> bird.specialPelicanPouchSnare(ultimate);
                 case RAVEN -> bird.fireRavenBlackQuillVolley(false, ultimate);
+                case GOOSE -> GooseSpecials.neutral(bird, ultimate);
                 case MOCKINGBIRD -> {
                 }
             }

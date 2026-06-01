@@ -183,6 +183,13 @@ public class Bird {
         DOWN
     }
 
+    enum GooseSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     enum DirectionalSpecialInput {
         NEUTRAL,
         SIDE,
@@ -253,7 +260,8 @@ public class Bird {
         VULTURE,
         TURKEY,
         PENGUIN,
-        TITMOUSE
+        TITMOUSE,
+        GOOSE
     }
 
     private record BirdVisualProfile(
@@ -333,6 +341,9 @@ public class Bird {
     private static final BirdVisualProfile TITMOUSE_VISUAL_PROFILE =
             new BirdVisualProfile(1.34, 0.76, 1.30, 1.34, 1.26, 1.30, 0.86, 0.78, 0.74,
                     BirdVisualProfileStyle.TITMOUSE);
+    private static final BirdVisualProfile GOOSE_VISUAL_PROFILE =
+            new BirdVisualProfile(0.76, 1.25, 0.86, 0.78, 0.76, 0.82, 1.18, 1.12, 1.16,
+                    BirdVisualProfileStyle.GOOSE);
 
     // Reference to main game instance
     final BirdGame3 game;
@@ -759,6 +770,59 @@ public class Bird {
     private int ravenPortentOwnerIndex = -1;
     private int ravenPortentSerial = 0;
     private boolean ravenPortentUltimate = false;
+    static final int GOOSE_HONK_MAX_HOLD_FRAMES = 42;
+    static final int GOOSE_HONK_RECOVERY_FRAMES = 22;
+    static final int GOOSE_HONK_REUSE_FRAMES = 34;
+    static final int GOOSE_BARGE_FRAMES = 26;
+    static final int GOOSE_BARGE_REUSE_FRAMES = 38;
+    static final int GOOSE_LIFT_FRAMES = 34;
+    static final int GOOSE_LIFT_ULTIMATE_FRAMES = 42;
+    static final int GOOSE_LIFT_REUSE_FRAMES = 26;
+    static final int GOOSE_NEST_GUARD_FRAMES = 48;
+    static final int GOOSE_NEST_GUARD_ULTIMATE_FRAMES = 64;
+    static final int GOOSE_NEST_REUSE_FRAMES = 34;
+    static final int GOOSE_NEST_LIFE_FRAMES = 620;
+    static final int GOOSE_NEST_ULTIMATE_LIFE_FRAMES = 780;
+    static final int GOOSE_COUNTER_BURST_FRAMES = 20;
+    static final int GOOSE_COUNTER_ULTIMATE_BURST_FRAMES = 26;
+    static final int GOOSE_ULTIMATE_FRAMES = 180;
+    static final double GOOSE_TERRITORY_MAX = 100.0;
+    double gooseTerritoryMeter = 28.0;
+    int gooseHonkTimer = 0;
+    int gooseHonkHoldFrames = 0;
+    int gooseHonkDirection = 1;
+    int gooseHonkReuseTimer = 0;
+    boolean gooseHonkUltimate = false;
+    boolean gooseHonkEmpowered = false;
+    boolean gooseHonkReleased = false;
+    final boolean[] gooseHonkHit = new boolean[4];
+    int gooseBargeTimer = 0;
+    int gooseBargeDirection = 1;
+    int gooseBargeReuseTimer = 0;
+    boolean gooseBargeUltimate = false;
+    boolean gooseBargeEmpowered = false;
+    final boolean[] gooseBargeHit = new boolean[4];
+    int gooseLiftTimer = 0;
+    int gooseLiftDirection = 1;
+    int gooseLiftReuseTimer = 0;
+    boolean gooseLiftUsed = false;
+    boolean gooseLiftUltimate = false;
+    boolean gooseLiftEmpowered = false;
+    final boolean[] gooseLiftHit = new boolean[4];
+    int gooseNestGuardTimer = 0;
+    int gooseNestReuseTimer = 0;
+    int gooseNestCounterTimer = 0;
+    boolean gooseNestGuardUltimate = false;
+    boolean gooseNestCounterUltimate = false;
+    boolean gooseNestEmpowered = false;
+    final boolean[] gooseNestCounterHit = new boolean[4];
+    GooseSpecials.GooseNest gooseNest = null;
+    int gooseUltimateTimer = 0;
+    int gooseUltimateDirection = 1;
+    int gooseUltimateWaveIndex = 0;
+    boolean gooseUltimateFinalHitResolved = false;
+    final boolean[] gooseUltimateMarked = new boolean[4];
+    final int[] gooseUltimateHitCooldown = new int[4];
     private boolean ledgeHanging = false;
     private Platform ledgePlatform = null;
     private boolean ledgeGrabOnRightSide = false;
@@ -1700,6 +1764,8 @@ public class Bird {
 
         if (type == BirdGame3.BirdType.PELICAN) {
             baseSizeMultiplier = 1.2;
+        } else if (type == BirdGame3.BirdType.GOOSE) {
+            baseSizeMultiplier = 1.16;
         }
         sizeMultiplier = baseSizeMultiplier;
     }
@@ -2174,6 +2240,7 @@ public class Bird {
         titmouseScoldReuseTimer = 0;
         pelicanNeutralReuseTimer = 0;
         ravenNeutralReuseTimer = 0;
+        gooseHonkReuseTimer = 0;
     }
 
     private void resetMockingbirdCopiedNeutralRuntime() {
@@ -2209,6 +2276,7 @@ public class Bird {
             case BAT -> batEchoTimer = 0;
             case PELICAN -> resetPelicanSpecialState(false);
             case RAVEN -> resetRavenSpecialState(false);
+            case GOOSE -> resetGooseSpecialState(false);
             case ROOSTER, MOCKINGBIRD -> {
             }
         }
@@ -2654,6 +2722,9 @@ public class Bird {
 
     private NormalAttackProfile normalAttackProfile(NormalAttackVariant variant) {
         double facingDir = facingRight ? 1.0 : -1.0;
+        if (type == BirdGame3.BirdType.GOOSE) {
+            return gooseNormalAttackProfile(variant, facingDir);
+        }
         if (type == BirdGame3.BirdType.RAVEN) {
             return ravenNormalAttackProfile(variant, facingDir);
         }
@@ -2682,6 +2753,35 @@ public class Bird {
                     0.88, 0.98, 0.55, 1.82, 1.82, 25, 12, 6);
             case DOWN_AIR -> new NormalAttackProfile(92.0, 136.0, 0.0, 46.0,
                     1.02, 1.08, 0.72, 0.34, -0.95, 28, 14, 12);
+        };
+    }
+
+    private NormalAttackProfile gooseNormalAttackProfile(NormalAttackVariant variant, double facingDir) {
+        return switch (variant) {
+            case NEUTRAL -> new NormalAttackProfile(116.0, 88.0, facingDir * 20.0, -1.0,
+                    0.92, 0.88, 1.00, 0.74, 0.74, 20, 10, AERIAL_LANDING_LAG_FRAMES);
+            case SIDE_TILT -> new NormalAttackProfile(150.0, 88.0, facingDir * 36.0, 0.0,
+                    1.00, 1.00, 1.20, 0.68, 0.68, 23, 12, AERIAL_LANDING_LAG_FRAMES);
+            case UP_TILT -> new NormalAttackProfile(92.0, 142.0, 0.0, -40.0,
+                    0.92, 0.98, 0.56, 1.62, 1.62, 22, 12, AERIAL_LANDING_LAG_FRAMES);
+            case DOWN_TILT -> new NormalAttackProfile(132.0, 72.0, facingDir * 18.0, 25.0,
+                    0.90, 0.84, 0.92, 0.22, 0.22, 24, 12, AERIAL_LANDING_LAG_FRAMES);
+            case SIDE_SMASH -> new NormalAttackProfile(176.0, 98.0, facingDir * 54.0, -1.0,
+                    1.30, 1.42, 1.68, 0.88, 0.88, 39, 17, AERIAL_LANDING_LAG_FRAMES);
+            case UP_SMASH -> new NormalAttackProfile(110.0, 176.0, 0.0, -52.0,
+                    1.22, 1.35, 0.74, 2.12, 2.12, 38, 17, AERIAL_LANDING_LAG_FRAMES);
+            case DOWN_SMASH -> new NormalAttackProfile(158.0, 90.0, facingDir * 18.0, 34.0,
+                    1.24, 1.30, 1.15, 0.42, 0.42, 40, 17, AERIAL_LANDING_LAG_FRAMES);
+            case NEUTRAL_AIR -> new NormalAttackProfile(126.0, 114.0, 0.0, -4.0,
+                    0.98, 1.00, 1.02, 1.04, 1.04, 28, 14, 9);
+            case FORWARD_AIR -> new NormalAttackProfile(154.0, 94.0, facingDir * 42.0, -5.0,
+                    1.06, 1.14, 1.36, 0.86, 0.86, 30, 15, 11);
+            case BACK_AIR -> new NormalAttackProfile(146.0, 92.0, -facingDir * 38.0, -3.0,
+                    1.12, 1.20, 1.52, 0.76, 0.76, 31, 15, 12);
+            case UP_AIR -> new NormalAttackProfile(96.0, 156.0, 0.0, -48.0,
+                    0.94, 1.04, 0.56, 1.92, 1.92, 28, 14, 8);
+            case DOWN_AIR -> new NormalAttackProfile(98.0, 150.0, 0.0, 52.0,
+                    1.08, 1.16, 0.72, 0.30, -1.06, 32, 16, 13);
         };
     }
 
@@ -4998,6 +5098,26 @@ public class Bird {
         return RavenSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
+    private boolean gooseSpecialActive() {
+        return GooseSpecials.active(this);
+    }
+
+    private boolean gooseSpecialReady(GooseSpecialVariant variant) {
+        return GooseSpecials.ready(this, variant);
+    }
+
+    boolean canStartGooseSpecial() {
+        return GooseSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
+    }
+
+    private boolean canConvertShieldIntoGooseDownSpecial() {
+        return GooseSpecials.canConvertShieldIntoDown(this);
+    }
+
+    boolean tryGooseNestCounter(Bird attacker, double scaledDamage) {
+        return GooseSpecials.tryNestCounter(this, attacker, scaledDamage);
+    }
+
     private boolean penguinSpecialActive() {
         return PenguinSpecials.active(this);
     }
@@ -5161,6 +5281,7 @@ public class Bird {
             case BAT -> ultimateReady || batNeutralReuseTimer <= 0;
             case PELICAN -> ultimateReady || pelicanNeutralReuseTimer <= 0;
             case RAVEN -> ultimateReady || ravenNeutralReuseTimer <= 0;
+            case GOOSE -> ultimateReady || gooseHonkReuseTimer <= 0;
             default -> throw new IllegalStateException("Unexpected value: " + source);
         };
     }
@@ -5194,6 +5315,7 @@ public class Bird {
             case GRINCHHAWK -> grinchHeartSnatchTimer > 0;
             case VULTURE -> vultureCallTimer > 0;
             case RAVEN -> ravenQuillCharging;
+            case GOOSE -> gooseHonkTimer > 0;
             case MOCKINGBIRD -> false;
         };
     }
@@ -5429,6 +5551,19 @@ public class Bird {
         return RavenSpecialVariant.NEUTRAL;
     }
 
+    GooseSpecialVariant selectGooseSpecialVariant() {
+        if (jumpPressed()) {
+            return GooseSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return GooseSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return GooseSpecialVariant.SIDE;
+        }
+        return GooseSpecialVariant.NEUTRAL;
+    }
+
     PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -5539,6 +5674,11 @@ public class Bird {
                     && selectRavenSpecialVariant() == RavenSpecialVariant.UP
                     && !ravenLiftUsed;
         }
+        if (type == BirdGame3.BirdType.GOOSE) {
+            return canStartGooseSpecial()
+                    && selectGooseSpecialVariant() == GooseSpecialVariant.UP
+                    && !gooseLiftUsed;
+        }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
                     && selectOpiumSpecialVariant() == OpiumSpecialVariant.UP
@@ -5620,6 +5760,10 @@ public class Bird {
             return canStartRavenSpecial()
                     && selectRavenSpecialVariant() == RavenSpecialVariant.DOWN;
         }
+        if (type == BirdGame3.BirdType.GOOSE) {
+            return canStartGooseSpecial()
+                    && selectGooseSpecialVariant() == GooseSpecialVariant.DOWN;
+        }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
                     && selectOpiumSpecialVariant() == OpiumSpecialVariant.DOWN;
@@ -5661,6 +5805,10 @@ public class Bird {
 
     private void resetRavenSpecialState(boolean clearObjects) {
         RavenSpecials.reset(this, clearObjects);
+    }
+
+    private void resetGooseSpecialState(boolean clearObjects) {
+        GooseSpecials.reset(this, clearObjects);
     }
 
     private void resetOpiumSpecialState() {
@@ -6124,6 +6272,7 @@ public class Bird {
                 : type == BirdGame3.BirdType.TITMOUSE ? canStartTitmouseSpecial()
                 : type == BirdGame3.BirdType.BAT ? canStartBatSpecial()
                 : type == BirdGame3.BirdType.RAVEN ? canStartRavenSpecial()
+                : type == BirdGame3.BirdType.GOOSE ? canStartGooseSpecial()
                 : isOpiumEchoPair() ? canStartOpiumSpecial()
                 : specialCooldown <= 0)
                 && aiSpecialCooldown <= 0 &&
@@ -6147,6 +6296,9 @@ public class Bird {
             if (type == BirdGame3.BirdType.RAVEN) {
                 configureRavenAISpecialInputs(target, targetDist, onGround);
             }
+            if (type == BirdGame3.BirdType.GOOSE) {
+                configureGooseAISpecialInputs(target, targetDist, onGround);
+            }
             if (isOpiumEchoPair()) {
                 configureOpiumAISpecialInputs(target, targetDist, onGround);
             }
@@ -6155,6 +6307,7 @@ public class Bird {
                     : (type == BirdGame3.BirdType.SHOEBILL
                     || type == BirdGame3.BirdType.RAZORBILL
                     || type == BirdGame3.BirdType.RAVEN
+                    || type == BirdGame3.BirdType.GOOSE
                     || isOpiumEchoPair() ? 20 : 26);
         }
 
@@ -7813,7 +7966,7 @@ public class Bird {
                 double fuelRatio = Math.clamp(limitedFlightFuel / LIMITED_FLIGHT_MAX, 0.0, 1.0);
                 allowance = 70.0 + fuelRatio * 70.0 + ((grounded || canDoubleJump) ? 35.0 : 0.0) + altitude * 0.06;
             }
-            case TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> {
+            case TURKEY, PELICAN, GRINCHHAWK, ROOSTER, GOOSE -> {
                 double fuelRatio = Math.clamp(limitedFlightFuel / LIMITED_FLIGHT_MAX, 0.0, 1.0);
                 allowance = 55.0 + fuelRatio * 55.0 + altitude * 0.05;
             }
@@ -7841,7 +7994,7 @@ public class Bird {
                 double fuelRatio = Math.clamp(limitedFlightFuel / LIMITED_FLIGHT_MAX, 0.0, 1.0);
                 allowance = 140.0 + fuelRatio * 90.0 + ((grounded || canDoubleJump) ? 35.0 : 0.0);
             }
-            case TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> {
+            case TURKEY, PELICAN, GRINCHHAWK, ROOSTER, GOOSE -> {
                 double fuelRatio = Math.clamp(limitedFlightFuel / LIMITED_FLIGHT_MAX, 0.0, 1.0);
                 allowance = 110.0 + fuelRatio * 70.0;
             }
@@ -7997,7 +8150,7 @@ public class Bird {
         double distanceToEdge = Math.abs(centerX - edgeX);
         return switch (type) {
             case VULTURE -> distanceToEdge < 140.0;
-            case PIGEON, TURKEY, PELICAN, GRINCHHAWK, ROOSTER -> distanceToEdge < 95.0;
+            case PIGEON, TURKEY, PELICAN, GRINCHHAWK, ROOSTER, GOOSE -> distanceToEdge < 95.0;
             default -> false;
         };
     }
@@ -8007,6 +8160,7 @@ public class Bird {
         if (type != BirdGame3.BirdType.RAZORBILL
                 && type != BirdGame3.BirdType.GRINCHHAWK
                 && type != BirdGame3.BirdType.BAT
+                && type != BirdGame3.BirdType.GOOSE
                 && specialCooldown > 0) return false;
         double centerX = x + 40 * sizeMultiplier;
         double bottomY = y + 80 * sizeMultiplier;
@@ -8043,6 +8197,8 @@ public class Bird {
                     && (depth > 88.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case OPIUMBIRD, HEISENBIRD -> !opiumUpSpecialUsed
                     && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
+            case GOOSE -> !gooseLiftUsed
+                    && (depth > 105.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.2)));
             default -> false;
         };
     }
@@ -8113,6 +8269,7 @@ public class Bird {
                     || type == BirdGame3.BirdType.GRINCHHAWK
                     || type == BirdGame3.BirdType.TITMOUSE
                     || type == BirdGame3.BirdType.BAT
+                    || type == BirdGame3.BirdType.GOOSE
                     || isOpiumEchoPair()) {
                 game.setAiControlKey(playerIndex, jumpKey(), true);
             }
@@ -8179,6 +8336,10 @@ public class Bird {
             case RAZORBILL -> {
                 if (!razorbillUpSpecialUsed) reach += 160.0;
             }
+            case GOOSE -> {
+                if (!gooseLiftUsed) reach += 170.0;
+                if (limitedFlightFuel > 0.0) reach += 45.0;
+            }
             case OPIUMBIRD, HEISENBIRD -> {
                 if (!opiumUpSpecialUsed) reach += 160.0;
             }
@@ -8222,6 +8383,10 @@ public class Bird {
             case RAZORBILL -> {
                 if (!razorbillUpSpecialUsed) reach += 42.0;
             }
+            case GOOSE -> {
+                reach += 35.0;
+                if (!gooseLiftUsed) reach += 44.0;
+            }
             case OPIUMBIRD, HEISENBIRD -> {
                 if (!opiumUpSpecialUsed) reach += 42.0;
             }
@@ -8246,7 +8411,7 @@ public class Bird {
 
     private double getAIIdealRange() {
         return switch (type) {
-            case TURKEY, PELICAN, GRINCHHAWK -> 165;
+            case TURKEY, PELICAN, GRINCHHAWK, GOOSE -> 165;
             case ROADRUNNER -> 182;
             case RAZORBILL, SHOEBILL -> 188;
             case EAGLE, VULTURE, PENGUIN, PHOENIX -> 208;
@@ -8401,6 +8566,40 @@ public class Bird {
         }
     }
 
+    private void configureGooseAISpecialInputs(Bird target, double dist, boolean onGround) {
+        if (target == null || type != BirdGame3.BirdType.GOOSE) {
+            return;
+        }
+        int dir = target.bodyCenterX() >= bodyCenterX() ? 1 : -1;
+        facingRight = dir > 0;
+        double dy = target.bodyCenterY() - bodyCenterY();
+        boolean targetAttacking = target.attackAnimationTimer > 2
+                || target.gooseBargeTimer > 0
+                || target.diveTimer > 0
+                || target.bladeStormFrames > 0;
+        if (!onGround && dy < -96.0 && !gooseLiftUsed) {
+            game.setAiControlKey(playerIndex, jumpKey(), true);
+            return;
+        }
+        if (onGround && targetAttacking && dist < 210.0 && gooseNestReuseTimer <= 0) {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            return;
+        }
+        if (onGround && (gooseNest == null || gooseNest.lifeFrames <= 0)
+                && (lowGooseTerritory() || dist > 160.0) && gooseNestReuseTimer <= 0
+                && random.nextDouble() < 0.42) {
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            return;
+        }
+        if (dist > 108.0 && dist < 360.0 && gooseBargeReuseTimer <= 0 && random.nextDouble() < 0.68) {
+            game.setAiControlKey(playerIndex, dir < 0 ? leftKey() : rightKey(), true);
+        }
+    }
+
+    private boolean lowGooseTerritory() {
+        return gooseTerritoryMeter < GOOSE_TERRITORY_MAX * 0.45;
+    }
+
     private void configureOpiumAISpecialInputs(Bird target, double dist, boolean onGround) {
         if (target == null || !isOpiumEchoPair()) {
             return;
@@ -8484,6 +8683,10 @@ public class Bird {
                         || (!onGround && dy > -120 && dist < 250);
             case RAVEN:
                 return dist < 420 && (lowHealth || Math.abs(dy) < 200);
+            case GOOSE:
+                return (dist < 330 && Math.abs(dy) < 155)
+                        || (onGround && gooseNestReuseTimer <= 0 && (lowHealth || target.attackAnimationTimer > 2))
+                        || (!onGround && dy < -85.0 && !gooseLiftUsed);
             default:
                 return false;
         }
@@ -8492,6 +8695,7 @@ public class Bird {
     private boolean hasLimitedFlight() {
         return type == BirdGame3.BirdType.PIGEON
                 || type == BirdGame3.BirdType.TURKEY
+                || type == BirdGame3.BirdType.GOOSE
                 || type == BirdGame3.BirdType.GRINCHHAWK
                 || type == BirdGame3.BirdType.PELICAN
                 || type == BirdGame3.BirdType.ROOSTER;
@@ -9135,6 +9339,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.RAVEN && isOnGround()) {
             ravenLiftUsed = false;
         }
+        if (type == BirdGame3.BirdType.GOOSE && isOnGround()) {
+            gooseLiftUsed = false;
+        }
         if (isOpiumEchoPair() && isOnGround()) {
             opiumUpSpecialUsed = false;
         }
@@ -9167,6 +9374,7 @@ public class Bird {
             resetBatSpecialState(false);
             resetPelicanSpecialState(false);
             resetOpiumSpecialState();
+            resetGooseSpecialState(false);
         }
 
         if (handleGrabbedState()) {
@@ -9330,6 +9538,7 @@ public class Bird {
         handleBatSpecialState();
         handleRavenSpecialState(specialHeld);
         handleOpiumSpecialState();
+        GooseSpecials.handleState(this, specialHeld);
 
         // === RAZORBILL SPECIALS ===
         handleRazorbillSpecials();
@@ -9359,6 +9568,7 @@ public class Bird {
         handleRoadrunnerPaintedRoads();
         handleBatPostMoveSpecialState();
         handleRavenPostMoveSpecialState();
+        GooseSpecials.handlePostMoveState(this);
         if (tryGrabUniversalLedge(prevX, inDockWater)) {
             rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
             handleTaunts();
@@ -9970,11 +10180,13 @@ public class Bird {
             return BirdAnimationState.SHIELD;
         }
         if (isGroundAttackPending() || isChargingAttack() || attackAnimationTimer > 0
-                || raptorRushTimer > 0 || eagleDiveActive || diveTimer > 0 || eagleSkySovereignDiving) {
+                || raptorRushTimer > 0 || eagleDiveActive || diveTimer > 0 || eagleSkySovereignDiving
+                || gooseHonkTimer > 0 || gooseBargeTimer > 0 || gooseNestGuardTimer > 0
+                || gooseNestCounterTimer > 0 || gooseUltimateTimer > 0) {
             return BirdAnimationState.ATTACK;
         }
         if (!isOnGround()) {
-            if (vy < -1.2 || raptorClimbTimer > 0 || eagleAscentActive) {
+            if (vy < -1.2 || raptorClimbTimer > 0 || eagleAscentActive || gooseLiftTimer > 0) {
                 return BirdAnimationState.FLAP;
             }
             return BirdAnimationState.FALL;
@@ -11225,6 +11437,8 @@ public class Bird {
                     ? canConvertShieldIntoPelicanDownSpecial()
                     : type == BirdGame3.BirdType.RAVEN
                     ? canConvertShieldIntoRavenDownSpecial()
+                    : type == BirdGame3.BirdType.GOOSE
+                    ? canConvertShieldIntoGooseDownSpecial()
                     : isOpiumEchoPair()
                     ? canConvertShieldIntoOpiumDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());
@@ -11254,6 +11468,7 @@ public class Bird {
                         && type != BirdGame3.BirdType.BAT
                         && type != BirdGame3.BirdType.PELICAN
                         && type != BirdGame3.BirdType.RAVEN
+                        && type != BirdGame3.BirdType.GOOSE
                         && !isOpiumEchoPair()))) {
                     cooldownFlash = 15;
                 }
@@ -11529,7 +11744,8 @@ public class Bird {
 
     void refillTrainingResources(boolean fillUltimate) {
         onDefeated();
-        baseSizeMultiplier = type == BirdGame3.BirdType.PELICAN ? 1.2 : 1.0;
+        baseSizeMultiplier = type == BirdGame3.BirdType.PELICAN ? 1.2
+                : type == BirdGame3.BirdType.GOOSE ? 1.16 : 1.0;
         basePowerMultiplier = 1.0;
         baseSpeedMultiplier = 1.0;
         phoenixRebornUsed = false;
@@ -11626,6 +11842,7 @@ public class Bird {
                 roadrunnerSandHitCooldown[i]--;
             }
         }
+        GooseSpecials.advancePresentationFrame(this);
     }
 
     boolean applyTrainingRecoveryInputs() {
@@ -11730,6 +11947,9 @@ public class Bird {
             return 0;
         }
         if (target.tryShoebillStatueCounter(this, scaledDamage)) {
+            return 0;
+        }
+        if (target.tryGooseNestCounter(this, scaledDamage)) {
             return 0;
         }
         ShieldHitResult shieldHit = target.resolveShieldHit(this, scaledDamage, 0.0);
@@ -13237,6 +13457,8 @@ public class Bird {
         ravenPortentOwnerIndex = -1;
         ravenPortentSerial = 0;
         ravenPortentUltimate = false;
+        resetGooseSpecialState(true);
+        gooseTerritoryMeter = 28.0;
         ledgeHanging = false;
         ledgePlatform = null;
         ledgeGrabOnRightSide = false;
@@ -15780,6 +16002,7 @@ public class Bird {
             case VULTURE -> VULTURE_VISUAL_PROFILE;
             case TURKEY -> TURKEY_VISUAL_PROFILE;
             case PENGUIN -> PENGUIN_VISUAL_PROFILE;
+            case GOOSE -> GOOSE_VISUAL_PROFILE;
             default -> DEFAULT_BIRD_VISUAL_PROFILE;
         };
     }
@@ -15842,6 +16065,9 @@ public class Bird {
         }
         if (profile.style() == BirdVisualProfileStyle.PENGUIN) {
             return currentPenguinStatePose(state, profile);
+        }
+        if (profile.style() == BirdVisualProfileStyle.GOOSE) {
+            return currentGooseStatePose(state, profile);
         }
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 16.0);
@@ -15958,6 +16184,129 @@ public class Bird {
                         1.0 - landingSquash * 0.12
                 );
             }
+        };
+    }
+
+    private AttackVisualPose currentGooseStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 14.0);
+        double now = System.currentTimeMillis() + playerIndex * 181.0;
+        double sway = Math.sin(now / 520.0);
+        double neckBob = Math.sin(now / 260.0);
+        double territory = Math.clamp(gooseTerritoryMeter / GOOSE_TERRITORY_MAX, 0.0, 1.0);
+        return switch (state) {
+            case IDLE -> {
+                double alert = territory >= 1.0 ? 1.0 : 0.0;
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 10.0) : 0.0;
+                yield new AttackVisualPose(
+                        dir * (sway * 0.45 - alert * 0.6),
+                        1.8 + Math.abs(neckBob) * 0.55 + landingSquash * 3.3,
+                        dir * (sway * 1.6 - alert * 2.2),
+                        facingRight ? -0.015 : Math.PI + 0.015,
+                        4.0 + Math.max(0.0, neckBob) * 2.2 + alert * 5.0,
+                        -3.2 - Math.max(0.0, neckBob) * 2.0 - alert * 4.0,
+                        2.0 + alert * 2.5,
+                        1.02 + alert * 0.10,
+                        dir * (sway * 2.2 - alert * 4.0),
+                        1.0 + landingSquash * 0.11,
+                        1.0 - landingSquash * 0.12
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (1.0 + speed * 1.8),
+                    (-6.2 - speed * 4.4) * profile.airLift(),
+                    dir * (4.6 + speed * 3.4),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10),
+                    11.0 + speed * 4.0,
+                    -14.0 - speed * 4.0,
+                    8.0 + speed * 3.0,
+                    1.03,
+                    -16.0 - speed * 7.0,
+                    1.02,
+                    1.10 + speed * 0.04
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (0.6 + speed * 1.2),
+                    (4.8 + speed * 4.6) * profile.mass(),
+                    dir * (2.4 + speed * 3.8),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.10),
+                    8.0 + speed * 3.0,
+                    7.0 + speed * 4.5,
+                    5.0 + speed * 3.0,
+                    0.92,
+                    12.0 + speed * 8.0,
+                    1.04,
+                    1.05
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (5.2 + speed * 7.0) * profile.recoil(),
+                    -1.0 - speed * 2.8,
+                    -dir * (11.0 + speed * 8.5) * profile.recoil(),
+                    facingRight ? Math.PI - 0.08 : 0.08,
+                    3.0,
+                    3.5,
+                    2.0,
+                    0.78,
+                    -dir * (13.0 + speed * 10.0),
+                    0.93,
+                    1.10
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 3.0,
+                    5.0 * profile.shieldCrouch(),
+                    -dir * 5.5,
+                    facingRight ? 0.0 : Math.PI,
+                    -1.0,
+                    4.0,
+                    -1.0,
+                    0.86,
+                    -dir * 5.0,
+                    1.08,
+                    0.88
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 3.8,
+                    -1.6,
+                    dir * 16.0,
+                    facingRight ? -0.02 : Math.PI + 0.02,
+                    0.0,
+                    -1.0,
+                    0.0,
+                    1.0,
+                    dir * 10.0,
+                    1.12,
+                    0.86
+            );
+            case ATTACK -> {
+                double honk = gooseHonkTimer > 0 ? 1.0 : 0.0;
+                double barge = gooseBargeTimer > 0 ? 1.0 : 0.0;
+                yield new AttackVisualPose(
+                        dir * (7.0 + speed * 4.0 + barge * 5.0),
+                        -2.0 - honk * 2.0,
+                        dir * (7.0 + speed * 3.5 + barge * 5.0 - honk * 3.0),
+                        facingRight ? -0.07 - honk * 0.06 : Math.PI + 0.07 + honk * 0.06,
+                        12.0 + honk * 11.0 + barge * 3.0,
+                        -6.0 - honk * 7.0,
+                        10.0 + honk * 10.0,
+                        1.10 + honk * 0.16,
+                        dir * (8.0 + barge * 7.0),
+                        1.10,
+                        0.93
+                );
+            }
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    12.0 * profile.koSlump(),
+                    dir * 28.0 * profile.koSlump(),
+                    facingRight ? Math.PI : 0.0,
+                    0.0,
+                    7.0,
+                    0.0,
+                    0.70,
+                    dir * 25.0 * profile.koSlump(),
+                    1.08,
+                    0.78
+            );
         };
     }
 
@@ -18498,6 +18847,7 @@ public class Bird {
         drawPenguinSpecialFx(g, drawSize);
         drawShoebillSpecialFx(g, drawSize);
         drawGrinchhawkSpecialFx(g, drawSize);
+        drawGooseSpecialFx(g, drawSize);
         drawBatEcho(g, drawSize);
         drawRavenSpecialFx(g, drawSize);
         if (!suppressSelectEffects) {
@@ -18668,6 +19018,192 @@ public class Bird {
                         w, h, 18 + i * 22, 154, ArcType.OPEN);
             }
         }
+        g.restore();
+    }
+
+    private void drawGooseSpecialFx(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.GOOSE && !GooseSpecials.active(this) && gooseNest == null
+                && gooseUltimateTimer <= 0) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double cx = bodyCenterX();
+        double cy = bodyCenterY();
+        int dir = gooseHonkDirection == 0 ? facingDirection() : gooseHonkDirection;
+        Color pond = Color.web("#8BC5A1");
+        Color warning = Color.web("#FFF176");
+        Color guard = Color.web("#A5D6A7");
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        if (gooseNest != null && gooseNest.lifeFrames > 0) {
+            double ratio = Math.clamp(gooseNest.lifeFrames
+                    / (double) (gooseNest.ultimate ? GOOSE_NEST_ULTIMATE_LIFE_FRAMES : GOOSE_NEST_LIFE_FRAMES), 0.0, 1.0);
+            double pulse = 0.5 + 0.5 * Math.sin(gooseNest.ageFrames * 0.18);
+            double nestW = (gooseNest.ultimate ? 124.0 : 104.0) * s;
+            double nestH = (gooseNest.ultimate ? 52.0 : 44.0) * s;
+            g.setFill(Color.rgb(0, 0, 0, 0.22 * ratio));
+            g.fillOval(gooseNest.x - nestW * 0.52, gooseNest.y - nestH * 0.18, nestW, nestH * 0.52);
+            g.setStroke((gooseNest.ultimate ? Color.GOLD : Color.web("#7CB342"))
+                    .deriveColor(0, 1, 1, 0.36 + pulse * 0.18));
+            g.setLineWidth((gooseNest.ultimate ? 3.2 : 2.4) * s);
+            g.strokeOval(gooseNest.x - nestW * 0.50, gooseNest.y - nestH * 0.64, nestW, nestH);
+            g.setStroke(Color.web("#8D6E63").deriveColor(0, 1, 1, 0.72 * ratio));
+            g.setLineWidth(4.0 * s);
+            for (int i = -2; i <= 2; i++) {
+                double yOff = i * 4.0 * s;
+                g.strokeArc(gooseNest.x - nestW * 0.38, gooseNest.y - nestH * 0.52 + yOff,
+                        nestW * 0.76, nestH * 0.64, 196 + i * 6, 148, ArcType.OPEN);
+            }
+            g.setFill((gooseNest.ultimate ? Color.web("#FFF59D") : Color.web("#F5F5DC"))
+                    .deriveColor(0, 1, 1, 0.88 * ratio));
+            g.fillOval(gooseNest.x - 17.0 * s, gooseNest.y - 31.0 * s, 16.0 * s, 22.0 * s);
+            g.fillOval(gooseNest.x + 5.0 * s, gooseNest.y - 30.0 * s, 16.0 * s, 22.0 * s);
+        }
+
+        if (type == BirdGame3.BirdType.GOOSE && gooseTerritoryMeter > 0.0 && !suppressSelectEffects) {
+            double ratio = Math.clamp(gooseTerritoryMeter / GOOSE_TERRITORY_MAX, 0.0, 1.0);
+            double haloW = (94.0 + ratio * 44.0) * s;
+            double haloH = (28.0 + ratio * 12.0) * s;
+            g.setStroke((ratio >= 1.0 ? warning : pond).deriveColor(0, 1, 1, 0.26 + ratio * 0.32));
+            g.setLineWidth((2.0 + ratio * 1.6) * s);
+            g.strokeOval(cx - haloW * 0.5, bodyBottomY() - haloH * 0.56, haloW, haloH);
+            g.setFill((ratio >= 1.0 ? warning : pond).deriveColor(0, 1, 1, 0.12 + ratio * 0.10));
+            g.fillArc(cx - haloW * 0.5, bodyBottomY() - haloH * 0.56, haloW, haloH,
+                    90, -360.0 * ratio, ArcType.ROUND);
+        }
+
+        if (gooseHonkTimer > 0) {
+            double released = gooseHonkReleased ? 1.0 : 0.0;
+            double holdRatio = Math.clamp(gooseHonkHoldFrames / (double) GOOSE_HONK_MAX_HOLD_FRAMES, 0.0, 1.0);
+            double waveRatio = Math.clamp(gooseHonkTimer / (double) (GOOSE_HONK_RECOVERY_FRAMES + 8), 0.0, 1.0);
+            Color honk = gooseHonkUltimate || gooseHonkEmpowered ? Color.GOLD : Color.web("#E6F4EA");
+            g.setEffect(new Glow(0.42 + holdRatio * 0.22));
+            for (int i = 0; i < 4; i++) {
+                double reach = (70.0 + i * 52.0 + holdRatio * 58.0 + released * (1.0 - waveRatio) * 70.0) * s;
+                double h = (40.0 + i * 17.0 + holdRatio * 20.0) * s;
+                double alpha = Math.clamp(0.18 + holdRatio * 0.22 + waveRatio * 0.24 - i * 0.035, 0.0, 0.78);
+                g.setStroke(honk.deriveColor(0, 1, 1, alpha));
+                g.setLineWidth((3.0 + i * 0.6) * s);
+                if (dir > 0) {
+                    g.strokeArc(cx + 6.0 * s + i * 7.0 * s, cy - h * 0.5, reach, h, -38, 76, ArcType.OPEN);
+                } else {
+                    g.strokeArc(cx - 6.0 * s - reach - i * 7.0 * s, cy - h * 0.5, reach, h, 142, 76, ArcType.OPEN);
+                }
+            }
+            g.setEffect(null);
+        }
+
+        if (gooseBargeTimer > 0) {
+            int bargeDir = gooseBargeDirection == 0 ? facingDirection() : gooseBargeDirection;
+            double phase = gooseBargeTimer / (double) (gooseBargeUltimate || gooseBargeEmpowered
+                    ? GOOSE_BARGE_FRAMES + 6 : GOOSE_BARGE_FRAMES);
+            Color dust = gooseBargeUltimate || gooseBargeEmpowered ? Color.GOLD : Color.web("#BCAAA4");
+            g.setStroke(dust.deriveColor(0, 1, 1, 0.34 + phase * 0.28));
+            g.setLineWidth(5.0 * s);
+            for (int i = 0; i < 3; i++) {
+                g.strokeLine(cx - bargeDir * (12.0 + i * 18.0) * s,
+                        bodyBottomY() - (8.0 + i * 9.0) * s,
+                        cx - bargeDir * (58.0 + i * 34.0) * s,
+                        bodyBottomY() - (2.0 + i * 5.0) * s);
+            }
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.26 + phase * 0.24));
+            g.setLineWidth(3.2 * s);
+            g.strokeArc(cx + bargeDir * 16.0 * s - 44.0 * s, cy - 38.0 * s,
+                    88.0 * s, 76.0 * s, bargeDir > 0 ? -24 : 204, bargeDir > 0 ? 92 : -92, ArcType.OPEN);
+        }
+
+        if (gooseLiftTimer > 0) {
+            double ratio = Math.clamp(gooseLiftTimer
+                    / (double) (gooseLiftUltimate ? GOOSE_LIFT_ULTIMATE_FRAMES : GOOSE_LIFT_FRAMES), 0.0, 1.0);
+            Color gust = gooseLiftUltimate || gooseLiftEmpowered ? Color.GOLD : Color.web("#E0F2F1");
+            g.setStroke(gust.deriveColor(0, 1, 1, 0.30 + ratio * 0.28));
+            g.setLineWidth(3.4 * s);
+            for (int i = 0; i < 5; i++) {
+                double side = (i - 2.0) * 22.0 * s;
+                double lift = (1.0 - ratio) * 48.0 * s + i * 5.0 * s;
+                g.strokeArc(cx + side - 20.0 * s, bodyBottomY() - 12.0 * s - lift,
+                        40.0 * s, 72.0 * s, 238, 64, ArcType.OPEN);
+            }
+        }
+
+        if (gooseNestGuardTimer > 0 || gooseNestCounterTimer > 0) {
+            double timer = Math.max(gooseNestGuardTimer, gooseNestCounterTimer);
+            double total = gooseNestCounterTimer > 0
+                    ? (gooseNestCounterUltimate ? GOOSE_COUNTER_ULTIMATE_BURST_FRAMES : GOOSE_COUNTER_BURST_FRAMES)
+                    : (gooseNestGuardUltimate ? GOOSE_NEST_GUARD_ULTIMATE_FRAMES : GOOSE_NEST_GUARD_FRAMES);
+            double ratio = Math.clamp(timer / Math.max(1.0, total), 0.0, 1.0);
+            Color shield = gooseNestCounterTimer > 0
+                    ? (gooseNestCounterUltimate ? Color.GOLD : Color.web("#FFF59D"))
+                    : guard;
+            g.setStroke(shield.deriveColor(0, 1, 1, 0.34 + ratio * 0.36));
+            g.setLineWidth((gooseNestCounterTimer > 0 ? 5.2 : 3.2) * s);
+            g.strokeOval(cx - (58.0 + (1.0 - ratio) * 22.0) * s,
+                    cy - (50.0 + (1.0 - ratio) * 20.0) * s,
+                    (116.0 + (1.0 - ratio) * 44.0) * s,
+                    (100.0 + (1.0 - ratio) * 40.0) * s);
+        }
+
+        if (gooseUltimateTimer > 0) {
+            double elapsed = GOOSE_ULTIMATE_FRAMES - gooseUltimateTimer;
+            double sweep = Math.clamp(elapsed / GOOSE_ULTIMATE_FRAMES, 0.0, 1.0);
+            g.setEffect(new Glow(0.26));
+            for (int row = 0; row < 5; row++) {
+                int flockDir = row % 2 == 0 ? gooseUltimateDirection : -gooseUltimateDirection;
+                double wavePhase = (sweep + row * 0.14) % 1.0;
+                double waveX = (flockDir > 0 ? -220.0 : BirdGame3.WORLD_WIDTH + 220.0)
+                        + flockDir * (BirdGame3.WORLD_WIDTH + 440.0) * wavePhase;
+                double waveY = 118.0 + row * 88.0 + Math.sin(elapsed * 0.09 + row) * 24.0;
+                for (int bird = -3; bird <= 3; bird++) {
+                    double bx = waveX - flockDir * bird * 42.0 * s;
+                    double by = waveY + Math.abs(bird) * 20.0 * s
+                            + Math.sin(elapsed * 0.15 + bird * 0.8 + row) * 5.0 * s;
+                    double birdScale = (0.82 + Math.abs(bird) * 0.035) * s;
+                    double alpha = Math.clamp(0.46 + (1.0 - Math.abs(bird) / 3.2) * 0.22, 0.0, 0.82);
+                    drawGooseFlockSilhouette(g, bx, by, birdScale, flockDir, alpha);
+                }
+            }
+            g.setEffect(null);
+        }
+
+        g.restore();
+    }
+
+    private void drawGooseFlockSilhouette(GraphicsContext g, double centerX, double centerY,
+                                          double scale, int direction, double alpha) {
+        double dir = direction >= 0 ? 1.0 : -1.0;
+        Color body = Color.web("#E8E4CF").deriveColor(0, 1, 1, alpha);
+        Color dark = Color.web("#1A211D").deriveColor(0, 1, 1, Math.min(0.92, alpha + 0.12));
+        Color wing = Color.web("#FFF176").deriveColor(0, 1, 1, Math.min(0.72, alpha));
+        Color beak = Color.web("#F9A825").deriveColor(0, 1, 1, Math.min(0.88, alpha + 0.08));
+
+        g.save();
+        g.translate(centerX, centerY);
+        g.scale(dir * scale, scale);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setFill(body);
+        g.fillOval(-18.0, -6.0, 29.0, 14.0);
+        g.setStroke(dark);
+        g.setLineWidth(5.0);
+        g.strokeLine(5.0, -4.0, 17.0, -18.0);
+        g.setFill(dark);
+        g.fillOval(13.0, -23.0, 16.0, 12.0);
+        g.setFill(Color.web("#F8F4DE").deriveColor(0, 1, 1, Math.min(0.86, alpha + 0.06)));
+        g.fillOval(21.0, -18.5, 7.0, 4.5);
+        g.setFill(beak);
+        g.fillPolygon(
+                new double[]{28.0, 40.0, 28.0},
+                new double[]{-18.0, -15.0, -13.0},
+                3
+        );
+        g.setStroke(wing);
+        g.setLineWidth(3.5);
+        g.strokeLine(-5.0, -4.0, -22.0, -20.0);
+        g.strokeLine(-4.0, -2.0, -24.0, 9.0);
+        g.setStroke(dark.deriveColor(0, 1, 1, alpha * 0.65));
+        g.setLineWidth(1.4);
+        g.strokeLine(-12.0, 0.0, 5.0, 3.0);
         g.restore();
     }
 
@@ -23225,6 +23761,7 @@ public class Bird {
         boolean stylizedGrinchhawk = type == BirdGame3.BirdType.GRINCHHAWK;
         boolean stylizedTitmouse = type == BirdGame3.BirdType.TITMOUSE;
         boolean stylizedPelican = type == BirdGame3.BirdType.PELICAN;
+        boolean stylizedGoose = type == BirdGame3.BirdType.GOOSE;
         boolean ravenEyes = (type == BirdGame3.BirdType.RAVEN);
         Color bodyColor;
         Color headColor;
@@ -23318,6 +23855,10 @@ public class Bird {
             bodyColor = Color.web("#E7D6B4");
             headColor = Color.web("#FFF4DA");
             eyeOverride = Color.web("#263238");
+        } else if (stylizedGoose && !classicPalette) {
+            bodyColor = Color.web("#5E6F55");
+            headColor = Color.web("#1B241F");
+            eyeOverride = Color.web("#111111");
         } else if (type == BirdGame3.BirdType.ROADRUNNER && !classicPalette) {
             bodyColor = Color.web("#B87333");
             headColor = Color.web("#CC8C46");
@@ -23434,6 +23975,28 @@ public class Bird {
                     new double[]{y + 52.0 * s, y + 58.0 * s, y + 70.0 * s},
                     3
             );
+        }
+        if (stylizedGoose) {
+            double tailBaseX = facingRight ? x + 14.0 * s : x + 66.0 * s;
+            double tailDir = facingRight ? -1.0 : 1.0;
+            Color tail = classicPalette ? game.classicSkinPrimaryColor(type).brighter() : Color.web("#ECE8D0");
+            Color wing = classicPalette ? game.classicSkinPrimaryColor(type).darker() : Color.web("#46523E");
+            g.setFill(tail.deriveColor(0, 1, 1, 0.82));
+            g.fillPolygon(
+                    new double[]{tailBaseX, tailBaseX + tailDir * 38.0 * s, tailBaseX + tailDir * 12.0 * s},
+                    new double[]{y + 42.0 * s, y + 34.0 * s, y + 62.0 * s},
+                    3
+            );
+            g.setFill(wing.deriveColor(0, 1, 1, 0.56));
+            g.fillOval(x + (facingRight ? 8.0 : 36.0) * s, y + 24.0 * s, 41.0 * s, 54.0 * s);
+            g.setStroke(Color.web("#2F3A2B").deriveColor(0, 1, 1, 0.48));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(1.6 * s);
+            for (int i = 0; i < 3; i++) {
+                double featherY = y + (39.0 + i * 10.0) * s;
+                g.strokeLine(x + (facingRight ? 16.0 : 61.0) * s, featherY,
+                        x + (facingRight ? 45.0 : 34.0) * s, featherY + (i - 1.0) * 3.0 * s);
+            }
         }
 
         g.setFill(bodyColor);
@@ -23637,6 +24200,42 @@ public class Bird {
             g.setFill(belly.deriveColor(0, 1, 1, circuitTitmouse ? 0.34 : 0.46));
             g.fillOval(headX + (facingRight ? 10.0 : 18.0) * s, headY + 19.0 * s, 22.0 * s, 15.0 * s);
         }
+        if (stylizedGoose) {
+            Color breast = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#F7F3DD");
+            Color neckDark = classicPalette ? game.classicSkinPrimaryColor(type).darker() : Color.web("#18221D");
+            Color neckLight = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#F3EDD4");
+            Color wingLine = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#394634");
+            double neckTopX = headPose.centerX() - (facingRight ? 6.0 : -6.0) * s;
+            double neckTopY = headPose.centerY() + 13.0 * s;
+            double neckBaseX = x + (facingRight ? 49.0 : 31.0) * s;
+            double neckBaseY = y + 45.0 * s;
+            g.setStroke(neckDark.deriveColor(0, 1, 1, 0.92));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(15.0 * s);
+            g.strokeLine(neckBaseX, neckBaseY, neckTopX, neckTopY);
+            g.setStroke(neckLight.deriveColor(0, 1, 1, 0.30));
+            g.setLineWidth(4.4 * s);
+            g.strokeLine(neckBaseX + (facingRight ? 4.0 : -4.0) * s, neckBaseY + 2.0 * s,
+                    neckTopX + (facingRight ? 3.0 : -3.0) * s, neckTopY - 1.0 * s);
+            g.setFill(breast.deriveColor(0, 1, 1, isClassicSkin ? 0.38 : 0.72));
+            g.fillOval(x + 20.0 * s, y + 34.0 * s, 43.0 * s, 37.0 * s);
+            g.setStroke(wingLine.deriveColor(0, 1, 1, 0.46));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.0 * s);
+            g.strokeArc(x + 13.0 * s, y + 34.0 * s, 54.0 * s, 34.0 * s,
+                    facingRight ? 204 : -24, 116, ArcType.OPEN);
+            g.setStroke(Color.web("#E0D7AA").deriveColor(0, 1, 1, 0.74));
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(x + 25.0 * s, y + 72.0 * s, x + 18.0 * s, y + 88.0 * s);
+            g.strokeLine(x + 55.0 * s, y + 72.0 * s, x + 63.0 * s, y + 88.0 * s);
+            g.setFill(Color.web("#F9A825").deriveColor(0, 1, 1, 0.82));
+            g.fillOval(x + 10.0 * s, y + 86.0 * s, 22.0 * s, 8.0 * s);
+            g.fillOval(x + 49.0 * s, y + 86.0 * s, 22.0 * s, 8.0 * s);
+            g.setStroke(Color.web("#E07D13").deriveColor(0, 1, 1, 0.64));
+            g.setLineWidth(1.0 * s);
+            g.strokeLine(x + 13.0 * s, y + 90.0 * s, x + 29.0 * s, y + 88.0 * s);
+            g.strokeLine(x + 52.0 * s, y + 90.0 * s, x + 68.0 * s, y + 88.0 * s);
+        }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
             int tailDir = facingRight ? -1 : 1;
             double crestBaseX = facingRight ? headX + 18 * s : headX + 32 * s;
@@ -23721,6 +24320,17 @@ public class Bird {
             g.fillOval(eyeX, eyeY, 21.0 * s, 21.0 * s);
             g.setFill(Color.WHITE.deriveColor(0, 1, 1, circuitTitmouse ? 0.75 : 0.92));
             g.fillOval(eyeX + (facingRight ? 5.0 : 11.0) * s, eyeY + 4.0 * s, 5.0 * s, 5.0 * s);
+        } else if (stylizedGoose) {
+            double cheekX = headX + (facingRight ? 23.0 : 6.0) * s;
+            double cheekY = headY + 13.0 * s;
+            g.setFill(Color.web("#F8F4DE").deriveColor(0, 1, 1, 0.86));
+            g.fillOval(cheekX, cheekY, 20.0 * s, 13.0 * s);
+            g.setFill(Color.web("#070A08"));
+            g.fillOval(headX + (facingRight ? 31.0 : 14.0) * s, headY + 8.0 * s,
+                    5.2 * s, 5.2 * s);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.72));
+            g.fillOval(headX + (facingRight ? 32.4 : 15.4) * s, headY + 8.7 * s,
+                    1.7 * s, 1.7 * s);
         } else {
             g.setFill(Color.WHITE);
             g.fillOval(headX + (facingRight ? 0 : 40) * s, headY, 25 * s, 25 * s);
@@ -24776,6 +25386,7 @@ public class Bird {
         boolean stylizedMockingbird = type == BirdGame3.BirdType.MOCKINGBIRD;
         boolean stylizedGrinchhawk = type == BirdGame3.BirdType.GRINCHHAWK;
         boolean stylizedTitmouse = type == BirdGame3.BirdType.TITMOUSE;
+        boolean stylizedGoose = type == BirdGame3.BirdType.GOOSE;
         double openAmount = (isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) : 3) * s * openScale;
         if (stylizedHummingbird) {
             openAmount *= 0.34;
@@ -24785,6 +25396,8 @@ public class Bird {
             openAmount *= 0.78;
         } else if (stylizedTitmouse) {
             openAmount *= 0.42;
+        } else if (stylizedGoose) {
+            openAmount *= gooseHonkTimer > 0 ? 1.22 : 0.78;
         }
         double beakLength = ((type == BirdGame3.BirdType.FALCON ? 34
                 : type == BirdGame3.BirdType.EAGLE ? 32
@@ -24794,6 +25407,7 @@ public class Bird {
                 : stylizedTurkey ? 25
                 : stylizedGrinchhawk ? 36
                 : stylizedTitmouse ? 20
+                : stylizedGoose ? 39
                 : type == BirdGame3.BirdType.ROADRUNNER ? 42 : 28) + (pose == null ? 0.0 : pose.beakLengthBonus())) * s;
         if (type == BirdGame3.BirdType.HUMMINGBIRD && hummingNeedleHitTimer > 0) {
             double needleProgress = Math.clamp(hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES), 0.0, 1.0);
@@ -24842,6 +25456,8 @@ public class Bird {
                 ? (isAttacking ? Color.web("#F9A825") : Color.web("#FBC02D"))
                 : stylizedTitmouse
                 ? (isAttacking ? Color.web("#4E342E") : Color.web("#5D4037"))
+                : stylizedGoose
+                ? (isAttacking ? Color.web("#F57C00") : Color.web("#FFA726"))
                 : (isAttacking ? Color.ORANGERED : Color.ORANGE));
         g.fillPolygon(
                 new double[]{baseUpperX, upperTipX, baseLowerX},
@@ -24901,6 +25517,15 @@ public class Bird {
             g.setLineWidth(0.8 * s);
             g.strokeLine(mouthCenterX - normalX * 1.1 * s, mouthCenterY - normalY * 1.1 * s,
                     tipBaseX - dirX * 2.0 * s, tipBaseY - dirY * 2.0 * s);
+        }
+        if (stylizedGoose) {
+            g.setStroke(Color.web("#6D4C41").deriveColor(0, 1, 1, 0.38));
+            g.setLineWidth(1.1 * s);
+            g.strokeLine(mouthCenterX - normalX * 2.0 * s, mouthCenterY - normalY * 2.0 * s,
+                    tipBaseX - dirX * 4.0 * s, tipBaseY - dirY * 4.0 * s);
+            g.setFill(Color.web("#3E2723").deriveColor(0, 1, 1, 0.34));
+            g.fillOval(tipBaseX - dirX * 6.0 * s - 3.0 * s, tipBaseY - dirY * 6.0 * s - 2.0 * s,
+                    6.0 * s, 4.0 * s);
         }
 
         if (isAttacking && attackAnimationTimer > 4) {
