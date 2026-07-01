@@ -699,6 +699,8 @@ public class BirdGame3 extends Application {
     private static final int LARGE_FIGHT_PIRANHA_CAP = 6;
     private static final int BLAST_ZONE_KO_EFFECT_FRAMES = 72;
     private static final int BLAST_ZONE_KO_EFFECT_CAP = 16;
+    private static final int COMBAT_IMPACT_EFFECT_FRAMES = 30;
+    private static final int COMBAT_IMPACT_EFFECT_CAP = 96;
 
     private enum BlastZoneSide {
         LEFT,
@@ -724,6 +726,42 @@ public class BirdGame3 extends Application {
         }
     }
     private final List<BlastZoneKoEffect> blastZoneKoEffects = new ArrayList<>();
+
+    private static final class CombatImpactEffect {
+        final double x;
+        final double y;
+        final double dirX;
+        final double dirY;
+        final Color accent;
+        final Color secondary;
+        final double damage;
+        final double scale;
+        final boolean finisher;
+        final int maxLife;
+        int life;
+
+        CombatImpactEffect(double x, double y, double dirX, double dirY, Color accent, Color secondary,
+                           double damage, double scale, boolean finisher, int maxLife) {
+            double length = Math.hypot(dirX, dirY);
+            if (length <= 0.001) {
+                dirX = 1.0;
+                dirY = -0.18;
+                length = Math.hypot(dirX, dirY);
+            }
+            this.x = x;
+            this.y = y;
+            this.dirX = dirX / length;
+            this.dirY = dirY / length;
+            this.accent = accent == null ? Color.WHITE : accent;
+            this.secondary = secondary == null ? Color.web("#FFF59D") : secondary;
+            this.damage = Math.max(0.0, damage);
+            this.scale = Math.max(0.65, scale);
+            this.finisher = finisher;
+            this.maxLife = Math.max(12, maxLife);
+            this.life = this.maxLife;
+        }
+    }
+    private final List<CombatImpactEffect> combatImpactEffects = new ArrayList<>();
 
     // === CITY WIND BURSTS ===
     List<WindVent> windVents = new ArrayList<>();
@@ -8602,6 +8640,7 @@ public class BirdGame3 extends Application {
         queueUnitedFinaleSupport(entries, playerType, BirdType.VULTURE, "Ally: Tide Vulture", TIDE_VULTURE_SKIN);
         queueUnitedFinaleSupport(entries, playerType, BirdType.OPIUMBIRD, "Ally: Opium Bird", null);
         queueUnitedFinaleSupport(entries, playerType, BirdType.HEISENBIRD, "Ally: Heisenbird", null);
+        queueUnitedFinaleSupport(entries, playerType, BirdType.GOOSE, "Ally: Guard Goose", null);
         return entries;
     }
 
@@ -9719,6 +9758,7 @@ public class BirdGame3 extends Application {
             if (!introLocked) {
                 long effectsUpdateStart = System.nanoTime();
                 updateParticlesFixed();
+                updateCombatImpactEffectsFixed();
                 updateBlastZoneKoEffectsFixed();
                 trimTransientEffectOverflow();
                 effectsUpdateNs += System.nanoTime() - effectsUpdateStart;
@@ -9735,6 +9775,9 @@ public class BirdGame3 extends Application {
         }
         if (!particleEffectsEnabled && !particles.isEmpty()) {
             particles.clear();
+        }
+        if (!particleEffectsEnabled && !combatImpactEffects.isEmpty()) {
+            combatImpactEffects.clear();
         }
     }
 
@@ -9850,6 +9893,9 @@ public class BirdGame3 extends Application {
         }
         if (blastZoneKoEffects.size() > BLAST_ZONE_KO_EFFECT_CAP) {
             blastZoneKoEffects.subList(0, blastZoneKoEffects.size() - BLAST_ZONE_KO_EFFECT_CAP).clear();
+        }
+        if (combatImpactEffects.size() > COMBAT_IMPACT_EFFECT_CAP) {
+            combatImpactEffects.subList(0, combatImpactEffects.size() - COMBAT_IMPACT_EFFECT_CAP).clear();
         }
         int crowCap = activeCrowMinionCap();
         long protectedCrows = crowMinions.stream().filter(CrowMinion::isOverflowProtected).count();
@@ -11028,6 +11074,16 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void updateCombatImpactEffectsFixed() {
+        for (Iterator<CombatImpactEffect> it = combatImpactEffects.iterator(); it.hasNext(); ) {
+            CombatImpactEffect effect = it.next();
+            effect.life--;
+            if (effect.life <= 0) {
+                it.remove();
+            }
+        }
+    }
+
     private void updateBlastZoneKoEffectsFixed() {
         for (Iterator<BlastZoneKoEffect> it = blastZoneKoEffects.iterator(); it.hasNext(); ) {
             BlastZoneKoEffect effect = it.next();
@@ -11050,6 +11106,73 @@ public class BirdGame3 extends Application {
         if (blastZoneKoEffects.size() > BLAST_ZONE_KO_EFFECT_CAP) {
             blastZoneKoEffects.subList(0, blastZoneKoEffects.size() - BLAST_ZONE_KO_EFFECT_CAP).clear();
         }
+        emitCombatImpact(null, bird, x, y, vx, vy, 42.0 + speed * 0.45, true, "Blast Zone KO");
+    }
+
+    void emitCombatImpact(Bird attacker, Bird target, double x, double y, double launchX, double launchY,
+                          double damage, boolean finisher, String moveName) {
+        if (damage <= 0.0) {
+            return;
+        }
+
+        double dirX = launchX;
+        double dirY = launchY;
+        if (Math.hypot(dirX, dirY) <= 0.001 && attacker != null && target != null) {
+            dirX = target.bodyCenterX() - attacker.bodyCenterX();
+            dirY = target.bodyCenterY() - attacker.bodyCenterY();
+        }
+        if (Math.hypot(dirX, dirY) <= 0.001 && target != null) {
+            dirX = target.facingRight ? -1.0 : 1.0;
+            dirY = -0.2;
+        }
+
+        Color accent = attacker != null && attacker.type != null
+                ? attacker.type.color
+                : target != null && target.type != null ? target.type.color : Color.WHITE;
+        Color secondary = finisher
+                ? Color.web("#FFF176")
+                : damage >= 24.0 ? Color.web("#FF8A65") : Color.web("#E3F2FD");
+        double launchSpeed = Math.hypot(launchX, launchY);
+        double scale = Math.clamp(0.78 + damage / 34.0 + launchSpeed / 52.0, 0.82, finisher ? 2.25 : 1.75);
+        int life = finisher ? 42 : damage >= 26.0 ? 34 : damage >= 14.0 ? 28 : COMBAT_IMPACT_EFFECT_FRAMES;
+        combatImpactEffects.add(new CombatImpactEffect(x, y, dirX, dirY, accent, secondary, damage, scale, finisher, life));
+        if (combatImpactEffects.size() > COMBAT_IMPACT_EFFECT_CAP) {
+            combatImpactEffects.subList(0, combatImpactEffects.size() - COMBAT_IMPACT_EFFECT_CAP).clear();
+        }
+
+        if (particleEffectsEnabled) {
+            int requested = (int) Math.round((finisher ? 34 : 12) + Math.min(42.0, damage * 1.15));
+            int count = scaledParticleBurstCount(requested);
+            double baseAngle = Math.atan2(dirY, dirX);
+            for (int i = 0; i < count; i++) {
+                double fan = (Math.random() - 0.5) * (finisher ? 1.75 : 1.25);
+                double angle = baseAngle + fan;
+                double speed = 3.2 + Math.random() * (4.0 + Math.min(13.0, damage * 0.22));
+                Color color = Math.random() < 0.56 ? secondary : accent;
+                particles.add(new Particle(
+                        x + (Math.random() - 0.5) * 18.0,
+                        y + (Math.random() - 0.5) * 18.0,
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed - 1.4,
+                        color.deriveColor(0, 1, 1, finisher ? 0.95 : 0.82)
+                ));
+            }
+        }
+
+        double shake = Math.clamp(2.5 + damage * 0.24 + launchSpeed * 0.16 + (finisher ? 10.0 : 0.0),
+                3.0, finisher ? 34.0 : 18.0);
+        shakeIntensity = Math.max(shakeIntensity, shake);
+        int impactStop = (int) Math.round(Math.clamp(3.0 + damage / 6.0 + (finisher ? 8.0 : 0.0),
+                4.0, finisher ? 22.0 : 14.0));
+        hitstopFrames = Math.min(25, Math.max(hitstopFrames, impactStop));
+        if (damage >= 8.0 || finisher) {
+            playHitSound(Math.max(damage, finisher ? 42.0 : damage));
+        }
+        if (finisher) {
+            triggerFlash(1.0, true);
+        } else if (damage >= 28.0) {
+            triggerFlash(Math.min(0.78, damage / 58.0), false);
+        }
     }
 
     private BlastZoneSide resolveBlastZoneSide(String zoneLabel, double vx, double vy) {
@@ -11064,6 +11187,75 @@ public class BirdGame3 extends Application {
             return vx < 0 ? BlastZoneSide.LEFT : BlastZoneSide.RIGHT;
         }
         return vy < 0 ? BlastZoneSide.TOP : BlastZoneSide.BOTTOM;
+    }
+
+    private void drawCombatImpactEffects(GraphicsContext g) {
+        if (!particleEffectsEnabled || combatImpactEffects.isEmpty()) {
+            return;
+        }
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (CombatImpactEffect effect : combatImpactEffects) {
+            double progress = 1.0 - effect.life / (double) effect.maxLife;
+            double fadeIn = Math.clamp(progress / 0.12, 0.0, 1.0);
+            double fadeOut = Math.clamp(effect.life / (double) Math.max(8, effect.maxLife / 2), 0.0, 1.0);
+            double alpha = Math.min(fadeIn, fadeOut);
+            if (alpha <= 0.0) {
+                continue;
+            }
+            double radius = (26.0 + Math.min(70.0, effect.damage * 1.15)) * effect.scale * (0.68 + progress * 0.72);
+            if (isWorldRectOutsideCamera(effect.x - radius, effect.y - radius, radius * 2.0, radius * 2.0, 180)) {
+                continue;
+            }
+
+            double dx = effect.dirX;
+            double dy = effect.dirY;
+            double tangentX = -dy;
+            double tangentY = dx;
+            double kick = (1.0 - progress) * 14.0 * effect.scale;
+            double centerX = effect.x + dx * kick;
+            double centerY = effect.y + dy * kick;
+
+            g.setEffect(new Glow(effect.finisher ? 0.82 : 0.45));
+            g.setStroke(effect.secondary.deriveColor(0, 1, 1, 0.44 * alpha));
+            g.setLineWidth((effect.finisher ? 8.0 : 5.0) * effect.scale);
+            g.strokeOval(centerX - radius * 0.45, centerY - radius * 0.45, radius * 0.9, radius * 0.9);
+
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.86 * alpha));
+            g.setLineWidth((effect.finisher ? 7.2 : 4.8) * effect.scale);
+            double slashLength = radius * (effect.finisher ? 1.08 : 0.92);
+            g.strokeLine(
+                    centerX - tangentX * slashLength - dx * slashLength * 0.20,
+                    centerY - tangentY * slashLength - dy * slashLength * 0.20,
+                    centerX + tangentX * slashLength + dx * slashLength * 0.34,
+                    centerY + tangentY * slashLength + dy * slashLength * 0.34
+            );
+
+            g.setStroke(effect.accent.deriveColor(0, 1, 1, 0.76 * alpha));
+            g.setLineWidth((effect.finisher ? 4.2 : 2.8) * effect.scale);
+            for (int i = -2; i <= 2; i++) {
+                double offset = i * 11.0 * effect.scale;
+                double length = slashLength * (i == 0 ? 0.95 : 0.56);
+                double startX = centerX - tangentX * length * 0.56 + dx * offset;
+                double startY = centerY - tangentY * length * 0.56 + dy * offset;
+                double endX = centerX + tangentX * length + dx * (radius * 0.58 + Math.abs(i) * 10.0);
+                double endY = centerY + tangentY * length + dy * (radius * 0.58 + Math.abs(i) * 10.0);
+                g.strokeLine(startX, startY, endX, endY);
+            }
+
+            double trailLength = radius * (effect.finisher ? 1.55 : 1.18);
+            g.setEffect(null);
+            g.setStroke(effect.secondary.deriveColor(0, 1, 1, 0.28 * alpha));
+            g.setLineWidth((effect.finisher ? 14.0 : 9.0) * effect.scale);
+            g.strokeLine(centerX - dx * radius * 0.28, centerY - dy * radius * 0.28,
+                    centerX + dx * trailLength, centerY + dy * trailLength);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.52 * alpha));
+            g.setLineWidth((effect.finisher ? 4.8 : 3.1) * effect.scale);
+            g.strokeLine(centerX, centerY, centerX + dx * trailLength * 0.82, centerY + dy * trailLength * 0.82);
+        }
+        g.setEffect(null);
+        g.restore();
     }
 
     private void drawBlastZoneKoEffects(GraphicsContext g) {
@@ -11633,6 +11825,7 @@ public class BirdGame3 extends Application {
                 drawPlayerTag(g, b);
             }
         }
+        drawCombatImpactEffects(g);
         drawBlastZoneKoEffects(g);
 
         if (trainingModeActive && trainingCombatOverlayEnabled) {
@@ -24580,6 +24773,7 @@ public class BirdGame3 extends Application {
         List<SwingingVine> savedSwingingVines = new ArrayList<>(swingingVines);
         List<Particle> savedParticles = new ArrayList<>(particles);
         List<BlastZoneKoEffect> savedBlastZoneKoEffects = new ArrayList<>(blastZoneKoEffects);
+        List<CombatImpactEffect> savedCombatImpactEffects = new ArrayList<>(combatImpactEffects);
         List<CrowMinion> savedCrowMinions = new ArrayList<>(crowMinions);
         List<PiranhaHazard> savedPiranhaHazards = new ArrayList<>(piranhaHazards);
         List<ChickMinion> savedChickMinions = new ArrayList<>(chickMinions);
@@ -24625,6 +24819,7 @@ public class BirdGame3 extends Application {
         prepareTrailerArena(MapType.DESERT);
         particles.clear();
         blastZoneKoEffects.clear();
+        combatImpactEffects.clear();
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
@@ -24699,6 +24894,7 @@ public class BirdGame3 extends Application {
             fightHudPortraitCache.clear();
             particles.clear();
             blastZoneKoEffects.clear();
+            combatImpactEffects.clear();
             crowMinions.clear();
             piranhaHazards.clear();
             chickMinions.clear();
@@ -24781,6 +24977,8 @@ public class BirdGame3 extends Application {
             particles.addAll(savedParticles);
             blastZoneKoEffects.clear();
             blastZoneKoEffects.addAll(savedBlastZoneKoEffects);
+            combatImpactEffects.clear();
+            combatImpactEffects.addAll(savedCombatImpactEffects);
             crowMinions.clear();
             crowMinions.addAll(savedCrowMinions);
             piranhaHazards.clear();
@@ -25726,6 +25924,7 @@ public class BirdGame3 extends Application {
         swingingVines.clear();
         particles.clear();
         blastZoneKoEffects.clear();
+        combatImpactEffects.clear();
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
@@ -34318,6 +34517,7 @@ public class BirdGame3 extends Application {
         chickMinions.clear();
         particles.clear();
         blastZoneKoEffects.clear();
+        combatImpactEffects.clear();
         powerUps.clear();
         setupTrainingRoster();
         positionBattlefieldSpawns();
@@ -36493,6 +36693,7 @@ public class BirdGame3 extends Application {
         frostbiteSnowbanks.clear();
         particles.clear();
         blastZoneKoEffects.clear();
+        combatImpactEffects.clear();
         powerUps.clear();
         dockWaterX = 0;
         dockWaterY = 0;

@@ -2600,25 +2600,18 @@ public class Bird {
                     game.playZombieFallSfx();
                 }
 
-                if (dealtDamage >= 30) {
-                    game.triggerFlash(Math.min(1.0, dealtDamage / 55.0), isKill);
-                } else if (dealtDamage >= 15) {
-                    game.triggerFlash(Math.min(0.75, dealtDamage / 40.0), false);
-                }
-
                 if (dealtDamage >= 5) {
                     spawnDamageParticles(other, dealtDamage);
                     logDamageKillFeed(dealtDamage, isKill, other);
                 }
 
-                if (dealtDamage >= 20) {
-                    game.shakeIntensity = Math.min(20, dealtDamage / 2.0);
-                    game.hitstopFrames = (int) Math.min(12, 4 + dealtDamage / 5);
-                    game.playHitSound(dealtDamage);
-                }
-
-                other.vx += dx > 0 ? 20 : -20;
+                double launchX = dx > 0 ? 20 : -20;
+                other.vx += launchX;
                 other.vy -= 12;
+                if (dealtDamage > 0) {
+                    game.emitCombatImpact(this, other, other.bodyCenterX(), other.bodyCenterY(),
+                            launchX, -12.0, dealtDamage, isKill, "Turkey Ground Pound");
+                }
             }
         }
 
@@ -3094,7 +3087,8 @@ public class Bird {
         if (dealtDamage > 0) {
             game.recordNormalMoveImpact(this, moveName, (int) Math.round(dealtDamage), true);
         }
-        if (!game.usesSmashCombatRules() && other.health <= 0 && oldHealth > 0) {
+        boolean isKill = !game.usesSmashCombatRules() && other.health <= 0 && oldHealth > 0;
+        if (isKill) {
             game.eliminations[playerIndex]++;
             game.recordMoveKo(this, other, moveName);
             game.checkAchievements(this);
@@ -3105,15 +3099,14 @@ public class Bird {
             game.scores[playerIndex] += (int) dealtDamage / 2;
         }
 
-        if (dealtDamage >= 5) {
-            spawnDamageParticles(other, dealtDamage);
-            logDamageKillFeed(dealtDamage, other.health <= 0, other);
+        if (dealtDamage > 0) {
+            game.emitCombatImpact(this, other, other.bodyCenterX(), other.bodyCenterY(),
+                    other.vx, other.vy, dealtDamage, isKill, moveName);
         }
 
-        if (dealtDamage >= 20) {
-            game.shakeIntensity = Math.min(20, dealtDamage / 2.0);
-            game.hitstopFrames = (int) Math.min(12, 4 + dealtDamage / 5);
-            game.playHitSound(dealtDamage);
+        if (dealtDamage >= 5) {
+            spawnDamageParticles(other, dealtDamage);
+            logDamageKillFeed(dealtDamage, isKill, other);
         }
     }
 
@@ -11972,9 +11965,13 @@ public class Bird {
         game.damageDealt[playerIndex] += dealt;
         game.recordSpecialImpact(playerIndex, dealt, true);
         confirmSpecialHit(dealt, specialHitConfirmAccent());
-        if (target.health <= 0 && oldHealth > 0) {
+        String impactMoveName = game.lastTelemetryMoveName(playerIndex, type.name + " Special");
+        boolean isKill = target.health <= 0 && oldHealth > 0;
+        game.emitCombatImpact(this, target, target.bodyCenterX(), target.bodyCenterY(),
+                target.vx, target.vy, dealt, isKill, impactMoveName);
+        if (isKill) {
             game.eliminations[playerIndex]++;
-            game.recordMoveKo(this, target, game.lastTelemetryMoveName(playerIndex, type.name + " Special"));
+            game.recordMoveKo(this, target, impactMoveName);
         }
         return dealt;
     }
