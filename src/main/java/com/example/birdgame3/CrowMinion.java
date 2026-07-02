@@ -9,6 +9,8 @@ class CrowMinion {
     static final int VARIANT_VOID_RAVEN = 4;
 
     double x, y, vx, vy;
+    double prevX, prevY;
+    double renderSavedX, renderSavedY;
     int life = 1;
     Bird target;
     int age = 0;
@@ -29,6 +31,8 @@ class CrowMinion {
     CrowMinion(double x, double y, Bird target) {
         this.x = x;
         this.y = y;
+        this.prevX = x;
+        this.prevY = y;
         this.target = target;
         this.vx = (Math.random() - 0.5) * 4;  // start with random drift
         this.vy = (Math.random() - 0.5) * 4;

@@ -350,6 +350,8 @@ public class Bird {
 
     // === CORE PROPERTIES ===
     public double x, y, vx = 0, vy = 0;
+    double prevX, prevY;
+    double renderSavedX, renderSavedY;
     public BirdGame3.BirdType type;
     public boolean facingRight = true;
     public int playerIndex;
@@ -1761,6 +1763,8 @@ public class Bird {
         this.game = game;
         this.x = startX;
         this.y = BirdGame3.GROUND_Y - 200;
+        this.prevX = this.x;
+        this.prevY = this.y;
         this.type = type;
         this.playerIndex = playerIndex;
         this.name = (game.isAI != null && game.isAI[playerIndex] ? "AI" : "P") + (playerIndex + 1) + ": " + type.name;

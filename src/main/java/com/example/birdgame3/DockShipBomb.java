@@ -5,6 +5,8 @@ class DockShipBomb {
     double y;
     double vx;
     double vy;
+    double prevX, prevY;
+    double renderSavedX, renderSavedY;
     double targetX;
     double targetY;
     int ownerPlayerIndex;
@@ -21,6 +23,8 @@ class DockShipBomb {
                  int ownerPlayerIndex, int targetPlayerIndex, int fuse) {
         this.x = x;
         this.y = y;
+        this.prevX = x;
+        this.prevY = y;
         this.vx = vx;
         this.vy = vy;
         this.targetX = targetX;

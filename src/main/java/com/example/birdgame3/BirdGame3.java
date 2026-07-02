@@ -471,6 +471,17 @@ public class BirdGame3 extends Application {
     // Camera state
     private double camX = 0, camY = 0;
     private double zoom = 1.0;           // 1.0 = 100%, 0.5 = zoomed out a lot
+
+    // === RENDER INTERPOLATION ===
+    // Simulation runs at a fixed 60 Hz; rendering may run faster. Each fixed tick
+    // snapshots previous positions so renders between ticks can draw entities at
+    // lerp(prev, curr, accumulator/step) for smooth motion on high-refresh displays.
+    static final long FIXED_STEP_NS = 16_666_666L;
+    private static final double RENDER_TELEPORT_SNAP = 200.0;
+    private boolean renderSnapshotTaken = false;
+    private boolean renderInterpolationApplied = false;
+    private double prevCamX = 0, prevCamY = 0, prevZoom = 1.0;
+    private double renderSavedCamX, renderSavedCamY, renderSavedZoom;
     public static final double MIN_ZOOM = 0.35;
     public static final double MAX_ZOOM = 1.5;
     public static final double ZOOM_SPEED = 0.008;
@@ -9687,7 +9698,7 @@ public class BirdGame3 extends Application {
             return;
         }
 
-        final long FRAME_TIME = 16_666_666L;   // exactly 60 FPS
+        final long FRAME_TIME = FIXED_STEP_NS;   // exactly 60 FPS
         // OS stalls (window drags, sleep) can make a single pulse look minutes long;
         // anything past this is dropped instead of fast-forwarded.
         final long MAX_ELAPSED = 250_000_000L;
@@ -9718,6 +9729,7 @@ public class BirdGame3 extends Application {
         int updates = 0;
 
         while (accumulator >= FRAME_TIME && updates < MAX_UPDATES) {
+            snapshotRenderPositions();
             if (hitstopFrames > 0) {
                 hitstopFrames--;
                 accumulator -= FRAME_TIME;
@@ -9770,6 +9782,12 @@ public class BirdGame3 extends Application {
                 trimTransientEffectOverflow();
                 effectsUpdateNs += System.nanoTime() - effectsUpdateStart;
             }
+            if (!screenShakeEnabled) {
+                shakeIntensity = 0;
+            } else if (shakeIntensity > 0) {
+                shakeIntensity *= 0.9;
+                if (shakeIntensity < 0.5) shakeIntensity = 0;
+            }
             framePerformance.recordFixedUpdate(playerUpdateNs, worldUpdateNs, effectsUpdateNs);
 
             accumulator -= FRAME_TIME;
@@ -9791,6 +9809,148 @@ public class BirdGame3 extends Application {
         if (!particleEffectsEnabled && !combatImpactEffects.isEmpty()) {
             combatImpactEffects.clear();
         }
+    }
+
+    private void snapshotRenderPositions() {
+        renderSnapshotTaken = true;
+        for (Bird b : players) {
+            if (b == null) continue;
+            b.prevX = b.x;
+            b.prevY = b.y;
+        }
+        for (Particle p : particles) {
+            p.prevX = p.x;
+            p.prevY = p.y;
+        }
+        for (CrowMinion m : crowMinions) {
+            m.prevX = m.x;
+            m.prevY = m.y;
+        }
+        for (ChickMinion m : chickMinions) {
+            m.prevX = m.x;
+            m.prevY = m.y;
+        }
+        for (PiranhaHazard h : piranhaHazards) {
+            h.prevX = h.x;
+            h.prevY = h.y;
+        }
+        if (dockShipBomb != null) {
+            dockShipBomb.prevX = dockShipBomb.x;
+            dockShipBomb.prevY = dockShipBomb.y;
+        }
+        prevCamX = camX;
+        prevCamY = camY;
+        prevZoom = zoom;
+    }
+
+    private double computeRenderAlpha() {
+        if (!renderSnapshotTaken) return 1.0;
+        if (trainingModeActive && trainingFrameAdvancePause) return 1.0;
+        if (hitstopFrames > 0) return 1.0;
+        return Math.clamp(accumulator / (double) FIXED_STEP_NS, 0.0, 1.0);
+    }
+
+    /**
+     * Temporarily moves every drawable entity (and the camera) to a position
+     * interpolated between the previous and current fixed tick. Must be paired
+     * with {@link #restoreRenderPositions()} after drawing — gameplay state is
+     * never allowed to observe interpolated positions.
+     */
+    private void applyRenderInterpolation(double alpha) {
+        if (!renderSnapshotTaken || alpha >= 1.0) {
+            return;
+        }
+        renderInterpolationApplied = true;
+        for (Bird b : players) {
+            if (b == null) continue;
+            b.renderSavedX = b.x;
+            b.renderSavedY = b.y;
+            b.x = lerpRender(b.prevX, b.x, alpha);
+            b.y = lerpRender(b.prevY, b.y, alpha);
+        }
+        for (Particle p : particles) {
+            p.renderSavedX = p.x;
+            p.renderSavedY = p.y;
+            p.x = lerpRender(p.prevX, p.x, alpha);
+            p.y = lerpRender(p.prevY, p.y, alpha);
+        }
+        for (CrowMinion m : crowMinions) {
+            m.renderSavedX = m.x;
+            m.renderSavedY = m.y;
+            m.x = lerpRender(m.prevX, m.x, alpha);
+            m.y = lerpRender(m.prevY, m.y, alpha);
+        }
+        for (ChickMinion m : chickMinions) {
+            m.renderSavedX = m.x;
+            m.renderSavedY = m.y;
+            m.x = lerpRender(m.prevX, m.x, alpha);
+            m.y = lerpRender(m.prevY, m.y, alpha);
+        }
+        for (PiranhaHazard h : piranhaHazards) {
+            h.renderSavedX = h.x;
+            h.renderSavedY = h.y;
+            h.x = lerpRender(h.prevX, h.x, alpha);
+            h.y = lerpRender(h.prevY, h.y, alpha);
+        }
+        if (dockShipBomb != null) {
+            dockShipBomb.renderSavedX = dockShipBomb.x;
+            dockShipBomb.renderSavedY = dockShipBomb.y;
+            dockShipBomb.x = lerpRender(dockShipBomb.prevX, dockShipBomb.x, alpha);
+            dockShipBomb.y = lerpRender(dockShipBomb.prevY, dockShipBomb.y, alpha);
+        }
+        renderSavedCamX = camX;
+        renderSavedCamY = camY;
+        renderSavedZoom = zoom;
+        camX = lerpRender(prevCamX, camX, alpha);
+        camY = lerpRender(prevCamY, camY, alpha);
+        double zoomDelta = zoom - prevZoom;
+        if (Math.abs(zoomDelta) <= 0.25) {
+            zoom = prevZoom + zoomDelta * alpha;
+        }
+    }
+
+    private void restoreRenderPositions() {
+        if (!renderInterpolationApplied) {
+            return;
+        }
+        renderInterpolationApplied = false;
+        for (Bird b : players) {
+            if (b == null) continue;
+            b.x = b.renderSavedX;
+            b.y = b.renderSavedY;
+        }
+        for (Particle p : particles) {
+            p.x = p.renderSavedX;
+            p.y = p.renderSavedY;
+        }
+        for (CrowMinion m : crowMinions) {
+            m.x = m.renderSavedX;
+            m.y = m.renderSavedY;
+        }
+        for (ChickMinion m : chickMinions) {
+            m.x = m.renderSavedX;
+            m.y = m.renderSavedY;
+        }
+        for (PiranhaHazard h : piranhaHazards) {
+            h.x = h.renderSavedX;
+            h.y = h.renderSavedY;
+        }
+        if (dockShipBomb != null) {
+            dockShipBomb.x = dockShipBomb.renderSavedX;
+            dockShipBomb.y = dockShipBomb.renderSavedY;
+        }
+        camX = renderSavedCamX;
+        camY = renderSavedCamY;
+        zoom = renderSavedZoom;
+    }
+
+    /** Lerp that snaps to the current position across teleport-sized jumps (respawns, warps). */
+    private static double lerpRender(double prev, double curr, double alpha) {
+        double delta = curr - prev;
+        if (Math.abs(delta) > RENDER_TELEPORT_SNAP) {
+            return curr;
+        }
+        return prev + delta * alpha;
     }
 
     private void recordFrameEntityCounts() {
@@ -11393,10 +11553,6 @@ public class BirdGame3 extends Application {
             currentRenderShakeX = shakeX;
             currentRenderShakeY = shakeY;
             g.translate(shakeX, shakeY);
-            shakeIntensity *= 0.9;
-            if (shakeIntensity < 0.5) shakeIntensity = 0;
-        } else if (!screenShakeEnabled && shakeIntensity > 0) {
-            shakeIntensity = 0;
         }
 
         boolean ambientFx = ambientEffectsEnabled;
@@ -37001,6 +37157,7 @@ public class BirdGame3 extends Application {
         if (timer != null) timer.stop();
         lastUpdate = 0;
         accumulator = 0;
+        renderSnapshotTaken = false;
         resetRenderTimer();
         gameplayFrameExceptionReported = false;
 
@@ -37030,22 +37187,27 @@ public class BirdGame3 extends Application {
                         framePerformance.finishFrame();
                         return;
                     }
-                    FightHudLayout hudLayout = buildFightHudLayout();
-                    currentFightHudOcclusionRects = hudLayout.occlusionRects();
-                    long drawWorldStart = System.nanoTime();
-                    drawGame(g);
-                    framePerformance.recordDrawWorld(System.nanoTime() - drawWorldStart);
+                    applyRenderInterpolation(computeRenderAlpha());
+                    try {
+                        FightHudLayout hudLayout = buildFightHudLayout();
+                        currentFightHudOcclusionRects = hudLayout.occlusionRects();
+                        long drawWorldStart = System.nanoTime();
+                        drawGame(g);
+                        framePerformance.recordDrawWorld(System.nanoTime() - drawWorldStart);
 
-                    long drawHudStart = System.nanoTime();
-                    ui.clearRect(0, 0, WIDTH, HEIGHT);
-                    drawFightHud(ui, hudLayout);
-                    if (trainingModeActive) {
-                        drawTrainingLabHud(ui);
+                        long drawHudStart = System.nanoTime();
+                        ui.clearRect(0, 0, WIDTH, HEIGHT);
+                        drawFightHud(ui, hudLayout);
+                        if (trainingModeActive) {
+                            drawTrainingLabHud(ui);
+                        }
+                        framePerformance.recordDrawHud(System.nanoTime() - drawHudStart);
+                        drawDebugTelemetryHud(ui);
+                        drawFightFlashOverlay(ui);
+                        framePerformance.recordDrawHud(System.nanoTime() - drawHudStart);
+                    } finally {
+                        restoreRenderPositions();
                     }
-                    framePerformance.recordDrawHud(System.nanoTime() - drawHudStart);
-                    drawDebugTelemetryHud(ui);
-                    drawFightFlashOverlay(ui);
-                    framePerformance.recordDrawHud(System.nanoTime() - drawHudStart);
                     recordFrameEntityCounts();
                     framePerformance.finishFrame();
                 } catch (RuntimeException ex) {
@@ -42736,6 +42898,7 @@ public class BirdGame3 extends Application {
 
             lastUpdate = 0;      // <- CRITICAL: reset so no speed-up
             accumulator = 0;
+            renderSnapshotTaken = false;
             resetRenderTimer();
 
             timer.start();

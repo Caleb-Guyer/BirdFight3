@@ -2,6 +2,8 @@ package com.example.birdgame3;
 
 class ChickMinion {
     double x, y, vx, vy;
+    double prevX, prevY;
+    double renderSavedX, renderSavedY;
     int age = 0;
     Bird owner;
     Bird target = null;
@@ -28,6 +30,8 @@ class ChickMinion {
     ChickMinion(double x, double y, int variant, boolean ultimate, Bird owner) {
         this.x = x;
         this.y = y;
+        this.prevX = x;
+        this.prevY = y;
         this.variant = variant;
         this.ultimate = ultimate;
         this.owner = owner;
