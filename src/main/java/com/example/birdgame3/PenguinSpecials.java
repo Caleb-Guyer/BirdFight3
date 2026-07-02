@@ -259,14 +259,14 @@ final class PenguinSpecials {
     static void emitIceBurst(Bird bird, double originX, double originY, int dir, int count, Color baseColor) {
         int particleCount = bird.scaledParticleCount(count);
         for (int i = 0; i < particleCount; i++) {
-            double angle = -Math.PI / 2.0 + (Math.random() - 0.5) * Math.PI * 1.3;
-            double speed = 1.4 + Math.random() * 5.4;
+            double angle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * Math.PI * 1.3;
+            double speed = 1.4 + SimRng.next() * 5.4;
             bird.game.particles.add(new Particle(
-                    originX + (Math.random() - 0.5) * 18.0 * bird.sizeMultiplier,
-                    originY + (Math.random() - 0.5) * 12.0 * bird.sizeMultiplier,
-                    Math.cos(angle) * speed + dir * (0.4 + Math.random() * 1.3),
-                    Math.sin(angle) * speed - Math.random() * 2.4,
-                    baseColor.deriveColor(0, 1, 1, 0.70 + Math.random() * 0.18)
+                    originX + (SimRng.next() - 0.5) * 18.0 * bird.sizeMultiplier,
+                    originY + (SimRng.next() - 0.5) * 12.0 * bird.sizeMultiplier,
+                    Math.cos(angle) * speed + dir * (0.4 + SimRng.next() * 1.3),
+                    Math.sin(angle) * speed - SimRng.next() * 2.4,
+                    baseColor.deriveColor(0, 1, 1, 0.70 + SimRng.next() * 0.18)
             ));
         }
     }
@@ -295,11 +295,11 @@ final class PenguinSpecials {
             bird.game.addToKillFeed(bird.shortName() + " ICE-CHECKED " + other.shortName() + "! -" + dmg + " HP");
 
             for (int i = 0; i < 14; i++) {
-                double ang = Math.random() * Math.PI * 2;
+                double ang = SimRng.next() * Math.PI * 2;
                 bird.game.particles.add(new Particle(
                         other.x + 40, other.y + 40,
-                        Math.cos(ang) * (4 + Math.random() * 7),
-                        Math.sin(ang) * (4 + Math.random() * 7) - 3,
+                        Math.cos(ang) * (4 + SimRng.next() * 7),
+                        Math.sin(ang) * (4 + SimRng.next() * 7) - 3,
                         Color.web("#B3E5FC")
                 ));
             }
@@ -380,8 +380,8 @@ final class PenguinSpecials {
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() - skidDir * (24.0 + ratio * 26.0) * bird.sizeMultiplier,
                     bird.bodyBottomY() - 5.0 * bird.sizeMultiplier,
-                    -skidDir * (1.0 + ratio * 2.3 + Math.random() * 1.4),
-                    -0.8 - Math.random() * (1.4 + ratio * 1.8),
+                    -skidDir * (1.0 + ratio * 2.3 + SimRng.next() * 1.4),
+                    -0.8 - SimRng.next() * (1.4 + ratio * 1.8),
                     (bird.penguinBellyUltimate ? Color.GOLD : Color.web("#E1F5FE")).deriveColor(0, 1, 1, 0.66 + ratio * 0.16)
             ));
         }
@@ -427,8 +427,8 @@ final class PenguinSpecials {
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() - dir * 34.0 * bird.sizeMultiplier,
                     bird.bodyBottomY() - 4.0 * bird.sizeMultiplier,
-                    -dir * (1.8 + Math.random() * 2.8),
-                    -1.0 - Math.random() * 2.4,
+                    -dir * (1.8 + SimRng.next() * 2.8),
+                    -1.0 - SimRng.next() * 2.4,
                     (bird.penguinBellyUltimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.70)
             ));
         }
@@ -508,8 +508,8 @@ final class PenguinSpecials {
                 bird.game.particles.add(new Particle(
                         bird.bodyCenterX() + side * 20.0 * bird.sizeMultiplier - drift * 14.0 * bird.sizeMultiplier,
                         bird.bodyBottomY() - 5.0 * bird.sizeMultiplier,
-                        side * (0.6 + Math.random() * 1.2) - drift * (1.7 + Math.random() * 1.1),
-                        4.5 + Math.random() * 4.8,
+                        side * (0.6 + SimRng.next() * 1.2) - drift * (1.7 + SimRng.next() * 1.1),
+                        4.5 + SimRng.next() * 4.8,
                         exhaust.deriveColor(0, 1, 1, 0.60 + thrustLeft * 0.14)
                 ));
             }
@@ -567,10 +567,10 @@ final class PenguinSpecials {
         bird.vy = Math.clamp(bird.vy + fallAccel, fallFloor, fallCap);
         if ((bird.penguinFlopTimer & 2) == 0) {
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + (Math.random() - 0.5) * 36.0 * bird.sizeMultiplier,
+                    bird.bodyCenterX() + (SimRng.next() - 0.5) * 36.0 * bird.sizeMultiplier,
                     bird.bodyCenterY() - 12.0 * bird.sizeMultiplier,
-                    (Math.random() - 0.5) * 1.7 - Math.signum(bird.vx) * 0.35,
-                    -2.4 - Math.random() * 2.8,
+                    (SimRng.next() - 0.5) * 1.7 - Math.signum(bird.vx) * 0.35,
+                    -2.4 - SimRng.next() * 2.8,
                     (bird.penguinRocketUltimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.58)
             ));
         }
@@ -821,8 +821,8 @@ final class PenguinSpecials {
                 bird.game.particles.add(new Particle(
                         object.x - Math.signum(object.vx == 0.0 ? object.direction : object.vx) * radius * 0.7,
                         object.y + radius * 0.65,
-                        -Math.signum(object.vx == 0.0 ? object.direction : object.vx) * (0.8 + Math.random() * 1.8),
-                        -0.4 - Math.random() * 1.5,
+                        -Math.signum(object.vx == 0.0 ? object.direction : object.vx) * (0.8 + SimRng.next() * 1.8),
+                        -0.4 - SimRng.next() * 1.5,
                         (object.ultimate ? Color.GOLD : Color.web("#B3E5FC")).deriveColor(0, 1, 1, 0.58)
                 ));
             }

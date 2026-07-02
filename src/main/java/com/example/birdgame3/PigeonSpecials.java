@@ -207,11 +207,11 @@ final class PigeonSpecials {
         bird.game.addToKillFeed(bird.shortName() + " claimed the rooftop!");
 
         for (int i = 0; i < bird.scaledParticleCount(42); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 1.5 + Math.random() * 5.0;
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 1.5 + SimRng.next() * 5.0;
             bird.game.particles.add(new Particle(
-                    bird.pigeonCoronationX + Math.cos(angle) * (18.0 + Math.random() * 48.0),
-                    bird.pigeonCoronationY + Math.sin(angle) * (18.0 + Math.random() * 48.0),
+                    bird.pigeonCoronationX + Math.cos(angle) * (18.0 + SimRng.next() * 48.0),
+                    bird.pigeonCoronationY + Math.sin(angle) * (18.0 + SimRng.next() * 48.0),
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 1.2,
                     Color.web("#FFD54F").deriveColor(0, 1, 1, 0.86)
@@ -284,12 +284,12 @@ final class PigeonSpecials {
             bird.pigeonRushHit[other.playerIndex] = true;
 
             for (int i = 0; i < 14; i++) {
-                double angle = Math.random() * Math.PI * 2;
+                double angle = SimRng.next() * Math.PI * 2;
                 bird.game.particles.add(new Particle(
                         other.x + 40,
                         other.y + 40,
-                        Math.cos(angle) * (4 + Math.random() * 6),
-                        Math.sin(angle) * (4 + Math.random() * 6) - 2.8,
+                        Math.cos(angle) * (4 + SimRng.next() * 6),
+                        Math.sin(angle) * (4 + SimRng.next() * 6) - 2.8,
                         bird.pigeonRushUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.82) : Color.web("#CFD8DC").deriveColor(0, 1, 1, 0.78)
                 ));
             }
@@ -298,9 +298,9 @@ final class PigeonSpecials {
         for (int i = 0; i < 3; i++) {
             bird.game.particles.add(new Particle(
                     bird.x + bird.bodyWidth() * (dir > 0 ? 0.2 : 0.8),
-                    bird.y + bird.bodyHeight() * 0.78 + (Math.random() - 0.5) * 10,
-                    -dir * (1.6 + Math.random() * 2.4),
-                    -1.4 - Math.random() * 1.8,
+                    bird.y + bird.bodyHeight() * 0.78 + (SimRng.next() - 0.5) * 10,
+                    -dir * (1.6 + SimRng.next() * 2.4),
+                    -1.4 - SimRng.next() * 1.8,
                     bird.pigeonRushUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.8) : Color.LIGHTGRAY.deriveColor(0, 1, 1, 0.62)
             ));
         }
@@ -347,12 +347,12 @@ final class PigeonSpecials {
         }
 
         for (int i = 0; i < 4; i++) {
-            double angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.4;
+            double angle = -Math.PI / 2 + (SimRng.next() - 0.5) * 1.4;
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + (Math.random() - 0.5) * 26,
-                    bird.bodyCenterY() + 18 + (Math.random() - 0.5) * 18,
-                    Math.cos(angle) * (2.4 + Math.random() * 3.2),
-                    Math.sin(angle) * (3.0 + Math.random() * 5.0),
+                    bird.bodyCenterX() + (SimRng.next() - 0.5) * 26,
+                    bird.bodyCenterY() + 18 + (SimRng.next() - 0.5) * 18,
+                    Math.cos(angle) * (2.4 + SimRng.next() * 3.2),
+                    Math.sin(angle) * (3.0 + SimRng.next() * 5.0),
                     bird.pigeonFlutterUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.85) : Color.web("#E3F2FD").deriveColor(0, 1, 1, 0.76)
             ));
         }
@@ -401,12 +401,12 @@ final class PigeonSpecials {
             bird.vx *= 0.12;
             if ((bird.pigeonScavengeTimer & 1) == 0) {
                 for (int i = 0; i < 2; i++) {
-                    double dustDir = Math.random() - 0.5;
+                    double dustDir = SimRng.next() - 0.5;
                     bird.game.particles.add(new Particle(
                             bird.bodyCenterX() + dustDir * 26,
-                            bird.bodyBottomY() - 7 + Math.random() * 7,
-                            dustDir * (1.4 + Math.random() * 1.6),
-                            -1.0 - Math.random() * 1.5,
+                            bird.bodyBottomY() - 7 + SimRng.next() * 7,
+                            dustDir * (1.4 + SimRng.next() * 1.6),
+                            -1.0 - SimRng.next() * 1.5,
                             Color.web("#8D6E63").deriveColor(0, 1, 1, 0.72)
                     ));
                 }
@@ -415,12 +415,12 @@ final class PigeonSpecials {
                 bird.pigeonScavengeResolved = true;
                 bird.heal(bird.pigeonScavengeUltimate ? 10.0 : 6.0);
                 for (int i = 0; i < 16; i++) {
-                    double angle = Math.random() * Math.PI * 2;
+                    double angle = SimRng.next() * Math.PI * 2;
                     bird.game.particles.add(new Particle(
-                            bird.bodyCenterX() + Math.cos(angle) * (8 + Math.random() * 14),
-                            bird.bodyBottomY() - 8 + Math.sin(angle) * (6 + Math.random() * 12),
-                            Math.cos(angle) * (1.8 + Math.random() * 2.2),
-                            Math.sin(angle) * (1.6 + Math.random() * 2.4) - 0.8,
+                            bird.bodyCenterX() + Math.cos(angle) * (8 + SimRng.next() * 14),
+                            bird.bodyBottomY() - 8 + Math.sin(angle) * (6 + SimRng.next() * 12),
+                            Math.cos(angle) * (1.8 + SimRng.next() * 2.2),
+                            Math.sin(angle) * (1.6 + SimRng.next() * 2.4) - 0.8,
                             bird.pigeonScavengeUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.84) : Color.web("#A5D6A7").deriveColor(0, 1, 1, 0.78)
                     ));
                 }
@@ -429,10 +429,10 @@ final class PigeonSpecials {
 
         for (int i = 0; i < 2; i++) {
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + (Math.random() - 0.5) * 22,
+                    bird.bodyCenterX() + (SimRng.next() - 0.5) * 22,
                     bird.bodyBottomY() - (bird.pigeonScavengeAirborne ? -8 : 0),
-                    (Math.random() - 0.5) * 1.6,
-                    -0.8 - Math.random() * 1.2,
+                    (SimRng.next() - 0.5) * 1.6,
+                    -0.8 - SimRng.next() * 1.2,
                     bird.pigeonScavengeUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.78) : Color.web("#B0BEC5").deriveColor(0, 1, 1, 0.7)
             ));
         }
@@ -460,8 +460,8 @@ final class PigeonSpecials {
         }
 
         if ((bird.pigeonCoronationTimer & 7) == 0) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double distance = 24.0 + Math.random() * Bird.PIGEON_CORONATION_RADIUS * 0.82;
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double distance = 24.0 + SimRng.next() * Bird.PIGEON_CORONATION_RADIUS * 0.82;
             bird.game.particles.add(new Particle(
                     bird.pigeonCoronationX + Math.cos(angle) * distance,
                     bird.pigeonCoronationY + Math.sin(angle) * distance,
@@ -546,11 +546,11 @@ final class PigeonSpecials {
         }
 
         for (int i = 0; i < bird.scaledParticleCount(strong ? 72 : 44); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = (strong ? 5.0 : 3.2) + Math.random() * (strong ? 9.0 : 5.5);
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = (strong ? 5.0 : 3.2) + SimRng.next() * (strong ? 9.0 : 5.5);
             bird.game.particles.add(new Particle(
-                    bird.pigeonCoronationX + Math.cos(angle) * (18.0 + Math.random() * 30.0),
-                    bird.pigeonCoronationY + Math.sin(angle) * (18.0 + Math.random() * 30.0),
+                    bird.pigeonCoronationX + Math.cos(angle) * (18.0 + SimRng.next() * 30.0),
+                    bird.pigeonCoronationY + Math.sin(angle) * (18.0 + SimRng.next() * 30.0),
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 2.6,
                     strong ? Color.GOLD.deriveColor(0, 1, 1, 0.88)
@@ -568,11 +568,11 @@ final class PigeonSpecials {
 
     private static void emitCoronationHitParticles(Bird bird, Bird other, int requested, Color color) {
         for (int i = 0; i < bird.scaledParticleCount(requested); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 2.0 + Math.random() * 5.5;
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 2.0 + SimRng.next() * 5.5;
             bird.game.particles.add(new Particle(
-                    other.bodyCenterX() + (Math.random() - 0.5) * other.bodyWidth() * 0.5,
-                    other.bodyCenterY() + (Math.random() - 0.5) * other.bodyHeight() * 0.5,
+                    other.bodyCenterX() + (SimRng.next() - 0.5) * other.bodyWidth() * 0.5,
+                    other.bodyCenterY() + (SimRng.next() - 0.5) * other.bodyHeight() * 0.5,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 1.4,
                     color.deriveColor(0, 1, 1, 0.76)

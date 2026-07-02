@@ -39,10 +39,10 @@ final class HummingbirdSpecials {
         double startY = bird.bodyCenterY() - 15.0 * bird.sizeMultiplier;
         for (int i = 0; i < bird.scaledParticleCount(ultimate ? 14 : 8); i++) {
             bird.game.particles.add(new Particle(
-                    startX + bird.hummingNeedleDirection * Math.random() * 46.0,
-                    startY + (Math.random() - 0.5) * 18.0,
-                    bird.hummingNeedleDirection * (3.0 + Math.random() * 4.0),
-                    (Math.random() - 0.5) * 2.0,
+                    startX + bird.hummingNeedleDirection * SimRng.next() * 46.0,
+                    startY + (SimRng.next() - 0.5) * 18.0,
+                    bird.hummingNeedleDirection * (3.0 + SimRng.next() * 4.0),
+                    (SimRng.next() - 0.5) * 2.0,
                     (ultimate ? Color.GOLD : Color.LIME).deriveColor(0, 1, 1, 0.82)
             ));
         }
@@ -90,12 +90,12 @@ final class HummingbirdSpecials {
             bird.game.addToKillFeed(bird.shortName() + " ULT HOVER BURST!");
         }
         for (int i = 0; i < bird.scaledParticleCount(ultimate ? 44 : 30); i++) {
-            double spread = (Math.random() - 0.5) * 58.0;
+            double spread = (SimRng.next() - 0.5) * 58.0;
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() + spread,
                     bird.bodyBottomY() - 8.0 * bird.sizeMultiplier,
                     spread * 0.035,
-                    5.0 + Math.random() * 7.0,
+                    5.0 + SimRng.next() * 7.0,
                     (ultimate ? Color.GOLD : Color.AQUA).deriveColor(0, 1, 1, 0.76)
             ));
         }
@@ -119,12 +119,12 @@ final class HummingbirdSpecials {
             bird.game.addToKillFeed(bird.shortName() + " planted a royal Nectar Trap!");
         }
         for (int i = 0; i < bird.scaledParticleCount(ultimate ? 28 : 18); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
+            double angle = SimRng.next() * Math.PI * 2.0;
             bird.game.particles.add(new Particle(
                     trapX,
                     startY - 12.0,
-                    Math.cos(angle) * (2.0 + Math.random() * 4.0),
-                    Math.sin(angle) * (2.0 + Math.random() * 3.0) - 2.0,
+                    Math.cos(angle) * (2.0 + SimRng.next() * 4.0),
+                    Math.sin(angle) * (2.0 + SimRng.next() * 3.0) - 2.0,
                     (ultimate ? Color.GOLD : Color.HOTPINK).deriveColor(0, 1, 1, 0.78)
             ));
         }
@@ -261,12 +261,12 @@ final class HummingbirdSpecials {
 
             Color spark = finisher ? Color.web("#FFF176") : Color.web("#B2FF59");
             for (int i = 0; i < bird.scaledParticleCount(finisher ? 18 : 9); i++) {
-                double angle = Math.random() * Math.PI * 2.0;
+                double angle = SimRng.next() * Math.PI * 2.0;
                 bird.game.particles.add(new Particle(
                         other.bodyCenterX(),
                         other.bodyCenterY() - 6.0 * bird.sizeMultiplier,
-                        Math.cos(angle) * (2.5 + Math.random() * (finisher ? 7.0 : 4.0)),
-                        Math.sin(angle) * (2.5 + Math.random() * (finisher ? 7.0 : 4.0)) - 1.5,
+                        Math.cos(angle) * (2.5 + SimRng.next() * (finisher ? 7.0 : 4.0)),
+                        Math.sin(angle) * (2.5 + SimRng.next() * (finisher ? 7.0 : 4.0)) - 1.5,
                         spark.deriveColor(0, 1, 1, 0.86)
                 ));
             }
@@ -286,10 +286,10 @@ final class HummingbirdSpecials {
 
         for (int i = 0; i < bird.scaledParticleCount(3); i++) {
             bird.game.particles.add(new Particle(
-                    centerX - dir * (12.0 + Math.random() * 72.0),
-                    centerY + (Math.random() - 0.5) * 34.0,
-                    -dir * (2.0 + Math.random() * 3.0),
-                    (Math.random() - 0.5) * 2.0,
+                    centerX - dir * (12.0 + SimRng.next() * 72.0),
+                    centerY + (SimRng.next() - 0.5) * 34.0,
+                    -dir * (2.0 + SimRng.next() * 3.0),
+                    (SimRng.next() - 0.5) * 2.0,
                     (bird.hummingFlashSipUltimate ? Color.GOLD : Color.CYAN).deriveColor(0, 1, 1, 0.58)
             ));
         }
@@ -322,12 +322,12 @@ final class HummingbirdSpecials {
             bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, bird.hummingFlashSipUltimate ? 4 : 2);
 
             for (int i = 0; i < bird.scaledParticleCount(bird.hummingFlashSipUltimate ? 22 : 15); i++) {
-                double angle = Math.random() * Math.PI * 2.0;
+                double angle = SimRng.next() * Math.PI * 2.0;
                 bird.game.particles.add(new Particle(
                         other.bodyCenterX(),
                         other.bodyCenterY(),
-                        Math.cos(angle) * (3.0 + Math.random() * 6.0),
-                        Math.sin(angle) * (3.0 + Math.random() * 6.0) - 2.0,
+                        Math.cos(angle) * (3.0 + SimRng.next() * 6.0),
+                        Math.sin(angle) * (3.0 + SimRng.next() * 6.0) - 2.0,
                         (bird.hummingFlashSipUltimate ? Color.GOLD : Color.DEEPSKYBLUE).deriveColor(0, 1, 1, 0.82)
                 ));
             }
@@ -341,12 +341,12 @@ final class HummingbirdSpecials {
         }
         if ((bird.hummingHoverBurstTimer & 1) == 0) {
             for (int i = 0; i < bird.scaledParticleCount(3); i++) {
-                double spread = (Math.random() - 0.5) * 48.0;
+                double spread = (SimRng.next() - 0.5) * 48.0;
                 bird.game.particles.add(new Particle(
                         bird.bodyCenterX() + spread,
                         bird.bodyBottomY() - 2.0 * bird.sizeMultiplier,
                         spread * 0.035,
-                        7.0 + Math.random() * 7.0,
+                        7.0 + SimRng.next() * 7.0,
                         (bird.hummingHoverBurstUltimate ? Color.GOLD : Color.AQUA).deriveColor(0, 1, 1, 0.62)
                 ));
             }

@@ -282,8 +282,8 @@ final class TitmouseSpecials {
 
     static void emitBurst(Bird bird, double originX, double originY, int count, Color color) {
         for (int i = 0; i < bird.scaledParticleCount(count); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 1.8 + Math.random() * 4.8;
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 1.8 + SimRng.next() * 4.8;
             bird.game.particles.add(new Particle(
                     originX,
                     originY,
@@ -563,10 +563,10 @@ final class TitmouseSpecials {
             }
             if ((stash.ageFrames & 15) == 0) {
                 bird.game.particles.add(new Particle(
-                        stash.x + (Math.random() - 0.5) * 28.0,
+                        stash.x + (SimRng.next() - 0.5) * 28.0,
                         stash.y - 8.0,
-                        (Math.random() - 0.5) * 0.9,
-                        -0.4 - Math.random() * 1.1,
+                        (SimRng.next() - 0.5) * 0.9,
+                        -0.4 - SimRng.next() * 1.1,
                         (stash.ultimate ? Color.GOLD : Color.web("#BCAAA4")).deriveColor(0, 1, 1, 0.56)
                 ));
             }

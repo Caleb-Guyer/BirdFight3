@@ -189,11 +189,11 @@ final class OpiumSpecials {
 
     static void emitBurst(Bird bird, double originX, double originY, int count, Color color) {
         for (int i = 0; i < bird.scaledParticleCount(count); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 1.2 + Math.random() * 5.8;
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 1.2 + SimRng.next() * 5.8;
             bird.game.particles.add(new Particle(
-                    originX + Math.cos(angle) * (8.0 + Math.random() * 18.0),
-                    originY + Math.sin(angle) * (8.0 + Math.random() * 18.0),
+                    originX + Math.cos(angle) * (8.0 + SimRng.next() * 18.0),
+                    originY + Math.sin(angle) * (8.0 + SimRng.next() * 18.0),
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 1.2,
                     color.deriveColor(0, 1, 1, 0.72)
@@ -281,21 +281,21 @@ final class OpiumSpecials {
             }
             if ((bird.opiumDrowsyTimer & 7) == 0) {
                 bird.game.particles.add(new Particle(
-                        bird.bodyCenterX() + (Math.random() - 0.5) * bird.bodyWidth() * 0.86,
+                        bird.bodyCenterX() + (SimRng.next() - 0.5) * bird.bodyWidth() * 0.86,
                         bird.bodyCenterY() - 18.0 * bird.sizeMultiplier
-                                + (Math.random() - 0.5) * bird.bodyHeight() * 0.32,
-                        (Math.random() - 0.5) * 1.2,
-                        -0.7 - Math.random() * 1.2,
+                                + (SimRng.next() - 0.5) * bird.bodyHeight() * 0.32,
+                        (SimRng.next() - 0.5) * 1.2,
+                        -0.7 - SimRng.next() * 1.2,
                         (bird.opiumDrowsyUltimate ? Color.GOLD : Color.web("#CE93D8")).deriveColor(0, 1, 1, 0.58)
                 ));
             }
         }
         if (bird.heisenBrittleTimer > 0 && (bird.heisenBrittleTimer & 5) == 0) {
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + (Math.random() - 0.5) * bird.bodyWidth() * 0.78,
-                    bird.bodyCenterY() + (Math.random() - 0.5) * bird.bodyHeight() * 0.58,
-                    (Math.random() - 0.5) * 1.8,
-                    -0.9 - Math.random() * 1.5,
+                    bird.bodyCenterX() + (SimRng.next() - 0.5) * bird.bodyWidth() * 0.78,
+                    bird.bodyCenterY() + (SimRng.next() - 0.5) * bird.bodyHeight() * 0.58,
+                    (SimRng.next() - 0.5) * 1.8,
+                    -0.9 - SimRng.next() * 1.5,
                     (bird.heisenBrittleUltimate ? Color.GOLD : Color.web("#81D4FA")).deriveColor(0, 1, 1, 0.72)
             ));
         }
@@ -389,8 +389,8 @@ final class OpiumSpecials {
                     bird.game.particles.add(new Particle(
                             shardX,
                             shardY,
-                            (Math.random() - 0.5) * 2.2,
-                            -0.6 - Math.random() * 1.2,
+                            (SimRng.next() - 0.5) * 2.2,
+                            -0.6 - SimRng.next() * 1.2,
                             Color.web("#B3E5FC", 0.76)
                     ));
                 }
@@ -547,9 +547,9 @@ final class OpiumSpecials {
             if (bird.opiumSideFueled && (bird.opiumSideTimer & 1) == 0) {
                 bird.game.particles.add(new Particle(
                         bird.bodyCenterX() - bird.opiumSideDirection * 34.0 * bird.sizeMultiplier,
-                        bird.bodyCenterY() + (Math.random() - 0.5) * 34.0 * bird.sizeMultiplier,
-                        -bird.opiumSideDirection * (1.0 + Math.random() * 2.4),
-                        (Math.random() - 0.5) * 1.8,
+                        bird.bodyCenterY() + (SimRng.next() - 0.5) * 34.0 * bird.sizeMultiplier,
+                        -bird.opiumSideDirection * (1.0 + SimRng.next() * 2.4),
+                        (SimRng.next() - 0.5) * 1.8,
                         (heisen ? Color.web("#81D4FA") : Color.web("#CE93D8")).deriveColor(0, 1, 1, 0.62)
                 ));
             }
@@ -558,10 +558,10 @@ final class OpiumSpecials {
             applyUpHits(bird, heisen);
             if (bird.opiumUpFueled && (bird.opiumUpTimer & 1) == 0) {
                 bird.game.particles.add(new Particle(
-                        bird.bodyCenterX() + (Math.random() - 0.5) * 32.0 * bird.sizeMultiplier,
+                        bird.bodyCenterX() + (SimRng.next() - 0.5) * 32.0 * bird.sizeMultiplier,
                         bird.bodyBottomY() - 4.0 * bird.sizeMultiplier,
-                        (Math.random() - 0.5) * 1.8,
-                        2.0 + Math.random() * 3.0,
+                        (SimRng.next() - 0.5) * 1.8,
+                        2.0 + SimRng.next() * 3.0,
                         (heisen ? Color.web("#81D4FA") : Color.web("#CE93D8")).deriveColor(0, 1, 1, 0.64)
                 ));
             }
@@ -665,20 +665,20 @@ final class OpiumSpecials {
             bird.refillOpiumResource(Bird.HEISEN_NODE_REFILL_PER_FRAME);
             if ((trap.ageFrames & 5) == 0) {
                 bird.game.particles.add(new Particle(
-                        bird.bodyCenterX() + (Math.random() - 0.5) * 28.0 * bird.sizeMultiplier,
+                        bird.bodyCenterX() + (SimRng.next() - 0.5) * 28.0 * bird.sizeMultiplier,
                         bird.bodyBottomY() - 20.0 * bird.sizeMultiplier,
-                        (Math.random() - 0.5) * 0.8,
-                        -0.7 - Math.random() * 1.2,
+                        (SimRng.next() - 0.5) * 0.8,
+                        -0.7 - SimRng.next() * 1.2,
                         Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.72)
                 ));
             }
         }
         if ((trap.ageFrames & 3) == 0) {
             bird.game.particles.add(new Particle(
-                    trap.x + (Math.random() - 0.5) * 42.0,
-                    trap.y - 20.0 - Math.random() * 34.0,
-                    (Math.random() - 0.5) * 0.8,
-                    -0.8 - Math.random() * 1.6,
+                    trap.x + (SimRng.next() - 0.5) * 42.0,
+                    trap.y - 20.0 - SimRng.next() * 34.0,
+                    (SimRng.next() - 0.5) * 0.8,
+                    -0.8 - SimRng.next() * 1.6,
                     Color.web("#81D4FA").deriveColor(0, 1, 1, 0.66)
             ));
         }
@@ -711,20 +711,20 @@ final class OpiumSpecials {
             bird.refillOpiumResource(Bird.OPIUM_PATCH_REFILL_PER_FRAME);
             if ((trap.ageFrames & 7) == 0) {
                 bird.game.particles.add(new Particle(
-                        bird.bodyCenterX() + (Math.random() - 0.5) * 36.0 * bird.sizeMultiplier,
+                        bird.bodyCenterX() + (SimRng.next() - 0.5) * 36.0 * bird.sizeMultiplier,
                         bird.bodyBottomY() - 12.0 * bird.sizeMultiplier,
-                        (Math.random() - 0.5) * 0.7,
-                        -0.5 - Math.random(),
+                        (SimRng.next() - 0.5) * 0.7,
+                        -0.5 - SimRng.next(),
                         Color.web("#E1BEE7").deriveColor(0, 1, 1, 0.62)
                 ));
             }
         }
         if ((trap.ageFrames & 7) == 0) {
             bird.game.particles.add(new Particle(
-                    trap.x + (Math.random() - 0.5) * 88.0,
-                    trap.y - 8.0 - Math.random() * 18.0,
-                    (Math.random() - 0.5) * 0.9,
-                    -0.5 - Math.random() * 1.2,
+                    trap.x + (SimRng.next() - 0.5) * 88.0,
+                    trap.y - 8.0 - SimRng.next() * 18.0,
+                    (SimRng.next() - 0.5) * 0.9,
+                    -0.5 - SimRng.next() * 1.2,
                     Color.web("#CE93D8").deriveColor(0, 1, 1, 0.48)
             ));
         }

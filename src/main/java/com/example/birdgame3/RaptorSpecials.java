@@ -186,7 +186,7 @@ final class RaptorSpecials {
         for (int i = 0; i < warningCount; i++) {
             double progress = warningCount == 1 ? 0.0 : (i / (double) (warningCount - 1));
             double laneOffset = -15.0 + progress * 30.0;
-            bird.game.particles.add(new Particle(predictX + laneOffset * 60.0, BirdGame3.GROUND_Y - 20, 0, -5 - Math.random() * 8, Color.ORANGERED.brighter()));
+            bird.game.particles.add(new Particle(predictX + laneOffset * 60.0, BirdGame3.GROUND_Y - 20, 0, -5 - SimRng.next() * 8, Color.ORANGERED.brighter()));
         }
 
         if (grounded) {
@@ -357,11 +357,11 @@ final class RaptorSpecials {
         bird.game.addToKillFeed(bird.shortName() + " claimed the sky!");
 
         for (int i = 0; i < bird.scaledParticleCount(58); i++) {
-            double angle = -Math.PI / 2.0 + (Math.random() - 0.5) * 1.9;
-            double speed = 4.0 + Math.random() * 10.0;
+            double angle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * 1.9;
+            double speed = 4.0 + SimRng.next() * 10.0;
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + (Math.random() - 0.5) * bird.bodyWidth(),
-                    bird.bodyCenterY() + (Math.random() - 0.5) * bird.bodyHeight() * 0.4,
+                    bird.bodyCenterX() + (SimRng.next() - 0.5) * bird.bodyWidth(),
+                    bird.bodyCenterY() + (SimRng.next() - 0.5) * bird.bodyHeight() * 0.4,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed,
                     Color.GOLD.deriveColor(0, 1, 1, 0.9)
@@ -419,11 +419,11 @@ final class RaptorSpecials {
         bird.game.addToKillFeed(bird.shortName() + " broke terminal velocity!");
 
         for (int i = 0; i < bird.scaledParticleCount(42); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 3.0 + Math.random() * 8.0;
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 3.0 + SimRng.next() * 8.0;
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + Math.cos(angle) * (10.0 + Math.random() * 30.0),
-                    bird.bodyCenterY() + Math.sin(angle) * (10.0 + Math.random() * 30.0),
+                    bird.bodyCenterX() + Math.cos(angle) * (10.0 + SimRng.next() * 30.0),
+                    bird.bodyCenterY() + Math.sin(angle) * (10.0 + SimRng.next() * 30.0),
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 1.2,
                     Color.web("#FFCC80").deriveColor(0, 1, 1, 0.86)
@@ -486,13 +486,13 @@ final class RaptorSpecials {
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 8);
 
         if ((bird.eagleSkySovereignTimer & 7) == 0) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double dist = 32.0 + Math.random() * Bird.EAGLE_SKY_SOVEREIGN_RADIUS * 0.9;
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double dist = 32.0 + SimRng.next() * Bird.EAGLE_SKY_SOVEREIGN_RADIUS * 0.9;
             bird.game.particles.add(new Particle(
                     bird.eagleSkySovereignTargetX + Math.cos(angle) * dist,
                     bird.eagleSkySovereignTargetY + Math.sin(angle) * dist * 0.62,
                     Math.cos(angle) * 0.4,
-                    -1.4 - Math.random() * 1.2,
+                    -1.4 - SimRng.next() * 1.2,
                     Color.web("#FFF59D").deriveColor(0, 1, 1, 0.58)
             ));
         }
@@ -517,12 +517,12 @@ final class RaptorSpecials {
         bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 5);
 
         for (int i = 0; i < bird.scaledParticleCount(36); i++) {
-            double spread = (Math.random() - 0.5) * 95.0;
+            double spread = (SimRng.next() - 0.5) * 95.0;
             bird.game.particles.add(new Particle(
                     bird.eagleSkySovereignTargetX + spread,
-                    bird.eagleSkySovereignTargetY - 210.0 - Math.random() * 80.0,
+                    bird.eagleSkySovereignTargetY - 210.0 - SimRng.next() * 80.0,
                     -spread * 0.018,
-                    6.0 + Math.random() * 8.0,
+                    6.0 + SimRng.next() * 8.0,
                     Color.GOLD.deriveColor(0, 1, 1, 0.82)
             ));
         }
@@ -549,10 +549,10 @@ final class RaptorSpecials {
 
         if ((bird.eagleSkySovereignTimer & 1) == 0) {
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + (Math.random() - 0.5) * 32.0,
+                    bird.bodyCenterX() + (SimRng.next() - 0.5) * 32.0,
                     bird.bodyCenterY() - 24.0,
-                    (Math.random() - 0.5) * 3.0,
-                    -3.5 - Math.random() * 3.0,
+                    (SimRng.next() - 0.5) * 3.0,
+                    -3.5 - SimRng.next() * 3.0,
                     Color.web("#FFFDE7").deriveColor(0, 1, 1, 0.76)
             ));
         }
@@ -655,11 +655,11 @@ final class RaptorSpecials {
     private static void emitSkySovereignImpactParticles(Bird bird, double centerX, double centerY,
                                                         int requested, Color color) {
         for (int i = 0; i < bird.scaledParticleCount(requested); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 4.0 + Math.random() * 12.0;
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 4.0 + SimRng.next() * 12.0;
             bird.game.particles.add(new Particle(
-                    centerX + Math.cos(angle) * (8.0 + Math.random() * 28.0),
-                    centerY + Math.sin(angle) * (8.0 + Math.random() * 28.0),
+                    centerX + Math.cos(angle) * (8.0 + SimRng.next() * 28.0),
+                    centerY + Math.sin(angle) * (8.0 + SimRng.next() * 28.0),
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 3.2,
                     color.deriveColor(0, 1, 1, 0.82)
@@ -687,7 +687,7 @@ final class RaptorSpecials {
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 4);
 
         if ((bird.falconTerminalVelocityTimer & 3) == 0) {
-            double t = Math.random();
+            double t = SimRng.next();
             double x = bird.falconTerminalVelocityStartX
                     + (bird.falconTerminalVelocityEndX - bird.falconTerminalVelocityStartX) * t;
             double y = bird.falconTerminalVelocityStartY
@@ -695,8 +695,8 @@ final class RaptorSpecials {
             bird.game.particles.add(new Particle(
                     x,
                     y,
-                    (Math.random() - 0.5) * 1.8,
-                    -1.6 - Math.random() * 1.8,
+                    (SimRng.next() - 0.5) * 1.8,
+                    -1.6 - SimRng.next() * 1.8,
                     Color.web("#FFE0B2").deriveColor(0, 1, 1, 0.62)
             ));
         }
@@ -734,10 +734,10 @@ final class RaptorSpecials {
 
         for (int i = 0; i < bird.scaledParticleCount(5); i++) {
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() - bird.falconTerminalVelocityDirection * (16.0 + Math.random() * 42.0),
-                    bird.bodyCenterY() + (Math.random() - 0.5) * 18.0,
-                    -bird.falconTerminalVelocityDirection * (5.0 + Math.random() * 8.0),
-                    -1.0 - Math.random() * 2.5,
+                    bird.bodyCenterX() - bird.falconTerminalVelocityDirection * (16.0 + SimRng.next() * 42.0),
+                    bird.bodyCenterY() + (SimRng.next() - 0.5) * 18.0,
+                    -bird.falconTerminalVelocityDirection * (5.0 + SimRng.next() * 8.0),
+                    -1.0 - SimRng.next() * 2.5,
                     Color.web("#FF7043").deriveColor(0, 1, 1, 0.78)
             ));
         }
@@ -875,11 +875,11 @@ final class RaptorSpecials {
     private static void emitTerminalVelocityHitParticles(Bird bird, double centerX, double centerY,
                                                          int requested, Color color) {
         for (int i = 0; i < bird.scaledParticleCount(requested); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 3.5 + Math.random() * 9.0;
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 3.5 + SimRng.next() * 9.0;
             bird.game.particles.add(new Particle(
-                    centerX + (Math.random() - 0.5) * 28.0,
-                    centerY + (Math.random() - 0.5) * 28.0,
+                    centerX + (SimRng.next() - 0.5) * 28.0,
+                    centerY + (SimRng.next() - 0.5) * 28.0,
                     Math.cos(angle) * speed + bird.falconTerminalVelocityDirection * 3.0,
                     Math.sin(angle) * speed - 2.0,
                     color.deriveColor(0, 1, 1, 0.82)
@@ -901,11 +901,11 @@ final class RaptorSpecials {
         int dir = bird.facingDirection();
         Color particleColor = eagle ? Color.web("#F0C766") : Color.web("#FFB56E");
         for (int i = 0; i < 2; i++) {
-            double spread = (Math.random() - 0.5) * (eagle ? 16.0 : 10.0);
+            double spread = (SimRng.next() - 0.5) * (eagle ? 16.0 : 10.0);
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + dir * (28 + Math.random() * 20),
+                    bird.bodyCenterX() + dir * (28 + SimRng.next() * 20),
                     bird.bodyCenterY() - 8 + spread,
-                    dir * (2.6 + Math.random() * 2.4),
+                    dir * (2.6 + SimRng.next() * 2.4),
                     spread * 0.08,
                     particleColor.deriveColor(0, 1, 1, 0.76)
             ));
@@ -954,12 +954,12 @@ final class RaptorSpecials {
 
             Color spark = sweetspot ? Color.web("#FFF0A6") : eagle ? Color.web("#E7B653") : Color.web("#FF9F68");
             for (int i = 0; i < (sweetspot ? 18 : 12); i++) {
-                double angle = Math.random() * Math.PI * 2;
+                double angle = SimRng.next() * Math.PI * 2;
                 bird.game.particles.add(new Particle(
                         other.x + 40,
                         other.y + 40,
-                        Math.cos(angle) * (3 + Math.random() * 5),
-                        Math.sin(angle) * (3 + Math.random() * 5) - 2,
+                        Math.cos(angle) * (3 + SimRng.next() * 5),
+                        Math.sin(angle) * (3 + SimRng.next() * 5) - 2,
                         spark
                 ));
             }
@@ -1021,12 +1021,12 @@ final class RaptorSpecials {
 
             Color spark = eagle ? Color.web("#F3D37D") : sweetspot ? Color.web("#FFF0A6") : Color.web("#FFB86F");
             for (int i = 0; i < (sweetspot ? 16 : 10); i++) {
-                double angle = -Math.PI / 2 + (Math.random() - 0.5) * 1.3;
+                double angle = -Math.PI / 2 + (SimRng.next() - 0.5) * 1.3;
                 bird.game.particles.add(new Particle(
                         other.x + 40,
                         other.y + 40,
-                        Math.cos(angle) * (4 + Math.random() * 5),
-                        Math.sin(angle) * (7 + Math.random() * 7),
+                        Math.cos(angle) * (4 + SimRng.next() * 5),
+                        Math.sin(angle) * (7 + SimRng.next() * 7),
                         spark
                 ));
             }

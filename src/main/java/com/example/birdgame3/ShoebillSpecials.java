@@ -52,14 +52,14 @@ final class ShoebillSpecials {
 
         Color stareColor = ultimate ? Color.GOLD : Color.web("#B39DDB");
         for (int i = 0; i < bird.scaledParticleCount(ultimate ? 44 : 28); i++) {
-            double lane = (Math.random() - 0.5) * (ultimate ? 18.0 : 10.0) * bird.sizeMultiplier;
-            double travel = 26.0 + Math.random() * (ultimate ? 165.0 : 108.0);
+            double lane = (SimRng.next() - 0.5) * (ultimate ? 18.0 : 10.0) * bird.sizeMultiplier;
+            double travel = 26.0 + SimRng.next() * (ultimate ? 165.0 : 108.0);
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() + dir * (18.0 + travel * 0.15) * bird.sizeMultiplier,
                     bird.bodyCenterY() - 18.0 * bird.sizeMultiplier + lane,
-                    dir * (1.6 + Math.random() * 4.2),
-                    (Math.random() - 0.5) * 1.8,
-                    stareColor.deriveColor(0, 1, 1, 0.68 + Math.random() * 0.22)
+                    dir * (1.6 + SimRng.next() * 4.2),
+                    (SimRng.next() - 0.5) * 1.8,
+                    stareColor.deriveColor(0, 1, 1, 0.68 + SimRng.next() * 0.22)
             ));
         }
     }
@@ -240,14 +240,14 @@ final class ShoebillSpecials {
         int particleCount = bird.scaledParticleCount(count);
         int safeDir = dir == 0 ? bird.facingDirection() : dir;
         for (int i = 0; i < particleCount; i++) {
-            double angle = -Math.PI / 2.0 + (Math.random() - 0.5) * Math.PI * 0.85;
-            double speed = 1.2 + Math.random() * 5.0;
+            double angle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * Math.PI * 0.85;
+            double speed = 1.2 + SimRng.next() * 5.0;
             bird.game.particles.add(new Particle(
-                    originX + (Math.random() - 0.5) * 22.0 * bird.sizeMultiplier,
-                    originY + (Math.random() - 0.5) * 16.0 * bird.sizeMultiplier,
-                    Math.cos(angle) * speed + safeDir * (0.2 + Math.random()),
-                    Math.sin(angle) * speed - Math.random() * 2.2,
-                    baseColor.deriveColor(0, 1, 1, 0.62 + Math.random() * 0.25)
+                    originX + (SimRng.next() - 0.5) * 22.0 * bird.sizeMultiplier,
+                    originY + (SimRng.next() - 0.5) * 16.0 * bird.sizeMultiplier,
+                    Math.cos(angle) * speed + safeDir * (0.2 + SimRng.next()),
+                    Math.sin(angle) * speed - SimRng.next() * 2.2,
+                    baseColor.deriveColor(0, 1, 1, 0.62 + SimRng.next() * 0.25)
             ));
         }
     }
@@ -287,8 +287,8 @@ final class ShoebillSpecials {
                 bird.game.particles.add(new Particle(
                         bird.bodyCenterX() + dir * 34.0 * bird.sizeMultiplier,
                         bird.bodyCenterY() - 14.0 * bird.sizeMultiplier,
-                        -dir * (0.6 + Math.random() * 1.4),
-                        -0.7 - Math.random() * 1.2,
+                        -dir * (0.6 + SimRng.next() * 1.4),
+                        -0.7 - SimRng.next() * 1.2,
                         (bird.shoebillThrustUltimate ? Color.GOLD : Color.web("#78909C")).deriveColor(0, 1, 1, 0.62)
                 ));
             }
@@ -366,12 +366,12 @@ final class ShoebillSpecials {
             bird.vy -= bird.shoebillMarshLiftUltimate ? 0.84 : 0.64;
         }
         if ((elapsed & 1) == 0) {
-            double spread = (Math.random() - 0.5) * (bird.shoebillMarshLiftUltimate ? 92.0 : 72.0) * s;
+            double spread = (SimRng.next() - 0.5) * (bird.shoebillMarshLiftUltimate ? 92.0 : 72.0) * s;
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() + spread,
                     bird.bodyBottomY() - 5.0 * s,
                     spread * 0.015,
-                    -4.0 - Math.random() * (bird.shoebillMarshLiftUltimate ? 6.2 : 4.6),
+                    -4.0 - SimRng.next() * (bird.shoebillMarshLiftUltimate ? 6.2 : 4.6),
                     (bird.shoebillMarshLiftUltimate ? Color.GOLD : Color.web("#66BB6A")).deriveColor(0, 1, 1, 0.62)
             ));
         }
@@ -432,10 +432,10 @@ final class ShoebillSpecials {
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.shoebillStatueCountered ? 4 : 10);
         if ((bird.shoebillStatueTimer & 3) == 0) {
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + (Math.random() - 0.5) * 34.0 * bird.sizeMultiplier,
+                    bird.bodyCenterX() + (SimRng.next() - 0.5) * 34.0 * bird.sizeMultiplier,
                     bird.bodyBottomY() - 8.0 * bird.sizeMultiplier,
-                    (Math.random() - 0.5) * 0.8,
-                    -0.8 - Math.random() * 1.4,
+                    (SimRng.next() - 0.5) * 0.8,
+                    -0.8 - SimRng.next() * 1.4,
                     (bird.shoebillStatueUltimate ? Color.GOLD : Color.web("#455A64")).deriveColor(0, 1, 1, 0.58)
             ));
         }

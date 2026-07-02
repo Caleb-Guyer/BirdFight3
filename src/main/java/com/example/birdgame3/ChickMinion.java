@@ -35,8 +35,8 @@ class ChickMinion {
         this.variant = variant;
         this.ultimate = ultimate;
         this.owner = owner;
-        this.vx = (Math.random() - 0.5) * 3.0;
-        this.vy = -2 - Math.random() * 2.0;
+        this.vx = (SimRng.next() - 0.5) * 3.0;
+        this.vy = -2 - SimRng.next() * 2.0;
         applyVariantStats();
     }
 

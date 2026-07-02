@@ -34,7 +34,7 @@ final class MatchController {
         }
         game.activeMutator = BirdGame3.MatchMutator.NONE;
         game.activePowerUpSpawnInterval = BirdGame3.POWERUP_SPAWN_INTERVAL;
-        game.lastMutatorHazardTime = System.nanoTime();
+        game.lastMutatorHazardTime = game.simTick;
         game.suddenDeath.reset();
         game.matchStartNano = System.nanoTime();
         game.balanceOutcomeRecorded = false;
@@ -111,7 +111,7 @@ final class MatchController {
     void configureMatchModes() {
         game.activeMutator = BirdGame3.MatchMutator.NONE;
         game.activePowerUpSpawnInterval = BirdGame3.POWERUP_SPAWN_INTERVAL;
-        game.lastMutatorHazardTime = System.nanoTime();
+        game.lastMutatorHazardTime = game.simTick;
 
         if (game.classicModeActive) {
             if (game.classicEncounter == null) return;
@@ -409,7 +409,7 @@ final class MatchController {
         return true;
     }
 
-    void applyMatchModeRuntimeEffects(long now) {
+    void applyMatchModeRuntimeEffects() {
         if (game.storyModeActive || game.adventureModeActive || game.trainingModeActive) return;
 
         switch (game.activeMutator) {
@@ -443,8 +443,8 @@ final class MatchController {
                 }
             }
             case CROW_SURGE -> {
-                if (now - game.lastMutatorHazardTime > 1_000_000_000L * 6) {
-                    game.lastMutatorHazardTime = now;
+                if (game.simTick - game.lastMutatorHazardTime > 60L * 6) {
+                    game.lastMutatorHazardTime = game.simTick;
                     int waves = 2 + game.random.nextInt(2);
                     for (int i = 0; i < waves; i++) {
                         double y = 220 + game.random.nextDouble() * (BirdGame3.WORLD_HEIGHT - 900);

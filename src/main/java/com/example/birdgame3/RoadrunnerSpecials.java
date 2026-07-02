@@ -267,14 +267,14 @@ final class RoadrunnerSpecials {
     static void emitBurstDust(Bird bird, double centerX, double centerY, int dir, int baseCount, Color color) {
         int particleCount = bird.scaledParticleCount(baseCount);
         for (int i = 0; i < particleCount; i++) {
-            double side = (Math.random() - 0.5) * 2.0;
-            double speed = 2.0 + Math.random() * 7.5;
+            double side = (SimRng.next() - 0.5) * 2.0;
+            double speed = 2.0 + SimRng.next() * 7.5;
             bird.game.particles.add(new Particle(
                     centerX + side * 22.0 * bird.sizeMultiplier,
-                    centerY + (Math.random() - 0.5) * 15.0 * bird.sizeMultiplier,
-                    -dir * (1.0 + Math.random() * 2.0) + side * 0.8,
-                    -1.2 - Math.random() * speed * 0.38,
-                    color.deriveColor(0, 1, 1, 0.62 + Math.random() * 0.18)
+                    centerY + (SimRng.next() - 0.5) * 15.0 * bird.sizeMultiplier,
+                    -dir * (1.0 + SimRng.next() * 2.0) + side * 0.8,
+                    -1.2 - SimRng.next() * speed * 0.38,
+                    color.deriveColor(0, 1, 1, 0.62 + SimRng.next() * 0.18)
             ));
         }
     }
@@ -545,7 +545,7 @@ final class RoadrunnerSpecials {
             double radius = (18.0 + i * 9.0 + bird.random.nextDouble() * 14.0) * bird.sizeMultiplier;
             double liftBand = Math.min(96.0, i * 15.0 + bird.random.nextDouble() * 22.0) * bird.sizeMultiplier;
             Color sand = sandColor(bird, bird.roadrunnerDustDevilUltimate)
-                    .deriveColor(0, 1, 1, 0.44 + Math.random() * 0.20);
+                    .deriveColor(0, 1, 1, 0.44 + SimRng.next() * 0.20);
             bird.game.particles.add(new Particle(
                     centerX + Math.cos(spin) * radius * 0.7,
                     bird.bodyBottomY() - 12.0 * bird.sizeMultiplier - liftBand + Math.sin(spin * 1.2) * 4.0,
@@ -704,8 +704,8 @@ final class RoadrunnerSpecials {
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() - bird.roadrunnerSlipDirection * 22.0 * bird.sizeMultiplier,
                     bird.bodyBottomY() - 7.0 * bird.sizeMultiplier,
-                    -bird.roadrunnerSlipDirection * (1.4 + Math.random() * 2.0),
-                    -0.8 - Math.random() * 1.8,
+                    -bird.roadrunnerSlipDirection * (1.4 + SimRng.next() * 2.0),
+                    -0.8 - SimRng.next() * 1.8,
                     trailColor(bird, bird.roadrunnerSlipUltimate).deriveColor(0, 1, 1, 0.62)
             ));
         }

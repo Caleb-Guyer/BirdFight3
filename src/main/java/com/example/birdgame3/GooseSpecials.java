@@ -379,8 +379,8 @@ final class GooseSpecials {
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() - dir * 32.0 * bird.sizeMultiplier,
                     bird.bodyBottomY() - 8.0 * bird.sizeMultiplier,
-                    -dir * (1.8 + Math.random() * 2.4),
-                    -0.8 - Math.random() * 1.6,
+                    -dir * (1.8 + SimRng.next() * 2.4),
+                    -0.8 - SimRng.next() * 1.6,
                     (bird.gooseBargeEmpowered ? Color.GOLD : Color.web("#BCAAA4")).deriveColor(0, 1, 1, 0.72)
             ));
         }
@@ -445,10 +445,10 @@ final class GooseSpecials {
         }
         if (bird.gooseLiftTimer % 5 == 0) {
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + (Math.random() - 0.5) * 56.0 * bird.sizeMultiplier,
+                    bird.bodyCenterX() + (SimRng.next() - 0.5) * 56.0 * bird.sizeMultiplier,
                     bird.bodyBottomY(),
-                    (Math.random() - 0.5) * 3.0,
-                    -2.5 - Math.random() * 4.5,
+                    (SimRng.next() - 0.5) * 3.0,
+                    -2.5 - SimRng.next() * 4.5,
                     (bird.gooseLiftEmpowered ? Color.GOLD : Color.web("#E0F2F1")).deriveColor(0, 1, 1, 0.66)
             ));
         }
@@ -787,11 +787,11 @@ final class GooseSpecials {
     private static void emitHitBurst(Bird bird, Bird target, Color color, int requested) {
         int count = bird.scaledParticleCount(requested);
         for (int i = 0; i < count; i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 2.0 + Math.random() * 5.5;
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 2.0 + SimRng.next() * 5.5;
             bird.game.particles.add(new Particle(
-                    target.bodyCenterX() + (Math.random() - 0.5) * target.combatHalfWidth(),
-                    target.bodyCenterY() + (Math.random() - 0.5) * target.combatHalfHeight(),
+                    target.bodyCenterX() + (SimRng.next() - 0.5) * target.combatHalfWidth(),
+                    target.bodyCenterY() + (SimRng.next() - 0.5) * target.combatHalfHeight(),
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 1.4,
                     color.deriveColor(0, 1, 1, 0.74)
@@ -802,11 +802,11 @@ final class GooseSpecials {
     private static void emitBurst(Bird bird, double x, double y, Color color, int requested, double maxSpeed) {
         int count = bird.scaledParticleCount(requested);
         for (int i = 0; i < count; i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 1.0 + Math.random() * maxSpeed;
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 1.0 + SimRng.next() * maxSpeed;
             bird.game.particles.add(new Particle(
-                    x + (Math.random() - 0.5) * 24.0 * bird.sizeMultiplier,
-                    y + (Math.random() - 0.5) * 18.0 * bird.sizeMultiplier,
+                    x + (SimRng.next() - 0.5) * 24.0 * bird.sizeMultiplier,
+                    y + (SimRng.next() - 0.5) * 18.0 * bird.sizeMultiplier,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 1.4,
                     color.deriveColor(0, 1, 1, 0.72)

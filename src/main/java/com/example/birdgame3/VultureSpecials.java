@@ -425,8 +425,8 @@ final class VultureSpecials {
 
     static void spawnBaitCrow(Bird bird, Bird.VultureBait bait, int index) {
         double anchorY = bait.y - 58.0 * bird.sizeMultiplier;
-        double angle = -Math.PI / 2.0 + index * 0.76 + (Math.random() - 0.5) * 0.26;
-        double spawnRadius = (42.0 + Math.random() * 44.0) * bird.sizeMultiplier;
+        double angle = -Math.PI / 2.0 + index * 0.76 + (SimRng.next() - 0.5) * 0.26;
+        double spawnRadius = (42.0 + SimRng.next() * 44.0) * bird.sizeMultiplier;
         double spawnX = bait.x + Math.cos(angle) * spawnRadius;
         double spawnY = anchorY + Math.sin(angle) * spawnRadius * 0.62;
         double guardRadius = (bait.ultimate ? 190.0 : 160.0) * bird.sizeMultiplier;
@@ -484,8 +484,8 @@ final class VultureSpecials {
             bird.game.triggerFlash(0.74, false);
         }
         if ((bird.vultureBlackSkyTimer & 3) == 0) {
-            emitBurst(bird, centerX + (Math.random() - 0.5) * 220.0 * bird.sizeMultiplier,
-                    centerY + (Math.random() - 0.5) * 160.0 * bird.sizeMultiplier,
+            emitBurst(bird, centerX + (SimRng.next() - 0.5) * 220.0 * bird.sizeMultiplier,
+                    centerY + (SimRng.next() - 0.5) * 160.0 * bird.sizeMultiplier,
                     0.0, 5, Color.BLACK);
         }
         if (bird.vultureBlackSkyTimer <= 0) {
@@ -587,10 +587,10 @@ final class VultureSpecials {
 
     static void spawnCrowWave(Bird bird, int count, double horizontalSpread, double speedMultiplier) {
         for (int i = 0; i < count; i++) {
-            double spawnX = Math.clamp(bird.bodyCenterX() + (Math.random() - 0.5) * horizontalSpread,
+            double spawnX = Math.clamp(bird.bodyCenterX() + (SimRng.next() - 0.5) * horizontalSpread,
                     bird.usesIslandBounds() ? bird.game.battlefieldLeftBound() - 120.0 : -120.0,
                     bird.usesIslandBounds() ? bird.game.battlefieldRightBound() + 120.0 : BirdGame3.WORLD_WIDTH + 120.0);
-            double spawnY = bird.bodyCenterY() - (360.0 + Math.random() * 260.0) * bird.sizeMultiplier;
+            double spawnY = bird.bodyCenterY() - (360.0 + SimRng.next() * 260.0) * bird.sizeMultiplier;
             Bird target = nearestTarget(bird, spawnX, spawnY, 1200.0);
             CrowMinion crow = spawnCrow(bird, spawnX, spawnY, target, true, speedMultiplier);
             double targetX = target == null ? bird.bodyCenterX() : target.bodyCenterX();
@@ -598,8 +598,8 @@ final class VultureSpecials {
             double dx = targetX - spawnX;
             double dy = targetY - spawnY;
             double len = Math.max(1.0, Math.hypot(dx, dy));
-            crow.vx += dx / len * (4.4 + Math.random() * 2.8);
-            crow.vy += dy / len * (5.0 + Math.random() * 3.2);
+            crow.vx += dx / len * (4.4 + SimRng.next() * 2.8);
+            crow.vy += dy / len * (5.0 + SimRng.next() * 3.2);
         }
     }
 
@@ -710,18 +710,18 @@ final class VultureSpecials {
         double baseAngle = dir == 0.0 ? -Math.PI / 2.0 : (dir > 0.0 ? 0.0 : Math.PI);
         for (int i = 0; i < particles; i++) {
             double angle = dir == 0.0
-                    ? Math.random() * Math.PI * 2.0
-                    : baseAngle + (Math.random() - 0.5) * 1.45;
-            double speed = 1.4 + Math.random() * 7.2;
+                    ? SimRng.next() * Math.PI * 2.0
+                    : baseAngle + (SimRng.next() - 0.5) * 1.45;
+            double speed = 1.4 + SimRng.next() * 7.2;
             Color shade = color == Color.BLACK
-                    ? (Math.random() < 0.5 ? Color.web("#050308") : Color.web("#190B1F"))
+                    ? (SimRng.next() < 0.5 ? Color.web("#050308") : Color.web("#190B1F"))
                     : color;
             bird.game.particles.add(new Particle(
-                    centerX + (Math.random() - 0.5) * 18.0 * bird.sizeMultiplier,
-                    centerY + (Math.random() - 0.5) * 16.0 * bird.sizeMultiplier,
+                    centerX + (SimRng.next() - 0.5) * 18.0 * bird.sizeMultiplier,
+                    centerY + (SimRng.next() - 0.5) * 16.0 * bird.sizeMultiplier,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 1.3,
-                    shade.deriveColor(0, 1, 1, 0.68 + Math.random() * 0.18)
+                    shade.deriveColor(0, 1, 1, 0.68 + SimRng.next() * 0.18)
             ));
         }
     }
@@ -738,8 +738,8 @@ final class VultureSpecials {
 
         int particleCount = bird.scaledParticleCount(ultimate ? 360 : 260);
         for (int i = 0; i < particleCount; i++) {
-            double angle = Math.random() * Math.PI * 2;
-            double speed = 9 + Math.random() * 18;
+            double angle = SimRng.next() * Math.PI * 2;
+            double speed = 9 + SimRng.next() * 18;
             Color shade = switch (i % 3) {
                 case 1 -> Color.web("#16020C");
                 case 2 -> Color.web("#25102B");

@@ -35,12 +35,12 @@ final class TurkeySpecials {
             bird.game.addToKillFeed(bird.shortName() + " ULT GOBBLE GUARD!");
         }
         for (int i = 0; i < bird.scaledParticleCount(ultimate ? 16 : 10); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
+            double angle = SimRng.next() * Math.PI * 2.0;
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX(),
                     bird.bodyCenterY(),
-                    Math.cos(angle) * (0.8 + Math.random() * 2.2),
-                    Math.sin(angle) * (0.8 + Math.random() * 2.2) - 0.8,
+                    Math.cos(angle) * (0.8 + SimRng.next() * 2.2),
+                    Math.sin(angle) * (0.8 + SimRng.next() * 2.2) - 0.8,
                     (ultimate ? Color.GOLD : Color.web("#D7CCC8")).deriveColor(0, 1, 1, 0.72)
             ));
         }
@@ -93,12 +93,12 @@ final class TurkeySpecials {
         }
         for (int i = 0; i < bird.scaledParticleCount(ultimate ? 34 : 22); i++) {
             int side = i % 2 == 0 ? -1 : 1;
-            double spread = side * (20.0 + Math.random() * 48.0);
+            double spread = side * (20.0 + SimRng.next() * 48.0);
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() + spread,
-                    bird.bodyCenterY() + (Math.random() - 0.5) * 26.0 * bird.sizeMultiplier,
-                    side * (2.0 + Math.random() * 2.6),
-                    4.2 + Math.random() * 4.4,
+                    bird.bodyCenterY() + (SimRng.next() - 0.5) * 26.0 * bird.sizeMultiplier,
+                    side * (2.0 + SimRng.next() * 2.6),
+                    4.2 + SimRng.next() * 4.4,
                     (ultimate ? Color.GOLD : Color.web("#F5F5F5")).deriveColor(0, 1, 1, 0.70)
             ));
         }
@@ -127,10 +127,10 @@ final class TurkeySpecials {
         }
         for (int i = 0; i < bird.scaledParticleCount(ultimate ? 34 : 22); i++) {
             bird.game.particles.add(new Particle(
-                    trapX + (Math.random() - 0.5) * 28.0,
+                    trapX + (SimRng.next() - 0.5) * 28.0,
                     trapY - 24.0,
-                    (Math.random() - 0.5) * 5.0,
-                    -2.0 - Math.random() * 5.0,
+                    (SimRng.next() - 0.5) * 5.0,
+                    -2.0 - SimRng.next() * 5.0,
                     (ultimate ? Color.GOLD : Color.web("#FFCC80")).deriveColor(0, 1, 1, 0.78)
             ));
         }
@@ -241,12 +241,12 @@ final class TurkeySpecials {
         bird.knockdownTimer = 0;
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, guarding ? 8 : 5);
         for (int i = 0; i < bird.scaledParticleCount(guarding ? 16 : 9); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
+            double angle = SimRng.next() * Math.PI * 2.0;
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX(),
                     bird.bodyCenterY(),
-                    Math.cos(angle) * (2.0 + Math.random() * 4.0),
-                    Math.sin(angle) * (2.0 + Math.random() * 4.0) - 1.4,
+                    Math.cos(angle) * (2.0 + SimRng.next() * 4.0),
+                    Math.sin(angle) * (2.0 + SimRng.next() * 4.0) - 1.4,
                     (guarding ? Color.GOLD : Color.SADDLEBROWN).deriveColor(0, 1, 1, 0.75)
             ));
         }
@@ -294,12 +294,12 @@ final class TurkeySpecials {
         target.turkeyStuffedOwnerIndex = -1;
         target.turkeyStuffedUltimate = false;
         for (int i = 0; i < bird.scaledParticleCount(ultimate ? 18 : 12); i++) {
-            double angle = Math.random() * Math.PI * 2.0;
+            double angle = SimRng.next() * Math.PI * 2.0;
             bird.game.particles.add(new Particle(
                     target.bodyCenterX(),
                     target.bodyCenterY(),
-                    Math.cos(angle) * (2.0 + Math.random() * 5.0),
-                    Math.sin(angle) * (2.0 + Math.random() * 5.0) - 2.0,
+                    Math.cos(angle) * (2.0 + SimRng.next() * 5.0),
+                    Math.sin(angle) * (2.0 + SimRng.next() * 5.0) - 2.0,
                     (ultimate ? Color.GOLD : Color.web("#FFB74D")).deriveColor(0, 1, 1, 0.82)
             ));
         }
@@ -330,12 +330,12 @@ final class TurkeySpecials {
             double centerY = bird.bodyCenterY() - 5.0 * bird.sizeMultiplier;
             double orbit = (28.0 + ratio * 42.0) * bird.sizeMultiplier;
             for (int i = 0; i < bird.scaledParticleCount(ratio > 0.75 ? 3 : 2); i++) {
-                double angle = Math.random() * Math.PI * 2.0;
+                double angle = SimRng.next() * Math.PI * 2.0;
                 bird.game.particles.add(new Particle(
                         centerX + Math.cos(angle) * orbit,
                         centerY + Math.sin(angle) * orbit * 0.62,
                         -Math.cos(angle) * (0.8 + ratio * 1.8),
-                        -0.6 - Math.random() * (1.0 + ratio * 1.6),
+                        -0.6 - SimRng.next() * (1.0 + ratio * 1.6),
                         (bird.turkeyGobbleCountered ? Color.GOLD : Color.web("#EFEBE9")).deriveColor(0, 1, 1, 0.62 + ratio * 0.20)
                 ));
             }
@@ -361,8 +361,8 @@ final class TurkeySpecials {
         double ratio = gobbleChargeRatio(bird);
         int burstCount = bird.scaledParticleCount(14 + (int) Math.round(ratio * 22.0));
         for (int i = 0; i < burstCount; i++) {
-            double angle = Math.random() * Math.PI * 2.0;
-            double speed = 2.0 + Math.random() * (3.4 + ratio * 4.0);
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 2.0 + SimRng.next() * (3.4 + ratio * 4.0);
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX(),
                     bird.bodyCenterY() - 4.0 * bird.sizeMultiplier,
@@ -388,12 +388,12 @@ final class TurkeySpecials {
         if ((bird.turkeyGobbleTimer & 2) == 0) {
             int particles = bird.scaledParticleCount(bird.turkeyGobbleCountered ? 8 : 5);
             for (int i = 0; i < particles; i++) {
-                double angle = Math.random() * Math.PI * 2.0;
+                double angle = SimRng.next() * Math.PI * 2.0;
                 bird.game.particles.add(new Particle(
                         centerX + Math.cos(angle) * radius * 0.24,
                         centerY + Math.sin(angle) * verticalRadius * 0.18,
-                        Math.cos(angle) * (2.0 + Math.random() * 3.0),
-                        Math.sin(angle) * (1.4 + Math.random() * 2.4) - 0.6,
+                        Math.cos(angle) * (2.0 + SimRng.next() * 3.0),
+                        Math.sin(angle) * (1.4 + SimRng.next() * 2.4) - 0.6,
                         (bird.turkeyGobbleCountered ? Color.GOLD : Color.web("#EFEBE9")).deriveColor(0, 1, 1, 0.55)
                 ));
             }
@@ -466,8 +466,8 @@ final class TurkeySpecials {
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() - dir * 34.0 * bird.sizeMultiplier,
                     bird.bodyBottomY() - 5.0 * bird.sizeMultiplier,
-                    -dir * (1.1 + Math.random() * 1.8),
-                    -0.8 - Math.random() * 1.8,
+                    -dir * (1.1 + SimRng.next() * 1.8),
+                    -0.8 - SimRng.next() * 1.8,
                     (bird.turkeyStampedeUltimate ? Color.GOLD : Color.SADDLEBROWN).deriveColor(0, 1, 1, 0.65)
             ));
         }
@@ -515,17 +515,17 @@ final class TurkeySpecials {
                 bird.game.particles.add(new Particle(
                         wingX,
                         wingY,
-                        side * (1.4 + Math.random() * 1.6),
-                        4.8 + Math.random() * 3.2,
+                        side * (1.4 + SimRng.next() * 1.6),
+                        4.8 + SimRng.next() * 3.2,
                         (bird.turkeyPanicFlapUltimate ? Color.GOLD : Color.web("#F5F5F5")).deriveColor(0, 1, 1, 0.68)
                 ));
             }
             if ((bird.turkeyPanicFlapTimer & 3) == 0) {
                 bird.game.particles.add(new Particle(
-                        bird.bodyCenterX() + (Math.random() - 0.5) * 36.0 * bird.sizeMultiplier,
+                        bird.bodyCenterX() + (SimRng.next() - 0.5) * 36.0 * bird.sizeMultiplier,
                         bird.bodyBottomY() - 4.0 * bird.sizeMultiplier,
-                        (Math.random() - 0.5) * 0.8,
-                        7.0 + Math.random() * 4.5,
+                        (SimRng.next() - 0.5) * 0.8,
+                        7.0 + SimRng.next() * 4.5,
                         (bird.turkeyPanicFlapUltimate ? Color.web("#FFF59D") : Color.web("#D7CCC8")).deriveColor(0, 1, 1, 0.52)
                 ));
             }

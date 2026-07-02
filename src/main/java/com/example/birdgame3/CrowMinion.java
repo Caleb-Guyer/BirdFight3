@@ -34,8 +34,8 @@ class CrowMinion {
         this.prevX = x;
         this.prevY = y;
         this.target = target;
-        this.vx = (Math.random() - 0.5) * 4;  // start with random drift
-        this.vy = (Math.random() - 0.5) * 4;
+        this.vx = (SimRng.next() - 0.5) * 4;  // start with random drift
+        this.vy = (SimRng.next() - 0.5) * 4;
         // they will pick a real target on the first update frame
     }
 
@@ -64,7 +64,7 @@ class CrowMinion {
         this.anchorY = anchorY;
         this.anchorRadius = Math.max(48.0, anchorRadius);
         this.anchorGuardFrames = Math.max(this.anchorGuardFrames, anchorGuardFrames);
-        this.anchorOrbitOffset = Math.random() * Math.PI * 2.0;
+        this.anchorOrbitOffset = SimRng.next() * Math.PI * 2.0;
         this.target = null;
         this.retargetCooldown = 0;
         return this;
