@@ -7,6 +7,7 @@ import javafx.animation.KeyFrame;
 import javafx.animation.ParallelTransition;
 import javafx.animation.PauseTransition;
 import javafx.animation.SequentialTransition;
+import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
 import javafx.application.Application;
@@ -34931,6 +34932,16 @@ public class BirdGame3 extends Application {
         return String.format("#%02X%02X%02X", (int) (c.getRed() * 255), (int) (c.getGreen() * 255), (int) (c.getBlue() * 255));
     }
 
+    private String toRgba(Color c, double opacity) {
+        Color color = c == null ? Color.WHITE : c;
+        double alpha = Math.clamp(opacity, 0.0, 1.0);
+        return String.format(Locale.ROOT, "rgba(%d,%d,%d,%.3f)",
+                (int) Math.round(color.getRed() * 255),
+                (int) Math.round(color.getGreen() * 255),
+                (int) Math.round(color.getBlue() * 255),
+                alpha);
+    }
+
     private void configureMatchModes() {
         matchController.configureMatchModes();
     }
@@ -38783,156 +38794,540 @@ public class BirdGame3 extends Application {
             victoryMusicPlayer.stop();
             if (musicEnabled) victoryMusicPlayer.play();
         }
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);",
-                MENU_PADDING, 40);
-
-        Label title = new Label(winner != null ? winner.name.toUpperCase() + " WINS!" : "TIME'S UP!");
-        title.setFont(Font.font("Arial Black", 110));
-        title.setTextFill(winner != null ? Color.GOLD : Color.SILVER);
-        title.setEffect(new DropShadow(50, Color.BLACK));
-        title.setWrapText(false);
-        applyNoEllipsis(title);
 
         int coinsEarned = awardBirdCoinsForMatch(winner);
         recordMatchHistory(winner, coinsEarned);
         recordDailyChallengeResult(winner);
-        Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoinBalanceText());
-        coinsLabel.setFont(Font.font("Consolas", 28));
-        coinsLabel.setTextFill(Color.web("#FFD54F"));
 
-        // Collect all active birds
         List<Bird> activeBirds = new ArrayList<>();
         for (int i = 0; i < activePlayers; i++) {
             if (players[i] != null) activeBirds.add(players[i]);
         }
 
-        HBox buttons = buildSummaryButtons(stage, winner);
         applyWinnerMapProgress(winner);
 
         boolean teamSummaryMode = isMatchHistoryTeamMode();
-        if (teamSummaryMode) {
-            int winningTeam = winner != null ? getEffectiveTeam(winner.playerIndex) : -1;
-            title.setText(winningTeam > 0 ? teamLabel(winningTeam) + " WINS!" : "TIME'S UP!");
-            title.setTextFill(winningTeam > 0 ? teamColor(winningTeam).brighter() : Color.SILVER);
-
-            Map<Integer, List<Bird>> teams = new HashMap<>();
-            for (Bird bird : activeBirds) {
-                int teamId = getEffectiveTeam(bird.playerIndex);
-                teams.computeIfAbsent(teamId, t -> new ArrayList<>()).add(bird);
-            }
-
-            List<Integer> ranking = getIntegers(teams);
-
-            HBox podium = new HBox(70);
-            podium.setAlignment(Pos.CENTER);
-
-            for (int idx = 0; idx < ranking.size(); idx++) {
-                int teamId = ranking.get(idx);
-                List<Bird> members = teams.get(teamId);
-
-                int kills = 0;
-                int damage = 0;
-                int fallsCount = 0;
-                for (Bird bird : members) {
-                    kills += eliminations[bird.playerIndex];
-                    damage += damageDealt[bird.playerIndex];
-                    fallsCount += falls[bird.playerIndex];
-                }
-
-                String membersText = members.stream()
-                        .map(b -> shortName(b.name))
-                        .reduce((a, b) -> a + " + " + b)
-                        .orElse("-");
-
-                VBox slot = new VBox(12);
-                slot.setAlignment(Pos.CENTER);
-                slot.setPadding(new Insets(25));
-                slot.setStyle("-fx-background-color: rgba(0,0,0,0.5); -fx-background-radius: 25;");
-
-                Label placeLabel = getLabel(summaryPlaceText(idx + 1));
-                placeLabel.setFont(Font.font("Arial Black", 64));
-                placeLabel.setTextFill(idx == 0 ? Color.GOLD : idx == 1 ? Color.SILVER : Color.web("#CD7F32"));
-
-                Label teamName = new Label(teamLabel(teamId));
-                teamName.setFont(Font.font("Arial Black", 50));
-                teamName.setTextFill(teamColor(teamId));
-
-                Label memberLabel = new Label(membersText);
-                memberLabel.setFont(Font.font("Arial Black", 28));
-                memberLabel.setTextFill(Color.WHITE);
-
-                Label statsLabel = new Label("DMG " + damage + "   KILLS " + kills + "   FALLS " + fallsCount);
-                statsLabel.setFont(Font.font("Consolas", 24));
-                statsLabel.setTextFill(Color.LIGHTGRAY);
-
-                slot.getChildren().addAll(placeLabel, teamName, memberLabel, statsLabel);
-                podium.getChildren().add(slot);
-            }
-
-            VBox classicPanel = buildClassicSummaryPanel(winner);
-            VBox telemetryPanel = buildPostMatchTelemetryPanel();
-            root.getChildren().addAll(title, coinsLabel);
-            if (classicPanel != null) {
-                root.getChildren().add(classicPanel);
-            }
-            root.getChildren().addAll(podium, telemetryPanel, buttons);
-            String bgStyle = root.getStyle();
-            root.setStyle("-fx-background-color: transparent;");
-            StackPane container = new StackPane(root);
-            container.setAlignment(Pos.CENTER);
-            container.setStyle(bgStyle);
-            container.getProperties().put("noAutoScale", true);
-            Scene scene = new Scene(container, WIDTH, HEIGHT);
-            bindScaleToFit(scene, root);
-            scene.widthProperty().addListener((obs, oldVal, newVal) -> {
-                double maxWidth = Math.max(300, newVal.doubleValue() - 120);
-                fitLabelSingleLine(title, 110, 56, maxWidth);
-            });
-            javafx.application.Platform.runLater(() -> {
-                Scene targetScene = activeSceneFor(scene);
-                double sceneWidth = targetScene != null ? initialLayoutSceneWidth(targetScene) : scene.getWidth();
-                double maxWidth = Math.max(300, sceneWidth - 120);
-                fitLabelSingleLine(title, 110, 56, maxWidth);
-            });
-            setScenePreservingFullscreen(stage, scene);
-            return;
-        }
-
-        // Sort by performance (same as before)
         activeBirds.sort((a, b) -> {
             if (a == winner) return -1;
             if (b == winner) return 1;
             return compareBirdPlacements(a, b);
         });
 
-        VBox showcase = buildVictoryShowcase(activeBirds);
+        Bird heroBird = winner != null ? winner : (activeBirds.isEmpty() ? null : activeBirds.getFirst());
+        Color accent = matchSummaryAccent(heroBird);
+        String winnerTitle = winner != null ? matchSummaryWinnerTitle(winner, teamSummaryMode) : "TIME'S UP";
+        String heroName = winner != null
+                ? (teamSummaryMode ? matchSummaryBirdLabel(heroBird) + " MVP" : matchSummaryBirdLabel(heroBird))
+                : "NO CONTEST";
+        String heroSubtitle = matchSummaryHeroSubtitle(heroBird, coinsEarned);
 
-        VBox classicPanel = buildClassicSummaryPanel(winner);
-        VBox telemetryPanel = buildPostMatchTelemetryPanel();
-        root.getChildren().addAll(title, coinsLabel, showcase);
-        if (classicPanel != null) {
-            root.getChildren().add(classicPanel);
-        }
-        root.getChildren().addAll(telemetryPanel, buttons);
-        String bgStyle = root.getStyle();
-        root.setStyle("-fx-background-color: transparent;");
-        StackPane container = new StackPane(root);
-        container.setAlignment(Pos.CENTER);
-        container.setStyle(bgStyle);
-        container.getProperties().put("noAutoScale", true);
-        Scene scene = new Scene(container, WIDTH, HEIGHT);
-        bindScaleToFit(scene, root);
-        scene.widthProperty().addListener((obs, oldVal, newVal) -> {
-            double maxWidth = Math.max(300, newVal.doubleValue() - 120);
-            fitLabelSingleLine(title, 110, 56, maxWidth);
-        });
-        javafx.application.Platform.runLater(() -> {
-            Scene targetScene = activeSceneFor(scene);
-            double sceneWidth = targetScene != null ? initialLayoutSceneWidth(targetScene) : scene.getWidth();
-            double maxWidth = Math.max(300, sceneWidth - 120);
-            fitLabelSingleLine(title, 110, 56, maxWidth);
-        });
+        StackPane frame = new StackPane();
+        lockRegionSize(frame, WIDTH, HEIGHT);
+        frame.setStyle("-fx-background-color: #070B14;");
+
+        Canvas background = new Canvas(WIDTH, HEIGHT);
+        frame.getChildren().add(background);
+
+        Pane stageLayer = new Pane();
+        lockRegionSize(stageLayer, WIDTH, HEIGHT);
+        frame.getChildren().add(stageLayer);
+
+        StackPane poseNode = buildCinematicVictoryPose(heroBird, 760);
+        poseNode.setLayoutX(1010);
+        poseNode.setLayoutY(168);
+        poseNode.setOpacity(0.0);
+        poseNode.setTranslateX(260);
+        poseNode.setScaleX(0.82);
+        poseNode.setScaleY(0.82);
+
+        VBox titleBlock = buildCinematicWinnerTitle(winnerTitle, heroName, heroSubtitle, accent);
+        titleBlock.setLayoutX(104);
+        titleBlock.setLayoutY(122);
+        titleBlock.setOpacity(0.0);
+        titleBlock.setTranslateX(-260);
+
+        StackPane slashPlate = buildCinematicSlashPlate(accent);
+        slashPlate.setLayoutX(-180);
+        slashPlate.setLayoutY(248);
+        slashPlate.setOpacity(0.0);
+        slashPlate.setTranslateX(-360);
+
+        stageLayer.getChildren().addAll(slashPlate, poseNode, titleBlock);
+
+        StackPane resultsPanel = buildCinematicResultsPanel(activeBirds, winner, coinsEarned, teamSummaryMode);
+        resultsPanel.setLayoutX(92);
+        resultsPanel.setLayoutY(652);
+        resultsPanel.setOpacity(0.0);
+        resultsPanel.setTranslateY(190);
+        stageLayer.getChildren().add(resultsPanel);
+
+        HBox buttons = buildSummaryButtons(stage, winner);
+        buttons.setOpacity(0.0);
+        buttons.setTranslateY(80);
+        StackPane buttonDock = new StackPane(buttons);
+        lockRegionSize(buttonDock, WIDTH, 132);
+        buttonDock.setLayoutX(0);
+        buttonDock.setLayoutY(930);
+        buttonDock.setAlignment(Pos.CENTER);
+        stageLayer.getChildren().add(buttonDock);
+
+        final Scene[] sceneRef = new Scene[1];
+        long startNanos = System.nanoTime();
+        AnimationTimer backgroundTimer = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                Scene scene = sceneRef[0];
+                if (scene != null && currentStage != null && currentStage.getScene() != scene) {
+                    stop();
+                    return;
+                }
+                drawCinematicResultsBackground(background.getGraphicsContext2D(), accent, (now - startNanos) / 1_000_000_000.0);
+            }
+        };
+        backgroundTimer.start();
+
+        Scene scene = new Scene(frame, WIDTH, HEIGHT);
+        sceneRef[0] = scene;
+        bindFixedFrameScale(scene, frame, 0.0);
         setScenePreservingFullscreen(stage, scene);
+        playCinematicResultsIntro(slashPlate, poseNode, titleBlock, resultsPanel, buttons);
+    }
+
+    private String matchSummaryWinnerTitle(Bird winner, boolean teamSummaryMode) {
+        if (winner == null) return "TIME'S UP";
+        if (teamSummaryMode) {
+            int winningTeam = getEffectiveTeam(winner.playerIndex);
+            return winningTeam > 0 ? teamLabel(winningTeam) + " WINS" : "TEAM WINS";
+        }
+        return matchSummaryOwnerLabel(winner) + " WINS";
+    }
+
+    private String matchSummaryHeroSubtitle(Bird bird, int coinsEarned) {
+        if (bird == null) {
+            return "BIRD COINS +" + coinsEarned + "   TOTAL " + birdCoinBalanceText();
+        }
+        return matchSummaryOwnerLabel(bird)
+                + "   |   KOS " + safeStat(eliminations, bird)
+                + "   |   DMG " + safeStat(damageDealt, bird)
+                + "   |   FALLS " + safeStat(falls, bird)
+                + "   |   COINS +" + coinsEarned;
+    }
+
+    private VBox buildCinematicWinnerTitle(String winnerTitle, String heroName, String subtitle, Color accent) {
+        VBox block = new VBox(10);
+        block.setAlignment(Pos.CENTER_LEFT);
+        block.setPrefWidth(900);
+        block.setMaxWidth(900);
+
+        Label result = new Label(winnerTitle);
+        result.setFont(Font.font("Arial Black", FontWeight.BOLD, 78));
+        result.setTextFill(Color.WHITE);
+        result.setEffect(new DropShadow(36, Color.rgb(0, 0, 0, 0.88)));
+        result.setWrapText(false);
+        applyNoEllipsis(result);
+        fitLabelSingleLine(result, 78, 42, 880);
+
+        Label name = new Label(heroName);
+        name.setFont(Font.font("Arial Black", FontWeight.BOLD, 138));
+        name.setTextFill(accent == null ? Color.web("#FFF176") : accent.interpolate(Color.WHITE, 0.12));
+        name.setEffect(new DropShadow(50, Color.rgb(0, 0, 0, 0.92)));
+        name.setWrapText(false);
+        applyNoEllipsis(name);
+        fitLabelSingleLine(name, 138, 66, 890);
+
+        Label detail = new Label(subtitle);
+        detail.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
+        detail.setTextFill(Color.web("#E8F4FF"));
+        detail.setWrapText(false);
+        applyNoEllipsis(detail);
+        fitLabelSingleLine(detail, 24, 15, 890);
+
+        Region accentLine = new Region();
+        lockRegionSize(accentLine, 720, 8);
+        accentLine.setStyle("-fx-background-color: linear-gradient(to right, "
+                + toRgba(accent, 0.95) + ", rgba(255,255,255,0.82), rgba(255,255,255,0.0));"
+                + "-fx-background-radius: 8;");
+
+        block.getChildren().addAll(result, name, accentLine, detail);
+        return block;
+    }
+
+    private StackPane buildCinematicSlashPlate(Color accent) {
+        Canvas canvas = new Canvas(1160, 430);
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        Color base = accent == null ? Color.web("#64B5F6") : accent;
+        g.setFill(base.deriveColor(0, 0.95, 0.55, 0.34));
+        g.fillPolygon(
+                new double[]{120, 1160, 1000, 0},
+                new double[]{0, 0, 430, 430},
+                4
+        );
+        g.setFill(Color.rgb(255, 255, 255, 0.13));
+        g.fillPolygon(
+                new double[]{190, 1120, 1094, 164},
+                new double[]{24, 24, 76, 76},
+                4
+        );
+        g.setStroke(base.interpolate(Color.WHITE, 0.34));
+        g.setLineWidth(6);
+        g.strokeLine(190, 24, 1094, 24);
+        g.strokeLine(42, 406, 990, 406);
+        StackPane plate = new StackPane(canvas);
+        lockRegionSize(plate, 1160, 430);
+        plate.setMouseTransparent(true);
+        return plate;
+    }
+
+    private StackPane buildCinematicVictoryPose(Bird bird, double size) {
+        double actual = Math.max(520, size);
+        Canvas back = new Canvas(actual, actual);
+        Canvas sprite = new Canvas(actual, actual);
+        Canvas front = new Canvas(actual, actual);
+        BirdType type = bird == null ? null : bird.type;
+        Color accent = matchSummaryAccent(bird);
+        drawCinematicPoseBackplate(back.getGraphicsContext2D(), actual, type, accent);
+        drawCinematicVictorySprite(sprite, bird, actual);
+        drawCinematicPoseFrontFx(front.getGraphicsContext2D(), actual, type, accent);
+
+        StackPane pose = new StackPane(back, sprite, front);
+        lockRegionSize(pose, actual, actual);
+        pose.setMouseTransparent(true);
+        pose.setEffect(new DropShadow(42, Color.rgb(0, 0, 0, 0.72)));
+        return pose;
+    }
+
+    private void drawCinematicPoseBackplate(GraphicsContext g, double size, BirdType type, Color accent) {
+        g.clearRect(0, 0, size, size);
+        Color base = accent == null ? Color.web("#90CAF9") : accent;
+        double cx = size * 0.50;
+        double cy = size * 0.55;
+        g.setFill(Color.rgb(0, 0, 0, 0.32));
+        g.fillOval(size * 0.20, size * 0.76, size * 0.60, size * 0.11);
+        g.setStroke(base.deriveColor(0, 1.0, 1.0, 0.34));
+        g.setLineWidth(size * 0.028);
+        g.strokeOval(size * 0.18, size * 0.16, size * 0.64, size * 0.58);
+        g.setStroke(Color.WHITE.deriveColor(0, 1.0, 1.0, 0.28));
+        g.setLineWidth(size * 0.012);
+        g.strokeOval(size * 0.25, size * 0.22, size * 0.50, size * 0.45);
+
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setStroke(base.deriveColor(0, 1.0, 1.2, 0.54));
+        g.setLineWidth(size * 0.018);
+        for (int i = 0; i < 7; i++) {
+            double angle = Math.toRadians(-44 + i * 15.0);
+            double len = size * (0.28 + (i % 2) * 0.08);
+            double sx = cx - Math.cos(angle) * len * 0.20;
+            double sy = cy - Math.sin(angle) * len * 0.20;
+            g.strokeLine(sx, sy, sx + Math.cos(angle) * len, sy + Math.sin(angle) * len);
+        }
+
+        if (type == BirdType.PHOENIX || type == BirdType.FALCON || type == BirdType.ROADRUNNER) {
+            g.setStroke(Color.web("#FFB74D", 0.62));
+            g.setLineWidth(size * 0.018);
+            g.strokeArc(size * 0.16, size * 0.10, size * 0.68, size * 0.62, 210, 250, ArcType.OPEN);
+        } else if (type == BirdType.BAT || type == BirdType.RAVEN || type == BirdType.VULTURE) {
+            g.setStroke(Color.web("#B39DDB", 0.46));
+            g.setLineWidth(size * 0.02);
+            g.strokeArc(size * 0.10, size * 0.14, size * 0.80, size * 0.50, 195, 150, ArcType.OPEN);
+        } else if (type == BirdType.PENGUIN || type == BirdType.SHOEBILL || type == BirdType.PELICAN) {
+            g.setStroke(Color.web("#80DEEA", 0.54));
+            g.setLineWidth(size * 0.018);
+            g.strokeArc(size * 0.15, size * 0.62, size * 0.70, size * 0.18, 180, 180, ArcType.OPEN);
+        }
+    }
+
+    private void drawCinematicVictorySprite(Canvas canvas, Bird bird, double size) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.clearRect(0, 0, size, size);
+        if (bird == null || bird.type == null) {
+            drawPackSilhouette(canvas, Color.web("#90A4AE"));
+            return;
+        }
+
+        Bird preview = new Bird(0, bird.type, Math.max(0, bird.playerIndex), this);
+        applyPreviewSkinChoiceToBird(preview, bird.type, skinKeyForBird(bird));
+        preview.suppressSelectEffects = false;
+        preview.attackAnimationTimer = 18;
+        preview.attackCooldown = 18;
+        preview.facingRight = true;
+        preview.health = Bird.STARTING_HEALTH;
+        preview.sizeMultiplier = cinematicVictoryScale(bird.type, size);
+        double drawSize = 80.0 * preview.sizeMultiplier;
+        preview.x = size * 0.50 - drawSize * 0.50 + cinematicVictoryXOffset(bird.type, size);
+        preview.y = size * 0.51 - drawSize * 0.50 + cinematicVictoryYOffset(bird.type, size);
+        preview.draw(g);
+    }
+
+    private double cinematicVictoryScale(BirdType type, double size) {
+        double base = size / 250.0;
+        if (type == null) return base;
+        return switch (type) {
+            case BAT -> base * 0.82;
+            case HUMMINGBIRD, TITMOUSE -> base * 1.16;
+            case TURKEY, GOOSE, PELICAN, VULTURE -> base * 0.92;
+            case SHOEBILL, PENGUIN -> base * 0.98;
+            case PHOENIX, FALCON, RAVEN -> base * 1.06;
+            default -> base;
+        };
+    }
+
+    private double cinematicVictoryXOffset(BirdType type, double size) {
+        if (type == null) return 0;
+        return switch (type) {
+            case BAT -> -size * 0.02;
+            case PELICAN, GOOSE -> -size * 0.035;
+            case HUMMINGBIRD, TITMOUSE -> size * 0.025;
+            default -> 0.0;
+        };
+    }
+
+    private double cinematicVictoryYOffset(BirdType type, double size) {
+        if (type == null) return 0;
+        return switch (type) {
+            case BAT -> size * 0.015;
+            case HUMMINGBIRD, TITMOUSE, FALCON -> -size * 0.03;
+            case TURKEY, PELICAN, GOOSE -> size * 0.035;
+            case PENGUIN, SHOEBILL -> size * 0.02;
+            default -> 0.0;
+        };
+    }
+
+    private void drawCinematicPoseFrontFx(GraphicsContext g, double size, BirdType type, Color accent) {
+        g.clearRect(0, 0, size, size);
+        Color base = accent == null ? Color.WHITE : accent.interpolate(Color.WHITE, 0.12);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setStroke(base.deriveColor(0, 1.0, 1.0, 0.66));
+        g.setLineWidth(size * 0.01);
+        for (int i = 0; i < 5; i++) {
+            double y = size * (0.22 + i * 0.08);
+            g.strokeLine(size * (0.06 + i * 0.03), y, size * (0.26 + i * 0.04), y - size * 0.055);
+        }
+        if (type == BirdType.PIGEON) {
+            drawVictorySmokePuff(g, size * 0.78, size * 0.32, size * 0.07, Color.rgb(230, 235, 240, 0.45));
+        } else if (type == BirdType.HEISENBIRD) {
+            drawVictoryCrystal(g, size * 0.72, size * 0.68, size * 0.08, Color.web("#4FC3F7"));
+            drawVictoryCrystal(g, size * 0.80, size * 0.70, size * 0.06, Color.web("#90CAF9"));
+        } else if (type == BirdType.ROOSTER) {
+            g.setStroke(Color.web("#FFEB3B", 0.76));
+            g.setLineWidth(size * 0.012);
+            g.strokeArc(size * 0.68, size * 0.22, size * 0.18, size * 0.16, 300, 230, ArcType.OPEN);
+        } else if (type == BirdType.PELICAN || type == BirdType.SHOEBILL || type == BirdType.PENGUIN) {
+            drawVictoryFish(g, size * 0.78, size * 0.62, size * 0.06, Color.web("#4FC3F7"), Color.web("#E1F5FE"));
+        } else if (type == BirdType.GRINCHHAWK) {
+            drawVictoryPresent(g, size * 0.18, size * 0.66, size * 0.10);
+        } else if (type == BirdType.VULTURE) {
+            drawVictoryBone(g, size * 0.20, size * 0.72, size * 0.07);
+        } else if (type == BirdType.HUMMINGBIRD) {
+            drawVictoryFlower(g, size * 0.78, size * 0.68, size * 0.055);
+        }
+        drawVictorySparkle(g, size * 0.75, size * 0.20, size * 0.035, Color.web("#FFF59D"));
+    }
+
+    private StackPane buildCinematicResultsPanel(List<Bird> rankedBirds, Bird winner, int coinsEarned, boolean teamSummaryMode) {
+        StackPane shell = new StackPane();
+        lockRegionSize(shell, 1736, 250);
+        shell.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(11,17,31,0.94), rgba(4,8,17,0.96));"
+                + "-fx-background-radius: 18;"
+                + "-fx-border-color: rgba(255,255,255,0.26);"
+                + "-fx-border-width: 2;"
+                + "-fx-border-radius: 18;");
+
+        HBox content = new HBox(22);
+        content.setAlignment(Pos.CENTER);
+        content.setPadding(new Insets(18, 22, 18, 22));
+
+        VBox table = buildCinematicResultsTable(rankedBirds, winner, teamSummaryMode);
+        VBox telemetry = buildCinematicTelemetrySummary(coinsEarned);
+        content.getChildren().addAll(table, telemetry);
+        shell.getChildren().add(content);
+        return shell;
+    }
+
+    private VBox buildCinematicResultsTable(List<Bird> rankedBirds, Bird winner, boolean teamSummaryMode) {
+        VBox table = new VBox(8);
+        table.setAlignment(Pos.TOP_LEFT);
+        lockRegionSize(table, 1062, 214);
+
+        HBox header = new HBox(16);
+        header.setAlignment(Pos.CENTER_LEFT);
+        Label title = cinematicResultsLabel(teamSummaryMode ? "TEAM RESULTS" : "MATCH RESULTS", 28, Color.WHITE, true);
+        Label context = cinematicResultsLabel(currentMatchHistoryMode() + "  |  " + mapDisplayName(selectedMap), 16, Color.web("#B8C7E8"), false);
+        header.getChildren().addAll(title, context);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(5);
+        grid.add(cinematicResultsLabel("PLACE", 15, Color.web("#8FA5CC"), true), 0, 0);
+        grid.add(cinematicResultsLabel("PLAYER", 15, Color.web("#8FA5CC"), true), 1, 0);
+        grid.add(cinematicResultsLabel("BIRD", 15, Color.web("#8FA5CC"), true), 2, 0);
+        grid.add(cinematicResultsLabel("KOs", 15, Color.web("#8FA5CC"), true), 3, 0);
+        grid.add(cinematicResultsLabel("DMG", 15, Color.web("#8FA5CC"), true), 4, 0);
+        grid.add(cinematicResultsLabel("FALLS", 15, Color.web("#8FA5CC"), true), 5, 0);
+        grid.add(cinematicResultsLabel(usesSmashCombatRules() ? "STOCK" : "SCORE", 15, Color.web("#8FA5CC"), true), 6, 0);
+
+        int rows = Math.min(5, rankedBirds == null ? 0 : rankedBirds.size());
+        for (int i = 0; i < rows; i++) {
+            Bird bird = rankedBirds.get(i);
+            boolean rowWinner = bird != null && winner != null && (
+                    teamSummaryMode ? getEffectiveTeam(bird.playerIndex) == getEffectiveTeam(winner.playerIndex) : bird == winner);
+            Color rowColor = rowWinner ? Color.web("#FFF176") : (i == 1 ? Color.web("#E0E0E0") : Color.web("#D7E3FF"));
+            int row = i + 1;
+            grid.add(cinematicResultsLabel(summaryPlaceText(i + 1), 19, summaryPlaceColor(i + 1), true), 0, row);
+            grid.add(cinematicResultsLabel(hudTrim(matchSummaryOwnerLabel(bird), 16), 18, rowColor, true), 1, row);
+            grid.add(cinematicResultsLabel(hudTrim(matchSummaryBirdLabel(bird), 18), 18, matchSummaryAccent(bird), true), 2, row);
+            grid.add(cinematicResultsLabel(String.valueOf(safeStat(eliminations, bird)), 18, rowColor, false), 3, row);
+            grid.add(cinematicResultsLabel(String.valueOf(safeStat(damageDealt, bird)), 18, rowColor, false), 4, row);
+            grid.add(cinematicResultsLabel(String.valueOf(safeStat(falls, bird)), 18, rowColor, false), 5, row);
+            grid.add(cinematicResultsLabel(String.valueOf(safeStat(scores, bird)), 18, rowColor, false), 6, row);
+        }
+
+        table.getChildren().addAll(header, grid);
+        return table;
+    }
+
+    private VBox buildCinematicTelemetrySummary(int coinsEarned) {
+        VBox box = new VBox(8);
+        box.setAlignment(Pos.TOP_LEFT);
+        lockRegionSize(box, 610, 214);
+
+        HBox header = new HBox(14);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.getChildren().addAll(
+                cinematicResultsLabel("REWARDS", 24, Color.web("#80DEEA"), true),
+                cinematicResultsLabel("BIRD COINS +" + coinsEarned + "  TOTAL " + birdCoinBalanceText(),
+                        17, Color.web("#FFE082"), true)
+        );
+
+        List<GameplayTelemetry.MoveSnapshot> moves = postMatchTelemetryMoveRows(3);
+        VBox moveBox = new VBox(5);
+        moveBox.getChildren().add(cinematicResultsLabel("TOP MOVES", 15, Color.web("#8FA5CC"), true));
+        if (moves.isEmpty()) {
+            moveBox.getChildren().add(cinematicResultsLabel("No damaging moves recorded.", 16, Color.web("#B8C7E8"), false));
+        } else {
+            for (GameplayTelemetry.MoveSnapshot move : moves) {
+                String line = String.format(Locale.ROOT, "%-31s %4d DMG  %2d KO",
+                        hudTrim(postMatchMoveName(move), 31), move.damage(), move.kos());
+                moveBox.getChildren().add(cinematicResultsLabel(line, 16, Color.web("#E8F4FF"), false));
+            }
+        }
+
+        List<GameplayTelemetry.BirdSnapshot> birds = gameplayTelemetry.currentMatchBirds();
+        VBox survivalBox = new VBox(5);
+        survivalBox.getChildren().add(cinematicResultsLabel("SURVIVAL", 15, Color.web("#8FA5CC"), true));
+        int limit = Math.min(2, birds.size());
+        if (limit == 0) {
+            survivalBox.getChildren().add(cinematicResultsLabel("No survival samples recorded.", 16, Color.web("#B8C7E8"), false));
+        } else {
+            for (int i = 0; i < limit; i++) {
+                GameplayTelemetry.BirdSnapshot bird = birds.get(i);
+                String line = String.format(Locale.ROOT, "%-18s %5.1fs AVG  %3d DMG",
+                        hudTrim(bird.birdName(), 18), bird.averageSurvivalSeconds(), bird.damage());
+                survivalBox.getChildren().add(cinematicResultsLabel(line, 16, Color.web("#E8F4FF"), false));
+            }
+        }
+
+        box.getChildren().addAll(header, moveBox, survivalBox);
+        return box;
+    }
+
+    private Label cinematicResultsLabel(String text, int size, Color color, boolean bold) {
+        Label label = new Label(text == null ? "" : text);
+        label.setFont(bold ? Font.font("Consolas", FontWeight.BOLD, size) : Font.font("Consolas", size));
+        label.setTextFill(color == null ? Color.WHITE : color);
+        label.setWrapText(false);
+        applyNoEllipsis(label);
+        return label;
+    }
+
+    private void drawCinematicResultsBackground(GraphicsContext g, Color accent, double timeSeconds) {
+        Color base = accent == null ? Color.web("#64B5F6") : accent;
+        g.clearRect(0, 0, WIDTH, HEIGHT);
+        for (int i = 0; i < 180; i++) {
+            double ratio = i / 179.0;
+            Color c = Color.web("#07101D").interpolate(Color.web("#17253D"), ratio);
+            g.setFill(c);
+            g.fillRect(0, i * (HEIGHT / 180.0), WIDTH, HEIGHT / 180.0 + 2);
+        }
+
+        double sweep = (timeSeconds * 120.0) % 760.0;
+        g.setFill(base.deriveColor(0, 0.90, 0.55, 0.18));
+        for (int i = -2; i < 5; i++) {
+            double x = i * 460.0 + sweep;
+            g.fillPolygon(
+                    new double[]{x - 420, x + 300, x + 180, x - 540},
+                    new double[]{0, 0, HEIGHT, HEIGHT},
+                    4
+            );
+        }
+
+        g.setStroke(Color.WHITE.deriveColor(0, 1.0, 1.0, 0.08));
+        g.setLineWidth(2);
+        for (int y = 0; y < HEIGHT; y += 38) {
+            g.strokeLine(0, y, WIDTH, y);
+        }
+        g.setStroke(base.interpolate(Color.WHITE, 0.38).deriveColor(0, 1.0, 1.0, 0.36));
+        g.setLineWidth(8);
+        g.strokeLine(0, 618, WIDTH, 516);
+        g.setLineWidth(3);
+        g.strokeLine(0, 642, WIDTH, 540);
+
+        g.setFill(Color.rgb(0, 0, 0, 0.36));
+        g.fillRect(0, 620, WIDTH, HEIGHT - 620);
+        g.setFill(Color.rgb(255, 255, 255, 0.06));
+        g.fillRect(0, 0, WIDTH, 72);
+    }
+
+    private void playCinematicResultsIntro(Node slashPlate, Node poseNode, Node titleBlock,
+                                           Node resultsPanel, Node buttons) {
+        FadeTransition slashFade = new FadeTransition(Duration.millis(190), slashPlate);
+        slashFade.setFromValue(0.0);
+        slashFade.setToValue(1.0);
+        TranslateTransition slashMove = new TranslateTransition(Duration.millis(260), slashPlate);
+        slashMove.setFromX(-360);
+        slashMove.setToX(0);
+
+        FadeTransition poseFade = new FadeTransition(Duration.millis(250), poseNode);
+        poseFade.setFromValue(0.0);
+        poseFade.setToValue(1.0);
+        TranslateTransition poseMove = new TranslateTransition(Duration.millis(360), poseNode);
+        poseMove.setFromX(260);
+        poseMove.setToX(0);
+        ScaleTransition poseScale = new ScaleTransition(Duration.millis(360), poseNode);
+        poseScale.setFromX(0.82);
+        poseScale.setFromY(0.82);
+        poseScale.setToX(1.0);
+        poseScale.setToY(1.0);
+
+        FadeTransition titleFade = new FadeTransition(Duration.millis(210), titleBlock);
+        titleFade.setFromValue(0.0);
+        titleFade.setToValue(1.0);
+        TranslateTransition titleMove = new TranslateTransition(Duration.millis(330), titleBlock);
+        titleMove.setFromX(-260);
+        titleMove.setToX(0);
+
+        FadeTransition resultsFade = new FadeTransition(Duration.millis(240), resultsPanel);
+        resultsFade.setFromValue(0.0);
+        resultsFade.setToValue(1.0);
+        TranslateTransition resultsMove = new TranslateTransition(Duration.millis(320), resultsPanel);
+        resultsMove.setFromY(190);
+        resultsMove.setToY(0);
+
+        FadeTransition buttonFade = new FadeTransition(Duration.millis(220), buttons);
+        buttonFade.setFromValue(0.0);
+        buttonFade.setToValue(1.0);
+        TranslateTransition buttonMove = new TranslateTransition(Duration.millis(260), buttons);
+        buttonMove.setFromY(80);
+        buttonMove.setToY(0);
+
+        SequentialTransition sequence = new SequentialTransition(
+                new ParallelTransition(slashFade, slashMove),
+                new ParallelTransition(poseFade, poseMove, poseScale, titleFade, titleMove),
+                new PauseTransition(Duration.millis(520)),
+                new ParallelTransition(resultsFade, resultsMove),
+                new PauseTransition(Duration.millis(120)),
+                new ParallelTransition(buttonFade, buttonMove)
+        );
+        sequence.play();
     }
 
     private VBox buildVictoryShowcase(List<Bird> rankedBirds) {
