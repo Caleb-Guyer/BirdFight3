@@ -9688,20 +9688,15 @@ public class BirdGame3 extends Application {
         }
 
         final long FRAME_TIME = 16_666_666L;   // exactly 60 FPS
+        // OS stalls (window drags, sleep) can make a single pulse look minutes long;
+        // anything past this is dropped instead of fast-forwarded.
+        final long MAX_ELAPSED = 250_000_000L;
         long frameNow = System.nanoTime();
-        long elapsed = frameNow - lastUpdate;
+        long elapsed = Math.min(frameNow - lastUpdate, MAX_ELAPSED);
         lastUpdate = frameNow;
 
         if (trainingModeActive && trainingFrameAdvancePause && trainingFrameAdvanceRequests <= 0) {
             accumulator = 0;
-            return;
-        }
-
-        if (hitstopFrames > 0) {
-            hitstopFrames--;
-            if (trainingModeActive && trainingFrameAdvancePause) {
-                trainingFrameAdvanceRequests--;
-            }
             return;
         }
 
@@ -9723,6 +9718,17 @@ public class BirdGame3 extends Application {
         int updates = 0;
 
         while (accumulator >= FRAME_TIME && updates < MAX_UPDATES) {
+            if (hitstopFrames > 0) {
+                hitstopFrames--;
+                accumulator -= FRAME_TIME;
+                updates++;
+                if (trainingModeActive && trainingFrameAdvancePause && trainingFrameAdvanceRequests > 0) {
+                    trainingFrameAdvanceRequests--;
+                    accumulator = 0;
+                    break;
+                }
+                continue;
+            }
             long playerUpdateNs = 0L;
             long worldUpdateNs = 0L;
             long effectsUpdateNs = 0L;
@@ -9773,6 +9779,11 @@ public class BirdGame3 extends Application {
                 accumulator = 0;
                 break;
             }
+        }
+        // Leftover time beyond one frame only exists when the update cap was hit;
+        // drop it so the game slows down instead of fast-forwarding to catch up.
+        if (accumulator > FRAME_TIME) {
+            accumulator = FRAME_TIME;
         }
         if (!particleEffectsEnabled && !particles.isEmpty()) {
             particles.clear();
@@ -19263,17 +19274,29 @@ public class BirdGame3 extends Application {
         });
 
         tdTimer[0] = new AnimationTimer() {
+            private final double step = 1.0 / 60.0;
             private long last = 0L;
+            private double acc = 0.0;
 
             @Override
             public void handle(long now) {
                 if (last == 0L) {
                     last = now;
                 }
-                double dt = Math.min(0.05, (now - last) / 1_000_000_000.0);
+                acc += Math.min(0.05, (now - last) / 1_000_000_000.0);
                 last = now;
                 if (!paused[0] && !debugOpen[0] && !mode.victory() && !mode.gameOver()) {
-                    mode.update(dt);
+                    int steps = 0;
+                    while (acc >= step && steps < 3) {
+                        mode.update(step);
+                        acc -= step;
+                        steps++;
+                    }
+                    if (acc > step) {
+                        acc = step;
+                    }
+                } else {
+                    acc = 0.0;
                 }
                 redraw[0].run();
                 refreshUi[0].run();
@@ -24954,6 +24977,8 @@ public class BirdGame3 extends Application {
         Runnable[] restartAction = new Runnable[1];
         Runnable[] exitAction = new Runnable[1];
         long[] trailerStartNs = {0L};
+        long[] trailerLastStepNs = {0L};
+        long[] trailerStepAccumulatorNs = {0L};
         boolean[] musicCut = {false};
         boolean[] overlayHidden = {false};
         int[] trailerScene = {-1};
@@ -25040,6 +25065,8 @@ public class BirdGame3 extends Application {
         restartAction[0] = () -> {
             resetTrailerBirds.run();
             trailerStartNs[0] = System.nanoTime();
+            trailerLastStepNs[0] = 0L;
+            trailerStepAccumulatorNs[0] = 0L;
             musicCut[0] = false;
             trailerScene[0] = -1;
             trailerCues.clear();
@@ -25074,6 +25101,9 @@ public class BirdGame3 extends Application {
             public void handle(long now) {
                 if (trailerStartNs[0] == 0L) {
                     trailerStartNs[0] = now;
+                }
+                if (trailerLastStepNs[0] == 0L) {
+                    trailerLastStepNs[0] = now;
                 }
 
                 double elapsed = Math.min(finalShotEnd, (now - trailerStartNs[0]) / 1_000_000_000.0);
@@ -25698,10 +25728,26 @@ public class BirdGame3 extends Application {
                     playAchievementSfx();
                 });
 
-                for (Bird bird : drawBirds) {
-                    bird.advanceTrailerPresentationFrame();
+                trailerStepAccumulatorNs[0] += Math.min(now - trailerLastStepNs[0], 250_000_000L);
+                trailerLastStepNs[0] = now;
+                int trailerSteps = 0;
+                while (trailerStepAccumulatorNs[0] >= 16_666_666L && trailerSteps < 4) {
+                    for (Bird bird : drawBirds) {
+                        bird.advanceTrailerPresentationFrame();
+                    }
+                    updateParticlesFixed();
+                    if (shakeIntensity > 0.0) {
+                        shakeIntensity *= 0.9;
+                        if (shakeIntensity < 0.5) {
+                            shakeIntensity = 0.0;
+                        }
+                    }
+                    trailerStepAccumulatorNs[0] -= 16_666_666L;
+                    trailerSteps++;
                 }
-                updateParticlesFixed();
+                if (trailerStepAccumulatorNs[0] > 16_666_666L) {
+                    trailerStepAccumulatorNs[0] = 16_666_666L;
+                }
 
                 back.setOpacity(overlayHidden[0] ? 0.0 : (elapsed < updateCardEnd ? 0.26 : 0.82));
                 hint.setOpacity(overlayHidden[0] ? 0.0 : (elapsed < updateCardEnd ? 0.12 : 0.82));
@@ -25709,10 +25755,6 @@ public class BirdGame3 extends Application {
                 if (screenShakeEnabled && shakeIntensity > 0.0) {
                     currentRenderShakeX = (Math.random() - 0.5) * shakeIntensity * 2.0;
                     currentRenderShakeY = (Math.random() - 0.5) * shakeIntensity * 2.0;
-                    shakeIntensity *= 0.9;
-                    if (shakeIntensity < 0.5) {
-                        shakeIntensity = 0.0;
-                    }
                 } else if (!screenShakeEnabled) {
                     shakeIntensity = 0.0;
                 }

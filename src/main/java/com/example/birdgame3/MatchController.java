@@ -614,12 +614,15 @@ final class MatchController {
             }
             final Stage finalStage = game.currentStage;
             new AnimationTimer() {
-                private int framesLeft = 90;
+                private static final long DELAY_NS = 1_500_000_000L; // 90 frames at 60 FPS
+                private long startNs = 0L;
 
                 @Override
                 public void handle(long now) {
-                    if (framesLeft > 0) {
-                        framesLeft--;
+                    if (startNs == 0L) {
+                        startNs = now;
+                    }
+                    if (now - startNs < DELAY_NS) {
                         return;
                     }
                     stop();
@@ -642,13 +645,19 @@ final class MatchController {
         final Bird finalWinner = winner;
         final Stage finalStage = game.currentStage;
         new AnimationTimer() {
-            private int framesLeft = 100;
+            private static final long DELAY_NS = 1_666_666_666L;      // 100 frames at 60 FPS
+            private static final long BURST_INTERVAL_NS = 50_000_000L; // every 3 frames at 60 FPS
+            private long startNs = 0L;
+            private long nextBurstNs = 0L;
 
             @Override
             public void handle(long now) {
-                if (framesLeft > 0) {
-                    framesLeft--;
-                    if (finalWinner != null && framesLeft % 3 == 0) {
+                if (startNs == 0L) {
+                    startNs = now;
+                    nextBurstNs = now;
+                }
+                if (now - startNs < DELAY_NS) {
+                    if (finalWinner != null && now >= nextBurstNs) {
                         for (int i = 0; i < 15; i++) {
                             double angle = Math.random() * Math.PI * 2;
                             double spd = 6 + Math.random() * 16;
@@ -660,6 +669,7 @@ final class MatchController {
                                     Color.GOLD.deriveColor(0, 1, 1, 0.95)
                             ));
                         }
+                        nextBurstNs += BURST_INTERVAL_NS;
                     }
                     return;
                 }
