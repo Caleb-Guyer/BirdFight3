@@ -383,6 +383,14 @@ public class Bird {
     private int jumpSquatTimer = 0;
     private boolean shortHopQueued = false;
     private boolean jumpHeldLastFrame = false;
+
+    // Input-feel windows (60 Hz sim ticks): late/early presses still count.
+    private static final int JUMP_BUFFER_FRAMES = 7;   // ~117 ms before landing
+    private static final int COYOTE_FRAMES = 6;        // ~100 ms after leaving a ledge
+    private static final int ATTACK_BUFFER_FRAMES = 8; // ~133 ms before cooldown ends
+    private int jumpBufferFrames = 0;
+    private int coyoteFrames = 0;
+    private int attackBufferFrames = 0;
     public boolean loungeActive = false;
     public boolean isCitySkin = false;
     public boolean isNoirSkin = false;
@@ -3768,6 +3776,12 @@ public class Bird {
 
     private boolean handleAttackInput(boolean canCharge) {
         boolean held = attackPressed();
+        boolean pressedEdge = held && !attackHeldLastFrame;
+        if (attackBufferFrames > 0) attackBufferFrames--;
+        if (pressedEdge && attackCooldown > 0 && !isBlocking
+                && !isChargingAttack() && !isGroundAttackPending()) {
+            attackBufferFrames = ATTACK_BUFFER_FRAMES;
+        }
         boolean attackLocked = isChargingAttack() || isGroundAttackPending();
 
         if (isChargingAttack()) {
@@ -3793,7 +3807,8 @@ public class Bird {
                     emitAttackChargeParticles();
                 }
             }
-        } else if (held && !attackHeldLastFrame && attackCooldown <= 0 && !isBlocking) {
+        } else if ((pressedEdge || attackBufferFrames > 0) && attackCooldown <= 0 && !isBlocking) {
+            attackBufferFrames = 0;
             NormalAttackVariant variant = selectNormalAttackVariant(isOnGround());
             if (canCharge && isOnGround() && isGroundedDirectionalTiltVariant(variant)) {
                 pendingGroundAttackFrames = 1;
@@ -9276,6 +9291,14 @@ public class Bird {
         boolean blockHeld = blockPressed();
         boolean reserveJumpForSpecial = !stunned && shouldReserveJumpForSpecial();
         boolean jumpJustPressed = jumpHeld && !jumpHeldLastFrame && !reserveJumpForSpecial;
+        if (jumpBufferFrames > 0) jumpBufferFrames--;
+        // Jump pressed together with special is a special-move combo, not a jump intent.
+        if (jumpJustPressed && !specialHeld) jumpBufferFrames = JUMP_BUFFER_FRAMES;
+        if (!airborne) {
+            coyoteFrames = COYOTE_FRAMES;
+        } else if (coyoteFrames > 0) {
+            coyoteFrames--;
+        }
         boolean grabJustPressed = grabHeld && !grabHeldLastFrame;
         boolean leftJustPressed = leftHeld && !leftHeldLastFrame;
         boolean rightJustPressed = rightHeld && !rightHeldLastFrame;
@@ -10401,6 +10424,7 @@ public class Bird {
             jumpScale *= opiumDrowsyUltimate ? 0.76 : 0.86;
         }
         clearJumpSquat();
+        coyoteFrames = 0;
         vy = -type.jumpHeight * jumpScale;
         game.playSwingSfx();
         recordJumpHeightAchievements();
@@ -11381,15 +11405,21 @@ public class Bird {
             boolean canJump = !attackLocked
                     && !grabLocked
                     && shieldStunFrames <= 0
-                    && (isOnGround() || (type == BirdGame3.BirdType.PIGEON && canDoubleJump));
+                    && (isOnGround() || coyoteFrames > 0 || (type == BirdGame3.BirdType.PIGEON && canDoubleJump));
+            boolean wantsJump = jumpJustPressed || (jumpBufferFrames > 0 && isOnGround());
             if (jumpSquatting) {
                 advanceGroundJumpSquat(jumpHeld, gameSpeed);
                 jumpSquatting = jumpSquatTimer > 0;
-            } else if (jumpJustPressed && canJump) {
+            } else if (wantsJump && canJump) {
+                jumpBufferFrames = 0;
                 if (isOnGround()) {
                     startGroundJumpSquat();
                     advanceGroundJumpSquat(jumpHeld, gameSpeed);
                     jumpSquatting = jumpSquatTimer > 0;
+                } else if (coyoteFrames > 0) {
+                    // Walked off a ledge moments ago: still grant the full ground jump.
+                    shortHopQueued = false;
+                    launchGroundJump();
                 } else {
                     double jumpScale = turkeyStuffedTimer > 0
                             ? (turkeyStuffedUltimate ? 0.60 : 0.68)
@@ -13298,6 +13328,9 @@ public class Bird {
         displayPose = null;
         resetDodgeState();
         clearJumpSquat();
+        jumpBufferFrames = 0;
+        coyoteFrames = 0;
+        attackBufferFrames = 0;
         jumpHeldLastFrame = false;
         specialHeldLastFrame = false;
         blockHeldLastFrame = false;
@@ -14346,6 +14379,9 @@ public class Bird {
         this.attackHeldLastFrame = false;
         this.jumpHeldLastFrame = false;
         this.specialHeldLastFrame = false;
+        this.jumpBufferFrames = 0;
+        this.coyoteFrames = 0;
+        this.attackBufferFrames = 0;
         this.blockHeldLastFrame = false;
         this.grabHeldLastFrame = false;
         this.leftHeldLastFrame = false;

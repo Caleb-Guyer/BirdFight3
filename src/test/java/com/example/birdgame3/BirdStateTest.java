@@ -5069,6 +5069,102 @@ class BirdStateTest {
                 .toList();
     }
 
+    @Test
+    void jumpPressedJustBeforeLandingIsBuffered() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        game.players[0] = bird;
+
+        bird.y = BirdGame3.GROUND_Y - 200.0;
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        bird.update(1.0);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        assertTrue(getPrivateInt(bird, "jumpBufferFrames") > 0,
+                "An airborne jump press should be buffered.");
+
+        bird.y = BirdGame3.GROUND_Y - 80.0;
+        bird.vy = 0.0;
+        bird.update(1.0);
+
+        assertTrue(getPrivateInt(bird, "jumpSquatTimer") > 0 || bird.vy < 0,
+                "A buffered jump should fire on landing.");
+        assertEquals(0, getPrivateInt(bird, "jumpBufferFrames"),
+                "The jump buffer should be consumed by the buffered jump.");
+    }
+
+    @Test
+    void coyoteTimeAllowsJumpJustAfterLeavingLedge() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        game.players[0] = bird;
+
+        bird.y = BirdGame3.GROUND_Y - 80.0;
+        bird.update(1.0);
+        assertTrue(getPrivateInt(bird, "coyoteFrames") > 0,
+                "Standing on the ground should refresh coyote time.");
+
+        bird.y = BirdGame3.GROUND_Y - 200.0;
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        bird.update(1.0);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        assertTrue(bird.vy < 0, "Jumping within the coyote window should launch a full jump.");
+        assertEquals(0, getPrivateInt(bird, "coyoteFrames"),
+                "Coyote time should be consumed by the jump.");
+    }
+
+    @Test
+    void jumpPressedWithSpecialHeldIsNotBuffered() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        game.players[0] = bird;
+
+        bird.y = BirdGame3.GROUND_Y - 200.0;
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        bird.update(1.0);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+
+        assertEquals(0, getPrivateInt(bird, "jumpBufferFrames"),
+                "Jump pressed together with special is a special combo and must not buffer a jump.");
+    }
+
+    @Test
+    void attackPressedDuringCooldownIsBufferedNearExpiry() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird bird = new Bird(190.0, BirdGame3.BirdType.EAGLE, 0, game);
+        game.players[0] = bird;
+        bird.y = BirdGame3.GROUND_Y - 80.0;
+
+        setPrivateInt(bird, "attackCooldown", 5);
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), true);
+        bird.update(1.0);
+        game.setLocalActionsForKey(game.attackKeyForPlayer(0), false);
+
+        assertTrue(getPrivateInt(bird, "attackBufferFrames") > 0,
+                "An attack press during cooldown should be buffered.");
+
+        for (int i = 0; i < 6 && getPrivateInt(bird, "attackCooldown") > 0; i++) {
+            bird.update(1.0);
+        }
+        bird.update(1.0);
+
+        assertTrue(getPrivateInt(bird, "attackCooldown") > 0,
+                "The buffered attack should fire once the cooldown expires.");
+        assertEquals(0, getPrivateInt(bird, "attackBufferFrames"),
+                "The attack buffer should be consumed when the attack fires.");
+    }
+
     private static void setPrivateInt(Object target, String fieldName, int value) throws Exception {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
