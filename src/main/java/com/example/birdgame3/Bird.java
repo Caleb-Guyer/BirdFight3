@@ -847,6 +847,9 @@ public class Bird {
     int parryWindowFrames = 0;
     double shieldHoldVisual = 0.0;
     private AttackVisualPose displayPose = null;
+    private BirdAnimationState animationState = BirdAnimationState.IDLE;
+    private double animationStateFrame = 0.0;
+    private double animationGlobalFrame = 0.0;
     private DodgeType dodgeType = DodgeType.NONE;
     private int dodgeTimer = 0;
     private int dodgeInvulnerabilityTimer = 0;
@@ -9600,6 +9603,7 @@ public class Bird {
             if (tauntTimer > 0) tauntTimer--;
             rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
         } finally {
+            updateAnimationState(gameSpeed);
             updateDisplayPose(gameSpeed);
         }
     }
@@ -15760,6 +15764,11 @@ public class Bird {
         return 1.0 - Math.pow(1.0 - Math.clamp(perFrameBlend, 0.0, 1.0), Math.max(0.0, gameSpeed));
     }
 
+    private static double smoothStep(double value) {
+        double t = Math.clamp(value, 0.0, 1.0);
+        return t * t * (3.0 - 2.0 * t);
+    }
+
     private static double blendValue(double current, double target, double blend) {
         return current + (target - current) * blend;
     }
@@ -15789,6 +15798,219 @@ public class Bird {
                 blendValue(current.spriteScaleX(), target.spriteScaleX(), blend),
                 blendValue(current.spriteScaleY(), target.spriteScaleY(), blend)
         );
+    }
+
+    private static AttackVisualPose addAttackVisualPose(AttackVisualPose base, AttackVisualPose layer) {
+        if (base == null) return layer;
+        if (layer == null) return base;
+        return new AttackVisualPose(
+                base.translateX() + layer.translateX(),
+                base.translateY() + layer.translateY(),
+                base.bodyRotationDegrees() + layer.bodyRotationDegrees(),
+                normalizeAngleRadians(base.aimAngleRadians() + normalizeAngleRadians(layer.aimAngleRadians())),
+                base.headReachBonus() + layer.headReachBonus(),
+                base.headLift() + layer.headLift(),
+                base.beakLengthBonus() + layer.beakLengthBonus(),
+                base.beakOpenScale() * layer.beakOpenScale(),
+                base.spriteRotationDegrees() + layer.spriteRotationDegrees(),
+                base.spriteScaleX() * layer.spriteScaleX(),
+                base.spriteScaleY() * layer.spriteScaleY()
+        );
+    }
+
+    private record AnimationKeyframe(double frame, AttackVisualPose pose) {
+    }
+
+    private record AnimationClip(boolean loop, double durationFrames, AnimationKeyframe... keys) {
+        AttackVisualPose sample(double frame) {
+            if (keys == null || keys.length == 0) {
+                return ZERO_ANIMATION_POSE;
+            }
+            if (keys.length == 1 || durationFrames <= 0.0) {
+                return keys[0].pose();
+            }
+            double localFrame = loop
+                    ? positiveModulo(frame, durationFrames)
+                    : Math.clamp(frame, 0.0, durationFrames);
+            AnimationKeyframe previous = keys[0];
+            AnimationKeyframe next = keys[keys.length - 1];
+            for (int i = 1; i < keys.length; i++) {
+                next = keys[i];
+                if (localFrame <= next.frame()) {
+                    break;
+                }
+                previous = next;
+            }
+            double span = Math.max(0.001, next.frame() - previous.frame());
+            double blend = smoothStep((localFrame - previous.frame()) / span);
+            return blendAttackVisualPose(previous.pose(), next.pose(), blend);
+        }
+    }
+
+    private static final AttackVisualPose ZERO_ANIMATION_POSE =
+            new AttackVisualPose(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+
+    private static AttackVisualPose pose(double tx, double ty, double bodyDeg, double aimRad,
+                                         double headReach, double headLift, double beakBonus,
+                                         double beakOpen, double spriteDeg, double scaleX, double scaleY) {
+        return new AttackVisualPose(tx, ty, bodyDeg, aimRad, headReach, headLift, beakBonus,
+                beakOpen, spriteDeg, scaleX, scaleY);
+    }
+
+    private static double positiveModulo(double value, double mod) {
+        if (mod <= 0.0) return 0.0;
+        double result = value % mod;
+        return result < 0.0 ? result + mod : result;
+    }
+
+    private AnimationClip currentAnimationClip(BirdAnimationState state, NormalAttackVariant variant) {
+        if (variant != null) {
+            return normalAttackAnimationClip(variant);
+        }
+        return switch (state) {
+            case IDLE -> IDLE_CLIP;
+            case FLAP -> FLAP_CLIP;
+            case FALL -> FALL_CLIP;
+            case ATTACK -> GENERIC_ATTACK_CLIP;
+            case HITSTUN -> HITSTUN_CLIP;
+            case SHIELD -> SHIELD_CLIP;
+            case DODGE -> DODGE_CLIP;
+            case KO -> KO_CLIP;
+        };
+    }
+
+    private AnimationClip normalAttackAnimationClip(NormalAttackVariant variant) {
+        if (variant == null) return GENERIC_ATTACK_CLIP;
+        return switch (variant) {
+            case SIDE_SMASH, UP_SMASH, DOWN_SMASH -> SMASH_ATTACK_CLIP;
+            case FORWARD_AIR, BACK_AIR, UP_AIR, DOWN_AIR, NEUTRAL_AIR -> AERIAL_ATTACK_CLIP;
+            default -> TILT_ATTACK_CLIP;
+        };
+    }
+
+    private AttackVisualPose currentAnimationLayerPose(NormalAttackVariant variant) {
+        if (suppressSelectEffects) {
+            return ZERO_ANIMATION_POSE;
+        }
+        AnimationClip clip = currentAnimationClip(animationState, variant);
+        double frame = animationStateFrame + playerIndex * 2.5;
+        AttackVisualPose sampled = clip.sample(frame);
+        BirdVisualProfile profile = currentVisualProfile();
+        double agility = profile == null ? 1.0 : profile.agility();
+        double mass = profile == null ? 1.0 : profile.mass();
+        double speed = Math.clamp(Math.hypot(vx, vy) / 18.0, 0.0, 1.0);
+        double xScale = 0.82 + agility * 0.18;
+        double yScale = 0.85 + mass * 0.15;
+        double actionScale = variant != null ? 1.0 : switch (animationState) {
+            case IDLE -> 0.72 + agility * 0.16;
+            case FLAP, FALL -> 0.95 + speed * 0.30;
+            case HITSTUN, KO -> 1.05 + mass * 0.18;
+            default -> 1.0;
+        };
+        double dir = facingRight ? 1.0 : -1.0;
+        return new AttackVisualPose(
+                sampled.translateX() * xScale * actionScale * dir,
+                sampled.translateY() * yScale * actionScale,
+                sampled.bodyRotationDegrees() * actionScale * dir,
+                sampled.aimAngleRadians(),
+                sampled.headReachBonus() * actionScale,
+                sampled.headLift() * actionScale,
+                sampled.beakLengthBonus() * actionScale,
+                sampled.beakOpenScale(),
+                sampled.spriteRotationDegrees() * actionScale * dir,
+                sampled.spriteScaleX(),
+                sampled.spriteScaleY()
+        );
+    }
+
+    private static final AnimationClip IDLE_CLIP = new AnimationClip(true, 64.0,
+            new AnimationKeyframe(0.0, pose(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.00, 0.0, 1.00, 1.00)),
+            new AnimationKeyframe(16.0, pose(0.3, -1.1, 0.9, 0.0, 0.6, -1.0, 0.0, 1.02, 0.8, 0.99, 1.025)),
+            new AnimationKeyframe(32.0, pose(0.0, -1.7, 0.0, 0.0, 0.9, -1.4, 0.0, 1.04, 0.0, 0.985, 1.04)),
+            new AnimationKeyframe(48.0, pose(-0.3, -0.6, -0.8, 0.0, 0.4, -0.5, 0.0, 1.01, -0.7, 0.995, 1.015)),
+            new AnimationKeyframe(64.0, pose(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.00, 0.0, 1.00, 1.00))
+    );
+
+    private static final AnimationClip FLAP_CLIP = new AnimationClip(true, 18.0,
+            new AnimationKeyframe(0.0, pose(0.0, 1.8, 2.0, 0.0, 1.5, 1.0, 0.0, 1.02, 5.0, 1.08, 0.92)),
+            new AnimationKeyframe(5.0, pose(0.0, -5.5, -4.5, 0.0, 5.0, -5.5, 2.0, 1.12, -13.0, 0.90, 1.16)),
+            new AnimationKeyframe(10.0, pose(0.0, -2.0, 2.8, 0.0, 2.5, -2.0, 1.0, 1.05, 8.0, 1.06, 0.95)),
+            new AnimationKeyframe(18.0, pose(0.0, 1.8, 2.0, 0.0, 1.5, 1.0, 0.0, 1.02, 5.0, 1.08, 0.92))
+    );
+
+    private static final AnimationClip FALL_CLIP = new AnimationClip(true, 36.0,
+            new AnimationKeyframe(0.0, pose(0.0, 2.8, 2.5, 0.0, 0.0, 2.0, 0.0, 0.94, 7.0, 0.96, 1.05)),
+            new AnimationKeyframe(18.0, pose(0.0, 4.8, 4.0, 0.0, -0.5, 4.0, 0.0, 0.90, 12.0, 0.94, 1.08)),
+            new AnimationKeyframe(36.0, pose(0.0, 2.8, 2.5, 0.0, 0.0, 2.0, 0.0, 0.94, 7.0, 0.96, 1.05))
+    );
+
+    private static final AnimationClip TILT_ATTACK_CLIP = new AnimationClip(false, 18.0,
+            new AnimationKeyframe(0.0, pose(-4.0, 2.0, -7.0, 0.0, -2.0, 1.5, -1.5, 0.92, -6.0, 0.94, 1.06)),
+            new AnimationKeyframe(5.0, pose(7.0, -3.0, 8.0, 0.0, 7.0, -3.0, 6.0, 1.14, 7.0, 1.14, 0.88)),
+            new AnimationKeyframe(10.0, pose(3.0, -1.0, 3.0, 0.0, 4.0, -1.0, 3.0, 1.06, 3.0, 1.03, 0.97)),
+            new AnimationKeyframe(18.0, ZERO_ANIMATION_POSE)
+    );
+
+    private static final AnimationClip SMASH_ATTACK_CLIP = new AnimationClip(false, 28.0,
+            new AnimationKeyframe(0.0, pose(-8.0, 4.0, -12.0, 0.0, -4.0, 2.0, -2.0, 0.86, -10.0, 0.88, 1.12)),
+            new AnimationKeyframe(9.0, pose(-11.0, 5.0, -16.0, 0.0, -5.0, 3.0, -2.0, 0.82, -12.0, 0.86, 1.14)),
+            new AnimationKeyframe(13.0, pose(15.0, -6.0, 16.0, 0.0, 13.0, -6.0, 11.0, 1.28, 14.0, 1.22, 0.80)),
+            new AnimationKeyframe(19.0, pose(5.0, -2.0, 6.0, 0.0, 6.0, -2.0, 4.0, 1.10, 6.0, 1.05, 0.95)),
+            new AnimationKeyframe(28.0, ZERO_ANIMATION_POSE)
+    );
+
+    private static final AnimationClip AERIAL_ATTACK_CLIP = new AnimationClip(false, 20.0,
+            new AnimationKeyframe(0.0, pose(-3.0, -1.0, -8.0, 0.0, 0.0, -1.0, 0.0, 0.94, -10.0, 0.96, 1.05)),
+            new AnimationKeyframe(6.0, pose(8.0, -5.0, 12.0, 0.0, 9.0, -5.0, 8.0, 1.18, 15.0, 1.15, 0.87)),
+            new AnimationKeyframe(13.0, pose(2.0, -2.0, 5.0, 0.0, 4.0, -2.0, 3.0, 1.08, 6.0, 1.04, 0.96)),
+            new AnimationKeyframe(20.0, ZERO_ANIMATION_POSE)
+    );
+
+    private static final AnimationClip GENERIC_ATTACK_CLIP = TILT_ATTACK_CLIP;
+
+    private static final AnimationClip HITSTUN_CLIP = new AnimationClip(false, 22.0,
+            new AnimationKeyframe(0.0, pose(-10.0, -4.0, -18.0, 0.0, -2.0, 2.0, -1.0, 0.78, -18.0, 0.84, 1.16)),
+            new AnimationKeyframe(7.0, pose(-6.0, -2.0, -10.0, 0.0, -1.0, 1.0, -1.0, 0.86, -10.0, 0.91, 1.09)),
+            new AnimationKeyframe(22.0, pose(-2.0, 0.0, -3.0, 0.0, 0.0, 0.0, 0.0, 0.96, -3.0, 0.98, 1.02))
+    );
+
+    private static final AnimationClip SHIELD_CLIP = new AnimationClip(true, 28.0,
+            new AnimationKeyframe(0.0, pose(-2.0, 3.0, -4.0, 0.0, -2.0, 2.0, -1.0, 0.88, -3.0, 1.04, 0.91)),
+            new AnimationKeyframe(14.0, pose(-2.5, 4.0, -5.0, 0.0, -2.5, 2.5, -1.0, 0.86, -4.0, 1.06, 0.89)),
+            new AnimationKeyframe(28.0, pose(-2.0, 3.0, -4.0, 0.0, -2.0, 2.0, -1.0, 0.88, -3.0, 1.04, 0.91))
+    );
+
+    private static final AnimationClip DODGE_CLIP = new AnimationClip(false, 20.0,
+            new AnimationKeyframe(0.0, pose(-2.0, 2.0, 6.0, 0.0, 0.0, 0.0, 0.0, 0.90, 8.0, 1.18, 0.74)),
+            new AnimationKeyframe(9.0, pose(4.0, -3.0, 22.0, 0.0, 0.0, 0.0, 0.0, 1.02, 30.0, 1.02, 0.92)),
+            new AnimationKeyframe(20.0, ZERO_ANIMATION_POSE)
+    );
+
+    private static final AnimationClip KO_CLIP = new AnimationClip(false, 48.0,
+            new AnimationKeyframe(0.0, pose(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.92, 0.0, 0.98, 1.02)),
+            new AnimationKeyframe(14.0, pose(0.0, 10.0, 22.0, 0.0, -2.0, 5.0, -1.0, 0.72, 18.0, 1.10, 0.75)),
+            new AnimationKeyframe(48.0, pose(0.0, 14.0, 30.0, 0.0, -2.0, 7.0, -1.0, 0.66, 26.0, 1.14, 0.70))
+    );
+
+    private void updateAnimationState(double gameSpeed) {
+        if (gameSpeed <= 0.0) {
+            return;
+        }
+        BirdAnimationState nextState = currentBirdAnimationState();
+        if (nextState != animationState) {
+            animationState = nextState;
+            animationStateFrame = 0.0;
+        } else {
+            animationStateFrame += gameSpeed;
+        }
+        animationGlobalFrame += gameSpeed;
+        if (animationGlobalFrame > 100_000.0) {
+            animationGlobalFrame = positiveModulo(animationGlobalFrame, 10_000.0);
+        }
+    }
+
+    private double animationTimeMillis() {
+        return animationGlobalFrame * (1000.0 / 60.0);
     }
 
     private double currentVisualPoseBlendPerFrame() {
@@ -15867,6 +16089,7 @@ public class Bird {
     private AttackVisualPose currentEagleStatePose(BirdAnimationState state) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 18.0);
+        double now = animationTimeMillis() + playerIndex * 109.0;
         return switch (state) {
             case FLAP -> new AttackVisualPose(
                     dir * (2.0 + speed * 2.0),
@@ -15962,15 +16185,15 @@ public class Bird {
             case IDLE -> {
                 double squash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 10.0) : 0.0;
                 yield new AttackVisualPose(
-                        dir * Math.sin(System.currentTimeMillis() / 520.0) * 0.6,
+                        dir * Math.sin(now / 520.0) * 0.6,
                         4.0 * squash,
-                        dir * Math.sin(System.currentTimeMillis() / 560.0) * 1.4,
+                        dir * Math.sin(now / 560.0) * 1.4,
                         facingRight ? 0.0 : Math.PI,
                         0.0,
-                        -1.2 * Math.sin(System.currentTimeMillis() / 420.0),
+                        -1.2 * Math.sin(now / 420.0),
                         0.0,
                         1.0,
-                        dir * Math.sin(System.currentTimeMillis() / 680.0) * 1.5,
+                        dir * Math.sin(now / 680.0) * 1.5,
                         1.0 + squash * 0.10,
                         1.0 - squash * 0.12
                 );
@@ -16070,7 +16293,7 @@ public class Bird {
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 16.0);
         double agility = profile.agility();
         double mass = profile.mass();
-        double now = System.currentTimeMillis() + playerIndex * 137.0;
+        double now = animationTimeMillis() + playerIndex * 137.0;
         return switch (state) {
             case FLAP -> new AttackVisualPose(
                     dir * (1.5 + speed * 2.2) * agility,
@@ -16187,7 +16410,7 @@ public class Bird {
     private AttackVisualPose currentGooseStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 14.0);
-        double now = System.currentTimeMillis() + playerIndex * 181.0;
+        double now = animationTimeMillis() + playerIndex * 181.0;
         double sway = Math.sin(now / 520.0);
         double neckBob = Math.sin(now / 260.0);
         double territory = Math.clamp(gooseTerritoryMeter / GOOSE_TERRITORY_MAX, 0.0, 1.0);
@@ -16310,7 +16533,7 @@ public class Bird {
     private AttackVisualPose currentMockingbirdStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 15.0);
-        double now = System.currentTimeMillis() + playerIndex * 149.0;
+        double now = animationTimeMillis() + playerIndex * 149.0;
         double tilt = Math.sin(now / 240.0);
         double trill = Math.sin(now / 118.0);
         double copied = mockingbirdCapturedType != null || mockingbirdCopiedNeutralSource != null ? 1.0 : 0.0;
@@ -16429,7 +16652,7 @@ public class Bird {
     private AttackVisualPose currentGrinchhawkStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 14.0);
-        double now = System.currentTimeMillis() + playerIndex * 157.0;
+        double now = animationTimeMillis() + playerIndex * 157.0;
         double hunch = Math.sin(now / 360.0);
         double snarl = Math.sin(now / 180.0);
         return switch (state) {
@@ -16546,7 +16769,7 @@ public class Bird {
     private AttackVisualPose currentOpiumStatePose(BirdAnimationState state, BirdVisualProfile profile, boolean heisen) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / (heisen ? 16.0 : 14.0));
-        double now = System.currentTimeMillis() + playerIndex * (heisen ? 173.0 : 167.0);
+        double now = animationTimeMillis() + playerIndex * (heisen ? 173.0 : 167.0);
         double drift = Math.sin(now / (heisen ? 300.0 : 360.0));
         double pulse = Math.sin(now / (heisen ? 150.0 : 220.0));
         double resourceLow = 1.0 - Math.clamp(opiumResourceMeter / OPIUM_RESOURCE_MAX, 0.0, 1.0);
@@ -16667,7 +16890,7 @@ public class Bird {
     private AttackVisualPose currentPigeonStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 15.0);
-        double now = System.currentTimeMillis() + playerIndex * 131.0;
+        double now = animationTimeMillis() + playerIndex * 131.0;
         double bob = Math.sin(now / 210.0);
         double peck = Math.sin(now / 115.0);
         return switch (state) {
@@ -16785,7 +17008,7 @@ public class Bird {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 17.0);
         double rebornBoost = phoenixRebornActive ? 1.18 : 1.0;
-        double now = System.currentTimeMillis() + playerIndex * 199.0;
+        double now = animationTimeMillis() + playerIndex * 199.0;
         double ember = Math.sin(now / 300.0);
         double flare = Math.sin(now / 150.0);
         return switch (state) {
@@ -16902,7 +17125,7 @@ public class Bird {
     private AttackVisualPose currentRoosterStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 15.0);
-        double now = System.currentTimeMillis() + playerIndex * 163.0;
+        double now = animationTimeMillis() + playerIndex * 163.0;
         double strut = Math.sin(now / 280.0);
         double chest = Math.sin(now / 420.0);
         return switch (state) {
@@ -17019,7 +17242,7 @@ public class Bird {
     private AttackVisualPose currentHummingbirdStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 17.0);
-        double now = System.currentTimeMillis() + playerIndex * 223.0;
+        double now = animationTimeMillis() + playerIndex * 223.0;
         double hover = Math.sin(now / 46.0);
         double dart = Math.sin(now / 170.0);
         return switch (state) {
@@ -17136,7 +17359,7 @@ public class Bird {
     private AttackVisualPose currentRazorbillStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 17.0);
-        double now = System.currentTimeMillis() + playerIndex * 191.0;
+        double now = animationTimeMillis() + playerIndex * 191.0;
         double edge = Math.sin(now / 390.0);
         return switch (state) {
             case IDLE -> {
@@ -17252,7 +17475,7 @@ public class Bird {
     private AttackVisualPose currentBatStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 17.0);
-        double now = System.currentTimeMillis() + playerIndex * 113.0;
+        double now = animationTimeMillis() + playerIndex * 113.0;
         double twitch = Math.sin(now / 82.0);
         double flutter = Math.sin(now / 54.0);
         if (batHanging) {
@@ -17384,7 +17607,7 @@ public class Bird {
     private AttackVisualPose currentRavenStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 16.0);
-        double now = System.currentTimeMillis() + playerIndex * 251.0;
+        double now = animationTimeMillis() + playerIndex * 251.0;
         double omen = Math.sin(now / 620.0);
         double feather = Math.sin(now / 360.0);
         return switch (state) {
@@ -17501,7 +17724,7 @@ public class Bird {
     private AttackVisualPose currentPelicanStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 14.0);
-        double now = System.currentTimeMillis() + playerIndex * 157.0;
+        double now = animationTimeMillis() + playerIndex * 157.0;
         double sway = Math.sin(now / 520.0);
         double pouch = Math.sin(now / 260.0);
         return switch (state) {
@@ -17618,7 +17841,7 @@ public class Bird {
     private AttackVisualPose currentShoebillStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 13.0);
-        double now = System.currentTimeMillis() + playerIndex * 239.0;
+        double now = animationTimeMillis() + playerIndex * 239.0;
         double stare = Math.sin(now / 940.0);
         return switch (state) {
             case IDLE -> {
@@ -17734,7 +17957,7 @@ public class Bird {
     private AttackVisualPose currentVultureStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 15.0);
-        double now = System.currentTimeMillis() + playerIndex * 167.0;
+        double now = animationTimeMillis() + playerIndex * 167.0;
         double hunch = Math.sin(now / 480.0);
         return switch (state) {
             case IDLE -> {
@@ -17851,7 +18074,7 @@ public class Bird {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 18.0);
         double horizontal = Math.min(1.0, Math.abs(vx) / 14.0);
-        double now = System.currentTimeMillis() + playerIndex * 181.0;
+        double now = animationTimeMillis() + playerIndex * 181.0;
         double breath = Math.sin(now / 330.0);
         return switch (state) {
             case IDLE -> {
@@ -17970,7 +18193,7 @@ public class Bird {
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 18.0);
         double groundSpeed = Math.min(1.0, Math.abs(vx) / 12.0);
         double runDir = Math.abs(vx) > 0.4 ? Math.signum(vx) : dir;
-        double now = System.currentTimeMillis() + playerIndex * 197.0;
+        double now = animationTimeMillis() + playerIndex * 197.0;
         double foot = Math.sin(now / Math.max(56.0, 116.0 - groundSpeed * 42.0));
         return switch (state) {
             case IDLE -> {
@@ -18087,7 +18310,7 @@ public class Bird {
     private AttackVisualPose currentTurkeyStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 14.0);
-        double now = System.currentTimeMillis() + playerIndex * 149.0;
+        double now = animationTimeMillis() + playerIndex * 149.0;
         double strut = Math.sin(now / 360.0);
         double gobble = Math.sin(now / 145.0);
         return switch (state) {
@@ -18204,7 +18427,7 @@ public class Bird {
     private AttackVisualPose currentPenguinStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 14.0);
-        double now = System.currentTimeMillis() + playerIndex * 211.0;
+        double now = animationTimeMillis() + playerIndex * 211.0;
         double wobble = Math.sin(now / 330.0);
         double foot = Math.sin(now / 180.0);
         return switch (state) {
@@ -18321,7 +18544,7 @@ public class Bird {
     private AttackVisualPose currentTitmouseStatePose(BirdAnimationState state, BirdVisualProfile profile) {
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 15.0);
-        double now = System.currentTimeMillis() + playerIndex * 173.0;
+        double now = animationTimeMillis() + playerIndex * 173.0;
         double wingBeat = Math.sin(now / 72.0);
         return switch (state) {
             case IDLE -> {
@@ -18474,7 +18697,7 @@ public class Bird {
         }
         AttackVisualPose dodgePose = currentDodgeVisualPose();
         if (dodgePose != null) {
-            return dodgePose;
+            return addAttackVisualPose(dodgePose, currentAnimationLayerPose(null));
         }
         NormalAttackVariant variant = currentDisplayedAttackVariant();
         double dir = facingRight ? 1.0 : -1.0;
@@ -18482,14 +18705,18 @@ public class Bird {
             if (suppressSelectEffects || photoEagleSkinActive() || photoTurkeySkinActive()) {
                 return neutralVisualPose();
             }
+            BirdAnimationState state = currentBirdAnimationState();
+            AttackVisualPose basePose;
             if (type == BirdGame3.BirdType.EAGLE && !photoEagleSkinActive()) {
-                return currentEagleStatePose(currentBirdAnimationState());
+                basePose = currentEagleStatePose(state);
+            } else {
+                basePose = currentSharedBirdStatePose(state);
             }
-            return currentSharedBirdStatePose(currentBirdAnimationState());
+            return addAttackVisualPose(basePose, currentAnimationLayerPose(null));
         }
 
         double phase = currentAttackVisualPhase();
-        return switch (variant) {
+        AttackVisualPose basePose = switch (variant) {
             case NEUTRAL -> new AttackVisualPose(dir * 3.0 * phase, -2.0 * phase, dir * 4.0 * phase,
                     facingRight ? 0.0 : Math.PI,
                     4.0 * phase, -1.5 * phase, 3.5 * phase, 1.04 + 0.06 * phase,
@@ -18539,6 +18766,7 @@ public class Bird {
                     13.0 * phase, 15.0 * phase, 12.0 * phase, 1.12 + 0.18 * phase,
                     34.0 * phase, 1.03 + 0.02 * phase, 0.92);
         };
+        return addAttackVisualPose(basePose, currentAnimationLayerPose(variant));
     }
 
     private AttackVisualPose currentAttackVisualPose() {
