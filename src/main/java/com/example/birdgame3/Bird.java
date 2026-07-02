@@ -11621,6 +11621,7 @@ public class Bird {
 
     public void registerDashTap(int dir) {
         if (dir == 0) return;
+        game.recordReplayDashTap(playerIndex, dir);
         if (dashCooldown > 0) return;
         if (!isOnGround()) return;
         long now = game.simTick;

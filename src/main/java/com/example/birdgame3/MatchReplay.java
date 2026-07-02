@@ -1,0 +1,38 @@
+package com.example.birdgame3;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * A recorded match: the sim seed plus per-tick human input masks and dash-tap
+ * events. Because the simulation is deterministic (single seeded SimRng stream,
+ * tick-based timing), feeding these inputs back from the same seed reproduces
+ * the match exactly.
+ *
+ * <p>Each frame holds one int mask per player: bit {@code ControlAction.ordinal()}
+ * for held actions, plus the attack-up/attack-down bits defined in BirdGame3.
+ * AI inputs are not recorded — AI re-derives its decisions deterministically
+ * from game state and the sim RNG during playback.
+ */
+final class MatchReplay {
+    /** Hard cap: 10 minutes at 60 ticks/s. Recording gives up beyond this. */
+    static final int MAX_FRAMES = 60 * 60 * 10;
+
+    record DashTap(long tick, int playerIndex, int dir) {
+    }
+
+    final long seed;
+    final int playerCount;
+    final List<int[]> frames = new ArrayList<>();
+    final List<DashTap> dashTaps = new ArrayList<>();
+    boolean overflowed = false;
+
+    MatchReplay(long seed, int playerCount) {
+        this.seed = seed;
+        this.playerCount = playerCount;
+    }
+
+    boolean usable() {
+        return !overflowed && !frames.isEmpty();
+    }
+}

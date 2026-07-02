@@ -249,6 +249,20 @@ public class BirdGame3 extends Application {
     private final boolean[][] aiActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[][] lanActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
     private final boolean[][] wiimoteActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
+
+    // === REPLAY ===
+    private static final int REPLAY_MASK_ATTACK_UP = 1 << 30;
+    private static final int REPLAY_MASK_ATTACK_DOWN = 1 << 29;
+    private MatchReplay replayRecording = null;
+    private boolean replayRecordingArmed = false;
+    MatchReplay lastMatchReplay = null;
+    boolean replayPlaybackActive = false;
+    private MatchReplay activeReplay = null;
+    private int replayFrameCursor = 0;
+    private int replayDashCursor = 0;
+    private final boolean[][] replayActionPressed = new boolean[MAX_COMBATANTS][ControlAction.values().length];
+    private final boolean[] replayAttackUpHeld = new boolean[MAX_COMBATANTS];
+    private final boolean[] replayAttackDownHeld = new boolean[MAX_COMBATANTS];
     private final boolean[] controllerAttackUpHeld = new boolean[MAX_COMBATANTS];
     private final boolean[] controllerAttackDownHeld = new boolean[MAX_COMBATANTS];
     private final boolean[] lanAttackUpHeld = new boolean[MAX_COMBATANTS];
@@ -9745,7 +9759,15 @@ public class BirdGame3 extends Application {
                 }
                 continue;
             }
+            if (replayPlaybackActive) {
+                injectReplayDashTaps();
+            }
             simTick++;
+            if (replayPlaybackActive) {
+                loadReplayFrame();
+            } else {
+                captureReplayFrame();
+            }
             long playerUpdateNs = 0L;
             long worldUpdateNs = 0L;
             long effectsUpdateNs = 0L;
@@ -35375,6 +35397,15 @@ public class BirdGame3 extends Application {
 
     private void handleGameplayKeyPress(Stage stage, KeyEvent e) {
         KeyCode code = e.getCode();
+        if (replayPlaybackActive) {
+            if (code == KeyCode.ESCAPE) {
+                endReplayPlayback(stage);
+            } else if (code == KeyCode.F11) {
+                fullscreenEnabled = !fullscreenEnabled;
+                applyDisplaySettings(stage);
+            }
+            return;
+        }
         if (lanModeActive && lanIsClient) {
             handleLanKeyPress(stage, e);
             return;
@@ -35415,6 +35446,10 @@ public class BirdGame3 extends Application {
 
     private void handleGameplayKeyRelease(KeyEvent e) {
         KeyCode code = e.getCode();
+        if (replayPlaybackActive) {
+            pressedKeys.remove(code);
+            return;
+        }
         if (lanModeActive && lanIsClient) {
             handleLanKeyRelease(e);
             return;
@@ -35566,12 +35601,12 @@ public class BirdGame3 extends Application {
 
     boolean isAttackUpPressed(int playerIdx) {
         if (isValidPlayerIndex(playerIdx)) return false;
-        return controllerAttackUpHeld[playerIdx] || lanAttackUpHeld[playerIdx];
+        return controllerAttackUpHeld[playerIdx] || lanAttackUpHeld[playerIdx] || replayAttackUpHeld[playerIdx];
     }
 
     boolean isAttackDownPressed(int playerIdx) {
         if (isValidPlayerIndex(playerIdx)) return false;
-        return controllerAttackDownHeld[playerIdx] || lanAttackDownHeld[playerIdx];
+        return controllerAttackDownHeld[playerIdx] || lanAttackDownHeld[playerIdx] || replayAttackDownHeld[playerIdx];
     }
 
     boolean isSpecialPressed(int playerIdx) {
@@ -35621,7 +35656,8 @@ public class BirdGame3 extends Application {
         return localActionPressed[playerIdx][actionIdx]
                 || aiActionPressed[playerIdx][actionIdx]
                 || lanActionPressed[playerIdx][actionIdx]
-                || wiimoteActionPressed[playerIdx][actionIdx];
+                || wiimoteActionPressed[playerIdx][actionIdx]
+                || replayActionPressed[playerIdx][actionIdx];
     }
 
     private void clearActionStates(boolean[][] states) {
@@ -35630,7 +35666,139 @@ public class BirdGame3 extends Application {
         }
     }
 
+    // === REPLAY RECORDING / PLAYBACK ===
+
+    private boolean replayEligibleMatch() {
+        return !trainingModeActive && !storyModeActive && !adventureModeActive && !classicModeActive
+                && !tournamentModeActive && !competitionModeEnabled && !lanModeActive;
+    }
+
+    /** Records one dash-tap event; invoked from Bird.registerDashTap on live human input. */
+    void recordReplayDashTap(int playerIndex, int dir) {
+        if (replayPlaybackActive || replayRecording == null || replayRecording.overflowed) return;
+        replayRecording.dashTaps.add(new MatchReplay.DashTap(simTick, playerIndex, dir));
+    }
+
+    private int composeHumanInputMask(int playerIdx) {
+        int mask = 0;
+        for (ControlAction action : ControlAction.values()) {
+            int a = action.ordinal();
+            if (localActionPressed[playerIdx][a]
+                    || wiimoteActionPressed[playerIdx][a]
+                    || lanActionPressed[playerIdx][a]) {
+                mask |= 1 << a;
+            }
+        }
+        if (controllerAttackUpHeld[playerIdx] || lanAttackUpHeld[playerIdx]) mask |= REPLAY_MASK_ATTACK_UP;
+        if (controllerAttackDownHeld[playerIdx] || lanAttackDownHeld[playerIdx]) mask |= REPLAY_MASK_ATTACK_DOWN;
+        return mask;
+    }
+
+    /** Called once per sim tick (after simTick increments) while recording. */
+    private void captureReplayFrame() {
+        if (!replayRecordingArmed) return;
+        if (replayRecording == null) {
+            if (!replayEligibleMatch()) {
+                replayRecordingArmed = false;
+                return;
+            }
+            replayRecording = new MatchReplay(currentMatchSeed, activePlayers);
+        }
+        if (replayRecording.overflowed) return;
+        if (replayRecording.frames.size() >= MatchReplay.MAX_FRAMES) {
+            replayRecording.overflowed = true;
+            return;
+        }
+        int[] masks = new int[replayRecording.playerCount];
+        for (int i = 0; i < masks.length; i++) {
+            masks[i] = composeHumanInputMask(i);
+        }
+        replayRecording.frames.add(masks);
+    }
+
+    /** Fires recorded dash taps whose tick has arrived; called before simTick increments. */
+    private void injectReplayDashTaps() {
+        if (activeReplay == null) return;
+        List<MatchReplay.DashTap> taps = activeReplay.dashTaps;
+        while (replayDashCursor < taps.size() && taps.get(replayDashCursor).tick() <= simTick) {
+            MatchReplay.DashTap tap = taps.get(replayDashCursor);
+            replayDashCursor++;
+            if (tap.playerIndex() >= 0 && tap.playerIndex() < players.length && players[tap.playerIndex()] != null) {
+                players[tap.playerIndex()].registerDashTap(tap.dir());
+            }
+        }
+    }
+
+    /** Loads the current tick's recorded input masks; called after simTick increments. */
+    private void loadReplayFrame() {
+        clearReplayInputs();
+        if (activeReplay == null || replayFrameCursor >= activeReplay.frames.size()) return;
+        int[] masks = activeReplay.frames.get(replayFrameCursor++);
+        for (int i = 0; i < masks.length && i < MAX_COMBATANTS; i++) {
+            int mask = masks[i];
+            for (ControlAction action : ControlAction.values()) {
+                replayActionPressed[i][action.ordinal()] = (mask & (1 << action.ordinal())) != 0;
+            }
+            replayAttackUpHeld[i] = (mask & REPLAY_MASK_ATTACK_UP) != 0;
+            replayAttackDownHeld[i] = (mask & REPLAY_MASK_ATTACK_DOWN) != 0;
+        }
+    }
+
+    private void clearReplayInputs() {
+        clearActionStates(replayActionPressed);
+        Arrays.fill(replayAttackUpHeld, false);
+        Arrays.fill(replayAttackDownHeld, false);
+    }
+
+    /** Keeps the finished recording as the last-match replay. Called when a match ends normally. */
+    void finishReplayRecording() {
+        if (replayRecording != null && replayRecording.usable()) {
+            lastMatchReplay = replayRecording;
+        }
+        replayRecording = null;
+        replayRecordingArmed = false;
+    }
+
+    void startReplayPlayback(Stage stage) {
+        if (lastMatchReplay == null) return;
+        activeReplay = lastMatchReplay;
+        replayPlaybackActive = true;
+        clearReplayInputs();
+        startMatch(stage);
+    }
+
+    void endReplayPlayback(Stage stage) {
+        replayPlaybackActive = false;
+        activeReplay = null;
+        clearReplayInputs();
+        if (timer != null) timer.stop();
+        resetMatchStats();
+        showMenu(stage);
+    }
+
+    private void drawReplayOverlay(GraphicsContext g) {
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.55));
+        g.fillRoundRect(WIDTH / 2.0 - 210, 150, 420, 54, 16, 16);
+        g.setStroke(Color.web("#4FC3F7"));
+        g.setLineWidth(2);
+        g.strokeRoundRect(WIDTH / 2.0 - 210, 150, 420, 54, 16, 16);
+        g.setFill(Color.web("#E1F5FE"));
+        g.setFont(Font.font("Arial", FontWeight.BOLD, 26));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText("REPLAY — ESC TO EXIT", WIDTH / 2.0, 186);
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
     private void pollWiimoteGameplayInputs() {
+        if (replayPlaybackActive) {
+            clearActionStates(wiimoteActionPressed);
+            Arrays.fill(controllerAttackUpHeld, false);
+            Arrays.fill(controllerAttackDownHeld, false);
+            Arrays.fill(wiimoteLeftHeld, false);
+            Arrays.fill(wiimoteRightHeld, false);
+            Arrays.fill(wiimoteGameplayPauseHeld, false);
+            return;
+        }
         clearActionStates(wiimoteActionPressed);
         if (wiimoteInputManager == null && xboxInputManager == null) {
             Arrays.fill(controllerAttackUpHeld, false);
@@ -36802,9 +36970,18 @@ public class BirdGame3 extends Application {
 
     void startMatch(Stage stage) {
         isPaused = false;
-        currentMatchSeed = lanModeActive ? lanMatchSeed : System.nanoTime();
+        if (replayPlaybackActive && activeReplay != null) {
+            currentMatchSeed = activeReplay.seed;
+        } else {
+            currentMatchSeed = lanModeActive ? lanMatchSeed : System.nanoTime();
+        }
         SimRng.reseed(currentMatchSeed);
         simTick = 0L;
+        replayFrameCursor = 0;
+        replayDashCursor = 0;
+        replayRecording = null;
+        replayRecordingArmed = !replayPlaybackActive;
+        clearReplayInputs();
         lastPowerUpSpawnTime = 0L;
         lastWindBurstTime = 0L;
         lastMutatorHazardTime = 0L;
@@ -37213,6 +37390,9 @@ public class BirdGame3 extends Application {
                             drawTrainingLabHud(ui);
                         }
                         framePerformance.recordDrawHud(System.nanoTime() - drawHudStart);
+                        if (replayPlaybackActive) {
+                            drawReplayOverlay(ui);
+                        }
                         drawDebugTelemetryHud(ui);
                         drawFightFlashOverlay(ui);
                         framePerformance.recordDrawHud(System.nanoTime() - drawHudStart);
@@ -40527,12 +40707,22 @@ public class BirdGame3 extends Application {
                 resetMatchStats();
                 showMenu(stage);
             });
-            buttons.getChildren().addAll(rematch, menu);
+            if (lastMatchReplay != null) {
+                Button watchReplay = button("WATCH REPLAY", "#1565C0");
+                watchReplay.setOnAction(e -> {
+                    resetMatchStats();
+                    startReplayPlayback(stage);
+                });
+                buttons.getChildren().addAll(rematch, watchReplay, menu);
+            } else {
+                buttons.getChildren().addAll(rematch, menu);
+            }
         }
         return buttons;
     }
 
     private void applyWinnerMapProgress(Bird winner) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onMatchWinner(winner, selectedMap, trainingModeActive);
     }
 
@@ -41123,50 +41313,62 @@ public class BirdGame3 extends Application {
     }
 
     public void checkAchievements(Bird bird) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onCombatStatsUpdated(bird);
     }
 
     void recordLeanFrame(Bird bird) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onLeanFrame(bird);
     }
 
     void recordLoungeHealing(Bird bird, double healedAmount) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onLoungeHealing(bird, healedAmount);
     }
 
     void recordPowerUpPickupForAchievements(Bird bird) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onPowerUpPickup(bird);
     }
 
     void recordTauntForAchievements(Bird bird) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onTaunt(bird);
     }
 
     void recordPelicanPlungeAchievement() {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onPelicanPlunge();
     }
 
     void recordHighRooftopJumpAchievement(int playerIndex) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onHighRooftopJump(playerIndex);
     }
 
     void recordHighCliffJumpAchievement(int playerIndex) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onHighCliffJump(playerIndex);
     }
 
     void recordStageFallAchievement(int playerIndex) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onStageFall(playerIndex, trainingModeActive);
     }
 
     void recordNeonPickupAchievement(int playerIndex) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onNeonPickup(playerIndex);
     }
 
     void recordThermalPickupAchievement(int playerIndex) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onThermalPickup(playerIndex);
     }
 
     void recordVineGrapplePickupAchievement(int playerIndex) {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onVineGrapplePickup(playerIndex);
     }
 
@@ -41182,10 +41384,12 @@ public class BirdGame3 extends Application {
     }
 
     private void checkAdventureAchievements() {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onAdventureProgressUpdated(mainAdventureChapterCompletedState());
     }
 
     private void checkClassicAchievements() {
+        if (replayPlaybackActive) return;
         achievementEvaluator.onClassicProgressUpdated(classicCompleted);
     }
 
