@@ -9447,11 +9447,17 @@ public class BirdGame3 extends Application {
                 "Threatening Honk / Bite and Barge / V-Formation Lift / Nest Guard / The Whole Flock");
 
         final String name;
-        final int power;
-        final int jumpHeight;
-        final double speed, flyUpForce;
+        // Tunable balance stats: mutable so BirdStats can hot-reload overrides from
+        // bird-stats.properties. Gameplay code reads these at use time, so changes
+        // apply instantly. The default* fields preserve the compiled values.
+        int power;
+        int jumpHeight;
+        double speed, flyUpForce;
         final Color color;
         final String ability;
+        final int defaultPower;
+        final int defaultJumpHeight;
+        final double defaultSpeed, defaultFlyUpForce;
 
         BirdType(String name, int power, int jumpHeight, double speed, Color color, double flyUpForce, String ability) {
             this.name = name;
@@ -9461,6 +9467,10 @@ public class BirdGame3 extends Application {
             this.color = color;
             this.flyUpForce = flyUpForce;
             this.ability = ability;
+            this.defaultPower = power;
+            this.defaultJumpHeight = jumpHeight;
+            this.defaultSpeed = speed;
+            this.defaultFlyUpForce = flyUpForce;
         }
     }
 
@@ -13883,6 +13893,11 @@ public class BirdGame3 extends Application {
     public void start(Stage stage) {
         try {
             appendStartLog("enter start");
+            String statsSummary = BirdStats.reloadFromDisk();
+            if (statsSummary != null) {
+                LOGGER.info(statsSummary);
+            }
+            appendStartLog("loaded bird stats");
             currentStage = stage;
             appendStartLog("set currentStage");
             // Ensure the JVM exits immediately when the window is closed from OS window controls
@@ -34767,6 +34782,17 @@ public class BirdGame3 extends Application {
                 } else {
                     trainingFrameAdvanceRequests = Math.min(6, trainingFrameAdvanceRequests + 1);
                 }
+                return true;
+            }
+            case F12 -> {
+                if (BirdStats.writeTemplateIfMissing()) {
+                    addToKillFeed("BIRD STATS TEMPLATE WRITTEN: " + BirdStats.FILE_NAME);
+                    addToKillFeed("EDIT IT AND PRESS F12 AGAIN TO RELOAD");
+                    return true;
+                }
+                String summary = BirdStats.reloadFromDisk();
+                lastMatchReplay = null; // old replays would desync against new stats
+                addToKillFeed(summary != null ? summary : "BIRD STATS: COMPILED DEFAULTS");
                 return true;
             }
             default -> {
