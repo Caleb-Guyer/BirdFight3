@@ -604,6 +604,9 @@ final class MatchController {
     void triggerMatchEnd(Bird winner) {
         if (game.matchEnded) return;
 
+        game.matchEndFocusBird = winner;
+        game.triggerDramaticSlowMo(32);
+
         if (game.lanModeActive) {
             game.matchEnded = true;
             game.lanMatchActive = false;

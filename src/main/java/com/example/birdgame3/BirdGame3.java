@@ -502,6 +502,14 @@ public class BirdGame3 extends Application {
     private double renderSavedCamX, renderSavedCamY, renderSavedZoom;
     public static final double MIN_ZOOM = 0.35;
     public static final double MAX_ZOOM = 1.5;
+
+    // Dramatic-moment feel: slow motion scales wall-clock time only (sim ticks are
+    // unaffected, so determinism and replays are preserved); the camera reacts to
+    // impacts with a zoom kick and locks onto the winner when the match ends.
+    private static final double DRAMATIC_SLOW_MO_SCALE = 0.35;
+    private int dramaticSlowMoTicks = 0;
+    private double cameraImpactZoomKick = 0.0;
+    Bird matchEndFocusBird = null;
     public static final double ZOOM_SPEED = 0.008;
     private static final double CAMERA_BOUND_EXPAND_SPEED = 0.08;
     private static final double CAMERA_BOUND_CONTRACT_SPEED = 0.16;
@@ -9740,6 +9748,9 @@ public class BirdGame3 extends Application {
             accumulator = FRAME_TIME;
         } else {
             double elapsedScale = trainingModeActive && trainingSlowMotionEnabled ? TRAINING_SLOW_MOTION_SCALE : 1.0;
+            if (dramaticSlowMoTicks > 0) {
+                elapsedScale *= DRAMATIC_SLOW_MO_SCALE;
+            }
             accumulator += (long) (elapsed * elapsedScale);
         }
 
@@ -9763,6 +9774,9 @@ public class BirdGame3 extends Application {
                 injectReplayDashTaps();
             }
             simTick++;
+            if (dramaticSlowMoTicks > 0) {
+                dramaticSlowMoTicks--;
+            }
             if (replayPlaybackActive) {
                 loadReplayFrame();
             } else {
@@ -10240,7 +10254,31 @@ public class BirdGame3 extends Application {
         return current + (target - current) * speed;
     }
 
+    /** Briefly slows wall-clock time for dramatic moments; a no-op in training mode. */
+    void triggerDramaticSlowMo(int ticks) {
+        if (trainingModeActive) return;
+        dramaticSlowMoTicks = Math.max(dramaticSlowMoTicks, ticks);
+    }
+
+    private void updateMatchEndFocusCamera() {
+        Bird focus = matchEndFocusBird;
+        double targetZoom = Math.clamp(1.05, minimumCameraZoom(), MAX_ZOOM);
+        zoom += (targetZoom - zoom) * 0.06;
+        double centerX = focus.x + 40.0 * focus.sizeMultiplier;
+        double centerY = focus.y + 40.0 * focus.sizeMultiplier;
+        double targetCamX = Math.clamp(centerX - WIDTH / (2 * zoom), 0, cameraMaxXForZoom(zoom));
+        double targetCamY = Math.clamp(centerY - HEIGHT / (2 * zoom), 0, cameraMaxYForZoom(zoom));
+        camX += (targetCamX - camX) * 0.10;
+        camY += (targetCamY - camY) * 0.10;
+        camX = Math.clamp(camX, 0, cameraMaxXForZoom(zoom));
+        camY = Math.clamp(camY, 0, cameraMaxYForZoom(zoom));
+    }
+
     private void updateDynamicCamera() {
+        if (matchEnded && matchEndFocusBird != null) {
+            updateMatchEndFocusCamera();
+            return;
+        }
         double minX = Double.MAX_VALUE;
         double maxX = -Double.MAX_VALUE;
         double minY = Double.MAX_VALUE;
@@ -10290,6 +10328,12 @@ public class BirdGame3 extends Application {
         }
 
         double targetZoom = getTargetZoom(aliveCount, fastestSpeed);
+        if (cameraImpactZoomKick > 0.0005) {
+            targetZoom = Math.clamp(targetZoom + cameraImpactZoomKick, minimumCameraZoom(), MAX_ZOOM);
+            cameraImpactZoomKick *= 0.86;
+        } else {
+            cameraImpactZoomKick = 0.0;
+        }
 
         double zoomDelta = Math.abs(targetZoom - zoom);
         double zoomSpeed = targetZoom < zoom
@@ -11304,6 +11348,7 @@ public class BirdGame3 extends Application {
         if (blastZoneKoEffects.size() > BLAST_ZONE_KO_EFFECT_CAP) {
             blastZoneKoEffects.subList(0, blastZoneKoEffects.size() - BLAST_ZONE_KO_EFFECT_CAP).clear();
         }
+        triggerDramaticSlowMo(10);
         emitCombatImpact(null, bird, x, y, vx, vy, 42.0 + speed * 0.45, true, "Blast Zone KO");
     }
 
@@ -11360,6 +11405,8 @@ public class BirdGame3 extends Application {
         double shake = Math.clamp(2.5 + damage * 0.24 + launchSpeed * 0.16 + (finisher ? 10.0 : 0.0),
                 3.0, finisher ? 34.0 : 18.0);
         shakeIntensity = Math.max(shakeIntensity, shake);
+        cameraImpactZoomKick = Math.max(cameraImpactZoomKick,
+                finisher ? 0.055 : damage >= 24.0 ? 0.028 : 0.0);
         int impactStop = (int) Math.round(Math.clamp(3.0 + damage / 6.0 + (finisher ? 8.0 : 0.0),
                 4.0, finisher ? 22.0 : 14.0));
         hitstopFrames = Math.min(25, Math.max(hitstopFrames, impactStop));
@@ -36977,6 +37024,9 @@ public class BirdGame3 extends Application {
         }
         SimRng.reseed(currentMatchSeed);
         simTick = 0L;
+        dramaticSlowMoTicks = 0;
+        cameraImpactZoomKick = 0.0;
+        matchEndFocusBird = null;
         replayFrameCursor = 0;
         replayDashCursor = 0;
         replayRecording = null;
