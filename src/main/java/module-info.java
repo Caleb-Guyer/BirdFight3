@@ -4,6 +4,7 @@ module com.example.birdgame3 {
     requires java.net.http;
     requires java.logging;
     requires javafx.media;
+    requires java.desktop;
     requires hid4java;
     requires com.sun.jna;
 

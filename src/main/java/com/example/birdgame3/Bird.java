@@ -16,6 +16,7 @@ import com.example.birdgame3.BirdGame3.MapType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Locale;
 import java.util.Random;
 
 /**
@@ -19136,24 +19137,29 @@ public class Bird {
         drawLounge(g);
         drawEagleGroundShadow(g, drawSize, currentBirdAnimationState());
         drawTurkeyGroundShadow(g, drawSize, currentPhotoTurkeyAnimationState());
-        g.save();
-        applyAttackBodyPose(g, drawSize, attackPose);
-        drawEagleSkin(g, drawSize);
-        drawVulture(g, drawSize);
-        drawBodyAndEyes(g, drawSize, attackPose);
-        drawGrinchhawk(g);
-        drawRooster(g, drawSize);
-        drawOpiumBirdAccessories(g);
-        drawHeisenbirdAccessories(g);
-        drawCitySkin(g);
-        drawNoirSkin(g);
-        drawFreemanSkin(g);
-        drawBeaconSkin(g, drawSize);
-        drawClassicSkinAccent(g, drawSize);
-        drawSpecialSkinAccent(g, drawSize);
-        drawBeak(g, attackPose);
-        drawPelican(g);
-        g.restore();
+        BirdSpriteSheet spriteSheet = BirdSpriteLibrary.sheetFor(type);
+        if (spriteSheet != null && spriteSheet.image != null) {
+            drawSpriteBody(g, spriteSheet, drawSize, attackPose);
+        } else {
+            g.save();
+            applyAttackBodyPose(g, drawSize, attackPose);
+            drawEagleSkin(g, drawSize);
+            drawVulture(g, drawSize);
+            drawBodyAndEyes(g, drawSize, attackPose);
+            drawGrinchhawk(g);
+            drawRooster(g, drawSize);
+            drawOpiumBirdAccessories(g);
+            drawHeisenbirdAccessories(g);
+            drawCitySkin(g);
+            drawNoirSkin(g);
+            drawFreemanSkin(g);
+            drawBeaconSkin(g, drawSize);
+            drawClassicSkinAccent(g, drawSize);
+            drawSpecialSkinAccent(g, drawSize);
+            drawBeak(g, attackPose);
+            drawPelican(g);
+            g.restore();
+        }
         drawHummingbirdNectarCoating(g, drawSize);
         drawTurkeyStuffedEffect(g, drawSize);
         drawTitmouseMarkEffect(g, drawSize);
@@ -19174,6 +19180,52 @@ public class Bird {
 
     void drawWorldObjects(GraphicsContext g) {
         drawVultureBait(g);
+    }
+
+    // === SPRITE-SHEET BODY RENDERING ===
+    // Active for birds with art in the sprites/ folder; replaces only the vector
+    // body block — all effect layers (auras, traps, special FX) still draw.
+    private String spriteLastState = "";
+    private long spriteStateStartTick = 0L;
+
+    private String spriteStateName() {
+        BirdAnimationState state = currentBirdAnimationState();
+        if (state == BirdAnimationState.IDLE && isOnGround() && Math.abs(vx) > 0.8) {
+            return "run";
+        }
+        return state.name().toLowerCase(Locale.ROOT);
+    }
+
+    private void drawSpriteBody(GraphicsContext g, BirdSpriteSheet sheet, double drawSize, AttackVisualPose attackPose) {
+        String stateName = spriteStateName();
+        long now = game.simTick;
+        if (!stateName.equals(spriteLastState)) {
+            spriteLastState = stateName;
+            spriteStateStartTick = now;
+        }
+        BirdSpriteSheet.Animation animation = sheet.animationFor(stateName);
+        if (animation == null) {
+            return;
+        }
+        int frame = animation.frameIndexAt(now - spriteStateStartTick);
+        double sx = frame * (double) sheet.frameWidth;
+        double sy = animation.row() * (double) sheet.frameHeight;
+        double dw = drawSize * sheet.scale;
+        double dh = dw * ((double) sheet.frameHeight / sheet.frameWidth);
+        double centerX = x + drawSize / 2.0;
+        double dx = centerX - dw / 2.0;
+        double dy = y + drawSize - dh; // feet anchored to the body's bottom edge
+
+        g.save();
+        applyAttackBodyPose(g, drawSize, attackPose);
+        if (!facingRight) {
+            // Sheet art faces right by convention; mirror around the body center.
+            g.translate(centerX, 0);
+            g.scale(-1, 1);
+            g.translate(-centerX, 0);
+        }
+        g.drawImage(sheet.image, sx, sy, sheet.frameWidth, sheet.frameHeight, dx, dy, dw, dh);
+        g.restore();
     }
 
     private void drawGrinchhawkObjects(GraphicsContext g) {

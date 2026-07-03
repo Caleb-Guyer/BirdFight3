@@ -13939,6 +13939,10 @@ public class BirdGame3 extends Application {
             if (statsSummary != null) {
                 LOGGER.info(statsSummary);
             }
+            String spriteSummary = BirdSpriteLibrary.reload();
+            if (spriteSummary != null) {
+                LOGGER.info(spriteSummary);
+            }
             appendStartLog("loaded bird stats");
             currentStage = stage;
             appendStartLog("set currentStage");
@@ -34827,14 +34831,23 @@ public class BirdGame3 extends Application {
                 return true;
             }
             case F12 -> {
-                if (BirdStats.writeTemplateIfMissing()) {
+                boolean statsTemplate = BirdStats.writeTemplateIfMissing();
+                boolean spriteTemplate = BirdSpriteLibrary.writeTemplateIfMissing();
+                if (statsTemplate) {
                     addToKillFeed("BIRD STATS TEMPLATE WRITTEN: " + BirdStats.FILE_NAME);
-                    addToKillFeed("EDIT IT AND PRESS F12 AGAIN TO RELOAD");
+                }
+                if (spriteTemplate) {
+                    addToKillFeed("SPRITE TEMPLATE WRITTEN: " + BirdSpriteLibrary.DIR_NAME + "/template.png");
+                }
+                if (statsTemplate || spriteTemplate) {
+                    addToKillFeed("EDIT FILES AND PRESS F12 AGAIN TO RELOAD");
                     return true;
                 }
-                String summary = BirdStats.reloadFromDisk();
+                String statsSummary = BirdStats.reloadFromDisk();
                 lastMatchReplay = null; // old replays would desync against new stats
-                addToKillFeed(summary != null ? summary : "BIRD STATS: COMPILED DEFAULTS");
+                addToKillFeed(statsSummary != null ? statsSummary : "BIRD STATS: COMPILED DEFAULTS");
+                String spriteSummary = BirdSpriteLibrary.reload();
+                addToKillFeed(spriteSummary != null ? spriteSummary : "BIRD SPRITES: NONE (VECTOR ART)");
                 return true;
             }
             default -> {
