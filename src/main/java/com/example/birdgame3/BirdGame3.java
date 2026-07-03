@@ -296,6 +296,8 @@ public class BirdGame3 extends Application {
     // Shared deterministic simulation stream (see SimRng); reseeded in startMatch.
     final Random random = SimRng.random();
     private final Random renderRandom = new Random();
+    // Presentation-only randomness for audio variation; must never touch SimRng.
+    private final Random audioRandom = new Random();
     private long lastPowerUpSpawnTime = 0;
     public static final long POWERUP_SPAWN_INTERVAL = 60L * 8; // every 8 seconds, in 60 Hz sim ticks
     static final int MUTATOR_BUFF_FRAMES = COMPETITION_DURATION_FRAMES * 2;
@@ -847,7 +849,12 @@ public class BirdGame3 extends Application {
     private static final int[] FPS_CAPS = new int[]{30, 60, 90, 120, 144, 0};
 
     public void playHitSound(double intensity) {
-        playManagedSfx(bonkClip, Math.min(1.0, intensity / 40.0));
+        double volume = Math.min(1.0, intensity / 40.0);
+        // Heavier hits play slightly lower-pitched so big impacts sound beefier;
+        // the random spread keeps rapid combos from sounding machine-gun identical.
+        double heaviness = Math.clamp(intensity / 60.0, 0.0, 1.0);
+        double baseRate = 1.06 - heaviness * 0.18;
+        playManagedSfxVaried(bonkClip, volume, baseRate, 0.10);
     }
 
     public boolean isSfxEnabled() {
@@ -877,6 +884,25 @@ public class BirdGame3 extends Application {
         return sfxEnabled ? sanitizeVolume(sfxVolume) : 0.0;
     }
 
+    // Match music ducks under dramatic moments (KO slow-mo, winner focus) and
+    // eases back afterward. 1.0 = full volume; updated once per render pulse.
+    private double musicDuckLevel = 1.0;
+
+    private void updateMusicDucking() {
+        double target = dramaticSlowMoTicks > 0 || (matchEnded && matchEndFocusBird != null) ? 0.35 : 1.0;
+        double eased = musicDuckLevel + (target - musicDuckLevel) * 0.12;
+        if (Math.abs(eased - target) < 0.01) {
+            eased = target;
+        }
+        if (eased == musicDuckLevel) {
+            return;
+        }
+        musicDuckLevel = eased;
+        if (musicPlayer != null) {
+            musicPlayer.setVolume(MATCH_MUSIC_BASE_VOLUME * effectiveMusicVolume() * musicDuckLevel);
+        }
+    }
+
     private void applyAudioVolumes() {
         double music = effectiveMusicVolume();
         if (menuMusicPlayer != null) {
@@ -886,7 +912,7 @@ public class BirdGame3 extends Application {
             victoryMusicPlayer.setVolume(VICTORY_MUSIC_BASE_VOLUME * music);
         }
         if (musicPlayer != null) {
-            musicPlayer.setVolume(MATCH_MUSIC_BASE_VOLUME * music);
+            musicPlayer.setVolume(MATCH_MUSIC_BASE_VOLUME * music * musicDuckLevel);
         }
         double sfx = effectiveSfxVolume();
         if (bonkClip != null) bonkClip.setVolume(sfx);
@@ -924,28 +950,44 @@ public class BirdGame3 extends Application {
         clip.play(effective);
     }
 
+    /**
+     * Plays a clip with randomized pitch and slight volume jitter so repeated
+     * sounds don't read as identical copies. {@code baseRate} shifts the whole
+     * pitch (1.0 = original); {@code pitchSpread} is the +/- random range around it.
+     * Uses {@link #audioRandom}, never the sim RNG — audio is presentation only.
+     */
+    void playManagedSfxVaried(AudioClip clip, double baseVolume, double baseRate, double pitchSpread) {
+        if (clip == null) return;
+        double effective = sanitizeVolume(baseVolume) * effectiveSfxVolume();
+        if (effective <= 0.0) return;
+        double rate = baseRate + (audioRandom.nextDouble() * 2.0 - 1.0) * pitchSpread;
+        rate = Math.clamp(rate, 0.5, 2.0);
+        double volumeJitter = 1.0 - audioRandom.nextDouble() * 0.12;
+        clip.play(Math.clamp(effective * volumeJitter, 0.0, 1.0), 0.0, rate, 0.0, 0);
+    }
+
     void playButterSfx() {
-        playManagedSfx(butterClip, 1.0);
+        playManagedSfxVaried(butterClip, 1.0, 1.0, 0.06);
     }
 
     void playJalapenoSfx() {
-        playManagedSfx(jalapenoClip, 1.0);
+        playManagedSfxVaried(jalapenoClip, 1.0, 1.0, 0.06);
     }
 
     void playSwingSfx() {
-        playManagedSfx(swingClip, 1.0);
+        playManagedSfxVaried(swingClip, 1.0, 1.0, 0.09);
     }
 
     void playHugewaveSfx() {
-        playManagedSfx(hugewaveClip, 1.0);
+        playManagedSfxVaried(hugewaveClip, 1.0, 1.0, 0.05);
     }
 
     void playZombieFallSfx() {
-        playManagedSfx(zombieFallingClip, 1.0);
+        playManagedSfxVaried(zombieFallingClip, 1.0, 1.0, 0.07);
     }
 
     void playVaseBreakingSfx() {
-        playManagedSfx(vaseBreakingClip, 1.0);
+        playManagedSfxVaried(vaseBreakingClip, 1.0, 1.0, 0.08);
     }
 
     void playTowerDefenseBlightPopSfx(double intensity) {
@@ -37044,6 +37086,7 @@ public class BirdGame3 extends Application {
         simTick = 0L;
         dramaticSlowMoTicks = 0;
         matchEndFocusBird = null;
+        musicDuckLevel = 1.0;
         replayFrameCursor = 0;
         replayDashCursor = 0;
         replayRecording = null;
@@ -37422,6 +37465,7 @@ public class BirdGame3 extends Application {
                 framePerformance.beginFrame();
                 try {
                     gameTick();
+                    updateMusicDucking();
                     if (lanModeActive && lanIsHost) {
                         boolean hasClients = lanHost != null && lanHost.hasClients();
                         if (hasClients && now - lastLanSnapshotNs >= LAN_SNAPSHOT_INTERVAL_NS) {
