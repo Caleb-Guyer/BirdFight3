@@ -13982,6 +13982,7 @@ public class BirdGame3 extends Application {
             javafx.application.Platform.runLater(() -> applyDisplaySettings(stage));
             appendStartLog("scheduled applyDisplaySettings");
             tryShowQueuedAchievementToast();
+            DesktopShortcutSupport.ensureDesktopShortcutAsync();
             appendStartLog("end start");
         } catch (Throwable t) {
             ThrowableLogSupport.log(LOGGER, Level.SEVERE, "Application startup failed", t);
