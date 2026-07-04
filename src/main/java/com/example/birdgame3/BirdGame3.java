@@ -13983,6 +13983,7 @@ public class BirdGame3 extends Application {
             appendStartLog("scheduled applyDisplaySettings");
             tryShowQueuedAchievementToast();
             DesktopShortcutSupport.ensureDesktopShortcutAsync();
+            GameUpdater.checkForUpdatesAsync();
             appendStartLog("end start");
         } catch (Throwable t) {
             ThrowableLogSupport.log(LOGGER, Level.SEVERE, "Application startup failed", t);
