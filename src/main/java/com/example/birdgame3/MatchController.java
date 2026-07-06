@@ -684,7 +684,7 @@ final class MatchController {
                     game.endReplayPlayback(finalStage);
                     return;
                 }
-                game.finishReplayRecording();
+                game.finishReplayRecording(finalWinner != null ? finalWinner.name : "TIME'S UP");
                 game.recordBalanceOutcome(finalWinner);
                 if (game.tournamentModeActive && game.currentTournamentMatch != null && !game.tournamentMatchResolved) {
                     BirdGame3.TournamentEntry winnerEntry = game.resolveTournamentWinnerEntry(finalWinner);

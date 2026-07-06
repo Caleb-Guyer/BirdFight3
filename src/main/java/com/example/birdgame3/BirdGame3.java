@@ -256,7 +256,6 @@ public class BirdGame3 extends Application {
     private static final int REPLAY_MASK_ATTACK_UP = 1 << 30;
     private static final int REPLAY_MASK_ATTACK_DOWN = 1 << 29;
     private MatchReplay replayRecording = null;
-    private boolean replayRecordingArmed = false;
     MatchReplay lastMatchReplay = null;
     boolean replayPlaybackActive = false;
     private MatchReplay activeReplay = null;
@@ -8140,6 +8139,10 @@ public class BirdGame3 extends Application {
     }
 
     private String randomAdventureSkinChoice(BirdType type) {
+        return randomAdventureSkinChoice(type, random);
+    }
+
+    private String randomAdventureSkinChoice(BirdType type, Random rng) {
         if (type == null) {
             return null;
         }
@@ -8147,7 +8150,7 @@ public class BirdGame3 extends Application {
         if (options.isEmpty()) {
             return null;
         }
-        return normalizeAdventureSkinChoice(type, options.get(random.nextInt(options.size())));
+        return normalizeAdventureSkinChoice(type, options.get(rng.nextInt(options.size())));
     }
 
     private void applySkinChoiceToBird(Bird bird, BirdType type, String skinKey) {
@@ -35838,17 +35841,45 @@ public class BirdGame3 extends Application {
         return mask;
     }
 
+    /**
+     * Starts recording for the match being set up, capturing the resolved
+     * configuration (roster, teams, skins, balance multipliers) so the replay
+     * is self-contained. Called from startMatch once the roster exists.
+     */
+    private void beginReplayRecordingForMatch() {
+        replayRecording = null;
+        if (replayPlaybackActive || !replayEligibleMatch()) {
+            return;
+        }
+        MatchReplay replay = new MatchReplay(currentMatchSeed, activePlayers);
+        replay.mapName = selectedMap.name();
+        replay.timestampMillis = System.currentTimeMillis();
+        replay.teamModeEnabled = teamModeEnabled;
+        replay.mutatorModeEnabled = mutatorModeEnabled;
+        replay.slotBirdTypes = new String[activePlayers];
+        replay.slotIsAi = new boolean[activePlayers];
+        replay.slotTeams = new int[activePlayers];
+        replay.slotSkinKeys = new String[activePlayers];
+        replay.slotBaseSize = new double[activePlayers];
+        replay.slotBasePower = new double[activePlayers];
+        replay.slotBaseSpeed = new double[activePlayers];
+        for (int i = 0; i < activePlayers; i++) {
+            Bird b = players[i];
+            if (b == null || b.type == null) continue;
+            replay.slotBirdTypes[i] = b.type.name();
+            replay.slotIsAi[i] = isAI[i];
+            replay.slotTeams[i] = localTeamForPlayer(i);
+            replay.slotSkinKeys[i] = fightSetupSelection.selectedSkinKey(i);
+            replay.slotBaseSize[i] = b.baseSizeMultiplier;
+            replay.slotBasePower[i] = b.basePowerMultiplier;
+            replay.slotBaseSpeed[i] = b.baseSpeedMultiplier;
+        }
+        replayRecording = replay;
+    }
+
     /** Called once per sim tick (after simTick increments) while recording. */
     private void captureReplayFrame() {
-        if (!replayRecordingArmed) return;
-        if (replayRecording == null) {
-            if (!replayEligibleMatch()) {
-                replayRecordingArmed = false;
-                return;
-            }
-            replayRecording = new MatchReplay(currentMatchSeed, activePlayers);
-        }
-        if (replayRecording.overflowed) return;
+        if (replayRecording == null || replayRecording.overflowed) return;
         if (replayRecording.frames.size() >= MatchReplay.MAX_FRAMES) {
             replayRecording.overflowed = true;
             return;
@@ -35894,21 +35925,91 @@ public class BirdGame3 extends Application {
         Arrays.fill(replayAttackDownHeld, false);
     }
 
-    /** Keeps the finished recording as the last-match replay. Called when a match ends normally. */
-    void finishReplayRecording() {
+    /**
+     * Keeps the finished recording as the last-match replay and persists it to
+     * the replays folder. Called when a match ends normally.
+     */
+    void finishReplayRecording(String winnerLabel) {
         if (replayRecording != null && replayRecording.usable()) {
+            replayRecording.winnerLabel = winnerLabel == null ? "" : winnerLabel;
             lastMatchReplay = replayRecording;
+            ReplayStore.save(replayRecording);
         }
         replayRecording = null;
-        replayRecordingArmed = false;
     }
 
+    /** Snapshot of the menu selections a replay's config restore overwrites. */
+    private record ReplayMenuSnapshot(MapType map, int activePlayers, boolean teamMode, boolean mutatorMode,
+                                      boolean[] ai, int[] teams, BirdType[] birds, boolean[] randoms, String[] skins) {
+    }
+
+    private ReplayMenuSnapshot preReplayMenuState = null;
+    private boolean replayReturnToBrowser = false;
+
     void startReplayPlayback(Stage stage) {
-        if (lastMatchReplay == null) return;
-        activeReplay = lastMatchReplay;
+        startReplayPlayback(stage, lastMatchReplay, false);
+    }
+
+    void startReplayPlayback(Stage stage, MatchReplay replay, boolean returnToBrowser) {
+        if (replay == null || !replay.usable()) return;
+        replayReturnToBrowser = returnToBrowser;
+        if (replay.selfContained()) {
+            preReplayMenuState = captureReplayMenuSnapshot();
+            applyReplayConfig(replay);
+        }
+        activeReplay = replay;
         replayPlaybackActive = true;
         clearReplayInputs();
         startMatch(stage);
+    }
+
+    private ReplayMenuSnapshot captureReplayMenuSnapshot() {
+        return new ReplayMenuSnapshot(
+                selectedMap, activePlayers, teamModeEnabled, mutatorModeEnabled,
+                Arrays.copyOf(isAI, isAI.length),
+                Arrays.copyOf(playerTeams, playerTeams.length),
+                Arrays.copyOf(fightSetupSelection.selectedBirds(), fightSetupSelection.selectedBirds().length),
+                Arrays.copyOf(fightSetupSelection.randomSelections(), fightSetupSelection.randomSelections().length),
+                Arrays.copyOf(fightSetupSelection.selectedSkinKeys(), fightSetupSelection.selectedSkinKeys().length));
+    }
+
+    private void restoreReplayMenuSnapshot() {
+        ReplayMenuSnapshot s = preReplayMenuState;
+        preReplayMenuState = null;
+        if (s == null) return;
+        selectedMap = s.map();
+        activePlayers = s.activePlayers();
+        teamModeEnabled = s.teamMode();
+        mutatorModeEnabled = s.mutatorMode();
+        System.arraycopy(s.ai(), 0, isAI, 0, Math.min(s.ai().length, isAI.length));
+        System.arraycopy(s.teams(), 0, playerTeams, 0, Math.min(s.teams().length, playerTeams.length));
+        BirdType[] birds = fightSetupSelection.selectedBirds();
+        boolean[] randoms = fightSetupSelection.randomSelections();
+        String[] skins = fightSetupSelection.selectedSkinKeys();
+        System.arraycopy(s.birds(), 0, birds, 0, Math.min(s.birds().length, birds.length));
+        System.arraycopy(s.randoms(), 0, randoms, 0, Math.min(s.randoms().length, randoms.length));
+        System.arraycopy(s.skins(), 0, skins, 0, Math.min(s.skins().length, skins.length));
+    }
+
+    /** Points the match setup at the replay's recorded configuration. */
+    private void applyReplayConfig(MatchReplay r) {
+        trainingModeActive = false;
+        storyModeActive = false;
+        adventureModeActive = false;
+        classicModeActive = false;
+        tournamentModeActive = false;
+        competitionModeEnabled = false;
+        lanModeActive = false;
+        selectedMap = MapType.valueOf(r.mapName);
+        activePlayers = Math.min(r.playerCount, MAX_COMBATANTS);
+        teamModeEnabled = r.teamModeEnabled;
+        mutatorModeEnabled = r.mutatorModeEnabled;
+        for (int i = 0; i < activePlayers; i++) {
+            if (r.slotBirdTypes[i] == null) continue;
+            isAI[i] = r.slotIsAi[i];
+            playerTeams[i] = r.slotTeams[i];
+            fightSetupSelection.selectBirdWithSkin(i, BirdType.valueOf(r.slotBirdTypes[i]), r.slotSkinKeys[i]);
+        }
     }
 
     void endReplayPlayback(Stage stage) {
@@ -35916,8 +36017,14 @@ public class BirdGame3 extends Application {
         activeReplay = null;
         clearReplayInputs();
         if (timer != null) timer.stop();
+        restoreReplayMenuSnapshot();
         resetMatchStats();
-        showMenu(stage);
+        if (replayReturnToBrowser) {
+            replayReturnToBrowser = false;
+            showReplayBrowser(stage);
+        } else {
+            showMenu(stage);
+        }
     }
 
     private void drawReplayOverlay(GraphicsContext g) {
@@ -37127,7 +37234,6 @@ public class BirdGame3 extends Application {
         replayFrameCursor = 0;
         replayDashCursor = 0;
         replayRecording = null;
-        replayRecordingArmed = !replayPlaybackActive;
         clearReplayInputs();
         lastPowerUpSpawnTime = 0L;
         lastWindBurstTime = 0L;
@@ -37181,6 +37287,10 @@ public class BirdGame3 extends Application {
         } else {
             List<BirdType> pool = unlockedBirdPool();
             int slots = lanModeActive ? LAN_MAX_PLAYERS : activePlayers;
+            // Setup randomness (random bird picks, random skins) uses its own
+            // seed-derived stream so it never shifts the sim RNG. Replays store
+            // the RESOLVED roster, so playback must not depend on these draws.
+            Random setupRandom = new Random(currentMatchSeed ^ 0x5EED_B17D_5E7BL);
             for (int i = 0; i < slots; i++) {
                 if (lanModeActive && !lanSlotConnected[i]) {
                     players[i] = null;
@@ -37190,7 +37300,7 @@ public class BirdGame3 extends Application {
                 BirdType type = lanModeActive ? lanSelectedBirds[i] : fightSetupSelection.selectedBird(i);
                 boolean randomPick = lanModeActive ? lanRandomBirds[i] : fightSetupSelection.isRandomSelected(i);
                 if (type == null || (lanModeActive && randomPick) || (!lanModeActive && (randomPick || !isBirdUnlocked(type)))) {
-                    type = pool.get(random.nextInt(pool.size()));
+                    type = pool.get(setupRandom.nextInt(pool.size()));
                     if (lanModeActive) {
                         lanSelectedBirds[i] = type;
                         lanRandomBirds[i] = false;
@@ -37200,10 +37310,10 @@ public class BirdGame3 extends Application {
                 isAI[i] = !lanModeActive && menuAI[i];
                 players[i] = new Bird(startX, type, i, this);
                 if (lanModeActive) {
-                    String skinKey = randomPick ? randomAdventureSkinChoice(type) : lanSelectedSkinKeys[i];
+                    String skinKey = randomPick ? randomAdventureSkinChoice(type, setupRandom) : lanSelectedSkinKeys[i];
                     applyPreviewSkinChoiceToBird(players[i], type, skinKey);
                 } else {
-                    String skinKey = randomPick ? randomAdventureSkinChoice(type) : fightSetupSelection.selectedSkinKey(i);
+                    String skinKey = randomPick ? randomAdventureSkinChoice(type, setupRandom) : fightSetupSelection.selectedSkinKey(i);
                     skinKey = normalizeAdventureSkinChoice(type, skinKey);
                     fightSetupSelection.setSelectedSkinKey(i, skinKey);
                     applySkinChoiceToBird(players[i], type, skinKey);
@@ -37222,6 +37332,8 @@ public class BirdGame3 extends Application {
                 }
             }
         }
+
+        beginReplayRecordingForMatch();
 
         if (tournamentModeActive) {
             applyTournamentSlotNames();
@@ -37252,7 +37364,11 @@ public class BirdGame3 extends Application {
 
         if (selectedMap != MapType.CITY || lanModeActive) cityStars.clear();
 
-        Random mapRandom = lanModeActive ? new Random(lanMatchSeed) : random;
+        // Arena generation (jungle platform jitter, city stars) uses a seed-derived
+        // stream: reproducible from the match seed, and — unlike drawing from the
+        // sim RNG — its draw count can't vary with leftover state (e.g. cached
+        // city stars), which would desync replays.
+        Random mapRandom = new Random(currentMatchSeed ^ 0x4A9E_3A70_6E2DL);
 
         if (selectedMap == MapType.CITY && cityStars.isEmpty()) {
             for (int i = 0; i < 250; i++) {
@@ -40900,8 +41016,18 @@ public class BirdGame3 extends Application {
     }
 
     private void applyAdaptiveBalance(Bird bird) {
-        if (!ADAPTIVE_BALANCE_ENABLED) return;
         if (bird == null) return;
+        // Replays apply the multipliers recorded at match time; live adaptive
+        // balance drifts as win/loss stats change, which would desync playback.
+        if (replayPlaybackActive && activeReplay != null && activeReplay.slotBaseSize != null) {
+            int idx = bird.playerIndex;
+            if (idx >= 0 && idx < activeReplay.slotBaseSize.length && activeReplay.slotBirdTypes[idx] != null) {
+                bird.setBaseMultipliers(activeReplay.slotBaseSize[idx],
+                        activeReplay.slotBasePower[idx], activeReplay.slotBaseSpeed[idx]);
+            }
+            return;
+        }
+        if (!ADAPTIVE_BALANCE_ENABLED) return;
         if (bird.isNullRockForm()) return;
 
         int idx = bird.type.ordinal();
@@ -41568,7 +41694,10 @@ public class BirdGame3 extends Application {
         Button back = uiFactory.action("BACK TO HUB", 360, 100, 34, "#D32F2F", 22, () -> showMenu(stage));
         StackPane title = buildMenuTitleBanner("MATCH HISTORY", 620, 74, 34);
         StackPane summaryChip = buildMenuChip("LAST " + MATCH_HISTORY_LIMIT + " MATCHES", "#4FC3F7", "#B3E5FC");
-        StackPane top = buildMenuTopStrip(back, title, summaryChip);
+        Button replaysBtn = uiFactory.action("REPLAYS", 260, 74, 26, "#7B1FA2", 20, () -> showReplayBrowser(stage));
+        HBox rightStrip = new HBox(14, summaryChip, replaysBtn);
+        rightStrip.setAlignment(Pos.CENTER_RIGHT);
+        StackPane top = buildMenuTopStrip(back, title, rightStrip);
 
         VBox list = new VBox(18);
         list.setAlignment(Pos.TOP_CENTER);
@@ -41600,6 +41729,137 @@ public class BirdGame3 extends Application {
         root.setStyle(root.getStyle() + ";-fx-focus-color:transparent;-fx-faint-focus-color:transparent;");
         setScenePreservingFullscreen(stage, scene);
         back.requestFocus();
+    }
+
+    private void showReplayBrowser(Stage stage) {
+        playMenuMusic();
+
+        BorderPane root = new BorderPane();
+        root.setPadding(new Insets(30, 40, 30, 40));
+        root.setStyle(MenuTheme.pageBackground());
+
+        Button back = uiFactory.action("BACK TO HISTORY", 380, 100, 30, "#D32F2F", 22, () -> showMatchHistory(stage));
+        StackPane title = buildMenuTitleBanner("REPLAYS", 620, 74, 34);
+        List<ReplayStore.SavedReplay> saved = ReplayStore.listAll();
+        StackPane summaryChip = buildMenuChip(saved.size() + " SAVED", "#CE93D8", "#F3E5F5");
+        StackPane top = buildMenuTopStrip(back, title, summaryChip);
+
+        VBox list = new VBox(18);
+        list.setAlignment(Pos.TOP_CENTER);
+        list.setPadding(new Insets(6, 0, 6, 0));
+        if (saved.isEmpty()) {
+            Label empty = new Label("No saved replays yet.\nFinish a standard match and it will show up here automatically.");
+            empty.setFont(Font.font("Consolas", 24));
+            empty.setTextFill(Color.web("#B0BEC5"));
+            empty.setTextAlignment(TextAlignment.CENTER);
+            StackPane emptyCard = new StackPane(empty);
+            emptyCard.setPadding(new Insets(40));
+            emptyCard.setStyle(MenuTheme.panelStyle("#78909C", 20));
+            list.getChildren().add(emptyCard);
+        } else {
+            for (ReplayStore.SavedReplay entry : saved) {
+                list.getChildren().add(buildReplayCard(stage, entry));
+            }
+        }
+
+        ScrollPane scroll = new ScrollPane(list);
+        scroll.setFitToWidth(true);
+        scroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        StackPane shell = new StackPane(scroll);
+        shell.setPadding(new Insets(14));
+        shell.setStyle(MenuTheme.panelStyle("#CE93D8", 28));
+
+        root.setTop(top);
+        root.setCenter(shell);
+        BorderPane.setMargin(top, new Insets(0, 0, 18, 0));
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        root.setStyle(root.getStyle() + ";-fx-focus-color:transparent;-fx-faint-focus-color:transparent;");
+        setScenePreservingFullscreen(stage, scene);
+        back.requestFocus();
+    }
+
+    private VBox buildReplayCard(Stage stage, ReplayStore.SavedReplay entry) {
+        MatchReplay replay = entry.replay();
+
+        VBox card = new VBox(10);
+        card.setPadding(new Insets(18, 22, 18, 22));
+        card.setMaxWidth(1480);
+        card.setStyle(MenuTheme.panelStyle("#CE93D8", 20));
+
+        Label rosterLabel = new Label(replayRosterLabel(replay));
+        rosterLabel.setFont(Font.font("Arial Black", 28));
+        rosterLabel.setTextFill(Color.web("#E1BEE7"));
+        rosterLabel.setWrapText(true);
+        rosterLabel.setMaxWidth(1000);
+
+        Label metaLabel = new Label(replayMapLabel(replay)
+                + "  |  " + formatMatchHistoryTimestamp(replay.timestampMillis)
+                + "  |  " + formatReplayDuration(replay.durationTicks()));
+        metaLabel.setFont(Font.font("Consolas", 18));
+        metaLabel.setTextFill(Color.web("#90A4AE"));
+
+        Label winnerLabel = new Label("WINNER: "
+                + (replay.winnerLabel == null || replay.winnerLabel.isBlank() ? "UNKNOWN" : replay.winnerLabel));
+        winnerLabel.setFont(Font.font("Arial Black", 22));
+        winnerLabel.setTextFill(Color.web("#FFF59D"));
+
+        VBox headerText = new VBox(4, rosterLabel, metaLabel, winnerLabel);
+        headerText.setAlignment(Pos.CENTER_LEFT);
+
+        Button watch = uiFactory.action("WATCH", 220, 74, 26, "#1565C0", 18, () -> {
+            resetMatchStats();
+            startReplayPlayback(stage, replay, true);
+        });
+        Button delete = uiFactory.action("DELETE", 220, 74, 26, "#455A64", 18, () -> {
+            ReplayStore.delete(entry.file());
+            showReplayBrowser(stage);
+        });
+        VBox actions = new VBox(10, watch, delete);
+        actions.setAlignment(Pos.CENTER_RIGHT);
+
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox row = new HBox(16, headerText, spacer, actions);
+        row.setAlignment(Pos.CENTER_LEFT);
+
+        card.getChildren().add(row);
+        return card;
+    }
+
+    private String replayRosterLabel(MatchReplay replay) {
+        if (replay.slotBirdTypes == null) {
+            return "SAVED MATCH";
+        }
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < replay.playerCount; i++) {
+            if (replay.slotBirdTypes[i] == null) continue;
+            if (sb.length() > 0) sb.append("  VS  ");
+            String birdName;
+            try {
+                birdName = BirdType.valueOf(replay.slotBirdTypes[i]).name.toUpperCase(Locale.ROOT);
+            } catch (IllegalArgumentException e) {
+                birdName = replay.slotBirdTypes[i];
+            }
+            sb.append(replay.slotIsAi[i] ? "AI " : "P" + (i + 1) + " ").append(birdName);
+        }
+        return sb.isEmpty() ? "SAVED MATCH" : sb.toString();
+    }
+
+    private String replayMapLabel(MatchReplay replay) {
+        if (replay.mapName == null) {
+            return "UNKNOWN MAP";
+        }
+        return replay.mapName.replace('_', ' ');
+    }
+
+    private static String formatReplayDuration(long ticks) {
+        long totalSeconds = ticks / 60;
+        return String.format(Locale.ROOT, "%d:%02d", totalSeconds / 60, totalSeconds % 60);
     }
 
     private VBox buildMatchHistoryCard(MatchHistoryEntry entry) {

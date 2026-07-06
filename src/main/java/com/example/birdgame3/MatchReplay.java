@@ -27,6 +27,23 @@ final class MatchReplay {
     final List<DashTap> dashTaps = new ArrayList<>();
     boolean overflowed = false;
 
+    // Match configuration captured at record time, making playback self-contained:
+    // a replay can be watched later regardless of current menu selections. The
+    // slot* arrays hold the RESOLVED roster (random picks already decided) and the
+    // adaptive-balance multipliers that were in force.
+    String mapName;
+    boolean teamModeEnabled;
+    boolean mutatorModeEnabled;
+    String[] slotBirdTypes;
+    boolean[] slotIsAi;
+    int[] slotTeams;
+    String[] slotSkinKeys;
+    double[] slotBaseSize;
+    double[] slotBasePower;
+    double[] slotBaseSpeed;
+    long timestampMillis;
+    String winnerLabel = "";
+
     MatchReplay(long seed, int playerCount) {
         this.seed = seed;
         this.playerCount = playerCount;
@@ -34,5 +51,13 @@ final class MatchReplay {
 
     boolean usable() {
         return !overflowed && !frames.isEmpty();
+    }
+
+    boolean selfContained() {
+        return mapName != null && slotBirdTypes != null;
+    }
+
+    long durationTicks() {
+        return frames.size();
     }
 }
