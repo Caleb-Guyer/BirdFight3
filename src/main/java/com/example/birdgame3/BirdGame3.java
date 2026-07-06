@@ -1126,25 +1126,27 @@ public class BirdGame3 extends Application {
     private void loadSounds() {
         try {
             String p = "/sounds/";
-            bonkClip = new AudioClip(resourceUrl(p + "bonk.mp3"));
-            butterClip = new AudioClip(resourceUrl(p + "butter.mp3"));
-            jalapenoClip = new AudioClip(resourceUrl(p + "jalapeno.mp3"));
-            swingClip = new AudioClip(resourceUrl(p + "swing.mp3"));
-            hugewaveClip = new AudioClip(resourceUrl(p + "hugewave.mp3"));
-            vaseBreakingClip = new AudioClip(resourceUrl(p + "vase-breaking.mp3"));
-            cherrybombClip = new AudioClip(resourceUrl(p + "cherrybomb.mp3"));
-            steamAchievementClip = new AudioClip(resourceUrl(p + "steam-achievement.mp3"));
+            // SFX are synthesized originals (sfx-*.wav); music is public-domain
+            // (FreePD, CC0) — see CREDITS-AUDIO.md.
+            bonkClip = new AudioClip(resourceUrl(p + "sfx-hit.wav"));
+            butterClip = new AudioClip(resourceUrl(p + "sfx-thwump.wav"));
+            jalapenoClip = new AudioClip(resourceUrl(p + "sfx-sizzle.wav"));
+            swingClip = new AudioClip(resourceUrl(p + "sfx-whoosh.wav"));
+            hugewaveClip = new AudioClip(resourceUrl(p + "sfx-bigwave.wav"));
+            vaseBreakingClip = new AudioClip(resourceUrl(p + "sfx-shatter.wav"));
+            cherrybombClip = new AudioClip(resourceUrl(p + "sfx-boom.wav"));
+            steamAchievementClip = new AudioClip(resourceUrl(p + "sfx-achievement.wav"));
 
-            // === NEW MENU & VICTORY MUSIC ===
-            menuMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "choose_your_seeds.mp3")));
+            // === MENU & VICTORY MUSIC ===
+            menuMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "music-menu.mp3")));
             menuMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
 
-            victoryMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "finalfanfare.mp3")));
+            victoryMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "music-victory.mp3")));
 
             // === WIIMOTE BUTTON CLICK ===
-            buttonClickClip = new AudioClip(resourceUrl(p + "buttonclick.mp3"));
+            buttonClickClip = new AudioClip(resourceUrl(p + "sfx-click.wav"));
 
-            zombieFallingClip = new AudioClip(resourceUrl(p + "zombie-falling.mp3"));
+            zombieFallingClip = new AudioClip(resourceUrl(p + "sfx-fallwhistle.wav"));
             applyAudioVolumes();
 
         } catch (Exception e) {
@@ -1174,17 +1176,17 @@ public class BirdGame3 extends Application {
     private String gameplayMusicFile() {
         boolean bossMusic = isBossEncounterActive() || selectedMap == MapType.BEACON_CROWN;
         return bossMusic
-                ? "GW2ops.mp3"
+                ? "music-boss.mp3"
                 : switch (selectedMap) {
-                    case FOREST -> "ultimate_battle.mp3";
-                    case CITY -> "braniac_maniac.mp3";
-                    case SKYCLIFFS -> "zombotany.mp3";
-                    case VIBRANT_JUNGLE -> "loonboon.mp3";
-                    case DESERT -> "wild-west-ultimate-battle.mp3";
-                    case CAVE -> "dark-ages-ultimate-battle.mp3";
-                    case BATTLEFIELD -> "skycity.mp3";
-                    case DOCK -> "pirate-seas.mp3";
-                    case FROSTBITE_FJORD -> "treasure-yeti-high.mp3";
+                    case FOREST -> "music-forest.mp3";
+                    case CITY -> "music-city.mp3";
+                    case SKYCLIFFS -> "music-skycliffs.mp3";
+                    case VIBRANT_JUNGLE -> "music-jungle.mp3";
+                    case DESERT -> "music-desert.mp3";
+                    case CAVE -> "music-cave.mp3";
+                    case BATTLEFIELD -> "music-battlefield.mp3";
+                    case DOCK -> "music-dock.mp3";
+                    case FROSTBITE_FJORD -> "music-frostbite.mp3";
             default -> throw new IllegalStateException("Unexpected value: " + selectedMap);
         };
     }
@@ -1362,13 +1364,13 @@ public class BirdGame3 extends Application {
             return null;
         }
         try {
-            MediaPlayer player = new MediaPlayer(new Media(resourceUrl("/sounds/" + "wild-west-ultimate-battle.mp3")));
+            MediaPlayer player = new MediaPlayer(new Media(resourceUrl("/sounds/" + "music-desert.mp3")));
             player.setCycleCount(MediaPlayer.INDEFINITE);
             player.setVolume(BirdGame3.MATCH_MUSIC_BASE_VOLUME * effectiveMusicVolume());
             player.play();
             return player;
         } catch (Exception e) {
-            System.out.println("Music not found: " + "wild-west-ultimate-battle.mp3");
+            System.out.println("Music not found: " + "music-desert.mp3");
             return null;
         }
     }
