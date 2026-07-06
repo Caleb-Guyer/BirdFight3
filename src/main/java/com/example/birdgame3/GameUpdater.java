@@ -255,22 +255,28 @@ final class GameUpdater {
     /** Hands off to a helper script that waits for this process, swaps files, and relaunches. */
     private static void launchSwapAndExit(Path stagedDir, Path exe) {
         try {
+            long pid = ProcessHandle.current().pid();
+            Path target = exe.getParent();
+            // Values are baked into the script as single-quoted literals so nothing
+            // has to survive cmd's argument re-parsing; robocopy (not Copy-Item)
+            // reliably merges the new tree over the existing install, and /XF skips
+            // the player's own tuning files so an update never clobbers them.
             String script = String.join("\r\n",
-                    "param([int]$GamePid, [string]$Source, [string]$Target, [string]$Exe)",
-                    "try { Wait-Process -Id $GamePid -Timeout 60 -ErrorAction SilentlyContinue } catch {}",
+                    "try { Wait-Process -Id " + pid + " -Timeout 60 -ErrorAction SilentlyContinue } catch {}",
                     "Start-Sleep -Seconds 1",
-                    "Copy-Item -Path (Join-Path $Source '*') -Destination $Target -Recurse -Force",
-                    "Start-Process -FilePath $Exe",
+                    "robocopy '" + stagedDir + "' '" + target + "' /E /IS /IT /R:3 /W:2 "
+                            + "/XF bird-stats.properties /XD sprites | Out-Null",
+                    "Start-Process -FilePath '" + exe + "'",
                     "");
             Path scriptFile = Files.createTempFile("birdfight3-swap", ".ps1");
             Files.writeString(scriptFile, script);
+            // `cmd /c start` launches the updater in its own process tree so it
+            // survives this JVM exiting — a jpackage app-image launcher runs the
+            // JVM inside a Windows job object that would otherwise kill children.
             new ProcessBuilder(
+                    "cmd.exe", "/c", "start", "\"BirdFight3 Update\"", "/min",
                     "powershell.exe", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                    "-WindowStyle", "Hidden", "-File", scriptFile.toString(),
-                    "-GamePid", Long.toString(ProcessHandle.current().pid()),
-                    "-Source", stagedDir.toString(),
-                    "-Target", exe.getParent().toString(),
-                    "-Exe", exe.toString())
+                    "-WindowStyle", "Hidden", "-File", scriptFile.toString())
                     .start();
             System.exit(0);
         } catch (IOException e) {
