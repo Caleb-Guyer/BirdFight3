@@ -133,7 +133,7 @@ public class BirdGame3 extends Application {
     private static final Font FIGHT_HUD_DAMAGE_FONT = Font.font("Impact", 60);
     private static final Font FIGHT_HUD_TIMER_LABEL_FONT = Font.font("Consolas", FontWeight.BOLD, 18);
     private static final Font FIGHT_HUD_TIMER_VALUE_FONT = Font.font("Impact", 54);
-    private static final Font FIGHT_HUD_COUNTDOWN_FONT = Font.font("Impact", FontWeight.BOLD, 220);
+    private static final Font FIGHT_HUD_COUNTDOWN_FONT = Font.font("Impact", FontWeight.BOLD, 168);
     private static final Font FIGHT_HUD_GO_FONT = Font.font("Arial Black", FontWeight.BOLD, 126);
     private static final int MATCH_INTRO_COUNTDOWN_FRAMES = 3 * 60;
     private static final int MATCH_INTRO_GO_FRAMES = 40;
@@ -1081,7 +1081,13 @@ public class BirdGame3 extends Application {
     private void shutdownAndExit() {
         if (shuttingDown) return;
         shuttingDown = true;
+        shutdownInProgress = true;
         appendStartLog("shutdown initiated");
+        // Stop render loops BEFORE tearing the toolkit down: a canvas render
+        // mid-pulse during Platform.exit() dies inside the D3D texture teardown
+        // (D3DTexture.getContext NPE) on Windows.
+        try { if (timer != null) timer.stop(); } catch (Throwable ignore) {}
+        try { if (wiimoteMenuTimer != null) wiimoteMenuTimer.stop(); } catch (Throwable ignore) {}
         // Quickly request JavaFX exit so UI can close without waiting for cleanup
         try { javafx.application.Platform.exit(); } catch (Throwable ignore) {}
 
@@ -3953,6 +3959,8 @@ public class BirdGame3 extends Application {
 
     // Guard to prevent reentrant shutdowns
     private volatile boolean shuttingDown = false;
+    /** Set once shutdown begins so crash reporting can ignore teardown-race exceptions. */
+    static volatile boolean shutdownInProgress = false;
 
     public static final String[] ACHIEVEMENT_DESCRIPTIONS = BirdGame3Achievement.descriptions();
     public static final int ACHIEVEMENT_COUNT = BirdGame3Achievement.count();
@@ -29080,6 +29088,10 @@ public class BirdGame3 extends Application {
         b.vx = 0;
         b.vy = 0;
         b.facingRight = facingRight;
+        // Dialogue birds live on a UI canvas far from the world ground, so
+        // isOnGround() is false and they'd render in the nose-down falling pose.
+        // The preview flag pins them to the upright idle pose.
+        b.suppressSelectEffects = true;
         if (skinKey != null) {
             applyPreviewSkinChoiceToBird(b, type, skinKey);
         }
@@ -38873,7 +38885,10 @@ public class BirdGame3 extends Application {
         double plateY = 116;
         Color accent = go ? Color.web("#FF7043") : Color.web("#FFD54F");
         Font font = go ? FIGHT_HUD_GO_FONT : FIGHT_HUD_COUNTDOWN_FONT;
-        double baselineY = plateY + plateHeight * (go ? 0.74 : 0.76);
+        // Center the actual visible glyphs in the plate. Font-metric centering
+        // (baseline ratios, VPos.CENTER) drifts because metric boxes include
+        // empty headroom; measuring the rendered glyph bounds does not.
+        double baselineY = visuallyCenteredTextBaseline(font, label, plateY + plateHeight / 2.0);
 
         g.setFill(Color.web("#03070B", 0.58));
         g.fillRoundRect(plateX, plateY, plateWidth, plateHeight, 40, 40);
@@ -38886,13 +38901,27 @@ public class BirdGame3 extends Application {
         g.setTextAlign(TextAlignment.CENTER);
         g.setFont(font);
         g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.4));
-        g.fillText(label, WIDTH / 2.0 + 8, baselineY + 8);
+        g.fillText(label, WIDTH / 2.0 + 6, baselineY + 6);
         g.setStroke(go ? Color.web("#BF360C") : Color.web("#5D4037"));
         g.setLineWidth(go ? 8.0 : 10.0);
         g.strokeText(label, WIDTH / 2.0, baselineY);
         g.setFill(go ? Color.web("#FFF3E0") : Color.web("#FFF8E1"));
         g.fillText(label, WIDTH / 2.0, baselineY);
         g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    /**
+     * Baseline y that vertically centers the VISIBLE glyphs of {@code text} on
+     * {@code centerY}. Uses visual text bounds, so fonts with tall metric boxes
+     * (Impact et al.) center correctly regardless of built-in headroom.
+     */
+    private static double visuallyCenteredTextBaseline(Font font, String text, double centerY) {
+        Text probe = new Text(text);
+        probe.setFont(font);
+        probe.setBoundsType(javafx.scene.text.TextBoundsType.VISUAL);
+        var bounds = probe.getLayoutBounds();
+        // With VISUAL bounds, minY/maxY are glyph extents relative to the baseline.
+        return centerY - (bounds.getMinY() + bounds.getMaxY()) / 2.0;
     }
 
     private double hudAlphaForRect(Rectangle2D rect) {

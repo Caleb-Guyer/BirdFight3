@@ -13,6 +13,13 @@ public class Launcher {
         // Install a global uncaught exception handler so crashes during startup
         // are recorded to an easy-to-find file on the Desktop.
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            if (BirdGame3.shutdownInProgress) {
+                // Teardown races (e.g. a final render pulse against the dying D3D
+                // context) are harmless once we're exiting: log quietly, no report.
+                ThrowableLogSupport.log(LOGGER, Level.FINE,
+                        "Ignoring exception during shutdown on " + thread.getName(), throwable);
+                return;
+            }
             ThrowableLogSupport.log(
                     LOGGER,
                     Level.SEVERE,
