@@ -114,7 +114,9 @@ public class BirdGame3 extends Application {
     public static final int WIDTH = 1920;
     public static final int HEIGHT = 1080;
     public static final int GROUND_Y = 2400;
-    public static final double GRAVITY = 0.75;
+    public static final double DEFAULT_GRAVITY = 0.75;
+    // Non-final: tunable via bird-stats.properties (global.gravity); reset by BirdStats.
+    public static double GRAVITY = DEFAULT_GRAVITY;
     private static final int XBOX_CONTROLLER_SLOTS = 4;
     static final int MATCH_DURATION_FRAMES = 90 * 60;
     static final int COMPETITION_DURATION_FRAMES = 120 * 60;
@@ -9495,6 +9497,12 @@ public class BirdGame3 extends Application {
         int power;
         int jumpHeight;
         double speed, flyUpForce;
+        // Combat multipliers applied at the damage/cooldown/ultimate choke points;
+        // 1.0 = compiled behavior. See BirdStats for the tuning-file keys.
+        double damageDealtMult = 1.0;
+        double damageTakenMult = 1.0;
+        double cooldownRate = 1.0;
+        double ultimateRate = 1.0;
         final Color color;
         final String ability;
         final int defaultPower;

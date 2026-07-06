@@ -356,7 +356,9 @@ public class Bird {
     public BirdGame3.BirdType type;
     public boolean facingRight = true;
     public int playerIndex;
-    public static final double STARTING_HEALTH = 200.0;
+    public static final double DEFAULT_STARTING_HEALTH = 200.0;
+    // Non-final: tunable via bird-stats.properties (global.startingHealth); reset by BirdStats.
+    public static double STARTING_HEALTH = DEFAULT_STARTING_HEALTH;
     public double health = STARTING_HEALTH;
     private double smashDamage = 0.0;
     public String name;
@@ -392,6 +394,7 @@ public class Bird {
     private int jumpBufferFrames = 0;
     private int coyoteFrames = 0;
     private int attackBufferFrames = 0;
+    private double cooldownRecoveryCarry = 0.0;
     public boolean loungeActive = false;
     public boolean isCitySkin = false;
     public boolean isNoirSkin = false;
@@ -9993,9 +9996,14 @@ public class Bird {
         if (isStunImmune()) {
             stunTime = 0;
         }
-        if (specialCooldown > 0) specialCooldown = (int)Math.max(0, specialCooldown - gameSpeed);
-        if (crowSwarmCooldown > 0) crowSwarmCooldown = (int)Math.max(0, crowSwarmCooldown - gameSpeed);
-        if (attackCooldown > 0) attackCooldown = (int)Math.max(0, attackCooldown - gameSpeed);
+        // Cooldowns recover at a tunable per-bird rate; the fractional carry keeps
+        // non-integer rates deterministic (rate 1.25 = an extra tick every 4th frame).
+        cooldownRecoveryCarry += gameSpeed * (type != null ? type.cooldownRate : 1.0);
+        int cooldownTicks = (int) cooldownRecoveryCarry;
+        cooldownRecoveryCarry -= cooldownTicks;
+        if (specialCooldown > 0) specialCooldown = Math.max(0, specialCooldown - cooldownTicks);
+        if (crowSwarmCooldown > 0) crowSwarmCooldown = Math.max(0, crowSwarmCooldown - cooldownTicks);
+        if (attackCooldown > 0) attackCooldown = Math.max(0, attackCooldown - cooldownTicks);
         if (grabCooldown > 0) grabCooldown = (int)Math.max(0, grabCooldown - gameSpeed);
         if (landingLagTimer > 0) landingLagTimer = (int)Math.max(0, landingLagTimer - gameSpeed);
         if (!(eagleDiveActive && eagleDiveCountdown > 0 && !eagleAscentActive)) {
@@ -11748,6 +11756,9 @@ public class Bird {
 
     private void gainUltimate(double amount) {
         if (amount <= 0) return;
+        if (type != null) {
+            amount *= type.ultimateRate;
+        }
         ultimateMeter = Math.min(ULTIMATE_MAX, ultimateMeter + amount);
     }
 
@@ -12138,6 +12149,15 @@ public class Bird {
 
     private double receiveScaledDamage(double scaledDamage, Bird attacker) {
         if (scaledDamage <= 0 || health <= 0) return 0;
+        // Tuning-file combat multipliers: every point of damage in the game flows
+        // through here, so these two factors tune a bird's whole kit at once.
+        if (attacker != null && attacker != this && attacker.type != null) {
+            scaledDamage *= attacker.type.damageDealtMult;
+        }
+        if (type != null) {
+            scaledDamage *= type.damageTakenMult;
+        }
+        if (scaledDamage <= 0) return 0;
         if (tryRazorbillCounter(attacker, scaledDamage)) {
             return 0;
         }

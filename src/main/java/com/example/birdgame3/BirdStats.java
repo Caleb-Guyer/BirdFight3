@@ -34,7 +34,13 @@ final class BirdStats {
             type.jumpHeight = type.defaultJumpHeight;
             type.speed = type.defaultSpeed;
             type.flyUpForce = type.defaultFlyUpForce;
+            type.damageDealtMult = 1.0;
+            type.damageTakenMult = 1.0;
+            type.cooldownRate = 1.0;
+            type.ultimateRate = 1.0;
         }
+        BirdGame3.GRAVITY = BirdGame3.DEFAULT_GRAVITY;
+        Bird.STARTING_HEALTH = Bird.DEFAULT_STARTING_HEALTH;
     }
 
     /** Applies overrides from the given properties; returns how many were applied. */
@@ -62,8 +68,43 @@ final class BirdStats {
                 type.flyUpForce = flyUpForce;
                 applied++;
             }
+            Double damageDealtMult = readDouble(props, prefix + ".damageDealtMult");
+            if (damageDealtMult != null) {
+                type.damageDealtMult = clampMultiplier(damageDealtMult);
+                applied++;
+            }
+            Double damageTakenMult = readDouble(props, prefix + ".damageTakenMult");
+            if (damageTakenMult != null) {
+                type.damageTakenMult = clampMultiplier(damageTakenMult);
+                applied++;
+            }
+            Double cooldownRate = readDouble(props, prefix + ".cooldownRate");
+            if (cooldownRate != null) {
+                type.cooldownRate = clampMultiplier(cooldownRate);
+                applied++;
+            }
+            Double ultimateRate = readDouble(props, prefix + ".ultimateRate");
+            if (ultimateRate != null) {
+                type.ultimateRate = clampMultiplier(ultimateRate);
+                applied++;
+            }
+        }
+        Double gravity = readDouble(props, "global.gravity");
+        if (gravity != null) {
+            BirdGame3.GRAVITY = Math.clamp(gravity, 0.05, 5.0);
+            applied++;
+        }
+        Double startingHealth = readDouble(props, "global.startingHealth");
+        if (startingHealth != null) {
+            Bird.STARTING_HEALTH = Math.clamp(startingHealth, 10.0, 5000.0);
+            applied++;
         }
         return applied;
+    }
+
+    /** Keeps combat multipliers inside a sane band so a typo can't zero out the sim. */
+    private static double clampMultiplier(double value) {
+        return Math.clamp(value, 0.1, 10.0);
     }
 
     /**
@@ -102,7 +143,18 @@ final class BirdStats {
         StringBuilder sb = new StringBuilder();
         sb.append("# BirdFight3 balance overrides\n");
         sb.append("# Edit values, then press F12 in Training mode to hot-reload.\n");
-        sb.append("# Delete a line to fall back to the compiled default.\n\n");
+        sb.append("# Delete a line to fall back to the compiled default.\n");
+        sb.append("#\n");
+        sb.append("# The *Mult/*Rate keys are multipliers (1.0 = normal, clamped 0.1-10):\n");
+        sb.append("#   damageDealtMult  - scales ALL damage the bird deals (attacks + specials)\n");
+        sb.append("#   damageTakenMult  - scales damage received (0.8 = tankier, 1.2 = squishier)\n");
+        sb.append("#   cooldownRate     - attack/special cooldown recovery speed (1.25 = 25% faster)\n");
+        sb.append("#   ultimateRate     - ultimate meter charge speed\n");
+        sb.append('\n');
+        sb.append("# Global knobs\n");
+        sb.append("global.gravity=").append(BirdGame3.DEFAULT_GRAVITY).append('\n');
+        sb.append("global.startingHealth=").append(Bird.DEFAULT_STARTING_HEALTH).append('\n');
+        sb.append('\n');
         for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
             String prefix = key(type);
             sb.append("# ").append(type.name).append('\n');
@@ -110,6 +162,10 @@ final class BirdStats {
             sb.append(prefix).append(".jumpHeight=").append(type.defaultJumpHeight).append('\n');
             sb.append(prefix).append(".speed=").append(type.defaultSpeed).append('\n');
             sb.append(prefix).append(".flyUpForce=").append(type.defaultFlyUpForce).append('\n');
+            sb.append(prefix).append(".damageDealtMult=1.0\n");
+            sb.append(prefix).append(".damageTakenMult=1.0\n");
+            sb.append(prefix).append(".cooldownRate=1.0\n");
+            sb.append(prefix).append(".ultimateRate=1.0\n");
             sb.append('\n');
         }
         try {
