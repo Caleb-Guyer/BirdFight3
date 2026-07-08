@@ -604,6 +604,13 @@ final class MatchController {
     void triggerMatchEnd(Bird winner) {
         if (game.matchEnded) return;
 
+        if (game.headlessHarnessMode) {
+            // Balance-lab matches: record the outcome, no timers, no UI.
+            game.matchEnded = true;
+            game.harnessWinner = winner;
+            return;
+        }
+
         game.matchEndFocusBird = winner;
         game.triggerDramaticSlowMo(32);
 

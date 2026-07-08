@@ -3302,7 +3302,10 @@ public class Bird {
         shieldHoldVisual = Math.min(1.0, shieldHoldVisual + 0.08);
         spawnShieldParticles(Color.web("#64B5F6"), 10 + (int) Math.min(8.0, scaledDamage * 0.35), 3.0);
         game.hitstopFrames = Math.max(game.hitstopFrames, (int) Math.min(8, 2 + scaledDamage / 7.0));
-        game.shakeIntensity = Math.clamp(2.0 + scaledDamage * 0.12, game.shakeIntensity, 8.0);
+        // Raise shake to the block-impact level (capped at 8) without ever
+        // lowering stronger existing shake. Math.clamp(v, current, 8) threw
+        // IllegalArgumentException whenever current shake exceeded 8.
+        game.shakeIntensity = Math.max(game.shakeIntensity, Math.min(8.0, 2.0 + scaledDamage * 0.12));
         game.recordTrainingShieldHit(this);
 
         if (shieldHealth <= 0.0) {

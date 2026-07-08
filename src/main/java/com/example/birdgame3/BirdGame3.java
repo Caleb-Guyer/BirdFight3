@@ -36247,6 +36247,116 @@ public class BirdGame3 extends Application {
         }
     }
 
+    // === HEADLESS BALANCE HARNESS ===
+    // Lets BalanceLab run full AI-vs-AI matches with no JavaFX toolkit, no
+    // rendering, and no progression side effects. MatchController.triggerMatchEnd
+    // short-circuits under this flag so no victory timers or UI ever spawn.
+    boolean headlessHarnessMode = false;
+    Bird harnessWinner = null;
+
+    /** Sets up a plain 1v1 smash-rules AI match on Battlefield, fully reset. */
+    void harnessPrepareMatch(BirdType leftType, BirdType rightType, long seed) {
+        headlessHarnessMode = true;
+        harnessWinner = null;
+        currentMatchSeed = seed;
+        SimRng.reseed(seed);
+        simTick = 0L;
+        hitstopFrames = 0;
+        shakeIntensity = 0;
+        dramaticSlowMoTicks = 0;
+        matchEndFocusBird = null;
+        lastPowerUpSpawnTime = 0L;
+        lastWindBurstTime = 0L;
+        lastMutatorHazardTime = 0L;
+        replayRecording = null;
+        replayPlaybackActive = false;
+        lockstepSession = null;
+        lanModeActive = false;
+        trainingModeActive = false;
+        storyModeActive = false;
+        adventureModeActive = false;
+        classicModeActive = false;
+        tournamentModeActive = false;
+        competitionModeEnabled = false;
+        mutatorModeEnabled = false;
+        teamModeEnabled = false;
+        activeMutator = MatchMutator.NONE;
+        matchEnded = false;
+        suddenDeath.reset();
+        killFeed.clear();
+        Arrays.fill(damageDealt, 0);
+        clearGameplayInputs();
+
+        platforms.clear();
+        windVents.clear();
+        nectarNodes.clear();
+        swingingVines.clear();
+        crowMinions.clear();
+        piranhaHazards.clear();
+        chickMinions.clear();
+        frostbiteSnowbanks.clear();
+        particles.clear();
+        blastZoneKoEffects.clear();
+        combatImpactEffects.clear();
+        powerUps.clear();
+        dockShipBomb = null;
+        selectedMap = MapType.BATTLEFIELD;
+        setupBattlefieldArena();
+
+        Arrays.fill(players, null);
+        Arrays.fill(isAI, false);
+        activePlayers = 2;
+        players[0] = new Bird(battlefieldIslandX + 200, leftType, 0, this);
+        players[1] = new Bird(battlefieldIslandX + battlefieldIslandW - 280, rightType, 1, this);
+        for (int i = 0; i < 2; i++) {
+            players[i].y = battlefieldIslandY - 220;
+            isAI[i] = true;
+        }
+        smashCombatRulesActive = true;
+        Arrays.fill(scores, 0);
+        scores[0] = smashStartingStocks();
+        scores[1] = smashStartingStocks();
+        matchTimer = MATCH_DURATION_FRAMES;
+        matchIntroOverlayFrames = 0; // no 3-2-1: fight from tick one
+        matchIntroLastAnnouncedPhase = -1;
+    }
+
+    /**
+     * Executes one headless sim tick, mirroring gameTick's fixed-update body
+     * (hitstop consumes a tick without advancing the sim, exactly like the
+     * real loop). Returns true while the match is still running.
+     */
+    boolean harnessTick() {
+        if (hitstopFrames > 0) {
+            hitstopFrames--;
+            return !matchEnded;
+        }
+        simTick++;
+        for (int i = 0; i < activePlayers; i++) {
+            if (players[i] != null) {
+                players[i].update(1.0);
+            }
+        }
+        applyMatchModeRuntimeEffects();
+        spawnPowerUp();
+        if (!matchEnded && matchTimer > 0) matchTimer--;
+        updateWorldFixed();
+        trimTransientEffectOverflow();
+        updateParticlesFixed();
+        updateCombatImpactEffectsFixed();
+        updateBlastZoneKoEffectsFixed();
+        if (shakeIntensity > 0) {
+            shakeIntensity *= 0.9;
+            if (shakeIntensity < 0.5) shakeIntensity = 0;
+        }
+        return !matchEnded;
+    }
+
+    /** Deterministic fingerprint of the harness match state (for tests). */
+    long harnessStateHash() {
+        return computeLockstepHash(simTick);
+    }
+
     private void pollWiimoteGameplayInputs() {
         if (replayPlaybackActive) {
             clearActionStates(wiimoteActionPressed);
@@ -37303,6 +37413,20 @@ public class BirdGame3 extends Application {
         battlefieldIslandY = leftDockY;
     }
 
+    private void setupBattlefieldArena() {
+        double islandW = 1200;
+        double islandH = 70;
+        double islandX = (WORLD_WIDTH - islandW) / 2.0;
+        double islandY = GROUND_Y - 80;
+        platforms.add(new Platform(islandX, islandY, islandW, islandH));
+        platforms.add(new Platform(islandX + 120, islandY - 260, 360, 45));
+        platforms.add(new Platform(islandX + islandW - 480, islandY - 260, 360, 45));
+        platforms.add(new Platform(islandX + (islandW - 420) / 2.0, islandY - 420, 420, 45));
+        battlefieldIslandX = islandX;
+        battlefieldIslandW = islandW;
+        battlefieldIslandY = islandY;
+    }
+
     private void setupDesertArena() {
         double oasisSurfaceY = GROUND_Y - 32;
 
@@ -37597,17 +37721,7 @@ public class BirdGame3 extends Application {
 
 // Common elements for both void-island maps
         if (selectedMap == MapType.BATTLEFIELD) {
-            double islandW = 1200;
-            double islandH = 70;
-            double islandX = (WORLD_WIDTH - islandW) / 2.0;
-            double islandY = GROUND_Y - 80;
-            platforms.add(new Platform(islandX, islandY, islandW, islandH));
-            platforms.add(new Platform(islandX + 120, islandY - 260, 360, 45));
-            platforms.add(new Platform(islandX + islandW - 480, islandY - 260, 360, 45));
-            platforms.add(new Platform(islandX + (islandW - 420) / 2.0, islandY - 420, 420, 45));
-            battlefieldIslandX = islandX;
-            battlefieldIslandW = islandW;
-            battlefieldIslandY = islandY;
+            setupBattlefieldArena();
         } else if (selectedMap == MapType.BEACON_CROWN) {
             setupBeaconCrownBattlefield();
         } else if (selectedMap == MapType.FROSTBITE_FJORD) {
