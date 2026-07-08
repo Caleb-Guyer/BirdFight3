@@ -12,7 +12,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
@@ -35,6 +37,12 @@ final class BirdSpriteLibrary {
 
     private static final Map<BirdGame3.BirdType, BirdSpriteSheet> SHEETS =
             new EnumMap<>(BirdGame3.BirdType.class);
+    private static final Map<BirdGame3.BirdType, List<SkinVariant>> SKIN_VARIANTS =
+            new EnumMap<>(BirdGame3.BirdType.class);
+
+    /** A skin-specific sheet: {@code <bird>-<suffix>.png}, matched against skin keys. */
+    record SkinVariant(String normalizedSuffix, BirdSpriteSheet sheet) {
+    }
 
     private BirdSpriteLibrary() {
     }
@@ -44,12 +52,62 @@ final class BirdSpriteLibrary {
     }
 
     static BirdSpriteSheet sheetFor(BirdGame3.BirdType type) {
-        return type == null ? null : SHEETS.get(type);
+        return sheetFor(type, null);
+    }
+
+    /**
+     * The sheet for a bird wearing a skin: a variant whose filename suffix
+     * matches the skin key wins (longest match first, so {@code -noir_pigeon}
+     * beats {@code -noir}); otherwise the bird's base sheet.
+     */
+    static BirdSpriteSheet sheetFor(BirdGame3.BirdType type, String skinKey) {
+        if (type == null) {
+            return null;
+        }
+        if (skinKey != null && !skinKey.isBlank()) {
+            List<SkinVariant> variants = SKIN_VARIANTS.get(type);
+            if (variants != null) {
+                String normalizedKey = normalizeSkinToken(skinKey);
+                SkinVariant best = null;
+                for (SkinVariant variant : variants) {
+                    if (skinSuffixMatches(variant.normalizedSuffix(), normalizedKey)
+                            && (best == null || variant.normalizedSuffix().length() > best.normalizedSuffix().length())) {
+                        best = variant;
+                    }
+                }
+                if (best != null) {
+                    return best.sheet();
+                }
+            }
+        }
+        return SHEETS.get(type);
+    }
+
+    /**
+     * True when a filename suffix identifies a skin key. Both are reduced to
+     * lower-case alphanumerics, so {@code pigeon-noir.png} matches the skin
+     * key {@code NOIR_PIGEON_SKIN} and {@code eagle-sky_king.png} matches
+     * {@code SKY_KING_EAGLE}.
+     */
+    static boolean skinSuffixMatches(String normalizedSuffix, String normalizedKey) {
+        return !normalizedSuffix.isEmpty() && normalizedKey.contains(normalizedSuffix);
+    }
+
+    static String normalizeSkinToken(String value) {
+        StringBuilder sb = new StringBuilder(value.length());
+        for (int i = 0; i < value.length(); i++) {
+            char c = Character.toLowerCase(value.charAt(i));
+            if ((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     /** Rescans the sprites folder. Returns a user-facing summary, or null when the folder is absent/empty. */
     static String reload() {
         SHEETS.clear();
+        SKIN_VARIANTS.clear();
         Path dir = externalDir();
         if (!Files.isDirectory(dir)) {
             return null;
@@ -58,31 +116,58 @@ final class BirdSpriteLibrary {
         int failed = 0;
         for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
             String base = type.name().toLowerCase(Locale.ROOT);
-            Path png = dir.resolve(base + ".png");
-            Path propsFile = dir.resolve(base + ".properties");
-            if (!Files.exists(png) || !Files.exists(propsFile)) {
-                continue;
-            }
-            try (InputStream imageIn = Files.newInputStream(png);
-                 InputStream propsIn = Files.newInputStream(propsFile)) {
-                Properties props = new Properties();
-                props.load(propsIn);
-                Image image = new Image(imageIn);
-                BirdSpriteSheet sheet = image.isError() ? null : BirdSpriteSheet.fromProperties(image, props);
-                if (sheet != null) {
-                    SHEETS.put(type, sheet);
-                    loaded++;
-                } else {
-                    failed++;
-                }
-            } catch (IOException | RuntimeException e) {
+            BirdSpriteSheet sheet = loadSheet(dir.resolve(base + ".png"), dir.resolve(base + ".properties"));
+            if (sheet == LOAD_FAILED) {
                 failed++;
+            } else if (sheet != null) {
+                SHEETS.put(type, sheet);
+                loaded++;
+            }
+            // Skin variants: <bird>-<suffix>.png alongside <bird>-<suffix>.properties.
+            try (var files = Files.list(dir)) {
+                for (Path png : files.filter(p -> {
+                    String n = p.getFileName().toString().toLowerCase(Locale.ROOT);
+                    return n.startsWith(base + "-") && n.endsWith(".png");
+                }).toList()) {
+                    String fileName = png.getFileName().toString();
+                    String stem = fileName.substring(0, fileName.length() - 4);
+                    String suffix = stem.substring(base.length() + 1);
+                    BirdSpriteSheet variantSheet = loadSheet(png, dir.resolve(stem + ".properties"));
+                    if (variantSheet == LOAD_FAILED) {
+                        failed++;
+                    } else if (variantSheet != null) {
+                        SKIN_VARIANTS.computeIfAbsent(type, t -> new ArrayList<>())
+                                .add(new SkinVariant(normalizeSkinToken(suffix), variantSheet));
+                        loaded++;
+                    }
+                }
+            } catch (IOException ignored) {
             }
         }
         if (loaded == 0 && failed == 0) {
             return null;
         }
         return "BIRD SPRITES: " + loaded + " LOADED" + (failed > 0 ? ", " + failed + " FAILED" : "");
+    }
+
+    /** Sentinel distinguishing "files exist but are broken" from "no files". */
+    private static final BirdSpriteSheet LOAD_FAILED =
+            new BirdSpriteSheet(null, 1, 1, 1.0, Map.of());
+
+    private static BirdSpriteSheet loadSheet(Path png, Path propsFile) {
+        if (!Files.exists(png) || !Files.exists(propsFile)) {
+            return null;
+        }
+        try (InputStream imageIn = Files.newInputStream(png);
+             InputStream propsIn = Files.newInputStream(propsFile)) {
+            Properties props = new Properties();
+            props.load(propsIn);
+            Image image = new Image(imageIn);
+            BirdSpriteSheet sheet = image.isError() ? null : BirdSpriteSheet.fromProperties(image, props);
+            return sheet != null ? sheet : LOAD_FAILED;
+        } catch (IOException | RuntimeException e) {
+            return LOAD_FAILED;
+        }
     }
 
     /** Writes the demo template pair if absent; returns true when files were created. */
@@ -158,7 +243,11 @@ final class BirdSpriteLibrary {
         sb.append("# Rename template.png/.properties to a bird name (e.g. pigeon.png,\n");
         sb.append("# pigeon.properties) and press F12 in Training mode to see it in game.\n");
         sb.append("# Layout: one animation per row, frames left to right, art faces RIGHT.\n");
-        sb.append("# Only 'idle' is required; missing states fall back automatically.\n\n");
+        sb.append("# Only 'idle' is required; missing states fall back automatically.\n");
+        sb.append("#\n");
+        sb.append("# Skin variants: pigeon-noir.png + pigeon-noir.properties is used when\n");
+        sb.append("# the bird wears a skin whose key contains the suffix (case/underscore\n");
+        sb.append("# insensitive). Birds without a matching variant use their base sheet.\n\n");
         sb.append("frameWidth=").append(TEMPLATE_FRAME_SIZE).append('\n');
         sb.append("frameHeight=").append(TEMPLATE_FRAME_SIZE).append('\n');
         sb.append("scale=1.0\n\n");

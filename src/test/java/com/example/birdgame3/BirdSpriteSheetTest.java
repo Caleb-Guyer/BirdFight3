@@ -5,8 +5,10 @@ import org.junit.jupiter.api.Test;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BirdSpriteSheetTest {
 
@@ -58,6 +60,26 @@ class BirdSpriteSheetTest {
         assertEquals(1, sheet.animationFor("dodge").row(), "Missing 'dodge' should fall back through 'flap'.");
         assertEquals(0, sheet.animationFor("attack").row(), "Missing 'attack' should fall back to 'idle'.");
         assertEquals(0, sheet.animationFor("run").row(), "Missing 'run' should fall back to 'idle'.");
+    }
+
+    @Test
+    void skinSuffixMatchingIsForgivingAboutCaseAndUnderscores() {
+        assertTrue(BirdSpriteLibrary.skinSuffixMatches(
+                BirdSpriteLibrary.normalizeSkinToken("noir"),
+                BirdSpriteLibrary.normalizeSkinToken("NOIR_PIGEON_SKIN")));
+        assertTrue(BirdSpriteLibrary.skinSuffixMatches(
+                BirdSpriteLibrary.normalizeSkinToken("sky_king"),
+                BirdSpriteLibrary.normalizeSkinToken("SKY_KING_EAGLE")));
+        assertTrue(BirdSpriteLibrary.skinSuffixMatches(
+                BirdSpriteLibrary.normalizeSkinToken("NOIR-PIGEON-SKIN"),
+                BirdSpriteLibrary.normalizeSkinToken("NOIR_PIGEON_SKIN")));
+        assertFalse(BirdSpriteLibrary.skinSuffixMatches(
+                BirdSpriteLibrary.normalizeSkinToken("classic"),
+                BirdSpriteLibrary.normalizeSkinToken("NOIR_PIGEON_SKIN")));
+        assertFalse(BirdSpriteLibrary.skinSuffixMatches(
+                BirdSpriteLibrary.normalizeSkinToken(""),
+                BirdSpriteLibrary.normalizeSkinToken("NOIR_PIGEON_SKIN")),
+                "An empty suffix must never match.");
     }
 
     @Test

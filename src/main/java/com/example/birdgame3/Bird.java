@@ -423,6 +423,8 @@ public class Bird {
     public boolean isMirageSkin = false;
     public boolean isVoidHeraldSkin = false;
     public boolean suppressSelectEffects = false;
+    /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
+    String appliedSkinKey = null;
     public double loungeX, loungeY;
     public int diveTimer = 0;
 
@@ -19157,7 +19159,7 @@ public class Bird {
         drawLounge(g);
         drawEagleGroundShadow(g, drawSize, currentBirdAnimationState());
         drawTurkeyGroundShadow(g, drawSize, currentPhotoTurkeyAnimationState());
-        BirdSpriteSheet spriteSheet = BirdSpriteLibrary.sheetFor(type);
+        BirdSpriteSheet spriteSheet = BirdSpriteLibrary.sheetFor(type, appliedSkinKey);
         if (spriteSheet != null && spriteSheet.image != null) {
             drawSpriteBody(g, spriteSheet, drawSize, attackPose);
         } else {

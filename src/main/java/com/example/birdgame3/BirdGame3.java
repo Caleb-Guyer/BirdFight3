@@ -8171,6 +8171,7 @@ public class BirdGame3 extends Application {
 
     private void applySkinChoiceToBird(Bird bird, BirdType type, String skinKey) {
         if (bird == null || type == null) return;
+        bird.appliedSkinKey = skinKey;
         bird.isCitySkin = false;
         bird.isNoirSkin = false;
         bird.isFreemanSkin = false;
@@ -8296,6 +8297,7 @@ public class BirdGame3 extends Application {
 
     private void applyPreviewSkinChoiceToBird(Bird bird, BirdType type, String skinKey) {
         if (bird == null || type == null) return;
+        bird.appliedSkinKey = skinKey;
         bird.isCitySkin = false;
         bird.isNoirSkin = false;
         bird.isFreemanSkin = false;
