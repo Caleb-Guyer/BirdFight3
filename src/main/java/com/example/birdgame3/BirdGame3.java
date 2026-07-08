@@ -395,6 +395,11 @@ public class BirdGame3 extends Application {
     private final int[] lanLastInputMasks = new int[LAN_MAX_PLAYERS];
     private final Object lanInputLock = new Object();
     private int lanLocalInputMask = 0;
+    // Client-side input sources merged into lanLocalInputMask: the keyboard and
+    // controller each own their bits, so a connected-but-idle (or absent)
+    // controller can never zero out held keyboard input.
+    private int lanKeyboardInputMask = 0;
+    private int lanControllerInputMask = 0;
     private MapType lanSelectedMap = MapType.FOREST;
     private boolean lanSelectedMapRandom = false;
     private long lanMatchSeed = 0L;
@@ -21777,6 +21782,8 @@ public class BirdGame3 extends Application {
         Arrays.fill(lanInputMasks, 0);
         Arrays.fill(lanLastInputMasks, 0);
         lanLocalInputMask = 0;
+        lanKeyboardInputMask = 0;
+        lanControllerInputMask = 0;
         lanSelectedMap = null;
         lanSelectedMapRandom = false;
         lanVoteSignature = 0;
@@ -22951,6 +22958,8 @@ public class BirdGame3 extends Application {
         activePlayers = LAN_MAX_PLAYERS;
         lanMatchActive = true;
         lanLocalInputMask = 0;
+        lanKeyboardInputMask = 0;
+        lanControllerInputMask = 0;
         if (lanClient != null) {
             lanClient.sendInputMask(0);
         }
@@ -22977,6 +22986,8 @@ public class BirdGame3 extends Application {
             Arrays.fill(lanLastInputMasks, 0);
         }
         lanLocalInputMask = 0;
+        lanKeyboardInputMask = 0;
+        lanControllerInputMask = 0;
         if (lanIsHost) {
             Arrays.fill(lanReady, false);
         } else if (lanPlayerIndex >= 0) {
@@ -23022,6 +23033,8 @@ public class BirdGame3 extends Application {
             Arrays.fill(lanLastInputMasks, 0);
         }
         lanLocalInputMask = 0;
+        lanKeyboardInputMask = 0;
+        lanControllerInputMask = 0;
         lockstepSession = null;
         lastLanSnapshotNs = 0L;
         lastLanCompanionSnapshotNs = 0L;
@@ -23576,11 +23589,17 @@ public class BirdGame3 extends Application {
             bit = inputBitForKey(code, 0);
         }
         if (bit == 0) return;
-        int next = lanLocalInputMask | bit;
-        if (next != lanLocalInputMask) {
-            lanLocalInputMask = next;
+        lanKeyboardInputMask |= bit;
+        refreshLanLocalInputMask();
+    }
+
+    /** Recombines keyboard + controller bits; sends the legacy mask on change. */
+    private void refreshLanLocalInputMask() {
+        int combined = lanKeyboardInputMask | lanControllerInputMask;
+        if (combined != lanLocalInputMask) {
+            lanLocalInputMask = combined;
             if (lanClient != null) {
-                lanClient.sendInputMask(lanLocalInputMask);
+                lanClient.sendInputMask(combined);
             }
         }
     }
@@ -23593,13 +23612,8 @@ public class BirdGame3 extends Application {
             bit = inputBitForKey(code, 0);
         }
         if (bit == 0) return;
-        int next = lanLocalInputMask & ~bit;
-        if (next != lanLocalInputMask) {
-            lanLocalInputMask = next;
-            if (lanClient != null) {
-                lanClient.sendInputMask(lanLocalInputMask);
-            }
-        }
+        lanKeyboardInputMask &= ~bit;
+        refreshLanLocalInputMask();
     }
 
     private boolean isShopPreviewOwned(ShopPreview preview) {
@@ -36343,12 +36357,9 @@ public class BirdGame3 extends Application {
         if (tauntExecute) nextMask |= LanProtocol.INPUT_TAUNT_EXEC;
         if (attackUp) nextMask |= LanProtocol.INPUT_ATTACK_UP;
         if (attackDown) nextMask |= LanProtocol.INPUT_ATTACK_DOWN;
-        if (nextMask != lanLocalInputMask) {
-            lanLocalInputMask = nextMask;
-            if (lanClient != null) {
-                lanClient.sendInputMask(lanLocalInputMask);
-            }
-        }
+        // Controller bits only — merged with (never replacing) keyboard input.
+        lanControllerInputMask = nextMask;
+        refreshLanLocalInputMask();
     }
 
     private void resetWiimoteGameplayHoldState(int playerIdx) {
