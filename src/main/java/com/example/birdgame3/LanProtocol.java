@@ -6,7 +6,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 final class LanProtocol {
-    static final int VERSION = 16;
+    static final int VERSION = 17;
     static final int DEFAULT_PORT = 28999;
     static final int COMPANION_PORT = DEFAULT_PORT + 1;
     static final int COMPANION_VERSION = 1;
@@ -24,6 +24,9 @@ final class LanProtocol {
     static final byte MSG_COUNTDOWN = 11;
     static final byte MSG_RESULTS_ACTION = 12;
     static final byte MSG_COMPANION_SNAPSHOT = 13;
+    static final byte MSG_LOCKSTEP_INPUT = 14;
+    static final byte MSG_LOCKSTEP_BUNDLE = 15;
+    static final byte MSG_LOCKSTEP_HASH = 16;
 
     static final int MAP_RANDOM = -1;
     static final int BIRD_RANDOM = -2;

@@ -17,4 +17,6 @@ interface NetworkSessionClient {
     void sendReady(boolean ready);
 
     void sendInputMask(int mask);
+
+    void sendLockstepInput(long tick, int mask);
 }

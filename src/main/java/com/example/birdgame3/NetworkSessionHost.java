@@ -35,6 +35,10 @@ interface NetworkSessionHost {
 
     void broadcastState(LanState state);
 
+    void broadcastLockstepBundle(long tick, int[] masks);
+
+    void broadcastLockstepHash(long tick, long hash);
+
     void broadcastMatchEnd(int winnerIndex);
 
     void broadcastCountdown(int seconds);

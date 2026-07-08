@@ -146,6 +146,34 @@ class LanHostServer implements NetworkSessionHost {
     }
 
     @Override
+    public void broadcastLockstepBundle(long tick, int[] masks) {
+        if (!running) return;
+        try {
+            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_LOCKSTEP_BUNDLE, out -> {
+                out.writeLong(tick);
+                for (int i = 0; i < LockstepSession.MAX_SLOTS; i++) {
+                    out.writeInt(i < masks.length ? masks[i] : 0);
+                }
+            });
+            sendToAll(msg);
+        } catch (IOException ignored) {
+        }
+    }
+
+    @Override
+    public void broadcastLockstepHash(long tick, long hash) {
+        if (!running) return;
+        try {
+            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_LOCKSTEP_HASH, out -> {
+                out.writeLong(tick);
+                out.writeLong(hash);
+            });
+            sendToAll(msg);
+        } catch (IOException ignored) {
+        }
+    }
+
+    @Override
     public void broadcastMatchEnd(int winnerIndex) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_END, out -> out.writeInt(winnerIndex));

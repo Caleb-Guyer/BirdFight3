@@ -43,6 +43,11 @@ final class LanPayloadRouter {
                 int mask = msgIn.readInt();
                 game.onLanClientInput(slot, mask);
             }
+            case LanProtocol.MSG_LOCKSTEP_INPUT -> {
+                long tick = msgIn.readLong();
+                int mask = msgIn.readInt();
+                game.onLanLockstepInput(slot, tick, mask);
+            }
             default -> {
             }
         }
@@ -100,6 +105,15 @@ final class LanPayloadRouter {
                 game.onLanStartMatch(map, seed, connected, birds, skinKeys);
             }
             case LanProtocol.MSG_STATE -> game.onLanState(LanState.read(msgIn));
+            case LanProtocol.MSG_LOCKSTEP_BUNDLE -> {
+                long tick = msgIn.readLong();
+                int[] masks = new int[LockstepSession.MAX_SLOTS];
+                for (int i = 0; i < masks.length; i++) {
+                    masks[i] = msgIn.readInt();
+                }
+                game.onLanLockstepBundle(tick, masks);
+            }
+            case LanProtocol.MSG_LOCKSTEP_HASH -> game.onLanLockstepHash(msgIn.readLong(), msgIn.readLong());
             case LanProtocol.MSG_END -> game.onLanMatchEnd(msgIn.readInt());
             case LanProtocol.MSG_COUNTDOWN -> game.onLanCountdown(msgIn.readInt());
             case LanProtocol.MSG_RESULTS_ACTION -> game.onLanResultsAction(msgIn.readInt(), msgIn.readInt());

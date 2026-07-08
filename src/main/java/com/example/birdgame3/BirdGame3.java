@@ -257,6 +257,17 @@ public class BirdGame3 extends Application {
     private static final int REPLAY_MASK_ATTACK_DOWN = 1 << 29;
     private MatchReplay replayRecording = null;
     MatchReplay lastMatchReplay = null;
+
+    // === LOCKSTEP NETCODE ===
+    // When set, LAN matches run deterministic lockstep: every machine executes
+    // the full sim and ticks advance only when all participants' tick-stamped
+    // inputs are known (see LockstepSession).
+    private volatile LockstepSession lockstepSession = null;
+    private boolean lockstepDesyncReported = false;
+
+    boolean lockstepMatchActive() {
+        return lanModeActive && lanMatchActive && lockstepSession != null;
+    }
     boolean replayPlaybackActive = false;
     private MatchReplay activeReplay = null;
     private int replayFrameCursor = 0;
@@ -9811,8 +9822,9 @@ public class BirdGame3 extends Application {
 
         pollWiimoteGameplayInputs();
 
-        boolean lanClientViewOnly = lanModeActive && lanIsClient;
-        if (lanModeActive && lanIsHost && lanMatchActive) {
+        // Under lockstep every machine (host and clients) runs the full sim.
+        boolean lanClientViewOnly = lanModeActive && lanIsClient && lockstepSession == null;
+        if (lanModeActive && lanIsHost && lanMatchActive && lockstepSession == null) {
             applyLanInputMasks();
         }
 
@@ -9844,6 +9856,11 @@ public class BirdGame3 extends Application {
                 }
                 continue;
             }
+            if (lockstepMatchActive() && !lockstepPrepareTick(simTick + 1)) {
+                // Remote inputs for the next tick haven't arrived: stall. The
+                // backlog clamp below keeps this from turning into fast-forward.
+                break;
+            }
             if (replayPlaybackActive) {
                 injectReplayDashTaps();
             }
@@ -9860,7 +9877,7 @@ public class BirdGame3 extends Application {
             long worldUpdateNs = 0L;
             long effectsUpdateNs = 0L;
             pollWiimoteGameplayInputs();
-            if (lanModeActive && lanIsHost && lanMatchActive) {
+            if (lanModeActive && lanIsHost && lanMatchActive && lockstepSession == null) {
                 applyLanInputMasks();
             }
             updateMatchIntroCountdown();
@@ -22481,6 +22498,17 @@ public class BirdGame3 extends Application {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsHost) return;
             if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
+            LockstepSession session = lockstepSession;
+            if (session != null && lanHost != null) {
+                // Complete any bundles that were only waiting on this client so
+                // the remaining machines don't stall forever.
+                for (long tick : session.slotDisconnected(slot)) {
+                    int[] bundle = session.bundleFor(tick);
+                    if (bundle != null) {
+                        lanHost.broadcastLockstepBundle(tick, bundle);
+                    }
+                }
+            }
             lanSlotConnected[slot] = false;
             lanSelectedBirds[slot] = null;
             lanRandomBirds[slot] = false;
@@ -22629,6 +22657,11 @@ public class BirdGame3 extends Application {
 
     void onLanMatchEnd(int winnerIndex) {
         if (!lanModeActive || !lanIsClient) return;
+        if (matchEnded) {
+            // Lockstep clients conclude the match locally; the host's END
+            // message is just a failsafe for desynced clients.
+            return;
+        }
         matchEnded = true;
         lanMatchActive = false;
         javafx.application.Platform.runLater(() -> {
@@ -22989,6 +23022,7 @@ public class BirdGame3 extends Application {
             Arrays.fill(lanLastInputMasks, 0);
         }
         lanLocalInputMask = 0;
+        lockstepSession = null;
         lastLanSnapshotNs = 0L;
         lastLanCompanionSnapshotNs = 0L;
         lanLastWinnerIndex = -1;
@@ -35748,11 +35782,13 @@ public class BirdGame3 extends Application {
 
     boolean isAttackUpPressed(int playerIdx) {
         if (isValidPlayerIndex(playerIdx)) return false;
+        if (lockstepMatchActive()) return lanAttackUpHeld[playerIdx];
         return controllerAttackUpHeld[playerIdx] || lanAttackUpHeld[playerIdx] || replayAttackUpHeld[playerIdx];
     }
 
     boolean isAttackDownPressed(int playerIdx) {
         if (isValidPlayerIndex(playerIdx)) return false;
+        if (lockstepMatchActive()) return lanAttackDownHeld[playerIdx];
         return controllerAttackDownHeld[playerIdx] || lanAttackDownHeld[playerIdx] || replayAttackDownHeld[playerIdx];
     }
 
@@ -35800,6 +35836,12 @@ public class BirdGame3 extends Application {
     private boolean isActionPressed(int playerIdx, ControlAction action) {
         if (isValidPlayerIndex(playerIdx) || action == null) return false;
         int actionIdx = action.ordinal();
+        if (lockstepMatchActive()) {
+            // Lockstep: the sim may only see bundle-applied (delayed) inputs.
+            // Live local arrays would give this machine zero-delay input and
+            // desync it from everyone else.
+            return lanActionPressed[playerIdx][actionIdx];
+        }
         return localActionPressed[playerIdx][actionIdx]
                 || aiActionPressed[playerIdx][actionIdx]
                 || lanActionPressed[playerIdx][actionIdx]
@@ -35816,8 +35858,13 @@ public class BirdGame3 extends Application {
     // === REPLAY RECORDING / PLAYBACK ===
 
     private boolean replayEligibleMatch() {
-        return !trainingModeActive && !storyModeActive && !adventureModeActive && !classicModeActive
-                && !tournamentModeActive && !competitionModeEnabled && !lanModeActive;
+        if (trainingModeActive || storyModeActive || adventureModeActive || classicModeActive
+                || tournamentModeActive || competitionModeEnabled) {
+            return false;
+        }
+        // LAN matches record too when running lockstep: every machine applies
+        // identical per-tick bundles, so each side captures the same replay.
+        return !lanModeActive || lockstepSession != null;
     }
 
     /** Records one dash-tap event; invoked from Bird.registerDashTap on live human input. */
@@ -35827,17 +35874,23 @@ public class BirdGame3 extends Application {
     }
 
     private int composeHumanInputMask(int playerIdx) {
+        boolean lockstep = lockstepMatchActive();
         int mask = 0;
         for (ControlAction action : ControlAction.values()) {
             int a = action.ordinal();
-            if (localActionPressed[playerIdx][a]
-                    || wiimoteActionPressed[playerIdx][a]
-                    || lanActionPressed[playerIdx][a]) {
+            boolean held = lockstep
+                    ? lanActionPressed[playerIdx][a]
+                    : localActionPressed[playerIdx][a]
+                        || wiimoteActionPressed[playerIdx][a]
+                        || lanActionPressed[playerIdx][a];
+            if (held) {
                 mask |= 1 << a;
             }
         }
-        if (controllerAttackUpHeld[playerIdx] || lanAttackUpHeld[playerIdx]) mask |= REPLAY_MASK_ATTACK_UP;
-        if (controllerAttackDownHeld[playerIdx] || lanAttackDownHeld[playerIdx]) mask |= REPLAY_MASK_ATTACK_DOWN;
+        boolean up = lockstep ? lanAttackUpHeld[playerIdx] : controllerAttackUpHeld[playerIdx] || lanAttackUpHeld[playerIdx];
+        boolean down = lockstep ? lanAttackDownHeld[playerIdx] : controllerAttackDownHeld[playerIdx] || lanAttackDownHeld[playerIdx];
+        if (up) mask |= REPLAY_MASK_ATTACK_UP;
+        if (down) mask |= REPLAY_MASK_ATTACK_DOWN;
         return mask;
     }
 
@@ -35869,7 +35922,7 @@ public class BirdGame3 extends Application {
             replay.slotBirdTypes[i] = b.type.name();
             replay.slotIsAi[i] = isAI[i];
             replay.slotTeams[i] = localTeamForPlayer(i);
-            replay.slotSkinKeys[i] = fightSetupSelection.selectedSkinKey(i);
+            replay.slotSkinKeys[i] = lanModeActive ? lanSelectedSkinKeys[i] : fightSetupSelection.selectedSkinKey(i);
             replay.slotBaseSize[i] = b.baseSizeMultiplier;
             replay.slotBasePower[i] = b.basePowerMultiplier;
             replay.slotBaseSpeed[i] = b.baseSpeedMultiplier;
@@ -36038,6 +36091,144 @@ public class BirdGame3 extends Application {
         g.setTextAlign(TextAlignment.CENTER);
         g.fillText("REPLAY — ESC TO EXIT", WIDTH / 2.0, 186);
         g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    // === LOCKSTEP TICK FLOW ===
+
+    /**
+     * Prepares tick {@code tick} for execution: samples this machine's input
+     * for {@code tick + INPUT_DELAY}, ships it, and applies the authoritative
+     * input bundle for {@code tick} to every slot. Returns false when the
+     * bundle hasn't arrived yet — the caller stalls the sim without consuming
+     * time, keeping all machines in step.
+     */
+    private boolean lockstepPrepareTick(long tick) {
+        LockstepSession session = lockstepSession;
+        if (session == null) {
+            return true;
+        }
+        long sampleTarget = tick + LockstepSession.INPUT_DELAY_TICKS;
+        if (session.shouldSample(sampleTarget)) {
+            int mask = sampleLocalLockstepMask();
+            if (lanIsHost) {
+                hostAcceptLockstepMask(0, sampleTarget, mask);
+            } else if (lanClient != null) {
+                lanClient.sendLockstepInput(sampleTarget, mask);
+            }
+        }
+        int[] bundle = session.bundleFor(tick);
+        if (bundle == null) {
+            return false;
+        }
+        applyLockstepBundle(bundle);
+        session.prune(tick);
+        if (tick % LockstepSession.HASH_INTERVAL_TICKS == 0) {
+            exchangeLockstepHash(tick);
+        }
+        return true;
+    }
+
+    /** The local player's current held-input mask in LAN wire encoding. */
+    private int sampleLocalLockstepMask() {
+        if (lanIsClient) {
+            return lanLocalInputMask; // maintained by the LAN key/controller handlers
+        }
+        int mask = 0;
+        for (ControlAction action : ControlAction.values()) {
+            int idx = action.ordinal();
+            if (localActionPressed[0][idx] || wiimoteActionPressed[0][idx]) {
+                mask |= action.inputMask;
+            }
+        }
+        if (controllerAttackUpHeld[0]) mask |= LanProtocol.INPUT_ATTACK_UP;
+        if (controllerAttackDownHeld[0]) mask |= LanProtocol.INPUT_ATTACK_DOWN;
+        return mask;
+    }
+
+    /** Applies a tick's bundle to every slot, with dash taps from mask edges. */
+    private void applyLockstepBundle(int[] masks) {
+        for (int i = 0; i < LAN_MAX_PLAYERS && i < masks.length; i++) {
+            int mask = masks[i];
+            updatePressedKeysForPlayer(i, mask);
+            int last = lanLastInputMasks[i];
+            if ((mask & LanProtocol.INPUT_LEFT) != 0 && (last & LanProtocol.INPUT_LEFT) == 0) {
+                if (players[i] != null) players[i].registerDashTap(-1);
+            }
+            if ((mask & LanProtocol.INPUT_RIGHT) != 0 && (last & LanProtocol.INPUT_RIGHT) == 0) {
+                if (players[i] != null) players[i].registerDashTap(1);
+            }
+            lanLastInputMasks[i] = mask;
+        }
+    }
+
+    /** Host: routes a slot's mask into bundle assembly, broadcasting completed bundles. */
+    private void hostAcceptLockstepMask(int slot, long tick, int mask) {
+        LockstepSession session = lockstepSession;
+        if (session == null) {
+            return;
+        }
+        int[] completed = session.acceptMask(slot, tick, mask);
+        if (completed != null && lanHost != null) {
+            lanHost.broadcastLockstepBundle(tick, completed);
+        }
+    }
+
+    /** Cheap state fingerprint for desync detection across machines. */
+    private long computeLockstepHash(long tick) {
+        long h = 1469598103934665603L ^ tick;
+        for (int i = 0; i < activePlayers; i++) {
+            Bird b = players[i];
+            if (b == null) continue;
+            h = h * 1099511628211L + Double.doubleToLongBits(b.x);
+            h = h * 1099511628211L + Double.doubleToLongBits(b.y);
+            h = h * 1099511628211L + Double.doubleToLongBits(b.health);
+            h = h * 1099511628211L + scores[i];
+        }
+        return h;
+    }
+
+    private void exchangeLockstepHash(long tick) {
+        LockstepSession session = lockstepSession;
+        if (session == null) {
+            return;
+        }
+        long hash = computeLockstepHash(tick);
+        if (session.recordHash(tick, hash, false)) {
+            reportLockstepDesync(tick);
+        }
+        if (lanIsHost && lanHost != null) {
+            lanHost.broadcastLockstepHash(tick, hash);
+        }
+    }
+
+    private void reportLockstepDesync(long tick) {
+        if (lockstepDesyncReported) {
+            return;
+        }
+        lockstepDesyncReported = true;
+        LOGGER.warning("Lockstep desync detected at tick " + tick);
+        javafx.application.Platform.runLater(() ->
+                addToKillFeed("NETWORK DESYNC DETECTED - RESULTS MAY DIFFER"));
+    }
+
+    void onLanLockstepInput(int slot, long tick, int mask) {
+        if (!lanModeActive || !lanIsHost) return;
+        if (slot <= 0 || slot >= LAN_MAX_PLAYERS) return;
+        hostAcceptLockstepMask(slot, tick, mask);
+    }
+
+    void onLanLockstepBundle(long tick, int[] masks) {
+        LockstepSession session = lockstepSession;
+        if (session == null || lanIsHost) return;
+        session.acceptBundle(tick, masks);
+    }
+
+    void onLanLockstepHash(long tick, long hash) {
+        LockstepSession session = lockstepSession;
+        if (session == null || lanIsHost) return;
+        if (session.recordHash(tick, hash, true)) {
+            reportLockstepDesync(tick);
+        }
     }
 
     private void pollWiimoteGameplayInputs() {
@@ -37235,6 +37426,8 @@ public class BirdGame3 extends Application {
         replayDashCursor = 0;
         replayRecording = null;
         clearReplayInputs();
+        lockstepSession = lanModeActive ? new LockstepSession(lanSlotConnected) : null;
+        lockstepDesyncReported = false;
         lastPowerUpSpawnTime = 0L;
         lastWindBurstTime = 0L;
         lastMutatorHazardTime = 0L;
@@ -37285,7 +37478,9 @@ public class BirdGame3 extends Application {
             adventureBattle = currentAdventureBattle != null ? currentAdventureBattle : activeAdventureBattle();
             setupAdventureBattleRoster(adventureBattle);
         } else {
-            List<BirdType> pool = unlockedBirdPool();
+            // LAN random picks must resolve identically on every machine, so
+            // they draw from the full roster; local picks respect unlocks.
+            List<BirdType> pool = lanModeActive ? List.of(BirdType.values()) : unlockedBirdPool();
             int slots = lanModeActive ? LAN_MAX_PLAYERS : activePlayers;
             // Setup randomness (random bird picks, random skins) uses its own
             // seed-derived stream so it never shifts the sim RNG. Replays store
@@ -37293,6 +37488,14 @@ public class BirdGame3 extends Application {
             Random setupRandom = new Random(currentMatchSeed ^ 0x5EED_B17D_5E7BL);
             for (int i = 0; i < slots; i++) {
                 if (lanModeActive && !lanSlotConnected[i]) {
+                    players[i] = null;
+                    isAI[i] = false;
+                    continue;
+                }
+                if (replayPlaybackActive && activeReplay != null && activeReplay.slotBirdTypes != null
+                        && i < activeReplay.slotBirdTypes.length && activeReplay.slotBirdTypes[i] == null) {
+                    // Replays of matches with empty slots (e.g. 2-player LAN)
+                    // must leave those slots empty on playback too.
                     players[i] = null;
                     isAI[i] = false;
                     continue;
@@ -37621,7 +37824,10 @@ public class BirdGame3 extends Application {
                     updateMusicDucking();
                     if (lanModeActive && lanIsHost) {
                         boolean hasClients = lanHost != null && lanHost.hasClients();
-                        if (hasClients && now - lastLanSnapshotNs >= LAN_SNAPSHOT_INTERVAL_NS) {
+                        // Lockstep clients run the sim themselves; state snapshots
+                        // are only for the legacy view-only path.
+                        if (hasClients && lockstepSession == null
+                                && now - lastLanSnapshotNs >= LAN_SNAPSHOT_INTERVAL_NS) {
                             if (lanHost != null) {
                                 lanHost.broadcastState(buildLanState());
                             }

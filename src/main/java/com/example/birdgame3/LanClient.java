@@ -145,6 +145,19 @@ class LanClient implements NetworkSessionClient {
         }
     }
 
+    @Override
+    public void sendLockstepInput(long tick, int mask) {
+        if (!running) return;
+        try {
+            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_LOCKSTEP_INPUT, out -> {
+                out.writeLong(tick);
+                out.writeInt(mask);
+            });
+            enqueueOutbound(msg);
+        } catch (IOException ignored) {
+        }
+    }
+
     private void sendHello() throws IOException {
         byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_HELLO, out -> out.writeInt(LanProtocol.VERSION));
         enqueueOutbound(msg);
