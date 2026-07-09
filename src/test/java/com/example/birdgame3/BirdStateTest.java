@@ -2611,6 +2611,76 @@ class BirdStateTest {
     }
 
     @Test
+    void phoenixSideSpecialTravelsFartherThenFizzlesHarmlessly() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird phoenix = new Bird(220.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        phoenix.facingRight = true;
+        game.players[0] = phoenix;
+
+        PhoenixSpecials.side(phoenix, false);
+        while (getPrivateInt(phoenix, "phoenixCastLockTimer") > 0) {
+            phoenix.update(1.0);
+        }
+        double launchX = getPrivateDouble(phoenix, "phoenixFireballX");
+
+        int guard = 0;
+        while (getPrivateInt(phoenix, "phoenixFireballTimer") > 0 && guard++ < 90) {
+            phoenix.update(1.0);
+        }
+
+        assertEquals(0, getPrivateInt(phoenix, "phoenixFireballTimer"),
+                "Snap Fire should leave its damaging state after max range.");
+        assertTrue(getPrivateDouble(phoenix, "phoenixFireballX") > launchX + 380.0,
+                "Snap Fire should travel meaningfully farther before it fizzles.");
+        assertTrue(getPrivateInt(phoenix, "phoenixFireballFizzleTimer") > 0,
+                "Snap Fire should enter a short visible fizzle instead of vanishing.");
+
+        Bird target = new Bird(getPrivateDouble(phoenix, "phoenixFireballX") - 40.0,
+                BirdGame3.BirdType.PIGEON, 1, game);
+        target.y = getPrivateDouble(phoenix, "phoenixFireballY") - 40.0;
+        game.activePlayers = 2;
+        game.players[1] = target;
+        double healthBefore = target.health;
+
+        for (int i = 0; i < 6; i++) {
+            phoenix.update(1.0);
+        }
+
+        assertEquals(healthBefore, target.health, 0.0001,
+                "The fizzle tail should be visual only and must not keep a lingering hitbox.");
+    }
+
+    @Test
+    void phoenixAirSideSpecialPrimesDiagonalPoseAndLandingFlare() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird phoenix = new Bird(220.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        phoenix.y = BirdGame3.GROUND_Y - 300.0;
+        phoenix.facingRight = true;
+        game.players[0] = phoenix;
+
+        PhoenixSpecials.side(phoenix, false);
+
+        assertTrue(getPrivateInt(phoenix, "phoenixAirSideAimPoseTimer") > 0,
+                "Air Snap Fire should hold a diagonal-down aim pose.");
+        assertTrue(getPrivateInt(phoenix, "phoenixAirSideLandingPrimeTimer") > 0,
+                "Air Snap Fire should prime a landing flare.");
+
+        phoenix.y = BirdGame3.GROUND_Y - 80.0;
+        phoenix.vy = 0.0;
+        phoenix.update(1.0);
+
+        assertEquals(0, getPrivateInt(phoenix, "phoenixAirSideLandingPrimeTimer"),
+                "The landing flare should consume the primed landing cue.");
+        assertTrue(getPrivateInt(phoenix, "phoenixAirSideLandingFxTimer") > 0,
+                "Landing after Air Snap Fire should play a brief ember skid.");
+    }
+
+    @Test
     void phoenixGroundDownSpecialEruptsVerticallyInsteadOfSpreadingOutward() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 3;

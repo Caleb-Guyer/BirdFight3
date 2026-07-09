@@ -39643,7 +39643,7 @@ public class BirdGame3 extends Application {
             return "Academy goal: hold and release NEUTRAL Cinder Halo.";
         }
         if (!trainingAcademyPhoenixFireShotHitSeen) {
-            return "Halo released. Land SIDE Fire Shot.";
+            return "Halo released. Land SIDE Snap Fire. Air shots angle down and fizzle at max range.";
         }
         if (!trainingAcademyPhoenixSpiralHitSeen) {
             return "Fire Shot hit. Land UP Fire Spin.";
@@ -45216,6 +45216,7 @@ public class BirdGame3 extends Application {
             case GOOSE -> "Territory empowers the next special. Nest Guard counters hits near the nest.";
             case MOCKINGBIRD -> "Mimic steals neutral specials; Lounge controls space.";
             case BAT -> "Ceiling Hang gives the down special a second movement state.";
+            case PHOENIX -> "Snap Fire travels farther and fizzles harmlessly. Air Snap Fire angles down; air Faultfire can be held.";
             default -> "Directional input changes the special before startup.";
         };
     }

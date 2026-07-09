@@ -75,6 +75,14 @@ final class PhoenixSpecials {
         bird.phoenixFireballVX = dir * (airborne ? (ultimate ? 12.8 : 10.8) : (ultimate ? 14.4 : 12.2));
         bird.phoenixFireballVY = airborne ? (ultimate ? 7.4 : 6.4) : 0.0;
         bird.phoenixFireballUltimate = ultimate;
+        bird.phoenixFireballFizzleTimer = 0;
+        if (airborne) {
+            bird.phoenixAirSideAimPoseTimer = Math.max(bird.phoenixAirSideAimPoseTimer,
+                    Bird.PHOENIX_AIR_SIDE_AIM_POSE_FRAMES);
+            bird.phoenixAirSideLandingPrimeTimer = Bird.PHOENIX_AIR_SIDE_LANDING_PRIME_FRAMES;
+        } else {
+            bird.phoenixAirSideLandingPrimeTimer = 0;
+        }
         bird.phoenixFireballReuseTimer = Math.max(bird.phoenixFireballReuseTimer,
                 ultimate ? Bird.PHOENIX_FIREBALL_ULTIMATE_REUSE_FRAMES : Bird.PHOENIX_FIREBALL_REUSE_FRAMES);
         bird.specialCooldown = 0;
@@ -161,8 +169,12 @@ final class PhoenixSpecials {
         if (bird.phoenixCharging) {
             handleCharge(bird);
         }
+        updateAirSideLandingCue(bird);
         if (bird.phoenixFireballTimer > 0) {
             handleFireball(bird);
+        }
+        if (bird.phoenixFireballFizzleTimer > 0) {
+            handleFireballFizzle(bird);
         }
         if (bird.phoenixSpiralTimer > 0) {
             handleSpiral(bird);
@@ -202,8 +214,12 @@ final class PhoenixSpecials {
         bird.phoenixCastLockTimer = 0;
         bird.phoenixFireballTimer = 0;
         bird.phoenixFireballUltimate = false;
+        bird.phoenixFireballFizzleTimer = 0;
         bird.phoenixFireballVX = 0.0;
         bird.phoenixFireballVY = 0.0;
+        bird.phoenixAirSideAimPoseTimer = 0;
+        bird.phoenixAirSideLandingPrimeTimer = 0;
+        bird.phoenixAirSideLandingFxTimer = 0;
         bird.phoenixSpiralTimer = 0;
         bird.phoenixSpiralUltimate = false;
         Arrays.fill(bird.phoenixSpiralHitCooldown, 0);
@@ -484,6 +500,31 @@ final class PhoenixSpecials {
         bird.phoenixChargeTimer = 0;
     }
 
+    private static void updateAirSideLandingCue(Bird bird) {
+        if (bird.phoenixAirSideLandingPrimeTimer <= 0 || !bird.isOnGround()) {
+            return;
+        }
+        bird.phoenixAirSideLandingPrimeTimer = 0;
+        bird.phoenixAirSideAimPoseTimer = 0;
+        bird.phoenixAirSideLandingFxTimer = Math.max(bird.phoenixAirSideLandingFxTimer,
+                Bird.PHOENIX_AIR_SIDE_LANDING_FX_FRAMES);
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 2.8);
+        double footY = bird.bodyBottomY() - 4.0 * bird.sizeMultiplier;
+        double centerX = bird.bodyCenterX();
+        for (int i = 0; i < 12; i++) {
+            double side = (i < 6 ? -1.0 : 1.0);
+            double speed = 1.6 + SimRng.next() * 3.2;
+            Color spark = i % 3 == 0 ? Color.GOLD : Color.web("#FF7043");
+            bird.game.particles.add(new Particle(
+                    centerX + (SimRng.next() - 0.5) * 30.0 * bird.sizeMultiplier,
+                    footY + (SimRng.next() - 0.5) * 8.0 * bird.sizeMultiplier,
+                    side * speed + (SimRng.next() - 0.5) * 0.8,
+                    -1.8 - SimRng.next() * 2.8,
+                    spark.deriveColor(0, 1, 1, 0.82)
+            ));
+        }
+    }
+
     private static void handleFireball(Bird bird) {
         if (bird.phoenixCastLockTimer > 0) {
             bird.vx = 0.0;
@@ -514,10 +555,14 @@ final class PhoenixSpecials {
             }
             return;
         }
+        if (bird.phoenixFireballVY > 0.0) {
+            bird.phoenixAirSideAimPoseTimer = Math.max(bird.phoenixAirSideAimPoseTimer, 6);
+        }
         bird.phoenixFireballX += bird.phoenixFireballVX;
         bird.phoenixFireballY += bird.phoenixFireballVY;
 
         double radius = (bird.phoenixFireballUltimate ? 34.0 : 28.0) * bird.sizeMultiplier;
+        boolean hitTarget = false;
 
         for (Bird other : bird.game.players) {
             if (!bird.canDamageTarget(other)) continue;
@@ -552,28 +597,82 @@ final class PhoenixSpecials {
             bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, bird.phoenixFireballUltimate ? 4 : 3);
 
             bird.phoenixFireballTimer = 0;
+            hitTarget = true;
             break;
+        }
+        if (hitTarget) {
+            return;
         }
 
         if (bird.phoenixFireballX < -100 || bird.phoenixFireballX > BirdGame3.WORLD_WIDTH + 100
                 || bird.phoenixFireballY < -120 || bird.phoenixFireballY > BirdGame3.WORLD_HEIGHT + 120) {
-            spawnImpactBurst(bird, bird.phoenixFireballX, bird.phoenixFireballY,
-                    bird.phoenixFireballUltimate ? 16 : 12,
-                    bird.phoenixFireballUltimate ? Color.web("#FFD180") : Color.GOLD,
-                    bird.phoenixFireballUltimate ? Color.web("#FF7043") : Color.ORANGERED);
-            bird.phoenixFireballTimer = 0;
+            startFireballFizzle(bird);
+            return;
         }
 
         if (bird.phoenixFireballTimer % 2 == 0) {
-            for (int i = 0; i < 4; i++) {
+            double speed = Math.max(1.0, Math.hypot(bird.phoenixFireballVX, bird.phoenixFireballVY));
+            double ux = bird.phoenixFireballVX / speed;
+            double uy = bird.phoenixFireballVY / speed;
+            double nx = -uy;
+            double ny = ux;
+            for (int i = 0; i < 5; i++) {
+                double lateral = (SimRng.next() - 0.5) * 22.0;
+                double back = 12.0 + SimRng.next() * 24.0;
+                Color c = i == 0
+                        ? (bird.phoenixFireballUltimate ? Color.web("#FFD180") : Color.GOLD)
+                        : (bird.phoenixFireballUltimate ? Color.web("#FF7043") : Color.ORANGE);
                 bird.game.particles.add(new Particle(
-                        bird.phoenixFireballX - Math.signum(bird.phoenixFireballVX == 0.0 ? bird.facingDirection() : bird.phoenixFireballVX) * (10 + SimRng.next() * 16),
-                        bird.phoenixFireballY + (SimRng.next() - 0.5) * 24,
-                        (SimRng.next() - 0.5) * 1.8 - bird.phoenixFireballVX * 0.18,
-                        (SimRng.next() - 0.5) * 1.8 - 1.2,
-                        bird.phoenixFireballUltimate ? Color.web("#FF7043") : Color.ORANGE
+                        bird.phoenixFireballX - ux * back + nx * lateral,
+                        bird.phoenixFireballY - uy * back + ny * lateral,
+                        (SimRng.next() - 0.5) * 1.4 - bird.phoenixFireballVX * 0.16,
+                        (SimRng.next() - 0.5) * 1.4 - bird.phoenixFireballVY * 0.08 - 1.0,
+                        c.deriveColor(0, 1, 1, 0.86)
                 ));
             }
+        }
+
+        if (bird.phoenixFireballTimer <= 1) {
+            startFireballFizzle(bird);
+        }
+    }
+
+    private static void startFireballFizzle(Bird bird) {
+        if (bird.phoenixFireballFizzleTimer <= 0) {
+            bird.phoenixFireballFizzleTimer = bird.phoenixFireballUltimate
+                    ? Bird.PHOENIX_FIREBALL_ULTIMATE_FIZZLE_FRAMES
+                    : Bird.PHOENIX_FIREBALL_FIZZLE_FRAMES;
+        }
+        bird.phoenixFireballTimer = 0;
+        bird.phoenixCastLockTimer = 0;
+        bird.phoenixFireballVX *= 0.20;
+        bird.phoenixFireballVY = bird.phoenixFireballVY * 0.18 + 0.42;
+    }
+
+    private static void handleFireballFizzle(Bird bird) {
+        bird.phoenixFireballX += bird.phoenixFireballVX;
+        bird.phoenixFireballY += bird.phoenixFireballVY;
+        bird.phoenixFireballVX *= 0.72;
+        bird.phoenixFireballVY = Math.min(3.4, bird.phoenixFireballVY * 0.78 + 0.16);
+
+        int totalFrames = bird.phoenixFireballUltimate
+                ? Bird.PHOENIX_FIREBALL_ULTIMATE_FIZZLE_FRAMES
+                : Bird.PHOENIX_FIREBALL_FIZZLE_FRAMES;
+        double fade = Math.clamp(bird.phoenixFireballFizzleTimer / (double) totalFrames, 0.0, 1.0);
+        int count = bird.phoenixFireballUltimate ? 5 : 4;
+        for (int i = 0; i < count; i++) {
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 0.8 + SimRng.next() * (2.2 + fade * 1.8);
+            Color c = i == 0
+                    ? (bird.phoenixFireballUltimate ? Color.web("#FFD180") : Color.GOLD)
+                    : (SimRng.next() < 0.5 ? Color.web("#FF7043") : Color.web("#4E342E"));
+            bird.game.particles.add(new Particle(
+                    bird.phoenixFireballX + Math.cos(angle) * (5.0 + SimRng.next() * 13.0) * bird.sizeMultiplier,
+                    bird.phoenixFireballY + Math.sin(angle) * (5.0 + SimRng.next() * 13.0) * bird.sizeMultiplier,
+                    Math.cos(angle) * speed + bird.phoenixFireballVX * 0.18,
+                    Math.sin(angle) * speed - 1.0 + (1.0 - fade) * 0.8,
+                    c.deriveColor(0, 1, 1, 0.34 + fade * 0.52)
+            ));
         }
     }
 

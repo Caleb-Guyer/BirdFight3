@@ -53,6 +53,10 @@ class LanProtocolTest {
         state.airDodgeAvailable = false;
         state.activeAerialLandingLagFrames = 12;
         state.phoenixLavaReuseTimer = 31;
+        state.phoenixFireballFizzleTimer = 13;
+        state.phoenixAirSideAimPoseTimer = 17;
+        state.phoenixAirSideLandingPrimeTimer = 45;
+        state.phoenixAirSideLandingFxTimer = 9;
         state.roadrunnerMomentum = 74.5;
         state.roadrunnerBeepCharging = true;
         state.roadrunnerBeepChargeFrames = 28;
@@ -206,6 +210,10 @@ class LanProtocolTest {
         assertFalse(decoded.airDodgeAvailable);
         assertEquals(12, decoded.activeAerialLandingLagFrames);
         assertEquals(31, decoded.phoenixLavaReuseTimer);
+        assertEquals(13, decoded.phoenixFireballFizzleTimer);
+        assertEquals(17, decoded.phoenixAirSideAimPoseTimer);
+        assertEquals(45, decoded.phoenixAirSideLandingPrimeTimer);
+        assertEquals(9, decoded.phoenixAirSideLandingFxTimer);
         assertEquals(74.5, decoded.roadrunnerMomentum);
         assertTrue(decoded.roadrunnerBeepCharging);
         assertEquals(28, decoded.roadrunnerBeepChargeFrames);
