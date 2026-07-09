@@ -67,11 +67,11 @@ final class PenguinSpecials {
                 bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, ultimate ? 11 : 7);
             }
         }
-        double speed = snowball ? (ultimate ? 13.2 : 11.0) : (ultimate ? 8.2 : 6.7);
+        double speed = snowball ? (ultimate ? 11.4 : 9.4) : (ultimate ? 7.1 : 5.8);
         Bird.PenguinIceObject object = new Bird.PenguinIceObject(spawnX, spawnY, dir * speed,
                 snowball ? -2.1 : -0.6, dir, ultimate, snowball);
         bird.penguinIceObjects.add(object);
-        while (bird.penguinIceObjects.size() > (ultimate ? 5 : 4)) {
+        while (bird.penguinIceObjects.size() > (ultimate ? 4 : 3)) {
             bird.penguinIceObjects.removeFirst();
         }
         bird.penguinIcebergReuseTimer = ultimate ? 18 : Bird.PENGUIN_ICEBERG_REUSE_FRAMES;
@@ -229,11 +229,11 @@ final class PenguinSpecials {
     }
 
     static double fortHalfWidth(Bird bird, Bird.PenguinSnowFort fort) {
-        return (fort.ultimate ? 82.0 : 68.0) * bird.sizeMultiplier;
+        return (fort.ultimate ? 72.0 : 58.0) * bird.sizeMultiplier;
     }
 
     static double fortHeight(Bird bird, Bird.PenguinSnowFort fort) {
-        return (fort.ultimate ? 112.0 : 96.0) * bird.sizeMultiplier;
+        return (fort.ultimate ? 98.0 : 82.0) * bird.sizeMultiplier;
     }
 
     static int fortMaxHealth(Bird.PenguinSnowFort fort) {
@@ -241,8 +241,12 @@ final class PenguinSpecials {
     }
 
     static double objectSurfaceY(Bird bird, double objectX) {
+        double surfaceY = objectSurfaceYOrVoid(bird, objectX, bird.bodyBottomY() - 36.0 * bird.sizeMultiplier);
+        return Double.isFinite(surfaceY) ? surfaceY : bird.bodyBottomY() + 8.0 * bird.sizeMultiplier;
+    }
+
+    private static double objectSurfaceYOrVoid(Bird bird, double objectX, double sourceY) {
         double bestY = bird.hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
-        double sourceY = bird.bodyBottomY() - 36.0 * bird.sizeMultiplier;
         for (Platform p : bird.game.platforms) {
             boolean isCaveCeiling = bird.game.selectedMap == BirdGame3.MapType.CAVE
                     && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
@@ -253,7 +257,7 @@ final class PenguinSpecials {
                 bestY = p.y;
             }
         }
-        return Double.isFinite(bestY) ? bestY : bird.bodyBottomY() + 8.0 * bird.sizeMultiplier;
+        return bestY;
     }
 
     static void emitIceBurst(Bird bird, double originX, double originY, int dir, int count, Color baseColor) {
@@ -343,9 +347,9 @@ final class PenguinSpecials {
         if (guardedDistance > (fort.ultimate ? 150.0 : 128.0) * bird.sizeMultiplier) {
             return scaledDamage;
         }
-        double reduction = fort.ultimate ? 0.46 : 0.36;
+        double reduction = fort.ultimate ? 0.32 : 0.22;
         double absorbed = scaledDamage * reduction;
-        fort.health = Math.max(0, fort.health - Math.max(1, (int) Math.ceil(absorbed * 1.15)));
+        fort.health = Math.max(0, fort.health - Math.max(1, (int) Math.ceil(absorbed * 1.35)));
         fort.damageFlash = Math.max(fort.damageFlash, 8);
         bird.penguinFortGuardFxTimer = Math.max(bird.penguinFortGuardFxTimer, 12);
         emitIceBurst(bird, fort.x, fort.y - 38.0 * bird.sizeMultiplier,
@@ -401,7 +405,7 @@ final class PenguinSpecials {
         }
         bird.penguinBellyDirection = dir;
         bird.facingRight = dir > 0;
-        double speed = (bird.penguinBellyUltimate ? 7.4 : 5.8) + ratio * (bird.penguinBellyUltimate ? 27.5 : 23.5);
+        double speed = (bird.penguinBellyUltimate ? 7.0 : 5.4) + ratio * (bird.penguinBellyUltimate ? 23.0 : 19.5);
         bird.vx = dir * speed;
         if (bird.isOnGround()) {
             bird.vy = Math.min(bird.vy, -(bird.penguinBellyUltimate ? 9.4 : 7.8) - ratio * (bird.penguinBellyUltimate ? 7.2 : 5.8));
@@ -418,7 +422,7 @@ final class PenguinSpecials {
         int dir = bird.penguinBellyDirection == 0 ? bird.facingDirection() : bird.penguinBellyDirection;
         bird.facingRight = dir > 0;
         double ratio = bellyChargeRatio(bird);
-        double desired = dir * ((bird.penguinBellyUltimate ? 7.8 : 6.0) + ratio * (bird.penguinBellyUltimate ? 28.0 : 24.0));
+        double desired = dir * ((bird.penguinBellyUltimate ? 7.2 : 5.6) + ratio * (bird.penguinBellyUltimate ? 23.5 : 20.0));
         bird.vx += (desired - bird.vx) * (bird.isOnGround() ? 0.24 : 0.14);
         if (bird.isOnGround()) {
             bird.vy = Math.min(bird.vy, -0.25);
@@ -445,7 +449,7 @@ final class PenguinSpecials {
             if (Math.abs(other.bodyCenterY() - centerY) > (bird.penguinBellyUltimate ? 70.0 : 58.0) * bird.sizeMultiplier + other.combatHalfHeight()) continue;
 
             bird.penguinBellyHit[other.playerIndex] = true;
-            int dmg = (bird.penguinBellyUltimate ? 10 : 7) + (int) Math.round(ratio * (bird.penguinBellyUltimate ? 8.0 : 6.0));
+            int dmg = (bird.penguinBellyUltimate ? 9 : 6) + (int) Math.round(ratio * (bird.penguinBellyUltimate ? 6.0 : 4.5));
             double oldHealth = other.health;
             int dealt = (int) bird.applyDamageTo(other, dmg);
             if (dealt <= 0) continue;
@@ -455,8 +459,8 @@ final class PenguinSpecials {
             if (other.health <= 0 && oldHealth > 0) {
                 bird.game.eliminations[bird.playerIndex]++;
             }
-            other.vx += dir * ((bird.penguinBellyUltimate ? 15.5 : 12.5) + ratio * 10.0);
-            other.vy -= (bird.penguinBellyUltimate ? 8.8 : 6.8) + ratio * 5.5;
+            other.vx += dir * ((bird.penguinBellyUltimate ? 12.8 : 10.0) + ratio * 7.0);
+            other.vy -= (bird.penguinBellyUltimate ? 7.0 : 5.3) + ratio * 3.8;
             bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, bird.penguinBellyUltimate ? 4 : 2);
             bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, bird.penguinBellyUltimate ? 8 : 5);
             emitIceBurst(bird, other.bodyCenterX(), other.bodyCenterY(), dir, bird.penguinBellyUltimate ? 22 : 14,
@@ -611,8 +615,8 @@ final class PenguinSpecials {
         boolean ultimate = bird.penguinRocketUltimate;
         double centerX = bird.bodyCenterX();
         double groundY = bird.bodyBottomY();
-        double radius = (ultimate ? 205.0 : 165.0) * bird.sizeMultiplier;
-        double verticalReach = (ultimate ? 116.0 : 92.0) * bird.sizeMultiplier;
+        double radius = (ultimate ? 178.0 : 140.0) * bird.sizeMultiplier;
+        double verticalReach = (ultimate ? 100.0 : 78.0) * bird.sizeMultiplier;
         for (Bird other : bird.game.players) {
             if (!bird.canDamageTarget(other)) continue;
             double dx = other.bodyCenterX() - centerX;
@@ -621,7 +625,7 @@ final class PenguinSpecials {
             if (feetGap > verticalReach && other.bodyCenterY() < groundY - verticalReach) continue;
 
             double edgeRatio = 1.0 - Math.clamp(Math.abs(dx) / Math.max(1.0, radius), 0.0, 1.0);
-            int dmg = (int) Math.round((ultimate ? 16.0 : 12.0) * (0.62 + edgeRatio * 0.38));
+            int dmg = (int) Math.round((ultimate ? 13.0 : 9.5) * (0.62 + edgeRatio * 0.38));
             double oldHealth = other.health;
             int dealt = (int) bird.applyDamageTo(other, dmg);
             if (dealt <= 0) continue;
@@ -632,8 +636,8 @@ final class PenguinSpecials {
                 bird.game.eliminations[bird.playerIndex]++;
             }
             double dir = Math.signum(dx == 0.0 ? bird.facingDirection() : dx);
-            other.vx += dir * (ultimate ? 17.0 : 13.2) * (0.50 + edgeRatio * 0.50);
-            other.vy -= (ultimate ? 17.5 : 13.4) * (0.56 + edgeRatio * 0.44);
+            other.vx += dir * (ultimate ? 13.5 : 10.4) * (0.50 + edgeRatio * 0.50);
+            other.vy -= (ultimate ? 13.8 : 10.4) * (0.56 + edgeRatio * 0.44);
         }
         bird.penguinFlopTimer = 0;
         bird.penguinRocketUltimate = false;
@@ -736,9 +740,9 @@ final class PenguinSpecials {
             return;
         }
         if (attacker.playerIndex >= 0 && attacker.playerIndex < fort.hitCooldown.length) {
-            fort.hitCooldown[attacker.playerIndex] = 12;
+            fort.hitCooldown[attacker.playerIndex] = 8;
         }
-        int damage = Math.max(8, (int) Math.round(rawDamage * 0.78));
+        int damage = Math.max(8, (int) Math.round(rawDamage * 0.95));
         fort.health = Math.max(0, fort.health - damage);
         fort.damageFlash = Math.max(fort.damageFlash, 10);
         double dir = Math.signum(fort.x - attackCenterX);
@@ -767,9 +771,10 @@ final class PenguinSpecials {
             object.vy += object.snowball ? 0.30 : 0.24;
             object.x += object.vx;
             object.y += object.vy;
-            double surfaceY = objectSurfaceY(bird, object.x);
             double radius = (object.snowball ? 58.0 : 42.0) * bird.sizeMultiplier;
-            if (object.y + radius >= surfaceY) {
+            double previousBottom = object.y + radius - object.vy;
+            double surfaceY = objectSurfaceYOrVoid(bird, object.x, previousBottom);
+            if (Double.isFinite(surfaceY) && object.y + radius >= surfaceY) {
                 object.y = surfaceY - radius;
                 object.vy = object.snowball ? -Math.abs(object.vx) * 0.08 : 0.0;
                 object.vx *= object.snowball ? 0.994 : 0.982;
@@ -782,7 +787,7 @@ final class PenguinSpecials {
                     spawnedObjects.add(new Bird.PenguinIceObject(
                             object.x + objectDir * 38.0 * bird.sizeMultiplier,
                             object.y,
-                            objectDir * (object.ultimate ? 14.6 : 12.2),
+                            objectDir * (object.ultimate ? 12.4 : 10.2),
                             -2.2,
                             objectDir,
                             object.ultimate,
@@ -801,7 +806,7 @@ final class PenguinSpecials {
                 fort.health = 0;
                 spawnedObjects.add(new Bird.PenguinIceObject(fort.x + object.direction * 34.0 * bird.sizeMultiplier,
                         fort.y - 58.0 * bird.sizeMultiplier,
-                        object.direction * (object.ultimate ? 13.8 : 11.4),
+                        object.direction * (object.ultimate ? 11.8 : 9.4),
                         -2.0,
                         object.direction,
                         object.ultimate,
@@ -812,7 +817,11 @@ final class PenguinSpecials {
 
             double worldLeft = bird.game.battlefieldLeftBound() - 70.0;
             double worldRight = bird.game.battlefieldRightBound() + 70.0;
-            if (object.lifeFrames <= 0 || object.x < worldLeft || object.x > worldRight || Math.abs(object.vx) < 0.45) {
+            double fallLimitY = bird.usesIslandBounds()
+                    ? bird.game.battlefieldVoidFloorY() + 180.0
+                    : BirdGame3.WORLD_HEIGHT + 220.0;
+            if (object.lifeFrames <= 0 || object.x < worldLeft || object.x > worldRight
+                    || object.y - radius > fallLimitY || Math.abs(object.vx) < 0.45) {
                 object.shattered = true;
             }
 
@@ -834,13 +843,13 @@ final class PenguinSpecials {
             }
         }
         bird.penguinIceObjects.addAll(spawnedObjects);
-        while (bird.penguinIceObjects.size() > 5) {
+        while (bird.penguinIceObjects.size() > 4) {
             bird.penguinIceObjects.removeFirst();
         }
     }
 
     private static void handleIceObjectHits(Bird bird, Bird.PenguinIceObject object) {
-        double radius = (object.snowball ? 72.0 : 58.0) * bird.sizeMultiplier;
+        double radius = (object.snowball ? 62.0 : 48.0) * bird.sizeMultiplier;
         for (Bird other : bird.game.players) {
             if (!bird.canDamageTarget(other)) continue;
             if (other.playerIndex < 0 || other.playerIndex >= object.hitCooldown.length) continue;
@@ -852,7 +861,7 @@ final class PenguinSpecials {
             if (Math.abs(dy) > radius + other.combatHalfHeight()) continue;
 
             object.hitCooldown[other.playerIndex] = object.snowball ? 12 : 28;
-            int dmg = object.snowball ? (object.ultimate ? 18 : 13) : (object.ultimate ? 12 : 9);
+            int dmg = object.snowball ? (object.ultimate ? 15 : 10) : (object.ultimate ? 10 : 7);
             double oldHealth = other.health;
             int dealt = (int) bird.applyDamageTo(other, dmg);
             if (dealt <= 0) continue;
@@ -863,8 +872,8 @@ final class PenguinSpecials {
                 bird.game.eliminations[bird.playerIndex]++;
             }
             double launchDir = Math.signum(dx == 0.0 ? object.direction : dx);
-            other.vx += launchDir * (object.snowball ? (object.ultimate ? 20.0 : 15.8) : (object.ultimate ? 14.0 : 10.8));
-            other.vy -= object.snowball ? (object.ultimate ? 11.0 : 8.2) : (object.ultimate ? 7.8 : 5.8);
+            other.vx += launchDir * (object.snowball ? (object.ultimate ? 15.5 : 12.0) : (object.ultimate ? 10.8 : 8.2));
+            other.vy -= object.snowball ? (object.ultimate ? 8.5 : 6.2) : (object.ultimate ? 6.0 : 4.5);
             if (!object.snowball) {
                 object.shattered = true;
             } else {

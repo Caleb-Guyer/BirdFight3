@@ -40,3 +40,4 @@ game and carry the game's license.
 | sfx-achievement.wav | sparkling two-chime ding | steam-achievement |
 | sfx-click.wav | crisp UI tick | buttonclick |
 | sfx-fallwhistle.wav | descending cartoon fall whistle | zombie-falling |
+| sfx-fighter-ready.wav | sharp lightning-strike ready stinger | all fighters selected |

@@ -1177,14 +1177,14 @@ class BirdStateTest {
         vulture.update(1.0);
 
         assertEquals(1, game.crowMinions.size());
-        assertEquals(2, getPrivateInt(vulture, "vultureCrowTicks"));
+        assertEquals(Bird.VULTURE_CROW_TICK_MAX - 1, getPrivateInt(vulture, "vultureCrowTicks"));
         assertEquals(0, vulture.specialCooldown);
 
-        for (int i = 0; i < 40 && game.crowMinions.size() < 3; i++) {
+        for (int i = 0; i < 40 && game.crowMinions.size() < Bird.VULTURE_CROW_TICK_MAX; i++) {
             vulture.update(1.0);
         }
 
-        assertEquals(3, game.crowMinions.size(),
+        assertEquals(Bird.VULTURE_CROW_TICK_MAX, game.crowMinions.size(),
                 "Holding neutral should walk through all available Vulture crow ticks.");
         assertEquals(0, getPrivateInt(vulture, "vultureCrowTicks"));
 
@@ -3409,6 +3409,38 @@ class BirdStateTest {
         Object firstObject = ((List<?>) iceObjects).getFirst();
         assertTrue(getPrivateBoolean(firstObject, "snowball"));
         assertEquals(0, penguin.specialCooldown);
+    }
+
+    @Test
+    void penguinIceObjectFallsWhenUnsupportedPastPlatformEdge() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        game.platforms.clear();
+        Platform island = new Platform(500.0, BirdGame3.GROUND_Y - 280.0, 260.0, 60.0);
+        game.platforms.add(island);
+
+        Bird penguin = new Bird(island.x + 80.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        penguin.y = island.y - 80.0;
+        game.players[0] = penguin;
+
+        Bird.PenguinIceObject object = new Bird.PenguinIceObject(
+                island.x + island.w + 80.0,
+                island.y - 42.0,
+                1.0,
+                0.0,
+                1,
+                false,
+                false);
+        penguin.penguinIceObjects.add(object);
+
+        for (int i = 0; i < 35; i++) {
+            penguin.update(1.0);
+        }
+
+        assertFalse(object.shattered);
+        assertTrue(object.y > island.y + 60.0,
+                "Unsupported Penguin ice objects should fall instead of riding an invisible owner-height floor.");
     }
 
     @Test

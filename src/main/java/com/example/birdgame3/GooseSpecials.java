@@ -272,14 +272,14 @@ final class GooseSpecials {
 
     private static void buildTerritory(Bird bird) {
         if (bird.isBlocking) {
-            addTerritory(bird, 0.36);
+            addTerritory(bird, 0.22);
         }
         double centerPressure = 1.0 - Math.clamp(Math.abs(bird.bodyCenterX() - BirdGame3.WORLD_WIDTH * 0.5) / 780.0, 0.0, 1.0);
         if (bird.isOnGround()) {
-            addTerritory(bird, 0.045 + centerPressure * 0.07);
+            addTerritory(bird, 0.025 + centerPressure * 0.04);
         }
         if (bird.gooseNest != null && bird.gooseNest.lifeFrames > 0 && distanceToNest(bird) < 180.0 * bird.sizeMultiplier) {
-            addTerritory(bird, 0.14);
+            addTerritory(bird, 0.08);
         }
     }
 
@@ -321,7 +321,7 @@ final class GooseSpecials {
         double chargeRatio = Math.clamp(bird.gooseHonkHoldFrames
                 / (double) (Bird.GOOSE_HONK_MAX_HOLD_FRAMES + (bird.gooseHonkEmpowered ? 12 : 0)), 0.0, 1.0);
         int dir = bird.gooseHonkDirection == 0 ? bird.facingDirection() : bird.gooseHonkDirection;
-        double reach = (bird.gooseHonkEmpowered ? 420.0 : 330.0) * bird.sizeMultiplier * (0.72 + chargeRatio * 0.54);
+        double reach = (bird.gooseHonkEmpowered ? 360.0 : 280.0) * bird.sizeMultiplier * (0.70 + chargeRatio * 0.48);
         double originX = bird.bodyCenterX() + dir * 18.0 * bird.sizeMultiplier;
         double originY = bird.bodyCenterY() - 12.0 * bird.sizeMultiplier;
         boolean hitAny = false;
@@ -338,21 +338,21 @@ final class GooseSpecials {
                 continue;
             }
             double dy = Math.abs(other.bodyCenterY() - originY);
-            double cone = (70.0 + forward * 0.28 + chargeRatio * 32.0) * bird.sizeMultiplier;
+            double cone = (58.0 + forward * 0.22 + chargeRatio * 24.0) * bird.sizeMultiplier;
             if (dy > cone + other.combatHalfHeight()) {
                 continue;
             }
             if (idx >= 0 && idx < bird.gooseHonkHit.length) {
                 bird.gooseHonkHit[idx] = true;
             }
-            int damage = (int) Math.round(10.0 + chargeRatio * 12.0 + (bird.gooseHonkEmpowered ? 6.0 : 0.0));
+            int damage = (int) Math.round(8.0 + chargeRatio * 8.0 + (bird.gooseHonkEmpowered ? 4.0 : 0.0));
             int dealt = bird.applyTrackedSpecialDamage(other, damage);
             hitAny |= dealt > 0;
             if (dealt > 0) {
-                other.vx += dir * (8.5 + chargeRatio * 7.5 + (bird.gooseHonkEmpowered ? 4.5 : 0.0));
-                other.vy -= 2.8 + chargeRatio * 3.4 + (bird.gooseHonkEmpowered ? 1.8 : 0.0);
-                other.applyStun(9 + chargeRatio * 12.0 + (bird.gooseHonkEmpowered ? 5.0 : 0.0));
-                addTerritory(bird, 12.0 + dealt * 0.25);
+                other.vx += dir * (5.8 + chargeRatio * 5.0 + (bird.gooseHonkEmpowered ? 2.8 : 0.0));
+                other.vy -= 2.0 + chargeRatio * 2.4 + (bird.gooseHonkEmpowered ? 1.2 : 0.0);
+                other.applyStun(6 + chargeRatio * 7.0 + (bird.gooseHonkEmpowered ? 3.0 : 0.0));
+                addTerritory(bird, 7.0 + dealt * 0.16);
                 emitHitBurst(bird, other, bird.gooseHonkEmpowered ? Color.GOLD : Color.web("#E8F5E9"), 18);
             }
         }
@@ -420,15 +420,15 @@ final class GooseSpecials {
             }
             boolean bite = forward < (58.0 + other.combatHalfWidth()) * bird.sizeMultiplier;
             int dealt = bird.applyTrackedSpecialDamage(other, bite
-                    ? (bird.gooseBargeEmpowered ? 20 : 15)
-                    : (bird.gooseBargeEmpowered ? 16 : 12));
+                    ? (bird.gooseBargeEmpowered ? 16 : 12)
+                    : (bird.gooseBargeEmpowered ? 13 : 9));
             if (dealt > 0) {
-                other.vx += dir * (bite ? (bird.gooseBargeEmpowered ? 17.0 : 13.5) : 10.5);
-                other.vy -= bite ? (bird.gooseBargeEmpowered ? 8.2 : 6.2) : 3.8;
-                other.applyStun(bite ? (bird.gooseBargeEmpowered ? 20 : 14) : 9);
+                other.vx += dir * (bite ? (bird.gooseBargeEmpowered ? 14.0 : 11.2) : 8.6);
+                other.vy -= bite ? (bird.gooseBargeEmpowered ? 6.8 : 5.1) : 3.0;
+                other.applyStun(bite ? (bird.gooseBargeEmpowered ? 15 : 11) : 7);
                 bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, bite ? 16 : 9);
                 bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, bite ? 7 : 4);
-                addTerritory(bird, 14.0 + dealt * 0.2);
+                addTerritory(bird, 9.0 + dealt * 0.14);
                 emitHitBurst(bird, other, bird.gooseBargeEmpowered ? Color.GOLD : Color.web("#FFB74D"), bite ? 26 : 16);
             }
         }
@@ -486,15 +486,15 @@ final class GooseSpecials {
             if (idx >= 0 && idx < bird.gooseLiftHit.length) {
                 bird.gooseLiftHit[idx] = true;
             }
-            int dealt = bird.applyTrackedSpecialDamage(other, bird.gooseLiftEmpowered ? 12 : 8);
+            int dealt = bird.applyTrackedSpecialDamage(other, bird.gooseLiftEmpowered ? 9 : 6);
             if (dealt > 0) {
                 double push = Math.signum(other.bodyCenterX() - centerX);
                 if (push == 0.0) {
                     push = bird.facingDirection();
                 }
-                other.vx += push * (bird.gooseLiftEmpowered ? 7.0 : 4.8);
-                other.vy -= bird.gooseLiftEmpowered ? 12.0 : 9.0;
-                other.applyStun(bird.gooseLiftEmpowered ? 12 : 9);
+                other.vx += push * (bird.gooseLiftEmpowered ? 5.4 : 3.7);
+                other.vy -= bird.gooseLiftEmpowered ? 9.0 : 6.8;
+                other.applyStun(bird.gooseLiftEmpowered ? 9 : 7);
                 bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, bird.gooseLiftEmpowered ? 10 : 6);
                 bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, bird.gooseLiftEmpowered ? 5 : 3);
                 addTerritory(bird, 10.0 + dealt * 0.18);
@@ -506,7 +506,7 @@ final class GooseSpecials {
     private static void handleNestGuardTimer(Bird bird) {
         if (bird.gooseNestGuardTimer > 0) {
             bird.vx *= 0.78;
-            addTerritory(bird, 0.20);
+            addTerritory(bird, 0.10);
             bird.gooseNestGuardTimer--;
             if (bird.gooseNestGuardTimer <= 0) {
                 bird.gooseNestGuardUltimate = false;
@@ -555,11 +555,11 @@ final class GooseSpecials {
 
     private static void counterHit(Bird defender, Bird attacker) {
         int dir = attacker.bodyCenterX() >= defender.bodyCenterX() ? 1 : -1;
-        int dealt = recordDirectSpecialDamage(defender, attacker, defender.gooseNestCounterUltimate ? 24 : 17);
+        int dealt = recordDirectSpecialDamage(defender, attacker, defender.gooseNestCounterUltimate ? 18 : 12);
         if (dealt > 0) {
-            attacker.vx += dir * (defender.gooseNestCounterUltimate ? 15.5 : 12.5);
-            attacker.vy -= defender.gooseNestCounterUltimate ? 9.2 : 6.8;
-            attacker.applyStun(defender.gooseNestCounterUltimate ? 22 : 15);
+            attacker.vx += dir * (defender.gooseNestCounterUltimate ? 11.5 : 8.8);
+            attacker.vy -= defender.gooseNestCounterUltimate ? 6.8 : 4.8;
+            attacker.applyStun(defender.gooseNestCounterUltimate ? 16 : 11);
             emitHitBurst(defender, attacker, defender.gooseNestCounterUltimate ? Color.GOLD : Color.web("#FFF176"), 30);
         }
     }
@@ -580,15 +580,15 @@ final class GooseSpecials {
             }
             other.vx *= bird.gooseNest.ultimate ? 0.88 : 0.92;
             if (bird.gooseNest.pulseCooldown <= 0) {
-                int dealt = bird.applyTrackedSpecialDamage(other, bird.gooseNest.ultimate ? 8 : 5);
+                int dealt = bird.applyTrackedSpecialDamage(other, bird.gooseNest.ultimate ? 6 : 3);
                 if (dealt > 0) {
                     double dir = Math.signum(other.bodyCenterX() - bird.gooseNest.x);
                     if (dir == 0.0) {
                         dir = bird.facingDirection();
                     }
-                    other.vx += dir * (bird.gooseNest.ultimate ? 5.5 : 3.8);
-                    other.vy -= bird.gooseNest.ultimate ? 3.2 : 2.0;
-                    other.applyStun(bird.gooseNest.ultimate ? 9 : 6);
+                    other.vx += dir * (bird.gooseNest.ultimate ? 4.0 : 2.6);
+                    other.vy -= bird.gooseNest.ultimate ? 2.2 : 1.3;
+                    other.applyStun(bird.gooseNest.ultimate ? 6 : 4);
                     addTerritory(bird, 8.0);
                     emitHitBurst(bird, other, bird.gooseNest.ultimate ? Color.GOLD : Color.web("#8BC5A1"), 10);
                 }
@@ -739,7 +739,7 @@ final class GooseSpecials {
             bird.gooseLiftUsed = false;
             bird.gooseNestReuseTimer = 0;
             bird.gooseNest = null;
-            bird.gooseTerritoryMeter = 28.0;
+            bird.gooseTerritoryMeter = 0.0;
         }
     }
 

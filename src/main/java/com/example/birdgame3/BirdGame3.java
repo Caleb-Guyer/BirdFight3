@@ -194,6 +194,10 @@ public class BirdGame3 extends Application {
     private static final String FIGHT_SELECTOR_SNAP_DISTANCE_PROP = "fight_selector_snap_distance";
     private static final String FIGHT_SELECTOR_DOCK_BOUNDS_PROP = "fight_selector_dock_bounds";
     private static final double FIGHT_SELECTOR_BOUND_MARGIN = 40.0;
+    private static final double FIGHT_SELECTOR_RADIUS = 26.0;
+    private static final double FIGHT_SELECTOR_SHARED_RADIUS = 17.5;
+    private static final double FIGHT_SELECTOR_SHARED_OFFSET_X = 24.0;
+    private static final double FIGHT_SELECTOR_SHARED_OFFSET_Y = 22.0;
     private static final double WINDOW_CHROME_WIDTH_ESTIMATE = 16.0;
     private static final double WINDOW_CHROME_HEIGHT_ESTIMATE = 39.0;
     private static final String SCENE_TARGET_WIDTH_PROPERTY = "birdFightTargetSceneWidth";
@@ -942,6 +946,7 @@ public class BirdGame3 extends Application {
         if (zombieFallingClip != null) zombieFallingClip.setVolume(sfx);
         if (vaseBreakingClip != null) vaseBreakingClip.setVolume(sfx);
         if (cherrybombClip != null) cherrybombClip.setVolume(sfx);
+        if (fightReadyClip != null) fightReadyClip.setVolume(sfx);
     }
 
     private void setMusicVolume(double value) {
@@ -1026,6 +1031,12 @@ public class BirdGame3 extends Application {
         if (!sfxEnabled || steamAchievementClip == null) return;
         steamAchievementClip.stop();
         playManagedSfx(steamAchievementClip, ACHIEVEMENT_SOUND_BASE_VOLUME);
+    }
+
+    private void playFightSetupReadySfx() {
+        if (!sfxEnabled || fightReadyClip == null) return;
+        fightReadyClip.stop();
+        playManagedSfxVaried(fightReadyClip, 0.82, 1.0, 0.025);
     }
 
     private void playMatchIntroCountSfx() {
@@ -1157,6 +1168,7 @@ public class BirdGame3 extends Application {
             vaseBreakingClip = new AudioClip(resourceUrl(p + "sfx-shatter.wav"));
             cherrybombClip = new AudioClip(resourceUrl(p + "sfx-boom.wav"));
             steamAchievementClip = new AudioClip(resourceUrl(p + "sfx-achievement.wav"));
+            fightReadyClip = new AudioClip(resourceUrl(p + "sfx-fighter-ready.wav"));
 
             // === MENU & VICTORY MUSIC ===
             menuMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "music-menu.mp3")));
@@ -3969,7 +3981,7 @@ public class BirdGame3 extends Application {
 
     // === SOUND & MUSIC ===
     public AudioClip bonkClip, butterClip, jalapenoClip, swingClip, hugewaveClip, buttonClickClip, zombieFallingClip,
-            vaseBreakingClip, cherrybombClip, steamAchievementClip;
+            vaseBreakingClip, cherrybombClip, steamAchievementClip, fightReadyClip;
     public MediaPlayer musicPlayer, menuMusicPlayer, victoryMusicPlayer;
 
     // Guard to prevent reentrant shutdowns
@@ -10594,9 +10606,11 @@ public class BirdGame3 extends Application {
                         hitDirection = closest.facingRight ? -1.0 : 1.0;
                     }
                     recordTrainingVultureCrowHit(c.owner, closest);
-                    closest.vx += c.vx * 1.65 + hitDirection * 4.8;
-                    closest.vy -= 7.0;
                     boolean hostile = c.effectiveVariant() != CrowMinion.VARIANT_ALLIED_CROW;
+                    closest.vx += hostile
+                            ? c.vx * 1.65 + hitDirection * 4.8
+                            : c.vx * 0.95 + hitDirection * 2.8;
+                    closest.vy -= hostile ? 7.0 : 4.2;
                     int particleCount = scaledParticleBurstCount(hostile ? 35 : 18);
                     Color particleColor = hostile
                             ? Color.web("#260108").deriveColor(0, 1, 1, 0.95)
@@ -13389,8 +13403,8 @@ public class BirdGame3 extends Application {
                     hitDirection = closest.facingRight ? -1.0 : 1.0;
                 }
                 recordTrainingVultureCrowHit(c.owner, closest);
-                closest.vx += hitDirection * 8.0 + c.vx * 0.35;
-                closest.vy -= 5.0;
+                closest.vx += hitDirection * 5.4 + c.vx * 0.25;
+                closest.vy -= 3.6;
                 int particleCount = scaledParticleBurstCount(16);
                 for (int i = 0; i < particleCount; i++) {
                     double angle = SimRng.next() * Math.PI * 2;
@@ -16209,6 +16223,90 @@ public class BirdGame3 extends Application {
         label.setY(y + 6.0);
     }
 
+    static Point2D fightSelectorSharedOffset(int slotIndex, int slotCount) {
+        if (slotCount <= 1) {
+            return new Point2D(0.0, 0.0);
+        }
+        int count = Math.clamp(slotCount, 2, 4);
+        int index = Math.floorMod(slotIndex, count);
+        return switch (count) {
+            case 2 -> index == 0
+                    ? new Point2D(-FIGHT_SELECTOR_SHARED_OFFSET_X, -FIGHT_SELECTOR_SHARED_OFFSET_Y * 0.75)
+                    : new Point2D(FIGHT_SELECTOR_SHARED_OFFSET_X, FIGHT_SELECTOR_SHARED_OFFSET_Y * 0.75);
+            case 3 -> switch (index) {
+                case 0 -> new Point2D(-FIGHT_SELECTOR_SHARED_OFFSET_X, -FIGHT_SELECTOR_SHARED_OFFSET_Y);
+                case 1 -> new Point2D(FIGHT_SELECTOR_SHARED_OFFSET_X, -FIGHT_SELECTOR_SHARED_OFFSET_Y);
+                default -> new Point2D(0.0, FIGHT_SELECTOR_SHARED_OFFSET_Y);
+            };
+            default -> switch (index) {
+                case 0 -> new Point2D(-FIGHT_SELECTOR_SHARED_OFFSET_X, -FIGHT_SELECTOR_SHARED_OFFSET_Y);
+                case 1 -> new Point2D(FIGHT_SELECTOR_SHARED_OFFSET_X, -FIGHT_SELECTOR_SHARED_OFFSET_Y);
+                case 2 -> new Point2D(-FIGHT_SELECTOR_SHARED_OFFSET_X, FIGHT_SELECTOR_SHARED_OFFSET_Y);
+                default -> new Point2D(FIGHT_SELECTOR_SHARED_OFFSET_X, FIGHT_SELECTOR_SHARED_OFFSET_Y);
+            };
+        };
+    }
+
+    private void layoutFightSelectorsForSharedSpots(Circle[] selectors,
+                                                    Text[] selectorLabels,
+                                                    boolean[] selectorLocked,
+                                                    List<BirdIconSpot> spots,
+                                                    int playerCount) {
+        if (selectors == null || selectorLabels == null || selectorLocked == null || spots == null) {
+            return;
+        }
+        Map<BirdIconSpot, List<Integer>> sharedSpots = new LinkedHashMap<>();
+        int limit = Math.min(Math.min(selectors.length, selectorLabels.length), selectorLocked.length);
+        limit = Math.min(limit, playerCount);
+        for (int playerIdx = 0; playerIdx < limit; playerIdx++) {
+            Circle selector = selectors[playerIdx];
+            Text label = selectorLabels[playerIdx];
+            if (selector == null || label == null || !selectorLocked[playerIdx] || !selector.isVisible()) {
+                continue;
+            }
+            BirdIconSpot spot = fightSelectorSelectionSpot(playerIdx, spots);
+            if (spot == null) {
+                continue;
+            }
+            sharedSpots.computeIfAbsent(spot, ignored -> new ArrayList<>()).add(playerIdx);
+        }
+        for (List<Integer> playersOnSpot : sharedSpots.values()) {
+            int count = playersOnSpot.size();
+            for (int slotIndex = 0; slotIndex < count; slotIndex++) {
+                int playerIdx = playersOnSpot.get(slotIndex);
+                BirdIconSpot spot = fightSelectorSelectionSpot(playerIdx, spots);
+                if (spot == null) {
+                    continue;
+                }
+                Point2D offset = fightSelectorSharedOffset(slotIndex, count);
+                Circle selector = selectors[playerIdx];
+                selector.setRadius(count > 1 ? FIGHT_SELECTOR_SHARED_RADIUS : FIGHT_SELECTOR_RADIUS);
+                refreshFightSelectorVisual(selector, true);
+                positionFightSelector(selector, selectorLabels[playerIdx], spot.cx() + offset.getX(), spot.cy() + offset.getY());
+            }
+        }
+    }
+
+    private BirdIconSpot fightSelectorSelectionSpot(int playerIdx, List<BirdIconSpot> spots) {
+        if (spots == null || isValidPlayerIndex(playerIdx)) {
+            return null;
+        }
+        boolean randomSelected = fightSetupSelection.isRandomSelected(playerIdx);
+        BirdType selectedType = fightSetupSelection.selectedBird(playerIdx);
+        for (BirdIconSpot spot : spots) {
+            if (spot == null) {
+                continue;
+            }
+            if (randomSelected && spot.random()) {
+                return spot;
+            }
+            if (!randomSelected && selectedType != null && spot.type() == selectedType) {
+                return spot;
+            }
+        }
+        return null;
+    }
+
     private void moveFightSelectorWithinPane(Circle selector, Text label, double x, double y, Pane selectionPane) {
         if (selector == null || label == null || selectionPane == null) {
             return;
@@ -16228,6 +16326,7 @@ public class BirdGame3 extends Application {
         if (dock == null) {
             return;
         }
+        selector.setRadius(FIGHT_SELECTOR_RADIUS);
         positionFightSelector(selector, label, dock.getX(), dock.getY());
     }
 
@@ -16274,6 +16373,9 @@ public class BirdGame3 extends Application {
         }
         selectorLocked[playerIdx] = false;
         fightSetupSelection.clearSelection(playerIdx);
+        if (selector != null) {
+            selector.setRadius(FIGHT_SELECTOR_RADIUS);
+        }
         refreshFightSelectorVisual(selector, false);
         if (updateSlot != null) {
             updateSlot.run();
@@ -16592,6 +16694,7 @@ public class BirdGame3 extends Application {
             }
             if (selectorLocked[targetSelector]) {
                 clearFightSelectorChoice(targetSelector, selectors[targetSelector], selectorLocked, updateSlot[targetSelector], updateReady);
+                layoutFightSelectorsForSharedSpots(selectors, selectorLabels, selectorLocked, spots, activePlayers);
             }
             Point2D selectorCenter = selectorCenterInInteraction(targetSelector);
             clawState.beginGrab(sourceIdx, targetSelector, selectorCenter.getX(), selectorCenter.getY());
@@ -16623,6 +16726,7 @@ public class BirdGame3 extends Application {
                 } else {
                     dockFightSelector(selectorIdx, selector, label, dockPositions);
                 }
+                layoutFightSelectorsForSharedSpots(selectors, selectorLabels, selectorLocked, spots, activePlayers);
             }
             clawState.clearGrab(sourceIdx);
             updateClawPresentation(sourceIdx, !hideAfter && sourceIdx < activePlayers, false);
@@ -17042,25 +17146,24 @@ public class BirdGame3 extends Application {
             showStageSelect(stage);
         };
         Label readyText = new Label("FLY INTO BATTLE!");
-        readyText.setFont(Font.font("Arial Black", FontWeight.BOLD, 44));
+        readyText.setFont(Font.font("Arial Black", FontWeight.BOLD, 18));
         readyText.setTextFill(Color.web("#08090B"));
         readyText.setMouseTransparent(true);
 
         StackPane readyBanner = new StackPane(readyText);
-        readyBanner.setManaged(false);
-        readyBanner.setMouseTransparent(true);
-        readyBanner.setPrefSize(paneW + 34, 124);
-        readyBanner.setMinSize(paneW + 34, 124);
-        readyBanner.setMaxSize(paneW + 34, 124);
-        readyBanner.resizeRelocate(-17, 206, paneW + 34, 124);
-        readyBanner.setOpacity(0.9);
-        readyBanner.setStyle("-fx-background-color: linear-gradient(to right, rgba(181, 18, 27, 0.76), "
-                + "rgba(245, 158, 11, 0.70) 52%, rgba(255, 238, 102, 0.66)); "
-                + "-fx-background-radius: 8; -fx-border-color: rgba(255,255,255,0.72), rgba(0,0,0,0.74); "
-                + "-fx-border-insets: 0, 5; -fx-border-width: 3, 5; -fx-border-radius: 8, 4; "
-                + "-fx-effect: dropshadow(gaussian, rgba(255, 193, 7, 0.40), 32, 0.30, 0, 0);");
-        readyBanner.setVisible(false);
-        selectionPane.getChildren().add(readyBanner);
+        readyBanner.setMouseTransparent(false);
+        readyBanner.setPrefSize(226, 92);
+        readyBanner.setMinSize(226, 92);
+        readyBanner.setMaxSize(226, 92);
+        readyBanner.setCursor(Cursor.HAND);
+        readyBanner.setOnMouseClicked(e -> {
+            if (!fightSetupSelection.allReady(activePlayers) || !e.isStillSincePress()) {
+                return;
+            }
+            playButtonClick();
+            startBattle.run();
+            e.consume();
+        });
 
         Label playerCountLabel = new Label();
         playerCountLabel.setFont(Font.font("Arial Black", 20));
@@ -17101,7 +17204,25 @@ public class BirdGame3 extends Application {
                     + "-fx-border-radius: 14;");
         };
 
-        Runnable updateReadyBanner = () -> readyBanner.setVisible(fightSetupSelection.allReady(activePlayers));
+        String readyBannerEnabledStyle = "-fx-background-color: linear-gradient(to right, rgba(244, 67, 54, 0.98), "
+                + "rgba(245, 158, 11, 0.94) 52%, rgba(255, 238, 102, 0.96)); "
+                + "-fx-background-radius: 16; -fx-border-color: rgba(255,255,255,0.82), rgba(0,0,0,0.84); "
+                + "-fx-border-insets: 0, 5; -fx-border-width: 3, 4; -fx-border-radius: 16, 11; "
+                + "-fx-effect: dropshadow(gaussian, rgba(255, 193, 7, 0.36), 22, 0.24, 0, 0);";
+        String readyBannerDisabledStyle = "-fx-background-color: linear-gradient(to bottom, rgba(57,64,72,0.92), rgba(19,23,29,0.96)); "
+                + "-fx-background-radius: 16; -fx-border-color: rgba(255,255,255,0.18), rgba(0,0,0,0.86); "
+                + "-fx-border-insets: 0, 5; -fx-border-width: 3, 4; -fx-border-radius: 16, 11;";
+        boolean[] lastAllReady = new boolean[]{fightSetupSelection.allReady(activePlayers)};
+        Runnable updateReadyBanner = () -> {
+            boolean allReady = fightSetupSelection.allReady(activePlayers);
+            readyBanner.setStyle(allReady ? readyBannerEnabledStyle : readyBannerDisabledStyle);
+            readyText.setTextFill(allReady ? Color.web("#08090B") : Color.web("#94A3AF"));
+            readyBanner.setCursor(allReady ? Cursor.HAND : Cursor.DEFAULT);
+            if (allReady && !lastAllReady[0]) {
+                playFightSetupReadySfx();
+            }
+            lastAllReady[0] = allReady;
+        };
 
         Runnable[] updateSlot = new Runnable[4];
         int[] nullRockSequenceProgress = new int[4];
@@ -17410,7 +17531,7 @@ public class BirdGame3 extends Application {
         double selectorSnapDistance = Math.min(cellW, cellH) * 0.42;
         for (int i = 0; i < 4; i++) {
             int idx = i;
-            Circle selector = new Circle(26);
+            Circle selector = new Circle(FIGHT_SELECTOR_RADIUS);
             selector.setFill(selectorColors[i].deriveColor(0.0, 1.0, 0.64, 0.16));
             selector.setStroke(selectorColors[i]);
             selector.setStrokeWidth(3.0);
@@ -17452,6 +17573,7 @@ public class BirdGame3 extends Application {
                 setFightSetupClawCursor(fightSceneRef[0], true);
                 if (selectorLocked[idx]) {
                     clearFightSelectorChoice(idx, selector, selectorLocked, updateSlot[idx], updateReadyBanner);
+                    layoutFightSelectorsForSharedSpots(selectors, selectorLabels, selectorLocked, spots, activePlayers);
                     selectorJustUnlocked[idx] = true;
                 }
                 Point2D local = selectionPane.sceneToLocal(e.getSceneX(), e.getSceneY());
@@ -17480,44 +17602,20 @@ public class BirdGame3 extends Application {
                         && selector.getCenterY() <= dockY + dockH + 10.0;
                 if (inDock) {
                     clearFightSelectorChoice(idx, selector, selectorLocked, updateSlot[idx], updateReadyBanner);
+                    layoutFightSelectorsForSharedSpots(selectors, selectorLabels, selectorLocked, spots, activePlayers);
                     dockFightSelector(idx, selector, label, dockPositions);
                     return;
                 }
                 BirdIconSpot best = nearestFightSelectorSpot(selector, spots);
                 if (best != null) {
                     lockFightSelectorToSpot(idx, selector, label, selectorLocked, best, updateSlot[idx]);
+                    layoutFightSelectorsForSharedSpots(selectors, selectorLabels, selectorLocked, spots, activePlayers);
                 } else {
                     dockFightSelector(idx, selector, label, dockPositions);
+                    layoutFightSelectorsForSharedSpots(selectors, selectorLabels, selectorLocked, spots, activePlayers);
                 }
             });
         }
-
-        selectionPane.addEventHandler(MouseEvent.MOUSE_CLICKED, e -> {
-            if (!readyBanner.isVisible() || !e.isStillSincePress()) {
-                return;
-            }
-            double mx = e.getX();
-            double my = e.getY();
-            if (!readyBanner.getBoundsInParent().contains(mx, my)) {
-                return;
-            }
-            for (int i = 0; i < activePlayers && i < selectors.length; i++) {
-                Circle selector = selectors[i];
-                if (selector == null || !selector.isVisible()) continue;
-                if (Math.hypot(mx - selector.getCenterX(), my - selector.getCenterY()) <= selector.getRadius() + 20.0) {
-                    return;
-                }
-            }
-            double iconPassThroughRadius = Math.max(54.0, selectorSnapDistance * 0.95);
-            for (BirdIconSpot spot : spots) {
-                if (Math.hypot(mx - spot.cx(), my - spot.cy()) <= iconPassThroughRadius) {
-                    return;
-                }
-            }
-            playButtonClick();
-            startBattle.run();
-            e.consume();
-        });
 
         final BirdIconSpot finalRandomSpot = randomSpot;
         Runnable refreshLayout = () -> {
@@ -17580,6 +17678,7 @@ public class BirdGame3 extends Application {
                 }
                 updateSlot[i].run();
             }
+            layoutFightSelectorsForSharedSpots(selectors, selectorLabels, selectorLocked, spots, activePlayers);
             refreshInputAssignments.run();
             refreshPlayerCountControls.run();
             if (refreshSpecialGuideRef[0] != null) {
@@ -17626,8 +17725,20 @@ public class BirdGame3 extends Application {
         HBox playerCountButtons = new HBox(8, removePlayerBtn, addPlayerBtn);
         playerCountButtons.setAlignment(Pos.CENTER);
 
-        VBox actionCardBody = new VBox(16, playerCountLabel, playerCountButtons);
+        VBox playerCountControls = new VBox(16, playerCountLabel, playerCountButtons);
+        playerCountControls.setAlignment(Pos.CENTER);
+        StackPane playerCountBox = new StackPane(playerCountControls);
+        playerCountBox.setPrefSize(226, 92);
+        playerCountBox.setMinSize(226, 92);
+        playerCountBox.setMaxSize(226, 92);
+        playerCountBox.setStyle("-fx-background-color: rgba(5,8,12,0.78); -fx-background-radius: 16; "
+                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 2; -fx-border-radius: 16;");
+        VBox actionCardBody = new VBox(12, readyBanner, playerCountBox);
         actionCardBody.setAlignment(Pos.CENTER);
+        actionCardBody.setMinSize(250, 248);
+        actionCardBody.setPrefSize(250, 248);
+        actionCardBody.setMaxSize(250, 248);
+        actionCardBody.setPadding(new Insets(24, 0, 16, 0));
 
         HBox footerRow = getHBox(actionCardBody, playerBar);
         HBox.setHgrow(playerBar, Priority.ALWAYS);
@@ -17644,7 +17755,7 @@ public class BirdGame3 extends Application {
         content.setCenter(interactionLayer);
 
         BooleanSupplier tryStartMatch = () -> {
-            if (!readyBanner.isVisible()) return false;
+            if (!fightSetupSelection.allReady(activePlayers)) return false;
             playButtonClick();
             startBattle.run();
             return true;
@@ -17738,7 +17849,7 @@ public class BirdGame3 extends Application {
         return settingsBtn;
     }
 
-    private static HBox getHBox(VBox actionCardBody, HBox playerBar) {
+    private static HBox getHBox(Node actionCardBody, HBox playerBar) {
         StackPane actionCard = getStackPane(actionCardBody);
         actionCard.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(18,22,28,0.96), rgba(6,8,11,0.98)); "
                 + "-fx-background-radius: 26; -fx-border-color: rgba(255,224,130,0.60); "
@@ -17749,7 +17860,7 @@ public class BirdGame3 extends Application {
         return footerRow;
     }
 
-    private static StackPane getStackPane(VBox actionCardBody) {
+    private static StackPane getStackPane(Node actionCardBody) {
         Region actionAccent = new Region();
         actionAccent.setPrefHeight(14);
         actionAccent.setMaxWidth(Double.MAX_VALUE);
@@ -17760,9 +17871,9 @@ public class BirdGame3 extends Application {
         actionCardChrome.setTop(actionAccent);
 
         StackPane actionCard = new StackPane(actionCardChrome, actionCardBody);
-        actionCard.setMinSize(250, 188);
-        actionCard.setPrefSize(250, 188);
-        actionCard.setMaxSize(250, 188);
+        actionCard.setMinSize(250, 248);
+        actionCard.setPrefSize(250, 248);
+        actionCard.setMaxSize(250, 248);
         return actionCard;
     }
 
@@ -35274,7 +35385,7 @@ public class BirdGame3 extends Application {
             return;
         }
 
-        double cardHeight = compact ? 228.0 : 248.0;
+        double cardHeight = 248.0;
         double padding = compact ? 10.0 : 16.0;
         double slotGap = compact ? 8.0 : 14.0;
         double bodyGap = compact ? 10.0 : 18.0;

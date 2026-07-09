@@ -401,7 +401,7 @@ final class VultureSpecials {
     }
 
     static void updateBaitCrowSwarm(Bird bird, Bird.VultureBait bait) {
-        int maxCrows = bait.ultimate ? Bird.VULTURE_BAIT_MAX_CROWS + 6 : Bird.VULTURE_BAIT_MAX_CROWS;
+        int maxCrows = bait.ultimate ? Bird.VULTURE_BAIT_MAX_CROWS + 2 : 8;
         if (bait.crowsReleased >= maxCrows) {
             return;
         }
@@ -418,7 +418,7 @@ final class VultureSpecials {
             spawnBaitCrow(bird, bait, bait.crowsReleased + i);
         }
         bait.crowsReleased += waveSize;
-        bait.spawnCooldown = Math.max(14,
+        bait.spawnCooldown = Math.max(22,
                 (bait.ultimate ? Bird.VULTURE_BAIT_CROW_SPAWN_INTERVAL - 8 : Bird.VULTURE_BAIT_CROW_SPAWN_INTERVAL)
                         - bait.crowsReleased * 2);
     }
@@ -429,14 +429,14 @@ final class VultureSpecials {
         double spawnRadius = (42.0 + SimRng.next() * 44.0) * bird.sizeMultiplier;
         double spawnX = bait.x + Math.cos(angle) * spawnRadius;
         double spawnY = anchorY + Math.sin(angle) * spawnRadius * 0.62;
-        double guardRadius = (bait.ultimate ? 190.0 : 160.0) * bird.sizeMultiplier;
+        double guardRadius = (bait.ultimate ? 170.0 : 135.0) * bird.sizeMultiplier;
         CrowMinion crow = spawnCrow(bird, spawnX, spawnY,
                 null,
-                bait.ultimate, bait.ultimate ? 1.08 : 1.0);
+                bait.ultimate, 1.0);
         crow.withAnchorGuard(bait.x, anchorY, guardRadius, bait.lifeFrames + 30);
         double tangent = angle + Math.PI * 0.5;
-        crow.vx += Math.cos(tangent) * (bait.ultimate ? 2.9 : 2.3);
-        crow.vy += Math.sin(tangent) * (bait.ultimate ? 2.4 : 1.9) - 1.4;
+        crow.vx += Math.cos(tangent) * (bait.ultimate ? 2.4 : 1.8);
+        crow.vy += Math.sin(tangent) * (bait.ultimate ? 2.0 : 1.5) - 1.0;
     }
 
     static void removeBaitCrows(Bird bird, Bird.VultureBait bait) {
@@ -537,9 +537,9 @@ final class VultureSpecials {
         double spawnY = bird.bodyCenterY() + lift * bird.sizeMultiplier;
         CrowMinion crow = spawnCrow(bird, spawnX, spawnY,
                 nearestTarget(bird, spawnX, spawnY, 700.0),
-                ultimate, ultimate ? 1.20 : 1.08);
-        crow.vx += dir * (ultimate ? 5.8 : 4.3);
-        crow.vy -= ultimate ? 5.0 : 3.8;
+                ultimate, ultimate ? 1.10 : 1.0);
+        crow.vx += dir * (ultimate ? 4.8 : 3.4);
+        crow.vy -= ultimate ? 4.0 : 3.0;
         bird.vultureCallCrowsSummoned++;
         return true;
     }
