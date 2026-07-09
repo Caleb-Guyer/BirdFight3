@@ -1091,6 +1091,20 @@ public class BirdGame3 extends Application {
         playManagedSfx(rebirthNovaClip, 1.0);
     }
 
+    void playRoosterStampedeSfx() {
+        if (!sfxEnabled) return;
+        if (hugewaveClip != null) {
+            hugewaveClip.stop();
+            playManagedSfxVaried(hugewaveClip, 0.88, 1.18, 0.025);
+        }
+        if (swingClip != null) {
+            playManagedSfxVaried(swingClip, 0.55, 0.72, 0.035);
+        }
+        if (bonkClip != null) {
+            playManagedSfxVaried(bonkClip, 0.36, 0.62, 0.025);
+        }
+    }
+
     void playAchievementSfx() {
         if (!sfxEnabled || steamAchievementClip == null) return;
         steamAchievementClip.stop();
@@ -9605,7 +9619,7 @@ public class BirdGame3 extends Application {
         PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Cinder Halo / Snap Fire / Firespin / Faultfire"),
         HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Needle Barrage + Flash Sip + Hover Burst + Nectar Trap"),
         TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Charged Gobble Guard + Held Stampede + Panic Flap + Feast Trap"),
-        ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Chick Call + Chick Toss + Coop Boost + Brood Recall"),
+        ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Chick Call + Chick Toss + Coop Boost + Brood Recall + Dawn Stampede"),
         ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road"),
         PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Belly Slide / Iceberg / Rocket Flop / Snow Fort"),
         SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "Death Stare / Heavy Bill Thrust / Marsh Lift / Statue Counter"),
@@ -10940,10 +10954,19 @@ public class BirdGame3 extends Application {
                 double dx = (target.x + 40) - ccx;
                 double dy = (target.y + 40) - ccy;
                 double dir = dx == 0 ? 0 : Math.signum(dx);
-                double desiredVx = dir * chick.speed;
-                chick.vx += (desiredVx - chick.vx) * chick.accel;
-                if (Math.abs(chick.vx) > chick.speed) chick.vx = dir * chick.speed;
-                boolean targetAbove = dy < -30;
+                if (chick.roosterSwarm) {
+                    double desiredVx = Math.clamp(dx * 0.18, -chick.speed, chick.speed);
+                    double desiredVy = Math.clamp(dy * 0.14, -chick.speed * 0.82, chick.speed * 0.82);
+                    chick.vx += (desiredVx - chick.vx) * Math.max(chick.accel, 0.42);
+                    chick.vy += (desiredVy - chick.vy) * 0.34;
+                    double maxVy = chick.speed * 0.88;
+                    chick.vy = Math.clamp(chick.vy, -maxVy, maxVy);
+                    chick.onGround = false;
+                } else {
+                    double desiredVx = dir * chick.speed;
+                    chick.vx += (desiredVx - chick.vx) * chick.accel;
+                    if (Math.abs(chick.vx) > chick.speed) chick.vx = dir * chick.speed;
+                    boolean targetAbove = dy < -30;
                     boolean closePounce = Math.abs(dx) < 140;
                     if (wasOnGround && chick.jumpCooldown <= 0 && (targetAbove || closePounce)) {
                         chick.vy = -chick.jumpStrength;
@@ -10958,11 +10981,16 @@ public class BirdGame3 extends Application {
                         }
                         chick.onGround = false;
                     }
+                }
             } else if (!followingOwner) {
-                chick.vx *= 0.92;
+                chick.vx *= chick.roosterSwarm ? 0.96 : 0.92;
+                if (chick.roosterSwarm) {
+                    chick.vy *= 0.96;
+                }
             }
 
-            chick.vy += GRAVITY * 0.8;
+            boolean flyingSwarm = chick.roosterSwarm && !followingOwner;
+            chick.vy += GRAVITY * (flyingSwarm ? 0.08 : 0.8);
 
             double prevY = chick.y;
             chick.x += chick.vx;
@@ -10970,22 +10998,24 @@ public class BirdGame3 extends Application {
 
             boolean landed = false;
             double bottom = chick.y + chick.height;
-            if (bottom >= GROUND_Y) {
-                chick.y = GROUND_Y - chick.height;
-                chick.vy = 0;
-                landed = true;
-            }
-            if (!landed && chick.vy >= 0) {
-                double prevBottom = prevY + chick.height;
-                for (Platform p : platforms) {
-                    double left = chick.x + chick.width * 0.1;
-                    double right = chick.x + chick.width * 0.9;
-                    if (right < p.x || left > p.x + p.w) continue;
-                    if (prevBottom <= p.y && bottom >= p.y) {
-                        chick.y = p.y - chick.height;
-                        chick.vy = 0;
-                        landed = true;
-                        break;
+            if (!flyingSwarm) {
+                if (bottom >= GROUND_Y) {
+                    chick.y = GROUND_Y - chick.height;
+                    chick.vy = 0;
+                    landed = true;
+                }
+                if (!landed && chick.vy >= 0) {
+                    double prevBottom = prevY + chick.height;
+                    for (Platform p : platforms) {
+                        double left = chick.x + chick.width * 0.1;
+                        double right = chick.x + chick.width * 0.9;
+                        if (right < p.x || left > p.x + p.w) continue;
+                        if (prevBottom <= p.y && bottom >= p.y) {
+                            chick.y = p.y - chick.height;
+                            chick.vy = 0;
+                            landed = true;
+                            break;
+                        }
                     }
                 }
             }
@@ -10994,7 +11024,10 @@ public class BirdGame3 extends Application {
                 chick.vx *= 0.85;
             }
 
-            if (!followingOwner && target != null && chick.attackCooldown <= 0) {
+            if (!followingOwner
+                    && target != null
+                    && chick.attackCooldown <= 0
+                    && (!chick.roosterSwarm || chick.swarmHitsRemaining > 0)) {
                 if (chick.owner != null && !canDamage(chick.owner, target)) {
                     chick.target = null;
                 } else {
@@ -11002,27 +11035,43 @@ public class BirdGame3 extends Application {
                     double ccy = chick.y + chick.height * 0.5;
                     double dx = (target.x + 40) - ccx;
                     double dy = (target.y + 40) - ccy;
-                    if (dx * dx + dy * dy < 2500) {
-                        double dealtDamage = target.receiveExternalDamage(chick.damage);
+                    double attackRangeSq = chick.roosterSwarm ? 3600 : 2500;
+                    if (dx * dx + dy * dy < attackRangeSq) {
+                        int damage = chick.roosterSwarm ? Math.max(1, chick.damage) : chick.damage;
+                        double dealtDamage = target.receiveExternalDamage(damage);
                         if (dealtDamage <= 0) {
                             chick.attackCooldown = 18;
                             continue;
                         }
-                        if (dealtDamage > 0 && chick.owner != null) {
+                        if (dealtDamage > 0 && chick.owner != null && !chick.roosterSwarm) {
                             chick.owner.gainUltimateFromMinionDamage(dealtDamage);
                         }
-                        String ownerTag = chick.owner != null ? shortName(chick.owner.name) + "'s " : "";
-                        addToKillFeed(ownerTag + "CHICK pecked " + shortName(target.name) + "! -" + (int) Math.round(dealtDamage) + " HP");
-                        target.vx += Math.signum(dx) * (chick.ultimate ? 9 : 7);
-                        target.vy -= chick.ultimate ? 8 : 6;
-                        int particleCount = scaledParticleBurstCount(chick.ultimate ? 16 : 12);
-                        Color puff = chick.ultimate ? Color.GOLD : Color.web("#FFD54F");
+                        if (!chick.roosterSwarm) {
+                            String ownerTag = chick.owner != null ? shortName(chick.owner.name) + "'s " : "";
+                            addToKillFeed(ownerTag + "CHICK pecked " + shortName(target.name) + "! -" + (int) Math.round(dealtDamage) + " HP");
+                        }
+                        double hitDir = Math.signum(dx);
+                        if (hitDir == 0.0) hitDir = chick.vx >= 0.0 ? 1.0 : -1.0;
+                        target.vx += hitDir * (chick.roosterSwarm ? 4.6 : (chick.ultimate ? 9 : 7));
+                        target.vy -= chick.roosterSwarm ? 3.8 : (chick.ultimate ? 8 : 6);
+                        int particleCount = scaledParticleBurstCount(chick.roosterSwarm ? 6 : (chick.ultimate ? 16 : 12));
+                        Color puff = chick.roosterSwarm ? Color.web("#FFF176") : (chick.ultimate ? Color.GOLD : Color.web("#FFD54F"));
                         for (int i = 0; i < particleCount; i++) {
                             double angle = SimRng.next() * Math.PI * 2;
                             double spd = 4 + SimRng.next() * 6;
                             particles.add(new Particle(ccx, ccy, Math.cos(angle) * spd, Math.sin(angle) * spd - 3, puff));
                         }
-                        chick.attackCooldown = chick.ultimate ? 32 : 44;
+                        if (chick.roosterSwarm) {
+                            chick.swarmHitsRemaining--;
+                            chick.boostSparkFrames = Math.max(chick.boostSparkFrames, 12);
+                            chick.attackCooldown = 9;
+                            if (chick.swarmHitsRemaining <= 0) {
+                                chick.maxAge = Math.min(chick.maxAge, chick.age + 18);
+                                chick.attackCooldown = 80;
+                            }
+                        } else {
+                            chick.attackCooldown = chick.ultimate ? 32 : 44;
+                        }
                     }
                 }
             }
@@ -14055,6 +14104,49 @@ public class BirdGame3 extends Application {
                     accent = Color.web("#F57C00");
                     trim = Color.web("#FF7043");
                 }
+            }
+        }
+
+        if (chick.roosterSwarm && chick.swarmVisualCopies > 0) {
+            double lifeFade = Math.clamp(1.0 - chick.age / (double) Math.max(1, chick.maxAge), 0.15, 1.0);
+            double backDir = chick.vx >= 0.0 ? -1.0 : 1.0;
+            int copies = Math.min(7, chick.swarmVisualCopies);
+            for (int i = copies; i >= 1; i--) {
+                double phase = chick.age * 0.26 + chick.variant * 1.7 + i * 0.9;
+                double side = i % 2 == 0 ? -1.0 : 1.0;
+                double scale = 0.74 - i * 0.035;
+                double copyW = w * scale;
+                double copyH = h * scale;
+                double copyX = x + backDir * (20.0 + i * 14.0) + side * Math.sin(phase) * (8.0 + i * 2.0);
+                double copyY = y + Math.cos(phase * 0.8) * (6.0 + i * 1.5) + i * 1.4;
+                double alpha = Math.clamp((0.24 - i * 0.018) * lifeFade, 0.05, 0.24);
+                Color copyBody = body.deriveColor(0, 1.0, 1.10, alpha);
+                Color copyAccent = accent.deriveColor(0, 1.0, 1.08, alpha + 0.08);
+                g.setFill(copyBody);
+                g.fillOval(copyX, copyY + copyH * 0.22, copyW * 1.08, copyH * 0.78);
+                double copyHeadW = copyW * 0.44;
+                double copyHeadH = copyH * 0.44;
+                double copyHeadX = facingRight ? copyX + copyW * 0.68 : copyX - copyHeadW * 0.08;
+                double copyHeadY = copyY + copyH * 0.04;
+                g.fillOval(copyHeadX, copyHeadY, copyHeadW, copyHeadH);
+                g.setFill(copyAccent);
+                if (facingRight) {
+                    g.fillPolygon(
+                            new double[]{copyHeadX + copyHeadW * 0.9, copyHeadX + copyHeadW * 1.18, copyHeadX + copyHeadW * 0.9},
+                            new double[]{copyHeadY + copyHeadH * 0.45, copyHeadY + copyHeadH * 0.56, copyHeadY + copyHeadH * 0.67},
+                            3
+                    );
+                } else {
+                    g.fillPolygon(
+                            new double[]{copyHeadX + copyHeadW * 0.1, copyHeadX - copyHeadW * 0.18, copyHeadX + copyHeadW * 0.1},
+                            new double[]{copyHeadY + copyHeadH * 0.45, copyHeadY + copyHeadH * 0.56, copyHeadY + copyHeadH * 0.67},
+                            3
+                    );
+                }
+                g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, alpha * 1.3));
+                g.setLineWidth(1.4);
+                g.strokeLine(copyX + copyW * 0.45, copyY + copyH * 0.56,
+                        copyX + copyW * 0.45 + backDir * (24.0 + i * 7.0), copyY + copyH * 0.56 + side * 5.0);
             }
         }
 
@@ -23817,6 +23909,9 @@ public class BirdGame3 extends Application {
             cs.commandFlashFrames = chick.commandFlashFrames;
             cs.thrownFrames = chick.thrownFrames;
             cs.boostSparkFrames = chick.boostSparkFrames;
+            cs.roosterSwarm = chick.roosterSwarm;
+            cs.swarmHitsRemaining = chick.swarmHitsRemaining;
+            cs.swarmVisualCopies = chick.swarmVisualCopies;
             state.chickMinions.add(cs);
         }
         return state;
@@ -24058,7 +24153,9 @@ public class BirdGame3 extends Application {
             boolean needsReplacement = i >= chickMinions.size();
             if (!needsReplacement) {
                 chick = chickMinions.get(i);
-                needsReplacement = chick.variant != cs.variant || chick.ultimate != cs.ultimate;
+                needsReplacement = chick.variant != cs.variant
+                        || chick.ultimate != cs.ultimate
+                        || chick.roosterSwarm != cs.roosterSwarm;
             } else {
                 chick = null;
             }
@@ -24082,6 +24179,9 @@ public class BirdGame3 extends Application {
             chick.commandFlashFrames = cs.commandFlashFrames;
             chick.thrownFrames = cs.thrownFrames;
             chick.boostSparkFrames = cs.boostSparkFrames;
+            chick.roosterSwarm = cs.roosterSwarm;
+            chick.swarmHitsRemaining = Math.max(0, cs.swarmHitsRemaining);
+            chick.swarmVisualCopies = Math.clamp(cs.swarmVisualCopies, 0, 8);
             chick.target = null;
         }
     }
@@ -45215,6 +45315,7 @@ public class BirdGame3 extends Application {
             case RAVEN -> "Marks and routes set up larger follow-ups, including the ultimate.";
             case GOOSE -> "Territory empowers the next special. Nest Guard counters hits near the nest.";
             case MOCKINGBIRD -> "Mimic steals neutral specials; Lounge controls space.";
+            case ROOSTER -> "Ultimate: Dawn Stampede floods the stage with fast flying swarm chicks.";
             case BAT -> "Ceiling Hang gives the down special a second movement state.";
             case PHOENIX -> "Snap Fire travels farther and fizzles harmlessly. Air Snap Fire angles down; air Faultfire can be held.";
             default -> "Directional input changes the special before startup.";

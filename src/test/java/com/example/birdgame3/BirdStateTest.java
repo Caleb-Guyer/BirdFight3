@@ -867,6 +867,41 @@ class BirdStateTest {
     }
 
     @Test
+    void roosterUltimateSummonsFlyingDawnStampede() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird rooster = new Bird(300.0, BirdGame3.BirdType.ROOSTER, 0, game);
+        Bird target = new Bird(620.0, BirdGame3.BirdType.PIGEON, 1, game);
+        rooster.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = rooster;
+        game.players[1] = target;
+        rooster.update(1.0);
+
+        setPrivateDouble(rooster, "ultimateMeter", 100.0);
+        invokePrivateVoid(rooster, "special");
+
+        List<ChickMinion> swarm = ownedChicks(game, rooster).stream()
+                .filter(chick -> chick.roosterSwarm)
+                .toList();
+        assertEquals(18, swarm.size(),
+                "Rooster ultimate should create a large real swarm while the draw layer adds visual copies.");
+        assertTrue(swarm.stream().allMatch(chick -> !chick.followingOwner),
+                "Stampede chicks should immediately leave formation.");
+        assertTrue(swarm.stream().allMatch(chick -> chick.target == target),
+                "Stampede chicks should launch toward the nearest enemy.");
+        assertTrue(swarm.stream().allMatch(chick -> chick.speed >= 14.0 && !chick.onGround),
+                "Stampede chicks should be fast flying attackers.");
+        assertTrue(swarm.stream().allMatch(chick -> chick.swarmHitsRemaining == 2 && chick.swarmVisualCopies >= 4),
+                "Stampede chicks should have capped hits and extra render copies.");
+        assertEquals(0.0, getPrivateDouble(rooster, "ultimateMeter"), 0.0001);
+        assertEquals(0, rooster.specialCooldown);
+        assertEquals(5, getPrivateInt(rooster, "roosterCommandFxKind"));
+        assertEquals(RoosterSpecials.DAWN_STAMPEDE_MOVE, game.lastTelemetryMoveName(0, ""));
+    }
+
+    @Test
     void mockingbirdLoungeCaptureUsesBodyOverlapForLargeBirds() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

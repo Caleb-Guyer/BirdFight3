@@ -26,6 +26,9 @@ class ChickMinion {
     int commandFlashFrames = 0;
     int thrownFrames = 0;
     int boostSparkFrames = 0;
+    boolean roosterSwarm = false;
+    int swarmHitsRemaining = 0;
+    int swarmVisualCopies = 0;
 
     ChickMinion(double x, double y, int variant, boolean ultimate, Bird owner) {
         this.x = x;

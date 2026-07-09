@@ -6,6 +6,7 @@ import java.lang.reflect.Method;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BirdGame3LanStateTest {
     @Test
@@ -49,6 +50,9 @@ class BirdGame3LanStateTest {
         assertEquals(14, game.chickMinions.getFirst().commandFlashFrames);
         assertEquals(15, game.chickMinions.getFirst().thrownFrames);
         assertEquals(16, game.chickMinions.getFirst().boostSparkFrames);
+        assertTrue(game.chickMinions.getFirst().roosterSwarm);
+        assertEquals(2, game.chickMinions.getFirst().swarmHitsRemaining);
+        assertEquals(5, game.chickMinions.getFirst().swarmVisualCopies);
     }
 
     @Test
@@ -123,6 +127,9 @@ class BirdGame3LanStateTest {
         chick.commandFlashFrames = 14;
         chick.thrownFrames = 15;
         chick.boostSparkFrames = 16;
+        chick.roosterSwarm = true;
+        chick.swarmHitsRemaining = 2;
+        chick.swarmVisualCopies = 5;
         state.chickMinions.add(chick);
 
         return state;

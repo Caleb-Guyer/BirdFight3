@@ -139,6 +139,9 @@ class LanState {
             out.writeInt(c.commandFlashFrames);
             out.writeInt(c.thrownFrames);
             out.writeInt(c.boostSparkFrames);
+            out.writeBoolean(c.roosterSwarm);
+            out.writeInt(c.swarmHitsRemaining);
+            out.writeInt(c.swarmVisualCopies);
         }
     }
 
@@ -276,6 +279,9 @@ class LanState {
             c.commandFlashFrames = in.readInt();
             c.thrownFrames = in.readInt();
             c.boostSparkFrames = in.readInt();
+            c.roosterSwarm = in.readBoolean();
+            c.swarmHitsRemaining = in.readInt();
+            c.swarmVisualCopies = in.readInt();
             state.chickMinions.add(c);
         }
         return state;
@@ -362,5 +368,8 @@ class LanState {
         int commandFlashFrames;
         int thrownFrames;
         int boostSparkFrames;
+        boolean roosterSwarm;
+        int swarmHitsRemaining;
+        int swarmVisualCopies;
     }
 }

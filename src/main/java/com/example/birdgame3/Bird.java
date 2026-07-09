@@ -23993,28 +23993,40 @@ public class Bird {
                 case 2 -> Color.web("#FF7043");
                 case 3 -> Color.web("#B3E5FC");
                 case 4 -> Color.web("#FFF176");
+                case 5 -> Color.web("#FFD54F");
                 default -> Color.web("#FFD54F");
             };
             g.setStroke(commandColor.deriveColor(0, 1, 1, 0.26 + 0.42 * fade));
             g.setLineWidth((2.0 + 2.2 * fade) * s);
-            double ringW = (98.0 + 28.0 * (1.0 - fade)) * s;
-            double ringH = (74.0 + 20.0 * (1.0 - fade)) * s;
+            double ringW = (roosterCommandFxKind == 5 ? 138.0 : 98.0) + 28.0 * (1.0 - fade);
+            double ringH = (roosterCommandFxKind == 5 ? 102.0 : 74.0) + 20.0 * (1.0 - fade);
+            ringW *= s;
+            ringH *= s;
             g.strokeOval(cx - ringW * 0.5, cy - ringH * 0.5, ringW, ringH);
 
             double dir = facingRight ? 1.0 : -1.0;
             g.setLineWidth((2.0 + fade) * s);
-            for (int i = 0; i < 3; i++) {
+            int streaks = roosterCommandFxKind == 5 ? 6 : 3;
+            for (int i = 0; i < streaks; i++) {
                 double offset = (i - 1) * 13.0 * s;
+                if (roosterCommandFxKind == 5) {
+                    offset = (i - (streaks - 1) / 2.0) * 11.0 * s;
+                }
                 double startX = cx - dir * (10.0 + i * 5.0) * s;
                 double startY = cy + offset;
-                double endX = startX + dir * (34.0 + 9.0 * i) * s;
-                double lift = roosterCommandFxKind == 3 ? 22.0 : 6.0 - i * 4.0;
+                double endX = startX + dir * (34.0 + 9.0 * i + (roosterCommandFxKind == 5 ? 18.0 : 0.0)) * s;
+                double lift = roosterCommandFxKind == 3 ? 22.0
+                        : roosterCommandFxKind == 5 ? 16.0 - i * 4.5
+                        : 6.0 - i * 4.0;
                 g.strokeLine(startX, startY, endX, startY - lift * s);
             }
 
-            if (roosterCommandFxKind == 3) {
-                g.setFill(Color.web("#E3F2FD").deriveColor(0, 1, 1, 0.14 + 0.20 * fade));
-                g.fillOval(cx - 44.0 * s, y + drawSize - 16.0 * s, 88.0 * s, 24.0 * s);
+            if (roosterCommandFxKind == 3 || roosterCommandFxKind == 5) {
+                Color glow = roosterCommandFxKind == 5 ? Color.web("#FFF176") : Color.web("#E3F2FD");
+                double glowW = roosterCommandFxKind == 5 ? 124.0 : 88.0;
+                double glowH = roosterCommandFxKind == 5 ? 34.0 : 24.0;
+                g.setFill(glow.deriveColor(0, 1, 1, 0.14 + 0.20 * fade));
+                g.fillOval(cx - glowW * 0.5 * s, y + drawSize - 16.0 * s, glowW * s, glowH * s);
             }
         }
     }

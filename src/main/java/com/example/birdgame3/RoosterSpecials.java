@@ -5,11 +5,20 @@ import javafx.scene.paint.Color;
 import java.util.ArrayList;
 
 final class RoosterSpecials {
+    static final String DAWN_STAMPEDE_MOVE = "Rooster Dawn Stampede";
+
+    private static final int DAWN_STAMPEDE_CHICK_COUNT = 18;
+    private static final int DAWN_STAMPEDE_LARGE_FIGHT_CHICK_COUNT = 12;
+
     private RoosterSpecials() {
     }
 
     static void use(Bird bird, boolean ultimate) {
         ensureStartingChicks(bird);
+        if (ultimate) {
+            dawnStampede(bird);
+            return;
+        }
         switch (bird.selectRoosterSpecialVariant()) {
             case NEUTRAL -> neutral(bird, ultimate);
             case SIDE -> side(bird, ultimate);
@@ -151,6 +160,93 @@ final class RoosterSpecials {
         if (spawned > 0) {
             bird.game.addToKillFeed(bird.shortName() + (ultimate ? " assembled the royal brood!" : " called another chick into formation!"));
         }
+    }
+
+    static void dawnStampede(Bird bird) {
+        Bird target = nearestEnemy(bird, bird.bodyCenterX(), bird.bodyCenterY());
+        int swarmCount = bird.game.activePlayers >= 6
+                ? DAWN_STAMPEDE_LARGE_FIGHT_CHICK_COUNT
+                : DAWN_STAMPEDE_CHICK_COUNT;
+        bird.game.chickMinions.removeIf(chick -> chick.owner == bird && chick.roosterSwarm);
+
+        int dir = bird.facingDirection();
+        double centerX = bird.bodyCenterX();
+        double centerY = bird.bodyCenterY();
+        int spawned = 0;
+        for (int i = 0; i < swarmCount; i++) {
+            int variant = Math.floorMod(i + nextVariant(bird), Bird.ROOSTER_STARTING_CHICKS);
+            double side = i % 2 == 0 ? -1.0 : 1.0;
+            double lane = i / 2.0;
+            double spreadX = side * (120.0 + lane * 18.0 + SimRng.next() * 90.0);
+            double spreadY = -95.0 - (i % 5) * 18.0 - SimRng.next() * 70.0;
+            ChickMinion chick = new ChickMinion(centerX + spreadX, centerY + spreadY, variant, true, bird);
+            configureStampedeChick(chick, target, dir, i);
+            bird.game.chickMinions.add(chick);
+            spawned++;
+            if (i % 3 == 0) {
+                emitCommandBurst(bird, chick.x + chick.width * 0.5, chick.y + chick.height * 0.5,
+                        Color.web("#FFF176"), 7);
+            }
+        }
+
+        bird.roosterCommandFxTimer = Math.max(bird.roosterCommandFxTimer, 68);
+        bird.roosterCommandFxKind = 5;
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 36);
+        bird.roosterNeutralReuseTimer = Math.max(bird.roosterNeutralReuseTimer, 20);
+        bird.roosterSideReuseTimer = Math.max(bird.roosterSideReuseTimer, 18);
+        bird.roosterDownReuseTimer = Math.max(bird.roosterDownReuseTimer, 24);
+        bird.vx -= dir * 4.0;
+        bird.vy = Math.min(bird.vy, -7.5);
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 20);
+        bird.game.triggerFlash(0.55, false);
+        bird.game.addToKillFeed(bird.shortName() + " unleashed DAWN STAMPEDE! " + spawned + " chicks are airborne!");
+        emitCommandBurst(bird, centerX, centerY, Color.web("#FFD54F"), 62);
+    }
+
+    private static void configureStampedeChick(ChickMinion chick, Bird target, int dir, int index) {
+        chick.x -= chick.width * 0.5;
+        chick.y -= chick.height * 0.5;
+        chick.roosterSwarm = true;
+        chick.followingOwner = false;
+        chick.target = target;
+        chick.age = 0;
+        chick.maxAge = 190 + (index % 5) * 10;
+        chick.retargetCooldown = index % 6;
+        chick.commandFlashFrames = 68;
+        chick.thrownFrames = 62;
+        chick.boostSparkFrames = 78;
+        chick.attackCooldown = index % 8;
+        chick.jumpCooldown = 0;
+        chick.onGround = false;
+        chick.speed = Math.max(chick.speed, 14.4 + (index % 3) * 0.8);
+        chick.accel = Math.max(chick.accel, 0.48);
+        chick.jumpStrength = Math.max(chick.jumpStrength, 18.0);
+        chick.damage = 2;
+        chick.life = Math.max(chick.life, 2);
+        chick.swarmHitsRemaining = 2;
+        chick.swarmVisualCopies = 4 + index % 3;
+        chick.vx = dir * (7.2 + (index % 5) * 0.8) + (SimRng.next() - 0.5) * 4.0;
+        chick.vy = -8.8 - SimRng.next() * 5.6 - (index % 4) * 0.7;
+    }
+
+    private static Bird nearestEnemy(Bird bird, double x, double y) {
+        Bird best = null;
+        double bestSq = Double.MAX_VALUE;
+        for (Bird candidate : bird.game.players) {
+            if (candidate == null || candidate.health <= 0 || !bird.game.canDamage(bird, candidate)) {
+                continue;
+            }
+            double dx = candidate.bodyCenterX() - x;
+            double dy = candidate.bodyCenterY() - y;
+            double distSq = dx * dx + dy * dy;
+            if (distSq < bestSq) {
+                bestSq = distSq;
+                best = candidate;
+            }
+        }
+        return best;
     }
 
     static ChickMinion nextFollower(Bird bird) {

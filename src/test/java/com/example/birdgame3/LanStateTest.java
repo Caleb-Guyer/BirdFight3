@@ -178,6 +178,9 @@ class LanStateTest {
         chick.commandFlashFrames = 11;
         chick.thrownFrames = 12;
         chick.boostSparkFrames = 13;
+        chick.roosterSwarm = true;
+        chick.swarmHitsRemaining = 2;
+        chick.swarmVisualCopies = 5;
         state.chickMinions.add(chick);
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
@@ -296,5 +299,8 @@ class LanStateTest {
         assertEquals(11, decoded.chickMinions.getFirst().commandFlashFrames);
         assertEquals(12, decoded.chickMinions.getFirst().thrownFrames);
         assertEquals(13, decoded.chickMinions.getFirst().boostSparkFrames);
+        assertTrue(decoded.chickMinions.getFirst().roosterSwarm);
+        assertEquals(2, decoded.chickMinions.getFirst().swarmHitsRemaining);
+        assertEquals(5, decoded.chickMinions.getFirst().swarmVisualCopies);
     }
 }
