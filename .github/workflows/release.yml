@@ -39,10 +39,17 @@ jobs:
         shell: pwsh
         run: ./scripts/audit-sounds.cmd -OutputPath audit/audio-audit.md -FailOnFindings
 
+      - name: Build Windows portable package
+        shell: pwsh
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart("v")
+          ./build-installer.ps1 -AppVersion $version
+
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
           files: |
             target/*-dist.zip
+            target/BirdFight3-*-win.zip
             audit/audio-audit.md
           fail_on_unmatched_files: true
