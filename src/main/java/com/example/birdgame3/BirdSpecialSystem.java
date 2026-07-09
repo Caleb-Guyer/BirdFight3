@@ -37,7 +37,7 @@ final class BirdSpecialSystem {
                 return;
             }
             triggerUltimateStartEffects(bird);
-            playSpecialSound(bird);
+            playSpecialSound(bird, false);
             game.specialsUsed[bird.playerIndex]++;
             game.recordUltimateMoveUse(bird, PigeonSpecials.ROOFTOP_CORONATION_MOVE);
             game.recordTrainingSpecialUse(bird, input);
@@ -55,7 +55,7 @@ final class BirdSpecialSystem {
                 return;
             }
             triggerUltimateStartEffects(bird);
-            playSpecialSound(bird);
+            playSpecialSound(bird, false);
             game.specialsUsed[bird.playerIndex]++;
             game.recordUltimateMoveUse(bird, RaptorSpecials.SKY_SOVEREIGN_MOVE);
             game.recordTrainingSpecialUse(bird, input);
@@ -73,7 +73,7 @@ final class BirdSpecialSystem {
                 return;
             }
             triggerUltimateStartEffects(bird);
-            playSpecialSound(bird);
+            playSpecialSound(bird, false);
             game.specialsUsed[bird.playerIndex]++;
             game.recordUltimateMoveUse(bird, RaptorSpecials.TERMINAL_VELOCITY_MOVE);
             game.recordTrainingSpecialUse(bird, input);
@@ -95,9 +95,13 @@ final class BirdSpecialSystem {
             triggerUltimateStartEffects(bird);
         }
 
-        playSpecialSound(bird);
+        playSpecialSound(bird, ultimateTriggered);
         game.specialsUsed[bird.playerIndex]++;
-        game.recordSpecialMoveUse(bird, input, ultimateTriggered);
+        if (ultimateTriggered && bird.type == BirdGame3.BirdType.PHOENIX) {
+            game.recordUltimateMoveUse(bird, PhoenixSpecials.REBIRTH_NOVA_MOVE);
+        } else {
+            game.recordSpecialMoveUse(bird, input, ultimateTriggered);
+        }
         game.recordTrainingSpecialUse(bird, input);
         BirdSpecialExecutor.execute(bird, ultimateTriggered);
     }
@@ -123,12 +127,14 @@ final class BirdSpecialSystem {
         }
     }
 
-    private static void playSpecialSound(Bird bird) {
+    private static void playSpecialSound(Bird bird, boolean ultimateTriggered) {
         BirdGame3 game = bird.game;
         if (!game.isSfxEnabled()) {
             return;
         }
-        if (bird.type == BirdGame3.BirdType.RAZORBILL) {
+        if (ultimateTriggered && bird.type == BirdGame3.BirdType.PHOENIX) {
+            game.playRebirthNovaSfx();
+        } else if (bird.type == BirdGame3.BirdType.RAZORBILL) {
             game.playVaseBreakingSfx();
         } else {
             game.playJalapenoSfx();

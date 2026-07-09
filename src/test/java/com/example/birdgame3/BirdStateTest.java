@@ -2288,7 +2288,7 @@ class BirdStateTest {
     }
 
     @Test
-    void phoenixNeutralChargeBuildsWhileHeldAndCarriesUltimateToRelease() throws Exception {
+    void phoenixFullMeterSpecialTriggersRebirthNova() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
 
@@ -2305,27 +2305,28 @@ class BirdStateTest {
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
         phoenix.update(1.0);
 
-        assertTrue(getPrivateBoolean(phoenix, "phoenixCharging"));
-        assertTrue(getPrivateBoolean(phoenix, "phoenixChargeUltimate"),
-                "Starting neutral special with full meter should bank the ultimate for the release.");
+        assertFalse(getPrivateBoolean(phoenix, "phoenixCharging"));
+        assertEquals(Bird.PHOENIX_REBIRTH_NOVA_TOTAL_FRAMES - 1,
+                getPrivateInt(phoenix, "phoenixRebirthNovaTimer"));
+        assertEquals(0.0, phoenix.getUltimateRatio(), 0.0001,
+                "Starting Rebirth Nova should consume Phoenix's ultimate meter.");
 
-        for (int i = 0; i < 45; i++) {
+        for (int i = 0; i < Bird.PHOENIX_REBIRTH_NOVA_WINDUP_FRAMES + 2; i++) {
             phoenix.update(1.0);
         }
-
-        assertTrue(getPrivateInt(phoenix, "phoenixChargeTimer") >= 40,
-                "Holding neutral special should actually build charge instead of getting reset every frame.");
 
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
         phoenix.update(1.0);
 
-        assertFalse(getPrivateBoolean(phoenix, "phoenixCharging"));
+        assertTrue(getPrivateBoolean(phoenix, "phoenixRebirthNovaDetonated"));
+        assertTrue(getPrivateInt(phoenix, "phoenixRebirthNovaBuffTimer") > 0,
+                "Rebirth Nova should leave Phoenix in its reborn flame buff.");
         assertEquals(0, phoenix.specialCooldown,
-                "Phoenix neutral special should not leave a visible cooldown after the charge detonates.");
+                "Rebirth Nova should not leave a visible special cooldown.");
         assertEquals(0, getPrivateInt(phoenix, "phoenixAfterburnTimer"),
-                "Releasing the charge should not leave Phoenix with a lingering damaging afterburn.");
+                "Rebirth Nova should not leave Phoenix with a lingering damaging afterburn.");
         assertTrue(target.health < startingHealth,
-                "A charged release should damage nearby enemies when it detonates.");
+                "Rebirth Nova should damage nearby enemies when it detonates.");
     }
 
     @Test
@@ -2581,6 +2582,35 @@ class BirdStateTest {
     }
 
     @Test
+    void phoenixAirSideSpecialShootsDiagonallyDown() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird phoenix = new Bird(220.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        phoenix.y = BirdGame3.GROUND_Y - 300.0;
+        phoenix.facingRight = true;
+        game.players[0] = phoenix;
+
+        PhoenixSpecials.side(phoenix, false);
+
+        assertTrue(getPrivateDouble(phoenix, "phoenixFireballVY") > 0.0,
+                "Air Snap Fire should be aimed diagonally down.");
+
+        while (getPrivateInt(phoenix, "phoenixCastLockTimer") > 0) {
+            phoenix.update(1.0);
+        }
+        double launchX = getPrivateDouble(phoenix, "phoenixFireballX");
+        double launchY = getPrivateDouble(phoenix, "phoenixFireballY");
+
+        phoenix.update(1.0);
+
+        assertTrue(getPrivateDouble(phoenix, "phoenixFireballX") > launchX,
+                "Air Snap Fire should still travel forward.");
+        assertTrue(getPrivateDouble(phoenix, "phoenixFireballY") > launchY,
+                "Air Snap Fire should travel downward after the windup.");
+    }
+
+    @Test
     void phoenixGroundDownSpecialEruptsVerticallyInsteadOfSpreadingOutward() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 3;
@@ -2674,6 +2704,36 @@ class BirdStateTest {
                 "Air Faultfire should stay in a narrow vertical lane instead of splashing sideways.");
         assertTrue(belowTarget.vy > 0.0,
                 "The vertical flame stream should force targets downward.");
+    }
+
+    @Test
+    void phoenixAirDownSpecialExtendsWhileSpecialIsHeld() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird phoenix = new Bird(220.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        phoenix.y = BirdGame3.GROUND_Y - 300.0;
+        game.players[0] = phoenix;
+
+        PhoenixSpecials.down(phoenix, false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+
+        for (int i = 0; i < Bird.PHOENIX_LAVA_FRAMES + 16; i++) {
+            phoenix.update(1.0);
+        }
+
+        assertTrue(getPrivateInt(phoenix, "phoenixLavaTimer") > 0,
+                "Holding special in the air should sustain Faultfire past its old fixed duration.");
+        assertTrue(getPrivateInt(phoenix, "phoenixLavaHoldFrames") > 0,
+                "The held air stream should track held frames for deterministic sync.");
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        for (int i = 0; i < Bird.PHOENIX_LAVA_FRAMES + 4; i++) {
+            phoenix.update(1.0);
+        }
+
+        assertEquals(0, getPrivateInt(phoenix, "phoenixLavaTimer"),
+                "Air Faultfire should expire after the player releases special.");
     }
 
     @Test

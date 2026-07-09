@@ -947,6 +947,7 @@ public class BirdGame3 extends Application {
         if (vaseBreakingClip != null) vaseBreakingClip.setVolume(sfx);
         if (cherrybombClip != null) cherrybombClip.setVolume(sfx);
         if (fightReadyClip != null) fightReadyClip.setVolume(sfx);
+        if (rebirthNovaClip != null) rebirthNovaClip.setVolume(sfx);
     }
 
     private void setMusicVolume(double value) {
@@ -1025,6 +1026,12 @@ public class BirdGame3 extends Application {
         if (!sfxEnabled || cherrybombClip == null) return;
         cherrybombClip.stop();
         playManagedSfx(cherrybombClip, 1.0);
+    }
+
+    void playRebirthNovaSfx() {
+        if (!sfxEnabled || rebirthNovaClip == null) return;
+        rebirthNovaClip.stop();
+        playManagedSfx(rebirthNovaClip, 1.0);
     }
 
     void playAchievementSfx() {
@@ -1169,6 +1176,7 @@ public class BirdGame3 extends Application {
             cherrybombClip = new AudioClip(resourceUrl(p + "sfx-boom.wav"));
             steamAchievementClip = new AudioClip(resourceUrl(p + "sfx-achievement.wav"));
             fightReadyClip = new AudioClip(resourceUrl(p + "sfx-fighter-ready.wav"));
+            rebirthNovaClip = new AudioClip(resourceUrl(p + "sfx-rebirth-nova.wav"));
 
             // === MENU & VICTORY MUSIC ===
             menuMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "music-menu.mp3")));
@@ -3981,7 +3989,7 @@ public class BirdGame3 extends Application {
 
     // === SOUND & MUSIC ===
     public AudioClip bonkClip, butterClip, jalapenoClip, swingClip, hugewaveClip, buttonClickClip, zombieFallingClip,
-            vaseBreakingClip, cherrybombClip, steamAchievementClip, fightReadyClip;
+            vaseBreakingClip, cherrybombClip, steamAchievementClip, fightReadyClip, rebirthNovaClip;
     public MediaPlayer musicPlayer, menuMusicPlayer, victoryMusicPlayer;
 
     // Guard to prevent reentrant shutdowns

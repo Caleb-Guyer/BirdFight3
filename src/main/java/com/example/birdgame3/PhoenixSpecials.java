@@ -8,13 +8,42 @@ final class PhoenixSpecials {
     private PhoenixSpecials() {
     }
 
+    static final String REBIRTH_NOVA_MOVE = "Phoenix Rebirth Nova";
+
     static void use(Bird bird, boolean ultimate) {
-        switch (bird.selectPhoenixSpecialVariant()) {
-            case NEUTRAL -> neutral(bird, ultimate);
-            case SIDE -> side(bird, ultimate);
-            case UP -> up(bird, ultimate);
-            case DOWN -> down(bird, ultimate);
+        if (ultimate) {
+            rebirthNova(bird);
+            return;
         }
+        switch (bird.selectPhoenixSpecialVariant()) {
+            case NEUTRAL -> neutral(bird, false);
+            case SIDE -> side(bird, false);
+            case UP -> up(bird, false);
+            case DOWN -> down(bird, false);
+        }
+    }
+
+    static void rebirthNova(Bird bird) {
+        reset(bird);
+        bird.phoenixRebirthNovaTimer = Bird.PHOENIX_REBIRTH_NOVA_TOTAL_FRAMES;
+        bird.phoenixRebirthNovaDetonated = false;
+        bird.phoenixRebirthNovaBuffTimer = 0;
+        Arrays.fill(bird.phoenixRebirthNovaHit, false);
+        bird.phoenixNeutralReuseTimer = 0;
+        bird.phoenixFireballReuseTimer = 0;
+        bird.phoenixLavaReuseTimer = 0;
+        bird.phoenixSpiralUsed = false;
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.PHOENIX_REBIRTH_NOVA_WINDUP_FRAMES + 18);
+        bird.vx *= 0.18;
+        bird.vy = Math.min(bird.vy, -6.5);
+        bird.game.addToKillFeed(bird.shortName() + " ASCENDS INTO REBIRTH NOVA!");
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 18);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 8);
+        bird.game.triggerFlash(0.62, false);
+        spawnImpactBurst(bird, bird.bodyCenterX(), bird.bodyCenterY(),
+                bird.scaledParticleCount(34), Color.web("#FFF8C4"), Color.web("#FF7043"));
     }
 
     static void neutral(Bird bird, boolean ultimate) {
@@ -36,14 +65,15 @@ final class PhoenixSpecials {
             bird.facingRight = dir > 0;
         }
         dir = bird.facingDirection();
+        boolean airborne = !bird.isOnGround();
         int startupFrames = ultimate ? Bird.PHOENIX_FIREBALL_ULTIMATE_CAST_LOCK_FRAMES : Bird.PHOENIX_FIREBALL_CAST_LOCK_FRAMES;
         int flightFrames = ultimate ? Bird.PHOENIX_FIREBALL_ULTIMATE_FRAMES : Bird.PHOENIX_FIREBALL_FRAMES;
         bird.phoenixFireballTimer = startupFrames + flightFrames;
         bird.phoenixCastLockTimer = startupFrames;
         bird.phoenixFireballX = bird.bodyCenterX() + dir * 24.0 * bird.sizeMultiplier;
-        bird.phoenixFireballY = bird.bodyCenterY() - 18.0 * bird.sizeMultiplier;
-        bird.phoenixFireballVX = dir * (ultimate ? 14.4 : 12.2);
-        bird.phoenixFireballVY = 0.0;
+        bird.phoenixFireballY = bird.bodyCenterY() + (airborne ? 8.0 : -18.0) * bird.sizeMultiplier;
+        bird.phoenixFireballVX = dir * (airborne ? (ultimate ? 12.8 : 10.8) : (ultimate ? 14.4 : 12.2));
+        bird.phoenixFireballVY = airborne ? (ultimate ? 7.4 : 6.4) : 0.0;
         bird.phoenixFireballUltimate = ultimate;
         bird.phoenixFireballReuseTimer = Math.max(bird.phoenixFireballReuseTimer,
                 ultimate ? Bird.PHOENIX_FIREBALL_ULTIMATE_REUSE_FRAMES : Bird.PHOENIX_FIREBALL_REUSE_FRAMES);
@@ -51,7 +81,7 @@ final class PhoenixSpecials {
         bird.specialMaxCooldown = 0;
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.phoenixCastLockTimer);
         bird.vx = 0.0;
-        if (!bird.isOnGround()) {
+        if (airborne) {
             bird.vy = Math.min(bird.vy, 1.0);
         }
         bird.game.addToKillFeed(bird.shortName() + (ultimate ? " SNAPS OFF A SOLAR SHOT!" : " SNAPS OFF A FIRE SHOT!"));
@@ -82,6 +112,7 @@ final class PhoenixSpecials {
         boolean airborne = !bird.isOnGround();
         bird.phoenixLavaTimer = ultimate ? Bird.PHOENIX_LAVA_ULTIMATE_FRAMES : Bird.PHOENIX_LAVA_FRAMES;
         bird.phoenixLavaAirborne = airborne;
+        bird.phoenixLavaHoldFrames = 0;
         bird.phoenixLavaX = bird.bodyCenterX();
         Platform support = airborne ? null : bird.findCurrentSupportPlatform();
         bird.phoenixLavaY = airborne
@@ -116,6 +147,10 @@ final class PhoenixSpecials {
         if (bird.type != BirdGame3.BirdType.PHOENIX && !bird.mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PHOENIX)) {
             return;
         }
+        if (bird.type == BirdGame3.BirdType.PHOENIX) {
+            handleRebirthNova(bird);
+            handleRebirthBuff(bird);
+        }
         if (bird.stunTime > 0.0) {
             reset(bird);
             if (bird.mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PHOENIX)) {
@@ -139,12 +174,16 @@ final class PhoenixSpecials {
 
     static boolean active(Bird bird) {
         return bird.phoenixCharging
+                || bird.phoenixRebirthNovaTimer > 0
                 || bird.phoenixFireballTimer > 0
                 || bird.phoenixSpiralTimer > 0
                 || bird.phoenixLavaTimer > 0;
     }
 
     static boolean ready(Bird bird, Bird.PhoenixSpecialVariant variant) {
+        if (bird.isUltimateReady()) {
+            return true;
+        }
         return switch (variant) {
             case NEUTRAL -> bird.specialCooldown <= 0 && bird.phoenixNeutralReuseTimer <= 0;
             case SIDE -> bird.phoenixFireballReuseTimer <= 0;
@@ -171,7 +210,152 @@ final class PhoenixSpecials {
         bird.phoenixLavaTimer = 0;
         bird.phoenixLavaUltimate = false;
         bird.phoenixLavaAirborne = false;
+        bird.phoenixLavaHoldFrames = 0;
         Arrays.fill(bird.phoenixLavaHitCooldown, false);
+        bird.phoenixRebirthNovaTimer = 0;
+        bird.phoenixRebirthNovaDetonated = false;
+        Arrays.fill(bird.phoenixRebirthNovaHit, false);
+    }
+
+    private static void handleRebirthNova(Bird bird) {
+        if (bird.phoenixRebirthNovaTimer <= 0) {
+            bird.phoenixRebirthNovaDetonated = false;
+            Arrays.fill(bird.phoenixRebirthNovaHit, false);
+            return;
+        }
+
+        int elapsed = Bird.PHOENIX_REBIRTH_NOVA_TOTAL_FRAMES - bird.phoenixRebirthNovaTimer;
+        bird.vx *= 0.68;
+        if (!bird.phoenixRebirthNovaDetonated) {
+            bird.vy = Math.min(bird.vy * 0.72, -1.8);
+            bird.y = Math.max(BirdGame3.CEILING_Y + 68.0, bird.y - 0.62 * bird.sizeMultiplier);
+        } else {
+            bird.vy = Math.min(bird.vy + 0.08, 2.2);
+        }
+
+        emitRebirthNovaChargeParticles(bird, elapsed);
+
+        if (!bird.phoenixRebirthNovaDetonated
+                && elapsed >= Bird.PHOENIX_REBIRTH_NOVA_WINDUP_FRAMES) {
+            detonateRebirthNova(bird);
+        }
+
+        bird.phoenixRebirthNovaTimer--;
+        if (bird.phoenixRebirthNovaTimer <= 0) {
+            bird.phoenixRebirthNovaTimer = 0;
+            bird.phoenixRebirthNovaDetonated = false;
+            Arrays.fill(bird.phoenixRebirthNovaHit, false);
+        }
+    }
+
+    private static void handleRebirthBuff(Bird bird) {
+        if (bird.phoenixRebirthNovaBuffTimer <= 0) {
+            return;
+        }
+        bird.phoenixRebirthNovaBuffTimer--;
+        if (bird.phoenixNeutralReuseTimer > 0) bird.phoenixNeutralReuseTimer--;
+        if (bird.phoenixFireballReuseTimer > 0) bird.phoenixFireballReuseTimer--;
+        if (bird.phoenixLavaReuseTimer > 0) bird.phoenixLavaReuseTimer--;
+        if ((bird.phoenixRebirthNovaBuffTimer & 7) == 0) {
+            double angle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * 1.7;
+            double radius = (18.0 + SimRng.next() * 38.0) * bird.sizeMultiplier;
+            Color c = SimRng.next() < 0.44 ? Color.web("#FFF8C4") : Color.web("#FF7043");
+            bird.game.particles.add(new Particle(
+                    bird.bodyCenterX() + (SimRng.next() - 0.5) * radius,
+                    bird.bodyCenterY() + (SimRng.next() - 0.5) * radius * 0.7,
+                    Math.cos(angle) * (1.2 + SimRng.next() * 2.4),
+                    Math.sin(angle) * (2.8 + SimRng.next() * 4.0),
+                    c.deriveColor(0, 1, 1, 0.72)
+            ));
+        }
+    }
+
+    private static void emitRebirthNovaChargeParticles(Bird bird, int elapsed) {
+        if ((elapsed & 1) != 0) {
+            return;
+        }
+        double charge = Math.clamp(elapsed / (double) Bird.PHOENIX_REBIRTH_NOVA_WINDUP_FRAMES, 0.0, 1.0);
+        int count = bird.phoenixRebirthNovaDetonated ? 3 : 3 + (int) Math.round(charge * 3.0);
+        for (int i = 0; i < count; i++) {
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double orbit = (42.0 + charge * 152.0 + SimRng.next() * 46.0) * bird.sizeMultiplier;
+            double inward = bird.phoenixRebirthNovaDetonated ? -1.0 : 1.0;
+            Color c = i % 3 == 0 ? Color.web("#FFF8C4")
+                    : (SimRng.next() < 0.5 ? Color.GOLD : Color.web("#FF7043"));
+            bird.game.particles.add(new Particle(
+                    bird.bodyCenterX() + Math.cos(angle) * orbit,
+                    bird.bodyCenterY() + Math.sin(angle) * orbit * 0.76,
+                    -Math.cos(angle) * (2.0 + charge * 5.2) * inward,
+                    -Math.sin(angle) * (1.4 + charge * 4.0) * inward - 2.0,
+                    c.deriveColor(0, 1, 1, 0.86)
+            ));
+        }
+    }
+
+    private static void detonateRebirthNova(Bird bird) {
+        bird.phoenixRebirthNovaDetonated = true;
+        bird.phoenixRebirthNovaBuffTimer = Bird.PHOENIX_REBIRTH_NOVA_BUFF_FRAMES;
+        bird.heal(28.0);
+        bird.phoenixNeutralReuseTimer = 0;
+        bird.phoenixFireballReuseTimer = 0;
+        bird.phoenixLavaReuseTimer = 0;
+        bird.phoenixSpiralUsed = false;
+        bird.canDoubleJump = true;
+        bird.vx = 0.0;
+        bird.vy = Math.min(bird.vy, -8.5);
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 34);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 12);
+        bird.game.triggerFlash(0.86, false);
+        bird.game.addToKillFeed(bird.shortName() + " DETONATED REBIRTH NOVA!");
+
+        double radius = Bird.PHOENIX_REBIRTH_NOVA_RADIUS * bird.sizeMultiplier;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= bird.phoenixRebirthNovaHit.length) continue;
+            if (bird.phoenixRebirthNovaHit[other.playerIndex]) continue;
+
+            double dx = other.bodyCenterX() - bird.bodyCenterX();
+            double dy = other.bodyCenterY() - bird.bodyCenterY();
+            double dist = Math.hypot(dx, dy);
+            if (dist > radius + other.combatRadius()) continue;
+
+            bird.phoenixRebirthNovaHit[other.playerIndex] = true;
+            double proximity = 1.0 - Math.clamp(dist / Math.max(1.0, radius), 0.0, 1.0);
+            int damage = 20 + (int) Math.round(proximity * 8.0);
+            double oldHealth = other.health;
+            int dealt = (int) bird.applyDamageTo(other, damage);
+            if (dealt <= 0) continue;
+
+            bird.game.damageDealt[bird.playerIndex] += dealt;
+            bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                bird.game.eliminations[bird.playerIndex]++;
+            }
+
+            double safeDist = Math.max(1.0, dist);
+            double launch = 14.0 + proximity * 9.0;
+            other.vx += dx / safeDist * launch;
+            other.vy -= 12.0 + proximity * 7.0;
+            other.applyStun(18 + (int) Math.round(proximity * 10.0));
+            spawnImpactBurst(bird, other.bodyCenterX(), other.bodyCenterY(),
+                    bird.scaledParticleCount(28), Color.web("#FFF8C4"), Color.web("#FF3D00"));
+        }
+
+        int burstCount = bird.scaledParticleCount(72);
+        for (int i = 0; i < burstCount; i++) {
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 7.0 + SimRng.next() * 17.0;
+            Color c = i % 4 == 0 ? Color.WHITE
+                    : i % 3 == 0 ? Color.web("#FFF8C4")
+                    : SimRng.next() < 0.55 ? Color.GOLD : Color.web("#FF3D00");
+            bird.game.particles.add(new Particle(
+                    bird.bodyCenterX() + Math.cos(angle) * 22.0 * bird.sizeMultiplier,
+                    bird.bodyCenterY() + Math.sin(angle) * 22.0 * bird.sizeMultiplier,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 4.0,
+                    c.deriveColor(0, 1, 1, 0.92)
+            ));
+        }
     }
 
     private static void handleCharge(Bird bird) {
@@ -307,12 +491,15 @@ final class PhoenixSpecials {
                 bird.vy = Math.min(bird.vy, 1.1);
             }
             int dir = bird.facingDirection();
+            boolean downwardShot = bird.phoenixFireballVY > 0.0;
             double startupFrames = bird.phoenixFireballUltimate
                     ? Bird.PHOENIX_FIREBALL_ULTIMATE_CAST_LOCK_FRAMES
                     : Bird.PHOENIX_FIREBALL_CAST_LOCK_FRAMES;
             double windup = 1.0 - Math.clamp(bird.phoenixCastLockTimer / startupFrames, 0.0, 1.0);
             bird.phoenixFireballX = bird.bodyCenterX() + dir * (24.0 + windup * 14.0) * bird.sizeMultiplier;
-            bird.phoenixFireballY = bird.bodyCenterY() - (18.0 + windup * 18.0) * bird.sizeMultiplier;
+            bird.phoenixFireballY = downwardShot
+                    ? bird.bodyCenterY() + (6.0 + windup * 16.0) * bird.sizeMultiplier
+                    : bird.bodyCenterY() - (18.0 + windup * 18.0) * bird.sizeMultiplier;
             if ((bird.phoenixCastLockTimer & 1) == 0) {
                 Color c = bird.phoenixFireballUltimate ? Color.web("#FFD180") : Color.GOLD;
                 for (int i = 0; i < 3; i++) {
@@ -320,7 +507,7 @@ final class PhoenixSpecials {
                             bird.phoenixFireballX - dir * (4.0 + SimRng.next() * 10.0) * bird.sizeMultiplier,
                             bird.phoenixFireballY + (SimRng.next() - 0.5) * 14.0 * bird.sizeMultiplier,
                             -dir * (0.6 + SimRng.next() * 1.4),
-                            -2.0 - SimRng.next() * 2.2,
+                            downwardShot ? 1.1 + SimRng.next() * 1.8 : -2.0 - SimRng.next() * 2.2,
                             c.deriveColor(0, 1, 1, 0.82)
                     ));
                 }
@@ -352,7 +539,11 @@ final class PhoenixSpecials {
 
             int dir = bird.phoenixFireballVX < 0.0 ? -1 : 1;
             other.vx += dir * (bird.phoenixFireballUltimate ? 8.8 : 6.9);
-            other.vy -= bird.phoenixFireballUltimate ? 6.3 : 4.8;
+            if (bird.phoenixFireballVY > 0.0) {
+                other.vy += bird.phoenixFireballUltimate ? 5.4 : 4.2;
+            } else {
+                other.vy -= bird.phoenixFireballUltimate ? 6.3 : 4.8;
+            }
             spawnImpactBurst(bird, bird.phoenixFireballX, bird.phoenixFireballY,
                     bird.phoenixFireballUltimate ? 26 : 18,
                     bird.phoenixFireballUltimate ? Color.web("#FFD180") : Color.GOLD,
@@ -364,7 +555,8 @@ final class PhoenixSpecials {
             break;
         }
 
-        if (bird.phoenixFireballX < -100 || bird.phoenixFireballX > BirdGame3.WORLD_WIDTH + 100) {
+        if (bird.phoenixFireballX < -100 || bird.phoenixFireballX > BirdGame3.WORLD_WIDTH + 100
+                || bird.phoenixFireballY < -120 || bird.phoenixFireballY > BirdGame3.WORLD_HEIGHT + 120) {
             spawnImpactBurst(bird, bird.phoenixFireballX, bird.phoenixFireballY,
                     bird.phoenixFireballUltimate ? 16 : 12,
                     bird.phoenixFireballUltimate ? Color.web("#FFD180") : Color.GOLD,
@@ -478,6 +670,19 @@ final class PhoenixSpecials {
 
     private static void handleLava(Bird bird) {
         if (bird.phoenixLavaAirborne) {
+            boolean canHoldAirStream = bird.specialHeld()
+                    && !bird.isOnGround()
+                    && bird.phoenixLavaHoldFrames < Bird.PHOENIX_AIR_LAVA_HOLD_MAX_FRAMES;
+            if (canHoldAirStream) {
+                bird.phoenixLavaHoldFrames++;
+                int sustainFrames = bird.phoenixLavaUltimate
+                        ? Bird.PHOENIX_LAVA_ULTIMATE_FRAMES
+                        : Bird.PHOENIX_LAVA_FRAMES;
+                bird.phoenixLavaTimer = Math.max(bird.phoenixLavaTimer, sustainFrames);
+                bird.phoenixLavaReuseTimer = Math.max(bird.phoenixLavaReuseTimer, 12);
+            } else if (bird.isOnGround()) {
+                bird.phoenixLavaTimer = Math.min(bird.phoenixLavaTimer, 4);
+            }
             bird.phoenixLavaX = bird.bodyCenterX();
             bird.phoenixLavaY = bird.bodyBottomY() - 6.0 * bird.sizeMultiplier;
             bird.vx *= 0.84;

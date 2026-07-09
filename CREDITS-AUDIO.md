@@ -41,3 +41,4 @@ game and carry the game's license.
 | sfx-click.wav | crisp UI tick | buttonclick |
 | sfx-fallwhistle.wav | descending cartoon fall whistle | zombie-falling |
 | sfx-fighter-ready.wav | sharp lightning-strike ready stinger | all fighters selected |
+| sfx-rebirth-nova.wav | layered phoenix cry, ignition crack, and flame bloom | Phoenix Rebirth Nova |

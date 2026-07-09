@@ -1118,6 +1118,14 @@ public class Bird {
     static final double PHOENIX_GROUND_ERUPTION_RADIUS = 52.0;
     static final double PHOENIX_GROUND_ERUPTION_HEIGHT = 138.0;
     static final double PHOENIX_AIR_FLAME_LENGTH = 210.0;
+    static final int PHOENIX_AIR_LAVA_HOLD_MAX_FRAMES = 72;
+    static final int PHOENIX_REBIRTH_NOVA_WINDUP_FRAMES = 58;
+    static final int PHOENIX_REBIRTH_NOVA_ACTIVE_FRAMES = 18;
+    static final int PHOENIX_REBIRTH_NOVA_RECOVERY_FRAMES = 34;
+    static final int PHOENIX_REBIRTH_NOVA_TOTAL_FRAMES = PHOENIX_REBIRTH_NOVA_WINDUP_FRAMES
+            + PHOENIX_REBIRTH_NOVA_ACTIVE_FRAMES + PHOENIX_REBIRTH_NOVA_RECOVERY_FRAMES;
+    static final int PHOENIX_REBIRTH_NOVA_BUFF_FRAMES = 420;
+    static final double PHOENIX_REBIRTH_NOVA_RADIUS = 286.0;
     private static final double PHOENIX_NO_COOLDOWN_ATTACK_NERF = 0.78;
     private static final int MAX_ATTACK_CHARGE_FRAMES = 60;
     private static final int GROUND_SMASH_HOLD_THRESHOLD_FRAMES = 7;
@@ -1404,6 +1412,10 @@ public class Bird {
     boolean roosterUpSpecialUsed = false;
     int phoenixAfterburnTimer = 0;
     final int[] phoenixAfterburnHitCooldown = new int[4];
+    int phoenixRebirthNovaTimer = 0;
+    boolean phoenixRebirthNovaDetonated = false;
+    int phoenixRebirthNovaBuffTimer = 0;
+    final boolean[] phoenixRebirthNovaHit = new boolean[4];
     private boolean phoenixRebornUsed = false;
     private boolean phoenixRebornActive = false;
     private static final double PHOENIX_REBORN_HEALTH = 20.0;
@@ -1719,6 +1731,7 @@ public class Bird {
     double phoenixLavaY = 0;
     boolean phoenixLavaUltimate = false;
     boolean phoenixLavaAirborne = false;
+    int phoenixLavaHoldFrames = 0;
     final boolean[] phoenixLavaHitCooldown = new boolean[4];
     private static final double BASE_BODY_SIZE = 80.0;
     private static final double NULL_ROCK_VISIBLE_VOID_MARGIN = 80.0;
@@ -1825,6 +1838,7 @@ public class Bird {
         return ledgeInvulnerabilityTimer > 0
                 || eagleSkySovereignActive
                 || falconTerminalVelocityActive
+                || phoenixRebirthNovaTimer > PHOENIX_REBIRTH_NOVA_RECOVERY_FRAMES
                 || hasNullRockInvulnerability()
                 || hasDodgeInvulnerability()
                 || hasRespawnInvulnerability();
@@ -9965,6 +9979,7 @@ public class Bird {
         if (phoenixLavaTimer == 0) {
             phoenixLavaUltimate = false;
             phoenixLavaAirborne = false;
+            phoenixLavaHoldFrames = 0;
             Arrays.fill(phoenixLavaHitCooldown, false);
         }
         if (raptorCryTimer == 0) {
@@ -11504,6 +11519,7 @@ public class Bird {
                 } else if (!game.isAI[playerIndex]
                         && ((isRaptor() && raptorSpecialOnReuseLockout(selectRaptorSpecialVariant()))
                         || (specialCooldown > 0 && type != BirdGame3.BirdType.PIGEON
+                        && type != BirdGame3.BirdType.EAGLE
                         && type != BirdGame3.BirdType.ROADRUNNER
                         && type != BirdGame3.BirdType.PENGUIN
                         && type != BirdGame3.BirdType.MOCKINGBIRD
@@ -11782,6 +11798,7 @@ public class Bird {
     private double outgoingDamageMultiplier() {
         double mult = 1.0;
         if (type == BirdGame3.BirdType.PHOENIX && phoenixRebornActive) mult *= PHOENIX_REBORN_DAMAGE_SCALE;
+        if (type == BirdGame3.BirdType.PHOENIX && phoenixRebirthNovaBuffTimer > 0) mult *= 1.08;
         if (type == BirdGame3.BirdType.PELICAN) mult *= 1.0 + pelicanEffectiveCargo() * 0.06;
         return mult;
     }
@@ -13383,6 +13400,7 @@ public class Bird {
         phoenixNeutralReuseTimer = 0;
         phoenixFireballReuseTimer = 0;
         phoenixLavaReuseTimer = 0;
+        phoenixLavaHoldFrames = 0;
         phoenixSpiralUsed = false;
         RaptorSpecials.reset(this);
         raptorCryReuseTimer = 0;
@@ -13462,6 +13480,10 @@ public class Bird {
         hummingNectarCoatedUltimate = false;
         phoenixAfterburnTimer = 0;
         Arrays.fill(phoenixAfterburnHitCooldown, 0);
+        phoenixRebirthNovaTimer = 0;
+        phoenixRebirthNovaDetonated = false;
+        phoenixRebirthNovaBuffTimer = 0;
+        Arrays.fill(phoenixRebirthNovaHit, false);
         leanTimer = 0;
         highTimer = 0;
         isHigh = false;
@@ -14009,6 +14031,10 @@ public class Bird {
         System.arraycopy(shoebillCounterHit, 0, state.shoebillCounterHit, 0, shoebillCounterHit.length);
         state.hummingFrenzyTimer = hummingFrenzyTimer;
         state.phoenixAfterburnTimer = phoenixAfterburnTimer;
+        state.phoenixRebirthNovaTimer = phoenixRebirthNovaTimer;
+        state.phoenixRebirthNovaDetonated = phoenixRebirthNovaDetonated;
+        state.phoenixRebirthNovaBuffTimer = phoenixRebirthNovaBuffTimer;
+        System.arraycopy(phoenixRebirthNovaHit, 0, state.phoenixRebirthNovaHit, 0, phoenixRebirthNovaHit.length);
         state.phoenixRebornUsed = phoenixRebornUsed;
         state.phoenixRebornActive = phoenixRebornActive;
         state.phoenixChargeTimer = phoenixChargeTimer;
@@ -14035,6 +14061,7 @@ public class Bird {
         state.phoenixLavaY = phoenixLavaY;
         state.phoenixLavaUltimate = phoenixLavaUltimate;
         state.phoenixLavaAirborne = phoenixLavaAirborne;
+        state.phoenixLavaHoldFrames = phoenixLavaHoldFrames;
         System.arraycopy(phoenixLavaHitCooldown, 0, state.phoenixLavaHitCooldown, 0, phoenixLavaHitCooldown.length);
         state.ultimateMeter = ultimateMeter;
         state.ultimateFxTimer = ultimateFxTimer;
@@ -14628,6 +14655,14 @@ public class Bird {
         }
         this.hummingFrenzyTimer = state.hummingFrenzyTimer;
         this.phoenixAfterburnTimer = state.phoenixAfterburnTimer;
+        this.phoenixRebirthNovaTimer = Math.max(0, state.phoenixRebirthNovaTimer);
+        this.phoenixRebirthNovaDetonated = state.phoenixRebirthNovaDetonated;
+        this.phoenixRebirthNovaBuffTimer = Math.max(0, state.phoenixRebirthNovaBuffTimer);
+        Arrays.fill(this.phoenixRebirthNovaHit, false);
+        if (state.phoenixRebirthNovaHit != null) {
+            System.arraycopy(state.phoenixRebirthNovaHit, 0, this.phoenixRebirthNovaHit, 0,
+                    Math.min(this.phoenixRebirthNovaHit.length, state.phoenixRebirthNovaHit.length));
+        }
         this.phoenixRebornUsed = state.phoenixRebornUsed;
         this.phoenixRebornActive = state.phoenixRebornActive;
         this.phoenixChargeTimer = state.phoenixChargeTimer;
@@ -14654,6 +14689,7 @@ public class Bird {
         this.phoenixLavaY = state.phoenixLavaY;
         this.phoenixLavaUltimate = state.phoenixLavaUltimate;
         this.phoenixLavaAirborne = state.phoenixLavaAirborne;
+        this.phoenixLavaHoldFrames = Math.max(0, state.phoenixLavaHoldFrames);
         Arrays.fill(this.phoenixLavaHitCooldown, false);
         if (state.phoenixLavaHitCooldown != null) {
             System.arraycopy(state.phoenixLavaHitCooldown, 0, this.phoenixLavaHitCooldown, 0,
@@ -20696,6 +20732,7 @@ public class Bird {
 
     private void drawCooldownFlash(GraphicsContext g) {
         if (type == BirdGame3.BirdType.PHOENIX
+                || type == BirdGame3.BirdType.EAGLE
                 || type == BirdGame3.BirdType.HUMMINGBIRD
                 || type == BirdGame3.BirdType.TURKEY
                 || type == BirdGame3.BirdType.ROOSTER
@@ -22304,12 +22341,26 @@ public class Bird {
         g.setLineCap(StrokeLineCap.ROUND);
         double eyeIntensity = phoenixCharging
                 ? 0.35 + Math.clamp(phoenixChargeTimer / (double) PHOENIX_CHARGE_MAX_FRAMES, 0.0, 1.0) * 0.65
+                : phoenixRebirthNovaTimer > 0
+                ? 1.0
+                : phoenixRebirthNovaBuffTimer > 0
+                ? 0.42 + 0.24 * Math.sin(phoenixRebirthNovaBuffTimer * 0.22)
                 : phoenixBurstFxTimer > 0
                 ? Math.clamp(phoenixBurstFxTimer / (double) PHOENIX_BURST_FX_FRAMES, 0.0, 1.0)
                 : phoenixFireballTimer > 0
                 ? 0.55
                 : 0.0;
         drawPhoenixEyeGlow(g, s, primary, secondary, eyeIntensity);
+
+        if (phoenixRebirthNovaBuffTimer > 0) {
+            drawPhoenixRebirthBuffFx(g, drawSize, primary, secondary, tertiary);
+        }
+
+        if (phoenixRebirthNovaTimer > 0) {
+            drawPhoenixRebirthNovaFx(g, drawSize, primary, secondary, tertiary);
+            g.restore();
+            return;
+        }
 
         if (phoenixCharging) {
             double chargeRatio = Math.clamp(phoenixChargeTimer / (double) PHOENIX_CHARGE_MAX_FRAMES, 0.0, 1.0);
@@ -22569,6 +22620,141 @@ public class Bird {
         }
 
         g.restore();
+    }
+
+    private void drawPhoenixRebirthBuffFx(GraphicsContext g, double drawSize, Color primary,
+                                          Color secondary, Color tertiary) {
+        double s = sizeMultiplier;
+        double centerX = x + drawSize * 0.5;
+        double centerY = y + drawSize * 0.5;
+        double fade = Math.clamp(phoenixRebirthNovaBuffTimer / (double) PHOENIX_REBIRTH_NOVA_BUFF_FRAMES, 0.0, 1.0);
+        double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 92.0);
+
+        g.setFill(primary.deriveColor(0, 1, 1, 0.06 + fade * 0.06));
+        g.fillOval(centerX - (48.0 + pulse * 8.0) * s, centerY - (48.0 + pulse * 8.0) * s,
+                (96.0 + pulse * 16.0) * s, (96.0 + pulse * 16.0) * s);
+        g.setStroke(primary.deriveColor(0, 1, 1, 0.32 + fade * 0.24));
+        g.setLineWidth((2.2 + pulse * 1.2) * s);
+        g.strokeOval(centerX - (56.0 + pulse * 10.0) * s, centerY - (56.0 + pulse * 10.0) * s,
+                (112.0 + pulse * 20.0) * s, (112.0 + pulse * 20.0) * s);
+
+        double t = System.currentTimeMillis() / 120.0;
+        for (int i = 0; i < 7; i++) {
+            double angle = t * 0.22 + i * Math.PI * 2.0 / 7.0;
+            double baseRadius = (33.0 + Math.sin(t + i) * 5.0) * s;
+            double tipRadius = (78.0 + pulse * 18.0 + Math.cos(t * 1.3 + i) * 7.0) * s;
+            drawPhoenixFlameTongue(g,
+                    centerX + Math.cos(angle) * baseRadius,
+                    centerY + Math.sin(angle) * baseRadius * 0.82,
+                    centerX + Math.cos(angle) * tipRadius,
+                    centerY + Math.sin(angle) * tipRadius * 0.82 - (18.0 + pulse * 12.0) * s,
+                    (5.4 + pulse * 2.8) * s,
+                    i % 2 == 0 ? secondary : tertiary,
+                    primary,
+                    0.22 + fade * 0.22);
+        }
+    }
+
+    private void drawPhoenixRebirthNovaFx(GraphicsContext g, double drawSize, Color primary,
+                                          Color secondary, Color tertiary) {
+        double s = sizeMultiplier;
+        double centerX = x + drawSize * 0.5;
+        double centerY = y + drawSize * 0.5;
+        int elapsed = PHOENIX_REBIRTH_NOVA_TOTAL_FRAMES - phoenixRebirthNovaTimer;
+        double windup = Math.clamp(elapsed / (double) PHOENIX_REBIRTH_NOVA_WINDUP_FRAMES, 0.0, 1.0);
+        double activeElapsed = Math.max(0.0, elapsed - PHOENIX_REBIRTH_NOVA_WINDUP_FRAMES);
+        double blast = Math.clamp(activeElapsed / (double) PHOENIX_REBIRTH_NOVA_ACTIVE_FRAMES, 0.0, 1.0);
+        double recovery = phoenixRebirthNovaDetonated
+                ? Math.clamp((double) phoenixRebirthNovaTimer / PHOENIX_REBIRTH_NOVA_RECOVERY_FRAMES, 0.0, 1.0)
+                : 1.0;
+        double t = System.currentTimeMillis() / 82.0;
+
+        if (!phoenixRebirthNovaDetonated) {
+            double inner = (42.0 + windup * 54.0) * s;
+            double outer = (102.0 + windup * 176.0) * s;
+
+            g.setFill(primary.deriveColor(0, 1, 1, 0.07 + windup * 0.09));
+            g.fillOval(centerX - outer * 0.58, centerY - outer * 0.58, outer * 1.16, outer * 1.16);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.05 + windup * 0.11));
+            g.fillOval(centerX - outer * 0.34, centerY - outer * 0.34, outer * 0.68, outer * 0.68);
+
+            for (int i = 0; i < 10; i++) {
+                double angle = t * 0.18 + i * Math.PI * 2.0 / 10.0;
+                double radius = inner + (i % 3) * 13.0 * s + Math.sin(t + i) * 7.0 * s;
+                double reach = outer + Math.cos(t * 0.9 + i) * 20.0 * s;
+                Color lane = i % 3 == 0 ? Color.WHITE : (i % 2 == 0 ? primary : secondary);
+                g.setStroke(lane.deriveColor(0, 1, 1, 0.28 + windup * 0.42));
+                g.setLineWidth((2.2 + windup * 3.4) * s);
+                g.strokeLine(
+                        centerX + Math.cos(angle) * radius,
+                        centerY + Math.sin(angle) * radius * 0.86,
+                        centerX + Math.cos(angle) * reach,
+                        centerY + Math.sin(angle) * reach * 0.86
+                );
+            }
+
+            for (int i = 0; i < 8; i++) {
+                double side = i < 4 ? -1.0 : 1.0;
+                double lane = (i % 4 - 1.5) / 1.5;
+                double baseX = centerX + side * (18.0 + Math.abs(lane) * 8.0) * s;
+                double baseY = centerY + (14.0 + lane * 11.0) * s;
+                double tipX = centerX + side * (94.0 + windup * 112.0 + Math.sin(t + i) * 13.0) * s;
+                double tipY = centerY - (28.0 + windup * 82.0 - Math.abs(lane) * 21.0) * s;
+                drawPhoenixFlameTongue(g, baseX, baseY, tipX, tipY,
+                        (10.0 + windup * 10.0) * s,
+                        i % 2 == 0 ? secondary : tertiary,
+                        i % 3 == 0 ? Color.WHITE : primary,
+                        0.34 + windup * 0.38);
+            }
+
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.72 + windup * 0.22));
+            g.setLineWidth((5.0 + windup * 5.0) * s);
+            g.strokeOval(centerX - inner, centerY - inner, inner * 2.0, inner * 2.0);
+            g.setStroke(primary.deriveColor(0, 1, 1, 0.52 + windup * 0.34));
+            g.setLineWidth((4.0 + windup * 3.0) * s);
+            g.strokeOval(centerX - outer, centerY - outer, outer * 2.0, outer * 2.0);
+            g.setStroke(secondary.deriveColor(0, 1, 1, 0.45 + windup * 0.28));
+            g.setLineWidth((2.8 + windup * 2.8) * s);
+            double ovalW = outer * (2.35 + windup * 0.35);
+            double ovalH = outer * (1.18 + windup * 0.18);
+            g.strokeOval(centerX - ovalW * 0.5, centerY - ovalH * 0.5, ovalW, ovalH);
+            return;
+        }
+
+        double shock = (64.0 + blast * PHOENIX_REBIRTH_NOVA_RADIUS * 1.35) * s;
+        double alpha = Math.max(0.0, recovery) * (1.0 - blast * 0.28);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.16 * alpha));
+        g.fillOval(centerX - shock * 0.70, centerY - shock * 0.70, shock * 1.40, shock * 1.40);
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.92 * alpha));
+        g.setLineWidth((9.0 - blast * 4.0) * s);
+        g.strokeOval(centerX - shock, centerY - shock, shock * 2.0, shock * 2.0);
+        g.setStroke(primary.deriveColor(0, 1, 1, 0.82 * alpha));
+        g.setLineWidth((6.0 - blast * 2.4) * s);
+        g.strokeOval(centerX - shock * 1.16, centerY - shock * 1.16, shock * 2.32, shock * 2.32);
+        g.setStroke(secondary.deriveColor(0, 1, 1, 0.58 * alpha));
+        g.setLineWidth((3.5 - blast) * s);
+        g.strokeOval(centerX - shock * 1.36, centerY - shock * 0.82, shock * 2.72, shock * 1.64);
+
+        for (int i = 0; i < 14; i++) {
+            double angle = -t * 0.08 + i * Math.PI * 2.0 / 14.0;
+            double inner = (24.0 + blast * 70.0) * s;
+            double outer = shock * (0.72 + (i % 4) * 0.08);
+            Color lane = i % 5 == 0 ? Color.WHITE : (i % 2 == 0 ? primary : secondary);
+            g.setStroke(lane.deriveColor(0, 1, 1, (0.22 + (i % 3) * 0.05) * alpha));
+            g.setLineWidth((3.0 + (i % 4) * 0.85) * s);
+            g.strokeLine(
+                    centerX + Math.cos(angle) * inner,
+                    centerY + Math.sin(angle) * inner,
+                    centerX + Math.cos(angle) * outer,
+                    centerY + Math.sin(angle) * outer
+            );
+        }
+
+        double crown = (56.0 + Math.sin(t) * 8.0) * s;
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.70 * alpha));
+        g.fillOval(centerX - crown * 0.52, centerY - crown * 0.52, crown * 1.04, crown * 1.04);
+        g.setFill(primary.deriveColor(0, 1, 1, 0.82 * alpha));
+        g.fillOval(centerX - crown * 0.32, centerY - crown * 0.32, crown * 0.64, crown * 0.64);
     }
 
     private void drawRazorbillStormAndCounter(GraphicsContext g, double drawSize) {
@@ -23241,6 +23427,7 @@ public class Bird {
         g.fillOval(headX, headY, headW, headH);
         g.setFill((tide ? Color.web("#B2DFDB") : Color.web("#F2A09B")).deriveColor(0, 1, 1, 0.34));
         g.fillOval(headX + 8.0 * s, headY + 5.0 * s, 31.0 * s, 18.0 * s);
+        drawVectorBodyLighting(g, drawSize, body, head, headPose);
 
         double crestBaseX = headX + (facingRight ? 16.0 : 34.0) * s;
         g.setFill(head.darker().deriveColor(0, 1, 1, 0.70));
@@ -23290,6 +23477,8 @@ public class Bird {
         g.fillOval(headX + (facingRight ? 5.0 : 45.0) * s, headY + 5.0 * s, 15.0 * s, 15.0 * s);
         g.setFill(Color.web("#FCE4EC", 0.84));
         g.fillOval(headX + (facingRight ? 8.0 : 48.0) * s, headY + 6.0 * s, 3.2 * s, 3.2 * s);
+        drawVectorEyeGlint(g, headX + (facingRight ? 5.0 : 45.0) * s, headY + 5.0 * s, s, true);
+        drawVectorBirdStateAccents(g, drawSize, headPose);
     }
 
     private void drawVultureCrowTicks(GraphicsContext g, double drawSize) {
@@ -24036,6 +24225,142 @@ public class Bird {
         g.fillOval(centerX + dir * 5 - 1.5, centerY - 4.5, 3, 3);
     }
 
+    private void drawVectorBodyLighting(GraphicsContext g, double drawSize, Color bodyColor,
+                                        Color headColor, HeadPose headPose) {
+        double s = sizeMultiplier;
+        double headW = 50.0 * s;
+        double headH = 40.0 * s;
+        double headX = headPose.centerX() - headW / 2.0;
+        double headY = headPose.centerY() - headH / 2.0;
+        double dir = facingRight ? 1.0 : -1.0;
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.16));
+        g.fillOval(x + 12.0 * s, y + 50.0 * s, drawSize * 0.70, drawSize * 0.27);
+
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.13));
+        g.fillOval(x + (facingRight ? 17.0 : 29.0) * s, y + 10.0 * s, 33.0 * s, 18.0 * s);
+        g.setFill(bodyColor.brighter().deriveColor(0, 0.55, 1.08, 0.12));
+        g.fillOval(x + (facingRight ? 18.0 : 25.0) * s, y + 24.0 * s, 33.0 * s, 24.0 * s);
+        g.setFill(headColor.brighter().deriveColor(0, 0.65, 1.08, 0.16));
+        g.fillOval(headX + (facingRight ? 8.0 : 15.0) * s, headY + 5.0 * s, 24.0 * s, 13.0 * s);
+
+        Color bodyEdge = bodyColor.darker().deriveColor(0, 1, 0.82, 0.38);
+        g.setStroke(bodyEdge);
+        g.setLineWidth(2.0 * s);
+        g.strokeOval(x + 1.0 * s, y + 1.0 * s, drawSize - 2.0 * s, drawSize - 2.0 * s);
+        g.setStroke(headColor.darker().deriveColor(0, 1, 0.86, 0.34));
+        g.setLineWidth(1.55 * s);
+        g.strokeOval(headX + 1.0 * s, headY + 1.0 * s, headW - 2.0 * s, headH - 2.0 * s);
+
+        Color featherLine = bodyColor.darker().deriveColor(0, 1, 0.92, 0.28);
+        g.setStroke(featherLine);
+        g.setLineWidth(1.1 * s);
+        double wingRootX = x + (facingRight ? 24.0 : 56.0) * s;
+        for (int i = 0; i < 3; i++) {
+            double featherY = y + (42.0 + i * 7.0) * s;
+            g.strokeLine(wingRootX - dir * (4.0 + i * 2.0) * s, featherY,
+                    wingRootX + dir * (24.0 - i * 3.0) * s, featherY + (i - 1.0) * 3.0 * s);
+        }
+
+        g.restore();
+    }
+
+    private void drawVectorBirdStateAccents(GraphicsContext g, double drawSize, HeadPose headPose) {
+        BirdAnimationState state = currentBirdAnimationState();
+        if (state == BirdAnimationState.IDLE || state == BirdAnimationState.SHIELD) {
+            return;
+        }
+
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double cx = x + drawSize * 0.5;
+        double cy = y + drawSize * 0.5;
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        switch (state) {
+            case ATTACK -> {
+                double phase = attackAnimationTimer > 0
+                        ? 0.5 + 0.5 * Math.sin(attackAnimationTimer * 0.65)
+                        : 0.65;
+                double startX = headPose.centerX() + dir * (20.0 + phase * 8.0) * s;
+                double startY = headPose.centerY() + 2.0 * s;
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.40 + phase * 0.22));
+                g.setLineWidth(2.2 * s);
+                for (int i = 0; i < 3; i++) {
+                    double lane = (i - 1) * 9.0 * s;
+                    g.strokeLine(startX - dir * (4.0 + i * 4.0) * s, startY + lane,
+                            startX + dir * (31.0 + i * 9.0) * s, startY + lane - (9.0 - i * 2.0) * s);
+                }
+            }
+            case FLAP -> {
+                double pulse = 0.5 + 0.5 * Math.sin(animationStateFrame * 0.70);
+                g.setStroke(Color.web("#E3F2FD").deriveColor(0, 1, 1, 0.30 + pulse * 0.22));
+                g.setLineWidth(1.8 * s);
+                for (int i = 0; i < 3; i++) {
+                    double w = (62.0 + i * 12.0) * s;
+                    double h = (32.0 + i * 8.0) * s;
+                    g.strokeArc(cx - w * 0.5, cy - h * 0.5 - (11.0 + i * 5.0) * s,
+                            w, h, facingRight ? 206 : -26, 102, ArcType.OPEN);
+                }
+            }
+            case FALL -> {
+                g.setStroke(Color.web("#CFD8DC").deriveColor(0, 1, 1, 0.30));
+                g.setLineWidth(1.55 * s);
+                for (int i = 0; i < 4; i++) {
+                    double laneX = cx - dir * (29.0 + i * 8.0) * s;
+                    double laneY = y + (8.0 + i * 16.0) * s;
+                    g.strokeLine(laneX, laneY, laneX - dir * 10.0 * s, laneY - 22.0 * s);
+                }
+            }
+            case DODGE -> {
+                double phase = dodgeTimer > 0 ? dodgeVisualPhase(dodgeTimer) : 0.5;
+                g.setStroke(Color.web("#B0BEC5").deriveColor(0, 1, 1, 0.26 + phase * 0.26));
+                g.setLineWidth(2.4 * s);
+                for (int i = 0; i < 3; i++) {
+                    double offset = (20.0 + i * 12.0) * s;
+                    g.strokeLine(cx - dir * offset, cy - (21.0 - i * 10.0) * s,
+                            cx - dir * (offset + 36.0 * s), cy - (13.0 - i * 9.0) * s);
+                }
+            }
+            case HITSTUN -> {
+                g.setStroke(Color.web("#FFCDD2").deriveColor(0, 1, 1, 0.62));
+                g.setLineWidth(2.0 * s);
+                for (int i = 0; i < 3; i++) {
+                    double markX = cx + (i - 1) * 18.0 * s;
+                    double markY = y - (7.0 + i * 2.0) * s;
+                    g.strokeLine(markX - 4.0 * s, markY - 6.0 * s, markX + 5.0 * s, markY + 5.0 * s);
+                    g.strokeLine(markX + 5.0 * s, markY - 6.0 * s, markX - 4.0 * s, markY + 5.0 * s);
+                }
+            }
+            case KO -> {
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.72));
+                g.setLineWidth(1.7 * s);
+                double eyeX = headPose.centerX() + dir * 2.0 * s;
+                double eyeY = headPose.centerY() - 7.0 * s;
+                g.strokeLine(eyeX - 6.0 * s, eyeY - 6.0 * s, eyeX + 6.0 * s, eyeY + 6.0 * s);
+                g.strokeLine(eyeX + 6.0 * s, eyeY - 6.0 * s, eyeX - 6.0 * s, eyeY + 6.0 * s);
+                g.setStroke(Color.web("#B0BEC5").deriveColor(0, 1, 1, 0.45));
+                g.strokeArc(cx - 23.0 * s, y - 20.0 * s, 46.0 * s, 20.0 * s,
+                        20 + animationStateFrame * 9.0, 250, ArcType.OPEN);
+            }
+            default -> {
+            }
+        }
+
+        g.restore();
+    }
+
+    private void drawVectorEyeGlint(GraphicsContext g, double eyeX, double eyeY, double s, boolean large) {
+        double glint = large ? 4.2 : 2.4;
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.86));
+        g.fillOval(eyeX + (facingRight ? 4.0 : 8.0) * s, eyeY + 3.0 * s, glint * s, glint * s);
+    }
+
     private void drawBodyAndEyes(GraphicsContext g, double drawSize, AttackVisualPose pose) {
         if (type == BirdGame3.BirdType.BAT) {
             drawBatBody(g);
@@ -24347,6 +24672,7 @@ public class Bird {
         g.fillOval(x, y, drawSize, drawSize);
         g.setFill(headColor);
         g.fillOval(headX, headY, headW, headH);
+        drawVectorBodyLighting(g, drawSize, bodyColor, headColor, headPose);
         if (stylizedEagle) {
             g.setFill(Color.web("#F5F1DD").deriveColor(0, 1, 1, isClassicSkin ? 0.34 : 0.42));
             g.fillOval(headX + 7.0 * s, headY + s, 36.0 * s, 26.0 * s);
@@ -24664,6 +24990,7 @@ public class Bird {
             g.fillOval(eyeX, eyeY, 21.0 * s, 21.0 * s);
             g.setFill(Color.WHITE.deriveColor(0, 1, 1, circuitTitmouse ? 0.75 : 0.92));
             g.fillOval(eyeX + (facingRight ? 5.0 : 11.0) * s, eyeY + 4.0 * s, 5.0 * s, 5.0 * s);
+            drawVectorEyeGlint(g, eyeX + (facingRight ? 1.0 : 0.0) * s, eyeY + s, s, false);
         } else if (stylizedGoose) {
             double cheekX = headX + (facingRight ? 23.0 : 6.0) * s;
             double cheekY = headY + 13.0 * s;
@@ -24684,6 +25011,8 @@ public class Bird {
             if (ravenEyes) eyeColor = voidHeraldRaven ? Color.web("#B388FF") : Color.web("#D50000");
             g.setFill(eyeColor);
             g.fillOval(headX + (facingRight ? 5 : 45) * s, headY + 5 * s, 15 * s, 15 * s);
+            drawVectorEyeGlint(g, headX + (facingRight ? 5.0 : 45.0) * s,
+                    headY + 5.0 * s, s, true);
         }
         if (stylizedMockingbird) {
             double eyeCenterX = headX + (facingRight ? 12.5 : 52.5) * s;
@@ -24697,6 +25026,7 @@ public class Bird {
             g.strokeLine(eyeCenterX - 5.5 * s, eyeCenterY - 7.0 * s,
                     eyeCenterX + 4.0 * s, eyeCenterY + 6.5 * s);
         }
+        drawVectorBirdStateAccents(g, drawSize, headPose);
     }
 
     private void drawRavenBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -24751,6 +25081,7 @@ public class Bird {
         g.fillOval(headX, headY, headW, headH);
         g.setFill(sheen.deriveColor(0, 1, 1, 0.18));
         g.fillOval(headX + (facingRight ? 9.0 : 16.0) * s, headY + 8.0 * s, 25.0 * s, 18.0 * s);
+        drawVectorBodyLighting(g, drawSize, body, head, headPose);
 
         double crestBaseX = headX + (facingRight ? 18.0 : 32.0) * s;
         double crestDir = facingRight ? -1.0 : 1.0;
@@ -24775,6 +25106,8 @@ public class Bird {
         g.fillOval(eyeX, eyeY, 25.0 * s, 25.0 * s);
         g.setFill(eye);
         g.fillOval(headX + (facingRight ? 5.0 : 45.0) * s, eyeY + 5.0 * s, 15.0 * s, 15.0 * s);
+        drawVectorEyeGlint(g, headX + (facingRight ? 5.0 : 45.0) * s, eyeY + 5.0 * s, s, true);
+        drawVectorBirdStateAccents(g, drawSize, headPose);
     }
 
     private void drawLoreAccurateHummingbirdBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -25294,6 +25627,7 @@ public class Bird {
         g.fillOval(x, y, drawSize, drawSize);
         g.setFill(bodyHead);
         g.fillOval(facingRight ? x + 50 * s : x - 20 * s, y + 20 * s, 50 * s, 40 * s);
+        drawVectorBodyLighting(g, drawSize, bodyMain, bodyHead, standardHeadPose(null));
         g.setFill(bodyMain.darker());
         g.fillOval(x + 14 * s, y + 28 * s, 42 * s, 26 * s);
 
@@ -25323,6 +25657,8 @@ public class Bird {
         g.fillOval(x + (facingRight ? 50 : 20) * s, y + 20 * s, 25 * s, 25 * s);
         g.setFill(Color.CRIMSON.brighter());
         g.fillOval(x + (facingRight ? 56 : 26) * s, y + 25 * s, 13 * s, 13 * s);
+        drawVectorEyeGlint(g, x + (facingRight ? 56.0 : 26.0) * s, y + 25.0 * s, s, true);
+        drawVectorBirdStateAccents(g, drawSize, standardHeadPose(null));
     }
 
     private void drawCitySkin(GraphicsContext g) {
