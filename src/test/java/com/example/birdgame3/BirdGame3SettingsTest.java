@@ -124,6 +124,28 @@ class BirdGame3SettingsTest {
     }
 
     @Test
+    void applyWinnerMapProgressUnlocksAshfallAchievements() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.selectedMap = BirdGame3.MapType.ASHFALL_CATHEDRAL;
+
+        Bird winner = new Bird(100.0, BirdGame3.BirdType.PHOENIX, 0, game);
+
+        Method applyWinnerMapProgress = BirdGame3.class.getDeclaredMethod("applyWinnerMapProgress", Bird.class);
+        applyWinnerMapProgress.setAccessible(true);
+
+        for (int i = 0; i < 5; i++) {
+            applyWinnerMapProgress.invoke(game, winner);
+        }
+
+        assertEquals(1, game.achievementProgressValue(BirdGame3Achievement.ASHFALL_INITIATE));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.ASHFALL_INITIATE));
+        assertEquals(5, game.achievementProgressValue(BirdGame3Achievement.ASHFALL_ASCENDANT));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.ASHFALL_ASCENDANT));
+        assertEquals(1, game.achievementProgressValue(BirdGame3Achievement.PHOENIX_PILGRIMAGE));
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.PHOENIX_PILGRIMAGE));
+    }
+
+    @Test
     void achievementProgressTextShowsCompletedAfterUnlock() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.setAchievementUnlocked(BirdGame3Achievement.ECHOES_BELOW.legacyIndex);
@@ -169,13 +191,36 @@ class BirdGame3SettingsTest {
     }
 
     @Test
-    void stockPhotoEagleSkinShowsUniqueRarityInFeatherpedia() throws Exception {
+    void uniqueSkinsShowUniqueRarityInFeatherpedia() throws Exception {
         BirdGame3 game = new BirdGame3();
 
         Method rarityMethod = BirdGame3.class.getDeclaredMethod("skinRarityLabel", String.class);
         rarityMethod.setAccessible(true);
+        Method howToGetMethod = BirdGame3.class.getDeclaredMethod("skinHowToGet", String.class, BirdGame3.BirdType.class);
+        howToGetMethod.setAccessible(true);
 
         assertEquals("UNIQUE", rarityMethod.invoke(game, "STOCK_PHOTO_EAGLE"));
+        assertEquals("UNIQUE", rarityMethod.invoke(game, "ASHEN_SOVEREIGN_PHOENIX"));
+        assertEquals("Complete Ashfall Trial",
+                howToGetMethod.invoke(game, "ASHEN_SOVEREIGN_PHOENIX", BirdGame3.BirdType.PHOENIX));
+    }
+
+    @Test
+    void latestUpdateSplashShowsUntilMarkedSeen() throws Exception {
+        BirdGame3 game = new BirdGame3();
+
+        Method latestKeyMethod = BirdGame3.class.getDeclaredMethod("latestUpdateSplashKey");
+        latestKeyMethod.setAccessible(true);
+        Method shouldShowMethod = BirdGame3.class.getDeclaredMethod("shouldShowLatestUpdateSplash");
+        shouldShowMethod.setAccessible(true);
+
+        String latestKey = (String) latestKeyMethod.invoke(game);
+        assertEquals("REBIRTH_UPDATE", latestKey);
+        assertTrue((boolean) shouldShowMethod.invoke(game));
+
+        setPrivateField(game, "lastSeenUpdateSplashKey", latestKey);
+
+        assertFalse((boolean) shouldShowMethod.invoke(game));
     }
 
     @Test
@@ -262,6 +307,34 @@ class BirdGame3SettingsTest {
     }
 
     @Test
+    void persistAchievementsRoundTripsAshfallTrialCompletion() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        setPrivateField(game, "ashfallTrialCompleted", true);
+        game.persistAchievements(prefs);
+
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(reloaded, prefs);
+
+        assertTrue(getPrivateBooleanField(reloaded, "ashfallTrialCompleted"));
+    }
+
+    @Test
+    void persistAchievementsRoundTripsAshenSovereignPhoenixSkin() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.ashenSovereignPhoenixUnlocked = true;
+        game.persistAchievements(prefs);
+
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(reloaded, prefs);
+
+        assertTrue(reloaded.ashenSovereignPhoenixUnlocked);
+    }
+
+    @Test
     void developerSettingsCodeUnlocksEverythingAndRoundTripsProfileState() throws Exception {
         BirdGame3 game = new BirdGame3();
 
@@ -276,6 +349,8 @@ class BirdGame3SettingsTest {
         assertTrue(game.roadrunnerUnlocked);
         assertTrue((boolean) isMapUnlocked.invoke(game, BirdGame3.MapType.DESERT));
         assertTrue(getPrivateBoolean(game));
+        assertTrue(getPrivateBooleanField(game, "ashfallTrialCompleted"));
+        assertTrue(game.ashenSovereignPhoenixUnlocked);
         assertTrue((boolean) spendBirdCoins.invoke(game, 99_999));
         assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.BOSS_BREAKER));
 
@@ -284,6 +359,7 @@ class BirdGame3SettingsTest {
         assertTrue(prefs.getBoolean("char_roadrunner_unlocked", false));
         assertTrue(prefs.getBoolean("map_desert_unlocked", false));
         assertTrue(prefs.getBoolean("developer_infinite_bird_coins", false));
+        assertTrue(prefs.getBoolean("skin_ashen_sovereign_phoenix", false));
 
         BirdGame3 reloaded = new BirdGame3();
         Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
@@ -293,6 +369,8 @@ class BirdGame3SettingsTest {
         assertTrue(reloaded.roadrunnerUnlocked);
         assertTrue((boolean) isMapUnlocked.invoke(reloaded, BirdGame3.MapType.DESERT));
         assertTrue(getPrivateBoolean(reloaded));
+        assertTrue(getPrivateBooleanField(reloaded, "ashfallTrialCompleted"));
+        assertTrue(reloaded.ashenSovereignPhoenixUnlocked);
         assertTrue((boolean) spendBirdCoins.invoke(reloaded, Integer.MAX_VALUE));
     }
 
@@ -313,6 +391,10 @@ class BirdGame3SettingsTest {
         assertEquals("story-book", iconVariant.invoke(game, 21));
         assertEquals("iron-wing", iconVariant.invoke(game, 27));
         assertEquals("bracket-crown", iconVariant.invoke(game, 29));
+        assertEquals("ashfall-spark", iconVariant.invoke(game, 30));
+        assertEquals("ashfall-geyser", iconVariant.invoke(game, 31));
+        assertEquals("ashfall-crown", iconVariant.invoke(game, 32));
+        assertEquals("phoenix-altar", iconVariant.invoke(game, 33));
     }
 
     @Test
@@ -427,7 +509,11 @@ class BirdGame3SettingsTest {
     }
 
     private static boolean getPrivateBoolean(BirdGame3 game) throws Exception {
-        Field field = BirdGame3.class.getDeclaredField("developerInfiniteBirdCoins");
+        return getPrivateBooleanField(game, "developerInfiniteBirdCoins");
+    }
+
+    private static boolean getPrivateBooleanField(BirdGame3 game, String fieldName) throws Exception {
+        Field field = BirdGame3.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         return field.getBoolean(game);
     }

@@ -4276,6 +4276,79 @@ class BirdStateTest {
     }
 
     @Test
+    void ashfallCathedralUsesIslandBoundsAndThermals() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.selectedMap = BirdGame3.MapType.ASHFALL_CATHEDRAL;
+
+        Method setupAshfallCathedralArena = BirdGame3.class.getDeclaredMethod("setupAshfallCathedralArena");
+        setupAshfallCathedralArena.setAccessible(true);
+        setupAshfallCathedralArena.invoke(game);
+
+        Bird bird = new Bird(3000.0, BirdGame3.BirdType.PHOENIX, 0, game);
+        game.players[0] = bird;
+
+        assertTrue(bird.usesIslandBounds());
+        assertFalse(bird.hasSolidGroundFloorUnderBody(),
+                "Ashfall Cathedral should not have the normal invisible ground floor.");
+        assertTrue(game.windVents.size() >= 3);
+        assertTrue(game.platforms.stream().anyMatch(p -> p.y > BirdGame3.GROUND_Y),
+                "Ashfall Cathedral should include low recovery fragments over the lava sea.");
+    }
+
+    @Test
+    void ashfallGeyserWarningDoesNotDamage() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.selectedMap = BirdGame3.MapType.ASHFALL_CATHEDRAL;
+        game.activePlayers = 1;
+
+        Method setupAshfallCathedralArena = BirdGame3.class.getDeclaredMethod("setupAshfallCathedralArena");
+        setupAshfallCathedralArena.setAccessible(true);
+        setupAshfallCathedralArena.invoke(game);
+
+        Bird bird = new Bird(1540.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.x = 1540.0;
+        bird.y = BirdGame3.GROUND_Y - 138.0 - 80.0;
+        game.players[0] = bird;
+        double startingHealth = bird.health;
+        game.simTick = 40L;
+
+        Method updateAshfallCathedralHazards = BirdGame3.class.getDeclaredMethod("updateAshfallCathedralHazards");
+        updateAshfallCathedralHazards.setAccessible(true);
+        updateAshfallCathedralHazards.invoke(game);
+
+        assertEquals(startingHealth, bird.health, 0.0001);
+        assertEquals(0.0, bird.vy, 0.0001);
+    }
+
+    @Test
+    void ashfallGeyserImpactLaunchesAndDamages() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.selectedMap = BirdGame3.MapType.ASHFALL_CATHEDRAL;
+        game.activePlayers = 1;
+
+        Method setupAshfallCathedralArena = BirdGame3.class.getDeclaredMethod("setupAshfallCathedralArena");
+        setupAshfallCathedralArena.setAccessible(true);
+        setupAshfallCathedralArena.invoke(game);
+
+        Bird bird = new Bird(1540.0, BirdGame3.BirdType.EAGLE, 0, game);
+        bird.x = 1540.0;
+        bird.y = BirdGame3.GROUND_Y - 138.0 - 80.0;
+        game.players[0] = bird;
+        double startingHealth = bird.health;
+        game.simTick = 92L;
+
+        Method updateAshfallCathedralHazards = BirdGame3.class.getDeclaredMethod("updateAshfallCathedralHazards");
+        updateAshfallCathedralHazards.setAccessible(true);
+        updateAshfallCathedralHazards.invoke(game);
+
+        assertTrue(bird.health < startingHealth);
+        assertTrue(bird.vy < -10.0);
+        assertTrue(bird.stunTime > 0.0);
+        assertTrue(game.isAchievementUnlocked(BirdGame3Achievement.GEYSER_RIDER));
+        assertEquals(1, game.achievementProgressValue(BirdGame3Achievement.GEYSER_RIDER));
+    }
+
+    @Test
     void dockBombLocksOnBeforeFiring() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.selectedMap = BirdGame3.MapType.DOCK;

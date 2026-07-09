@@ -67,6 +67,45 @@ class BirdGame3ProgressionServiceTest {
     }
 
     @Test
+    void reconcileStoredAchievementUnlocksRestoresAshfallMilestones() {
+        BirdGame3AchievementProfile achievementProfile = new BirdGame3AchievementProfile();
+        achievementProfile.setProgress(BirdGame3Achievement.ASHFALL_INITIATE, 1);
+        achievementProfile.setProgress(BirdGame3Achievement.GEYSER_RIDER, 1);
+        achievementProfile.setProgress(BirdGame3Achievement.ASHFALL_ASCENDANT, 5);
+        achievementProfile.setProgress(BirdGame3Achievement.PHOENIX_PILGRIMAGE, 1);
+
+        boolean[] classicCompleted = new boolean[BirdGame3.BirdType.values().length];
+        boolean[] completedAdventure = new boolean[0];
+
+        List<BirdGame3ProgressionService.AchievementUnlock> unlocks =
+                service.reconcileStoredAchievementUnlocks(
+                        new BirdGame3ProgressionService.StoredAchievementContext(
+                                achievementProfile,
+                                classicCompleted,
+                                completedAdventure,
+                                0,
+                                0,
+                                false,
+                                false,
+                                false,
+                                0,
+                                3,
+                                0
+                        )
+                );
+
+        assertEquals(
+                Set.of(
+                        BirdGame3Achievement.ASHFALL_INITIATE,
+                        BirdGame3Achievement.GEYSER_RIDER,
+                        BirdGame3Achievement.ASHFALL_ASCENDANT,
+                        BirdGame3Achievement.PHOENIX_PILGRIMAGE
+                ),
+                unlockAchievements(unlocks)
+        );
+    }
+
+    @Test
     void adventureChapterRewardsSplitMainAndTempestUnlocks() {
         BirdGame3ProgressionService.AdventureChapterRewards beaconRewards =
                 service.evaluateAdventureChapterRewards(false, 4, 4, 8, 3, false, false, false, false, false);

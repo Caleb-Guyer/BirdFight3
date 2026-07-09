@@ -21,6 +21,7 @@ All music tracks are public-domain releases originally published on FreePD.com
 | music-battlefield.mp3 | Strength of the Titans | Battlefield |
 | music-dock.mp3 | Behind Enemy Lines | Dock (Broken Harbor) |
 | music-frostbite.mp3 | The Ice Giants | Frostbite Fjord |
+| music-ashfall.mp3 | Evil Incoming | Ashfall Cathedral |
 
 ## Sound effects (original)
 

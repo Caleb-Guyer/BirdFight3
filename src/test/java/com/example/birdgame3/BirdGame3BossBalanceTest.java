@@ -389,6 +389,32 @@ class BirdGame3BossBalanceTest {
     }
 
     @Test
+    void ashenSovereignPhoenixSkinRequiresTrialUnlockToSelect() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird bird = new Bird(100, BirdGame3.BirdType.PHOENIX, 0, game);
+
+        Method applySkinChoiceToBird = BirdGame3.class.getDeclaredMethod(
+                "applySkinChoiceToBird",
+                Bird.class,
+                BirdGame3.BirdType.class,
+                String.class
+        );
+        applySkinChoiceToBird.setAccessible(true);
+        Method skinKeyForBird = BirdGame3.class.getDeclaredMethod("skinKeyForBird", Bird.class);
+        skinKeyForBird.setAccessible(true);
+
+        applySkinChoiceToBird.invoke(game, bird, BirdGame3.BirdType.PHOENIX, "ASHEN_SOVEREIGN_PHOENIX");
+        assertFalse(bird.isAshenSovereignSkin);
+
+        game.ashenSovereignPhoenixUnlocked = true;
+        applySkinChoiceToBird.invoke(game, bird, BirdGame3.BirdType.PHOENIX, "ASHEN_SOVEREIGN_PHOENIX");
+
+        assertTrue(bird.isAshenSovereignSkin);
+        assertFalse(bird.isNovaSkin);
+        assertEquals("ASHEN_SOVEREIGN_PHOENIX", skinKeyForBird.invoke(game, bird));
+    }
+
+    @Test
     void unitedFinaleDialogueUsesNullRockPortraitSkin() throws Exception {
         BirdGame3 game = new BirdGame3();
 
@@ -556,6 +582,38 @@ class BirdGame3BossBalanceTest {
         assertEquals(240.0, encounter.enemies[0].health(), 0.0001);
         assertEquals(1.22, encounter.enemies[0].powerMult(), 0.0001);
         assertEquals(1.02, encounter.enemies[0].speedMult(), 0.0001);
+    }
+
+    @Test
+    void ashfallTrialRunUsesFixedPhoenixCathedralRoute() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        List<BirdGame3.ClassicEncounter> route = ashfallTrialRun(game);
+
+        assertEquals(3, route.size());
+        for (BirdGame3.ClassicEncounter encounter : route) {
+            assertEquals(BirdGame3.MapType.ASHFALL_CATHEDRAL, encounter.map);
+        }
+
+        assertEquals("Geyser Rite", route.get(0).name);
+        assertEquals(BirdGame3.BirdType.FALCON, route.get(0).enemies[0].type());
+        assertEquals(5, route.get(0).cpuLevel);
+
+        assertEquals("Cinder Crosswind", route.get(1).name);
+        assertEquals(2, route.get(1).enemies.length);
+        assertEquals(BirdGame3.BirdType.ROADRUNNER, route.get(1).enemies[0].type());
+        assertEquals(BirdGame3.BirdType.HUMMINGBIRD, route.get(1).enemies[1].type());
+        assertEquals(6, route.get(1).cpuLevel);
+
+        BirdGame3.ClassicEncounter finale = route.get(2);
+        assertEquals("Ashen Mirror", finale.name);
+        assertTrue(finale.bossFight);
+        assertEquals(8, finale.cpuLevel);
+        assertEquals(1, finale.enemies.length);
+        assertEquals(BirdGame3.BirdType.PHOENIX, finale.enemies[0].type());
+        assertEquals("ASHEN_SOVEREIGN_PHOENIX", finale.enemies[0].skinKey());
+        assertEquals(280.0, finale.enemies[0].health(), 0.0001);
+        assertEquals(1.27, finale.enemies[0].powerMult(), 0.0001);
+        assertEquals(1.08, finale.enemies[0].speedMult(), 0.0001);
     }
 
     @Test
@@ -786,6 +844,13 @@ class BirdGame3BossBalanceTest {
         }
         fail("Missing Boss Rush encounter: " + name);
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<BirdGame3.ClassicEncounter> ashfallTrialRun(BirdGame3 game) throws Exception {
+        Method method = BirdGame3.class.getDeclaredMethod("buildAshfallTrialRun");
+        method.setAccessible(true);
+        return (List<BirdGame3.ClassicEncounter>) method.invoke(game);
     }
 
     private static void setPrivateBoolean(Object target) throws Exception {

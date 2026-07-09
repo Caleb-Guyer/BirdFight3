@@ -188,6 +188,17 @@ final class BirdGame3AchievementEvaluator {
             game.incrementAchievementProgress(BirdGame3Achievement.CANOPY_KING.legacyIndex);
         }
         applyUnlocks(result.unlocks());
+        if (map == BirdGame3.MapType.ASHFALL_CATHEDRAL) {
+            game.maxAchievementProgress(BirdGame3Achievement.ASHFALL_INITIATE, 1);
+            unlockIfNeeded(BirdGame3Achievement.ASHFALL_INITIATE);
+            if (game.incrementAchievementProgress(BirdGame3Achievement.ASHFALL_ASCENDANT.legacyIndex) >= 5) {
+                unlockIfNeeded(BirdGame3Achievement.ASHFALL_ASCENDANT);
+            }
+            if (winner.type == BirdGame3.BirdType.PHOENIX) {
+                game.maxAchievementProgress(BirdGame3Achievement.PHOENIX_PILGRIMAGE, 1);
+                unlockIfNeeded(BirdGame3Achievement.PHOENIX_PILGRIMAGE);
+            }
+        }
     }
 
     void onCombatStatsUpdated(Bird bird) {
@@ -290,6 +301,14 @@ final class BirdGame3AchievementEvaluator {
         if (game.incrementAchievementProgress(BirdGame3Achievement.FALL_GUY.legacyIndex) >= 3) {
             unlockIfNeeded(BirdGame3Achievement.FALL_GUY);
         }
+    }
+
+    void onAshfallGeyserSurvival(Bird bird, boolean trainingModeActive) {
+        if (trainingModeActive || bird == null || bird.health <= 0.0) {
+            return;
+        }
+        game.maxAchievementProgress(BirdGame3Achievement.GEYSER_RIDER, 1);
+        unlockIfNeeded(BirdGame3Achievement.GEYSER_RIDER);
     }
 
     void onNeonPickup(int playerIndex) {

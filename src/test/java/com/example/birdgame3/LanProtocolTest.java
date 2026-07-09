@@ -63,6 +63,7 @@ class LanProtocolTest {
         state.roadrunnerRoadBoostTimer = 18;
         state.roadrunnerSlipTimer = 44;
         state.roadrunnerSlipDirection = -1;
+        state.isAshenSovereignSkin = true;
         state.penguinBellyCharging = true;
         state.penguinBellyChargeFrames = 41;
         state.penguinBellySlideTimer = 13;
@@ -215,6 +216,7 @@ class LanProtocolTest {
         assertEquals(18, decoded.roadrunnerRoadBoostTimer);
         assertEquals(44, decoded.roadrunnerSlipTimer);
         assertEquals(-1, decoded.roadrunnerSlipDirection);
+        assertTrue(decoded.isAshenSovereignSkin);
         assertTrue(decoded.penguinBellyCharging);
         assertEquals(41, decoded.penguinBellyChargeFrames);
         assertEquals(13, decoded.penguinBellySlideTimer);

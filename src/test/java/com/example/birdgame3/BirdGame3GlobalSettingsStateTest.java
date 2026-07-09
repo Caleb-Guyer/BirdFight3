@@ -36,4 +36,17 @@ class BirdGame3GlobalSettingsStateTest {
 
         assertEquals("192.168.1.77", prefs.get("lan_last_host", ""));
     }
+
+    @Test
+    void loadAndSaveRoundTripsLastSeenUpdateSplash() {
+        prefs.put("last_seen_update_splash", "POWER_UP_CHAOS_LAUNCH");
+
+        BirdGame3GlobalSettingsState state = BirdGame3GlobalSettingsState.load(prefs, new String[0], 0);
+        assertEquals("POWER_UP_CHAOS_LAUNCH", state.lastSeenUpdateSplashKey);
+
+        state.lastSeenUpdateSplashKey = "REBIRTH_UPDATE";
+        state.saveTo(prefs, new String[0]);
+
+        assertEquals("REBIRTH_UPDATE", prefs.get("last_seen_update_splash", ""));
+    }
 }

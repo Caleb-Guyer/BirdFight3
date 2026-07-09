@@ -401,6 +401,7 @@ public class Bird {
     public boolean isFreemanSkin = false;
     public boolean isClassicSkin = false;
     public boolean isNovaSkin = false;
+    public boolean isAshenSovereignSkin = false;
     public boolean isDuneSkin = false;
     public boolean isMintSkin = false;
     public boolean isCircuitSkin = false;
@@ -2041,7 +2042,8 @@ public class Bird {
     boolean usesIslandBounds() {
         return game.selectedMap == MapType.BATTLEFIELD
                 || game.selectedMap == MapType.BEACON_CROWN
-                || game.selectedMap == MapType.FROSTBITE_FJORD;
+                || game.selectedMap == MapType.FROSTBITE_FJORD
+                || game.selectedMap == MapType.ASHFALL_CATHEDRAL;
     }
 
     private boolean isInDockWater() {
@@ -7946,7 +7948,8 @@ public class Bird {
     private boolean isVoidMap() {
         return game.selectedMap == MapType.BATTLEFIELD
                 || game.selectedMap == MapType.BEACON_CROWN
-                || game.selectedMap == MapType.FROSTBITE_FJORD;
+                || game.selectedMap == MapType.FROSTBITE_FJORD
+                || game.selectedMap == MapType.ASHFALL_CATHEDRAL;
     }
 
     private Platform findAIMainStagePlatform() {
@@ -12911,7 +12914,8 @@ public class Bird {
     }
 
     private void handleThermals(boolean downHeld, double prevX, double prevY) {
-        if (game.selectedMap == MapType.SKYCLIFFS || game.selectedMap == MapType.VIBRANT_JUNGLE || game.selectedMap == MapType.CAVE) {
+        if (game.selectedMap == MapType.SKYCLIFFS || game.selectedMap == MapType.VIBRANT_JUNGLE
+                || game.selectedMap == MapType.CAVE || game.selectedMap == MapType.ASHFALL_CATHEDRAL) {
             for (WindVent v : game.windVents) {
                 if (v.cooldown > 0) continue;
                 if (isInsideWindVent(v, x, y) || isInsideWindVent(v, prevX, prevY)) {
@@ -12921,8 +12925,11 @@ public class Bird {
                         vy = Math.min(vy, BirdGame3.WIND_FORCE);
                     }
                     if (SimRng.next() < 0.3) {
+                        Color draftColor = game.selectedMap == MapType.ASHFALL_CATHEDRAL
+                                ? Color.web("#FFAB40", 0.72)
+                                : Color.CYAN.deriveColor(0, 1, 1, 0.7);
                         game.particles.add(new Particle(x + 40 + (SimRng.next() - 0.5) * 40, y + 80,
-                                (SimRng.next() - 0.5) * 8, -4 - SimRng.next() * 8, Color.CYAN.deriveColor(0, 1, 1, 0.7)));
+                                (SimRng.next() - 0.5) * 8, -4 - SimRng.next() * 8, draftColor));
                     }
                     break;
                 }
@@ -12931,7 +12938,8 @@ public class Bird {
     }
 
     private boolean isInWindVent(double px, double py) {
-        if (game.selectedMap != MapType.SKYCLIFFS && game.selectedMap != MapType.VIBRANT_JUNGLE && game.selectedMap != MapType.CAVE) {
+        if (game.selectedMap != MapType.SKYCLIFFS && game.selectedMap != MapType.VIBRANT_JUNGLE
+                && game.selectedMap != MapType.CAVE && game.selectedMap != MapType.ASHFALL_CATHEDRAL) {
             return false;
         }
         for (WindVent v : game.windVents) {
@@ -13623,6 +13631,7 @@ public class Bird {
         state.isFreemanSkin = isFreemanSkin;
         state.isClassicSkin = isClassicSkin;
         state.isNovaSkin = isNovaSkin;
+        state.isAshenSovereignSkin = isAshenSovereignSkin;
         state.isDuneSkin = isDuneSkin;
         state.isMintSkin = isMintSkin;
         state.isCircuitSkin = isCircuitSkin;
@@ -14122,6 +14131,7 @@ public class Bird {
         this.isFreemanSkin = state.isFreemanSkin;
         this.isClassicSkin = state.isClassicSkin;
         this.isNovaSkin = state.isNovaSkin;
+        this.isAshenSovereignSkin = state.isAshenSovereignSkin;
         this.isDuneSkin = state.isDuneSkin;
         this.isMintSkin = state.isMintSkin;
         this.isCircuitSkin = state.isCircuitSkin;
@@ -15985,6 +15995,14 @@ public class Bird {
 
     private AnimationClip normalAttackAnimationClip(NormalAttackVariant variant) {
         if (variant == null) return GENERIC_ATTACK_CLIP;
+        if (type == BirdGame3.BirdType.PHOENIX) {
+            if (variant == NormalAttackVariant.UP_AIR) {
+                return PHOENIX_UP_AIR_ATTACK_CLIP;
+            }
+            if (variant == NormalAttackVariant.DOWN_AIR) {
+                return PHOENIX_DOWN_AIR_ATTACK_CLIP;
+            }
+        }
         return switch (variant) {
             case SIDE_SMASH, UP_SMASH, DOWN_SMASH -> SMASH_ATTACK_CLIP;
             case FORWARD_AIR, BACK_AIR, UP_AIR, DOWN_AIR, NEUTRAL_AIR -> AERIAL_ATTACK_CLIP;
@@ -16068,6 +16086,22 @@ public class Bird {
             new AnimationKeyframe(6.0, pose(8.0, -5.0, 12.0, 0.0, 9.0, -5.0, 8.0, 1.18, 15.0, 1.15, 0.87)),
             new AnimationKeyframe(13.0, pose(2.0, -2.0, 5.0, 0.0, 4.0, -2.0, 3.0, 1.08, 6.0, 1.04, 0.96)),
             new AnimationKeyframe(20.0, ZERO_ANIMATION_POSE)
+    );
+
+    private static final AnimationClip PHOENIX_UP_AIR_ATTACK_CLIP = new AnimationClip(false, 22.0,
+            new AnimationKeyframe(0.0, pose(-2.0, 2.0, 9.0, 0.0, -1.0, 1.0, -1.0, 0.88, 8.0, 1.06, 0.94)),
+            new AnimationKeyframe(5.0, pose(1.0, -13.0, -15.0, 0.0, 8.0, -11.0, 5.0, 1.10, -25.0, 0.88, 1.18)),
+            new AnimationKeyframe(10.0, pose(3.0, -18.0, -8.0, 0.0, 13.0, -17.0, 10.0, 1.28, -38.0, 0.82, 1.24)),
+            new AnimationKeyframe(16.0, pose(1.0, -8.0, -4.0, 0.0, 6.0, -8.0, 4.0, 1.10, -14.0, 0.94, 1.08)),
+            new AnimationKeyframe(22.0, ZERO_ANIMATION_POSE)
+    );
+
+    private static final AnimationClip PHOENIX_DOWN_AIR_ATTACK_CLIP = new AnimationClip(false, 24.0,
+            new AnimationKeyframe(0.0, pose(-2.0, -2.0, -10.0, 0.0, -1.0, -1.0, -1.0, 0.88, -9.0, 1.05, 0.94)),
+            new AnimationKeyframe(6.0, pose(1.0, 12.0, 17.0, 0.0, 9.0, 12.0, 8.0, 1.18, 28.0, 0.86, 1.22)),
+            new AnimationKeyframe(12.0, pose(2.0, 19.0, 12.0, 0.0, 14.0, 18.0, 13.0, 1.32, 42.0, 0.80, 1.30)),
+            new AnimationKeyframe(18.0, pose(0.0, 9.0, 5.0, 0.0, 6.0, 8.0, 5.0, 1.10, 18.0, 0.94, 1.08)),
+            new AnimationKeyframe(24.0, ZERO_ANIMATION_POSE)
     );
 
     private static final AnimationClip GENERIC_ATTACK_CLIP = TILT_ATTACK_CLIP;
@@ -18820,7 +18854,19 @@ public class Bird {
         }
 
         double phase = currentAttackVisualPhase();
-        AttackVisualPose basePose = switch (variant) {
+        AttackVisualPose basePose;
+        if (type == BirdGame3.BirdType.PHOENIX && variant == NormalAttackVariant.UP_AIR) {
+            basePose = new AttackVisualPose(dir * 2.0 * phase, -19.0 * phase, -dir * (7.0 + 12.0 * phase),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.06),
+                    17.0 * phase, -24.0 * phase, 12.0 * phase, 1.16 + 0.18 * phase,
+                    -48.0 * phase, 0.86, 1.18 + 0.08 * phase);
+        } else if (type == BirdGame3.BirdType.PHOENIX && variant == NormalAttackVariant.DOWN_AIR) {
+            basePose = new AttackVisualPose(dir * 2.0 * phase, 20.0 * phase, dir * (12.0 + 18.0 * phase),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.04),
+                    18.0 * phase, 23.0 * phase, 16.0 * phase, 1.18 + 0.20 * phase,
+                    54.0 * phase, 0.88, 1.22 + 0.08 * phase);
+        } else {
+            basePose = switch (variant) {
             case NEUTRAL -> new AttackVisualPose(dir * 3.0 * phase, -2.0 * phase, dir * 4.0 * phase,
                     facingRight ? 0.0 : Math.PI,
                     4.0 * phase, -1.5 * phase, 3.5 * phase, 1.04 + 0.06 * phase,
@@ -18869,7 +18915,8 @@ public class Bird {
                     normalizeAngleRadians(Math.PI / 2.0 - dir * 0.12),
                     13.0 * phase, 15.0 * phase, 12.0 * phase, 1.12 + 0.18 * phase,
                     34.0 * phase, 1.03 + 0.02 * phase, 0.92);
-        };
+            };
+        }
         return addAttackVisualPose(basePose, currentAnimationLayerPose(variant));
     }
 
@@ -19050,6 +19097,13 @@ public class Bird {
         g.setEffect(new Glow(charging ? 0.45 : 0.65));
         g.setLineCap(StrokeLineCap.ROUND);
 
+        if (type == BirdGame3.BirdType.PHOENIX
+                && (variant == NormalAttackVariant.UP_AIR || variant == NormalAttackVariant.DOWN_AIR)) {
+            drawPhoenixAerialNormalAttackFx(g, drawSize, variant, phase, alpha, glowAlpha);
+            g.restore();
+            return;
+        }
+
         switch (variant) {
             case NEUTRAL, NEUTRAL_AIR -> {
                 double ringRadius = (drawSize * 0.42) + (charging ? 8.0 : 14.0) * s + phase * 10.0 * s;
@@ -19136,6 +19190,72 @@ public class Bird {
         }
 
         g.restore();
+    }
+
+    private void drawPhoenixAerialNormalAttackFx(GraphicsContext g, double drawSize,
+                                                NormalAttackVariant variant,
+                                                double phase, double alpha, double glowAlpha) {
+        double s = sizeMultiplier;
+        double centerX = x + drawSize * 0.5;
+        double centerY = y + drawSize * 0.5;
+        boolean ashen = isAshenSovereignSkin;
+        boolean nova = isNovaSkin && !ashen;
+        Color flame = nova ? Color.web("#00E5FF") : Color.web("#FF6D00");
+        Color hot = nova ? Color.web("#E040FB") : Color.web("#FFF176");
+        if (ashen) {
+            flame = Color.web("#FF3D00");
+            hot = Color.web("#FFF8E1");
+        }
+        Color core = Color.WHITE.deriveColor(0, 1, 1, Math.min(0.88, alpha + 0.14));
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        if (variant == NormalAttackVariant.UP_AIR) {
+            double rise = (72.0 + phase * 26.0) * s;
+            double flareW = (34.0 + phase * 18.0) * s;
+            g.setStroke(flame.deriveColor(0, 1, 1, glowAlpha + 0.34));
+            g.setLineWidth(16.0 * s);
+            g.strokeArc(centerX - flareW, centerY - rise, flareW * 2.0, rise * 0.92,
+                    202, 136, ArcType.OPEN);
+            g.setStroke(hot.deriveColor(0, 1, 1, glowAlpha + 0.28));
+            g.setLineWidth(8.0 * s);
+            g.strokeLine(centerX, centerY + 12.0 * s, centerX, centerY - rise - 18.0 * s);
+            g.setStroke(core);
+            g.setLineWidth(3.0 * s);
+            for (int i = -1; i <= 1; i++) {
+                double offset = i * 16.0 * s;
+                g.strokeLine(centerX + offset * 0.35, centerY - 2.0 * s,
+                        centerX + offset, centerY - rise - (i == 0 ? 24.0 : 10.0) * s);
+            }
+            g.setFill(flame.deriveColor(0, 1, 1, glowAlpha + 0.18));
+            g.fillPolygon(
+                    new double[]{centerX - flareW * 0.55, centerX, centerX + flareW * 0.55, centerX},
+                    new double[]{centerY - rise * 0.18, centerY - rise - 28.0 * s,
+                            centerY - rise * 0.18, centerY - rise * 0.52},
+                    4
+            );
+            return;
+        }
+
+        double drop = (78.0 + phase * 30.0) * s;
+        double spread = (42.0 + phase * 18.0) * s;
+        g.setFill(flame.deriveColor(0, 1, 1, glowAlpha + 0.24));
+        g.fillPolygon(
+                new double[]{centerX - spread, centerX, centerX + spread, centerX},
+                new double[]{centerY + 2.0 * s, centerY + drop + 32.0 * s,
+                        centerY + 2.0 * s, centerY + drop * 0.46},
+                4
+        );
+        g.setStroke(hot.deriveColor(0, 1, 1, glowAlpha + 0.30));
+        g.setLineWidth(11.0 * s);
+        g.strokeLine(centerX - spread * 0.42, centerY + 16.0 * s, centerX, centerY + drop + 18.0 * s);
+        g.strokeLine(centerX + spread * 0.42, centerY + 16.0 * s, centerX, centerY + drop + 18.0 * s);
+        g.setStroke(core);
+        g.setLineWidth(3.4 * s);
+        g.strokeLine(centerX, centerY + 2.0 * s, centerX, centerY + drop + 30.0 * s);
+        g.setStroke(flame.deriveColor(0, 1, 1, glowAlpha + 0.20));
+        g.setLineWidth(4.0 * s);
+        g.strokeArc(centerX - spread * 0.72, centerY + drop * 0.54,
+                spread * 1.44, 34.0 * s, 18, 144, ArcType.OPEN);
     }
 
     public void draw(GraphicsContext g) {
@@ -20361,6 +20481,66 @@ public class Bird {
         double centerX = x + drawSize / 2.0;
         double centerY = y + drawSize / 2.0;
         double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 120.0);
+        if (isAshenSovereignSkin) {
+            Color voidCore = Color.web("#050607");
+            Color ember = Color.web("#FF3D00");
+            Color whiteHot = Color.web("#FFF8E1");
+            Color crown = Color.web("#FFC400");
+            double t = System.currentTimeMillis() / 118.0;
+            g.save();
+            g.setEffect(new Glow(0.48 + pulse * 0.25));
+            g.setFill(voidCore.deriveColor(0, 1, 1, 0.32 + pulse * 0.08));
+            g.fillOval(x - 38 * s, y - 36 * s, drawSize + 76 * s, drawSize + 74 * s);
+            g.setStroke(whiteHot.deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth(2.8 * s);
+            double innerRing = (55.0 + pulse * 12.0) * s;
+            g.strokeOval(centerX - innerRing, centerY - innerRing * 0.96,
+                    innerRing * 2.0, innerRing * 1.92);
+            g.setStroke(ember.deriveColor(0, 1, 1, 0.66));
+            g.setLineWidth(3.6 * s);
+            double outerRing = (76.0 + pulse * 18.0) * s;
+            g.strokeOval(centerX - outerRing, centerY - outerRing * 0.78,
+                    outerRing * 2.0, outerRing * 1.56);
+            g.setStroke(crown.deriveColor(0, 1, 1, 0.44));
+            g.setLineWidth(1.8 * s);
+            for (int i = 0; i < 8; i++) {
+                double angle = t * 0.24 + Math.PI * 2.0 * i / 8.0;
+                double radius = (68.0 + Math.sin(t + i) * 8.0) * s;
+                double emberX = centerX + Math.cos(angle) * radius;
+                double emberY = centerY + Math.sin(angle) * radius * 0.62;
+                double tailX = centerX + Math.cos(angle - 0.34) * (radius - 16.0 * s);
+                double tailY = centerY + Math.sin(angle - 0.34) * (radius - 16.0 * s) * 0.62;
+                g.strokeLine(tailX, tailY, emberX, emberY);
+                g.setFill(i % 2 == 0
+                        ? whiteHot.deriveColor(0, 1, 1, 0.84)
+                        : ember.deriveColor(0, 1, 1, 0.76));
+                double emberSize = (4.2 + pulse * 2.0 + (i % 3)) * s;
+                g.fillOval(emberX - emberSize * 0.5, emberY - emberSize * 0.5, emberSize, emberSize);
+            }
+            for (int i = 0; i < 7; i++) {
+                double offset = (i - 3) * 12.0 * s;
+                double height = (30.0 + pulse * 15.0 + Math.sin(t + i * 0.82) * 7.0) * s;
+                drawPhoenixFlameTongue(g,
+                        centerX + offset,
+                        centerY + 44.0 * s,
+                        centerX + offset * 0.32 + Math.sin(t * 0.7 + i) * 5.0 * s,
+                        centerY + 44.0 * s - height,
+                        6.8 * s,
+                        ember,
+                        whiteHot,
+                        0.28 + pulse * 0.14);
+            }
+            g.setFill(crown.deriveColor(0, 1, 1, 0.36 + pulse * 0.12));
+            g.fillPolygon(
+                    new double[]{centerX - 22.0 * s, centerX - 8.0 * s, centerX,
+                            centerX + 8.0 * s, centerX + 22.0 * s, centerX},
+                    new double[]{centerY - 54.0 * s, centerY - 78.0 * s, centerY - 60.0 * s,
+                            centerY - 78.0 * s, centerY - 54.0 * s, centerY - 66.0 * s},
+                    6
+            );
+            g.restore();
+            return;
+        }
         if (isNovaSkin) {
             Color core = Color.web("#1A237E");
             Color rim = Color.web("#00E5FF");
@@ -22333,9 +22513,9 @@ public class Bird {
         double centerX = x + drawSize * 0.5;
         double centerY = y + drawSize * 0.5;
         double dir = facingRight ? 1.0 : -1.0;
-        Color primary = isNovaSkin ? Color.web("#00E5FF") : Color.GOLD;
-        Color secondary = isNovaSkin ? Color.web("#E040FB") : Color.ORANGERED;
-        Color tertiary = isNovaSkin ? Color.web("#7C4DFF") : Color.web("#FFB74D");
+        Color primary = isAshenSovereignSkin ? Color.web("#FFF8E1") : (isNovaSkin ? Color.web("#00E5FF") : Color.GOLD);
+        Color secondary = isAshenSovereignSkin ? Color.web("#FF3D00") : (isNovaSkin ? Color.web("#E040FB") : Color.ORANGERED);
+        Color tertiary = isAshenSovereignSkin ? Color.web("#263238") : (isNovaSkin ? Color.web("#7C4DFF") : Color.web("#FFB74D"));
 
         g.save();
         g.setLineCap(StrokeLineCap.ROUND);
@@ -25595,18 +25775,31 @@ public class Bird {
 
     private void drawPhoenixBody(GraphicsContext g, double drawSize) {
         double s = sizeMultiplier;
-        boolean nova = isNovaSkin;
-        boolean classicPalette = isClassicSkin && !nova;
-        Color bodyMain = nova ? Color.web("#1A1033") : (classicPalette ? game.classicSkinPrimaryColor(type) : Color.rgb(230, 95, 48));
-        Color bodyHead = nova ? Color.web("#3D1B6B") : (classicPalette ? game.classicSkinPrimaryColor(type).brighter() : Color.rgb(246, 132, 74));
-        Color accent = nova ? Color.web("#00E5FF") : (classicPalette ? game.classicSkinAccentColor(type) : Color.GOLD);
-        Color innerAccent = nova ? Color.web("#E040FB") : Color.ORANGERED.deriveColor(0, 1, 1, 0.72);
+        boolean ashen = isAshenSovereignSkin;
+        boolean nova = isNovaSkin && !ashen;
+        boolean classicPalette = isClassicSkin && !nova && !ashen;
+        Color bodyMain = ashen ? Color.web("#0B0A0D")
+                : (nova ? Color.web("#1A1033") : (classicPalette ? game.classicSkinPrimaryColor(type) : Color.rgb(230, 95, 48)));
+        Color bodyHead = ashen ? Color.web("#241011")
+                : (nova ? Color.web("#3D1B6B") : (classicPalette ? game.classicSkinPrimaryColor(type).brighter() : Color.rgb(246, 132, 74)));
+        Color accent = ashen ? Color.web("#FFF8E1")
+                : (nova ? Color.web("#00E5FF") : (classicPalette ? game.classicSkinAccentColor(type) : Color.GOLD));
+        Color innerAccent = ashen ? Color.web("#FF3D00")
+                : (nova ? Color.web("#E040FB") : Color.ORANGERED.deriveColor(0, 1, 1, 0.72));
+        NormalAttackVariant displayedAttack = currentDisplayedAttackVariant();
+        boolean phoenixAerialAttack = displayedAttack == NormalAttackVariant.UP_AIR
+                || displayedAttack == NormalAttackVariant.DOWN_AIR;
+        double aerialAttackPhase = phoenixAerialAttack ? currentAttackVisualPhase() : 0.0;
         double tailBaseX = facingRight ? x + 6 * s : x + 74 * s;
         double tailBackOffset = facingRight ? -14 * s : 14 * s;
         double tailFrontOffset = facingRight ? 6 * s : -6 * s;
         double innerBaseX = facingRight ? x + 11 * s : x + 69 * s;
         double innerBackOffset = facingRight ? -12 * s : 12 * s;
         double innerFrontOffset = facingRight ? 5 * s : -5 * s;
+
+        if (phoenixAerialAttack) {
+            drawPhoenixAerialAttackWings(g, drawSize, displayedAttack, aerialAttackPhase, accent, innerAccent);
+        }
 
         // Tail accent (small flame feather)
         g.setFill(accent.deriveColor(0, 1, 1, 0.88));
@@ -25621,6 +25814,32 @@ public class Bird {
                 new double[]{y + 60 * s, y + 76 * s, y + 80 * s},
                 3
         );
+
+        if (ashen) {
+            for (int side = -1; side <= 1; side += 2) {
+                double rootX = x + 40 * s + side * 10 * s;
+                double rootY = y + 38 * s;
+                double tipX = x + 40 * s + side * 58 * s;
+                double tipY = y + 16 * s;
+                double lowerX = x + 40 * s + side * 42 * s;
+                double lowerY = y + 72 * s;
+                g.setFill(Color.web("#12181B").deriveColor(0, 1, 1, 0.74));
+                g.fillPolygon(
+                        new double[]{rootX, tipX, lowerX, rootX + side * 6 * s},
+                        new double[]{rootY, tipY, lowerY, rootY + 24 * s},
+                        4
+                );
+                g.setStroke(innerAccent.deriveColor(0, 1, 1, 0.58));
+                g.setLineWidth(2.2 * s);
+                g.strokeLine(rootX, rootY, tipX, tipY);
+                g.strokeLine(rootX + side * 5 * s, rootY + 12 * s,
+                        x + 40 * s + side * 35 * s, y + 58 * s);
+                g.setStroke(accent.deriveColor(0, 1, 1, 0.45));
+                g.setLineWidth(1.2 * s);
+                g.strokeLine(rootX + side * 12 * s, rootY + 3 * s,
+                        x + 40 * s + side * 47 * s, y + 29 * s);
+            }
+        }
 
         // Standard bird body/head layout.
         g.setFill(bodyMain);
@@ -25639,6 +25858,35 @@ public class Bird {
                 new double[]{y + 19 * s, y + 3 * s, y + 19 * s},
                 3
         );
+        if (ashen) {
+            g.setStroke(innerAccent.deriveColor(0, 1, 1, 0.74));
+            g.setLineWidth(2.4 * s);
+            g.strokeOval(x - 8 * s, y - 12 * s, drawSize + 16 * s, drawSize + 14 * s);
+            g.setStroke(accent.deriveColor(0, 1, 1, 0.62));
+            g.setLineWidth(1.3 * s);
+            g.strokeOval(x + 3 * s, y - 4 * s, drawSize - 6 * s, drawSize - 4 * s);
+
+            g.setFill(accent.deriveColor(0, 1, 1, 0.92));
+            g.fillPolygon(
+                    new double[]{crestBaseX - 15 * s, crestBaseX - 5 * s, crestBaseX,
+                            crestBaseX + 5 * s, crestBaseX + 15 * s},
+                    new double[]{y + 20 * s, y - 8 * s, y + 12 * s, y - 8 * s, y + 20 * s},
+                    5
+            );
+            g.setFill(innerAccent.deriveColor(0, 1, 1, 0.78));
+            g.fillPolygon(
+                    new double[]{crestBaseX - 9 * s, crestBaseX, crestBaseX + 9 * s},
+                    new double[]{y + 20 * s, y - 2 * s, y + 20 * s},
+                    3
+            );
+
+            g.setFill(Color.web("#FFFDE7").deriveColor(0, 1, 1, 0.74));
+            for (int i = 0; i < 4; i++) {
+                double sparkX = x + (18.0 + i * 14.0) * s;
+                double sparkY = y + (22.0 + Math.sin(System.currentTimeMillis() / 180.0 + i) * 5.0) * s;
+                g.fillOval(sparkX, sparkY, 3.5 * s, 3.5 * s);
+            }
+        }
         if (nova) {
             g.setStroke(accent.deriveColor(0, 1, 1, 0.8));
             g.setLineWidth(2.4 * s);
@@ -25653,12 +25901,99 @@ public class Bird {
         }
 
         // Eyes (standard placement).
-        g.setFill(Color.WHITE);
+        g.setFill(ashen ? Color.web("#FFF8E1") : Color.WHITE);
         g.fillOval(x + (facingRight ? 50 : 20) * s, y + 20 * s, 25 * s, 25 * s);
-        g.setFill(Color.CRIMSON.brighter());
+        g.setFill(ashen ? Color.web("#FF3D00") : Color.CRIMSON.brighter());
         g.fillOval(x + (facingRight ? 56 : 26) * s, y + 25 * s, 13 * s, 13 * s);
+        if (ashen) {
+            g.setFill(Color.web("#FFFFFF").deriveColor(0, 1, 1, 0.88));
+            g.fillOval(x + (facingRight ? 60 : 30) * s, y + 28 * s, 5 * s, 5 * s);
+        }
         drawVectorEyeGlint(g, x + (facingRight ? 56.0 : 26.0) * s, y + 25.0 * s, s, true);
         drawVectorBirdStateAccents(g, drawSize, standardHeadPose(null));
+        if (phoenixAerialAttack) {
+            drawPhoenixAerialAttackTalons(g, drawSize, displayedAttack, aerialAttackPhase, accent, innerAccent);
+        }
+    }
+
+    private void drawPhoenixAerialAttackWings(GraphicsContext g, double drawSize,
+                                              NormalAttackVariant variant, double phase,
+                                              Color accent, Color innerAccent) {
+        double s = sizeMultiplier;
+        double centerX = x + drawSize * 0.5;
+        double centerY = y + drawSize * 0.5;
+        for (int side = -1; side <= 1; side += 2) {
+            if (variant == NormalAttackVariant.UP_AIR) {
+                double rootX = centerX + side * 18.0 * s;
+                double rootY = centerY + 12.0 * s;
+                double tipX = centerX + side * (30.0 + phase * 22.0) * s;
+                double tipY = centerY - (56.0 + phase * 30.0) * s;
+                double outerX = centerX + side * (68.0 + phase * 16.0) * s;
+                double outerY = centerY - (12.0 + phase * 12.0) * s;
+                g.setFill(accent.deriveColor(0, 1, 1, 0.52));
+                g.fillPolygon(
+                        new double[]{rootX, tipX, outerX, rootX + side * 8.0 * s},
+                        new double[]{rootY, tipY, outerY, rootY + 22.0 * s},
+                        4
+                );
+                g.setStroke(innerAccent.deriveColor(0, 1, 1, 0.70));
+                g.setLineWidth(2.0 * s);
+                g.strokeLine(rootX, rootY, tipX, tipY);
+                g.strokeLine(rootX + side * 9.0 * s, rootY + 8.0 * s,
+                        centerX + side * (49.0 + phase * 11.0) * s,
+                        centerY - (34.0 + phase * 14.0) * s);
+            } else {
+                double rootX = centerX + side * 17.0 * s;
+                double rootY = centerY + 4.0 * s;
+                double highX = centerX + side * (58.0 + phase * 16.0) * s;
+                double highY = centerY - (22.0 + phase * 10.0) * s;
+                double lowX = centerX + side * (38.0 + phase * 22.0) * s;
+                double lowY = centerY + (48.0 + phase * 20.0) * s;
+                g.setFill(accent.deriveColor(0, 1, 1, 0.46));
+                g.fillPolygon(
+                        new double[]{rootX, highX, lowX, rootX + side * 7.0 * s},
+                        new double[]{rootY, highY, lowY, rootY + 24.0 * s},
+                        4
+                );
+                g.setStroke(innerAccent.deriveColor(0, 1, 1, 0.66));
+                g.setLineWidth(2.0 * s);
+                g.strokeLine(rootX, rootY, lowX, lowY);
+                g.strokeLine(rootX + side * 8.0 * s, rootY + 8.0 * s,
+                        centerX + side * (45.0 + phase * 14.0) * s,
+                        centerY + (28.0 + phase * 15.0) * s);
+            }
+        }
+    }
+
+    private void drawPhoenixAerialAttackTalons(GraphicsContext g, double drawSize,
+                                               NormalAttackVariant variant, double phase,
+                                               Color accent, Color innerAccent) {
+        double s = sizeMultiplier;
+        double centerX = x + drawSize * 0.5;
+        double centerY = y + drawSize * 0.5;
+        g.setLineCap(StrokeLineCap.ROUND);
+        if (variant == NormalAttackVariant.UP_AIR) {
+            g.setStroke(accent.deriveColor(0, 1, 1, 0.88));
+            g.setLineWidth(2.8 * s);
+            for (int i = -1; i <= 1; i++) {
+                double startX = centerX + i * 7.0 * s;
+                g.strokeLine(startX, centerY - 18.0 * s,
+                        startX + i * (7.0 + phase * 6.0) * s,
+                        centerY - (54.0 + phase * 18.0 + (i == 0 ? 8.0 : 0.0)) * s);
+            }
+        } else {
+            g.setStroke(innerAccent.deriveColor(0, 1, 1, 0.86));
+            g.setLineWidth(3.0 * s);
+            for (int i = -1; i <= 1; i++) {
+                double startX = centerX + i * 8.0 * s;
+                g.strokeLine(startX, centerY + 22.0 * s,
+                        startX + i * (9.0 + phase * 5.0) * s,
+                        centerY + (62.0 + phase * 18.0 + (i == 0 ? 8.0 : 0.0)) * s);
+            }
+            g.setFill(accent.deriveColor(0, 1, 1, 0.54));
+            g.fillOval(centerX - 10.0 * s, centerY + (48.0 + phase * 16.0) * s,
+                    20.0 * s, 12.0 * s);
+        }
     }
 
     private void drawCitySkin(GraphicsContext g) {

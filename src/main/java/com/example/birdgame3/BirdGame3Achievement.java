@@ -32,7 +32,11 @@ enum BirdGame3Achievement {
     ECHO_SOVEREIGN(26, "Echo Sovereign", "Complete the Bat Episode", BirdGame3AchievementCategory.STORY, "echo-rings"),
     IRON_TEMPEST(27, "Iron Tempest", "Complete the Pelican Episode", BirdGame3AchievementCategory.STORY, "iron-wing"),
     BLIGHT_BUSTER(28, "Blight Buster", "Earn every Big Forest Tower Defense badge", BirdGame3AchievementCategory.MODE, "tower-triad"),
-    BRACKET_BOSS(29, "Bracket Boss", "Win a Tournament as a human entrant", BirdGame3AchievementCategory.MODE, "bracket-crown");
+    BRACKET_BOSS(29, "Bracket Boss", "Win a Tournament as a human entrant", BirdGame3AchievementCategory.MODE, "bracket-crown"),
+    ASHFALL_INITIATE(30, "Ashfall Initiate", "Win a match on Ashfall Cathedral", BirdGame3AchievementCategory.MAP, "ashfall-spark"),
+    GEYSER_RIDER(31, "Geyser Rider", "Survive an Ashfall Cathedral geyser launch", BirdGame3AchievementCategory.MAP, "ashfall-geyser"),
+    ASHFALL_ASCENDANT(32, "Ashfall Ascendant", "Win 5 matches on Ashfall Cathedral", BirdGame3AchievementCategory.MAP, "ashfall-crown"),
+    PHOENIX_PILGRIMAGE(33, "Phoenix Pilgrimage", "Win as Phoenix on Ashfall Cathedral", BirdGame3AchievementCategory.MAP, "phoenix-altar");
 
     private static final BirdGame3Achievement[] VALUES = values();
 

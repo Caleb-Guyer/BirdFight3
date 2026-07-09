@@ -33,6 +33,7 @@ final class BirdGame3ProfileProgressState {
     private static final String KEY_BOSS_RUSH_BEST_TIME_PREFIX = "boss_rush_best_time_";
     private static final String KEY_BOSS_RUSH_BEST_RANK_PREFIX = "boss_rush_best_rank_";
     private static final String KEY_BOSS_RUSH_PERFECT_PREFIX = "boss_rush_perfect_";
+    private static final String KEY_ASHFALL_TRIAL_COMPLETED = "ashfall_trial_completed";
     private static final String KEY_GUIDED_TUTORIAL_COMPLETED = "academy_guided_tutorial_completed";
     private static final String KEY_ACADEMY_DRILL_COMPLETED_PREFIX = "academy_drill_completed_";
     private static final String KEY_DEVELOPER_INFINITE_BIRD_COINS = "developer_infinite_bird_coins";
@@ -55,6 +56,7 @@ final class BirdGame3ProfileProgressState {
     boolean stormPigeonUnlocked = false;
     boolean eagleSkinUnlocked = true;
     boolean novaPhoenixUnlocked = false;
+    boolean ashenSovereignPhoenixUnlocked = false;
     boolean duneFalconUnlocked = false;
     boolean mintPenguinUnlocked = false;
     boolean circuitTitmouseUnlocked = false;
@@ -95,6 +97,7 @@ final class BirdGame3ProfileProgressState {
     long[] bossRushBestClearMillisByBird = filledLongArray(BirdGame3.BirdType.values().length);
     String[] bossRushBestRankByBird = new String[BirdGame3.BirdType.values().length];
     boolean[] bossRushPerfectBadgeByBird = new boolean[BirdGame3.BirdType.values().length];
+    boolean ashfallTrialCompleted = false;
     int pigeonEpisodeUnlockedChapters = 1;
     boolean pigeonEpisodeCompleted = false;
     int batEpisodeUnlockedChapters = 1;
@@ -146,6 +149,7 @@ final class BirdGame3ProfileProgressState {
         state.developerInfiniteBirdCoins = prefs.getBoolean(KEY_DEVELOPER_INFINITE_BIRD_COINS, false);
         loadDailyChallenge(prefs, state);
         loadBossRush(prefs, state);
+        state.ashfallTrialCompleted = prefs.getBoolean(KEY_ASHFALL_TRIAL_COMPLETED, false);
         loadEpisodeProgress(prefs, state);
         loadAdventureProgress(prefs, state);
         loadClassicProgress(prefs, state);
@@ -176,6 +180,7 @@ final class BirdGame3ProfileProgressState {
         prefs.putBoolean(KEY_DEVELOPER_INFINITE_BIRD_COINS, developerInfiniteBirdCoins);
         saveDailyChallenge(prefs);
         saveBossRush(prefs);
+        prefs.putBoolean(KEY_ASHFALL_TRIAL_COMPLETED, ashfallTrialCompleted);
         saveClassicProgress(prefs);
         saveEpisodeProgress(prefs);
         saveAdventureProgress(prefs, schema);
@@ -269,6 +274,7 @@ final class BirdGame3ProfileProgressState {
         state.stormPigeonUnlocked = prefs.getBoolean("skin_storm_pigeon", false);
         state.eagleSkinUnlocked = prefs.getBoolean("skin_eagle", true);
         state.novaPhoenixUnlocked = prefs.getBoolean("skin_nova_phoenix", false);
+        state.ashenSovereignPhoenixUnlocked = prefs.getBoolean("skin_ashen_sovereign_phoenix", false);
         state.duneFalconUnlocked = prefs.getBoolean("skin_dune_falcon", false);
         state.mintPenguinUnlocked = prefs.getBoolean("skin_mint_penguin", false);
         state.circuitTitmouseUnlocked = prefs.getBoolean("skin_circuit_titmouse", false);
@@ -296,6 +302,7 @@ final class BirdGame3ProfileProgressState {
         prefs.putBoolean("skin_storm_pigeon", stormPigeonUnlocked);
         prefs.putBoolean("skin_eagle", eagleSkinUnlocked);
         prefs.putBoolean("skin_nova_phoenix", novaPhoenixUnlocked);
+        prefs.putBoolean("skin_ashen_sovereign_phoenix", ashenSovereignPhoenixUnlocked);
         prefs.putBoolean("skin_dune_falcon", duneFalconUnlocked);
         prefs.putBoolean("skin_mint_penguin", mintPenguinUnlocked);
         prefs.putBoolean("skin_circuit_titmouse", circuitTitmouseUnlocked);

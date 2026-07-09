@@ -181,6 +181,9 @@ public class BirdGame3 extends Application {
     private static final String BOSS_RUSH_EX_NAME = "EX: Crown Of Nothing";
     private static final int BOSS_RUSH_CLEAR_BONUS = 260;
     private static final int BOSS_RUSH_EX_CLEAR_BONUS = 180;
+    private static final int ASHFALL_TRIAL_FIRST_CLEAR_BONUS = 650;
+    private static final int ASHFALL_TRIAL_REPEAT_CLEAR_BONUS = 160;
+    private static final String ASHFALL_TRIAL_CODENAME = "ASHFALL TRIAL";
     private static final String PREF_BIRD_COINS = "bird_coins";
     private static final String PREF_BIRD_COINS_EARNED = "bird_coins_earned";
     private static final String PREF_BIRD_COINS_SPENT = "bird_coins_spent";
@@ -617,7 +620,7 @@ public class BirdGame3 extends Application {
     private record AchievementClaimResult(ShopPreview preview, String detail, boolean usesUnlockCards) {}
 
     // === MAPS ===
-    public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, DESERT, CAVE, BATTLEFIELD, BEACON_CROWN, DOCK, FROSTBITE_FJORD }
+    public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, DESERT, CAVE, BATTLEFIELD, BEACON_CROWN, DOCK, FROSTBITE_FJORD, ASHFALL_CATHEDRAL }
 
     private enum BirdBookCategory { ITEMS, POWERUPS, BIRDS, SKINS, MAPS }
 
@@ -729,6 +732,23 @@ public class BirdGame3 extends Application {
     private static final double FROSTBITE_MAIN_Y = GROUND_Y - 122.0;
     private static final double FROSTBITE_MAIN_W = 3640.0;
     private static final double FROSTBITE_MAIN_H = 92.0;
+    private static final double ASHFALL_MAIN_X = 850.0;
+    private static final double ASHFALL_MAIN_Y = GROUND_Y - 138.0;
+    private static final double ASHFALL_MAIN_W = 4300.0;
+    private static final double ASHFALL_MAIN_H = 90.0;
+    private static final double ASHFALL_ALTAR_X = 2390.0;
+    private static final double ASHFALL_ALTAR_Y = ASHFALL_MAIN_Y - 250.0;
+    private static final double ASHFALL_ALTAR_W = 1220.0;
+    private static final double ASHFALL_ALTAR_H = 58.0;
+    private static final int ASHFALL_ERUPTION_PERIOD_FRAMES = 360;
+    private static final int ASHFALL_ERUPTION_STAGGER_FRAMES = 120;
+    private static final int ASHFALL_ERUPTION_WARNING_FRAMES = 86;
+    private static final int ASHFALL_ERUPTION_ACTIVE_FRAMES = 34;
+    private static final int ASHFALL_ERUPTION_IMPACT_PHASE = ASHFALL_ERUPTION_WARNING_FRAMES + 6;
+    private static final double[] ASHFALL_GEYSER_CENTER_X = {1580.0, 3000.0, 4420.0};
+    private static final double[] ASHFALL_GEYSER_BASE_Y = {ASHFALL_MAIN_Y, ASHFALL_ALTAR_Y, ASHFALL_MAIN_Y};
+    private static final double[] ASHFALL_GEYSER_HALF_W = {142.0, 178.0, 142.0};
+    private static final double[] ASHFALL_GEYSER_HEIGHT = {700.0, 830.0, 700.0};
     private double battlefieldIslandX = 0;
     private double battlefieldIslandW = 0;
     private double battlefieldIslandY = 0;
@@ -859,6 +879,7 @@ public class BirdGame3 extends Application {
     private boolean particleEffectsEnabled = true;
     private boolean ambientEffectsEnabled = true;
     private int fpsCap = 60;
+    private String lastSeenUpdateSplashKey = "";
     private final FrameRateLimiter frameRateLimiter = new FrameRateLimiter();
     private final MatchController matchController = new MatchController(this);
     private final BirdGame3ProgressionService progressionService = new BirdGame3ProgressionService();
@@ -868,6 +889,42 @@ public class BirdGame3 extends Application {
             new BirdGame3ProfileProgressController(this, progressionService);
     private final KeyCode[][] playerKeyBindings = createDefaultControlBindings();
     private static final int[] FPS_CAPS = new int[]{30, 60, 90, 120, 144, 0};
+
+    private record UpdateSplash(String key, String title, String subtitle, String season,
+                                String summary, String accentColor, List<String> highlights) {
+    }
+
+    private static final List<UpdateSplash> UPDATE_SPLASHES = List.of(
+            new UpdateSplash(
+                    "REBIRTH_UPDATE",
+                    "REBIRTH UPDATE",
+                    "Phoenix rises over Ashfall Cathedral.",
+                    "Phoenix / Fire Feature Update",
+                    "A fire-themed content wave built around Phoenix, Ashfall, and high-stakes trial clears.",
+                    "#FF7043",
+                    List.of(
+                            "New Ashfall Cathedral stage with lava pressure, ember geysers, and storm-lift routes.",
+                            "New Ashfall Trial route with fixed Phoenix encounters, first-clear reward, and repeat coin payout.",
+                            "New Ashen Sovereign Phoenix skin, unlocked only by completing Ashfall Trial.",
+                            "Phoenix received a unique ultimate, aerial attack animations, air-held down special, and diagonal aerial side special.",
+                            "New Ashfall achievements and serious fire-themed presentation polish."
+                    )
+            ),
+            new UpdateSplash(
+                    "POWER_UP_CHAOS_LAUNCH",
+                    "POWER-UP CHAOS",
+                    "The full roster takes flight.",
+                    "Launch Era",
+                    "The foundation update: platform fighter rules, unlocks, modes, records, and the full bird roster.",
+                    "#4FC3F7",
+                    List.of(
+                            "Twenty-one playable birds with unique specials, ultimates, skins, and matchup identities.",
+                            "Adventure, Classic, Boss Rush, Tournament, Training Academy, LAN, replays, and match history.",
+                            "Power-ups, stage hazards, AI battles, achievements, Featherpedia, and profile progression.",
+                            "Vector bird art, procedural sound effects, public-domain music, and packaged auto-update support."
+                    )
+            )
+    );
 
     public void playHitSound(double intensity) {
         double volume = Math.min(1.0, intensity / 40.0);
@@ -1228,6 +1285,7 @@ public class BirdGame3 extends Application {
                     case BATTLEFIELD -> "music-battlefield.mp3";
                     case DOCK -> "music-dock.mp3";
                     case FROSTBITE_FJORD -> "music-frostbite.mp3";
+                    case ASHFALL_CATHEDRAL -> "music-ashfall.mp3";
             default -> throw new IllegalStateException("Unexpected value: " + selectedMap);
         };
     }
@@ -3535,6 +3593,7 @@ public class BirdGame3 extends Application {
         state.particleEffectsEnabled = particleEffectsEnabled;
         state.ambientEffectsEnabled = ambientEffectsEnabled;
         state.fpsCap = fpsCap;
+        state.lastSeenUpdateSplashKey = lastSeenUpdateSplashKey;
         return state;
     }
 
@@ -3554,6 +3613,7 @@ public class BirdGame3 extends Application {
         particleEffectsEnabled = resolved.particleEffectsEnabled;
         ambientEffectsEnabled = resolved.ambientEffectsEnabled;
         fpsCap = sanitizeFpsCap(resolved.fpsCap);
+        lastSeenUpdateSplashKey = resolved.lastSeenUpdateSplashKey == null ? "" : resolved.lastSeenUpdateSplashKey;
     }
 
     private boolean isReservedBindingKey(KeyCode code) {
@@ -4156,6 +4216,7 @@ public class BirdGame3 extends Application {
     private boolean trainingAcademySceneTransitionPending = false;
     public boolean eagleSkinUnlocked = true; // Sky Tyrant Eagle skin
     public boolean novaPhoenixUnlocked = false;
+    public boolean ashenSovereignPhoenixUnlocked = false;
     public boolean duneFalconUnlocked = false;
     public boolean mintPenguinUnlocked = false;
     public boolean circuitTitmouseUnlocked = false;
@@ -4189,6 +4250,7 @@ public class BirdGame3 extends Application {
     private static final String STOCK_PHOTO_EAGLE_SKIN = "STOCK_PHOTO_EAGLE";
     private static final String STOCK_PHOTO_TURKEY_SKIN = "STOCK_PHOTO_TURKEY";
     private static final String NOVA_PHOENIX_SKIN = "NOVA_PHOENIX";
+    private static final String ASHEN_SOVEREIGN_PHOENIX_SKIN = "ASHEN_SOVEREIGN_PHOENIX";
     private static final String DUNE_FALCON_SKIN = "DUNE_FALCON";
     private static final String MINT_PENGUIN_SKIN = "MINT_PENGUIN";
     private static final String CIRCUIT_TITMOUSE_SKIN = "CIRCUIT_TITMOUSE";
@@ -4255,6 +4317,8 @@ public class BirdGame3 extends Application {
     private final long[] bossRushBestClearMillisByBird = filledLongArray(BirdType.values().length);
     private final String[] bossRushBestRankByBird = new String[BirdType.values().length];
     private final boolean[] bossRushPerfectBadgeByBird = new boolean[BirdType.values().length];
+    private boolean ashfallTrialModeActive = false;
+    private boolean ashfallTrialCompleted = false;
     private boolean dailyChallengeModeActive = false;
     private BirdType dailyChallengeSelectedBird = BirdType.PIGEON;
     private String dailyChallengeSelectedSkinKey = null;
@@ -8000,6 +8064,7 @@ public class BirdGame3 extends Application {
         } else if (type == BirdType.PHOENIX) {
             if (isClassicRewardUnlocked(type)) options.add(classicSkinDataKey(type));
             if (novaPhoenixUnlocked) options.add(NOVA_PHOENIX_SKIN);
+            if (ashenSovereignPhoenixUnlocked) options.add(ASHEN_SOVEREIGN_PHOENIX_SKIN);
         } else {
             if (isClassicRewardUnlocked(type)) options.add(classicSkinDataKey(type));
         }
@@ -8064,6 +8129,7 @@ public class BirdGame3 extends Application {
         if (STOCK_PHOTO_TURKEY_SKIN.equals(skinKey) && type == BirdType.TURKEY) return skinKey;
         if ("SKY_KING_EAGLE".equals(skinKey) && type == BirdType.EAGLE && eagleSkinUnlocked) return skinKey;
         if (NOVA_PHOENIX_SKIN.equals(skinKey) && type == BirdType.PHOENIX && novaPhoenixUnlocked) return skinKey;
+        if (ASHEN_SOVEREIGN_PHOENIX_SKIN.equals(skinKey) && type == BirdType.PHOENIX && ashenSovereignPhoenixUnlocked) return skinKey;
         if (DUNE_FALCON_SKIN.equals(skinKey) && type == BirdType.FALCON && duneFalconUnlocked) return skinKey;
         if (MINT_PENGUIN_SKIN.equals(skinKey) && type == BirdType.PENGUIN && mintPenguinUnlocked) return skinKey;
         if (CIRCUIT_TITMOUSE_SKIN.equals(skinKey) && type == BirdType.TITMOUSE && circuitTitmouseUnlocked) return skinKey;
@@ -8117,6 +8183,9 @@ public class BirdGame3 extends Application {
             }
             case NOVA_PHOENIX_SKIN -> {
                 return "SKIN: NOVA PHOENIX";
+            }
+            case ASHEN_SOVEREIGN_PHOENIX_SKIN -> {
+                return "SKIN: ASHEN SOVEREIGN";
             }
             case DUNE_FALCON_SKIN -> {
                 return "SKIN: DUNE FALCON";
@@ -8197,6 +8266,7 @@ public class BirdGame3 extends Application {
         bird.isFreemanSkin = false;
         bird.isClassicSkin = false;
         bird.isNovaSkin = false;
+        bird.isAshenSovereignSkin = false;
         bird.isDuneSkin = false;
         bird.isMintSkin = false;
         bird.isCircuitSkin = false;
@@ -8239,6 +8309,10 @@ public class BirdGame3 extends Application {
         }
         if (type == BirdType.PHOENIX && NOVA_PHOENIX_SKIN.equals(skinKey) && novaPhoenixUnlocked) {
             bird.isNovaSkin = true;
+            return;
+        }
+        if (type == BirdType.PHOENIX && ASHEN_SOVEREIGN_PHOENIX_SKIN.equals(skinKey) && ashenSovereignPhoenixUnlocked) {
+            bird.isAshenSovereignSkin = true;
             return;
         }
         if (type == BirdType.FALCON && DUNE_FALCON_SKIN.equals(skinKey) && duneFalconUnlocked) {
@@ -8323,6 +8397,7 @@ public class BirdGame3 extends Application {
         bird.isFreemanSkin = false;
         bird.isClassicSkin = false;
         bird.isNovaSkin = false;
+        bird.isAshenSovereignSkin = false;
         bird.isDuneSkin = false;
         bird.isMintSkin = false;
         bird.isCircuitSkin = false;
@@ -8367,6 +8442,10 @@ public class BirdGame3 extends Application {
         }
         if (type == BirdType.PHOENIX && NOVA_PHOENIX_SKIN.equals(skinKey)) {
             bird.isNovaSkin = true;
+            return;
+        }
+        if (type == BirdType.PHOENIX && ASHEN_SOVEREIGN_PHOENIX_SKIN.equals(skinKey)) {
+            bird.isAshenSovereignSkin = true;
             return;
         }
         if (type == BirdType.FALCON && DUNE_FALCON_SKIN.equals(skinKey)) {
@@ -8472,6 +8551,8 @@ public class BirdGame3 extends Application {
         if (type == BirdType.TURKEY && normalizedName.contains("stock photo")) return STOCK_PHOTO_TURKEY_SKIN;
         if (type == BirdType.HUMMINGBIRD && normalizedName.contains("neon")) return classicSkinDataKey(type);
         if (type == BirdType.HUMMINGBIRD && normalizedName.contains("lore accurate")) return LORE_ACCURATE_HUMMINGBIRD_SKIN;
+        if (type == BirdType.PHOENIX && normalizedName.contains("ashen sovereign")) return ASHEN_SOVEREIGN_PHOENIX_SKIN;
+        if (type == BirdType.PHOENIX && normalizedName.contains("sovereign")) return ASHEN_SOVEREIGN_PHOENIX_SKIN;
         if (type == BirdType.PHOENIX && normalizedName.contains("nova")) return NOVA_PHOENIX_SKIN;
         if (type == BirdType.FALCON && normalizedName.contains("dune")) return DUNE_FALCON_SKIN;
         if (type == BirdType.PENGUIN && normalizedName.contains("mint")) return MINT_PENGUIN_SKIN;
@@ -8506,6 +8587,7 @@ public class BirdGame3 extends Application {
             return null;
         }
         if (type == BirdType.TURKEY && bird.isPhotoTurkeySkin) return STOCK_PHOTO_TURKEY_SKIN;
+        if (type == BirdType.PHOENIX && bird.isAshenSovereignSkin) return ASHEN_SOVEREIGN_PHOENIX_SKIN;
         if (type == BirdType.PHOENIX && bird.isNovaSkin) return NOVA_PHOENIX_SKIN;
         if (type == BirdType.FALCON && bird.isDuneSkin) return DUNE_FALCON_SKIN;
         if (type == BirdType.PENGUIN && bird.isMintSkin) return MINT_PENGUIN_SKIN;
@@ -10951,6 +11033,7 @@ public class BirdGame3 extends Application {
         }
 
         updateDockStageHazards();
+        updateAshfallCathedralHazards();
         updateMatchTimerState();
 
         if (!(competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
@@ -11032,6 +11115,118 @@ public class BirdGame3 extends Application {
         }
 
         updateDockShipBomb();
+    }
+
+    private void updateAshfallCathedralHazards() {
+        if (selectedMap != MapType.ASHFALL_CATHEDRAL) {
+            return;
+        }
+
+        for (int i = 0; i < ASHFALL_GEYSER_CENTER_X.length; i++) {
+            int phase = ashfallEruptionPhase(i);
+            if (!ashfallEruptionActive(phase)) {
+                continue;
+            }
+
+            boolean impactFrame = phase == ASHFALL_ERUPTION_IMPACT_PHASE;
+            if (impactFrame) {
+                playManagedSfxVaried(cherrybombClip, 0.5, 0.82, 0.035);
+                shakeIntensity = Math.max(shakeIntensity, 12.0);
+                flashAlpha = Math.max(flashAlpha, 0.16);
+                redFlashAlpha = Math.max(redFlashAlpha, 0.12);
+                flashTimer = Math.max(flashTimer, 10);
+                emitAshfallEruptionBurst(i, 44);
+            } else if (phase % 5 == 0) {
+                emitAshfallEruptionBurst(i, 5);
+            }
+
+            double centerX = ASHFALL_GEYSER_CENTER_X[i];
+            double baseY = ASHFALL_GEYSER_BASE_Y[i];
+            double halfW = ASHFALL_GEYSER_HALF_W[i];
+            double height = ASHFALL_GEYSER_HEIGHT[i];
+            for (int p = 0; p < activePlayers; p++) {
+                Bird bird = players[p];
+                if (bird == null || bird.health <= 0) {
+                    continue;
+                }
+                double birdCenterX = bird.bodyCenterX();
+                double birdCenterY = bird.bodyCenterY();
+                double dx = birdCenterX - centerX;
+                double upperY = baseY - height;
+                boolean insideColumn = Math.abs(dx) <= halfW + bird.combatHalfWidth() * 0.65
+                        && birdCenterY >= upperY - bird.combatHalfHeight() * 0.35
+                        && birdCenterY <= baseY + bird.combatHalfHeight() * 0.75;
+                if (!insideColumn) {
+                    continue;
+                }
+
+                double falloff = 1.0 - Math.min(1.0, Math.abs(dx) / Math.max(1.0, halfW + bird.combatHalfWidth()));
+                if (bird.isDownHeld()) {
+                    bird.vy *= 0.9;
+                } else {
+                    bird.vy = Math.min(bird.vy, -7.8 - falloff * 4.2);
+                }
+                if (Math.abs(dx) > 1.0) {
+                    bird.vx += Math.signum(dx) * (0.12 + falloff * 0.18);
+                }
+
+                if (!impactFrame) {
+                    continue;
+                }
+
+                double dealtDamage = bird.receiveExternalDamage(13.0 + falloff * 9.0);
+                if (dealtDamage <= 0) {
+                    continue;
+                }
+                double launchDir = Math.abs(dx) < 1.0 ? (bird.x >= centerX ? 1.0 : -1.0) : Math.signum(dx);
+                bird.vx += launchDir * (7.0 + falloff * 5.5);
+                bird.vy = Math.min(bird.vy, -15.0 - falloff * 7.0);
+                bird.applyStun(8 + falloff * 8.0);
+                recordAshfallGeyserSurvivalAchievement(bird);
+                addToKillFeed("ASHFALL GEYSER launched " + shortName(bird.name) + "! -" + (int) Math.round(dealtDamage) + " HP");
+            }
+        }
+    }
+
+    private int ashfallEruptionPhase(int geyserIndex) {
+        return Math.floorMod(simTick + geyserIndex * (long) ASHFALL_ERUPTION_STAGGER_FRAMES,
+                ASHFALL_ERUPTION_PERIOD_FRAMES);
+    }
+
+    private boolean ashfallEruptionWarning(int phase) {
+        return phase >= 0 && phase < ASHFALL_ERUPTION_WARNING_FRAMES;
+    }
+
+    private boolean ashfallEruptionActive(int phase) {
+        return phase >= ASHFALL_ERUPTION_WARNING_FRAMES
+                && phase < ASHFALL_ERUPTION_WARNING_FRAMES + ASHFALL_ERUPTION_ACTIVE_FRAMES;
+    }
+
+    private void emitAshfallEruptionBurst(int geyserIndex, int requestedCount) {
+        if (!particleEffectsEnabled || requestedCount <= 0) {
+            return;
+        }
+        double centerX = ASHFALL_GEYSER_CENTER_X[geyserIndex];
+        double baseY = ASHFALL_GEYSER_BASE_Y[geyserIndex];
+        double halfW = ASHFALL_GEYSER_HALF_W[geyserIndex];
+        int particleCount = scaledParticleBurstCount(requestedCount);
+        for (int j = 0; j < particleCount; j++) {
+            double angle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * 0.9;
+            double speed = 5.0 + SimRng.next() * 10.0;
+            Color color = switch (j % 4) {
+                case 0 -> Color.web("#FFF59D", 0.92);
+                case 1 -> Color.web("#FFB74D", 0.88);
+                case 2 -> Color.web("#FF3D00", 0.84);
+                default -> Color.web("#6D1B1B", 0.76);
+            };
+            particles.add(new Particle(
+                    centerX + (SimRng.next() - 0.5) * halfW * 1.65,
+                    baseY - 8.0 + (SimRng.next() - 0.5) * 18.0,
+                    Math.cos(angle) * speed + (SimRng.next() - 0.5) * 2.2,
+                    Math.sin(angle) * speed - 1.0,
+                    color
+            ));
+        }
     }
 
     private boolean isBirdNearDockLever(Bird bird) {
@@ -11884,6 +12079,7 @@ public class BirdGame3 extends Application {
             case DESERT -> drawDesertArena(g, ambientFx);
             case DOCK -> drawDockArena(g, ambientFx);
             case FROSTBITE_FJORD -> drawFrostbiteFjordArena(g, ambientFx);
+            case ASHFALL_CATHEDRAL -> drawAshfallCathedralArena(g, ambientFx);
             case BATTLEFIELD -> {
                 if (isBeaconCrownBattlefieldContext()) {
                     drawBeaconCrownBattlefield(g, ambientFx);
@@ -12447,6 +12643,185 @@ public class BirdGame3 extends Application {
             g.setFill(glowing ? Color.web("#FFF59D", 0.54) : Color.web("#C5E1A5", 0.3));
             double size = glowing ? 6.2 : 3.8;
             g.fillOval(x - size * 0.5, y - size * 0.5, size, size * 0.78);
+        }
+    }
+
+    private void drawAshfallCathedralArena(GraphicsContext g, boolean ambientFx) {
+        for (int i = 0; i < 640; i++) {
+            double ratio = i / 640.0;
+            Color c = Color.web("#09050A").interpolate(Color.web("#3B0713"), ratio * 0.72)
+                    .interpolate(Color.web("#F4511E"), Math.max(0.0, ratio - 0.62) * 0.42);
+            g.setFill(c);
+            g.fillRect(0, i * (WORLD_HEIGHT / 640.0), WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3);
+        }
+
+        double time = System.currentTimeMillis() / 1000.0;
+        double horizonY = GROUND_Y + 38.0;
+
+        g.setFill(Color.web("#100915", 0.78));
+        for (int i = 0; i < 9; i++) {
+            double x = 180 + i * 720.0;
+            double h = 820 + (i % 3) * 140.0;
+            g.fillRoundRect(x - 92, horizonY - h, 184, h + 80, 36, 36);
+            g.fillPolygon(
+                    new double[]{x - 160, x, x + 160},
+                    new double[]{horizonY - h + 70, horizonY - h - 210, horizonY - h + 70},
+                    3
+            );
+        }
+
+        drawAshfallPhoenixWindow(g, WORLD_WIDTH * 0.5, GROUND_Y - 1080.0, ambientFx ? time : 0.0);
+
+        g.setStroke(Color.web("#4DD0E1", 0.25));
+        g.setLineWidth(5);
+        for (int i = 0; i < 6; i++) {
+            double archX = 520 + i * 920.0;
+            g.strokeArc(archX - 270, GROUND_Y - 1060, 540, 720, 0, 180, ArcType.OPEN);
+            g.strokeLine(archX - 270, GROUND_Y - 700, archX - 270, GROUND_Y + 40);
+            g.strokeLine(archX + 270, GROUND_Y - 700, archX + 270, GROUND_Y + 40);
+        }
+
+        if (ambientFx) {
+            renderRandom.setSeed(93_771L);
+            Random emberRand = renderRandom;
+            for (int i = 0; i < 95; i++) {
+                double baseX = emberRand.nextDouble() * WORLD_WIDTH;
+                double drift = (time * (35 + emberRand.nextDouble() * 70) + i * 83.0) % (WORLD_WIDTH + 260.0);
+                double x = (baseX + drift) % (WORLD_WIDTH + 260.0) - 130.0;
+                double y = 80.0 + emberRand.nextDouble() * (GROUND_Y - 210.0);
+                double size = 2.0 + emberRand.nextDouble() * 7.0;
+                Color ember = i % 4 == 0 ? Color.web("#4DD0E1", 0.34) : Color.web("#FFCC80", 0.42);
+                g.setFill(ember);
+                g.fillOval(x, y + Math.sin(time * 1.7 + i) * 18.0, size, size * 1.55);
+            }
+        }
+
+        g.setFill(Color.web("#26060A"));
+        g.fillRect(0, horizonY, WORLD_WIDTH, WORLD_HEIGHT - horizonY + 320);
+        for (int layer = 0; layer < 4; layer++) {
+            double waveY = horizonY + 36 + layer * 58.0;
+            double shift = ambientFx ? Math.sin(time * (1.1 + layer * 0.18)) * 24.0 : 0.0;
+            g.setFill(Color.web(layer % 2 == 0 ? "#FF6D00" : "#D84315", 0.34 - layer * 0.035));
+            for (int i = -1; i < 11; i++) {
+                double x = i * 620.0 + shift * (layer + 1);
+                g.fillOval(x, waveY, 760.0, 72.0 + layer * 18.0);
+            }
+        }
+        g.setFill(Color.web("#FFF176", 0.16));
+        g.fillRect(0, horizonY + 4, WORLD_WIDTH, 18);
+
+        for (WindVent v : windVents) {
+            double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 2.3 + v.x * 0.017) : 0.45;
+            g.setFill(Color.web("#FFAB40", 0.16 + pulse * 0.08));
+            g.fillOval(v.x + v.w / 2.0 - v.w * 0.5, v.y - 180.0, v.w, 380.0);
+            g.setStroke(Color.web("#4DD0E1", 0.22 + pulse * 0.1));
+            g.setLineWidth(3.0);
+            g.strokeArc(v.x + 28.0, v.y - 94.0, v.w - 56.0, 170.0, 200, 140, ArcType.OPEN);
+        }
+
+        for (Platform p : platforms) {
+            drawAshfallPlatform(g, p);
+        }
+
+        drawAshfallEruptionColumns(g, ambientFx, time);
+    }
+
+    private void drawAshfallPhoenixWindow(GraphicsContext g, double centerX, double centerY, double time) {
+        double pulse = 0.55 + 0.45 * Math.sin(time * 1.2);
+        g.setFill(Color.web("#FF6D00", 0.16 + pulse * 0.05));
+        g.fillOval(centerX - 430, centerY - 300, 860, 600);
+        g.setFill(Color.web("#101018", 0.78));
+        g.fillOval(centerX - 310, centerY - 220, 620, 440);
+        g.setStroke(Color.web("#FFCC80", 0.58));
+        g.setLineWidth(8);
+        g.strokeOval(centerX - 310, centerY - 220, 620, 440);
+
+        g.setFill(Color.web("#FFB300", 0.78));
+        g.fillPolygon(
+                new double[]{centerX, centerX - 76, centerX - 24, centerX, centerX + 24, centerX + 76},
+                new double[]{centerY - 142, centerY + 86, centerY + 42, centerY + 150, centerY + 42, centerY + 86},
+                6
+        );
+        g.setFill(Color.web("#FF3D00", 0.76));
+        g.fillPolygon(
+                new double[]{centerX - 42, centerX - 330, centerX - 110, centerX - 28},
+                new double[]{centerY - 30, centerY + 36, centerY + 118, centerY + 28},
+                4
+        );
+        g.fillPolygon(
+                new double[]{centerX + 42, centerX + 330, centerX + 110, centerX + 28},
+                new double[]{centerY - 30, centerY + 36, centerY + 118, centerY + 28},
+                4
+        );
+        g.setFill(Color.web("#4DD0E1", 0.5));
+        g.fillOval(centerX - 28, centerY - 82, 56, 64);
+    }
+
+    private void drawAshfallPlatform(GraphicsContext g, Platform p) {
+        boolean altar = Math.abs(p.x - ASHFALL_ALTAR_X) < 1.0 && Math.abs(p.y - ASHFALL_ALTAR_Y) < 1.0;
+        Color top = altar ? Color.web("#5C1118") : Color.web("#321016");
+        Color side = altar ? Color.web("#23070B") : Color.web("#17080D");
+        Color rim = altar ? Color.web("#FFB74D", 0.92) : Color.web("#8D6E63", 0.78);
+
+        g.setFill(side);
+        g.fillRoundRect(p.x, p.y + p.h * 0.35, p.w, p.h * 0.9, 18, 18);
+        g.setFill(top);
+        g.fillRoundRect(p.x, p.y, p.w, p.h, 22, 22);
+        g.setStroke(rim);
+        g.setLineWidth(4);
+        g.strokeRoundRect(p.x + 4, p.y + 3, p.w - 8, p.h - 6, 22, 22);
+
+        renderRandom.setSeed((long) (p.x * 17 + p.y * 31));
+        Random crackRand = renderRandom;
+        g.setStroke(Color.web("#FF6D00", 0.42));
+        g.setLineWidth(2.2);
+        int cracks = Math.max(2, (int) Math.min(10, p.w / 360.0));
+        for (int i = 0; i < cracks; i++) {
+            double x = p.x + 40 + crackRand.nextDouble() * Math.max(1.0, p.w - 80.0);
+            double y = p.y + 16 + crackRand.nextDouble() * Math.max(1.0, p.h - 22.0);
+            g.strokeLine(x, y, x + (crackRand.nextDouble() - 0.5) * 130.0, y + 10 + crackRand.nextDouble() * 24.0);
+        }
+    }
+
+    private void drawAshfallEruptionColumns(GraphicsContext g, boolean ambientFx, double time) {
+        for (int i = 0; i < ASHFALL_GEYSER_CENTER_X.length; i++) {
+            int phase = ashfallEruptionPhase(i);
+            double centerX = ASHFALL_GEYSER_CENTER_X[i];
+            double baseY = ASHFALL_GEYSER_BASE_Y[i];
+            double halfW = ASHFALL_GEYSER_HALF_W[i];
+            double height = ASHFALL_GEYSER_HEIGHT[i];
+            if (ashfallEruptionWarning(phase)) {
+                double charge = phase / (double) ASHFALL_ERUPTION_WARNING_FRAMES;
+                double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 8.0 + i * 1.7) : 0.55;
+                double ringW = halfW * (1.25 + charge * 1.1 + pulse * 0.08);
+                double ringH = 34.0 + charge * 28.0;
+                g.setFill(Color.web("#FF3D00", 0.08 + charge * 0.13));
+                g.fillRoundRect(centerX - halfW * 0.75, baseY - height * (0.32 + charge * 0.52),
+                        halfW * 1.5, height * (0.32 + charge * 0.52), halfW, halfW);
+                g.setStroke(Color.web(charge > 0.72 ? "#FFF176" : "#FF7043", 0.32 + charge * 0.52));
+                g.setLineWidth(4.0 + charge * 5.0);
+                g.strokeOval(centerX - ringW, baseY - ringH * 0.5, ringW * 2.0, ringH);
+                g.setStroke(Color.web("#4DD0E1", 0.18 + charge * 0.22));
+                g.setLineWidth(2.0);
+                g.strokeOval(centerX - ringW * 0.62, baseY - ringH * 0.36, ringW * 1.24, ringH * 0.72);
+            } else if (ashfallEruptionActive(phase)) {
+                double active = (phase - ASHFALL_ERUPTION_WARNING_FRAMES) / (double) ASHFALL_ERUPTION_ACTIVE_FRAMES;
+                double bloom = Math.sin(Math.PI * Math.clamp(active, 0.0, 1.0));
+                double width = halfW * (1.45 + bloom * 0.35);
+                double drawHeight = height * (0.82 + bloom * 0.18);
+                g.setFill(Color.web("#FF3D00", 0.34));
+                g.fillRoundRect(centerX - width, baseY - drawHeight, width * 2.0, drawHeight + 20.0, width, width);
+                g.setFill(Color.web("#FFB300", 0.34));
+                g.fillRoundRect(centerX - width * 0.55, baseY - drawHeight * 0.92,
+                        width * 1.1, drawHeight * 0.92, width, width);
+                g.setFill(Color.web("#FFF59D", 0.3 + bloom * 0.16));
+                g.fillRoundRect(centerX - width * 0.25, baseY - drawHeight * 0.78,
+                        width * 0.5, drawHeight * 0.72, width, width);
+                g.setStroke(Color.web("#4DD0E1", 0.26));
+                g.setLineWidth(5.0);
+                g.strokeLine(centerX - width * 0.52, baseY - drawHeight * 0.86, centerX - width * 0.1, baseY - drawHeight * 0.18);
+                g.strokeLine(centerX + width * 0.52, baseY - drawHeight * 0.86, centerX + width * 0.1, baseY - drawHeight * 0.18);
+            }
         }
     }
 
@@ -14046,7 +14421,10 @@ public class BirdGame3 extends Application {
             appendStartLog("before stage.show");
             stage.show();
             appendStartLog("after stage.show");
-            javafx.application.Platform.runLater(() -> applyDisplaySettings(stage));
+            javafx.application.Platform.runLater(() -> {
+                applyDisplaySettings(stage);
+                maybeShowLatestUpdateSplash(stage);
+            });
             appendStartLog("scheduled applyDisplaySettings");
             tryShowQueuedAchievementToast();
             DesktopShortcutSupport.ensureDesktopShortcutAsync();
@@ -14126,6 +14504,7 @@ public class BirdGame3 extends Application {
         classicTeamMode = false;
         Arrays.fill(classicTeams, 1);
         clearBossRushState();
+        clearAshfallTrialState();
         clearActiveDailyChallengeRun();
         resetTournamentRun();
         competitionSeriesActive = false;
@@ -17901,6 +18280,7 @@ public class BirdGame3 extends Application {
         classicTeamMode = false;
         Arrays.fill(classicTeams, 1);
         clearBossRushState();
+        clearAshfallTrialState();
         competitionSeriesActive = false;
         Arrays.fill(competitionRoundWins, 0);
         Arrays.fill(competitionTeamWins, 0);
@@ -18342,6 +18722,7 @@ public class BirdGame3 extends Application {
     private void showClassicMoreMenu(Stage stage) {
         clearActiveDailyChallengeRun();
         clearBossRushState();
+        clearAshfallTrialState();
         playMenuMusic();
         GameSaveRepository.SaveProfile activeProfile = saveRepository.activeProfile();
 
@@ -18391,13 +18772,14 @@ public class BirdGame3 extends Application {
         Button classicBtn = buildGamesMoreModeButton(
                 "FEATURED ROUTE",
                 "CLASSIC MODE",
-                1600, 274, 70,
-                new Insets(26, 320, 36, 42),
-                42,
+                1600, 220, 58,
+                new Insets(24, 320, 30, 42),
+                40,
                 hubIconClassic(), 5.8, 0.14,
                 new Insets(16, 34, 18, 18),
                 () -> {
                     bossRushModeActive = false;
+                    clearAshfallTrialState();
                     showClassicBirdSelect(stage);
                 });
         registerHubInteractiveNode(classicBtn, modeButtons, helpTitle, helpBody,
@@ -18409,6 +18791,24 @@ public class BirdGame3 extends Application {
         AnchorPane.setTopAnchor(classicBtn, 112.0);
         AnchorPane.setLeftAnchor(classicBtn, 0.0);
 
+        Button ashfallTrialBtn = buildGamesMoreModeButton(
+                "REBIRTH ROUTE",
+                "ASHFALL TRIAL",
+                520, 186, 40,
+                new Insets(18, 118, 24, 28),
+                32,
+                gamesMoreIconAshfallTrial(), 3.0, 0.16,
+                new Insets(18, 22, 18, 18),
+                () -> showAshfallTrialBriefing(stage));
+        registerHubInteractiveNode(ashfallTrialBtn, modeButtons, helpTitle, helpBody,
+                buildGamesMoreCardStyle("#F4511E", "#7A1C00", "#FFCC80", 32, false),
+                buildGamesMoreCardStyle("#F4511E", "#7A1C00", "#FFF3E0", 32, true),
+                "ASHFALL TRIAL",
+                "Phoenix-only Rebirth route through Ashfall Cathedral. Clear three escalating rites to earn the trial reward.",
+                null, null);
+        AnchorPane.setTopAnchor(ashfallTrialBtn, 350.0);
+        AnchorPane.setLeftAnchor(ashfallTrialBtn, 0.0);
+
         Button bossRushBtn = buildGamesMoreModeButton(
                 "BOSS GAUNTLET",
                 "BOSS RUSH",
@@ -18419,6 +18819,7 @@ public class BirdGame3 extends Application {
                 new Insets(18, 22, 18, 18),
                 () -> {
                     bossRushModeActive = true;
+                    clearAshfallTrialState();
                     showClassicBirdSelect(stage);
                 });
         registerHubInteractiveNode(bossRushBtn, modeButtons, helpTitle, helpBody,
@@ -18427,8 +18828,8 @@ public class BirdGame3 extends Application {
                 "BOSS RUSH",
                 "Push through the boss-only route stack for stronger rewards and a harsher routing test.",
                 null, null);
-        AnchorPane.setTopAnchor(bossRushBtn, 404.0);
-        AnchorPane.setLeftAnchor(bossRushBtn, 0.0);
+        AnchorPane.setTopAnchor(bossRushBtn, 350.0);
+        AnchorPane.setLeftAnchor(bossRushBtn, 540.0);
 
         Button episodesBtn = buildGamesMoreModeButton(
                 "STORY ARCS",
@@ -18445,8 +18846,8 @@ public class BirdGame3 extends Application {
                 "EPISODES",
                 "Open the handcrafted story battles, remix arcs, and one-off challenge routes.",
                 null, null);
-        AnchorPane.setTopAnchor(episodesBtn, 404.0);
-        AnchorPane.setLeftAnchor(episodesBtn, 540.0);
+        AnchorPane.setTopAnchor(episodesBtn, 350.0);
+        AnchorPane.setLeftAnchor(episodesBtn, 1080.0);
 
         Button tournamentBtn = buildGamesMoreModeButton(
                 "BRACKET PLAY",
@@ -18463,17 +18864,17 @@ public class BirdGame3 extends Application {
                 "TOURNAMENT MODE",
                 "Set up a bracket, seed the room, and track local tournament championships.",
                 null, null);
-        AnchorPane.setTopAnchor(tournamentBtn, 404.0);
-        AnchorPane.setLeftAnchor(tournamentBtn, 1080.0);
+        AnchorPane.setTopAnchor(tournamentBtn, 556.0);
+        AnchorPane.setLeftAnchor(tournamentBtn, 0.0);
 
         Button trainingBtn = buildGamesMoreModeButton(
                 "LAB WORK",
                 "TRAINING",
-                790, 236, 50,
-                new Insets(18, 164, 30, 32),
-                34,
-                gamesMoreIconTraining(), 3.5, 0.16,
-                new Insets(18, 26, 18, 18),
+                520, 186, 40,
+                new Insets(18, 118, 24, 28),
+                32,
+                gamesMoreIconTraining(), 3.0, 0.16,
+                new Insets(18, 22, 18, 18),
                 () -> showTrainingSetup(stage));
         registerHubInteractiveNode(trainingBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#00ACC1", "#006064", "#B2EBF2", 34, false),
@@ -18481,17 +18882,17 @@ public class BirdGame3 extends Application {
                 "TRAINING",
                 "Use the lab to test confirms, dummy behavior, slow motion, and movement checks.",
                 null, null);
-        AnchorPane.setTopAnchor(trainingBtn, 610.0);
-        AnchorPane.setLeftAnchor(trainingBtn, 0.0);
+        AnchorPane.setTopAnchor(trainingBtn, 556.0);
+        AnchorPane.setLeftAnchor(trainingBtn, 540.0);
 
         Button towerDefenseBtn = buildGamesMoreModeButton(
                 "DEFENSE LANE",
                 "TOWER DEFENSE",
-                790, 236, 46,
-                new Insets(18, 162, 30, 32),
-                34,
-                gamesMoreIconTowerDefense(), 3.4, 0.16,
-                new Insets(18, 26, 18, 18),
+                520, 186, 40,
+                new Insets(18, 118, 24, 28),
+                30,
+                gamesMoreIconTowerDefense(), 3.0, 0.16,
+                new Insets(18, 22, 18, 18),
                 () -> showTowerDefenseMapSelect(stage));
         registerHubInteractiveNode(towerDefenseBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#2E7D32", "#184B1D", "#C8E6C9", 34, false),
@@ -18499,8 +18900,8 @@ public class BirdGame3 extends Application {
                 "TOWER DEFENSE",
                 "Swap into the defense maps to place birds, manage loadouts, and survive lane pressure.",
                 null, null);
-        AnchorPane.setTopAnchor(towerDefenseBtn, 610.0);
-        AnchorPane.setLeftAnchor(towerDefenseBtn, 810.0);
+        AnchorPane.setTopAnchor(towerDefenseBtn, 556.0);
+        AnchorPane.setLeftAnchor(towerDefenseBtn, 1080.0);
 
         StackPane helpBar = new StackPane();
         lockRegionSize(helpBar, 1600, 104);
@@ -18526,6 +18927,7 @@ public class BirdGame3 extends Application {
         frame.getChildren().addAll(
                 topStrip,
                 classicBtn,
+                ashfallTrialBtn,
                 bossRushBtn,
                 episodesBtn,
                 tournamentBtn,
@@ -18766,6 +19168,28 @@ public class BirdGame3 extends Application {
                 + "-fx-padding: 0;";
     }
 
+    private Node gamesMoreIconAshfallTrial() {
+        Pane pane = hubIconPane();
+        Polygon flame = new Polygon(28, 7, 40, 24, 37, 39, 28, 48, 19, 39, 16, 25);
+        flame.setFill(Color.web("#FFB300"));
+        Polygon core = new Polygon(29, 17, 35, 31, 31, 43, 23, 42, 21, 31);
+        core.setFill(Color.web("#FFF59D"));
+        Rectangle altar = new Rectangle(13, 41, 30, 7);
+        altar.setArcWidth(5);
+        altar.setArcHeight(5);
+        altar.setFill(Color.web("#4E342E"));
+        Line wingLeft = new Line(17, 23, 7, 17);
+        wingLeft.setStroke(Color.web("#FFE0B2"));
+        wingLeft.setStrokeWidth(4);
+        wingLeft.setStrokeLineCap(StrokeLineCap.ROUND);
+        Line wingRight = new Line(39, 23, 49, 17);
+        wingRight.setStroke(Color.web("#FFE0B2"));
+        wingRight.setStrokeWidth(4);
+        wingRight.setStrokeLineCap(StrokeLineCap.ROUND);
+        pane.getChildren().addAll(wingLeft, wingRight, flame, core, altar);
+        return pane;
+    }
+
     private Node gamesMoreIconBossRush() {
         Pane pane = hubIconPane();
         Polygon crown = new Polygon(10, 34, 16, 16, 24, 28, 32, 12, 40, 28, 46, 16, 46, 34);
@@ -18871,6 +19295,7 @@ public class BirdGame3 extends Application {
 
     private void showTowerDefenseMapSelect(Stage stage) {
         bossRushModeActive = false;
+        ashfallTrialModeActive = false;
         dailyChallengeModeActive = false;
         classicModeActive = false;
         storyModeActive = false;
@@ -19001,6 +19426,7 @@ public class BirdGame3 extends Application {
     private void showTowerDefenseMode(Stage stage, TowerDefenseMode.Difficulty difficulty) {
         clearActiveDailyChallengeRun();
         clearBossRushState();
+        clearAshfallTrialState();
         bossRushModeActive = false;
         dailyChallengeModeActive = false;
         resetTournamentRun();
@@ -20308,6 +20734,7 @@ public class BirdGame3 extends Application {
         classicRoundIndex = 0;
         classicTeamMode = false;
         Arrays.fill(classicTeams, 1);
+        clearAshfallTrialState();
         resetTournamentRun();
         trainingModeActive = false;
         lanModeActive = false;
@@ -22496,6 +22923,7 @@ public class BirdGame3 extends Application {
             case BEACON_CROWN -> "Beacon Crown";
             case DOCK -> "Broken Harbor";
             case FROSTBITE_FJORD -> "Frostbite Fjord";
+            case ASHFALL_CATHEDRAL -> "Ashfall Cathedral";
             default -> "Big Forest";
         };
     }
@@ -23009,6 +23437,7 @@ public class BirdGame3 extends Application {
         currentAdventureBattle = null;
         trainingModeActive = false;
         classicModeActive = false;
+        clearAshfallTrialState();
         classicEncounter = null;
         competitionModeEnabled = false;
         mutatorModeEnabled = false;
@@ -23052,6 +23481,7 @@ public class BirdGame3 extends Application {
         currentAdventureBattle = null;
         trainingModeActive = false;
         classicModeActive = false;
+        clearAshfallTrialState();
         classicEncounter = null;
         competitionModeEnabled = false;
         mutatorModeEnabled = false;
@@ -23801,6 +24231,9 @@ public class BirdGame3 extends Application {
             case NOVA_PHOENIX_SKIN -> {
                 return novaPhoenixUnlocked;
             }
+            case ASHEN_SOVEREIGN_PHOENIX_SKIN -> {
+                return ashenSovereignPhoenixUnlocked;
+            }
             case DUNE_FALCON_SKIN -> {
                 return duneFalconUnlocked;
             }
@@ -23969,6 +24402,11 @@ public class BirdGame3 extends Application {
                 queueUnlockCardForSkin(BirdType.PHOENIX, NOVA_PHOENIX_SKIN);
                 return;
             }
+            case ASHEN_SOVEREIGN_PHOENIX_SKIN -> {
+                ashenSovereignPhoenixUnlocked = true;
+                queueUnlockCardForSkin(BirdType.PHOENIX, ASHEN_SOVEREIGN_PHOENIX_SKIN);
+                return;
+            }
             case DUNE_FALCON_SKIN -> {
                 duneFalconUnlocked = true;
                 queueUnlockCardForSkin(BirdType.FALCON, DUNE_FALCON_SKIN);
@@ -24085,6 +24523,7 @@ public class BirdGame3 extends Application {
         if (STOCK_PHOTO_TURKEY_SKIN.equals(key)) return "Stock Photo Turkey";
         if ("SKY_KING_EAGLE".equals(key)) return "Sky King Eagle";
         if (NOVA_PHOENIX_SKIN.equals(key)) return "Nova Phoenix";
+        if (ASHEN_SOVEREIGN_PHOENIX_SKIN.equals(key)) return "Ashen Sovereign Phoenix";
         if (DUNE_FALCON_SKIN.equals(key)) return "Dune Falcon";
         if (MINT_PENGUIN_SKIN.equals(key)) return "Mint Penguin";
         if (CIRCUIT_TITMOUSE_SKIN.equals(key)) return "Circuit Titmouse";
@@ -24202,6 +24641,7 @@ public class BirdGame3 extends Application {
         stormPigeonUnlocked = true;
         eagleSkinUnlocked = true;
         novaPhoenixUnlocked = true;
+        ashenSovereignPhoenixUnlocked = true;
         duneFalconUnlocked = true;
         mintPenguinUnlocked = true;
         circuitTitmouseUnlocked = true;
@@ -24233,6 +24673,7 @@ public class BirdGame3 extends Application {
         applyDeveloperBirdCoinMode();
 
         guidedTutorialCompleted = true;
+        ashfallTrialCompleted = true;
         Arrays.fill(classicCompleted, true);
         Arrays.fill(classicSkinUnlocked, true);
         Arrays.fill(trainingAcademyDrillCompleted, true);
@@ -25108,6 +25549,9 @@ public class BirdGame3 extends Application {
             case NOVA_PHOENIX_SKIN -> {
                 return "Nova Phoenix";
             }
+            case ASHEN_SOVEREIGN_PHOENIX_SKIN -> {
+                return "Ashen Sovereign Phoenix";
+            }
             case DUNE_FALCON_SKIN -> {
                 return "Dune Falcon";
             }
@@ -25261,6 +25705,381 @@ public class BirdGame3 extends Application {
         return btn;
     }
 
+    private String latestUpdateSplashKey() {
+        UpdateSplash latest = latestUpdateSplash();
+        return latest == null ? "" : latest.key();
+    }
+
+    private UpdateSplash latestUpdateSplash() {
+        return UPDATE_SPLASHES.isEmpty() ? null : UPDATE_SPLASHES.getFirst();
+    }
+
+    private boolean shouldShowLatestUpdateSplash() {
+        String latestKey = latestUpdateSplashKey();
+        return !latestKey.isBlank() && !latestKey.equals(lastSeenUpdateSplashKey);
+    }
+
+    private void maybeShowLatestUpdateSplash(Stage stage) {
+        if (stage == null || !shouldShowLatestUpdateSplash()) {
+            return;
+        }
+        showUpdateSplash(stage, 0, true, () -> showMenu(stage));
+    }
+
+    private void markUpdateSplashSeen(UpdateSplash splash) {
+        if (splash == null || splash.key() == null || splash.key().isBlank()) {
+            return;
+        }
+        lastSeenUpdateSplashKey = splash.key();
+        saveAchievements();
+    }
+
+    private void showUpdateSplashBrowser(Stage stage, Runnable returnAction) {
+        showUpdateSplash(stage, 0, false, returnAction == null ? () -> showMainSettings(stage) : returnAction);
+    }
+
+    private void showUpdateSplash(Stage stage, int startIndex, boolean firstRun, Runnable returnAction) {
+        if (stage == null || UPDATE_SPLASHES.isEmpty()) {
+            if (returnAction != null) returnAction.run();
+            return;
+        }
+
+        int[] index = new int[]{Math.clamp(startIndex, 0, UPDATE_SPLASHES.size() - 1)};
+        Canvas art = new Canvas(WIDTH, HEIGHT);
+
+        StackPane root = new StackPane();
+        root.setStyle("-fx-background-color: #05070D;");
+        BorderPane layout = new BorderPane();
+        layout.setPadding(new Insets(54, 72, 54, 72));
+        root.getChildren().addAll(art, layout);
+
+        Label title = new Label();
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 92));
+        title.setTextAlignment(TextAlignment.CENTER);
+        title.setAlignment(Pos.CENTER);
+        title.setWrapText(true);
+        title.setMaxWidth(1180);
+        applyNoEllipsis(title);
+
+        Label subtitle = new Label();
+        subtitle.setFont(Font.font("Consolas", FontWeight.BOLD, 28));
+        subtitle.setTextFill(Color.web("#ECEFF1"));
+        subtitle.setTextAlignment(TextAlignment.CENTER);
+        subtitle.setAlignment(Pos.CENTER);
+        subtitle.setWrapText(true);
+        subtitle.setMaxWidth(1180);
+        applyNoEllipsis(subtitle);
+
+        Label season = new Label();
+        season.setFont(Font.font("Arial Black", 24));
+        season.setTextAlignment(TextAlignment.CENTER);
+        season.setAlignment(Pos.CENTER);
+        applyNoEllipsis(season);
+
+        VBox header = new VBox(5, season, title, subtitle);
+        header.setAlignment(Pos.CENTER);
+        layout.setTop(header);
+
+        Label summary = new Label();
+        summary.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
+        summary.setTextFill(Color.web("#FFFDE7"));
+        summary.setWrapText(true);
+        summary.setMaxWidth(820);
+        summary.setTextAlignment(TextAlignment.LEFT);
+        applyNoEllipsis(summary);
+
+        VBox highlights = new VBox(12);
+        highlights.setAlignment(Pos.TOP_LEFT);
+
+        VBox scrollContent = new VBox(22, summary, highlights);
+        scrollContent.setAlignment(Pos.TOP_LEFT);
+        scrollContent.setPadding(new Insets(24));
+        scrollContent.setMaxWidth(930);
+
+        ScrollPane scrollPane = new ScrollPane(scrollContent);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        scrollPane.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
+        scrollPane.setPrefViewportWidth(930);
+        scrollPane.setPrefViewportHeight(470);
+        scrollPane.setStyle("-fx-background: transparent; -fx-background-color: rgba(0,0,0,0.54); "
+                + "-fx-border-color: rgba(255,255,255,0.22); -fx-border-width: 2; -fx-border-radius: 18; "
+                + "-fx-background-radius: 18;");
+
+        StackPane scrollShell = new StackPane(scrollPane);
+        scrollShell.setPadding(new Insets(10));
+        scrollShell.setMaxWidth(980);
+        scrollShell.setStyle("-fx-background-color: rgba(0,0,0,0.48); -fx-background-radius: 22; "
+                + "-fx-border-color: rgba(255,224,178,0.55); -fx-border-width: 2; -fx-border-radius: 22;");
+
+        layout.setCenter(scrollShell);
+        BorderPane.setAlignment(scrollShell, Pos.CENTER);
+        BorderPane.setMargin(scrollShell, new Insets(26, 0, 22, 0));
+
+        Label counter = new Label();
+        counter.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
+        counter.setTextFill(Color.web("#ECEFF1"));
+        applyNoEllipsis(counter);
+
+        Button previous = uiFactory.action("PREVIOUS", 250, 82, 24, "#455A64", 18, null);
+        Button next = uiFactory.action("NEXT", 250, 82, 24, "#455A64", 18, null);
+        Button close = uiFactory.action(firstRun ? "CONTINUE" : "BACK TO SETTINGS", firstRun ? 330 : 390, 90,
+                firstRun ? 34 : 28, firstRun ? "#FF7043" : "#D32F2F", 24, null);
+
+        Runnable[] refresh = new Runnable[1];
+        previous.setOnAction(e -> {
+            if (index[0] < UPDATE_SPLASHES.size() - 1) {
+                playButtonClick();
+                index[0]++;
+                refresh[0].run();
+            }
+        });
+        next.setOnAction(e -> {
+            if (index[0] > 0) {
+                playButtonClick();
+                index[0]--;
+                refresh[0].run();
+            }
+        });
+        close.setOnAction(e -> {
+            playButtonClick();
+            if (firstRun) {
+                markUpdateSplashSeen(UPDATE_SPLASHES.get(index[0]));
+            }
+            if (returnAction != null) {
+                returnAction.run();
+            } else {
+                showMenu(stage);
+            }
+        });
+
+        HBox nav = new HBox(18, previous, counter, next, close);
+        nav.setAlignment(Pos.CENTER);
+        layout.setBottom(nav);
+
+        refresh[0] = () -> {
+            UpdateSplash splash = UPDATE_SPLASHES.get(index[0]);
+            drawUpdateSplashArt(art.getGraphicsContext2D(), splash);
+            Color accent = Color.web(splash.accentColor());
+            title.setText(splash.title());
+            title.setTextFill(accent);
+            title.setEffect(new Glow("REBIRTH_UPDATE".equals(splash.key()) ? 0.62 : 0.42));
+            subtitle.setText(splash.subtitle());
+            season.setText(splash.season().toUpperCase(Locale.ROOT));
+            season.setTextFill(accent.brighter());
+            summary.setText(splash.summary());
+            highlights.getChildren().setAll(splash.highlights().stream()
+                    .map(line -> updateSplashHighlightRow(line, splash.accentColor()))
+                    .toList());
+            counter.setText((index[0] + 1) + " / " + UPDATE_SPLASHES.size());
+            previous.setDisable(index[0] >= UPDATE_SPLASHES.size() - 1);
+            next.setDisable(index[0] <= 0);
+            scrollPane.setVvalue(0.0);
+        };
+        refresh[0].run();
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, close);
+        addSceneEventFilter(scene, KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.LEFT && !previous.isDisabled()) {
+                previous.fire();
+                e.consume();
+            } else if (e.getCode() == KeyCode.RIGHT && !next.isDisabled()) {
+                next.fire();
+                e.consume();
+            }
+        });
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        close.requestFocus();
+    }
+
+    private Node updateSplashHighlightRow(String text, String accentColor) {
+        Label marker = new Label(">");
+        marker.setFont(Font.font("Arial Black", 26));
+        marker.setTextFill(Color.web(accentColor));
+        marker.setMinWidth(32);
+        marker.setAlignment(Pos.TOP_CENTER);
+
+        Label body = new Label(text == null ? "" : text);
+        body.setFont(Font.font("Consolas", 22));
+        body.setTextFill(Color.web("#ECEFF1"));
+        body.setWrapText(true);
+        body.setMaxWidth(790);
+        body.setAlignment(Pos.TOP_LEFT);
+        applyNoEllipsis(body);
+
+        HBox row = new HBox(12, marker, body);
+        row.setAlignment(Pos.TOP_LEFT);
+        row.setPadding(new Insets(8, 12, 8, 12));
+        row.setStyle("-fx-background-color: rgba(255,255,255,0.07); -fx-background-radius: 12; "
+                + "-fx-border-color: rgba(255,255,255,0.12); -fx-border-width: 1; -fx-border-radius: 12;");
+        return row;
+    }
+
+    private void drawUpdateSplashArt(GraphicsContext g, UpdateSplash splash) {
+        boolean rebirth = splash != null && "REBIRTH_UPDATE".equals(splash.key());
+        Color top = rebirth ? Color.web("#08070C") : Color.web("#071526");
+        Color mid = rebirth ? Color.web("#30110F") : Color.web("#123D5B");
+        Color bottom = rebirth ? Color.web("#090A0E") : Color.web("#08101C");
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, top), new Stop(0.48, mid), new Stop(1.0, bottom)));
+        g.fillRect(0, 0, WIDTH, HEIGHT);
+
+        if (rebirth) {
+            drawRebirthSplashArt(g);
+        } else {
+            drawLaunchSplashArt(g);
+        }
+    }
+
+    private void drawRebirthSplashArt(GraphicsContext g) {
+        double altarX = WIDTH * 0.50;
+        double altarY = HEIGHT * 0.62;
+        Color ember = Color.web("#FF7043");
+        Color gold = Color.web("#FFE082");
+        Color ash = Color.web("#263238");
+
+        g.setFill(Color.web("#11161B", 0.78));
+        for (int i = 0; i < 7; i++) {
+            double x0 = WIDTH * 0.18 + i * 210.0;
+            double h = 390.0 + (i % 2) * 70.0;
+            g.fillRoundRect(x0, HEIGHT - h, 92.0, h + 90.0, 34.0, 34.0);
+            g.setFill(Color.web("#263238", 0.55));
+            g.fillRoundRect(x0 + 16.0, HEIGHT - h + 26.0, 60.0, 170.0, 28.0, 28.0);
+            g.setFill(Color.web("#11161B", 0.78));
+        }
+
+        g.setStroke(Color.web("#FF8A50", 0.42));
+        g.setLineWidth(5.0);
+        for (int i = 0; i < 12; i++) {
+            double x0 = 90.0 + i * 155.0;
+            double y0 = HEIGHT - 85.0 - (i % 3) * 24.0;
+            g.strokeLine(x0, y0, x0 + 82.0, y0 - 32.0);
+        }
+
+        g.setFill(Color.web("#000000", 0.58));
+        g.fillOval(altarX - 390.0, altarY + 205.0, 780.0, 110.0);
+        g.setFill(Color.web("#141414", 0.88));
+        g.fillRoundRect(altarX - 285.0, altarY + 175.0, 570.0, 72.0, 28.0, 28.0);
+        g.setStroke(gold.deriveColor(0, 1, 1, 0.48));
+        g.setLineWidth(4.0);
+        g.strokeRoundRect(altarX - 285.0, altarY + 175.0, 570.0, 72.0, 28.0, 28.0);
+
+        g.setEffect(new Glow(0.76));
+        g.setFill(Color.web("#FF3D00", 0.20));
+        g.fillOval(altarX - 330.0, altarY - 270.0, 660.0, 660.0);
+        g.setStroke(ember.deriveColor(0, 1, 1, 0.62));
+        g.setLineWidth(7.0);
+        g.strokeOval(altarX - 250.0, altarY - 205.0, 500.0, 410.0);
+        g.setStroke(gold.deriveColor(0, 1, 1, 0.72));
+        g.setLineWidth(3.5);
+        g.strokeOval(altarX - 185.0, altarY - 152.0, 370.0, 304.0);
+
+        g.setFill(Color.web("#07090B"));
+        g.fillOval(altarX - 92.0, altarY - 60.0, 184.0, 200.0);
+        g.setFill(Color.web("#2B1210"));
+        g.fillOval(altarX + 48.0, altarY - 82.0, 118.0, 92.0);
+
+        g.setFill(Color.web("#111A1D", 0.86));
+        g.fillPolygon(
+                new double[]{altarX - 20.0, altarX - 435.0, altarX - 255.0, altarX - 70.0},
+                new double[]{altarY - 10.0, altarY - 180.0, altarY + 82.0, altarY + 74.0},
+                4
+        );
+        g.fillPolygon(
+                new double[]{altarX + 20.0, altarX + 435.0, altarX + 255.0, altarX + 70.0},
+                new double[]{altarY - 10.0, altarY - 180.0, altarY + 82.0, altarY + 74.0},
+                4
+        );
+        g.setStroke(ember.deriveColor(0, 1, 1, 0.72));
+        g.setLineWidth(4.0);
+        g.strokeLine(altarX - 45.0, altarY + 6.0, altarX - 370.0, altarY - 130.0);
+        g.strokeLine(altarX + 45.0, altarY + 6.0, altarX + 370.0, altarY - 130.0);
+        g.setStroke(gold.deriveColor(0, 1, 1, 0.55));
+        g.setLineWidth(2.0);
+        g.strokeLine(altarX - 80.0, altarY + 50.0, altarX - 250.0, altarY + 30.0);
+        g.strokeLine(altarX + 80.0, altarY + 50.0, altarX + 250.0, altarY + 30.0);
+
+        g.setFill(gold.deriveColor(0, 1, 1, 0.90));
+        g.fillPolygon(
+                new double[]{altarX + 72.0, altarX + 98.0, altarX + 120.0, altarX + 145.0, altarX + 168.0},
+                new double[]{altarY - 86.0, altarY - 155.0, altarY - 100.0, altarY - 158.0, altarY - 82.0},
+                5
+        );
+        g.setFill(Color.web("#FF3D00", 0.78));
+        g.fillPolygon(
+                new double[]{altarX + 92.0, altarX + 120.0, altarX + 148.0},
+                new double[]{altarY - 78.0, altarY - 132.0, altarY - 78.0},
+                3
+        );
+
+        for (int i = 0; i < 38; i++) {
+            double angle = i * 0.91;
+            double radius = 150.0 + (i % 8) * 24.0;
+            double ex = altarX + Math.cos(angle) * radius;
+            double ey = altarY - 20.0 + Math.sin(angle) * radius * 0.55;
+            double size = 3.0 + (i % 5);
+            g.setFill((i % 3 == 0 ? gold : ember).deriveColor(0, 1, 1, 0.48 + (i % 4) * 0.08));
+            g.fillOval(ex, ey, size, size);
+        }
+        g.setEffect(null);
+
+        g.setFill(ash.deriveColor(0, 1, 1, 0.30));
+        for (int i = 0; i < 26; i++) {
+            double x0 = 70.0 + i * 76.0;
+            double y0 = 120.0 + (i * 37 % 280);
+            g.fillOval(x0, y0, 5.0 + i % 4, 5.0 + i % 4);
+        }
+    }
+
+    private void drawLaunchSplashArt(GraphicsContext g) {
+        double centerX = WIDTH * 0.50;
+        double centerY = HEIGHT * 0.55;
+        Color sky = Color.web("#4FC3F7");
+        Color gold = Color.web("#FFE082");
+
+        g.setEffect(new Glow(0.34));
+        g.setFill(sky.deriveColor(0, 1, 1, 0.16));
+        g.fillOval(centerX - 390.0, centerY - 330.0, 780.0, 600.0);
+        g.setStroke(sky.deriveColor(0, 1, 1, 0.54));
+        g.setLineWidth(5.0);
+        g.strokeOval(centerX - 275.0, centerY - 210.0, 550.0, 420.0);
+        g.setEffect(null);
+
+        g.setFill(Color.web("#101820", 0.88));
+        g.fillRoundRect(centerX - 520.0, centerY + 190.0, 1040.0, 92.0, 34.0, 34.0);
+        g.setStroke(gold.deriveColor(0, 1, 1, 0.48));
+        g.setLineWidth(4.0);
+        g.strokeRoundRect(centerX - 520.0, centerY + 190.0, 1040.0, 92.0, 34.0, 34.0);
+
+        for (int i = 0; i < 9; i++) {
+            double bx = centerX - 360.0 + i * 90.0;
+            double by = centerY + 130.0 - (i % 3) * 26.0;
+            Color body = Color.hsb((i * 42) % 360, 0.62, 0.92);
+            g.setFill(body);
+            g.fillOval(bx - 24.0, by - 18.0, 48.0, 50.0);
+            g.setFill(body.brighter());
+            g.fillOval(bx + 12.0, by - 26.0, 34.0, 30.0);
+            g.setFill(Color.WHITE);
+            g.fillOval(bx + 26.0, by - 22.0, 12.0, 12.0);
+            g.setFill(Color.BLACK);
+            g.fillOval(bx + 30.0, by - 18.0, 5.0, 5.0);
+            g.setFill(Color.ORANGE);
+            g.fillPolygon(new double[]{bx + 43.0, bx + 66.0, bx + 43.0},
+                    new double[]{by - 13.0, by - 7.0, by - 1.0}, 3);
+        }
+
+        g.setStroke(Color.web("#B3E5FC", 0.42));
+        g.setLineWidth(3.0);
+        for (int i = 0; i < 10; i++) {
+            double y0 = 120.0 + i * 58.0;
+            g.strokeArc(80.0 + i * 36.0, y0, 190.0, 70.0, 12.0, 145.0, ArcType.OPEN);
+            g.strokeArc(WIDTH - 260.0 - i * 32.0, y0 + 20.0, 170.0, 62.0, 28.0, 134.0, ArcType.OPEN);
+        }
+    }
+
     private void showUpdateTrailer(Stage stage, BirdBookCategory returnCategory) {
         BirdBookCategory resolvedCategory = returnCategory == null ? BirdBookCategory.BIRDS : returnCategory;
 
@@ -25335,6 +26154,7 @@ public class BirdGame3 extends Application {
         activePlayers = 2;
         trainingModeActive = false;
         classicModeActive = false;
+        clearAshfallTrialState();
         competitionModeEnabled = false;
         storyModeActive = false;
         adventureModeActive = false;
@@ -26464,6 +27284,7 @@ public class BirdGame3 extends Application {
         switch (Objects.requireNonNull(selectedMap)) {
             case DOCK -> setupDockArena();
             case DESERT -> setupDesertArena();
+            case ASHFALL_CATHEDRAL -> setupAshfallCathedralArena();
             case BATTLEFIELD -> {
                 double islandW = 1200;
                 double islandH = 70;
@@ -26491,6 +27312,7 @@ public class BirdGame3 extends Application {
         switch (selectedMap) {
             case DOCK -> drawDockArena(g, true);
             case DESERT -> drawDesertArena(g, true);
+            case ASHFALL_CATHEDRAL -> drawAshfallCathedralArena(g, true);
             case BATTLEFIELD -> drawTrailerBattlefieldArena(g);
             case BEACON_CROWN -> drawBeaconCrownBattlefield(g, true);
             case FROSTBITE_FJORD ->  drawFrostbiteFjordArena(g, true);
@@ -27515,6 +28337,9 @@ public class BirdGame3 extends Application {
             case NOVA_PHOENIX_SKIN -> {
                 return novaPhoenixUnlocked;
             }
+            case ASHEN_SOVEREIGN_PHOENIX_SKIN -> {
+                return ashenSovereignPhoenixUnlocked;
+            }
             case DUNE_FALCON_SKIN -> {
                 return duneFalconUnlocked;
             }
@@ -27601,6 +28426,9 @@ public class BirdGame3 extends Application {
             case "SKY_KING_EAGLE" -> {
                 return "Complete Pelican Episode or Classic with Eagle, or Card Packs";
             }
+            case ASHEN_SOVEREIGN_PHOENIX_SKIN -> {
+                return "Complete Ashfall Trial";
+            }
         }
         if (key.startsWith("CLASSIC_SKIN_")) {
             return "Complete Classic with " + type.name + " or Card Packs";
@@ -27628,6 +28456,7 @@ public class BirdGame3 extends Application {
         if (TIDE_VULTURE_SKIN.equals(key)) return "Deep-sea hues with salt-stained edges. It circles like a stormfront rolling in.";
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(key)) return "Shadow velvet with a violet halo. The lounge feels like a night club after midnight.";
         if (NOVA_PHOENIX_SKIN.equals(key)) return "Star-forged glow with cosmic embers. A living supernova with too much style to burn out.";
+        if (ASHEN_SOVEREIGN_PHOENIX_SKIN.equals(key)) return "Black-glass feathers, white-hot crownfire, and cathedral embers orbiting the wings. Only the Ashfall Trial can mark Phoenix like this.";
         if (AURORA_PELICAN_SKIN.equals(key)) return "Polar lights woven into heavy wings. Looks calm, hits like a stormfront.";
         if (IRONCLAD_PELICAN_SKIN.equals(key)) return "Storm-bronze plating, riveted wingguards, and a siege-bird silhouette built to crash through the line.";
         if (UMBRA_BAT_SKIN.equals(key)) return "Void-black membrane with starlit edges. A silent dive that leaves only afterimages.";
@@ -27661,7 +28490,8 @@ public class BirdGame3 extends Application {
                     NULL_ROCK_VULTURE_SKIN, IRONCLAD_PELICAN_SKIN, VOID_HERALD_RAVEN_SKIN -> {
                 return "LEGENDARY";
             }
-            case LORE_ACCURATE_HUMMINGBIRD_SKIN, STOCK_PHOTO_EAGLE_SKIN, STOCK_PHOTO_TURKEY_SKIN -> {
+            case ASHEN_SOVEREIGN_PHOENIX_SKIN, LORE_ACCURATE_HUMMINGBIRD_SKIN,
+                    STOCK_PHOTO_EAGLE_SKIN, STOCK_PHOTO_TURKEY_SKIN -> {
                 return "UNIQUE";
             }
         }
@@ -27763,6 +28593,9 @@ public class BirdGame3 extends Application {
                 skinDescription(PRISM_RAZORBILL_SKIN, BirdType.RAZORBILL), skinHowToGet(PRISM_RAZORBILL_SKIN, BirdType.RAZORBILL)));
         skins.add(new SkinEntry(BirdType.PHOENIX, NOVA_PHOENIX_SKIN, "Nova Phoenix",
                 skinDescription(NOVA_PHOENIX_SKIN, BirdType.PHOENIX), skinHowToGet(NOVA_PHOENIX_SKIN, BirdType.PHOENIX)));
+        skins.add(new SkinEntry(BirdType.PHOENIX, ASHEN_SOVEREIGN_PHOENIX_SKIN, "Ashen Sovereign Phoenix",
+                skinDescription(ASHEN_SOVEREIGN_PHOENIX_SKIN, BirdType.PHOENIX),
+                skinHowToGet(ASHEN_SOVEREIGN_PHOENIX_SKIN, BirdType.PHOENIX)));
         skins.add(new SkinEntry(BirdType.PELICAN, AURORA_PELICAN_SKIN, "Aurora Pelican",
                 skinDescription(AURORA_PELICAN_SKIN, BirdType.PELICAN), skinHowToGet(AURORA_PELICAN_SKIN, BirdType.PELICAN)));
         skins.add(new SkinEntry(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN, "Ironclad Pelican",
@@ -27813,6 +28646,7 @@ public class BirdGame3 extends Application {
                 new MapEntry(MapType.BATTLEFIELD, "Battlefield", mapDescription(MapType.BATTLEFIELD), mapHowToGet(MapType.BATTLEFIELD)),
                 new MapEntry(MapType.DOCK, "Broken Harbor", mapDescription(MapType.DOCK), mapHowToGet(MapType.DOCK)),
                 new MapEntry(MapType.FROSTBITE_FJORD, "Frostbite Fjord", mapDescription(MapType.FROSTBITE_FJORD), mapHowToGet(MapType.FROSTBITE_FJORD)),
+                new MapEntry(MapType.ASHFALL_CATHEDRAL, "Ashfall Cathedral", mapDescription(MapType.ASHFALL_CATHEDRAL), mapHowToGet(MapType.ASHFALL_CATHEDRAL)),
                 new MapEntry(MapType.BEACON_CROWN, "Beacon Crown", mapDescription(MapType.BEACON_CROWN), mapHowToGet(MapType.BEACON_CROWN))
         );
     }
@@ -27846,6 +28680,7 @@ public class BirdGame3 extends Application {
             case BATTLEFIELD -> "A floating island ringed by open sky. Clean side platforms and a central perch make it perfect for classic duels.";
             case DOCK -> "Storm-battered piers, rigging perches, and rescue skiffs over open water. Pull the top-dock lever to call in a pirate-ship bomb on a rival.";
             case FROSTBITE_FJORD -> "A frozen fjord under bright auroras with slick ice, breakable snowbanks, and glacier shelves built for slides, traps, and vertical recoveries.";
+            case ASHFALL_CATHEDRAL -> "A burning sky-temple over a lava sea. Timed phoenix geysers telegraph, erupt, launch, and become dangerous thermals that can save or punish recoveries.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -27858,6 +28693,7 @@ public class BirdGame3 extends Application {
         adventureReplayMode = false;
         currentAdventureBattle = null;
         clearBossRushState();
+        clearAshfallTrialState();
         playMenuMusic();
 
         BorderPane root = new BorderPane();
@@ -27923,6 +28759,7 @@ public class BirdGame3 extends Application {
         classicTeamMode = false;
         Arrays.fill(classicTeams, 1);
         clearBossRushState();
+        clearAshfallTrialState();
         competitionSeriesActive = false;
         Arrays.fill(competitionRoundWins, 0);
         Arrays.fill(competitionTeamWins, 0);
@@ -29553,9 +30390,11 @@ public class BirdGame3 extends Application {
             settingsReturn = () -> showGameSettings(stage);
             showMainSettings(stage);
         });
+        Button whatsNew = uiFactory.action("WHAT'S NEW", 300, 100, 30, "#FB8C00", 22,
+                () -> showUpdateSplashBrowser(stage, () -> showGameSettings(stage)));
         Button enterCode = buildEnterCodeButton(stage);
         Button back = uiFactory.action("BACK", 360, 100, 40, "#FF1744", 28, backAction);
-        buttons.getChildren().addAll(displaySettings, enterCode, back);
+        buttons.getChildren().addAll(displaySettings, whatsNew, enterCode, back);
 
         root.getChildren().addAll(title, card, buttons);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -29928,8 +30767,10 @@ public class BirdGame3 extends Application {
             }
         };
         Button enterCode = buildEnterCodeButton(stage);
+        Button whatsNew = uiFactory.action("WHAT'S NEW", 300, 100, 30, "#FB8C00", 22,
+                () -> showUpdateSplashBrowser(stage, () -> showMainSettings(stage)));
         Button back = uiFactory.action("BACK", 360, 100, 40, "#FF1744", 28, backAction);
-        buttons.getChildren().addAll(enterCode, back);
+        buttons.getChildren().addAll(whatsNew, enterCode, back);
 
         root.getChildren().addAll(title, card, buttons);
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -30507,6 +31348,10 @@ public class BirdGame3 extends Application {
 
     private String buildClassicRunCodename() {
         return buildClassicRunCodename(random);
+    }
+
+    private void clearAshfallTrialState() {
+        ashfallTrialModeActive = false;
     }
 
     private void clearBossRushState() {
@@ -31218,6 +32063,64 @@ public class BirdGame3 extends Application {
         return run;
     }
 
+    private List<ClassicEncounter> buildAshfallTrialRun() {
+        List<ClassicEncounter> run = new ArrayList<>();
+
+        ClassicEncounter geyserRite = new ClassicEncounter(
+                "Geyser Rite",
+                "Pyrecaster",
+                "The cathedral tests lift before power. Ride the phoenix geysers, hold center altar, and burn through the ember duelist.",
+                MapType.ASHFALL_CATHEDRAL,
+                MatchMutator.TURBO_BRAWL,
+                ClassicTwist.STORM_LIFTS,
+                85 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        new ClassicFighter(BirdType.FALCON, "Ember Duelist: Falcon", 118, 1.06, 1.10, DUNE_FALCON_SKIN, 5)
+                },
+                false
+        );
+        geyserRite.cpuLevel = 5;
+        run.add(geyserRite);
+
+        ClassicEncounter cinderCrosswind = new ClassicEncounter(
+                "Cinder Crosswind",
+                "Ashcaller",
+                "Two fast wings dive through the smoke lanes. Use held down-special drift and diagonal flame shots to break their rushdown before lava seals the route.",
+                MapType.ASHFALL_CATHEDRAL,
+                MatchMutator.OVERCHARGE_BRAWL,
+                ClassicTwist.SHOCK_DROPS,
+                95 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        new ClassicFighter(BirdType.ROADRUNNER, "Cinder Runner", 104, 1.00, 1.18, MIRAGE_ROADRUNNER_SKIN, 6),
+                        new ClassicFighter(BirdType.HUMMINGBIRD, "Spark Courier", 88, 0.94, 1.24, SUNFLARE_HUMMINGBIRD_SKIN, 6)
+                },
+                false
+        );
+        cinderCrosswind.cpuLevel = 6;
+        run.add(cinderCrosswind);
+
+        ClassicEncounter ashenMirror = new ClassicEncounter(
+                "Ashen Mirror",
+                "Rebirth Oracle",
+                "The trial ends against the Ashen Phoenix. Survive the nova, force the second landing, and prove the rebirth belongs to you.",
+                MapType.ASHFALL_CATHEDRAL,
+                MatchMutator.RAGE_FRENZY,
+                ClassicTwist.OVERCHARGE_FURY,
+                110 * 60,
+                new ClassicFighter[0],
+                new ClassicFighter[]{
+                        new ClassicFighter(BirdType.PHOENIX, "Trial Boss: Ashen Phoenix", 280, 1.27, 1.08, ASHEN_SOVEREIGN_PHOENIX_SKIN, 8)
+                },
+                true
+        );
+        ashenMirror.cpuLevel = 8;
+        run.add(ashenMirror);
+
+        return run;
+    }
+
     private ClassicEncounter buildBossRushExEncounter() {
         ClassicEncounter ex = new ClassicEncounter(
                 BOSS_RUSH_EX_NAME,
@@ -31914,6 +32817,40 @@ public class BirdGame3 extends Application {
         start.requestFocus();
     }
 
+    private void showAshfallTrialBriefing(Stage stage) {
+        if (!isBirdUnlocked(BirdType.PHOENIX)) {
+            showStoryDialogue(
+                    stage,
+                    "Ashfall Trial Locked",
+                    "Pyrecaster",
+                    "The Rebirth route only opens for Phoenix.\nUnlock Phoenix first, then return to Ashfall Trial.",
+                    () -> showClassicMoreMenu(stage)
+            );
+            return;
+        }
+
+        storyModeActive = false;
+        storyReplayMode = false;
+        adventureModeActive = false;
+        adventureReplayMode = false;
+        currentAdventureBattle = null;
+        resetTournamentRun();
+        trainingModeActive = false;
+        clearActiveDailyChallengeRun();
+        clearBossRushState();
+        ashfallTrialModeActive = true;
+        classicModeActive = false;
+        classicEncounter = null;
+        classicRun.clear();
+        classicRoundIndex = 0;
+        classicDeaths = 0;
+        classicTeamMode = false;
+        Arrays.fill(classicTeams, 1);
+        classicSelectedBird = BirdType.PHOENIX;
+        classicSelectedSkinKey = normalizeAdventureSkinChoice(BirdType.PHOENIX, classicSelectedSkinKey);
+        showClassicRunBriefing(stage, BirdType.PHOENIX);
+    }
+
     private void showClassicRunBriefing(Stage stage, BirdType birdType) {
         if (birdType == null) birdType = BirdType.PIGEON;
         if (!isBirdUnlocked(birdType)) {
@@ -31921,11 +32858,12 @@ public class BirdGame3 extends Application {
             return;
         }
         boolean bossRush = bossRushModeActive;
+        boolean ashfallTrial = ashfallTrialModeActive;
         classicSelectedBird = birdType;
         classicSelectedSkinKey = normalizeAdventureSkinChoice(classicSelectedBird, classicSelectedSkinKey);
-        classicRunCodename = bossRush ? "BOSS RUSH" : buildClassicRunCodename();
+        classicRunCodename = ashfallTrial ? ASHFALL_TRIAL_CODENAME : (bossRush ? "BOSS RUSH" : buildClassicRunCodename());
         classicRun.clear();
-        classicRun.addAll(bossRush ? buildBossRushRun() : buildClassicRun(classicSelectedBird));
+        classicRun.addAll(ashfallTrial ? buildAshfallTrialRun() : (bossRush ? buildBossRushRun() : buildClassicRun(classicSelectedBird)));
         classicRoundIndex = 0;
         classicDeaths = 0;
         bossRushPerfectRun = true;
@@ -31937,11 +32875,16 @@ public class BirdGame3 extends Application {
         root.setPadding(new Insets(30, 36, 30, 36));
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #081122, #1D3557);");
 
-        Label title = new Label(bossRush ? "BOSS RUSH BRIEFING" : "CLASSIC BRIEFING");
+        Label title = new Label(ashfallTrial ? "ASHFALL TRIAL BRIEFING" : (bossRush ? "BOSS RUSH BRIEFING" : "CLASSIC BRIEFING"));
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 84));
         title.setTextFill(Color.GOLD);
 
-        Label runInfo = new Label(bossRush
+        Label runInfo = new Label(ashfallTrial
+                ? ("Trial: " + classicRunCodename + "  |  Pilot: " + classicSelectedBird.name
+                + "  |  Lives: 3"
+                + "\nCompletion: " + (ashfallTrialCompleted ? "CLEARED" : "UNCLEARED")
+                + "  |  Arena: Ashfall Cathedral")
+                : bossRush
                 ? ("Route: " + classicRunCodename + "  |  Pilot: " + classicSelectedBird.name
                 + "  |  Repair Stocks: 3"
                 + "\nSelected Best: " + bossRushBestStatusForBird(classicSelectedBird)
@@ -31955,7 +32898,11 @@ public class BirdGame3 extends Application {
         applyNoEllipsis(runInfo);
 
         String rewardText;
-        if (bossRush) {
+        if (ashfallTrial) {
+            rewardText = "First clear reward: +" + ASHFALL_TRIAL_FIRST_CLEAR_BONUS + " Bird Coins"
+                    + (ashenSovereignPhoenixUnlocked ? "." : " and Ashen Sovereign Phoenix.")
+                    + "\nRepeat clear reward: +" + ASHFALL_TRIAL_REPEAT_CLEAR_BONUS + " Bird Coins.";
+        } else if (bossRush) {
             rewardText = "Clear reward: +" + BOSS_RUSH_CLEAR_BONUS + " Bird Coins."
                     + "\nPerfect route unlock: " + BOSS_RUSH_EX_NAME + "."
                     + "\nEX clear bonus: +" + BOSS_RUSH_EX_CLEAR_BONUS + " Bird Coins.";
@@ -31968,7 +32915,7 @@ public class BirdGame3 extends Application {
         }
         Label rewardInfo = new Label(rewardText);
         rewardInfo.setFont(Font.font("Consolas", 26));
-        rewardInfo.setTextFill(bossRush ? Color.web("#FFE082")
+        rewardInfo.setTextFill((bossRush || ashfallTrial) ? Color.web("#FFE082")
                 : (isClassicRewardUnlocked(classicSelectedBird) ? Color.LIMEGREEN : Color.ORANGE));
         rewardInfo.setWrapText(true);
         rewardInfo.setMaxWidth(1400);
@@ -32004,7 +32951,7 @@ public class BirdGame3 extends Application {
             route.getChildren().add(exHint);
         }
 
-        Button start = uiFactory.action(bossRush ? "START BOSS RUSH" : "START CLASSIC RUN", 560, 110, 38, "#00C853", 24, () -> {
+        Button start = uiFactory.action(ashfallTrial ? "START ASHFALL TRIAL" : (bossRush ? "START BOSS RUSH" : "START CLASSIC RUN"), 560, 110, 38, "#00C853", 24, () -> {
             playButtonClick();
             resetMatchStats();
             classicModeActive = true;
@@ -32013,7 +32960,14 @@ public class BirdGame3 extends Application {
             }
             showClassicEncounterIntro(stage);
         });
-        Button back = uiFactory.action("BACK TO BIRDS", 460, 110, 38, "#FF1744", 24, () -> showClassicBirdSelect(stage));
+        Button back = uiFactory.action(ashfallTrial ? "BACK TO MODES" : "BACK TO BIRDS", 460, 110, 38, "#FF1744", 24,
+                () -> {
+                    if (ashfallTrial) {
+                        showClassicMoreMenu(stage);
+                    } else {
+                        showClassicBirdSelect(stage);
+                    }
+                });
         HBox buttons = new HBox(20, start, back);
         buttons.setAlignment(Pos.CENTER);
 
@@ -32035,6 +32989,8 @@ public class BirdGame3 extends Application {
         if (!classicModeActive || classicRun.isEmpty()) {
             if (dailyChallengeModeActive) {
                 showDailyChallengeSetup(stage);
+            } else if (ashfallTrialModeActive) {
+                showAshfallTrialBriefing(stage);
             } else {
                 showClassicBirdSelect(stage);
             }
@@ -32051,7 +33007,7 @@ public class BirdGame3 extends Application {
         VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #081122, #13294B);",
                 MENU_PADDING, 30);
 
-        String titlePrefix = dailyChallengeModeActive ? "Daily " : (bossRushModeActive ? "Boss " : "Classic ");
+        String titlePrefix = dailyChallengeModeActive ? "Daily " : (ashfallTrialModeActive ? "Trial " : (bossRushModeActive ? "Boss " : "Classic "));
         Label title = new Label(titlePrefix + (classicRoundIndex + 1) + ": " + classicEncounter.name);
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 92));
         title.setTextFill(Color.GOLD);
@@ -32094,6 +33050,9 @@ public class BirdGame3 extends Application {
         Label statusLabel = getLabel(dailyChallengeModeActive
                 ? "Round " + (classicRoundIndex + 1) + "/" + classicRun.size()
                   + "  |  Lives " + livesLeft + "/3  |  No Continues  |  Seed " + formatDailyChallengeSeed(dailyChallengeSeed)
+                : ashfallTrialModeActive
+                  ? "Trial " + (classicRoundIndex + 1) + "/" + classicRun.size()
+                    + "  |  Lives " + livesLeft + "/3  |  Phoenix Locked Route"
                 : bossRushModeActive
                   ? "Boss " + (classicRoundIndex + 1) + "/" + classicRun.size()
                     + "  |  Repair Stocks " + livesLeft + "/3  |  Perfect Route "
@@ -32118,7 +33077,7 @@ public class BirdGame3 extends Application {
 
         Label cpuLabel = new Label("CPU LEVEL: " + classicCpuLevel + (dailyChallengeModeActive
                 ? " (DAILY AUTO)"
-                : (bossRushModeActive ? " (ROUTE LOCK)" : " (AUTO)")));
+                : (ashfallTrialModeActive ? " (TRIAL LOCK)" : (bossRushModeActive ? " (ROUTE LOCK)" : " (AUTO)"))));
         cpuLabel.setFont(Font.font("Consolas", 26));
         cpuLabel.setTextFill(Color.web("#B3E5FC"));
         HBox options = new HBox(20, cpuLabel);
@@ -32128,15 +33087,17 @@ public class BirdGame3 extends Application {
         buttons.setAlignment(Pos.CENTER);
 
         Button continueButton = uiFactory.action(
-                dailyChallengeModeActive ? "START DAILY ENCOUNTER" : (bossRushModeActive ? "START BOSS" : "START ENCOUNTER"),
+                dailyChallengeModeActive ? "START DAILY ENCOUNTER" : (ashfallTrialModeActive ? "START TRIAL ROUND" : (bossRushModeActive ? "START BOSS" : "START ENCOUNTER")),
                 560, 120, 48, "#00C853", 28, () -> startClassicEncounter(stage));
 
         Button menuButton = uiFactory.action(
-                dailyChallengeModeActive ? "BACK TO CHALLENGE" : (bossRushModeActive ? "BACK TO BOSS RUSH" : "BACK TO HUB"),
+                dailyChallengeModeActive ? "BACK TO CHALLENGE" : (ashfallTrialModeActive ? "BACK TO ASHFALL TRIAL" : (bossRushModeActive ? "BACK TO BOSS RUSH" : "BACK TO HUB")),
                 520, 120, 34, "#D32F2F", 28,
                 () -> {
                     if (dailyChallengeModeActive) {
                         showDailyChallengeSetup(stage);
+                    } else if (ashfallTrialModeActive) {
+                        showAshfallTrialBriefing(stage);
                     } else if (bossRushModeActive) {
                         showClassicBirdSelect(stage);
                     } else {
@@ -32158,7 +33119,11 @@ public class BirdGame3 extends Application {
 
     private void startClassicEncounter(Stage stage) {
         if (!classicModeActive || classicEncounter == null) {
-            showClassicBirdSelect(stage);
+            if (ashfallTrialModeActive) {
+                showAshfallTrialBriefing(stage);
+            } else {
+                showClassicBirdSelect(stage);
+            }
             return;
         }
         selectedMap = classicEncounter.map;
@@ -32436,7 +33401,11 @@ public class BirdGame3 extends Application {
         classicTeams[0] = 1;
 
         int slot = 0;
-        createStoryBird(900, classicSelectedBird, slot, "You: " + classicSelectedBird.name, 112, 1.05, 1.04, false);
+        double playerHealth = ashfallTrialModeActive ? 128 : 112;
+        double playerPower = ashfallTrialModeActive ? 1.10 : 1.05;
+        double playerSpeed = ashfallTrialModeActive ? 1.08 : 1.04;
+        createStoryBird(900, classicSelectedBird, slot, "You: " + classicSelectedBird.name,
+                playerHealth, playerPower, playerSpeed, false);
         String skinKey = normalizeAdventureSkinChoice(classicSelectedBird, classicSelectedSkinKey);
         classicSelectedSkinKey = skinKey;
         applySkinChoiceToBird(players[slot], classicSelectedBird, skinKey);
@@ -32492,12 +33461,49 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void applyAshfallTrialEncounterArenaModifiers(ClassicEncounter encounter) {
+        if (!ashfallTrialModeActive || encounter == null) return;
+        switch (encounter.name) {
+            case "Geyser Rite" -> {
+                addToKillFeed("ASHFALL TRIAL: geyser rite vents are overcharged.");
+                windVents.add(new WindVent(1420, GROUND_Y - 430, 430));
+                windVents.add(new WindVent(3000, GROUND_Y - 520, 620));
+                windVents.add(new WindVent(4580, GROUND_Y - 430, 430));
+                powerUps.add(new PowerUp(3000, GROUND_Y - 1240, PowerUpType.THERMAL));
+            }
+            case "Cinder Crosswind" -> {
+                addToKillFeed("ASHFALL TRIAL: cinder sentries cut through the smoke lanes.");
+                crowMinions.add(new CrowMinion(1180, 520, null));
+                crowMinions.add(new CrowMinion(2060, 420, null));
+                crowMinions.add(new CrowMinion(3940, 420, null));
+                crowMinions.add(new CrowMinion(4820, 520, null));
+                powerUps.add(new PowerUp(1700, GROUND_Y - 880, PowerUpType.SPEED));
+                powerUps.add(new PowerUp(4300, GROUND_Y - 880, PowerUpType.HEALTH));
+            }
+            case "Ashen Mirror" -> {
+                addToKillFeed("ASHFALL TRIAL: the altar opens for the final rebirth.");
+                windVents.add(new WindVent(1040, GROUND_Y - 390, 360));
+                windVents.add(new WindVent(3000, GROUND_Y - 640, 760));
+                windVents.add(new WindVent(4960, GROUND_Y - 390, 360));
+                powerUps.add(new PowerUp(1800, GROUND_Y - 900, PowerUpType.RAGE));
+                powerUps.add(new PowerUp(3000, GROUND_Y - 1180, PowerUpType.OVERCHARGE));
+                powerUps.add(new PowerUp(4200, GROUND_Y - 900, PowerUpType.HEALTH));
+                redFlashAlpha = Math.max(redFlashAlpha, 0.22);
+            }
+            default -> {
+            }
+        }
+    }
+
     private void applyClassicEncounterArenaModifiers(ClassicEncounter encounter) {
         if (encounter == null) return;
         if (bossRushModeActive) {
             applyBossRushEncounterArenaModifiers(encounter);
         }
-        addToKillFeed((bossRushModeActive ? "BOSS RUSH TWIST: " : "CLASSIC TWIST: ") + encounter.twist.label);
+        if (ashfallTrialModeActive) {
+            applyAshfallTrialEncounterArenaModifiers(encounter);
+        }
+        addToKillFeed((ashfallTrialModeActive ? "ASHFALL TRIAL TWIST: " : (bossRushModeActive ? "BOSS RUSH TWIST: " : "CLASSIC TWIST: ")) + encounter.twist.label);
         switch (encounter.twist) {
             case STORM_LIFTS -> {
                 windVents.add(new WindVent(900, GROUND_Y - 380, 420));
@@ -33064,6 +34070,10 @@ public class BirdGame3 extends Application {
             handleDailyChallengeMatchEnd(stage, winner);
             return;
         }
+        if (ashfallTrialModeActive) {
+            handleAshfallTrialMatchEnd(stage, winner);
+            return;
+        }
         if (bossRushModeActive) {
             handleBossRushMatchEnd(stage, winner);
             return;
@@ -33121,6 +34131,73 @@ public class BirdGame3 extends Application {
                 "Encounter Cleared",
                 "Skycaster",
                 "Advance to Round " + (classicRoundIndex + 1) + ": " + classicEncounter.name + ".",
+                () -> showClassicEncounterIntro(stage)
+        );
+    }
+
+    private void handleAshfallTrialMatchEnd(Stage stage, Bird winner) {
+        if (!classicModeActive || classicEncounter == null) {
+            showAshfallTrialBriefing(stage);
+            return;
+        }
+
+        if (!didPlayerWinClassic(winner)) {
+            classicDeaths++;
+            if (classicDeaths < 3) {
+                int livesLeft = Math.max(0, 3 - classicDeaths);
+                showStoryDialogue(
+                        stage,
+                        "Trial Broken",
+                        "Pyrecaster",
+                        "You were eliminated in " + classicEncounter.name + ".\nTrial lives remaining: "
+                                + livesLeft + "/3.\nReturn to the altar and retry this rite.",
+                        () -> startClassicEncounter(stage)
+                );
+            } else {
+                classicDeaths = 0;
+                showStoryDialogue(
+                        stage,
+                        "Ashfall Trial Failed",
+                        "Rebirth Oracle",
+                        "The route collapsed in " + classicEncounter.name + ".\nThe cathedral stays lit, but the trial must be restarted.",
+                        () -> showAshfallTrialBriefing(stage)
+                );
+            }
+            return;
+        }
+
+        if (classicRoundIndex >= classicRun.size() - 1) {
+            boolean firstClear = !ashfallTrialCompleted;
+            boolean unlockedAshenSkin = !ashenSovereignPhoenixUnlocked;
+            int payout = firstClear ? ASHFALL_TRIAL_FIRST_CLEAR_BONUS : ASHFALL_TRIAL_REPEAT_CLEAR_BONUS;
+            ashfallTrialCompleted = true;
+            classicDeaths = 0;
+            grantBirdCoins(payout);
+            if (unlockedAshenSkin) {
+                unlockShopPreview(new ShopPreview(BirdType.PHOENIX, ASHEN_SOVEREIGN_PHOENIX_SKIN, null));
+            }
+            saveAchievements();
+            showStoryDialogue(
+                    stage,
+                    "Ashfall Trial Cleared",
+                    "Rebirth Oracle",
+                    "The final flame answers Phoenix.\nBird Coins awarded: +" + payout + "."
+                            + (unlockedAshenSkin ? "\nReward unlocked: Ashen Sovereign Phoenix."
+                            : "\nAshen Sovereign Phoenix already unlocked.")
+                            + "\nTrial status: CLEARED.",
+                    () -> runAfterUnlockCards(stage, () -> showClassicMoreMenu(stage))
+            );
+            return;
+        }
+
+        classicRoundIndex++;
+        classicEncounter = classicRun.get(classicRoundIndex);
+        saveAchievements();
+        showStoryDialogue(
+                stage,
+                "Rite Cleared",
+                "Ashcaller",
+                "Advance to Trial " + (classicRoundIndex + 1) + ": " + classicEncounter.name + ".",
                 () -> showClassicEncounterIntro(stage)
         );
     }
@@ -33461,6 +34538,7 @@ public class BirdGame3 extends Application {
                 new MapCard("BATTLEFIELD", "A tight floating island with clean side perches and open edges.", "#1E88E5", MapType.BATTLEFIELD),
                 new MapCard("BROKEN HARBOR", "Storm piers, mast perches, rescue skiffs, and a bombardment lever on the high dock.", "#26A69A", MapType.DOCK),
                 new MapCard("FROSTBITE FJORD", "Aurora-lit ice shelves with slick movement, snowbanks, and glacier routes.", "#4FC3F7", MapType.FROSTBITE_FJORD),
+                new MapCard("ASHFALL CATHEDRAL", "Phoenix geysers, lava recovery routes, ember thermals, and a burning sky-temple.", "#E64A19", MapType.ASHFALL_CATHEDRAL),
                 new MapCard("BEACON CROWN", "A huge crown-top arena with long lanes, layered perches, and a lethal void.", "#6A1B9A", MapType.BEACON_CROWN)
         ));
         cards.removeIf(card -> !isMapUnlocked(card.map));
@@ -35663,7 +36741,8 @@ public class BirdGame3 extends Application {
         boolean battlefield = (selectedMap == MapType.BATTLEFIELD
                 || selectedMap == MapType.BEACON_CROWN
                 || selectedMap == MapType.DOCK
-                || selectedMap == MapType.FROSTBITE_FJORD)
+                || selectedMap == MapType.FROSTBITE_FJORD
+                || selectedMap == MapType.ASHFALL_CATHEDRAL)
                 && battlefieldIslandW > 0;
         double battlefieldMinX = 0;
         double battlefieldMaxX = 0;
@@ -36393,6 +37472,7 @@ public class BirdGame3 extends Application {
         storyModeActive = false;
         adventureModeActive = false;
         classicModeActive = false;
+        clearAshfallTrialState();
         tournamentModeActive = false;
         competitionModeEnabled = false;
         mutatorModeEnabled = false;
@@ -37113,6 +38193,35 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void setupAshfallCathedralArena() {
+        platforms.add(new Platform(ASHFALL_MAIN_X, ASHFALL_MAIN_Y, ASHFALL_MAIN_W, ASHFALL_MAIN_H));
+        platforms.add(new Platform(ASHFALL_ALTAR_X, ASHFALL_ALTAR_Y, ASHFALL_ALTAR_W, ASHFALL_ALTAR_H));
+
+        platforms.add(new Platform(ASHFALL_MAIN_X + 280, ASHFALL_MAIN_Y - 285, 640, 44));
+        platforms.add(new Platform(ASHFALL_MAIN_X + ASHFALL_MAIN_W - 920, ASHFALL_MAIN_Y - 285, 640, 44));
+        platforms.add(new Platform(ASHFALL_MAIN_X + 1220, ASHFALL_MAIN_Y - 505, 440, 38));
+        platforms.add(new Platform(ASHFALL_MAIN_X + ASHFALL_MAIN_W - 1660, ASHFALL_MAIN_Y - 505, 440, 38));
+        platforms.add(new Platform(ASHFALL_MAIN_X + 1850, ASHFALL_MAIN_Y - 735, 300, 34));
+        platforms.add(new Platform(ASHFALL_MAIN_X + ASHFALL_MAIN_W - 2150, ASHFALL_MAIN_Y - 735, 300, 34));
+        platforms.add(new Platform(ASHFALL_MAIN_X + 1840, ASHFALL_MAIN_Y - 940, 620, 36));
+
+        // Low wing fragments are risky recovery targets over the lava sea.
+        platforms.add(new Platform(ASHFALL_MAIN_X - 390, ASHFALL_MAIN_Y + 170, 430, 42));
+        platforms.add(new Platform(ASHFALL_MAIN_X + ASHFALL_MAIN_W - 40, ASHFALL_MAIN_Y + 170, 430, 42));
+
+        windVents.add(new WindVent(ASHFALL_MAIN_X + 610, ASHFALL_MAIN_Y - 58, 300));
+        windVents.add(new WindVent(ASHFALL_ALTAR_X + 440, ASHFALL_ALTAR_Y - 62, 340));
+        windVents.add(new WindVent(ASHFALL_MAIN_X + ASHFALL_MAIN_W - 910, ASHFALL_MAIN_Y - 58, 300));
+
+        battlefieldIslandX = ASHFALL_MAIN_X;
+        battlefieldIslandW = ASHFALL_MAIN_W;
+        battlefieldIslandY = ASHFALL_MAIN_Y;
+    }
+
+    boolean isAshfallCathedralActive() {
+        return selectedMap == MapType.ASHFALL_CATHEDRAL;
+    }
+
     boolean isFrostbiteFjordActive() {
         return selectedMap == MapType.FROSTBITE_FJORD;
     }
@@ -37296,7 +38405,8 @@ public class BirdGame3 extends Application {
             return;
         }
 
-        if ((selectedMap != MapType.BATTLEFIELD && selectedMap != MapType.BEACON_CROWN && selectedMap != MapType.FROSTBITE_FJORD)
+        if ((selectedMap != MapType.BATTLEFIELD && selectedMap != MapType.BEACON_CROWN
+                && selectedMap != MapType.FROSTBITE_FJORD && selectedMap != MapType.ASHFALL_CATHEDRAL)
                 || battlefieldIslandW <= 0) {
             double[] spawnCenters = buildSpawnCenters(active.size(), 420.0, WORLD_WIDTH - 420.0);
             for (int i = 0; i < active.size(); i++) {
@@ -37374,6 +38484,9 @@ public class BirdGame3 extends Application {
         if (selectedMap == MapType.FROSTBITE_FJORD) {
             return FROSTBITE_MAIN_X + FROSTBITE_MAIN_W / 2.0;
         }
+        if (selectedMap == MapType.ASHFALL_CATHEDRAL) {
+            return ASHFALL_MAIN_X + ASHFALL_MAIN_W / 2.0;
+        }
         if (battlefieldIslandW > 0) {
             return battlefieldIslandX + battlefieldIslandW / 2.0;
         }
@@ -37385,6 +38498,9 @@ public class BirdGame3 extends Application {
             return GROUND_Y - 220 * sizeMultiplier;
         }
         if (selectedMap == MapType.FROSTBITE_FJORD && battlefieldIslandW > 0) {
+            return battlefieldIslandY - 80 * sizeMultiplier;
+        }
+        if (selectedMap == MapType.ASHFALL_CATHEDRAL && battlefieldIslandW > 0) {
             return battlefieldIslandY - 80 * sizeMultiplier;
         }
         if (battlefieldIslandW > 0) {
@@ -37712,7 +38828,16 @@ public class BirdGame3 extends Application {
             setupTrainingRoster();
         } else if (classicModeActive) {
             if (classicRun.isEmpty()) {
-                classicRun.addAll(buildClassicRun(classicSelectedBird));
+                if (ashfallTrialModeActive) {
+                    classicSelectedBird = BirdType.PHOENIX;
+                    classicRunCodename = ASHFALL_TRIAL_CODENAME;
+                    classicRun.addAll(buildAshfallTrialRun());
+                } else if (bossRushModeActive) {
+                    classicRunCodename = "BOSS RUSH";
+                    classicRun.addAll(buildBossRushRun());
+                } else {
+                    classicRun.addAll(buildClassicRun(classicSelectedBird));
+                }
                 classicRoundIndex = 0;
             }
             if (classicRoundIndex < 0 || classicRoundIndex >= classicRun.size()) {
@@ -37843,6 +38968,8 @@ public class BirdGame3 extends Application {
             setupBeaconCrownBattlefield();
         } else if (selectedMap == MapType.FROSTBITE_FJORD) {
             setupFrostbiteFjordArena(mapRandom);
+        } else if (selectedMap == MapType.ASHFALL_CATHEDRAL) {
+            setupAshfallCathedralArena();
         } else if (selectedMap == MapType.DOCK) {
             setupDockArena();
         } else if (selectedMap == MapType.DESERT) {
@@ -37961,6 +39088,7 @@ public class BirdGame3 extends Application {
         } else if (selectedMap == MapType.BATTLEFIELD
                 || selectedMap == MapType.BEACON_CROWN
                 || selectedMap == MapType.FROSTBITE_FJORD
+                || selectedMap == MapType.ASHFALL_CATHEDRAL
                 || selectedMap == MapType.DOCK
                 || selectedMap == MapType.DESERT) {
             mountainPeaks = null;
@@ -38034,6 +39162,8 @@ public class BirdGame3 extends Application {
         gameRoot = root;
         root.setStyle(selectedMap == MapType.DOCK
                 ? "-fx-background-color: linear-gradient(to bottom, #0F3047 0%, #1E5D78 55%, #0A171F 100%);"
+                : selectedMap == MapType.ASHFALL_CATHEDRAL
+                ? "-fx-background-color: linear-gradient(to bottom, #09050A 0%, #3B0713 58%, #F4511E 100%);"
                 : selectedMap == MapType.FROSTBITE_FJORD
                 ? "-fx-background-color: linear-gradient(to bottom, #08142C 0%, #13436A 52%, #AEEBFF 100%);"
                 : selectedMap == MapType.DESERT
@@ -39080,13 +40210,16 @@ public class BirdGame3 extends Application {
     private List<String> fightHudInfoLines() {
         List<String> lines = new ArrayList<>();
         if (classicModeActive && classicEncounter != null) {
-            String classicModeLabel = dailyChallengeModeActive ? "DAILY" : "CLASSIC";
+            String classicModeLabel = dailyChallengeModeActive ? "DAILY"
+                    : (ashfallTrialModeActive ? "ASHFALL TRIAL" : (bossRushModeActive ? "BOSS RUSH" : "CLASSIC"));
             lines.add(classicModeLabel + " " + (classicRoundIndex + 1) + "/" + classicRun.size()
                     + "  " + classicEncounter.name.toUpperCase(Locale.ROOT));
             lines.add("RULES  " + classicEncounter.mutator.label + " | " + classicEncounter.twist.label);
             int livesLeft = Math.max(0, 3 - classicDeaths);
             lines.add(dailyChallengeModeActive
                     ? "LIVES " + livesLeft + "/3  SEED " + formatDailyChallengeSeed(dailyChallengeSeed)
+                    : ashfallTrialModeActive
+                    ? "LIVES " + livesLeft + "/3  REBIRTH ROUTE"
                     : "LIVES " + livesLeft + "/3  CONTINUES " + classicContinues);
             return lines;
         }
@@ -39867,6 +41000,7 @@ public class BirdGame3 extends Application {
     private String currentMatchHistoryMode() {
         if (lanModeActive) return "LAN";
         if (dailyChallengeModeActive) return "DAILY CHALLENGE";
+        if (ashfallTrialModeActive && classicModeActive) return "ASHFALL TRIAL";
         if (bossRushModeActive && classicModeActive) return "BOSS RUSH";
         if (classicModeActive) return "CLASSIC";
         if (storyModeActive) return "STORY";
@@ -39886,7 +41020,8 @@ public class BirdGame3 extends Application {
             if (dailyChallengeModeActive && dailyChallengeRunKey != null && !dailyChallengeRunKey.isBlank()) {
                 details.add("Daily " + dailyChallengeRunKey);
             }
-            details.add((bossRushModeActive ? "Boss " : "Round ") + (classicRoundIndex + 1) + ": " + classicEncounter.name);
+            String roundLabel = ashfallTrialModeActive ? "Trial " : (bossRushModeActive ? "Boss " : "Round ");
+            details.add(roundLabel + (classicRoundIndex + 1) + ": " + classicEncounter.name);
         } else if (storyModeActive) {
             StoryChapter[] chapters = activeStoryChapters();
             if (chapters != null && storyChapterIndex >= 0 && storyChapterIndex < chapters.length) {
@@ -39919,6 +41054,11 @@ public class BirdGame3 extends Application {
         if (victoryMusicPlayer != null) {
             victoryMusicPlayer.stop();
             if (musicEnabled) victoryMusicPlayer.play();
+        }
+
+        if (ashfallTrialModeActive && classicModeActive) {
+            showAshfallTrialMatchSummary(stage, winner);
+            return;
         }
 
         int coinsEarned = awardBirdCoinsForMatch(winner);
@@ -40017,6 +41157,91 @@ public class BirdGame3 extends Application {
         bindFixedFrameScale(scene, frame, 0.0);
         setScenePreservingFullscreen(stage, scene);
         playCinematicResultsIntro(slashPlate, poseNode, titleBlock, resultsPanel, buttons);
+    }
+
+    private void showAshfallTrialMatchSummary(Stage stage, Bird winner) {
+        int coinsEarned = awardBirdCoinsForMatch(winner);
+        recordMatchHistory(winner, coinsEarned);
+        applyWinnerMapProgress(winner);
+
+        boolean won = didPlayerWinClassic(winner);
+        boolean finalRound = classicRoundIndex >= classicRun.size() - 1;
+        int livesLeft = Math.max(0, 3 - classicDeaths);
+
+        VBox root = MenuLayout.buildMenuRoot(
+                "-fx-background-color: linear-gradient(to bottom, #12070A, #2A0807 45%, #050608 100%);",
+                MENU_PADDING,
+                24
+        );
+
+        Label title = new Label(won ? "TRIAL RITE CLEARED" : "TRIAL RITE LOST");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 84));
+        title.setTextFill(won ? Color.web("#FFE082") : Color.web("#FFAB91"));
+        title.setEffect(new DropShadow(28, Color.rgb(0, 0, 0, 0.82)));
+        applyNoEllipsis(title);
+        fitLabelSingleLine(title, 84, 46, 1400);
+
+        Label subtitle = new Label((classicEncounter == null ? ASHFALL_TRIAL_CODENAME : classicEncounter.name)
+                + "  |  " + (classicRun.isEmpty() ? "Trial" : "Trial " + (classicRoundIndex + 1) + "/" + classicRun.size())
+                + "  |  Coins +" + coinsEarned);
+        subtitle.setFont(Font.font("Consolas", FontWeight.BOLD, 26));
+        subtitle.setTextFill(Color.web("#FFCC80"));
+        subtitle.setWrapText(true);
+        subtitle.setMaxWidth(1320);
+        applyNoEllipsis(subtitle);
+
+        VBox routePanel = buildClassicSummaryPanel(winner);
+        if (routePanel == null) {
+            routePanel = new VBox();
+        }
+
+        VBox statsPanel = new VBox(8);
+        statsPanel.setAlignment(Pos.CENTER_LEFT);
+        statsPanel.setPadding(new Insets(20, 26, 20, 26));
+        statsPanel.setMaxWidth(1500);
+        statsPanel.setStyle("-fx-background-color: rgba(0,0,0,0.50);"
+                + "-fx-background-radius: 22;"
+                + "-fx-border-color: rgba(255,204,128,0.70);"
+                + "-fx-border-width: 2;"
+                + "-fx-border-radius: 22;");
+
+        Label statsTitle = new Label("ASHFALL RESULT");
+        statsTitle.setFont(Font.font("Arial Black", 28));
+        statsTitle.setTextFill(Color.web("#FFE082"));
+        applyNoEllipsis(statsTitle);
+
+        String winnerText = winner == null
+                ? "Winner: TIME'S UP"
+                : "Winner: " + matchSummaryBirdLabel(winner) + "  |  " + matchSummaryOwnerLabel(winner);
+        Label winnerLine = new Label(winnerText);
+        winnerLine.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
+        winnerLine.setTextFill(Color.web("#FFF3E0"));
+        winnerLine.setWrapText(true);
+        winnerLine.setMaxWidth(1420);
+        applyNoEllipsis(winnerLine);
+
+        Label nextLine = new Label(won
+                ? (finalRound ? "Next: claim the Ashfall Trial reward." : "Next: advance deeper into the cathedral.")
+                : (livesLeft > 0 ? "Next: retry this rite." : "Next: restart the trial route."));
+        nextLine.setFont(Font.font("Consolas", 22));
+        nextLine.setTextFill(won ? Color.web("#C8E6C9") : Color.web("#FFCCBC"));
+        nextLine.setWrapText(true);
+        nextLine.setMaxWidth(1420);
+        applyNoEllipsis(nextLine);
+
+        statsPanel.getChildren().addAll(statsTitle, winnerLine, nextLine);
+
+        HBox buttons = buildSummaryButtons(stage, winner);
+        buttons.setAlignment(Pos.CENTER);
+
+        root.getChildren().addAll(title, subtitle, routePanel, statsPanel, buttons);
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        if (!buttons.getChildren().isEmpty() && buttons.getChildren().getFirst() instanceof Button button) {
+            button.requestFocus();
+        }
     }
 
     private String matchSummaryWinnerTitle(Bird winner, boolean teamSummaryMode) {
@@ -41050,7 +42275,8 @@ public class BirdGame3 extends Application {
                 ? classicRun.get(classicRoundIndex + 1)
                 : null;
         boolean daily = dailyChallengeModeActive;
-        boolean bossRush = bossRushModeActive && !daily;
+        boolean ashfallTrial = ashfallTrialModeActive && !daily;
+        boolean bossRush = bossRushModeActive && !daily && !ashfallTrial;
         boolean exUnlockNext = bossRush && won && finalRound && bossRushPerfectRun && !bossRushExEncounterAdded && !isBossRushExEncounter(current);
 
         VBox box = new VBox(8);
@@ -41059,9 +42285,12 @@ public class BirdGame3 extends Application {
         box.setMaxWidth(1500);
         box.setStyle("-fx-background-color: rgba(0,0,0,0.55); -fx-background-radius: 22; -fx-border-color: #FFD54F; -fx-border-width: 3; -fx-border-radius: 22;");
 
-        Label header = getLabel(daily
+        String headerText = daily
                 ? "DAILY CHALLENGE: " + dailyChallengeRunKey + "  |  SEED " + formatDailyChallengeSeed(dailyChallengeSeed)
+                : (ashfallTrial
+                ? "ASHFALL TRIAL: " + classicRunCodename
                 : (bossRush ? "BOSS RUSH: " + classicRunCodename : "CLASSIC RUN: " + classicRunCodename));
+        Label header = getLabel(headerText);
         header.setFont(Font.font("Arial Black", 34));
         header.setTextFill(Color.web("#FFE082"));
         applyNoEllipsis(header);
@@ -41074,6 +42303,10 @@ public class BirdGame3 extends Application {
         Label progress = getLabel(daily
                 ? "Round " + (classicRoundIndex + 1) + "/" + classicRun.size()
                   + "  |  Lives " + livesLeft + "/3  |  " + dailyChallengeBonusStatus(dailyChallengeRunKey)
+                : ashfallTrial
+                  ? "Trial " + (classicRoundIndex + 1) + "/" + classicRun.size()
+                    + "  |  Lives " + livesLeft + "/3  |  Completion "
+                    + (ashfallTrialCompleted ? "CLEARED" : "UNCLEARED")
                 : bossRush
                   ? "Boss " + (classicRoundIndex + 1) + "/" + classicRun.size()
                     + "  |  Repair Stocks " + livesLeft + "/3  |  Perfect Route "
@@ -41108,17 +42341,19 @@ public class BirdGame3 extends Application {
         } else if (won && finalRound) {
             Label nextLine = getLabel(daily
                     ? "Next: RETURN TO DAILY BOARD"
+                    : (ashfallTrial
+                       ? "Next: CLAIM TRIAL REWARD"
                     : (bossRush
                        ? (exUnlockNext ? "Next: UNLOCK EX ROUND" : "Next: CLAIM RANK")
-                       : "Next: CLAIM REWARD"));
+                       : "Next: CLAIM REWARD")));
             nextLine.setFont(Font.font("Consolas", 21));
             nextLine.setTextFill(Color.web("#C8E6C9"));
             applyNoEllipsis(nextLine);
             box.getChildren().add(nextLine);
         } else if (!won) {
             Label nextLine = getLabel(livesLeft > 0
-                    ? (bossRush ? "Next: RETRY BOSS" : "Next: RETRY ENCOUNTER")
-                    : (daily ? "Next: DAILY RUN FAILED" : (bossRush ? "Next: BOSS RUSH FAILED" : "Next: RUN FAILED")));
+                    ? (ashfallTrial ? "Next: RETRY TRIAL" : (bossRush ? "Next: RETRY BOSS" : "Next: RETRY ENCOUNTER"))
+                    : (daily ? "Next: DAILY RUN FAILED" : (ashfallTrial ? "Next: ASHFALL TRIAL FAILED" : (bossRush ? "Next: BOSS RUSH FAILED" : "Next: RUN FAILED"))));
             nextLine.setFont(Font.font("Consolas", 21));
             nextLine.setTextFill(Color.web("#FFCCBC"));
             applyNoEllipsis(nextLine);
@@ -41330,6 +42565,31 @@ public class BirdGame3 extends Application {
                 showMenu(stage);
             });
             buttons.getChildren().addAll(continueDaily, restartDaily, menu);
+        } else if (ashfallTrialModeActive && classicModeActive) {
+            boolean wonRound = didPlayerWinClassic(winner);
+            boolean finalRound = classicRoundIndex >= classicRun.size() - 1;
+            String advanceText = wonRound
+                    ? (finalRound ? "CLAIM TRIAL" : "NEXT TRIAL")
+                    : "RETRY TRIAL";
+
+            Button continueTrial = button(advanceText, "#E65100");
+            continueTrial.setOnAction(e -> {
+                resetMatchStats();
+                handleAshfallTrialMatchEnd(stage, winner);
+            });
+
+            Button restartTrial = button("RESTART TRIAL", "#00897B");
+            restartTrial.setOnAction(e -> {
+                resetMatchStats();
+                showAshfallTrialBriefing(stage);
+            });
+
+            Button menu = button("BACK TO MODES", "#D32F2F");
+            menu.setOnAction(e -> {
+                resetMatchStats();
+                showClassicMoreMenu(stage);
+            });
+            buttons.getChildren().addAll(continueTrial, restartTrial, menu);
         } else if (bossRushModeActive && classicModeActive) {
             boolean wonRound = didPlayerWinClassic(winner);
             boolean finalRound = classicRoundIndex >= classicRun.size() - 1;
@@ -41700,6 +42960,7 @@ public class BirdGame3 extends Application {
         state.stormPigeonUnlocked = stormPigeonUnlocked;
         state.eagleSkinUnlocked = eagleSkinUnlocked;
         state.novaPhoenixUnlocked = novaPhoenixUnlocked;
+        state.ashenSovereignPhoenixUnlocked = ashenSovereignPhoenixUnlocked;
         state.duneFalconUnlocked = duneFalconUnlocked;
         state.mintPenguinUnlocked = mintPenguinUnlocked;
         state.circuitTitmouseUnlocked = circuitTitmouseUnlocked;
@@ -41743,6 +43004,7 @@ public class BirdGame3 extends Application {
         state.bossRushBestClearMillisByBird = Arrays.copyOf(bossRushBestClearMillisByBird, bossRushBestClearMillisByBird.length);
         state.bossRushBestRankByBird = Arrays.copyOf(bossRushBestRankByBird, bossRushBestRankByBird.length);
         state.bossRushPerfectBadgeByBird = Arrays.copyOf(bossRushPerfectBadgeByBird, bossRushPerfectBadgeByBird.length);
+        state.ashfallTrialCompleted = ashfallTrialCompleted;
         state.pigeonEpisodeUnlockedChapters = pigeonEpisodeUnlockedChapters;
         state.pigeonEpisodeCompleted = pigeonEpisodeCompleted;
         state.batEpisodeUnlockedChapters = batEpisodeUnlockedChapters;
@@ -41830,6 +43092,7 @@ public class BirdGame3 extends Application {
         stormPigeonUnlocked = resolved.stormPigeonUnlocked;
         eagleSkinUnlocked = resolved.eagleSkinUnlocked;
         novaPhoenixUnlocked = resolved.novaPhoenixUnlocked;
+        ashenSovereignPhoenixUnlocked = resolved.ashenSovereignPhoenixUnlocked;
         duneFalconUnlocked = resolved.duneFalconUnlocked;
         mintPenguinUnlocked = resolved.mintPenguinUnlocked;
         circuitTitmouseUnlocked = resolved.circuitTitmouseUnlocked;
@@ -41873,6 +43136,7 @@ public class BirdGame3 extends Application {
         copyInto(resolved.bossRushBestClearMillisByBird, bossRushBestClearMillisByBird);
         copyInto(resolved.bossRushBestRankByBird, bossRushBestRankByBird);
         copyInto(resolved.bossRushPerfectBadgeByBird, bossRushPerfectBadgeByBird);
+        ashfallTrialCompleted = resolved.ashfallTrialCompleted;
         if (bossRushBestBird != null && hasBossRushRecordedClear(bossRushBestClearMillis)) {
             int idx = bossRushBestBird.ordinal();
             if (isBetterBossRushRecord(bossRushBestRank, bossRushBestClearMillis,
@@ -42096,6 +43360,11 @@ public class BirdGame3 extends Application {
     void recordStageFallAchievement(int playerIndex) {
         if (replayPlaybackActive) return;
         achievementEvaluator.onStageFall(playerIndex, trainingModeActive);
+    }
+
+    void recordAshfallGeyserSurvivalAchievement(Bird bird) {
+        if (replayPlaybackActive) return;
+        achievementEvaluator.onAshfallGeyserSurvival(bird, trainingModeActive);
     }
 
     void recordNeonPickupAchievement(int playerIndex) {
@@ -42481,6 +43750,10 @@ public class BirdGame3 extends Application {
             case IRON_TEMPEST -> AchievementReward.preview(BirdType.PELICAN, IRONCLAD_PELICAN_SKIN, 400);
             case BLIGHT_BUSTER -> AchievementReward.preview(BirdType.ROOSTER, SUNFORGE_ROOSTER_SKIN, 420);
             case BRACKET_BOSS -> AchievementReward.coins(450);
+            case ASHFALL_INITIATE -> AchievementReward.coins(250);
+            case GEYSER_RIDER -> AchievementReward.coins(300);
+            case ASHFALL_ASCENDANT -> AchievementReward.coins(600);
+            case PHOENIX_PILGRIMAGE -> AchievementReward.preview(BirdType.PHOENIX, NOVA_PHOENIX_SKIN, 420);
         };
     }
 
@@ -42581,6 +43854,14 @@ public class BirdGame3 extends Application {
                     + " / " + bigForestTowerDefenseBadgeGoal();
             case BRACKET_BOSS -> "Tournament championships: "
                     + Math.max(achievementProgressValue(BirdGame3Achievement.BRACKET_BOSS), tournamentChampionshipsWon > 0 ? 1 : 0) + " / 1";
+            case ASHFALL_INITIATE -> "Ashfall Cathedral wins: "
+                    + achievementProgressValue(BirdGame3Achievement.ASHFALL_INITIATE) + " / 1";
+            case GEYSER_RIDER -> "Geyser launches survived: "
+                    + achievementProgressValue(BirdGame3Achievement.GEYSER_RIDER) + " / 1";
+            case ASHFALL_ASCENDANT -> "Ashfall Cathedral wins: "
+                    + achievementProgressValue(BirdGame3Achievement.ASHFALL_ASCENDANT) + " / 5";
+            case PHOENIX_PILGRIMAGE -> "Phoenix Ashfall wins: "
+                    + achievementProgressValue(BirdGame3Achievement.PHOENIX_PILGRIMAGE) + " / 1";
         };
     }
 
@@ -43198,6 +44479,79 @@ public class BirdGame3 extends Application {
                 fillAchievementLeaf(g, actual * 0.50, actual * 0.31, actual * 0.22, actual * 0.28, emerald, ink);
                 fillAchievementLeaf(g, actual * 0.62, actual * 0.38, actual * 0.20, actual * 0.24, emerald, ink);
                 fillAchievementCrown(g, actual * 0.50, actual * 0.63, actual * 0.34, actual * 0.16, warm, ink);
+            }
+            case "ashfall-spark" -> {
+                g.setFill(Color.web("#3E2723"));
+                g.fillRect(actual * 0.23, actual * 0.66, actual * 0.54, actual * 0.08);
+                g.setStroke(Color.web("#FFAB40"));
+                g.setLineWidth(actual * 0.035);
+                g.strokeArc(actual * 0.29, actual * 0.42, actual * 0.20, actual * 0.20, 210, 185, ArcType.OPEN);
+                g.strokeArc(actual * 0.51, actual * 0.34, actual * 0.22, actual * 0.28, 190, 205, ArcType.OPEN);
+                g.setFill(Color.web("#FF7043"));
+                g.fillPolygon(
+                        new double[]{actual * 0.50, actual * 0.36, actual * 0.45, actual * 0.50, actual * 0.55, actual * 0.64},
+                        new double[]{actual * 0.20, actual * 0.55, actual * 0.50, actual * 0.70, actual * 0.50, actual * 0.55},
+                        6
+                );
+                fillAchievementStar(g, actual * 0.61, actual * 0.31, actual * 0.07, actual * 0.03, 5, warm, null);
+            }
+            case "ashfall-geyser" -> {
+                g.setFill(Color.web("#4E342E"));
+                g.fillRoundRect(actual * 0.24, actual * 0.67, actual * 0.52, actual * 0.08,
+                        actual * 0.04, actual * 0.04);
+                g.setFill(Color.web("#FF7043", 0.95));
+                g.fillPolygon(
+                        new double[]{actual * 0.42, actual * 0.34, actual * 0.44, actual * 0.39},
+                        new double[]{actual * 0.66, actual * 0.35, actual * 0.18, actual * 0.66},
+                        4
+                );
+                g.fillPolygon(
+                        new double[]{actual * 0.50, actual * 0.44, actual * 0.56, actual * 0.50},
+                        new double[]{actual * 0.66, actual * 0.28, actual * 0.16, actual * 0.66},
+                        4
+                );
+                g.fillPolygon(
+                        new double[]{actual * 0.58, actual * 0.56, actual * 0.68, actual * 0.61},
+                        new double[]{actual * 0.66, actual * 0.20, actual * 0.38, actual * 0.66},
+                        4
+                );
+                g.setStroke(warm);
+                g.setLineWidth(actual * 0.025);
+                g.strokeOval(actual * 0.30, actual * 0.43, actual * 0.40, actual * 0.12);
+                g.strokeOval(actual * 0.24, actual * 0.55, actual * 0.52, actual * 0.13);
+            }
+            case "ashfall-crown" -> {
+                g.setStroke(Color.web("#FF8A65"));
+                g.setLineWidth(actual * 0.03);
+                g.strokeLine(actual * 0.24, actual * 0.70, actual * 0.76, actual * 0.70);
+                g.strokeLine(actual * 0.33, actual * 0.64, actual * 0.25, actual * 0.76);
+                g.strokeLine(actual * 0.50, actual * 0.64, actual * 0.50, actual * 0.80);
+                g.strokeLine(actual * 0.67, actual * 0.64, actual * 0.75, actual * 0.76);
+                fillAchievementCrown(g, actual * 0.50, actual * 0.47, actual * 0.42, actual * 0.20, warm, ink);
+                g.setFill(Color.web("#FF5722"));
+                g.fillPolygon(
+                        new double[]{actual * 0.50, actual * 0.42, actual * 0.50, actual * 0.58},
+                        new double[]{actual * 0.18, actual * 0.36, actual * 0.30, actual * 0.36},
+                        4
+                );
+            }
+            case "phoenix-altar" -> {
+                g.setFill(Color.web("#4E342E"));
+                g.fillRoundRect(actual * 0.24, actual * 0.64, actual * 0.52, actual * 0.09,
+                        actual * 0.04, actual * 0.04);
+                g.setStroke(warm);
+                g.setLineWidth(actual * 0.024);
+                g.strokeLine(actual * 0.33, actual * 0.64, actual * 0.41, actual * 0.52);
+                g.strokeLine(actual * 0.67, actual * 0.64, actual * 0.59, actual * 0.52);
+                g.setFill(Color.web("#FF7043"));
+                g.fillPolygon(
+                        new double[]{actual * 0.50, actual * 0.28, actual * 0.45, actual * 0.50, actual * 0.55, actual * 0.72},
+                        new double[]{actual * 0.26, actual * 0.54, actual * 0.49, actual * 0.62, actual * 0.49, actual * 0.54},
+                        6
+                );
+                g.setFill(warm);
+                g.fillOval(actual * 0.44, actual * 0.33, actual * 0.12, actual * 0.12);
+                fillAchievementStar(g, actual * 0.50, actual * 0.21, actual * 0.07, actual * 0.03, 6, Color.web("#FFF3E0"), null);
             }
             case "pelican-plunge" -> {
                 g.setFill(Color.web("#FFCC80"));

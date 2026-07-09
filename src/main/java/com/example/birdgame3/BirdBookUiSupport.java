@@ -142,6 +142,10 @@ final class BirdBookUiSupport {
                 top = Color.web("#08142C");
                 bottom = Color.web("#AEEBFF");
             }
+            case ASHFALL_CATHEDRAL -> {
+                top = Color.web("#09050A");
+                bottom = Color.web("#F4511E");
+            }
             default -> {
                 top = Color.web("#1B5E20");
                 bottom = Color.web("#4CAF50");
@@ -291,6 +295,30 @@ final class BirdBookUiSupport {
                 g.fillOval(w * 0.23, h * 0.55, w * 0.18, h * 0.16);
                 g.fillOval(w * 0.58, h * 0.53, w * 0.22, h * 0.18);
             }
+            case ASHFALL_CATHEDRAL -> {
+                g.setFill(Color.web("#FF6D00", 0.22));
+                g.fillOval(w * 0.22, h * 0.04, w * 0.56, h * 0.46);
+                g.setFill(Color.web("#0D0810", 0.82));
+                for (int i = 0; i < 5; i++) {
+                    double x = w * (0.14 + i * 0.18);
+                    g.fillRoundRect(x, h * 0.16, w * 0.08, h * 0.62, 8, 8);
+                    g.fillPolygon(
+                            new double[]{x - w * 0.04, x + w * 0.04, x + w * 0.12},
+                            new double[]{h * 0.18, h * 0.02, h * 0.18},
+                            3
+                    );
+                }
+                g.setFill(Color.web("#FFB300", 0.74));
+                g.fillPolygon(
+                        new double[]{w * 0.5, w * 0.42, w * 0.48, w * 0.5, w * 0.52, w * 0.58},
+                        new double[]{h * 0.22, h * 0.58, h * 0.52, h * 0.7, h * 0.52, h * 0.58},
+                        6
+                );
+                g.setFill(Color.web("#FF3D00", 0.48));
+                g.fillRoundRect(w * 0.14, h * 0.72, w * 0.72, h * 0.1, 12, 12);
+                g.setFill(Color.web("#4DD0E1", 0.44));
+                g.fillOval(w * 0.46, h * 0.38, w * 0.08, h * 0.1);
+            }
             default -> {
                 g.setFill(Color.web("#1B5E20", 0.75));
                 g.fillPolygon(new double[]{0, w * 0.1, w * 0.2}, new double[]{h, h * 0.55, h}, 3);
@@ -328,6 +356,7 @@ final class BirdBookUiSupport {
             case BEACON_CROWN -> Color.web("#8E24AA");
             case DOCK -> Color.web("#26A69A");
             case FROSTBITE_FJORD -> Color.web("#4FC3F7");
+            case ASHFALL_CATHEDRAL -> Color.web("#E64A19");
             default -> Color.web("#2E7D32");
         };
     }
@@ -337,7 +366,8 @@ final class BirdBookUiSupport {
             case PIGEON, MOCKINGBIRD, RAVEN -> BirdGame3.MapType.CITY;
             case EAGLE, FALCON, RAZORBILL -> BirdGame3.MapType.SKYCLIFFS;
             case PENGUIN -> BirdGame3.MapType.FROSTBITE_FJORD;
-            case PHOENIX, BAT, VULTURE, OPIUMBIRD, HEISENBIRD -> BirdGame3.MapType.CAVE;
+            case PHOENIX -> BirdGame3.MapType.ASHFALL_CATHEDRAL;
+            case BAT, VULTURE, OPIUMBIRD, HEISENBIRD -> BirdGame3.MapType.CAVE;
             case HUMMINGBIRD, TITMOUSE -> BirdGame3.MapType.VIBRANT_JUNGLE;
             case PELICAN, GOOSE -> BirdGame3.MapType.DOCK;
             case ROADRUNNER -> BirdGame3.MapType.DESERT;

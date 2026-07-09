@@ -146,6 +146,18 @@ final class BirdGame3ProgressionService {
         if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.BRACKET_BOSS, 1) || context.tournamentChampionshipsWon() > 0) {
             unlocks.add(achievementUnlock(BirdGame3Achievement.BRACKET_BOSS));
         }
+        if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.ASHFALL_INITIATE, 1)) {
+            unlocks.add(achievementUnlock(BirdGame3Achievement.ASHFALL_INITIATE));
+        }
+        if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.GEYSER_RIDER, 1)) {
+            unlocks.add(achievementUnlock(BirdGame3Achievement.GEYSER_RIDER));
+        }
+        if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.ASHFALL_ASCENDANT, 5)) {
+            unlocks.add(achievementUnlock(BirdGame3Achievement.ASHFALL_ASCENDANT));
+        }
+        if (progressAtLeast(context.achievementProfile(), BirdGame3Achievement.PHOENIX_PILGRIMAGE, 1)) {
+            unlocks.add(achievementUnlock(BirdGame3Achievement.PHOENIX_PILGRIMAGE));
+        }
         return unlocks;
     }
 

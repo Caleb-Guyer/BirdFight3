@@ -36,6 +36,7 @@ class LanBirdState {
     boolean isFreemanSkin;
     boolean isClassicSkin;
     boolean isNovaSkin;
+    boolean isAshenSovereignSkin;
     boolean isDuneSkin;
     boolean isMintSkin;
     boolean isCircuitSkin;
@@ -502,6 +503,7 @@ class LanBirdState {
         out.writeBoolean(isFreemanSkin);
         out.writeBoolean(isClassicSkin);
         out.writeBoolean(isNovaSkin);
+        out.writeBoolean(isAshenSovereignSkin);
         out.writeBoolean(isDuneSkin);
         out.writeBoolean(isMintSkin);
         out.writeBoolean(isCircuitSkin);
@@ -1016,6 +1018,7 @@ class LanBirdState {
         state.isFreemanSkin = in.readBoolean();
         state.isClassicSkin = in.readBoolean();
         state.isNovaSkin = in.readBoolean();
+        state.isAshenSovereignSkin = in.readBoolean();
         state.isDuneSkin = in.readBoolean();
         state.isMintSkin = in.readBoolean();
         state.isCircuitSkin = in.readBoolean();
