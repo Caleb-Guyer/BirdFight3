@@ -17230,10 +17230,10 @@ public class BirdGame3 extends Application {
         Label[] specialGuideCards = new Label[4];
         FlowPane specialGuideStrip = new FlowPane(8, 6);
         specialGuideStrip.setAlignment(Pos.CENTER_RIGHT);
-        specialGuideStrip.setPrefWrapLength(1080);
-        specialGuideStrip.setMaxWidth(1080);
-        specialGuideStrip.setMinHeight(58);
-        specialGuideStrip.setPrefHeight(58);
+        specialGuideStrip.setPrefWrapLength(1180);
+        specialGuideStrip.setMaxWidth(1180);
+        specialGuideStrip.setMinHeight(76);
+        specialGuideStrip.setPrefHeight(76);
         Runnable[] refreshSpecialGuideRef = new Runnable[1];
         for (int i = 0; i < specialGuideCards.length; i++) {
             Label card = createFightSetupSpecialGuideCard(i);
@@ -35302,10 +35302,10 @@ public class BirdGame3 extends Application {
     private Label createFightSetupSpecialGuideCard(int playerIdx) {
         Label card = new Label();
         card.setWrapText(true);
-        card.setTextAlignment(TextAlignment.CENTER);
-        card.setAlignment(Pos.CENTER);
-        card.setPadding(new Insets(6, 8, 6, 8));
-        card.setFont(Font.font("Consolas", FontWeight.BOLD, 11.5));
+        card.setTextAlignment(TextAlignment.LEFT);
+        card.setAlignment(Pos.CENTER_LEFT);
+        card.setPadding(new Insets(8, 10, 8, 10));
+        card.setFont(Font.font("Consolas", FontWeight.BOLD, 12.0));
         applyNoEllipsis(card);
         refreshFightSetupSpecialGuideCard(card, playerIdx, null, false, false, activePlayers);
         return card;
@@ -35316,8 +35316,8 @@ public class BirdGame3 extends Application {
         if (card == null) {
             return;
         }
-        double width = activeCount >= 4 ? 252.0 : activeCount == 3 ? 292.0 : 368.0;
-        double height = activeCount >= 4 ? 56.0 : 58.0;
+        double width = activeCount >= 4 ? 286.0 : activeCount == 3 ? 360.0 : 500.0;
+        double height = 72.0;
         Color accent = switch (playerIdx) {
             case 0 -> Color.web("#F44336");
             case 1 -> Color.web("#42A5F5");
@@ -35337,28 +35337,26 @@ public class BirdGame3 extends Application {
 
         boolean waitingForPick = type == null && !randomPick;
         String text = fightSetupSpecialGuideText(playerIdx, type, randomPick);
-        card.setFont(Font.font("Consolas", FontWeight.BOLD, activeCount >= 4 ? 10.6 : 11.5));
+        card.setFont(Font.font("Consolas", FontWeight.BOLD, activeCount >= 4 ? 10.8 : 12.0));
         card.setTextFill(waitingForPick && playerIdx == 2 ? Color.web("#111111") : Color.WHITE);
         card.setStyle("-fx-background-color: " + (waitingForPick ? accentHex : "rgba(12, 17, 24, 0.94)") + "; "
                 + "-fx-background-radius: 12; -fx-border-color: " + accentHex + "; "
                 + "-fx-border-width: 2; -fx-border-radius: 12;");
-        fitWrappedLabelText(card, text, width - 18.0, height - 12.0, activeCount >= 4 ? 8.4 : 9.0);
+        fitWrappedLabelText(card, text, width - 22.0, height - 16.0, activeCount >= 4 ? 8.8 : 10.0);
     }
 
     private String fightSetupSpecialGuideText(int playerIdx, BirdType type, boolean randomPick) {
         String prefix = "P" + (playerIdx + 1) + " ";
         if (randomPick) {
-            return prefix + "RANDOM | SPECIALS REVEALED AT START";
+            return prefix + "RANDOM\nSPECIALS REVEALED AT START";
         }
         if (type == null) {
-            return prefix + "SELECT BIRD | NEUTRAL | SIDE | UP | DOWN";
+            return prefix + "SELECT BIRD\nN: -    S: -\nU: -    D: -";
         }
         String[] moves = specialMoveNames(type);
         return prefix + type.name.toUpperCase(Locale.ROOT)
-                + " | N " + moves[0]
-                + " | S " + moves[1]
-                + " | U " + moves[2]
-                + " | D " + moves[3];
+                + "\nN: " + moves[0] + "    S: " + moves[1]
+                + "\nU: " + moves[2] + "    D: " + moves[3];
     }
 
     private void applyFightSetupSlotLayout(
