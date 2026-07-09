@@ -351,7 +351,7 @@ final class GooseSpecials {
             if (dealt > 0) {
                 other.vx += dir * (8.5 + chargeRatio * 7.5 + (bird.gooseHonkEmpowered ? 4.5 : 0.0));
                 other.vy -= 2.8 + chargeRatio * 3.4 + (bird.gooseHonkEmpowered ? 1.8 : 0.0);
-                other.applyStun(14 + chargeRatio * 20.0 + (bird.gooseHonkEmpowered ? 8.0 : 0.0));
+                other.applyStun(9 + chargeRatio * 12.0 + (bird.gooseHonkEmpowered ? 5.0 : 0.0));
                 addTerritory(bird, 12.0 + dealt * 0.25);
                 emitHitBurst(bird, other, bird.gooseHonkEmpowered ? Color.GOLD : Color.web("#E8F5E9"), 18);
             }
@@ -425,7 +425,7 @@ final class GooseSpecials {
             if (dealt > 0) {
                 other.vx += dir * (bite ? (bird.gooseBargeEmpowered ? 17.0 : 13.5) : 10.5);
                 other.vy -= bite ? (bird.gooseBargeEmpowered ? 8.2 : 6.2) : 3.8;
-                other.applyStun(bite ? (bird.gooseBargeEmpowered ? 32 : 22) : 15);
+                other.applyStun(bite ? (bird.gooseBargeEmpowered ? 20 : 14) : 9);
                 bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, bite ? 16 : 9);
                 bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, bite ? 7 : 4);
                 addTerritory(bird, 14.0 + dealt * 0.2);
@@ -494,7 +494,7 @@ final class GooseSpecials {
                 }
                 other.vx += push * (bird.gooseLiftEmpowered ? 7.0 : 4.8);
                 other.vy -= bird.gooseLiftEmpowered ? 12.0 : 9.0;
-                other.applyStun(bird.gooseLiftEmpowered ? 20 : 14);
+                other.applyStun(bird.gooseLiftEmpowered ? 12 : 9);
                 bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, bird.gooseLiftEmpowered ? 10 : 6);
                 bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, bird.gooseLiftEmpowered ? 5 : 3);
                 addTerritory(bird, 10.0 + dealt * 0.18);
@@ -559,7 +559,7 @@ final class GooseSpecials {
         if (dealt > 0) {
             attacker.vx += dir * (defender.gooseNestCounterUltimate ? 15.5 : 12.5);
             attacker.vy -= defender.gooseNestCounterUltimate ? 9.2 : 6.8;
-            attacker.applyStun(defender.gooseNestCounterUltimate ? 34 : 24);
+            attacker.applyStun(defender.gooseNestCounterUltimate ? 22 : 15);
             emitHitBurst(defender, attacker, defender.gooseNestCounterUltimate ? Color.GOLD : Color.web("#FFF176"), 30);
         }
     }
@@ -588,7 +588,7 @@ final class GooseSpecials {
                     }
                     other.vx += dir * (bird.gooseNest.ultimate ? 5.5 : 3.8);
                     other.vy -= bird.gooseNest.ultimate ? 3.2 : 2.0;
-                    other.applyStun(bird.gooseNest.ultimate ? 14 : 9);
+                    other.applyStun(bird.gooseNest.ultimate ? 9 : 6);
                     addTerritory(bird, 8.0);
                     emitHitBurst(bird, other, bird.gooseNest.ultimate ? Color.GOLD : Color.web("#8BC5A1"), 10);
                 }
@@ -640,7 +640,7 @@ final class GooseSpecials {
                 hitAny = true;
                 other.vx += dir * (marked ? 11.0 : 8.0);
                 other.vy -= marked ? 5.0 : 3.2;
-                other.applyStun(marked ? 18 : 11);
+                other.applyStun(marked ? 11 : 7);
                 emitHitBurst(bird, other, Color.GOLD, marked ? 18 : 10);
             }
         }
@@ -670,7 +670,7 @@ final class GooseSpecials {
                 }
                 other.vx += launchDir * (marked ? 22.0 : 17.0);
                 other.vy -= marked ? 13.0 : 9.0;
-                other.applyStun(marked ? 46 : 32);
+                other.applyStun(marked ? 28 : 19);
                 emitHitBurst(bird, other, Color.GOLD, 44);
             }
         }
@@ -688,7 +688,7 @@ final class GooseSpecials {
         if (dealt > 0) {
             other.vx += dir * 4.5;
             other.vy -= 2.0;
-            other.applyStun(34);
+            other.applyStun(20);
             emitHitBurst(bird, other, Color.GOLD, 14);
         }
     }

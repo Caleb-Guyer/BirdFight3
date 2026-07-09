@@ -88,6 +88,12 @@ final class BalanceLab {
     }
 
     static Report run(Config config, Consumer<String> progress) {
+        // The lab plays under the same tuning overrides as the real game, so a
+        // bird-stats.properties edit + rerun measures exactly what would ship.
+        String tuning = BirdStats.reloadFromDisk();
+        if (progress != null) {
+            progress.accept(tuning != null ? tuning : "BIRD STATS: COMPILED DEFAULTS");
+        }
         BirdType[] roster = BirdType.values();
         BirdGame3 game = new BirdGame3(
                 Preferences.userRoot().node("/birdfight3-tests/balance-lab/" + UUID.randomUUID()));
