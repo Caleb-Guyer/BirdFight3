@@ -1211,6 +1211,24 @@ public class BirdGame3 extends Application {
         }
     }
 
+    void playRoadrunnerRedlineExecutionSfx() {
+        if (!sfxEnabled) return;
+        if (swingClip != null) {
+            swingClip.stop();
+            playManagedSfxVaried(swingClip, 0.78, 1.96, 0.016);
+        }
+        if (hugewaveClip != null) {
+            hugewaveClip.stop();
+            playManagedSfxVaried(hugewaveClip, 0.72, 0.84, 0.014);
+        }
+        if (vaseBreakingClip != null) {
+            playManagedSfxVaried(vaseBreakingClip, 0.58, 1.66, 0.016);
+        }
+        if (bonkClip != null) {
+            playManagedSfxVaried(bonkClip, 0.26, 0.46, 0.012);
+        }
+    }
+
     void playAchievementSfx() {
         if (!sfxEnabled || steamAchievementClip == null) return;
         steamAchievementClip.stop();
@@ -9726,7 +9744,7 @@ public class BirdGame3 extends Application {
         HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Needle Barrage + Flash Sip + Hover Burst + Nectar Trap + Needleheart Overdrive"),
         TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Charged Gobble Guard + Held Stampede + Panic Flap + Feast Trap + Harvest Tribunal"),
         ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Chick Call + Chick Toss + Coop Boost + Brood Recall + Dawn Stampede"),
-        ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road"),
+        ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road + Redline Execution"),
         PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Belly Slide / Iceberg / Rocket Flop / Snow Fort / Absolute Zero Fortress"),
         SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "Death Stare / Heavy Bill Thrust / Marsh Lift / Statue Counter / Final Stillness"),
         MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Mimic neutral / Mimic Call / Forest Lift / Forest Lounge / Shadow Court"),
@@ -45890,6 +45908,7 @@ public class BirdGame3 extends Application {
             case MOCKINGBIRD -> "Ultimate: Shadow Court summons three fragile dark copies from the Lounge.";
             case ROOSTER -> "Ultimate: Dawn Stampede floods the stage with fast flying swarm chicks.";
             case TURKEY -> "Ultimate: Harvest Tribunal summons a feast altar, pulls enemies in, stuffs them, then delivers a gold verdict slash.";
+            case ROADRUNNER -> "Ultimate: Redline Execution zips forward. Whiffing ends fast; catching enemies triggers a speed cutscene and huge launch.";
             case PENGUIN -> "Air down special drops a straight-down iceberg. Ultimate creates an invulnerable ice throne.";
             case SHOEBILL -> "Ultimate: Final Stillness drains the screen, silences music, and fires an ancient locked beam.";
             case RAZORBILL -> "Ultimate: Guillotine Wake marks dodgeable cut-lines, chains slashes, then leaves a damaging razor wake.";

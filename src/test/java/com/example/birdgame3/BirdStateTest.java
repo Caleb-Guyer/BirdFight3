@@ -5249,12 +5249,14 @@ class BirdStateTest {
     }
 
     @Test
-    void roadrunnerUltimateSustainsSandstormFlightAndGusts() throws Exception {
+    void roadrunnerUltimateCatchesIntoRedlineExecutionCutscene() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
 
         Bird runner = new Bird(300.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
-        Bird target = new Bird(420.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird target = new Bird(430.0, BirdGame3.BirdType.PIGEON, 1, game);
+        runner.y = BirdGame3.GROUND_Y - runner.bodyHeight();
+        target.y = runner.y;
         game.players[0] = runner;
         game.players[1] = target;
 
@@ -5263,25 +5265,61 @@ class BirdStateTest {
 
         invokePrivateVoid(runner, "special");
 
-        assertTrue(getPrivateInt(runner, "roadrunnerSandstormTimer") >= 500);
-        assertTrue(target.health < startingHealth);
+        assertEquals(Bird.ROADRUNNER_REDLINE_DASH_FRAMES,
+                getPrivateInt(runner, "roadrunnerRedlineTimer"));
+        assertEquals(0, getPrivateInt(runner, "roadrunnerSandstormTimer"),
+                "Roadrunner ultimate should no longer start the old sandstorm.");
+        assertFalse(runner.isUltimateReady());
 
-        double healthAfterBurst = target.health;
-        runner.y = BirdGame3.GROUND_Y - 320.0;
-        runner.vy = 0.0;
-        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
-        runner.update(1.0);
-        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
-
-        assertTrue(runner.vy < 0.0, "Sandstorm ultimate should let Roadrunner gain lift while jump is held.");
-
-        target.vx = 0.0;
-        for (int i = 0; i < 30; i++) {
+        for (int i = 0; i < 4; i++) {
             runner.update(1.0);
         }
 
-        assertTrue(target.health < healthAfterBurst || target.vx > 0.1,
-                "Lingering sandstorm gusts should keep hurting or blowing nearby enemies.");
+        assertTrue(getPrivateBoolean(runner, "roadrunnerRedlineCinematic"),
+                "A caught target should trigger the Redline cinematic.");
+        assertTrue(runner.isCombatInvulnerable(),
+                "Roadrunner should only gain ult invulnerability after the catch connects.");
+
+        for (int i = 0; i < Bird.ROADRUNNER_REDLINE_FINAL_FRAME + 8; i++) {
+            runner.update(1.0);
+        }
+
+        assertTrue(getPrivateBoolean(runner, "roadrunnerRedlineFinalResolved"),
+                "Redline Execution should resolve a single final launch.");
+        assertTrue(target.health <= startingHealth - 45.0,
+                "The full caught ultimate should deal immense damage.");
+        assertTrue(Math.abs(target.vx) > 20.0 && target.vy < -15.0,
+                "The final hit should launch the caught target hard.");
+    }
+
+    @Test
+    void roadrunnerUltimateWhiffSpendsMeterWithoutCutsceneDamage() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird runner = new Bird(300.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        Bird target = new Bird(260.0, BirdGame3.BirdType.PIGEON, 1, game);
+        runner.y = BirdGame3.GROUND_Y - runner.bodyHeight();
+        target.y = runner.y - 260.0;
+        game.players[0] = runner;
+        game.players[1] = target;
+
+        setPrivateDouble(runner, "ultimateMeter", 100.0);
+        double startingHealth = target.health;
+
+        invokePrivateVoid(runner, "special");
+        assertFalse(runner.isUltimateReady());
+        assertFalse(runner.isCombatInvulnerable(),
+                "The initial lunge should still be punishable before a catch.");
+
+        for (int i = 0; i < Bird.ROADRUNNER_REDLINE_DASH_FRAMES + 3; i++) {
+            runner.update(1.0);
+        }
+
+        assertFalse(getPrivateBoolean(runner, "roadrunnerRedlineCinematic"));
+        assertEquals(startingHealth, target.health, 0.0001);
+        assertTrue(getPrivateInt(runner, "roadrunnerRedlineRecoveryTimer") > 0,
+                "A whiff should exit into a short recovery instead of a cutscene.");
     }
 
     @Test

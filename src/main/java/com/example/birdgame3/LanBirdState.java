@@ -343,6 +343,23 @@ class LanBirdState {
     int roadrunnerSlipDirection;
     int roadrunnerSlipOwnerIndex;
     boolean roadrunnerSlipUltimate;
+    int roadrunnerRedlineTimer;
+    int roadrunnerRedlineRecoveryTimer;
+    boolean roadrunnerRedlineCinematic;
+    int roadrunnerRedlineDirection;
+    int roadrunnerRedlineStrikeIndex;
+    boolean roadrunnerRedlineFinalResolved;
+    double roadrunnerRedlineStartX;
+    double roadrunnerRedlineStartY;
+    double roadrunnerRedlineEndX;
+    double roadrunnerRedlineEndY;
+    double roadrunnerRedlineAnchorX;
+    double roadrunnerRedlineAnchorY;
+    double roadrunnerRedlineLastStartX;
+    double roadrunnerRedlineLastStartY;
+    double roadrunnerRedlineLastEndX;
+    double roadrunnerRedlineLastEndY;
+    boolean[] roadrunnerRedlineCaught = new boolean[4];
     int pigeonFeatherBurstTimer;
     boolean pigeonFeatherBurstUltimate;
     int pigeonRushTimer;
@@ -886,6 +903,25 @@ class LanBirdState {
         out.writeInt(roadrunnerSlipDirection);
         out.writeInt(roadrunnerSlipOwnerIndex);
         out.writeBoolean(roadrunnerSlipUltimate);
+        out.writeInt(roadrunnerRedlineTimer);
+        out.writeInt(roadrunnerRedlineRecoveryTimer);
+        out.writeBoolean(roadrunnerRedlineCinematic);
+        out.writeInt(roadrunnerRedlineDirection);
+        out.writeInt(roadrunnerRedlineStrikeIndex);
+        out.writeBoolean(roadrunnerRedlineFinalResolved);
+        out.writeDouble(roadrunnerRedlineStartX);
+        out.writeDouble(roadrunnerRedlineStartY);
+        out.writeDouble(roadrunnerRedlineEndX);
+        out.writeDouble(roadrunnerRedlineEndY);
+        out.writeDouble(roadrunnerRedlineAnchorX);
+        out.writeDouble(roadrunnerRedlineAnchorY);
+        out.writeDouble(roadrunnerRedlineLastStartX);
+        out.writeDouble(roadrunnerRedlineLastStartY);
+        out.writeDouble(roadrunnerRedlineLastEndX);
+        out.writeDouble(roadrunnerRedlineLastEndY);
+        for (boolean caught : roadrunnerRedlineCaught) {
+            out.writeBoolean(caught);
+        }
         out.writeInt(pigeonFeatherBurstTimer);
         out.writeBoolean(pigeonFeatherBurstUltimate);
         out.writeInt(pigeonRushTimer);
@@ -1461,6 +1497,25 @@ class LanBirdState {
         state.roadrunnerSlipDirection = in.readInt();
         state.roadrunnerSlipOwnerIndex = in.readInt();
         state.roadrunnerSlipUltimate = in.readBoolean();
+        state.roadrunnerRedlineTimer = in.readInt();
+        state.roadrunnerRedlineRecoveryTimer = in.readInt();
+        state.roadrunnerRedlineCinematic = in.readBoolean();
+        state.roadrunnerRedlineDirection = in.readInt();
+        state.roadrunnerRedlineStrikeIndex = in.readInt();
+        state.roadrunnerRedlineFinalResolved = in.readBoolean();
+        state.roadrunnerRedlineStartX = in.readDouble();
+        state.roadrunnerRedlineStartY = in.readDouble();
+        state.roadrunnerRedlineEndX = in.readDouble();
+        state.roadrunnerRedlineEndY = in.readDouble();
+        state.roadrunnerRedlineAnchorX = in.readDouble();
+        state.roadrunnerRedlineAnchorY = in.readDouble();
+        state.roadrunnerRedlineLastStartX = in.readDouble();
+        state.roadrunnerRedlineLastStartY = in.readDouble();
+        state.roadrunnerRedlineLastEndX = in.readDouble();
+        state.roadrunnerRedlineLastEndY = in.readDouble();
+        for (int i = 0; i < state.roadrunnerRedlineCaught.length; i++) {
+            state.roadrunnerRedlineCaught[i] = in.readBoolean();
+        }
         state.pigeonFeatherBurstTimer = in.readInt();
         state.pigeonFeatherBurstUltimate = in.readBoolean();
         state.pigeonRushTimer = in.readInt();

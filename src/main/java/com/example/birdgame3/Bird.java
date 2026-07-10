@@ -1068,6 +1068,17 @@ public class Bird {
     static final int ROADRUNNER_PAINTED_ROAD_COLLAPSE_FRAMES = 26;
     static final int ROADRUNNER_PAINTED_ROAD_FADE_FRAMES = 48;
     static final int ROADRUNNER_SLIP_FRAMES = 56;
+    static final int ROADRUNNER_REDLINE_DASH_FRAMES = 14;
+    static final int ROADRUNNER_REDLINE_CINEMATIC_FRAMES = 84;
+    static final int ROADRUNNER_REDLINE_RECOVERY_FRAMES = 18;
+    static final int ROADRUNNER_REDLINE_STRIKE_INTERVAL = 9;
+    static final int ROADRUNNER_REDLINE_STRIKE_COUNT = 5;
+    static final int ROADRUNNER_REDLINE_FINAL_FRAME = 64;
+    static final int ROADRUNNER_REDLINE_STRIKE_DAMAGE = 5;
+    static final int ROADRUNNER_REDLINE_FINAL_DAMAGE = 27;
+    static final double ROADRUNNER_REDLINE_DASH_SPEED = 64.0;
+    static final double ROADRUNNER_REDLINE_RANGE = 720.0;
+    static final double ROADRUNNER_REDLINE_LANE_HALF_HEIGHT = 92.0;
     static final int PIGEON_NEUTRAL_BURST_FRAMES = 12;
     static final int PIGEON_NEUTRAL_COOLDOWN_FRAMES = 34;
     static final int PIGEON_RUSH_GROUND_FRAMES = 20;
@@ -1455,6 +1466,23 @@ public class Bird {
     int roadrunnerSlipDirection = 1;
     int roadrunnerSlipOwnerIndex = -1;
     boolean roadrunnerSlipUltimate = false;
+    int roadrunnerRedlineTimer = 0;
+    int roadrunnerRedlineRecoveryTimer = 0;
+    boolean roadrunnerRedlineCinematic = false;
+    int roadrunnerRedlineDirection = 1;
+    int roadrunnerRedlineStrikeIndex = 0;
+    boolean roadrunnerRedlineFinalResolved = false;
+    double roadrunnerRedlineStartX = 0.0;
+    double roadrunnerRedlineStartY = 0.0;
+    double roadrunnerRedlineEndX = 0.0;
+    double roadrunnerRedlineEndY = 0.0;
+    double roadrunnerRedlineAnchorX = 0.0;
+    double roadrunnerRedlineAnchorY = 0.0;
+    double roadrunnerRedlineLastStartX = 0.0;
+    double roadrunnerRedlineLastStartY = 0.0;
+    double roadrunnerRedlineLastEndX = 0.0;
+    double roadrunnerRedlineLastEndY = 0.0;
+    final boolean[] roadrunnerRedlineCaught = new boolean[4];
     static final int GRINCH_HEART_SNATCH_FRAMES = 18;
     static final int GRINCH_SLEIGH_LIFE_FRAMES = 180;
     static final double GRINCH_SLEIGH_SPEED = 18.0;
@@ -1932,6 +1960,9 @@ public class Bird {
                 || penguinAbsoluteZeroTimer > 0
                 || shoebillFinalStillnessTimer > 0
                 || hummingNeedleheartInvulnerable()
+                || (type == BirdGame3.BirdType.ROADRUNNER
+                && roadrunnerRedlineCinematic
+                && roadrunnerRedlineTimer > 0)
                 || razorbillGuillotineTimer > 0
                 || hasNullRockInvulnerability()
                 || hasDodgeInvulnerability()
@@ -9887,6 +9918,8 @@ public class Bird {
         roadrunnerPaintedRoadReuseTimer = Math.max(0, (int)(roadrunnerPaintedRoadReuseTimer - gameSpeed));
         roadrunnerRoadBoostTimer = Math.max(0, (int)(roadrunnerRoadBoostTimer - gameSpeed));
         roadrunnerSlipTimer = Math.max(0, (int)(roadrunnerSlipTimer - gameSpeed));
+        roadrunnerRedlineTimer = Math.max(0, (int)(roadrunnerRedlineTimer - gameSpeed));
+        roadrunnerRedlineRecoveryTimer = Math.max(0, (int)(roadrunnerRedlineRecoveryTimer - gameSpeed));
         pigeonFeatherBurstTimer = Math.max(0, (int)(pigeonFeatherBurstTimer - gameSpeed));
         pigeonRushTimer = Math.max(0, (int)(pigeonRushTimer - gameSpeed));
         pigeonFlutterTimer = Math.max(0, (int)(pigeonFlutterTimer - gameSpeed));
@@ -14148,6 +14181,24 @@ public class Bird {
         state.roadrunnerSlipDirection = roadrunnerSlipDirection;
         state.roadrunnerSlipOwnerIndex = roadrunnerSlipOwnerIndex;
         state.roadrunnerSlipUltimate = roadrunnerSlipUltimate;
+        state.roadrunnerRedlineTimer = roadrunnerRedlineTimer;
+        state.roadrunnerRedlineRecoveryTimer = roadrunnerRedlineRecoveryTimer;
+        state.roadrunnerRedlineCinematic = roadrunnerRedlineCinematic;
+        state.roadrunnerRedlineDirection = roadrunnerRedlineDirection;
+        state.roadrunnerRedlineStrikeIndex = roadrunnerRedlineStrikeIndex;
+        state.roadrunnerRedlineFinalResolved = roadrunnerRedlineFinalResolved;
+        state.roadrunnerRedlineStartX = roadrunnerRedlineStartX;
+        state.roadrunnerRedlineStartY = roadrunnerRedlineStartY;
+        state.roadrunnerRedlineEndX = roadrunnerRedlineEndX;
+        state.roadrunnerRedlineEndY = roadrunnerRedlineEndY;
+        state.roadrunnerRedlineAnchorX = roadrunnerRedlineAnchorX;
+        state.roadrunnerRedlineAnchorY = roadrunnerRedlineAnchorY;
+        state.roadrunnerRedlineLastStartX = roadrunnerRedlineLastStartX;
+        state.roadrunnerRedlineLastStartY = roadrunnerRedlineLastStartY;
+        state.roadrunnerRedlineLastEndX = roadrunnerRedlineLastEndX;
+        state.roadrunnerRedlineLastEndY = roadrunnerRedlineLastEndY;
+        System.arraycopy(roadrunnerRedlineCaught, 0, state.roadrunnerRedlineCaught, 0,
+                roadrunnerRedlineCaught.length);
         state.pigeonFeatherBurstTimer = pigeonFeatherBurstTimer;
         state.pigeonFeatherBurstUltimate = pigeonFeatherBurstUltimate;
         state.pigeonRushTimer = pigeonRushTimer;
@@ -14790,6 +14841,27 @@ public class Bird {
         this.roadrunnerSlipDirection = state.roadrunnerSlipDirection == 0 ? 1 : state.roadrunnerSlipDirection;
         this.roadrunnerSlipOwnerIndex = state.roadrunnerSlipOwnerIndex;
         this.roadrunnerSlipUltimate = state.roadrunnerSlipUltimate;
+        this.roadrunnerRedlineTimer = Math.max(0, state.roadrunnerRedlineTimer);
+        this.roadrunnerRedlineRecoveryTimer = Math.max(0, state.roadrunnerRedlineRecoveryTimer);
+        this.roadrunnerRedlineCinematic = state.roadrunnerRedlineCinematic;
+        this.roadrunnerRedlineDirection = state.roadrunnerRedlineDirection == 0 ? 1 : state.roadrunnerRedlineDirection;
+        this.roadrunnerRedlineStrikeIndex = Math.max(0, state.roadrunnerRedlineStrikeIndex);
+        this.roadrunnerRedlineFinalResolved = state.roadrunnerRedlineFinalResolved;
+        this.roadrunnerRedlineStartX = state.roadrunnerRedlineStartX;
+        this.roadrunnerRedlineStartY = state.roadrunnerRedlineStartY;
+        this.roadrunnerRedlineEndX = state.roadrunnerRedlineEndX;
+        this.roadrunnerRedlineEndY = state.roadrunnerRedlineEndY;
+        this.roadrunnerRedlineAnchorX = state.roadrunnerRedlineAnchorX;
+        this.roadrunnerRedlineAnchorY = state.roadrunnerRedlineAnchorY;
+        this.roadrunnerRedlineLastStartX = state.roadrunnerRedlineLastStartX;
+        this.roadrunnerRedlineLastStartY = state.roadrunnerRedlineLastStartY;
+        this.roadrunnerRedlineLastEndX = state.roadrunnerRedlineLastEndX;
+        this.roadrunnerRedlineLastEndY = state.roadrunnerRedlineLastEndY;
+        Arrays.fill(this.roadrunnerRedlineCaught, false);
+        if (state.roadrunnerRedlineCaught != null) {
+            System.arraycopy(state.roadrunnerRedlineCaught, 0, this.roadrunnerRedlineCaught, 0,
+                    Math.min(this.roadrunnerRedlineCaught.length, state.roadrunnerRedlineCaught.length));
+        }
         this.pigeonFeatherBurstTimer = state.pigeonFeatherBurstTimer;
         this.pigeonFeatherBurstUltimate = state.pigeonFeatherBurstUltimate;
         this.pigeonRushTimer = state.pigeonRushTimer;
@@ -18785,6 +18857,23 @@ public class Bird {
         double runDir = Math.abs(vx) > 0.4 ? Math.signum(vx) : dir;
         double now = animationTimeMillis() + playerIndex * 197.0;
         double foot = Math.sin(now / Math.max(56.0, 116.0 - groundSpeed * 42.0));
+        if (roadrunnerRedlineTimer > 0 || roadrunnerRedlineRecoveryTimer > 0) {
+            int redlineDir = roadrunnerRedlineDirection == 0 ? facingDirection() : roadrunnerRedlineDirection;
+            double lunge = roadrunnerRedlineCinematic ? 1.0 : 1.25;
+            return new AttackVisualPose(
+                    redlineDir * (12.0 + speed * 9.0) * lunge,
+                    -4.0 - speed * 2.0,
+                    redlineDir * (15.0 + speed * 8.0),
+                    redlineDir > 0 ? -0.18 : Math.PI + 0.18,
+                    15.0,
+                    -7.0,
+                    13.0,
+                    1.18,
+                    redlineDir * 14.0,
+                    1.28,
+                    0.74
+            );
+        }
         return switch (state) {
             case IDLE -> {
                 double glance = Math.sin(now / 390.0);
@@ -22327,6 +22416,9 @@ public class Bird {
         double cx = bodyCenterX();
         double cy = bodyCenterY();
         double momentumRatio = roadrunnerMomentumRatio();
+        if (roadrunnerRedlineTimer > 0 || roadrunnerRedlineRecoveryTimer > 0) {
+            drawRoadrunnerRedlineExecutionFx(g, s);
+        }
         if (momentumRatio > 0.06 || roadrunnerMomentumFxTimer > 0) {
             double alpha = Math.clamp(0.10 + momentumRatio * 0.32 + roadrunnerMomentumFxTimer / 100.0, 0.12, 0.52);
             Color speed = roadrunnerTrailColor(false).deriveColor(0, 1, 1, alpha);
@@ -22436,6 +22528,84 @@ public class Bird {
             g.setFill(sand.deriveColor(0, 1, 1, 0.14 + fade * 0.10));
             g.fillOval(cx - 56.0 * s, bodyBottomY() - 18.0 * s, 112.0 * s, 28.0 * s);
         }
+    }
+
+    private void drawRoadrunnerRedlineExecutionFx(GraphicsContext g, double s) {
+        int dir = roadrunnerRedlineDirection == 0 ? facingDirection() : roadrunnerRedlineDirection;
+        Color red = Color.web("#FF1744");
+        Color gold = Color.web("#FFD54F");
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+
+        if (!roadrunnerRedlineCinematic) {
+            double dashFade = roadrunnerRedlineTimer > 0
+                    ? Math.clamp(roadrunnerRedlineTimer / (double) ROADRUNNER_REDLINE_DASH_FRAMES, 0.0, 1.0)
+                    : Math.clamp(roadrunnerRedlineRecoveryTimer / (double) ROADRUNNER_REDLINE_RECOVERY_FRAMES, 0.0, 1.0);
+            double laneY = roadrunnerRedlineStartY == 0.0 ? bodyCenterY() : roadrunnerRedlineStartY;
+            double startX = roadrunnerRedlineStartX == 0.0 ? bodyCenterX() : roadrunnerRedlineStartX;
+            double endX = roadrunnerRedlineEndX == 0.0 ? bodyCenterX() + dir * 220.0 * s : roadrunnerRedlineEndX;
+            g.setStroke(red.deriveColor(0, 1, 1, 0.22 + dashFade * 0.34));
+            g.setLineWidth((12.0 + dashFade * 10.0) * s);
+            g.strokeLine(startX, laneY, endX, laneY);
+            g.setStroke(gold.deriveColor(0, 1, 1, 0.40 + dashFade * 0.30));
+            g.setLineWidth((3.0 + dashFade * 2.0) * s);
+            g.strokeLine(startX, laneY, endX, laneY);
+            for (int i = 0; i < 7; i++) {
+                double t = (i + 1) / 8.0;
+                double xLine = startX + (endX - startX) * t;
+                double height = (34.0 + i * 7.0) * s;
+                double skew = dir * (22.0 + i * 5.0) * s;
+                g.setStroke((i % 2 == 0 ? red : gold).deriveColor(0, 1, 1, (0.18 + dashFade * 0.20) * (1.0 - t * 0.45)));
+                g.setLineWidth((2.0 + dashFade * 1.4) * s);
+                g.strokeLine(xLine - skew, laneY - height, xLine + skew * 0.28, laneY + height * 0.58);
+            }
+        } else {
+            int elapsed = ROADRUNNER_REDLINE_CINEMATIC_FRAMES - roadrunnerRedlineTimer;
+            double anchorX = roadrunnerRedlineAnchorX == 0.0 ? bodyCenterX() : roadrunnerRedlineAnchorX;
+            double anchorY = roadrunnerRedlineAnchorY == 0.0 ? bodyCenterY() : roadrunnerRedlineAnchorY;
+            double fadeIn = Math.clamp(elapsed / 12.0, 0.0, 1.0);
+            double fadeOut = Math.clamp(roadrunnerRedlineTimer / 14.0, 0.0, 1.0);
+            double alpha = Math.min(fadeIn, Math.max(0.18, fadeOut));
+
+            g.setStroke(red.deriveColor(0, 1, 1, 0.18 * alpha));
+            g.setLineWidth(22.0 * s);
+            g.strokeLine(anchorX - dir * 420.0 * s, anchorY, anchorX + dir * 420.0 * s, anchorY);
+            g.setStroke(gold.deriveColor(0, 1, 1, 0.44 * alpha));
+            g.setLineWidth(4.0 * s);
+            g.strokeLine(anchorX - dir * 380.0 * s, anchorY, anchorX + dir * 380.0 * s, anchorY);
+
+            for (int i = 0; i < 9; i++) {
+                double pulse = (elapsed * 0.07 + i / 9.0) % 1.0;
+                double width = (110.0 + pulse * 430.0) * s;
+                double height = (42.0 + pulse * 190.0) * s;
+                Color ring = (i % 2 == 0 ? red : gold).deriveColor(0, 1, 1, (0.30 - pulse * 0.22) * alpha);
+                g.setStroke(ring);
+                g.setLineWidth((2.5 + (1.0 - pulse) * 3.0) * s);
+                g.strokeOval(anchorX - width * 0.5, anchorY - height * 0.5, width, height);
+            }
+
+            for (int i = 0; i < 12; i++) {
+                double band = (elapsed * 16.0 + i * 73.0) % 620.0;
+                double x0 = anchorX - dir * (330.0 - band) * s;
+                double y0 = anchorY + (i - 5.5) * 18.0 * s;
+                g.setStroke((i % 3 == 0 ? gold : red).deriveColor(0, 1, 1, 0.15 * alpha));
+                g.setLineWidth((2.0 + (i % 4)) * s);
+                g.strokeLine(x0, y0, x0 + dir * (155.0 + (i % 5) * 22.0) * s, y0 - (i - 5.5) * 1.4 * s);
+            }
+
+            double slashAlpha = roadrunnerRedlineFinalResolved ? 0.82 : 0.54;
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, slashAlpha * alpha));
+            g.setLineWidth((roadrunnerRedlineFinalResolved ? 9.0 : 5.0) * s);
+            g.strokeLine(roadrunnerRedlineLastStartX, roadrunnerRedlineLastStartY,
+                    roadrunnerRedlineLastEndX, roadrunnerRedlineLastEndY);
+            g.setStroke((roadrunnerRedlineFinalResolved ? red : gold).deriveColor(0, 1, 1, 0.72 * alpha));
+            g.setLineWidth((roadrunnerRedlineFinalResolved ? 18.0 : 9.0) * s);
+            g.strokeLine(roadrunnerRedlineLastStartX, roadrunnerRedlineLastStartY,
+                    roadrunnerRedlineLastEndX, roadrunnerRedlineLastEndY);
+        }
+
+        g.restore();
     }
 
     private void drawShoebillSpecialFx(GraphicsContext g, double drawSize) {

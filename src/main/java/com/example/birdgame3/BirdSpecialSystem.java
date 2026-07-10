@@ -121,6 +121,8 @@ final class BirdSpecialSystem {
             game.recordUltimateMoveUse(bird, RazorbillSpecials.GUILLOTINE_WAKE_MOVE);
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.TURKEY) {
             game.recordUltimateMoveUse(bird, TurkeySpecials.HARVEST_TRIBUNAL_MOVE);
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.ROADRUNNER) {
+            game.recordUltimateMoveUse(bird, RoadrunnerSpecials.REDLINE_EXECUTION_MOVE);
         } else {
             game.recordSpecialMoveUse(bird, input, ultimateTriggered);
         }
@@ -170,6 +172,8 @@ final class BirdSpecialSystem {
             game.playRazorbillGuillotineWakeSfx();
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.TURKEY) {
             game.playTurkeyHarvestTribunalSfx();
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.ROADRUNNER) {
+            game.playRoadrunnerRedlineExecutionSfx();
         } else if (bird.type == BirdGame3.BirdType.RAZORBILL) {
             game.playVaseBreakingSfx();
         } else {

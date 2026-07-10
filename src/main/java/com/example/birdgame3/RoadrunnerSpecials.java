@@ -6,12 +6,15 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 final class RoadrunnerSpecials {
+    static final String REDLINE_EXECUTION_MOVE = "Redline Execution";
+
     private RoadrunnerSpecials() {
     }
 
     static void use(Bird bird, boolean ultimate) {
         if (ultimate) {
-            activateSandstorm(bird);
+            startRedlineExecution(bird);
+            return;
         }
         switch (bird.selectRoadrunnerSpecialVariant()) {
             case NEUTRAL -> neutral(bird, ultimate);
@@ -36,6 +39,65 @@ final class RoadrunnerSpecials {
         bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 12);
         bird.game.triggerFlash(0.45, false);
         unleashSandGust(bird, true);
+    }
+
+    static void startRedlineExecution(Bird bird) {
+        int dir = bird.horizontalInputDirection();
+        if (dir == 0) {
+            dir = bird.facingDirection();
+        }
+        bird.facingRight = dir > 0;
+        clearNormalActionState(bird);
+        clearRedlineState(bird);
+
+        double startX = bird.bodyCenterX();
+        double startY = bird.bodyCenterY() - 4.0 * bird.sizeMultiplier;
+        double leftBound = bird.usesIslandBounds()
+                ? bird.game.battlefieldLeftBound() + 70.0 * bird.sizeMultiplier
+                : 70.0 * bird.sizeMultiplier;
+        double rightBound = bird.usesIslandBounds()
+                ? bird.game.battlefieldRightBound() - 70.0 * bird.sizeMultiplier
+                : BirdGame3.WORLD_WIDTH - 70.0 * bird.sizeMultiplier;
+        if (leftBound > rightBound) {
+            double midpoint = (leftBound + rightBound) * 0.5;
+            leftBound = midpoint;
+            rightBound = midpoint;
+        }
+        double rawEndX = startX + dir * Bird.ROADRUNNER_REDLINE_RANGE * bird.sizeMultiplier;
+        double endX = Math.clamp(rawEndX, leftBound, rightBound);
+
+        bird.roadrunnerRedlineTimer = Bird.ROADRUNNER_REDLINE_DASH_FRAMES;
+        bird.roadrunnerRedlineRecoveryTimer = 0;
+        bird.roadrunnerRedlineCinematic = false;
+        bird.roadrunnerRedlineDirection = dir;
+        bird.roadrunnerRedlineStrikeIndex = 0;
+        bird.roadrunnerRedlineFinalResolved = false;
+        bird.roadrunnerRedlineStartX = startX;
+        bird.roadrunnerRedlineStartY = startY;
+        bird.roadrunnerRedlineEndX = endX;
+        bird.roadrunnerRedlineEndY = startY;
+        bird.roadrunnerRedlineAnchorX = startX;
+        bird.roadrunnerRedlineAnchorY = startY;
+        bird.roadrunnerRedlineLastStartX = startX;
+        bird.roadrunnerRedlineLastStartY = startY;
+        bird.roadrunnerRedlineLastEndX = startX;
+        bird.roadrunnerRedlineLastEndY = startY;
+        Arrays.fill(bird.roadrunnerRedlineCaught, false);
+
+        bird.vx = dir * Bird.ROADRUNNER_REDLINE_DASH_SPEED;
+        bird.vy *= 0.08;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.ROADRUNNER_REDLINE_DASH_FRAMES + 8);
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.isBlocking = false;
+        bird.parryWindowFrames = 0;
+        bird.shieldStunFrames = 0;
+        bird.roadrunnerMomentum = Bird.ROADRUNNER_MOMENTUM_MAX;
+        bird.roadrunnerMomentumFxTimer = Math.max(bird.roadrunnerMomentumFxTimer, 72);
+        bird.game.addToKillFeed(bird.shortName() + " ENTERED THE REDLINE!");
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 9);
+        emitBurstDust(bird, startX - dir * 20.0 * bird.sizeMultiplier,
+                bird.bodyBottomY() - 10.0 * bird.sizeMultiplier, dir, 38, Color.web("#FF1744"));
     }
 
     static double momentumRatio(Bird bird) {
@@ -383,6 +445,13 @@ final class RoadrunnerSpecials {
 
         handleMomentum(bird);
 
+        if (bird.roadrunnerRedlineTimer > 0
+                || bird.roadrunnerRedlineRecoveryTimer > 0
+                || bird.roadrunnerRedlineCinematic) {
+            handleRedlineExecution(bird, grabbed);
+            return;
+        }
+
         if (bird.roadrunnerBeepCharging) {
             bird.roadrunnerBeepChargeFrames = Math.min(Bird.ROADRUNNER_BEEP_CHARGE_MAX_FRAMES, bird.roadrunnerBeepChargeFrames + 1);
             addMomentum(bird, bird.roadrunnerBeepUltimate ? 0.72 : 0.42);
@@ -423,6 +492,311 @@ final class RoadrunnerSpecials {
         if (bird.roadrunnerDustDevilTimer > 0) {
             handleDustDevil(bird);
         }
+    }
+
+    static void handleRedlineExecution(Bird bird, boolean grabbed) {
+        if (bird.roadrunnerRedlineTimer <= 0 && bird.roadrunnerRedlineRecoveryTimer <= 0) {
+            clearRedlineState(bird);
+            return;
+        }
+
+        if (bird.roadrunnerRedlineRecoveryTimer > 0) {
+            bird.vx *= bird.isOnGround() ? 0.62 : 0.76;
+            bird.vy *= 0.94;
+            if (bird.roadrunnerRedlineRecoveryTimer <= 1 && bird.roadrunnerRedlineTimer <= 0) {
+                clearRedlineState(bird);
+            }
+            return;
+        }
+
+        if (!bird.roadrunnerRedlineCinematic) {
+            handleRedlineDash(bird, grabbed);
+            return;
+        }
+
+        handleRedlineCinematic(bird);
+    }
+
+    private static void handleRedlineDash(Bird bird, boolean grabbed) {
+        if (grabbed || bird.health <= 0) {
+            startRedlineWhiffRecovery(bird);
+            return;
+        }
+
+        int dir = bird.roadrunnerRedlineDirection == 0 ? bird.facingDirection() : bird.roadrunnerRedlineDirection;
+        bird.roadrunnerRedlineDirection = dir;
+        bird.facingRight = dir > 0;
+        bird.vx = dir * Bird.ROADRUNNER_REDLINE_DASH_SPEED;
+        bird.vy *= 0.20;
+
+        double previousX = bird.roadrunnerRedlineLastEndX;
+        double previousY = bird.roadrunnerRedlineLastEndY;
+        double currentX = bird.bodyCenterX();
+        double currentY = bird.bodyCenterY() - 4.0 * bird.sizeMultiplier;
+        bird.roadrunnerRedlineLastStartX = previousX;
+        bird.roadrunnerRedlineLastStartY = previousY;
+        bird.roadrunnerRedlineLastEndX = currentX;
+        bird.roadrunnerRedlineLastEndY = currentY;
+
+        if ((bird.roadrunnerRedlineTimer & 1) == 0) {
+            emitBurstDust(bird, currentX - dir * 28.0 * bird.sizeMultiplier,
+                    bird.bodyBottomY() - 12.0 * bird.sizeMultiplier, dir, 10, Color.web("#FF5252"));
+        }
+
+        if (collectRedlineCaughtInSegment(bird, previousX, previousY, currentX, currentY)) {
+            startRedlineCinematic(bird);
+            return;
+        }
+
+        boolean passedEnd = dir > 0
+                ? currentX >= bird.roadrunnerRedlineEndX
+                : currentX <= bird.roadrunnerRedlineEndX;
+        if (bird.roadrunnerRedlineTimer <= 1 || passedEnd) {
+            startRedlineWhiffRecovery(bird);
+        }
+    }
+
+    private static boolean collectRedlineCaughtInSegment(Bird bird, double x0, double y0, double x1, double y1) {
+        boolean caughtAny = false;
+        double minX = Math.min(x0, x1);
+        double maxX = Math.max(x0, x1);
+        double laneY = (y0 + y1) * 0.5;
+        double lanePad = Bird.ROADRUNNER_REDLINE_LANE_HALF_HEIGHT * bird.sizeMultiplier;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= bird.roadrunnerRedlineCaught.length) continue;
+            if (bird.roadrunnerRedlineCaught[other.playerIndex]) continue;
+            double otherX = other.bodyCenterX();
+            double otherY = other.bodyCenterY();
+            double reachPad = other.combatHalfWidth() + 42.0 * bird.sizeMultiplier;
+            if (otherX < minX - reachPad || otherX > maxX + reachPad) continue;
+            if (Math.abs(otherY - laneY) > lanePad + other.combatHalfHeight()) continue;
+            bird.roadrunnerRedlineCaught[other.playerIndex] = true;
+            caughtAny = true;
+        }
+        return caughtAny;
+    }
+
+    private static void startRedlineCinematic(Bird bird) {
+        int caughtCount = redlineCaughtCount(bird);
+        if (caughtCount <= 0) {
+            startRedlineWhiffRecovery(bird);
+            return;
+        }
+
+        double sumX = 0.0;
+        double sumY = 0.0;
+        for (Bird other : bird.game.players) {
+            if (!isRedlineCaught(bird, other)) continue;
+            sumX += other.bodyCenterX();
+            sumY += other.bodyCenterY();
+        }
+        double anchorX = sumX / caughtCount;
+        double anchorY = sumY / caughtCount;
+        double leftBound = bird.usesIslandBounds()
+                ? bird.game.battlefieldLeftBound() + 150.0 * bird.sizeMultiplier
+                : 150.0 * bird.sizeMultiplier;
+        double rightBound = bird.usesIslandBounds()
+                ? bird.game.battlefieldRightBound() - 150.0 * bird.sizeMultiplier
+                : BirdGame3.WORLD_WIDTH - 150.0 * bird.sizeMultiplier;
+        if (leftBound > rightBound) {
+            double midpoint = (leftBound + rightBound) * 0.5;
+            leftBound = midpoint;
+            rightBound = midpoint;
+        }
+        anchorX = Math.clamp(anchorX, leftBound, rightBound);
+        anchorY = Math.clamp(anchorY, BirdGame3.CEILING_Y + 180.0 * bird.sizeMultiplier,
+                BirdGame3.WORLD_HEIGHT - 260.0 * bird.sizeMultiplier);
+
+        bird.roadrunnerRedlineTimer = Bird.ROADRUNNER_REDLINE_CINEMATIC_FRAMES;
+        bird.roadrunnerRedlineCinematic = true;
+        bird.roadrunnerRedlineRecoveryTimer = 0;
+        bird.roadrunnerRedlineStrikeIndex = 0;
+        bird.roadrunnerRedlineFinalResolved = false;
+        bird.roadrunnerRedlineAnchorX = anchorX;
+        bird.roadrunnerRedlineAnchorY = anchorY;
+        bird.vx = 0.0;
+        bird.vy = 0.0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.ROADRUNNER_REDLINE_CINEMATIC_FRAMES + 8);
+        bird.game.addToKillFeed(bird.shortName() + " CAUGHT THE REDLINE!");
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 13);
+        bird.game.triggerFlash(0.26, false);
+        emitBurstDust(bird, anchorX, anchorY, bird.roadrunnerRedlineDirection, 48, Color.web("#FFD54F"));
+    }
+
+    private static void handleRedlineCinematic(Bird bird) {
+        int elapsed = Bird.ROADRUNNER_REDLINE_CINEMATIC_FRAMES - bird.roadrunnerRedlineTimer;
+        int dir = bird.roadrunnerRedlineDirection == 0 ? bird.facingDirection() : bird.roadrunnerRedlineDirection;
+        bird.roadrunnerRedlineDirection = dir;
+        positionRedlineRunner(bird, elapsed, dir);
+        if (!bird.roadrunnerRedlineFinalResolved) {
+            positionRedlineTargets(bird, elapsed);
+        }
+
+        int expectedStrikes = Math.min(Bird.ROADRUNNER_REDLINE_STRIKE_COUNT,
+                elapsed / Bird.ROADRUNNER_REDLINE_STRIKE_INTERVAL);
+        while (bird.roadrunnerRedlineStrikeIndex < expectedStrikes) {
+            applyRedlineStrike(bird, bird.roadrunnerRedlineStrikeIndex, false);
+            bird.roadrunnerRedlineStrikeIndex++;
+        }
+
+        if (!bird.roadrunnerRedlineFinalResolved && elapsed >= Bird.ROADRUNNER_REDLINE_FINAL_FRAME) {
+            applyRedlineStrike(bird, Bird.ROADRUNNER_REDLINE_STRIKE_COUNT, true);
+            bird.roadrunnerRedlineFinalResolved = true;
+            bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 24);
+            bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 3);
+            bird.game.triggerFlash(0.34, false);
+        }
+
+        if (bird.roadrunnerRedlineTimer <= 1) {
+            endRedlineCinematic(bird);
+        }
+    }
+
+    private static void positionRedlineRunner(Bird bird, int elapsed, int dir) {
+        double s = bird.sizeMultiplier;
+        double anchorX = bird.roadrunnerRedlineAnchorX;
+        double anchorY = bird.roadrunnerRedlineAnchorY;
+        if (bird.roadrunnerRedlineFinalResolved) {
+            bird.x = anchorX + dir * 132.0 * s - bird.bodyWidth() * 0.5;
+            bird.y = anchorY - 48.0 * s - bird.bodyHeight() * 0.5;
+            bird.facingRight = dir < 0;
+        } else {
+            double phase = elapsed * 0.54;
+            double side = ((elapsed / Math.max(1, Bird.ROADRUNNER_REDLINE_STRIKE_INTERVAL)) & 1) == 0 ? -dir : dir;
+            double orbitX = side * (124.0 + Math.sin(phase * 0.7) * 42.0) * s;
+            double orbitY = (-58.0 + Math.cos(phase) * 62.0) * s;
+            bird.x = anchorX + orbitX - bird.bodyWidth() * 0.5;
+            bird.y = anchorY + orbitY - bird.bodyHeight() * 0.5;
+            bird.facingRight = anchorX >= bird.bodyCenterX();
+        }
+        bird.vx = 0.0;
+        bird.vy = 0.0;
+    }
+
+    private static void positionRedlineTargets(Bird bird, int elapsed) {
+        int caughtCount = Math.max(1, redlineCaughtCount(bird));
+        int slot = 0;
+        for (Bird other : bird.game.players) {
+            if (!isRedlineCaught(bird, other) || other.health <= 0) continue;
+            double centeredSlot = slot - (caughtCount - 1) * 0.5;
+            double sway = Math.sin(elapsed * 0.36 + slot * 1.7) * 9.0 * bird.sizeMultiplier;
+            double xOffset = centeredSlot * 34.0 * bird.sizeMultiplier + sway;
+            double yOffset = Math.cos(elapsed * 0.28 + slot) * 11.0 * bird.sizeMultiplier;
+            other.x = bird.roadrunnerRedlineAnchorX + xOffset - other.bodyWidth() * 0.5;
+            other.y = bird.roadrunnerRedlineAnchorY + yOffset - other.bodyHeight() * 0.5;
+            other.vx = 0.0;
+            other.vy = 0.0;
+            other.applyStun(8.0);
+            other.knockdownTimer = Math.max(other.knockdownTimer, 4);
+            slot++;
+        }
+    }
+
+    private static void applyRedlineStrike(Bird bird, int strikeIndex, boolean finisher) {
+        int dir = bird.roadrunnerRedlineDirection == 0 ? bird.facingDirection() : bird.roadrunnerRedlineDirection;
+        double startAngle = -0.85 + strikeIndex * 0.42;
+        double startRadius = (finisher ? 285.0 : 185.0) * bird.sizeMultiplier;
+        bird.roadrunnerRedlineLastStartX = bird.roadrunnerRedlineAnchorX - dir * startRadius;
+        bird.roadrunnerRedlineLastStartY = bird.roadrunnerRedlineAnchorY + Math.sin(startAngle) * 92.0 * bird.sizeMultiplier;
+        bird.roadrunnerRedlineLastEndX = bird.roadrunnerRedlineAnchorX + dir * startRadius;
+        bird.roadrunnerRedlineLastEndY = bird.roadrunnerRedlineAnchorY - Math.sin(startAngle) * 82.0 * bird.sizeMultiplier;
+
+        int rawDamage = finisher ? Bird.ROADRUNNER_REDLINE_FINAL_DAMAGE : Bird.ROADRUNNER_REDLINE_STRIKE_DAMAGE;
+        for (Bird other : bird.game.players) {
+            if (!isRedlineCaught(bird, other) || other.health <= 0) continue;
+            int dealt = bird.applyTrackedSpecialDamage(other, rawDamage);
+            if (dealt <= 0) continue;
+            if (finisher) {
+                double away = Math.signum(other.bodyCenterX() - bird.roadrunnerRedlineAnchorX);
+                if (away == 0.0) {
+                    away = dir;
+                }
+                other.vx = away * (30.0 + dealt * 0.28);
+                other.vy = -22.0 - dealt * 0.10;
+                other.applyStun(20.0);
+                emitBurstDust(bird, other.bodyCenterX(), other.bodyCenterY(), (int) away, 34, Color.web("#FF1744"));
+            } else {
+                other.vx += dir * (4.0 + strikeIndex);
+                other.vy -= 2.2;
+                emitBurstDust(bird, other.bodyCenterX(), other.bodyCenterY(), dir, 12, Color.web("#FFAB40"));
+                bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 5);
+            }
+        }
+    }
+
+    private static void startRedlineWhiffRecovery(Bird bird) {
+        int dir = bird.roadrunnerRedlineDirection == 0 ? bird.facingDirection() : bird.roadrunnerRedlineDirection;
+        bird.roadrunnerRedlineTimer = 0;
+        bird.roadrunnerRedlineCinematic = false;
+        bird.roadrunnerRedlineRecoveryTimer = Bird.ROADRUNNER_REDLINE_RECOVERY_FRAMES;
+        bird.roadrunnerRedlineFinalResolved = false;
+        Arrays.fill(bird.roadrunnerRedlineCaught, false);
+        bird.vx = dir * 8.0;
+        bird.vy *= 0.55;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.ROADRUNNER_REDLINE_RECOVERY_FRAMES);
+        emitBurstDust(bird, bird.bodyCenterX(), bird.bodyBottomY() - 8.0 * bird.sizeMultiplier, dir, 16, Color.web("#6D4C41"));
+    }
+
+    private static void endRedlineCinematic(Bird bird) {
+        int dir = bird.roadrunnerRedlineDirection == 0 ? bird.facingDirection() : bird.roadrunnerRedlineDirection;
+        bird.roadrunnerRedlineTimer = 0;
+        bird.roadrunnerRedlineRecoveryTimer = Bird.ROADRUNNER_REDLINE_RECOVERY_FRAMES;
+        bird.roadrunnerRedlineCinematic = false;
+        bird.vx = dir * 10.0;
+        bird.vy = Math.min(bird.vy, -2.0);
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.ROADRUNNER_REDLINE_RECOVERY_FRAMES);
+    }
+
+    private static int redlineCaughtCount(Bird bird) {
+        int caught = 0;
+        for (Bird other : bird.game.players) {
+            if (isRedlineCaught(bird, other)) {
+                caught++;
+            }
+        }
+        return caught;
+    }
+
+    private static boolean isRedlineCaught(Bird bird, Bird other) {
+        return other != null
+                && other.playerIndex >= 0
+                && other.playerIndex < bird.roadrunnerRedlineCaught.length
+                && bird.roadrunnerRedlineCaught[other.playerIndex];
+    }
+
+    private static void clearNormalActionState(Bird bird) {
+        bird.roadrunnerBeepCharging = false;
+        bird.roadrunnerBeepChargeFrames = 0;
+        bird.roadrunnerBeepMaxChargeHoldFrames = 0;
+        bird.roadrunnerBeepBurstTimer = 0;
+        bird.roadrunnerRicochetTimer = 0;
+        bird.roadrunnerRicochetSpeed = 0.0;
+        bird.roadrunnerDustDevilTimer = 0;
+        bird.roadrunnerRoadBoostTimer = 0;
+        Arrays.fill(bird.roadrunnerBeepHit, false);
+        Arrays.fill(bird.roadrunnerRicochetHitCooldown, 0);
+        Arrays.fill(bird.roadrunnerDustDevilHit, false);
+    }
+
+    private static void clearRedlineState(Bird bird) {
+        bird.roadrunnerRedlineTimer = 0;
+        bird.roadrunnerRedlineRecoveryTimer = 0;
+        bird.roadrunnerRedlineCinematic = false;
+        bird.roadrunnerRedlineDirection = 1;
+        bird.roadrunnerRedlineStrikeIndex = 0;
+        bird.roadrunnerRedlineFinalResolved = false;
+        bird.roadrunnerRedlineStartX = 0.0;
+        bird.roadrunnerRedlineStartY = 0.0;
+        bird.roadrunnerRedlineEndX = 0.0;
+        bird.roadrunnerRedlineEndY = 0.0;
+        bird.roadrunnerRedlineAnchorX = 0.0;
+        bird.roadrunnerRedlineAnchorY = 0.0;
+        bird.roadrunnerRedlineLastStartX = 0.0;
+        bird.roadrunnerRedlineLastStartY = 0.0;
+        bird.roadrunnerRedlineLastEndX = 0.0;
+        bird.roadrunnerRedlineLastEndY = 0.0;
+        Arrays.fill(bird.roadrunnerRedlineCaught, false);
     }
 
     static void handleMomentum(Bird bird) {
@@ -715,7 +1089,9 @@ final class RoadrunnerSpecials {
         return bird.roadrunnerBeepCharging
                 || bird.roadrunnerBeepBurstTimer > 0
                 || bird.roadrunnerRicochetTimer > 0
-                || bird.roadrunnerDustDevilTimer > 0;
+                || bird.roadrunnerDustDevilTimer > 0
+                || bird.roadrunnerRedlineTimer > 0
+                || bird.roadrunnerRedlineRecoveryTimer > 0;
     }
 
     static boolean ready(Bird bird, Bird.RoadrunnerSpecialVariant variant) {
@@ -781,25 +1157,20 @@ final class RoadrunnerSpecials {
         bird.roadrunnerSlipDirection = 1;
         bird.roadrunnerSlipOwnerIndex = -1;
         bird.roadrunnerSlipUltimate = false;
+        clearRedlineState(bird);
     }
 
     static void interruptOnHit(Bird bird) {
         if (bird.type != BirdGame3.BirdType.ROADRUNNER) {
             return;
         }
+        if (bird.roadrunnerRedlineCinematic && bird.roadrunnerRedlineTimer > 0) {
+            return;
+        }
         if (active(bird)) {
             bird.attackAnimationTimer = 0;
         }
-        bird.roadrunnerBeepCharging = false;
-        bird.roadrunnerBeepChargeFrames = 0;
-        bird.roadrunnerBeepMaxChargeHoldFrames = 0;
-        bird.roadrunnerBeepBurstTimer = 0;
-        bird.roadrunnerRicochetTimer = 0;
-        bird.roadrunnerRicochetSpeed = 0.0;
-        bird.roadrunnerDustDevilTimer = 0;
-        bird.roadrunnerRoadBoostTimer = 0;
-        Arrays.fill(bird.roadrunnerBeepHit, false);
-        Arrays.fill(bird.roadrunnerRicochetHitCooldown, 0);
-        Arrays.fill(bird.roadrunnerDustDevilHit, false);
+        clearNormalActionState(bird);
+        clearRedlineState(bird);
     }
 }
