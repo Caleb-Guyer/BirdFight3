@@ -360,6 +360,42 @@ class LanBirdState {
     double roadrunnerRedlineLastEndX;
     double roadrunnerRedlineLastEndY;
     boolean[] roadrunnerRedlineCaught = new boolean[4];
+    int grinchHeartSnatchTimer;
+    boolean grinchHeartSnatchUltimate;
+    boolean[] grinchHeartSnatchHit = new boolean[4];
+    boolean grinchSleighActive;
+    boolean grinchSleighRiding;
+    int grinchSleighTimer;
+    int grinchSleighDirection;
+    double grinchSleighX;
+    double grinchSleighY;
+    boolean grinchSleighUltimate;
+    boolean[] grinchSleighHit = new boolean[4];
+    int grinchChimneyFlapTimer;
+    boolean grinchChimneyFlapUltimate;
+    boolean grinchUpSpecialUsed;
+    boolean[] grinchChimneyFlapHit = new boolean[4];
+    boolean grinchPresentActive;
+    double grinchPresentX;
+    double grinchPresentY;
+    boolean grinchPresentUltimate;
+    int grinchPresentAgeFrames;
+    int grinchPresentFuseFrames;
+    int grinchGiftstormTimer;
+    int grinchGiftstormDropIndex;
+    boolean grinchGiftstormFinalResolved;
+    int grinchGiftstormDirection;
+    double grinchGiftstormSleighX;
+    double grinchGiftstormSleighY;
+    double grinchGiftstormFinalStartX;
+    double grinchGiftstormFinalStartY;
+    double grinchGiftstormFinalEndX;
+    double grinchGiftstormFinalEndY;
+    double grinchGiftstormLastDropX;
+    double grinchGiftstormLastDropY;
+    int grinchGiftstormLastDropKind;
+    int grinchGiftstormDropFxTimer;
+    boolean[] grinchGiftstormFinalHit = new boolean[4];
     int pigeonFeatherBurstTimer;
     boolean pigeonFeatherBurstUltimate;
     int pigeonRushTimer;
@@ -921,6 +957,50 @@ class LanBirdState {
         out.writeDouble(roadrunnerRedlineLastEndY);
         for (boolean caught : roadrunnerRedlineCaught) {
             out.writeBoolean(caught);
+        }
+        out.writeInt(grinchHeartSnatchTimer);
+        out.writeBoolean(grinchHeartSnatchUltimate);
+        for (boolean hit : grinchHeartSnatchHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeBoolean(grinchSleighActive);
+        out.writeBoolean(grinchSleighRiding);
+        out.writeInt(grinchSleighTimer);
+        out.writeInt(grinchSleighDirection);
+        out.writeDouble(grinchSleighX);
+        out.writeDouble(grinchSleighY);
+        out.writeBoolean(grinchSleighUltimate);
+        for (boolean hit : grinchSleighHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeInt(grinchChimneyFlapTimer);
+        out.writeBoolean(grinchChimneyFlapUltimate);
+        out.writeBoolean(grinchUpSpecialUsed);
+        for (boolean hit : grinchChimneyFlapHit) {
+            out.writeBoolean(hit);
+        }
+        out.writeBoolean(grinchPresentActive);
+        out.writeDouble(grinchPresentX);
+        out.writeDouble(grinchPresentY);
+        out.writeBoolean(grinchPresentUltimate);
+        out.writeInt(grinchPresentAgeFrames);
+        out.writeInt(grinchPresentFuseFrames);
+        out.writeInt(grinchGiftstormTimer);
+        out.writeInt(grinchGiftstormDropIndex);
+        out.writeBoolean(grinchGiftstormFinalResolved);
+        out.writeInt(grinchGiftstormDirection);
+        out.writeDouble(grinchGiftstormSleighX);
+        out.writeDouble(grinchGiftstormSleighY);
+        out.writeDouble(grinchGiftstormFinalStartX);
+        out.writeDouble(grinchGiftstormFinalStartY);
+        out.writeDouble(grinchGiftstormFinalEndX);
+        out.writeDouble(grinchGiftstormFinalEndY);
+        out.writeDouble(grinchGiftstormLastDropX);
+        out.writeDouble(grinchGiftstormLastDropY);
+        out.writeInt(grinchGiftstormLastDropKind);
+        out.writeInt(grinchGiftstormDropFxTimer);
+        for (boolean hit : grinchGiftstormFinalHit) {
+            out.writeBoolean(hit);
         }
         out.writeInt(pigeonFeatherBurstTimer);
         out.writeBoolean(pigeonFeatherBurstUltimate);
@@ -1515,6 +1595,50 @@ class LanBirdState {
         state.roadrunnerRedlineLastEndY = in.readDouble();
         for (int i = 0; i < state.roadrunnerRedlineCaught.length; i++) {
             state.roadrunnerRedlineCaught[i] = in.readBoolean();
+        }
+        state.grinchHeartSnatchTimer = in.readInt();
+        state.grinchHeartSnatchUltimate = in.readBoolean();
+        for (int i = 0; i < state.grinchHeartSnatchHit.length; i++) {
+            state.grinchHeartSnatchHit[i] = in.readBoolean();
+        }
+        state.grinchSleighActive = in.readBoolean();
+        state.grinchSleighRiding = in.readBoolean();
+        state.grinchSleighTimer = in.readInt();
+        state.grinchSleighDirection = in.readInt();
+        state.grinchSleighX = in.readDouble();
+        state.grinchSleighY = in.readDouble();
+        state.grinchSleighUltimate = in.readBoolean();
+        for (int i = 0; i < state.grinchSleighHit.length; i++) {
+            state.grinchSleighHit[i] = in.readBoolean();
+        }
+        state.grinchChimneyFlapTimer = in.readInt();
+        state.grinchChimneyFlapUltimate = in.readBoolean();
+        state.grinchUpSpecialUsed = in.readBoolean();
+        for (int i = 0; i < state.grinchChimneyFlapHit.length; i++) {
+            state.grinchChimneyFlapHit[i] = in.readBoolean();
+        }
+        state.grinchPresentActive = in.readBoolean();
+        state.grinchPresentX = in.readDouble();
+        state.grinchPresentY = in.readDouble();
+        state.grinchPresentUltimate = in.readBoolean();
+        state.grinchPresentAgeFrames = in.readInt();
+        state.grinchPresentFuseFrames = in.readInt();
+        state.grinchGiftstormTimer = in.readInt();
+        state.grinchGiftstormDropIndex = in.readInt();
+        state.grinchGiftstormFinalResolved = in.readBoolean();
+        state.grinchGiftstormDirection = in.readInt();
+        state.grinchGiftstormSleighX = in.readDouble();
+        state.grinchGiftstormSleighY = in.readDouble();
+        state.grinchGiftstormFinalStartX = in.readDouble();
+        state.grinchGiftstormFinalStartY = in.readDouble();
+        state.grinchGiftstormFinalEndX = in.readDouble();
+        state.grinchGiftstormFinalEndY = in.readDouble();
+        state.grinchGiftstormLastDropX = in.readDouble();
+        state.grinchGiftstormLastDropY = in.readDouble();
+        state.grinchGiftstormLastDropKind = in.readInt();
+        state.grinchGiftstormDropFxTimer = in.readInt();
+        for (int i = 0; i < state.grinchGiftstormFinalHit.length; i++) {
+            state.grinchGiftstormFinalHit[i] = in.readBoolean();
         }
         state.pigeonFeatherBurstTimer = in.readInt();
         state.pigeonFeatherBurstUltimate = in.readBoolean();

@@ -1229,6 +1229,24 @@ public class BirdGame3 extends Application {
         }
     }
 
+    void playGrinchhawkMidnightGiftstormSfx() {
+        if (!sfxEnabled) return;
+        if (hugewaveClip != null) {
+            hugewaveClip.stop();
+            playManagedSfxVaried(hugewaveClip, 0.86, 0.58, 0.014);
+        }
+        if (vaseBreakingClip != null) {
+            vaseBreakingClip.stop();
+            playManagedSfxVaried(vaseBreakingClip, 0.72, 1.42, 0.018);
+        }
+        if (swingClip != null) {
+            playManagedSfxVaried(swingClip, 0.54, 0.68, 0.020);
+        }
+        if (bonkClip != null) {
+            playManagedSfxVaried(bonkClip, 0.38, 0.50, 0.014);
+        }
+    }
+
     void playAchievementSfx() {
         if (!sfxEnabled || steamAchievementClip == null) return;
         steamAchievementClip.stop();
@@ -9750,7 +9768,8 @@ public class BirdGame3 extends Application {
         MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Mimic neutral / Mimic Call / Forest Lift / Forest Lounge / Shadow Court"),
         RAZORBILL("Razorbill", 8, 12, 3.6, Color.INDIGO, 0.25,
                 "Razor Storm / Skimming Razor / Cliff Shear / Counter Cut / Guillotine Wake"),
-        GRINCHHAWK("Grinch-Hawk", 10, 10, 2.8, Color.rgb(102, 153, 0), 0.80, "Heart Snatch / Sleigh Crash / Chimney Flap / Fake Present"),
+        GRINCHHAWK("Grinch-Hawk", 10, 10, 2.8, Color.rgb(102, 153, 0), 0.80,
+                "Heart Snatch / Sleigh Crash / Chimney Flap / Fake Present / Midnight Giftstorm"),
         VULTURE("Vulture", 7, 14, 3.1, Color.rgb(45, 25, 55), 0.2, "Summon Crows + Feast"),
         OPIUMBIRD("Opium Bird", 7, 19, 4.4, Color.rgb(138, 43, 226), 0.7, "Lean Cloud + Haze Drift + Rising Vapors + Lotus Patch"),
         TITMOUSE("Tufted Titmouse", 6, 21, 5.4, Color.SLATEGRAY, 0.9, "Scold Chorus / Barkskip / Tuft Vault / Seed Stash"),
@@ -45912,6 +45931,7 @@ public class BirdGame3 extends Application {
             case PENGUIN -> "Air down special drops a straight-down iceberg. Ultimate creates an invulnerable ice throne.";
             case SHOEBILL -> "Ultimate: Final Stillness drains the screen, silences music, and fires an ancient locked beam.";
             case RAZORBILL -> "Ultimate: Guillotine Wake marks dodgeable cut-lines, chains slashes, then leaves a damaging razor wake.";
+            case GRINCHHAWK -> "Ultimate: Midnight Giftstorm rains trap presents, then sends a stolen sleigh across the stage for a final gift-box slam.";
             case BAT -> "Ceiling Hang gives the down special a second movement state.";
             case PHOENIX -> "Snap Fire travels farther and fizzles harmlessly. Air Snap Fire angles down; air Faultfire can be held.";
             default -> "Directional input changes the special before startup.";

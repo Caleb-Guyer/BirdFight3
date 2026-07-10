@@ -5,10 +5,20 @@ import javafx.scene.paint.Color;
 import java.util.Arrays;
 
 final class GrinchhawkSpecials {
+    static final String MIDNIGHT_GIFTSTORM_MOVE = "Midnight Giftstorm";
+    private static final int GIFTSTORM_KIND_COAL = 0;
+    private static final int GIFTSTORM_KIND_FROST = 1;
+    private static final int GIFTSTORM_KIND_CHIMNEY = 2;
+    private static final int GIFTSTORM_KIND_FAKE_HEAL = 3;
+
     private GrinchhawkSpecials() {
     }
 
     static void use(Bird bird, boolean ultimate) {
+        if (ultimate) {
+            startMidnightGiftstorm(bird);
+            return;
+        }
         switch (bird.selectGrinchhawkSpecialVariant()) {
             case NEUTRAL -> neutral(bird, ultimate);
             case SIDE -> side(bird, ultimate);
@@ -38,9 +48,321 @@ final class GrinchhawkSpecials {
             return;
         }
 
+        handleMidnightGiftstorm(bird);
         handleSleigh(bird, jumpJustPressed, gameSpeed, gettingOff, forcedOff);
         handleChimneyFlap(bird);
         handlePresent(bird);
+    }
+
+    static void startMidnightGiftstorm(Bird bird) {
+        reset(bird, true);
+        int dir = bird.horizontalInputDirection();
+        if (dir == 0) {
+            dir = bird.facingDirection();
+        }
+        bird.facingRight = dir > 0;
+        bird.grinchGiftstormTimer = Bird.GRINCH_MIDNIGHT_GIFTSTORM_FRAMES;
+        bird.grinchGiftstormDropIndex = 0;
+        bird.grinchGiftstormFinalResolved = false;
+        bird.grinchGiftstormDirection = dir;
+        bird.grinchGiftstormSleighX = giftstormSleighX(bird, 0);
+        bird.grinchGiftstormSleighY = giftstormSleighY(bird, 0);
+        bird.grinchGiftstormLastDropX = bird.bodyCenterX();
+        bird.grinchGiftstormLastDropY = presentSurfaceY(bird, bird.bodyCenterX());
+        bird.grinchGiftstormLastDropKind = GIFTSTORM_KIND_COAL;
+        bird.grinchGiftstormDropFxTimer = 0;
+        Arrays.fill(bird.grinchGiftstormFinalHit, false);
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 26);
+        bird.vx *= bird.isOnGround() ? 0.28 : 0.46;
+        bird.vy = Math.min(bird.vy, -4.2);
+        emitBurst(bird, bird.bodyCenterX(), bird.bodyCenterY() - 28.0 * bird.sizeMultiplier,
+                dir, 70, Color.web("#B2FF59"));
+        bird.game.addToKillFeed(bird.shortName() + " called the Midnight Giftstorm!");
+    }
+
+    static void handleMidnightGiftstorm(Bird bird) {
+        if (bird.grinchGiftstormTimer <= 0) {
+            return;
+        }
+        if (bird.health <= 0) {
+            clearMidnightGiftstorm(bird);
+            return;
+        }
+
+        int elapsed = Bird.GRINCH_MIDNIGHT_GIFTSTORM_FRAMES - bird.grinchGiftstormTimer;
+        bird.grinchGiftstormSleighX = giftstormSleighX(bird, elapsed);
+        bird.grinchGiftstormSleighY = giftstormSleighY(bird, elapsed);
+        if (bird.grinchGiftstormDropFxTimer > 0) {
+            bird.grinchGiftstormDropFxTimer--;
+        }
+
+        while (bird.grinchGiftstormDropIndex < Bird.GRINCH_MIDNIGHT_GIFTSTORM_PRESENT_COUNT
+                && elapsed >= Bird.GRINCH_MIDNIGHT_GIFTSTORM_DROP_START_FRAME
+                + bird.grinchGiftstormDropIndex * Bird.GRINCH_MIDNIGHT_GIFTSTORM_DROP_INTERVAL) {
+            resolveGiftstormDrop(bird, bird.grinchGiftstormDropIndex);
+            bird.grinchGiftstormDropIndex++;
+        }
+
+        if (elapsed >= Bird.GRINCH_MIDNIGHT_GIFTSTORM_FINAL_FRAME
+                && elapsed <= Bird.GRINCH_MIDNIGHT_GIFTSTORM_FINAL_FRAME
+                + Bird.GRINCH_MIDNIGHT_GIFTSTORM_FINAL_ACTIVE_FRAMES) {
+            resolveGiftstormFinalDive(bird);
+        }
+
+        if ((bird.grinchGiftstormTimer & 7) == 0) {
+            emitBurst(bird, bird.grinchGiftstormSleighX, bird.grinchGiftstormSleighY + 8.0 * bird.sizeMultiplier,
+                    -bird.grinchGiftstormDirection, 8, Color.web("#7CB342"));
+        }
+
+        bird.grinchGiftstormTimer--;
+        if (bird.grinchGiftstormTimer <= 0) {
+            bird.grinchGiftstormTimer = 0;
+            bird.grinchGiftstormDropFxTimer = Math.max(bird.grinchGiftstormDropFxTimer, 10);
+        }
+    }
+
+    static boolean giftstormFinalDiveActive(Bird bird) {
+        if (bird == null || bird.grinchGiftstormTimer <= 0) {
+            return false;
+        }
+        int elapsed = Bird.GRINCH_MIDNIGHT_GIFTSTORM_FRAMES - bird.grinchGiftstormTimer;
+        return elapsed >= Bird.GRINCH_MIDNIGHT_GIFTSTORM_FINAL_FRAME
+                && elapsed <= Bird.GRINCH_MIDNIGHT_GIFTSTORM_FINAL_FRAME
+                + Bird.GRINCH_MIDNIGHT_GIFTSTORM_FINAL_ACTIVE_FRAMES;
+    }
+
+    static double giftstormDropX(Bird bird, int index) {
+        double left = giftstormLeftBound(bird);
+        double right = giftstormRightBound(bird);
+        Bird target = selectGiftstormTarget(bird, index);
+        if (target != null) {
+            double offset = index == 0 ? 0.0 : ((((index * 73) + (bird.playerIndex + 3) * 41) % 7) - 3) * 38.0;
+            return clampGiftstormX(left, right, target.bodyCenterX() + offset, 70.0);
+        }
+        double lane = (((index * 137) + (bird.playerIndex + 5) * 53) % 997) / 996.0;
+        return left + 90.0 + lane * Math.max(1.0, right - left - 180.0);
+    }
+
+    static double giftstormDropY(Bird bird, int index) {
+        return presentSurfaceY(bird, giftstormDropX(bird, index));
+    }
+
+    static int giftstormDropKind(int index) {
+        return Math.floorMod(index, 4);
+    }
+
+    static Color giftstormDropColor(int kind) {
+        return switch (kind) {
+            case GIFTSTORM_KIND_FROST -> Color.web("#80DEEA");
+            case GIFTSTORM_KIND_CHIMNEY -> Color.web("#B0BEC5");
+            case GIFTSTORM_KIND_FAKE_HEAL -> Color.web("#B2FF59");
+            default -> Color.web("#263238");
+        };
+    }
+
+    private static void resolveGiftstormDrop(Bird bird, int index) {
+        int kind = giftstormDropKind(index);
+        double x = giftstormDropX(bird, index);
+        double y = giftstormDropY(bird, index);
+        bird.grinchGiftstormLastDropX = x;
+        bird.grinchGiftstormLastDropY = y;
+        bird.grinchGiftstormLastDropKind = kind;
+        bird.grinchGiftstormDropFxTimer = 26;
+
+        double radius = switch (kind) {
+            case GIFTSTORM_KIND_FROST -> 132.0;
+            case GIFTSTORM_KIND_CHIMNEY -> 116.0;
+            case GIFTSTORM_KIND_FAKE_HEAL -> 124.0;
+            default -> 112.0;
+        } * bird.sizeMultiplier;
+        double centerY = y - 38.0 * bird.sizeMultiplier;
+        int rawDamage = switch (kind) {
+            case GIFTSTORM_KIND_FROST -> 6;
+            case GIFTSTORM_KIND_CHIMNEY -> 7;
+            case GIFTSTORM_KIND_FAKE_HEAL -> 8;
+            default -> 9;
+        };
+
+        boolean hitAny = false;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - x;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > radius * 0.82 + other.combatHalfHeight()) continue;
+
+            int dealt = bird.applyTrackedSpecialDamage(other, rawDamage);
+            if (dealt <= 0) continue;
+            hitAny = true;
+            double pushDir = Math.signum(dx);
+            if (pushDir == 0.0) {
+                pushDir = bird.facingDirection();
+            }
+            switch (kind) {
+                case GIFTSTORM_KIND_FROST -> {
+                    other.vx *= 0.35;
+                    other.vy = Math.min(other.vy, -4.0);
+                    other.applyStun(18);
+                }
+                case GIFTSTORM_KIND_CHIMNEY -> {
+                    other.vx += pushDir * 5.5;
+                    other.vy -= 14.0;
+                    other.applyStun(10);
+                }
+                case GIFTSTORM_KIND_FAKE_HEAL -> {
+                    other.vx += pushDir * 7.5;
+                    other.vy -= 8.0;
+                    bird.heal(Math.max(3.0, dealt * 0.35));
+                }
+                default -> {
+                    other.vx += pushDir * 9.0;
+                    other.vy -= 7.0;
+                }
+            }
+        }
+
+        emitBurst(bird, x, centerY, 0.0, hitAny ? 34 : 24, giftstormDropColor(kind));
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, hitAny ? 11 : 7);
+    }
+
+    private static void resolveGiftstormFinalDive(Bird bird) {
+        if (bird.grinchGiftstormFinalResolved) {
+            return;
+        }
+        double left = giftstormLeftBound(bird);
+        double right = giftstormRightBound(bird);
+        int dir = bird.grinchGiftstormDirection == 0 ? bird.facingDirection() : bird.grinchGiftstormDirection;
+        double startX = dir > 0 ? left - 180.0 : right + 180.0;
+        double endX = dir > 0 ? right + 180.0 : left - 180.0;
+        double middleX = (left + right) * 0.5;
+        double endY = Math.min(BirdGame3.GROUND_Y - 64.0, presentSurfaceY(bird, middleX) - 72.0);
+        bird.grinchGiftstormFinalStartX = startX;
+        bird.grinchGiftstormFinalStartY = BirdGame3.CEILING_Y + 96.0;
+        bird.grinchGiftstormFinalEndX = endX;
+        bird.grinchGiftstormFinalEndY = endY;
+
+        boolean hitAny = false;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= bird.grinchGiftstormFinalHit.length) continue;
+            if (bird.grinchGiftstormFinalHit[other.playerIndex]) continue;
+            double distance = distancePointToSegment(
+                    other.bodyCenterX(),
+                    other.bodyCenterY(),
+                    bird.grinchGiftstormFinalStartX,
+                    bird.grinchGiftstormFinalStartY,
+                    bird.grinchGiftstormFinalEndX,
+                    bird.grinchGiftstormFinalEndY
+            );
+            if (distance > 116.0 * bird.sizeMultiplier + Math.max(other.combatHalfWidth(), other.combatHalfHeight())) {
+                continue;
+            }
+
+            bird.grinchGiftstormFinalHit[other.playerIndex] = true;
+            int dealt = bird.applyTrackedSpecialDamage(other, 30);
+            if (dealt <= 0) continue;
+            hitAny = true;
+            double pushDir = Math.signum(other.bodyCenterX() - bird.bodyCenterX());
+            if (pushDir == 0.0) {
+                pushDir = dir;
+            }
+            other.vx += pushDir * 18.5;
+            other.vy -= 16.0;
+            other.applyStun(24);
+            bird.game.addToKillFeed(bird.shortName() + " gift-box slammed " + other.shortName() + "! -" + dealt + " HP");
+        }
+
+        bird.grinchGiftstormFinalResolved = true;
+        bird.grinchGiftstormDropFxTimer = Math.max(bird.grinchGiftstormDropFxTimer, 30);
+        emitBurst(bird, bird.grinchGiftstormFinalEndX, bird.grinchGiftstormFinalEndY,
+                -dir, hitAny ? 86 : 58, Color.web("#B2FF59"));
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, hitAny ? 22 : 15);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, hitAny ? 6 : 3);
+    }
+
+    private static double giftstormLeftBound(Bird bird) {
+        return bird.usesIslandBounds() ? bird.game.battlefieldLeftBound() - 120.0 : -80.0;
+    }
+
+    private static double giftstormRightBound(Bird bird) {
+        return bird.usesIslandBounds() ? bird.game.battlefieldRightBound() + 120.0 : BirdGame3.WORLD_WIDTH + 80.0;
+    }
+
+    private static double clampGiftstormX(double left, double right, double value, double margin) {
+        double min = left + margin;
+        double max = right - margin;
+        if (min > max) {
+            return (left + right) * 0.5;
+        }
+        return Math.clamp(value, min, max);
+    }
+
+    private static double giftstormSleighX(Bird bird, int elapsed) {
+        double left = giftstormLeftBound(bird);
+        double right = giftstormRightBound(bird);
+        double progress = Math.clamp(elapsed / (double) Bird.GRINCH_MIDNIGHT_GIFTSTORM_FRAMES, 0.0, 1.0);
+        double eased = 0.5 - Math.cos(progress * Math.PI) * 0.5;
+        double sweep = bird.grinchGiftstormDirection >= 0
+                ? left + 150.0 + eased * Math.max(1.0, right - left - 300.0)
+                : right - 150.0 - eased * Math.max(1.0, right - left - 300.0);
+        return sweep + Math.sin(elapsed * 0.18) * 34.0;
+    }
+
+    private static double giftstormSleighY(Bird bird, int elapsed) {
+        return BirdGame3.CEILING_Y + 132.0 + Math.sin(elapsed * 0.21 + bird.playerIndex) * 18.0;
+    }
+
+    private static Bird selectGiftstormTarget(Bird bird, int index) {
+        Bird best = null;
+        double bestScore = Double.POSITIVE_INFINITY;
+        double anchorX = index == 0 ? bird.bodyCenterX() : giftstormSleighX(bird,
+                Bird.GRINCH_MIDNIGHT_GIFTSTORM_DROP_START_FRAME
+                        + index * Bird.GRINCH_MIDNIGHT_GIFTSTORM_DROP_INTERVAL);
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - anchorX;
+            double dy = other.bodyCenterY() - bird.bodyCenterY();
+            double score = dx * dx + dy * dy * 0.28 + index * 0.001 * (other.playerIndex + 1);
+            if (score < bestScore) {
+                bestScore = score;
+                best = other;
+            }
+        }
+        return best;
+    }
+
+    private static double distancePointToSegment(double px, double py, double ax, double ay, double bx, double by) {
+        double vx = bx - ax;
+        double vy = by - ay;
+        double lenSq = vx * vx + vy * vy;
+        if (lenSq <= 0.0001) {
+            return Math.hypot(px - ax, py - ay);
+        }
+        double t = ((px - ax) * vx + (py - ay) * vy) / lenSq;
+        t = Math.clamp(t, 0.0, 1.0);
+        double cx = ax + vx * t;
+        double cy = ay + vy * t;
+        return Math.hypot(px - cx, py - cy);
+    }
+
+    private static void clearMidnightGiftstorm(Bird bird) {
+        bird.grinchGiftstormTimer = 0;
+        bird.grinchGiftstormDropIndex = 0;
+        bird.grinchGiftstormFinalResolved = false;
+        bird.grinchGiftstormDirection = 1;
+        bird.grinchGiftstormSleighX = 0.0;
+        bird.grinchGiftstormSleighY = 0.0;
+        bird.grinchGiftstormFinalStartX = 0.0;
+        bird.grinchGiftstormFinalStartY = 0.0;
+        bird.grinchGiftstormFinalEndX = 0.0;
+        bird.grinchGiftstormFinalEndY = 0.0;
+        bird.grinchGiftstormLastDropX = 0.0;
+        bird.grinchGiftstormLastDropY = 0.0;
+        bird.grinchGiftstormLastDropKind = 0;
+        bird.grinchGiftstormDropFxTimer = 0;
+        Arrays.fill(bird.grinchGiftstormFinalHit, false);
     }
 
     static void handleSleigh(Bird bird, boolean jumpJustPressed, double gameSpeed, boolean gettingOff, boolean forcedOff) {
@@ -452,7 +774,8 @@ final class GrinchhawkSpecials {
     static boolean active(Bird bird) {
         return bird.grinchHeartSnatchTimer > 0
                 || bird.grinchSleighRiding
-                || bird.grinchChimneyFlapTimer > 0;
+                || bird.grinchChimneyFlapTimer > 0
+                || bird.grinchGiftstormTimer > 0;
     }
 
     static boolean ready(Bird bird, Bird.GrinchhawkSpecialVariant variant) {
@@ -496,5 +819,6 @@ final class GrinchhawkSpecials {
         bird.grinchChimneyFlapTimer = 0;
         bird.grinchChimneyFlapUltimate = false;
         Arrays.fill(bird.grinchChimneyFlapHit, false);
+        clearMidnightGiftstorm(bird);
     }
 }

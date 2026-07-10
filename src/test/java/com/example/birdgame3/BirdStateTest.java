@@ -3763,6 +3763,69 @@ class BirdStateTest {
     }
 
     @Test
+    void grinchhawkUltimateStartsMidnightGiftstormInsteadOfBoostedSpecial() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird grinch = new Bird(300.0, BirdGame3.BirdType.GRINCHHAWK, 0, game);
+        Bird target = new Bird(430.0, BirdGame3.BirdType.PIGEON, 1, game);
+        grinch.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = grinch;
+        game.players[1] = target;
+
+        setPrivateDouble(grinch, "ultimateMeter", 100.0);
+        invokePrivateVoid(grinch, "special");
+
+        assertEquals(Bird.GRINCH_MIDNIGHT_GIFTSTORM_FRAMES, grinch.grinchGiftstormTimer);
+        assertEquals(0, grinch.grinchHeartSnatchTimer,
+                "Grinch-Hawk ultimate should not fall through into boosted Heart Snatch.");
+        assertFalse(grinch.grinchSleighRiding);
+        assertNull(grinch.grinchPresent);
+        assertFalse(grinch.isUltimateReady());
+        assertEquals(0, grinch.specialCooldown);
+        assertEquals(GrinchhawkSpecials.MIDNIGHT_GIFTSTORM_MOVE, game.lastTelemetryMoveName(0, ""));
+    }
+
+    @Test
+    void grinchhawkMidnightGiftstormDropsPresentsAndFinalSleigh() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird grinch = new Bird(300.0, BirdGame3.BirdType.GRINCHHAWK, 0, game);
+        Bird target = new Bird(380.0, BirdGame3.BirdType.PIGEON, 1, game);
+        grinch.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = grinch;
+        game.players[1] = target;
+
+        setPrivateDouble(grinch, "ultimateMeter", 100.0);
+        double healthBefore = target.health;
+        invokePrivateVoid(grinch, "special");
+
+        for (int i = 0; i < Bird.GRINCH_MIDNIGHT_GIFTSTORM_DROP_START_FRAME + 3; i++) {
+            grinch.update(1.0);
+        }
+
+        assertTrue(grinch.grinchGiftstormDropIndex >= 1,
+                "Midnight Giftstorm should start raining presents on schedule.");
+        assertTrue(target.health < healthBefore,
+                "The first Giftstorm present should threaten the nearest target.");
+        double healthAfterDrop = target.health;
+
+        for (int i = 0; i < Bird.GRINCH_MIDNIGHT_GIFTSTORM_FINAL_FRAME + 8; i++) {
+            grinch.update(1.0);
+        }
+
+        assertTrue(grinch.grinchGiftstormFinalResolved,
+                "Midnight Giftstorm should resolve one final sleigh dive.");
+        assertTrue(target.health < healthAfterDrop,
+                "The final sleigh dive should damage caught targets.");
+        assertTrue(Math.abs(target.vx) > 10.0 || target.vy < -8.0,
+                "The final sleigh dive should launch caught targets.");
+    }
+
+    @Test
     void shoebillUltimateStartsFinalStillness() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

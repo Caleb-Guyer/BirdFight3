@@ -123,6 +123,8 @@ final class BirdSpecialSystem {
             game.recordUltimateMoveUse(bird, TurkeySpecials.HARVEST_TRIBUNAL_MOVE);
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.ROADRUNNER) {
             game.recordUltimateMoveUse(bird, RoadrunnerSpecials.REDLINE_EXECUTION_MOVE);
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.GRINCHHAWK) {
+            game.recordUltimateMoveUse(bird, GrinchhawkSpecials.MIDNIGHT_GIFTSTORM_MOVE);
         } else {
             game.recordSpecialMoveUse(bird, input, ultimateTriggered);
         }
@@ -174,6 +176,8 @@ final class BirdSpecialSystem {
             game.playTurkeyHarvestTribunalSfx();
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.ROADRUNNER) {
             game.playRoadrunnerRedlineExecutionSfx();
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.GRINCHHAWK) {
+            game.playGrinchhawkMidnightGiftstormSfx();
         } else if (bird.type == BirdGame3.BirdType.RAZORBILL) {
             game.playVaseBreakingSfx();
         } else {
