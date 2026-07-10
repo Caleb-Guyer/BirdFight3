@@ -1095,6 +1095,23 @@ public class BirdGame3 extends Application {
         playManagedSfx(rebirthNovaClip, 1.0);
     }
 
+    void playHummingbirdNeedleheartSfx() {
+        if (!sfxEnabled) return;
+        if (swingClip != null) {
+            swingClip.stop();
+            playManagedSfxVaried(swingClip, 0.82, 1.92, 0.018);
+        }
+        if (vaseBreakingClip != null) {
+            playManagedSfxVaried(vaseBreakingClip, 0.58, 1.74, 0.020);
+        }
+        if (hugewaveClip != null) {
+            playManagedSfxVaried(hugewaveClip, 0.46, 0.64, 0.014);
+        }
+        if (bonkClip != null) {
+            playManagedSfxVaried(bonkClip, 0.24, 0.58, 0.012);
+        }
+    }
+
     void playRoosterStampedeSfx() {
         if (!sfxEnabled) return;
         if (hugewaveClip != null) {
@@ -9689,7 +9706,7 @@ public class BirdGame3 extends Application {
         EAGLE("Eagle", 9, 19, 4.2, Color.DARKRED, 0.6, "Hunter's Cry / Talon Rush / Skyrise / Heavenfall"),
         FALCON("Falcon", 10, 18, 4.4, Color.rgb(176, 95, 55), 0.64, "Echo of Eagle: Target Snap / Razor Rush / Jet Climb / Meteor Strike"),
         PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Cinder Halo / Snap Fire / Firespin / Faultfire"),
-        HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Needle Barrage + Flash Sip + Hover Burst + Nectar Trap"),
+        HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Needle Barrage + Flash Sip + Hover Burst + Nectar Trap + Needleheart Overdrive"),
         TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Charged Gobble Guard + Held Stampede + Panic Flap + Feast Trap"),
         ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Chick Call + Chick Toss + Coop Boost + Brood Recall + Dawn Stampede"),
         ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road"),
@@ -45852,6 +45869,7 @@ public class BirdGame3 extends Application {
             case VULTURE -> "Crows persist as pressure. Bone Offering turns space into a trap.";
             case RAVEN -> "Marks and routes set up larger follow-ups, including the ultimate.";
             case GOOSE -> "Territory empowers the next special. Nest Guard counters hits near the nest.";
+            case HUMMINGBIRD -> "Ultimate: Needleheart Overdrive locks on, chains three flash pierces, then detonates a nectar final stab.";
             case MOCKINGBIRD -> "Ultimate: Shadow Court summons three fragile dark copies from the Lounge.";
             case ROOSTER -> "Ultimate: Dawn Stampede floods the stage with fast flying swarm chicks.";
             case PENGUIN -> "Air down special drops a straight-down iceberg. Ultimate creates an invulnerable ice throne.";

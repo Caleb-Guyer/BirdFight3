@@ -1332,8 +1332,26 @@ public class Bird {
     double shoebillFinalStillnessBeamTargetX = 0.0;
     double shoebillFinalStillnessBeamTargetY = 0.0;
     boolean shoebillFinalStillnessBeamResolved = false;
-    private int hummingFrenzyTimer = 0;
-    private final int[] hummingFrenzyHitCooldown = new int[4];
+    static final int HUMMING_NEEDLEHEART_TOTAL_FRAMES = 74;
+    static final int HUMMING_NEEDLEHEART_WINDUP_FRAMES = 12;
+    static final int HUMMING_NEEDLEHEART_FIRST_STRIKE_FRAME = 18;
+    static final int HUMMING_NEEDLEHEART_STRIKE_SPACING = 8;
+    static final int HUMMING_NEEDLEHEART_STRIKE_COUNT = 3;
+    static final int HUMMING_NEEDLEHEART_FINAL_FRAME = 44;
+    int hummingFrenzyTimer = 0;
+    int hummingFrenzyTargetIndex = -1;
+    int hummingFrenzyStrikeIndex = 0;
+    int hummingFrenzyConnectedStrikes = 0;
+    boolean hummingFrenzyFinalResolved = false;
+    double hummingFrenzyAnchorX = 0.0;
+    double hummingFrenzyAnchorY = 0.0;
+    double hummingFrenzyTargetX = 0.0;
+    double hummingFrenzyTargetY = 0.0;
+    double hummingFrenzyLastStartX = 0.0;
+    double hummingFrenzyLastStartY = 0.0;
+    double hummingFrenzyLastEndX = 0.0;
+    double hummingFrenzyLastEndY = 0.0;
+    final int[] hummingFrenzyHitCooldown = new int[4];
     static final int HUMMING_NEEDLE_COMBO_WINDOW_FRAMES = 96;
     static final int HUMMING_NEEDLE_ACTIVE_FRAMES = 8;
     static final int HUMMING_NEEDLE_REUSE_FRAMES = 12;
@@ -1903,10 +1921,20 @@ public class Bird {
                 || phoenixRebirthNovaTimer > PHOENIX_REBIRTH_NOVA_RECOVERY_FRAMES
                 || penguinAbsoluteZeroTimer > 0
                 || shoebillFinalStillnessTimer > 0
+                || hummingNeedleheartInvulnerable()
                 || razorbillGuillotineTimer > 0
                 || hasNullRockInvulnerability()
                 || hasDodgeInvulnerability()
                 || hasRespawnInvulnerability();
+    }
+
+    private boolean hummingNeedleheartInvulnerable() {
+        if (type != BirdGame3.BirdType.HUMMINGBIRD || hummingFrenzyTimer <= 0) {
+            return false;
+        }
+        int elapsed = HUMMING_NEEDLEHEART_TOTAL_FRAMES - hummingFrenzyTimer;
+        return elapsed >= HUMMING_NEEDLEHEART_FIRST_STRIKE_FRAME - 2
+                && elapsed <= HUMMING_NEEDLEHEART_FINAL_FRAME + 5;
     }
 
     private Platform activeRespawnNestPlatform() {
@@ -9976,6 +10004,12 @@ public class Bird {
         if (hummingHoverBurstTimer == 0) {
             hummingHoverBurstUltimate = false;
         }
+        if (hummingFrenzyTimer == 0) {
+            hummingFrenzyTargetIndex = -1;
+            hummingFrenzyStrikeIndex = 0;
+            hummingFrenzyConnectedStrikes = 0;
+            hummingFrenzyFinalResolved = false;
+        }
         if (titmouseScoldTimer == 0) {
             titmouseScoldUltimate = false;
             Arrays.fill(titmouseScoldHit, false);
@@ -12631,7 +12665,7 @@ public class Bird {
                 && titmouseMarkedOwnerIndex == owner.playerIndex;
     }
 
-    private void applyHummingbirdNectarCoating(Bird owner, boolean ultimate) {
+    void applyHummingbirdNectarCoating(Bird owner, boolean ultimate) {
         if (owner == null || owner.playerIndex < 0 || owner.playerIndex >= game.players.length) {
             return;
         }
@@ -13626,8 +13660,6 @@ public class Bird {
         shoebillThrustReuseTimer = 0;
         shoebillUpSpecialUsed = false;
         shoebillStatueReuseTimer = 0;
-        hummingFrenzyTimer = 0;
-        Arrays.fill(hummingFrenzyHitCooldown, 0);
         resetHummingbirdSpecialState(true);
         hummingNeedleComboCount = 0;
         hummingNeedleComboTimer = 0;
@@ -14226,6 +14258,20 @@ public class Bird {
         state.shoebillFinalStillnessBeamTargetY = shoebillFinalStillnessBeamTargetY;
         state.shoebillFinalStillnessBeamResolved = shoebillFinalStillnessBeamResolved;
         state.hummingFrenzyTimer = hummingFrenzyTimer;
+        state.hummingFrenzyTargetIndex = hummingFrenzyTargetIndex;
+        state.hummingFrenzyStrikeIndex = hummingFrenzyStrikeIndex;
+        state.hummingFrenzyConnectedStrikes = hummingFrenzyConnectedStrikes;
+        state.hummingFrenzyFinalResolved = hummingFrenzyFinalResolved;
+        state.hummingFrenzyAnchorX = hummingFrenzyAnchorX;
+        state.hummingFrenzyAnchorY = hummingFrenzyAnchorY;
+        state.hummingFrenzyTargetX = hummingFrenzyTargetX;
+        state.hummingFrenzyTargetY = hummingFrenzyTargetY;
+        state.hummingFrenzyLastStartX = hummingFrenzyLastStartX;
+        state.hummingFrenzyLastStartY = hummingFrenzyLastStartY;
+        state.hummingFrenzyLastEndX = hummingFrenzyLastEndX;
+        state.hummingFrenzyLastEndY = hummingFrenzyLastEndY;
+        System.arraycopy(hummingFrenzyHitCooldown, 0, state.hummingFrenzyHitCooldown, 0,
+                hummingFrenzyHitCooldown.length);
         state.phoenixAfterburnTimer = phoenixAfterburnTimer;
         state.phoenixRebirthNovaTimer = phoenixRebirthNovaTimer;
         state.phoenixRebirthNovaDetonated = phoenixRebirthNovaDetonated;
@@ -14892,7 +14938,24 @@ public class Bird {
         this.shoebillFinalStillnessBeamTargetX = state.shoebillFinalStillnessBeamTargetX;
         this.shoebillFinalStillnessBeamTargetY = state.shoebillFinalStillnessBeamTargetY;
         this.shoebillFinalStillnessBeamResolved = state.shoebillFinalStillnessBeamResolved;
-        this.hummingFrenzyTimer = state.hummingFrenzyTimer;
+        this.hummingFrenzyTimer = Math.max(0, state.hummingFrenzyTimer);
+        this.hummingFrenzyTargetIndex = state.hummingFrenzyTargetIndex;
+        this.hummingFrenzyStrikeIndex = Math.max(0, state.hummingFrenzyStrikeIndex);
+        this.hummingFrenzyConnectedStrikes = Math.max(0, state.hummingFrenzyConnectedStrikes);
+        this.hummingFrenzyFinalResolved = state.hummingFrenzyFinalResolved;
+        this.hummingFrenzyAnchorX = state.hummingFrenzyAnchorX;
+        this.hummingFrenzyAnchorY = state.hummingFrenzyAnchorY;
+        this.hummingFrenzyTargetX = state.hummingFrenzyTargetX;
+        this.hummingFrenzyTargetY = state.hummingFrenzyTargetY;
+        this.hummingFrenzyLastStartX = state.hummingFrenzyLastStartX;
+        this.hummingFrenzyLastStartY = state.hummingFrenzyLastStartY;
+        this.hummingFrenzyLastEndX = state.hummingFrenzyLastEndX;
+        this.hummingFrenzyLastEndY = state.hummingFrenzyLastEndY;
+        Arrays.fill(this.hummingFrenzyHitCooldown, 0);
+        if (state.hummingFrenzyHitCooldown != null) {
+            System.arraycopy(state.hummingFrenzyHitCooldown, 0, this.hummingFrenzyHitCooldown, 0,
+                    Math.min(this.hummingFrenzyHitCooldown.length, state.hummingFrenzyHitCooldown.length));
+        }
         this.phoenixAfterburnTimer = state.phoenixAfterburnTimer;
         this.phoenixRebirthNovaTimer = Math.max(0, state.phoenixRebirthNovaTimer);
         this.phoenixRebirthNovaDetonated = state.phoenixRebirthNovaDetonated;
@@ -20120,6 +20183,9 @@ public class Bird {
         double s = sizeMultiplier;
         double centerX = bodyCenterX();
         double centerY = bodyCenterY();
+        if (hummingFrenzyTimer > 0) {
+            drawHummingbirdNeedleheartOverdrive(g, drawSize);
+        }
         if (hummingNeedleHitTimer > 0) {
             int dir = hummingNeedleDirection == 0 ? facingDirection() : hummingNeedleDirection;
             double progress = hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES);
@@ -20159,6 +20225,75 @@ public class Bird {
             g.setFill((hummingHoverBurstUltimate ? Color.GOLD : Color.AQUA).deriveColor(0, 1, 1, 0.16));
             g.fillOval(centerX - 26.0 * s, y - 20.0 * s, 52.0 * s, drawSize + 48.0 * s);
         }
+    }
+
+    private void drawHummingbirdNeedleheartOverdrive(GraphicsContext g, double drawSize) {
+        double s = sizeMultiplier;
+        int elapsed = HUMMING_NEEDLEHEART_TOTAL_FRAMES - hummingFrenzyTimer;
+        double targetX = hummingFrenzyTargetX == 0.0 ? bodyCenterX() : hummingFrenzyTargetX;
+        double targetY = hummingFrenzyTargetY == 0.0 ? bodyCenterY() : hummingFrenzyTargetY;
+        double windup = Math.clamp(elapsed / (double) HUMMING_NEEDLEHEART_WINDUP_FRAMES, 0.0, 1.0);
+        double pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.48);
+        double route = Math.clamp((elapsed - HUMMING_NEEDLEHEART_WINDUP_FRAMES)
+                / (double) Math.max(1, HUMMING_NEEDLEHEART_FINAL_FRAME - HUMMING_NEEDLEHEART_WINDUP_FRAMES),
+                0.0, 1.0);
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setEffect(new Glow(0.32 + pulse * 0.24));
+
+        Color nectar = Color.web("#B2FF59").deriveColor(0, 1, 1, 0.34 + windup * 0.24);
+        Color petal = Color.web("#FF5FD2").deriveColor(0, 1, 1, 0.42 + pulse * 0.26);
+        Color gold = Color.web("#FFF176").deriveColor(0, 1, 1, 0.48 + pulse * 0.30);
+        double ring = (48.0 + pulse * 10.0 + windup * 24.0) * s;
+
+        g.setStroke(nectar);
+        g.setLineWidth((2.0 + windup * 1.4) * s);
+        g.strokeOval(targetX - ring, targetY - ring * 0.58, ring * 2.0, ring * 1.16);
+        g.setStroke(gold);
+        g.setLineWidth(1.25 * s);
+        for (int i = 0; i < 6; i++) {
+            double angle = i * Math.PI / 3.0 + elapsed * 0.055;
+            double px = targetX + Math.cos(angle) * ring * 0.58;
+            double py = targetY + Math.sin(angle) * ring * 0.34;
+            g.strokeOval(px - 12.0 * s, py - 8.0 * s, 24.0 * s, 16.0 * s);
+        }
+
+        if (hummingFrenzyLastStartX != 0.0 || hummingFrenzyLastEndX != 0.0) {
+            double lineAlpha = hummingFrenzyFinalResolved ? 0.82 : 0.48 + pulse * 0.28;
+            g.setStroke(Color.web("#E8FFFF").deriveColor(0, 1, 1, lineAlpha));
+            g.setLineWidth((hummingFrenzyFinalResolved ? 14.0 : 8.0) * s);
+            g.strokeLine(hummingFrenzyLastStartX, hummingFrenzyLastStartY,
+                    hummingFrenzyLastEndX, hummingFrenzyLastEndY);
+            g.setStroke((hummingFrenzyFinalResolved ? gold : petal).deriveColor(0, 1, 1, lineAlpha));
+            g.setLineWidth((hummingFrenzyFinalResolved ? 5.0 : 3.2) * s);
+            g.strokeLine(hummingFrenzyLastStartX, hummingFrenzyLastStartY,
+                    hummingFrenzyLastEndX, hummingFrenzyLastEndY);
+        }
+
+        for (int i = 0; i < 7; i++) {
+            double angle = route * Math.PI * 4.5 + i * Math.PI * 2.0 / 7.0;
+            double radius = (86.0 - route * 18.0 + (i % 2) * 12.0) * s;
+            double ax = targetX + Math.cos(angle) * radius;
+            double ay = targetY + Math.sin(angle) * radius * 0.54 - 16.0 * s;
+            double alpha = Math.clamp(0.12 + route * 0.40 - i * 0.018, 0.0, 0.54);
+            g.setFill((i % 2 == 0 ? Color.web("#B2FF59") : Color.web("#FF5FD2")).deriveColor(0, 1, 1, alpha));
+            g.fillOval(ax - 10.0 * s, ay - 5.0 * s, 20.0 * s, 10.0 * s);
+            g.setStroke(Color.web("#E8FFFF").deriveColor(0, 1, 1, alpha + 0.10));
+            g.setLineWidth(1.4 * s);
+            g.strokeLine(ax - facingDirection() * 18.0 * s, ay + 1.0 * s,
+                    ax + facingDirection() * 18.0 * s, ay - 1.0 * s);
+        }
+
+        if (elapsed >= HUMMING_NEEDLEHEART_FINAL_FRAME - 8) {
+            double finalPulse = Math.clamp((elapsed - (HUMMING_NEEDLEHEART_FINAL_FRAME - 8)) / 16.0, 0.0, 1.0);
+            double burst = (76.0 + finalPulse * 120.0) * s;
+            g.setStroke(Color.web("#FFFDE7").deriveColor(0, 1, 1, 0.42 * (1.0 - finalPulse * 0.4)));
+            g.setLineWidth((3.5 + finalPulse * 4.5) * s);
+            g.strokeOval(targetX - burst, targetY - burst * 0.62, burst * 2.0, burst * 1.24);
+        }
+        g.setEffect(null);
+        g.restore();
     }
 
     private void drawHummingbirdNectarCoating(GraphicsContext g, double drawSize) {
@@ -26178,6 +26313,10 @@ public class Bird {
                 ? Math.clamp(hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES), 0.0, 1.0)
                 : 0.0;
         double needleLunge = Math.sin(needleProgress * Math.PI) * (hummingNeedleUltimate ? 20.0 : 15.0) * s;
+        if (hummingFrenzyTimer > 0) {
+            double frenzyPulse = 0.5 + 0.5 * Math.sin((HUMMING_NEEDLEHEART_TOTAL_FRAMES - hummingFrenzyTimer) * 0.48);
+            needleLunge += (18.0 + frenzyPulse * 10.0) * s;
+        }
         headX += dirX * needleLunge;
         headY += dirY * needleLunge;
         double wingPulse = 0.5 + 0.5 * Math.sin(System.nanoTime() / 48_000_000.0);
@@ -27298,6 +27437,11 @@ public class Bird {
         if (type == BirdGame3.BirdType.HUMMINGBIRD && hummingNeedleHitTimer > 0) {
             double needleProgress = Math.clamp(hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES), 0.0, 1.0);
             beakLength += Math.sin(needleProgress * Math.PI) * (hummingNeedleUltimate ? 38.0 : 28.0) * s;
+        }
+        if (type == BirdGame3.BirdType.HUMMINGBIRD && hummingFrenzyTimer > 0) {
+            double frenzyPulse = 0.5 + 0.5 * Math.sin((HUMMING_NEEDLEHEART_TOTAL_FRAMES - hummingFrenzyTimer) * 0.48);
+            beakLength += (30.0 + frenzyPulse * 18.0) * s;
+            openAmount *= 0.55;
         }
         double aimAngle = headPose.aimAngleRadians();
         double dirX = Math.cos(aimAngle);

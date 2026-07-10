@@ -463,6 +463,19 @@ class LanBirdState {
     double shoebillFinalStillnessBeamTargetY;
     boolean shoebillFinalStillnessBeamResolved;
     int hummingFrenzyTimer;
+    int hummingFrenzyTargetIndex = -1;
+    int hummingFrenzyStrikeIndex;
+    int hummingFrenzyConnectedStrikes;
+    boolean hummingFrenzyFinalResolved;
+    double hummingFrenzyAnchorX;
+    double hummingFrenzyAnchorY;
+    double hummingFrenzyTargetX;
+    double hummingFrenzyTargetY;
+    double hummingFrenzyLastStartX;
+    double hummingFrenzyLastStartY;
+    double hummingFrenzyLastEndX;
+    double hummingFrenzyLastEndY;
+    int[] hummingFrenzyHitCooldown = new int[4];
     int phoenixAfterburnTimer;
     int phoenixRebirthNovaTimer;
     boolean phoenixRebirthNovaDetonated;
@@ -1010,6 +1023,21 @@ class LanBirdState {
         out.writeDouble(shoebillFinalStillnessBeamTargetY);
         out.writeBoolean(shoebillFinalStillnessBeamResolved);
         out.writeInt(hummingFrenzyTimer);
+        out.writeInt(hummingFrenzyTargetIndex);
+        out.writeInt(hummingFrenzyStrikeIndex);
+        out.writeInt(hummingFrenzyConnectedStrikes);
+        out.writeBoolean(hummingFrenzyFinalResolved);
+        out.writeDouble(hummingFrenzyAnchorX);
+        out.writeDouble(hummingFrenzyAnchorY);
+        out.writeDouble(hummingFrenzyTargetX);
+        out.writeDouble(hummingFrenzyTargetY);
+        out.writeDouble(hummingFrenzyLastStartX);
+        out.writeDouble(hummingFrenzyLastStartY);
+        out.writeDouble(hummingFrenzyLastEndX);
+        out.writeDouble(hummingFrenzyLastEndY);
+        for (int cooldown : hummingFrenzyHitCooldown) {
+            out.writeInt(cooldown);
+        }
         out.writeInt(phoenixAfterburnTimer);
         out.writeInt(phoenixRebirthNovaTimer);
         out.writeBoolean(phoenixRebirthNovaDetonated);
@@ -1563,6 +1591,21 @@ class LanBirdState {
         state.shoebillFinalStillnessBeamTargetY = in.readDouble();
         state.shoebillFinalStillnessBeamResolved = in.readBoolean();
         state.hummingFrenzyTimer = in.readInt();
+        state.hummingFrenzyTargetIndex = in.readInt();
+        state.hummingFrenzyStrikeIndex = in.readInt();
+        state.hummingFrenzyConnectedStrikes = in.readInt();
+        state.hummingFrenzyFinalResolved = in.readBoolean();
+        state.hummingFrenzyAnchorX = in.readDouble();
+        state.hummingFrenzyAnchorY = in.readDouble();
+        state.hummingFrenzyTargetX = in.readDouble();
+        state.hummingFrenzyTargetY = in.readDouble();
+        state.hummingFrenzyLastStartX = in.readDouble();
+        state.hummingFrenzyLastStartY = in.readDouble();
+        state.hummingFrenzyLastEndX = in.readDouble();
+        state.hummingFrenzyLastEndY = in.readDouble();
+        for (int i = 0; i < state.hummingFrenzyHitCooldown.length; i++) {
+            state.hummingFrenzyHitCooldown[i] = in.readInt();
+        }
         state.phoenixAfterburnTimer = in.readInt();
         state.phoenixRebirthNovaTimer = in.readInt();
         state.phoenixRebirthNovaDetonated = in.readBoolean();

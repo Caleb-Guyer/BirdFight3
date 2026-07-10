@@ -107,6 +107,8 @@ final class BirdSpecialSystem {
         game.specialsUsed[bird.playerIndex]++;
         if (ultimateTriggered && bird.type == BirdGame3.BirdType.PHOENIX) {
             game.recordUltimateMoveUse(bird, PhoenixSpecials.REBIRTH_NOVA_MOVE);
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.HUMMINGBIRD) {
+            game.recordUltimateMoveUse(bird, HummingbirdSpecials.NEEDLEHEART_OVERDRIVE_MOVE);
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.ROOSTER) {
             game.recordUltimateMoveUse(bird, RoosterSpecials.DAWN_STAMPEDE_MOVE);
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.PENGUIN) {
@@ -152,6 +154,8 @@ final class BirdSpecialSystem {
         }
         if (ultimateTriggered && bird.type == BirdGame3.BirdType.PHOENIX) {
             game.playRebirthNovaSfx();
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.HUMMINGBIRD) {
+            game.playHummingbirdNeedleheartSfx();
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.ROOSTER) {
             game.playRoosterStampedeSfx();
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.PENGUIN) {

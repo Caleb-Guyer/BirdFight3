@@ -210,6 +210,36 @@ class BirdStateTest {
     }
 
     @Test
+    void hummingbirdUltimateStartsNeedleheartOverdrive() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird hummingbird = new Bird(180.0, BirdGame3.BirdType.HUMMINGBIRD, 0, game);
+        Bird target = new Bird(300.0, BirdGame3.BirdType.PIGEON, 1, game);
+        hummingbird.y = BirdGame3.GROUND_Y - 120.0;
+        target.y = BirdGame3.GROUND_Y - 120.0;
+        game.players[0] = hummingbird;
+        game.players[1] = target;
+        hummingbird.refillTrainingResources(true);
+
+        BirdSpecialSystem.useSpecial(hummingbird);
+        double startingHealth = target.health;
+
+        assertEquals(Bird.HUMMING_NEEDLEHEART_TOTAL_FRAMES, getPrivateInt(hummingbird, "hummingFrenzyTimer"));
+        assertEquals(0, getPrivateInt(hummingbird, "hummingNeedleHitTimer"));
+        assertFalse(hummingbird.isUltimateReady());
+
+        for (int i = 0; i < Bird.HUMMING_NEEDLEHEART_FINAL_FRAME + 12; i++) {
+            hummingbird.update(1.0);
+        }
+
+        assertTrue(target.health < startingHealth);
+        assertTrue(Math.abs(target.vx) > 8.0);
+        assertTrue(target.vy < -8.0);
+        assertTrue(getPrivateInt(target, "hummingNectarCoatedTimer") > 0);
+    }
+
+    @Test
     void hummingbirdReuseLockoutsStayInvisible() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
