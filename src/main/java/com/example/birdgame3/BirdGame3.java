@@ -40,6 +40,7 @@ import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
+import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.effect.Effect;
 import javafx.scene.effect.Glow;
@@ -767,6 +768,7 @@ public class BirdGame3 extends Application {
     List<CrowMinion> crowMinions = new ArrayList<>();
     List<PiranhaHazard> piranhaHazards = new ArrayList<>();
     List<ChickMinion> chickMinions = new ArrayList<>();
+    List<MockingbirdShadowMinion> mockingbirdShadowMinions = new ArrayList<>();
     private final List<FrostbiteSnowbank> frostbiteSnowbanks = new ArrayList<>();
     private static final int PARTICLE_SOFT_CAP = 2600;
     private static final int PARTICLE_FLOOR_CAP = 900;
@@ -1136,6 +1138,42 @@ public class BirdGame3 extends Application {
         }
         if (swingClip != null) {
             playManagedSfxVaried(swingClip, 0.38, 1.78, 0.025);
+        }
+    }
+
+    void playMockingbirdShadowCourtSfx() {
+        if (!sfxEnabled) return;
+        if (vaseBreakingClip != null) {
+            vaseBreakingClip.stop();
+            playManagedSfxVaried(vaseBreakingClip, 0.70, 0.54, 0.016);
+        }
+        if (hugewaveClip != null) {
+            hugewaveClip.stop();
+            playManagedSfxVaried(hugewaveClip, 0.82, 0.62, 0.018);
+        }
+        if (swingClip != null) {
+            playManagedSfxVaried(swingClip, 0.42, 1.48, 0.026);
+        }
+        if (bonkClip != null) {
+            playManagedSfxVaried(bonkClip, 0.34, 0.72, 0.018);
+        }
+    }
+
+    void playRazorbillGuillotineWakeSfx() {
+        if (!sfxEnabled) return;
+        if (hugewaveClip != null) {
+            hugewaveClip.stop();
+            playManagedSfxVaried(hugewaveClip, 0.78, 0.58, 0.016);
+        }
+        if (vaseBreakingClip != null) {
+            vaseBreakingClip.stop();
+            playManagedSfxVaried(vaseBreakingClip, 0.72, 1.52, 0.018);
+        }
+        if (swingClip != null) {
+            playManagedSfxVaried(swingClip, 0.62, 1.88, 0.024);
+        }
+        if (bonkClip != null) {
+            playManagedSfxVaried(bonkClip, 0.28, 0.52, 0.014);
         }
     }
 
@@ -9657,8 +9695,9 @@ public class BirdGame3 extends Application {
         ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road"),
         PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Belly Slide / Iceberg / Rocket Flop / Snow Fort / Absolute Zero Fortress"),
         SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "Death Stare / Heavy Bill Thrust / Marsh Lift / Statue Counter / Final Stillness"),
-        MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Mimic neutral / Mimic Call / Forest Lift / Forest Lounge"),
-        RAZORBILL("Razorbill", 8, 12, 3.6, Color.INDIGO, 0.25, "Razor Storm / Skimming Razor / Cliff Shear / Counter Cut"),
+        MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Mimic neutral / Mimic Call / Forest Lift / Forest Lounge / Shadow Court"),
+        RAZORBILL("Razorbill", 8, 12, 3.6, Color.INDIGO, 0.25,
+                "Razor Storm / Skimming Razor / Cliff Shear / Counter Cut / Guillotine Wake"),
         GRINCHHAWK("Grinch-Hawk", 10, 10, 2.8, Color.rgb(102, 153, 0), 0.80, "Heart Snatch / Sleigh Crash / Chimney Flap / Fake Present"),
         VULTURE("Vulture", 7, 14, 3.1, Color.rgb(45, 25, 55), 0.2, "Summon Crows + Feast"),
         OPIUMBIRD("Opium Bird", 7, 19, 4.4, Color.rgb(138, 43, 226), 0.7, "Lean Cloud + Haze Drift + Rising Vapors + Lotus Patch"),
@@ -10118,6 +10157,10 @@ public class BirdGame3 extends Application {
             m.prevX = m.x;
             m.prevY = m.y;
         }
+        for (MockingbirdShadowMinion m : mockingbirdShadowMinions) {
+            m.prevX = m.x;
+            m.prevY = m.y;
+        }
         for (PiranhaHazard h : piranhaHazards) {
             h.prevX = h.x;
             h.prevY = h.y;
@@ -10174,6 +10217,12 @@ public class BirdGame3 extends Application {
             m.x = lerpRender(m.prevX, m.x, alpha);
             m.y = lerpRender(m.prevY, m.y, alpha);
         }
+        for (MockingbirdShadowMinion m : mockingbirdShadowMinions) {
+            m.renderSavedX = m.x;
+            m.renderSavedY = m.y;
+            m.x = lerpRender(m.prevX, m.x, alpha);
+            m.y = lerpRender(m.prevY, m.y, alpha);
+        }
         for (PiranhaHazard h : piranhaHazards) {
             h.renderSavedX = h.x;
             h.renderSavedY = h.y;
@@ -10219,6 +10268,10 @@ public class BirdGame3 extends Application {
             m.x = m.renderSavedX;
             m.y = m.renderSavedY;
         }
+        for (MockingbirdShadowMinion m : mockingbirdShadowMinions) {
+            m.x = m.renderSavedX;
+            m.y = m.renderSavedY;
+        }
         for (PiranhaHazard h : piranhaHazards) {
             h.x = h.renderSavedX;
             h.y = h.renderSavedY;
@@ -10245,7 +10298,7 @@ public class BirdGame3 extends Application {
         framePerformance.recordEntityCounts(
                 particles.size(),
                 crowMinions.size(),
-                chickMinions.size(),
+                chickMinions.size() + mockingbirdShadowMinions.size(),
                 piranhaHazards.size(),
                 powerUps.size()
         );
@@ -10306,6 +10359,7 @@ public class BirdGame3 extends Application {
         loadPenalty += Math.min(0.24,
                 crowMinions.size() * 0.004
                         + chickMinions.size() * 0.01
+                        + mockingbirdShadowMinions.size() * 0.012
                         + piranhaHazards.size() * 0.012);
         double fillRatio = Math.clamp((double) particles.size() / Math.max(1, activeParticleSoftCap()), 0.0, 1.4);
         loadPenalty += Math.min(0.38, fillRatio * 0.36);
@@ -10318,13 +10372,15 @@ public class BirdGame3 extends Application {
     }
 
     private boolean isLargeFightLoad() {
-        return activePlayers >= 8 || crowMinions.size() + chickMinions.size() + piranhaHazards.size() >= 14;
+        return activePlayers >= 8
+                || crowMinions.size() + chickMinions.size() + mockingbirdShadowMinions.size() + piranhaHazards.size() >= 14;
     }
 
     private int activeParticleSoftCap() {
         int cap = isLargeFightLoad() ? LARGE_FIGHT_PARTICLE_CAP : PARTICLE_SOFT_CAP;
         cap -= Math.max(0, activePlayers - 4) * 30;
-        cap -= Math.min(480, crowMinions.size() * 8 + chickMinions.size() * 14 + piranhaHazards.size() * 18);
+        cap -= Math.min(480, crowMinions.size() * 8 + chickMinions.size() * 14
+                + mockingbirdShadowMinions.size() * 14 + piranhaHazards.size() * 18);
         return Math.max(PARTICLE_FLOOR_CAP, cap);
     }
 
@@ -10374,6 +10430,10 @@ public class BirdGame3 extends Application {
         int chickCap = activeChickMinionCap();
         if (chickMinions.size() > chickCap) {
             chickMinions.subList(0, chickMinions.size() - chickCap).clear();
+        }
+        int shadowCap = activeChickMinionCap();
+        if (mockingbirdShadowMinions.size() > shadowCap) {
+            mockingbirdShadowMinions.subList(0, mockingbirdShadowMinions.size() - shadowCap).clear();
         }
         int piranhaCap = activePiranhaHazardCap();
         if (piranhaHazards.size() > piranhaCap) {
@@ -11115,6 +11175,8 @@ public class BirdGame3 extends Application {
             }
         }
 
+        updateMockingbirdShadowMinions();
+
         updateDockStageHazards();
         updateAshfallCathedralHazards();
         updateMatchTimerState();
@@ -11158,6 +11220,200 @@ public class BirdGame3 extends Application {
         }
 
         checkForMatchCompletion();
+    }
+
+    private void updateMockingbirdShadowMinions() {
+        for (Iterator<MockingbirdShadowMinion> it = mockingbirdShadowMinions.iterator(); it.hasNext(); ) {
+            MockingbirdShadowMinion shadow = it.next();
+            shadow.age++;
+            if (shadow.attackCooldown > 0) shadow.attackCooldown--;
+            if (shadow.jumpCooldown > 0) shadow.jumpCooldown--;
+            if (shadow.retargetCooldown > 0) shadow.retargetCooldown--;
+            if (shadow.hitFlashTimer > 0) shadow.hitFlashTimer--;
+            if (shadow.spawnFlashFrames > 0) shadow.spawnFlashFrames--;
+
+            Bird owner = shadow.owner;
+            if (owner == null || owner.health <= 0 || !shadow.alive()) {
+                shatterMockingbirdShadow(shadow, false);
+                it.remove();
+                continue;
+            }
+
+            Bird target = shadow.target;
+            if (target == null || target.health <= 0 || !canDamage(owner, target) || shadow.retargetCooldown <= 0) {
+                target = closestShadowTarget(owner, shadow);
+                shadow.target = target;
+                shadow.retargetCooldown = isLargeFightLoad() ? 14 : 7;
+            }
+
+            double speed = shadow.speed();
+            if (target != null) {
+                double dx = target.bodyCenterX() - shadow.bodyCenterX();
+                double dy = target.bodyCenterY() - shadow.bodyCenterY();
+                if (Math.abs(dx) > 2.0) {
+                    shadow.facingRight = dx > 0.0;
+                }
+                double desiredVx = Math.clamp(dx * 0.075, -speed, speed);
+                double desiredVy = Math.clamp(dy * 0.052, -speed * 0.72, speed * 0.72);
+                shadow.vx += (desiredVx - shadow.vx) * 0.20;
+                shadow.vy += (desiredVy - shadow.vy) * 0.16;
+
+                if (shadow.onGround && shadow.jumpCooldown <= 0 && (dy < -42.0 || Math.abs(dx) < 120.0)) {
+                    shadow.vy = -Math.max(9.4, shadow.copiedType.jumpHeight * 0.54);
+                    shadow.vx += Math.signum(dx == 0.0 ? (shadow.facingRight ? 1.0 : -1.0) : dx) * speed * 0.36;
+                    shadow.onGround = false;
+                    shadow.jumpCooldown = 24;
+                }
+            } else {
+                shadow.vx *= 0.94;
+                shadow.vy *= 0.96;
+            }
+
+            shadow.vy += GRAVITY * 0.26;
+            shadow.vx = Math.clamp(shadow.vx, -speed * 1.15, speed * 1.15);
+            shadow.vy = Math.clamp(shadow.vy, -speed * 0.96, speed * 0.96);
+
+            double prevY = shadow.y;
+            shadow.x += shadow.vx;
+            shadow.y += shadow.vy;
+
+            boolean landed = false;
+            double bottom = shadow.y + shadow.bodyHeight();
+            if (bottom >= GROUND_Y) {
+                shadow.y = GROUND_Y - shadow.bodyHeight();
+                shadow.vy = 0.0;
+                landed = true;
+            }
+            if (!landed && shadow.vy >= 0.0) {
+                double prevBottom = prevY + shadow.bodyHeight();
+                for (Platform p : platforms) {
+                    double left = shadow.x + shadow.bodyWidth() * 0.12;
+                    double right = shadow.x + shadow.bodyWidth() * 0.88;
+                    if (right < p.x || left > p.x + p.w) continue;
+                    if (prevBottom <= p.y && bottom >= p.y) {
+                        shadow.y = p.y - shadow.bodyHeight();
+                        shadow.vy = 0.0;
+                        landed = true;
+                        break;
+                    }
+                }
+            }
+            shadow.onGround = landed;
+            if (landed) {
+                shadow.vx *= 0.84;
+            }
+
+            if (target != null && shadow.attackCooldown <= 0 && canDamage(owner, target)) {
+                tryMockingbirdShadowAttack(shadow, target);
+            }
+
+            if (shadow.age > MockingbirdShadowMinion.MAX_AGE
+                    || shadow.x < -700.0
+                    || shadow.x > WORLD_WIDTH + 700.0
+                    || shadow.y > WORLD_HEIGHT + 800.0
+                    || shadow.y < -900.0) {
+                shatterMockingbirdShadow(shadow, false);
+                it.remove();
+            }
+        }
+    }
+
+    private Bird closestShadowTarget(Bird owner, MockingbirdShadowMinion shadow) {
+        Bird closest = null;
+        double bestSq = Double.MAX_VALUE;
+        for (Bird bird : players) {
+            if (bird == null || bird.health <= 0 || !canDamage(owner, bird)) {
+                continue;
+            }
+            double dx = bird.bodyCenterX() - shadow.bodyCenterX();
+            double dy = bird.bodyCenterY() - shadow.bodyCenterY();
+            double distSq = dx * dx + dy * dy;
+            if (distSq < bestSq) {
+                bestSq = distSq;
+                closest = bird;
+            }
+        }
+        return closest;
+    }
+
+    private void tryMockingbirdShadowAttack(MockingbirdShadowMinion shadow, Bird target) {
+        Bird owner = shadow.owner;
+        if (owner == null || target == null || !canDamage(owner, target)) {
+            return;
+        }
+        double dx = target.bodyCenterX() - shadow.bodyCenterX();
+        double dy = target.bodyCenterY() - shadow.bodyCenterY();
+        double attackReachX = 60.0 * shadow.sizeMultiplier() + target.combatHalfWidth();
+        double attackReachY = 52.0 * shadow.sizeMultiplier() + target.combatHalfHeight();
+        if (Math.abs(dx) > attackReachX || Math.abs(dy) > attackReachY) {
+            return;
+        }
+
+        double oldHealth = target.health;
+        double damage = shadow.contactDamage();
+        double dealt = target.receiveExternalDamage(damage);
+        if (dealt <= 0.0) {
+            shadow.attackCooldown = 24;
+            return;
+        }
+
+        int shownDamage = (int) Math.round(dealt);
+        int ownerIndex = owner.playerIndex;
+        if (ownerIndex >= 0 && ownerIndex < damageDealt.length) {
+            damageDealt[ownerIndex] += shownDamage;
+            recordSpecialImpact(ownerIndex, shownDamage, true);
+        }
+        String moveName = MockingbirdSpecials.SHADOW_COURT_MOVE;
+        boolean isKill = !usesSmashCombatRules() && target.health <= 0 && oldHealth > 0;
+        if (isKill && ownerIndex >= 0 && ownerIndex < eliminations.length) {
+            eliminations[ownerIndex]++;
+            recordMoveKo(owner, target, moveName);
+            playZombieFallSfx();
+        }
+
+        double hitDir = Math.signum(dx);
+        if (hitDir == 0.0) hitDir = shadow.facingRight ? 1.0 : -1.0;
+        target.vx += hitDir * (5.8 + shadow.copiedType.power * 0.16);
+        target.vy -= 4.8 + shadow.copiedType.jumpHeight * 0.07;
+        target.applyStun(8);
+        shadow.vx -= hitDir * 2.2;
+        shadow.vy = Math.min(shadow.vy, -3.2);
+        shadow.attackCooldown = 58;
+        shadow.hitFlashTimer = Math.max(shadow.hitFlashTimer, 6);
+
+        emitCombatImpact(owner, target, target.bodyCenterX(), target.bodyCenterY(), target.vx, target.vy,
+                dealt, isKill, moveName);
+        addToKillFeed(owner.shortName() + "'s " + shadow.copiedType.name + " shadow mauled "
+                + shortName(target.name) + "! -" + shownDamage + " HP");
+
+        int particleCount = scaledParticleBurstCount(18);
+        for (int i = 0; i < particleCount; i++) {
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 3.4 + SimRng.next() * 8.6;
+            particles.add(new Particle(
+                    shadow.bodyCenterX(),
+                    shadow.bodyCenterY(),
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 3.0,
+                    (i % 3 == 0 ? Color.web("#EC407A") : Color.BLACK).deriveColor(0, 1, 1, 0.82)
+            ));
+        }
+    }
+
+    private void shatterMockingbirdShadow(MockingbirdShadowMinion shadow, boolean loud) {
+        if (shadow == null) return;
+        int particleCount = scaledParticleBurstCount(loud ? 32 : 14);
+        for (int i = 0; i < particleCount; i++) {
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 2.8 + SimRng.next() * (loud ? 10.5 : 6.2);
+            particles.add(new Particle(
+                    shadow.bodyCenterX(),
+                    shadow.bodyCenterY(),
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 2.4,
+                    (SimRng.next() < 0.45 ? Color.web("#EC407A") : Color.BLACK).deriveColor(0, 1, 1, 0.72)
+            ));
+        }
     }
 
     private void updateDockStageHazards() {
@@ -12443,6 +12699,13 @@ public class BirdGame3 extends Application {
                 continue;
             }
             drawChickMinion(g, chick);
+        }
+
+        for (MockingbirdShadowMinion shadow : mockingbirdShadowMinions) {
+            if (isWorldRectOutsideCamera(shadow.x, shadow.y, shadow.bodyWidth(), shadow.bodyHeight(), 220)) {
+                continue;
+            }
+            drawMockingbirdShadowMinion(g, shadow);
         }
 
         for (Bird b : players) {
@@ -14358,6 +14621,90 @@ public class BirdGame3 extends Application {
             g.setLineWidth(1.0);
             g.strokePolygon(xs, ys, xs.length);
         }
+    }
+
+    private void drawMockingbirdShadowMinion(GraphicsContext g, MockingbirdShadowMinion shadow) {
+        if (shadow == null || shadow.copiedType == null) return;
+        double w = shadow.bodyWidth();
+        double h = shadow.bodyHeight();
+        double cx = shadow.bodyCenterX();
+        double cy = shadow.bodyCenterY();
+        double size = shadow.sizeMultiplier();
+        double lifeRatio = Math.clamp(shadow.health / Math.max(1.0, shadow.maxHealth), 0.0, 1.0);
+        double spawn = Math.clamp(shadow.spawnFlashFrames / 34.0, 0.0, 1.0);
+        double hit = Math.clamp(shadow.hitFlashTimer / 10.0, 0.0, 1.0);
+        double pulse = 0.5 + 0.5 * Math.sin((shadow.age + shadow.slot * 17.0) * 0.24);
+        Color accent = shadow.slot == 2 ? Color.web("#EC407A") : shadow.copiedType.color;
+
+        g.save();
+        g.setFill(Color.rgb(0, 0, 0, 0.30 + spawn * 0.16));
+        g.fillOval(cx - w * 0.60, shadow.y + h * 0.78, w * 1.20, h * 0.24);
+
+        g.setStroke(accent.deriveColor(0, 0.92, 0.9, 0.26 + spawn * 0.34 + pulse * 0.08));
+        g.setLineWidth(2.0 + spawn * 3.5);
+        g.strokeOval(cx - w * (0.60 + spawn * 0.44), cy - h * (0.47 + spawn * 0.32),
+                w * (1.20 + spawn * 0.88), h * (0.94 + spawn * 0.64));
+        g.setStroke(Color.web("#111019", 0.56 + spawn * 0.16));
+        g.setLineWidth(2.4);
+        g.strokeArc(cx - w * 0.70, cy - h * 0.54, w * 1.40, h * 1.08,
+                shadow.facingRight ? 208 : -28, 150, ArcType.OPEN);
+
+        ColorAdjust shadowTone = new ColorAdjust();
+        shadowTone.setSaturation(-1.0);
+        shadowTone.setBrightness(-0.78 + hit * 0.16);
+        shadowTone.setContrast(0.72);
+        g.setEffect(shadowTone);
+        g.setGlobalAlpha(0.74 + hit * 0.20);
+        Bird preview = new Bird(0.0, shadow.copiedType,
+                shadow.owner != null ? Math.clamp(shadow.owner.playerIndex, 0, Math.max(0, players.length - 1)) : 0,
+                this);
+        preview.suppressSelectEffects = true;
+        preview.setBaseMultipliers(size, 1.0, 1.0);
+        preview.health = Bird.STARTING_HEALTH;
+        preview.x = shadow.x;
+        preview.y = shadow.y;
+        preview.prevX = shadow.x;
+        preview.prevY = shadow.y;
+        preview.vx = shadow.vx;
+        preview.vy = shadow.vy;
+        preview.facingRight = shadow.facingRight;
+        preview.attackAnimationTimer = shadow.attackCooldown > 31 ? 9 : 0;
+        preview.draw(g);
+        g.setEffect(null);
+        g.setGlobalAlpha(1.0);
+
+        g.setFill(Color.web("#050108", 0.42 + hit * 0.18));
+        g.fillOval(shadow.x + w * 0.08, shadow.y + h * 0.14, w * 0.86, h * 0.78);
+
+        double eyeY = shadow.y + h * 0.34;
+        double eyeLeadX = shadow.x + (shadow.facingRight ? w * 0.68 : w * 0.26);
+        double eyeBackX = eyeLeadX + (shadow.facingRight ? -w * 0.15 : w * 0.15);
+        g.setEffect(new Glow(0.88));
+        g.setFill(Color.web("#FF1744", 0.92));
+        g.fillOval(eyeLeadX - 4.5 * size, eyeY - 3.5 * size, 9.0 * size, 7.0 * size);
+        g.fillOval(eyeBackX - 3.2 * size, eyeY - 2.8 * size, 6.4 * size, 5.6 * size);
+        g.setFill(Color.web("#FFCDD2", 0.82));
+        g.fillOval(eyeLeadX - 1.6 * size, eyeY - 1.2 * size, 3.2 * size, 2.4 * size);
+        g.setEffect(null);
+
+        double barW = Math.max(32.0, w * 0.72);
+        double barH = 5.0;
+        double barX = cx - barW * 0.5;
+        double barY = shadow.y - 12.0 * size;
+        g.setFill(Color.rgb(0, 0, 0, 0.58));
+        g.fillRoundRect(barX - 2.0, barY - 2.0, barW + 4.0, barH + 4.0, 5.0, 5.0);
+        g.setFill(Color.web("#4A001A", 0.88));
+        g.fillRoundRect(barX, barY, barW, barH, 4.0, 4.0);
+        g.setFill(Color.web(lifeRatio > 0.45 ? "#EC407A" : "#FF1744", 0.94));
+        g.fillRoundRect(barX, barY, barW * lifeRatio, barH, 4.0, 4.0);
+
+        if (hit > 0.0) {
+            g.setStroke(Color.web("#F8BBD0", 0.42 + hit * 0.42));
+            g.setLineWidth(2.0 + hit * 2.0);
+            g.strokeOval(cx - w * (0.48 + hit * 0.16), cy - h * (0.44 + hit * 0.14),
+                    w * (0.96 + hit * 0.32), h * (0.88 + hit * 0.28));
+        }
+        g.restore();
     }
 
     private void drawBirdCompanionPreview(Canvas canvas, BirdCompanionEntry entry) {
@@ -24006,6 +24353,27 @@ public class BirdGame3 extends Application {
             cs.swarmVisualCopies = chick.swarmVisualCopies;
             state.chickMinions.add(cs);
         }
+        for (MockingbirdShadowMinion shadow : mockingbirdShadowMinions) {
+            LanState.MockingbirdShadowState ss = new LanState.MockingbirdShadowState();
+            ss.x = shadow.x;
+            ss.y = shadow.y;
+            ss.vx = shadow.vx;
+            ss.vy = shadow.vy;
+            ss.age = shadow.age;
+            ss.ownerIndex = shadow.owner != null ? shadow.owner.playerIndex : -1;
+            ss.copiedTypeOrdinal = shadow.copiedType != null ? shadow.copiedType.ordinal() : BirdType.PIGEON.ordinal();
+            ss.health = shadow.health;
+            ss.maxHealth = shadow.maxHealth;
+            ss.attackCooldown = shadow.attackCooldown;
+            ss.jumpCooldown = shadow.jumpCooldown;
+            ss.retargetCooldown = shadow.retargetCooldown;
+            ss.hitFlashTimer = shadow.hitFlashTimer;
+            ss.spawnFlashFrames = shadow.spawnFlashFrames;
+            ss.onGround = shadow.onGround;
+            ss.facingRight = shadow.facingRight;
+            ss.slot = shadow.slot;
+            state.mockingbirdShadows.add(ss);
+        }
         return state;
     }
 
@@ -24056,6 +24424,7 @@ public class BirdGame3 extends Application {
         syncLanPiranhas(state.piranhas);
         syncLanDockBomb(state.dockBomb);
         syncLanChickMinions(state.chickMinions);
+        syncLanMockingbirdShadows(state.mockingbirdShadows);
     }
 
     private void syncLanPowerUps(List<LanState.PowerUpState> states) {
@@ -24275,6 +24644,63 @@ public class BirdGame3 extends Application {
             chick.swarmHitsRemaining = Math.max(0, cs.swarmHitsRemaining);
             chick.swarmVisualCopies = Math.clamp(cs.swarmVisualCopies, 0, 8);
             chick.target = null;
+        }
+    }
+
+    private void syncLanMockingbirdShadows(List<LanState.MockingbirdShadowState> states) {
+        int targetSize = states != null ? states.size() : 0;
+        while (mockingbirdShadowMinions.size() > targetSize) {
+            mockingbirdShadowMinions.removeLast();
+        }
+        for (int i = 0; i < targetSize; i++) {
+            LanState.MockingbirdShadowState ss = states.get(i);
+            Bird owner = ss.ownerIndex >= 0 && ss.ownerIndex < players.length ? players[ss.ownerIndex] : null;
+            BirdType copiedType = BirdType.values()[Math.clamp(ss.copiedTypeOrdinal, 0, BirdType.values().length - 1)];
+            if (copiedType == BirdType.MOCKINGBIRD) {
+                copiedType = BirdType.PIGEON;
+            }
+
+            MockingbirdShadowMinion shadow;
+            boolean needsReplacement = i >= mockingbirdShadowMinions.size();
+            if (!needsReplacement) {
+                shadow = mockingbirdShadowMinions.get(i);
+                needsReplacement = shadow.copiedType != copiedType || shadow.slot != Math.max(0, ss.slot);
+            } else {
+                shadow = null;
+            }
+            if (needsReplacement) {
+                shadow = new MockingbirdShadowMinion(
+                        ss.x + 40.0,
+                        ss.y + 40.0,
+                        copiedType,
+                        owner,
+                        Math.max(0, ss.slot)
+                );
+                if (i < mockingbirdShadowMinions.size()) {
+                    mockingbirdShadowMinions.set(i, shadow);
+                } else {
+                    mockingbirdShadowMinions.add(shadow);
+                }
+            }
+            shadow.x = ss.x;
+            shadow.y = ss.y;
+            shadow.prevX = ss.x;
+            shadow.prevY = ss.y;
+            shadow.vx = ss.vx;
+            shadow.vy = ss.vy;
+            shadow.age = Math.max(0, ss.age);
+            shadow.owner = owner;
+            shadow.target = null;
+            shadow.copiedType = copiedType;
+            shadow.maxHealth = Math.max(1.0, ss.maxHealth);
+            shadow.health = Math.clamp(ss.health, 0.0, shadow.maxHealth);
+            shadow.attackCooldown = Math.max(0, ss.attackCooldown);
+            shadow.jumpCooldown = Math.max(0, ss.jumpCooldown);
+            shadow.retargetCooldown = Math.max(0, ss.retargetCooldown);
+            shadow.hitFlashTimer = Math.max(0, ss.hitFlashTimer);
+            shadow.spawnFlashFrames = Math.max(0, ss.spawnFlashFrames);
+            shadow.onGround = ss.onGround;
+            shadow.facingRight = ss.facingRight;
         }
     }
 
@@ -26286,6 +26712,7 @@ public class BirdGame3 extends Application {
         List<CrowMinion> savedCrowMinions = new ArrayList<>(crowMinions);
         List<PiranhaHazard> savedPiranhaHazards = new ArrayList<>(piranhaHazards);
         List<ChickMinion> savedChickMinions = new ArrayList<>(chickMinions);
+        List<MockingbirdShadowMinion> savedMockingbirdShadowMinions = new ArrayList<>(mockingbirdShadowMinions);
         List<PowerUp> savedPowerUps = new ArrayList<>(powerUps);
         List<String> savedKillFeed = new ArrayList<>(killFeed);
         Bird[] savedPlayers = players;
@@ -26332,6 +26759,7 @@ public class BirdGame3 extends Application {
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
+        mockingbirdShadowMinions.clear();
         frostbiteSnowbanks.clear();
         powerUps.clear();
         killFeed.clear();
@@ -26408,6 +26836,7 @@ public class BirdGame3 extends Application {
             crowMinions.clear();
             piranhaHazards.clear();
             chickMinions.clear();
+            mockingbirdShadowMinions.clear();
             powerUps.clear();
             killFeed.clear();
             shakeIntensity = 0.0;
@@ -26497,6 +26926,8 @@ public class BirdGame3 extends Application {
             piranhaHazards.addAll(savedPiranhaHazards);
             chickMinions.clear();
             chickMinions.addAll(savedChickMinions);
+            mockingbirdShadowMinions.clear();
+            mockingbirdShadowMinions.addAll(savedMockingbirdShadowMinions);
             powerUps.clear();
             powerUps.addAll(savedPowerUps);
             killFeed.clear();
@@ -27457,6 +27888,7 @@ public class BirdGame3 extends Application {
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
+        mockingbirdShadowMinions.clear();
         frostbiteSnowbanks.clear();
         powerUps.clear();
         dockWaterX = 0;
@@ -33805,6 +34237,7 @@ public class BirdGame3 extends Application {
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
+        mockingbirdShadowMinions.clear();
         powerUps.clear();
         platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
         platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
@@ -33863,6 +34296,7 @@ public class BirdGame3 extends Application {
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
+        mockingbirdShadowMinions.clear();
         powerUps.clear();
         setupDockArena();
         platforms.add(new Platform(1650, GROUND_Y - 620, 280, 34));
@@ -33940,6 +34374,7 @@ public class BirdGame3 extends Application {
         swingingVines.clear();
         crowMinions.clear();
         chickMinions.clear();
+        mockingbirdShadowMinions.clear();
         powerUps.clear();
         setupBeaconCrownBattlefield();
         platforms.add(new Platform(battlefieldIslandX - 420, battlefieldIslandY + 120, 300, 32));
@@ -36326,6 +36761,7 @@ public class BirdGame3 extends Application {
         clearGameplayInputs();
         crowMinions.clear();
         chickMinions.clear();
+        mockingbirdShadowMinions.clear();
         particles.clear();
         blastZoneKoEffects.clear();
         combatImpactEffects.clear();
@@ -37588,6 +38024,14 @@ public class BirdGame3 extends Application {
             h = h * 1099511628211L + Double.doubleToLongBits(b.health);
             h = h * 1099511628211L + scores[i];
         }
+        h = h * 1099511628211L + mockingbirdShadowMinions.size();
+        for (MockingbirdShadowMinion shadow : mockingbirdShadowMinions) {
+            h = h * 1099511628211L + Double.doubleToLongBits(shadow.x);
+            h = h * 1099511628211L + Double.doubleToLongBits(shadow.y);
+            h = h * 1099511628211L + Double.doubleToLongBits(shadow.health);
+            h = h * 1099511628211L + (shadow.copiedType != null ? shadow.copiedType.ordinal() : -1);
+            h = h * 1099511628211L + (shadow.owner != null ? shadow.owner.playerIndex : -1);
+        }
         return h;
     }
 
@@ -37683,6 +38127,7 @@ public class BirdGame3 extends Application {
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
+        mockingbirdShadowMinions.clear();
         frostbiteSnowbanks.clear();
         particles.clear();
         blastZoneKoEffects.clear();
@@ -39120,6 +39565,7 @@ public class BirdGame3 extends Application {
         crowMinions.clear();
         piranhaHazards.clear();
         chickMinions.clear();
+        mockingbirdShadowMinions.clear();
         frostbiteSnowbanks.clear();
         particles.clear();
         blastZoneKoEffects.clear();
@@ -45406,10 +45852,11 @@ public class BirdGame3 extends Application {
             case VULTURE -> "Crows persist as pressure. Bone Offering turns space into a trap.";
             case RAVEN -> "Marks and routes set up larger follow-ups, including the ultimate.";
             case GOOSE -> "Territory empowers the next special. Nest Guard counters hits near the nest.";
-            case MOCKINGBIRD -> "Mimic steals neutral specials; Lounge controls space.";
+            case MOCKINGBIRD -> "Ultimate: Shadow Court summons three fragile dark copies from the Lounge.";
             case ROOSTER -> "Ultimate: Dawn Stampede floods the stage with fast flying swarm chicks.";
             case PENGUIN -> "Air down special drops a straight-down iceberg. Ultimate creates an invulnerable ice throne.";
             case SHOEBILL -> "Ultimate: Final Stillness drains the screen, silences music, and fires an ancient locked beam.";
+            case RAZORBILL -> "Ultimate: Guillotine Wake marks dodgeable cut-lines, chains slashes, then leaves a damaging razor wake.";
             case BAT -> "Ceiling Hang gives the down special a second movement state.";
             case PHOENIX -> "Snap Fire travels farther and fizzles harmlessly. Air Snap Fire angles down; air Faultfire can be held.";
             default -> "Directional input changes the special before startup.";

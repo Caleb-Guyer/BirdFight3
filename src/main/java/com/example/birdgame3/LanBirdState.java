@@ -168,6 +168,23 @@ class LanBirdState {
     boolean razorbillCounterUltimate;
     boolean razorbillCountered;
     boolean razorbillCounterAttemptActive;
+    int razorbillGuillotineTimer;
+    int razorbillGuillotineSlashIndex;
+    int razorbillGuillotineWakeTimer;
+    boolean razorbillGuillotineFinalResolved;
+    double razorbillGuillotineAnchorX;
+    double razorbillGuillotineAnchorY;
+    double razorbillGuillotineTargetX;
+    double razorbillGuillotineTargetY;
+    double razorbillGuillotineLastStartX;
+    double razorbillGuillotineLastStartY;
+    double razorbillGuillotineLastEndX;
+    double razorbillGuillotineLastEndY;
+    double razorbillGuillotineWakeX1;
+    double razorbillGuillotineWakeX2;
+    double razorbillGuillotineWakeY;
+    int[] razorbillGuillotineHitCooldown = new int[4];
+    int[] razorbillGuillotineWakeHitCooldown = new int[4];
     int plungeTimer;
     int pelicanCargoCount;
     int pelicanNeutralTimer;
@@ -658,6 +675,27 @@ class LanBirdState {
         out.writeBoolean(razorbillCounterUltimate);
         out.writeBoolean(razorbillCountered);
         out.writeBoolean(razorbillCounterAttemptActive);
+        out.writeInt(razorbillGuillotineTimer);
+        out.writeInt(razorbillGuillotineSlashIndex);
+        out.writeInt(razorbillGuillotineWakeTimer);
+        out.writeBoolean(razorbillGuillotineFinalResolved);
+        out.writeDouble(razorbillGuillotineAnchorX);
+        out.writeDouble(razorbillGuillotineAnchorY);
+        out.writeDouble(razorbillGuillotineTargetX);
+        out.writeDouble(razorbillGuillotineTargetY);
+        out.writeDouble(razorbillGuillotineLastStartX);
+        out.writeDouble(razorbillGuillotineLastStartY);
+        out.writeDouble(razorbillGuillotineLastEndX);
+        out.writeDouble(razorbillGuillotineLastEndY);
+        out.writeDouble(razorbillGuillotineWakeX1);
+        out.writeDouble(razorbillGuillotineWakeX2);
+        out.writeDouble(razorbillGuillotineWakeY);
+        for (int cooldown : razorbillGuillotineHitCooldown) {
+            out.writeInt(cooldown);
+        }
+        for (int cooldown : razorbillGuillotineWakeHitCooldown) {
+            out.writeInt(cooldown);
+        }
         out.writeInt(plungeTimer);
         out.writeInt(pelicanCargoCount);
         out.writeInt(pelicanNeutralTimer);
@@ -1190,6 +1228,27 @@ class LanBirdState {
         state.razorbillCounterUltimate = in.readBoolean();
         state.razorbillCountered = in.readBoolean();
         state.razorbillCounterAttemptActive = in.readBoolean();
+        state.razorbillGuillotineTimer = in.readInt();
+        state.razorbillGuillotineSlashIndex = in.readInt();
+        state.razorbillGuillotineWakeTimer = in.readInt();
+        state.razorbillGuillotineFinalResolved = in.readBoolean();
+        state.razorbillGuillotineAnchorX = in.readDouble();
+        state.razorbillGuillotineAnchorY = in.readDouble();
+        state.razorbillGuillotineTargetX = in.readDouble();
+        state.razorbillGuillotineTargetY = in.readDouble();
+        state.razorbillGuillotineLastStartX = in.readDouble();
+        state.razorbillGuillotineLastStartY = in.readDouble();
+        state.razorbillGuillotineLastEndX = in.readDouble();
+        state.razorbillGuillotineLastEndY = in.readDouble();
+        state.razorbillGuillotineWakeX1 = in.readDouble();
+        state.razorbillGuillotineWakeX2 = in.readDouble();
+        state.razorbillGuillotineWakeY = in.readDouble();
+        for (int i = 0; i < state.razorbillGuillotineHitCooldown.length; i++) {
+            state.razorbillGuillotineHitCooldown[i] = in.readInt();
+        }
+        for (int i = 0; i < state.razorbillGuillotineWakeHitCooldown.length; i++) {
+            state.razorbillGuillotineWakeHitCooldown[i] = in.readInt();
+        }
         state.plungeTimer = in.readInt();
         state.pelicanCargoCount = in.readInt();
         state.pelicanNeutralTimer = in.readInt();

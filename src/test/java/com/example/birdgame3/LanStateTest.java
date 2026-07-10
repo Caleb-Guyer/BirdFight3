@@ -71,6 +71,23 @@ class LanStateTest {
         bird.razorbillCounterUltimate = true;
         bird.razorbillCountered = true;
         bird.razorbillCounterAttemptActive = true;
+        bird.razorbillGuillotineTimer = 97;
+        bird.razorbillGuillotineSlashIndex = 3;
+        bird.razorbillGuillotineWakeTimer = 88;
+        bird.razorbillGuillotineFinalResolved = true;
+        bird.razorbillGuillotineAnchorX = 111.25;
+        bird.razorbillGuillotineAnchorY = 222.5;
+        bird.razorbillGuillotineTargetX = 333.75;
+        bird.razorbillGuillotineTargetY = 444.0;
+        bird.razorbillGuillotineLastStartX = 555.25;
+        bird.razorbillGuillotineLastStartY = 666.5;
+        bird.razorbillGuillotineLastEndX = 777.75;
+        bird.razorbillGuillotineLastEndY = 888.0;
+        bird.razorbillGuillotineWakeX1 = 120.5;
+        bird.razorbillGuillotineWakeX2 = 480.25;
+        bird.razorbillGuillotineWakeY = 910.75;
+        bird.razorbillGuillotineHitCooldown[1] = 5;
+        bird.razorbillGuillotineWakeHitCooldown[3] = 13;
         bird.pelicanCargoCount = 2;
         bird.pelicanNeutralTimer = 8;
         bird.pelicanNeutralReuseTimer = 12;
@@ -196,6 +213,26 @@ class LanStateTest {
         chick.swarmVisualCopies = 5;
         state.chickMinions.add(chick);
 
+        LanState.MockingbirdShadowState shadow = new LanState.MockingbirdShadowState();
+        shadow.x = 14.0;
+        shadow.y = 15.0;
+        shadow.vx = 1.25;
+        shadow.vy = -2.5;
+        shadow.age = 16;
+        shadow.ownerIndex = 1;
+        shadow.copiedTypeOrdinal = BirdGame3.BirdType.EAGLE.ordinal();
+        shadow.health = 9.5;
+        shadow.maxHealth = 18.0;
+        shadow.attackCooldown = 17;
+        shadow.jumpCooldown = 18;
+        shadow.retargetCooldown = 19;
+        shadow.hitFlashTimer = 20;
+        shadow.spawnFlashFrames = 21;
+        shadow.onGround = true;
+        shadow.facingRight = false;
+        shadow.slot = 2;
+        state.mockingbirdShadows.add(shadow);
+
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         state.write(new DataOutputStream(bos));
 
@@ -245,6 +282,23 @@ class LanStateTest {
         assertTrue(decoded.birds[0].razorbillCounterUltimate);
         assertTrue(decoded.birds[0].razorbillCountered);
         assertTrue(decoded.birds[0].razorbillCounterAttemptActive);
+        assertEquals(97, decoded.birds[0].razorbillGuillotineTimer);
+        assertEquals(3, decoded.birds[0].razorbillGuillotineSlashIndex);
+        assertEquals(88, decoded.birds[0].razorbillGuillotineWakeTimer);
+        assertTrue(decoded.birds[0].razorbillGuillotineFinalResolved);
+        assertEquals(111.25, decoded.birds[0].razorbillGuillotineAnchorX);
+        assertEquals(222.5, decoded.birds[0].razorbillGuillotineAnchorY);
+        assertEquals(333.75, decoded.birds[0].razorbillGuillotineTargetX);
+        assertEquals(444.0, decoded.birds[0].razorbillGuillotineTargetY);
+        assertEquals(555.25, decoded.birds[0].razorbillGuillotineLastStartX);
+        assertEquals(666.5, decoded.birds[0].razorbillGuillotineLastStartY);
+        assertEquals(777.75, decoded.birds[0].razorbillGuillotineLastEndX);
+        assertEquals(888.0, decoded.birds[0].razorbillGuillotineLastEndY);
+        assertEquals(120.5, decoded.birds[0].razorbillGuillotineWakeX1);
+        assertEquals(480.25, decoded.birds[0].razorbillGuillotineWakeX2);
+        assertEquals(910.75, decoded.birds[0].razorbillGuillotineWakeY);
+        assertEquals(5, decoded.birds[0].razorbillGuillotineHitCooldown[1]);
+        assertEquals(13, decoded.birds[0].razorbillGuillotineWakeHitCooldown[3]);
         assertEquals(2, decoded.birds[0].pelicanCargoCount);
         assertEquals(8, decoded.birds[0].pelicanNeutralTimer);
         assertEquals(12, decoded.birds[0].pelicanNeutralReuseTimer);
@@ -328,5 +382,16 @@ class LanStateTest {
         assertTrue(decoded.chickMinions.getFirst().roosterSwarm);
         assertEquals(2, decoded.chickMinions.getFirst().swarmHitsRemaining);
         assertEquals(5, decoded.chickMinions.getFirst().swarmVisualCopies);
+        assertEquals(1, decoded.mockingbirdShadows.size());
+        assertEquals(14.0, decoded.mockingbirdShadows.getFirst().x);
+        assertEquals(-2.5, decoded.mockingbirdShadows.getFirst().vy);
+        assertEquals(BirdGame3.BirdType.EAGLE.ordinal(), decoded.mockingbirdShadows.getFirst().copiedTypeOrdinal);
+        assertEquals(9.5, decoded.mockingbirdShadows.getFirst().health);
+        assertEquals(18.0, decoded.mockingbirdShadows.getFirst().maxHealth);
+        assertEquals(17, decoded.mockingbirdShadows.getFirst().attackCooldown);
+        assertEquals(21, decoded.mockingbirdShadows.getFirst().spawnFlashFrames);
+        assertTrue(decoded.mockingbirdShadows.getFirst().onGround);
+        assertFalse(decoded.mockingbirdShadows.getFirst().facingRight);
+        assertEquals(2, decoded.mockingbirdShadows.getFirst().slot);
     }
 }

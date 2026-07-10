@@ -29,6 +29,7 @@ class LanState {
     List<PiranhaState> piranhas = new ArrayList<>();
     DockBombState dockBomb;
     List<ChickMinionState> chickMinions = new ArrayList<>();
+    List<MockingbirdShadowState> mockingbirdShadows = new ArrayList<>();
 
     void write(DataOutputStream out) throws IOException {
         out.writeInt(matchTimer);
@@ -142,6 +143,26 @@ class LanState {
             out.writeBoolean(c.roosterSwarm);
             out.writeInt(c.swarmHitsRemaining);
             out.writeInt(c.swarmVisualCopies);
+        }
+        out.writeInt(mockingbirdShadows.size());
+        for (MockingbirdShadowState s : mockingbirdShadows) {
+            out.writeDouble(s.x);
+            out.writeDouble(s.y);
+            out.writeDouble(s.vx);
+            out.writeDouble(s.vy);
+            out.writeInt(s.age);
+            out.writeInt(s.ownerIndex);
+            out.writeInt(s.copiedTypeOrdinal);
+            out.writeDouble(s.health);
+            out.writeDouble(s.maxHealth);
+            out.writeInt(s.attackCooldown);
+            out.writeInt(s.jumpCooldown);
+            out.writeInt(s.retargetCooldown);
+            out.writeInt(s.hitFlashTimer);
+            out.writeInt(s.spawnFlashFrames);
+            out.writeBoolean(s.onGround);
+            out.writeBoolean(s.facingRight);
+            out.writeInt(s.slot);
         }
     }
 
@@ -284,6 +305,28 @@ class LanState {
             c.swarmVisualCopies = in.readInt();
             state.chickMinions.add(c);
         }
+        int shadowCount = in.readInt();
+        for (int i = 0; i < shadowCount; i++) {
+            MockingbirdShadowState s = new MockingbirdShadowState();
+            s.x = in.readDouble();
+            s.y = in.readDouble();
+            s.vx = in.readDouble();
+            s.vy = in.readDouble();
+            s.age = in.readInt();
+            s.ownerIndex = in.readInt();
+            s.copiedTypeOrdinal = in.readInt();
+            s.health = in.readDouble();
+            s.maxHealth = in.readDouble();
+            s.attackCooldown = in.readInt();
+            s.jumpCooldown = in.readInt();
+            s.retargetCooldown = in.readInt();
+            s.hitFlashTimer = in.readInt();
+            s.spawnFlashFrames = in.readInt();
+            s.onGround = in.readBoolean();
+            s.facingRight = in.readBoolean();
+            s.slot = in.readInt();
+            state.mockingbirdShadows.add(s);
+        }
         return state;
     }
 
@@ -371,5 +414,25 @@ class LanState {
         boolean roosterSwarm;
         int swarmHitsRemaining;
         int swarmVisualCopies;
+    }
+
+    static final class MockingbirdShadowState {
+        double x;
+        double y;
+        double vx;
+        double vy;
+        int age;
+        int ownerIndex;
+        int copiedTypeOrdinal;
+        double health;
+        double maxHealth;
+        int attackCooldown;
+        int jumpCooldown;
+        int retargetCooldown;
+        int hitFlashTimer;
+        int spawnFlashFrames;
+        boolean onGround;
+        boolean facingRight;
+        int slot;
     }
 }

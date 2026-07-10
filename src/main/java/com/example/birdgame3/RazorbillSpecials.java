@@ -5,10 +5,16 @@ import javafx.scene.paint.Color;
 import java.util.Arrays;
 
 final class RazorbillSpecials {
+    static final String GUILLOTINE_WAKE_MOVE = "Razorbill Guillotine Wake";
+
     private RazorbillSpecials() {
     }
 
     static void use(Bird bird, boolean ultimate) {
+        if (ultimate) {
+            guillotineWake(bird);
+            return;
+        }
         switch (bird.selectRazorbillSpecialVariant()) {
             case NEUTRAL -> neutral(bird, ultimate);
             case SIDE -> side(bird, ultimate);
@@ -228,7 +234,8 @@ final class RazorbillSpecials {
                 || bird.razorbillShearTimer > 0
                 || bird.razorbillCounterTimer > 0
                 || bird.razorbillCounterBurstTimer > 0
-                || bird.razorbillCounterWhiffTimer > 0;
+                || bird.razorbillCounterWhiffTimer > 0
+                || bird.razorbillGuillotineTimer > 0;
     }
 
     static boolean ready(Bird bird, Bird.RazorbillSpecialVariant variant) {
@@ -280,15 +287,361 @@ final class RazorbillSpecials {
         bird.razorbillCounterUltimate = false;
         bird.razorbillCountered = false;
         bird.razorbillCounterAttemptActive = false;
+        bird.razorbillGuillotineTimer = 0;
+        bird.razorbillGuillotineSlashIndex = 0;
+        bird.razorbillGuillotineWakeTimer = 0;
+        bird.razorbillGuillotineFinalResolved = false;
+        bird.razorbillGuillotineAnchorX = 0.0;
+        bird.razorbillGuillotineAnchorY = 0.0;
+        bird.razorbillGuillotineTargetX = 0.0;
+        bird.razorbillGuillotineTargetY = 0.0;
+        bird.razorbillGuillotineLastStartX = 0.0;
+        bird.razorbillGuillotineLastStartY = 0.0;
+        bird.razorbillGuillotineLastEndX = 0.0;
+        bird.razorbillGuillotineLastEndY = 0.0;
+        bird.razorbillGuillotineWakeX1 = 0.0;
+        bird.razorbillGuillotineWakeX2 = 0.0;
+        bird.razorbillGuillotineWakeY = 0.0;
+        Arrays.fill(bird.razorbillGuillotineHitCooldown, 0);
+        Arrays.fill(bird.razorbillGuillotineWakeHitCooldown, 0);
     }
 
     static void handleState(Bird bird) {
         if (!owner(bird)) {
             return;
         }
+        handleGuillotineWake(bird);
+        if (bird.razorbillGuillotineTimer > 0) {
+            return;
+        }
         handleRisingStorm(bird);
         handleBladeStorm(bird);
         handleCliffShear(bird);
+    }
+
+    private static void guillotineWake(Bird bird) {
+        reset(bird);
+        Bird target = nearestTarget(bird);
+        double targetX = target == null
+                ? bird.bodyCenterX() + bird.facingDirection() * 250.0 * bird.sizeMultiplier
+                : target.bodyCenterX();
+        double targetY = target == null
+                ? bird.bodyCenterY()
+                : target.bodyCenterY();
+
+        bird.razorbillGuillotineTimer = Bird.RAZORBILL_GUILLOTINE_TOTAL_FRAMES;
+        bird.razorbillGuillotineSlashIndex = 0;
+        bird.razorbillGuillotineWakeTimer = 0;
+        bird.razorbillGuillotineFinalResolved = false;
+        bird.razorbillGuillotineAnchorX = bird.bodyCenterX();
+        bird.razorbillGuillotineAnchorY = bird.bodyCenterY();
+        bird.razorbillGuillotineTargetX = clamp(targetX, 64.0, BirdGame3.WORLD_WIDTH - 64.0);
+        bird.razorbillGuillotineTargetY = clamp(targetY, 96.0, BirdGame3.GROUND_Y - 42.0);
+        setGuillotineChainLine(bird, 0);
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.RAZORBILL_GUILLOTINE_WINDUP_FRAMES);
+        bird.vx *= 0.08;
+        bird.vy = Math.min(bird.vy * 0.15, -2.8);
+        Arrays.fill(bird.razorbillGuillotineHitCooldown, 0);
+        Arrays.fill(bird.razorbillGuillotineWakeHitCooldown, 0);
+
+        int particles = bird.scaledParticleCount(48);
+        for (int i = 0; i < particles; i++) {
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double radius = 18.0 + SimRng.next() * 58.0;
+            double speed = 1.8 + SimRng.next() * 5.4;
+            bird.game.particles.add(new Particle(
+                    bird.bodyCenterX() + Math.cos(angle) * radius,
+                    bird.bodyCenterY() + Math.sin(angle) * radius * 0.45,
+                    Math.cos(angle + Math.PI * 0.5) * speed,
+                    Math.sin(angle + Math.PI * 0.5) * speed - 1.6,
+                    Color.web("#8CEBFF", 0.82)
+            ));
+        }
+        bird.game.addToKillFeed(bird.shortName() + " OPENS THE GUILLOTINE WAKE!");
+    }
+
+    private static void handleGuillotineWake(Bird bird) {
+        if (bird.razorbillGuillotineWakeTimer > 0) {
+            applyGuillotineWakeDamage(bird);
+        }
+        if (bird.razorbillGuillotineTimer <= 0) {
+            return;
+        }
+
+        int elapsed = Bird.RAZORBILL_GUILLOTINE_TOTAL_FRAMES - bird.razorbillGuillotineTimer;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 4);
+        bird.isBlocking = false;
+        bird.parryWindowFrames = 0;
+
+        if (elapsed < Bird.RAZORBILL_GUILLOTINE_WINDUP_FRAMES) {
+            double hover = Math.sin(elapsed * 0.34) * 5.5 * bird.sizeMultiplier;
+            moveToCenter(bird, bird.razorbillGuillotineAnchorX,
+                    bird.razorbillGuillotineAnchorY - 18.0 * bird.sizeMultiplier + hover);
+            bird.vx = 0.0;
+            bird.vy = 0.0;
+            if (elapsed % 4 == 0) {
+                emitGuillotineRiftParticles(bird, 7, Color.web("#31D9FF", 0.88));
+            }
+            return;
+        }
+
+        while (bird.razorbillGuillotineSlashIndex < Bird.RAZORBILL_GUILLOTINE_SLASH_COUNT
+                && elapsed >= Bird.RAZORBILL_GUILLOTINE_WINDUP_FRAMES
+                + bird.razorbillGuillotineSlashIndex * Bird.RAZORBILL_GUILLOTINE_SLASH_SPACING) {
+            performGuillotineSlash(bird, bird.razorbillGuillotineSlashIndex);
+            bird.razorbillGuillotineSlashIndex++;
+        }
+
+        if (!bird.razorbillGuillotineFinalResolved && elapsed >= Bird.RAZORBILL_GUILLOTINE_FINAL_FRAME) {
+            performGuillotineFinal(bird);
+        }
+
+        double travelT = Math.clamp((elapsed - Bird.RAZORBILL_GUILLOTINE_WINDUP_FRAMES)
+                / (double) Math.max(1, Bird.RAZORBILL_GUILLOTINE_FINAL_FRAME - Bird.RAZORBILL_GUILLOTINE_WINDUP_FRAMES),
+                0.0, 1.0);
+        double orbit = 96.0 * bird.sizeMultiplier;
+        double angle = travelT * Math.PI * 2.0 * 1.65;
+        moveToCenter(bird,
+                bird.razorbillGuillotineTargetX + Math.cos(angle) * orbit,
+                bird.razorbillGuillotineTargetY + Math.sin(angle) * orbit * 0.48 - 18.0 * bird.sizeMultiplier);
+        bird.vx = 0.0;
+        bird.vy = 0.0;
+
+        if (elapsed % 5 == 0) {
+            emitGuillotineRiftParticles(bird, 5, Color.web("#E8FBFF", 0.84));
+        }
+    }
+
+    private static void performGuillotineSlash(Bird bird, int slashIndex) {
+        setGuillotineChainLine(bird, slashIndex);
+        double sx = bird.razorbillGuillotineLastStartX;
+        double sy = bird.razorbillGuillotineLastStartY;
+        double ex = bird.razorbillGuillotineLastEndX;
+        double ey = bird.razorbillGuillotineLastEndY;
+        double dx = ex - sx;
+        double dy = ey - sy;
+        double mag = Math.max(0.001, Math.hypot(dx, dy));
+        double normalX = -dy / mag;
+        double normalY = dx / mag;
+        boolean hitAny = false;
+
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            int index = other.playerIndex;
+            if (index < 0 || index >= bird.razorbillGuillotineHitCooldown.length) continue;
+            if (bird.razorbillGuillotineHitCooldown[index] > 0) continue;
+
+            double distance = pointToSegmentDistance(other.bodyCenterX(), other.bodyCenterY(), sx, sy, ex, ey);
+            if (distance > 38.0 * bird.sizeMultiplier + other.combatRadius()) continue;
+
+            double dir = Math.signum(other.bodyCenterX() - bird.razorbillGuillotineTargetX);
+            if (dir == 0.0) dir = bird.facingDirection();
+            int damage = Math.max(4, (int) Math.round((5.0 + slashIndex * 0.45) * bird.powerMultiplier));
+            int dealt = applySpecialHit(bird, other, damage,
+                    dir * 3.4 + normalX * 3.2,
+                    -5.2 + normalY * 1.2,
+                    true);
+            if (dealt > 0) {
+                bird.razorbillGuillotineHitCooldown[index] = 7;
+                hitAny = true;
+            }
+        }
+
+        emitSlashTrail(bird, sx, sy, ex, ey, 16, Color.web("#8CEBFF"));
+        emitSlashBurst(bird, ex, ey, Math.signum(ex - sx), Color.web("#E8FBFF"), 14);
+        moveToCenter(bird, ex, ey);
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, hitAny ? 11 : 6);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, hitAny ? 3 : 1);
+    }
+
+    private static void performGuillotineFinal(Bird bird) {
+        bird.razorbillGuillotineFinalResolved = true;
+        double surfaceY = findWakeSurfaceY(bird, bird.razorbillGuillotineTargetX, bird.razorbillGuillotineTargetY);
+        double x = bird.razorbillGuillotineTargetX;
+        double startY = Math.max(72.0, bird.razorbillGuillotineTargetY - 265.0 * bird.sizeMultiplier);
+        double endY = surfaceY + 28.0 * bird.sizeMultiplier;
+        bird.razorbillGuillotineLastStartX = x;
+        bird.razorbillGuillotineLastStartY = startY;
+        bird.razorbillGuillotineLastEndX = x;
+        bird.razorbillGuillotineLastEndY = endY;
+        bird.razorbillGuillotineWakeX1 = clamp(x - 190.0 * bird.sizeMultiplier, 16.0, BirdGame3.WORLD_WIDTH - 16.0);
+        bird.razorbillGuillotineWakeX2 = clamp(x + 190.0 * bird.sizeMultiplier, 16.0, BirdGame3.WORLD_WIDTH - 16.0);
+        bird.razorbillGuillotineWakeY = surfaceY;
+        bird.razorbillGuillotineWakeTimer = Bird.RAZORBILL_GUILLOTINE_WAKE_FRAMES;
+        Arrays.fill(bird.razorbillGuillotineWakeHitCooldown, 0);
+
+        boolean hitAny = false;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            double distance = pointToSegmentDistance(other.bodyCenterX(), other.bodyCenterY(),
+                    bird.razorbillGuillotineLastStartX,
+                    bird.razorbillGuillotineLastStartY,
+                    bird.razorbillGuillotineLastEndX,
+                    bird.razorbillGuillotineLastEndY);
+            if (distance > 58.0 * bird.sizeMultiplier + other.combatRadius()) continue;
+            double dir = Math.signum(other.bodyCenterX() - x);
+            if (dir == 0.0) dir = bird.facingDirection();
+            int dealt = applySpecialHit(bird, other,
+                    Math.max(12, (int) Math.round(14.0 * bird.powerMultiplier)),
+                    dir * 6.5,
+                    -18.0,
+                    true);
+            if (dealt > 0) {
+                hitAny = true;
+                other.applyStun(18);
+            }
+        }
+
+        emitSlashTrail(bird, x, startY, x, endY, 36, Color.web("#E8FBFF"));
+        emitSlashBurst(bird, x, surfaceY - 42.0 * bird.sizeMultiplier, bird.facingDirection(),
+                Color.web("#31D9FF"), 42);
+        moveToCenter(bird, x + bird.facingDirection() * 72.0 * bird.sizeMultiplier,
+                Math.max(96.0, surfaceY - 108.0 * bird.sizeMultiplier));
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, hitAny ? 22 : 16);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, hitAny ? 7 : 4);
+        bird.game.triggerFlash(0.46, false);
+        bird.game.addToKillFeed(bird.shortName() + " DROPS THE GUILLOTINE!");
+    }
+
+    private static void applyGuillotineWakeDamage(Bird bird) {
+        double left = Math.min(bird.razorbillGuillotineWakeX1, bird.razorbillGuillotineWakeX2);
+        double right = Math.max(bird.razorbillGuillotineWakeX1, bird.razorbillGuillotineWakeX2);
+        double wakeY = bird.razorbillGuillotineWakeY;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            int index = other.playerIndex;
+            if (index < 0 || index >= bird.razorbillGuillotineWakeHitCooldown.length) continue;
+            if (bird.razorbillGuillotineWakeHitCooldown[index] > 0) continue;
+            double cx = other.bodyCenterX();
+            if (cx < left - other.combatHalfWidth() || cx > right + other.combatHalfWidth()) continue;
+            double bottomDistance = Math.abs(other.bodyBottomY() - wakeY);
+            double centerDistance = Math.abs(other.bodyCenterY() - wakeY);
+            if (bottomDistance > 44.0 * bird.sizeMultiplier && centerDistance > 82.0 * bird.sizeMultiplier) continue;
+
+            double dir = Math.signum(cx - (left + right) * 0.5);
+            if (dir == 0.0) dir = bird.facingDirection();
+            int dealt = applySpecialHit(bird, other, Math.max(2, (int) Math.round(3.0 * bird.powerMultiplier)),
+                    dir * 2.2,
+                    -2.8,
+                    true);
+            if (dealt > 0) {
+                bird.razorbillGuillotineWakeHitCooldown[index] = 24;
+            }
+        }
+        if (bird.razorbillGuillotineWakeTimer % 9 == 0) {
+            emitSlashTrail(bird,
+                    left + SimRng.next() * Math.max(1.0, right - left),
+                    wakeY + 2.0 * bird.sizeMultiplier,
+                    left + SimRng.next() * Math.max(1.0, right - left),
+                    wakeY - (18.0 + SimRng.next() * 34.0) * bird.sizeMultiplier,
+                    4,
+                    Color.web("#31D9FF"));
+        }
+    }
+
+    private static Bird nearestTarget(Bird bird) {
+        Bird best = null;
+        double bestDistance = Double.POSITIVE_INFINITY;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            double distance = Math.hypot(other.bodyCenterX() - bird.bodyCenterX(),
+                    other.bodyCenterY() - bird.bodyCenterY());
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = other;
+            }
+        }
+        return best;
+    }
+
+    private static void setGuillotineChainLine(Bird bird, int slashIndex) {
+        double s = bird.sizeMultiplier;
+        double targetX = bird.razorbillGuillotineTargetX;
+        double targetY = bird.razorbillGuillotineTargetY;
+        double side = ((slashIndex & 1) == 0 ? 1.0 : -1.0) * bird.facingDirection();
+        double reach = (230.0 + slashIndex * 18.0) * s;
+        double high = (142.0 + (slashIndex % 3) * 24.0) * s;
+        double low = (72.0 + slashIndex * 8.0) * s;
+
+        if (slashIndex % 3 == 0) {
+            bird.razorbillGuillotineLastStartX = clamp(targetX - side * reach, 24.0, BirdGame3.WORLD_WIDTH - 24.0);
+            bird.razorbillGuillotineLastStartY = clamp(targetY - high, 36.0, BirdGame3.GROUND_Y + 80.0);
+            bird.razorbillGuillotineLastEndX = clamp(targetX + side * reach, 24.0, BirdGame3.WORLD_WIDTH - 24.0);
+            bird.razorbillGuillotineLastEndY = clamp(targetY + low, 36.0, BirdGame3.GROUND_Y + 80.0);
+        } else if (slashIndex % 3 == 1) {
+            bird.razorbillGuillotineLastStartX = clamp(targetX + side * reach, 24.0, BirdGame3.WORLD_WIDTH - 24.0);
+            bird.razorbillGuillotineLastStartY = clamp(targetY - high * 0.42, 36.0, BirdGame3.GROUND_Y + 80.0);
+            bird.razorbillGuillotineLastEndX = clamp(targetX - side * reach, 24.0, BirdGame3.WORLD_WIDTH - 24.0);
+            bird.razorbillGuillotineLastEndY = clamp(targetY + low * 0.35, 36.0, BirdGame3.GROUND_Y + 80.0);
+        } else {
+            bird.razorbillGuillotineLastStartX = clamp(targetX - side * reach * 0.62, 24.0, BirdGame3.WORLD_WIDTH - 24.0);
+            bird.razorbillGuillotineLastStartY = clamp(targetY + low * 0.58, 36.0, BirdGame3.GROUND_Y + 80.0);
+            bird.razorbillGuillotineLastEndX = clamp(targetX + side * reach * 0.62, 24.0, BirdGame3.WORLD_WIDTH - 24.0);
+            bird.razorbillGuillotineLastEndY = clamp(targetY - high * 0.72, 36.0, BirdGame3.GROUND_Y + 80.0);
+        }
+    }
+
+    private static void emitGuillotineRiftParticles(Bird bird, int count, Color color) {
+        int particles = bird.scaledParticleCount(count);
+        for (int i = 0; i < particles; i++) {
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double radius = 30.0 + SimRng.next() * 92.0;
+            bird.game.particles.add(new Particle(
+                    bird.razorbillGuillotineTargetX + Math.cos(angle) * radius,
+                    bird.razorbillGuillotineTargetY + Math.sin(angle) * radius * 0.45,
+                    -Math.cos(angle) * (1.8 + SimRng.next() * 3.2),
+                    -Math.sin(angle) * (1.2 + SimRng.next() * 2.4) - 1.0,
+                    color
+            ));
+        }
+    }
+
+    private static double findWakeSurfaceY(Bird bird, double x, double referenceY) {
+        double best = BirdGame3.GROUND_Y;
+        for (Platform platform : bird.game.platforms) {
+            if (platform == null || platform.w <= 0.0 || platform.h <= 0.0) continue;
+            boolean caveCeiling = platform.y <= 1.0 && platform.h >= 60.0 && platform.w >= BirdGame3.WORLD_WIDTH - 10.0;
+            if (caveCeiling) continue;
+            if (x < platform.x - 26.0 || x > platform.x + platform.w + 26.0) continue;
+            if (platform.y < referenceY - 70.0) continue;
+            if (platform.y < best) {
+                best = platform.y;
+            }
+        }
+        return best;
+    }
+
+    private static double pointToSegmentDistance(double px, double py, double x1, double y1, double x2, double y2) {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double lenSq = dx * dx + dy * dy;
+        if (lenSq <= 0.0001) {
+            return Math.hypot(px - x1, py - y1);
+        }
+        double t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+        if (t < 0.0) t = 0.0;
+        if (t > 1.0) t = 1.0;
+        double closestX = x1 + dx * t;
+        double closestY = y1 + dy * t;
+        return Math.hypot(px - closestX, py - closestY);
+    }
+
+    private static void moveToCenter(Bird bird, double centerX, double centerY) {
+        double halfW = bird.bodyWidth() * 0.5;
+        double halfH = bird.bodyHeight() * 0.5;
+        double clampedX = clamp(centerX, halfW + 12.0, BirdGame3.WORLD_WIDTH - halfW - 12.0);
+        double clampedY = clamp(centerY, 44.0 + halfH, BirdGame3.GROUND_Y + 70.0);
+        bird.x = clampedX - halfW;
+        bird.y = clampedY - halfH;
+    }
+
+    private static double clamp(double value, double min, double max) {
+        if (max < min) {
+            return min;
+        }
+        return Math.max(min, Math.min(max, value));
     }
 
     static void handleRisingStorm(Bird bird) {

@@ -22,6 +22,7 @@ class BirdGame3LanStateTest {
         WindVent ventRef = game.windVents.getFirst();
         CrowMinion crowRef = game.crowMinions.getFirst();
         ChickMinion chickRef = game.chickMinions.getFirst();
+        MockingbirdShadowMinion shadowRef = game.mockingbirdShadowMinions.getFirst();
 
         LanState second = buildState(40, 55, PowerUpType.OVERCHARGE, 260, 320, false);
         applyLanState(game, second);
@@ -32,6 +33,7 @@ class BirdGame3LanStateTest {
         assertSame(ventRef, game.windVents.getFirst());
         assertSame(crowRef, game.crowMinions.getFirst());
         assertSame(chickRef, game.chickMinions.getFirst());
+        assertSame(shadowRef, game.mockingbirdShadowMinions.getFirst());
 
         assertEquals(40.0, game.powerUps.getFirst().x);
         assertEquals(55.0, game.powerUps.getFirst().y);
@@ -53,6 +55,14 @@ class BirdGame3LanStateTest {
         assertTrue(game.chickMinions.getFirst().roosterSwarm);
         assertEquals(2, game.chickMinions.getFirst().swarmHitsRemaining);
         assertEquals(5, game.chickMinions.getFirst().swarmVisualCopies);
+        assertEquals(43.0, game.mockingbirdShadowMinions.getFirst().x);
+        assertEquals(58.0, game.mockingbirdShadowMinions.getFirst().y);
+        assertEquals(4.5, game.mockingbirdShadowMinions.getFirst().vx);
+        assertEquals(-2.25, game.mockingbirdShadowMinions.getFirst().vy);
+        assertEquals(BirdGame3.BirdType.EAGLE, game.mockingbirdShadowMinions.getFirst().copiedType);
+        assertEquals(11.0, game.mockingbirdShadowMinions.getFirst().health);
+        assertEquals(19, game.mockingbirdShadowMinions.getFirst().attackCooldown);
+        assertTrue(game.mockingbirdShadowMinions.getFirst().onGround);
     }
 
     @Test
@@ -131,6 +141,26 @@ class BirdGame3LanStateTest {
         chick.swarmHitsRemaining = 2;
         chick.swarmVisualCopies = 5;
         state.chickMinions.add(chick);
+
+        LanState.MockingbirdShadowState shadow = new LanState.MockingbirdShadowState();
+        shadow.x = x + 3;
+        shadow.y = y + 3;
+        shadow.vx = 4.5;
+        shadow.vy = -2.25;
+        shadow.age = 10;
+        shadow.ownerIndex = -1;
+        shadow.copiedTypeOrdinal = BirdGame3.BirdType.EAGLE.ordinal();
+        shadow.health = 11.0;
+        shadow.maxHealth = 18.0;
+        shadow.attackCooldown = 19;
+        shadow.jumpCooldown = 20;
+        shadow.retargetCooldown = 21;
+        shadow.hitFlashTimer = 22;
+        shadow.spawnFlashFrames = 23;
+        shadow.onGround = true;
+        shadow.facingRight = false;
+        shadow.slot = 1;
+        state.mockingbirdShadows.add(shadow);
 
         return state;
     }

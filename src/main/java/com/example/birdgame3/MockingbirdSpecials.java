@@ -3,10 +3,16 @@ package com.example.birdgame3;
 import javafx.scene.paint.Color;
 
 final class MockingbirdSpecials {
+    static final String SHADOW_COURT_MOVE = "Charles Shadow Court";
+
     private MockingbirdSpecials() {
     }
 
     static void use(Bird bird, boolean ultimate) {
+        if (ultimate) {
+            shadowCourt(bird);
+            return;
+        }
         switch (bird.selectMockingbirdSpecialVariant()) {
             case NEUTRAL -> neutral(bird, ultimate);
             case SIDE -> side(bird, ultimate);
@@ -268,5 +274,124 @@ final class MockingbirdSpecials {
             ));
         }
         bird.game.addToKillFeed(bird.shortName() + (ultimate ? " raised the ROYAL FOREST!" : " moved the forest lounge!"));
+    }
+
+    static void shadowCourt(Bird bird) {
+        ensureShadowCourtLounge(bird);
+        BirdGame3.BirdType copiedType = shadowCourtType(bird);
+        double[] offsets = {-118.0, 118.0, 0.0};
+        for (int i = 0; i < offsets.length; i++) {
+            double spawnX = bird.loungeX + offsets[i] * Math.max(0.85, bird.sizeMultiplier);
+            double spawnY = bird.loungeY - (i == 2 ? 18.0 : 10.0) * Math.max(0.85, bird.sizeMultiplier);
+            MockingbirdShadowMinion shadow = new MockingbirdShadowMinion(spawnX, spawnY, copiedType, bird, i);
+            shadow.target = findClosestShadowTarget(bird, shadow);
+            bird.game.mockingbirdShadowMinions.add(shadow);
+            emitShadowBirth(bird, spawnX, spawnY, copiedType, i);
+        }
+        bird.mockingbirdQuestionTimer = 0;
+        bird.mockingbirdSideReuseTimer = Math.max(bird.mockingbirdSideReuseTimer, 18);
+        bird.mockingbirdUpReuseTimer = Math.max(bird.mockingbirdUpReuseTimer, 18);
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 28);
+        bird.loungeDamageFlash = Math.max(bird.loungeDamageFlash, 18);
+        bird.game.addToKillFeed(bird.shortName() + " opened the Shadow Court of " + copiedType.name + "!");
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 24);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 10);
+    }
+
+    private static void ensureShadowCourtLounge(Bird bird) {
+        if (bird.loungeActive && bird.loungeHealth > 0) {
+            bird.loungeRoyal = true;
+            bird.loungeMaxHealth = Math.max(bird.loungeMaxHealth, 200);
+            bird.loungeHealth = Math.max(bird.loungeHealth, Math.min(bird.loungeMaxHealth, 120));
+            return;
+        }
+        bird.loungeActive = true;
+        bird.loungeX = bird.bodyCenterX();
+        bird.loungeY = bird.bodyCenterY();
+        bird.loungeMaxHealth = 200;
+        bird.loungeHealth = bird.loungeMaxHealth;
+        bird.loungeRoyal = true;
+        bird.mockingbirdUncaptureTimer = 0;
+    }
+
+    private static BirdGame3.BirdType shadowCourtType(Bird bird) {
+        if (bird.mockingbirdCapturedType != null && bird.mockingbirdCapturedType != BirdGame3.BirdType.MOCKINGBIRD) {
+            return bird.mockingbirdCapturedType;
+        }
+        Bird closest = findClosestBirdToCopy(bird);
+        return closest == null ? BirdGame3.BirdType.PIGEON : closest.type;
+    }
+
+    private static Bird findClosestBirdToCopy(Bird bird) {
+        Bird closest = null;
+        double bestSq = Double.MAX_VALUE;
+        double cx = bird.bodyCenterX();
+        double cy = bird.bodyCenterY();
+        for (Bird other : bird.game.players) {
+            if (other == null || other == bird || other.health <= 0 || other.type == BirdGame3.BirdType.MOCKINGBIRD) {
+                continue;
+            }
+            if (!bird.game.canDamage(bird, other)) {
+                continue;
+            }
+            double dx = other.bodyCenterX() - cx;
+            double dy = other.bodyCenterY() - cy;
+            double distSq = dx * dx + dy * dy;
+            if (distSq < bestSq) {
+                bestSq = distSq;
+                closest = other;
+            }
+        }
+        if (closest != null) {
+            return closest;
+        }
+        for (Bird other : bird.game.players) {
+            if (other == null || other == bird || other.health <= 0 || other.type == BirdGame3.BirdType.MOCKINGBIRD) {
+                continue;
+            }
+            double dx = other.bodyCenterX() - cx;
+            double dy = other.bodyCenterY() - cy;
+            double distSq = dx * dx + dy * dy;
+            if (distSq < bestSq) {
+                bestSq = distSq;
+                closest = other;
+            }
+        }
+        return closest;
+    }
+
+    private static Bird findClosestShadowTarget(Bird owner, MockingbirdShadowMinion shadow) {
+        Bird closest = null;
+        double bestSq = Double.MAX_VALUE;
+        for (Bird other : owner.game.players) {
+            if (other == null || other.health <= 0 || !owner.game.canDamage(owner, other)) {
+                continue;
+            }
+            double dx = other.bodyCenterX() - shadow.bodyCenterX();
+            double dy = other.bodyCenterY() - shadow.bodyCenterY();
+            double distSq = dx * dx + dy * dy;
+            if (distSq < bestSq) {
+                bestSq = distSq;
+                closest = other;
+            }
+        }
+        return closest;
+    }
+
+    private static void emitShadowBirth(Bird bird, double x, double y, BirdGame3.BirdType copiedType, int slot) {
+        Color accent = slot == 2 ? Color.web("#EC407A") : copiedType.color;
+        for (int i = 0; i < bird.scaledParticleCount(24); i++) {
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 2.6 + SimRng.next() * 8.8;
+            bird.game.particles.add(new Particle(
+                    x + Math.cos(angle) * (12.0 + SimRng.next() * 28.0),
+                    y + Math.sin(angle) * (10.0 + SimRng.next() * 22.0),
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed - 2.2,
+                    (SimRng.next() < 0.55 ? Color.BLACK : accent).deriveColor(0, 1, 1, 0.76)
+            ));
+        }
     }
 }

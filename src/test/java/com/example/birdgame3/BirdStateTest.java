@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class BirdStateTest {
     @Test
-    void ultimateVisualReadyRequiresFilledUsableUlt() {
+    void ultimateVisualReadyAllowsMockingbirdFallbackUlt() {
         BirdGame3 game = new BirdGame3();
 
         Bird pigeon = new Bird(100, BirdGame3.BirdType.PIGEON, 0, game);
@@ -25,8 +25,8 @@ class BirdStateTest {
 
         Bird mockingbird = new Bird(160, BirdGame3.BirdType.MOCKINGBIRD, 1, game);
         mockingbird.refillTrainingResources(true);
-        assertFalse(mockingbird.isUltimateVisualReady(),
-                "Mockingbird should not glow on an empty neutral copy because the ult will not trigger.");
+        assertTrue(mockingbird.isUltimateVisualReady(),
+                "Mockingbird should glow on an empty neutral copy because Shadow Court falls back to the closest bird.");
 
         mockingbird.mockingbirdCapturedType = BirdGame3.BirdType.PIGEON;
         assertTrue(mockingbird.isUltimateVisualReady());
@@ -977,6 +977,101 @@ class BirdStateTest {
         }
         assertEquals(BirdGame3.BirdType.MOCKINGBIRD, charles.type);
         assertEquals(BirdGame3.BirdType.ROOSTER, charles.mockingbirdCopiedNeutralSource);
+    }
+
+    @Test
+    void mockingbirdUltimateSpawnsCapturedShadowCourt() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird charles = new Bird(260.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        Bird target = new Bird(620.0, BirdGame3.BirdType.PIGEON, 1, game);
+        charles.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        charles.loungeActive = true;
+        charles.loungeHealth = Bird.LOUNGE_MAX_HEALTH;
+        charles.loungeX = 430.0;
+        charles.loungeY = BirdGame3.GROUND_Y - 64.0;
+        charles.mockingbirdCapturedType = BirdGame3.BirdType.PELICAN;
+        game.players[0] = charles;
+        game.players[1] = target;
+
+        setPrivateDouble(charles, "ultimateMeter", 100.0);
+        BirdSpecialSystem.useSpecial(charles);
+
+        assertEquals(0.0, getPrivateDouble(charles, "ultimateMeter"), 0.0001);
+        assertEquals(3, game.mockingbirdShadowMinions.size());
+        assertTrue(charles.loungeRoyal);
+        assertEquals(200.0, charles.loungeMaxHealth, 0.0001);
+        assertEquals(MockingbirdSpecials.SHADOW_COURT_MOVE, game.lastTelemetryMoveName(0, ""));
+
+        MockingbirdShadowMinion left = game.mockingbirdShadowMinions.get(0);
+        MockingbirdShadowMinion right = game.mockingbirdShadowMinions.get(1);
+        MockingbirdShadowMinion inside = game.mockingbirdShadowMinions.get(2);
+        assertTrue(left.bodyCenterX() < charles.loungeX - 80.0);
+        assertTrue(right.bodyCenterX() > charles.loungeX + 80.0);
+        assertTrue(Math.abs(inside.bodyCenterX() - charles.loungeX) < 28.0);
+        assertTrue(game.mockingbirdShadowMinions.stream()
+                .allMatch(shadow -> shadow.owner == charles
+                        && shadow.target == target
+                        && shadow.copiedType == BirdGame3.BirdType.PELICAN
+                        && shadow.health <= 14.0));
+    }
+
+    @Test
+    void mockingbirdUltimateCreatesLoungeAndCopiesClosestBirdWhenEmpty() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+
+        Bird charles = new Bird(240.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        Bird eagle = new Bird(420.0, BirdGame3.BirdType.EAGLE, 1, game);
+        Bird pelican = new Bird(1050.0, BirdGame3.BirdType.PELICAN, 2, game);
+        charles.y = BirdGame3.GROUND_Y - 80.0;
+        eagle.y = BirdGame3.GROUND_Y - 80.0;
+        pelican.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = charles;
+        game.players[1] = eagle;
+        game.players[2] = pelican;
+
+        setPrivateDouble(charles, "ultimateMeter", 100.0);
+        BirdSpecialSystem.useSpecial(charles);
+
+        assertTrue(charles.loungeActive);
+        assertTrue(charles.loungeRoyal);
+        assertEquals(3, game.mockingbirdShadowMinions.size());
+        assertTrue(game.mockingbirdShadowMinions.stream()
+                .allMatch(shadow -> shadow.copiedType == BirdGame3.BirdType.EAGLE));
+    }
+
+    @Test
+    void mockingbirdShadowMinionDamagesNearestEnemy() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird charles = new Bird(260.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        Bird target = new Bird(350.0, BirdGame3.BirdType.PIGEON, 1, game);
+        charles.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = charles;
+        game.players[1] = target;
+
+        MockingbirdShadowMinion shadow = new MockingbirdShadowMinion(
+                target.bodyCenterX() - 12.0,
+                target.bodyCenterY(),
+                BirdGame3.BirdType.EAGLE,
+                charles,
+                0
+        );
+        shadow.attackCooldown = 0;
+        shadow.target = target;
+        game.mockingbirdShadowMinions.add(shadow);
+
+        double healthBefore = target.health;
+        invokePrivateVoid(game, "updateMockingbirdShadowMinions");
+
+        assertTrue(target.health < healthBefore);
+        assertTrue(game.damageDealt[0] > 0);
+        assertTrue(shadow.attackCooldown > 0);
     }
 
     @Test
@@ -3634,6 +3729,66 @@ class BirdStateTest {
         assertTrue(target.health < healthBefore, "Final Stillness should damage the locked target.");
         assertTrue(getPrivateBoolean(shoebill, "shoebillFinalStillnessBeamResolved"));
         assertTrue(game.damageDealt[0] > 0);
+    }
+
+    @Test
+    void razorbillUltimateStartsGuillotineWakeInsteadOfBoostedSpecial() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird razorbill = new Bird(300.0, BirdGame3.BirdType.RAZORBILL, 0, game);
+        Bird target = new Bird(620.0, BirdGame3.BirdType.PIGEON, 1, game);
+        razorbill.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = razorbill;
+        game.players[1] = target;
+
+        setPrivateDouble(razorbill, "ultimateMeter", 100.0);
+        invokePrivateVoid(razorbill, "special");
+
+        assertEquals(0.0, getPrivateDouble(razorbill, "ultimateMeter"), 0.0001);
+        assertEquals(Bird.RAZORBILL_GUILLOTINE_TOTAL_FRAMES, razorbill.razorbillGuillotineTimer);
+        assertEquals(0, razorbill.razorbillGuillotineSlashIndex);
+        assertTrue(razorbill.isCombatInvulnerable());
+        assertEquals(0, razorbill.razorbillStormTimer);
+        assertEquals(0, razorbill.bladeStormFrames);
+        assertEquals(0, razorbill.razorbillShearTimer);
+        assertEquals(0, razorbill.razorbillCounterTimer);
+        assertEquals(RazorbillSpecials.GUILLOTINE_WAKE_MOVE, game.lastTelemetryMoveName(0, ""));
+    }
+
+    @Test
+    void razorbillGuillotineWakeDamagesAndLeavesLingeringRazorWake() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird razorbill = new Bird(300.0, BirdGame3.BirdType.RAZORBILL, 0, game);
+        Bird target = new Bird(620.0, BirdGame3.BirdType.PIGEON, 1, game);
+        razorbill.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = razorbill;
+        game.players[1] = target;
+
+        setPrivateDouble(razorbill, "ultimateMeter", 100.0);
+        invokePrivateVoid(razorbill, "special");
+        double healthBefore = target.health;
+
+        for (int i = 0; i <= Bird.RAZORBILL_GUILLOTINE_FINAL_FRAME + 2; i++) {
+            razorbill.update(1.0);
+        }
+
+        assertTrue(target.health < healthBefore, "Guillotine Wake should damage targets that stay inside the marked cuts.");
+        assertTrue(razorbill.razorbillGuillotineWakeTimer > 0, "The final slash should leave a lingering razor wake.");
+        assertTrue(game.damageDealt[0] > 0);
+
+        for (int i = 0; i < Bird.RAZORBILL_GUILLOTINE_TOTAL_FRAMES; i++) {
+            razorbill.update(1.0);
+        }
+
+        assertEquals(0, razorbill.razorbillGuillotineTimer);
+        assertTrue(razorbill.razorbillGuillotineWakeTimer > 0,
+                "The floor wake should outlast Razorbill's untargetable slash chain.");
+        assertFalse(razorbill.isCombatInvulnerable());
     }
 
     @Test

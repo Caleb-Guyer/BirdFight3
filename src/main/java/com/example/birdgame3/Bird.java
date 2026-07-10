@@ -616,6 +616,12 @@ public class Bird {
     static final int RAZORBILL_COUNTER_WHIFF_FRAMES = 20;
     static final int RAZORBILL_COUNTER_BURST_FRAMES = 14;
     static final int RAZORBILL_SHEAR_FRAMES = 24;
+    static final int RAZORBILL_GUILLOTINE_TOTAL_FRAMES = 108;
+    static final int RAZORBILL_GUILLOTINE_WINDUP_FRAMES = 22;
+    static final int RAZORBILL_GUILLOTINE_SLASH_COUNT = 5;
+    static final int RAZORBILL_GUILLOTINE_SLASH_SPACING = 10;
+    static final int RAZORBILL_GUILLOTINE_FINAL_FRAME = 78;
+    static final int RAZORBILL_GUILLOTINE_WAKE_FRAMES = 150;
     double razorbillDashVX = 0.0;
     double razorbillDashVY = 0.0;
     final boolean[] razorbillDashHit = new boolean[4];
@@ -639,6 +645,23 @@ public class Bird {
     boolean razorbillCounterUltimate = false;
     boolean razorbillCountered = false;
     boolean razorbillCounterAttemptActive = false;
+    int razorbillGuillotineTimer = 0;
+    int razorbillGuillotineSlashIndex = 0;
+    int razorbillGuillotineWakeTimer = 0;
+    boolean razorbillGuillotineFinalResolved = false;
+    double razorbillGuillotineAnchorX = 0.0;
+    double razorbillGuillotineAnchorY = 0.0;
+    double razorbillGuillotineTargetX = 0.0;
+    double razorbillGuillotineTargetY = 0.0;
+    double razorbillGuillotineLastStartX = 0.0;
+    double razorbillGuillotineLastStartY = 0.0;
+    double razorbillGuillotineLastEndX = 0.0;
+    double razorbillGuillotineLastEndY = 0.0;
+    double razorbillGuillotineWakeX1 = 0.0;
+    double razorbillGuillotineWakeX2 = 0.0;
+    double razorbillGuillotineWakeY = 0.0;
+    final int[] razorbillGuillotineHitCooldown = new int[4];
+    final int[] razorbillGuillotineWakeHitCooldown = new int[4];
     public int plungeTimer = 0;
     private static final int PELICAN_CARGO_MAX = 2;
     private static final int PELICAN_NEUTRAL_FRAMES = 14;
@@ -1880,6 +1903,7 @@ public class Bird {
                 || phoenixRebirthNovaTimer > PHOENIX_REBIRTH_NOVA_RECOVERY_FRAMES
                 || penguinAbsoluteZeroTimer > 0
                 || shoebillFinalStillnessTimer > 0
+                || razorbillGuillotineTimer > 0
                 || hasNullRockInvulnerability()
                 || hasDodgeInvulnerability()
                 || hasRespawnInvulnerability();
@@ -2957,6 +2981,7 @@ public class Bird {
         attackLounge(dmg);
         attackCrows(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
         attackChicks(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
+        attackMockingbirdShadows(attackCenterX, attackCenterY, range, verticalRange, dmg, knockbackScale, profile);
         attackPenguinSnowForts(attackCenterX, attackCenterY, range, verticalRange, dmg);
         attackGrinchhawkPresents(attackCenterX, attackCenterY, range, verticalRange);
         game.damageFrostbiteSnowbanks(this, attackCenterX, attackCenterY, range, verticalRange, dmg);
@@ -3125,6 +3150,65 @@ public class Bird {
         if (kills > 0) {
             String source = shortName();
             game.addToKillFeed(source + " bopped " + kills + " chick" + (kills > 1 ? "s" : "") + "!");
+            if (!game.usesSmashCombatRules()) {
+                game.scores[playerIndex] += kills * 2;
+            }
+        }
+    }
+
+    private void attackMockingbirdShadows(double attackCenterX, double attackCenterY,
+                                          double range, double verticalRange,
+                                          int dmg, double knockbackScale,
+                                          NormalAttackProfile profile) {
+        double reach = range + 34 * sizeMultiplier;
+        double verticalReach = verticalRange + 28 * sizeMultiplier;
+        int kills = 0;
+
+        for (Iterator<MockingbirdShadowMinion> it = game.mockingbirdShadowMinions.iterator(); it.hasNext(); ) {
+            MockingbirdShadowMinion shadow = it.next();
+            if (shadow.owner == this) continue;
+            if (shadow.owner != null && !game.canDamage(this, shadow.owner)) continue;
+            if (!overlapsAttackArea(shadow.bodyCenterX(), shadow.bodyCenterY(),
+                    shadow.combatHalfWidth(), shadow.combatHalfHeight(),
+                    attackCenterX, attackCenterY, reach, verticalReach)) {
+                continue;
+            }
+
+            double dx = shadow.bodyCenterX() - attackCenterX;
+            double kbDir = dx == 0.0 ? (facingRight ? 1.0 : -1.0) : Math.signum(dx);
+            double verticalScale = profile.verticalLaunchScaleFor(shadow.bodyCenterY(), attackCenterY);
+            double damageTaken = Math.max(2.0, dmg * 0.32);
+            double knockbackX = kbDir * Math.max(5.5, dmg * 0.22) * Math.max(1.0, knockbackScale);
+            double verticalKnockback = (4.2 + dmg * 0.10)
+                    * Math.max(0.75, Math.abs(verticalScale))
+                    * Math.max(1.0, 0.75 + knockbackScale * 0.25);
+            double knockbackY = verticalScale < 0.0 && shadow.bodyCenterY() >= attackCenterY + 6.0
+                    ? verticalKnockback
+                    : -verticalKnockback;
+            shadow.registerHit(damageTaken, knockbackX, knockbackY);
+
+            Color hitColor = shadow.health > 0.0 ? Color.web("#CE93D8") : Color.web("#EC407A");
+            int particleCount = shadow.health > 0.0 ? 10 : 22;
+            for (int i = 0; i < scaledParticleCount(particleCount); i++) {
+                double angle = SimRng.next() * Math.PI * 2.0;
+                double speed = 3.0 + SimRng.next() * (shadow.health > 0.0 ? 6.0 : 11.0);
+                game.particles.add(new Particle(
+                        shadow.bodyCenterX(),
+                        shadow.bodyCenterY(),
+                        Math.cos(angle) * speed,
+                        Math.sin(angle) * speed - 3.0,
+                        (SimRng.next() < 0.45 ? Color.BLACK : hitColor).deriveColor(0, 1, 1, 0.82)
+                ));
+            }
+
+            if (shadow.health > 0.0) continue;
+
+            it.remove();
+            kills++;
+        }
+
+        if (kills > 0) {
+            game.addToKillFeed(shortName() + " shattered " + kills + " shadow" + (kills > 1 ? "s" : "") + "!");
             if (!game.usesSmashCombatRules()) {
                 game.scores[playerIndex] += kills * 2;
             }
@@ -5389,7 +5473,7 @@ public class Bird {
                     shoebillStareFxTimer > 0 || shoebillThrustTimer > 0 || shoebillMarshLiftTimer > 0
                             || shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0 || shoebillFinalStillnessTimer > 0;
             case RAZORBILL -> razorbillStormTimer > 0 || bladeStormFrames > 0 || razorbillShearTimer > 0
-                    || razorbillCounterTimer > 0 || razorbillCounterBurstTimer > 0;
+                    || razorbillCounterTimer > 0 || razorbillCounterBurstTimer > 0 || razorbillGuillotineTimer > 0;
             case OPIUMBIRD, HEISENBIRD -> leanTimer > 0;
             case TITMOUSE -> titmouseScoldTimer > 0;
             case BAT -> batEchoTimer > 0;
@@ -9780,8 +9864,16 @@ public class Bird {
         razorbillCounterReuseTimer = Math.max(0, (int)(razorbillCounterReuseTimer - gameSpeed));
         razorbillCounterWhiffTimer = Math.max(0, (int)(razorbillCounterWhiffTimer - gameSpeed));
         razorbillCounterBurstTimer = Math.max(0, (int)(razorbillCounterBurstTimer - gameSpeed));
+        razorbillGuillotineTimer = Math.max(0, (int)(razorbillGuillotineTimer - gameSpeed));
+        razorbillGuillotineWakeTimer = Math.max(0, (int)(razorbillGuillotineWakeTimer - gameSpeed));
         for (int i = 0; i < razorbillStormHitCooldown.length; i++) {
             razorbillStormHitCooldown[i] = Math.max(0, (int)(razorbillStormHitCooldown[i] - gameSpeed));
+        }
+        for (int i = 0; i < razorbillGuillotineHitCooldown.length; i++) {
+            razorbillGuillotineHitCooldown[i] = Math.max(0, (int)(razorbillGuillotineHitCooldown[i] - gameSpeed));
+        }
+        for (int i = 0; i < razorbillGuillotineWakeHitCooldown.length; i++) {
+            razorbillGuillotineWakeHitCooldown[i] = Math.max(0, (int)(razorbillGuillotineWakeHitCooldown[i] - gameSpeed));
         }
         vultureNeutralReuseTimer = Math.max(0, (int)(vultureNeutralReuseTimer - gameSpeed));
         updateVultureCrowTicks(gameSpeed);
@@ -10145,6 +10237,14 @@ public class Bird {
             razorbillStormReleased = false;
             razorbillStormHoldFrames = 0;
             Arrays.fill(razorbillStormHitCooldown, 0);
+        }
+        if (razorbillGuillotineTimer == 0) {
+            razorbillGuillotineSlashIndex = Math.min(razorbillGuillotineSlashIndex, RAZORBILL_GUILLOTINE_SLASH_COUNT);
+            razorbillGuillotineFinalResolved = false;
+            Arrays.fill(razorbillGuillotineHitCooldown, 0);
+        }
+        if (razorbillGuillotineWakeTimer == 0) {
+            Arrays.fill(razorbillGuillotineWakeHitCooldown, 0);
         }
         if (razorbillCounterTimer == 0 && razorbillCounterAttemptActive && !razorbillCountered) {
             razorbillCounterWhiffTimer = RAZORBILL_COUNTER_WHIFF_FRAMES;
@@ -11311,7 +11411,8 @@ public class Bird {
                     || (type == BirdGame3.BirdType.SHOEBILL && shoebillSpecialActive())
                     || (type == BirdGame3.BirdType.RAZORBILL
                     && (razorbillStormTimer > 0 || bladeStormFrames > 0 || razorbillShearTimer > 0
-                    || razorbillCounterTimer > 0 || razorbillCounterWhiffTimer > 0 || razorbillCounterBurstTimer > 0))
+                    || razorbillCounterTimer > 0 || razorbillCounterWhiffTimer > 0 || razorbillCounterBurstTimer > 0
+                    || razorbillGuillotineTimer > 0))
                     || (type == BirdGame3.BirdType.ROADRUNNER
                     && (roadrunnerBeepCharging || roadrunnerRicochetTimer > 0 || roadrunnerDustDevilTimer > 0))
                     || (type == BirdGame3.BirdType.GRINCHHAWK && grinchhawkSpecialActive())
@@ -11336,6 +11437,8 @@ public class Bird {
                     vx *= 0.94;
                 } else if (type == BirdGame3.BirdType.RAZORBILL && razorbillCounterWhiffTimer > 0) {
                     vx *= 0.58;
+                } else if (type == BirdGame3.BirdType.RAZORBILL && razorbillGuillotineTimer > 0) {
+                    vx = 0.0;
                 } else if (type == BirdGame3.BirdType.SHOEBILL && shoebillThrustTimer > 0) {
                     vx *= airborne ? 0.94 : 0.88;
                 } else {
@@ -11825,7 +11928,8 @@ public class Bird {
     boolean isUltimateVisualReady() {
         return health > 0
                 && isUltimateReady()
-                && !BirdSpecialReadiness.hasEmptyMockingbirdNeutral(this);
+                && (type == BirdGame3.BirdType.MOCKINGBIRD
+                || !BirdSpecialReadiness.hasEmptyMockingbirdNeutral(this));
     }
 
     private void gainUltimate(double amount) {
@@ -13646,6 +13750,7 @@ public class Bird {
     private void removeOwnedSummons() {
         game.crowMinions.removeIf(crow -> crow.owner == this);
         game.chickMinions.removeIf(chick -> chick.owner == this);
+        game.mockingbirdShadowMinions.removeIf(shadow -> shadow.owner == this);
     }
 
     LanBirdState toLanState() {
@@ -13813,6 +13918,25 @@ public class Bird {
         state.razorbillCounterUltimate = razorbillCounterUltimate;
         state.razorbillCountered = razorbillCountered;
         state.razorbillCounterAttemptActive = razorbillCounterAttemptActive;
+        state.razorbillGuillotineTimer = razorbillGuillotineTimer;
+        state.razorbillGuillotineSlashIndex = razorbillGuillotineSlashIndex;
+        state.razorbillGuillotineWakeTimer = razorbillGuillotineWakeTimer;
+        state.razorbillGuillotineFinalResolved = razorbillGuillotineFinalResolved;
+        state.razorbillGuillotineAnchorX = razorbillGuillotineAnchorX;
+        state.razorbillGuillotineAnchorY = razorbillGuillotineAnchorY;
+        state.razorbillGuillotineTargetX = razorbillGuillotineTargetX;
+        state.razorbillGuillotineTargetY = razorbillGuillotineTargetY;
+        state.razorbillGuillotineLastStartX = razorbillGuillotineLastStartX;
+        state.razorbillGuillotineLastStartY = razorbillGuillotineLastStartY;
+        state.razorbillGuillotineLastEndX = razorbillGuillotineLastEndX;
+        state.razorbillGuillotineLastEndY = razorbillGuillotineLastEndY;
+        state.razorbillGuillotineWakeX1 = razorbillGuillotineWakeX1;
+        state.razorbillGuillotineWakeX2 = razorbillGuillotineWakeX2;
+        state.razorbillGuillotineWakeY = razorbillGuillotineWakeY;
+        System.arraycopy(razorbillGuillotineHitCooldown, 0, state.razorbillGuillotineHitCooldown, 0,
+                razorbillGuillotineHitCooldown.length);
+        System.arraycopy(razorbillGuillotineWakeHitCooldown, 0, state.razorbillGuillotineWakeHitCooldown, 0,
+                razorbillGuillotineWakeHitCooldown.length);
         state.plungeTimer = plungeTimer;
         state.pelicanCargoCount = pelicanCargoCount;
         state.pelicanNeutralTimer = pelicanNeutralTimer;
@@ -14346,6 +14470,31 @@ public class Bird {
         this.razorbillCounterUltimate = state.razorbillCounterUltimate;
         this.razorbillCountered = state.razorbillCountered;
         this.razorbillCounterAttemptActive = state.razorbillCounterAttemptActive;
+        this.razorbillGuillotineTimer = Math.max(0, state.razorbillGuillotineTimer);
+        this.razorbillGuillotineSlashIndex = Math.clamp(state.razorbillGuillotineSlashIndex, 0, RAZORBILL_GUILLOTINE_SLASH_COUNT);
+        this.razorbillGuillotineWakeTimer = Math.max(0, state.razorbillGuillotineWakeTimer);
+        this.razorbillGuillotineFinalResolved = state.razorbillGuillotineFinalResolved;
+        this.razorbillGuillotineAnchorX = state.razorbillGuillotineAnchorX;
+        this.razorbillGuillotineAnchorY = state.razorbillGuillotineAnchorY;
+        this.razorbillGuillotineTargetX = state.razorbillGuillotineTargetX;
+        this.razorbillGuillotineTargetY = state.razorbillGuillotineTargetY;
+        this.razorbillGuillotineLastStartX = state.razorbillGuillotineLastStartX;
+        this.razorbillGuillotineLastStartY = state.razorbillGuillotineLastStartY;
+        this.razorbillGuillotineLastEndX = state.razorbillGuillotineLastEndX;
+        this.razorbillGuillotineLastEndY = state.razorbillGuillotineLastEndY;
+        this.razorbillGuillotineWakeX1 = state.razorbillGuillotineWakeX1;
+        this.razorbillGuillotineWakeX2 = state.razorbillGuillotineWakeX2;
+        this.razorbillGuillotineWakeY = state.razorbillGuillotineWakeY;
+        Arrays.fill(this.razorbillGuillotineHitCooldown, 0);
+        if (state.razorbillGuillotineHitCooldown != null) {
+            System.arraycopy(state.razorbillGuillotineHitCooldown, 0, this.razorbillGuillotineHitCooldown, 0,
+                    Math.min(this.razorbillGuillotineHitCooldown.length, state.razorbillGuillotineHitCooldown.length));
+        }
+        Arrays.fill(this.razorbillGuillotineWakeHitCooldown, 0);
+        if (state.razorbillGuillotineWakeHitCooldown != null) {
+            System.arraycopy(state.razorbillGuillotineWakeHitCooldown, 0, this.razorbillGuillotineWakeHitCooldown, 0,
+                    Math.min(this.razorbillGuillotineWakeHitCooldown.length, state.razorbillGuillotineWakeHitCooldown.length));
+        }
         this.plungeTimer = state.plungeTimer;
         this.pelicanCargoCount = Math.clamp(state.pelicanCargoCount, 0, PELICAN_CARGO_MAX);
         this.pelicanNeutralTimer = Math.max(0, state.pelicanNeutralTimer);
@@ -23739,6 +23888,116 @@ public class Bird {
         double centerY = bodyCenterY();
         g.save();
         g.setLineCap(StrokeLineCap.ROUND);
+
+        if (razorbillGuillotineTimer > 0 || razorbillGuillotineWakeTimer > 0) {
+            double targetX = razorbillGuillotineTargetX == 0.0 ? centerX : razorbillGuillotineTargetX;
+            double targetY = razorbillGuillotineTargetY == 0.0 ? centerY : razorbillGuillotineTargetY;
+            int elapsed = RAZORBILL_GUILLOTINE_TOTAL_FRAMES - razorbillGuillotineTimer;
+            double windup = Math.clamp(elapsed / (double) RAZORBILL_GUILLOTINE_WINDUP_FRAMES, 0.0, 1.0);
+            double riftPulse = 0.5 + 0.5 * Math.sin((elapsed + razorbillGuillotineWakeTimer) * 0.22);
+
+            if (razorbillGuillotineTimer > 0) {
+                g.setEffect(new Glow(0.76));
+                g.setFill(Color.web("#02050B", 0.68 + windup * 0.14));
+                g.fillOval(targetX - 150.0 * s, targetY - 78.0 * s,
+                        300.0 * s, 156.0 * s);
+                g.setStroke(Color.web("#0C2238", 0.78));
+                g.setLineWidth(10.0 * s);
+                g.strokeOval(targetX - 142.0 * s, targetY - 70.0 * s,
+                        284.0 * s, 140.0 * s);
+                g.setStroke(Color.web("#31D9FF", 0.40 + riftPulse * 0.34));
+                g.setLineWidth(3.0 * s);
+                for (int i = 0; i < 4; i++) {
+                    double w = (160.0 + i * 42.0 + riftPulse * 18.0) * s;
+                    double h = (62.0 + i * 15.0) * s;
+                    g.strokeArc(targetX - w / 2.0, targetY - h / 2.0,
+                            w, h, elapsed * 5.0 + i * 47.0, 116.0, ArcType.OPEN);
+                }
+
+                int dir = facingRight ? 1 : -1;
+                for (int i = 0; i < RAZORBILL_GUILLOTINE_SLASH_COUNT; i++) {
+                    double side = ((i & 1) == 0 ? 1.0 : -1.0) * dir;
+                    double reach = (230.0 + i * 18.0) * s;
+                    double high = (142.0 + (i % 3) * 24.0) * s;
+                    double low = (72.0 + i * 8.0) * s;
+                    double x1;
+                    double y1;
+                    double x2;
+                    double y2;
+                    if (i % 3 == 0) {
+                        x1 = targetX - side * reach;
+                        y1 = targetY - high;
+                        x2 = targetX + side * reach;
+                        y2 = targetY + low;
+                    } else if (i % 3 == 1) {
+                        x1 = targetX + side * reach;
+                        y1 = targetY - high * 0.42;
+                        x2 = targetX - side * reach;
+                        y2 = targetY + low * 0.35;
+                    } else {
+                        x1 = targetX - side * reach * 0.62;
+                        y1 = targetY + low * 0.58;
+                        x2 = targetX + side * reach * 0.62;
+                        y2 = targetY - high * 0.72;
+                    }
+                    double revealed = i < razorbillGuillotineSlashIndex ? 1.0 : windup;
+                    g.setStroke(Color.web("#062D42", 0.40 + revealed * 0.28));
+                    g.setLineWidth((8.0 + revealed * 3.0) * s);
+                    g.strokeLine(x1, y1, x2, y2);
+                    g.setStroke(Color.web(i < razorbillGuillotineSlashIndex ? "#E8FBFF" : "#31D9FF",
+                            0.22 + revealed * 0.58));
+                    g.setLineWidth((1.6 + revealed * 1.7) * s);
+                    g.strokeLine(x1, y1, x2, y2);
+                }
+
+                if (razorbillGuillotineLastStartX != 0.0 || razorbillGuillotineLastEndX != 0.0) {
+                    double activeAlpha = Math.clamp(razorbillGuillotineSlashIndex / (double) RAZORBILL_GUILLOTINE_SLASH_COUNT,
+                            0.0, 1.0);
+                    g.setStroke(Color.web("#FFFFFF", 0.42 + activeAlpha * 0.42));
+                    g.setLineWidth((6.0 + activeAlpha * 5.0) * s);
+                    g.strokeLine(razorbillGuillotineLastStartX, razorbillGuillotineLastStartY,
+                            razorbillGuillotineLastEndX, razorbillGuillotineLastEndY);
+                }
+
+                if (elapsed >= RAZORBILL_GUILLOTINE_FINAL_FRAME - 18) {
+                    double finalRatio = Math.clamp((elapsed - (RAZORBILL_GUILLOTINE_FINAL_FRAME - 18)) / 18.0, 0.0, 1.0);
+                    double wakeY = razorbillGuillotineWakeY == 0.0 ? BirdGame3.GROUND_Y : razorbillGuillotineWakeY;
+                    g.setStroke(Color.web("#E8FBFF", 0.30 + finalRatio * 0.56));
+                    g.setLineWidth((12.0 + finalRatio * 16.0) * s);
+                    g.strokeLine(targetX, targetY - 260.0 * s, targetX, wakeY + 34.0 * s);
+                    g.setStroke(Color.web("#31D9FF", 0.55 + finalRatio * 0.34));
+                    g.setLineWidth((3.0 + finalRatio * 4.0) * s);
+                    g.strokeArc(targetX - 86.0 * s, targetY - 252.0 * s,
+                            172.0 * s, 306.0 * s, 84.0, -168.0 * finalRatio, ArcType.OPEN);
+                }
+                g.setEffect(null);
+            }
+
+            if (razorbillGuillotineWakeTimer > 0) {
+                double left = Math.min(razorbillGuillotineWakeX1, razorbillGuillotineWakeX2);
+                double right = Math.max(razorbillGuillotineWakeX1, razorbillGuillotineWakeX2);
+                double wakeY = razorbillGuillotineWakeY == 0.0 ? BirdGame3.GROUND_Y : razorbillGuillotineWakeY;
+                double wakeAlpha = Math.clamp(razorbillGuillotineWakeTimer / (double) RAZORBILL_GUILLOTINE_WAKE_FRAMES,
+                        0.0, 1.0);
+                g.setEffect(new Glow(0.62));
+                g.setStroke(Color.web("#061827", 0.62 * wakeAlpha));
+                g.setLineWidth(20.0 * s);
+                g.strokeLine(left, wakeY + 2.0 * s, right, wakeY + 2.0 * s);
+                g.setStroke(Color.web("#31D9FF", 0.72 * wakeAlpha));
+                g.setLineWidth(6.0 * s);
+                g.strokeLine(left, wakeY, right, wakeY);
+                g.setStroke(Color.web("#E8FBFF", 0.84 * wakeAlpha));
+                g.setLineWidth(2.2 * s);
+                double span = Math.max(1.0, right - left);
+                for (int i = 0; i < 14; i++) {
+                    double t = (i + ((razorbillGuillotineWakeTimer % 18) / 18.0)) / 14.0;
+                    double px = left + (t - Math.floor(t)) * span;
+                    double height = (18.0 + ((i * 13 + razorbillGuillotineWakeTimer) % 29)) * s;
+                    g.strokeLine(px, wakeY + 4.0 * s, px + ((i & 1) == 0 ? 10.0 : -10.0) * s, wakeY - height);
+                }
+                g.setEffect(null);
+            }
+        }
 
         if (razorbillShearTimer > 0) {
             double maxFrames = razorbillShearUltimate ? RAZORBILL_SHEAR_FRAMES + 8.0 : RAZORBILL_SHEAR_FRAMES;

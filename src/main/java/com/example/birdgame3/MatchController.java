@@ -310,6 +310,7 @@ final class MatchController {
         game.crowMinions.clear();
         game.piranhaHazards.clear();
         game.chickMinions.clear();
+        game.mockingbirdShadowMinions.clear();
         game.clearDockShipBomb();
         game.suddenDeath.startSmashTiebreaker();
 

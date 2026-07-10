@@ -9,7 +9,9 @@ final class BirdSpecialSystem {
 
     static void useSpecial(Bird bird) {
         boolean canStartSelectedSpecial = BirdSpecialReadiness.canStart(bird);
-        boolean ultimateReady = !BirdSpecialReadiness.hasEmptyMockingbirdNeutral(bird) && bird.isUltimateReady();
+        boolean ultimateReady = bird.isUltimateReady()
+                && (bird.type == BirdGame3.BirdType.MOCKINGBIRD
+                || !BirdSpecialReadiness.hasEmptyMockingbirdNeutral(bird));
         boolean pigeonUltimateReady = ultimateReady
                 && bird.type == BirdGame3.BirdType.PIGEON
                 && bird.canStartPigeonUltimate();
@@ -19,7 +21,13 @@ final class BirdSpecialSystem {
         boolean falconUltimateReady = ultimateReady
                 && bird.type == BirdGame3.BirdType.FALCON
                 && bird.canStartFalconUltimate();
-        if (!canStartSelectedSpecial && !pigeonUltimateReady && !eagleUltimateReady && !falconUltimateReady) {
+        boolean mockingbirdUltimateReady = ultimateReady
+                && bird.type == BirdGame3.BirdType.MOCKINGBIRD;
+        if (!canStartSelectedSpecial
+                && !pigeonUltimateReady
+                && !eagleUltimateReady
+                && !falconUltimateReady
+                && !mockingbirdUltimateReady) {
             return;
         }
 
@@ -105,6 +113,10 @@ final class BirdSpecialSystem {
             game.recordUltimateMoveUse(bird, PenguinSpecials.ABSOLUTE_ZERO_FORTRESS_MOVE);
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.SHOEBILL) {
             game.recordUltimateMoveUse(bird, ShoebillSpecials.FINAL_STILLNESS_MOVE);
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.MOCKINGBIRD) {
+            game.recordUltimateMoveUse(bird, MockingbirdSpecials.SHADOW_COURT_MOVE);
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.RAZORBILL) {
+            game.recordUltimateMoveUse(bird, RazorbillSpecials.GUILLOTINE_WAKE_MOVE);
         } else {
             game.recordSpecialMoveUse(bird, input, ultimateTriggered);
         }
@@ -146,6 +158,10 @@ final class BirdSpecialSystem {
             game.playAbsoluteZeroFortressSfx();
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.SHOEBILL) {
             game.playShoebillFinalStillnessSfx();
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.MOCKINGBIRD) {
+            game.playMockingbirdShadowCourtSfx();
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.RAZORBILL) {
+            game.playRazorbillGuillotineWakeSfx();
         } else if (bird.type == BirdGame3.BirdType.RAZORBILL) {
             game.playVaseBreakingSfx();
         } else {
