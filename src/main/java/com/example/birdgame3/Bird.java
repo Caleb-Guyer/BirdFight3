@@ -494,7 +494,12 @@ public class Bird {
     static final int VULTURE_BAIT_MAX_CROWS = 12;
     static final int VULTURE_BAIT_CROW_SPAWN_INTERVAL = 34;
     static final int VULTURE_DOWN_REUSE_FRAMES = 70;
-    static final int VULTURE_BLACK_SKY_FRAMES = 150;
+    static final int VULTURE_BLACK_SKY_FRAMES = 166;
+    static final int VULTURE_BLACK_SKY_INITIAL_CROWS = 14;
+    static final int VULTURE_BLACK_SKY_TARGET_CROWS = 40;
+    static final int VULTURE_BLACK_SKY_FINAL_CROWS = 10;
+    static final int VULTURE_BLACK_SKY_WAVE_INTERVAL = 9;
+    static final int VULTURE_BLACK_SKY_FINAL_FRAME = 42;
     int vultureNeutralReuseTimer = 0;
     int vultureCrowTicks = VULTURE_CROW_TICK_MAX;
     int vultureCrowTickRechargeTimer = 0;
@@ -515,6 +520,8 @@ public class Bird {
     int vultureDownReuseTimer = 0;
     int vultureBlackSkyTimer = 0;
     int vultureBlackSkySpawnTimer = 0;
+    int vultureBlackSkyCrowsSpawned = 0;
+    int vultureBlackSkyWaveIndex = 0;
     boolean vultureBlackSkyFinalHit = false;
     final boolean[] vultureBlackSkyHit = new boolean[4];
 
@@ -2444,6 +2451,7 @@ public class Bird {
         vultureNeutralReuseTimer = 0;
         vultureCrowTicks = VULTURE_CROW_TICK_MAX;
         vultureCrowTickRechargeTimer = 0;
+        carrionSwarmTimer = 0;
         crowSwarmCooldown = 0;
         leanCooldown = 0;
         opiumNeutralReuseTimer = 0;
@@ -10025,6 +10033,7 @@ public class Bird {
         for (int i = 0; i < razorbillGuillotineWakeHitCooldown.length; i++) {
             razorbillGuillotineWakeHitCooldown[i] = Math.max(0, (int)(razorbillGuillotineWakeHitCooldown[i] - gameSpeed));
         }
+        carrionSwarmTimer = Math.max(0, (int)(carrionSwarmTimer - gameSpeed));
         vultureNeutralReuseTimer = Math.max(0, (int)(vultureNeutralReuseTimer - gameSpeed));
         updateVultureCrowTicks(gameSpeed);
         vultureSideReuseTimer = Math.max(0, (int)(vultureSideReuseTimer - gameSpeed));
@@ -14166,6 +14175,12 @@ public class Bird {
         state.carrionSwarmTimer = carrionSwarmTimer;
         state.crowSwarmCooldown = crowSwarmCooldown;
         state.isFlying = isFlying;
+        state.vultureBlackSkyTimer = vultureBlackSkyTimer;
+        state.vultureBlackSkySpawnTimer = vultureBlackSkySpawnTimer;
+        state.vultureBlackSkyCrowsSpawned = vultureBlackSkyCrowsSpawned;
+        state.vultureBlackSkyWaveIndex = vultureBlackSkyWaveIndex;
+        state.vultureBlackSkyFinalHit = vultureBlackSkyFinalHit;
+        System.arraycopy(vultureBlackSkyHit, 0, state.vultureBlackSkyHit, 0, vultureBlackSkyHit.length);
         state.leanTimer = leanTimer;
         state.leanCooldown = leanCooldown;
         state.isHigh = isHigh;
@@ -14794,6 +14809,16 @@ public class Bird {
         this.carrionSwarmTimer = state.carrionSwarmTimer;
         this.crowSwarmCooldown = state.crowSwarmCooldown;
         this.isFlying = state.isFlying;
+        this.vultureBlackSkyTimer = Math.max(0, state.vultureBlackSkyTimer);
+        this.vultureBlackSkySpawnTimer = Math.max(0, state.vultureBlackSkySpawnTimer);
+        this.vultureBlackSkyCrowsSpawned = Math.max(0, state.vultureBlackSkyCrowsSpawned);
+        this.vultureBlackSkyWaveIndex = Math.max(0, state.vultureBlackSkyWaveIndex);
+        this.vultureBlackSkyFinalHit = state.vultureBlackSkyFinalHit;
+        Arrays.fill(this.vultureBlackSkyHit, false);
+        if (state.vultureBlackSkyHit != null) {
+            System.arraycopy(state.vultureBlackSkyHit, 0, this.vultureBlackSkyHit, 0,
+                    Math.min(this.vultureBlackSkyHit.length, state.vultureBlackSkyHit.length));
+        }
         this.leanTimer = state.leanTimer;
         this.leanCooldown = state.leanCooldown;
         this.isHigh = state.isHigh;
@@ -20202,6 +20227,7 @@ public class Bird {
         drawShoebillSpecialFx(g, drawSize);
         drawGrinchhawkSpecialFx(g, drawSize);
         drawPelicanMaelstromFx(g);
+        drawVultureBlackSkyFx(g, drawSize);
         drawGooseSpecialFx(g, drawSize);
         drawBatEcho(g, drawSize);
         drawRavenSpecialFx(g, drawSize);
@@ -25155,6 +25181,65 @@ public class Bird {
         }
     }
 
+    private void drawVultureBlackSkyFx(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.VULTURE || vultureBlackSkyTimer <= 0) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double elapsed = Bird.VULTURE_BLACK_SKY_FRAMES - vultureBlackSkyTimer;
+        double progress = Math.clamp(elapsed / (double) Bird.VULTURE_BLACK_SKY_FRAMES, 0.0, 1.0);
+        double pulse = 0.55 + 0.45 * Math.sin(elapsed * 0.18);
+        double cx = bodyCenterX();
+        double cy = bodyCenterY() - 82.0 * s;
+
+        g.save();
+        g.setFill(Color.web("#020106", 0.16 + pulse * 0.06));
+        g.fillOval(cx - 640.0 * s, cy - 360.0 * s, 1280.0 * s, 700.0 * s);
+        g.setStroke(Color.web("#100316", 0.36 + pulse * 0.16));
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < 7; i++) {
+            double w = (280.0 + i * 122.0 + pulse * 34.0) * s;
+            double h = (86.0 + i * 42.0 + pulse * 18.0) * s;
+            g.setLineWidth((7.0 - i * 0.55) * s);
+            g.strokeArc(cx - w * 0.5, cy - h * 0.5 + i * 5.0 * s, w, h,
+                    elapsed * (4.0 + i * 0.25) + i * 43.0, 118.0, ArcType.OPEN);
+        }
+
+        int visualCrows = 30 + Math.min(32, Math.max(vultureBlackSkyCrowsSpawned, Bird.VULTURE_BLACK_SKY_INITIAL_CROWS));
+        for (int i = 0; i < visualCrows; i++) {
+            double angle = elapsed * (0.047 + (i % 5) * 0.003) + i * 2.3999632297;
+            double rx = (210.0 + (i % 11) * 44.0 + Math.sin(elapsed * 0.06 + i) * 18.0) * s;
+            double ry = (74.0 + (i % 7) * 25.0 + Math.cos(elapsed * 0.04 + i * 0.7) * 10.0) * s;
+            double crowX = cx + Math.cos(angle) * rx;
+            double crowY = cy + Math.sin(angle * 1.16) * ry - (i % 4) * 18.0 * s;
+            double scale = (3.4 + (i % 6) * 0.62) * s * (0.90 + progress * 0.22);
+            double flap = Math.sin(elapsed * 0.40 + i * 1.63);
+
+            g.save();
+            g.translate(crowX, crowY);
+            g.rotate(Math.toDegrees(angle) * 0.18 + (i % 2 == 0 ? 8.0 : -8.0));
+            g.setFill(Color.web(i % 9 == 0 ? "#1A071F" : "#020106", 0.68 + (i % 4) * 0.055));
+            g.fillOval(-scale * 0.35, -scale * 0.20, scale * 0.70, scale * 0.42);
+            g.fillPolygon(
+                    new double[]{-scale * 0.10, -scale * (1.55 + flap * 0.20), -scale * 0.26},
+                    new double[]{0.0, -scale * (0.44 + flap * 0.14), scale * 0.24},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{scale * 0.10, scale * (1.55 - flap * 0.20), scale * 0.26},
+                    new double[]{0.0, -scale * (0.44 - flap * 0.14), scale * 0.24},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{scale * 0.18, scale * 0.72, scale * 0.16},
+                    new double[]{-scale * 0.04, scale * 0.02, scale * 0.16},
+                    3
+            );
+            g.restore();
+        }
+        g.restore();
+    }
+
     private void drawVulture(GraphicsContext g, double drawSize) {
         if (type == BirdGame3.BirdType.VULTURE) {
             double s = sizeMultiplier;
@@ -25369,7 +25454,6 @@ public class Bird {
             if (carrionSwarmTimer > 0) {
                 g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.6));
                 g.fillOval(x - 40 * s, y - 30 * s, drawSize + 80 * s, drawSize + 100 * s);
-                carrionSwarmTimer--;
             }
 
             if (vultureCallTimer > 0) {
@@ -25621,7 +25705,6 @@ public class Bird {
         if (carrionSwarmTimer > 0) {
             g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.6));
             g.fillOval(x - 40 * s, y - 30 * s, drawSize + 80 * s, drawSize + 100 * s);
-            carrionSwarmTimer--;
         }
 
         if (vultureCallTimer > 0) {

@@ -1265,6 +1265,24 @@ public class BirdGame3 extends Application {
         }
     }
 
+    void playVultureBlackSkyFeastSfx() {
+        if (!sfxEnabled) return;
+        if (hugewaveClip != null) {
+            hugewaveClip.stop();
+            playManagedSfxVaried(hugewaveClip, 0.90, 0.48, 0.014);
+        }
+        if (vaseBreakingClip != null) {
+            vaseBreakingClip.stop();
+            playManagedSfxVaried(vaseBreakingClip, 0.68, 0.62, 0.018);
+        }
+        if (swingClip != null) {
+            playManagedSfxVaried(swingClip, 0.50, 0.58, 0.020);
+        }
+        if (bonkClip != null) {
+            playManagedSfxVaried(bonkClip, 0.38, 0.42, 0.014);
+        }
+    }
+
     void playAchievementSfx() {
         if (!sfxEnabled || steamAchievementClip == null) return;
         steamAchievementClip.stop();
@@ -45939,7 +45957,7 @@ public class BirdGame3 extends Application {
             case TITMOUSE -> "MARK improves follow-ups. STASH can be detonated after arming.";
             case OPIUMBIRD -> "DROWSY slows targets. PATCH refuels the opium meter.";
             case HEISENBIRD -> "BRITTLE boosts crystal damage. NODE refuels the crystal meter.";
-            case VULTURE -> "Crows persist as pressure. Bone Offering turns space into a trap.";
+            case VULTURE -> "Ultimate: Black Sky Feast floods the arena with crown crows before a final feast launch.";
             case RAVEN -> "Marks and routes set up larger follow-ups, including the ultimate.";
             case GOOSE -> "Territory empowers the next special. Nest Guard counters hits near the nest.";
             case HUMMINGBIRD -> "Ultimate: Needleheart Overdrive locks on, chains three flash pierces, then detonates a nectar final stab.";

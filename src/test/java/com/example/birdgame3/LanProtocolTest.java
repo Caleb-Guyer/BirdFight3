@@ -120,6 +120,13 @@ class LanProtocolTest {
         state.grinchGiftstormLastDropKind = 2;
         state.grinchGiftstormDropFxTimer = 18;
         state.grinchGiftstormFinalHit[1] = true;
+        state.carrionSwarmTimer = 44;
+        state.vultureBlackSkyTimer = 99;
+        state.vultureBlackSkySpawnTimer = 7;
+        state.vultureBlackSkyCrowsSpawned = 31;
+        state.vultureBlackSkyWaveIndex = 5;
+        state.vultureBlackSkyFinalHit = true;
+        state.vultureBlackSkyHit[3] = true;
         state.isAshenSovereignSkin = true;
         state.penguinBellyCharging = true;
         state.penguinBellyChargeFrames = 41;
@@ -383,6 +390,13 @@ class LanProtocolTest {
         assertEquals(2, decoded.grinchGiftstormLastDropKind);
         assertEquals(18, decoded.grinchGiftstormDropFxTimer);
         assertTrue(decoded.grinchGiftstormFinalHit[1]);
+        assertEquals(44, decoded.carrionSwarmTimer);
+        assertEquals(99, decoded.vultureBlackSkyTimer);
+        assertEquals(7, decoded.vultureBlackSkySpawnTimer);
+        assertEquals(31, decoded.vultureBlackSkyCrowsSpawned);
+        assertEquals(5, decoded.vultureBlackSkyWaveIndex);
+        assertTrue(decoded.vultureBlackSkyFinalHit);
+        assertTrue(decoded.vultureBlackSkyHit[3]);
         assertTrue(decoded.isAshenSovereignSkin);
         assertTrue(decoded.penguinBellyCharging);
         assertEquals(41, decoded.penguinBellyChargeFrames);

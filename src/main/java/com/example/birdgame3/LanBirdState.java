@@ -105,6 +105,12 @@ class LanBirdState {
     int carrionSwarmTimer;
     int crowSwarmCooldown;
     boolean isFlying;
+    int vultureBlackSkyTimer;
+    int vultureBlackSkySpawnTimer;
+    int vultureBlackSkyCrowsSpawned;
+    int vultureBlackSkyWaveIndex;
+    boolean vultureBlackSkyFinalHit;
+    boolean[] vultureBlackSkyHit = new boolean[4];
     int leanTimer;
     int leanCooldown;
     boolean isHigh;
@@ -685,6 +691,14 @@ class LanBirdState {
         out.writeInt(carrionSwarmTimer);
         out.writeInt(crowSwarmCooldown);
         out.writeBoolean(isFlying);
+        out.writeInt(vultureBlackSkyTimer);
+        out.writeInt(vultureBlackSkySpawnTimer);
+        out.writeInt(vultureBlackSkyCrowsSpawned);
+        out.writeInt(vultureBlackSkyWaveIndex);
+        out.writeBoolean(vultureBlackSkyFinalHit);
+        for (boolean hit : vultureBlackSkyHit) {
+            out.writeBoolean(hit);
+        }
         out.writeInt(leanTimer);
         out.writeInt(leanCooldown);
         out.writeBoolean(isHigh);
@@ -1333,6 +1347,14 @@ class LanBirdState {
         state.carrionSwarmTimer = in.readInt();
         state.crowSwarmCooldown = in.readInt();
         state.isFlying = in.readBoolean();
+        state.vultureBlackSkyTimer = in.readInt();
+        state.vultureBlackSkySpawnTimer = in.readInt();
+        state.vultureBlackSkyCrowsSpawned = in.readInt();
+        state.vultureBlackSkyWaveIndex = in.readInt();
+        state.vultureBlackSkyFinalHit = in.readBoolean();
+        for (int i = 0; i < state.vultureBlackSkyHit.length; i++) {
+            state.vultureBlackSkyHit[i] = in.readBoolean();
+        }
         state.leanTimer = in.readInt();
         state.leanCooldown = in.readInt();
         state.isHigh = in.readBoolean();

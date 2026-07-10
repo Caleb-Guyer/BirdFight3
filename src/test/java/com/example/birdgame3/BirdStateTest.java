@@ -1447,6 +1447,71 @@ class BirdStateTest {
     }
 
     @Test
+    void vultureUltimateStartsBlackSkyFeastInsteadOfBoostedCall() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird vulture = new Bird(160.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird target = new Bird(360.0, BirdGame3.BirdType.PIGEON, 1, game);
+        vulture.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = vulture;
+        game.players[1] = target;
+
+        setPrivateDouble(vulture, "ultimateMeter", 100.0);
+        invokePrivateVoid(vulture, "special");
+
+        assertEquals(Bird.VULTURE_BLACK_SKY_FRAMES, getPrivateInt(vulture, "vultureBlackSkyTimer"));
+        assertEquals(Bird.VULTURE_BLACK_SKY_INITIAL_CROWS, getPrivateInt(vulture, "vultureBlackSkyCrowsSpawned"));
+        assertEquals(Bird.VULTURE_BLACK_SKY_INITIAL_CROWS, game.crowMinions.size());
+        assertTrue(game.crowMinions.stream().allMatch(crow -> crow.owner == vulture && crow.hasCrown));
+        assertEquals(0, getPrivateInt(vulture, "vultureCallTimer"),
+                "Vulture ultimate should not fall through into boosted Summon Crows.");
+        assertFalse(vulture.isUltimateReady());
+        assertEquals(0, vulture.specialCooldown);
+        assertEquals(VultureSpecials.BLACK_SKY_FEAST_MOVE, game.lastTelemetryMoveName(0, ""));
+    }
+
+    @Test
+    void vultureBlackSkyFeastBuildsCrowStormAndFinalHit() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird vulture = new Bird(160.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird target = new Bird(310.0, BirdGame3.BirdType.PIGEON, 1, game);
+        vulture.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = vulture;
+        game.players[1] = target;
+
+        setPrivateDouble(vulture, "ultimateMeter", 100.0);
+        invokePrivateVoid(vulture, "special");
+        int carrionTimerAfterStart = vulture.carrionSwarmTimer;
+        vulture.update(1.0);
+        assertEquals(carrionTimerAfterStart - 1, vulture.carrionSwarmTimer,
+                "Carrion swarm visuals should tick in sim updates, not while rendering.");
+
+        for (int i = 0; i < 70; i++) {
+            vulture.update(1.0);
+        }
+
+        assertTrue(getPrivateInt(vulture, "vultureBlackSkyCrowsSpawned") >= Bird.VULTURE_BLACK_SKY_TARGET_CROWS,
+                "Black Sky Feast should build into a large real crow swarm before the finisher.");
+        double healthBeforeFinal = target.health;
+
+        for (int i = 0; i < 65; i++) {
+            vulture.update(1.0);
+        }
+
+        assertTrue(getPrivateBoolean(vulture, "vultureBlackSkyFinalHit"));
+        assertTrue(target.health < healthBeforeFinal,
+                "The feast finisher should damage targets caught near the storm center.");
+        assertTrue(getPrivateInt(vulture, "vultureBlackSkyCrowsSpawned")
+                        >= Bird.VULTURE_BLACK_SKY_TARGET_CROWS + Bird.VULTURE_BLACK_SKY_FINAL_CROWS,
+                "The finisher should add a final crow burst.");
+    }
+
+    @Test
     void crowContactLaunchesMoreSidewaysThanUpward() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

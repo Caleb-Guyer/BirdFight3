@@ -6,6 +6,8 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 final class VultureSpecials {
+    static final String BLACK_SKY_FEAST_MOVE = "Black Sky Feast";
+
     private VultureSpecials() {
     }
 
@@ -127,21 +129,23 @@ final class VultureSpecials {
     static void blackSky(Bird bird) {
         reset(bird, false);
         bird.vultureBlackSkyTimer = Bird.VULTURE_BLACK_SKY_FRAMES;
-        bird.vultureBlackSkySpawnTimer = 0;
+        bird.vultureBlackSkySpawnTimer = Bird.VULTURE_BLACK_SKY_WAVE_INTERVAL;
+        bird.vultureBlackSkyCrowsSpawned = 0;
+        bird.vultureBlackSkyWaveIndex = 0;
         bird.vultureBlackSkyFinalHit = false;
         Arrays.fill(bird.vultureBlackSkyHit, false);
-        bird.carrionSwarmTimer = Math.max(bird.carrionSwarmTimer, 190);
+        bird.carrionSwarmTimer = Math.max(bird.carrionSwarmTimer, Bird.VULTURE_BLACK_SKY_FRAMES + 48);
         bird.crowSwarmCooldown = 0;
         bird.specialCooldown = 0;
         bird.specialMaxCooldown = 0;
-        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 48);
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 62);
         bird.vx *= 0.35;
-        bird.vy = Math.min(bird.vy, -4.0);
+        bird.vy = Math.min(bird.vy, -5.0);
         bird.game.addToKillFeed(bird.shortName() + " opened the Black Sky Feast!");
-        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 24);
-        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 10);
-        spawnCrowWave(bird, 8, 620.0, 1.24);
-        emitBurst(bird, bird.bodyCenterX(), bird.bodyCenterY(), bird.facingDirection(), 80, Color.BLACK);
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 30);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 12);
+        bird.vultureBlackSkyCrowsSpawned += spawnCrowWave(bird, Bird.VULTURE_BLACK_SKY_INITIAL_CROWS, 720.0, 1.34);
+        emitBurst(bird, bird.bodyCenterX(), bird.bodyCenterY(), bird.facingDirection(), 120, Color.BLACK);
     }
 
     static void handleState(Bird bird, boolean specialHeld) {
@@ -461,9 +465,18 @@ final class VultureSpecials {
         bird.vultureBlackSkySpawnTimer--;
         bird.carrionSwarmTimer = Math.max(bird.carrionSwarmTimer, 2);
         bird.vx *= 0.94;
-        if (bird.vultureBlackSkySpawnTimer <= 0) {
-            spawnCrowWave(bird, bird.vultureBlackSkyTimer > 56 ? 2 : 3, 820.0, 1.30);
-            bird.vultureBlackSkySpawnTimer = bird.vultureBlackSkyTimer > 56 ? 16 : 12;
+        if (!bird.isOnGround()) {
+            bird.vy = Math.min(bird.vy * 0.88, 0.6);
+        }
+        if (bird.vultureBlackSkySpawnTimer <= 0
+                && bird.vultureBlackSkyCrowsSpawned < Bird.VULTURE_BLACK_SKY_TARGET_CROWS) {
+            int remaining = Bird.VULTURE_BLACK_SKY_TARGET_CROWS - bird.vultureBlackSkyCrowsSpawned;
+            int waveSize = Math.min(remaining, 4 + (bird.vultureBlackSkyWaveIndex % 3 == 2 ? 1 : 0));
+            double spread = 820.0 + Math.min(4, bird.vultureBlackSkyWaveIndex) * 55.0;
+            double speed = 1.36 + Math.min(6, bird.vultureBlackSkyWaveIndex) * 0.025;
+            bird.vultureBlackSkyCrowsSpawned += spawnCrowWave(bird, waveSize, spread, speed);
+            bird.vultureBlackSkyWaveIndex++;
+            bird.vultureBlackSkySpawnTimer = Bird.VULTURE_BLACK_SKY_WAVE_INTERVAL;
         }
         double centerX = bird.bodyCenterX();
         double centerY = bird.bodyCenterY() - 60.0 * bird.sizeMultiplier;
@@ -473,14 +486,15 @@ final class VultureSpecials {
             double dy = centerY - other.bodyCenterY();
             if (Math.abs(dx) > 980.0 + other.combatHalfWidth()) continue;
             if (Math.abs(dy) > 520.0 + other.combatHalfHeight()) continue;
-            other.vx += Math.signum(dx) * 0.22;
-            other.vy += Math.signum(dy) * 0.08 - 0.06;
+            double pullScale = bird.vultureBlackSkyTimer <= Bird.VULTURE_BLACK_SKY_FINAL_FRAME + 18 ? 1.45 : 1.0;
+            other.vx += Math.signum(dx) * 0.24 * pullScale;
+            other.vy += Math.signum(dy) * 0.09 * pullScale - 0.07;
         }
-        if (!bird.vultureBlackSkyFinalHit && bird.vultureBlackSkyTimer <= 38) {
+        if (!bird.vultureBlackSkyFinalHit && bird.vultureBlackSkyTimer <= Bird.VULTURE_BLACK_SKY_FINAL_FRAME) {
             bird.vultureBlackSkyFinalHit = true;
             applyBlackSkyFinalHit(bird);
-            bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 28);
-            bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 12);
+            bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 34);
+            bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 14);
             bird.game.triggerFlash(0.74, false);
         }
         if ((bird.vultureBlackSkyTimer & 3) == 0) {
@@ -512,16 +526,16 @@ final class VultureSpecials {
             dealDamage(
                     bird,
                     other,
-                    24,
-                    pushDir * 13.5,
-                    -15.5,
+                    23,
+                    pushDir * 14.5,
+                    -16.0,
                     "feasted on",
-                    34,
+                    36,
                     Color.BLACK
             );
         }
-        spawnCrowWave(bird, 5, 520.0, 1.36);
-        emitBurst(bird, centerX, centerY, bird.facingDirection(), 90, Color.BLACK);
+        bird.vultureBlackSkyCrowsSpawned += spawnCrowWave(bird, Bird.VULTURE_BLACK_SKY_FINAL_CROWS, 560.0, 1.48);
+        emitBurst(bird, centerX, centerY, bird.facingDirection(), 130, Color.BLACK);
     }
 
     static boolean spawnCallCrow(Bird bird, boolean ultimate) {
@@ -585,7 +599,8 @@ final class VultureSpecials {
         return crow;
     }
 
-    static void spawnCrowWave(Bird bird, int count, double horizontalSpread, double speedMultiplier) {
+    static int spawnCrowWave(Bird bird, int count, double horizontalSpread, double speedMultiplier) {
+        int spawned = 0;
         for (int i = 0; i < count; i++) {
             double spawnX = Math.clamp(bird.bodyCenterX() + (SimRng.next() - 0.5) * horizontalSpread,
                     bird.usesIslandBounds() ? bird.game.battlefieldLeftBound() - 120.0 : -120.0,
@@ -600,7 +615,9 @@ final class VultureSpecials {
             double len = Math.max(1.0, Math.hypot(dx, dy));
             crow.vx += dx / len * (4.4 + SimRng.next() * 2.8);
             crow.vy += dy / len * (5.0 + SimRng.next() * 3.2);
+            spawned++;
         }
+        return spawned;
     }
 
     static Bird nearestTarget(Bird bird, double sourceX, double sourceY, double maxRange) {
@@ -809,6 +826,8 @@ final class VultureSpecials {
         Arrays.fill(bird.vultureThermalHitCooldown, 0);
         bird.vultureBlackSkyTimer = 0;
         bird.vultureBlackSkySpawnTimer = 0;
+        bird.vultureBlackSkyCrowsSpawned = 0;
+        bird.vultureBlackSkyWaveIndex = 0;
         bird.vultureBlackSkyFinalHit = false;
         Arrays.fill(bird.vultureBlackSkyHit, false);
         if (clearObjects) {

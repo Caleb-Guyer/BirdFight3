@@ -210,6 +210,13 @@ class LanStateTest {
         bird.grinchGiftstormLastDropKind = 2;
         bird.grinchGiftstormDropFxTimer = 18;
         bird.grinchGiftstormFinalHit[1] = true;
+        bird.carrionSwarmTimer = 44;
+        bird.vultureBlackSkyTimer = 99;
+        bird.vultureBlackSkySpawnTimer = 7;
+        bird.vultureBlackSkyCrowsSpawned = 31;
+        bird.vultureBlackSkyWaveIndex = 5;
+        bird.vultureBlackSkyFinalHit = true;
+        bird.vultureBlackSkyHit[3] = true;
         bird.hummingFrenzyTimer = 66;
         bird.hummingFrenzyTargetIndex = 1;
         bird.hummingFrenzyStrikeIndex = 3;
@@ -489,6 +496,13 @@ class LanStateTest {
         assertEquals(2, decoded.birds[0].grinchGiftstormLastDropKind);
         assertEquals(18, decoded.birds[0].grinchGiftstormDropFxTimer);
         assertTrue(decoded.birds[0].grinchGiftstormFinalHit[1]);
+        assertEquals(44, decoded.birds[0].carrionSwarmTimer);
+        assertEquals(99, decoded.birds[0].vultureBlackSkyTimer);
+        assertEquals(7, decoded.birds[0].vultureBlackSkySpawnTimer);
+        assertEquals(31, decoded.birds[0].vultureBlackSkyCrowsSpawned);
+        assertEquals(5, decoded.birds[0].vultureBlackSkyWaveIndex);
+        assertTrue(decoded.birds[0].vultureBlackSkyFinalHit);
+        assertTrue(decoded.birds[0].vultureBlackSkyHit[3]);
         assertEquals(66, decoded.birds[0].hummingFrenzyTimer);
         assertEquals(1, decoded.birds[0].hummingFrenzyTargetIndex);
         assertEquals(3, decoded.birds[0].hummingFrenzyStrikeIndex);

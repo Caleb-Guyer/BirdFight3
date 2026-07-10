@@ -127,6 +127,8 @@ final class BirdSpecialSystem {
             game.recordUltimateMoveUse(bird, GrinchhawkSpecials.MIDNIGHT_GIFTSTORM_MOVE);
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.PELICAN) {
             game.recordUltimateMoveUse(bird, PelicanSpecials.MAELSTROM_GULLET_MOVE);
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.VULTURE) {
+            game.recordUltimateMoveUse(bird, VultureSpecials.BLACK_SKY_FEAST_MOVE);
         } else {
             game.recordSpecialMoveUse(bird, input, ultimateTriggered);
         }
@@ -182,6 +184,8 @@ final class BirdSpecialSystem {
             game.playGrinchhawkMidnightGiftstormSfx();
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.PELICAN) {
             game.playPelicanMaelstromGulletSfx();
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.VULTURE) {
+            game.playVultureBlackSkyFeastSfx();
         } else if (bird.type == BirdGame3.BirdType.RAZORBILL) {
             game.playVaseBreakingSfx();
         } else {
