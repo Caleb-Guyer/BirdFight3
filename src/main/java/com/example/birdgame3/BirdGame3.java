@@ -1247,6 +1247,24 @@ public class BirdGame3 extends Application {
         }
     }
 
+    void playPelicanMaelstromGulletSfx() {
+        if (!sfxEnabled) return;
+        if (hugewaveClip != null) {
+            hugewaveClip.stop();
+            playManagedSfxVaried(hugewaveClip, 0.94, 0.52, 0.012);
+        }
+        if (vaseBreakingClip != null) {
+            vaseBreakingClip.stop();
+            playManagedSfxVaried(vaseBreakingClip, 0.64, 0.86, 0.016);
+        }
+        if (swingClip != null) {
+            playManagedSfxVaried(swingClip, 0.50, 0.62, 0.018);
+        }
+        if (bonkClip != null) {
+            playManagedSfxVaried(bonkClip, 0.46, 0.44, 0.012);
+        }
+    }
+
     void playAchievementSfx() {
         if (!sfxEnabled || steamAchievementClip == null) return;
         steamAchievementClip.stop();
@@ -9774,7 +9792,8 @@ public class BirdGame3 extends Application {
         OPIUMBIRD("Opium Bird", 7, 19, 4.4, Color.rgb(138, 43, 226), 0.7, "Lean Cloud + Haze Drift + Rising Vapors + Lotus Patch"),
         TITMOUSE("Tufted Titmouse", 6, 21, 5.4, Color.SLATEGRAY, 0.9, "Scold Chorus / Barkskip / Tuft Vault / Seed Stash"),
         BAT("Bat", 7, 14, 3.7, Color.rgb(55, 35, 85), 0.65, "Echo Lance / Wingcut / Moonrise / Silent Descent + Ceiling Hang"),
-        PELICAN("Pelican", 11, 9, 2.9, Color.rgb(245, 220, 180), 0.84, "Pouch Snare / Breakwater Run / Thermal Sail / Bilge Dump"),
+        PELICAN("Pelican", 11, 9, 2.9, Color.rgb(245, 220, 180), 0.84,
+                "Pouch Snare / Breakwater Run / Thermal Sail / Bilge Dump / Maelstrom Gullet"),
         HEISENBIRD("Heisenbird", 7, 18, 4.6, Color.web("#D7D1C5"), 0.68, "Echo of Opium: Crystal Cloud + Blue Rush + Crystal Column + Glass Cook"),
         RAVEN("Raven", 8, 18, 4.3, Color.web("#1C1F26"), 0.72,
                 "Black Quill / Shadow Warp / Murder Lift / Nevermore / The Unkindness"),
@@ -45932,6 +45951,7 @@ public class BirdGame3 extends Application {
             case SHOEBILL -> "Ultimate: Final Stillness drains the screen, silences music, and fires an ancient locked beam.";
             case RAZORBILL -> "Ultimate: Guillotine Wake marks dodgeable cut-lines, chains slashes, then leaves a damaging razor wake.";
             case GRINCHHAWK -> "Ultimate: Midnight Giftstorm rains trap presents, then sends a stolen sleigh across the stage for a final gift-box slam.";
+            case PELICAN -> "Ultimate: Maelstrom Gullet opens a stage vortex, pulls enemies into the pouch zone, then erupts in a tidal launch.";
             case BAT -> "Ceiling Hang gives the down special a second movement state.";
             case PHOENIX -> "Snap Fire travels farther and fizzles harmlessly. Air Snap Fire angles down; air Faultfire can be held.";
             default -> "Directional input changes the special before startup.";

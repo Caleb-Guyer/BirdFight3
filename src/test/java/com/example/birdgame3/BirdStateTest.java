@@ -5421,6 +5421,73 @@ class BirdStateTest {
     }
 
     @Test
+    void pelicanUltimateStartsMaelstromGulletInsteadOfBoostedSpecial() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pelican = new Bird(260.0, BirdGame3.BirdType.PELICAN, 0, game);
+        Bird target = new Bird(380.0, BirdGame3.BirdType.PIGEON, 1, game);
+        pelican.y = BirdGame3.GROUND_Y - pelican.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = pelican;
+        game.players[1] = target;
+
+        setPrivateInt(pelican, "pelicanCargoCount", 2);
+        setPrivateDouble(pelican, "ultimateMeter", 100.0);
+        invokePrivateVoid(pelican, "special");
+
+        assertEquals(Bird.PELICAN_MAELSTROM_FRAMES, getPrivateInt(pelican, "pelicanMaelstromTimer"));
+        assertEquals(2, getPrivateInt(pelican, "pelicanMaelstromCargoSpent"));
+        assertEquals(0, getPrivateInt(pelican, "pelicanCargoCount"));
+        assertEquals(0, getPrivateInt(pelican, "pelicanFullHoldTimer"),
+                "Pelican ultimate should not open Full Hold anymore.");
+        assertEquals(0, getPrivateInt(pelican, "pelicanNeutralTimer"),
+                "Pelican ultimate should not fall through into boosted Pouch Snare.");
+        assertEquals(0, getPrivateInt(pelican, "pelicanSideTimer"));
+        assertEquals(0, getPrivateInt(pelican, "pelicanUpTimer"));
+        assertFalse(getPrivateBoolean(pelican, "pelicanDownCharging"));
+        assertFalse(pelican.isUltimateReady());
+        assertEquals(PelicanSpecials.MAELSTROM_GULLET_MOVE, game.lastTelemetryMoveName(0, ""));
+    }
+
+    @Test
+    void pelicanMaelstromGulletPullsDamagesAndLaunches() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird pelican = new Bird(260.0, BirdGame3.BirdType.PELICAN, 0, game);
+        Bird target = new Bird(320.0, BirdGame3.BirdType.PIGEON, 1, game);
+        pelican.y = BirdGame3.GROUND_Y - pelican.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = pelican;
+        game.players[1] = target;
+
+        setPrivateInt(pelican, "pelicanCargoCount", 2);
+        setPrivateDouble(pelican, "ultimateMeter", 100.0);
+        double startingHealth = target.health;
+        invokePrivateVoid(pelican, "special");
+
+        for (int i = 0; i < Bird.PELICAN_MAELSTROM_PULL_START_FRAME + 4; i++) {
+            pelican.update(1.0);
+        }
+
+        assertTrue(target.health < startingHealth,
+                "The Maelstrom pull phase should tick damage targets in the pouch zone.");
+        assertTrue(target.vx < 0.0, "The vortex should pull the target toward its center.");
+        assertTrue(target.stunTime > 0.0, "Targets caught near the center should be briefly pouched.");
+        double healthAfterPull = target.health;
+
+        for (int i = 0; i < Bird.PELICAN_MAELSTROM_FINAL_FRAME; i++) {
+            pelican.update(1.0);
+        }
+
+        assertTrue(getPrivateBoolean(pelican, "pelicanMaelstromFinalResolved"));
+        assertTrue(target.health < healthAfterPull,
+                "The Maelstrom final geyser should deal a separate heavy hit.");
+        assertTrue(target.vy < -10.0, "The Maelstrom final should launch targets upward.");
+    }
+
+    @Test
     void pelicanBreakwaterRunSpendsCargoForAHeavyHit() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

@@ -675,6 +675,13 @@ public class Bird {
     private static final int PELICAN_DOWN_REUSE_FRAMES = 28;
     private static final int PELICAN_BILGE_FX_FRAMES = 16;
     private static final int PELICAN_FULL_HOLD_FRAMES = 300;
+    static final int PELICAN_MAELSTROM_FRAMES = 168;
+    static final int PELICAN_MAELSTROM_PULL_START_FRAME = 18;
+    static final int PELICAN_MAELSTROM_PULL_END_FRAME = 112;
+    static final int PELICAN_MAELSTROM_PULSE_INTERVAL = 12;
+    static final int PELICAN_MAELSTROM_FINAL_FRAME = 126;
+    static final int PELICAN_MAELSTROM_FINAL_ACTIVE_FRAMES = 18;
+    static final int PELICAN_MAELSTROM_GEYSER_FX_FRAMES = 44;
     int pelicanCargoCount = 0;
     int pelicanNeutralTimer = 0;
     int pelicanNeutralReuseTimer = 0;
@@ -699,6 +706,14 @@ public class Bird {
     int pelicanBilgeCargoSpent = 0;
     boolean pelicanBilgeUltimate = false;
     int pelicanFullHoldTimer = 0;
+    int pelicanMaelstromTimer = 0;
+    int pelicanMaelstromPulseCooldown = 0;
+    boolean pelicanMaelstromFinalResolved = false;
+    int pelicanMaelstromCargoSpent = 0;
+    double pelicanMaelstromX = 0.0;
+    double pelicanMaelstromY = 0.0;
+    int pelicanMaelstromGeyserFxTimer = 0;
+    final boolean[] pelicanMaelstromFinalHit = new boolean[4];
     public boolean batHanging = false;
     private Platform batHangPlatform = null;
     public int batEchoTimer = 0;
@@ -1986,6 +2001,7 @@ public class Bird {
                 && roadrunnerRedlineTimer > 0)
                 || (type == BirdGame3.BirdType.GRINCHHAWK
                 && GrinchhawkSpecials.giftstormFinalDiveActive(this))
+                || (type == BirdGame3.BirdType.PELICAN && pelicanMaelstromFinalActive())
                 || razorbillGuillotineTimer > 0
                 || hasNullRockInvulnerability()
                 || hasDodgeInvulnerability()
@@ -4729,6 +4745,30 @@ public class Bird {
         game.addToKillFeed(shortName() + " opened the FULL HOLD!");
     }
 
+    void startPelicanMaelstromGullet() {
+        int cargo = pelicanEffectiveCargo();
+        resetPelicanSpecialState(true);
+        double centerX = bodyCenterX();
+        double surfaceY = pelicanMaelstromSurfaceY(centerX);
+        pelicanMaelstromTimer = PELICAN_MAELSTROM_FRAMES;
+        pelicanMaelstromPulseCooldown = 0;
+        pelicanMaelstromFinalResolved = false;
+        pelicanMaelstromCargoSpent = Math.clamp(cargo, 0, PELICAN_CARGO_MAX);
+        pelicanMaelstromX = centerX;
+        pelicanMaelstromY = surfaceY - 46.0 * sizeMultiplier;
+        pelicanMaelstromGeyserFxTimer = 0;
+        Arrays.fill(pelicanMaelstromFinalHit, false);
+        specialCooldown = 0;
+        specialMaxCooldown = 0;
+        attackAnimationTimer = Math.max(attackAnimationTimer, 30);
+        canDoubleJump = true;
+        vx *= isOnGround() ? 0.28 : 0.44;
+        vy = Math.min(vy, -7.2 - pelicanMaelstromCargoSpent * 0.9);
+        emitPelicanMaelstromBurst(centerX, pelicanMaelstromY - 16.0 * sizeMultiplier,
+                78 + pelicanMaelstromCargoSpent * 22, Color.web("#80DEEA"));
+        game.addToKillFeed(shortName() + " opened the Maelstrom Gullet!");
+    }
+
     void specialPelicanPouchSnare(boolean ultimate) {
         boolean empowered = pelicanEmpowered(ultimate);
         pelicanNeutralTimer = empowered ? PELICAN_NEUTRAL_FRAMES + 5 : PELICAN_NEUTRAL_FRAMES;
@@ -4895,6 +4935,21 @@ public class Bird {
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 1.5,
                     color.deriveColor(0, 1, 1, 0.78)
+            ));
+        }
+    }
+
+    private void emitPelicanMaelstromBurst(double originX, double originY, int count, Color color) {
+        for (int i = 0; i < scaledParticleCount(count); i++) {
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double speed = 2.4 + SimRng.next() * 8.4;
+            double swirl = i % 2 == 0 ? 1.0 : -1.0;
+            game.particles.add(new Particle(
+                    originX + (SimRng.next() - 0.5) * 70.0 * sizeMultiplier,
+                    originY + (SimRng.next() - 0.5) * 32.0 * sizeMultiplier,
+                    Math.cos(angle) * speed + Math.sin(angle) * swirl * 2.2,
+                    Math.sin(angle) * speed - 2.4,
+                    color.deriveColor(0, 1, 1, 0.68 + SimRng.next() * 0.22)
             ));
         }
     }
@@ -11192,11 +11247,160 @@ public class Bird {
                 && !mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PELICAN)) {
             return;
         }
+        if (type == BirdGame3.BirdType.PELICAN) {
+            handlePelicanMaelstromGullet();
+        }
         handlePelicanPouchSnare();
         handlePelicanBreakwaterRun();
         handlePelicanThermalSail();
         handlePelicanBilgeCharge();
         handlePelicanFullHold();
+    }
+
+    private void handlePelicanMaelstromGullet() {
+        if (pelicanMaelstromGeyserFxTimer > 0) {
+            pelicanMaelstromGeyserFxTimer--;
+        }
+        if (pelicanMaelstromTimer <= 0) {
+            return;
+        }
+        if (health <= 0) {
+            pelicanMaelstromTimer = 0;
+            Arrays.fill(pelicanMaelstromFinalHit, false);
+            return;
+        }
+
+        int elapsed = PELICAN_MAELSTROM_FRAMES - pelicanMaelstromTimer;
+        double hoverX = pelicanMaelstromX - bodyWidth() * 0.5;
+        double hoverY = pelicanMaelstromY - (238.0 + pelicanMaelstromCargoSpent * 28.0) * sizeMultiplier;
+        vx += (hoverX - x) * 0.022;
+        vy += (hoverY - y) * 0.020;
+        vx *= 0.78;
+        vy = Math.clamp(vy, -8.8, 8.8);
+        attackAnimationTimer = Math.max(attackAnimationTimer, 6);
+
+        boolean pullActive = elapsed >= PELICAN_MAELSTROM_PULL_START_FRAME
+                && elapsed <= PELICAN_MAELSTROM_PULL_END_FRAME;
+        if (pullActive) {
+            applyPelicanMaelstromPull();
+        }
+        if (elapsed >= PELICAN_MAELSTROM_FINAL_FRAME && !pelicanMaelstromFinalResolved) {
+            resolvePelicanMaelstromFinal();
+        }
+        if ((pelicanMaelstromTimer & 7) == 0) {
+            emitPelicanMaelstromBurst(pelicanMaelstromX, pelicanMaelstromY - 28.0 * sizeMultiplier,
+                    7 + pelicanMaelstromCargoSpent * 2, Color.web("#B3E5FC"));
+        }
+
+        if (pelicanMaelstromPulseCooldown > 0) {
+            pelicanMaelstromPulseCooldown--;
+        }
+        pelicanMaelstromTimer--;
+        if (pelicanMaelstromTimer <= 0) {
+            Arrays.fill(pelicanMaelstromFinalHit, false);
+        }
+    }
+
+    private void applyPelicanMaelstromPull() {
+        double radius = (282.0 + pelicanMaelstromCargoSpent * 42.0) * sizeMultiplier;
+        double innerRadius = (112.0 + pelicanMaelstromCargoSpent * 18.0) * sizeMultiplier;
+        boolean pulseReady = pelicanMaelstromPulseCooldown <= 0;
+        boolean pulseHit = false;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - pelicanMaelstromX;
+            double dy = other.bodyCenterY() - pelicanMaelstromY;
+            double dist = Math.hypot(dx, dy);
+            if (dist > radius + other.combatRadius()) continue;
+
+            double safeDist = Math.max(1.0, dist);
+            double pullRatio = Math.clamp(1.0 - dist / Math.max(1.0, radius), 0.0, 1.0);
+            double pull = 0.26 + pullRatio * (0.92 + pelicanMaelstromCargoSpent * 0.18);
+            other.vx += (-dx / safeDist) * pull;
+            other.vy += (-dy / safeDist) * pull * 0.62 - 0.16;
+            other.vx *= 0.965;
+            other.vy *= 0.988;
+
+            if (dist <= innerRadius + other.combatRadius()) {
+                other.applyStun(3 + pelicanMaelstromCargoSpent);
+                if (pulseReady) {
+                    int dealt = applyTrackedSpecialDamage(other, 3 + pelicanMaelstromCargoSpent);
+                    if (dealt > 0) {
+                        pulseHit = true;
+                        other.applyStun(9 + pelicanMaelstromCargoSpent * 2);
+                        emitPelicanMaelstromBurst(other.bodyCenterX(), other.bodyCenterY(),
+                                10 + pelicanMaelstromCargoSpent * 3, Color.web("#E1F5FE"));
+                    }
+                }
+            }
+        }
+        if (pulseReady) {
+            pelicanMaelstromPulseCooldown = PELICAN_MAELSTROM_PULSE_INTERVAL;
+            if (pulseHit) {
+                game.hitstopFrames = Math.max(game.hitstopFrames, 2);
+            }
+        }
+    }
+
+    private void resolvePelicanMaelstromFinal() {
+        pelicanMaelstromFinalResolved = true;
+        pelicanMaelstromGeyserFxTimer = PELICAN_MAELSTROM_GEYSER_FX_FRAMES;
+        double radius = (332.0 + pelicanMaelstromCargoSpent * 52.0) * sizeMultiplier;
+        double centerY = pelicanMaelstromY - 72.0 * sizeMultiplier;
+        boolean hitAny = false;
+        for (Bird other : game.players) {
+            if (!canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= pelicanMaelstromFinalHit.length) continue;
+            if (pelicanMaelstromFinalHit[other.playerIndex]) continue;
+            double dx = other.bodyCenterX() - pelicanMaelstromX;
+            double dy = other.bodyCenterY() - centerY;
+            double dist = Math.hypot(dx, dy);
+            if (dist > radius + other.combatRadius()) continue;
+
+            pelicanMaelstromFinalHit[other.playerIndex] = true;
+            int dealt = applyTrackedSpecialDamage(other, 30 + pelicanMaelstromCargoSpent * 7);
+            if (dealt <= 0) continue;
+            hitAny = true;
+            double safeDist = Math.max(1.0, dist);
+            double horizontal = Math.clamp(dx / safeDist, -1.0, 1.0);
+            if (Math.abs(horizontal) < 0.24) {
+                horizontal = dx < 0.0 ? -0.24 : 0.24;
+            }
+            other.vx += horizontal * (18.0 + pelicanMaelstromCargoSpent * 3.6);
+            other.vy -= 18.0 + pelicanMaelstromCargoSpent * 3.2;
+            other.applyStun(24 + pelicanMaelstromCargoSpent * 4);
+        }
+
+        emitPelicanMaelstromBurst(pelicanMaelstromX, pelicanMaelstromY - 42.0 * sizeMultiplier,
+                132 + pelicanMaelstromCargoSpent * 32, Color.web("#4FC3F7"));
+        game.shakeIntensity = Math.max(game.shakeIntensity, hitAny ? 24 : 18);
+        game.hitstopFrames = Math.max(game.hitstopFrames, hitAny ? 8 : 5);
+        game.triggerFlash(hitAny ? 0.58 : 0.34, false);
+    }
+
+    private double pelicanMaelstromSurfaceY(double centerX) {
+        double bestY = hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
+        double sourceY = bodyBottomY() - 26.0 * sizeMultiplier;
+        for (Platform p : game.platforms) {
+            boolean isCaveCeiling = game.selectedMap == BirdGame3.MapType.CAVE
+                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
+            if (isCaveCeiling || p.w <= 0 || p.h <= 0) continue;
+            if (centerX < p.x - 54.0 || centerX > p.x + p.w + 54.0) continue;
+            if (p.y < sourceY - 24.0) continue;
+            if (p.y < bestY) {
+                bestY = p.y;
+            }
+        }
+        return Double.isFinite(bestY) ? bestY : bodyBottomY() + 34.0 * sizeMultiplier;
+    }
+
+    private boolean pelicanMaelstromFinalActive() {
+        if (type != BirdGame3.BirdType.PELICAN || pelicanMaelstromTimer <= 0) {
+            return false;
+        }
+        int elapsed = PELICAN_MAELSTROM_FRAMES - pelicanMaelstromTimer;
+        return elapsed >= PELICAN_MAELSTROM_FINAL_FRAME
+                && elapsed <= PELICAN_MAELSTROM_FINAL_FRAME + PELICAN_MAELSTROM_FINAL_ACTIVE_FRAMES;
     }
 
     private void handlePelicanPouchSnare() {
@@ -11522,6 +11726,7 @@ public class Bird {
                     || (type == BirdGame3.BirdType.ROADRUNNER
                     && (roadrunnerBeepCharging || roadrunnerRicochetTimer > 0 || roadrunnerDustDevilTimer > 0))
                     || (type == BirdGame3.BirdType.GRINCHHAWK && grinchhawkSpecialActive())
+                    || (type == BirdGame3.BirdType.PELICAN && pelicanSpecialActive())
                     || (isOpiumEchoPair() && opiumSpecialActive())) {
                 if (type == BirdGame3.BirdType.ROADRUNNER && roadrunnerBeepBurstTimer > 0) {
                     vx *= airborne ? 0.99 : 0.985;
@@ -11545,6 +11750,8 @@ public class Bird {
                     vx *= 0.58;
                 } else if (type == BirdGame3.BirdType.RAZORBILL && razorbillGuillotineTimer > 0) {
                     vx = 0.0;
+                } else if (type == BirdGame3.BirdType.PELICAN && pelicanMaelstromTimer > 0) {
+                    vx *= airborne ? 0.72 : 0.48;
                 } else if (type == BirdGame3.BirdType.SHOEBILL && shoebillThrustTimer > 0) {
                     vx *= airborne ? 0.94 : 0.88;
                 } else {
@@ -14066,6 +14273,15 @@ public class Bird {
         state.pelicanBilgeCargoSpent = pelicanBilgeCargoSpent;
         state.pelicanBilgeUltimate = pelicanBilgeUltimate;
         state.pelicanFullHoldTimer = pelicanFullHoldTimer;
+        state.pelicanMaelstromTimer = pelicanMaelstromTimer;
+        state.pelicanMaelstromPulseCooldown = pelicanMaelstromPulseCooldown;
+        state.pelicanMaelstromFinalResolved = pelicanMaelstromFinalResolved;
+        state.pelicanMaelstromCargoSpent = pelicanMaelstromCargoSpent;
+        state.pelicanMaelstromX = pelicanMaelstromX;
+        state.pelicanMaelstromY = pelicanMaelstromY;
+        state.pelicanMaelstromGeyserFxTimer = pelicanMaelstromGeyserFxTimer;
+        System.arraycopy(pelicanMaelstromFinalHit, 0, state.pelicanMaelstromFinalHit, 0,
+                pelicanMaelstromFinalHit.length);
         state.batHanging = batHanging;
         state.batEchoTimer = batEchoTimer;
         state.batNeutralReuseTimer = batNeutralReuseTimer;
@@ -14715,6 +14931,18 @@ public class Bird {
         this.pelicanBilgeCargoSpent = Math.clamp(state.pelicanBilgeCargoSpent, 0, PELICAN_CARGO_MAX);
         this.pelicanBilgeUltimate = state.pelicanBilgeUltimate;
         this.pelicanFullHoldTimer = Math.max(0, state.pelicanFullHoldTimer);
+        this.pelicanMaelstromTimer = Math.max(0, state.pelicanMaelstromTimer);
+        this.pelicanMaelstromPulseCooldown = Math.max(0, state.pelicanMaelstromPulseCooldown);
+        this.pelicanMaelstromFinalResolved = state.pelicanMaelstromFinalResolved;
+        this.pelicanMaelstromCargoSpent = Math.clamp(state.pelicanMaelstromCargoSpent, 0, PELICAN_CARGO_MAX);
+        this.pelicanMaelstromX = state.pelicanMaelstromX;
+        this.pelicanMaelstromY = state.pelicanMaelstromY;
+        this.pelicanMaelstromGeyserFxTimer = Math.max(0, state.pelicanMaelstromGeyserFxTimer);
+        Arrays.fill(this.pelicanMaelstromFinalHit, false);
+        if (state.pelicanMaelstromFinalHit != null) {
+            System.arraycopy(state.pelicanMaelstromFinalHit, 0, this.pelicanMaelstromFinalHit, 0,
+                    Math.min(this.pelicanMaelstromFinalHit.length, state.pelicanMaelstromFinalHit.length));
+        }
         this.batHanging = state.batHanging;
         this.batEchoTimer = state.batEchoTimer;
         this.batNeutralReuseTimer = Math.max(0, state.batNeutralReuseTimer);
@@ -19973,6 +20201,7 @@ public class Bird {
         drawPenguinSpecialFx(g, drawSize);
         drawShoebillSpecialFx(g, drawSize);
         drawGrinchhawkSpecialFx(g, drawSize);
+        drawPelicanMaelstromFx(g);
         drawGooseSpecialFx(g, drawSize);
         drawBatEcho(g, drawSize);
         drawRavenSpecialFx(g, drawSize);
@@ -20183,6 +20412,142 @@ public class Bird {
             g.strokeOval(present.x, y0 - 9.0 * s, 18.0 * s, 14.0 * s);
         }
 
+        g.restore();
+    }
+
+    private void drawPelicanMaelstromFx(GraphicsContext g) {
+        if (type != BirdGame3.BirdType.PELICAN
+                || (pelicanMaelstromTimer <= 0 && pelicanMaelstromGeyserFxTimer <= 0)) {
+            return;
+        }
+        double s = sizeMultiplier;
+        double cx = pelicanMaelstromX == 0.0 ? bodyCenterX() : pelicanMaelstromX;
+        double cy = pelicanMaelstromY == 0.0 ? bodyBottomY() - 40.0 * s : pelicanMaelstromY;
+        int elapsed = pelicanMaelstromTimer > 0
+                ? PELICAN_MAELSTROM_FRAMES - pelicanMaelstromTimer
+                : PELICAN_MAELSTROM_FINAL_FRAME
+                + Math.max(0, PELICAN_MAELSTROM_GEYSER_FX_FRAMES - pelicanMaelstromGeyserFxTimer);
+        double open = Math.clamp(elapsed / 28.0, 0.0, 1.0);
+        double pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.21);
+        double radius = (210.0 + pelicanMaelstromCargoSpent * 32.0) * s * (0.72 + open * 0.28);
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setEffect(new Glow(0.36 + pulse * 0.18));
+
+        g.setFill(Color.rgb(2, 13, 27, 0.24 * open));
+        g.fillOval(cx - radius * 1.16, cy - radius * 0.42, radius * 2.32, radius * 0.84);
+        g.setFill(Color.web("#01579B").deriveColor(0, 1, 0.92, 0.22 * open));
+        g.fillOval(cx - radius, cy - radius * 0.34, radius * 2.0, radius * 0.68);
+        g.setFill(Color.web("#4FC3F7").deriveColor(0, 1, 1.08, 0.12 + pulse * 0.08));
+        g.fillOval(cx - radius * 0.58, cy - radius * 0.22, radius * 1.16, radius * 0.44);
+
+        for (int i = 0; i < 6; i++) {
+            double ring = radius * (0.32 + i * 0.135 + pulse * 0.015);
+            double alpha = (0.44 - i * 0.045) * open;
+            g.setStroke((i % 2 == 0 ? Color.web("#E1F5FE") : Color.web("#0288D1"))
+                    .deriveColor(0, 1, 1.0, alpha));
+            g.setLineWidth((5.4 - i * 0.42) * s);
+            g.strokeArc(cx - ring, cy - ring * 0.38, ring * 2.0, ring * 0.76,
+                    elapsed * (6.0 + i) + i * 31.0, 238.0 - i * 12.0, ArcType.OPEN);
+        }
+
+        for (int i = 0; i < 18; i++) {
+            double angle = elapsed * 0.105 + i * Math.PI * 2.0 / 18.0;
+            double r = radius * (0.30 + (i % 5) * 0.105);
+            double wave = Math.sin(elapsed * 0.18 + i) * 10.0 * s;
+            double x0 = cx + Math.cos(angle) * r;
+            double y0 = cy + Math.sin(angle) * r * 0.34 + wave * 0.22;
+            double x1 = cx + Math.cos(angle + 0.38) * (r + 34.0 * s);
+            double y1 = cy + Math.sin(angle + 0.38) * (r + 34.0 * s) * 0.34 + wave * 0.14;
+            g.setStroke((i % 3 == 0 ? Color.web("#FFFFFF") : Color.web("#B3E5FC"))
+                    .deriveColor(0, 1, 1, 0.34 * open));
+            g.setLineWidth((i % 3 == 0 ? 3.6 : 2.2) * s);
+            g.strokeLine(x0, y0, x1, y1);
+        }
+
+        for (int i = 0; i < 7; i++) {
+            double angle = elapsed * 0.07 + i * 0.91;
+            double debrisR = radius * (0.48 + (i % 3) * 0.12);
+            double dx = Math.cos(angle) * debrisR;
+            double dy = Math.sin(angle) * debrisR * 0.32;
+            double plankX = cx + dx;
+            double plankY = cy + dy - (i % 2) * 8.0 * s;
+            g.save();
+            g.translate(plankX, plankY);
+            g.rotate(Math.toDegrees(angle) + i * 13.0);
+            g.setFill(Color.web("#6D4C41").deriveColor(0, 1, 0.95, 0.50 * open));
+            g.fillRoundRect(-18.0 * s, -3.5 * s, 36.0 * s, 7.0 * s, 2.0 * s, 2.0 * s);
+            g.setStroke(Color.web("#B0BEC5").deriveColor(0, 1, 1.05, 0.52 * open));
+            g.setLineWidth(1.3 * s);
+            g.strokeLine(-12.0 * s, 0, 12.0 * s, 0);
+            g.strokeLine(-4.0 * s, -6.0 * s, -4.0 * s, 6.0 * s);
+            g.strokeLine(6.0 * s, -5.0 * s, 6.0 * s, 5.0 * s);
+            g.restore();
+        }
+
+        if (pelicanMaelstromTimer > 0) {
+            double silhouette = Math.clamp((elapsed - 8.0) / 24.0, 0.0, 1.0)
+                    * Math.clamp(pelicanMaelstromTimer / 22.0, 0.0, 1.0);
+            double sy = cy - (260.0 + pelicanMaelstromCargoSpent * 26.0) * s;
+            g.setFill(Color.rgb(3, 18, 28, 0.26 * silhouette));
+            g.fillOval(cx - 58.0 * s, sy - 42.0 * s, 116.0 * s, 86.0 * s);
+            g.fillOval(cx + 22.0 * s, sy - 70.0 * s, 58.0 * s, 52.0 * s);
+            g.fillPolygon(
+                    new double[]{cx - 60.0 * s, cx - 230.0 * s, cx - 118.0 * s, cx - 18.0 * s},
+                    new double[]{sy - 14.0 * s, sy + 30.0 * s, sy + 68.0 * s, sy + 18.0 * s},
+                    4
+            );
+            g.fillPolygon(
+                    new double[]{cx + 42.0 * s, cx + 220.0 * s, cx + 104.0 * s, cx + 16.0 * s},
+                    new double[]{sy - 18.0 * s, sy + 22.0 * s, sy + 68.0 * s, sy + 16.0 * s},
+                    4
+            );
+            g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1.1, 0.34 * silhouette));
+            g.setLineWidth(4.0 * s);
+            g.strokeArc(cx - 76.0 * s, sy - 18.0 * s, 152.0 * s, 64.0 * s,
+                    202, 136, ArcType.OPEN);
+        }
+
+        if (pelicanMaelstromTimer > 0
+                && elapsed >= PELICAN_MAELSTROM_FINAL_FRAME - 18
+                && elapsed < PELICAN_MAELSTROM_FINAL_FRAME) {
+            double warn = Math.clamp((elapsed - (PELICAN_MAELSTROM_FINAL_FRAME - 18.0)) / 18.0, 0.0, 1.0);
+            g.setStroke(Color.web("#E1F5FE").deriveColor(0, 1, 1, 0.30 + warn * 0.42));
+            g.setLineWidth((4.0 + warn * 6.0) * s);
+            for (int i = -1; i <= 1; i++) {
+                double boltX = cx + i * radius * 0.36;
+                g.strokePolyline(
+                        new double[]{boltX, boltX - 18.0 * s, boltX + 10.0 * s, boltX - 8.0 * s},
+                        new double[]{cy - radius * 0.92, cy - radius * 0.56, cy - radius * 0.40, cy - radius * 0.15},
+                        4
+                );
+            }
+        }
+
+        if (pelicanMaelstromGeyserFxTimer > 0 || pelicanMaelstromFinalActive()) {
+            double geyserLife = pelicanMaelstromGeyserFxTimer > 0
+                    ? pelicanMaelstromGeyserFxTimer / (double) PELICAN_MAELSTROM_GEYSER_FX_FRAMES
+                    : 1.0;
+            double geyser = Math.clamp(geyserLife, 0.0, 1.0);
+            double height = (360.0 + pelicanMaelstromCargoSpent * 56.0) * s * (0.76 + geyser * 0.24);
+            double baseW = (148.0 + pelicanMaelstromCargoSpent * 24.0) * s;
+            g.setFill(Color.web("#B3E5FC").deriveColor(0, 1, 1.10, 0.26 + geyser * 0.20));
+            g.fillPolygon(
+                    new double[]{cx - baseW, cx - baseW * 0.30, cx, cx + baseW * 0.30, cx + baseW},
+                    new double[]{cy + 8.0 * s, cy - height * 0.70, cy - height,
+                            cy - height * 0.70, cy + 8.0 * s},
+                    5
+            );
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.42 + geyser * 0.24));
+            g.setLineWidth(7.0 * s);
+            g.strokeArc(cx - baseW * 0.62, cy - height * 0.96, baseW * 1.24, height * 0.32,
+                    206, 128, ArcType.OPEN);
+            g.setStroke(Color.web("#4FC3F7").deriveColor(0, 1, 1, 0.38 + geyser * 0.18));
+            g.setLineWidth(12.0 * s);
+            g.strokeLine(cx - baseW * 0.34, cy - 8.0 * s, cx - baseW * 0.12, cy - height * 0.84);
+            g.strokeLine(cx + baseW * 0.34, cy - 8.0 * s, cx + baseW * 0.12, cy - height * 0.84);
+        }
         g.restore();
     }
 
@@ -28178,6 +28543,18 @@ public class Bird {
                     double cargoY = pouchY + (14.0 + (i % 2) * 3.0) * s;
                     g.fillOval(cargoX, cargoY, 10.0 * s, 8.0 * s);
                 }
+            }
+            if (pelicanMaelstromTimer > 0) {
+                double elapsed = PELICAN_MAELSTROM_FRAMES - pelicanMaelstromTimer;
+                double pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.38);
+                g.setEffect(new Glow(0.55 + pulse * 0.20));
+                g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1.12, 0.52 + pulse * 0.22));
+                g.setLineWidth((3.0 + pulse * 1.6) * s);
+                g.strokeOval(pouchX - 4.0 * s, pouchY - 3.0 * s, pouchW + 8.0 * s, pouchH + 8.0 * s);
+                g.setFill(Color.web("#E1F5FE").deriveColor(0, 1, 1, 0.18 + pulse * 0.10));
+                g.fillOval(pouchX + pouchW * 0.18, pouchY + pouchH * 0.22,
+                        pouchW * 0.64, pouchH * 0.42);
+                g.setEffect(null);
             }
             if (isIroncladSkin) {
                 g.setStroke(Color.web("#5D4037"));

@@ -210,6 +210,14 @@ class LanBirdState {
     int pelicanBilgeCargoSpent;
     boolean pelicanBilgeUltimate;
     int pelicanFullHoldTimer;
+    int pelicanMaelstromTimer;
+    int pelicanMaelstromPulseCooldown;
+    boolean pelicanMaelstromFinalResolved;
+    int pelicanMaelstromCargoSpent;
+    double pelicanMaelstromX;
+    double pelicanMaelstromY;
+    int pelicanMaelstromGeyserFxTimer;
+    boolean[] pelicanMaelstromFinalHit = new boolean[4];
     boolean batHanging;
     int batEchoTimer;
     int batNeutralReuseTimer;
@@ -798,6 +806,16 @@ class LanBirdState {
         out.writeInt(pelicanBilgeCargoSpent);
         out.writeBoolean(pelicanBilgeUltimate);
         out.writeInt(pelicanFullHoldTimer);
+        out.writeInt(pelicanMaelstromTimer);
+        out.writeInt(pelicanMaelstromPulseCooldown);
+        out.writeBoolean(pelicanMaelstromFinalResolved);
+        out.writeInt(pelicanMaelstromCargoSpent);
+        out.writeDouble(pelicanMaelstromX);
+        out.writeDouble(pelicanMaelstromY);
+        out.writeInt(pelicanMaelstromGeyserFxTimer);
+        for (boolean hit : pelicanMaelstromFinalHit) {
+            out.writeBoolean(hit);
+        }
         out.writeBoolean(batHanging);
         out.writeInt(batEchoTimer);
         out.writeInt(batNeutralReuseTimer);
@@ -1436,6 +1454,16 @@ class LanBirdState {
         state.pelicanBilgeCargoSpent = in.readInt();
         state.pelicanBilgeUltimate = in.readBoolean();
         state.pelicanFullHoldTimer = in.readInt();
+        state.pelicanMaelstromTimer = in.readInt();
+        state.pelicanMaelstromPulseCooldown = in.readInt();
+        state.pelicanMaelstromFinalResolved = in.readBoolean();
+        state.pelicanMaelstromCargoSpent = in.readInt();
+        state.pelicanMaelstromX = in.readDouble();
+        state.pelicanMaelstromY = in.readDouble();
+        state.pelicanMaelstromGeyserFxTimer = in.readInt();
+        for (int i = 0; i < state.pelicanMaelstromFinalHit.length; i++) {
+            state.pelicanMaelstromFinalHit[i] = in.readBoolean();
+        }
         state.batHanging = in.readBoolean();
         state.batEchoTimer = in.readInt();
         state.batNeutralReuseTimer = in.readInt();

@@ -3,12 +3,15 @@ package com.example.birdgame3;
 import java.util.Arrays;
 
 final class PelicanSpecials {
+    static final String MAELSTROM_GULLET_MOVE = "Maelstrom Gullet";
+
     private PelicanSpecials() {
     }
 
     static void use(Bird bird, boolean ultimate) {
         if (ultimate) {
-            bird.beginPelicanFullHold();
+            bird.startPelicanMaelstromGullet();
+            return;
         }
         switch (bird.selectPelicanSpecialVariant()) {
             case NEUTRAL -> bird.specialPelicanPouchSnare(ultimate);
@@ -24,7 +27,8 @@ final class PelicanSpecials {
                 || bird.pelicanUpTimer > 0
                 || bird.pelicanKeelDiveActive
                 || bird.pelicanDownCharging
-                || bird.pelicanBilgeFxTimer > 0;
+                || bird.pelicanBilgeFxTimer > 0
+                || bird.pelicanMaelstromTimer > 0;
     }
 
     static boolean ready(Bird bird, Bird.PelicanSpecialVariant variant) {
@@ -75,6 +79,14 @@ final class PelicanSpecials {
         bird.pelicanBilgeFxTimer = 0;
         bird.pelicanBilgeCargoSpent = 0;
         bird.pelicanBilgeUltimate = false;
+        bird.pelicanMaelstromTimer = 0;
+        bird.pelicanMaelstromPulseCooldown = 0;
+        bird.pelicanMaelstromFinalResolved = false;
+        bird.pelicanMaelstromCargoSpent = 0;
+        bird.pelicanMaelstromX = 0.0;
+        bird.pelicanMaelstromY = 0.0;
+        bird.pelicanMaelstromGeyserFxTimer = 0;
+        Arrays.fill(bird.pelicanMaelstromFinalHit, false);
         if (clearCargo) {
             bird.pelicanCargoCount = 0;
             bird.pelicanFullHoldTimer = 0;
