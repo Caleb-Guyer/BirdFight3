@@ -130,6 +130,15 @@ class LanStateTest {
         bird.penguinAbsoluteZeroWaveIndex = 3;
         bird.penguinAbsoluteZeroThroneX = 432.25;
         bird.penguinAbsoluteZeroThroneY = 876.5;
+        bird.shoebillFinalStillnessTimer = 88;
+        bird.shoebillFinalStillnessTargetIndex = 2;
+        bird.shoebillFinalStillnessStatueX = 600.25;
+        bird.shoebillFinalStillnessStatueY = 1200.5;
+        bird.shoebillFinalStillnessBeamStartX = 610.75;
+        bird.shoebillFinalStillnessBeamStartY = 930.25;
+        bird.shoebillFinalStillnessBeamTargetX = 720.5;
+        bird.shoebillFinalStillnessBeamTargetY = 880.75;
+        bird.shoebillFinalStillnessBeamResolved = true;
         bird.ultimateMeter = 44.0;
         state.birds[0] = bird;
 
@@ -295,6 +304,15 @@ class LanStateTest {
         assertEquals(3, decoded.birds[0].penguinAbsoluteZeroWaveIndex);
         assertEquals(432.25, decoded.birds[0].penguinAbsoluteZeroThroneX);
         assertEquals(876.5, decoded.birds[0].penguinAbsoluteZeroThroneY);
+        assertEquals(88, decoded.birds[0].shoebillFinalStillnessTimer);
+        assertEquals(2, decoded.birds[0].shoebillFinalStillnessTargetIndex);
+        assertEquals(600.25, decoded.birds[0].shoebillFinalStillnessStatueX);
+        assertEquals(1200.5, decoded.birds[0].shoebillFinalStillnessStatueY);
+        assertEquals(610.75, decoded.birds[0].shoebillFinalStillnessBeamStartX);
+        assertEquals(930.25, decoded.birds[0].shoebillFinalStillnessBeamStartY);
+        assertEquals(720.5, decoded.birds[0].shoebillFinalStillnessBeamTargetX);
+        assertEquals(880.75, decoded.birds[0].shoebillFinalStillnessBeamTargetY);
+        assertTrue(decoded.birds[0].shoebillFinalStillnessBeamResolved);
         assertEquals(44.0, decoded.birds[0].ultimateMeter);
         assertEquals(1, decoded.powerUps.size());
         assertEquals(200.0, decoded.powerUps.getFirst().x);

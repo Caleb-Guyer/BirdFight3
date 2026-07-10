@@ -103,6 +103,8 @@ final class BirdSpecialSystem {
             game.recordUltimateMoveUse(bird, RoosterSpecials.DAWN_STAMPEDE_MOVE);
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.PENGUIN) {
             game.recordUltimateMoveUse(bird, PenguinSpecials.ABSOLUTE_ZERO_FORTRESS_MOVE);
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.SHOEBILL) {
+            game.recordUltimateMoveUse(bird, ShoebillSpecials.FINAL_STILLNESS_MOVE);
         } else {
             game.recordSpecialMoveUse(bird, input, ultimateTriggered);
         }
@@ -142,6 +144,8 @@ final class BirdSpecialSystem {
             game.playRoosterStampedeSfx();
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.PENGUIN) {
             game.playAbsoluteZeroFortressSfx();
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.SHOEBILL) {
+            game.playShoebillFinalStillnessSfx();
         } else if (bird.type == BirdGame3.BirdType.RAZORBILL) {
             game.playVaseBreakingSfx();
         } else {

@@ -1251,6 +1251,11 @@ public class Bird {
     static final int SHOEBILL_STATUE_FRAMES = 96;
     static final int SHOEBILL_STATUE_REUSE_FRAMES = 70;
     static final int SHOEBILL_COUNTER_BURST_FRAMES = 14;
+    static final int SHOEBILL_FINAL_STILLNESS_FRAMES = 176;
+    static final int SHOEBILL_FINAL_STILLNESS_RISE_FRAMES = 58;
+    static final int SHOEBILL_FINAL_STILLNESS_LOCK_FRAMES = 42;
+    static final int SHOEBILL_FINAL_STILLNESS_BEAM_START_FRAME = 108;
+    static final int SHOEBILL_FINAL_STILLNESS_BEAM_FRAMES = 30;
     double penguinIceFxTimer = 0;
     int penguinDashDamageTimer = 0;
     final boolean[] penguinDashHit = new boolean[4];
@@ -1295,6 +1300,15 @@ public class Bird {
     int shoebillCounterBurstTimer = 0;
     boolean shoebillCounterBurstUltimate = false;
     final boolean[] shoebillCounterHit = new boolean[4];
+    int shoebillFinalStillnessTimer = 0;
+    int shoebillFinalStillnessTargetIndex = -1;
+    double shoebillFinalStillnessStatueX = 0.0;
+    double shoebillFinalStillnessStatueY = 0.0;
+    double shoebillFinalStillnessBeamStartX = 0.0;
+    double shoebillFinalStillnessBeamStartY = 0.0;
+    double shoebillFinalStillnessBeamTargetX = 0.0;
+    double shoebillFinalStillnessBeamTargetY = 0.0;
+    boolean shoebillFinalStillnessBeamResolved = false;
     private int hummingFrenzyTimer = 0;
     private final int[] hummingFrenzyHitCooldown = new int[4];
     static final int HUMMING_NEEDLE_COMBO_WINDOW_FRAMES = 96;
@@ -1865,6 +1879,7 @@ public class Bird {
                 || falconTerminalVelocityActive
                 || phoenixRebirthNovaTimer > PHOENIX_REBIRTH_NOVA_RECOVERY_FRAMES
                 || penguinAbsoluteZeroTimer > 0
+                || shoebillFinalStillnessTimer > 0
                 || hasNullRockInvulnerability()
                 || hasDodgeInvulnerability()
                 || hasRespawnInvulnerability();
@@ -4902,7 +4917,7 @@ public class Bird {
 
     private boolean shoebillStoneVisualActive() {
         return type == BirdGame3.BirdType.SHOEBILL
-                && (shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0);
+                && (shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0 || shoebillFinalStillnessTimer > 0);
     }
 
     boolean raptorSpecialOnReuseLockout(RaptorSpecialVariant variant) {
@@ -5371,7 +5386,8 @@ public class Bird {
             case PENGUIN ->
                     penguinBellyCharging || penguinBellySlideTimer > 0 || penguinRocketTimer > 0 || penguinFlopTimer > 0;
             case SHOEBILL ->
-                    shoebillStareFxTimer > 0 || shoebillThrustTimer > 0 || shoebillMarshLiftTimer > 0 || shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0;
+                    shoebillStareFxTimer > 0 || shoebillThrustTimer > 0 || shoebillMarshLiftTimer > 0
+                            || shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0 || shoebillFinalStillnessTimer > 0;
             case RAZORBILL -> razorbillStormTimer > 0 || bladeStormFrames > 0 || razorbillShearTimer > 0
                     || razorbillCounterTimer > 0 || razorbillCounterBurstTimer > 0;
             case OPIUMBIRD, HEISENBIRD -> leanTimer > 0;
@@ -9810,6 +9826,7 @@ public class Bird {
         shoebillStatueTimer = Math.max(0, (int)(shoebillStatueTimer - gameSpeed));
         shoebillStatueReuseTimer = Math.max(0, (int)(shoebillStatueReuseTimer - gameSpeed));
         shoebillCounterBurstTimer = Math.max(0, (int)(shoebillCounterBurstTimer - gameSpeed));
+        shoebillFinalStillnessTimer = Math.max(0, (int)(shoebillFinalStillnessTimer - gameSpeed));
         hummingFrenzyTimer = Math.max(0, (int)(hummingFrenzyTimer - gameSpeed));
         hummingNeedleComboTimer = Math.max(0, (int)(hummingNeedleComboTimer - gameSpeed));
         hummingNeedleHitTimer = Math.max(0, (int)(hummingNeedleHitTimer - gameSpeed));
@@ -9940,6 +9957,10 @@ public class Bird {
         if (shoebillCounterBurstTimer == 0) {
             shoebillCounterBurstUltimate = false;
             Arrays.fill(shoebillCounterHit, false);
+        }
+        if (shoebillFinalStillnessTimer == 0) {
+            shoebillFinalStillnessTargetIndex = -1;
+            shoebillFinalStillnessBeamResolved = false;
         }
         for (int i = 0; i < hummingFrenzyHitCooldown.length; i++) {
             hummingFrenzyHitCooldown[i] = Math.max(0, (int)(hummingFrenzyHitCooldown[i] - gameSpeed));
@@ -14071,6 +14092,15 @@ public class Bird {
         state.shoebillCounterBurstTimer = shoebillCounterBurstTimer;
         state.shoebillCounterBurstUltimate = shoebillCounterBurstUltimate;
         System.arraycopy(shoebillCounterHit, 0, state.shoebillCounterHit, 0, shoebillCounterHit.length);
+        state.shoebillFinalStillnessTimer = shoebillFinalStillnessTimer;
+        state.shoebillFinalStillnessTargetIndex = shoebillFinalStillnessTargetIndex;
+        state.shoebillFinalStillnessStatueX = shoebillFinalStillnessStatueX;
+        state.shoebillFinalStillnessStatueY = shoebillFinalStillnessStatueY;
+        state.shoebillFinalStillnessBeamStartX = shoebillFinalStillnessBeamStartX;
+        state.shoebillFinalStillnessBeamStartY = shoebillFinalStillnessBeamStartY;
+        state.shoebillFinalStillnessBeamTargetX = shoebillFinalStillnessBeamTargetX;
+        state.shoebillFinalStillnessBeamTargetY = shoebillFinalStillnessBeamTargetY;
+        state.shoebillFinalStillnessBeamResolved = shoebillFinalStillnessBeamResolved;
         state.hummingFrenzyTimer = hummingFrenzyTimer;
         state.phoenixAfterburnTimer = phoenixAfterburnTimer;
         state.phoenixRebirthNovaTimer = phoenixRebirthNovaTimer;
@@ -14704,6 +14734,15 @@ public class Bird {
             System.arraycopy(state.shoebillCounterHit, 0, this.shoebillCounterHit, 0,
                     Math.min(this.shoebillCounterHit.length, state.shoebillCounterHit.length));
         }
+        this.shoebillFinalStillnessTimer = Math.max(0, state.shoebillFinalStillnessTimer);
+        this.shoebillFinalStillnessTargetIndex = state.shoebillFinalStillnessTargetIndex;
+        this.shoebillFinalStillnessStatueX = state.shoebillFinalStillnessStatueX;
+        this.shoebillFinalStillnessStatueY = state.shoebillFinalStillnessStatueY;
+        this.shoebillFinalStillnessBeamStartX = state.shoebillFinalStillnessBeamStartX;
+        this.shoebillFinalStillnessBeamStartY = state.shoebillFinalStillnessBeamStartY;
+        this.shoebillFinalStillnessBeamTargetX = state.shoebillFinalStillnessBeamTargetX;
+        this.shoebillFinalStillnessBeamTargetY = state.shoebillFinalStillnessBeamTargetY;
+        this.shoebillFinalStillnessBeamResolved = state.shoebillFinalStillnessBeamResolved;
         this.hummingFrenzyTimer = state.hummingFrenzyTimer;
         this.phoenixAfterburnTimer = state.phoenixAfterburnTimer;
         this.phoenixRebirthNovaTimer = Math.max(0, state.phoenixRebirthNovaTimer);
@@ -14968,7 +15007,8 @@ public class Bird {
     private boolean shoebillSpecialPoseActive() {
         return type == BirdGame3.BirdType.SHOEBILL
                 && (shoebillStareFxTimer > 0 || shoebillThrustTimer > 0
-                || shoebillMarshLiftTimer > 0 || shoebillStatueTimer > 0 || shoebillCounterBurstTimer > 0);
+                || shoebillMarshLiftTimer > 0 || shoebillStatueTimer > 0
+                || shoebillCounterBurstTimer > 0 || shoebillFinalStillnessTimer > 0);
     }
 
     private boolean grinchhawkSpecialPoseActive() {
@@ -15607,6 +15647,26 @@ public class Bird {
 
     private AttackVisualPose currentShoebillSpecialPose() {
         double dir = facingRight ? 1.0 : -1.0;
+        if (shoebillFinalStillnessTimer > 0) {
+            double phase = Math.clamp(ShoebillSpecials.finalStillnessElapsed(this)
+                    / (double) Bird.SHOEBILL_FINAL_STILLNESS_FRAMES, 0.0, 1.0);
+            double pulse = ShoebillSpecials.finalStillnessBeamActive(this)
+                    ? Math.sin(phase * Math.PI * 10.0) * 1.8
+                    : 0.0;
+            return new AttackVisualPose(
+                    0.0,
+                    9.0 - pulse,
+                    dir * 0.4,
+                    facingRight ? 0.0 : Math.PI,
+                    2.0 + pulse * 0.7,
+                    1.0 - pulse * 0.4,
+                    1.0 + pulse,
+                    1.05,
+                    dir * 0.5,
+                    1.02,
+                    0.88
+            );
+        }
         if (shoebillMarshLiftTimer > 0) {
             double phase = shoebillSpecialPhase(shoebillMarshLiftTimer,
                     shoebillMarshLiftUltimate ? SHOEBILL_MARSH_LIFT_FRAMES + 8 : SHOEBILL_MARSH_LIFT_FRAMES);
@@ -21974,6 +22034,10 @@ public class Bird {
         double cy = bodyCenterY();
         int dir = facingDirection();
 
+        if (shoebillFinalStillnessTimer > 0) {
+            drawShoebillFinalStillnessFx(g, s);
+        }
+
         if (shoebillStareFxTimer > 0) {
             double total = shoebillStareUltimate ? SHOEBILL_STARE_FX_FRAMES + 8.0 : SHOEBILL_STARE_FX_FRAMES;
             double fade = Math.clamp(shoebillStareFxTimer / total, 0.0, 1.0);
@@ -22050,6 +22114,132 @@ public class Bird {
                 g.strokeOval(cx - radius, cy - radius * 0.72, radius * 2.0, radius * 1.44);
             }
         }
+    }
+
+    private void drawShoebillFinalStillnessFx(GraphicsContext g, double s) {
+        int elapsed = ShoebillSpecials.finalStillnessElapsed(this);
+        double rise = Math.clamp((elapsed - 8.0) / SHOEBILL_FINAL_STILLNESS_RISE_FRAMES, 0.0, 1.0);
+        double riseEase = 1.0 - Math.pow(1.0 - rise, 3.0);
+        double fadeOut = Math.clamp(shoebillFinalStillnessTimer / 24.0, 0.0, 1.0);
+        double alpha = Math.min(1.0, Math.max(0.0, fadeOut));
+        double baseX = shoebillFinalStillnessStatueX == 0.0 ? bodyCenterX() : shoebillFinalStillnessStatueX;
+        double baseY = shoebillFinalStillnessStatueY == 0.0 ? bodyBottomY() + 110.0 * s : shoebillFinalStillnessStatueY;
+        double height = 370.0 * s;
+        double width = 205.0 * s;
+        double visibleHeight = height * riseEase;
+        double topY = baseY - visibleHeight;
+        double rumble = Math.sin((elapsed + playerIndex * 11.0) * 0.45) * (1.0 - rise) * 5.0 * s;
+
+        g.save();
+        g.setGlobalAlpha(alpha);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setFill(Color.web("#05070A", 0.46));
+        g.fillOval(baseX - width * 0.82, baseY - 22.0 * s, width * 1.64, 46.0 * s);
+
+        if (visibleHeight > 1.0) {
+            double left = baseX - width * 0.5 + rumble;
+            Color stone = Color.web("#54636A");
+            Color darkStone = Color.web("#263238");
+            Color edge = Color.web("#B0BEC5");
+            g.setFill(darkStone.deriveColor(0, 0.95, 0.82, 0.68));
+            g.fillRoundRect(left - width * 0.16, topY + visibleHeight * 0.21, width * 1.32, visibleHeight * 0.79,
+                    18.0 * s, 18.0 * s);
+            g.setFill(stone.deriveColor(0, 0.88, 0.96, 0.92));
+            g.fillRoundRect(left, topY + visibleHeight * 0.26, width, visibleHeight * 0.70,
+                    14.0 * s, 14.0 * s);
+            g.setFill(Color.web("#37474F", 0.86));
+            g.fillRoundRect(left + width * 0.16, topY + visibleHeight * 0.04, width * 0.68, visibleHeight * 0.31,
+                    20.0 * s, 20.0 * s);
+            g.setFill(Color.web("#607D8B", 0.92));
+            g.fillPolygon(
+                    new double[]{baseX - width * 0.58 + rumble, baseX, baseX + width * 0.58 + rumble,
+                            baseX + width * 0.38 + rumble, baseX - width * 0.38 + rumble},
+                    new double[]{topY + visibleHeight * 0.18, topY, topY + visibleHeight * 0.18,
+                            topY + visibleHeight * 0.35, topY + visibleHeight * 0.35},
+                    5
+            );
+            g.setStroke(edge.deriveColor(0, 0.9, 1.05, 0.72));
+            g.setLineWidth(3.2 * s);
+            g.strokeRoundRect(left, topY + visibleHeight * 0.26, width, visibleHeight * 0.70,
+                    14.0 * s, 14.0 * s);
+            g.setStroke(Color.web("#1B2226", 0.62));
+            g.setLineWidth(2.0 * s);
+            for (int i = 0; i < 7; i++) {
+                double crackX = left + width * (0.16 + i * 0.11);
+                double crackTop = topY + visibleHeight * (0.38 + (i % 3) * 0.06);
+                g.strokeLine(crackX, crackTop, crackX + (i % 2 == 0 ? 18.0 : -15.0) * s,
+                        crackTop + visibleHeight * 0.16);
+            }
+
+            double faceY = topY + visibleHeight * 0.18;
+            double eyeY = faceY + 48.0 * s;
+            double eyeSpread = 34.0 * s;
+            double eyePulse = ShoebillSpecials.finalStillnessBeamActive(this)
+                    ? 1.0
+                    : Math.clamp((elapsed - SHOEBILL_FINAL_STILLNESS_RISE_FRAMES) / 30.0, 0.0, 1.0);
+            Color eye = Color.web("#FF1744", 0.30 + 0.68 * eyePulse);
+            g.setFill(eye.deriveColor(0, 1, 1, 0.28));
+            g.fillOval(baseX - eyeSpread - 20.0 * s, eyeY - 18.0 * s, 40.0 * s, 36.0 * s);
+            g.fillOval(baseX + eyeSpread - 20.0 * s, eyeY - 18.0 * s, 40.0 * s, 36.0 * s);
+            g.setFill(eye);
+            g.fillOval(baseX - eyeSpread - 8.0 * s, eyeY - 6.0 * s, 16.0 * s, 12.0 * s);
+            g.fillOval(baseX + eyeSpread - 8.0 * s, eyeY - 6.0 * s, 16.0 * s, 12.0 * s);
+        }
+
+        if (elapsed >= SHOEBILL_FINAL_STILLNESS_RISE_FRAMES - 4) {
+            drawShoebillFinalStillnessBeam(g, s, alpha);
+        }
+        g.restore();
+    }
+
+    private void drawShoebillFinalStillnessBeam(GraphicsContext g, double s, double alpha) {
+        double sx = shoebillFinalStillnessBeamStartX;
+        double sy = shoebillFinalStillnessBeamStartY;
+        double tx = shoebillFinalStillnessBeamTargetX;
+        double ty = shoebillFinalStillnessBeamTargetY;
+        if (sx == 0.0 && sy == 0.0) {
+            sx = shoebillFinalStillnessStatueX;
+            sy = shoebillFinalStillnessStatueY - 252.0 * s;
+        }
+        double eyeSpread = 34.0 * s;
+        boolean beam = ShoebillSpecials.finalStillnessBeamActive(this);
+        double pulse = 0.5 + 0.5 * Math.sin(shoebillFinalStillnessTimer * 0.65);
+
+        if (!beam) {
+            g.setStroke(Color.web("#FF1744", (0.26 + pulse * 0.22) * alpha));
+            g.setLineWidth((2.0 + pulse * 1.4) * s);
+            g.strokeLine(sx - eyeSpread, sy, tx, ty);
+            g.strokeLine(sx + eyeSpread, sy, tx, ty);
+            g.setStroke(Color.web("#FFFFFF", (0.14 + pulse * 0.12) * alpha));
+            g.setLineWidth(1.0 * s);
+            g.strokeLine(sx, sy + 8.0 * s, tx, ty);
+            g.setFill(Color.web("#FF1744", (0.18 + pulse * 0.18) * alpha));
+            g.fillOval(tx - 24.0 * s, ty - 24.0 * s, 48.0 * s, 48.0 * s);
+            return;
+        }
+
+        double beamPhase = Math.clamp((ShoebillSpecials.finalStillnessElapsed(this)
+                - SHOEBILL_FINAL_STILLNESS_BEAM_START_FRAME)
+                / (double) SHOEBILL_FINAL_STILLNESS_BEAM_FRAMES, 0.0, 1.0);
+        double swell = Math.sin(beamPhase * Math.PI);
+        double width = (44.0 + 24.0 * swell + 8.0 * pulse) * s;
+        g.setStroke(Color.web("#260006", 0.62 * alpha));
+        g.setLineWidth(width * 1.55);
+        g.strokeLine(sx, sy, tx, ty);
+        g.setStroke(Color.web("#B00020", 0.88 * alpha));
+        g.setLineWidth(width);
+        g.strokeLine(sx, sy, tx, ty);
+        g.setStroke(Color.web("#FF1744", 0.94 * alpha));
+        g.setLineWidth(width * 0.58);
+        g.strokeLine(sx, sy, tx, ty);
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.92 * alpha));
+        g.setLineWidth(width * 0.22);
+        g.strokeLine(sx, sy, tx, ty);
+        g.setFill(Color.web("#FF1744", 0.22 * alpha));
+        g.fillOval(tx - 88.0 * s, ty - 88.0 * s, 176.0 * s, 176.0 * s);
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.62 * alpha));
+        g.setLineWidth(3.0 * s);
+        g.strokeOval(tx - 48.0 * s, ty - 48.0 * s, 96.0 * s, 96.0 * s);
     }
 
     private void drawRoadrunnerSlipEffect(GraphicsContext g) {

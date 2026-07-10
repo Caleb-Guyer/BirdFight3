@@ -967,8 +967,10 @@ public class BirdGame3 extends Application {
     private double musicDuckLevel = 1.0;
 
     private void updateMusicDucking() {
-        double target = dramaticSlowMoTicks > 0 || (matchEnded && matchEndFocusBird != null) ? 0.35 : 1.0;
-        double eased = musicDuckLevel + (target - musicDuckLevel) * 0.12;
+        double target = hasShoebillFinalStillnessActive()
+                ? 0.0
+                : dramaticSlowMoTicks > 0 || (matchEnded && matchEndFocusBird != null) ? 0.35 : 1.0;
+        double eased = target <= 0.0 ? 0.0 : musicDuckLevel + (target - musicDuckLevel) * 0.12;
         if (Math.abs(eased - target) < 0.01) {
             eased = target;
         }
@@ -1116,6 +1118,24 @@ public class BirdGame3 extends Application {
         }
         if (bonkClip != null) {
             playManagedSfxVaried(bonkClip, 0.30, 0.48, 0.018);
+        }
+    }
+
+    void playShoebillFinalStillnessSfx() {
+        if (!sfxEnabled) return;
+        if (vaseBreakingClip != null) {
+            vaseBreakingClip.stop();
+            playManagedSfxVaried(vaseBreakingClip, 0.78, 1.92, 0.018);
+        }
+        if (hugewaveClip != null) {
+            hugewaveClip.stop();
+            playManagedSfxVaried(hugewaveClip, 0.86, 0.52, 0.018);
+        }
+        if (bonkClip != null) {
+            playManagedSfxVaried(bonkClip, 0.42, 0.58, 0.016);
+        }
+        if (swingClip != null) {
+            playManagedSfxVaried(swingClip, 0.38, 1.78, 0.025);
         }
     }
 
@@ -9636,7 +9656,7 @@ public class BirdGame3 extends Application {
         ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Chick Call + Chick Toss + Coop Boost + Brood Recall + Dawn Stampede"),
         ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road"),
         PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Belly Slide / Iceberg / Rocket Flop / Snow Fort / Absolute Zero Fortress"),
-        SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "Death Stare / Heavy Bill Thrust / Marsh Lift / Statue Counter"),
+        SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "Death Stare / Heavy Bill Thrust / Marsh Lift / Statue Counter / Final Stillness"),
         MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Mimic neutral / Mimic Call / Forest Lift / Forest Lounge"),
         RAZORBILL("Razorbill", 8, 12, 3.6, Color.INDIGO, 0.25, "Razor Storm / Skimming Razor / Cliff Shear / Counter Cut"),
         GRINCHHAWK("Grinch-Hawk", 10, 10, 2.8, Color.rgb(102, 153, 0), 0.80, "Heart Snatch / Sleigh Crash / Chimney Flap / Fake Present"),
@@ -12438,6 +12458,7 @@ public class BirdGame3 extends Application {
         }
         drawCombatImpactEffects(g);
         drawBlastZoneKoEffects(g);
+        drawShoebillFinalStillnessScreenDrain(g);
 
         if (trainingModeActive && trainingCombatOverlayEnabled) {
             drawTrainingCombatOverlay(g);
@@ -12467,6 +12488,63 @@ public class BirdGame3 extends Application {
             }
         }
         return false;
+    }
+
+    private boolean hasShoebillFinalStillnessActive() {
+        return activeShoebillFinalStillnessBird() != null;
+    }
+
+    private Bird activeShoebillFinalStillnessBird() {
+        for (int i = 0; i < activePlayers; i++) {
+            Bird bird = players[i];
+            if (bird != null
+                    && bird.health > 0
+                    && bird.type == BirdType.SHOEBILL
+                    && bird.shoebillFinalStillnessTimer > 0) {
+                return bird;
+            }
+        }
+        return null;
+    }
+
+    private void drawShoebillFinalStillnessScreenDrain(GraphicsContext g) {
+        Bird bird = activeShoebillFinalStillnessBird();
+        if (bird == null) return;
+        double safeZoom = Math.max(0.01, zoom);
+        double viewWidth = WIDTH / safeZoom;
+        double viewHeight = HEIGHT / safeZoom;
+        int elapsed = ShoebillSpecials.finalStillnessElapsed(bird);
+        double fadeIn = Math.clamp(elapsed / 18.0, 0.0, 1.0);
+        double fadeOut = Math.clamp(bird.shoebillFinalStillnessTimer / 24.0, 0.0, 1.0);
+        double alpha = Math.min(fadeIn, fadeOut);
+        if (alpha <= 0.0) return;
+
+        double pad = 240.0 / safeZoom + Math.max(80.0, shakeIntensity * 3.0);
+        double left = camX - pad;
+        double top = camY - pad;
+        double width = viewWidth + pad * 2.0;
+        double height = viewHeight + pad * 2.0;
+        double pulse = 0.5 + 0.5 * Math.sin((elapsed + bird.playerIndex * 13.0) * 0.34);
+
+        g.save();
+        g.setFill(Color.gray(0.36, (0.28 + pulse * 0.04) * alpha));
+        g.fillRect(left, top, width, height);
+        g.setFill(Color.rgb(0, 0, 0, 0.18 * alpha));
+        g.fillRect(left, top, width, height);
+        g.setStroke(Color.web("#FF1744", (0.16 + pulse * 0.12) * alpha));
+        g.setLineWidth(2.0 / safeZoom);
+        double centerX = camX + viewWidth * 0.5;
+        double centerY = camY + viewHeight * 0.5;
+        for (int i = 0; i < 5; i++) {
+            double inset = (34.0 + i * 30.0) / safeZoom;
+            g.strokeRoundRect(centerX - viewWidth * 0.5 + inset, centerY - viewHeight * 0.5 + inset,
+                    viewWidth - inset * 2.0, viewHeight - inset * 2.0, 20.0 / safeZoom, 20.0 / safeZoom);
+        }
+        if (ShoebillSpecials.finalStillnessBeamActive(bird)) {
+            g.setFill(Color.web("#FF1744", 0.10 * alpha));
+            g.fillRect(left, top, width, height);
+        }
+        g.restore();
     }
 
     private void drawSwingingVines(GraphicsContext g, boolean ambientFx) {
@@ -45331,6 +45409,7 @@ public class BirdGame3 extends Application {
             case MOCKINGBIRD -> "Mimic steals neutral specials; Lounge controls space.";
             case ROOSTER -> "Ultimate: Dawn Stampede floods the stage with fast flying swarm chicks.";
             case PENGUIN -> "Air down special drops a straight-down iceberg. Ultimate creates an invulnerable ice throne.";
+            case SHOEBILL -> "Ultimate: Final Stillness drains the screen, silences music, and fires an ancient locked beam.";
             case BAT -> "Ceiling Hang gives the down special a second movement state.";
             case PHOENIX -> "Snap Fire travels farther and fizzles harmlessly. Air Snap Fire angles down; air Faultfire can be held.";
             default -> "Directional input changes the special before startup.";

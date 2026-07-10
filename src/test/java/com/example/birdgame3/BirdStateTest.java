@@ -3588,6 +3588,55 @@ class BirdStateTest {
     }
 
     @Test
+    void shoebillUltimateStartsFinalStillness() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird shoebill = new Bird(300.0, BirdGame3.BirdType.SHOEBILL, 0, game);
+        Bird target = new Bird(620.0, BirdGame3.BirdType.PIGEON, 1, game);
+        shoebill.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = shoebill;
+        game.players[1] = target;
+
+        setPrivateDouble(shoebill, "ultimateMeter", 100.0);
+        invokePrivateVoid(shoebill, "special");
+
+        assertEquals(0.0, getPrivateDouble(shoebill, "ultimateMeter"), 0.0001);
+        assertTrue(getPrivateInt(shoebill, "shoebillFinalStillnessTimer") > 0);
+        assertEquals(1, getPrivateInt(shoebill, "shoebillFinalStillnessTargetIndex"));
+        assertTrue(shoebill.isCombatInvulnerable());
+        assertEquals(0, shoebill.specialCooldown);
+        assertEquals(ShoebillSpecials.FINAL_STILLNESS_MOVE, game.lastTelemetryMoveName(0, ""));
+    }
+
+    @Test
+    void shoebillFinalStillnessBeamDamagesLockedTarget() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird shoebill = new Bird(300.0, BirdGame3.BirdType.SHOEBILL, 0, game);
+        Bird target = new Bird(620.0, BirdGame3.BirdType.PIGEON, 1, game);
+        shoebill.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = shoebill;
+        game.players[1] = target;
+
+        setPrivateDouble(shoebill, "ultimateMeter", 100.0);
+        invokePrivateVoid(shoebill, "special");
+        double healthBefore = target.health;
+
+        int damageFrame = Bird.SHOEBILL_FINAL_STILLNESS_BEAM_START_FRAME + 8;
+        for (int i = 0; i <= damageFrame; i++) {
+            shoebill.update(1.0);
+        }
+
+        assertTrue(target.health < healthBefore, "Final Stillness should damage the locked target.");
+        assertTrue(getPrivateBoolean(shoebill, "shoebillFinalStillnessBeamResolved"));
+        assertTrue(game.damageDealt[0] > 0);
+    }
+
+    @Test
     void penguinSnowFortGuardsAndTurnsIcebergIntoSnowball() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

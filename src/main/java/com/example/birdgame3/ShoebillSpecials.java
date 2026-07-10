@@ -5,10 +5,18 @@ import javafx.scene.paint.Color;
 import java.util.Arrays;
 
 final class ShoebillSpecials {
+    static final String FINAL_STILLNESS_MOVE = "Shoebill Final Stillness";
+    private static final double FINAL_STILLNESS_PRIMARY_DAMAGE = 27.0;
+    private static final double FINAL_STILLNESS_SPLASH_DAMAGE = 15.0;
+
     private ShoebillSpecials() {
     }
 
     static void use(Bird bird, boolean ultimate) {
+        if (ultimate) {
+            startFinalStillness(bird);
+            return;
+        }
         switch (bird.selectShoebillSpecialVariant()) {
             case NEUTRAL -> neutral(bird, ultimate);
             case SIDE -> side(bird, ultimate);
@@ -134,6 +142,10 @@ final class ShoebillSpecials {
         if (bird.type != BirdGame3.BirdType.SHOEBILL && !bird.mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.SHOEBILL)) {
             return;
         }
+        if (bird.type == BirdGame3.BirdType.SHOEBILL && bird.shoebillFinalStillnessTimer > 0) {
+            handleFinalStillness(bird);
+            return;
+        }
         if (bird.stunTime > 0.0) {
             reset(bird);
             if (bird.mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.SHOEBILL)) {
@@ -157,7 +169,8 @@ final class ShoebillSpecials {
                 || bird.shoebillThrustTimer > 0
                 || bird.shoebillMarshLiftTimer > 0
                 || bird.shoebillStatueTimer > 0
-                || bird.shoebillCounterBurstTimer > 0;
+                || bird.shoebillCounterBurstTimer > 0
+                || bird.shoebillFinalStillnessTimer > 0;
     }
 
     static boolean ready(Bird bird, Bird.ShoebillSpecialVariant variant) {
@@ -209,7 +222,9 @@ final class ShoebillSpecials {
     }
 
     static void interruptOnHit(Bird bird) {
-        if (bird.type != BirdGame3.BirdType.SHOEBILL || statueCounterWindowActive(bird)) {
+        if (bird.type != BirdGame3.BirdType.SHOEBILL
+                || statueCounterWindowActive(bird)
+                || bird.shoebillFinalStillnessTimer > 0) {
             return;
         }
         if (active(bird)) {
@@ -234,6 +249,26 @@ final class ShoebillSpecials {
         bird.shoebillCounterBurstTimer = 0;
         bird.shoebillCounterBurstUltimate = false;
         Arrays.fill(bird.shoebillCounterHit, false);
+        bird.shoebillFinalStillnessTimer = 0;
+        bird.shoebillFinalStillnessTargetIndex = -1;
+        bird.shoebillFinalStillnessStatueX = 0.0;
+        bird.shoebillFinalStillnessStatueY = 0.0;
+        bird.shoebillFinalStillnessBeamStartX = 0.0;
+        bird.shoebillFinalStillnessBeamStartY = 0.0;
+        bird.shoebillFinalStillnessBeamTargetX = 0.0;
+        bird.shoebillFinalStillnessBeamTargetY = 0.0;
+        bird.shoebillFinalStillnessBeamResolved = false;
+    }
+
+    static int finalStillnessElapsed(Bird bird) {
+        return Math.max(0, Bird.SHOEBILL_FINAL_STILLNESS_FRAMES - Math.max(0, bird.shoebillFinalStillnessTimer));
+    }
+
+    static boolean finalStillnessBeamActive(Bird bird) {
+        int elapsed = finalStillnessElapsed(bird);
+        return bird.shoebillFinalStillnessTimer > 0
+                && elapsed >= Bird.SHOEBILL_FINAL_STILLNESS_BEAM_START_FRAME
+                && elapsed < Bird.SHOEBILL_FINAL_STILLNESS_BEAM_START_FRAME + Bird.SHOEBILL_FINAL_STILLNESS_BEAM_FRAMES;
     }
 
     static void emitReedBurst(Bird bird, double originX, double originY, int dir, int count, Color baseColor) {
@@ -248,6 +283,172 @@ final class ShoebillSpecials {
                     Math.cos(angle) * speed + safeDir * (0.2 + SimRng.next()),
                     Math.sin(angle) * speed - SimRng.next() * 2.2,
                     baseColor.deriveColor(0, 1, 1, 0.62 + SimRng.next() * 0.25)
+            ));
+        }
+    }
+
+    private static void startFinalStillness(Bird bird) {
+        reset(bird);
+        Bird target = nearestEnemy(bird, bird.bodyCenterX(), bird.bodyCenterY());
+        double s = bird.sizeMultiplier;
+        double desiredX = target == null
+                ? bird.bodyCenterX()
+                : bird.bodyCenterX() * 0.42 + target.bodyCenterX() * 0.58;
+        double left = bird.game.battlefieldLeftBound() + 150.0 * s;
+        double right = bird.game.battlefieldRightBound() - 150.0 * s;
+        double statueX = clampBetween(desiredX, left, right);
+        double statueY = finalStillnessSurfaceY(bird, statueX);
+
+        bird.shoebillFinalStillnessTimer = Bird.SHOEBILL_FINAL_STILLNESS_FRAMES;
+        bird.shoebillFinalStillnessTargetIndex = target == null ? -1 : target.playerIndex;
+        bird.shoebillFinalStillnessStatueX = statueX;
+        bird.shoebillFinalStillnessStatueY = statueY;
+        bird.shoebillFinalStillnessBeamResolved = false;
+        updateFinalStillnessAim(bird, target);
+        if (target != null) {
+            bird.facingRight = target.bodyCenterX() >= bird.bodyCenterX();
+        }
+
+        bird.vx = 0.0;
+        bird.vy = 0.0;
+        bird.isBlocking = false;
+        bird.parryWindowFrames = 0;
+        bird.shieldStunFrames = 0;
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.SHOEBILL_FINAL_STILLNESS_FRAMES);
+        bird.game.addToKillFeed(bird.shortName() + " awakened Final Stillness!");
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 28);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, 8);
+
+        for (int i = 0; i < bird.scaledParticleCount(86); i++) {
+            double angle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * Math.PI * 0.72;
+            double speed = 3.0 + SimRng.next() * 9.0;
+            bird.game.particles.add(new Particle(
+                    statueX + (SimRng.next() - 0.5) * 170.0 * s,
+                    statueY - SimRng.next() * 36.0 * s,
+                    Math.cos(angle) * speed * 0.5,
+                    Math.sin(angle) * speed - 1.8 - SimRng.next() * 2.0,
+                    Color.web("#B0BEC5").deriveColor(0, 0.86, 0.82, 0.62 + SimRng.next() * 0.25)
+            ));
+        }
+    }
+
+    private static void handleFinalStillness(Bird bird) {
+        int elapsed = finalStillnessElapsed(bird);
+        Bird target = finalStillnessTarget(bird);
+        updateFinalStillnessAim(bird, target);
+
+        bird.vx = 0.0;
+        bird.vy = 0.0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 8);
+        bird.isBlocking = false;
+        bird.parryWindowFrames = 0;
+        bird.shieldStunFrames = 0;
+        bird.stunTime = 0.0;
+        bird.knockdownTimer = 0;
+
+        if (elapsed < Bird.SHOEBILL_FINAL_STILLNESS_RISE_FRAMES && (elapsed & 3) == 0) {
+            double s = bird.sizeMultiplier;
+            bird.game.particles.add(new Particle(
+                    bird.shoebillFinalStillnessStatueX + (SimRng.next() - 0.5) * 210.0 * s,
+                    bird.shoebillFinalStillnessStatueY - (10.0 + SimRng.next() * 44.0) * s,
+                    (SimRng.next() - 0.5) * 2.2,
+                    -2.8 - SimRng.next() * 4.6,
+                    Color.web("#78909C").deriveColor(0, 0.8, 0.88, 0.54 + SimRng.next() * 0.26)
+            ));
+        }
+
+        if (!bird.shoebillFinalStillnessBeamResolved
+                && elapsed >= Bird.SHOEBILL_FINAL_STILLNESS_BEAM_START_FRAME + 6) {
+            resolveFinalStillnessBeam(bird, target);
+        }
+    }
+
+    private static Bird finalStillnessTarget(Bird bird) {
+        int idx = bird.shoebillFinalStillnessTargetIndex;
+        if (idx >= 0 && idx < bird.game.players.length) {
+            Bird target = bird.game.players[idx];
+            if (bird.canDamageTarget(target)) {
+                return target;
+            }
+        }
+        Bird target = nearestEnemy(bird, bird.shoebillFinalStillnessStatueX, bird.shoebillFinalStillnessStatueY);
+        bird.shoebillFinalStillnessTargetIndex = target == null ? -1 : target.playerIndex;
+        return target;
+    }
+
+    private static void updateFinalStillnessAim(Bird bird, Bird target) {
+        double s = bird.sizeMultiplier;
+        double startX = bird.shoebillFinalStillnessStatueX;
+        double startY = bird.shoebillFinalStillnessStatueY - 252.0 * s;
+        double targetX = target == null
+                ? bird.bodyCenterX() + bird.facingDirection() * 520.0 * s
+                : target.bodyCenterX();
+        double targetY = target == null
+                ? bird.bodyCenterY() - 24.0 * s
+                : target.bodyCenterY() - 10.0 * s;
+        bird.shoebillFinalStillnessBeamStartX = startX;
+        bird.shoebillFinalStillnessBeamStartY = startY;
+        bird.shoebillFinalStillnessBeamTargetX = targetX;
+        bird.shoebillFinalStillnessBeamTargetY = targetY;
+    }
+
+    private static void resolveFinalStillnessBeam(Bird bird, Bird primaryTarget) {
+        bird.shoebillFinalStillnessBeamResolved = true;
+        double sx = bird.shoebillFinalStillnessBeamStartX;
+        double sy = bird.shoebillFinalStillnessBeamStartY;
+        double ex = bird.shoebillFinalStillnessBeamTargetX;
+        double ey = bird.shoebillFinalStillnessBeamTargetY;
+        double len = Math.max(1.0, Math.hypot(ex - sx, ey - sy));
+        double dirX = (ex - sx) / len;
+        double dirY = (ey - sy) / len;
+        boolean hitAny = false;
+
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            boolean primary = other == primaryTarget;
+            double beamDistance = distancePointToSegment(other.bodyCenterX(), other.bodyCenterY(), sx, sy, ex, ey);
+            double width = (primary ? 96.0 : 68.0) * bird.sizeMultiplier + other.combatRadius() * 0.48;
+            if (!primary && beamDistance > width) continue;
+
+            double oldHealth = other.health;
+            int rawDamage = (int) Math.round(primary ? FINAL_STILLNESS_PRIMARY_DAMAGE : FINAL_STILLNESS_SPLASH_DAMAGE);
+            int dealt = (int) bird.applyUnshieldedDamageTo(other, rawDamage);
+            if (dealt <= 0) continue;
+
+            hitAny = true;
+            bird.game.damageDealt[bird.playerIndex] += dealt;
+            bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
+            bird.confirmSpecialHit(dealt, Color.web("#FF1744"));
+            double launchX = dirX * (primary ? 23.0 : 14.0);
+            double launchY = dirY * (primary ? 8.0 : 5.0) - (primary ? 8.0 : 5.0);
+            other.vx += launchX;
+            other.vy += launchY;
+            other.applyStun(primary ? 18 : 10);
+            if (other.health <= 0 && oldHealth > 0) {
+                bird.game.eliminations[bird.playerIndex]++;
+                bird.game.recordMoveKo(bird, other, FINAL_STILLNESS_MOVE);
+            }
+            bird.game.emitCombatImpact(bird, other, other.bodyCenterX(), other.bodyCenterY(),
+                    launchX, launchY, dealt, primary, FINAL_STILLNESS_MOVE);
+        }
+
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, hitAny ? 34 : 22);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, hitAny ? 7 : 3);
+        bird.game.triggerFlash(hitAny ? 0.58 : 0.34, false);
+        int burstCount = bird.scaledParticleCount(hitAny ? 96 : 58);
+        for (int i = 0; i < burstCount; i++) {
+            double t = SimRng.next();
+            double px = sx + (ex - sx) * t;
+            double py = sy + (ey - sy) * t;
+            double side = (SimRng.next() - 0.5) * 46.0 * bird.sizeMultiplier;
+            bird.game.particles.add(new Particle(
+                    px - dirY * side,
+                    py + dirX * side,
+                    dirX * (2.0 + SimRng.next() * 8.0) + (SimRng.next() - 0.5) * 3.0,
+                    dirY * (2.0 + SimRng.next() * 8.0) + (SimRng.next() - 0.5) * 3.0,
+                    (i % 3 == 0 ? Color.WHITE : Color.web("#FF1744")).deriveColor(0, 1, 1, 0.72)
             ));
         }
     }
@@ -482,5 +683,57 @@ final class ShoebillSpecials {
             other.vy -= bird.shoebillCounterBurstUltimate ? 8.2 : 5.8;
             other.applyStun(bird.shoebillCounterBurstUltimate ? 92 : 66);
         }
+    }
+
+    private static Bird nearestEnemy(Bird bird, double x, double y) {
+        Bird best = null;
+        double bestScore = Double.POSITIVE_INFINITY;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - x;
+            double dy = other.bodyCenterY() - y;
+            double score = dx * dx + dy * dy * 0.55;
+            if (score < bestScore) {
+                bestScore = score;
+                best = other;
+            }
+        }
+        return best;
+    }
+
+    private static double finalStillnessSurfaceY(Bird bird, double objectX) {
+        double sourceY = Math.min(bird.bodyBottomY(), BirdGame3.GROUND_Y) - 52.0 * bird.sizeMultiplier;
+        double bestY = bird.hasSolidGroundFloorUnderBody() ? BirdGame3.GROUND_Y : Double.POSITIVE_INFINITY;
+        for (Platform p : bird.game.platforms) {
+            boolean isCaveCeiling = bird.game.selectedMap == BirdGame3.MapType.CAVE
+                    && p.y <= 1 && p.h >= 60 && p.w >= BirdGame3.WORLD_WIDTH - 10;
+            if (isCaveCeiling) continue;
+            if (objectX < p.x - 44.0 || objectX > p.x + p.w + 44.0) continue;
+            if (p.y < sourceY - 28.0) continue;
+            if (p.y < bestY) {
+                bestY = p.y;
+            }
+        }
+        return Double.isFinite(bestY) ? bestY : bird.bodyBottomY() + 12.0 * bird.sizeMultiplier;
+    }
+
+    private static double distancePointToSegment(double px, double py, double x1, double y1, double x2, double y2) {
+        double dx = x2 - x1;
+        double dy = y2 - y1;
+        double lenSq = dx * dx + dy * dy;
+        if (lenSq <= 0.0001) {
+            return Math.hypot(px - x1, py - y1);
+        }
+        double t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+        t = Math.clamp(t, 0.0, 1.0);
+        double cx = x1 + dx * t;
+        double cy = y1 + dy * t;
+        return Math.hypot(px - cx, py - cy);
+    }
+
+    private static double clampBetween(double value, double a, double b) {
+        double min = Math.min(a, b);
+        double max = Math.max(a, b);
+        return Math.max(min, Math.min(max, value));
     }
 }

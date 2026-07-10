@@ -436,6 +436,15 @@ class LanBirdState {
     int shoebillCounterBurstTimer;
     boolean shoebillCounterBurstUltimate;
     boolean[] shoebillCounterHit = new boolean[4];
+    int shoebillFinalStillnessTimer;
+    int shoebillFinalStillnessTargetIndex = -1;
+    double shoebillFinalStillnessStatueX;
+    double shoebillFinalStillnessStatueY;
+    double shoebillFinalStillnessBeamStartX;
+    double shoebillFinalStillnessBeamStartY;
+    double shoebillFinalStillnessBeamTargetX;
+    double shoebillFinalStillnessBeamTargetY;
+    boolean shoebillFinalStillnessBeamResolved;
     int hummingFrenzyTimer;
     int phoenixAfterburnTimer;
     int phoenixRebirthNovaTimer;
@@ -953,6 +962,15 @@ class LanBirdState {
         for (boolean hit : shoebillCounterHit) {
             out.writeBoolean(hit);
         }
+        out.writeInt(shoebillFinalStillnessTimer);
+        out.writeInt(shoebillFinalStillnessTargetIndex);
+        out.writeDouble(shoebillFinalStillnessStatueX);
+        out.writeDouble(shoebillFinalStillnessStatueY);
+        out.writeDouble(shoebillFinalStillnessBeamStartX);
+        out.writeDouble(shoebillFinalStillnessBeamStartY);
+        out.writeDouble(shoebillFinalStillnessBeamTargetX);
+        out.writeDouble(shoebillFinalStillnessBeamTargetY);
+        out.writeBoolean(shoebillFinalStillnessBeamResolved);
         out.writeInt(hummingFrenzyTimer);
         out.writeInt(phoenixAfterburnTimer);
         out.writeInt(phoenixRebirthNovaTimer);
@@ -1476,6 +1494,15 @@ class LanBirdState {
         for (int i = 0; i < state.shoebillCounterHit.length; i++) {
             state.shoebillCounterHit[i] = in.readBoolean();
         }
+        state.shoebillFinalStillnessTimer = in.readInt();
+        state.shoebillFinalStillnessTargetIndex = in.readInt();
+        state.shoebillFinalStillnessStatueX = in.readDouble();
+        state.shoebillFinalStillnessStatueY = in.readDouble();
+        state.shoebillFinalStillnessBeamStartX = in.readDouble();
+        state.shoebillFinalStillnessBeamStartY = in.readDouble();
+        state.shoebillFinalStillnessBeamTargetX = in.readDouble();
+        state.shoebillFinalStillnessBeamTargetY = in.readDouble();
+        state.shoebillFinalStillnessBeamResolved = in.readBoolean();
         state.hummingFrenzyTimer = in.readInt();
         state.phoenixAfterburnTimer = in.readInt();
         state.phoenixRebirthNovaTimer = in.readInt();
