@@ -1194,6 +1194,23 @@ public class BirdGame3 extends Application {
         }
     }
 
+    void playTurkeyHarvestTribunalSfx() {
+        if (!sfxEnabled) return;
+        if (hugewaveClip != null) {
+            hugewaveClip.stop();
+            playManagedSfxVaried(hugewaveClip, 0.86, 0.72, 0.018);
+        }
+        if (vaseBreakingClip != null) {
+            playManagedSfxVaried(vaseBreakingClip, 0.62, 1.34, 0.018);
+        }
+        if (swingClip != null) {
+            playManagedSfxVaried(swingClip, 0.48, 0.82, 0.022);
+        }
+        if (bonkClip != null) {
+            playManagedSfxVaried(bonkClip, 0.44, 0.56, 0.014);
+        }
+    }
+
     void playAchievementSfx() {
         if (!sfxEnabled || steamAchievementClip == null) return;
         steamAchievementClip.stop();
@@ -9707,7 +9724,7 @@ public class BirdGame3 extends Application {
         FALCON("Falcon", 10, 18, 4.4, Color.rgb(176, 95, 55), 0.64, "Echo of Eagle: Target Snap / Razor Rush / Jet Climb / Meteor Strike"),
         PHOENIX("Phoenix", 8, 20, 4.6, Color.ORANGERED, 0.66, "Cinder Halo / Snap Fire / Firespin / Faultfire"),
         HUMMINGBIRD("Hummingbird", 6, 23, 5.0, Color.LIME, 0.85, "Needle Barrage + Flash Sip + Hover Burst + Nectar Trap + Needleheart Overdrive"),
-        TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Charged Gobble Guard + Held Stampede + Panic Flap + Feast Trap"),
+        TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Charged Gobble Guard + Held Stampede + Panic Flap + Feast Trap + Harvest Tribunal"),
         ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Chick Call + Chick Toss + Coop Boost + Brood Recall + Dawn Stampede"),
         ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road"),
         PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Belly Slide / Iceberg / Rocket Flop / Snow Fort / Absolute Zero Fortress"),
@@ -45872,6 +45889,7 @@ public class BirdGame3 extends Application {
             case HUMMINGBIRD -> "Ultimate: Needleheart Overdrive locks on, chains three flash pierces, then detonates a nectar final stab.";
             case MOCKINGBIRD -> "Ultimate: Shadow Court summons three fragile dark copies from the Lounge.";
             case ROOSTER -> "Ultimate: Dawn Stampede floods the stage with fast flying swarm chicks.";
+            case TURKEY -> "Ultimate: Harvest Tribunal summons a feast altar, pulls enemies in, stuffs them, then delivers a gold verdict slash.";
             case PENGUIN -> "Air down special drops a straight-down iceberg. Ultimate creates an invulnerable ice throne.";
             case SHOEBILL -> "Ultimate: Final Stillness drains the screen, silences music, and fires an ancient locked beam.";
             case RAZORBILL -> "Ultimate: Guillotine Wake marks dodgeable cut-lines, chains slashes, then leaves a damaging razor wake.";

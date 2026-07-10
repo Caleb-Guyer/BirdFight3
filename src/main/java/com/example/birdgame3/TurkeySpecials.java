@@ -5,10 +5,16 @@ import javafx.scene.paint.Color;
 import java.util.Arrays;
 
 final class TurkeySpecials {
+    static final String HARVEST_TRIBUNAL_MOVE = "Harvest Tribunal";
+
     private TurkeySpecials() {
     }
 
     static void use(Bird bird, boolean ultimate) {
+        if (ultimate) {
+            startHarvestTribunal(bird);
+            return;
+        }
         switch (bird.selectTurkeySpecialVariant()) {
             case NEUTRAL -> neutral(bird, ultimate);
             case SIDE -> side(bird, ultimate);
@@ -147,6 +153,10 @@ final class TurkeySpecials {
             }
             return;
         }
+        if (bird.turkeyHarvestTribunalTimer > 0) {
+            handleHarvestTribunal(bird);
+            return;
+        }
         if (bird.turkeyGobbleCharging) {
             handleGobbleCharge(bird);
         }
@@ -165,7 +175,8 @@ final class TurkeySpecials {
         return bird.turkeyGobbleCharging
                 || bird.turkeyGobbleTimer > 0
                 || bird.turkeyStampedeTimer > 0
-                || bird.turkeyPanicFlapTimer > 0;
+                || bird.turkeyPanicFlapTimer > 0
+                || bird.turkeyHarvestTribunalTimer > 0;
     }
 
     static boolean ready(Bird bird, Bird.TurkeySpecialVariant variant) {
@@ -210,6 +221,9 @@ final class TurkeySpecials {
         bird.turkeyPanicFlapTimer = 0;
         bird.turkeyPanicFlapUltimate = false;
         Arrays.fill(bird.turkeyPanicFlapHit, false);
+        bird.turkeyHarvestTribunalTimer = 0;
+        bird.turkeyHarvestTribunalFinalResolved = false;
+        Arrays.fill(bird.turkeyHarvestTribunalFinalHit, false);
         if (clearTraps) {
             bird.turkeyFeastTraps.clear();
         }
@@ -218,7 +232,9 @@ final class TurkeySpecials {
     static boolean armorActive(Bird bird) {
         return bird.type == BirdGame3.BirdType.TURKEY
                 && bird.health > 0
-                && (bird.turkeyGobbleArmorTimer > 0 || bird.turkeyStampedeTimer > 0);
+                && (bird.turkeyGobbleArmorTimer > 0
+                || bird.turkeyStampedeTimer > 0
+                || bird.turkeyHarvestTribunalTimer > 0);
     }
 
     static double applyArmor(Bird bird, double scaledDamage) {
@@ -251,6 +267,14 @@ final class TurkeySpecials {
             ));
         }
         return scaledDamage * (guarding ? 0.35 : 0.58);
+    }
+
+    static double harvestTribunalProgress(Bird bird) {
+        if (bird.turkeyHarvestTribunalTimer <= 0) {
+            return 0.0;
+        }
+        return Math.clamp((Bird.TURKEY_HARVEST_TRIBUNAL_FRAMES - bird.turkeyHarvestTribunalTimer)
+                / (double) Bird.TURKEY_HARVEST_TRIBUNAL_FRAMES, 0.0, 1.0);
     }
 
     static double gobbleChargeRatio(Bird bird) {
@@ -557,6 +581,197 @@ final class TurkeySpecials {
             other.vx += dir * (bird.turkeyPanicFlapUltimate ? 5.5 : 3.8);
             other.vy = Math.max(other.vy, bird.turkeyPanicFlapUltimate ? 13.0 : 10.0);
             applyStuffedKnockbackBonus(bird, other, dir);
+        }
+    }
+
+    private static void startHarvestTribunal(Bird bird) {
+        reset(bird, false);
+        Bird target = nearestHarvestTarget(bird);
+        double targetX = target == null ? bird.bodyCenterX() + bird.facingDirection() * 240.0 : target.bodyCenterX();
+        targetX = Math.clamp(targetX, 82.0, BirdGame3.WORLD_WIDTH - 82.0);
+
+        bird.turkeyHarvestTribunalX = targetX;
+        bird.turkeyHarvestTribunalY = trapSurfaceY(bird, targetX);
+        bird.turkeyHarvestTribunalTimer = Bird.TURKEY_HARVEST_TRIBUNAL_FRAMES;
+        bird.turkeyHarvestTribunalFinalResolved = false;
+        Arrays.fill(bird.turkeyHarvestTribunalFinalHit, false);
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 48);
+        bird.vx *= bird.isOnGround() ? 0.36 : 0.60;
+        bird.vy = Math.min(bird.vy, bird.isOnGround() ? 0.0 : 2.0);
+        bird.isBlocking = false;
+        bird.parryWindowFrames = 0;
+        bird.shieldStunFrames = 0;
+        bird.blockCooldown = 0;
+        bird.facingRight = bird.turkeyHarvestTribunalX >= bird.bodyCenterX();
+        bird.game.addToKillFeed(bird.shortName() + " SUMMONED THE HARVEST TRIBUNAL!");
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 14);
+
+        for (int i = 0; i < bird.scaledParticleCount(58); i++) {
+            double angle = SimRng.next() * Math.PI * 2.0;
+            double radius = 24.0 + SimRng.next() * 120.0;
+            bird.game.particles.add(new Particle(
+                    bird.turkeyHarvestTribunalX + Math.cos(angle) * radius,
+                    bird.turkeyHarvestTribunalY - 8.0 + Math.sin(angle) * radius * 0.24,
+                    Math.cos(angle) * (1.0 + SimRng.next() * 2.6),
+                    -1.8 - SimRng.next() * 4.2,
+                    (SimRng.next() < 0.55 ? Color.web("#FFB74D") : Color.GOLDENROD)
+                            .deriveColor(0, 1, 1, 0.76)
+            ));
+        }
+    }
+
+    private static Bird nearestHarvestTarget(Bird bird) {
+        Bird best = null;
+        double bestDistance = Double.POSITIVE_INFINITY;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - bird.bodyCenterX();
+            double dy = other.bodyCenterY() - bird.bodyCenterY();
+            double distance = dx * dx + dy * dy * 0.45;
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = other;
+            }
+        }
+        return best;
+    }
+
+    private static void handleHarvestTribunal(Bird bird) {
+        int elapsed = Bird.TURKEY_HARVEST_TRIBUNAL_FRAMES - bird.turkeyHarvestTribunalTimer;
+        bird.facingRight = bird.turkeyHarvestTribunalX >= bird.bodyCenterX();
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 8);
+        bird.vx *= bird.isOnGround() ? 0.50 : 0.76;
+        if (!bird.isOnGround()) {
+            bird.vy = Math.min(bird.vy, 2.4);
+        }
+
+        if (elapsed >= Bird.TURKEY_HARVEST_TRIBUNAL_PULL_START_FRAME
+                && elapsed < Bird.TURKEY_HARVEST_TRIBUNAL_FINAL_FRAME) {
+            applyHarvestPull(bird, elapsed);
+        }
+
+        if (!bird.turkeyHarvestTribunalFinalResolved
+                && elapsed >= Bird.TURKEY_HARVEST_TRIBUNAL_FINAL_FRAME) {
+            resolveHarvestVerdict(bird);
+        }
+
+        if ((bird.turkeyHarvestTribunalTimer & 3) == 0) {
+            emitHarvestAmbientParticles(bird, elapsed);
+        }
+    }
+
+    private static void applyHarvestPull(Bird bird, int elapsed) {
+        double radius = Bird.TURKEY_HARVEST_TRIBUNAL_PULL_RADIUS * bird.sizeMultiplier;
+        double verticalRadius = 178.0 * bird.sizeMultiplier;
+        double centerX = bird.turkeyHarvestTribunalX;
+        double centerY = bird.turkeyHarvestTribunalY - 48.0 * bird.sizeMultiplier;
+        double chargeRatio = Math.clamp((elapsed - Bird.TURKEY_HARVEST_TRIBUNAL_PULL_START_FRAME) / 54.0, 0.0, 1.0);
+
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            double dx = centerX - other.bodyCenterX();
+            double dy = centerY - other.bodyCenterY();
+            double normalized = Math.hypot(dx / Math.max(1.0, radius), dy / Math.max(1.0, verticalRadius));
+            if (normalized > 1.0 + other.combatRadius() / Math.max(radius, verticalRadius)) continue;
+
+            double strength = (1.0 - Math.min(1.0, normalized)) * (0.46 + chargeRatio * 0.64);
+            other.vx += Math.clamp(dx * 0.018 * strength, -2.8, 2.8);
+            other.vy += Math.clamp(dy * 0.011 * strength, -1.7, 1.7);
+            if (Math.abs(other.bodyCenterX() - centerX) <= 112.0 * bird.sizeMultiplier + other.combatHalfWidth()
+                    && other.bodyCenterY() > bird.turkeyHarvestTribunalY - 112.0 * bird.sizeMultiplier
+                    && other.bodyCenterY() < bird.turkeyHarvestTribunalY + 34.0 * bird.sizeMultiplier) {
+                other.applyTurkeyStuffing(bird, true);
+                other.vx *= 0.88;
+                other.vy *= 0.93;
+            }
+        }
+    }
+
+    private static void resolveHarvestVerdict(Bird bird) {
+        bird.turkeyHarvestTribunalFinalResolved = true;
+        double centerX = bird.turkeyHarvestTribunalX;
+        double centerY = bird.turkeyHarvestTribunalY - 58.0 * bird.sizeMultiplier;
+        double horizontalRange = 270.0 * bird.sizeMultiplier;
+        double verticalRange = 166.0 * bird.sizeMultiplier;
+        int heaviestHit = 0;
+
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            if (other.playerIndex < 0 || other.playerIndex >= bird.turkeyHarvestTribunalFinalHit.length) continue;
+            if (bird.turkeyHarvestTribunalFinalHit[other.playerIndex]) continue;
+
+            double dx = other.bodyCenterX() - centerX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.abs(dx) > horizontalRange + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > verticalRange + other.combatHalfHeight()) continue;
+
+            bird.turkeyHarvestTribunalFinalHit[other.playerIndex] = true;
+            boolean stuffed = other.turkeyStuffedTimer > 0 && other.turkeyStuffedOwnerIndex == bird.playerIndex;
+            double oldHealth = other.health;
+            int rawDamage = stuffed ? 27 : 19;
+            int dealt = (int) bird.applyDamageTo(other, rawDamage);
+            if (dealt <= 0) continue;
+
+            heaviestHit = Math.max(heaviestHit, dealt);
+            bird.game.damageDealt[bird.playerIndex] += dealt;
+            bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
+            if (other.health <= 0 && oldHealth > 0) {
+                bird.game.eliminations[bird.playerIndex]++;
+                bird.game.recordMoveKo(bird, other, HARVEST_TRIBUNAL_MOVE);
+                bird.game.playZombieFallSfx();
+            }
+
+            double dir = Math.signum(dx);
+            if (dir == 0.0) {
+                dir = Math.signum(other.bodyCenterX() - bird.bodyCenterX());
+            }
+            if (dir == 0.0) {
+                dir = bird.facingDirection();
+            }
+            other.vx += dir * (stuffed ? 24.0 : 18.5);
+            other.vy -= stuffed ? 15.0 : 11.2;
+            other.applyStun(stuffed ? 18 : 12);
+            other.turkeyStuffedTimer = 0;
+            other.turkeyStuffedOwnerIndex = -1;
+            other.turkeyStuffedUltimate = false;
+        }
+
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, heaviestHit > 0 ? 7 : 4);
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, heaviestHit > 0 ? 18 : 12);
+        bird.game.triggerFlash(heaviestHit > 0 ? Math.min(0.78, 0.32 + heaviestHit / 70.0) : 0.36, false);
+
+        for (int i = 0; i < bird.scaledParticleCount(92); i++) {
+            double side = SimRng.next() < 0.5 ? -1.0 : 1.0;
+            double travel = 34.0 + SimRng.next() * 240.0;
+            double ySpread = (SimRng.next() - 0.5) * 82.0;
+            bird.game.particles.add(new Particle(
+                    centerX - side * travel,
+                    centerY + ySpread,
+                    side * (4.0 + SimRng.next() * 10.0),
+                    -2.4 + (SimRng.next() - 0.5) * 5.0,
+                    (SimRng.next() < 0.62 ? Color.GOLD : Color.web("#FF7043"))
+                            .deriveColor(0, 1, 1, 0.86)
+            ));
+        }
+    }
+
+    private static void emitHarvestAmbientParticles(Bird bird, int elapsed) {
+        double centerX = bird.turkeyHarvestTribunalX;
+        double centerY = bird.turkeyHarvestTribunalY - 42.0 * bird.sizeMultiplier;
+        double orbit = (72.0 + Math.min(1.0, elapsed / 72.0) * 146.0) * bird.sizeMultiplier;
+        int count = bird.scaledParticleCount(elapsed < Bird.TURKEY_HARVEST_TRIBUNAL_FINAL_FRAME ? 4 : 7);
+        for (int i = 0; i < count; i++) {
+            double angle = SimRng.next() * Math.PI * 2.0;
+            bird.game.particles.add(new Particle(
+                    centerX + Math.cos(angle) * orbit,
+                    centerY + Math.sin(angle) * orbit * 0.32,
+                    -Math.cos(angle) * (1.0 + SimRng.next() * 2.0),
+                    -0.9 - SimRng.next() * 2.2,
+                    (SimRng.next() < 0.5 ? Color.web("#FFB74D") : Color.web("#FFF59D"))
+                            .deriveColor(0, 1, 1, 0.58)
+            ));
         }
     }
 }

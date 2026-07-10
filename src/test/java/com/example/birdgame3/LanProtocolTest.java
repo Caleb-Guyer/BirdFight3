@@ -93,6 +93,11 @@ class LanProtocolTest {
         state.shoebillFinalStillnessBeamTargetX = 720.5;
         state.shoebillFinalStillnessBeamTargetY = 880.75;
         state.shoebillFinalStillnessBeamResolved = true;
+        state.turkeyHarvestTribunalTimer = 91;
+        state.turkeyHarvestTribunalX = 555.25;
+        state.turkeyHarvestTribunalY = 777.5;
+        state.turkeyHarvestTribunalFinalResolved = true;
+        state.turkeyHarvestTribunalFinalHit[2] = true;
         state.hummingFrenzyTimer = 77;
         state.hummingFrenzyTargetIndex = 1;
         state.hummingFrenzyStrikeIndex = 2;
@@ -290,6 +295,11 @@ class LanProtocolTest {
         assertEquals(720.5, decoded.shoebillFinalStillnessBeamTargetX);
         assertEquals(880.75, decoded.shoebillFinalStillnessBeamTargetY);
         assertTrue(decoded.shoebillFinalStillnessBeamResolved);
+        assertEquals(91, decoded.turkeyHarvestTribunalTimer);
+        assertEquals(555.25, decoded.turkeyHarvestTribunalX);
+        assertEquals(777.5, decoded.turkeyHarvestTribunalY);
+        assertTrue(decoded.turkeyHarvestTribunalFinalResolved);
+        assertTrue(decoded.turkeyHarvestTribunalFinalHit[2]);
         assertEquals(77, decoded.hummingFrenzyTimer);
         assertEquals(1, decoded.hummingFrenzyTargetIndex);
         assertEquals(2, decoded.hummingFrenzyStrikeIndex);

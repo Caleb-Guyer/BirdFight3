@@ -462,6 +462,11 @@ class LanBirdState {
     double shoebillFinalStillnessBeamTargetX;
     double shoebillFinalStillnessBeamTargetY;
     boolean shoebillFinalStillnessBeamResolved;
+    int turkeyHarvestTribunalTimer;
+    double turkeyHarvestTribunalX;
+    double turkeyHarvestTribunalY;
+    boolean turkeyHarvestTribunalFinalResolved;
+    boolean[] turkeyHarvestTribunalFinalHit = new boolean[4];
     int hummingFrenzyTimer;
     int hummingFrenzyTargetIndex = -1;
     int hummingFrenzyStrikeIndex;
@@ -1022,6 +1027,13 @@ class LanBirdState {
         out.writeDouble(shoebillFinalStillnessBeamTargetX);
         out.writeDouble(shoebillFinalStillnessBeamTargetY);
         out.writeBoolean(shoebillFinalStillnessBeamResolved);
+        out.writeInt(turkeyHarvestTribunalTimer);
+        out.writeDouble(turkeyHarvestTribunalX);
+        out.writeDouble(turkeyHarvestTribunalY);
+        out.writeBoolean(turkeyHarvestTribunalFinalResolved);
+        for (boolean hit : turkeyHarvestTribunalFinalHit) {
+            out.writeBoolean(hit);
+        }
         out.writeInt(hummingFrenzyTimer);
         out.writeInt(hummingFrenzyTargetIndex);
         out.writeInt(hummingFrenzyStrikeIndex);
@@ -1590,6 +1602,13 @@ class LanBirdState {
         state.shoebillFinalStillnessBeamTargetX = in.readDouble();
         state.shoebillFinalStillnessBeamTargetY = in.readDouble();
         state.shoebillFinalStillnessBeamResolved = in.readBoolean();
+        state.turkeyHarvestTribunalTimer = in.readInt();
+        state.turkeyHarvestTribunalX = in.readDouble();
+        state.turkeyHarvestTribunalY = in.readDouble();
+        state.turkeyHarvestTribunalFinalResolved = in.readBoolean();
+        for (int i = 0; i < state.turkeyHarvestTribunalFinalHit.length; i++) {
+            state.turkeyHarvestTribunalFinalHit[i] = in.readBoolean();
+        }
         state.hummingFrenzyTimer = in.readInt();
         state.hummingFrenzyTargetIndex = in.readInt();
         state.hummingFrenzyStrikeIndex = in.readInt();

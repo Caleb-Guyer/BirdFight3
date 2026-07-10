@@ -156,6 +156,11 @@ class LanStateTest {
         bird.shoebillFinalStillnessBeamTargetX = 720.5;
         bird.shoebillFinalStillnessBeamTargetY = 880.75;
         bird.shoebillFinalStillnessBeamResolved = true;
+        bird.turkeyHarvestTribunalTimer = 91;
+        bird.turkeyHarvestTribunalX = 555.25;
+        bird.turkeyHarvestTribunalY = 777.5;
+        bird.turkeyHarvestTribunalFinalResolved = true;
+        bird.turkeyHarvestTribunalFinalHit[2] = true;
         bird.hummingFrenzyTimer = 66;
         bird.hummingFrenzyTargetIndex = 1;
         bird.hummingFrenzyStrikeIndex = 3;
@@ -381,6 +386,11 @@ class LanStateTest {
         assertEquals(720.5, decoded.birds[0].shoebillFinalStillnessBeamTargetX);
         assertEquals(880.75, decoded.birds[0].shoebillFinalStillnessBeamTargetY);
         assertTrue(decoded.birds[0].shoebillFinalStillnessBeamResolved);
+        assertEquals(91, decoded.birds[0].turkeyHarvestTribunalTimer);
+        assertEquals(555.25, decoded.birds[0].turkeyHarvestTribunalX);
+        assertEquals(777.5, decoded.birds[0].turkeyHarvestTribunalY);
+        assertTrue(decoded.birds[0].turkeyHarvestTribunalFinalResolved);
+        assertTrue(decoded.birds[0].turkeyHarvestTribunalFinalHit[2]);
         assertEquals(66, decoded.birds[0].hummingFrenzyTimer);
         assertEquals(1, decoded.birds[0].hummingFrenzyTargetIndex);
         assertEquals(3, decoded.birds[0].hummingFrenzyStrikeIndex);

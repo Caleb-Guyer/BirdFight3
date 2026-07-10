@@ -549,6 +549,56 @@ class BirdStateTest {
     }
 
     @Test
+    void turkeyUltimateSummonsHarvestTribunalAndVerdictSlash() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird turkey = new Bird(280.0, BirdGame3.BirdType.TURKEY, 0, game);
+        Bird target = new Bird(420.0, BirdGame3.BirdType.PIGEON, 1, game);
+        turkey.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = turkey;
+        game.players[1] = target;
+
+        turkey.refillTrainingResources(true);
+        double targetHealthBefore = target.health;
+
+        BirdSpecialSystem.useSpecial(turkey);
+
+        assertEquals(Bird.TURKEY_HARVEST_TRIBUNAL_FRAMES,
+                getPrivateInt(turkey, "turkeyHarvestTribunalTimer"),
+                "Turkey ultimate should start the dedicated Harvest Tribunal state.");
+        assertFalse(turkey.isUltimateReady(),
+                "Starting Harvest Tribunal should consume the ultimate meter.");
+        assertEquals(0, turkey.specialCooldown,
+                "Harvest Tribunal should not leave a visible generic special cooldown.");
+        assertEquals(0, getPrivateInt(turkey, "turkeyGobbleTimer"),
+                "Turkey ultimate should not fall through into the boosted neutral special.");
+
+        for (int i = 0; i < 54; i++) {
+            turkey.update(1.0);
+        }
+
+        assertTrue(getPrivateInt(target, "turkeyStuffedTimer") > 0,
+                "The tribunal pull should apply Turkey's stuffed debuff before the final hit.");
+        assertEquals(targetHealthBefore, target.health, 0.0001,
+                "The pull/setup phase should control space without dealing damage early.");
+
+        for (int i = 54; i < Bird.TURKEY_HARVEST_TRIBUNAL_FINAL_FRAME + 2; i++) {
+            turkey.update(1.0);
+        }
+
+        assertTrue(target.health < targetHealthBefore,
+                "The verdict slash should damage a target caught at the tribunal table.");
+        assertTrue(getPrivateBoolean(turkey, "turkeyHarvestTribunalFinalResolved"),
+                "Harvest Tribunal should resolve exactly one final verdict.");
+        assertEquals(0, getPrivateInt(target, "turkeyStuffedTimer"),
+                "The verdict slash should consume the stuffed debuff.");
+        assertTrue(target.vx > 12.0 || target.vy < -8.0,
+                "The verdict slash should launch caught targets.");
+    }
+
+    @Test
     void opiumAndHeisenNeutralSpecialsUseInvisibleReuseTimers() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

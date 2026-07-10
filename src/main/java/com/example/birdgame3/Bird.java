@@ -1393,6 +1393,11 @@ public class Bird {
     static final int TURKEY_FEAST_TRAP_REUSE_FRAMES = 42;
     static final int TURKEY_FEAST_TRAP_LIFE_FRAMES = 480;
     static final int TURKEY_STUFFED_FRAMES = 110;
+    static final int TURKEY_HARVEST_TRIBUNAL_FRAMES = 156;
+    static final int TURKEY_HARVEST_TRIBUNAL_PULL_START_FRAME = 18;
+    static final int TURKEY_HARVEST_TRIBUNAL_RISE_FRAMES = 34;
+    static final int TURKEY_HARVEST_TRIBUNAL_FINAL_FRAME = 104;
+    static final double TURKEY_HARVEST_TRIBUNAL_PULL_RADIUS = 286.0;
     int turkeyGobbleTimer = 0;
     int turkeyGobbleHoldTimer = 0;
     int turkeyGobbleReuseTimer = 0;
@@ -1417,6 +1422,11 @@ public class Bird {
     int turkeyStuffedOwnerIndex = -1;
     boolean turkeyStuffedUltimate = false;
     final ArrayList<TurkeyFeastTrap> turkeyFeastTraps = new ArrayList<>();
+    int turkeyHarvestTribunalTimer = 0;
+    double turkeyHarvestTribunalX = 0.0;
+    double turkeyHarvestTribunalY = 0.0;
+    boolean turkeyHarvestTribunalFinalResolved = false;
+    final boolean[] turkeyHarvestTribunalFinalHit = new boolean[4];
     double roadrunnerMomentum = 0.0;
     int roadrunnerMomentumFxTimer = 0;
     boolean roadrunnerBeepCharging = false;
@@ -9030,7 +9040,8 @@ public class Bird {
             return BirdAnimationState.SHIELD;
         }
         if (attackAnimationTimer > 0 || isGroundPounding || turkeyGobbleCharging
-                || turkeyGobbleTimer > 0 || turkeyStampedeTimer > 0) {
+                || turkeyGobbleTimer > 0 || turkeyStampedeTimer > 0
+                || turkeyHarvestTribunalTimer > 0) {
             return BirdAnimationState.ATTACK;
         }
         if (!isOnGround() || turkeyPanicFlapTimer > 0) {
@@ -9981,6 +9992,7 @@ public class Bird {
         turkeyPanicFlapReuseTimer = Math.max(0, (int)(turkeyPanicFlapReuseTimer - gameSpeed));
         turkeyFeastTrapReuseTimer = Math.max(0, (int)(turkeyFeastTrapReuseTimer - gameSpeed));
         turkeyStuffedTimer = Math.max(0, (int)(turkeyStuffedTimer - gameSpeed));
+        turkeyHarvestTribunalTimer = Math.max(0, (int)(turkeyHarvestTribunalTimer - gameSpeed));
         roosterNeutralReuseTimer = Math.max(0, (int)(roosterNeutralReuseTimer - gameSpeed));
         roosterSideReuseTimer = Math.max(0, (int)(roosterSideReuseTimer - gameSpeed));
         roosterDownReuseTimer = Math.max(0, (int)(roosterDownReuseTimer - gameSpeed));
@@ -10053,6 +10065,10 @@ public class Bird {
         if (turkeyStuffedTimer == 0) {
             turkeyStuffedOwnerIndex = -1;
             turkeyStuffedUltimate = false;
+        }
+        if (turkeyHarvestTribunalTimer == 0) {
+            turkeyHarvestTribunalFinalResolved = false;
+            Arrays.fill(turkeyHarvestTribunalFinalHit, false);
         }
         if (!penguinBellyCharging && penguinBellySlideTimer == 0) {
             penguinBellyChargeFrames = 0;
@@ -12736,7 +12752,7 @@ public class Bird {
         }
     }
 
-    private void applyTurkeyStuffing(Bird owner, boolean ultimate) {
+    void applyTurkeyStuffing(Bird owner, boolean ultimate) {
         if (owner == null || owner.playerIndex < 0 || owner.playerIndex >= game.players.length) {
             return;
         }
@@ -14257,6 +14273,12 @@ public class Bird {
         state.shoebillFinalStillnessBeamTargetX = shoebillFinalStillnessBeamTargetX;
         state.shoebillFinalStillnessBeamTargetY = shoebillFinalStillnessBeamTargetY;
         state.shoebillFinalStillnessBeamResolved = shoebillFinalStillnessBeamResolved;
+        state.turkeyHarvestTribunalTimer = turkeyHarvestTribunalTimer;
+        state.turkeyHarvestTribunalX = turkeyHarvestTribunalX;
+        state.turkeyHarvestTribunalY = turkeyHarvestTribunalY;
+        state.turkeyHarvestTribunalFinalResolved = turkeyHarvestTribunalFinalResolved;
+        System.arraycopy(turkeyHarvestTribunalFinalHit, 0, state.turkeyHarvestTribunalFinalHit, 0,
+                turkeyHarvestTribunalFinalHit.length);
         state.hummingFrenzyTimer = hummingFrenzyTimer;
         state.hummingFrenzyTargetIndex = hummingFrenzyTargetIndex;
         state.hummingFrenzyStrikeIndex = hummingFrenzyStrikeIndex;
@@ -14938,6 +14960,15 @@ public class Bird {
         this.shoebillFinalStillnessBeamTargetX = state.shoebillFinalStillnessBeamTargetX;
         this.shoebillFinalStillnessBeamTargetY = state.shoebillFinalStillnessBeamTargetY;
         this.shoebillFinalStillnessBeamResolved = state.shoebillFinalStillnessBeamResolved;
+        this.turkeyHarvestTribunalTimer = Math.max(0, state.turkeyHarvestTribunalTimer);
+        this.turkeyHarvestTribunalX = state.turkeyHarvestTribunalX;
+        this.turkeyHarvestTribunalY = state.turkeyHarvestTribunalY;
+        this.turkeyHarvestTribunalFinalResolved = state.turkeyHarvestTribunalFinalResolved;
+        Arrays.fill(this.turkeyHarvestTribunalFinalHit, false);
+        if (state.turkeyHarvestTribunalFinalHit != null) {
+            System.arraycopy(state.turkeyHarvestTribunalFinalHit, 0, this.turkeyHarvestTribunalFinalHit, 0,
+                    Math.min(this.turkeyHarvestTribunalFinalHit.length, state.turkeyHarvestTribunalFinalHit.length));
+        }
         this.hummingFrenzyTimer = Math.max(0, state.hummingFrenzyTimer);
         this.hummingFrenzyTargetIndex = state.hummingFrenzyTargetIndex;
         this.hummingFrenzyStrikeIndex = Math.max(0, state.hummingFrenzyStrikeIndex);
@@ -15207,7 +15238,8 @@ public class Bird {
 
     private boolean turkeySpecialPoseActive() {
         return type == BirdGame3.BirdType.TURKEY
-                && (turkeyGobbleCharging || turkeyGobbleTimer > 0 || turkeyStampedeTimer > 0 || turkeyPanicFlapTimer > 0);
+                && (turkeyGobbleCharging || turkeyGobbleTimer > 0 || turkeyStampedeTimer > 0
+                || turkeyPanicFlapTimer > 0 || turkeyHarvestTribunalTimer > 0);
     }
 
     private boolean penguinSpecialPoseActive() {
@@ -15694,6 +15726,24 @@ public class Bird {
 
     private AttackVisualPose currentTurkeySpecialPose() {
         double dir = facingRight ? 1.0 : -1.0;
+        if (turkeyHarvestTribunalTimer > 0) {
+            double phase = TurkeySpecials.harvestTribunalProgress(this);
+            double pulse = 0.5 + 0.5 * Math.sin((TURKEY_HARVEST_TRIBUNAL_FRAMES - turkeyHarvestTribunalTimer) * 0.22);
+            double lean = phase < 0.68 ? 1.0 : -0.4;
+            return new AttackVisualPose(
+                    dir * (3.0 + 4.0 * pulse),
+                    5.0 + 2.0 * pulse,
+                    dir * (5.0 + 4.0 * pulse),
+                    normalizeAngleRadians((facingRight ? -0.08 : Math.PI + 0.08) + dir * 0.03 * pulse),
+                    10.0 + 3.0 * pulse,
+                    -3.0 - 2.0 * pulse,
+                    7.0 + 4.0 * pulse,
+                    1.18 + 0.06 * pulse,
+                    dir * (2.0 + 3.0 * lean),
+                    1.12 + 0.04 * pulse,
+                    0.90
+            );
+        }
         if (turkeyPanicFlapTimer > 0) {
             double phase = turkeySpecialPhase(turkeyPanicFlapTimer,
                     turkeyPanicFlapUltimate ? TURKEY_PANIC_FLAP_FRAMES + 7 : TURKEY_PANIC_FLAP_FRAMES);
@@ -20606,6 +20656,9 @@ public class Bird {
         double s = sizeMultiplier;
         double centerX = bodyCenterX();
         double centerY = bodyCenterY();
+        if (turkeyHarvestTribunalTimer > 0) {
+            drawTurkeyHarvestTribunal(g);
+        }
         if (turkeyGobbleCharging) {
             double ratio = turkeyGobbleChargeRatio();
             double pulse = 0.5 + 0.5 * Math.sin(turkeyGobbleHoldTimer * 0.28);
@@ -20676,6 +20729,82 @@ public class Bird {
                         windX + Math.sin(turkeyPanicFlapTimer * 0.25 + i) * 10.0 * s,
                         bodyBottomY() + (54.0 + i * 10.0) * s);
             }
+        }
+    }
+
+    private void drawTurkeyHarvestTribunal(GraphicsContext g) {
+        double s = sizeMultiplier;
+        int elapsed = TURKEY_HARVEST_TRIBUNAL_FRAMES - turkeyHarvestTribunalTimer;
+        double progress = TurkeySpecials.harvestTribunalProgress(this);
+        double rise = Math.clamp(elapsed / (double) TURKEY_HARVEST_TRIBUNAL_RISE_FRAMES, 0.0, 1.0);
+        rise = 1.0 - Math.pow(1.0 - rise, 3.0);
+        double pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.20);
+        double x0 = turkeyHarvestTribunalX;
+        double groundY = turkeyHarvestTribunalY;
+        double tableY = groundY + 40.0 * s - rise * 78.0 * s;
+        double altarW = (196.0 + pulse * 10.0) * s;
+        double altarH = 42.0 * s;
+        double ringRadius = (92.0 + progress * 196.0 + pulse * 8.0) * s;
+        double ringAlpha = Math.clamp(0.34 + progress * 0.32, 0.0, 0.72);
+
+        g.setFill(Color.web("#4E342E").deriveColor(0, 1, 1, 0.22 + 0.10 * pulse));
+        g.fillOval(x0 - ringRadius, groundY - 22.0 * s, ringRadius * 2.0, 44.0 * s);
+        g.setStroke(Color.web("#FFB300").deriveColor(0, 1, 1, ringAlpha));
+        g.setLineWidth((2.4 + pulse * 2.4) * s);
+        g.strokeOval(x0 - ringRadius, groundY - 24.0 * s, ringRadius * 2.0, 48.0 * s);
+        g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.16 + 0.20 * pulse));
+        g.setLineWidth(1.2 * s);
+        for (int i = 0; i < 9; i++) {
+            double angle = elapsed * 0.035 + i * Math.PI * 2.0 / 9.0;
+            double leafX = x0 + Math.cos(angle) * ringRadius * 0.74;
+            double leafY = groundY - 7.0 * s + Math.sin(angle) * ringRadius * 0.16;
+            double tipX = x0 + Math.cos(angle + 0.10) * ringRadius * 0.88;
+            double tipY = groundY - 7.0 * s + Math.sin(angle + 0.10) * ringRadius * 0.22;
+            g.strokeLine(leafX, leafY, tipX, tipY);
+        }
+
+        g.setFill(Color.web("#2E1A12").deriveColor(0, 1, 1, 0.68));
+        g.fillRoundRect(x0 - altarW * 0.55, tableY - altarH * 0.18, altarW * 1.10, altarH * 0.72,
+                14.0 * s, 14.0 * s);
+        g.setFill(Color.web("#6D3B1F").deriveColor(0, 1, 1, 0.96));
+        g.fillOval(x0 - altarW * 0.50, tableY - altarH * 0.56, altarW, altarH);
+        g.setFill(Color.web("#A65A2A").deriveColor(0, 1, 1, 0.92));
+        g.fillOval(x0 - altarW * 0.43, tableY - altarH * 0.50, altarW * 0.86, altarH * 0.62);
+        g.setStroke(Color.web("#FFD54F").deriveColor(0, 1, 1, 0.72 + pulse * 0.20));
+        g.setLineWidth((2.2 + pulse * 0.8) * s);
+        g.strokeOval(x0 - altarW * 0.50, tableY - altarH * 0.56, altarW, altarH);
+        g.setFill(Color.web("#3E2723").deriveColor(0, 1, 1, 0.86));
+        g.fillRoundRect(x0 - altarW * 0.36, tableY + altarH * 0.08, 20.0 * s, 58.0 * s, 5.0 * s, 5.0 * s);
+        g.fillRoundRect(x0 + altarW * 0.26, tableY + altarH * 0.08, 20.0 * s, 58.0 * s, 5.0 * s, 5.0 * s);
+
+        g.setFill(Color.web("#FFF8E1").deriveColor(0, 1, 1, 0.94));
+        g.fillOval(x0 - 24.0 * s, tableY - 31.0 * s, 48.0 * s, 20.0 * s);
+        g.setFill(Color.web("#BF360C").deriveColor(0, 1, 1, 0.92));
+        g.fillOval(x0 - 12.0 * s, tableY - 42.0 * s, 24.0 * s, 16.0 * s);
+        g.setFill(Color.web("#FDD835").deriveColor(0, 1, 1, 0.90));
+        for (int i = -3; i <= 3; i++) {
+            double cornX = x0 + i * 17.0 * s;
+            double cornY = tableY - (15.0 + Math.sin(elapsed * 0.16 + i) * 2.5) * s;
+            g.fillOval(cornX - 5.0 * s, cornY - 4.0 * s, 10.0 * s, 8.0 * s);
+        }
+
+        double verdictGlow = 1.0 - Math.clamp(Math.abs(elapsed - TURKEY_HARVEST_TRIBUNAL_FINAL_FRAME) / 18.0, 0.0, 1.0);
+        if (verdictGlow > 0.0 || turkeyHarvestTribunalFinalResolved) {
+            double linger = turkeyHarvestTribunalFinalResolved
+                    ? Math.clamp((TURKEY_HARVEST_TRIBUNAL_FRAMES - elapsed) / 46.0, 0.0, 1.0)
+                    : 0.0;
+            double slashAlpha = Math.max(verdictGlow, linger * 0.45);
+            double slashW = (360.0 + 90.0 * verdictGlow) * s;
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setStroke(Color.web("#FFFDE7").deriveColor(0, 1, 1, 0.55 * slashAlpha));
+            g.setLineWidth((18.0 + 10.0 * verdictGlow) * s);
+            g.strokeLine(x0 - slashW * 0.52, tableY + 58.0 * s,
+                    x0 + slashW * 0.52, tableY - 96.0 * s);
+            g.setStroke(Color.web("#FFD600").deriveColor(0, 1, 1, 0.78 * slashAlpha));
+            g.setLineWidth((7.0 + 5.0 * verdictGlow) * s);
+            g.strokeLine(x0 - slashW * 0.50, tableY + 54.0 * s,
+                    x0 + slashW * 0.50, tableY - 92.0 * s);
+            g.setLineCap(StrokeLineCap.BUTT);
         }
     }
 
