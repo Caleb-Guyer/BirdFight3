@@ -3537,6 +3537,57 @@ class BirdStateTest {
     }
 
     @Test
+    void penguinUltimateStartsAbsoluteZeroFortress() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird penguin = new Bird(300.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        Bird target = new Bird(620.0, BirdGame3.BirdType.PIGEON, 1, game);
+        penguin.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = penguin;
+        game.players[1] = target;
+
+        setPrivateDouble(penguin, "ultimateMeter", 100.0);
+        invokePrivateVoid(penguin, "special");
+
+        assertEquals(0.0, getPrivateDouble(penguin, "ultimateMeter"), 0.0001);
+        assertTrue(getPrivateInt(penguin, "penguinAbsoluteZeroTimer") > 0);
+        assertTrue(penguin.isCombatInvulnerable());
+        assertEquals(0, penguin.specialCooldown);
+        assertEquals(PenguinSpecials.ABSOLUTE_ZERO_FORTRESS_MOVE, game.lastTelemetryMoveName(0, ""));
+    }
+
+    @Test
+    void penguinAbsoluteZeroFortressDropsSkyIcebergs() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird penguin = new Bird(300.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        Bird target = new Bird(620.0, BirdGame3.BirdType.PIGEON, 1, game);
+        penguin.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = penguin;
+        game.players[1] = target;
+
+        setPrivateDouble(penguin, "ultimateMeter", 100.0);
+        invokePrivateVoid(penguin, "special");
+        double impactX = PenguinSpecials.absoluteZeroImpactX(penguin, 0);
+        target.x = impactX - target.bodyWidth() * 0.5;
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        double healthBefore = target.health;
+
+        int firstImpactFrame = PenguinSpecials.absoluteZeroImpactFrame(0);
+        for (int i = 0; i <= firstImpactFrame + 1; i++) {
+            penguin.update(1.0);
+        }
+
+        assertTrue(target.health < healthBefore, "The first fortress iceberg should damage targets near impact.");
+        assertTrue(getPrivateInt(penguin, "penguinAbsoluteZeroWaveIndex") >= 1);
+        assertTrue(game.damageDealt[0] > 0);
+    }
+
+    @Test
     void penguinSnowFortGuardsAndTurnsIcebergIntoSnowball() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
@@ -3574,6 +3625,61 @@ class BirdStateTest {
         Object firstObject = ((List<?>) iceObjects).getFirst();
         assertTrue(getPrivateBoolean(firstObject, "snowball"));
         assertEquals(0, penguin.specialCooldown);
+    }
+
+    @Test
+    void penguinAirDownSpecialDropsIcebergStraightDown() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird penguin = new Bird(320.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        penguin.y = BirdGame3.GROUND_Y - 260.0;
+        game.players[0] = penguin;
+
+        double startCenterX = penguin.bodyCenterX();
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        penguin.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+
+        Object iceObjects = getPrivateObject(penguin, "penguinIceObjects");
+        assertTrue(iceObjects instanceof List<?> list && list.size() == 1);
+        Object dropped = ((List<?>) iceObjects).getFirst();
+        assertTrue(getPrivateBoolean(dropped, "verticalDrop"));
+        assertFalse(getPrivateBoolean(dropped, "snowball"));
+        assertEquals(0.0, getPrivateDouble(dropped, "vx"), 0.0001);
+        assertTrue(getPrivateDouble(dropped, "vy") > 0.0);
+        assertEquals(startCenterX, getPrivateDouble(dropped, "x"), 0.0001);
+        assertNull(getPrivateObject(penguin, "penguinSnowFort"));
+        assertTrue(getPrivateInt(penguin, "penguinSnowFortReuseTimer") > 0);
+    }
+
+    @Test
+    void penguinAirDownSpecialIcebergDamagesTargetBelow() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird penguin = new Bird(320.0, BirdGame3.BirdType.PENGUIN, 0, game);
+        Bird target = new Bird(320.0, BirdGame3.BirdType.PIGEON, 1, game);
+        penguin.y = BirdGame3.GROUND_Y - 280.0;
+        target.x = penguin.bodyCenterX() - target.bodyWidth() * 0.5;
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = penguin;
+        game.players[1] = target;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        penguin.update(1.0);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), false);
+        double healthBefore = target.health;
+
+        for (int i = 0; i < 50 && target.health >= healthBefore; i++) {
+            penguin.update(1.0);
+        }
+
+        assertTrue(target.health < healthBefore, "Air down special's falling iceberg should threaten targets below Penguin.");
     }
 
     @Test

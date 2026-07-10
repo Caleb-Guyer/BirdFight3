@@ -1105,6 +1105,20 @@ public class BirdGame3 extends Application {
         }
     }
 
+    void playAbsoluteZeroFortressSfx() {
+        if (!sfxEnabled) return;
+        if (hugewaveClip != null) {
+            hugewaveClip.stop();
+            playManagedSfxVaried(hugewaveClip, 0.92, 0.66, 0.018);
+        }
+        if (vaseBreakingClip != null) {
+            playManagedSfxVaried(vaseBreakingClip, 0.62, 0.74, 0.025);
+        }
+        if (bonkClip != null) {
+            playManagedSfxVaried(bonkClip, 0.30, 0.48, 0.018);
+        }
+    }
+
     void playAchievementSfx() {
         if (!sfxEnabled || steamAchievementClip == null) return;
         steamAchievementClip.stop();
@@ -9621,7 +9635,7 @@ public class BirdGame3 extends Application {
         TURKEY("Turkey", 10, 10, 3.0, Color.SADDLEBROWN, 0.82, "Charged Gobble Guard + Held Stampede + Panic Flap + Feast Trap"),
         ROOSTER("Rooster", 8, 20, 3.5, Color.rgb(190, 60, 40), 0.72, "Chick Call + Chick Toss + Coop Boost + Brood Recall + Dawn Stampede"),
         ROADRUNNER("Roadrunner", 7, 11, 5.2, Color.web("#B87333"), 0.0, "Beep-Beep Blitz + Canyon Ricochet + Dust Devil Lift + Painted Road"),
-        PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Belly Slide / Iceberg / Rocket Flop / Snow Fort"),
+        PENGUIN("Penguin", 8, 9, 3.6, Color.BLACK, 0.0, "Belly Slide / Iceberg / Rocket Flop / Snow Fort / Absolute Zero Fortress"),
         SHOEBILL("Shoebill", 10, 12, 3.7, Color.DARKSLATEBLUE, 0.3, "Death Stare / Heavy Bill Thrust / Marsh Lift / Statue Counter"),
         MOCKINGBIRD("Charles", 5, 18, 4.0, Color.MEDIUMPURPLE, 0.4, "Mimic neutral / Mimic Call / Forest Lift / Forest Lounge"),
         RAZORBILL("Razorbill", 8, 12, 3.6, Color.INDIGO, 0.25, "Razor Storm / Skimming Razor / Cliff Shear / Counter Cut"),
@@ -45316,6 +45330,7 @@ public class BirdGame3 extends Application {
             case GOOSE -> "Territory empowers the next special. Nest Guard counters hits near the nest.";
             case MOCKINGBIRD -> "Mimic steals neutral specials; Lounge controls space.";
             case ROOSTER -> "Ultimate: Dawn Stampede floods the stage with fast flying swarm chicks.";
+            case PENGUIN -> "Air down special drops a straight-down iceberg. Ultimate creates an invulnerable ice throne.";
             case BAT -> "Ceiling Hang gives the down special a second movement state.";
             case PHOENIX -> "Snap Fire travels farther and fizzles harmlessly. Air Snap Fire angles down; air Faultfire can be held.";
             default -> "Directional input changes the special before startup.";

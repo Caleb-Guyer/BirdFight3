@@ -126,6 +126,10 @@ class LanStateTest {
         bird.falconTerminalVelocityEndX = 118.75;
         bird.falconTerminalVelocityEndY = 515.5;
         bird.falconTerminalVelocityHit[2] = true;
+        bird.penguinAbsoluteZeroTimer = 77;
+        bird.penguinAbsoluteZeroWaveIndex = 3;
+        bird.penguinAbsoluteZeroThroneX = 432.25;
+        bird.penguinAbsoluteZeroThroneY = 876.5;
         bird.ultimateMeter = 44.0;
         state.birds[0] = bird;
 
@@ -287,6 +291,10 @@ class LanStateTest {
         assertEquals(118.75, decoded.birds[0].falconTerminalVelocityEndX);
         assertEquals(515.5, decoded.birds[0].falconTerminalVelocityEndY);
         assertTrue(decoded.birds[0].falconTerminalVelocityHit[2]);
+        assertEquals(77, decoded.birds[0].penguinAbsoluteZeroTimer);
+        assertEquals(3, decoded.birds[0].penguinAbsoluteZeroWaveIndex);
+        assertEquals(432.25, decoded.birds[0].penguinAbsoluteZeroThroneX);
+        assertEquals(876.5, decoded.birds[0].penguinAbsoluteZeroThroneY);
         assertEquals(44.0, decoded.birds[0].ultimateMeter);
         assertEquals(1, decoded.powerUps.size());
         assertEquals(200.0, decoded.powerUps.getFirst().x);

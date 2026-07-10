@@ -1237,6 +1237,10 @@ public class Bird {
     static final int PENGUIN_FLOP_FRAMES = 70;
     static final int PENGUIN_SNOW_FORT_REUSE_FRAMES = 62;
     static final int PENGUIN_SNOW_FORT_HEALTH = 64;
+    static final int PENGUIN_ABSOLUTE_ZERO_FRAMES = 178;
+    static final int PENGUIN_ABSOLUTE_ZERO_WAVES = 6;
+    static final int PENGUIN_ABSOLUTE_ZERO_WAVE_INTERVAL = 21;
+    static final int PENGUIN_ABSOLUTE_ZERO_IMPACT_DELAY = 32;
     static final int SHOEBILL_STARE_FX_FRAMES = 18;
     static final int SHOEBILL_STARE_REUSE_FRAMES = 0;
     static final int SHOEBILL_THRUST_FRAMES = 46;
@@ -1268,6 +1272,10 @@ public class Bird {
     int penguinSnowFortReuseTimer = 0;
     PenguinSnowFort penguinSnowFort = null;
     int penguinFortGuardFxTimer = 0;
+    int penguinAbsoluteZeroTimer = 0;
+    int penguinAbsoluteZeroWaveIndex = 0;
+    double penguinAbsoluteZeroThroneX = 0.0;
+    double penguinAbsoluteZeroThroneY = 0.0;
     int shoebillStareFxTimer = 0;
     int shoebillStareReuseTimer = 0;
     boolean shoebillStareUltimate = false;
@@ -1590,8 +1598,13 @@ public class Bird {
         int lifeFrames;
         int ageFrames;
         boolean shattered;
+        final boolean verticalDrop;
 
         PenguinIceObject(double x, double y, double vx, double vy, int direction, boolean ultimate, boolean snowball) {
+            this(x, y, vx, vy, direction, ultimate, snowball, false);
+        }
+
+        PenguinIceObject(double x, double y, double vx, double vy, int direction, boolean ultimate, boolean snowball, boolean verticalDrop) {
             this.x = x;
             this.y = y;
             this.vx = vx;
@@ -1599,8 +1612,10 @@ public class Bird {
             this.direction = direction == 0 ? 1 : direction;
             this.ultimate = ultimate;
             this.snowball = snowball;
+            this.verticalDrop = verticalDrop;
             this.lifeFrames = (ultimate ? PENGUIN_ICE_OBJECT_LIFE_FRAMES + 72 : PENGUIN_ICE_OBJECT_LIFE_FRAMES)
-                    + (snowball ? 170 : 0);
+                    + (snowball ? 170 : 0)
+                    + (verticalDrop ? 42 : 0);
         }
     }
 
@@ -1849,6 +1864,7 @@ public class Bird {
                 || eagleSkySovereignActive
                 || falconTerminalVelocityActive
                 || phoenixRebirthNovaTimer > PHOENIX_REBIRTH_NOVA_RECOVERY_FRAMES
+                || penguinAbsoluteZeroTimer > 0
                 || hasNullRockInvulnerability()
                 || hasDodgeInvulnerability()
                 || hasRespawnInvulnerability();
@@ -14032,6 +14048,10 @@ public class Bird {
             state.penguinSnowFortAgeFrames = penguinSnowFort.ageFrames;
         }
         state.penguinFortGuardFxTimer = penguinFortGuardFxTimer;
+        state.penguinAbsoluteZeroTimer = penguinAbsoluteZeroTimer;
+        state.penguinAbsoluteZeroWaveIndex = penguinAbsoluteZeroWaveIndex;
+        state.penguinAbsoluteZeroThroneX = penguinAbsoluteZeroThroneX;
+        state.penguinAbsoluteZeroThroneY = penguinAbsoluteZeroThroneY;
         state.shoebillStareFxTimer = shoebillStareFxTimer;
         state.shoebillStareReuseTimer = shoebillStareReuseTimer;
         state.shoebillStareUltimate = shoebillStareUltimate;
@@ -14649,6 +14669,10 @@ public class Bird {
             this.penguinSnowFort = null;
         }
         this.penguinFortGuardFxTimer = Math.max(0, state.penguinFortGuardFxTimer);
+        this.penguinAbsoluteZeroTimer = Math.max(0, state.penguinAbsoluteZeroTimer);
+        this.penguinAbsoluteZeroWaveIndex = Math.max(0, state.penguinAbsoluteZeroWaveIndex);
+        this.penguinAbsoluteZeroThroneX = state.penguinAbsoluteZeroThroneX;
+        this.penguinAbsoluteZeroThroneY = state.penguinAbsoluteZeroThroneY;
         this.shoebillStareFxTimer = Math.max(0, state.shoebillStareFxTimer);
         this.shoebillStareReuseTimer = Math.max(0, state.shoebillStareReuseTimer);
         this.shoebillStareUltimate = state.shoebillStareUltimate;
@@ -14937,7 +14961,8 @@ public class Bird {
 
     private boolean penguinSpecialPoseActive() {
         return type == BirdGame3.BirdType.PENGUIN
-                && (penguinBellyCharging || penguinBellySlideTimer > 0 || penguinRocketTimer > 0 || penguinFlopTimer > 0);
+                && (penguinAbsoluteZeroTimer > 0 || penguinBellyCharging
+                || penguinBellySlideTimer > 0 || penguinRocketTimer > 0 || penguinFlopTimer > 0);
     }
 
     private boolean shoebillSpecialPoseActive() {
@@ -15491,6 +15516,23 @@ public class Bird {
 
     private AttackVisualPose currentPenguinSpecialPose() {
         double dir = facingRight ? 1.0 : -1.0;
+        if (penguinAbsoluteZeroTimer > 0) {
+            double elapsed = PenguinSpecials.absoluteZeroElapsed(this);
+            double pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.20);
+            return new AttackVisualPose(
+                    0.0,
+                    -7.0 - pulse * 2.0,
+                    dir * (3.0 + pulse * 2.0),
+                    facingRight ? 0.0 : Math.PI,
+                    -4.0,
+                    -8.0 - pulse * 2.0,
+                    9.0 + pulse * 3.0,
+                    1.03,
+                    -10.0,
+                    1.08,
+                    0.88
+            );
+        }
         if (penguinBellyCharging) {
             double ratio = penguinBellyChargeRatio();
             double pulse = 0.5 + 0.5 * Math.sin(penguinBellyChargeFrames * (0.22 + ratio * 0.18));
@@ -22037,6 +22079,9 @@ public class Bird {
             return;
         }
         double s = sizeMultiplier;
+        if (penguinAbsoluteZeroTimer > 0) {
+            drawPenguinAbsoluteZeroFortress(g, s);
+        }
         if (penguinSnowFort != null && penguinSnowFort.health > 0) {
             PenguinSnowFort fort = penguinSnowFort;
             double width = penguinFortHalfWidth(fort) * 2.0;
@@ -22110,13 +22155,13 @@ public class Bird {
         }
 
         for (PenguinIceObject object : penguinIceObjects) {
-            double radius = (object.snowball ? 58.0 : 42.0) * s;
+            double radius = (object.snowball ? 58.0 : (object.verticalDrop ? 52.0 : 42.0)) * s;
             double pulse = 0.5 + 0.5 * Math.sin(object.ageFrames * 0.22);
             Color base = object.ultimate ? Color.web("#FFF176") : Color.web("#B3E5FC");
             Color edge = object.ultimate ? Color.GOLD : Color.web("#4FC3F7");
             g.save();
             g.translate(object.x, object.y);
-            g.rotate(object.snowball ? object.ageFrames * object.direction * 13.0 : object.direction * 8.0);
+            g.rotate(object.verticalDrop ? 0.0 : (object.snowball ? object.ageFrames * object.direction * 13.0 : object.direction * 8.0));
             if (object.snowball) {
                 g.setFill(base.deriveColor(0, 1, 1, 0.74));
                 g.fillOval(-radius, -radius, radius * 2.0, radius * 2.0);
@@ -22127,6 +22172,22 @@ public class Bird {
                 g.setLineWidth(2.0 * s);
                 g.strokeArc(-radius * 0.64, -radius * 0.64, radius * 1.28, radius * 1.28,
                         20 + object.ageFrames * 18, 120, ArcType.OPEN);
+            } else if (object.verticalDrop) {
+                double w = radius * 0.92;
+                double h = radius * 1.68;
+                g.setFill(base.deriveColor(0, 1, 1, 0.76));
+                g.fillPolygon(new double[]{-w * 0.36, w * 0.20, w * 0.58, w * 0.18, 0.0, -w * 0.62},
+                        new double[]{-h * 0.82, -h, -h * 0.34, h * 0.42, h, h * 0.20}, 6);
+                g.setFill(Color.web("#4FC3F7").deriveColor(0, 1, 1, 0.24 + pulse * 0.10));
+                g.fillPolygon(new double[]{w * 0.02, w * 0.58, w * 0.18, -w * 0.04},
+                        new double[]{-h * 0.86, -h * 0.34, h * 0.42, h * 0.70}, 4);
+                g.setStroke(edge.deriveColor(0, 1, 1, 0.88));
+                g.setLineWidth(3.2 * s);
+                g.strokePolygon(new double[]{-w * 0.36, w * 0.20, w * 0.58, w * 0.18, 0.0, -w * 0.62},
+                        new double[]{-h * 0.82, -h, -h * 0.34, h * 0.42, h, h * 0.20}, 6);
+                g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.42 + pulse * 0.18));
+                g.setLineWidth(1.8 * s);
+                g.strokeLine(-w * 0.10, -h * 0.70, -w * 0.02, h * 0.66);
             } else {
                 double w = radius * 1.18;
                 double h = radius * 1.18;
@@ -22140,6 +22201,153 @@ public class Bird {
             }
             g.restore();
         }
+    }
+
+    private void drawPenguinAbsoluteZeroFortress(GraphicsContext g, double s) {
+        double throneX = penguinAbsoluteZeroThroneX == 0.0 ? bodyCenterX() : penguinAbsoluteZeroThroneX;
+        double baseY = penguinAbsoluteZeroThroneY == 0.0 ? bodyBottomY() + 132.0 * s : penguinAbsoluteZeroThroneY;
+        int elapsed = PenguinSpecials.absoluteZeroElapsed(this);
+        double entrance = Math.clamp(elapsed / 18.0, 0.0, 1.0);
+        double pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.18);
+
+        for (int wave = 0; wave < PENGUIN_ABSOLUTE_ZERO_WAVES; wave++) {
+            int launchFrame = PenguinSpecials.absoluteZeroLaunchFrame(wave);
+            int impactFrame = PenguinSpecials.absoluteZeroImpactFrame(wave);
+            if (elapsed >= launchFrame - 6 && elapsed <= impactFrame + 24) {
+                double impactX = PenguinSpecials.absoluteZeroImpactX(this, wave);
+                double impactY = PenguinSpecials.absoluteZeroImpactSurfaceY(this, impactX);
+                drawPenguinAbsoluteZeroIceberg(g, s, wave, elapsed, launchFrame, impactFrame, impactX, impactY);
+            }
+        }
+
+        g.save();
+        g.setFill(Color.web("#03131E", 0.38 * entrance));
+        g.fillOval(throneX - 156.0 * s, baseY - 18.0 * s, 312.0 * s, 36.0 * s);
+
+        Color deepIce = Color.web("#225D78");
+        Color midIce = Color.web("#63D4F7");
+        Color brightIce = Color.web("#E1F5FE");
+        Color royalIce = Color.web("#FFF59D");
+
+        g.setFill(deepIce.deriveColor(0, 1, 1, 0.46 * entrance));
+        g.fillPolygon(
+                new double[]{throneX - 138.0 * s, throneX - 112.0 * s, throneX - 70.0 * s,
+                        throneX - 36.0 * s, throneX, throneX + 39.0 * s,
+                        throneX + 76.0 * s, throneX + 118.0 * s, throneX + 144.0 * s},
+                new double[]{baseY, baseY - 196.0 * s, baseY - 128.0 * s,
+                        baseY - 224.0 * s, baseY - 154.0 * s, baseY - 234.0 * s,
+                        baseY - 126.0 * s, baseY - 204.0 * s, baseY},
+                9
+        );
+
+        for (int i = -3; i <= 3; i++) {
+            double spireX = throneX + i * 42.0 * s;
+            double spireH = (98.0 + (3 - Math.abs(i)) * 30.0 + (i % 2 == 0 ? 28.0 : 0.0)) * s * entrance;
+            double spireW = (18.0 + Math.abs(i) * 4.0) * s;
+            g.setFill((i == 0 ? royalIce : midIce).deriveColor(0, 1, 1, 0.58 + pulse * 0.10));
+            g.fillPolygon(
+                    new double[]{spireX - spireW, spireX, spireX + spireW, spireX + spireW * 0.42, spireX - spireW * 0.38},
+                    new double[]{baseY - 28.0 * s, baseY - 98.0 * s - spireH, baseY - 26.0 * s,
+                            baseY - 6.0 * s, baseY - 7.0 * s},
+                    5
+            );
+            g.setStroke(brightIce.deriveColor(0, 1, 1, 0.42));
+            g.setLineWidth(1.5 * s);
+            g.strokeLine(spireX, baseY - 86.0 * s - spireH * 0.82, spireX - spireW * 0.44, baseY - 28.0 * s);
+        }
+
+        double seatY = baseY - 132.0 * s;
+        g.setFill(Color.web("#D8F7FF", 0.72 * entrance));
+        g.fillRoundRect(throneX - 86.0 * s, seatY - 28.0 * s, 172.0 * s, 48.0 * s, 13.0 * s, 13.0 * s);
+        g.setFill(Color.web("#0B2A3B", 0.58 * entrance));
+        g.fillRoundRect(throneX - 73.0 * s, seatY - 20.0 * s, 146.0 * s, 31.0 * s, 9.0 * s, 9.0 * s);
+        g.setFill(midIce.deriveColor(0, 1, 1, 0.70 * entrance));
+        g.fillRoundRect(throneX - 132.0 * s, seatY - 52.0 * s, 58.0 * s, 86.0 * s, 12.0 * s, 12.0 * s);
+        g.fillRoundRect(throneX + 74.0 * s, seatY - 52.0 * s, 58.0 * s, 86.0 * s, 12.0 * s, 12.0 * s);
+
+        g.setStroke(brightIce.deriveColor(0, 1, 1, 0.58 + pulse * 0.18));
+        g.setLineWidth((3.4 + pulse * 1.8) * s);
+        g.strokeArc(throneX - 132.0 * s, baseY - 220.0 * s, 264.0 * s, 176.0 * s,
+                202 + elapsed * 2.8, 136, ArcType.OPEN);
+        g.setStroke(royalIce.deriveColor(0, 1, 1, 0.42 + pulse * 0.20));
+        g.setLineWidth((1.8 + pulse) * s);
+        g.strokeOval(throneX - 112.0 * s, seatY - 94.0 * s, 224.0 * s, 142.0 * s);
+
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.52));
+        g.setLineWidth(2.0 * s);
+        for (int i = -2; i <= 2; i++) {
+            double xLine = throneX + i * 32.0 * s;
+            g.strokeLine(xLine, baseY - 170.0 * s, xLine + i * 7.0 * s, baseY - 44.0 * s);
+        }
+        g.restore();
+    }
+
+    private void drawPenguinAbsoluteZeroIceberg(GraphicsContext g, double s, int wave, int elapsed,
+                                                int launchFrame, int impactFrame,
+                                                double impactX, double impactY) {
+        if (elapsed < impactFrame) {
+            double progress = Math.clamp((elapsed - launchFrame) / (double) Math.max(1, impactFrame - launchFrame), 0.0, 1.0);
+            double eased = progress * progress * (3.0 - 2.0 * progress);
+            double startY = BirdGame3.CEILING_Y - 190.0 * s;
+            double endY = impactY - 104.0 * s;
+            double y = startY + (endY - startY) * eased;
+            double alpha = Math.clamp((elapsed - launchFrame + 5.0) / 12.0, 0.0, 1.0);
+            double sway = Math.sin((elapsed + wave * 11.0) * 0.16) * 13.0 * s;
+
+            g.save();
+            g.setStroke(Color.web("#B3E5FC", 0.28 * alpha));
+            g.setLineWidth(6.0 * s);
+            g.strokeLine(impactX + sway * 0.3, y - 168.0 * s, impactX + sway, y - 36.0 * s);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.36 * alpha));
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(impactX + sway - 22.0 * s, y - 146.0 * s, impactX + sway - 6.0 * s, y - 26.0 * s);
+            g.translate(impactX + sway, y);
+            g.rotate(-17.0 + wave * 8.0 + elapsed * 0.62);
+            double w = 54.0 * s;
+            double h = 152.0 * s;
+            g.setFill(Color.web("#C6F4FF", 0.86 * alpha));
+            g.fillPolygon(
+                    new double[]{-w * 0.42, -w * 0.10, w * 0.54, w * 0.28, w * 0.10, -w * 0.60},
+                    new double[]{-h * 0.52, -h, -h * 0.34, h * 0.36, h, h * 0.28},
+                    6
+            );
+            g.setFill(Color.web("#4FC3F7", 0.32 * alpha));
+            g.fillPolygon(
+                    new double[]{-w * 0.08, w * 0.54, w * 0.28, w * 0.08},
+                    new double[]{-h * 0.92, -h * 0.34, h * 0.36, h * 0.58},
+                    4
+            );
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.78 * alpha));
+            g.setLineWidth(2.6 * s);
+            g.strokePolygon(
+                    new double[]{-w * 0.42, -w * 0.10, w * 0.54, w * 0.28, w * 0.10, -w * 0.60},
+                    new double[]{-h * 0.52, -h, -h * 0.34, h * 0.36, h, h * 0.28},
+                    6
+            );
+            g.restore();
+            return;
+        }
+
+        double burst = Math.clamp(1.0 - (elapsed - impactFrame) / 24.0, 0.0, 1.0);
+        if (burst <= 0.0) {
+            return;
+        }
+        double ringW = (112.0 + (1.0 - burst) * 190.0) * s;
+        double ringH = (26.0 + (1.0 - burst) * 34.0) * s;
+        g.save();
+        g.setStroke(Color.web("#E1F5FE").deriveColor(0, 1, 1, 0.62 * burst));
+        g.setLineWidth((5.0 + (1.0 - burst) * 2.0) * s);
+        g.strokeOval(impactX - ringW * 0.5, impactY - ringH * 0.72, ringW, ringH);
+        g.setFill(Color.web("#B3E5FC", 0.24 * burst));
+        g.fillOval(impactX - ringW * 0.42, impactY - ringH * 0.78, ringW * 0.84, ringH * 0.86);
+        g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.52 * burst));
+        g.setLineWidth(2.0 * s);
+        for (int i = -3; i <= 3; i++) {
+            double shardX = impactX + i * 24.0 * s;
+            double shardH = (22.0 + (3 - Math.abs(i)) * 8.0) * s * burst;
+            g.strokeLine(shardX, impactY - 8.0 * s, shardX + i * 5.0 * s, impactY - 18.0 * s - shardH);
+        }
+        g.restore();
     }
 
     private void drawPenguinSpecialFx(GraphicsContext g, double drawSize) {
@@ -25822,13 +26030,21 @@ public class Bird {
     }
 
     private void drawPenguinIceBuff(GraphicsContext g, double drawSize) {
-        if (type != BirdGame3.BirdType.PENGUIN || penguinIceFxTimer <= 0) return;
+        if (type != BirdGame3.BirdType.PENGUIN) return;
+        boolean fortress = penguinAbsoluteZeroTimer > 0;
+        if (!fortress && penguinIceFxTimer <= 0) return;
         double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 90.0);
-        g.setFill(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.26 + 0.2 * pulse));
-        g.fillOval(x - 36, y - 34, drawSize + 72, drawSize + 72);
-        g.setStroke(Color.web("#E1F5FE").deriveColor(0, 1, 1, 0.7));
-        g.setLineWidth(2.8);
-        g.strokeOval(x - 22, y - 20, drawSize + 44, drawSize + 44);
+        double auraScale = fortress ? 1.72 : 1.0;
+        double auraPad = (fortress ? 68.0 : 36.0) * sizeMultiplier;
+        g.setFill(Color.web(fortress ? "#E1F5FE" : "#80DEEA").deriveColor(0, 1, 1,
+                (fortress ? 0.20 : 0.26) + (fortress ? 0.16 : 0.20) * pulse));
+        g.fillOval(x - auraPad, y - auraPad * 0.95, drawSize + auraPad * 2.0,
+                drawSize + auraPad * 2.0 * auraScale);
+        g.setStroke(Color.web(fortress ? "#FFF59D" : "#E1F5FE").deriveColor(0, 1, 1,
+                fortress ? 0.46 + pulse * 0.26 : 0.7));
+        g.setLineWidth((fortress ? 4.2 : 2.8) * sizeMultiplier);
+        g.strokeOval(x - auraPad * 0.64, y - auraPad * 0.56, drawSize + auraPad * 1.28,
+                drawSize + auraPad * (fortress ? 1.20 : 1.22));
     }
 
     private void drawBatBody(GraphicsContext g) {

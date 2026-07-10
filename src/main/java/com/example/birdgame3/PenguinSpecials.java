@@ -7,10 +7,17 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 final class PenguinSpecials {
+    static final String ABSOLUTE_ZERO_FORTRESS_MOVE = "Penguin Absolute Zero Fortress";
+    private static final int ABSOLUTE_ZERO_FIRST_LAUNCH_FRAME = 8;
+
     private PenguinSpecials() {
     }
 
     static void use(Bird bird, boolean ultimate) {
+        if (ultimate) {
+            startAbsoluteZeroFortress(bird);
+            return;
+        }
         switch (bird.selectPenguinSpecialVariant()) {
             case NEUTRAL -> neutral(bird, ultimate);
             case SIDE -> side(bird, ultimate);
@@ -114,6 +121,10 @@ final class PenguinSpecials {
     }
 
     static void down(Bird bird, boolean ultimate) {
+        if (!bird.isOnGround()) {
+            dropAirIceberg(bird, ultimate);
+            return;
+        }
         int dir = bird.facingDirection();
         double fortX = bird.bodyCenterX() + dir * 92.0 * bird.sizeMultiplier;
         double fortY = objectSurfaceY(bird, fortX);
@@ -130,6 +141,35 @@ final class PenguinSpecials {
                 ultimate ? Color.GOLD : Color.WHITE);
     }
 
+    private static void dropAirIceberg(Bird bird, boolean ultimate) {
+        int dir = bird.facingDirection();
+        double s = bird.sizeMultiplier;
+        double spawnX = bird.bodyCenterX();
+        double spawnY = bird.bodyBottomY() + 26.0 * s;
+        double dropSpeed = Math.max(5.8 * s, Math.max(0.0, bird.vy) + (ultimate ? 4.8 : 3.6));
+        Bird.PenguinIceObject object = new Bird.PenguinIceObject(
+                spawnX,
+                spawnY,
+                0.0,
+                dropSpeed,
+                dir,
+                ultimate,
+                false,
+                true);
+        bird.penguinIceObjects.add(object);
+        while (bird.penguinIceObjects.size() > 4) {
+            bird.penguinIceObjects.removeFirst();
+        }
+        bird.penguinSnowFortReuseTimer = ultimate ? 20 : Bird.PENGUIN_SNOW_FORT_REUSE_FRAMES;
+        bird.specialCooldown = 0;
+        bird.specialMaxCooldown = 0;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 14);
+        bird.vx *= 0.78;
+        bird.vy = Math.min(bird.vy, 1.1);
+        emitIceBurst(bird, spawnX, spawnY, dir, ultimate ? 34 : 22,
+                ultimate ? Color.GOLD : Color.web("#E1F5FE"));
+    }
+
     static void handleState(Bird bird, boolean specialHeld) {
         if (bird.type != BirdGame3.BirdType.PENGUIN && !bird.mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PENGUIN)) {
             return;
@@ -139,6 +179,10 @@ final class PenguinSpecials {
             if (bird.mockingbirdCopiedNeutralFrom(BirdGame3.BirdType.PENGUIN)) {
                 bird.mockingbirdCopiedNeutralSource = null;
             }
+            return;
+        }
+        if (bird.type == BirdGame3.BirdType.PENGUIN && bird.penguinAbsoluteZeroTimer > 0) {
+            handleAbsoluteZeroFortress(bird);
             return;
         }
         if (bird.penguinBellyCharging) {
@@ -159,7 +203,8 @@ final class PenguinSpecials {
         return bird.penguinBellyCharging
                 || bird.penguinBellySlideTimer > 0
                 || bird.penguinRocketTimer > 0
-                || bird.penguinFlopTimer > 0;
+                || bird.penguinFlopTimer > 0
+                || bird.penguinAbsoluteZeroTimer > 0;
     }
 
     static boolean ready(Bird bird, Bird.PenguinSpecialVariant variant) {
@@ -201,6 +246,10 @@ final class PenguinSpecials {
         Arrays.fill(bird.penguinFlopHit, false);
         bird.penguinIceFxTimer = 0;
         bird.penguinDashDamageTimer = 0;
+        bird.penguinAbsoluteZeroTimer = 0;
+        bird.penguinAbsoluteZeroWaveIndex = 0;
+        bird.penguinAbsoluteZeroThroneX = 0.0;
+        bird.penguinAbsoluteZeroThroneY = 0.0;
         Arrays.fill(bird.penguinDashHit, false);
         if (clearObjects) {
             bird.penguinIceObjects.clear();
@@ -226,6 +275,42 @@ final class PenguinSpecials {
 
     static double flopProgress(Bird bird) {
         return specialPhase(bird.penguinFlopTimer, flopTotalFrames(bird));
+    }
+
+    static int absoluteZeroElapsed(Bird bird) {
+        return Math.max(0, Bird.PENGUIN_ABSOLUTE_ZERO_FRAMES - bird.penguinAbsoluteZeroTimer);
+    }
+
+    static int absoluteZeroLaunchFrame(int waveIndex) {
+        return ABSOLUTE_ZERO_FIRST_LAUNCH_FRAME + waveIndex * Bird.PENGUIN_ABSOLUTE_ZERO_WAVE_INTERVAL;
+    }
+
+    static int absoluteZeroImpactFrame(int waveIndex) {
+        return absoluteZeroLaunchFrame(waveIndex) + Bird.PENGUIN_ABSOLUTE_ZERO_IMPACT_DELAY;
+    }
+
+    static double absoluteZeroImpactX(Bird bird, int waveIndex) {
+        Bird target = absoluteZeroTarget(bird, waveIndex);
+        double baseX = target == null ? bird.penguinAbsoluteZeroThroneX : target.bodyCenterX();
+        if (baseX == 0.0) {
+            baseX = bird.bodyCenterX();
+        }
+        double pattern = switch (Math.floorMod(waveIndex, 6)) {
+            case 0 -> 0.0;
+            case 1 -> -92.0;
+            case 2 -> 92.0;
+            case 3 -> -42.0;
+            case 4 -> 42.0;
+            default -> 0.0;
+        };
+        double s = bird.sizeMultiplier;
+        double left = bird.game.battlefieldLeftBound() + 140.0 * s;
+        double right = bird.game.battlefieldRightBound() - 140.0 * s;
+        return clampBetween(baseX + pattern * s, left, right);
+    }
+
+    static double absoluteZeroImpactSurfaceY(Bird bird, double impactX) {
+        return objectSurfaceY(bird, impactX);
     }
 
     static double fortHalfWidth(Bird bird, Bird.PenguinSnowFort fort) {
@@ -273,6 +358,156 @@ final class PenguinSpecials {
                     baseColor.deriveColor(0, 1, 1, 0.70 + SimRng.next() * 0.18)
             ));
         }
+    }
+
+    private static void startAbsoluteZeroFortress(Bird bird) {
+        reset(bird, false);
+        double s = bird.sizeMultiplier;
+        double left = bird.game.battlefieldLeftBound() + 210.0 * s;
+        double right = bird.game.battlefieldRightBound() - 210.0 * s;
+        double throneX = clampBetween(bird.bodyCenterX(), left, right);
+        double throneY = objectSurfaceY(bird, throneX);
+        bird.penguinAbsoluteZeroTimer = Bird.PENGUIN_ABSOLUTE_ZERO_FRAMES;
+        bird.penguinAbsoluteZeroWaveIndex = 0;
+        bird.penguinAbsoluteZeroThroneX = throneX;
+        bird.penguinAbsoluteZeroThroneY = throneY;
+        bird.penguinIceFxTimer = Math.max(bird.penguinIceFxTimer, Bird.PENGUIN_ABSOLUTE_ZERO_FRAMES);
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.PENGUIN_ABSOLUTE_ZERO_FRAMES);
+        bird.penguinBellyReuseTimer = Math.max(bird.penguinBellyReuseTimer, 18);
+        bird.penguinIcebergReuseTimer = Math.max(bird.penguinIcebergReuseTimer, 18);
+        bird.penguinSnowFortReuseTimer = Math.max(bird.penguinSnowFortReuseTimer, 18);
+        pinToAbsoluteZeroThrone(bird);
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, 22);
+        bird.game.triggerFlash(0.58, false);
+        bird.game.addToKillFeed(bird.shortName() + " RAISED THE ABSOLUTE ZERO FORTRESS!");
+        emitIceBurst(bird, throneX, throneY - 92.0 * s, bird.facingDirection(), 82, Color.web("#E1F5FE"));
+    }
+
+    private static void handleAbsoluteZeroFortress(Bird bird) {
+        if (bird.penguinAbsoluteZeroTimer <= 0) {
+            bird.penguinAbsoluteZeroWaveIndex = 0;
+            return;
+        }
+
+        pinToAbsoluteZeroThrone(bird);
+        int elapsed = absoluteZeroElapsed(bird);
+        while (bird.penguinAbsoluteZeroWaveIndex < Bird.PENGUIN_ABSOLUTE_ZERO_WAVES
+                && elapsed >= absoluteZeroImpactFrame(bird.penguinAbsoluteZeroWaveIndex)) {
+            applyAbsoluteZeroImpact(bird, bird.penguinAbsoluteZeroWaveIndex);
+            bird.penguinAbsoluteZeroWaveIndex++;
+        }
+
+        if ((bird.penguinAbsoluteZeroTimer & 3) == 0) {
+            double angle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * 0.72;
+            double radius = (46.0 + SimRng.next() * 92.0) * bird.sizeMultiplier;
+            bird.game.particles.add(new Particle(
+                    bird.penguinAbsoluteZeroThroneX + Math.cos(angle) * radius * 0.45,
+                    bird.penguinAbsoluteZeroThroneY - 54.0 * bird.sizeMultiplier + Math.sin(angle) * radius * 0.35,
+                    Math.cos(angle) * (0.6 + SimRng.next() * 1.6),
+                    Math.sin(angle) * (2.2 + SimRng.next() * 3.8) - 1.2,
+                    Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.66 + SimRng.next() * 0.18)
+            ));
+        }
+
+        bird.penguinAbsoluteZeroTimer--;
+        if (bird.penguinAbsoluteZeroTimer <= 0) {
+            bird.penguinAbsoluteZeroTimer = 0;
+            bird.penguinAbsoluteZeroWaveIndex = 0;
+            bird.vy = Math.min(bird.vy, -4.2);
+            bird.penguinIceFxTimer = Math.max(bird.penguinIceFxTimer, 28);
+        }
+    }
+
+    private static void pinToAbsoluteZeroThrone(Bird bird) {
+        double s = bird.sizeMultiplier;
+        double seatY = bird.penguinAbsoluteZeroThroneY - 132.0 * s;
+        double left = bird.game.battlefieldLeftBound() + 18.0 * s;
+        double right = bird.game.battlefieldRightBound() - bird.bodyWidth() - 18.0 * s;
+        bird.x = clampBetween(bird.penguinAbsoluteZeroThroneX - bird.bodyWidth() * 0.5, left, right);
+        bird.y = seatY - bird.bodyHeight();
+        bird.vx = 0.0;
+        bird.vy = 0.0;
+        Bird target = nearestEnemy(bird, bird.penguinAbsoluteZeroThroneX, bird.penguinAbsoluteZeroThroneY);
+        if (target != null) {
+            bird.facingRight = target.bodyCenterX() >= bird.bodyCenterX();
+        }
+        bird.canDoubleJump = true;
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 5);
+    }
+
+    private static void applyAbsoluteZeroImpact(Bird bird, int waveIndex) {
+        double s = bird.sizeMultiplier;
+        double impactX = absoluteZeroImpactX(bird, waveIndex);
+        double surfaceY = absoluteZeroImpactSurfaceY(bird, impactX);
+        double centerY = surfaceY - 72.0 * s;
+        double radius = 154.0 * s;
+        double verticalReach = 170.0 * s;
+        boolean hitAny = false;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - impactX;
+            double dy = other.bodyCenterY() - centerY;
+            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
+            if (Math.abs(dy) > verticalReach + other.combatHalfHeight()) continue;
+
+            double edge = 1.0 - Math.clamp(Math.abs(dx) / Math.max(1.0, radius), 0.0, 1.0);
+            int damage = (int) Math.round(12.0 + edge * 5.0);
+            int dealt = bird.applyTrackedSpecialDamage(other, damage);
+            if (dealt <= 0) continue;
+            hitAny = true;
+            double launchDir = Math.signum(dx == 0.0 ? other.bodyCenterX() - bird.bodyCenterX() : dx);
+            if (launchDir == 0.0) {
+                launchDir = bird.facingDirection();
+            }
+            other.vx += launchDir * (9.0 + edge * 5.4);
+            other.vy -= 9.8 + edge * 5.2;
+            other.stunTime = Math.max(other.stunTime, 8.0 + edge * 7.0);
+        }
+
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, hitAny ? 16 : 11);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, hitAny ? 4 : 2);
+        emitIceBurst(bird, impactX, surfaceY - 48.0 * s, bird.facingDirection(), hitAny ? 54 : 36,
+                hitAny ? Color.web("#E1F5FE") : Color.web("#90CAF9"));
+    }
+
+    private static Bird absoluteZeroTarget(Bird bird, int waveIndex) {
+        Bird best = null;
+        double bestScore = Double.POSITIVE_INFINITY;
+        int desiredSlot = Math.floorMod(bird.playerIndex + waveIndex + 1, Math.max(1, bird.game.players.length));
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - bird.penguinAbsoluteZeroThroneX;
+            double dy = other.bodyCenterY() - bird.penguinAbsoluteZeroThroneY;
+            double slotBias = Math.abs(other.playerIndex - desiredSlot) * 34.0;
+            double score = Math.abs(dx) + Math.abs(dy) * 0.34 + slotBias;
+            if (score < bestScore) {
+                bestScore = score;
+                best = other;
+            }
+        }
+        return best;
+    }
+
+    private static Bird nearestEnemy(Bird bird, double x, double y) {
+        Bird best = null;
+        double bestDist = Double.POSITIVE_INFINITY;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - x;
+            double dy = other.bodyCenterY() - y;
+            double dist = dx * dx + dy * dy;
+            if (dist < bestDist) {
+                bestDist = dist;
+                best = other;
+            }
+        }
+        return best;
+    }
+
+    private static double clampBetween(double value, double a, double b) {
+        double min = Math.min(a, b);
+        double max = Math.max(a, b);
+        return Math.max(min, Math.min(max, value));
     }
 
     static void applyDashDamage(Bird bird) {
@@ -768,21 +1003,26 @@ final class PenguinSpecials {
                 object.hitCooldown[i] = Math.max(0, object.hitCooldown[i] - 1);
             }
 
-            object.vy += object.snowball ? 0.30 : 0.24;
+            object.vy += object.verticalDrop ? 0.42 : (object.snowball ? 0.30 : 0.24);
             object.x += object.vx;
             object.y += object.vy;
-            double radius = (object.snowball ? 58.0 : 42.0) * bird.sizeMultiplier;
+            double radius = (object.snowball ? 58.0 : (object.verticalDrop ? 52.0 : 42.0)) * bird.sizeMultiplier;
             double previousBottom = object.y + radius - object.vy;
             double surfaceY = objectSurfaceYOrVoid(bird, object.x, previousBottom);
             if (Double.isFinite(surfaceY) && object.y + radius >= surfaceY) {
                 object.y = surfaceY - radius;
-                object.vy = object.snowball ? -Math.abs(object.vx) * 0.08 : 0.0;
-                object.vx *= object.snowball ? 0.994 : 0.982;
+                if (object.verticalDrop) {
+                    triggerDroppedIcebergImpact(bird, object, surfaceY);
+                    object.shattered = true;
+                } else {
+                    object.vy = object.snowball ? -Math.abs(object.vx) * 0.08 : 0.0;
+                    object.vx *= object.snowball ? 0.994 : 0.982;
+                }
             }
 
             int objectDir = (int) Math.signum(object.vx == 0.0 ? object.direction : object.vx);
             if (!object.shattered && bird.game.hitFrostbiteSnowbankWithIce(object.x, object.y, radius * 0.86, objectDir, object.ultimate)) {
-                if (!object.snowball) {
+                if (!object.snowball && !object.verticalDrop) {
                     object.shattered = true;
                     spawnedObjects.add(new Bird.PenguinIceObject(
                             object.x + objectDir * 38.0 * bird.sizeMultiplier,
@@ -792,6 +1032,8 @@ final class PenguinSpecials {
                             objectDir,
                             object.ultimate,
                             true));
+                } else if (object.verticalDrop) {
+                    object.shattered = true;
                 } else {
                     object.vx *= 0.90;
                     object.vy -= 1.4;
@@ -799,6 +1041,7 @@ final class PenguinSpecials {
             }
 
             if (!object.shattered && bird.penguinSnowFort != null && bird.penguinSnowFort.health > 0 && !object.snowball
+                    && !object.verticalDrop
                     && Math.abs(object.x - bird.penguinSnowFort.x) < 82.0 * bird.sizeMultiplier
                     && Math.abs(object.y - (bird.penguinSnowFort.y - 56.0 * bird.sizeMultiplier)) < 86.0 * bird.sizeMultiplier) {
                 Bird.PenguinSnowFort fort = bird.penguinSnowFort;
@@ -821,12 +1064,14 @@ final class PenguinSpecials {
                     ? bird.game.battlefieldVoidFloorY() + 180.0
                     : BirdGame3.WORLD_HEIGHT + 220.0;
             if (object.lifeFrames <= 0 || object.x < worldLeft || object.x > worldRight
-                    || object.y - radius > fallLimitY || Math.abs(object.vx) < 0.45) {
+                    || object.y - radius > fallLimitY || (!object.verticalDrop && Math.abs(object.vx) < 0.45)) {
                 object.shattered = true;
             }
 
-            handleIceObjectHits(bird, object);
-            if ((object.ageFrames & 3) == 0) {
+            if (!object.shattered) {
+                handleIceObjectHits(bird, object);
+            }
+            if (!object.shattered && (object.ageFrames & 3) == 0) {
                 bird.game.particles.add(new Particle(
                         object.x - Math.signum(object.vx == 0.0 ? object.direction : object.vx) * radius * 0.7,
                         object.y + radius * 0.65,
@@ -849,7 +1094,7 @@ final class PenguinSpecials {
     }
 
     private static void handleIceObjectHits(Bird bird, Bird.PenguinIceObject object) {
-        double radius = (object.snowball ? 62.0 : 48.0) * bird.sizeMultiplier;
+        double radius = (object.snowball ? 62.0 : (object.verticalDrop ? 58.0 : 48.0)) * bird.sizeMultiplier;
         for (Bird other : bird.game.players) {
             if (!bird.canDamageTarget(other)) continue;
             if (other.playerIndex < 0 || other.playerIndex >= object.hitCooldown.length) continue;
@@ -861,7 +1106,9 @@ final class PenguinSpecials {
             if (Math.abs(dy) > radius + other.combatHalfHeight()) continue;
 
             object.hitCooldown[other.playerIndex] = object.snowball ? 12 : 28;
-            int dmg = object.snowball ? (object.ultimate ? 15 : 10) : (object.ultimate ? 10 : 7);
+            int dmg = object.snowball
+                    ? (object.ultimate ? 15 : 10)
+                    : object.verticalDrop ? (object.ultimate ? 13 : 9) : (object.ultimate ? 10 : 7);
             double oldHealth = other.health;
             int dealt = (int) bird.applyDamageTo(other, dmg);
             if (dealt <= 0) continue;
@@ -872,8 +1119,14 @@ final class PenguinSpecials {
                 bird.game.eliminations[bird.playerIndex]++;
             }
             double launchDir = Math.signum(dx == 0.0 ? object.direction : dx);
-            other.vx += launchDir * (object.snowball ? (object.ultimate ? 15.5 : 12.0) : (object.ultimate ? 10.8 : 8.2));
-            other.vy -= object.snowball ? (object.ultimate ? 8.5 : 6.2) : (object.ultimate ? 6.0 : 4.5);
+            other.vx += launchDir * (object.snowball
+                    ? (object.ultimate ? 15.5 : 12.0)
+                    : object.verticalDrop ? (object.ultimate ? 8.4 : 6.2) : (object.ultimate ? 10.8 : 8.2));
+            if (object.verticalDrop) {
+                other.vy += object.ultimate ? 7.0 : 5.2;
+            } else {
+                other.vy -= object.snowball ? (object.ultimate ? 8.5 : 6.2) : (object.ultimate ? 6.0 : 4.5);
+            }
             if (!object.snowball) {
                 object.shattered = true;
             } else {
@@ -881,8 +1134,35 @@ final class PenguinSpecials {
                 object.vy -= 0.8;
             }
             bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, object.snowball ? 4 : 2);
-            bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, object.snowball ? 8 : 5);
+            bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, object.snowball ? 8 : (object.verticalDrop ? 7 : 5));
         }
+    }
+
+    private static void triggerDroppedIcebergImpact(Bird bird, Bird.PenguinIceObject object, double surfaceY) {
+        double s = bird.sizeMultiplier;
+        double radius = (object.ultimate ? 122.0 : 96.0) * s;
+        double verticalReach = (object.ultimate ? 108.0 : 84.0) * s;
+        boolean hitAny = false;
+        for (Bird other : bird.game.players) {
+            if (!bird.canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - object.x;
+            double feetGap = Math.abs(other.bodyBottomY() - surfaceY);
+            if (Math.abs(dx) > radius + other.combatHalfWidth()) continue;
+            if (feetGap > verticalReach && other.bodyCenterY() < surfaceY - verticalReach) continue;
+
+            double edge = 1.0 - Math.clamp(Math.abs(dx) / Math.max(1.0, radius), 0.0, 1.0);
+            int dmg = (int) Math.round((object.ultimate ? 12.0 : 8.5) * (0.62 + edge * 0.38));
+            int dealt = bird.applyTrackedSpecialDamage(other, dmg);
+            if (dealt <= 0) continue;
+            hitAny = true;
+            double launchDir = Math.signum(dx == 0.0 ? object.direction : dx);
+            other.vx += launchDir * (object.ultimate ? 10.4 : 7.8) * (0.55 + edge * 0.45);
+            other.vy -= (object.ultimate ? 9.8 : 7.2) * (0.58 + edge * 0.42);
+        }
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, hitAny ? 12 : 8);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, hitAny ? 4 : 2);
+        emitIceBurst(bird, object.x, surfaceY - 22.0 * s, object.direction, hitAny ? 38 : 26,
+                object.ultimate ? Color.GOLD : Color.web("#E1F5FE"));
     }
 
     private static double specialPhase(int timer, int totalFrames) {

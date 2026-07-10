@@ -413,6 +413,10 @@ class LanBirdState {
     int penguinSnowFortLifeFrames;
     int penguinSnowFortAgeFrames;
     int penguinFortGuardFxTimer;
+    int penguinAbsoluteZeroTimer;
+    int penguinAbsoluteZeroWaveIndex;
+    double penguinAbsoluteZeroThroneX;
+    double penguinAbsoluteZeroThroneY;
     int shoebillStareFxTimer;
     int shoebillStareReuseTimer;
     boolean shoebillStareUltimate;
@@ -920,6 +924,10 @@ class LanBirdState {
         out.writeInt(penguinSnowFortLifeFrames);
         out.writeInt(penguinSnowFortAgeFrames);
         out.writeInt(penguinFortGuardFxTimer);
+        out.writeInt(penguinAbsoluteZeroTimer);
+        out.writeInt(penguinAbsoluteZeroWaveIndex);
+        out.writeDouble(penguinAbsoluteZeroThroneX);
+        out.writeDouble(penguinAbsoluteZeroThroneY);
         out.writeInt(shoebillStareFxTimer);
         out.writeInt(shoebillStareReuseTimer);
         out.writeBoolean(shoebillStareUltimate);
@@ -1439,6 +1447,10 @@ class LanBirdState {
         state.penguinSnowFortLifeFrames = in.readInt();
         state.penguinSnowFortAgeFrames = in.readInt();
         state.penguinFortGuardFxTimer = in.readInt();
+        state.penguinAbsoluteZeroTimer = in.readInt();
+        state.penguinAbsoluteZeroWaveIndex = in.readInt();
+        state.penguinAbsoluteZeroThroneX = in.readDouble();
+        state.penguinAbsoluteZeroThroneY = in.readDouble();
         state.shoebillStareFxTimer = in.readInt();
         state.shoebillStareReuseTimer = in.readInt();
         state.shoebillStareUltimate = in.readBoolean();
