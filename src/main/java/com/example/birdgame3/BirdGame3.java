@@ -14337,6 +14337,9 @@ public class BirdGame3 extends Application {
         double hitFlash = Math.clamp(crow.hitFlashTimer / 10.0, 0.0, 1.0);
         double drawX = crow.x + (hitFlash > 0 ? (crow.hitFlashTimer % 2 == 0 ? 2.4 : -2.4) * scale : 0.0);
         double drawY = crow.y - hitFlash * 2.0 * scale;
+        double dir = crow.vx >= 0.0 ? 1.0 : -1.0;
+        double flap = Math.sin(crow.age * 0.46);
+        double wingLift = -4.0 - flap * (variant == CrowMinion.VARIANT_GIANT_CROW ? 5.6 : 4.2);
 
         Color body = switch (variant) {
             case CrowMinion.VARIANT_GIANT_CROW -> Color.web("#140407");
@@ -14352,6 +14355,20 @@ public class BirdGame3 extends Application {
             case CrowMinion.VARIANT_MURDER_CROW -> Color.rgb(40, 0, 0);
             default -> Color.rgb(30, 30, 40);
         };
+        Color trim = switch (variant) {
+            case CrowMinion.VARIANT_GIANT_CROW -> Color.web("#7B1B22");
+            case CrowMinion.VARIANT_RAVEN -> Color.web("#607D8B");
+            case CrowMinion.VARIANT_VOID_RAVEN -> Color.web("#B71C5C");
+            case CrowMinion.VARIANT_MURDER_CROW -> Color.web("#8E0000");
+            default -> Color.web("#455A64");
+        };
+        Color highlight = switch (variant) {
+            case CrowMinion.VARIANT_RAVEN -> Color.web("#546E7A");
+            case CrowMinion.VARIANT_VOID_RAVEN -> Color.web("#6A1B9A");
+            case CrowMinion.VARIANT_GIANT_CROW -> Color.web("#4A0D13");
+            case CrowMinion.VARIANT_MURDER_CROW -> Color.web("#5A0000");
+            default -> Color.web("#37474F");
+        };
         Color eyes = switch (variant) {
             case CrowMinion.VARIANT_RAVEN -> Color.web("#90CAF9");
             case CrowMinion.VARIANT_VOID_RAVEN -> Color.web("#FF80AB");
@@ -14362,27 +14379,125 @@ public class BirdGame3 extends Application {
             wings = wings.interpolate(Color.web("#FFF59D"), 0.10 + hitFlash * 0.22);
         }
 
+        g.save();
+        g.setFill(Color.rgb(0, 0, 0, 0.30));
+        g.fillOval(drawX - 26 * scale, drawY + 12 * scale, 52 * scale, 12 * scale);
+        if (variant == CrowMinion.VARIANT_VOID_RAVEN) {
+            g.setFill(Color.web("#B71C5C", 0.12 + 0.05 * Math.sin(crow.age * 0.18)));
+            g.fillOval(drawX - 32 * scale, drawY - 26 * scale, 64 * scale, 58 * scale);
+        }
+        if (crow.anchorGuard) {
+            g.setStroke(trim.deriveColor(0, 1, 1, 0.36));
+            g.setLineWidth(1.4 * scale);
+            g.strokeOval(drawX - 24 * scale, drawY - 22 * scale, 48 * scale, 42 * scale);
+        }
+        g.translate(drawX, drawY);
+        g.scale(dir * scale, scale);
+
+        g.setFill(wings.darker());
+        g.fillPolygon(
+                new double[]{-7, -22, -44, -28, -4},
+                new double[]{-4, wingLift - 18, wingLift - 2, 13, 10},
+                5
+        );
+        g.setStroke(Color.web("#050507", 0.74));
+        g.setLineWidth(2.0);
+        g.strokePolygon(
+                new double[]{-7, -22, -44, -28, -4},
+                new double[]{-4, wingLift - 18, wingLift - 2, 13, 10},
+                5
+        );
+
+        g.setFill(body.darker());
+        g.fillPolygon(
+                new double[]{-16, -30, -21, -35, -13},
+                new double[]{1, -8, 6, 13, 12},
+                5
+        );
+
         g.setFill(body);
-        g.fillOval(drawX - 12 * scale, drawY - 10 * scale, 24 * scale, 20 * scale);
-        double wingHeight = variant == CrowMinion.VARIANT_GIANT_CROW ? 34 * scale : 25 * scale;
-        double wingWidth = variant == CrowMinion.VARIANT_VOID_RAVEN ? 24 * scale : 20 * scale;
+        g.fillOval(-15, -11, 33, 23);
+        g.setStroke(Color.web("#050507", 0.82));
+        g.setLineWidth(2.0);
+        g.strokeOval(-15, -11, 33, 23);
+
+        g.setFill(highlight.deriveColor(0, 0.88, 1.10, 0.62));
+        g.fillOval(-6, -8, 17, 10);
+        g.setStroke(trim.deriveColor(0, 1, 1, 0.82));
+        g.setLineWidth(1.5);
+        g.strokeLine(-10, 2, 9, 7);
+        g.strokeLine(-9, 6, 6, 10);
+
         g.setFill(wings);
-        g.fillOval(drawX - 25 * scale, drawY - 8 * scale, wingWidth, wingHeight);
-        g.fillOval(drawX + 5 * scale, drawY - 8 * scale, wingWidth, wingHeight);
+        g.fillPolygon(
+                new double[]{-2, -26, -50, -27, 8},
+                new double[]{-2, wingLift - 23, wingLift + 1, 18, 10},
+                5
+        );
+        g.setStroke(Color.web("#050507", 0.80));
+        g.setLineWidth(2.1);
+        g.strokePolygon(
+                new double[]{-2, -26, -50, -27, 8},
+                new double[]{-2, wingLift - 23, wingLift + 1, 18, 10},
+                5
+        );
+        g.setStroke(highlight.deriveColor(0, 1, 1, 0.75));
+        g.setLineWidth(1.35);
+        g.strokeLine(-12, wingLift - 9, -34, wingLift + 2);
+        g.strokeLine(-7, wingLift - 2, -25, wingLift + 12);
+
+        g.setFill(body.brighter());
+        g.fillOval(6, -17, 23, 20);
+        g.setStroke(Color.web("#050507", 0.82));
+        g.setLineWidth(1.8);
+        g.strokeOval(6, -17, 23, 20);
+        g.setFill(trim.deriveColor(0, 0.9, 1.08, 0.64));
+        g.fillArc(10, -14, 14, 10, 12, 136, ArcType.CHORD);
+
+        g.setFill(variant == CrowMinion.VARIANT_ALLIED_CROW ? Color.web("#B0BEC5") : Color.web("#263238"));
+        g.fillPolygon(
+                new double[]{26, 18, 18},
+                new double[]{-7, -2, -12},
+                3
+        );
+        g.setStroke(Color.web("#050507", 0.78));
+        g.setLineWidth(1.2);
+        g.strokePolygon(
+                new double[]{26, 18, 18},
+                new double[]{-7, -2, -12},
+                3
+        );
+
+        g.setEffect(new Glow(0.42));
         g.setFill(eyes);
-        g.fillOval(drawX - 4 * scale, drawY - 5 * scale, 8 * scale, 8 * scale);
-        g.fillOval(drawX + 10 * scale, drawY - 5 * scale, 8 * scale, 8 * scale);
+        g.fillOval(17, -11, 6.2, 6.2);
+        g.setFill(Color.web("#FFFDE7", 0.84));
+        g.fillOval(19, -10, 1.8, 1.8);
+        g.setEffect(null);
+
+        g.setStroke(trim.deriveColor(0, 0.9, 1.2, 0.72));
+        g.setLineWidth(1.25);
+        g.strokeLine(-4, 10, -9, 16);
+        g.strokeLine(5, 10, 3, 17);
+        g.setStroke(Color.web("#FFF8E1", 0.58));
+        g.strokeLine(-9, 16, -14, 17);
+        g.strokeLine(3, 17, 9, 18);
+
         if (variant == CrowMinion.VARIANT_VOID_RAVEN) {
             g.setStroke(Color.web("#FF80AB").deriveColor(0, 1, 1, 0.75));
-            g.setLineWidth(2.0);
-            g.strokeOval(drawX - 18 * scale, drawY - 18 * scale, 36 * scale, 28 * scale);
+            g.setLineWidth(1.6);
+            g.strokeOval(-20, -22, 45, 34);
+            g.setStroke(Color.web("#CE93D8", 0.58));
+            g.strokeArc(-31, -31, 58, 50, 206, 118, ArcType.OPEN);
         }
         if (crow.hasCrown) {
-            double crownW = 18 * scale;
-            double crownH = 10 * scale;
-            double cy = drawY - 18 * scale;
+            double crownW = 20;
+            double crownH = 11;
+            double cx = 17.5;
+            double cy = -28;
             double[] xs = new double[]{
-                    drawX - crownW / 2, drawX - crownW / 4, drawX, drawX + crownW / 4, drawX + crownW / 2, drawX + crownW / 2, drawX - crownW / 2
+                    cx - crownW / 2, cx - crownW / 4, cx, cx + crownW / 4, cx + crownW / 2,
+                    cx + crownW / 2, cx - crownW / 2
             };
             double[] ys = new double[]{
                     cy + crownH, cy, cy + crownH * 0.3, cy, cy + crownH, cy + crownH * 1.3, cy + crownH * 1.3
@@ -14393,49 +14508,139 @@ public class BirdGame3 extends Application {
             g.setLineWidth(1.2);
             g.strokePolygon(xs, ys, xs.length);
         }
+        g.restore();
     }
 
     private void drawPiranhaHazard(GraphicsContext g, PiranhaHazard piranha) {
         double dir = piranha.vx >= 0 ? 1.0 : -1.0;
-        double bodyW = 46;
-        double bodyH = 24;
+        double bodyW = 56;
+        double bodyH = 31;
         double x = piranha.x;
         double y = piranha.y;
         double bitePulse = piranha.biteCooldown > 0 ? 1.0 : 0.0;
+        double breach = Math.clamp(piranha.breachCooldown / 48.0, 0.0, 1.0);
+        double swim = Math.sin(piranha.age * 0.34);
+        double mouthOpen = 0.20 + bitePulse * 0.58 + Math.max(0.0, swim) * 0.10;
 
-        g.setFill(Color.web("#0A1A20", 0.28));
-        g.fillOval(x - bodyW * 0.5, y + 10, bodyW, 10);
+        g.save();
+        g.setFill(Color.web("#0A1A20", 0.26));
+        g.fillOval(x - bodyW * 0.58, y + bodyH * 0.36, bodyW * 1.18, bodyH * 0.32);
+        if (breach > 0.0) {
+            g.setStroke(Color.web("#B3E5FC", 0.20 + breach * 0.18));
+            g.setLineWidth(2.0);
+            g.strokeArc(x - bodyW * 0.72, y + bodyH * 0.18, bodyW * 1.44, bodyH * 0.72,
+                    200, 140, ArcType.OPEN);
+            g.setFill(Color.web("#E1F5FE", 0.12 + breach * 0.16));
+            g.fillOval(x - bodyW * 0.46, y + bodyH * 0.28, bodyW * 0.92, bodyH * 0.20);
+        }
+        for (int i = 1; i <= 3; i++) {
+            double trailX = x - dir * (bodyW * (0.42 + i * 0.16));
+            g.setStroke(Color.web("#80DEEA", 0.10 - i * 0.018));
+            g.setLineWidth(1.4);
+            g.strokeArc(trailX - bodyW * 0.32, y + bodyH * (0.14 + i * 0.02),
+                    bodyW * 0.62, bodyH * 0.40, 210, 112, ArcType.OPEN);
+        }
 
-        g.setFill(Color.web("#C62828"));
-        g.fillOval(x - bodyW * 0.5, y - bodyH * 0.5, bodyW, bodyH);
-        g.setFill(Color.web("#EF5350"));
-        g.fillOval(x - bodyW * 0.12, y - bodyH * 0.42, bodyW * 0.44, bodyH * 0.48);
+        g.translate(x, y + swim * 1.2);
+        g.scale(dir, 1.0);
+
         g.setFill(Color.web("#8E0000"));
         g.fillPolygon(
-                new double[]{x - dir * bodyW * 0.46, x - dir * bodyW * 0.74, x - dir * bodyW * 0.46},
-                new double[]{y, y - bodyH * 0.46, y + bodyH * 0.46},
+                new double[]{-bodyW * 0.42, -bodyW * 0.78, -bodyW * 0.48},
+                new double[]{0, -bodyH * 0.48, bodyH * 0.44},
                 3
         );
-        g.setFill(Color.web("#FFCDD2"));
+        g.setStroke(Color.web("#260507", 0.85));
+        g.setLineWidth(2.0);
+        g.strokePolygon(
+                new double[]{-bodyW * 0.42, -bodyW * 0.78, -bodyW * 0.48},
+                new double[]{0, -bodyH * 0.48, bodyH * 0.44},
+                3
+        );
+
+        g.setFill(Color.web("#EF5350"));
         g.fillPolygon(
-                new double[]{x + dir * bodyW * 0.28, x + dir * bodyW * 0.58, x + dir * bodyW * 0.28},
-                new double[]{y - bodyH * 0.16, y - bodyH * 0.02, y + bodyH * 0.1},
+                new double[]{-bodyW * 0.02, bodyW * 0.14, bodyW * 0.32},
+                new double[]{-bodyH * 0.32, -bodyH * 0.66, -bodyH * 0.22},
                 3
+        );
+        g.setFill(Color.web("#C62828"));
+        g.fillOval(-bodyW * 0.52, -bodyH * 0.50, bodyW * 0.95, bodyH);
+        g.setStroke(Color.web("#260507", 0.88));
+        g.setLineWidth(2.3);
+        g.strokeOval(-bodyW * 0.52, -bodyH * 0.50, bodyW * 0.95, bodyH);
+
+        g.setFill(Color.web("#FF8A80", 0.72));
+        g.fillOval(-bodyW * 0.20, -bodyH * 0.42, bodyW * 0.40, bodyH * 0.42);
+        g.setStroke(Color.web("#FFCDD2", 0.50));
+        g.setLineWidth(1.5);
+        g.strokeArc(-bodyW * 0.30, -bodyH * 0.35, bodyW * 0.52, bodyH * 0.52, 20, 110, ArcType.OPEN);
+
+        g.setFill(Color.web("#8E0000"));
+        g.fillPolygon(
+                new double[]{-bodyW * 0.10, -bodyW * 0.22, -bodyW * 0.02},
+                new double[]{bodyH * 0.48, bodyH * 0.78, bodyH * 0.56},
+                3
+        );
+        g.setFill(Color.web("#6D0000"));
+        g.fillPolygon(
+                new double[]{-bodyW * 0.36, -bodyW * 0.52, -bodyW * 0.30},
+                new double[]{bodyH * 0.16, bodyH * 0.36, bodyH * 0.32},
+                3
+        );
+
+        double jawX = bodyW * 0.19;
+        double topLipY = -bodyH * (0.13 + mouthOpen * 0.28);
+        double bottomLipY = bodyH * (0.10 + mouthOpen * 0.25);
+        g.setFill(Color.web("#B71C1C"));
+        g.fillPolygon(
+                new double[]{jawX - bodyW * 0.08, bodyW * 0.58, bodyW * 0.34, jawX - bodyW * 0.04},
+                new double[]{-bodyH * 0.30, topLipY, -bodyH * 0.02, bodyH * 0.04},
+                4
         );
         g.fillPolygon(
-                new double[]{x + dir * bodyW * 0.28, x + dir * bodyW * 0.58, x + dir * bodyW * 0.28},
-                new double[]{y + bodyH * 0.16, y + bodyH * 0.02, y - bodyH * 0.1},
-                3
+                new double[]{jawX - bodyW * 0.08, bodyW * 0.60, bodyW * 0.34, jawX - bodyW * 0.04},
+                new double[]{bodyH * 0.26, bottomLipY, bodyH * 0.02, -bodyH * 0.02},
+                4
         );
-        g.setFill(Color.WHITE);
-        g.fillOval(x + dir * 10, y - 8, 6, 6);
-        g.setFill(Color.BLACK);
-        g.fillOval(x + dir * 11, y - 7, 3, 3);
+        g.setStroke(Color.web("#260507", 0.88));
+        g.setLineWidth(2.0);
+        g.strokeLine(jawX - bodyW * 0.05, topLipY, bodyW * 0.55, -bodyH * 0.02);
+        g.strokeLine(jawX - bodyW * 0.05, bottomLipY, bodyW * 0.55, bodyH * 0.02);
+
+        g.setFill(Color.web("#FFFDE7"));
+        for (int i = 0; i < 4; i++) {
+            double tx = bodyW * (0.24 + i * 0.075);
+            double tooth = i % 2 == 0 ? 6.0 : 5.0;
+            g.fillPolygon(
+                    new double[]{tx, tx + 3.6, tx + 7.2},
+                    new double[]{topLipY + 1.0, topLipY + tooth, topLipY + 1.0},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{tx + 2.0, tx + 5.6, tx + 9.2},
+                    new double[]{bottomLipY - 1.0, bottomLipY - tooth, bottomLipY - 1.0},
+                    3
+            );
+        }
+
+        g.setFill(Color.web("#FFFDE7"));
+        g.fillOval(bodyW * 0.02, -bodyH * 0.32, 8.0, 8.0);
+        g.setFill(Color.web("#111111"));
+        g.fillOval(bodyW * 0.04, -bodyH * 0.30, 4.2, 4.2);
+        g.setFill(Color.web("#FFFFFF", 0.88));
+        g.fillOval(bodyW * 0.055, -bodyH * 0.29, 1.4, 1.4);
+
+        g.setStroke(Color.web("#FFCDD2", 0.45));
+        g.setLineWidth(1.3);
+        g.strokeLine(-bodyW * 0.28, -bodyH * 0.20, -bodyW * 0.20, bodyH * 0.22);
+        g.strokeLine(-bodyW * 0.17, -bodyH * 0.23, -bodyW * 0.09, bodyH * 0.21);
         if (bitePulse > 0) {
             g.setStroke(Color.web("#FFEB3B", 0.6));
             g.setLineWidth(2.2);
-            g.strokeOval(x - bodyW * 0.56, y - bodyH * 0.72, bodyW * 1.1, bodyH * 1.45);
+            g.strokeOval(-bodyW * 0.58, -bodyH * 0.74, bodyW * 1.18, bodyH * 1.50);
         }
+        g.restore();
     }
 
     private void drawDockShipBomb(GraphicsContext g, DockShipBomb bomb) {
@@ -14577,6 +14782,9 @@ public class BirdGame3 extends Application {
             }
         }
 
+        g.setFill(Color.rgb(0, 0, 0, 0.22));
+        g.fillOval(x + w * 0.02, y + h * 0.78, w * 1.06, h * 0.24);
+
         if (chick.roosterSwarm && chick.swarmVisualCopies > 0) {
             double lifeFade = Math.clamp(1.0 - chick.age / (double) Math.max(1, chick.maxAge), 0.15, 1.0);
             double backDir = chick.vx >= 0.0 ? -1.0 : 1.0;
@@ -14655,6 +14863,9 @@ public class BirdGame3 extends Application {
 
         g.setFill(body);
         g.fillOval(x, y + h * 0.2, w * 1.1, h * 0.8);
+        g.setStroke(Color.web("#2A1A0A", sunforgeBrood ? 0.78 : 0.58));
+        g.setLineWidth(Math.max(1.4, w * 0.055));
+        g.strokeOval(x, y + h * 0.2, w * 1.1, h * 0.8);
 
         if (sunforgeBrood) {
             g.setStroke(Color.web("#FFD54F").deriveColor(0, 1, 1, chick.ultimate ? 0.95 : 0.7));
@@ -14664,6 +14875,11 @@ public class BirdGame3 extends Application {
 
         g.setFill(body.darker());
         g.fillOval(x + w * 0.25, y + h * 0.35, w * 0.45, h * 0.4);
+        g.setFill(body.brighter().deriveColor(0, 0.86, 1.12, 0.42));
+        g.fillArc(x + w * 0.10, y + h * 0.24, w * 0.82, h * 0.48, 18, 108, ArcType.CHORD);
+        g.setStroke(accent.deriveColor(0, 0.86, 1.10, 0.52));
+        g.setLineWidth(Math.max(1.0, w * 0.035));
+        g.strokeArc(x + w * 0.22, y + h * 0.38, w * 0.44, h * 0.32, 192, 132, ArcType.OPEN);
 
         double headW = w * 0.45;
         double headH = h * 0.45;
@@ -14671,6 +14887,9 @@ public class BirdGame3 extends Application {
         double headY = y + h * 0.05;
         g.setFill(body.brighter());
         g.fillOval(headX, headY, headW, headH);
+        g.setStroke(Color.web("#2A1A0A", sunforgeBrood ? 0.78 : 0.56));
+        g.setLineWidth(Math.max(1.1, w * 0.04));
+        g.strokeOval(headX, headY, headW, headH);
 
         if (chick.variant == 1) {
             g.setFill(accent);
@@ -14699,23 +14918,38 @@ public class BirdGame3 extends Application {
 
         g.setFill(accent);
         if (facingRight) {
-            g.fillPolygon(
-                    new double[]{headX + headW * 0.9, headX + headW * 1.15, headX + headW * 0.9},
-                    new double[]{headY + headH * 0.45, headY + headH * 0.55, headY + headH * 0.65},
-                    3
-            );
+            double[] beakX = new double[]{headX + headW * 0.9, headX + headW * 1.15, headX + headW * 0.9};
+            double[] beakY = new double[]{headY + headH * 0.45, headY + headH * 0.55, headY + headH * 0.65};
+            g.fillPolygon(beakX, beakY, 3);
+            g.setStroke(Color.web("#3E2723", 0.58));
+            g.setLineWidth(Math.max(0.8, w * 0.025));
+            g.strokePolygon(beakX, beakY, 3);
         } else {
-            g.fillPolygon(
-                    new double[]{headX + headW * 0.1, headX - headW * 0.15, headX + headW * 0.1},
-                    new double[]{headY + headH * 0.45, headY + headH * 0.55, headY + headH * 0.65},
-                    3
-            );
+            double[] beakX = new double[]{headX + headW * 0.1, headX - headW * 0.15, headX + headW * 0.1};
+            double[] beakY = new double[]{headY + headH * 0.45, headY + headH * 0.55, headY + headH * 0.65};
+            g.fillPolygon(beakX, beakY, 3);
+            g.setStroke(Color.web("#3E2723", 0.58));
+            g.setLineWidth(Math.max(0.8, w * 0.025));
+            g.strokePolygon(beakX, beakY, 3);
         }
 
         g.setFill(sunforgeBrood ? Color.web("#FFF8E1") : Color.BLACK);
         double eyeX = facingRight ? headX + headW * 0.6 : headX + headW * 0.25;
         double eyeY = headY + headH * 0.35;
         g.fillOval(eyeX, eyeY, headW * 0.15, headW * 0.15);
+        g.setFill(Color.web("#FFFFFF", sunforgeBrood ? 0.92 : 0.74));
+        g.fillOval(eyeX + headW * 0.052, eyeY + headW * 0.030, headW * 0.045, headW * 0.045);
+
+        double footY = y + h * 0.92;
+        double footDir = facingRight ? 1.0 : -1.0;
+        g.setStroke(sunforgeBrood ? Color.web("#FFE082") : Color.web("#E65100"));
+        g.setLineWidth(Math.max(1.2, w * 0.04));
+        for (int i = 0; i < 2; i++) {
+            double legX = x + w * (0.34 + i * 0.23);
+            g.strokeLine(legX, y + h * 0.83, legX + footDir * w * 0.04, footY);
+            g.strokeLine(legX + footDir * w * 0.04, footY, legX + footDir * w * 0.18, footY + h * 0.02);
+            g.strokeLine(legX + footDir * w * 0.04, footY, legX - footDir * w * 0.08, footY + h * 0.03);
+        }
 
         if (chick.ultimate) {
             double crownW = headW * 0.9;
