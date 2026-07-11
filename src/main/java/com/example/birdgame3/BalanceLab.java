@@ -1,24 +1,26 @@
 package com.example.birdgame3;
 
 import com.example.birdgame3.BirdGame3.BirdType;
+import com.example.birdgame3.BirdGame3.MapType;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.prefs.Preferences;
 
 /**
  * Headless AI-vs-AI balance lab.
  *
  * <p>Plays every roster pairing as full deterministic smash-rules matches on
- * Battlefield — no rendering, no JavaFX toolkit, no progression side effects —
- * and aggregates win rates into a matchup matrix. Each pairing runs with the
- * sides swapped equally to cancel any spawn-position advantage, and every
- * match gets its own seed, so a rerun with the same config reproduces the same
- * results exactly.
+ * every stage with no rendering, no JavaFX toolkit, and no progression side
+ * effects. Each pairing runs with the sides swapped equally to cancel any
+ * spawn-position advantage, and every match gets its own seed, so a rerun with
+ * the same config reproduces the same results exactly.
  *
  * <p>Tuning loop: run the lab, adjust {@code bird-stats.properties} (which is
  * loaded from the working directory at startup and applies to the lab too),
@@ -26,19 +28,40 @@ import java.util.prefs.Preferences;
  */
 final class BalanceLab {
 
-    record Config(int matchesPerPairPerSide, long maxTicksPerMatch, long baseSeed) {
+    record Config(int matchesPerPairPerSide, long maxTicksPerMatch, long baseSeed, MapType[] maps) {
+        Config {
+            if (maps == null || maps.length == 0) {
+                maps = new MapType[]{MapType.BATTLEFIELD};
+            } else {
+                maps = maps.clone();
+            }
+        }
+
         static Config defaults() {
-            // 2 per side = 4 per pairing; cap at ~4 sim minutes per match
+            // 2 per side = 4 per pairing per map; cap at ~4 sim minutes per match
             // (90s timer + generous sudden-death allowance).
-            return new Config(2, 4L * 60 * 60, 20260708L);
+            return new Config(2, 4L * 60 * 60, 20260708L, MapType.values());
+        }
+
+        @Override
+        public MapType[] maps() {
+            return maps.clone();
         }
     }
 
-    record MatchOutcome(BirdType left, BirdType right, BirdType winner, long ticks) {
+    record MatchOutcome(BirdType left, BirdType right, BirdType winner, MapType map, long ticks) {
     }
 
-    record Report(List<MatchOutcome> outcomes, BirdType[] roster,
-                  double[][] winRateMatrix, double[] overallWinRate, int[] decidedMatches) {
+    private record Aggregate(double[][] winRateMatrix, double[] overallWinRate, int[] decidedMatches) {
+    }
+
+    record MapSummary(MapType map, int matches, long draws, double[][] winRateMatrix,
+                      double[] overallWinRate, int[] decidedMatches) {
+    }
+
+    record Report(List<MatchOutcome> outcomes, BirdType[] roster, MapType[] maps,
+                  double[][] winRateMatrix, double[] overallWinRate, int[] decidedMatches,
+                  List<MapSummary> mapSummaries) {
 
         String markdown() {
             StringBuilder sb = new StringBuilder();
@@ -46,19 +69,58 @@ final class BalanceLab {
             sb.append("- Matches played: ").append(outcomes.size()).append('\n');
             long draws = outcomes.stream().filter(o -> o.winner() == null).count();
             sb.append("- Draws/timeouts: ").append(draws).append('\n');
-            sb.append("- Map: Battlefield, smash rules, AI vs AI\n\n");
+            sb.append("- Maps: ").append(mapList()).append('\n');
+            sb.append("- Rules: smash, AI vs AI\n\n");
 
-            sb.append("## Tier list (overall win rate)\n\n");
-            sb.append("| Bird | Win rate | Decided matches |\n|---|---:|---:|\n");
-            Integer[] order = new Integer[roster.length];
-            for (int i = 0; i < order.length; i++) order[i] = i;
-            java.util.Arrays.sort(order, Comparator.comparingDouble((Integer i) -> overallWinRate[i]).reversed());
-            for (int i : order) {
-                sb.append(String.format(Locale.ROOT, "| %s | %.1f%% | %d |%n",
-                        roster[i].name, overallWinRate[i] * 100.0, decidedMatches[i]));
+            appendTierList(sb, "Tier list (all maps)", overallWinRate, decidedMatches);
+
+            sb.append("\n## Map summary\n\n");
+            sb.append("| Map | Matches | Draws | Leader | Leader win rate | Lowest | Lowest win rate |\n");
+            sb.append("|---|---:|---:|---|---:|---|---:|\n");
+            for (MapSummary summary : mapSummaries) {
+                int leader = bestIndex(summary.overallWinRate());
+                int trailer = worstIndex(summary.overallWinRate());
+                sb.append(String.format(Locale.ROOT, "| %s | %d | %d | %s | %.1f%% | %s | %.1f%% |%n",
+                        mapName(summary.map()),
+                        summary.matches(),
+                        summary.draws(),
+                        roster[leader].name,
+                        summary.overallWinRate()[leader] * 100.0,
+                        roster[trailer].name,
+                        summary.overallWinRate()[trailer] * 100.0));
             }
 
-            sb.append("\n## Matchup matrix (row's win rate vs column)\n\n| |");
+            sb.append("\n## Tier list by map\n");
+            for (MapSummary summary : mapSummaries) {
+                appendTierList(sb, mapName(summary.map()), summary.overallWinRate(), summary.decidedMatches());
+            }
+
+            appendMatchupMatrix(sb, "\n## Matchup matrix (all maps)", winRateMatrix);
+            return sb.toString();
+        }
+
+        private String mapList() {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < maps.length; i++) {
+                if (i > 0) sb.append(", ");
+                sb.append(mapName(maps[i]));
+            }
+            return sb.toString();
+        }
+
+        private void appendTierList(StringBuilder sb, String title, double[] rates, int[] totals) {
+            sb.append("## ").append(title).append("\n\n");
+            sb.append("| Bird | Win rate | Decided matches |\n|---|---:|---:|\n");
+            Integer[] order = orderedByWinRate(rates);
+            for (int i : order) {
+                sb.append(String.format(Locale.ROOT, "| %s | %.1f%% | %d |%n",
+                        roster[i].name, rates[i] * 100.0, totals[i]));
+            }
+            sb.append('\n');
+        }
+
+        private void appendMatchupMatrix(StringBuilder sb, String title, double[][] matrix) {
+            sb.append(title).append("\n\n| |");
             for (BirdType t : roster) sb.append(' ').append(shortName(t)).append(" |");
             sb.append('\n').append("|---|");
             sb.append("---|".repeat(roster.length)).append('\n');
@@ -67,15 +129,46 @@ final class BalanceLab {
                 for (int c = 0; c < roster.length; c++) {
                     if (r == c) {
                         sb.append(" - |");
-                    } else if (Double.isNaN(winRateMatrix[r][c])) {
+                    } else if (Double.isNaN(matrix[r][c])) {
                         sb.append(" ? |");
                     } else {
-                        sb.append(String.format(Locale.ROOT, " %.0f%% |", winRateMatrix[r][c] * 100.0));
+                        sb.append(String.format(Locale.ROOT, " %.0f%% |", matrix[r][c] * 100.0));
                     }
                 }
                 sb.append('\n');
             }
-            return sb.toString();
+        }
+
+        private Integer[] orderedByWinRate(double[] rates) {
+            Integer[] order = new Integer[roster.length];
+            for (int i = 0; i < order.length; i++) order[i] = i;
+            Arrays.sort(order, Comparator.comparingDouble((Integer i) -> rates[i]).reversed());
+            return order;
+        }
+
+        private int bestIndex(double[] rates) {
+            return orderedByWinRate(rates)[0];
+        }
+
+        private int worstIndex(double[] rates) {
+            Integer[] order = orderedByWinRate(rates);
+            return order[order.length - 1];
+        }
+
+        private static String mapName(MapType map) {
+            return switch (map) {
+                case CITY -> "Pigeon's Rooftops";
+                case SKYCLIFFS -> "Sky Cliffs";
+                case VIBRANT_JUNGLE -> "Vibrant Jungle";
+                case DESERT -> "Sunscorch Flats";
+                case CAVE -> "Echo Cavern";
+                case BATTLEFIELD -> "Battlefield";
+                case BEACON_CROWN -> "Beacon Crown";
+                case DOCK -> "Broken Harbor";
+                case FROSTBITE_FJORD -> "Frostbite Fjord";
+                case ASHFALL_CATHEDRAL -> "Ashfall Cathedral";
+                default -> "Big Forest";
+            };
         }
 
         private static String shortName(BirdType t) {
@@ -95,31 +188,42 @@ final class BalanceLab {
             progress.accept(tuning != null ? tuning : "BIRD STATS: COMPILED DEFAULTS");
         }
         BirdType[] roster = BirdType.values();
+        MapType[] maps = config.maps();
         BirdGame3 game = new BirdGame3(
                 Preferences.userRoot().node("/birdfight3-tests/balance-lab/" + UUID.randomUUID()));
         List<MatchOutcome> outcomes = new ArrayList<>();
         long seed = config.baseSeed();
         int totalPairs = roster.length * (roster.length - 1) / 2;
-        int pairIndex = 0;
+        int totalMapPairs = totalPairs * maps.length;
+        int mapPairIndex = 0;
 
-        for (int a = 0; a < roster.length; a++) {
-            for (int b = a + 1; b < roster.length; b++) {
-                pairIndex++;
-                for (int n = 0; n < config.matchesPerPairPerSide(); n++) {
-                    outcomes.add(playMatch(game, roster[a], roster[b], seed++, config.maxTicksPerMatch()));
-                    outcomes.add(playMatch(game, roster[b], roster[a], seed++, config.maxTicksPerMatch()));
-                }
-                if (progress != null) {
-                    progress.accept(String.format(Locale.ROOT, "pair %d/%d  %s vs %s done",
-                            pairIndex, totalPairs, roster[a].name, roster[b].name));
+        for (MapType map : maps) {
+            int pairIndex = 0;
+            for (int a = 0; a < roster.length; a++) {
+                for (int b = a + 1; b < roster.length; b++) {
+                    pairIndex++;
+                    mapPairIndex++;
+                    for (int n = 0; n < config.matchesPerPairPerSide(); n++) {
+                        outcomes.add(playMatch(game, roster[a], roster[b], seed++, config.maxTicksPerMatch(), map));
+                        outcomes.add(playMatch(game, roster[b], roster[a], seed++, config.maxTicksPerMatch(), map));
+                    }
+                    if (progress != null) {
+                        progress.accept(String.format(Locale.ROOT, "map %s pair %d/%d  overall %d/%d  %s vs %s done",
+                                Report.mapName(map), pairIndex, totalPairs, mapPairIndex, totalMapPairs,
+                                roster[a].name, roster[b].name));
+                    }
                 }
             }
         }
-        return aggregate(outcomes, roster);
+        return aggregate(outcomes, roster, maps);
     }
 
     static MatchOutcome playMatch(BirdGame3 game, BirdType left, BirdType right, long seed, long maxTicks) {
-        game.harnessPrepareMatch(left, right, seed);
+        return playMatch(game, left, right, seed, maxTicks, MapType.BATTLEFIELD);
+    }
+
+    static MatchOutcome playMatch(BirdGame3 game, BirdType left, BirdType right, long seed, long maxTicks, MapType map) {
+        game.harnessPrepareMatch(left, right, seed, map);
         long ticks = 0;
         while (game.harnessTick() && ticks < maxTicks) {
             ticks++;
@@ -139,15 +243,32 @@ final class BalanceLab {
                 }
             }
         }
-        return new MatchOutcome(left, right, winner, ticks);
+        return new MatchOutcome(left, right, winner, map == null ? MapType.BATTLEFIELD : map, ticks);
     }
 
-    private static Report aggregate(List<MatchOutcome> outcomes, BirdType[] roster) {
+    private static Report aggregate(List<MatchOutcome> outcomes, BirdType[] roster, MapType[] maps) {
+        Aggregate allMaps = aggregate(outcomes, roster, ignored -> true);
+        List<MapSummary> mapSummaries = new ArrayList<>();
+        for (MapType map : maps) {
+            List<MatchOutcome> mapOutcomes = outcomes.stream()
+                    .filter(outcome -> outcome.map() == map)
+                    .toList();
+            Aggregate mapAggregate = aggregate(mapOutcomes, roster, ignored -> true);
+            long draws = mapOutcomes.stream().filter(o -> o.winner() == null).count();
+            mapSummaries.add(new MapSummary(map, mapOutcomes.size(), draws,
+                    mapAggregate.winRateMatrix(), mapAggregate.overallWinRate(), mapAggregate.decidedMatches()));
+        }
+        return new Report(outcomes, roster, maps.clone(),
+                allMaps.winRateMatrix(), allMaps.overallWinRate(), allMaps.decidedMatches(), mapSummaries);
+    }
+
+    private static Aggregate aggregate(List<MatchOutcome> outcomes, BirdType[] roster,
+                                       Predicate<MatchOutcome> include) {
         int n = roster.length;
         int[][] wins = new int[n][n];
         int[][] decided = new int[n][n];
         for (MatchOutcome outcome : outcomes) {
-            if (outcome.winner() == null) continue;
+            if (!include.test(outcome) || outcome.winner() == null) continue;
             int w = outcome.winner().ordinal();
             int l = (outcome.winner() == outcome.left() ? outcome.right() : outcome.left()).ordinal();
             wins[w][l]++;
@@ -169,6 +290,6 @@ final class BalanceLab {
             overall[r] = totalDecided == 0 ? 0.0 : (double) totalWins / totalDecided;
             totals[r] = totalDecided;
         }
-        return new Report(outcomes, roster, matrix, overall, totals);
+        return new Aggregate(matrix, overall, totals);
     }
 }

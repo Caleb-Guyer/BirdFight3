@@ -11040,9 +11040,14 @@ public class BirdGame3 extends Application {
                     }
                 }
             } else {
-                double desiredY = target != null
-                        ? Math.clamp(maxY, surfaceY + 36, targetY)
-                        : dockWaterMidY();
+                double desiredY;
+                if (target != null) {
+                    double minSwimY = Math.min(surfaceY + 36, maxY);
+                    double maxSwimY = Math.max(surfaceY + 36, maxY);
+                    desiredY = Math.clamp(targetY, minSwimY, maxSwimY);
+                } else {
+                    desiredY = dockWaterMidY();
+                }
 
                 double dx = targetX - p.x;
                 double dy = desiredY - p.y;
@@ -38196,6 +38201,11 @@ public class BirdGame3 extends Application {
 
     /** Sets up a plain 1v1 smash-rules AI match on Battlefield, fully reset. */
     void harnessPrepareMatch(BirdType leftType, BirdType rightType, long seed) {
+        harnessPrepareMatch(leftType, rightType, seed, MapType.BATTLEFIELD);
+    }
+
+    /** Sets up a plain 1v1 smash-rules AI match on the selected map, fully reset. */
+    void harnessPrepareMatch(BirdType leftType, BirdType rightType, long seed, MapType map) {
         headlessHarnessMode = true;
         harnessWinner = null;
         currentMatchSeed = seed;
@@ -38228,32 +38238,19 @@ public class BirdGame3 extends Application {
         Arrays.fill(damageDealt, 0);
         clearGameplayInputs();
 
-        platforms.clear();
-        windVents.clear();
-        nectarNodes.clear();
-        swingingVines.clear();
-        crowMinions.clear();
-        piranhaHazards.clear();
-        chickMinions.clear();
-        mockingbirdShadowMinions.clear();
-        frostbiteSnowbanks.clear();
-        particles.clear();
-        blastZoneKoEffects.clear();
-        combatImpactEffects.clear();
-        powerUps.clear();
-        dockShipBomb = null;
-        selectedMap = MapType.BATTLEFIELD;
-        setupBattlefieldArena();
+        selectedMap = map == null ? MapType.BATTLEFIELD : map;
+        setupMatchArenaGeometry();
 
         Arrays.fill(players, null);
         Arrays.fill(isAI, false);
         activePlayers = 2;
-        players[0] = new Bird(battlefieldIslandX + 200, leftType, 0, this);
-        players[1] = new Bird(battlefieldIslandX + battlefieldIslandW - 280, rightType, 1, this);
+        players[0] = new Bird(300, leftType, 0, this);
+        players[1] = new Bird(WORLD_WIDTH - 380, rightType, 1, this);
         for (int i = 0; i < 2; i++) {
-            players[i].y = battlefieldIslandY - 220;
+            players[i].y = GROUND_Y - 160;
             isAI[i] = true;
         }
+        positionBattlefieldSpawns();
         smashCombatRulesActive = true;
         Arrays.fill(scores, 0);
         scores[0] = smashStartingStocks();
@@ -39525,6 +39522,192 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void setupMatchArenaGeometry() {
+        platforms.clear();
+        windVents.clear();
+        nectarNodes.clear();
+        swingingVines.clear();
+        crowMinions.clear();
+        piranhaHazards.clear();
+        chickMinions.clear();
+        mockingbirdShadowMinions.clear();
+        frostbiteSnowbanks.clear();
+        particles.clear();
+        blastZoneKoEffects.clear();
+        combatImpactEffects.clear();
+        powerUps.clear();
+        dockWaterX = 0;
+        dockWaterY = 0;
+        dockWaterW = 0;
+        dockWaterH = 0;
+        dockDrownY = 0;
+        dockLeverX = 0;
+        dockLeverY = 0;
+        dockLeverCooldown = 0;
+        dockShipBomb = null;
+        Arrays.fill(dockLeverHeld, false);
+
+        if (selectedMap != MapType.CITY || lanModeActive) cityStars.clear();
+
+        // Arena generation uses a seed-derived stream so setup randomness cannot
+        // shift the simulation RNG used by gameplay, replays, LAN, or the lab.
+        Random mapRandom = new Random(currentMatchSeed ^ 0x4A9E_3A70_6E2DL);
+
+        if (selectedMap == MapType.CITY && cityStars.isEmpty()) {
+            for (int i = 0; i < 250; i++) {
+                cityStars.add(new double[]{
+                        mapRandom.nextDouble() * WORLD_WIDTH,
+                        mapRandom.nextDouble() * (GROUND_Y - 200)
+                });
+            }
+        }
+
+        if (selectedMap == MapType.BATTLEFIELD) {
+            setupBattlefieldArena();
+        } else if (selectedMap == MapType.BEACON_CROWN) {
+            setupBeaconCrownBattlefield();
+        } else if (selectedMap == MapType.FROSTBITE_FJORD) {
+            setupFrostbiteFjordArena(mapRandom);
+        } else if (selectedMap == MapType.ASHFALL_CATHEDRAL) {
+            setupAshfallCathedralArena();
+        } else if (selectedMap == MapType.DOCK) {
+            setupDockArena();
+        } else if (selectedMap == MapType.DESERT) {
+            setupDesertArena();
+        } else {
+            platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
+            platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
+            platforms.add(new Platform(WORLD_WIDTH, 0, 100, WORLD_HEIGHT));
+            battlefieldIslandX = 0;
+            battlefieldIslandW = 0;
+            battlefieldIslandY = 0;
+        }
+
+        if (selectedMap == MapType.FOREST) {
+            double[] treeX = {800, 2100, 3400, 4800, 5600};
+            for (double tx : treeX) {
+                platforms.add(new Platform(tx - 200, GROUND_Y - 800, 400, 30));
+                platforms.add(new Platform(tx - 150, GROUND_Y - 500, 300, 30));
+                platforms.add(new Platform(tx - 100, GROUND_Y - 200, 200, 30));
+            }
+            for (int i = 0; i < 25; i++) {
+                double px = 300 + mapRandom.nextDouble() * (WORLD_WIDTH - 600);
+                double py = 800 + mapRandom.nextDouble() * (GROUND_Y - 1000);
+                double pw = 200 + mapRandom.nextDouble() * 400;
+                platforms.add(new Platform(px, py, pw, 30));
+            }
+        } else if (selectedMap == MapType.SKYCLIFFS) {
+            double[] cliffX = {600, 1600, 2600, 3600, 4600, 5400};
+
+            for (double cx : cliffX) {
+                platforms.add(new Platform(cx - 400, GROUND_Y - 600, 800, 60));
+                platforms.add(new Platform(cx - 200, GROUND_Y - 1000, 400, 50));
+                platforms.add(new Platform(cx - 100, GROUND_Y - 1400, 200, 40));
+            }
+
+            platforms.add(new Platform(800, GROUND_Y - 200, 400, 50));
+            platforms.add(new Platform(700, GROUND_Y - 450, 350, 50));
+            platforms.add(new Platform(900, GROUND_Y - 700, 400, 50));
+            platforms.add(new Platform(750, GROUND_Y - 950, 300, 50));
+
+            platforms.add(new Platform(2200, GROUND_Y - 180, 500, 50));
+            platforms.add(new Platform(2100, GROUND_Y - 420, 450, 50));
+            platforms.add(new Platform(2300, GROUND_Y - 660, 500, 50));
+            platforms.add(new Platform(2200, GROUND_Y - 900, 400, 50));
+            platforms.add(new Platform(2150, GROUND_Y - 1150, 350, 50));
+
+            platforms.add(new Platform(4200, GROUND_Y - 220, 450, 50));
+            platforms.add(new Platform(4100, GROUND_Y - 480, 400, 50));
+            platforms.add(new Platform(4300, GROUND_Y - 740, 450, 50));
+            platforms.add(new Platform(4200, GROUND_Y - 1000, 350, 50));
+
+            platforms.add(new Platform(1000, GROUND_Y - 800, 500, 50));
+            platforms.add(new Platform(3000, GROUND_Y - 900, 600, 50));
+            platforms.add(new Platform(5000, GROUND_Y - 700, 500, 50));
+
+            for (double cx : cliffX) {
+                windVents.add(new WindVent(cx - 300, GROUND_Y - 600, 600));
+                windVents.add(new WindVent(cx - 150, GROUND_Y - 1000, 300));
+            }
+            windVents.add(new WindVent(700, GROUND_Y - 250, 400));
+            windVents.add(new WindVent(2100, GROUND_Y - 230, 500));
+            windVents.add(new WindVent(4100, GROUND_Y - 270, 450));
+
+            mountainPeaks = new double[MOUNTAIN_X.length - 1];
+            for (int i = 0; i < mountainPeaks.length; i++) {
+                mountainPeaks[i] = GROUND_Y - 400 - mapRandom.nextDouble() * 600;
+            }
+        } else if (selectedMap == MapType.VIBRANT_JUNGLE) {
+            setupVibrantJungleArena(mapRandom);
+        } else if (selectedMap == MapType.CAVE) {
+            platforms.add(new Platform(0, 0, WORLD_WIDTH, 70));
+
+            platforms.add(new Platform(500, GROUND_Y - 420, 900, 55));
+            platforms.add(new Platform(1850, GROUND_Y - 620, 760, 55));
+            platforms.add(new Platform(3000, GROUND_Y - 500, 920, 55));
+            platforms.add(new Platform(4350, GROUND_Y - 700, 760, 55));
+            platforms.add(new Platform(5200, GROUND_Y - 430, 620, 55));
+
+            double[] stalactiteX = {650, 1300, 2050, 2800, 3550, 4300, 5050, 5650};
+            for (double sx : stalactiteX) {
+                platforms.add(new Platform(sx - 140, 240 + mapRandom.nextDouble() * 300, 280, 34));
+            }
+
+            for (int i = 0; i < 12; i++) {
+                double px = 260 + i * 470 + mapRandom.nextDouble() * 120;
+                double py = 500 + mapRandom.nextDouble() * (GROUND_Y - 900);
+                platforms.add(new Platform(px, py, 220 + mapRandom.nextDouble() * 180, 30));
+            }
+
+            double[] ventX = {950, 2400, 3900, 5400};
+            for (double vx : ventX) {
+                windVents.add(new WindVent(vx - 180, GROUND_Y - 820, 360));
+                windVents.add(new WindVent(vx - 130, GROUND_Y - 1450, 260));
+            }
+
+            mountainPeaks = new double[MOUNTAIN_X.length - 1];
+            for (int i = 0; i < mountainPeaks.length; i++) {
+                mountainPeaks[i] = GROUND_Y - 1000 - mapRandom.nextDouble() * 800;
+            }
+        } else if (selectedMap == MapType.BATTLEFIELD
+                || selectedMap == MapType.BEACON_CROWN
+                || selectedMap == MapType.FROSTBITE_FJORD
+                || selectedMap == MapType.ASHFALL_CATHEDRAL
+                || selectedMap == MapType.DOCK
+                || selectedMap == MapType.DESERT) {
+            mountainPeaks = null;
+        } else {
+            double[] buildingX = {400, 1400, 2400, 3400, 4400, 5400};
+            for (double bx : buildingX) {
+                platforms.add(new Platform(bx - 350, GROUND_Y - 320, 700, 50));
+                platforms.add(new Platform(bx - 200, GROUND_Y - 120, 400, 40));
+
+                Platform high1 = new Platform(bx - 150, GROUND_Y - 720, 300, 40);
+                Platform high2 = new Platform(bx + 50, GROUND_Y - 1020, 200, 40);
+
+                String[] possibleSigns = {"CLUB", "BAR", "HOTEL", "EAT", "LIVE", "24/7", "OPEN", "PIZZA", "DIVE", "LOUNGE"};
+                high1.signText = possibleSigns[mapRandom.nextInt(possibleSigns.length)];
+                high2.signText = possibleSigns[mapRandom.nextInt(possibleSigns.length)];
+
+                platforms.add(high1);
+                platforms.add(high2);
+
+                windVents.add(new WindVent(bx - 350 + 100, GROUND_Y - 320, 500));
+                windVents.add(new WindVent(bx - 350 + 500, GROUND_Y - 320, 100));
+            }
+
+            platforms.add(new Platform(800, GROUND_Y - 450, 400, 40));
+            platforms.add(new Platform(1800, GROUND_Y - 600, 400, 40));
+            platforms.add(new Platform(2800, GROUND_Y - 400, 400, 40));
+            platforms.add(new Platform(3800, GROUND_Y - 550, 400, 40));
+            platforms.add(new Platform(4800, GROUND_Y - 480, 400, 40));
+
+            platforms.add(new Platform(1000, GROUND_Y - 100, 600, 40));
+            platforms.add(new Platform(3000, GROUND_Y - 150, 500, 40));
+            platforms.add(new Platform(4500, GROUND_Y - 80, 400, 40));
+        }
+    }
+
     void startMatch(Stage stage) {
         isPaused = false;
         if (replayPlaybackActive && activeReplay != null) {
@@ -39666,216 +39849,7 @@ public class BirdGame3 extends Application {
             applyTournamentSlotNames();
         }
 
-        platforms.clear();
-        windVents.clear();
-        nectarNodes.clear();
-        swingingVines.clear();
-        crowMinions.clear();
-        piranhaHazards.clear();
-        chickMinions.clear();
-        mockingbirdShadowMinions.clear();
-        frostbiteSnowbanks.clear();
-        particles.clear();
-        blastZoneKoEffects.clear();
-        combatImpactEffects.clear();
-        powerUps.clear();
-        dockWaterX = 0;
-        dockWaterY = 0;
-        dockWaterW = 0;
-        dockWaterH = 0;
-        dockDrownY = 0;
-        dockLeverX = 0;
-        dockLeverY = 0;
-        dockLeverCooldown = 0;
-        dockShipBomb = null;
-        Arrays.fill(dockLeverHeld, false);
-
-        if (selectedMap != MapType.CITY || lanModeActive) cityStars.clear();
-
-        // Arena generation (jungle platform jitter, city stars) uses a seed-derived
-        // stream: reproducible from the match seed, and — unlike drawing from the
-        // sim RNG — its draw count can't vary with leftover state (e.g. cached
-        // city stars), which would desync replays.
-        Random mapRandom = new Random(currentMatchSeed ^ 0x4A9E_3A70_6E2DL);
-
-        if (selectedMap == MapType.CITY && cityStars.isEmpty()) {
-            for (int i = 0; i < 250; i++) {
-                cityStars.add(new double[]{
-                        mapRandom.nextDouble() * WORLD_WIDTH,
-                        mapRandom.nextDouble() * (GROUND_Y - 200)
-                });
-            }
-        }
-
-// Common elements for both void-island maps
-        if (selectedMap == MapType.BATTLEFIELD) {
-            setupBattlefieldArena();
-        } else if (selectedMap == MapType.BEACON_CROWN) {
-            setupBeaconCrownBattlefield();
-        } else if (selectedMap == MapType.FROSTBITE_FJORD) {
-            setupFrostbiteFjordArena(mapRandom);
-        } else if (selectedMap == MapType.ASHFALL_CATHEDRAL) {
-            setupAshfallCathedralArena();
-        } else if (selectedMap == MapType.DOCK) {
-            setupDockArena();
-        } else if (selectedMap == MapType.DESERT) {
-            setupDesertArena();
-        } else {
-            platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600)); // thick floor
-            platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT)); // left wall
-            platforms.add(new Platform(WORLD_WIDTH, 0, 100, WORLD_HEIGHT)); // right wall
-            battlefieldIslandX = 0;
-            battlefieldIslandW = 0;
-            battlefieldIslandY = 0;
-        }
-
-        if (selectedMap == MapType.FOREST) {
-            // === ORIGINAL FOREST PLATFORMS (unchanged) ===
-            double[] treeX = {800, 2100, 3400, 4800, 5600};
-            for (double tx : treeX) {
-                platforms.add(new Platform(tx - 200, GROUND_Y - 800, 400, 30));
-                platforms.add(new Platform(tx - 150, GROUND_Y - 500, 300, 30));
-                platforms.add(new Platform(tx - 100, GROUND_Y - 200, 200, 30));
-            }
-            for (int i = 0; i < 25; i++) {
-                double px = 300 + mapRandom.nextDouble() * (WORLD_WIDTH - 600);
-                double py = 800 + mapRandom.nextDouble() * (GROUND_Y - 1000);
-                double pw = 200 + mapRandom.nextDouble() * 400;
-                platforms.add(new Platform(px, py, pw, 30));
-            }
-        } else if (selectedMap == MapType.SKYCLIFFS) {
-            // === SKY CLIFFS PLATFORMS - More accessible with stepping stones ===
-            double[] cliffX = {600, 1600, 2600, 3600, 4600, 5400};
-
-            // Main large ledges (keep for epic fights)
-            for (double cx : cliffX) {
-                platforms.add(new Platform(cx - 400, GROUND_Y - 600, 800, 60));  // main wide
-                platforms.add(new Platform(cx - 200, GROUND_Y - 1000, 400, 50)); // higher
-                platforms.add(new Platform(cx - 100, GROUND_Y - 1400, 200, 40)); // small high
-            }
-
-            // NEW: Stepping stone chains from ground to highs (spaced for short jumps)
-            // Left side chain
-            platforms.add(new Platform(800, GROUND_Y - 200, 400, 50));
-            platforms.add(new Platform(700, GROUND_Y - 450, 350, 50));
-            platforms.add(new Platform(900, GROUND_Y - 700, 400, 50));
-            platforms.add(new Platform(750, GROUND_Y - 950, 300, 50));
-
-            // Central chain
-            platforms.add(new Platform(2200, GROUND_Y - 180, 500, 50));
-            platforms.add(new Platform(2100, GROUND_Y - 420, 450, 50));
-            platforms.add(new Platform(2300, GROUND_Y - 660, 500, 50));
-            platforms.add(new Platform(2200, GROUND_Y - 900, 400, 50));
-            platforms.add(new Platform(2150, GROUND_Y - 1150, 350, 50));
-
-            // Right side chain
-            platforms.add(new Platform(4200, GROUND_Y - 220, 450, 50));
-            platforms.add(new Platform(4100, GROUND_Y - 480, 400, 50));
-            platforms.add(new Platform(4300, GROUND_Y - 740, 450, 50));
-            platforms.add(new Platform(4200, GROUND_Y - 1000, 350, 50));
-
-            // Extra mid-level connectors
-            platforms.add(new Platform(1000, GROUND_Y - 800, 500, 50));
-            platforms.add(new Platform(3000, GROUND_Y - 900, 600, 50));
-            platforms.add(new Platform(5000, GROUND_Y - 700, 500, 50));
-
-            // Wind vents (thermal updrafts) - keep + add a few low ones for early boosts
-            for (double cx : cliffX) {
-                windVents.add(new WindVent(cx - 300, GROUND_Y - 600, 600));
-                windVents.add(new WindVent(cx - 150, GROUND_Y - 1000, 300));
-            }
-            // Low vents for short jumpers
-            windVents.add(new WindVent(700, GROUND_Y - 250, 400));
-            windVents.add(new WindVent(2100, GROUND_Y - 230, 500));
-            windVents.add(new WindVent(4100, GROUND_Y - 270, 450));
-
-            // Fixed mountain peaks
-            mountainPeaks = new double[MOUNTAIN_X.length - 1];
-            for (int i = 0; i < mountainPeaks.length; i++) {
-                mountainPeaks[i] = GROUND_Y - 400 - mapRandom.nextDouble() * 600;
-            }
-        } else if (selectedMap == MapType.VIBRANT_JUNGLE) {
-            setupVibrantJungleArena(mapRandom);
-        } else if (selectedMap == MapType.CAVE) {
-            // Hard cave ceiling to support bat hanging and vertical combat lanes.
-            platforms.add(new Platform(0, 0, WORLD_WIDTH, 70));
-
-            // Main cavern shelves
-            platforms.add(new Platform(500, GROUND_Y - 420, 900, 55));
-            platforms.add(new Platform(1850, GROUND_Y - 620, 760, 55));
-            platforms.add(new Platform(3000, GROUND_Y - 500, 920, 55));
-            platforms.add(new Platform(4350, GROUND_Y - 700, 760, 55));
-            platforms.add(new Platform(5200, GROUND_Y - 430, 620, 55));
-
-            // Stalactite hangs (underside-friendly narrow ledges)
-            double[] stalactiteX = {650, 1300, 2050, 2800, 3550, 4300, 5050, 5650};
-            for (double sx : stalactiteX) {
-                platforms.add(new Platform(sx - 140, 240 + mapRandom.nextDouble() * 300, 280, 34));
-            }
-
-            // Midair crystal bridges
-            for (int i = 0; i < 12; i++) {
-                double px = 260 + i * 470 + mapRandom.nextDouble() * 120;
-                double py = 500 + mapRandom.nextDouble() * (GROUND_Y - 900);
-                platforms.add(new Platform(px, py, 220 + mapRandom.nextDouble() * 180, 30));
-            }
-
-            // Vertical shafts with updraft pockets
-            double[] ventX = {950, 2400, 3900, 5400};
-            for (double vx : ventX) {
-                windVents.add(new WindVent(vx - 180, GROUND_Y - 820, 360));
-                windVents.add(new WindVent(vx - 130, GROUND_Y - 1450, 260));
-            }
-
-            mountainPeaks = new double[MOUNTAIN_X.length - 1];
-            for (int i = 0; i < mountainPeaks.length; i++) {
-                mountainPeaks[i] = GROUND_Y - 1000 - mapRandom.nextDouble() * 800;
-            }
-        } else if (selectedMap == MapType.BATTLEFIELD
-                || selectedMap == MapType.BEACON_CROWN
-                || selectedMap == MapType.FROSTBITE_FJORD
-                || selectedMap == MapType.ASHFALL_CATHEDRAL
-                || selectedMap == MapType.DOCK
-                || selectedMap == MapType.DESERT) {
-            mountainPeaks = null;
-        } else { // CITY - Clean, structured nighttime rooftops
-            // Main building rooftops (wide, aligned platforms)
-            double[] buildingX = {400, 1400, 2400, 3400, 4400, 5400};
-            for (double bx : buildingX) {
-                platforms.add(new Platform(bx - 350, GROUND_Y - 320, 700, 50));
-                platforms.add(new Platform(bx - 200, GROUND_Y - 120, 400, 40));
-
-                Platform high1 = new Platform(bx - 150, GROUND_Y - 720, 300, 40);
-                Platform high2 = new Platform(bx + 50, GROUND_Y - 1020, 200, 40);
-
-                String[] possibleSigns = {"CLUB", "BAR", "HOTEL", "EAT", "LIVE", "24/7", "OPEN", "PIZZA", "DIVE", "LOUNGE"};
-                high1.signText = possibleSigns[mapRandom.nextInt(possibleSigns.length)];
-                high2.signText = possibleSigns[mapRandom.nextInt(possibleSigns.length)];
-
-                platforms.add(high1);
-                platforms.add(high2);
-
-                // Wind vents (unchanged)
-                windVents.add(new WindVent(bx - 350 + 100, GROUND_Y - 320, 500));
-                windVents.add(new WindVent(bx - 350 + 500, GROUND_Y - 320, 100));
-            }
-
-            // Smaller connecting platforms between buildings
-            platforms.add(new Platform(800, GROUND_Y - 450, 400, 40));
-            platforms.add(new Platform(1800, GROUND_Y - 600, 400, 40));
-            platforms.add(new Platform(2800, GROUND_Y - 400, 400, 40));
-            platforms.add(new Platform(3800, GROUND_Y - 550, 400, 40));
-            platforms.add(new Platform(4800, GROUND_Y - 480, 400, 40));
-
-            // A few lower street-level platforms
-            platforms.add(new Platform(1000, GROUND_Y - 100, 600, 40));
-            platforms.add(new Platform(3000, GROUND_Y - 150, 500, 40));
-            platforms.add(new Platform(4500, GROUND_Y - 80, 400, 40));
-
-            // NO random floating pillars/antennas - removed completely
-
-            // Rooftop vents already added in the building loop above.
-        }
+        setupMatchArenaGeometry();
 
         if (storyModeActive && storyChapter != null) {
             applyStoryChapterArenaModifiers();
