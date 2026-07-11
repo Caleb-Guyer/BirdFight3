@@ -716,6 +716,7 @@ public class BirdGame3 extends Application {
     }
 
     public MapType selectedMap = MapType.FOREST; // default
+    private boolean standardFightRandomMapMode = false;
     private boolean desertMapUnlocked = false;
     private boolean caveMapUnlocked = false;
     private boolean battlefieldMapUnlocked = false;
@@ -871,6 +872,7 @@ public class BirdGame3 extends Application {
     private Runnable stageSelectReturn = null;
     private Consumer<MapType> stageSelectHandler = null;
     private Runnable stageSelectRandomHandler = null;
+    private boolean matchRestartQueued = false;
     private Runnable settingsReturn = null;
     private boolean musicEnabled = true;
     private double musicVolume = 1.0;
@@ -35336,10 +35338,19 @@ public class BirdGame3 extends Application {
                 if (isMapUnlocked(map)) maps.add(map);
             }
             if (maps.isEmpty()) {
-                selectMap.accept(MapType.FOREST);
+                if (handler != null) {
+                    selectMap.accept(MapType.FOREST);
+                } else {
+                    beginFreshMatchOnMap(stage, MapType.FOREST);
+                }
                 return;
             }
-            selectMap.accept(maps.get(random.nextInt(maps.size())));
+            if (handler != null) {
+                Random menuRandom = new Random(System.nanoTime() ^ 0x51A6_E57A_9E1E_5EEDL);
+                selectMap.accept(maps.get(menuRandom.nextInt(maps.size())));
+                return;
+            }
+            beginFreshMatchOnRandomMap(stage);
         });
         Label randomHint = new Label("Roll a random arena and adapt on the fly.");
         randomHint.setFont(Font.font("Consolas", 20));
@@ -35372,9 +35383,19 @@ public class BirdGame3 extends Application {
     }
 
     private void beginFreshMatchOnMap(Stage stage, MapType map) {
+        beginFreshMatch(stage, map, false);
+    }
+
+    private void beginFreshMatchOnRandomMap(Stage stage) {
+        beginFreshMatch(stage, MapType.FOREST, true);
+    }
+
+    private void beginFreshMatch(Stage stage, MapType map, boolean randomMapMode) {
         stageSelectReturn = null;
         stageSelectHandler = null;
+        stageSelectRandomHandler = null;
         selectedMap = map;
+        standardFightRandomMapMode = randomMapMode;
         trainingModeActive = false;
         classicModeActive = false;
         classicEncounter = null;
@@ -35392,8 +35413,10 @@ public class BirdGame3 extends Application {
     private void beginTrainingMatchOnMap(Stage stage, MapType map) {
         stageSelectReturn = null;
         stageSelectHandler = null;
+        stageSelectRandomHandler = null;
         resetMatchStats();
         selectedMap = map;
+        standardFightRandomMapMode = false;
         trainingModeActive = true;
         storyModeActive = false;
         storyReplayMode = false;
@@ -39708,13 +39731,55 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void resolveStandardRandomMapForMatchStart() {
+        if (!standardFightRandomMapMode
+                || replayPlaybackActive
+                || lanModeActive
+                || trainingModeActive
+                || storyModeActive
+                || adventureModeActive
+                || classicModeActive
+                || tournamentModeActive) {
+            return;
+        }
+        List<MapType> maps = tournamentMapPool();
+        Random mapRandom = new Random(currentMatchSeed ^ 0x6D1F_92AB_C0DE_73A5L);
+        selectedMap = maps.get(mapRandom.nextInt(maps.size()));
+    }
+
+    private void stopGameplayTimer() {
+        if (timer != null) {
+            timer.stop();
+            timer = null;
+        }
+    }
+
+    private void restartCurrentMatch(Stage stage) {
+        if (stage == null || matchRestartQueued) {
+            return;
+        }
+        matchRestartQueued = true;
+        closePauseMenuWithoutResuming();
+        stopGameplayTimer();
+        resetMatchStats();
+        javafx.application.Platform.runLater(() -> {
+            try {
+                startMatch(stage);
+            } finally {
+                matchRestartQueued = false;
+            }
+        });
+    }
+
     void startMatch(Stage stage) {
+        stopGameplayTimer();
         isPaused = false;
         if (replayPlaybackActive && activeReplay != null) {
             currentMatchSeed = activeReplay.seed;
         } else {
             currentMatchSeed = lanModeActive ? lanMatchSeed : System.nanoTime();
         }
+        resolveStandardRandomMapForMatchStart();
         SimRng.reseed(currentMatchSeed);
         simTick = 0L;
         dramaticSlowMoTicks = 0;
@@ -39902,7 +39967,6 @@ public class BirdGame3 extends Application {
         scene.setOnKeyPressed(e -> handleGameplayKeyPress(stage, e));
         scene.setOnKeyReleased(this::handleGameplayKeyRelease);
 
-        if (timer != null) timer.stop();
         lastUpdate = 0;
         accumulator = 0;
         renderSnapshotTaken = false;
@@ -39972,8 +40036,8 @@ public class BirdGame3 extends Application {
             }
         };
 
-        timer.start();
         setScenePreservingFullscreen(stage, scene);
+        timer.start();
         startMusic();
         canvas.requestFocus();
 
@@ -46207,9 +46271,8 @@ public class BirdGame3 extends Application {
                     return;
                 }
                 playButtonClick();
-                togglePause(stage);
-                resetMatchStats();
-                startMatch(stage);
+                restartButton.setDisable(true);
+                restartCurrentMatch(stage);
             });
 
             Button exitButton = new Button("Exit to Menu");
