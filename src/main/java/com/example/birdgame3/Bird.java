@@ -282,6 +282,20 @@ public class Bird {
     private record HeadPose(double centerX, double centerY, double aimAngleRadians) {
     }
 
+    private record AIKitProfile(
+            double preferredRange,
+            double threatRange,
+            double burstRange,
+            double verticalReach,
+            double pressure,
+            double zoning,
+            double setup,
+            double counter,
+            double recovery,
+            double airControl
+    ) {
+    }
+
     private static final BirdVisualProfile DEFAULT_BIRD_VISUAL_PROFILE =
             new BirdVisualProfile(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0,
                     BirdVisualProfileStyle.DEFAULT);
@@ -343,7 +357,7 @@ public class Bird {
             new BirdVisualProfile(1.34, 0.76, 1.30, 1.34, 1.26, 1.30, 0.86, 0.78, 0.74,
                     BirdVisualProfileStyle.TITMOUSE);
     private static final BirdVisualProfile GOOSE_VISUAL_PROFILE =
-            new BirdVisualProfile(0.76, 1.25, 0.86, 0.78, 0.76, 0.82, 1.18, 1.12, 1.16,
+            new BirdVisualProfile(0.86, 1.12, 0.92, 0.86, 0.88, 0.94, 1.08, 1.04, 1.06,
                     BirdVisualProfileStyle.GOOSE);
 
     // Reference to main game instance
@@ -1072,17 +1086,17 @@ public class Bird {
     static final double ROADRUNNER_SANDSTORM_FLY_LIFT = 1.1;
     static final double ROADRUNNER_SANDSTORM_SPEED_SCALE = 1.38;
     static final double ROADRUNNER_SANDSTORM_GUST_RADIUS = 340.0;
-    static final double ROADRUNNER_MOMENTUM_MAX = 160.0;
-    static final double ROADRUNNER_RUN_BASE_SPEED_SCALE = 1.08;
-    static final double ROADRUNNER_RUN_MAX_SPEED_SCALE = 2.62;
-    static final double ROADRUNNER_RUN_BASE_ACCEL = 0.46;
-    static final double ROADRUNNER_RUN_MAX_ACCEL = 0.82;
+    static final double ROADRUNNER_MOMENTUM_MAX = 120.0;
+    static final double ROADRUNNER_RUN_BASE_SPEED_SCALE = 0.96;
+    static final double ROADRUNNER_RUN_MAX_SPEED_SCALE = 1.78;
+    static final double ROADRUNNER_RUN_BASE_ACCEL = 0.32;
+    static final double ROADRUNNER_RUN_MAX_ACCEL = 0.50;
     static final int ROADRUNNER_BEEP_CHARGE_MAX_FRAMES = 72;
     static final int ROADRUNNER_BEEP_MAX_HOLD_RELEASE_FRAMES = 1;
     static final int ROADRUNNER_BEEP_BURST_FRAMES = 12;
-    static final int ROADRUNNER_BEEP_REUSE_FRAMES = 30;
-    static final int ROADRUNNER_RICOCHET_FRAMES = 18;
-    static final int ROADRUNNER_RICOCHET_REUSE_FRAMES = 50;
+    static final int ROADRUNNER_BEEP_REUSE_FRAMES = 46;
+    static final int ROADRUNNER_RICOCHET_FRAMES = 15;
+    static final int ROADRUNNER_RICOCHET_REUSE_FRAMES = 76;
     static final int ROADRUNNER_DUST_DEVIL_FRAMES = 24;
     static final int ROADRUNNER_PAINTED_ROAD_REUSE_FRAMES = 58;
     static final int ROADRUNNER_PAINTED_ROAD_LIFE_FRAMES = 360;
@@ -1090,7 +1104,7 @@ public class Bird {
     static final int ROADRUNNER_PAINTED_ROAD_COLLAPSE_FRAMES = 26;
     static final int ROADRUNNER_PAINTED_ROAD_FADE_FRAMES = 48;
     static final int ROADRUNNER_SLIP_FRAMES = 56;
-    static final int ROADRUNNER_REDLINE_DASH_FRAMES = 14;
+    static final int ROADRUNNER_REDLINE_DASH_FRAMES = 10;
     static final int ROADRUNNER_REDLINE_CINEMATIC_FRAMES = 84;
     static final int ROADRUNNER_REDLINE_RECOVERY_FRAMES = 18;
     static final int ROADRUNNER_REDLINE_STRIKE_INTERVAL = 9;
@@ -1098,9 +1112,9 @@ public class Bird {
     static final int ROADRUNNER_REDLINE_FINAL_FRAME = 64;
     static final int ROADRUNNER_REDLINE_STRIKE_DAMAGE = 5;
     static final int ROADRUNNER_REDLINE_FINAL_DAMAGE = 27;
-    static final double ROADRUNNER_REDLINE_DASH_SPEED = 64.0;
-    static final double ROADRUNNER_REDLINE_RANGE = 720.0;
-    static final double ROADRUNNER_REDLINE_LANE_HALF_HEIGHT = 92.0;
+    static final double ROADRUNNER_REDLINE_DASH_SPEED = 40.0;
+    static final double ROADRUNNER_REDLINE_RANGE = 360.0;
+    static final double ROADRUNNER_REDLINE_LANE_HALF_HEIGHT = 34.0;
     static final int PIGEON_NEUTRAL_BURST_FRAMES = 12;
     static final int PIGEON_NEUTRAL_COOLDOWN_FRAMES = 34;
     static final int PIGEON_RUSH_GROUND_FRAMES = 20;
@@ -6237,6 +6251,165 @@ public class Bird {
     private int lastTapDir = 0;
     private long lastTapTick = Long.MIN_VALUE / 2; // sim-tick of last tap; sentinel = "no tap yet"
 
+    private static AIKitProfile aiKitProfile(BirdGame3.BirdType birdType) {
+        return switch (birdType) {
+            case PIGEON -> new AIKitProfile(172, 195, 270, 230, 0.72, 0.16, 0.18, 0.18, 0.58, 0.48);
+            case EAGLE -> new AIKitProfile(216, 250, 430, 520, 0.72, 0.30, 0.12, 0.12, 0.78, 0.82);
+            case FALCON -> new AIKitProfile(202, 235, 390, 470, 0.82, 0.20, 0.10, 0.10, 0.74, 0.78);
+            case PHOENIX -> new AIKitProfile(206, 255, 390, 500, 0.78, 0.52, 0.28, 0.26, 0.80, 0.78);
+            case HUMMINGBIRD -> new AIKitProfile(224, 215, 300, 560, 0.62, 0.74, 0.48, 0.12, 0.92, 0.98);
+            case TURKEY -> new AIKitProfile(154, 210, 320, 300, 0.78, 0.18, 0.58, 0.60, 0.50, 0.38);
+            case ROOSTER -> new AIKitProfile(184, 230, 330, 340, 0.82, 0.24, 0.74, 0.20, 0.58, 0.48);
+            case ROADRUNNER -> new AIKitProfile(198, 260, 440, 300, 0.94, 0.10, 0.36, 0.08, 0.54, 0.32);
+            case PENGUIN -> new AIKitProfile(196, 240, 360, 330, 0.62, 0.62, 0.72, 0.22, 0.50, 0.30);
+            case SHOEBILL -> new AIKitProfile(186, 240, 330, 350, 0.58, 0.22, 0.38, 0.88, 0.52, 0.36);
+            case MOCKINGBIRD -> new AIKitProfile(212, 210, 290, 380, 0.50, 0.42, 0.82, 0.24, 0.60, 0.46);
+            case RAZORBILL -> new AIKitProfile(190, 245, 380, 390, 0.80, 0.36, 0.30, 0.82, 0.62, 0.54);
+            case GRINCHHAWK -> new AIKitProfile(178, 235, 360, 320, 0.76, 0.24, 0.52, 0.28, 0.50, 0.36);
+            case VULTURE -> new AIKitProfile(230, 220, 300, 420, 0.44, 0.62, 0.88, 0.18, 0.64, 0.68);
+            case OPIUMBIRD -> new AIKitProfile(212, 225, 330, 420, 0.54, 0.74, 0.76, 0.18, 0.66, 0.62);
+            case TITMOUSE -> new AIKitProfile(224, 220, 360, 460, 0.60, 0.66, 0.78, 0.24, 0.76, 0.80);
+            case BAT -> new AIKitProfile(214, 245, 360, 520, 0.74, 0.44, 0.34, 0.20, 0.84, 0.94);
+            case PELICAN -> new AIKitProfile(158, 215, 385, 340, 0.72, 0.20, 0.62, 0.16, 0.56, 0.42);
+            case HEISENBIRD -> new AIKitProfile(216, 235, 340, 430, 0.56, 0.78, 0.82, 0.18, 0.68, 0.64);
+            case RAVEN -> new AIKitProfile(218, 250, 390, 460, 0.66, 0.72, 0.86, 0.34, 0.74, 0.70);
+            case GOOSE -> new AIKitProfile(164, 245, 360, 320, 0.84, 0.18, 0.62, 0.62, 0.52, 0.36);
+        };
+    }
+
+    private AIKitProfile aiOwnKit() {
+        return aiKitProfile(type);
+    }
+
+    private double aiDurabilityForDecision() {
+        return aiDurabilityHealth();
+    }
+
+    private double aiEnemyThreatRange(Bird enemy) {
+        if (enemy == null) return 0.0;
+        AIKitProfile enemyKit = aiKitProfile(enemy.type);
+        double range = enemyKit.threatRange();
+        if (enemy.specialCooldown <= 0 || enemy.isUltimateReady()) {
+            range = Math.max(range, enemyKit.burstRange());
+        }
+        if (aiTargetHasActiveThreat(enemy)) {
+            range += 70.0;
+        }
+        if (aiTargetHasSetupPressure(enemy)) {
+            range += 35.0;
+        }
+        return Math.clamp(range, 140.0, 620.0);
+    }
+
+    private double aiIdealRangeAgainst(Bird target) {
+        AIKitProfile own = aiOwnKit();
+        double ideal = own.preferredRange();
+        if (target != null) {
+            AIKitProfile enemy = aiKitProfile(target.type);
+            ideal += own.zoning() * 42.0 + own.setup() * 24.0 - own.pressure() * 30.0;
+            ideal += enemy.pressure() * 28.0 + enemy.counter() * 18.0 - enemy.zoning() * 24.0;
+            if (enemy.setup() > 0.60 || aiTargetHasSetupPressure(target)) {
+                ideal -= 22.0 + own.pressure() * 18.0;
+            }
+            if ((target.specialCooldown <= 0 || target.isUltimateReady()) && enemy.burstRange() > own.preferredRange()) {
+                ideal += 18.0 + enemy.pressure() * 18.0;
+            }
+            if (aiDurabilityForDecision() < 36.0) {
+                ideal += 28.0 + enemy.pressure() * 24.0;
+            }
+            if (target.aiDurabilityHealth() < 38.0 && aiDurabilityForDecision() > 32.0) {
+                ideal -= 18.0 + own.pressure() * 16.0;
+            }
+        }
+        return Math.clamp(ideal, 118.0, 330.0);
+    }
+
+    private boolean aiTargetHasSetupPressure(Bird candidate) {
+        if (candidate == null) return false;
+        return switch (candidate.type) {
+            case ROOSTER -> candidate.ownedRoosterChickCount() > 0;
+            case VULTURE -> candidate.ownedVultureCrowCount() > 0
+                    || candidate.vultureBait != null
+                    || candidate.vultureBlackSkyTimer > 0;
+            case PENGUIN -> candidate.penguinSnowFort != null
+                    || candidate.penguinAbsoluteZeroTimer > 0;
+            case MOCKINGBIRD -> candidate.loungeActive
+                    || candidate.hasMockingbirdCapturedType();
+            case TITMOUSE -> !candidate.titmouseSeedStashes.isEmpty()
+                    || candidate.titmouseMobbingTimer > 0;
+            case OPIUMBIRD, HEISENBIRD -> !candidate.opiumTraps.isEmpty()
+                    || candidate.leanTimer > 0
+                    || candidate.opiumUltimateTimer > 0
+                    || candidate.heisenUltimateTimer > 0;
+            case RAVEN -> candidate.ravenDecoy != null
+                    || !candidate.activeOwnedRavenNodes().isEmpty()
+                    || candidate.ravenUltimateWindupTimer > 0;
+            case GOOSE -> candidate.gooseNest != null
+                    || candidate.gooseTerritoryMeter > GOOSE_TERRITORY_MAX * 0.55
+                    || candidate.gooseUltimateTimer > 0;
+            case TURKEY -> !candidate.turkeyFeastTraps.isEmpty()
+                    || candidate.turkeyHarvestTribunalTimer > 0;
+            case HUMMINGBIRD -> !candidate.hummingNectarTraps.isEmpty()
+                    || candidate.hummingFrenzyTimer > 0;
+            case GRINCHHAWK -> candidate.grinchPresent != null
+                    || candidate.grinchGiftstormTimer > 0;
+            case ROADRUNNER -> !candidate.roadrunnerPaintedRoads.isEmpty()
+                    || candidate.roadrunnerSandstormTimer > 0
+                    || candidate.roadrunnerRedlineTimer > 0;
+            case PHOENIX -> candidate.phoenixRebirthNovaTimer > 0
+                    || candidate.phoenixRebirthNovaBuffTimer > 0;
+            case PELICAN -> candidate.pelicanCargoCount > 0
+                    || candidate.pelicanMaelstromTimer > 0;
+            default -> false;
+        };
+    }
+
+    private boolean aiTargetHasActiveThreat(Bird target) {
+        if (target == null) return false;
+        if (target.attackAnimationTimer > 4 || target.grabThrowLockTimer > 0 || target.isZipping) return true;
+        return target.diveTimer > 0
+                || target.raptorRushTimer > 0
+                || target.eagleSkySovereignTimer > 0
+                || target.falconTerminalVelocityTimer > 0
+                || target.phoenixFireballTimer > 0
+                || target.phoenixSpiralTimer > 0
+                || target.phoenixLavaTimer > 0
+                || target.hummingNeedleHitTimer > 0
+                || target.hummingFlashSipTimer > 0
+                || target.turkeyStampedeTimer > 0
+                || target.turkeyGobbleTimer > 0
+                || target.turkeyGobbleCountered
+                || target.isGroundPounding
+                || target.roadrunnerBeepBurstTimer > 0
+                || target.roadrunnerRicochetTimer > 0
+                || target.roadrunnerRedlineTimer > 0
+                || target.penguinBellySlideTimer > 0
+                || target.penguinRocketTimer > 0
+                || target.penguinFlopTimer > 0
+                || target.shoebillThrustTimer > 0
+                || target.shoebillStatueTimer > 0
+                || target.shoebillCounterBurstTimer > 0
+                || target.razorbillShearTimer > 0
+                || target.razorbillCounterTimer > 0
+                || target.razorbillCounterBurstTimer > 0
+                || target.bladeStormFrames > 0
+                || target.grinchSleighTimer > 0
+                || target.grinchHeartSnatchTimer > 0
+                || target.vultureGlideTimer > 0
+                || target.opiumSideTimer > 0
+                || target.titmouseBarkskipTimer > 0
+                || target.titmouseMobbingTimer > 0
+                || target.batWingcutTimer > 0
+                || target.batSilentDiveTimer > 0
+                || target.pelicanNeutralTimer > 0
+                || target.pelicanSideTimer > 0
+                || target.pelicanKeelDiveActive
+                || target.ravenSideTimer > 0
+                || target.gooseHonkTimer > 0
+                || target.gooseBargeTimer > 0
+                || target.gooseNestCounterTimer > 0;
+    }
+
     private void aiControl() {
         if (aiJumpCooldown > 0) aiJumpCooldown--;
         if (aiSpecialCooldown > 0) aiSpecialCooldown--;
@@ -6266,6 +6439,10 @@ public class Bird {
                 return;
             }
         }
+        if (maintainAIHeldSpecialInputs()) {
+            aiLastHealth = currentDurability;
+            return;
+        }
 
         Bird target = pickAITarget();
         PowerUp powerUp = pickBestAIPowerUp(target);
@@ -6281,7 +6458,9 @@ public class Bird {
 
         double myCx = x + 40;
         double targetDist = target != null ? Math.hypot(target.x - x, target.y - y) : Double.MAX_VALUE;
-        double idealRange = getAIIdealRange();
+        double idealRange = aiIdealRangeAgainst(target);
+        double enemyThreatRange = aiEnemyThreatRange(target);
+        AIKitProfile ownKit = aiOwnKit();
         boolean lowHealth = currentDurability < 38;
         boolean tookDamageRecently = currentDurability < aiLastHealth - 1.0;
         if (tookDamageRecently && target != null && targetDist < 300) {
@@ -6309,7 +6488,11 @@ public class Bird {
         boolean veryLowHealth = currentDurability < 20;
         boolean losingHard = target != null && target.aiDurabilityHealth() > currentDurability + 32;
         boolean retreatWindow = aiRetreatCooldown <= 0 && (veryLowHealth || (currentDurability < 28 && losingHard));
-        boolean shouldRetreat = target != null && retreatWindow && targetDist < 220 && healthPack == null && aiCommitFrames <= 0;
+        boolean shouldRetreat = target != null
+                && retreatWindow
+                && targetDist < Math.max(220.0, enemyThreatRange * 0.80)
+                && healthPack == null
+                && aiCommitFrames <= 0;
         boolean immediatePowerChance = isImmediatePowerUpOpportunity(powerUp);
         boolean shouldChasePower = powerUp != null &&
                 ((shouldPrioritizePowerUp(powerUp, target) && aiCommitFrames <= 0) || immediatePowerChance);
@@ -6361,6 +6544,7 @@ public class Bird {
         } else if (target != null) {
             // Predict movement instead of chasing current position.
             double lead = Math.clamp(targetDist / 120.0, 2.0, 10.0);
+            lead *= 0.86 + ownKit.pressure() * 0.28 + ownKit.airControl() * 0.16;
             if (lowCpu) lead *= 0.55;
             double predictedX = target.x + target.vx * lead;
             if (targetBelow) {
@@ -6374,7 +6558,9 @@ public class Bird {
                     goalX = target.x + (x < target.x ? -1 : 1) * 95;
                 }
             } else {
-                double desiredOffset = aiCommitFrames > 0 ? 95 : 125;
+                double desiredOffset = aiCommitFrames > 0
+                        ? Math.max(62.0, idealRange * 0.55)
+                        : Math.max(86.0, idealRange * 0.72);
                 double strafeTargetX = target.x + aiStrafeDir * desiredOffset;
                 double strafeError = Math.abs(x - strafeTargetX);
                 if (aiStrafeHoldFrames <= 0 && aiStrafeTimer <= 0 && strafeError < 55) {
@@ -6515,9 +6701,12 @@ public class Bird {
             if (onGround && aiJumpCooldown <= 0) {
                 double climbCenter = climbPlatform != null ? climbPlatform.x + climbPlatform.w / 2.0 : myCx;
                 boolean alignedForClimb = !verticalPlan || climbPlatform == null || Math.abs((x + 40) - climbCenter) < 165;
-                boolean jumpForHeight = dy < -120 && Math.abs(target.x - x) < 420 && alignedForClimb;
-                boolean jumpForCombo = dy > 70 && targetDist < 220;
-                boolean jumpForAboveClose = dy < -200 && Math.abs(target.x - x) < 220 && alignedForClimb;
+                double verticalReach = ownKit.verticalReach();
+                boolean jumpForHeight = dy < -120 && Math.abs(target.x - x) < verticalReach && alignedForClimb;
+                boolean jumpForCombo = dy > 70 && targetDist < Math.max(190.0, idealRange * 1.08);
+                boolean jumpForAboveClose = dy < -200
+                        && Math.abs(target.x - x) < Math.max(220.0, verticalReach * 0.48)
+                        && alignedForClimb;
                 boolean jumpForOffstageLaunch = shouldAIJumpBeforeOffstage(goalX);
                 double jumpSense = 0.35 + 0.65 * skill;
                 if (jumpForOffstageLaunch) {
@@ -6564,17 +6753,21 @@ public class Bird {
         }
 
         // Defensive block read (ground only).
-        if (onGround && target != null && targetDist < 170 && target.attackAnimationTimer > 3 &&
-                facingRight == (target.x > x) && random.nextDouble() < (lowHealth ? 0.50 : 0.34) * (0.25 + 0.75 * skill)) {
+        boolean dangerousEnemyAction = target != null && (target.attackAnimationTimer > 3 || aiTargetHasActiveThreat(target));
+        if (onGround && target != null && targetDist < Math.max(170.0, enemyThreatRange * 0.56) && dangerousEnemyAction &&
+                facingRight == (target.x > x) && random.nextDouble() < (lowHealth ? 0.58 : 0.38) * (0.25 + 0.75 * skill)) {
             game.setAiControlKey(playerIndex, blockKey(), true);
         }
 
         // Attack cadence respects role/range.
-        double attackChance = (aiCommitFrames > 0 ? 0.96 : 0.84) * (0.45 + 0.55 * skill);
+        double attackChance = (aiCommitFrames > 0 ? 0.96 : 0.84)
+                * (0.45 + 0.55 * skill)
+                * (0.86 + ownKit.pressure() * 0.22);
         if (cpuLevel <= 1) attackChance *= 0.04;
         else if (cpuLevel == 2) attackChance *= 0.35;
+        double attackRange = Math.max(132.0, Math.min(230.0, idealRange * (0.82 + ownKit.pressure() * 0.14)));
         if (!powerFocus && target != null && attackCooldown <= 0 &&
-                targetDist < Math.max(140, idealRange * 0.95) &&
+                targetDist < attackRange &&
                 Math.abs(target.y - y) < 115 &&
                 random.nextDouble() < attackChance) {
             game.setAiControlKey(playerIndex, attackKey(), true);
@@ -6582,54 +6775,21 @@ public class Bird {
 
         // Special ability timing by bird role.
         if (!powerFocus && target != null
-                && (isRaptor() ? canStartRaptorSpecial()
-                : type == BirdGame3.BirdType.TURKEY ? canStartTurkeySpecial()
-                : type == BirdGame3.BirdType.PENGUIN ? canStartPenguinSpecial()
-                : type == BirdGame3.BirdType.SHOEBILL ? shoebillAnySpecialReady()
-                : type == BirdGame3.BirdType.MOCKINGBIRD ? canStartMockingbirdSpecial()
-                : type == BirdGame3.BirdType.RAZORBILL ? canStartRazorbillSpecial()
-                : type == BirdGame3.BirdType.GRINCHHAWK ? canStartGrinchhawkSpecial()
-                : type == BirdGame3.BirdType.VULTURE ? canStartVultureSpecial()
-                : type == BirdGame3.BirdType.TITMOUSE ? canStartTitmouseSpecial()
-                : type == BirdGame3.BirdType.BAT ? canStartBatSpecial()
-                : type == BirdGame3.BirdType.RAVEN ? canStartRavenSpecial()
-                : type == BirdGame3.BirdType.GOOSE ? canStartGooseSpecial()
-                : isOpiumEchoPair() ? canStartOpiumSpecial()
-                : specialCooldown <= 0)
-                && aiSpecialCooldown <= 0 &&
-                shouldUseSpecialAI(target, targetDist, onGround, lowHealth) &&
-                random.nextDouble() < (0.25 + 0.75 * skill)) {
-            if (type == BirdGame3.BirdType.PIGEON && onGround && lowHealth && targetDist > 110) {
-                game.setAiControlKey(playerIndex, blockKey(), true);
+                && aiSpecialCooldown <= 0
+                && shouldUseSpecialAI(target, targetDist, onGround, lowHealth)
+                && random.nextDouble() < aiSpecialUseChance(skill, ownKit, target)) {
+            configureKitAwareAISpecialInputs(target, targetDist, onGround, lowHealth);
+            if (canAIStartSelectedSpecialOrUltimate()) {
+                game.setAiControlKey(playerIndex, specialKey(), true);
+                aiSpecialCooldown = type == BirdGame3.BirdType.PIGEON ? 16
+                        : (type == BirdGame3.BirdType.SHOEBILL
+                        || type == BirdGame3.BirdType.RAZORBILL
+                        || type == BirdGame3.BirdType.RAVEN
+                        || type == BirdGame3.BirdType.GOOSE
+                        || isOpiumEchoPair() ? 20 : 26);
+            } else {
+                clearAISpecialModifierInputs();
             }
-            if (type == BirdGame3.BirdType.SHOEBILL) {
-                configureShoebillAISpecialInputs(target, targetDist, onGround);
-            }
-            if (type == BirdGame3.BirdType.RAZORBILL) {
-                configureRazorbillAISpecialInputs(target, targetDist, onGround);
-            }
-            if (type == BirdGame3.BirdType.TITMOUSE) {
-                configureTitmouseAISpecialInputs(target, targetDist, onGround);
-            }
-            if (type == BirdGame3.BirdType.BAT) {
-                configureBatAISpecialInputs(target, targetDist, onGround);
-            }
-            if (type == BirdGame3.BirdType.RAVEN) {
-                configureRavenAISpecialInputs(target, targetDist, onGround);
-            }
-            if (type == BirdGame3.BirdType.GOOSE) {
-                configureGooseAISpecialInputs(target, targetDist, onGround);
-            }
-            if (isOpiumEchoPair()) {
-                configureOpiumAISpecialInputs(target, targetDist, onGround);
-            }
-            game.setAiControlKey(playerIndex, specialKey(), true);
-            aiSpecialCooldown = type == BirdGame3.BirdType.PIGEON ? 16
-                    : (type == BirdGame3.BirdType.SHOEBILL
-                    || type == BirdGame3.BirdType.RAZORBILL
-                    || type == BirdGame3.BirdType.RAVEN
-                    || type == BirdGame3.BirdType.GOOSE
-                    || isOpiumEchoPair() ? 20 : 26);
         }
 
         if (!powerFocus && tauntCooldown <= 0 && target != null && currentDurability > 80
@@ -7980,6 +8140,15 @@ public class Bird {
         game.setAiControlKey(playerIndex, blockKey(), false);
     }
 
+    private boolean maintainAIHeldSpecialInputs() {
+        if (type == BirdGame3.BirdType.PELICAN && pelicanDownCharging) {
+            game.setAiControlKey(playerIndex, specialKey(), true);
+            game.setAiControlKey(playerIndex, blockKey(), true);
+            return true;
+        }
+        return false;
+    }
+
     private void resetAIDropCommit() {
         aiDropCommitFrames = 0;
         aiDropCommitDir = 0;
@@ -8016,11 +8185,27 @@ public class Bird {
 
     private double scoreAITarget(Bird candidate, Bird lockedTarget) {
         double dist = Math.hypot(candidate.x - x, candidate.y - y);
+        AIKitProfile own = aiOwnKit();
+        AIKitProfile enemy = aiKitProfile(candidate.type);
         double score = 3000.0 / (1.0 + dist);
         score += (100.0 - candidate.health) * 1.8;
         if (candidate.specialCooldown <= 0) score += 40.0;
         if (candidate.playerIndex == 0) score += 15.0;
         if (candidate.attackAnimationTimer > 3 && dist < 260.0) score += 12.0;
+        if (candidate.isUltimateReady()) score += 32.0;
+        if (aiTargetHasSetupPressure(candidate)) score += 22.0 + own.pressure() * 18.0;
+        if (aiTargetHasActiveThreat(candidate)) {
+            score += dist < enemy.threatRange() ? 26.0 : 10.0;
+            if (aiDurabilityHealth() < 36.0 && dist < aiEnemyThreatRange(candidate)) {
+                score -= 38.0;
+            }
+        }
+        if (enemy.recovery() < 0.55 && candidate.bodyBottomY() > bodyBottomY() + 85.0 && own.pressure() > 0.55) {
+            score += 18.0;
+        }
+        if (enemy.zoning() > 0.60 && dist > own.burstRange() * 0.85 && own.pressure() < 0.55) {
+            score -= 14.0;
+        }
         score += Math.max(0.0, 55.0 - candidate.health) * 0.42;
         score -= Math.abs(candidate.y - y) * (currentFlyUpForce() > 0.0 ? 0.025 : 0.055);
         score -= aiTargetVoidPenalty(candidate);
@@ -8178,7 +8363,7 @@ public class Bird {
         if (target == null) return true;
         if (target.health < 35 && health > 30) return false;
         double targetDist = Math.hypot(target.x - x, target.y - y);
-        return targetDist > getAIIdealRange() * 2.1;
+        return targetDist > aiIdealRangeAgainst(target) * 2.1;
     }
 
     private boolean isPowerUpConvenient(PowerUp p, Bird target) {
@@ -8764,6 +8949,17 @@ public class Bird {
         if (target.type == BirdGame3.BirdType.TITMOUSE
                 && (target.titmouseBarkskipTimer > 0 || target.titmouseMobbingTimer > 0)
                 && dx < 420) dodge = true;
+        if (aiTargetHasActiveThreat(target)
+                && dx < aiEnemyThreatRange(target) * 0.82
+                && Math.abs(dy) < Math.max(120.0, aiKitProfile(target.type).verticalReach() * 0.34)) {
+            dodge = true;
+        }
+        if (target.isUltimateReady()
+                && aiKitProfile(target.type).burstRange() > 340.0
+                && dx < aiKitProfile(target.type).burstRange() * 0.70
+                && Math.abs(dy) < 190.0) {
+            dodge = true;
+        }
 
         if (!dodge) return false;
         int cpuLevel = game.getCpuLevel(playerIndex);
@@ -8777,6 +8973,245 @@ public class Bird {
             aiJumpCooldown = 16;
         }
         return true;
+    }
+
+    private double aiSpecialUseChance(double skill, AIKitProfile ownKit, Bird target) {
+        double chance = (0.25 + 0.75 * skill)
+                * (0.88 + ownKit.pressure() * 0.08 + ownKit.zoning() * 0.08 + ownKit.setup() * 0.10);
+        if (target != null && aiTargetHasActiveThreat(target) && ownKit.counter() > 0.30) {
+            chance += ownKit.counter() * 0.12;
+        }
+        if (isUltimateReady()) {
+            chance = Math.max(chance, 0.94);
+        }
+        return Math.clamp(chance, 0.04, 0.98);
+    }
+
+    private void clearAISpecialModifierInputs() {
+        game.setAiControlKey(playerIndex, leftKey(), false);
+        game.setAiControlKey(playerIndex, rightKey(), false);
+        game.setAiControlKey(playerIndex, jumpKey(), false);
+        game.setAiControlKey(playerIndex, blockKey(), false);
+    }
+
+    private void applyAISpecialInput(DirectionalSpecialInput input, int dir) {
+        clearAISpecialModifierInputs();
+        switch (input) {
+            case SIDE -> game.setAiControlKey(playerIndex, dir < 0 ? leftKey() : rightKey(), true);
+            case UP -> game.setAiControlKey(playerIndex, jumpKey(), true);
+            case DOWN -> game.setAiControlKey(playerIndex, blockKey(), true);
+            case NEUTRAL -> {
+            }
+        }
+    }
+
+    private boolean canAIStartSelectedSpecialOrUltimate() {
+        if (BirdSpecialReadiness.canStart(this)) {
+            return true;
+        }
+        if (!isUltimateReady()) {
+            return false;
+        }
+        return switch (type) {
+            case PIGEON -> canStartPigeonUltimate();
+            case EAGLE -> canStartEagleUltimate();
+            case FALCON -> canStartFalconUltimate();
+            case MOCKINGBIRD -> health > 0 && stunTime <= 0.0 && grabbedBy == null && grabbedTarget == null
+                    && !isBlocking && !isDodging();
+            default -> false;
+        };
+    }
+
+    private void configureKitAwareAISpecialInputs(Bird target, double dist, boolean onGround, boolean lowHealth) {
+        if (target == null) {
+            clearAISpecialModifierInputs();
+            return;
+        }
+        int dir = target.bodyCenterX() >= bodyCenterX() ? 1 : -1;
+        facingRight = dir > 0;
+        applyAISpecialInput(chooseKitAwareAISpecialInput(target, dist, onGround, lowHealth), dir);
+    }
+
+    private DirectionalSpecialInput chooseKitAwareAISpecialInput(Bird target, double dist, boolean onGround, boolean lowHealth) {
+        double dy = target.bodyCenterY() - bodyCenterY();
+        boolean targetAbove = dy < -105.0;
+        boolean targetBelow = dy > 95.0;
+        boolean enemyActive = aiTargetHasActiveThreat(target);
+        boolean targetSettingUp = aiTargetHasSetupPressure(target);
+        if (isUltimateReady()) {
+            return aiUltimateSpecialInput(target, dist, onGround, lowHealth, targetAbove, targetBelow, enemyActive);
+        }
+
+        return switch (type) {
+            case PIGEON -> {
+                if (!onGround && targetAbove && !pigeonUpSpecialUsed) yield DirectionalSpecialInput.UP;
+                if (onGround && lowHealth && dist > 245.0) yield DirectionalSpecialInput.DOWN;
+                if (dist > 88.0 && dist < 315.0 && Math.abs(dy) < 155.0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case EAGLE, FALCON -> {
+                if (!onGround && targetBelow && y < target.y - 155.0) yield DirectionalSpecialInput.DOWN;
+                if (targetAbove && !raptorUpSpecialUsed) yield DirectionalSpecialInput.UP;
+                if (dist > 120.0 && Math.abs(dy) < 155.0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case PHOENIX -> {
+                if (!onGround && targetAbove && !phoenixSpiralUsed) yield DirectionalSpecialInput.UP;
+                if (dist > 105.0 && dist < 430.0 && phoenixFireballReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                if (Math.abs(target.bodyCenterX() - bodyCenterX()) < 165.0
+                        && (targetBelow || dist < 165.0) && phoenixLavaReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case HUMMINGBIRD -> {
+                if (!onGround && targetAbove && !hummingHoverBurstUsed) yield DirectionalSpecialInput.UP;
+                if (onGround && hummingNectarTrapReuseTimer <= 0 && (dist > 165.0 || targetSettingUp)) yield DirectionalSpecialInput.DOWN;
+                if (dist < 220.0 && hummingFlashSipReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case TURKEY -> {
+                if (!onGround && !turkeyPanicFlapUsed && (targetAbove || y > BirdGame3.GROUND_Y - 190.0)) yield DirectionalSpecialInput.UP;
+                if (onGround && enemyActive && dist < 185.0 && turkeyGobbleReuseTimer <= 0) yield DirectionalSpecialInput.NEUTRAL;
+                if (onGround && turkeyFeastTrapReuseTimer <= 0 && (dist > 155.0 || lowHealth)) yield DirectionalSpecialInput.DOWN;
+                if (dist < 330.0 && Math.abs(dy) < 135.0 && turkeyStampedeReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case ROOSTER -> {
+                int owned = ownedRoosterChickCount();
+                if (!onGround && targetAbove && !roosterUpSpecialUsed && owned > 0) yield DirectionalSpecialInput.UP;
+                if (owned < ROOSTER_MAX_CHICKS && roosterNeutralReuseTimer <= 0) yield DirectionalSpecialInput.NEUTRAL;
+                if (nextRoosterFollowerChick() != null && dist < 470.0 && roosterSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                if (roosterDownReuseTimer <= 0 && (lowHealth || dist > 250.0)) yield DirectionalSpecialInput.DOWN;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case ROADRUNNER -> {
+                if (!onGround && targetAbove && !roadrunnerDustDevilUsed) yield DirectionalSpecialInput.UP;
+                if (onGround && roadrunnerPaintedRoadReuseTimer <= 0 && (dist > 170.0 || targetSettingUp)) yield DirectionalSpecialInput.DOWN;
+                if (dist > 120.0 && dist < 430.0 && roadrunnerRicochetReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case PENGUIN -> {
+                if (!onGround && (targetAbove || isVoidMap()) && !penguinUpSpecialUsed) yield DirectionalSpecialInput.UP;
+                if (onGround && penguinSnowFort == null && (lowHealth || enemyActive || dist > 210.0)
+                        && penguinSnowFortReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                if (dist > 115.0 && dist < 390.0 && Math.abs(dy) < 150.0 && penguinIcebergReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case SHOEBILL -> {
+                if (enemyActive && dist < 205.0 && shoebillStatueReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                if (!onGround && targetAbove && !shoebillUpSpecialUsed) yield DirectionalSpecialInput.UP;
+                if (dist > 145.0 && dist < 340.0 && Math.abs(dy) < 140.0 && shoebillThrustReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case MOCKINGBIRD -> {
+                if (!onGround && targetAbove && !mockingbirdUpSpecialUsed) yield DirectionalSpecialInput.UP;
+                if (onGround && (!loungeActive || lowHealth) && mockingbirdSpecialReady(MockingbirdSpecialVariant.DOWN)) yield DirectionalSpecialInput.DOWN;
+                if (dist > 130.0 && dist < 330.0 && mockingbirdSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case RAZORBILL -> {
+                if (enemyActive && dist < 215.0 && razorbillCounterReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                if (!onGround && targetAbove && !razorbillUpSpecialUsed) yield DirectionalSpecialInput.UP;
+                if (dist > 105.0 && dist < 390.0 && Math.abs(dy) < 165.0 && razorbillSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case GRINCHHAWK -> {
+                if (!onGround && targetAbove && !grinchUpSpecialUsed) yield DirectionalSpecialInput.UP;
+                if (dist < 185.0 && grinchHeartSnatchTimer <= 0) yield DirectionalSpecialInput.NEUTRAL;
+                if (dist > 105.0 && dist < 380.0 && !grinchSleighActive) yield DirectionalSpecialInput.SIDE;
+                if (onGround && grinchPresent == null && (dist > 190.0 || targetSettingUp)) yield DirectionalSpecialInput.DOWN;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case VULTURE -> {
+                if (!onGround && targetAbove && !vultureUpSpecialUsed) yield DirectionalSpecialInput.UP;
+                if (vultureBait == null && vultureDownReuseTimer <= 0 && (lowHealth || dist > 195.0 || ownedVultureCrowCount() >= 4)) {
+                    yield DirectionalSpecialInput.DOWN;
+                }
+                if (ownedVultureCrowCount() < 7 && vultureCrowTicks > 0 && vultureNeutralReuseTimer <= 0) yield DirectionalSpecialInput.NEUTRAL;
+                if (dist < 300.0 && vultureSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case OPIUMBIRD, HEISENBIRD -> {
+                if (!onGround && targetBelow && !opiumUpSpecialUsed) yield DirectionalSpecialInput.UP;
+                if (onGround && opiumDownReuseTimer <= 0 && (opiumResourceMeter < OPIUM_RESOURCE_MAX * 0.42 || dist < 180.0 || targetSettingUp)) {
+                    yield DirectionalSpecialInput.DOWN;
+                }
+                if (dist > 135.0 && dist < 340.0 && opiumSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case TITMOUSE -> {
+                if (!onGround && targetAbove && !titmouseVaultUsed) yield DirectionalSpecialInput.UP;
+                if (onGround && titmouseSeedStashes.size() < TITMOUSE_MAX_STASHES
+                        && (dist > 145.0 || targetSettingUp) && titmouseStashReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                if (!titmouseSeedStashes.isEmpty() && (target.isTitmouseMarkedBy(this) || dist > 170.0)) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case BAT -> {
+                if (!onGround && targetAbove && !batMoonriseUsed) yield DirectionalSpecialInput.UP;
+                if (!onGround && targetBelow && batSilentReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                if (dist > 130.0 && dist < 330.0 && batWingcutReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case PELICAN -> {
+                double horizontalGap = Math.abs(target.bodyCenterX() - bodyCenterX());
+                if (!onGround && targetAbove && !pelicanUpSpecialUsed) yield DirectionalSpecialInput.UP;
+                if (pelicanCargoCount <= 0) {
+                    if (onGround && dist > 255.0 && dist < 560.0 && !enemyActive && pelicanDownReuseTimer <= 0) {
+                        yield DirectionalSpecialInput.DOWN;
+                    }
+                    if (dist < 188.0 && Math.abs(dy) < 130.0 && pelicanNeutralReuseTimer <= 0) {
+                        yield DirectionalSpecialInput.NEUTRAL;
+                    }
+                    if (dist > 120.0 && dist < 390.0 && Math.abs(dy) < 190.0 && pelicanSideReuseTimer <= 0) {
+                        yield DirectionalSpecialInput.SIDE;
+                    }
+                    yield DirectionalSpecialInput.NEUTRAL;
+                }
+                if (!onGround && targetBelow && horizontalGap < 230.0 && pelicanDownReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                if (dist > 108.0 && dist < 415.0 && Math.abs(dy) < 200.0 && pelicanSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                if ((horizontalGap < 260.0 || enemyActive) && Math.abs(dy) < 175.0 && pelicanDownReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                if (dist < 205.0 && Math.abs(dy) < 145.0 && pelicanNeutralReuseTimer <= 0) yield DirectionalSpecialInput.NEUTRAL;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case RAVEN -> {
+                boolean targetMarked = target.ravenPortentOwnerIndex == playerIndex && target.ravenPortentTimer > 0;
+                if (!onGround && targetAbove && !ravenLiftUsed) yield DirectionalSpecialInput.UP;
+                if (onGround && ravenDecoy == null && (enemyActive || lowHealth) && ravenDownReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                if (!activeOwnedRavenNodes().isEmpty() && dist > 125.0 && ravenSideReuseTimer <= 0
+                        && (targetMarked || dist > 230.0)) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+            case GOOSE -> {
+                if (!onGround && targetAbove && !gooseLiftUsed) yield DirectionalSpecialInput.UP;
+                if (onGround && (enemyActive || lowGooseTerritory() || gooseNest == null)
+                        && gooseNestReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                if (dist > 108.0 && dist < 370.0 && gooseBargeReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
+        };
+    }
+
+    private DirectionalSpecialInput aiUltimateSpecialInput(Bird target, double dist, boolean onGround, boolean lowHealth,
+                                                          boolean targetAbove, boolean targetBelow, boolean enemyActive) {
+        return switch (type) {
+            case PENGUIN -> onGround ? DirectionalSpecialInput.DOWN : DirectionalSpecialInput.UP;
+            case SHOEBILL -> DirectionalSpecialInput.DOWN;
+            case RAZORBILL -> enemyActive && dist < 220.0 ? DirectionalSpecialInput.DOWN : DirectionalSpecialInput.NEUTRAL;
+            case TURKEY -> onGround && dist < 340.0 ? DirectionalSpecialInput.SIDE : DirectionalSpecialInput.DOWN;
+            case ROADRUNNER -> DirectionalSpecialInput.NEUTRAL;
+            case GRINCHHAWK -> DirectionalSpecialInput.DOWN;
+            case PELICAN -> pelicanCargoCount > 0 ? DirectionalSpecialInput.DOWN : DirectionalSpecialInput.NEUTRAL;
+            case VULTURE -> DirectionalSpecialInput.NEUTRAL;
+            case ROOSTER -> DirectionalSpecialInput.NEUTRAL;
+            case RAVEN -> !activeOwnedRavenNodes().isEmpty() ? DirectionalSpecialInput.SIDE : DirectionalSpecialInput.NEUTRAL;
+            case GOOSE -> lowHealth || enemyActive ? DirectionalSpecialInput.DOWN : DirectionalSpecialInput.NEUTRAL;
+            case PHOENIX -> targetBelow && dist < 280.0 ? DirectionalSpecialInput.DOWN : DirectionalSpecialInput.NEUTRAL;
+            case HUMMINGBIRD -> dist < 260.0 ? DirectionalSpecialInput.SIDE : DirectionalSpecialInput.NEUTRAL;
+            case BAT -> targetAbove ? DirectionalSpecialInput.UP : DirectionalSpecialInput.NEUTRAL;
+            case TITMOUSE -> DirectionalSpecialInput.DOWN;
+            case OPIUMBIRD, HEISENBIRD -> DirectionalSpecialInput.DOWN;
+            case MOCKINGBIRD -> DirectionalSpecialInput.DOWN;
+            case EAGLE, FALCON, PIGEON -> DirectionalSpecialInput.NEUTRAL;
+        };
     }
 
     private void configureShoebillAISpecialInputs(Bird target, double dist, boolean onGround) {
@@ -8948,69 +9383,101 @@ public class Bird {
 
     private boolean shouldUseSpecialAI(Bird target, double dist, boolean onGround, boolean lowHealth) {
         double dy = target.y - y;
+        if (isUltimateReady()) {
+            return true;
+        }
+        AIKitProfile own = aiOwnKit();
+        boolean enemyActive = aiTargetHasActiveThreat(target);
+        boolean enemySetup = aiTargetHasSetupPressure(target);
+        boolean targetVulnerable = target.aiDurabilityHealth() < 42.0 || target.stunTime > 0.0 || target.knockdownTimer > 0;
+        double ideal = aiIdealRangeAgainst(target);
         switch (type) {
             case PIGEON:
-                return lowHealth || (health < 55 && dist < 200);
+                return lowHealth
+                        || targetVulnerable
+                        || (dist > 85 && dist < 315 && Math.abs(dy) < 155)
+                        || (onGround && health < 58 && dist > 245);
             case EAGLE:
-                return y < BirdGame3.GROUND_Y - 800 && dy > 180 && dist < 520;
+                return (y < BirdGame3.GROUND_Y - 760 && dy > 150 && dist < 540)
+                        || (dist > 135 && dist < 430 && Math.abs(dy) < 160)
+                        || enemySetup;
             case FALCON:
-                return dist < 360 && dy > -120 && (onGround || lowHealth || target.health > health + 8);
+                return dist < 390 && dy > -145 && (onGround || lowHealth || target.health > health + 8 || targetVulnerable);
             case PHOENIX:
-                return dist < 320 && (lowHealth || Math.abs(dy) < 180 || target.health > health + 10);
+                return dist < 430 && (lowHealth || Math.abs(dy) < 230 || target.health > health + 10
+                        || enemySetup || targetVulnerable);
             case HUMMINGBIRD:
-                return (dist < 260 && Math.abs(dy) < 200) || (lowHealth && dist < 330);
+                return (dist < 320 && Math.abs(dy) < 230)
+                        || (lowHealth && dist < 380)
+                        || (onGround && dist > 150 && dist < 560);
             case TURKEY:
                 return (dist < 230 && Math.abs(dy) < 150)
-                        || (onGround && dist < 330 && Math.abs(dy) < 90)
+                        || (onGround && dist < 360 && Math.abs(dy) < 120)
+                        || enemyActive
                         || (!onGround && dy > 35 && dist < 190);
             case PENGUIN:
-                return (onGround && dist > 110 && dist < 360 && Math.abs(dy) < 120)
+                return (onGround && dist > 95 && dist < 400 && Math.abs(dy) < 150)
                         || (dy < -140 && dist < 520)
+                        || enemyActive
                         || (!onGround && isVoidMap() && dist < 420 && dy < 140);
             case ROADRUNNER:
                 return (onGround && dist < 330 && Math.abs(dy) < 130)
                         || (lowHealth && dist < 260)
-                        || (onGround && target.health > health + 12 && dist < 380);
+                        || targetVulnerable
+                        || (onGround && target.health > health + 12 && dist < 420);
             case SHOEBILL:
                 return dist < 155
                         || (dist > 140 && dist < 330 && Math.abs(dy) < 125 && shoebillThrustReuseTimer <= 0)
-                        || (onGround && dist < 190 && target.attackAnimationTimer > 2 && shoebillStatueReuseTimer <= 0);
+                        || (onGround && dist < 220 && enemyActive && shoebillStatueReuseTimer <= 0);
             case MOCKINGBIRD:
-                return onGround && !loungeActive && (lowHealth || dist < 210);
+                return (onGround && (!loungeActive || lowHealth || enemySetup))
+                        || (dist > 130 && dist < 340)
+                        || (mockingbirdCapturedType != null && dist < 330);
             case RAZORBILL:
                 return (dist < 290 && Math.abs(dy) < 150)
-                        || (target.attackAnimationTimer > 2 && dist < 220 && razorbillCounterReuseTimer <= 0)
+                        || (enemyActive && dist < 230 && razorbillCounterReuseTimer <= 0)
                         || (!onGround && dy > -120 && dist < 330);
             case GRINCHHAWK:
-                return dist < 260 && health < 95;
+                return (dist < 380 && health < 120)
+                        || (dist < 210 && Math.abs(dy) < 155)
+                        || (onGround && grinchPresent == null && (dist > 185 || enemySetup));
             case VULTURE:
-                return vultureNeutralReuseTimer <= 0 && vultureCrowTicks > 0 && ownedVultureCrowCount() < 7 && (dist < 380 || lowHealth);
+                return (vultureCrowTicks > 0 && ownedVultureCrowCount() < 7 && (dist < 430 || lowHealth))
+                        || (vultureBait == null && vultureDownReuseTimer <= 0 && (dist > 170 || lowHealth))
+                        || (dist < 320 && vultureSideReuseTimer <= 0 && targetVulnerable);
             case ROOSTER: {
                 int owned = ownedRoosterChickCount();
                 boolean hasFollower = nextRoosterFollowerChick() != null;
-                return (owned < ROOSTER_MAX_CHICKS && (dist < 430 || lowHealth))
+                return (owned < ROOSTER_MAX_CHICKS && (dist < 500 || lowHealth))
                         || (hasFollower && dist < 460 && Math.abs(dy) < 210);
             }
             case OPIUMBIRD:
-                return dist < 300 && Math.abs(dy) < 190;
+                return (dist < 340 && Math.abs(dy) < 210)
+                        || (onGround && opiumResourceMeter < OPIUM_RESOURCE_MAX * 0.45)
+                        || enemySetup;
             case HEISENBIRD:
-                return dist < 290 && Math.abs(dy) < 190;
+                return (dist < 350 && Math.abs(dy) < 220)
+                        || (onGround && opiumResourceMeter < OPIUM_RESOURCE_MAX * 0.45)
+                        || enemySetup;
             case TITMOUSE:
-                return dist > 140 && dist < 560;
+                return (dist > 125 && dist < 590)
+                        || (onGround && titmouseSeedStashes.size() < TITMOUSE_MAX_STASHES && (dist > 135 || enemySetup));
             case BAT:
-                return dist < 320 && (Math.abs(dy) < 180 || !onGround);
+                return dist < 360 && (Math.abs(dy) < 220 || !onGround || targetVulnerable);
             case PELICAN:
-                return (pelicanCargoCount <= 0 && dist < 220 && Math.abs(dy) < 120)
-                        || (pelicanCargoCount > 0 && onGround && dist < 320 && Math.abs(dy) < 140)
-                        || (!onGround && dy > -120 && dist < 250);
+                return pelicanDownCharging
+                        || (pelicanCargoCount <= 0 && onGround && dist > 240 && dist < 560 && !enemyActive)
+                        || (pelicanCargoCount <= 0 && dist < 235 && Math.abs(dy) < 165)
+                        || (pelicanCargoCount > 0 && dist < 430 && Math.abs(dy) < 210)
+                        || (!onGround && dy > -150 && dist < 330);
             case RAVEN:
-                return dist < 420 && (lowHealth || Math.abs(dy) < 200);
+                return dist < 460 && (lowHealth || Math.abs(dy) < 225 || enemySetup || targetVulnerable);
             case GOOSE:
-                return (dist < 330 && Math.abs(dy) < 155)
-                        || (onGround && gooseNestReuseTimer <= 0 && (lowHealth || target.attackAnimationTimer > 2))
+                return (dist < 370 && Math.abs(dy) < 175)
+                        || (onGround && gooseNestReuseTimer <= 0 && (lowHealth || enemyActive || enemySetup))
                         || (!onGround && dy < -85.0 && !gooseLiftUsed);
             default:
-                return false;
+                return dist < ideal + own.burstRange() * 0.20;
         }
     }
 
@@ -11787,10 +12254,10 @@ public class Bird {
                 boolean sandstorm = roadrunnerSandstormActive();
                 double momentumRatio = roadrunnerMomentumRatio();
                 if (airborne) {
-                    double speedScale = (sandstorm ? 1.14 : 0.90) + momentumRatio * (sandstorm ? 0.70 : 0.48);
+                    double speedScale = (sandstorm ? 1.04 : 0.82) + momentumRatio * (sandstorm ? 0.52 : 0.34);
                     moveSpeed *= speedScale;
                     airFric = sandstorm ? 0.95 : 0.92;
-                    accel = (sandstorm ? 0.26 : 0.18) + momentumRatio * (sandstorm ? 0.20 : 0.14);
+                    accel = (sandstorm ? 0.22 : 0.15) + momentumRatio * (sandstorm ? 0.16 : 0.10);
                 } else {
                     double speedScale = ROADRUNNER_RUN_BASE_SPEED_SCALE
                             + (ROADRUNNER_RUN_MAX_SPEED_SCALE - ROADRUNNER_RUN_BASE_SPEED_SCALE) * momentumRatio;
@@ -26719,8 +27186,8 @@ public class Bird {
             headColor = Color.web("#FFF4DA");
             eyeOverride = Color.web("#263238");
         } else if (stylizedGoose && !classicPalette) {
-            bodyColor = Color.web("#5E6F55");
-            headColor = Color.web("#1B241F");
+            bodyColor = Color.web("#7C8769");
+            headColor = Color.web("#253027");
             eyeOverride = Color.web("#111111");
         } else if (type == BirdGame3.BirdType.ROADRUNNER && !classicPalette) {
             bodyColor = Color.web("#B87333");
@@ -26840,25 +27307,41 @@ public class Bird {
             );
         }
         if (stylizedGoose) {
-            double tailBaseX = facingRight ? x + 14.0 * s : x + 66.0 * s;
+            double tailBaseX = facingRight ? x + 15.0 * s : x + 65.0 * s;
             double tailDir = facingRight ? -1.0 : 1.0;
-            Color tail = classicPalette ? game.classicSkinPrimaryColor(type).brighter() : Color.web("#ECE8D0");
-            Color wing = classicPalette ? game.classicSkinPrimaryColor(type).darker() : Color.web("#46523E");
-            g.setFill(tail.deriveColor(0, 1, 1, 0.82));
+            Color tail = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#F2ECD2");
+            Color tailShade = classicPalette ? game.classicSkinPrimaryColor(type).brighter() : Color.web("#C9C29E");
+            Color wing = classicPalette ? game.classicSkinPrimaryColor(type).darker() : Color.web("#586348");
+            Color wingShade = classicPalette ? game.classicSkinPrimaryColor(type).darker().darker() : Color.web("#30392D");
+            g.setFill(tailShade.deriveColor(0, 1, 1, 0.52));
             g.fillPolygon(
-                    new double[]{tailBaseX, tailBaseX + tailDir * 38.0 * s, tailBaseX + tailDir * 12.0 * s},
-                    new double[]{y + 42.0 * s, y + 34.0 * s, y + 62.0 * s},
+                    new double[]{tailBaseX + tailDir * 3.0 * s, tailBaseX + tailDir * 42.0 * s, tailBaseX + tailDir * 17.0 * s},
+                    new double[]{y + 45.0 * s, y + 43.0 * s, y + 67.0 * s},
                     3
             );
-            g.setFill(wing.deriveColor(0, 1, 1, 0.56));
-            g.fillOval(x + (facingRight ? 8.0 : 36.0) * s, y + 24.0 * s, 41.0 * s, 54.0 * s);
-            g.setStroke(Color.web("#2F3A2B").deriveColor(0, 1, 1, 0.48));
+            g.setFill(tail.deriveColor(0, 1, 1, 0.88));
+            g.fillPolygon(
+                    new double[]{tailBaseX, tailBaseX + tailDir * 43.0 * s, tailBaseX + tailDir * 19.0 * s},
+                    new double[]{y + 39.0 * s, y + 31.0 * s, y + 58.0 * s},
+                    3
+            );
+            g.fillPolygon(
+                    new double[]{tailBaseX + tailDir * 2.0 * s, tailBaseX + tailDir * 35.0 * s, tailBaseX + tailDir * 8.0 * s},
+                    new double[]{y + 50.0 * s, y + 62.0 * s, y + 70.0 * s},
+                    3
+            );
+            g.setFill(wing.deriveColor(0, 1, 1, 0.64));
+            g.fillOval(x + (facingRight ? 8.0 : 33.0) * s, y + 23.0 * s, 44.0 * s, 55.0 * s);
+            g.setFill(wingShade.deriveColor(0, 1, 1, 0.26));
+            g.fillOval(x + (facingRight ? 14.0 : 40.0) * s, y + 33.0 * s, 29.0 * s, 36.0 * s);
+            g.setStroke(Color.web("#2F3A2B").deriveColor(0, 1, 1, 0.58));
             g.setLineCap(StrokeLineCap.ROUND);
-            g.setLineWidth(1.6 * s);
-            for (int i = 0; i < 3; i++) {
-                double featherY = y + (39.0 + i * 10.0) * s;
+            g.setLineWidth(1.45 * s);
+            for (int i = 0; i < 4; i++) {
+                double featherY = y + (38.0 + i * 8.5) * s;
                 g.strokeLine(x + (facingRight ? 16.0 : 61.0) * s, featherY,
-                        x + (facingRight ? 45.0 : 34.0) * s, featherY + (i - 1.0) * 3.0 * s);
+                        x + (facingRight ? 45.0 - i * 1.4 : 35.0 + i * 1.4) * s,
+                        featherY + (i - 1.5) * 2.4 * s);
             }
         }
 
@@ -27065,37 +27548,50 @@ public class Bird {
             g.fillOval(headX + (facingRight ? 10.0 : 18.0) * s, headY + 19.0 * s, 22.0 * s, 15.0 * s);
         }
         if (stylizedGoose) {
-            Color breast = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#F7F3DD");
-            Color neckDark = classicPalette ? game.classicSkinPrimaryColor(type).darker() : Color.web("#18221D");
-            Color neckLight = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#F3EDD4");
-            Color wingLine = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#394634");
-            double neckTopX = headPose.centerX() - (facingRight ? 6.0 : -6.0) * s;
-            double neckTopY = headPose.centerY() + 13.0 * s;
-            double neckBaseX = x + (facingRight ? 49.0 : 31.0) * s;
-            double neckBaseY = y + 45.0 * s;
-            g.setStroke(neckDark.deriveColor(0, 1, 1, 0.92));
+            Color breast = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#F7F1D7");
+            Color breastShade = classicPalette ? game.classicSkinAccentColor(type).darker() : Color.web("#DAD1A7");
+            Color neckDark = classicPalette ? game.classicSkinPrimaryColor(type).darker() : Color.web("#202A24");
+            Color neckOutline = classicPalette ? game.classicSkinPrimaryColor(type).darker().darker() : Color.web("#121A15");
+            Color neckLight = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#F2E9C8");
+            Color wingLine = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#45513B");
+            double neckTopX = headPose.centerX() - (facingRight ? 5.0 : -5.0) * s;
+            double neckTopY = headPose.centerY() + 12.0 * s;
+            double neckBaseX = x + (facingRight ? 48.0 : 32.0) * s;
+            double neckBaseY = y + 44.0 * s;
+            g.setStroke(neckOutline.deriveColor(0, 1, 1, 0.70));
             g.setLineCap(StrokeLineCap.ROUND);
-            g.setLineWidth(15.0 * s);
+            g.setLineWidth(15.8 * s);
+            g.strokeLine(neckBaseX - (facingRight ? 1.0 : -1.0) * s, neckBaseY + 2.0 * s,
+                    neckTopX, neckTopY + 1.0 * s);
+            g.setStroke(neckDark.deriveColor(0, 1, 1, 0.96));
+            g.setLineWidth(12.4 * s);
             g.strokeLine(neckBaseX, neckBaseY, neckTopX, neckTopY);
-            g.setStroke(neckLight.deriveColor(0, 1, 1, 0.30));
-            g.setLineWidth(4.4 * s);
-            g.strokeLine(neckBaseX + (facingRight ? 4.0 : -4.0) * s, neckBaseY + 2.0 * s,
-                    neckTopX + (facingRight ? 3.0 : -3.0) * s, neckTopY - 1.0 * s);
+            g.setStroke(neckLight.deriveColor(0, 1, 1, 0.34));
+            g.setLineWidth(3.3 * s);
+            g.strokeLine(neckBaseX + (facingRight ? 3.6 : -3.6) * s, neckBaseY + 1.6 * s,
+                    neckTopX + (facingRight ? 2.7 : -2.7) * s, neckTopY - 0.6 * s);
             g.setFill(breast.deriveColor(0, 1, 1, isClassicSkin ? 0.38 : 0.72));
-            g.fillOval(x + 20.0 * s, y + 34.0 * s, 43.0 * s, 37.0 * s);
+            g.fillOval(x + 19.0 * s, y + 34.0 * s, 43.0 * s, 38.0 * s);
+            g.setFill(breastShade.deriveColor(0, 1, 1, isClassicSkin ? 0.12 : 0.20));
+            g.fillOval(x + (facingRight ? 33.0 : 20.0) * s, y + 48.0 * s, 28.0 * s, 23.0 * s);
+            g.setFill(neckLight.deriveColor(0, 1, 1, isClassicSkin ? 0.28 : 0.46));
+            g.fillOval(headX + (facingRight ? 10.0 : 17.0) * s, headY + 22.0 * s, 23.0 * s, 13.0 * s);
             g.setStroke(wingLine.deriveColor(0, 1, 1, 0.46));
             g.setLineCap(StrokeLineCap.ROUND);
-            g.setLineWidth(2.0 * s);
+            g.setLineWidth(1.9 * s);
             g.strokeArc(x + 13.0 * s, y + 34.0 * s, 54.0 * s, 34.0 * s,
                     facingRight ? 204 : -24, 116, ArcType.OPEN);
-            g.setStroke(Color.web("#E0D7AA").deriveColor(0, 1, 1, 0.74));
-            g.setLineWidth(2.0 * s);
+            g.setLineWidth(1.15 * s);
+            g.strokeLine(x + (facingRight ? 20.0 : 60.0) * s, y + 48.0 * s,
+                    x + (facingRight ? 54.0 : 26.0) * s, y + 38.0 * s);
+            g.setStroke(Color.web("#D7C56E").deriveColor(0, 1, 1, 0.68));
+            g.setLineWidth(1.9 * s);
             g.strokeLine(x + 25.0 * s, y + 72.0 * s, x + 18.0 * s, y + 88.0 * s);
             g.strokeLine(x + 55.0 * s, y + 72.0 * s, x + 63.0 * s, y + 88.0 * s);
-            g.setFill(Color.web("#F9A825").deriveColor(0, 1, 1, 0.82));
+            g.setFill(Color.web("#F7A825").deriveColor(0, 1, 1, 0.86));
             g.fillOval(x + 10.0 * s, y + 86.0 * s, 22.0 * s, 8.0 * s);
             g.fillOval(x + 49.0 * s, y + 86.0 * s, 22.0 * s, 8.0 * s);
-            g.setStroke(Color.web("#E07D13").deriveColor(0, 1, 1, 0.64));
+            g.setStroke(Color.web("#C86B13").deriveColor(0, 1, 1, 0.60));
             g.setLineWidth(1.0 * s);
             g.strokeLine(x + 13.0 * s, y + 90.0 * s, x + 29.0 * s, y + 88.0 * s);
             g.strokeLine(x + 52.0 * s, y + 90.0 * s, x + 68.0 * s, y + 88.0 * s);
@@ -27186,16 +27682,22 @@ public class Bird {
             g.fillOval(eyeX + (facingRight ? 5.0 : 11.0) * s, eyeY + 4.0 * s, 5.0 * s, 5.0 * s);
             drawVectorEyeGlint(g, eyeX + (facingRight ? 1.0 : 0.0) * s, eyeY + s, s, false);
         } else if (stylizedGoose) {
-            double cheekX = headX + (facingRight ? 23.0 : 6.0) * s;
+            double cheekX = headX + (facingRight ? 21.0 : 7.0) * s;
             double cheekY = headY + 13.0 * s;
-            g.setFill(Color.web("#F8F4DE").deriveColor(0, 1, 1, 0.86));
-            g.fillOval(cheekX, cheekY, 20.0 * s, 13.0 * s);
-            g.setFill(Color.web("#070A08"));
-            g.fillOval(headX + (facingRight ? 31.0 : 14.0) * s, headY + 8.0 * s,
-                    5.2 * s, 5.2 * s);
-            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.72));
-            g.fillOval(headX + (facingRight ? 32.4 : 15.4) * s, headY + 8.7 * s,
-                    1.7 * s, 1.7 * s);
+            double eyeX = headX + (facingRight ? 30.0 : 14.0) * s;
+            double eyeY = headY + 7.3 * s;
+            g.setFill(Color.web("#F8F1D6").deriveColor(0, 1, 1, 0.88));
+            g.fillOval(cheekX, cheekY, 22.0 * s, 14.0 * s);
+            g.setStroke(Color.web("#111A14").deriveColor(0, 1, 1, 0.38));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(1.1 * s);
+            g.strokeArc(headX + (facingRight ? 27.0 : 11.0) * s, headY + 3.0 * s,
+                    15.0 * s, 12.0 * s, facingRight ? 188 : -8, 90, ArcType.OPEN);
+            g.setFill(Color.web("#050806"));
+            g.fillOval(eyeX, eyeY, 7.0 * s, 7.0 * s);
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.82));
+            g.fillOval(eyeX + (facingRight ? 1.4 : 3.2) * s, eyeY + 1.0 * s,
+                    2.0 * s, 2.0 * s);
         } else {
             g.setFill(Color.WHITE);
             g.fillOval(headX + (facingRight ? 0 : 40) * s, headY, 25 * s, 25 * s);
@@ -28448,7 +28950,7 @@ public class Bird {
                 : stylizedTurkey ? 25
                 : stylizedGrinchhawk ? 36
                 : stylizedTitmouse ? 20
-                : stylizedGoose ? 39
+                : stylizedGoose ? 36
                 : type == BirdGame3.BirdType.ROADRUNNER ? 42 : 28) + (pose == null ? 0.0 : pose.beakLengthBonus())) * s;
         if (type == BirdGame3.BirdType.HUMMINGBIRD && hummingNeedleHitTimer > 0) {
             double needleProgress = Math.clamp(hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES), 0.0, 1.0);

@@ -162,10 +162,10 @@ final class RoadrunnerSpecials {
         double chargeRatio = Math.clamp(chargeFrames / (double) Bird.ROADRUNNER_BEEP_CHARGE_MAX_FRAMES, 0.0, 1.0);
         double carriedSpeedRatio = Math.clamp(Math.abs(bird.vx) / 26.0, 0.0, 1.0);
         double powerRatio = Math.clamp(chargeRatio * 0.82 + momentumRatio(bird) * 0.55 + carriedSpeedRatio * 0.34, 0.0, 1.35);
-        double burstSpeed = 14.0 + powerRatio * 20.5;
-        double chargeSpeedFloor = 18.0 + chargeRatio * 22.0;
+        double burstSpeed = 12.0 + powerRatio * 16.5;
+        double chargeSpeedFloor = 16.0 + chargeRatio * 18.0;
         if (chargeRatio >= 0.98) {
-            chargeSpeedFloor = (bird.roadrunnerBeepUltimate ? 54.0 : 48.0) + momentumRatio(bird) * 4.0;
+            chargeSpeedFloor = (bird.roadrunnerBeepUltimate ? 56.0 : 50.0) + momentumRatio(bird) * 2.0;
         }
         burstSpeed = Math.max(burstSpeed, chargeSpeedFloor);
         bird.vx = bird.roadrunnerBeepDirection * burstSpeed;
@@ -205,9 +205,9 @@ final class RoadrunnerSpecials {
             bird.game.damageDealt[bird.playerIndex] += dealt;
             bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
             if (other.health <= 0 && oldHealth > 0) bird.game.eliminations[bird.playerIndex]++;
-            other.vx += dir * (10.0 + powerRatio * 13.0);
-            other.vy -= 4.0 + powerRatio * 5.5;
-            addMomentum(bird, 7.0 + dealt * 0.75);
+            other.vx += dir * (8.0 + powerRatio * 8.5);
+            other.vy -= 3.0 + powerRatio * 3.5;
+            addMomentum(bird, 4.5 + dealt * 0.55);
             emitBurstDust(bird, other.bodyCenterX(), other.bodyCenterY(), dir, 16,
                     trailColor(bird, bird.roadrunnerBeepUltimate));
         }
@@ -222,12 +222,12 @@ final class RoadrunnerSpecials {
         double ratio = momentumRatio(bird);
         double existingSpeed = Math.abs(bird.vx);
         bird.roadrunnerRicochetDirection = dir;
-        int travelBonusFrames = Math.min(14, (int) Math.round(existingSpeed * 0.36));
+        int travelBonusFrames = Math.min(8, (int) Math.round(existingSpeed * 0.24));
         bird.roadrunnerRicochetTimer = (ultimate ? Bird.ROADRUNNER_RICOCHET_FRAMES + 7 : Bird.ROADRUNNER_RICOCHET_FRAMES) + travelBonusFrames;
         bird.roadrunnerRicochetReuseTimer = ultimate ? 34 : Bird.ROADRUNNER_RICOCHET_REUSE_FRAMES;
         bird.roadrunnerRicochetBounces = ultimate ? 2 : 1;
-        bird.roadrunnerRicochetSpeed = Math.clamp(16.5 + ratio * 10.5 + existingSpeed * 0.90 + (ultimate ? 4.0 : 0.0),
-                20.0, ultimate ? 46.0 : 40.0);
+        bird.roadrunnerRicochetSpeed = Math.clamp(14.0 + ratio * 7.2 + existingSpeed * 0.62 + (ultimate ? 3.0 : 0.0),
+                17.5, ultimate ? 34.0 : 30.0);
         bird.roadrunnerRicochetUltimate = ultimate;
         Arrays.fill(bird.roadrunnerRicochetHitCooldown, 0);
         bird.vx = dir * bird.roadrunnerRicochetSpeed;
@@ -255,7 +255,7 @@ final class RoadrunnerSpecials {
         Arrays.fill(bird.roadrunnerDustDevilHit, false);
         bird.canDoubleJump = true;
         bird.vx *= 0.32;
-        bird.vy = Math.min(bird.vy, -(17.0 + ratio * 10.0 + (ultimate ? 5.0 : 0.0)));
+        bird.vy = Math.min(bird.vy, -(17.0 + ratio * 7.0 + (ultimate ? 4.0 : 0.0)));
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 14);
         bird.specialCooldown = 0;
         bird.specialMaxCooldown = 0;
@@ -278,10 +278,10 @@ final class RoadrunnerSpecials {
         bird.specialCooldown = 0;
         bird.specialMaxCooldown = 0;
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 12);
-        double launchSpeed = ultimate ? 14.0 : 10.5;
+        double launchSpeed = ultimate ? 11.5 : 8.4;
         bird.vx = dir * Math.max(Math.abs(bird.vx) * 0.55, launchSpeed);
         bird.vy = Math.min(bird.vy, bird.isOnGround() ? -1.2 : -2.4);
-        addMomentum(bird, ultimate ? 10.0 : 6.0);
+        addMomentum(bird, ultimate ? 6.5 : 3.8);
         if (ultimate) {
             bird.game.addToKillFeed(bird.shortName() + " painted a golden fake road!");
         }
@@ -712,9 +712,9 @@ final class RoadrunnerSpecials {
                 if (away == 0.0) {
                     away = dir;
                 }
-                other.vx = away * (30.0 + dealt * 0.28);
-                other.vy = -22.0 - dealt * 0.10;
-                other.applyStun(20.0);
+                other.vx = away * (20.0 + dealt * 0.18);
+                other.vy = -15.0 - dealt * 0.06;
+                other.applyStun(14.0);
                 emitBurstDust(bird, other.bodyCenterX(), other.bodyCenterY(), (int) away, 34, Color.web("#FF1744"));
             } else {
                 other.vx += dir * (4.0 + strikeIndex);
@@ -824,7 +824,7 @@ final class RoadrunnerSpecials {
         int dir = bird.roadrunnerRicochetDirection == 0 ? bird.facingDirection() : bird.roadrunnerRicochetDirection;
         bird.roadrunnerRicochetDirection = dir;
         bird.facingRight = dir > 0;
-        bird.vx = dir * Math.max(20.0, bird.roadrunnerRicochetSpeed);
+        bird.vx = dir * Math.max(22.0, bird.roadrunnerRicochetSpeed);
         bird.vy *= 0.78;
 
         boolean bounced = false;
@@ -857,16 +857,16 @@ final class RoadrunnerSpecials {
                 continue;
             }
             double oldHealth = other.health;
-            int dmg = bird.roadrunnerRicochetUltimate ? 10 : 7;
+            int dmg = bird.roadrunnerRicochetUltimate ? 8 : 5;
             int dealt = (int) bird.applyDamageTo(other, dmg);
             bird.roadrunnerRicochetHitCooldown[other.playerIndex] = bird.roadrunnerRicochetUltimate ? 10 : 14;
             if (dealt > 0) {
                 bird.game.damageDealt[bird.playerIndex] += dealt;
                 bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
                 if (other.health <= 0 && oldHealth > 0) bird.game.eliminations[bird.playerIndex]++;
-                other.vx += dir * (12.0 + momentumRatio(bird) * 7.0);
-                other.vy -= bird.roadrunnerRicochetUltimate ? 8.5 : 6.2;
-                addMomentum(bird, 6.0 + dealt * 0.55);
+                other.vx += dir * (8.0 + momentumRatio(bird) * 4.0);
+                other.vy -= bird.roadrunnerRicochetUltimate ? 6.2 : 4.2;
+                addMomentum(bird, 4.0 + dealt * 0.40);
                 emitBurstDust(bird, other.bodyCenterX(), other.bodyCenterY(), dir, 18,
                         warmDustColor(bird, bird.roadrunnerRicochetUltimate));
             }
@@ -892,7 +892,7 @@ final class RoadrunnerSpecials {
         bird.roadrunnerRicochetBounces--;
         bird.roadrunnerRicochetDirection = newDir == 0 ? -bird.roadrunnerRicochetDirection : newDir;
         bird.facingRight = bird.roadrunnerRicochetDirection > 0;
-        bird.roadrunnerRicochetSpeed = Math.max(19.0, bird.roadrunnerRicochetSpeed * 0.84);
+        bird.roadrunnerRicochetSpeed = Math.max(20.0, bird.roadrunnerRicochetSpeed * 0.78);
         bird.vx = bird.roadrunnerRicochetDirection * bird.roadrunnerRicochetSpeed;
         if (verticalKick < 0.0) {
             bird.vy = Math.min(bird.vy, verticalKick);
