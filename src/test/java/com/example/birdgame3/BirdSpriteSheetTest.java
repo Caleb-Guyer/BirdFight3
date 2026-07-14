@@ -2,6 +2,9 @@ package com.example.birdgame3;
 
 import org.junit.jupiter.api.Test;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.InputStream;
 import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -94,5 +97,34 @@ class BirdSpriteSheetTest {
         noIdle.setProperty("attack.row", "0");
         assertNull(BirdSpriteSheet.fromProperties(null, noIdle),
                 "A sheet without an idle animation is unusable.");
+    }
+
+    @Test
+    void bundledPigeonAtlasMatchesItsAnimationMetadata() throws Exception {
+        try (InputStream imageIn = BirdSpriteLibrary.class.getResourceAsStream("/sprites/pigeon.png");
+             InputStream propsIn = BirdSpriteLibrary.class.getResourceAsStream("/sprites/pigeon.properties")) {
+            assertNotNull(imageIn, "The production Pigeon atlas must be packaged with the game.");
+            assertNotNull(propsIn, "The production Pigeon metadata must be packaged with the game.");
+
+            BufferedImage image = ImageIO.read(imageIn);
+            assertNotNull(image);
+            assertEquals(640, image.getWidth());
+            assertEquals(1440, image.getHeight());
+            assertTrue(image.getColorModel().hasAlpha(), "The production atlas must retain transparency.");
+
+            Properties props = new Properties();
+            props.load(propsIn);
+            assertEquals(1.30, Double.parseDouble(props.getProperty("scale")), 0.0001,
+                    "Pigeon's padded art needs a larger in-world presentation scale.");
+            assertEquals("160", props.getProperty("frameWidth"));
+            assertEquals("160", props.getProperty("frameHeight"));
+            for (int row = 0; row < BirdSpriteSheet.STATE_NAMES.size(); row++) {
+                String state = BirdSpriteSheet.STATE_NAMES.get(row);
+                assertEquals(Integer.toString(row), props.getProperty(state + ".row"));
+                assertEquals("4", props.getProperty(state + ".frames"));
+            }
+            assertEquals("1", props.getProperty("attack.ticksPerFrame"),
+                    "The four attack poses must fit Pigeon's live normal-attack state window.");
+        }
     }
 }

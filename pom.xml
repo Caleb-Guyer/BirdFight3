@@ -52,6 +52,23 @@
     </dependencies>
 
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>sprites</directory>
+                <targetPath>sprites</targetPath>
+                <includes>
+                    <include>*.png</include>
+                    <include>*.properties</include>
+                </includes>
+                <excludes>
+                    <exclude>template.png</exclude>
+                    <exclude>template.properties</exclude>
+                </excludes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

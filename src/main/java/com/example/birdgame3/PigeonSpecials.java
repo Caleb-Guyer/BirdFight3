@@ -31,6 +31,7 @@ final class PigeonSpecials {
         bird.specialMaxCooldown = bird.specialCooldown;
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.pigeonFeatherBurstTimer);
         bird.vx *= 0.45;
+        bird.game.playPigeonFeatherBurstSfx(ultimate);
 
         double[] laneOffsets = {-20.0, 0.0, 20.0};
         double[] laneReach = ultimate ? new double[]{116.0, 132.0, 116.0} : new double[]{102.0, 118.0, 102.0};
@@ -60,12 +61,16 @@ final class PigeonSpecials {
 
             bird.game.damageDealt[bird.playerIndex] += dealt;
             bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
+            boolean isKill = other.health <= 0 && oldHealth > 0;
+            if (isKill) {
                 bird.game.eliminations[bird.playerIndex]++;
             }
 
-            other.vx += dir * (ultimate ? 5.8 : 4.6);
-            other.vy -= ultimate ? 3.8 : 2.9;
+            double launchX = dir * (ultimate ? 5.8 : 4.6);
+            double launchY = -(ultimate ? 3.8 : 2.9);
+            other.vx += launchX;
+            other.vy += launchY;
+            emitSpecialImpact(bird, other, launchX, launchY, dealt, isKill, "Pigeon Feather Burst");
         }
 
         for (int feather = 0; feather < 3; feather++) {
@@ -99,6 +104,7 @@ final class PigeonSpecials {
         bird.specialMaxCooldown = 0;
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.pigeonRushTimer);
         bird.vx = dir * rushSpeed(bird);
+        bird.game.playPigeonRushSfx(ultimate);
         if (!bird.pigeonRushGrounded) {
             bird.vy = Math.min(bird.vy, ultimate ? 0.8 : 1.4);
         } else {
@@ -129,6 +135,7 @@ final class PigeonSpecials {
         bird.canDoubleJump = false;
         bird.vx = dir * (ultimate ? 3.2 : 2.2);
         bird.vy = ultimate ? -16.4 : -14.6;
+        bird.game.playPigeonFlutterSfx(ultimate);
         if (ultimate) {
             bird.game.triggerFlash(0.35, false);
         }
@@ -143,6 +150,7 @@ final class PigeonSpecials {
         bird.specialMaxCooldown = 0;
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, bird.pigeonScavengeTimer);
         bird.vx *= bird.pigeonScavengeAirborne ? 0.42 : 0.22;
+        bird.game.playPigeonScavengeSfx(bird.pigeonScavengeAirborne, ultimate);
         if (bird.pigeonScavengeAirborne) {
             bird.vy = Math.min(bird.vy, ultimate ? 1.2 : 1.8);
         } else {
@@ -205,6 +213,7 @@ final class PigeonSpecials {
         bird.shieldStunFrames = 0;
         bird.blockCooldown = 0;
         bird.game.addToKillFeed(bird.shortName() + " claimed the rooftop!");
+        bird.game.playPigeonCoronationSfx();
 
         for (int i = 0; i < bird.scaledParticleCount(42); i++) {
             double angle = SimRng.next() * Math.PI * 2.0;
@@ -275,13 +284,17 @@ final class PigeonSpecials {
 
             bird.game.damageDealt[bird.playerIndex] += dealt;
             bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
+            boolean isKill = other.health <= 0 && oldHealth > 0;
+            if (isKill) {
                 bird.game.eliminations[bird.playerIndex]++;
             }
 
-            other.vx += dir * rushHorizontalLaunch(bird);
-            other.vy -= rushVerticalLaunch(bird);
+            double launchX = dir * rushHorizontalLaunch(bird);
+            double launchY = -rushVerticalLaunch(bird);
+            other.vx += launchX;
+            other.vy += launchY;
             bird.pigeonRushHit[other.playerIndex] = true;
+            emitSpecialImpact(bird, other, launchX, launchY, dealt, isKill, "Pigeon Street Rush");
 
             for (int i = 0; i < 14; i++) {
                 double angle = SimRng.next() * Math.PI * 2;
@@ -336,14 +349,18 @@ final class PigeonSpecials {
 
             bird.game.damageDealt[bird.playerIndex] += dealt;
             bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
-            if (other.health <= 0 && oldHealth > 0) {
+            boolean isKill = other.health <= 0 && oldHealth > 0;
+            if (isKill) {
                 bird.game.eliminations[bird.playerIndex]++;
             }
 
             double launchDir = dx == 0.0 ? bird.facingDirection() : Math.signum(dx);
-            other.vx += launchDir * (bird.pigeonFlutterUltimate ? 7.2 : 5.6);
-            other.vy -= bird.pigeonFlutterUltimate ? 10.6 : 8.2;
+            double launchX = launchDir * (bird.pigeonFlutterUltimate ? 7.2 : 5.6);
+            double launchY = -(bird.pigeonFlutterUltimate ? 10.6 : 8.2);
+            other.vx += launchX;
+            other.vy += launchY;
             bird.pigeonFlutterHit[other.playerIndex] = true;
+            emitSpecialImpact(bird, other, launchX, launchY, dealt, isKill, "Pigeon Fire-Escape Flutter");
         }
 
         for (int i = 0; i < 4; i++) {
@@ -388,13 +405,17 @@ final class PigeonSpecials {
 
                     bird.game.damageDealt[bird.playerIndex] += dealt;
                     bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
-                    if (other.health <= 0 && oldHealth > 0) {
+                    boolean isKill = other.health <= 0 && oldHealth > 0;
+                    if (isKill) {
                         bird.game.eliminations[bird.playerIndex]++;
                     }
 
                     double launchDir = dx == 0.0 ? bird.facingDirection() : Math.signum(dx);
-                    other.vx += launchDir * (bird.pigeonScavengeUltimate ? 5.2 : 4.0);
-                    other.vy = Math.max(other.vy, bird.pigeonScavengeUltimate ? 11.5 : 8.8);
+                    double launchX = launchDir * (bird.pigeonScavengeUltimate ? 5.2 : 4.0);
+                    double launchY = bird.pigeonScavengeUltimate ? 11.5 : 8.8;
+                    other.vx += launchX;
+                    other.vy = Math.max(other.vy, launchY);
+                    emitSpecialImpact(bird, other, launchX, launchY, dealt, isKill, "Pigeon Drop Peck");
                 }
             }
         } else {
@@ -413,7 +434,6 @@ final class PigeonSpecials {
             }
             if (!bird.pigeonScavengeResolved && bird.pigeonScavengeTimer <= 1) {
                 bird.pigeonScavengeResolved = true;
-                bird.heal(bird.pigeonScavengeUltimate ? 10.0 : 6.0);
                 for (int i = 0; i < 16; i++) {
                     double angle = SimRng.next() * Math.PI * 2;
                     bird.game.particles.add(new Particle(
@@ -421,7 +441,7 @@ final class PigeonSpecials {
                             bird.bodyBottomY() - 8 + Math.sin(angle) * (6 + SimRng.next() * 12),
                             Math.cos(angle) * (1.8 + SimRng.next() * 2.2),
                             Math.sin(angle) * (1.6 + SimRng.next() * 2.4) - 0.8,
-                            bird.pigeonScavengeUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.84) : Color.web("#A5D6A7").deriveColor(0, 1, 1, 0.78)
+                            bird.pigeonScavengeUltimate ? Color.GOLD.deriveColor(0, 1, 1, 0.84) : Color.web("#B0BEC5").deriveColor(0, 1, 1, 0.78)
                     ));
                 }
             }
@@ -516,6 +536,7 @@ final class PigeonSpecials {
             }
             bird.pigeonCoronationFinalHit[targetIndex] = true;
 
+            double oldHealth = other.health;
             int dealt = bird.applyTrackedSpecialDamage(other, damage);
             if (dealt <= 0) {
                 continue;
@@ -527,11 +548,16 @@ final class PigeonSpecials {
             double distance = Math.max(1.0, Math.hypot(dx, dy));
             double launchDir = Math.abs(dx) < 0.001 ? bird.facingDirection() : Math.signum(dx);
             double horizontal = (strong ? 10.8 : 7.0) * Math.max(0.48, Math.abs(dx) / distance);
-            other.vx += launchDir * horizontal;
-            other.vy -= strong ? 13.2 : 8.8;
+            double launchX = launchDir * horizontal;
+            double launchY = -(strong ? 13.2 : 8.8);
             if (dy > 0.0) {
-                other.vy -= strong ? 1.8 : 1.0;
+                launchY -= strong ? 1.8 : 1.0;
             }
+            other.vx += launchX;
+            other.vy += launchY;
+            boolean isKill = other.health <= 0 && oldHealth > 0;
+            emitSpecialImpact(bird, other, launchX, launchY,
+                    dealt, isKill, ROOFTOP_CORONATION_MOVE);
             emitCoronationHitParticles(bird, other, strong ? 28 : 18,
                     strong ? Color.GOLD : Color.web("#FFCC80"));
         }
@@ -577,6 +603,15 @@ final class PigeonSpecials {
                     Math.sin(angle) * speed - 1.4,
                     color.deriveColor(0, 1, 1, 0.76)
             ));
+        }
+    }
+
+    private static void emitSpecialImpact(Bird bird, Bird other, double launchX, double launchY,
+                                          int dealt, boolean isKill, String moveName) {
+        bird.game.emitCombatImpact(bird, other, other.bodyCenterX(), other.bodyCenterY(),
+                launchX, launchY, dealt, isKill, moveName);
+        if (dealt < 8) {
+            bird.game.playPigeonLightImpactSfx(dealt);
         }
     }
 

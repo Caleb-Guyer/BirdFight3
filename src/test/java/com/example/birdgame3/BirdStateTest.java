@@ -2444,7 +2444,7 @@ class BirdStateTest {
     }
 
     @Test
-    void pigeonGroundDownSpecialUsesBlockInputWithoutRaisingShieldAndHealsOnCompletion() {
+    void pigeonGroundDownSpecialUsesBlockInputWithoutRaisingShieldAndDoesNotHealOnCompletion() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
 
@@ -2465,16 +2465,17 @@ class BirdStateTest {
         }
 
         assertEquals(48.0, pigeon.health, 0.0001,
-                "Grounded scavenge should take much longer before the heal resolves.");
+                "Grounded scavenge should not restore health before it resolves.");
         for (int i = 0; i < 50; i++) {
             pigeon.update(1.0);
         }
 
-        assertTrue(pigeon.health > 48.0, "Completing the grounded scavenge should heal Pigeon.");
+        assertEquals(48.0, pigeon.health, 0.0001,
+                "Completing the grounded scavenge should not heal Pigeon.");
     }
 
     @Test
-    void pigeonShieldedSpecialConvertsIntoGroundDownSpecial() throws Exception {
+    void pigeonShieldedSpecialConvertsIntoGroundDownSpecialWithoutHealing() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
 
@@ -2500,7 +2501,8 @@ class BirdStateTest {
             pigeon.update(1.0);
         }
 
-        assertTrue(pigeon.health > 48.0, "Shield-canceled down special should still heal on completion.");
+        assertEquals(48.0, pigeon.health, 0.0001,
+                "Shield-canceled down special should not heal on completion.");
     }
 
     @Test
@@ -4268,6 +4270,35 @@ class BirdStateTest {
 
         assertTrue(keepRecovering);
         assertTrue(goalX > leftPlatform.x + leftPlatform.w - 40.0);
+    }
+
+    @Test
+    void heisenbirdAiDropsTowardReachableTargetFromBattlefieldPlatform() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        double islandX = 2400.0;
+        double islandY = BirdGame3.GROUND_Y - 80.0;
+        Platform mainIsland = new Platform(islandX, islandY, 1200, 70);
+        Platform sidePlatform = new Platform(islandX + 160, islandY - 210, 420, 46);
+        game.platforms.add(mainIsland);
+        game.platforms.add(sidePlatform);
+
+        Bird heisenbird = new Bird(sidePlatform.x + sidePlatform.w / 2.0 - 40.0, BirdGame3.BirdType.HEISENBIRD, 0, game);
+        heisenbird.y = sidePlatform.y - 80.0;
+        Bird pigeon = new Bird(heisenbird.x, BirdGame3.BirdType.PIGEON, 1, game);
+        pigeon.y = mainIsland.y - 80.0;
+        setPrivateDouble(heisenbird, "opiumResourceMeter", 100.0);
+        game.players[0] = heisenbird;
+        game.players[1] = pigeon;
+        game.isAI[0] = true;
+
+        heisenbird.update(1.0);
+
+        assertTrue(getPrivateInt(heisenbird, "aiDropCommitFrames") > 0,
+                "A reachable target below should keep the drop plan instead of falling into void recovery.");
+        assertFalse(game.isJumpPressed(0),
+                "AI should not jump when it is already above the target and needs to drop or attack.");
     }
 
     @Test

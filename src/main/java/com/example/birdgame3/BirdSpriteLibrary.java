@@ -20,8 +20,9 @@ import java.util.Map;
 import java.util.Properties;
 
 /**
- * Loads bird sprite sheets from the {@code sprites/} folder in the working
- * directory. A bird gets sprite rendering when both {@code <bird>.png} and
+ * Loads production bird sprite sheets bundled under {@code /sprites}, with the
+ * working directory's {@code sprites/} folder taking priority as a hot-reload
+ * override. A bird gets sprite rendering when both {@code <bird>.png} and
  * {@code <bird>.properties} exist (bird enum name in lower case, e.g.
  * {@code pigeon.png}); everything else keeps the built-in vector art, so the
  * roster can migrate to real art one bird at a time.
@@ -109,14 +110,20 @@ final class BirdSpriteLibrary {
         SHEETS.clear();
         SKIN_VARIANTS.clear();
         Path dir = externalDir();
-        if (!Files.isDirectory(dir)) {
-            return null;
-        }
+        boolean externalDirectoryExists = Files.isDirectory(dir);
         int loaded = 0;
         int failed = 0;
         for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
             String base = type.name().toLowerCase(Locale.ROOT);
-            BirdSpriteSheet sheet = loadSheet(dir.resolve(base + ".png"), dir.resolve(base + ".properties"));
+            BirdSpriteSheet sheet = externalDirectoryExists
+                    ? loadSheet(dir.resolve(base + ".png"), dir.resolve(base + ".properties"))
+                    : null;
+            if (sheet == LOAD_FAILED) {
+                failed++;
+                sheet = loadBundledSheet(base);
+            } else if (sheet == null) {
+                sheet = loadBundledSheet(base);
+            }
             if (sheet == LOAD_FAILED) {
                 failed++;
             } else if (sheet != null) {
@@ -124,6 +131,9 @@ final class BirdSpriteLibrary {
                 loaded++;
             }
             // Skin variants: <bird>-<suffix>.png alongside <bird>-<suffix>.properties.
+            if (!externalDirectoryExists) {
+                continue;
+            }
             try (var files = Files.list(dir)) {
                 for (Path png : files.filter(p -> {
                     String n = p.getFileName().toString().toLowerCase(Locale.ROOT);
@@ -148,6 +158,24 @@ final class BirdSpriteLibrary {
             return null;
         }
         return "BIRD SPRITES: " + loaded + " LOADED" + (failed > 0 ? ", " + failed + " FAILED" : "");
+    }
+
+    private static BirdSpriteSheet loadBundledSheet(String base) {
+        String imageResource = "/sprites/" + base + ".png";
+        String propertiesResource = "/sprites/" + base + ".properties";
+        try (InputStream imageIn = BirdSpriteLibrary.class.getResourceAsStream(imageResource);
+             InputStream propsIn = BirdSpriteLibrary.class.getResourceAsStream(propertiesResource)) {
+            if (imageIn == null || propsIn == null) {
+                return null;
+            }
+            Properties props = new Properties();
+            props.load(propsIn);
+            Image image = new Image(imageIn);
+            BirdSpriteSheet sheet = image.isError() ? null : BirdSpriteSheet.fromProperties(image, props);
+            return sheet != null ? sheet : LOAD_FAILED;
+        } catch (IOException | RuntimeException e) {
+            return LOAD_FAILED;
+        }
     }
 
     /** Sentinel distinguishing "files exist but are broken" from "no files". */

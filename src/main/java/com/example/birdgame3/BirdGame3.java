@@ -1064,6 +1064,47 @@ public class BirdGame3 extends Application {
         playManagedSfxVaried(swingClip, 1.0, 1.0, 0.09);
     }
 
+    void playPigeonAttackWhoosh(double chargeRatio) {
+        double charge = Math.clamp(chargeRatio, 0.0, 1.0);
+        playManagedSfxVaried(swingClip, 0.54 + charge * 0.20, 1.30 - charge * 0.24, 0.045);
+    }
+
+    void playPigeonFeatherBurstSfx(boolean ultimate) {
+        playManagedSfxVaried(swingClip, ultimate ? 0.72 : 0.56, ultimate ? 1.42 : 1.58, 0.035);
+    }
+
+    void playPigeonRushSfx(boolean ultimate) {
+        playManagedSfxVaried(swingClip, ultimate ? 0.84 : 0.68, ultimate ? 0.72 : 0.82, 0.035);
+    }
+
+    void playPigeonFlutterSfx(boolean ultimate) {
+        playManagedSfxVaried(swingClip, ultimate ? 0.70 : 0.54, ultimate ? 1.52 : 1.68, 0.04);
+    }
+
+    void playPigeonScavengeSfx(boolean airborne, boolean ultimate) {
+        if (airborne) {
+            playManagedSfxVaried(swingClip, ultimate ? 0.76 : 0.60, ultimate ? 0.78 : 0.90, 0.035);
+        } else {
+            playManagedSfxVaried(bonkClip, ultimate ? 0.48 : 0.34, ultimate ? 0.74 : 0.86, 0.025);
+        }
+    }
+
+    void playPigeonCoronationSfx() {
+        playManagedSfxVaried(hugewaveClip, 0.78, 0.64, 0.018);
+        playManagedSfxVaried(swingClip, 0.44, 1.62, 0.025);
+    }
+
+    void playPigeonLightImpactSfx(double damage) {
+        double intensity = Math.clamp(damage / 8.0, 0.25, 1.0);
+        playManagedSfxVaried(bonkClip, 0.22 + intensity * 0.22, 1.18 - intensity * 0.10, 0.045);
+    }
+
+    void playPigeonBlockedAttackSfx(double damage, boolean parried) {
+        double intensity = Math.clamp(damage / 24.0, 0.25, 1.0);
+        playManagedSfxVaried(vaseBreakingClip, 0.24 + intensity * 0.24,
+                parried ? 1.48 : 1.18, 0.025);
+    }
+
     void playHugewaveSfx() {
         playManagedSfxVaried(hugewaveClip, 1.0, 1.0, 0.05);
     }
@@ -12538,22 +12579,7 @@ public class BirdGame3 extends Application {
                 if (isBeaconCrownBattlefieldContext()) {
                     drawBeaconCrownBattlefield(g, ambientFx);
                 } else {
-                    for (int i = 0; i < 520; i++) {
-                        double ratio = i / 520.0;
-                        Color c = Color.web("#7EC8FF").interpolate(Color.web("#DFF6F0"), ratio);
-                        g.setFill(c);
-                        g.fillRect(0, i * (WORLD_HEIGHT / 520.0), WORLD_WIDTH, WORLD_HEIGHT / 520.0 + 3);
-                    }
-
-                    g.setStroke(Color.web("#3E2723"));
-                    g.setLineWidth(4);
-                    for (Platform p : platforms) {
-                        g.setFill(Color.web("#5D4037"));
-                        g.fillRoundRect(p.x, p.y, p.w, p.h, 34, 34);
-                        g.setFill(Color.web("#2E7D32"));
-                        g.fillRoundRect(p.x + 8, p.y - 12, p.w - 16, p.h + 16, 34, 34);
-                        g.strokeRoundRect(p.x, p.y, p.w, p.h, 34, 34);
-                    }
+                    drawPremiumBattlefieldArena(g, ambientFx);
                 }
             }
             case BEACON_CROWN -> drawBeaconCrownBattlefield(g, ambientFx);
@@ -12781,7 +12807,7 @@ public class BirdGame3 extends Application {
             if (isWorldRectOutsideCamera(p.x - 44, p.y - 44, 88, 88, 160)) {
                 continue;
             }
-            drawPowerUpSprite(g, p, offset);
+            drawPowerUpSprite(g, p, offset, trainingModeActive ? 0.62 : 0.80);
         }
 
         if (dockShipBomb != null) {
@@ -13575,6 +13601,203 @@ public class BirdGame3 extends Application {
 
     private double parallaxAdjustedWorldX(double worldX, double movementFactor) {
         return worldX + camX * (1.0 - movementFactor);
+    }
+
+    private void drawPremiumBattlefieldArena(GraphicsContext g, boolean ambientFx) {
+        double islandCenterX = battlefieldIslandX + battlefieldIslandW * 0.5;
+        double horizonY = battlefieldIslandY + 230.0;
+        double time = System.currentTimeMillis() / 1000.0;
+
+        g.save();
+
+        // A cool, high-altitude sky keeps fighters readable while the warmer
+        // horizon and sun establish a clear focal axis behind the main island.
+        g.setFill(new LinearGradient(0, 0, 0, WORLD_HEIGHT, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#10283E")),
+                new Stop(0.28, Color.web("#315B73")),
+                new Stop(0.58, Color.web("#86AFAE")),
+                new Stop(1.0, Color.web("#D5D7B6"))));
+        g.fillRect(-1200, -500, WORLD_WIDTH + 2400, WORLD_HEIGHT + 1000);
+
+        double sunX = islandCenterX + 250.0;
+        double sunY = battlefieldIslandY - 570.0;
+        g.setFill(Color.web("#F6D79B", 0.10));
+        g.fillOval(sunX - 310, sunY - 310, 620, 620);
+        g.setFill(Color.web("#FFE4A6", 0.22));
+        g.fillOval(sunX - 205, sunY - 205, 410, 410);
+        g.setFill(Color.web("#FFF2C7", 0.78));
+        g.fillOval(sunX - 118, sunY - 118, 236, 236);
+        g.setFill(Color.web("#FFF6D5", 0.08));
+        g.fillPolygon(
+                new double[]{sunX - 180, sunX - 560, sunX + 610, sunX + 190},
+                new double[]{sunY + 80, horizonY, horizonY, sunY + 80}, 4);
+
+        // Three parallax ridge layers create depth without competing with play.
+        drawBattlefieldRidge(g, 0.18, horizonY + 80, 370, Color.web("#294856"), 760, 0.34);
+        drawBattlefieldRidge(g, 0.34, horizonY + 145, 285, Color.web("#365D61"), 620, 1.12);
+        drawBattlefieldRidge(g, 0.52, horizonY + 205, 205, Color.web("#426B64"), 470, 2.06);
+
+        g.setFill(Color.web("#294D55", 0.72));
+        g.fillPolygon(
+                new double[]{islandCenterX - 1780, islandCenterX - 1240, islandCenterX - 760,
+                        islandCenterX - 260, islandCenterX + 210, islandCenterX + 720,
+                        islandCenterX + 1220, islandCenterX + 1780},
+                new double[]{horizonY + 160, battlefieldIslandY - 250, battlefieldIslandY - 430,
+                        battlefieldIslandY - 275, battlefieldIslandY - 520, battlefieldIslandY - 330,
+                        battlefieldIslandY - 405, horizonY + 160}, 8);
+        g.setFill(Color.web("#52766E", 0.62));
+        g.fillPolygon(
+                new double[]{islandCenterX - 1620, islandCenterX - 1060, islandCenterX - 520,
+                        islandCenterX - 40, islandCenterX + 440, islandCenterX + 980,
+                        islandCenterX + 1580},
+                new double[]{horizonY + 210, battlefieldIslandY - 80, battlefieldIslandY - 240,
+                        battlefieldIslandY - 135, battlefieldIslandY - 310, battlefieldIslandY - 125,
+                        horizonY + 210}, 7);
+
+        // A distant weathered aerie gives Battlefield a memorable identity.
+        // Keep it centered on the ridge and deliberately small enough to read
+        // as background architecture instead of another gameplay platform.
+        double citadelX = islandCenterX - 380.0;
+        double citadelBaseY = battlefieldIslandY - 145.0;
+        double citadelScale = 0.48;
+        g.save();
+        g.translate(citadelX, citadelBaseY);
+        g.scale(citadelScale, citadelScale);
+        g.setFill(Color.web("#203B43", 0.72));
+        g.fillRect(-270, -205, 540, 205);
+        g.fillRect(-390, -130, 135, 130);
+        g.fillRect(255, -130, 135, 130);
+        g.fillRect(-92, -330, 184, 330);
+        g.fillPolygon(new double[]{-132, 0, 132}, new double[]{-330, -470, -330}, 3);
+        g.setFill(Color.web("#9BB89B", 0.34));
+        for (int i = -2; i <= 2; i++) {
+            double windowX = i * 86.0;
+            g.fillRoundRect(windowX - 15, -152, 30, 68, 15, 15);
+        }
+        g.setStroke(Color.web("#D2B86E", 0.34));
+        g.setLineWidth(5.0);
+        g.strokeLine(0, -455, 0, -530);
+        g.strokeLine(0, -520, 92, -490);
+        g.restore();
+
+        // Soft cloud shelves frame the stage and sell the altitude.
+        double cloudDrift = ambientFx ? (time * 12.0) % 760.0 : 210.0;
+        for (int layer = 0; layer < 3; layer++) {
+            double layerY = battlefieldIslandY - 820.0 + layer * 205.0;
+            double movement = 0.18 + layer * 0.12;
+            Color cloud = Color.web(layer == 0 ? "#E8F0EA" : "#D8E6DE", 0.065 + layer * 0.022);
+            g.setFill(cloud);
+            for (int i = -2; i < 10; i++) {
+                double baseX = i * 760.0 + cloudDrift * (layer + 1) * 0.45;
+                double cx = parallaxAdjustedWorldX(baseX, movement);
+                double w = 350.0 + (i & 1) * 90.0;
+                g.fillOval(cx - w * 0.5, layerY + (i % 3) * 20.0, w, 64.0 + layer * 18.0);
+                g.fillOval(cx - w * 0.24, layerY - 22.0 + (i % 2) * 14.0, w * 0.58, 78.0);
+            }
+        }
+
+        g.setFill(Color.web("#D7E6DC", 0.22));
+        g.fillRect(-1000, horizonY - 30, WORLD_WIDTH + 2000, 170);
+        g.setFill(Color.web("#B7CDBD", 0.16));
+        g.fillRect(-1000, horizonY + 100, WORLD_WIDTH + 2000, 300);
+
+        if (ambientFx) {
+            // Render-only motes use fixed formulas and wall time; they never touch SimRng.
+            for (int i = 0; i < 34; i++) {
+                double baseX = (i * 227.0 + time * (8.0 + i % 4) + 700.0) % (WORLD_WIDTH + 500.0) - 250.0;
+                double moteX = parallaxAdjustedWorldX(baseX, 0.72);
+                double moteY = battlefieldIslandY - 650.0 + (i % 11) * 82.0
+                        + Math.sin(time * 0.55 + i * 1.37) * 24.0;
+                double radius = 2.0 + (i % 3) * 0.9;
+                g.setFill(Color.web(i % 4 == 0 ? "#FFE7A8" : "#EAF5E8", 0.22 + (i % 3) * 0.06));
+                g.fillOval(moteX - radius, moteY - radius, radius * 2.0, radius * 2.0);
+            }
+        }
+
+        for (Platform p : platforms) {
+            drawPremiumBattlefieldPlatform(g, p);
+        }
+
+        g.restore();
+    }
+
+    private void drawBattlefieldRidge(GraphicsContext g, double movementFactor, double baseY,
+                                      double peakHeight, Color color, double segmentWidth, double phase) {
+        g.setFill(color);
+        int segments = (int) Math.ceil((WORLD_WIDTH + 2200.0) / segmentWidth) + 2;
+        double startX = parallaxAdjustedWorldX(-1100.0, movementFactor);
+        double[] xs = new double[segments + 2];
+        double[] ys = new double[segments + 2];
+        xs[0] = startX;
+        ys[0] = baseY + 360.0;
+        for (int i = 0; i < segments; i++) {
+            double x = startX + i * segmentWidth;
+            double shape = 0.46 + 0.54 * Math.abs(Math.sin(i * 1.71 + phase));
+            xs[i + 1] = x;
+            ys[i + 1] = baseY - peakHeight * shape;
+        }
+        xs[segments + 1] = startX + segments * segmentWidth;
+        ys[segments + 1] = baseY + 360.0;
+        g.fillPolygon(xs, ys, xs.length);
+    }
+
+    private void drawPremiumBattlefieldPlatform(GraphicsContext g, Platform p) {
+        boolean mainIsland = Math.abs(p.x - battlefieldIslandX) < 0.01
+                && Math.abs(p.w - battlefieldIslandW) < 0.01;
+        double keel = mainIsland ? 175.0 : 64.0;
+        double centerX = p.x + p.w * 0.5;
+
+        g.setFill(new LinearGradient(0, p.y + p.h * 0.35, 0, p.y + p.h + keel, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#344955")),
+                new Stop(0.46, Color.web("#243541")),
+                new Stop(1.0, Color.web("#14232C"))));
+        g.fillPolygon(
+                new double[]{p.x + 20, p.x + p.w - 20, p.x + p.w * 0.68, centerX, p.x + p.w * 0.32},
+                new double[]{p.y + p.h * 0.48, p.y + p.h * 0.48, p.y + p.h + keel * 0.58,
+                        p.y + p.h + keel, p.y + p.h + keel * 0.58}, 5);
+
+        g.setStroke(Color.web("#58717B", 0.24));
+        g.setLineWidth(2.4);
+        g.strokeLine(p.x + p.w * 0.16, p.y + p.h * 0.72, centerX, p.y + p.h + keel * 0.90);
+        g.strokeLine(p.x + p.w * 0.84, p.y + p.h * 0.72, centerX, p.y + p.h + keel * 0.90);
+        g.strokeLine(p.x + p.w * 0.38, p.y + p.h * 0.62,
+                p.x + p.w * 0.45, p.y + p.h + keel * 0.76);
+
+        g.setFill(Color.web("#2B3C47"));
+        g.fillRoundRect(p.x, p.y, p.w, p.h, 28, 28);
+        g.setFill(Color.web("#3E5660"));
+        g.fillRoundRect(p.x + 5, p.y + 5, p.w - 10, Math.max(14.0, p.h * 0.46), 22, 22);
+        g.setStroke(Color.web("#162630"));
+        g.setLineWidth(mainIsland ? 4.0 : 3.0);
+        g.strokeRoundRect(p.x, p.y, p.w, p.h, 28, 28);
+
+        int seams = Math.max(2, (int) Math.round(p.w / 180.0));
+        g.setStroke(Color.web("#172933", 0.56));
+        g.setLineWidth(1.8);
+        for (int i = 1; i < seams; i++) {
+            double seamX = p.x + p.w * i / seams;
+            g.strokeLine(seamX, p.y + 11, seamX - 5, p.y + p.h - 8);
+        }
+
+        g.setFill(Color.web("#527B67"));
+        g.fillRoundRect(p.x + 7, p.y - 10, p.w - 14, 20, 18, 18);
+        g.setFill(Color.web("#78A679", 0.72));
+        g.fillRoundRect(p.x + 15, p.y - 7, p.w - 30, 8, 12, 12);
+        g.setStroke(Color.web("#D4B86A", mainIsland ? 0.76 : 0.58));
+        g.setLineWidth(mainIsland ? 3.2 : 2.2);
+        g.strokeLine(p.x + 22, p.y + 15, p.x + p.w - 22, p.y + 15);
+
+        // Symmetric floor inlays subtly clarify the standard spawn lanes.
+        if (mainIsland) {
+            g.setStroke(Color.web("#D9C27D", 0.36));
+            g.setLineWidth(3.0);
+            for (double ratio : new double[]{0.22, 0.50, 0.78}) {
+                double markerX = p.x + p.w * ratio;
+                g.strokeArc(markerX - 38, p.y - 4, 76, 30, 190, 160, ArcType.OPEN);
+                g.strokeLine(markerX - 20, p.y + 12, markerX + 20, p.y + 12);
+            }
+        }
     }
 
     private void drawTrainingCombatOverlay(GraphicsContext g) {
@@ -15131,8 +15354,18 @@ public class BirdGame3 extends Application {
     }
 
     private void drawPowerUpSprite(GraphicsContext g, PowerUp p, double offset) {
+        drawPowerUpSprite(g, p, offset, 1.0);
+    }
+
+    private void drawPowerUpSprite(GraphicsContext g, PowerUp p, double offset, double visualScale) {
         double cx = p.x;
         double cy = p.y + offset;
+
+        g.save();
+        g.translate(cx, cy);
+        g.scale(visualScale, visualScale);
+        cx = 0.0;
+        cy = 0.0;
 
         g.setFill(p.type.color.deriveColor(0, 1, 1, 0.22));
         g.fillOval(cx - 44, cy - 44, 88, 88);
@@ -15241,6 +15474,7 @@ public class BirdGame3 extends Application {
                 g.fillOval(cx - 22, cy - 5, 12, 10);
             }
         }
+        g.restore();
     }
 
     private void appendStartLog(String msg) {
@@ -15449,6 +15683,16 @@ public class BirdGame3 extends Application {
         if (type == null) {
             return 1.35;
         }
+        // Sprite sheets include transparent safety padding around each frame.
+        // Compensate only in roster/portrait previews; world rendering keeps the
+        // authored combat scale from the sheet metadata.
+        BirdSpriteSheet spriteSheet = BirdSpriteLibrary.sheetFor(type, skinKey);
+        if (spriteSheet != null) {
+            // Normalize portrait size independently from the authored in-world
+            // scale. This lets padded sprite art read at combat distance without
+            // making the same art overflow roster tiles.
+            return 0.72 * spriteSheet.scale;
+        }
         if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
             return 1.92;
         }
@@ -15470,6 +15714,9 @@ public class BirdGame3 extends Application {
     }
 
     private double rosterSpriteMinScale(BirdType type, String skinKey) {
+        if (BirdSpriteLibrary.sheetFor(type, skinKey) != null) {
+            return 0.40;
+        }
         if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
             return 0.18;
         }
@@ -15480,6 +15727,9 @@ public class BirdGame3 extends Application {
     }
 
     private double rosterSpriteMaxScale(BirdType type, String skinKey) {
+        if (BirdSpriteLibrary.sheetFor(type, skinKey) != null) {
+            return 1.90;
+        }
         if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
             return 0.62;
         }
@@ -15502,6 +15752,10 @@ public class BirdGame3 extends Application {
         }
         if (type == BirdType.EAGLE && STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) {
             return -0.04;
+        }
+        if (BirdSpriteLibrary.sheetFor(type, skinKey) != null) {
+            // Production sheets are authored around the exact frame center.
+            return 0.0;
         }
         return switch (type) {
             case SHOEBILL -> -0.14;
@@ -15526,6 +15780,11 @@ public class BirdGame3 extends Application {
         }
         if (type == BirdType.EAGLE && STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) {
             return -0.025;
+        }
+        if (BirdSpriteLibrary.sheetFor(type, skinKey) != null) {
+            // Feet-anchored sprite frames carry more transparent space above the
+            // body than below it, so lift them to center the visible silhouette.
+            return -0.065;
         }
         return type == BirdType.BAT ? 0.04 : 0.0;
     }
@@ -40187,7 +40446,9 @@ public class BirdGame3 extends Application {
                 ? "-fx-background-color: linear-gradient(to bottom, #08142C 0%, #13436A 52%, #AEEBFF 100%);"
                 : selectedMap == MapType.DESERT
                 ? "-fx-background-color: linear-gradient(to bottom, #F3A85A 0%, #F7D28B 48%, #D59A52 100%);"
-                : (selectedMap == MapType.FOREST || selectedMap == MapType.BATTLEFIELD)
+                : selectedMap == MapType.BATTLEFIELD
+                ? "-fx-background-color: linear-gradient(to bottom, #10283E 0%, #315B73 48%, #D5D7B6 100%);"
+                : selectedMap == MapType.FOREST
                 ? "-fx-background-color: linear-gradient(to bottom, #87CEEB 0%, #B3E5FC 50%, #E0F2F1 100%);"
                 : "-fx-background-color: #000011;");
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -40320,49 +40581,56 @@ public class BirdGame3 extends Application {
             return;
         }
 
-        double panelX = 28;
-        double panelY = 250;
-        double panelW = 440;
-        double panelH = 250;
+        double panelX = 22;
+        double panelY = 220;
+        double panelW = 382;
+        double panelH = 214;
 
-        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.74));
-        g.fillRoundRect(panelX, panelY, panelW, panelH, 24, 24);
-        g.setStroke(Color.web("#80DEEA"));
-        g.setLineWidth(2);
-        g.strokeRoundRect(panelX, panelY, panelW, panelH, 24, 24);
+        g.save();
+        g.setFill(Color.web("#08151D", 0.86));
+        g.fillRoundRect(panelX, panelY, panelW, panelH, 18, 18);
+        g.setStroke(Color.web("#80DEEA", 0.78));
+        g.setLineWidth(1.6);
+        g.strokeRoundRect(panelX, panelY, panelW, panelH, 18, 18);
+        g.setFill(Color.web("#80DEEA", 0.13));
+        g.fillRoundRect(panelX + 1, panelY + 1, panelW - 2, 40, 17, 17);
 
         g.setFill(Color.web("#B2EBF2"));
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
-        g.fillText("TRAINING LAB", panelX + 18, panelY + 32);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        g.fillText("TRAINING LAB", panelX + 14, panelY + 27);
 
-        g.setFill(Color.WHITE);
-        g.setFont(Font.font("Consolas", 18));
-        double rowY = panelY + 66;
-        double rowGap = 26;
+        g.setFill(Color.web("#EDF7F8"));
+        g.setFont(Font.font("Consolas", 13));
+        double leftX = panelX + 14;
+        double rightX = panelX + 202;
+        double rowY = panelY + 61;
+        double rowGap = 23;
         String comboText = trainingComboHits > 0
                 ? trainingComboHits + " hits  |  " + (int) Math.round(trainingComboDamage) + " dmg"
                 : "No active combo";
-        g.fillText("Combo: " + comboText, panelX + 18, rowY);
+        g.fillText("COMBO  " + comboText, leftX, rowY);
         rowY += rowGap;
-        g.fillText(String.format(Locale.ROOT, "DPS: %.1f", trainingComboDps()), panelX + 18, rowY);
+        g.fillText(String.format(Locale.ROOT, "DPS    %.1f", trainingComboDps()), leftX, rowY);
         rowY += rowGap;
-        g.fillText(String.format(Locale.ROOT, "Last Hit: %.1f", trainingLastHitDamage), panelX + 18, rowY);
+        g.fillText(String.format(Locale.ROOT, "LAST   %.1f", trainingLastHitDamage), leftX, rowY);
         rowY += rowGap;
-        g.fillText(String.format(Locale.ROOT, "Session Damage: %.1f", trainingSessionDamage), panelX + 18, rowY);
+        g.fillText(String.format(Locale.ROOT, "TOTAL  %.1f", trainingSessionDamage), leftX, rowY);
+
+        rowY = panelY + 61;
+        g.fillText("DUMMY  " + trainingDummyBehavior.label.toUpperCase(Locale.ROOT), rightX, rowY);
         rowY += rowGap;
-        g.fillText("Dummy: " + trainingDummyBehavior.label, panelX + 18, rowY);
+        g.fillText("BOXES  " + (trainingCombatOverlayEnabled ? "ON" : "OFF"), rightX, rowY);
         rowY += rowGap;
-        g.fillText("Boxes: " + (trainingCombatOverlayEnabled ? "ON" : "OFF")
-                        + "  |  Slomo: " + (trainingSlowMotionEnabled ? "ON" : "OFF"),
-                panelX + 18, rowY);
+        g.fillText("SLOMO  " + (trainingSlowMotionEnabled ? "ON" : "OFF"), rightX, rowY);
         rowY += rowGap;
-        g.fillText("Freeze: " + (trainingFrameAdvancePause ? "ON" : "OFF"), panelX + 18, rowY);
+        g.fillText("FREEZE " + (trainingFrameAdvancePause ? "ON" : "OFF"), rightX, rowY);
 
         g.setFill(Color.web("#FFE082"));
-        g.setFont(Font.font("Consolas", 16));
-        double tipsY = panelY + panelH - 76;
-        g.fillText("F4 Dummy  F5 Reset  F6 Refill", panelX + 18, tipsY);
-        g.fillText("F7 Boxes  F8 Slomo  F9 Freeze  F10 Step", panelX + 18, tipsY + 24);
+        g.setFont(Font.font("Consolas", 11));
+        double tipsY = panelY + panelH - 39;
+        g.fillText("F4 DUMMY   F5 RESET   F6 REFILL", panelX + 14, tipsY);
+        g.fillText("F7 BOXES   F8 SLOMO   F9 FREEZE   F10 STEP", panelX + 14, tipsY + 17);
+        g.restore();
         drawTrainingLiveSpecialOverlay(g);
     }
 
@@ -40384,56 +40652,56 @@ public class BirdGame3 extends Application {
         String note = trainingLiveSpecialNote(player);
         boolean academySpecialLesson = isGuidedDirectionalSpecialLesson();
 
-        double panelW = 472;
-        double panelX = WIDTH - panelW - 28;
-        double panelY = 250;
-        double textX = panelX + 18;
-        double maxTextW = panelW - 36;
-        Font noteFont = Font.font("Consolas", 16);
+        double panelW = 420;
+        double panelX = WIDTH - panelW - 22;
+        double panelY = 220;
+        double textX = panelX + 15;
+        double maxTextW = panelW - 30;
+        Font noteFont = Font.font("Consolas", 13);
         List<String> noteLines = wrapTextToLines(note, noteFont, maxTextW);
-        double panelH = 178 + noteLines.size() * 19.0;
+        double panelH = 153 + noteLines.size() * 17.0;
         Color accent = player.type.color == null ? Color.web("#80DEEA") : player.type.color;
 
         g.save();
         g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.74));
-        g.fillRoundRect(panelX, panelY, panelW, panelH, 24, 24);
+        g.fillRoundRect(panelX, panelY, panelW, panelH, 18, 18);
         g.setStroke(accent.interpolate(Color.WHITE, 0.35));
         g.setLineWidth(2.0);
-        g.strokeRoundRect(panelX, panelY, panelW, panelH, 24, 24);
+        g.strokeRoundRect(panelX, panelY, panelW, panelH, 18, 18);
 
         g.setFill(Color.web("#FFF59D"));
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        g.fillText("LIVE SPECIAL", textX, panelY + 30);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        g.fillText("LIVE SPECIAL", textX, panelY + 25);
 
         g.setFill(Color.web("#CFD8DC"));
-        g.setFont(Font.font("Consolas", 16));
-        g.fillText(shortName(player.name).toUpperCase(Locale.ROOT) + "  |  " + status, textX, panelY + 54);
+        g.setFont(Font.font("Consolas", 13));
+        g.fillText(shortName(player.name).toUpperCase(Locale.ROOT) + "  |  " + status, textX, panelY + 46);
 
         g.setFill(accent.deriveColor(0, 1, 1.18, 0.22));
-        g.fillRoundRect(textX, panelY + 70, panelW - 36, 46, 14, 14);
+        g.fillRoundRect(textX, panelY + 58, panelW - 30, 38, 12, 12);
         g.setStroke(accent.interpolate(Color.WHITE, 0.25));
         g.setLineWidth(1.4);
-        g.strokeRoundRect(textX, panelY + 70, panelW - 36, 46, 14, 14);
+        g.strokeRoundRect(textX, panelY + 58, panelW - 30, 38, 12, 12);
         g.setFill(Color.WHITE);
-        g.setFont(Font.font("Arial Black", 20));
-        g.fillText(inputLabel + " SPECIAL: " + moveName, textX + 14, panelY + 100);
+        g.setFont(Font.font("Arial Black", 16));
+        g.fillText(inputLabel + " SPECIAL: " + moveName, textX + 12, panelY + 83);
 
-        double pillY = panelY + 128;
-        double pillW = 104;
-        double pillGap = 7;
+        double pillY = panelY + 107;
+        double pillW = 91;
+        double pillGap = 6;
         String[] labels = {"N", "S", "U", "D"};
         for (int i = 0; i < labels.length; i++) {
             drawTrainingSpecialInputPill(g, labels[i], moves[i], i == selectedIndex,
                     academySpecialLesson && trainingSpecialInputCompleted(i),
-                    textX + i * (pillW + pillGap), pillY, pillW, 32, accent);
+                    textX + i * (pillW + pillGap), pillY, pillW, 28, accent);
         }
 
         g.setFill(Color.web("#B2EBF2"));
         g.setFont(noteFont);
-        double rowY = panelY + 178;
+        double rowY = panelY + 153;
         for (String line : noteLines) {
             g.fillText(line, textX, rowY);
-            rowY += 19;
+            rowY += 17;
         }
         g.restore();
     }

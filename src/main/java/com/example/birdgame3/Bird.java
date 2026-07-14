@@ -3537,6 +3537,9 @@ public class Bird {
                 attacker.vx *= 0.35;
             }
             spawnShieldParticles(Color.web("#D0F8FF"), 18, 4.6);
+            if (attacker != null && attacker.type == BirdGame3.BirdType.PIGEON) {
+                game.playPigeonBlockedAttackSfx(scaledDamage, true);
+            }
             game.hitstopFrames = Math.max(game.hitstopFrames, SHIELD_PARRY_HITSTOP_FRAMES);
             game.shakeIntensity = Math.max(game.shakeIntensity, 6.0);
             if (attacker != null && attacker != this) {
@@ -3571,6 +3574,9 @@ public class Bird {
 
         shieldHoldVisual = Math.min(1.0, shieldHoldVisual + 0.08);
         spawnShieldParticles(Color.web("#64B5F6"), 10 + (int) Math.min(8.0, scaledDamage * 0.35), 3.0);
+        if (attacker != null && attacker.type == BirdGame3.BirdType.PIGEON) {
+            game.playPigeonBlockedAttackSfx(scaledDamage, false);
+        }
         game.hitstopFrames = Math.max(game.hitstopFrames, (int) Math.min(8, 2 + scaledDamage / 7.0));
         // Raise shake to the block-impact level (capped at 8) without ever
         // lowering stronger existing shake. Math.clamp(v, current, 8) threw
@@ -4017,7 +4023,11 @@ public class Bird {
         NormalAttackProfile profile = attack(chargeFrames, variant, moveName);
         double chargeRatio = attackChargeRatio(chargeFrames);
         game.recordTrainingAttack(this, chargeFrames);
-        game.playButterSfx();
+        if (type == BirdGame3.BirdType.PIGEON) {
+            game.playPigeonAttackWhoosh(chargeRatio);
+        } else {
+            game.playButterSfx();
+        }
         activeAttackVariant = variant;
         attackCooldown = scaledAttackCooldown(profile.cooldownFrames()) + (int) Math.round(chargeRatio * 18.0);
         attackAnimationTimer = profile.animationFrames() + (int) Math.round(chargeRatio * 10.0);
@@ -6686,7 +6696,8 @@ public class Bird {
             }
         }
 
-        boolean voidRecovery = applyAIVoidRecoveryInputs(onGround, standing);
+        boolean voidRecovery = !shouldContestTargetFromVoidPlatform(target, onGround, standing, targetDist)
+                && applyAIVoidRecoveryInputs(onGround, standing);
         if (!voidRecovery) {
             if (moveDir < 0) game.setAiControlKey(playerIndex, leftKey(), true);
             if (moveDir > 0) game.setAiControlKey(playerIndex, rightKey(), true);
@@ -6703,7 +6714,10 @@ public class Bird {
                 boolean alignedForClimb = !verticalPlan || climbPlatform == null || Math.abs((x + 40) - climbCenter) < 165;
                 double verticalReach = ownKit.verticalReach();
                 boolean jumpForHeight = dy < -120 && Math.abs(target.x - x) < verticalReach && alignedForClimb;
-                boolean jumpForCombo = dy > 70 && targetDist < Math.max(190.0, idealRange * 1.08);
+                boolean jumpForCombo = !targetBelow
+                        && !dropPlan
+                        && dy > 70
+                        && targetDist < Math.max(190.0, idealRange * 1.08);
                 boolean jumpForAboveClose = dy < -200
                         && Math.abs(target.x - x) < Math.max(220.0, verticalReach * 0.48)
                         && alignedForClimb;
@@ -8639,6 +8653,26 @@ public class Bird {
         };
     }
 
+    private boolean shouldContestTargetFromVoidPlatform(Bird target, boolean onGround, Platform standing, double targetDist) {
+        if (!isVoidMap() || target == null || !onGround || standing == null || isBoundaryPlatform(standing)) {
+            return false;
+        }
+        Platform mainStage = findAIMainStagePlatform();
+        if (mainStage == null || standing == mainStage || isAIVoidRecoveryUrgent(onGround, standing)) {
+            return false;
+        }
+
+        double targetCenterY = target.bodyCenterY();
+        double safeFightFloor = mainStage.y + aiVoidDepthAllowance(mainStage) * 0.72;
+        if (targetCenterY > safeFightFloor) {
+            return false;
+        }
+
+        double horizontalGap = Math.abs(target.bodyCenterX() - bodyCenterX());
+        double contestDistance = Math.max(340.0, aiIdealRangeAgainst(target) * 1.65);
+        return targetDist < contestDistance && horizontalGap < 430.0;
+    }
+
     private boolean aiGoalLeavesMainStage(double goalX) {
         if (!isVoidMap()) return false;
         Platform mainStage = findAIMainStagePlatform();
@@ -9045,7 +9079,6 @@ public class Bird {
         return switch (type) {
             case PIGEON -> {
                 if (!onGround && targetAbove && !pigeonUpSpecialUsed) yield DirectionalSpecialInput.UP;
-                if (onGround && lowHealth && dist > 245.0) yield DirectionalSpecialInput.DOWN;
                 if (dist > 88.0 && dist < 315.0 && Math.abs(dy) < 155.0) yield DirectionalSpecialInput.SIDE;
                 yield DirectionalSpecialInput.NEUTRAL;
             }
@@ -9393,10 +9426,8 @@ public class Bird {
         double ideal = aiIdealRangeAgainst(target);
         switch (type) {
             case PIGEON:
-                return lowHealth
-                        || targetVulnerable
-                        || (dist > 85 && dist < 315 && Math.abs(dy) < 155)
-                        || (onGround && health < 58 && dist > 245);
+                return targetVulnerable
+                        || (dist > 85 && dist < 315 && Math.abs(dy) < 155);
             case EAGLE:
                 return (y < BirdGame3.GROUND_Y - 760 && dy > 150 && dist < 540)
                         || (dist > 135 && dist < 430 && Math.abs(dy) < 160)
