@@ -14,10 +14,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 /**
  * Loads production bird sprite sheets bundled under {@code /sprites}, with the
@@ -40,6 +42,7 @@ final class BirdSpriteLibrary {
             new EnumMap<>(BirdGame3.BirdType.class);
     private static final Map<BirdGame3.BirdType, List<SkinVariant>> SKIN_VARIANTS =
             new EnumMap<>(BirdGame3.BirdType.class);
+    private static final Map<String, List<String>> BUNDLED_VARIANT_SUFFIXES = loadBundledVariantIndex();
 
     /** A skin-specific sheet: {@code <bird>-<suffix>.png}, matched against skin keys. */
     record SkinVariant(String normalizedSuffix, BirdSpriteSheet sheet) {
@@ -105,6 +108,13 @@ final class BirdSpriteLibrary {
         return sb.toString();
     }
 
+    static List<String> bundledVariantSuffixesFor(BirdGame3.BirdType type) {
+        if (type == null) {
+            return List.of();
+        }
+        return BUNDLED_VARIANT_SUFFIXES.getOrDefault(type.name().toLowerCase(Locale.ROOT), List.of());
+    }
+
     /** Rescans the sprites folder. Returns a user-facing summary, or null when the folder is absent/empty. */
     static String reload() {
         SHEETS.clear();
@@ -131,27 +141,44 @@ final class BirdSpriteLibrary {
                 loaded++;
             }
             // Skin variants: <bird>-<suffix>.png alongside <bird>-<suffix>.properties.
-            if (!externalDirectoryExists) {
-                continue;
-            }
-            try (var files = Files.list(dir)) {
-                for (Path png : files.filter(p -> {
-                    String n = p.getFileName().toString().toLowerCase(Locale.ROOT);
-                    return n.startsWith(base + "-") && n.endsWith(".png");
-                }).toList()) {
-                    String fileName = png.getFileName().toString();
-                    String stem = fileName.substring(0, fileName.length() - 4);
-                    String suffix = stem.substring(base.length() + 1);
-                    BirdSpriteSheet variantSheet = loadSheet(png, dir.resolve(stem + ".properties"));
-                    if (variantSheet == LOAD_FAILED) {
-                        failed++;
-                    } else if (variantSheet != null) {
-                        SKIN_VARIANTS.computeIfAbsent(type, t -> new ArrayList<>())
-                                .add(new SkinVariant(normalizeSkinToken(suffix), variantSheet));
-                        loaded++;
+            // External files override bundled variants with the same normalized suffix.
+            Set<String> loadedVariantSuffixes = new HashSet<>();
+            if (externalDirectoryExists) {
+                try (var files = Files.list(dir)) {
+                    for (Path png : files.filter(p -> {
+                        String n = p.getFileName().toString().toLowerCase(Locale.ROOT);
+                        return n.startsWith(base + "-") && n.endsWith(".png");
+                    }).toList()) {
+                        String fileName = png.getFileName().toString();
+                        String stem = fileName.substring(0, fileName.length() - 4);
+                        String suffix = stem.substring(base.length() + 1);
+                        String normalizedSuffix = normalizeSkinToken(suffix);
+                        BirdSpriteSheet variantSheet = loadSheet(png, dir.resolve(stem + ".properties"));
+                        if (variantSheet == LOAD_FAILED) {
+                            failed++;
+                        } else if (variantSheet != null) {
+                            SKIN_VARIANTS.computeIfAbsent(type, t -> new ArrayList<>())
+                                    .add(new SkinVariant(normalizedSuffix, variantSheet));
+                            loadedVariantSuffixes.add(normalizedSuffix);
+                            loaded++;
+                        }
                     }
+                } catch (IOException ignored) {
                 }
-            } catch (IOException ignored) {
+            }
+            for (String suffix : bundledVariantSuffixesFor(type)) {
+                String normalizedSuffix = normalizeSkinToken(suffix);
+                if (loadedVariantSuffixes.contains(normalizedSuffix)) {
+                    continue;
+                }
+                BirdSpriteSheet variantSheet = loadBundledSheet(base + "-" + suffix);
+                if (variantSheet == LOAD_FAILED) {
+                    failed++;
+                } else if (variantSheet != null) {
+                    SKIN_VARIANTS.computeIfAbsent(type, t -> new ArrayList<>())
+                            .add(new SkinVariant(normalizedSuffix, variantSheet));
+                    loaded++;
+                }
             }
         }
         if (loaded == 0 && failed == 0) {
@@ -175,6 +202,29 @@ final class BirdSpriteLibrary {
             return sheet != null ? sheet : LOAD_FAILED;
         } catch (IOException | RuntimeException e) {
             return LOAD_FAILED;
+        }
+    }
+
+    private static Map<String, List<String>> loadBundledVariantIndex() {
+        try (InputStream input = BirdSpriteLibrary.class.getResourceAsStream("/sprites/variants.properties")) {
+            if (input == null) {
+                return Map.of();
+            }
+            Properties properties = new Properties();
+            properties.load(input);
+            Map<String, List<String>> variants = new java.util.HashMap<>();
+            for (String bird : properties.stringPropertyNames()) {
+                List<String> suffixes = List.of(properties.getProperty(bird).split(",")).stream()
+                        .map(String::trim)
+                        .filter(value -> !value.isEmpty())
+                        .toList();
+                if (!suffixes.isEmpty()) {
+                    variants.put(bird.toLowerCase(Locale.ROOT), suffixes);
+                }
+            }
+            return Map.copyOf(variants);
+        } catch (IOException | RuntimeException ignored) {
+            return Map.of();
         }
     }
 

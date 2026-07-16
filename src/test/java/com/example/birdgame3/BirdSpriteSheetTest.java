@@ -5,15 +5,22 @@ import org.junit.jupiter.api.Test;
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.InputStream;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BirdSpriteSheetTest {
+
+    private record PigeonVariant(String suffix, String skinKey) {
+    }
 
     private static Properties minimalProps() {
         Properties props = new Properties();
@@ -125,6 +132,96 @@ class BirdSpriteSheetTest {
             }
             assertEquals("1", props.getProperty("attack.ticksPerFrame"),
                     "The four attack poses must fit Pigeon's live normal-attack state window.");
+        }
+    }
+
+    @Test
+    void bundledPigeonSkinAtlasesAreDistinctCompleteAndMatchTheirSkinKeys() throws Exception {
+        List<PigeonVariant> variants = List.of(
+                new PigeonVariant("city_pigeon", "CITY_PIGEON"),
+                new PigeonVariant("noir_pigeon", "NOIR_PIGEON"),
+                new PigeonVariant("freeman_pigeon", "FREEMAN_PIGEON"),
+                new PigeonVariant("beacon_pigeon", "BEACON_PIGEON"),
+                new PigeonVariant("storm_pigeon", "STORM_PIGEON")
+        );
+        Set<String> colorSignatures = new HashSet<>();
+
+        assertEquals(variants.stream().map(PigeonVariant::suffix).toList(),
+                BirdSpriteLibrary.bundledVariantSuffixesFor(BirdGame3.BirdType.PIGEON),
+                "Every packaged Pigeon skin atlas must be present in the bundled variant index");
+
+        for (PigeonVariant variant : variants) {
+            String stem = "pigeon-" + variant.suffix();
+            try (InputStream imageIn = BirdSpriteLibrary.class.getResourceAsStream("/sprites/" + stem + ".png");
+                 InputStream propsIn = BirdSpriteLibrary.class.getResourceAsStream("/sprites/" + stem + ".properties")) {
+                assertNotNull(imageIn, stem + " must be packaged with the game");
+                assertNotNull(propsIn, stem + " metadata must be packaged with the game");
+
+                BufferedImage image = ImageIO.read(imageIn);
+                assertNotNull(image);
+                assertEquals(640, image.getWidth());
+                assertEquals(1440, image.getHeight());
+                assertTrue(image.getColorModel().hasAlpha(), stem + " must retain transparency");
+                assertEquals(0, (image.getRGB(0, 0) >>> 24) & 0xFF,
+                        stem + " must have a transparent outer canvas");
+
+                long red = 0;
+                long green = 0;
+                long blue = 0;
+                long opaque = 0;
+                for (int row = 0; row < BirdSpriteSheet.STATE_NAMES.size(); row++) {
+                    int visibleInRow = 0;
+                    for (int y = row * 160; y < (row + 1) * 160; y++) {
+                        for (int x = 0; x < image.getWidth(); x++) {
+                            int argb = image.getRGB(x, y);
+                            int alpha = (argb >>> 24) & 0xFF;
+                            if (alpha > 16) {
+                                visibleInRow++;
+                            }
+                            if (alpha > 128) {
+                                red += (argb >>> 16) & 0xFF;
+                                green += (argb >>> 8) & 0xFF;
+                                blue += argb & 0xFF;
+                                opaque++;
+                            }
+                        }
+                    }
+                    assertTrue(visibleInRow > 3_000,
+                            stem + " is missing visible art in animation row " + row);
+                }
+                assertTrue(opaque > 0);
+                String signature = (red / opaque) + ":" + (green / opaque) + ":" + (blue / opaque);
+                assertTrue(colorSignatures.add(signature), stem + " must have a distinct skin palette");
+
+                Properties props = new Properties();
+                props.load(propsIn);
+                assertEquals("160", props.getProperty("frameWidth"));
+                assertEquals("160", props.getProperty("frameHeight"));
+                assertTrue(BirdSpriteLibrary.skinSuffixMatches(
+                                BirdSpriteLibrary.normalizeSkinToken(variant.suffix()),
+                                BirdSpriteLibrary.normalizeSkinToken(variant.skinKey())),
+                        stem + " filename must match its runtime skin key");
+            }
+        }
+    }
+
+    @Test
+    void runtimeSelectsEachPigeonSkinAtlasInsteadOfFallingBackToNormalPigeon() {
+        BirdSpriteLibrary.reload();
+        BirdSpriteSheet base = BirdSpriteLibrary.sheetFor(BirdGame3.BirdType.PIGEON);
+        assertNotNull(base);
+
+        Set<BirdSpriteSheet> selectedVariants = new HashSet<>();
+        for (String skinKey : List.of(
+                "CITY_PIGEON",
+                "NOIR_PIGEON",
+                "FREEMAN_PIGEON",
+                "BEACON_PIGEON",
+                "STORM_PIGEON")) {
+            BirdSpriteSheet variant = BirdSpriteLibrary.sheetFor(BirdGame3.BirdType.PIGEON, skinKey);
+            assertNotNull(variant, skinKey + " must resolve to a sprite atlas");
+            assertNotSame(base, variant, skinKey + " must not fall back to normal Pigeon");
+            assertTrue(selectedVariants.add(variant), skinKey + " must resolve to a unique atlas");
         }
     }
 }
