@@ -751,6 +751,11 @@ public class BirdGame3 extends Application {
     private static final double[] ASHFALL_GEYSER_BASE_Y = {ASHFALL_MAIN_Y, ASHFALL_ALTAR_Y, ASHFALL_MAIN_Y};
     private static final double[] ASHFALL_GEYSER_HALF_W = {142.0, 178.0, 142.0};
     private static final double[] ASHFALL_GEYSER_HEIGHT = {700.0, 830.0, 700.0};
+    static final double BATTLEFIELD_SIDE_PLATFORM_Y_OFFSET = -260.0;
+    static final double BATTLEFIELD_CITADEL_BASE_Y_OFFSET = -340.0;
+    static final double BATTLEFIELD_CITADEL_SCALE = 0.18;
+    static final double BATTLEFIELD_CITADEL_HILL_PLATEAU_HALF_W = 105.0;
+    static final double BATTLEFIELD_CITADEL_SOURCE_HALF_W = 390.0;
     private double battlefieldIslandX = 0;
     private double battlefieldIslandW = 0;
     private double battlefieldIslandY = 0;
@@ -13655,11 +13660,39 @@ public class BirdGame3 extends Application {
                         horizonY + 210}, 7);
 
         // A distant weathered aerie gives Battlefield a memorable identity.
-        // Keep it centered on the ridge and deliberately small enough to read
-        // as background architecture instead of another gameplay platform.
-        double citadelX = islandCenterX - 380.0;
-        double citadelBaseY = battlefieldIslandY - 145.0;
-        double citadelScale = 0.48;
+        // Perch it high on the left ridge and keep it deliberately small so
+        // it cannot read as architecture resting on a gameplay platform.
+        double citadelX = islandCenterX - 420.0;
+        double citadelBaseY = battlefieldIslandY + BATTLEFIELD_CITADEL_BASE_Y_OFFSET;
+        double citadelScale = BATTLEFIELD_CITADEL_SCALE;
+
+        // Give the aerie its own distant hill. The flat summit and the
+        // citadel foundation share citadelBaseY, so the building can never
+        // drift into the sky or appear to rest on a gameplay platform.
+        g.setFill(Color.web("#294F55", 0.78));
+        g.beginPath();
+        g.moveTo(citadelX - 520.0, citadelBaseY + 300.0);
+        g.bezierCurveTo(citadelX - 390.0, citadelBaseY + 215.0,
+                citadelX - 205.0, citadelBaseY + 42.0,
+                citadelX - BATTLEFIELD_CITADEL_HILL_PLATEAU_HALF_W, citadelBaseY);
+        g.lineTo(citadelX + BATTLEFIELD_CITADEL_HILL_PLATEAU_HALF_W, citadelBaseY);
+        g.bezierCurveTo(citadelX + 220.0, citadelBaseY + 52.0,
+                citadelX + 405.0, citadelBaseY + 220.0,
+                citadelX + 540.0, citadelBaseY + 300.0);
+        g.closePath();
+        g.fill();
+
+        g.setFill(Color.web("#5D8176", 0.18));
+        g.beginPath();
+        g.moveTo(citadelX, citadelBaseY);
+        g.lineTo(citadelX + BATTLEFIELD_CITADEL_HILL_PLATEAU_HALF_W, citadelBaseY);
+        g.bezierCurveTo(citadelX + 220.0, citadelBaseY + 52.0,
+                citadelX + 405.0, citadelBaseY + 220.0,
+                citadelX + 540.0, citadelBaseY + 300.0);
+        g.lineTo(citadelX + 55.0, citadelBaseY + 300.0);
+        g.closePath();
+        g.fill();
+
         g.save();
         g.translate(citadelX, citadelBaseY);
         g.scale(citadelScale, citadelScale);
@@ -39910,12 +39943,20 @@ public class BirdGame3 extends Application {
         double islandX = (WORLD_WIDTH - islandW) / 2.0;
         double islandY = GROUND_Y - 80;
         platforms.add(new Platform(islandX, islandY, islandW, islandH));
-        platforms.add(new Platform(islandX + 120, islandY - 260, 360, 45));
-        platforms.add(new Platform(islandX + islandW - 480, islandY - 260, 360, 45));
+        platforms.add(new Platform(islandX + 120, islandY + BATTLEFIELD_SIDE_PLATFORM_Y_OFFSET, 360, 45));
+        platforms.add(new Platform(islandX + islandW - 480, islandY + BATTLEFIELD_SIDE_PLATFORM_Y_OFFSET, 360, 45));
         platforms.add(new Platform(islandX + (islandW - 420) / 2.0, islandY - 420, 420, 45));
         battlefieldIslandX = islandX;
         battlefieldIslandW = islandW;
         battlefieldIslandY = islandY;
+    }
+
+    static double battlefieldCitadelClearanceAboveSidePlatforms() {
+        return BATTLEFIELD_SIDE_PLATFORM_Y_OFFSET - BATTLEFIELD_CITADEL_BASE_Y_OFFSET;
+    }
+
+    static double battlefieldCitadelHalfFootprint() {
+        return BATTLEFIELD_CITADEL_SOURCE_HALF_W * BATTLEFIELD_CITADEL_SCALE;
     }
 
     private void setupDesertArena() {
