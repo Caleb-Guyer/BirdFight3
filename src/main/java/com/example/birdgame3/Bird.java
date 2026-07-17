@@ -9761,7 +9761,7 @@ public class Bird {
     }
 
     private void drawPhotoEagleStateFx(GraphicsContext g, double drawSize, BirdAnimationState state) {
-        if (suppressSelectEffects) {
+        if (suppressSelectEffects || visualAuditBodyOnly) {
             return;
         }
         double s = sizeMultiplier;
@@ -9917,7 +9917,7 @@ public class Bird {
     }
 
     private void drawPhotoTurkeyStateFx(GraphicsContext g, double drawSize, BirdAnimationState state) {
-        if (suppressSelectEffects) {
+        if (suppressSelectEffects || visualAuditBodyOnly) {
             return;
         }
         double s = sizeMultiplier;
@@ -9996,7 +9996,7 @@ public class Bird {
         g.translate(renderCenterX, renderCenterY);
         g.rotate(rotation);
         g.scale((facingRight ? 1.0 : -1.0) * scaleX, scaleY);
-        if (!suppressSelectEffects && state == BirdAnimationState.ATTACK) {
+        if (!suppressSelectEffects && !visualAuditBodyOnly && state == BirdAnimationState.ATTACK) {
             g.save();
             g.setGlobalAlpha(0.28);
             g.drawImage(sprite, -renderWidth / 2.0 - 18.0 * sizeMultiplier, -renderHeight / 2.0,
@@ -10046,7 +10046,7 @@ public class Bird {
         g.translate(renderCenterX, renderCenterY);
         g.rotate(rotation);
         g.scale(orientationScale * scaleX, scaleY);
-        if (!suppressSelectEffects && state == BirdAnimationState.ATTACK) {
+        if (!suppressSelectEffects && !visualAuditBodyOnly && state == BirdAnimationState.ATTACK) {
             g.save();
             g.setGlobalAlpha(turkeyStampedeTimer > 0 ? 0.26 : 0.18);
             g.drawImage(sprite, -renderWidth / 2.0 - 16.0 * sizeMultiplier, -renderHeight / 2.0,
