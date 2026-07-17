@@ -15840,7 +15840,7 @@ public class BirdGame3 extends Application {
             return new RosterSpriteFit(2.10, 0.0, -0.04);
         }
         if (type == BirdType.EAGLE && "SKY_KING_EAGLE".equals(skinKey)) {
-            return new RosterSpriteFit(1.32, 0.0, 0.0);
+            return new RosterSpriteFit(1.12, 0.0, 0.0);
         }
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(skinKey)) {
             return new RosterSpriteFit(1.18, 0.0, 0.0);

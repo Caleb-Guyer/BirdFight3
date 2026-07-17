@@ -271,7 +271,8 @@ class BirdVisualAuditRun {
 
     private static boolean requiresCleanCombatFraming(BirdGame3.VisualAuditSkin entry) {
         return entry.bird() == BirdGame3.BirdType.PIGEON
-                || "NULL_ROCK_VULTURE".equals(entry.key());
+                || "NULL_ROCK_VULTURE".equals(entry.key())
+                || "SKY_KING_EAGLE".equals(entry.key());
     }
 
     private static String percent(double ratio) {
@@ -381,7 +382,7 @@ class BirdVisualAuditRun {
                 .append("Checks: visible pixels, authored-body clipping (excluding transient combat FX), ")
                 .append("severe portrait/HUD centering, minimum scale, ")
                 .append("and exact idle-image fallback to base art. Edge contact and tight padding remain review findings ")
-                .append("for other entries; completed Pigeon and Null Rock combat entries treat edge contact as a failure; ")
+                .append("for other entries; completed Pigeon, Null Rock, and Sky King combat entries treat edge contact as a failure; ")
                 .append("run with `-DvisualAudit.failOnFindings=true` to make them blocking.\n\n");
         appendFindings(report, "Failures", failures);
         appendFindings(report, "Warnings", warnings);

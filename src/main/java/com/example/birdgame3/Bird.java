@@ -24570,11 +24570,29 @@ public class Bird {
         boolean duneFalcon = falcon && isDuneSkin;
         if ((skyKing || duneFalcon) && (diveTimer == 0) && airborne && (vy < 2)) {
             Color aura = skyKing ? Color.GOLD : Color.web("#FFCC80");
-            g.setFill(aura.deriveColor(0, 1, 1, 0.2));
-            g.fillOval(x - 50, y - 50, drawSize + 100, drawSize + 100);
+            double s = sizeMultiplier;
+            double centerX = x + drawSize * 0.5;
+            double centerY = y + drawSize * 0.5;
+            g.save();
+            if (skyKing) {
+                g.setFill(aura.deriveColor(0, 1, 1, 0.07));
+                g.fillOval(centerX - 58 * s, centerY - 52 * s, 116 * s, 104 * s);
+                g.setStroke(Color.web("#FFE082").deriveColor(0, 1, 1, 0.34));
+                g.setLineWidth(2.8 * s);
+                g.strokeArc(centerX - 64 * s, centerY - 58 * s, 128 * s, 116 * s,
+                        200, 140, ArcType.OPEN);
+                g.setStroke(Color.web("#FFF8D6").deriveColor(0, 1, 1, 0.24));
+                g.setLineWidth(1.4 * s);
+                g.strokeArc(centerX - 51 * s, centerY - 46 * s, 102 * s, 92 * s,
+                        18, 144, ArcType.OPEN);
+            } else {
+                g.setFill(aura.deriveColor(0, 1, 1, 0.13));
+                g.fillOval(centerX - 50 * s, centerY - 50 * s, 100 * s, 100 * s);
+            }
+            g.restore();
 
             if (Math.random() < 0.2) {
-                game.particles.add(new Particle(x + (facingRight ? -20 : drawSize + 20), y + 40,
+                game.particles.add(new Particle(x + (facingRight ? -20 * s : drawSize + 20 * s), y + 40 * s,
                         (facingRight ? 1 : -1) * (2 + Math.random() * 4),
                         (Math.random() - 0.5) * 4,
                         (skyKing ? Color.GOLD : Color.web("#FFB74D")).brighter()));
@@ -25676,28 +25694,48 @@ public class Bird {
     private void drawEagleSkin(GraphicsContext g, double drawSize) {
         if (type == BirdGame3.BirdType.EAGLE && isClassicSkin) {
             double s = sizeMultiplier;
+            double centerX = x + drawSize * 0.5;
+            double centerY = y + drawSize * 0.5;
 
             if (!suppressSelectEffects) {
-                g.setFill(Color.GOLD.deriveColor(0, 1, 1, 0.5));
-                g.fillOval(x - 40 * s, y - 40 * s, drawSize + 80 * s, drawSize + 80 * s);
+                // A restrained layered halo keeps the royal read without
+                // flattening the eagle into a large opaque gold disk.
+                g.setFill(Color.web("#FFD54F").deriveColor(0, 1, 1, 0.10));
+                g.fillOval(centerX - 62 * s, centerY - 58 * s, 124 * s, 116 * s);
+                g.setFill(Color.web("#FFB300").deriveColor(0, 1, 1, 0.12));
+                g.fillOval(centerX - 48 * s, centerY - 45 * s, 96 * s, 90 * s);
+                g.setStroke(Color.web("#FFE082").deriveColor(0, 1, 1, 0.38));
+                g.setLineWidth(2.4 * s);
+                g.strokeOval(centerX - 58 * s, centerY - 54 * s, 116 * s, 108 * s);
             }
 
             double crownScale = suppressSelectEffects ? 0.8 : 1.0;
-            double crownW = 50 * crownScale * s;
-            double crownH = 70 * crownScale * s;
-            double crownX = x + 15 * s + (50 * s - crownW) * 0.5;
-            double crownY = y - 35 * s + (70 * s - crownH) * 0.5;
-            g.setFill(Color.GOLD.brighter());
-            g.fillOval(crownX, crownY, crownW, crownH);
-            g.setFill(Color.ORANGE.brighter());
-            double gemW = 30 * crownScale * s;
-            double gemH = 40 * crownScale * s;
-            double gemX = x + 25 * s + (30 * s - gemW) * 0.5;
-            double gemY = y - 45 * s + (40 * s - gemH) * 0.5;
-            g.fillOval(gemX, gemY, gemW, gemH);
+            HeadPose headPose = currentHeadPose();
+            double crownCenterX = headPose.centerX() - (facingRight ? 3.0 : -3.0) * s;
+            double crownTop = headPose.centerY() - 43.0 * s;
+            double crownW = 36.0 * crownScale * s;
+            double crownH = 22.0 * crownScale * s;
+            drawRoyalCrown(g, crownCenterX, crownTop, crownW, crownH,
+                    Color.web("#F6C945"), Color.web("#6D4C00"));
+
+            double bandY = crownTop + crownH * 0.98;
+            double bandW = crownW * 0.92;
+            double bandH = 6.0 * crownScale * s;
+            g.setFill(Color.web("#D99A16"));
+            g.fillRoundRect(crownCenterX - bandW * 0.5, bandY, bandW, bandH,
+                    2.8 * s, 2.8 * s);
+            g.setStroke(Color.web("#FFF3B0", 0.88));
+            g.setLineWidth(1.15 * s);
+            g.strokeLine(crownCenterX - bandW * 0.38, bandY + bandH * 0.55,
+                    crownCenterX + bandW * 0.38, bandY + bandH * 0.55);
+            g.setFill(Color.web("#C62828"));
+            double gemSize = 4.8 * crownScale * s;
+            g.fillOval(crownCenterX - gemSize * 0.5, bandY + bandH * 0.5 - gemSize * 0.5,
+                    gemSize, gemSize);
 
             if (!suppressSelectEffects && Math.random() < 0.4) {
-                game.particles.add(new Particle(x + 40 + (Math.random() - 0.5) * 100, y + 40 + (Math.random() - 0.5) * 100,
+                game.particles.add(new Particle(centerX + (Math.random() - 0.5) * 100 * s,
+                        centerY + (Math.random() - 0.5) * 100 * s,
                         (Math.random() - 0.5) * 5, (Math.random() - 0.5) * 5 - 3, Color.GOLD.brighter()));
             }
         }
