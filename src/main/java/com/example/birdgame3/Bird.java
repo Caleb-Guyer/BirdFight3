@@ -27086,6 +27086,7 @@ public class Bird {
         double headH = 40.0 * s;
         double headX = headPose.centerX() - headW / 2.0;
         double headY = headPose.centerY() - headH / 2.0;
+        boolean cityPigeon = (type == BirdGame3.BirdType.PIGEON && isCitySkin);
         boolean noirPigeon = (type == BirdGame3.BirdType.PIGEON && isNoirSkin);
         boolean beaconPigeon = (type == BirdGame3.BirdType.PIGEON && isBeaconSkin);
         boolean stormPigeon = (type == BirdGame3.BirdType.PIGEON && isStormSkin);
@@ -27107,7 +27108,7 @@ public class Bird {
         boolean voidHeraldRaven = (type == BirdGame3.BirdType.RAVEN && isVoidHeraldSkin);
         boolean freemanPigeon = (type == BirdGame3.BirdType.PIGEON && isFreemanSkin);
         boolean regularPigeon = type == BirdGame3.BirdType.PIGEON
-                && !isCitySkin
+                && !cityPigeon
                 && !noirPigeon
                 && !beaconPigeon
                 && !stormPigeon
@@ -27131,6 +27132,10 @@ public class Bird {
             bodyColor = Color.web("#180E1A");
             headColor = Color.web("#2B1218");
             eyeOverride = Color.web("#FF6E6E");
+        } else if (cityPigeon) {
+            bodyColor = Color.web("#9A651F");
+            headColor = Color.web("#E0B653");
+            eyeOverride = Color.web("#2B2118");
         } else if (stormPigeon) {
             bodyColor = Color.web("#455A64");
             headColor = Color.web("#607D8B");
@@ -27142,6 +27147,7 @@ public class Bird {
         } else if (noirPigeon) {
             bodyColor = Color.rgb(18, 18, 18);
             headColor = Color.rgb(42, 42, 42);
+            eyeOverride = Color.web("#EF5350");
         } else if (sunflareHummingbird) {
             bodyColor = Color.web("#FFB74D");
             headColor = Color.web("#FFE082");
