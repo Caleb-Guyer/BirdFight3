@@ -15727,6 +15727,15 @@ public class BirdGame3 extends Application {
     }
 
     void drawVisualAuditCombatPose(Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose) {
+        drawVisualAuditCombatPose(canvas, skin, pose, false);
+    }
+
+    void drawVisualAuditCombatSilhouette(Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose) {
+        drawVisualAuditCombatPose(canvas, skin, pose, true);
+    }
+
+    private void drawVisualAuditCombatPose(Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
+                                           boolean bodyOnly) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -15736,7 +15745,7 @@ public class BirdGame3 extends Application {
         applyPreviewSkinChoiceToBird(preview, skin.bird, skin.key);
         double baseSize = Math.min(w, h);
         double pad = Math.max(8.0, baseSize * 0.08);
-        double extentFactor = rosterSpriteExtentFactor(skin.bird, skin.key);
+        double extentFactor = visualAuditCombatExtentFactor(skin);
         preview.sizeMultiplier = Math.clamp((baseSize - pad * 2.0) / (80.0 * extentFactor),
                 rosterSpriteMinScale(skin.bird, skin.key),
                 rosterSpriteMaxScale(skin.bird, skin.key));
@@ -15749,8 +15758,23 @@ public class BirdGame3 extends Application {
         };
         g.save();
         g.translate(w * 0.5 - preview.bodyCenterX(), targetCenterY - preview.bodyCenterY());
-        preview.draw(g);
+        if (bodyOnly) {
+            preview.drawVisualAuditBody(g);
+        } else {
+            preview.draw(g);
+        }
         g.restore();
+    }
+
+    private double visualAuditCombatExtentFactor(VisualAuditSkin skin) {
+        double extentFactor = rosterSpriteExtentFactor(skin.bird, skin.key);
+        if (skin.bird == BirdType.PIGEON && BirdSpriteLibrary.sheetFor(skin.bird, skin.key) != null) {
+            // Pigeon's authored combat rows use their frame more aggressively
+            // than its idle portrait. Preserve one scale across all audited
+            // poses while leaving the in-world sprite scale untouched.
+            return extentFactor * 1.38;
+        }
+        return extentFactor;
     }
 
     private double rosterSpriteExtentFactor(BirdType type) {

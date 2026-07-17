@@ -122,9 +122,30 @@ class BirdSpriteSheetTest {
                 String state = BirdSpriteSheet.STATE_NAMES.get(row);
                 assertEquals(Integer.toString(row), props.getProperty(state + ".row"));
                 assertEquals("4", props.getProperty(state + ".frames"));
+                for (int frame = 0; frame < 4; frame++) {
+                    assertTransparentFrameMargin(image, row, frame, 160, 5, state);
+                }
             }
             assertEquals("1", props.getProperty("attack.ticksPerFrame"),
                     "The four attack poses must fit Pigeon's live normal-attack state window.");
+        }
+    }
+
+    private static void assertTransparentFrameMargin(BufferedImage atlas, int row, int frame,
+                                                     int frameSize, int requiredMargin, String state) {
+        int frameX = frame * frameSize;
+        int frameY = row * frameSize;
+        for (int y = 0; y < frameSize; y++) {
+            for (int x = 0; x < frameSize; x++) {
+                int alpha = atlas.getRGB(frameX + x, frameY + y) >>> 24;
+                if (alpha <= 12) {
+                    continue;
+                }
+                assertTrue(x >= requiredMargin && x < frameSize - requiredMargin
+                                && y >= requiredMargin && y < frameSize - requiredMargin,
+                        state + " frame " + frame + " needs at least " + requiredMargin
+                                + " transparent pixels around its authored silhouette");
+            }
         }
     }
 

@@ -438,6 +438,7 @@ public class Bird {
     public boolean isMirageSkin = false;
     public boolean isVoidHeraldSkin = false;
     public boolean suppressSelectEffects = false;
+    private boolean visualAuditBodyOnly = false;
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
     String appliedSkinKey = null;
     public double loungeX, loungeY;
@@ -20794,6 +20795,37 @@ public class Bird {
         drawLounge(g);
         drawEagleGroundShadow(g, drawSize, currentBirdAnimationState());
         drawTurkeyGroundShadow(g, drawSize, currentPhotoTurkeyAnimationState());
+        drawCharacterBody(g, drawSize, attackPose);
+        drawHummingbirdNectarCoating(g, drawSize);
+        drawTurkeyStuffedEffect(g, drawSize);
+        drawTitmouseMarkEffect(g, drawSize);
+        drawOpiumDrowsyEffect(g, drawSize);
+        drawHeisenBrittleEffect(g, drawSize);
+        drawSpecialHitConfirm(g, drawSize);
+        drawRoadrunnerSlipEffect(g);
+        drawRavenPortentMarkEffect(g, drawSize);
+        drawPigeonSpecialFx(g, drawSize);
+        drawRaptorSpecialFx(g, drawSize);
+        drawPhoenixSpecialFx(g, drawSize);
+        drawPenguinSpecialStrikeFx(g, drawSize);
+        drawMockingbirdSpecialFx(g, drawSize);
+        drawDirectionalAttackFx(g, drawSize);
+        drawStunEffect(g, drawSize);
+        drawVineGrapple(g);
+    }
+
+    /** Draws only authored body art so visual audits do not mistake transient FX for silhouette clipping. */
+    void drawVisualAuditBody(GraphicsContext g) {
+        double drawSize = 80 * sizeMultiplier;
+        visualAuditBodyOnly = true;
+        try {
+            drawCharacterBody(g, drawSize, currentAttackVisualPose());
+        } finally {
+            visualAuditBodyOnly = false;
+        }
+    }
+
+    private void drawCharacterBody(GraphicsContext g, double drawSize, AttackVisualPose attackPose) {
         BirdSpriteSheet spriteSheet = BirdSpriteLibrary.sheetFor(type, appliedSkinKey);
         if (spriteSheet != null && spriteSheet.image != null) {
             drawSpriteBody(g, spriteSheet, drawSize, attackPose);
@@ -20817,22 +20849,6 @@ public class Bird {
             drawPelican(g);
             g.restore();
         }
-        drawHummingbirdNectarCoating(g, drawSize);
-        drawTurkeyStuffedEffect(g, drawSize);
-        drawTitmouseMarkEffect(g, drawSize);
-        drawOpiumDrowsyEffect(g, drawSize);
-        drawHeisenBrittleEffect(g, drawSize);
-        drawSpecialHitConfirm(g, drawSize);
-        drawRoadrunnerSlipEffect(g);
-        drawRavenPortentMarkEffect(g, drawSize);
-        drawPigeonSpecialFx(g, drawSize);
-        drawRaptorSpecialFx(g, drawSize);
-        drawPhoenixSpecialFx(g, drawSize);
-        drawPenguinSpecialStrikeFx(g, drawSize);
-        drawMockingbirdSpecialFx(g, drawSize);
-        drawDirectionalAttackFx(g, drawSize);
-        drawStunEffect(g, drawSize);
-        drawVineGrapple(g);
     }
 
     void drawWorldObjects(GraphicsContext g) {
@@ -27008,6 +27024,9 @@ public class Bird {
     }
 
     private void drawVectorBirdStateAccents(GraphicsContext g, double drawSize, HeadPose headPose) {
+        if (visualAuditBodyOnly) {
+            return;
+        }
         BirdAnimationState state = currentBirdAnimationState();
         if (state == BirdAnimationState.IDLE || state == BirdAnimationState.SHIELD) {
             return;

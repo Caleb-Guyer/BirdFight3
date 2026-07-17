@@ -178,7 +178,14 @@ class BirdVisualAuditRun {
             game.drawVisualAuditCombatPose(canvas, entry, Bird.VisualAuditPose.valueOf(view.name()));
         }
         BufferedImage image = snapshot(canvas);
-        return new RenderedView(image, measure(image));
+        if (view == View.PORTRAIT || view == View.HUD) {
+            return new RenderedView(image, measure(image));
+        }
+
+        Canvas silhouetteCanvas = new Canvas(size, size);
+        game.drawVisualAuditCombatSilhouette(
+                silhouetteCanvas, entry, Bird.VisualAuditPose.valueOf(view.name()));
+        return new RenderedView(image, measure(snapshot(silhouetteCanvas)));
     }
 
     private static BufferedImage snapshot(Canvas canvas) {
@@ -366,7 +373,8 @@ class BirdVisualAuditRun {
                 .append("- Contact-sheet pages: ").append(pages).append("\n")
                 .append("- Result: **").append(!failures.isEmpty() ? "FAIL"
                         : warnings.isEmpty() ? "PASS" : "PASS WITH REVIEW FINDINGS").append("**\n\n")
-                .append("Checks: visible pixels, hard-edge clipping, severe portrait/HUD centering, minimum scale, ")
+                .append("Checks: visible pixels, authored-body clipping (excluding transient combat FX), ")
+                .append("severe portrait/HUD centering, minimum scale, ")
                 .append("and exact idle-image fallback to base art. Edge contact and tight padding are review findings; ")
                 .append("run with `-DvisualAudit.failOnFindings=true` to make them blocking.\n\n");
         appendFindings(report, "Failures", failures);
