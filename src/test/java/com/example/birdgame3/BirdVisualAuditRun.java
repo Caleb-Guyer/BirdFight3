@@ -238,8 +238,13 @@ class BirdVisualAuditRun {
             return;
         }
         if (bounds.borderPixels > 0) {
-            warnings.add(label + " touches the canvas edge and may be clipped ("
-                    + bounds.borderPixels + " border pixels).");
+            String finding = label + " touches the " + touchedEdges(bounds, image)
+                    + " canvas edge and may be clipped (" + bounds.borderPixels + " border pixels).";
+            if (view == View.PORTRAIT || view == View.HUD) {
+                failures.add(finding);
+            } else {
+                warnings.add(finding);
+            }
         }
         if (bounds.width() < image.getWidth() * 0.12 || bounds.height() < image.getHeight() * 0.12) {
             failures.add(label + " occupies less than 12% of its frame and is too small.");
@@ -259,6 +264,15 @@ class BirdVisualAuditRun {
 
     private static String percent(double ratio) {
         return Math.round(ratio * 100.0) + "%";
+    }
+
+    private static String touchedEdges(PixelBounds bounds, BufferedImage image) {
+        List<String> edges = new ArrayList<>(4);
+        if (bounds.minX == 0) edges.add("left");
+        if (bounds.maxX == image.getWidth() - 1) edges.add("right");
+        if (bounds.minY == 0) edges.add("top");
+        if (bounds.maxY == image.getHeight() - 1) edges.add("bottom");
+        return String.join("/", edges);
     }
 
     private static BufferedImage createPage(int rows) {

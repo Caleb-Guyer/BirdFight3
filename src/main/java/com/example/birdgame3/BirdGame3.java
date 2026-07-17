@@ -15769,15 +15769,15 @@ public class BirdGame3 extends Application {
             // Normalize portrait size independently from the authored in-world
             // scale. This lets padded sprite art read at combat distance without
             // making the same art overflow roster tiles.
-            return 0.72 * spriteSheet.scale;
+            return 0.72 * spriteSheet.scale * rosterSpriteFit(type, skinKey).extentMultiplier();
         }
         if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
-            return 1.92;
+            return 1.92 * rosterSpriteFit(type, skinKey).extentMultiplier();
         }
         if (type == BirdType.EAGLE && STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) {
-            return 1.74;
+            return 1.74 * rosterSpriteFit(type, skinKey).extentMultiplier();
         }
-        return switch (type) {
+        double baseExtent = switch (type) {
             case BAT -> 2.9;
             case SHOEBILL -> 1.84;
             case ROADRUNNER -> 1.70;
@@ -15789,11 +15789,53 @@ public class BirdGame3 extends Application {
             case EAGLE, PIGEON, TURKEY, RAVEN, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD -> 1.46;
             default -> 1.42;
         };
+        return baseExtent * rosterSpriteFit(type, skinKey).extentMultiplier();
+    }
+
+    private record RosterSpriteFit(double extentMultiplier, double xBias, double yBias) {
+        private static final RosterSpriteFit DEFAULT = new RosterSpriteFit(1.0, 0.0, 0.0);
+    }
+
+    /** Extra safety padding for silhouettes and accessories that exceed their species' normal bounds. */
+    private RosterSpriteFit rosterSpriteFit(BirdType type, String skinKey) {
+        if (type == null) {
+            return RosterSpriteFit.DEFAULT;
+        }
+        if (NULL_ROCK_VULTURE_SKIN.equals(skinKey)) {
+            return new RosterSpriteFit(2.10, 0.0, -0.04);
+        }
+        if (type == BirdType.EAGLE && "SKY_KING_EAGLE".equals(skinKey)) {
+            return new RosterSpriteFit(1.32, 0.0, 0.0);
+        }
+        if (ECLIPSE_MOCKINGBIRD_SKIN.equals(skinKey)) {
+            return new RosterSpriteFit(1.18, 0.0, 0.0);
+        }
+        if (SUNFORGE_ROOSTER_SKIN.equals(skinKey)) {
+            return new RosterSpriteFit(1.18, 0.015, 0.0);
+        }
+        if (VOID_HERALD_RAVEN_SKIN.equals(skinKey)) {
+            return new RosterSpriteFit(1.14, 0.0, 0.0);
+        }
+        if (type == BirdType.PIGEON
+                && ("CITY_PIGEON".equals(skinKey) || FREEMAN_PIGEON_SKIN.equals(skinKey))) {
+            return new RosterSpriteFit(1.15, 0.0, 0.0);
+        }
+        return switch (type) {
+            case EAGLE -> new RosterSpriteFit(1.08, 0.0, 0.0);
+            case ROOSTER -> new RosterSpriteFit(1.10, 0.02, 0.0);
+            case PELICAN, GOOSE -> new RosterSpriteFit(1.10, 0.0, 0.0);
+            case MOCKINGBIRD -> new RosterSpriteFit(1.12, 0.0, 0.0);
+            case GRINCHHAWK -> new RosterSpriteFit(1.25, 0.005, 0.0);
+            default -> RosterSpriteFit.DEFAULT;
+        };
     }
 
     private double rosterSpriteMinScale(BirdType type, String skinKey) {
         if (BirdSpriteLibrary.sheetFor(type, skinKey) != null) {
             return 0.40;
+        }
+        if (NULL_ROCK_VULTURE_SKIN.equals(skinKey)) {
+            return 0.18;
         }
         if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
             return 0.18;
@@ -15826,16 +15868,16 @@ public class BirdGame3 extends Application {
             return 0.0;
         }
         if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
-            return -0.065;
+            return -0.065 + rosterSpriteFit(type, skinKey).xBias();
         }
         if (type == BirdType.EAGLE && STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) {
-            return -0.04;
+            return -0.04 + rosterSpriteFit(type, skinKey).xBias();
         }
         if (BirdSpriteLibrary.sheetFor(type, skinKey) != null) {
             // Production sheets are authored around the exact frame center.
-            return 0.0;
+            return rosterSpriteFit(type, skinKey).xBias();
         }
-        return switch (type) {
+        double baseBias = switch (type) {
             case SHOEBILL -> -0.14;
             case FALCON -> -0.09;
             case HUMMINGBIRD -> -0.085;
@@ -15846,6 +15888,7 @@ public class BirdGame3 extends Application {
             case EAGLE, PIGEON, RAVEN, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD -> -0.025;
             default -> -0.015;
         };
+        return baseBias + rosterSpriteFit(type, skinKey).xBias();
     }
 
     private double rosterSpriteYBias(BirdType type) {
@@ -15854,17 +15897,17 @@ public class BirdGame3 extends Application {
 
     private double rosterSpriteYBias(BirdType type, String skinKey) {
         if (type == BirdType.TURKEY && STOCK_PHOTO_TURKEY_SKIN.equals(skinKey)) {
-            return 0.06;
+            return 0.06 + rosterSpriteFit(type, skinKey).yBias();
         }
         if (type == BirdType.EAGLE && STOCK_PHOTO_EAGLE_SKIN.equals(skinKey)) {
-            return -0.025;
+            return -0.025 + rosterSpriteFit(type, skinKey).yBias();
         }
         if (BirdSpriteLibrary.sheetFor(type, skinKey) != null) {
             // Feet-anchored sprite frames carry more transparent space above the
             // body than below it, so lift them to center the visible silhouette.
-            return -0.065;
+            return -0.065 + rosterSpriteFit(type, skinKey).yBias();
         }
-        return type == BirdType.BAT ? 0.04 : 0.0;
+        return (type == BirdType.BAT ? 0.04 : 0.0) + rosterSpriteFit(type, skinKey).yBias();
     }
 
     private void drawVictoryRosterSprite(Canvas canvas, BirdType type, String skinKey, boolean winnerPose) {

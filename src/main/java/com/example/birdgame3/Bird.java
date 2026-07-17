@@ -25659,24 +25659,25 @@ public class Bird {
 
     private void drawEagleSkin(GraphicsContext g, double drawSize) {
         if (type == BirdGame3.BirdType.EAGLE && isClassicSkin) {
+            double s = sizeMultiplier;
 
             if (!suppressSelectEffects) {
                 g.setFill(Color.GOLD.deriveColor(0, 1, 1, 0.5));
-                g.fillOval(x - 40, y - 40, drawSize + 80, drawSize + 80);
+                g.fillOval(x - 40 * s, y - 40 * s, drawSize + 80 * s, drawSize + 80 * s);
             }
 
             double crownScale = suppressSelectEffects ? 0.8 : 1.0;
-            double crownW = 50 * crownScale;
-            double crownH = 70 * crownScale;
-            double crownX = x + 15 + (50 - crownW) * 0.5;
-            double crownY = y - 35 + (70 - crownH) * 0.5;
+            double crownW = 50 * crownScale * s;
+            double crownH = 70 * crownScale * s;
+            double crownX = x + 15 * s + (50 * s - crownW) * 0.5;
+            double crownY = y - 35 * s + (70 * s - crownH) * 0.5;
             g.setFill(Color.GOLD.brighter());
             g.fillOval(crownX, crownY, crownW, crownH);
             g.setFill(Color.ORANGE.brighter());
-            double gemW = 30 * crownScale;
-            double gemH = 40 * crownScale;
-            double gemX = x + 25 + (30 - gemW) * 0.5;
-            double gemY = y - 45 + (40 - gemH) * 0.5;
+            double gemW = 30 * crownScale * s;
+            double gemH = 40 * crownScale * s;
+            double gemX = x + 25 * s + (30 * s - gemW) * 0.5;
+            double gemY = y - 45 * s + (40 * s - gemH) * 0.5;
             g.fillOval(gemX, gemY, gemW, gemH);
 
             if (!suppressSelectEffects && Math.random() < 0.4) {
