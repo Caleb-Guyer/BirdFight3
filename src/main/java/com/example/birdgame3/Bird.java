@@ -1949,6 +1949,15 @@ public class Bird {
         KO
     }
 
+    enum VisualAuditPose {
+        IDLE,
+        RUN,
+        FLAP,
+        ATTACK,
+        HIT,
+        KO
+    }
+
     private record ShieldHitResult(boolean blocked, boolean parried) {
         private static final ShieldHitResult NONE = new ShieldHitResult(false, false);
         private static final ShieldHitResult BLOCKED = new ShieldHitResult(true, false);
@@ -11067,6 +11076,43 @@ public class Bird {
             return BirdAnimationState.FALL;
         }
         return BirdAnimationState.IDLE;
+    }
+
+    /** Configures a disposable preview bird for the visual-audit renderer. */
+    void prepareVisualAuditPose(VisualAuditPose pose) {
+        health = STARTING_HEALTH;
+        stunTime = 0.0;
+        knockdownTimer = 0;
+        isBlocking = false;
+        shieldStunFrames = 0;
+        parryWindowFrames = 0;
+        attackAnimationTimer = 0;
+        activeAttackVariant = NormalAttackVariant.NEUTRAL;
+        dodgeType = DodgeType.NONE;
+        dodgeTimer = 0;
+        vx = 0.0;
+        vy = 0.0;
+        suppressSelectEffects = false;
+        facingRight = true;
+        y = BirdGame3.GROUND_Y - bodyHeight();
+
+        switch (pose) {
+            case IDLE -> {
+            }
+            case RUN -> vx = Math.max(3.0, type.speed);
+            case FLAP -> {
+                y -= 240.0;
+                vy = -5.0;
+            }
+            case ATTACK -> {
+                activeAttackVariant = NormalAttackVariant.SIDE_TILT;
+                attackAnimationTimer = 8;
+            }
+            case HIT -> stunTime = 14.0;
+            case KO -> health = 0.0;
+        }
+        prevX = x;
+        prevY = y;
     }
 
     private void clearActiveDodge() {

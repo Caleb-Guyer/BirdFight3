@@ -15708,6 +15708,51 @@ public class BirdGame3 extends Application {
         // Titmouse crest is rendered in Bird.draw now for consistent previews.
     }
 
+    record VisualAuditSkin(BirdType bird, String key, String name) {
+    }
+
+    List<VisualAuditSkin> visualAuditSkins() {
+        List<VisualAuditSkin> entries = new ArrayList<>();
+        for (BirdType type : BirdType.values()) {
+            entries.add(new VisualAuditSkin(type, null, type.name + " — Base"));
+        }
+        for (SkinEntry skin : birdBookSkins()) {
+            entries.add(new VisualAuditSkin(skin.bird, skin.key, skin.name));
+        }
+        return List.copyOf(entries);
+    }
+
+    void drawVisualAuditRosterSprite(Canvas canvas, VisualAuditSkin skin) {
+        drawRosterSprite(canvas, skin.bird, skin.key, false, true);
+    }
+
+    void drawVisualAuditCombatPose(Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose) {
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        double w = canvas.getWidth();
+        double h = canvas.getHeight();
+        g.clearRect(0, 0, w, h);
+
+        Bird preview = new Bird(0.0, skin.bird, 0, this);
+        applyPreviewSkinChoiceToBird(preview, skin.bird, skin.key);
+        double baseSize = Math.min(w, h);
+        double pad = Math.max(8.0, baseSize * 0.08);
+        double extentFactor = rosterSpriteExtentFactor(skin.bird, skin.key);
+        preview.sizeMultiplier = Math.clamp((baseSize - pad * 2.0) / (80.0 * extentFactor),
+                rosterSpriteMinScale(skin.bird, skin.key),
+                rosterSpriteMaxScale(skin.bird, skin.key));
+        preview.x = 0.0;
+        preview.prepareVisualAuditPose(pose);
+
+        double targetCenterY = switch (pose) {
+            case IDLE, RUN, ATTACK -> h * 0.56;
+            case FLAP, HIT, KO -> h * 0.51;
+        };
+        g.save();
+        g.translate(w * 0.5 - preview.bodyCenterX(), targetCenterY - preview.bodyCenterY());
+        preview.draw(g);
+        g.restore();
+    }
+
     private double rosterSpriteExtentFactor(BirdType type) {
         return rosterSpriteExtentFactor(type, null);
     }
