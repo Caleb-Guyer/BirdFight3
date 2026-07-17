@@ -247,7 +247,7 @@ class BirdVisualAuditRun {
         if (bounds.borderPixels > 0) {
             String finding = label + " touches the " + touchedEdges(bounds, image)
                     + " canvas edge and may be clipped (" + bounds.borderPixels + " border pixels).";
-            if (view == View.PORTRAIT || view == View.HUD) {
+            if (view == View.PORTRAIT || view == View.HUD || requiresCleanCombatFraming(entry)) {
                 failures.add(finding);
             } else {
                 warnings.add(finding);
@@ -267,6 +267,11 @@ class BirdVisualAuditRun {
         if (bounds.width() > image.getWidth() * 0.94 || bounds.height() > image.getHeight() * 0.94) {
             warnings.add(label + " uses over 94% of the frame and has little safety padding.");
         }
+    }
+
+    private static boolean requiresCleanCombatFraming(BirdGame3.VisualAuditSkin entry) {
+        return entry.bird() == BirdGame3.BirdType.PIGEON
+                || "NULL_ROCK_VULTURE".equals(entry.key());
     }
 
     private static String percent(double ratio) {
@@ -375,7 +380,8 @@ class BirdVisualAuditRun {
                         : warnings.isEmpty() ? "PASS" : "PASS WITH REVIEW FINDINGS").append("**\n\n")
                 .append("Checks: visible pixels, authored-body clipping (excluding transient combat FX), ")
                 .append("severe portrait/HUD centering, minimum scale, ")
-                .append("and exact idle-image fallback to base art. Edge contact and tight padding are review findings; ")
+                .append("and exact idle-image fallback to base art. Edge contact and tight padding remain review findings ")
+                .append("for other entries; completed Pigeon and Null Rock combat entries treat edge contact as a failure; ")
                 .append("run with `-DvisualAudit.failOnFindings=true` to make them blocking.\n\n");
         appendFindings(report, "Failures", failures);
         appendFindings(report, "Warnings", warnings);

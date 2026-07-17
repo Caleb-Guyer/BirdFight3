@@ -15756,6 +15756,7 @@ public class BirdGame3 extends Application {
             case IDLE, RUN, ATTACK -> h * 0.56;
             case FLAP, HIT, KO -> h * 0.51;
         };
+        targetCenterY += h * visualAuditCombatYBias(skin);
         g.save();
         g.translate(w * 0.5 - preview.bodyCenterX(), targetCenterY - preview.bodyCenterY());
         if (bodyOnly) {
@@ -15775,6 +15776,16 @@ public class BirdGame3 extends Application {
             return extentFactor * 1.38;
         }
         return extentFactor;
+    }
+
+    private double visualAuditCombatYBias(VisualAuditSkin skin) {
+        if (NULL_ROCK_VULTURE_SKIN.equals(skin.key)) {
+            // The giant void-body extends much farther below its gameplay
+            // center than an ordinary bird. Lift the review frame without
+            // shrinking the boss or changing its in-world placement.
+            return -0.085;
+        }
+        return 0.0;
     }
 
     private double rosterSpriteExtentFactor(BirdType type) {
