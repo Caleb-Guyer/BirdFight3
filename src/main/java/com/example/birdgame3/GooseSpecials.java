@@ -301,8 +301,9 @@ final class GooseSpecials {
         }
         if (!bird.gooseHonkReleased) {
             bird.gooseHonkHoldFrames++;
-            int maxHold = Bird.GOOSE_HONK_MAX_HOLD_FRAMES + (bird.gooseHonkEmpowered ? 12 : 0);
-            if (!specialHeld || bird.gooseHonkHoldFrames >= maxHold) {
+            int maxHold = honkMaxHoldFrames(bird);
+            boolean minimumTellComplete = bird.gooseHonkHoldFrames >= Bird.GOOSE_HONK_MIN_HOLD_FRAMES;
+            if ((minimumTellComplete && !specialHeld) || bird.gooseHonkHoldFrames >= maxHold) {
                 releaseHonk(bird);
             }
         }
@@ -318,10 +319,11 @@ final class GooseSpecials {
 
     private static void releaseHonk(Bird bird) {
         bird.gooseHonkReleased = true;
-        double chargeRatio = Math.clamp(bird.gooseHonkHoldFrames
-                / (double) (Bird.GOOSE_HONK_MAX_HOLD_FRAMES + (bird.gooseHonkEmpowered ? 12 : 0)), 0.0, 1.0);
+        bird.gooseHonkTimer = Bird.GOOSE_HONK_RECOVERY_FRAMES + (bird.gooseHonkEmpowered ? 4 : 0);
+        double chargeRatio = honkChargeRatio(bird);
+        double chargeStrength = smoothStep(chargeRatio);
         int dir = bird.gooseHonkDirection == 0 ? bird.facingDirection() : bird.gooseHonkDirection;
-        double reach = (bird.gooseHonkEmpowered ? 360.0 : 280.0) * bird.sizeMultiplier * (0.70 + chargeRatio * 0.48);
+        double reach = honkReach(bird, chargeStrength);
         double originX = bird.bodyCenterX() + dir * 18.0 * bird.sizeMultiplier;
         double originY = bird.bodyCenterY() - 12.0 * bird.sizeMultiplier;
         boolean hitAny = false;
@@ -345,20 +347,59 @@ final class GooseSpecials {
             if (idx >= 0 && idx < bird.gooseHonkHit.length) {
                 bird.gooseHonkHit[idx] = true;
             }
-            int damage = (int) Math.round(8.0 + chargeRatio * 8.0 + (bird.gooseHonkEmpowered ? 4.0 : 0.0));
+            // Edge hits keep enough shove to reset spacing, while their stun fades sharply.
+            double distanceStrength = honkDistanceStrength(forward, reach);
+            double launchStrength = honkLaunchStrength(forward, reach);
+            int damage = (int) Math.round(7.0 + chargeStrength * 7.0
+                    + (bird.gooseHonkEmpowered ? 3.0 : 0.0));
             int dealt = bird.applyTrackedSpecialDamage(other, damage);
             hitAny |= dealt > 0;
             if (dealt > 0) {
-                other.vx += dir * (5.8 + chargeRatio * 5.0 + (bird.gooseHonkEmpowered ? 2.8 : 0.0));
-                other.vy -= 2.0 + chargeRatio * 2.4 + (bird.gooseHonkEmpowered ? 1.2 : 0.0);
-                other.applyStun(6 + chargeRatio * 7.0 + (bird.gooseHonkEmpowered ? 3.0 : 0.0));
+                double horizontalLaunch = (4.2 + chargeStrength * 4.8
+                        + (bird.gooseHonkEmpowered ? 1.6 : 0.0)) * launchStrength;
+                double verticalLaunch = (1.6 + chargeStrength * 1.8
+                        + (bird.gooseHonkEmpowered ? 0.6 : 0.0)) * (0.70 + distanceStrength * 0.30);
+                double stunFrames = 2.0 + (chargeStrength * 6.0
+                        + (bird.gooseHonkEmpowered ? 1.0 : 0.0)) * distanceStrength;
+                other.vx += dir * horizontalLaunch;
+                other.vy -= verticalLaunch;
+                other.applyStun(stunFrames);
                 addTerritory(bird, 7.0 + dealt * 0.16);
-                emitHitBurst(bird, other, bird.gooseHonkEmpowered ? Color.GOLD : Color.web("#E8F5E9"), 18);
+                emitHitBurst(bird, other, bird.gooseHonkEmpowered ? Color.GOLD : Color.web("#E8F5E9"),
+                        10 + (int) Math.round(distanceStrength * 8.0));
             }
         }
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, hitAny ? 13 : 6);
         bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, hitAny ? 5 : 2);
         bird.game.triggerFlash(hitAny ? 0.20 : 0.09, false);
+    }
+
+    static int honkMaxHoldFrames(Bird bird) {
+        return Bird.GOOSE_HONK_MAX_HOLD_FRAMES + (bird.gooseHonkEmpowered ? 12 : 0);
+    }
+
+    static double honkChargeRatio(Bird bird) {
+        return Math.clamp(bird.gooseHonkHoldFrames / (double) honkMaxHoldFrames(bird), 0.0, 1.0);
+    }
+
+    private static double honkReach(Bird bird, double chargeStrength) {
+        double maxReach = bird.gooseHonkEmpowered ? 360.0 : 280.0;
+        return maxReach * bird.sizeMultiplier * (0.62 + chargeStrength * 0.38);
+    }
+
+    private static double honkDistanceStrength(double forward, double reach) {
+        double distanceRatio = Math.clamp(Math.max(0.0, forward) / Math.max(1.0, reach), 0.0, 1.0);
+        return 1.0 - distanceRatio * 0.65;
+    }
+
+    private static double honkLaunchStrength(double forward, double reach) {
+        double distanceRatio = Math.clamp(Math.max(0.0, forward) / Math.max(1.0, reach), 0.0, 1.0);
+        return 1.0 - distanceRatio * 0.50;
+    }
+
+    private static double smoothStep(double value) {
+        double clamped = Math.clamp(value, 0.0, 1.0);
+        return clamped * clamped * (3.0 - 2.0 * clamped);
     }
 
     private static void handleBargeMovement(Bird bird) {

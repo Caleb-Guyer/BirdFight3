@@ -6131,6 +6131,104 @@ class BirdStateTest {
         return field.getBoolean(target);
     }
 
+    @Test
+    void gooseHonkTapKeepsAReadableMinimumTell() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird goose = new Bird(100.0, BirdGame3.BirdType.GOOSE, 0, game);
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        goose.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        goose.facingRight = true;
+        game.players[0] = goose;
+        game.players[1] = target;
+
+        GooseSpecials.neutral(goose, false);
+        double startingHealth = target.health;
+        for (int frame = 1; frame < Bird.GOOSE_HONK_MIN_HOLD_FRAMES; frame++) {
+            GooseSpecials.handleState(goose, false);
+            assertFalse(goose.gooseHonkReleased,
+                    "A released button should not skip the honk's minimum startup tell.");
+            assertEquals(startingHealth, target.health, 0.0001);
+        }
+
+        GooseSpecials.handleState(goose, false);
+
+        assertTrue(goose.gooseHonkReleased);
+        assertTrue(target.health < startingHealth);
+        assertTrue(goose.gooseHonkTimer <= Bird.GOOSE_HONK_RECOVERY_FRAMES,
+                "Releasing early should transition into the fixed recovery instead of retaining unused charge time.");
+    }
+
+    @Test
+    void chargedGooseHonkIsStrongerThanTappedHonk() {
+        GooseHonkOutcome tapped = playGooseHonk(Bird.GOOSE_HONK_MIN_HOLD_FRAMES);
+        GooseHonkOutcome charged = playGooseHonk(Bird.GOOSE_HONK_MAX_HOLD_FRAMES);
+
+        assertTrue(charged.damage > tapped.damage,
+                "Holding the honk should earn meaningfully more damage.");
+        assertTrue(charged.horizontalLaunch > tapped.horizontalLaunch * 1.7,
+                "The strongest honk launch should require a committed charge.");
+        assertTrue(charged.stunFrames > tapped.stunFrames + 3.0,
+                "The charged honk should retain payoff without giving the tapped version long stun.");
+    }
+
+    @Test
+    void gooseHonkLaunchAndStunFallOffAcrossTheCone() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+
+        Bird goose = new Bird(100.0, BirdGame3.BirdType.GOOSE, 0, game);
+        Bird nearTarget = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird farTarget = new Bird(430.0, BirdGame3.BirdType.PIGEON, 2, game);
+        goose.y = BirdGame3.GROUND_Y - 80.0;
+        nearTarget.y = BirdGame3.GROUND_Y - 80.0;
+        farTarget.y = BirdGame3.GROUND_Y - 80.0;
+        goose.facingRight = true;
+        game.players[0] = goose;
+        game.players[1] = nearTarget;
+        game.players[2] = farTarget;
+
+        GooseSpecials.neutral(goose, false);
+        for (int frame = 0; frame < Bird.GOOSE_HONK_MAX_HOLD_FRAMES; frame++) {
+            GooseSpecials.handleState(goose, true);
+        }
+
+        assertTrue(nearTarget.health < Bird.STARTING_HEALTH);
+        assertTrue(farTarget.health < Bird.STARTING_HEALTH);
+        assertTrue(nearTarget.vx > farTarget.vx * 1.5,
+                "The edge of the honk cone should no longer receive point-blank launch.");
+        assertTrue(nearTarget.stunTime > farTarget.stunTime,
+                "Honk stun should decay with distance as well as launch.");
+    }
+
+    private static GooseHonkOutcome playGooseHonk(int holdFrames) {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird goose = new Bird(100.0, BirdGame3.BirdType.GOOSE, 0, game);
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        goose.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        goose.facingRight = true;
+        game.players[0] = goose;
+        game.players[1] = target;
+
+        GooseSpecials.neutral(goose, false);
+        for (int frame = 0; frame < holdFrames; frame++) {
+            GooseSpecials.handleState(goose, frame + 1 < holdFrames);
+        }
+        return new GooseHonkOutcome(
+                Bird.STARTING_HEALTH - target.health,
+                target.vx,
+                target.stunTime
+        );
+    }
+
+    private record GooseHonkOutcome(double damage, double horizontalLaunch, double stunFrames) {
+    }
+
     private static Object getPrivateObject(Object target, String fieldName) throws Exception {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);

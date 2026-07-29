@@ -847,6 +847,7 @@ public class Bird {
     private int ravenPortentOwnerIndex = -1;
     private int ravenPortentSerial = 0;
     private boolean ravenPortentUltimate = false;
+    static final int GOOSE_HONK_MIN_HOLD_FRAMES = 8;
     static final int GOOSE_HONK_MAX_HOLD_FRAMES = 42;
     static final int GOOSE_HONK_RECOVERY_FRAMES = 22;
     static final int GOOSE_HONK_REUSE_FRAMES = 52;
@@ -21337,9 +21338,17 @@ public class Bird {
 
         if (gooseHonkTimer > 0) {
             double released = gooseHonkReleased ? 1.0 : 0.0;
-            double holdRatio = Math.clamp(gooseHonkHoldFrames / (double) GOOSE_HONK_MAX_HOLD_FRAMES, 0.0, 1.0);
+            double holdRatio = GooseSpecials.honkChargeRatio(this);
             double waveRatio = Math.clamp(gooseHonkTimer / (double) (GOOSE_HONK_RECOVERY_FRAMES + 8), 0.0, 1.0);
             Color honk = gooseHonkUltimate || gooseHonkEmpowered ? Color.GOLD : Color.web("#E6F4EA");
+            if (!gooseHonkReleased) {
+                double tellRatio = Math.clamp(gooseHonkHoldFrames / (double) GOOSE_HONK_MIN_HOLD_FRAMES, 0.0, 1.0);
+                double tellRadius = (18.0 + tellRatio * 15.0) * s;
+                double tellX = cx + dir * 34.0 * s;
+                g.setStroke(warning.deriveColor(0, 1, 1, 0.24 + tellRatio * 0.48));
+                g.setLineWidth((2.0 + tellRatio * 2.0) * s);
+                g.strokeOval(tellX - tellRadius, cy - tellRadius, tellRadius * 2.0, tellRadius * 2.0);
+            }
             g.setEffect(new Glow(0.42 + holdRatio * 0.22));
             for (int i = 0; i < 4; i++) {
                 double reach = (70.0 + i * 52.0 + holdRatio * 58.0 + released * (1.0 - waveRatio) * 70.0) * s;
