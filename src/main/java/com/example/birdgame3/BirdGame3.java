@@ -10964,7 +10964,7 @@ public class BirdGame3 extends Application {
                 }
                 if (dist < 48) {
                     int damage = c.contactDamage();
-                    double dealtDamage = closest.receiveExternalDamage(damage);
+                    double dealtDamage = closest.receiveOwnedMinionDamage(damage, c.owner);
                     if (dealtDamage <= 0) {
                         it.remove();
                         continue;
@@ -14570,7 +14570,7 @@ public class BirdGame3 extends Application {
             double hitDx = (closest.x + 40) - c.x;
             double hitDy = (closest.y + 40) - c.y;
             if (Math.hypot(hitDx, hitDy) < 48.0) {
-                double dealtDamage = closest.receiveExternalDamage(c.contactDamage());
+                double dealtDamage = closest.receiveOwnedMinionDamage(c.contactDamage(), c.owner);
                 if (dealtDamage <= 0) {
                     return true;
                 }

@@ -1563,6 +1563,51 @@ class BirdStateTest {
     }
 
     @Test
+    void vultureDamageTuningAppliesToFreeAndAnchoredCrows() throws Exception {
+        double originalVultureDamage = BirdGame3.BirdType.VULTURE.damageDealtMult;
+        double originalPigeonDamageTaken = BirdGame3.BirdType.PIGEON.damageTakenMult;
+        try {
+            BirdGame3.BirdType.VULTURE.damageDealtMult = 0.5;
+            BirdGame3.BirdType.PIGEON.damageTakenMult = 1.0;
+
+            assertEquals(0.5, playOwnedVultureCrowHit(false), 0.0001,
+                    "Free-flying crow contact should inherit Vulture's outgoing damage tuning.");
+            assertEquals(0.5, playOwnedVultureCrowHit(true), 0.0001,
+                    "Bone Offering crow contact should inherit Vulture's outgoing damage tuning.");
+        } finally {
+            BirdGame3.BirdType.VULTURE.damageDealtMult = originalVultureDamage;
+            BirdGame3.BirdType.PIGEON.damageTakenMult = originalPigeonDamageTaken;
+        }
+    }
+
+    private static double playOwnedVultureCrowHit(boolean anchored) throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird owner = new Bird(980.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        owner.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = owner;
+        game.players[1] = target;
+
+        CrowMinion crow = new CrowMinion(target.x + 16.0, target.y + 40.0, target);
+        crow.owner = owner;
+        crow.vx = 0.0;
+        crow.vy = 0.0;
+        if (anchored) {
+            crow.withAnchorGuard(target.x + 40.0, target.y + 40.0, 120.0, 20);
+        }
+        game.crowMinions.add(crow);
+
+        double startingHealth = target.health;
+        invokePrivateVoid(game, "updateWorldFixed");
+
+        assertTrue(game.crowMinions.isEmpty());
+        return startingHealth - target.health;
+    }
+
+    @Test
     void localAndAiInputsStaySeparated() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

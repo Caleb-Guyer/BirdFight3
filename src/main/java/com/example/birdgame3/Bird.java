@@ -13182,6 +13182,17 @@ public class Bird {
         return receiveScaledDamage(scaledDamage, null);
     }
 
+    double receiveOwnedMinionDamage(double rawDamage, Bird owner) {
+        if (rawDamage <= 0) return 0;
+        // Keep minion contact on the external-hit path while making the owner's
+        // whole-kit tuning multiplier apply exactly once.
+        double ownerScaledDamage = rawDamage;
+        if (owner != null && owner != this && owner.type != null) {
+            ownerScaledDamage *= owner.type.damageDealtMult;
+        }
+        return receiveExternalDamage(ownerScaledDamage);
+    }
+
     private void interruptLedgeHangOnHit() {
         if (!ledgeHanging) {
             return;
