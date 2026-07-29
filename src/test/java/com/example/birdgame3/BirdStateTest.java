@@ -6197,8 +6197,10 @@ class BirdStateTest {
 
         assertTrue(nearTarget.health < Bird.STARTING_HEALTH);
         assertTrue(farTarget.health < Bird.STARTING_HEALTH);
-        assertTrue(nearTarget.vx > farTarget.vx * 1.5,
-                "The edge of the honk cone should no longer receive point-blank launch.");
+        assertTrue(nearTarget.vx > farTarget.vx * 2.0,
+                "Honk should preserve its close-range reward without carrying it to the cone edge.");
+        assertTrue(farTarget.vx < 3.2,
+                "A normal charged honk at maximum range should reset spacing instead of acting as a safe KO launch.");
         assertTrue(nearTarget.stunTime > farTarget.stunTime,
                 "Honk stun should decay with distance as well as launch.");
     }

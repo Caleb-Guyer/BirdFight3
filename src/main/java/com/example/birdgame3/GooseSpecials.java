@@ -5,6 +5,8 @@ import javafx.scene.paint.Color;
 import java.util.Arrays;
 
 final class GooseSpecials {
+    private static final double HONK_EDGE_LAUNCH_STRENGTH = 0.32;
+
     private GooseSpecials() {
     }
 
@@ -394,7 +396,7 @@ final class GooseSpecials {
 
     private static double honkLaunchStrength(double forward, double reach) {
         double distanceRatio = Math.clamp(Math.max(0.0, forward) / Math.max(1.0, reach), 0.0, 1.0);
-        return 1.0 - distanceRatio * 0.50;
+        return 1.0 - smoothStep(distanceRatio) * (1.0 - HONK_EDGE_LAUNCH_STRENGTH);
     }
 
     private static double smoothStep(double value) {
