@@ -1478,6 +1478,7 @@ public class Bird {
     final boolean[] turkeyHarvestTribunalFinalHit = new boolean[4];
     double roadrunnerMomentum = 0.0;
     int roadrunnerMomentumFxTimer = 0;
+    int roadrunnerMomentumGraceTimer = 0;
     boolean roadrunnerBeepCharging = false;
     int roadrunnerBeepChargeFrames = 0;
     int roadrunnerBeepMaxChargeHoldFrames = 0;
@@ -13017,6 +13018,7 @@ public class Bird {
             if (game.usesSmashCombatRules()) {
                 target.registerSmashHit(this, dealtDamage);
             }
+            RoadrunnerSpecials.onHitLanded(this);
             gainUltimate(dealtDamage * ULTIMATE_GAIN_DEALT);
             target.gainUltimate(dealtDamage * ULTIMATE_GAIN_TAKEN);
             game.recordTrainingHit(this, target, dealtDamage);
@@ -13245,9 +13247,7 @@ public class Bird {
             interruptRavenSpecialStateOnHit();
             interruptOpiumSpecialStateOnHit();
         }
-        if (type == BirdGame3.BirdType.ROADRUNNER) {
-            roadrunnerMomentum = Math.max(0.0, roadrunnerMomentum - 38.0);
-        }
+        RoadrunnerSpecials.onDamageTaken(this, scaledDamage);
         if (game.usesSmashCombatRules()) {
             smashDamage += scaledDamage;
             return scaledDamage;
@@ -14970,6 +14970,7 @@ public class Bird {
         System.arraycopy(roadrunnerSandHitCooldown, 0, state.roadrunnerSandHitCooldown, 0, roadrunnerSandHitCooldown.length);
         state.roadrunnerMomentum = roadrunnerMomentum;
         state.roadrunnerMomentumFxTimer = roadrunnerMomentumFxTimer;
+        state.roadrunnerMomentumGraceTimer = roadrunnerMomentumGraceTimer;
         state.roadrunnerBeepCharging = roadrunnerBeepCharging;
         state.roadrunnerBeepChargeFrames = roadrunnerBeepChargeFrames;
         state.roadrunnerBeepMaxChargeHoldFrames = roadrunnerBeepMaxChargeHoldFrames;
@@ -15693,6 +15694,7 @@ public class Bird {
         }
         this.roadrunnerMomentum = Math.clamp(state.roadrunnerMomentum, 0.0, ROADRUNNER_MOMENTUM_MAX);
         this.roadrunnerMomentumFxTimer = state.roadrunnerMomentumFxTimer;
+        this.roadrunnerMomentumGraceTimer = Math.max(0, state.roadrunnerMomentumGraceTimer);
         this.roadrunnerBeepCharging = state.roadrunnerBeepCharging;
         this.roadrunnerBeepChargeFrames = state.roadrunnerBeepChargeFrames;
         this.roadrunnerBeepMaxChargeHoldFrames = state.roadrunnerBeepMaxChargeHoldFrames;
@@ -26661,7 +26663,28 @@ public class Bird {
             }
             return true;
         }
+        if (type == BirdGame3.BirdType.ROADRUNNER) {
+            if (!suppressSelectEffects && health > 0) {
+                drawRoadrunnerMomentumReadiness(g);
+            }
+            return true;
+        }
         return false;
+    }
+
+    private void drawRoadrunnerMomentumReadiness(GraphicsContext g) {
+        double progress = roadrunnerMomentumRatio();
+        boolean flowActive = roadrunnerMomentumGraceTimer > 0;
+        String stateText;
+        if (flowActive) {
+            stateText = "FLOW " + Math.max(1, (int) Math.ceil(roadrunnerMomentumGraceTimer / 60.0)) + "s";
+        } else if (progress > 0.01) {
+            stateText = "DECAY";
+        } else {
+            stateText = "RUN";
+        }
+        drawSpecialReadinessPanel(g, "MOMENTUM", stateText, progress,
+                progress > 0.01, progress <= 0.15, roadrunnerTrailColor(false));
     }
 
     private void drawOpiumSpecialReadiness(GraphicsContext g) {

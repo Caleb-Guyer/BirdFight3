@@ -58,6 +58,7 @@ class LanProtocolTest {
         state.phoenixAirSideLandingPrimeTimer = 45;
         state.phoenixAirSideLandingFxTimer = 9;
         state.roadrunnerMomentum = 74.5;
+        state.roadrunnerMomentumGraceTimer = 51;
         state.roadrunnerBeepCharging = true;
         state.roadrunnerBeepChargeFrames = 28;
         state.roadrunnerBeepMaxChargeHoldFrames = 6;
@@ -328,6 +329,7 @@ class LanProtocolTest {
         assertEquals(45, decoded.phoenixAirSideLandingPrimeTimer);
         assertEquals(9, decoded.phoenixAirSideLandingFxTimer);
         assertEquals(74.5, decoded.roadrunnerMomentum);
+        assertEquals(51, decoded.roadrunnerMomentumGraceTimer);
         assertTrue(decoded.roadrunnerBeepCharging);
         assertEquals(28, decoded.roadrunnerBeepChargeFrames);
         assertEquals(6, decoded.roadrunnerBeepMaxChargeHoldFrames);

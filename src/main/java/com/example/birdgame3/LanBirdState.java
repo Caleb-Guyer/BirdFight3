@@ -335,6 +335,7 @@ class LanBirdState {
     int[] roadrunnerSandHitCooldown = new int[4];
     double roadrunnerMomentum;
     int roadrunnerMomentumFxTimer;
+    int roadrunnerMomentumGraceTimer;
     boolean roadrunnerBeepCharging;
     int roadrunnerBeepChargeFrames;
     int roadrunnerBeepMaxChargeHoldFrames;
@@ -949,6 +950,7 @@ class LanBirdState {
         }
         out.writeDouble(roadrunnerMomentum);
         out.writeInt(roadrunnerMomentumFxTimer);
+        out.writeInt(roadrunnerMomentumGraceTimer);
         out.writeBoolean(roadrunnerBeepCharging);
         out.writeInt(roadrunnerBeepChargeFrames);
         out.writeInt(roadrunnerBeepMaxChargeHoldFrames);
@@ -1605,6 +1607,7 @@ class LanBirdState {
         }
         state.roadrunnerMomentum = in.readDouble();
         state.roadrunnerMomentumFxTimer = in.readInt();
+        state.roadrunnerMomentumGraceTimer = in.readInt();
         state.roadrunnerBeepCharging = in.readBoolean();
         state.roadrunnerBeepChargeFrames = in.readInt();
         state.roadrunnerBeepMaxChargeHoldFrames = in.readInt();

@@ -7,6 +7,11 @@ import java.util.Iterator;
 
 final class RoadrunnerSpecials {
     static final String REDLINE_EXECUTION_MOVE = "Redline Execution";
+    static final int MOMENTUM_BUILD_GRACE_FRAMES = 48;
+    static final int MOMENTUM_HIT_GRACE_FRAMES = 72;
+    static final double MOMENTUM_STUN_DECAY_PER_FRAME = 0.75;
+    static final double MOMENTUM_GROUND_DECAY_PER_FRAME = 0.22;
+    static final double MOMENTUM_AIR_DECAY_PER_FRAME = 0.12;
 
     private RoadrunnerSpecials() {
     }
@@ -110,9 +115,29 @@ final class RoadrunnerSpecials {
         }
         double before = bird.roadrunnerMomentum;
         bird.roadrunnerMomentum = Math.clamp(bird.roadrunnerMomentum + amount, 0.0, Bird.ROADRUNNER_MOMENTUM_MAX);
+        bird.roadrunnerMomentumGraceTimer = Math.max(
+                bird.roadrunnerMomentumGraceTimer, MOMENTUM_BUILD_GRACE_FRAMES);
         if (bird.roadrunnerMomentum > before + 0.5) {
             bird.roadrunnerMomentumFxTimer = Math.max(bird.roadrunnerMomentumFxTimer, 18);
         }
+    }
+
+    static void onHitLanded(Bird bird) {
+        if (bird == null || bird.type != BirdGame3.BirdType.ROADRUNNER || bird.health <= 0) {
+            return;
+        }
+        bird.roadrunnerMomentumGraceTimer = Math.max(
+                bird.roadrunnerMomentumGraceTimer, MOMENTUM_HIT_GRACE_FRAMES);
+        bird.roadrunnerMomentumFxTimer = Math.max(bird.roadrunnerMomentumFxTimer, 24);
+    }
+
+    static void onDamageTaken(Bird bird, double scaledDamage) {
+        if (bird == null || bird.type != BirdGame3.BirdType.ROADRUNNER || scaledDamage <= 0.0) {
+            return;
+        }
+        double momentumLoss = Math.clamp(4.0 + scaledDamage * 0.45, 6.0, 18.0);
+        bird.roadrunnerMomentum = Math.max(0.0, bird.roadrunnerMomentum - momentumLoss);
+        bird.roadrunnerMomentumFxTimer = Math.max(bird.roadrunnerMomentumFxTimer, 12);
     }
 
     static void spendMomentum(Bird bird, double fraction) {
@@ -802,21 +827,32 @@ final class RoadrunnerSpecials {
     static void handleMomentum(Bird bird) {
         if (bird.type != BirdGame3.BirdType.ROADRUNNER || bird.health <= 0) {
             bird.roadrunnerMomentum = Math.max(0.0, bird.roadrunnerMomentum - 1.0);
+            bird.roadrunnerMomentumGraceTimer = 0;
             return;
+        }
+        boolean graceActive = bird.roadrunnerMomentumGraceTimer > 0;
+        if (graceActive) {
+            bird.roadrunnerMomentumGraceTimer--;
         }
         boolean grounded = bird.isOnGround();
         double speed = Math.abs(bird.vx);
         boolean pressingMove = bird.leftPressed() || bird.rightPressed();
         if (bird.stunTime > 0.0 || bird.isBlocking || bird.shieldStunFrames > 0) {
-            bird.roadrunnerMomentum = Math.max(0.0, bird.roadrunnerMomentum - 1.8);
+            if (!graceActive) {
+                bird.roadrunnerMomentum = Math.max(
+                        0.0, bird.roadrunnerMomentum - MOMENTUM_STUN_DECAY_PER_FRAME);
+            }
         } else if (grounded && pressingMove && speed > 3.2) {
             addMomentum(bird, (speed - 3.2) * 0.18 + 0.26);
         } else if (grounded && speed > 8.0) {
             addMomentum(bird, (speed - 8.0) * 0.06 + 0.10);
         } else if (sandstormActive(bird)) {
             addMomentum(bird, 0.10);
-        } else {
-            bird.roadrunnerMomentum = Math.max(0.0, bird.roadrunnerMomentum - (grounded ? 0.50 : 0.28));
+        } else if (!graceActive) {
+            double decay = grounded
+                    ? MOMENTUM_GROUND_DECAY_PER_FRAME
+                    : MOMENTUM_AIR_DECAY_PER_FRAME;
+            bird.roadrunnerMomentum = Math.max(0.0, bird.roadrunnerMomentum - decay);
         }
     }
 
@@ -1130,6 +1166,7 @@ final class RoadrunnerSpecials {
     static void reset(Bird bird) {
         bird.roadrunnerMomentum = 0.0;
         bird.roadrunnerMomentumFxTimer = 0;
+        bird.roadrunnerMomentumGraceTimer = 0;
         bird.roadrunnerBeepCharging = false;
         bird.roadrunnerBeepChargeFrames = 0;
         bird.roadrunnerBeepMaxChargeHoldFrames = 0;

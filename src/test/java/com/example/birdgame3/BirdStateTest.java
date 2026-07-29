@@ -1233,6 +1233,62 @@ class BirdStateTest {
     }
 
     @Test
+    void roadrunnerMomentumGracePreservesFlowBeforeSlowDecay() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+
+        Bird runner = new Bird(260.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        runner.y = BirdGame3.GROUND_Y - 80.0;
+        runner.roadrunnerMomentum = 40.0;
+        game.players[0] = runner;
+
+        RoadrunnerSpecials.addMomentum(runner, 10.0);
+
+        assertEquals(RoadrunnerSpecials.MOMENTUM_BUILD_GRACE_FRAMES,
+                runner.roadrunnerMomentumGraceTimer);
+        LanBirdState snapshot = runner.toLanState();
+        Bird restored = new Bird(0.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        restored.applyLanState(snapshot);
+        assertEquals(runner.roadrunnerMomentumGraceTimer, restored.roadrunnerMomentumGraceTimer,
+                "LAN snapshots must preserve the deterministic grace timer.");
+        for (int i = 0; i < RoadrunnerSpecials.MOMENTUM_BUILD_GRACE_FRAMES; i++) {
+            RoadrunnerSpecials.handleMomentum(runner);
+        }
+        assertEquals(50.0, runner.roadrunnerMomentum, 0.0001,
+                "Earned momentum should hold throughout the grace window.");
+
+        RoadrunnerSpecials.handleMomentum(runner);
+        assertEquals(50.0 - RoadrunnerSpecials.MOMENTUM_GROUND_DECAY_PER_FRAME,
+                runner.roadrunnerMomentum, 0.0001,
+                "Momentum should decay gradually once flow expires.");
+    }
+
+    @Test
+    void roadrunnerCombatRetainsMomentumWithoutRemovingCounterplay() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird runner = new Bird(220.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        Bird opponent = new Bird(330.0, BirdGame3.BirdType.PIGEON, 1, game);
+        runner.y = BirdGame3.GROUND_Y - 80.0;
+        opponent.y = BirdGame3.GROUND_Y - 80.0;
+        runner.roadrunnerMomentum = 100.0;
+        game.players[0] = runner;
+        game.players[1] = opponent;
+
+        double dealtToRunner = applyPrivateDamage(opponent, runner, 10.0);
+        double expectedLoss = Math.clamp(4.0 + dealtToRunner * 0.45, 6.0, 18.0);
+        assertEquals(100.0 - expectedLoss, runner.roadrunnerMomentum, 0.0001,
+                "Taking damage should cost capped, damage-scaled momentum instead of a flat 38.");
+
+        runner.roadrunnerMomentumGraceTimer = 0;
+        applyPrivateDamage(runner, opponent, 8.0);
+        assertEquals(RoadrunnerSpecials.MOMENTUM_HIT_GRACE_FRAMES,
+                runner.roadrunnerMomentumGraceTimer,
+                "Landing a hit should preserve Roadrunner's remaining flow.");
+    }
+
+    @Test
     void roadrunnerSideRicochetUsesInvisibleReuseAndHitsFast() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
