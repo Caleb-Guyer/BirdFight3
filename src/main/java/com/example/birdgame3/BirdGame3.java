@@ -4378,6 +4378,17 @@ public class BirdGame3 extends Application {
     private boolean trainingAcademySideSpecialSeen = false;
     private boolean trainingAcademyUpSpecialSeen = false;
     private boolean trainingAcademyDownSpecialSeen = false;
+    private boolean trainingAcademyPigeonBurstHitSeen = false;
+    private boolean trainingAcademyPigeonRushHitSeen = false;
+    private boolean trainingAcademyPigeonFlutterHitSeen = false;
+    private boolean trainingAcademyPigeonDropPeckHitSeen = false;
+    private boolean trainingAcademyEagleCryHitSeen = false;
+    private boolean trainingAcademyEagleRushHitSeen = false;
+    private boolean trainingAcademyEagleClimbHitSeen = false;
+    private boolean trainingAcademyEagleDiveHitSeen = false;
+    private boolean trainingAcademyGooseNestPlacedSeen = false;
+    private boolean trainingAcademyGooseTerritoryReadySeen = false;
+    private boolean trainingAcademyGooseChargedHonkHitSeen = false;
     private boolean trainingAcademyTitmouseMarkedSeen = false;
     private boolean trainingAcademyTitmouseMarkedFollowupSeen = false;
     private boolean trainingAcademyTitmouseStashPlacedSeen = false;
@@ -9929,6 +9940,33 @@ public class BirdGame3 extends Application {
                 "Watch the Live Special panel while you hold no direction, left/right, jump/up, or block/down.",
                 MapType.BATTLEFIELD,
                 BirdType.EAGLE,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        PIGEON_DRILL(
+                "Pigeon Rooftop Routes",
+                "Land Feather Burst, Street Rush, Fire-Escape Flutter, and an airborne Drop Peck.",
+                "Neutral controls close lanes. Side bursts forward. Up climbs. Use Down while airborne to peck below.",
+                MapType.BATTLEFIELD,
+                BirdType.PIGEON,
+                BirdType.EAGLE,
+                TrainingDummyBehavior.IDLE
+        ),
+        EAGLE_DRILL(
+                "Eagle Air Superiority",
+                "Land Eagle Cry, Rush, Sky Climb, and Dive hits.",
+                "Cry controls a cone. Rush takes ground. Climb catches above. Down special rises before the dive.",
+                MapType.BATTLEFIELD,
+                BirdType.EAGLE,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        GOOSE_DRILL(
+                "Goose Territory Claim",
+                "Place Nest Guard, fill Territory, then land a fully charged empowered Honk.",
+                "Down plants the nest and finishes your meter. At full Territory, hold Neutral until the Honk releases itself.",
+                MapType.BATTLEFIELD,
+                BirdType.GOOSE,
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
@@ -32243,6 +32281,9 @@ public class BirdGame3 extends Application {
             return null;
         }
         return switch (type) {
+            case PIGEON -> GuidedTutorialLesson.PIGEON_DRILL;
+            case EAGLE -> GuidedTutorialLesson.EAGLE_DRILL;
+            case GOOSE -> GuidedTutorialLesson.GOOSE_DRILL;
             case TITMOUSE -> GuidedTutorialLesson.TITMOUSE_DRILL;
             case OPIUMBIRD -> GuidedTutorialLesson.OPIUM_DRILL;
             case HEISENBIRD -> GuidedTutorialLesson.HEISEN_DRILL;
@@ -32270,6 +32311,9 @@ public class BirdGame3 extends Application {
             return null;
         }
         return switch (lesson) {
+            case PIGEON_DRILL -> BirdType.PIGEON;
+            case EAGLE_DRILL -> BirdType.EAGLE;
+            case GOOSE_DRILL -> BirdType.GOOSE;
             case TITMOUSE_DRILL -> BirdType.TITMOUSE;
             case OPIUM_DRILL -> BirdType.OPIUMBIRD;
             case HEISEN_DRILL -> BirdType.HEISENBIRD;
@@ -36141,6 +36185,17 @@ public class BirdGame3 extends Application {
     }
 
     private void clearTrainingCharacterDrillProgress() {
+        trainingAcademyPigeonBurstHitSeen = false;
+        trainingAcademyPigeonRushHitSeen = false;
+        trainingAcademyPigeonFlutterHitSeen = false;
+        trainingAcademyPigeonDropPeckHitSeen = false;
+        trainingAcademyEagleCryHitSeen = false;
+        trainingAcademyEagleRushHitSeen = false;
+        trainingAcademyEagleClimbHitSeen = false;
+        trainingAcademyEagleDiveHitSeen = false;
+        trainingAcademyGooseNestPlacedSeen = false;
+        trainingAcademyGooseTerritoryReadySeen = false;
+        trainingAcademyGooseChargedHonkHitSeen = false;
         trainingAcademyTitmouseMarkedSeen = false;
         trainingAcademyTitmouseMarkedFollowupSeen = false;
         trainingAcademyTitmouseStashPlacedSeen = false;
@@ -36325,7 +36380,8 @@ public class BirdGame3 extends Application {
                 setTrainingBirdStandingPosition(player, stageCenter - 160, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 120, groundY);
             }
-            case DIRECTIONAL_SPECIALS, TITMOUSE_DRILL, OPIUM_DRILL, HEISEN_DRILL -> {
+            case DIRECTIONAL_SPECIALS, PIGEON_DRILL, EAGLE_DRILL, GOOSE_DRILL,
+                 TITMOUSE_DRILL, OPIUM_DRILL, HEISEN_DRILL -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
             }
@@ -36377,6 +36433,8 @@ public class BirdGame3 extends Application {
         }
 
         switch (currentGuidedTutorialLesson()) {
+            case GOOSE_DRILL ->
+                    player.gooseTerritoryMeter = Bird.GOOSE_TERRITORY_MAX - 8.0;
             case OPIUM_DRILL, HEISEN_DRILL ->
                     player.opiumResourceMeter = 0.0;
             case VULTURE_DRILL -> {
@@ -36444,6 +36502,47 @@ public class BirdGame3 extends Application {
         }
 
         switch (currentGuidedTutorialLesson()) {
+            case PIGEON_DRILL -> {
+                if (attacker.type == BirdType.PIGEON) {
+                    if (attacker.pigeonFeatherBurstTimer > 0) {
+                        trainingAcademyPigeonBurstHitSeen = true;
+                    }
+                    if (attacker.pigeonRushTimer > 0) {
+                        trainingAcademyPigeonRushHitSeen = true;
+                    }
+                    if (attacker.pigeonFlutterTimer > 0) {
+                        trainingAcademyPigeonFlutterHitSeen = true;
+                    }
+                    if (attacker.pigeonScavengeTimer > 0 && attacker.pigeonScavengeAirborne) {
+                        trainingAcademyPigeonDropPeckHitSeen = true;
+                    }
+                }
+            }
+            case EAGLE_DRILL -> {
+                if (attacker.type == BirdType.EAGLE) {
+                    if (attacker.raptorCryTimer > 0) {
+                        trainingAcademyEagleCryHitSeen = true;
+                    }
+                    if (attacker.raptorRushTimer > 0) {
+                        trainingAcademyEagleRushHitSeen = true;
+                    }
+                    if (attacker.raptorClimbTimer > 0) {
+                        trainingAcademyEagleClimbHitSeen = true;
+                    }
+                    if (isActiveEagleDiveHit(attacker)) {
+                        trainingAcademyEagleDiveHitSeen = true;
+                    }
+                }
+            }
+            case GOOSE_DRILL -> {
+                if (attacker.type == BirdType.GOOSE
+                        && attacker.gooseHonkTimer > 0
+                        && attacker.gooseHonkReleased
+                        && attacker.gooseHonkEmpowered
+                        && attacker.gooseHonkHoldFrames >= Bird.GOOSE_HONK_MAX_HOLD_FRAMES) {
+                    trainingAcademyGooseChargedHonkHitSeen = true;
+                }
+            }
             case TITMOUSE_DRILL -> {
                 if (attacker.type == BirdType.TITMOUSE
                         && target.isTitmouseMarkedBy(attacker)
@@ -36667,6 +36766,12 @@ public class BirdGame3 extends Application {
                 && (attacker.eagleDiveActive || attacker.diveTimer > 0);
     }
 
+    private boolean isActiveEagleDiveHit(Bird attacker) {
+        return attacker != null
+                && attacker.type == BirdType.EAGLE
+                && (attacker.eagleDiveActive || attacker.diveTimer > 0);
+    }
+
     private boolean isActiveHummingbirdNeedleFinisher(Bird attacker) {
         if (attacker == null || attacker.type != BirdType.HUMMINGBIRD || attacker.hummingNeedleHitTimer <= 0) {
             return false;
@@ -36856,6 +36961,25 @@ public class BirdGame3 extends Application {
                     queueTrainingAcademyCompletion("Specials cleared");
                 }
             }
+            case PIGEON_DRILL -> {
+                if (hasCompletedPigeonTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.PIGEON);
+                    queueTrainingAcademyCompletion("Pigeon routes cleared");
+                }
+            }
+            case EAGLE_DRILL -> {
+                if (hasCompletedEagleTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.EAGLE);
+                    queueTrainingAcademyCompletion("Eagle air control cleared");
+                }
+            }
+            case GOOSE_DRILL -> {
+                updateGooseTrainingDrill(player);
+                if (hasCompletedGooseTrainingDrill()) {
+                    markTrainingAcademyDrillCompleted(BirdType.GOOSE);
+                    queueTrainingAcademyCompletion("Goose territory cleared");
+                }
+            }
             case TITMOUSE_DRILL -> {
                 updateTitmouseTrainingDrill(player, dummy);
                 if (hasCompletedTitmouseTrainingDrill()) {
@@ -37023,6 +37147,41 @@ public class BirdGame3 extends Application {
                 && trainingAcademySideSpecialSeen
                 && trainingAcademyUpSpecialSeen
                 && trainingAcademyDownSpecialSeen;
+    }
+
+    private boolean hasCompletedPigeonTrainingDrill() {
+        return trainingAcademyPigeonBurstHitSeen
+                && trainingAcademyPigeonRushHitSeen
+                && trainingAcademyPigeonFlutterHitSeen
+                && trainingAcademyPigeonDropPeckHitSeen;
+    }
+
+    private boolean hasCompletedEagleTrainingDrill() {
+        return trainingAcademyEagleCryHitSeen
+                && trainingAcademyEagleRushHitSeen
+                && trainingAcademyEagleClimbHitSeen
+                && trainingAcademyEagleDiveHitSeen;
+    }
+
+    private void updateGooseTrainingDrill(Bird player) {
+        if (player == null || player.type != BirdType.GOOSE) {
+            return;
+        }
+        if (player.gooseNest != null && player.gooseNest.lifeFrames > 0) {
+            if (!trainingAcademyGooseNestPlacedSeen) {
+                player.gooseTerritoryMeter = Bird.GOOSE_TERRITORY_MAX;
+            }
+            trainingAcademyGooseNestPlacedSeen = true;
+        }
+        if (player.gooseTerritoryMeter >= Bird.GOOSE_TERRITORY_MAX - 0.001) {
+            trainingAcademyGooseTerritoryReadySeen = true;
+        }
+    }
+
+    private boolean hasCompletedGooseTrainingDrill() {
+        return trainingAcademyGooseNestPlacedSeen
+                && trainingAcademyGooseTerritoryReadySeen
+                && trainingAcademyGooseChargedHonkHitSeen;
     }
 
     private void updateTitmouseTrainingDrill(Bird player, Bird dummy) {
@@ -40956,6 +41115,9 @@ public class BirdGame3 extends Application {
         }
         if (trainingAcademyMode == TrainingAcademyMode.GUIDED_TUTORIAL) {
             return switch (currentGuidedTutorialLesson()) {
+                case PIGEON_DRILL -> trainingPigeonDrillProgressText();
+                case EAGLE_DRILL -> trainingEagleDrillProgressText();
+                case GOOSE_DRILL -> trainingGooseDrillProgressText(player);
                 case TITMOUSE_DRILL -> trainingTitmouseDrillProgressText();
                 case OPIUM_DRILL -> trainingOpiumDrillProgressText();
                 case HEISEN_DRILL -> trainingHeisenDrillProgressText();
@@ -41018,6 +41180,57 @@ public class BirdGame3 extends Application {
             }
         }
         return "Academy goal: use every direction. Progress: " + completed + "/4. Next: " + next + ".";
+    }
+
+    private String trainingPigeonDrillProgressText() {
+        if (!trainingAcademyPigeonBurstHitSeen) {
+            return "Academy goal: land NEUTRAL Feather Burst on the dummy.";
+        }
+        if (!trainingAcademyPigeonRushHitSeen) {
+            return "Burst hit done. Land SIDE Street Rush.";
+        }
+        if (!trainingAcademyPigeonFlutterHitSeen) {
+            return "Rush hit done. Land UP Fire-Escape Flutter.";
+        }
+        if (!trainingAcademyPigeonDropPeckHitSeen) {
+            return "Flutter hit done. While airborne, use DOWN Drop Peck and connect below.";
+        }
+        return "Pigeon rooftop route complete.";
+    }
+
+    private String trainingEagleDrillProgressText() {
+        if (!trainingAcademyEagleCryHitSeen) {
+            return "Academy goal: land NEUTRAL Eagle Cry on the dummy.";
+        }
+        if (!trainingAcademyEagleRushHitSeen) {
+            return "Cry hit done. Land SIDE Eagle Rush.";
+        }
+        if (!trainingAcademyEagleClimbHitSeen) {
+            return "Rush hit done. Land UP Sky Climb.";
+        }
+        if (!trainingAcademyEagleDiveHitSeen) {
+            return "Climb hit done. Use DOWN Dive and connect on the descent or ascent.";
+        }
+        return "Eagle air superiority complete.";
+    }
+
+    private String trainingGooseDrillProgressText(Bird player) {
+        int territoryPercent = player == null
+                ? 0
+                : (int) Math.round(Math.clamp(
+                        player.gooseTerritoryMeter / Bird.GOOSE_TERRITORY_MAX, 0.0, 1.0) * 100.0);
+        if (!trainingAcademyGooseNestPlacedSeen) {
+            return "Academy goal: use DOWN special to plant Nest Guard. Territory: "
+                    + territoryPercent + "%.";
+        }
+        if (!trainingAcademyGooseTerritoryReadySeen) {
+            return "Nest planted. Hold center near it until TERRITORY reaches 100%. Current: "
+                    + territoryPercent + "%.";
+        }
+        if (!trainingAcademyGooseChargedHonkHitSeen) {
+            return "Territory ready. Hold NEUTRAL until the empowered Honk releases, aimed at the dummy.";
+        }
+        return "Goose territory claim complete.";
     }
 
     private String trainingTitmouseDrillProgressText() {
@@ -41413,6 +41626,17 @@ public class BirdGame3 extends Application {
                         + "  Side: " + yesNoText(trainingAcademySideSpecialSeen)
                         + "  Up: " + yesNoText(trainingAcademyUpSpecialSeen)
                         + "  Down: " + yesNoText(trainingAcademyDownSpecialSeen);
+                case PIGEON_DRILL -> "Burst: " + yesNoText(trainingAcademyPigeonBurstHitSeen)
+                        + "  Rush: " + yesNoText(trainingAcademyPigeonRushHitSeen)
+                        + "  Flutter: " + yesNoText(trainingAcademyPigeonFlutterHitSeen)
+                        + "  Drop Peck: " + yesNoText(trainingAcademyPigeonDropPeckHitSeen);
+                case EAGLE_DRILL -> "Cry: " + yesNoText(trainingAcademyEagleCryHitSeen)
+                        + "  Rush: " + yesNoText(trainingAcademyEagleRushHitSeen)
+                        + "  Climb: " + yesNoText(trainingAcademyEagleClimbHitSeen)
+                        + "  Dive: " + yesNoText(trainingAcademyEagleDiveHitSeen);
+                case GOOSE_DRILL -> "Nest: " + yesNoText(trainingAcademyGooseNestPlacedSeen)
+                        + "  Territory: " + yesNoText(trainingAcademyGooseTerritoryReadySeen)
+                        + "  Charged Honk: " + yesNoText(trainingAcademyGooseChargedHonkHitSeen);
                 case TITMOUSE_DRILL -> "Mark: " + yesNoText(trainingAcademyTitmouseMarkedSeen)
                         + "  Route hit: " + yesNoText(trainingAcademyTitmouseMarkedFollowupSeen)
                         + "  Stash: " + yesNoText(trainingAcademyTitmouseStashPlacedSeen)

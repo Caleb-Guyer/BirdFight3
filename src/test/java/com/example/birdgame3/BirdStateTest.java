@@ -5375,6 +5375,122 @@ class BirdStateTest {
     }
 
     @Test
+    void academyProvidesDedicatedDrillForEveryBird() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Class<?> lessonClass = Class.forName("com.example.birdgame3.BirdGame3$GuidedTutorialLesson");
+        Method drillForBird = BirdGame3.class.getDeclaredMethod(
+                "trainingAcademyDrillLessonFor", BirdGame3.BirdType.class);
+        Method birdForDrill = BirdGame3.class.getDeclaredMethod(
+                "trainingAcademyDrillBirdFor", lessonClass);
+        drillForBird.setAccessible(true);
+        birdForDrill.setAccessible(true);
+
+        for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
+            Object lesson = drillForBird.invoke(game, type);
+            assertNotNull(lesson, type + " should have a dedicated Academy drill");
+            assertEquals(type, birdForDrill.invoke(game, lesson),
+                    type + " drill should map back to its roster bird");
+        }
+    }
+
+    @Test
+    void pigeonAcademyDrillTracksEveryRooftopRouteHit() throws Exception {
+        BirdGame3 game = guidedAcademyGame("PIGEON_DRILL");
+        Bird pigeon = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird dummy = new Bird(220.0, BirdGame3.BirdType.EAGLE, 1, game);
+        Method recordHit = BirdGame3.class.getDeclaredMethod(
+                "recordTrainingCharacterDrillHit", Bird.class, Bird.class);
+        recordHit.setAccessible(true);
+
+        pigeon.pigeonFeatherBurstTimer = 1;
+        recordHit.invoke(game, pigeon, dummy);
+        pigeon.pigeonFeatherBurstTimer = 0;
+        pigeon.pigeonRushTimer = 1;
+        recordHit.invoke(game, pigeon, dummy);
+        pigeon.pigeonRushTimer = 0;
+        pigeon.pigeonFlutterTimer = 1;
+        recordHit.invoke(game, pigeon, dummy);
+        pigeon.pigeonFlutterTimer = 0;
+        pigeon.pigeonScavengeTimer = 1;
+        pigeon.pigeonScavengeAirborne = true;
+        recordHit.invoke(game, pigeon, dummy);
+
+        assertTrue(getPrivateBoolean(game, "trainingAcademyPigeonBurstHitSeen"));
+        assertTrue(getPrivateBoolean(game, "trainingAcademyPigeonRushHitSeen"));
+        assertTrue(getPrivateBoolean(game, "trainingAcademyPigeonFlutterHitSeen"));
+        assertTrue(getPrivateBoolean(game, "trainingAcademyPigeonDropPeckHitSeen"));
+        assertTrue(invokePrivateBoolean(game, "hasCompletedPigeonTrainingDrill"));
+    }
+
+    @Test
+    void eagleAcademyDrillTracksEveryAirControlHit() throws Exception {
+        BirdGame3 game = guidedAcademyGame("EAGLE_DRILL");
+        Bird eagle = new Bird(100.0, BirdGame3.BirdType.EAGLE, 0, game);
+        Bird dummy = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Method recordHit = BirdGame3.class.getDeclaredMethod(
+                "recordTrainingCharacterDrillHit", Bird.class, Bird.class);
+        recordHit.setAccessible(true);
+
+        eagle.raptorCryTimer = 1;
+        recordHit.invoke(game, eagle, dummy);
+        eagle.raptorCryTimer = 0;
+        eagle.raptorRushTimer = 1;
+        recordHit.invoke(game, eagle, dummy);
+        eagle.raptorRushTimer = 0;
+        eagle.raptorClimbTimer = 1;
+        recordHit.invoke(game, eagle, dummy);
+        eagle.raptorClimbTimer = 0;
+        eagle.eagleDiveActive = true;
+        recordHit.invoke(game, eagle, dummy);
+
+        assertTrue(getPrivateBoolean(game, "trainingAcademyEagleCryHitSeen"));
+        assertTrue(getPrivateBoolean(game, "trainingAcademyEagleRushHitSeen"));
+        assertTrue(getPrivateBoolean(game, "trainingAcademyEagleClimbHitSeen"));
+        assertTrue(getPrivateBoolean(game, "trainingAcademyEagleDiveHitSeen"));
+        assertTrue(invokePrivateBoolean(game, "hasCompletedEagleTrainingDrill"));
+    }
+
+    @Test
+    void gooseAcademyDrillTeachesNestTerritoryAndChargedHonk() throws Exception {
+        BirdGame3 game = guidedAcademyGame("GOOSE_DRILL");
+        Bird goose = new Bird(100.0, BirdGame3.BirdType.GOOSE, 0, game);
+        Bird dummy = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+
+        Method prepare = BirdGame3.class.getDeclaredMethod(
+                "prepareGuidedTutorialLessonResources", Bird.class);
+        prepare.setAccessible(true);
+        prepare.invoke(game, goose);
+        assertEquals(Bird.GOOSE_TERRITORY_MAX - 8.0, goose.gooseTerritoryMeter, 0.0001);
+
+        goose.gooseNest = new GooseSpecials.GooseNest(goose.bodyCenterX(), goose.bodyBottomY(), false);
+        goose.gooseTerritoryMeter = 18.0;
+        Method update = BirdGame3.class.getDeclaredMethod("updateGooseTrainingDrill", Bird.class);
+        update.setAccessible(true);
+        update.invoke(game, goose);
+        assertEquals(Bird.GOOSE_TERRITORY_MAX, goose.gooseTerritoryMeter, 0.0001,
+                "Planting the lesson nest should finish the setup meter");
+
+        goose.gooseHonkTimer = 1;
+        goose.gooseHonkReleased = true;
+        goose.gooseHonkEmpowered = true;
+        Method recordHit = BirdGame3.class.getDeclaredMethod(
+                "recordTrainingCharacterDrillHit", Bird.class, Bird.class);
+        recordHit.setAccessible(true);
+        goose.gooseHonkHoldFrames = Bird.GOOSE_HONK_MAX_HOLD_FRAMES - 1;
+        recordHit.invoke(game, goose, dummy);
+        assertFalse(getPrivateBoolean(game, "trainingAcademyGooseChargedHonkHitSeen"),
+                "A partially charged Honk should not clear the final goal");
+
+        goose.gooseHonkHoldFrames = Bird.GOOSE_HONK_MAX_HOLD_FRAMES;
+        recordHit.invoke(game, goose, dummy);
+
+        assertTrue(getPrivateBoolean(game, "trainingAcademyGooseNestPlacedSeen"));
+        assertTrue(getPrivateBoolean(game, "trainingAcademyGooseTerritoryReadySeen"));
+        assertTrue(getPrivateBoolean(game, "trainingAcademyGooseChargedHonkHitSeen"));
+        assertTrue(invokePrivateBoolean(game, "hasCompletedGooseTrainingDrill"));
+    }
+
+    @Test
     void academyTrainingRosterUsesGuidedLessonBirds() throws Exception {
         BirdGame3 game = new BirdGame3();
 
@@ -5956,6 +6072,22 @@ class BirdStateTest {
         Method method = target.getClass().getDeclaredMethod(methodName);
         method.setAccessible(true);
         return method.invoke(target);
+    }
+
+    private static boolean invokePrivateBoolean(Object target, String methodName) throws Exception {
+        Method method = target.getClass().getDeclaredMethod(methodName);
+        method.setAccessible(true);
+        return (boolean) method.invoke(target);
+    }
+
+    private static BirdGame3 guidedAcademyGame(String lessonName) throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.trainingModeActive = true;
+        Class<?> academyModeClass = Class.forName("com.example.birdgame3.BirdGame3$TrainingAcademyMode");
+        Class<?> lessonClass = Class.forName("com.example.birdgame3.BirdGame3$GuidedTutorialLesson");
+        setPrivateObject(game, "trainingAcademyMode", enumConstant(academyModeClass, "GUIDED_TUTORIAL"));
+        setPrivateObject(game, "guidedTutorialLesson", enumConstant(lessonClass, lessonName));
+        return game;
     }
 
     private static void invokePrivateBooleanVoid(Object target, String methodName, boolean value) throws Exception {
