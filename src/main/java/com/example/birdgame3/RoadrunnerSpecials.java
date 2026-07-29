@@ -329,14 +329,14 @@ final class RoadrunnerSpecials {
     static void emitBurstDust(Bird bird, double centerX, double centerY, int dir, int baseCount, Color color) {
         int particleCount = bird.scaledParticleCount(baseCount);
         for (int i = 0; i < particleCount; i++) {
-            double side = (SimRng.next() - 0.5) * 2.0;
-            double speed = 2.0 + SimRng.next() * 7.5;
+            double side = (bird.game.nextParticleRandom() - 0.5) * 2.0;
+            double speed = 2.0 + bird.game.nextParticleRandom() * 7.5;
             bird.game.particles.add(new Particle(
                     centerX + side * 22.0 * bird.sizeMultiplier,
-                    centerY + (SimRng.next() - 0.5) * 15.0 * bird.sizeMultiplier,
-                    -dir * (1.0 + SimRng.next() * 2.0) + side * 0.8,
-                    -1.2 - SimRng.next() * speed * 0.38,
-                    color.deriveColor(0, 1, 1, 0.62 + SimRng.next() * 0.18)
+                    centerY + (bird.game.nextParticleRandom() - 0.5) * 15.0 * bird.sizeMultiplier,
+                    -dir * (1.0 + bird.game.nextParticleRandom() * 2.0) + side * 0.8,
+                    -1.2 - bird.game.nextParticleRandom() * speed * 0.38,
+                    color.deriveColor(0, 1, 1, 0.62 + bird.game.nextParticleRandom() * 0.18)
             ));
         }
     }
@@ -352,12 +352,12 @@ final class RoadrunnerSpecials {
         double intensity = Math.clamp(bird.roadrunnerSandstormTimer / (double) Bird.ROADRUNNER_SANDSTORM_FRAMES, 0.32, 1.0);
         int particleCount = Math.max(3, bird.scaledParticleCount(5));
         for (int i = 0; i < particleCount; i++) {
-            double angle = bird.random.nextDouble() * Math.PI * 2;
-            double ring = 20.0 + bird.random.nextDouble() * (105.0 + intensity * 90.0);
-            double swirl = 2.6 + bird.random.nextDouble() * 5.5 + intensity * 1.2;
-            Color sand = bird.random.nextDouble() < 0.72 ? Color.web("#E8C06A") : Color.web("#C68A3A");
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2;
+            double ring = 20.0 + bird.game.nextParticleRandom() * (105.0 + intensity * 90.0);
+            double swirl = 2.6 + bird.game.nextParticleRandom() * 5.5 + intensity * 1.2;
+            Color sand = bird.game.nextParticleRandom() < 0.72 ? Color.web("#E8C06A") : Color.web("#C68A3A");
             if (bird.isMirageSkin) {
-                sand = bird.random.nextDouble() < 0.72 ? Color.web("#DFFBFF") : Color.web("#80DEEA");
+                sand = bird.game.nextParticleRandom() < 0.72 ? Color.web("#DFFBFF") : Color.web("#80DEEA");
             }
             bird.game.particles.add(new Particle(
                     centerX + Math.cos(angle) * ring * 0.32,
@@ -421,12 +421,12 @@ final class RoadrunnerSpecials {
 
         int particleCount = bird.scaledParticleCount(openingBurst ? 180 : 72);
         for (int i = 0; i < particleCount; i++) {
-            double angle = bird.random.nextDouble() * Math.PI * 2;
-            double ring = 36.0 + bird.random.nextDouble() * radius;
-            double tangential = (3.5 + bird.random.nextDouble() * 8.0) * (bird.facingRight ? 1.0 : -1.0);
-            Color sand = bird.random.nextDouble() < 0.72 ? Color.web("#E6C46F") : Color.web("#BA7B31");
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2;
+            double ring = 36.0 + bird.game.nextParticleRandom() * radius;
+            double tangential = (3.5 + bird.game.nextParticleRandom() * 8.0) * (bird.facingRight ? 1.0 : -1.0);
+            Color sand = bird.game.nextParticleRandom() < 0.72 ? Color.web("#E6C46F") : Color.web("#BA7B31");
             if (bird.isMirageSkin) {
-                sand = bird.random.nextDouble() < 0.72 ? Color.web("#DFFBFF") : Color.web("#80DEEA");
+                sand = bird.game.nextParticleRandom() < 0.72 ? Color.web("#DFFBFF") : Color.web("#80DEEA");
             }
             bird.game.particles.add(new Particle(
                     centerX + Math.cos(angle) * ring * 0.24,
@@ -916,10 +916,10 @@ final class RoadrunnerSpecials {
         double centerY = bird.bodyCenterY();
         for (int i = 0; i < bird.scaledParticleCount(bird.roadrunnerDustDevilUltimate ? 7 : 5); i++) {
             double spin = (bird.roadrunnerDustDevilTimer * 0.38 + i * 1.55);
-            double radius = (18.0 + i * 9.0 + bird.random.nextDouble() * 14.0) * bird.sizeMultiplier;
-            double liftBand = Math.min(96.0, i * 15.0 + bird.random.nextDouble() * 22.0) * bird.sizeMultiplier;
+            double radius = (18.0 + i * 9.0 + bird.game.nextParticleRandom() * 14.0) * bird.sizeMultiplier;
+            double liftBand = Math.min(96.0, i * 15.0 + bird.game.nextParticleRandom() * 22.0) * bird.sizeMultiplier;
             Color sand = sandColor(bird, bird.roadrunnerDustDevilUltimate)
-                    .deriveColor(0, 1, 1, 0.44 + SimRng.next() * 0.20);
+                    .deriveColor(0, 1, 1, 0.44 + bird.game.nextParticleRandom() * 0.20);
             bird.game.particles.add(new Particle(
                     centerX + Math.cos(spin) * radius * 0.7,
                     bird.bodyBottomY() - 12.0 * bird.sizeMultiplier - liftBand + Math.sin(spin * 1.2) * 4.0,
@@ -1078,8 +1078,8 @@ final class RoadrunnerSpecials {
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() - bird.roadrunnerSlipDirection * 22.0 * bird.sizeMultiplier,
                     bird.bodyBottomY() - 7.0 * bird.sizeMultiplier,
-                    -bird.roadrunnerSlipDirection * (1.4 + SimRng.next() * 2.0),
-                    -0.8 - SimRng.next() * 1.8,
+                    -bird.roadrunnerSlipDirection * (1.4 + bird.game.nextParticleRandom() * 2.0),
+                    -0.8 - bird.game.nextParticleRandom() * 1.8,
                     trailColor(bird, bird.roadrunnerSlipUltimate).deriveColor(0, 1, 1, 0.62)
             ));
         }

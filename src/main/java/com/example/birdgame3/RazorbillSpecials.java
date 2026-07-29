@@ -197,11 +197,11 @@ final class RazorbillSpecials {
     static void emitSlashTrail(Bird bird, double x1, double y1, double x2, double y2, int count, Color color) {
         int particles = bird.scaledParticleCount(count);
         for (int i = 0; i < particles; i++) {
-            double t = SimRng.next();
+            double t = bird.game.nextParticleRandom();
             double px = x1 + (x2 - x1) * t;
             double py = y1 + (y2 - y1) * t;
-            double angle = Math.atan2(y2 - y1, x2 - x1) + Math.PI * 0.5 + (SimRng.next() - 0.5) * 0.75;
-            double speed = 2.5 + SimRng.next() * 6.5;
+            double angle = Math.atan2(y2 - y1, x2 - x1) + Math.PI * 0.5 + (bird.game.nextParticleRandom() - 0.5) * 0.75;
+            double speed = 2.5 + bird.game.nextParticleRandom() * 6.5;
             bird.game.particles.add(new Particle(
                     px,
                     py,
@@ -216,11 +216,11 @@ final class RazorbillSpecials {
         double baseAngle = dir == 0.0 ? 0.0 : (dir > 0.0 ? 0.0 : Math.PI);
         int particles = bird.scaledParticleCount(count);
         for (int i = 0; i < particles; i++) {
-            double angle = baseAngle + (SimRng.next() - 0.5) * 1.7;
-            double speed = 4.5 + SimRng.next() * 9.5;
+            double angle = baseAngle + (bird.game.nextParticleRandom() - 0.5) * 1.7;
+            double speed = 4.5 + bird.game.nextParticleRandom() * 9.5;
             bird.game.particles.add(new Particle(
-                    cx + (SimRng.next() - 0.5) * 18.0,
-                    cy + (SimRng.next() - 0.5) * 18.0,
+                    cx + (bird.game.nextParticleRandom() - 0.5) * 18.0,
+                    cy + (bird.game.nextParticleRandom() - 0.5) * 18.0,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 2.5,
                     color.deriveColor(0, 1, 1, 0.82)
@@ -348,9 +348,9 @@ final class RazorbillSpecials {
 
         int particles = bird.scaledParticleCount(48);
         for (int i = 0; i < particles; i++) {
-            double angle = SimRng.next() * Math.PI * 2.0;
-            double radius = 18.0 + SimRng.next() * 58.0;
-            double speed = 1.8 + SimRng.next() * 5.4;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+            double radius = 18.0 + bird.game.nextParticleRandom() * 58.0;
+            double speed = 1.8 + bird.game.nextParticleRandom() * 5.4;
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() + Math.cos(angle) * radius,
                     bird.bodyCenterY() + Math.sin(angle) * radius * 0.45,
@@ -532,10 +532,10 @@ final class RazorbillSpecials {
         }
         if (bird.razorbillGuillotineWakeTimer % 9 == 0) {
             emitSlashTrail(bird,
-                    left + SimRng.next() * Math.max(1.0, right - left),
+                    left + bird.game.nextParticleRandom() * Math.max(1.0, right - left),
                     wakeY + 2.0 * bird.sizeMultiplier,
-                    left + SimRng.next() * Math.max(1.0, right - left),
-                    wakeY - (18.0 + SimRng.next() * 34.0) * bird.sizeMultiplier,
+                    left + bird.game.nextParticleRandom() * Math.max(1.0, right - left),
+                    wakeY - (18.0 + bird.game.nextParticleRandom() * 34.0) * bird.sizeMultiplier,
                     4,
                     Color.web("#31D9FF"));
         }
@@ -586,13 +586,13 @@ final class RazorbillSpecials {
     private static void emitGuillotineRiftParticles(Bird bird, int count, Color color) {
         int particles = bird.scaledParticleCount(count);
         for (int i = 0; i < particles; i++) {
-            double angle = SimRng.next() * Math.PI * 2.0;
-            double radius = 30.0 + SimRng.next() * 92.0;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+            double radius = 30.0 + bird.game.nextParticleRandom() * 92.0;
             bird.game.particles.add(new Particle(
                     bird.razorbillGuillotineTargetX + Math.cos(angle) * radius,
                     bird.razorbillGuillotineTargetY + Math.sin(angle) * radius * 0.45,
-                    -Math.cos(angle) * (1.8 + SimRng.next() * 3.2),
-                    -Math.sin(angle) * (1.2 + SimRng.next() * 2.4) - 1.0,
+                    -Math.cos(angle) * (1.8 + bird.game.nextParticleRandom() * 3.2),
+                    -Math.sin(angle) * (1.2 + bird.game.nextParticleRandom() * 2.4) - 1.0,
                     color
             ));
         }
@@ -681,12 +681,12 @@ final class RazorbillSpecials {
                 double angle = (bird.razorbillStormHoldFrames * 0.56) % (Math.PI * 2.0);
                 for (int i = 0; i < (bird.razorbillStormUltimate ? 4 : 3); i++) {
                     double a = angle + i * Math.PI * 2.0 / (bird.razorbillStormUltimate ? 4 : 3);
-                    double orbit = (34.0 + SimRng.next() * 42.0) * bird.sizeMultiplier;
+                    double orbit = (34.0 + bird.game.nextParticleRandom() * 42.0) * bird.sizeMultiplier;
                     bird.game.particles.add(new Particle(
                             bird.bodyCenterX() + Math.cos(a) * orbit,
                             bird.bodyCenterY() + Math.sin(a) * orbit * 0.72,
-                            -Math.sin(a) * (3.0 + SimRng.next() * 3.2),
-                            Math.cos(a) * (2.2 + SimRng.next() * 2.6) - 2.0,
+                            -Math.sin(a) * (3.0 + bird.game.nextParticleRandom() * 3.2),
+                            Math.cos(a) * (2.2 + bird.game.nextParticleRandom() * 2.6) - 2.0,
                             slash.deriveColor(0, 1, 1, 0.82)
                     ));
                 }
@@ -698,13 +698,13 @@ final class RazorbillSpecials {
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 3);
         if (bird.razorbillStormTimer % 2 == 0) {
             Color slash = bird.razorbillStormUltimate ? Color.GOLD.brighter() : Color.web("#ECEFF1");
-            double angle = SimRng.next() * Math.PI * 2.0;
-            double distance = (46.0 + SimRng.next() * 46.0) * bird.sizeMultiplier;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+            double distance = (46.0 + bird.game.nextParticleRandom() * 46.0) * bird.sizeMultiplier;
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() + Math.cos(angle) * distance,
                     bird.bodyCenterY() + Math.sin(angle) * distance * 0.72,
-                    Math.cos(angle) * (2.6 + SimRng.next() * 3.8),
-                    Math.sin(angle) * (1.9 + SimRng.next() * 2.8) - 1.0,
+                    Math.cos(angle) * (2.6 + bird.game.nextParticleRandom() * 3.8),
+                    Math.sin(angle) * (1.9 + bird.game.nextParticleRandom() * 2.8) - 1.0,
                     slash.deriveColor(0, 1, 1, 0.78)
             ));
         }
@@ -759,8 +759,8 @@ final class RazorbillSpecials {
         double spin = bird.razorbillStormHoldFrames * 0.13;
         for (int i = 0; i < bladeCount; i++) {
             double angle = spin + i * Math.PI * 2.0 / bladeCount;
-            double inner = (20.0 + SimRng.next() * 10.0) * bird.sizeMultiplier;
-            double outer = radius * (0.72 + SimRng.next() * 0.22);
+            double inner = (20.0 + bird.game.nextParticleRandom() * 10.0) * bird.sizeMultiplier;
+            double outer = radius * (0.72 + bird.game.nextParticleRandom() * 0.22);
             emitSlashTrail(
                     bird,
                     centerX + Math.cos(angle) * inner,
@@ -832,11 +832,11 @@ final class RazorbillSpecials {
 
         if (bird.bladeStormFrames % 3 == 0) {
             for (int i = 0; i < 6; i++) {
-                double angle = Math.atan2(dirY, dirX) + Math.PI + (SimRng.next() - 0.5) * 0.9;
-                double speed = 4 + SimRng.next() * 6;
+                double angle = Math.atan2(dirY, dirX) + Math.PI + (bird.game.nextParticleRandom() - 0.5) * 0.9;
+                double speed = 4 + bird.game.nextParticleRandom() * 6;
                 bird.game.particles.add(new Particle(
-                        bird.x + 40 + (SimRng.next() - 0.5) * 16,
-                        bird.y + 40 + (SimRng.next() - 0.5) * 16,
+                        bird.x + 40 + (bird.game.nextParticleRandom() - 0.5) * 16,
+                        bird.y + 40 + (bird.game.nextParticleRandom() - 0.5) * 16,
                         Math.cos(angle) * speed,
                         Math.sin(angle) * speed,
                         Color.WHITE.deriveColor(0, 1, 1, 0.9)

@@ -2,6 +2,9 @@ package com.example.birdgame3;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.UUID;
+import java.util.prefs.Preferences;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -43,5 +46,18 @@ class MatchReplayTest {
     @Test
     void maxFramesIsTenMinutesAtSixtyTicks() {
         assertEquals(60 * 60 * 10, MatchReplay.MAX_FRAMES);
+    }
+
+    @Test
+    void playbackGuardRejectsLegacySimulationRevision() {
+        BirdGame3 game = new BirdGame3(Preferences.userRoot().node(
+                "/birdfight3-tests/replay-compatibility/" + UUID.randomUUID()));
+        MatchReplay legacy = new MatchReplay(42L, 2, 1);
+        legacy.frames.add(new int[]{0, 0});
+        MatchReplay current = new MatchReplay(42L, 2);
+        current.frames.add(new int[]{0, 0});
+
+        assertFalse(game.canPlayReplay(legacy));
+        assertTrue(game.canPlayReplay(current));
     }
 }

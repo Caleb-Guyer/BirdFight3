@@ -145,8 +145,8 @@ final class BirdSpecialSystem {
 
         int ultimateBurstParticles = bird.scaledParticleCount(90);
         for (int i = 0; i < ultimateBurstParticles; i++) {
-            double angle = SimRng.next() * Math.PI * 2;
-            double speed = 8 + SimRng.next() * 16;
+            double angle = game.nextParticleRandom() * Math.PI * 2;
+            double speed = 8 + game.nextParticleRandom() * 16;
             game.particles.add(new Particle(
                     bird.x + 40 + Math.cos(angle) * 20,
                     bird.y + 40 + Math.sin(angle) * 20,

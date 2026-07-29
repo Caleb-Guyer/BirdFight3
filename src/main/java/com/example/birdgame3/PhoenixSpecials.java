@@ -273,14 +273,14 @@ final class PhoenixSpecials {
         if (bird.phoenixFireballReuseTimer > 0) bird.phoenixFireballReuseTimer--;
         if (bird.phoenixLavaReuseTimer > 0) bird.phoenixLavaReuseTimer--;
         if ((bird.phoenixRebirthNovaBuffTimer & 7) == 0) {
-            double angle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * 1.7;
-            double radius = (18.0 + SimRng.next() * 38.0) * bird.sizeMultiplier;
-            Color c = SimRng.next() < 0.44 ? Color.web("#FFF8C4") : Color.web("#FF7043");
+            double angle = -Math.PI / 2.0 + (bird.game.nextParticleRandom() - 0.5) * 1.7;
+            double radius = (18.0 + bird.game.nextParticleRandom() * 38.0) * bird.sizeMultiplier;
+            Color c = bird.game.nextParticleRandom() < 0.44 ? Color.web("#FFF8C4") : Color.web("#FF7043");
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + (SimRng.next() - 0.5) * radius,
-                    bird.bodyCenterY() + (SimRng.next() - 0.5) * radius * 0.7,
-                    Math.cos(angle) * (1.2 + SimRng.next() * 2.4),
-                    Math.sin(angle) * (2.8 + SimRng.next() * 4.0),
+                    bird.bodyCenterX() + (bird.game.nextParticleRandom() - 0.5) * radius,
+                    bird.bodyCenterY() + (bird.game.nextParticleRandom() - 0.5) * radius * 0.7,
+                    Math.cos(angle) * (1.2 + bird.game.nextParticleRandom() * 2.4),
+                    Math.sin(angle) * (2.8 + bird.game.nextParticleRandom() * 4.0),
                     c.deriveColor(0, 1, 1, 0.72)
             ));
         }
@@ -293,11 +293,11 @@ final class PhoenixSpecials {
         double charge = Math.clamp(elapsed / (double) Bird.PHOENIX_REBIRTH_NOVA_WINDUP_FRAMES, 0.0, 1.0);
         int count = bird.phoenixRebirthNovaDetonated ? 3 : 3 + (int) Math.round(charge * 3.0);
         for (int i = 0; i < count; i++) {
-            double angle = SimRng.next() * Math.PI * 2.0;
-            double orbit = (42.0 + charge * 152.0 + SimRng.next() * 46.0) * bird.sizeMultiplier;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+            double orbit = (42.0 + charge * 152.0 + bird.game.nextParticleRandom() * 46.0) * bird.sizeMultiplier;
             double inward = bird.phoenixRebirthNovaDetonated ? -1.0 : 1.0;
             Color c = i % 3 == 0 ? Color.web("#FFF8C4")
-                    : (SimRng.next() < 0.5 ? Color.GOLD : Color.web("#FF7043"));
+                    : (bird.game.nextParticleRandom() < 0.5 ? Color.GOLD : Color.web("#FF7043"));
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() + Math.cos(angle) * orbit,
                     bird.bodyCenterY() + Math.sin(angle) * orbit * 0.76,
@@ -359,11 +359,11 @@ final class PhoenixSpecials {
 
         int burstCount = bird.scaledParticleCount(72);
         for (int i = 0; i < burstCount; i++) {
-            double angle = SimRng.next() * Math.PI * 2.0;
-            double speed = 7.0 + SimRng.next() * 17.0;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+            double speed = 7.0 + bird.game.nextParticleRandom() * 17.0;
             Color c = i % 4 == 0 ? Color.WHITE
                     : i % 3 == 0 ? Color.web("#FFF8C4")
-                    : SimRng.next() < 0.55 ? Color.GOLD : Color.web("#FF3D00");
+                    : bird.game.nextParticleRandom() < 0.55 ? Color.GOLD : Color.web("#FF3D00");
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() + Math.cos(angle) * 22.0 * bird.sizeMultiplier,
                     bird.bodyCenterY() + Math.sin(angle) * 22.0 * bird.sizeMultiplier,
@@ -398,17 +398,17 @@ final class PhoenixSpecials {
         double chargeRatio = Math.clamp(bird.phoenixChargeTimer / (double) Bird.PHOENIX_CHARGE_MAX_FRAMES, 0.0, 1.0);
         int emberCount = bird.phoenixChargeUltimate ? 4 : 3;
         for (int i = 0; i < emberCount; i++) {
-            double angle = SimRng.next() * Math.PI * 2;
-            double orbit = (16 + SimRng.next() * 24 + chargeRatio * 34) * bird.sizeMultiplier;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2;
+            double orbit = (16 + bird.game.nextParticleRandom() * 24 + chargeRatio * 34) * bird.sizeMultiplier;
             double lift = 0.5 + chargeRatio * 1.4;
-            Color ember = bird.phoenixChargeUltimate && SimRng.next() < 0.45
+            Color ember = bird.phoenixChargeUltimate && bird.game.nextParticleRandom() < 0.45
                     ? Color.web("#FFF3B0")
-                    : (SimRng.next() < 0.6 ? Color.ORANGERED : Color.GOLD);
+                    : (bird.game.nextParticleRandom() < 0.6 ? Color.ORANGERED : Color.GOLD);
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() + Math.cos(angle) * orbit,
                     bird.bodyCenterY() + Math.sin(angle) * orbit * 0.72,
                     -Math.sin(angle) * (1.2 + chargeRatio * 1.8),
-                    -lift - SimRng.next() * 1.8,
+                    -lift - bird.game.nextParticleRandom() * 1.8,
                     ember.deriveColor(0, 1, 1, 0.82)
             ));
         }
@@ -469,13 +469,13 @@ final class PhoenixSpecials {
             other.vy -= kb * 0.8;
 
             for (int i = 0; i < 10 + chargeLevel * 4; i++) {
-                double angle = SimRng.next() * Math.PI * 2;
-                Color spark = ultimate && SimRng.next() < 0.35 ? Color.web("#FFF3B0") : (SimRng.next() < 0.5 ? Color.ORANGERED : Color.GOLD);
+                double angle = bird.game.nextParticleRandom() * Math.PI * 2;
+                Color spark = ultimate && bird.game.nextParticleRandom() < 0.35 ? Color.web("#FFF3B0") : (bird.game.nextParticleRandom() < 0.5 ? Color.ORANGERED : Color.GOLD);
                 bird.game.particles.add(new Particle(
                         other.bodyCenterX(),
                         other.bodyCenterY(),
-                        Math.cos(angle) * (3 + SimRng.next() * 5) + dx / safeDist * 1.8,
-                        Math.sin(angle) * (3 + SimRng.next() * 5) - 2.6,
+                        Math.cos(angle) * (3 + bird.game.nextParticleRandom() * 5) + dx / safeDist * 1.8,
+                        Math.sin(angle) * (3 + bird.game.nextParticleRandom() * 5) - 2.6,
                         spark.deriveColor(0, 1, 1, 0.9)
                 ));
             }
@@ -483,11 +483,11 @@ final class PhoenixSpecials {
 
         int particleCount = 8 + chargeLevel * 4;
         for (int i = 0; i < particleCount; i++) {
-            double angle = SimRng.next() * Math.PI * 2;
-            double speed = 3.0 + SimRng.next() * 4.5;
-            Color c = ultimate && SimRng.next() < 0.35
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2;
+            double speed = 3.0 + bird.game.nextParticleRandom() * 4.5;
+            Color c = ultimate && bird.game.nextParticleRandom() < 0.35
                     ? Color.web("#FFF3B0")
-                    : (SimRng.next() < 0.5 ? Color.ORANGERED : Color.GOLD);
+                    : (bird.game.nextParticleRandom() < 0.5 ? Color.ORANGERED : Color.GOLD);
             bird.game.particles.add(new Particle(
                     bird.bodyCenterX() + Math.cos(angle) * 20,
                     bird.bodyCenterY() + Math.sin(angle) * 20,
@@ -513,13 +513,13 @@ final class PhoenixSpecials {
         double centerX = bird.bodyCenterX();
         for (int i = 0; i < 12; i++) {
             double side = (i < 6 ? -1.0 : 1.0);
-            double speed = 1.6 + SimRng.next() * 3.2;
+            double speed = 1.6 + bird.game.nextParticleRandom() * 3.2;
             Color spark = i % 3 == 0 ? Color.GOLD : Color.web("#FF7043");
             bird.game.particles.add(new Particle(
-                    centerX + (SimRng.next() - 0.5) * 30.0 * bird.sizeMultiplier,
-                    footY + (SimRng.next() - 0.5) * 8.0 * bird.sizeMultiplier,
-                    side * speed + (SimRng.next() - 0.5) * 0.8,
-                    -1.8 - SimRng.next() * 2.8,
+                    centerX + (bird.game.nextParticleRandom() - 0.5) * 30.0 * bird.sizeMultiplier,
+                    footY + (bird.game.nextParticleRandom() - 0.5) * 8.0 * bird.sizeMultiplier,
+                    side * speed + (bird.game.nextParticleRandom() - 0.5) * 0.8,
+                    -1.8 - bird.game.nextParticleRandom() * 2.8,
                     spark.deriveColor(0, 1, 1, 0.82)
             ));
         }
@@ -545,10 +545,10 @@ final class PhoenixSpecials {
                 Color c = bird.phoenixFireballUltimate ? Color.web("#FFD180") : Color.GOLD;
                 for (int i = 0; i < 3; i++) {
                     bird.game.particles.add(new Particle(
-                            bird.phoenixFireballX - dir * (4.0 + SimRng.next() * 10.0) * bird.sizeMultiplier,
-                            bird.phoenixFireballY + (SimRng.next() - 0.5) * 14.0 * bird.sizeMultiplier,
-                            -dir * (0.6 + SimRng.next() * 1.4),
-                            downwardShot ? 1.1 + SimRng.next() * 1.8 : -2.0 - SimRng.next() * 2.2,
+                            bird.phoenixFireballX - dir * (4.0 + bird.game.nextParticleRandom() * 10.0) * bird.sizeMultiplier,
+                            bird.phoenixFireballY + (bird.game.nextParticleRandom() - 0.5) * 14.0 * bird.sizeMultiplier,
+                            -dir * (0.6 + bird.game.nextParticleRandom() * 1.4),
+                            downwardShot ? 1.1 + bird.game.nextParticleRandom() * 1.8 : -2.0 - bird.game.nextParticleRandom() * 2.2,
                             c.deriveColor(0, 1, 1, 0.82)
                     ));
                 }
@@ -617,16 +617,16 @@ final class PhoenixSpecials {
             double nx = -uy;
             double ny = ux;
             for (int i = 0; i < 5; i++) {
-                double lateral = (SimRng.next() - 0.5) * 22.0;
-                double back = 12.0 + SimRng.next() * 24.0;
+                double lateral = (bird.game.nextParticleRandom() - 0.5) * 22.0;
+                double back = 12.0 + bird.game.nextParticleRandom() * 24.0;
                 Color c = i == 0
                         ? (bird.phoenixFireballUltimate ? Color.web("#FFD180") : Color.GOLD)
                         : (bird.phoenixFireballUltimate ? Color.web("#FF7043") : Color.ORANGE);
                 bird.game.particles.add(new Particle(
                         bird.phoenixFireballX - ux * back + nx * lateral,
                         bird.phoenixFireballY - uy * back + ny * lateral,
-                        (SimRng.next() - 0.5) * 1.4 - bird.phoenixFireballVX * 0.16,
-                        (SimRng.next() - 0.5) * 1.4 - bird.phoenixFireballVY * 0.08 - 1.0,
+                        (bird.game.nextParticleRandom() - 0.5) * 1.4 - bird.phoenixFireballVX * 0.16,
+                        (bird.game.nextParticleRandom() - 0.5) * 1.4 - bird.phoenixFireballVY * 0.08 - 1.0,
                         c.deriveColor(0, 1, 1, 0.86)
                 ));
             }
@@ -661,14 +661,14 @@ final class PhoenixSpecials {
         double fade = Math.clamp(bird.phoenixFireballFizzleTimer / (double) totalFrames, 0.0, 1.0);
         int count = bird.phoenixFireballUltimate ? 5 : 4;
         for (int i = 0; i < count; i++) {
-            double angle = SimRng.next() * Math.PI * 2.0;
-            double speed = 0.8 + SimRng.next() * (2.2 + fade * 1.8);
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+            double speed = 0.8 + bird.game.nextParticleRandom() * (2.2 + fade * 1.8);
             Color c = i == 0
                     ? (bird.phoenixFireballUltimate ? Color.web("#FFD180") : Color.GOLD)
-                    : (SimRng.next() < 0.5 ? Color.web("#FF7043") : Color.web("#4E342E"));
+                    : (bird.game.nextParticleRandom() < 0.5 ? Color.web("#FF7043") : Color.web("#4E342E"));
             bird.game.particles.add(new Particle(
-                    bird.phoenixFireballX + Math.cos(angle) * (5.0 + SimRng.next() * 13.0) * bird.sizeMultiplier,
-                    bird.phoenixFireballY + Math.sin(angle) * (5.0 + SimRng.next() * 13.0) * bird.sizeMultiplier,
+                    bird.phoenixFireballX + Math.cos(angle) * (5.0 + bird.game.nextParticleRandom() * 13.0) * bird.sizeMultiplier,
+                    bird.phoenixFireballY + Math.sin(angle) * (5.0 + bird.game.nextParticleRandom() * 13.0) * bird.sizeMultiplier,
                     Math.cos(angle) * speed + bird.phoenixFireballVX * 0.18,
                     Math.sin(angle) * speed - 1.0 + (1.0 - fade) * 0.8,
                     c.deriveColor(0, 1, 1, 0.34 + fade * 0.52)
@@ -722,15 +722,15 @@ final class PhoenixSpecials {
 
             bird.phoenixSpiralHitCooldown[other.playerIndex] = bird.phoenixSpiralUltimate ? 4 : 5;
             for (int i = 0; i < (bird.phoenixSpiralUltimate ? 10 : 7); i++) {
-                double burstAngle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * 1.25;
-                Color spark = bird.phoenixSpiralUltimate && SimRng.next() < 0.4
+                double burstAngle = -Math.PI / 2.0 + (bird.game.nextParticleRandom() - 0.5) * 1.25;
+                Color spark = bird.phoenixSpiralUltimate && bird.game.nextParticleRandom() < 0.4
                         ? Color.web("#FFD180")
-                        : (SimRng.next() < 0.55 ? Color.GOLD : Color.ORANGERED);
+                        : (bird.game.nextParticleRandom() < 0.55 ? Color.GOLD : Color.ORANGERED);
                 bird.game.particles.add(new Particle(
-                        other.bodyCenterX() + (SimRng.next() - 0.5) * 18.0,
-                        other.bodyCenterY() + (SimRng.next() - 0.5) * 18.0,
-                        Math.cos(burstAngle) * (2.0 + SimRng.next() * 3.0),
-                        Math.sin(burstAngle) * (5.0 + SimRng.next() * 5.0),
+                        other.bodyCenterX() + (bird.game.nextParticleRandom() - 0.5) * 18.0,
+                        other.bodyCenterY() + (bird.game.nextParticleRandom() - 0.5) * 18.0,
+                        Math.cos(burstAngle) * (2.0 + bird.game.nextParticleRandom() * 3.0),
+                        Math.sin(burstAngle) * (5.0 + bird.game.nextParticleRandom() * 5.0),
                         spark.deriveColor(0, 1, 1, 0.88)
                 ));
             }
@@ -750,12 +750,12 @@ final class PhoenixSpecials {
                 ));
             }
         } else {
-            double plumeX = bird.bodyCenterX() + (SimRng.next() - 0.5) * 28.0 * bird.sizeMultiplier;
+            double plumeX = bird.bodyCenterX() + (bird.game.nextParticleRandom() - 0.5) * 28.0 * bird.sizeMultiplier;
             bird.game.particles.add(new Particle(
                     plumeX,
                     bird.bodyBottomY() - 4.0 * bird.sizeMultiplier,
-                    (SimRng.next() - 0.5) * 2.2,
-                    -4.5 - SimRng.next() * 4.5,
+                    (bird.game.nextParticleRandom() - 0.5) * 2.2,
+                    -4.5 - bird.game.nextParticleRandom() * 4.5,
                     bird.phoenixSpiralUltimate ? Color.web("#FFD180") : Color.ORANGERED
             ));
         }
@@ -822,16 +822,16 @@ final class PhoenixSpecials {
             if (bird.phoenixLavaTimer % 2 == 0) {
                 for (int i = 0; i < 7; i++) {
                     double flow = i / 6.0;
-                    double sparkY = bird.phoenixLavaY + length * flow + (SimRng.next() - 0.5) * 18.0;
+                    double sparkY = bird.phoenixLavaY + length * flow + (bird.game.nextParticleRandom() - 0.5) * 18.0;
                     double taper = 1.0 - flow * 0.48;
                     Color spark = i % 3 == 0
                             ? (bird.phoenixLavaUltimate ? Color.web("#FFD180") : Color.GOLD)
                             : (bird.phoenixLavaUltimate ? Color.web("#FF7043") : Color.web("#FF9800"));
                     bird.game.particles.add(new Particle(
-                            bird.phoenixLavaX + (SimRng.next() - 0.5) * width * taper,
+                            bird.phoenixLavaX + (bird.game.nextParticleRandom() - 0.5) * width * taper,
                             sparkY,
-                            (SimRng.next() - 0.5) * (1.4 + flow * 1.8),
-                            -3.0 - SimRng.next() * 2.6 - flow * 1.4,
+                            (bird.game.nextParticleRandom() - 0.5) * (1.4 + flow * 1.8),
+                            -3.0 - bird.game.nextParticleRandom() * 2.6 - flow * 1.4,
                             spark.deriveColor(0, 1, 1, 0.84)
                     ));
                 }
@@ -872,15 +872,15 @@ final class PhoenixSpecials {
             bird.phoenixLavaHitCooldown[other.playerIndex] = true;
 
             for (int i = 0; i < (bird.phoenixLavaUltimate ? 14 : 10); i++) {
-                double sparkX = bird.phoenixLavaX + (SimRng.next() - 0.5) * eruptionRadius * 1.25;
+                double sparkX = bird.phoenixLavaX + (bird.game.nextParticleRandom() - 0.5) * eruptionRadius * 1.25;
                 Color spark = i % 2 == 0
                         ? (bird.phoenixLavaUltimate ? Color.web("#FFD180") : Color.GOLD)
                         : Color.web("#FF7043");
                 bird.game.particles.add(new Particle(
                         sparkX,
-                        bird.phoenixLavaY - SimRng.next() * 26.0 * bird.sizeMultiplier,
-                        (SimRng.next() - 0.5) * (bird.phoenixLavaUltimate ? 3.0 : 2.2),
-                        -5.2 - SimRng.next() * 6.4,
+                        bird.phoenixLavaY - bird.game.nextParticleRandom() * 26.0 * bird.sizeMultiplier,
+                        (bird.game.nextParticleRandom() - 0.5) * (bird.phoenixLavaUltimate ? 3.0 : 2.2),
+                        -5.2 - bird.game.nextParticleRandom() * 6.4,
                         spark.deriveColor(0, 1, 1, 0.86)
                 ));
             }
@@ -888,16 +888,16 @@ final class PhoenixSpecials {
 
         int plumeCount = bird.phoenixLavaUltimate ? 10 : 8;
         for (int i = 0; i < plumeCount; i++) {
-            double offset = (SimRng.next() - 0.5) * eruptionRadius * 1.35;
-            double lift = activeHeight * (0.36 + SimRng.next() * 0.44);
+            double offset = (bird.game.nextParticleRandom() - 0.5) * eruptionRadius * 1.35;
+            double lift = activeHeight * (0.36 + bird.game.nextParticleRandom() * 0.44);
             Color flame = i % 2 == 0
                     ? (bird.phoenixLavaUltimate ? Color.web("#FFD180") : Color.GOLD)
                     : (bird.phoenixLavaUltimate ? Color.web("#FF7043") : Color.web("#FF9800"));
             bird.game.particles.add(new Particle(
                     bird.phoenixLavaX + offset,
-                    bird.phoenixLavaY - SimRng.next() * 12.0 * bird.sizeMultiplier,
-                    offset * 0.018 + (SimRng.next() - 0.5) * 0.9,
-                    -3.6 - SimRng.next() * 4.8 - lift * 0.022,
+                    bird.phoenixLavaY - bird.game.nextParticleRandom() * 12.0 * bird.sizeMultiplier,
+                    offset * 0.018 + (bird.game.nextParticleRandom() - 0.5) * 0.9,
+                    -3.6 - bird.game.nextParticleRandom() * 4.8 - lift * 0.022,
                     flame.deriveColor(0, 1, 1, 0.80)
             ));
         }
@@ -905,9 +905,9 @@ final class PhoenixSpecials {
 
     private static void spawnImpactBurst(Bird bird, double burstX, double burstY, int particleCount, Color core, Color outer) {
         for (int i = 0; i < particleCount; i++) {
-            double angle = SimRng.next() * Math.PI * 2;
-            double speed = 2.4 + SimRng.next() * 5.8;
-            Color c = SimRng.next() < 0.4 ? core : outer;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2;
+            double speed = 2.4 + bird.game.nextParticleRandom() * 5.8;
+            Color c = bird.game.nextParticleRandom() < 0.4 ? core : outer;
             bird.game.particles.add(new Particle(
                     burstX,
                     burstY,

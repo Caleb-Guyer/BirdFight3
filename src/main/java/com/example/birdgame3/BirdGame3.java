@@ -315,6 +315,10 @@ public class BirdGame3 extends Application {
     private final int[] playerTeams = createVersusTeamArray();
     // Shared deterministic simulation stream (see SimRng); reseeded in startMatch.
     final Random random = SimRng.random();
+    // Match-scoped presentation stream. Particle settings/counts may consume any
+    // number of draws without shifting gameplay, replay, or lockstep simulation.
+    private static final long PARTICLE_RNG_SALT = 0x5041525449434C45L;
+    private final Random particleRandom = new Random();
     private final Random renderRandom = new Random();
     // Presentation-only randomness for audio variation; must never touch SimRng.
     private final Random audioRandom = new Random();
@@ -9397,7 +9401,7 @@ public class BirdGame3 extends Application {
         double centerY = owner.y + 40 * owner.sizeMultiplier;
         for (int i = 0; i < 42; i++) {
             double angle = Math.PI * 2 * i / 42.0;
-            double speed = 4 + random.nextDouble() * 9;
+            double speed = 4 + nextParticleRandom() * 9;
             Color c = i % 2 == 0 ? Color.web("#FFCDD2") : Color.web("#80DEEA");
             particles.add(new Particle(
                     centerX,
@@ -9530,7 +9534,7 @@ public class BirdGame3 extends Application {
         double centerY = boss.y + 40 * boss.sizeMultiplier;
         for (int i = 0; i < 72; i++) {
             double angle = Math.PI * 2 * i / 72.0;
-            double speed = 5 + random.nextDouble() * 14;
+            double speed = 5 + nextParticleRandom() * 14;
             Color color = (i % 2 == 0 ? primary : secondary).deriveColor(0, 1, 1, 0.82);
             particles.add(new Particle(
                     centerX,
@@ -10527,6 +10531,22 @@ public class BirdGame3 extends Application {
         return Math.max(minimum, (int) Math.round(requested * scale));
     }
 
+    double nextParticleRandom() {
+        return particleRandom.nextDouble();
+    }
+
+    int nextParticleRandomInt(int bound) {
+        return particleRandom.nextInt(bound);
+    }
+
+    boolean nextParticleRandomBoolean() {
+        return particleRandom.nextBoolean();
+    }
+
+    private void reseedParticleRandom(long matchSeed) {
+        particleRandom.setSeed(matchSeed ^ PARTICLE_RNG_SALT);
+    }
+
     private boolean isLargeFightLoad() {
         return activePlayers >= 8
                 || crowMinions.size() + chickMinions.size() + mockingbirdShadowMinions.size() + piranhaHazards.size() >= 14;
@@ -10634,12 +10654,12 @@ public class BirdGame3 extends Application {
             chick.onGround = false;
             chick.commandFlashFrames = Math.max(chick.commandFlashFrames, 18);
             for (int i = 0; i < scaledParticleBurstCount(10); i++) {
-                double angle = SimRng.next() * Math.PI * 2.0;
+                double angle = nextParticleRandom() * Math.PI * 2.0;
                 particles.add(new Particle(
                         chick.x + chick.width * 0.5,
                         chick.y + chick.height * 0.5,
-                        Math.cos(angle) * (2.0 + SimRng.next() * 4.0),
-                        Math.sin(angle) * (2.0 + SimRng.next() * 4.0) - 2.0,
+                        Math.cos(angle) * (2.0 + nextParticleRandom() * 4.0),
+                        Math.sin(angle) * (2.0 + nextParticleRandom() * 4.0) - 2.0,
                         Color.web("#FFF176").deriveColor(0, 1, 1, 0.72)
                 ));
             }
@@ -10875,7 +10895,7 @@ public class BirdGame3 extends Application {
                     }
                     int particleCount = scaledParticleBurstCount(30);
                     for (int i = 0; i < particleCount; i++) {
-                        double angle = SimRng.next() * Math.PI * 2;
+                        double angle = nextParticleRandom() * Math.PI * 2;
                         particles.add(new Particle(node.x, node.y, Math.cos(angle) * 8, Math.sin(angle) * 8 - 4,
                                 node.isSpeed ? Color.YELLOW : Color.AQUA));
                     }
@@ -10970,8 +10990,8 @@ public class BirdGame3 extends Application {
                             ? Color.web("#260108").deriveColor(0, 1, 1, 0.95)
                             : Color.DARKRED.deriveColor(0, 1, 1, 0.9);
                     for (int i = 0; i < particleCount; i++) {
-                        double angle = SimRng.next() * Math.PI * 2;
-                        double spd = 6 + SimRng.next() * 20;
+                        double angle = nextParticleRandom() * Math.PI * 2;
+                        double spd = 6 + nextParticleRandom() * 20;
                         particles.add(new Particle(c.x, c.y, Math.cos(angle) * spd, Math.sin(angle) * spd - 8, particleColor));
                     }
                     if (hostile) {
@@ -11048,12 +11068,12 @@ public class BirdGame3 extends Application {
                 p.breachCooldown = 72;
                 breaching = true;
                 for (int i = 0; i < scaledParticleBurstCount(8); i++) {
-                    double sprayX = p.x + (SimRng.next() - 0.5) * 30;
+                    double sprayX = p.x + (nextParticleRandom() - 0.5) * 30;
                     particles.add(new Particle(
                             sprayX,
-                            surfaceY + SimRng.next() * 10,
-                            (SimRng.next() - 0.5) * 5,
-                            -3.2 - SimRng.next() * 3.5,
+                            surfaceY + nextParticleRandom() * 10,
+                            (nextParticleRandom() - 0.5) * 5,
+                            -3.2 - nextParticleRandom() * 3.5,
                             Color.web("#B3E5FC", 0.85)
                     ));
                 }
@@ -11079,10 +11099,10 @@ public class BirdGame3 extends Application {
                     p.vy = Math.abs(p.vy) * 0.22;
                     for (int i = 0; i < scaledParticleBurstCount(8); i++) {
                         particles.add(new Particle(
-                                p.x + (SimRng.next() - 0.5) * 24,
-                                surfaceY + SimRng.next() * 8,
-                                (SimRng.next() - 0.5) * 4.5,
-                                -2.0 - SimRng.next() * 2.0,
+                                p.x + (nextParticleRandom() - 0.5) * 24,
+                                surfaceY + nextParticleRandom() * 8,
+                                (nextParticleRandom() - 0.5) * 4.5,
+                                -2.0 - nextParticleRandom() * 2.0,
                                 Color.web("#80DEEA", 0.8)
                         ));
                     }
@@ -11137,8 +11157,8 @@ public class BirdGame3 extends Application {
                         target.vx += Math.signum(p.vx == 0 ? (targetX >= p.x ? 1 : -1) : p.vx) * (breaching ? 11.5 : 8.5);
                         target.vy -= breaching ? 10.0 : 7.5;
                         for (int i = 0; i < scaledParticleBurstCount(16); i++) {
-                            double angle = SimRng.next() * Math.PI * 2;
-                            double spd = 4 + SimRng.next() * 7;
+                            double angle = nextParticleRandom() * Math.PI * 2;
+                            double spd = 4 + nextParticleRandom() * 7;
                             particles.add(new Particle(
                                     p.x,
                                     p.y,
@@ -11312,8 +11332,8 @@ public class BirdGame3 extends Application {
                         int particleCount = scaledParticleBurstCount(chick.roosterSwarm ? 6 : (chick.ultimate ? 16 : 12));
                         Color puff = chick.roosterSwarm ? Color.web("#FFF176") : (chick.ultimate ? Color.GOLD : Color.web("#FFD54F"));
                         for (int i = 0; i < particleCount; i++) {
-                            double angle = SimRng.next() * Math.PI * 2;
-                            double spd = 4 + SimRng.next() * 6;
+                            double angle = nextParticleRandom() * Math.PI * 2;
+                            double spd = 4 + nextParticleRandom() * 6;
                             particles.add(new Particle(ccx, ccy, Math.cos(angle) * spd, Math.sin(angle) * spd - 3, puff));
                         }
                         if (chick.roosterSwarm) {
@@ -11363,9 +11383,9 @@ public class BirdGame3 extends Application {
                             addToKillFeed("WIND GUST lifts " + shortName(b.name) + "!");
                             int particleCount = scaledParticleBurstCount(40);
                             for (int j = 0; j < particleCount; j++) {
-                                double angle = -Math.PI / 2 + (SimRng.next() - 0.5) * 0.8;
-                                double spd = 8 + SimRng.next() * 12;
-                                particles.add(new Particle(vent.x + vent.w / 2 + (SimRng.next() - 0.5) * vent.w, vent.y - 20, Math.cos(angle) * spd, Math.sin(angle) * spd, Color.CYAN.deriveColor(0, 1, 1, 0.7)));
+                                double angle = -Math.PI / 2 + (nextParticleRandom() - 0.5) * 0.8;
+                                double spd = 8 + nextParticleRandom() * 12;
+                                particles.add(new Particle(vent.x + vent.w / 2 + (nextParticleRandom() - 0.5) * vent.w, vent.y - 20, Math.cos(angle) * spd, Math.sin(angle) * spd, Color.CYAN.deriveColor(0, 1, 1, 0.7)));
                             }
                         }
                     }
@@ -11549,8 +11569,8 @@ public class BirdGame3 extends Application {
 
         int particleCount = scaledParticleBurstCount(18);
         for (int i = 0; i < particleCount; i++) {
-            double angle = SimRng.next() * Math.PI * 2.0;
-            double speed = 3.4 + SimRng.next() * 8.6;
+            double angle = nextParticleRandom() * Math.PI * 2.0;
+            double speed = 3.4 + nextParticleRandom() * 8.6;
             particles.add(new Particle(
                     shadow.bodyCenterX(),
                     shadow.bodyCenterY(),
@@ -11565,14 +11585,14 @@ public class BirdGame3 extends Application {
         if (shadow == null) return;
         int particleCount = scaledParticleBurstCount(loud ? 32 : 14);
         for (int i = 0; i < particleCount; i++) {
-            double angle = SimRng.next() * Math.PI * 2.0;
-            double speed = 2.8 + SimRng.next() * (loud ? 10.5 : 6.2);
+            double angle = nextParticleRandom() * Math.PI * 2.0;
+            double speed = 2.8 + nextParticleRandom() * (loud ? 10.5 : 6.2);
             particles.add(new Particle(
                     shadow.bodyCenterX(),
                     shadow.bodyCenterY(),
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 2.4,
-                    (SimRng.next() < 0.45 ? Color.web("#EC407A") : Color.BLACK).deriveColor(0, 1, 1, 0.72)
+                    (nextParticleRandom() < 0.45 ? Color.web("#EC407A") : Color.BLACK).deriveColor(0, 1, 1, 0.72)
             ));
         }
     }
@@ -11711,8 +11731,8 @@ public class BirdGame3 extends Application {
         double halfW = ASHFALL_GEYSER_HALF_W[geyserIndex];
         int particleCount = scaledParticleBurstCount(requestedCount);
         for (int j = 0; j < particleCount; j++) {
-            double angle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * 0.9;
-            double speed = 5.0 + SimRng.next() * 10.0;
+            double angle = -Math.PI / 2.0 + (nextParticleRandom() - 0.5) * 0.9;
+            double speed = 5.0 + nextParticleRandom() * 10.0;
             Color color = switch (j % 4) {
                 case 0 -> Color.web("#FFF59D", 0.92);
                 case 1 -> Color.web("#FFB74D", 0.88);
@@ -11720,9 +11740,9 @@ public class BirdGame3 extends Application {
                 default -> Color.web("#6D1B1B", 0.76);
             };
             particles.add(new Particle(
-                    centerX + (SimRng.next() - 0.5) * halfW * 1.65,
-                    baseY - 8.0 + (SimRng.next() - 0.5) * 18.0,
-                    Math.cos(angle) * speed + (SimRng.next() - 0.5) * 2.2,
+                    centerX + (nextParticleRandom() - 0.5) * halfW * 1.65,
+                    baseY - 8.0 + (nextParticleRandom() - 0.5) * 18.0,
+                    Math.cos(angle) * speed + (nextParticleRandom() - 0.5) * 2.2,
                     Math.sin(angle) * speed - 1.0,
                     color
             ));
@@ -11776,10 +11796,10 @@ public class BirdGame3 extends Application {
 
         for (int i = 0; i < scaledParticleBurstCount(18); i++) {
             particles.add(new Particle(
-                    dockLeverX + (SimRng.next() - 0.5) * 18,
-                    dockLeverY - 10 + (SimRng.next() - 0.5) * 12,
-                    (SimRng.next() - 0.5) * 2.8,
-                    -2.2 - SimRng.next() * 2.8,
+                    dockLeverX + (nextParticleRandom() - 0.5) * 18,
+                    dockLeverY - 10 + (nextParticleRandom() - 0.5) * 12,
+                    (nextParticleRandom() - 0.5) * 2.8,
+                    -2.2 - nextParticleRandom() * 2.8,
                     Color.web("#FFCA28", 0.9)
             ));
         }
@@ -11804,19 +11824,19 @@ public class BirdGame3 extends Application {
         addToKillFeed("The pirate ship opens fire!");
         for (int i = 0; i < scaledParticleBurstCount(22); i++) {
             particles.add(new Particle(
-                    startX + (SimRng.next() - 0.5) * 20,
-                    startY + (SimRng.next() - 0.5) * 16,
-                    -3.0 - SimRng.next() * 7.2,
-                    -3.2 + (SimRng.next() - 0.5) * 4.0,
+                    startX + (nextParticleRandom() - 0.5) * 20,
+                    startY + (nextParticleRandom() - 0.5) * 16,
+                    -3.0 - nextParticleRandom() * 7.2,
+                    -3.2 + (nextParticleRandom() - 0.5) * 4.0,
                     Color.web(i % 3 == 0 ? "#FFF59D" : "#FFB74D", 0.92)
             ));
         }
         for (int i = 0; i < scaledParticleBurstCount(14); i++) {
             particles.add(new Particle(
-                    startX + (SimRng.next() - 0.5) * 12,
-                    startY + 10 + (SimRng.next() - 0.5) * 10,
-                    -1.6 - SimRng.next() * 3.0,
-                    0.8 + SimRng.next() * 1.8,
+                    startX + (nextParticleRandom() - 0.5) * 12,
+                    startY + 10 + (nextParticleRandom() - 0.5) * 10,
+                    -1.6 - nextParticleRandom() * 3.0,
+                    0.8 + nextParticleRandom() * 1.8,
                     Color.web("#6D4C41", 0.74)
             ));
         }
@@ -11862,19 +11882,19 @@ public class BirdGame3 extends Application {
         dockShipBomb.y += dockShipBomb.vy;
         dockShipBomb.vy += DOCK_BOMB_GRAVITY;
 
-        if (particleEffectsEnabled && random.nextDouble() < 0.9) {
+        if (particleEffectsEnabled && nextParticleRandom() < 0.9) {
             particles.add(new Particle(
-                    dockShipBomb.x + (SimRng.next() - 0.5) * 14,
+                    dockShipBomb.x + (nextParticleRandom() - 0.5) * 14,
                     dockShipBomb.y + 8,
-                    (SimRng.next() - 0.5) * 1.8,
-                    1.0 + SimRng.next() * 2.6,
+                    (nextParticleRandom() - 0.5) * 1.8,
+                    1.0 + nextParticleRandom() * 2.6,
                     Color.web("#5D4037", 0.78)
             ));
             particles.add(new Particle(
-                    dockShipBomb.x + (SimRng.next() - 0.5) * 10,
+                    dockShipBomb.x + (nextParticleRandom() - 0.5) * 10,
                     dockShipBomb.y - 12,
-                    (SimRng.next() - 0.5) * 1.2,
-                    -1.6 - SimRng.next() * 1.6,
+                    (nextParticleRandom() - 0.5) * 1.2,
+                    -1.6 - nextParticleRandom() * 1.6,
                     Color.web("#FFB74D", 0.84)
             ));
         }
@@ -11947,8 +11967,8 @@ public class BirdGame3 extends Application {
 
         int particleCount = scaledParticleBurstCount(72);
         for (int i = 0; i < particleCount; i++) {
-            double angle = SimRng.next() * Math.PI * 2;
-            double speed = 5 + SimRng.next() * 16;
+            double angle = nextParticleRandom() * Math.PI * 2;
+            double speed = 5 + nextParticleRandom() * 16;
             Color color = i % 3 == 0 ? Color.web("#FFCA28") : (i % 3 == 1 ? Color.web("#6D4C41") : Color.web("#FF7043"));
             particles.add(new Particle(
                     bomb.x,
@@ -12196,13 +12216,13 @@ public class BirdGame3 extends Application {
             int count = scaledParticleBurstCount(requested);
             double baseAngle = Math.atan2(dirY, dirX);
             for (int i = 0; i < count; i++) {
-                double fan = (SimRng.next() - 0.5) * (finisher ? 1.75 : 1.25);
+                double fan = (nextParticleRandom() - 0.5) * (finisher ? 1.75 : 1.25);
                 double angle = baseAngle + fan;
-                double speed = 3.2 + SimRng.next() * (4.0 + Math.min(13.0, damage * 0.22));
-                Color color = SimRng.next() < 0.56 ? secondary : accent;
+                double speed = 3.2 + nextParticleRandom() * (4.0 + Math.min(13.0, damage * 0.22));
+                Color color = nextParticleRandom() < 0.56 ? secondary : accent;
                 particles.add(new Particle(
-                        x + (SimRng.next() - 0.5) * 18.0,
-                        y + (SimRng.next() - 0.5) * 18.0,
+                        x + (nextParticleRandom() - 0.5) * 18.0,
+                        y + (nextParticleRandom() - 0.5) * 18.0,
                         Math.cos(angle) * speed,
                         Math.sin(angle) * speed - 1.4,
                         color.deriveColor(0, 1, 1, finisher ? 0.95 : 0.82)
@@ -14565,8 +14585,8 @@ public class BirdGame3 extends Application {
                 closest.vy -= 3.6;
                 int particleCount = scaledParticleBurstCount(16);
                 for (int i = 0; i < particleCount; i++) {
-                    double angle = SimRng.next() * Math.PI * 2;
-                    double spd = 4 + SimRng.next() * 12;
+                    double angle = nextParticleRandom() * Math.PI * 2;
+                    double spd = 4 + nextParticleRandom() * 12;
                     particles.add(new Particle(c.x, c.y, Math.cos(angle) * spd, Math.sin(angle) * spd - 5,
                             Color.DARKRED.deriveColor(0, 1, 1, 0.86)));
                 }
@@ -38629,7 +38649,7 @@ public class BirdGame3 extends Application {
     }
 
     void startReplayPlayback(Stage stage, MatchReplay replay, boolean returnToBrowser) {
-        if (replay == null || !replay.usable()) return;
+        if (!canPlayReplay(replay)) return;
         replayReturnToBrowser = returnToBrowser;
         if (replay.selfContained()) {
             preReplayMenuState = captureReplayMenuSnapshot();
@@ -38639,6 +38659,10 @@ public class BirdGame3 extends Application {
         replayPlaybackActive = true;
         clearReplayInputs();
         startMatch(stage);
+    }
+
+    boolean canPlayReplay(MatchReplay replay) {
+        return replay != null && replay.usable() && replay.compatibleWithCurrentSimulation();
     }
 
     private ReplayMenuSnapshot captureReplayMenuSnapshot() {
@@ -38882,6 +38906,8 @@ public class BirdGame3 extends Application {
         harnessWinner = null;
         currentMatchSeed = seed;
         SimRng.reseed(seed);
+        reseedParticleRandom(seed);
+        particleEffectsEnabled = false;
         simTick = 0L;
         hitstopFrames = 0;
         shakeIntensity = 0;
@@ -38960,12 +38986,22 @@ public class BirdGame3 extends Application {
             shakeIntensity *= 0.9;
             if (shakeIntensity < 0.5) shakeIntensity = 0;
         }
+        if (!particleEffectsEnabled && !particles.isEmpty()) {
+            particles.clear();
+        }
         return !matchEnded;
     }
 
     /** Deterministic fingerprint of the harness match state (for tests). */
     long harnessStateHash() {
         return computeLockstepHash(simTick);
+    }
+
+    void harnessSetParticleEffectsEnabled(boolean enabled) {
+        particleEffectsEnabled = enabled;
+        if (!enabled) {
+            particles.clear();
+        }
     }
 
     private void pollWiimoteGameplayInputs() {
@@ -39770,12 +39806,12 @@ public class BirdGame3 extends Application {
     private void emitFrostbiteSnowbankChips(double x, double y, double direction, int count, Color color) {
         double dir = direction == 0.0 ? 1.0 : Math.signum(direction);
         for (int i = 0; i < Math.max(1, count); i++) {
-            double spray = -Math.PI * 0.62 + (SimRng.next() - 0.5) * 1.2;
-            double speed = 2.0 + SimRng.next() * 6.2;
+            double spray = -Math.PI * 0.62 + (nextParticleRandom() - 0.5) * 1.2;
+            double speed = 2.0 + nextParticleRandom() * 6.2;
             particles.add(new Particle(
-                    x + (SimRng.next() - 0.5) * 46.0,
-                    y + (SimRng.next() - 0.5) * 28.0,
-                    Math.cos(spray) * speed * dir + (SimRng.next() - 0.5) * 1.2,
+                    x + (nextParticleRandom() - 0.5) * 46.0,
+                    y + (nextParticleRandom() - 0.5) * 28.0,
+                    Math.cos(spray) * speed * dir + (nextParticleRandom() - 0.5) * 1.2,
                     Math.sin(spray) * speed - 1.8,
                     color.deriveColor(0, 1, 1, 0.78)
             ));
@@ -40438,6 +40474,7 @@ public class BirdGame3 extends Application {
         }
         resolveStandardRandomMapForMatchStart();
         SimRng.reseed(currentMatchSeed);
+        reseedParticleRandom(currentMatchSeed);
         simTick = 0L;
         dramaticSlowMoTicks = 0;
         matchEndFocusBird = null;
@@ -40471,6 +40508,7 @@ public class BirdGame3 extends Application {
             long roundSeed = dailyChallengeSeed ^ ((long) (classicRoundIndex + 1) * 0x94D049BB133111EBL);
             currentMatchSeed = roundSeed;
             SimRng.reseed(roundSeed);
+            reseedParticleRandom(roundSeed);
             renderRandom.setSeed(roundSeed ^ 0x369DEA0F31A53F85L);
         }
         if (trainingModeActive) {
@@ -44978,12 +45016,19 @@ public class BirdGame3 extends Application {
         winnerLabel.setTextFill(Color.web("#FFF59D"));
 
         VBox headerText = new VBox(4, rosterLabel, metaLabel, winnerLabel);
+        if (!replay.compatibleWithCurrentSimulation()) {
+            Label incompatibleLabel = new Label("INCOMPATIBLE \u2014 OLDER GAMEPLAY VERSION");
+            incompatibleLabel.setFont(Font.font("Arial Black", 18));
+            incompatibleLabel.setTextFill(Color.web("#FF8A80"));
+            headerText.getChildren().add(incompatibleLabel);
+        }
         headerText.setAlignment(Pos.CENTER_LEFT);
 
         Button watch = uiFactory.action("WATCH", 220, 74, 26, "#1565C0", 18, () -> {
             resetMatchStats();
             startReplayPlayback(stage, replay, true);
         });
+        watch.setDisable(!replay.compatibleWithCurrentSimulation());
         Button delete = uiFactory.action("DELETE", 220, 74, 26, "#455A64", 18, () -> {
             ReplayStore.delete(entry.file());
             showReplayBrowser(stage);

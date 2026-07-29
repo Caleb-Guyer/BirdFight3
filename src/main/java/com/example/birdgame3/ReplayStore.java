@@ -21,8 +21,9 @@ import java.util.zip.GZIPOutputStream;
 /**
  * Saves and loads {@link MatchReplay}s as versioned, gzip-compressed binary
  * files in the {@code replays/} folder next to the game. A typical match is a
- * few dozen kilobytes. The store keeps the newest {@link #MAX_KEPT} files and
- * prunes the rest; corrupt or future-versioned files are skipped silently.
+ * few dozen kilobytes. The store keeps the newest {@link #MAX_KEPT} current-
+ * revision files and prunes the rest. Legacy replays remain visible and are
+ * never automatically removed; corrupt or future-versioned files are skipped.
  */
 final class ReplayStore {
     private static final Logger LOGGER = Logger.getLogger(ReplayStore.class.getName());
@@ -30,7 +31,7 @@ final class ReplayStore {
     static final String FILE_EXTENSION = ".bf3replay";
     static final int MAX_KEPT = 30;
     private static final int MAGIC = 0x42463352; // "BF3R"
-    private static final int VERSION = 1;
+    static final int VERSION = 2;
     private static final DateTimeFormatter FILE_STAMP =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.ROOT);
 
@@ -123,7 +124,7 @@ final class ReplayStore {
         }
     }
 
-    private static void prune(Path dir) {
+    static void prune(Path dir) {
         if (!Files.isDirectory(dir)) {
             return;
         }
@@ -131,6 +132,10 @@ final class ReplayStore {
             List<Path> sorted = files
                     .filter(p -> p.getFileName().toString().endsWith(FILE_EXTENSION))
                     .sorted(Comparator.comparing((Path p) -> p.getFileName().toString()).reversed())
+                    .filter(p -> {
+                        MatchReplay replay = load(p);
+                        return replay != null && replay.compatibleWithCurrentSimulation();
+                    })
                     .toList();
             for (int i = MAX_KEPT; i < sorted.size(); i++) {
                 delete(sorted.get(i));
@@ -143,6 +148,7 @@ final class ReplayStore {
     private static void write(DataOutputStream out, MatchReplay replay) throws IOException {
         out.writeInt(MAGIC);
         out.writeInt(VERSION);
+        out.writeInt(replay.simulationRevision);
         out.writeLong(replay.seed);
         out.writeInt(replay.playerCount);
         out.writeUTF(nullToEmpty(replay.mapName));
@@ -178,15 +184,16 @@ final class ReplayStore {
             throw new IOException("Not a BirdFight3 replay file");
         }
         int version = in.readInt();
-        if (version != VERSION) {
+        if (version < 1 || version > VERSION) {
             throw new IOException("Unsupported replay version " + version);
         }
+        int simulationRevision = version >= 2 ? in.readInt() : 1;
         long seed = in.readLong();
         int playerCount = in.readInt();
         if (playerCount <= 0 || playerCount > 64) {
             throw new IOException("Corrupt replay: playerCount " + playerCount);
         }
-        MatchReplay replay = new MatchReplay(seed, playerCount);
+        MatchReplay replay = new MatchReplay(seed, playerCount, simulationRevision);
         replay.mapName = emptyToNull(in.readUTF());
         replay.timestampMillis = in.readLong();
         replay.winnerLabel = in.readUTF();

@@ -498,8 +498,8 @@ final class VultureSpecials {
             bird.game.triggerFlash(0.74, false);
         }
         if ((bird.vultureBlackSkyTimer & 3) == 0) {
-            emitBurst(bird, centerX + (SimRng.next() - 0.5) * 220.0 * bird.sizeMultiplier,
-                    centerY + (SimRng.next() - 0.5) * 160.0 * bird.sizeMultiplier,
+            emitBurst(bird, centerX + (bird.game.nextParticleRandom() - 0.5) * 220.0 * bird.sizeMultiplier,
+                    centerY + (bird.game.nextParticleRandom() - 0.5) * 160.0 * bird.sizeMultiplier,
                     0.0, 5, Color.BLACK);
         }
         if (bird.vultureBlackSkyTimer <= 0) {
@@ -727,18 +727,18 @@ final class VultureSpecials {
         double baseAngle = dir == 0.0 ? -Math.PI / 2.0 : (dir > 0.0 ? 0.0 : Math.PI);
         for (int i = 0; i < particles; i++) {
             double angle = dir == 0.0
-                    ? SimRng.next() * Math.PI * 2.0
-                    : baseAngle + (SimRng.next() - 0.5) * 1.45;
-            double speed = 1.4 + SimRng.next() * 7.2;
+                    ? bird.game.nextParticleRandom() * Math.PI * 2.0
+                    : baseAngle + (bird.game.nextParticleRandom() - 0.5) * 1.45;
+            double speed = 1.4 + bird.game.nextParticleRandom() * 7.2;
             Color shade = color == Color.BLACK
-                    ? (SimRng.next() < 0.5 ? Color.web("#050308") : Color.web("#190B1F"))
+                    ? (bird.game.nextParticleRandom() < 0.5 ? Color.web("#050308") : Color.web("#190B1F"))
                     : color;
             bird.game.particles.add(new Particle(
-                    centerX + (SimRng.next() - 0.5) * 18.0 * bird.sizeMultiplier,
-                    centerY + (SimRng.next() - 0.5) * 16.0 * bird.sizeMultiplier,
+                    centerX + (bird.game.nextParticleRandom() - 0.5) * 18.0 * bird.sizeMultiplier,
+                    centerY + (bird.game.nextParticleRandom() - 0.5) * 16.0 * bird.sizeMultiplier,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 1.3,
-                    shade.deriveColor(0, 1, 1, 0.68 + SimRng.next() * 0.18)
+                    shade.deriveColor(0, 1, 1, 0.68 + bird.game.nextParticleRandom() * 0.18)
             ));
         }
     }
@@ -755,8 +755,8 @@ final class VultureSpecials {
 
         int particleCount = bird.scaledParticleCount(ultimate ? 360 : 260);
         for (int i = 0; i < particleCount; i++) {
-            double angle = SimRng.next() * Math.PI * 2;
-            double speed = 9 + SimRng.next() * 18;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2;
+            double speed = 9 + bird.game.nextParticleRandom() * 18;
             Color shade = switch (i % 3) {
                 case 1 -> Color.web("#16020C");
                 case 2 -> Color.web("#25102B");

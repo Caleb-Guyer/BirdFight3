@@ -740,12 +740,12 @@ final class GrinchhawkSpecials {
         bird.game.playHitSound(dealt);
         if (steal) {
             for (int i = 0; i < bird.scaledParticleCount(7); i++) {
-                double angle = SimRng.next() * Math.PI * 2.0;
+                double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
                 bird.game.particles.add(new Particle(
                         other.bodyCenterX(),
                         other.bodyCenterY(),
-                        Math.cos(angle) * (1.2 + SimRng.next() * 2.8),
-                        Math.sin(angle) * (1.2 + SimRng.next() * 2.8) - 1.2,
+                        Math.cos(angle) * (1.2 + bird.game.nextParticleRandom() * 2.8),
+                        Math.sin(angle) * (1.2 + bird.game.nextParticleRandom() * 2.8) - 1.2,
                         Color.web("#AED581").deriveColor(0, 1, 1, 0.76)
                 ));
             }
@@ -759,14 +759,14 @@ final class GrinchhawkSpecials {
         int particles = bird.scaledParticleCount(count);
         double baseAngle = dir == 0.0 ? -Math.PI / 2.0 : (dir > 0.0 ? 0.0 : Math.PI);
         for (int i = 0; i < particles; i++) {
-            double angle = baseAngle + (SimRng.next() - 0.5) * 1.8;
-            double speed = 2.0 + SimRng.next() * 7.0;
+            double angle = baseAngle + (bird.game.nextParticleRandom() - 0.5) * 1.8;
+            double speed = 2.0 + bird.game.nextParticleRandom() * 7.0;
             bird.game.particles.add(new Particle(
-                    cx + (SimRng.next() - 0.5) * 22.0 * bird.sizeMultiplier,
-                    cy + (SimRng.next() - 0.5) * 18.0 * bird.sizeMultiplier,
+                    cx + (bird.game.nextParticleRandom() - 0.5) * 22.0 * bird.sizeMultiplier,
+                    cy + (bird.game.nextParticleRandom() - 0.5) * 18.0 * bird.sizeMultiplier,
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 1.8,
-                    color.deriveColor(0, 1, 1, 0.72 + SimRng.next() * 0.16)
+                    color.deriveColor(0, 1, 1, 0.72 + bird.game.nextParticleRandom() * 0.16)
             ));
         }
     }

@@ -29,10 +29,10 @@ final class MockingbirdSpecials {
             bird.specialMaxCooldown = 18;
             bird.vx *= 0.72;
             for (int i = 0; i < bird.scaledParticleCount(12); i++) {
-                double angle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * 1.4;
-                double speed = 1.4 + SimRng.next() * 3.2;
+                double angle = -Math.PI / 2.0 + (bird.game.nextParticleRandom() - 0.5) * 1.4;
+                double speed = 1.4 + bird.game.nextParticleRandom() * 3.2;
                 bird.game.particles.add(new Particle(
-                        bird.bodyCenterX() + (SimRng.next() - 0.5) * 24.0 * bird.sizeMultiplier,
+                        bird.bodyCenterX() + (bird.game.nextParticleRandom() - 0.5) * 24.0 * bird.sizeMultiplier,
                         bird.bodyCenterY() - 34.0 * bird.sizeMultiplier,
                         Math.cos(angle) * speed,
                         Math.sin(angle) * speed,
@@ -182,11 +182,11 @@ final class MockingbirdSpecials {
         Color pulse = ultimate ? Color.GOLD : Color.web("#D7B5FF");
         for (int ring = 0; ring < 3; ring++) {
             for (int i = 0; i < bird.scaledParticleCount(7); i++) {
-                double spread = (SimRng.next() - 0.5) * (28.0 + ring * 14.0);
+                double spread = (bird.game.nextParticleRandom() - 0.5) * (28.0 + ring * 14.0);
                 bird.game.particles.add(new Particle(
-                        bird.bodyCenterX() + dir * (26.0 + ring * 30.0 + SimRng.next() * 22.0),
+                        bird.bodyCenterX() + dir * (26.0 + ring * 30.0 + bird.game.nextParticleRandom() * 22.0),
                         centerY + spread,
-                        dir * (2.6 + ring * 0.8 + SimRng.next() * 2.4),
+                        dir * (2.6 + ring * 0.8 + bird.game.nextParticleRandom() * 2.4),
                         spread * 0.045,
                         pulse.deriveColor(0, 1, 1, 0.68)
                 ));
@@ -238,14 +238,14 @@ final class MockingbirdSpecials {
 
         Color leaf = ultimate ? Color.GOLD : Color.web("#66BB6A");
         for (int i = 0; i < bird.scaledParticleCount(36); i++) {
-            double angle = -Math.PI / 2.0 + (SimRng.next() - 0.5) * 1.8;
-            double speed = 2.4 + SimRng.next() * 6.2;
+            double angle = -Math.PI / 2.0 + (bird.game.nextParticleRandom() - 0.5) * 1.8;
+            double speed = 2.4 + bird.game.nextParticleRandom() * 6.2;
             bird.game.particles.add(new Particle(
-                    bird.bodyCenterX() + (SimRng.next() - 0.5) * 56.0 * bird.sizeMultiplier,
-                    bird.bodyBottomY() - SimRng.next() * 22.0 * bird.sizeMultiplier,
+                    bird.bodyCenterX() + (bird.game.nextParticleRandom() - 0.5) * 56.0 * bird.sizeMultiplier,
+                    bird.bodyBottomY() - bird.game.nextParticleRandom() * 22.0 * bird.sizeMultiplier,
                     Math.cos(angle) * speed + dir * 0.7,
                     Math.sin(angle) * speed,
-                    leaf.deriveColor(0, 0.85 + SimRng.next() * 0.2, 0.86 + SimRng.next() * 0.24, 0.72)
+                    leaf.deriveColor(0, 0.85 + bird.game.nextParticleRandom() * 0.2, 0.86 + bird.game.nextParticleRandom() * 0.24, 0.72)
             ));
         }
     }
@@ -263,13 +263,13 @@ final class MockingbirdSpecials {
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 12);
         Color leaf = ultimate ? Color.GOLD : Color.web("#2E7D32");
         for (int i = 0; i < bird.scaledParticleCount(42); i++) {
-            double angle = SimRng.next() * Math.PI * 2;
-            double ring = 18.0 + SimRng.next() * 62.0;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2;
+            double ring = 18.0 + bird.game.nextParticleRandom() * 62.0;
             bird.game.particles.add(new Particle(
                     bird.loungeX + Math.cos(angle) * ring,
                     bird.loungeY + Math.sin(angle) * ring * 0.58,
-                    Math.cos(angle) * (0.6 + SimRng.next() * 3.2),
-                    Math.sin(angle) * (0.6 + SimRng.next() * 2.4) - 1.8,
+                    Math.cos(angle) * (0.6 + bird.game.nextParticleRandom() * 3.2),
+                    Math.sin(angle) * (0.6 + bird.game.nextParticleRandom() * 2.4) - 1.8,
                     leaf.deriveColor(0, 0.85, 1.05, 0.70)
             ));
         }
@@ -383,14 +383,14 @@ final class MockingbirdSpecials {
     private static void emitShadowBirth(Bird bird, double x, double y, BirdGame3.BirdType copiedType, int slot) {
         Color accent = slot == 2 ? Color.web("#EC407A") : copiedType.color;
         for (int i = 0; i < bird.scaledParticleCount(24); i++) {
-            double angle = SimRng.next() * Math.PI * 2.0;
-            double speed = 2.6 + SimRng.next() * 8.8;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+            double speed = 2.6 + bird.game.nextParticleRandom() * 8.8;
             bird.game.particles.add(new Particle(
-                    x + Math.cos(angle) * (12.0 + SimRng.next() * 28.0),
-                    y + Math.sin(angle) * (10.0 + SimRng.next() * 22.0),
+                    x + Math.cos(angle) * (12.0 + bird.game.nextParticleRandom() * 28.0),
+                    y + Math.sin(angle) * (10.0 + bird.game.nextParticleRandom() * 22.0),
                     Math.cos(angle) * speed,
                     Math.sin(angle) * speed - 2.2,
-                    (SimRng.next() < 0.55 ? Color.BLACK : accent).deriveColor(0, 1, 1, 0.76)
+                    (bird.game.nextParticleRandom() < 0.55 ? Color.BLACK : accent).deriveColor(0, 1, 1, 0.76)
             ));
         }
     }

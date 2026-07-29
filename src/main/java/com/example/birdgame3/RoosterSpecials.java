@@ -129,8 +129,8 @@ final class RoosterSpecials {
     static void emitCommandBurst(Bird bird, double centerX, double centerY, Color color, int baseCount) {
         int particleCount = bird.scaledParticleCount(baseCount);
         for (int i = 0; i < particleCount; i++) {
-            double angle = SimRng.next() * Math.PI * 2.0;
-            double speed = 2.0 + SimRng.next() * 5.8;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+            double speed = 2.0 + bird.game.nextParticleRandom() * 5.8;
             bird.game.particles.add(new Particle(
                     centerX,
                     centerY,

@@ -3,12 +3,16 @@ package com.example.birdgame3;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.DataOutputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.zip.GZIPOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -48,6 +52,8 @@ class ReplayStoreTest {
         assertNotNull(loaded);
         assertEquals(original.seed, loaded.seed);
         assertEquals(original.playerCount, loaded.playerCount);
+        assertEquals(MatchReplay.CURRENT_SIMULATION_REVISION, loaded.simulationRevision);
+        assertTrue(loaded.compatibleWithCurrentSimulation());
         assertEquals(original.mapName, loaded.mapName);
         assertEquals(original.timestampMillis, loaded.timestampMillis);
         assertEquals(original.winnerLabel, loaded.winnerLabel);
@@ -91,5 +97,84 @@ class ReplayStoreTest {
         MatchReplay bare = new MatchReplay(1L, 2);
         bare.frames.add(new int[]{0, 0});
         assertNull(ReplayStore.save(dir, bare), "A replay without config must not be persisted.");
+    }
+
+    @Test
+    void versionOneReplayLoadsAsVisibleButIncompatibleLegacyMetadata(@TempDir Path dir) throws Exception {
+        MatchReplay original = sampleReplay();
+        Path legacyFile = dir.resolve("legacy-v1" + ReplayStore.FILE_EXTENSION);
+        writeVersionOneReplay(legacyFile, original);
+
+        MatchReplay loaded = ReplayStore.load(legacyFile);
+
+        assertNotNull(loaded);
+        assertEquals(1, loaded.simulationRevision);
+        assertFalse(loaded.compatibleWithCurrentSimulation());
+        assertEquals(original.frames.size(), loaded.frames.size());
+        assertEquals(original.dashTaps, loaded.dashTaps);
+        assertEquals(1, ReplayStore.listAll(dir).size(),
+                "Legacy replay must remain visible in the browser model.");
+    }
+
+    @Test
+    void pruningNeverDeletesLegacyReplays(@TempDir Path dir) throws Exception {
+        MatchReplay legacy = sampleReplay();
+        Path legacyFile = dir.resolve("000-legacy-v1" + ReplayStore.FILE_EXTENSION);
+        writeVersionOneReplay(legacyFile, legacy);
+
+        for (int i = 0; i <= ReplayStore.MAX_KEPT; i++) {
+            MatchReplay current = sampleReplay();
+            current.timestampMillis += i * 1_000L;
+            assertNotNull(ReplayStore.save(dir, current));
+        }
+        ReplayStore.prune(dir);
+
+        assertTrue(Files.exists(legacyFile), "Automatic pruning must never remove legacy replays.");
+        List<ReplayStore.SavedReplay> all = ReplayStore.listAll(dir);
+        assertEquals(ReplayStore.MAX_KEPT,
+                all.stream().filter(entry -> entry.replay().compatibleWithCurrentSimulation()).count());
+        assertEquals(1,
+                all.stream().filter(entry -> !entry.replay().compatibleWithCurrentSimulation()).count());
+    }
+
+    private static void writeVersionOneReplay(Path file, MatchReplay replay) throws IOException {
+        Files.createDirectories(file.getParent());
+        try (DataOutputStream out = new DataOutputStream(
+                new GZIPOutputStream(Files.newOutputStream(file)))) {
+            out.writeInt(0x42463352); // "BF3R"
+            out.writeInt(1);
+            out.writeLong(replay.seed);
+            out.writeInt(replay.playerCount);
+            out.writeUTF(nullToEmpty(replay.mapName));
+            out.writeLong(replay.timestampMillis);
+            out.writeUTF(nullToEmpty(replay.winnerLabel));
+            out.writeBoolean(replay.teamModeEnabled);
+            out.writeBoolean(replay.mutatorModeEnabled);
+            for (int i = 0; i < replay.playerCount; i++) {
+                out.writeUTF(nullToEmpty(replay.slotBirdTypes[i]));
+                out.writeBoolean(replay.slotIsAi[i]);
+                out.writeInt(replay.slotTeams[i]);
+                out.writeUTF(nullToEmpty(replay.slotSkinKeys[i]));
+                out.writeDouble(replay.slotBaseSize[i]);
+                out.writeDouble(replay.slotBasePower[i]);
+                out.writeDouble(replay.slotBaseSpeed[i]);
+            }
+            out.writeInt(replay.dashTaps.size());
+            for (MatchReplay.DashTap tap : replay.dashTaps) {
+                out.writeLong(tap.tick());
+                out.writeInt(tap.playerIndex());
+                out.writeInt(tap.dir());
+            }
+            out.writeInt(replay.frames.size());
+            for (int[] masks : replay.frames) {
+                for (int player = 0; player < replay.playerCount; player++) {
+                    out.writeInt(player < masks.length ? masks[player] : 0);
+                }
+            }
+        }
+    }
+
+    private static String nullToEmpty(String value) {
+        return value == null ? "" : value;
     }
 }

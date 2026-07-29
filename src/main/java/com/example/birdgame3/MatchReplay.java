@@ -17,12 +17,18 @@ import java.util.List;
 final class MatchReplay {
     /** Hard cap: 10 minutes at 60 ticks/s. Recording gives up beyond this. */
     static final int MAX_FRAMES = 60 * 60 * 10;
+    /**
+     * Bumped whenever a deterministic gameplay change makes older input streams
+     * unsafe to play with the current simulation.
+     */
+    static final int CURRENT_SIMULATION_REVISION = 2;
 
     record DashTap(long tick, int playerIndex, int dir) {
     }
 
     final long seed;
     final int playerCount;
+    final int simulationRevision;
     final List<int[]> frames = new ArrayList<>();
     final List<DashTap> dashTaps = new ArrayList<>();
     boolean overflowed = false;
@@ -45,8 +51,13 @@ final class MatchReplay {
     String winnerLabel = "";
 
     MatchReplay(long seed, int playerCount) {
+        this(seed, playerCount, CURRENT_SIMULATION_REVISION);
+    }
+
+    MatchReplay(long seed, int playerCount, int simulationRevision) {
         this.seed = seed;
         this.playerCount = playerCount;
+        this.simulationRevision = simulationRevision;
     }
 
     boolean usable() {
@@ -55,6 +66,10 @@ final class MatchReplay {
 
     boolean selfContained() {
         return mapName != null && slotBirdTypes != null;
+    }
+
+    boolean compatibleWithCurrentSimulation() {
+        return simulationRevision == CURRENT_SIMULATION_REVISION;
     }
 
     long durationTicks() {
