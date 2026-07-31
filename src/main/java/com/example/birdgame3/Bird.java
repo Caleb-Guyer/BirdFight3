@@ -8692,8 +8692,7 @@ public class Bird {
         return game.selectedMap == MapType.BATTLEFIELD
                 || game.selectedMap == MapType.BEACON_CROWN
                 || game.selectedMap == MapType.FROSTBITE_FJORD
-                || game.selectedMap == MapType.ASHFALL_CATHEDRAL
-                || game.selectedMap == MapType.PRISON;
+                || game.selectedMap == MapType.ASHFALL_CATHEDRAL;
     }
 
     private Platform findAIMainStagePlatform() {

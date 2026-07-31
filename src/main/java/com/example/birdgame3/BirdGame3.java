@@ -775,13 +775,13 @@ public class BirdGame3 {
     private static final double CROWN_DUEL_BRIDGE_Y = GROUND_Y - 340.0;
     private static final double CROWN_DUEL_BRIDGE_W = 2200.0;
     private static final double CROWN_DUEL_BRIDGE_H = 76.0;
-    private static final double PRISON_MAIN_X = 680.0;
+    private static final double PRISON_MAIN_X = -420.0;
     private static final double PRISON_MAIN_Y = GROUND_Y - 150.0;
-    private static final double PRISON_MAIN_W = 4640.0;
+    private static final double PRISON_MAIN_W = WORLD_WIDTH + 840.0;
     private static final double PRISON_MAIN_H = 92.0;
     private static final double[] PRISON_LEVER_X = {1260.0, 4740.0};
     private static final double PRISON_LEVER_Y = PRISON_MAIN_Y - 70.0;
-    private static final double[] PRISON_CELL_X = {PRISON_MAIN_X + 48.0, PRISON_MAIN_X + PRISON_MAIN_W - 48.0};
+    private static final double[] PRISON_CELL_X = {520.0, WORLD_WIDTH - 520.0};
     private static final int PRISON_LEVER_COOLDOWN_FRAMES = 720;
     private static final int PRISON_RUSH_SIZE = 4;
     private static final int PRISON_RUSH_STAGGER_FRAMES = 9;
@@ -15042,116 +15042,234 @@ public class BirdGame3 {
     }
 
     private void drawPrisonArena(GraphicsContext g, boolean ambientFx) {
-        LinearGradient wall = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0.0, Color.web("#071018")),
-                new Stop(0.48, Color.web("#172733")),
-                new Stop(1.0, Color.web("#263640")));
-        g.setFill(wall);
-        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        long presentationMillis = ambientFx ? System.currentTimeMillis() : 0L;
+        double presentationSeconds = presentationMillis / 1000.0;
 
-        // Narrow armored windows place Crownlock beneath the city's night skyline.
-        g.setFill(Color.web("#081E36"));
-        for (int i = 0; i < 8; i++) {
-            double wx = 430 + i * 735.0;
-            g.fillRoundRect(wx, 150, 360, 250, 24, 24);
-            g.setFill(Color.web("#10253A"));
-            for (int b = 0; b < 5; b++) {
-                double buildingX = wx + 18 + b * 68;
-                double buildingH = 70 + ((i * 31 + b * 47) % 120);
-                g.fillRect(buildingX, 382 - buildingH, 50, buildingH);
+        // The shattered roof opens Crownlock directly to the city night. The outside
+        // is deliberately brighter than the cell hall so the upper blast exit reads
+        // as open sky rather than an invisible ceiling.
+        LinearGradient sky = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#020710")),
+                new Stop(0.58, Color.web("#0A2540")),
+                new Stop(1.0, Color.web("#31506A")));
+        g.setFill(sky);
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+        g.setFill(Color.web("#D8F2FF", 0.68));
+        for (int star = 0; star < 38; star++) {
+            double sx = 90 + Math.floorMod(star * 947, (int) WORLD_WIDTH - 180);
+            double sy = 38 + Math.floorMod(star * 313, 500);
+            double sr = star % 7 == 0 ? 8.0 : 4.0;
+            g.fillOval(sx, sy, sr, sr);
+        }
+        g.setFill(Color.web("#D8ECF7", 0.22));
+        g.fillOval(4870, 90, 330, 330);
+        g.setFill(Color.web("#08131F", 0.94));
+        for (int building = 0; building < 18; building++) {
+            double bx = building * 350.0 - 80.0;
+            double bh = 150.0 + Math.floorMod(building * 137, 330);
+            g.fillRect(bx, 650 - bh, 280, bh);
+            g.setFill(Color.web("#FFD54F", 0.28));
+            for (int window = 0; window < 3; window++) {
+                g.fillRect(bx + 38 + window * 78, 610 - bh, 26, 16);
             }
-            g.setStroke(Color.web("#607D8B", 0.82));
-            g.setLineWidth(12);
-            for (int bar = 0; bar < 6; bar++) {
-                double bx = wx + 20 + bar * 64;
-                g.strokeLine(bx, 158, bx, 392);
-            }
-            g.setFill(Color.web("#081E36"));
+            g.setFill(Color.web("#08131F", 0.94));
         }
 
-        // Heavy masonry and inset seams keep the room readable without a noisy texture.
-        g.setStroke(Color.web("#344955", 0.62));
+        // Lower detention wall and large, readable blockwork.
+        LinearGradient wall = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#17252F")),
+                new Stop(0.56, Color.web("#202F39")),
+                new Stop(1.0, Color.web("#111A20")));
+        g.setFill(wall);
+        g.fillRect(0, 510, WORLD_WIDTH, PRISON_MAIN_Y - 510);
+        g.setStroke(Color.web("#41535F", 0.6));
         g.setLineWidth(5);
-        for (double y = 430; y < GROUND_Y + 160; y += 190) {
+        for (double y = 560; y < PRISON_MAIN_Y; y += 190) {
             g.strokeLine(0, y, WORLD_WIDTH, y);
             double offset = ((int) (y / 190) & 1) == 0 ? 0 : 150;
             for (double x = offset; x < WORLD_WIDTH; x += 300) {
-                g.strokeLine(x, y, x, y + 190);
+                g.strokeLine(x, y, x, Math.min(PRISON_MAIN_Y, y + 190));
             }
         }
 
-        if (ambientFx) {
-            double sweep = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 1450.0);
-            g.setFill(Color.web("#80D8FF", 0.055));
-            g.fillPolygon(
-                    new double[]{2450, 2750 + sweep * 700, 3400 + sweep * 900},
-                    new double[]{250, GROUND_Y + 80, GROUND_Y + 80}, 3);
-            g.setFill(Color.web("#FF1744", prisonerRushes.isEmpty() ? 0.025 : 0.075));
-            g.fillRect(0, 0, WORLD_WIDTH, GROUND_Y + 130);
+        drawPrisonBrokenRoof(g);
+        drawPrisonCellBank(g, 180, 700, false);
+        drawPrisonCellBank(g, WORLD_WIDTH - 180, 700, true);
+        drawPrisonControlGate(g);
+
+        // Three independent searchlights sweep at different rates. They are purely
+        // presentational and never consume SimRng or alter the simulation.
+        double leftTarget = 520 + (0.5 + 0.5 * Math.sin(presentationSeconds * 0.48)) * 2100;
+        double centerTarget = 1300 + (0.5 + 0.5 * Math.sin(presentationSeconds * 0.36 + 2.1)) * 3400;
+        double rightTarget = 3380 + (0.5 + 0.5 * Math.sin(presentationSeconds * 0.53 + 4.2)) * 2100;
+        drawPrisonSearchlight(g, 840, 285, leftTarget, Color.web("#B3E5FC"));
+        drawPrisonSearchlight(g, 3000, 170, centerTarget, Color.web("#E1F5FE"));
+        drawPrisonSearchlight(g, 5160, 285, rightTarget, Color.web("#B3E5FC"));
+
+        // Emergency lamps and conduit give the flat wall depth without introducing
+        // anything that reads as another playable platform.
+        g.setStroke(Color.web("#0B1115"));
+        g.setLineWidth(18);
+        g.strokeLine(0, 650, WORLD_WIDTH, 650);
+        g.setLineWidth(10);
+        g.strokeLine(0, 1960, 2160, 1960);
+        g.strokeLine(3840, 1960, WORLD_WIDTH, 1960);
+        for (int lamp = 0; lamp < 7; lamp++) {
+            double lx = 420 + lamp * 860.0;
+            boolean flashOn = !ambientFx || ((presentationMillis / 420 + lamp) & 1L) == 0L;
+            g.setFill(Color.web("#3A1014"));
+            g.fillRoundRect(lx - 40, 590, 80, 42, 12, 12);
+            g.setFill(Color.web("#FF1744", flashOn ? 0.9 : 0.24));
+            g.fillOval(lx - 22, 594, 44, 32);
         }
 
-        drawPrisonCellBank(g, 180, 610, false);
-        drawPrisonCellBank(g, WORLD_WIDTH - 180, 610, true);
-
-        // Central surveillance tower and the Crown's telemetry eye.
-        g.setFill(Color.web("#101B23"));
-        g.fillRoundRect(2470, 455, 1060, GROUND_Y - 470, 30, 30);
-        g.setStroke(Color.web("#455A64"));
-        g.setLineWidth(8);
-        g.strokeRoundRect(2470, 455, 1060, GROUND_Y - 470, 30, 30);
-        g.setFill(Color.web("#050A0E"));
-        g.fillRoundRect(2620, 590, 760, 280, 18, 18);
-        g.setStroke(Color.web("#00BCD4", 0.74));
-        g.setLineWidth(5);
-        g.strokeRoundRect(2620, 590, 760, 280, 18, 18);
-        g.setFill(Color.web("#00E5FF", 0.58));
-        g.fillOval(2920, 630, 160, 160);
-        g.setFill(Color.web("#06141A"));
-        g.fillOval(2960, 670, 80, 80);
-        g.setStroke(Color.web("#80DEEA", 0.72));
-        g.setLineWidth(8);
-        g.strokeArc(2850, 570, 300, 300, 25, 130, ArcType.OPEN);
-        g.strokeArc(2850, 570, 300, 300, 205, 130, ArcType.OPEN);
-        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 42));
-        g.setFill(Color.web("#B0BEC5", 0.78));
-        g.fillText("CROWNLOCK DETENTION", 2670, 965);
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
-        g.setFill(Color.web("#FF5252", 0.72));
-        g.fillText("AUTHORIZED WINGS ONLY", 2815, 1010);
-
-        // Steel fighting floor and catwalks.
-        for (Platform p : platforms) {
-            g.setFill(p.y >= PRISON_MAIN_Y - 5 ? Color.web("#26343D") : Color.web("#31444F"));
-            g.fillRoundRect(p.x, p.y, p.w, p.h, 18, 18);
-            g.setStroke(Color.web("#78909C"));
-            g.setLineWidth(4);
-            g.strokeRoundRect(p.x, p.y, p.w, p.h, 18, 18);
-            g.setFill(Color.web("#0B151B"));
-            g.fillRect(p.x + 12, p.y + Math.min(24, p.h * 0.38), Math.max(0, p.w - 24), 8);
-            g.setFill(Color.web("#B0BEC5", 0.72));
-            for (double rivetX = p.x + 32; rivetX < p.x + p.w - 18; rivetX += 120) {
-                g.fillOval(rivetX, p.y + 11, 8, 8);
-            }
-            if (p.y < PRISON_MAIN_Y - 100) {
-                g.setStroke(Color.web("#546E7A", 0.65));
-                g.setLineWidth(5);
-                g.strokeLine(p.x + 24, p.y + p.h, p.x + 74, PRISON_MAIN_Y);
-                g.strokeLine(p.x + p.w - 24, p.y + p.h, p.x + p.w - 74, PRISON_MAIN_Y);
-            }
-        }
-
+        drawPrisonFloor(g);
         for (int lever = 0; lever < PRISON_LEVER_X.length; lever++) {
             drawPrisonLever(g, lever);
         }
 
-        g.setFill(Color.web("#05090D"));
-        g.fillRect(0, GROUND_Y + 40, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y - 40);
-        g.setStroke(Color.web("#FFB300", 0.7));
-        g.setLineWidth(8);
-        for (double x = PRISON_MAIN_X + 120; x < PRISON_MAIN_X + PRISON_MAIN_W - 80; x += 240) {
-            g.strokeLine(x, PRISON_MAIN_Y + PRISON_MAIN_H + 22,
-                    x + 72, PRISON_MAIN_Y + PRISON_MAIN_H + 22);
+        if (ambientFx && !prisonerRushes.isEmpty()) {
+            double alarm = 0.045 + 0.025 * (0.5 + 0.5 * Math.sin(presentationSeconds * 7.0));
+            g.setFill(Color.web("#FF1744", alarm));
+            g.fillRect(0, 0, WORLD_WIDTH, PRISON_MAIN_Y + PRISON_MAIN_H);
         }
+    }
+
+    private void drawPrisonBrokenRoof(GraphicsContext g) {
+        g.setFill(Color.web("#070C10"));
+        g.fillPolygon(
+                new double[]{0, 0, 2080, 2080, 1940, 1860, 1720, 1590, 1430, 1290, 0},
+                new double[]{0, 390, 390, 160, 255, 180, 335, 230, 410, 315, 510}, 11);
+        g.fillPolygon(
+                new double[]{WORLD_WIDTH, WORLD_WIDTH, 3920, 3920, 4060, 4140, 4280, 4410, 4570, 4710, WORLD_WIDTH},
+                new double[]{0, 390, 390, 160, 255, 180, 335, 230, 410, 315, 510}, 11);
+
+        g.setStroke(Color.web("#546E7A"));
+        g.setLineWidth(22);
+        g.strokeLine(0, 430, 1310, 430);
+        g.strokeLine(4690, 430, WORLD_WIDTH, 430);
+        g.strokeLine(1550, 255, 2160, 610);
+        g.strokeLine(4450, 255, 3840, 610);
+        g.setStroke(Color.web("#90A4AE", 0.72));
+        g.setLineWidth(8);
+        double[] rebarX = {1420, 1690, 1960, 4040, 4310, 4580};
+        for (int i = 0; i < rebarX.length; i++) {
+            double x = rebarX[i];
+            double direction = x < WORLD_WIDTH / 2.0 ? 1.0 : -1.0;
+            g.strokeLine(x, 300 + (i % 3) * 45, x + direction * 70, 540 + (i % 2) * 80);
+        }
+
+        // Suspended fragments frame the launch route without acting as platforms.
+        g.setFill(Color.web("#101920"));
+        g.fillPolygon(new double[]{2360, 2510, 2460, 2300}, new double[]{90, 165, 310, 220}, 4);
+        g.fillPolygon(new double[]{3540, 3690, 3700, 3500}, new double[]{120, 70, 245, 315}, 4);
+        g.setStroke(Color.web("#78909C", 0.58));
+        g.setLineWidth(6);
+        g.strokeLine(2430, 0, 2405, 135);
+        g.strokeLine(3605, 0, 3620, 118);
+    }
+
+    private void drawPrisonControlGate(GraphicsContext g) {
+        double gateX = 2260;
+        double gateY = 800;
+        double gateW = 1480;
+        double gateH = PRISON_MAIN_Y - gateY;
+        g.setFill(Color.web("#0B141A"));
+        g.fillRoundRect(gateX, gateY, gateW, gateH, 34, 34);
+        g.setStroke(Color.web("#50636F"));
+        g.setLineWidth(12);
+        g.strokeRoundRect(gateX, gateY, gateW, gateH, 34, 34);
+
+        g.setFill(Color.web("#05090C"));
+        g.fillRoundRect(gateX + 190, gateY + 330, gateW - 380, gateH - 360, 24, 24);
+        g.setStroke(Color.web("#263A45"));
+        g.setLineWidth(8);
+        for (int seam = 1; seam < 4; seam++) {
+            double sx = gateX + 190 + seam * (gateW - 380) / 4.0;
+            g.strokeLine(sx, gateY + 340, sx, gateY + gateH - 40);
+        }
+        g.setFill(Color.web("#081018"));
+        g.fillRoundRect(gateX + 350, gateY + 80, gateW - 700, 190, 22, 22);
+        g.setStroke(Color.web("#00BCD4", 0.75));
+        g.setLineWidth(5);
+        g.strokeRoundRect(gateX + 350, gateY + 80, gateW - 700, 190, 22, 22);
+        g.setFill(Color.web("#00BCD4", 0.72));
+        g.fillOval(WORLD_WIDTH / 2.0 - 68, gateY + 108, 136, 136);
+        g.setFill(Color.web("#041016"));
+        g.fillOval(WORLD_WIDTH / 2.0 - 34, gateY + 142, 68, 68);
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 38));
+        g.setFill(Color.web("#CFD8DC", 0.82));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText("CROWNLOCK // TRANSFER", WORLD_WIDTH / 2.0, gateY + 335);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 23));
+        g.setFill(Color.web("#FF5252", 0.78));
+        g.fillText("LOCKDOWN FAILED  •  SURFACE BREACH", WORLD_WIDTH / 2.0, gateY + 380);
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private void drawPrisonSearchlight(GraphicsContext g, double originX, double originY,
+                                       double targetX, Color beamColor) {
+        double targetHalfWidth = 280.0;
+        g.setFill(beamColor.deriveColor(0, 1, 1, 0.075));
+        g.fillPolygon(
+                new double[]{originX - 18, originX + 18, targetX + targetHalfWidth, targetX - targetHalfWidth},
+                new double[]{originY, originY, PRISON_MAIN_Y, PRISON_MAIN_Y}, 4);
+        g.setFill(beamColor.deriveColor(0, 1, 1, 0.055));
+        g.fillPolygon(
+                new double[]{originX - 7, originX + 7, targetX + 125, targetX - 125},
+                new double[]{originY, originY, PRISON_MAIN_Y, PRISON_MAIN_Y}, 4);
+        g.setStroke(beamColor.deriveColor(0, 1, 1, 0.2));
+        g.setLineWidth(4);
+        g.strokeLine(originX, originY, targetX, PRISON_MAIN_Y);
+        g.setFill(beamColor.deriveColor(0, 1, 1, 0.13));
+        g.fillOval(targetX - 250, PRISON_MAIN_Y - 38, 500, 76);
+
+        g.setFill(Color.web("#101A21"));
+        g.fillOval(originX - 52, originY - 30, 104, 60);
+        g.setStroke(Color.web("#90A4AE"));
+        g.setLineWidth(7);
+        g.strokeOval(originX - 52, originY - 30, 104, 60);
+        g.setFill(beamColor.deriveColor(0, 1, 1, 0.88));
+        g.fillOval(originX - 22, originY - 13, 44, 26);
+    }
+
+    private void drawPrisonFloor(GraphicsContext g) {
+        LinearGradient foundation = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#263842")),
+                new Stop(0.42, Color.web("#121D23")),
+                new Stop(1.0, Color.web("#05090C")));
+        g.setFill(foundation);
+        g.fillRect(0, PRISON_MAIN_Y, WORLD_WIDTH, WORLD_HEIGHT - PRISON_MAIN_Y);
+        g.setFill(Color.web("#334953"));
+        g.fillRect(0, PRISON_MAIN_Y, WORLD_WIDTH, PRISON_MAIN_H);
+        g.setFill(Color.web("#10191E"));
+        g.fillRect(0, PRISON_MAIN_Y + 30, WORLD_WIDTH, 16);
+        g.setStroke(Color.web("#90A4AE"));
+        g.setLineWidth(7);
+        g.strokeLine(0, PRISON_MAIN_Y, WORLD_WIDTH, PRISON_MAIN_Y);
+        g.setStroke(Color.web("#FFB300", 0.82));
+        g.setLineWidth(12);
+        for (double x = -40; x < WORLD_WIDTH; x += 240) {
+            g.strokeLine(x, PRISON_MAIN_Y + 68, x + 86, PRISON_MAIN_Y + 68);
+        }
+        g.setFill(Color.web("#05090C"));
+        for (double grateX = 500; grateX < WORLD_WIDTH - 400; grateX += 1000) {
+            g.fillRoundRect(grateX, PRISON_MAIN_Y + 108, 500, 90, 12, 12);
+            g.setStroke(Color.web("#455A64"));
+            g.setLineWidth(5);
+            for (int bar = 0; bar < 8; bar++) {
+                double gx = grateX + 32 + bar * 60;
+                g.strokeLine(gx, PRISON_MAIN_Y + 120, gx, PRISON_MAIN_Y + 184);
+            }
+        }
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 27));
+        g.setFill(Color.web("#78909C", 0.72));
+        g.fillText("CELL BLOCK A", 170, PRISON_MAIN_Y + 245);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.fillText("TRANSFER FLOOR 07", WORLD_WIDTH / 2.0, PRISON_MAIN_Y + 245);
+        g.setTextAlign(TextAlignment.RIGHT);
+        g.fillText("CELL BLOCK B", WORLD_WIDTH - 170, PRISON_MAIN_Y + 245);
+        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawPrisonCellBank(GraphicsContext g, double edgeX, double topY, boolean faceLeft) {
@@ -31001,7 +31119,7 @@ public class BirdGame3 {
             case DOCK -> "Storm-battered piers, rigging perches, and rescue skiffs over open water. Pull the top-dock lever to call in a pirate-ship bomb on a rival.";
             case FROSTBITE_FJORD -> "A frozen fjord under bright auroras with slick ice, breakable snowbanks, and glacier shelves built for slides, traps, and vertical recoveries.";
             case ASHFALL_CATHEDRAL -> "A burning sky-temple over a lava sea. Timed phoenix geysers telegraph, erupt, launch, and become dangerous thermals that can save or punish recoveries.";
-            case PRISON -> "A Crown detention complex beneath the city. Pull either cell-block lever to release a charging prisoner wave that attacks the opposing side, then use the layered steel catwalks to escape the rush.";
+            case PRISON -> "A breached Crown detention complex beneath the city. Fight on one continuous steel floor, pull either cell-block lever to release a charging prisoner wave, and launch rivals through the open roof or side blast exits.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -37848,7 +37966,7 @@ public class BirdGame3 {
                 new MapCard("BROKEN HARBOR", "Storm piers, mast perches, rescue skiffs, and a bombardment lever on the high dock.", "#26A69A", MapType.DOCK),
                 new MapCard("FROSTBITE FJORD", "Aurora-lit ice shelves with slick movement, snowbanks, and glacier routes.", "#4FC3F7", MapType.FROSTBITE_FJORD),
                 new MapCard("ASHFALL CATHEDRAL", "Phoenix geysers, lava recovery routes, ember thermals, and a burning sky-temple.", "#E64A19", MapType.ASHFALL_CATHEDRAL),
-                new MapCard("CROWNLOCK PRISON", "Steel cell blocks where paired levers unleash prisoner rushes across the main floor.", "#546E7A", MapType.PRISON),
+                new MapCard("CROWNLOCK PRISON", "A flat prison floor with sweeping searchlights, a shattered roof, and levers that unleash prisoner rushes.", "#546E7A", MapType.PRISON),
                 new MapCard("BEACON CROWN", "A huge crown-top arena with long lanes, layered perches, and a lethal void.", "#6A1B9A", MapType.BEACON_CROWN)
         ));
         cards.removeIf(card -> !isMapUnlocked(card.map));
@@ -42404,6 +42522,9 @@ public class BirdGame3 {
     }
 
     private double battlefieldBoundsMargin() {
+        if (selectedMap == MapType.PRISON) {
+            return 0.0;
+        }
         return Math.max(500, battlefieldIslandW * 0.7);
     }
 
@@ -42548,23 +42669,13 @@ public class BirdGame3 {
     }
 
     private void setupPrisonArena() {
+        // Crownlock is intentionally a single continuous floor. It extends past
+        // both side blast lines so falling below the stage is impossible; every
+        // knockout leaves through the breached roof or a side of the prison.
         platforms.add(new Platform(PRISON_MAIN_X, PRISON_MAIN_Y, PRISON_MAIN_W, PRISON_MAIN_H));
 
-        // Mirrored side catwalks give the levers counterplay; the center tower creates
-        // a faster but exposed rotation between them.
-        platforms.add(new Platform(PRISON_MAIN_X + 310, PRISON_MAIN_Y - 330, 900, 48));
-        platforms.add(new Platform(PRISON_MAIN_X + PRISON_MAIN_W - 1210, PRISON_MAIN_Y - 330, 900, 48));
-        platforms.add(new Platform(PRISON_MAIN_X + 1460, PRISON_MAIN_Y - 570, 1720, 54));
-        platforms.add(new Platform(PRISON_MAIN_X + 620, PRISON_MAIN_Y - 790, 420, 38));
-        platforms.add(new Platform(PRISON_MAIN_X + PRISON_MAIN_W - 1040, PRISON_MAIN_Y - 790, 420, 38));
-        platforms.add(new Platform(PRISON_MAIN_X + 2020, PRISON_MAIN_Y - 900, 600, 40));
-
-        // Small recovery shelves sit outside the walls, low enough to enable daring saves.
-        platforms.add(new Platform(PRISON_MAIN_X - 360, PRISON_MAIN_Y + 150, 300, 32));
-        platforms.add(new Platform(PRISON_MAIN_X + PRISON_MAIN_W + 60, PRISON_MAIN_Y + 150, 300, 32));
-
-        battlefieldIslandX = PRISON_MAIN_X;
-        battlefieldIslandW = PRISON_MAIN_W;
+        battlefieldIslandX = 0.0;
+        battlefieldIslandW = WORLD_WIDTH;
         battlefieldIslandY = PRISON_MAIN_Y;
     }
 

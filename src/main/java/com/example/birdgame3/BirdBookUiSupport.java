@@ -325,7 +325,14 @@ final class BirdBookUiSupport {
             }
             case PRISON -> {
                 g.setFill(Color.web("#111C23", 0.92));
-                g.fillRect(0, h * 0.2, w, h * 0.68);
+                g.fillRect(0, h * 0.36, w, h * 0.52);
+                g.setFill(Color.web("#050A0E", 0.96));
+                g.fillPolygon(
+                        new double[]{0, 0, w * 0.35, w * 0.31, w * 0.25, 0},
+                        new double[]{0, h * 0.34, h * 0.34, h * 0.2, h * 0.3, h * 0.42}, 6);
+                g.fillPolygon(
+                        new double[]{w, w, w * 0.65, w * 0.69, w * 0.75, w},
+                        new double[]{0, h * 0.34, h * 0.34, h * 0.2, h * 0.3, h * 0.42}, 6);
                 g.setStroke(Color.web("#607D8B", 0.9));
                 g.setLineWidth(3);
                 for (int side = 0; side < 2; side++) {
@@ -344,9 +351,16 @@ final class BirdBookUiSupport {
                 g.fillRoundRect(w * 0.38, h * 0.28, w * 0.24, h * 0.44, 10, 10);
                 g.setFill(Color.web("#00BCD4", 0.68));
                 g.fillOval(w * 0.47, h * 0.38, w * 0.06, h * 0.09);
+                g.setFill(Color.web("#B3E5FC", 0.1));
+                g.fillPolygon(
+                        new double[]{w * 0.2, w * 0.22, w * 0.58, w * 0.42},
+                        new double[]{h * 0.16, h * 0.16, h * 0.78, h * 0.78}, 4);
+                g.fillPolygon(
+                        new double[]{w * 0.8, w * 0.78, w * 0.42, w * 0.58},
+                        new double[]{h * 0.16, h * 0.16, h * 0.78, h * 0.78}, 4);
                 g.setStroke(Color.web("#FFB300", 0.72));
                 g.setLineWidth(4);
-                g.strokeLine(w * 0.08, h * 0.78, w * 0.92, h * 0.78);
+                g.strokeLine(0, h * 0.78, w, h * 0.78);
             }
             default -> {
                 g.setFill(Color.web("#1B5E20", 0.75));
@@ -369,9 +383,13 @@ final class BirdBookUiSupport {
         drawMapBackdrop(canvas, map);
 
         g.setFill(Color.web("#ECEFF1", 0.8));
-        g.fillRoundRect(w * 0.1, h * 0.7, w * 0.3, h * 0.08, 10, 10);
-        g.fillRoundRect(w * 0.6, h * 0.6, w * 0.28, h * 0.08, 10, 10);
-        g.fillRoundRect(w * 0.32, h * 0.42, w * 0.36, h * 0.08, 10, 10);
+        if (map == BirdGame3.MapType.PRISON) {
+            g.fillRoundRect(0, h * 0.74, w, h * 0.09, 8, 8);
+        } else {
+            g.fillRoundRect(w * 0.1, h * 0.7, w * 0.3, h * 0.08, 10, 10);
+            g.fillRoundRect(w * 0.6, h * 0.6, w * 0.28, h * 0.08, 10, 10);
+            g.fillRoundRect(w * 0.32, h * 0.42, w * 0.36, h * 0.08, 10, 10);
+        }
     }
 
     static Color mapAccentColor(BirdGame3.MapType map) {

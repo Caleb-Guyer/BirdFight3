@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PrisonMapTest {
     @Test
-    void crownlockIsASelectableMainMapWithAFullMirroredLayout() throws Exception {
+    void crownlockIsASelectableFlatMainMapWithOnlySideAndRoofExits() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.selectedMap = BirdGame3.MapType.PRISON;
 
@@ -19,11 +19,17 @@ class PrisonMapTest {
 
         assertTrue((boolean) invoke(game, "isMapUnlocked", BirdGame3.MapType.PRISON),
                 "Crownlock must be available from the regular map select without a campaign unlock.");
-        assertEquals(9, game.platforms.size());
+        assertEquals(1, game.platforms.size(), "Crownlock must have no raised or recovery platforms.");
         Platform mainFloor = game.platforms.getFirst();
-        assertEquals(680.0, mainFloor.x, 0.0001);
+        assertEquals(-420.0, mainFloor.x, 0.0001);
         assertEquals(BirdGame3.GROUND_Y - 150.0, mainFloor.y, 0.0001);
-        assertEquals(4640.0, mainFloor.w, 0.0001);
+        assertEquals(BirdGame3.WORLD_WIDTH + 840.0, mainFloor.w, 0.0001);
+        assertEquals(0.0, game.battlefieldLeftBound(), 0.0001);
+        assertEquals(BirdGame3.WORLD_WIDTH, game.battlefieldRightBound(), 0.0001);
+        assertTrue(mainFloor.x <= game.battlefieldLeftBound() - 300.0,
+                "The solid floor must continue past the left blast line.");
+        assertTrue(mainFloor.x + mainFloor.w >= game.battlefieldRightBound() + 300.0,
+                "The solid floor must continue past the right blast line.");
         assertTrue(game.usesIslandBoundsForCurrentArena());
     }
 
