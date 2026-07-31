@@ -63,8 +63,10 @@ final class BirdSpriteLibrary {
      * The sheet for a bird wearing a skin: a variant whose filename suffix
      * matches the skin key wins (longest match first, so {@code -noir_pigeon}
      * beats {@code -noir}). Pigeon's authored vector skins deliberately fall
-     * back to the vector renderer when no matching atlas exists; other skins
-     * continue to use the bird's base sheet.
+     * back to the vector renderer when no matching atlas exists. Pigeon's base
+     * look is always the canonical vector bird; only an explicit matching skin
+     * variant may replace it with an atlas. Other birds continue to use their
+     * base sheets.
      */
     static BirdSpriteSheet sheetFor(BirdGame3.BirdType type, String skinKey) {
         if (type == null) {
@@ -88,6 +90,9 @@ final class BirdSpriteLibrary {
             if (usesAuthoredPigeonVectorSkin(type, skinKey)) {
                 return null;
             }
+        }
+        if (type == BirdGame3.BirdType.PIGEON) {
+            return null;
         }
         return SHEETS.get(type);
     }

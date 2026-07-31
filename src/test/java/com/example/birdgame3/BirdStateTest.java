@@ -4455,6 +4455,68 @@ class BirdStateTest {
     }
 
     @Test
+    void verticallyStackedAlliedCpusBreakApartAndFastFallTowardDistantTarget() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+        game.selectedMap = BirdGame3.MapType.CAVE;
+        game.teamModeEnabled = true;
+        int[] teams = (int[]) getPrivateObject(game, "playerTeams");
+        teams[0] = 1;
+        teams[1] = 2;
+        teams[2] = 2;
+
+        Bird target = new Bird(1_200.0, BirdGame3.BirdType.PIGEON, 0, game);
+        target.y = 1_650.0;
+        Bird opiumBird = new Bird(1_200.0, BirdGame3.BirdType.OPIUMBIRD, 1, game);
+        opiumBird.y = 320.0;
+        Bird raven = new Bird(1_205.0, BirdGame3.BirdType.RAVEN, 2, game);
+        raven.y = 355.0;
+
+        game.players[0] = target;
+        game.players[1] = opiumBird;
+        game.players[2] = raven;
+        game.isAI[1] = true;
+        game.isAI[2] = true;
+        int[] cpuLevels = (int[]) getPrivateObject(game, "cpuLevels");
+        cpuLevels[1] = 5;
+        setPrivateInt(opiumBird, "aiProgressTargetIndex", 0);
+        setPrivateDouble(opiumBird, "aiBestTargetDistance", opiumBird.combatDistanceTo(target));
+        setPrivateInt(opiumBird, "aiStackedFrames", 23);
+
+        opiumBird.update(1.0);
+
+        assertTrue(game.isRightPressed(1),
+                "Odd-numbered stacked CPU slots should peel right when the target is directly below.");
+        assertTrue(game.isBlockPressed(1),
+                "The escape state should fast-fall instead of continuing the vertical bounce.");
+        assertTrue(getPrivateInt(opiumBird, "aiNavigationEscapeFrames") > 0);
+        assertFalse(game.isJumpPressed(1),
+                "The anti-stuck descent must release Jump so flying birds cannot hover forever.");
+    }
+
+    @Test
+    void aiNavigationEscapeDoesNotInterruptNearbyCombat() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird target = new Bird(1_230.0, BirdGame3.BirdType.PIGEON, 0, game);
+        target.y = 520.0;
+        Bird ai = new Bird(1_200.0, BirdGame3.BirdType.RAVEN, 1, game);
+        ai.y = 420.0;
+        game.players[0] = target;
+        game.players[1] = ai;
+        game.isAI[1] = true;
+        setPrivateInt(ai, "aiNoProgressFrames", 104);
+        setPrivateInt(ai, "aiProgressTargetIndex", 0);
+        setPrivateDouble(ai, "aiBestTargetDistance", ai.combatDistanceTo(target));
+
+        ai.update(1.0);
+
+        assertEquals(0, getPrivateInt(ai, "aiNavigationEscapeFrames"),
+                "Normal close-range exchanges should not activate navigation recovery.");
+    }
+
+    @Test
     void penguinAiUsesIceJumpToClimbTowardHigherTarget() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
@@ -4980,6 +5042,52 @@ class BirdStateTest {
                 .count();
 
         assertEquals(0, submergedSkiffs);
+    }
+
+    @Test
+    void dockMatchSpawnsEveryBirdOnAStableSurface() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.selectedMap = BirdGame3.MapType.DOCK;
+        game.activePlayers = 4;
+        game.players[0] = new Bird(0.0, BirdGame3.BirdType.PELICAN, 0, game);
+        game.players[1] = new Bird(0.0, BirdGame3.BirdType.GOOSE, 1, game);
+        game.players[2] = new Bird(0.0, BirdGame3.BirdType.RAVEN, 2, game);
+        game.players[3] = new Bird(0.0, BirdGame3.BirdType.HEISENBIRD, 3, game);
+
+        Method setupDockArena = BirdGame3.class.getDeclaredMethod("setupDockArena");
+        setupDockArena.setAccessible(true);
+        setupDockArena.invoke(game);
+        Method positionBattlefieldSpawns = BirdGame3.class.getDeclaredMethod("positionBattlefieldSpawns");
+        positionBattlefieldSpawns.setAccessible(true);
+        positionBattlefieldSpawns.invoke(game);
+
+        for (int i = 0; i < game.activePlayers; i++) {
+            Bird bird = game.players[i];
+            assertNotNull(bird);
+            assertTrue(bird.isOnGround(),
+                    bird.type.name + " should begin the Dock countdown standing on a platform.");
+            assertEquals(bird.x, bird.prevX, 0.0001);
+            assertEquals(bird.y, bird.prevY, 0.0001);
+        }
+    }
+
+    @Test
+    void lockedMatchCountdownUsesIdlePoseEvenForAirborneSpawns() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird bird = new Bird(300.0, BirdGame3.BirdType.PELICAN, 0, game);
+        bird.y = BirdGame3.GROUND_Y - 500.0;
+        game.players[0] = bird;
+
+        Method animationState = Bird.class.getDeclaredMethod("currentBirdAnimationState");
+        animationState.setAccessible(true);
+        setPrivateInt(game, "matchIntroOverlayFrames", 120);
+
+        assertEquals("IDLE", animationState.invoke(bird).toString(),
+                "The frozen 3-2-1 countdown should never display a falling or attack pose.");
+
+        setPrivateInt(game, "matchIntroOverlayFrames", 40);
+        assertEquals("FALL", animationState.invoke(bird).toString(),
+                "Once the fight is live, an airborne bird should resume its normal fall pose.");
     }
 
     @Test
@@ -5874,6 +5982,39 @@ class BirdStateTest {
     }
 
     @Test
+    void pelicanKeelDiveBouncesOffDockWaterInsteadOfDrowning() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        game.selectedMap = BirdGame3.MapType.DOCK;
+
+        Method setupDockArena = BirdGame3.class.getDeclaredMethod("setupDockArena");
+        setupDockArena.setAccessible(true);
+        setupDockArena.invoke(game);
+
+        Bird pelican = new Bird(3900.0, BirdGame3.BirdType.PELICAN, 0, game);
+        pelican.x = 3900.0;
+        pelican.y = game.dockWaterSurfaceY() + 18.0;
+        pelican.vy = 17.0;
+        pelican.pelicanUpTimer = 1;
+        pelican.pelicanUpSpecialUsed = true;
+        pelican.pelicanKeelDiveActive = true;
+        game.players[0] = pelican;
+
+        double startingHealth = pelican.health;
+        pelican.update(1.0);
+
+        assertEquals(startingHealth, pelican.health, 0.0001,
+                "A keel dive entering water must not count as drowning.");
+        assertFalse(pelican.pelicanKeelDiveActive,
+                "Water contact should resolve the forced dive.");
+        assertEquals(0, pelican.pelicanUpTimer);
+        assertTrue(pelican.vy < 0.0,
+                "Water impact should bounce Pelican back toward the surface.");
+        assertTrue(pelican.y < game.dockWaterSurfaceY(),
+                "The splash bounce should leave Pelican above the drowning region.");
+    }
+
+    @Test
     void pelicanKeelDiveDamageScalesWithCargo() throws Exception {
         double emptyCargoDamage = pelicanKeelDiveDamageAtCargo(0);
         double fullCargoDamage = pelicanKeelDiveDamageAtCargo(2);
@@ -6436,6 +6577,142 @@ class BirdStateTest {
                 "A normal charged honk at maximum range should reset spacing instead of acting as a safe KO launch.");
         assertTrue(nearTarget.stunTime > farTarget.stunTime,
                 "Honk stun should decay with distance as well as launch.");
+    }
+
+    @Test
+    void cpuReactionAndOffenseCadenceImproveGraduallyByLevel() {
+        for (int level = 1; level < 9; level++) {
+            assertTrue(Bird.aiReactionFramesForLevel(level) > Bird.aiReactionFramesForLevel(level + 1),
+                    "Each CPU level should react sooner without becoming frame-perfect.");
+            assertTrue(Bird.aiOffenseDecisionIntervalForLevel(level)
+                            >= Bird.aiOffenseDecisionIntervalForLevel(level + 1),
+                    "Higher CPU levels should reconsider offense at least as quickly.");
+        }
+        assertTrue(Bird.aiReactionFramesForLevel(9) > 0,
+                "Even the strongest CPU must retain a visible reaction delay.");
+        assertTrue(Bird.aiOffenseDecisionIntervalForLevel(9) > 1,
+                "Even the strongest CPU must commit for more than a single frame.");
+    }
+
+    @Test
+    void campaignLaunchPercentUsesAuthoredStartingHealth() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.campaignModeActive = true;
+        Bird bird = new Bird(100.0, BirdGame3.BirdType.PIGEON, 1, game);
+        double[] startingHealth = (double[]) getPrivateObject(game, "campaignStartingHealth");
+        startingHealth[1] = 120.0;
+
+        bird.health = 120.0;
+        assertEquals(0.0, game.damageScaledLaunchPercent(bird), 0.0001);
+        bird.health = 90.0;
+        assertEquals(25.0, game.damageScaledLaunchPercent(bird), 0.0001);
+        bird.health = 30.0;
+        assertEquals(75.0, game.damageScaledLaunchPercent(bird), 0.0001);
+    }
+
+    @Test
+    void campaignAllyWalksTowardObjectiveAfterEnemiesAreCleared() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.campaignModeActive = true;
+        game.campaignTeamMode = true;
+        game.activePlayers = 3;
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("dead_air");
+        StoryMissionController controller = new StoryMissionController(
+                mission, StoryCampaign.Difficulty.NORMAL, BirdGame3.WORLD_WIDTH);
+        Field controllerField = BirdGame3.class.getDeclaredField("campaignMissionController");
+        controllerField.setAccessible(true);
+        controllerField.set(game, controller);
+
+        Bird player = new Bird(850.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird charles = new Bird(1000.0, BirdGame3.BirdType.MOCKINGBIRD, 1, game);
+        Bird defeatedEnemy = new Bird(4200.0, BirdGame3.BirdType.RAVEN, 2, game);
+        game.players[0] = player;
+        game.players[1] = charles;
+        game.players[2] = defeatedEnemy;
+        game.isAI[1] = true;
+        game.isAI[2] = true;
+        game.campaignTeams[0] = 1;
+        game.campaignTeams[1] = 1;
+        game.campaignTeams[2] = 2;
+
+        assertTrue(Double.isNaN(game.campaignObjectiveAssistTargetX(charles)),
+                "Allies should keep fighting while an enemy remains.");
+        defeatedEnemy.health = 0.0;
+        assertEquals(1440.0, game.campaignObjectiveAssistTargetX(charles), 0.0001);
+
+        invokePrivateVoid(charles, "aiControl");
+
+        assertTrue(game.isRightPressed(1),
+                "Charles should walk toward the first rooftop vent after combat ends.");
+        assertFalse(game.isLeftPressed(1));
+    }
+
+    @Test
+    void harborLockSurvivalKeepsRunningAfterBothEnemiesAreDefeated() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.headlessHarnessMode = true;
+        game.campaignModeActive = true;
+        game.campaignTeamMode = true;
+        game.selectedMap = BirdGame3.MapType.DOCK;
+        game.matchTimer = 10_000;
+
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("harbor_lock");
+        setPrivateObject(game, "currentCampaignMission", mission);
+        setPrivateObject(game, "campaignSelectedBird", BirdGame3.BirdType.GOOSE);
+        StoryCampaignProgress progress =
+                (StoryCampaignProgress) getPrivateObject(game, "stillSkyProgress");
+        progress.difficulty = StoryCampaign.Difficulty.EASY;
+        setPrivateInt(game, "campaignRetryPhaseIndex", 1);
+        Method setupRoster = BirdGame3.class.getDeclaredMethod(
+                "setupCampaignMissionRoster", StoryCampaign.Mission.class);
+        setupRoster.setAccessible(true);
+        setupRoster.invoke(game, mission);
+        invokePrivateVoid(game, "setupMatchArenaGeometry");
+
+        StoryMissionController controller =
+                (StoryMissionController) getPrivateObject(game, "campaignMissionController");
+        Bird goose = game.players[0];
+        Bird heisenbird = game.players[1];
+        Bird razorbill = game.players[2];
+        Method launchBomb = BirdGame3.class.getDeclaredMethod(
+                "launchDockShipBomb", Bird.class, Bird.class);
+        launchBomb.setAccessible(true);
+        launchBomb.invoke(game, goose, heisenbird);
+        heisenbird.health = 0.0;
+        razorbill.health = 0.0;
+
+        for (int tick = 0; tick < 1_600; tick++) {
+            assertTrue(game.harnessTick(), "Harbor Lock should still be running at tick " + tick);
+        }
+
+        assertEquals(1, controller.phaseIndex());
+        assertFalse(controller.complete());
+        assertFalse(controller.failed());
+        assertTrue(controller.objectiveProgressRatio() > 0.75);
+
+        javafx.scene.canvas.Canvas canvas =
+                new javafx.scene.canvas.Canvas(BirdGame3.WIDTH, BirdGame3.HEIGHT);
+        Method drawGame = BirdGame3.class.getDeclaredMethod(
+                "drawGame", javafx.scene.canvas.GraphicsContext.class);
+        drawGame.setAccessible(true);
+        drawGame.invoke(game, canvas.getGraphicsContext2D());
+
+        Method buildHud = BirdGame3.class.getDeclaredMethod("buildFightHudLayout");
+        buildHud.setAccessible(true);
+        Object hudLayout = buildHud.invoke(game);
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, javafx.scene.image.WritableImage> portraitCache =
+                (java.util.Map<String, javafx.scene.image.WritableImage>)
+                        getPrivateObject(game, "fightHudPortraitCache");
+        portraitCache.put("GOOSE|", new javafx.scene.image.WritableImage(1, 1));
+        portraitCache.put("HEISENBIRD|", new javafx.scene.image.WritableImage(1, 1));
+        portraitCache.put("RAZORBILL|", new javafx.scene.image.WritableImage(1, 1));
+        Method drawHud = java.util.Arrays.stream(BirdGame3.class.getDeclaredMethods())
+                .filter(method -> method.getName().equals("drawFightHud"))
+                .findFirst()
+                .orElseThrow();
+        drawHud.setAccessible(true);
+        drawHud.invoke(game, canvas.getGraphicsContext2D(), hudLayout);
     }
 
     private static GooseHonkOutcome playGooseHonk(int holdFrames) {

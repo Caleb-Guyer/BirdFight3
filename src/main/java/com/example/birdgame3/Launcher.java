@@ -10,6 +10,12 @@ public class Launcher {
     private static final Logger LOGGER = Logger.getLogger(Launcher.class.getName());
 
     public static void main(String[] args) {
+        // Prism chooses its pipeline while JavaFX starts, so this must run
+        // before Application.launch. BirdGame3Application is intentionally
+        // not the JVM main class: that prevents the Java launcher from
+        // initializing JavaFX before this renderer policy is applied.
+        JavaFxRendererPolicy.configureBeforeJavaFxStartup(LOGGER);
+
         // Install a global uncaught exception handler so crashes during startup
         // are recorded to an easy-to-find file on the Desktop.
         Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
@@ -35,7 +41,7 @@ public class Launcher {
         });
 
         try {
-            Application.launch(BirdGame3.class, args);
+            Application.launch(BirdGame3Application.class, args);
         } catch (Throwable t) {
             // Also log anything that bubbles up here (best-effort)
             ThrowableLogSupport.log(LOGGER, Level.SEVERE, "Throwable from main launch", t);

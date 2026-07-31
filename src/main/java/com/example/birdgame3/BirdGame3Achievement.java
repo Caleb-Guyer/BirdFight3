@@ -36,7 +36,9 @@ enum BirdGame3Achievement {
     ASHFALL_INITIATE(30, "Ashfall Initiate", "Win a match on Ashfall Cathedral", BirdGame3AchievementCategory.MAP, "ashfall-spark"),
     GEYSER_RIDER(31, "Geyser Rider", "Survive an Ashfall Cathedral geyser launch", BirdGame3AchievementCategory.MAP, "ashfall-geyser"),
     ASHFALL_ASCENDANT(32, "Ashfall Ascendant", "Win 5 matches on Ashfall Cathedral", BirdGame3AchievementCategory.MAP, "ashfall-crown"),
-    PHOENIX_PILGRIMAGE(33, "Phoenix Pilgrimage", "Win as Phoenix on Ashfall Cathedral", BirdGame3AchievementCategory.MAP, "phoenix-altar");
+    PHOENIX_PILGRIMAGE(33, "Phoenix Pilgrimage", "Win as Phoenix on Ashfall Cathedral", BirdGame3AchievementCategory.MAP, "phoenix-altar"),
+    STILL_SKY(34, "The Still Sky", "Complete the definitive 12-act story campaign",
+            BirdGame3AchievementCategory.STORY, "still-sky-crown");
 
     private static final BirdGame3Achievement[] VALUES = values();
 

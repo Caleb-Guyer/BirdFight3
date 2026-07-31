@@ -101,10 +101,12 @@ class BirdSpriteSheetTest {
 
     @Test
     void bundledPigeonAtlasMatchesItsAnimationMetadata() throws Exception {
-        try (InputStream imageIn = BirdSpriteLibrary.class.getResourceAsStream("/sprites/pigeon.png");
-             InputStream propsIn = BirdSpriteLibrary.class.getResourceAsStream("/sprites/pigeon.properties")) {
-            assertNotNull(imageIn, "The production Pigeon atlas must be packaged with the game.");
-            assertNotNull(propsIn, "The production Pigeon metadata must be packaged with the game.");
+        try (InputStream imageIn = BirdSpriteLibrary.class.getResourceAsStream(
+                "/sprites/pigeon-premium_pigeon.png");
+             InputStream propsIn = BirdSpriteLibrary.class.getResourceAsStream(
+                     "/sprites/pigeon-premium_pigeon.properties")) {
+            assertNotNull(imageIn, "The optional Premium Pigeon atlas must be packaged with the game.");
+            assertNotNull(propsIn, "The optional Premium Pigeon metadata must be packaged with the game.");
 
             BufferedImage image = ImageIO.read(imageIn);
             assertNotNull(image);
@@ -153,9 +155,12 @@ class BirdSpriteSheetTest {
     void authoredPigeonSkinsUseVectorArtWhenNoMatchingAtlasExists() {
         BirdSpriteLibrary.reload();
         BirdSpriteSheet base = BirdSpriteLibrary.sheetFor(BirdGame3.BirdType.PIGEON);
-        assertNotNull(base);
-        assertTrue(BirdSpriteLibrary.bundledVariantSuffixesFor(BirdGame3.BirdType.PIGEON).isEmpty(),
-                "Rejected generated Pigeon variants must not be packaged");
+        assertNull(base, "The canonical Pigeon must use the original in-engine vector rendering.");
+        assertTrue(BirdSpriteLibrary.bundledVariantSuffixesFor(BirdGame3.BirdType.PIGEON)
+                        .contains("premium_pigeon"),
+                "The painted atlas must remain available as the Premium Pigeon skin.");
+        assertNotNull(BirdSpriteLibrary.sheetFor(BirdGame3.BirdType.PIGEON, "PREMIUM_PIGEON"),
+                "The Premium Pigeon skin must resolve to the painted atlas.");
 
         for (String skinKey : java.util.List.of(
                 "CITY_PIGEON",
@@ -167,7 +172,7 @@ class BirdSpriteSheetTest {
                     skinKey + " must use its authored vector body and accessories");
         }
 
-        assertNotNull(BirdSpriteLibrary.sheetFor(BirdGame3.BirdType.PIGEON, "UNKNOWN_SKIN"),
-                "Unrecognized skin keys should retain the base Pigeon atlas");
+        assertNull(BirdSpriteLibrary.sheetFor(BirdGame3.BirdType.PIGEON, "UNKNOWN_SKIN"),
+                "Unrecognized skins should fall back to the canonical vector Pigeon.");
     }
 }

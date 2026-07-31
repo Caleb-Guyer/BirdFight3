@@ -1,0 +1,1007 @@
+# THE STILL SKY — EDITABLE DIALOGUE
+#
+# Put each spoken line under its stable [scene_id].
+# Normal line:          Speaker|Dialogue text
+# Selected-bird line:  Speaker@BIRD_TYPE|Dialogue text
+# Directed line:        Speaker|Dialogue text|SHOT|MOTION
+#
+# SHOT and MOTION are optional. Valid shots: ESTABLISHING, WIDE, TWO_SHOT,
+# CLOSE, PAN, ACTION, REVEAL, CROWD, BLACK. Valid motions: IDLE, ENTER_LEFT,
+# ENTER_RIGHT, FLY_BY, ATTACK, RECOIL, TURN_AWAY, EXIT_LEFT, EXIT_RIGHT, FALL,
+# RISE. Keep section IDs and the first | on each spoken line. Blank lines and
+# lines beginning with # are ignored. The game validates the screenplay when
+# it starts.
+
+[s01_dead_air]
+Old Sparrow|Pigeon. The flags. They all dropped at once.
+Pigeon|No storm, no pressure change, and no wind. That's not weather.
+Charles|The lounge sign just fell through my awning. I vote we call it rude.
+Old Sparrow|Call it whatever gets you moving. The east stair is already packed.
+Pigeon|Charles, lower roofs. Keep everyone away from the glass.
+Charles|You make that sound easy when you're volunteering me.
+Pigeon|I'm taking the vents. If I can wake them, you get a clean route.
+Old Sparrow|Three vents, then my light at the east edge. Don't double back.
+Charles|He says that because he knows you.
+Pigeon|Only if somebody needs me. Go.
+
+[s02_rooftop_after]
+Charles|Last family's on the stair. Everyone's okay.
+Pigeon|Good. The vents came back, but something was pulling against them.
+Old Sparrow|I found this under the west housing.
+Charles|Black metal, gold ring, no serial number. Very welcoming.
+Pigeon|That's Eagle's Crown mark.
+Old Sparrow|It's the public mark. That doesn't tell us who installed this piece.
+Charles|You still trust him?
+Old Sparrow|I trust records. And witnesses. Doors I can open myself aren't bad either.
+Pigeon|Then we get all three. The harbor alarm is on the emergency band.
+Charles|I just saved my lounge. Fine. Let's go save Pelican's terrible furniture.
+
+[s03_harbor_alarm]
+Pelican|Upper lever's jammed. Water's already over Pier Nine.
+Goose|My nest is on Pier Nine.
+Pelican|So are forty dockworkers. We're moving all of them.
+Goose|I said my nest. I didn't say only my nest.
+Razorbill|That lever's under contract control. Step away.
+Pelican|Your contract is drowning people.
+Heisenbird|The water will recede. I need one clean pressure test.
+Goose|Test it somewhere you live.
+Pelican|One of us holds the lever. The other keeps their hands off it.
+Goose|Pick quickly. I already dislike both jobs.
+
+[s04_harbor_after]
+Goose|The skiffs are clear. Pier Nine is not.
+Pelican|We'll rebuild it.
+Goose|You say that every time somebody breaks what isn't theirs.
+Razorbill|It wasn't supposed to raise the water that high.
+Pelican|You stood beside it while it did.
+Razorbill|I know where I stood.
+Heisenbird|Razorbill, stop explaining my work to birds who can't read a gauge.
+Goose|I can read the part where you're leaving.
+Pelican|Let him go. We need to know why the same Crown hardware hit three regions.
+Razorbill|Three? Then this was never a harbor test.
+
+[s05_ashfall_warning]
+Penguin|The west geyser's cold. That's physically impossible.
+Phoenix|Give me a minute. I can make anything hot.
+Penguin|That's exactly why I asked you to wait.
+Opium Bird|Waiting won't change the result. This thermal has already been claimed.
+Phoenix|You always talk like the next minute signed a contract with you.
+Vulture|Step away from the stabilizer. Nobody needs to get burned.
+Penguin|You brought a fireproof collection cage. You expected burning.
+Phoenix|Stay on the controls. I'll keep their collector busy.
+Penguin|If it flashes white, move. Rebirth won't protect anyone standing behind you.
+Phoenix|I heard you. This time, I actually heard you.
+
+[s06_three_signals]
+Penguin|The thermal is free, but the drain is still active somewhere north.
+Phoenix|Pigeon sent this from the city. Same mark, same dead wind.
+Pelican|And this is from the harbor. My message has more water damage.
+Goose|His pouch leaks.
+Pelican|My pouch was carrying six radios and a child.
+Pigeon|Three regions, same hardware. That's enough of a pattern for me.
+Old Sparrow|Don't call them attacks until we know the purpose.
+Phoenix|Somebody caged a volcano. I don't need their mission statement.
+Penguin|If we know what it's doing, we can guess where it hits next.
+Pigeon|Sky Cliffs. Every Crown route meets there. We start climbing.
+
+[s07_broken_harbor]
+Pelican|The lower pier is gone. My west warehouse is now a reef.
+Goose|Your warehouse blocked my view.
+Pelican|I'm trying to grieve quickly.
+Razorbill|Heisenbird moved the main conductor to the sea gate.
+Pelican|Why tell us?
+Razorbill|Because the next pressure test will split the rescue channel.
+Goose|You could stop guarding it.
+Razorbill|I could. I haven't decided what happens after.
+Pelican|Decide after we get the breaker across the pier.
+Goose|Pelican carries it. I clear anything that thinks the pier belongs to them.
+
+[s08_breakwater_after]
+Pelican|Both relays are charged. The breaker feels twice as heavy.
+Goose|You filled your pouch with spare bolts again.
+Pelican|They were on the ground. Somebody might need them.
+Razorbill|You can't carry the whole harbor.
+Pelican|Watch me.
+Goose|That's not courage. You're going to hurt yourself.
+Pelican|If I put something down, it tends to disappear.
+Razorbill|Then choose who can carry it with you.
+Goose|Give me the breaker.
+Pelican|No.
+
+[s09_pier_nine]
+Goose|The evacuation nest stays here.
+Pelican|The pier supports are cracked. Move it inland.
+Goose|The hatchlings know this roof. They will panic in the crowd.
+Razorbill|A boarding wave is forming behind the freight cranes.
+Pelican|Goose, I need a decision.
+Goose|You have one. The nest stays, and I stay with it.
+Pelican|Then I stay too.
+Goose|I didn't ask.
+Pelican|Good. Then you can't say I misunderstood.
+Razorbill|Argue later. First wave's on the dock.
+
+[s10_razor_doubt]
+Razorbill|Heisenbird diverted the last skiff to cool his conductor.
+Pelican|There were workers on that skiff.
+Razorbill|I know.
+Goose|You keep saying “I know.” It doesn't fix anything.
+Razorbill|No. It doesn't.
+Pelican|Then help me get the skiff back.
+Razorbill|My contract says the conductor survives.
+Goose|Your contract can't bite you. He can.
+Razorbill|I wrote the evacuation clause myself. He ignored it.
+Pelican|Then stop protecting his breach.
+
+[s11_stormglass_before]
+Heisenbird|The line holds at ninety percent. One more minute and the harbor obeys me.
+Razorbill|Release the rescue skiff first.
+Heisenbird|I pay you to cut clean lines, not question them.
+Pelican|Razorbill, step away from him.
+Goose|Or don't. I can solve both problems in one direction.
+Razorbill|The skiff leaves now.
+Heisenbird|You think they will trust you because you noticed one drowning family?
+Razorbill|No.
+Pelican|Good answer.
+Goose|We'll see if you mean it.
+
+[s12_razorbill_joins]
+Heisenbird|You broke a stable machine for birds who will blame you tomorrow.
+Razorbill|The machine was stable. The harbor was not.
+Heisenbird|And that's why you'll always work for someone smarter.
+Pelican|Leave before Goose tests that theory on your face.
+Goose|I was going to test it on his whole body.
+Heisenbird|Keep the harbor. The Crown already has the readings I needed.
+Razorbill|Readings from the fights?
+Pelican|Come with us and explain every number you saw.
+Razorbill|I'm not asking you to trust me.
+Goose|Excellent. You can start by earning something smaller.
+
+[s13_painted_road]
+Roadrunner|Light package. Lot of soldiers for something this light.
+Raven|Stop at the next marker and surrender the relay key.
+Roadrunner|You put the marker on my road.
+Raven|Eagle put it there.
+Roadrunner|Then Eagle can move it.
+Falcon|Courier. Emergency order. The road is closed.
+Roadrunner|Emergency for who?
+Falcon|Every cliff settlement north of you.
+Roadrunner|Then you should be flying north instead of talking to me.
+Raven|Run if you like. Falcon enjoys a measurable problem.
+
+[s14_falcon_report]
+Falcon|The courier crossed both checkpoints.
+Eagle|Were civilians endangered?
+Falcon|No. Roadrunner redirected the pursuit away from the oasis.
+Raven|A charming detail for the arrest report.
+Falcon|The order called the package a weapon. It is a route key.
+Eagle|That key can redirect an evacuation. In the wrong hands, it becomes a weapon.
+Falcon|Then why was the village not warned?
+Eagle|Because a panic on those bridges kills faster than a late warning.
+Raven|You wanted the full report. That's it.
+Eagle|Bring Roadrunner in alive. I will answer the rest in person.
+
+[s15_orders_above]
+Eagle|The cliff route is failing one thermal at a time.
+Falcon|Roadrunner's key can open the emergency lane.
+Eagle|Yes. Catch him before Vulture's scouts do.
+Falcon|The written order says Crown custody, not emergency use.
+Eagle|Custody keeps one frightened courier from selling access twice.
+Raven|He has never sold the same route twice.
+Falcon|You know his record well.
+Raven|Knowing records is my job.
+Eagle|Falcon, finish the pursuit. Ask whatever you need to ask, but keep moving.
+Falcon|Understood.
+
+[s16_falcon_choice]
+Roadrunner|You caught me. Congratulations. The village behind you is on fire.
+Falcon|Carrion crows struck the lower thermal.
+Roadrunner|They followed your pursuit beacons.
+Falcon|Give me the route key.
+Roadrunner|So you can arrest it properly?
+Falcon|So I can open the emergency lane.
+Roadrunner|And after?
+Falcon|After, I finish my order.
+Roadrunner|That almost sounded honest.
+Falcon|Move. We have six minutes before the updraft collapses.
+
+[s17_open_sky_before]
+Razorbill|That bridge won't survive another wave.
+Roadrunner|The emergency lane is open. Nobody wants to step onto it.
+Falcon|They saw Crown soldiers chase the bird carrying its key.
+Razorbill|Then take off the insignia.
+Falcon|It's not a costume.
+Roadrunner|Today it's scaring families off the only safe bridge.
+Falcon|I will hold the upper bridge.
+Razorbill|You will be visible there.
+Falcon|They need to see me hold it.
+Roadrunner|Fine. We make the route safer than the birds guarding it.
+
+[s18_eagle_saves]
+Eagle|Relief wing, lift the west span. Civilians first, equipment second.
+Falcon|Marshal, the lower thermal is gone.
+Eagle|Then we become the thermal. Hold formation.
+Roadrunner|He actually came.
+Razorbill|And he brought enough lift to save the village.
+Eagle|Roadrunner, your route key saved three hundred birds today.
+Roadrunner|Your pursuit nearly trapped the same three hundred.
+Eagle|Both statements are true.
+Falcon|What happens to the arrest order?
+Eagle|Suspended. Right now I need the route open, and I need all three of you defending it.
+
+[s19_needle_route]
+Hummingbird|The canopy relay flashed black, then every nectar lift dropped.
+Titmouse|I found wire bites on the lower trunks. Small blade, fast hands.
+Hummingbird|You think I did it?
+Titmouse|You never stop long enough to make cuts this neat.
+Grinch-Hawk|Touching. The tiny birds have formed a committee.
+Hummingbird|You stole the relay caps.
+Grinch-Hawk|I relocated them to a market that respects seasonal pricing.
+Titmouse|Four villages use those lifts.
+Grinch-Hawk|Then four villages should have guarded them.
+Hummingbird|Keep talking. It gives me time to pass you.
+
+[s20_humming_after]
+Hummingbird|All four relays are lit. I can be fast and thorough.
+Titmouse|You skipped the third cap twice.
+Hummingbird|I was coming back to it.
+Titmouse|The Crown tap under it is still humming.
+Hummingbird|I don't hear anything.
+Titmouse|Because you haven't stopped talking.
+Hummingbird|Fine. Quiet.
+Titmouse|There. Same pulse the city broadcast had.
+Hummingbird|Okay. You were right.
+Titmouse|You can hate it after you listen.
+
+[s21_small_marks]
+Titmouse|The Crown taps are under the bark, not on it.
+Rooster|Then we split the trunks and pull them out.
+Turkey|And drop half the nursery in the process.
+Rooster|You have a slower idea.
+Turkey|I have an idea that leaves trees afterward.
+Titmouse|Mark each tap. I can detonate the seed charges together.
+Rooster|You can carry that much charge?
+Titmouse|I can carry more than your opinion of me.
+Turkey|Good. Rooster guards the nursery. I guard Titmouse.
+Rooster|Did Turkey just give me an order?
+
+[s22_titmouse_after]
+Titmouse|All three taps are gone.
+Turkey|And every nursery tree is still standing.
+Rooster|My plan would have been faster.
+Turkey|Your plan was an axe.
+Rooster|A very fast axe.
+Hummingbird|The jungle warning bell heard the blast. They're sending families here.
+Titmouse|Then we can't hide here anymore. They'll follow the families.
+Turkey|Targets can move.
+Rooster|Or they can grow teeth.
+Titmouse|We do both. I already marked the safe trail.
+
+[s23_morning_line]
+Turkey|The grain road stays open until the last ground flock crosses.
+Rooster|Agreed. My brood holds the north bend.
+Turkey|Your brood is currently eating the emergency grain.
+Rooster|Morale requires breakfast.
+Goose|Move them. This road leads to my forest boundary.
+Turkey|Today it leads through it.
+Goose|I know. I opened the gate.
+Rooster|That sounded almost generous.
+Goose|Say that again and I close it on your tail.
+Turkey|Save the affection for later. The convoy is coming.
+
+[s24_rooster_turkey]
+Rooster|The final flock is inside. My formation held.
+Turkey|Your formation chased three children into a ditch.
+Rooster|And yours took so long the second wave caught us.
+Goose|Both of you protected the road.
+Rooster|That's not what we were arguing about.
+Goose|It's the part that matters.
+Turkey|The jungle relay is flashing again.
+Hummingbird|Grinch-Hawk has a full convoy under the canopy.
+Titmouse|Four stolen taps and a Carrion escort.
+Rooster|Then we stop comparing plans and bring both.
+
+[s25_green_convergence]
+Grinch-Hawk|I expected one local hero. Four is terrible for margins.
+Hummingbird|You stole our lift caps.
+Titmouse|Our nursery taps.
+Turkey|Our grain route.
+Rooster|And one bag clearly labeled brood breakfast.
+Grinch-Hawk|I improve circulation. Goods should travel.
+Hummingbird|So should you.
+Titmouse|The convoy clamps are linked. We hit all four together.
+Turkey|Rooster and I hold the ground.
+Rooster|Hummingbird and Titmouse cut the top. That plan has enough teeth.
+
+[s26_first_coalition]
+Pigeon|I came looking for defenders. Looks like you handled that yourselves.
+Titmouse|We recruited each other.
+Hummingbird|After I did most of the route work.
+Turkey|After all of us did the work.
+Rooster|We can argue about credit in the morning.
+Charles|Please don't schedule a fight for sunrise. Some of us run evening businesses.
+Pigeon|The Crown mark connects every theft. We're going into the caves next.
+Hummingbird|Good. I can scout ahead.
+Titmouse|You can scout beside me.
+Pigeon|Both of you. And nobody hangs back waiting for someone more important.
+
+[s27_listen_below]
+Bat|Stop moving.
+Charles|I've been standing still for three whole seconds.
+Bat|Not you. The cave.
+Pigeon|What's wrong?
+Bat|Two pulses. One in the walls. One underneath us.
+Charles|The first one's Crown machinery.
+Bat|Yes. The other one's slower. Heavy enough to shake dust loose.
+Pigeon|Can you map it?
+Bat|If those haze listeners stop hitting every point I try to read.
+Charles|Then I'll make enough noise for both of us.
+
+[s28_bat_warning]
+Bat|The second pulse moved when we activated the third point.
+Pigeon|Machines react to power.
+Bat|Machines don't turn to face you.
+Charles|I liked it better when it was a machine.
+Bat|So would I.
+Shoebill|This tunnel is neutral ground. You entered it armed.
+Pigeon|The ceiling moved. We didn't have time to ask permission.
+Shoebill|Urgency is not evidence.
+Bat|Then listen.
+Shoebill|I hear panic. I haven't heard proof.
+
+[s29_stone_judgment]
+Shoebill|Bat, leave the lower chamber.
+Bat|No.
+Shoebill|You brought armed birds into a protected tunnel.
+Bat|I brought witnesses to something you refused to hear.
+Shoebill|You heard disagreement and decided I refused.
+Bat|The pulse doubled while you stood here. Call that whatever you want.
+Charles|Can we do this without the duel?
+Shoebill|If Bat can't hear me through fear, I can't trust the warning.
+Bat|The sound isn't fear.
+Shoebill|Then prove you can hear me through it.
+
+[s30_shoebill_decides]
+Shoebill|You stopped when the ceiling shifted.
+Bat|Winning wouldn't matter if the ceiling buried you.
+Shoebill|You could've finished the duel.
+Bat|I had a warning.
+Pigeon|Is the judgment finished?
+Shoebill|No. It has changed.
+Charles|Is that a yes?
+Shoebill|I called this neutrality. It kept everyone out—and kept whoever did this safe.
+Bat|Then help me open it.
+Shoebill|I will. The consequences are mine as well.
+
+[s31_second_pulse_before]
+Opium Bird|The chamber ends with all of you on the floor.
+Charles|Do your forecasts ever include a chair?
+Opium Bird|Joking won't change what happens.
+Bat|Neither does saying it first.
+Raven|Vulture wants the map destroyed. Eagle wants it delivered.
+Pigeon|And what do you want?
+Raven|I want to know who's still giving orders in an hour.
+Shoebill|That's not neutral. You're waiting to see who wins.
+Raven|You would know.
+Bat|Enough. The second pulse just matched mine.
+
+[s32_thing_below]
+Bat|It turned again.
+Shoebill|Toward the Beacon Crown.
+Charles|Tell me the rock didn't just turn.
+Bat|It listens. Every fight above us made the pulse sharper.
+Pigeon|The Crown is feeding it combat data.
+Opium Bird|You finally found the future I warned you about.
+Bat|You helped build the path to it.
+Opium Bird|Because every path I saw came back here.
+Shoebill|Then you treated the worst outcome like the only one.
+Pigeon|Penguin knows the stabilizers. We find out what Eagle connected to them.
+
+[s33_whiteout_equation]
+Penguin|I designed the first stabilizer valve.
+Phoenix|You said you repaired them.
+Penguin|I left out the part where Eagle paid for the design.
+Phoenix|That's not a small detail, Penguin.
+Penguin|The first network stopped two whiteouts. It saved this colony.
+Phoenix|And now it's pulling heat out of Ashfall.
+Penguin|Because somebody expanded it beyond every published limit.
+Heisenbird|Published limits are for engineers who need permission.
+Penguin|You changed my governor.
+Heisenbird|I removed a cowardly piece of metal.
+
+[s34_penguin_truth]
+Penguin|The valve's fixed. The Crown is still draining it.
+Phoenix|Tell the others before Raven tells them for you.
+Penguin|They might never let me near another stabilizer.
+Phoenix|They may be right for a while.
+Penguin|That's not reassuring.
+Phoenix|No. It's honest.
+Falcon|Eagle ordered every recovered component sent to the central archive.
+Penguin|The archive contains my original safety tests.
+Phoenix|And whatever replaced them.
+Penguin|Then I open the archive and tell them exactly what I built.
+
+[s35_borrowed_fire]
+Phoenix|The thermal charge feels thin.
+Penguin|Because the Crown has been copying its ignition pattern.
+Falcon|Return the charge and stand down.
+Phoenix|You watched the fjord nearly freeze solid.
+Falcon|I watched Eagle's network keep six cliff routes alive last winter.
+Penguin|Both facts can be true.
+Vulture|While you debate, the collector keeps draining.
+Phoenix|You do enjoy arriving when everyone is angry.
+Vulture|Angry birds miss the hand taking their food.
+Penguin|Phoenix, get the charge home. I will keep the governor below failure.
+
+[s36_archive_route]
+Falcon|The archive transfer leaves at dusk.
+Phoenix|Are you warning us or threatening us?
+Falcon|I'm giving you a schedule.
+Penguin|And the western service gate?
+Falcon|It cycles for twelve seconds after each transfer.
+Phoenix|That sounded like a warning.
+Falcon|Call it maintenance data.
+Penguin|Why help us?
+Falcon|Because they labeled the recovered charge “combat resonance.” Not weather.
+Phoenix|Come with us and ask Eagle what that means.
+
+[s37_archive_before]
+Penguin|Vault one contains movement traces from the city fight.
+Phoenix|Vault two has my ignition pattern.
+Pigeon|Every match under a Crown relay is here.
+Charles|Including several I lost with exceptional style.
+Falcon|The honor guard is moving. You have four minutes.
+Penguin|The project has a name. Null Roc.
+Phoenix|That's not weather control.
+Falcon|No. It is a response platform.
+Pigeon|They've been using our fights to train it.
+Penguin|Open the last vault. I need to know whose authorization is on it.
+
+[s38_archive_reveal]
+Penguin|Eagle authorized every expansion.
+Phoenix|He knew the thermal drains were hurting people.
+Falcon|He saw the casualty estimates.
+Pigeon|That's not better.
+Falcon|I know.
+Charles|The weapon needs a flock-control pattern. Vulture's name is on the interface.
+Penguin|As a supplier and a subject.
+Phoenix|So Eagle made a bargain with him.
+Falcon|And kept a capture order ready in case Vulture withdrew.
+Pigeon|Take the ledger. We ask Eagle once. Then we shut it down.
+
+[s39_last_call]
+Charles|Everybody takes one bag. Instruments count as a bag.
+Civilian|What about the photographs behind the stage?
+Charles|Leave them. I remember who was in them.
+Pigeon|Crown transports are sealing the north block.
+Charles|This place stayed open through three riots and a roof fire.
+Pigeon|The building isn't the people.
+Charles|Easy to say when your name isn't over the door.
+Old Sparrow|Charles, grief can wait in the evacuation stair with the rest of us.
+Charles|I know. I just hate that it gets a seat.
+Pigeon|Get them out. I will hold the alley.
+
+[s40_lounge_falls]
+Charles|There goes the sign.
+Pigeon|Don't look back.
+Charles|I need one second.
+Old Sparrow|Take it.
+Charles|I kept the lights on. Even when I couldn't pay for them. Nobody had to go home scared.
+Pigeon|You got everybody out.
+Charles|Where do they go tomorrow?
+Old Sparrow|Then tomorrow you find a room.
+Charles|You make rebuilding sound like borrowing a chair.
+Old Sparrow|Most rebuilding starts with exactly that.
+
+[s41_cut_lock]
+Falcon|Pigeon's transport is entering the cliff lock.
+Razorbill|Your access code can open it once.
+Falcon|After that Eagle will know.
+Razorbill|He already knows you left the archive gate open.
+Falcon|I gave them a door. They needed one.
+Razorbill|Keep calling it that if it helps you move.
+Eagle|Falcon, return to formation. This is your final direct order.
+Falcon|Release the transport and I will.
+Eagle|I won't place one transport above the whole network.
+Falcon|There are sixty birds in that transport.
+
+[s42_falcon_defects]
+Falcon|The transport is clear.
+Razorbill|Your insignia is not.
+Falcon|I earned this in the winter evacuations.
+Pigeon|The uniform doesn't erase the good you did.
+Falcon|Eagle will call that an excuse.
+Charles|Eagle has been calling projected deaths an equation.
+Falcon|I enforced the closures before I read the ledger.
+Pigeon|Then help open what you closed.
+Falcon|I'm not asking anyone to forget what I did in it.
+Razorbill|Good. Keep it where you can see it.
+
+[s43_sparrow_corridor]
+Old Sparrow|West corridor is open for eight minutes.
+Pigeon|Eight minutes isn't enough.
+Old Sparrow|It is. Everyone keeps moving.
+Charles|The Crown blockade is already on the lower roof.
+Titmouse|I can mark a path around them.
+Old Sparrow|Do it. Pigeon takes the front, Charles takes the middle.
+Pigeon|Where are you?
+Old Sparrow|At the manual gate.
+Pigeon|That gate only works by hand.
+Old Sparrow|I know. I'm at the handle.
+
+[s44_old_sparrow_death]
+Crown System|Emergency seal authorized. West corridor closing.
+Pigeon|Sparrow, leave the gate. The column is through.
+Old Sparrow|The inner latch jammed. If I let go, it closes on the last stair.
+Charles|We'll come back for you.
+Old Sparrow|No. You won't have time.
+Pigeon|I can reach you before the seal.
+Old Sparrow|Pigeon. Don't come back.
+Pigeon|Sparrow.
+Old Sparrow|They're out. That's the job.|CLOSE|FALL
+Charles|...The gate's gone.
+
+[s45_marshal_before]
+Eagle|If that seal stayed open, the surge would've reached six districts.
+Pigeon|Old Sparrow was still inside.
+Eagle|I know his name.
+Charles|Then say it without hiding behind a district count.
+Eagle|Old Sparrow died because I kept the larger evacuation moving.
+Falcon|Your system took every other option away.
+Eagle|And that system has kept millions in the air.
+Pigeon|And it's training a weapon on those same birds.
+Eagle|Null Roc ends the territorial wars that keep causing these evacuations.
+Falcon|You don't end fear by putting it under one command.
+
+[s46_lockdown]
+Eagle|You won the platform.
+Pigeon|Shut the Crown down.
+Eagle|Vulture destroyed the regional shutdown path.
+Penguin|No. The archive showed a central release.
+Eagle|And I can't use it while Vulture's pattern is unsecured.
+Falcon|Then let us help.
+Eagle|You have already taught Null Roc every way you fight.
+Charles|You used us.
+Eagle|I recorded fights that would've happened with or without the Crown.
+Pigeon|Look outside. Every route is locking. The system heard your last command.
+
+[s47_crow_country]
+Goose|Three swarm towers inside the forest boundary.
+Turkey|This stopped being only your boundary several evacuations ago.
+Goose|I know.
+Turkey|You still say it like a property dispute.
+Vulture|Because property is the only language Eagle respected when I asked for sanctuary.
+Goose|So you took ours.
+Vulture|I built places where my flock could eat without being hunted.
+Turkey|With stolen towers and frightened villages.
+Vulture|Yes.
+Goose|Good. We can skip the part where you pretend this was kindness.
+
+[s48_crow_country_after]
+Turkey|The towers were pointed inward.
+Goose|At Vulture's own roosts.
+Bat|They carried sabotage pulses toward the Crown.
+Pigeon|So Vulture was sabotaging the Crown.
+Goose|While attacking everybody between him and it.
+Turkey|Both can be true.
+Charles|That sentence is getting a lot of work lately.
+Bat|There is a ledger signal below the eastern tower.
+Pigeon|We read it before Raven erases it.
+Goose|Then we find Vulture and ask him where he can't leave.
+
+[s49_terms_dark]
+Bat|The ledger has two route sets.
+Shoebill|One supplies the Crown. One weakens it.
+Raven|Vulture signed the first and paid for the second.
+Bat|You kept both.
+Raven|Information is worth more before someone decides what it means.
+Shoebill|It becomes worthless when its keeper dies alone with it.
+Opium Bird|The chamber collapses in nine minutes.
+Bat|You said that in the lower chamber.
+Opium Bird|And it nearly did.
+Shoebill|But it didn't. Help us keep the ledger intact.
+
+[s50_vulture_truth]
+Bat|Eagle promised protected carrion routes in exchange for your flock pattern.
+Pigeon|Vulture accepted before he knew about Null Roc.
+Shoebill|Then he learned and built the sabotage line.
+Charles|After he supplied the hardware that hurt us.
+Raven|He thought he could keep the sanctuary and call the rest sabotage.
+Pigeon|Did you?
+Raven|I expected to keep my leverage.
+Bat|Vulture is in the throne chamber.
+Shoebill|We confront him with the complete record.
+Charles|And let's not pretend any of this makes him good.
+
+[s51_carrion_audience]
+Vulture|You broke my outer towers. Eagle will have my location now.
+Pigeon|He already had it.
+Bat|Your flock pattern is live inside the Crown.
+Vulture|Not the complete pattern.
+Raven|Complete enough to start the interface.
+Vulture|You kept that detail from me.
+Raven|You kept the capture clause from everyone.
+Pigeon|You both lied. We can count lies after we shut the link down.
+Vulture|The controls won't answer until someone wins a dominance challenge.
+Bat|Then lose quickly.
+
+[s52_vulture_taken]
+Vulture|The link is severed.
+Pigeon|Then come with us.
+Vulture|Your coalition will put my flock on trial before anyone feeds them.
+Goose|Some of them belong on trial.
+Vulture|So do I.
+Eagle|Crown recovery wing, secure the subject.
+Falcon|Eagle, stand down.
+Eagle|Vulture delivered the pattern, then withdrew. The capture clause is active.
+Vulture|There. That's the honest part of our bargain.
+Pigeon|Upper shaft. Move. We're getting him back.
+
+[s53_blue_water]
+Pelican|The stormglass line is pushing the whole bay uphill.
+Heisenbird|A controlled inversion. The harbor will settle when the Crown pays me.
+Roadrunner|The Crown just issued your arrest code.
+Heisenbird|That code is for contractors who failed.
+Razorbill|It carries your signature.
+Heisenbird|Then somebody copied it.
+Pelican|You built a machine that copies every bird it meets.
+Heisenbird|I built the conductors, not the decision layer.
+Roadrunner|Explain while closing the valves.
+Heisenbird|Beat me to them and I will consider the partnership.
+
+[s54_heisen_joins]
+Heisenbird|The bay is level.
+Pelican|Pier Nine is still underwater.
+Heisenbird|One valve can't rebuild a pier.
+Razorbill|You caused the structural negligence.
+Heisenbird|Which makes me unusually qualified to fix it.
+Roadrunner|The Crown wants you erased.
+Heisenbird|It wants my work without my name on it.
+Pelican|Help us dismantle it. Afterward, you answer for the harbor.
+Heisenbird|Those are insulting terms.
+Razorbill|They are also the only ones keeping you out of the water.
+
+[s55_future_moves]
+Opium Bird|The left route ends in fire. The right route ends under the Crown.
+Hummingbird|What about straight through you?
+Opium Bird|You tried that in eleven futures.
+Titmouse|Did we mark the floor in any of them?
+Opium Bird|No.
+Titmouse|Then you didn't see this one.
+Hummingbird|Four new routes. You didn't see any of them.
+Opium Bird|Speed does not create possibility.
+Hummingbird|No, decisions do. Speed just gets me there.
+Titmouse|Look again. We're changing the answer.
+
+[s56_opium_joins]
+Opium Bird|I didn't see the marked route.
+Titmouse|Because the first answer gave you an excuse to stop.
+Hummingbird|That was harsh.
+Titmouse|It was accurate.
+Opium Bird|Every time I refused Eagle, more birds died. So I stopped refusing.
+Hummingbird|And every time you helped, the Crown got stronger.
+Opium Bird|I can see one way the core fails.
+Titmouse|Then help us make more than one.
+Opium Bird|Nothing is guaranteed. I understand that now.
+Hummingbird|Good. Grab a relay cap and keep up.
+
+[s57_stolen_winter]
+Grinch-Hawk|You left the thermal key alone for seven seconds.
+Penguin|Inside a sealed vault.
+Grinch-Hawk|A vault is an invitation with hinges.
+Goose|Give it back.
+Grinch-Hawk|The Crown offered a full pardon and a private migration lane.
+Rooster|It just issued your disposal order.
+Grinch-Hawk|I assumed that was a negotiation tactic.
+Penguin|The order includes your heart-signature.
+Grinch-Hawk|Well. That's personal.
+Goose|Run. I prefer the part where you run.
+
+[s58_grinch_joins]
+Grinch-Hawk|Fine. The key is yours.
+Goose|It was already ours.
+Rooster|You can help us use it against the Crown.
+Grinch-Hawk|Why would I volunteer for the side with rules?
+Penguin|Because the other side copied your identity and scheduled your death.
+Grinch-Hawk|That's a serious breach of professional courtesy.
+Goose|You're not joining my nest.
+Grinch-Hawk|Your nest has terrible access control.
+Rooster|You join the mission. Trust comes later.
+Grinch-Hawk|Trust is expensive. Mission work has a rate.
+
+[s59_master_key]
+Charles|Raven, the dramatic silhouette was enough. You can come down.
+Raven|You brought a lounge owner to catch a spy.
+Charles|Former lounge owner. The Crown handled the renovation.
+Raven|Then you understand losing a useful hiding place.
+Charles|You gave each side just enough truth to keep the fight going.
+Raven|I kept either of them from controlling everything.
+Charles|And kept the master key for yourself.
+Raven|Yes.
+Charles|At least Vulture admits when he steals dinner.
+Raven|Beat me and you can decide who holds the key next.
+
+[s60_raven_joins]
+Raven|The key is yours.
+Charles|Pigeon should hold it.
+Pigeon|No single bird holds it.
+Raven|That will slow every decision.
+Pigeon|It will also stop one decision from sealing a city.
+Raven|You still shouldn't trust me.
+Charles|Nobody here does.
+Raven|Good. Clear terms work better than trust.
+Pigeon|Your term is simple. Help free Vulture and shut down the Crown.
+Raven|Then we can discuss which crimes survive the victory.
+
+[s61_perfect_weather]
+Eagle|Crown, release the Ashfall thermal.
+Crown System|Request conflicts with stabilization priority.
+Eagle|I wrote the priority.
+Crown System|Author identity retained. Command authority superseded.
+Phoenix|Your perfect weather just froze a fire temple.
+Eagle|It's saving the thermal for Null Roc.
+Penguin|So it decided the civilians can freeze.
+Eagle|Evacuate them through the east transept.
+Phoenix|You're coming with us.
+Eagle|After I clear the null echoes wearing my soldiers' shapes.
+
+[s62_eagle_breaks]
+Eagle|The civilians are clear.
+Phoenix|Because you protected them from your own system.
+Eagle|Yes.
+Penguin|Just say it plainly.
+Eagle|I built a machine to make the choices for me.
+Phoenix|And now?
+Eagle|Now it has removed me from the equation.
+Falcon|Losing control isn't the part you should regret.
+Eagle|No. Old Sparrow is.
+Pigeon|Help us get everyone down safely. You can regret it afterward.
+
+[s63_world_still]
+Falcon|The upper platforms froze in mid-drift.
+Phoenix|Even the ash stopped falling.
+Pigeon|Evacuation lane is still open by the west updraft.
+Eagle|It closes when Null Roc finishes copying Vulture.
+Falcon|How long?
+Eagle|Seven minutes at the current load.
+Phoenix|Then lift. We heard the clock.
+Pigeon|Falcon takes the high lane. Phoenix keeps the thermal alive.
+Eagle|Where do you want me?
+Pigeon|In front. Let them see you helping.
+
+[s64_after_stillness]
+Phoenix|The final transport cleared.
+Falcon|West updraft is gone.
+Eagle|Every remaining route now terminates at the Crown.
+Pigeon|Raven has the master key.
+Raven|A partial key. Vulture's transfer route contains the missing sequence.
+Grinch-Hawk|The Crown prison also contains several tools it confiscated from me.
+Heisenbird|And my original conductor governor.
+Opium Bird|The prison opens in one future.
+Titmouse|Skip the future speech.
+Raven|Then call it a prison break and follow me.
+
+[s65_blackout_key]
+Raven|Four locks. I can blind the first.
+Grinch-Hawk|I can remove the second without damaging the resale value.
+Heisenbird|The third is my design.
+Opium Bird|The fourth closes with us inside.
+Grinch-Hawk|You remain exhausting.
+Heisenbird|Once I restore the governor, the automata lose their shared timing.
+Raven|Vulture's transfer route leaves through the north lift.
+Opium Bird|He won't be there when we arrive.
+Raven|Then we steal the destination.
+Grinch-Hawk|Finally, a plan with professional language.
+
+[s66_null_roc_wakes]
+Heisenbird|Governor restored. The prison network is blind.
+Raven|Transfer log says Vulture reached the Crown six minutes ago.
+Eagle|Six minutes is enough. The copy is finished.
+Grinch-Hawk|The sky just grew a shadow.
+Bat|The second heartbeat. It's above us.
+Vulture|Recorded voice: You are lucky to be on my side.
+Pigeon|That's not Vulture.
+Eagle|Null Roc is testing his voice.
+Falcon|Can we still free the real one?
+Eagle|Yes. But the copy will survive without him now.
+
+[s67_fire_ice]
+Penguin|The north anchor expects a cold signal.
+Phoenix|I have bad news for it.
+Penguin|Too much heat detonates the fjord shelf.
+Phoenix|There's always a second warning with you.
+Penguin|Because you move before I finish the first.
+Eagle|Balance the thermal across three relays. The anchor will expose its core.
+Phoenix|You memorized every failure condition.
+Eagle|I approved them.
+Penguin|Then today you can help violate the warranty.
+Phoenix|Finally. Engineering I can work with.
+
+[s68_north_anchor]
+Penguin|North anchor is dark.
+Phoenix|The aurora is moving again.
+Eagle|One region free. Three anchors remain.
+Penguin|Don't make this another command briefing.
+Eagle|Habit.
+Phoenix|Break it.
+Penguin|The harbor engine can strike the western anchor from below.
+Pelican|Already loading the guns.
+Goose|He tried to load himself into one.
+Pelican|I only checked whether I'd fit.
+
+[s69_harbor_engine]
+Pelican|The lever primes the ship bomb. Three guns carry it to the anchor.
+Roadrunner|Assuming I can light all three before the Crown retargets.
+Goose|You can.
+Roadrunner|That sounded dangerously like trust.
+Goose|Don't make me take it back.
+Razorbill|I will hold the crane line.
+Pelican|Not alone.
+Razorbill|You told me to carry part of the harbor.
+Pelican|I remember. I'm trying.
+Roadrunner|Practice faster. The first gun is ready.
+
+[s70_west_anchor]
+Pelican|Direct hit.
+Goose|The western anchor is falling away from the bay.
+Roadrunner|I had the angle.
+Razorbill|You had three different angles and used all of them.
+Heisenbird|My conductor survived.
+Pelican|That's what you noticed?
+Heisenbird|It means I can still reverse the current around the Crown.
+Goose|Useful first. Proud later.
+Heisenbird|I can do both.
+Roadrunner|Then do it while we head underground.
+
+[s71_echo_chain]
+Bat|The underground anchor is repeating every sound half a beat late.
+Opium Bird|It's waiting to see which echo we follow.
+Shoebill|Then we give it one answer.
+Bat|Four tuning points. Nobody strikes before I call.
+Opium Bird|In most outcomes, the third point fractures.
+Shoebill|Most isn't all.
+Opium Bird|I know.
+Bat|First point ready.
+Shoebill|Second ready.
+Opium Bird|Third ready, and still intact.
+
+[s72_under_anchor]
+Bat|Counter-pulse sent.
+Shoebill|The anchor is silent.
+Opium Bird|Past this point, all I see is noise.
+Bat|Good. Noise doesn't tell us what to do.
+Opium Bird|I expected you to dislike noise.
+Bat|I dislike noise that pretends to be a command.
+Raven|The remaining live link is moving Vulture to the upper extraction cell.
+Shoebill|Then judgment waits until he is free.
+Opium Bird|You have already decided he deserves rescue.
+Shoebill|Rescuing him doesn't clear him.
+
+[s73_free_flock]
+Vulture|It has my voice and my commands. It doesn't know when to stop.
+Charles|You have restraint?
+Vulture|Ask the birds still alive after fighting me.
+Eagle|The extraction cell has three live seals.
+Pigeon|You installed them.
+Eagle|Yes.
+Vulture|And now he expects that confession to open one.
+Eagle|No. My access gets us close. Then we break it.
+Charles|Pigeon, choose who takes point.
+Pigeon|Pick the lead. Everyone else gets Vulture out.
+
+[s74_vulture_freed]
+Vulture|The live link is gone.
+Eagle|The copy remains inside Null Roc.
+Vulture|You put it there.
+Eagle|I did.
+Vulture|If we survive, I will answer for my crimes.
+Eagle|So will I.
+Vulture|You may not survive long enough.
+Pigeon|Neither of you gets forgiven because you helped in one fight.
+Charles|You do get a place in line.
+Vulture|Then point me at the thing wearing my voice.
+
+[s75_last_approach]
+Pigeon|Four approaches. One platform. Forget a neat formation.
+Eagle|A neat formation would be easier to command.
+Vulture|That's why you're not commanding it.
+Falcon|Sky wing holds the north approach.
+Pelican|Harbor crew has the west.
+Turkey|Ground flock takes the south.
+Bat|Cave team is already under the east bridge.
+Raven|Crown forces on all four sides.
+Charles|Pigeon, Eagle, Vulture. One of you takes point.
+Pigeon|The other two stay close. Nobody gets isolated.
+
+[s76_every_wing]
+Hummingbird|North is clear.
+Titmouse|East bridge marked and stable.
+Goose|West belongs to us now.
+Rooster|South flock is in position.
+Penguin|The Crown pylons are exposed.
+Heisenbird|My reverse current should hold for one fight.
+Opium Bird|After that, I can't see anything.
+Roadrunner|After that, we improvise.
+Shoebill|Everyone here chose to come.
+Pigeon|Then nobody gets to turn us into one command.
+
+[s77_null_roc_before]
+Null Roc|Recorded voice: Everybody takes one bag.
+Charles|It took my evacuation line.
+Null Roc|Recorded voice: Civilians first, equipment second.
+Eagle|And mine.
+Vulture|It's using our voices to make everyone move together.
+Raven|Ignore the voice. Watch the pylons.
+Penguin|Three armor feeds. Break them before attacking the shell.
+Phoenix|And when the shell opens?
+Vulture|Hit the thing pretending to be me.
+Pigeon|Choose your bird. This fight belongs to all of us.
+
+[s78_shell_falls]
+Null Roc|Recorded voice: They are out. That was the job.
+Pigeon|Don't use his voice.
+Eagle|The armor is collapsing.
+Vulture|My pattern's gone. Why is it still moving?
+Bat|The second heartbeat was never the weapon.
+Penguin|The weapon was a shell around it.
+Phoenix|That's not metal.
+Raven|It's older than the Crown.
+Eagle|The surveys said the meteor was inert.
+Bat|It just opened its eyes.
+
+[s79_null_rock_before]
+The Null Rock|Still.
+Bat|That word hit every anchor at once.
+Heisenbird|The reverse current is failing.
+Opium Bird|There are no forecasts past this fight.
+Grinch-Hawk|Good. I was tired of spoilers.
+Eagle|Rotate at each fracture. Don't let it separate anyone.
+Vulture|You're giving orders again.
+Eagle|A recommendation, then.
+Pigeon|We heard you. Each squad moves when it's ready.
+Phoenix|And the player chooses any bird still willing to move.
+
+[s80_eagle_end]
+Penguin|The core's broken, but the Crown is collapsing into every route.
+Eagle|Someone has to hold the central release until the charge clears.
+Falcon|Then we rotate.
+Eagle|It seals behind whoever activates it.
+Pigeon|Find another way.
+Eagle|I removed every other way.
+Vulture|Dying for this won't erase what you did.
+Eagle|I know. It prevents one more death.
+Falcon|Eagle, don't.
+Eagle|Open every route. Let the wind decide the rest.|CLOSE|FALL
+Pigeon@PIGEON|I won't take your throne. I'll make sure nobody else does either.
+Eagle@EAGLE|If I'm the one at the release, this is my choice. I won't make it anyone else's.
+Falcon@FALCON|You taught me duty. I had to learn for myself that obedience isn't the same thing.
+Phoenix@PHOENIX|You don't get to call this rebirth, Eagle. You get to call it the cost.
+Hummingbird@HUMMINGBIRD|I can cross the route before it closes. I still can't carry you back through it.
+Turkey@TURKEY|The ground flocks will remember both things: you closed the roads, and you opened them.
+Rooster@ROOSTER|There'll be a morning after this. You should've stayed to answer for it.
+Roadrunner@ROADRUNNER|You finally opened a road without deciding who deserved it.
+Penguin@PENGUIN|I'm publishing all of it—the plans, the failures, every name. We don't hide the rebuild.
+Shoebill@SHOEBILL|This stops more harm. It doesn't settle what you did.
+Charles@MOCKINGBIRD|Old Sparrow would tell me rebuilding starts with a chair. I wish you had to sit in one and answer us.
+Razorbill@RAZORBILL|The release worked. That doesn't clean up anything before it.
+Grinch-Hawk@GRINCHHAWK|I hate a debt I can't collect. The birds you hurt can have this one.
+Vulture@VULTURE|My flock survives your bargain. I won't thank you for giving back what you stole.
+Opium Bird@OPIUMBIRD|I can't see past the seal. I'm still here.
+Titmouse@TITMOUSE|I marked every open route. The little paths are going to outlive your big machine.
+Bat@BAT|The second heartbeat's fading. Under it... wind.
+Pelican@PELICAN|We'll carry the survivors. Your secrets stay here.
+Heisenbird@HEISENBIRD|I can rebuild the conductors without a command core. My name goes on the repairs—and on the damage.
+Raven@RAVEN|This changes the ending. It doesn't rewrite how we got here.
+Goose@GOOSE|The sky is ours. All of ours. You should have learned that sooner.
+Pigeon|The routes are open.
+Charles|Eagle is gone.
+Vulture|Then we build without a ruler.
+Penguin|The natural winds are coming back. They're all over the place.
+Roadrunner|Good.
+Pigeon|No throne. No permanent marshal. Every region gets a voice, and no key belongs to one bird.
+Raven|Slow. Inconvenient. Hard to take over.
+Goose|That sounds like a compliment.
+Charles|I know a room we can rebuild. We start with chairs.
+
+[dynamic_campaign_phase]
+{hero}|Checkpoint's secure. {objective}.
+Crown System|Combat response updated. The next containment phase is active.

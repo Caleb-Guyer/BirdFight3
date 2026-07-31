@@ -1,5 +1,6 @@
 target/
 audit/
+replays/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

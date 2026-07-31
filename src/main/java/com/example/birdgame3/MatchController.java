@@ -21,6 +21,9 @@ final class MatchController {
         game.clearGameplayInputs();
         game.resetMatchStats();
         game.matchTimer = BirdGame3.MATCH_DURATION_FRAMES;
+        game.campaignMatchTimerOverride = -1;
+        game.campaignTeamMode = false;
+        Arrays.fill(game.campaignTeams, 1);
         game.storyMatchTimerOverride = -1;
         game.storyTeamMode = false;
         Arrays.fill(game.storyTeams, 1);
@@ -123,7 +126,7 @@ final class MatchController {
             return;
         }
 
-        if (game.storyModeActive || game.adventureModeActive || game.trainingModeActive) return;
+        if (game.campaignModeActive || game.storyModeActive || game.adventureModeActive || game.trainingModeActive) return;
 
         if (game.competitionModeEnabled) {
             if (!game.competitionSeriesActive) {
@@ -509,6 +512,10 @@ final class MatchController {
     }
 
     void checkForMatchCompletion() {
+        if (game.campaignModeActive) {
+            game.checkCampaignMissionCompletion();
+            return;
+        }
         if (game.usesSmashCombatRules()) {
             checkForSmashStockCompletion();
             return;
@@ -524,7 +531,9 @@ final class MatchController {
             }
         }
         boolean teamModeMatch =
-                (game.teamModeEnabled && !game.storyModeActive && !game.adventureModeActive && !game.classicModeActive)
+                (game.teamModeEnabled && !game.campaignModeActive
+                        && !game.storyModeActive && !game.adventureModeActive && !game.classicModeActive)
+                        || (game.campaignModeActive && game.campaignTeamMode)
                         || (game.storyModeActive && game.storyTeamMode)
                         || (game.adventureModeActive && game.adventureTeamMode)
                         || (game.classicModeActive && game.classicTeamMode);
@@ -707,10 +716,12 @@ final class MatchController {
     }
 
     private boolean isCompetitionMatch() {
-        return game.competitionModeEnabled && !game.storyModeActive && !game.adventureModeActive && !game.classicModeActive;
+        return game.competitionModeEnabled && !game.campaignModeActive
+                && !game.storyModeActive && !game.adventureModeActive && !game.classicModeActive;
     }
 
     private boolean isStandardTeamMatch() {
-        return game.teamModeEnabled && !game.storyModeActive && !game.adventureModeActive && !game.classicModeActive;
+        return game.teamModeEnabled && !game.campaignModeActive
+                && !game.storyModeActive && !game.adventureModeActive && !game.classicModeActive;
     }
 }

@@ -641,7 +641,8 @@ class BirdGame3BossBalanceTest {
         assertEquals(1.14, encounter.allies[0].speedMult(), 0.0001);
 
         assertEquals(2, encounter.enemies.length);
-        assertEquals(BirdGame3.BirdType.MOCKINGBIRD, encounter.enemies[0].type());
+        assertEquals(BirdGame3.BirdType.TITMOUSE, encounter.enemies[0].type());
+        assertEquals(BirdGame3.OLD_SPARROW_SKIN, encounter.enemies[0].skinKey());
         assertEquals(200.0, encounter.enemies[0].health(), 0.0001);
         assertEquals(1.12, encounter.enemies[0].powerMult(), 0.0001);
         assertEquals(1.05, encounter.enemies[0].speedMult(), 0.0001);

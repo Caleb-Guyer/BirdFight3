@@ -10,7 +10,6 @@ import javafx.animation.SequentialTransition;
 import javafx.animation.ScaleTransition;
 import javafx.animation.Timeline;
 import javafx.animation.TranslateTransition;
-import javafx.application.Application;
 import javafx.beans.value.ChangeListener;
 import javafx.event.ActionEvent;
 import javafx.event.Event;
@@ -34,6 +33,7 @@ import javafx.scene.control.Control;
 import javafx.scene.control.ContentDisplay;
 import javafx.scene.control.Label;
 import javafx.scene.control.OverrunStyle;
+import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TextField;
@@ -108,9 +108,32 @@ import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
-public class BirdGame3 extends Application {
+public class BirdGame3 {
     private static final Logger LOGGER = Logger.getLogger(BirdGame3.class.getName());
+
+    /*
+     * A direct IntelliJ run initializes every static field in this class
+     * before it invokes main(). Several fields below create JavaFX Fonts and
+     * Durations, which is early enough to load Prism on some JDK/JavaFX
+     * combinations. Apply the renderer policy before the first JavaFX-valued
+     * field is initialized; Launcher repeats this call harmlessly for the
+     * packaged entry point.
+     */
+    static {
+        JavaFxRendererPolicy.configureBeforeJavaFxStartup(LOGGER);
+    }
+
+    /**
+     * IntelliJ may launch this class directly instead of the packaged
+     * {@link Launcher}. Keeping this class separate from JavaFX's
+     * {@code Application} subclass guarantees that this ordinary Java entry
+     * point runs before the JavaFX toolkit selects a Prism renderer.
+     */
+    public static void main(String[] args) {
+        Launcher.main(args);
+    }
 
     public static final int WIDTH = 1920;
     public static final int HEIGHT = 1080;
@@ -189,7 +212,7 @@ public class BirdGame3 extends Application {
     private static final String PREF_BIRD_COINS_EARNED = "bird_coins_earned";
     private static final String PREF_BIRD_COINS_SPENT = "bird_coins_spent";
     private static final String PREF_BIRD_COINS_CHECKSUM = "bird_coins_checksum";
-    private static final int ACHIEVEMENT_SCHEMA_VERSION = 2;
+    private static final int ACHIEVEMENT_SCHEMA_VERSION = 3;
     private static final String SCENE_PROP_WIIMOTE_SELECTOR = "wiimote_selector_scene";
     private static final String SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS = "wiimote_selector_players";
     private static final String SCENE_PROP_FIGHT_SELECTOR_CONTROLLER = "fight_selector_controller";
@@ -463,6 +486,7 @@ public class BirdGame3 extends Application {
     private boolean gameplayFrameExceptionReported = false;
 
     private StackPane gameRoot;
+    private GameplayRenderSurface gameplayRenderSurface;
     Stage currentStage;
     private Scene gameplayScene;
     private WiimoteInputManager wiimoteInputManager;
@@ -3323,6 +3347,11 @@ public class BirdGame3 extends Application {
     }
 
     private void bindFixedFrameScale(Scene scene, Node content, double margin) {
+        bindFixedFrameScale(scene, content, margin, 1600.0, 950.0);
+    }
+
+    private void bindFixedFrameScale(Scene scene, Node content, double margin,
+                                     double designWidth, double designHeight) {
         Runnable apply = () -> {
             Scene targetScene = activeSceneFor(scene);
             if (targetScene == null) {
@@ -3330,13 +3359,21 @@ public class BirdGame3 extends Application {
             }
             double availW = Math.max(1.0, initialLayoutSceneWidth(targetScene) - margin * 2.0);
             double availH = Math.max(1.0, initialLayoutSceneHeight(targetScene) - margin * 2.0);
-            double scale = Math.min(availW / 1600.0, availH / 950.0);
+            double scale = fixedFrameScale(availW, availH, designWidth, designHeight);
             content.setScaleX(scale);
             content.setScaleY(scale);
         };
         scene.widthProperty().addListener((obs, oldVal, newVal) -> apply.run());
         scene.heightProperty().addListener((obs, oldVal, newVal) -> apply.run());
         javafx.application.Platform.runLater(apply);
+    }
+
+    static double fixedFrameScale(double availableWidth, double availableHeight,
+                                  double designWidth, double designHeight) {
+        double safeDesignWidth = Math.max(1.0, designWidth);
+        double safeDesignHeight = Math.max(1.0, designHeight);
+        return Math.min(Math.max(1.0, availableWidth) / safeDesignWidth,
+                Math.max(1.0, availableHeight) / safeDesignHeight);
     }
 
     private Bounds measureUiContentBounds(Node content) {
@@ -3973,6 +4010,25 @@ public class BirdGame3 extends Application {
         return scene;
     }
 
+    private Scene parkGameplaySceneForTemporaryFullscreenSwap(Stage stage) {
+        Scene activeGameplayScene = gameplayScene;
+        if (stage == null || activeGameplayScene == null
+                || !fullscreenEnabled || !stage.isShowing() || !stage.isFullScreen()
+                || stage.getScene() != activeGameplayScene) {
+            return activeGameplayScene;
+        }
+
+        Scene parkedGameplayScene = new Scene(
+                new Group(),
+                Math.max(1.0, activeGameplayScene.getWidth()),
+                Math.max(1.0, activeGameplayScene.getHeight()),
+                activeGameplayScene.getFill()
+        );
+        swapFullscreenSceneRoot(parkedGameplayScene, activeGameplayScene);
+        gameplayScene = parkedGameplayScene;
+        return parkedGameplayScene;
+    }
+
     private void swapFullscreenSceneRoot(Scene targetScene, Scene sourceScene) {
         removeRegisteredSceneFilters(targetScene);
 
@@ -4502,6 +4558,8 @@ public class BirdGame3 extends Application {
     private static final String FREEMAN_PIGEON_SKIN = "FREEMAN_PIGEON";
     private static final String BEACON_PIGEON_SKIN = "BEACON_PIGEON";
     private static final String STORM_PIGEON_SKIN = "STORM_PIGEON";
+    private static final String PREMIUM_PIGEON_SKIN = "PREMIUM_PIGEON";
+    static final String OLD_SPARROW_SKIN = "OLD_SPARROW";
     private static final String STOCK_PHOTO_EAGLE_SKIN = "STOCK_PHOTO_EAGLE";
     private static final String STOCK_PHOTO_TURKEY_SKIN = "STOCK_PHOTO_TURKEY";
     private static final String NOVA_PHOENIX_SKIN = "NOVA_PHOENIX";
@@ -4877,7 +4935,25 @@ public class BirdGame3 extends Application {
             )
     };
 
-    // === ADVENTURE MODE ===
+    // === THE STILL SKY CAMPAIGN ===
+    private final StoryCampaign stillSkyCampaign = StoryCampaignContent.create();
+    private StoryCampaignProgress stillSkyProgress = new StoryCampaignProgress();
+    private final StoryCutscenePlayer storyCutscenePlayer = new StoryCutscenePlayer(this);
+    boolean campaignModeActive = false;
+    private StoryCampaign.Mission currentCampaignMission = null;
+    private StoryMissionController campaignMissionController = null;
+    private BirdType campaignSelectedBird = BirdType.PIGEON;
+    private String campaignSelectedSkinKey = null;
+    private boolean campaignMissionWon = false;
+    private int campaignRetryPhaseIndex = 0;
+    private final double[] campaignStartingHealth = new double[MAX_COMBATANTS];
+    private int campaignFrontlineWindow = -1;
+    private int campaignBossSegmentAnnounced = 0;
+    boolean campaignTeamMode = false;
+    final int[] campaignTeams = createPvETeamArray();
+    int campaignMatchTimerOverride = -1;
+
+    // === LEGACY ADVENTURE MODE ===
     boolean adventureModeActive = false;
     private boolean adventureReplayMode = false;
     private int adventureChapterIndex = 0;
@@ -5030,28 +5106,28 @@ public class BirdGame3 extends Application {
                     new AdventureDialogueLine[] {
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
-                                    BirdType.MOCKINGBIRD,
+                                    BirdType.TITMOUSE,
                                     DialogueSide.LEFT,
                                     "Pigeon",
                                     "The Beacon went out, and the whole city feels wrong."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
-                                    BirdType.MOCKINGBIRD,
+                                    BirdType.TITMOUSE,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
                                     "That kind of silence makes people easy to scare. The Carrion Court will move fast."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
-                                    BirdType.MOCKINGBIRD,
+                                    BirdType.TITMOUSE,
                                     DialogueSide.LEFT,
                                     "Pigeon",
                                     "Then we move faster. Who can still be trusted?"
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
-                                    BirdType.MOCKINGBIRD,
+                                    BirdType.TITMOUSE,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
                                     "Start with the courier. If Hummingbird believes you, others will listen."
@@ -6415,7 +6491,7 @@ public class BirdGame3 extends Application {
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
-                                    BirdType.MOCKINGBIRD,
+                                    BirdType.TITMOUSE,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
                                     "Wardens kept the Beacon long before the Court. If they come, answer straight."
@@ -6706,7 +6782,7 @@ public class BirdGame3 extends Application {
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
-                                    BirdType.MOCKINGBIRD,
+                                    BirdType.TITMOUSE,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
                                     "Yes. The Court kept it sealed. I needed a keeper strong enough to face what was inside."
@@ -6720,14 +6796,14 @@ public class BirdGame3 extends Application {
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
-                                    BirdType.MOCKINGBIRD,
+                                    BirdType.TITMOUSE,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
                                     "I gave you the truth late. That's on me. But the thing in there learns by copying whoever carries the light."
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
-                                    BirdType.MOCKINGBIRD,
+                                    BirdType.TITMOUSE,
                                     DialogueSide.LEFT,
                                     "Pigeon",
                                     "Then start talking plainly, because I'm done solving riddles for you."
@@ -6763,7 +6839,7 @@ public class BirdGame3 extends Application {
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
-                                                    BirdType.MOCKINGBIRD,
+                                                    BirdType.TITMOUSE,
                                                     DialogueSide.RIGHT,
                                                     "Old Sparrow",
                                                     "Don't chase it. Break the pattern it's using."
@@ -6874,7 +6950,7 @@ public class BirdGame3 extends Application {
                                     "Battle 3: Beacon Paradox",
                                     "Old Sparrow forces the final choice: one keeper, or a light shared by the flock.",
                                     MapType.BATTLEFIELD,
-                                    BirdType.MOCKINGBIRD,
+                                    BirdType.TITMOUSE,
                                     "Boss: Old Sparrow",
                                     240,
                                     1.3,
@@ -6885,21 +6961,21 @@ public class BirdGame3 extends Application {
                                     new AdventureDialogueLine[] {
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
-                                                    BirdType.MOCKINGBIRD,
+                                                    BirdType.TITMOUSE,
                                                     DialogueSide.RIGHT,
                                                     "Old Sparrow",
                                                     "I carried the Beacon once. I know exactly what one voice can become."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
-                                                    BirdType.MOCKINGBIRD,
+                                                    BirdType.TITMOUSE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
                                                     "Then you should know why I won't let it happen again."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
-                                                    BirdType.MOCKINGBIRD,
+                                                    BirdType.TITMOUSE,
                                                     DialogueSide.RIGHT,
                                                     "Old Sparrow",
                                                     "Good. Then prove you can refuse it."
@@ -6913,7 +6989,7 @@ public class BirdGame3 extends Application {
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
-                                                    BirdType.MOCKINGBIRD,
+                                                    BirdType.TITMOUSE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
                                                     "And we decide what the light becomes."
@@ -6922,14 +6998,14 @@ public class BirdGame3 extends Application {
                                     new AdventureDialogueLine[] {
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
-                                                    BirdType.MOCKINGBIRD,
+                                                    BirdType.TITMOUSE,
                                                     DialogueSide.RIGHT,
                                                     "Old Sparrow",
                                                     "Good. You chose the flock over the throne."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
-                                                    BirdType.MOCKINGBIRD,
+                                                    BirdType.TITMOUSE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
                                                     "That was always the only answer."
@@ -6945,14 +7021,14 @@ public class BirdGame3 extends Application {
                                     new AdventureDialogueLine[] {
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
-                                                    BirdType.MOCKINGBIRD,
+                                                    BirdType.TITMOUSE,
                                                     DialogueSide.RIGHT,
                                                     "Old Sparrow",
                                                     "Then the Beacon goes back to one voice."
                                             ),
                                             new AdventureDialogueLine(
                                                     BirdType.PIGEON,
-                                                    BirdType.MOCKINGBIRD,
+                                                    BirdType.TITMOUSE,
                                                     DialogueSide.LEFT,
                                                     "Pigeon",
                                                     "Not if I can help it."
@@ -7018,7 +7094,7 @@ public class BirdGame3 extends Application {
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
-                                    BirdType.MOCKINGBIRD,
+                                    BirdType.TITMOUSE,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
                                     "The Court feared one bird carrying all of it. They were right to fear that part."
@@ -7032,7 +7108,7 @@ public class BirdGame3 extends Application {
                             ),
                             new AdventureDialogueLine(
                                     BirdType.PIGEON,
-                                    BirdType.MOCKINGBIRD,
+                                    BirdType.TITMOUSE,
                                     DialogueSide.RIGHT,
                                     "Old Sparrow",
                                     "Exactly. One keeper becomes a target. A flock is harder to break."
@@ -8308,6 +8384,7 @@ public class BirdGame3 extends Application {
         options.add(null);
         if (type == null) return options;
         if (type == BirdType.PIGEON) {
+            options.add(PREMIUM_PIGEON_SKIN);
             if (cityPigeonUnlocked) options.add("CITY_PIGEON");
             if (noirPigeonUnlocked) options.add("NOIR_PIGEON");
             if (freemanPigeonUnlocked) options.add(FREEMAN_PIGEON_SKIN);
@@ -8335,6 +8412,7 @@ public class BirdGame3 extends Application {
                 if (mintPenguinUnlocked) options.add(MINT_PENGUIN_SKIN);
             }
             case TITMOUSE -> {
+                options.add(OLD_SPARROW_SKIN);
                 if (circuitTitmouseUnlocked) options.add(CIRCUIT_TITMOUSE_SKIN);
             }
             case RAZORBILL -> {
@@ -8375,6 +8453,8 @@ public class BirdGame3 extends Application {
 
     private String normalizeAdventureSkinChoice(BirdType type, String skinKey) {
         if (type == null || skinKey == null) return null;
+        if (PREMIUM_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON) return skinKey;
+        if (OLD_SPARROW_SKIN.equals(skinKey) && type == BirdType.TITMOUSE) return skinKey;
         if ("CITY_PIGEON".equals(skinKey) && type == BirdType.PIGEON && cityPigeonUnlocked) return skinKey;
         if ("NOIR_PIGEON".equals(skinKey) && type == BirdType.PIGEON && noirPigeonUnlocked) return skinKey;
         if (FREEMAN_PIGEON_SKIN.equals(skinKey) && type == BirdType.PIGEON && freemanPigeonUnlocked) return skinKey;
@@ -8412,6 +8492,12 @@ public class BirdGame3 extends Application {
     private String adventureSkinLabel(BirdType type, String skinKey) {
         if (skinKey == null) return "SKIN: BASE";
         switch (skinKey) {
+            case PREMIUM_PIGEON_SKIN -> {
+                return "SKIN: PREMIUM PIGEON";
+            }
+            case OLD_SPARROW_SKIN -> {
+                return "SKIN: OLD SPARROW";
+            }
             case "CITY_PIGEON" -> {
                 return "SKIN: CITY PIGEON";
             }
@@ -8811,6 +8897,7 @@ public class BirdGame3 extends Application {
         if (type == BirdType.PHOENIX && normalizedName.contains("nova")) return NOVA_PHOENIX_SKIN;
         if (type == BirdType.FALCON && normalizedName.contains("dune")) return DUNE_FALCON_SKIN;
         if (type == BirdType.PENGUIN && normalizedName.contains("mint")) return MINT_PENGUIN_SKIN;
+        if (type == BirdType.TITMOUSE && normalizedName.contains("old sparrow")) return OLD_SPARROW_SKIN;
         if (type == BirdType.TITMOUSE && normalizedName.contains("volt")) return CIRCUIT_TITMOUSE_SKIN;
         if (type == BirdType.RAZORBILL && normalizedName.contains("prism")) return PRISM_RAZORBILL_SKIN;
         if (type == BirdType.PELICAN && normalizedName.contains("aurora")) return AURORA_PELICAN_SKIN;
@@ -8829,6 +8916,12 @@ public class BirdGame3 extends Application {
     private String skinKeyForBird(Bird bird) {
         if (bird == null || bird.type == null) return null;
         BirdType type = bird.type;
+        if (type == BirdType.PIGEON && PREMIUM_PIGEON_SKIN.equals(bird.appliedSkinKey)) {
+            return PREMIUM_PIGEON_SKIN;
+        }
+        if (type == BirdType.TITMOUSE && OLD_SPARROW_SKIN.equals(bird.appliedSkinKey)) {
+            return OLD_SPARROW_SKIN;
+        }
         if (type == BirdType.PIGEON) {
             if (bird.isCitySkin) return "CITY_PIGEON";
             if (bird.isNoirSkin) return "NOIR_PIGEON";
@@ -9062,7 +9155,9 @@ public class BirdGame3 extends Application {
     }
 
     private Bird unitedFinaleBoss() {
-        if (!isUnitedFinaleClimaxContext()) return null;
+        if (!isUnitedFinaleClimaxContext()
+                && !(campaignModeActive && currentCampaignMission != null
+                && currentCampaignMission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK)) return null;
         Bird best = null;
         for (Bird b : players) {
             if (b == null) continue;
@@ -9084,7 +9179,9 @@ public class BirdGame3 extends Application {
     }
 
     private boolean isUnitedFinaleMassBattleContext() {
-        return unitedFinaleMassBattleActive && isUnitedFinaleClimaxContext();
+        return (unitedFinaleMassBattleActive && isUnitedFinaleClimaxContext())
+                || (campaignModeActive && currentCampaignMission != null
+                && currentCampaignMission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK);
     }
 
     private List<UnitedFinaleSupportEntry> buildUnitedFinaleSupportEntries(BirdType playerType) {
@@ -12846,6 +12943,7 @@ public class BirdGame3 extends Application {
         }
 
         drawUltimateReadyScreenDarken(g);
+        drawCampaignObjectiveMarkers(g);
 
         if (!swingingVines.isEmpty()) {
             drawSwingingVines(g, ambientFx);
@@ -12931,6 +13029,99 @@ public class BirdGame3 extends Application {
             drawTrainingCombatOverlay(g);
         }
 
+        g.restore();
+    }
+
+    private void drawCampaignObjectiveMarkers(GraphicsContext g) {
+        if (!campaignModeActive || campaignMissionController == null || currentCampaignMission == null) {
+            return;
+        }
+        StoryCampaign.MissionPhase phase = campaignMissionController.currentPhase();
+        double pulse = 0.72 + 0.18 * Math.sin(System.nanoTime() / 240_000_000.0);
+        g.save();
+        switch (phase.objective()) {
+            case CAPTURE, HOLD_ZONE -> {
+                int total = Math.max(1, phase.targetCount());
+                int cleared = campaignMissionController.capturedTargets();
+                for (int i = 0; i < total; i++) {
+                    double x = total <= 1
+                            ? WORLD_WIDTH * 0.5
+                            : WORLD_WIDTH * (0.24 + 0.52 * i / (double) (total - 1));
+                    boolean complete = i < cleared;
+                    boolean active = i == cleared;
+                    Color accent = complete ? Color.web("#69F0AE")
+                            : active ? Color.web("#80DEEA") : Color.web("#78909C");
+                    double alpha = active ? pulse : 0.42;
+                    g.setFill(accent.deriveColor(0, 1, 1, alpha * 0.22));
+                    g.fillOval(x - 150, GROUND_Y - 30, 300, 60);
+                    g.setStroke(accent.deriveColor(0, 1, 1, alpha));
+                    g.setLineWidth(active ? 12 : 7);
+                    g.strokeOval(x - 150, GROUND_Y - 30, 300, 60);
+                    g.setFill(accent.deriveColor(0, 1, 1, 0.18 + alpha * 0.18));
+                    g.fillRoundRect(x - 24, GROUND_Y - 250, 48, 220, 18, 18);
+                    g.setFont(Font.font("Arial Black", FontWeight.BOLD, 42));
+                    g.setTextAlign(TextAlignment.CENTER);
+                    g.setFill(accent);
+                    g.fillText(complete ? "✓" : Integer.toString(i + 1), x, GROUND_Y - 274);
+                }
+            }
+            case REACH_EXIT -> {
+                double x = WORLD_WIDTH - 180.0;
+                g.setFill(Color.web("#FFE082", 0.12 + pulse * 0.20));
+                g.fillRoundRect(x - 100, GROUND_Y - 520, 200, 520, 42, 42);
+                g.setStroke(Color.web("#FFE082", pulse));
+                g.setLineWidth(12);
+                g.strokeRoundRect(x - 100, GROUND_Y - 520, 200, 520, 42, 42);
+                g.setFill(Color.web("#FFF8E1"));
+                g.fillPolygon(
+                        new double[]{x - 64, x + 16, x + 16, x + 82, x + 16, x + 16},
+                        new double[]{GROUND_Y - 320, GROUND_Y - 320, GROUND_Y - 382,
+                                GROUND_Y - 270, GROUND_Y - 158, GROUND_Y - 220},
+                        6
+                );
+            }
+            case PROTECT -> {
+                Bird protectedBird = null;
+                for (int i = 1; i < activePlayers; i++) {
+                    if (players[i] != null && players[i].health > 0 && getEffectiveTeam(i) == 1) {
+                        protectedBird = players[i];
+                        break;
+                    }
+                }
+                if (protectedBird != null) {
+                    double radius = 120 + pulse * 18;
+                    double cx = protectedBird.x + 40;
+                    double cy = protectedBird.y + 40;
+                    g.setFill(Color.web("#69F0AE", 0.10));
+                    g.fillOval(cx - radius, cy - radius, radius * 2, radius * 2);
+                    g.setStroke(Color.web("#69F0AE", pulse));
+                    g.setLineWidth(10);
+                    g.strokeOval(cx - radius, cy - radius, radius * 2, radius * 2);
+                    g.setFont(Font.font("Arial Black", FontWeight.BOLD, 30));
+                    g.setTextAlign(TextAlignment.CENTER);
+                    g.setFill(Color.web("#E8FFF1"));
+                    g.fillText("PROTECT", cx, cy - radius - 18);
+                }
+            }
+            case BOSS_PHASES -> {
+                Bird boss = null;
+                for (int i = 1; i < activePlayers; i++) {
+                    if (players[i] != null && players[i].health > 0 && getEffectiveTeam(i) == 2
+                            && (boss == null || campaignStartingHealth[i] > campaignStartingHealth[boss.playerIndex])) {
+                        boss = players[i];
+                    }
+                }
+                if (boss != null) {
+                    double cx = boss.x + 40;
+                    double cy = boss.y + 40;
+                    g.setStroke(Color.web("#FF5252", pulse * 0.82));
+                    g.setLineWidth(9);
+                    g.strokeOval(cx - 112, cy - 112, 224, 224);
+                }
+            }
+            case SURVIVE, ELIMINATION, GAUNTLET -> {
+            }
+        }
         g.restore();
     }
 
@@ -15578,7 +15769,6 @@ public class BirdGame3 extends Application {
         }
     }
 
-    @Override
     public void start(Stage stage) {
         try {
             appendStartLog("enter start");
@@ -15695,6 +15885,11 @@ public class BirdGame3 extends Application {
     }
 
     private void showMenu(Stage stage) {
+        campaignModeActive = false;
+        currentCampaignMission = null;
+        campaignMissionController = null;
+        campaignTeamMode = false;
+        Arrays.fill(campaignTeams, 1);
         storyModeActive = false;
         storyReplayMode = false;
         adventureModeActive = false;
@@ -15726,6 +15921,84 @@ public class BirdGame3 extends Application {
 
     private void drawRosterSprite(Canvas canvas, BirdType type, String skinKey, boolean randomPick) {
         drawRosterSprite(canvas, type, skinKey, randomPick, false);
+    }
+
+    Bird createCampaignCutsceneBird(BirdType type, String skinKey) {
+        Bird preview = new Bird(0, type, 0, this);
+        // Keep the exact gameplay body/skin renderer, but do not let combat-only
+        // state (airborne rotations, cooldown HUD, auras) leak into cinematics.
+        preview.suppressSelectEffects = true;
+        applyPreviewSkinChoiceToBird(preview, type, skinKey);
+        return preview;
+    }
+
+    void prepareCampaignCutsceneScene(Scene scene, Region frame, Region content) {
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        Runnable applyScale = () -> {
+            double frameWidth = frame.getWidth() > 1.0
+                    ? frame.getWidth()
+                    : initialLayoutSceneWidth(scene);
+            double frameHeight = frame.getHeight() > 1.0
+                    ? frame.getHeight()
+                    : initialLayoutSceneHeight(scene);
+            double scale = Math.min(frameWidth / WIDTH, frameHeight / HEIGHT);
+            content.setScaleX(Math.max(0.01, scale));
+            content.setScaleY(Math.max(0.01, scale));
+        };
+        frame.widthProperty().addListener((obs, oldValue, newValue) -> applyScale.run());
+        frame.heightProperty().addListener((obs, oldValue, newValue) -> applyScale.run());
+        applyScale.run();
+        javafx.application.Platform.runLater(applyScale);
+    }
+
+    void setCampaignScene(Stage stage, Scene scene) {
+        setScenePreservingFullscreen(stage, scene);
+    }
+
+    void startCampaignCutscenePresentation(StoryCampaign.Cutscene cutscene) {
+        if (cutscene != null) {
+            selectedMap = cutscene.location();
+        }
+        startMusic();
+    }
+
+    void playCampaignCutsceneCue(StoryCampaign.Cutscene cutscene, StoryCampaign.DialogueLine line) {
+        if (line == null) return;
+        switch (line.motion()) {
+            case ATTACK -> {
+                playManagedSfxVaried(swingClip, 0.62, 1.12, 0.045);
+                playManagedSfxVaried(bonkClip, 0.46, 0.86, 0.035);
+            }
+            case RECOIL -> playManagedSfxVaried(vaseBreakingClip, 0.48, 1.18, 0.040);
+            case FLY_BY, ENTER_LEFT, ENTER_RIGHT, EXIT_LEFT, EXIT_RIGHT ->
+                    playManagedSfxVaried(swingClip, 0.42, 1.34, 0.055);
+            case FALL -> playManagedSfxVaried(zombieFallingClip, 0.48, 0.92, 0.035);
+            case RISE -> playManagedSfxVaried(hugewaveClip, 0.40, 1.24, 0.025);
+            default -> {
+                if (line.shot() == StoryCampaign.ShotStyle.ACTION) {
+                    playManagedSfxVaried(swingClip, 0.46, 1.16, 0.045);
+                } else if (line.shot() == StoryCampaign.ShotStyle.REVEAL) {
+                    boolean majorReveal = cutscene != null
+                            && (cutscene.finale() || cutscene.deathScene());
+                    playManagedSfxVaried(hugewaveClip,
+                            majorReveal ? 0.62 : 0.34,
+                            majorReveal ? 0.78 : 1.18,
+                            0.025);
+                } else {
+                    playManagedSfx(buttonClickClip, BUTTON_CLICK_BASE_VOLUME * 0.58);
+                }
+            }
+        }
+    }
+
+    void resetAfterCampaignCutscene() {
+        accumulator = 0L;
+        lastUpdate = 0L;
+        renderSnapshotTaken = false;
+        hitstopFrames = 0;
+        dramaticSlowMoTicks = 0;
+        resetRenderTimer();
     }
 
     private void drawRosterSprite(Canvas canvas, BirdType type, String skinKey, boolean randomPick, boolean forceSkin) {
@@ -16655,14 +16928,16 @@ public class BirdGame3 extends Application {
         AnchorPane.setLeftAnchor(fightNode, 0.0);
 
         Button adventureNode = buildUltimateHubMainTileButton(
-                "STORY ROUTES", "ADVENTURE",
+                "THE STILL SKY", "STORY",
                 hubLeftWidth, hubBottomHeight, 62, new Insets(16, 210, 26, 30),
                 Pos.CENTER_LEFT, hubIconAdventure(), 2.9, 0.15,
-                0, 0, 0, 38, () -> showAdventureHub(stage));
+                0, 0, 0, 38, () -> showCampaignHub(stage));
         registerHubInteractiveNode(adventureNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#00A84F", "#007730", "#D9FFE8", 0, 0, 0, 38, false),
                 buildUltimateHubStyle("#00A84F", "#007730", "#F1FFF4", 0, 0, 0, 38, true),
-                "ADVENTURE", "Play the campaign-style routes, unlock birds, and clear story battles.", selectorPointer, medallion);
+                "STORY — THE STILL SKY",
+                "Play the definitive 12-act campaign. Original Adventure routes and Episodes are preserved under Legacy Stories.",
+                selectorPointer, medallion);
         AnchorPane.setTopAnchor(adventureNode, hubMidline);
         AnchorPane.setLeftAnchor(adventureNode, 0.0);
 
@@ -20185,19 +20460,19 @@ public class BirdGame3 extends Application {
         AnchorPane.setLeftAnchor(bossRushBtn, 540.0);
 
         Button episodesBtn = buildGamesMoreModeButton(
-                "STORY ARCS",
-                "EPISODES",
+                "ARCHIVED ROUTES",
+                "LEGACY STORIES",
                 520, 186, 40,
                 new Insets(18, 120, 24, 28),
                 32,
                 gamesMoreIconEpisodes(), 3.0, 0.16,
                 new Insets(18, 22, 18, 18),
-                () -> showEpisodesHub(stage));
+                () -> showLegacyStories(stage));
         registerHubInteractiveNode(episodesBtn, modeButtons, helpTitle, helpBody,
                 buildGamesMoreCardStyle("#9334C8", "#4A148C", "#E1BEE7", 32, false),
                 buildGamesMoreCardStyle("#9334C8", "#4A148C", "#F6E7FF", 32, true),
-                "EPISODES",
-                "Open the handcrafted story battles, remix arcs, and one-off challenge routes.",
+                "LEGACY STORIES",
+                "Open the original Main Adventure, Tempest Run, and Episodes with all existing progress preserved.",
                 null, null);
         AnchorPane.setTopAnchor(episodesBtn, 350.0);
         AnchorPane.setLeftAnchor(episodesBtn, 1080.0);
@@ -26160,7 +26435,7 @@ public class BirdGame3 extends Application {
     }
 
     private int calculateVerifiedBirdCoinsForMatch(Bird winner) {
-        if (trainingModeActive) return 0;
+        if (trainingModeActive || campaignModeActive) return 0;
         int playerCount = lanModeActive ? countLanConnected() : activePlayers;
         int coins = VERIFIED_MATCH_BASE_BIRD_COINS + playerCount * VERIFIED_MATCH_PLAYER_BIRD_COINS;
         if (winner != null) coins += VERIFIED_MATCH_WIN_BONUS;
@@ -26962,6 +27237,12 @@ public class BirdGame3 extends Application {
     private String skinDisplayName(String key, BirdType type) {
         if (key == null) return "Skin";
         switch (key) {
+            case PREMIUM_PIGEON_SKIN -> {
+                return "Premium Pigeon";
+            }
+            case OLD_SPARROW_SKIN -> {
+                return "Old Sparrow";
+            }
             case "CITY_PIGEON" -> {
                 return "City Pigeon";
             }
@@ -29759,6 +30040,9 @@ public class BirdGame3 extends Application {
     private boolean isSkinUnlocked(String key, BirdType type) {
         if (key == null) return false;
         switch (key) {
+            case PREMIUM_PIGEON_SKIN, OLD_SPARROW_SKIN -> {
+                return true;
+            }
             case "CITY_PIGEON" -> {
                 return cityPigeonUnlocked;
             }
@@ -29845,7 +30129,8 @@ public class BirdGame3 extends Application {
     private String skinHowToGet(String key, BirdType type) {
         if (key == null) return "Card Packs";
         switch (key) {
-            case "CITY_PIGEON", STOCK_PHOTO_EAGLE_SKIN, STOCK_PHOTO_TURKEY_SKIN -> {
+            case "CITY_PIGEON", PREMIUM_PIGEON_SKIN, OLD_SPARROW_SKIN,
+                    STOCK_PHOTO_EAGLE_SKIN, STOCK_PHOTO_TURKEY_SKIN -> {
                 return "Unlocked by default";
             }
             case "NOIR_PIGEON" -> {
@@ -29883,6 +30168,8 @@ public class BirdGame3 extends Application {
     }
 
     private String skinDescription(String key, BirdType type) {
+        if (PREMIUM_PIGEON_SKIN.equals(key)) return "The detailed painted Pigeon atlas, preserved as an optional skin while the original in-engine Pigeon remains the canonical base look.";
+        if (OLD_SPARROW_SKIN.equals(key)) return "Old Sparrow as a complete in-engine Titmouse skin: weathered brown feathers, silver crown plumage, a sharp amber eye, and the posture of a bird who has survived every bad route.";
         if ("CITY_PIGEON".equals(key)) return "Gold-plated city swagger for the rooftop boss. Every flap looks expensive and every landing sounds like a coin drop.";
         if ("NOIR_PIGEON".equals(key)) return "Trench-coat noir vibe with a hardboiled stare. Smells like rain, neon, and unfinished business.";
         if (BEACON_PIGEON_SKIN.equals(key)) return "Beacon-lit feathers with a steady glow. The signal chose a keeper and the skyline can feel it.";
@@ -29937,7 +30224,8 @@ public class BirdGame3 extends Application {
                 return "LEGENDARY";
             }
             case ASHEN_SOVEREIGN_PHOENIX_SKIN, LORE_ACCURATE_HUMMINGBIRD_SKIN,
-                    STOCK_PHOTO_EAGLE_SKIN, STOCK_PHOTO_TURKEY_SKIN -> {
+                    STOCK_PHOTO_EAGLE_SKIN, STOCK_PHOTO_TURKEY_SKIN,
+                    PREMIUM_PIGEON_SKIN, OLD_SPARROW_SKIN -> {
                 return "UNIQUE";
             }
         }
@@ -30013,6 +30301,12 @@ public class BirdGame3 extends Application {
 
     private List<SkinEntry> birdBookSkins() {
         List<SkinEntry> skins = new ArrayList<>();
+        skins.add(new SkinEntry(BirdType.PIGEON, PREMIUM_PIGEON_SKIN, "Premium Pigeon",
+                skinDescription(PREMIUM_PIGEON_SKIN, BirdType.PIGEON),
+                skinHowToGet(PREMIUM_PIGEON_SKIN, BirdType.PIGEON)));
+        skins.add(new SkinEntry(BirdType.TITMOUSE, OLD_SPARROW_SKIN, "Old Sparrow",
+                skinDescription(OLD_SPARROW_SKIN, BirdType.TITMOUSE),
+                skinHowToGet(OLD_SPARROW_SKIN, BirdType.TITMOUSE)));
         skins.add(new SkinEntry(BirdType.FALCON, DUNE_FALCON_SKIN, "Dune Falcon",
                 skinDescription(DUNE_FALCON_SKIN, BirdType.FALCON), skinHowToGet(DUNE_FALCON_SKIN, BirdType.FALCON)));
         skins.add(new SkinEntry(BirdType.PENGUIN, MINT_PENGUIN_SKIN, "Mint Penguin",
@@ -30133,6 +30427,7 @@ public class BirdGame3 extends Application {
     }
 
     private void showEpisodesHub(Stage stage) {
+        campaignModeActive = false;
         storyModeActive = true;
         storyReplayMode = false;
         adventureModeActive = false;
@@ -30173,7 +30468,8 @@ public class BirdGame3 extends Application {
         scroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
         scroll.setVbarPolicy(ScrollPane.ScrollBarPolicy.AS_NEEDED);
 
-        Button menuButton = uiFactory.action("BACK TO HUB", 520, 95, 34, "#D32F2F", 24, () -> showMenu(stage));
+        Button menuButton = uiFactory.action("BACK TO LEGACY STORIES", 560, 95, 30, "#D32F2F", 22,
+                () -> showLegacyStories(stage));
         menuButton.setWrapText(false);
         uiFactory.fitSingleLineOnLayout(menuButton, 34, 20);
         HBox bottom = new HBox(menuButton);
@@ -30192,7 +30488,670 @@ public class BirdGame3 extends Application {
         }
     }
 
+    private void showCampaignHub(Stage stage) {
+        campaignModeActive = true;
+        currentCampaignMission = null;
+        campaignMissionController = null;
+        campaignMissionWon = false;
+        storyModeActive = false;
+        storyReplayMode = false;
+        adventureModeActive = false;
+        adventureReplayMode = false;
+        classicModeActive = false;
+        classicEncounter = null;
+        classicRun.clear();
+        trainingModeActive = false;
+        clearBossRushState();
+        clearAshfallTrialState();
+        competitionSeriesActive = false;
+        playMenuMusic();
+
+        StackPane content = new StackPane();
+        lockRegionSize(content, 1600, 950);
+        Canvas backdrop = new Canvas(1600, 950);
+        drawStillSkyCampaignBackdrop(backdrop.getGraphicsContext2D());
+        Pane overlay = new Pane();
+        lockRegionSize(overlay, 1600, 950);
+        content.getChildren().addAll(backdrop, overlay);
+
+        Label eyebrow = new Label("DEFINITIVE CAMPAIGN  /  SINGLE PLAYER");
+        eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        eyebrow.setTextFill(Color.web("#6EE7F2"));
+        eyebrow.setLayoutX(48);
+        eyebrow.setLayoutY(30);
+
+        Label title = new Label("THE STILL SKY");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 58));
+        title.setTextFill(Color.web("#F4FBFF"));
+        title.setEffect(new DropShadow(22, Color.web("#102B46", 0.88)));
+        title.setLayoutX(45);
+        title.setLayoutY(47);
+
+        Label subtitle = new Label("NO RULER OWNS THE WIND.");
+        subtitle.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        subtitle.setTextFill(Color.web("#A6BBC9"));
+        subtitle.setLayoutX(51);
+        subtitle.setLayoutY(127);
+
+        StoryCampaign.Mission current = stillSkyCampaign.mission(stillSkyProgress.currentMissionId);
+        if (current == null) current = stillSkyCampaign.firstMission();
+        int total = stillSkyCampaign.orderedMissions.size();
+        int currentActIndex = Math.max(0, stillSkyCampaign.actIndexForMission(current.id()));
+        StoryCampaign.Act currentAct = stillSkyCampaign.acts.get(currentActIndex);
+        long currentActCleared = currentAct.missions().stream()
+                .filter(mission -> stillSkyProgress.isMissionCompleted(mission.id()))
+                .count();
+
+        Label chapter = new Label("ACT " + String.format(Locale.ROOT, "%02d", currentActIndex + 1)
+                + "  /  " + campaignActShortTitle(currentAct).toUpperCase(Locale.ROOT));
+        chapter.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        chapter.setTextFill(Color.web("#F4C96B"));
+
+        Label missionTitle = new Label(current.title().toUpperCase(Locale.ROOT));
+        missionTitle.setFont(Font.font("Arial Black", FontWeight.BOLD, 39));
+        missionTitle.setTextFill(Color.WHITE);
+        missionTitle.setWrapText(true);
+        missionTitle.setMaxWidth(386);
+
+        Label missionMap = new Label(mapDisplayName(current.map()).toUpperCase(Locale.ROOT)
+                + "  /  " + current.phases().size() + " OBJECTIVE"
+                + (current.phases().size() == 1 ? "" : "S"));
+        missionMap.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        missionMap.setTextFill(Color.web("#76E5EE"));
+
+        Label briefing = new Label(current.briefing());
+        briefing.setFont(Font.font("Arial", FontWeight.SEMI_BOLD, 18));
+        briefing.setTextFill(Color.web("#D5E0E7"));
+        briefing.setWrapText(true);
+        briefing.setMaxWidth(386);
+
+        VBox objectiveList = new VBox(7);
+        objectiveList.setAlignment(Pos.CENTER_LEFT);
+        int visibleObjectives = Math.min(3, current.phases().size());
+        for (int i = 0; i < visibleObjectives; i++) {
+            StoryCampaign.MissionPhase phase = current.phases().get(i);
+            Label objective = new Label("0" + (i + 1) + "   "
+                    + phase.label().toUpperCase(Locale.ROOT));
+            objective.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+            objective.setTextFill(Color.web("#B8C8D2"));
+            objective.setWrapText(true);
+            objective.setMaxWidth(374);
+            objectiveList.getChildren().add(objective);
+        }
+
+        Label dossierProgress = new Label(stillSkyProgress.campaignComplete
+                ? "CAMPAIGN COMPLETE"
+                : stillSkyProgress.completedCount() + " / " + total + " MISSIONS CLEARED");
+        dossierProgress.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        dossierProgress.setTextFill(stillSkyProgress.campaignComplete
+                ? Color.web("#FFE082") : Color.web("#90A4AE"));
+
+        ProgressBar completionBar = new ProgressBar(total == 0 ? 0.0
+                : stillSkyProgress.completedCount() / (double) total);
+        completionBar.setPrefWidth(386);
+        completionBar.setPrefHeight(9);
+        completionBar.setStyle("-fx-accent: #43D6E4;");
+
+        StoryCampaign.Mission continueMission = current;
+        Button continueButton = uiFactory.action(
+                stillSkyProgress.completedCount() == 0 ? "BEGIN STORY" : "CONTINUE",
+                386, 72, 20, "#087C9B", 18,
+                () -> showCampaignMissionBriefing(stage, continueMission)
+        );
+        continueButton.setStyle(continueButton.getStyle()
+                + "-fx-border-color: #9AF5FF; -fx-border-width: 2;");
+
+        Region dossierSpacer = new Region();
+        VBox.setVgrow(dossierSpacer, Priority.ALWAYS);
+        VBox dossier = new VBox(11, chapter, missionTitle, missionMap, briefing,
+                objectiveList, dossierSpacer, dossierProgress, completionBar, continueButton);
+        dossier.setPadding(new Insets(26, 26, 24, 26));
+        dossier.setLayoutX(42);
+        dossier.setLayoutY(180);
+        lockRegionSize(dossier, 438, 610);
+        dossier.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(9,23,37,0.96), rgba(4,12,23,0.94));"
+                + "-fx-border-color: #35566B; -fx-border-width: 1.5;"
+                + "-fx-background-radius: 18; -fx-border-radius: 18;");
+        dossier.setEffect(new DropShadow(28, Color.web("#000000", 0.62)));
+
+        Pane routePanel = new Pane();
+        routePanel.setLayoutX(505);
+        routePanel.setLayoutY(174);
+        lockRegionSize(routePanel, 1050, 616);
+        routePanel.setStyle("-fx-background-color: rgba(3,11,21,0.48);"
+                + "-fx-border-color: rgba(109,178,204,0.24); -fx-border-width: 1;"
+                + "-fx-background-radius: 22; -fx-border-radius: 22;");
+
+        Label routeKicker = new Label("CAMPAIGN ROUTE");
+        routeKicker.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        routeKicker.setTextFill(Color.web("#8BA5B5"));
+        routeKicker.setLayoutX(28);
+        routeKicker.setLayoutY(19);
+
+        Label routeCount = new Label("ACT " + (currentActIndex + 1) + " OF 12   /   "
+                + currentActCleared + "/" + currentAct.missions().size() + " IN THIS ACT");
+        routeCount.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+        routeCount.setTextFill(Color.web("#5ED9E8"));
+        routeCount.setPrefWidth(450);
+        routeCount.setTextAlignment(TextAlignment.RIGHT);
+        routeCount.setLayoutX(570);
+        routeCount.setLayoutY(19);
+
+        Canvas routeLines = new Canvas(1050, 616);
+        drawStillSkyActRoute(routeLines.getGraphicsContext2D(), currentActIndex);
+        routePanel.getChildren().addAll(routeLines, routeKicker, routeCount);
+
+        double[] routeX = {105, 365, 625, 885, 885, 625, 365, 105, 105, 365, 625, 885};
+        double[] routeY = {125, 125, 125, 125, 315, 315, 315, 315, 505, 505, 505, 505};
+        for (int i = 0; i < stillSkyCampaign.acts.size(); i++) {
+            StoryCampaign.Act act = stillSkyCampaign.acts.get(i);
+            boolean available = stillSkyProgress.isActAvailable(stillSkyCampaign, i);
+            long cleared = act.missions().stream()
+                    .filter(mission -> stillSkyProgress.isMissionCompleted(mission.id()))
+                    .count();
+            boolean complete = cleared == act.missions().size();
+            boolean active = i == currentActIndex;
+            StoryCampaign.Mission actMission = act.missions().stream()
+                    .filter(mission -> !stillSkyProgress.isMissionCompleted(mission.id()))
+                    .findFirst()
+                    .orElse(act.missions().getFirst());
+            String fill = active ? "#B67920"
+                    : complete ? "#176C5A" : available ? "#173C57" : "#101A25";
+            Button actButton = new Button(String.format(Locale.ROOT, "%02d", i + 1));
+            actButton.setFont(Font.font("Arial Black", FontWeight.BOLD, active ? 28 : 23));
+            actButton.setTextFill(available ? Color.WHITE : Color.web("#596977"));
+            double nodeSize = active ? 88 : 76;
+            actButton.setPrefSize(nodeSize, nodeSize);
+            actButton.setMinSize(nodeSize, nodeSize);
+            actButton.setMaxSize(nodeSize, nodeSize);
+            actButton.setLayoutX(routeX[i] - nodeSize / 2.0);
+            actButton.setLayoutY(routeY[i] - nodeSize / 2.0);
+            actButton.setStyle("-fx-background-color: " + fill + ";"
+                    + "-fx-border-color: " + (active ? "#FFE29A"
+                    : complete ? "#75E0C8" : "#4D7894") + ";"
+                    + "-fx-border-width: " + (active ? 4 : 2) + ";"
+                    + "-fx-background-radius: 60; -fx-border-radius: 60;");
+            actButton.setDisable(!available);
+            actButton.setOnAction(event -> showCampaignMissionBriefing(stage, actMission));
+
+            Label actTitle = new Label(campaignActShortTitle(act).toUpperCase(Locale.ROOT)
+                    + "\n" + cleared + "/" + act.missions().size());
+            actTitle.setFont(Font.font("Consolas", FontWeight.BOLD, active ? 14 : 13));
+            actTitle.setTextFill(active ? Color.web("#FFE29A")
+                    : available ? Color.web("#C9D5DC") : Color.web("#56636E"));
+            actTitle.setTextAlignment(TextAlignment.CENTER);
+            actTitle.setAlignment(Pos.TOP_CENTER);
+            actTitle.setPrefWidth(212);
+            actTitle.setLayoutX(routeX[i] - 106);
+            actTitle.setLayoutY(routeY[i] + 49);
+            routePanel.getChildren().addAll(actButton, actTitle);
+        }
+
+        Button difficulty = uiFactory.action(
+                "DIFFICULTY  /  " + stillSkyProgress.difficulty.label.toUpperCase(Locale.ROOT),
+                250, 58, 16, "#493678", 14,
+                () -> {
+                    StoryCampaign.Difficulty[] values = StoryCampaign.Difficulty.values();
+                    stillSkyProgress.difficulty =
+                            values[(stillSkyProgress.difficulty.ordinal() + 1) % values.length];
+                    saveAchievements();
+                    showCampaignHub(stage);
+                }
+        );
+        Button gallery = uiFactory.action("CUTSCENE GALLERY", 220, 58, 16, "#17665F", 14,
+                () -> showCampaignGallery(stage));
+        Button legacy = uiFactory.action("LEGACY STORIES", 210, 58, 16, "#59473F", 14,
+                () -> showLegacyStories(stage));
+        Button newStory = uiFactory.action("NEW STORY", 180, 58, 16, "#812A32", 14,
+                () -> confirmNewCampaign(stage));
+        Button back = uiFactory.action("BACK TO HUB", 180, 58, 16, "#344854", 14,
+                () -> showMenu(stage));
+        HBox utilityRail = new HBox(12, difficulty, gallery, legacy, newStory, back);
+        utilityRail.setAlignment(Pos.CENTER);
+        utilityRail.setLayoutX(250);
+        utilityRail.setLayoutY(844);
+
+        Label footer = new Label(
+                "FIGHTER CHOICES CHANGE THE MISSION RESPONSE, NOT THE CAMPAIGN OUTCOME.");
+        footer.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        footer.setTextFill(Color.web("#728896"));
+        footer.setPrefWidth(1000);
+        footer.setTextAlignment(TextAlignment.CENTER);
+        footer.setLayoutX(300);
+        footer.setLayoutY(915);
+
+        overlay.getChildren().addAll(eyebrow, title, subtitle, dossier,
+                routePanel, utilityRail, footer);
+        installFixedCampaignScene(stage, content, continueButton);
+    }
+
+    private String campaignActShortTitle(StoryCampaign.Act act) {
+        return act.title().replaceFirst("^Act [^:]+:\\s*", "");
+    }
+
+    private void drawStillSkyCampaignBackdrop(GraphicsContext g) {
+        g.setFill(new LinearGradient(0, 0, 0, 950, false, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#02070F")),
+                new Stop(0.52, Color.web("#0A1C2D")),
+                new Stop(1, Color.web("#1B1428"))));
+        g.fillRect(0, 0, 1600, 950);
+
+        g.setFill(Color.web("#73D7EA", 0.18));
+        for (int i = 0; i < 42; i++) {
+            double x = (i * 193 + 71) % 1600;
+            double y = (i * 83 + 31) % 430;
+            double radius = 1.2 + (i % 3) * 0.55;
+            g.fillOval(x, y, radius, radius);
+        }
+
+        g.setStroke(Color.web("#6CDDEC", 0.10));
+        g.setLineWidth(2.2);
+        for (int i = 0; i < 7; i++) {
+            double y = 115 + i * 88;
+            g.strokeArc(360 - i * 34, y, 980 + i * 48, 190, 188, 164, ArcType.OPEN);
+        }
+
+        g.setStroke(Color.web("#98DDEA", 0.07));
+        g.setLineWidth(20);
+        g.strokeOval(1215, -180, 470, 470);
+        g.setLineWidth(2);
+        g.setStroke(Color.web("#F2C667", 0.13));
+        g.strokeOval(1260, -135, 380, 380);
+        for (int i = 0; i < 6; i++) {
+            double angle = Math.toRadians(210 + i * 24);
+            double cx = 1450 + Math.cos(angle) * 190;
+            double cy = 55 + Math.sin(angle) * 190;
+            g.strokeLine(cx, cy, cx + Math.cos(angle) * 85, cy + Math.sin(angle) * 85);
+        }
+
+        g.setFill(Color.web("#050A13", 0.92));
+        double skylineX = 0;
+        int building = 0;
+        while (skylineX < 1600) {
+            double width = 42 + (building * 17 % 54);
+            double height = 48 + (building * 43 % 128);
+            g.fillRect(skylineX, 950 - height, width, height);
+            skylineX += width + 8;
+            building++;
+        }
+        g.setFill(Color.web("#64D7E5", 0.08));
+        for (int i = 0; i < 38; i++) {
+            double windowX = (i * 149 + 22) % 1580;
+            double windowY = 852 + (i * 37 % 74);
+            g.fillRect(windowX, windowY, 5, 12);
+        }
+    }
+
+    private void drawStillSkyActRoute(GraphicsContext g, int currentActIndex) {
+        double[] x = {105, 365, 625, 885, 885, 625, 365, 105, 105, 365, 625, 885};
+        double[] y = {125, 125, 125, 125, 315, 315, 315, 315, 505, 505, 505, 505};
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setStroke(Color.web("#77E2EE", 0.10));
+        g.setLineWidth(14);
+        for (int i = 0; i < x.length - 1; i++) {
+            g.strokeLine(x[i], y[i], x[i + 1], y[i + 1]);
+        }
+        g.setLineWidth(3);
+        for (int i = 0; i < x.length - 1; i++) {
+            g.setStroke(i < currentActIndex
+                    ? Color.web("#5EDBBF", 0.74)
+                    : i == currentActIndex ? Color.web("#F1C66D", 0.78)
+                    : Color.web("#5D7F94", 0.44));
+            g.strokeLine(x[i], y[i], x[i + 1], y[i + 1]);
+        }
+        g.setStroke(Color.web("#E2F8FB", 0.24));
+        g.setLineWidth(1);
+        for (int i = 0; i < x.length - 1; i++) {
+            g.strokeLine(x[i], y[i] - 5, x[i + 1], y[i + 1] - 5);
+        }
+    }
+
+    private void installFixedCampaignScene(Stage stage, Region content, Node initialFocus) {
+        StackPane root = new StackPane(content);
+        root.getProperties().put("noAutoScale", true);
+        root.setStyle("-fx-background-color: #02050A;");
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindFixedFrameScale(scene, content, 0.0);
+        setScenePreservingFullscreen(stage, scene);
+        javafx.application.Platform.runLater(() -> {
+            if (initialFocus != null) initialFocus.requestFocus();
+        });
+    }
+
+    private void confirmNewCampaign(Stage stage) {
+        Alert confirm = new Alert(
+                Alert.AlertType.CONFIRMATION,
+                "Start The Still Sky again from Act 1?\n\n"
+                        + "Only the new campaign's mission and cutscene progress will reset. "
+                        + "Legacy stories, unlocks, achievements, skins, maps, and Bird Coins stay intact.",
+                ButtonType.YES,
+                ButtonType.CANCEL
+        );
+        confirm.setHeaderText("NEW STORY");
+        confirm.initOwner(stage);
+        confirm.showAndWait().ifPresent(button -> {
+            if (button == ButtonType.YES) {
+                stillSkyProgress.reset(stillSkyCampaign);
+                campaignSelectedBird = BirdType.PIGEON;
+                campaignSelectedSkinKey = null;
+                saveAchievements();
+                showCampaignHub(stage);
+            }
+        });
+    }
+
+    private void showCampaignMissionBriefing(Stage stage, StoryCampaign.Mission mission) {
+        if (mission == null) {
+            showCampaignHub(stage);
+            return;
+        }
+        campaignModeActive = true;
+        currentCampaignMission = mission;
+        VBox root = new VBox(20);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(42, 70, 42, 70));
+        lockRegionSize(root, 1600, 950);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #050A13, #172B42);");
+
+        int actNumber = Math.max(1, stillSkyCampaign.actIndexForMission(mission.id()) + 1);
+        Label kicker = new Label("ACT " + actNumber + "  •  " + mapDisplayName(mission.map()).toUpperCase(Locale.ROOT));
+        kicker.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
+        kicker.setTextFill(Color.web("#80DEEA"));
+        Label title = new Label(mission.title().toUpperCase(Locale.ROOT));
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 62));
+        title.setTextFill(Color.WHITE);
+        title.setMaxWidth(1440);
+        title.setAlignment(Pos.CENTER);
+        title.setTextAlignment(TextAlignment.CENTER);
+        fitLabelSingleLine(title, 62, 36, 1440);
+        Label briefing = new Label(mission.briefing());
+        briefing.setFont(Font.font("Arial", FontWeight.SEMI_BOLD, 25));
+        briefing.setTextFill(Color.web("#CFD8DC"));
+        briefing.setWrapText(true);
+        briefing.setMaxWidth(1220);
+        briefing.setAlignment(Pos.CENTER);
+        briefing.setTextAlignment(TextAlignment.CENTER);
+
+        VBox objectives = new VBox(10);
+        objectives.setAlignment(Pos.CENTER_LEFT);
+        objectives.setPadding(new Insets(22, 34, 22, 34));
+        objectives.setMaxWidth(980);
+        objectives.setStyle("-fx-background-color: rgba(0,0,0,0.44);"
+                + "-fx-border-color: #546E7A; -fx-border-width: 2;"
+                + "-fx-background-radius: 18; -fx-border-radius: 18;");
+        for (int i = 0; i < mission.phases().size(); i++) {
+            StoryCampaign.MissionPhase phase = mission.phases().get(i);
+            Label line = new Label((i + 1) + ". " + phase.label()
+                    + (phase.checkpoint() ? "  [CHECKPOINT]" : ""));
+            line.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
+            line.setTextFill(Color.web("#E3F2FD"));
+            objectives.getChildren().add(line);
+        }
+
+        String policy = switch (mission.playable().kind()) {
+            case FORCED -> "PLAYABLE: " + mission.playable().birds().getFirst().name;
+            case CHOICE -> "PLAYABLE CHOICE: " + mission.playable().birds().stream()
+                    .map(type -> type.name).collect(Collectors.joining(" / "));
+            case FULL_ROSTER -> "PLAYABLE: ANY OF ALL 21 BIRDS";
+        };
+        Label rules = new Label(policy + "\nDIFFICULTY: " + stillSkyProgress.difficulty.label.toUpperCase(Locale.ROOT)
+                + "  •  CPU " + stillSkyProgress.difficulty.cpuLevel);
+        rules.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
+        rules.setTextFill(Color.web("#FFE082"));
+        rules.setTextAlignment(TextAlignment.CENTER);
+
+        Button deploy = uiFactory.action(
+                stillSkyProgress.isMissionCompleted(mission.id()) ? "REPLAY MISSION" : "PLAY MISSION",
+                410, 86, 24, "#1565C0", 20,
+                () -> beginCampaignMission(stage, mission)
+        );
+        Button back = uiFactory.action("BACK TO STORY", 330, 72, 20, "#455A64", 18,
+                () -> showCampaignHub(stage));
+        root.getChildren().addAll(kicker, title, briefing, objectives, rules, deploy, back);
+        installFixedCampaignScene(stage, root, deploy);
+    }
+
+    private void beginCampaignMission(Stage stage, StoryCampaign.Mission mission) {
+        StoryCampaign.Cutscene pre = stillSkyCampaign.scene(mission.preSceneId());
+        playCampaignCutscene(stage, pre, () -> showCampaignHandoff(stage, mission));
+    }
+
+    private void showCampaignHandoff(Stage stage, StoryCampaign.Mission mission) {
+        List<BirdType> allowed = mission.playable().resolvedBirds();
+        if (!allowed.contains(campaignSelectedBird)) {
+            campaignSelectedBird = allowed.getFirst();
+            campaignSelectedSkinKey = null;
+        }
+        campaignSelectedSkinKey = normalizeAdventureSkinChoice(campaignSelectedBird, campaignSelectedSkinKey);
+
+        VBox root = new VBox(15);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(28, 44, 28, 44));
+        lockRegionSize(root, 1600, 950);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #07111E, #261936);");
+        Label title = new Label(mission.playable().kind() == StoryCampaign.PlayableKind.FORCED
+                ? "STORY HANDOFF"
+                : mission.playable().kind() == StoryCampaign.PlayableKind.FULL_ROSTER
+                ? "ALL WINGS IN"
+                : "CHOOSE THE BIRD IN THIS SCENE");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 44));
+        title.setTextFill(Color.web("#E1F5FE"));
+
+        Canvas portrait = new Canvas(280, 230);
+        drawRosterSprite(portrait, campaignSelectedBird, campaignSelectedSkinKey, false, true);
+        Label selected = new Label(campaignSelectedBird.name.toUpperCase(Locale.ROOT)
+                + "\n" + adventureSkinLabel(campaignSelectedBird, campaignSelectedSkinKey));
+        selected.setFont(Font.font("Consolas", FontWeight.BOLD, 23));
+        selected.setTextFill(Color.web("#FFE082"));
+        selected.setTextAlignment(TextAlignment.CENTER);
+
+        GridPane choices = new GridPane();
+        choices.setHgap(9);
+        choices.setVgap(9);
+        choices.setAlignment(Pos.CENTER);
+        if (mission.playable().kind() != StoryCampaign.PlayableKind.FORCED) {
+            int choiceIndex = 0;
+            for (BirdType type : allowed) {
+                Button bird = uiFactory.action(type.name.toUpperCase(Locale.ROOT),
+                        mission.playable().kind() == StoryCampaign.PlayableKind.FULL_ROSTER ? 188 : 270,
+                        mission.playable().kind() == StoryCampaign.PlayableKind.FULL_ROSTER ? 54 : 68,
+                        15,
+                        type == campaignSelectedBird ? "#1565C0" : "#37474F",
+                        13,
+                        () -> {
+                            campaignSelectedBird = type;
+                            campaignSelectedSkinKey = null;
+                            showCampaignHandoff(stage, mission);
+                        });
+                int columns = mission.playable().kind() == StoryCampaign.PlayableKind.FULL_ROSTER ? 7 : allowed.size();
+                choices.add(bird, choiceIndex % columns, choiceIndex / columns);
+                choiceIndex++;
+            }
+        }
+
+        Button skin = uiFactory.action("CHANGE SKIN", 280, 68, 18, "#6A1B9A", 16, () -> {
+            List<String> options = adventureSkinOptions(campaignSelectedBird);
+            int index = options.indexOf(campaignSelectedSkinKey);
+            campaignSelectedSkinKey = options.get((Math.max(0, index) + 1) % options.size());
+            showCampaignHandoff(stage, mission);
+        });
+        skin.setDisable(adventureSkinOptions(campaignSelectedBird).size() <= 1);
+        Button deploy = uiFactory.action("DEPLOY", 330, 76, 22, "#2E7D32", 19,
+                () -> startCampaignMission(stage, mission));
+        Button back = uiFactory.action("BACK", 250, 68, 18, "#455A64", 16,
+                () -> showCampaignMissionBriefing(stage, mission));
+        HBox bottom = new HBox(14, skin, deploy, back);
+        bottom.setAlignment(Pos.CENTER);
+        root.getChildren().addAll(title, portrait, selected, choices, bottom);
+        installFixedCampaignScene(stage, root, deploy);
+    }
+
+    private void startCampaignMission(Stage stage, StoryCampaign.Mission mission) {
+        if (mission == null) {
+            showCampaignHub(stage);
+            return;
+        }
+        resetMatchStats();
+        campaignModeActive = true;
+        currentCampaignMission = mission;
+        storyModeActive = false;
+        adventureModeActive = false;
+        classicModeActive = false;
+        trainingModeActive = false;
+        lanModeActive = false;
+        teamModeEnabled = false;
+        competitionModeEnabled = false;
+        mutatorModeEnabled = false;
+        selectedMap = mission.map();
+        startMatch(stage);
+    }
+
+    private void handleCampaignMatchEnd(Stage stage) {
+        StoryCampaign.Mission mission = currentCampaignMission;
+        if (mission == null) {
+            showCampaignHub(stage);
+            return;
+        }
+        if (!campaignMissionWon) {
+            startCampaignMission(stage, mission);
+            return;
+        }
+        StoryCampaign.Cutscene post = stillSkyCampaign.scene(mission.postSceneId());
+        playCampaignCutscene(stage, post, () -> completeCampaignMission(stage, mission));
+    }
+
+    private void completeCampaignMission(Stage stage, StoryCampaign.Mission mission) {
+        boolean firstClear = stillSkyProgress.markMissionCompleted(stillSkyCampaign, mission);
+        if (firstClear) {
+            grantBirdCoins(50);
+            unlockCampaignRecruit(mission.recruit());
+        }
+        if (stillSkyProgress.campaignComplete && !stillSkyProgress.completionRewardClaimed) {
+            stillSkyProgress.completionRewardClaimed = true;
+            unlockBeaconCrownMapReward(true);
+            unlockNullRockVultureReward(true);
+            grantBirdCoins(500);
+            unlockAchievement(BirdGame3Achievement.STILL_SKY, "THE STILL SKY!");
+            setAchievementRewardClaimed(BirdGame3Achievement.STILL_SKY.legacyIndex);
+        }
+        saveAchievements();
+        if (!firstClear) {
+            showCampaignHub(stage);
+            return;
+        }
+        StoryCampaign.Mission next = stillSkyCampaign.nextMission(mission.id());
+        if (next == null) {
+            showCampaignHub(stage);
+        } else {
+            showCampaignMissionBriefing(stage, next);
+        }
+    }
+
+    private void unlockCampaignRecruit(BirdType type) {
+        if (type == null) return;
+        boolean newlyUnlocked = !isBirdUnlocked(type);
+        switch (type) {
+            case BAT -> batUnlocked = true;
+            case FALCON -> falconUnlocked = true;
+            case HEISENBIRD -> heisenbirdUnlocked = true;
+            case PHOENIX -> phoenixUnlocked = true;
+            case TITMOUSE -> titmouseUnlocked = true;
+            case RAVEN -> ravenUnlocked = true;
+            case ROADRUNNER -> roadrunnerUnlocked = true;
+            case ROOSTER -> roosterUnlocked = true;
+            default -> {
+            }
+        }
+        if (newlyUnlocked && isBirdUnlocked(type)) {
+            queueBirdUnlockCard(type);
+        }
+    }
+
+    private void playCampaignCutscene(Stage stage, StoryCampaign.Cutscene cutscene, Runnable after) {
+        if (cutscene == null) {
+            if (after != null) after.run();
+            return;
+        }
+        disposeGameplayMusicPlayer();
+        storyCutscenePlayer.play(stage, cutscene, campaignSelectedBird, campaignSelectedSkinKey, () -> {
+            stillSkyProgress.markSceneSeen(cutscene.id());
+            saveAchievements();
+            if (after != null) after.run();
+        });
+    }
+
+    private void showCampaignGallery(Stage stage) {
+        campaignModeActive = true;
+        VBox content = new VBox(14);
+        content.setAlignment(Pos.TOP_CENTER);
+        content.setPadding(new Insets(28, 46, 28, 46));
+        lockRegionSize(content, 1600, 950);
+        content.setStyle("-fx-background-color: linear-gradient(to bottom, #050A12, #1A2438);");
+        Label title = new Label("CUTSCENE GALLERY");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 48));
+        title.setTextFill(Color.web("#E1F5FE"));
+        Label count = new Label(stillSkyProgress.seenSceneIds().size() + "/" + stillSkyCampaign.scenes.size()
+                + " SCENES SEEN");
+        count.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
+        count.setTextFill(Color.web("#80DEEA"));
+        FlowPane grid = new FlowPane(10, 10);
+        grid.setAlignment(Pos.CENTER);
+        grid.setPrefWrapLength(1420);
+        for (StoryCampaign.Cutscene cutscene : stillSkyCampaign.scenes.values()) {
+            boolean seen = stillSkyProgress.hasSeenScene(cutscene.id());
+            Button sceneButton = uiFactory.action(
+                    seen ? cutscene.title().toUpperCase(Locale.ROOT) : "LOCKED",
+                    330, 62, 15, seen ? "#37474F" : "#20252B", 13,
+                    () -> playCampaignCutscene(stage, cutscene, () -> showCampaignGallery(stage))
+            );
+            sceneButton.setDisable(!seen);
+            grid.getChildren().add(sceneButton);
+        }
+        Button back = uiFactory.action("BACK TO STORY", 330, 70, 20, "#455A64", 18,
+                () -> showCampaignHub(stage));
+        ScrollPane galleryScroll = new ScrollPane(grid);
+        galleryScroll.setFitToWidth(true);
+        galleryScroll.setPannable(true);
+        galleryScroll.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        galleryScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+        VBox.setVgrow(galleryScroll, Priority.ALWAYS);
+        content.getChildren().addAll(title, count, galleryScroll, back);
+        installFixedCampaignScene(stage, content, back);
+    }
+
+    private void showLegacyStories(Stage stage) {
+        campaignModeActive = false;
+        VBox root = new VBox(24);
+        root.setAlignment(Pos.CENTER);
+        root.setPadding(new Insets(60));
+        lockRegionSize(root, 1600, 950);
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #100B14, #2A2030);");
+        Label title = new Label("LEGACY STORIES");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 74));
+        title.setTextFill(Color.web("#FFE0B2"));
+        Label description = new Label("Original routes remain playable with their existing checkpoints, rewards, and unlocks.");
+        description.setFont(Font.font("Consolas", 23));
+        description.setTextFill(Color.web("#CFD8DC"));
+        Button main = uiFactory.action("MAIN ADVENTURE\nPIGEON'S BEACON WAR", 620, 100, 22, "#1565C0", 18, () -> {
+            setAdventureRoute(AdventureRoute.MAIN);
+            showAdventureHub(stage);
+        });
+        Button tempest = uiFactory.action("TEMPEST RUN\nPELICAN'S HARBOR WAR", 620, 100, 22, "#00838F", 18, () -> {
+            setAdventureRoute(AdventureRoute.TEMPEST);
+            showAdventureHub(stage);
+        });
+        Button episodes = uiFactory.action("EPISODES\nPIGEON • BAT • PELICAN", 620, 100, 22, "#6A1B9A", 18,
+                () -> showEpisodesHub(stage));
+        Button back = uiFactory.action("BACK TO THE STILL SKY", 460, 72, 20, "#455A64", 18,
+                () -> showCampaignHub(stage));
+        root.getChildren().addAll(title, description, main, tempest, episodes, back);
+        installFixedCampaignScene(stage, root, main);
+    }
+
     private void showAdventureHub(Stage stage) {
+        campaignModeActive = false;
         adventureModeActive = true;
         adventureReplayMode = false;
         currentAdventureBattle = null;
@@ -30393,7 +31352,8 @@ public class BirdGame3 extends Application {
         actions.getChildren().addAll(continueBtn, selectBtn);
         card.getChildren().addAll(routeHeading, routeSummary, chaptersLabel, chapterRow, chapterTitle, status, summary, roster, actions);
 
-        Button menuBtn = uiFactory.action("BACK TO HUB", 420, 100, 34, "#D32F2F", 24, () -> showMenu(stage));
+        Button menuBtn = uiFactory.action("BACK TO LEGACY STORIES", 500, 100, 30, "#D32F2F", 22,
+                () -> showLegacyStories(stage));
 
         root.getChildren().addAll(title, routeRow, card, menuBtn);
 
@@ -30848,6 +31808,177 @@ public class BirdGame3 extends Application {
         currentAdventureBattle = battle;
         selectedMap = battle.map;
         startMatch(stage);
+    }
+
+    private void setupCampaignMissionRoster(StoryCampaign.Mission mission) {
+        if (mission == null) return;
+        Arrays.fill(campaignTeams, 2);
+        Arrays.fill(campaignStartingHealth, 0.0);
+        campaignTeamMode = true;
+        campaignMissionWon = false;
+        campaignFrontlineWindow = -1;
+
+        if (mission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK) {
+            setupCampaignFinalCoalition(mission);
+        } else {
+            int requested = 1 + mission.allies().size() + mission.enemies().size();
+            activePlayers = Math.min(MAX_COMBATANTS, Math.max(2, requested));
+            Bird player = createStoryBird(850, campaignSelectedBird, 0,
+                    "You: " + campaignSelectedBird.name, 110, 1.0, 1.0, false);
+            applySkinChoiceToBird(player, campaignSelectedBird, campaignSelectedSkinKey);
+            campaignTeams[0] = 1;
+            campaignStartingHealth[0] = player.health;
+
+            int slot = 1;
+            for (StoryCampaign.Fighter fighter : mission.allies()) {
+                if (slot >= activePlayers) break;
+                double x = 1250 + (slot - 1) * 430.0;
+                Bird ally = createCampaignFighter(fighter, slot, x, false);
+                campaignTeams[slot] = 1;
+                campaignStartingHealth[slot] = ally.health;
+                slot++;
+            }
+            int enemyIndex = 0;
+            for (StoryCampaign.Fighter fighter : mission.enemies()) {
+                if (slot >= activePlayers) break;
+                double x = 4200 + enemyIndex * 520.0;
+                Bird enemy = createCampaignFighter(fighter, slot, x, true);
+                campaignTeams[slot] = 2;
+                campaignStartingHealth[slot] = enemy.health;
+                slot++;
+                enemyIndex++;
+            }
+        }
+
+        campaignMissionController = new StoryMissionController(
+                mission,
+                stillSkyProgress.difficulty,
+                WORLD_WIDTH,
+                campaignRetryPhaseIndex
+        );
+        campaignRetryPhaseIndex = 0;
+    }
+
+    private Bird createCampaignFighter(StoryCampaign.Fighter fighter, int slot, double x, boolean enemy) {
+        double health = fighter.health();
+        if (enemy) {
+            health *= stillSkyProgress.difficulty.enemyHealthScale;
+        }
+        Bird bird = createStoryBird(x, fighter.type(), slot,
+                (enemy ? (fighter.boss() ? "Boss: " : "Enemy: ") : "Ally: ") + fighter.name(),
+                health, fighter.power(), fighter.speed(), true);
+        bird.health = health;
+        bird.setBaseMultipliers(
+                bird.baseSizeMultiplier,
+                fighter.power(),
+                fighter.speed()
+        );
+        if (fighter.skinKey() != null && !fighter.skinKey().isBlank()) {
+            applyPreviewSkinChoiceToBird(bird, fighter.type(), fighter.skinKey());
+        }
+        if (missionUsesNullRockTemplate(fighter)) {
+            applyNullRockBossTemplate(bird);
+            bird.health = health;
+            bird.setBaseMultipliers(
+                    bird.baseSizeMultiplier,
+                    fighter.power(),
+                    fighter.speed()
+            );
+            applyPreviewSkinChoiceToBird(bird, fighter.type(), NULL_ROCK_VULTURE_SKIN);
+        }
+        return bird;
+    }
+
+    private boolean missionUsesNullRockTemplate(StoryCampaign.Fighter fighter) {
+        return currentCampaignMission != null
+                && currentCampaignMission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK
+                && fighter.boss();
+    }
+
+    private void setupCampaignFinalCoalition(StoryCampaign.Mission mission) {
+        activePlayers = Math.min(MAX_COMBATANTS, BirdType.values().length + 1);
+        Bird player = createStoryBird(820, campaignSelectedBird, 0,
+                "You: " + campaignSelectedBird.name, 120, 1.0, 1.0, false);
+        applySkinChoiceToBird(player, campaignSelectedBird, campaignSelectedSkinKey);
+        campaignTeams[0] = 1;
+        campaignStartingHealth[0] = player.health;
+
+        int slot = 1;
+        for (BirdType type : BirdType.values()) {
+            if (type == campaignSelectedBird || slot >= activePlayers - 1) continue;
+            double x = 1180 + ((slot - 1) % 5) * 360.0;
+            Bird ally = createStoryBird(x, type, slot, "Coalition: " + type.name,
+                    118, 0.28, 1.04, true);
+            ally.setBaseMultipliers(ally.baseSizeMultiplier, 0.28, 1.04);
+            campaignTeams[slot] = 1;
+            campaignStartingHealth[slot] = ally.health;
+            slot++;
+        }
+        int bossSlot = activePlayers - 1;
+        StoryCampaign.Fighter template = mission.enemies().getFirst();
+        Bird boss = createCampaignFighter(template, bossSlot, 5000, true);
+        campaignTeams[bossSlot] = 2;
+        campaignStartingHealth[bossSlot] = boss.health;
+        updateCampaignFrontlineRotation(true);
+    }
+
+    private void applyCampaignMissionArenaModifiers(StoryCampaign.Mission mission) {
+        if (mission == null) return;
+        int authoredTicks = mission.phases().stream()
+                .mapToInt(StoryCampaign.MissionPhase::targetTicks)
+                .sum();
+        campaignMatchTimerOverride = Math.max(150 * 60, authoredTicks + 90 * 60);
+
+        switch (mission.arenaVariant()) {
+            case STILLNESS -> {
+                addToKillFeed("STILL ZONES: The Crown has stopped the natural wind.");
+                windVents.add(new WindVent(1350, GROUND_Y - 360, 430));
+                windVents.add(new WindVent(4650, GROUND_Y - 360, 430));
+            }
+            case CROWN_OCCUPIED -> {
+                addToKillFeed("CROWN OCCUPATION: Break the marked relays.");
+                powerUps.add(new PowerUp(1800, GROUND_Y - 720, PowerUpType.SPEED));
+                powerUps.add(new PowerUp(4200, GROUND_Y - 720, PowerUpType.OVERCHARGE));
+            }
+            case EVACUATION -> {
+                addToKillFeed("EVACUATION: Keep the protected lane open.");
+                powerUps.add(new PowerUp(3000, GROUND_Y - 720, PowerUpType.HEALTH));
+            }
+            case CARRION -> {
+                addToKillFeed("CARRION TERRITORY: Flock signals distort the arena.");
+                powerUps.add(new PowerUp(2100, GROUND_Y - 780, PowerUpType.RAGE));
+                powerUps.add(new PowerUp(3900, GROUND_Y - 780, PowerUpType.SHRINK));
+            }
+            case ANCHOR_ASSAULT -> {
+                addToKillFeed("ANCHOR ASSAULT: Coalition strikes are inbound.");
+                windVents.add(new WindVent(1200, GROUND_Y - 440, 500));
+                windVents.add(new WindVent(3000, GROUND_Y - 620, 600));
+                windVents.add(new WindVent(4800, GROUND_Y - 440, 500));
+            }
+            case NULL_ROC -> {
+                addToKillFeed("NULL ROC: Break three pylons before attacking the copied flock-mind.");
+                shakeIntensity = Math.max(shakeIntensity, 18);
+                powerUps.add(new PowerUp(1700, GROUND_Y - 880, PowerUpType.HEALTH));
+                powerUps.add(new PowerUp(3000, GROUND_Y - 1040, PowerUpType.OVERCHARGE));
+                powerUps.add(new PowerUp(4300, GROUND_Y - 880, PowerUpType.SPEED));
+            }
+            case NULL_ROCK -> {
+                addToKillFeed("THE NULL ROCK: Four-bird frontlines rotate through the final assault.");
+                shakeIntensity = Math.max(shakeIntensity, 26);
+                windVents.add(new WindVent(1150, GROUND_Y - 520, 520));
+                windVents.add(new WindVent(3000, GROUND_Y - 740, 640));
+                windVents.add(new WindVent(4850, GROUND_Y - 520, 520));
+                powerUps.add(new PowerUp(1500, GROUND_Y - 900, PowerUpType.HEALTH));
+                powerUps.add(new PowerUp(3000, GROUND_Y - 1120, PowerUpType.OVERCHARGE));
+                powerUps.add(new PowerUp(4500, GROUND_Y - 900, PowerUpType.RAGE));
+            }
+            case STANDARD -> {
+            }
+        }
+        if (stillSkyProgress.difficulty.bonusHealthPickup) {
+            powerUps.add(new PowerUp(3000, GROUND_Y - 620, PowerUpType.HEALTH));
+            addToKillFeed("EASY ASSIST: An extra phase-health pickup is active.");
+        }
     }
 
     private void setupAdventureBattleRoster(AdventureBattle battle) {
@@ -33464,7 +34595,8 @@ public class BirdGame3 extends Application {
                         classicFighter(BirdType.RAVEN, "Ally: Night Raven", 124, 1.16, 1.14, bossSkinKeyFor(BirdType.RAVEN))
                 },
                 new ClassicFighter[]{
-                        classicBossFighter(BirdType.MOCKINGBIRD, "Boss: Old Sparrow", 200, 1.12, 1.05),
+                        classicFighter(BirdType.TITMOUSE, "Boss: Old Sparrow",
+                                200, 1.12, 1.05, OLD_SPARROW_SKIN),
                         classicBossFighter(BirdType.RAVEN, "Boss: Void Raven", 180, 1.16, 1.10)
                 },
                 true
@@ -38162,6 +39294,30 @@ public class BirdGame3 extends Application {
         return smashCombatRulesActive;
     }
 
+    boolean usesDamageScaledKnockback() {
+        return smashCombatRulesActive || campaignModeActive;
+    }
+
+    double damageScaledLaunchPercent(Bird bird) {
+        if (bird == null) {
+            return 0.0;
+        }
+        if (usesSmashCombatRules()) {
+            return bird.smashDamagePercent();
+        }
+        if (!campaignModeActive) {
+            return 0.0;
+        }
+        int index = bird.playerIndex;
+        double startingHealth = index >= 0 && index < campaignStartingHealth.length
+                ? campaignStartingHealth[index]
+                : 0.0;
+        if (startingHealth <= 0.0) {
+            startingHealth = Math.max(1.0, bird.health);
+        }
+        return Math.clamp((startingHealth - Math.max(0.0, bird.health)) / startingHealth * 100.0, 0.0, 100.0);
+    }
+
     int smashStartingStocks() {
         return SMASH_STARTING_STOCKS;
     }
@@ -38296,6 +39452,200 @@ public class BirdGame3 extends Application {
 
     private void checkForMatchCompletion() {
         matchController.checkForMatchCompletion();
+    }
+
+    void checkCampaignMissionCompletion() {
+        if (!campaignModeActive || matchEnded || currentCampaignMission == null
+                || campaignMissionController == null) {
+            return;
+        }
+        updateCampaignFrontlineRotation(false);
+        updateCampaignSignatureAssist();
+        List<StoryMissionController.Participant> snapshot = new ArrayList<>();
+        for (int i = 0; i < activePlayers; i++) {
+            Bird bird = players[i];
+            if (bird == null) continue;
+            snapshot.add(new StoryMissionController.Participant(
+                    i,
+                    getEffectiveTeam(i),
+                    bird.bodyCenterX(),
+                    bird.bodyCenterY(),
+                    bird.health,
+                    campaignStartingHealth[i] > 0.0 ? campaignStartingHealth[i] : Math.max(1.0, bird.health)
+            ));
+        }
+
+        StoryMissionController.TickResult result = campaignMissionController.tick(snapshot);
+        if (campaignMissionController.takeReinforcementRequest()) {
+            spawnCampaignReinforcementWave(campaignMissionController.gauntletWavesDefeated() + 1);
+        }
+        int bossSegment = campaignMissionController.bossSegment();
+        if (bossSegment > campaignBossSegmentAnnounced) {
+            campaignBossSegmentAnnounced = bossSegment;
+            addToKillFeed("BOSS PHASE " + (bossSegment + 1) + ": the Crown changes its attack pattern.");
+            shakeIntensity = Math.max(shakeIntensity, 14 + bossSegment * 3);
+        }
+        if (result.outcome() == StoryMissionController.Outcome.PHASE_ADVANCED) {
+            campaignBossSegmentAnnounced = 0;
+            addToKillFeed("CHECKPOINT: " + result.message());
+            if (stillSkyProgress.difficulty.bonusHealthPickup) {
+                powerUps.add(new PowerUp(3000, GROUND_Y - 650, PowerUpType.HEALTH));
+            }
+            playCampaignMidMissionCutscene(result.message());
+            return;
+        }
+        if (result.outcome() == StoryMissionController.Outcome.COMPLETE) {
+            campaignMissionWon = true;
+            Bird winner = players[0];
+            matchController.triggerMatchEnd(winner);
+            return;
+        }
+        if (result.outcome() == StoryMissionController.Outcome.FAILED) {
+            campaignMissionWon = false;
+            campaignRetryPhaseIndex = campaignMissionController.checkpointPhaseIndex();
+            Bird winner = null;
+            for (int i = 0; i < activePlayers; i++) {
+                if (players[i] != null && players[i].health > 0 && getEffectiveTeam(i) == 2) {
+                    winner = players[i];
+                    break;
+                }
+            }
+            matchController.triggerMatchEnd(winner);
+        }
+    }
+
+    double campaignObjectiveAssistTargetX(Bird ally) {
+        if (!campaignModeActive || campaignMissionController == null || ally == null
+                || ally.health <= 0.0 || ally.playerIndex <= 0
+                || ally.playerIndex >= activePlayers || !isAI[ally.playerIndex]
+                || getEffectiveTeam(ally.playerIndex) != 1) {
+            return Double.NaN;
+        }
+        for (int i = 0; i < activePlayers; i++) {
+            Bird candidate = players[i];
+            if (candidate != null && candidate.health > 0.0 && getEffectiveTeam(i) == 2) {
+                return Double.NaN;
+            }
+        }
+        return campaignMissionController.objectiveAssistTargetX();
+    }
+
+    private void updateCampaignFrontlineRotation(boolean force) {
+        if (!campaignModeActive || currentCampaignMission == null
+                || currentCampaignMission.arenaVariant() != StoryCampaign.ArenaVariant.NULL_ROCK
+                || activePlayers < 3) {
+            return;
+        }
+        int bossSlot = activePlayers - 1;
+        int supportCount = Math.max(1, bossSlot - 1);
+        int window = (int) (simTick / (12L * 60L));
+        if (!force && window == campaignFrontlineWindow) {
+            return;
+        }
+        campaignFrontlineWindow = window;
+        int start = (window * 4) % supportCount;
+        for (int slot = 1; slot < bossSlot; slot++) {
+            int relative = slot - 1;
+            int distance = Math.floorMod(relative - start, supportCount);
+            boolean frontline = distance < Math.min(4, supportCount);
+            isAI[slot] = frontline && players[slot] != null && players[slot].health > 0;
+        }
+        addToKillFeed("FRONTLINE ROTATION " + (window + 1) + ": four coalition signatures are live.");
+    }
+
+    private void updateCampaignSignatureAssist() {
+        if (!campaignModeActive || currentCampaignMission == null
+                || currentCampaignMission.arenaVariant() != StoryCampaign.ArenaVariant.NULL_ROCK
+                || simTick <= 0 || simTick % (8L * 60L) != 0L) {
+            return;
+        }
+        int bossSlot = activePlayers - 1;
+        int supportCount = Math.max(1, bossSlot - 1);
+        int supportSlot = 1 + (int) ((simTick / (8L * 60L)) % supportCount);
+        Bird support = players[supportSlot];
+        if (support == null || support.health <= 0) return;
+        isAI[supportSlot] = true;
+        support.specialCooldown = 0;
+        support.overchargeAttackTimer = Math.max(support.overchargeAttackTimer, 90);
+        addToKillFeed("SIGNATURE ASSIST: " + support.type.name + " enters with a charged special.");
+    }
+
+    private void spawnCampaignReinforcementWave(int waveNumber) {
+        if (currentCampaignMission == null || currentCampaignMission.enemies().isEmpty()) return;
+        int templateIndex = 0;
+        int revived = 0;
+        for (int slot = 1; slot < activePlayers; slot++) {
+            if (campaignTeams[slot] != 2 || (players[slot] != null && players[slot].health > 0)) {
+                continue;
+            }
+            StoryCampaign.Fighter template = currentCampaignMission.enemies()
+                    .get(templateIndex % currentCampaignMission.enemies().size());
+            double x = 4200 + (revived % 4) * 440.0;
+            Bird reinforcement = createCampaignFighter(template, slot, x, true);
+            campaignStartingHealth[slot] = reinforcement.health;
+            templateIndex++;
+            revived++;
+        }
+        if (revived > 0) {
+            addToKillFeed("WAVE " + waveNumber + ": " + revived + " Crown reinforcements entering.");
+        }
+    }
+
+    private void showCampaignPhaseBanner(String message) {
+        if (gameRoot == null || message == null || message.isBlank()) return;
+        Label banner = new Label(message.toUpperCase(Locale.ROOT));
+        banner.setFont(Font.font("Arial Black", FontWeight.BOLD, 30));
+        banner.setTextFill(Color.WHITE);
+        banner.setPadding(new Insets(14, 30, 14, 30));
+        banner.setStyle("-fx-background-color: rgba(4,13,24,0.88);"
+                + "-fx-border-color: #80DEEA; -fx-border-width: 2;"
+                + "-fx-background-radius: 14; -fx-border-radius: 14;");
+        StackPane.setAlignment(banner, Pos.TOP_CENTER);
+        StackPane.setMargin(banner, new Insets(120, 0, 0, 0));
+        gameRoot.getChildren().add(banner);
+        PauseTransition pause = new PauseTransition(Duration.seconds(2.25));
+        pause.setOnFinished(event -> {
+            if (gameRoot != null) gameRoot.getChildren().remove(banner);
+        });
+        pause.play();
+    }
+
+    private void playCampaignMidMissionCutscene(String nextObjective) {
+        if (currentStage == null || gameplayScene == null || timer == null
+                || currentCampaignMission == null) {
+            showCampaignPhaseBanner(nextObjective);
+            return;
+        }
+        AnimationTimer gameplayTimer = timer;
+        gameplayTimer.stop();
+        hitstopFrames = 0;
+        dramaticSlowMoTicks = 0;
+        accumulator = 0L;
+        Scene resumeScene = parkGameplaySceneForTemporaryFullscreenSwap(currentStage);
+        String speaker = campaignSelectedBird == BirdType.MOCKINGBIRD
+                ? "Charles"
+                : campaignSelectedBird.name;
+        int phase = campaignMissionController == null ? 0 : campaignMissionController.phaseIndex();
+        StoryCampaign.Cutscene beat = new StoryCampaign.Cutscene(
+                currentCampaignMission.id() + "_phase_" + phase,
+                "Phase Break: " + nextObjective,
+                selectedMap,
+                "campaign_phase",
+                StoryCampaignContent.campaignPhaseDialogue(
+                        speaker,
+                        campaignSelectedBird,
+                        nextObjective
+                ),
+                List.of(campaignSelectedBird),
+                false,
+                false
+        );
+        storyCutscenePlayer.play(currentStage, beat, campaignSelectedBird, campaignSelectedSkinKey, () -> {
+            setCampaignScene(currentStage, resumeScene);
+            resetAfterCampaignCutscene();
+            gameplayTimer.start();
+            if (gameRoot != null) gameRoot.requestFocus();
+        });
     }
 
     private void prepareMatchStart(Stage stage) {
@@ -38646,6 +39996,9 @@ public class BirdGame3 extends Application {
             // desync it from everyone else.
             return lanActionPressed[playerIdx][actionIdx];
         }
+        if (campaignModeActive && playerIdx > 0) {
+            return isAI[playerIdx] && aiActionPressed[playerIdx][actionIdx];
+        }
         return localActionPressed[playerIdx][actionIdx]
                 || aiActionPressed[playerIdx][actionIdx]
                 || lanActionPressed[playerIdx][actionIdx]
@@ -38662,7 +40015,7 @@ public class BirdGame3 extends Application {
     // === REPLAY RECORDING / PLAYBACK ===
 
     private boolean replayEligibleMatch() {
-        if (trainingModeActive || storyModeActive || adventureModeActive || classicModeActive
+        if (trainingModeActive || campaignModeActive || storyModeActive || adventureModeActive || classicModeActive
                 || tournamentModeActive || competitionModeEnabled) {
             return false;
         }
@@ -39651,7 +41004,9 @@ public class BirdGame3 extends Application {
 
     public int getCpuLevel(int playerIdx) {
         int level = 5;
-        if (adventureModeActive && currentAdventureBattle != null) {
+        if (campaignModeActive) {
+            level = stillSkyProgress.difficulty.cpuLevel;
+        } else if (adventureModeActive && currentAdventureBattle != null) {
             level = currentAdventureBattle.cpuLevel;
         } else if (classicModeActive && classicEncounter != null) {
             if (playerIdx >= 0 && playerIdx < classicCpuLevels.length && classicCpuLevels[playerIdx] > 0) {
@@ -39685,6 +41040,12 @@ public class BirdGame3 extends Application {
 
     public int getEffectiveTeam(int playerIdx) {
         if (playerIdx < 0 || playerIdx >= players.length) return -1;
+        if (campaignModeActive) {
+            if (campaignTeamMode) {
+                return campaignTeams[playerIdx] <= 0 ? 1 : campaignTeams[playerIdx];
+            }
+            return playerIdx;
+        }
         if (classicModeActive) {
             if (!classicTeamMode) return playerIdx;
             return classicTeams[playerIdx] <= 0 ? 1 : classicTeams[playerIdx];
@@ -40000,16 +41361,23 @@ public class BirdGame3 extends Application {
         }
 
         if (selectedMap == MapType.DOCK) {
-            double[] spawnCenters = buildSpawnCenters(active.size(), 1040.0, 4560.0);
+            int leftDockCount = (active.size() + 1) / 2;
+            int bridgeCount = active.size() - leftDockCount;
+            double[] leftDockCenters = evenlySpacedCenters(leftDockCount, 1080.0, 2200.0);
+            double[] bridgeCenters = evenlySpacedCenters(bridgeCount, 3400.0, 4600.0);
             for (int i = 0; i < active.size(); i++) {
                 Bird b = active.get(i);
-                double center = spawnCenters[Math.min(i, spawnCenters.length - 1)];
-                double halfWidth = 40 * b.sizeMultiplier;
-                double spawnY = center < 2600 ? GROUND_Y - 220 * b.sizeMultiplier : GROUND_Y - 300 * b.sizeMultiplier;
-                b.x = center - halfWidth;
-                b.y = spawnY;
+                boolean leftDockSpawn = i < leftDockCount;
+                int sideIndex = leftDockSpawn ? i : i - leftDockCount;
+                double[] sideCenters = leftDockSpawn ? leftDockCenters : bridgeCenters;
+                double center = sideCenters[Math.min(sideIndex, sideCenters.length - 1)];
+                double surfaceY = leftDockSpawn ? GROUND_Y - 140.0 : GROUND_Y - 220.0;
+                b.x = center - b.bodyWidth() / 2.0;
+                b.y = surfaceY - b.bodyHeight();
                 b.vx = 0;
                 b.vy = 0;
+                b.prevX = b.x;
+                b.prevY = b.y;
             }
             return;
         }
@@ -40062,6 +41430,21 @@ public class BirdGame3 extends Application {
         double spacing = usableSpan / Math.max(1, count - 1);
         for (int i = 0; i < count; i++) {
             centers[i] = innerLeft + spacing * i;
+        }
+        return centers;
+    }
+
+    private double[] evenlySpacedCenters(int count, double left, double right) {
+        if (count <= 0) {
+            return new double[0];
+        }
+        if (count == 1) {
+            return new double[]{(left + right) / 2.0};
+        }
+        double[] centers = new double[count];
+        double spacing = Math.max(0.0, right - left) / (count - 1.0);
+        for (int i = 0; i < count; i++) {
+            centers[i] = left + spacing * i;
         }
         return centers;
     }
@@ -40588,6 +41971,7 @@ public class BirdGame3 extends Application {
                 || replayPlaybackActive
                 || lanModeActive
                 || trainingModeActive
+                || campaignModeActive
                 || storyModeActive
                 || adventureModeActive
                 || classicModeActive
@@ -40651,6 +42035,7 @@ public class BirdGame3 extends Application {
         boolean[] menuAI = Arrays.copyOf(isAI, isAI.length);
         Arrays.fill(players, null);
         Arrays.fill(isAI, false);
+        StoryCampaign.Mission campaignMission = null;
         StoryChapter storyChapter = null;
         AdventureBattle adventureBattle = null;
         ClassicEncounter classicRound = null;
@@ -40693,6 +42078,15 @@ public class BirdGame3 extends Application {
             classicRound = classicRun.get(classicRoundIndex);
             classicEncounter = classicRound;
             setupClassicEncounterRoster(classicRound);
+        } else if (campaignModeActive) {
+            campaignMission = currentCampaignMission != null
+                    ? currentCampaignMission
+                    : stillSkyCampaign.mission(stillSkyProgress.currentMissionId);
+            if (campaignMission == null) {
+                campaignMission = stillSkyCampaign.firstMission();
+            }
+            currentCampaignMission = campaignMission;
+            setupCampaignMissionRoster(campaignMission);
         } else if (storyModeActive) {
             StoryChapter[] chapters = activeStoryChapters();
             if (storyChapterIndex < 0 || storyChapterIndex >= chapters.length) {
@@ -40752,7 +42146,8 @@ public class BirdGame3 extends Application {
             }
         }
 
-        smashCombatRulesActive = !trainingModeActive && !storyModeActive && !adventureModeActive && !classicModeActive;
+        smashCombatRulesActive = !trainingModeActive && !campaignModeActive
+                && !storyModeActive && !adventureModeActive && !classicModeActive;
         if (smashCombatRulesActive) {
             Arrays.fill(scores, 0);
             for (int i = 0; i < activePlayers; i++) {
@@ -40770,6 +42165,12 @@ public class BirdGame3 extends Application {
 
         setupMatchArenaGeometry();
 
+        if (campaignModeActive && campaignMission != null) {
+            applyCampaignMissionArenaModifiers(campaignMission);
+            if (campaignMatchTimerOverride > 0) {
+                matchTimer = campaignMatchTimerOverride;
+            }
+        }
         if (storyModeActive && storyChapter != null) {
             applyStoryChapterArenaModifiers();
             if (storyMatchTimerOverride > 0) {
@@ -40795,9 +42196,13 @@ public class BirdGame3 extends Application {
         }
         resetFightHudStateForMatchStart();
 
-        Canvas canvas = new Canvas(WIDTH, HEIGHT);
-        GraphicsContext g = canvas.getGraphicsContext2D();
-        StackPane root = new StackPane(canvas);
+        if (gameplayRenderSurface == null) {
+            gameplayRenderSurface = new GameplayRenderSurface(WIDTH, HEIGHT);
+        }
+        GameplayRenderSurface renderSurface = gameplayRenderSurface;
+        Canvas canvas = renderSurface.canvas();
+        GraphicsContext g = renderSurface.worldGraphics();
+        StackPane root = renderSurface.attachToFreshRoot();
         gameRoot = root;
         root.setStyle(selectedMap == MapType.DOCK
                 ? "-fx-background-color: linear-gradient(to bottom, #0F3047 0%, #1E5D78 55%, #0A171F 100%);"
@@ -40815,9 +42220,12 @@ public class BirdGame3 extends Application {
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         gameplayScene = scene;
         makeSceneResponsive(scene);
-        uiCanvas = new Canvas(WIDTH, HEIGHT);
-        ui = uiCanvas.getGraphicsContext2D();
-        root.getChildren().add(uiCanvas);
+        // Arena and HUD are sequential passes on the same Canvas. A second
+        // full-HD Canvas costs another Prism RTTexture and made rapid story
+        // restarts fail inside NGCanvas when the GPU pool had not reclaimed
+        // the previous scene yet.
+        uiCanvas = canvas;
+        ui = renderSurface.hudGraphics();
 
         pressedKeys.clear();
         scene.setOnKeyPressed(e -> handleGameplayKeyPress(stage, e));
@@ -40859,6 +42267,7 @@ public class BirdGame3 extends Application {
                         framePerformance.finishFrame();
                         return;
                     }
+                    renderSurface.beginLogicalFrame();
                     applyRenderInterpolation(computeRenderAlpha());
                     try {
                         FightHudLayout hudLayout = buildFightHudLayout();
@@ -40868,7 +42277,6 @@ public class BirdGame3 extends Application {
                         framePerformance.recordDrawWorld(System.nanoTime() - drawWorldStart);
 
                         long drawHudStart = System.nanoTime();
-                        ui.clearRect(0, 0, WIDTH, HEIGHT);
                         drawFightHud(ui, hudLayout);
                         if (trainingModeActive) {
                             drawTrainingLabHud(ui);
@@ -41768,7 +43176,7 @@ public class BirdGame3 extends Application {
         maybePlayMatchIntroSfx();
     }
 
-    private boolean isMatchIntroLocked() {
+    boolean isMatchIntroLocked() {
         return !trainingModeActive && matchIntroOverlayFrames > MATCH_INTRO_GO_FRAMES;
     }
 
@@ -41921,6 +43329,20 @@ public class BirdGame3 extends Application {
 
     private List<String> fightHudInfoLines() {
         List<String> lines = new ArrayList<>();
+        if (campaignModeActive && currentCampaignMission != null && campaignMissionController != null) {
+            StoryCampaign.Act act = stillSkyCampaign.actForMission(currentCampaignMission.id());
+            int actNumber = Math.max(1, stillSkyCampaign.actIndexForMission(currentCampaignMission.id()) + 1);
+            lines.add("THE STILL SKY  ACT " + actNumber
+                    + (act == null ? "" : "  " + act.title().replaceFirst("^Act [^:]+:\\s*", "").toUpperCase(Locale.ROOT)));
+            lines.add(currentCampaignMission.title().toUpperCase(Locale.ROOT)
+                    + "  |  " + stillSkyProgress.difficulty.label.toUpperCase(Locale.ROOT));
+            StoryCampaign.MissionPhase phase = campaignMissionController.currentPhase();
+            int percent = (int) Math.round(campaignMissionController.objectiveProgressRatio() * 100.0);
+            lines.add("OBJECTIVE " + (campaignMissionController.phaseIndex() + 1)
+                    + "/" + currentCampaignMission.phases().size()
+                    + "  " + phase.label().toUpperCase(Locale.ROOT) + "  " + percent + "%");
+            return lines;
+        }
         if (classicModeActive && classicEncounter != null) {
             String classicModeLabel = dailyChallengeModeActive ? "DAILY"
                     : (ashfallTrialModeActive ? "ASHFALL TRIAL" : (bossRushModeActive ? "BOSS RUSH" : "CLASSIC"));
@@ -42607,7 +44029,7 @@ public class BirdGame3 extends Application {
     }
 
     private int awardBirdCoinsForMatch(Bird winner) {
-        if (trainingModeActive) return 0;
+        if (trainingModeActive || campaignModeActive) return 0;
         int playerCount = lanModeActive ? countLanConnected() : activePlayers;
         int requestedCoins = 30 + playerCount * 10;
         if (winner != null) requestedCoins += 10;
@@ -42634,7 +44056,9 @@ public class BirdGame3 extends Application {
     }
 
     private boolean isMatchHistoryTeamMode() {
-        return (teamModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive)
+        return (teamModeEnabled && !campaignModeActive
+                && !storyModeActive && !adventureModeActive && !classicModeActive)
+                || (campaignModeActive && campaignTeamMode)
                 || (storyModeActive && storyTeamMode)
                 || (adventureModeActive && adventureTeamMode)
                 || (classicModeActive && classicTeamMode);
@@ -42715,6 +44139,7 @@ public class BirdGame3 extends Application {
         if (ashfallTrialModeActive && classicModeActive) return "ASHFALL TRIAL";
         if (bossRushModeActive && classicModeActive) return "BOSS RUSH";
         if (classicModeActive) return "CLASSIC";
+        if (campaignModeActive) return "THE STILL SKY";
         if (storyModeActive) return "STORY";
         if (adventureModeActive) return "ADVENTURE";
         if (trainingModeActive) return "TRAINING";
@@ -42728,7 +44153,11 @@ public class BirdGame3 extends Application {
         details.add(playerCount + "P");
         details.add(isMatchHistoryTeamMode() ? "Team Battle" : "Free-for-All");
 
-        if (classicModeActive && classicEncounter != null) {
+        if (campaignModeActive && currentCampaignMission != null) {
+            int act = Math.max(1, stillSkyCampaign.actIndexForMission(currentCampaignMission.id()) + 1);
+            details.add("Act " + act + ": " + currentCampaignMission.title());
+            details.add(stillSkyProgress.difficulty.label);
+        } else if (classicModeActive && classicEncounter != null) {
             if (dailyChallengeModeActive && dailyChallengeRunKey != null && !dailyChallengeRunKey.isBlank()) {
                 details.add("Daily " + dailyChallengeRunKey);
             }
@@ -42782,7 +44211,9 @@ public class BirdGame3 extends Application {
             if (players[i] != null) activeBirds.add(players[i]);
         }
 
-        applyWinnerMapProgress(winner);
+        if (!campaignModeActive) {
+            applyWinnerMapProgress(winner);
+        }
 
         boolean teamSummaryMode = isMatchHistoryTeamMode();
         activeBirds.sort((a, b) -> {
@@ -42791,13 +44222,24 @@ public class BirdGame3 extends Application {
             return compareBirdPlacements(a, b);
         });
 
-        Bird heroBird = winner != null ? winner : (activeBirds.isEmpty() ? null : activeBirds.getFirst());
+        Bird campaignPlayer = campaignModeActive && activePlayers > 0 ? players[0] : null;
+        Bird heroBird = campaignPlayer != null
+                ? campaignPlayer
+                : (winner != null ? winner : (activeBirds.isEmpty() ? null : activeBirds.getFirst()));
         Color accent = matchSummaryAccent(heroBird);
-        String winnerTitle = winner != null ? matchSummaryWinnerTitle(winner, teamSummaryMode) : "TIME'S UP";
-        String heroName = winner != null
+        String winnerTitle = campaignModeActive
+                ? (campaignMissionWon ? "MISSION COMPLETE" : "MISSION FAILED")
+                : (winner != null ? matchSummaryWinnerTitle(winner, teamSummaryMode) : "TIME'S UP");
+        String heroName = campaignModeActive && currentCampaignMission != null
+                ? currentCampaignMission.title().toUpperCase(Locale.ROOT)
+                : (winner != null
                 ? (teamSummaryMode ? matchSummaryBirdLabel(heroBird) + " MVP" : matchSummaryBirdLabel(heroBird))
-                : "NO CONTEST";
-        String heroSubtitle = matchSummaryHeroSubtitle(heroBird, coinsEarned);
+                : "NO CONTEST");
+        String heroSubtitle = campaignModeActive
+                ? (campaignMissionWon
+                ? "THE STILL SKY  |  OBJECTIVE SECURED"
+                : "THE STILL SKY  |  CHECKPOINT READY")
+                : matchSummaryHeroSubtitle(heroBird, coinsEarned);
 
         StackPane frame = new StackPane();
         lockRegionSize(frame, WIDTH, HEIGHT);
@@ -42849,6 +44291,12 @@ public class BirdGame3 extends Application {
         buttonDock.setAlignment(Pos.CENTER);
         stageLayer.getChildren().add(buttonDock);
 
+        // JavaFX's Direct3D pipeline can lose the render texture backing a large
+        // DropShadow during a scene swap or fullscreen resize. Once that happens
+        // Prism throws from its render thread every frame. The results screen is
+        // already shaded by its canvases, so keep this tree effect-free.
+        clearNodeEffects(frame);
+
         final Scene[] sceneRef = new Scene[1];
         long startNanos = System.nanoTime();
         AnimationTimer backgroundTimer = new AnimationTimer() {
@@ -42866,9 +44314,23 @@ public class BirdGame3 extends Application {
 
         Scene scene = new Scene(frame, WIDTH, HEIGHT);
         sceneRef[0] = scene;
-        bindFixedFrameScale(scene, frame, 0.0);
+        bindFixedFrameScale(scene, frame, 0.0, WIDTH, HEIGHT);
         setScenePreservingFullscreen(stage, scene);
         playCinematicResultsIntro(slashPlate, poseNode, titleBlock, resultsPanel, buttons);
+    }
+
+    static void clearNodeEffects(Node node) {
+        if (node == null) return;
+        node.setEffect(null);
+        String inlineStyle = node.getStyle();
+        if (inlineStyle != null && !inlineStyle.isBlank()) {
+            node.setStyle(inlineStyle.replaceAll("(?i)-fx-effect\\s*:[^;]*;?", ""));
+        }
+        if (node instanceof Parent parent) {
+            for (Node child : parent.getChildrenUnmodifiable()) {
+                clearNodeEffects(child);
+            }
+        }
     }
 
     private void showAshfallTrialMatchSummary(Stage stage, Bird winner) {
@@ -43213,7 +44675,9 @@ public class BirdGame3 extends Application {
 
         HBox header = new HBox(16);
         header.setAlignment(Pos.CENTER_LEFT);
-        Label title = cinematicResultsLabel(teamSummaryMode ? "TEAM RESULTS" : "MATCH RESULTS", 28, Color.WHITE, true);
+        Label title = cinematicResultsLabel(campaignModeActive
+                ? "MISSION RESULTS"
+                : (teamSummaryMode ? "TEAM RESULTS" : "MATCH RESULTS"), 28, Color.WHITE, true);
         Label context = cinematicResultsLabel(currentMatchHistoryMode() + "  |  " + mapDisplayName(selectedMap), 16, Color.web("#B8C7E8"), false);
         header.getChildren().addAll(title, context);
 
@@ -44353,16 +45817,52 @@ public class BirdGame3 extends Application {
                 showMenu(stage);
             });
             buttons.getChildren().addAll(continueClassic, restartRun, menu);
+        } else if (campaignModeActive) {
+            double campaignButtonWidth = campaignMissionWon ? 520 : 400;
+            Button continueCampaign = button(
+                    campaignMissionWon ? "CONTINUE STORY" : "RETRY CHECKPOINT",
+                    "#1565C0",
+                    campaignButtonWidth
+            );
+            continueCampaign.setOnAction(e -> {
+                resetMatchStats();
+                handleCampaignMatchEnd(stage);
+            });
+            Button retryMission = button("RESTART MISSION", "#00897B", campaignButtonWidth);
+            retryMission.setOnAction(e -> {
+                resetMatchStats();
+                campaignRetryPhaseIndex = 0;
+                startCampaignMission(stage, currentCampaignMission);
+            });
+            Button hub = button("STORY HUB", "#6A1B9A", campaignButtonWidth);
+            hub.setOnAction(e -> {
+                resetMatchStats();
+                showCampaignHub(stage);
+            });
+            if (!campaignMissionWon) {
+                Button difficulty = button("CHANGE DIFFICULTY", "#EF6C00", campaignButtonWidth);
+                difficulty.setOnAction(e -> {
+                    StoryCampaign.Difficulty[] values = StoryCampaign.Difficulty.values();
+                    stillSkyProgress.difficulty =
+                            values[(stillSkyProgress.difficulty.ordinal() + 1) % values.length];
+                    saveAchievements();
+                    resetMatchStats();
+                    startCampaignMission(stage, currentCampaignMission);
+                });
+                buttons.getChildren().addAll(continueCampaign, difficulty, retryMission, hub);
+            } else {
+                buttons.getChildren().addAll(continueCampaign, retryMission, hub);
+            }
         } else if (storyModeActive) {
             Button continueStory = button("CONTINUE EPISODE", "#1565C0");
             continueStory.setOnAction(e -> {
                 resetMatchStats();
                 handleStoryMatchEnd(stage, winner);
             });
-            Button menu = button("BACK TO HUB", "#D32F2F");
+            Button menu = button("LEGACY STORIES", "#D32F2F");
             menu.setOnAction(e -> {
                 resetMatchStats();
-                showMenu(stage);
+                showLegacyStories(stage);
             });
             buttons.getChildren().addAll(continueStory, menu);
         } else if (adventureModeActive) {
@@ -44376,10 +45876,10 @@ public class BirdGame3 extends Application {
                 resetMatchStats();
                 showAdventureHub(stage);
             });
-            Button menu = button("BACK TO HUB", "#D32F2F");
+            Button menu = button("LEGACY STORIES", "#D32F2F");
             menu.setOnAction(e -> {
                 resetMatchStats();
-                showMenu(stage);
+                showLegacyStories(stage);
             });
             buttons.getChildren().addAll(continueAdventure, hub, menu);
         } else if (tournamentModeActive) {
@@ -44481,7 +45981,7 @@ public class BirdGame3 extends Application {
 
         recordTelemetryMatchSurvival();
 
-        if (storyModeActive || adventureModeActive || trainingModeActive) return;
+        if (campaignModeActive || storyModeActive || adventureModeActive || trainingModeActive) return;
 
         for (int i = 0; i < activePlayers; i++) {
             Bird b = players[i];
@@ -44723,6 +46223,7 @@ public class BirdGame3 extends Application {
         state.batEpisodeCompleted = batEpisodeCompleted;
         state.pelicanEpisodeUnlockedChapters = pelicanEpisodeUnlockedChapters;
         state.pelicanEpisodeCompleted = pelicanEpisodeCompleted;
+        state.stillSkyProgress = stillSkyProgress.copy();
         state.selectedAdventureRouteName = selectedAdventureRoute.name();
         state.mainAdventureUnlocked = Arrays.copyOf(
                 adventureUnlockedByRoute[AdventureRoute.MAIN.ordinal()],
@@ -44868,6 +46369,9 @@ public class BirdGame3 extends Application {
         batEpisodeCompleted = resolved.batEpisodeCompleted;
         pelicanEpisodeUnlockedChapters = Math.clamp(resolved.pelicanEpisodeUnlockedChapters, 1, pelicanStoryChapters.length);
         pelicanEpisodeCompleted = resolved.pelicanEpisodeCompleted;
+        stillSkyProgress = resolved.stillSkyProgress == null
+                ? new StoryCampaignProgress()
+                : resolved.stillSkyProgress.copy();
 
         try {
             selectedAdventureRoute = AdventureRoute.valueOf(
@@ -45413,6 +46917,7 @@ public class BirdGame3 extends Application {
             case "LAN" -> Color.web("#80CBC4");
             case "CLASSIC" -> Color.web("#90CAF9");
             case "STORY" -> Color.web("#CE93D8");
+            case "THE STILL SKY" -> Color.web("#80DEEA");
             case "ADVENTURE" -> Color.web("#A5D6A7");
             case "COMPETITION" -> Color.web("#FFCC80");
             case "TRAINING" -> Color.web("#B0BEC5");
@@ -45473,6 +46978,7 @@ public class BirdGame3 extends Application {
             case GEYSER_RIDER -> AchievementReward.coins(300);
             case ASHFALL_ASCENDANT -> AchievementReward.coins(600);
             case PHOENIX_PILGRIMAGE -> AchievementReward.preview(BirdType.PHOENIX, NOVA_PHOENIX_SKIN, 420);
+            case STILL_SKY -> AchievementReward.coins(500);
         };
     }
 
@@ -45581,6 +47087,8 @@ public class BirdGame3 extends Application {
                     + achievementProgressValue(BirdGame3Achievement.ASHFALL_ASCENDANT) + " / 5";
             case PHOENIX_PILGRIMAGE -> "Phoenix Ashfall wins: "
                     + achievementProgressValue(BirdGame3Achievement.PHOENIX_PILGRIMAGE) + " / 1";
+            case STILL_SKY -> "Still Sky missions complete: "
+                    + stillSkyProgress.completedCount() + " / " + stillSkyCampaign.orderedMissions.size();
         };
     }
 
@@ -47255,7 +48763,6 @@ public class BirdGame3 extends Application {
         togglePause(stage);
     }
 
-    @Override
     public void stop() throws Exception {
         if (timer != null) timer.stop();
         if (wiimoteMenuTimer != null) wiimoteMenuTimer.stop();
@@ -47264,6 +48771,5 @@ public class BirdGame3 extends Application {
         stopLanSession();
         flushAchievementsNow();
         disposeAllManagedMediaPlayers();
-        super.stop();
     }
 }

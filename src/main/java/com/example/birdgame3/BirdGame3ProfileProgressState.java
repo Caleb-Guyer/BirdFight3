@@ -104,6 +104,7 @@ final class BirdGame3ProfileProgressState {
     boolean batEpisodeCompleted = false;
     int pelicanEpisodeUnlockedChapters = 1;
     boolean pelicanEpisodeCompleted = false;
+    StoryCampaignProgress stillSkyProgress = new StoryCampaignProgress();
     String selectedAdventureRouteName = "MAIN";
     boolean[] mainAdventureUnlocked = new boolean[BirdGame3.BirdType.values().length];
     boolean[] tempestAdventureUnlocked = new boolean[BirdGame3.BirdType.values().length];
@@ -151,6 +152,7 @@ final class BirdGame3ProfileProgressState {
         loadBossRush(prefs, state);
         state.ashfallTrialCompleted = prefs.getBoolean(KEY_ASHFALL_TRIAL_COMPLETED, false);
         loadEpisodeProgress(prefs, state);
+        state.stillSkyProgress = StoryCampaignProgress.load(prefs, StoryCampaignContent.create());
         loadAdventureProgress(prefs, state);
         loadClassicProgress(prefs, state);
         loadTrainingAcademy(prefs, state);
@@ -183,6 +185,7 @@ final class BirdGame3ProfileProgressState {
         prefs.putBoolean(KEY_ASHFALL_TRIAL_COMPLETED, ashfallTrialCompleted);
         saveClassicProgress(prefs);
         saveEpisodeProgress(prefs);
+        (stillSkyProgress == null ? new StoryCampaignProgress() : stillSkyProgress).saveTo(prefs);
         saveAdventureProgress(prefs, schema);
         saveTrainingAcademy(prefs);
         savePlayerProgressStats(prefs, schema.maxCombatants());
