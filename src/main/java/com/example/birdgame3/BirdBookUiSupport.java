@@ -385,6 +385,12 @@ final class BirdBookUiSupport {
         g.setFill(Color.web("#ECEFF1", 0.8));
         if (map == BirdGame3.MapType.PRISON) {
             g.fillRoundRect(0, h * 0.74, w, h * 0.09, 8, 8);
+            g.fillRoundRect(w * 0.10, h * 0.58, w * 0.25, h * 0.055, 7, 7);
+            g.fillRoundRect(w * 0.65, h * 0.58, w * 0.25, h * 0.055, 7, 7);
+            g.fillRoundRect(w * 0.33, h * 0.42, w * 0.34, h * 0.06, 7, 7);
+            g.fillRoundRect(w * 0.19, h * 0.27, w * 0.13, h * 0.045, 6, 6);
+            g.fillRoundRect(w * 0.68, h * 0.27, w * 0.13, h * 0.045, 6, 6);
+            g.fillRoundRect(w * 0.43, h * 0.18, w * 0.14, h * 0.045, 6, 6);
         } else {
             g.fillRoundRect(w * 0.1, h * 0.7, w * 0.3, h * 0.08, 10, 10);
             g.fillRoundRect(w * 0.6, h * 0.6, w * 0.28, h * 0.08, 10, 10);

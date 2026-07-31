@@ -47,6 +47,7 @@ final class BirdGame3ProfileProgressState {
     boolean battlefieldMapUnlocked = false;
     boolean beaconCrownMapUnlocked = false;
     boolean dockMapUnlocked = false;
+    boolean prisonMapUnlocked = false;
     boolean[][] towerDefenseDifficultyBadges =
             new boolean[BirdGame3.MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     boolean cityPigeonUnlocked = true;
@@ -144,6 +145,7 @@ final class BirdGame3ProfileProgressState {
         state.battlefieldMapUnlocked = prefs.getBoolean("map_battlefield_unlocked", false);
         state.beaconCrownMapUnlocked = prefs.getBoolean("map_beacon_crown_unlocked", false);
         state.dockMapUnlocked = prefs.getBoolean("map_dock_unlocked", false);
+        state.prisonMapUnlocked = prefs.getBoolean("map_prison_unlocked", false);
         loadTowerDefenseBadges(prefs, state);
         loadSkinUnlocks(prefs, state);
         loadCharacterUnlocks(prefs, state);
@@ -176,6 +178,7 @@ final class BirdGame3ProfileProgressState {
         prefs.putBoolean("map_battlefield_unlocked", battlefieldMapUnlocked);
         prefs.putBoolean("map_beacon_crown_unlocked", beaconCrownMapUnlocked);
         prefs.putBoolean("map_dock_unlocked", dockMapUnlocked);
+        prefs.putBoolean("map_prison_unlocked", prisonMapUnlocked);
         saveTowerDefenseBadges(prefs);
         saveSkinUnlocks(prefs);
         saveCharacterUnlocks(prefs);

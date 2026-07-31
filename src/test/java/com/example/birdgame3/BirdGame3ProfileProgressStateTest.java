@@ -45,4 +45,22 @@ class BirdGame3ProfileProgressStateTest {
         assertTrue(loaded.trainingAcademyDrillCompleted[BirdGame3.BirdType.HEISENBIRD.ordinal()]);
         assertFalse(loaded.trainingAcademyDrillCompleted[BirdGame3.BirdType.OPIUMBIRD.ordinal()]);
     }
+
+    @Test
+    void savesAndLoadsCrownlockPrisonUnlock() {
+        BirdGame3ProfileProgressState.Schema schema = new BirdGame3ProfileProgressState.Schema(
+                BirdGame3Achievement.values().length,
+                4,
+                16,
+                0,
+                0
+        );
+        BirdGame3ProfileProgressState state = new BirdGame3ProfileProgressState();
+        state.prisonMapUnlocked = true;
+
+        state.saveTo(prefs, schema);
+        BirdGame3ProfileProgressState loaded = BirdGame3ProfileProgressState.load(prefs, schema);
+
+        assertTrue(loaded.prisonMapUnlocked);
+    }
 }

@@ -7,19 +7,20 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PrisonMapTest {
     @Test
-    void crownlockIsASelectableFlatMainMapWithOnlySideAndRoofExits() throws Exception {
+    void crownlockHasAFlatBaseWithRaisedCatwalksAndOnlySideAndRoofExits() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.selectedMap = BirdGame3.MapType.PRISON;
 
         invoke(game, "setupMatchArenaGeometry");
 
-        assertTrue((boolean) invoke(game, "isMapUnlocked", BirdGame3.MapType.PRISON),
-                "Crownlock must be available from the regular map select without a campaign unlock.");
-        assertEquals(1, game.platforms.size(), "Crownlock must have no raised or recovery platforms.");
+        assertFalse((boolean) invoke(game, "isMapUnlocked", BirdGame3.MapType.PRISON),
+                "Crownlock must begin locked until Blackout Key or a card pack unlocks it.");
+        assertEquals(7, game.platforms.size(), "Crownlock needs one flat base and six raised catwalks.");
         Platform mainFloor = game.platforms.getFirst();
         assertEquals(-420.0, mainFloor.x, 0.0001);
         assertEquals(BirdGame3.GROUND_Y - 150.0, mainFloor.y, 0.0001);
@@ -31,6 +32,29 @@ class PrisonMapTest {
         assertTrue(mainFloor.x + mainFloor.w >= game.battlefieldRightBound() + 300.0,
                 "The solid floor must continue past the right blast line.");
         assertTrue(game.usesIslandBoundsForCurrentArena());
+        assertTrue(game.platforms.stream().skip(1).allMatch(platform -> platform.y < mainFloor.y),
+                "Every secondary platform must be raised above the uninterrupted ground line.");
+    }
+
+    @Test
+    void crownlockCanBeUnlockedByCampaignRewardOrCardPack() throws Exception {
+        BirdGame3 campaignGame = new BirdGame3();
+        assertTrue(campaignGame.unlockPrisonMapReward(false));
+        assertFalse(campaignGame.unlockPrisonMapReward(false), "Campaign unlock must be idempotent.");
+        assertTrue((boolean) invoke(campaignGame, "isMapUnlocked", BirdGame3.MapType.PRISON));
+
+        BirdGame3 packGame = new BirdGame3();
+        ShopPreview preview = new ShopPreview(null, "MAP_PRISON", "Crownlock Prison Map");
+        @SuppressWarnings("unchecked")
+        List<ShopItem> packs = (List<ShopItem>) invoke(packGame, "buildShopItems");
+        assertTrue(packs.stream()
+                        .filter(pack -> !"Street Pack".equals(pack.name))
+                        .allMatch(pack -> pack.previews.stream()
+                                .anyMatch(reward -> "MAP_PRISON".equals(reward.skinKey()))),
+                "Every pack tier that offers maps must include Crownlock in its reward pool.");
+        invoke(packGame, "unlockShopPreview", preview);
+        assertTrue((boolean) invoke(packGame, "isShopPreviewOwned", preview));
+        assertTrue((boolean) invoke(packGame, "isMapUnlocked", BirdGame3.MapType.PRISON));
     }
 
     @Test

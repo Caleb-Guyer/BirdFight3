@@ -751,6 +751,7 @@ public class BirdGame3 {
     private boolean battlefieldMapUnlocked = false;
     private boolean beaconCrownMapUnlocked = false;
     private boolean dockMapUnlocked = false;
+    private boolean prisonMapUnlocked = false;
     private final boolean[][] towerDefenseDifficultyBadges = new boolean[MapType.values().length][TowerDefenseMode.Difficulty.values().length];
     private static final int DOCK_LEVER_COOLDOWN_FRAMES = 900;
     private static final int DOCK_BOMB_FUSE_FRAMES = 88;
@@ -4661,6 +4662,7 @@ public class BirdGame3 {
     private static final String MAP_CAVE_KEY = "MAP_CAVE";
     private static final String MAP_BATTLEFIELD_KEY = "MAP_BATTLEFIELD";
     private static final String MAP_DOCK_KEY = "MAP_DOCK";
+    private static final String MAP_PRISON_KEY = "MAP_PRISON";
     private static final String DEVELOPER_UNLOCK_CODE = "FEATHERDEV";
 
     // === CLASSIC MODE ===
@@ -8426,6 +8428,7 @@ public class BirdGame3 {
         if (map == MapType.BATTLEFIELD) return battlefieldMapUnlocked;
         if (map == MapType.BEACON_CROWN) return beaconCrownMapUnlocked;
         if (map == MapType.DOCK) return dockMapUnlocked;
+        if (map == MapType.PRISON) return prisonMapUnlocked;
         return true;
     }
 
@@ -15106,8 +15109,7 @@ public class BirdGame3 {
         drawPrisonSearchlight(g, 3000, 170, centerTarget, Color.web("#E1F5FE"));
         drawPrisonSearchlight(g, 5160, 285, rightTarget, Color.web("#B3E5FC"));
 
-        // Emergency lamps and conduit give the flat wall depth without introducing
-        // anything that reads as another playable platform.
+        // Emergency lamps and conduit give the wall depth behind the catwalks.
         g.setStroke(Color.web("#0B1115"));
         g.setLineWidth(18);
         g.strokeLine(0, 650, WORLD_WIDTH, 650);
@@ -15123,6 +15125,7 @@ public class BirdGame3 {
             g.fillOval(lx - 22, 594, 44, 32);
         }
 
+        drawPrisonPlatforms(g);
         drawPrisonFloor(g);
         for (int lever = 0; lever < PRISON_LEVER_X.length; lever++) {
             drawPrisonLever(g, lever);
@@ -15270,6 +15273,44 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.RIGHT);
         g.fillText("CELL BLOCK B", WORLD_WIDTH - 170, PRISON_MAIN_Y + 245);
         g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private void drawPrisonPlatforms(GraphicsContext g) {
+        for (Platform platform : platforms) {
+            if (platform.y >= PRISON_MAIN_Y - 5.0) {
+                continue;
+            }
+
+            // The slim suspension rods visually anchor each catwalk to the damaged
+            // cell-block structure without changing its collision footprint.
+            double leftSupport = platform.x + Math.min(110.0, platform.w * 0.22);
+            double rightSupport = platform.x + platform.w - Math.min(110.0, platform.w * 0.22);
+            g.setStroke(Color.web("#607D8B", 0.55));
+            g.setLineWidth(7);
+            g.strokeLine(leftSupport, platform.y + platform.h, leftSupport + 24, PRISON_MAIN_Y);
+            g.strokeLine(rightSupport, platform.y + platform.h, rightSupport - 24, PRISON_MAIN_Y);
+
+            LinearGradient steel = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                    new Stop(0.0, Color.web("#536B77")),
+                    new Stop(0.24, Color.web("#263943")),
+                    new Stop(1.0, Color.web("#101A20")));
+            g.setFill(steel);
+            g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 18, 18);
+            g.setStroke(Color.web("#90A4AE"));
+            g.setLineWidth(7);
+            g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 18, 18);
+            g.setStroke(Color.web("#C5D5DC", 0.52));
+            g.setLineWidth(4);
+            g.strokeLine(platform.x + 20, platform.y + 12,
+                    platform.x + platform.w - 20, platform.y + 12);
+
+            g.setFill(Color.web("#AFC0C8", 0.72));
+            int rivets = Math.max(2, (int) (platform.w / 170.0));
+            for (int rivet = 1; rivet <= rivets; rivet++) {
+                double rx = platform.x + rivet * platform.w / (rivets + 1.0);
+                g.fillOval(rx - 5, platform.y + platform.h / 2.0 - 5, 10, 10);
+            }
+        }
     }
 
     private void drawPrisonCellBank(GraphicsContext g, double edgeX, double topY, boolean faceLeft) {
@@ -17063,7 +17104,8 @@ public class BirdGame3 {
     private boolean isShopPreviewMap(ShopPreview preview) {
         if (preview == null) return false;
         String key = preview.skinKey();
-        return MAP_DESERT_KEY.equals(key) || MAP_CAVE_KEY.equals(key) || MAP_BATTLEFIELD_KEY.equals(key) || MAP_DOCK_KEY.equals(key);
+        return MAP_DESERT_KEY.equals(key) || MAP_CAVE_KEY.equals(key) || MAP_BATTLEFIELD_KEY.equals(key)
+                || MAP_DOCK_KEY.equals(key) || MAP_PRISON_KEY.equals(key);
     }
 
     private boolean isShopPreviewCoin(ShopPreview preview) {
@@ -17088,6 +17130,7 @@ public class BirdGame3 {
         if (MAP_CAVE_KEY.equals(preview.skinKey())) return MapType.CAVE;
         if (MAP_BATTLEFIELD_KEY.equals(preview.skinKey())) return MapType.BATTLEFIELD;
         if (MAP_DOCK_KEY.equals(preview.skinKey())) return MapType.DOCK;
+        if (MAP_PRISON_KEY.equals(preview.skinKey())) return MapType.PRISON;
         return null;
     }
 
@@ -26617,6 +26660,9 @@ public class BirdGame3 {
             case MAP_DOCK_KEY -> {
                 return dockMapUnlocked;
             }
+            case MAP_PRISON_KEY -> {
+                return prisonMapUnlocked;
+            }
             case "CITY_PIGEON" -> {
                 return cityPigeonUnlocked;
             }
@@ -26776,6 +26822,11 @@ public class BirdGame3 {
                 queueUnlockCardForMap(MapType.DOCK);
                 return;
             }
+            case MAP_PRISON_KEY -> {
+                prisonMapUnlocked = true;
+                queueUnlockCardForMap(MapType.PRISON);
+                return;
+            }
             case "CITY_PIGEON" -> {
                 cityPigeonUnlocked = true;
                 queueUnlockCardForSkin(BirdType.PIGEON, "CITY_PIGEON");
@@ -26922,6 +26973,7 @@ public class BirdGame3 {
         if (MAP_CAVE_KEY.equals(key)) return "Echo Cavern Map";
         if (MAP_BATTLEFIELD_KEY.equals(key)) return "Battlefield Map";
         if (MAP_DOCK_KEY.equals(key)) return "Broken Harbor Map";
+        if (MAP_PRISON_KEY.equals(key)) return "Crownlock Prison Map";
         if ("CITY_PIGEON".equals(key)) return "City Pigeon";
         if ("NOIR_PIGEON".equals(key)) return "Noir Pigeon";
         if (FREEMAN_PIGEON_SKIN.equals(key)) return "Freeman Bird";
@@ -27040,6 +27092,7 @@ public class BirdGame3 {
         battlefieldMapUnlocked = true;
         beaconCrownMapUnlocked = true;
         dockMapUnlocked = true;
+        prisonMapUnlocked = true;
 
         cityPigeonUnlocked = true;
         noirPigeonUnlocked = true;
@@ -27335,7 +27388,8 @@ public class BirdGame3 {
                 new ShopPreview(null, MAP_DESERT_KEY, "Sunscorch Flats Map"),
                 new ShopPreview(null, MAP_CAVE_KEY, "Echo Cavern Map"),
                 new ShopPreview(null, MAP_BATTLEFIELD_KEY, "Battlefield Map"),
-                new ShopPreview(null, MAP_DOCK_KEY, "Broken Harbor Map")
+                new ShopPreview(null, MAP_DOCK_KEY, "Broken Harbor Map"),
+                new ShopPreview(null, MAP_PRISON_KEY, "Crownlock Prison Map")
         );
 
         ShopPreview dunePreview = new ShopPreview(BirdType.FALCON, DUNE_FALCON_SKIN, null);
@@ -31102,6 +31156,9 @@ public class BirdGame3 {
         if (map == MapType.DOCK) {
             return "Complete Tempest Run or find it in Card Packs";
         }
+        if (map == MapType.PRISON) {
+            return "Complete The Still Sky mission Blackout Key or find it in Card Packs";
+        }
         if (map == MapType.BEACON_CROWN) {
             return "Complete Adventure Chapter 9: Sky of All Wings";
         }
@@ -31119,7 +31176,7 @@ public class BirdGame3 {
             case DOCK -> "Storm-battered piers, rigging perches, and rescue skiffs over open water. Pull the top-dock lever to call in a pirate-ship bomb on a rival.";
             case FROSTBITE_FJORD -> "A frozen fjord under bright auroras with slick ice, breakable snowbanks, and glacier shelves built for slides, traps, and vertical recoveries.";
             case ASHFALL_CATHEDRAL -> "A burning sky-temple over a lava sea. Timed phoenix geysers telegraph, erupt, launch, and become dangerous thermals that can save or punish recoveries.";
-            case PRISON -> "A breached Crown detention complex beneath the city. Fight on one continuous steel floor, pull either cell-block lever to release a charging prisoner wave, and launch rivals through the open roof or side blast exits.";
+            case PRISON -> "A breached Crown detention complex beneath the city. Its flat transfer floor supports layered steel catwalks; pull either cell-block lever to release a charging prisoner wave, then launch rivals through the open roof or side blast exits.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -31741,6 +31798,9 @@ public class BirdGame3 {
         if (firstClear) {
             grantBirdCoins(50);
             unlockCampaignRecruit(mission.recruit());
+            if ("blackout_key".equals(mission.id())) {
+                unlockPrisonMapReward(true);
+            }
         }
         if (stillSkyProgress.campaignComplete && !stillSkyProgress.completionRewardClaimed) {
             stillSkyProgress.completionRewardClaimed = true;
@@ -34520,6 +34580,17 @@ public class BirdGame3 {
         dockMapUnlocked = true;
         if (queueCard) {
             queueMapUnlockCard(MapType.DOCK);
+        }
+        return true;
+    }
+
+    boolean unlockPrisonMapReward(boolean queueCard) {
+        if (prisonMapUnlocked) {
+            return false;
+        }
+        prisonMapUnlocked = true;
+        if (queueCard) {
+            queueMapUnlockCard(MapType.PRISON);
         }
         return true;
     }
@@ -37966,7 +38037,7 @@ public class BirdGame3 {
                 new MapCard("BROKEN HARBOR", "Storm piers, mast perches, rescue skiffs, and a bombardment lever on the high dock.", "#26A69A", MapType.DOCK),
                 new MapCard("FROSTBITE FJORD", "Aurora-lit ice shelves with slick movement, snowbanks, and glacier routes.", "#4FC3F7", MapType.FROSTBITE_FJORD),
                 new MapCard("ASHFALL CATHEDRAL", "Phoenix geysers, lava recovery routes, ember thermals, and a burning sky-temple.", "#E64A19", MapType.ASHFALL_CATHEDRAL),
-                new MapCard("CROWNLOCK PRISON", "A flat prison floor with sweeping searchlights, a shattered roof, and levers that unleash prisoner rushes.", "#546E7A", MapType.PRISON),
+                new MapCard("CROWNLOCK PRISON", "A flat prison floor beneath layered steel catwalks, sweeping searchlights, and levers that unleash prisoner rushes.", "#546E7A", MapType.PRISON),
                 new MapCard("BEACON CROWN", "A huge crown-top arena with long lanes, layered perches, and a lethal void.", "#6A1B9A", MapType.BEACON_CROWN)
         ));
         cards.removeIf(card -> !isMapUnlocked(card.map));
@@ -42669,10 +42740,16 @@ public class BirdGame3 {
     }
 
     private void setupPrisonArena() {
-        // Crownlock is intentionally a single continuous floor. It extends past
-        // both side blast lines so falling below the stage is impossible; every
-        // knockout leaves through the breached roof or a side of the prison.
+        // The base is one continuous, perfectly flat floor extending past both
+        // side blast lines. Raised catwalks create routes without reintroducing
+        // lower recovery shelves or a bottom blast exit.
         platforms.add(new Platform(PRISON_MAIN_X, PRISON_MAIN_Y, PRISON_MAIN_W, PRISON_MAIN_H));
+        platforms.add(new Platform(990.0, PRISON_MAIN_Y - 330.0, 900.0, 48.0));
+        platforms.add(new Platform(WORLD_WIDTH - 1890.0, PRISON_MAIN_Y - 330.0, 900.0, 48.0));
+        platforms.add(new Platform(2140.0, PRISON_MAIN_Y - 570.0, 1720.0, 54.0));
+        platforms.add(new Platform(1300.0, PRISON_MAIN_Y - 790.0, 420.0, 38.0));
+        platforms.add(new Platform(WORLD_WIDTH - 1720.0, PRISON_MAIN_Y - 790.0, 420.0, 38.0));
+        platforms.add(new Platform(2700.0, PRISON_MAIN_Y - 900.0, 600.0, 40.0));
 
         battlefieldIslandX = 0.0;
         battlefieldIslandW = WORLD_WIDTH;
@@ -47228,6 +47305,7 @@ public class BirdGame3 {
         state.battlefieldMapUnlocked = battlefieldMapUnlocked;
         state.beaconCrownMapUnlocked = beaconCrownMapUnlocked;
         state.dockMapUnlocked = dockMapUnlocked;
+        state.prisonMapUnlocked = prisonMapUnlocked;
         state.towerDefenseDifficultyBadges = copyBooleanMatrix(towerDefenseDifficultyBadges);
         state.cityPigeonUnlocked = cityPigeonUnlocked;
         state.noirPigeonUnlocked = noirPigeonUnlocked;
@@ -47360,6 +47438,7 @@ public class BirdGame3 {
         battlefieldMapUnlocked = resolved.battlefieldMapUnlocked;
         beaconCrownMapUnlocked = resolved.beaconCrownMapUnlocked;
         dockMapUnlocked = resolved.dockMapUnlocked;
+        prisonMapUnlocked = resolved.prisonMapUnlocked;
         copyInto(resolved.towerDefenseDifficultyBadges, towerDefenseDifficultyBadges);
 
         cityPigeonUnlocked = resolved.cityPigeonUnlocked;
@@ -47436,6 +47515,11 @@ public class BirdGame3 {
         stillSkyProgress = resolved.stillSkyProgress == null
                 ? new StoryCampaignProgress()
                 : resolved.stillSkyProgress.copy();
+        // Profiles that cleared Blackout Key before Crownlock became a reward
+        // should receive it on load without replaying the mission.
+        if (stillSkyProgress.isMissionCompleted("blackout_key")) {
+            prisonMapUnlocked = true;
+        }
 
         try {
             selectedAdventureRoute = AdventureRoute.valueOf(
