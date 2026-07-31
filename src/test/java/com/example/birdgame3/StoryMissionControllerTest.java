@@ -165,6 +165,41 @@ class StoryMissionControllerTest {
     }
 
     @Test
+    void protectionEndsImmediatelyWhenEverySpawnedEnemyIsDefeated() {
+        StoryMissionController.Participant player =
+                new StoryMissionController.Participant(0, 1, 3000, 100, 100);
+        StoryMissionController.Participant protectedAlly =
+                new StoryMissionController.Participant(1, 1, 1200, 100, 100);
+        StoryMissionController.Participant defeatedEnemy =
+                new StoryMissionController.Participant(2, 2, 4500, 0, 100);
+
+        StoryMissionController protect = new StoryMissionController(
+                missionWith(StoryCampaign.MissionPhase.timed(
+                        StoryCampaign.ObjectiveType.PROTECT, "Protect", 90, 1, true)),
+                StoryCampaign.Difficulty.NORMAL, 6000);
+        assertEquals(StoryMissionController.Outcome.COMPLETE,
+                protect.tick(List.of(player, protectedAlly, defeatedEnemy)).outcome());
+        assertEquals(1, protect.phaseTicks(),
+                "Clearing the attackers should skip the remaining protection timer.");
+    }
+
+    @Test
+    void timedCombatPhaseDoesNotEarlyClearBeforeAnyEnemyHasSpawned() {
+        StoryMissionController.Participant player =
+                new StoryMissionController.Participant(0, 1, 3000, 100, 100);
+        StoryMissionController.Participant protectedAlly =
+                new StoryMissionController.Participant(1, 1, 1200, 100, 100);
+        StoryMissionController protect = new StoryMissionController(
+                missionWith(StoryCampaign.MissionPhase.timed(
+                        StoryCampaign.ObjectiveType.PROTECT, "Protect", 90, 1, true)),
+                StoryCampaign.Difficulty.NORMAL, 6000);
+
+        assertEquals(StoryMissionController.Outcome.RUNNING,
+                protect.tick(List.of(player, protectedAlly)).outcome(),
+                "A spawn delay must not look like the player already defeated a wave.");
+    }
+
+    @Test
     void livingAllyPreventsTeamWipeAndCanFinishElimination() {
         StoryMissionController controller = new StoryMissionController(
                 missionWith(StoryCampaign.MissionPhase.elimination("Clear")),

@@ -207,7 +207,7 @@ final class StoryMissionController {
             failed = true;
             return false;
         }
-        return phaseTicks >= scaledTargetTicks(phase);
+        return allHostilesDefeated(roster) || phaseTicks >= scaledTargetTicks(phase);
     }
 
     private boolean tickCapture(StoryCampaign.MissionPhase phase, List<Participant> roster) {
@@ -328,6 +328,11 @@ final class StoryMissionController {
 
     private boolean noLivingTeam(List<Participant> roster, int team) {
         return roster.stream().noneMatch(p -> p.team() == team && p.alive());
+    }
+
+    private boolean allHostilesDefeated(List<Participant> roster) {
+        boolean hostileWasSpawned = roster.stream().anyMatch(p -> p.team() == 2);
+        return hostileWasSpawned && noLivingTeam(roster, 2);
     }
 
     private double zoneCenterX(int index, int total) {
