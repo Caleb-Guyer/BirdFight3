@@ -543,7 +543,7 @@ final class StoryCampaignContent {
                 fighters(enemy(VULTURE, "Carrion Captain"), enemy(RAVEN, "Swarm Guide")),
                 phases(
                         phase(CAPTURE, "Break the swarm towers", 44, 3, true),
-                        phase(GAUNTLET, "Survive the released flock", 0, 3, true)
+                        eliminate("Clear the released flock")
                 ),
                 "s47_crow_country", "s48_crow_country_after", null, false);
     }

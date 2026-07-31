@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -110,6 +111,43 @@ class StoryCampaignContentTest {
                 mission.phases().getFirst().objective());
         assertEquals(StoryCampaign.ObjectiveType.BOSS_PHASES,
                 mission.phases().getLast().objective());
+    }
+
+    @Test
+    void crowCountryDoesNotReviveGuardsDefeatedBeforeTheSecondObjective() {
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("crow_country");
+
+        assertEquals(StoryCampaign.ObjectiveType.CAPTURE,
+                mission.phases().getFirst().objective());
+        assertEquals(StoryCampaign.ObjectiveType.ELIMINATION,
+                mission.phases().getLast().objective());
+
+        StoryMissionController controller = new StoryMissionController(
+                mission, StoryCampaign.Difficulty.NORMAL, 6000);
+        StoryMissionController.Participant deadVulture =
+                new StoryMissionController.Participant(1, 2, 2000, 0, 100);
+        StoryMissionController.Participant deadRaven =
+                new StoryMissionController.Participant(2, 2, 4000, 0, 100);
+
+        StoryMissionController.TickResult result = null;
+        for (int target = 0; target < 3; target++) {
+            double zoneX = controller.captureZoneCenterX(target, 3);
+            StoryMissionController.Participant player =
+                    new StoryMissionController.Participant(0, 1, zoneX, 100, 100);
+            for (int tick = 0; tick < 120; tick++) {
+                result = controller.tick(List.of(player, deadVulture, deadRaven));
+            }
+        }
+
+        assertNotNull(result);
+        assertEquals(StoryMissionController.Outcome.PHASE_ADVANCED, result.outcome());
+        assertFalse(controller.takeReinforcementRequest());
+        assertEquals(StoryMissionController.Outcome.COMPLETE,
+                controller.tick(List.of(
+                        new StoryMissionController.Participant(0, 1, 3000, 100, 100),
+                        deadVulture,
+                        deadRaven)).outcome());
+        assertFalse(controller.takeReinforcementRequest());
     }
 
     @Test
