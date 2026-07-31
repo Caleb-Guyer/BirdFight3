@@ -2,15 +2,18 @@
 
 ## Music (public domain / CC0)
 
-All music tracks are public-domain releases originally published on FreePD.com
-(site now closed; obtained via the Internet Archive mirror
+The third-party music tracks are public-domain releases originally published on
+FreePD.com (site now closed; obtained via the Internet Archive mirror
 `allfreepdmusicbykuronekony4n`). FreePD music is dedicated to the public domain
-(CC0) — no attribution required, but credited here as a courtesy.
+(CC0) — no attribution required, but credited here as a courtesy. The campaign
+defeat cue is an original synthesized composition for BirdFight3 and is also
+dedicated to the public domain under CC0.
 
 | In-game file | Original track | Used for |
 |---|---|---|
 | music-menu.mp3 | New Hero in Town | Main menu |
 | music-victory.mp3 | Fanfare X | Victory screen |
+| music-defeat.wav | Wings Down (original synthesized composition) | Campaign failure screen |
 | music-prologue.mp3 | Emotional Blockbuster 2 — Rafael Krux | Illustrated storybook prologue |
 | music-boss.mp3 | Epic Boss Battle | Boss encounters / Beacon Crown |
 | music-forest.mp3 | Adventure | Forest |

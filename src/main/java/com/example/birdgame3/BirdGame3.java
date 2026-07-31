@@ -259,6 +259,7 @@ public class BirdGame3 {
     private static final double ACHIEVEMENT_TOAST_MARGIN = 26.0;
     private static final double MENU_MUSIC_BASE_VOLUME = 0.55;
     private static final double VICTORY_MUSIC_BASE_VOLUME = 0.75;
+    private static final double DEFEAT_MUSIC_BASE_VOLUME = 0.68;
     private static final double MATCH_MUSIC_BASE_VOLUME = 0.45;
     private static final double BUTTON_CLICK_BASE_VOLUME = 0.9;
     private static final double ACHIEVEMENT_SOUND_BASE_VOLUME = 1.0;
@@ -1032,6 +1033,9 @@ public class BirdGame3 {
         if (victoryMusicPlayer != null) {
             victoryMusicPlayer.setVolume(VICTORY_MUSIC_BASE_VOLUME * music);
         }
+        if (defeatMusicPlayer != null) {
+            defeatMusicPlayer.setVolume(DEFEAT_MUSIC_BASE_VOLUME * music);
+        }
         if (musicPlayer != null) {
             musicPlayer.setVolume(MATCH_MUSIC_BASE_VOLUME * music * musicDuckLevel);
         }
@@ -1432,12 +1436,14 @@ public class BirdGame3 {
     private void stopPersistentMusicPlayers() {
         menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, false);
         victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, false);
+        defeatMusicPlayer = stopMediaPlayer(defeatMusicPlayer, false);
     }
 
     private void disposeAllManagedMediaPlayers() {
         musicPlayer = stopMediaPlayer(musicPlayer, true);
         menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, true);
         victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, true);
+        defeatMusicPlayer = stopMediaPlayer(defeatMusicPlayer, true);
     }
 
     private void shutdownAndExit() {
@@ -1507,11 +1513,12 @@ public class BirdGame3 {
             fightReadyClip = new AudioClip(resourceUrl(p + "sfx-fighter-ready.wav"));
             rebirthNovaClip = new AudioClip(resourceUrl(p + "sfx-rebirth-nova.wav"));
 
-            // === MENU & VICTORY MUSIC ===
+            // === MENU & RESULT MUSIC ===
             menuMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "music-menu.mp3")));
             menuMusicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
 
             victoryMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "music-victory.mp3")));
+            defeatMusicPlayer = new MediaPlayer(new Media(resourceUrl(p + "music-defeat.wav")));
 
             // === WIIMOTE BUTTON CLICK ===
             buttonClickClip = new AudioClip(resourceUrl(p + "sfx-click.wav"));
@@ -1720,6 +1727,7 @@ public class BirdGame3 {
     private void playMenuMusic() {
         disposeGameplayMusicPlayer();
         victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, false);
+        defeatMusicPlayer = stopMediaPlayer(defeatMusicPlayer, false);
         if (!musicEnabled) {
             menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, false);
             return;
@@ -4358,7 +4366,7 @@ public class BirdGame3 {
     // === SOUND & MUSIC ===
     public AudioClip bonkClip, butterClip, jalapenoClip, swingClip, hugewaveClip, buttonClickClip, zombieFallingClip,
             vaseBreakingClip, cherrybombClip, steamAchievementClip, fightReadyClip, rebirthNovaClip;
-    public MediaPlayer musicPlayer, menuMusicPlayer, victoryMusicPlayer;
+    public MediaPlayer musicPlayer, menuMusicPlayer, victoryMusicPlayer, defeatMusicPlayer;
 
     // Guard to prevent reentrant shutdowns
     private volatile boolean shuttingDown = false;
@@ -16009,6 +16017,7 @@ public class BirdGame3 {
         stageSelectHandler = null;
         disposeGameplayMusicPlayer();
         victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, false);
+        defeatMusicPlayer = stopMediaPlayer(defeatMusicPlayer, false);
         playMenuMusic();
         showHub(stage);
     }
@@ -24981,6 +24990,7 @@ public class BirdGame3 {
         lanResultsStatusLabel = null;
         disposeGameplayMusicPlayer();
         menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, false);
+        defeatMusicPlayer = stopMediaPlayer(defeatMusicPlayer, false);
         if (victoryMusicPlayer != null) {
             victoryMusicPlayer.stop();
             if (musicEnabled) victoryMusicPlayer.play();
@@ -44610,13 +44620,33 @@ public class BirdGame3 {
         return shortName(winner.name) + " - " + winner.type.name;
     }
 
-    void showMatchSummary(Stage stage, Bird winner) {
+    enum MatchSummaryMusicCue {
+        VICTORY,
+        DEFEAT
+    }
+
+    static MatchSummaryMusicCue matchSummaryMusicCue(boolean campaignModeActive,
+                                                      boolean campaignMissionWon) {
+        return campaignModeActive && !campaignMissionWon
+                ? MatchSummaryMusicCue.DEFEAT
+                : MatchSummaryMusicCue.VICTORY;
+    }
+
+    private void playMatchSummaryMusic(MatchSummaryMusicCue cue) {
         disposeGameplayMusicPlayer();
         menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, false);
-        if (victoryMusicPlayer != null) {
-            victoryMusicPlayer.stop();
-            if (musicEnabled) victoryMusicPlayer.play();
-        }
+        victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, false);
+        defeatMusicPlayer = stopMediaPlayer(defeatMusicPlayer, false);
+        if (!musicEnabled) return;
+
+        MediaPlayer resultMusic = cue == MatchSummaryMusicCue.DEFEAT
+                ? defeatMusicPlayer
+                : victoryMusicPlayer;
+        if (resultMusic != null) resultMusic.play();
+    }
+
+    void showMatchSummary(Stage stage, Bird winner) {
+        playMatchSummaryMusic(matchSummaryMusicCue(campaignModeActive, campaignMissionWon));
 
         if (ashfallTrialModeActive && classicModeActive) {
             showAshfallTrialMatchSummary(stage, winner);

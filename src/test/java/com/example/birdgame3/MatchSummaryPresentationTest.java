@@ -7,9 +7,21 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 class MatchSummaryPresentationTest {
+    @Test
+    void campaignFailureUsesDefeatMusicWhileSuccessUsesVictoryMusic() {
+        assertEquals(BirdGame3.MatchSummaryMusicCue.DEFEAT,
+                BirdGame3.matchSummaryMusicCue(true, false));
+        assertEquals(BirdGame3.MatchSummaryMusicCue.VICTORY,
+                BirdGame3.matchSummaryMusicCue(true, true));
+        assertEquals(BirdGame3.MatchSummaryMusicCue.VICTORY,
+                BirdGame3.matchSummaryMusicCue(false, false));
+        assertNotNull(BirdGame3.class.getResource("/sounds/music-defeat.wav"));
+    }
+
     @Test
     void cinematicSummaryScalesFromItsActualDesignResolution() {
         assertEquals(1.0,
