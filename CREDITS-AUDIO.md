@@ -11,6 +11,7 @@ All music tracks are public-domain releases originally published on FreePD.com
 |---|---|---|
 | music-menu.mp3 | New Hero in Town | Main menu |
 | music-victory.mp3 | Fanfare X | Victory screen |
+| music-prologue.mp3 | Emotional Blockbuster 2 — Rafael Krux | Illustrated storybook prologue |
 | music-boss.mp3 | Epic Boss Battle | Boss encounters / Beacon Crown |
 | music-forest.mp3 | Adventure | Forest |
 | music-city.mp3 | Gothamlicious | City |

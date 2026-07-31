@@ -1,0 +1,59 @@
+# The Still Sky — Storybook Prologue
+#
+# Each section is one illustrated page. The header format is:
+# ## stable_page_id | DISPLAY TITLE | ILLUSTRATION
+#
+# Paragraphs are separated by a blank line. Keep the stable page IDs and
+# illustration names intact; the title and prose are safe to edit.
+
+## first_sky | THE FIRST SKY | FIRST_SKY
+Before there were borders, there were winds. They crossed every coast and mountain without asking who owned the ground below. The earliest flocks called them the Rivers Above: warm roads that carried food, news, and whole families farther than any pair of wings could manage alone.
+
+Birds built their first homes where those rivers met. Forest nests traded with cliff roosts. Desert couriers brought salt to the harbor. Cave listeners warned the surface when the stone began to shake. No flock had everything it needed, so survival became an agreement renewed every season.
+---
+## eleven_lands | ELEVEN LANDS, ONE SKY | ELEVEN_LANDS
+In time, the meeting places became eleven great regions. The Forest guarded seed and timber. The Jungle grew medicine beneath its canopy. The Desert held the fastest eastern route. Frostbite Fjord stored winter ice, while Ashfall Cathedral warmed eggs through the coldest nights.
+
+The Cave kept old records. Sky Cliffs watched the upper currents. Broken Harbor joined every coast. The City rose around its crowded rooftops, and the Battlefield became neutral ground. Last came the Beacon Crown, a high signal tower meant to guide anyone lost between them. Different laws ruled below, but the sky still belonged to everyone.
+---
+## first_fight | THE FIRST BIRD FIGHT | FIRST_FIGHT
+Peace did not make the winds wider. During a lean migration, three flocks reached the same thermal and none could afford to turn back. Beaks were bloodied, nests were threatened, and for one terrible hour the regions prepared to settle a narrow route with a war.
+
+Instead, their captains met on neutral ground. Each side chose a champion. The contest would end when one fighter could no longer hold the field, and the losing flock would leave unharmed. It was imperfect, loud, and far better than a season of graves. That first Bird Fight became a promise: when pride demanded violence, the damage would have rules and witnesses.
+---
+## open_wing | THE OPEN-WING ACCORD | OPEN_WING
+The promise became law. Fighters could yield. Fallen opponents had to be rescued. No victory could claim a nest, a life, or a family. Routes, supplies, and disputes might be decided in the ring, but the Open-Wing Accord made every champion responsible for what happened after the cheering stopped.
+
+Generations shaped the contests into an art. Heavy birds learned to command space. Small birds turned patience into speed. Engineers built safer platforms, medics waited below, and crowds crossed borders to watch rivals become legends. The fights did not end every injustice. They did, however, give enemies a reason to meet before they reached for armies.
+---
+## age_of_wings | THE AGE OF MANY WINGS | AGE_OF_WINGS
+The regions flourished together. Harbor crews raised breakwaters that could bend with a storm. City builders stretched rooftops into public flight lanes. Jungle keepers cultivated nectar stations for travelers too small to carry provisions. Even the old Battlefield changed, its scars rebuilt into platforms where a loss could become a lesson instead of a funeral.
+
+That age produced countless champions, but no permanent ruler. Councils changed with the season. Captains surrendered command when migration ended. The Beacon sent warnings, not orders. It was a difficult freedom—slow, argumentative, and alive. Most birds accepted the trouble because every region could still say no.
+---
+## black_migrations | THE BLACK MIGRATIONS | BLACK_MIGRATIONS
+Then the weather stopped keeping its old promises. A spring current turned north without warning and carried an entire flock over empty water. Smoke buried the next route. The third migration met a wall of ice where warm rain had been forecast. Thousands escaped. Many did not.
+
+Eagle was a rescue captain then. He flew into conditions that broke stronger wings, marked safe paths by hand, and brought strangers home until he could no longer feel his own feathers. The survivors remembered the lives he saved. Eagle remembered the names he was too late to reach. Neither memory ever left him.
+---
+## perfect_weather | A PROMISE OF PERFECT WEATHER | PERFECT_WEATHER
+Eagle returned with a proposal: connect the Beacon to every region and make disaster predictable. Penguin designed stabilizers that could hold a thermal in place. Heisenbird found a way to conduct pressure through stormglass. Harbor, City, and Frostbite crews raised pylons along the old migration roads.
+
+They called it the Crown Network. At first, it worked. Storms parted around evacuation lanes. Lost children followed blue lights home. Crops survived bad seasons, and no migration vanished into surprise weather. Each success made the next pylon easier to approve. When a council hesitated, Eagle showed them the casualty lists. Most signed before he reached the final page.
+---
+## bargains | THE BARGAINS BENEATH IT | BARGAINS
+No machine that large was built by clean hands alone. Vulture traded access to scavenger routes for sanctuary his flocks had been denied. Raven carried sealed messages between councils that would not speak openly. Grinch-Hawk stole components, then sold them back through a different door. Opium Bird supplied forecasts so exact that doubt began to look irresponsible.
+
+Eagle knew who they were. They knew what he needed. Each called the arrangement temporary, and each found a reason to renew it. The Crown rose from genuine mercy, private ambition, public fear, and compromises nobody wanted recorded in the same history.
+---
+## watched_fights | WHEN THE CROWN LISTENED | WATCHED_FIGHTS
+The new pylons watched every sanctioned Bird Fight. Officials said the measurements would improve barriers, predict collisions, and dispatch medics faster. The results were undeniable: fewer broken wings, cleaner evacuations, safer arenas. Champions adapted to the instruments and kept fighting beneath them.
+
+Soon the Crown knew how every style gathered speed, where every guard opened, and how each region responded under pressure. That knowledge disappeared into an archive few birds were allowed to see. Nobody outside the Network understood the whole design. Most were too relieved by calm skies to ask what a weather machine needed with a fighter's reflexes.
+---
+## stillness | THE NIGHT BEFORE THE STILLNESS | STILLNESS
+Years passed. Natural currents weakened around the pylons. Ashfall's last free thermal flickered. Broken Harbor's tide arrived late. In the City, old flags hung still while weather instruments insisted the wind was moving. Reports traveled upward and returned stamped: within acceptable limits.
+
+On the night before this story begins, every Beacon light turned toward the Crown at once. Locks engaged along the migration routes. Somewhere below the Cave, something answered the Network with a second heartbeat. And on a rooftop at dawn, Old Sparrow looked up from a silent street and called for Pigeon.
+
+The wind had not died. It was being held.

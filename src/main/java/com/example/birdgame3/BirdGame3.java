@@ -4951,6 +4951,7 @@ public class BirdGame3 {
     private final StoryCampaign stillSkyCampaign = StoryCampaignContent.create();
     private StoryCampaignProgress stillSkyProgress = new StoryCampaignProgress();
     private final StoryCutscenePlayer storyCutscenePlayer = new StoryCutscenePlayer(this);
+    private final StorybookProloguePlayer storybookProloguePlayer = new StorybookProloguePlayer(this);
     boolean campaignModeActive = false;
     private StoryCampaign.Mission currentCampaignMission = null;
     private StoryMissionController campaignMissionController = null;
@@ -16054,6 +16055,30 @@ public class BirdGame3 {
             selectedMap = cutscene.location();
         }
         startMusic();
+    }
+
+    void startCampaignProloguePresentation() {
+        stopPersistentMusicPlayers();
+        disposeGameplayMusicPlayer();
+        if (!musicEnabled) return;
+        try {
+            musicDuckLevel = 1.0;
+            musicPlayer = new MediaPlayer(new Media(resourceUrl("/sounds/music-prologue.mp3")));
+            musicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+            applyAudioVolumes();
+            musicPlayer.play();
+        } catch (RuntimeException e) {
+            System.out.println("Prologue music not found: " + e.getMessage());
+        }
+    }
+
+    void finishCampaignProloguePresentation() {
+        disposeGameplayMusicPlayer();
+    }
+
+    void playCampaignProloguePageTurnCue() {
+        playManagedSfxVaried(swingClip, 0.24, 0.68, 0.025);
+        playManagedSfx(buttonClickClip, BUTTON_CLICK_BASE_VOLUME * 0.42);
     }
 
     void playCampaignCutsceneCue(StoryCampaign.Cutscene cutscene, StoryCampaign.DialogueLine line) {
@@ -31007,6 +31032,21 @@ public class BirdGame3 {
     }
 
     private void beginCampaignMission(Stage stage, StoryCampaign.Mission mission) {
+        if (shouldPlayCampaignPrologue(mission, stillSkyCampaign, stillSkyProgress)) {
+            playCampaignPrologue(stage, () -> playCampaignMissionPrelude(stage, mission));
+            return;
+        }
+        playCampaignMissionPrelude(stage, mission);
+    }
+
+    static boolean shouldPlayCampaignPrologue(StoryCampaign.Mission mission, StoryCampaign campaign,
+                                               StoryCampaignProgress progress) {
+        return mission != null && campaign != null && progress != null
+                && mission.id().equals(campaign.firstMission().id())
+                && !progress.hasSeenScene(StorybookPrologue.ID);
+    }
+
+    private void playCampaignMissionPrelude(Stage stage, StoryCampaign.Mission mission) {
         StoryCampaign.Cutscene pre = stillSkyCampaign.scene(mission.preSceneId());
         playCampaignCutscene(stage, pre, () -> showCampaignHandoff(stage, mission));
     }
@@ -31175,6 +31215,15 @@ public class BirdGame3 {
         });
     }
 
+    private void playCampaignPrologue(Stage stage, Runnable after) {
+        disposeGameplayMusicPlayer();
+        storybookProloguePlayer.play(stage, () -> {
+            stillSkyProgress.markSceneSeen(StorybookPrologue.ID);
+            saveAchievements();
+            if (after != null) after.run();
+        });
+    }
+
     private void showCampaignGallery(Stage stage) {
         campaignModeActive = true;
         VBox content = new VBox(14);
@@ -31185,13 +31234,25 @@ public class BirdGame3 {
         Label title = new Label("CUTSCENE GALLERY");
         title.setFont(Font.font("Arial Black", FontWeight.BOLD, 48));
         title.setTextFill(Color.web("#E1F5FE"));
-        Label count = new Label(stillSkyProgress.seenSceneIds().size() + "/" + stillSkyCampaign.scenes.size()
+        long authoredScenesSeen = stillSkyCampaign.scenes.keySet().stream()
+                .filter(stillSkyProgress::hasSeenScene)
+                .count();
+        long prologuesSeen = stillSkyProgress.hasSeenScene(StorybookPrologue.ID) ? 1 : 0;
+        Label count = new Label((authoredScenesSeen + prologuesSeen) + "/" + (stillSkyCampaign.scenes.size() + 1)
                 + " SCENES SEEN");
         count.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
         count.setTextFill(Color.web("#80DEEA"));
         FlowPane grid = new FlowPane(10, 10);
         grid.setAlignment(Pos.CENTER);
         grid.setPrefWrapLength(1420);
+        boolean prologueSeen = stillSkyProgress.hasSeenScene(StorybookPrologue.ID);
+        Button prologueButton = uiFactory.action(
+                prologueSeen ? "PROLOGUE — BEFORE THE STILLNESS" : "LOCKED PROLOGUE",
+                330, 62, 15, prologueSeen ? "#6D4C41" : "#20252B", 13,
+                () -> playCampaignPrologue(stage, () -> showCampaignGallery(stage))
+        );
+        prologueButton.setDisable(!prologueSeen);
+        grid.getChildren().add(prologueButton);
         for (StoryCampaign.Cutscene cutscene : stillSkyCampaign.scenes.values()) {
             boolean seen = stillSkyProgress.hasSeenScene(cutscene.id());
             Button sceneButton = uiFactory.action(
