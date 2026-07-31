@@ -7352,7 +7352,7 @@ public class Bird {
     }
 
     private void handleRavenPostMoveSpecialState() {
-        if (type != BirdGame3.BirdType.RAVEN) {
+        if (type != BirdGame3.BirdType.RAVEN && !hasRavenSpecialObjects()) {
             return;
         }
         handleRavenQuills();
@@ -7361,6 +7361,16 @@ public class Bird {
         handleRavenUltimatePortals();
         handleRavenUltimateRoutes();
         handleRavenUltimateFlock();
+    }
+
+    private boolean hasRavenSpecialObjects() {
+        return !ravenQuills.isEmpty()
+                || !ravenGroundPortents.isEmpty()
+                || !ravenUltimateRoutes.isEmpty()
+                || !ravenUltimatePendingRoutes.isEmpty()
+                || !ravenUltimatePortals.isEmpty()
+                || ravenDecoy != null
+                || ravenUltimateFlockTimer > 0;
     }
 
     private void handleRavenQuills() {
@@ -22093,7 +22103,7 @@ public class Bird {
     }
 
     private void drawRavenObjects(GraphicsContext g) {
-        if (type != BirdGame3.BirdType.RAVEN) {
+        if (type != BirdGame3.BirdType.RAVEN && !hasRavenSpecialObjects()) {
             return;
         }
         double s = sizeMultiplier;

@@ -1060,6 +1060,35 @@ class BirdStateTest {
     }
 
     @Test
+    void copiedRavenNeutralKeepsFlyingAndHitsAfterCharlesReturnsToMockingbird() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird charles = new Bird(260.0, BirdGame3.BirdType.MOCKINGBIRD, 0, game);
+        Bird target = new Bird(430.0, BirdGame3.BirdType.PIGEON, 1, game);
+        charles.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        charles.facingRight = true;
+        charles.mockingbirdCapturedType = BirdGame3.BirdType.RAVEN;
+        game.players[0] = charles;
+        game.players[1] = target;
+
+        double startingHealth = target.health;
+        MockingbirdSpecials.performCopiedNeutral(charles, BirdGame3.BirdType.RAVEN, false);
+        assertEquals(BirdGame3.BirdType.MOCKINGBIRD, charles.type,
+                "Charles should return to his own type immediately after copying the neutral.");
+
+        for (int tick = 0; tick < 16 && target.health == startingHealth; tick++) {
+            charles.update(1.0);
+        }
+
+        assertTrue(target.health < startingHealth,
+                "The copied Black Quill must keep simulating after Charles returns to his own type.");
+        assertTrue(target.hasRavenPortentFrom(charles),
+                "A copied Black Quill hit should retain Raven's mark effect and Charles's ownership.");
+    }
+
+    @Test
     void mockingbirdUltimateSpawnsCapturedShadowCourt() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
