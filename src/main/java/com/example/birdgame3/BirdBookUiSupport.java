@@ -146,6 +146,10 @@ final class BirdBookUiSupport {
                 top = Color.web("#09050A");
                 bottom = Color.web("#F4511E");
             }
+            case PRISON -> {
+                top = Color.web("#071018");
+                bottom = Color.web("#37474F");
+            }
             default -> {
                 top = Color.web("#1B5E20");
                 bottom = Color.web("#4CAF50");
@@ -319,6 +323,31 @@ final class BirdBookUiSupport {
                 g.setFill(Color.web("#4DD0E1", 0.44));
                 g.fillOval(w * 0.46, h * 0.38, w * 0.08, h * 0.1);
             }
+            case PRISON -> {
+                g.setFill(Color.web("#111C23", 0.92));
+                g.fillRect(0, h * 0.2, w, h * 0.68);
+                g.setStroke(Color.web("#607D8B", 0.9));
+                g.setLineWidth(3);
+                for (int side = 0; side < 2; side++) {
+                    double startX = side == 0 ? w * 0.04 : w * 0.72;
+                    for (int cell = 0; cell < 2; cell++) {
+                        double x = startX + cell * w * 0.12;
+                        g.setFill(Color.web("#020609"));
+                        g.fillRoundRect(x, h * 0.34, w * 0.1, h * 0.32, 8, 8);
+                        for (int bar = 0; bar < 4; bar++) {
+                            double bx = x + w * (0.012 + bar * 0.025);
+                            g.strokeLine(bx, h * 0.34, bx, h * 0.66);
+                        }
+                    }
+                }
+                g.setFill(Color.web("#050A0E"));
+                g.fillRoundRect(w * 0.38, h * 0.28, w * 0.24, h * 0.44, 10, 10);
+                g.setFill(Color.web("#00BCD4", 0.68));
+                g.fillOval(w * 0.47, h * 0.38, w * 0.06, h * 0.09);
+                g.setStroke(Color.web("#FFB300", 0.72));
+                g.setLineWidth(4);
+                g.strokeLine(w * 0.08, h * 0.78, w * 0.92, h * 0.78);
+            }
             default -> {
                 g.setFill(Color.web("#1B5E20", 0.75));
                 g.fillPolygon(new double[]{0, w * 0.1, w * 0.2}, new double[]{h, h * 0.55, h}, 3);
@@ -357,6 +386,7 @@ final class BirdBookUiSupport {
             case DOCK -> Color.web("#26A69A");
             case FROSTBITE_FJORD -> Color.web("#4FC3F7");
             case ASHFALL_CATHEDRAL -> Color.web("#E64A19");
+            case PRISON -> Color.web("#546E7A");
             default -> Color.web("#2E7D32");
         };
     }

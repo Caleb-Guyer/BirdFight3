@@ -665,8 +665,8 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission blackoutKey() {
         return mission("blackout_key", "Blackout Key",
-                "Use the Pact's stolen tools to break the Crown prison and recover Vulture's transfer route.",
-                BATTLEFIELD, CROWN_OCCUPIED,
+                "Break into Crownlock beneath the city's old central station and recover Vulture's transfer route.",
+                PRISON, CROWN_OCCUPIED,
                 StoryCampaign.PlayablePolicy.choice(RAVEN, GRINCHHAWK, HEISENBIRD),
                 fighters(ally(OPIUMBIRD, "Opium Bird")),
                 fighters(enemy(EAGLE, "Crown Automaton"), enemy(VULTURE, "Null Echo")),
@@ -725,8 +725,8 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission freeTheFlock() {
         return mission("free_the_flock", "Free the Flock",
-                "Reach Vulture's extraction cell and erase the remaining live link to Null Roc.",
-                SKYCLIFFS, ANCHOR_ASSAULT,
+                "Return to Crownlock, reach Vulture's extraction cell, and erase the remaining live link to Null Roc.",
+                PRISON, ANCHOR_ASSAULT,
                 StoryCampaign.PlayablePolicy.choice(PIGEON, EAGLE, MOCKINGBIRD),
                 fighters(ally(FALCON, "Falcon")),
                 fighters(
@@ -847,6 +847,7 @@ final class StoryCampaignContent {
             case DOCK -> "music-dock.mp3";
             case FROSTBITE_FJORD -> "music-frostbite.mp3";
             case ASHFALL_CATHEDRAL -> "music-ashfall.mp3";
+            case PRISON -> "music-city.mp3";
             default -> "music-forest.mp3";
         };
     }
@@ -1114,9 +1115,9 @@ final class StoryCampaignContent {
                 List.of(PIGEON, FALCON, PHOENIX), false, false));
         scenes.add(scene("s64_after_stillness", "Movement", SKYCLIFFS,
                 List.of(), false, false));
-        scenes.add(scene("s65_blackout_key", "Blackout Key", BATTLEFIELD,
+        scenes.add(scene("s65_blackout_key", "Blackout Key", PRISON,
                 List.of(RAVEN, GRINCHHAWK, HEISENBIRD), false, false));
-        scenes.add(scene("s66_null_roc_wakes", "Null Roc", BATTLEFIELD,
+        scenes.add(scene("s66_null_roc_wakes", "Null Roc", PRISON,
                 List.of(), false, false));
     }
 
@@ -1133,9 +1134,9 @@ final class StoryCampaignContent {
                 List.of(BAT, OPIUMBIRD, SHOEBILL), false, false));
         scenes.add(scene("s72_under_anchor", "The Chain Breaks", CAVE,
                 List.of(), false, false));
-        scenes.add(scene("s73_free_flock", "Free the Flock", SKYCLIFFS,
+        scenes.add(scene("s73_free_flock", "Free the Flock", PRISON,
                 List.of(PIGEON, EAGLE, MOCKINGBIRD), false, false));
-        scenes.add(scene("s74_vulture_freed", "No Forgiveness Required", SKYCLIFFS,
+        scenes.add(scene("s74_vulture_freed", "No Forgiveness Required", PRISON,
                 List.of(), false, false));
     }
 

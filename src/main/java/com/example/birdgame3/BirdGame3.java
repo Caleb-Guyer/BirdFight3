@@ -650,7 +650,7 @@ public class BirdGame3 {
     private record AchievementClaimResult(ShopPreview preview, String detail, boolean usesUnlockCards) {}
 
     // === MAPS ===
-    public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, DESERT, CAVE, BATTLEFIELD, BEACON_CROWN, DOCK, FROSTBITE_FJORD, ASHFALL_CATHEDRAL }
+    public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, DESERT, CAVE, BATTLEFIELD, BEACON_CROWN, DOCK, FROSTBITE_FJORD, ASHFALL_CATHEDRAL, PRISON }
 
     private enum BirdBookCategory { ITEMS, POWERUPS, BIRDS, SKINS, MAPS }
 
@@ -775,6 +775,19 @@ public class BirdGame3 {
     private static final double CROWN_DUEL_BRIDGE_Y = GROUND_Y - 340.0;
     private static final double CROWN_DUEL_BRIDGE_W = 2200.0;
     private static final double CROWN_DUEL_BRIDGE_H = 76.0;
+    private static final double PRISON_MAIN_X = 680.0;
+    private static final double PRISON_MAIN_Y = GROUND_Y - 150.0;
+    private static final double PRISON_MAIN_W = 4640.0;
+    private static final double PRISON_MAIN_H = 92.0;
+    private static final double[] PRISON_LEVER_X = {1260.0, 4740.0};
+    private static final double PRISON_LEVER_Y = PRISON_MAIN_Y - 70.0;
+    private static final double[] PRISON_CELL_X = {PRISON_MAIN_X + 48.0, PRISON_MAIN_X + PRISON_MAIN_W - 48.0};
+    private static final int PRISON_LEVER_COOLDOWN_FRAMES = 720;
+    private static final int PRISON_RUSH_SIZE = 4;
+    private static final int PRISON_RUSH_STAGGER_FRAMES = 9;
+    private static final int PRISON_RUSH_LIFETIME_FRAMES = 390;
+    private static final double PRISON_RUSH_SPEED = 13.5;
+    private static final double PRISON_RUSH_DAMAGE = 7.0;
     private static final int ASHFALL_ERUPTION_PERIOD_FRAMES = 360;
     private static final int ASHFALL_ERUPTION_STAGGER_FRAMES = 120;
     private static final int ASHFALL_ERUPTION_WARNING_FRAMES = 86;
@@ -802,6 +815,39 @@ public class BirdGame3 {
     private int dockLeverCooldown = 0;
     private DockShipBomb dockShipBomb = null;
     private final boolean[] dockLeverHeld = new boolean[MAX_COMBATANTS];
+    private final int[] prisonLeverCooldowns = new int[PRISON_LEVER_X.length];
+    private final boolean[] prisonLeverHeld = new boolean[MAX_COMBATANTS];
+    private final List<PrisonerRush> prisonerRushes = new ArrayList<>();
+
+    private static final class PrisonerRush {
+        double x;
+        final double y;
+        final int direction;
+        final int ownerPlayerIndex;
+        final int variant;
+        final boolean[] hitPlayers;
+        int delayFrames;
+        int lifeFrames;
+        double prevX;
+        double renderSavedX;
+
+        PrisonerRush(double x, double y, int direction, int ownerPlayerIndex, int variant,
+                     int delayFrames, int playerCapacity) {
+            this.x = x;
+            this.y = y;
+            this.direction = direction;
+            this.ownerPlayerIndex = ownerPlayerIndex;
+            this.variant = variant;
+            this.delayFrames = delayFrames;
+            this.lifeFrames = PRISON_RUSH_LIFETIME_FRAMES;
+            this.hitPlayers = new boolean[Math.max(1, playerCapacity)];
+            this.prevX = x;
+        }
+
+        boolean active() {
+            return delayFrames <= 0;
+        }
+    }
 
     List<Particle> particles = new ArrayList<>();
     List<CrowMinion> crowMinions = new ArrayList<>();
@@ -1565,6 +1611,7 @@ public class BirdGame3 {
                     case DOCK -> "music-dock.mp3";
                     case FROSTBITE_FJORD -> "music-frostbite.mp3";
                     case ASHFALL_CATHEDRAL -> "music-ashfall.mp3";
+                    case PRISON -> "music-city.mp3";
             default -> throw new IllegalStateException("Unexpected value: " + selectedMap);
         };
     }
@@ -10496,6 +10543,9 @@ public class BirdGame3 {
             dockShipBomb.prevX = dockShipBomb.x;
             dockShipBomb.prevY = dockShipBomb.y;
         }
+        for (PrisonerRush rush : prisonerRushes) {
+            rush.prevX = rush.x;
+        }
         prevCamX = camX;
         prevCamY = camY;
         prevZoom = zoom;
@@ -10562,6 +10612,10 @@ public class BirdGame3 {
             dockShipBomb.x = lerpRender(dockShipBomb.prevX, dockShipBomb.x, alpha);
             dockShipBomb.y = lerpRender(dockShipBomb.prevY, dockShipBomb.y, alpha);
         }
+        for (PrisonerRush rush : prisonerRushes) {
+            rush.renderSavedX = rush.x;
+            rush.x = lerpRender(rush.prevX, rush.x, alpha);
+        }
         renderSavedCamX = camX;
         renderSavedCamY = camY;
         renderSavedZoom = zoom;
@@ -10606,6 +10660,9 @@ public class BirdGame3 {
         if (dockShipBomb != null) {
             dockShipBomb.x = dockShipBomb.renderSavedX;
             dockShipBomb.y = dockShipBomb.renderSavedY;
+        }
+        for (PrisonerRush rush : prisonerRushes) {
+            rush.x = rush.renderSavedX;
         }
         camX = renderSavedCamX;
         camY = renderSavedCamY;
@@ -11526,6 +11583,7 @@ public class BirdGame3 {
         updateMockingbirdShadowMinions();
 
         updateDockStageHazards();
+        updatePrisonStageHazards();
         updateAshfallCathedralHazards();
         updateMatchTimerState();
 
@@ -11802,6 +11860,162 @@ public class BirdGame3 {
         }
 
         updateDockShipBomb();
+    }
+
+    private void updatePrisonStageHazards() {
+        if (selectedMap != MapType.PRISON) {
+            Arrays.fill(prisonLeverCooldowns, 0);
+            Arrays.fill(prisonLeverHeld, false);
+            prisonerRushes.clear();
+            return;
+        }
+
+        for (int lever = 0; lever < prisonLeverCooldowns.length; lever++) {
+            if (prisonLeverCooldowns[lever] > 0) {
+                prisonLeverCooldowns[lever]--;
+            }
+        }
+
+        int playerCount = Math.min(activePlayers, players.length);
+        for (int i = 0; i < playerCount; i++) {
+            Bird bird = players[i];
+            boolean pressed = isAttackPressed(i) || isSpecialPressed(i);
+            if (bird == null || bird.health <= 0) {
+                prisonLeverHeld[i] = pressed;
+                continue;
+            }
+
+            int lever = nearestPrisonLever(bird);
+            if (lever >= 0 && pressed && !prisonLeverHeld[i]) {
+                if (prisonLeverCooldowns[lever] <= 0) {
+                    releasePrisoners(lever, bird);
+                } else {
+                    bird.cooldownFlash = 16;
+                }
+            }
+            prisonLeverHeld[i] = pressed;
+        }
+
+        for (Iterator<PrisonerRush> iterator = prisonerRushes.iterator(); iterator.hasNext(); ) {
+            PrisonerRush rush = iterator.next();
+            if (rush.delayFrames > 0) {
+                rush.delayFrames--;
+                continue;
+            }
+            rush.lifeFrames--;
+            rush.x += rush.direction * PRISON_RUSH_SPEED;
+            hitBirdsWithPrisonerRush(rush);
+            if (rush.lifeFrames <= 0
+                    || rush.x < PRISON_MAIN_X - 180.0
+                    || rush.x > PRISON_MAIN_X + PRISON_MAIN_W + 180.0) {
+                iterator.remove();
+            }
+        }
+    }
+
+    private int nearestPrisonLever(Bird bird) {
+        if (bird == null || !bird.isOnGround()) {
+            return -1;
+        }
+        double centerX = bird.bodyCenterX();
+        double centerY = bird.bodyCenterY();
+        int nearest = -1;
+        double nearestDistance = Double.MAX_VALUE;
+        for (int lever = 0; lever < PRISON_LEVER_X.length; lever++) {
+            double dx = Math.abs(centerX - PRISON_LEVER_X[lever]);
+            double dy = Math.abs(centerY - PRISON_LEVER_Y);
+            if (dx <= 105.0 && dy <= 125.0 && dx < nearestDistance) {
+                nearest = lever;
+                nearestDistance = dx;
+            }
+        }
+        return nearest;
+    }
+
+    private void releasePrisoners(int lever, Bird puller) {
+        if (lever < 0 || lever >= PRISON_LEVER_X.length || puller == null) {
+            return;
+        }
+        int direction = lever == 0 ? 1 : -1;
+        double startX = PRISON_CELL_X[lever] + direction * 34.0;
+        double runnerY = PRISON_MAIN_Y - 58.0;
+        for (int i = 0; i < PRISON_RUSH_SIZE; i++) {
+            prisonerRushes.add(new PrisonerRush(
+                    startX - direction * i * 18.0,
+                    runnerY,
+                    direction,
+                    puller.playerIndex,
+                    Math.floorMod(puller.playerIndex + lever + i, 4),
+                    i * PRISON_RUSH_STAGGER_FRAMES,
+                    players.length
+            ));
+        }
+        prisonLeverCooldowns[lever] = PRISON_LEVER_COOLDOWN_FRAMES;
+        puller.cooldownFlash = 20;
+        shakeIntensity = Math.max(shakeIntensity, 5.5);
+        playManagedSfxVaried(vaseBreakingClip, 0.52, 0.72, 0.025);
+        playManagedSfxVaried(swingClip, 0.42, 0.66, 0.025);
+        addToKillFeed(shortName(puller.name) + " opened cell block " + (lever == 0 ? "A" : "B") + "!");
+
+        if (particleEffectsEnabled) {
+            for (int i = 0; i < scaledParticleBurstCount(18); i++) {
+                particles.add(new Particle(
+                        PRISON_CELL_X[lever] + (nextParticleRandom() - 0.5) * 54.0,
+                        PRISON_MAIN_Y - 68.0 + (nextParticleRandom() - 0.5) * 42.0,
+                        direction * (1.5 + nextParticleRandom() * 4.0),
+                        -1.0 - nextParticleRandom() * 3.8,
+                        Color.web(i % 3 == 0 ? "#FFCA28" : "#90A4AE", 0.82)
+                ));
+            }
+        }
+    }
+
+    private void hitBirdsWithPrisonerRush(PrisonerRush rush) {
+        if (rush == null || !rush.active()) {
+            return;
+        }
+        Bird owner = rush.ownerPlayerIndex >= 0 && rush.ownerPlayerIndex < players.length
+                ? players[rush.ownerPlayerIndex]
+                : null;
+        if (owner == null) {
+            return;
+        }
+        for (int i = 0; i < Math.min(activePlayers, players.length); i++) {
+            if (i >= rush.hitPlayers.length || rush.hitPlayers[i]) {
+                continue;
+            }
+            Bird target = players[i];
+            if (!canDamage(owner, target)) {
+                continue;
+            }
+            double dx = target.bodyCenterX() - rush.x;
+            double dy = target.bodyCenterY() - rush.y;
+            if (Math.abs(dx) > 58.0 + target.combatHalfWidth() * 0.65
+                    || Math.abs(dy) > 42.0 + target.combatHalfHeight() * 0.7) {
+                continue;
+            }
+            double dealt = target.receiveExternalDamage(PRISON_RUSH_DAMAGE);
+            if (dealt <= 0.0) {
+                continue;
+            }
+            rush.hitPlayers[i] = true;
+            target.vx += rush.direction * 9.5;
+            target.vy = Math.min(target.vy, -6.5);
+            target.applyStun(10);
+            shakeIntensity = Math.max(shakeIntensity, 5.0);
+            playManagedSfxVaried(butterClip, 0.38, 0.86, 0.04);
+            addToKillFeed("PRISON BREAK struck " + shortName(target.name) + "! -" + (int) Math.round(dealt) + " HP");
+            if (particleEffectsEnabled) {
+                for (int p = 0; p < scaledParticleBurstCount(10); p++) {
+                    particles.add(new Particle(
+                            target.bodyCenterX(), target.bodyCenterY(),
+                            rush.direction * (2.0 + nextParticleRandom() * 5.0),
+                            -2.0 + (nextParticleRandom() - 0.5) * 5.0,
+                            Color.web(p % 2 == 0 ? "#FFB300" : "#ECEFF1", 0.84)
+                    ));
+                }
+            }
+        }
     }
 
     private void updateAshfallCathedralHazards() {
@@ -12770,6 +12984,7 @@ public class BirdGame3 {
             case DOCK -> drawDockArena(g, ambientFx);
             case FROSTBITE_FJORD -> drawFrostbiteFjordArena(g, ambientFx);
             case ASHFALL_CATHEDRAL -> drawAshfallCathedralArena(g, ambientFx);
+            case PRISON -> drawPrisonArena(g, ambientFx);
             case BATTLEFIELD -> {
                 if (isBeaconCrownBattlefieldContext()) {
                     drawBeaconCrownBattlefield(g, ambientFx);
@@ -13008,6 +13223,12 @@ public class BirdGame3 {
 
         if (dockShipBomb != null) {
             drawDockShipBomb(g, dockShipBomb);
+        }
+
+        for (PrisonerRush rush : prisonerRushes) {
+            if (rush.active() && !isWorldRectOutsideCamera(rush.x - 62, rush.y - 52, 124, 104, 180)) {
+                drawPrisonerRush(g, rush);
+            }
         }
 
         for (PiranhaHazard piranha : piranhaHazards) {
@@ -14818,6 +15039,230 @@ public class BirdGame3 {
             g.setLineWidth(2);
             g.strokeOval(v.x + v.w / 2 - 94, v.y - 140, 188, 224);
         }
+    }
+
+    private void drawPrisonArena(GraphicsContext g, boolean ambientFx) {
+        LinearGradient wall = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0.0, Color.web("#071018")),
+                new Stop(0.48, Color.web("#172733")),
+                new Stop(1.0, Color.web("#263640")));
+        g.setFill(wall);
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        // Narrow armored windows place Crownlock beneath the city's night skyline.
+        g.setFill(Color.web("#081E36"));
+        for (int i = 0; i < 8; i++) {
+            double wx = 430 + i * 735.0;
+            g.fillRoundRect(wx, 150, 360, 250, 24, 24);
+            g.setFill(Color.web("#10253A"));
+            for (int b = 0; b < 5; b++) {
+                double buildingX = wx + 18 + b * 68;
+                double buildingH = 70 + ((i * 31 + b * 47) % 120);
+                g.fillRect(buildingX, 382 - buildingH, 50, buildingH);
+            }
+            g.setStroke(Color.web("#607D8B", 0.82));
+            g.setLineWidth(12);
+            for (int bar = 0; bar < 6; bar++) {
+                double bx = wx + 20 + bar * 64;
+                g.strokeLine(bx, 158, bx, 392);
+            }
+            g.setFill(Color.web("#081E36"));
+        }
+
+        // Heavy masonry and inset seams keep the room readable without a noisy texture.
+        g.setStroke(Color.web("#344955", 0.62));
+        g.setLineWidth(5);
+        for (double y = 430; y < GROUND_Y + 160; y += 190) {
+            g.strokeLine(0, y, WORLD_WIDTH, y);
+            double offset = ((int) (y / 190) & 1) == 0 ? 0 : 150;
+            for (double x = offset; x < WORLD_WIDTH; x += 300) {
+                g.strokeLine(x, y, x, y + 190);
+            }
+        }
+
+        if (ambientFx) {
+            double sweep = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 1450.0);
+            g.setFill(Color.web("#80D8FF", 0.055));
+            g.fillPolygon(
+                    new double[]{2450, 2750 + sweep * 700, 3400 + sweep * 900},
+                    new double[]{250, GROUND_Y + 80, GROUND_Y + 80}, 3);
+            g.setFill(Color.web("#FF1744", prisonerRushes.isEmpty() ? 0.025 : 0.075));
+            g.fillRect(0, 0, WORLD_WIDTH, GROUND_Y + 130);
+        }
+
+        drawPrisonCellBank(g, 180, 610, false);
+        drawPrisonCellBank(g, WORLD_WIDTH - 180, 610, true);
+
+        // Central surveillance tower and the Crown's telemetry eye.
+        g.setFill(Color.web("#101B23"));
+        g.fillRoundRect(2470, 455, 1060, GROUND_Y - 470, 30, 30);
+        g.setStroke(Color.web("#455A64"));
+        g.setLineWidth(8);
+        g.strokeRoundRect(2470, 455, 1060, GROUND_Y - 470, 30, 30);
+        g.setFill(Color.web("#050A0E"));
+        g.fillRoundRect(2620, 590, 760, 280, 18, 18);
+        g.setStroke(Color.web("#00BCD4", 0.74));
+        g.setLineWidth(5);
+        g.strokeRoundRect(2620, 590, 760, 280, 18, 18);
+        g.setFill(Color.web("#00E5FF", 0.58));
+        g.fillOval(2920, 630, 160, 160);
+        g.setFill(Color.web("#06141A"));
+        g.fillOval(2960, 670, 80, 80);
+        g.setStroke(Color.web("#80DEEA", 0.72));
+        g.setLineWidth(8);
+        g.strokeArc(2850, 570, 300, 300, 25, 130, ArcType.OPEN);
+        g.strokeArc(2850, 570, 300, 300, 205, 130, ArcType.OPEN);
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 42));
+        g.setFill(Color.web("#B0BEC5", 0.78));
+        g.fillText("CROWNLOCK DETENTION", 2670, 965);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
+        g.setFill(Color.web("#FF5252", 0.72));
+        g.fillText("AUTHORIZED WINGS ONLY", 2815, 1010);
+
+        // Steel fighting floor and catwalks.
+        for (Platform p : platforms) {
+            g.setFill(p.y >= PRISON_MAIN_Y - 5 ? Color.web("#26343D") : Color.web("#31444F"));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, 18, 18);
+            g.setStroke(Color.web("#78909C"));
+            g.setLineWidth(4);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, 18, 18);
+            g.setFill(Color.web("#0B151B"));
+            g.fillRect(p.x + 12, p.y + Math.min(24, p.h * 0.38), Math.max(0, p.w - 24), 8);
+            g.setFill(Color.web("#B0BEC5", 0.72));
+            for (double rivetX = p.x + 32; rivetX < p.x + p.w - 18; rivetX += 120) {
+                g.fillOval(rivetX, p.y + 11, 8, 8);
+            }
+            if (p.y < PRISON_MAIN_Y - 100) {
+                g.setStroke(Color.web("#546E7A", 0.65));
+                g.setLineWidth(5);
+                g.strokeLine(p.x + 24, p.y + p.h, p.x + 74, PRISON_MAIN_Y);
+                g.strokeLine(p.x + p.w - 24, p.y + p.h, p.x + p.w - 74, PRISON_MAIN_Y);
+            }
+        }
+
+        for (int lever = 0; lever < PRISON_LEVER_X.length; lever++) {
+            drawPrisonLever(g, lever);
+        }
+
+        g.setFill(Color.web("#05090D"));
+        g.fillRect(0, GROUND_Y + 40, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y - 40);
+        g.setStroke(Color.web("#FFB300", 0.7));
+        g.setLineWidth(8);
+        for (double x = PRISON_MAIN_X + 120; x < PRISON_MAIN_X + PRISON_MAIN_W - 80; x += 240) {
+            g.strokeLine(x, PRISON_MAIN_Y + PRISON_MAIN_H + 22,
+                    x + 72, PRISON_MAIN_Y + PRISON_MAIN_H + 22);
+        }
+    }
+
+    private void drawPrisonCellBank(GraphicsContext g, double edgeX, double topY, boolean faceLeft) {
+        double direction = faceLeft ? -1.0 : 1.0;
+        for (int tier = 0; tier < 2; tier++) {
+            double y = topY + tier * 520.0;
+            for (int cell = 0; cell < 4; cell++) {
+                double x = edgeX + direction * cell * 360.0;
+                if (faceLeft) x -= 300.0;
+                g.setFill(Color.web("#050A0D"));
+                g.fillRoundRect(x, y, 300, 310, 16, 16);
+                g.setStroke(Color.web("#607D8B"));
+                g.setLineWidth(10);
+                for (int bar = 0; bar < 6; bar++) {
+                    double bx = x + 22 + bar * 51;
+                    g.strokeLine(bx, y + 8, bx, y + 302);
+                }
+                g.setStroke(Color.web("#37474F"));
+                g.setLineWidth(8);
+                g.strokeRoundRect(x, y, 300, 310, 16, 16);
+                g.setFill(Color.web("#FFB300", 0.48));
+                g.fillRect(x + 30, y + 260, 62, 12);
+            }
+        }
+    }
+
+    private void drawPrisonLever(GraphicsContext g, int lever) {
+        double x = PRISON_LEVER_X[lever];
+        double y = PRISON_LEVER_Y;
+        boolean ready = prisonLeverCooldowns[lever] <= 0;
+        g.setFill(Color.web("#111A20"));
+        g.fillRoundRect(x - 48, y - 5, 96, 62, 14, 14);
+        g.setStroke(ready ? Color.web("#FFD54F") : Color.web("#546E7A"));
+        g.setLineWidth(5);
+        g.strokeRoundRect(x - 48, y - 5, 96, 62, 14, 14);
+        double handleX = x + (ready ? (lever == 0 ? 23 : -23) : 0);
+        double handleY = y - (ready ? 45 : 22);
+        g.strokeLine(x, y + 14, handleX, handleY);
+        g.setFill(ready ? Color.web("#FFCA28") : Color.web("#78909C"));
+        g.fillOval(handleX - 12, handleY - 12, 24, 24);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 19));
+        g.setFill(ready ? Color.web("#FFF8E1") : Color.web("#90A4AE"));
+        String label = ready ? "RELEASE" : "LOCKED " + (int) Math.ceil(prisonLeverCooldowns[lever] / 60.0) + "s";
+        g.fillText(label, x, y - 70);
+        g.setTextAlign(TextAlignment.LEFT);
+
+        double gateX = PRISON_CELL_X[lever];
+        double openProgress = prisonLeverCooldowns[lever] > PRISON_LEVER_COOLDOWN_FRAMES - 96
+                ? (PRISON_LEVER_COOLDOWN_FRAMES - prisonLeverCooldowns[lever]) / 96.0
+                : 1.0;
+        double visibleGateH = 190.0 * Math.clamp(openProgress, 0.0, 1.0);
+        g.setFill(Color.web("#050A0D"));
+        g.fillRoundRect(gateX - 88, PRISON_MAIN_Y - 230, 176, 230, 14, 14);
+        g.setStroke(Color.web("#90A4AE"));
+        g.setLineWidth(8);
+        for (int bar = 0; bar < 5; bar++) {
+            double bx = gateX - 72 + bar * 36;
+            g.strokeLine(bx, PRISON_MAIN_Y - 230, bx, PRISON_MAIN_Y - 230 + visibleGateH);
+        }
+    }
+
+    private void drawPrisonerRush(GraphicsContext g, PrisonerRush rush) {
+        Color[] feathers = {
+                Color.web("#795548"), Color.web("#607D8B"),
+                Color.web("#455A64"), Color.web("#8D6E63")
+        };
+        Color feather = feathers[Math.floorMod(rush.variant, feathers.length)];
+        double stride = Math.sin((PRISON_RUSH_LIFETIME_FRAMES - rush.lifeFrames) * 0.72);
+        g.save();
+        g.translate(rush.x, rush.y + Math.abs(stride) * 3.0);
+        g.scale(rush.direction, 1.0);
+
+        g.setFill(Color.web("#000000", 0.28));
+        g.fillOval(-48, 37, 96, 20);
+        g.setStroke(Color.web("#CFD8DC", 0.72));
+        g.setLineWidth(4);
+        for (int line = 0; line < 3; line++) {
+            double trail = -70 - line * 34;
+            g.strokeLine(trail, -10 + line * 14, trail - 38, -5 + line * 14);
+        }
+
+        g.setFill(feather);
+        g.fillOval(-42, -34, 82, 76);
+        g.setFill(feather.brighter());
+        g.fillOval(18, -27, 48, 48);
+        g.setFill(Color.web("#F57C00"));
+        g.fillPolygon(new double[]{58, 94, 58}, new double[]{-15, -2, 9}, 3);
+        g.setFill(Color.WHITE);
+        g.fillOval(35, -25, 25, 25);
+        g.setFill(Color.BLACK);
+        g.fillOval(44, -18, 12, 12);
+
+        // Prison uniform, number plate, and a loose shackle sell the hazard at gameplay scale.
+        g.setFill(Color.web("#EF6C00"));
+        g.fillRoundRect(-30, -4, 62, 32, 18, 18);
+        g.setFill(Color.web("#1B1B1B"));
+        g.fillRect(-28, 5, 58, 7);
+        g.setFill(Color.web("#ECEFF1"));
+        g.fillRoundRect(-9, -1, 28, 19, 5, 5);
+        g.setFill(Color.web("#263238"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 11));
+        g.fillText("C" + (rush.variant + 3), -4, 13);
+
+        g.setStroke(Color.web("#B0BEC5"));
+        g.setLineWidth(5);
+        g.strokeLine(-18, 32, -26 + stride * 13, 47);
+        g.strokeLine(13, 31, 20 - stride * 13, 47);
+        g.strokeOval(-36, 38, 20, 12);
+        g.strokeLine(-16, 44, -2, 44);
+        g.restore();
     }
 
     private boolean updateAnchoredCrowMinion(CrowMinion c) {
@@ -24679,6 +25124,7 @@ public class BirdGame3 {
             case DOCK -> "Broken Harbor";
             case FROSTBITE_FJORD -> "Frostbite Fjord";
             case ASHFALL_CATHEDRAL -> "Ashfall Cathedral";
+            case PRISON -> "Crownlock Prison";
             default -> "Big Forest";
         };
     }
@@ -29135,6 +29581,9 @@ public class BirdGame3 {
         battlefieldIslandW = 0;
         battlefieldIslandY = 0;
         Arrays.fill(dockLeverHeld, false);
+        Arrays.fill(prisonLeverCooldowns, 0);
+        Arrays.fill(prisonLeverHeld, false);
+        prisonerRushes.clear();
         mountainPeaks = null;
         switch (Objects.requireNonNull(selectedMap)) {
             case DOCK -> setupDockArena();
@@ -29155,6 +29604,7 @@ public class BirdGame3 {
             }
             case BEACON_CROWN -> setupBeaconCrownBattlefield();
             case FROSTBITE_FJORD -> setupFrostbiteFjordArena(new Random(74_021L));
+            case PRISON -> setupPrisonArena();
             default -> {
                 platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
                 platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
@@ -29171,6 +29621,7 @@ public class BirdGame3 {
             case BATTLEFIELD -> drawTrailerBattlefieldArena(g);
             case BEACON_CROWN -> drawBeaconCrownBattlefield(g, true);
             case FROSTBITE_FJORD ->  drawFrostbiteFjordArena(g, true);
+            case PRISON -> drawPrisonArena(g, true);
             default -> drawForestArena(g, true);
         }
     }
@@ -30515,6 +30966,7 @@ public class BirdGame3 {
                 new MapEntry(MapType.DOCK, "Broken Harbor", mapDescription(MapType.DOCK), mapHowToGet(MapType.DOCK)),
                 new MapEntry(MapType.FROSTBITE_FJORD, "Frostbite Fjord", mapDescription(MapType.FROSTBITE_FJORD), mapHowToGet(MapType.FROSTBITE_FJORD)),
                 new MapEntry(MapType.ASHFALL_CATHEDRAL, "Ashfall Cathedral", mapDescription(MapType.ASHFALL_CATHEDRAL), mapHowToGet(MapType.ASHFALL_CATHEDRAL)),
+                new MapEntry(MapType.PRISON, "Crownlock Prison", mapDescription(MapType.PRISON), mapHowToGet(MapType.PRISON)),
                 new MapEntry(MapType.BEACON_CROWN, "Beacon Crown", mapDescription(MapType.BEACON_CROWN), mapHowToGet(MapType.BEACON_CROWN))
         );
     }
@@ -30549,6 +31001,7 @@ public class BirdGame3 {
             case DOCK -> "Storm-battered piers, rigging perches, and rescue skiffs over open water. Pull the top-dock lever to call in a pirate-ship bomb on a rival.";
             case FROSTBITE_FJORD -> "A frozen fjord under bright auroras with slick ice, breakable snowbanks, and glacier shelves built for slides, traps, and vertical recoveries.";
             case ASHFALL_CATHEDRAL -> "A burning sky-temple over a lava sea. Timed phoenix geysers telegraph, erupt, launch, and become dangerous thermals that can save or punish recoveries.";
+            case PRISON -> "A Crown detention complex beneath the city. Pull either cell-block lever to release a charging prisoner wave that attacks the opposing side, then use the layered steel catwalks to escape the rush.";
             case BEACON_CROWN -> "The Beacon Crown opens into a giant sky arena with long lanes, staggered perches, and a lethal drop on every side.";
             default -> "Dense trees and long platforms for classic brawls. A steady arena that rewards smart positioning.";
         };
@@ -36481,6 +36934,9 @@ public class BirdGame3 {
         dockLeverCooldown = 0;
         dockShipBomb = null;
         Arrays.fill(dockLeverHeld, false);
+        Arrays.fill(prisonLeverCooldowns, 0);
+        Arrays.fill(prisonLeverHeld, false);
+        prisonerRushes.clear();
     }
 
     private void setupBossRushSkybreakSpires() {
@@ -37392,6 +37848,7 @@ public class BirdGame3 {
                 new MapCard("BROKEN HARBOR", "Storm piers, mast perches, rescue skiffs, and a bombardment lever on the high dock.", "#26A69A", MapType.DOCK),
                 new MapCard("FROSTBITE FJORD", "Aurora-lit ice shelves with slick movement, snowbanks, and glacier routes.", "#4FC3F7", MapType.FROSTBITE_FJORD),
                 new MapCard("ASHFALL CATHEDRAL", "Phoenix geysers, lava recovery routes, ember thermals, and a burning sky-temple.", "#E64A19", MapType.ASHFALL_CATHEDRAL),
+                new MapCard("CROWNLOCK PRISON", "Steel cell blocks where paired levers unleash prisoner rushes across the main floor.", "#546E7A", MapType.PRISON),
                 new MapCard("BEACON CROWN", "A huge crown-top arena with long lanes, layered perches, and a lethal void.", "#6A1B9A", MapType.BEACON_CROWN)
         ));
         cards.removeIf(card -> !isMapUnlocked(card.map));
@@ -40771,6 +41228,19 @@ public class BirdGame3 {
             h = h * 1099511628211L + (shadow.copiedType != null ? shadow.copiedType.ordinal() : -1);
             h = h * 1099511628211L + (shadow.owner != null ? shadow.owner.playerIndex : -1);
         }
+        for (int cooldown : prisonLeverCooldowns) {
+            h = h * 1099511628211L + cooldown;
+        }
+        h = h * 1099511628211L + prisonerRushes.size();
+        for (PrisonerRush rush : prisonerRushes) {
+            h = h * 1099511628211L + Double.doubleToLongBits(rush.x);
+            h = h * 1099511628211L + rush.delayFrames;
+            h = h * 1099511628211L + rush.lifeFrames;
+            h = h * 1099511628211L + rush.ownerPlayerIndex;
+            for (boolean hit : rush.hitPlayers) {
+                h = h * 1099511628211L + (hit ? 1 : 0);
+            }
+        }
         return h;
     }
 
@@ -41929,6 +42399,7 @@ public class BirdGame3 {
                 || selectedMap == MapType.BEACON_CROWN
                 || selectedMap == MapType.FROSTBITE_FJORD
                 || selectedMap == MapType.ASHFALL_CATHEDRAL
+                || selectedMap == MapType.PRISON
                 || isCrownDuelCampaign();
     }
 
@@ -42074,6 +42545,27 @@ public class BirdGame3 {
         battlefieldIslandX = islandX;
         battlefieldIslandW = islandW;
         battlefieldIslandY = islandY;
+    }
+
+    private void setupPrisonArena() {
+        platforms.add(new Platform(PRISON_MAIN_X, PRISON_MAIN_Y, PRISON_MAIN_W, PRISON_MAIN_H));
+
+        // Mirrored side catwalks give the levers counterplay; the center tower creates
+        // a faster but exposed rotation between them.
+        platforms.add(new Platform(PRISON_MAIN_X + 310, PRISON_MAIN_Y - 330, 900, 48));
+        platforms.add(new Platform(PRISON_MAIN_X + PRISON_MAIN_W - 1210, PRISON_MAIN_Y - 330, 900, 48));
+        platforms.add(new Platform(PRISON_MAIN_X + 1460, PRISON_MAIN_Y - 570, 1720, 54));
+        platforms.add(new Platform(PRISON_MAIN_X + 620, PRISON_MAIN_Y - 790, 420, 38));
+        platforms.add(new Platform(PRISON_MAIN_X + PRISON_MAIN_W - 1040, PRISON_MAIN_Y - 790, 420, 38));
+        platforms.add(new Platform(PRISON_MAIN_X + 2020, PRISON_MAIN_Y - 900, 600, 40));
+
+        // Small recovery shelves sit outside the walls, low enough to enable daring saves.
+        platforms.add(new Platform(PRISON_MAIN_X - 360, PRISON_MAIN_Y + 150, 300, 32));
+        platforms.add(new Platform(PRISON_MAIN_X + PRISON_MAIN_W + 60, PRISON_MAIN_Y + 150, 300, 32));
+
+        battlefieldIslandX = PRISON_MAIN_X;
+        battlefieldIslandW = PRISON_MAIN_W;
+        battlefieldIslandY = PRISON_MAIN_Y;
     }
 
     static double battlefieldCitadelClearanceAboveSidePlatforms() {
@@ -42228,6 +42720,9 @@ public class BirdGame3 {
         dockLeverCooldown = 0;
         dockShipBomb = null;
         Arrays.fill(dockLeverHeld, false);
+        Arrays.fill(prisonLeverCooldowns, 0);
+        Arrays.fill(prisonLeverHeld, false);
+        prisonerRushes.clear();
 
         if (selectedMap != MapType.CITY || lanModeActive) cityStars.clear();
 
@@ -42254,6 +42749,8 @@ public class BirdGame3 {
             setupAshfallCathedralArena();
         } else if (selectedMap == MapType.DOCK) {
             setupDockArena();
+        } else if (selectedMap == MapType.PRISON) {
+            setupPrisonArena();
         } else if (selectedMap == MapType.DESERT) {
             setupDesertArena();
         } else {
@@ -42356,6 +42853,7 @@ public class BirdGame3 {
                 || selectedMap == MapType.FROSTBITE_FJORD
                 || selectedMap == MapType.ASHFALL_CATHEDRAL
                 || selectedMap == MapType.DOCK
+                || selectedMap == MapType.PRISON
                 || selectedMap == MapType.DESERT) {
             mountainPeaks = null;
         } else {
@@ -42639,6 +43137,8 @@ public class BirdGame3 {
                 ? "-fx-background-color: linear-gradient(to bottom, #F3A85A 0%, #F7D28B 48%, #D59A52 100%);"
                 : selectedMap == MapType.BATTLEFIELD
                 ? "-fx-background-color: linear-gradient(to bottom, #10283E 0%, #315B73 48%, #D5D7B6 100%);"
+                : selectedMap == MapType.PRISON
+                ? "-fx-background-color: linear-gradient(to bottom, #071018 0%, #172733 52%, #05090D 100%);"
                 : selectedMap == MapType.FOREST
                 ? "-fx-background-color: linear-gradient(to bottom, #87CEEB 0%, #B3E5FC 50%, #E0F2F1 100%);"
                 : "-fx-background-color: #000011;");

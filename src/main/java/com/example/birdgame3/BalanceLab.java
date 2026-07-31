@@ -167,6 +167,7 @@ final class BalanceLab {
                 case DOCK -> "Broken Harbor";
                 case FROSTBITE_FJORD -> "Frostbite Fjord";
                 case ASHFALL_CATHEDRAL -> "Ashfall Cathedral";
+                case PRISON -> "Crownlock Prison";
                 default -> "Big Forest";
             };
         }

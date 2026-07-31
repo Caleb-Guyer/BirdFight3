@@ -190,6 +190,21 @@ class StoryCampaignContentTest {
     }
 
     @Test
+    void crownlockPrisonHostsTheBlackoutAndVultureRescueMissions() {
+        StoryCampaign campaign = StoryCampaignContent.create();
+        StoryCampaign.Mission blackout = campaign.mission("blackout_key");
+        StoryCampaign.Mission rescue = campaign.mission("free_the_flock");
+
+        assertEquals(BirdGame3.MapType.PRISON, blackout.map());
+        assertEquals(BirdGame3.MapType.PRISON, rescue.map());
+        assertEquals(BirdGame3.MapType.PRISON, campaign.scene(blackout.preSceneId()).location());
+        assertEquals(BirdGame3.MapType.PRISON, campaign.scene(blackout.postSceneId()).location());
+        assertEquals(BirdGame3.MapType.PRISON, campaign.scene(rescue.preSceneId()).location());
+        assertEquals(BirdGame3.MapType.PRISON, campaign.scene(rescue.postSceneId()).location());
+        assertTrue(blackout.briefing().contains("city's old central station"));
+    }
+
+    @Test
     void namedCastKeepsBaseIdentityWhileEveryCampaignExtraHasAnAuthoredLook() {
         StoryCampaign campaign = StoryCampaignContent.create();
 

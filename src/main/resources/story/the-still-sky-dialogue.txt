@@ -778,7 +778,7 @@ Falcon|West updraft is gone.
 Eagle|Every remaining route now terminates at the Crown.
 Pigeon|Raven has the master key.
 Raven|A partial key. Vulture's transfer route contains the missing sequence.
-Grinch-Hawk|The Crown prison also contains several tools it confiscated from me.
+Grinch-Hawk|Crownlock sits under the city's old central station. Eagle turned the migration platforms into holding cells.
 Heisenbird|And my original conductor governor.
 Opium Bird|The prison opens in one future.
 Titmouse|Skip the future speech.
