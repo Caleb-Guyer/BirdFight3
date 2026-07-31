@@ -645,7 +645,7 @@ final class StoryCampaignContent {
                 fighters(enemy(VULTURE, "Null Echo"), enemy(RAVEN, "Null Echo")),
                 phases(
                         phase(PROTECT, "Protect the Ashfall civilians", 48, 1, true),
-                        phase(GAUNTLET, "Break the null echoes", 0, 3, true)
+                        eliminate("Break the null echoes")
                 ),
                 "s61_perfect_weather", "s62_eagle_breaks", EAGLE, false);
     }

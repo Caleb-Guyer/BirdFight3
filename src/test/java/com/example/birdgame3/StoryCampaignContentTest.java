@@ -164,6 +164,32 @@ class StoryCampaignContentTest {
     }
 
     @Test
+    void perfectWeatherNullEchoesStayDefeatedAcrossTheObjectiveHandoff() {
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("perfect_weather");
+
+        assertEquals(StoryCampaign.ObjectiveType.PROTECT,
+                mission.phases().getFirst().objective());
+        assertEquals(StoryCampaign.ObjectiveType.ELIMINATION,
+                mission.phases().getLast().objective());
+
+        StoryMissionController controller = new StoryMissionController(
+                mission, StoryCampaign.Difficulty.NORMAL, 6000);
+        List<StoryMissionController.Participant> clearedRoster = List.of(
+                new StoryMissionController.Participant(0, 1, 1200, 110, 110),
+                new StoryMissionController.Participant(1, 2, 2800, 0, 112),
+                new StoryMissionController.Participant(2, 2, 4100, 0, 112)
+        );
+
+        assertEquals(StoryMissionController.Outcome.PHASE_ADVANCED,
+                controller.tick(clearedRoster).outcome());
+        assertFalse(controller.takeReinforcementRequest(),
+                "Finishing the evacuation must not revive either defeated Null Echo.");
+        assertEquals(StoryMissionController.Outcome.COMPLETE,
+                controller.tick(clearedRoster).outcome());
+        assertFalse(controller.takeReinforcementRequest());
+    }
+
+    @Test
     void namedCastKeepsBaseIdentityWhileEveryCampaignExtraHasAnAuthoredLook() {
         StoryCampaign campaign = StoryCampaignContent.create();
 
