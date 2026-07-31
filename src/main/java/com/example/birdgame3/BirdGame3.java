@@ -13043,40 +13043,40 @@ public class BirdGame3 {
             case CAPTURE, HOLD_ZONE -> {
                 int total = Math.max(1, phase.targetCount());
                 int cleared = campaignMissionController.capturedTargets();
+                double floorY = campaignMissionController.objectiveFloorY();
                 for (int i = 0; i < total; i++) {
-                    double x = total <= 1
-                            ? WORLD_WIDTH * 0.5
-                            : WORLD_WIDTH * (0.24 + 0.52 * i / (double) (total - 1));
+                    double x = campaignMissionController.captureZoneCenterX(i, total);
                     boolean complete = i < cleared;
                     boolean active = i == cleared;
                     Color accent = complete ? Color.web("#69F0AE")
                             : active ? Color.web("#80DEEA") : Color.web("#78909C");
                     double alpha = active ? pulse : 0.42;
                     g.setFill(accent.deriveColor(0, 1, 1, alpha * 0.22));
-                    g.fillOval(x - 150, GROUND_Y - 30, 300, 60);
+                    g.fillOval(x - 150, floorY - 30, 300, 60);
                     g.setStroke(accent.deriveColor(0, 1, 1, alpha));
                     g.setLineWidth(active ? 12 : 7);
-                    g.strokeOval(x - 150, GROUND_Y - 30, 300, 60);
+                    g.strokeOval(x - 150, floorY - 30, 300, 60);
                     g.setFill(accent.deriveColor(0, 1, 1, 0.18 + alpha * 0.18));
-                    g.fillRoundRect(x - 24, GROUND_Y - 250, 48, 220, 18, 18);
+                    g.fillRoundRect(x - 24, floorY - 250, 48, 220, 18, 18);
                     g.setFont(Font.font("Arial Black", FontWeight.BOLD, 42));
                     g.setTextAlign(TextAlignment.CENTER);
                     g.setFill(accent);
-                    g.fillText(complete ? "✓" : Integer.toString(i + 1), x, GROUND_Y - 274);
+                    g.fillText(complete ? "✓" : Integer.toString(i + 1), x, floorY - 274);
                 }
             }
             case REACH_EXIT -> {
-                double x = WORLD_WIDTH - 180.0;
+                double x = campaignMissionController.reachExitMarkerX();
+                double floorY = campaignMissionController.objectiveFloorY();
                 g.setFill(Color.web("#FFE082", 0.12 + pulse * 0.20));
-                g.fillRoundRect(x - 100, GROUND_Y - 520, 200, 520, 42, 42);
+                g.fillRoundRect(x - 100, floorY - 520, 200, 520, 42, 42);
                 g.setStroke(Color.web("#FFE082", pulse));
                 g.setLineWidth(12);
-                g.strokeRoundRect(x - 100, GROUND_Y - 520, 200, 520, 42, 42);
+                g.strokeRoundRect(x - 100, floorY - 520, 200, 520, 42, 42);
                 g.setFill(Color.web("#FFF8E1"));
                 g.fillPolygon(
                         new double[]{x - 64, x + 16, x + 16, x + 82, x + 16, x + 16},
-                        new double[]{GROUND_Y - 320, GROUND_Y - 320, GROUND_Y - 382,
-                                GROUND_Y - 270, GROUND_Y - 158, GROUND_Y - 220},
+                        new double[]{floorY - 320, floorY - 320, floorY - 382,
+                                floorY - 270, floorY - 158, floorY - 220},
                         6
                 );
             }
@@ -31859,6 +31859,30 @@ public class BirdGame3 {
         campaignRetryPhaseIndex = 0;
     }
 
+    private void setupCampaignMissionController(StoryCampaign.Mission mission) {
+        double objectiveMinX = 0.0;
+        double objectiveMaxX = WORLD_WIDTH;
+        double objectiveFloorY = GROUND_Y;
+        if (battlefieldIslandW > 0.0) {
+            objectiveMinX = battlefieldIslandX;
+            objectiveMaxX = battlefieldIslandX + battlefieldIslandW;
+            objectiveFloorY = battlefieldIslandY;
+        }
+        int startPhaseIndex = campaignMissionController == null
+                ? campaignRetryPhaseIndex
+                : campaignMissionController.phaseIndex();
+        campaignMissionController = new StoryMissionController(
+                mission,
+                stillSkyProgress.difficulty,
+                WORLD_WIDTH,
+                objectiveFloorY,
+                objectiveMinX,
+                objectiveMaxX,
+                startPhaseIndex
+        );
+        campaignRetryPhaseIndex = 0;
+    }
+
     private Bird createCampaignFighter(StoryCampaign.Fighter fighter, int slot, double x, boolean enemy) {
         double health = fighter.health();
         if (enemy) {
@@ -42167,6 +42191,7 @@ public class BirdGame3 {
 
         if (campaignModeActive && campaignMission != null) {
             applyCampaignMissionArenaModifiers(campaignMission);
+            setupCampaignMissionController(campaignMission);
             if (campaignMatchTimerOverride > 0) {
                 matchTimer = campaignMatchTimerOverride;
             }

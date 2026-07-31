@@ -341,6 +341,42 @@ class StoryMissionControllerTest {
         assertTrue(Double.isNaN(controller.objectiveAssistTargetX()));
     }
 
+    @Test
+    void battlefieldObjectivesStayOnTheMainIsland() {
+        StoryCampaign.Mission mission = missionWith(
+                StoryCampaign.MissionPhase.timed(
+                        StoryCampaign.ObjectiveType.HOLD_ZONE, "Hold", 20, 3, true),
+                StoryCampaign.MissionPhase.timed(
+                        StoryCampaign.ObjectiveType.REACH_EXIT, "Exit", 20, 1, true));
+        double islandLeft = 2400.0;
+        double islandRight = 3600.0;
+        double islandFloorY = BirdGame3.GROUND_Y - 80.0;
+        StoryMissionController controller = new StoryMissionController(
+                mission, StoryCampaign.Difficulty.NORMAL, 6000,
+                islandFloorY, islandLeft, islandRight, 0);
+
+        double[] zones = {2688.0, 3000.0, 3312.0};
+        for (double zone : zones) {
+            assertEquals(zone, controller.objectiveAssistTargetX(), 0.0001);
+            assertTrue(zone >= islandLeft && zone <= islandRight);
+            StoryMissionController.Participant playerInZone =
+                    new StoryMissionController.Participant(
+                            0, 1, zone, islandFloorY - 80.0, 100, 100);
+            for (int tick = 0; tick < 120; tick++) {
+                controller.tick(List.of(playerInZone));
+            }
+        }
+
+        assertEquals(3480.0, controller.objectiveAssistTargetX(), 0.0001);
+        assertEquals(3420.0, controller.reachExitMarkerX(), 0.0001);
+        StoryMissionController.Participant playerAtExit =
+                new StoryMissionController.Participant(
+                        0, 1, controller.reachExitMarkerX(),
+                        islandFloorY - 80.0, 100, 100);
+        assertEquals(StoryMissionController.Outcome.COMPLETE,
+                controller.tick(List.of(playerAtExit)).outcome());
+    }
+
     private List<Long> runDeadAirObjective(StoryMissionController controller) {
         List<Long> hashes = new ArrayList<>();
         double[] zones = {1440, 3000, 4560};

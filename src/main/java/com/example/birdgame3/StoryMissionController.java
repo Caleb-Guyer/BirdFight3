@@ -39,6 +39,8 @@ final class StoryMissionController {
     private final StoryCampaign.Difficulty difficulty;
     private final double arenaWidth;
     private final double arenaFloorY;
+    private final double objectiveMinX;
+    private final double objectiveMaxX;
     private final Set<String> firedEvents = new HashSet<>();
     private int phaseIndex;
     private int checkpointPhaseIndex;
@@ -63,10 +65,24 @@ final class StoryMissionController {
 
     StoryMissionController(StoryCampaign.Mission mission, StoryCampaign.Difficulty difficulty,
                            double arenaWidth, double arenaFloorY, int startPhaseIndex) {
+        this(mission, difficulty, arenaWidth, arenaFloorY, 0.0, arenaWidth, startPhaseIndex);
+    }
+
+    StoryMissionController(StoryCampaign.Mission mission, StoryCampaign.Difficulty difficulty,
+                           double arenaWidth, double arenaFloorY,
+                           double objectiveMinX, double objectiveMaxX, int startPhaseIndex) {
         this.mission = mission;
         this.difficulty = difficulty == null ? StoryCampaign.Difficulty.NORMAL : difficulty;
         this.arenaWidth = Math.max(640.0, arenaWidth);
         this.arenaFloorY = arenaFloorY;
+        double boundedMinX = Math.max(0.0, Math.min(this.arenaWidth, objectiveMinX));
+        double boundedMaxX = Math.max(0.0, Math.min(this.arenaWidth, objectiveMaxX));
+        if (boundedMaxX - boundedMinX < 320.0) {
+            boundedMinX = 0.0;
+            boundedMaxX = this.arenaWidth;
+        }
+        this.objectiveMinX = boundedMinX;
+        this.objectiveMaxX = boundedMaxX;
         this.phaseIndex = Math.clamp(startPhaseIndex, 0, Math.max(0, mission.phases().size() - 1));
         this.checkpointPhaseIndex = this.phaseIndex;
     }
@@ -150,9 +166,21 @@ final class StoryMissionController {
                         ? zoneCenterX(capturedTargets, targetCount)
                         : Double.NaN;
             }
-            case REACH_EXIT -> arenaWidth - 120.0;
+            case REACH_EXIT -> objectiveMaxX - 120.0;
             default -> Double.NaN;
         };
+    }
+
+    double captureZoneCenterX(int index, int total) {
+        return zoneCenterX(index, total);
+    }
+
+    double objectiveFloorY() {
+        return arenaFloorY;
+    }
+
+    double reachExitMarkerX() {
+        return objectiveMaxX - 180.0;
     }
 
     boolean takeReinforcementRequest() {
@@ -248,7 +276,7 @@ final class StoryMissionController {
     private boolean tickReachExit(StoryCampaign.MissionPhase phase, List<Participant> roster) {
         boolean reached = roster.stream()
                 .anyMatch(p -> p.team() == 1 && p.alive()
-                        && p.x() >= arenaWidth - 180.0);
+                        && p.x() >= reachExitMarkerX());
         if (!reached && phase.targetTicks() > 0 && phaseTicks > scaledTargetTicks(phase)) {
             failed = true;
         }
@@ -336,10 +364,13 @@ final class StoryMissionController {
     }
 
     private double zoneCenterX(int index, int total) {
+        double objectiveWidth = objectiveMaxX - objectiveMinX;
         if (total <= 1) {
-            return arenaWidth * 0.5;
+            return objectiveMinX + objectiveWidth * 0.5;
         }
-        return arenaWidth * (0.24 + 0.52 * index / (double) (total - 1));
+        int boundedIndex = Math.clamp(index, 0, total - 1);
+        return objectiveMinX
+                + objectiveWidth * (0.24 + 0.52 * boundedIndex / (double) (total - 1));
     }
 
     private static long mix(long hash, long value) {

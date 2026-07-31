@@ -6648,6 +6648,26 @@ class BirdStateTest {
     }
 
     @Test
+    void campaignControllerUsesBattlefieldPlayableBounds() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        setPrivateDouble(game, "battlefieldIslandX", 2400.0);
+        setPrivateDouble(game, "battlefieldIslandW", 1200.0);
+        setPrivateDouble(game, "battlefieldIslandY", BirdGame3.GROUND_Y - 80.0);
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("dead_air");
+
+        Method setup = BirdGame3.class.getDeclaredMethod(
+                "setupCampaignMissionController", StoryCampaign.Mission.class);
+        setup.setAccessible(true);
+        setup.invoke(game, mission);
+
+        StoryMissionController controller = (StoryMissionController) getPrivateObject(
+                game, "campaignMissionController");
+        assertEquals(2688.0, controller.objectiveAssistTargetX(), 0.0001,
+                "Battlefield campaign targets must be derived from the main island, not world width.");
+        assertEquals(BirdGame3.GROUND_Y - 80.0, controller.objectiveFloorY(), 0.0001);
+    }
+
+    @Test
     void harborLockSurvivalKeepsRunningAfterBothEnemiesAreDefeated() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.headlessHarnessMode = true;
