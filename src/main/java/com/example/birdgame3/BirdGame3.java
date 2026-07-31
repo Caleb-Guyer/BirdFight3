@@ -770,6 +770,10 @@ public class BirdGame3 {
     private static final double ASHFALL_ALTAR_Y = ASHFALL_MAIN_Y - 250.0;
     private static final double ASHFALL_ALTAR_W = 1220.0;
     private static final double ASHFALL_ALTAR_H = 58.0;
+    private static final double CROWN_DUEL_BRIDGE_X = 1900.0;
+    private static final double CROWN_DUEL_BRIDGE_Y = GROUND_Y - 340.0;
+    private static final double CROWN_DUEL_BRIDGE_W = 2200.0;
+    private static final double CROWN_DUEL_BRIDGE_H = 76.0;
     private static final int ASHFALL_ERUPTION_PERIOD_FRAMES = 360;
     private static final int ASHFALL_ERUPTION_STAGGER_FRAMES = 120;
     private static final int ASHFALL_ERUPTION_WARNING_FRAMES = 86;
@@ -1559,6 +1563,10 @@ public class BirdGame3 {
     }
 
     private boolean isBossEncounterActive() {
+        if (campaignModeActive && currentCampaignMission != null
+                && currentCampaignMission.enemies().stream().anyMatch(StoryCampaign.Fighter::boss)) {
+            return true;
+        }
         if (classicModeActive && classicEncounter != null && classicEncounter.bossFight) return true;
         if (storyModeActive) {
             StoryChapter[] chapters = activeStoryChapters();
@@ -4947,8 +4955,11 @@ public class BirdGame3 {
     private boolean campaignMissionWon = false;
     private int campaignRetryPhaseIndex = 0;
     private final double[] campaignStartingHealth = new double[MAX_COMBATANTS];
+    private final boolean[] campaignBossSlots = new boolean[MAX_COMBATANTS];
+    private final boolean[] campaignReservedBossSlots = new boolean[MAX_COMBATANTS];
     private int campaignFrontlineWindow = -1;
     private int campaignBossSegmentAnnounced = 0;
+    private int campaignCrownDuelStage = 0;
     boolean campaignTeamMode = false;
     final int[] campaignTeams = createPvETeamArray();
     int campaignMatchTimerOverride = -1;
@@ -12670,6 +12681,9 @@ public class BirdGame3 {
                         g.fillOval(v.x + v.w/2 - 100, v.y - 150, 200, 300);
                     }
                 }
+                if (isCrownDuelCampaign()) {
+                    drawCrownDuelArenaDetails(g, ambientFx);
+                }
             }
             case VIBRANT_JUNGLE -> {
                 for (int i = 0; i < 600; i++) {
@@ -13029,6 +13043,73 @@ public class BirdGame3 {
             drawTrainingCombatOverlay(g);
         }
 
+        g.restore();
+    }
+
+    private void drawCrownDuelArenaDetails(GraphicsContext g, boolean ambientFx) {
+        double pulse = ambientFx
+                ? 0.5 + 0.5 * Math.sin(System.nanoTime() / 180_000_000.0)
+                : 0.5;
+        double bridgeCenterX = CROWN_DUEL_BRIDGE_X + CROWN_DUEL_BRIDGE_W * 0.5;
+        double bridgeBottomY = CROWN_DUEL_BRIDGE_Y + CROWN_DUEL_BRIDGE_H;
+
+        g.save();
+        g.setFill(Color.web("#020713", 0.30));
+        g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        // Pigeon's sealed transport hangs below the duel as the immediate stake.
+        double transportY = CROWN_DUEL_BRIDGE_Y + 520.0;
+        g.setStroke(Color.web("#90CAF9", 0.34));
+        g.setLineWidth(10.0);
+        g.strokeLine(CROWN_DUEL_BRIDGE_X + 250.0, bridgeBottomY,
+                CROWN_DUEL_BRIDGE_X + 620.0, transportY);
+        g.strokeLine(CROWN_DUEL_BRIDGE_X + CROWN_DUEL_BRIDGE_W - 250.0, bridgeBottomY,
+                CROWN_DUEL_BRIDGE_X + CROWN_DUEL_BRIDGE_W - 620.0, transportY);
+        g.setFill(Color.web("#071726", 0.92));
+        g.fillRoundRect(bridgeCenterX - 620.0, transportY, 1240.0, 250.0, 90.0, 90.0);
+        g.setStroke(Color.web("#4FC3F7", 0.48 + pulse * 0.28));
+        g.setLineWidth(12.0);
+        g.strokeRoundRect(bridgeCenterX - 620.0, transportY, 1240.0, 250.0, 90.0, 90.0);
+        g.setFill(Color.web("#B3E5FC", 0.58));
+        for (int i = 0; i < 6; i++) {
+            g.fillRoundRect(bridgeCenterX - 480.0 + i * 170.0, transportY + 72.0,
+                    92.0, 54.0, 18.0, 18.0);
+        }
+
+        // Crown command pylons frame the bridge and visibly lock the duel in.
+        double leftPylonX = CROWN_DUEL_BRIDGE_X - 120.0;
+        double rightPylonX = CROWN_DUEL_BRIDGE_X + CROWN_DUEL_BRIDGE_W + 120.0;
+        g.setStroke(Color.web("#80DEEA", 0.42 + pulse * 0.38));
+        g.setLineWidth(18.0);
+        g.strokeLine(leftPylonX, CROWN_DUEL_BRIDGE_Y - 980.0, leftPylonX, bridgeBottomY + 180.0);
+        g.strokeLine(rightPylonX, CROWN_DUEL_BRIDGE_Y - 980.0, rightPylonX, bridgeBottomY + 180.0);
+        g.setStroke(Color.web("#FFF59D", 0.32 + pulse * 0.28));
+        g.setLineWidth(8.0);
+        g.strokeLine(leftPylonX, CROWN_DUEL_BRIDGE_Y - 790.0,
+                bridgeCenterX, CROWN_DUEL_BRIDGE_Y - 610.0);
+        g.strokeLine(rightPylonX, CROWN_DUEL_BRIDGE_Y - 790.0,
+                bridgeCenterX, CROWN_DUEL_BRIDGE_Y - 610.0);
+
+        // Redraw the authored duel geometry as Crown steel rather than grassy cliffs.
+        for (Platform platform : platforms) {
+            g.setFill(Color.web("#101C2A", 0.98));
+            g.fillRoundRect(platform.x, platform.y, platform.w, platform.h, 24.0, 24.0);
+            g.setStroke(Color.web("#78909C", 0.92));
+            g.setLineWidth(platform == platforms.getFirst() ? 12.0 : 8.0);
+            g.strokeRoundRect(platform.x, platform.y, platform.w, platform.h, 24.0, 24.0);
+            g.setStroke(Color.web("#80DEEA", 0.34 + pulse * 0.24));
+            g.setLineWidth(5.0);
+            g.strokeLine(platform.x + 34.0, platform.y + 12.0,
+                    platform.x + platform.w - 34.0, platform.y + 12.0);
+        }
+
+        g.setStroke(Color.web("#FFEE58", 0.48 + pulse * 0.38));
+        g.setLineWidth(14.0);
+        g.strokeOval(bridgeCenterX - 125.0, CROWN_DUEL_BRIDGE_Y - 128.0, 250.0, 250.0);
+        g.strokeLine(bridgeCenterX, CROWN_DUEL_BRIDGE_Y - 172.0,
+                bridgeCenterX, CROWN_DUEL_BRIDGE_Y + 110.0);
+        g.strokeLine(bridgeCenterX - 142.0, CROWN_DUEL_BRIDGE_Y - 4.0,
+                bridgeCenterX + 142.0, CROWN_DUEL_BRIDGE_Y - 4.0);
         g.restore();
     }
 
@@ -31814,9 +31895,13 @@ public class BirdGame3 {
         if (mission == null) return;
         Arrays.fill(campaignTeams, 2);
         Arrays.fill(campaignStartingHealth, 0.0);
+        Arrays.fill(campaignBossSlots, false);
+        Arrays.fill(campaignReservedBossSlots, false);
         campaignTeamMode = true;
         campaignMissionWon = false;
         campaignFrontlineWindow = -1;
+        campaignBossSegmentAnnounced = 0;
+        campaignCrownDuelStage = 0;
 
         if (mission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK) {
             setupCampaignFinalCoalition(mission);
@@ -31841,9 +31926,18 @@ public class BirdGame3 {
             int enemyIndex = 0;
             for (StoryCampaign.Fighter fighter : mission.enemies()) {
                 if (slot >= activePlayers) break;
+                campaignBossSlots[slot] = fighter.boss();
+                campaignTeams[slot] = 2;
+                if (shouldReserveCampaignBoss(mission, fighter)) {
+                    players[slot] = null;
+                    isAI[slot] = false;
+                    campaignReservedBossSlots[slot] = true;
+                    slot++;
+                    enemyIndex++;
+                    continue;
+                }
                 double x = 4200 + enemyIndex * 520.0;
                 Bird enemy = createCampaignFighter(fighter, slot, x, true);
-                campaignTeams[slot] = 2;
                 campaignStartingHealth[slot] = enemy.health;
                 slot++;
                 enemyIndex++;
@@ -31857,6 +31951,20 @@ public class BirdGame3 {
                 campaignRetryPhaseIndex
         );
         campaignRetryPhaseIndex = 0;
+    }
+
+    private boolean shouldReserveCampaignBoss(StoryCampaign.Mission mission,
+                                              StoryCampaign.Fighter fighter) {
+        if (mission == null || fighter == null || !fighter.boss() || mission.phases().isEmpty()) {
+            return false;
+        }
+        int startPhase = Math.clamp(
+                campaignRetryPhaseIndex, 0, mission.phases().size() - 1);
+        if (mission.phases().get(startPhase).objective() == StoryCampaign.ObjectiveType.BOSS_PHASES) {
+            return false;
+        }
+        return mission.phases().subList(startPhase + 1, mission.phases().size()).stream()
+                .anyMatch(phase -> phase.objective() == StoryCampaign.ObjectiveType.BOSS_PHASES);
     }
 
     private void setupCampaignMissionController(StoryCampaign.Mission mission) {
@@ -31919,6 +32027,12 @@ public class BirdGame3 {
                 && fighter.boss();
     }
 
+    private boolean isCrownDuelCampaign() {
+        return campaignModeActive
+                && currentCampaignMission != null
+                && currentCampaignMission.arenaVariant() == StoryCampaign.ArenaVariant.CROWN_DUEL;
+    }
+
     private void setupCampaignFinalCoalition(StoryCampaign.Mission mission) {
         activePlayers = Math.min(MAX_COMBATANTS, BirdType.values().length + 1);
         Bird player = createStoryBird(820, campaignSelectedBird, 0,
@@ -31942,6 +32056,7 @@ public class BirdGame3 {
         StoryCampaign.Fighter template = mission.enemies().getFirst();
         Bird boss = createCampaignFighter(template, bossSlot, 5000, true);
         campaignTeams[bossSlot] = 2;
+        campaignBossSlots[bossSlot] = true;
         campaignStartingHealth[bossSlot] = boss.health;
         updateCampaignFrontlineRotation(true);
     }
@@ -31979,6 +32094,7 @@ public class BirdGame3 {
                 windVents.add(new WindVent(3000, GROUND_Y - 620, 600));
                 windVents.add(new WindVent(4800, GROUND_Y - 440, 500));
             }
+            case CROWN_DUEL -> setupCrownDuelArena();
             case NULL_ROC -> {
                 addToKillFeed("NULL ROC: Break three pylons before attacking the copied flock-mind.");
                 shakeIntensity = Math.max(shakeIntensity, 18);
@@ -32000,9 +32116,52 @@ public class BirdGame3 {
             }
         }
         if (stillSkyProgress.difficulty.bonusHealthPickup) {
-            powerUps.add(new PowerUp(3000, GROUND_Y - 620, PowerUpType.HEALTH));
+            double assistY = isCrownDuelCampaign()
+                    ? CROWN_DUEL_BRIDGE_Y - 80.0
+                    : GROUND_Y - 620.0;
+            powerUps.add(new PowerUp(3000, assistY, PowerUpType.HEALTH));
             addToKillFeed("EASY ASSIST: An extra phase-health pickup is active.");
         }
+    }
+
+    private void setupCrownDuelArena() {
+        platforms.clear();
+        windVents.clear();
+
+        platforms.add(new Platform(
+                CROWN_DUEL_BRIDGE_X,
+                CROWN_DUEL_BRIDGE_Y,
+                CROWN_DUEL_BRIDGE_W,
+                CROWN_DUEL_BRIDGE_H));
+        platforms.add(new Platform(
+                CROWN_DUEL_BRIDGE_X + 210.0,
+                CROWN_DUEL_BRIDGE_Y - 280.0,
+                430.0,
+                42.0));
+        platforms.add(new Platform(
+                CROWN_DUEL_BRIDGE_X + CROWN_DUEL_BRIDGE_W - 640.0,
+                CROWN_DUEL_BRIDGE_Y - 280.0,
+                430.0,
+                42.0));
+        platforms.add(new Platform(
+                CROWN_DUEL_BRIDGE_X + 800.0,
+                CROWN_DUEL_BRIDGE_Y - 500.0,
+                600.0,
+                48.0));
+
+        windVents.add(new WindVent(
+                CROWN_DUEL_BRIDGE_X + 40.0,
+                CROWN_DUEL_BRIDGE_Y - 80.0,
+                250.0));
+        windVents.add(new WindVent(
+                CROWN_DUEL_BRIDGE_X + CROWN_DUEL_BRIDGE_W - 290.0,
+                CROWN_DUEL_BRIDGE_Y - 80.0,
+                250.0));
+
+        battlefieldIslandX = CROWN_DUEL_BRIDGE_X;
+        battlefieldIslandW = CROWN_DUEL_BRIDGE_W;
+        battlefieldIslandY = CROWN_DUEL_BRIDGE_Y;
+        addToKillFeed("COMMAND BRIDGE: no guards, no relay seals, no retreat.");
     }
 
     private void setupAdventureBattleRoster(AdventureBattle battle) {
@@ -39467,7 +39626,114 @@ public class BirdGame3 {
         if (adventureModeActive) {
             applyAdventureBattleRuntimeEffects();
         }
+        if (campaignModeActive) {
+            applyCampaignMissionRuntimeEffects();
+        }
         matchController.applyMatchModeRuntimeEffects();
+    }
+
+    private void applyCampaignMissionRuntimeEffects() {
+        if (isCrownDuelCampaign()) {
+            applyCrownDuelRuntimeEffects();
+        }
+    }
+
+    /**
+     * Turns Cut the Lock into a staged command-bridge duel without adding
+     * wall-clock or random simulation decisions. Each threshold is one-shot,
+     * so replay and headless runs see the same hazards and Eagle buffs.
+     */
+    private void applyCrownDuelRuntimeEffects() {
+        Bird eagle = null;
+        int eagleSlot = -1;
+        for (int slot = 1; slot < activePlayers; slot++) {
+            Bird candidate = players[slot];
+            if (candidate != null && candidate.health > 0.0
+                    && campaignTeams[slot] == 2 && campaignBossSlots[slot]
+                    && candidate.type == BirdType.EAGLE) {
+                eagle = candidate;
+                eagleSlot = slot;
+                break;
+            }
+        }
+        if (eagle == null) {
+            return;
+        }
+
+        double startingHealth = campaignStartingHealth[eagleSlot] > 0.0
+                ? campaignStartingHealth[eagleSlot]
+                : Math.max(1.0, eagle.health);
+        double healthRatio = Math.clamp(eagle.health / startingHealth, 0.0, 1.0);
+        int nextStage = healthRatio <= 0.25 ? 4
+                : healthRatio <= 0.50 ? 3
+                : healthRatio <= 0.75 ? 2
+                : 1;
+        if (nextStage <= campaignCrownDuelStage) {
+            return;
+        }
+        campaignCrownDuelStage = nextStage;
+
+        switch (nextStage) {
+            case 1 -> {
+                addToKillFeed("DUEL: Eagle has sealed the command bridge.");
+                shakeIntensity = Math.max(shakeIntensity, 8.0);
+            }
+            case 2 -> {
+                windVents.clear();
+                windVents.add(new WindVent(
+                        CROWN_DUEL_BRIDGE_X + 170.0,
+                        CROWN_DUEL_BRIDGE_Y - 120.0,
+                        330.0));
+                windVents.add(new WindVent(
+                        CROWN_DUEL_BRIDGE_X + CROWN_DUEL_BRIDGE_W - 500.0,
+                        CROWN_DUEL_BRIDGE_Y - 120.0,
+                        330.0));
+                eagle.specialCooldown = 0;
+                eagle.overchargeAttackTimer = Math.max(eagle.overchargeAttackTimer, 100);
+                addToKillFeed("EAGLE: Command crosswinds released.");
+                shakeIntensity = Math.max(shakeIntensity, 14.0);
+                playManagedSfxVaried(hugewaveClip, 0.58, 0.82, 0.018);
+            }
+            case 3 -> {
+                windVents.clear();
+                windVents.add(new WindVent(
+                        CROWN_DUEL_BRIDGE_X + 80.0,
+                        CROWN_DUEL_BRIDGE_Y - 130.0,
+                        390.0));
+                windVents.add(new WindVent(
+                        CROWN_DUEL_BRIDGE_X + CROWN_DUEL_BRIDGE_W * 0.5 - 165.0,
+                        CROWN_DUEL_BRIDGE_Y - 180.0,
+                        430.0));
+                windVents.add(new WindVent(
+                        CROWN_DUEL_BRIDGE_X + CROWN_DUEL_BRIDGE_W - 410.0,
+                        CROWN_DUEL_BRIDGE_Y - 130.0,
+                        390.0));
+                eagle.specialCooldown = 0;
+                eagle.rageTimer = Math.max(eagle.rageTimer, 160);
+                eagle.overchargeAttackTimer = Math.max(eagle.overchargeAttackTimer, 180);
+                eagle.powerMultiplier = Math.max(
+                        eagle.powerMultiplier, eagle.basePowerMultiplier * 1.08);
+                eagle.speedMultiplier = Math.max(
+                        eagle.speedMultiplier, eagle.baseSpeedMultiplier * 1.06);
+                addToKillFeed("EAGLE: The bridge is still mine.");
+                shakeIntensity = Math.max(shakeIntensity, 20.0);
+                playManagedSfxVaried(hugewaveClip, 0.70, 0.68, 0.016);
+            }
+            case 4 -> {
+                eagle.specialCooldown = 0;
+                eagle.rageTimer = Math.max(eagle.rageTimer, 300);
+                eagle.overchargeAttackTimer = Math.max(eagle.overchargeAttackTimer, 260);
+                eagle.powerMultiplier = Math.max(
+                        eagle.powerMultiplier, eagle.basePowerMultiplier * 1.15);
+                eagle.speedMultiplier = Math.max(
+                        eagle.speedMultiplier, eagle.baseSpeedMultiplier * 1.10);
+                addToKillFeed("FINAL COMMAND: Eagle abandons restraint.");
+                shakeIntensity = Math.max(shakeIntensity, 26.0);
+                playManagedSfxVaried(hugewaveClip, 0.82, 0.56, 0.014);
+            }
+            default -> {
+            }
+        }
     }
 
     private void updateMatchTimerState() {
@@ -39510,6 +39776,7 @@ public class BirdGame3 {
             shakeIntensity = Math.max(shakeIntensity, 14 + bossSegment * 3);
         }
         if (result.outcome() == StoryMissionController.Outcome.PHASE_ADVANCED) {
+            spawnReservedCampaignBossesForCurrentPhase();
             campaignBossSegmentAnnounced = 0;
             addToKillFeed("CHECKPOINT: " + result.message());
             if (stillSkyProgress.difficulty.bonusHealthPickup) {
@@ -39596,14 +39863,21 @@ public class BirdGame3 {
 
     private void spawnCampaignReinforcementWave(int waveNumber) {
         if (currentCampaignMission == null || currentCampaignMission.enemies().isEmpty()) return;
+        List<StoryCampaign.Fighter> reinforcementTemplates = currentCampaignMission.enemies().stream()
+                .filter(fighter -> !fighter.boss())
+                .toList();
+        if (reinforcementTemplates.isEmpty()) {
+            return;
+        }
         int templateIndex = 0;
         int revived = 0;
         for (int slot = 1; slot < activePlayers; slot++) {
-            if (campaignTeams[slot] != 2 || (players[slot] != null && players[slot].health > 0)) {
+            if (campaignTeams[slot] != 2 || campaignBossSlots[slot]
+                    || (players[slot] != null && players[slot].health > 0)) {
                 continue;
             }
-            StoryCampaign.Fighter template = currentCampaignMission.enemies()
-                    .get(templateIndex % currentCampaignMission.enemies().size());
+            StoryCampaign.Fighter template = reinforcementTemplates
+                    .get(templateIndex % reinforcementTemplates.size());
             double x = 4200 + (revived % 4) * 440.0;
             Bird reinforcement = createCampaignFighter(template, slot, x, true);
             campaignStartingHealth[slot] = reinforcement.health;
@@ -39612,6 +39886,45 @@ public class BirdGame3 {
         }
         if (revived > 0) {
             addToKillFeed("WAVE " + waveNumber + ": " + revived + " Crown reinforcements entering.");
+        }
+    }
+
+    private void spawnReservedCampaignBossesForCurrentPhase() {
+        if (currentCampaignMission == null || campaignMissionController == null
+                || campaignMissionController.currentPhase().objective()
+                != StoryCampaign.ObjectiveType.BOSS_PHASES) {
+            return;
+        }
+        int slot = 1 + currentCampaignMission.allies().size();
+        int spawned = 0;
+        for (StoryCampaign.Fighter fighter : currentCampaignMission.enemies()) {
+            if (slot >= activePlayers) {
+                break;
+            }
+            if (campaignReservedBossSlots[slot]) {
+                double centerX = battlefieldIslandW > 0.0
+                        ? battlefieldIslandX + battlefieldIslandW * 0.70
+                        : WORLD_WIDTH * 0.70;
+                double floorY = battlefieldIslandW > 0.0 ? battlefieldIslandY : GROUND_Y;
+                Bird boss = createCampaignFighter(fighter, slot, centerX, true);
+                boss.x = centerX - boss.bodyWidth() * 0.5;
+                boss.y = floorY - boss.bodyHeight();
+                boss.prevX = boss.x;
+                boss.prevY = boss.y;
+                boss.vx = 0.0;
+                boss.vy = 0.0;
+                campaignStartingHealth[slot] = boss.health;
+                campaignReservedBossSlots[slot] = false;
+                spawned++;
+            }
+            slot++;
+        }
+        if (spawned > 0) {
+            addToKillFeed(spawned == 1
+                    ? "BOSS ENTERS: the commander takes the field."
+                    : "BOSSES ENTER: the commanders take the field.");
+            shakeIntensity = Math.max(shakeIntensity, 18.0);
+            playManagedSfxVaried(hugewaveClip, 0.62, 0.76, 0.02);
         }
     }
 
@@ -39678,6 +39991,7 @@ public class BirdGame3 {
 
     private void spawnPowerUp() {
         if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) return;
+        if (isCrownDuelCampaign()) return;
         if (simTick - lastPowerUpSpawnTime < activePowerUpSpawnInterval) return;
         double spawnChance = 0.8;
         if (random.nextDouble() < spawnChance) {
@@ -39704,11 +40018,8 @@ public class BirdGame3 {
     }
 
     private double[] pickPowerUpSpawnPoint() {
-        boolean battlefield = (selectedMap == MapType.BATTLEFIELD
-                || selectedMap == MapType.BEACON_CROWN
-                || selectedMap == MapType.DOCK
-                || selectedMap == MapType.FROSTBITE_FJORD
-                || selectedMap == MapType.ASHFALL_CATHEDRAL)
+        boolean battlefield = (usesIslandBoundsForCurrentArena()
+                || selectedMap == MapType.DOCK)
                 && battlefieldIslandW > 0;
         double battlefieldMinX = 0;
         double battlefieldMaxX = 0;
@@ -41406,9 +41717,7 @@ public class BirdGame3 {
             return;
         }
 
-        if ((selectedMap != MapType.BATTLEFIELD && selectedMap != MapType.BEACON_CROWN
-                && selectedMap != MapType.FROSTBITE_FJORD && selectedMap != MapType.ASHFALL_CATHEDRAL)
-                || battlefieldIslandW <= 0) {
+        if (!usesIslandBoundsForCurrentArena() || battlefieldIslandW <= 0) {
             double[] spawnCenters = buildSpawnCenters(active.size(), 420.0, WORLD_WIDTH - 420.0);
             for (int i = 0; i < active.size(); i++) {
                 Bird b = active.get(i);
@@ -41530,6 +41839,14 @@ public class BirdGame3 {
             return battlefieldIslandY + 120.0;
         }
         return GROUND_Y;
+    }
+
+    boolean usesIslandBoundsForCurrentArena() {
+        return selectedMap == MapType.BATTLEFIELD
+                || selectedMap == MapType.BEACON_CROWN
+                || selectedMap == MapType.FROSTBITE_FJORD
+                || selectedMap == MapType.ASHFALL_CATHEDRAL
+                || isCrownDuelCampaign();
     }
 
     private double battlefieldBoundsMargin() {
@@ -46062,6 +46379,8 @@ public class BirdGame3 {
         currentFightHudOcclusionRects = List.of();
         smashCombatRulesActive = false;
         fightHudPortraitCache.clear();
+        campaignBossSegmentAnnounced = 0;
+        campaignCrownDuelStage = 0;
         resetSuddenDeathState();
         Arrays.fill(unitedFinaleEventTriggered, false);
         unitedFinaleBossEnraged = false;

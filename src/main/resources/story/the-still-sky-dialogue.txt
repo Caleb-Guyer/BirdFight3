@@ -503,6 +503,10 @@ Eagle|Falcon, return to formation. This is your final direct order.
 Falcon|Release the transport and I will.
 Eagle|I won't place one transport above the whole network.
 Falcon|There are sixty birds in that transport.
+Eagle|Then one of you opens the lock while the other answers for this.
+Falcon@FALCON|Razorbill, cut the transport loose. Eagle is mine.
+Razorbill@RAZORBILL|Falcon, take the lock. I'll keep Eagle off the bridge.
+Eagle|No guards. No relay seals. You wanted my decision. Come take it from me.
 
 [s42_falcon_defects]
 Falcon|The transport is clear.

@@ -460,14 +460,11 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission cutTheLock() {
         return mission("cut_the_lock", "Cut the Lock",
-                "Turn Falcon's access codes against the Crown and free Pigeon's transport.",
-                SKYCLIFFS, CROWN_OCCUPIED, StoryCampaign.PlayablePolicy.choice(FALCON, RAZORBILL),
+                "Face Eagle alone on the command bridge while the other bird frees Pigeon's transport.",
+                SKYCLIFFS, CROWN_DUEL, StoryCampaign.PlayablePolicy.choice(FALCON, RAZORBILL),
                 List.of(),
-                fighters(enemy(EAGLE, "Crown Marshal Guard"), enemy(RAVEN, "Lock Warden")),
-                phases(
-                        phase(CAPTURE, "Cut the transport locks", 38, 3, true),
-                        phase(GAUNTLET, "Clear the pursuit wing", 0, 2, true)
-                ),
+                fighters(boss(EAGLE, "Eagle", 480, 1.52, 1.20)),
+                phases(phase(BOSS_PHASES, "Defeat Eagle on the command bridge", 0, 4, true)),
                 "s41_cut_lock", "s42_falcon_defects", FALCON, false);
     }
 
@@ -530,7 +527,11 @@ final class StoryCampaignContent {
                 "Beat Vulture cleanly enough to force the whole bargain into the open.",
                 CAVE, CARRION, StoryCampaign.PlayablePolicy.choice(PIGEON, BAT),
                 List.of(),
-                fighters(boss(VULTURE, "Vulture", 430, 1.52, 1.08, TIDE_VULTURE_SKIN)),
+                fighters(
+                        boss(VULTURE, "Vulture", 430, 1.52, 1.08, TIDE_VULTURE_SKIN),
+                        enemy(VULTURE, "Carrion Guard"),
+                        enemy(BAT, "Cave Sentry")
+                ),
                 phases(
                         phase(GAUNTLET, "Break the carrion guard", 0, 2, true),
                         phase(BOSS_PHASES, "Defeat Vulture", 0, 3, true)

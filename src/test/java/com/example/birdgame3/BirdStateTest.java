@@ -6735,6 +6735,145 @@ class BirdStateTest {
         drawHud.invoke(game, canvas.getGraphicsContext2D(), hudLayout);
     }
 
+    @Test
+    void campaignGauntletNeverRecyclesReservedBossAsAReinforcement() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.headlessHarnessMode = true;
+        game.campaignModeActive = true;
+        game.campaignTeamMode = true;
+        game.selectedMap = BirdGame3.MapType.CAVE;
+
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("carrion_audience");
+        setPrivateObject(game, "currentCampaignMission", mission);
+        setPrivateObject(game, "campaignSelectedBird", BirdGame3.BirdType.PIGEON);
+        Method setupRoster = BirdGame3.class.getDeclaredMethod(
+                "setupCampaignMissionRoster", StoryCampaign.Mission.class);
+        setupRoster.setAccessible(true);
+        setupRoster.invoke(game, mission);
+
+        boolean[] bossSlots = (boolean[]) getPrivateObject(game, "campaignBossSlots");
+        boolean[] reservedBossSlots =
+                (boolean[]) getPrivateObject(game, "campaignReservedBossSlots");
+        assertEquals(4, game.activePlayers);
+        assertTrue(bossSlots[1]);
+        assertTrue(reservedBossSlots[1]);
+        assertNull(game.players[1], "Vulture must wait offstage during the guard gauntlet.");
+
+        game.players[2].health = 0.0;
+        game.players[3].health = 0.0;
+        game.checkCampaignMissionCompletion();
+
+        assertNull(game.players[1], "A reinforcement request must not fill the reserved boss slot.");
+        assertTrue(game.players[2].health > 0.0);
+        assertTrue(game.players[3].health > 0.0);
+        assertFalse(game.players[2].name.startsWith("Boss:"));
+        assertFalse(game.players[3].name.startsWith("Boss:"));
+
+        game.players[2].health = 0.0;
+        game.players[3].health = 0.0;
+        game.checkCampaignMissionCompletion();
+
+        StoryMissionController controller =
+                (StoryMissionController) getPrivateObject(game, "campaignMissionController");
+        assertEquals(1, controller.phaseIndex());
+        assertNotNull(game.players[1]);
+        assertEquals(BirdGame3.BirdType.VULTURE, game.players[1].type);
+        assertTrue(game.players[1].health > 0.0);
+        assertFalse(reservedBossSlots[1]);
+        assertEquals(0.0, game.players[2].health, 0.0001);
+        assertEquals(0.0, game.players[3].health, 0.0001);
+    }
+
+    @Test
+    void campaignGauntletNeverRespawnsAnAuthoredBossDefeatedEarlier() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.headlessHarnessMode = true;
+        game.campaignModeActive = true;
+        game.campaignTeamMode = true;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("crown_archive");
+        setPrivateObject(game, "currentCampaignMission", mission);
+        setPrivateObject(game, "campaignSelectedBird", BirdGame3.BirdType.PENGUIN);
+        setPrivateInt(game, "campaignRetryPhaseIndex", 1);
+        Method setupRoster = BirdGame3.class.getDeclaredMethod(
+                "setupCampaignMissionRoster", StoryCampaign.Mission.class);
+        setupRoster.setAccessible(true);
+        setupRoster.invoke(game, mission);
+
+        Bird defeatedFalcon = game.players[1];
+        Bird defeatedGuard = game.players[2];
+        assertEquals(BirdGame3.BirdType.FALCON, defeatedFalcon.type);
+        assertEquals(BirdGame3.BirdType.EAGLE, defeatedGuard.type);
+        defeatedFalcon.health = 0.0;
+        defeatedGuard.health = 0.0;
+
+        game.checkCampaignMissionCompletion();
+
+        assertSame(defeatedFalcon, game.players[1]);
+        assertEquals(0.0, game.players[1].health, 0.0001,
+                "The defeated authored boss must remain defeated.");
+        assertNotSame(defeatedGuard, game.players[2]);
+        assertTrue(game.players[2].health > 0.0,
+                "Only the ordinary archive guard should return for the next wave.");
+        assertFalse(game.players[2].name.startsWith("Boss:"));
+    }
+
+    @Test
+    void cutTheLockBuildsAStagedCommandBridgeOneOnOne() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.headlessHarnessMode = true;
+        game.campaignModeActive = true;
+        game.campaignTeamMode = true;
+        game.selectedMap = BirdGame3.MapType.SKYCLIFFS;
+
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("cut_the_lock");
+        setPrivateObject(game, "currentCampaignMission", mission);
+        setPrivateObject(game, "campaignSelectedBird", BirdGame3.BirdType.RAZORBILL);
+        Method setupRoster = BirdGame3.class.getDeclaredMethod(
+                "setupCampaignMissionRoster", StoryCampaign.Mission.class);
+        setupRoster.setAccessible(true);
+        setupRoster.invoke(game, mission);
+        invokePrivateVoid(game, "setupMatchArenaGeometry");
+        Method applyArena = BirdGame3.class.getDeclaredMethod(
+                "applyCampaignMissionArenaModifiers", StoryCampaign.Mission.class);
+        applyArena.setAccessible(true);
+        applyArena.invoke(game, mission);
+
+        assertEquals(2, game.activePlayers);
+        assertEquals(BirdGame3.BirdType.RAZORBILL, game.players[0].type);
+        assertEquals(BirdGame3.BirdType.EAGLE, game.players[1].type);
+        assertTrue(game.isAI[1]);
+        assertEquals(4, game.platforms.size());
+        assertEquals(2, game.windVents.size());
+        assertTrue(game.usesIslandBoundsForCurrentArena());
+        assertEquals(2_200.0, getPrivateDouble(game, "battlefieldIslandW"), 0.0001);
+        assertEquals("music-boss.mp3", invokePrivateObjectMethod(game, "gameplayMusicFile"));
+
+        Bird eagle = game.players[1];
+        double startingHealth = eagle.health;
+        invokePrivateVoid(game, "applyCampaignMissionRuntimeEffects");
+        assertEquals(1, getPrivateInt(game, "campaignCrownDuelStage"));
+
+        eagle.health = startingHealth * 0.74;
+        invokePrivateVoid(game, "applyCampaignMissionRuntimeEffects");
+        assertEquals(2, getPrivateInt(game, "campaignCrownDuelStage"));
+        assertTrue(eagle.overchargeAttackTimer >= 100);
+        assertEquals(2, game.windVents.size());
+
+        eagle.health = startingHealth * 0.49;
+        invokePrivateVoid(game, "applyCampaignMissionRuntimeEffects");
+        assertEquals(3, getPrivateInt(game, "campaignCrownDuelStage"));
+        assertEquals(3, game.windVents.size());
+
+        eagle.health = startingHealth * 0.24;
+        invokePrivateVoid(game, "applyCampaignMissionRuntimeEffects");
+        assertEquals(4, getPrivateInt(game, "campaignCrownDuelStage"));
+        assertTrue(eagle.rageTimer >= 300);
+        assertTrue(eagle.powerMultiplier >= eagle.basePowerMultiplier * 1.15);
+        assertTrue(eagle.speedMultiplier >= eagle.baseSpeedMultiplier * 1.10);
+    }
+
     private static GooseHonkOutcome playGooseHonk(int holdFrames) {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

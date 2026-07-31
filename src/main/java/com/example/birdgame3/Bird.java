@@ -2245,10 +2245,7 @@ public class Bird {
     }
 
     boolean usesIslandBounds() {
-        return game.selectedMap == MapType.BATTLEFIELD
-                || game.selectedMap == MapType.BEACON_CROWN
-                || game.selectedMap == MapType.FROSTBITE_FJORD
-                || game.selectedMap == MapType.ASHFALL_CATHEDRAL;
+        return game.usesIslandBoundsForCurrentArena();
     }
 
     private boolean isInDockWater() {

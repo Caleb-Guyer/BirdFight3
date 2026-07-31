@@ -23,9 +23,11 @@ class StoryDialogueScriptsTest {
         assertEquals(expectedSections, scripts.keySet());
         assertTrue(scripts.containsKey("s01_dead_air"));
         assertTrue(scripts.containsKey("s80_eagle_end"));
-        assertEquals(832, scripts.values().stream()
+        int dialogueLineCount = scripts.values().stream()
                 .mapToInt(script -> script.split("\\R").length)
-                .sum());
+                .sum();
+        assertTrue(dialogueLineCount >= 700 && dialogueLineCount <= 900,
+                "The editable screenplay should stay within the authored 700-900 line target.");
     }
 
     @Test

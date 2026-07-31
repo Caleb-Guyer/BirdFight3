@@ -150,6 +150,7 @@ final class StoryCampaign {
         EVACUATION,
         CARRION,
         ANCHOR_ASSAULT,
+        CROWN_DUEL,
         NULL_ROC,
         NULL_ROCK
     }

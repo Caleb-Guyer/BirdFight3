@@ -79,4 +79,36 @@ class StoryCampaignContentTest {
             }
         }
     }
+
+    @Test
+    void cutTheLockIsAnAuthoredEagleDuelWithoutRavenOrCaptureObjectives() {
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("cut_the_lock");
+
+        assertEquals(StoryCampaign.ArenaVariant.CROWN_DUEL, mission.arenaVariant());
+        assertEquals(StoryCampaign.PlayableKind.CHOICE, mission.playable().kind());
+        assertEquals(
+                Set.of(BirdGame3.BirdType.FALCON, BirdGame3.BirdType.RAZORBILL),
+                Set.copyOf(mission.playable().resolvedBirds()));
+        assertTrue(mission.allies().isEmpty());
+        assertEquals(1, mission.enemies().size());
+        assertEquals(BirdGame3.BirdType.EAGLE, mission.enemies().getFirst().type());
+        assertTrue(mission.enemies().getFirst().boss());
+        assertEquals(1, mission.phases().size());
+        assertEquals(StoryCampaign.ObjectiveType.BOSS_PHASES,
+                mission.phases().getFirst().objective());
+        assertTrue(mission.enemies().stream()
+                .noneMatch(fighter -> fighter.type() == BirdGame3.BirdType.RAVEN));
+    }
+
+    @Test
+    void carrionAudienceHasSeparateGuardsBeforeReservedVultureBoss() {
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("carrion_audience");
+
+        assertEquals(1, mission.enemies().stream().filter(StoryCampaign.Fighter::boss).count());
+        assertEquals(2, mission.enemies().stream().filter(fighter -> !fighter.boss()).count());
+        assertEquals(StoryCampaign.ObjectiveType.GAUNTLET,
+                mission.phases().getFirst().objective());
+        assertEquals(StoryCampaign.ObjectiveType.BOSS_PHASES,
+                mission.phases().getLast().objective());
+    }
 }
