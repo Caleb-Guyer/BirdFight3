@@ -201,6 +201,9 @@ class StoryCampaignContentTest {
         assertEquals(BirdGame3.MapType.PRISON, campaign.scene(blackout.postSceneId()).location());
         assertEquals(BirdGame3.MapType.PRISON, campaign.scene(rescue.preSceneId()).location());
         assertEquals(BirdGame3.MapType.PRISON, campaign.scene(rescue.postSceneId()).location());
+        assertEquals("music-prison.mp3", campaign.scene(blackout.preSceneId()).musicCue());
+        assertEquals("music-prison.mp3", campaign.scene(rescue.postSceneId()).musicCue());
+        assertNotNull(BirdGame3.class.getResource("/sounds/music-prison.mp3"));
         assertTrue(blackout.briefing().contains("city's old central station"));
     }
 

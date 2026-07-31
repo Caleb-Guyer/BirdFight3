@@ -847,7 +847,7 @@ final class StoryCampaignContent {
             case DOCK -> "music-dock.mp3";
             case FROSTBITE_FJORD -> "music-frostbite.mp3";
             case ASHFALL_CATHEDRAL -> "music-ashfall.mp3";
-            case PRISON -> "music-city.mp3";
+            case PRISON -> "music-prison.mp3";
             default -> "music-forest.mp3";
         };
     }

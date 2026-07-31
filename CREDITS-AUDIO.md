@@ -26,6 +26,7 @@ dedicated to the public domain under CC0.
 | music-dock.mp3 | Behind Enemy Lines | Dock (Broken Harbor) |
 | music-frostbite.mp3 | The Ice Giants | Frostbite Fjord |
 | music-ashfall.mp3 | Evil Incoming | Ashfall Cathedral |
+| music-prison.mp3 | Assassin — Rafael Krux | Crownlock Prison / prison story scenes |
 
 ## Sound effects (original)
 
