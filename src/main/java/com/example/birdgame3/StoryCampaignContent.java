@@ -572,7 +572,7 @@ final class StoryCampaignContent {
                         enemy(BAT, "Cave Sentry")
                 ),
                 phases(
-                        phase(GAUNTLET, "Break the carrion guard", 0, 2, true),
+                        eliminate("Break the carrion guard"),
                         phase(BOSS_PHASES, "Defeat Vulture", 0, 3, true)
                 ),
                 "s51_carrion_audience", "s52_vulture_taken", null, false);

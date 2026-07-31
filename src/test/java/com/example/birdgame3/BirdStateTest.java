@@ -6736,7 +6736,7 @@ class BirdStateTest {
     }
 
     @Test
-    void campaignGauntletNeverRecyclesReservedBossAsAReinforcement() throws Exception {
+    void carrionAudienceGuardsStayDownWhenReservedBossEnters() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.headlessHarnessMode = true;
         game.campaignModeActive = true;
@@ -6757,17 +6757,7 @@ class BirdStateTest {
         assertEquals(4, game.activePlayers);
         assertTrue(bossSlots[1]);
         assertTrue(reservedBossSlots[1]);
-        assertNull(game.players[1], "Vulture must wait offstage during the guard gauntlet.");
-
-        game.players[2].health = 0.0;
-        game.players[3].health = 0.0;
-        game.checkCampaignMissionCompletion();
-
-        assertNull(game.players[1], "A reinforcement request must not fill the reserved boss slot.");
-        assertTrue(game.players[2].health > 0.0);
-        assertTrue(game.players[3].health > 0.0);
-        assertFalse(game.players[2].name.startsWith("Boss:"));
-        assertFalse(game.players[3].name.startsWith("Boss:"));
+        assertNull(game.players[1], "Vulture must wait offstage during the guard fight.");
 
         game.players[2].health = 0.0;
         game.players[3].health = 0.0;
@@ -6780,8 +6770,10 @@ class BirdStateTest {
         assertEquals(BirdGame3.BirdType.VULTURE, game.players[1].type);
         assertTrue(game.players[1].health > 0.0);
         assertFalse(reservedBossSlots[1]);
-        assertEquals(0.0, game.players[2].health, 0.0001);
-        assertEquals(0.0, game.players[3].health, 0.0001);
+        assertEquals(0.0, game.players[2].health, 0.0001,
+                "Carrion Guard must not revive when Vulture enters.");
+        assertEquals(0.0, game.players[3].health, 0.0001,
+                "Cave Sentry must not revive when Vulture enters.");
     }
 
     @Test

@@ -102,15 +102,28 @@ class StoryCampaignContentTest {
     }
 
     @Test
-    void carrionAudienceHasSeparateGuardsBeforeReservedVultureBoss() {
+    void carrionAudienceGuardsStayDeadBeforeReservedVultureBossEnters() {
         StoryCampaign.Mission mission = StoryCampaignContent.create().mission("carrion_audience");
 
         assertEquals(1, mission.enemies().stream().filter(StoryCampaign.Fighter::boss).count());
         assertEquals(2, mission.enemies().stream().filter(fighter -> !fighter.boss()).count());
-        assertEquals(StoryCampaign.ObjectiveType.GAUNTLET,
+        assertEquals(StoryCampaign.ObjectiveType.ELIMINATION,
                 mission.phases().getFirst().objective());
         assertEquals(StoryCampaign.ObjectiveType.BOSS_PHASES,
                 mission.phases().getLast().objective());
+
+        StoryMissionController controller = new StoryMissionController(
+                mission, StoryCampaign.Difficulty.NORMAL, 6000);
+        StoryMissionController.TickResult result = controller.tick(List.of(
+                new StoryMissionController.Participant(0, 1, 1000, 110, 110),
+                new StoryMissionController.Participant(2, 2, 3000, 0, 112),
+                new StoryMissionController.Participant(3, 2, 4000, 0, 112)
+        ));
+
+        assertEquals(StoryMissionController.Outcome.PHASE_ADVANCED, result.outcome());
+        assertEquals(StoryCampaign.ObjectiveType.BOSS_PHASES,
+                controller.currentPhase().objective());
+        assertFalse(controller.takeReinforcementRequest());
     }
 
     @Test
