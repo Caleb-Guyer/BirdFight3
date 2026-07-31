@@ -4589,6 +4589,10 @@ public class BirdGame3 {
     private static final String SUNFORGE_ROOSTER_SKIN = "SUNFORGE_ROOSTER";
     private static final String MIRAGE_ROADRUNNER_SKIN = "MIRAGE_ROADRUNNER";
     private static final String VOID_HERALD_RAVEN_SKIN = "VOID_HERALD_RAVEN";
+    static final String CAMPAIGN_CROWN_TROOP_SKIN = "CAMPAIGN_CROWN_TROOP";
+    static final String CAMPAIGN_HARBOR_CREW_SKIN = "CAMPAIGN_HARBOR_CREW";
+    static final String CAMPAIGN_CARRION_PACT_SKIN = "CAMPAIGN_CARRION_PACT";
+    static final String CAMPAIGN_NULL_ECHO_SKIN = "CAMPAIGN_NULL_ECHO";
     private static final String CLASSIC_CONTINUE_KEY = "CLASSIC_CONTINUE";
     private static final String CHAR_BAT_KEY = "CHAR_BAT";
     private static final String CHAR_FALCON_KEY = "CHAR_FALCON";
@@ -8926,6 +8930,7 @@ public class BirdGame3 {
 
     private String skinKeyForBird(Bird bird) {
         if (bird == null || bird.type == null) return null;
+        if (isCampaignFactionSkinKey(bird.appliedSkinKey)) return bird.appliedSkinKey;
         BirdType type = bird.type;
         if (type == BirdType.PIGEON && PREMIUM_PIGEON_SKIN.equals(bird.appliedSkinKey)) {
             return PREMIUM_PIGEON_SKIN;
@@ -8966,6 +8971,13 @@ public class BirdGame3 {
         if (type == BirdType.RAVEN && bird.isVoidHeraldSkin) return VOID_HERALD_RAVEN_SKIN;
         if (bird.isClassicSkin) return classicSkinDataKey(type);
         return null;
+    }
+
+    static boolean isCampaignFactionSkinKey(String skinKey) {
+        return CAMPAIGN_CROWN_TROOP_SKIN.equals(skinKey)
+                || CAMPAIGN_HARBOR_CREW_SKIN.equals(skinKey)
+                || CAMPAIGN_CARRION_PACT_SKIN.equals(skinKey)
+                || CAMPAIGN_NULL_ECHO_SKIN.equals(skinKey);
     }
 
     private AdventureChapter[] chaptersForAdventureRoute(AdventureRoute route) {
@@ -44129,6 +44141,12 @@ public class BirdGame3 {
         WritableImage cached = fightHudPortraitCache.get(cacheKey);
         if (cached != null) {
             return cached;
+        }
+        // Canvas.snapshot is UI-thread-only. Headless balance/state tests draw
+        // HUDs directly, so let their existing fallback marker represent a
+        // portrait instead of making campaign-only skin keys require FX setup.
+        if (!javafx.application.Platform.isFxApplicationThread()) {
+            return null;
         }
 
         Canvas portrait = new Canvas(128, 128);

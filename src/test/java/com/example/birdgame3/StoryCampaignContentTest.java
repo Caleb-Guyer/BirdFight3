@@ -111,4 +111,40 @@ class StoryCampaignContentTest {
         assertEquals(StoryCampaign.ObjectiveType.BOSS_PHASES,
                 mission.phases().getLast().objective());
     }
+
+    @Test
+    void namedCastKeepsBaseIdentityWhileEveryCampaignExtraHasAnAuthoredLook() {
+        StoryCampaign campaign = StoryCampaignContent.create();
+
+        for (StoryCampaign.Mission mission : campaign.orderedMissions) {
+            for (StoryCampaign.Fighter fighter : mission.allies()) {
+                assertTrue(StoryCampaignContent.isNamedCampaignCharacter(fighter.name()),
+                        () -> mission.id() + " has an unnamed ally without an authored extra policy: " + fighter.name());
+                assertNull(fighter.skinKey(),
+                        () -> mission.id() + " should keep named ally " + fighter.name() + " on their base identity");
+            }
+            for (StoryCampaign.Fighter fighter : mission.enemies()) {
+                if (StoryCampaignContent.isNamedCampaignCharacter(fighter.name())) {
+                    assertNull(fighter.skinKey(),
+                            () -> mission.id() + " should keep named character " + fighter.name()
+                                    + " on their base identity");
+                } else {
+                    assertNotNull(fighter.skinKey(),
+                            () -> mission.id() + " leaves campaign extra " + fighter.name()
+                                    + " looking like the base roster character");
+                    assertFalse(fighter.skinKey().isBlank(),
+                            () -> mission.id() + " has a blank extra skin for " + fighter.name());
+                }
+            }
+        }
+
+        assertTrue(campaign.mission("dead_air").enemies().stream()
+                .allMatch(fighter -> BirdGame3.CAMPAIGN_CROWN_TROOP_SKIN.equals(fighter.skinKey())));
+        assertEquals(BirdGame3.CAMPAIGN_HARBOR_CREW_SKIN,
+                campaign.mission("harbor_lock").enemies().get(1).skinKey());
+        assertTrue(campaign.mission("last_thermal").enemies().stream()
+                .allMatch(fighter -> BirdGame3.CAMPAIGN_CARRION_PACT_SKIN.equals(fighter.skinKey())));
+        assertTrue(campaign.mission("perfect_weather").enemies().stream()
+                .allMatch(fighter -> BirdGame3.CAMPAIGN_NULL_ECHO_SKIN.equals(fighter.skinKey())));
+    }
 }

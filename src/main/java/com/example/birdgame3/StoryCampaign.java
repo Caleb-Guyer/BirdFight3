@@ -137,6 +137,10 @@ final class StoryCampaign {
             return new Fighter(type, name, 2, 132, 1.10, 1.06, null, false);
         }
 
+        static Fighter enemy(BirdGame3.BirdType type, String name, String skinKey) {
+            return new Fighter(type, name, 2, 132, 1.10, 1.06, skinKey, false);
+        }
+
         static Fighter boss(BirdGame3.BirdType type, String name, double health,
                             double power, double speed, String skinKey) {
             return new Fighter(type, name, 2, health, power, speed, skinKey, true);

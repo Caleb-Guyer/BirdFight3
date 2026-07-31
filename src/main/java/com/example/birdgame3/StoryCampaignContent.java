@@ -20,8 +20,6 @@ import static com.example.birdgame3.StoryCampaign.ShotStyle.*;
 final class StoryCampaignContent {
     private static final String NULL_ROCK_SKIN = "NULL_ROCK_VULTURE";
     private static final String TIDE_VULTURE_SKIN = "TIDE_VULTURE";
-    private static final String VOID_RAVEN_SKIN = "VOID_HERALD_RAVEN";
-    private static final String IRONCLAD_PELICAN_SKIN = "IRONCLAD_PELICAN";
     private static final String CAMPAIGN_PHASE_DIALOGUE_ID = "dynamic_campaign_phase";
     private static final Map<String, String> DIALOGUE_SCRIPTS = StoryDialogueScripts.loadBundled();
 
@@ -150,7 +148,48 @@ final class StoryCampaignContent {
     }
 
     private static StoryCampaign.Fighter enemy(BirdGame3.BirdType type, String name) {
-        return StoryCampaign.Fighter.enemy(type, name);
+        String skinKey = campaignTroopSkinKey(name);
+        return skinKey == null
+                ? StoryCampaign.Fighter.enemy(type, name)
+                : StoryCampaign.Fighter.enemy(type, name, skinKey);
+    }
+
+    static boolean isNamedCampaignCharacter(String name) {
+        if (name == null) return false;
+        return switch (name.strip().toLowerCase(Locale.ROOT)) {
+            case "pigeon", "charles", "pelican", "goose", "phoenix", "penguin",
+                    "roadrunner", "hummingbird", "titmouse", "turkey", "rooster",
+                    "bat", "shoebill", "razorbill", "falcon", "eagle", "vulture",
+                    "raven", "heisenbird", "opium bird", "grinch-hawk", "old sparrow" -> true;
+            default -> false;
+        };
+    }
+
+    private static String campaignTroopSkinKey(String name) {
+        if (isNamedCampaignCharacter(name)) return null;
+        String normalized = name == null ? "" : name.strip().toLowerCase(Locale.ROOT);
+        if (normalized.contains("null")
+                || normalized.contains("echo")
+                || normalized.contains("automaton")
+                || normalized.contains("copied")
+                || normalized.contains("remnant")
+                || normalized.equals("north warden")
+                || normalized.equals("west warden")) {
+            return BirdGame3.CAMPAIGN_NULL_ECHO_SKIN;
+        }
+        if (normalized.contains("crown")
+                || normalized.contains("interceptor")
+                || normalized.equals("thermal collector")) {
+            return BirdGame3.CAMPAIGN_CROWN_TROOP_SKIN;
+        }
+        if (normalized.contains("stormglass")
+                || normalized.contains("harbor")
+                || normalized.startsWith("blue ")
+                || normalized.contains("freight")
+                || normalized.contains("contractor")) {
+            return BirdGame3.CAMPAIGN_HARBOR_CREW_SKIN;
+        }
+        return BirdGame3.CAMPAIGN_CARRION_PACT_SKIN;
     }
 
     private static StoryCampaign.Fighter boss(BirdGame3.BirdType type, String name,
@@ -528,7 +567,7 @@ final class StoryCampaignContent {
                 CAVE, CARRION, StoryCampaign.PlayablePolicy.choice(PIGEON, BAT),
                 List.of(),
                 fighters(
-                        boss(VULTURE, "Vulture", 430, 1.52, 1.08, TIDE_VULTURE_SKIN),
+                        boss(VULTURE, "Vulture", 430, 1.52, 1.08),
                         enemy(VULTURE, "Carrion Guard"),
                         enemy(BAT, "Cave Sentry")
                 ),
@@ -588,7 +627,7 @@ final class StoryCampaignContent {
                 "Catch Raven at the desert relay and decide whether the coalition can use a spy it cannot trust.",
                 DESERT, ANCHOR_ASSAULT, StoryCampaign.PlayablePolicy.forced(MOCKINGBIRD),
                 List.of(),
-                fighters(boss(RAVEN, "Raven", 330, 1.41, 1.27, VOID_RAVEN_SKIN)),
+                fighters(boss(RAVEN, "Raven", 330, 1.41, 1.27)),
                 phases(
                         phase(REACH_EXIT, "Catch Raven at the relay", 34, 1, true),
                         phase(BOSS_PHASES, "Defeat Raven", 0, 3, true)

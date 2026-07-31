@@ -21138,6 +21138,7 @@ public class Bird {
         BirdSpriteSheet spriteSheet = BirdSpriteLibrary.sheetFor(type, appliedSkinKey);
         if (spriteSheet != null && spriteSheet.image != null) {
             drawSpriteBody(g, spriteSheet, drawSize, attackPose);
+            drawCampaignFactionSkin(g, drawSize);
         } else {
             g.save();
             applyAttackBodyPose(g, drawSize, attackPose);
@@ -21154,6 +21155,7 @@ public class Bird {
             drawBeaconSkin(g, drawSize);
             drawClassicSkinAccent(g, drawSize);
             drawSpecialSkinAccent(g, drawSize);
+            drawCampaignFactionSkin(g, drawSize);
             drawBeak(g, attackPose);
             drawPelican(g);
             g.restore();
@@ -27551,6 +27553,7 @@ public class Bird {
         boolean mirageRoadrunner = (type == BirdGame3.BirdType.ROADRUNNER && isMirageSkin);
         boolean voidHeraldRaven = (type == BirdGame3.BirdType.RAVEN && isVoidHeraldSkin);
         boolean freemanPigeon = (type == BirdGame3.BirdType.PIGEON && isFreemanSkin);
+        boolean campaignFactionSkin = isCampaignFactionSkin();
         boolean regularPigeon = type == BirdGame3.BirdType.PIGEON
                 && !cityPigeon
                 && !noirPigeon
@@ -27572,7 +27575,11 @@ public class Bird {
         Color bodyColor;
         Color headColor;
         Color eyeOverride = null;
-        if (nullRockVulture) {
+        if (campaignFactionSkin) {
+            bodyColor = campaignFactionPrimaryColor();
+            headColor = campaignFactionSecondaryColor();
+            eyeOverride = campaignFactionAccentColor().darker();
+        } else if (nullRockVulture) {
             bodyColor = Color.web("#180E1A");
             headColor = Color.web("#2B1218");
             eyeOverride = Color.web("#FF6E6E");
@@ -28494,6 +28501,104 @@ public class Bird {
         g.strokeOval(x - 10 * sizeMultiplier, y - 10 * sizeMultiplier, drawSize + 20 * sizeMultiplier, drawSize + 20 * sizeMultiplier);
         g.setFill(accent.deriveColor(0, 1, 1, 0.35));
         g.fillOval(x + 8 * sizeMultiplier, y + 10 * sizeMultiplier, drawSize * 0.72, drawSize * 0.45);
+    }
+
+    private boolean isCampaignFactionSkin() {
+        return BirdGame3.isCampaignFactionSkinKey(appliedSkinKey);
+    }
+
+    private Color campaignFactionPrimaryColor() {
+        return switch (appliedSkinKey) {
+            case BirdGame3.CAMPAIGN_CROWN_TROOP_SKIN -> Color.web("#263B55");
+            case BirdGame3.CAMPAIGN_HARBOR_CREW_SKIN -> Color.web("#355C67");
+            case BirdGame3.CAMPAIGN_CARRION_PACT_SKIN -> Color.web("#30243A");
+            case BirdGame3.CAMPAIGN_NULL_ECHO_SKIN -> Color.web("#101522");
+            default -> type.color;
+        };
+    }
+
+    private Color campaignFactionSecondaryColor() {
+        return switch (appliedSkinKey) {
+            case BirdGame3.CAMPAIGN_CROWN_TROOP_SKIN -> Color.web("#607D8B");
+            case BirdGame3.CAMPAIGN_HARBOR_CREW_SKIN -> Color.web("#B26A3D");
+            case BirdGame3.CAMPAIGN_CARRION_PACT_SKIN -> Color.web("#66506F");
+            case BirdGame3.CAMPAIGN_NULL_ECHO_SKIN -> Color.web("#354052");
+            default -> type.color.brighter();
+        };
+    }
+
+    private Color campaignFactionAccentColor() {
+        return switch (appliedSkinKey) {
+            case BirdGame3.CAMPAIGN_CROWN_TROOP_SKIN -> Color.web("#80DEEA");
+            case BirdGame3.CAMPAIGN_HARBOR_CREW_SKIN -> Color.web("#FFD180");
+            case BirdGame3.CAMPAIGN_CARRION_PACT_SKIN -> Color.web("#B388FF");
+            case BirdGame3.CAMPAIGN_NULL_ECHO_SKIN -> Color.web("#FF5252");
+            default -> Color.WHITE;
+        };
+    }
+
+    /** Campaign extras wear readable faction uniforms over any roster silhouette. */
+    private void drawCampaignFactionSkin(GraphicsContext g, double drawSize) {
+        if (!isCampaignFactionSkin()) return;
+        double s = sizeMultiplier;
+        Color primary = campaignFactionPrimaryColor();
+        Color secondary = campaignFactionSecondaryColor();
+        Color accent = campaignFactionAccentColor();
+        double dir = facingRight ? 1.0 : -1.0;
+
+        g.save();
+        g.setFill(primary.deriveColor(0, 1, 1, 0.66));
+        g.fillOval(x + 10.0 * s, y + 30.0 * s, drawSize - 20.0 * s, drawSize * 0.52);
+        g.setStroke(secondary.deriveColor(0, 1, 1, 0.92));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(6.0 * s);
+        g.strokeLine(x + (facingRight ? 18.0 : 62.0) * s, y + 31.0 * s,
+                x + (facingRight ? 59.0 : 21.0) * s, y + 65.0 * s);
+        g.setStroke(accent.deriveColor(0, 1, 1, 0.96));
+        g.setLineWidth(2.1 * s);
+
+        if (BirdGame3.CAMPAIGN_CROWN_TROOP_SKIN.equals(appliedSkinKey)) {
+            double chevronX = x + (facingRight ? 28.0 : 52.0) * s;
+            for (int i = 0; i < 2; i++) {
+                double cy = y + (46.0 + i * 9.0) * s;
+                g.strokeLine(chevronX - 8.0 * s * dir, cy - 4.0 * s,
+                        chevronX, cy);
+                g.strokeLine(chevronX, cy,
+                        chevronX - 8.0 * s * dir, cy + 4.0 * s);
+            }
+            g.setFill(accent.deriveColor(0, 1, 1, 0.78));
+            g.fillPolygon(
+                    new double[]{x + 34.0 * s, x + 40.0 * s, x + 46.0 * s, x + 43.0 * s, x + 37.0 * s},
+                    new double[]{y + 27.0 * s, y + 20.0 * s, y + 27.0 * s, y + 32.0 * s, y + 32.0 * s},
+                    5);
+        } else if (BirdGame3.CAMPAIGN_HARBOR_CREW_SKIN.equals(appliedSkinKey)) {
+            g.setLineWidth(3.0 * s);
+            g.strokeLine(x + 17.0 * s, y + 52.0 * s, x + 63.0 * s, y + 52.0 * s);
+            g.strokeLine(x + 21.0 * s, y + 60.0 * s, x + 59.0 * s, y + 60.0 * s);
+            g.setFill(accent.deriveColor(0, 1, 1, 0.88));
+            g.fillOval(x + (facingRight ? 25.0 : 47.0) * s, y + 37.0 * s, 8.0 * s, 8.0 * s);
+        } else if (BirdGame3.CAMPAIGN_CARRION_PACT_SKIN.equals(appliedSkinKey)) {
+            g.setLineWidth(2.4 * s);
+            for (int i = 0; i < 3; i++) {
+                double clawX = x + (27.0 + i * 8.0) * s;
+                g.strokeLine(clawX, y + 43.0 * s, clawX + 9.0 * dir * s, y + 57.0 * s);
+            }
+            g.setFill(accent.deriveColor(0, 1, 1, 0.55));
+            g.fillPolygon(
+                    new double[]{x + 31.0 * s, x + 40.0 * s, x + 49.0 * s, x + 40.0 * s},
+                    new double[]{y + 29.0 * s, y + 23.0 * s, y + 29.0 * s, y + 35.0 * s},
+                    4);
+        } else {
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(x + 21.0 * s, y + 39.0 * s, x + 34.0 * s, y + 47.0 * s);
+            g.strokeLine(x + 34.0 * s, y + 47.0 * s, x + 29.0 * s, y + 62.0 * s);
+            g.strokeLine(x + 34.0 * s, y + 47.0 * s, x + 54.0 * s, y + 42.0 * s);
+            g.setFill(accent.deriveColor(0, 1, 1, 0.88));
+            g.fillOval(x + 30.0 * s, y + 43.0 * s, 8.0 * s, 8.0 * s);
+            g.setStroke(accent.deriveColor(0, 1, 1, 0.42));
+            g.strokeOval(x + 14.0 * s, y + 27.0 * s, drawSize - 28.0 * s, drawSize - 28.0 * s);
+        }
+        g.restore();
     }
 
     private void drawSpecialSkinAccent(GraphicsContext g, double drawSize) {
