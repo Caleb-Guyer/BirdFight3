@@ -88,4 +88,23 @@ class StoryCampaignProgressTest {
         assertEquals(0, progress.completedCount());
         assertEquals("TEMPEST", prefs.get("adv_route_selected", ""));
     }
+
+    @Test
+    void actMissionPickerAllowsClearedAndCurrentMissionsButKeepsFutureMissionsLocked() {
+        StoryCampaignProgress progress = new StoryCampaignProgress();
+        StoryCampaign.Act firstAct = campaign.acts.getFirst();
+        StoryCampaign.Mission first = firstAct.missions().get(0);
+        StoryCampaign.Mission second = firstAct.missions().get(1);
+        StoryCampaign.Mission third = firstAct.missions().get(2);
+
+        assertTrue(progress.isMissionSelectable(campaign, first));
+        assertFalse(progress.isMissionSelectable(campaign, second));
+        assertFalse(progress.isMissionSelectable(campaign, third));
+
+        progress.markMissionCompleted(campaign, first);
+
+        assertTrue(progress.isMissionSelectable(campaign, first), "cleared missions remain replayable");
+        assertTrue(progress.isMissionSelectable(campaign, second), "the current mission can be continued");
+        assertFalse(progress.isMissionSelectable(campaign, third), "unreached missions remain locked");
+    }
 }

@@ -171,6 +171,13 @@ final class StoryCampaignProgress {
         return prior.missions().stream().allMatch(mission -> isMissionCompleted(mission.id()));
     }
 
+    boolean isMissionSelectable(StoryCampaign campaign, StoryCampaign.Mission mission) {
+        if (campaign == null || mission == null || campaign.mission(mission.id()) == null) {
+            return false;
+        }
+        return isMissionCompleted(mission.id()) || mission.id().equals(currentMissionId);
+    }
+
     private void reconcile(StoryCampaign campaign) {
         recruitedBirds.add(BirdGame3.BirdType.PIGEON);
         recruitedBirds.add(BirdGame3.BirdType.MOCKINGBIRD);

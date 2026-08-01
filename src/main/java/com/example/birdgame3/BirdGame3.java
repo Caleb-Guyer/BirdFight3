@@ -31509,10 +31509,6 @@ public class BirdGame3 {
                     .count();
             boolean complete = cleared == act.missions().size();
             boolean active = i == currentActIndex;
-            StoryCampaign.Mission actMission = act.missions().stream()
-                    .filter(mission -> !stillSkyProgress.isMissionCompleted(mission.id()))
-                    .findFirst()
-                    .orElse(act.missions().getFirst());
             String fill = active ? "#B67920"
                     : complete ? "#176C5A" : available ? "#173C57" : "#101A25";
             Button actButton = new Button(String.format(Locale.ROOT, "%02d", i + 1));
@@ -31530,7 +31526,8 @@ public class BirdGame3 {
                     + "-fx-border-width: " + (active ? 4 : 2) + ";"
                     + "-fx-background-radius: 60; -fx-border-radius: 60;");
             actButton.setDisable(!available);
-            actButton.setOnAction(event -> showCampaignMissionBriefing(stage, actMission));
+            int selectedActIndex = i;
+            actButton.setOnAction(event -> showCampaignActMissionSelect(stage, selectedActIndex));
 
             Label actTitle = new Label(campaignActShortTitle(act).toUpperCase(Locale.ROOT)
                     + "\n" + cleared + "/" + act.missions().size());
@@ -31581,6 +31578,127 @@ public class BirdGame3 {
         overlay.getChildren().addAll(eyebrow, title, subtitle, dossier,
                 routePanel, utilityRail, footer);
         installFixedCampaignScene(stage, content, continueButton);
+    }
+
+    private void showCampaignActMissionSelect(Stage stage, int actIndex) {
+        if (actIndex < 0 || actIndex >= stillSkyCampaign.acts.size()
+                || !stillSkyProgress.isActAvailable(stillSkyCampaign, actIndex)) {
+            showCampaignHub(stage);
+            return;
+        }
+
+        campaignModeActive = true;
+        currentCampaignMission = null;
+        StoryCampaign.Act act = stillSkyCampaign.acts.get(actIndex);
+        long cleared = act.missions().stream()
+                .filter(mission -> stillSkyProgress.isMissionCompleted(mission.id()))
+                .count();
+
+        StackPane content = new StackPane();
+        lockRegionSize(content, 1600, 950);
+        Canvas backdrop = new Canvas(1600, 950);
+        drawStillSkyCampaignBackdrop(backdrop.getGraphicsContext2D());
+
+        VBox page = new VBox(14);
+        page.setAlignment(Pos.TOP_CENTER);
+        page.setPadding(new Insets(38, 80, 34, 80));
+        lockRegionSize(page, 1600, 950);
+
+        Label eyebrow = new Label("THE STILL SKY  /  ACT SELECT");
+        eyebrow.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+        eyebrow.setTextFill(Color.web("#6EE7F2"));
+
+        Label title = new Label(String.format(Locale.ROOT, "ACT %02d  /  %s",
+                actIndex + 1, campaignActShortTitle(act).toUpperCase(Locale.ROOT)));
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 46));
+        title.setTextFill(Color.WHITE);
+        title.setAlignment(Pos.CENTER);
+        title.setTextAlignment(TextAlignment.CENTER);
+        title.setMaxWidth(1420);
+        fitLabelSingleLine(title, 46, 30, 1420);
+
+        Label guidance = new Label(cleared + " / " + act.missions().size()
+                + " MISSIONS CLEARED   /   SELECT A CLEARED MISSION TO REPLAY OR CONTINUE FROM YOUR CURRENT MISSION");
+        guidance.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+        guidance.setTextFill(Color.web("#AFC3CF"));
+        guidance.setAlignment(Pos.CENTER);
+        guidance.setTextAlignment(TextAlignment.CENTER);
+
+        VBox missionCards = new VBox(12);
+        missionCards.setAlignment(Pos.CENTER);
+        Button firstSelectable = null;
+        for (int i = 0; i < act.missions().size(); i++) {
+            StoryCampaign.Mission mission = act.missions().get(i);
+            boolean completed = stillSkyProgress.isMissionCompleted(mission.id());
+            boolean selectable = stillSkyProgress.isMissionSelectable(stillSkyCampaign, mission);
+            boolean current = selectable && !completed && mission.id().equals(stillSkyProgress.currentMissionId);
+
+            Label number = new Label(String.format(Locale.ROOT, "%02d", i + 1));
+            number.setFont(Font.font("Arial Black", FontWeight.BOLD, 29));
+            number.setTextFill(selectable ? Color.web("#F4C96B") : Color.web("#50606D"));
+            number.setMinWidth(58);
+
+            Label missionTitle = new Label(mission.title().toUpperCase(Locale.ROOT));
+            missionTitle.setFont(Font.font("Arial Black", FontWeight.BOLD, 24));
+            missionTitle.setTextFill(selectable ? Color.WHITE : Color.web("#667580"));
+
+            Label missionDetails = new Label(mapDisplayName(mission.map()).toUpperCase(Locale.ROOT)
+                    + "  /  " + mission.phases().size() + " OBJECTIVE"
+                    + (mission.phases().size() == 1 ? "" : "S"));
+            missionDetails.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+            missionDetails.setTextFill(selectable ? Color.web("#78DCE8") : Color.web("#4C6570"));
+
+            Label missionBriefing = new Label(mission.briefing());
+            missionBriefing.setFont(Font.font("Arial", FontWeight.SEMI_BOLD, 16));
+            missionBriefing.setTextFill(selectable ? Color.web("#C9D5DC") : Color.web("#5B6871"));
+            missionBriefing.setWrapText(true);
+            missionBriefing.setMaxWidth(870);
+
+            VBox description = new VBox(2, missionTitle, missionDetails, missionBriefing);
+            description.setAlignment(Pos.CENTER_LEFT);
+            HBox.setHgrow(description, Priority.ALWAYS);
+
+            String statusText = completed ? "CLEARED  /  REPLAY"
+                    : current ? "NEXT MISSION" : "LOCKED";
+            Label status = new Label(statusText);
+            status.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
+            status.setTextFill(completed ? Color.web("#8FF0D2")
+                    : current ? Color.web("#FFE29A") : Color.web("#5B6871"));
+            status.setMinWidth(190);
+            status.setAlignment(Pos.CENTER_RIGHT);
+
+            HBox cardGraphic = new HBox(18, number, description, status);
+            cardGraphic.setAlignment(Pos.CENTER_LEFT);
+            cardGraphic.setPadding(new Insets(12, 24, 12, 24));
+            cardGraphic.setPrefWidth(1190);
+            cardGraphic.setMouseTransparent(true);
+
+            Button card = new Button();
+            card.setGraphic(cardGraphic);
+            card.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
+            card.setPrefSize(1240, 126);
+            card.setMinSize(1240, 126);
+            card.setMaxSize(1240, 126);
+            card.setStyle("-fx-background-color: "
+                    + (completed ? "rgba(12,55,49,0.94)" : current ? "rgba(79,56,18,0.96)" : "rgba(7,18,29,0.88)") + ";"
+                    + "-fx-border-color: "
+                    + (completed ? "#46BDA0" : current ? "#E7B94D" : "#263947") + ";"
+                    + "-fx-border-width: 2; -fx-background-radius: 14; -fx-border-radius: 14;");
+            card.setDisable(!selectable);
+            card.setOnAction(event -> showCampaignMissionBriefing(stage, mission));
+            missionCards.getChildren().add(card);
+            if (firstSelectable == null && selectable) {
+                firstSelectable = card;
+            }
+        }
+
+        Region spacer = new Region();
+        VBox.setVgrow(spacer, Priority.ALWAYS);
+        Button back = uiFactory.action("BACK TO CAMPAIGN ROUTE", 390, 66, 18, "#344854", 16,
+                () -> showCampaignHub(stage));
+        page.getChildren().addAll(eyebrow, title, guidance, missionCards, spacer, back);
+        content.getChildren().addAll(backdrop, page);
+        installFixedCampaignScene(stage, content, firstSelectable == null ? back : firstSelectable);
     }
 
     private String campaignActShortTitle(StoryCampaign.Act act) {
