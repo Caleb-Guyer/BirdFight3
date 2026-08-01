@@ -29,8 +29,8 @@ and is also dedicated to the public domain under CC0.
 | music-ashfall.mp3 | Evil Incoming | Ashfall Cathedral |
 | music-prison.mp3 | Assassin — Rafael Krux | Crownlock Prison / prison story scenes |
 | music-null-rock.mp3 | Battle RPG Theme — Cleyton Kauffman (CC0, OpenGameArt) | The Null Rock final battle |
-| music-escape.mp3 | Chase — Adiutorium (CC0, OpenGameArt) | Pigeon's collapsing-cave escape |
-| music-credits.mp3 | Our Expanse — Bobjt (CC0, OpenGameArt) | Epilogue and campaign credits |
+| music-escape.mp3 | Chase — Adiutorium (CC0, OpenGameArt) | Bundled alternate escape cue |
+| music-credits.mp3 | Our Expanse — Bobjt (CC0, OpenGameArt) | Finale cave escape, epilogue, and campaign credits |
 
 ## Sound effects (original)
 

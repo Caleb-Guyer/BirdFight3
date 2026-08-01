@@ -17,7 +17,10 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
+import javafx.scene.shape.ArcType;
+import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
@@ -65,6 +68,12 @@ final class CaveEscapeSequence {
     private boolean leftHeld;
     private boolean jumpHeld;
     private boolean downHeld;
+    private boolean controllerLeftHeld;
+    private boolean controllerRightHeld;
+    private boolean controllerJumpHeld;
+    private boolean controllerDownHeld;
+    private boolean controllerAttackHeld;
+    private boolean controllerSpecialHeld;
     private boolean jumpQueued;
     private boolean attackQueued;
     private boolean specialQueued;
@@ -112,16 +121,20 @@ final class CaveEscapeSequence {
         StackPane root = new StackPane(content);
         root.getProperties().put("noAutoScale", true);
         Scene scene = new Scene(root, WIDTH, HEIGHT, Color.web("#03040A"));
-        game.prepareCampaignCutsceneScene(scene, root, content);
-        scene.addEventFilter(KeyEvent.KEY_PRESSED, event -> handlePressed(event, stage));
-        scene.addEventFilter(KeyEvent.KEY_RELEASED, this::handleReleased);
+        game.prepareCampaignPlayableSequenceScene(scene, root, content);
+        game.addCampaignSceneEventFilter(scene, KeyEvent.KEY_PRESSED,
+                event -> handlePressed(event, stage));
+        game.addCampaignSceneEventFilter(scene, KeyEvent.KEY_RELEASED, this::handleReleased);
         game.setCampaignScene(stage, scene);
-        game.startCampaignSequenceMusic("music-escape.mp3", true);
+        // "Our Expanse" carries Eagle's sacrifice through the escape, epilogue,
+        // and credits without restarting between presentation sequences.
+        game.startCampaignSequenceMusic("music-credits.mp3", true);
         game.playCampaignCaveCollapseCue();
 
         timer = new AnimationTimer() {
             @Override public void handle(long now) {
                 if (lastNow == 0L) lastNow = now;
+                pollControllerInput();
                 accumulator += Math.min(100_000_000L, now - lastNow);
                 lastNow = now;
                 int steps = 0;
@@ -160,6 +173,12 @@ final class CaveEscapeSequence {
         leftHeld = false;
         jumpHeld = false;
         downHeld = false;
+        controllerLeftHeld = false;
+        controllerRightHeld = false;
+        controllerJumpHeld = false;
+        controllerDownHeld = false;
+        controllerAttackHeld = false;
+        controllerSpecialHeld = false;
         jumpQueued = false;
         attackQueued = false;
         specialQueued = false;
@@ -182,7 +201,11 @@ final class CaveEscapeSequence {
         if (attackTicks > 0) attackTicks--;
         if (specialTicks > 0) specialTicks--;
 
-        int moveDirection = rightHeld == leftHeld ? 0 : rightHeld ? 1 : -1;
+        boolean moveLeft = leftHeld || controllerLeftHeld;
+        boolean moveRight = rightHeld || controllerRightHeld;
+        boolean liftHeld = jumpHeld || controllerJumpHeld;
+        boolean fastFallHeld = downHeld || controllerDownHeld;
+        int moveDirection = moveRight == moveLeft ? 0 : moveRight ? 1 : -1;
         if (moveDirection != 0 && pigeon != null) pigeon.facingRight = moveDirection > 0;
         double acceleration = onGround ? 1.18 : 0.66;
         if (moveDirection != 0) {
@@ -215,10 +238,10 @@ final class CaveEscapeSequence {
         if (specialQueued && specialCooldown <= 0) {
             specialCooldown = 78;
             specialTicks = 24;
-            if (jumpHeld) {
+            if (liftHeld) {
                 vy = Math.min(vy, -14.2);
                 vx += moveDirection * 2.2;
-            } else if (downHeld) {
+            } else if (fastFallHeld) {
                 vy = Math.max(vy, 8.4);
             } else {
                 int specialDirection = moveDirection != 0 ? moveDirection : pigeon.facingRight ? 1 : -1;
@@ -229,10 +252,10 @@ final class CaveEscapeSequence {
         specialQueued = false;
 
         vy += 0.82;
-        if (!onGround && jumpHeld && vy > -6.4) {
+        if (!onGround && liftHeld && vy > -6.4) {
             vy -= 0.58;
         }
-        if (!onGround && downHeld) {
+        if (!onGround && fastFallHeld) {
             vy = Math.min(16.0, vy + 1.05);
         }
         x += vx;
@@ -268,7 +291,7 @@ final class CaveEscapeSequence {
             }
         }
 
-        double blastFront = Math.max(-450.0, ticks * 6.15 - 900.0);
+        double blastFront = collapseFrontWorldX();
         if (x < blastFront + 155.0) {
             fail("The charge overtook the tunnel.");
         } else if (y > HEIGHT + 180.0) {
@@ -279,6 +302,14 @@ final class CaveEscapeSequence {
             finishEscape();
         }
         cameraX = Math.clamp(x - 520.0, 0.0, WORLD_LENGTH - WIDTH);
+    }
+
+    private double collapseFrontWorldX() {
+        return Math.max(-450.0, ticks * 6.15 - 900.0);
+    }
+
+    private double collapseDistance() {
+        return x - (collapseFrontWorldX() + 155.0);
     }
 
     private double floorAt(double worldX) {
@@ -302,7 +333,7 @@ final class CaveEscapeSequence {
         if (finished) return;
         finished = true;
         stop();
-        game.finishCampaignSequenceMusic();
+        // The epilogue requests the same emotional track and resumes it in place.
         game.resetAfterCampaignCutscene();
         Runnable callback = onEscaped;
         onEscaped = null;
@@ -349,77 +380,303 @@ final class CaveEscapeSequence {
         event.consume();
     }
 
+    private void pollControllerInput() {
+        WiimoteMappedState state = game.campaignSequenceControllerState();
+        boolean connected = state != null && state.connected();
+        boolean nextJump = connected && state.jump();
+        boolean nextAttack = connected && state.attack();
+        boolean nextSpecial = connected && state.special();
+
+        controllerLeftHeld = connected && state.left();
+        controllerRightHeld = connected && state.right();
+        controllerDownHeld = connected && state.block();
+        if (nextJump && !controllerJumpHeld) {
+            if (failed) resetRun();
+            else jumpQueued = true;
+        }
+        if (nextAttack && !controllerAttackHeld) {
+            if (failed) resetRun();
+            else attackQueued = true;
+        }
+        if (nextSpecial && !controllerSpecialHeld) {
+            if (failed) resetRun();
+            else specialQueued = true;
+        }
+        controllerJumpHeld = nextJump;
+        controllerAttackHeld = nextAttack;
+        controllerSpecialHeld = nextSpecial;
+    }
+
     private void render(long now) {
         if (canvas == null) return;
         GraphicsContext g = canvas.getGraphicsContext2D();
         g.save();
         g.scale(canvas.getWidth() / WIDTH, canvas.getHeight() / HEIGHT);
-        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0, Color.web("#050816")), new Stop(1, Color.web("#241126"))));
-        g.fillRect(0, 0, WIDTH, HEIGHT);
+        double danger = Math.clamp(1.0 - collapseDistance() / 780.0, 0.0, 1.0);
+        double shake = danger * danger * 7.0;
+        g.save();
+        g.translate(Math.sin(now / 13_000_000.0) * shake,
+                Math.cos(now / 17_000_000.0) * shake * 0.55);
         drawCave(g, now);
         drawPigeon(g);
+        g.restore();
         drawHud(g);
         if (failed) drawFailure(g);
         g.restore();
     }
 
     private void drawCave(GraphicsContext g, long now) {
-        double blastFront = Math.max(-450.0, ticks * 6.15 - 900.0) - cameraX;
-        double pulse = 0.5 + 0.5 * Math.sin(now / 120_000_000.0);
-        g.setFill(Color.web("#381014", 0.62 + pulse * 0.12));
-        g.fillRect(0, 0, Math.max(0.0, blastFront + 180.0), HEIGHT);
-        g.setFill(Color.web("#FF6F00", 0.36 + pulse * 0.20));
-        g.fillRect(blastFront, 0, 210, HEIGHT);
+        double time = now / 1_000_000_000.0;
+        double blastFront = collapseFrontWorldX() - cameraX;
+        double pulse = 0.5 + 0.5 * Math.sin(time * 8.0);
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#050714")),
+                new Stop(0.58, Color.web("#171324")),
+                new Stop(1, Color.web("#2A182A"))));
+        g.fillRect(-24, -24, WIDTH + 48, HEIGHT + 48);
 
-        g.setFill(Color.web("#171421"));
-        for (int i = 0; i < 45; i++) {
-            double wx = i * 560.0 - cameraX;
-            double h = 170 + (i % 5) * 55;
-            g.fillPolygon(new double[]{wx - 90, wx + 120, wx + 260},
-                    new double[]{0, h, 0}, 3);
-        }
-        g.setFill(Color.web("#2A2433"));
-        for (double sx = Math.floor(cameraX / 360.0) * 360.0; sx < cameraX + WIDTH + 500; sx += 360.0) {
-            if (!Double.isNaN(floorAt(sx + 180))) {
-                g.fillRect(sx - cameraX, FLOOR_Y, 365, HEIGHT - FLOOR_Y);
-                g.setFill(Color.web("#4A4052"));
-                g.fillRect(sx - cameraX, FLOOR_Y, 365, 18);
-                g.setFill(Color.web("#2A2433"));
-            }
-        }
+        drawExitLight(g, time);
+        drawCaveDepth(g, time);
+        drawTunnelRemains(g);
+        drawFloor(g);
+
         for (Gap gap : GAPS) {
             double gx = gap.x - cameraX;
             g.setFill(Color.web("#020207"));
             g.fillRect(gx, FLOOR_Y - 4, gap.width, HEIGHT - FLOOR_Y + 10);
-            g.setFill(Color.web("#FF3D00", 0.22 + pulse * 0.18));
-            g.fillOval(gx - 40, FLOOR_Y + 120, gap.width + 80, 210);
+            g.setFill(new RadialGradient(0, 0, gx + gap.width * 0.5, FLOOR_Y + 160,
+                    gap.width * 0.7, false, CycleMethod.NO_CYCLE,
+                    new Stop(0, Color.web("#FF6D00", 0.35 + pulse * 0.16)),
+                    new Stop(0.55, Color.web("#D50000", 0.16)),
+                    new Stop(1, Color.TRANSPARENT)));
+            g.fillOval(gx - 55, FLOOR_Y + 55, gap.width + 110, 300);
+            g.setStroke(Color.web("#FF8A65", 0.28));
+            g.setLineWidth(4);
+            g.strokeLine(gx - 8, FLOOR_Y + 4, gx + 35, FLOOR_Y + 42);
+            g.strokeLine(gx + gap.width + 8, FLOOR_Y + 4,
+                    gx + gap.width - 32, FLOOR_Y + 48);
         }
         for (int i = 0; i < ROCKS.size(); i++) {
             if (destroyedRocks[i]) continue;
             Rock rock = ROCKS.get(i);
             double rx = rock.x - cameraX;
             double top = FLOOR_Y - rock.height;
-            g.setFill(Color.web("#3B3442"));
+            g.setFill(new LinearGradient(rx, top, rx + rock.width, FLOOR_Y, false,
+                    CycleMethod.NO_CYCLE,
+                    new Stop(0, Color.web("#5E5266")),
+                    new Stop(0.48, Color.web("#3B3442")),
+                    new Stop(1, Color.web("#211D29"))));
             g.fillPolygon(new double[]{rx, rx + rock.width * 0.42, rx + rock.width, rx + rock.width * 0.84},
                     new double[]{FLOOR_Y, top, top + rock.height * 0.18, FLOOR_Y}, 4);
-            g.setStroke(Color.web("#75677D"));
-            g.setLineWidth(5);
+            g.setStroke(Color.web("#9A899F", 0.62));
+            g.setLineWidth(4);
             g.strokeLine(rx + rock.width * 0.42, top, rx + rock.width * 0.84, FLOOR_Y);
+            g.setStroke(Color.web("#17131D", 0.72));
+            g.setLineWidth(3);
+            g.strokeLine(rx + rock.width * 0.42, top,
+                    rx + rock.width * 0.55, top + rock.height * 0.42);
+            g.strokeLine(rx + rock.width * 0.55, top + rock.height * 0.42,
+                    rx + rock.width * 0.35, top + rock.height * 0.67);
         }
-        g.setFill(Color.web("#B0BEC5", 0.34));
-        for (int i = 0; i < 52; i++) {
-            double wx = (i * 941.0 + (now / 13_000_000.0) * (8 + i % 5)) % (WORLD_LENGTH + 900.0);
+
+        drawCollapseFront(g, blastFront, time, pulse);
+
+        for (int i = 0; i < 42; i++) {
+            double wx = (i * 941.0 + time * (65 + i % 5 * 17)) % (WORLD_LENGTH + 900.0);
             double sx = wx - cameraX;
             if (sx < -80 || sx > WIDTH + 80) continue;
-            double sy = (i * 137.0 + now / 7_000_000.0) % 760.0;
-            g.fillOval(sx, sy, 8 + i % 4 * 4, 14 + i % 3 * 5);
+            double sy = Math.floorMod((long) (i * 137.0 + time * (95 + i % 4 * 24)), 760L);
+            double size = 5 + i % 4 * 3;
+            g.setFill(Color.web(i % 5 == 0 ? "#FFCC80" : "#B0BEC5",
+                    i % 5 == 0 ? 0.34 : 0.22));
+            g.fillOval(sx, sy, size, size * 1.45);
         }
+
+        drawForegroundVignette(g);
+    }
+
+    private void drawExitLight(GraphicsContext g, double time) {
+        double exitX = WORLD_LENGTH - 250.0 - cameraX;
+        if (exitX > WIDTH + 1500.0 || exitX < -900.0) return;
+        double pulse = 0.92 + Math.sin(time * 1.7) * 0.06;
+        g.setFill(new RadialGradient(0, 0, exitX, 430, 760 * pulse, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#FFFDE7", 0.96)),
+                new Stop(0.18, Color.web("#FFE082", 0.66)),
+                new Stop(0.52, Color.web("#80DEEA", 0.19)),
+                new Stop(1, Color.TRANSPARENT)));
+        g.fillOval(exitX - 760, -250, 1520, 1420);
+        g.setFill(Color.web("#FFF8E1", 0.82));
+        g.fillPolygon(new double[]{exitX - 105, exitX + 115, exitX + 420, exitX - 390},
+                new double[]{85, 85, FLOOR_Y, FLOOR_Y}, 4);
+    }
+
+    private void drawCaveDepth(GraphicsContext g, double time) {
+        g.setFill(Color.web("#0B0D1B"));
+        for (int i = 0; i < 20; i++) {
+            double sx = i * 1240.0 - cameraX * 0.22 - 520.0;
+            double width = 520 + i % 3 * 130;
+            g.fillOval(sx, 190 + i % 4 * 72, width, 590 - i % 3 * 45);
+        }
+
+        g.setStroke(Color.web("#57485F", 0.23));
+        g.setLineWidth(18);
+        for (int i = 0; i < 14; i++) {
+            double sx = i * 1760.0 - cameraX * 0.42;
+            g.strokeArc(sx - 280, 170, 560, 710, 12, 156, ArcType.OPEN);
+        }
+
+        g.setFill(Color.web("#211C2B"));
+        for (int i = 0; i < 46; i++) {
+            double sx = i * 520.0 - cameraX * 0.72;
+            double depth = 135 + (i * 47 % 240);
+            double width = 165 + i % 4 * 48;
+            g.fillPolygon(new double[]{sx - width * 0.5, sx, sx + width * 0.5},
+                    new double[]{-10, depth, -10}, 3);
+        }
+
+        g.setStroke(Color.web("#7E6A85", 0.18));
+        g.setLineWidth(3);
+        for (int i = 0; i < 32; i++) {
+            double sx = i * 730.0 - cameraX * 0.55;
+            double drift = Math.sin(time * 0.35 + i) * 7.0;
+            g.strokeLine(sx, 210 + i % 5 * 85 + drift,
+                    sx + 170 + i % 3 * 70, 285 + i % 5 * 85 + drift);
+        }
+    }
+
+    private void drawTunnelRemains(GraphicsContext g) {
+        for (int i = 0; i < 18; i++) {
+            double worldX = 980.0 + i * 1280.0;
+            double sx = worldX - cameraX;
+            if (sx < -260 || sx > WIDTH + 260) continue;
+            g.setStroke(Color.web("#46515B", 0.54));
+            g.setLineWidth(15);
+            g.strokeLine(sx - 150, FLOOR_Y, sx - 105, 330 + i % 3 * 55);
+            g.strokeLine(sx + 150, FLOOR_Y, sx + 92, 345 + i % 4 * 48);
+            g.setStroke(Color.web("#75838D", 0.35));
+            g.setLineWidth(5);
+            g.strokeArc(sx - 145, 270 + i % 3 * 35, 290, 235, 4, 172, ArcType.OPEN);
+            g.setFill(Color.web("#D6A72D", 0.38));
+            g.fillRect(sx - 126, FLOOR_Y - 18, 32, 6);
+            g.fillRect(sx + 92, FLOOR_Y - 18, 32, 6);
+        }
+
+        String[] sectionNames = {"CROWN CORE", "FAULT GALLERY", "OLD MIGRATION WAY", "SURFACE BREACH"};
+        double[] sectionX = {1500, 7200, 13200, 19000};
+        for (int i = 0; i < sectionX.length; i++) {
+            double sx = sectionX[i] - cameraX;
+            if (sx < -300 || sx > WIDTH + 300) continue;
+            g.setFill(Color.web("#090D15", 0.88));
+            g.fillRoundRect(sx - 135, 510, 270, 52, 8, 8);
+            g.setStroke(Color.web(i == 3 ? "#FFE082" : "#607D8B", 0.72));
+            g.setLineWidth(2);
+            g.strokeRoundRect(sx - 135, 510, 270, 52, 8, 8);
+            g.setFill(Color.web(i == 3 ? "#FFE082" : "#B0BEC5", 0.84));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
+            g.setTextAlign(TextAlignment.CENTER);
+            g.fillText(sectionNames[i], sx, 543);
+            g.setTextAlign(TextAlignment.LEFT);
+        }
+    }
+
+    private void drawFloor(GraphicsContext g) {
+        double startWorld = Math.floor(cameraX / 52.0) * 52.0 - 52.0;
+        for (double worldX = startWorld; worldX < cameraX + WIDTH + 104.0; worldX += 52.0) {
+            double floor = floorAt(worldX + 26.0);
+            if (Double.isNaN(floor)) continue;
+            double nextFloor = floorAt(worldX + 78.0);
+            if (Double.isNaN(nextFloor)) nextFloor = floor;
+            double sx = worldX - cameraX;
+            g.setFill(worldX % 208.0 == 0.0 ? Color.web("#302938") : Color.web("#292330"));
+            g.fillPolygon(new double[]{sx, sx + 54, sx + 54, sx},
+                    new double[]{floor, nextFloor, HEIGHT + 30, HEIGHT + 30}, 4);
+            g.setStroke(Color.web("#71627A", 0.76));
+            g.setLineWidth(4);
+            g.strokeLine(sx, floor, sx + 54, nextFloor);
+            if (((long) worldX / 52L) % 4 == 1) {
+                g.setStroke(Color.web("#121018", 0.84));
+                g.setLineWidth(2);
+                g.strokeLine(sx + 17, floor + 7, sx + 31, floor + 25);
+                g.strokeLine(sx + 31, floor + 25, sx + 24, floor + 43);
+            }
+        }
+        for (double worldX = Math.floor(cameraX / 840.0) * 840.0;
+             worldX < cameraX + WIDTH + 840.0; worldX += 840.0) {
+            double floor = floorAt(worldX + 90.0);
+            if (Double.isNaN(floor)) continue;
+            double sx = worldX + 90.0 - cameraX;
+            g.setFill(Color.web("#80DEEA", 0.34));
+            g.fillPolygon(new double[]{sx - 34, sx + 4, sx - 34, sx - 16},
+                    new double[]{floor - 34, floor - 18, floor - 2, floor - 18}, 4);
+        }
+    }
+
+    private void drawCollapseFront(GraphicsContext g, double blastFront, double time, double pulse) {
+        g.setFill(new LinearGradient(blastFront - 360, 0, blastFront + 250, 0, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#27080B", 0.88)),
+                new Stop(0.58, Color.web("#B71C1C", 0.52)),
+                new Stop(0.82, Color.web("#FF6D00", 0.62 + pulse * 0.18)),
+                new Stop(1, Color.TRANSPARENT)));
+        g.fillRect(-40, -20, Math.max(0.0, blastFront + 310), HEIGHT + 40);
+        g.setStroke(Color.web("#FFF3E0", 0.46 + pulse * 0.28));
+        g.setLineWidth(8 + pulse * 8);
+        g.strokeLine(blastFront + 18, 0, blastFront + 18, HEIGHT);
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < 14; i++) {
+            double sy = Math.floorMod((long) (i * 107 + time * (180 + i * 13)), 1040L);
+            double reach = 55 + i % 5 * 25;
+            g.setStroke(Color.web(i % 3 == 0 ? "#FFF8E1" : "#FF8A65", 0.58));
+            g.setLineWidth(3 + i % 3);
+            g.strokeLine(blastFront + 22, sy, blastFront + 22 + reach, sy - 22 - i % 4 * 9);
+        }
+        g.setLineCap(StrokeLineCap.BUTT);
+    }
+
+    private void drawForegroundVignette(GraphicsContext g) {
+        g.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#010208", 0.82)),
+                new Stop(0.13, Color.TRANSPARENT),
+                new Stop(0.78, Color.TRANSPARENT),
+                new Stop(1, Color.web("#010208", 0.74))));
+        g.fillRect(-20, -20, WIDTH + 40, HEIGHT + 40);
     }
 
     private void drawPigeon(GraphicsContext g) {
         if (pigeon == null) return;
-        pigeon.x = x - cameraX - pigeon.bodyWidth() * 0.5;
+        double screenX = x - cameraX;
+        double screenY = y + PIGEON_HEIGHT * 0.5;
+        double speed = Math.abs(vx);
+        g.setFill(new RadialGradient(0, 0, screenX, screenY, 118, false,
+                CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#FFF8E1", 0.16)),
+                new Stop(0.48, Color.web("#80DEEA", 0.08)),
+                new Stop(1, Color.TRANSPARENT)));
+        g.fillOval(screenX - 118, screenY - 118, 236, 236);
+        if (speed > 3.5) {
+            double direction = vx >= 0.0 ? -1.0 : 1.0;
+            g.setLineCap(StrokeLineCap.ROUND);
+            for (int i = 0; i < 5; i++) {
+                double lineY = screenY - 35 + i * 18.0;
+                double length = (28 + i * 11) * Math.min(1.0, speed / 10.8);
+                g.setStroke(Color.web(i % 2 == 0 ? "#E1F5FE" : "#80DEEA", 0.24));
+                g.setLineWidth(3 + i * 0.35);
+                g.strokeLine(screenX + direction * 48, lineY,
+                        screenX + direction * (48 + length), lineY);
+            }
+            g.setLineCap(StrokeLineCap.BUTT);
+        }
+        if (onGround && speed > 1.5) {
+            for (int i = 0; i < 4; i++) {
+                double drift = Math.floorMod(ticks * (5L + i) + i * 19L, 46L);
+                g.setFill(Color.web("#B0BEC5", 0.16 + i * 0.025));
+                g.fillOval(screenX - Math.signum(vx) * (36 + drift), y + PIGEON_HEIGHT - 5 - i * 5,
+                        9 + i * 2, 5 + i);
+            }
+        }
+
+        pigeon.x = screenX - pigeon.bodyWidth() * 0.5;
         pigeon.y = y;
         pigeon.prevX = pigeon.x;
         pigeon.prevY = pigeon.y;
@@ -433,21 +690,53 @@ final class CaveEscapeSequence {
 
     private void drawHud(GraphicsContext g) {
         g.setFill(Color.web("#02050B", 0.86));
-        g.fillRoundRect(54, 45, 620, 118, 18, 18);
+        g.fillRoundRect(54, 45, 720, 158, 18, 18);
         g.setStroke(Color.web("#80DEEA"));
         g.setLineWidth(3);
-        g.strokeRoundRect(54, 45, 620, 118, 18, 18);
+        g.strokeRoundRect(54, 45, 720, 158, 18, 18);
         g.setFill(Color.web("#80DEEA"));
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 23));
         g.fillText("THE LAST FLIGHT  -  ESCAPE THE COLLAPSE", 82, 85);
         g.setFill(Color.WHITE);
-        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 31));
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 29));
         int seconds = Math.max(0, (LIMIT_TICKS - ticks + 59) / 60);
-        g.fillText("TIME " + seconds + "    DISTANCE " + (int) (100.0 * x / WORLD_LENGTH) + "%", 82, 132);
+        double progress = Math.clamp(x / WORLD_LENGTH, 0.0, 1.0);
+        g.fillText("TIME " + seconds + "    ROUTE " + (int) (progress * 100.0) + "%", 82, 126);
+        g.setFill(Color.web("#17242D"));
+        g.fillRoundRect(82, 151, 658, 22, 11, 11);
+        g.setFill(new LinearGradient(82, 0, 740, 0, false, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#26C6DA")), new Stop(1, Color.web("#FFE082"))));
+        g.fillRoundRect(82, 151, 658 * progress, 22, 11, 11);
+        g.setStroke(Color.web("#CFD8DC", 0.58));
+        g.setLineWidth(2);
+        g.strokeRoundRect(82, 151, 658, 22, 11, 11);
+
+        double threat = Math.clamp(1.0 - collapseDistance() / 1100.0, 0.0, 1.0);
+        g.setFill(Color.web("#02050B", 0.86));
+        g.fillRoundRect(WIDTH - 775, 45, 721, 132, 18, 18);
+        g.setStroke(threat > 0.62 ? Color.web("#FF7043") : Color.web("#78909C"));
+        g.strokeRoundRect(WIDTH - 775, 45, 721, 132, 18, 18);
         g.setTextAlign(TextAlignment.RIGHT);
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
-        g.fillText("MOVE / JUMP + FLY / ATTACK / SPECIAL", WIDTH - 66, 78);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        g.setFill(Color.web("#ECEFF1"));
+        g.fillText("MOVE " + keyName(game.leftKeyForPlayer(0)) + "/" + keyName(game.rightKeyForPlayer(0))
+                        + "   FLY " + keyName(game.jumpKeyForPlayer(0))
+                        + "   ATTACK " + keyName(game.attackKeyForPlayer(0))
+                        + "   SPECIAL " + keyName(game.specialKeyForPlayer(0)),
+                WIDTH - 82, 82);
+        g.setFill(threat > 0.62 ? Color.web("#FF8A65") : Color.web("#B0BEC5"));
+        g.fillText(threat > 0.78 ? "THE BLAST IS CLOSING" : "KEEP MOVING TOWARD DAYLIGHT",
+                WIDTH - 82, 116);
+        g.setFill(Color.web("#151B23"));
+        g.fillRoundRect(WIDTH - 740, 137, 658, 15, 8, 8);
+        g.setFill(Color.web("#FF5722", 0.82));
+        g.fillRoundRect(WIDTH - 740, 137, 658 * threat, 15, 8, 8);
         g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private String keyName(KeyCode key) {
+        if (key == null || key == KeyCode.UNDEFINED) return "?";
+        return key.getName().toUpperCase();
     }
 
     private void drawFailure(GraphicsContext g) {
@@ -473,6 +762,19 @@ final class CaveEscapeSequence {
         rightHeld = right;
         jumpHeld = jump;
         downHeld = down;
+        jumpQueued = jump;
+        attackQueued = attack;
+        specialQueued = special;
+    }
+
+    void setControllerControlsForTest(boolean left, boolean right, boolean jump, boolean down,
+                                      boolean attack, boolean special) {
+        controllerLeftHeld = left;
+        controllerRightHeld = right;
+        controllerJumpHeld = jump;
+        controllerDownHeld = down;
+        controllerAttackHeld = attack;
+        controllerSpecialHeld = special;
         jumpQueued = jump;
         attackQueued = attack;
         specialQueued = special;

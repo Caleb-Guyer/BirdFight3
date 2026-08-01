@@ -217,6 +217,7 @@ public class BirdGame3 {
     private static final String SCENE_PROP_WIIMOTE_SELECTOR_PLAYERS = "wiimote_selector_players";
     private static final String SCENE_PROP_FIGHT_SELECTOR_CONTROLLER = "fight_selector_controller";
     private static final String SCENE_PROP_WIIMOTE_POINTER_TRACKING = "wiimote_pointer_tracking";
+    private static final String SCENE_PROP_CAMPAIGN_PLAYABLE_SEQUENCE = "campaign_playable_sequence";
     private static final String FIGHT_SELECTOR_COLOR_PROP = "fight_selector_color";
     private static final String FIGHT_SELECTOR_SNAP_DISTANCE_PROP = "fight_selector_snap_distance";
     private static final String FIGHT_SELECTOR_DOCK_BOUNDS_PROP = "fight_selector_dock_bounds";
@@ -1928,6 +1929,12 @@ public class BirdGame3 {
                 return;
             }
 
+            // Playable campaign set pieces own WASD/Space and controller input.
+            // Treating them as menus used to consume Pigeon's escape controls.
+            if (isCampaignPlayableSequence(targetScene)) {
+                return;
+            }
+
             // WASD -> arrows for focus
             KeyCode arrow = switch (code) {
                 case W -> KeyCode.UP;
@@ -2270,6 +2277,11 @@ public class BirdGame3 {
         }
         Scene scene = currentStage.getScene();
         if (scene == null || (scene == gameplayScene && !isPaused)) {
+            resetWiimoteMenuHeldState();
+            resetWiimoteSelectorHeldState();
+            return;
+        }
+        if (isCampaignPlayableSequence(scene)) {
             resetWiimoteMenuHeldState();
             resetWiimoteSelectorHeldState();
             return;
@@ -16760,6 +16772,28 @@ public class BirdGame3 {
         frame.heightProperty().addListener((obs, oldValue, newValue) -> applyScale.run());
         applyScale.run();
         javafx.application.Platform.runLater(applyScale);
+    }
+
+    void prepareCampaignPlayableSequenceScene(Scene scene, Region frame, Region content) {
+        if (scene != null) {
+            scene.getProperties().put(SCENE_PROP_CAMPAIGN_PLAYABLE_SEQUENCE, true);
+        }
+        prepareCampaignCutsceneScene(scene, frame, content);
+    }
+
+    private boolean isCampaignPlayableSequence(Scene scene) {
+        Scene active = activeSceneFor(scene);
+        return active != null
+                && Boolean.TRUE.equals(active.getProperties().get(SCENE_PROP_CAMPAIGN_PLAYABLE_SEQUENCE));
+    }
+
+    <T extends Event> void addCampaignSceneEventFilter(
+            Scene scene, EventType<T> eventType, EventHandler<? super T> handler) {
+        addSceneEventFilter(scene, eventType, handler);
+    }
+
+    WiimoteMappedState campaignSequenceControllerState() {
+        return controllerStateForPlayer(0);
     }
 
     void setCampaignScene(Stage stage, Scene scene) {
