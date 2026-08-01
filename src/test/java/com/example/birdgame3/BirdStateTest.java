@@ -6931,6 +6931,57 @@ class BirdStateTest {
     }
 
     @Test
+    void nullRockFinalCheckpointRestartsAsAProtectedOneOnOneBossFight() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.headlessHarnessMode = true;
+        game.campaignModeActive = true;
+        game.campaignTeamMode = true;
+        game.selectedMap = BirdGame3.MapType.BEACON_CROWN;
+
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("the_null_rock");
+        setPrivateObject(game, "currentCampaignMission", mission);
+        setPrivateObject(game, "campaignSelectedBird", BirdGame3.BirdType.PIGEON);
+        setPrivateInt(game, "campaignRetryPhaseIndex", 3);
+        Method setupRoster = BirdGame3.class.getDeclaredMethod(
+                "setupCampaignMissionRoster", StoryCampaign.Mission.class);
+        setupRoster.setAccessible(true);
+        setupRoster.invoke(game, mission);
+        invokePrivateVoid(game, "setupMatchArenaGeometry");
+        Method applyArena = BirdGame3.class.getDeclaredMethod(
+                "applyCampaignMissionArenaModifiers", StoryCampaign.Mission.class);
+        applyArena.setAccessible(true);
+        applyArena.invoke(game, mission);
+
+        assertEquals(2, game.activePlayers);
+        assertEquals(BirdGame3.BirdType.PIGEON, game.players[0].type);
+        assertEquals(1, game.campaignTeams[0]);
+        assertEquals(BirdGame3.BirdType.VULTURE, game.players[1].type);
+        assertEquals(2, game.campaignTeams[1]);
+        assertTrue(game.players[1].isNullRockForm());
+        assertTrue(game.isCampaignNullRockDuelBoss(game.players[1]));
+        assertEquals(4, game.platforms.size());
+        StoryMissionController controller =
+                (StoryMissionController) getPrivateObject(game, "campaignMissionController");
+        assertEquals(StoryCampaign.ObjectiveType.BOSS_PHASES,
+                controller.currentPhase().objective());
+        assertEquals(5, controller.currentPhase().targetCount());
+
+        Bird boss = game.players[1];
+        double bossStartingHealth = boss.health;
+        boss.health = bossStartingHealth * 0.74;
+        game.checkCampaignMissionCompletion();
+        invokePrivateVoid(game, "applyCampaignMissionRuntimeEffects");
+        assertEquals(1, getPrivateInt(game, "campaignNullRockDuelStage"));
+        assertTrue(boss.overchargeAttackTimer > 0);
+
+        boss.health = bossStartingHealth * 0.35;
+        game.checkCampaignMissionCompletion();
+        invokePrivateVoid(game, "applyCampaignMissionRuntimeEffects");
+        assertEquals(3, getPrivateInt(game, "campaignNullRockDuelStage"));
+        assertTrue(boss.rageTimer > 0);
+    }
+
+    @Test
     void cutTheLockBuildsAStagedCommandBridgeOneOnOne() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.headlessHarnessMode = true;

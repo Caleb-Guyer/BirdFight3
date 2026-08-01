@@ -10,6 +10,17 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class StoryCutsceneDeterminismAuditTest {
     @Test
+    void identicalCampaignMusicTracksContinueInsteadOfRestarting() {
+        assertTrue(BirdGame3.shouldContinueMusicTrack(
+                "music-null-rock.mp3", "music-null-rock.mp3"));
+        assertTrue(BirdGame3.shouldContinueMusicTrack(
+                "MUSIC-NULL-ROCK.MP3", "music-null-rock.mp3"));
+        assertFalse(BirdGame3.shouldContinueMusicTrack(
+                "music-null-rock.mp3", "music-escape.mp3"));
+        assertFalse(BirdGame3.shouldContinueMusicTrack(null, "music-null-rock.mp3"));
+    }
+
+    @Test
     void presentationPlayerCannotConsumeSimulationRandomnessOrWallClockSimulationState() throws IOException {
         String source = Files.readString(Path.of(
                 "src", "main", "java", "com", "example", "birdgame3", "StoryCutscenePlayer.java"));

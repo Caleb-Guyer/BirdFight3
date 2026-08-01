@@ -21,6 +21,7 @@ final class StoryCampaignContent {
     private static final String NULL_ROCK_SKIN = "NULL_ROCK_VULTURE";
     private static final String TIDE_VULTURE_SKIN = "TIDE_VULTURE";
     private static final String CAMPAIGN_PHASE_DIALOGUE_ID = "dynamic_campaign_phase";
+    private static final String NULL_ROCK_DUEL_DIALOGUE_ID = "dynamic_null_rock_duel";
     private static final Map<String, String> DIALOGUE_SCRIPTS = StoryDialogueScripts.loadBundled();
 
     private StoryCampaignContent() {
@@ -101,6 +102,7 @@ final class StoryCampaignContent {
             sceneIds.add(scene.id());
         }
         sceneIds.add(CAMPAIGN_PHASE_DIALOGUE_ID);
+        sceneIds.add(NULL_ROCK_DUEL_DIALOGUE_ID);
         Set<String> missing = new LinkedHashSet<>(sceneIds);
         missing.removeAll(DIALOGUE_SCRIPTS.keySet());
         Set<String> unused = new LinkedHashSet<>(DIALOGUE_SCRIPTS.keySet());
@@ -773,14 +775,15 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission nullRock() {
         return mission("the_null_rock", "The Null Rock",
-                "The living core commands the cavern from beyond the arena. Break its roosts, combine every flock signature, and plant the final charge.",
+                "Break the living core's command network, plant Penguin's charge, then face The Null Rock directly when it tears through the cavern wall.",
                 BEACON_CROWN, NULL_ROCK, StoryCampaign.PlayablePolicy.fullRoster(),
                 List.of(),
                 fighters(boss(VULTURE, "The Null Rock", 1200, 1.86, 1.04, NULL_ROCK_SKIN)),
                 phases(
                         phase(CAPTURE, "Break the command roosts", 54, 4, true),
                         phase(HOLD_ZONE, "Join every flock signature", 48, 6, true),
-                        phase(CAPTURE, "Plant Penguin's cavern charge", 38, 2, true)
+                        phase(CAPTURE, "Plant Penguin's cavern charge", 38, 2, true),
+                        phase(BOSS_PHASES, "Defeat The Null Rock one-on-one", 0, 5, true)
                 ),
                 "s79_null_rock_before", "s80_eagle_end", null, true);
     }
@@ -797,7 +800,9 @@ final class StoryCampaignContent {
                 id,
                 title,
                 location,
-                musicFor(location, finale),
+                id.equals("s79_null_rock_before") || id.equals("s80_eagle_end")
+                        ? "music-null-rock.mp3"
+                        : musicFor(location, finale),
                 parseScript(StoryDialogueScripts.require(DIALOGUE_SCRIPTS, id)),
                 handoff,
                 death,
@@ -836,6 +841,25 @@ final class StoryCampaignContent {
                     "Dialogue section [" + CAMPAIGN_PHASE_DIALOGUE_ID + "] must contain exactly two lines");
         }
         return List.copyOf(lines);
+    }
+
+    static List<StoryCampaign.DialogueLine> nullRockDuelDialogue(
+            String heroSpeaker,
+            BirdGame3.BirdType heroBird
+    ) {
+        String speaker = heroSpeaker == null || heroSpeaker.isBlank() ? "Pigeon" : heroSpeaker.strip();
+        String script = StoryDialogueScripts.require(DIALOGUE_SCRIPTS, NULL_ROCK_DUEL_DIALOGUE_ID)
+                .replace("{hero}", speaker);
+        List<StoryCampaign.DialogueLine> parsed = parseScript(script);
+        if (heroBird == null) {
+            return parsed;
+        }
+        return parsed.stream()
+                .map(line -> line.speaker().equals(speaker)
+                        ? new StoryCampaign.DialogueLine(line.speaker(), heroBird, line.text(),
+                        line.shot(), line.motion(), line.whenSelected())
+                        : line)
+                .toList();
     }
 
     private static String musicFor(BirdGame3.MapType map, boolean finale) {

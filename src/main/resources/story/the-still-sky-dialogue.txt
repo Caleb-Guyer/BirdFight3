@@ -965,7 +965,7 @@ Pigeon|We heard you. Each squad moves when it's ready.
 Phoenix|And the player chooses any bird still willing to move.
 
 [s80_eagle_end]
-Penguin|The charge is armed. The cave should fold inward, but the blast gate has to stay open until everyone clears it.|WIDE|EXIT_RIGHT
+Penguin|Null Rock is down. The charge is armed, but the blast gate has to stay open until everyone clears the cave.|WIDE|EXIT_RIGHT
 Pigeon@PIGEON|I'll take the lower tunnel. If it closes, keep moving without me.
 Eagle@EAGLE|I built the release. I know exactly how long I can hold it.
 Falcon@FALCON|I'll clear the ridge and come back for whoever's still inside.
@@ -1031,3 +1031,14 @@ Crown System|OPEN SKY CONFIRMED.|REVEAL|RISE
 [dynamic_campaign_phase]
 {hero}|Checkpoint's secure. {objective}.
 Crown System|Combat response updated. The next containment phase is active.
+
+[dynamic_null_rock_duel]
+Penguin|Charge is set. Everybody clear the center.|WIDE|IDLE
+The Null Rock|No.|REVEAL|RISE
+Falcon|It's coming through the wall! Move!|ACTION|RECOIL
+The Null Rock|Still.|ACTION|ATTACK
+Penguin|It knocked the whole line into the evacuation tunnels. The charge is still live.|WIDE|EXIT_LEFT
+Eagle|Only one bird is still inside its reach.|CLOSE|RECOIL
+{hero}|Then stop talking and seal the door behind me.|CLOSE|RISE
+The Null Rock|Alone.|REVEAL|IDLE
+{hero}|Not the same thing.|ACTION|ATTACK

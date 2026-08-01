@@ -14357,7 +14357,11 @@ public class Bird {
 
         handleWallTechCollision(prevX, prevY);
 
-        if (x < outLeft || x > outRight) {
+        if (game.isCampaignNullRockDuelBoss(this) && (x < outLeft || x > outRight)) {
+            x = Math.clamp(x, leftBound, rightBound);
+            vx = -vx * 0.35;
+            vy = Math.min(vy, -4.0);
+        } else if (x < outLeft || x > outRight) {
             boolean leftExit = x < outLeft;
             double sideX = leftExit ? outLeft : outRight;
             double sideY = crossingCenterYAtX(prevX, prevY, sideX);
@@ -14410,7 +14414,14 @@ public class Bird {
             return;
         }
 
-        if (y > BirdGame3.WORLD_HEIGHT + 300) {
+        if (game.isCampaignNullRockDuelBoss(this) && y > BirdGame3.WORLD_HEIGHT + 300) {
+            x = Math.clamp(x, leftBound, rightBound);
+            y = game.battlefieldSpawnY(sizeMultiplier);
+            prevX = x;
+            prevY = y;
+            vx *= 0.25;
+            vy = -9.0;
+        } else if (y > BirdGame3.WORLD_HEIGHT + 300) {
             double bottomY = BirdGame3.WORLD_HEIGHT + 300;
             double bottomX = crossingCenterXAtY(prevX, prevY, bottomY);
             String bottomLabel = isVoidMap() ? "into the lower blast zone" : "off the bottom";

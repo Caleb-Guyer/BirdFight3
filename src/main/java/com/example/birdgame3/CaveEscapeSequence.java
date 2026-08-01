@@ -23,6 +23,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 import javafx.stage.Stage;
 
+import java.util.Arrays;
 import java.util.List;
 
 /** Fixed-tick, presentation-isolated escape that closes The Still Sky. */
@@ -31,6 +32,7 @@ final class CaveEscapeSequence {
     private static final double HEIGHT = 1080.0;
     private static final double WORLD_LENGTH = 22_400.0;
     private static final double FLOOR_Y = 805.0;
+    private static final double PIGEON_HEIGHT = 80.0;
     private static final long STEP_NS = 16_666_667L;
     private static final int LIMIT_TICKS = 65 * 60;
     private static final List<Gap> GAPS = List.of(
@@ -55,12 +57,22 @@ final class CaveEscapeSequence {
     private int ticks;
     private double x;
     private double y;
+    private double vx;
     private double vy;
     private double cameraX;
     private boolean onGround;
     private boolean rightHeld;
     private boolean leftHeld;
+    private boolean jumpHeld;
+    private boolean downHeld;
     private boolean jumpQueued;
+    private boolean attackQueued;
+    private boolean specialQueued;
+    private int attackTicks;
+    private int specialTicks;
+    private int specialCooldown;
+    private int coyoteTicks;
+    private final boolean[] destroyedRocks = new boolean[ROCKS.size()];
     private boolean failed;
     private boolean finished;
     private String failureReason = "";
@@ -136,7 +148,8 @@ final class CaveEscapeSequence {
 
     private void resetRun() {
         x = 520.0;
-        y = FLOOR_Y - 104.0;
+        y = FLOOR_Y - PIGEON_HEIGHT;
+        vx = 0.0;
         vy = 0.0;
         cameraX = 0.0;
         ticks = 0;
@@ -145,41 +158,111 @@ final class CaveEscapeSequence {
         onGround = true;
         rightHeld = false;
         leftHeld = false;
+        jumpHeld = false;
+        downHeld = false;
         jumpQueued = false;
+        attackQueued = false;
+        specialQueued = false;
+        attackTicks = 0;
+        specialTicks = 0;
+        specialCooldown = 0;
+        coyoteTicks = 7;
+        Arrays.fill(destroyedRocks, false);
         failed = false;
         finished = false;
         failureReason = "";
         if (failControls != null) failControls.setVisible(false);
         pigeon = game.createCampaignCutsceneBird(BirdGame3.BirdType.PIGEON, null);
-        pigeon.setBaseMultipliers(1.18, 1.0, 1.0);
         pigeon.facingRight = true;
     }
 
     private void tick() {
         ticks++;
-        double speed = rightHeld ? 10.8 : leftHeld ? 5.2 : 8.1;
-        x += speed;
-        if (jumpQueued && onGround) {
+        if (specialCooldown > 0) specialCooldown--;
+        if (attackTicks > 0) attackTicks--;
+        if (specialTicks > 0) specialTicks--;
+
+        int moveDirection = rightHeld == leftHeld ? 0 : rightHeld ? 1 : -1;
+        if (moveDirection != 0 && pigeon != null) pigeon.facingRight = moveDirection > 0;
+        double acceleration = onGround ? 1.18 : 0.66;
+        if (moveDirection != 0) {
+            vx += moveDirection * acceleration;
+            vx = Math.clamp(vx, -10.8, 10.8);
+        } else {
+            vx *= onGround ? 0.78 : 0.965;
+            if (Math.abs(vx) < 0.08) vx = 0.0;
+        }
+
+        if (onGround) {
+            coyoteTicks = 7;
+        } else if (coyoteTicks > 0) {
+            coyoteTicks--;
+        }
+        if (jumpQueued && (onGround || coyoteTicks > 0)) {
             vy = -15.8;
             onGround = false;
+            coyoteTicks = 0;
         }
         jumpQueued = false;
+
+        if (attackQueued && attackTicks <= 0) {
+            attackTicks = 15;
+            int attackDirection = moveDirection != 0 ? moveDirection : pigeon.facingRight ? 1 : -1;
+            vx += attackDirection * 1.35;
+        }
+        attackQueued = false;
+
+        if (specialQueued && specialCooldown <= 0) {
+            specialCooldown = 78;
+            specialTicks = 24;
+            if (jumpHeld) {
+                vy = Math.min(vy, -14.2);
+                vx += moveDirection * 2.2;
+            } else if (downHeld) {
+                vy = Math.max(vy, 8.4);
+            } else {
+                int specialDirection = moveDirection != 0 ? moveDirection : pigeon.facingRight ? 1 : -1;
+                vx = specialDirection * 16.4;
+                vy = Math.min(vy, -1.8);
+            }
+        }
+        specialQueued = false;
+
         vy += 0.82;
+        if (!onGround && jumpHeld && vy > -6.4) {
+            vy -= 0.58;
+        }
+        if (!onGround && downHeld) {
+            vy = Math.min(16.0, vy + 1.05);
+        }
+        x += vx;
         y += vy;
+        x = Math.max(90.0, x);
 
         double floor = floorAt(x);
-        if (!Double.isNaN(floor) && y + 104.0 >= floor && vy >= 0.0) {
-            y = floor - 104.0;
+        if (!Double.isNaN(floor) && y + PIGEON_HEIGHT >= floor && vy >= 0.0) {
+            y = floor - PIGEON_HEIGHT;
             vy = 0.0;
             onGround = true;
         } else {
             onGround = false;
         }
 
-        for (Rock rock : ROCKS) {
+        for (int i = 0; i < ROCKS.size(); i++) {
+            if (destroyedRocks[i]) continue;
+            Rock rock = ROCKS.get(i);
             double top = FLOOR_Y - rock.height;
             if (x + 38 > rock.x && x - 38 < rock.x + rock.width
-                    && y + 96 > top && y + 14 < FLOOR_Y) {
+                    && y + PIGEON_HEIGHT - 6.0 > top && y + 10.0 < FLOOR_Y) {
+                boolean strikingFromFront = attackTicks > 0
+                        && (pigeon.facingRight ? x <= rock.x + rock.width * 0.45
+                        : x >= rock.x + rock.width * 0.55);
+                boolean breakable = rock.width <= 145.0 || specialTicks > 0;
+                if (breakable && (strikingFromFront || specialTicks > 0)) {
+                    destroyedRocks[i] = true;
+                    vx *= 0.72;
+                    continue;
+                }
                 fail("Pigeon was caught by the collapse.");
                 return;
             }
@@ -235,20 +318,33 @@ final class CaveEscapeSequence {
     }
 
     private void handlePressed(KeyEvent event, Stage stage) {
-        if (event.getCode() == KeyCode.RIGHT || event.getCode() == KeyCode.D) rightHeld = true;
-        else if (event.getCode() == KeyCode.LEFT || event.getCode() == KeyCode.A) leftHeld = true;
-        else if (event.getCode() == KeyCode.UP || event.getCode() == KeyCode.W
-                || event.getCode() == KeyCode.SPACE) {
-            if (failed) resetRun(); else jumpQueued = true;
-        } else if (event.getCode() == KeyCode.ENTER && failed) resetRun();
-        else if (event.getCode() == KeyCode.ESCAPE) abandon(stage);
+        KeyCode code = event.getCode();
+        if (code == game.rightKeyForPlayer(0) || code == KeyCode.RIGHT) rightHeld = true;
+        else if (code == game.leftKeyForPlayer(0) || code == KeyCode.LEFT) leftHeld = true;
+        else if (code == game.jumpKeyForPlayer(0) || code == KeyCode.UP) {
+            if (failed) resetRun();
+            else {
+                jumpHeld = true;
+                jumpQueued = true;
+            }
+        } else if (code == game.attackKeyForPlayer(0)) {
+            if (failed) resetRun(); else attackQueued = true;
+        } else if (code == game.specialKeyForPlayer(0)) {
+            if (failed) resetRun(); else specialQueued = true;
+        } else if (code == game.blockKeyForPlayer(0) || code == KeyCode.DOWN) {
+            downHeld = true;
+        } else if (code == KeyCode.ENTER && failed) resetRun();
+        else if (code == KeyCode.ESCAPE) abandon(stage);
         else return;
         event.consume();
     }
 
     private void handleReleased(KeyEvent event) {
-        if (event.getCode() == KeyCode.RIGHT || event.getCode() == KeyCode.D) rightHeld = false;
-        else if (event.getCode() == KeyCode.LEFT || event.getCode() == KeyCode.A) leftHeld = false;
+        KeyCode code = event.getCode();
+        if (code == game.rightKeyForPlayer(0) || code == KeyCode.RIGHT) rightHeld = false;
+        else if (code == game.leftKeyForPlayer(0) || code == KeyCode.LEFT) leftHeld = false;
+        else if (code == game.jumpKeyForPlayer(0) || code == KeyCode.UP) jumpHeld = false;
+        else if (code == game.blockKeyForPlayer(0) || code == KeyCode.DOWN) downHeld = false;
         else return;
         event.consume();
     }
@@ -299,7 +395,9 @@ final class CaveEscapeSequence {
             g.setFill(Color.web("#FF3D00", 0.22 + pulse * 0.18));
             g.fillOval(gx - 40, FLOOR_Y + 120, gap.width + 80, 210);
         }
-        for (Rock rock : ROCKS) {
+        for (int i = 0; i < ROCKS.size(); i++) {
+            if (destroyedRocks[i]) continue;
+            Rock rock = ROCKS.get(i);
             double rx = rock.x - cameraX;
             double top = FLOOR_Y - rock.height;
             g.setFill(Color.web("#3B3442"));
@@ -325,9 +423,11 @@ final class CaveEscapeSequence {
         pigeon.y = y;
         pigeon.prevX = pigeon.x;
         pigeon.prevY = pigeon.y;
-        pigeon.vx = rightHeld ? 10.8 : 8.1;
+        pigeon.vx = vx;
         pigeon.vy = vy;
-        pigeon.facingRight = true;
+        if (Math.abs(vx) > 0.25) pigeon.facingRight = vx > 0.0;
+        pigeon.attackAnimationTimer = attackTicks;
+        pigeon.pigeonRushTimer = specialTicks;
         pigeon.draw(g);
     }
 
@@ -339,14 +439,14 @@ final class CaveEscapeSequence {
         g.strokeRoundRect(54, 45, 620, 118, 18, 18);
         g.setFill(Color.web("#80DEEA"));
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 23));
-        g.fillText("THE LAST FLIGHT  •  ESCAPE THE COLLAPSE", 82, 85);
+        g.fillText("THE LAST FLIGHT  -  ESCAPE THE COLLAPSE", 82, 85);
         g.setFill(Color.WHITE);
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 31));
         int seconds = Math.max(0, (LIMIT_TICKS - ticks + 59) / 60);
         g.fillText("TIME " + seconds + "    DISTANCE " + (int) (100.0 * x / WORLD_LENGTH) + "%", 82, 132);
         g.setTextAlign(TextAlignment.RIGHT);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
-        g.fillText("RUN: A/D OR ←/→   JUMP: W/↑/SPACE", WIDTH - 66, 78);
+        g.fillText("MOVE / JUMP + FLY / ATTACK / SPECIAL", WIDTH - 66, 78);
         g.setTextAlign(TextAlignment.LEFT);
     }
 
@@ -361,6 +461,33 @@ final class CaveEscapeSequence {
         g.setFont(Font.font("Arial", FontWeight.NORMAL, 28));
         g.fillText(failureReason, WIDTH * 0.5, 474);
         g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    void resetForTest() {
+        resetRun();
+    }
+
+    void setControlsForTest(boolean left, boolean right, boolean jump, boolean down,
+                            boolean attack, boolean special) {
+        leftHeld = left;
+        rightHeld = right;
+        jumpHeld = jump;
+        downHeld = down;
+        jumpQueued = jump;
+        attackQueued = attack;
+        specialQueued = special;
+    }
+
+    void tickForTest() {
+        tick();
+    }
+
+    double progressXForTest() {
+        return x;
+    }
+
+    double verticalPositionForTest() {
+        return y;
     }
 
     private void stop() {

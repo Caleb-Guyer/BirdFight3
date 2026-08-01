@@ -101,9 +101,15 @@ class StoryCampaignContentTest {
         assertEquals(List.of(
                         StoryCampaign.ObjectiveType.CAPTURE,
                         StoryCampaign.ObjectiveType.HOLD_ZONE,
-                        StoryCampaign.ObjectiveType.CAPTURE),
+                        StoryCampaign.ObjectiveType.CAPTURE,
+                        StoryCampaign.ObjectiveType.BOSS_PHASES),
                 finale.phases().stream().map(StoryCampaign.MissionPhase::objective).toList());
-        assertEquals("Plant Penguin's cavern charge", finale.phases().getLast().label());
+        assertEquals("Plant Penguin's cavern charge", finale.phases().get(2).label());
+        assertEquals("Defeat The Null Rock one-on-one", finale.phases().getLast().label());
+        assertEquals(9, StoryCampaignContent.nullRockDuelDialogue(
+                "Pigeon", BirdGame3.BirdType.PIGEON).size());
+        assertEquals("music-null-rock.mp3", campaign.scene("s79_null_rock_before").musicCue());
+        assertEquals("music-null-rock.mp3", campaign.scene("s80_eagle_end").musicCue());
         assertNotNull(campaign.scene("s81_beyond_the_map"));
         assertNotNull(BirdGame3.class.getResource("/sounds/music-null-rock.mp3"));
         assertNotNull(BirdGame3.class.getResource("/sounds/music-escape.mp3"));

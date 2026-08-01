@@ -18,6 +18,7 @@ class StoryDialogueScriptsTest {
         StoryCampaign campaign = StoryCampaignContent.create();
         Set<String> expectedSections = new LinkedHashSet<>(campaign.scenes.keySet());
         expectedSections.add("dynamic_campaign_phase");
+        expectedSections.add("dynamic_null_rock_duel");
 
         assertEquals(expectedSections.size(), scripts.size());
         assertEquals(expectedSections, scripts.keySet());

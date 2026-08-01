@@ -1478,6 +1478,7 @@ public class BirdGame3 {
 
     private void disposeGameplayMusicPlayer() {
         musicPlayer = stopMediaPlayer(musicPlayer, true);
+        musicPlayerTrack = null;
     }
 
     private void stopPersistentMusicPlayers() {
@@ -1488,6 +1489,7 @@ public class BirdGame3 {
 
     private void disposeAllManagedMediaPlayers() {
         musicPlayer = stopMediaPlayer(musicPlayer, true);
+        musicPlayerTrack = null;
         menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, true);
         victoryMusicPlayer = stopMediaPlayer(victoryMusicPlayer, true);
         defeatMusicPlayer = stopMediaPlayer(defeatMusicPlayer, true);
@@ -1580,19 +1582,41 @@ public class BirdGame3 {
     }
 
     private void startMusic() {
+        startOrContinueMusicTrack(gameplayMusicFile(), true);
+    }
+
+    static boolean shouldContinueMusicTrack(String activeTrack, String requestedTrack) {
+        return activeTrack != null && requestedTrack != null
+                && activeTrack.strip().equalsIgnoreCase(requestedTrack.strip());
+    }
+
+    private void startOrContinueMusicTrack(String file, boolean loop) {
         stopPersistentMusicPlayers();
+        if (!musicEnabled || file == null || file.isBlank()) {
+            disposeGameplayMusicPlayer();
+            return;
+        }
+        if (musicPlayer != null && shouldContinueMusicTrack(musicPlayerTrack, file)) {
+            musicPlayer.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
+            musicDuckLevel = 1.0;
+            applyAudioVolumes();
+            MediaPlayer.Status status = musicPlayer.getStatus();
+            if (status != MediaPlayer.Status.PLAYING && status != MediaPlayer.Status.STALLED) {
+                musicPlayer.play();
+            }
+            return;
+        }
+
         disposeGameplayMusicPlayer();
-        if (!musicEnabled) return;
-
-        String file = gameplayMusicFile();
-
         try {
-            Media media = new Media(resourceUrl("/sounds/" + file));
-            musicPlayer = new MediaPlayer(media);
-            musicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
+            musicDuckLevel = 1.0;
+            musicPlayer = new MediaPlayer(new Media(resourceUrl("/sounds/" + file)));
+            musicPlayerTrack = file;
+            musicPlayer.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
             applyAudioVolumes();
             musicPlayer.play();
         } catch (Exception e) {
+            musicPlayerTrack = null;
             System.out.println("Music not found: " + file);
         }
     }
@@ -4419,6 +4443,7 @@ public class BirdGame3 {
     public AudioClip bonkClip, butterClip, jalapenoClip, swingClip, hugewaveClip, buttonClickClip, zombieFallingClip,
             vaseBreakingClip, cherrybombClip, steamAchievementClip, fightReadyClip, rebirthNovaClip;
     public MediaPlayer musicPlayer, menuMusicPlayer, victoryMusicPlayer, defeatMusicPlayer;
+    private String musicPlayerTrack;
 
     // Guard to prevent reentrant shutdowns
     private volatile boolean shuttingDown = false;
@@ -5031,6 +5056,7 @@ public class BirdGame3 {
     private int campaignCrownDuelStage = 0;
     private int campaignNullRockPhaseAnnounced = -1;
     private int campaignNullRockWave = 0;
+    private int campaignNullRockDuelStage = 0;
     boolean campaignTeamMode = false;
     final int[] campaignTeams = createPvETeamArray();
     int campaignMatchTimerOverride = -1;
@@ -14467,7 +14493,7 @@ public class BirdGame3 {
             g.fillRect(0, i * (WORLD_HEIGHT / 640.0), WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3);
         }
 
-        if (isNullRockCampaign()) {
+        if (isNullRockCampaign() && !isNullRockDuelPhase()) {
             drawNullRockBackgroundCommander(g, ambientFx);
         }
 
@@ -16743,43 +16769,26 @@ public class BirdGame3 {
     void startCampaignCutscenePresentation(StoryCampaign.Cutscene cutscene) {
         if (cutscene != null) {
             selectedMap = cutscene.location();
+            String cue = cutscene.musicCue();
+            if (cue != null && cue.toLowerCase(Locale.ROOT).endsWith(".mp3")) {
+                startOrContinueMusicTrack(cue, true);
+                return;
+            }
         }
         startMusic();
     }
 
     void startCampaignStorybookPresentation(boolean epilogue) {
-        stopPersistentMusicPlayers();
-        disposeGameplayMusicPlayer();
-        if (!musicEnabled) return;
-        try {
-            musicDuckLevel = 1.0;
-            String track = epilogue ? "music-credits.mp3" : "music-prologue.mp3";
-            musicPlayer = new MediaPlayer(new Media(resourceUrl("/sounds/" + track)));
-            musicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
-            applyAudioVolumes();
-            musicPlayer.play();
-        } catch (RuntimeException e) {
-            System.out.println("Storybook music not found: " + e.getMessage());
-        }
+        startOrContinueMusicTrack(epilogue ? "music-credits.mp3" : "music-prologue.mp3", true);
     }
 
     void finishCampaignStorybookPresentation() {
-        disposeGameplayMusicPlayer();
+        // The next screen chooses whether to preserve or replace this track.
+        // Keeping it alive here lets an epilogue flow into same-track credits.
     }
 
     void startCampaignSequenceMusic(String file, boolean loop) {
-        stopPersistentMusicPlayers();
-        disposeGameplayMusicPlayer();
-        if (!musicEnabled || file == null || file.isBlank()) return;
-        try {
-            musicDuckLevel = 1.0;
-            musicPlayer = new MediaPlayer(new Media(resourceUrl("/sounds/" + file)));
-            musicPlayer.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
-            applyAudioVolumes();
-            musicPlayer.play();
-        } catch (RuntimeException e) {
-            System.out.println("Campaign sequence music not found: " + file + " (" + e.getMessage() + ")");
-        }
+        startOrContinueMusicTrack(file, loop);
     }
 
     void finishCampaignSequenceMusic() {
@@ -32082,7 +32091,6 @@ public class BirdGame3 {
             if (after != null) after.run();
             return;
         }
-        disposeGameplayMusicPlayer();
         storyCutscenePlayer.play(stage, cutscene, campaignSelectedBird, campaignSelectedSkinKey, () -> {
             stillSkyProgress.markSceneSeen(cutscene.id());
             saveAchievements();
@@ -32860,6 +32868,7 @@ public class BirdGame3 {
 
     private void setupCampaignMissionRoster(StoryCampaign.Mission mission) {
         if (mission == null) return;
+        campaignMissionController = null;
         Arrays.fill(campaignTeams, 2);
         Arrays.fill(campaignStartingHealth, 0.0);
         Arrays.fill(campaignBossSlots, false);
@@ -32872,9 +32881,15 @@ public class BirdGame3 {
         campaignCrownDuelStage = 0;
         campaignNullRockPhaseAnnounced = -1;
         campaignNullRockWave = 0;
+        campaignNullRockDuelStage = 0;
 
         if (mission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK) {
-            setupCampaignFinalCoalition(mission);
+            int startPhase = Math.clamp(campaignRetryPhaseIndex, 0, mission.phases().size() - 1);
+            if (mission.phases().get(startPhase).objective() == StoryCampaign.ObjectiveType.BOSS_PHASES) {
+                setupCampaignNullRockDuelRoster(mission);
+            } else {
+                setupCampaignFinalCoalition(mission);
+            }
         } else {
             int requested = 1 + mission.allies().size() + mission.enemies().size();
             activePlayers = Math.min(MAX_COMBATANTS, Math.max(2, requested));
@@ -33030,6 +33045,106 @@ public class BirdGame3 {
         updateCampaignFrontlineRotation(true);
     }
 
+    private StoryCampaign.Fighter campaignNullRockFighter(StoryCampaign.Mission mission) {
+        if (mission == null) return null;
+        return mission.enemies().stream()
+                .filter(StoryCampaign.Fighter::boss)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private void setupCampaignNullRockDuelRoster(StoryCampaign.Mission mission) {
+        activePlayers = 2;
+        Bird player = createStoryBird(1_950, campaignSelectedBird, 0,
+                "You: " + campaignSelectedBird.name, 130, 1.0, 1.0, false);
+        applySkinChoiceToBird(player, campaignSelectedBird, campaignSelectedSkinKey);
+        campaignTeams[0] = 1;
+        campaignStartingHealth[0] = player.health;
+
+        StoryCampaign.Fighter fighter = campaignNullRockFighter(mission);
+        if (fighter == null) {
+            throw new IllegalStateException("The Null Rock duel is missing its authored boss");
+        }
+        campaignTeams[1] = 2;
+        campaignBossSlots[1] = true;
+        Bird boss = createCampaignFighter(fighter, 1, 3_900, true);
+        campaignStartingHealth[1] = boss.health;
+    }
+
+    private void enterCampaignNullRockDuel() {
+        if (!isNullRockCampaign() || currentCampaignMission == null) return;
+        Bird player = players[0];
+        if (player == null || player.health <= 0.0) return;
+
+        Arrays.fill(players, 1, players.length, null);
+        Arrays.fill(isAI, 1, isAI.length, false);
+        Arrays.fill(campaignBossSlots, 1, campaignBossSlots.length, false);
+        Arrays.fill(campaignReservedBossSlots, 1, campaignReservedBossSlots.length, false);
+        Arrays.fill(campaignEnemyEliminated, 1, campaignEnemyEliminated.length, false);
+        activePlayers = 2;
+        campaignTeams[0] = 1;
+        campaignTeams[1] = 2;
+        campaignBossSlots[1] = true;
+
+        double playerMax = Math.max(1.0, player.getMaxHealth());
+        player.health = Math.max(player.health, playerMax * 0.72);
+        campaignStartingHealth[0] = playerMax;
+
+        StoryCampaign.Fighter fighter = campaignNullRockFighter(currentCampaignMission);
+        if (fighter == null) {
+            throw new IllegalStateException("The Null Rock duel is missing its authored boss");
+        }
+        Bird boss = createCampaignFighter(fighter, 1, 4_050, true);
+        campaignStartingHealth[1] = boss.health;
+
+        setupCampaignNullRockDuelArena();
+        placeCampaignNullRockDuelists(player, boss);
+        campaignBossSegmentAnnounced = 0;
+        campaignFrontlineWindow = -1;
+        addToKillFeed("FINAL DUEL: The charge is live. Defeat The Null Rock directly.");
+        shakeIntensity = Math.max(shakeIntensity, 34.0);
+        playManagedSfxVaried(hugewaveClip, 0.92, 0.56, 0.014);
+    }
+
+    private void setupCampaignNullRockDuelArena() {
+        platforms.clear();
+        windVents.clear();
+        powerUps.clear();
+        crowMinions.clear();
+        chickMinions.clear();
+        mockingbirdShadowMinions.clear();
+
+        double islandW = 2_760.0;
+        double islandX = (WORLD_WIDTH - islandW) * 0.5;
+        double islandY = GROUND_Y - 150.0;
+        platforms.add(new Platform(islandX, islandY, islandW, 96.0));
+        platforms.add(new Platform(islandX + 210.0, islandY - 275.0, 500.0, 44.0));
+        platforms.add(new Platform(islandX + islandW - 710.0, islandY - 275.0, 500.0, 44.0));
+        platforms.add(new Platform(islandX + (islandW - 660.0) * 0.5, islandY - 510.0, 660.0, 48.0));
+        battlefieldIslandX = islandX;
+        battlefieldIslandW = islandW;
+        battlefieldIslandY = islandY;
+    }
+
+    private void placeCampaignNullRockDuelists(Bird player, Bird boss) {
+        if (player == null || boss == null) return;
+        player.x = battlefieldIslandX + 360.0 - player.bodyWidth() * 0.5;
+        player.y = battlefieldIslandY - player.bodyHeight();
+        player.prevX = player.x;
+        player.prevY = player.y;
+        player.vx = -14.0;
+        player.vy = -4.0;
+        player.facingRight = true;
+
+        boss.x = battlefieldIslandX + battlefieldIslandW - 620.0 - boss.bodyWidth() * 0.5;
+        boss.y = battlefieldIslandY - boss.bodyHeight();
+        boss.prevX = boss.x;
+        boss.prevY = boss.y;
+        boss.vx = 0.0;
+        boss.vy = 0.0;
+        boss.facingRight = false;
+    }
+
     private void applyCampaignMissionArenaModifiers(StoryCampaign.Mission mission) {
         if (mission == null) return;
         int authoredTicks = mission.phases().stream()
@@ -33072,14 +33187,20 @@ public class BirdGame3 {
                 powerUps.add(new PowerUp(4300, GROUND_Y - 880, PowerUpType.SPEED));
             }
             case NULL_ROCK -> {
-                addToKillFeed("THE NULL ROCK: Four-bird frontlines rotate through the final assault.");
-                shakeIntensity = Math.max(shakeIntensity, 26);
-                windVents.add(new WindVent(1150, GROUND_Y - 520, 520));
-                windVents.add(new WindVent(3000, GROUND_Y - 740, 640));
-                windVents.add(new WindVent(4850, GROUND_Y - 520, 520));
-                powerUps.add(new PowerUp(1500, GROUND_Y - 900, PowerUpType.HEALTH));
-                powerUps.add(new PowerUp(3000, GROUND_Y - 1120, PowerUpType.OVERCHARGE));
-                powerUps.add(new PowerUp(4500, GROUND_Y - 900, PowerUpType.RAGE));
+                if (isNullRockDuelPhase()) {
+                    setupCampaignNullRockDuelArena();
+                    placeCampaignNullRockDuelists(players[0], players[1]);
+                    addToKillFeed("FINAL DUEL: The Null Rock has entered the arena.");
+                } else {
+                    addToKillFeed("THE NULL ROCK: Four-bird frontlines rotate through the final assault.");
+                    shakeIntensity = Math.max(shakeIntensity, 26);
+                    windVents.add(new WindVent(1150, GROUND_Y - 520, 520));
+                    windVents.add(new WindVent(3000, GROUND_Y - 740, 640));
+                    windVents.add(new WindVent(4850, GROUND_Y - 520, 520));
+                    powerUps.add(new PowerUp(1500, GROUND_Y - 900, PowerUpType.HEALTH));
+                    powerUps.add(new PowerUp(3000, GROUND_Y - 1120, PowerUpType.OVERCHARGE));
+                    powerUps.add(new PowerUp(4500, GROUND_Y - 900, PowerUpType.RAGE));
+                }
             }
             case STANDARD -> {
             }
@@ -40630,6 +40751,24 @@ public class BirdGame3 {
                 && currentCampaignMission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK;
     }
 
+    private boolean isNullRockDuelPhase() {
+        if (!isNullRockCampaign()) return false;
+        if (campaignMissionController != null) {
+            return campaignMissionController.currentPhase().objective()
+                    == StoryCampaign.ObjectiveType.BOSS_PHASES;
+        }
+        int startPhase = Math.clamp(campaignRetryPhaseIndex, 0,
+                Math.max(0, currentCampaignMission.phases().size() - 1));
+        return currentCampaignMission.phases().get(startPhase).objective()
+                == StoryCampaign.ObjectiveType.BOSS_PHASES;
+    }
+
+    boolean isCampaignNullRockDuelBoss(Bird bird) {
+        return isNullRockDuelPhase() && bird != null && activePlayers > 1
+                && bird == players[1] && campaignTeams[1] == 2
+                && campaignBossSlots[1] && bird.isNullRockForm();
+    }
+
     /**
      * The true form is an arena-scale commander, not another oversized fighter.
      * Fixed tick gates keep its flock calls deterministic while the authored
@@ -40638,6 +40777,10 @@ public class BirdGame3 {
     private void applyNullRockRuntimeEffects() {
         if (campaignMissionController == null || campaignMissionController.complete()
                 || campaignMissionController.failed()) {
+            return;
+        }
+        if (isNullRockDuelPhase()) {
+            applyCampaignNullRockDuelRuntimeEffects();
             return;
         }
         int phase = campaignMissionController.phaseIndex();
@@ -40672,6 +40815,51 @@ public class BirdGame3 {
             campaignNullRockWave++;
             addToKillFeed("THE NULL ROCK CALLS SHADOW WING " + campaignNullRockWave + ".");
         }
+    }
+
+    private void applyCampaignNullRockDuelRuntimeEffects() {
+        Bird boss = activePlayers > 1 ? players[1] : null;
+        if (boss == null || boss.health <= 0.0) return;
+
+        int stage = campaignMissionController.bossSegment();
+        if (stage <= campaignNullRockDuelStage) return;
+        campaignNullRockDuelStage = stage;
+        boss.specialCooldown = 0;
+        boss.crowSwarmCooldown = 0;
+        shakeIntensity = Math.max(shakeIntensity, 18.0 + stage * 5.0);
+
+        switch (stage) {
+            case 1 -> {
+                boss.overchargeAttackTimer = Math.max(boss.overchargeAttackTimer, 180);
+                addToKillFeed("NULL ROCK PHASE II: The broken shell starts hunting.");
+            }
+            case 2 -> {
+                boss.rageTimer = Math.max(boss.rageTimer, 220);
+                boss.overchargeAttackTimer = Math.max(boss.overchargeAttackTimer, 210);
+                windVents.clear();
+                windVents.add(new WindVent(battlefieldIslandX + 260.0,
+                        battlefieldIslandY - 170.0, 330.0));
+                windVents.add(new WindVent(battlefieldIslandX + battlefieldIslandW - 590.0,
+                        battlefieldIslandY - 170.0, 330.0));
+                addToKillFeed("NULL ROCK PHASE III: The cavern starts breathing with it.");
+            }
+            case 3 -> {
+                boss.rageTimer = Math.max(boss.rageTimer, 300);
+                boss.overchargeAttackTimer = Math.max(boss.overchargeAttackTimer, 270);
+                windVents.clear();
+                windVents.add(new WindVent(battlefieldIslandX + battlefieldIslandW * 0.5 - 270.0,
+                        battlefieldIslandY - 330.0, 540.0));
+                addToKillFeed("NULL ROCK PHASE IV: The living meteor tears free.");
+            }
+            default -> {
+                boss.rageTimer = Math.max(boss.rageTimer, 420);
+                boss.overchargeAttackTimer = Math.max(boss.overchargeAttackTimer, 360);
+                windVents.clear();
+                addToKillFeed("FINAL PHASE: No flock. No shield. Finish it.");
+            }
+        }
+        playManagedSfxVaried(hugewaveClip, 0.74 + Math.min(0.16, stage * 0.035),
+                0.68 - Math.min(0.18, stage * 0.035), 0.014);
     }
 
     /**
@@ -40806,11 +40994,17 @@ public class BirdGame3 {
         int bossSegment = campaignMissionController.bossSegment();
         if (bossSegment > campaignBossSegmentAnnounced) {
             campaignBossSegmentAnnounced = bossSegment;
-            addToKillFeed("BOSS PHASE " + (bossSegment + 1) + ": the Crown changes its attack pattern.");
-            shakeIntensity = Math.max(shakeIntensity, 14 + bossSegment * 3);
+            if (!isNullRockDuelPhase()) {
+                addToKillFeed("BOSS PHASE " + (bossSegment + 1) + ": the Crown changes its attack pattern.");
+                shakeIntensity = Math.max(shakeIntensity, 14 + bossSegment * 3);
+            }
         }
         if (result.outcome() == StoryMissionController.Outcome.PHASE_ADVANCED) {
-            spawnReservedCampaignBossesForCurrentPhase();
+            if (isNullRockDuelPhase()) {
+                enterCampaignNullRockDuel();
+            } else {
+                spawnReservedCampaignBossesForCurrentPhase();
+            }
             campaignBossSegmentAnnounced = 0;
             addToKillFeed("CHECKPOINT: " + result.message());
             if (stillSkyProgress.difficulty.bonusHealthPickup) {
@@ -40902,6 +41096,7 @@ public class BirdGame3 {
     private void updateCampaignFrontlineRotation(boolean force) {
         if (!campaignModeActive || currentCampaignMission == null
                 || currentCampaignMission.arenaVariant() != StoryCampaign.ArenaVariant.NULL_ROCK
+                || isNullRockDuelPhase()
                 || activePlayers < 3) {
             return;
         }
@@ -40925,6 +41120,7 @@ public class BirdGame3 {
     private void updateCampaignSignatureAssist() {
         if (!campaignModeActive || currentCampaignMission == null
                 || currentCampaignMission.arenaVariant() != StoryCampaign.ArenaVariant.NULL_ROCK
+                || isNullRockDuelPhase()
                 || simTick <= 0 || simTick % 75L != 0L) {
             return;
         }
@@ -41014,20 +41210,34 @@ public class BirdGame3 {
                 ? "Charles"
                 : campaignSelectedBird.name;
         int phase = campaignMissionController == null ? 0 : campaignMissionController.phaseIndex();
-        StoryCampaign.Cutscene beat = new StoryCampaign.Cutscene(
-                currentCampaignMission.id() + "_phase_" + phase,
-                "Phase Break: " + nextObjective,
-                selectedMap,
-                "campaign_phase",
-                StoryCampaignContent.campaignPhaseDialogue(
-                        speaker,
-                        campaignSelectedBird,
-                        nextObjective
-                ),
-                List.of(campaignSelectedBird),
-                false,
-                false
-        );
+        StoryCampaign.Cutscene beat;
+        if (isNullRockDuelPhase()) {
+            beat = new StoryCampaign.Cutscene(
+                    currentCampaignMission.id() + "_final_duel",
+                    "The Last Wing",
+                    selectedMap,
+                    "music-null-rock.mp3",
+                    StoryCampaignContent.nullRockDuelDialogue(speaker, campaignSelectedBird),
+                    List.of(campaignSelectedBird),
+                    false,
+                    true
+            );
+        } else {
+            beat = new StoryCampaign.Cutscene(
+                    currentCampaignMission.id() + "_phase_" + phase,
+                    "Phase Break: " + nextObjective,
+                    selectedMap,
+                    "campaign_phase",
+                    StoryCampaignContent.campaignPhaseDialogue(
+                            speaker,
+                            campaignSelectedBird,
+                            nextObjective
+                    ),
+                    List.of(campaignSelectedBird),
+                    false,
+                    false
+            );
+        }
         storyCutscenePlayer.play(currentStage, beat, campaignSelectedBird, campaignSelectedSkinKey, () -> {
             setCampaignScene(currentStage, resumeScene);
             resetAfterCampaignCutscene();
