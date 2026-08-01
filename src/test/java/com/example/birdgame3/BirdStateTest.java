@@ -6836,8 +6836,74 @@ class BirdStateTest {
                 "The defeated authored boss must remain defeated.");
         assertNotSame(defeatedGuard, game.players[2]);
         assertTrue(game.players[2].health > 0.0,
-                "Only the ordinary archive guard should return for the next wave.");
+                "A fresh ordinary archive guard should enter for the next wave.");
+        assertNotEquals(defeatedGuard.type, game.players[2].type,
+                "The next wave must not look like the defeated guard respawned.");
         assertFalse(game.players[2].name.startsWith("Boss:"));
+    }
+
+    @Test
+    void blackoutKeyRecyclesSlotsIntoFreshActorsInsteadOfRespawningVultureAndAutomaton()
+            throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.headlessHarnessMode = true;
+        game.campaignModeActive = true;
+        game.campaignTeamMode = true;
+        game.selectedMap = BirdGame3.MapType.PRISON;
+
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("blackout_key");
+        setPrivateObject(game, "currentCampaignMission", mission);
+        setPrivateObject(game, "campaignSelectedBird", BirdGame3.BirdType.RAVEN);
+        setPrivateInt(game, "campaignRetryPhaseIndex", 1);
+        Method setupRoster = BirdGame3.class.getDeclaredMethod(
+                "setupCampaignMissionRoster", StoryCampaign.Mission.class);
+        setupRoster.setAccessible(true);
+        setupRoster.invoke(game, mission);
+
+        Bird defeatedAutomaton = game.players[2];
+        Bird defeatedVultureEcho = game.players[3];
+        assertEquals(BirdGame3.BirdType.EAGLE, defeatedAutomaton.type);
+        assertEquals(BirdGame3.BirdType.VULTURE, defeatedVultureEcho.type);
+        defeatedAutomaton.health = 0.0;
+        defeatedVultureEcho.health = 0.0;
+
+        game.checkCampaignMissionCompletion();
+
+        Bird waveTwoLeft = game.players[2];
+        Bird waveTwoRight = game.players[3];
+        assertNotSame(defeatedAutomaton, waveTwoLeft);
+        assertNotSame(defeatedVultureEcho, waveTwoRight);
+        assertNotEquals(BirdGame3.BirdType.EAGLE, waveTwoLeft.type);
+        assertNotEquals(BirdGame3.BirdType.VULTURE, waveTwoLeft.type);
+        assertNotEquals(BirdGame3.BirdType.EAGLE, waveTwoRight.type);
+        assertNotEquals(BirdGame3.BirdType.VULTURE, waveTwoRight.type);
+        assertNotEquals(waveTwoLeft.type, waveTwoRight.type);
+        assertTrue(waveTwoLeft.name.startsWith("Enemy: Null Construct "));
+        assertTrue(waveTwoRight.name.startsWith("Enemy: Null Construct "));
+
+        waveTwoLeft.health = 0.0;
+        waveTwoRight.health = 0.0;
+        game.checkCampaignMissionCompletion();
+
+        Bird waveThreeLeft = game.players[2];
+        Bird waveThreeRight = game.players[3];
+        assertNotSame(waveTwoLeft, waveThreeLeft);
+        assertNotSame(waveTwoRight, waveThreeRight);
+        assertNotEquals(waveTwoLeft.type, waveThreeLeft.type);
+        assertNotEquals(waveTwoRight.type, waveThreeRight.type);
+        assertNotEquals(waveThreeLeft.type, waveThreeRight.type);
+
+        waveThreeLeft.health = 0.0;
+        waveThreeRight.health = 0.0;
+        game.checkCampaignMissionCompletion();
+
+        StoryMissionController controller =
+                (StoryMissionController) getPrivateObject(game, "campaignMissionController");
+        assertEquals(2, controller.phaseIndex());
+        assertSame(waveThreeLeft, game.players[2]);
+        assertSame(waveThreeRight, game.players[3]);
+        assertEquals(0.0, game.players[2].health, 0.0001);
+        assertEquals(0.0, game.players[3].health, 0.0001);
     }
 
     @Test

@@ -40605,8 +40605,15 @@ public class BirdGame3 {
                     || (players[slot] != null && players[slot].health > 0)) {
                 continue;
             }
-            StoryCampaign.Fighter template = reinforcementTemplates
+            StoryCampaign.Fighter source = reinforcementTemplates
                     .get(templateIndex % reinforcementTemplates.size());
+            StoryCampaign.Fighter template = StoryCampaignReinforcements.create(
+                    currentCampaignMission,
+                    source,
+                    waveNumber,
+                    templateIndex,
+                    reinforcementTemplates.size()
+            );
             double x = 4200 + (revived % 4) * 440.0;
             Bird reinforcement = createCampaignFighter(template, slot, x, true);
             campaignStartingHealth[slot] = reinforcement.health;
@@ -40614,7 +40621,7 @@ public class BirdGame3 {
             revived++;
         }
         if (revived > 0) {
-            addToKillFeed("WAVE " + waveNumber + ": " + revived + " Crown reinforcements entering.");
+            addToKillFeed("WAVE " + waveNumber + ": " + revived + " fresh reinforcements entering.");
         }
     }
 
