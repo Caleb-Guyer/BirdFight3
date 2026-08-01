@@ -6865,8 +6865,12 @@ class BirdStateTest {
         Bird defeatedVultureEcho = game.players[3];
         assertEquals(BirdGame3.BirdType.EAGLE, defeatedAutomaton.type);
         assertEquals(BirdGame3.BirdType.VULTURE, defeatedVultureEcho.type);
-        defeatedAutomaton.health = 0.0;
-        defeatedVultureEcho.health = 0.0;
+        defeatedAutomaton.receiveExternalDamage(defeatedAutomaton.health + 100.0);
+        defeatedVultureEcho.receiveExternalDamage(defeatedVultureEcho.health + 100.0);
+
+        boolean[] eliminated = (boolean[]) getPrivateObject(game, "campaignEnemyEliminated");
+        assertTrue(eliminated[2], "A lethal hit must retire the automaton before the next phase tick.");
+        assertTrue(eliminated[3], "A lethal hit must retire the echo before the next phase tick.");
 
         game.checkCampaignMissionCompletion();
 
@@ -6877,6 +6881,53 @@ class BirdStateTest {
         assertSame(defeatedVultureEcho, game.players[3]);
         assertEquals(0.0, game.players[2].health, 0.0001);
         assertEquals(0.0, game.players[3].health, 0.0001);
+
+        // Simulate any late character mechanic or phase callback trying to
+        // restore the defeated actors after the gauntlet has advanced.
+        defeatedAutomaton.health = 112.0;
+        defeatedVultureEcho.health = 112.0;
+        game.isAI[2] = true;
+        game.isAI[3] = true;
+        game.checkCampaignMissionCompletion();
+
+        assertEquals(0.0, defeatedAutomaton.health, 0.0001,
+                "The Crown automaton cannot revive after its encounter defeat.");
+        assertEquals(0.0, defeatedVultureEcho.health, 0.0001,
+                "The Vulture echo cannot revive after its encounter defeat.");
+        assertFalse(game.isAI[2]);
+        assertFalse(game.isAI[3]);
+    }
+
+    @Test
+    void nullRockFinaleFieldsEveryBirdOnceAsOneCoalition() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.headlessHarnessMode = true;
+        game.campaignModeActive = true;
+        game.campaignTeamMode = true;
+        game.selectedMap = BirdGame3.MapType.BEACON_CROWN;
+
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("the_null_rock");
+        setPrivateObject(game, "currentCampaignMission", mission);
+        setPrivateObject(game, "campaignSelectedBird", BirdGame3.BirdType.PIGEON);
+        Method setupRoster = BirdGame3.class.getDeclaredMethod(
+                "setupCampaignMissionRoster", StoryCampaign.Mission.class);
+        setupRoster.setAccessible(true);
+        setupRoster.invoke(game, mission);
+
+        boolean[] present = new boolean[BirdGame3.BirdType.values().length];
+        assertEquals(BirdGame3.BirdType.values().length, game.activePlayers);
+        for (int slot = 0; slot < game.activePlayers; slot++) {
+            Bird bird = game.players[slot];
+            assertNotNull(bird, "Every finale slot must contain a coalition bird.");
+            assertFalse(present[bird.type.ordinal()], bird.type.name + " appeared twice.");
+            present[bird.type.ordinal()] = true;
+            assertEquals(1, game.campaignTeams[slot],
+                    "The background commander must not consume a fighter slot.");
+        }
+        for (boolean included : present) {
+            assertTrue(included, "The finale omitted a playable bird.");
+        }
+        assertEquals("music-null-rock.mp3", invokePrivateObjectMethod(game, "gameplayMusicFile"));
     }
 
     @Test

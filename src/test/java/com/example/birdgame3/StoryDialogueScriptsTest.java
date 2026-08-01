@@ -19,10 +19,11 @@ class StoryDialogueScriptsTest {
         Set<String> expectedSections = new LinkedHashSet<>(campaign.scenes.keySet());
         expectedSections.add("dynamic_campaign_phase");
 
-        assertEquals(81, scripts.size());
+        assertEquals(expectedSections.size(), scripts.size());
         assertEquals(expectedSections, scripts.keySet());
         assertTrue(scripts.containsKey("s01_dead_air"));
         assertTrue(scripts.containsKey("s80_eagle_end"));
+        assertTrue(scripts.containsKey("s81_beyond_the_map"));
         int dialogueLineCount = scripts.values().stream()
                 .mapToInt(script -> script.split("\\R").length)
                 .sum();

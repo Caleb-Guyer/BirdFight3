@@ -1598,6 +1598,10 @@ public class BirdGame3 {
     }
 
     private String gameplayMusicFile() {
+        if (campaignModeActive && currentCampaignMission != null
+                && currentCampaignMission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK) {
+            return "music-null-rock.mp3";
+        }
         boolean bossMusic = isBossEncounterActive() || selectedMap == MapType.BEACON_CROWN;
         return bossMusic
                 ? "music-boss.mp3"
@@ -5009,6 +5013,8 @@ public class BirdGame3 {
     private StoryCampaignProgress stillSkyProgress = new StoryCampaignProgress();
     private final StoryCutscenePlayer storyCutscenePlayer = new StoryCutscenePlayer(this);
     private final StorybookProloguePlayer storybookProloguePlayer = new StorybookProloguePlayer(this);
+    private final CaveEscapeSequence caveEscapeSequence = new CaveEscapeSequence(this);
+    private final StillSkyCreditsPlayer stillSkyCreditsPlayer = new StillSkyCreditsPlayer(this);
     boolean campaignModeActive = false;
     private StoryCampaign.Mission currentCampaignMission = null;
     private StoryMissionController campaignMissionController = null;
@@ -5019,9 +5025,12 @@ public class BirdGame3 {
     private final double[] campaignStartingHealth = new double[MAX_COMBATANTS];
     private final boolean[] campaignBossSlots = new boolean[MAX_COMBATANTS];
     private final boolean[] campaignReservedBossSlots = new boolean[MAX_COMBATANTS];
+    private final boolean[] campaignEnemyEliminated = new boolean[MAX_COMBATANTS];
     private int campaignFrontlineWindow = -1;
     private int campaignBossSegmentAnnounced = 0;
     private int campaignCrownDuelStage = 0;
+    private int campaignNullRockPhaseAnnounced = -1;
+    private int campaignNullRockWave = 0;
     boolean campaignTeamMode = false;
     final int[] campaignTeams = createPvETeamArray();
     int campaignMatchTimerOverride = -1;
@@ -14458,6 +14467,10 @@ public class BirdGame3 {
             g.fillRect(0, i * (WORLD_HEIGHT / 640.0), WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3);
         }
 
+        if (isNullRockCampaign()) {
+            drawNullRockBackgroundCommander(g, ambientFx);
+        }
+
         double time = System.currentTimeMillis() / 280.0;
         double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time) : 0.45;
         double centerX = WORLD_WIDTH / 2.0;
@@ -14511,6 +14524,70 @@ public class BirdGame3 {
             g.setLineWidth(high ? 4.2 : 3.0);
             g.strokeRoundRect(p.x, p.y, p.w, p.h, 34, 34);
         }
+    }
+
+    private void drawNullRockBackgroundCommander(GraphicsContext g, boolean ambientFx) {
+        int phase = campaignMissionController == null ? 0 : campaignMissionController.phaseIndex();
+        double time = System.nanoTime() / 1_000_000_000.0;
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.35) : 0.5;
+        double cx = WORLD_WIDTH * 0.5;
+        double cy = 920.0;
+        double wingLift = 34.0 * Math.sin(time * 0.72);
+
+        g.save();
+        g.setFill(Color.web("#000005", 0.82));
+        g.fillOval(cx - 2380, cy - 650 + wingLift, 2180, 940);
+        g.fillOval(cx + 200, cy - 650 - wingLift, 2180, 940);
+        g.setFill(Color.web("#090510", 0.96));
+        g.fillOval(cx - 780, cy - 820, 1560, 1500);
+        g.setFill(Color.web("#13061D", 0.94));
+        g.fillOval(cx - 430, cy - 710, 860, 900);
+
+        // A blunt meteor-beak and three fractured crown prongs make the true
+        // form readable at arena scale without borrowing Vulture's fighter rig.
+        g.setFill(Color.web("#211329"));
+        g.fillPolygon(new double[]{cx - 120, cx + 1040, cx + 170, cx - 250},
+                new double[]{cy - 310, cy - 70, cy + 95, cy + 10}, 4);
+        g.setFill(Color.web("#A10B3B", 0.72 + pulse * 0.18));
+        g.fillPolygon(new double[]{cx + 80, cx + 780, cx + 155},
+                new double[]{cy - 255, cy - 82, cy - 35}, 3);
+        g.setFill(Color.web("#050107"));
+        for (int i = -1; i <= 1; i++) {
+            double spikeX = cx + i * 230.0;
+            g.fillPolygon(new double[]{spikeX - 115, spikeX, spikeX + 115},
+                    new double[]{cy - 610, cy - 1060 - (i == 0 ? 120 : 0), cy - 610}, 3);
+        }
+
+        g.setEffect(new Glow(0.90));
+        g.setFill(Color.web("#FF1744", 0.86 + pulse * 0.14));
+        g.fillOval(cx - 265, cy - 400, 210, 150);
+        g.fillOval(cx + 55, cy - 400, 210, 150);
+        g.setFill(Color.web("#FFF3E0", 0.90));
+        g.fillOval(cx - 175, cy - 355, 50, 40);
+        g.fillOval(cx + 125, cy - 355, 50, 40);
+        g.setEffect(null);
+
+        g.setStroke(Color.web(phase >= 2 ? "#FF5252" : "#7C4DFF", 0.46 + pulse * 0.20));
+        g.setLineWidth(14.0 + phase * 3.0);
+        for (int i = 0; i < 5 + phase * 2; i++) {
+            double offset = (i - 3.0) * 145.0;
+            g.strokeLine(cx + offset, cy - 500 + i * 22.0,
+                    cx + offset * 1.55, cy + 160 + (i % 2) * 80.0);
+        }
+
+        // Hundreds of commanded silhouettes stay presentation-only; combat
+        // crows are spawned separately from fixed simulation ticks.
+        g.setFill(Color.web("#020105", 0.70));
+        for (int i = 0; i < 34; i++) {
+            double angle = i * 2.399963229728653 + time * (0.10 + (i % 4) * 0.018);
+            double radius = 760.0 + (i % 9) * 115.0;
+            double bx = cx + Math.cos(angle) * radius;
+            double by = 760.0 + Math.sin(angle * 1.4) * 430.0;
+            double s = 18.0 + (i % 5) * 5.0;
+            g.fillPolygon(new double[]{bx - s * 1.8, bx, bx + s * 1.8, bx},
+                    new double[]{by, by - s * 0.55, by, by + s * 0.35}, 4);
+        }
+        g.restore();
     }
 
     private void drawDesertArena(GraphicsContext g, boolean ambientFx) {
@@ -16670,23 +16747,48 @@ public class BirdGame3 {
         startMusic();
     }
 
-    void startCampaignProloguePresentation() {
+    void startCampaignStorybookPresentation(boolean epilogue) {
         stopPersistentMusicPlayers();
         disposeGameplayMusicPlayer();
         if (!musicEnabled) return;
         try {
             musicDuckLevel = 1.0;
-            musicPlayer = new MediaPlayer(new Media(resourceUrl("/sounds/music-prologue.mp3")));
+            String track = epilogue ? "music-credits.mp3" : "music-prologue.mp3";
+            musicPlayer = new MediaPlayer(new Media(resourceUrl("/sounds/" + track)));
             musicPlayer.setCycleCount(MediaPlayer.INDEFINITE);
             applyAudioVolumes();
             musicPlayer.play();
         } catch (RuntimeException e) {
-            System.out.println("Prologue music not found: " + e.getMessage());
+            System.out.println("Storybook music not found: " + e.getMessage());
         }
     }
 
-    void finishCampaignProloguePresentation() {
+    void finishCampaignStorybookPresentation() {
         disposeGameplayMusicPlayer();
+    }
+
+    void startCampaignSequenceMusic(String file, boolean loop) {
+        stopPersistentMusicPlayers();
+        disposeGameplayMusicPlayer();
+        if (!musicEnabled || file == null || file.isBlank()) return;
+        try {
+            musicDuckLevel = 1.0;
+            musicPlayer = new MediaPlayer(new Media(resourceUrl("/sounds/" + file)));
+            musicPlayer.setCycleCount(loop ? MediaPlayer.INDEFINITE : 1);
+            applyAudioVolumes();
+            musicPlayer.play();
+        } catch (RuntimeException e) {
+            System.out.println("Campaign sequence music not found: " + file + " (" + e.getMessage() + ")");
+        }
+    }
+
+    void finishCampaignSequenceMusic() {
+        disposeGameplayMusicPlayer();
+    }
+
+    void playCampaignCaveCollapseCue() {
+        playManagedSfxVaried(cherrybombClip, 0.82, 0.72, 0.025);
+        playManagedSfxVaried(hugewaveClip, 0.62, 0.58, 0.018);
     }
 
     void playCampaignProloguePageTurnCue() {
@@ -31790,7 +31892,21 @@ public class BirdGame3 {
             return;
         }
         StoryCampaign.Cutscene post = stillSkyCampaign.scene(mission.postSceneId());
-        playCampaignCutscene(stage, post, () -> completeCampaignMission(stage, mission));
+        if ("the_null_rock".equals(mission.id())) {
+            playCampaignCutscene(stage, post, () -> playCampaignFinale(stage, mission));
+        } else {
+            playCampaignCutscene(stage, post, () -> completeCampaignMission(stage, mission));
+        }
+    }
+
+    private void playCampaignFinale(Stage stage, StoryCampaign.Mission mission) {
+        caveEscapeSequence.play(stage,
+                () -> playCampaignEpilogue(stage,
+                        () -> stillSkyCreditsPlayer.play(stage,
+                                () -> playCampaignCutscene(stage,
+                                        stillSkyCampaign.scene("s81_beyond_the_map"),
+                                        () -> completeCampaignMission(stage, mission)))),
+                () -> showCampaignHub(stage));
     }
 
     private void completeCampaignMission(Stage stage, StoryCampaign.Mission mission) {
@@ -31865,6 +31981,15 @@ public class BirdGame3 {
         });
     }
 
+    private void playCampaignEpilogue(Stage stage, Runnable after) {
+        disposeGameplayMusicPlayer();
+        storybookProloguePlayer.playEpilogue(stage, () -> {
+            stillSkyProgress.markSceneSeen(StorybookPrologue.EPILOGUE_ID);
+            saveAchievements();
+            if (after != null) after.run();
+        });
+    }
+
     private void showCampaignGallery(Stage stage) {
         campaignModeActive = true;
         VBox content = new VBox(14);
@@ -31879,7 +32004,9 @@ public class BirdGame3 {
                 .filter(stillSkyProgress::hasSeenScene)
                 .count();
         long prologuesSeen = stillSkyProgress.hasSeenScene(StorybookPrologue.ID) ? 1 : 0;
-        Label count = new Label((authoredScenesSeen + prologuesSeen) + "/" + (stillSkyCampaign.scenes.size() + 1)
+        long epiloguesSeen = stillSkyProgress.hasSeenScene(StorybookPrologue.EPILOGUE_ID) ? 1 : 0;
+        Label count = new Label((authoredScenesSeen + prologuesSeen + epiloguesSeen)
+                + "/" + (stillSkyCampaign.scenes.size() + 2)
                 + " SCENES SEEN");
         count.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
         count.setTextFill(Color.web("#80DEEA"));
@@ -31894,6 +32021,14 @@ public class BirdGame3 {
         );
         prologueButton.setDisable(!prologueSeen);
         grid.getChildren().add(prologueButton);
+        boolean epilogueSeen = stillSkyProgress.hasSeenScene(StorybookPrologue.EPILOGUE_ID);
+        Button epilogueButton = uiFactory.action(
+                epilogueSeen ? "EPILOGUE — THE OPEN SKY" : "LOCKED EPILOGUE",
+                330, 62, 15, epilogueSeen ? "#455A64" : "#20252B", 13,
+                () -> playCampaignEpilogue(stage, () -> showCampaignGallery(stage))
+        );
+        epilogueButton.setDisable(!epilogueSeen);
+        grid.getChildren().add(epilogueButton);
         for (StoryCampaign.Cutscene cutscene : stillSkyCampaign.scenes.values()) {
             boolean seen = stillSkyProgress.hasSeenScene(cutscene.id());
             Button sceneButton = uiFactory.action(
@@ -32611,11 +32746,14 @@ public class BirdGame3 {
         Arrays.fill(campaignStartingHealth, 0.0);
         Arrays.fill(campaignBossSlots, false);
         Arrays.fill(campaignReservedBossSlots, false);
+        Arrays.fill(campaignEnemyEliminated, false);
         campaignTeamMode = true;
         campaignMissionWon = false;
         campaignFrontlineWindow = -1;
         campaignBossSegmentAnnounced = 0;
         campaignCrownDuelStage = 0;
+        campaignNullRockPhaseAnnounced = -1;
+        campaignNullRockWave = 0;
 
         if (mission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK) {
             setupCampaignFinalCoalition(mission);
@@ -32732,6 +32870,11 @@ public class BirdGame3 {
             );
             applyPreviewSkinChoiceToBird(bird, fighter.type(), NULL_ROCK_VULTURE_SKIN);
         }
+        if (currentCampaignMission != null
+                && "free_the_flock".equals(currentCampaignMission.id())
+                && fighter.boss() && fighter.type() == BirdType.VULTURE) {
+            bird.setBaseMultipliers(bird.baseSizeMultiplier * 2.25, fighter.power(), fighter.speed());
+        }
         return bird;
     }
 
@@ -32748,7 +32891,7 @@ public class BirdGame3 {
     }
 
     private void setupCampaignFinalCoalition(StoryCampaign.Mission mission) {
-        activePlayers = Math.min(MAX_COMBATANTS, BirdType.values().length + 1);
+        activePlayers = Math.min(MAX_COMBATANTS, BirdType.values().length);
         Bird player = createStoryBird(820, campaignSelectedBird, 0,
                 "You: " + campaignSelectedBird.name, 120, 1.0, 1.0, false);
         applySkinChoiceToBird(player, campaignSelectedBird, campaignSelectedSkinKey);
@@ -32757,8 +32900,8 @@ public class BirdGame3 {
 
         int slot = 1;
         for (BirdType type : BirdType.values()) {
-            if (type == campaignSelectedBird || slot >= activePlayers - 1) continue;
-            double x = 1180 + ((slot - 1) % 5) * 360.0;
+            if (type == campaignSelectedBird || slot >= activePlayers) continue;
+            double x = 380 + (slot - 1) * 270.0;
             Bird ally = createStoryBird(x, type, slot, "Coalition: " + type.name,
                     118, 0.28, 1.04, true);
             ally.setBaseMultipliers(ally.baseSizeMultiplier, 0.28, 1.04);
@@ -32766,12 +32909,6 @@ public class BirdGame3 {
             campaignStartingHealth[slot] = ally.health;
             slot++;
         }
-        int bossSlot = activePlayers - 1;
-        StoryCampaign.Fighter template = mission.enemies().getFirst();
-        Bird boss = createCampaignFighter(template, bossSlot, 5000, true);
-        campaignTeams[bossSlot] = 2;
-        campaignBossSlots[bossSlot] = true;
-        campaignStartingHealth[bossSlot] = boss.health;
         updateCampaignFrontlineRotation(true);
     }
 
@@ -40365,6 +40502,58 @@ public class BirdGame3 {
         if (isCrownDuelCampaign()) {
             applyCrownDuelRuntimeEffects();
         }
+        if (isNullRockCampaign()) {
+            applyNullRockRuntimeEffects();
+        }
+    }
+
+    private boolean isNullRockCampaign() {
+        return campaignModeActive && currentCampaignMission != null
+                && currentCampaignMission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK;
+    }
+
+    /**
+     * The true form is an arena-scale commander, not another oversized fighter.
+     * Fixed tick gates keep its flock calls deterministic while the authored
+     * objective controller owns all phase advancement.
+     */
+    private void applyNullRockRuntimeEffects() {
+        if (campaignMissionController == null || campaignMissionController.complete()
+                || campaignMissionController.failed()) {
+            return;
+        }
+        int phase = campaignMissionController.phaseIndex();
+        if (phase > campaignNullRockPhaseAnnounced) {
+            campaignNullRockPhaseAnnounced = phase;
+            campaignNullRockWave = 0;
+            crowMinions.clear();
+            String message = switch (phase) {
+                case 0 -> "NULL ROCK: Break the roosts that command its shadow flock.";
+                case 1 -> "ALL WINGS: Hold the center while every signature joins the counter-pulse.";
+                default -> "FINAL CHARGE: Reach the exposed cavern heart and arm the breach.";
+            };
+            addToKillFeed(message);
+            shakeIntensity = Math.max(shakeIntensity, 18.0 + phase * 5.0);
+            playManagedSfxVaried(hugewaveClip, 0.64 + phase * 0.07, 0.72 - phase * 0.06, 0.018);
+        }
+
+        long interval = Math.max(210L, 430L - phase * 70L);
+        if (simTick > 0 && simTick % interval == 0L && crowMinions.size() < 12) {
+            int count = 2 + phase;
+            for (int i = 0; i < count; i++) {
+                double lane = (campaignNullRockWave * 977.0 + i * 1381.0) % 4800.0;
+                double x = 600.0 + lane;
+                double y = 260.0 + ((campaignNullRockWave + i) % 4) * 150.0;
+                int variant = phase >= 2 && i == 0
+                        ? CrowMinion.VARIANT_GIANT_CROW
+                        : CrowMinion.VARIANT_VOID_RAVEN;
+                crowMinions.add(new CrowMinion(x, y, players[0])
+                        .withVariant(variant)
+                        .withSpeedMultiplier(1.02 + phase * 0.08));
+            }
+            campaignNullRockWave++;
+            addToKillFeed("THE NULL ROCK CALLS SHADOW WING " + campaignNullRockWave + ".");
+        }
     }
 
     /**
@@ -40478,6 +40667,7 @@ public class BirdGame3 {
                 || campaignMissionController == null) {
             return;
         }
+        enforcePermanentCampaignEnemyEliminations();
         updateCampaignFrontlineRotation(false);
         updateCampaignSignatureAssist();
         List<StoryMissionController.Participant> snapshot = new ArrayList<>();
@@ -40531,6 +40721,50 @@ public class BirdGame3 {
         }
     }
 
+    /**
+     * Campaign opponents are authored encounters, not stock fighters. Once an
+     * enemy is defeated, its slot stays retired across objective handoffs and
+     * temporary cutscenes. This also guards against character-specific rebirth
+     * mechanics restoring an encounter actor after its defeat was recorded.
+     */
+    private void enforcePermanentCampaignEnemyEliminations() {
+        for (int slot = 1; slot < activePlayers; slot++) {
+            if (campaignTeams[slot] != 2 || campaignReservedBossSlots[slot]) {
+                continue;
+            }
+            Bird enemy = players[slot];
+            if (enemy == null) {
+                continue;
+            }
+            if (enemy.health <= 0.0) {
+                campaignEnemyEliminated[slot] = true;
+            }
+            if (!campaignEnemyEliminated[slot]) {
+                continue;
+            }
+            enemy.health = 0.0;
+            enemy.vx = 0.0;
+            enemy.vy = 0.0;
+            enemy.x = -2_400.0 - slot * 180.0;
+            enemy.y = WORLD_HEIGHT + 900.0;
+            isAI[slot] = false;
+        }
+    }
+
+    boolean campaignEnemyEliminationIsPermanent(int playerIndex) {
+        return campaignModeActive
+                && playerIndex > 0
+                && playerIndex < activePlayers
+                && campaignTeams[playerIndex] == 2
+                && !campaignReservedBossSlots[playerIndex];
+    }
+
+    void markCampaignEnemyEliminated(int playerIndex) {
+        if (campaignEnemyEliminationIsPermanent(playerIndex)) {
+            campaignEnemyEliminated[playerIndex] = true;
+        }
+    }
+
     double campaignObjectiveAssistTargetX(Bird ally) {
         if (!campaignModeActive || campaignMissionController == null || ally == null
                 || ally.health <= 0.0 || ally.playerIndex <= 0
@@ -40553,15 +40787,15 @@ public class BirdGame3 {
                 || activePlayers < 3) {
             return;
         }
-        int bossSlot = activePlayers - 1;
-        int supportCount = Math.max(1, bossSlot - 1);
-        int window = (int) (simTick / (12L * 60L));
+        int supportEnd = activePlayers;
+        int supportCount = Math.max(1, supportEnd - 1);
+        int window = (int) (simTick / (5L * 60L));
         if (!force && window == campaignFrontlineWindow) {
             return;
         }
         campaignFrontlineWindow = window;
         int start = (window * 4) % supportCount;
-        for (int slot = 1; slot < bossSlot; slot++) {
+        for (int slot = 1; slot < supportEnd; slot++) {
             int relative = slot - 1;
             int distance = Math.floorMod(relative - start, supportCount);
             boolean frontline = distance < Math.min(4, supportCount);
@@ -40573,12 +40807,12 @@ public class BirdGame3 {
     private void updateCampaignSignatureAssist() {
         if (!campaignModeActive || currentCampaignMission == null
                 || currentCampaignMission.arenaVariant() != StoryCampaign.ArenaVariant.NULL_ROCK
-                || simTick <= 0 || simTick % (8L * 60L) != 0L) {
+                || simTick <= 0 || simTick % 75L != 0L) {
             return;
         }
-        int bossSlot = activePlayers - 1;
-        int supportCount = Math.max(1, bossSlot - 1);
-        int supportSlot = 1 + (int) ((simTick / (8L * 60L)) % supportCount);
+        int supportEnd = activePlayers;
+        int supportCount = Math.max(1, supportEnd - 1);
+        int supportSlot = 1 + (int) (((simTick / 75L) - 1L) % supportCount);
         Bird support = players[supportSlot];
         if (support == null || support.health <= 0) return;
         isAI[supportSlot] = true;
@@ -40605,6 +40839,7 @@ public class BirdGame3 {
                         : WORLD_WIDTH * 0.70;
                 double floorY = battlefieldIslandW > 0.0 ? battlefieldIslandY : GROUND_Y;
                 Bird boss = createCampaignFighter(fighter, slot, centerX, true);
+                campaignEnemyEliminated[slot] = false;
                 boss.x = centerX - boss.bodyWidth() * 0.5;
                 boss.y = floorY - boss.bodyHeight();
                 boss.prevX = boss.x;

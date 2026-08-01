@@ -82,6 +82,35 @@ class StoryCampaignContentTest {
     }
 
     @Test
+    void vultureRescueAndTrueFinaleUseDifferentThreatsAndAuthoredObjectives() {
+        StoryCampaign campaign = StoryCampaignContent.create();
+        StoryCampaign.Mission rescue = campaign.mission("free_the_flock");
+        StoryCampaign.Mission finale = campaign.mission("the_null_rock");
+
+        StoryCampaign.Fighter shadowVulture = rescue.enemies().stream()
+                .filter(StoryCampaign.Fighter::boss)
+                .findFirst()
+                .orElseThrow();
+        assertEquals(BirdGame3.BirdType.VULTURE, shadowVulture.type());
+        assertEquals("Shadow Vulture", shadowVulture.name());
+        assertEquals(BirdGame3.CAMPAIGN_NULL_ECHO_SKIN, shadowVulture.skinKey());
+        assertTrue(rescue.phases().stream()
+                .anyMatch(phase -> phase.objective() == StoryCampaign.ObjectiveType.BOSS_PHASES));
+
+        assertEquals(StoryCampaign.ArenaVariant.NULL_ROCK, finale.arenaVariant());
+        assertEquals(List.of(
+                        StoryCampaign.ObjectiveType.CAPTURE,
+                        StoryCampaign.ObjectiveType.HOLD_ZONE,
+                        StoryCampaign.ObjectiveType.CAPTURE),
+                finale.phases().stream().map(StoryCampaign.MissionPhase::objective).toList());
+        assertEquals("Plant Penguin's cavern charge", finale.phases().getLast().label());
+        assertNotNull(campaign.scene("s81_beyond_the_map"));
+        assertNotNull(BirdGame3.class.getResource("/sounds/music-null-rock.mp3"));
+        assertNotNull(BirdGame3.class.getResource("/sounds/music-escape.mp3"));
+        assertNotNull(BirdGame3.class.getResource("/sounds/music-credits.mp3"));
+    }
+
+    @Test
     void cutTheLockIsAnAuthoredEagleDuelWithoutRavenOrCaptureObjectives() {
         StoryCampaign.Mission mission = StoryCampaignContent.create().mission("cut_the_lock");
 

@@ -14,6 +14,8 @@ import java.util.Set;
 final class StorybookPrologue {
     static final String ID = "still_sky_prologue";
     static final String RESOURCE = "/story/still-sky-prologue.txt";
+    static final String EPILOGUE_ID = "still_sky_epilogue";
+    static final String EPILOGUE_RESOURCE = "/story/still-sky-epilogue.txt";
 
     enum Illustration {
         FIRST_SKY,
@@ -45,13 +47,19 @@ final class StorybookPrologue {
     }
 
     final List<Page> pages;
+    final String id;
+    final String header;
+    final String subtitle;
 
-    private StorybookPrologue(List<Page> pages) {
+    private StorybookPrologue(String id, String header, String subtitle, List<Page> pages) {
         if (pages.isEmpty()) throw new IllegalArgumentException("The prologue needs at least one page");
         Set<String> ids = new HashSet<>();
         for (Page page : pages) {
             if (!ids.add(page.id())) throw new IllegalArgumentException("Duplicate prologue page: " + page.id());
         }
+        this.id = requireText(id, "storybook id");
+        this.header = requireText(header, "storybook header");
+        this.subtitle = requireText(subtitle, "storybook subtitle");
         this.pages = Collections.unmodifiableList(new ArrayList<>(pages));
     }
 
@@ -64,7 +72,21 @@ final class StorybookPrologue {
         }
     }
 
+    static StorybookPrologue loadEpilogue() {
+        try (InputStream input = StorybookPrologue.class.getResourceAsStream(EPILOGUE_RESOURCE)) {
+            if (input == null) throw new IllegalStateException("Missing epilogue resource: " + EPILOGUE_RESOURCE);
+            return parse(new String(input.readAllBytes(), StandardCharsets.UTF_8),
+                    EPILOGUE_ID, "EPILOGUE", "Recorded after the Crown fell");
+        } catch (IOException e) {
+            throw new IllegalStateException("Unable to read epilogue resource", e);
+        }
+    }
+
     static StorybookPrologue parse(String source) {
+        return parse(source, ID, "PROLOGUE", "Narrated from the records of the Cave Archive");
+    }
+
+    private static StorybookPrologue parse(String source, String id, String header, String subtitle) {
         if (source == null) throw new IllegalArgumentException("Prologue source is required");
         List<Page> pages = new ArrayList<>();
         for (String rawSection : source.replace("\r\n", "\n").split("(?m)^---\\s*$")) {
@@ -80,8 +102,8 @@ final class StorybookPrologue {
                 }
             }
             if (headerIndex < 0) continue;
-            String[] header = lines.get(headerIndex).substring(3).split("\\|", -1);
-            if (header.length != 3) {
+            String[] pageHeader = lines.get(headerIndex).substring(3).split("\\|", -1);
+            if (pageHeader.length != 3) {
                 throw new IllegalArgumentException("Invalid prologue page header: " + lines.get(headerIndex));
             }
             List<String> paragraphs = new ArrayList<>();
@@ -98,12 +120,12 @@ final class StorybookPrologue {
             }
             flushParagraph(paragraphs, paragraph);
             pages.add(new Page(
-                    header[0].strip(),
-                    header[1].strip(),
-                    Illustration.valueOf(header[2].strip().toUpperCase(Locale.ROOT)),
+                    pageHeader[0].strip(),
+                    pageHeader[1].strip(),
+                    Illustration.valueOf(pageHeader[2].strip().toUpperCase(Locale.ROOT)),
                     paragraphs));
         }
-        return new StorybookPrologue(pages);
+        return new StorybookPrologue(id, header, subtitle, pages);
     }
 
     int wordCount() {

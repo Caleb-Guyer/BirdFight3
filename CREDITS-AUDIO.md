@@ -2,12 +2,13 @@
 
 ## Music (public domain / CC0)
 
-The third-party music tracks are public-domain releases originally published on
+The legacy music tracks are public-domain releases originally published on
 FreePD.com (site now closed; obtained via the Internet Archive mirror
-`allfreepdmusicbykuronekony4n`). FreePD music is dedicated to the public domain
-(CC0) — no attribution required, but credited here as a courtesy. The campaign
-defeat cue is an original synthesized composition for BirdFight3 and is also
-dedicated to the public domain under CC0.
+`allfreepdmusicbykuronekony4n`). The finale tracks were published separately on
+OpenGameArt by their credited artists under CC0. No attribution is required for
+these public-domain tracks, but every source is credited here as a courtesy.
+The campaign defeat cue is an original synthesized composition for BirdFight3
+and is also dedicated to the public domain under CC0.
 
 | In-game file | Original track | Used for |
 |---|---|---|
@@ -27,6 +28,9 @@ dedicated to the public domain under CC0.
 | music-frostbite.mp3 | The Ice Giants | Frostbite Fjord |
 | music-ashfall.mp3 | Evil Incoming | Ashfall Cathedral |
 | music-prison.mp3 | Assassin — Rafael Krux | Crownlock Prison / prison story scenes |
+| music-null-rock.mp3 | Battle RPG Theme — Cleyton Kauffman (CC0, OpenGameArt) | The Null Rock final battle |
+| music-escape.mp3 | Chase — Adiutorium (CC0, OpenGameArt) | Pigeon's collapsing-cave escape |
+| music-credits.mp3 | Our Expanse — Bobjt (CC0, OpenGameArt) | Epilogue and campaign credits |
 
 ## Sound effects (original)
 

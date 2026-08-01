@@ -13661,7 +13661,8 @@ public class Bird {
     }
 
     private boolean tryPhoenixRebirth() {
-        if (type != BirdGame3.BirdType.PHOENIX || phoenixRebornUsed || health > 0) return false;
+        if (type != BirdGame3.BirdType.PHOENIX || phoenixRebornUsed || health > 0
+                || game.campaignEnemyEliminationIsPermanent(playerIndex)) return false;
         phoenixRebornUsed = true;
         phoenixRebornActive = true;
 
@@ -14697,6 +14698,9 @@ public class Bird {
     }
 
     private void onDefeated() {
+        if (health <= 0.0) {
+            game.markCampaignEnemyEliminated(playerIndex);
+        }
         releaseGrabState(false);
         clearAIInputs();
         removeOwnedSummons();

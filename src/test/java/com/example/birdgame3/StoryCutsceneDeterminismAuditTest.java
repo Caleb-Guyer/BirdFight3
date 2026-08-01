@@ -23,6 +23,21 @@ class StoryCutsceneDeterminismAuditTest {
     }
 
     @Test
+    void finalePresentationSequencesStayOutsideTheSimulationRandomStream() throws IOException {
+        String escape = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "CaveEscapeSequence.java"));
+        String credits = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "StillSkyCreditsPlayer.java"));
+
+        assertFalse(escape.contains("SimRng"));
+        assertFalse(escape.contains("game.random"));
+        assertFalse(credits.contains("SimRng"));
+        assertFalse(credits.contains("game.random"));
+        assertTrue(escape.contains("STEP_NS = 16_666_667L"));
+        assertTrue(escape.contains("while (!failed && !finished && accumulator >= STEP_NS"));
+    }
+
+    @Test
     void presentationRebuildsTheGameplayPoseAfterChangingFacing() throws IOException {
         String source = Files.readString(Path.of(
                 "src", "main", "java", "com", "example", "birdgame3", "StoryCutscenePlayer.java"));

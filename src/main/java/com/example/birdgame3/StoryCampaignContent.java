@@ -40,6 +40,8 @@ final class StoryCampaignContent {
         addActTenScenes(scenes);
         addActElevenScenes(scenes);
         addActTwelveScenes(scenes);
+        scenes.add(scene("s81_beyond_the_map", "Beyond the Map", SKYCLIFFS,
+                List.of(PIGEON, RAVEN, TITMOUSE), false, true));
         validateDialogueCoverage(scenes);
 
         List<StoryCampaign.Act> acts = List.of(
@@ -725,17 +727,17 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission freeTheFlock() {
         return mission("free_the_flock", "Free the Flock",
-                "Return to Crownlock, reach Vulture's extraction cell, and erase the remaining live link to Null Roc.",
+                "Return to Crownlock, reach Vulture's extraction cell, and destroy the shadow copy guarding his mind.",
                 PRISON, ANCHOR_ASSAULT,
                 StoryCampaign.PlayablePolicy.choice(PIGEON, EAGLE, MOCKINGBIRD),
                 fighters(ally(FALCON, "Falcon")),
                 fighters(
-                        boss(VULTURE, "Copied Warden", 420, 1.50, 1.12, NULL_ROCK_SKIN),
+                        boss(VULTURE, "Shadow Vulture", 420, 1.50, 1.12, BirdGame3.CAMPAIGN_NULL_ECHO_SKIN),
                         enemy(RAVEN, "Crown Automaton")
                 ),
                 phases(
                         phase(CAPTURE, "Open Vulture's extraction cell", 40, 3, true),
-                        phase(BOSS_PHASES, "Erase the live link", 0, 3, true)
+                        phase(BOSS_PHASES, "Destroy the shadow copy", 0, 3, true)
                 ),
                 "s73_free_flock", "s74_vulture_freed", VULTURE, false);
     }
@@ -771,13 +773,14 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission nullRock() {
         return mission("the_null_rock", "The Null Rock",
-                "The living core is awake. Fight with every wing still able to answer.",
+                "The living core commands the cavern from beyond the arena. Break its roosts, combine every flock signature, and plant the final charge.",
                 BEACON_CROWN, NULL_ROCK, StoryCampaign.PlayablePolicy.fullRoster(),
                 List.of(),
                 fighters(boss(VULTURE, "The Null Rock", 1200, 1.86, 1.04, NULL_ROCK_SKIN)),
                 phases(
-                        phase(BOSS_PHASES, "Survive the dark-force wings", 0, 3, true),
-                        phase(BOSS_PHASES, "Shatter the living core", 0, 4, true)
+                        phase(CAPTURE, "Break the command roosts", 54, 4, true),
+                        phase(HOLD_ZONE, "Join every flock signature", 48, 6, true),
+                        phase(CAPTURE, "Plant Penguin's cavern charge", 38, 2, true)
                 ),
                 "s79_null_rock_before", "s80_eagle_end", null, true);
     }

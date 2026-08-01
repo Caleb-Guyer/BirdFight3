@@ -53,6 +53,8 @@ final class StorybookProloguePlayer {
 
     private final BirdGame3 game;
     private final StorybookPrologue prologue;
+    private final StorybookPrologue epilogue;
+    private StorybookPrologue activeBook;
     private AnimationTimer timer;
     private Canvas canvas;
     private Button pauseButton;
@@ -72,11 +74,21 @@ final class StorybookProloguePlayer {
     StorybookProloguePlayer(BirdGame3 game) {
         this.game = game;
         this.prologue = StorybookPrologue.loadBundled();
+        this.epilogue = StorybookPrologue.loadEpilogue();
     }
 
     void play(Stage stage, Runnable onFinished) {
+        playBook(stage, prologue, onFinished);
+    }
+
+    void playEpilogue(Stage stage, Runnable onFinished) {
+        playBook(stage, epilogue, onFinished);
+    }
+
+    private void playBook(Stage stage, StorybookPrologue book, Runnable onFinished) {
         stopTimer();
         game.resetAfterCampaignCutscene();
+        this.activeBook = book;
         this.pageIndex = 0;
         this.targetPageIndex = 0;
         this.turning = false;
@@ -111,7 +123,7 @@ final class StorybookProloguePlayer {
             refreshModeButton();
         });
         Button next = controlButton("NEXT PAGE", () -> requestPage(1));
-        Button skip = controlButton("SKIP PROLOGUE", this::finish);
+        Button skip = controlButton("SKIP " + activeBook.header, this::finish);
         HBox controls = new HBox(10, previous, pauseButton, modeButton, next, skip);
         controls.setAlignment(Pos.CENTER);
         controls.setPadding(new Insets(8, 14, 8, 14));
@@ -148,7 +160,7 @@ final class StorybookProloguePlayer {
         });
         canvas.setOnMouseClicked(event -> requestPage(1));
         game.setCampaignScene(stage, scene);
-        game.startCampaignProloguePresentation();
+        game.startCampaignStorybookPresentation(activeBook == epilogue);
 
         timer = new AnimationTimer() {
             @Override
@@ -160,7 +172,7 @@ final class StorybookProloguePlayer {
                 }
                 render(presentationNow);
                 if (!paused && !manual && !turning
-                        && elapsedSeconds(now) >= automaticDuration(prologue.pages.get(pageIndex).prose())) {
+                        && elapsedSeconds(now) >= automaticDuration(activeBook.pages.get(pageIndex).prose())) {
                     requestPage(1);
                 }
             }
@@ -189,10 +201,10 @@ final class StorybookProloguePlayer {
         drawDesk(g, now);
         if (turning) {
             double progress = turnProgress(turnStartNanos, now);
-            drawSpread(g, prologue.pages.get(targetPageIndex), targetPageIndex, now);
-            drawTurningOldPage(g, prologue.pages.get(pageIndex), pageIndex, now, progress);
+            drawSpread(g, activeBook.pages.get(targetPageIndex), targetPageIndex, now);
+            drawTurningOldPage(g, activeBook.pages.get(pageIndex), pageIndex, now, progress);
         } else {
-            drawSpread(g, prologue.pages.get(pageIndex), pageIndex, now);
+            drawSpread(g, activeBook.pages.get(pageIndex), pageIndex, now);
         }
         drawPrologueHeader(g);
         g.restore();
@@ -275,7 +287,7 @@ final class StorybookProloguePlayer {
         g.setFont(PAGE_FONT);
         g.setFill(Color.web("#75603F"));
         g.setTextAlign(TextAlignment.RIGHT);
-        g.fillText((index + 1) + "  /  " + prologue.pages.size(), 1715, 902);
+        g.fillText((index + 1) + "  /  " + activeBook.pages.size(), 1715, 902);
         g.setTextAlign(TextAlignment.LEFT);
     }
 
@@ -600,10 +612,10 @@ final class StorybookProloguePlayer {
         g.setTextAlign(TextAlignment.LEFT);
         g.setFill(Color.web("#D6BE86"));
         g.setFont(Font.font("Georgia", FontWeight.BOLD, 23));
-        g.fillText("PROLOGUE", 125, 112);
+        g.fillText(activeBook.header, 125, 112);
         g.setFill(Color.web("#8C7957"));
         g.setFont(Font.font("Georgia", FontWeight.NORMAL, 18));
-        g.fillText("Narrated from the records of the Cave Archive", 270, 111);
+        g.fillText(activeBook.subtitle, 270, 111);
         g.setTextAlign(TextAlignment.RIGHT);
         g.fillText("THE STILL SKY", 1795, 111);
         g.setTextAlign(TextAlignment.LEFT);
@@ -612,7 +624,7 @@ final class StorybookProloguePlayer {
     private void requestPage(int direction) {
         if (finished || turning || direction == 0) return;
         int next = pageIndex + Integer.signum(direction);
-        if (next >= prologue.pages.size()) {
+        if (next >= activeBook.pages.size()) {
             finish();
             return;
         }
@@ -669,7 +681,7 @@ final class StorybookProloguePlayer {
         if (finished) return;
         finished = true;
         stopTimer();
-        game.finishCampaignProloguePresentation();
+        game.finishCampaignStorybookPresentation();
         game.resetAfterCampaignCutscene();
         Runnable callback = onFinished;
         onFinished = null;

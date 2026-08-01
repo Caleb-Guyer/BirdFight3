@@ -965,46 +965,68 @@ Pigeon|We heard you. Each squad moves when it's ready.
 Phoenix|And the player chooses any bird still willing to move.
 
 [s80_eagle_end]
-Penguin|The core's broken, but the Crown is collapsing into every route.
-Eagle|Someone has to hold the central release until the charge clears.
-Falcon|Then we rotate.
-Eagle|It seals behind whoever activates it.
-Pigeon|Find another way.
-Eagle|I removed every other way.
-Vulture|Dying for this won't erase what you did.
-Eagle|I know. It prevents one more death.
-Falcon|Eagle, don't.
+Penguin|The charge is armed. The cave should fold inward, but the blast gate has to stay open until everyone clears it.|WIDE|EXIT_RIGHT
+Pigeon@PIGEON|I'll take the lower tunnel. If it closes, keep moving without me.
+Eagle@EAGLE|I built the release. I know exactly how long I can hold it.
+Falcon@FALCON|I'll clear the ridge and come back for whoever's still inside.
+Phoenix@PHOENIX|I can hold the fire off the evacuation route. I can't promise the mountain the same courtesy.
+Hummingbird@HUMMINGBIRD|I'll check every tunnel twice. Fast doesn't count if I leave someone behind.
+Turkey@TURKEY|Ground flock takes the rear. Nobody gets lost under our feet.
+Rooster@ROOSTER|I'll keep the line moving. If anyone freezes, I get loud.
+Roadrunner@ROADRUNNER|I know the quickest way out. This time I'm making sure everyone can follow it.
+Penguin@PENGUIN|The fuse is stable. That's not the same as safe, so listen when I call the time.
+Shoebill@SHOEBILL|I'll hold the crossing until the last civilian clears it. That is my choice.
+Charles@MOCKINGBIRD|I'll guide them through the service halls. Turns out a lounge owner remembers every exit.
+Razorbill@RAZORBILL|The evacuation contract has one clause: everybody leaves.
+Grinch-Hawk@GRINCHHAWK|I stole the gate key on principle. Using it for free is the upsetting part.
+Vulture@VULTURE|My flock carries the injured. Nobody bargains for a place in the line.
+Opium Bird@OPIUMBIRD|The futures end at the blast. Fine. I'll work with the seconds we have.
+Titmouse@TITMOUSE|I marked the narrow route. It isn't impressive, which is why the Crown missed it.
+Bat@BAT|The rock is splitting from the east wall. Follow my voice when the lights go.
+Pelican@PELICAN|The smallest birds ride with me. Ask first, then get in the pouch.
+Heisenbird@HEISENBIRD|The charge will work. I checked it three times because I enjoy being alive.
+Raven@RAVEN|I erased the route behind us. Whatever survives the blast won't know where we went.
+Goose@GOOSE|Everybody outside is ours to protect. Move.
+Turkey|Ground flock is moving. Rooster, take the rear.|WIDE|EXIT_RIGHT
+Rooster|Already there. Nobody stops for equipment.|WIDE|EXIT_RIGHT
+Pelican|Harbor group, with me. Goose, count heads instead of territory.|WIDE|EXIT_RIGHT
+Goose|Ours. All of them are ours until they're outside.|WIDE|EXIT_RIGHT
+Bat|The second heartbeat is slowing. The ceiling isn't.|WIDE|EXIT_LEFT
+Titmouse|I marked a route through the lower tunnel. Pigeon knows it.|WIDE|EXIT_LEFT
+Falcon|Eagle, leave the release. We can trigger it from the ridge.
+Eagle|No. I designed the lock to reject a remote signal.
+Heisenbird|Of course you did.|WIDE|EXIT_RIGHT
+Eagle|I was afraid someone would stop me.
+Vulture|Dying here won't erase anything.|WIDE|EXIT_LEFT
+Eagle|I know. This isn't erasure.
+Pigeon|Then move. You can answer for it outside.
+Eagle|Before the Crown, I carried injured birds until my wings tore. I kept thinking one perfect system could make sure I never chose who to drop again.
+Pigeon|So you made the choice for everyone, every day.
+Eagle|Yes.
+Pigeon|Old Sparrow died because your lock decided a closed gate was safer than a living bird.
+Eagle|I know his name. I know all their names.
+Pigeon|Knowing isn't the same as listening.
+Eagle|No. It isn't.
+Falcon|The outer flock is clear. You have seconds.|WIDE|EXIT_RIGHT
+Eagle|Pigeon, take the lower tunnel. Once I turn this, don't come back.
+Pigeon|I'm not forgiving you.
+Eagle|I'm not asking you to.
+Pigeon|You could've been better before it cost this much.
+Eagle|I should have been.
 Eagle|Open every route. Let the wind decide the rest.|CLOSE|FALL
-Pigeon@PIGEON|I won't take your throne. I'll make sure nobody else does either.
-Eagle@EAGLE|If I'm the one at the release, this is my choice. I won't make it anyone else's.
-Falcon@FALCON|You taught me duty. I had to learn for myself that obedience isn't the same thing.
-Phoenix@PHOENIX|You don't get to call this rebirth, Eagle. You get to call it the cost.
-Hummingbird@HUMMINGBIRD|I can cross the route before it closes. I still can't carry you back through it.
-Turkey@TURKEY|The ground flocks will remember both things: you closed the roads, and you opened them.
-Rooster@ROOSTER|There'll be a morning after this. You should've stayed to answer for it.
-Roadrunner@ROADRUNNER|You finally opened a road without deciding who deserved it.
-Penguin@PENGUIN|I'm publishing all of it—the plans, the failures, every name. We don't hide the rebuild.
-Shoebill@SHOEBILL|This stops more harm. It doesn't settle what you did.
-Charles@MOCKINGBIRD|Old Sparrow would tell me rebuilding starts with a chair. I wish you had to sit in one and answer us.
-Razorbill@RAZORBILL|The release worked. That doesn't clean up anything before it.
-Grinch-Hawk@GRINCHHAWK|I hate a debt I can't collect. The birds you hurt can have this one.
-Vulture@VULTURE|My flock survives your bargain. I won't thank you for giving back what you stole.
-Opium Bird@OPIUMBIRD|I can't see past the seal. I'm still here.
-Titmouse@TITMOUSE|I marked every open route. The little paths are going to outlive your big machine.
-Bat@BAT|The second heartbeat's fading. Under it... wind.
-Pelican@PELICAN|We'll carry the survivors. Your secrets stay here.
-Heisenbird@HEISENBIRD|I can rebuild the conductors without a command core. My name goes on the repairs—and on the damage.
-Raven@RAVEN|This changes the ending. It doesn't rewrite how we got here.
-Goose@GOOSE|The sky is ours. All of ours. You should have learned that sooner.
-Pigeon|The routes are open.
-Charles|Eagle is gone.
-Vulture|Then we build without a ruler.
-Penguin|The natural winds are coming back. They're all over the place.
-Roadrunner|Good.
-Pigeon|No throne. No permanent marshal. Every region gets a voice, and no key belongs to one bird.
-Raven|Slow. Inconvenient. Hard to take over.
-Goose|That sounds like a compliment.
-Charles|I know a room we can rebuild. We start with chairs.
+Pigeon|Eagle!
+Eagle|Fly.
+
+[s81_beyond_the_map]
+Raven|I found this inside a Crown receiver. It waited until the network went dark to answer.
+Titmouse|That mark isn't from any of the eleven regions.
+Pigeon|Could be an old survey beacon.
+Raven|It could. It also changed course when I looked at it.
+Titmouse|Something beyond the mapped sky knows the Crown is gone.
+Pigeon|Then we don't chase it alone.
+Raven|You finally learned to stay with a group.
+Pigeon|Don't make me regret inviting you.
+Crown System|OPEN SKY CONFIRMED.|REVEAL|RISE
 
 [dynamic_campaign_phase]
 {hero}|Checkpoint's secure. {objective}.

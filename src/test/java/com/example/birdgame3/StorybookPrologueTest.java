@@ -24,6 +24,24 @@ class StorybookPrologueTest {
     }
 
     @Test
+    void bundledEpilogueRecordsEveryPlayableBirdWithoutErasingTheCost() {
+        StorybookPrologue epilogue = StorybookPrologue.loadEpilogue();
+        String text = epilogue.pages.stream()
+                .map(StorybookPrologue.Page::prose)
+                .reduce("", (left, right) -> left + " " + right);
+
+        assertEquals(StorybookPrologue.EPILOGUE_ID, epilogue.id);
+        assertEquals("EPILOGUE", epilogue.header);
+        assertEquals(10, epilogue.pages.size());
+        for (BirdGame3.BirdType bird : BirdGame3.BirdType.values()) {
+            assertTrue(text.contains(bird.name), () -> "Missing epilogue legacy for " + bird.name);
+        }
+        assertTrue(text.contains("Old Sparrow"));
+        assertTrue(text.contains("did not make him innocent"));
+        assertTrue(text.contains("No ruler owned the wind"));
+    }
+
+    @Test
     void historyExplainsBirdFightAndLeadsDirectlyIntoDeadAirWithoutSpoilingTheFinalForm() {
         StorybookPrologue prologue = StorybookPrologue.loadBundled();
         String text = prologue.pages.stream()
