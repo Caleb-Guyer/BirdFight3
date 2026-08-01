@@ -8,6 +8,7 @@ import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.control.Button;
+import javafx.scene.effect.ColorAdjust;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
@@ -53,6 +54,8 @@ final class StoryCutscenePlayer {
     private static final Font DIALOGUE_FONT = Font.font("Arial", FontWeight.SEMI_BOLD, 30);
     private static final Font LOCATION_FONT = Font.font("Consolas", FontWeight.BOLD, 18);
     private static final Font SCENE_TITLE_FONT = Font.font("Arial Black", FontWeight.BOLD, 26);
+    private static final ColorAdjust RECORDED_VOICE_SILHOUETTE_EFFECT =
+            new ColorAdjust(0.0, -1.0, -0.88, 0.18);
 
     private record MotionOffset(double x, double y) {
         private static final MotionOffset NONE = new MotionOffset(0.0, 0.0);
@@ -62,6 +65,7 @@ final class StoryCutscenePlayer {
     private final Map<BirdGame3.BirdType, Bird> actors = new EnumMap<>(BirdGame3.BirdType.class);
     private final Map<String, Boolean> actorOnLeft = new HashMap<>();
     private Bird oldSparrowActor;
+    private Bird recordedVoiceActor;
     private StoryCampaign.Cutscene scene;
     private List<StoryCampaign.DialogueLine> lines = List.of();
     private BirdGame3.BirdType selectedBird;
@@ -103,6 +107,7 @@ final class StoryCutscenePlayer {
         this.actors.clear();
         this.actorOnLeft.clear();
         this.oldSparrowActor = null;
+        this.recordedVoiceActor = null;
 
         boolean nextActorOnLeft = true;
         for (StoryCampaign.DialogueLine line : lines) {
@@ -113,6 +118,9 @@ final class StoryCutscenePlayer {
             if ("Old Sparrow".equals(line.speaker()) && oldSparrowActor == null) {
                 oldSparrowActor = game.createCampaignCutsceneBird(
                         BirdGame3.BirdType.TITMOUSE, BirdGame3.OLD_SPARROW_SKIN);
+            }
+            if (usesRecordedVultureSilhouette(line) && recordedVoiceActor == null) {
+                recordedVoiceActor = game.createCampaignCutsceneBird(BirdGame3.BirdType.VULTURE, null);
             }
             if (line.bird() != null && !actors.containsKey(line.bird())) {
                 String skin = line.bird() == selectedBird ? selectedSkinKey : null;
@@ -573,6 +581,14 @@ final class StoryCutscenePlayer {
             facingRight = !facingRight;
         }
 
+        if (usesRecordedVultureSilhouette(line)) {
+            drawRecordedVultureSilhouette(g, x, y, facingRight, scale);
+            if (speaking) {
+                drawSpeakerPointer(g, x, y, scale, elapsed);
+            }
+            return;
+        }
+
         if (line.bird() == null) {
             if ("Old Sparrow".equals(line.speaker())) {
                 drawBirdActor(g, oldSparrowActor, x, y, facingRight, scale);
@@ -591,6 +607,24 @@ final class StoryCutscenePlayer {
         if (speaking) {
             drawSpeakerPointer(g, x, y, scale, elapsed);
         }
+    }
+
+    static boolean usesRecordedVultureSilhouette(StoryCampaign.DialogueLine line) {
+        if (line == null || line.text() == null) return false;
+        String text = line.text().stripLeading();
+        String prefix = "Recorded voice:";
+        return text.length() >= prefix.length()
+                && text.regionMatches(true, 0, prefix, 0, prefix.length());
+    }
+
+    private void drawRecordedVultureSilhouette(GraphicsContext g, double x, double y,
+                                                boolean facingRight, double scale) {
+        if (recordedVoiceActor == null) return;
+        g.save();
+        g.setGlobalAlpha(0.78);
+        g.setEffect(RECORDED_VOICE_SILHOUETTE_EFFECT);
+        drawBirdActor(g, recordedVoiceActor, x, y, facingRight, scale);
+        g.restore();
     }
 
     private void drawBirdActor(GraphicsContext g, Bird actor, double x, double y,

@@ -34,6 +34,27 @@ class StoryCutsceneDeterminismAuditTest {
     }
 
     @Test
+    void recordedVoiceLinesUseTheVultureSilhouettePresentation() {
+        StoryCampaign campaign = StoryCampaignContent.create();
+        var recordedLines = campaign.scenes.values().stream()
+                .flatMap(scene -> scene.lines().stream())
+                .filter(line -> line.text().startsWith("Recorded voice:"))
+                .toList();
+
+        assertFalse(recordedLines.isEmpty());
+        assertTrue(recordedLines.stream().allMatch(StoryCutscenePlayer::usesRecordedVultureSilhouette));
+        assertTrue(recordedLines.stream().allMatch(line -> line.bird() == BirdGame3.BirdType.VULTURE));
+
+        StoryCampaign.DialogueLine realVulture = campaign.scenes.values().stream()
+                .flatMap(scene -> scene.lines().stream())
+                .filter(line -> line.speaker().equals("Vulture"))
+                .filter(line -> !line.text().startsWith("Recorded voice:"))
+                .findFirst()
+                .orElseThrow();
+        assertFalse(StoryCutscenePlayer.usesRecordedVultureSilhouette(realVulture));
+    }
+
+    @Test
     void finalePresentationSequencesStayOutsideTheSimulationRandomStream() throws IOException {
         String escape = Files.readString(Path.of(
                 "src", "main", "java", "com", "example", "birdgame3", "CaveEscapeSequence.java"));
