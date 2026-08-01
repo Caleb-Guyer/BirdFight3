@@ -166,7 +166,7 @@ final class StillSkyCreditsPlayer {
         for (int i = 0; i < 3; i++) {
             int index = (panel + i * 7) % roster.length;
             BirdGame3.BirdType type = roster[index];
-            double px = i == 0 ? 285 : i == 1 ? 960 : 1635;
+            double px = scrapbookPanelX(i);
             double py = 235 + (i % 2) * 590;
             double angle = (i - 1) * 5.5 + Math.sin(seconds * 0.7 + i) * 2.0;
             List<BirdGame3.VisualAuditSkin> options = skins.getOrDefault(type, List.of());
@@ -178,6 +178,8 @@ final class StillSkyCreditsPlayer {
             g.save();
             g.translate(px, py);
             g.rotate(angle);
+            double panelScale = scrapbookPanelScale(i);
+            g.scale(panelScale, panelScale);
             g.setFill(Color.web(i == 0 ? "#F5E6C8" : i == 1 ? "#D8EDF0" : "#E7D7F2"));
             g.fillRoundRect(-225, -165, 450, 330, 18, 18);
             g.setStroke(Color.web("#3E3342", 0.72));
@@ -200,6 +202,18 @@ final class StillSkyCreditsPlayer {
             g.restore();
         }
         g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    static double scrapbookPanelX(int slot) {
+        return switch (slot) {
+            case 0 -> 285.0;
+            case 1 -> 245.0;
+            default -> 1635.0;
+        };
+    }
+
+    static double scrapbookPanelScale(int slot) {
+        return slot == 1 ? 0.82 : 1.0;
     }
 
     private void drawThankYou(GraphicsContext g, double seconds) {

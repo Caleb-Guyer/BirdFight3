@@ -83,6 +83,13 @@ class StoryCutsceneDeterminismAuditTest {
     }
 
     @Test
+    void lowerCreditsPhotoStaysInACornerOutsideTheTextColumn() {
+        assertTrue(StillSkyCreditsPlayer.scrapbookPanelX(1) < 300.0);
+        assertTrue(StillSkyCreditsPlayer.scrapbookPanelScale(1) < 0.9);
+        assertNotEquals(960.0, StillSkyCreditsPlayer.scrapbookPanelX(1));
+    }
+
+    @Test
     void presentationRebuildsTheGameplayPoseAfterChangingFacing() throws IOException {
         String source = Files.readString(Path.of(
                 "src", "main", "java", "com", "example", "birdgame3", "StoryCutscenePlayer.java"));
