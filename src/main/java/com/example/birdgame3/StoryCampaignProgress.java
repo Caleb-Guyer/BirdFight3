@@ -190,6 +190,26 @@ final class StoryCampaignProgress {
             campaignComplete = true;
             currentMissionId = campaign.orderedMissions.getLast().id();
         }
+        if (hasStartedCampaign(campaign)) {
+            // Older builds discarded special presentation IDs while loading.
+            // Any real campaign progress proves the opening prologue was reached.
+            seenSceneIds.add(StorybookPrologue.ID);
+        }
+        if (campaignComplete) {
+            // Completed legacy Still Sky saves necessarily passed both ending presentations.
+            seenSceneIds.add(StorybookPrologue.EPILOGUE_ID);
+            seenSceneIds.add(StillSkyCreditsPlayer.ID);
+        }
+    }
+
+    private boolean hasStartedCampaign(StoryCampaign campaign) {
+        if (campaignComplete || !completedMissionIds.isEmpty()) {
+            return true;
+        }
+        if (currentMissionId != null && !currentMissionId.equals(campaign.firstMission().id())) {
+            return true;
+        }
+        return seenSceneIds.stream().anyMatch(campaign.scenes::containsKey);
     }
 
     private static List<String> parseStableIds(String encoded, Collection<String> allowed) {

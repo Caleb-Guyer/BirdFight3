@@ -91,6 +91,52 @@ class StoryCampaignProgressTest {
     }
 
     @Test
+    void existingCampaignProgressRepairsThePreviouslyDiscardedPrologueUnlock() {
+        StoryCampaignProgress progress = new StoryCampaignProgress();
+        progress.markMissionCompleted(campaign, campaign.firstMission());
+        progress.saveTo(prefs);
+
+        StoryCampaignProgress loaded = StoryCampaignProgress.load(prefs, campaign);
+
+        assertTrue(loaded.hasSeenScene(StorybookPrologue.ID));
+    }
+
+    @Test
+    void anAuthoredOpeningSceneAlsoProvesThePrologueWasReached() {
+        StoryCampaignProgress progress = new StoryCampaignProgress();
+        progress.markSceneSeen(campaign.firstMission().preSceneId());
+        progress.saveTo(prefs);
+
+        StoryCampaignProgress loaded = StoryCampaignProgress.load(prefs, campaign);
+
+        assertTrue(loaded.hasSeenScene(StorybookPrologue.ID));
+    }
+
+    @Test
+    void untouchedCampaignDoesNotUnlockUnseenSpecialCutscenes() {
+        StoryCampaignProgress loaded = StoryCampaignProgress.load(prefs, campaign);
+
+        assertFalse(loaded.hasSeenScene(StorybookPrologue.ID));
+        assertFalse(loaded.hasSeenScene(StorybookPrologue.EPILOGUE_ID));
+        assertFalse(loaded.hasSeenScene(StillSkyCreditsPlayer.ID));
+    }
+
+    @Test
+    void completedOlderCampaignRepairsAllEndingCutsceneUnlocks() {
+        StoryCampaignProgress progress = new StoryCampaignProgress();
+        for (StoryCampaign.Mission mission : campaign.orderedMissions) {
+            progress.markMissionCompleted(campaign, mission);
+        }
+        progress.saveTo(prefs);
+
+        StoryCampaignProgress loaded = StoryCampaignProgress.load(prefs, campaign);
+
+        assertTrue(loaded.hasSeenScene(StorybookPrologue.ID));
+        assertTrue(loaded.hasSeenScene(StorybookPrologue.EPILOGUE_ID));
+        assertTrue(loaded.hasSeenScene(StillSkyCreditsPlayer.ID));
+    }
+
+    @Test
     void resetTouchesOnlyTheNewCampaignNamespace() {
         prefs.put("adv_route_selected", "TEMPEST");
         StoryCampaignProgress progress = new StoryCampaignProgress();
