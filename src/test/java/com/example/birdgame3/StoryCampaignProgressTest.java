@@ -75,6 +75,22 @@ class StoryCampaignProgressTest {
     }
 
     @Test
+    void animatedCreditsUseAStableReplayableCutsceneId() {
+        StoryCampaignProgress progress = new StoryCampaignProgress();
+        progress.markSceneSeen(StorybookPrologue.ID);
+        progress.markSceneSeen(StorybookPrologue.EPILOGUE_ID);
+        progress.markSceneSeen(StillSkyCreditsPlayer.ID);
+        progress.saveTo(prefs);
+
+        StoryCampaignProgress loaded = StoryCampaignProgress.load(prefs, campaign);
+
+        assertEquals("still_sky_credits", StillSkyCreditsPlayer.ID);
+        assertTrue(loaded.hasSeenScene(StorybookPrologue.ID));
+        assertTrue(loaded.hasSeenScene(StorybookPrologue.EPILOGUE_ID));
+        assertTrue(loaded.hasSeenScene(StillSkyCreditsPlayer.ID));
+    }
+
+    @Test
     void resetTouchesOnlyTheNewCampaignNamespace() {
         prefs.put("adv_route_selected", "TEMPEST");
         StoryCampaignProgress progress = new StoryCampaignProgress();

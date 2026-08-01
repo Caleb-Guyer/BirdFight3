@@ -69,7 +69,7 @@ final class StoryCampaignProgress {
         progress.completedMissionIds.addAll(parseStableIds(
                 prefs.get(KEY_COMPLETED_MISSIONS, ""), campaign.missions.keySet()));
         progress.seenSceneIds.addAll(parseStableIds(
-                prefs.get(KEY_SEEN_SCENES, ""), campaign.scenes.keySet()));
+                prefs.get(KEY_SEEN_SCENES, ""), allowedSceneIds(campaign)));
         progress.recruitedBirds.clear();
         progress.recruitedBirds.addAll(parseBirds(prefs.get(KEY_RECRUITED_BIRDS, "")));
         if (progress.recruitedBirds.isEmpty()) {
@@ -205,6 +205,14 @@ final class StoryCampaignProgress {
             }
         }
         return result;
+    }
+
+    private static Collection<String> allowedSceneIds(StoryCampaign campaign) {
+        LinkedHashSet<String> ids = new LinkedHashSet<>(campaign.scenes.keySet());
+        ids.add(StorybookPrologue.ID);
+        ids.add(StorybookPrologue.EPILOGUE_ID);
+        ids.add(StillSkyCreditsPlayer.ID);
+        return ids;
     }
 
     private static List<BirdGame3.BirdType> parseBirds(String encoded) {

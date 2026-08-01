@@ -32235,7 +32235,7 @@ public class BirdGame3 {
     private void playCampaignFinale(Stage stage, StoryCampaign.Mission mission) {
         caveEscapeSequence.play(stage,
                 () -> playCampaignEpilogue(stage,
-                        () -> stillSkyCreditsPlayer.play(stage,
+                        () -> playCampaignCredits(stage, false,
                                 () -> playCampaignCutscene(stage,
                                         stillSkyCampaign.scene("s81_beyond_the_map"),
                                         () -> completeCampaignMission(stage, mission)))),
@@ -32322,6 +32322,20 @@ public class BirdGame3 {
         });
     }
 
+    private void playCampaignCredits(Stage stage, boolean galleryReplay, Runnable after) {
+        disposeGameplayMusicPlayer();
+        Runnable finishCredits = () -> {
+            stillSkyProgress.markSceneSeen(StillSkyCreditsPlayer.ID);
+            saveAchievements();
+            if (after != null) after.run();
+        };
+        if (galleryReplay) {
+            stillSkyCreditsPlayer.replay(stage, finishCredits);
+        } else {
+            stillSkyCreditsPlayer.play(stage, finishCredits);
+        }
+    }
+
     private void showCampaignGallery(Stage stage) {
         campaignModeActive = true;
         VBox content = new VBox(14);
@@ -32337,8 +32351,11 @@ public class BirdGame3 {
                 .count();
         long prologuesSeen = stillSkyProgress.hasSeenScene(StorybookPrologue.ID) ? 1 : 0;
         long epiloguesSeen = stillSkyProgress.hasSeenScene(StorybookPrologue.EPILOGUE_ID) ? 1 : 0;
-        Label count = new Label((authoredScenesSeen + prologuesSeen + epiloguesSeen)
-                + "/" + (stillSkyCampaign.scenes.size() + 2)
+        boolean creditsSeen = stillSkyProgress.hasSeenScene(StillSkyCreditsPlayer.ID)
+                || stillSkyProgress.campaignComplete;
+        long creditsSeenCount = creditsSeen ? 1 : 0;
+        Label count = new Label((authoredScenesSeen + prologuesSeen + epiloguesSeen + creditsSeenCount)
+                + "/" + (stillSkyCampaign.scenes.size() + 3)
                 + " SCENES SEEN");
         count.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
         count.setTextFill(Color.web("#80DEEA"));
@@ -32361,6 +32378,13 @@ public class BirdGame3 {
         );
         epilogueButton.setDisable(!epilogueSeen);
         grid.getChildren().add(epilogueButton);
+        Button creditsButton = uiFactory.action(
+                creditsSeen ? StillSkyCreditsPlayer.TITLE.toUpperCase(Locale.ROOT) : "LOCKED CREDITS",
+                330, 62, 15, creditsSeen ? "#263238" : "#20252B", 13,
+                () -> playCampaignCredits(stage, true, () -> showCampaignGallery(stage))
+        );
+        creditsButton.setDisable(!creditsSeen);
+        grid.getChildren().add(creditsButton);
         for (StoryCampaign.Cutscene cutscene : stillSkyCampaign.scenes.values()) {
             boolean seen = stillSkyProgress.hasSeenScene(cutscene.id());
             Button sceneButton = uiFactory.action(

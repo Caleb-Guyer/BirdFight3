@@ -70,6 +70,19 @@ class StoryCutsceneDeterminismAuditTest {
     }
 
     @Test
+    void creditsAreTrackedAndReplayableFromTheCutsceneGallery() throws IOException {
+        String game = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java"));
+        String credits = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "StillSkyCreditsPlayer.java"));
+
+        assertTrue(game.contains("stillSkyProgress.markSceneSeen(StillSkyCreditsPlayer.ID)"));
+        assertTrue(game.contains("stillSkyCreditsPlayer.replay(stage, finishCredits)"));
+        assertTrue(game.contains("StillSkyCreditsPlayer.TITLE.toUpperCase(Locale.ROOT)"));
+        assertTrue(credits.contains("BACK TO CUTSCENE GALLERY"));
+    }
+
+    @Test
     void presentationRebuildsTheGameplayPoseAfterChangingFacing() throws IOException {
         String source = Files.readString(Path.of(
                 "src", "main", "java", "com", "example", "birdgame3", "StoryCutscenePlayer.java"));

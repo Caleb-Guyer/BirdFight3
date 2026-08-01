@@ -25,8 +25,10 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 
-/** Campaign credits with a rotating vector-art flock scrapbook. */
+/** Replayable campaign cutscene containing the animated credits and flock scrapbook. */
 final class StillSkyCreditsPlayer {
+    static final String ID = "still_sky_credits";
+    static final String TITLE = "Credits: All Wings";
     private static final double WIDTH = 1920.0;
     private static final double HEIGHT = 1080.0;
     private static final double DURATION_SECONDS = 76.0;
@@ -46,6 +48,14 @@ final class StillSkyCreditsPlayer {
     }
 
     void play(Stage stage, Runnable onFinished) {
+        play(stage, onFinished, "CONTINUE TO POST-CREDITS");
+    }
+
+    void replay(Stage stage, Runnable onFinished) {
+        play(stage, onFinished, "BACK TO CUTSCENE GALLERY");
+    }
+
+    private void play(Stage stage, Runnable onFinished, String finishButtonText) {
         stop();
         this.onFinished = onFinished;
         this.startNanos = 0L;
@@ -58,7 +68,7 @@ final class StillSkyCreditsPlayer {
         content.setPrefSize(WIDTH, HEIGHT);
         content.setMaxSize(WIDTH, HEIGHT);
         content.setStyle("-fx-background-color: #050711;");
-        Button skip = button("CONTINUE TO POST-CREDITS", this::finish);
+        Button skip = button(finishButtonText, this::finish);
         HBox controls = new HBox(skip);
         controls.setAlignment(Pos.CENTER);
         controls.setPadding(new Insets(10));
