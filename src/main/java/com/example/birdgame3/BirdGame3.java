@@ -40495,9 +40495,6 @@ public class BirdGame3 {
         }
 
         StoryMissionController.TickResult result = campaignMissionController.tick(snapshot);
-        if (campaignMissionController.takeReinforcementRequest()) {
-            spawnCampaignReinforcementWave(campaignMissionController.gauntletWavesDefeated() + 1);
-        }
         int bossSegment = campaignMissionController.bossSegment();
         if (bossSegment > campaignBossSegmentAnnounced) {
             campaignBossSegmentAnnounced = bossSegment;
@@ -40588,41 +40585,6 @@ public class BirdGame3 {
         support.specialCooldown = 0;
         support.overchargeAttackTimer = Math.max(support.overchargeAttackTimer, 90);
         addToKillFeed("SIGNATURE ASSIST: " + support.type.name + " enters with a charged special.");
-    }
-
-    private void spawnCampaignReinforcementWave(int waveNumber) {
-        if (currentCampaignMission == null || currentCampaignMission.enemies().isEmpty()) return;
-        List<StoryCampaign.Fighter> reinforcementTemplates = currentCampaignMission.enemies().stream()
-                .filter(fighter -> !fighter.boss())
-                .toList();
-        if (reinforcementTemplates.isEmpty()) {
-            return;
-        }
-        int templateIndex = 0;
-        int revived = 0;
-        for (int slot = 1; slot < activePlayers; slot++) {
-            if (campaignTeams[slot] != 2 || campaignBossSlots[slot]
-                    || (players[slot] != null && players[slot].health > 0)) {
-                continue;
-            }
-            StoryCampaign.Fighter source = reinforcementTemplates
-                    .get(templateIndex % reinforcementTemplates.size());
-            StoryCampaign.Fighter template = StoryCampaignReinforcements.create(
-                    currentCampaignMission,
-                    source,
-                    waveNumber,
-                    templateIndex,
-                    reinforcementTemplates.size()
-            );
-            double x = 4200 + (revived % 4) * 440.0;
-            Bird reinforcement = createCampaignFighter(template, slot, x, true);
-            campaignStartingHealth[slot] = reinforcement.health;
-            templateIndex++;
-            revived++;
-        }
-        if (revived > 0) {
-            addToKillFeed("WAVE " + waveNumber + ": " + revived + " fresh reinforcements entering.");
-        }
     }
 
     private void spawnReservedCampaignBossesForCurrentPhase() {

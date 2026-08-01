@@ -72,7 +72,7 @@ class StoryMissionControllerTest {
     }
 
     @Test
-    void gauntletRequestsDeterministicReinforcementWavesOnce() {
+    void gauntletCompletesWhenItsFixedEnemyRosterIsDefeated() {
         StoryCampaign.Mission mission = missionWith(
                 StoryCampaign.MissionPhase.timed(
                         StoryCampaign.ObjectiveType.GAUNTLET, "Two waves", 1, 2, true));
@@ -81,14 +81,10 @@ class StoryMissionControllerTest {
         StoryMissionController.Participant player =
                 new StoryMissionController.Participant(0, 1, 1000, 100, 100);
 
-        assertEquals(StoryMissionController.Outcome.RUNNING,
-                controller.tick(List.of(player)).outcome());
-        assertTrue(controller.takeReinforcementRequest());
-        assertFalse(controller.takeReinforcementRequest());
-
         StoryMissionController.Participant enemy =
                 new StoryMissionController.Participant(1, 2, 4500, 100, 100);
-        controller.tick(List.of(player, enemy));
+        assertEquals(StoryMissionController.Outcome.RUNNING,
+                controller.tick(List.of(player, enemy)).outcome());
         StoryMissionController.Participant defeated =
                 new StoryMissionController.Participant(1, 2, 4500, 0, 100);
         assertEquals(StoryMissionController.Outcome.COMPLETE,

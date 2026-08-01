@@ -269,13 +269,13 @@ final class StoryCampaignContent {
 
     private static StoryCampaign.Mission pierNine() {
         return mission("pier_nine", "Pier Nine",
-                "Keep the evacuation nest standing through three timed boarding waves.",
+                "Keep the evacuation nest standing while the harbor boarding force closes in.",
                 DOCK, EVACUATION, StoryCampaign.PlayablePolicy.forced(GOOSE),
                 fighters(ally(PELICAN, "Pelican")),
                 fighters(enemy(HEISENBIRD, "Blue Guard"), enemy(VULTURE, "Freight Warden")),
                 phases(
                         phase(PROTECT, "Defend the evacuation nest", 35, 1, true),
-                        phase(GAUNTLET, "Break the boarding wave", 0, 2, true),
+                        phase(GAUNTLET, "Break the boarding force", 0, 1, true),
                         phase(SURVIVE, "Hold until the skiffs clear", 32, 1, true)
                 ),
                 "s09_pier_nine", "s10_razor_doubt", null, false);
@@ -333,7 +333,7 @@ final class StoryCampaignContent {
                 fighters(enemy(VULTURE, "Carrion Captain"), enemy(RAVEN, "Blackwing Scout")),
                 phases(
                         phase(PROTECT, "Protect the cliff village", 45, 1, true),
-                        phase(GAUNTLET, "Clear the carrion wave", 0, 3, true)
+                        phase(GAUNTLET, "Clear the carrion force", 0, 1, true)
                 ),
                 "s17_open_sky_before", "s18_eagle_saves", ROADRUNNER, false);
     }
@@ -476,7 +476,7 @@ final class StoryCampaignContent {
                 ),
                 phases(
                         phase(CAPTURE, "Open the archive vaults", 40, 3, true),
-                        phase(GAUNTLET, "Survive the archive guard", 0, 3, true),
+                        phase(GAUNTLET, "Defeat the archive guard", 0, 1, true),
                         phase(REACH_EXIT, "Escape with the ledger", 32, 1, true)
                 ),
                 "s37_archive_before", "s38_archive_reveal", null, false);
@@ -672,7 +672,7 @@ final class StoryCampaignContent {
                 fighters(enemy(EAGLE, "Crown Automaton"), enemy(VULTURE, "Null Echo")),
                 phases(
                         phase(CAPTURE, "Open the prison locks", 42, 4, true),
-                        phase(GAUNTLET, "Clear the automated guard", 0, 3, true),
+                        phase(GAUNTLET, "Clear the automated guard", 0, 1, true),
                         phase(REACH_EXIT, "Escape with Vulture's route", 32, 1, true)
                 ),
                 "s65_blackout_key", "s66_null_roc_wakes", null, false);
@@ -751,7 +751,7 @@ final class StoryCampaignContent {
                 fighters(enemy(VULTURE, "Null Herald"), enemy(RAVEN, "Crown Remnant")),
                 phases(
                         phase(CAPTURE, "Secure the four approaches", 46, 4, true),
-                        phase(GAUNTLET, "Hold for the full coalition", 0, 4, true)
+                        phase(GAUNTLET, "Clear the final approach", 0, 1, true)
                 ),
                 "s75_last_approach", "s76_every_wing", null, false);
     }

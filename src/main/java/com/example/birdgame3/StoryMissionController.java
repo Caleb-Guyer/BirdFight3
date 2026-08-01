@@ -48,8 +48,6 @@ final class StoryMissionController {
     private int objectiveProgressTicks;
     private int capturedTargets;
     private int bossSegment;
-    private int gauntletWavesDefeated;
-    private boolean reinforcementRequested;
     private boolean complete;
     private boolean failed;
 
@@ -105,7 +103,7 @@ final class StoryMissionController {
         phaseTicks++;
         boolean success = switch (phase.objective()) {
             case ELIMINATION -> noLivingTeam(roster, 2);
-            case GAUNTLET -> tickGauntlet(phase, roster);
+            case GAUNTLET -> noLivingTeam(roster, 2);
             case SURVIVE -> phaseTicks >= scaledTargetTicks(phase);
             case PROTECT -> tickProtect(phase, roster);
             case CAPTURE, HOLD_ZONE -> tickCapture(phase, roster);
@@ -150,10 +148,6 @@ final class StoryMissionController {
         return bossSegment;
     }
 
-    int gauntletWavesDefeated() {
-        return gauntletWavesDefeated;
-    }
-
     double objectiveAssistTargetX() {
         if (complete || failed) {
             return Double.NaN;
@@ -181,12 +175,6 @@ final class StoryMissionController {
 
     double reachExitMarkerX() {
         return objectiveMaxX - 180.0;
-    }
-
-    boolean takeReinforcementRequest() {
-        boolean requested = reinforcementRequested;
-        reinforcementRequested = false;
-        return requested;
     }
 
     boolean complete() {
@@ -220,8 +208,6 @@ final class StoryMissionController {
         hash = mix(hash, objectiveProgressTicks);
         hash = mix(hash, capturedTargets);
         hash = mix(hash, bossSegment);
-        hash = mix(hash, gauntletWavesDefeated);
-        hash = mix(hash, reinforcementRequested ? 1 : 0);
         hash = mix(hash, complete ? 1 : 0);
         hash = mix(hash, failed ? 1 : 0);
         return hash;
@@ -304,18 +290,6 @@ final class StoryMissionController {
         return laterBossPhase && bossSegment >= Math.max(1, segments - 1);
     }
 
-    private boolean tickGauntlet(StoryCampaign.MissionPhase phase, List<Participant> roster) {
-        if (!noLivingTeam(roster, 2)) {
-            return false;
-        }
-        gauntletWavesDefeated++;
-        if (gauntletWavesDefeated >= Math.max(1, phase.targetCount())) {
-            return true;
-        }
-        reinforcementRequested = true;
-        return false;
-    }
-
     private TickResult advancePhase() {
         StoryCampaign.MissionPhase completedPhase = currentPhase();
         String eventId = mission.id() + ":phase:" + phaseIndex + ":complete";
@@ -335,8 +309,6 @@ final class StoryMissionController {
         objectiveProgressTicks = 0;
         capturedTargets = 0;
         bossSegment = 0;
-        gauntletWavesDefeated = 0;
-        reinforcementRequested = false;
         return new TickResult(Outcome.PHASE_ADVANCED, phaseIndex, checkpointPhaseIndex,
                 eventId, currentPhase().label());
     }

@@ -123,7 +123,6 @@ class StoryCampaignContentTest {
         assertEquals(StoryMissionController.Outcome.PHASE_ADVANCED, result.outcome());
         assertEquals(StoryCampaign.ObjectiveType.BOSS_PHASES,
                 controller.currentPhase().objective());
-        assertFalse(controller.takeReinforcementRequest());
     }
 
     @Test
@@ -154,13 +153,11 @@ class StoryCampaignContentTest {
 
         assertNotNull(result);
         assertEquals(StoryMissionController.Outcome.PHASE_ADVANCED, result.outcome());
-        assertFalse(controller.takeReinforcementRequest());
         assertEquals(StoryMissionController.Outcome.COMPLETE,
                 controller.tick(List.of(
                         new StoryMissionController.Participant(0, 1, 3000, 100, 100),
                         deadVulture,
                         deadRaven)).outcome());
-        assertFalse(controller.takeReinforcementRequest());
     }
 
     @Test
@@ -182,11 +179,8 @@ class StoryCampaignContentTest {
 
         assertEquals(StoryMissionController.Outcome.PHASE_ADVANCED,
                 controller.tick(clearedRoster).outcome());
-        assertFalse(controller.takeReinforcementRequest(),
-                "Finishing the evacuation must not revive either defeated Null Echo.");
         assertEquals(StoryMissionController.Outcome.COMPLETE,
                 controller.tick(clearedRoster).outcome());
-        assertFalse(controller.takeReinforcementRequest());
     }
 
     @Test

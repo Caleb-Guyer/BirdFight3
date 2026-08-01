@@ -6806,7 +6806,7 @@ class BirdStateTest {
     }
 
     @Test
-    void campaignGauntletNeverRespawnsAnAuthoredBossDefeatedEarlier() throws Exception {
+    void campaignGauntletLeavesEveryDefeatedActorDown() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.headlessHarnessMode = true;
         game.campaignModeActive = true;
@@ -6834,16 +6834,17 @@ class BirdStateTest {
         assertSame(defeatedFalcon, game.players[1]);
         assertEquals(0.0, game.players[1].health, 0.0001,
                 "The defeated authored boss must remain defeated.");
-        assertNotSame(defeatedGuard, game.players[2]);
-        assertTrue(game.players[2].health > 0.0,
-                "A fresh ordinary archive guard should enter for the next wave.");
-        assertNotEquals(defeatedGuard.type, game.players[2].type,
-                "The next wave must not look like the defeated guard respawned.");
-        assertFalse(game.players[2].name.startsWith("Boss:"));
+        assertSame(defeatedGuard, game.players[2]);
+        assertEquals(0.0, game.players[2].health, 0.0001,
+                "The defeated guard must remain defeated too.");
+        StoryMissionController controller =
+                (StoryMissionController) getPrivateObject(game, "campaignMissionController");
+        assertEquals(2, controller.phaseIndex(),
+                "The gauntlet should advance instead of replacing defeated enemies.");
     }
 
     @Test
-    void blackoutKeyRecyclesSlotsIntoFreshActorsInsteadOfRespawningVultureAndAutomaton()
+    void blackoutKeyLeavesVultureAndEveryOtherEnemyDefeatedPermanently()
             throws Exception {
         BirdGame3 game = new BirdGame3();
         game.headlessHarnessMode = true;
@@ -6869,39 +6870,11 @@ class BirdStateTest {
 
         game.checkCampaignMissionCompletion();
 
-        Bird waveTwoLeft = game.players[2];
-        Bird waveTwoRight = game.players[3];
-        assertNotSame(defeatedAutomaton, waveTwoLeft);
-        assertNotSame(defeatedVultureEcho, waveTwoRight);
-        assertNotEquals(BirdGame3.BirdType.EAGLE, waveTwoLeft.type);
-        assertNotEquals(BirdGame3.BirdType.VULTURE, waveTwoLeft.type);
-        assertNotEquals(BirdGame3.BirdType.EAGLE, waveTwoRight.type);
-        assertNotEquals(BirdGame3.BirdType.VULTURE, waveTwoRight.type);
-        assertNotEquals(waveTwoLeft.type, waveTwoRight.type);
-        assertTrue(waveTwoLeft.name.startsWith("Enemy: Null Construct "));
-        assertTrue(waveTwoRight.name.startsWith("Enemy: Null Construct "));
-
-        waveTwoLeft.health = 0.0;
-        waveTwoRight.health = 0.0;
-        game.checkCampaignMissionCompletion();
-
-        Bird waveThreeLeft = game.players[2];
-        Bird waveThreeRight = game.players[3];
-        assertNotSame(waveTwoLeft, waveThreeLeft);
-        assertNotSame(waveTwoRight, waveThreeRight);
-        assertNotEquals(waveTwoLeft.type, waveThreeLeft.type);
-        assertNotEquals(waveTwoRight.type, waveThreeRight.type);
-        assertNotEquals(waveThreeLeft.type, waveThreeRight.type);
-
-        waveThreeLeft.health = 0.0;
-        waveThreeRight.health = 0.0;
-        game.checkCampaignMissionCompletion();
-
         StoryMissionController controller =
                 (StoryMissionController) getPrivateObject(game, "campaignMissionController");
         assertEquals(2, controller.phaseIndex());
-        assertSame(waveThreeLeft, game.players[2]);
-        assertSame(waveThreeRight, game.players[3]);
+        assertSame(defeatedAutomaton, game.players[2]);
+        assertSame(defeatedVultureEcho, game.players[3]);
         assertEquals(0.0, game.players[2].health, 0.0001);
         assertEquals(0.0, game.players[3].health, 0.0001);
     }
