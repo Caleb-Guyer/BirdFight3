@@ -425,6 +425,7 @@ final class BirdBookUiSupport {
             case HUMMINGBIRD, TITMOUSE -> BirdGame3.MapType.VIBRANT_JUNGLE;
             case PELICAN, GOOSE -> BirdGame3.MapType.DOCK;
             case ROADRUNNER -> BirdGame3.MapType.DESERT;
+            case KIWI -> BirdGame3.MapType.FOREST;
             default -> BirdGame3.MapType.FOREST;
         };
     }
@@ -459,6 +460,7 @@ final class BirdBookUiSupport {
             case PELICAN -> "Iron beak, iron will. Stores cargo in his pouch, trades mobility for weight, and hits like a loaded ship.";
             case RAVEN -> "A shadow on the skyline with a talent for misdirection. It appears, it hits, and then it is already gone.";
             case GOOSE -> "Territorial heavyweight with a long neck and no respect for personal space. It guards nests, shoves lanes, and turns one honk into a flock problem.";
+            case KIWI -> "A grounded, stubborn brawler with a bill built for finding trouble. Kiwi probes fast, tunnels straight through a crowd, and plants both feet when the earth needs moving.";
         };
     }
 

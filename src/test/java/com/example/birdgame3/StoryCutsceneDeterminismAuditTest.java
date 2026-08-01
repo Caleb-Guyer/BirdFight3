@@ -108,7 +108,7 @@ class StoryCutsceneDeterminismAuditTest {
         StoryCampaign campaign = StoryCampaignContent.create();
         StoryCampaign.Cutscene finale = campaign.scene("s80_eagle_end");
 
-        for (BirdGame3.BirdType selected : BirdGame3.BirdType.values()) {
+        for (BirdGame3.BirdType selected : StoryCampaign.STILL_SKY_ROSTER) {
             long conditional = finale.linesFor(selected).stream()
                     .filter(line -> line.whenSelected() != null)
                     .count();

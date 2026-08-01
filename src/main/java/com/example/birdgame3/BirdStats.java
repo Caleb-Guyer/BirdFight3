@@ -34,10 +34,10 @@ final class BirdStats {
             type.jumpHeight = type.defaultJumpHeight;
             type.speed = type.defaultSpeed;
             type.flyUpForce = type.defaultFlyUpForce;
-            type.damageDealtMult = 1.0;
-            type.damageTakenMult = 1.0;
-            type.cooldownRate = 1.0;
-            type.ultimateRate = 1.0;
+            type.damageDealtMult = type.defaultDamageDealtMult;
+            type.damageTakenMult = type.defaultDamageTakenMult;
+            type.cooldownRate = type.defaultCooldownRate;
+            type.ultimateRate = type.defaultUltimateRate;
         }
         BirdGame3.GRAVITY = BirdGame3.DEFAULT_GRAVITY;
         Bird.STARTING_HEALTH = Bird.DEFAULT_STARTING_HEALTH;
@@ -162,10 +162,10 @@ final class BirdStats {
             sb.append(prefix).append(".jumpHeight=").append(type.defaultJumpHeight).append('\n');
             sb.append(prefix).append(".speed=").append(type.defaultSpeed).append('\n');
             sb.append(prefix).append(".flyUpForce=").append(type.defaultFlyUpForce).append('\n');
-            sb.append(prefix).append(".damageDealtMult=1.0\n");
-            sb.append(prefix).append(".damageTakenMult=1.0\n");
-            sb.append(prefix).append(".cooldownRate=1.0\n");
-            sb.append(prefix).append(".ultimateRate=1.0\n");
+            sb.append(prefix).append(".damageDealtMult=").append(type.defaultDamageDealtMult).append('\n');
+            sb.append(prefix).append(".damageTakenMult=").append(type.defaultDamageTakenMult).append('\n');
+            sb.append(prefix).append(".cooldownRate=").append(type.defaultCooldownRate).append('\n');
+            sb.append(prefix).append(".ultimateRate=").append(type.defaultUltimateRate).append('\n');
             sb.append('\n');
         }
         try {

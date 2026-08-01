@@ -191,6 +191,13 @@ public class Bird {
         DOWN
     }
 
+    enum KiwiSpecialVariant {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN
+    }
+
     enum DirectionalSpecialInput {
         NEUTRAL,
         SIDE,
@@ -262,7 +269,8 @@ public class Bird {
         TURKEY,
         PENGUIN,
         TITMOUSE,
-        GOOSE
+        GOOSE,
+        KIWI
     }
 
     private record BirdVisualProfile(
@@ -359,6 +367,9 @@ public class Bird {
     private static final BirdVisualProfile GOOSE_VISUAL_PROFILE =
             new BirdVisualProfile(0.86, 1.12, 0.92, 0.86, 0.88, 0.94, 1.08, 1.04, 1.06,
                     BirdVisualProfileStyle.GOOSE);
+    private static final BirdVisualProfile KIWI_VISUAL_PROFILE =
+            new BirdVisualProfile(0.88, 1.20, 0.66, 0.76, 0.76, 0.82, 1.12, 1.12, 1.16,
+                    BirdVisualProfileStyle.KIWI);
 
     // Reference to main game instance
     final BirdGame3 game;
@@ -901,6 +912,43 @@ public class Bird {
     boolean gooseUltimateFinalHitResolved = false;
     final boolean[] gooseUltimateMarked = new boolean[4];
     final int[] gooseUltimateHitCooldown = new int[4];
+
+    // === KIWI ===
+    static final int KIWI_PROBE_FRAMES = 22;
+    static final int KIWI_PROBE_REUSE_FRAMES = 30;
+    static final int KIWI_BURROW_FRAMES = 24;
+    static final int KIWI_BURROW_REUSE_FRAMES = 52;
+    static final int KIWI_SPRING_FRAMES = 22;
+    static final int KIWI_SPRING_REUSE_FRAMES = 34;
+    static final int KIWI_STOMP_FRAMES = 34;
+    static final int KIWI_STOMP_REUSE_FRAMES = 44;
+    static final int KIWI_ULTIMATE_FRAMES = 164;
+    int kiwiProbeTimer = 0;
+    int kiwiProbeReuseTimer = 0;
+    int kiwiProbeDirection = 1;
+    int kiwiProbeStrikeIndex = 0;
+    final boolean[] kiwiProbeHit = new boolean[4];
+    int kiwiBurrowTimer = 0;
+    int kiwiBurrowReuseTimer = 0;
+    int kiwiBurrowDirection = 1;
+    boolean kiwiBurrowGrounded = false;
+    boolean kiwiBurrowErupted = false;
+    final boolean[] kiwiBurrowHit = new boolean[4];
+    int kiwiSpringTimer = 0;
+    int kiwiSpringReuseTimer = 0;
+    int kiwiSpringDirection = 1;
+    boolean kiwiSpringUsed = false;
+    final boolean[] kiwiSpringHit = new boolean[4];
+    int kiwiStompTimer = 0;
+    int kiwiStompReuseTimer = 0;
+    boolean kiwiStompAirborne = false;
+    boolean kiwiStompImpactResolved = false;
+    final boolean[] kiwiStompHit = new boolean[4];
+    int kiwiUltimateTimer = 0;
+    int kiwiUltimateDirection = 1;
+    int kiwiUltimateWaveIndex = 0;
+    boolean kiwiUltimateFinalResolved = false;
+    final int[] kiwiUltimateHitCooldown = new int[4];
     private boolean ledgeHanging = false;
     private Platform ledgePlatform = null;
     private boolean ledgeGrabOnRightSide = false;
@@ -1988,6 +2036,8 @@ public class Bird {
             baseSizeMultiplier = 1.2;
         } else if (type == BirdGame3.BirdType.GOOSE) {
             baseSizeMultiplier = 1.16;
+        } else if (type == BirdGame3.BirdType.KIWI) {
+            baseSizeMultiplier = 1.08;
         }
         sizeMultiplier = baseSizeMultiplier;
     }
@@ -2486,6 +2536,7 @@ public class Bird {
         pelicanNeutralReuseTimer = 0;
         ravenNeutralReuseTimer = 0;
         gooseHonkReuseTimer = 0;
+        kiwiProbeReuseTimer = 0;
     }
 
     private void resetMockingbirdCopiedNeutralRuntime() {
@@ -2522,6 +2573,7 @@ public class Bird {
             case PELICAN -> resetPelicanSpecialState(false);
             case RAVEN -> resetRavenSpecialState(false);
             case GOOSE -> resetGooseSpecialState(false);
+            case KIWI -> KiwiSpecials.reset(this);
             case ROOSTER, MOCKINGBIRD -> {
             }
         }
@@ -2966,6 +3018,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.RAVEN) {
             return ravenNormalAttackProfile(variant, facingDir);
         }
+        if (type == BirdGame3.BirdType.KIWI) {
+            return kiwiNormalAttackProfile(variant, facingDir);
+        }
         return switch (variant) {
             case NEUTRAL -> new NormalAttackProfile(104.0, 84.0, facingDir * 14.0, -2.0,
                     0.80, 0.76, 0.92, 0.82, 0.82, 18, 8, AERIAL_LANDING_LAG_FRAMES);
@@ -2991,6 +3046,35 @@ public class Bird {
                     0.88, 0.98, 0.55, 1.82, 1.82, 25, 12, 6);
             case DOWN_AIR -> new NormalAttackProfile(92.0, 136.0, 0.0, 46.0,
                     1.02, 1.08, 0.72, 0.34, -0.95, 28, 14, 12);
+        };
+    }
+
+    private NormalAttackProfile kiwiNormalAttackProfile(NormalAttackVariant variant, double facingDir) {
+        return switch (variant) {
+            case NEUTRAL -> new NormalAttackProfile(122.0, 88.0, facingDir * 25.0, -3.0,
+                    0.88, 0.84, 1.02, 0.72, 0.72, 18, 9, AERIAL_LANDING_LAG_FRAMES);
+            case SIDE_TILT -> new NormalAttackProfile(154.0, 90.0, facingDir * 42.0, -2.0,
+                    1.00, 1.02, 1.24, 0.72, 0.72, 22, 11, AERIAL_LANDING_LAG_FRAMES);
+            case UP_TILT -> new NormalAttackProfile(100.0, 142.0, facingDir * 5.0, -39.0,
+                    0.92, 0.98, 0.62, 1.62, 1.62, 22, 11, AERIAL_LANDING_LAG_FRAMES);
+            case DOWN_TILT -> new NormalAttackProfile(134.0, 72.0, facingDir * 20.0, 24.0,
+                    0.92, 0.90, 0.98, 0.28, 0.28, 22, 11, AERIAL_LANDING_LAG_FRAMES);
+            case SIDE_SMASH -> new NormalAttackProfile(178.0, 100.0, facingDir * 58.0, -2.0,
+                    1.28, 1.38, 1.68, 0.86, 0.86, 38, 17, AERIAL_LANDING_LAG_FRAMES);
+            case UP_SMASH -> new NormalAttackProfile(116.0, 176.0, 0.0, -54.0,
+                    1.18, 1.30, 0.78, 2.10, 2.10, 37, 17, AERIAL_LANDING_LAG_FRAMES);
+            case DOWN_SMASH -> new NormalAttackProfile(160.0, 92.0, 0.0, 33.0,
+                    1.22, 1.28, 1.18, 0.48, 0.48, 39, 18, AERIAL_LANDING_LAG_FRAMES);
+            case NEUTRAL_AIR -> new NormalAttackProfile(132.0, 118.0, 0.0, -4.0,
+                    0.96, 1.00, 1.02, 1.05, 1.05, 28, 14, 9);
+            case FORWARD_AIR -> new NormalAttackProfile(160.0, 96.0, facingDir * 48.0, -5.0,
+                    1.05, 1.12, 1.38, 0.84, 0.84, 30, 14, 10);
+            case BACK_AIR -> new NormalAttackProfile(132.0, 92.0, -facingDir * 34.0, 2.0,
+                    1.10, 1.16, 1.46, 0.78, 0.78, 30, 14, 11);
+            case UP_AIR -> new NormalAttackProfile(102.0, 158.0, 0.0, -49.0,
+                    0.94, 1.04, 0.60, 1.92, 1.92, 28, 13, 8);
+            case DOWN_AIR -> new NormalAttackProfile(110.0, 152.0, 0.0, 50.0,
+                    1.10, 1.16, 0.76, 0.36, -1.02, 31, 15, 12);
         };
     }
 
@@ -5564,6 +5648,10 @@ public class Bird {
         return VultureSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
+    boolean canStartKiwiSpecial() {
+        return KiwiSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
+    }
+
     private boolean opiumSpecialActive() {
         return OpiumSpecials.active(this);
     }
@@ -5639,6 +5727,7 @@ public class Bird {
             case PELICAN -> ultimateReady || pelicanNeutralReuseTimer <= 0;
             case RAVEN -> ultimateReady || ravenNeutralReuseTimer <= 0;
             case GOOSE -> ultimateReady || gooseHonkReuseTimer <= 0;
+            case KIWI -> ultimateReady || kiwiProbeReuseTimer <= 0;
             default -> throw new IllegalStateException("Unexpected value: " + source);
         };
     }
@@ -5674,6 +5763,7 @@ public class Bird {
             case VULTURE -> vultureCallTimer > 0;
             case RAVEN -> ravenQuillCharging;
             case GOOSE -> gooseHonkTimer > 0;
+            case KIWI -> kiwiProbeTimer > 0;
             case MOCKINGBIRD -> false;
         };
     }
@@ -5922,6 +6012,19 @@ public class Bird {
         return GooseSpecialVariant.NEUTRAL;
     }
 
+    KiwiSpecialVariant selectKiwiSpecialVariant() {
+        if (jumpPressed()) {
+            return KiwiSpecialVariant.UP;
+        }
+        if (blockPressed()) {
+            return KiwiSpecialVariant.DOWN;
+        }
+        if (leftPressed() != rightPressed()) {
+            return KiwiSpecialVariant.SIDE;
+        }
+        return KiwiSpecialVariant.NEUTRAL;
+    }
+
     PhoenixSpecialVariant selectPhoenixSpecialVariant() {
         if (jumpPressed()) {
             return PhoenixSpecialVariant.UP;
@@ -6037,6 +6140,11 @@ public class Bird {
                     && selectGooseSpecialVariant() == GooseSpecialVariant.UP
                     && !gooseLiftUsed;
         }
+        if (type == BirdGame3.BirdType.KIWI) {
+            return canStartKiwiSpecial()
+                    && selectKiwiSpecialVariant() == KiwiSpecialVariant.UP
+                    && !kiwiSpringUsed;
+        }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
                     && selectOpiumSpecialVariant() == OpiumSpecialVariant.UP
@@ -6121,6 +6229,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.GOOSE) {
             return canStartGooseSpecial()
                     && selectGooseSpecialVariant() == GooseSpecialVariant.DOWN;
+        }
+        if (type == BirdGame3.BirdType.KIWI) {
+            return canStartKiwiSpecial()
+                    && selectKiwiSpecialVariant() == KiwiSpecialVariant.DOWN;
         }
         if (isOpiumEchoPair()) {
             return canStartOpiumSpecial()
@@ -6346,6 +6458,7 @@ public class Bird {
             case HEISENBIRD -> new AIKitProfile(216, 235, 340, 430, 0.56, 0.78, 0.82, 0.18, 0.68, 0.64);
             case RAVEN -> new AIKitProfile(218, 250, 390, 460, 0.66, 0.72, 0.86, 0.34, 0.74, 0.70);
             case GOOSE -> new AIKitProfile(164, 245, 360, 320, 0.84, 0.18, 0.62, 0.62, 0.52, 0.36);
+            case KIWI -> new AIKitProfile(176, 226, 340, 360, 0.82, 0.08, 0.16, 0.18, 0.72, 0.42);
         };
     }
 
@@ -9008,6 +9121,8 @@ public class Bird {
                     && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             case GOOSE -> !gooseLiftUsed
                     && (depth > 105.0 || (offstage && (offstageDistance > 18.0 || movingAway || vy > 2.2)));
+            case KIWI -> !kiwiSpringUsed
+                    && (depth > 92.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.0)));
             default -> false;
         };
     }
@@ -9149,6 +9264,9 @@ public class Bird {
                 if (!gooseLiftUsed) reach += 170.0;
                 if (limitedFlightFuel > 0.0) reach += 45.0;
             }
+            case KIWI -> {
+                if (!kiwiSpringUsed) reach += 190.0;
+            }
             case OPIUMBIRD, HEISENBIRD -> {
                 if (!opiumUpSpecialUsed) reach += 160.0;
             }
@@ -9196,6 +9314,10 @@ public class Bird {
                 reach += 35.0;
                 if (!gooseLiftUsed) reach += 44.0;
             }
+            case KIWI -> {
+                reach += 28.0;
+                if (!kiwiSpringUsed) reach += 50.0;
+            }
             case OPIUMBIRD, HEISENBIRD -> {
                 if (!opiumUpSpecialUsed) reach += 42.0;
             }
@@ -9231,6 +9353,7 @@ public class Bird {
             case PIGEON -> 190;
             case ROOSTER -> 195;
             case RAVEN -> 210;
+            case KIWI -> 176;
         };
     }
 
@@ -9511,6 +9634,14 @@ public class Bird {
                 if (dist > 108.0 && dist < 370.0 && gooseBargeReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
                 yield DirectionalSpecialInput.NEUTRAL;
             }
+            case KIWI -> {
+                if (!onGround && targetAbove && !kiwiSpringUsed) yield DirectionalSpecialInput.UP;
+                if (!onGround && targetBelow && kiwiStompReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                if (onGround && enemyActive && dist < 150.0 && kiwiStompReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
+                if (dist > 95.0 && dist < 340.0 && Math.abs(dy) < 145.0
+                        && kiwiBurrowReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
+                yield DirectionalSpecialInput.NEUTRAL;
+            }
         };
     }
 
@@ -9535,6 +9666,7 @@ public class Bird {
             case OPIUMBIRD, HEISENBIRD -> DirectionalSpecialInput.DOWN;
             case MOCKINGBIRD -> DirectionalSpecialInput.DOWN;
             case EAGLE, FALCON, PIGEON -> DirectionalSpecialInput.NEUTRAL;
+            case KIWI -> DirectionalSpecialInput.NEUTRAL;
         };
     }
 
@@ -9798,6 +9930,9 @@ public class Bird {
                 return (dist < 370 && Math.abs(dy) < 175)
                         || (onGround && gooseNestReuseTimer <= 0 && (lowHealth || enemyActive || enemySetup))
                         || (!onGround && dy < -85.0 && !gooseLiftUsed);
+            case KIWI:
+                return (dist < 350 && Math.abs(dy) < 190)
+                        || (!onGround && ((dy < -80.0 && !kiwiSpringUsed) || (dy > 90.0 && kiwiStompReuseTimer <= 0)));
             default:
                 return dist < ideal + own.burstRange() * 0.20;
         }
@@ -10465,6 +10600,9 @@ public class Bird {
         if (type == BirdGame3.BirdType.GOOSE && isOnGround()) {
             gooseLiftUsed = false;
         }
+        if (type == BirdGame3.BirdType.KIWI && isOnGround()) {
+            kiwiSpringUsed = false;
+        }
         if (isOpiumEchoPair() && isOnGround()) {
             opiumUpSpecialUsed = false;
         }
@@ -10498,6 +10636,7 @@ public class Bird {
             resetPelicanSpecialState(false);
             resetOpiumSpecialState();
             resetGooseSpecialState(false);
+            KiwiSpecials.reset(this);
         }
 
         if (handleGrabbedState()) {
@@ -10662,6 +10801,7 @@ public class Bird {
         handleRavenSpecialState(specialHeld);
         handleOpiumSpecialState();
         GooseSpecials.handleState(this, specialHeld);
+        KiwiSpecials.handleState(this);
 
         // === RAZORBILL SPECIALS ===
         handleRazorbillSpecials();
@@ -10692,6 +10832,7 @@ public class Bird {
         handleBatPostMoveSpecialState();
         handleRavenPostMoveSpecialState();
         GooseSpecials.handlePostMoveState(this);
+        KiwiSpecials.handlePostMoveState(this);
         if (tryGrabUniversalLedge(prevX, inDockWater)) {
             rememberFrameInputs(jumpHeld, specialHeld, blockHeld, grabHeld, leftHeld, rightHeld);
             handleTaunts();
@@ -13139,7 +13280,8 @@ public class Bird {
     void refillTrainingResources(boolean fillUltimate) {
         onDefeated();
         baseSizeMultiplier = type == BirdGame3.BirdType.PELICAN ? 1.2
-                : type == BirdGame3.BirdType.GOOSE ? 1.16 : 1.0;
+                : type == BirdGame3.BirdType.GOOSE ? 1.16
+                : type == BirdGame3.BirdType.KIWI ? 1.08 : 1.0;
         basePowerMultiplier = 1.0;
         baseSpeedMultiplier = 1.0;
         phoenixRebornUsed = false;
@@ -14944,6 +15086,7 @@ public class Bird {
         ravenPortentUltimate = false;
         resetGooseSpecialState(true);
         gooseTerritoryMeter = 28.0;
+        KiwiSpecials.reset(this);
         ledgeHanging = false;
         ledgePlatform = null;
         ledgeGrabOnRightSide = false;
@@ -17991,7 +18134,8 @@ public class Bird {
                 || pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
                 || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
                 || mockingbirdSpecialPoseActive() || opiumSpecialPoseActive()
-                || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive()) {
+                || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive()
+                || (type == BirdGame3.BirdType.KIWI && KiwiSpecials.active(this))) {
             return VISUAL_POSE_ACTION_BLEND_PER_FRAME;
         }
         if (!isOnGround() && Math.abs(vy) > 4.0) {
@@ -18191,6 +18335,7 @@ public class Bird {
             case TURKEY -> TURKEY_VISUAL_PROFILE;
             case PENGUIN -> PENGUIN_VISUAL_PROFILE;
             case GOOSE -> GOOSE_VISUAL_PROFILE;
+            case KIWI -> KIWI_VISUAL_PROFILE;
             default -> DEFAULT_BIRD_VISUAL_PROFILE;
         };
     }
@@ -21146,6 +21291,7 @@ public class Bird {
         drawPelicanMaelstromFx(g);
         drawVultureBlackSkyFx(g, drawSize);
         drawGooseSpecialFx(g, drawSize);
+        KiwiSpecials.drawEffects(this, g);
         drawBatEcho(g, drawSize);
         drawRavenSpecialFx(g, drawSize);
         if (!suppressSelectEffects) {
@@ -21210,6 +21356,11 @@ public class Bird {
         if (spriteSheet != null && spriteSheet.image != null) {
             drawSpriteBody(g, spriteSheet, drawSize, attackPose);
             drawCampaignFactionSkin(g, drawSize);
+        } else if (type == BirdGame3.BirdType.KIWI) {
+            g.save();
+            applyAttackBodyPose(g, drawSize, attackPose);
+            drawKiwiBody(g, drawSize);
+            g.restore();
         } else {
             g.save();
             applyAttackBodyPose(g, drawSize, attackPose);
@@ -21231,6 +21382,127 @@ public class Bird {
             drawPelican(g);
             g.restore();
         }
+    }
+
+    /** Kiwi has a deliberately grounded silhouette: no generic wings, tail, eye, or beak layers. */
+    private void drawKiwiBody(GraphicsContext g, double drawSize) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double cx = x + drawSize * 0.50;
+        double cy = y + drawSize * 0.54;
+        boolean classic = isClassicSkin;
+        Color bodyDark = classic ? Color.web("#324B36") : Color.web("#3C3027");
+        Color body = classic ? Color.web("#607D5A") : Color.web("#68533E");
+        Color bodyLight = classic ? Color.web("#9CAF88") : Color.web("#9A7B58");
+        Color face = classic ? Color.web("#C6D4AE") : Color.web("#B89A72");
+        Color bill = classic ? Color.web("#C7C3A2") : Color.web("#B49A79");
+        Color billDark = classic ? Color.web("#777A64") : Color.web("#705C49");
+        Color foot = classic ? Color.web("#B9B58C") : Color.web("#A98A62");
+
+        if (KiwiSpecials.bodyBurrowed(this)) {
+            double tipX = cx + dir * 43.0 * s;
+            g.setFill(billDark.deriveColor(0.0, 1.0, 0.88, 0.96));
+            g.fillPolygon(
+                    new double[]{cx - dir * 8.0 * s, tipX, cx - dir * 4.0 * s},
+                    new double[]{cy + 21.0 * s, cy + 16.0 * s, cy + 28.0 * s}, 3);
+            g.setStroke(Color.web("#2A211B", 0.82));
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(cx - dir * 5.0 * s, cy + 23.0 * s, tipX, cy + 16.0 * s);
+            g.setFill(bodyLight);
+            for (int i = -2; i <= 2; i++) {
+                double featherX = cx + i * 7.0 * s;
+                g.fillPolygon(new double[]{featherX - 5.0 * s, featherX, featherX + 5.0 * s},
+                        new double[]{cy + 27.0 * s, cy + (14.0 - Math.abs(i) * 2.0) * s, cy + 27.0 * s}, 3);
+            }
+            return;
+        }
+
+        int probeElapsed = kiwiProbeTimer > 0 ? KIWI_PROBE_FRAMES - kiwiProbeTimer : 0;
+        double probePulse = kiwiProbeTimer > 0 ? Math.max(0.0, Math.sin((probeElapsed - 1.0) * Math.PI / 6.0)) : 0.0;
+        double billExtension = probePulse * 14.0 * s;
+        double springStretch = kiwiSpringTimer > 0 ? 11.0 * s : 0.0;
+        double stompSquash = kiwiStompTimer > 0 && !kiwiStompAirborne ? 5.0 * s : 0.0;
+        double bodyCy = cy + stompSquash;
+
+        // Two sturdy legs and broad three-toed feet sit behind the body.
+        g.setStroke(foot);
+        g.setLineWidth(5.0 * s);
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int side : new int[]{-1, 1}) {
+            double legX = cx + side * 15.0 * s;
+            double kneeX = legX + side * 3.0 * s;
+            double footY = bodyCy + 35.0 * s + springStretch;
+            g.strokeLine(legX, bodyCy + 22.0 * s, kneeX, footY - 4.0 * s);
+            g.setLineWidth(3.0 * s);
+            g.strokeLine(kneeX, footY, kneeX + dir * 14.0 * s, footY + 1.0 * s);
+            g.strokeLine(kneeX, footY, kneeX + dir * 9.0 * s, footY + 6.0 * s);
+            g.strokeLine(kneeX, footY, kneeX - dir * 8.0 * s, footY + 3.0 * s);
+            g.setLineWidth(5.0 * s);
+        }
+
+        // Layered pear-shaped torso gives the feather coat depth without sprite art.
+        g.setFill(bodyDark);
+        g.fillOval(cx - 35.0 * s, bodyCy - 31.0 * s, 70.0 * s, 69.0 * s - stompSquash * 0.55);
+        g.setFill(body);
+        g.fillOval(cx - 31.0 * s, bodyCy - 29.0 * s, 62.0 * s, 62.0 * s - stompSquash * 0.45);
+        g.setFill(bodyLight.deriveColor(0.0, 0.92, 1.08, 0.48));
+        g.fillOval(cx - 21.0 * s, bodyCy - 24.0 * s, 35.0 * s, 19.0 * s);
+        g.setStroke(bodyLight.deriveColor(0.0, 0.88, 1.12, 0.72));
+        g.setLineWidth(2.0 * s);
+        for (int i = 0; i < 5; i++) {
+            double featherY = bodyCy - 11.0 * s + i * 8.0 * s;
+            g.strokeArc(cx - (25.0 - i * 1.5) * s, featherY - 7.0 * s,
+                    (47.0 - i * 3.0) * s, 15.0 * s, 195, 150, ArcType.OPEN);
+        }
+
+        // Kiwis have only a tiny vestigial wing, kept close to the body.
+        double wingX = cx - dir * 7.0 * s;
+        g.setFill(bodyDark.deriveColor(0.0, 1.0, 0.88, 0.92));
+        g.fillOval(wingX - 12.0 * s, bodyCy - 4.0 * s, 24.0 * s, 30.0 * s);
+        g.setStroke(bodyLight.deriveColor(0.0, 0.84, 1.08, 0.58));
+        g.setLineWidth(1.8 * s);
+        g.strokeArc(wingX - 9.0 * s, bodyCy + 1.0 * s, 18.0 * s, 20.0 * s, 205, 130, ArcType.OPEN);
+
+        double headX = cx + dir * (25.0 * s + billExtension * 0.18);
+        double headY = bodyCy - 12.0 * s;
+        double billBaseX = headX + dir * 13.0 * s;
+        double billTipX = cx + dir * (76.0 * s + billExtension);
+        double billTipY = headY + 4.0 * s;
+
+        // Long, slightly down-curved probing bill; layered strokes keep it slender.
+        g.setFill(billDark);
+        g.fillPolygon(
+                new double[]{billBaseX, billTipX, billTipX - dir * 6.0 * s, billBaseX},
+                new double[]{headY - 5.0 * s, billTipY, billTipY + 5.0 * s, headY + 8.0 * s}, 4);
+        g.setStroke(bill);
+        g.setLineWidth(4.2 * s);
+        g.strokeLine(billBaseX + dir * 2.0 * s, headY + 1.0 * s, billTipX - dir * 5.0 * s, billTipY + 1.0 * s);
+        g.setFill(Color.web("#241E19", 0.86));
+        g.fillOval(billTipX - dir * 7.0 * s - 2.0 * s, billTipY - 1.5 * s, 4.0 * s, 3.0 * s);
+
+        g.setFill(face);
+        g.fillOval(headX - 18.0 * s, headY - 18.0 * s, 36.0 * s, 37.0 * s);
+        g.setFill(bodyLight.deriveColor(0.0, 0.86, 1.06, 0.68));
+        g.fillOval(headX - 13.0 * s, headY - 13.0 * s, 22.0 * s, 14.0 * s);
+
+        double eyeX = headX + dir * 5.0 * s;
+        double eyeY = headY - 6.0 * s;
+        g.setFill(Color.web("#F7F1DC"));
+        g.fillOval(eyeX - 6.5 * s, eyeY - 6.5 * s, 13.0 * s, 13.0 * s);
+        g.setFill(Color.web("#17130F"));
+        g.fillOval(eyeX - 3.7 * s, eyeY - 3.7 * s, 7.4 * s, 7.4 * s);
+        g.setFill(Color.web("#F4C65D"));
+        g.fillOval(eyeX + dir * 0.2 * s - 1.2 * s, eyeY - 2.6 * s, 2.4 * s, 2.4 * s);
+        g.setStroke(bodyDark.deriveColor(0.0, 1.0, 0.74, 0.9));
+        g.setLineWidth(2.3 * s);
+        g.strokeLine(eyeX - dir * 6.0 * s, eyeY - 8.0 * s, eyeX + dir * 5.0 * s, eyeY - 10.0 * s);
+
+        // Small crown of loose sensory feathers completes the recognizable kiwi profile.
+        g.setStroke(bodyLight);
+        g.setLineWidth(2.0 * s);
+        g.strokeLine(headX - dir * 8.0 * s, headY - 15.0 * s, headX - dir * 13.0 * s, headY - 25.0 * s);
+        g.strokeLine(headX - dir * 3.0 * s, headY - 17.0 * s, headX - dir * 4.0 * s, headY - 28.0 * s);
+        g.strokeLine(headX + dir * 2.0 * s, headY - 16.0 * s, headX + dir * 5.0 * s, headY - 25.0 * s);
     }
 
     void drawWorldObjects(GraphicsContext g) {

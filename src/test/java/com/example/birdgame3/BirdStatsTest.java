@@ -49,6 +49,11 @@ class BirdStatsTest {
         assertEquals(BirdGame3.BirdType.PIGEON.defaultSpeed, BirdGame3.BirdType.PIGEON.speed);
         assertEquals(BirdGame3.BirdType.GOOSE.defaultPower, BirdGame3.BirdType.GOOSE.power);
         assertEquals(1.0, BirdGame3.BirdType.EAGLE.damageDealtMult);
+        assertEquals(0.86, BirdGame3.BirdType.KIWI.damageDealtMult,
+                "A preserved pre-Kiwi tuning file must still use Kiwi's balanced compiled fallback.");
+        assertEquals(1.10, BirdGame3.BirdType.KIWI.damageTakenMult);
+        assertEquals(0.92, BirdGame3.BirdType.KIWI.cooldownRate);
+        assertEquals(0.90, BirdGame3.BirdType.KIWI.ultimateRate);
         assertEquals(BirdGame3.DEFAULT_GRAVITY, BirdGame3.GRAVITY);
         assertEquals(Bird.DEFAULT_STARTING_HEALTH, Bird.STARTING_HEALTH);
     }

@@ -21,6 +21,39 @@ import java.util.Set;
 final class StoryCampaign {
     static final int CURRENT_VERSION = 1;
 
+    /**
+     * The authored cast of The Still Sky. New post-campaign fighters must be
+     * added to BirdType without silently rewriting the existing story or its
+     * finale reactions.
+     */
+    static final List<BirdGame3.BirdType> STILL_SKY_ROSTER = List.of(
+            BirdGame3.BirdType.PIGEON,
+            BirdGame3.BirdType.EAGLE,
+            BirdGame3.BirdType.FALCON,
+            BirdGame3.BirdType.PHOENIX,
+            BirdGame3.BirdType.HUMMINGBIRD,
+            BirdGame3.BirdType.TURKEY,
+            BirdGame3.BirdType.ROOSTER,
+            BirdGame3.BirdType.ROADRUNNER,
+            BirdGame3.BirdType.PENGUIN,
+            BirdGame3.BirdType.SHOEBILL,
+            BirdGame3.BirdType.MOCKINGBIRD,
+            BirdGame3.BirdType.RAZORBILL,
+            BirdGame3.BirdType.GRINCHHAWK,
+            BirdGame3.BirdType.VULTURE,
+            BirdGame3.BirdType.OPIUMBIRD,
+            BirdGame3.BirdType.TITMOUSE,
+            BirdGame3.BirdType.BAT,
+            BirdGame3.BirdType.PELICAN,
+            BirdGame3.BirdType.HEISENBIRD,
+            BirdGame3.BirdType.RAVEN,
+            BirdGame3.BirdType.GOOSE
+    );
+
+    static EnumSet<BirdGame3.BirdType> stillSkyRosterSet() {
+        return EnumSet.copyOf(STILL_SKY_ROSTER);
+    }
+
     enum Difficulty {
         EASY("Easy", 3, 0.85, 1.25, true),
         NORMAL("Normal", 5, 1.0, 1.0, false),
@@ -65,7 +98,7 @@ final class StoryCampaign {
                 throw new IllegalArgumentException("Choice policy needs two to four birds");
             }
             if (kind == PlayableKind.FULL_ROSTER && !birds.isEmpty()) {
-                throw new IllegalArgumentException("Full-roster policy derives its birds from BirdType");
+                throw new IllegalArgumentException("Full-roster policy derives its birds from the campaign cast");
             }
         }
 
@@ -83,7 +116,7 @@ final class StoryCampaign {
 
         List<BirdGame3.BirdType> resolvedBirds() {
             return kind == PlayableKind.FULL_ROSTER
-                    ? List.of(BirdGame3.BirdType.values())
+                    ? STILL_SKY_ROSTER
                     : birds;
         }
     }
@@ -407,8 +440,8 @@ final class StoryCampaign {
         if (!usedMaps.equals(EnumSet.allOf(BirdGame3.MapType.class))) {
             errors.add("Campaign must use all maps; used " + usedMaps.size());
         }
-        if (!playableBirds.equals(EnumSet.allOf(BirdGame3.BirdType.class))) {
-            errors.add("Campaign must make all birds playable");
+        if (!playableBirds.equals(stillSkyRosterSet())) {
+            errors.add("Campaign must make every authored Still Sky bird playable");
         }
         if (finalBossCount != 2) {
             errors.add("Campaign must contain the two authored final boss missions");
@@ -437,7 +470,7 @@ final class StoryCampaign {
             }
         }
         if (deathScenes != 2) errors.add("Campaign must contain exactly two permanent-death scenes");
-        for (BirdGame3.BirdType type : BirdGame3.BirdType.values()) {
+        for (BirdGame3.BirdType type : STILL_SKY_ROSTER) {
             int count = speakingScenes.getOrDefault(type, Set.of()).size();
             if (count < 3) errors.add(type.name + " must speak in at least three scenes");
         }

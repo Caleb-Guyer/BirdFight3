@@ -10120,7 +10120,11 @@ public class BirdGame3 {
         RAVEN("Raven", 8, 18, 4.3, Color.web("#1C1F26"), 0.72,
                 "Black Quill / Shadow Warp / Murder Lift / Nevermore / The Unkindness"),
         GOOSE("Goose", 11, 11, 3.2, Color.web("#687456"), 0.32,
-                "Threatening Honk / Bite and Barge / V-Formation Lift / Nest Guard / The Whole Flock");
+                "Threatening Honk / Bite and Barge / V-Formation Lift / Nest Guard / The Whole Flock"),
+        // Keep new roster additions at the end: replay and LAN formats persist enum ordinals.
+        KIWI("Kiwi Bird", 8, 14, 3.8, Color.web("#66503A"), 0.0,
+                "Rapid Probe / Burrow Charge / Spring Kick / Earth Stomp / Midnight Stampede",
+                0.86, 1.10, 0.92, 0.90);
 
         final String name;
         // Tunable balance stats: mutable so BirdStats can hot-reload overrides from
@@ -10140,8 +10144,15 @@ public class BirdGame3 {
         final int defaultPower;
         final int defaultJumpHeight;
         final double defaultSpeed, defaultFlyUpForce;
+        final double defaultDamageDealtMult, defaultDamageTakenMult;
+        final double defaultCooldownRate, defaultUltimateRate;
 
         BirdType(String name, int power, int jumpHeight, double speed, Color color, double flyUpForce, String ability) {
+            this(name, power, jumpHeight, speed, color, flyUpForce, ability, 1.0, 1.0, 1.0, 1.0);
+        }
+
+        BirdType(String name, int power, int jumpHeight, double speed, Color color, double flyUpForce, String ability,
+                 double damageDealtMult, double damageTakenMult, double cooldownRate, double ultimateRate) {
             this.name = name;
             this.power = power;
             this.jumpHeight = jumpHeight;
@@ -10149,10 +10160,18 @@ public class BirdGame3 {
             this.color = color;
             this.flyUpForce = flyUpForce;
             this.ability = ability;
+            this.damageDealtMult = damageDealtMult;
+            this.damageTakenMult = damageTakenMult;
+            this.cooldownRate = cooldownRate;
+            this.ultimateRate = ultimateRate;
             this.defaultPower = power;
             this.defaultJumpHeight = jumpHeight;
             this.defaultSpeed = speed;
             this.defaultFlyUpForce = flyUpForce;
+            this.defaultDamageDealtMult = damageDealtMult;
+            this.defaultDamageTakenMult = damageTakenMult;
+            this.defaultCooldownRate = cooldownRate;
+            this.defaultUltimateRate = ultimateRate;
         }
     }
 
@@ -10370,6 +10389,15 @@ public class BirdGame3 {
                 "Neutral steals health. Side rides or launches the sleigh. Up covers vertical space. Down leaves the present trap.",
                 MapType.BATTLEFIELD,
                 BirdType.GRINCHHAWK,
+                BirdType.PIGEON,
+                TrainingDummyBehavior.IDLE
+        ),
+        KIWI_DRILL(
+                "Kiwi Groundwork",
+                "Use Rapid Probe, Burrow Charge, Spring Kick, and Earth Stomp.",
+                "Kiwi has no meter or setup. Each direction gives one dependable move: peck, charge, recover, or stomp.",
+                MapType.FOREST,
+                BirdType.KIWI,
                 BirdType.PIGEON,
                 TrainingDummyBehavior.IDLE
         ),
@@ -17197,6 +17225,7 @@ public class BirdGame3 {
             case ROADRUNNER -> 1.70;
             case HUMMINGBIRD -> 1.66;
             case PELICAN, GOOSE -> 1.64;
+            case KIWI -> 1.72;
             case FALCON, VULTURE -> 1.62;
             case PHOENIX -> 1.56;
             case ROOSTER -> 1.50;
@@ -17240,6 +17269,7 @@ public class BirdGame3 {
             case PELICAN, GOOSE -> new RosterSpriteFit(1.10, 0.0, 0.0);
             case MOCKINGBIRD -> new RosterSpriteFit(1.12, 0.0, 0.0);
             case GRINCHHAWK -> new RosterSpriteFit(1.25, 0.005, 0.0);
+            case KIWI -> new RosterSpriteFit(1.08, -0.025, 0.015);
             default -> RosterSpriteFit.DEFAULT;
         };
     }
@@ -33254,7 +33284,7 @@ public class BirdGame3 {
     }
 
     private void setupCampaignFinalCoalition(StoryCampaign.Mission mission) {
-        activePlayers = Math.min(MAX_COMBATANTS, BirdType.values().length);
+        activePlayers = Math.min(MAX_COMBATANTS, StoryCampaign.STILL_SKY_ROSTER.size());
         Bird player = createStoryBird(820, campaignSelectedBird, 0,
                 "You: " + campaignSelectedBird.name, 120, 1.0, 1.0, false);
         applySkinChoiceToBird(player, campaignSelectedBird, campaignSelectedSkinKey);
@@ -33262,7 +33292,7 @@ public class BirdGame3 {
         campaignStartingHealth[0] = player.health;
 
         int slot = 1;
-        for (BirdType type : BirdType.values()) {
+        for (BirdType type : StoryCampaign.STILL_SKY_ROSTER) {
             if (type == campaignSelectedBird || slot >= activePlayers) continue;
             double x = 380 + (slot - 1) * 270.0;
             Bird ally = createStoryBird(x, type, slot, "Coalition: " + type.name,
@@ -33602,7 +33632,9 @@ public class BirdGame3 {
     private void setupUnitedFinaleAdventureRoster(AdventureBattle battle, BirdType playerType, String skinKey) {
         if (UNITED_FINALE_CLIMAX_TITLE.equals(battle.title)) {
             unitedFinaleMassBattleActive = true;
-            activePlayers = Math.min(players.length, BirdType.values().length + 1);
+            // This legacy finale is authored around the original story cast. New standalone
+            // fighters (such as Kiwi) must not silently create empty or unplanned story slots.
+            activePlayers = Math.min(players.length, StoryCampaign.STILL_SKY_ROSTER.size() + 1);
             Bird player = createStoryBird(900, playerType, 0, "You: " + playerType.name, 100, 1.0, 1.0, false);
             applySkinChoiceToBird(player, playerType, skinKey);
 
@@ -34936,6 +34968,7 @@ public class BirdGame3 {
             case MOCKINGBIRD -> GuidedTutorialLesson.MOCKINGBIRD_DRILL;
             case RAZORBILL -> GuidedTutorialLesson.RAZORBILL_DRILL;
             case GRINCHHAWK -> GuidedTutorialLesson.GRINCHHAWK_DRILL;
+            case KIWI -> GuidedTutorialLesson.KIWI_DRILL;
             default -> null;
         };
     }
@@ -34966,6 +34999,7 @@ public class BirdGame3 {
             case MOCKINGBIRD_DRILL -> BirdType.MOCKINGBIRD;
             case RAZORBILL_DRILL -> BirdType.RAZORBILL;
             case GRINCHHAWK_DRILL -> BirdType.GRINCHHAWK;
+            case KIWI_DRILL -> BirdType.KIWI;
             default -> null;
         };
     }
@@ -35096,6 +35130,7 @@ public class BirdGame3 {
             case PELICAN -> "Titan Pelican";
             case RAVEN -> "Nightshade Raven";
             case GOOSE -> "Royal Guard Goose";
+            case KIWI -> "Silver Fern Kiwi";
         };
     }
 
@@ -35243,6 +35278,7 @@ public class BirdGame3 {
             case PELICAN -> Color.web("#FFB74D");
             case RAVEN -> Color.web("#263238");
             case GOOSE -> Color.web("#7CB342");
+            case KIWI -> Color.web("#607D5A");
             case EAGLE -> Color.GOLD;
             case PIGEON -> Color.rgb(18, 18, 18);
         };
@@ -35266,6 +35302,7 @@ public class BirdGame3 {
             case PELICAN -> Color.web("#FFE0B2");
             case RAVEN -> Color.web("#B0BEC5");
             case GOOSE -> Color.web("#FFF59D");
+            case KIWI -> Color.web("#DDE8C8");
             case EAGLE -> Color.web("#FFF176");
             case PIGEON -> Color.web("#F44336");
         };
@@ -39049,7 +39086,8 @@ public class BirdGame3 {
             case RAVEN_DRILL, VULTURE_DRILL, FALCON_DRILL, PHOENIX_DRILL,
                  ROOSTER_DRILL, PELICAN_DRILL, HUMMINGBIRD_DRILL,
                  TURKEY_DRILL, PENGUIN_DRILL, SHOEBILL_DRILL,
-                 MOCKINGBIRD_DRILL, RAZORBILL_DRILL, GRINCHHAWK_DRILL -> {
+                 MOCKINGBIRD_DRILL, RAZORBILL_DRILL, GRINCHHAWK_DRILL,
+                 KIWI_DRILL -> {
                 setTrainingBirdStandingPosition(player, stageCenter - 150, groundY);
                 setTrainingBirdStandingPosition(dummy, stageCenter + 130, groundY);
             }
@@ -39753,6 +39791,12 @@ public class BirdGame3 {
                 if (hasCompletedGrinchhawkTrainingDrill()) {
                     markTrainingAcademyDrillCompleted(BirdType.GRINCHHAWK);
                     queueTrainingAcademyCompletion("Grinch-Hawk route cleared");
+                }
+            }
+            case KIWI_DRILL -> {
+                if (hasCompletedDirectionalSpecialLesson()) {
+                    markTrainingAcademyDrillCompleted(BirdType.KIWI);
+                    queueTrainingAcademyCompletion("Kiwi groundwork cleared");
                 }
             }
             case DEFENSE_AND_PUNISH -> {
@@ -44428,6 +44472,7 @@ public class BirdGame3 {
                 case MOCKINGBIRD_DRILL -> trainingMockingbirdDrillProgressText(player);
                 case RAZORBILL_DRILL -> trainingRazorbillDrillProgressText();
                 case GRINCHHAWK_DRILL -> trainingGrinchhawkDrillProgressText();
+                case KIWI_DRILL -> trainingDirectionalSpecialProgressText();
                 default -> specialMoveGuideNote(player.type);
             };
         }
@@ -44999,6 +45044,10 @@ public class BirdGame3 {
                         + "  Sleigh: " + yesNoText(trainingAcademyGrinchSleighHitSeen)
                         + "  Chimney: " + yesNoText(trainingAcademyGrinchChimneyHitSeen)
                         + "  Present: " + yesNoText(trainingAcademyGrinchPresentPlacedSeen);
+                case KIWI_DRILL -> "Probe: " + yesNoText(trainingAcademyNeutralSpecialSeen)
+                        + "  Burrow: " + yesNoText(trainingAcademySideSpecialSeen)
+                        + "  Spring: " + yesNoText(trainingAcademyUpSpecialSeen)
+                        + "  Stomp: " + yesNoText(trainingAcademyDownSpecialSeen);
                 case DEFENSE_AND_PUNISH -> "Blocked: " + yesNoText(trainingAcademyShieldHitSeen)
                         + "  Punish hit: " + yesNoText(trainingAcademyHitsLanded > 0);
                 case GRABS_AND_THROWS -> "Grab: " + yesNoText(trainingAcademyGrabSeen)
@@ -46502,6 +46551,7 @@ public class BirdGame3 {
             case TURKEY, GOOSE, PELICAN, VULTURE -> base * 0.92;
             case SHOEBILL, PENGUIN -> base * 0.98;
             case PHOENIX, FALCON, RAVEN -> base * 1.06;
+            case KIWI -> base * 0.90;
             default -> base;
         };
     }
@@ -46511,6 +46561,7 @@ public class BirdGame3 {
         return switch (type) {
             case BAT -> -size * 0.02;
             case PELICAN, GOOSE -> -size * 0.035;
+            case KIWI -> -size * 0.045;
             case HUMMINGBIRD, TITMOUSE -> size * 0.025;
             default -> 0.0;
         };
@@ -46523,6 +46574,7 @@ public class BirdGame3 {
             case HUMMINGBIRD, TITMOUSE, FALCON -> -size * 0.03;
             case TURKEY, PELICAN, GOOSE -> size * 0.035;
             case PENGUIN, SHOEBILL -> size * 0.02;
+            case KIWI -> size * 0.025;
             default -> 0.0;
         };
     }
@@ -47004,6 +47056,11 @@ public class BirdGame3 {
                     winnerPose ? 2.25 : 1.80,
                     0.00,
                     0.00);
+            case KIWI -> new VictoryPortraitLayout(winnerPose ? 1.08 : 1.14,
+                    winnerPose ? 1.32 : 1.04,
+                    winnerPose ? 1.92 : 1.52,
+                    0.00,
+                    0.02);
         };
     }
 
@@ -50327,6 +50384,7 @@ public class BirdGame3 {
             case BAT -> new String[]{"Echo Lance", "Wingcut", "Moonrise", "Silent Descent + Ceiling Hang"};
             case RAVEN -> new String[]{"Black Quill", "Shadow Warp", "Murder Lift", "Nevermore"};
             case GOOSE -> new String[]{"Threatening Honk", "Bite and Barge", "V-Formation Lift", "Nest Guard"};
+            case KIWI -> new String[]{"Rapid Probe", "Burrow Charge", "Spring Kick", "Earth Stomp"};
             case FALCON -> splitSpecialAbility("Target Snap / Razor Rush / Jet Climb / Meteor Strike");
             case HEISENBIRD -> splitSpecialAbility("Crystal Cloud / Blue Rush / Crystal Column / Glass Cook");
             default -> splitSpecialAbility(type.ability);
@@ -50360,6 +50418,7 @@ public class BirdGame3 {
             case VULTURE -> "Ultimate: Black Sky Feast floods the arena with crown crows before a final feast launch.";
             case RAVEN -> "Marks and routes set up larger follow-ups, including the ultimate.";
             case GOOSE -> "Territory empowers the next special. Nest Guard counters hits near the nest.";
+            case KIWI -> "No meter or setup. Ultimate: Midnight Stampede chains three charges into one broad eruption.";
             case HUMMINGBIRD -> "Ultimate: Needleheart Overdrive locks on, chains three flash pierces, then detonates a nectar final stab.";
             case MOCKINGBIRD -> "Ultimate: Shadow Court summons three fragile dark copies from the Lounge.";
             case ROOSTER -> "Ultimate: Dawn Stampede floods the stage with fast flying swarm chicks.";

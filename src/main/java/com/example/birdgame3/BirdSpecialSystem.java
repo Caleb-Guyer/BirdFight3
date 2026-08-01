@@ -129,6 +129,8 @@ final class BirdSpecialSystem {
             game.recordUltimateMoveUse(bird, PelicanSpecials.MAELSTROM_GULLET_MOVE);
         } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.VULTURE) {
             game.recordUltimateMoveUse(bird, VultureSpecials.BLACK_SKY_FEAST_MOVE);
+        } else if (ultimateTriggered && bird.type == BirdGame3.BirdType.KIWI) {
+            game.recordUltimateMoveUse(bird, KiwiSpecials.MIDNIGHT_STAMPEDE_MOVE);
         } else {
             game.recordSpecialMoveUse(bird, input, ultimateTriggered);
         }

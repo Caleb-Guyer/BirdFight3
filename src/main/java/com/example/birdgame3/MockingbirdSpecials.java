@@ -75,6 +75,7 @@ final class MockingbirdSpecials {
                 case PELICAN -> bird.specialPelicanPouchSnare(ultimate);
                 case RAVEN -> bird.fireRavenBlackQuillVolley(false, ultimate);
                 case GOOSE -> GooseSpecials.neutral(bird, ultimate);
+                case KIWI -> KiwiSpecials.copiedNeutral(bird, ultimate);
                 case MOCKINGBIRD -> {
                 }
             }

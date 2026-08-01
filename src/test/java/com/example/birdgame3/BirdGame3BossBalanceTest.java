@@ -117,7 +117,7 @@ class BirdGame3BossBalanceTest {
         method.setAccessible(true);
         method.invoke(game, battle, BirdGame3.BirdType.PIGEON, null);
 
-        assertEquals(BirdGame3.BirdType.values().length + 1, game.activePlayers);
+        assertEquals(StoryCampaign.STILL_SKY_ROSTER.size() + 1, game.activePlayers);
         assertEquals(BirdGame3.BirdType.EAGLE, game.players[1].type);
         assertEquals(BirdGame3.BirdType.PHOENIX, game.players[2].type);
         assertEquals(BirdGame3.BirdType.VULTURE, game.players[game.activePlayers - 1].type);
@@ -129,6 +129,7 @@ class BirdGame3BossBalanceTest {
         }
 
         assertFalse(alliedTypes.contains(BirdGame3.BirdType.PIGEON));
+        assertFalse(alliedTypes.contains(BirdGame3.BirdType.KIWI));
         assertTrue(alliedTypes.contains(BirdGame3.BirdType.HUMMINGBIRD));
         assertTrue(alliedTypes.contains(BirdGame3.BirdType.VULTURE));
         assertTrue(alliedTypes.contains(BirdGame3.BirdType.HEISENBIRD));

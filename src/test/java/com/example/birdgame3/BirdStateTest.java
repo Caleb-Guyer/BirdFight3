@@ -11,6 +11,125 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class BirdStateTest {
     @Test
+    void kiwiWasAppendedWithoutChangingExistingReplayOrdinals() {
+        assertEquals(20, BirdGame3.BirdType.GOOSE.ordinal());
+        assertEquals(21, BirdGame3.BirdType.KIWI.ordinal());
+    }
+
+    @Test
+    void kiwiDirectionalKitIsImmediateAndUsesIndependentReuseLocks() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird kiwi = new Bird(200.0, BirdGame3.BirdType.KIWI, 0, game);
+        kiwi.y = BirdGame3.GROUND_Y - kiwi.bodyHeight();
+        game.players[0] = kiwi;
+
+        KiwiSpecials.use(kiwi, false);
+        assertEquals(Bird.KIWI_PROBE_FRAMES, kiwi.kiwiProbeTimer);
+        assertEquals(0, kiwi.specialCooldown);
+
+        KiwiSpecials.reset(kiwi);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        KiwiSpecials.use(kiwi, false);
+        assertEquals(Bird.KIWI_BURROW_FRAMES, kiwi.kiwiBurrowTimer);
+        assertTrue(kiwi.vx > 10.0);
+
+        KiwiSpecials.reset(kiwi);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), true);
+        KiwiSpecials.use(kiwi, false);
+        assertEquals(Bird.KIWI_SPRING_FRAMES, kiwi.kiwiSpringTimer);
+        assertTrue(kiwi.kiwiSpringUsed);
+        assertTrue(kiwi.vy < -15.0);
+
+        KiwiSpecials.reset(kiwi);
+        game.setLocalActionsForKey(game.jumpKeyForPlayer(0), false);
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        KiwiSpecials.use(kiwi, false);
+        assertEquals(Bird.KIWI_STOMP_FRAMES, kiwi.kiwiStompTimer);
+        assertFalse(kiwi.kiwiStompAirborne);
+        assertEquals(0, kiwi.specialCooldown);
+    }
+
+    @Test
+    void kiwiRapidProbeEndsWithAReadableLauncher() {
+        BirdStats.resetToDefaults();
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird kiwi = new Bird(100.0, BirdGame3.BirdType.KIWI, 0, game);
+        Bird target = new Bird(190.0, BirdGame3.BirdType.PIGEON, 1, game);
+        kiwi.y = BirdGame3.GROUND_Y - kiwi.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = kiwi;
+        game.players[1] = target;
+
+        double healthBefore = target.health;
+        KiwiSpecials.use(kiwi, false);
+        for (int i = 0; i < Bird.KIWI_PROBE_FRAMES; i++) {
+            KiwiSpecials.handleState(kiwi);
+        }
+
+        assertEquals(3, kiwi.kiwiProbeStrikeIndex);
+        assertTrue(kiwi.kiwiProbeHit[target.playerIndex], "The finishing peck should connect.");
+        assertEquals(13.0 * BirdGame3.BirdType.KIWI.defaultDamageDealtMult,
+                healthBefore - target.health, 0.001,
+                "All three forgiving pecks should deal their tuned total damage.");
+        assertTrue(target.vx > 8.0, "The third probe should clearly launch forward.");
+        assertTrue(target.vy < -3.0, "The third probe should pop the target upward.");
+    }
+
+    @Test
+    void kiwiEarthStompControlsBothSidesWithoutASetupMeter() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+        Bird kiwi = new Bird(300.0, BirdGame3.BirdType.KIWI, 0, game);
+        Bird left = new Bird(210.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird right = new Bird(390.0, BirdGame3.BirdType.EAGLE, 2, game);
+        kiwi.y = BirdGame3.GROUND_Y - kiwi.bodyHeight();
+        left.y = BirdGame3.GROUND_Y - left.bodyHeight();
+        right.y = BirdGame3.GROUND_Y - right.bodyHeight();
+        game.players[0] = kiwi;
+        game.players[1] = left;
+        game.players[2] = right;
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+
+        KiwiSpecials.use(kiwi, false);
+        for (int i = 0; i < 10; i++) {
+            KiwiSpecials.handleState(kiwi);
+        }
+
+        assertTrue(left.health < Bird.STARTING_HEALTH);
+        assertTrue(right.health < Bird.STARTING_HEALTH);
+        assertTrue(left.vx < 0.0);
+        assertTrue(right.vx > 0.0);
+    }
+
+    @Test
+    void kiwiUltimateIsOnePressMidnightStampede() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird kiwi = new Bird(300.0, BirdGame3.BirdType.KIWI, 0, game);
+        Bird target = new Bird(430.0, BirdGame3.BirdType.PIGEON, 1, game);
+        kiwi.y = BirdGame3.GROUND_Y - kiwi.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = kiwi;
+        game.players[1] = target;
+        kiwi.refillTrainingResources(true);
+
+        BirdSpecialSystem.useSpecial(kiwi);
+        assertEquals(Bird.KIWI_ULTIMATE_FRAMES, kiwi.kiwiUltimateTimer);
+        assertFalse(kiwi.isUltimateReady());
+        assertEquals(KiwiSpecials.MIDNIGHT_STAMPEDE_MOVE, game.lastTelemetryMoveName(0, ""));
+
+        double healthBefore = target.health;
+        for (int i = 0; i < 132; i++) {
+            KiwiSpecials.handleState(kiwi);
+        }
+        assertTrue(target.health < healthBefore);
+        assertTrue(Math.abs(target.vx) > 10.0 || target.vy < -8.0);
+    }
+
+    @Test
     void ultimateVisualReadyAllowsMockingbirdFallbackUlt() {
         BirdGame3 game = new BirdGame3();
 
@@ -6915,7 +7034,7 @@ class BirdStateTest {
         setupRoster.invoke(game, mission);
 
         boolean[] present = new boolean[BirdGame3.BirdType.values().length];
-        assertEquals(BirdGame3.BirdType.values().length, game.activePlayers);
+        assertEquals(StoryCampaign.STILL_SKY_ROSTER.size(), game.activePlayers);
         for (int slot = 0; slot < game.activePlayers; slot++) {
             Bird bird = game.players[slot];
             assertNotNull(bird, "Every finale slot must contain a coalition bird.");
@@ -6924,9 +7043,11 @@ class BirdStateTest {
             assertEquals(1, game.campaignTeams[slot],
                     "The background commander must not consume a fighter slot.");
         }
-        for (boolean included : present) {
-            assertTrue(included, "The finale omitted a playable bird.");
+        for (BirdGame3.BirdType type : StoryCampaign.STILL_SKY_ROSTER) {
+            assertTrue(present[type.ordinal()], "The finale omitted " + type.name + '.');
         }
+        assertFalse(present[BirdGame3.BirdType.KIWI.ordinal()],
+                "Kiwi belongs to a later story and must not be inserted into The Still Sky.");
         assertEquals("music-null-rock.mp3", invokePrivateObjectMethod(game, "gameplayMusicFile"));
     }
 

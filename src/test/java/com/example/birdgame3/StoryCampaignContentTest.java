@@ -24,7 +24,9 @@ class StoryCampaignContentTest {
                 campaign.orderedMissions.stream()
                         .map(StoryCampaign.Mission::map)
                         .collect(() -> EnumSet.noneOf(BirdGame3.MapType.class), Set::add, Set::addAll));
-        assertEquals(EnumSet.allOf(BirdGame3.BirdType.class), report.playableBirds());
+        assertEquals(StoryCampaign.stillSkyRosterSet(), report.playableBirds());
+        assertEquals(21, StoryCampaign.STILL_SKY_ROSTER.size());
+        assertFalse(report.playableBirds().contains(BirdGame3.BirdType.KIWI));
         assertEquals(2, campaign.scenes.values().stream().filter(StoryCampaign.Cutscene::deathScene).count());
         assertEquals(StoryCampaign.PlayableKind.FULL_ROSTER,
                 campaign.mission("null_roc").playable().kind());

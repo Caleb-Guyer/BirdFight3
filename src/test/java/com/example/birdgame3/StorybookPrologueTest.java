@@ -33,7 +33,7 @@ class StorybookPrologueTest {
         assertEquals(StorybookPrologue.EPILOGUE_ID, epilogue.id);
         assertEquals("EPILOGUE", epilogue.header);
         assertEquals(10, epilogue.pages.size());
-        for (BirdGame3.BirdType bird : BirdGame3.BirdType.values()) {
+        for (BirdGame3.BirdType bird : StoryCampaign.STILL_SKY_ROSTER) {
             assertTrue(text.contains(bird.name), () -> "Missing epilogue legacy for " + bird.name);
         }
         assertTrue(text.contains("Old Sparrow"));

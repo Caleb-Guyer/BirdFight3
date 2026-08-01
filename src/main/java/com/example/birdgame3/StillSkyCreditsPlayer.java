@@ -161,17 +161,17 @@ final class StillSkyCreditsPlayer {
     }
 
     private void drawScrapbook(GraphicsContext g, double seconds) {
-        BirdGame3.BirdType[] roster = BirdGame3.BirdType.values();
-        int panel = Math.min(roster.length - 1, (int) (seconds / 3.0));
+        List<BirdGame3.BirdType> roster = StoryCampaign.STILL_SKY_ROSTER;
+        int panel = Math.min(roster.size() - 1, (int) (seconds / 3.0));
         for (int i = 0; i < 3; i++) {
-            int index = (panel + i * 7) % roster.length;
-            BirdGame3.BirdType type = roster[index];
+            int index = (panel + i * 7) % roster.size();
+            BirdGame3.BirdType type = roster.get(index);
             double px = scrapbookPanelX(i);
             double py = 235 + (i % 2) * 590;
             double angle = (i - 1) * 5.5 + Math.sin(seconds * 0.7 + i) * 2.0;
             List<BirdGame3.VisualAuditSkin> options = skins.getOrDefault(type, List.of());
             BirdGame3.VisualAuditSkin chosen = options.isEmpty()
-                    ? null : options.get((panel / Math.max(1, roster.length) + i) % options.size());
+                    ? null : options.get((panel / Math.max(1, roster.size()) + i) % options.size());
             String skinKey = chosen == null ? null : chosen.key();
             String skinName = chosen == null ? "Base" : chosen.name();
 
