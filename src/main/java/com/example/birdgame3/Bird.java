@@ -2276,6 +2276,10 @@ public class Bird {
     }
 
     public boolean isOnGround() {
+        if (game.isCampaignCaveEscapePhysicsActiveFor(this)) {
+            double floor = game.campaignCaveEscapeFloorAt(bodyCenterX());
+            return Double.isFinite(floor) && Math.abs(bodyBottomY() - floor) <= 5.0;
+        }
         if (respawnReturnActive() && activeRespawnNestPlatform() != null) return true;
         double bottom = bodyBottomY();
         if (hasSolidGroundFloorUnderBody() && bottom >= BirdGame3.GROUND_Y) return true;
@@ -14324,6 +14328,10 @@ public class Bird {
     }
 
     private void handleBoundaries(double gameSpeed, boolean wasAirborne, double prevX, double prevY) {
+        if (game.isCampaignCaveEscapePhysicsActiveFor(this)) {
+            handleCampaignCaveEscapeBoundaries(wasAirborne, prevY);
+            return;
+        }
         double leftBound = 50;
         double rightBound = BirdGame3.WORLD_WIDTH - 150 * sizeMultiplier;
         double outLeft = -300;
@@ -14454,6 +14462,44 @@ public class Bird {
                     1000 + playerIndex * 800, BirdGame3.GROUND_Y - 300);
             if (!game.trainingModeActive) {
                 game.recordStageFallAchievement(playerIndex);
+            }
+        }
+    }
+
+    private void handleCampaignCaveEscapeBoundaries(boolean wasAirborne, double previousY) {
+        double bodyWidth = bodyWidth();
+        double bodyHeight = bodyHeight();
+        double leftBound = 50.0;
+        double rightBound = Math.max(leftBound,
+                game.campaignCaveEscapeWorldLength() - bodyWidth - 50.0);
+        if (x < leftBound) {
+            x = leftBound;
+            vx = Math.max(0.0, vx);
+        } else if (x > rightBound) {
+            x = rightBound;
+            vx = Math.min(0.0, vx);
+        }
+        if (y < 20.0) {
+            y = 20.0;
+            vy = Math.max(0.0, vy);
+        }
+
+        double floor = game.campaignCaveEscapeFloorAt(bodyCenterX());
+        double previousBottom = previousY + bodyHeight;
+        double currentBottom = bodyBottomY();
+        if (Double.isFinite(floor)
+                && vy >= 0.0
+                && currentBottom >= floor
+                && previousBottom <= floor + 8.0) {
+            double impactVy = vy;
+            y = floor - bodyHeight;
+            vy = 0.0;
+            canDoubleJump = true;
+            refreshAirDodge();
+            if (wasAirborne) {
+                if (!resolveGroundTechOrKnockdown(impactVy)) {
+                    resolveAerialLandingRecovery();
+                }
             }
         }
     }

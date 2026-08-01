@@ -5052,6 +5052,21 @@ public class BirdGame3 {
     private final StorybookProloguePlayer storybookProloguePlayer = new StorybookProloguePlayer(this);
     private final CaveEscapeSequence caveEscapeSequence = new CaveEscapeSequence(this);
     private final StillSkyCreditsPlayer stillSkyCreditsPlayer = new StillSkyCreditsPlayer(this);
+    private boolean campaignCaveEscapePhysicsActive = false;
+    private final boolean[] campaignSequenceActionPressed = new boolean[ControlAction.values().length];
+    private boolean campaignSequenceAttackUpHeld = false;
+    private boolean campaignSequenceAttackDownHeld = false;
+    private Bird[] campaignEscapeSavedPlayers = null;
+    private boolean[] campaignEscapeSavedAi = null;
+    private int campaignEscapeSavedActivePlayers = 0;
+    private MapType campaignEscapeSavedMap = null;
+    private List<Platform> campaignEscapeSavedPlatforms = null;
+    private List<PowerUp> campaignEscapeSavedPowerUps = null;
+    private List<NectarNode> campaignEscapeSavedNectarNodes = null;
+    private List<SwingingVine> campaignEscapeSavedVines = null;
+    private DoubleUnaryOperator campaignEscapeFloorProvider = null;
+    private double campaignEscapeWorldLength = WORLD_WIDTH;
+    private double campaignEscapeBottomY = WORLD_HEIGHT;
     boolean campaignModeActive = false;
     private StoryCampaign.Mission currentCampaignMission = null;
     private StoryMissionController campaignMissionController = null;
@@ -16754,6 +16769,149 @@ public class BirdGame3 {
         return preview;
     }
 
+    Bird createCampaignEscapeBird(String skinKey) {
+        Bird playable = new Bird(0, BirdType.PIGEON, 0, this);
+        applyPreviewSkinChoiceToBird(playable, BirdType.PIGEON, skinKey);
+        playable.suppressSelectEffects = false;
+        playable.name = "Pigeon";
+        return playable;
+    }
+
+    void beginCampaignCaveEscapePhysics(Bird playable, DoubleUnaryOperator floorProvider,
+                                        double worldLength, double bottomY) {
+        if (!campaignCaveEscapePhysicsActive) {
+            campaignEscapeSavedPlayers = players.clone();
+            campaignEscapeSavedAi = isAI.clone();
+            campaignEscapeSavedActivePlayers = activePlayers;
+            campaignEscapeSavedMap = selectedMap;
+            campaignEscapeSavedPlatforms = platforms;
+            campaignEscapeSavedPowerUps = powerUps;
+            campaignEscapeSavedNectarNodes = nectarNodes;
+            campaignEscapeSavedVines = swingingVines;
+        }
+        campaignCaveEscapePhysicsActive = true;
+        campaignEscapeFloorProvider = Objects.requireNonNull(floorProvider, "floorProvider");
+        campaignEscapeWorldLength = Math.max(WIDTH, worldLength);
+        campaignEscapeBottomY = Math.max(HEIGHT, bottomY);
+        selectedMap = MapType.CAVE;
+        activePlayers = 1;
+        Arrays.fill(players, null);
+        Arrays.fill(isAI, false);
+        players[0] = Objects.requireNonNull(playable, "playable");
+        platforms = new ArrayList<>();
+        powerUps = new ArrayList<>();
+        nectarNodes = new ArrayList<>();
+        swingingVines = new ArrayList<>();
+        particles.clear();
+        clearCampaignSequenceActions();
+    }
+
+    void endCampaignCaveEscapePhysics() {
+        if (!campaignCaveEscapePhysicsActive) return;
+        clearCampaignSequenceActions();
+        particles.clear();
+        if (campaignEscapeSavedPlayers != null) {
+            System.arraycopy(campaignEscapeSavedPlayers, 0, players, 0,
+                    Math.min(players.length, campaignEscapeSavedPlayers.length));
+        }
+        if (campaignEscapeSavedAi != null) {
+            System.arraycopy(campaignEscapeSavedAi, 0, isAI, 0,
+                    Math.min(isAI.length, campaignEscapeSavedAi.length));
+        }
+        activePlayers = campaignEscapeSavedActivePlayers;
+        if (campaignEscapeSavedMap != null) selectedMap = campaignEscapeSavedMap;
+        if (campaignEscapeSavedPlatforms != null) platforms = campaignEscapeSavedPlatforms;
+        if (campaignEscapeSavedPowerUps != null) powerUps = campaignEscapeSavedPowerUps;
+        if (campaignEscapeSavedNectarNodes != null) nectarNodes = campaignEscapeSavedNectarNodes;
+        if (campaignEscapeSavedVines != null) swingingVines = campaignEscapeSavedVines;
+        campaignCaveEscapePhysicsActive = false;
+        campaignEscapeFloorProvider = null;
+        campaignEscapeSavedPlayers = null;
+        campaignEscapeSavedAi = null;
+        campaignEscapeSavedMap = null;
+        campaignEscapeSavedPlatforms = null;
+        campaignEscapeSavedPowerUps = null;
+        campaignEscapeSavedNectarNodes = null;
+        campaignEscapeSavedVines = null;
+    }
+
+    boolean isCampaignCaveEscapePhysicsActiveFor(Bird bird) {
+        return campaignCaveEscapePhysicsActive && bird != null && players[0] == bird;
+    }
+
+    double campaignCaveEscapeFloorAt(double worldX) {
+        if (!campaignCaveEscapePhysicsActive || campaignEscapeFloorProvider == null) {
+            return Double.NaN;
+        }
+        return campaignEscapeFloorProvider.applyAsDouble(worldX);
+    }
+
+    double campaignCaveEscapeWorldLength() {
+        return campaignEscapeWorldLength;
+    }
+
+    double campaignCaveEscapeBottomY() {
+        return campaignEscapeBottomY;
+    }
+
+    void setCampaignSequenceActions(boolean left, boolean right, boolean jump,
+                                    boolean attack, boolean special, boolean grab, boolean block,
+                                    boolean attackUp, boolean attackDown) {
+        if (!campaignCaveEscapePhysicsActive) return;
+        campaignSequenceActionPressed[ControlAction.LEFT.ordinal()] = left;
+        campaignSequenceActionPressed[ControlAction.RIGHT.ordinal()] = right;
+        campaignSequenceActionPressed[ControlAction.JUMP.ordinal()] = jump;
+        campaignSequenceActionPressed[ControlAction.ATTACK.ordinal()] = attack;
+        campaignSequenceActionPressed[ControlAction.SPECIAL.ordinal()] = special;
+        campaignSequenceActionPressed[ControlAction.GRAB.ordinal()] = grab;
+        campaignSequenceActionPressed[ControlAction.BLOCK.ordinal()] = block;
+        campaignSequenceAttackUpHeld = attackUp;
+        campaignSequenceAttackDownHeld = attackDown;
+    }
+
+    private void clearCampaignSequenceActions() {
+        Arrays.fill(campaignSequenceActionPressed, false);
+        campaignSequenceAttackUpHeld = false;
+        campaignSequenceAttackDownHeld = false;
+    }
+
+    void updateCampaignSequenceParticles() {
+        if (!particleEffectsEnabled) {
+            particles.clear();
+            return;
+        }
+        for (Iterator<Particle> iterator = particles.iterator(); iterator.hasNext(); ) {
+            Particle particle = iterator.next();
+            if (particle == null || particle.color == null) {
+                iterator.remove();
+                continue;
+            }
+            particle.x += particle.vx;
+            particle.y += particle.vy;
+            particle.vy += 0.4;
+            particle.life--;
+            if (particle.life <= 0
+                    || particle.y > campaignEscapeBottomY + 300.0
+                    || particle.y < -500.0
+                    || particle.x < -500.0
+                    || particle.x > campaignEscapeWorldLength + 500.0) {
+                iterator.remove();
+            }
+        }
+    }
+
+    void drawCampaignSequenceParticles(GraphicsContext graphics, double cameraX) {
+        if (!particleEffectsEnabled || graphics == null) return;
+        for (Particle particle : particles) {
+            if (particle == null || particle.color == null || particle.life <= 0) continue;
+            double screenX = particle.x - cameraX;
+            if (screenX < -40.0 || screenX > WIDTH + 40.0) continue;
+            graphics.setFill(particle.color.deriveColor(0, 1, 1,
+                    Math.clamp(particle.life / 60.0, 0.0, 1.0)));
+            graphics.fillOval(screenX - 4.0, particle.y - 4.0, 8.0, 8.0);
+        }
+    }
+
     void prepareCampaignCutsceneScene(Scene scene, Region frame, Region content) {
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
@@ -16834,6 +16992,11 @@ public class BirdGame3 {
         playManagedSfxVaried(hugewaveClip, 0.62, 0.58, 0.018);
     }
 
+    void playCampaignCaveRockBreakCue() {
+        playManagedSfxVaried(vaseBreakingClip, 0.68, 0.76, 0.035);
+        playManagedSfxVaried(bonkClip, 0.34, 0.62, 0.025);
+    }
+
     void playCampaignProloguePageTurnCue() {
         playManagedSfxVaried(swingClip, 0.24, 0.68, 0.025);
         playManagedSfx(buttonClickClip, BUTTON_CLICK_BASE_VOLUME * 0.42);
@@ -16866,6 +17029,15 @@ public class BirdGame3 {
                 }
             }
         }
+    }
+
+    void presentCampaignCutsceneLine(StoryCampaign.Cutscene cutscene, StoryCampaign.DialogueLine line) {
+        if (line == null) return;
+        String cue = line.musicCue();
+        if (cue != null && cue.toLowerCase(Locale.ROOT).endsWith(".mp3")) {
+            startOrContinueMusicTrack(cue, true);
+        }
+        playCampaignCutsceneCue(cutscene, line);
     }
 
     void resetAfterCampaignCutscene() {
@@ -41566,12 +41738,18 @@ public class BirdGame3 {
 
     boolean isAttackUpPressed(int playerIdx) {
         if (isValidPlayerIndex(playerIdx)) return false;
+        if (campaignCaveEscapePhysicsActive && playerIdx == 0) {
+            return campaignSequenceAttackUpHeld;
+        }
         if (lockstepMatchActive()) return lanAttackUpHeld[playerIdx];
         return controllerAttackUpHeld[playerIdx] || lanAttackUpHeld[playerIdx] || replayAttackUpHeld[playerIdx];
     }
 
     boolean isAttackDownPressed(int playerIdx) {
         if (isValidPlayerIndex(playerIdx)) return false;
+        if (campaignCaveEscapePhysicsActive && playerIdx == 0) {
+            return campaignSequenceAttackDownHeld;
+        }
         if (lockstepMatchActive()) return lanAttackDownHeld[playerIdx];
         return controllerAttackDownHeld[playerIdx] || lanAttackDownHeld[playerIdx] || replayAttackDownHeld[playerIdx];
     }
@@ -41620,6 +41798,9 @@ public class BirdGame3 {
     private boolean isActionPressed(int playerIdx, ControlAction action) {
         if (isValidPlayerIndex(playerIdx) || action == null) return false;
         int actionIdx = action.ordinal();
+        if (campaignCaveEscapePhysicsActive && playerIdx == 0) {
+            return campaignSequenceActionPressed[actionIdx];
+        }
         if (lockstepMatchActive()) {
             // Lockstep: the sim may only see bundle-applied (delayed) inputs.
             // Live local arrays would give this machine zero-delay input and

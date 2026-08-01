@@ -35,7 +35,6 @@ final class CaveEscapeSequence {
     private static final double HEIGHT = 1080.0;
     private static final double WORLD_LENGTH = 22_400.0;
     private static final double FLOOR_Y = 805.0;
-    private static final double PIGEON_HEIGHT = 80.0;
     private static final long STEP_NS = 16_666_667L;
     private static final int LIMIT_TICKS = 65 * 60;
     private static final List<Gap> GAPS = List.of(
@@ -58,29 +57,25 @@ final class CaveEscapeSequence {
     private long lastNow;
     private long accumulator;
     private int ticks;
-    private double x;
-    private double y;
-    private double vx;
-    private double vy;
     private double cameraX;
-    private boolean onGround;
     private boolean rightHeld;
     private boolean leftHeld;
     private boolean jumpHeld;
     private boolean downHeld;
+    private boolean attackHeld;
+    private boolean specialHeld;
+    private boolean grabHeld;
     private boolean controllerLeftHeld;
     private boolean controllerRightHeld;
     private boolean controllerJumpHeld;
     private boolean controllerDownHeld;
     private boolean controllerAttackHeld;
     private boolean controllerSpecialHeld;
-    private boolean jumpQueued;
-    private boolean attackQueued;
-    private boolean specialQueued;
-    private int attackTicks;
-    private int specialTicks;
-    private int specialCooldown;
-    private int coyoteTicks;
+    private boolean controllerGrabHeld;
+    private boolean controllerAttackUpHeld;
+    private boolean controllerAttackDownHeld;
+    private boolean lastMergedLeft;
+    private boolean lastMergedRight;
     private final boolean[] destroyedRocks = new boolean[ROCKS.size()];
     private boolean failed;
     private boolean finished;
@@ -126,9 +121,9 @@ final class CaveEscapeSequence {
                 event -> handlePressed(event, stage));
         game.addCampaignSceneEventFilter(scene, KeyEvent.KEY_RELEASED, this::handleReleased);
         game.setCampaignScene(stage, scene);
-        // "Our Expanse" carries Eagle's sacrifice through the escape, epilogue,
-        // and credits without restarting between presentation sequences.
-        game.startCampaignSequenceMusic("music-credits.mp3", true);
+        // The farewell cue belongs to Pigeon and Eagle's last conversation.
+        // Control begins with a separate urgent escape cue.
+        game.startCampaignSequenceMusic("music-escape.mp3", true);
         game.playCampaignCaveCollapseCue();
 
         timer = new AnimationTimer() {
@@ -160,148 +155,130 @@ final class CaveEscapeSequence {
     }
 
     private void resetRun() {
-        x = 520.0;
-        y = FLOOR_Y - PIGEON_HEIGHT;
-        vx = 0.0;
-        vy = 0.0;
         cameraX = 0.0;
         ticks = 0;
         accumulator = 0L;
         lastNow = 0L;
-        onGround = true;
         rightHeld = false;
         leftHeld = false;
         jumpHeld = false;
         downHeld = false;
+        attackHeld = false;
+        specialHeld = false;
+        grabHeld = false;
         controllerLeftHeld = false;
         controllerRightHeld = false;
         controllerJumpHeld = false;
         controllerDownHeld = false;
         controllerAttackHeld = false;
         controllerSpecialHeld = false;
-        jumpQueued = false;
-        attackQueued = false;
-        specialQueued = false;
-        attackTicks = 0;
-        specialTicks = 0;
-        specialCooldown = 0;
-        coyoteTicks = 7;
+        controllerGrabHeld = false;
+        controllerAttackUpHeld = false;
+        controllerAttackDownHeld = false;
+        lastMergedLeft = false;
+        lastMergedRight = false;
         Arrays.fill(destroyedRocks, false);
         failed = false;
         finished = false;
         failureReason = "";
         if (failControls != null) failControls.setVisible(false);
-        pigeon = game.createCampaignCutsceneBird(BirdGame3.BirdType.PIGEON, null);
+        pigeon = game.createCampaignEscapeBird(null);
+        pigeon.x = 520.0;
+        pigeon.y = collisionFloorAt(pigeon.x + pigeon.bodyWidth() * 0.5) - pigeon.bodyHeight();
+        pigeon.prevX = pigeon.x;
+        pigeon.prevY = pigeon.y;
+        pigeon.vx = 0.0;
+        pigeon.vy = 0.0;
         pigeon.facingRight = true;
+        game.beginCampaignCaveEscapePhysics(pigeon, this::collisionFloorAt,
+                WORLD_LENGTH, HEIGHT + 180.0);
     }
 
     private void tick() {
         ticks++;
-        if (specialCooldown > 0) specialCooldown--;
-        if (attackTicks > 0) attackTicks--;
-        if (specialTicks > 0) specialTicks--;
-
         boolean moveLeft = leftHeld || controllerLeftHeld;
         boolean moveRight = rightHeld || controllerRightHeld;
-        boolean liftHeld = jumpHeld || controllerJumpHeld;
-        boolean fastFallHeld = downHeld || controllerDownHeld;
-        int moveDirection = moveRight == moveLeft ? 0 : moveRight ? 1 : -1;
-        if (moveDirection != 0 && pigeon != null) pigeon.facingRight = moveDirection > 0;
-        double acceleration = onGround ? 1.18 : 0.66;
-        if (moveDirection != 0) {
-            vx += moveDirection * acceleration;
-            vx = Math.clamp(vx, -10.8, 10.8);
-        } else {
-            vx *= onGround ? 0.78 : 0.965;
-            if (Math.abs(vx) < 0.08) vx = 0.0;
-        }
+        boolean jump = jumpHeld || controllerJumpHeld;
+        boolean attack = attackHeld || controllerAttackHeld;
+        boolean special = specialHeld || controllerSpecialHeld;
+        boolean grab = grabHeld || controllerGrabHeld;
+        boolean block = downHeld || controllerDownHeld;
+        boolean attackUp = controllerAttackUpHeld || (attack && jump && !block);
+        boolean attackDown = controllerAttackDownHeld || (attack && block);
+        game.setCampaignSequenceActions(moveLeft, moveRight, jump, attack, special,
+                grab, block, attackUp, attackDown);
+        if (moveLeft && !lastMergedLeft) pigeon.registerDashTap(-1);
+        if (moveRight && !lastMergedRight) pigeon.registerDashTap(1);
+        lastMergedLeft = moveLeft;
+        lastMergedRight = moveRight;
 
-        if (onGround) {
-            coyoteTicks = 7;
-        } else if (coyoteTicks > 0) {
-            coyoteTicks--;
-        }
-        if (jumpQueued && (onGround || coyoteTicks > 0)) {
-            vy = -15.8;
-            onGround = false;
-            coyoteTicks = 0;
-        }
-        jumpQueued = false;
-
-        if (attackQueued && attackTicks <= 0) {
-            attackTicks = 15;
-            int attackDirection = moveDirection != 0 ? moveDirection : pigeon.facingRight ? 1 : -1;
-            vx += attackDirection * 1.35;
-        }
-        attackQueued = false;
-
-        if (specialQueued && specialCooldown <= 0) {
-            specialCooldown = 78;
-            specialTicks = 24;
-            if (liftHeld) {
-                vy = Math.min(vy, -14.2);
-                vx += moveDirection * 2.2;
-            } else if (fastFallHeld) {
-                vy = Math.max(vy, 8.4);
-            } else {
-                int specialDirection = moveDirection != 0 ? moveDirection : pigeon.facingRight ? 1 : -1;
-                vx = specialDirection * 16.4;
-                vy = Math.min(vy, -1.8);
-            }
-        }
-        specialQueued = false;
-
-        vy += 0.82;
-        if (!onGround && liftHeld && vy > -6.4) {
-            vy -= 0.58;
-        }
-        if (!onGround && fastFallHeld) {
-            vy = Math.min(16.0, vy + 1.05);
-        }
-        x += vx;
-        y += vy;
-        x = Math.max(90.0, x);
-
-        double floor = floorAt(x);
-        if (!Double.isNaN(floor) && y + PIGEON_HEIGHT >= floor && vy >= 0.0) {
-            y = floor - PIGEON_HEIGHT;
-            vy = 0.0;
-            onGround = true;
-        } else {
-            onGround = false;
-        }
-
-        for (int i = 0; i < ROCKS.size(); i++) {
-            if (destroyedRocks[i]) continue;
-            Rock rock = ROCKS.get(i);
-            double top = FLOOR_Y - rock.height;
-            if (x + 38 > rock.x && x - 38 < rock.x + rock.width
-                    && y + PIGEON_HEIGHT - 6.0 > top && y + 10.0 < FLOOR_Y) {
-                boolean strikingFromFront = attackTicks > 0
-                        && (pigeon.facingRight ? x <= rock.x + rock.width * 0.45
-                        : x >= rock.x + rock.width * 0.55);
-                boolean breakable = rock.width <= 145.0 || specialTicks > 0;
-                if (breakable && (strikingFromFront || specialTicks > 0)) {
-                    destroyedRocks[i] = true;
-                    vx *= 0.72;
-                    continue;
-                }
-                fail("Pigeon was caught by the collapse.");
-                return;
-            }
-        }
+        double previousX = pigeon.x;
+        double previousY = pigeon.y;
+        pigeon.update(1.0);
+        game.updateCampaignSequenceParticles();
+        resolveRockCollisions(previousX, previousY);
 
         double blastFront = collapseFrontWorldX();
-        if (x < blastFront + 155.0) {
+        double pigeonCenterX = pigeon.bodyCenterX();
+        if (pigeonCenterX < blastFront + 155.0) {
             fail("The charge overtook the tunnel.");
-        } else if (y > HEIGHT + 180.0) {
+        } else if (pigeon.y > HEIGHT + 180.0) {
             fail("Pigeon fell beneath the escape route.");
         } else if (ticks >= LIMIT_TICKS) {
             fail("The tunnel sealed before Pigeon escaped.");
-        } else if (x >= WORLD_LENGTH - 360.0) {
+        } else if (pigeonCenterX >= WORLD_LENGTH - 360.0) {
             finishEscape();
         }
-        cameraX = Math.clamp(x - 520.0, 0.0, WORLD_LENGTH - WIDTH);
+        cameraX = Math.clamp(pigeonCenterX - 520.0, 0.0, WORLD_LENGTH - WIDTH);
+    }
+
+    private void resolveRockCollisions(double previousX, double previousY) {
+        double birdLeft = pigeon.x;
+        double birdRight = pigeon.x + pigeon.bodyWidth();
+        double birdTop = pigeon.y;
+        double birdBottom = pigeon.bodyBottomY();
+        boolean specialActive = pigeon.pigeonFeatherBurstTimer > 0
+                || pigeon.pigeonRushTimer > 0
+                || pigeon.pigeonFlutterTimer > 0
+                || pigeon.pigeonScavengeTimer > 0;
+        boolean attackActive = pigeon.attackAnimationTimer > 0;
+        for (int i = 0; i < ROCKS.size(); i++) {
+            if (destroyedRocks[i]) continue;
+            Rock rock = ROCKS.get(i);
+            double rockTop = FLOOR_Y - rock.height;
+            if (birdRight <= rock.x || birdLeft >= rock.x + rock.width
+                    || birdBottom <= rockTop || birdTop >= FLOOR_Y) {
+                continue;
+            }
+
+            boolean approachingFront = pigeon.facingRight
+                    ? pigeon.bodyCenterX() <= rock.x + rock.width * 0.58
+                    : pigeon.bodyCenterX() >= rock.x + rock.width * 0.42;
+            if (specialActive || (attackActive && rock.width <= 145.0 && approachingFront)) {
+                destroyedRocks[i] = true;
+                pigeon.vx *= 0.72;
+                game.playCampaignCaveRockBreakCue();
+                continue;
+            }
+
+            double previousRight = previousX + pigeon.bodyWidth();
+            double previousLeft = previousX;
+            if (previousRight <= rock.x + 10.0 && pigeon.vx >= 0.0) {
+                pigeon.x = rock.x - pigeon.bodyWidth();
+                pigeon.vx = Math.min(0.0, pigeon.vx);
+            } else if (previousLeft >= rock.x + rock.width - 10.0 && pigeon.vx <= 0.0) {
+                pigeon.x = rock.x + rock.width;
+                pigeon.vx = Math.max(0.0, pigeon.vx);
+            } else if (previousY + pigeon.bodyHeight() > rockTop + 8.0) {
+                boolean pushLeft = pigeon.bodyCenterX() < rock.x + rock.width * 0.5;
+                pigeon.x = pushLeft ? rock.x - pigeon.bodyWidth() : rock.x + rock.width;
+                pigeon.vx = pushLeft ? Math.min(0.0, pigeon.vx) : Math.max(0.0, pigeon.vx);
+            }
+            birdLeft = pigeon.x;
+            birdRight = pigeon.x + pigeon.bodyWidth();
+            birdTop = pigeon.y;
+            birdBottom = pigeon.bodyBottomY();
+        }
     }
 
     private double collapseFrontWorldX() {
@@ -309,16 +286,29 @@ final class CaveEscapeSequence {
     }
 
     private double collapseDistance() {
-        return x - (collapseFrontWorldX() + 155.0);
+        return pigeon == null ? 0.0 : pigeon.bodyCenterX() - (collapseFrontWorldX() + 155.0);
     }
 
-    private double floorAt(double worldX) {
+    private double terrainFloorAt(double worldX) {
         for (Gap gap : GAPS) {
             if (worldX > gap.x && worldX < gap.x + gap.width) return Double.NaN;
         }
         if (worldX > 8800 && worldX < 9800) return FLOOR_Y - (worldX - 8800) * 0.12;
         if (worldX >= 9800 && worldX < 10700) return FLOOR_Y - 120.0 + (worldX - 9800) * 0.133;
         return FLOOR_Y;
+    }
+
+    private double collisionFloorAt(double worldX) {
+        double floor = terrainFloorAt(worldX);
+        for (int i = 0; i < ROCKS.size(); i++) {
+            if (destroyedRocks[i]) continue;
+            Rock rock = ROCKS.get(i);
+            if (worldX >= rock.x && worldX <= rock.x + rock.width) {
+                double rockTop = FLOOR_Y - rock.height;
+                floor = Double.isFinite(floor) ? Math.min(floor, rockTop) : rockTop;
+            }
+        }
+        return floor;
     }
 
     private void fail(String reason) {
@@ -354,14 +344,16 @@ final class CaveEscapeSequence {
         else if (code == game.leftKeyForPlayer(0) || code == KeyCode.LEFT) leftHeld = true;
         else if (code == game.jumpKeyForPlayer(0) || code == KeyCode.UP) {
             if (failed) resetRun();
-            else {
-                jumpHeld = true;
-                jumpQueued = true;
-            }
+            jumpHeld = true;
         } else if (code == game.attackKeyForPlayer(0)) {
-            if (failed) resetRun(); else attackQueued = true;
+            if (failed) resetRun();
+            attackHeld = true;
         } else if (code == game.specialKeyForPlayer(0)) {
-            if (failed) resetRun(); else specialQueued = true;
+            if (failed) resetRun();
+            specialHeld = true;
+        } else if (code == game.grabKeyForPlayer(0)) {
+            if (failed) resetRun();
+            grabHeld = true;
         } else if (code == game.blockKeyForPlayer(0) || code == KeyCode.DOWN) {
             downHeld = true;
         } else if (code == KeyCode.ENTER && failed) resetRun();
@@ -375,6 +367,9 @@ final class CaveEscapeSequence {
         if (code == game.rightKeyForPlayer(0) || code == KeyCode.RIGHT) rightHeld = false;
         else if (code == game.leftKeyForPlayer(0) || code == KeyCode.LEFT) leftHeld = false;
         else if (code == game.jumpKeyForPlayer(0) || code == KeyCode.UP) jumpHeld = false;
+        else if (code == game.attackKeyForPlayer(0)) attackHeld = false;
+        else if (code == game.specialKeyForPlayer(0)) specialHeld = false;
+        else if (code == game.grabKeyForPlayer(0)) grabHeld = false;
         else if (code == game.blockKeyForPlayer(0) || code == KeyCode.DOWN) downHeld = false;
         else return;
         event.consume();
@@ -383,28 +378,19 @@ final class CaveEscapeSequence {
     private void pollControllerInput() {
         WiimoteMappedState state = game.campaignSequenceControllerState();
         boolean connected = state != null && state.connected();
-        boolean nextJump = connected && state.jump();
-        boolean nextAttack = connected && state.attack();
-        boolean nextSpecial = connected && state.special();
-
         controllerLeftHeld = connected && state.left();
         controllerRightHeld = connected && state.right();
+        controllerJumpHeld = connected && state.jump();
         controllerDownHeld = connected && state.block();
-        if (nextJump && !controllerJumpHeld) {
-            if (failed) resetRun();
-            else jumpQueued = true;
+        controllerAttackHeld = connected && state.attack();
+        controllerSpecialHeld = connected && state.special();
+        controllerGrabHeld = connected && state.grab();
+        controllerAttackUpHeld = connected && state.attackUp();
+        controllerAttackDownHeld = connected && state.attackDown();
+        if (failed && connected && (controllerJumpHeld || controllerAttackHeld
+                || controllerSpecialHeld || controllerGrabHeld)) {
+            resetRun();
         }
-        if (nextAttack && !controllerAttackHeld) {
-            if (failed) resetRun();
-            else attackQueued = true;
-        }
-        if (nextSpecial && !controllerSpecialHeld) {
-            if (failed) resetRun();
-            else specialQueued = true;
-        }
-        controllerJumpHeld = nextJump;
-        controllerAttackHeld = nextAttack;
-        controllerSpecialHeld = nextSpecial;
     }
 
     private void render(long now) {
@@ -583,9 +569,9 @@ final class CaveEscapeSequence {
     private void drawFloor(GraphicsContext g) {
         double startWorld = Math.floor(cameraX / 52.0) * 52.0 - 52.0;
         for (double worldX = startWorld; worldX < cameraX + WIDTH + 104.0; worldX += 52.0) {
-            double floor = floorAt(worldX + 26.0);
+            double floor = terrainFloorAt(worldX + 26.0);
             if (Double.isNaN(floor)) continue;
-            double nextFloor = floorAt(worldX + 78.0);
+            double nextFloor = terrainFloorAt(worldX + 78.0);
             if (Double.isNaN(nextFloor)) nextFloor = floor;
             double sx = worldX - cameraX;
             g.setFill(worldX % 208.0 == 0.0 ? Color.web("#302938") : Color.web("#292330"));
@@ -603,7 +589,7 @@ final class CaveEscapeSequence {
         }
         for (double worldX = Math.floor(cameraX / 840.0) * 840.0;
              worldX < cameraX + WIDTH + 840.0; worldX += 840.0) {
-            double floor = floorAt(worldX + 90.0);
+            double floor = terrainFloorAt(worldX + 90.0);
             if (Double.isNaN(floor)) continue;
             double sx = worldX + 90.0 - cameraX;
             g.setFill(Color.web("#80DEEA", 0.34));
@@ -645,9 +631,9 @@ final class CaveEscapeSequence {
 
     private void drawPigeon(GraphicsContext g) {
         if (pigeon == null) return;
-        double screenX = x - cameraX;
-        double screenY = y + PIGEON_HEIGHT * 0.5;
-        double speed = Math.abs(vx);
+        double screenX = pigeon.bodyCenterX() - cameraX;
+        double screenY = pigeon.bodyCenterY();
+        double speed = Math.abs(pigeon.vx);
         g.setFill(new RadialGradient(0, 0, screenX, screenY, 118, false,
                 CycleMethod.NO_CYCLE,
                 new Stop(0, Color.web("#FFF8E1", 0.16)),
@@ -655,7 +641,7 @@ final class CaveEscapeSequence {
                 new Stop(1, Color.TRANSPARENT)));
         g.fillOval(screenX - 118, screenY - 118, 236, 236);
         if (speed > 3.5) {
-            double direction = vx >= 0.0 ? -1.0 : 1.0;
+            double direction = pigeon.vx >= 0.0 ? -1.0 : 1.0;
             g.setLineCap(StrokeLineCap.ROUND);
             for (int i = 0; i < 5; i++) {
                 double lineY = screenY - 35 + i * 18.0;
@@ -667,25 +653,21 @@ final class CaveEscapeSequence {
             }
             g.setLineCap(StrokeLineCap.BUTT);
         }
-        if (onGround && speed > 1.5) {
+        if (pigeon.isOnGround() && speed > 1.5) {
             for (int i = 0; i < 4; i++) {
                 double drift = Math.floorMod(ticks * (5L + i) + i * 19L, 46L);
                 g.setFill(Color.web("#B0BEC5", 0.16 + i * 0.025));
-                g.fillOval(screenX - Math.signum(vx) * (36 + drift), y + PIGEON_HEIGHT - 5 - i * 5,
+                g.fillOval(screenX - Math.signum(pigeon.vx) * (36 + drift),
+                        pigeon.bodyBottomY() - 5 - i * 5,
                         9 + i * 2, 5 + i);
             }
         }
 
-        pigeon.x = screenX - pigeon.bodyWidth() * 0.5;
-        pigeon.y = y;
-        pigeon.prevX = pigeon.x;
-        pigeon.prevY = pigeon.y;
-        pigeon.vx = vx;
-        pigeon.vy = vy;
-        if (Math.abs(vx) > 0.25) pigeon.facingRight = vx > 0.0;
-        pigeon.attackAnimationTimer = attackTicks;
-        pigeon.pigeonRushTimer = specialTicks;
+        game.drawCampaignSequenceParticles(g, cameraX);
+        g.save();
+        g.translate(-cameraX, 0.0);
         pigeon.draw(g);
+        g.restore();
     }
 
     private void drawHud(GraphicsContext g) {
@@ -700,7 +682,8 @@ final class CaveEscapeSequence {
         g.setFill(Color.WHITE);
         g.setFont(Font.font("Arial Black", FontWeight.BOLD, 29));
         int seconds = Math.max(0, (LIMIT_TICKS - ticks + 59) / 60);
-        double progress = Math.clamp(x / WORLD_LENGTH, 0.0, 1.0);
+        double progress = pigeon == null ? 0.0
+                : Math.clamp(pigeon.bodyCenterX() / WORLD_LENGTH, 0.0, 1.0);
         g.fillText("TIME " + seconds + "    ROUTE " + (int) (progress * 100.0) + "%", 82, 126);
         g.setFill(Color.web("#17242D"));
         g.fillRoundRect(82, 151, 658, 22, 11, 11);
@@ -722,10 +705,11 @@ final class CaveEscapeSequence {
         g.fillText("MOVE " + keyName(game.leftKeyForPlayer(0)) + "/" + keyName(game.rightKeyForPlayer(0))
                         + "   FLY " + keyName(game.jumpKeyForPlayer(0))
                         + "   ATTACK " + keyName(game.attackKeyForPlayer(0))
-                        + "   SPECIAL " + keyName(game.specialKeyForPlayer(0)),
+                        + "   SPECIAL " + keyName(game.specialKeyForPlayer(0))
+                        + "   GRAB " + keyName(game.grabKeyForPlayer(0)),
                 WIDTH - 82, 82);
         g.setFill(threat > 0.62 ? Color.web("#FF8A65") : Color.web("#B0BEC5"));
-        g.fillText(threat > 0.78 ? "THE BLAST IS CLOSING" : "KEEP MOVING TOWARD DAYLIGHT",
+        g.fillText(threat > 0.78 ? "THE BLAST IS CLOSING" : "FULL PIGEON MOVESET ACTIVE",
                 WIDTH - 82, 116);
         g.setFill(Color.web("#151B23"));
         g.fillRoundRect(WIDTH - 740, 137, 658, 15, 8, 8);
@@ -762,9 +746,8 @@ final class CaveEscapeSequence {
         rightHeld = right;
         jumpHeld = jump;
         downHeld = down;
-        jumpQueued = jump;
-        attackQueued = attack;
-        specialQueued = special;
+        attackHeld = attack;
+        specialHeld = special;
     }
 
     void setControllerControlsForTest(boolean left, boolean right, boolean jump, boolean down,
@@ -775,9 +758,6 @@ final class CaveEscapeSequence {
         controllerDownHeld = down;
         controllerAttackHeld = attack;
         controllerSpecialHeld = special;
-        jumpQueued = jump;
-        attackQueued = attack;
-        specialQueued = special;
     }
 
     void tickForTest() {
@@ -785,11 +765,15 @@ final class CaveEscapeSequence {
     }
 
     double progressXForTest() {
-        return x;
+        return pigeon == null ? 0.0 : pigeon.bodyCenterX();
     }
 
     double verticalPositionForTest() {
-        return y;
+        return pigeon == null ? 0.0 : pigeon.y;
+    }
+
+    Bird pigeonForTest() {
+        return pigeon;
     }
 
     private void stop() {
@@ -800,7 +784,9 @@ final class CaveEscapeSequence {
         if (canvas != null) {
             Parent parent = canvas.getParent();
             if (parent instanceof Pane pane) pane.getChildren().remove(canvas);
+            canvas = null;
         }
+        game.endCampaignCaveEscapePhysics();
     }
 
     private record Gap(double x, double width) {}

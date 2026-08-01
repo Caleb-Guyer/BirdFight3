@@ -50,6 +50,8 @@ class CaveEscapeSequenceTest {
         escape.tickForTest();
 
         assertTrue(escape.progressXForTest() > startX + 15.0);
+        assertTrue(escape.pigeonForTest().pigeonRushTimer > 0,
+                "The escape should use Pigeon's actual side special state.");
     }
 
     @Test
@@ -69,19 +71,21 @@ class CaveEscapeSequenceTest {
     }
 
     @Test
-    void fullscreenInputFiltersAndEmotionalFinaleMusicStayConnected() throws IOException {
+    void fullscreenInputFiltersAndPlayableEscapeMusicStayConnected() throws IOException {
         String source = Files.readString(Path.of(
                 "src", "main", "java", "com", "example", "birdgame3", "CaveEscapeSequence.java"));
 
         assertTrue(source.contains("prepareCampaignPlayableSequenceScene"));
         assertTrue(source.contains("addCampaignSceneEventFilter"));
         assertTrue(source.contains("campaignSequenceControllerState"));
-        assertTrue(source.contains("startCampaignSequenceMusic(\"music-credits.mp3\", true)"));
+        assertTrue(source.contains("startCampaignSequenceMusic(\"music-escape.mp3\", true)"));
+        assertTrue(source.contains("pigeon.update(1.0)"),
+                "The finale escape must use the real gameplay controller and physics.");
 
         int finishStart = source.indexOf("private void finishEscape()");
         int abandonStart = source.indexOf("private void abandon(", finishStart);
         String finishMethod = source.substring(finishStart, abandonStart);
         assertFalse(finishMethod.contains("finishCampaignSequenceMusic"),
-                "The emotional track should continue into the epilogue instead of restarting.");
+                "The escape cue should hand off directly to the epilogue instead of dropping to silence.");
     }
 }

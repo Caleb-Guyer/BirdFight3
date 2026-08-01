@@ -999,7 +999,7 @@ Heisenbird|Of course you did.|WIDE|EXIT_RIGHT
 Eagle|I was afraid someone would stop me.
 Vulture|Dying here won't erase anything.|WIDE|EXIT_LEFT
 Eagle|I know. This isn't erasure.
-Pigeon|Then move. You can answer for it outside.
+Pigeon|Then move. You can answer for it outside.|||music-farewell.mp3
 Eagle|Before the Crown, I carried injured birds until my wings tore. I kept thinking one perfect system could make sure I never chose who to drop again.
 Pigeon|So you made the choice for everyone, every day.
 Eagle|Yes.

@@ -232,27 +232,29 @@ final class StoryCampaign {
             String text,
             ShotStyle shot,
             ActorMotion motion,
-            BirdGame3.BirdType whenSelected
+            BirdGame3.BirdType whenSelected,
+            String musicCue
     ) {
         DialogueLine {
             speaker = requireText(speaker, "speaker");
             text = requireText(text, "dialogue");
             shot = shot == null ? ShotStyle.TWO_SHOT : shot;
             motion = motion == null ? ActorMotion.IDLE : motion;
+            musicCue = musicCue == null ? "" : musicCue.strip();
         }
 
         static DialogueLine line(String speaker, BirdGame3.BirdType bird, String text) {
-            return new DialogueLine(speaker, bird, text, ShotStyle.TWO_SHOT, ActorMotion.IDLE, null);
+            return new DialogueLine(speaker, bird, text, ShotStyle.TWO_SHOT, ActorMotion.IDLE, null, "");
         }
 
         static DialogueLine line(String speaker, BirdGame3.BirdType bird, String text,
                                  ShotStyle shot, ActorMotion motion) {
-            return new DialogueLine(speaker, bird, text, shot, motion, null);
+            return new DialogueLine(speaker, bird, text, shot, motion, null, "");
         }
 
         static DialogueLine selected(String speaker, BirdGame3.BirdType bird, String text,
                                      BirdGame3.BirdType selected) {
-            return new DialogueLine(speaker, bird, text, ShotStyle.CLOSE, ActorMotion.IDLE, selected);
+            return new DialogueLine(speaker, bird, text, ShotStyle.CLOSE, ActorMotion.IDLE, selected, "");
         }
     }
 

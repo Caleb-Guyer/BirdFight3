@@ -110,8 +110,14 @@ class StoryCampaignContentTest {
                 "Pigeon", BirdGame3.BirdType.PIGEON).size());
         assertEquals("music-null-rock.mp3", campaign.scene("s79_null_rock_before").musicCue());
         assertEquals("music-null-rock.mp3", campaign.scene("s80_eagle_end").musicCue());
+        StoryCampaign.DialogueLine farewell = campaign.scene("s80_eagle_end").lines().stream()
+                .filter(line -> line.text().startsWith("Then move."))
+                .findFirst()
+                .orElseThrow();
+        assertEquals("music-farewell.mp3", farewell.musicCue());
         assertNotNull(campaign.scene("s81_beyond_the_map"));
         assertNotNull(BirdGame3.class.getResource("/sounds/music-null-rock.mp3"));
+        assertNotNull(BirdGame3.class.getResource("/sounds/music-farewell.mp3"));
         assertNotNull(BirdGame3.class.getResource("/sounds/music-escape.mp3"));
         assertNotNull(BirdGame3.class.getResource("/sounds/music-credits.mp3"));
     }

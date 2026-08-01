@@ -833,7 +833,7 @@ final class StoryCampaignContent {
                     .replace("{objective}", objective);
             StoryCampaign.ShotStyle shot = index == 0 ? ACTION : REVEAL;
             StoryCampaign.ActorMotion motion = index == 0 ? RISE : IDLE;
-            lines.add(new StoryCampaign.DialogueLine(speaker, bird, text, shot, motion, null));
+            lines.add(new StoryCampaign.DialogueLine(speaker, bird, text, shot, motion, null, ""));
             index++;
         }
         if (lines.size() != 2) {
@@ -857,7 +857,7 @@ final class StoryCampaignContent {
         return parsed.stream()
                 .map(line -> line.speaker().equals(speaker)
                         ? new StoryCampaign.DialogueLine(line.speaker(), heroBird, line.text(),
-                        line.shot(), line.motion(), line.whenSelected())
+                        line.shot(), line.motion(), line.whenSelected(), line.musicCue())
                         : line)
                 .toList();
     }
@@ -882,8 +882,8 @@ final class StoryCampaignContent {
     /**
      * One authored line per text-block row: {@code Speaker|dialogue}. Optional
      * selection-specific rows use {@code Speaker@BIRD|dialogue}. Authors may
-     * append {@code |SHOT|MOTION}; omitted direction is staged from speaker
-     * entrances and conversational beats instead of an arbitrary action cycle.
+     * append {@code |SHOT|MOTION|MUSIC_CUE}; omitted direction is staged from
+     * speaker entrances and conversational beats instead of an arbitrary action cycle.
      */
     private static List<StoryCampaign.DialogueLine> parseScript(String script) {
         List<StoryCampaign.DialogueLine> result = new ArrayList<>();
@@ -894,7 +894,7 @@ final class StoryCampaignContent {
             String trimmed = row.trim();
             if (trimmed.isEmpty() || trimmed.startsWith("#")) continue;
             String[] columns = trimmed.split("\\|", -1);
-            if (columns.length < 2 || columns.length > 4
+            if (columns.length < 2 || columns.length > 5
                     || columns[0].isBlank() || columns[1].isBlank()) {
                 throw new IllegalArgumentException("Invalid story dialogue row: " + row);
             }
@@ -914,7 +914,9 @@ final class StoryCampaignContent {
             StoryCampaign.ActorMotion motion = columns.length >= 4 && !columns[3].isBlank()
                     ? StoryCampaign.ActorMotion.valueOf(columns[3].trim().toUpperCase(Locale.ROOT))
                     : directedMotion(visibleIndex, seenSpeakers.size(), firstAppearance, shot);
-            result.add(new StoryCampaign.DialogueLine(speakerToken, bird, text, shot, motion, selected));
+            String musicCue = columns.length >= 5 ? columns[4].trim() : "";
+            result.add(new StoryCampaign.DialogueLine(
+                    speakerToken, bird, text, shot, motion, selected, musicCue));
             visibleIndex++;
         }
         return List.copyOf(result);

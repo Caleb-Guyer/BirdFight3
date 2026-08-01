@@ -187,7 +187,7 @@ final class StoryCutscenePlayer {
         game.setCampaignScene(stage, fxScene);
         game.startCampaignCutscenePresentation(scene);
         if (!lines.isEmpty()) {
-            game.playCampaignCutsceneCue(scene, lines.getFirst());
+            game.presentCampaignCutsceneLine(scene, lines.getFirst());
         }
 
         timer = new AnimationTimer() {
@@ -992,7 +992,7 @@ final class StoryCutscenePlayer {
         lineStartNanos = 0L;
         accumulatedPauseNanos = 0L;
         pausedAtNanos = paused ? System.nanoTime() : 0L;
-        game.playCampaignCutsceneCue(scene, lines.get(lineIndex));
+        game.presentCampaignCutsceneLine(scene, lines.get(lineIndex));
     }
 
     private void togglePause() {
