@@ -31427,7 +31427,7 @@ public class BirdGame3 {
         if (SUNFLARE_HUMMINGBIRD_SKIN.equals(key)) return "Sun-hot wings with a citrus glow. The air smells like ozone and nectar when it passes.";
         if (LORE_ACCURATE_HUMMINGBIRD_SKIN.equals(key)) return "A literal hummingbird: tiny emerald body, white belly, ruby throat, needle beak, blurred wings, and directional attacks that point from the beak.";
         if (GLACIER_SHOEBILL_SKIN.equals(key)) return "Ice-blue armor plates and frozen eyes. Every stomp sounds like cracking lake glass.";
-        if (NULL_ROCK_VULTURE_SKIN.equals(key)) return "The giant's true body: cracked abyss feathers, a bleeding crown, and enough mass to make the whole platform feel too small.";
+        if (NULL_ROCK_VULTURE_SKIN.equals(key)) return "The Crown's ancient true body: a colossal, scarred vulture with ruined wings, a broken divine halo, and a living seal burning through his chest.";
         if (TIDE_VULTURE_SKIN.equals(key)) return "Deep-sea hues with salt-stained edges. It circles like a stormfront rolling in.";
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(key)) return "Shadow velvet with a violet halo. The lounge feels like a night club after midnight.";
         if (NOVA_PHOENIX_SKIN.equals(key)) return "Star-forged glow with cosmic embers. A living supernova with too much style to burn out.";

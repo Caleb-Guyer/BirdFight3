@@ -26608,264 +26608,343 @@ public class Bird {
     }
 
     private void drawVulture(GraphicsContext g, double drawSize) {
-        if (type == BirdGame3.BirdType.VULTURE) {
-            double s = sizeMultiplier;
-            if (vultureBlackSkyTimer > 0) {
-                double pulse = 0.55 + 0.45 * Math.sin(vultureBlackSkyTimer * 0.24);
-                double cx = bodyCenterX();
-                double cy = bodyCenterY() - 38.0 * s;
-                g.setFill(Color.web("#050308", 0.24 + pulse * 0.10));
-                g.fillOval(cx - 168 * s, cy - 112 * s, 336 * s, 224 * s);
-                g.setStroke(Color.web("#120718", 0.62));
-                g.setLineWidth(5.0 * s);
-                for (int i = 0; i < 4; i++) {
-                    double w = (132 + i * 44 + pulse * 18) * s;
-                    double h = (72 + i * 24 + pulse * 10) * s;
-                    g.strokeArc(cx - w / 2.0, cy - h / 2.0, w, h,
-                            18 + i * 42 + vultureBlackSkyTimer * 5, 82, ArcType.OPEN);
-                }
-            }
-            if (!isNullRockSkin) {
-                drawBaseVultureSprite(g, drawSize);
-                drawVultureSpecialVisuals(g, drawSize);
-                return;
-            }
-            if (isNullRockSkin) {
-                double pulse = suppressSelectEffects ? 0.35 : (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 180.0));
-                double cx = x + drawSize * 0.5;
-                if (isTrueNullRockForm()) {
-                    g.setFill(Color.web("#FFF8E1", 0.22 + pulse * 0.08));
-                    g.fillOval(x - 88 * s, y - 92 * s, drawSize + 176 * s, drawSize + 242 * s);
-                    g.setStroke(Color.web("#B39DDB").deriveColor(0, 1, 1, 0.65 + pulse * 0.18));
-                    g.setLineWidth(7 * s);
-                    g.strokeOval(x - 54 * s, y - 58 * s, drawSize + 108 * s, drawSize + 154 * s);
-                }
-                g.setFill(Color.rgb(3, 2, 7, 0.9));
-                g.fillOval(x - 54 * s, y - 50 * s, drawSize + 108 * s, drawSize + 154 * s);
-                g.setFill(Color.rgb(8, 6, 14, 0.85));
-                g.fillOval(x - 34 * s, y - 26 * s, drawSize + 68 * s, drawSize + 84 * s);
-                g.setStroke(Color.web("#5C0F16").deriveColor(0, 1, 1, 0.58 + pulse * 0.18));
-                g.setLineWidth(8 * s);
-                g.strokeOval(x - 18 * s, y - 10 * s, drawSize + 36 * s, drawSize + 34 * s);
+        if (type != BirdGame3.BirdType.VULTURE) {
+            return;
+        }
 
-                g.setFill(Color.web("#10030B"));
-                double[] crestX = {
-                        cx - 40 * s, cx - 24 * s, cx - 10 * s, cx + 2 * s,
-                        cx + 16 * s, cx + 34 * s, cx + 16 * s, cx - 2 * s
-                };
-                double[] crestY = {
-                        y + 28 * s, y - 34 * s, y + 12 * s, y - 44 * s,
-                        y + 10 * s, y - 28 * s, y + 36 * s, y + 48 * s
-                };
-                g.fillPolygon(crestX, crestY, crestX.length);
-                g.setFill(Color.web("#130C18"));
-            } else {
-                g.setFill(Color.rgb(35, 15, 45));
-            }
-            g.fillOval(x, y, drawSize, drawSize);
-
-            double wingSpread = isFlying || Math.abs(vx) > 2 ? (isNullRockSkin ? 2.15 : 1.4) : (isNullRockSkin ? 1.55 : 1.0);
-            if (vultureCallTimer > 0) {
-                wingSpread = Math.max(wingSpread, isNullRockSkin ? 1.9 : 1.55);
-            }
-            if (vultureGlideTimer > 0) {
-                wingSpread = Math.max(wingSpread, isNullRockSkin ? 2.35 : 2.05);
-            }
-            if (vultureThermalTimer > 0) {
-                wingSpread = Math.max(wingSpread, isNullRockSkin ? 2.2 : 1.8);
-            }
-            boolean compactSelectionPose = suppressSelectEffects
-                    && vultureCallTimer <= 0
-                    && vultureGlideTimer <= 0
-                    && vultureThermalTimer <= 0
-                    && vultureBlackSkyTimer <= 0
-                    && carrionSwarmTimer <= 0;
-            if (compactSelectionPose) {
-                wingSpread = Math.min(wingSpread, isNullRockSkin ? 1.16 : 0.86);
-            }
-            g.setFill(isNullRockSkin ? Color.web("#09060D") : Color.rgb(20, 10, 30));
-            g.fillOval(x - 34 * wingSpread * s, y + 2 * s, 58 * wingSpread * s, 104 * s);
-            g.fillOval(x + drawSize - 24 * wingSpread * s, y + 2 * s, 58 * wingSpread * s, 104 * s);
-
-            if (!isNullRockSkin) {
-                g.setStroke(Color.web("#110716", 0.62));
-                g.setLineCap(StrokeLineCap.ROUND);
-                g.setLineWidth(2.4 * s);
-                for (int side = 0; side < 2; side++) {
-                    double dir = side == 0 ? -1.0 : 1.0;
-                    double wingRootX = side == 0 ? x + 13.0 * s : x + drawSize - 13.0 * s;
-                    for (int feather = 0; feather < 3; feather++) {
-                        double featherY = y + (28.0 + feather * 19.0) * s;
-                        double featherLen = (22.0 + feather * 7.0) * wingSpread * s;
-                        g.strokeLine(wingRootX, featherY,
-                                wingRootX + dir * featherLen,
-                                featherY + (12.0 + feather * 4.0) * s);
-                    }
-                }
-            }
-
-            if (!isNullRockSkin) {
-                g.setFill(Color.web("#D7D1C2"));
-                g.fillOval(x + 9 * s, y + 42 * s, 62 * s, 27 * s);
-                g.setFill(Color.web("#8B1E2E"));
-                for (int i = 0; i < 5; i++) {
-                    double tuftX = x + (13.0 + i * 11.0) * s;
-                    g.fillPolygon(
-                            new double[]{tuftX, tuftX + 5.0 * s, tuftX + 10.0 * s},
-                            new double[]{y + 58.0 * s, y + 73.0 * s, y + 58.0 * s},
-                            3
-                    );
-                }
-            }
-
-            g.setFill(isNullRockSkin
-                    ? (isTrueNullRockForm() ? Color.web("#B71CFF") : Color.web("#7A0C16"))
-                    : Color.web("#B93A32"));
-            g.fillOval(x + 15 * s, y + 10 * s, 50 * s, 55 * s);
-
-            if (!isNullRockSkin) {
-                int headDir = facingRight ? 1 : -1;
-                double headCx = x + 40.0 * s;
-                double beakBaseX = headCx + headDir * 17.0 * s;
-                double beakTipX = headCx + headDir * 39.0 * s;
-                g.setFill(Color.web("#F0C978"));
-                g.fillPolygon(
-                        new double[]{beakBaseX, beakTipX, beakBaseX + headDir * 2.0 * s},
-                        new double[]{y + 35.0 * s, y + 42.0 * s, y + 48.0 * s},
-                        3
-                );
-                g.setFill(Color.web("#C9933D"));
-                g.fillPolygon(
-                        new double[]{beakTipX - headDir * 1.0 * s, beakTipX - headDir * 9.0 * s, beakTipX - headDir * 2.0 * s},
-                        new double[]{y + 42.0 * s, y + 50.0 * s, y + 47.0 * s},
-                        3
-                );
-                g.setStroke(Color.web("#5D1D1A", 0.68));
-                g.setLineWidth(2.0 * s);
-                g.strokeLine(headCx - headDir * 11.0 * s, y + 28.0 * s,
-                        headCx + headDir * 8.0 * s, y + 23.0 * s);
-            }
-
-            g.setFill(isNullRockSkin ? Color.web("#2A050A") : Color.CRIMSON.darker().darker());
-            g.fillOval(x + 25 * s, y + 25 * s, 20 * s, 20 * s);
-            g.fillOval(x + 45 * s, y + 25 * s, 20 * s, 20 * s);
-            g.setFill(isNullRockSkin
-                    ? (isTrueNullRockForm() ? Color.web("#FFF176") : Color.web("#FF6E6E"))
-                    : Color.web("#111111"));
-            g.fillOval(x + 30 * s, y + 30 * s, 10 * s, 10 * s);
-            g.fillOval(x + 50 * s, y + 30 * s, 10 * s, 10 * s);
-
-            if (!isNullRockSkin) {
-                g.setFill(Color.web("#FCE4EC", 0.85));
-                g.fillOval(x + 33.0 * s, y + 31.0 * s, 3.0 * s, 3.0 * s);
-                g.fillOval(x + 53.0 * s, y + 31.0 * s, 3.0 * s, 3.0 * s);
-            }
-
-            if (isNullRockSkin) {
-                double cx = x + drawSize * 0.5;
-                g.setFill(Color.web("#150208"));
-                g.fillRoundRect(x + 16 * s, y + 54 * s, 48 * s, 18 * s, 14 * s, 14 * s);
-                g.setFill(Color.web("#FFD7D7").deriveColor(0, 1, 1, 0.92));
-                for (int i = 0; i < 4; i++) {
-                    double toothX = x + 24 * s + i * 9 * s;
-                    g.fillPolygon(
-                            new double[]{toothX, toothX + 4 * s, toothX + 8 * s},
-                            new double[]{y + 58 * s, y + 70 * s, y + 58 * s},
-                            3
-                    );
-                }
-
-                g.setStroke(Color.web("#36060E"));
-                g.setLineWidth(3.2 * s);
-                g.strokeLine(x + 18 * s, y + 16 * s, x + 30 * s, y + 28 * s);
-                g.strokeLine(x + 62 * s, y + 16 * s, x + 50 * s, y + 28 * s);
-
-                g.setStroke(Color.web("#FF8A80"));
-                g.setLineWidth(1.8 * s);
-                g.strokeLine(x + 20 * s, y + 59 * s, x + 60 * s, y + 61 * s);
-
-                g.setStroke(Color.web("#7A101C").deriveColor(0, 1, 1, 0.74));
-                g.setLineWidth(2.8 * s);
-                g.strokeLine(x + 40 * s, y + 8 * s, x + 40 * s, y + 66 * s);
-                g.strokeLine(x + 34 * s, y + 18 * s, x + 24 * s, y + 48 * s);
-                g.strokeLine(x + 46 * s, y + 18 * s, x + 56 * s, y + 50 * s);
-
-                Color crownFill = isTrueNullRockForm() ? Color.web("#6A1B9A") : Color.web("#54070F");
-                Color crownStroke = isTrueNullRockForm() ? Color.web("#FFF59D") : Color.web("#FFB3B3");
-                drawRoyalCrown(g, cx, y - 22 * s, 52 * s, 28 * s, crownFill, crownStroke);
-                g.setStroke(Color.web("#3A0810").deriveColor(0, 1, 1, 0.85));
-                g.setLineWidth(3.0 * s);
-                g.strokeLine(cx - 22 * s, y + 14 * s, cx - 8 * s, y + 48 * s);
-                g.strokeLine(cx + 22 * s, y + 14 * s, cx + 8 * s, y + 48 * s);
-                g.strokeLine(cx - 8 * s, y + 52 * s, cx - 24 * s, y + 78 * s);
-                g.strokeLine(cx + 8 * s, y + 52 * s, cx + 24 * s, y + 78 * s);
-
-                if (isTrueNullRockForm()) {
-                    g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.8));
-                    g.setLineWidth(2.6 * s);
-                    g.strokeArc(cx - 48 * s, y - 58 * s, 96 * s, 36 * s, 200, 140, ArcType.OPEN);
-                    g.strokeLine(cx, y - 30 * s, cx, y - 62 * s);
-                }
-
-                g.setStroke(Color.web("#0C050F"));
-                g.setLineWidth(3.4 * s);
-                for (int side = 0; side < 2; side++) {
-                    double baseX = side == 0 ? x + 18 * s : x + 62 * s;
-                    double dir = side == 0 ? -1.0 : 1.0;
-                    g.strokeLine(baseX, y + 74 * s, baseX + dir * 10 * s, y + 88 * s);
-                    g.strokeLine(baseX, y + 74 * s, baseX + dir * 4 * s, y + 92 * s);
-                    g.strokeLine(baseX, y + 74 * s, baseX + dir * 15 * s, y + 84 * s);
-                }
-            }
-
-            if (carrionSwarmTimer > 0) {
-                g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.6));
-                g.fillOval(x - 40 * s, y - 30 * s, drawSize + 80 * s, drawSize + 100 * s);
-            }
-
-            if (vultureCallTimer > 0) {
-                double fade = Math.clamp(vultureCallTimer / (double) VULTURE_CALL_FRAMES, 0.0, 1.0);
-                double cx = bodyCenterX();
-                double cy = y + 24 * s;
-                int dir = facingDirection();
-                g.setStroke(Color.web("#1A0E22", 0.70 * fade));
-                g.setLineCap(StrokeLineCap.ROUND);
-                g.setLineWidth(3.0 * s);
-                for (int i = 0; i < 3; i++) {
-                    double r = (34 + i * 20 + (VULTURE_CALL_FRAMES - vultureCallTimer) * 0.9) * s;
-                    g.strokeArc(cx + dir * (18 + i * 10) * s - r * 0.5, cy - r * 0.35,
-                            r, r * 0.70, dir > 0 ? -35 : 145, 70, ArcType.OPEN);
-                }
-            }
-
-            if (vultureGlideTimer > 0) {
-                int dir = vultureGlideDirection == 0 ? facingDirection() : vultureGlideDirection;
-                g.setStroke(Color.web("#263238", 0.72));
-                g.setLineCap(StrokeLineCap.ROUND);
-                for (int i = 0; i < 5; i++) {
-                    double lane = (i - 2) * 15.0 * s;
-                    double startX = bodyCenterX() - dir * (42 + i * 9) * s;
-                    double startY = bodyCenterY() + lane * 0.45;
-                    g.setLineWidth((5.4 - i * 0.55) * s);
-                    g.strokeLine(startX, startY, startX - dir * (70 + i * 18) * s, startY + lane * 0.35);
-                }
-            }
-
-            if (vultureThermalTimer > 0) {
-                double cx = bodyCenterX();
-                double cy = bodyCenterY() + 8.0 * s;
-                g.setStroke(Color.web("#CFD8DC", 0.66));
-                g.setLineCap(StrokeLineCap.ROUND);
-                for (int i = 0; i < 4; i++) {
-                    double w = (74 + i * 28) * s;
-                    double h = (42 + i * 30) * s;
-                    g.setLineWidth((2.2 + i * 0.35) * s);
-                    g.strokeArc(cx - w / 2.0, cy - h / 2.0 - i * 15.0 * s,
-                            w, h, 40 + vultureThermalTimer * 8 + i * 64, 112, ArcType.OPEN);
-                }
+        double s = sizeMultiplier;
+        if (vultureBlackSkyTimer > 0) {
+            double pulse = 0.55 + 0.45 * Math.sin(vultureBlackSkyTimer * 0.24);
+            double cx = bodyCenterX();
+            double cy = bodyCenterY() - 38.0 * s;
+            g.setFill(Color.web("#050308", 0.24 + pulse * 0.10));
+            g.fillOval(cx - 168 * s, cy - 112 * s, 336 * s, 224 * s);
+            g.setStroke(Color.web("#120718", 0.62));
+            g.setLineWidth(5.0 * s);
+            for (int i = 0; i < 4; i++) {
+                double w = (132 + i * 44 + pulse * 18) * s;
+                double h = (72 + i * 24 + pulse * 10) * s;
+                g.strokeArc(cx - w / 2.0, cy - h / 2.0, w, h,
+                        18 + i * 42 + vultureBlackSkyTimer * 5, 82, ArcType.OPEN);
             }
         }
+
+        if (isNullRockSkin) {
+            drawNullRockBoss(g, drawSize);
+        } else {
+            drawBaseVultureSprite(g, drawSize);
+        }
+        drawVultureSpecialVisuals(g, drawSize);
     }
+
+    /**
+     * The Null Rock is the ancient body behind the Crown: still recognizably a
+     * vulture, but old enough to have become a religious object and large enough
+     * to dominate the arena. This renderer is presentation-only; combat bounds
+     * remain controlled by the dedicated Null Rock hitbox constants.
+     */
+    private void drawNullRockBoss(GraphicsContext g, double drawSize) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean ascended = isTrueNullRockForm();
+        boolean attacking = attackAnimationTimer > 0 || isChargingAttack() || isGroundAttackPending();
+        double pulse = suppressSelectEffects
+                ? 0.32
+                : 0.5 + 0.5 * Math.sin(System.nanoTime() / 180_000_000.0);
+        double cx = x + drawSize * 0.50;
+        double bodyCy = y + 51.0 * s;
+        double headCx = cx + dir * 23.0 * s;
+        double headCy = y + 13.0 * s;
+        double wingSpread = isFlying || Math.abs(vx) > 2.0 ? 1.24 : 1.0;
+        if (vultureCallTimer > 0) wingSpread = Math.max(wingSpread, 1.16);
+        if (vultureGlideTimer > 0) wingSpread = Math.max(wingSpread, 1.48);
+        if (vultureThermalTimer > 0) wingSpread = Math.max(wingSpread, 1.34);
+        if (suppressSelectEffects) wingSpread = Math.min(wingSpread, 0.92);
+
+        Color voidBlack = Color.web("#050408");
+        Color featherBlack = Color.web("#0D0C12");
+        Color featherMid = Color.web("#1A1720");
+        Color featherEdge = ascended ? Color.web("#8C6AC7") : Color.web("#3E3446");
+        Color ancientFlesh = ascended ? Color.web("#6D536E") : Color.web("#604A4A");
+        Color fleshLight = ascended ? Color.web("#A785A8") : Color.web("#8A6C68");
+        Color bone = ascended ? Color.web("#FFF4C7") : Color.web("#C9B990");
+        Color tarnishedGold = ascended ? Color.web("#FFE082") : Color.web("#A88A48");
+        Color divineGlow = ascended ? Color.web("#FFF59D") : Color.web("#C6A65B");
+        Color corruption = ascended ? Color.web("#B45CFF") : Color.web("#7A101C");
+        Color eye = ascended ? Color.web("#FFF59D") : Color.web("#FF5252");
+
+        g.save();
+
+        // A broken aureole establishes the divine silhouette before the body is drawn.
+        double haloCx = headCx - dir * 7.0 * s;
+        double haloCy = headCy - 3.0 * s;
+        double haloRadius = (ascended ? 48.0 : 42.0) * s;
+        if (!suppressSelectEffects) {
+            g.setFill(divineGlow.deriveColor(0, 0.82, 1.08, 0.07 + pulse * 0.05));
+            g.fillOval(haloCx - haloRadius * 1.42, haloCy - haloRadius * 1.42,
+                    haloRadius * 2.84, haloRadius * 2.84);
+        }
+        g.setStroke(divineGlow.deriveColor(0, 0.88, 1.0, 0.58 + pulse * 0.18));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth((ascended ? 3.6 : 2.7) * s);
+        g.strokeArc(haloCx - haloRadius, haloCy - haloRadius,
+                haloRadius * 2.0, haloRadius * 2.0, 18, 112, ArcType.OPEN);
+        g.strokeArc(haloCx - haloRadius, haloCy - haloRadius,
+                haloRadius * 2.0, haloRadius * 2.0, 166, 76, ArcType.OPEN);
+        g.strokeArc(haloCx - haloRadius, haloCy - haloRadius,
+                haloRadius * 2.0, haloRadius * 2.0, 278, 48, ArcType.OPEN);
+        for (int i = 0; i < 9; i++) {
+            double angle = -Math.PI * 0.92 + i * Math.PI * 0.23;
+            double inner = haloRadius + 5.0 * s;
+            double outer = haloRadius + (i % 2 == 0 ? 20.0 : 13.0) * s;
+            g.setLineWidth((i % 2 == 0 ? 3.0 : 1.8) * s);
+            g.strokeLine(
+                    haloCx + Math.cos(angle) * inner,
+                    haloCy + Math.sin(angle) * inner,
+                    haloCx + Math.cos(angle) * outer,
+                    haloCy + Math.sin(angle) * outer
+            );
+        }
+        if (ascended) {
+            g.setStroke(Color.web("#D1B3FF", 0.62 + pulse * 0.20));
+            g.setLineWidth(1.8 * s);
+            g.strokeArc(haloCx - haloRadius * 1.22, haloCy - haloRadius * 1.22,
+                    haloRadius * 2.44, haloRadius * 2.44, 204, 112, ArcType.OPEN);
+            g.strokeArc(haloCx - haloRadius * 1.22, haloCy - haloRadius * 1.22,
+                    haloRadius * 2.44, haloRadius * 2.44, 12, 94, ArcType.OPEN);
+        }
+
+        // Long fossilized tail feathers make the silhouette taller and less round.
+        for (int i = 0; i < 5; i++) {
+            double offset = (i - 2.0) * 10.0 * s;
+            double lean = (i - 2.0) * 4.0 * s;
+            g.setFill((i & 1) == 0 ? voidBlack : featherBlack);
+            g.fillPolygon(
+                    new double[]{cx + offset - 8.0 * s, cx + offset + 9.0 * s, cx + lean + 4.0 * s,
+                            cx + lean - 5.0 * s},
+                    new double[]{bodyCy + 20.0 * s, bodyCy + 19.0 * s, y + 112.0 * s,
+                            y + (i == 2 ? 122.0 : 106.0) * s},
+                    4
+            );
+            g.setStroke(featherEdge.deriveColor(0, 0.86, 1.0, 0.46));
+            g.setLineWidth(1.4 * s);
+            g.strokeLine(cx + offset, bodyCy + 26.0 * s,
+                    cx + lean, y + (i == 2 ? 116.0 : 101.0) * s);
+        }
+
+        // Huge drooping wings, built from separate ruined primaries.
+        for (int side = -1; side <= 1; side += 2) {
+            double shoulderX = cx + side * 22.0 * s;
+            double shoulderY = y + 37.0 * s;
+            double reach = 64.0 * wingSpread * s;
+            double lift = (isFlying ? -18.0 : 0.0) * s;
+            g.setFill(featherBlack);
+            g.fillPolygon(
+                    new double[]{shoulderX, cx + side * 44.0 * wingSpread * s,
+                            cx + side * 70.0 * wingSpread * s, cx + side * reach,
+                            cx + side * 34.0 * s, cx + side * 12.0 * s},
+                    new double[]{shoulderY, y + 19.0 * s + lift, y + 31.0 * s + lift,
+                            y + 58.0 * s + lift, y + 89.0 * s, y + 69.0 * s},
+                    6
+            );
+            g.setFill(featherMid);
+            for (int feather = 0; feather < 6; feather++) {
+                double rootX = shoulderX + side * feather * 2.4 * s;
+                double rootY = shoulderY + (10.0 + feather * 7.0) * s;
+                double tipX = cx + side * (46.0 + feather * 8.5) * wingSpread * s;
+                double tipY = y + (48.0 + feather * 9.0) * s + lift * (1.0 - feather * 0.08);
+                double barb = (9.0 - feather * 0.55) * s;
+                g.fillPolygon(
+                        new double[]{rootX, tipX, tipX - side * barb, rootX - side * 7.0 * s},
+                        new double[]{rootY, tipY, tipY + (12.0 + feather * 1.8) * s, rootY + 12.0 * s},
+                        4
+                );
+                g.setStroke(featherEdge.deriveColor(0, 0.92, 1.0, 0.38 + feather * 0.035));
+                g.setLineWidth((1.3 + feather * 0.12) * s);
+                g.strokeLine(rootX, rootY + 3.0 * s, tipX - side * 2.0 * s, tipY + 5.0 * s);
+            }
+            // Missing chunks and split tips make the wings visibly ancient.
+            g.setStroke(voidBlack);
+            g.setLineWidth(4.0 * s);
+            g.strokeLine(cx + side * 61.0 * wingSpread * s, y + 55.0 * s + lift,
+                    cx + side * 72.0 * wingSpread * s, y + 65.0 * s + lift);
+        }
+
+        // Hunched, heavy torso.
+        g.setFill(voidBlack);
+        g.fillOval(cx - 41.0 * s, bodyCy - 43.0 * s, 82.0 * s, 91.0 * s);
+        g.setFill(featherBlack);
+        g.fillOval(cx - 35.0 * s, bodyCy - 40.0 * s, 70.0 * s, 82.0 * s);
+        g.setFill(featherMid.deriveColor(0, 0.9, 1.06, 0.72));
+        g.fillOval(cx - 25.0 * s, bodyCy - 23.0 * s, 50.0 * s, 51.0 * s);
+
+        // Ragged bone-white ruff separates the small bald head from the giant body.
+        g.setFill(bone.darker().deriveColor(0, 0.78, 0.86, 0.92));
+        g.fillOval(cx - 34.0 * s, y + 22.0 * s, 68.0 * s, 35.0 * s);
+        g.setFill(bone);
+        for (int i = 0; i < 9; i++) {
+            double tuftX = cx + (i - 4.0) * 8.2 * s;
+            double length = (i % 2 == 0 ? 18.0 : 12.0) * s;
+            g.fillPolygon(
+                    new double[]{tuftX - 6.0 * s, tuftX + 6.0 * s, tuftX + (i - 4.0) * 0.7 * s},
+                    new double[]{y + 39.0 * s, y + 39.0 * s, y + 39.0 * s + length},
+                    3
+            );
+        }
+        g.setStroke(Color.web("#5B5141", 0.55));
+        g.setLineWidth(1.5 * s);
+        g.strokeArc(cx - 30.0 * s, y + 26.0 * s, 60.0 * s, 25.0 * s, 188, 164, ArcType.OPEN);
+
+        // A long withered neck and bald, scarred vulture head.
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setStroke(ancientFlesh.darker());
+        g.setLineWidth(28.0 * s);
+        g.strokeLine(cx + dir * 2.0 * s, y + 39.0 * s,
+                headCx - dir * 6.0 * s, headCy + 12.0 * s);
+        g.setStroke(ancientFlesh);
+        g.setLineWidth(20.0 * s);
+        g.strokeLine(cx + dir * 2.0 * s, y + 38.0 * s,
+                headCx - dir * 5.0 * s, headCy + 11.0 * s);
+        g.setFill(ancientFlesh);
+        g.fillOval(headCx - 21.0 * s, headCy - 16.0 * s, 42.0 * s, 34.0 * s);
+        g.setFill(fleshLight.deriveColor(0, 0.78, 1.08, 0.42));
+        g.fillOval(headCx - 14.0 * s + dir * 3.0 * s, headCy - 11.0 * s,
+                24.0 * s, 14.0 * s);
+
+        // Petrified crown-feathers grow from the skull instead of sitting like a hat.
+        for (int i = 0; i < 5; i++) {
+            double crownOffset = (i - 2.0) * 7.0 * s;
+            double crownHeight = (i == 2 ? 27.0 : (i % 2 == 0 ? 19.0 : 23.0)) * s;
+            g.setFill((i & 1) == 0 ? tarnishedGold.darker() : corruption.darker());
+            g.fillPolygon(
+                    new double[]{headCx + crownOffset - 4.5 * s, headCx + crownOffset,
+                            headCx + crownOffset + 5.0 * s},
+                    new double[]{headCy - 12.0 * s, headCy - crownHeight,
+                            headCy - 11.0 * s},
+                    3
+            );
+            g.setStroke(divineGlow.deriveColor(0, 0.8, 1.0, 0.55));
+            g.setLineWidth(1.1 * s);
+            g.strokeLine(headCx + crownOffset, headCy - 13.0 * s,
+                    headCx + crownOffset, headCy - crownHeight + 3.0 * s);
+        }
+
+        // Deep age folds, a blind scar, and a single predatory divine eye.
+        g.setStroke(ancientFlesh.darker().deriveColor(0, 1.0, 0.72, 0.80));
+        g.setLineWidth(1.7 * s);
+        for (int i = 0; i < 3; i++) {
+            g.strokeArc(headCx - 16.0 * s, headCy + (1.0 + i * 4.0) * s,
+                    24.0 * s, 8.0 * s, dir > 0 ? 190 : -10, 120, ArcType.OPEN);
+        }
+        double eyeCx = headCx + dir * 7.0 * s;
+        double eyeCy = headCy - 3.0 * s;
+        g.setFill(Color.web("#160A0D"));
+        g.fillOval(eyeCx - 8.5 * s, eyeCy - 6.5 * s, 17.0 * s, 13.0 * s);
+        g.setFill(eye.deriveColor(0, 0.95, 1.0, 0.95));
+        g.fillOval(eyeCx - 5.5 * s, eyeCy - 3.8 * s, 11.0 * s, 7.6 * s);
+        g.setFill(Color.web("#13030A"));
+        g.fillOval(eyeCx + dir * 0.8 * s - 1.5 * s, eyeCy - 4.0 * s, 3.0 * s, 8.0 * s);
+        g.setStroke(corruption.deriveColor(0, 1.0, 1.1, 0.88));
+        g.setLineWidth(2.2 * s);
+        g.strokeLine(headCx - dir * 5.0 * s, headCy - 11.0 * s,
+                headCx + dir * 13.0 * s, headCy + 5.0 * s);
+        g.strokeLine(headCx - dir * 1.0 * s, headCy - 9.0 * s,
+                headCx - dir * 8.0 * s, headCy + 4.0 * s);
+
+        // Massive hooked beak; attack poses open the lower blade without changing bounds.
+        AttackVisualPose pose = currentAttackVisualPose();
+        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
+        double beakOpen = (attacking ? 7.0 + 3.0 * Math.sin(attackAnimationTimer * 0.72) : 1.5)
+                * s * openScale;
+        double beakBaseX = headCx + dir * 12.0 * s;
+        double beakBaseY = headCy + 3.0 * s;
+        double beakTipX = headCx + dir * (43.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.28)) * s;
+        double beakTipY = headCy + 8.0 * s;
+        g.setFill(Color.web("#130A0B", 0.90));
+        g.fillPolygon(
+                new double[]{beakBaseX, beakTipX - dir * 5.0 * s, beakBaseX + dir * 3.0 * s},
+                new double[]{beakBaseY, beakTipY + beakOpen, beakBaseY + 9.0 * s},
+                3
+        );
+        g.setFill(tarnishedGold.darker());
+        g.fillPolygon(
+                new double[]{beakBaseX - dir * 2.0 * s, beakTipX,
+                        beakTipX - dir * 4.0 * s, beakTipX - dir * 11.0 * s,
+                        beakBaseX + dir * 3.0 * s},
+                new double[]{beakBaseY - 8.0 * s, beakTipY - 5.0 * s,
+                        beakTipY + 10.0 * s, beakTipY + 4.0 * s,
+                        beakBaseY + 4.0 * s},
+                5
+        );
+        g.setFill(tarnishedGold);
+        g.fillPolygon(
+                new double[]{beakBaseX, beakTipX - dir * 5.0 * s, beakBaseX + dir * 4.0 * s},
+                new double[]{beakBaseY - 6.0 * s, beakTipY - 4.0 * s, beakBaseY},
+                3
+        );
+        g.setStroke(Color.web("#4A3518", 0.78));
+        g.setLineWidth(1.4 * s);
+        g.strokeLine(beakBaseX + dir * 4.0 * s, beakBaseY + 2.5 * s,
+                beakTipX - dir * 8.0 * s, beakTipY + 2.0 * s);
+
+        // The divine seal is embedded in his chest, not worn as jewelry.
+        double sealCy = bodyCy + 7.0 * s;
+        double sealRadius = (ascended ? 18.0 : 15.0) * s;
+        g.setStroke(divineGlow.deriveColor(0, 0.92, 1.0, 0.70 + pulse * 0.18));
+        g.setLineWidth((ascended ? 3.0 : 2.2) * s);
+        g.strokeOval(cx - sealRadius, sealCy - sealRadius, sealRadius * 2.0, sealRadius * 2.0);
+        g.strokePolygon(
+                new double[]{cx, cx + sealRadius * 0.70, cx, cx - sealRadius * 0.70},
+                new double[]{sealCy - sealRadius, sealCy, sealCy + sealRadius, sealCy},
+                4
+        );
+        g.setFill(corruption.deriveColor(0, 1.0, 1.0, 0.76));
+        g.fillOval(cx - 6.0 * s, sealCy - 4.0 * s, 12.0 * s, 8.0 * s);
+        g.setFill(divineGlow);
+        g.fillOval(cx - 1.8 * s, sealCy - 4.5 * s, 3.6 * s, 9.0 * s);
+
+        // Ancient cracks carry the seal's corruption across the breast.
+        g.setStroke(corruption.deriveColor(0, 1.0, 1.0, ascended ? 0.88 : 0.62));
+        g.setLineWidth((ascended ? 2.2 : 1.6) * s);
+        g.strokeLine(cx - 8.0 * s, sealCy - 13.0 * s, cx - 20.0 * s, bodyCy - 23.0 * s);
+        g.strokeLine(cx - 20.0 * s, bodyCy - 23.0 * s, cx - 28.0 * s, bodyCy - 12.0 * s);
+        g.strokeLine(cx + 9.0 * s, sealCy + 12.0 * s, cx + 22.0 * s, bodyCy + 24.0 * s);
+        g.strokeLine(cx + 22.0 * s, bodyCy + 24.0 * s, cx + 17.0 * s, bodyCy + 37.0 * s);
+
+        // Heavy legs and long grave-gold talons anchor the mass to the platform.
+        for (int side = -1; side <= 1; side += 2) {
+            double legX = cx + side * 18.0 * s;
+            double footY = y + 91.0 * s;
+            g.setStroke(Color.web("#403A35"));
+            g.setLineWidth(6.0 * s);
+            g.strokeLine(legX, y + 75.0 * s, legX + side * 2.0 * s, footY);
+            g.setStroke(tarnishedGold.darker());
+            g.setLineWidth(2.8 * s);
+            for (int claw = 0; claw < 3; claw++) {
+                double clawY = footY + claw * 3.5 * s;
+                g.strokeLine(legX, footY, legX + side * (12.0 + claw * 4.0) * s, clawY);
+            }
+        }
+
+        if (ascended) {
+            // Crown fragments orbit the true form like pieces of a shattered icon.
+            g.setFill(divineGlow.deriveColor(0, 0.9, 1.0, 0.74 + pulse * 0.18));
+            for (int i = 0; i < 6; i++) {
+                double angle = i * Math.PI / 3.0 + pulse * 0.22;
+                double orbitX = cx + Math.cos(angle) * 61.0 * s;
+                double orbitY = bodyCy - 15.0 * s + Math.sin(angle) * 52.0 * s;
+                double shard = (5.0 + (i % 2) * 2.0) * s;
+                g.fillPolygon(
+                        new double[]{orbitX, orbitX + shard, orbitX - shard * 0.35},
+                        new double[]{orbitY - shard, orbitY + shard * 0.60, orbitY + shard},
+                        3
+                );
+            }
+        }
+
+        g.restore();
+    }
+
 
     private void drawVultureBait(GraphicsContext g) {
         if (type != BirdGame3.BirdType.VULTURE || vultureBait == null) {
@@ -29111,17 +29190,6 @@ public class Bird {
             g.setLineWidth(2.1 * s);
             g.strokeArc(x + 8 * s, y + 32 * s, 70 * s, 40 * s, 200, 160, ArcType.OPEN);
         }
-        if (type == BirdGame3.BirdType.VULTURE && isNullRockSkin) {
-            g.setStroke(Color.web("#FF8A80").deriveColor(0, 1, 1, 0.72));
-            g.setLineWidth(3.0 * s);
-            g.strokeArc(x - 8 * s, y + 12 * s, drawSize + 16 * s, drawSize + 26 * s, 208, 126, ArcType.OPEN);
-            g.setStroke(Color.web("#4A0610").deriveColor(0, 1, 1, 0.8));
-            g.setLineWidth(2.1 * s);
-            g.strokeLine(x + 20 * s, y + 22 * s, x + 34 * s, y + 60 * s);
-            g.strokeLine(x + 58 * s, y + 18 * s, x + 46 * s, y + 58 * s);
-            g.setFill(Color.web("#FFCDD2").deriveColor(0, 1, 1, 0.3));
-            g.fillOval(x + 18 * s, y + 42 * s, 44 * s, 18 * s);
-        }
         if (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin) {
             g.setStroke(Color.web("#E040FB").deriveColor(0, 1, 1, 0.65));
             g.setLineWidth(2.4 * s);
@@ -29741,7 +29809,7 @@ public class Bird {
                     tipBaseX - dirX * 4.0 * s, tipBaseY - dirY * 4.0 * s);
             return;
         }
-        if (type == BirdGame3.BirdType.VULTURE && !isNullRockSkin) {
+        if (type == BirdGame3.BirdType.VULTURE) {
             return;
         }
         if (type == BirdGame3.BirdType.BAT) {
