@@ -45743,6 +45743,15 @@ public class BirdGame3 {
         g.restore();
     }
 
+    static String ultimateChargeStatusText(double ratio, boolean ready) {
+        if (ready) {
+            return "READY";
+        }
+        double clamped = Math.clamp(ratio, 0.0, 1.0);
+        int percent = Math.min(99, (int) Math.floor(clamped * 100.0 + 1.0e-9));
+        return percent + "%";
+    }
+
     private void drawFightHudPanel(GraphicsContext g, FightHudPanelLayout layout) {
         Bird bird = layout.bird();
         if (bird == null) {
@@ -45895,7 +45904,7 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.RIGHT);
         g.setFill(bird.isUltimateReady() ? Color.web("#FFF59D") : Color.web("#B3E5FC"));
         g.fillText(
-                bird.isUltimateReady() ? "READY" : (int) Math.round(ultRatio * 100.0) + "%",
+                ultimateChargeStatusText(ultRatio, bird.isUltimateReady()),
                 ultBarX + ultBarW,
                 ultBarY - 4
         );
