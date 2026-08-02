@@ -20139,6 +20139,42 @@ public class BirdGame3 {
         }
     }
 
+    BirdType echoBaseBird(BirdType type) {
+        if (type == null) return null;
+        return switch (type) {
+            case FALCON -> BirdType.EAGLE;
+            case HEISENBIRD -> BirdType.OPIUMBIRD;
+            default -> null;
+        };
+    }
+
+    private String rosterSelectionTileLabel(BirdType type, boolean randomPick) {
+        if (randomPick || type == null) return "RANDOM";
+        BirdType echoBase = echoBaseBird(type);
+        if (echoBase == null) return type.name.toUpperCase(Locale.ROOT);
+        String baseName = echoBase == BirdType.OPIUMBIRD
+                ? "OPIUM"
+                : echoBase.name.toUpperCase(Locale.ROOT);
+        return type.name.toUpperCase(Locale.ROOT) + "\nECHO OF " + baseName;
+    }
+
+    private Node buildRosterSelectionIcon(BirdType type, boolean randomPick, double iconSize) {
+        Canvas icon = new Canvas(iconSize, iconSize);
+        drawRosterSprite(icon, type, null, randomPick);
+        BirdType echoBase = echoBaseBird(type);
+        if (echoBase == null) return icon;
+
+        StackPane iconStack = new StackPane(icon);
+        iconStack.setPrefSize(iconSize, iconSize);
+        Canvas baseIcon = new Canvas(iconSize * 0.55, iconSize * 0.55);
+        drawRosterSprite(baseIcon, echoBase, null, false);
+        baseIcon.setOpacity(0.38);
+        StackPane.setAlignment(baseIcon, Pos.TOP_LEFT);
+        StackPane.setMargin(baseIcon, new Insets(6, 0, 0, 6));
+        iconStack.getChildren().add(baseIcon);
+        return iconStack;
+    }
+
     private void showFightSetup(Stage stage) {
         playMenuMusic();
         activePlayers = Math.clamp(activePlayers, 2, 4);
@@ -20315,45 +20351,16 @@ public class BirdGame3 {
             double tileH = Math.max(110.0, cellH - 8.0);
             double iconSize = Math.clamp(Math.min(tileW - 24.0, tileH - 52.0), 68.0, 138.0);
 
-            Canvas icon = new Canvas(iconSize, iconSize);
-            drawRosterSprite(icon, type, null, isRandom);
-            Node iconNode = icon;
-            if (type == BirdType.FALCON) {
-                StackPane iconStack = new StackPane();
-                iconStack.setPrefSize(iconSize, iconSize);
-                iconStack.getChildren().add(icon);
-                Canvas echo = new Canvas(iconSize * 0.55, iconSize * 0.55);
-                drawRosterSprite(echo, BirdType.EAGLE, null, false);
-                echo.setOpacity(0.32);
-                StackPane.setAlignment(echo, Pos.TOP_LEFT);
-                StackPane.setMargin(echo, new Insets(6, 0, 0, 6));
-                iconStack.getChildren().add(echo);
-                iconNode = iconStack;
-            } else if (type == BirdType.HEISENBIRD) {
-                StackPane iconStack = new StackPane();
-                iconStack.setPrefSize(iconSize, iconSize);
-                iconStack.getChildren().add(icon);
-                Canvas echo = new Canvas(iconSize * 0.55, iconSize * 0.55);
-                drawRosterSprite(echo, BirdType.OPIUMBIRD, null, false);
-                echo.setOpacity(0.32);
-                StackPane.setAlignment(echo, Pos.TOP_LEFT);
-                StackPane.setMargin(echo, new Insets(6, 0, 0, 6));
-                iconStack.getChildren().add(echo);
-                iconNode = iconStack;
-            }
+            Node iconNode = buildRosterSelectionIcon(type, isRandom, iconSize);
 
-            Label name = new Label(isRandom ? "RANDOM" : type.name.toUpperCase());
+            Label name = new Label(rosterSelectionTileLabel(type, isRandom));
             name.setFont(Font.font("Arial Black", tileH < 140 ? 13 : 15));
             name.setTextFill(Color.WHITE);
             name.setMaxWidth(tileW - 12);
             name.setTextAlignment(TextAlignment.CENTER);
             name.setAlignment(Pos.CENTER);
             name.setWrapText(true);
-            if (type == BirdType.FALCON) {
-                name.setText("FALCON\nECHO OF EAGLE");
-                name.setFont(Font.font("Arial Black", 12));
-            } else if (type == BirdType.HEISENBIRD) {
-                name.setText("HEISENBIRD\nECHO OF OPIUM");
+            if (echoBaseBird(type) != null) {
                 name.setFont(Font.font("Arial Black", 12));
             }
 
@@ -21238,43 +21245,14 @@ public class BirdGame3 {
             double centerX = cellX + cellW / 2.0;
             double centerY = cellY + cellH / 2.0;
 
-            Canvas icon = new Canvas(iconSize, iconSize);
-            drawRosterSprite(icon, type, null, false);
-            Node iconNode = icon;
-            if (type == BirdType.FALCON) {
-                StackPane iconStack = new StackPane();
-                iconStack.setPrefSize(iconSize, iconSize);
-                iconStack.getChildren().add(icon);
-                Canvas echo = new Canvas(iconSize * 0.55, iconSize * 0.55);
-                drawRosterSprite(echo, BirdType.EAGLE, null, false);
-                echo.setOpacity(0.32);
-                StackPane.setAlignment(echo, Pos.TOP_LEFT);
-                StackPane.setMargin(echo, new Insets(6, 0, 0, 6));
-                iconStack.getChildren().add(echo);
-                iconNode = iconStack;
-            } else if (type == BirdType.HEISENBIRD) {
-                StackPane iconStack = new StackPane();
-                iconStack.setPrefSize(iconSize, iconSize);
-                iconStack.getChildren().add(icon);
-                Canvas echo = new Canvas(iconSize * 0.55, iconSize * 0.55);
-                drawRosterSprite(echo, BirdType.OPIUMBIRD, null, false);
-                echo.setOpacity(0.32);
-                StackPane.setAlignment(echo, Pos.TOP_LEFT);
-                StackPane.setMargin(echo, new Insets(6, 0, 0, 6));
-                iconStack.getChildren().add(echo);
-                iconNode = iconStack;
-            }
+            Node iconNode = buildRosterSelectionIcon(type, false, iconSize);
 
-            Label name = new Label(type.name.toUpperCase());
+            Label name = new Label(rosterSelectionTileLabel(type, false));
             name.setFont(Font.font("Consolas", 16));
             name.setTextFill(Color.web("#ECEFF1"));
             name.setWrapText(true);
             name.setAlignment(Pos.CENTER);
-            if (type == BirdType.FALCON) {
-                name.setText("FALCON\nECHO OF EAGLE");
-                name.setFont(Font.font("Consolas", 14));
-            } else if (type == BirdType.HEISENBIRD) {
-                name.setText("HEISENBIRD\nECHO OF OPIUM");
+            if (echoBaseBird(type) != null) {
                 name.setFont(Font.font("Consolas", 14));
             }
             fitWrappedLabelText(name, name.getText(), Math.max(84.0, cellW - 18.0), 42.0, 10.0);
@@ -23902,45 +23880,16 @@ public class BirdGame3 {
             double tileH = Math.max(110.0, cellH - 8.0);
             double iconSize = Math.clamp(Math.min(tileW - 24.0, tileH - 52.0), 68.0, 138.0);
 
-            Canvas icon = new Canvas(iconSize, iconSize);
-            drawRosterSprite(icon, type, null, isRandom);
-            Node iconNode = icon;
-            if (type == BirdType.FALCON) {
-                StackPane iconStack = new StackPane();
-                iconStack.setPrefSize(iconSize, iconSize);
-                iconStack.getChildren().add(icon);
-                Canvas echo = new Canvas(iconSize * 0.55, iconSize * 0.55);
-                drawRosterSprite(echo, BirdType.EAGLE, null, false);
-                echo.setOpacity(0.32);
-                StackPane.setAlignment(echo, Pos.TOP_LEFT);
-                StackPane.setMargin(echo, new Insets(6, 0, 0, 6));
-                iconStack.getChildren().add(echo);
-                iconNode = iconStack;
-            } else if (type == BirdType.HEISENBIRD) {
-                StackPane iconStack = new StackPane();
-                iconStack.setPrefSize(iconSize, iconSize);
-                iconStack.getChildren().add(icon);
-                Canvas echo = new Canvas(iconSize * 0.55, iconSize * 0.55);
-                drawRosterSprite(echo, BirdType.OPIUMBIRD, null, false);
-                echo.setOpacity(0.32);
-                StackPane.setAlignment(echo, Pos.TOP_LEFT);
-                StackPane.setMargin(echo, new Insets(6, 0, 0, 6));
-                iconStack.getChildren().add(echo);
-                iconNode = iconStack;
-            }
+            Node iconNode = buildRosterSelectionIcon(type, isRandom, iconSize);
 
-            Label name = new Label(isRandom ? "RANDOM" : type.name.toUpperCase(Locale.ROOT));
+            Label name = new Label(rosterSelectionTileLabel(type, isRandom));
             name.setFont(Font.font("Arial Black", tileH < 140 ? 13 : 15));
             name.setTextFill(Color.WHITE);
             name.setMaxWidth(tileW - 12);
             name.setTextAlignment(TextAlignment.CENTER);
             name.setAlignment(Pos.CENTER);
             name.setWrapText(true);
-            if (type == BirdType.FALCON) {
-                name.setText("FALCON\nECHO OF EAGLE");
-                name.setFont(Font.font("Arial Black", 12));
-            } else if (type == BirdType.HEISENBIRD) {
-                name.setText("HEISENBIRD\nECHO OF OPIUM");
+            if (echoBaseBird(type) != null) {
                 name.setFont(Font.font("Arial Black", 12));
             }
 
@@ -25734,17 +25683,45 @@ public class BirdGame3 {
         }
         playMenuMusic();
         BorderPane root = new BorderPane();
-        root.setPadding(new Insets(24, 34, 24, 34));
-        root.setStyle("-fx-background-color: linear-gradient(to bottom, #091421, #152738, #1F3443);");
+        root.setPadding(new Insets(14));
+        root.setStyle("-fx-background-color: linear-gradient(to bottom, #06070A, #0D1017 34%, #171B22 100%);");
 
-        Button back = uiFactory.action("BACK TO LOBBY", 320, 86, 32, "#D32F2F", 22, () -> showLanLobby(stage));
-        Label title = new Label("SELECT BIRD");
-        title.setFont(Font.font("Impact", FontWeight.BOLD, 78));
-        title.setTextFill(Color.web("#FFE082"));
+        Button back = uiFactory.action("BACK TO LOBBY", 220, 58, 22, "#B5121B", 16, () -> showLanLobby(stage));
+        back.setStyle("-fx-background-color: linear-gradient(to bottom, #D61D28, #981019); "
+                + "-fx-text-fill: white; -fx-font-family: 'Arial Black'; -fx-font-size: 17px; "
+                + "-fx-font-weight: bold; -fx-background-radius: 18; -fx-border-color: black; "
+                + "-fx-border-width: 3; -fx-border-radius: 18;");
+        Label title = new Label("NETWORK BATTLE");
+        title.setFont(Font.font("Arial Black", FontWeight.BOLD, 34));
+        title.setTextFill(Color.web("#111111"));
+        StackPane titleBanner = new StackPane(title);
+        titleBanner.setMinSize(470, 72);
+        titleBanner.setPrefSize(470, 72);
+        titleBanner.setMaxSize(470, 72);
+        titleBanner.setStyle("-fx-background-color: linear-gradient(to bottom, #FFE45C, #F8C528); "
+                + "-fx-background-radius: 12; -fx-border-color: black; -fx-border-width: 4; "
+                + "-fx-border-radius: 12;");
+        titleBanner.setEffect(new DropShadow(18, Color.rgb(0, 0, 0, 0.28)));
 
-        HBox topBar = new HBox(18, back, title);
-        topBar.setAlignment(Pos.CENTER_LEFT);
+        Label modeChip = new Label(networkSessionMode == NetworkSessionMode.INTERNET ? "INTERNET" : "LAN");
+        modeChip.setFont(Font.font("Arial Black", 18));
+        modeChip.setTextFill(Color.web("#FFF8D6"));
+        StackPane modeBadge = new StackPane(modeChip);
+        modeBadge.setPadding(new Insets(10, 22, 10, 22));
+        modeBadge.setStyle("-fx-background-color: rgba(255, 193, 7, 0.22); -fx-background-radius: 24; "
+                + "-fx-border-color: rgba(255, 245, 157, 0.65); -fx-border-width: 2; -fx-border-radius: 24;");
+
+        BorderPane topChrome = new BorderPane();
+        topChrome.setLeft(back);
+        topChrome.setRight(modeBadge);
+        StackPane topBar = new StackPane(topChrome, titleBanner);
+        topBar.setPadding(new Insets(10, 14, 10, 14));
+        topBar.setMinHeight(92);
+        topBar.setStyle("-fx-background-color: linear-gradient(to right, #8E0D16 0%, #C51A24 42%, #111317 42%, #111317 100%); "
+                + "-fx-background-radius: 24; -fx-border-color: black; -fx-border-width: 4; -fx-border-radius: 24;");
+        topBar.setEffect(new DropShadow(24, Color.rgb(0, 0, 0, 0.30)));
         root.setTop(topBar);
+        BorderPane.setMargin(topBar, new Insets(0, 0, 14, 0));
 
         List<BirdType> available = unlockedBirdPool();
         if (available.isEmpty()) {
@@ -25754,35 +25731,42 @@ public class BirdGame3 {
         gridBirds.add(null); // random slot
 
         GridPane grid = new GridPane();
-        grid.setHgap(20);
-        grid.setVgap(20);
+        grid.setHgap(8);
+        grid.setVgap(8);
         grid.setAlignment(Pos.CENTER);
 
         Map<BirdType, Button> buttonByType = new HashMap<>();
         final Button[] randomButton = new Button[1];
 
-        Canvas preview = new Canvas(160, 160);
+        Canvas preview = new Canvas(210, 210);
         Label selectionLabel = new Label();
-        selectionLabel.setFont(Font.font("Consolas", 22));
+        selectionLabel.setFont(Font.font("Arial Black", 24));
         selectionLabel.setTextFill(Color.web("#FFD54F"));
+        selectionLabel.setWrapText(true);
+        selectionLabel.setTextAlignment(TextAlignment.CENTER);
+        selectionLabel.setAlignment(Pos.CENTER);
+        selectionLabel.setMaxWidth(270);
         applyNoEllipsis(selectionLabel);
 
         Button skinButton = new Button();
-        skinButton.setPrefSize(240, 60);
-        skinButton.setFont(Font.font("Consolas", 18));
-        skinButton.setStyle("-fx-background-color: #37474F; -fx-text-fill: white;");
+        skinButton.setPrefSize(260, 64);
+        skinButton.setFont(Font.font("Arial Black", 16));
+        skinButton.setStyle("-fx-background-color: #37474F; -fx-text-fill: white; "
+                + "-fx-background-radius: 16; -fx-border-color: black; -fx-border-width: 2; -fx-border-radius: 16;");
 
-        int columns = Math.clamp((int) Math.ceil(gridBirds.size() / 2.0), 1, 5);
+        int columns = Math.clamp((int) Math.ceil(gridBirds.size() / 3.0), 8, 12);
         for (int i = 0; i < gridBirds.size(); i++) {
             BirdType type = gridBirds.get(i);
             boolean isRandom = type == null;
-            Canvas icon = new Canvas(90, 90);
-            drawRosterSprite(icon, type, null, isRandom);
-            Button btn = new Button(isRandom ? "RANDOM" : type.name.toUpperCase());
+            Node icon = buildRosterSelectionIcon(type, isRandom, 88);
+            Button btn = new Button(rosterSelectionTileLabel(type, isRandom));
             btn.setGraphic(icon);
             btn.setContentDisplay(ContentDisplay.TOP);
-            btn.setPrefSize(200, 160);
-            btn.setFont(Font.font("Consolas", 16));
+            btn.setGraphicTextGap(0);
+            btn.setPrefSize(146, 154);
+            btn.setMinSize(146, 154);
+            btn.setMaxSize(146, 154);
+            btn.setFont(Font.font("Arial Black", echoBaseBird(type) == null ? 12 : 10.5));
             btn.setWrapText(true);
             btn.setTextAlignment(TextAlignment.CENTER);
             btn.setOnAction(e -> {
@@ -25830,15 +25814,31 @@ public class BirdGame3 {
         updateLanBirdSelectPreview(preview, selectionLabel, skinButton);
         updateLanBirdSelectButtons(buttonByType, randomButton[0]);
 
-        VBox previewBox = new VBox(12, preview, selectionLabel, skinButton);
-        previewBox.setAlignment(Pos.CENTER);
-        previewBox.setPadding(new Insets(12));
-        previewBox.setStyle("-fx-background-color: rgba(0,0,0,0.35); -fx-border-color: #90A4AE; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
+        Label rosterTitle = new Label("SELECT YOUR BIRD");
+        rosterTitle.setFont(Font.font("Arial Black", 28));
+        rosterTitle.setTextFill(Color.web("#FFF176"));
+        rosterTitle.setEffect(new DropShadow(10, Color.rgb(0, 0, 0, 0.30)));
 
-        BorderPane center = new BorderPane();
-        center.setCenter(grid);
-        center.setRight(previewBox);
-        BorderPane.setMargin(previewBox, new Insets(0, 0, 0, 20));
+        VBox gridCard = new VBox(10, rosterTitle, grid);
+        gridCard.setAlignment(Pos.TOP_CENTER);
+        gridCard.setPadding(new Insets(12));
+        gridCard.setStyle("-fx-background-color: rgba(4,5,8,0.90); -fx-background-radius: 28; "
+                + "-fx-border-color: rgba(255,255,255,0.16); -fx-border-width: 2; -fx-border-radius: 28;");
+
+        Label selectedTitle = new Label("YOUR FIGHTER");
+        selectedTitle.setFont(Font.font("Arial Black", 20));
+        selectedTitle.setTextFill(Color.web("#CFD8DC"));
+        VBox previewBox = new VBox(12, selectedTitle, preview, selectionLabel, skinButton);
+        previewBox.setAlignment(Pos.CENTER);
+        previewBox.setPadding(new Insets(18));
+        previewBox.setMinWidth(300);
+        previewBox.setStyle("-fx-background-color: linear-gradient(to bottom, rgba(28,34,43,0.96), rgba(7,9,12,0.99)); "
+                + "-fx-border-color: rgba(255,224,130,0.55); -fx-border-width: 2; "
+                + "-fx-background-radius: 24; -fx-border-radius: 24;");
+
+        HBox center = new HBox(18, gridCard, previewBox);
+        center.setAlignment(Pos.CENTER);
+        HBox.setHgrow(gridCard, Priority.ALWAYS);
         root.setCenter(center);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
@@ -25874,8 +25874,13 @@ public class BirdGame3 {
         if (lanPlayerIndex < 0) return;
         BirdType selected = lanSelectedBirds[lanPlayerIndex];
         boolean randomPick = lanRandomBirds[lanPlayerIndex];
-        String baseStyle = "-fx-background-color: rgba(0,0,0,0.45); -fx-border-color: #90A4AE; -fx-border-width: 2; -fx-text-fill: white;";
-        String activeStyle = "-fx-background-color: rgba(255,213,79,0.25); -fx-border-color: #FFD54F; -fx-border-width: 3; -fx-text-fill: white;";
+        String baseStyle = "-fx-background-color: linear-gradient(to bottom, rgba(58,72,92,0.82), rgba(14,17,22,0.96)); "
+                + "-fx-border-color: rgba(255,255,255,0.18); -fx-border-width: 2; -fx-text-fill: white; "
+                + "-fx-background-radius: 18; -fx-border-radius: 18;";
+        String activeStyle = "-fx-background-color: linear-gradient(to bottom, rgba(255,213,79,0.38), rgba(91,64,4,0.96)); "
+                + "-fx-border-color: #FFD54F; -fx-border-width: 4; -fx-text-fill: white; "
+                + "-fx-background-radius: 18; -fx-border-radius: 18; "
+                + "-fx-effect: dropshadow(gaussian, rgba(255,213,79,0.42), 18, 0.20, 0, 0);";
         for (Map.Entry<BirdType, Button> entry : buttonByType.entrySet()) {
             boolean active = !randomPick && entry.getKey() == selected;
             entry.getValue().setStyle(active ? activeStyle : baseStyle);
@@ -25895,7 +25900,9 @@ public class BirdGame3 {
             drawRosterSprite(preview, type, skinKey, randomPick);
         }
         if (selectionLabel != null) {
-            selectionLabel.setText(randomPick ? "RANDOM" : (type != null ? type.name.toUpperCase() : "SELECTING..."));
+            selectionLabel.setText(type == null && !randomPick
+                    ? "SELECTING..."
+                    : rosterSelectionTileLabel(type, randomPick));
         }
         if (skinButton != null) {
             if (type == null) {
