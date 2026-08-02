@@ -1776,6 +1776,124 @@ class BirdStateTest {
     }
 
     @Test
+    void nullRockSideSpecialLocksNearestEnemyAndFiresGiganticLaser() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 3;
+        Bird boss = new Bird(500.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird nearest = new Bird(900.0, BirdGame3.BirdType.PIGEON, 1, game);
+        Bird farther = new Bird(1500.0, BirdGame3.BirdType.EAGLE, 2, game);
+        boss.isNullRockSkin = true;
+        boss.y = BirdGame3.GROUND_Y - boss.bodyHeight();
+        nearest.y = BirdGame3.GROUND_Y - nearest.bodyHeight();
+        farther.y = BirdGame3.GROUND_Y - farther.bodyHeight();
+        game.players[0] = boss;
+        game.players[1] = nearest;
+        game.players[2] = farther;
+
+        double healthBefore = nearest.health;
+        VultureSpecials.nullRockSide(boss, false);
+
+        assertEquals(nearest.playerIndex, boss.nullRockLaserTargetIndex);
+        assertEquals(Bird.NULL_ROCK_LASER_FRAMES, boss.nullRockLaserTimer);
+        for (int frame = 0; frame <= Bird.NULL_ROCK_LASER_WINDUP_FRAMES; frame++) {
+            VultureSpecials.handleState(boss, false);
+        }
+
+        assertTrue(boss.nullRockLaserFired);
+        assertTrue(nearest.health < healthBefore);
+        assertTrue(nearest.vx > 0.0, "The eye laser should launch along its aim line.");
+    }
+
+    @Test
+    void nullRockUpSpecialLiftsBossAndMaintainsThreeAiVultureHenchmen() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird boss = new Bird(700.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird enemy = new Bird(1050.0, BirdGame3.BirdType.PIGEON, 1, game);
+        boss.isNullRockSkin = true;
+        game.players[0] = boss;
+        game.players[1] = enemy;
+
+        VultureSpecials.nullRockUp(boss, false);
+
+        assertEquals(Bird.NULL_ROCK_LIFT_FRAMES, boss.nullRockLiftTimer);
+        assertTrue(boss.vy < 0.0);
+        assertEquals(3, VultureSpecials.ownedNullRockHenchmanCount(boss));
+        assertTrue(game.crowMinions.stream().allMatch(crow -> crow.owner == boss
+                && crow.effectiveVariant() == CrowMinion.VARIANT_VULTURE_HENCHMAN
+                && crow.life >= 5));
+
+        VultureSpecials.nullRockUp(boss, false);
+        assertEquals(3, VultureSpecials.ownedNullRockHenchmanCount(boss),
+                "Repeated lifts should replenish the trio, not flood the arena.");
+
+        CrowMinion hunter = game.crowMinions.getFirst();
+        hunter.x = enemy.bodyCenterX();
+        hunter.y = enemy.bodyCenterY();
+        hunter.vx = 2.0;
+        hunter.vy = 0.0;
+        double healthBefore = enemy.health;
+        invokePrivateVoid(game, "updateWorldFixed");
+
+        assertTrue(enemy.health < healthBefore);
+        assertTrue(game.crowMinions.contains(hunter),
+                "A Vulture henchman should survive contact and continue hunting like an AI companion.");
+        assertTrue(hunter.contactCooldown > 0);
+    }
+
+    @Test
+    void nullRockDownSpecialRainsTelegraphedSpearsAcrossTargetLane() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird boss = new Bird(500.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird target = new Bird(1120.0, BirdGame3.BirdType.PIGEON, 1, game);
+        boss.isNullRockSkin = true;
+        boss.y = BirdGame3.GROUND_Y - boss.bodyHeight();
+        target.y = BirdGame3.GROUND_Y - target.bodyHeight();
+        game.players[0] = boss;
+        game.players[1] = target;
+
+        double healthBefore = target.health;
+        VultureSpecials.nullRockDown(boss, false);
+
+        assertEquals(5, boss.nullRockSpearCount);
+        assertTrue(boss.nullRockSpearDelay[2] > 0, "Spear rain should expose a dodge telegraph before impact.");
+        for (int frame = 0; frame < Bird.NULL_ROCK_SPEAR_FRAMES; frame++) {
+            VultureSpecials.handleState(boss, false);
+        }
+
+        assertTrue(target.health < healthBefore);
+        assertTrue(target.vy > 0.0, "A falling blood spear should spike its victim downward.");
+    }
+
+    @Test
+    void nullRockNeutralKeepsDarkFlockAndBossCooldownScalesWithDifficulty() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird boss = new Bird(500.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird target = new Bird(900.0, BirdGame3.BirdType.PIGEON, 1, game);
+        boss.isNullRockSkin = true;
+        game.players[0] = boss;
+        game.players[1] = target;
+
+        VultureSpecials.nullRockNeutral(boss, false);
+        assertEquals(7, game.crowMinions.size());
+        assertTrue(game.crowMinions.stream().noneMatch(crow ->
+                crow.effectiveVariant() == CrowMinion.VARIANT_VULTURE_HENCHMAN));
+
+        game.isAI[0] = true;
+        int[] levels = (int[]) getPrivateObject(game, "cpuLevels");
+        levels[0] = 1;
+        int easyCooldown = VultureSpecials.nullRockSpecialCooldown(boss, false);
+        levels[0] = 9;
+        int hardestCooldown = VultureSpecials.nullRockSpecialCooldown(boss, false);
+
+        assertTrue(easyCooldown > hardestCooldown);
+        assertTrue(easyCooldown >= 18 * 60, "Low difficulty should keep boss specials rare.");
+        assertTrue(hardestCooldown <= 11 * 60, "High difficulty should use the full kit more often.");
+    }
+
+    @Test
     void crowContactLaunchesMoreSidewaysThanUpward() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

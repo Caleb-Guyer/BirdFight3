@@ -469,7 +469,7 @@ class BirdGame3BossBalanceTest {
             companionNames.add((String) recordValue(companion, "name"));
         }
 
-        assertEquals(List.of("Giant Crow", "Raven", "Void Raven", "Murder Crow"), companionNames);
+        assertEquals(List.of("Giant Crow", "Raven", "Void Raven", "Murder Crow", "Vulture Henchman"), companionNames);
     }
 
     @Test

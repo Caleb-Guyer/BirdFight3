@@ -526,6 +526,11 @@ public class Bird {
     static final int VULTURE_BLACK_SKY_FINAL_CROWS = 10;
     static final int VULTURE_BLACK_SKY_WAVE_INTERVAL = 9;
     static final int VULTURE_BLACK_SKY_FINAL_FRAME = 42;
+    static final int NULL_ROCK_LASER_FRAMES = 58;
+    static final int NULL_ROCK_LASER_WINDUP_FRAMES = 34;
+    static final int NULL_ROCK_LIFT_FRAMES = 46;
+    static final int NULL_ROCK_SPEAR_FRAMES = 112;
+    static final int NULL_ROCK_MAX_SPEARS = 7;
     int vultureNeutralReuseTimer = 0;
     int vultureCrowTicks = VULTURE_CROW_TICK_MAX;
     int vultureCrowTickRechargeTimer = 0;
@@ -550,6 +555,22 @@ public class Bird {
     int vultureBlackSkyWaveIndex = 0;
     boolean vultureBlackSkyFinalHit = false;
     final boolean[] vultureBlackSkyHit = new boolean[4];
+    int nullRockLaserTimer = 0;
+    int nullRockLaserTargetIndex = -1;
+    double nullRockLaserTargetX = 0.0;
+    double nullRockLaserTargetY = 0.0;
+    boolean nullRockLaserUltimate = false;
+    boolean nullRockLaserFired = false;
+    int nullRockLiftTimer = 0;
+    boolean nullRockLiftUltimate = false;
+    int nullRockSpearTimer = 0;
+    int nullRockSpearCount = 0;
+    boolean nullRockSpearUltimate = false;
+    final double[] nullRockSpearX = new double[NULL_ROCK_MAX_SPEARS];
+    final double[] nullRockSpearY = new double[NULL_ROCK_MAX_SPEARS];
+    final int[] nullRockSpearDelay = new int[NULL_ROCK_MAX_SPEARS];
+    final boolean[] nullRockSpearSpent = new boolean[NULL_ROCK_MAX_SPEARS];
+    int nullRockSpecialCycle = 0;
 
     // === OPIUM / HEISENBIRD ===
     static final int OPIUM_NEUTRAL_FRAMES = 300;
@@ -9441,6 +9462,13 @@ public class Bird {
     }
 
     private double aiSpecialUseChance(double skill, AIKitProfile ownKit, Bird target) {
+        if (isNullRockForm()) {
+            double bossChance = 0.10 + 0.48 * skill;
+            if (isUltimateReady()) {
+                bossChance = Math.max(bossChance, 0.72);
+            }
+            return bossChance;
+        }
         double chance = (0.25 + 0.75 * skill)
                 * (0.88 + ownKit.pressure() * 0.08 + ownKit.zoning() * 0.08 + ownKit.setup() * 0.10);
         if (target != null && aiTargetHasActiveThreat(target) && ownKit.counter() > 0.30) {
@@ -9586,6 +9614,18 @@ public class Bird {
                 yield DirectionalSpecialInput.NEUTRAL;
             }
             case VULTURE -> {
+                if (isNullRockForm()) {
+                    int cycle = Math.floorMod(nullRockSpecialCycle, 4);
+                    if (cycle == 3 && VultureSpecials.ownedNullRockHenchmanCount(this) >= 3) {
+                        cycle = 0;
+                    }
+                    yield switch (cycle) {
+                        case 1 -> DirectionalSpecialInput.SIDE;
+                        case 2 -> DirectionalSpecialInput.DOWN;
+                        case 3 -> DirectionalSpecialInput.UP;
+                        default -> DirectionalSpecialInput.NEUTRAL;
+                    };
+                }
                 if (!onGround && targetAbove && !vultureUpSpecialUsed) yield DirectionalSpecialInput.UP;
                 if (vultureBait == null && vultureDownReuseTimer <= 0 && (lowHealth || dist > 195.0 || ownedVultureCrowCount() >= 4)) {
                     yield DirectionalSpecialInput.DOWN;
@@ -9913,6 +9953,9 @@ public class Bird {
                         || (dist < 210 && Math.abs(dy) < 155)
                         || (onGround && grinchPresent == null && (dist > 185 || enemySetup));
             case VULTURE:
+                if (isNullRockForm()) {
+                    return specialCooldown <= 0 && dist < 1900.0;
+                }
                 return (vultureCrowTicks > 0 && ownedVultureCrowCount() < 7 && (dist < 430 || lowHealth))
                         || (vultureBait == null && vultureDownReuseTimer <= 0 && (dist > 170 || lowHealth))
                         || (dist < 320 && vultureSideReuseTimer <= 0 && targetVulnerable);
@@ -13751,7 +13794,9 @@ public class Bird {
         stunTime = 0;
         shrinkTimer = 0;
         carrionSwarmTimer = Math.max(carrionSwarmTimer, 170 + nullRockPhaseIndex * 20);
-        specialCooldown = Math.min(specialCooldown, 90);
+        int phaseRecovery = VultureSpecials.nullRockSpecialCooldown(this, false) / 2;
+        specialCooldown = Math.max(specialCooldown, phaseRecovery);
+        crowSwarmCooldown = Math.max(crowSwarmCooldown, phaseRecovery);
         vx *= 0.35;
         vy = Math.min(vy, -5.5);
         game.onNullRockPhaseShift(this, nullRockPhaseIndex - 1);
@@ -13768,8 +13813,9 @@ public class Bird {
         double ascendedSpeed = baseSpeedMultiplier * NULL_ROCK_TRUE_FORM_SPEED_SCALE;
         setBaseMultipliers(ascendedSize, ascendedPower, ascendedSpeed);
         nullRockInvincibilityTimer = Math.max(nullRockInvincibilityTimer, TRUE_NULL_ROCK_ASCENSION_INVULN_FRAMES);
-        specialCooldown = 0;
-        crowSwarmCooldown = 0;
+        int ascensionRecovery = VultureSpecials.nullRockSpecialCooldown(this, false) / 2;
+        specialCooldown = Math.max(specialCooldown, ascensionRecovery);
+        crowSwarmCooldown = Math.max(crowSwarmCooldown, ascensionRecovery);
         carrionSwarmTimer = Math.max(carrionSwarmTimer, 320);
         stunTime = 0;
         shrinkTimer = 0;
@@ -27194,6 +27240,113 @@ public class Bird {
                         w, h, 40 + vultureThermalTimer * 8 + i * 64, 112, ArcType.OPEN);
             }
         }
+
+        if (isNullRockForm()) {
+            drawNullRockSpecialVisuals(g, drawSize);
+        }
+    }
+
+    private void drawNullRockSpecialVisuals(GraphicsContext g, double drawSize) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+
+        if (nullRockLiftTimer > 0) {
+            double progress = 1.0 - nullRockLiftTimer / (double) NULL_ROCK_LIFT_FRAMES;
+            double cx = bodyCenterX();
+            double baseY = bodyCenterY() + 32.0 * s;
+            g.setStroke(Color.web("#B71C5C", 0.30 + 0.30 * (1.0 - progress)));
+            g.setLineCap(StrokeLineCap.ROUND);
+            for (int i = 0; i < 6; i++) {
+                double offset = (i - 2.5) * 18.0 * Math.sqrt(s);
+                g.setLineWidth(3.0 + (i % 2) * 2.0);
+                g.strokeLine(cx + offset, baseY + 85.0 + i * 9.0,
+                        cx + offset * 0.45, baseY - 34.0 - progress * 60.0);
+            }
+        }
+
+        if (nullRockSpearTimer > 0) {
+            int elapsed = NULL_ROCK_SPEAR_FRAMES - nullRockSpearTimer;
+            double spearScale = Math.max(1.35, Math.sqrt(s));
+            for (int i = 0; i < nullRockSpearCount; i++) {
+                if (nullRockSpearSpent[i]) continue;
+                int untilDrop = nullRockSpearDelay[i] - elapsed;
+                if (untilDrop > 0 && untilDrop <= 18) {
+                    double telegraphAlpha = (18 - untilDrop) / 18.0;
+                    g.setStroke(Color.web("#B71C1C", 0.18 + telegraphAlpha * 0.36));
+                    g.setLineWidth(4.0 + telegraphAlpha * 5.0);
+                    g.strokeLine(nullRockSpearX[i], Math.max(0.0, nullRockSpearY[i]),
+                            nullRockSpearX[i], BirdGame3.GROUND_Y + 80.0);
+                    continue;
+                }
+                if (untilDrop > 0) continue;
+                drawNullRockBloodSpear(g, nullRockSpearX[i], nullRockSpearY[i], spearScale, i);
+            }
+        }
+
+        if (nullRockLaserTimer <= 0) return;
+        int elapsed = NULL_ROCK_LASER_FRAMES - nullRockLaserTimer;
+        double headCx = x + drawSize * 0.50 + dir * 23.0 * s;
+        double eyeX = headCx + dir * 7.0 * s;
+        double eyeY = y + 10.0 * s;
+        double dx = nullRockLaserTargetX - eyeX;
+        double dy = nullRockLaserTargetY - eyeY;
+        double length = Math.max(1.0, Math.hypot(dx, dy));
+        double nx = dx / length;
+        double ny = dy / length;
+        double endX = eyeX + nx * 5200.0;
+        double endY = eyeY + ny * 5200.0;
+        double px = -ny * 4.2 * Math.sqrt(s);
+        double py = nx * 4.2 * Math.sqrt(s);
+
+        g.save();
+        g.setLineCap(StrokeLineCap.ROUND);
+        if (elapsed < NULL_ROCK_LASER_WINDUP_FRAMES) {
+            double charge = elapsed / (double) NULL_ROCK_LASER_WINDUP_FRAMES;
+            g.setStroke(Color.web("#FF1744", 0.22 + charge * 0.42));
+            g.setLineWidth(2.0 + charge * 6.0);
+            g.strokeLine(eyeX + px, eyeY + py, endX + px, endY + py);
+            g.strokeLine(eyeX - px, eyeY - py, endX - px, endY - py);
+            g.setFill(Color.web("#FF80AB", 0.34 + charge * 0.54));
+            double chargeSize = (8.0 + charge * 24.0) * Math.sqrt(s);
+            g.fillOval(eyeX - chargeSize * 0.5, eyeY - chargeSize * 0.5, chargeSize, chargeSize);
+        } else {
+            double flare = 0.82 + 0.18 * Math.sin((elapsed - NULL_ROCK_LASER_WINDUP_FRAMES) * 1.35);
+            g.setEffect(new Glow(0.86));
+            g.setStroke(Color.web("#21000C", 0.88));
+            g.setLineWidth((nullRockLaserUltimate ? 82.0 : 66.0) * Math.sqrt(s));
+            g.strokeLine(eyeX, eyeY, endX, endY);
+            g.setStroke(Color.web("#D5003D", 0.94));
+            g.setLineWidth((nullRockLaserUltimate ? 54.0 : 42.0) * Math.sqrt(s));
+            g.strokeLine(eyeX, eyeY, endX, endY);
+            g.setStroke(Color.web("#FFF1F5", 0.92 * flare));
+            g.setLineWidth((nullRockLaserUltimate ? 20.0 : 14.0) * Math.sqrt(s));
+            g.strokeLine(eyeX, eyeY, endX, endY);
+            g.setEffect(null);
+        }
+        g.restore();
+    }
+
+    private void drawNullRockBloodSpear(GraphicsContext g, double spearX, double spearY, double scale, int index) {
+        double length = 112.0 * scale;
+        double halfWidth = 9.0 * scale;
+        g.save();
+        g.setStroke(Color.web("#24100F"));
+        g.setLineWidth(7.0 * scale);
+        g.strokeLine(spearX, spearY, spearX, spearY + length);
+        g.setStroke(Color.web("#6D4C41"));
+        g.setLineWidth(2.5 * scale);
+        g.strokeLine(spearX - 1.5 * scale, spearY + 7.0 * scale,
+                spearX - 1.5 * scale, spearY + length - 12.0 * scale);
+        g.setFill(index % 2 == 0 ? Color.web("#7F0000") : Color.web("#B71C1C"));
+        g.fillPolygon(
+                new double[]{spearX - halfWidth, spearX + halfWidth, spearX},
+                new double[]{spearY + length - 18.0 * scale, spearY + length - 18.0 * scale, spearY + length + 18.0 * scale},
+                3
+        );
+        g.setFill(Color.web("#D50000", 0.82));
+        g.fillOval(spearX - 4.0 * scale, spearY + length - 9.0 * scale,
+                8.0 * scale, 16.0 * scale);
+        g.restore();
     }
 
     private void drawRooster(GraphicsContext g, double drawSize) {

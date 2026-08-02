@@ -155,6 +155,10 @@ final class VultureSpecials {
         if (bird.type != BirdGame3.BirdType.VULTURE) {
             return;
         }
+        if (bird.isNullRockForm()) {
+            handleNullRockState(bird);
+            return;
+        }
         handleGlide(bird);
         handleThermal(bird);
         handleBait(bird);
@@ -744,29 +748,278 @@ final class VultureSpecials {
     }
 
     static void nullRock(Bird bird, boolean ultimate) {
-        bird.crowSwarmCooldown = ultimate ? 960 : 1080;
-        bird.specialCooldown = bird.crowSwarmCooldown;
-        bird.specialMaxCooldown = bird.crowSwarmCooldown;
+        switch (bird.selectVultureSpecialVariant()) {
+            case NEUTRAL -> nullRockNeutral(bird, ultimate);
+            case SIDE -> nullRockSide(bird, ultimate);
+            case UP -> nullRockUp(bird, ultimate);
+            case DOWN -> nullRockDown(bird, ultimate);
+        }
+    }
+
+    static void nullRockNeutral(Bird bird, boolean ultimate) {
+        beginNullRockSpecial(bird, ultimate);
         bird.game.summonNullRockSpecialFlock(bird, ultimate);
-
-        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, ultimate ? 30 : 24);
-        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, ultimate ? 18 : 14);
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, ultimate ? 28 : 20);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, ultimate ? 10 : 7);
         bird.carrionSwarmTimer = ultimate ? 240 : 180;
+        emitNullRockBurst(bird, ultimate ? 210 : 145, ultimate);
+    }
 
-        int particleCount = bird.scaledParticleCount(ultimate ? 360 : 260);
+    static void nullRockSide(Bird bird, boolean ultimate) {
+        beginNullRockSpecial(bird, ultimate);
+        Bird target = closestNullRockTarget(bird);
+        bird.nullRockLaserTimer = Bird.NULL_ROCK_LASER_FRAMES;
+        bird.nullRockLaserUltimate = ultimate;
+        bird.nullRockLaserFired = false;
+        bird.nullRockLaserTargetIndex = target != null ? target.playerIndex : -1;
+        double fallbackDir = bird.facingDirection();
+        bird.nullRockLaserTargetX = target != null
+                ? target.bodyCenterX()
+                : bird.bodyCenterX() + fallbackDir * 1600.0;
+        bird.nullRockLaserTargetY = target != null ? target.bodyCenterY() : bird.bodyCenterY();
+        if (target != null) {
+            bird.facingRight = target.bodyCenterX() >= bird.bodyCenterX();
+        }
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.NULL_ROCK_LASER_FRAMES);
+        bird.vx *= 0.18;
+        bird.vy = Math.min(bird.vy, 1.0);
+        bird.game.addToKillFeed(bird.shortName() + " fixes its divine gaze on the nearest enemy.");
+    }
+
+    static void nullRockUp(Bird bird, boolean ultimate) {
+        beginNullRockSpecial(bird, ultimate);
+        bird.nullRockLiftTimer = Bird.NULL_ROCK_LIFT_FRAMES;
+        bird.nullRockLiftUltimate = ultimate;
+        bird.vy = Math.min(bird.vy, ultimate ? -16.5 : -13.5);
+        bird.vx *= 0.55;
+        spawnNullRockHenchmen(bird, 3, ultimate);
+        bird.carrionSwarmTimer = Math.max(bird.carrionSwarmTimer, 80);
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, ultimate ? 20 : 14);
+        bird.game.addToKillFeed(bird.shortName() + " is lifted by three vulture henchmen!");
+        emitNullRockBurst(bird, ultimate ? 120 : 78, ultimate);
+    }
+
+    static void nullRockDown(Bird bird, boolean ultimate) {
+        beginNullRockSpecial(bird, ultimate);
+        Bird target = closestNullRockTarget(bird);
+        double targetX = target != null ? target.bodyCenterX() : bird.bodyCenterX();
+        double targetY = target != null ? target.bodyCenterY() : BirdGame3.GROUND_Y - 80.0;
+        bird.nullRockSpearTimer = Bird.NULL_ROCK_SPEAR_FRAMES;
+        bird.nullRockSpearCount = ultimate ? Bird.NULL_ROCK_MAX_SPEARS : 5;
+        bird.nullRockSpearUltimate = ultimate;
+        Arrays.fill(bird.nullRockSpearSpent, true);
+        double spacing = ultimate ? 118.0 : 142.0;
+        double centerIndex = (bird.nullRockSpearCount - 1) * 0.5;
+        for (int i = 0; i < bird.nullRockSpearCount; i++) {
+            bird.nullRockSpearX[i] = targetX + (i - centerIndex) * spacing;
+            bird.nullRockSpearY[i] = Math.max(-260.0, targetY - 940.0 - (i % 2) * 110.0);
+            bird.nullRockSpearDelay[i] = 22 + i * (ultimate ? 6 : 8);
+            bird.nullRockSpearSpent[i] = false;
+        }
+        bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 56);
+        bird.vx *= 0.28;
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, ultimate ? 24 : 17);
+        bird.game.addToKillFeed(bird.shortName() + " condemns the arena to a rain of bloodied spears.");
+    }
+
+    static int nullRockSpecialCooldown(Bird bird, boolean ultimate) {
+        boolean cpu = bird.playerIndex >= 0
+                && bird.playerIndex < bird.game.isAI.length
+                && bird.game.isAI[bird.playerIndex];
+        int frames;
+        if (cpu) {
+            int level = bird.game.getCpuLevel(bird.playerIndex);
+            frames = 1140 - (level - 1) * 65;
+        } else {
+            frames = 540;
+        }
+        if (ultimate) frames -= 90;
+        return Math.max(480, frames);
+    }
+
+    static int ownedNullRockHenchmanCount(Bird bird) {
+        int count = 0;
+        for (CrowMinion crow : bird.game.crowMinions) {
+            if (crow.owner == bird && crow.effectiveVariant() == CrowMinion.VARIANT_VULTURE_HENCHMAN) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    private static void beginNullRockSpecial(Bird bird, boolean ultimate) {
+        int cooldown = nullRockSpecialCooldown(bird, ultimate);
+        bird.crowSwarmCooldown = cooldown;
+        bird.specialCooldown = cooldown;
+        bird.specialMaxCooldown = cooldown;
+        bird.nullRockSpecialCycle = Math.floorMod(bird.nullRockSpecialCycle + 1, 4);
+        bird.isBlocking = false;
+        bird.shieldHoldVisual = 0.0;
+    }
+
+    private static void handleNullRockState(Bird bird) {
+        handleNullRockLaser(bird);
+        handleNullRockLift(bird);
+        handleNullRockSpears(bird);
+    }
+
+    private static void handleNullRockLaser(Bird bird) {
+        if (bird.nullRockLaserTimer <= 0) return;
+        int elapsed = Bird.NULL_ROCK_LASER_FRAMES - bird.nullRockLaserTimer;
+        if (elapsed < Bird.NULL_ROCK_LASER_WINDUP_FRAMES) {
+            Bird target = playerAt(bird, bird.nullRockLaserTargetIndex);
+            if (target != null && target.health > 0 && bird.canDamageTarget(target)) {
+                bird.nullRockLaserTargetX = target.bodyCenterX();
+                bird.nullRockLaserTargetY = target.bodyCenterY();
+                bird.facingRight = target.bodyCenterX() >= bird.bodyCenterX();
+            }
+            bird.vx *= 0.72;
+            bird.vy = Math.min(bird.vy, 1.5);
+        } else if (!bird.nullRockLaserFired) {
+            fireNullRockLaser(bird);
+            bird.nullRockLaserFired = true;
+        }
+        bird.nullRockLaserTimer--;
+    }
+
+    private static void fireNullRockLaser(Bird bird) {
+        double dir = bird.facingDirection();
+        double startX = bird.bodyCenterX() + dir * 30.0 * bird.sizeMultiplier;
+        double startY = bird.y + 10.0 * bird.sizeMultiplier;
+        double dx = bird.nullRockLaserTargetX - startX;
+        double dy = bird.nullRockLaserTargetY - startY;
+        double length = Math.max(1.0, Math.hypot(dx, dy));
+        double nx = dx / length;
+        double ny = dy / length;
+        double endX = startX + nx * 5200.0;
+        double endY = startY + ny * 5200.0;
+        double beamRadius = (bird.nullRockLaserUltimate ? 58.0 : 46.0) * Math.sqrt(bird.sizeMultiplier);
+        double rawDamage = bird.nullRockLaserUltimate ? 20.0 : 14.0;
+        for (Bird other : bird.game.players) {
+            if (other == null || other == bird || other.health <= 0 || !bird.canDamageTarget(other)) continue;
+            double radius = Math.max(other.combatHalfWidth(), other.combatHalfHeight()) + beamRadius;
+            if (distanceToSegment(other.bodyCenterX(), other.bodyCenterY(), startX, startY, endX, endY) > radius) {
+                continue;
+            }
+            dealDamage(bird, other, rawDamage,
+                    nx * (bird.nullRockLaserUltimate ? 22.0 : 17.0),
+                    ny * 10.0 - (bird.nullRockLaserUltimate ? 8.0 : 5.0),
+                    "scoured", bird.nullRockLaserUltimate ? 18 : 13, Color.web("#FF1744"));
+        }
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, bird.nullRockLaserUltimate ? 34 : 27);
+        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, bird.nullRockLaserUltimate ? 8 : 5);
+    }
+
+    private static void handleNullRockLift(Bird bird) {
+        if (bird.nullRockLiftTimer <= 0) return;
+        int elapsed = Bird.NULL_ROCK_LIFT_FRAMES - bird.nullRockLiftTimer;
+        if (elapsed < 28) {
+            bird.vy = Math.min(bird.vy, bird.nullRockLiftUltimate ? -15.0 : -12.0);
+            bird.vx *= 0.94;
+        }
+        bird.nullRockLiftTimer--;
+    }
+
+    private static void handleNullRockSpears(Bird bird) {
+        if (bird.nullRockSpearTimer <= 0) return;
+        int elapsed = Bird.NULL_ROCK_SPEAR_FRAMES - bird.nullRockSpearTimer;
+        double spearScale = Math.max(1.35, Math.sqrt(bird.sizeMultiplier));
+        double spearLength = 112.0 * spearScale;
+        double fallSpeed = bird.nullRockSpearUltimate ? 43.0 : 36.0;
+        for (int i = 0; i < bird.nullRockSpearCount; i++) {
+            if (bird.nullRockSpearSpent[i] || elapsed < bird.nullRockSpearDelay[i]) continue;
+            double previousTip = bird.nullRockSpearY[i] + spearLength;
+            bird.nullRockSpearY[i] += fallSpeed;
+            double currentTip = bird.nullRockSpearY[i] + spearLength;
+            for (Bird other : bird.game.players) {
+                if (other == null || other == bird || other.health <= 0 || !bird.canDamageTarget(other)) continue;
+                double horizontalReach = other.combatHalfWidth() + 13.0 * spearScale;
+                double top = other.bodyCenterY() - other.combatHalfHeight();
+                double bottom = other.bodyCenterY() + other.combatHalfHeight();
+                if (Math.abs(other.bodyCenterX() - bird.nullRockSpearX[i]) > horizontalReach
+                        || currentTip < top || previousTip > bottom + fallSpeed) {
+                    continue;
+                }
+                double side = Math.signum(other.bodyCenterX() - bird.nullRockSpearX[i]);
+                dealDamage(bird, other, bird.nullRockSpearUltimate ? 13.0 : 9.0,
+                        side * 5.0, bird.nullRockSpearUltimate ? 14.0 : 10.0,
+                        "impaled", bird.nullRockSpearUltimate ? 15 : 10, Color.web("#B71C1C"));
+                bird.nullRockSpearSpent[i] = true;
+                break;
+            }
+            if (bird.nullRockSpearY[i] > BirdGame3.GROUND_Y + 180.0) {
+                bird.nullRockSpearSpent[i] = true;
+            }
+        }
+        bird.nullRockSpearTimer--;
+    }
+
+    private static int spawnNullRockHenchmen(Bird bird, int desiredCount, boolean ultimate) {
+        int existing = ownedNullRockHenchmanCount(bird);
+        int spawned = 0;
+        for (int slot = existing; slot < desiredCount; slot++) {
+            double side = slot - 1.0;
+            CrowMinion henchman = new CrowMinion(
+                    bird.bodyCenterX() + side * 62.0 * Math.sqrt(bird.sizeMultiplier),
+                    bird.bodyCenterY() + 38.0 * bird.sizeMultiplier,
+                    null
+            ).withVariant(CrowMinion.VARIANT_VULTURE_HENCHMAN)
+                    .withSpeedMultiplier(ultimate ? 1.32 : 1.16)
+                    .withOverflowProtectionFrames(ultimate ? 300 : 180);
+            henchman.owner = bird;
+            henchman.life = Math.max(henchman.life, ultimate ? 7 : 5);
+            henchman.hasCrown = ultimate;
+            henchman.vx = side * 3.8;
+            henchman.vy = -7.5 - slot * 0.8;
+            bird.game.crowMinions.add(henchman);
+            spawned++;
+        }
+        return spawned;
+    }
+
+    private static Bird closestNullRockTarget(Bird bird) {
+        Bird closest = null;
+        double bestDistanceSq = Double.MAX_VALUE;
+        for (Bird other : bird.game.players) {
+            if (other == null || other == bird || other.health <= 0 || !bird.canDamageTarget(other)) continue;
+            double dx = other.bodyCenterX() - bird.bodyCenterX();
+            double dy = other.bodyCenterY() - bird.bodyCenterY();
+            double distanceSq = dx * dx + dy * dy;
+            if (distanceSq < bestDistanceSq) {
+                bestDistanceSq = distanceSq;
+                closest = other;
+            }
+        }
+        return closest;
+    }
+
+    private static Bird playerAt(Bird bird, int index) {
+        if (index < 0 || index >= bird.game.players.length) return null;
+        return bird.game.players[index];
+    }
+
+    private static double distanceToSegment(double px, double py, double ax, double ay, double bx, double by) {
+        double dx = bx - ax;
+        double dy = by - ay;
+        double lengthSq = dx * dx + dy * dy;
+        if (lengthSq <= 0.0001) return Math.hypot(px - ax, py - ay);
+        double t = Math.clamp(((px - ax) * dx + (py - ay) * dy) / lengthSq, 0.0, 1.0);
+        return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+    }
+
+    private static void emitNullRockBurst(Bird bird, int count, boolean ultimate) {
+        int particleCount = bird.scaledParticleCount(count);
         for (int i = 0; i < particleCount; i++) {
-            double angle = bird.game.nextParticleRandom() * Math.PI * 2;
-            double speed = 9 + bird.game.nextParticleRandom() * 18;
+            double angle = bird.game.nextParticleRandom() * Math.PI * 2.0;
+            double speed = 7.0 + bird.game.nextParticleRandom() * 15.0;
             Color shade = switch (i % 3) {
                 case 1 -> Color.web("#16020C");
                 case 2 -> Color.web("#25102B");
                 default -> Color.BLACK;
             };
             bird.game.particles.add(new Particle(
-                    bird.x + 40,
-                    bird.y + 40,
-                    Math.cos(angle) * speed,
-                    Math.sin(angle) * speed - 6,
+                    bird.bodyCenterX(), bird.bodyCenterY(),
+                    Math.cos(angle) * speed, Math.sin(angle) * speed - 5.0,
                     shade.deriveColor(0, 1, 1, ultimate ? 0.95 : 0.82)
             ));
         }
@@ -776,7 +1029,10 @@ final class VultureSpecials {
         return bird.vultureCallTimer > 0
                 || bird.vultureGlideTimer > 0
                 || bird.vultureThermalTimer > 0
-                || bird.vultureBlackSkyTimer > 0;
+                || bird.vultureBlackSkyTimer > 0
+                || bird.nullRockLaserTimer > 0
+                || bird.nullRockLiftTimer > 0
+                || bird.nullRockSpearTimer > 0;
     }
 
     static boolean ready(Bird bird, Bird.VultureSpecialVariant variant) {
@@ -830,8 +1086,20 @@ final class VultureSpecials {
         bird.vultureBlackSkyWaveIndex = 0;
         bird.vultureBlackSkyFinalHit = false;
         Arrays.fill(bird.vultureBlackSkyHit, false);
+        bird.nullRockLaserTimer = 0;
+        bird.nullRockLaserTargetIndex = -1;
+        bird.nullRockLaserUltimate = false;
+        bird.nullRockLaserFired = false;
+        bird.nullRockLiftTimer = 0;
+        bird.nullRockLiftUltimate = false;
+        bird.nullRockSpearTimer = 0;
+        bird.nullRockSpearCount = 0;
+        bird.nullRockSpearUltimate = false;
+        Arrays.fill(bird.nullRockSpearSpent, true);
         if (clearObjects) {
             bird.vultureBait = null;
+            bird.game.crowMinions.removeIf(crow -> crow.owner == bird
+                    && crow.effectiveVariant() == CrowMinion.VARIANT_VULTURE_HENCHMAN);
         }
     }
 

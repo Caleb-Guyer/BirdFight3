@@ -11244,6 +11244,9 @@ public class BirdGame3 {
             if (c.retargetCooldown > 0) {
                 c.retargetCooldown--;
             }
+            if (c.contactCooldown > 0) {
+                c.contactCooldown--;
+            }
             if (c.guardsAnchor()) {
                 if (updateAnchoredCrowMinion(c)) {
                     it.remove();
@@ -11290,7 +11293,7 @@ public class BirdGame3 {
                         c.vy = c.vy / speedNow * spd;
                     }
                 }
-                if (dist < 48) {
+                if (dist < 48 && c.contactCooldown <= 0) {
                     int damage = c.contactDamage();
                     double dealtDamage = closest.receiveOwnedMinionDamage(damage, c.owner);
                     if (dealtDamage <= 0) {
@@ -11326,8 +11329,16 @@ public class BirdGame3 {
                         triggerFlash(0.6, false);
                         shakeIntensity = Math.max(shakeIntensity, 20);
                     }
-                    it.remove();
-                    continue;
+                    if (c.effectiveVariant() == CrowMinion.VARIANT_VULTURE_HENCHMAN) {
+                        c.contactCooldown = 72;
+                        c.vx = -hitDirection * 5.2;
+                        c.vy = -6.4;
+                        c.target = null;
+                        c.retargetCooldown = 18;
+                    } else {
+                        it.remove();
+                        continue;
+                    }
                 }
             }
             c.x += c.vx;
@@ -15704,6 +15715,10 @@ public class BirdGame3 {
 
     private void drawCrowMinion(GraphicsContext g, CrowMinion crow) {
         int variant = crow.effectiveVariant();
+        if (variant == CrowMinion.VARIANT_VULTURE_HENCHMAN) {
+            drawVultureHenchman(g, crow);
+            return;
+        }
         double pulseVal = 1.0 + 0.3 * Math.sin(crow.age * 0.4);
         double scale = pulseVal * crow.drawScale();
         double hitFlash = Math.clamp(crow.hitFlashTimer / 10.0, 0.0, 1.0);
@@ -15879,6 +15894,111 @@ public class BirdGame3 {
             g.setStroke(variant == CrowMinion.VARIANT_VOID_RAVEN ? Color.web("#FFCDD2") : Color.web("#FFF59D"));
             g.setLineWidth(1.2);
             g.strokePolygon(xs, ys, xs.length);
+        }
+        g.restore();
+    }
+
+    private void drawVultureHenchman(GraphicsContext g, CrowMinion henchman) {
+        double scale = henchman.drawScale() * (1.0 + 0.08 * Math.sin(henchman.age * 0.34));
+        double hitFlash = Math.clamp(henchman.hitFlashTimer / 10.0, 0.0, 1.0);
+        double drawX = henchman.x + (hitFlash > 0.0 ? (henchman.hitFlashTimer % 2 == 0 ? 2.2 : -2.2) * scale : 0.0);
+        double drawY = henchman.y - hitFlash * 2.0 * scale;
+        double dir = henchman.vx >= 0.0 ? 1.0 : -1.0;
+        double flap = Math.sin(henchman.age * 0.42);
+        Color body = Color.web("#17131A").interpolate(Color.web("#FFEBEE"), hitFlash * 0.34);
+        Color wing = Color.web("#29222E").interpolate(Color.web("#FFF59D"), hitFlash * 0.22);
+        Color flesh = Color.web("#79343B");
+        Color beak = Color.web("#8D7844");
+
+        g.save();
+        g.setFill(Color.rgb(0, 0, 0, 0.32));
+        g.fillOval(drawX - 30.0 * scale, drawY + 16.0 * scale, 60.0 * scale, 13.0 * scale);
+        g.translate(drawX, drawY);
+        g.scale(dir * scale, scale);
+
+        double wingLift = -8.0 - flap * 8.0;
+        g.setFill(wing.darker());
+        g.fillPolygon(
+                new double[]{-7, -28, -51, -38, -13, 3},
+                new double[]{0, wingLift - 20, wingLift - 5, wingLift + 17, 18, 10},
+                6
+        );
+        g.setStroke(Color.web("#08060A", 0.88));
+        g.setLineWidth(2.0);
+        g.strokePolygon(
+                new double[]{-7, -28, -51, -38, -13, 3},
+                new double[]{0, wingLift - 20, wingLift - 5, wingLift + 17, 18, 10},
+                6
+        );
+
+        g.setFill(body);
+        g.fillOval(-20, -10, 43, 31);
+        g.setStroke(Color.web("#070609", 0.88));
+        g.setLineWidth(2.0);
+        g.strokeOval(-20, -10, 43, 31);
+        g.setFill(Color.web("#3B303F", 0.78));
+        g.fillArc(-15, -7, 31, 23, 205, 150, ArcType.ROUND);
+
+        g.setFill(wing);
+        g.fillPolygon(
+                new double[]{-1, -25, -48, -34, -7, 10},
+                new double[]{-2, wingLift - 24, wingLift + 1, wingLift + 21, 18, 8},
+                6
+        );
+        g.setStroke(Color.web("#08060A", 0.90));
+        g.strokePolygon(
+                new double[]{-1, -25, -48, -34, -7, 10},
+                new double[]{-2, wingLift - 24, wingLift + 1, wingLift + 21, 18, 8},
+                6
+        );
+        g.setStroke(Color.web("#6D5B70", 0.56));
+        g.setLineWidth(1.2);
+        g.strokeLine(-13, wingLift - 9, -35, wingLift + 4);
+        g.strokeLine(-7, wingLift - 2, -27, wingLift + 14);
+
+        g.setStroke(flesh.darker());
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(11.0);
+        g.strokeLine(13, 1, 19, -17);
+        g.setStroke(flesh);
+        g.setLineWidth(7.0);
+        g.strokeLine(13, 1, 19, -17);
+        g.setFill(flesh);
+        g.fillOval(11, -28, 25, 21);
+        g.setStroke(Color.web("#351419", 0.72));
+        g.setLineWidth(1.3);
+        g.strokeArc(14, -23, 17, 9, 190, 115, ArcType.OPEN);
+
+        g.setFill(beak.darker());
+        g.fillPolygon(new double[]{30, 48, 32}, new double[]{-23, -17, -12}, 3);
+        g.setFill(beak);
+        g.fillPolygon(new double[]{28, 49, 31}, new double[]{-25, -20, -17}, 3);
+        g.setFill(Color.web("#FF1744"));
+        g.fillOval(25, -22, 5.5, 5.5);
+        g.setFill(Color.web("#FFF8E1"));
+        g.fillOval(27, -21, 1.5, 1.5);
+
+        g.setStroke(Color.web("#6D5A3A"));
+        g.setLineWidth(2.0);
+        g.strokeLine(-5, 18, -8, 27);
+        g.strokeLine(8, 17, 10, 27);
+        g.strokeLine(-8, 27, -15, 29);
+        g.strokeLine(10, 27, 18, 28);
+
+        if (henchman.hasCrown) {
+            g.setFill(Color.web("#FFD54F"));
+            g.fillPolygon(
+                    new double[]{12, 16, 21, 26, 31, 32, 12},
+                    new double[]{-30, -41, -33, -43, -31, -27, -27},
+                    7
+            );
+            g.setStroke(Color.web("#FFF59D", 0.82));
+            g.setLineWidth(1.2);
+            g.strokePolyline(
+                    new double[]{12, 16, 21, 26, 31, 32},
+                    new double[]{-30, -41, -33, -43, -31, -27},
+                    6
+            );
         }
         g.restore();
     }
@@ -30931,7 +31051,7 @@ public class BirdGame3 {
                 "Complete Adventure Chapter 9: Sky of All Wings",
                 nullRockVultureUnlocked,
                 nullRockBirdBookStatsLine(),
-                "Dark Flock (giant crows, ravens, void ravens, murder crows) + Void Shell phase armor",
+                "Dark Flock + Eye Lasers + Vulture Henchmen + Blood Spear Rain + Void Shell phase armor",
                 MapType.BEACON_CROWN,
                 nullRockCompanionEntries()
         );
@@ -31070,6 +31190,17 @@ public class BirdGame3 {
                         Color.rgb(40, 0, 0),
                         BirdCompanionKind.CROW,
                         CrowMinion.VARIANT_MURDER_CROW,
+                        false
+                ),
+                new BirdCompanionEntry(
+                        "Vulture Henchman",
+                        "AI BODYGUARD",
+                        "SOURCE: NULL ROCK UP SPECIAL",
+                        "Damage: 6 | Life: 5 | Three active at once",
+                        "Three lesser vultures lift The Null Rock into the air, then break formation and independently hunt his enemies until they are defeated.",
+                        Color.web("#79343B"),
+                        BirdCompanionKind.CROW,
+                        CrowMinion.VARIANT_VULTURE_HENCHMAN,
                         false
                 )
         );
@@ -42377,6 +42508,29 @@ public class BirdGame3 {
             h = h * 1099511628211L + Double.doubleToLongBits(b.y);
             h = h * 1099511628211L + Double.doubleToLongBits(b.health);
             h = h * 1099511628211L + scores[i];
+            if (b.isNullRockForm()) {
+                h = h * 1099511628211L + b.specialCooldown;
+                h = h * 1099511628211L + b.nullRockLaserTimer;
+                h = h * 1099511628211L + b.nullRockLaserTargetIndex;
+                h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockLaserTargetX);
+                h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockLaserTargetY);
+                h = h * 1099511628211L + b.nullRockLiftTimer;
+                h = h * 1099511628211L + b.nullRockSpearTimer;
+                for (int spear = 0; spear < b.nullRockSpearCount; spear++) {
+                    h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockSpearX[spear]);
+                    h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockSpearY[spear]);
+                    h = h * 1099511628211L + (b.nullRockSpearSpent[spear] ? 1 : 0);
+                }
+            }
+        }
+        h = h * 1099511628211L + crowMinions.size();
+        for (CrowMinion crow : crowMinions) {
+            h = h * 1099511628211L + Double.doubleToLongBits(crow.x);
+            h = h * 1099511628211L + Double.doubleToLongBits(crow.y);
+            h = h * 1099511628211L + crow.effectiveVariant();
+            h = h * 1099511628211L + crow.life;
+            h = h * 1099511628211L + crow.contactCooldown;
+            h = h * 1099511628211L + (crow.owner != null ? crow.owner.playerIndex : -1);
         }
         h = h * 1099511628211L + mockingbirdShadowMinions.size();
         for (MockingbirdShadowMinion shadow : mockingbirdShadowMinions) {

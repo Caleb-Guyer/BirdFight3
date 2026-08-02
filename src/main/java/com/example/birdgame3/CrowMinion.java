@@ -7,6 +7,7 @@ class CrowMinion {
     static final int VARIANT_GIANT_CROW = 2;
     static final int VARIANT_RAVEN = 3;
     static final int VARIANT_VOID_RAVEN = 4;
+    static final int VARIANT_VULTURE_HENCHMAN = 5;
 
     double x, y, vx, vy;
     double prevX, prevY;
@@ -19,6 +20,7 @@ class CrowMinion {
     int variant = VARIANT_AUTO;
     int hitFlashTimer = 0;
     int retargetCooldown = 0;
+    int contactCooldown = 0;
     double speedMultiplier = 1.0;
     int overflowProtectionFrames = 0;
     boolean anchorGuard = false;
@@ -89,6 +91,7 @@ class CrowMinion {
             case VARIANT_GIANT_CROW -> 2.15;
             case VARIANT_RAVEN -> 1.28;
             case VARIANT_VOID_RAVEN -> 1.52;
+            case VARIANT_VULTURE_HENCHMAN -> 1.72;
             case VARIANT_MURDER_CROW -> 1.38;
             default -> 1.0;
         };
@@ -99,6 +102,7 @@ class CrowMinion {
             case VARIANT_GIANT_CROW -> 6;
             case VARIANT_RAVEN -> 5;
             case VARIANT_VOID_RAVEN -> 7;
+            case VARIANT_VULTURE_HENCHMAN -> 6;
             case VARIANT_MURDER_CROW -> 4;
             default -> 1;
         };
@@ -109,6 +113,7 @@ class CrowMinion {
             case VARIANT_GIANT_CROW -> 0.16;
             case VARIANT_RAVEN -> 0.28;
             case VARIANT_VOID_RAVEN -> 0.31;
+            case VARIANT_VULTURE_HENCHMAN -> 0.25;
             default -> 0.22;
         };
         return base * (0.94 + speedMultiplier * 0.12);
@@ -119,6 +124,7 @@ class CrowMinion {
             case VARIANT_GIANT_CROW -> 2.65;
             case VARIANT_RAVEN -> 3.7;
             case VARIANT_VOID_RAVEN -> 4.15;
+            case VARIANT_VULTURE_HENCHMAN -> 3.55;
             default -> 3.2;
         };
         return base * speedMultiplier;
@@ -129,6 +135,7 @@ class CrowMinion {
             case VARIANT_GIANT_CROW -> "GIANT CROW";
             case VARIANT_RAVEN -> "RAVEN";
             case VARIANT_VOID_RAVEN -> "VOID RAVEN";
+            case VARIANT_VULTURE_HENCHMAN -> "VULTURE HENCHMAN";
             case VARIANT_MURDER_CROW -> "MURDER CROW";
             default -> "CROW";
         };
@@ -153,6 +160,7 @@ class CrowMinion {
             case VARIANT_GIANT_CROW -> 3;
             case VARIANT_RAVEN -> 2;
             case VARIANT_VOID_RAVEN -> 4;
+            case VARIANT_VULTURE_HENCHMAN -> 5;
             default -> 1;
         };
     }
