@@ -976,6 +976,9 @@ public class Bird {
     private BirdAnimationState animationState = BirdAnimationState.IDLE;
     private double animationStateFrame = 0.0;
     private double animationGlobalFrame = 0.0;
+    private boolean animationFacingInitialized = false;
+    private boolean animationTrackedFacingRight = true;
+    private double animationTurnFrame = GOOSE_KIWI_TURN_FRAMES;
     private DodgeType dodgeType = DodgeType.NONE;
     private int dodgeTimer = 0;
     private int dodgeInvulnerabilityTimer = 0;
@@ -1318,6 +1321,7 @@ public class Bird {
     private static final double VISUAL_POSE_AIR_BLEND_PER_FRAME = 0.34;
     private static final double VISUAL_POSE_ACTION_BLEND_PER_FRAME = 0.48;
     private static final double VISUAL_POSE_DODGE_BLEND_PER_FRAME = 0.82;
+    private static final double GOOSE_KIWI_TURN_FRAMES = 14.0;
     private static final int JUMP_SQUAT_FRAMES = 3;
     private static final double SHORT_HOP_MULTIPLIER = 0.65;
     private static final int AERIAL_LANDING_LAG_FRAMES = 7;
@@ -11495,7 +11499,8 @@ public class Bird {
         if (isGroundAttackPending() || isChargingAttack() || attackAnimationTimer > 0
                 || raptorRushTimer > 0 || eagleDiveActive || diveTimer > 0 || eagleSkySovereignDiving
                 || gooseHonkTimer > 0 || gooseBargeTimer > 0 || gooseNestGuardTimer > 0
-                || gooseNestCounterTimer > 0 || gooseUltimateTimer > 0) {
+                || gooseNestCounterTimer > 0 || gooseUltimateTimer > 0
+                || (type == BirdGame3.BirdType.KIWI && KiwiSpecials.active(this))) {
             return BirdAnimationState.ATTACK;
         }
         if (!isOnGround()) {
@@ -18107,6 +18112,23 @@ public class Bird {
         if (gameSpeed <= 0.0) {
             return;
         }
+        if (usesGooseKiwiTurnAnimation()) {
+            if (!animationFacingInitialized) {
+                animationFacingInitialized = true;
+                animationTrackedFacingRight = facingRight;
+                animationTurnFrame = GOOSE_KIWI_TURN_FRAMES;
+            } else if (animationTrackedFacingRight != facingRight) {
+                animationTrackedFacingRight = facingRight;
+                animationTurnFrame = 0.0;
+                // Begin the new facing direction mirrored so the body visually closes,
+                // turns, and opens instead of popping to the opposite side in one tick.
+                displayPose = null;
+            } else if (animationTurnFrame < GOOSE_KIWI_TURN_FRAMES) {
+                animationTurnFrame = Math.min(GOOSE_KIWI_TURN_FRAMES, animationTurnFrame + gameSpeed);
+            }
+        } else {
+            animationTurnFrame = GOOSE_KIWI_TURN_FRAMES;
+        }
         BirdAnimationState nextState = currentBirdAnimationState();
         if (nextState != animationState) {
             animationState = nextState;
@@ -18124,9 +18146,53 @@ public class Bird {
         return animationGlobalFrame * (1000.0 / 60.0);
     }
 
+    private boolean usesGooseKiwiTurnAnimation() {
+        return type == BirdGame3.BirdType.GOOSE || type == BirdGame3.BirdType.KIWI;
+    }
+
+    private boolean gooseKiwiTurnAnimationActive() {
+        return usesGooseKiwiTurnAnimation()
+                && isOnGround()
+                && animationTurnFrame < GOOSE_KIWI_TURN_FRAMES;
+    }
+
+    private AttackVisualPose currentGooseKiwiTurnPose(BirdAnimationState state) {
+        if (state != BirdAnimationState.IDLE || !gooseKiwiTurnAnimationActive()) {
+            return ZERO_ANIMATION_POSE;
+        }
+        double t = Math.clamp(animationTurnFrame / GOOSE_KIWI_TURN_FRAMES, 0.0, 1.0);
+        double fold = Math.sin(t * Math.PI);
+        double halfProgress;
+        double scaleX;
+        if (t < 0.5) {
+            halfProgress = smoothStep(t * 2.0);
+            scaleX = -(1.0 - halfProgress * 0.84);
+        } else {
+            halfProgress = smoothStep((t - 0.5) * 2.0);
+            scaleX = 0.16 + halfProgress * 0.84;
+        }
+        double dir = facingRight ? 1.0 : -1.0;
+        return new AttackVisualPose(
+                -dir * fold * 2.5,
+                fold * 2.8,
+                -dir * Math.sin(t * Math.PI * 2.0) * 5.5,
+                0.0,
+                -fold * 2.5,
+                fold * 1.8,
+                -fold,
+                0.96 + (1.0 - fold) * 0.04,
+                -dir * Math.sin(t * Math.PI * 2.0) * 4.0,
+                scaleX,
+                1.0 + fold * 0.08
+        );
+    }
+
     private double currentVisualPoseBlendPerFrame() {
         if (isDodging()) {
             return VISUAL_POSE_DODGE_BLEND_PER_FRAME;
+        }
+        if (gooseKiwiTurnAnimationActive()) {
+            return 0.68;
         }
         if (health <= 0 || stunTime > 0.0 || knockdownTimer > 0 || jumpSquatTimer > 0 || landingLagTimer > 0
                 || isBlocking || shieldStunFrames > 0 || parryWindowFrames > 0
@@ -18402,6 +18468,9 @@ public class Bird {
         if (profile.style() == BirdVisualProfileStyle.GOOSE) {
             return currentGooseStatePose(state, profile);
         }
+        if (profile.style() == BirdVisualProfileStyle.KIWI) {
+            return currentKiwiStatePose(state, profile);
+        }
         double dir = facingRight ? 1.0 : -1.0;
         double speed = Math.min(1.0, Math.hypot(vx, vy) / 16.0);
         double agility = profile.agility();
@@ -18526,30 +18595,37 @@ public class Bird {
         double now = animationTimeMillis() + playerIndex * 181.0;
         double sway = Math.sin(now / 520.0);
         double neckBob = Math.sin(now / 260.0);
+        double run = isOnGround() ? Math.clamp(Math.abs(vx) / Math.max(1.0, type.speed), 0.0, 1.0) : 0.0;
+        double stride = Math.sin(animationGlobalFrame * (0.34 + run * 0.30));
         double territory = Math.clamp(gooseTerritoryMeter / GOOSE_TERRITORY_MAX, 0.0, 1.0);
         return switch (state) {
             case IDLE -> {
                 double alert = territory >= 1.0 ? 1.0 : 0.0;
                 double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 10.0) : 0.0;
+                double stepLift = Math.abs(stride) * run;
+                double lookPitch = run > 0.10
+                        ? -0.06 + stride * 0.035
+                        : sway * 0.20 - alert * 0.10;
                 yield new AttackVisualPose(
-                        dir * (sway * 0.45 - alert * 0.6),
-                        1.8 + Math.abs(neckBob) * 0.55 + landingSquash * 3.3,
-                        dir * (sway * 1.6 - alert * 2.2),
-                        facingRight ? -0.015 : Math.PI + 0.015,
-                        4.0 + Math.max(0.0, neckBob) * 2.2 + alert * 5.0,
-                        -3.2 - Math.max(0.0, neckBob) * 2.0 - alert * 4.0,
+                        dir * (sway * 0.45 * (1.0 - run) + run * (2.8 + stride * 1.5) - alert * 0.6),
+                        1.8 + Math.abs(neckBob) * 0.55 * (1.0 - run) - stepLift * 2.2
+                                + landingSquash * 3.3,
+                        dir * (sway * 1.6 * (1.0 - run) + run * (6.5 + stride * 2.6) - alert * 2.2),
+                        aimAngleForLocalPitch(lookPitch),
+                        4.0 + Math.max(0.0, neckBob) * 2.2 + run * 4.0 + alert * 5.0,
+                        -3.2 - Math.max(0.0, neckBob) * 2.0 - run * 2.8 - stepLift * 1.4 - alert * 4.0,
                         2.0 + alert * 2.5,
                         1.02 + alert * 0.10,
-                        dir * (sway * 2.2 - alert * 4.0),
-                        1.0 + landingSquash * 0.11,
-                        1.0 - landingSquash * 0.12
+                        dir * (sway * 2.2 * (1.0 - run) + run * (5.5 + stride * 2.2) - alert * 4.0),
+                        1.0 + run * stepLift * 0.045 + landingSquash * 0.11,
+                        1.0 - run * stepLift * 0.04 - landingSquash * 0.12
                 );
             }
             case FLAP -> new AttackVisualPose(
                     dir * (1.0 + speed * 1.8),
                     (-6.2 - speed * 4.4) * profile.airLift(),
                     dir * (4.6 + speed * 3.4),
-                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10),
+                    aimAngleForLocalPitch(-0.76),
                     11.0 + speed * 4.0,
                     -14.0 - speed * 4.0,
                     8.0 + speed * 3.0,
@@ -18562,7 +18638,7 @@ public class Bird {
                     dir * (0.6 + speed * 1.2),
                     (4.8 + speed * 4.6) * profile.mass(),
                     dir * (2.4 + speed * 3.8),
-                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.10),
+                    aimAngleForLocalPitch(0.52),
                     8.0 + speed * 3.0,
                     7.0 + speed * 4.5,
                     5.0 + speed * 3.0,
@@ -18639,6 +18715,137 @@ public class Bird {
                     dir * 25.0 * profile.koSlump(),
                     1.08,
                     0.78
+            );
+        };
+    }
+
+    private double aimAngleForLocalPitch(double localPitch) {
+        return normalizeAngleRadians(facingRight ? localPitch : Math.PI - localPitch);
+    }
+
+    private AttackVisualPose currentKiwiStatePose(BirdAnimationState state, BirdVisualProfile profile) {
+        double dir = facingRight ? 1.0 : -1.0;
+        double speed = Math.min(1.0, Math.hypot(vx, vy) / 12.0);
+        double run = isOnGround() ? Math.clamp(Math.abs(vx) / Math.max(1.0, type.speed), 0.0, 1.0) : 0.0;
+        double now = animationTimeMillis() + playerIndex * 197.0;
+        double stride = Math.sin(animationGlobalFrame * (0.42 + run * 0.34));
+        double idleLook = Math.sin(now / 760.0);
+        return switch (state) {
+            case IDLE -> {
+                double landingSquash = landingLagTimer > 0 ? Math.min(1.0, landingLagTimer / 9.0) : 0.0;
+                double lookPitch = run > 0.10 ? -0.05 + stride * 0.035 : idleLook * 0.24;
+                double stepLift = Math.abs(stride) * run;
+                yield new AttackVisualPose(
+                        dir * (run * (2.2 + stride * 1.4) + idleLook * 0.25 * (1.0 - run)),
+                        -stepLift * 2.4 + landingSquash * 3.2,
+                        dir * (run * (6.0 + stride * 2.8) + idleLook * 0.7 * (1.0 - run)),
+                        aimAngleForLocalPitch(lookPitch),
+                        2.0 + run * 4.0,
+                        -1.5 - run * 2.5 - stepLift * 1.5,
+                        run * 1.5,
+                        1.0,
+                        dir * (run * (5.0 + stride * 2.4) + idleLook * 1.0 * (1.0 - run)),
+                        1.0 + run * stepLift * 0.055 + landingSquash * 0.11,
+                        1.0 - run * stepLift * 0.045 - landingSquash * 0.12
+                );
+            }
+            case FLAP -> new AttackVisualPose(
+                    dir * (1.6 + speed * 2.0),
+                    (-6.0 - speed * 4.5) * profile.airLift(),
+                    dir * (4.0 + speed * 4.0),
+                    aimAngleForLocalPitch(-0.78),
+                    8.0 + speed * 4.0,
+                    -10.0 - speed * 4.0,
+                    5.0 + speed * 2.0,
+                    1.0,
+                    -dir * (11.0 + speed * 7.0),
+                    0.95,
+                    1.10 + speed * 0.05
+            );
+            case FALL -> new AttackVisualPose(
+                    dir * (0.7 + speed * 1.4),
+                    (3.6 + speed * 4.0) * profile.mass(),
+                    dir * (2.0 + speed * 3.0),
+                    aimAngleForLocalPitch(0.52),
+                    5.0 + speed * 2.0,
+                    5.0 + speed * 3.0,
+                    3.0 + speed * 2.0,
+                    0.94,
+                    dir * (9.0 + speed * 7.0),
+                    0.98,
+                    1.04
+            );
+            case HITSTUN -> new AttackVisualPose(
+                    -dir * (4.0 + speed * 5.0) * profile.recoil(),
+                    -1.0,
+                    -dir * (10.0 + speed * 8.0) * profile.recoil(),
+                    aimAngleForLocalPitch(0.16),
+                    -2.0,
+                    3.0,
+                    -2.0,
+                    0.78,
+                    -dir * (12.0 + speed * 9.0),
+                    0.90,
+                    1.10
+            );
+            case SHIELD -> new AttackVisualPose(
+                    -dir * 2.4,
+                    5.0 * profile.shieldCrouch(),
+                    -dir * 5.0,
+                    aimAngleForLocalPitch(0.30),
+                    -3.0,
+                    4.0,
+                    -2.0,
+                    0.84,
+                    -dir * 4.0,
+                    1.07,
+                    0.88
+            );
+            case DODGE -> new AttackVisualPose(
+                    dir * 4.0,
+                    -1.0,
+                    dir * 17.0,
+                    aimAngleForLocalPitch(-0.08),
+                    0.0,
+                    -1.0,
+                    0.0,
+                    1.0,
+                    dir * 11.0,
+                    1.13,
+                    0.85
+            );
+            case ATTACK -> {
+                double spring = kiwiSpringTimer > 0 ? 1.0 : 0.0;
+                double stomp = kiwiStompTimer > 0 ? 1.0 : 0.0;
+                double probe = kiwiProbeTimer > 0 ? 1.0 : 0.0;
+                double burrow = kiwiBurrowTimer > 0 ? 1.0 : 0.0;
+                double pitch = spring > 0.0 ? -0.72 : stomp > 0.0 ? 0.72 : burrow > 0.0 ? 0.28 : -0.04;
+                yield new AttackVisualPose(
+                        dir * (6.0 + probe * 4.0 + burrow * 3.0),
+                        -2.0 - spring * 5.0 + stomp * 4.0,
+                        dir * (6.0 + probe * 3.0 - spring * 5.0 + stomp * 5.0),
+                        aimAngleForLocalPitch(pitch),
+                        9.0 + probe * 7.0 + spring * 3.0,
+                        -5.0 - spring * 7.0 + stomp * 8.0,
+                        8.0 + probe * 9.0,
+                        1.05,
+                        dir * (6.0 - spring * 12.0 + stomp * 14.0),
+                        1.08 + probe * 0.05,
+                        0.95 + spring * 0.10 - stomp * 0.05
+                );
+            }
+            case KO -> new AttackVisualPose(
+                    0.0,
+                    10.0 * profile.koSlump(),
+                    dir * 25.0 * profile.koSlump(),
+                    aimAngleForLocalPitch(0.30),
+                    -2.0,
+                    7.0,
+                    -2.0,
+                    0.70,
+                    dir * 23.0 * profile.koSlump(),
+                    1.08,
+                    0.77
             );
         };
     }
@@ -20842,7 +21049,8 @@ public class Bird {
             } else {
                 basePose = currentSharedBirdStatePose(state);
             }
-            return addAttackVisualPose(basePose, currentAnimationLayerPose(null));
+            AttackVisualPose composedPose = addAttackVisualPose(basePose, currentAnimationLayerPose(null));
+            return addAttackVisualPose(composedPose, currentGooseKiwiTurnPose(state));
         }
 
         double phase = currentAttackVisualPhase();
@@ -21359,7 +21567,7 @@ public class Bird {
         } else if (type == BirdGame3.BirdType.KIWI) {
             g.save();
             applyAttackBodyPose(g, drawSize, attackPose);
-            drawKiwiBody(g, drawSize);
+            drawKiwiBody(g, drawSize, attackPose);
             g.restore();
         } else {
             g.save();
@@ -21388,7 +21596,7 @@ public class Bird {
      * Kiwi keeps the roster's shared rounded-body and oversized-eye language while
      * retaining the long bill and grounded stance that make the species readable.
      */
-    private void drawKiwiBody(GraphicsContext g, double drawSize) {
+    private void drawKiwiBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
         double s = sizeMultiplier;
         double dir = facingRight ? 1.0 : -1.0;
         double cx = x + drawSize * 0.50;
@@ -21421,17 +21629,23 @@ public class Bird {
         double springStretch = kiwiSpringTimer > 0 ? 11.0 * s : 0.0;
         double stompSquash = kiwiStompTimer > 0 && !kiwiStompAirborne ? 5.0 * s : 0.0;
         double bodyCy = cy + stompSquash;
+        double run = isOnGround() && currentBirdAnimationState() == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / Math.max(1.0, type.speed), 0.0, 1.0)
+                : 0.0;
+        double stride = Math.sin(animationGlobalFrame * (0.42 + run * 0.34)) * run;
 
-        // Simple rounded legs and feet match the readable shapes used by Penguin.
+        // Rounded legs now take alternating steps instead of sliding with the body.
         g.setStroke(foot);
         g.setLineWidth(4.0 * s);
         g.setLineCap(StrokeLineCap.ROUND);
         for (int side : new int[]{-1, 1}) {
             double legX = cx + side * 14.0 * s;
-            double footY = bodyCy + 36.0 * s + springStretch;
-            g.strokeLine(legX, bodyCy + 23.0 * s, legX + side * 2.0 * s, footY);
+            double step = stride * side;
+            double footX = legX + dir * step * 9.0 * s;
+            double footY = bodyCy + 36.0 * s + springStretch - Math.max(0.0, step) * 5.0 * s;
+            g.strokeLine(legX, bodyCy + 23.0 * s, footX + side * 2.0 * s, footY);
             g.setFill(foot);
-            g.fillOval(legX - 10.0 * s + dir * 3.0 * s, footY - 2.0 * s, 20.0 * s, 7.0 * s);
+            g.fillOval(footX - 10.0 * s + dir * 3.0 * s, footY - 2.0 * s, 20.0 * s, 7.0 * s);
         }
 
         // Two clean oval layers give Kiwi the same compact body construction as the roster.
@@ -21451,37 +21665,56 @@ public class Bird {
         g.strokeArc(wingX - 11.0 * s, bodyCy + 1.0 * s, 22.0 * s, 22.0 * s, 205, 128, ArcType.OPEN);
         g.strokeArc(wingX - 8.0 * s, bodyCy + 7.0 * s, 16.0 * s, 13.0 * s, 205, 128, ArcType.OPEN);
 
-        double headCenterX = cx + dir * (24.0 * s + billExtension * 0.18);
-        double headCenterY = bodyCy - 12.0 * s;
+        double aimAngle = pose == null ? (facingRight ? 0.0 : Math.PI) : pose.aimAngleRadians();
+        double facingBaseAngle = facingRight ? 0.0 : Math.PI;
+        double localPitch = Math.clamp(normalizeAngleRadians(aimAngle - facingBaseAngle) * dir, -0.92, 0.92);
+        double aimX = dir * Math.cos(localPitch);
+        double aimY = Math.sin(localPitch);
+        double normalX = -aimY;
+        double normalY = aimX;
+        double headReach = (24.0 + (pose == null ? 0.0 : pose.headReachBonus() * 0.32)) * s;
+        double headCenterX = cx + aimX * headReach + dir * billExtension * 0.08;
+        double headCenterY = bodyCy - 12.0 * s + aimY * 16.0 * s
+                + (pose == null ? 0.0 : pose.headLift() * 0.35 * s);
         double headLeft = headCenterX - 19.0 * s;
         double headTop = headCenterY - 18.0 * s;
-        double billBaseX = headCenterX + dir * 12.0 * s;
-        double billTipX = cx + dir * (73.0 * s + billExtension);
-        double billTipY = headCenterY + 4.0 * s;
+        double billBaseX = headCenterX + aimX * 12.0 * s;
+        double billBaseY = headCenterY + aimY * 12.0 * s + 2.0 * s;
+        double billLength = (38.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.30)) * s
+                + billExtension;
+        double billTipX = billBaseX + aimX * billLength;
+        double billTipY = billBaseY + aimY * billLength;
 
-        // A single broad cartoon wedge keeps the long bill readable at gameplay scale.
+        // The bill follows the shared head aim so up/down attacks read as intentional poses.
         g.setFill(billShade);
         g.fillPolygon(
-                new double[]{billBaseX, billTipX, billBaseX},
-                new double[]{headCenterY - 6.0 * s, billTipY, headCenterY + 8.0 * s}, 3);
+                new double[]{billBaseX - normalX * 7.0 * s, billTipX, billBaseX + normalX * 8.0 * s},
+                new double[]{billBaseY - normalY * 7.0 * s, billTipY, billBaseY + normalY * 8.0 * s}, 3);
         g.setFill(bill);
         g.fillPolygon(
-                new double[]{billBaseX, billTipX - dir * 5.0 * s, billBaseX},
-                new double[]{headCenterY - 4.0 * s, billTipY - 1.0 * s, headCenterY + 2.0 * s}, 3);
+                new double[]{billBaseX - normalX * 4.5 * s, billTipX - aimX * 5.0 * s,
+                        billBaseX + normalX * 2.5 * s},
+                new double[]{billBaseY - normalY * 4.5 * s, billTipY - aimY * 5.0 * s,
+                        billBaseY + normalY * 2.5 * s}, 3);
 
         g.setFill(face);
         g.fillOval(headLeft, headTop, 38.0 * s, 37.0 * s);
         g.setFill(bodyLight.deriveColor(0.0, 0.86, 1.06, 0.68));
         g.fillOval(headLeft + (facingRight ? 6.0 : 12.0) * s, headTop + 8.0 * s, 20.0 * s, 13.0 * s);
 
-        double eyeLeft = headLeft + (facingRight ? 14.0 : 3.0) * s;
-        double eyeTop = headTop + 3.0 * s;
-        double pupilLeft = eyeLeft + (facingRight ? 6.0 : 2.0) * s;
+        double eyeCenterX = headCenterX + aimX * 4.0 * s;
+        double eyeCenterY = headCenterY - 5.0 * s + aimY * 2.0 * s;
+        double eyeLeft = eyeCenterX - 10.5 * s;
+        double eyeTop = eyeCenterY - 10.5 * s;
+        double pupilCenterX = eyeCenterX + aimX * 3.5 * s;
+        double pupilCenterY = eyeCenterY + aimY * 3.5 * s;
+        double pupilLeft = pupilCenterX - 6.5 * s;
+        double pupilTop = pupilCenterY - 6.5 * s;
         g.setFill(Color.WHITE);
         g.fillOval(eyeLeft, eyeTop, 21.0 * s, 21.0 * s);
         g.setFill(Color.BLACK);
-        g.fillOval(pupilLeft, eyeTop + 5.0 * s, 13.0 * s, 13.0 * s);
-        drawVectorEyeGlint(g, pupilLeft, eyeTop + 5.0 * s, s, true);
+        g.fillOval(pupilLeft, pupilTop, 13.0 * s, 13.0 * s);
+        drawVectorEyeGlint(g, pupilLeft, pupilTop, s, true);
     }
 
     void drawWorldObjects(GraphicsContext g) {
@@ -28141,6 +28374,25 @@ public class Bird {
             g.setLineWidth(1.5 * s);
             g.strokeArc(wingX + 4.0 * s, y + 34.0 * s, 27.0 * s, 28.0 * s, 202, 132, ArcType.OPEN);
             g.strokeArc(wingX + 8.0 * s, y + 43.0 * s, 20.0 * s, 17.0 * s, 202, 132, ArcType.OPEN);
+
+            double run = isOnGround() && currentBirdAnimationState() == BirdAnimationState.IDLE
+                    ? Math.clamp(Math.abs(vx) / Math.max(1.0, type.speed), 0.0, 1.0)
+                    : 0.0;
+            double stride = Math.sin(animationGlobalFrame * (0.34 + run * 0.30)) * run;
+            Color leg = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#D39A4A");
+            g.setStroke(leg);
+            g.setLineWidth(3.4 * s);
+            g.setLineCap(StrokeLineCap.ROUND);
+            for (int side : new int[]{-1, 1}) {
+                double hipX = x + (40.0 + side * 13.0) * s;
+                double step = stride * side;
+                double footX = hipX + (facingRight ? 1.0 : -1.0) * step * 8.0 * s;
+                double footY = y + 82.0 * s - Math.max(0.0, step) * 4.0 * s;
+                g.strokeLine(hipX, y + 62.0 * s, footX, footY);
+                g.setFill(leg);
+                g.fillOval(footX - 8.5 * s + (facingRight ? 2.0 : -2.0) * s,
+                        footY - 2.0 * s, 17.0 * s, 6.5 * s);
+            }
         }
 
         g.setFill(bodyColor);
@@ -28471,18 +28723,20 @@ public class Bird {
             drawVectorEyeGlint(g, eyeX + (facingRight ? 1.0 : 0.0) * s,
                     eyeY + s, s, false);
         } else if (stylizedGoose) {
-            double cheekX = headX + (facingRight ? 13.0 : 14.0) * s;
+            double cheekX = headX + (facingRight ? 11.0 : 16.0) * s;
             double cheekY = headY + 18.0 * s;
-            double eyeX = headX + (facingRight ? 22.0 : 5.0) * s;
-            double eyeY = headY + 2.0 * s;
+            // Keep the entire eye behind the bill root; the old forward offset
+            // let the white overlap the orange beak whenever Goose looked ahead.
+            double eyeX = headX + (facingRight ? 7.0 : 21.0) * s;
+            double eyeY = headY + 1.0 * s;
             g.setFill(Color.web("#F8F1D6").deriveColor(0, 1, 1, 0.88));
             g.fillOval(cheekX, cheekY, 23.0 * s, 14.0 * s);
             g.setFill(Color.WHITE);
-            g.fillOval(eyeX, eyeY, 23.0 * s, 23.0 * s);
-            double pupilX = eyeX + (facingRight ? 6.0 : 3.0) * s;
+            g.fillOval(eyeX, eyeY, 22.0 * s, 22.0 * s);
+            double pupilX = eyeX + (facingRight ? 7.0 : 1.0) * s;
             g.setFill(eyeOverride == null ? Color.BLACK : eyeOverride);
-            g.fillOval(pupilX, eyeY + 5.0 * s, 14.0 * s, 14.0 * s);
-            drawVectorEyeGlint(g, pupilX, eyeY + 5.0 * s, s, true);
+            g.fillOval(pupilX, eyeY + 4.0 * s, 14.0 * s, 14.0 * s);
+            drawVectorEyeGlint(g, pupilX, eyeY + 4.0 * s, s, true);
         } else {
             g.setFill(Color.WHITE);
             g.fillOval(headX + (facingRight ? 0 : 40) * s, headY, 25 * s, 25 * s);
