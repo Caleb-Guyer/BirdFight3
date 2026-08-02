@@ -49,7 +49,7 @@ causes silent desyncs. Rules:
   taps), `ReplayStore` (gzip binary in `replays/`, keeps 30), browser via
   MATCH HISTORY → REPLAYS. Playback is self-contained (restores roster/map)
   and suppresses all progression side effects.
-- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v35. All machines run
+- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v36. All machines run
   the full sim; host relays per-tick input bundles; 4-tick LAN input delay; state
   hashes exchanged every 120 ticks, desync → kill feed warning. During
   lockstep the sim reads ONLY `lanActionPressed` (bundle-applied) — live local
@@ -62,7 +62,10 @@ causes silent desyncs. Rules:
   28999) and must forward it through their router; joins accept DNS names,
   IPv4, and IPv6 endpoints. There is no central matchmaking, NAT traversal, or
   relay service. Internet hosting disables the companion feed. The handshake
-  must complete before a player slot is exposed.
+  must complete before a player slot is exposed. `MSG_START` includes a
+  host-authoritative `NetworkSimulationConfig` snapshot because updater-preserved
+  tuning files can differ between PCs; clients restore their local tuning when
+  the network session ends.
 - **Tuning file**: `bird-stats.properties` (working dir). Per-bird power/jump/
   speed/flyUpForce + damageDealtMult/damageTakenMult/cooldownRate/ultimateRate
   + global.gravity/startingHealth. Loaded at startup and by the balance lab;

@@ -178,6 +178,8 @@ To host:
 
 To join, open **JOIN INTERNET** and enter `host:port`, for example
 `games.example.com:28999`. All players must run the same Bird Fight 3 version.
+At match start, the host's active `bird-stats.properties` tuning is used for
+everyone so preserved local balance files cannot desynchronize the simulation.
 
 Internet play is peer-to-peer direct connect: there is no central account,
 matchmaking, NAT traversal, or relay service. Participants can see one another's

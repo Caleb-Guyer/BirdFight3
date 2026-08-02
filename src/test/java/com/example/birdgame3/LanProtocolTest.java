@@ -18,8 +18,8 @@ class LanProtocolTest {
         final int[] receivedDelay = {-1};
         BirdGame3 game = new BirdGame3() {
             @Override
-            void onLanStartMatch(MapType map, long seed, int inputDelayTicks, boolean[] connected,
-                                 BirdType[] birds, String[] skinKeys) {
+            void onLanStartMatch(MapType map, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
+                                 boolean[] connected, BirdType[] birds, String[] skinKeys) {
                 receivedDelay[0] = inputDelayTicks;
             }
         };
@@ -27,6 +27,7 @@ class LanProtocolTest {
             out.writeInt(MapType.FOREST.ordinal());
             out.writeLong(42L);
             out.writeInt(LockstepSession.INTERNET_INPUT_DELAY_TICKS);
+            NetworkSimulationConfig.capture().write(out);
             for (int i = 0; i < 4; i++) {
                 out.writeBoolean(i < 2);
                 out.writeInt(BirdType.PIGEON.ordinal());

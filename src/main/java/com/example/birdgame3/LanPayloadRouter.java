@@ -122,6 +122,7 @@ final class LanPayloadRouter {
                 MapType map = readMapByOrdinal(mapOrd);
                 long seed = msgIn.readLong();
                 int inputDelayTicks = LockstepSession.sanitizeInputDelay(msgIn.readInt());
+                NetworkSimulationConfig simulationConfig = NetworkSimulationConfig.read(msgIn);
                 boolean[] connected = new boolean[4];
                 BirdType[] birds = new BirdType[4];
                 String[] skinKeys = new String[4];
@@ -132,7 +133,7 @@ final class LanPayloadRouter {
                     String skinKey = msgIn.readUTF();
                     skinKeys[i] = skinKey.isBlank() ? null : skinKey;
                 }
-                game.onLanStartMatch(map, seed, inputDelayTicks, connected, birds, skinKeys);
+                game.onLanStartMatch(map, seed, inputDelayTicks, simulationConfig, connected, birds, skinKeys);
             }
             case LanProtocol.MSG_STATE -> game.onLanState(LanState.read(msgIn));
             case LanProtocol.MSG_LOCKSTEP_BUNDLE -> {

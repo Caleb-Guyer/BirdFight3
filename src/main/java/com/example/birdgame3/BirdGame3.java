@@ -421,6 +421,7 @@ public class BirdGame3 {
     private int networkSessionPort = LanProtocol.DEFAULT_PORT;
     private int networkInputDelayTicks = LockstepSession.INPUT_DELAY_TICKS;
     private String networkRemoteEndpoint = "";
+    private boolean networkSimulationConfigApplied = false;
     boolean lanMatchActive = false;
     private int lanPlayerIndex = -1;
     NetworkSessionHost lanHost;
@@ -26150,10 +26151,14 @@ public class BirdGame3 {
         });
     }
 
-    void onLanStartMatch(MapType map, long seed, int inputDelayTicks, boolean[] connected,
-                         BirdType[] birds, String[] skinKeys) {
+    void onLanStartMatch(MapType map, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
+                         boolean[] connected, BirdType[] birds, String[] skinKeys) {
         javafx.application.Platform.runLater(() -> {
             networkInputDelayTicks = LockstepSession.sanitizeInputDelay(inputDelayTicks);
+            if (simulationConfig != null) {
+                simulationConfig.apply();
+                networkSimulationConfigApplied = true;
+            }
             startLanMatchClient(currentStage, map, seed, connected, birds, skinKeys);
         });
     }
@@ -26432,8 +26437,9 @@ public class BirdGame3 {
             }
         }
         lanMatchSeed = System.nanoTime();
+        NetworkSimulationConfig simulationConfig = NetworkSimulationConfig.capture();
         if (lanHost != null) {
-            lanHost.broadcastStart(mapToPlay, lanMatchSeed, networkInputDelayTicks,
+            lanHost.broadcastStart(mapToPlay, lanMatchSeed, networkInputDelayTicks, simulationConfig,
                     lanSlotConnected, lanSelectedBirds, lanSelectedSkinKeys);
         }
         startMatch(stage);
@@ -26568,6 +26574,10 @@ public class BirdGame3 {
         lanLastWinnerIndex = -1;
         lanSelectedMapRandom = false;
         lanVoteSignature = 0;
+        if (networkSimulationConfigApplied) {
+            BirdStats.reloadFromDisk();
+            networkSimulationConfigApplied = false;
+        }
     }
 
     private void confirmLeaveLanMatch(Stage stage) {

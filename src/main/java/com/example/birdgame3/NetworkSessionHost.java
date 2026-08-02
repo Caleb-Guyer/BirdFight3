@@ -31,8 +31,8 @@ interface NetworkSessionHost {
     void broadcastLobby(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds,
                         boolean[] randomBirds, String[] skinKeys, boolean[] ready);
 
-    void broadcastStart(MapType map, long seed, int inputDelayTicks, boolean[] connected,
-                        BirdType[] birds, String[] skinKeys);
+    void broadcastStart(MapType map, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
+                        boolean[] connected, BirdType[] birds, String[] skinKeys);
 
     void broadcastState(LanState state);
 

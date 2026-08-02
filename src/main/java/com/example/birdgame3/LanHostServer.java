@@ -130,13 +130,14 @@ class LanHostServer implements NetworkSessionHost {
     }
 
     @Override
-    public void broadcastStart(MapType map, long seed, int inputDelayTicks, boolean[] connected,
-                               BirdType[] birds, String[] skinKeys) {
+    public void broadcastStart(MapType map, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
+                               boolean[] connected, BirdType[] birds, String[] skinKeys) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_START, out -> {
                 out.writeInt(map.ordinal());
                 out.writeLong(seed);
                 out.writeInt(LockstepSession.sanitizeInputDelay(inputDelayTicks));
+                (simulationConfig == null ? NetworkSimulationConfig.capture() : simulationConfig).write(out);
                 for (int i = 0; i < 4; i++) {
                     out.writeBoolean(connected[i]);
                     out.writeInt(birds[i] != null ? birds[i].ordinal() : -1);
