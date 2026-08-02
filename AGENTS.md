@@ -49,7 +49,7 @@ causes silent desyncs. Rules:
   taps), `ReplayStore` (gzip binary in `replays/`, keeps 30), browser via
   MATCH HISTORY → REPLAYS. Playback is self-contained (restores roster/map)
   and suppresses all progression side effects.
-- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v42. All machines run
+- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v43. All machines run
   the full sim; host relays per-tick input bundles; 4-tick LAN input delay; state
   hashes exchanged every 120 ticks, desync → kill feed warning. During
   lockstep the sim reads ONLY `lanActionPressed` (bundle-applied) — live local
@@ -96,6 +96,9 @@ causes silent desyncs. Rules:
 - **Balance lab**: `BalanceLab` + harness bridge (`harnessPrepareMatch`/
   `harnessTick` in BirdGame3, `headlessHarnessMode` gate in
   MatchController.triggerMatchEnd). No JavaFX toolkit, no UI, no progression.
+- **Null Rock cooldowns**: player-controlled Null Rock uses four independent
+  directional reuse timers; CPU Null Rock deliberately retains one shared,
+  difficulty-scaled boss timer so higher difficulties increase cadence safely.
 
 ## Releases
 

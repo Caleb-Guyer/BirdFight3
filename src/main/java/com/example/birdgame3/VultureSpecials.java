@@ -7,6 +7,10 @@ import java.util.Iterator;
 
 final class VultureSpecials {
     static final String BLACK_SKY_FEAST_MOVE = "Black Sky Feast";
+    static final int NULL_ROCK_NEUTRAL_REUSE_FRAMES = 600;
+    static final int NULL_ROCK_SIDE_REUSE_FRAMES = 420;
+    static final int NULL_ROCK_UP_REUSE_FRAMES = 600;
+    static final int NULL_ROCK_DOWN_REUSE_FRAMES = 540;
 
     private VultureSpecials() {
     }
@@ -757,7 +761,7 @@ final class VultureSpecials {
     }
 
     static void nullRockNeutral(Bird bird, boolean ultimate) {
-        beginNullRockSpecial(bird, ultimate);
+        beginNullRockSpecial(bird, Bird.VultureSpecialVariant.NEUTRAL, ultimate);
         bird.game.summonNullRockSpecialFlock(bird, ultimate);
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, ultimate ? 28 : 20);
         bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, ultimate ? 10 : 7);
@@ -766,7 +770,7 @@ final class VultureSpecials {
     }
 
     static void nullRockSide(Bird bird, boolean ultimate) {
-        beginNullRockSpecial(bird, ultimate);
+        beginNullRockSpecial(bird, Bird.VultureSpecialVariant.SIDE, ultimate);
         Bird target = closestNullRockTarget(bird);
         bird.nullRockLaserTimer = Bird.NULL_ROCK_LASER_FRAMES;
         bird.nullRockLaserUltimate = ultimate;
@@ -787,7 +791,7 @@ final class VultureSpecials {
     }
 
     static void nullRockUp(Bird bird, boolean ultimate) {
-        beginNullRockSpecial(bird, ultimate);
+        beginNullRockSpecial(bird, Bird.VultureSpecialVariant.UP, ultimate);
         bird.nullRockLiftTimer = Bird.NULL_ROCK_LIFT_FRAMES;
         bird.nullRockLiftUltimate = ultimate;
         bird.vy = Math.min(bird.vy, ultimate ? -16.5 : -13.5);
@@ -800,7 +804,7 @@ final class VultureSpecials {
     }
 
     static void nullRockDown(Bird bird, boolean ultimate) {
-        beginNullRockSpecial(bird, ultimate);
+        beginNullRockSpecial(bird, Bird.VultureSpecialVariant.DOWN, ultimate);
         Bird target = closestNullRockTarget(bird);
         double targetX = target != null ? target.bodyCenterX() : bird.bodyCenterX();
         double targetY = target != null ? target.bodyCenterY() : BirdGame3.GROUND_Y - 80.0;
@@ -837,6 +841,46 @@ final class VultureSpecials {
         return Math.max(480, frames);
     }
 
+    static boolean usesGlobalNullRockCooldown(Bird bird) {
+        return bird != null
+                && bird.playerIndex >= 0
+                && bird.playerIndex < bird.game.isAI.length
+                && bird.game.isAI[bird.playerIndex];
+    }
+
+    static int nullRockPlayerCooldownFrames(Bird.VultureSpecialVariant variant, boolean ultimate) {
+        int frames = switch (variant) {
+            case NEUTRAL -> NULL_ROCK_NEUTRAL_REUSE_FRAMES;
+            case SIDE -> NULL_ROCK_SIDE_REUSE_FRAMES;
+            case UP -> NULL_ROCK_UP_REUSE_FRAMES;
+            case DOWN -> NULL_ROCK_DOWN_REUSE_FRAMES;
+        };
+        return ultimate ? Math.max(300, frames - 90) : frames;
+    }
+
+    static int nullRockSelectedCooldown(Bird bird, Bird.VultureSpecialVariant variant) {
+        return switch (variant) {
+            case NEUTRAL -> bird.nullRockNeutralReuseTimer;
+            case SIDE -> bird.nullRockSideReuseTimer;
+            case UP -> bird.nullRockUpReuseTimer;
+            case DOWN -> bird.nullRockDownReuseTimer;
+        };
+    }
+
+    static void applyNullRockRecoveryCooldown(Bird bird, int cooldown) {
+        int safeCooldown = Math.max(0, cooldown);
+        if (usesGlobalNullRockCooldown(bird)) {
+            bird.crowSwarmCooldown = Math.max(bird.crowSwarmCooldown, safeCooldown);
+            bird.specialCooldown = Math.max(bird.specialCooldown, safeCooldown);
+            bird.specialMaxCooldown = Math.max(bird.specialMaxCooldown, safeCooldown);
+            return;
+        }
+        bird.nullRockNeutralReuseTimer = Math.max(bird.nullRockNeutralReuseTimer, safeCooldown);
+        bird.nullRockSideReuseTimer = Math.max(bird.nullRockSideReuseTimer, safeCooldown);
+        bird.nullRockUpReuseTimer = Math.max(bird.nullRockUpReuseTimer, safeCooldown);
+        bird.nullRockDownReuseTimer = Math.max(bird.nullRockDownReuseTimer, safeCooldown);
+    }
+
     static int ownedNullRockHenchmanCount(Bird bird) {
         int count = 0;
         for (CrowMinion crow : bird.game.crowMinions) {
@@ -847,11 +891,24 @@ final class VultureSpecials {
         return count;
     }
 
-    private static void beginNullRockSpecial(Bird bird, boolean ultimate) {
-        int cooldown = nullRockSpecialCooldown(bird, ultimate);
-        bird.crowSwarmCooldown = cooldown;
-        bird.specialCooldown = cooldown;
-        bird.specialMaxCooldown = cooldown;
+    private static void beginNullRockSpecial(Bird bird, Bird.VultureSpecialVariant variant, boolean ultimate) {
+        if (usesGlobalNullRockCooldown(bird)) {
+            int cooldown = nullRockSpecialCooldown(bird, ultimate);
+            bird.crowSwarmCooldown = cooldown;
+            bird.specialCooldown = cooldown;
+            bird.specialMaxCooldown = cooldown;
+        } else {
+            int cooldown = nullRockPlayerCooldownFrames(variant, ultimate);
+            switch (variant) {
+                case NEUTRAL -> bird.nullRockNeutralReuseTimer = cooldown;
+                case SIDE -> bird.nullRockSideReuseTimer = cooldown;
+                case UP -> bird.nullRockUpReuseTimer = cooldown;
+                case DOWN -> bird.nullRockDownReuseTimer = cooldown;
+            }
+            bird.crowSwarmCooldown = 0;
+            bird.specialCooldown = 0;
+            bird.specialMaxCooldown = 0;
+        }
         bird.nullRockSpecialCycle = Math.floorMod(bird.nullRockSpecialCycle + 1, 4);
         bird.isBlocking = false;
         bird.shieldHoldVisual = 0.0;
@@ -1041,6 +1098,11 @@ final class VultureSpecials {
 
     static boolean ready(Bird bird, Bird.VultureSpecialVariant variant) {
         boolean ultimateReady = bird.isUltimateReady();
+        if (bird.isNullRockForm()) {
+            return ultimateReady || (usesGlobalNullRockCooldown(bird)
+                    ? bird.specialCooldown <= 0
+                    : nullRockSelectedCooldown(bird, variant) <= 0);
+        }
         return switch (variant) {
             case NEUTRAL -> ultimateReady || (bird.vultureNeutralReuseTimer <= 0 && bird.vultureCrowTicks > 0 && ownedCrowCount(bird) < 7);
             case SIDE -> ultimateReady || bird.vultureSideReuseTimer <= 0;
@@ -1058,10 +1120,7 @@ final class VultureSpecials {
     static boolean canStart(Bird bird, boolean grabbed, boolean dodging) {
         Bird.VultureSpecialVariant variant = bird.selectVultureSpecialVariant();
         boolean shieldConversion = canConvertShieldIntoDown(bird);
-        boolean ultimateReady = bird.isUltimateReady();
-        boolean ready = bird.isNullRockForm()
-                ? ultimateReady || bird.specialCooldown <= 0
-                : ready(bird, variant);
+        boolean ready = ready(bird, variant);
         return bird.type == BirdGame3.BirdType.VULTURE
                 && bird.health > 0
                 && bird.stunTime <= 0.0

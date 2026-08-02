@@ -42516,6 +42516,10 @@ public class BirdGame3 {
                 h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockLaserTargetY);
                 h = h * 1099511628211L + b.nullRockLiftTimer;
                 h = h * 1099511628211L + b.nullRockSpearTimer;
+                h = h * 1099511628211L + b.nullRockNeutralReuseTimer;
+                h = h * 1099511628211L + b.nullRockSideReuseTimer;
+                h = h * 1099511628211L + b.nullRockUpReuseTimer;
+                h = h * 1099511628211L + b.nullRockDownReuseTimer;
                 h = h * 1099511628211L + b.nullRockVoidRecoveryTimer;
                 h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockVoidRecoveryTargetX);
                 h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockVoidRecoveryTargetY);

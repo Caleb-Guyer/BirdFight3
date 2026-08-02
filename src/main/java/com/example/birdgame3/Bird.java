@@ -571,6 +571,10 @@ public class Bird {
     final int[] nullRockSpearDelay = new int[NULL_ROCK_MAX_SPEARS];
     final boolean[] nullRockSpearSpent = new boolean[NULL_ROCK_MAX_SPEARS];
     int nullRockSpecialCycle = 0;
+    int nullRockNeutralReuseTimer = 0;
+    int nullRockSideReuseTimer = 0;
+    int nullRockUpReuseTimer = 0;
+    int nullRockDownReuseTimer = 0;
 
     // === OPIUM / HEISENBIRD ===
     static final int OPIUM_NEUTRAL_FRAMES = 300;
@@ -11336,6 +11340,10 @@ public class Bird {
         cooldownRecoveryCarry -= cooldownTicks;
         if (specialCooldown > 0) specialCooldown = Math.max(0, specialCooldown - cooldownTicks);
         if (crowSwarmCooldown > 0) crowSwarmCooldown = Math.max(0, crowSwarmCooldown - cooldownTicks);
+        if (nullRockNeutralReuseTimer > 0) nullRockNeutralReuseTimer = Math.max(0, nullRockNeutralReuseTimer - cooldownTicks);
+        if (nullRockSideReuseTimer > 0) nullRockSideReuseTimer = Math.max(0, nullRockSideReuseTimer - cooldownTicks);
+        if (nullRockUpReuseTimer > 0) nullRockUpReuseTimer = Math.max(0, nullRockUpReuseTimer - cooldownTicks);
+        if (nullRockDownReuseTimer > 0) nullRockDownReuseTimer = Math.max(0, nullRockDownReuseTimer - cooldownTicks);
         if (attackCooldown > 0) attackCooldown = Math.max(0, attackCooldown - cooldownTicks);
         if (grabCooldown > 0) grabCooldown = (int)Math.max(0, grabCooldown - gameSpeed);
         if (landingLagTimer > 0) landingLagTimer = (int)Math.max(0, landingLagTimer - gameSpeed);
@@ -13800,8 +13808,7 @@ public class Bird {
         shrinkTimer = 0;
         carrionSwarmTimer = Math.max(carrionSwarmTimer, 170 + nullRockPhaseIndex * 20);
         int phaseRecovery = VultureSpecials.nullRockSpecialCooldown(this, false) / 2;
-        specialCooldown = Math.max(specialCooldown, phaseRecovery);
-        crowSwarmCooldown = Math.max(crowSwarmCooldown, phaseRecovery);
+        VultureSpecials.applyNullRockRecoveryCooldown(this, phaseRecovery);
         vx *= 0.35;
         vy = Math.min(vy, -5.5);
         game.onNullRockPhaseShift(this, nullRockPhaseIndex - 1);
@@ -13819,8 +13826,7 @@ public class Bird {
         setBaseMultipliers(ascendedSize, ascendedPower, ascendedSpeed);
         nullRockInvincibilityTimer = Math.max(nullRockInvincibilityTimer, TRUE_NULL_ROCK_ASCENSION_INVULN_FRAMES);
         int ascensionRecovery = VultureSpecials.nullRockSpecialCooldown(this, false) / 2;
-        specialCooldown = Math.max(specialCooldown, ascensionRecovery);
-        crowSwarmCooldown = Math.max(crowSwarmCooldown, ascensionRecovery);
+        VultureSpecials.applyNullRockRecoveryCooldown(this, ascensionRecovery);
         carrionSwarmTimer = Math.max(carrionSwarmTimer, 320);
         stunTime = 0;
         shrinkTimer = 0;
@@ -15075,6 +15081,10 @@ public class Bird {
         vultureSideReuseTimer = 0;
         vultureUpSpecialUsed = false;
         vultureDownReuseTimer = 0;
+        nullRockNeutralReuseTimer = 0;
+        nullRockSideReuseTimer = 0;
+        nullRockUpReuseTimer = 0;
+        nullRockDownReuseTimer = 0;
         nullRockVoidRecoveryTimer = 0;
         nullRockVoidRecoveryTargetX = 0.0;
         nullRockVoidRecoveryTargetY = 0.0;
@@ -15860,6 +15870,10 @@ public class Bird {
         state.ultimateFxTimer = ultimateFxTimer;
         state.nullRockInvincibilityTimer = nullRockInvincibilityTimer;
         state.nullRockPhaseIndex = nullRockPhaseIndex;
+        state.nullRockNeutralReuseTimer = nullRockNeutralReuseTimer;
+        state.nullRockSideReuseTimer = nullRockSideReuseTimer;
+        state.nullRockUpReuseTimer = nullRockUpReuseTimer;
+        state.nullRockDownReuseTimer = nullRockDownReuseTimer;
         return state;
     }
 
@@ -16658,6 +16672,10 @@ public class Bird {
         this.ultimateFxTimer = state.ultimateFxTimer;
         this.nullRockInvincibilityTimer = state.nullRockInvincibilityTimer;
         this.nullRockPhaseIndex = state.nullRockPhaseIndex;
+        this.nullRockNeutralReuseTimer = Math.max(0, state.nullRockNeutralReuseTimer);
+        this.nullRockSideReuseTimer = Math.max(0, state.nullRockSideReuseTimer);
+        this.nullRockUpReuseTimer = Math.max(0, state.nullRockUpReuseTimer);
+        this.nullRockDownReuseTimer = Math.max(0, state.nullRockDownReuseTimer);
         updateDisplayPose(1.0);
     }
 
@@ -27733,6 +27751,12 @@ public class Bird {
     }
 
     private boolean drawDirectedSpecialReadiness(GraphicsContext g) {
+        if (isNullRockForm()) {
+            if (!suppressSelectEffects && health > 0 && !VultureSpecials.usesGlobalNullRockCooldown(this)) {
+                drawNullRockSpecialReadiness(g);
+            }
+            return true;
+        }
         if (isOpiumEchoPair()) {
             if (!suppressSelectEffects && health > 0) {
                 drawOpiumSpecialReadiness(g);
@@ -27752,6 +27776,35 @@ public class Bird {
             return true;
         }
         return false;
+    }
+
+    private void drawNullRockSpecialReadiness(GraphicsContext g) {
+        VultureSpecialVariant variant = selectVultureSpecialVariant();
+        int cooldown = VultureSpecials.nullRockSelectedCooldown(this, variant);
+        int maxCooldown = VultureSpecials.nullRockPlayerCooldownFrames(variant, false);
+        boolean ready = vultureSpecialReady(variant);
+        double progress = ready ? 1.0 : cooldownProgress(cooldown, maxCooldown);
+        String stateText;
+        if (vultureSpecialActive()) {
+            stateText = "ACTIVE";
+            progress = 0.86;
+        } else if (isUltimateReady()) {
+            stateText = "ULT READY";
+            progress = 1.0;
+        } else if (ready) {
+            stateText = "READY";
+        } else {
+            stateText = cooldownFramesText(cooldown);
+        }
+
+        String moveLabel = switch (variant) {
+            case NEUTRAL -> "DARK FLOCK";
+            case SIDE -> "EYE LASER";
+            case UP -> "VULTURE LIFT";
+            case DOWN -> "BLOOD SPEARS";
+        };
+        drawSpecialReadinessPanel(g, moveLabel, stateText, progress,
+                ready || isUltimateReady() || vultureSpecialActive(), false, Color.web("#FF5C8A"));
     }
 
     private void drawRoadrunnerMomentumReadiness(GraphicsContext g) {

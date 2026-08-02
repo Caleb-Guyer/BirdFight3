@@ -334,6 +334,10 @@ class LanProtocolTest {
         state.ravenDecoyX = 333.0;
         state.ravenDecoyLifeFrames = 144;
         state.ravenDecoyUltimate = true;
+        state.nullRockNeutralReuseTimer = 600;
+        state.nullRockSideReuseTimer = 420;
+        state.nullRockUpReuseTimer = 599;
+        state.nullRockDownReuseTimer = 539;
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         state.write(new DataOutputStream(bos));
@@ -605,5 +609,9 @@ class LanProtocolTest {
         assertEquals(333.0, decoded.ravenDecoyX);
         assertEquals(144, decoded.ravenDecoyLifeFrames);
         assertTrue(decoded.ravenDecoyUltimate);
+        assertEquals(600, decoded.nullRockNeutralReuseTimer);
+        assertEquals(420, decoded.nullRockSideReuseTimer);
+        assertEquals(599, decoded.nullRockUpReuseTimer);
+        assertEquals(539, decoded.nullRockDownReuseTimer);
     }
 }

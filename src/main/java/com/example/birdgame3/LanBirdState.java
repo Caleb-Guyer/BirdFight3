@@ -589,6 +589,10 @@ class LanBirdState {
     int ultimateFxTimer;
     int nullRockInvincibilityTimer;
     int nullRockPhaseIndex;
+    int nullRockNeutralReuseTimer;
+    int nullRockSideReuseTimer;
+    int nullRockUpReuseTimer;
+    int nullRockDownReuseTimer;
 
     void write(DataOutputStream out) throws IOException {
         out.writeInt(typeOrdinal);
@@ -1243,6 +1247,10 @@ class LanBirdState {
         out.writeInt(ultimateFxTimer);
         out.writeInt(nullRockInvincibilityTimer);
         out.writeInt(nullRockPhaseIndex);
+        out.writeInt(nullRockNeutralReuseTimer);
+        out.writeInt(nullRockSideReuseTimer);
+        out.writeInt(nullRockUpReuseTimer);
+        out.writeInt(nullRockDownReuseTimer);
     }
 
     static LanBirdState read(DataInputStream in) throws IOException {
@@ -1899,6 +1907,10 @@ class LanBirdState {
         state.ultimateFxTimer = in.readInt();
         state.nullRockInvincibilityTimer = in.readInt();
         state.nullRockPhaseIndex = in.readInt();
+        state.nullRockNeutralReuseTimer = in.readInt();
+        state.nullRockSideReuseTimer = in.readInt();
+        state.nullRockUpReuseTimer = in.readInt();
+        state.nullRockDownReuseTimer = in.readInt();
         return state;
     }
 }

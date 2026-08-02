@@ -1809,6 +1809,62 @@ class BirdStateTest {
     }
 
     @Test
+    void playerNullRockTracksEachSpecialCooldownIndependently() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        game.isAI[0] = false;
+        Bird boss = new Bird(500.0, BirdGame3.BirdType.VULTURE, 0, game);
+        boss.isNullRockSkin = true;
+        game.players[0] = boss;
+
+        VultureSpecials.nullRockSide(boss, false);
+
+        assertEquals(0, boss.specialCooldown,
+                "A player Null Rock should not use the boss AI's shared cooldown.");
+        assertEquals(VultureSpecials.NULL_ROCK_SIDE_REUSE_FRAMES, boss.nullRockSideReuseTimer);
+        assertEquals(0, boss.nullRockNeutralReuseTimer);
+        assertEquals(0, boss.nullRockUpReuseTimer);
+        assertEquals(0, boss.nullRockDownReuseTimer);
+
+        VultureSpecials.reset(boss, false);
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), true);
+        assertFalse(VultureSpecials.canStart(boss, false, false),
+                "The laser should remain unavailable during only its own cooldown.");
+        game.setLocalActionsForKey(game.rightKeyForPlayer(0), false);
+        assertTrue(VultureSpecials.canStart(boss, false, false),
+                "Dark Flock should remain ready after the laser is used.");
+
+        VultureSpecials.nullRockNeutral(boss, false);
+        VultureSpecials.reset(boss, false);
+        VultureSpecials.nullRockUp(boss, false);
+        VultureSpecials.reset(boss, false);
+        VultureSpecials.nullRockDown(boss, false);
+
+        assertEquals(VultureSpecials.NULL_ROCK_NEUTRAL_REUSE_FRAMES, boss.nullRockNeutralReuseTimer);
+        assertEquals(VultureSpecials.NULL_ROCK_SIDE_REUSE_FRAMES, boss.nullRockSideReuseTimer);
+        assertEquals(VultureSpecials.NULL_ROCK_UP_REUSE_FRAMES, boss.nullRockUpReuseTimer);
+        assertEquals(VultureSpecials.NULL_ROCK_DOWN_REUSE_FRAMES, boss.nullRockDownReuseTimer);
+    }
+
+    @Test
+    void cpuNullRockKeepsSharedDifficultyScaledBossCooldown() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        game.isAI[0] = true;
+        Bird boss = new Bird(500.0, BirdGame3.BirdType.VULTURE, 0, game);
+        boss.isNullRockSkin = true;
+        game.players[0] = boss;
+
+        VultureSpecials.nullRockSide(boss, false);
+        VultureSpecials.reset(boss, false);
+
+        assertTrue(boss.specialCooldown >= 480);
+        assertEquals(0, boss.nullRockSideReuseTimer);
+        assertFalse(VultureSpecials.canStart(boss, false, false),
+                "The boss AI should retain its rare shared special cadence.");
+    }
+
+    @Test
     void nullRockEyeLaserRenderAvoidsFullMapPixelEffects() throws Exception {
         String source = Files.readString(Path.of(
                 "src", "main", "java", "com", "example", "birdgame3", "Bird.java"));
