@@ -1263,6 +1263,8 @@ public class Bird {
     private static final double SMASH_ATTACK_KNOCKBACK_PENALTY = 0.88;
     private static final double ATTACK_HORIZONTAL_KNOCKBACK_SCALE = 1.3;
     private static final double ATTACK_VERTICAL_KNOCKBACK_SCALE = 0.52;
+    static final double ROADRUNNER_NORMAL_KNOCKBACK_MULTIPLIER = 1.20;
+    static final double RAZORBILL_NORMAL_KNOCKBACK_MULTIPLIER = 1.15;
     private static final double SMASH_HORIZONTAL_LAUNCH_SCALE = 1.08;
     private static final double SMASH_VERTICAL_LAUNCH_SCALE = 0.84;
     private static final double SMASH_MIN_UPWARD_LAUNCH_SCALE = 2.8;
@@ -2107,6 +2109,14 @@ public class Bird {
 
     private double attackKnockbackBalanceMultiplier(NormalAttackVariant variant) {
         return variant.isSmashAttack() ? SMASH_ATTACK_KNOCKBACK_PENALTY : NON_SMASH_ATTACK_KNOCKBACK_BONUS;
+    }
+
+    private double normalAttackBirdKnockbackMultiplier() {
+        return switch (type) {
+            case ROADRUNNER -> ROADRUNNER_NORMAL_KNOCKBACK_MULTIPLIER;
+            case RAZORBILL -> RAZORBILL_NORMAL_KNOCKBACK_MULTIPLIER;
+            default -> 1.0;
+        };
     }
 
     private void activateRespawnNest(double spawnX, double spawnY) {
@@ -3446,9 +3456,11 @@ public class Bird {
     private void processBirdAttack(Bird other, int dmg, double knockbackScale,
                                    double verticalScale, double horizontalScale,
                                    double horizontalDirection, String moveName) {
+        double birdKnockbackMultiplier = normalAttackBirdKnockbackMultiplier();
         double kb = normalAttackPowerStat() * horizontalDirection * (game.usesDamageScaledKnockback() ? 2.2 : 1.8)
-                * knockbackScale * ATTACK_HORIZONTAL_KNOCKBACK_SCALE * horizontalScale;
-        double verticalKb = (game.usesDamageScaledKnockback() ? 6.5 : 5.0) * verticalScale * ATTACK_VERTICAL_KNOCKBACK_SCALE;
+                * knockbackScale * ATTACK_HORIZONTAL_KNOCKBACK_SCALE * horizontalScale * birdKnockbackMultiplier;
+        double verticalKb = (game.usesDamageScaledKnockback() ? 6.5 : 5.0) * verticalScale
+                * ATTACK_VERTICAL_KNOCKBACK_SCALE * birdKnockbackMultiplier;
 
         double shieldPushback = Math.copySign(
                 Math.max(1.8, Math.abs(kb) * SHIELD_PUSHBACK_SCALE),

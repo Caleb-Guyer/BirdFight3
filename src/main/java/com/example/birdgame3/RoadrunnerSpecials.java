@@ -12,6 +12,7 @@ final class RoadrunnerSpecials {
     static final double MOMENTUM_STUN_DECAY_PER_FRAME = 0.75;
     static final double MOMENTUM_GROUND_DECAY_PER_FRAME = 0.22;
     static final double MOMENTUM_AIR_DECAY_PER_FRAME = 0.12;
+    static final double CORE_SPECIAL_KNOCKBACK_MULTIPLIER = 1.15;
 
     private RoadrunnerSpecials() {
     }
@@ -230,8 +231,8 @@ final class RoadrunnerSpecials {
             bird.game.damageDealt[bird.playerIndex] += dealt;
             bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
             if (other.health <= 0 && oldHealth > 0) bird.game.eliminations[bird.playerIndex]++;
-            other.vx += dir * (8.0 + powerRatio * 8.5);
-            other.vy -= 3.0 + powerRatio * 3.5;
+            other.vx += dir * (8.0 + powerRatio * 8.5) * CORE_SPECIAL_KNOCKBACK_MULTIPLIER;
+            other.vy -= (3.0 + powerRatio * 3.5) * CORE_SPECIAL_KNOCKBACK_MULTIPLIER;
             addMomentum(bird, 4.5 + dealt * 0.55);
             emitBurstDust(bird, other.bodyCenterX(), other.bodyCenterY(), dir, 16,
                     trailColor(bird, bird.roadrunnerBeepUltimate));
@@ -900,8 +901,8 @@ final class RoadrunnerSpecials {
                 bird.game.damageDealt[bird.playerIndex] += dealt;
                 bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
                 if (other.health <= 0 && oldHealth > 0) bird.game.eliminations[bird.playerIndex]++;
-                other.vx += dir * (8.0 + momentumRatio(bird) * 4.0);
-                other.vy -= bird.roadrunnerRicochetUltimate ? 6.2 : 4.2;
+                other.vx += dir * (8.0 + momentumRatio(bird) * 4.0) * CORE_SPECIAL_KNOCKBACK_MULTIPLIER;
+                other.vy -= (bird.roadrunnerRicochetUltimate ? 6.2 : 4.2) * CORE_SPECIAL_KNOCKBACK_MULTIPLIER;
                 addMomentum(bird, 4.0 + dealt * 0.40);
                 emitBurstDust(bird, other.bodyCenterX(), other.bodyCenterY(), dir, 18,
                         warmDustColor(bird, bird.roadrunnerRicochetUltimate));

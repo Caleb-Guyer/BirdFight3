@@ -6,6 +6,7 @@ import java.util.Arrays;
 
 final class RazorbillSpecials {
     static final String GUILLOTINE_WAKE_MOVE = "Razorbill Guillotine Wake";
+    static final double SPECIAL_KNOCKBACK_MULTIPLIER = 1.25;
 
     private RazorbillSpecials() {
     }
@@ -153,8 +154,8 @@ final class RazorbillSpecials {
                 bird.game.eliminations[bird.playerIndex]++;
             }
         }
-        attacker.vx += dir * (ultimate ? 13.0 : 9.2);
-        attacker.vy -= ultimate ? 10.2 : 7.0;
+        attacker.vx += dir * (ultimate ? 13.0 : 9.2) * SPECIAL_KNOCKBACK_MULTIPLIER;
+        attacker.vy -= (ultimate ? 10.2 : 7.0) * SPECIAL_KNOCKBACK_MULTIPLIER;
         attacker.applyStun(ultimate ? 42 : 28);
         emitSlashBurst(bird, attacker.bodyCenterX(), attacker.bodyCenterY(), dir,
                 ultimate ? Color.GOLD.brighter() : Color.web("#ECEFF1"),
@@ -183,8 +184,8 @@ final class RazorbillSpecials {
 
         bird.game.damageDealt[bird.playerIndex] += dealt;
         bird.game.recordSpecialImpact(bird.playerIndex, dealt, true);
-        other.vx += launchX;
-        other.vy += launchY;
+        other.vx += launchX * SPECIAL_KNOCKBACK_MULTIPLIER;
+        other.vy += launchY * SPECIAL_KNOCKBACK_MULTIPLIER;
 
         if (other.health <= 0 && oldHealth > 0) {
             bird.game.eliminations[bird.playerIndex]++;

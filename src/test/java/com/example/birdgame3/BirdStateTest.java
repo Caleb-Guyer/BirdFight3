@@ -1381,6 +1381,27 @@ class BirdStateTest {
     }
 
     @Test
+    void roadrunnerQuickBeepBlitzHasARealLaunchFloor() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird runner = new Bird(220.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        Bird target = new Bird(300.0, BirdGame3.BirdType.PIGEON, 1, game);
+        runner.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        runner.roadrunnerBeepBurstTimer = 1;
+        runner.roadrunnerBeepDirection = 1;
+        game.players[0] = runner;
+        game.players[1] = target;
+
+        RoadrunnerSpecials.applyBeepBlitzHit(runner, 0.0);
+
+        assertEquals(1.15, RoadrunnerSpecials.CORE_SPECIAL_KNOCKBACK_MULTIPLIER, 0.0001);
+        assertEquals(8.0 * RoadrunnerSpecials.CORE_SPECIAL_KNOCKBACK_MULTIPLIER, target.vx, 0.0001);
+        assertEquals(-3.0 * RoadrunnerSpecials.CORE_SPECIAL_KNOCKBACK_MULTIPLIER, target.vy, 0.0001);
+    }
+
+    @Test
     void roadrunnerNeutralAutoReleasesAtFullChargeSpeed() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;
@@ -2164,6 +2185,25 @@ class BirdStateTest {
         assertTrue((double) multiplier.invoke(bird, neutralAir) > 1.0);
         assertTrue((double) multiplier.invoke(bird, sideSmash) < 1.0);
         assertTrue((double) multiplier.invoke(bird, upSmash) < 1.0);
+    }
+
+    @Test
+    void roadrunnerAndRazorbillNormalsHaveDedicatedKnockbackBoosts() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Method multiplier = Bird.class.getDeclaredMethod("normalAttackBirdKnockbackMultiplier");
+        multiplier.setAccessible(true);
+
+        Bird pigeon = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
+        Bird roadrunner = new Bird(100.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        Bird razorbill = new Bird(100.0, BirdGame3.BirdType.RAZORBILL, 0, game);
+
+        assertEquals(1.20, Bird.ROADRUNNER_NORMAL_KNOCKBACK_MULTIPLIER, 0.0001);
+        assertEquals(1.15, Bird.RAZORBILL_NORMAL_KNOCKBACK_MULTIPLIER, 0.0001);
+        assertEquals(1.0, (double) multiplier.invoke(pigeon), 0.0001);
+        assertEquals(Bird.ROADRUNNER_NORMAL_KNOCKBACK_MULTIPLIER,
+                (double) multiplier.invoke(roadrunner), 0.0001);
+        assertEquals(Bird.RAZORBILL_NORMAL_KNOCKBACK_MULTIPLIER,
+                (double) multiplier.invoke(razorbill), 0.0001);
     }
 
     @Test
@@ -4229,6 +4269,26 @@ class BirdStateTest {
         assertEquals(0, razorbill.razorbillShearTimer);
         assertEquals(0, razorbill.razorbillCounterTimer);
         assertEquals(RazorbillSpecials.GUILLOTINE_WAKE_MOVE, game.lastTelemetryMoveName(0, ""));
+    }
+
+    @Test
+    void razorbillSpecialHitsUseTheCorrectedLaunchScale() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird razorbill = new Bird(220.0, BirdGame3.BirdType.RAZORBILL, 0, game);
+        Bird target = new Bird(300.0, BirdGame3.BirdType.PIGEON, 1, game);
+        razorbill.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = razorbill;
+        game.players[1] = target;
+
+        int dealt = RazorbillSpecials.applySpecialHit(razorbill, target, 6, 8.0, -4.0, false);
+
+        assertTrue(dealt > 0);
+        assertEquals(1.25, RazorbillSpecials.SPECIAL_KNOCKBACK_MULTIPLIER, 0.0001);
+        assertEquals(8.0 * RazorbillSpecials.SPECIAL_KNOCKBACK_MULTIPLIER, target.vx, 0.0001);
+        assertEquals(-4.0 * RazorbillSpecials.SPECIAL_KNOCKBACK_MULTIPLIER, target.vy, 0.0001);
     }
 
     @Test
