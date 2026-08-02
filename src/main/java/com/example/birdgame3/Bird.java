@@ -5654,6 +5654,10 @@ public class Bird {
         return KiwiSpecials.canStart(this, grabbedBy != null || grabbedTarget != null, isDodging());
     }
 
+    private boolean canConvertShieldIntoKiwiDownSpecial() {
+        return KiwiSpecials.canConvertShieldIntoDown(this);
+    }
+
     private boolean opiumSpecialActive() {
         return OpiumSpecials.active(this);
     }
@@ -12970,6 +12974,8 @@ public class Bird {
                     ? canConvertShieldIntoRavenDownSpecial()
                     : type == BirdGame3.BirdType.GOOSE
                     ? canConvertShieldIntoGooseDownSpecial()
+                    : type == BirdGame3.BirdType.KIWI
+                    ? canConvertShieldIntoKiwiDownSpecial()
                     : isOpiumEchoPair()
                     ? canConvertShieldIntoOpiumDownSpecial()
                     : isRaptor() && canConvertShieldIntoRaptorDownSpecial(selectRaptorSpecialVariant());

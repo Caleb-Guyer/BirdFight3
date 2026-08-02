@@ -32,15 +32,24 @@ final class KiwiSpecials {
         };
     }
 
+    static boolean canConvertShieldIntoDown(Bird bird) {
+        return bird.type == BirdGame3.BirdType.KIWI
+                && bird.selectKiwiSpecialVariant() == Bird.KiwiSpecialVariant.DOWN
+                && bird.isBlocking
+                && bird.shieldStunFrames <= 0;
+    }
+
     static boolean canStart(Bird bird, boolean grabbed, boolean dodging) {
+        Bird.KiwiSpecialVariant variant = bird.selectKiwiSpecialVariant();
+        boolean shieldConversion = canConvertShieldIntoDown(bird);
         return bird.type == BirdGame3.BirdType.KIWI
                 && bird.health > 0
                 && bird.stunTime <= 0.0
                 && !grabbed
-                && !bird.isBlocking
+                && (!bird.isBlocking || shieldConversion)
                 && !dodging
                 && !active(bird)
-                && ready(bird, bird.selectKiwiSpecialVariant());
+                && ready(bird, variant);
     }
 
     static void use(Bird bird, boolean ultimate) {
@@ -112,6 +121,8 @@ final class KiwiSpecials {
     }
 
     private static void startEarthStomp(Bird bird) {
+        bird.isBlocking = false;
+        bird.parryWindowFrames = 0;
         bird.kiwiStompTimer = Bird.KIWI_STOMP_FRAMES;
         bird.kiwiStompReuseTimer = Bird.KIWI_STOMP_REUSE_FRAMES;
         bird.kiwiStompAirborne = !bird.isOnGround();

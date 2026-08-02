@@ -131,6 +131,27 @@ class BirdStateTest {
     }
 
     @Test
+    void kiwiCanStartGroundEarthStompAfterShieldIsAlreadyRaised() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird kiwi = new Bird(300.0, BirdGame3.BirdType.KIWI, 0, game);
+        kiwi.y = BirdGame3.GROUND_Y - kiwi.bodyHeight();
+        game.players[0] = kiwi;
+
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+        kiwi.update(1.0);
+        assertTrue(kiwi.isBlocking, "Setup should put grounded Kiwi into shield.");
+
+        game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
+        kiwi.update(1.0);
+
+        assertFalse(kiwi.isBlocking, "Down special should drop Kiwi's existing shield.");
+        assertTrue(kiwi.kiwiStompTimer > 0,
+                "Pressing special while grounded and shielding should start Earth Stomp.");
+        assertFalse(kiwi.kiwiStompAirborne);
+    }
+
+    @Test
     void kiwiUltimateIsOnePressMidnightStampede() {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
