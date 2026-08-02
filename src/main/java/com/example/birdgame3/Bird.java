@@ -976,9 +976,6 @@ public class Bird {
     private BirdAnimationState animationState = BirdAnimationState.IDLE;
     private double animationStateFrame = 0.0;
     private double animationGlobalFrame = 0.0;
-    private boolean animationFacingInitialized = false;
-    private boolean animationTrackedFacingRight = true;
-    private double animationTurnFrame = GOOSE_KIWI_TURN_FRAMES;
     private DodgeType dodgeType = DodgeType.NONE;
     private int dodgeTimer = 0;
     private int dodgeInvulnerabilityTimer = 0;
@@ -1321,7 +1318,6 @@ public class Bird {
     private static final double VISUAL_POSE_AIR_BLEND_PER_FRAME = 0.34;
     private static final double VISUAL_POSE_ACTION_BLEND_PER_FRAME = 0.48;
     private static final double VISUAL_POSE_DODGE_BLEND_PER_FRAME = 0.82;
-    private static final double GOOSE_KIWI_TURN_FRAMES = 14.0;
     private static final int JUMP_SQUAT_FRAMES = 3;
     private static final double SHORT_HOP_MULTIPLIER = 0.65;
     private static final int AERIAL_LANDING_LAG_FRAMES = 7;
@@ -18112,23 +18108,6 @@ public class Bird {
         if (gameSpeed <= 0.0) {
             return;
         }
-        if (usesGooseKiwiTurnAnimation()) {
-            if (!animationFacingInitialized) {
-                animationFacingInitialized = true;
-                animationTrackedFacingRight = facingRight;
-                animationTurnFrame = GOOSE_KIWI_TURN_FRAMES;
-            } else if (animationTrackedFacingRight != facingRight) {
-                animationTrackedFacingRight = facingRight;
-                animationTurnFrame = 0.0;
-                // Reset interpolation at the facing change, then add the same small
-                // anticipation lean used by the rest of the vector roster.
-                displayPose = null;
-            } else if (animationTurnFrame < GOOSE_KIWI_TURN_FRAMES) {
-                animationTurnFrame = Math.min(GOOSE_KIWI_TURN_FRAMES, animationTurnFrame + gameSpeed);
-            }
-        } else {
-            animationTurnFrame = GOOSE_KIWI_TURN_FRAMES;
-        }
         BirdAnimationState nextState = currentBirdAnimationState();
         if (nextState != animationState) {
             animationState = nextState;
@@ -18146,44 +18125,9 @@ public class Bird {
         return animationGlobalFrame * (1000.0 / 60.0);
     }
 
-    private boolean usesGooseKiwiTurnAnimation() {
-        return type == BirdGame3.BirdType.GOOSE || type == BirdGame3.BirdType.KIWI;
-    }
-
-    private boolean gooseKiwiTurnAnimationActive() {
-        return usesGooseKiwiTurnAnimation()
-                && isOnGround()
-                && animationTurnFrame < GOOSE_KIWI_TURN_FRAMES;
-    }
-
-    private AttackVisualPose currentGooseKiwiTurnPose(BirdAnimationState state) {
-        if (state != BirdAnimationState.IDLE || !gooseKiwiTurnAnimationActive()) {
-            return ZERO_ANIMATION_POSE;
-        }
-        double t = Math.clamp(animationTurnFrame / GOOSE_KIWI_TURN_FRAMES, 0.0, 1.0);
-        double fold = Math.sin(t * Math.PI);
-        double dir = facingRight ? 1.0 : -1.0;
-        return new AttackVisualPose(
-                -dir * fold * 1.4,
-                fold * 1.2,
-                -dir * Math.sin(t * Math.PI * 2.0) * 2.8,
-                0.0,
-                -fold,
-                fold,
-                0.0,
-                1.0,
-                -dir * Math.sin(t * Math.PI * 2.0) * 2.2,
-                1.0 - fold * 0.035,
-                1.0 + fold * 0.035
-        );
-    }
-
     private double currentVisualPoseBlendPerFrame() {
         if (isDodging()) {
             return VISUAL_POSE_DODGE_BLEND_PER_FRAME;
-        }
-        if (gooseKiwiTurnAnimationActive()) {
-            return 0.68;
         }
         if (health <= 0 || stunTime > 0.0 || knockdownTimer > 0 || jumpSquatTimer > 0 || landingLagTimer > 0
                 || isBlocking || shieldStunFrames > 0 || parryWindowFrames > 0
@@ -21040,8 +20984,7 @@ public class Bird {
             } else {
                 basePose = currentSharedBirdStatePose(state);
             }
-            AttackVisualPose composedPose = addAttackVisualPose(basePose, currentAnimationLayerPose(null));
-            return addAttackVisualPose(composedPose, currentGooseKiwiTurnPose(state));
+            return addAttackVisualPose(basePose, currentAnimationLayerPose(null));
         }
 
         double phase = currentAttackVisualPhase();
@@ -21637,14 +21580,14 @@ public class Bird {
         g.strokeArc(wingX - 8.0 * s, bodyCy + 7.0 * s, 16.0 * s, 13.0 * s, 205, 128, ArcType.OPEN);
 
         double aimAngle = pose == null ? (facingRight ? 0.0 : Math.PI) : pose.aimAngleRadians();
-        double facingBaseAngle = facingRight ? 0.0 : Math.PI;
-        double localPitch = Math.clamp(normalizeAngleRadians(aimAngle - facingBaseAngle) * dir, -0.92, 0.92);
-        double aimX = dir * Math.cos(localPitch);
-        double aimY = Math.sin(localPitch);
+        // Use the complete shared aim angle, including the interpolated sweep when
+        // facing changes. This is the same turn path used by the roster renderer.
+        double aimX = Math.cos(aimAngle);
+        double aimY = Math.sin(aimAngle);
         double normalX = -aimY;
         double normalY = aimX;
         double headReach = (24.0 + (pose == null ? 0.0 : pose.headReachBonus() * 0.32)) * s;
-        double headCenterX = cx + aimX * headReach + dir * billExtension * 0.08;
+        double headCenterX = cx + aimX * headReach + aimX * billExtension * 0.08;
         double headCenterY = bodyCy - 12.0 * s + aimY * 16.0 * s
                 + (pose == null ? 0.0 : pose.headLift() * 0.35 * s);
         double headLeft = headCenterX - 19.0 * s;
@@ -28579,13 +28522,6 @@ public class Bird {
             g.setLineWidth(1.6 * s);
             g.strokeArc(x + 13.0 * s, y + 34.0 * s, 54.0 * s, 34.0 * s,
                     facingRight ? 204 : -24, 116, ArcType.OPEN);
-            g.setStroke(Color.web("#D7C56E").deriveColor(0, 1, 1, 0.68));
-            g.setLineWidth(2.6 * s);
-            g.strokeLine(x + 26.0 * s, y + 70.0 * s, x + 22.0 * s, y + 86.0 * s);
-            g.strokeLine(x + 54.0 * s, y + 70.0 * s, x + 58.0 * s, y + 86.0 * s);
-            g.setFill(Color.web("#F7A825").deriveColor(0, 1, 1, 0.86));
-            g.fillOval(x + 13.0 * s, y + 84.0 * s, 20.0 * s, 8.0 * s);
-            g.fillOval(x + 47.0 * s, y + 84.0 * s, 20.0 * s, 8.0 * s);
         }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
             int tailDir = facingRight ? -1 : 1;
