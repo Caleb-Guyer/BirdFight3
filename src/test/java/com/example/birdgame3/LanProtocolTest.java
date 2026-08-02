@@ -1,5 +1,7 @@
 package com.example.birdgame3;
 
+import com.example.birdgame3.BirdGame3.BirdType;
+import com.example.birdgame3.BirdGame3.MapType;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -11,6 +13,32 @@ import java.io.IOException;
 import static org.junit.jupiter.api.Assertions.*;
 
 class LanProtocolTest {
+    @Test
+    void startMessageCarriesNegotiatedInternetInputDelay() throws IOException {
+        final int[] receivedDelay = {-1};
+        BirdGame3 game = new BirdGame3() {
+            @Override
+            void onLanStartMatch(MapType map, long seed, int inputDelayTicks, boolean[] connected,
+                                 BirdType[] birds, String[] skinKeys) {
+                receivedDelay[0] = inputDelayTicks;
+            }
+        };
+        byte[] payload = LanProtocol.buildMessage(LanProtocol.MSG_START, out -> {
+            out.writeInt(MapType.FOREST.ordinal());
+            out.writeLong(42L);
+            out.writeInt(LockstepSession.INTERNET_INPUT_DELAY_TICKS);
+            for (int i = 0; i < 4; i++) {
+                out.writeBoolean(i < 2);
+                out.writeInt(BirdType.PIGEON.ordinal());
+                out.writeUTF("");
+            }
+        });
+
+        LanPayloadRouter.handleServerPayload(game, payload);
+
+        assertEquals(LockstepSession.INTERNET_INPUT_DELAY_TICKS, receivedDelay[0]);
+    }
+
     @Test
     void framedPayloadRoundTrips() throws IOException {
         byte[] payload = LanProtocol.buildMessage(LanProtocol.MSG_READY, out -> out.writeBoolean(true));

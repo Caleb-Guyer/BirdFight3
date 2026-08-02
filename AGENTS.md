@@ -13,7 +13,7 @@ are known debt — work within them; don't attempt a grand refactor.
 
 ## Build / test / run
 
-- Tests: `.\mvnw.cmd test` (329 tests; CI runs them on every push — see CI section)
+- Tests: `.\mvnw.cmd test` (505 tests; CI runs them on every push — see CI section)
 - Run from source: `.\mvnw.cmd javafx:run`
 - Package for players: `.\build-installer.ps1 [-AppVersion X.Y.Z] [-Type msi]`
   → jpackage app-image + zip in `target\`. MSI needs the WiX Toolset.
@@ -49,14 +49,20 @@ causes silent desyncs. Rules:
   taps), `ReplayStore` (gzip binary in `replays/`, keeps 30), browser via
   MATCH HISTORY → REPLAYS. Playback is self-contained (restores roster/map)
   and suppresses all progression side effects.
-- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v17. All machines run
-  the full sim; host relays per-tick input bundles; 4-tick input delay; state
+- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v35. All machines run
+  the full sim; host relays per-tick input bundles; 4-tick LAN input delay; state
   hashes exchanged every 120 ticks, desync → kill feed warning. During
   lockstep the sim reads ONLY `lanActionPressed` (bundle-applied) — live local
   arrays are gated out of `isActionPressed`. Legacy snapshot path is dormant
   behind `lockstepSession == null`. Client keyboard and controller each own a
   mask; the sent mask is their union (a sync clobbering the other source
   froze P2 once — commit 7274ebf).
+- **Internet multiplayer**: direct TCP host/join reuses lockstep. Internet uses
+  an 8-tick input buffer negotiated in `MSG_START`. Hosts choose a port (default
+  28999) and must forward it through their router; joins accept DNS names,
+  IPv4, and IPv6 endpoints. There is no central matchmaking, NAT traversal, or
+  relay service. Internet hosting disables the companion feed. The handshake
+  must complete before a player slot is exposed.
 - **Tuning file**: `bird-stats.properties` (working dir). Per-bird power/jump/
   speed/flyUpForce + damageDealtMult/damageTakenMult/cooldownRate/ultimateRate
   + global.gravity/startingHealth. Loaded at startup and by the balance lab;
@@ -134,6 +140,7 @@ technical kits like Razorbill/Charles):
 
 1. Goose knockback rework (+ Penguin/Vulture kit review) — needs playtesting.
 2. Real sprite art — pipeline complete and waiting; owner draws.
-3. Rollback netcode — deliberately deferred until internet play is wanted
-   (lockstep covers LAN; rollback also needs NAT traversal/relay infra).
+3. Rollback, matchmaking, and relay infrastructure — direct internet lockstep
+   now exists, but no-setup play through CGNAT still needs a hosted relay and
+   high-latency competitive play still needs rollback.
 4. Per-skin sprite variants are unit-tested but not yet visually verified.

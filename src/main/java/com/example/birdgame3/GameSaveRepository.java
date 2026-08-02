@@ -47,7 +47,9 @@ final class GameSaveRepository {
     );
 
     private static final List<String> GLOBAL_KEYS = List.of(
-            "lan_last_host"
+            "lan_last_host",
+            "internet_last_endpoint",
+            "internet_host_port"
     );
 
     record SaveProfile(String id, String name, long createdAtMillis, long updatedAtMillis) {

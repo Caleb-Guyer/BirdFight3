@@ -12,6 +12,7 @@ Bird Fight 3 is a feature-rich platform fighter that supports local play, AI opp
   - Local multiplayer battles
   - AI-powered opponents with varying difficulty
   - LAN multiplayer matches for network play
+  - Direct-connect internet matches by public IP or DNS name
   - Tower Defense mode
   - Tournament setup and play
   - Single-player campaign progression
@@ -160,6 +161,28 @@ Bird Fight 3 natively supports Wii remotes for enhanced gameplay. Connect your W
 - Customizable button mapping in settings
 - Motion controls available
 - See in-game settings for detailed control schemes
+
+## Internet Multiplayer
+
+Bird Fight 3 supports direct internet host/join matches for up to four players.
+The combat simulation uses the same deterministic lockstep system as LAN play,
+with a larger eight-tick input buffer for regional network latency.
+
+To host:
+
+1. Open **NETWORK PLAY → INTERNET PLAY → HOST INTERNET**.
+2. Allow Bird Fight 3 through the operating-system firewall.
+3. Forward the selected **TCP** port (default `28999`) in the router to the
+   hosting computer.
+4. Share the public IP address or DNS name and port with the invited players.
+
+To join, open **JOIN INTERNET** and enter `host:port`, for example
+`games.example.com:28999`. All players must run the same Bird Fight 3 version.
+
+Internet play is peer-to-peer direct connect: there is no central account,
+matchmaking, NAT traversal, or relay service. Participants can see one another's
+IP addresses, so only connect with people you trust. Wired connections and
+geographically nearby players give the best lockstep response.
 
 ## Building & Development
 

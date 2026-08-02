@@ -4,6 +4,8 @@ import java.util.prefs.Preferences;
 
 final class BirdGame3GlobalSettingsState {
     private static final String KEY_LAN_LAST_HOST = "lan_last_host";
+    private static final String KEY_INTERNET_LAST_ENDPOINT = "internet_last_endpoint";
+    private static final String KEY_INTERNET_HOST_PORT = "internet_host_port";
     private static final String KEY_MUSIC_ENABLED = "setting_music";
     private static final String KEY_SFX_ENABLED = "setting_sfx";
     private static final String KEY_MUSIC_VOLUME = "setting_music_volume";
@@ -19,6 +21,8 @@ final class BirdGame3GlobalSettingsState {
     String[][] controlBindingNames = new String[0][];
     String[] wiimoteModeNames = new String[0];
     String lanLastHost = "";
+    String internetLastEndpoint = "";
+    int internetHostPort = LanProtocol.DEFAULT_PORT;
     boolean musicEnabled = true;
     boolean sfxEnabled = true;
     double musicVolume = 1.0;
@@ -53,6 +57,8 @@ final class BirdGame3GlobalSettingsState {
         }
 
         state.lanLastHost = prefs.get(KEY_LAN_LAST_HOST, "");
+        state.internetLastEndpoint = prefs.get(KEY_INTERNET_LAST_ENDPOINT, "");
+        state.internetHostPort = sanitizePort(prefs.getInt(KEY_INTERNET_HOST_PORT, LanProtocol.DEFAULT_PORT));
         state.musicEnabled = prefs.getBoolean(KEY_MUSIC_ENABLED, true);
         state.sfxEnabled = prefs.getBoolean(KEY_SFX_ENABLED, true);
         state.musicVolume = sanitizeVolume(prefs.getDouble(KEY_MUSIC_VOLUME, state.musicEnabled ? 1.0 : 0.0));
@@ -95,6 +101,8 @@ final class BirdGame3GlobalSettingsState {
         }
 
         prefs.put(KEY_LAN_LAST_HOST, nullToEmpty(lanLastHost));
+        prefs.put(KEY_INTERNET_LAST_ENDPOINT, nullToEmpty(internetLastEndpoint));
+        prefs.putInt(KEY_INTERNET_HOST_PORT, sanitizePort(internetHostPort));
         prefs.putBoolean(KEY_MUSIC_ENABLED, musicEnabled);
         prefs.putBoolean(KEY_SFX_ENABLED, sfxEnabled);
         prefs.putDouble(KEY_MUSIC_VOLUME, sanitizeVolume(musicVolume));
@@ -124,6 +132,10 @@ final class BirdGame3GlobalSettingsState {
 
     private static boolean isMutedVolume(double value) {
         return sanitizeVolume(value) <= 0.0001;
+    }
+
+    private static int sanitizePort(int value) {
+        return value >= 1 && value <= 65_535 ? value : LanProtocol.DEFAULT_PORT;
     }
 
     private static String nullToEmpty(String value) {

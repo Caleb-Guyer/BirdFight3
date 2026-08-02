@@ -6,7 +6,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 
 final class LanProtocol {
-    static final int VERSION = 34;
+    static final int VERSION = 35;
     static final int DEFAULT_PORT = 28999;
     static final int COMPANION_PORT = DEFAULT_PORT + 1;
     static final int COMPANION_VERSION = 1;
@@ -27,6 +27,7 @@ final class LanProtocol {
     static final byte MSG_LOCKSTEP_INPUT = 14;
     static final byte MSG_LOCKSTEP_BUNDLE = 15;
     static final byte MSG_LOCKSTEP_HASH = 16;
+    static final byte MSG_REJECT = 17;
 
     static final int MAP_RANDOM = -1;
     static final int BIRD_RANDOM = -2;
@@ -42,6 +43,8 @@ final class LanProtocol {
     static final int INPUT_GRAB = 1 << 8;
     static final int INPUT_ATTACK_UP = 1 << 9;
     static final int INPUT_ATTACK_DOWN = 1 << 10;
+    static final int INPUT_MASK_ALL = INPUT_LEFT | INPUT_RIGHT | INPUT_JUMP | INPUT_ATTACK | INPUT_SPECIAL
+            | INPUT_BLOCK | INPUT_TAUNT_CYCLE | INPUT_TAUNT_EXEC | INPUT_GRAB | INPUT_ATTACK_UP | INPUT_ATTACK_DOWN;
 
     @FunctionalInterface
     interface MessageWriter {

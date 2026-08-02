@@ -28,6 +28,19 @@ class LockstepSessionTest {
     }
 
     @Test
+    void internetDelaySeedsItsEntireNegotiatedBuffer() {
+        LockstepSession session = new LockstepSession(
+                new boolean[]{true, true, false, false},
+                LockstepSession.INTERNET_INPUT_DELAY_TICKS);
+
+        assertEquals(LockstepSession.INTERNET_INPUT_DELAY_TICKS, session.inputDelayTicks());
+        for (long tick = 1; tick <= LockstepSession.INTERNET_INPUT_DELAY_TICKS; tick++) {
+            assertNotNull(session.bundleFor(tick));
+        }
+        assertNull(session.bundleFor(LockstepSession.INTERNET_INPUT_DELAY_TICKS + 1L));
+    }
+
+    @Test
     void samplesEachTargetTickExactlyOnce() {
         LockstepSession session = hostWithOneClient();
         long target = LockstepSession.INPUT_DELAY_TICKS + 1;

@@ -417,6 +417,10 @@ public class BirdGame3 {
     boolean lanModeActive = false;
     boolean lanIsHost = false;
     private boolean lanIsClient = false;
+    private NetworkSessionMode networkSessionMode = NetworkSessionMode.NONE;
+    private int networkSessionPort = LanProtocol.DEFAULT_PORT;
+    private int networkInputDelayTicks = LockstepSession.INPUT_DELAY_TICKS;
+    private String networkRemoteEndpoint = "";
     boolean lanMatchActive = false;
     private int lanPlayerIndex = -1;
     NetworkSessionHost lanHost;
@@ -459,6 +463,8 @@ public class BirdGame3 {
     private Timeline lanCountdownTimeline;
     private int lanCountdownValue = 0;
     private String lanLastHost = "";
+    private String internetLastEndpoint = "";
+    private int internetHostPort = LanProtocol.DEFAULT_PORT;
     private LanState pendingLanState;
     private boolean lanResultsActionPending = false;
     private Label lanResultsStatusLabel;
@@ -3969,6 +3975,8 @@ public class BirdGame3 {
         state.controlBindingNames = captureControlBindingNames();
         state.wiimoteModeNames = captureWiimoteModeNames();
         state.lanLastHost = lanLastHost;
+        state.internetLastEndpoint = internetLastEndpoint;
+        state.internetHostPort = internetHostPort;
         state.musicEnabled = musicEnabled;
         state.sfxEnabled = sfxEnabled;
         state.musicVolume = musicVolume;
@@ -3987,6 +3995,8 @@ public class BirdGame3 {
         applyControlBindingNames(resolved.controlBindingNames);
         applyWiimoteModeNames(resolved.wiimoteModeNames);
         lanLastHost = resolved.lanLastHost;
+        internetLastEndpoint = resolved.internetLastEndpoint;
+        internetHostPort = resolved.internetHostPort;
         musicEnabled = resolved.musicEnabled;
         sfxEnabled = resolved.sfxEnabled;
         musicVolume = sanitizeVolume(resolved.musicVolume);
@@ -18053,7 +18063,7 @@ public class BirdGame3 {
         registerHubInteractiveNode(lanNode, hubButtons, helpTitle, helpBody,
                 buildUltimateHubStyle("#F6A400", "#C97700", "#FFF2CF", 0, 0, 38, 0, false),
                 buildUltimateHubStyle("#F6A400", "#C97700", "#FFFBEA", 0, 0, 38, 0, true),
-                "NETWORK PLAY", "Host or join LAN matches for players on the same local network.", selectorPointer, medallion);
+                "NETWORK PLAY", "Host or join direct Internet matches, or play over a local network.", selectorPointer, medallion);
         AnchorPane.setTopAnchor(lanNode, hubMidline);
         AnchorPane.setLeftAnchor(lanNode, hubRightLeft);
 
@@ -24765,14 +24775,17 @@ public class BirdGame3 {
         title.setFont(Font.font("Impact", FontWeight.BOLD, 92));
         title.setTextFill(Color.web("#FFE082"));
 
-        Label message = new Label("LAN matches connect directly on your local network.\nHost remains authoritative. Up to " + LAN_MAX_PLAYERS + " players.");
+        Label message = new Label("Fight over the internet with a direct address, or play on the same local network.\nUp to "
+                + LAN_MAX_PLAYERS + " players use deterministic lockstep simulation.");
         MenuLayout.styleMenuMessage(message, 24, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
 
-        Button hostBtn = uiFactory.action("HOST LAN", 360, 90, 32, "#2E7D32", 22, () -> startLanHost(stage));
-        Button joinBtn = uiFactory.action("JOIN LAN", 360, 90, 32, "#1565C0", 22, () -> showLanJoin(stage, ""));
+        Button internetBtn = uiFactory.action("INTERNET PLAY", 400, 90, 32, "#6A1B9A", 22,
+                () -> showInternetMenu(stage));
+        Button lanBtn = uiFactory.action("LAN PLAY", 400, 90, 32, "#1565C0", 22,
+                () -> showLanDirectMenu(stage));
         Button back = uiFactory.action("BACK TO HUB", 360, 90, 32, "#D32F2F", 22, () -> showMenu(stage));
 
-        VBox buttons = new VBox(16, hostBtn, joinBtn, back);
+        VBox buttons = new VBox(16, internetBtn, lanBtn, back);
         buttons.setAlignment(Pos.CENTER);
 
         root.getChildren().addAll(title, message, buttons);
@@ -24782,7 +24795,191 @@ public class BirdGame3 {
         setupKeyboardNavigation(scene);
         applyConsoleHighlight(scene);
         setScenePreservingFullscreen(stage, scene);
+        internetBtn.requestFocus();
+    }
+
+    private void showLanDirectMenu(Stage stage) {
+        stopLanSession();
+        playMenuMusic();
+        currentStage = stage;
+
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
+                MENU_PADDING, 16);
+        Label title = new Label("LAN PLAY");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 86));
+        title.setTextFill(Color.web("#FFE082"));
+        Label message = new Label("Connect computers on the same home or event network.\nNo router setup is normally required.");
+        MenuLayout.styleMenuMessage(message, 24, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+
+        Button hostBtn = uiFactory.action("HOST LAN", 360, 90, 32, "#2E7D32", 22, () -> startLanHost(stage));
+        Button joinBtn = uiFactory.action("JOIN LAN", 360, 90, 32, "#1565C0", 22, () -> showLanJoin(stage, ""));
+        Button back = uiFactory.action("BACK", 320, 80, 28, "#D32F2F", 20, () -> showLanMenu(stage));
+        VBox buttons = new VBox(16, hostBtn, joinBtn, back);
+        buttons.setAlignment(Pos.CENTER);
+        root.getChildren().addAll(title, message, buttons);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
         hostBtn.requestFocus();
+    }
+
+    private void showInternetMenu(Stage stage) {
+        stopLanSession();
+        playMenuMusic();
+        currentStage = stage;
+
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #170B24, #2D1842);",
+                MENU_PADDING, 14);
+        Label title = new Label("INTERNET PLAY");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 84));
+        title.setTextFill(Color.web("#FFE082"));
+        Label message = new Label("Direct-connect online matches for nearby players. The host shares a public address\n"
+                + "and forwards one TCP port; no account or central match server is used.");
+        MenuLayout.styleMenuMessage(message, 22, "#D1C4E9", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+
+        Button hostBtn = uiFactory.action("HOST INTERNET", 400, 84, 30, "#6A1B9A", 21,
+                () -> showInternetHostSetup(stage, ""));
+        Button joinBtn = uiFactory.action("JOIN INTERNET", 400, 84, 30, "#1565C0", 21,
+                () -> showInternetJoin(stage, ""));
+        Button helpBtn = uiFactory.action("SETUP HELP", 340, 72, 26, "#455A64", 18,
+                () -> showInternetHelp(stage));
+        Button back = uiFactory.action("BACK", 300, 72, 26, "#D32F2F", 18, () -> showLanMenu(stage));
+        VBox buttons = new VBox(12, hostBtn, joinBtn, helpBtn, back);
+        buttons.setAlignment(Pos.CENTER);
+        root.getChildren().addAll(title, message, buttons);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        hostBtn.requestFocus();
+    }
+
+    private void showInternetHostSetup(Stage stage, String error) {
+        playMenuMusic();
+        currentStage = stage;
+
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #170B24, #2D1842);",
+                MENU_PADDING, 16);
+        Label title = new Label("HOST INTERNET");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 76));
+        title.setTextFill(Color.web("#FFE082"));
+        Label prompt = new Label("Forward this TCP port in your router to this computer, then share your public IP or DNS name.");
+        MenuLayout.styleMenuMessage(prompt, 22, "#D1C4E9", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+
+        TextField portField = new TextField(Integer.toString(internetHostPort));
+        portField.setMaxWidth(260);
+        portField.setPromptText(Integer.toString(LanProtocol.DEFAULT_PORT));
+        portField.setFont(Font.font("Consolas", 22));
+        Label portLabel = new Label("TCP PORT");
+        portLabel.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
+        portLabel.setTextFill(Color.web("#D1C4E9"));
+        Label status = new Label(error == null ? "" : error);
+        status.setFont(Font.font("Consolas", 19));
+        status.setTextFill(Color.ORANGE);
+        status.setWrapText(true);
+        status.setMaxWidth(MENU_TEXT_MAX_WIDTH);
+
+        Button host = uiFactory.action("OPEN LOBBY", 360, 84, 30, "#00A152", 21, () -> {
+            try {
+                int port = NetworkEndpoint.parsePort(portField.getText());
+                internetHostPort = port;
+                saveRepository.globalPrefs().putInt("internet_host_port", port);
+                startInternetHost(stage, port);
+            } catch (IllegalArgumentException e) {
+                status.setText(e.getMessage());
+            }
+        });
+        Button help = uiFactory.action("SETUP HELP", 300, 70, 25, "#455A64", 18,
+                () -> showInternetHelp(stage));
+        Button back = uiFactory.action("BACK", 280, 70, 25, "#D32F2F", 18, () -> showInternetMenu(stage));
+        root.getChildren().addAll(title, prompt, portLabel, portField, status, host, help, back);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        portField.requestFocus();
+    }
+
+    private void showInternetJoin(Stage stage, String error) {
+        playMenuMusic();
+        currentStage = stage;
+
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #170B24, #2D1842);",
+                MENU_PADDING, 18);
+        Label title = new Label("JOIN INTERNET");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 76));
+        title.setTextFill(Color.web("#FFE082"));
+        Label prompt = new Label("Enter the host's public IP or DNS name. Add :port when it is not "
+                + LanProtocol.DEFAULT_PORT + ".");
+        MenuLayout.styleMenuMessage(prompt, 22, "#D1C4E9", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
+
+        TextField endpointField = new TextField(internetLastEndpoint == null ? "" : internetLastEndpoint);
+        endpointField.setMaxWidth(560);
+        endpointField.setPromptText("games.example.com:" + LanProtocol.DEFAULT_PORT);
+        endpointField.setFont(Font.font("Consolas", 22));
+        Label status = new Label(error == null ? "" : error);
+        status.setFont(Font.font("Consolas", 19));
+        status.setTextFill(Color.ORANGE);
+        status.setWrapText(true);
+        status.setMaxWidth(MENU_TEXT_MAX_WIDTH);
+
+        Button connect = uiFactory.action("CONNECT", 320, 80, 28, "#00C853", 20, () -> {
+            try {
+                NetworkEndpoint endpoint = NetworkEndpoint.parse(endpointField.getText(), LanProtocol.DEFAULT_PORT);
+                internetLastEndpoint = endpoint.display();
+                saveRepository.globalPrefs().put("internet_last_endpoint", internetLastEndpoint);
+                startInternetClient(stage, endpoint);
+            } catch (IllegalArgumentException e) {
+                status.setText(e.getMessage());
+            }
+        });
+        Button back = uiFactory.action("BACK", 260, 70, 26, "#D32F2F", 20, () -> showInternetMenu(stage));
+        root.getChildren().addAll(title, prompt, endpointField, status, connect, back);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        bindEscape(scene, back);
+        setScenePreservingFullscreen(stage, scene);
+        endpointField.requestFocus();
+    }
+
+    private void showInternetHelp(Stage stage) {
+        playMenuMusic();
+        currentStage = stage;
+        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #170B24, #2D1842);",
+                MENU_PADDING, 18);
+        Label title = new Label("INTERNET SETUP");
+        title.setFont(Font.font("Impact", FontWeight.BOLD, 72));
+        title.setTextFill(Color.web("#FFE082"));
+        Label instructions = new Label(
+                "HOST\n1. Allow Bird Fight 3 through the operating-system firewall.\n"
+                        + "2. Forward TCP port " + internetHostPort + " in the router to this computer.\n"
+                        + "3. Give invited players your public IP or DNS name and port.\n\n"
+                        + "JOIN\nEnter the shared address as host:port. Everyone must run the same game version.\n\n"
+                        + "Direct play reveals the participants' IP addresses. Only connect with people you trust.\n"
+                        + "For the best lockstep feel, use wired connections and geographically nearby players.");
+        instructions.setFont(Font.font("Consolas", 21));
+        instructions.setTextFill(Color.web("#EDE7F6"));
+        instructions.setWrapText(true);
+        instructions.setMaxWidth(1100);
+        applyNoEllipsis(instructions);
+        Button back = uiFactory.action("BACK", 300, 76, 26, "#D32F2F", 19, () -> showInternetMenu(stage));
+        root.getChildren().addAll(title, instructions, back);
+
+        Scene scene = new Scene(root, WIDTH, HEIGHT);
+        bindEscape(scene, back);
+        setupKeyboardNavigation(scene);
+        applyConsoleHighlight(scene);
+        setScenePreservingFullscreen(stage, scene);
+        back.requestFocus();
     }
 
     private void showLanJoin(Stage stage, String error) {
@@ -24825,7 +25022,7 @@ public class BirdGame3 {
             startLanClient(stage, host);
         });
 
-        Button back = uiFactory.action("BACK", 260, 70, 26, "#D32F2F", 20, () -> showLanMenu(stage));
+        Button back = uiFactory.action("BACK", 260, 70, 26, "#D32F2F", 20, () -> showLanDirectMenu(stage));
 
         root.getChildren().addAll(title, prompt, hostField, status, connect, back);
 
@@ -24837,6 +25034,25 @@ public class BirdGame3 {
         hostField.requestFocus();
     }
 
+    private String networkLobbyInfoText() {
+        if (!lanIsHost) {
+            return "Connected to: " + networkRemoteEndpoint;
+        }
+        if (networkSessionMode == NetworkSessionMode.INTERNET) {
+            return "Listening on TCP port " + networkSessionPort
+                    + "  |  Share your public IP or DNS name with :" + networkSessionPort;
+        }
+        return "IP: " + findLanAddress() + "  Port: " + networkSessionPort;
+    }
+
+    private void showNetworkModeMenu(Stage stage, NetworkSessionMode mode) {
+        if (mode == NetworkSessionMode.INTERNET) {
+            showInternetMenu(stage);
+        } else {
+            showLanDirectMenu(stage);
+        }
+    }
+
     private void showLanLobby(Stage stage) {
         playMenuMusic();
         currentStage = stage;
@@ -24844,13 +25060,12 @@ public class BirdGame3 {
         VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0B1A24, #1C2F3C);",
                 new Insets(40, 60, 40, 60), 14);
 
-        Label title = getLabel(lanIsHost ? "LAN LOBBY (HOST)" : "LAN LOBBY");
+        String sessionLabel = networkSessionMode == NetworkSessionMode.INTERNET ? "INTERNET" : "LAN";
+        Label title = getLabel(lanIsHost ? sessionLabel + " LOBBY (HOST)" : sessionLabel + " LOBBY");
         title.setFont(Font.font("Impact", FontWeight.BOLD, 64));
         title.setTextFill(Color.web("#FFE082"));
 
-        String infoText = lanIsHost
-                ? "IP: " + findLanAddress() + "  Port: " + LanProtocol.DEFAULT_PORT
-                : "Connected to: " + (lanLastHost == null ? "" : lanLastHost);
+        String infoText = networkLobbyInfoText();
 
         Label info = new Label(infoText);
         MenuLayout.styleMenuMessage(info, 20, "#B3E5FC", MENU_TEXT_MAX_WIDTH, this::applyNoEllipsis);
@@ -24863,7 +25078,7 @@ public class BirdGame3 {
         lanCompanionFeedLabel = null;
         lanCompanionFeedButton = null;
         VBox companionBox = null;
-        if (lanIsHost) {
+        if (lanIsHost && networkSessionMode == NetworkSessionMode.LAN) {
             lanCompanionFeedLabel = new Label();
             lanCompanionFeedLabel.setFont(Font.font("Consolas", 17));
             lanCompanionFeedLabel.setTextFill(Color.web("#B2DFDB"));
@@ -24973,16 +25188,25 @@ public class BirdGame3 {
     }
 
     private void startLanHost(Stage stage) {
-        prepareNetworkSessionState(true);
+        startNetworkHost(stage, NetworkSessionMode.LAN, LanProtocol.DEFAULT_PORT);
+    }
+
+    private void startInternetHost(Stage stage, int port) {
+        startNetworkHost(stage, NetworkSessionMode.INTERNET, port);
+    }
+
+    private void startNetworkHost(Stage stage, NetworkSessionMode mode, int port) {
+        prepareNetworkSessionState(true, mode, port);
         updateLanMapSelectionFromVotes();
-        lanHost = new LanHostServer(this);
+        lanHost = new LanHostServer(this, port, mode == NetworkSessionMode.LAN);
         if (!lanHost.start()) {
-            Alert alert = new Alert(Alert.AlertType.ERROR, "Could not start LAN server on port " + LanProtocol.DEFAULT_PORT + ".", ButtonType.OK);
-            alert.setTitle("LAN Error");
-            alert.setHeaderText("Failed to host LAN match.");
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Could not open TCP port " + port
+                    + ". Another program may be using it.", ButtonType.OK);
+            alert.setTitle("Network Error");
+            alert.setHeaderText("Failed to host network match.");
             alert.showAndWait();
             stopLanSession();
-            showLanMenu(stage);
+            showNetworkModeMenu(stage, mode);
             return;
         }
         showLanLobby(stage);
@@ -24990,13 +25214,37 @@ public class BirdGame3 {
     }
 
     private void startLanClient(Stage stage, String host) {
-        prepareNetworkSessionState(false);
-        lanLastHost = host;
-        LanClient client = new LanClient(this, host);
+        try {
+            startNetworkClient(stage, NetworkEndpoint.parse(host, LanProtocol.DEFAULT_PORT), NetworkSessionMode.LAN);
+        } catch (IllegalArgumentException e) {
+            showLanJoin(stage, e.getMessage());
+        }
+    }
+
+    private void startInternetClient(Stage stage, NetworkEndpoint endpoint) {
+        startNetworkClient(stage, endpoint, NetworkSessionMode.INTERNET);
+    }
+
+    private void startNetworkClient(Stage stage, NetworkEndpoint endpoint, NetworkSessionMode mode) {
+        prepareNetworkSessionState(false, mode, endpoint.port());
+        networkRemoteEndpoint = endpoint.display();
+        if (mode == NetworkSessionMode.LAN) {
+            lanLastHost = networkRemoteEndpoint;
+        } else {
+            internetLastEndpoint = networkRemoteEndpoint;
+        }
+        LanClient client = new LanClient(this, endpoint);
         lanClient = client;
         showLanLobby(stage);
 
-        Thread connectThread = buildClientConnectThread(client, () -> showLanJoin(stage, "Failed to connect: " + client.getLastError()));
+        Thread connectThread = buildClientConnectThread(client, () -> {
+            String error = "Failed to connect: " + client.getLastError();
+            if (mode == NetworkSessionMode.INTERNET) {
+                showInternetJoin(stage, error);
+            } else {
+                showLanJoin(stage, error);
+            }
+        });
         connectThread.start();
     }
 
@@ -25017,11 +25265,16 @@ public class BirdGame3 {
         return connectThread;
     }
 
-    private void prepareNetworkSessionState(boolean hostSession) {
+    private void prepareNetworkSessionState(boolean hostSession, NetworkSessionMode mode, int port) {
         stopLanSession();
         lanModeActive = true;
         lanIsHost = hostSession;
         lanIsClient = !hostSession;
+        networkSessionMode = mode == null ? NetworkSessionMode.LAN : mode;
+        networkSessionPort = port;
+        networkInputDelayTicks = networkSessionMode == NetworkSessionMode.INTERNET
+                ? LockstepSession.INTERNET_INPUT_DELAY_TICKS
+                : LockstepSession.INPUT_DELAY_TICKS;
         lanMatchActive = false;
         lanPlayerIndex = hostSession ? 0 : -1;
         pendingLanState = null;
@@ -25059,9 +25312,7 @@ public class BirdGame3 {
         if (lanSlotLabels == null) return;
         int connectedCount = countLanConnected();
         if (lanLobbyInfoLabel != null) {
-            lanLobbyInfoLabel.setText(lanIsHost
-                    ? "IP: " + findLanAddress() + "  Port: " + LanProtocol.DEFAULT_PORT
-                    : "Connected to: " + (lanLastHost == null ? "" : lanLastHost));
+            lanLobbyInfoLabel.setText(networkLobbyInfoText());
         }
         for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
             Label slot = lanSlotLabels[i];
@@ -25157,7 +25408,7 @@ public class BirdGame3 {
 
     private void refreshLanCompanionFeedUI() {
         if (lanCompanionFeedLabel == null && lanCompanionFeedButton == null) return;
-        if (!lanIsHost || lanHost == null) {
+        if (!lanIsHost || lanHost == null || networkSessionMode != NetworkSessionMode.LAN) {
             if (lanCompanionFeedLabel != null) {
                 lanCompanionFeedLabel.setText("");
             }
@@ -25843,13 +26094,15 @@ public class BirdGame3 {
     void onLanServerError(IOException e) {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsHost) return;
-            Alert alert = new Alert(Alert.AlertType.ERROR, "LAN hosting error: " + (e.getMessage() == null ? "" : e.getMessage()), ButtonType.OK);
-            alert.setTitle("LAN Error");
+            NetworkSessionMode mode = networkSessionMode;
+            Alert alert = new Alert(Alert.AlertType.ERROR, "Network hosting error: "
+                    + (e.getMessage() == null ? "" : e.getMessage()), ButtonType.OK);
+            alert.setTitle("Network Error");
             alert.setHeaderText("Hosting interrupted.");
             alert.showAndWait();
             stopLanSession();
             if (currentStage != null) {
-                showLanMenu(currentStage);
+                showNetworkModeMenu(currentStage, mode);
             }
         });
     }
@@ -25897,8 +26150,12 @@ public class BirdGame3 {
         });
     }
 
-    void onLanStartMatch(MapType map, long seed, boolean[] connected, BirdType[] birds, String[] skinKeys) {
-        javafx.application.Platform.runLater(() -> startLanMatchClient(currentStage, map, seed, connected, birds, skinKeys));
+    void onLanStartMatch(MapType map, long seed, int inputDelayTicks, boolean[] connected,
+                         BirdType[] birds, String[] skinKeys) {
+        javafx.application.Platform.runLater(() -> {
+            networkInputDelayTicks = LockstepSession.sanitizeInputDelay(inputDelayTicks);
+            startLanMatchClient(currentStage, map, seed, connected, birds, skinKeys);
+        });
     }
 
     void onLanState(LanState state) {
@@ -25972,7 +26229,8 @@ public class BirdGame3 {
         title.setEffect(new DropShadow(40, Color.BLACK));
         applyNoEllipsis(title);
 
-        Label subtitle = new Label("LAN RESULTS");
+        Label subtitle = new Label(networkSessionMode == NetworkSessionMode.INTERNET
+                ? "INTERNET RESULTS" : "LAN RESULTS");
         subtitle.setFont(Font.font("Consolas", 26));
         subtitle.setTextFill(Color.web("#B3E5FC"));
 
@@ -26121,16 +26379,19 @@ public class BirdGame3 {
         });
     }
 
-    void onLanDisconnected() {
+    void onLanDisconnected(String reason) {
         if (!lanModeActive || !lanIsClient) return;
         javafx.application.Platform.runLater(() -> {
-            Alert alert = new Alert(Alert.AlertType.INFORMATION, "Connection lost.", ButtonType.OK);
-            alert.setTitle("LAN Disconnected");
+            if (!lanModeActive || !lanIsClient) return;
+            NetworkSessionMode mode = networkSessionMode;
+            String detail = reason == null || reason.isBlank() ? "Connection lost." : reason;
+            Alert alert = new Alert(Alert.AlertType.INFORMATION, detail, ButtonType.OK);
+            alert.setTitle("Network Disconnected");
             alert.setHeaderText("Connection closed.");
             alert.showAndWait();
             stopLanSession();
             if (currentStage != null) {
-                showLanMenu(currentStage);
+                showNetworkModeMenu(currentStage, mode);
             }
         });
     }
@@ -26172,7 +26433,8 @@ public class BirdGame3 {
         }
         lanMatchSeed = System.nanoTime();
         if (lanHost != null) {
-            lanHost.broadcastStart(mapToPlay, lanMatchSeed, lanSlotConnected, lanSelectedBirds, lanSelectedSkinKeys);
+            lanHost.broadcastStart(mapToPlay, lanMatchSeed, networkInputDelayTicks,
+                    lanSlotConnected, lanSelectedBirds, lanSelectedSkinKeys);
         }
         startMatch(stage);
         publishLanCompanionSnapshot();
@@ -26268,6 +26530,10 @@ public class BirdGame3 {
         lanModeActive = false;
         lanIsHost = false;
         lanIsClient = false;
+        networkSessionMode = NetworkSessionMode.NONE;
+        networkSessionPort = LanProtocol.DEFAULT_PORT;
+        networkInputDelayTicks = LockstepSession.INPUT_DELAY_TICKS;
+        networkRemoteEndpoint = "";
         lanMatchActive = false;
         lanPlayerIndex = -1;
         lanResultsActionPending = false;
@@ -26310,7 +26576,7 @@ public class BirdGame3 {
                 ButtonType.YES,
                 ButtonType.NO);
         alert.setTitle("Leave Match");
-        alert.setHeaderText("This will disconnect you from the LAN session.");
+        alert.setHeaderText("This will disconnect you from the network session.");
         alert.initOwner(stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice == ButtonType.YES) {
@@ -26322,11 +26588,11 @@ public class BirdGame3 {
 
     private void confirmLeaveLanSession(Stage stage, Runnable onConfirm) {
         Alert alert = new Alert(Alert.AlertType.CONFIRMATION,
-                "Leave LAN session?",
+                "Leave network session?",
                 ButtonType.YES,
                 ButtonType.NO);
-        alert.setTitle("Leave LAN");
-        alert.setHeaderText("This will disconnect you from the LAN session.");
+        alert.setTitle("Leave Network Match");
+        alert.setHeaderText("This will disconnect you from the network session.");
         alert.initOwner(stage);
         alert.showAndWait().ifPresent(choice -> {
             if (choice == ButtonType.YES && onConfirm != null) {
@@ -42147,7 +42413,7 @@ public class BirdGame3 {
         if (session == null) {
             return true;
         }
-        long sampleTarget = tick + LockstepSession.INPUT_DELAY_TICKS;
+        long sampleTarget = tick + session.inputDelayTicks();
         if (session.shouldSample(sampleTarget)) {
             int mask = sampleLocalLockstepMask();
             if (lanIsHost) {
@@ -42275,12 +42541,18 @@ public class BirdGame3 {
     void onLanLockstepInput(int slot, long tick, int mask) {
         if (!lanModeActive || !lanIsHost) return;
         if (slot <= 0 || slot >= LAN_MAX_PLAYERS) return;
-        hostAcceptLockstepMask(slot, tick, mask);
+        long latestAccepted = simTick + networkInputDelayTicks + 120L;
+        if (tick <= simTick || tick > latestAccepted) return;
+        hostAcceptLockstepMask(slot, tick, mask & LanProtocol.INPUT_MASK_ALL);
     }
 
     void onLanLockstepBundle(long tick, int[] masks) {
         LockstepSession session = lockstepSession;
         if (session == null || lanIsHost) return;
+        if (tick <= simTick || tick > simTick + networkInputDelayTicks + 120L) return;
+        for (int i = 0; i < masks.length; i++) {
+            masks[i] &= LanProtocol.INPUT_MASK_ALL;
+        }
         session.acceptBundle(tick, masks);
     }
 
@@ -43951,7 +44223,7 @@ public class BirdGame3 {
         replayDashCursor = 0;
         replayRecording = null;
         clearReplayInputs();
-        lockstepSession = lanModeActive ? new LockstepSession(lanSlotConnected) : null;
+        lockstepSession = lanModeActive ? new LockstepSession(lanSlotConnected, networkInputDelayTicks) : null;
         lockstepDesyncReported = false;
         lastPowerUpSpawnTime = 0L;
         lastWindBurstTime = 0L;

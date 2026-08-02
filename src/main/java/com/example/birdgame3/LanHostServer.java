@@ -15,19 +15,29 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 
 class LanHostServer implements NetworkSessionHost {
+    private static final int HANDSHAKE_TIMEOUT_MS = 10_000;
+    private static final int MAX_QUEUED_MESSAGES = 512;
+
     private final BirdGame3 game;
+    private final int port;
     private final List<ClientHandler> clients = new CopyOnWriteArrayList<>();
     private final List<CompanionHandler> companionClients = new CopyOnWriteArrayList<>();
     private final boolean[] slotTaken = new boolean[4];
     private ServerSocket serverSocket;
     private ServerSocket companionServerSocket;
-    private volatile boolean companionFeedEnabled = true;
+    private volatile boolean companionFeedEnabled;
     private volatile boolean companionFeedAvailable;
     private volatile byte[] lastCompanionSnapshot;
     private volatile boolean running;
 
     LanHostServer(BirdGame3 game) {
+        this(game, LanProtocol.DEFAULT_PORT, true);
+    }
+
+    LanHostServer(BirdGame3 game, int port, boolean companionFeedEnabled) {
         this.game = game;
+        this.port = NetworkEndpoint.parsePort(Integer.toString(port));
+        this.companionFeedEnabled = companionFeedEnabled;
         slotTaken[0] = true;
     }
 
@@ -35,8 +45,10 @@ class LanHostServer implements NetworkSessionHost {
     public boolean start() {
         if (running) return true;
         try {
-            serverSocket = new ServerSocket(LanProtocol.DEFAULT_PORT);
-            serverSocket.setReuseAddress(true);
+            ServerSocket socket = new ServerSocket();
+            socket.setReuseAddress(true);
+            socket.bind(new InetSocketAddress(port));
+            serverSocket = socket;
         } catch (IOException e) {
             return false;
         }
@@ -118,11 +130,13 @@ class LanHostServer implements NetworkSessionHost {
     }
 
     @Override
-    public void broadcastStart(MapType map, long seed, boolean[] connected, BirdType[] birds, String[] skinKeys) {
+    public void broadcastStart(MapType map, long seed, int inputDelayTicks, boolean[] connected,
+                               BirdType[] birds, String[] skinKeys) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_START, out -> {
                 out.writeInt(map.ordinal());
                 out.writeLong(seed);
+                out.writeInt(LockstepSession.sanitizeInputDelay(inputDelayTicks));
                 for (int i = 0; i < 4; i++) {
                     out.writeBoolean(connected[i]);
                     out.writeInt(birds[i] != null ? birds[i].ordinal() : -1);
@@ -269,15 +283,15 @@ class LanHostServer implements NetworkSessionHost {
             try {
                 Socket socket = serverSocket.accept();
                 socket.setTcpNoDelay(true);
+                socket.setKeepAlive(true);
                 int slot = allocateSlot();
                 if (slot < 0) {
-                    socket.close();
+                    rejectAndClose(socket, "This lobby is full.");
                     continue;
                 }
                 ClientHandler handler = new ClientHandler(socket, slot);
                 clients.add(handler);
                 handler.start();
-                game.onLanClientConnected(slot);
             } catch (IOException e) {
                 if (running) {
                     game.onLanServerError(e);
@@ -296,6 +310,13 @@ class LanHostServer implements NetworkSessionHost {
         return -1;
     }
 
+    private void rejectAndClose(Socket socket, String reason) {
+        try (socket; DataOutputStream rejectOut = new DataOutputStream(socket.getOutputStream())) {
+            LanProtocol.writeFramed(rejectOut, LanPayloadRouter.buildReject(reason));
+        } catch (IOException ignored) {
+        }
+    }
+
     private void companionAcceptLoop() {
         while (running && companionFeedEnabled) {
             try {
@@ -303,6 +324,7 @@ class LanHostServer implements NetworkSessionHost {
                 if (socket == null || socket.isClosed()) return;
                 Socket companionSocket = socket.accept();
                 companionSocket.setTcpNoDelay(true);
+                companionSocket.setKeepAlive(true);
                 CompanionHandler handler = new CompanionHandler(companionSocket);
                 companionClients.add(handler);
                 handler.start();
@@ -325,7 +347,9 @@ class LanHostServer implements NetworkSessionHost {
     private void handleDisconnect(ClientHandler handler) {
         clients.remove(handler);
         releaseSlot(handler.slot);
-        game.onLanClientDisconnected(handler.slot);
+        if (handler.handshakeComplete) {
+            game.onLanClientDisconnected(handler.slot);
+        }
     }
 
     private void handleCompanionDisconnect(CompanionHandler handler) {
@@ -337,9 +361,10 @@ class LanHostServer implements NetworkSessionHost {
         private final Socket socket;
         private final DataInputStream in;
         private final DataOutputStream out;
-        private final BlockingQueue<byte[]> outbound = new LinkedBlockingQueue<>();
+        private final BlockingQueue<byte[]> outbound = new LinkedBlockingQueue<>(MAX_QUEUED_MESSAGES);
         private final int slot;
         private volatile boolean active = true;
+        private volatile boolean handshakeComplete;
         private Thread readThread;
         private Thread writeThread;
 
@@ -348,6 +373,7 @@ class LanHostServer implements NetworkSessionHost {
             this.slot = slot;
             this.in = new DataInputStream(socket.getInputStream());
             this.out = new DataOutputStream(socket.getOutputStream());
+            socket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
         }
 
         void start() {
@@ -357,7 +383,6 @@ class LanHostServer implements NetworkSessionHost {
             writeThread.setDaemon(true);
             readThread.start();
             writeThread.start();
-            sendWelcome();
         }
 
         void enqueue(byte[] payload) {
@@ -390,6 +415,15 @@ class LanHostServer implements NetworkSessionHost {
 
         private void readLoop() {
             try {
+                int clientVersion = LanPayloadRouter.readClientHelloVersion(LanProtocol.readFramed(in));
+                if (clientVersion != LanProtocol.VERSION) {
+                    reject("Game versions do not match. Both players must run the same Bird Fight 3 version.");
+                    return;
+                }
+                socket.setSoTimeout(0);
+                sendWelcome();
+                handshakeComplete = true;
+                game.onLanClientConnected(slot);
                 while (active) {
                     byte[] payload = LanProtocol.readFramed(in);
                     LanPayloadRouter.handleClientPayload(game, slot, payload);
@@ -398,6 +432,13 @@ class LanHostServer implements NetworkSessionHost {
             } finally {
                 close();
                 handleDisconnect(this);
+            }
+        }
+
+        private void reject(String reason) {
+            try {
+                LanProtocol.writeFramed(out, LanPayloadRouter.buildReject(reason));
+            } catch (IOException ignored) {
             }
         }
 

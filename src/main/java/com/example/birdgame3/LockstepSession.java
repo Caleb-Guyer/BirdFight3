@@ -11,9 +11,8 @@ import java.util.concurrent.ConcurrentHashMap;
  *
  * <p>Every participant runs the full simulation; only inputs travel the wire.
  * Each sim tick executes only once the input masks of ALL participants for
- * that tick are known. Inputs are sampled {@link #INPUT_DELAY_TICKS} ticks
- * ahead of execution, giving the network that much time to deliver them
- * before anyone has to stall.
+ * that tick are known. Inputs are sampled a negotiated number of ticks ahead
+ * of execution, giving the network time to deliver them before anyone stalls.
  *
  * <p>Topology is a star: clients send their tick-stamped masks to the host;
  * the host assembles a per-tick bundle (one mask per slot) and broadcasts it.
@@ -24,7 +23,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * state is guarded; completed bundles live in a concurrent map.
  */
 final class LockstepSession {
+    /** Default buffer for low-latency local-network matches. */
     static final int INPUT_DELAY_TICKS = 4;
+    /** Larger buffer for direct internet matches (about 133 ms at 60 Hz). */
+    static final int INTERNET_INPUT_DELAY_TICKS = 8;
     static final int MAX_SLOTS = 4;
     /** Hash-compare cadence in ticks (2 seconds at 60 Hz). */
     static final int HASH_INTERVAL_TICKS = 120;
@@ -36,18 +38,33 @@ final class LockstepSession {
     private final Map<Long, Integer> partialFilled = new HashMap<>();
     private final Map<Long, Long> localHashes = new ConcurrentHashMap<>();
     private final Map<Long, Long> remoteHashes = new ConcurrentHashMap<>();
-    private long lastSampledTick = INPUT_DELAY_TICKS;
+    private final int inputDelayTicks;
+    private long lastSampledTick;
 
     LockstepSession(boolean[] connectedSlots) {
+        this(connectedSlots, INPUT_DELAY_TICKS);
+    }
+
+    LockstepSession(boolean[] connectedSlots, int inputDelayTicks) {
+        this.inputDelayTicks = sanitizeInputDelay(inputDelayTicks);
+        this.lastSampledTick = this.inputDelayTicks;
         requiredSlot[0] = true; // the host always participates
         for (int i = 1; i < MAX_SLOTS; i++) {
             requiredSlot[i] = connectedSlots != null && i < connectedSlots.length && connectedSlots[i];
         }
-        // The first INPUT_DELAY_TICKS ticks have no sampled inputs yet; seed
+        // The first inputDelayTicks ticks have no sampled inputs yet; seed
         // them as all-neutral so both sides can start executing immediately.
-        for (long t = 1; t <= INPUT_DELAY_TICKS; t++) {
+        for (long t = 1; t <= this.inputDelayTicks; t++) {
             bundles.put(t, new int[MAX_SLOTS]);
         }
+    }
+
+    int inputDelayTicks() {
+        return inputDelayTicks;
+    }
+
+    static int sanitizeInputDelay(int ticks) {
+        return Math.clamp(ticks, INPUT_DELAY_TICKS, 20);
     }
 
     /**

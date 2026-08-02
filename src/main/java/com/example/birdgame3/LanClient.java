@@ -6,27 +6,36 @@ import com.example.birdgame3.BirdGame3.MapType;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
 class LanClient implements NetworkSessionClient {
+    private static final int CONNECT_TIMEOUT_MS = 8_000;
+    private static final int HANDSHAKE_TIMEOUT_MS = 10_000;
+    private static final int MAX_QUEUED_MESSAGES = 512;
+
     private final BirdGame3 game;
-    private final String host;
+    private final NetworkEndpoint endpoint;
     private Socket socket;
     private DataInputStream in;
     private DataOutputStream out;
-    private final BlockingQueue<byte[]> outbound = new LinkedBlockingQueue<>();
+    private final BlockingQueue<byte[]> outbound = new LinkedBlockingQueue<>(MAX_QUEUED_MESSAGES);
     private Thread readThread;
     private Thread writeThread;
     private volatile boolean running;
     private volatile boolean closed;
     private volatile boolean notifyOnDisconnect = true;
-    private String lastError = "";
+    private volatile String lastError = "";
 
     LanClient(BirdGame3 game, String host) {
+        this(game, NetworkEndpoint.parse(host, LanProtocol.DEFAULT_PORT));
+    }
+
+    LanClient(BirdGame3 game, NetworkEndpoint endpoint) {
         this.game = game;
-        this.host = host;
+        this.endpoint = endpoint;
     }
 
     @Override
@@ -36,18 +45,26 @@ class LanClient implements NetworkSessionClient {
 
     @Override
     public boolean connect() {
-        return connect(host);
+        return connect(endpoint);
     }
 
     boolean connect(String host) {
+        return connect(NetworkEndpoint.parse(host, LanProtocol.DEFAULT_PORT));
+    }
+
+    private boolean connect(NetworkEndpoint target) {
         if (running) return true;
         if (closed) {
             lastError = "Connection cancelled.";
             return false;
         }
         try {
-            Socket newSocket = new Socket(host, LanProtocol.DEFAULT_PORT);
+            Socket newSocket = new Socket();
+            socket = newSocket;
+            newSocket.connect(new InetSocketAddress(target.host(), target.port()), CONNECT_TIMEOUT_MS);
             newSocket.setTcpNoDelay(true);
+            newSocket.setKeepAlive(true);
+            newSocket.setSoTimeout(HANDSHAKE_TIMEOUT_MS);
             DataInputStream newIn = new DataInputStream(newSocket.getInputStream());
             DataOutputStream newOut = new DataOutputStream(newSocket.getOutputStream());
             if (closed) {
@@ -55,10 +72,17 @@ class LanClient implements NetworkSessionClient {
                 lastError = "Connection cancelled.";
                 return false;
             }
-            socket = newSocket;
+            byte[] hello = LanProtocol.buildMessage(LanProtocol.MSG_HELLO,
+                    helloOut -> helloOut.writeInt(LanProtocol.VERSION));
+            LanProtocol.writeFramed(newOut, hello);
+            LanPayloadRouter.Welcome welcome = LanPayloadRouter.readServerWelcome(LanProtocol.readFramed(newIn));
+            if (welcome.version() != LanProtocol.VERSION) {
+                throw new IOException("Game versions do not match. Both players must run the same Bird Fight 3 version.");
+            }
+            newSocket.setSoTimeout(0);
+            notifyOnDisconnect = true;
             in = newIn;
             out = newOut;
-            notifyOnDisconnect = true;
             running = true;
             readThread = new Thread(this::readLoop, "LanClient-Read");
             writeThread = new Thread(this::writeLoop, "LanClient-Write");
@@ -66,10 +90,10 @@ class LanClient implements NetworkSessionClient {
             writeThread.setDaemon(true);
             readThread.start();
             writeThread.start();
-            sendHello();
+            game.onLanWelcome(welcome.slot());
             return true;
         } catch (IOException e) {
-            lastError = e.getMessage() != null ? e.getMessage() : "Connection failed.";
+            lastError = friendlyError(e);
             disconnect();
             return false;
         }
@@ -95,7 +119,7 @@ class LanClient implements NetworkSessionClient {
     private void enqueueOutbound(byte[] payload) {
         if (!running || payload == null) return;
         if (!outbound.offer(payload)) {
-            lastError = "Failed to queue LAN message.";
+            lastError = "The network connection could not keep up.";
             disconnectInternal();
         }
     }
@@ -158,23 +182,21 @@ class LanClient implements NetworkSessionClient {
         }
     }
 
-    private void sendHello() throws IOException {
-        byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_HELLO, out -> out.writeInt(LanProtocol.VERSION));
-        enqueueOutbound(msg);
-    }
-
     private void readLoop() {
         try {
             while (running) {
                 byte[] payload = LanProtocol.readFramed(in);
                 LanPayloadRouter.handleServerPayload(game, payload);
             }
-        } catch (IOException ignored) {
+        } catch (IOException e) {
+            if (!closed) {
+                lastError = friendlyError(e);
+            }
         } finally {
             boolean notify = notifyOnDisconnect;
             disconnectInternal();
             if (notify) {
-                game.onLanDisconnected();
+                game.onLanDisconnected(lastError);
             }
         }
     }
@@ -191,5 +213,19 @@ class LanClient implements NetworkSessionClient {
         } finally {
             disconnectInternal();
         }
+    }
+
+    private String friendlyError(IOException error) {
+        String message = error == null ? null : error.getMessage();
+        if (message == null || message.isBlank()) {
+            return "The host closed the connection.";
+        }
+        if (message.toLowerCase().contains("timed out")) {
+            return "Connection timed out. Check the address, firewall, and forwarded TCP port.";
+        }
+        if (message.toLowerCase().contains("refused")) {
+            return "Connection refused. Check that the host is running and the TCP port is open.";
+        }
+        return message;
     }
 }

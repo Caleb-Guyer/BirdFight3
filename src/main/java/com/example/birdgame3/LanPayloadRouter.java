@@ -8,8 +8,37 @@ import java.io.DataInputStream;
 import java.io.IOException;
 
 final class LanPayloadRouter {
+    record Welcome(int slot, int version) {
+    }
+
+    static int readClientHelloVersion(byte[] payload) throws IOException {
+        DataInputStream msgIn = payloadInput(payload);
+        if (msgIn.readByte() != LanProtocol.MSG_HELLO) {
+            throw new IOException("The first client message was not a handshake.");
+        }
+        return msgIn.readInt();
+    }
+
+    static Welcome readServerWelcome(byte[] payload) throws IOException {
+        DataInputStream msgIn = payloadInput(payload);
+        byte type = msgIn.readByte();
+        if (type == LanProtocol.MSG_REJECT) {
+            String reason = msgIn.readUTF();
+            throw new IOException(reason.isBlank() ? "The host rejected the connection." : reason);
+        }
+        if (type != LanProtocol.MSG_WELCOME) {
+            throw new IOException("The host returned an invalid handshake.");
+        }
+        return new Welcome(msgIn.readInt(), msgIn.readInt());
+    }
+
+    static byte[] buildReject(String reason) throws IOException {
+        String safeReason = reason == null || reason.isBlank() ? "Connection rejected." : reason;
+        return LanProtocol.buildMessage(LanProtocol.MSG_REJECT, out -> out.writeUTF(safeReason));
+    }
+
     static void handleClientPayload(BirdGame3 game, int slot, byte[] payload) throws IOException {
-        DataInputStream msgIn = new DataInputStream(new ByteArrayInputStream(payload));
+        DataInputStream msgIn = payloadInput(payload);
         byte type = msgIn.readByte();
         switch (type) {
             case LanProtocol.MSG_HELLO -> {
@@ -40,12 +69,12 @@ final class LanPayloadRouter {
                 game.onLanClientReady(slot, ready);
             }
             case LanProtocol.MSG_INPUT -> {
-                int mask = msgIn.readInt();
+                int mask = msgIn.readInt() & LanProtocol.INPUT_MASK_ALL;
                 game.onLanClientInput(slot, mask);
             }
             case LanProtocol.MSG_LOCKSTEP_INPUT -> {
                 long tick = msgIn.readLong();
-                int mask = msgIn.readInt();
+                int mask = msgIn.readInt() & LanProtocol.INPUT_MASK_ALL;
                 game.onLanLockstepInput(slot, tick, mask);
             }
             default -> {
@@ -54,7 +83,7 @@ final class LanPayloadRouter {
     }
 
     static void handleServerPayload(BirdGame3 game, byte[] payload) throws IOException {
-        DataInputStream msgIn = new DataInputStream(new ByteArrayInputStream(payload));
+        DataInputStream msgIn = payloadInput(payload);
         byte type = msgIn.readByte();
         switch (type) {
             case LanProtocol.MSG_WELCOME -> {
@@ -92,6 +121,7 @@ final class LanPayloadRouter {
                 int mapOrd = msgIn.readInt();
                 MapType map = readMapByOrdinal(mapOrd);
                 long seed = msgIn.readLong();
+                int inputDelayTicks = LockstepSession.sanitizeInputDelay(msgIn.readInt());
                 boolean[] connected = new boolean[4];
                 BirdType[] birds = new BirdType[4];
                 String[] skinKeys = new String[4];
@@ -102,7 +132,7 @@ final class LanPayloadRouter {
                     String skinKey = msgIn.readUTF();
                     skinKeys[i] = skinKey.isBlank() ? null : skinKey;
                 }
-                game.onLanStartMatch(map, seed, connected, birds, skinKeys);
+                game.onLanStartMatch(map, seed, inputDelayTicks, connected, birds, skinKeys);
             }
             case LanProtocol.MSG_STATE -> game.onLanState(LanState.read(msgIn));
             case LanProtocol.MSG_LOCKSTEP_BUNDLE -> {
@@ -120,6 +150,13 @@ final class LanPayloadRouter {
             default -> {
             }
         }
+    }
+
+    private static DataInputStream payloadInput(byte[] payload) throws IOException {
+        if (payload == null || payload.length == 0) {
+            throw new IOException("Empty network message.");
+        }
+        return new DataInputStream(new ByteArrayInputStream(payload));
     }
 
     private static MapType readMapByOrdinal(int ord) {

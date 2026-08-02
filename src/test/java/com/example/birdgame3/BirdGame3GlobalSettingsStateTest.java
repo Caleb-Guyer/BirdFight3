@@ -27,14 +27,22 @@ class BirdGame3GlobalSettingsStateTest {
     @Test
     void loadAndSaveRoundTripsLanLastHost() {
         prefs.put("lan_last_host", "192.168.1.40");
+        prefs.put("internet_last_endpoint", "games.example.com:30100");
+        prefs.putInt("internet_host_port", 30100);
 
         BirdGame3GlobalSettingsState state = BirdGame3GlobalSettingsState.load(prefs, new String[0], 0);
         assertEquals("192.168.1.40", state.lanLastHost);
+        assertEquals("games.example.com:30100", state.internetLastEndpoint);
+        assertEquals(30100, state.internetHostPort);
 
         state.lanLastHost = "192.168.1.77";
+        state.internetLastEndpoint = "203.0.113.9:28999";
+        state.internetHostPort = 28999;
         state.saveTo(prefs, new String[0]);
 
         assertEquals("192.168.1.77", prefs.get("lan_last_host", ""));
+        assertEquals("203.0.113.9:28999", prefs.get("internet_last_endpoint", ""));
+        assertEquals(28999, prefs.getInt("internet_host_port", 0));
     }
 
     @Test
