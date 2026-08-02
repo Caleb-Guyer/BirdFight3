@@ -42516,6 +42516,9 @@ public class BirdGame3 {
                 h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockLaserTargetY);
                 h = h * 1099511628211L + b.nullRockLiftTimer;
                 h = h * 1099511628211L + b.nullRockSpearTimer;
+                h = h * 1099511628211L + b.nullRockVoidRecoveryTimer;
+                h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockVoidRecoveryTargetX);
+                h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockVoidRecoveryTargetY);
                 for (int spear = 0; spear < b.nullRockSpearCount; spear++) {
                     h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockSpearX[spear]);
                     h = h * 1099511628211L + Double.doubleToLongBits(b.nullRockSpearY[spear]);

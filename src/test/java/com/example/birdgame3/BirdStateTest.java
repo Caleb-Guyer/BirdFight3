@@ -1802,6 +1802,8 @@ class BirdStateTest {
         assertTrue(boss.nullRockLaserFired);
         assertTrue(nearest.health < healthBefore);
         assertTrue(nearest.vx > 0.0, "The eye laser should launch along its aim line.");
+        assertEquals(0, game.hitstopFrames,
+                "Null Rock's eye laser must not freeze the entire match.");
     }
 
     @Test
@@ -5679,19 +5681,37 @@ class BirdStateTest {
     }
 
     @Test
-    void nullRockCanStandOnBattlefieldVoidFloor() throws Exception {
+    void nullRockQuicklyFliesBackFromBattlefieldVoid() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
-        Bird nullRock = new Bird(1900.0, BirdGame3.BirdType.VULTURE, 0, game);
+        invokePrivateVoid(game, "setupBattlefieldArena");
+        Bird nullRock = new Bird(game.battlefieldSpawnCenterX(), BirdGame3.BirdType.VULTURE, 0, game);
         nullRock.isNullRockSkin = true;
-        double deepestVisibleTopY = BirdGame3.WORLD_HEIGHT - 160.0;
-        nullRock.y = deepestVisibleTopY + 220.0;
-        nullRock.vy = 6.0;
+        nullRock.setBaseMultipliers(3.6, 1.0, 1.0);
+        game.activePlayers = 1;
+        game.players[0] = nullRock;
+        double healthBefore = nullRock.health;
+        nullRock.x += 500.0;
+        nullRock.y = game.battlefieldVoidFloorY() + 400.0;
+        nullRock.vy = 18.0;
 
-        invokePrivateVoid(nullRock, "handleVerticalCollision");
+        nullRock.update(1.0);
 
-        assertEquals(deepestVisibleTopY, nullRock.y, 0.0001);
-        assertTrue(nullRock.isOnGround());
+        assertTrue(nullRock.nullRockVoidRecoveryTimer > 0);
+        assertTrue(nullRock.vy < 0.0, "The recovery should immediately launch Null Rock upward.");
+        assertEquals(healthBefore, nullRock.health, 0.0001,
+                "Falling into the void should not damage or defeat Null Rock.");
+
+        for (int frame = 0; frame < Bird.NULL_ROCK_VOID_RECOVERY_FRAMES + 12; frame++) {
+            nullRock.update(1.0);
+        }
+
+        assertEquals(0, nullRock.nullRockVoidRecoveryTimer);
+        assertEquals(game.battlefieldSpawnCenterX(), nullRock.bodyCenterX(), 0.0001,
+                "The recovery should return Null Rock to center stage.");
+        assertTrue(nullRock.y < game.battlefieldSpawnY(nullRock.sizeMultiplier),
+                "The recovery should finish safely above the stage.");
+        assertEquals(healthBefore, nullRock.health, 0.0001);
     }
 
     @Test

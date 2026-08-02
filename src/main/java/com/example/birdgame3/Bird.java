@@ -1994,11 +1994,15 @@ public class Bird {
     private static final double[] NULL_ROCK_PHASE_THRESHOLDS = {0.84, 0.66, NULL_ROCK_TRUE_FORM_THRESHOLD, 0.24};
     private static final int NULL_ROCK_PHASE_INVULN_FRAMES = 135;
     private static final int TRUE_NULL_ROCK_ASCENSION_INVULN_FRAMES = 220;
+    static final int NULL_ROCK_VOID_RECOVERY_FRAMES = 42;
     private static final int BAT_REHANG_COOLDOWN_FRAMES = 14;
     private int nullRockInvincibilityTimer = 0;
     private int nullRockPhaseIndex = 0;
     private int nullRockShieldFxCooldown = 0;
     private boolean trueNullRockForm = false;
+    int nullRockVoidRecoveryTimer = 0;
+    double nullRockVoidRecoveryTargetX = 0.0;
+    double nullRockVoidRecoveryTargetY = 0.0;
     private int recentSmashAttackerIndex = -1;
     private int recentSmashAttackerFrames = 0;
     private double pendingSmashLaunchScale = 1.0;
@@ -10867,6 +10871,7 @@ public class Bird {
         handleRazorbillSpecials();
 
         // === APPLY VELOCITY ===
+        applyNullRockVoidRecoveryVelocity();
         double prevX = x;
         double prevY = y;
         x += vx;
@@ -14514,6 +14519,71 @@ public class Bird {
         return previousCenterX + (bodyCenterX() - previousCenterX) * t;
     }
 
+    private void applyNullRockVoidRecoveryVelocity() {
+        if (nullRockVoidRecoveryTimer <= 0) return;
+        double dx = nullRockVoidRecoveryTargetX - x;
+        double dy = nullRockVoidRecoveryTargetY - y;
+        int travelFrames = Math.max(1, Math.min(18, nullRockVoidRecoveryTimer));
+        vx = Math.clamp(dx / travelFrames, -58.0, 58.0);
+        vy = Math.clamp(dy / travelFrames, -62.0, 34.0);
+        if (dy < -80.0) {
+            vy = Math.min(vy, -18.0);
+        }
+        isFlying = true;
+    }
+
+    private boolean handleNullRockVoidRecoveryBoundary() {
+        if (!isNullRockForm() || !isVoidMap()) {
+            nullRockVoidRecoveryTimer = 0;
+            return false;
+        }
+
+        if (nullRockVoidRecoveryTimer > 0) {
+            nullRockVoidRecoveryTimer--;
+            carrionSwarmTimer = Math.max(carrionSwarmTimer, 12);
+            nullRockInvincibilityTimer = Math.max(nullRockInvincibilityTimer, 24);
+            double distance = Math.hypot(nullRockVoidRecoveryTargetX - x, nullRockVoidRecoveryTargetY - y);
+            if (distance <= 54.0 || nullRockVoidRecoveryTimer <= 0) {
+                x = nullRockVoidRecoveryTargetX;
+                y = nullRockVoidRecoveryTargetY;
+                prevX = x;
+                prevY = y;
+                vx = 0.0;
+                vy = -2.5;
+                nullRockVoidRecoveryTimer = 0;
+                nullRockInvincibilityTimer = Math.max(nullRockInvincibilityTimer, 45);
+            }
+            return true;
+        }
+
+        Platform mainStage = findAIMainStagePlatform();
+        double recoveryLine = mainStage != null
+                ? mainStage.y + 260.0
+                : game.battlefieldVoidFloorY() + 260.0;
+        if (bodyBottomY() <= recoveryLine) {
+            return false;
+        }
+
+        nullRockVoidRecoveryTimer = NULL_ROCK_VOID_RECOVERY_FRAMES;
+        nullRockVoidRecoveryTargetX = game.battlefieldSpawnCenterX() - bodyWidth() * 0.5;
+        nullRockVoidRecoveryTargetY = game.battlefieldSpawnY(sizeMultiplier) - 120.0;
+        releaseGrabState(false);
+        cancelAttackCharge();
+        VultureSpecials.reset(this, false);
+        attackAnimationTimer = 0;
+        stunTime = 0.0;
+        isBlocking = false;
+        shieldHoldVisual = 0.0;
+        isFlying = true;
+        nullRockInvincibilityTimer = Math.max(nullRockInvincibilityTimer, NULL_ROCK_VOID_RECOVERY_FRAMES + 30);
+        carrionSwarmTimer = Math.max(carrionSwarmTimer, 70);
+        applyNullRockVoidRecoveryVelocity();
+        if (!game.isTrainingDummy(this)) {
+            game.addToKillFeed(shortName() + " refuses the void and flies back to the stage!");
+        }
+        return true;
+    }
+
     private void handleBoundaries(double gameSpeed, boolean wasAirborne, double prevX, double prevY) {
         if (game.isCampaignCaveEscapePhysicsActiveFor(this)) {
             handleCampaignCaveEscapeBoundaries(wasAirborne, prevY);
@@ -14540,6 +14610,10 @@ public class Bird {
         }
 
         boolean trainingDummy = game.isTrainingDummy(this);
+
+        if (handleNullRockVoidRecoveryBoundary()) {
+            return;
+        }
 
         if (applyCameraTopBoundaryPressure(gameSpeed, trainingDummy)) {
             if (smashRules) {
@@ -15001,6 +15075,9 @@ public class Bird {
         vultureSideReuseTimer = 0;
         vultureUpSpecialUsed = false;
         vultureDownReuseTimer = 0;
+        nullRockVoidRecoveryTimer = 0;
+        nullRockVoidRecoveryTargetX = 0.0;
+        nullRockVoidRecoveryTargetY = 0.0;
         resetTurkeySpecialState(true);
         turkeyGobbleReuseTimer = 0;
         turkeyStampedeReuseTimer = 0;
@@ -27249,6 +27326,31 @@ public class Bird {
     private void drawNullRockSpecialVisuals(GraphicsContext g, double drawSize) {
         double s = sizeMultiplier;
         double dir = facingRight ? 1.0 : -1.0;
+
+        if (nullRockVoidRecoveryTimer > 0) {
+            double speed = Math.max(1.0, Math.hypot(vx, vy));
+            double trailX = -vx / speed;
+            double trailY = -vy / speed;
+            double cx = bodyCenterX();
+            double cy = bodyCenterY();
+            g.setLineCap(StrokeLineCap.ROUND);
+            for (int i = 0; i < 9; i++) {
+                double side = (i - 4.0) * 13.0 * Math.sqrt(s);
+                double tangentX = -trailY * side;
+                double tangentY = trailX * side;
+                double length = (74.0 + i * 9.0) * Math.sqrt(s);
+                g.setStroke((i % 3 == 0 ? Color.web("#FF80AB") : Color.web("#25102B"))
+                        .deriveColor(0, 1, 1, 0.34 + (i % 2) * 0.12));
+                g.setLineWidth(3.0 + (i % 3));
+                g.strokeLine(cx + tangentX, cy + tangentY,
+                        cx + tangentX + trailX * length,
+                        cy + tangentY + trailY * length);
+            }
+            g.setStroke(Color.web("#FFF1F5", 0.48));
+            g.setLineWidth(5.0 * Math.sqrt(s));
+            g.strokeOval(cx - 48.0 * Math.sqrt(s), cy - 36.0 * Math.sqrt(s),
+                    96.0 * Math.sqrt(s), 72.0 * Math.sqrt(s));
+        }
 
         if (nullRockLiftTimer > 0) {
             double progress = 1.0 - nullRockLiftTimer / (double) NULL_ROCK_LIFT_FRAMES;

@@ -883,6 +883,7 @@ final class VultureSpecials {
     }
 
     private static void fireNullRockLaser(Bird bird) {
+        int preservedHitstop = bird.game.hitstopFrames;
         double dir = bird.facingDirection();
         double startX = bird.bodyCenterX() + dir * 30.0 * bird.sizeMultiplier;
         double startY = bird.y + 10.0 * bird.sizeMultiplier;
@@ -907,7 +908,9 @@ final class VultureSpecials {
                     "scoured", bird.nullRockLaserUltimate ? 18 : 13, Color.web("#FF1744"));
         }
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, bird.nullRockLaserUltimate ? 34 : 27);
-        bird.game.hitstopFrames = Math.max(bird.game.hitstopFrames, bird.nullRockLaserUltimate ? 8 : 5);
+        // The beam is intentionally continuous-looking; neither a direct hit nor
+        // a shield impact may stop the whole match while it is on screen.
+        bird.game.hitstopFrames = preservedHitstop;
     }
 
     private static void handleNullRockLift(Bird bird) {
@@ -1032,7 +1035,8 @@ final class VultureSpecials {
                 || bird.vultureBlackSkyTimer > 0
                 || bird.nullRockLaserTimer > 0
                 || bird.nullRockLiftTimer > 0
-                || bird.nullRockSpearTimer > 0;
+                || bird.nullRockSpearTimer > 0
+                || bird.nullRockVoidRecoveryTimer > 0;
     }
 
     static boolean ready(Bird bird, Bird.VultureSpecialVariant variant) {
