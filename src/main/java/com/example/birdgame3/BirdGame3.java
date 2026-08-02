@@ -668,12 +668,12 @@ public class BirdGame3 {
         CROWN_DUEL(MapType.SKYCLIFFS, "Story Arenas", "Command Bridge", "A narrow Crown command bridge with open sides and twin recovery vents."),
         NULL_ROCK_DUEL(MapType.BEACON_CROWN, "Story Arenas", "Final Duel", "The isolated altar used for the last duel with The Null Rock."),
         SKYBREAK_SPIRES(MapType.SKYCLIFFS, "Boss Rush Arenas", "Skybreak Spires", "Three separated summit lanes linked by powerful wind lifts."),
-        ASHFALL_REBIRTH(MapType.ASHFALL_CATHEDRAL, "Boss Rush Arenas", "Rebirth Altar", "A compact cathedral nave built around a high central altar."),
-        TITAN_DOCK(MapType.DOCK, "Boss Rush Arenas", "Titan Dock", "Broken Harbor reinforced with extra rigging and a dangerous high route."),
-        PARLIAMENT_ROOFTOPS(MapType.CITY, "Boss Rush Arenas", "Parliament Rooftops", "A symmetrical neon skyline of lounges, courts, and smoke lanes."),
+        ASHFALL_REBIRTH(MapType.ASHFALL_CATHEDRAL, "Boss Rush Arenas", "Rebirth Altar", "A floating cathedral nave with an open sky above the central altar."),
+        TITAN_DOCK(MapType.DOCK, "Boss Rush Arenas", "Titan Dock", "An armored dreadnought suspended between isolated harbor cranes."),
+        PARLIAMENT_ROOFTOPS(MapType.CITY, "Boss Rush Arenas", "Parliament Rooftops", "Three separated towers connected by exposed neon skybridges."),
         CARRION_THRONE(MapType.VIBRANT_JUNGLE, "Boss Rush Arenas", "Carrion Throne", "A tall jungle throne with swinging vines and nectar routes."),
-        NULL_ROC_ASCENDING(MapType.BEACON_CROWN, "Boss Rush Arenas", "Null Roc Arena", "Beacon Crown widened with outer recovery ledges and high perches."),
-        VOID_CROWN(MapType.BEACON_CROWN, "Boss Rush Arenas", "Void Crown", "The sovereign altar: higher, narrower, and more exposed than the Crown.");
+        NULL_ROC_ASCENDING(MapType.BEACON_CROWN, "Boss Rush Arenas", "Null Roc Arena", "A diagonal ascent across the shattered pieces of the Crown."),
+        VOID_CROWN(MapType.BEACON_CROWN, "Boss Rush Arenas", "Void Crown", "A tiny central altar encircled by isolated crown fragments.");
 
         final MapType baseMap;
         final String category;
@@ -808,6 +808,7 @@ public class BirdGame3 {
 
     public MapType selectedMap = MapType.FOREST; // default
     MapVariant selectedMapVariant = MapVariant.STANDARD;
+    private MapVariant activeArenaGeometryVariant = MapVariant.STANDARD;
     private StageRandomPool standardFightRandomMapPool = StageRandomPool.NONE;
     private boolean desertMapUnlocked = false;
     private boolean caveMapUnlocked = false;
@@ -13277,6 +13278,7 @@ public class BirdGame3 {
                 }
             }
             case CITY -> {
+                boolean parliamentRooftops = activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS;
                 g.setFill(Color.MIDNIGHTBLUE.darker());
                 g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
                 if (ambientFx) {
@@ -13304,7 +13306,17 @@ public class BirdGame3 {
                     }
                 }
                 g.setFill(Color.rgb(30, 30, 50));
-                g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
+                double streetY = parliamentRooftops ? GROUND_Y + 260.0 : GROUND_Y;
+                g.fillRect(0, streetY, WORLD_WIDTH, WORLD_HEIGHT - streetY);
+                if (parliamentRooftops) {
+                    g.setFill(Color.web("#050510", 0.78));
+                    g.fillRect(0, GROUND_Y - 20, WORLD_WIDTH, 280);
+                    g.setStroke(Color.web("#FF1744", 0.20));
+                    g.setLineWidth(5);
+                    for (double x = -240; x < WORLD_WIDTH + 240; x += 420) {
+                        g.strokeLine(x, GROUND_Y + 230, x + 220, GROUND_Y + 20);
+                    }
+                }
                 g.setFill(Color.rgb(65, 65, 85));
                 g.setStroke(Color.CYAN.brighter());
                 g.setLineWidth(4);
@@ -15004,6 +15016,10 @@ public class BirdGame3 {
     }
 
     private void drawDockArena(GraphicsContext g, boolean ambientFx) {
+        if (activeArenaGeometryVariant == MapVariant.TITAN_DOCK) {
+            drawTitanDockArena(g, ambientFx);
+            return;
+        }
         for (int i = 0; i < 620; i++) {
             double ratio = i / 620.0;
             Color c = Color.web("#0B2030").interpolate(Color.web("#2C6E87"), ratio);
@@ -15268,6 +15284,129 @@ public class BirdGame3 {
             g.setStroke(Color.web("#E1F5FE", 0.18));
             g.setLineWidth(2);
             g.strokeOval(v.x + v.w / 2 - 94, v.y - 140, 188, 224);
+        }
+    }
+
+    private void drawTitanDockArena(GraphicsContext g, boolean ambientFx) {
+        for (int i = 0; i < 620; i++) {
+            double ratio = i / 620.0;
+            Color c = Color.web("#050A12").interpolate(Color.web("#263C4B"), ratio);
+            g.setFill(c);
+            g.fillRect(0, i * (WORLD_HEIGHT / 620.0), WORLD_WIDTH, WORLD_HEIGHT / 620.0 + 3);
+        }
+
+        double time = System.currentTimeMillis() / 1000.0;
+        double waterline = dockWaterSurfaceY();
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 1.8) : 0.45;
+
+        g.setFill(Color.web("#9ECAE1", 0.12));
+        for (int i = 0; i < 7; i++) {
+            double cloudX = -420 + i * 1040 + (ambientFx ? Math.sin(time * 0.18 + i) * 90 : 0);
+            g.fillOval(cloudX, 180 + (i % 3) * 130, 1180, 240);
+        }
+
+        // Two colossal drydock cranes frame the dreadnought without creating
+        // false collision surfaces.
+        g.setFill(Color.web("#101820", 0.92));
+        g.fillRect(300, 560, 150, waterline - 560);
+        g.fillRect(WORLD_WIDTH - 450, 520, 150, waterline - 520);
+        g.setStroke(Color.web("#546E7A", 0.72));
+        g.setLineWidth(34);
+        g.strokeLine(375, 650, 1510, 650);
+        g.strokeLine(WORLD_WIDTH - 375, 610, WORLD_WIDTH - 1510, 610);
+        g.setStroke(Color.web("#FFB300", 0.38));
+        g.setLineWidth(8);
+        g.strokeLine(330, 780, 1420, 780);
+        g.strokeLine(WORLD_WIDTH - 330, 740, WORLD_WIDTH - 1420, 740);
+        g.setStroke(Color.web("#263238", 0.84));
+        g.setLineWidth(10);
+        g.strokeLine(1330, 650, 1330, GROUND_Y - 390);
+        g.strokeLine(WORLD_WIDTH - 1330, 610, WORLD_WIDTH - 1330, GROUND_Y - 390);
+
+        g.setFill(Color.web("#061722", 0.96));
+        g.fillRect(0, waterline, WORLD_WIDTH, WORLD_HEIGHT - waterline + 200);
+        g.setFill(Color.web("#164052", 0.52));
+        g.fillRect(0, waterline + 16, WORLD_WIDTH, 42);
+        g.setStroke(Color.web("#80DEEA", 0.28 + pulse * 0.12));
+        g.setLineWidth(3.2);
+        for (int i = 0; i < 14; i++) {
+            double waveY = waterline + 18 + i * 30;
+            double shift = ambientFx ? Math.sin(time * 1.25 + i * 0.73) * 18 : 0;
+            g.strokeLine(0, waveY + shift, WORLD_WIDTH, waveY - shift * 0.35);
+        }
+
+        // The armored hull hangs beneath the main collision deck.
+        double hullLeft = battlefieldIslandX - 140;
+        double hullRight = battlefieldIslandX + battlefieldIslandW + 140;
+        g.setFill(Color.web("#111A21"));
+        g.fillPolygon(
+                new double[]{hullLeft, hullRight, hullRight - 380, WORLD_WIDTH / 2.0 + 520,
+                        WORLD_WIDTH / 2.0, WORLD_WIDTH / 2.0 - 520, hullLeft + 380},
+                new double[]{battlefieldIslandY + 30, battlefieldIslandY + 30, battlefieldIslandY + 260,
+                        battlefieldIslandY + 420, battlefieldIslandY + 540,
+                        battlefieldIslandY + 420, battlefieldIslandY + 260},
+                7
+        );
+        g.setFill(Color.web("#26343D", 0.84));
+        g.fillPolygon(
+                new double[]{hullLeft + 110, hullRight - 110, hullRight - 430, hullLeft + 430},
+                new double[]{battlefieldIslandY + 70, battlefieldIslandY + 70,
+                        battlefieldIslandY + 250, battlefieldIslandY + 250},
+                4
+        );
+        g.setStroke(Color.web("#FFB300", 0.34));
+        g.setLineWidth(5);
+        g.strokeLine(hullLeft + 220, battlefieldIslandY + 130, hullRight - 220, battlefieldIslandY + 130);
+
+        // The bombardment cannon sits below the deck at the actual projectile
+        // muzzle so its shots never appear from empty space.
+        double muzzleX = dockShipCannonMuzzleX();
+        double muzzleY = dockShipCannonMuzzleY();
+        g.setFill(Color.web("#18242C"));
+        g.fillOval(muzzleX - 100, muzzleY - 70, 170, 120);
+        g.setStroke(Color.web("#37474F"));
+        g.setLineWidth(28);
+        g.strokeLine(muzzleX + 20, muzzleY - 10, muzzleX - 115, muzzleY - 30);
+        if (dockShipBomb != null && !dockShipBomb.exploded) {
+            g.setFill(Color.web("#FFCA28", 0.20 + pulse * 0.24));
+            g.fillOval(muzzleX - 145, muzzleY - 58, 86, 58);
+        }
+
+        for (Platform p : platforms) {
+            boolean mainDeck = Math.abs(p.x - battlefieldIslandX) < 1.0
+                    && Math.abs(p.w - battlefieldIslandW) < 1.0;
+            g.setFill(mainDeck ? Color.web("#202D34") : Color.web("#2B3940"));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, mainDeck ? 18 : 12, mainDeck ? 18 : 12);
+            g.setFill(Color.web(mainDeck ? "#52666E" : "#455A64", 0.78));
+            g.fillRoundRect(p.x + 8, p.y + 6, Math.max(18, p.w - 16), Math.max(10, p.h * 0.32), 12, 12);
+            g.setStroke(Color.web(mainDeck ? "#FFB300" : "#90A4AE", mainDeck ? 0.72 : 0.58));
+            g.setLineWidth(mainDeck ? 4.2 : 3.0);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, mainDeck ? 18 : 12, mainDeck ? 18 : 12);
+            g.setStroke(Color.web("#10181D", 0.64));
+            g.setLineWidth(2);
+            for (double seamX = p.x + 100; seamX < p.x + p.w; seamX += 130) {
+                g.strokeLine(seamX, p.y + 8, seamX - 8, p.y + p.h - 6);
+            }
+        }
+
+        double leverBaseY = dockLeverY + 26;
+        boolean leverReady = dockLeverCooldown <= 0;
+        g.setFill(leverReady ? Color.web("#FFB300") : Color.web("#546E7A"));
+        g.fillRoundRect(dockLeverX - 34, leverBaseY - 10, 68, 18, 10, 10);
+        g.setStroke(Color.web("#111820"));
+        g.setLineWidth(4);
+        g.strokeLine(dockLeverX, leverBaseY - 4,
+                dockLeverX + (leverReady ? 18 : -18), dockLeverY - (leverReady ? 20 : 34));
+        g.setFill(Color.web("#FFF8E1", leverReady ? 0.82 : 0.48));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
+        g.fillText(leverReady ? "TITAN CANNON" : "CANNON RELOADING", dockLeverX - 94, dockLeverY - 24);
+
+        for (WindVent v : windVents) {
+            g.setFill(Color.web("#80DEEA", 0.12 + pulse * 0.10));
+            g.fillOval(v.x + v.w / 2.0 - v.w * 0.45, v.y - 220, v.w * 0.9, 360);
+            g.setStroke(Color.web("#E1F5FE", 0.20 + pulse * 0.10));
+            g.setLineWidth(2.4);
+            g.strokeOval(v.x + v.w * 0.18, v.y - 145, v.w * 0.64, 230);
         }
     }
 
@@ -38096,7 +38235,7 @@ public class BirdGame3 {
         }
     }
 
-    private void setupBossRushSolidBounds() {
+    private void resetBossRushArenaState() {
         platforms.clear();
         windVents.clear();
         nectarNodes.clear();
@@ -38106,9 +38245,6 @@ public class BirdGame3 {
         chickMinions.clear();
         mockingbirdShadowMinions.clear();
         powerUps.clear();
-        platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
-        platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
-        platforms.add(new Platform(WORLD_WIDTH, 0, 100, WORLD_HEIGHT));
         battlefieldIslandX = 0;
         battlefieldIslandW = 0;
         battlefieldIslandY = 0;
@@ -38127,8 +38263,16 @@ public class BirdGame3 {
         prisonerRushes.clear();
     }
 
+    private void setupBossRushSolidBounds() {
+        resetBossRushArenaState();
+        platforms.add(new Platform(0, GROUND_Y, WORLD_WIDTH, 600));
+        platforms.add(new Platform(-100, 0, 100, WORLD_HEIGHT));
+        platforms.add(new Platform(WORLD_WIDTH, 0, 100, WORLD_HEIGHT));
+    }
+
     private void setupBossRushSkybreakSpires() {
         setupBossRushSolidBounds();
+        activeArenaGeometryVariant = MapVariant.SKYBREAK_SPIRES;
         platforms.add(new Platform(340, GROUND_Y - 260, 760, 62));
         platforms.add(new Platform(720, GROUND_Y - 700, 460, 44));
         platforms.add(new Platform(620, GROUND_Y - 1120, 340, 38));
@@ -38145,67 +38289,98 @@ public class BirdGame3 {
     }
 
     private void setupBossRushAshfallCathedral() {
-        setupBossRushSolidBounds();
-        platforms.add(new Platform(0, 0, WORLD_WIDTH, 70));
-        platforms.add(new Platform(980, GROUND_Y - 300, 4040, 72));
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.ASHFALL_REBIRTH;
+
+        // Keep the entire upper blast route open. The former full-width y=0
+        // platform could be crossed from below and then trap fighters above it.
+        battlefieldIslandX = 980;
+        battlefieldIslandW = 4040;
+        battlefieldIslandY = GROUND_Y - 300;
+        platforms.add(new Platform(battlefieldIslandX, battlefieldIslandY, battlefieldIslandW, 72));
+        platforms.add(new Platform(390, GROUND_Y - 120, 430, 44));
+        platforms.add(new Platform(5180, GROUND_Y - 120, 430, 44));
         platforms.add(new Platform(1480, GROUND_Y - 760, 720, 48));
         platforms.add(new Platform(3780, GROUND_Y - 760, 720, 48));
         platforms.add(new Platform(2510, GROUND_Y - 1180, 980, 52));
-        platforms.add(new Platform(1300, 420, 420, 34));
-        platforms.add(new Platform(4280, 420, 420, 34));
+        platforms.add(new Platform(1120, GROUND_Y - 1580, 420, 34));
+        platforms.add(new Platform(4460, GROUND_Y - 1580, 420, 34));
         windVents.add(new WindVent(2790, GROUND_Y - 360, 420));
         windVents.add(new WindVent(1640, GROUND_Y - 820, 220));
         windVents.add(new WindVent(4140, GROUND_Y - 820, 220));
     }
 
     private void setupBossRushTitanDock() {
-        platforms.clear();
-        windVents.clear();
-        nectarNodes.clear();
-        swingingVines.clear();
-        crowMinions.clear();
-        piranhaHazards.clear();
-        chickMinions.clear();
-        mockingbirdShadowMinions.clear();
-        powerUps.clear();
-        setupDockArena();
-        platforms.add(new Platform(1650, GROUND_Y - 620, 280, 34));
-        platforms.add(new Platform(4410, GROUND_Y - 760, 260, 30));
-        windVents.add(new WindVent(4460, GROUND_Y - 240, 220));
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.TITAN_DOCK;
+
+        // Titan Dock is a dreadnought arena over open water, not the normal
+        // harbor with a couple of extra pieces of rigging.
+        dockWaterX = 0;
+        dockWaterY = GROUND_Y - 20;
+        dockWaterW = WORLD_WIDTH;
+        dockWaterH = WORLD_HEIGHT - dockWaterY + 320;
+        dockDrownY = WORLD_HEIGHT - 44;
+
+        battlefieldIslandX = 1750;
+        battlefieldIslandW = 2500;
+        battlefieldIslandY = GROUND_Y - 430;
+        platforms.add(new Platform(battlefieldIslandX, battlefieldIslandY, battlefieldIslandW, 96));
+        platforms.add(new Platform(480, GROUND_Y - 160, 850, 72));
+        platforms.add(new Platform(4670, GROUND_Y - 160, 850, 72));
+        platforms.add(new Platform(1210, GROUND_Y - 410, 360, 38));
+        platforms.add(new Platform(4430, GROUND_Y - 410, 360, 38));
+        platforms.add(new Platform(1450, GROUND_Y - 820, 520, 42));
+        platforms.add(new Platform(4030, GROUND_Y - 820, 520, 42));
+        platforms.add(new Platform(720, GROUND_Y - 1120, 420, 38));
+        platforms.add(new Platform(4860, GROUND_Y - 1190, 420, 38));
+        platforms.add(new Platform(2650, GROUND_Y - 1450, 700, 44));
+
+        dockLeverX = WORLD_WIDTH / 2.0;
+        dockLeverY = GROUND_Y - 1490;
+        windVents.add(new WindVent(970, GROUND_Y - 220, 260));
+        windVents.add(new WindVent(2790, GROUND_Y - 500, 420));
+        windVents.add(new WindVent(4770, GROUND_Y - 220, 260));
     }
 
     private void setupBossRushParliamentRooftops() {
-        setupBossRushSolidBounds();
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.PARLIAMENT_ROOFTOPS;
 
-        Platform lounge = new Platform(260, GROUND_Y - 320, 980, 60);
+        Platform lounge = new Platform(300, GROUND_Y - 300, 1430, 84);
         lounge.signText = "LOUNGE";
-        Platform smoke = new Platform(2430, GROUND_Y - 620, 1120, 52);
-        smoke.signText = "SMOKE";
-        Platform court = new Platform(4460, GROUND_Y - 300, 920, 60);
+        Platform parliament = new Platform(2300, GROUND_Y - 750, 1400, 92);
+        parliament.signText = "PARLIAMENT";
+        Platform court = new Platform(4200, GROUND_Y - 300, 1430, 84);
         court.signText = "COURT";
-        Platform leftHigh = new Platform(690, GROUND_Y - 920, 420, 40);
-        leftHigh.signText = "NIGHT";
-        Platform rightHigh = new Platform(4720, GROUND_Y - 980, 420, 40);
-        rightHigh.signText = "RAVEN";
 
         platforms.add(lounge);
-        platforms.add(smoke);
+        platforms.add(parliament);
         platforms.add(court);
-        platforms.add(leftHigh);
-        platforms.add(rightHigh);
-        platforms.add(new Platform(1420, GROUND_Y - 520, 520, 44));
-        platforms.add(new Platform(1820, GROUND_Y - 860, 340, 36));
-        platforms.add(new Platform(3690, GROUND_Y - 520, 520, 44));
-        platforms.add(new Platform(3980, GROUND_Y - 860, 340, 36));
-        platforms.add(new Platform(2570, GROUND_Y - 1040, 760, 38));
+        platforms.add(new Platform(1810, GROUND_Y - 540, 330, 38));
+        platforms.add(new Platform(3860, GROUND_Y - 540, 330, 38));
 
-        windVents.add(new WindVent(760, GROUND_Y - 360, 260));
-        windVents.add(new WindVent(2920, GROUND_Y - 700, 220));
-        windVents.add(new WindVent(4910, GROUND_Y - 360, 260));
+        Platform night = new Platform(690, GROUND_Y - 980, 420, 40);
+        night.signText = "NIGHT";
+        Platform smoke = new Platform(2690, GROUND_Y - 1240, 620, 44);
+        smoke.signText = "SMOKE";
+        Platform raven = new Platform(4890, GROUND_Y - 1030, 420, 40);
+        raven.signText = "RAVEN";
+        platforms.add(night);
+        platforms.add(smoke);
+        platforms.add(raven);
+
+        battlefieldIslandX = parliament.x;
+        battlefieldIslandW = parliament.w;
+        battlefieldIslandY = parliament.y;
+        windVents.add(new WindVent(1760, GROUND_Y - 340, 420));
+        windVents.add(new WindVent(2790, GROUND_Y - 810, 420));
+        windVents.add(new WindVent(3810, GROUND_Y - 340, 420));
     }
 
     private void setupBossRushCarrionThrone() {
         setupBossRushSolidBounds();
+        activeArenaGeometryVariant = MapVariant.CARRION_THRONE;
         platforms.add(new Platform(800, GROUND_Y - 420, 760, 62));
         platforms.add(new Platform(4440, GROUND_Y - 420, 760, 62));
         platforms.add(new Platform(1620, GROUND_Y - 940, 620, 48));
@@ -38238,29 +38413,41 @@ public class BirdGame3 {
     }
 
     private void setupBossRushNullRocArena() {
-        platforms.clear();
-        windVents.clear();
-        nectarNodes.clear();
-        swingingVines.clear();
-        crowMinions.clear();
-        chickMinions.clear();
-        mockingbirdShadowMinions.clear();
-        powerUps.clear();
-        setupBeaconCrownBattlefield();
-        platforms.add(new Platform(battlefieldIslandX - 420, battlefieldIslandY + 120, 300, 32));
-        platforms.add(new Platform(battlefieldIslandX + battlefieldIslandW + 120, battlefieldIslandY + 120, 300, 32));
-        platforms.add(new Platform(battlefieldIslandX + 80, battlefieldIslandY - 520, 280, 34));
-        platforms.add(new Platform(battlefieldIslandX + battlefieldIslandW - 360, battlefieldIslandY - 520, 280, 34));
-        windVents.add(new WindVent(battlefieldIslandX + 150, battlefieldIslandY - 80, 220));
-        windVents.add(new WindVent(battlefieldIslandX + battlefieldIslandW - 370, battlefieldIslandY - 80, 220));
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.NULL_ROC_ASCENDING;
+
+        battlefieldIslandX = 2100;
+        battlefieldIslandW = 1800;
+        battlefieldIslandY = GROUND_Y - 350;
+        platforms.add(new Platform(battlefieldIslandX, battlefieldIslandY, battlefieldIslandW, 82));
+        platforms.add(new Platform(880, GROUND_Y - 150, 620, 42));
+        platforms.add(new Platform(1320, GROUND_Y - 700, 460, 38));
+        platforms.add(new Platform(1870, GROUND_Y - 1130, 420, 36));
+        platforms.add(new Platform(2750, GROUND_Y - 1530, 500, 38));
+        platforms.add(new Platform(3500, GROUND_Y - 1200, 420, 36));
+        platforms.add(new Platform(4140, GROUND_Y - 820, 480, 38));
+        platforms.add(new Platform(4580, GROUND_Y - 290, 620, 42));
+        windVents.add(new WindVent(1420, GROUND_Y - 760, 260));
+        windVents.add(new WindVent(2780, GROUND_Y - 410, 440));
+        windVents.add(new WindVent(4200, GROUND_Y - 880, 260));
     }
 
     private void setupBossRushVoidCrownArena() {
-        setupBossRushNullRocArena();
-        platforms.add(new Platform((WORLD_WIDTH - 260) / 2.0, battlefieldIslandY - 820, 260, 30));
-        platforms.add(new Platform(battlefieldIslandX + 520, battlefieldIslandY - 860, 220, 28));
-        platforms.add(new Platform(battlefieldIslandX + battlefieldIslandW - 740, battlefieldIslandY - 860, 220, 28));
-        windVents.add(new WindVent((WORLD_WIDTH - 200) / 2.0, battlefieldIslandY - 120, 200));
+        resetBossRushArenaState();
+        activeArenaGeometryVariant = MapVariant.VOID_CROWN;
+
+        battlefieldIslandX = 2500;
+        battlefieldIslandW = 1000;
+        battlefieldIslandY = GROUND_Y - 500;
+        platforms.add(new Platform(battlefieldIslandX, battlefieldIslandY, battlefieldIslandW, 86));
+        platforms.add(new Platform(900, GROUND_Y - 300, 650, 44));
+        platforms.add(new Platform(4450, GROUND_Y - 300, 650, 44));
+        platforms.add(new Platform(1500, GROUND_Y - 950, 450, 36));
+        platforms.add(new Platform(4050, GROUND_Y - 950, 450, 36));
+        platforms.add(new Platform(2750, GROUND_Y - 1500, 500, 38));
+        windVents.add(new WindVent(1050, GROUND_Y - 360, 340));
+        windVents.add(new WindVent(2780, GROUND_Y - 560, 440));
+        windVents.add(new WindVent(4610, GROUND_Y - 360, 340));
     }
 
     private void applyBossRushEncounterArenaModifiers(ClassicEncounter encounter) {
@@ -38276,11 +38463,11 @@ public class BirdGame3 {
             }
             case "Titan Dock" -> {
                 setupBossRushTitanDock();
-                addToKillFeed("TITAN DOCK: rigging can collapse under Pelican's weight.");
+                addToKillFeed("TITAN DOCK: an armored dreadnought divides the open harbor.");
             }
             case "Parliament Of Smoke" -> {
                 setupBossRushParliamentRooftops();
-                addToKillFeed("PARLIAMENT ROOFTOPS: neon lanes and lounge roofs frame the duel.");
+                addToKillFeed("PARLIAMENT ROOFTOPS: exposed bridges divide three neon towers.");
             }
             case "Carrion Throne" -> {
                 setupBossRushCarrionThrone();
@@ -38288,7 +38475,7 @@ public class BirdGame3 {
             }
             case "Null Roc Ascending" -> {
                 setupBossRushNullRocArena();
-                addToKillFeed("BEACON CROWN: the route reaches the apocalypse platform.");
+                addToKillFeed("NULL ROC ARENA: climb the shattered Crown as the world falls away.");
             }
             case BOSS_RUSH_EX_NAME -> {
                 setupBossRushVoidCrownArena();
@@ -43721,7 +43908,7 @@ public class BirdGame3 {
             return;
         }
 
-        if (selectedMap == MapType.DOCK) {
+        if (selectedMap == MapType.DOCK && activeArenaGeometryVariant != MapVariant.TITAN_DOCK) {
             int leftDockCount = (active.size() + 1) / 2;
             int bridgeCount = active.size() - leftDockCount;
             double[] leftDockCenters = evenlySpacedCenters(leftDockCount, 1080.0, 2200.0);
@@ -43829,7 +44016,7 @@ public class BirdGame3 {
     }
 
     double battlefieldSpawnCenterX() {
-        if (selectedMap == MapType.DOCK) {
+        if (selectedMap == MapType.DOCK && activeArenaGeometryVariant != MapVariant.TITAN_DOCK) {
             return 1760;
         }
         if (selectedMap == MapType.FROSTBITE_FJORD) {
@@ -43845,7 +44032,7 @@ public class BirdGame3 {
     }
 
     double battlefieldSpawnY(double sizeMultiplier) {
-        if (selectedMap == MapType.DOCK) {
+        if (selectedMap == MapType.DOCK && activeArenaGeometryVariant != MapVariant.TITAN_DOCK) {
             return GROUND_Y - 220 * sizeMultiplier;
         }
         if (selectedMap == MapType.FROSTBITE_FJORD && battlefieldIslandW > 0) {
@@ -43873,12 +44060,20 @@ public class BirdGame3 {
                 || selectedMap == MapType.FROSTBITE_FJORD
                 || selectedMap == MapType.ASHFALL_CATHEDRAL
                 || selectedMap == MapType.PRISON
+                || activeArenaGeometryVariant == MapVariant.TITAN_DOCK
+                || activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS
                 || isCrownDuelArena();
     }
 
     private double battlefieldBoundsMargin() {
         if (selectedMap == MapType.PRISON) {
             return 0.0;
+        }
+        if (activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS) {
+            return 2300.0;
+        }
+        if (activeArenaGeometryVariant == MapVariant.VOID_CROWN) {
+            return 1600.0;
         }
         return Math.max(500, battlefieldIslandW * 0.7);
     }
@@ -44169,6 +44364,7 @@ public class BirdGame3 {
     }
 
     private void setupMatchArenaGeometry() {
+        activeArenaGeometryVariant = MapVariant.STANDARD;
         platforms.clear();
         windVents.clear();
         nectarNodes.clear();
