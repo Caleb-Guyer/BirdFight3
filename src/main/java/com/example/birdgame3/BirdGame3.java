@@ -26196,137 +26196,13 @@ public class BirdGame3 {
         publishLanCompanionSnapshot();
         lanResultsActionPending = false;
         lanResultsStatusLabel = null;
-        disposeGameplayMusicPlayer();
-        menuMusicPlayer = stopMediaPlayer(menuMusicPlayer, false);
-        defeatMusicPlayer = stopMediaPlayer(defeatMusicPlayer, false);
-        if (victoryMusicPlayer != null) {
-            victoryMusicPlayer.stop();
-            if (musicEnabled) victoryMusicPlayer.play();
-        }
 
         Bird winner = null;
-        String winnerText = "TIME'S UP!";
         if (winnerIndex >= 0 && winnerIndex < players.length) {
             winner = players[winnerIndex];
-            winnerText = (winner != null ? winner.name.toUpperCase() : ("P" + (winnerIndex + 1) + " WINS!"));
-            if (winner != null) {
-                winnerText = winner.name.toUpperCase() + " WINS!";
-            }
         }
         recordBalanceOutcome(winner);
-
-        VBox root = MenuLayout.buildMenuRoot("-fx-background-color: linear-gradient(to bottom, #0f0c29, #302b63, #24243e);",
-                MENU_PADDING, 30);
-        root.setAlignment(Pos.TOP_CENTER);
-        root.setMinHeight(Region.USE_PREF_SIZE);
-
-        Label title = new Label(winnerText);
-        title.setFont(Font.font("Arial Black", 90));
-        title.setTextFill(winner != null ? Color.GOLD : Color.SILVER);
-        title.setEffect(new DropShadow(40, Color.BLACK));
-        applyNoEllipsis(title);
-
-        Label subtitle = new Label(networkSessionMode == NetworkSessionMode.INTERNET
-                ? "INTERNET RESULTS" : "LAN RESULTS");
-        subtitle.setFont(Font.font("Consolas", 26));
-        subtitle.setTextFill(Color.web("#B3E5FC"));
-
-        int coinsEarned = awardBirdCoinsForMatch(winner);
-        recordMatchHistory(winner, coinsEarned);
-        Label coinsLabel = new Label("BIRD COINS +" + coinsEarned + "   TOTAL: " + birdCoinBalanceText());
-        coinsLabel.setFont(Font.font("Consolas", 28));
-        coinsLabel.setTextFill(Color.web("#FFD54F"));
-
-        Label mapLabel = new Label("MAP: " + mapDisplayName(selectedMap));
-        mapLabel.setFont(Font.font("Consolas", 22));
-        mapLabel.setTextFill(Color.web("#B3E5FC"));
-
-        VBox scoreboard = new VBox(10);
-        scoreboard.setAlignment(Pos.CENTER);
-        scoreboard.setPadding(new Insets(18, 26, 18, 26));
-        scoreboard.setMaxWidth(1200);
-        scoreboard.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-background-radius: 22; -fx-border-color: #FFD54F; -fx-border-width: 2; -fx-border-radius: 22;");
-
-        List<Integer> ranking = getIntegers();
-
-        for (int idx : ranking) {
-            Bird b = players[idx];
-            BirdType type = b != null ? b.type : lanSelectedBirds[idx];
-            String skinKey = b != null ? skinKeyForBird(b) : lanSelectedSkinKeys[idx];
-            Canvas icon = new Canvas(60, 60);
-            drawRosterSprite(icon, type, skinKey, false);
-            String birdName = type != null ? type.name : "Unknown";
-            String scoreLabel = usesSmashCombatRules() ? "Stocks " + scores[idx] : "Score " + scores[idx];
-            Label row = getLabel("P" + (idx + 1) + "  |  " + birdName + "  |  " + scoreLabel);
-            row.setFont(Font.font("Consolas", 22));
-            row.setTextFill(Color.web("#E3F2FD"));
-            applyNoEllipsis(row);
-            HBox rowBox = new HBox(12, icon, row);
-            rowBox.setAlignment(Pos.CENTER_LEFT);
-            scoreboard.getChildren().add(rowBox);
-        }
-
-        Button backLobby = null;
-        Button exit;
-        HBox actions = new HBox(20);
-        actions.setAlignment(Pos.CENTER);
-        if (lanIsHost) {
-            backLobby = uiFactory.action("BACK TO LOBBY", 360, 80, 28, "#00C853", 20, () -> {
-            });
-            exit = uiFactory.action("EXIT TO HUB", 320, 80, 28, "#D32F2F", 20, () -> {
-            });
-            Button finalBackLobby = backLobby;
-            Button finalExit = exit;
-            backLobby.setOnAction(e -> requestLanResultsAction(LAN_RESULTS_ACTION_LOBBY, stage, finalBackLobby, finalExit));
-            exit.setOnAction(e -> confirmLeaveLanSession(stage,
-                    () -> requestLanResultsAction(LAN_RESULTS_ACTION_EXIT, stage, finalBackLobby, finalExit)));
-            backLobby.setDisable(true);
-            exit.setDisable(true);
-            PauseTransition unlock = new PauseTransition(Duration.millis(LAN_RESULTS_MIN_SHOW_MS));
-            unlock.setOnFinished(e -> {
-                finalBackLobby.setDisable(false);
-                finalExit.setDisable(false);
-                finalBackLobby.requestFocus();
-            });
-            unlock.play();
-            actions.getChildren().addAll(backLobby, exit);
-        } else {
-            Label waiting = new Label("Waiting for host to continue...");
-            waiting.setFont(Font.font("Consolas", 22));
-            waiting.setTextFill(Color.web("#B0BEC5"));
-            lanResultsStatusLabel = waiting;
-            actions.getChildren().add(waiting);
-        }
-
-        root.getChildren().addAll(title, subtitle, coinsLabel, mapLabel);
-        root.getChildren().addAll(scoreboard, buildPostMatchTelemetryPanel(), actions);
-
-        ScrollPane scroll = wrapInScroll(root);
-        Scene scene = new Scene(scroll, WIDTH, HEIGHT);
-        if (backLobby != null) {
-            bindEscape(scene, backLobby);
-        }
-        setupKeyboardNavigation(scene);
-        applyConsoleHighlight(scene);
-        setScenePreservingFullscreen(stage, scene);
-    }
-
-    private List<Integer> getIntegers() {
-        List<Integer> ranking = new ArrayList<>();
-        for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
-            if (lanSlotConnected[i] || players[i] != null) {
-                ranking.add(i);
-            }
-        }
-        ranking.sort((a, b) -> {
-            Bird birdA = players[a];
-            Bird birdB = players[b];
-            if (usesSmashCombatRules() && birdA != null && birdB != null) {
-                return compareBirdPlacements(birdA, birdB);
-            }
-            return Integer.compare(scores[b], scores[a]);
-        });
-        return ranking;
+        showMatchSummary(stage, winner);
     }
 
     private void requestLanResultsAction(int action, Stage stage, Button backLobby, Button exit) {
@@ -46366,7 +46242,9 @@ public class BirdGame3 {
     }
 
     private String currentMatchHistoryMode() {
-        if (lanModeActive) return "LAN";
+        if (lanModeActive) {
+            return networkSessionMode == NetworkSessionMode.INTERNET ? "INTERNET" : "LAN";
+        }
         if (dailyChallengeModeActive) return "DAILY CHALLENGE";
         if (ashfallTrialModeActive && classicModeActive) return "ASHFALL TRIAL";
         if (bossRushModeActive && classicModeActive) return "BOSS RUSH";
@@ -46567,6 +46445,14 @@ public class BirdGame3 {
         Scene scene = new Scene(frame, WIDTH, HEIGHT);
         sceneRef[0] = scene;
         bindFixedFrameScale(scene, frame, 0.0, WIDTH, HEIGHT);
+        if (lanModeActive) {
+            setupKeyboardNavigation(scene);
+            applyConsoleHighlight(scene);
+            if (lanIsHost && !buttons.getChildren().isEmpty()
+                    && buttons.getChildren().getFirst() instanceof Button backLobby) {
+                bindEscape(scene, backLobby);
+            }
+        }
         setScenePreservingFullscreen(stage, scene);
         playCinematicResultsIntro(slashPlate, poseNode, titleBlock, resultsPanel, buttons);
     }
@@ -47798,73 +47684,6 @@ public class BirdGame3 {
         return box;
     }
 
-    private VBox buildPostMatchTelemetryPanel() {
-        List<GameplayTelemetry.MoveSnapshot> moveRows = postMatchTelemetryMoveRows(5);
-        List<GameplayTelemetry.BirdSnapshot> birdRows = gameplayTelemetry.currentMatchBirds();
-
-        VBox panel = new VBox(12);
-        panel.setAlignment(Pos.CENTER_LEFT);
-        panel.setPadding(new Insets(18, 24, 20, 24));
-        panel.setMaxWidth(1500);
-        panel.setStyle("-fx-background-color: rgba(0,0,0,0.58);"
-                + "-fx-background-radius: 22;"
-                + "-fx-border-color: #80DEEA;"
-                + "-fx-border-width: 2;"
-                + "-fx-border-radius: 22;");
-
-        Label title = telemetryPanelLabel("MATCH TELEMETRY", 30, Color.web("#80DEEA"), true);
-        Label context = telemetryPanelLabel(currentMatchHistoryMode() + "  |  " + mapDisplayName(selectedMap),
-                18, Color.web("#B2EBF2"), false);
-
-        VBox moves = buildTelemetryColumn(
-                "TOP DAMAGE MOVES",
-                "Move                                DMG  KO Self Rec",
-                postMatchMoveLines(moveRows),
-                "No damaging moves recorded.",
-                790
-        );
-        VBox birds = buildTelemetryColumn(
-                "BIRD SURVIVAL",
-                "Bird                         DMG  KO Self Rec AvgSurv",
-                postMatchBirdLines(birdRows),
-                "No bird survival samples recorded.",
-                620
-        );
-
-        HBox columns = new HBox(18, moves, birds);
-        columns.setAlignment(Pos.TOP_CENTER);
-        panel.getChildren().addAll(title, context, columns);
-        return panel;
-    }
-
-    private VBox buildTelemetryColumn(String titleText, String headerText, List<String> rows,
-                                      String emptyText, double width) {
-        VBox column = new VBox(7);
-        column.setAlignment(Pos.TOP_LEFT);
-        column.setPadding(new Insets(12, 14, 14, 14));
-        column.setPrefWidth(width);
-        column.setMinWidth(width);
-        column.setMaxWidth(width);
-        column.setStyle("-fx-background-color: rgba(255,255,255,0.07);"
-                + "-fx-background-radius: 14;"
-                + "-fx-border-color: rgba(255,255,255,0.14);"
-                + "-fx-border-width: 1;"
-                + "-fx-border-radius: 14;");
-
-        Label title = telemetryPanelLabel(titleText, 19, Color.web("#FFF59D"), true);
-        Label header = telemetryPanelLabel(headerText, 16, Color.web("#B0BEC5"), false);
-        column.getChildren().addAll(title, header);
-
-        if (rows.isEmpty()) {
-            column.getChildren().add(telemetryPanelLabel(emptyText, 16, Color.web("#90A4AE"), false));
-        } else {
-            for (String row : rows) {
-                column.getChildren().add(telemetryPanelLabel(row, 17, Color.web("#E3F2FD"), false));
-            }
-        }
-        return column;
-    }
-
     private List<GameplayTelemetry.MoveSnapshot> postMatchTelemetryMoveRows(int limit) {
         List<GameplayTelemetry.MoveSnapshot> rows = new ArrayList<>();
         for (GameplayTelemetry.MoveSnapshot row : gameplayTelemetry.currentMatchTopMoves(24)) {
@@ -47874,36 +47693,6 @@ public class BirdGame3 {
             if (rows.size() >= limit) break;
         }
         return rows;
-    }
-
-    private List<String> postMatchMoveLines(List<GameplayTelemetry.MoveSnapshot> rows) {
-        List<String> lines = new ArrayList<>();
-        for (GameplayTelemetry.MoveSnapshot row : rows) {
-            String move = postMatchMoveName(row);
-            lines.add(String.format(Locale.ROOT,
-                    "%-35s %4d %3d %4d %3d",
-                    hudTrim(move, 35),
-                    row.damage(),
-                    row.kos(),
-                    row.selfKos(),
-                    row.recoveryFailures()));
-        }
-        return lines;
-    }
-
-    private List<String> postMatchBirdLines(List<GameplayTelemetry.BirdSnapshot> rows) {
-        List<String> lines = new ArrayList<>();
-        for (GameplayTelemetry.BirdSnapshot row : rows) {
-            lines.add(String.format(Locale.ROOT,
-                    "%-24s %4d %3d %4d %3d %6.1fs",
-                    hudTrim(row.birdName(), 24),
-                    row.damage(),
-                    row.kos(),
-                    row.selfKos(),
-                    row.recoveryFailures(),
-                    row.averageSurvivalSeconds()));
-        }
-        return lines;
     }
 
     private String postMatchMoveName(GameplayTelemetry.MoveSnapshot row) {
@@ -47923,15 +47712,6 @@ public class BirdGame3 {
     private boolean isSyntheticTelemetryMove(String moveName) {
         return GameplayTelemetry.MATCH_SURVIVAL_MOVE.equals(moveName)
                 || GameplayTelemetry.RECOVERY_FAILURE_MOVE.equals(moveName);
-    }
-
-    private Label telemetryPanelLabel(String text, int fontSize, Color color, boolean bold) {
-        Label label = new Label(text);
-        label.setFont(bold ? Font.font("Consolas", FontWeight.BOLD, fontSize) : Font.font("Consolas", fontSize));
-        label.setTextFill(color);
-        label.setWrapText(false);
-        applyNoEllipsis(label);
-        return label;
     }
 
     private Label getLabel(String daily) {
@@ -47976,7 +47756,31 @@ public class BirdGame3 {
     private HBox buildSummaryButtons(Stage stage, Bird winner) {
         HBox buttons = new HBox(44);
         buttons.setAlignment(Pos.CENTER);
-        if (dailyChallengeModeActive && classicModeActive) {
+        if (lanModeActive) {
+            if (lanIsHost) {
+                Button backLobby = button("BACK TO LOBBY", "#00C853");
+                Button exit = button("EXIT TO HUB", "#D32F2F");
+                backLobby.setOnAction(e -> requestLanResultsAction(
+                        LAN_RESULTS_ACTION_LOBBY, stage, backLobby, exit));
+                exit.setOnAction(e -> confirmLeaveLanSession(stage,
+                        () -> requestLanResultsAction(LAN_RESULTS_ACTION_EXIT, stage, backLobby, exit)));
+                backLobby.setDisable(true);
+                exit.setDisable(true);
+                PauseTransition unlock = new PauseTransition(Duration.millis(LAN_RESULTS_MIN_SHOW_MS));
+                unlock.setOnFinished(e -> {
+                    backLobby.setDisable(false);
+                    exit.setDisable(false);
+                    backLobby.requestFocus();
+                });
+                unlock.play();
+                buttons.getChildren().addAll(backLobby, exit);
+            } else {
+                Label waiting = cinematicResultsLabel(
+                        "WAITING FOR HOST TO CONTINUE...", 26, Color.web("#B8C7E8"), true);
+                lanResultsStatusLabel = waiting;
+                buttons.getChildren().add(waiting);
+            }
+        } else if (dailyChallengeModeActive && classicModeActive) {
             boolean wonRound = didPlayerWinClassic(winner);
             boolean finalRound = classicRoundIndex >= classicRun.size() - 1;
             String advanceText = wonRound

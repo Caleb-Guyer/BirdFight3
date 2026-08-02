@@ -5,10 +5,15 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.shape.Rectangle;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MatchSummaryPresentationTest {
     @Test
@@ -51,5 +56,18 @@ class MatchSummaryPresentationTest {
         assertNull(inner.getEffect());
         assertNull(nested.getEffect());
         assertFalse(nested.getStyle().contains("-fx-effect"));
+    }
+
+    @Test
+    void networkResultsReuseTheStandardCinematicSummaryScene() throws IOException {
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "BirdGame3.java"));
+        int methodStart = source.indexOf("void showLanResults(Stage stage, int winnerIndex)");
+        int nextMethod = source.indexOf("private void requestLanResultsAction", methodStart);
+
+        assertTrue(methodStart >= 0 && nextMethod > methodStart);
+        String networkResultsBody = source.substring(methodStart, nextMethod);
+        assertTrue(networkResultsBody.contains("showMatchSummary(stage, winner);"));
+        assertFalse(networkResultsBody.contains("new Scene("));
     }
 }

@@ -58,7 +58,8 @@ causes silent desyncs. Rules:
   from `applyLockstepBundle`; applying live host edges bypasses input delay and
   desynchronizes the host. Client keyboard and controller each own a
   mask; the sent mask is their union (a sync clobbering the other source
-  froze P2 once — commit 7274ebf).
+  froze P2 once — commit 7274ebf). Network matches reuse the standard cinematic
+  victory/results screen; only the host-controlled lobby/exit actions differ.
 - **Internet multiplayer**: direct TCP host/join reuses lockstep. Internet uses
   an 8-tick input buffer negotiated in `MSG_START`. Hosts choose a port (default
   28999) and must forward it through their router; joins accept DNS names,
