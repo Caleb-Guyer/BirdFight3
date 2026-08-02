@@ -41950,11 +41950,21 @@ public class BirdGame3 {
             if (players[i] == null || isAI[i]) continue;
             ControlAction action = effectiveKeyboardActionForKey(i, code);
             if (action == ControlAction.LEFT) {
-                players[i].registerDashTap(-1);
+                registerLiveDashTap(players[i], -1);
             } else if (action == ControlAction.RIGHT) {
-                players[i].registerDashTap(1);
+                registerLiveDashTap(players[i], 1);
             }
         }
+    }
+
+    /**
+     * Registers a direction edge read directly from this machine's controls.
+     * Lockstep direction edges are registered later by {@link #applyLockstepBundle(int[])}
+     * on every machine; applying one here would give the host an extra, zero-delay tap.
+     */
+    private void registerLiveDashTap(Bird bird, int direction) {
+        if (bird == null || lockstepMatchActive()) return;
+        bird.registerDashTap(direction);
     }
 
     private void handleGameplayPauseRequest(Stage stage) {
@@ -42765,10 +42775,10 @@ public class BirdGame3 {
             controllerAttackDownHeld[i] = attackDown;
 
             if (left && !wiimoteLeftHeld[i]) {
-                players[i].registerDashTap(-1);
+                registerLiveDashTap(players[i], -1);
             }
             if (right && !wiimoteRightHeld[i]) {
-                players[i].registerDashTap(1);
+                registerLiveDashTap(players[i], 1);
             }
             wiimoteLeftHeld[i] = left;
             wiimoteRightHeld[i] = right;

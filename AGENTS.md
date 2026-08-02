@@ -49,12 +49,14 @@ causes silent desyncs. Rules:
   taps), `ReplayStore` (gzip binary in `replays/`, keeps 30), browser via
   MATCH HISTORY → REPLAYS. Playback is self-contained (restores roster/map)
   and suppresses all progression side effects.
-- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v36. All machines run
+- **Lockstep netcode**: `LockstepSession` + `LanProtocol` v37. All machines run
   the full sim; host relays per-tick input bundles; 4-tick LAN input delay; state
   hashes exchanged every 120 ticks, desync → kill feed warning. During
   lockstep the sim reads ONLY `lanActionPressed` (bundle-applied) — live local
   arrays are gated out of `isActionPressed`. Legacy snapshot path is dormant
-  behind `lockstepSession == null`. Client keyboard and controller each own a
+  behind `lockstepSession == null`. Direction edges register dash taps only
+  from `applyLockstepBundle`; applying live host edges bypasses input delay and
+  desynchronizes the host. Client keyboard and controller each own a
   mask; the sent mask is their union (a sync clobbering the other source
   froze P2 once — commit 7274ebf).
 - **Internet multiplayer**: direct TCP host/join reuses lockstep. Internet uses
