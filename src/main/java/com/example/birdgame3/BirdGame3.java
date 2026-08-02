@@ -13396,6 +13396,7 @@ public class BirdGame3 {
             drawParliamentCloudDeck(g, ambientFx, time);
         } else {
             drawGroundedCitySkyline(g, ambientFx, time);
+            drawCityPlayableBuildingBodies(g, ambientFx, time);
             drawCityStreet(g, ambientFx, time);
         }
 
@@ -13561,14 +13562,16 @@ public class BirdGame3 {
     }
 
     private void drawGroundedCitySkyline(GraphicsContext g, boolean ambientFx, double time) {
-        double moonX = 720;
-        double moonY = 390;
-        g.setFill(Color.web("#FF80D5", 0.07));
-        g.fillOval(moonX - 220, moonY - 220, 440, 440);
-        g.setFill(Color.web("#E8ECFF", 0.72));
-        g.fillOval(moonX - 112, moonY - 112, 224, 224);
-        g.setFill(Color.web("#07102A"));
-        g.fillOval(moonX - 52, moonY - 128, 218, 218);
+        // Extremely low parallax and a subdued value keep the moon behind the
+        // skyline instead of making it read like a foreground stage prop.
+        double moonX = parallaxAdjustedWorldX(4720.0, 0.025);
+        double moonY = 300.0;
+        g.setFill(Color.web("#9FA8DA", 0.035));
+        g.fillOval(moonX - 175, moonY - 175, 350, 350);
+        g.setFill(Color.web("#E8ECFF", 0.56));
+        g.fillOval(moonX - 82, moonY - 82, 164, 164);
+        g.setFill(Color.web("#09112A", 0.97));
+        g.fillOval(moonX - 34, moonY - 94, 158, 158);
 
         drawGroundedCityLayer(g, 430, 1280, 0.12,
                 Color.web("#15142A", 0.68), Color.web("#5C6BC0", 0.18));
@@ -13581,6 +13584,73 @@ public class BirdGame3 {
                 double x = (time * (16 + i * 3) + i * 820.0) % (WORLD_WIDTH + 500.0) - 250.0;
                 double y = 720 + (i % 4) * 210.0;
                 g.fillOval(x, y, 7, 4);
+            }
+        }
+    }
+
+    private void drawCityPlayableBuildingBodies(GraphicsContext g, boolean ambientFx, double time) {
+        List<Platform> roofs = platforms.stream()
+                .filter(p -> p.x >= 0.0 && p.x < WORLD_WIDTH
+                        && p.y < GROUND_Y - 2.0 && p.w >= 150.0)
+                .sorted(Comparator.comparingDouble((Platform p) -> p.y).reversed())
+                .toList();
+
+        for (Platform roof : roofs) {
+            double roofBottom = roof.y + roof.h;
+            double supportY = GROUND_Y;
+            for (Platform candidate : roofs) {
+                if (candidate == roof || candidate.y <= roofBottom + 18.0) {
+                    continue;
+                }
+                double overlap = Math.min(roof.x + roof.w, candidate.x + candidate.w)
+                        - Math.max(roof.x, candidate.x);
+                double requiredOverlap = Math.min(roof.w, candidate.w) * 0.22;
+                if (overlap >= requiredOverlap && candidate.y < supportY) {
+                    supportY = candidate.y;
+                }
+            }
+            if (supportY <= roofBottom + 12.0) {
+                continue;
+            }
+
+            double inset = Math.clamp(roof.w * 0.09, 14.0, 58.0);
+            double bodyX = roof.x + inset;
+            double bodyW = Math.max(44.0, roof.w - inset * 2.0);
+            double bodyH = supportY - roofBottom;
+            Color bodyTop = roof.w >= 500.0 ? Color.web("#171A2C") : Color.web("#1B1D31");
+            Color bodyBottom = roof.w >= 500.0 ? Color.web("#24233A") : Color.web("#29243E");
+            g.setFill(new LinearGradient(0, roofBottom, 0, supportY, false, CycleMethod.NO_CYCLE,
+                    new Stop(0.0, bodyTop),
+                    new Stop(1.0, bodyBottom)));
+            g.fillRect(bodyX, roofBottom, bodyW, bodyH);
+
+            g.setStroke(Color.web("#33435C", 0.74));
+            g.setLineWidth(3.0);
+            g.strokeLine(bodyX, roofBottom, bodyX, supportY);
+            g.strokeLine(bodyX + bodyW, roofBottom, bodyX + bodyW, supportY);
+            g.setStroke(Color.web("#2DE2E6", 0.10));
+            g.setLineWidth(2.0);
+            g.strokeLine(bodyX + bodyW * 0.18, roofBottom + 10.0,
+                    bodyX + bodyW * 0.18, supportY - 4.0);
+            g.setStroke(Color.web("#FF3DC8", 0.08));
+            g.strokeLine(bodyX + bodyW * 0.82, roofBottom + 10.0,
+                    bodyX + bodyW * 0.82, supportY - 4.0);
+
+            if (bodyH < 78.0) {
+                continue;
+            }
+            int columns = Math.clamp((int) Math.round(bodyW / 150.0), 1, 5);
+            double columnGap = bodyW / (columns + 1.0);
+            for (int col = 1; col <= columns; col++) {
+                double wx = bodyX + col * columnGap - 13.0;
+                for (double wy = roofBottom + 58.0; wy < supportY - 34.0; wy += 94.0) {
+                    double shimmer = ambientFx
+                            ? 0.14 + 0.07 * (0.5 + 0.5 * Math.sin(time * 0.46 + col + wy * 0.014))
+                            : 0.16;
+                    g.setFill(Color.web((col + (int) (wy / 94.0)) % 3 == 0
+                            ? "#FF77D2" : "#71D9E5", shimmer));
+                    g.fillRoundRect(wx, wy, 26, 34, 5, 5);
+                }
             }
         }
     }
