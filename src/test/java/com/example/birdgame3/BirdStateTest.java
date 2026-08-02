@@ -428,8 +428,6 @@ class BirdStateTest {
 
         assertEquals(0, hummingbird.specialCooldown,
                 "Hummingbird specials should use invisible per-move reuse gates.");
-        assertEquals(0, hummingbird.cooldownFlash,
-                "Hummingbird reuse lockouts should not display the cooldown warning.");
     }
 
     @Test
@@ -538,8 +536,6 @@ class BirdStateTest {
 
         assertEquals(0, turkey.specialCooldown,
                 "Turkey's 4-special kit should use invisible per-move reuse timers.");
-        assertEquals(0, turkey.cooldownFlash,
-                "Turkey reuse lockouts should not show the cooldown warning.");
     }
 
     @Test
@@ -788,8 +784,6 @@ class BirdStateTest {
 
         game.setLocalActionsForKey(game.specialKeyForPlayer(0), true);
         opium.update(1.0);
-        assertEquals(0, opium.cooldownFlash,
-                "Opium Bird should use hidden reuse gates instead of visible cooldown warnings.");
     }
 
     @Test
@@ -1011,8 +1005,6 @@ class BirdStateTest {
         assertTrue(chicks.stream().allMatch(chick -> chick.followingOwner));
         assertEquals(0, rooster.specialCooldown,
                 "Rooster's four-special kit should not show a cooldown bar.");
-        assertEquals(0, rooster.cooldownFlash,
-                "Rooster's invisible reuse gates should not show the cooldown warning.");
     }
 
     @Test
@@ -2247,28 +2239,6 @@ class BirdStateTest {
     }
 
     @Test
-    void shieldHitDoesNotTriggerCooldownFlashBanner() throws Exception {
-        BirdGame3 game = new BirdGame3();
-        game.activePlayers = 2;
-
-        Bird attacker = new Bird(100.0, BirdGame3.BirdType.PIGEON, 0, game);
-        Bird defender = new Bird(190.0, BirdGame3.BirdType.EAGLE, 1, game);
-        attacker.y = BirdGame3.GROUND_Y - 80.0;
-        defender.y = BirdGame3.GROUND_Y - 80.0;
-        attacker.facingRight = true;
-        game.players[0] = attacker;
-        game.players[1] = defender;
-
-        game.setLocalActionsForKey(game.blockKeyForPlayer(1), true);
-        for (int i = 0; i < 5; i++) {
-            defender.update(1.0);
-        }
-        invokePrivateVoid(attacker, "attack");
-
-        assertEquals(0, defender.cooldownFlash);
-    }
-
-    @Test
     void shieldStartupParryStunsAttackerWithoutConsumingShield() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
@@ -3312,8 +3282,6 @@ class BirdStateTest {
 
         assertEquals(0, phoenix.specialCooldown,
                 "Phoenix down special should keep its cooldown invisible.");
-        assertEquals(0, phoenix.cooldownFlash,
-                "Phoenix reuse lockouts should not display the red cooldown warning.");
     }
 
     @Test
@@ -6279,8 +6247,6 @@ class BirdStateTest {
 
         assertEquals(0, raven.specialCooldown,
                 "Raven specials should use invisible per-move reuse gates.");
-        assertEquals(0, raven.cooldownFlash,
-                "Raven reuse lockouts should not display the cooldown warning.");
     }
 
     @Test

@@ -11953,11 +11953,7 @@ public class BirdGame3 {
                     Bird target = findDockBombTarget(bird);
                     if (target != null) {
                         launchDockShipBomb(bird, target);
-                    } else {
-                        bird.cooldownFlash = 18;
                     }
-                } else {
-                    bird.cooldownFlash = 18;
                 }
             }
             dockLeverHeld[i] = pressed;
@@ -11993,8 +11989,6 @@ public class BirdGame3 {
             if (lever >= 0 && pressed && !prisonLeverHeld[i]) {
                 if (prisonLeverCooldowns[lever] <= 0) {
                     releasePrisoners(lever, bird);
-                } else {
-                    bird.cooldownFlash = 16;
                 }
             }
             prisonLeverHeld[i] = pressed;
@@ -12055,7 +12049,6 @@ public class BirdGame3 {
             ));
         }
         prisonLeverCooldowns[lever] = PRISON_LEVER_COOLDOWN_FRAMES;
-        puller.cooldownFlash = 20;
         shakeIntensity = Math.max(shakeIntensity, 5.5);
         playManagedSfxVaried(vaseBreakingClip, 0.52, 0.72, 0.025);
         playManagedSfxVaried(swingClip, 0.42, 0.66, 0.025);
@@ -12276,7 +12269,6 @@ public class BirdGame3 {
         dockShipBomb.fired = false;
         dockShipBomb.cannonFlashFrames = 0;
         dockLeverCooldown = DOCK_LEVER_COOLDOWN_FRAMES;
-        puller.cooldownFlash = 20;
         addToKillFeed(shortName(puller.name) + " sighted " + shortName(target.name) + " for bombardment!");
 
         for (int i = 0; i < scaledParticleBurstCount(18); i++) {

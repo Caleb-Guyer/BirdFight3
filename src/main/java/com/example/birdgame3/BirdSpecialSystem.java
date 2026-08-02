@@ -36,9 +36,6 @@ final class BirdSpecialSystem {
 
         if (ultimateReady && bird.type == BirdGame3.BirdType.PIGEON) {
             if (!pigeonUltimateReady) {
-                if (!game.isAI[bird.playerIndex]) {
-                    bird.cooldownFlash = 15;
-                }
                 return;
             }
             if (!bird.consumeUltimate()) {
@@ -54,9 +51,6 @@ final class BirdSpecialSystem {
         }
         if (ultimateReady && bird.type == BirdGame3.BirdType.EAGLE) {
             if (!eagleUltimateReady) {
-                if (!game.isAI[bird.playerIndex]) {
-                    bird.cooldownFlash = 15;
-                }
                 return;
             }
             if (!bird.consumeUltimate()) {
@@ -72,9 +66,6 @@ final class BirdSpecialSystem {
         }
         if (ultimateReady && bird.type == BirdGame3.BirdType.FALCON) {
             if (!falconUltimateReady) {
-                if (!game.isAI[bird.playerIndex]) {
-                    bird.cooldownFlash = 15;
-                }
                 return;
             }
             if (!bird.consumeUltimate()) {
@@ -92,9 +83,6 @@ final class BirdSpecialSystem {
         if (BirdSpecialReadiness.usesSharedSpecialCooldown(bird)
                 && bird.specialCooldown > 0
                 && !ultimateReady) {
-            if (!game.isAI[bird.playerIndex]) {
-                bird.cooldownFlash = 15;
-            }
             return;
         }
 

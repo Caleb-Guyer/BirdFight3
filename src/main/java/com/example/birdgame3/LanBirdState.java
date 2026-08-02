@@ -148,7 +148,6 @@ class LanBirdState {
     boolean heisenBrittleUltimate;
     int tauntCooldown;
     int tauntTimer;
-    int cooldownFlash;
     int currentTaunt;
     int eagleDiveCountdown;
     boolean eagleDiveActive;
@@ -741,7 +740,6 @@ class LanBirdState {
         out.writeBoolean(heisenBrittleUltimate);
         out.writeInt(tauntCooldown);
         out.writeInt(tauntTimer);
-        out.writeInt(cooldownFlash);
         out.writeInt(currentTaunt);
         out.writeInt(eagleDiveCountdown);
         out.writeBoolean(eagleDiveActive);
@@ -1398,7 +1396,6 @@ class LanBirdState {
         state.heisenBrittleUltimate = in.readBoolean();
         state.tauntCooldown = in.readInt();
         state.tauntTimer = in.readInt();
-        state.cooldownFlash = in.readInt();
         state.currentTaunt = in.readInt();
         state.eagleDiveCountdown = in.readInt();
         state.eagleDiveActive = in.readBoolean();

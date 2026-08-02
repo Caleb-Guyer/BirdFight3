@@ -50,12 +50,6 @@ final class BirdSpecialReadiness {
 
     private static boolean canStartRaptorSpecial(Bird bird) {
         Bird.RaptorSpecialVariant variant = bird.selectRaptorSpecialVariant();
-        if (bird.canStartRaptorSpecialVariant(variant)) {
-            return true;
-        }
-        if (!bird.game.isAI[bird.playerIndex] && bird.raptorSpecialOnReuseLockout(variant)) {
-            bird.cooldownFlash = 15;
-        }
-        return false;
+        return bird.canStartRaptorSpecialVariant(variant);
     }
 }

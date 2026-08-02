@@ -630,7 +630,6 @@ public class Bird {
     boolean heisenBrittleUltimate = false;
     public int tauntCooldown = 0;
     public int tauntTimer = 0;
-    public int cooldownFlash = 0;
     public int currentTaunt = 0;
     public int eagleDiveCountdown = 0;
     public boolean eagleDiveActive = false;
@@ -12992,23 +12991,6 @@ public class Bird {
             if (!attackLocked && !grabLocked && (!shielding || canSpecialFromShield) && !jumpSquatting && specialJustPressed()) {
                 if (grappleUses == 0 && canStartSelectedSpecial) {
                     special();
-                } else if (!game.isAI[playerIndex]
-                        && ((isRaptor() && raptorSpecialOnReuseLockout(selectRaptorSpecialVariant()))
-                        || (specialCooldown > 0 && type != BirdGame3.BirdType.PIGEON
-                        && type != BirdGame3.BirdType.EAGLE
-                        && type != BirdGame3.BirdType.ROADRUNNER
-                        && type != BirdGame3.BirdType.PENGUIN
-                        && type != BirdGame3.BirdType.MOCKINGBIRD
-                        && type != BirdGame3.BirdType.RAZORBILL
-                        && type != BirdGame3.BirdType.GRINCHHAWK
-                        && type != BirdGame3.BirdType.VULTURE
-                        && type != BirdGame3.BirdType.TITMOUSE
-                        && type != BirdGame3.BirdType.BAT
-                        && type != BirdGame3.BirdType.PELICAN
-                        && type != BirdGame3.BirdType.RAVEN
-                        && type != BirdGame3.BirdType.GOOSE
-                        && !isOpiumEchoPair()))) {
-                    cooldownFlash = 15;
                 }
             }
         } else {
@@ -13308,7 +13290,6 @@ public class Bird {
         knockdownTimer = 0;
         specialCooldown = 0;
         specialMaxCooldown = 0;
-        cooldownFlash = 0;
         canDoubleJump = true;
         speedTimer = 0;
         hoverRegenTimer = 0;
@@ -13362,9 +13343,6 @@ public class Bird {
         }
         if (shieldStunFrames > 0) {
             shieldStunFrames--;
-        }
-        if (cooldownFlash > 0) {
-            cooldownFlash--;
         }
         if (stunTime > 0) {
             stunTime--;
@@ -14939,7 +14917,6 @@ public class Bird {
         landingLagTimer = 0;
         cancelAttackCharge();
         attackHeldLastFrame = false;
-        cooldownFlash = 0;
         tauntTimer = 0;
         currentTaunt = 0;
         PigeonSpecials.reset(this);
@@ -15285,7 +15262,6 @@ public class Bird {
         state.heisenBrittleUltimate = heisenBrittleUltimate;
         state.tauntCooldown = tauntCooldown;
         state.tauntTimer = tauntTimer;
-        state.cooldownFlash = cooldownFlash;
         state.currentTaunt = currentTaunt;
         state.eagleDiveCountdown = eagleDiveCountdown;
         state.eagleDiveActive = eagleDiveActive;
@@ -15932,7 +15908,6 @@ public class Bird {
         this.heisenBrittleUltimate = state.heisenBrittleUltimate;
         this.tauntCooldown = state.tauntCooldown;
         this.tauntTimer = state.tauntTimer;
-        this.cooldownFlash = state.cooldownFlash;
         this.currentTaunt = state.currentTaunt;
         this.eagleDiveCountdown = state.eagleDiveCountdown;
         this.eagleDiveActive = state.eagleDiveActive;
@@ -21422,7 +21397,6 @@ public class Bird {
         drawGrinchhawkObjects(g);
         drawBlockingShield(g, drawSize);
         drawTaunt(g);
-        drawCooldownFlash(g);
         drawAttackChargeFx(g, drawSize);
         drawRageBuff(g, drawSize);
         drawThermalBuff(g, drawSize);
@@ -23623,28 +23597,6 @@ public class Bird {
             }
             g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.3 + 0.4 * Math.sin(tauntTimer * 0.5)));
             g.fillOval(x - 30, y - 40, 140, 140);
-        }
-    }
-
-    private void drawCooldownFlash(GraphicsContext g) {
-        if (type == BirdGame3.BirdType.PHOENIX
-                || type == BirdGame3.BirdType.EAGLE
-                || type == BirdGame3.BirdType.HUMMINGBIRD
-                || type == BirdGame3.BirdType.TURKEY
-                || type == BirdGame3.BirdType.ROOSTER
-                || type == BirdGame3.BirdType.ROADRUNNER
-                || type == BirdGame3.BirdType.PENGUIN
-                || type == BirdGame3.BirdType.SHOEBILL
-                || type == BirdGame3.BirdType.RAZORBILL
-                || type == BirdGame3.BirdType.VULTURE) {
-            cooldownFlash = 0;
-            return;
-        }
-        if (this.cooldownFlash > 0) {
-            g.setFill(Color.RED.deriveColor(0, 1, 1, 0.6));
-            g.setFont(Font.font("Arial Black", 32));
-            g.fillText("COOLDOWN!", x - 20, y - 60);
-            cooldownFlash--;
         }
     }
 
