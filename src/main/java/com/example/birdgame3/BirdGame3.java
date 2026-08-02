@@ -142,7 +142,7 @@ public class BirdGame3 {
     // Non-final: tunable via bird-stats.properties (global.gravity); reset by BirdStats.
     public static double GRAVITY = DEFAULT_GRAVITY;
     private static final int XBOX_CONTROLLER_SLOTS = 4;
-    static final int MATCH_DURATION_FRAMES = 90 * 60;
+    static final int MATCH_DURATION_FRAMES = 150 * 60;
     static final int COMPETITION_DURATION_FRAMES = 120 * 60;
     static final int SMASH_STARTING_STOCKS = 3;
     static final double SMASH_SUDDEN_DEATH_PERCENT = 300.0;

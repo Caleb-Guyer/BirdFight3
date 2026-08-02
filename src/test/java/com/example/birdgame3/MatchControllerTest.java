@@ -12,6 +12,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MatchControllerTest {
     @Test
+    void standardBattleDurationIsTwoMinutesThirtySeconds() {
+        assertEquals(150 * 60, BirdGame3.MATCH_DURATION_FRAMES);
+    }
+
+    @Test
     void prepareMatchStartClearsTransientMatchState() {
         BirdGame3 game = new BirdGame3();
         MatchController controller = new MatchController(game);
