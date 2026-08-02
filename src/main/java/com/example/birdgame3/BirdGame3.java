@@ -432,7 +432,8 @@ public class BirdGame3 {
     private final boolean[] lanSlotConnected = new boolean[LAN_MAX_PLAYERS];
     private final boolean[] lanReady = new boolean[LAN_MAX_PLAYERS];
     private final MapType[] lanMapVotes = new MapType[LAN_MAX_PLAYERS];
-    private final boolean[] lanMapVoteRandom = new boolean[LAN_MAX_PLAYERS];
+    private final MapVariant[] lanMapVariantVotes = new MapVariant[LAN_MAX_PLAYERS];
+    private final StageRandomPool[] lanMapVoteRandomPools = new StageRandomPool[LAN_MAX_PLAYERS];
     private final int[] lanInputMasks = new int[LAN_MAX_PLAYERS];
     private final int[] lanLastInputMasks = new int[LAN_MAX_PLAYERS];
     private final Object lanInputLock = new Object();
@@ -443,6 +444,7 @@ public class BirdGame3 {
     private int lanKeyboardInputMask = 0;
     private int lanControllerInputMask = 0;
     private MapType lanSelectedMap = MapType.FOREST;
+    private MapVariant lanSelectedMapVariant = MapVariant.STANDARD;
     private boolean lanSelectedMapRandom = false;
     private long lanMatchSeed = 0L;
     long currentMatchSeed = 0L;
@@ -660,6 +662,58 @@ public class BirdGame3 {
     // === MAPS ===
     public enum MapType { FOREST, CITY, SKYCLIFFS, VIBRANT_JUNGLE, DESERT, CAVE, BATTLEFIELD, BEACON_CROWN, DOCK, FROSTBITE_FJORD, ASHFALL_CATHEDRAL, PRISON }
 
+    /** Reusable arena layouts originally authored for story and boss modes. */
+    public enum MapVariant {
+        STANDARD(MapType.FOREST, "Main", "Standard", "The regular version of a stage."),
+        CROWN_DUEL(MapType.SKYCLIFFS, "Story Arenas", "Command Bridge", "A narrow Crown command bridge with open sides and twin recovery vents."),
+        NULL_ROCK_DUEL(MapType.BEACON_CROWN, "Story Arenas", "Final Duel", "The isolated altar used for the last duel with The Null Rock."),
+        SKYBREAK_SPIRES(MapType.SKYCLIFFS, "Boss Rush Arenas", "Skybreak Spires", "Three separated summit lanes linked by powerful wind lifts."),
+        ASHFALL_REBIRTH(MapType.ASHFALL_CATHEDRAL, "Boss Rush Arenas", "Rebirth Altar", "A compact cathedral nave built around a high central altar."),
+        TITAN_DOCK(MapType.DOCK, "Boss Rush Arenas", "Titan Dock", "Broken Harbor reinforced with extra rigging and a dangerous high route."),
+        PARLIAMENT_ROOFTOPS(MapType.CITY, "Boss Rush Arenas", "Parliament Rooftops", "A symmetrical neon skyline of lounges, courts, and smoke lanes."),
+        CARRION_THRONE(MapType.VIBRANT_JUNGLE, "Boss Rush Arenas", "Carrion Throne", "A tall jungle throne with swinging vines and nectar routes."),
+        NULL_ROC_ASCENDING(MapType.BEACON_CROWN, "Boss Rush Arenas", "Null Roc Arena", "Beacon Crown widened with outer recovery ledges and high perches."),
+        VOID_CROWN(MapType.BEACON_CROWN, "Boss Rush Arenas", "Void Crown", "The sovereign altar: higher, narrower, and more exposed than the Crown.");
+
+        final MapType baseMap;
+        final String category;
+        final String displayName;
+        final String description;
+
+        MapVariant(MapType baseMap, String category, String displayName, String description) {
+            this.baseMap = baseMap;
+            this.category = category;
+            this.displayName = displayName;
+            this.description = description;
+        }
+    }
+
+    enum StageRandomPool {
+        NONE(""),
+        MAIN("RANDOM MAIN"),
+        VARIANTS("RANDOM VARIANT"),
+        ALL("TOTAL RANDOM");
+
+        final String label;
+
+        StageRandomPool(String label) {
+            this.label = label;
+        }
+    }
+
+    record StageChoice(MapType map, MapVariant variant) {
+        StageChoice {
+            variant = variant == null ? MapVariant.STANDARD : variant;
+            map = variant == MapVariant.STANDARD
+                    ? (map == null ? MapType.FOREST : map)
+                    : variant.baseMap;
+        }
+
+        static StageChoice main(MapType map) {
+            return new StageChoice(map, MapVariant.STANDARD);
+        }
+    }
+
     private enum BirdBookCategory { ITEMS, POWERUPS, BIRDS, SKINS, MAPS }
 
     private enum ControlAction {
@@ -753,7 +807,8 @@ public class BirdGame3 {
     }
 
     public MapType selectedMap = MapType.FOREST; // default
-    private boolean standardFightRandomMapMode = false;
+    MapVariant selectedMapVariant = MapVariant.STANDARD;
+    private StageRandomPool standardFightRandomMapPool = StageRandomPool.NONE;
     private boolean desertMapUnlocked = false;
     private boolean caveMapUnlocked = false;
     private boolean battlefieldMapUnlocked = false;
@@ -963,8 +1018,8 @@ public class BirdGame3 {
     private int flashTimer = 0;          // frames remaining for flash
     private final UIFactory uiFactory = new UIFactory(this::playButtonClick, this::applyNoEllipsis, this::fitMainMenuButtonSingleLine);
     private Runnable stageSelectReturn = null;
-    private Consumer<MapType> stageSelectHandler = null;
-    private Runnable stageSelectRandomHandler = null;
+    private Consumer<StageChoice> stageSelectHandler = null;
+    private Consumer<StageRandomPool> stageSelectRandomHandler = null;
     private boolean matchRestartQueued = false;
     private Runnable settingsReturn = null;
     private boolean musicEnabled = true;
@@ -13023,7 +13078,7 @@ public class BirdGame3 {
                         g.fillOval(v.x + v.w/2 - 100, v.y - 150, 200, 300);
                     }
                 }
-                if (isCrownDuelCampaign()) {
+                if (isCrownDuelArena()) {
                     drawCrownDuelArenaDetails(g, ambientFx);
                 }
             }
@@ -25400,13 +25455,15 @@ public class BirdGame3 {
         Arrays.fill(lanRandomBirds, false);
         Arrays.fill(lanReady, false);
         Arrays.fill(lanMapVotes, null);
-        Arrays.fill(lanMapVoteRandom, false);
+        Arrays.fill(lanMapVariantVotes, MapVariant.STANDARD);
+        Arrays.fill(lanMapVoteRandomPools, StageRandomPool.NONE);
         Arrays.fill(lanInputMasks, 0);
         Arrays.fill(lanLastInputMasks, 0);
         lanLocalInputMask = 0;
         lanKeyboardInputMask = 0;
         lanControllerInputMask = 0;
         lanSelectedMap = null;
+        lanSelectedMapVariant = MapVariant.STANDARD;
         lanSelectedMapRandom = false;
         lanVoteSignature = 0;
         if (hostSession) {
@@ -25418,6 +25475,8 @@ public class BirdGame3 {
             lanSelectedSkinKeys[0] = null;
             lanReady[0] = false;
             lanMapVotes[0] = null;
+            lanMapVariantVotes[0] = MapVariant.STANDARD;
+            lanMapVoteRandomPools[0] = StageRandomPool.NONE;
         }
     }
 
@@ -25448,16 +25507,17 @@ public class BirdGame3 {
             if (lanSelectedMap == null || lanSelectedMapRandom) {
                 lanMapLabel.setText("NO VOTES YET");
             } else {
-                lanMapLabel.setText(mapDisplayName(lanSelectedMap));
+                lanMapLabel.setText(stageDisplayName(lanSelectedMap, lanSelectedMapVariant));
             }
         }
         if (lanMapVoteLabel != null) {
             if (lanPlayerIndex >= 0) {
                 String vote;
-                if (lanMapVoteRandom[lanPlayerIndex]) {
-                    vote = "RANDOM";
+                StageRandomPool randomPool = lanMapVoteRandomPools[lanPlayerIndex];
+                if (randomPool != null && randomPool != StageRandomPool.NONE) {
+                    vote = randomPool.label;
                 } else if (lanMapVotes[lanPlayerIndex] != null) {
-                    vote = mapDisplayName(lanMapVotes[lanPlayerIndex]);
+                    vote = stageDisplayName(lanMapVotes[lanPlayerIndex], lanMapVariantVotes[lanPlayerIndex]);
                 } else {
                     vote = "(none)";
                 }
@@ -25630,25 +25690,27 @@ public class BirdGame3 {
         if (stage == null) return;
         if (lanPlayerIndex < 0) return;
         stageSelectReturn = () -> showLanLobby(stage);
-        stageSelectHandler = map -> {
-            lanMapVotes[lanPlayerIndex] = map;
-            lanMapVoteRandom[lanPlayerIndex] = false;
+        stageSelectHandler = choice -> {
+            lanMapVotes[lanPlayerIndex] = choice.map();
+            lanMapVariantVotes[lanPlayerIndex] = choice.variant();
+            lanMapVoteRandomPools[lanPlayerIndex] = StageRandomPool.NONE;
             if (lanIsHost) {
                 updateLanMapSelectionFromVotes();
                 broadcastLanLobby();
             } else if (lanClient != null) {
-                lanClient.sendMapVote(map, false);
+                lanClient.sendMapVote(choice.map(), choice.variant(), StageRandomPool.NONE);
             }
             showLanLobby(stage);
         };
-        stageSelectRandomHandler = () -> {
+        stageSelectRandomHandler = randomPool -> {
             lanMapVotes[lanPlayerIndex] = null;
-            lanMapVoteRandom[lanPlayerIndex] = true;
+            lanMapVariantVotes[lanPlayerIndex] = MapVariant.STANDARD;
+            lanMapVoteRandomPools[lanPlayerIndex] = randomPool;
             if (lanIsHost) {
                 updateLanMapSelectionFromVotes();
                 broadcastLanLobby();
             } else if (lanClient != null) {
-                lanClient.sendMapVote(null, true);
+                lanClient.sendMapVote(null, MapVariant.STANDARD, randomPool);
             }
             showLanLobby(stage);
         };
@@ -25854,40 +25916,18 @@ public class BirdGame3 {
         if (signature == lanVoteSignature) return;
         lanVoteSignature = signature;
 
-        List<MapType> pool = new ArrayList<>();
-        int randomVotes = 0;
-        for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
-            if (!lanSlotConnected[i]) continue;
-            if (lanMapVoteRandom[i]) {
-                randomVotes++;
-                continue;
-            }
-            MapType vote = lanMapVotes[i];
-            if (vote != null) {
-                pool.add(vote);
-            }
-        }
-
-        if (pool.isEmpty() && randomVotes == 0) {
-            lanSelectedMap = null;
-            lanSelectedMapRandom = true;
-            return;
-        }
-
-        List<MapType> allMaps = availableLanMaps();
-        for (int i = 0; i < randomVotes; i++) {
-            if (!allMaps.isEmpty()) {
-                pool.add(allMaps.get(random.nextInt(allMaps.size())));
-            }
-        }
-
+        List<StageChoice> pool = buildLanStageVotePool(new Random(0x5E1E_C7A6_4D3BL ^ signature));
         if (pool.isEmpty()) {
             lanSelectedMap = null;
+            lanSelectedMapVariant = MapVariant.STANDARD;
             lanSelectedMapRandom = true;
             return;
         }
 
-        lanSelectedMap = pool.get(random.nextInt(pool.size()));
+        Random previewRandom = new Random(0x71A9_50C2_EE4DL ^ signature);
+        StageChoice selected = pool.get(previewRandom.nextInt(pool.size()));
+        lanSelectedMap = selected.map();
+        lanSelectedMapVariant = selected.variant();
         lanSelectedMapRandom = false;
     }
 
@@ -25898,69 +25938,71 @@ public class BirdGame3 {
                 hash = 31 * hash;
                 continue;
             }
-            int value;
-            if (lanMapVoteRandom[i]) {
-                value = -2;
-            } else if (lanMapVotes[i] != null) {
-                value = lanMapVotes[i].ordinal();
-            } else {
-                value = -1;
-            }
-            hash = 31 * hash + value;
+            StageRandomPool randomPool = lanMapVoteRandomPools[i];
+            hash = 31 * hash + (randomPool == null ? StageRandomPool.NONE : randomPool).ordinal();
+            hash = 31 * hash + (lanMapVotes[i] == null ? -1 : lanMapVotes[i].ordinal());
+            MapVariant variant = lanMapVariantVotes[i];
+            hash = 31 * hash + (variant == null ? MapVariant.STANDARD : variant).ordinal();
         }
         return hash;
     }
 
-    private MapType pickLanMapForMatch() {
-        List<MapType> pool = new ArrayList<>();
-        int randomVotes = 0;
+    private List<StageChoice> buildLanStageVotePool(Random picker) {
+        List<StageChoice> pool = new ArrayList<>();
         for (int i = 0; i < LAN_MAX_PLAYERS; i++) {
             if (!lanSlotConnected[i]) continue;
-            if (lanMapVoteRandom[i]) {
-                randomVotes++;
+            StageRandomPool randomPool = lanMapVoteRandomPools[i] == null
+                    ? StageRandomPool.NONE
+                    : lanMapVoteRandomPools[i];
+            if (randomPool != StageRandomPool.NONE) {
+                pool.add(randomStageChoice(randomPool, picker));
                 continue;
             }
             MapType vote = lanMapVotes[i];
             if (vote != null) {
-                pool.add(vote);
+                pool.add(new StageChoice(vote, lanMapVariantVotes[i]));
             }
         }
-
-        List<MapType> allMaps = availableLanMaps();
-        if (pool.isEmpty() && randomVotes == 0) {
-            if (!allMaps.isEmpty()) {
-                return allMaps.get(random.nextInt(allMaps.size()));
-            }
-            return MapType.FOREST;
-        }
-
-        for (int i = 0; i < randomVotes; i++) {
-            if (!allMaps.isEmpty()) {
-                pool.add(allMaps.get(random.nextInt(allMaps.size())));
-            }
-        }
-
-        if (pool.isEmpty()) {
-            if (!allMaps.isEmpty()) {
-                return allMaps.get(random.nextInt(allMaps.size()));
-            }
-            return MapType.FOREST;
-        }
-
-        return pool.get(random.nextInt(pool.size()));
+        return pool;
     }
 
-    private List<MapType> availableLanMaps() {
-        List<MapType> maps = new ArrayList<>();
-        for (MapType map : MapType.values()) {
-            if (isMapUnlocked(map)) {
-                maps.add(map);
+    private StageChoice pickLanStageForMatch(long seed) {
+        Random picker = new Random(seed ^ 0x2B67_D159_A4CEL);
+        List<StageChoice> pool = buildLanStageVotePool(picker);
+        if (pool.isEmpty()) {
+            return randomStageChoice(StageRandomPool.ALL, picker);
+        }
+        return pool.get(picker.nextInt(pool.size()));
+    }
+
+    List<StageChoice> availableStageChoices(StageRandomPool pool) {
+        StageRandomPool resolvedPool = pool == null || pool == StageRandomPool.NONE
+                ? StageRandomPool.ALL
+                : pool;
+        List<StageChoice> choices = new ArrayList<>();
+        if (resolvedPool == StageRandomPool.MAIN || resolvedPool == StageRandomPool.ALL) {
+            for (MapType map : MapType.values()) {
+                if (isMapUnlocked(map)) {
+                    choices.add(StageChoice.main(map));
+                }
             }
         }
-        if (maps.isEmpty()) {
-            maps.add(MapType.FOREST);
+        if (resolvedPool == StageRandomPool.VARIANTS || resolvedPool == StageRandomPool.ALL) {
+            for (MapVariant variant : MapVariant.values()) {
+                if (variant != MapVariant.STANDARD && isMapUnlocked(variant.baseMap)) {
+                    choices.add(new StageChoice(variant.baseMap, variant));
+                }
+            }
         }
-        return maps;
+        if (choices.isEmpty()) {
+            choices.add(StageChoice.main(MapType.FOREST));
+        }
+        return choices;
+    }
+
+    private StageChoice randomStageChoice(StageRandomPool pool, Random picker) {
+        List<StageChoice> choices = availableStageChoices(pool);
+        return choices.get(picker.nextInt(choices.size()));
     }
 
     private int countLanConnected() {
@@ -25999,6 +26041,11 @@ public class BirdGame3 {
             case PRISON -> "Crownlock Prison";
             default -> "Big Forest";
         };
+    }
+
+    String stageDisplayName(MapType map, MapVariant variant) {
+        MapVariant resolved = variant == null ? MapVariant.STANDARD : variant;
+        return resolved == MapVariant.STANDARD ? mapDisplayName(map) : resolved.displayName;
     }
 
     private String findLanAddress() {
@@ -26095,7 +26142,8 @@ public class BirdGame3 {
         if (lanHost != null) {
             MapType mapToSend = lanSelectedMap != null ? lanSelectedMap : MapType.FOREST;
             boolean mapRandom = lanSelectedMap == null || lanSelectedMapRandom;
-            lanHost.broadcastLobby(mapToSend, mapRandom, lanSlotConnected, lanSelectedBirds, lanRandomBirds, lanSelectedSkinKeys, lanReady);
+            lanHost.broadcastLobby(mapToSend, lanSelectedMapVariant, mapRandom,
+                    lanSlotConnected, lanSelectedBirds, lanRandomBirds, lanSelectedSkinKeys, lanReady);
         }
         publishLanCompanionSnapshot();
     }
@@ -26109,7 +26157,8 @@ public class BirdGame3 {
             lanSelectedSkinKeys[slot] = null;
             lanReady[slot] = false;
             lanMapVotes[slot] = null;
-            lanMapVoteRandom[slot] = false;
+            lanMapVariantVotes[slot] = MapVariant.STANDARD;
+            lanMapVoteRandomPools[slot] = StageRandomPool.NONE;
             if (lanSelectedBirds[slot] == null) {
                 lanSelectedBirds[slot] = firstUnlockedBird();
             }
@@ -26144,7 +26193,8 @@ public class BirdGame3 {
             lanSelectedSkinKeys[slot] = null;
             lanReady[slot] = false;
             lanMapVotes[slot] = null;
-            lanMapVoteRandom[slot] = false;
+            lanMapVariantVotes[slot] = MapVariant.STANDARD;
+            lanMapVoteRandomPools[slot] = StageRandomPool.NONE;
             synchronized (lanInputLock) {
                 lanInputMasks[slot] = 0;
                 lanLastInputMasks[slot] = 0;
@@ -26167,12 +26217,16 @@ public class BirdGame3 {
         });
     }
 
-    void onLanClientMapVote(int slot, MapType map, boolean random) {
+    void onLanClientMapVote(int slot, MapType map, MapVariant variant, StageRandomPool randomPool) {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsHost) return;
             if (slot < 0 || slot >= LAN_MAX_PLAYERS) return;
-            lanMapVoteRandom[slot] = random;
-            lanMapVotes[slot] = random ? null : map;
+            StageRandomPool resolvedPool = randomPool == null ? StageRandomPool.NONE : randomPool;
+            lanMapVoteRandomPools[slot] = resolvedPool;
+            lanMapVotes[slot] = resolvedPool == StageRandomPool.NONE ? map : null;
+            lanMapVariantVotes[slot] = resolvedPool == StageRandomPool.NONE && variant != null
+                    ? variant
+                    : MapVariant.STANDARD;
             updateLanMapSelectionFromVotes();
             refreshLanLobbyUI();
             broadcastLanLobby();
@@ -26239,10 +26293,12 @@ public class BirdGame3 {
         });
     }
 
-    void onLanLobbyUpdate(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds, String[] skinKeys, boolean[] ready) {
+    void onLanLobbyUpdate(MapType map, MapVariant variant, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds, String[] skinKeys, boolean[] ready) {
         javafx.application.Platform.runLater(() -> {
             if (!lanModeActive || !lanIsClient) return;
-            lanSelectedMap = map;
+            StageChoice selected = new StageChoice(map, variant);
+            lanSelectedMap = selected.map();
+            lanSelectedMapVariant = selected.variant();
             lanSelectedMapRandom = mapRandom;
             if (connected != null) {
                 System.arraycopy(connected, 0, lanSlotConnected, 0, Math.min(connected.length, LAN_MAX_PLAYERS));
@@ -26263,7 +26319,7 @@ public class BirdGame3 {
         });
     }
 
-    void onLanStartMatch(MapType map, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
+    void onLanStartMatch(MapType map, MapVariant variant, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
                          boolean[] connected, BirdType[] birds, String[] skinKeys) {
         javafx.application.Platform.runLater(() -> {
             networkInputDelayTicks = LockstepSession.sanitizeInputDelay(inputDelayTicks);
@@ -26271,7 +26327,7 @@ public class BirdGame3 {
                 simulationConfig.apply();
                 networkSimulationConfigApplied = true;
             }
-            startLanMatchClient(currentStage, map, seed, connected, birds, skinKeys);
+            startLanMatchClient(currentStage, map, variant, seed, connected, birds, skinKeys);
         });
     }
 
@@ -26406,10 +26462,14 @@ public class BirdGame3 {
         competitionModeEnabled = false;
         mutatorModeEnabled = false;
         teamModeEnabled = false;
-        MapType mapToPlay = pickLanMapForMatch();
+        lanMatchSeed = System.nanoTime();
+        StageChoice stageToPlay = pickLanStageForMatch(lanMatchSeed);
+        MapType mapToPlay = stageToPlay.map();
         lanSelectedMap = mapToPlay;
+        lanSelectedMapVariant = stageToPlay.variant();
         lanSelectedMapRandom = false;
         selectedMap = mapToPlay;
+        selectedMapVariant = stageToPlay.variant();
         activePlayers = LAN_MAX_PLAYERS;
         lanMatchActive = true;
         lastLanSnapshotNs = 0L;
@@ -26424,17 +26484,17 @@ public class BirdGame3 {
                 lanSelectedSkinKeys[i] = null;
             }
         }
-        lanMatchSeed = System.nanoTime();
         NetworkSimulationConfig simulationConfig = NetworkSimulationConfig.capture();
         if (lanHost != null) {
-            lanHost.broadcastStart(mapToPlay, lanMatchSeed, networkInputDelayTicks, simulationConfig,
+            lanHost.broadcastStart(mapToPlay, selectedMapVariant, lanMatchSeed, networkInputDelayTicks, simulationConfig,
                     lanSlotConnected, lanSelectedBirds, lanSelectedSkinKeys);
         }
         startMatch(stage);
         publishLanCompanionSnapshot();
     }
 
-    private void startLanMatchClient(Stage stage, MapType map, long seed, boolean[] connected, BirdType[] birds, String[] skinKeys) {
+    private void startLanMatchClient(Stage stage, MapType map, MapVariant variant, long seed,
+                                     boolean[] connected, BirdType[] birds, String[] skinKeys) {
         if (!lanModeActive || !lanIsClient) return;
         if (stage == null) return;
         lanCountdownValue = 0;
@@ -26453,8 +26513,11 @@ public class BirdGame3 {
         mutatorModeEnabled = false;
         teamModeEnabled = false;
         lanMatchSeed = seed;
-        lanSelectedMap = map;
-        selectedMap = map;
+        StageChoice selectedStage = new StageChoice(map, variant);
+        lanSelectedMap = selectedStage.map();
+        lanSelectedMapVariant = selectedStage.variant();
+        selectedMap = selectedStage.map();
+        selectedMapVariant = selectedStage.variant();
         if (connected != null) {
             System.arraycopy(connected, 0, lanSlotConnected, 0, Math.min(connected.length, LAN_MAX_PLAYERS));
         }
@@ -26548,7 +26611,8 @@ public class BirdGame3 {
         Arrays.fill(lanRandomBirds, false);
         Arrays.fill(lanReady, false);
         Arrays.fill(lanMapVotes, null);
-        Arrays.fill(lanMapVoteRandom, false);
+        Arrays.fill(lanMapVariantVotes, MapVariant.STANDARD);
+        Arrays.fill(lanMapVoteRandomPools, StageRandomPool.NONE);
         synchronized (lanInputLock) {
             Arrays.fill(lanInputMasks, 0);
             Arrays.fill(lanLastInputMasks, 0);
@@ -26560,6 +26624,7 @@ public class BirdGame3 {
         lastLanSnapshotNs = 0L;
         lastLanCompanionSnapshotNs = 0L;
         lanLastWinnerIndex = -1;
+        lanSelectedMapVariant = MapVariant.STANDARD;
         lanSelectedMapRandom = false;
         lanVoteSignature = 0;
         if (networkSimulationConfigApplied) {
@@ -26617,7 +26682,8 @@ public class BirdGame3 {
         if (map == null || (!lanMatchActive && !matchEnded && lanSelectedMapRandom)) {
             snapshot.mapName = "Random Map";
         } else {
-            snapshot.mapName = mapDisplayName(map);
+            MapVariant variant = (lanMatchActive || matchEnded) ? selectedMapVariant : lanSelectedMapVariant;
+            snapshot.mapName = stageDisplayName(map, variant);
         }
         snapshot.matchTimerFrames = Math.max(0, matchTimer);
         snapshot.matchEnded = matchEnded;
@@ -33552,10 +33618,18 @@ public class BirdGame3 {
                 && fighter.boss();
     }
 
-    private boolean isCrownDuelCampaign() {
-        return campaignModeActive
+    private boolean isCrownDuelArena() {
+        boolean campaignArena = campaignModeActive
                 && currentCampaignMission != null
                 && currentCampaignMission.arenaVariant() == StoryCampaign.ArenaVariant.CROWN_DUEL;
+        return campaignArena || selectedStandaloneMapVariant() == MapVariant.CROWN_DUEL;
+    }
+
+    private MapVariant selectedStandaloneMapVariant() {
+        if (campaignModeActive || storyModeActive || adventureModeActive || classicModeActive || tournamentModeActive) {
+            return MapVariant.STANDARD;
+        }
+        return selectedMapVariant == null ? MapVariant.STANDARD : selectedMapVariant;
     }
 
     private void setupCampaignFinalCoalition(StoryCampaign.Mission mission) {
@@ -33741,7 +33815,7 @@ public class BirdGame3 {
             }
         }
         if (stillSkyProgress.difficulty.bonusHealthPickup) {
-            double assistY = isCrownDuelCampaign()
+            double assistY = isCrownDuelArena()
                     ? CROWN_DUEL_BRIDGE_Y - 80.0
                     : GROUND_Y - 620.0;
             powerUps.add(new PowerUp(3000, assistY, PowerUpType.HEALTH));
@@ -38915,6 +38989,10 @@ public class BirdGame3 {
     }
 
     private void showStageSelect(Stage stage) {
+        showStageSelect(stage, false);
+    }
+
+    private void showStageSelect(Stage stage, boolean variantsTabActive) {
         playMenuMusic();
         BorderPane root = new BorderPane();
         root.setPadding(new Insets(28, 36, 30, 36));
@@ -38938,13 +39016,24 @@ public class BirdGame3 {
         title.setTextFill(Color.web("#FFE082"));
         title.setEffect(new Glow(0.8));
 
-        HBox topBar = new HBox(24, backArrow, title);
+        Button mainTab = uiFactory.action("MAIN", 300, 78, 30, "#1565C0", 18,
+                () -> showStageSelect(stage, false));
+        Button variantsTab = uiFactory.action("VARIANTS", 300, 78, 30, "#6A1B9A", 18,
+                () -> showStageSelect(stage, true));
+        mainTab.setDisable(!variantsTabActive);
+        variantsTab.setDisable(variantsTabActive);
+        HBox tabs = new HBox(16, mainTab, variantsTab);
+        tabs.setAlignment(Pos.CENTER_LEFT);
+
+        VBox heading = new VBox(8, title, tabs);
+        heading.setAlignment(Pos.CENTER_LEFT);
+        HBox topBar = new HBox(24, backArrow, heading);
         topBar.setAlignment(Pos.CENTER_LEFT);
 
         record MapCard(String name, String desc, String color, MapType map) {
         }
 
-        List<MapCard> cards = new ArrayList<>(List.of(
+        List<MapCard> mainCards = new ArrayList<>(List.of(
                 new MapCard("BIG FOREST", "Dense trees, layered platforms, high vertical play.", "#2E7D32", MapType.FOREST),
                 new MapCard("PIGEON'S ROOFTOPS", "Neon rooftops with city wind vents.", "#5E35B1", MapType.CITY),
                 new MapCard("SKY CLIFFS", "Stepping cliffs and strong updrafts.", "#8D6E63", MapType.SKYCLIFFS),
@@ -38958,84 +39047,101 @@ public class BirdGame3 {
                 new MapCard("CROWNLOCK PRISON", "A flat prison floor beneath layered steel catwalks, sweeping searchlights, and levers that unleash prisoner rushes.", "#546E7A", MapType.PRISON),
                 new MapCard("BEACON CROWN", "A huge crown-top arena with long lanes, layered perches, and a lethal void.", "#6A1B9A", MapType.BEACON_CROWN)
         ));
-        cards.removeIf(card -> !isMapUnlocked(card.map));
+        mainCards.removeIf(card -> !isMapUnlocked(card.map));
 
-        GridPane grid = new GridPane();
-        grid.setHgap(26);
-        grid.setVgap(22);
-        grid.setAlignment(Pos.TOP_CENTER);
-
-        Consumer<MapType> handler = stageSelectHandler;
-        Consumer<MapType> selectMap = map -> {
+        Consumer<StageChoice> handler = stageSelectHandler;
+        Consumer<StageChoice> selectStage = choice -> {
             stageSelectRandomHandler = null;
             if (handler != null) {
                 stageSelectHandler = null;
-                handler.accept(map);
+                handler.accept(choice);
             } else {
-                beginFreshMatchOnMap(stage, map);
+                beginFreshMatchOnStage(stage, choice);
             }
         };
 
-        for (int i = 0; i < cards.size(); i++) {
-            MapCard card = cards.get(i);
-            int col = i % 2;
-            int row = i / 2;
+        VBox cardSections = new VBox(24);
+        cardSections.setAlignment(Pos.TOP_CENTER);
+        if (!variantsTabActive) {
+            GridPane grid = new GridPane();
+            grid.setHgap(26);
+            grid.setVgap(22);
+            grid.setAlignment(Pos.TOP_CENTER);
+            for (int i = 0; i < mainCards.size(); i++) {
+                MapCard card = mainCards.get(i);
+                grid.add(buildStageSelectCard(
+                        card.name, card.desc, card.color,
+                        () -> selectStage.accept(StageChoice.main(card.map))), i % 2, i / 2);
+            }
+            cardSections.getChildren().add(grid);
+        } else {
+            for (String category : List.of("Story Arenas", "Boss Rush Arenas")) {
+                List<MapVariant> variants = Arrays.stream(MapVariant.values())
+                        .filter(variant -> variant != MapVariant.STANDARD)
+                        .filter(variant -> category.equals(variant.category))
+                        .filter(variant -> isMapUnlocked(variant.baseMap))
+                        .toList();
+                if (variants.isEmpty()) continue;
 
-            VBox cardBox = new VBox(8);
-            cardBox.setPadding(new Insets(16));
-            cardBox.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-border-color: #90A4AE; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
+                Label categoryLabel = new Label(category.toUpperCase());
+                categoryLabel.setFont(Font.font("Arial Black", 34));
+                categoryLabel.setTextFill(Color.web(category.equals("Story Arenas") ? "#FFE082" : "#CE93D8"));
+                applyNoEllipsis(categoryLabel);
 
-            String label = card.name;
-            Button btn = uiFactory.action(label, 680, 120, 34, card.color, 22, () -> selectMap.accept(card.map));
-            Label desc = getLabel(card.desc);
-            desc.setFont(Font.font("Consolas", 20));
-            desc.setTextFill(Color.web("#CFD8DC"));
-            desc.setWrapText(true);
-            desc.setPrefWidth(640);
-            desc.setMaxWidth(640);
-            desc.setMinHeight(Region.USE_PREF_SIZE);
-            applyNoEllipsis(desc);
-
-            cardBox.getChildren().addAll(btn, desc);
-            grid.add(cardBox, col, row);
+                GridPane grid = new GridPane();
+                grid.setHgap(26);
+                grid.setVgap(22);
+                grid.setAlignment(Pos.TOP_CENTER);
+                for (int i = 0; i < variants.size(); i++) {
+                    MapVariant variant = variants.get(i);
+                    String desc = variant.description + "\nBase arena: " + mapDisplayName(variant.baseMap);
+                    String color = category.equals("Story Arenas") ? "#AD6C00" : "#6A1B9A";
+                    grid.add(buildStageSelectCard(
+                            variant.displayName.toUpperCase(), desc, color,
+                            () -> selectStage.accept(new StageChoice(variant.baseMap, variant))), i % 2, i / 2);
+                }
+                VBox section = new VBox(12, categoryLabel, grid);
+                section.setAlignment(Pos.TOP_CENTER);
+                cardSections.getChildren().add(section);
+            }
         }
 
-        Button randomBtn = uiFactory.action("RANDOM", 1400, 110, 38, "#8E24AA", 24, () -> {
-            Runnable randomHandler = stageSelectRandomHandler;
+        Consumer<StageRandomPool> selectRandom = randomPool -> {
+            Consumer<StageRandomPool> randomHandler = stageSelectRandomHandler;
             if (randomHandler != null) {
                 stageSelectHandler = null;
                 stageSelectRandomHandler = null;
-                randomHandler.run();
-                return;
-            }
-            List<MapType> maps = new ArrayList<>();
-            for (MapType map : MapType.values()) {
-                if (isMapUnlocked(map)) maps.add(map);
-            }
-            if (maps.isEmpty()) {
-                if (handler != null) {
-                    selectMap.accept(MapType.FOREST);
-                } else {
-                    beginFreshMatchOnMap(stage, MapType.FOREST);
-                }
+                randomHandler.accept(randomPool);
                 return;
             }
             if (handler != null) {
                 Random menuRandom = new Random(System.nanoTime() ^ 0x51A6_E57A_9E1E_5EEDL);
-                selectMap.accept(maps.get(menuRandom.nextInt(maps.size())));
+                selectStage.accept(randomStageChoice(randomPool, menuRandom));
                 return;
             }
-            beginFreshMatchOnRandomMap(stage);
-        });
-        Label randomHint = new Label("Roll a random arena and adapt on the fly.");
+            beginFreshMatchOnRandomMap(stage, randomPool);
+        };
+
+        StageRandomPool tabPool = variantsTabActive ? StageRandomPool.VARIANTS : StageRandomPool.MAIN;
+        Button tabRandomBtn = uiFactory.action(tabPool.label, 670, 110, 38,
+                variantsTabActive ? "#7B1FA2" : "#1565C0", 24, () -> selectRandom.accept(tabPool));
+        Button totalRandomBtn = uiFactory.action("TOTAL RANDOM", 670, 110, 38, "#8E24AA", 24,
+                () -> selectRandom.accept(StageRandomPool.ALL));
+        Label randomHint = new Label(variantsTabActive
+                ? "Random Variant stays in this tab. Total Random can choose any main stage or variant."
+                : "Random Main stays in this tab. Total Random can choose any main stage or variant.");
         randomHint.setFont(Font.font("Consolas", 20));
         randomHint.setTextFill(Color.web("#B39DDB"));
+        randomHint.setWrapText(true);
+        randomHint.setTextAlignment(TextAlignment.CENTER);
 
-        VBox randomBox = new VBox(8, randomBtn, randomHint);
+        HBox randomButtons = new HBox(24, tabRandomBtn, totalRandomBtn);
+        randomButtons.setAlignment(Pos.CENTER);
+        VBox randomBox = new VBox(8, randomButtons, randomHint);
         randomBox.setAlignment(Pos.CENTER);
         randomBox.setPadding(new Insets(12, 0, 0, 0));
 
-        VBox center = new VBox(20, grid, randomBox);
+        VBox center = new VBox(20, cardSections, randomBox);
         center.setAlignment(Pos.CENTER);
 
         ScrollPane scroll = new ScrollPane(center);
@@ -39057,20 +39163,43 @@ public class BirdGame3 {
         backArrow.requestFocus();
     }
 
+    private VBox buildStageSelectCard(String name, String description, String color, Runnable action) {
+        VBox cardBox = new VBox(8);
+        cardBox.setPadding(new Insets(16));
+        cardBox.setStyle("-fx-background-color: rgba(0,0,0,0.45); -fx-border-color: #90A4AE; -fx-border-width: 2; -fx-background-radius: 18; -fx-border-radius: 18;");
+
+        Button button = uiFactory.action(name, 680, 120, 34, color, 22, action);
+        Label desc = getLabel(description);
+        desc.setFont(Font.font("Consolas", 20));
+        desc.setTextFill(Color.web("#CFD8DC"));
+        desc.setWrapText(true);
+        desc.setPrefWidth(640);
+        desc.setMaxWidth(640);
+        desc.setMinHeight(Region.USE_PREF_SIZE);
+        applyNoEllipsis(desc);
+        cardBox.getChildren().addAll(button, desc);
+        return cardBox;
+    }
+
     private void beginFreshMatchOnMap(Stage stage, MapType map) {
-        beginFreshMatch(stage, map, false);
+        beginFreshMatchOnStage(stage, StageChoice.main(map));
     }
 
-    private void beginFreshMatchOnRandomMap(Stage stage) {
-        beginFreshMatch(stage, MapType.FOREST, true);
+    private void beginFreshMatchOnStage(Stage stage, StageChoice choice) {
+        beginFreshMatch(stage, choice, StageRandomPool.NONE);
     }
 
-    private void beginFreshMatch(Stage stage, MapType map, boolean randomMapMode) {
+    private void beginFreshMatchOnRandomMap(Stage stage, StageRandomPool randomPool) {
+        beginFreshMatch(stage, StageChoice.main(MapType.FOREST), randomPool);
+    }
+
+    private void beginFreshMatch(Stage stage, StageChoice choice, StageRandomPool randomPool) {
         stageSelectReturn = null;
         stageSelectHandler = null;
         stageSelectRandomHandler = null;
-        selectedMap = map;
-        standardFightRandomMapMode = randomMapMode;
+        selectedMap = choice.map();
+        selectedMapVariant = choice.variant();
+        standardFightRandomMapPool = randomPool == null ? StageRandomPool.NONE : randomPool;
         trainingModeActive = false;
         classicModeActive = false;
         classicEncounter = null;
@@ -39086,12 +39215,17 @@ public class BirdGame3 {
     }
 
     private void beginTrainingMatchOnMap(Stage stage, MapType map) {
+        beginTrainingMatchOnMap(stage, StageChoice.main(map));
+    }
+
+    private void beginTrainingMatchOnMap(Stage stage, StageChoice choice) {
         stageSelectReturn = null;
         stageSelectHandler = null;
         stageSelectRandomHandler = null;
         resetMatchStats();
-        selectedMap = map;
-        standardFightRandomMapMode = false;
+        selectedMap = choice.map();
+        selectedMapVariant = choice.variant();
+        standardFightRandomMapPool = StageRandomPool.NONE;
         trainingModeActive = true;
         storyModeActive = false;
         storyReplayMode = false;
@@ -41287,7 +41421,7 @@ public class BirdGame3 {
     }
 
     private void applyCampaignMissionRuntimeEffects() {
-        if (isCrownDuelCampaign()) {
+        if (isCrownDuelArena()) {
             applyCrownDuelRuntimeEffects();
         }
         if (isNullRockCampaign()) {
@@ -41801,7 +41935,7 @@ public class BirdGame3 {
 
     private void spawnPowerUp() {
         if (competitionModeEnabled && !storyModeActive && !adventureModeActive && !classicModeActive) return;
-        if (isCrownDuelCampaign()) return;
+        if (isCrownDuelArena()) return;
         if (simTick - lastPowerUpSpawnTime < activePowerUpSpawnInterval) return;
         double spawnChance = 0.8;
         if (random.nextDouble() < spawnChance) {
@@ -42227,6 +42361,7 @@ public class BirdGame3 {
         }
         MatchReplay replay = new MatchReplay(currentMatchSeed, activePlayers);
         replay.mapName = selectedMap.name();
+        replay.mapVariantName = selectedMapVariant.name();
         replay.timestampMillis = System.currentTimeMillis();
         replay.teamModeEnabled = teamModeEnabled;
         replay.mutatorModeEnabled = mutatorModeEnabled;
@@ -42313,7 +42448,7 @@ public class BirdGame3 {
     }
 
     /** Snapshot of the menu selections a replay's config restore overwrites. */
-    private record ReplayMenuSnapshot(MapType map, int activePlayers, boolean teamMode, boolean mutatorMode,
+    private record ReplayMenuSnapshot(MapType map, MapVariant mapVariant, int activePlayers, boolean teamMode, boolean mutatorMode,
                                       boolean[] ai, int[] teams, BirdType[] birds, boolean[] randoms, String[] skins) {
     }
 
@@ -42343,7 +42478,7 @@ public class BirdGame3 {
 
     private ReplayMenuSnapshot captureReplayMenuSnapshot() {
         return new ReplayMenuSnapshot(
-                selectedMap, activePlayers, teamModeEnabled, mutatorModeEnabled,
+                selectedMap, selectedMapVariant, activePlayers, teamModeEnabled, mutatorModeEnabled,
                 Arrays.copyOf(isAI, isAI.length),
                 Arrays.copyOf(playerTeams, playerTeams.length),
                 Arrays.copyOf(fightSetupSelection.selectedBirds(), fightSetupSelection.selectedBirds().length),
@@ -42356,6 +42491,7 @@ public class BirdGame3 {
         preReplayMenuState = null;
         if (s == null) return;
         selectedMap = s.map();
+        selectedMapVariant = s.mapVariant();
         activePlayers = s.activePlayers();
         teamModeEnabled = s.teamMode();
         mutatorModeEnabled = s.mutatorMode();
@@ -42378,7 +42514,12 @@ public class BirdGame3 {
         tournamentModeActive = false;
         competitionModeEnabled = false;
         lanModeActive = false;
-        selectedMap = MapType.valueOf(r.mapName);
+        MapVariant replayVariant = r.mapVariantName == null
+                ? MapVariant.STANDARD
+                : MapVariant.valueOf(r.mapVariantName);
+        StageChoice replayStage = new StageChoice(MapType.valueOf(r.mapName), replayVariant);
+        selectedMap = replayStage.map();
+        selectedMapVariant = replayStage.variant();
         activePlayers = Math.min(r.playerCount, MAX_COMBATANTS);
         teamModeEnabled = r.teamModeEnabled;
         mutatorModeEnabled = r.mutatorModeEnabled;
@@ -42970,7 +43111,7 @@ public class BirdGame3 {
 
         g.setFill(Color.LIGHTGRAY);
         g.setFont(Font.font("Consolas", 17));
-        g.fillText("Match " + (int) elapsedSec + "s | Map: " + mapDisplayName(selectedMap)
+        g.fillText("Match " + (int) elapsedSec + "s | Map: " + stageDisplayName(selectedMap, selectedStandaloneMapVariant())
                         + " | Adaptive balance: diagnostics only, scaling OFF",
                 panelX + 18, panelY + 58);
 
@@ -43725,7 +43866,7 @@ public class BirdGame3 {
                 || selectedMap == MapType.FROSTBITE_FJORD
                 || selectedMap == MapType.ASHFALL_CATHEDRAL
                 || selectedMap == MapType.PRISON
-                || isCrownDuelCampaign();
+                || isCrownDuelArena();
     }
 
     private double battlefieldBoundsMargin() {
@@ -44213,7 +44354,7 @@ public class BirdGame3 {
     }
 
     private void resolveStandardRandomMapForMatchStart() {
-        if (!standardFightRandomMapMode
+        if (standardFightRandomMapPool == StageRandomPool.NONE
                 || replayPlaybackActive
                 || lanModeActive
                 || trainingModeActive
@@ -44224,9 +44365,26 @@ public class BirdGame3 {
                 || tournamentModeActive) {
             return;
         }
-        List<MapType> maps = tournamentMapPool();
         Random mapRandom = new Random(currentMatchSeed ^ 0x6D1F_92AB_C0DE_73A5L);
-        selectedMap = maps.get(mapRandom.nextInt(maps.size()));
+        StageChoice choice = randomStageChoice(standardFightRandomMapPool, mapRandom);
+        selectedMap = choice.map();
+        selectedMapVariant = choice.variant();
+    }
+
+    private void applySelectedMapVariantArena() {
+        switch (selectedStandaloneMapVariant()) {
+            case CROWN_DUEL -> setupCrownDuelArena();
+            case NULL_ROCK_DUEL -> setupCampaignNullRockDuelArena();
+            case SKYBREAK_SPIRES -> setupBossRushSkybreakSpires();
+            case ASHFALL_REBIRTH -> setupBossRushAshfallCathedral();
+            case TITAN_DOCK -> setupBossRushTitanDock();
+            case PARLIAMENT_ROOFTOPS -> setupBossRushParliamentRooftops();
+            case CARRION_THRONE -> setupBossRushCarrionThrone();
+            case NULL_ROC_ASCENDING -> setupBossRushNullRocArena();
+            case VOID_CROWN -> setupBossRushVoidCrownArena();
+            case STANDARD -> {
+            }
+        }
     }
 
     private void stopGameplayTimer() {
@@ -44410,6 +44568,7 @@ public class BirdGame3 {
         }
 
         setupMatchArenaGeometry();
+        applySelectedMapVariantArena();
 
         if (campaignModeActive && campaignMission != null) {
             applyCampaignMissionArenaModifiers(campaignMission);
@@ -46395,7 +46554,7 @@ public class BirdGame3 {
                 System.currentTimeMillis(),
                 currentMatchHistoryMode(),
                 currentMatchHistoryDetail(),
-                mapDisplayName(selectedMap),
+                stageDisplayName(selectedMap, selectedStandaloneMapVariant()),
                 currentMatchHistoryWinner(winner),
                 Math.max(0, coinsEarned),
                 participants
@@ -46980,7 +47139,8 @@ public class BirdGame3 {
         Label title = cinematicResultsLabel(campaignModeActive
                 ? "MISSION RESULTS"
                 : (teamSummaryMode ? "TEAM RESULTS" : "MATCH RESULTS"), 28, Color.WHITE, true);
-        Label context = cinematicResultsLabel(currentMatchHistoryMode() + "  |  " + mapDisplayName(selectedMap), 16, Color.web("#B8C7E8"), false);
+        Label context = cinematicResultsLabel(currentMatchHistoryMode() + "  |  "
+                + stageDisplayName(selectedMap, selectedStandaloneMapVariant()), 16, Color.web("#B8C7E8"), false);
         header.getChildren().addAll(title, context);
 
         GridPane grid = new GridPane();
@@ -49037,7 +49197,15 @@ public class BirdGame3 {
         if (replay.mapName == null) {
             return "UNKNOWN MAP";
         }
-        return replay.mapName.replace('_', ' ');
+        try {
+            MapType map = MapType.valueOf(replay.mapName);
+            MapVariant variant = replay.mapVariantName == null
+                    ? MapVariant.STANDARD
+                    : MapVariant.valueOf(replay.mapVariantName);
+            return stageDisplayName(map, variant).toUpperCase(Locale.ROOT);
+        } catch (IllegalArgumentException ignored) {
+            return replay.mapName.replace('_', ' ');
+        }
     }
 
     private static String formatReplayDuration(long ticks) {

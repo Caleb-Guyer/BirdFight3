@@ -1,7 +1,9 @@
 package com.example.birdgame3;
 
 import com.example.birdgame3.BirdGame3.BirdType;
+import com.example.birdgame3.BirdGame3.MapVariant;
 import com.example.birdgame3.BirdGame3.MapType;
+import com.example.birdgame3.BirdGame3.StageRandomPool;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -139,11 +141,17 @@ class LanClient implements NetworkSessionClient {
     }
 
     @Override
-    public void sendMapVote(MapType map, boolean random) {
+    public void sendMapVote(MapType map, MapVariant variant, StageRandomPool randomPool) {
         if (!running) return;
         try {
-            int ord = random ? LanProtocol.MAP_RANDOM : (map != null ? map.ordinal() : -1);
-            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_MAP_VOTE, out -> out.writeInt(ord));
+            StageRandomPool resolvedPool = randomPool == null ? StageRandomPool.NONE : randomPool;
+            int ord = resolvedPool == StageRandomPool.NONE && map != null ? map.ordinal() : LanProtocol.MAP_RANDOM;
+            MapVariant resolvedVariant = variant == null ? MapVariant.STANDARD : variant;
+            byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_MAP_VOTE, out -> {
+                out.writeInt(ord);
+                out.writeInt(resolvedVariant.ordinal());
+                out.writeInt(resolvedPool.ordinal());
+            });
             enqueueOutbound(msg);
         } catch (IOException ignored) {
         }

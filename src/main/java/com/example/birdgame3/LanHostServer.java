@@ -1,6 +1,7 @@
 package com.example.birdgame3;
 
 import com.example.birdgame3.BirdGame3.BirdType;
+import com.example.birdgame3.BirdGame3.MapVariant;
 import com.example.birdgame3.BirdGame3.MapType;
 
 import java.io.DataInputStream;
@@ -108,10 +109,11 @@ class LanHostServer implements NetworkSessionHost {
     }
 
     @Override
-    public void broadcastLobby(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds, String[] skinKeys, boolean[] ready) {
+    public void broadcastLobby(MapType map, MapVariant variant, boolean mapRandom, boolean[] connected, BirdType[] birds, boolean[] randomBirds, String[] skinKeys, boolean[] ready) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_LOBBY, out -> {
                 out.writeInt(mapRandom ? LanProtocol.MAP_RANDOM : map.ordinal());
+                out.writeInt((variant == null ? MapVariant.STANDARD : variant).ordinal());
                 for (int i = 0; i < 4; i++) {
                     out.writeBoolean(connected[i]);
                     out.writeBoolean(ready != null && ready[i]);
@@ -130,11 +132,12 @@ class LanHostServer implements NetworkSessionHost {
     }
 
     @Override
-    public void broadcastStart(MapType map, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
+    public void broadcastStart(MapType map, MapVariant variant, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
                                boolean[] connected, BirdType[] birds, String[] skinKeys) {
         try {
             byte[] msg = LanProtocol.buildMessage(LanProtocol.MSG_START, out -> {
                 out.writeInt(map.ordinal());
+                out.writeInt((variant == null ? MapVariant.STANDARD : variant).ordinal());
                 out.writeLong(seed);
                 out.writeInt(LockstepSession.sanitizeInputDelay(inputDelayTicks));
                 (simulationConfig == null ? NetworkSimulationConfig.capture() : simulationConfig).write(out);

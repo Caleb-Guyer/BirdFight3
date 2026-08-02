@@ -22,6 +22,7 @@ class ReplayStoreTest {
     private static MatchReplay sampleReplay() {
         MatchReplay replay = new MatchReplay(-987654321L, 2);
         replay.mapName = "FOREST";
+        replay.mapVariantName = BirdGame3.MapVariant.CROWN_DUEL.name();
         replay.timestampMillis = 1_752_000_000_000L;
         replay.winnerLabel = "P1: Eagle";
         replay.teamModeEnabled = false;
@@ -55,6 +56,7 @@ class ReplayStoreTest {
         assertEquals(MatchReplay.CURRENT_SIMULATION_REVISION, loaded.simulationRevision);
         assertTrue(loaded.compatibleWithCurrentSimulation());
         assertEquals(original.mapName, loaded.mapName);
+        assertEquals(original.mapVariantName, loaded.mapVariantName);
         assertEquals(original.timestampMillis, loaded.timestampMillis);
         assertEquals(original.winnerLabel, loaded.winnerLabel);
         assertEquals(original.teamModeEnabled, loaded.teamModeEnabled);
@@ -117,6 +119,20 @@ class ReplayStoreTest {
     }
 
     @Test
+    void versionTwoReplayLoadsAsStandardMapVariant(@TempDir Path dir) throws Exception {
+        MatchReplay original = sampleReplay();
+        Path legacyFile = dir.resolve("legacy-v2" + ReplayStore.FILE_EXTENSION);
+        writeLegacyReplay(legacyFile, original, 2);
+
+        MatchReplay loaded = ReplayStore.load(legacyFile);
+
+        assertNotNull(loaded);
+        assertTrue(loaded.compatibleWithCurrentSimulation());
+        assertNull(loaded.mapVariantName);
+        assertEquals(original.frames.size(), loaded.frames.size());
+    }
+
+    @Test
     void pruningNeverDeletesLegacyReplays(@TempDir Path dir) throws Exception {
         MatchReplay legacy = sampleReplay();
         Path legacyFile = dir.resolve("000-legacy-v1" + ReplayStore.FILE_EXTENSION);
@@ -138,11 +154,18 @@ class ReplayStoreTest {
     }
 
     private static void writeVersionOneReplay(Path file, MatchReplay replay) throws IOException {
+        writeLegacyReplay(file, replay, 1);
+    }
+
+    private static void writeLegacyReplay(Path file, MatchReplay replay, int version) throws IOException {
         Files.createDirectories(file.getParent());
         try (DataOutputStream out = new DataOutputStream(
                 new GZIPOutputStream(Files.newOutputStream(file)))) {
             out.writeInt(0x42463352); // "BF3R"
-            out.writeInt(1);
+            out.writeInt(version);
+            if (version >= 2) {
+                out.writeInt(replay.simulationRevision);
+            }
             out.writeLong(replay.seed);
             out.writeInt(replay.playerCount);
             out.writeUTF(nullToEmpty(replay.mapName));

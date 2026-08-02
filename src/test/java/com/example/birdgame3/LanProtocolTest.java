@@ -1,7 +1,9 @@
 package com.example.birdgame3;
 
 import com.example.birdgame3.BirdGame3.BirdType;
+import com.example.birdgame3.BirdGame3.MapVariant;
 import com.example.birdgame3.BirdGame3.MapType;
+import com.example.birdgame3.BirdGame3.StageRandomPool;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -16,15 +18,18 @@ class LanProtocolTest {
     @Test
     void startMessageCarriesNegotiatedInternetInputDelay() throws IOException {
         final int[] receivedDelay = {-1};
+        final MapVariant[] receivedVariant = {MapVariant.STANDARD};
         BirdGame3 game = new BirdGame3() {
             @Override
-            void onLanStartMatch(MapType map, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
+            void onLanStartMatch(MapType map, MapVariant variant, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
                                  boolean[] connected, BirdType[] birds, String[] skinKeys) {
                 receivedDelay[0] = inputDelayTicks;
+                receivedVariant[0] = variant;
             }
         };
         byte[] payload = LanProtocol.buildMessage(LanProtocol.MSG_START, out -> {
-            out.writeInt(MapType.FOREST.ordinal());
+            out.writeInt(MapType.CITY.ordinal());
+            out.writeInt(MapVariant.PARLIAMENT_ROOFTOPS.ordinal());
             out.writeLong(42L);
             out.writeInt(LockstepSession.INTERNET_INPUT_DELAY_TICKS);
             NetworkSimulationConfig.capture().write(out);
@@ -38,6 +43,30 @@ class LanProtocolTest {
         LanPayloadRouter.handleServerPayload(game, payload);
 
         assertEquals(LockstepSession.INTERNET_INPUT_DELAY_TICKS, receivedDelay[0]);
+        assertEquals(MapVariant.PARLIAMENT_ROOFTOPS, receivedVariant[0]);
+    }
+
+    @Test
+    void mapVoteCarriesVariantAndRandomPool() throws IOException {
+        final MapVariant[] receivedVariant = {MapVariant.STANDARD};
+        final StageRandomPool[] receivedPool = {StageRandomPool.NONE};
+        BirdGame3 game = new BirdGame3() {
+            @Override
+            void onLanClientMapVote(int slot, MapType map, MapVariant variant, StageRandomPool randomPool) {
+                receivedVariant[0] = variant;
+                receivedPool[0] = randomPool;
+            }
+        };
+        byte[] payload = LanProtocol.buildMessage(LanProtocol.MSG_MAP_VOTE, out -> {
+            out.writeInt(LanProtocol.MAP_RANDOM);
+            out.writeInt(MapVariant.STANDARD.ordinal());
+            out.writeInt(StageRandomPool.VARIANTS.ordinal());
+        });
+
+        LanPayloadRouter.handleClientPayload(game, 2, payload);
+
+        assertEquals(MapVariant.STANDARD, receivedVariant[0]);
+        assertEquals(StageRandomPool.VARIANTS, receivedPool[0]);
     }
 
     @Test

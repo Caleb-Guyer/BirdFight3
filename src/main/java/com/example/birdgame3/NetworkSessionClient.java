@@ -1,7 +1,9 @@
 package com.example.birdgame3;
 
 import com.example.birdgame3.BirdGame3.BirdType;
+import com.example.birdgame3.BirdGame3.MapVariant;
 import com.example.birdgame3.BirdGame3.MapType;
+import com.example.birdgame3.BirdGame3.StageRandomPool;
 
 interface NetworkSessionClient {
     String getLastError();
@@ -12,7 +14,7 @@ interface NetworkSessionClient {
 
     void sendSelect(BirdType type, boolean random, String skinKey);
 
-    void sendMapVote(MapType map, boolean random);
+    void sendMapVote(MapType map, MapVariant variant, StageRandomPool randomPool);
 
     void sendReady(boolean ready);
 

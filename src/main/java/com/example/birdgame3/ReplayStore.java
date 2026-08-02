@@ -31,7 +31,7 @@ final class ReplayStore {
     static final String FILE_EXTENSION = ".bf3replay";
     static final int MAX_KEPT = 30;
     private static final int MAGIC = 0x42463352; // "BF3R"
-    static final int VERSION = 2;
+    static final int VERSION = 3;
     private static final DateTimeFormatter FILE_STAMP =
             DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.ROOT);
 
@@ -152,6 +152,7 @@ final class ReplayStore {
         out.writeLong(replay.seed);
         out.writeInt(replay.playerCount);
         out.writeUTF(nullToEmpty(replay.mapName));
+        out.writeUTF(nullToEmpty(replay.mapVariantName));
         out.writeLong(replay.timestampMillis);
         out.writeUTF(nullToEmpty(replay.winnerLabel));
         out.writeBoolean(replay.teamModeEnabled);
@@ -195,6 +196,7 @@ final class ReplayStore {
         }
         MatchReplay replay = new MatchReplay(seed, playerCount, simulationRevision);
         replay.mapName = emptyToNull(in.readUTF());
+        replay.mapVariantName = version >= 3 ? emptyToNull(in.readUTF()) : null;
         replay.timestampMillis = in.readLong();
         replay.winnerLabel = in.readUTF();
         replay.teamModeEnabled = in.readBoolean();

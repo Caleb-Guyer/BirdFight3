@@ -38,6 +38,7 @@ final class MatchReplay {
     // slot* arrays hold the RESOLVED roster (random picks already decided) and the
     // adaptive-balance multipliers that were in force.
     String mapName;
+    String mapVariantName;
     boolean teamModeEnabled;
     boolean mutatorModeEnabled;
     String[] slotBirdTypes;

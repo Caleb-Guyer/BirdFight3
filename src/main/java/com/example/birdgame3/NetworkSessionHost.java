@@ -1,6 +1,7 @@
 package com.example.birdgame3;
 
 import com.example.birdgame3.BirdGame3.BirdType;
+import com.example.birdgame3.BirdGame3.MapVariant;
 import com.example.birdgame3.BirdGame3.MapType;
 
 import java.io.DataOutputStream;
@@ -28,10 +29,10 @@ interface NetworkSessionHost {
 
     int companionViewerCount();
 
-    void broadcastLobby(MapType map, boolean mapRandom, boolean[] connected, BirdType[] birds,
+    void broadcastLobby(MapType map, MapVariant variant, boolean mapRandom, boolean[] connected, BirdType[] birds,
                         boolean[] randomBirds, String[] skinKeys, boolean[] ready);
 
-    void broadcastStart(MapType map, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
+    void broadcastStart(MapType map, MapVariant variant, long seed, int inputDelayTicks, NetworkSimulationConfig simulationConfig,
                         boolean[] connected, BirdType[] birds, String[] skinKeys);
 
     void broadcastState(LanState state);

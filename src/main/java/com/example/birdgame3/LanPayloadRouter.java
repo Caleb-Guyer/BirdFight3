@@ -1,7 +1,9 @@
 package com.example.birdgame3;
 
 import com.example.birdgame3.BirdGame3.BirdType;
+import com.example.birdgame3.BirdGame3.MapVariant;
 import com.example.birdgame3.BirdGame3.MapType;
+import com.example.birdgame3.BirdGame3.StageRandomPool;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -58,11 +60,13 @@ final class LanPayloadRouter {
             }
             case LanProtocol.MSG_MAP_VOTE -> {
                 int ord = msgIn.readInt();
-                boolean random = ord == LanProtocol.MAP_RANDOM;
-                MapType map = (!random && ord >= 0 && ord < MapType.values().length)
+                int variantOrd = msgIn.readInt();
+                int randomPoolOrd = msgIn.readInt();
+                MapType map = (ord >= 0 && ord < MapType.values().length)
                         ? MapType.values()[ord]
                         : null;
-                game.onLanClientMapVote(slot, map, random);
+                game.onLanClientMapVote(slot, map, readMapVariantByOrdinal(variantOrd),
+                        readRandomPoolByOrdinal(randomPoolOrd));
             }
             case LanProtocol.MSG_READY -> {
                 boolean ready = msgIn.readBoolean();
@@ -98,6 +102,7 @@ final class LanPayloadRouter {
                 int mapOrd = msgIn.readInt();
                 boolean mapRandom = mapOrd == LanProtocol.MAP_RANDOM;
                 MapType map = readMapByOrdinal(mapOrd);
+                MapVariant variant = readMapVariantByOrdinal(msgIn.readInt());
                 boolean[] connected = new boolean[4];
                 boolean[] ready = new boolean[4];
                 BirdType[] birds = new BirdType[4];
@@ -115,11 +120,12 @@ final class LanPayloadRouter {
                     String skinKey = msgIn.readUTF();
                     skinKeys[i] = skinKey.isBlank() ? null : skinKey;
                 }
-                game.onLanLobbyUpdate(map, mapRandom, connected, birds, randomBirds, skinKeys, ready);
+                game.onLanLobbyUpdate(map, variant, mapRandom, connected, birds, randomBirds, skinKeys, ready);
             }
             case LanProtocol.MSG_START -> {
                 int mapOrd = msgIn.readInt();
                 MapType map = readMapByOrdinal(mapOrd);
+                MapVariant variant = readMapVariantByOrdinal(msgIn.readInt());
                 long seed = msgIn.readLong();
                 int inputDelayTicks = LockstepSession.sanitizeInputDelay(msgIn.readInt());
                 NetworkSimulationConfig simulationConfig = NetworkSimulationConfig.read(msgIn);
@@ -133,7 +139,7 @@ final class LanPayloadRouter {
                     String skinKey = msgIn.readUTF();
                     skinKeys[i] = skinKey.isBlank() ? null : skinKey;
                 }
-                game.onLanStartMatch(map, seed, inputDelayTicks, simulationConfig, connected, birds, skinKeys);
+                game.onLanStartMatch(map, variant, seed, inputDelayTicks, simulationConfig, connected, birds, skinKeys);
             }
             case LanProtocol.MSG_STATE -> game.onLanState(LanState.read(msgIn));
             case LanProtocol.MSG_LOCKSTEP_BUNDLE -> {
@@ -158,6 +164,18 @@ final class LanPayloadRouter {
             throw new IOException("Empty network message.");
         }
         return new DataInputStream(new ByteArrayInputStream(payload));
+    }
+
+    private static MapVariant readMapVariantByOrdinal(int ordinal) {
+        return ordinal >= 0 && ordinal < MapVariant.values().length
+                ? MapVariant.values()[ordinal]
+                : MapVariant.STANDARD;
+    }
+
+    private static StageRandomPool readRandomPoolByOrdinal(int ordinal) {
+        return ordinal >= 0 && ordinal < StageRandomPool.values().length
+                ? StageRandomPool.values()[ordinal]
+                : StageRandomPool.NONE;
     }
 
     private static MapType readMapByOrdinal(int ord) {
