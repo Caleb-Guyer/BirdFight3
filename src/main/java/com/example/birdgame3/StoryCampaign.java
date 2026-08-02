@@ -197,6 +197,7 @@ final class StoryCampaign {
             String title,
             String briefing,
             BirdGame3.MapType map,
+            BirdGame3.MapVariant mapVariant,
             ArenaVariant arenaVariant,
             PlayablePolicy playable,
             List<Fighter> allies,
@@ -212,6 +213,11 @@ final class StoryCampaign {
             title = requireText(title, "mission title");
             briefing = requireText(briefing, "mission briefing");
             map = Objects.requireNonNull(map, "map");
+            mapVariant = mapVariant == null ? BirdGame3.MapVariant.STANDARD : mapVariant;
+            if (mapVariant != BirdGame3.MapVariant.STANDARD && mapVariant.baseMap != map) {
+                throw new IllegalArgumentException("Story mission " + id + " uses " + mapVariant
+                        + " with incompatible base map " + map);
+            }
             arenaVariant = arenaVariant == null ? ArenaVariant.STANDARD : arenaVariant;
             playable = Objects.requireNonNull(playable, "playable");
             allies = allies == null ? List.of() : List.copyOf(allies);

@@ -399,6 +399,7 @@ class StoryMissionControllerTest {
                 "Test Mission",
                 "Exercise deterministic objectives.",
                 BirdGame3.MapType.BATTLEFIELD,
+                BirdGame3.MapVariant.STANDARD,
                 StoryCampaign.ArenaVariant.STANDARD,
                 StoryCampaign.PlayablePolicy.forced(BirdGame3.BirdType.PIGEON),
                 List.of(),

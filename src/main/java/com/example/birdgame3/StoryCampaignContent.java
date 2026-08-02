@@ -134,7 +134,27 @@ final class StoryCampaignContent {
             BirdGame3.BirdType recruit,
             boolean finalBoss
     ) {
-        return new StoryCampaign.Mission(id, title, briefing, map, variant, playable,
+        return mission(id, title, briefing, map, BirdGame3.MapVariant.STANDARD, variant, playable,
+                allies, enemies, phases, pre, post, recruit, finalBoss);
+    }
+
+    private static StoryCampaign.Mission mission(
+            String id,
+            String title,
+            String briefing,
+            BirdGame3.MapType map,
+            BirdGame3.MapVariant mapVariant,
+            StoryCampaign.ArenaVariant variant,
+            StoryCampaign.PlayablePolicy playable,
+            List<StoryCampaign.Fighter> allies,
+            List<StoryCampaign.Fighter> enemies,
+            List<StoryCampaign.MissionPhase> phases,
+            String pre,
+            String post,
+            BirdGame3.BirdType recruit,
+            boolean finalBoss
+    ) {
+        return new StoryCampaign.Mission(id, title, briefing, map, mapVariant, variant, playable,
                 allies, enemies, phases, pre, post, recruit, finalBoss);
     }
 
@@ -386,7 +406,7 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission greenConvergence() {
         return mission("green_convergence", "Green Convergence",
                 "Combine four local routes, break Grinch-Hawk's convoy, and reopen the jungle canopy.",
-                VIBRANT_JUNGLE, CARRION,
+                VIBRANT_JUNGLE, BirdGame3.MapVariant.CARRION_THRONE, CARRION,
                 StoryCampaign.PlayablePolicy.choice(HUMMINGBIRD, TITMOUSE, TURKEY, ROOSTER),
                 List.of(),
                 fighters(
@@ -491,7 +511,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission lastCall() {
         return mission("last_call", "Last Call",
                 "Evacuate the Charles Lounge, protect its guests, and leave before the Crown seals the block.",
-                CITY, EVACUATION, StoryCampaign.PlayablePolicy.forced(MOCKINGBIRD),
+                CITY, BirdGame3.MapVariant.PARLIAMENT_ROOFTOPS, EVACUATION,
+                StoryCampaign.PlayablePolicy.forced(MOCKINGBIRD),
                 fighters(ally(PIGEON, "Pigeon")),
                 fighters(enemy(FALCON, "Crown Officer"), enemy(RAVEN, "Blackwing Informant")),
                 phases(
@@ -504,7 +525,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission cutTheLock() {
         return mission("cut_the_lock", "Cut the Lock",
                 "Face Eagle alone on the command bridge while the other bird frees Pigeon's transport.",
-                SKYCLIFFS, CROWN_DUEL, StoryCampaign.PlayablePolicy.choice(FALCON, RAZORBILL),
+                SKYCLIFFS, BirdGame3.MapVariant.CROWN_DUEL, CROWN_DUEL,
+                StoryCampaign.PlayablePolicy.choice(FALCON, RAZORBILL),
                 List.of(),
                 fighters(boss(EAGLE, "Eagle", 480, 1.52, 1.20)),
                 phases(phase(BOSS_PHASES, "Defeat Eagle on the command bridge", 0, 4, true)),
@@ -644,7 +666,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission perfectWeather() {
         return mission("perfect_weather", "Perfect Weather",
                 "Protect the Ashfall civilians from the Crown's null echoes after it rejects Eagle's command.",
-                ASHFALL_CATHEDRAL, STILLNESS, StoryCampaign.PlayablePolicy.forced(EAGLE),
+                ASHFALL_CATHEDRAL, BirdGame3.MapVariant.ASHFALL_REBIRTH, STILLNESS,
+                StoryCampaign.PlayablePolicy.forced(EAGLE),
                 List.of(),
                 fighters(enemy(VULTURE, "Null Echo"), enemy(RAVEN, "Null Echo")),
                 phases(
@@ -657,7 +680,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission worldGoesStill() {
         return mission("world_goes_still", "The World Goes Still",
                 "Keep the Sky Cliffs evacuation lane moving while the Crown freezes the platforms.",
-                SKYCLIFFS, STILLNESS, StoryCampaign.PlayablePolicy.choice(PIGEON, FALCON, PHOENIX),
+                SKYCLIFFS, BirdGame3.MapVariant.SKYBREAK_SPIRES, STILLNESS,
+                StoryCampaign.PlayablePolicy.choice(PIGEON, FALCON, PHOENIX),
                 fighters(ally(EAGLE, "Eagle")),
                 fighters(enemy(VULTURE, "Null Echo"), enemy(FALCON, "Null Echo")),
                 phases(
@@ -701,7 +725,7 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission harborEngine() {
         return mission("harbor_engine", "Harbor Engine",
                 "Turn Broken Harbor's lever and guns against the western Crown anchor.",
-                DOCK, ANCHOR_ASSAULT,
+                DOCK, BirdGame3.MapVariant.TITAN_DOCK, ANCHOR_ASSAULT,
                 StoryCampaign.PlayablePolicy.choice(PELICAN, GOOSE, ROADRUNNER),
                 fighters(ally(RAZORBILL, "Razorbill")),
                 fighters(enemy(VULTURE, "West Warden"), enemy(HEISENBIRD, "Null Engineer")),
@@ -763,7 +787,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission nullRoc() {
         return mission("null_roc", "Null Roc",
                 "Break the copied flock-mind, strip the Crown armor, and bring down Eagle's final weapon.",
-                BEACON_CROWN, NULL_ROC, StoryCampaign.PlayablePolicy.fullRoster(),
+                BEACON_CROWN, BirdGame3.MapVariant.NULL_ROC_ASCENDING, NULL_ROC,
+                StoryCampaign.PlayablePolicy.fullRoster(),
                 fighters(ally(EAGLE, "Eagle"), ally(VULTURE, "Vulture"), ally(PHOENIX, "Phoenix")),
                 fighters(boss(VULTURE, "Null Roc", 820, 1.74, 1.06, TIDE_VULTURE_SKIN)),
                 phases(
@@ -776,7 +801,8 @@ final class StoryCampaignContent {
     private static StoryCampaign.Mission nullRock() {
         return mission("the_null_rock", "The Null Rock",
                 "Break the living core's command network, plant Penguin's charge, then face The Null Rock directly when it tears through the cavern wall.",
-                BEACON_CROWN, NULL_ROCK, StoryCampaign.PlayablePolicy.fullRoster(),
+                BEACON_CROWN, BirdGame3.MapVariant.VOID_CROWN, NULL_ROCK,
+                StoryCampaign.PlayablePolicy.fullRoster(),
                 List.of(),
                 fighters(boss(VULTURE, "The Null Rock", 1200, 1.86, 1.04, NULL_ROCK_SKIN)),
                 phases(

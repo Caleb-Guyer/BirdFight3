@@ -24,6 +24,12 @@ class StoryCampaignContentTest {
                 campaign.orderedMissions.stream()
                         .map(StoryCampaign.Mission::map)
                         .collect(() -> EnumSet.noneOf(BirdGame3.MapType.class), Set::add, Set::addAll));
+        EnumSet<BirdGame3.MapVariant> storyVariants = campaign.orderedMissions.stream()
+                .map(StoryCampaign.Mission::mapVariant)
+                .collect(() -> EnumSet.noneOf(BirdGame3.MapVariant.class), Set::add, Set::addAll);
+        // The finale changes to this arena after Penguin's charge opens the last duel.
+        storyVariants.add(BirdGame3.MapVariant.NULL_ROCK_DUEL);
+        assertEquals(EnumSet.allOf(BirdGame3.MapVariant.class), storyVariants);
         assertEquals(StoryCampaign.stillSkyRosterSet(), report.playableBirds());
         assertEquals(21, StoryCampaign.STILL_SKY_ROSTER.size());
         assertFalse(report.playableBirds().contains(BirdGame3.BirdType.KIWI));
@@ -32,6 +38,10 @@ class StoryCampaignContentTest {
                 campaign.mission("null_roc").playable().kind());
         assertEquals(StoryCampaign.PlayableKind.FULL_ROSTER,
                 campaign.mission("the_null_rock").playable().kind());
+        assertEquals(BirdGame3.MapVariant.PARLIAMENT_ROOFTOPS,
+                campaign.mission("last_call").mapVariant());
+        assertEquals(BirdGame3.MapVariant.VOID_CROWN,
+                campaign.mission("the_null_rock").mapVariant());
     }
 
     @Test

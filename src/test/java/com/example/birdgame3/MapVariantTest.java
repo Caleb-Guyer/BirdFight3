@@ -57,6 +57,27 @@ class MapVariantTest {
     }
 
     @Test
+    void storyMissionAppliesItsAuthoredMapVariant() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.currentMatchSeed = 42L;
+        StoryCampaign.Mission mission = StoryCampaignContent.create().mission("last_call");
+        game.selectedMap = mission.map();
+
+        Method setupBase = BirdGame3.class.getDeclaredMethod("setupMatchArenaGeometry");
+        Method applyMission = BirdGame3.class.getDeclaredMethod(
+                "applyCampaignMissionArenaModifiers", StoryCampaign.Mission.class);
+        setupBase.setAccessible(true);
+        applyMission.setAccessible(true);
+
+        setupBase.invoke(game);
+        applyMission.invoke(game, mission);
+
+        assertFalse(game.platforms.stream().anyMatch(platform -> platform.w >= BirdGame3.WORLD_WIDTH));
+        assertTrue(game.platforms.stream().anyMatch(platform -> platform.w == 1_430.0),
+                "Last Call should use the Parliament Towers rooftop layout");
+    }
+
+    @Test
     void commandBridgeUsesTheCompactStoryLayout() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.currentMatchSeed = 7L;

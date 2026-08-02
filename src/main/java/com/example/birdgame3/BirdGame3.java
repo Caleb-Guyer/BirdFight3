@@ -32499,7 +32499,7 @@ public class BirdGame3 {
         missionTitle.setWrapText(true);
         missionTitle.setMaxWidth(386);
 
-        Label missionMap = new Label(mapDisplayName(current.map()).toUpperCase(Locale.ROOT)
+        Label missionMap = new Label(stageDisplayName(current.map(), current.mapVariant()).toUpperCase(Locale.ROOT)
                 + "  /  " + current.phases().size() + " OBJECTIVE"
                 + (current.phases().size() == 1 ? "" : "S"));
         missionMap.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
@@ -32730,7 +32730,7 @@ public class BirdGame3 {
             missionTitle.setFont(Font.font("Arial Black", FontWeight.BOLD, 24));
             missionTitle.setTextFill(selectable ? Color.WHITE : Color.web("#667580"));
 
-            Label missionDetails = new Label(mapDisplayName(mission.map()).toUpperCase(Locale.ROOT)
+            Label missionDetails = new Label(stageDisplayName(mission.map(), mission.mapVariant()).toUpperCase(Locale.ROOT)
                     + "  /  " + mission.phases().size() + " OBJECTIVE"
                     + (mission.phases().size() == 1 ? "" : "S"));
             missionDetails.setFont(Font.font("Consolas", FontWeight.BOLD, 14));
@@ -32920,7 +32920,8 @@ public class BirdGame3 {
         root.setStyle("-fx-background-color: linear-gradient(to bottom, #050A13, #172B42);");
 
         int actNumber = Math.max(1, stillSkyCampaign.actIndexForMission(mission.id()) + 1);
-        Label kicker = new Label("ACT " + actNumber + "  •  " + mapDisplayName(mission.map()).toUpperCase(Locale.ROOT));
+        Label kicker = new Label("ACT " + actNumber + "  •  "
+                + stageDisplayName(mission.map(), mission.mapVariant()).toUpperCase(Locale.ROOT));
         kicker.setFont(Font.font("Consolas", FontWeight.BOLD, 24));
         kicker.setTextFill(Color.web("#80DEEA"));
         Label title = new Label(mission.title().toUpperCase(Locale.ROOT));
@@ -33084,6 +33085,7 @@ public class BirdGame3 {
         competitionModeEnabled = false;
         mutatorModeEnabled = false;
         selectedMap = mission.map();
+        selectedMapVariant = mission.mapVariant();
         startMatch(stage);
     }
 
@@ -34224,6 +34226,7 @@ public class BirdGame3 {
         crowMinions.clear();
         chickMinions.clear();
         mockingbirdShadowMinions.clear();
+        activeArenaGeometryVariant = MapVariant.NULL_ROCK_DUEL;
 
         double islandW = 2_760.0;
         double islandX = (WORLD_WIDTH - islandW) * 0.5;
@@ -34258,6 +34261,7 @@ public class BirdGame3 {
 
     private void applyCampaignMissionArenaModifiers(StoryCampaign.Mission mission) {
         if (mission == null) return;
+        applyMapVariantArena(activeCampaignMissionMapVariant(mission));
         int authoredTicks = mission.phases().stream()
                 .mapToInt(StoryCampaign.MissionPhase::targetTicks)
                 .sum();
@@ -34289,7 +34293,9 @@ public class BirdGame3 {
                 windVents.add(new WindVent(3000, GROUND_Y - 620, 600));
                 windVents.add(new WindVent(4800, GROUND_Y - 440, 500));
             }
-            case CROWN_DUEL -> setupCrownDuelArena();
+            case CROWN_DUEL -> {
+                // Geometry is supplied by the mission's authored map variant.
+            }
             case NULL_ROC -> {
                 addToKillFeed("NULL ROC: Break three pylons before attacking the copied flock-mind.");
                 shakeIntensity = Math.max(shakeIntensity, 18);
@@ -34299,7 +34305,6 @@ public class BirdGame3 {
             }
             case NULL_ROCK -> {
                 if (isNullRockDuelPhase()) {
-                    setupCampaignNullRockDuelArena();
                     placeCampaignNullRockDuelists(players[0], players[1]);
                     addToKillFeed("FINAL DUEL: The Null Rock has entered the arena.");
                 } else {
@@ -34325,9 +34330,18 @@ public class BirdGame3 {
         }
     }
 
+    private MapVariant activeCampaignMissionMapVariant(StoryCampaign.Mission mission) {
+        if (mission == null) return MapVariant.STANDARD;
+        if (mission.arenaVariant() == StoryCampaign.ArenaVariant.NULL_ROCK && isNullRockDuelPhase()) {
+            return MapVariant.NULL_ROCK_DUEL;
+        }
+        return mission.mapVariant();
+    }
+
     private void setupCrownDuelArena() {
         platforms.clear();
         windVents.clear();
+        activeArenaGeometryVariant = MapVariant.CROWN_DUEL;
 
         platforms.add(new Platform(
                 CROWN_DUEL_BRIDGE_X,
@@ -44931,7 +44945,11 @@ public class BirdGame3 {
     }
 
     private void applySelectedMapVariantArena() {
-        switch (selectedStandaloneMapVariant()) {
+        applyMapVariantArena(selectedStandaloneMapVariant());
+    }
+
+    private void applyMapVariantArena(MapVariant variant) {
+        switch (variant == null ? MapVariant.STANDARD : variant) {
             case CROWN_DUEL -> setupCrownDuelArena();
             case NULL_ROCK_DUEL -> setupCampaignNullRockDuelArena();
             case SKYBREAK_SPIRES -> setupBossRushSkybreakSpires();
