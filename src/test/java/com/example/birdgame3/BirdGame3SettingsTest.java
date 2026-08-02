@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Deque;
 import java.util.HashSet;
 import java.util.Set;
@@ -375,6 +376,32 @@ class BirdGame3SettingsTest {
     }
 
     @Test
+    void developerProfileAutomaticallyReceivesContentAddedAfterActivation() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Method applyCode = BirdGame3.class.getDeclaredMethod("tryApplySettingsCode", String.class);
+        applyCode.setAccessible(true);
+        assertTrue((boolean) applyCode.invoke(game, "FEATHERDEV"));
+        game.persistAchievements(prefs);
+
+        // Simulate an older developer save from before these rewards existed.
+        prefs.putBoolean("char_roadrunner_unlocked", false);
+        prefs.putBoolean("skin_void_herald_raven", false);
+        prefs.putBoolean("map_prison_unlocked", false);
+
+        BirdGame3 reloaded = new BirdGame3();
+        Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);
+        loadProfileProgress.setAccessible(true);
+        loadProfileProgress.invoke(reloaded, prefs);
+
+        Method isMapUnlocked = BirdGame3.class.getDeclaredMethod("isMapUnlocked", BirdGame3.MapType.class);
+        isMapUnlocked.setAccessible(true);
+        assertTrue(reloaded.roadrunnerUnlocked);
+        assertTrue(getPrivateBooleanField(reloaded, "voidHeraldRavenUnlocked"));
+        assertTrue((boolean) isMapUnlocked.invoke(reloaded, BirdGame3.MapType.PRISON));
+        assertEveryDeveloperUnlockEnabled(reloaded);
+    }
+
+    @Test
     void achievementIconVariantsAreUniquePerAchievement() throws Exception {
         BirdGame3 game = new BirdGame3();
 
@@ -516,6 +543,30 @@ class BirdGame3SettingsTest {
         Field field = BirdGame3.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         return field.getBoolean(game);
+    }
+
+    private static void assertEveryDeveloperUnlockEnabled(BirdGame3 game) throws IllegalAccessException {
+        for (Field field : BirdGame3.class.getDeclaredFields()) {
+            if (!field.getName().endsWith("Unlocked") || Modifier.isStatic(field.getModifiers())) {
+                continue;
+            }
+            field.setAccessible(true);
+            if (field.getType() == boolean.class) {
+                assertTrue(field.getBoolean(game), field.getName());
+            } else if (field.getType() == boolean[].class) {
+                boolean[] values = (boolean[]) field.get(game);
+                for (int i = 0; i < values.length; i++) {
+                    assertTrue(values[i], field.getName() + "[" + i + "]");
+                }
+            } else if (field.getType() == boolean[][].class) {
+                boolean[][] rows = (boolean[][]) field.get(game);
+                for (int row = 0; row < rows.length; row++) {
+                    for (int column = 0; column < rows[row].length; column++) {
+                        assertTrue(rows[row][column], field.getName() + "[" + row + "][" + column + "]");
+                    }
+                }
+            }
+        }
     }
 
     private static int currentBirdCoinBalance(BirdGame3 game) throws Exception {

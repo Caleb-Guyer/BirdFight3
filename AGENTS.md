@@ -75,6 +75,10 @@ causes silent desyncs. Rules:
   choke points: `receiveScaledDamage` (ALL damage), the single cooldown
   decrement site, `gainUltimate`. NOTE: minion damage (e.g. Vulture crows)
   bypasses the owner's damageDealtMult.
+- **Developer profiles**: the `FEATHERDEV` settings code is a permanent
+  all-content entitlement. Profile load reapplies `unlockEverythingForDeveloperProfile`
+  so developer saves created on older versions automatically receive newly added
+  birds, skins, maps, modes, and progression unlocks without opening packs.
 - **Sprite pipeline**: `sprites/<bird>.png` + `.properties` replaces a bird's
   vector body (effects still draw). Per-skin variants: `<bird>-<suffix>` where
   suffix matches the skin key case/underscore-insensitively. One animation per

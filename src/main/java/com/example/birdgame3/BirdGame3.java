@@ -48732,6 +48732,13 @@ public class BirdGame3 {
         copyInto(resolved.typeWins, typeWins);
         copyInto(resolved.typeDamage, typeDamage);
         copyInto(resolved.typeElims, typeElims);
+
+        // Developer access is a permanent entitlement, not a one-time snapshot.
+        // Reapply it after every load so older developer profiles automatically
+        // receive birds, skins, maps, and other unlocks added by later updates.
+        if (developerInfiniteBirdCoins) {
+            unlockEverythingForDeveloperProfile();
+        }
     }
 
     private void copyInto(boolean[] source, boolean[] target) {
