@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -1804,6 +1806,21 @@ class BirdStateTest {
         assertTrue(nearest.vx > 0.0, "The eye laser should launch along its aim line.");
         assertEquals(0, game.hitstopFrames,
                 "Null Rock's eye laser must not freeze the entire match.");
+    }
+
+    @Test
+    void nullRockEyeLaserRenderAvoidsFullMapPixelEffects() throws Exception {
+        String source = Files.readString(Path.of(
+                "src", "main", "java", "com", "example", "birdgame3", "Bird.java"));
+        int laserStart = source.indexOf("if (nullRockLaserTimer <= 0) return;");
+        int laserEnd = source.indexOf("private void drawNullRockBloodSpear", laserStart);
+
+        assertTrue(laserStart >= 0 && laserEnd > laserStart);
+        String laserRender = source.substring(laserStart, laserEnd);
+        assertFalse(laserRender.contains("setEffect("),
+                "Large JavaFX pixel effects on the full eye beam can freeze the render thread.");
+        assertTrue(laserRender.contains("length + 900.0"),
+                "The visible beam should stop shortly beyond its target instead of always drawing across the map.");
     }
 
     @Test

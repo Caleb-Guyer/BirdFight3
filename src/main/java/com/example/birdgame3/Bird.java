@@ -27395,8 +27395,12 @@ public class Bird {
         double length = Math.max(1.0, Math.hypot(dx, dy));
         double nx = dx / length;
         double ny = dy / length;
-        double endX = eyeX + nx * 5200.0;
-        double endY = eyeY + ny * 5200.0;
+        // Drawing a Glow over a 5,200-pixel-long beam stalls JavaFX's render thread
+        // on some GPUs. Keep the visible beam through and beyond its target, but do
+        // not rasterize thousands of unnecessary offscreen pixels.
+        double visualLength = Math.min(5200.0, Math.max(1400.0, length + 900.0));
+        double endX = eyeX + nx * visualLength;
+        double endY = eyeY + ny * visualLength;
         double px = -ny * 4.2 * Math.sqrt(s);
         double py = nx * 4.2 * Math.sqrt(s);
 
@@ -27413,7 +27417,6 @@ public class Bird {
             g.fillOval(eyeX - chargeSize * 0.5, eyeY - chargeSize * 0.5, chargeSize, chargeSize);
         } else {
             double flare = 0.82 + 0.18 * Math.sin((elapsed - NULL_ROCK_LASER_WINDUP_FRAMES) * 1.35);
-            g.setEffect(new Glow(0.86));
             g.setStroke(Color.web("#21000C", 0.88));
             g.setLineWidth((nullRockLaserUltimate ? 82.0 : 66.0) * Math.sqrt(s));
             g.strokeLine(eyeX, eyeY, endX, endY);
@@ -27423,7 +27426,6 @@ public class Bird {
             g.setStroke(Color.web("#FFF1F5", 0.92 * flare));
             g.setLineWidth((nullRockLaserUltimate ? 20.0 : 14.0) * Math.sqrt(s));
             g.strokeLine(eyeX, eyeY, endX, endY);
-            g.setEffect(null);
         }
         g.restore();
     }
