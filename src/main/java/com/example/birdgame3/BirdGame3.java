@@ -670,7 +670,7 @@ public class BirdGame3 {
         SKYBREAK_SPIRES(MapType.SKYCLIFFS, "Boss Rush Arenas", "Skybreak Spires", "Three separated summit lanes linked by powerful wind lifts."),
         ASHFALL_REBIRTH(MapType.ASHFALL_CATHEDRAL, "Boss Rush Arenas", "Rebirth Altar", "A floating cathedral nave with an open sky above the central altar."),
         TITAN_DOCK(MapType.DOCK, "Boss Rush Arenas", "Titan Dock", "An armored dreadnought suspended between isolated harbor cranes."),
-        PARLIAMENT_ROOFTOPS(MapType.CITY, "Boss Rush Arenas", "Parliament Rooftops", "Three separated towers connected by exposed neon skybridges."),
+        PARLIAMENT_ROOFTOPS(MapType.CITY, "Boss Rush Arenas", "Parliament Towers", "Three skyscraper peaks connected by exposed neon skybridges far above the city."),
         CARRION_THRONE(MapType.VIBRANT_JUNGLE, "Boss Rush Arenas", "Carrion Throne", "A tall jungle throne with swinging vines and nectar routes."),
         NULL_ROC_ASCENDING(MapType.BEACON_CROWN, "Boss Rush Arenas", "Null Roc Arena", "A diagonal ascent across the shattered pieces of the Crown."),
         VOID_CROWN(MapType.BEACON_CROWN, "Boss Rush Arenas", "Void Crown", "A tiny central altar encircled by isolated crown fragments.");
@@ -13277,93 +13277,7 @@ public class BirdGame3 {
                     g.fillRect(0, GROUND_Y - 140, WORLD_WIDTH, 220);
                 }
             }
-            case CITY -> {
-                boolean parliamentRooftops = activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS;
-                g.setFill(Color.MIDNIGHTBLUE.darker());
-                g.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-                if (ambientFx) {
-                    g.setFill(Color.WHITE);
-                    for (double[] star : cityStars) {
-                        g.fillOval(star[0] - 1, star[1] - 1, 2, 2);
-                    }
-                }
-                g.setFill(Color.rgb(15, 15, 30));
-                double[] farX = {100, 900, 1700, 2700, 3700, 4700, 5500};
-                for (double fx : farX) {
-                    g.fillRect(fx - 200, GROUND_Y - 1400, 400, 1400);
-                    g.fillRect(fx - 150, GROUND_Y - 1600, 300, 200);
-                }
-                double pulse = ambientFx ? (0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 300.0)) : 0.0;
-                double windowAlpha = ambientFx ? (0.3 + 0.4 * pulse) : 0.25;
-                g.setFill(Color.rgb(255, 100, 200, windowAlpha));
-                for (double fx : farX) {
-                    for (int row = 0; row < 6; row++) {
-                        for (int col = 0; col < 2; col++) {
-                            double wx = fx - 150 + col * 200;
-                            double wy = GROUND_Y - 1200 + row * 180;
-                            g.fillRect(wx, wy, 60, 80);
-                        }
-                    }
-                }
-                g.setFill(Color.rgb(30, 30, 50));
-                double streetY = parliamentRooftops ? GROUND_Y + 260.0 : GROUND_Y;
-                g.fillRect(0, streetY, WORLD_WIDTH, WORLD_HEIGHT - streetY);
-                if (parliamentRooftops) {
-                    g.setFill(Color.web("#050510", 0.78));
-                    g.fillRect(0, GROUND_Y - 20, WORLD_WIDTH, 280);
-                    g.setStroke(Color.web("#FF1744", 0.20));
-                    g.setLineWidth(5);
-                    for (double x = -240; x < WORLD_WIDTH + 240; x += 420) {
-                        g.strokeLine(x, GROUND_Y + 230, x + 220, GROUND_Y + 20);
-                    }
-                }
-                g.setFill(Color.rgb(65, 65, 85));
-                g.setStroke(Color.CYAN.brighter());
-                g.setLineWidth(4);
-                for (Platform p : platforms) {
-                    g.fillRect(p.x, p.y, p.w, p.h);
-                    g.strokeRect(p.x, p.y, p.w, p.h);
-                }
-                g.setStroke(Color.MAGENTA.brighter());
-                g.setLineWidth(2);
-                for (Platform p : platforms) {
-                    if (p.y < GROUND_Y - 400) g.strokeRect(p.x - 8, p.y - 8, p.w + 16, p.h + 16);
-                }
-                g.setFont(Font.font("Arial Black", FontWeight.BOLD, 32));
-                if (ambientFx) {
-                    g.setEffect(new Glow(1.0));
-                    double time = System.currentTimeMillis();
-                    for (Platform p : platforms) {
-                        if (p.signText != null) {
-                            double neonPulse = 0.7 + 0.3 * Math.sin(time / 200.0 + p.x * 0.01);
-                            Color signColor = (p.x % 800 < 400) ? Color.MAGENTA.brighter() : Color.CYAN.brighter();
-                            g.setFill(signColor.deriveColor(0, 1, 1, neonPulse));
-                            double textWidth = p.signText.length() * 18;
-                            g.fillText(p.signText, p.x + p.w / 2 - textWidth / 2, p.y - 20);
-                        }
-                    }
-                    g.setEffect(null);
-                } else {
-                    g.setEffect(null);
-                    g.setFill(Color.rgb(180, 180, 200, 0.5));
-                    for (Platform p : platforms) {
-                        if (p.signText != null) {
-                            double textWidth = p.signText.length() * 18;
-                            g.fillText(p.signText, p.x + p.w / 2 - textWidth / 2, p.y - 20);
-                        }
-                    }
-                }
-                g.setFill(Color.rgb(90, 90, 110));
-                for (Platform p : platforms) {
-                    if (p.w > 300 && p.y < GROUND_Y - 200) {
-                        g.fillRect(p.x + p.w * 0.25, p.y - 45, 100, 45);
-                        g.fillRect(p.x + p.w * 0.65, p.y - 45, 100, 45);
-                        g.setFill(Color.rgb(50, 50, 70));
-                        g.fillOval(p.x + p.w * 0.25 + 30, p.y - 35, 40, 25);
-                        g.fillOval(p.x + p.w * 0.65 + 30, p.y - 35, 40, 25);
-                    }
-                }
-            }
+            case CITY -> drawCityArena(g, ambientFx);
         }
 
         drawUltimateReadyScreenDarken(g);
@@ -13460,6 +13374,378 @@ public class BirdGame3 {
         }
 
         g.restore();
+    }
+
+    private void drawCityArena(GraphicsContext g, boolean ambientFx) {
+        boolean parliamentTowers = activeArenaGeometryVariant == MapVariant.PARLIAMENT_ROOFTOPS;
+        double time = ambientFx ? System.currentTimeMillis() / 1000.0 : 0.0;
+        Color skyTop = Color.web(parliamentTowers ? "#020516" : "#07102A");
+        Color skyBottom = Color.web(parliamentTowers ? "#24335B" : "#351B50");
+
+        for (int i = 0; i < 640; i++) {
+            double ratio = i / 640.0;
+            g.setFill(skyTop.interpolate(skyBottom, ratio));
+            g.fillRect(0, i * (WORLD_HEIGHT / 640.0), WORLD_WIDTH, WORLD_HEIGHT / 640.0 + 3);
+        }
+
+        drawCityStars(g, ambientFx, time, parliamentTowers);
+        if (parliamentTowers) {
+            drawParliamentMoon(g, ambientFx, time);
+            drawParliamentDistantCity(g, ambientFx, time);
+            drawParliamentTowerBodies(g, ambientFx, time);
+            drawParliamentCloudDeck(g, ambientFx, time);
+        } else {
+            drawGroundedCitySkyline(g, ambientFx, time);
+            drawCityStreet(g, ambientFx, time);
+        }
+
+        drawCityPlatforms(g, parliamentTowers);
+        drawCityRooftopFixtures(g, parliamentTowers);
+        // Billboards are deliberately last: rooftop equipment can never paint
+        // over a sign again, even when a narrow platform carries both.
+        drawCityNeonSigns(g, ambientFx, time, parliamentTowers);
+    }
+
+    private void drawCityStars(GraphicsContext g, boolean ambientFx, double time, boolean highAltitude) {
+        int index = 0;
+        for (double[] star : cityStars) {
+            double twinkle = ambientFx ? 0.54 + 0.34 * Math.sin(time * 1.15 + index * 0.73) : 0.58;
+            double alpha = (highAltitude ? 0.52 : 0.30) * Math.clamp(twinkle, 0.18, 1.0);
+            double size = index % 17 == 0 ? 3.6 : index % 7 == 0 ? 2.4 : 1.4;
+            g.setFill(Color.web(index % 13 == 0 ? "#B3E5FC" : "#FFFFFF", alpha));
+            g.fillOval(star[0] - size * 0.5, star[1] - size * 0.5, size, size);
+            index++;
+        }
+    }
+
+    private void drawParliamentMoon(GraphicsContext g, boolean ambientFx, double time) {
+        double pulse = ambientFx ? 0.5 + 0.5 * Math.sin(time * 0.42) : 0.5;
+        double moonX = 4860;
+        double moonY = 310;
+        g.setFill(Color.web("#90CAF9", 0.045 + pulse * 0.025));
+        g.fillOval(moonX - 270, moonY - 270, 540, 540);
+        g.setFill(Color.web("#DDEBFF", 0.10));
+        g.fillOval(moonX - 178, moonY - 178, 356, 356);
+        g.setFill(Color.web("#F5F8FF", 0.88));
+        g.fillOval(moonX - 116, moonY - 116, 232, 232);
+        g.setFill(Color.web("#B0BEC5", 0.20));
+        g.fillOval(moonX - 54, moonY - 70, 52, 34);
+        g.fillOval(moonX + 34, moonY + 20, 38, 28);
+        g.fillOval(moonX - 66, moonY + 48, 26, 20);
+    }
+
+    private void drawParliamentDistantCity(GraphicsContext g, boolean ambientFx, double time) {
+        drawParliamentSkylineLayer(g, 0, 330, 2080, GROUND_Y + 470.0,
+                0.08, Color.web("#10162B", 0.52), Color.web("#78A7C7", 0.14));
+        drawParliamentSkylineLayer(g, 1, 510, 1840, GROUND_Y + 520.0,
+                0.18, Color.web("#11192E", 0.70), Color.web("#CE7FC9", 0.16));
+        drawParliamentSkylineLayer(g, 2, 740, 1760, GROUND_Y + 580.0,
+                0.30, Color.web("#0B1122", 0.88), Color.web("#64D8E8", 0.19));
+
+        if (ambientFx) {
+            for (int i = 0; i < 7; i++) {
+                double span = WORLD_WIDTH + 900.0;
+                double aircraftX = (time * (24 + i * 5) + i * 940.0) % span - 450.0;
+                double aircraftY = 1040 + (i % 4) * 175.0;
+                Color light = i % 2 == 0 ? Color.web("#FF5252", 0.76) : Color.web("#80DEEA", 0.72);
+                g.setFill(light);
+                g.fillOval(aircraftX, aircraftY, 9, 5);
+                g.setStroke(light.deriveColor(0, 1, 1, 0.24));
+                g.setLineWidth(2);
+                g.strokeLine(aircraftX - 82, aircraftY + 2, aircraftX, aircraftY + 2);
+            }
+        }
+    }
+
+    private void drawParliamentSkylineLayer(GraphicsContext g, int layer, double spacing,
+                                             double topBase, double baseY, double movementFactor,
+                                             Color buildingColor, Color windowColor) {
+        int count = (int) Math.ceil((WORLD_WIDTH + 1800.0) / spacing);
+        for (int i = -3; i < count; i++) {
+            int shape = Math.floorMod(i * 5 + layer * 3, 9);
+            double worldX = i * spacing + layer * 117.0;
+            double x = parallaxAdjustedWorldX(worldX, movementFactor);
+            double width = spacing * (0.52 + Math.floorMod(i * 7 + layer, 4) * 0.07);
+            double topY = topBase + Math.floorMod(i * 173 + layer * 91, 430);
+            if (shape == 0 || shape == 5) {
+                topY -= 300 + layer * 55.0;
+            }
+
+            g.setFill(buildingColor);
+            g.fillRect(x, topY, width, baseY - topY);
+            if (shape % 3 == 0) {
+                g.fillPolygon(
+                        new double[]{x, x + width * 0.5, x + width},
+                        new double[]{topY, topY - 110 - layer * 24.0, topY},
+                        3
+                );
+                g.setStroke(buildingColor.brighter().deriveColor(0, 1, 1, 0.42));
+                g.setLineWidth(3 + layer);
+                g.strokeLine(x + width * 0.5, topY - 106 - layer * 24.0,
+                        x + width * 0.5, topY - 205 - layer * 32.0);
+            } else if (shape % 3 == 1) {
+                g.fillRect(x + width * 0.18, topY - 58, width * 0.64, 58);
+            }
+
+            g.setFill(windowColor);
+            double windowW = Math.max(7, width * 0.08);
+            double columnGap = Math.max(28, width * 0.22);
+            for (double wx = x + width * 0.15; wx < x + width * 0.86; wx += columnGap) {
+                for (double wy = topY + 100 + layer * 22.0; wy < Math.min(baseY - 60, GROUND_Y + 260.0); wy += 104) {
+                    if (((int) ((wx + wy) / 31.0) + layer) % 4 != 0) {
+                        g.fillRoundRect(wx, wy, windowW, 23 + layer * 2.0, 4, 4);
+                    }
+                }
+            }
+        }
+    }
+
+    private void drawParliamentTowerBodies(GraphicsContext g, boolean ambientFx, double time) {
+        double hazeBottom = GROUND_Y + 520.0;
+        for (Platform p : platforms) {
+            if (p.signText == null || p.w < 1000.0) {
+                continue;
+            }
+            double inset = Math.min(130.0, p.w * 0.09);
+            double bodyLeft = p.x + inset;
+            double bodyRight = p.x + p.w - inset;
+            double bodyTop = p.y + p.h - 2.0;
+            double lowerInset = inset * 1.65;
+
+            g.setFill(new LinearGradient(0, bodyTop, 0, hazeBottom, false, CycleMethod.NO_CYCLE,
+                    new Stop(0.0, Color.web("#111829", 0.98)),
+                    new Stop(0.55, Color.web("#121A2C", 0.80)),
+                    new Stop(1.0, Color.web("#172540", 0.16))));
+            g.fillPolygon(
+                    new double[]{bodyLeft, bodyRight, p.x + p.w - lowerInset, p.x + lowerInset},
+                    new double[]{bodyTop, bodyTop, hazeBottom, hazeBottom},
+                    4
+            );
+
+            g.setStroke(Color.web("#4DD0E1", 0.20));
+            g.setLineWidth(4);
+            g.strokeLine(bodyLeft + 18, bodyTop + 28, p.x + lowerInset + 18, hazeBottom);
+            g.setStroke(Color.web("#EC72D5", 0.16));
+            g.strokeLine(bodyRight - 18, bodyTop + 28, p.x + p.w - lowerInset - 18, hazeBottom);
+
+            int columns = Math.max(4, (int) Math.round((bodyRight - bodyLeft) / 190.0));
+            double gap = (bodyRight - bodyLeft) / (columns + 1.0);
+            for (int col = 1; col <= columns; col++) {
+                double wx = bodyLeft + col * gap - 20;
+                for (double wy = bodyTop + 105; wy < Math.min(hazeBottom - 100, GROUND_Y + 250.0); wy += 125) {
+                    double lit = ambientFx ? 0.15 + 0.10 * (0.5 + 0.5 * Math.sin(time * 0.34 + col + wy * 0.01)) : 0.17;
+                    g.setFill(Color.web(col % 3 == 0 ? "#FF80D5" : "#80DEEA", lit));
+                    g.fillRoundRect(wx, wy, 40, 50, 6, 6);
+                }
+            }
+        }
+    }
+
+    private void drawParliamentCloudDeck(GraphicsContext g, boolean ambientFx, double time) {
+        double drift = ambientFx ? (time * 13.0) % 820.0 : 180.0;
+        g.setFill(Color.web("#A9C7D8", 0.10));
+        g.fillRect(0, GROUND_Y - 110.0, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y + 110.0);
+        for (int layer = 0; layer < 3; layer++) {
+            double y = GROUND_Y - 170.0 + layer * 105.0;
+            double alpha = 0.13 + layer * 0.055;
+            g.setFill(Color.web(layer == 0 ? "#B5CFDD" : "#D7E4EA", alpha));
+            for (int i = -3; i < 11; i++) {
+                double x = i * 760.0 + drift * (0.35 + layer * 0.24) - layer * 210.0;
+                double w = 720 + ((i + layer) & 1) * 180.0;
+                g.fillOval(x, y + (i % 3) * 24.0, w, 150 + layer * 36.0);
+                g.fillOval(x + w * 0.22, y - 38 + (i % 2) * 20.0, w * 0.54, 150 + layer * 24.0);
+            }
+        }
+        g.setFill(Color.web("#DCE9EF", 0.12));
+        g.fillRect(0, GROUND_Y + 170.0, WORLD_WIDTH, 230.0);
+    }
+
+    private void drawGroundedCitySkyline(GraphicsContext g, boolean ambientFx, double time) {
+        double moonX = 720;
+        double moonY = 390;
+        g.setFill(Color.web("#FF80D5", 0.07));
+        g.fillOval(moonX - 220, moonY - 220, 440, 440);
+        g.setFill(Color.web("#E8ECFF", 0.72));
+        g.fillOval(moonX - 112, moonY - 112, 224, 224);
+        g.setFill(Color.web("#07102A"));
+        g.fillOval(moonX - 52, moonY - 128, 218, 218);
+
+        drawGroundedCityLayer(g, 430, 1280, 0.12,
+                Color.web("#15142A", 0.68), Color.web("#5C6BC0", 0.18));
+        drawGroundedCityLayer(g, 780, 900, 0.30,
+                Color.web("#0D1020", 0.92), Color.web("#FF67CC", ambientFx ? 0.34 : 0.22));
+
+        if (ambientFx) {
+            g.setFill(Color.web("#80DEEA", 0.16));
+            for (int i = 0; i < 8; i++) {
+                double x = (time * (16 + i * 3) + i * 820.0) % (WORLD_WIDTH + 500.0) - 250.0;
+                double y = 720 + (i % 4) * 210.0;
+                g.fillOval(x, y, 7, 4);
+            }
+        }
+    }
+
+    private void drawGroundedCityLayer(GraphicsContext g, double spacing, double topBase,
+                                        double movementFactor, Color buildingColor, Color windowColor) {
+        int count = (int) Math.ceil((WORLD_WIDTH + 1400.0) / spacing);
+        for (int i = -2; i < count; i++) {
+            double x = parallaxAdjustedWorldX(i * spacing, movementFactor);
+            double width = spacing * (0.62 + Math.floorMod(i, 3) * 0.08);
+            double topY = topBase + Math.floorMod(i * 197, 560);
+            if (Math.floorMod(i, 5) == 0) {
+                topY -= 270;
+            }
+            g.setFill(buildingColor);
+            g.fillRect(x, topY, width, GROUND_Y - topY);
+            if (Math.floorMod(i, 3) == 0) {
+                g.fillPolygon(new double[]{x, x + width * 0.5, x + width},
+                        new double[]{topY, topY - 120, topY}, 3);
+            } else {
+                g.fillRect(x + width * 0.18, topY - 54, width * 0.64, 54);
+            }
+
+            g.setFill(windowColor);
+            for (double wx = x + 54; wx < x + width - 30; wx += 96) {
+                for (double wy = topY + 92; wy < GROUND_Y - 50; wy += 132) {
+                    if (((int) ((wx + wy) / 47.0)) % 5 != 0) {
+                        g.fillRoundRect(wx, wy, 30, 48, 5, 5);
+                    }
+                }
+            }
+        }
+    }
+
+    private void drawCityStreet(GraphicsContext g, boolean ambientFx, double time) {
+        g.setFill(Color.web("#101321"));
+        g.fillRect(0, GROUND_Y, WORLD_WIDTH, WORLD_HEIGHT - GROUND_Y);
+        g.setFill(Color.web("#202338"));
+        g.fillRect(0, GROUND_Y, WORLD_WIDTH, 54);
+        g.setStroke(Color.web("#FF3DC8", 0.20));
+        g.setLineWidth(5);
+        double shift = ambientFx ? (time * 18.0) % 360.0 : 0.0;
+        for (double x = -420 + shift; x < WORLD_WIDTH + 420; x += 360) {
+            g.strokeLine(x, GROUND_Y + 240, x + 180, GROUND_Y + 60);
+        }
+    }
+
+    private void drawCityPlatforms(GraphicsContext g, boolean parliamentTowers) {
+        for (Platform p : platforms) {
+            if (p.y >= GROUND_Y - 2.0 || p.x < -50.0 || p.x >= WORLD_WIDTH) {
+                continue;
+            }
+            boolean towerRoof = parliamentTowers && p.signText != null && p.w >= 1000.0;
+            double round = towerRoof ? 20.0 : 12.0;
+            g.setFill(Color.web(towerRoof ? "#161D2D" : "#292C40"));
+            g.fillRoundRect(p.x, p.y + p.h * 0.26, p.w, p.h * 0.94, round, round);
+            g.setFill(Color.web(towerRoof ? "#303A50" : "#45485C"));
+            g.fillRoundRect(p.x, p.y, p.w, p.h, round, round);
+            g.setFill(Color.web("#8793A8", 0.22));
+            g.fillRoundRect(p.x + 9, p.y + 7, Math.max(18, p.w - 18), Math.max(9, p.h * 0.27), round, round);
+
+            Color edge = towerRoof ? Color.web("#72F1FF") : Color.web("#2DE2E6");
+            g.setStroke(edge.deriveColor(0, 1, 1, 0.84));
+            g.setLineWidth(towerRoof ? 5.0 : 3.5);
+            g.strokeRoundRect(p.x, p.y, p.w, p.h, round, round);
+            if (p.y < GROUND_Y - 400.0) {
+                g.setStroke(Color.web("#FF3DC8", towerRoof ? 0.48 : 0.72));
+                g.setLineWidth(2.2);
+                g.strokeRoundRect(p.x - 8, p.y - 8, p.w + 16, p.h + 16, round + 4, round + 4);
+            }
+
+            if (towerRoof) {
+                g.setStroke(Color.web("#FFCA28", 0.36));
+                g.setLineWidth(4);
+                for (double markX = p.x + 70; markX < p.x + p.w - 50; markX += 180) {
+                    g.strokeLine(markX, p.y + p.h - 16, markX + 50, p.y + p.h - 16);
+                }
+            }
+        }
+    }
+
+    private void drawCityRooftopFixtures(GraphicsContext g, boolean parliamentTowers) {
+        for (Platform p : platforms) {
+            if (p.w <= 300.0 || p.y >= GROUND_Y - 200.0 || p.y >= GROUND_Y - 2.0) {
+                continue;
+            }
+            int fixtureCount = p.w >= 760.0 ? 2 : 1;
+            double boxW = Math.clamp(p.w * 0.13, 78.0, 118.0);
+            double boxH = parliamentTowers ? 48.0 : 43.0;
+            for (int i = 0; i < fixtureCount; i++) {
+                double boxX = fixtureCount == 1
+                        ? p.x + 34.0
+                        : (i == 0 ? p.x + 58.0 : p.x + p.w - boxW - 58.0);
+                double boxY = p.y - boxH;
+                g.setFill(Color.web("#1B2230"));
+                g.fillRoundRect(boxX, boxY, boxW, boxH, 8, 8);
+                g.setStroke(Color.web("#718096", 0.72));
+                g.setLineWidth(2.4);
+                g.strokeRoundRect(boxX, boxY, boxW, boxH, 8, 8);
+                g.setFill(Color.web("#0A101A"));
+                g.fillOval(boxX + boxW * 0.31, boxY + 10, boxW * 0.38, boxH * 0.50);
+                g.setStroke(Color.web("#90A4AE", 0.52));
+                g.setLineWidth(2);
+                g.strokeOval(boxX + boxW * 0.31, boxY + 10, boxW * 0.38, boxH * 0.50);
+                g.strokeLine(boxX + boxW * 0.50, boxY + 13, boxX + boxW * 0.50, boxY + boxH * 0.55);
+            }
+        }
+    }
+
+    private void drawCityNeonSigns(GraphicsContext g, boolean ambientFx, double time,
+                                   boolean parliamentTowers) {
+        for (Platform p : platforms) {
+            if (p.signText == null || p.signText.isBlank()) {
+                continue;
+            }
+            String text = p.signText.toUpperCase(Locale.ROOT);
+            int paletteIndex = Math.floorMod(text.hashCode(), 4);
+            Color neon = switch (paletteIndex) {
+                case 0 -> Color.web("#2DE2E6");
+                case 1 -> Color.web("#FF3DC8");
+                case 2 -> Color.web("#B388FF");
+                default -> Color.web("#FFD740");
+            };
+            double fontSize = Math.clamp((p.w + 100.0) / Math.max(6.0, text.length() * 0.78),
+                    parliamentTowers ? 24.0 : 19.0, parliamentTowers ? 36.0 : 31.0);
+            double estimatedTextW = text.length() * fontSize * 0.66;
+            double panelW = Math.max(145.0, estimatedTextW + 72.0);
+            panelW = Math.min(panelW, Math.max(170.0, p.w + (p.w < 320.0 ? 90.0 : -42.0)));
+            double panelH = fontSize + 34.0;
+            double panelX = p.x + p.w * 0.5 - panelW * 0.5;
+            double panelBottom = p.y - 62.0;
+            double panelY = panelBottom - panelH;
+            double neonPulse = ambientFx ? 0.78 + 0.22 * Math.sin(time * 5.0 + p.x * 0.013) : 0.82;
+
+            g.save();
+            g.setStroke(Color.web("#101522", 0.94));
+            g.setLineWidth(9);
+            g.strokeLine(panelX + 24, panelBottom, panelX + 24, p.y - 8);
+            g.strokeLine(panelX + panelW - 24, panelBottom, panelX + panelW - 24, p.y - 8);
+
+            g.setFill(Color.web("#050914", 0.92));
+            g.fillRoundRect(panelX, panelY, panelW, panelH, 14, 14);
+            g.setStroke(neon.deriveColor(0, 1, 1, 0.20 + neonPulse * 0.25));
+            g.setLineWidth(12);
+            g.strokeRoundRect(panelX + 3, panelY + 3, panelW - 6, panelH - 6, 14, 14);
+            if (ambientFx) {
+                g.setEffect(new Glow(0.82));
+            }
+            g.setStroke(neon.deriveColor(0, 1, 1, neonPulse));
+            g.setLineWidth(3.2);
+            g.strokeRoundRect(panelX + 4, panelY + 4, panelW - 8, panelH - 8, 12, 12);
+            g.setStroke(Color.WHITE.deriveColor(0, 1, 1, 0.72 * neonPulse));
+            g.setLineWidth(1.2);
+            g.strokeRoundRect(panelX + 8, panelY + 8, panelW - 16, panelH - 16, 9, 9);
+
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, fontSize));
+            g.setTextAlign(TextAlignment.CENTER);
+            double textY = panelY + panelH * 0.68;
+            g.setStroke(neon.deriveColor(0, 1, 1, 0.52 * neonPulse));
+            g.setLineWidth(5.4);
+            g.strokeText(text, panelX + panelW * 0.5, textY);
+            g.setFill(Color.WHITE.interpolate(neon, 0.34).deriveColor(0, 1, 1, neonPulse));
+            g.fillText(text, panelX + panelW * 0.5, textY);
+            g.restore();
+        }
     }
 
     private void drawCrownDuelArenaDetails(GraphicsContext g, boolean ambientFx) {
@@ -36003,7 +36289,7 @@ public class BirdGame3 {
             case "Skybreaker Council" -> "Skybreak Spires";
             case "Ashfall Rebirth" -> "Ashfall Cathedral";
             case "Titan Dock" -> "Titan Dock";
-            case "Parliament Of Smoke" -> "Parliament Rooftops";
+            case "Parliament Of Smoke" -> "Parliament Towers";
             case "Carrion Throne" -> "Carrion Throne";
             case "Null Roc Ascending" -> "Beacon Crown";
             case BOSS_RUSH_EX_NAME -> "Void Crown";
@@ -38467,7 +38753,7 @@ public class BirdGame3 {
             }
             case "Parliament Of Smoke" -> {
                 setupBossRushParliamentRooftops();
-                addToKillFeed("PARLIAMENT ROOFTOPS: exposed bridges divide three neon towers.");
+                addToKillFeed("PARLIAMENT TOWERS: exposed bridges divide three neon towers.");
             }
             case "Carrion Throne" -> {
                 setupBossRushCarrionThrone();
