@@ -18120,8 +18120,8 @@ public class Bird {
             } else if (animationTrackedFacingRight != facingRight) {
                 animationTrackedFacingRight = facingRight;
                 animationTurnFrame = 0.0;
-                // Begin the new facing direction mirrored so the body visually closes,
-                // turns, and opens instead of popping to the opposite side in one tick.
+                // Reset interpolation at the facing change, then add the same small
+                // anticipation lean used by the rest of the vector roster.
                 displayPose = null;
             } else if (animationTurnFrame < GOOSE_KIWI_TURN_FRAMES) {
                 animationTurnFrame = Math.min(GOOSE_KIWI_TURN_FRAMES, animationTurnFrame + gameSpeed);
@@ -18162,28 +18162,19 @@ public class Bird {
         }
         double t = Math.clamp(animationTurnFrame / GOOSE_KIWI_TURN_FRAMES, 0.0, 1.0);
         double fold = Math.sin(t * Math.PI);
-        double halfProgress;
-        double scaleX;
-        if (t < 0.5) {
-            halfProgress = smoothStep(t * 2.0);
-            scaleX = -(1.0 - halfProgress * 0.84);
-        } else {
-            halfProgress = smoothStep((t - 0.5) * 2.0);
-            scaleX = 0.16 + halfProgress * 0.84;
-        }
         double dir = facingRight ? 1.0 : -1.0;
         return new AttackVisualPose(
-                -dir * fold * 2.5,
-                fold * 2.8,
-                -dir * Math.sin(t * Math.PI * 2.0) * 5.5,
+                -dir * fold * 1.4,
+                fold * 1.2,
+                -dir * Math.sin(t * Math.PI * 2.0) * 2.8,
                 0.0,
-                -fold * 2.5,
-                fold * 1.8,
                 -fold,
-                0.96 + (1.0 - fold) * 0.04,
-                -dir * Math.sin(t * Math.PI * 2.0) * 4.0,
-                scaleX,
-                1.0 + fold * 0.08
+                fold,
+                0.0,
+                1.0,
+                -dir * Math.sin(t * Math.PI * 2.0) * 2.2,
+                1.0 - fold * 0.035,
+                1.0 + fold * 0.035
         );
     }
 
@@ -18607,18 +18598,18 @@ public class Bird {
                         ? -0.06 + stride * 0.035
                         : sway * 0.20 - alert * 0.10;
                 yield new AttackVisualPose(
-                        dir * (sway * 0.45 * (1.0 - run) + run * (2.8 + stride * 1.5) - alert * 0.6),
-                        1.8 + Math.abs(neckBob) * 0.55 * (1.0 - run) - stepLift * 2.2
+                        dir * (sway * 0.45 * (1.0 - run) + run * (1.4 + stride * 0.7) - alert * 0.6),
+                        1.8 + Math.abs(neckBob) * 0.55 * (1.0 - run) - stepLift * 1.3
                                 + landingSquash * 3.3,
-                        dir * (sway * 1.6 * (1.0 - run) + run * (6.5 + stride * 2.6) - alert * 2.2),
+                        dir * (sway * 1.6 * (1.0 - run) + run * (3.2 + stride * 1.4) - alert * 2.2),
                         aimAngleForLocalPitch(lookPitch),
-                        4.0 + Math.max(0.0, neckBob) * 2.2 + run * 4.0 + alert * 5.0,
-                        -3.2 - Math.max(0.0, neckBob) * 2.0 - run * 2.8 - stepLift * 1.4 - alert * 4.0,
+                        4.0 + Math.max(0.0, neckBob) * 2.2 + run * 2.0 + alert * 5.0,
+                        -3.2 - Math.max(0.0, neckBob) * 2.0 - run * 1.5 - stepLift * 0.8 - alert * 4.0,
                         2.0 + alert * 2.5,
                         1.02 + alert * 0.10,
-                        dir * (sway * 2.2 * (1.0 - run) + run * (5.5 + stride * 2.2) - alert * 4.0),
-                        1.0 + run * stepLift * 0.045 + landingSquash * 0.11,
-                        1.0 - run * stepLift * 0.04 - landingSquash * 0.12
+                        dir * (sway * 2.2 * (1.0 - run) + run * (3.0 + stride * 1.2) - alert * 4.0),
+                        1.0 + run * stepLift * 0.025 + landingSquash * 0.11,
+                        1.0 - run * stepLift * 0.022 - landingSquash * 0.12
                 );
             }
             case FLAP -> new AttackVisualPose(
@@ -18736,17 +18727,17 @@ public class Bird {
                 double lookPitch = run > 0.10 ? -0.05 + stride * 0.035 : idleLook * 0.24;
                 double stepLift = Math.abs(stride) * run;
                 yield new AttackVisualPose(
-                        dir * (run * (2.2 + stride * 1.4) + idleLook * 0.25 * (1.0 - run)),
-                        -stepLift * 2.4 + landingSquash * 3.2,
-                        dir * (run * (6.0 + stride * 2.8) + idleLook * 0.7 * (1.0 - run)),
+                        dir * (run * (1.3 + stride * 0.7) + idleLook * 0.25 * (1.0 - run)),
+                        -stepLift * 1.4 + landingSquash * 3.2,
+                        dir * (run * (3.2 + stride * 1.4) + idleLook * 0.7 * (1.0 - run)),
                         aimAngleForLocalPitch(lookPitch),
-                        2.0 + run * 4.0,
-                        -1.5 - run * 2.5 - stepLift * 1.5,
-                        run * 1.5,
+                        2.0 + run * 2.0,
+                        -1.5 - run * 1.4 - stepLift * 0.8,
+                        run,
                         1.0,
-                        dir * (run * (5.0 + stride * 2.4) + idleLook * 1.0 * (1.0 - run)),
-                        1.0 + run * stepLift * 0.055 + landingSquash * 0.11,
-                        1.0 - run * stepLift * 0.045 - landingSquash * 0.12
+                        dir * (run * (3.0 + stride * 1.2) + idleLook * 1.0 * (1.0 - run)),
+                        1.0 + run * stepLift * 0.028 + landingSquash * 0.11,
+                        1.0 - run * stepLift * 0.025 - landingSquash * 0.12
                 );
             }
             case FLAP -> new AttackVisualPose(
@@ -21608,7 +21599,6 @@ public class Bird {
         Color face = classic ? Color.web("#C9D8B7") : Color.web("#B99A72");
         Color bill = classic ? Color.web("#D8D2AE") : Color.web("#C5A77E");
         Color billShade = classic ? Color.web("#8C8B70") : Color.web("#826B52");
-        Color foot = classic ? Color.web("#C9C49A") : Color.web("#B39065");
 
         if (KiwiSpecials.bodyBurrowed(this)) {
             double tipX = cx + dir * 44.0 * s;
@@ -21626,27 +21616,8 @@ public class Bird {
         int probeElapsed = kiwiProbeTimer > 0 ? KIWI_PROBE_FRAMES - kiwiProbeTimer : 0;
         double probePulse = kiwiProbeTimer > 0 ? Math.max(0.0, Math.sin((probeElapsed - 1.0) * Math.PI / 6.0)) : 0.0;
         double billExtension = probePulse * 14.0 * s;
-        double springStretch = kiwiSpringTimer > 0 ? 11.0 * s : 0.0;
         double stompSquash = kiwiStompTimer > 0 && !kiwiStompAirborne ? 5.0 * s : 0.0;
         double bodyCy = cy + stompSquash;
-        double run = isOnGround() && currentBirdAnimationState() == BirdAnimationState.IDLE
-                ? Math.clamp(Math.abs(vx) / Math.max(1.0, type.speed), 0.0, 1.0)
-                : 0.0;
-        double stride = Math.sin(animationGlobalFrame * (0.42 + run * 0.34)) * run;
-
-        // Rounded legs now take alternating steps instead of sliding with the body.
-        g.setStroke(foot);
-        g.setLineWidth(4.0 * s);
-        g.setLineCap(StrokeLineCap.ROUND);
-        for (int side : new int[]{-1, 1}) {
-            double legX = cx + side * 14.0 * s;
-            double step = stride * side;
-            double footX = legX + dir * step * 9.0 * s;
-            double footY = bodyCy + 36.0 * s + springStretch - Math.max(0.0, step) * 5.0 * s;
-            g.strokeLine(legX, bodyCy + 23.0 * s, footX + side * 2.0 * s, footY);
-            g.setFill(foot);
-            g.fillOval(footX - 10.0 * s + dir * 3.0 * s, footY - 2.0 * s, 20.0 * s, 7.0 * s);
-        }
 
         // Two clean oval layers give Kiwi the same compact body construction as the roster.
         g.setFill(bodyDark);
@@ -28374,25 +28345,6 @@ public class Bird {
             g.setLineWidth(1.5 * s);
             g.strokeArc(wingX + 4.0 * s, y + 34.0 * s, 27.0 * s, 28.0 * s, 202, 132, ArcType.OPEN);
             g.strokeArc(wingX + 8.0 * s, y + 43.0 * s, 20.0 * s, 17.0 * s, 202, 132, ArcType.OPEN);
-
-            double run = isOnGround() && currentBirdAnimationState() == BirdAnimationState.IDLE
-                    ? Math.clamp(Math.abs(vx) / Math.max(1.0, type.speed), 0.0, 1.0)
-                    : 0.0;
-            double stride = Math.sin(animationGlobalFrame * (0.34 + run * 0.30)) * run;
-            Color leg = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#D39A4A");
-            g.setStroke(leg);
-            g.setLineWidth(3.4 * s);
-            g.setLineCap(StrokeLineCap.ROUND);
-            for (int side : new int[]{-1, 1}) {
-                double hipX = x + (40.0 + side * 13.0) * s;
-                double step = stride * side;
-                double footX = hipX + (facingRight ? 1.0 : -1.0) * step * 8.0 * s;
-                double footY = y + 82.0 * s - Math.max(0.0, step) * 4.0 * s;
-                g.strokeLine(hipX, y + 62.0 * s, footX, footY);
-                g.setFill(leg);
-                g.fillOval(footX - 8.5 * s + (facingRight ? 2.0 : -2.0) * s,
-                        footY - 2.0 * s, 17.0 * s, 6.5 * s);
-            }
         }
 
         g.setFill(bodyColor);
