@@ -922,6 +922,7 @@ public class Bird {
     static final int KIWI_SPRING_REUSE_FRAMES = 34;
     static final int KIWI_STOMP_FRAMES = 34;
     static final int KIWI_STOMP_REUSE_FRAMES = 44;
+    static final int KIWI_STOMP_IMPACT_FX_FRAMES = 20;
     static final int KIWI_ULTIMATE_FRAMES = 164;
     int kiwiProbeTimer = 0;
     int kiwiProbeReuseTimer = 0;
@@ -943,6 +944,7 @@ public class Bird {
     int kiwiStompReuseTimer = 0;
     boolean kiwiStompAirborne = false;
     boolean kiwiStompImpactResolved = false;
+    int kiwiStompImpactFxTimer = 0;
     final boolean[] kiwiStompHit = new boolean[4];
     int kiwiUltimateTimer = 0;
     int kiwiUltimateDirection = 1;
@@ -18754,7 +18756,9 @@ public class Bird {
                 double stomp = kiwiStompTimer > 0 ? 1.0 : 0.0;
                 double probe = kiwiProbeTimer > 0 ? 1.0 : 0.0;
                 double burrow = kiwiBurrowTimer > 0 ? 1.0 : 0.0;
-                double pitch = spring > 0.0 ? -0.72 : stomp > 0.0 ? 0.72 : burrow > 0.0 ? 0.28 : -0.04;
+                double pitch = spring > 0.0 ? -0.72
+                        : stomp > 0.0 ? (kiwiStompAirborne ? 1.38 : 1.10)
+                        : burrow > 0.0 ? 0.28 : -0.04;
                 yield new AttackVisualPose(
                         dir * (6.0 + probe * 4.0 + burrow * 3.0),
                         -2.0 - spring * 5.0 + stomp * 4.0,
@@ -21559,8 +21563,14 @@ public class Bird {
         int probeElapsed = kiwiProbeTimer > 0 ? KIWI_PROBE_FRAMES - kiwiProbeTimer : 0;
         double probePulse = kiwiProbeTimer > 0 ? Math.max(0.0, Math.sin((probeElapsed - 1.0) * Math.PI / 6.0)) : 0.0;
         double billExtension = probePulse * 14.0 * s;
-        double stompSquash = kiwiStompTimer > 0 && !kiwiStompAirborne ? 5.0 * s : 0.0;
-        double bodyCy = cy + stompSquash;
+        int stompElapsed = kiwiStompTimer > 0 ? KIWI_STOMP_FRAMES - kiwiStompTimer : 0;
+        double groundStompWindup = kiwiStompTimer > 0 && !kiwiStompAirborne && !kiwiStompImpactResolved
+                ? Math.clamp(stompElapsed / 7.0, 0.0, 1.0) : 0.0;
+        double impactRecovery = kiwiStompImpactFxTimer > 0
+                ? kiwiStompImpactFxTimer / (double) KIWI_STOMP_IMPACT_FX_FRAMES : 0.0;
+        double stompLift = -Math.sin(groundStompWindup * Math.PI) * 7.0 * s;
+        double stompSquash = (Math.pow(groundStompWindup, 4.0) * 8.0 + impactRecovery * 5.0) * s;
+        double bodyCy = cy + stompLift + stompSquash;
 
         // Two clean oval layers give Kiwi the same compact body construction as the roster.
         g.setFill(bodyDark);

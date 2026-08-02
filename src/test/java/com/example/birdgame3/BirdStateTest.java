@@ -102,6 +102,32 @@ class BirdStateTest {
         assertTrue(right.health < Bird.STARTING_HEALTH);
         assertTrue(left.vx < 0.0);
         assertTrue(right.vx > 0.0);
+        assertTrue(kiwi.kiwiStompImpactResolved, "The grounded version should visibly complete its pound.");
+        assertTrue(kiwi.kiwiStompImpactFxTimer > 0, "The ground pound should leave a readable shockwave.");
+        assertTrue(game.shakeIntensity >= 10.0, "The grounded impact should have physical weight.");
+    }
+
+    @Test
+    void kiwiAirEarthStompPlungesAndStartsImpactFxWhenItLands() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird kiwi = new Bird(300.0, BirdGame3.BirdType.KIWI, 0, game);
+        kiwi.y = BirdGame3.GROUND_Y - 280.0;
+        game.players[0] = kiwi;
+        game.setLocalActionsForKey(game.blockKeyForPlayer(0), true);
+
+        KiwiSpecials.use(kiwi, false);
+        assertTrue(kiwi.kiwiStompAirborne);
+        KiwiSpecials.handleState(kiwi);
+        assertTrue(kiwi.vy >= 13.8, "The airborne version should immediately commit to a fast plunge.");
+
+        kiwi.y = BirdGame3.GROUND_Y - kiwi.bodyHeight();
+        KiwiSpecials.handlePostMoveState(kiwi);
+
+        assertTrue(kiwi.kiwiStompImpactResolved);
+        assertEquals(Bird.KIWI_STOMP_IMPACT_FX_FRAMES, kiwi.kiwiStompImpactFxTimer,
+                "A late landing should receive the full impact effect instead of an expired one.");
+        assertTrue(game.shakeIntensity >= 15.0);
     }
 
     @Test

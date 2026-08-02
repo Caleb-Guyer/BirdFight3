@@ -116,6 +116,7 @@ final class KiwiSpecials {
         bird.kiwiStompReuseTimer = Bird.KIWI_STOMP_REUSE_FRAMES;
         bird.kiwiStompAirborne = !bird.isOnGround();
         bird.kiwiStompImpactResolved = false;
+        bird.kiwiStompImpactFxTimer = 0;
         Arrays.fill(bird.kiwiStompHit, false);
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, Bird.KIWI_STOMP_FRAMES);
         if (bird.kiwiStompAirborne) {
@@ -123,6 +124,7 @@ final class KiwiSpecials {
             bird.vy = Math.max(9.5, bird.vy + 4.0);
         } else {
             bird.vx *= 0.18;
+            emitDirt(bird, bird.bodyCenterX(), bird.bodyBottomY(), 12, 3.2);
         }
         clearSharedCooldown(bird);
     }
@@ -176,6 +178,7 @@ final class KiwiSpecials {
         bird.kiwiBurrowReuseTimer = Math.max(0, bird.kiwiBurrowReuseTimer - 1);
         bird.kiwiSpringReuseTimer = Math.max(0, bird.kiwiSpringReuseTimer - 1);
         bird.kiwiStompReuseTimer = Math.max(0, bird.kiwiStompReuseTimer - 1);
+        bird.kiwiStompImpactFxTimer = Math.max(0, bird.kiwiStompImpactFxTimer - 1);
         for (int i = 0; i < bird.kiwiUltimateHitCooldown.length; i++) {
             bird.kiwiUltimateHitCooldown[i] = Math.max(0, bird.kiwiUltimateHitCooldown[i] - 1);
         }
@@ -309,7 +312,7 @@ final class KiwiSpecials {
         if (bird.kiwiStompAirborne && !bird.kiwiStompImpactResolved) {
             bird.vx *= 0.82;
             bird.vy = Math.max(13.8, bird.vy);
-        } else if (!bird.kiwiStompAirborne && !bird.kiwiStompImpactResolved && elapsed >= 8) {
+        } else if (!bird.kiwiStompAirborne && !bird.kiwiStompImpactResolved && elapsed >= 7) {
             resolveStompImpact(bird, false);
         }
         // Keep the plunge active until it actually finds ground. The bird will
@@ -334,6 +337,7 @@ final class KiwiSpecials {
             other.vy += 10.0;
             bird.vy = -10.5;
             bird.kiwiStompImpactResolved = true;
+            beginStompImpactFx(bird, true);
             impact(bird, other, dealt, true, "Earth Stomp Dive");
             emitDirt(bird, centerX, centerY, 30, 8.0);
         }
@@ -344,6 +348,7 @@ final class KiwiSpecials {
             return;
         }
         bird.kiwiStompImpactResolved = true;
+        beginStompImpactFx(bird, aerial);
         bird.vx *= 0.2;
         if (aerial) {
             bird.vy = Math.min(bird.vy, -4.8);
@@ -367,7 +372,13 @@ final class KiwiSpecials {
             impact(bird, other, dealt, true, "Earth Stomp");
         }
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, aerial ? 15 : 10);
+        bird.game.playHitSound(aerial ? 14.0 : 10.0);
         emitDirt(bird, centerX, centerY, aerial ? 56 : 42, aerial ? 11.5 : 8.5);
+    }
+
+    private static void beginStompImpactFx(Bird bird, boolean aerial) {
+        bird.kiwiStompImpactFxTimer = Bird.KIWI_STOMP_IMPACT_FX_FRAMES;
+        bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, aerial ? 15 : 10);
     }
 
     private static void handleUltimate(Bird bird) {
@@ -457,13 +468,65 @@ final class KiwiSpecials {
                         cx + i * 28.0 * s + ripple, feet - 13.0 * s);
             }
         }
-        if (bird.kiwiStompTimer > 0 && bird.kiwiStompImpactResolved) {
-            double age = Bird.KIWI_STOMP_FRAMES - bird.kiwiStompTimer;
-            double radius = Math.min(150.0, 42.0 + age * 8.0) * s;
-            double alpha = Math.max(0.0, 0.62 - age * 0.035);
-            g.setStroke(Color.web("#D6A96B", alpha));
-            g.setLineWidth(5.0 * s);
+        if (bird.kiwiStompTimer > 0 && !bird.kiwiStompImpactResolved) {
+            int elapsed = Bird.KIWI_STOMP_FRAMES - bird.kiwiStompTimer;
+            if (bird.kiwiStompAirborne) {
+                double pulse = 0.72 + 0.28 * Math.sin(elapsed * 0.9);
+                double trailHeight = (82.0 + Math.min(80.0, Math.max(0.0, bird.vy) * 4.0)) * s;
+                g.setFill(Color.web("#E8C98E", 0.13 + pulse * 0.09));
+                g.fillPolygon(
+                        new double[]{cx - 34.0 * s, cx + 34.0 * s, cx},
+                        new double[]{feet - trailHeight, feet - trailHeight, feet + 18.0 * s}, 3);
+                g.setStroke(Color.web("#FFE0A3", 0.56 + pulse * 0.24));
+                g.setLineWidth(3.0 * s);
+                for (int i = -2; i <= 2; i++) {
+                    double offset = i * 18.0 * s;
+                    double startY = feet - (54.0 + Math.abs(i) * 13.0 + (elapsed * 9 + i * 17) % 38) * s;
+                    g.strokeLine(cx + offset, startY, cx + offset * 0.52, startY + 34.0 * s);
+                }
+                g.setStroke(Color.web("#FFF2C5", 0.86));
+                g.setLineWidth(4.0 * s);
+                for (int i = 0; i < 2; i++) {
+                    double arrowY = feet + (20.0 + i * 22.0) * s;
+                    double half = (14.0 - i * 2.0) * s;
+                    g.strokeLine(cx - half, arrowY - 10.0 * s, cx, arrowY);
+                    g.strokeLine(cx + half, arrowY - 10.0 * s, cx, arrowY);
+                }
+            } else {
+                double windup = Math.clamp(elapsed / 7.0, 0.0, 1.0);
+                double radius = (74.0 - windup * 42.0) * s;
+                g.setStroke(Color.web("#E7BE7A", 0.24 + windup * 0.54));
+                g.setLineWidth((2.0 + windup * 3.0) * s);
+                g.strokeOval(cx - radius, feet - radius * 0.16, radius * 2.0, radius * 0.32);
+                g.setFill(Color.web("#FFF0BE", 0.28 + windup * 0.42));
+                double arrowTop = feet - (82.0 - windup * 28.0) * s;
+                g.fillPolygon(
+                        new double[]{cx - 13.0 * s, cx + 13.0 * s, cx},
+                        new double[]{arrowTop, arrowTop, arrowTop + 24.0 * s}, 3);
+            }
+        }
+        if (bird.kiwiStompImpactFxTimer > 0) {
+            double age = Bird.KIWI_STOMP_IMPACT_FX_FRAMES - bird.kiwiStompImpactFxTimer;
+            double life = bird.kiwiStompImpactFxTimer / (double) Bird.KIWI_STOMP_IMPACT_FX_FRAMES;
+            double radius = Math.min(168.0, 34.0 + age * 8.0) * s;
+            g.setStroke(Color.web("#F0C77C", 0.16 + life * 0.72));
+            g.setLineWidth((2.0 + life * 5.0) * s);
             g.strokeOval(cx - radius, feet - radius * 0.22, radius * 2.0, radius * 0.44);
+            double innerRadius = radius * 0.62;
+            g.setStroke(Color.web("#FFF0B5", 0.10 + life * 0.46));
+            g.setLineWidth((1.0 + life * 3.0) * s);
+            g.strokeOval(cx - innerRadius, feet - innerRadius * 0.18,
+                    innerRadius * 2.0, innerRadius * 0.36);
+            g.setStroke(Color.web("#8B5D36", 0.18 + life * 0.58));
+            g.setLineWidth((1.5 + life * 2.0) * s);
+            for (int i = -3; i <= 3; i++) {
+                if (i == 0) continue;
+                double direction = Math.signum(i);
+                double crackStart = (18.0 + Math.abs(i) * 7.0) * s;
+                double crackEnd = (54.0 + age * 3.2 + Math.abs(i) * 9.0) * s;
+                g.strokeLine(cx + direction * crackStart, feet,
+                        cx + direction * crackEnd, feet + (Math.abs(i) % 2 == 0 ? 7.0 : -5.0) * s);
+            }
         }
         if (bird.kiwiUltimateTimer > 0) {
             double pulse = 0.5 + 0.5 * Math.sin(bird.kiwiUltimateTimer * 0.34);
@@ -496,6 +559,7 @@ final class KiwiSpecials {
         bird.kiwiStompReuseTimer = 0;
         bird.kiwiStompAirborne = false;
         bird.kiwiStompImpactResolved = false;
+        bird.kiwiStompImpactFxTimer = 0;
         Arrays.fill(bird.kiwiStompHit, false);
         bird.kiwiUltimateTimer = 0;
         bird.kiwiUltimateWaveIndex = 0;
