@@ -21384,36 +21384,34 @@ public class Bird {
         }
     }
 
-    /** Kiwi has a deliberately grounded silhouette: no generic wings, tail, eye, or beak layers. */
+    /**
+     * Kiwi keeps the roster's shared rounded-body and oversized-eye language while
+     * retaining the long bill and grounded stance that make the species readable.
+     */
     private void drawKiwiBody(GraphicsContext g, double drawSize) {
         double s = sizeMultiplier;
         double dir = facingRight ? 1.0 : -1.0;
         double cx = x + drawSize * 0.50;
         double cy = y + drawSize * 0.54;
         boolean classic = isClassicSkin;
-        Color bodyDark = classic ? Color.web("#324B36") : Color.web("#3C3027");
-        Color body = classic ? Color.web("#607D5A") : Color.web("#68533E");
-        Color bodyLight = classic ? Color.web("#9CAF88") : Color.web("#9A7B58");
-        Color face = classic ? Color.web("#C6D4AE") : Color.web("#B89A72");
-        Color bill = classic ? Color.web("#C7C3A2") : Color.web("#B49A79");
-        Color billDark = classic ? Color.web("#777A64") : Color.web("#705C49");
-        Color foot = classic ? Color.web("#B9B58C") : Color.web("#A98A62");
+        Color bodyDark = classic ? Color.web("#405844") : Color.web("#4A392C");
+        Color body = classic ? Color.web("#6E8B68") : Color.web("#745A42");
+        Color bodyLight = classic ? Color.web("#AFC49D") : Color.web("#A98862");
+        Color face = classic ? Color.web("#C9D8B7") : Color.web("#B99A72");
+        Color bill = classic ? Color.web("#D8D2AE") : Color.web("#C5A77E");
+        Color billShade = classic ? Color.web("#8C8B70") : Color.web("#826B52");
+        Color foot = classic ? Color.web("#C9C49A") : Color.web("#B39065");
 
         if (KiwiSpecials.bodyBurrowed(this)) {
-            double tipX = cx + dir * 43.0 * s;
-            g.setFill(billDark.deriveColor(0.0, 1.0, 0.88, 0.96));
+            double tipX = cx + dir * 44.0 * s;
+            g.setFill(billShade);
             g.fillPolygon(
-                    new double[]{cx - dir * 8.0 * s, tipX, cx - dir * 4.0 * s},
-                    new double[]{cy + 21.0 * s, cy + 16.0 * s, cy + 28.0 * s}, 3);
-            g.setStroke(Color.web("#2A211B", 0.82));
-            g.setLineWidth(2.0 * s);
-            g.strokeLine(cx - dir * 5.0 * s, cy + 23.0 * s, tipX, cy + 16.0 * s);
-            g.setFill(bodyLight);
-            for (int i = -2; i <= 2; i++) {
-                double featherX = cx + i * 7.0 * s;
-                g.fillPolygon(new double[]{featherX - 5.0 * s, featherX, featherX + 5.0 * s},
-                        new double[]{cy + 27.0 * s, cy + (14.0 - Math.abs(i) * 2.0) * s, cy + 27.0 * s}, 3);
-            }
+                    new double[]{cx - dir * 7.0 * s, tipX, cx - dir * 3.0 * s},
+                    new double[]{cy + 21.0 * s, cy + 17.0 * s, cy + 29.0 * s}, 3);
+            g.setFill(body);
+            g.fillOval(cx - 26.0 * s, cy + 14.0 * s, 52.0 * s, 22.0 * s);
+            g.setFill(bodyLight.deriveColor(0.0, 1.0, 1.0, 0.78));
+            g.fillOval(cx - 17.0 * s, cy + 16.0 * s, 31.0 * s, 11.0 * s);
             return;
         }
 
@@ -21424,85 +21422,66 @@ public class Bird {
         double stompSquash = kiwiStompTimer > 0 && !kiwiStompAirborne ? 5.0 * s : 0.0;
         double bodyCy = cy + stompSquash;
 
-        // Two sturdy legs and broad three-toed feet sit behind the body.
+        // Simple rounded legs and feet match the readable shapes used by Penguin.
         g.setStroke(foot);
-        g.setLineWidth(5.0 * s);
+        g.setLineWidth(4.0 * s);
         g.setLineCap(StrokeLineCap.ROUND);
         for (int side : new int[]{-1, 1}) {
-            double legX = cx + side * 15.0 * s;
-            double kneeX = legX + side * 3.0 * s;
-            double footY = bodyCy + 35.0 * s + springStretch;
-            g.strokeLine(legX, bodyCy + 22.0 * s, kneeX, footY - 4.0 * s);
-            g.setLineWidth(3.0 * s);
-            g.strokeLine(kneeX, footY, kneeX + dir * 14.0 * s, footY + 1.0 * s);
-            g.strokeLine(kneeX, footY, kneeX + dir * 9.0 * s, footY + 6.0 * s);
-            g.strokeLine(kneeX, footY, kneeX - dir * 8.0 * s, footY + 3.0 * s);
-            g.setLineWidth(5.0 * s);
+            double legX = cx + side * 14.0 * s;
+            double footY = bodyCy + 36.0 * s + springStretch;
+            g.strokeLine(legX, bodyCy + 23.0 * s, legX + side * 2.0 * s, footY);
+            g.setFill(foot);
+            g.fillOval(legX - 10.0 * s + dir * 3.0 * s, footY - 2.0 * s, 20.0 * s, 7.0 * s);
         }
 
-        // Layered pear-shaped torso gives the feather coat depth without sprite art.
+        // Two clean oval layers give Kiwi the same compact body construction as the roster.
         g.setFill(bodyDark);
-        g.fillOval(cx - 35.0 * s, bodyCy - 31.0 * s, 70.0 * s, 69.0 * s - stompSquash * 0.55);
+        g.fillOval(cx - 35.0 * s, bodyCy - 32.0 * s, 70.0 * s, 68.0 * s - stompSquash * 0.55);
         g.setFill(body);
-        g.fillOval(cx - 31.0 * s, bodyCy - 29.0 * s, 62.0 * s, 62.0 * s - stompSquash * 0.45);
-        g.setFill(bodyLight.deriveColor(0.0, 0.92, 1.08, 0.48));
-        g.fillOval(cx - 21.0 * s, bodyCy - 24.0 * s, 35.0 * s, 19.0 * s);
-        g.setStroke(bodyLight.deriveColor(0.0, 0.88, 1.12, 0.72));
-        g.setLineWidth(2.0 * s);
-        for (int i = 0; i < 5; i++) {
-            double featherY = bodyCy - 11.0 * s + i * 8.0 * s;
-            g.strokeArc(cx - (25.0 - i * 1.5) * s, featherY - 7.0 * s,
-                    (47.0 - i * 3.0) * s, 15.0 * s, 195, 150, ArcType.OPEN);
-        }
+        g.fillOval(cx - 31.0 * s, bodyCy - 29.0 * s, 62.0 * s, 61.0 * s - stompSquash * 0.45);
+        g.setFill(bodyLight.deriveColor(0.0, 0.94, 1.06, 0.42));
+        g.fillOval(cx - 20.0 * s, bodyCy - 23.0 * s, 35.0 * s, 21.0 * s);
 
-        // Kiwis have only a tiny vestigial wing, kept close to the body.
-        double wingX = cx - dir * 7.0 * s;
+        // One compact wing and two feather marks replace the old naturalistic feather rows.
+        double wingX = cx - dir * 10.0 * s;
         g.setFill(bodyDark.deriveColor(0.0, 1.0, 0.88, 0.92));
-        g.fillOval(wingX - 12.0 * s, bodyCy - 4.0 * s, 24.0 * s, 30.0 * s);
+        g.fillOval(wingX - 15.0 * s, bodyCy - 5.0 * s, 30.0 * s, 34.0 * s);
         g.setStroke(bodyLight.deriveColor(0.0, 0.84, 1.08, 0.58));
-        g.setLineWidth(1.8 * s);
-        g.strokeArc(wingX - 9.0 * s, bodyCy + 1.0 * s, 18.0 * s, 20.0 * s, 205, 130, ArcType.OPEN);
+        g.setLineWidth(1.6 * s);
+        g.strokeArc(wingX - 11.0 * s, bodyCy + 1.0 * s, 22.0 * s, 22.0 * s, 205, 128, ArcType.OPEN);
+        g.strokeArc(wingX - 8.0 * s, bodyCy + 7.0 * s, 16.0 * s, 13.0 * s, 205, 128, ArcType.OPEN);
 
-        double headX = cx + dir * (25.0 * s + billExtension * 0.18);
-        double headY = bodyCy - 12.0 * s;
-        double billBaseX = headX + dir * 13.0 * s;
-        double billTipX = cx + dir * (76.0 * s + billExtension);
-        double billTipY = headY + 4.0 * s;
+        double headCenterX = cx + dir * (24.0 * s + billExtension * 0.18);
+        double headCenterY = bodyCy - 12.0 * s;
+        double headLeft = headCenterX - 19.0 * s;
+        double headTop = headCenterY - 18.0 * s;
+        double billBaseX = headCenterX + dir * 12.0 * s;
+        double billTipX = cx + dir * (73.0 * s + billExtension);
+        double billTipY = headCenterY + 4.0 * s;
 
-        // Long, slightly down-curved probing bill; layered strokes keep it slender.
-        g.setFill(billDark);
+        // A single broad cartoon wedge keeps the long bill readable at gameplay scale.
+        g.setFill(billShade);
         g.fillPolygon(
-                new double[]{billBaseX, billTipX, billTipX - dir * 6.0 * s, billBaseX},
-                new double[]{headY - 5.0 * s, billTipY, billTipY + 5.0 * s, headY + 8.0 * s}, 4);
-        g.setStroke(bill);
-        g.setLineWidth(4.2 * s);
-        g.strokeLine(billBaseX + dir * 2.0 * s, headY + 1.0 * s, billTipX - dir * 5.0 * s, billTipY + 1.0 * s);
-        g.setFill(Color.web("#241E19", 0.86));
-        g.fillOval(billTipX - dir * 7.0 * s - 2.0 * s, billTipY - 1.5 * s, 4.0 * s, 3.0 * s);
+                new double[]{billBaseX, billTipX, billBaseX},
+                new double[]{headCenterY - 6.0 * s, billTipY, headCenterY + 8.0 * s}, 3);
+        g.setFill(bill);
+        g.fillPolygon(
+                new double[]{billBaseX, billTipX - dir * 5.0 * s, billBaseX},
+                new double[]{headCenterY - 4.0 * s, billTipY - 1.0 * s, headCenterY + 2.0 * s}, 3);
 
         g.setFill(face);
-        g.fillOval(headX - 18.0 * s, headY - 18.0 * s, 36.0 * s, 37.0 * s);
+        g.fillOval(headLeft, headTop, 38.0 * s, 37.0 * s);
         g.setFill(bodyLight.deriveColor(0.0, 0.86, 1.06, 0.68));
-        g.fillOval(headX - 13.0 * s, headY - 13.0 * s, 22.0 * s, 14.0 * s);
+        g.fillOval(headLeft + (facingRight ? 6.0 : 12.0) * s, headTop + 8.0 * s, 20.0 * s, 13.0 * s);
 
-        double eyeX = headX + dir * 5.0 * s;
-        double eyeY = headY - 6.0 * s;
-        g.setFill(Color.web("#F7F1DC"));
-        g.fillOval(eyeX - 6.5 * s, eyeY - 6.5 * s, 13.0 * s, 13.0 * s);
-        g.setFill(Color.web("#17130F"));
-        g.fillOval(eyeX - 3.7 * s, eyeY - 3.7 * s, 7.4 * s, 7.4 * s);
-        g.setFill(Color.web("#F4C65D"));
-        g.fillOval(eyeX + dir * 0.2 * s - 1.2 * s, eyeY - 2.6 * s, 2.4 * s, 2.4 * s);
-        g.setStroke(bodyDark.deriveColor(0.0, 1.0, 0.74, 0.9));
-        g.setLineWidth(2.3 * s);
-        g.strokeLine(eyeX - dir * 6.0 * s, eyeY - 8.0 * s, eyeX + dir * 5.0 * s, eyeY - 10.0 * s);
-
-        // Small crown of loose sensory feathers completes the recognizable kiwi profile.
-        g.setStroke(bodyLight);
-        g.setLineWidth(2.0 * s);
-        g.strokeLine(headX - dir * 8.0 * s, headY - 15.0 * s, headX - dir * 13.0 * s, headY - 25.0 * s);
-        g.strokeLine(headX - dir * 3.0 * s, headY - 17.0 * s, headX - dir * 4.0 * s, headY - 28.0 * s);
-        g.strokeLine(headX + dir * 2.0 * s, headY - 16.0 * s, headX + dir * 5.0 * s, headY - 25.0 * s);
+        double eyeLeft = headLeft + (facingRight ? 14.0 : 3.0) * s;
+        double eyeTop = headTop + 3.0 * s;
+        double pupilLeft = eyeLeft + (facingRight ? 6.0 : 2.0) * s;
+        g.setFill(Color.WHITE);
+        g.fillOval(eyeLeft, eyeTop, 21.0 * s, 21.0 * s);
+        g.setFill(Color.BLACK);
+        g.fillOval(pupilLeft, eyeTop + 5.0 * s, 13.0 * s, 13.0 * s);
+        drawVectorEyeGlint(g, pupilLeft, eyeTop + 5.0 * s, s, true);
     }
 
     void drawWorldObjects(GraphicsContext g) {
@@ -28021,8 +28000,8 @@ public class Bird {
             headColor = Color.web("#FFF4DA");
             eyeOverride = Color.web("#263238");
         } else if (stylizedGoose && !classicPalette) {
-            bodyColor = Color.web("#7C8769");
-            headColor = Color.web("#253027");
+            bodyColor = Color.web("#75856B");
+            headColor = Color.web("#435047");
             eyeOverride = Color.web("#111111");
         } else if (type == BirdGame3.BirdType.ROADRUNNER && !classicPalette) {
             bodyColor = Color.web("#B87333");
@@ -28147,39 +28126,21 @@ public class Bird {
             double tailBaseX = facingRight ? x + 15.0 * s : x + 65.0 * s;
             double tailDir = facingRight ? -1.0 : 1.0;
             Color tail = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#F2ECD2");
-            Color tailShade = classicPalette ? game.classicSkinPrimaryColor(type).brighter() : Color.web("#C9C29E");
             Color wing = classicPalette ? game.classicSkinPrimaryColor(type).darker() : Color.web("#586348");
-            Color wingShade = classicPalette ? game.classicSkinPrimaryColor(type).darker().darker() : Color.web("#30392D");
-            g.setFill(tailShade.deriveColor(0, 1, 1, 0.52));
-            g.fillPolygon(
-                    new double[]{tailBaseX + tailDir * 3.0 * s, tailBaseX + tailDir * 42.0 * s, tailBaseX + tailDir * 17.0 * s},
-                    new double[]{y + 45.0 * s, y + 43.0 * s, y + 67.0 * s},
-                    3
-            );
             g.setFill(tail.deriveColor(0, 1, 1, 0.88));
             g.fillPolygon(
-                    new double[]{tailBaseX, tailBaseX + tailDir * 43.0 * s, tailBaseX + tailDir * 19.0 * s},
-                    new double[]{y + 39.0 * s, y + 31.0 * s, y + 58.0 * s},
+                    new double[]{tailBaseX, tailBaseX + tailDir * 36.0 * s, tailBaseX + tailDir * 16.0 * s},
+                    new double[]{y + 41.0 * s, y + 34.0 * s, y + 60.0 * s},
                     3
             );
-            g.fillPolygon(
-                    new double[]{tailBaseX + tailDir * 2.0 * s, tailBaseX + tailDir * 35.0 * s, tailBaseX + tailDir * 8.0 * s},
-                    new double[]{y + 50.0 * s, y + 62.0 * s, y + 70.0 * s},
-                    3
-            );
-            g.setFill(wing.deriveColor(0, 1, 1, 0.64));
-            g.fillOval(x + (facingRight ? 8.0 : 33.0) * s, y + 23.0 * s, 44.0 * s, 55.0 * s);
-            g.setFill(wingShade.deriveColor(0, 1, 1, 0.26));
-            g.fillOval(x + (facingRight ? 14.0 : 40.0) * s, y + 33.0 * s, 29.0 * s, 36.0 * s);
-            g.setStroke(Color.web("#2F3A2B").deriveColor(0, 1, 1, 0.58));
+            g.setFill(wing.deriveColor(0, 1, 1, 0.70));
+            double wingX = x + (facingRight ? 10.0 : 34.0) * s;
+            g.fillOval(wingX, y + 27.0 * s, 36.0 * s, 45.0 * s);
+            g.setStroke(Color.web("#374335").deriveColor(0, 1, 1, 0.48));
             g.setLineCap(StrokeLineCap.ROUND);
-            g.setLineWidth(1.45 * s);
-            for (int i = 0; i < 4; i++) {
-                double featherY = y + (38.0 + i * 8.5) * s;
-                g.strokeLine(x + (facingRight ? 16.0 : 61.0) * s, featherY,
-                        x + (facingRight ? 45.0 - i * 1.4 : 35.0 + i * 1.4) * s,
-                        featherY + (i - 1.5) * 2.4 * s);
-            }
+            g.setLineWidth(1.5 * s);
+            g.strokeArc(wingX + 4.0 * s, y + 34.0 * s, 27.0 * s, 28.0 * s, 202, 132, ArcType.OPEN);
+            g.strokeArc(wingX + 8.0 * s, y + 43.0 * s, 20.0 * s, 17.0 * s, 202, 132, ArcType.OPEN);
         }
 
         g.setFill(bodyColor);
@@ -28390,52 +28351,37 @@ public class Bird {
         }
         if (stylizedGoose) {
             Color breast = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#F7F1D7");
-            Color breastShade = classicPalette ? game.classicSkinAccentColor(type).darker() : Color.web("#DAD1A7");
             Color neckDark = classicPalette ? game.classicSkinPrimaryColor(type).darker() : Color.web("#202A24");
-            Color neckOutline = classicPalette ? game.classicSkinPrimaryColor(type).darker().darker() : Color.web("#121A15");
             Color neckLight = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#F2E9C8");
             Color wingLine = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#45513B");
             double neckTopX = headPose.centerX() - (facingRight ? 5.0 : -5.0) * s;
             double neckTopY = headPose.centerY() + 12.0 * s;
             double neckBaseX = x + (facingRight ? 48.0 : 32.0) * s;
             double neckBaseY = y + 44.0 * s;
-            g.setStroke(neckOutline.deriveColor(0, 1, 1, 0.70));
             g.setLineCap(StrokeLineCap.ROUND);
-            g.setLineWidth(15.8 * s);
-            g.strokeLine(neckBaseX - (facingRight ? 1.0 : -1.0) * s, neckBaseY + 2.0 * s,
-                    neckTopX, neckTopY + 1.0 * s);
             g.setStroke(neckDark.deriveColor(0, 1, 1, 0.96));
-            g.setLineWidth(12.4 * s);
+            g.setLineWidth(12.0 * s);
             g.strokeLine(neckBaseX, neckBaseY, neckTopX, neckTopY);
             g.setStroke(neckLight.deriveColor(0, 1, 1, 0.34));
-            g.setLineWidth(3.3 * s);
+            g.setLineWidth(2.4 * s);
             g.strokeLine(neckBaseX + (facingRight ? 3.6 : -3.6) * s, neckBaseY + 1.6 * s,
                     neckTopX + (facingRight ? 2.7 : -2.7) * s, neckTopY - 0.6 * s);
             g.setFill(breast.deriveColor(0, 1, 1, isClassicSkin ? 0.38 : 0.72));
             g.fillOval(x + 19.0 * s, y + 34.0 * s, 43.0 * s, 38.0 * s);
-            g.setFill(breastShade.deriveColor(0, 1, 1, isClassicSkin ? 0.12 : 0.20));
-            g.fillOval(x + (facingRight ? 33.0 : 20.0) * s, y + 48.0 * s, 28.0 * s, 23.0 * s);
             g.setFill(neckLight.deriveColor(0, 1, 1, isClassicSkin ? 0.28 : 0.46));
-            g.fillOval(headX + (facingRight ? 10.0 : 17.0) * s, headY + 22.0 * s, 23.0 * s, 13.0 * s);
+            g.fillOval(headX + (facingRight ? 11.0 : 16.0) * s, headY + 22.0 * s, 23.0 * s, 13.0 * s);
             g.setStroke(wingLine.deriveColor(0, 1, 1, 0.46));
             g.setLineCap(StrokeLineCap.ROUND);
-            g.setLineWidth(1.9 * s);
+            g.setLineWidth(1.6 * s);
             g.strokeArc(x + 13.0 * s, y + 34.0 * s, 54.0 * s, 34.0 * s,
                     facingRight ? 204 : -24, 116, ArcType.OPEN);
-            g.setLineWidth(1.15 * s);
-            g.strokeLine(x + (facingRight ? 20.0 : 60.0) * s, y + 48.0 * s,
-                    x + (facingRight ? 54.0 : 26.0) * s, y + 38.0 * s);
             g.setStroke(Color.web("#D7C56E").deriveColor(0, 1, 1, 0.68));
-            g.setLineWidth(1.9 * s);
-            g.strokeLine(x + 25.0 * s, y + 72.0 * s, x + 18.0 * s, y + 88.0 * s);
-            g.strokeLine(x + 55.0 * s, y + 72.0 * s, x + 63.0 * s, y + 88.0 * s);
+            g.setLineWidth(2.6 * s);
+            g.strokeLine(x + 26.0 * s, y + 70.0 * s, x + 22.0 * s, y + 86.0 * s);
+            g.strokeLine(x + 54.0 * s, y + 70.0 * s, x + 58.0 * s, y + 86.0 * s);
             g.setFill(Color.web("#F7A825").deriveColor(0, 1, 1, 0.86));
-            g.fillOval(x + 10.0 * s, y + 86.0 * s, 22.0 * s, 8.0 * s);
-            g.fillOval(x + 49.0 * s, y + 86.0 * s, 22.0 * s, 8.0 * s);
-            g.setStroke(Color.web("#C86B13").deriveColor(0, 1, 1, 0.60));
-            g.setLineWidth(1.0 * s);
-            g.strokeLine(x + 13.0 * s, y + 90.0 * s, x + 29.0 * s, y + 88.0 * s);
-            g.strokeLine(x + 52.0 * s, y + 90.0 * s, x + 68.0 * s, y + 88.0 * s);
+            g.fillOval(x + 13.0 * s, y + 84.0 * s, 20.0 * s, 8.0 * s);
+            g.fillOval(x + 47.0 * s, y + 84.0 * s, 20.0 * s, 8.0 * s);
         }
         if (type == BirdGame3.BirdType.ROADRUNNER) {
             int tailDir = facingRight ? -1 : 1;
@@ -28525,22 +28471,18 @@ public class Bird {
             drawVectorEyeGlint(g, eyeX + (facingRight ? 1.0 : 0.0) * s,
                     eyeY + s, s, false);
         } else if (stylizedGoose) {
-            double cheekX = headX + (facingRight ? 21.0 : 7.0) * s;
-            double cheekY = headY + 13.0 * s;
-            double eyeX = headX + (facingRight ? 30.0 : 14.0) * s;
-            double eyeY = headY + 7.3 * s;
+            double cheekX = headX + (facingRight ? 13.0 : 14.0) * s;
+            double cheekY = headY + 18.0 * s;
+            double eyeX = headX + (facingRight ? 22.0 : 5.0) * s;
+            double eyeY = headY + 2.0 * s;
             g.setFill(Color.web("#F8F1D6").deriveColor(0, 1, 1, 0.88));
-            g.fillOval(cheekX, cheekY, 22.0 * s, 14.0 * s);
-            g.setStroke(Color.web("#111A14").deriveColor(0, 1, 1, 0.38));
-            g.setLineCap(StrokeLineCap.ROUND);
-            g.setLineWidth(1.1 * s);
-            g.strokeArc(headX + (facingRight ? 27.0 : 11.0) * s, headY + 3.0 * s,
-                    15.0 * s, 12.0 * s, facingRight ? 188 : -8, 90, ArcType.OPEN);
-            g.setFill(Color.web("#050806"));
-            g.fillOval(eyeX, eyeY, 7.0 * s, 7.0 * s);
-            g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.82));
-            g.fillOval(eyeX + (facingRight ? 1.4 : 3.2) * s, eyeY + 1.0 * s,
-                    2.0 * s, 2.0 * s);
+            g.fillOval(cheekX, cheekY, 23.0 * s, 14.0 * s);
+            g.setFill(Color.WHITE);
+            g.fillOval(eyeX, eyeY, 23.0 * s, 23.0 * s);
+            double pupilX = eyeX + (facingRight ? 6.0 : 3.0) * s;
+            g.setFill(eyeOverride == null ? Color.BLACK : eyeOverride);
+            g.fillOval(pupilX, eyeY + 5.0 * s, 14.0 * s, 14.0 * s);
+            drawVectorEyeGlint(g, pupilX, eyeY + 5.0 * s, s, true);
         } else {
             g.setFill(Color.WHITE);
             g.fillOval(headX + (facingRight ? 0 : 40) * s, headY, 25 * s, 25 * s);
@@ -29913,7 +29855,7 @@ public class Bird {
         } else if (stylizedTitmouse) {
             openAmount *= 0.42;
         } else if (stylizedGoose) {
-            openAmount *= gooseHonkTimer > 0 ? 1.22 : 0.78;
+            openAmount *= gooseHonkTimer > 0 ? 1.05 : 0.62;
         }
         double beakLength = ((type == BirdGame3.BirdType.FALCON ? 34
                 : type == BirdGame3.BirdType.EAGLE ? 32
@@ -29923,7 +29865,7 @@ public class Bird {
                 : stylizedTurkey ? 25
                 : stylizedGrinchhawk ? 36
                 : stylizedTitmouse ? 20
-                : stylizedGoose ? 36
+                : stylizedGoose ? 31
                 : type == BirdGame3.BirdType.ROADRUNNER ? 42 : 28) + (pose == null ? 0.0 : pose.beakLengthBonus())) * s;
         if (type == BirdGame3.BirdType.HUMMINGBIRD && hummingNeedleHitTimer > 0) {
             double needleProgress = Math.clamp(hummingNeedleHitTimer / (double) Math.max(1, HUMMING_NEEDLE_ACTIVE_FRAMES), 0.0, 1.0);
