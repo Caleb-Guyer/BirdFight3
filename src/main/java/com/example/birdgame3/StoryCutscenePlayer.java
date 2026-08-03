@@ -32,6 +32,7 @@ import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Presentation-only Canvas cinematics for The Still Sky.
@@ -69,6 +70,7 @@ final class StoryCutscenePlayer {
     private StoryCampaign.Cutscene scene;
     private List<StoryCampaign.DialogueLine> lines = List.of();
     private BirdGame3.BirdType selectedBird;
+    private String selectedSkinKey;
     private int lineIndex;
     private boolean paused;
     private boolean manual;
@@ -95,6 +97,7 @@ final class StoryCutscenePlayer {
         game.resetAfterCampaignCutscene();
         this.scene = scene;
         this.selectedBird = selectedBird;
+        this.selectedSkinKey = selectedSkinKey;
         this.lines = scene.linesFor(selectedBird);
         this.lineIndex = 0;
         this.paused = false;
@@ -104,29 +107,7 @@ final class StoryCutscenePlayer {
         this.pausedAtNanos = 0L;
         this.accumulatedPauseNanos = 0L;
         this.onFinished = onFinished;
-        this.actors.clear();
-        this.actorOnLeft.clear();
-        this.oldSparrowActor = null;
-        this.recordedVoiceActor = null;
-
-        boolean nextActorOnLeft = true;
-        for (StoryCampaign.DialogueLine line : lines) {
-            if (!actorOnLeft.containsKey(line.speaker())) {
-                actorOnLeft.put(line.speaker(), nextActorOnLeft);
-                nextActorOnLeft = !nextActorOnLeft;
-            }
-            if ("Old Sparrow".equals(line.speaker()) && oldSparrowActor == null) {
-                oldSparrowActor = game.createCampaignCutsceneBird(
-                        BirdGame3.BirdType.TITMOUSE, BirdGame3.OLD_SPARROW_SKIN);
-            }
-            if (usesRecordedVultureSilhouette(line) && recordedVoiceActor == null) {
-                recordedVoiceActor = game.createCampaignCutsceneBird(BirdGame3.BirdType.VULTURE, null);
-            }
-            if (line.bird() != null && !actors.containsKey(line.bird())) {
-                String skin = line.bird() == selectedBird ? selectedSkinKey : null;
-                actors.put(line.bird(), game.createCampaignCutsceneBird(line.bird(), skin));
-            }
-        }
+        prepareActors(selectedSkinKey);
 
         if (canvas == null) {
             canvas = new Canvas(BACKING_WIDTH, BACKING_HEIGHT);
@@ -205,6 +186,73 @@ final class StoryCutscenePlayer {
         };
         timer.start();
         canvas.requestFocus();
+    }
+
+    /**
+     * Draws an authored story frame into another Canvas without taking over a
+     * Stage. The official trailer uses this so its narrative beats are the
+     * game's real cutscenes, including the same clean, reset character poses.
+     */
+    void renderTrailerFrame(GraphicsContext g, StoryCampaign.Cutscene trailerScene,
+                            BirdGame3.BirdType trailerSelectedBird, String trailerSkinKey,
+                            int requestedLineIndex, double lineElapsedSeconds) {
+        if (g == null || trailerScene == null) {
+            return;
+        }
+        boolean sceneChanged = scene == null
+                || !scene.id().equals(trailerScene.id())
+                || selectedBird != trailerSelectedBird
+                || !Objects.equals(selectedSkinKey, trailerSkinKey);
+        if (sceneChanged) {
+            scene = trailerScene;
+            selectedBird = trailerSelectedBird;
+            selectedSkinKey = trailerSkinKey;
+            lines = scene.linesFor(selectedBird);
+            prepareActors(trailerSkinKey);
+        }
+        if (lines.isEmpty()) {
+            return;
+        }
+        lineIndex = Math.clamp(requestedLineIndex, 0, lines.size() - 1);
+        paused = false;
+        lineStartNanos = 0L;
+        pausedAtNanos = 0L;
+        accumulatedPauseNanos = 0L;
+        long now = (long) (Math.max(0.0, lineElapsedSeconds) * 1_000_000_000.0);
+
+        g.save();
+        drawBackground(g, now);
+        StoryCampaign.DialogueLine line = lines.get(lineIndex);
+        drawShot(g, line, now);
+        drawCinematicOverlay(g, line, now);
+        drawSubtitle(g, line);
+        drawLetterbox(g);
+        g.restore();
+    }
+
+    private void prepareActors(String selectedSkinKey) {
+        actors.clear();
+        actorOnLeft.clear();
+        oldSparrowActor = null;
+        recordedVoiceActor = null;
+        boolean nextActorOnLeft = true;
+        for (StoryCampaign.DialogueLine line : lines) {
+            if (!actorOnLeft.containsKey(line.speaker())) {
+                actorOnLeft.put(line.speaker(), nextActorOnLeft);
+                nextActorOnLeft = !nextActorOnLeft;
+            }
+            if ("Old Sparrow".equals(line.speaker()) && oldSparrowActor == null) {
+                oldSparrowActor = game.createCampaignCutsceneBird(
+                        BirdGame3.BirdType.TITMOUSE, BirdGame3.OLD_SPARROW_SKIN);
+            }
+            if (usesRecordedVultureSilhouette(line) && recordedVoiceActor == null) {
+                recordedVoiceActor = game.createCampaignCutsceneBird(BirdGame3.BirdType.VULTURE, null);
+            }
+            if (line.bird() != null && !actors.containsKey(line.bird())) {
+                String skin = line.bird() == selectedBird ? selectedSkinKey : null;
+                actors.put(line.bird(), game.createCampaignCutsceneBird(line.bird(), skin));
+            }
+        }
     }
 
     private Button controlButton(String text, Runnable action) {
