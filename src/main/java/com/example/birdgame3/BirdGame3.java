@@ -13589,45 +13589,80 @@ public class BirdGame3 {
     }
 
     private void drawCityPlayableBuildingBodies(GraphicsContext g, boolean ambientFx, double time) {
-        List<Platform> roofs = platforms.stream()
+        List<Platform> cityPlatforms = platforms.stream()
                 .filter(p -> p.x >= 0.0 && p.x < WORLD_WIDTH
                         && p.y < GROUND_Y - 2.0 && p.w >= 150.0)
                 .sorted(Comparator.comparingDouble((Platform p) -> p.y).reversed())
                 .toList();
+        List<Platform> mainRoofs = cityPlatforms.stream()
+                .filter(p -> p.w >= 650.0)
+                .toList();
 
-        for (Platform roof : roofs) {
-            // Every playable roof belongs to a complete skyscraper. Letting a
-            // body stop at another platform made the skyline read as stacked
-            // support columns instead of tall city buildings.
-            double roofBottom = roof.y + roof.h;
-            double inset = Math.clamp(roof.w * 0.045, 8.0, 28.0);
-            double bodyX = roof.x + inset;
-            double bodyW = Math.max(44.0, roof.w - inset * 2.0);
-            double bodyH = GROUND_Y - roofBottom;
-            Color bodyTop = roof.w >= 500.0 ? Color.web("#111426") : Color.web("#17172A");
-            Color bodyBottom = roof.w >= 500.0 ? Color.web("#1B1C32") : Color.web("#232039");
-            g.setFill(new LinearGradient(0, roofBottom, 0, GROUND_Y, false, CycleMethod.NO_CYCLE,
-                    new Stop(0.0, bodyTop), new Stop(1.0, bodyBottom)));
-            g.fillRect(bodyX, roofBottom, bodyW, bodyH);
+        for (Platform roof : mainRoofs) {
+            drawCityRectangularFacade(g, roof, GROUND_Y, ambientFx, time);
+        }
 
-            g.setStroke(Color.web("#303852", 0.66));
-            g.setLineWidth(2.0);
-            g.strokeRect(bodyX, roofBottom, bodyW, bodyH);
+        for (Platform feature : cityPlatforms) {
+            if (feature.w >= 650.0) continue;
+            Platform parent = mainRoofs.stream()
+                    .filter(roof -> Math.min(feature.x + feature.w, roof.x + roof.w)
+                            - Math.max(feature.x, roof.x) >= 70.0)
+                    .min(Comparator.comparingDouble(roof -> Math.abs(roof.y - feature.y)))
+                    .orElse(null);
+            if (parent == null) continue;
 
-            int columns = Math.clamp((int) Math.round(bodyW / 120.0), 1, 6);
-            double columnGap = bodyW / (columns + 1.0);
-            for (int col = 1; col <= columns; col++) {
-                double wx = bodyX + col * columnGap - 14.0;
-                for (double wy = roofBottom + 64.0; wy < GROUND_Y - 34.0; wy += 104.0) {
-                    double shimmer = ambientFx
-                            ? 0.18 + 0.08 * (0.5 + 0.5 * Math.sin(time * 0.42 + col + wy * 0.012))
-                            : 0.21;
-                    g.setFill(Color.web((col + (int) (wy / 94.0)) % 3 == 0
-                            ? "#C75AAB" : "#4F7898", shimmer));
-                    g.fillRect(wx, wy, 28, 38);
-                }
+            if (feature.y < parent.y) {
+                drawCityRectangularFacade(g, feature, parent.y, ambientFx, time);
+            } else {
+                drawCityBalconyBraces(g, feature, parent);
             }
         }
+    }
+
+    private void drawCityRectangularFacade(GraphicsContext g, Platform roof, double baseY,
+                                             boolean ambientFx, double time) {
+        double roofBottom = roof.y + roof.h;
+        if (baseY <= roofBottom + 8.0) return;
+        double inset = Math.clamp(roof.w * 0.045, 8.0, 28.0);
+        double bodyX = roof.x + inset;
+        double bodyW = Math.max(44.0, roof.w - inset * 2.0);
+        double bodyH = baseY - roofBottom;
+        Color bodyTop = roof.w >= 500.0 ? Color.web("#111426") : Color.web("#17172A");
+        Color bodyBottom = roof.w >= 500.0 ? Color.web("#1B1C32") : Color.web("#232039");
+        g.setFill(new LinearGradient(0, roofBottom, 0, baseY, false, CycleMethod.NO_CYCLE,
+                new Stop(0.0, bodyTop), new Stop(1.0, bodyBottom)));
+        g.fillRect(bodyX, roofBottom, bodyW, bodyH);
+
+        g.setStroke(Color.web("#303852", 0.66));
+        g.setLineWidth(2.0);
+        g.strokeRect(bodyX, roofBottom, bodyW, bodyH);
+
+        int columns = Math.clamp((int) Math.round(bodyW / 120.0), 1, 6);
+        double columnGap = bodyW / (columns + 1.0);
+        for (int col = 1; col <= columns; col++) {
+            double wx = bodyX + col * columnGap - 14.0;
+            for (double wy = roofBottom + 64.0; wy < baseY - 34.0; wy += 104.0) {
+                double shimmer = ambientFx
+                        ? 0.18 + 0.08 * (0.5 + 0.5 * Math.sin(time * 0.42 + col + wy * 0.012))
+                        : 0.21;
+                g.setFill(Color.web((col + (int) (wy / 94.0)) % 3 == 0
+                        ? "#C75AAB" : "#4F7898", shimmer));
+                g.fillRect(wx, wy, 28, 38);
+            }
+        }
+    }
+
+    private void drawCityBalconyBraces(GraphicsContext g, Platform balcony, Platform building) {
+        boolean leftSide = balcony.x < building.x;
+        double wallX = leftSide ? building.x : building.x + building.w;
+        double outerX = leftSide ? balcony.x + 34.0 : balcony.x + balcony.w - 34.0;
+        double undersideY = balcony.y + balcony.h;
+        g.setStroke(Color.web("#39435F", 0.88));
+        g.setLineWidth(8.0);
+        g.strokeLine(outerX, undersideY, wallX, undersideY + 112.0);
+        g.setStroke(Color.web("#2DE2E6", 0.16));
+        g.setLineWidth(2.0);
+        g.strokeLine(outerX, undersideY + 2.0, wallX, undersideY + 110.0);
     }
 
     private void drawGroundedCityLayer(GraphicsContext g, double spacing, double topBase,
@@ -44879,8 +44914,29 @@ public class BirdGame3 {
                 double buildingW = buildingWidths[i];
                 double roofY = GROUND_Y - buildingHeights[i];
                 Platform rooftop = new Platform(bx - buildingW * 0.5, roofY, buildingW, 54);
-                rooftop.signText = possibleSigns[mapRandom.nextInt(possibleSigns.length)];
                 platforms.add(rooftop);
+
+                double penthouseW = 320.0 + (i % 3) * 38.0;
+                double penthouseX = bx - penthouseW * 0.5 + (i % 2 == 0 ? -46.0 : 46.0);
+                Platform penthouseRoof = new Platform(
+                        penthouseX,
+                        roofY - 210.0 - (i % 2) * 34.0,
+                        penthouseW,
+                        42.0);
+                penthouseRoof.signText = possibleSigns[mapRandom.nextInt(possibleSigns.length)];
+                platforms.add(penthouseRoof);
+
+                double balconyW = 280.0;
+                double balconyOverlap = 92.0;
+                boolean balconyOnLeft = i > 0 && i % 2 == 0;
+                double balconyX = balconyOnLeft
+                        ? rooftop.x - balconyW + balconyOverlap
+                        : rooftop.x + rooftop.w - balconyOverlap;
+                platforms.add(new Platform(
+                        balconyX,
+                        roofY + 270.0 + (i % 3) * 48.0,
+                        balconyW,
+                        36.0));
 
                 // Roof vents preserve the City's recovery routes without
                 // breaking the skyscrapers into floating platform ladders.

@@ -47,13 +47,25 @@ class MapVariantTest {
 
         setupBase.invoke(game);
 
-        List<Platform> rooftops = game.platforms.stream()
+        List<Platform> cityPlatforms = game.platforms.stream()
                 .filter(platform -> platform.x >= 0.0 && platform.x < BirdGame3.WORLD_WIDTH
                         && platform.y < BirdGame3.GROUND_Y)
                 .toList();
-        assertEquals(6, rooftops.size());
-        assertTrue(rooftops.stream().allMatch(platform -> platform.w >= 700.0),
+        List<Platform> skyscraperRoofs = cityPlatforms.stream()
+                .filter(platform -> platform.w >= 650.0)
+                .toList();
+        assertEquals(6, skyscraperRoofs.size());
+        assertTrue(skyscraperRoofs.stream().allMatch(platform -> platform.w >= 700.0),
                 "City combat platforms should read as broad skyscraper roofs");
+        assertEquals(18, cityPlatforms.size());
+        assertTrue(cityPlatforms.stream()
+                        .filter(platform -> platform.w < 650.0)
+                        .allMatch(platform -> skyscraperRoofs.stream().anyMatch(roof -> {
+                            double overlap = Math.min(platform.x + platform.w, roof.x + roof.w)
+                                    - Math.max(platform.x, roof.x);
+                            return overlap >= 70.0;
+                        })),
+                "secondary City platforms should remain attached to a skyscraper facade");
     }
 
     @Test
