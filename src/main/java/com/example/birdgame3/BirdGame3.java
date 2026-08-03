@@ -17934,7 +17934,7 @@ public class BirdGame3 {
             return new RosterSpriteFit(1.12, 0.0, 0.0);
         }
         if (ECLIPSE_MOCKINGBIRD_SKIN.equals(skinKey)) {
-            return new RosterSpriteFit(1.18, 0.0, 0.0);
+            return new RosterSpriteFit(1.18, 0.04, 0.0);
         }
         if (SUNFORGE_ROOSTER_SKIN.equals(skinKey)) {
             return new RosterSpriteFit(1.18, 0.015, 0.0);
@@ -17950,7 +17950,8 @@ public class BirdGame3 {
             case EAGLE -> new RosterSpriteFit(1.08, 0.0, 0.0);
             case ROOSTER -> new RosterSpriteFit(1.10, 0.02, 0.0);
             case PELICAN, GOOSE -> new RosterSpriteFit(1.10, 0.0, 0.0);
-            case MOCKINGBIRD -> new RosterSpriteFit(1.12, 0.0, 0.0);
+            case MOCKINGBIRD -> new RosterSpriteFit(1.12, 0.04, 0.0);
+            case ROADRUNNER -> new RosterSpriteFit(1.18, 0.095, 0.0);
             case GRINCHHAWK -> new RosterSpriteFit(1.25, 0.005, 0.0);
             case KIWI -> new RosterSpriteFit(1.08, -0.025, 0.015);
             default -> RosterSpriteFit.DEFAULT;
