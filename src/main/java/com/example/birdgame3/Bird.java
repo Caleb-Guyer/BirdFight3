@@ -338,6 +338,7 @@ public class Bird {
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
                                  VisualBeakAxis turkeyNeck,
+                                 double turkeyWingOpenness,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -512,6 +513,7 @@ public class Bird {
     private VisualFeatureCircle lastVisualEye;
     private VisualBeakAxis lastVisualBeak;
     private VisualBeakAxis lastVisualTurkeyNeck;
+    private double lastVisualTurkeyWingOpenness;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -11688,6 +11690,13 @@ public class Bird {
         vy = verticalVelocity;
     }
 
+    /** Positions Turkey at a specific deterministic frame of Panic Flap for animation audits. */
+    void prepareVisualAuditTurkeyPanicFlap(int remainingFrames) {
+        prepareVisualAuditPose(VisualAuditPose.FLAP);
+        turkeyPanicFlapTimer = Math.clamp(remainingFrames, 1, TURKEY_PANIC_FLAP_FRAMES);
+        attackAnimationTimer = turkeyPanicFlapTimer;
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -21700,6 +21709,7 @@ public class Bird {
                 lastVisualEye,
                 lastVisualBeak,
                 lastVisualTurkeyNeck,
+                lastVisualTurkeyWingOpenness,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21709,6 +21719,7 @@ public class Bird {
         lastVisualEye = null;
         lastVisualBeak = null;
         lastVisualTurkeyNeck = null;
+        lastVisualTurkeyWingOpenness = 0.0;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -23042,22 +23053,33 @@ public class Bird {
             double phase = turkeySpecialPhase(turkeyPanicFlapTimer,
                     turkeyPanicFlapUltimate ? TURKEY_PANIC_FLAP_FRAMES + 7 : TURKEY_PANIC_FLAP_FRAMES);
             double pulse = 0.5 + 0.5 * Math.sin(turkeyPanicFlapTimer * 0.52);
+            double wingOpen = turkeyWingOpenness(currentBirdAnimationState());
             Color feather = (turkeyPanicFlapUltimate ? Color.GOLD : Color.web("#F5F5F5"))
-                    .deriveColor(0, 1, 1, 0.48 + 0.24 * pulse);
+                    .deriveColor(0, 1, 1, (0.48 + 0.24 * pulse) * wingOpen);
             g.setStroke(feather);
             g.setLineWidth((3.0 + pulse * 1.6) * s);
             for (int side = -1; side <= 1; side += 2) {
                 double wingX = centerX + side * 14.0 * s;
-                double arcX = wingX + side * (phase * 10.0 - 76.0) * s;
-                g.strokeArc(arcX, centerY - (54.0 + phase * 16.0) * s,
-                        84.0 * s, 136.0 * s,
+                double fullArcX = wingX + side * (phase * 10.0 - 76.0) * s;
+                double fullArcY = centerY - (54.0 + phase * 16.0) * s;
+                double arcWidth = Math.max(1.0, 84.0 * wingOpen) * s;
+                double arcHeight = Math.max(1.0, 136.0 * wingOpen) * s;
+                double arcCenterX = fullArcX + 42.0 * s;
+                double arcCenterY = fullArcY + 68.0 * s;
+                g.strokeArc(arcCenterX - arcWidth * 0.5,
+                        arcCenterY - arcHeight * 0.5,
+                        arcWidth, arcHeight,
                         side < 0 ? 238 : 210,
                         side < 0 ? 102 : -102,
                         ArcType.OPEN);
                 for (int i = 0; i < 4; i++) {
-                    double featherY = centerY - (38.0 - i * 18.0 + phase * 18.0) * s;
-                    g.strokeLine(wingX + side * (18.0 + i * 9.0) * s, featherY,
-                            wingX + side * (62.0 + i * 12.0) * s, featherY + (28.0 + i * 5.0) * s);
+                    double openY = centerY - (38.0 - i * 18.0 + phase * 18.0) * s;
+                    double featherY = centerY + (openY - centerY) * wingOpen;
+                    g.strokeLine(
+                            wingX + side * (4.0 + (14.0 + i * 9.0) * wingOpen) * s,
+                            featherY,
+                            wingX + side * (8.0 + (54.0 + i * 12.0) * wingOpen) * s,
+                            featherY + (28.0 + i * 5.0) * wingOpen * s);
                 }
             }
             g.setStroke((turkeyPanicFlapUltimate ? Color.web("#FFF59D") : Color.web("#D7CCC8"))
@@ -29276,6 +29298,18 @@ public class Bird {
             recordVisualBodyPart(VisualBodyPart.TURKEY_TAIL_FEATHER);
         }
 
+        double wingOpenness = turkeyWingOpenness(state);
+        if (turkeyWingsExtended(state) && wingOpenness > 0.04) {
+            Color wing = (classicPalette ? game.classicSkinPrimaryColor(type).darker() : bodyColor.darker())
+                    .deriveColor(0, 0.92, 0.78, 0.78);
+            Color featherLine = (classicPalette ? game.classicSkinAccentColor(type) : Color.web("#4A2418"))
+                    .deriveColor(0, 0.88, 0.72, 0.58);
+            double farShoulderX = x + (facingRight ? 48.0 : 32.0) * s;
+            drawTurkeyArticulatedWing(g, farShoulderX, y + 39.0 * s,
+                    dir, wingOpenness, wing, featherLine, true);
+            recordVisualBodyPart(VisualBodyPart.TURKEY_WING);
+        }
+
         Color bareNeck = classicPalette ? game.classicSkinAccentColor(type).darker() : headColor.darker();
         double shoulderX = x + (facingRight ? 50.0 : 30.0) * s;
         double shoulderY = y + 42.0 * s;
@@ -29324,27 +29358,10 @@ public class Bird {
         g.fillOval(x + 19.0 * s, y + 36.0 * s, 42.0 * s, 31.0 * s);
         double shoulderX = x + (facingRight ? 32.0 : 48.0) * s;
         double shoulderY = y + 38.0 * s;
-        if (state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL) {
-            double beat = Math.sin((animationGlobalFrame + playerIndex * 17.0) * 0.42);
-            for (int i = 0; i < 3; i++) {
-                double tipX = shoulderX + rear * (23.0 + i * 8.0) * s;
-                double tipY = y - (10.0 + i * 8.0 + beat * 5.0) * s;
-                g.setFill(wing.deriveColor(i * 3.0, 1.0, 0.88 + i * 0.05, 0.88));
-                g.fillPolygon(
-                        new double[]{shoulderX + dir * (7.0 - i) * s,
-                                tipX + dir * 5.0 * s,
-                                tipX + rear * 5.0 * s,
-                                shoulderX + rear * (5.0 + i * 2.0) * s},
-                        new double[]{shoulderY + (5.0 + i * 2.0) * s,
-                                tipY + 6.0 * s,
-                                tipY - 5.0 * s,
-                                shoulderY - (3.0 + i * 2.0) * s},
-                        4
-                );
-                g.setStroke(featherLine);
-                g.setLineWidth((1.25 - i * 0.15) * s);
-                g.strokeLine(shoulderX, shoulderY, tipX, tipY);
-            }
+        double wingOpenness = turkeyWingOpenness(state);
+        if (turkeyWingsExtended(state)) {
+            drawTurkeyArticulatedWing(g, shoulderX, shoulderY,
+                    rear, wingOpenness, wing, featherLine, false);
         } else {
             double wingX = x + (facingRight ? 11.0 : 33.0) * s;
             double droop = state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO ? 7.0 : 0.0;
@@ -29362,6 +29379,9 @@ public class Bird {
                         116.0,
                         ArcType.OPEN);
             }
+        }
+        if (visualAuditBodyOnly) {
+            lastVisualTurkeyWingOpenness = wingOpenness;
         }
         recordVisualBodyPart(VisualBodyPart.TURKEY_WING);
 
@@ -29425,6 +29445,96 @@ public class Bird {
             }
             recordVisualBodyPart(VisualBodyPart.TURKEY_LEG);
         }
+    }
+
+    private boolean turkeyWingsExtended(BirdAnimationState state) {
+        return turkeyPanicFlapTimer > 0
+                || state == BirdAnimationState.FLAP
+                || state == BirdAnimationState.FALL;
+    }
+
+    /** Returns a 0..1 authored wing pose: folded, opening, spread, then closing. */
+    private double turkeyWingOpenness(BirdAnimationState state) {
+        if (turkeyPanicFlapTimer > 0) {
+            int totalFrames = turkeyPanicFlapUltimate
+                    ? TURKEY_PANIC_FLAP_FRAMES + 7
+                    : TURKEY_PANIC_FLAP_FRAMES;
+            double elapsed = Math.max(0.0, totalFrames - turkeyPanicFlapTimer);
+            double openEnvelope = smoothStep(Math.clamp(elapsed / 4.0, 0.0, 1.0));
+            double closeEnvelope = smoothStep(Math.clamp(turkeyPanicFlapTimer / 5.0, 0.0, 1.0));
+            double flapStroke = 0.42 + 0.58
+                    * (0.5 + 0.5 * Math.cos((elapsed - 4.0) * Math.PI * 0.25));
+            return Math.clamp(openEnvelope * closeEnvelope * flapStroke, 0.0, 1.0);
+        }
+        if (state == BirdAnimationState.FLAP) {
+            double phase = positiveModulo(animationGlobalFrame + playerIndex * 2.5, 18.0) / 18.0;
+            return smoothStep(0.5 + 0.5 * Math.cos(phase * Math.PI * 2.0));
+        }
+        if (state == BirdAnimationState.FALL) {
+            double glide = 0.5 + 0.5
+                    * Math.cos((animationGlobalFrame + playerIndex * 3.0) * Math.PI / 24.0);
+            return 0.58 + glide * 0.24;
+        }
+        return 0.0;
+    }
+
+    /** Draws one rounded, layered wing and interpolates every feather between folded and spread poses. */
+    private void drawTurkeyArticulatedWing(GraphicsContext g,
+                                            double shoulderX,
+                                            double shoulderY,
+                                            double side,
+                                            double openness,
+                                            Color wing,
+                                            Color featherLine,
+                                            boolean farSide) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double layerAlpha = farSide ? 0.72 : 0.94;
+
+        for (int i = 3; i >= 0; i--) {
+            double rootX = shoulderX + side * (1.5 + i * 1.3) * s;
+            double rootY = shoulderY + (4.0 + i * 1.7) * s;
+            double foldedTipX = shoulderX + side * (14.0 + i * 2.4) * s;
+            double foldedTipY = shoulderY + (21.0 + i * 5.0) * s;
+            // A broad lateral fan: the primaries must separate vertically as
+            // they lengthen, or the open wing collapses into one thin spike.
+            double spreadTipX = shoulderX + side * (42.0 + i * 8.0) * s;
+            double spreadTipY = shoulderY + (-20.0 + i * 10.0) * s;
+            double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+            double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+            double dx = tipX - rootX;
+            double dy = tipY - rootY;
+            double length = Math.hypot(dx, dy);
+            double width = (13.0 - i * 1.25 + open * 1.4) * s;
+
+            g.save();
+            g.translate(rootX, rootY);
+            g.rotate(Math.toDegrees(Math.atan2(dy, dx)));
+            g.setFill(wing.deriveColor(i * 3.0, 1.0, 0.88 + i * 0.035, layerAlpha));
+            g.fillOval(0.0, -width * 0.5, length, width);
+            g.setStroke(featherLine.deriveColor(0, 1.0, 1.0, farSide ? 0.48 : 0.72));
+            g.setLineWidth((0.85 + (3 - i) * 0.08) * s);
+            g.strokeOval(0.0, -width * 0.5, length, width);
+            g.strokeLine(3.0 * s, 0.0, length * 0.88, 0.0);
+            g.restore();
+        }
+
+        double coverW = (20.0 + open * 8.0) * s;
+        double coverH = (18.0 + open * 5.0) * s;
+        g.setFill(wing.brighter().deriveColor(0, 0.92, 0.98, farSide ? 0.60 : 0.86));
+        g.fillOval(shoulderX - coverW * 0.5,
+                shoulderY - coverH * 0.35,
+                coverW,
+                coverH);
+        g.setStroke(featherLine.deriveColor(0, 1.0, 1.0, farSide ? 0.40 : 0.66));
+        g.setLineWidth(1.1 * s);
+        g.strokeArc(shoulderX - coverW * 0.45,
+                shoulderY - coverH * 0.20,
+                coverW * 0.90,
+                coverH * 0.78,
+                198.0,
+                128.0,
+                ArcType.OPEN);
     }
 
     /** Adds species detail without replacing Pigeon's original round silhouette or skin palette. */

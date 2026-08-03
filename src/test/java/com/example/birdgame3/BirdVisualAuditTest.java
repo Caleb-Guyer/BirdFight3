@@ -289,8 +289,10 @@ class BirdVisualAuditTest {
                             label + " must draw all seven fan feathers");
                     assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.TURKEY_NECK),
                             label + " must keep its neck connected to its body");
-                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.TURKEY_WING),
-                            label + " must draw its pose-aware wing");
+                    int expectedWings = pose == Bird.VisualAuditPose.FLAP ? 2 : 1;
+                    assertEquals(expectedWings,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.TURKEY_WING),
+                            label + " must draw every visible pose-aware wing");
                     assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.TURKEY_LEG),
                             label + " must visibly draw both legs");
                 }
@@ -345,6 +347,38 @@ class BirdVisualAuditTest {
                             entry.name() + " " + motion + " facing "
                                     + (facingRight ? "right" : "left"));
                 }
+            }
+        }
+    }
+
+    @Test
+    void turkeyPanicFlapOpensBothWingsAndClosesThemBeforeTheMoveEnds() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.TURKEY)
+                .filter(entry -> !"STOCK_PHOTO_TURKEY".equals(entry.key()))
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry folded = game.inspectVisualAuditTurkeyPanicFlapFeatures(
+                        entry, Bird.TURKEY_PANIC_FLAP_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry spread = game.inspectVisualAuditTurkeyPanicFlapFeatures(
+                        entry, Bird.TURKEY_PANIC_FLAP_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry closing = game.inspectVisualAuditTurkeyPanicFlapFeatures(
+                        entry, 1, facingRight);
+                String label = entry.name() + " Panic Flap facing "
+                        + (facingRight ? "right" : "left");
+
+                assertTrue(folded.turkeyWingOpenness() <= 0.01,
+                        label + " must begin with folded wings");
+                assertTrue(spread.turkeyWingOpenness() >= 0.95,
+                        label + " must visibly reach a fully spread pose");
+                assertEquals(2, spread.bodyPartCount(Bird.VisualBodyPart.TURKEY_WING),
+                        label + " must display both body wings during the up special");
+                assertTrue(closing.turkeyWingOpenness() <= 0.15,
+                        label + " must close its wings before Panic Flap ends");
             }
         }
     }

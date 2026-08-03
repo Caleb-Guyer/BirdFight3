@@ -17833,18 +17833,26 @@ public class BirdGame3 {
             VisualAuditSkin skin, double verticalVelocity, boolean facingRight) {
         return drawVisualAuditCombatPose(
                 new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
-                true, facingRight, verticalVelocity);
+                true, facingRight, verticalVelocity, null);
+    }
+
+    Bird.VisualFeatureGeometry inspectVisualAuditTurkeyPanicFlapFeatures(
+            VisualAuditSkin skin, int remainingFrames, boolean facingRight) {
+        return drawVisualAuditCombatPose(
+                new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
+                true, facingRight, null, remainingFrames);
     }
 
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
             boolean bodyOnly, boolean facingRight) {
-        return drawVisualAuditCombatPose(canvas, skin, pose, bodyOnly, facingRight, null);
+        return drawVisualAuditCombatPose(canvas, skin, pose, bodyOnly, facingRight, null, null);
     }
 
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
-            boolean bodyOnly, boolean facingRight, Double verticalVelocity) {
+            boolean bodyOnly, boolean facingRight, Double verticalVelocity,
+            Integer turkeyPanicFlapTimer) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -17871,7 +17879,9 @@ public class BirdGame3 {
                 rosterSpriteMinScale(skin.bird, skin.key),
                 maxScale);
         preview.x = 0.0;
-        if (verticalVelocity == null) {
+        if (turkeyPanicFlapTimer != null) {
+            preview.prepareVisualAuditTurkeyPanicFlap(turkeyPanicFlapTimer);
+        } else if (verticalVelocity == null) {
             preview.prepareVisualAuditPose(pose);
         } else {
             preview.prepareVisualAuditVerticalMotion(verticalVelocity);
