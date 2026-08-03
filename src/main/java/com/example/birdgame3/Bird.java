@@ -290,6 +290,35 @@ public class Bird {
     private record HeadPose(double centerX, double centerY, double aimAngleRadians) {
     }
 
+    record VisualFeatureBounds(double left, double top, double right, double bottom) {
+        boolean contains(VisualFeatureCircle circle, double tolerance) {
+            return circle != null
+                    && circle.centerX() - circle.radius() >= left - tolerance
+                    && circle.centerX() + circle.radius() <= right + tolerance
+                    && circle.centerY() - circle.radius() >= top - tolerance
+                    && circle.centerY() + circle.radius() <= bottom + tolerance;
+        }
+    }
+
+    record VisualFeatureCircle(double centerX, double centerY, double radius) {
+    }
+
+    record VisualBeakAxis(double rootX, double rootY, double tipX, double tipY) {
+        double rootDistanceFrom(VisualFeatureCircle circle) {
+            return circle == null ? 0.0 : Math.hypot(rootX - circle.centerX(), rootY - circle.centerY());
+        }
+
+        double tipDistanceFrom(VisualFeatureCircle circle) {
+            return circle == null ? 0.0 : Math.hypot(tipX - circle.centerX(), tipY - circle.centerY());
+        }
+    }
+
+    record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak) {
+        boolean complete() {
+            return head != null && eye != null && beak != null;
+        }
+    }
+
     private record AIKitProfile(
             double preferredRange,
             double threatRange,
@@ -450,6 +479,9 @@ public class Bird {
     public boolean isVoidHeraldSkin = false;
     public boolean suppressSelectEffects = false;
     private boolean visualAuditBodyOnly = false;
+    private VisualFeatureBounds lastVisualHeadBounds;
+    private VisualFeatureCircle lastVisualEye;
+    private VisualBeakAxis lastVisualBeak;
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
     String appliedSkinKey = null;
     public double loungeX, loungeY;
@@ -21531,6 +21563,7 @@ public class Bird {
     }
 
     public void draw(GraphicsContext g) {
+        resetVisualFeatureProbe();
         double drawSize = 80 * sizeMultiplier;
         boolean airborne = !isOnGround();
         AttackVisualPose attackPose = currentAttackVisualPose();
@@ -21614,12 +21647,27 @@ public class Bird {
     /** Draws only authored body art so visual audits do not mistake transient FX for silhouette clipping. */
     void drawVisualAuditBody(GraphicsContext g) {
         double drawSize = 80 * sizeMultiplier;
+        resetVisualFeatureProbe();
         visualAuditBodyOnly = true;
         try {
             drawCharacterBody(g, drawSize, currentAttackVisualPose());
         } finally {
             visualAuditBodyOnly = false;
         }
+    }
+
+    VisualFeatureGeometry visualFeatureGeometry() {
+        return new VisualFeatureGeometry(lastVisualHeadBounds, lastVisualEye, lastVisualBeak);
+    }
+
+    private void resetVisualFeatureProbe() {
+        lastVisualHeadBounds = null;
+        lastVisualEye = null;
+        lastVisualBeak = null;
+    }
+
+    private void recordVisualBeak(double rootX, double rootY, double tipX, double tipY) {
+        lastVisualBeak = new VisualBeakAxis(rootX, rootY, tipX, tipY);
     }
 
     /**
@@ -27210,6 +27258,7 @@ public class Bird {
         double beakBaseX = headPose.centerX() + dir * 5.0 * s;
         double beakTipX = headPose.centerX() + dir * 32.0 * s;
         double beakY = headPose.centerY() + 5.0 * s;
+        recordVisualBeak(beakBaseX, beakY, beakTipX, beakY);
         boolean beakActive = attackAnimationTimer > 0 || isChargingAttack() || isGroundAttackPending();
         double attackPulse = attackAnimationTimer > 0
                 ? 0.5 + 0.5 * Math.sin(attackAnimationTimer * 0.85)
@@ -27241,13 +27290,8 @@ public class Bird {
         g.strokeLine(beakTipX - dir * 4.0 * s, beakY + s + beakOpen * 0.48,
                 beakTipX - dir * 10.0 * s, beakY + 8.0 * s + beakOpen * 0.34);
 
-        g.setFill(Color.WHITE);
-        g.fillOval(headX + (facingRight ? 0.0 : 40.0) * s, headY, 25.0 * s, 25.0 * s);
-        g.setFill(tide ? Color.web("#004D40") : Color.web("#111111"));
-        g.fillOval(headX + (facingRight ? 5.0 : 45.0) * s, headY + 5.0 * s, 15.0 * s, 15.0 * s);
-        g.setFill(Color.web("#FCE4EC", 0.84));
-        g.fillOval(headX + (facingRight ? 8.0 : 48.0) * s, headY + 6.0 * s, 3.2 * s, 3.2 * s);
-        drawVectorEyeGlint(g, headX + (facingRight ? 5.0 : 45.0) * s, headY + 5.0 * s, s, true);
+        drawStandardVectorEye(g, headPose, headW, headH,
+                tide ? Color.web("#004D40") : Color.web("#111111"), 25.0, 15.0);
         drawVectorBirdStateAccents(g, drawSize, headPose);
     }
 
@@ -28329,6 +28373,35 @@ public class Bird {
         g.restore();
     }
 
+    private void drawStandardVectorEye(GraphicsContext g, HeadPose headPose,
+                                       double headW, double headH, Color eyeColor,
+                                       double eyeDiameterUnits, double pupilDiameterUnits) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double eyeDiameter = eyeDiameterUnits * s;
+        double pupilDiameter = pupilDiameterUnits * s;
+        double eyeCenterX = headPose.centerX() - dir * (headW - eyeDiameter) * 0.5;
+        double eyeCenterY = headPose.centerY() - (headH - eyeDiameter) * 0.5;
+        double eyeX = eyeCenterX - eyeDiameter * 0.5;
+        double eyeY = eyeCenterY - eyeDiameter * 0.5;
+        double pupilX = eyeCenterX - pupilDiameter * 0.5;
+        double pupilY = eyeCenterY - pupilDiameter * 0.5;
+
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headPose.centerX() - headW * 0.5,
+                headPose.centerY() - headH * 0.5,
+                headPose.centerX() + headW * 0.5,
+                headPose.centerY() + headH * 0.5
+        );
+        lastVisualEye = new VisualFeatureCircle(eyeCenterX, eyeCenterY, eyeDiameter * 0.5);
+
+        g.setFill(Color.WHITE);
+        g.fillOval(eyeX, eyeY, eyeDiameter, eyeDiameter);
+        g.setFill(eyeColor);
+        g.fillOval(pupilX, pupilY, pupilDiameter, pupilDiameter);
+        drawVectorEyeGlint(g, pupilX, pupilY, s, true);
+    }
+
     private void drawVectorEyeGlint(GraphicsContext g, double eyeX, double eyeY, double s, boolean large) {
         double glint = large ? 4.2 : 2.4;
         g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.86));
@@ -28995,20 +29068,16 @@ public class Bird {
             g.fillOval(pupilX, eyeY + 4.0 * s, 14.0 * s, 14.0 * s);
             drawVectorEyeGlint(g, pupilX, eyeY + 4.0 * s, s, true);
         } else {
-            g.setFill(Color.WHITE);
-            g.fillOval(headX + (facingRight ? 0 : 40) * s, headY, 25 * s, 25 * s);
             Color eyeColor = classicPalette ? game.classicSkinAccentColor(type) : Color.BLACK;
             if (eyeOverride != null) eyeColor = eyeOverride;
             if (noirPigeon) eyeColor = Color.RED.brighter();
             if (ravenEyes) eyeColor = voidHeraldRaven ? Color.web("#B388FF") : Color.web("#D50000");
-            g.setFill(eyeColor);
-            g.fillOval(headX + (facingRight ? 5 : 45) * s, headY + 5 * s, 15 * s, 15 * s);
-            drawVectorEyeGlint(g, headX + (facingRight ? 5.0 : 45.0) * s,
-                    headY + 5.0 * s, s, true);
+            drawStandardVectorEye(g, headPose, headW, headH, eyeColor, 25.0, 15.0);
         }
         if (stylizedMockingbird) {
-            double eyeCenterX = headX + (facingRight ? 12.5 : 52.5) * s;
-            double eyeCenterY = headY + 12.5 * s;
+            double dir = facingRight ? 1.0 : -1.0;
+            double eyeCenterX = headPose.centerX() - dir * 12.5 * s;
+            double eyeCenterY = headPose.centerY() - 7.5 * s;
             g.setStroke(Color.web("#F5D0C8").deriveColor(0, 1, 1, eclipseMockingbird ? 0.82 : 0.92));
             g.setLineWidth(2.0 * s);
             g.strokeLine(eyeCenterX - 8.0 * s, eyeCenterY - 10.0 * s,
@@ -30398,6 +30467,7 @@ public class Bird {
         double upperTipY = tipBaseY - normalY * openAmount;
         double lowerTipX = tipBaseX + normalX * openAmount * 1.6;
         double lowerTipY = tipBaseY + normalY * openAmount * 1.6;
+        recordVisualBeak(mouthCenterX, mouthCenterY, tipBaseX, tipBaseY);
         double tongueCenterX = tipBaseX - dirX * 12.0 * s + normalX * 2.0 * s;
         double tongueCenterY = tipBaseY - dirY * 12.0 * s + normalY * 2.0 * s;
 
