@@ -28465,12 +28465,6 @@ public class Bird {
         boolean voidHeraldRaven = (type == BirdGame3.BirdType.RAVEN && isVoidHeraldSkin);
         boolean freemanPigeon = (type == BirdGame3.BirdType.PIGEON && isFreemanSkin);
         boolean campaignFactionSkin = isCampaignFactionSkin();
-        boolean regularPigeon = type == BirdGame3.BirdType.PIGEON
-                && !cityPigeon
-                && !noirPigeon
-                && !beaconPigeon
-                && !stormPigeon
-                && !freemanPigeon;
         boolean stylizedEagle = type == BirdGame3.BirdType.EAGLE;
         boolean stylizedFalcon = type == BirdGame3.BirdType.FALCON;
         boolean stylizedHummingbird = type == BirdGame3.BirdType.HUMMINGBIRD;
@@ -28731,12 +28725,18 @@ public class Bird {
             g.strokeArc(wingX + 4.0 * s, y + 34.0 * s, 27.0 * s, 28.0 * s, 202, 132, ArcType.OPEN);
             g.strokeArc(wingX + 8.0 * s, y + 43.0 * s, 20.0 * s, 17.0 * s, 202, 132, ArcType.OPEN);
         }
+        if (type == BirdGame3.BirdType.PIGEON) {
+            drawPigeonTailUnderlay(g, bodyColor);
+        }
 
         g.setFill(bodyColor);
         g.fillOval(x, y, drawSize, drawSize);
         g.setFill(headColor);
         g.fillOval(headX, headY, headW, headH);
         drawVectorBodyLighting(g, drawSize, bodyColor, headColor, headPose);
+        if (type == BirdGame3.BirdType.PIGEON) {
+            drawPigeonFeatherPolish(g, bodyColor, headColor, headPose);
+        }
         if (stylizedEagle) {
             g.setFill(Color.web("#F5F1DD").deriveColor(0, 1, 1, isClassicSkin ? 0.34 : 0.42));
             g.fillOval(headX + 7.0 * s, headY + s, 36.0 * s, 26.0 * s);
@@ -28828,18 +28828,6 @@ public class Bird {
             g.strokeLine(x + 24.0 * s, y + 52.0 * s, x + 56.0 * s, y + 44.0 * s);
             g.setFill(mask);
             g.fillOval(headX + (facingRight ? 2.0 : 34.0) * s, headY + 6.0 * s, 21.0 * s, 19.0 * s);
-        }
-        if (regularPigeon) {
-            g.setFill(Color.web("#78909C").deriveColor(0, 1, 1, 0.18));
-            g.fillOval(x + 22.0 * s, y + 38.0 * s, 36.0 * s, 22.0 * s);
-            g.setStroke(Color.web("#607D8B").deriveColor(0, 1, 1, 0.38));
-            g.setLineWidth(1.35 * s);
-            g.strokeArc(x + 20.0 * s, y + 34.0 * s, 40.0 * s, 30.0 * s,
-                    facingRight ? 204 : -24, 110, ArcType.OPEN);
-            g.setFill(Color.web("#26A69A").deriveColor(0, 1, 1, 0.16));
-            g.fillOval(headX + (facingRight ? 20.0 : 12.0) * s, headY + 25.0 * s, 18.0 * s, 10.0 * s);
-            g.setFill(Color.web("#7E57C2").deriveColor(0, 1, 1, 0.10));
-            g.fillOval(headX + (facingRight ? 13.0 : 19.0) * s, headY + 27.0 * s, 16.0 * s, 8.0 * s);
         }
         if (stylizedPelican) {
             Color breast = ironcladPelican ? Color.web("#D7CCC8") : Color.web("#FFF8E8");
@@ -29088,6 +29076,107 @@ public class Bird {
                     eyeCenterX + 4.0 * s, eyeCenterY + 6.5 * s);
         }
         drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    /** Adds species detail without replacing Pigeon's original round silhouette or skin palette. */
+    private void drawPigeonTailUnderlay(GraphicsContext g, Color bodyColor) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? -1.0 : 1.0;
+        double rootX = x + (facingRight ? 13.0 : 67.0) * s;
+        Color tail = bodyColor.darker().deriveColor(0, 0.82, 0.92, 0.88);
+        Color tailLight = bodyColor.brighter().deriveColor(0, 0.64, 1.03, 0.64);
+
+        g.setFill(tail);
+        g.fillPolygon(
+                new double[]{rootX, rootX + dir * 27.0 * s, rootX + dir * 20.0 * s, rootX + dir * 2.0 * s},
+                new double[]{y + 44.0 * s, y + 39.0 * s, y + 51.0 * s, y + 57.0 * s},
+                4
+        );
+        g.setFill(tailLight);
+        g.fillPolygon(
+                new double[]{rootX, rootX + dir * 23.0 * s, rootX + dir * 16.0 * s, rootX + dir * 3.0 * s},
+                new double[]{y + 50.0 * s, y + 54.0 * s, y + 62.0 * s, y + 58.0 * s},
+                4
+        );
+        g.setStroke(bodyColor.darker().deriveColor(0, 0.75, 0.80, 0.42));
+        g.setLineWidth(1.0 * s);
+        g.strokeLine(rootX + dir * 5.0 * s, y + 49.0 * s,
+                rootX + dir * 21.0 * s, y + 44.0 * s);
+    }
+
+    private void drawPigeonFeatherPolish(GraphicsContext g, Color bodyColor,
+                                         Color headColor, HeadPose headPose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double wingX = x + (facingRight ? 15.0 : 31.0) * s;
+        Color wing = bodyColor.darker().deriveColor(0, 0.78, 0.92, 0.22);
+        Color featherLine = bodyColor.darker().deriveColor(0, 0.72, 0.82, 0.46);
+
+        g.setFill(wing);
+        g.fillOval(wingX, y + 35.0 * s, 35.0 * s, 29.0 * s);
+        g.setStroke(featherLine);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.35 * s);
+        g.strokeArc(wingX + 1.0 * s, y + 34.0 * s, 36.0 * s, 31.0 * s,
+                facingRight ? 201 : -21, 112, ArcType.OPEN);
+        g.setLineWidth(1.05 * s);
+        for (int i = 0; i < 2; i++) {
+            double featherY = y + (47.0 + i * 7.0) * s;
+            g.strokeLine(wingX + (6.0 + i * 2.0) * s, featherY,
+                    wingX + (29.0 - i * 3.0) * s, featherY - (4.0 - i) * s);
+        }
+
+        Color neckA;
+        Color neckB;
+        if (isCampaignFactionSkin()) {
+            neckA = campaignFactionAccentColor();
+            neckB = campaignFactionSecondaryColor().brighter();
+        } else if (isCitySkin) {
+            neckA = Color.web("#2E8B78");
+            neckB = Color.web("#8E5AA6");
+        } else if (isNoirSkin) {
+            neckA = Color.web("#8A2942");
+            neckB = Color.web("#55306F");
+        } else if (isBeaconSkin) {
+            neckA = Color.web("#4FC3F7");
+            neckB = Color.web("#FFD54F");
+        } else if (isStormSkin) {
+            neckA = Color.web("#81D4FA");
+            neckB = Color.web("#7E57C2");
+        } else {
+            neckA = Color.web("#26A69A");
+            neckB = Color.web("#7E57C2");
+        }
+        double headX = headPose.centerX() - 25.0 * s;
+        double headY = headPose.centerY() - 20.0 * s;
+        g.setFill(neckA.deriveColor(0, 1, 1, 0.18));
+        g.fillOval(headX + (facingRight ? 18.0 : 10.0) * s,
+                headY + 25.0 * s, 20.0 * s, 10.0 * s);
+        g.setFill(neckB.deriveColor(0, 1, 1, 0.13));
+        g.fillOval(headX + (facingRight ? 11.0 : 19.0) * s,
+                headY + 28.0 * s, 17.0 * s, 7.0 * s);
+
+        BirdAnimationState state = currentBirdAnimationState();
+        if (state == BirdAnimationState.IDLE || state == BirdAnimationState.ATTACK
+                || state == BirdAnimationState.SHIELD) {
+            Color foot = isBeaconSkin ? Color.web("#D39A36")
+                    : isNoirSkin ? Color.web("#7A343E")
+                    : Color.web("#B66A70");
+            g.setStroke(foot.deriveColor(0, 1, 1, 0.82));
+            g.setLineWidth(1.7 * s);
+            for (int i = 0; i < 2; i++) {
+                double footX = x + (29.0 + i * 20.0) * s;
+                g.strokeLine(footX, y + 72.0 * s, footX - dir * 1.5 * s, y + 79.0 * s);
+                g.setLineWidth(1.0 * s);
+                g.strokeLine(footX - dir * 1.5 * s, y + 79.0 * s,
+                        footX + dir * 5.0 * s, y + 80.0 * s);
+                g.setLineWidth(1.7 * s);
+            }
+        }
+
+        g.setFill(headColor.brighter().deriveColor(0, 0.55, 1.08, 0.10));
+        g.fillOval(headX + (facingRight ? 9.0 : 18.0) * s,
+                headY + 5.0 * s, 23.0 * s, 10.0 * s);
     }
 
     private void drawRavenBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -30019,12 +30108,12 @@ public class Bird {
             g.fillRect(x + 10 * s, y - 5 * s, 60 * s, 8 * s);
 
             g.setFill(Color.WHITE);
-            g.fillRect(headX + (facingRight ? 35 : 5) * s, headY + 25 * s, 20 * s, 4 * s);
+            g.fillRect(headX + (facingRight ? 35 : -5) * s, headY + 25 * s, 20 * s, 4 * s);
             g.setFill(Color.ORANGE.brighter());
-            g.fillRect(headX + (facingRight ? 55 : -15) * s, headY + 25 * s, 8 * s, 4 * s);
+            g.fillRect(headX + (facingRight ? 55 : -13) * s, headY + 25 * s, 8 * s, 4 * s);
 
             if (Math.random() < 0.7) {
-                double smokeX = headX + (facingRight ? 60 : 0) * s;
+                double smokeX = headX + (facingRight ? 60 : -10) * s;
                 double smokeY = headY + (20 + Math.random() * 12) * s;
                 game.particles.add(new Particle(
                         smokeX,
@@ -30054,7 +30143,7 @@ public class Bird {
             g.strokeLine(x + 22 * s, y + 58 * s, x + 58 * s, y + 70 * s);
 
             if (Math.random() < 0.45) {
-                double smokeX = headX + (facingRight ? 48 : 10) * s;
+                double smokeX = headX + (facingRight ? 48 : 2) * s;
                 double smokeY = headY + (22 + Math.random() * 10) * s;
                 game.particles.add(new Particle(
                         smokeX,
@@ -30079,17 +30168,17 @@ public class Bird {
             g.setFill(Color.web("#4E342E"));
             g.fillRect(x + 12 * s, y - 2 * s, 56 * s, 6 * s);
 
-            double eyeX = headX + (facingRight ? 0 : 40) * s;
+            double eyeX = headX + (facingRight ? 0 : 25) * s;
             g.setFill(Color.web("#4E342E").deriveColor(0, 1, 1, 0.55));
             g.fillOval(eyeX, headY - 1 * s, 25 * s, 14 * s);
 
             g.setFill(Color.web("#ECEFF1"));
-            g.fillRect(headX + (facingRight ? 35 : 5) * s, headY + 25 * s, 20 * s, 4 * s);
+            g.fillRect(headX + (facingRight ? 35 : -5) * s, headY + 25 * s, 20 * s, 4 * s);
             g.setFill(Color.web("#FF8F00"));
-            g.fillRect(headX + (facingRight ? 55 : -15) * s, headY + 25 * s, 8 * s, 4 * s);
+            g.fillRect(headX + (facingRight ? 55 : -13) * s, headY + 25 * s, 8 * s, 4 * s);
 
             if (Math.random() < 0.6) {
-                double smokeX = headX + (facingRight ? 60 : 0) * s;
+                double smokeX = headX + (facingRight ? 60 : -10) * s;
                 double smokeY = headY + (20 + Math.random() * 12) * s;
                 game.particles.add(new Particle(
                         smokeX,
