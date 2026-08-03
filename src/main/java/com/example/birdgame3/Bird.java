@@ -261,7 +261,6 @@ public class Bird {
         RAVEN,
         HUMMINGBIRD,
         RAZORBILL,
-        EAGLE,
         FALCON,
         ROADRUNNER,
         PELICAN,
@@ -335,9 +334,6 @@ public class Bird {
     private static final BirdVisualProfile RAZORBILL_VISUAL_PROFILE =
             new BirdVisualProfile(1.20, 0.98, 1.06, 1.18, 1.14, 1.20, 0.96, 0.92, 0.94,
                     BirdVisualProfileStyle.RAZORBILL);
-    private static final BirdVisualProfile EAGLE_VISUAL_PROFILE =
-            new BirdVisualProfile(0.94, 1.18, 0.78, 0.92, 1.12, 1.16, 1.14, 1.04, 1.10,
-                    BirdVisualProfileStyle.EAGLE);
     private static final BirdVisualProfile BAT_VISUAL_PROFILE =
             new BirdVisualProfile(1.26, 0.82, 1.18, 1.26, 1.30, 1.28, 0.90, 0.80, 0.78,
                     BirdVisualProfileStyle.BAT);
@@ -18467,7 +18463,6 @@ public class Bird {
             case HUMMINGBIRD -> HUMMINGBIRD_VISUAL_PROFILE;
             case ROADRUNNER -> ROADRUNNER_VISUAL_PROFILE;
             case RAZORBILL -> RAZORBILL_VISUAL_PROFILE;
-            case EAGLE -> EAGLE_VISUAL_PROFILE;
             case FALCON -> FALCON_VISUAL_PROFILE;
             case BAT -> BAT_VISUAL_PROFILE;
             case RAVEN -> RAVEN_VISUAL_PROFILE;
@@ -18519,9 +18514,6 @@ public class Bird {
         }
         if (profile.style() == BirdVisualProfileStyle.RAVEN) {
             return currentRavenStatePose(state, profile);
-        }
-        if (profile.style() == BirdVisualProfileStyle.EAGLE) {
-            return currentFalconStatePose(state, profile);
         }
         if (profile.style() == BirdVisualProfileStyle.FALCON) {
             return currentFalconStatePose(state, profile);
@@ -24087,77 +24079,8 @@ public class Bird {
                     sy + Math.sin(angle) * ray
             );
         }
-        drawSignatureUltimateReadyMark(g, cx, cy - outer * 0.78, s, pulse);
         g.setEffect(null);
         g.restore();
-    }
-
-    /** A small species mark makes a full ultimate readable even when the HUD is outside the player's focus. */
-    private void drawSignatureUltimateReadyMark(GraphicsContext g, double cx, double cy,
-                                                double s, double pulse) {
-        Color gold = Color.web("#FFD54F").deriveColor(0, 1, 1, 0.82 + pulse * 0.16);
-        Color pale = Color.web("#FFFDE7").deriveColor(0, 1, 1, 0.88);
-        g.setLineCap(StrokeLineCap.ROUND);
-        switch (type) {
-            case PIGEON -> {
-                g.setStroke(gold);
-                g.setLineWidth(3.0 * s);
-                for (int i = 0; i < 3; i++) {
-                    double spread = (8.0 + i * 5.0) * s;
-                    double drop = i * 4.0 * s;
-                    g.strokeLine(cx, cy + drop, cx - spread, cy - (7.0 + i * 2.0) * s);
-                    g.strokeLine(cx, cy + drop, cx + spread, cy - (7.0 + i * 2.0) * s);
-                }
-            }
-            case EAGLE -> {
-                g.setFill(gold);
-                g.fillPolygon(
-                        new double[]{cx - 17.0 * s, cx - 10.0 * s, cx, cx + 10.0 * s, cx + 17.0 * s,
-                                cx + 14.0 * s, cx - 14.0 * s},
-                        new double[]{cy + 8.0 * s, cy - 7.0 * s, cy + 2.0 * s, cy - 7.0 * s,
-                                cy + 8.0 * s, cy + 13.0 * s, cy + 13.0 * s},
-                        7
-                );
-                g.setStroke(pale);
-                g.setLineWidth(1.4 * s);
-                g.strokeLine(cx - 13.0 * s, cy + 8.0 * s, cx + 13.0 * s, cy + 8.0 * s);
-            }
-            case ROADRUNNER -> {
-                g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.86 + pulse * 0.12));
-                for (int i = 0; i < 3; i++) {
-                    g.setLineWidth((4.0 - i * 0.8) * s);
-                    g.strokeLine(cx - (20.0 - i * 3.0) * s, cy + (i - 1) * 7.0 * s,
-                            cx + (20.0 + i * 3.0) * s, cy + (i - 1) * 7.0 * s);
-                }
-                g.setStroke(pale);
-                g.setLineWidth(1.5 * s);
-                g.strokeLine(cx + 10.0 * s, cy - 13.0 * s, cx + 23.0 * s, cy);
-                g.strokeLine(cx + 23.0 * s, cy, cx + 10.0 * s, cy + 13.0 * s);
-            }
-            case MOCKINGBIRD -> {
-                g.setFill(Color.web("#CE93D8").deriveColor(0, 1, 1, 0.80 + pulse * 0.14));
-                g.fillPolygon(
-                        new double[]{cx, cx + 15.0 * s, cx, cx - 15.0 * s},
-                        new double[]{cy - 16.0 * s, cy, cy + 16.0 * s, cy},
-                        4
-                );
-                g.setStroke(pale);
-                g.setLineWidth(2.0 * s);
-                g.strokeArc(cx - 8.0 * s, cy - 6.0 * s, 16.0 * s, 12.0 * s, 198, 144, ArcType.OPEN);
-                g.strokeLine(cx - 5.0 * s, cy + 6.0 * s, cx + 5.0 * s, cy - 6.0 * s);
-            }
-            case VULTURE -> {
-                g.setStroke(Color.web("#D7D1C2").deriveColor(0, 1, 1, 0.88));
-                g.setLineWidth(4.0 * s);
-                g.strokeLine(cx - 15.0 * s, cy - 13.0 * s, cx, cy + 13.0 * s);
-                g.strokeLine(cx + 15.0 * s, cy - 13.0 * s, cx, cy + 13.0 * s);
-                g.setStroke(Color.web("#B94742").deriveColor(0, 1, 1, 0.84));
-                g.setLineWidth(1.7 * s);
-                g.strokeLine(cx, cy - 9.0 * s, cx, cy + 10.0 * s);
-            }
-            default -> {
-            }
-        }
     }
 
     private void drawUltimateFx(GraphicsContext g, double drawSize) {
@@ -27249,23 +27172,10 @@ public class Bird {
                 double y0 = y + (38.0 + i * 13.0) * s;
                 g.strokeLine(rootX, y0, rootX + sideDir * (19.0 + i * 6.0) * wingSpread * s, y0 + (7.0 + i * 3.0) * s);
             }
-            g.setFill(wing.darker().deriveColor(0, 1, 0.86, 0.96));
-            for (int i = 0; i < 4; i++) {
-                double rootY = y + (35.0 + i * 12.0) * s;
-                double featherLength = (27.0 + i * 7.0) * wingSpread * s;
-                g.fillPolygon(
-                        new double[]{rootX, rootX + sideDir * featherLength,
-                                rootX + sideDir * (13.0 + i * 3.0) * wingSpread * s},
-                        new double[]{rootY, rootY + (8.0 + i * 4.0) * s, rootY + 13.0 * s},
-                        3
-                );
-            }
         }
 
         g.setFill(body);
-        g.fillOval(x + 7.0 * s, y + 6.0 * s, drawSize - 14.0 * s, drawSize - 7.0 * s);
-        g.setFill(body.brighter().deriveColor(0, 0.62, 1.06, 0.16));
-        g.fillOval(x + (facingRight ? 31.0 : 14.0) * s, y + 17.0 * s, 35.0 * s, 28.0 * s);
+        g.fillOval(x, y, drawSize, drawSize);
         g.setFill(wingInner);
         g.fillOval(x + 18.0 * s, y + 34.0 * s, 44.0 * s, 26.0 * s);
         g.setStroke(featherLine.deriveColor(0, 1, 1, 0.68));
@@ -27275,31 +27185,9 @@ public class Bird {
         drawVultureCrowTicks(g, drawSize);
 
         g.setFill(ruff);
-        for (int i = 0; i < 6; i++) {
-            double ruffX = x + (15.0 + i * 9.0) * s;
-            g.fillPolygon(
-                    new double[]{ruffX, ruffX + 7.0 * s, ruffX + 12.0 * s},
-                    new double[]{y + 25.0 * s, y + 51.0 * s, y + 27.0 * s},
-                    3
-            );
-        }
-        g.fillOval(x + 18.0 * s, y + 23.0 * s, 44.0 * s, 25.0 * s);
+        g.fillOval(x + 18.0 * s, y + 23.0 * s, 44.0 * s, 33.0 * s);
         g.setFill(body.darker().deriveColor(0, 1, 1, 0.40));
         g.fillOval(x + 23.0 * s, y + 29.0 * s, 34.0 * s, 20.0 * s);
-
-        g.setStroke(tide ? Color.web("#D7FFF8") : Color.web("#BCA76B"));
-        g.setLineCap(StrokeLineCap.ROUND);
-        g.setLineWidth(2.8 * s);
-        for (int i = 0; i < 2; i++) {
-            double footX = x + (29.0 + i * 22.0) * s;
-            g.strokeLine(footX, y + 68.0 * s, footX - dir * 2.0 * s, y + 80.0 * s);
-            g.setLineWidth(1.5 * s);
-            g.strokeLine(footX - dir * 2.0 * s, y + 80.0 * s,
-                    footX + dir * 7.0 * s, y + 82.0 * s);
-            g.strokeLine(footX - dir * 2.0 * s, y + 80.0 * s,
-                    footX - dir * 7.0 * s, y + 82.0 * s);
-            g.setLineWidth(2.8 * s);
-        }
 
         double headW = 50.0 * s;
         double headH = 40.0 * s;
@@ -27309,12 +27197,7 @@ public class Bird {
         g.fillOval(headX, headY, headW, headH);
         g.setFill((tide ? Color.web("#B2DFDB") : Color.web("#F2A09B")).deriveColor(0, 1, 1, 0.34));
         g.fillOval(headX + 8.0 * s, headY + 5.0 * s, 31.0 * s, 18.0 * s);
-        g.setStroke(body.darker().deriveColor(0, 1, 0.82, 0.44));
-        g.setLineWidth(2.0 * s);
-        g.strokeOval(x + 8.0 * s, y + 7.0 * s, drawSize - 16.0 * s, drawSize - 9.0 * s);
-        g.setStroke(head.darker().deriveColor(0, 1, 0.86, 0.42));
-        g.setLineWidth(1.6 * s);
-        g.strokeOval(headX + s, headY + s, headW - 2.0 * s, headH - 2.0 * s);
+        drawVectorBodyLighting(g, drawSize, body, head, headPose);
 
         double crestBaseX = headX + (facingRight ? 16.0 : 34.0) * s;
         g.setFill(head.darker().deriveColor(0, 1, 1, 0.70));
@@ -28478,22 +28361,6 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE) {
             return;
         }
-        if (type == BirdGame3.BirdType.PIGEON) {
-            drawSignaturePigeonBody(g, drawSize, pose);
-            return;
-        }
-        if (type == BirdGame3.BirdType.EAGLE) {
-            drawSignatureEagleBody(g, drawSize, pose);
-            return;
-        }
-        if (type == BirdGame3.BirdType.ROADRUNNER) {
-            drawSignatureRoadrunnerBody(g, drawSize, pose);
-            return;
-        }
-        if (type == BirdGame3.BirdType.MOCKINGBIRD) {
-            drawSignatureCharlesBody(g, drawSize, pose);
-            return;
-        }
 
         double s = sizeMultiplier;
         HeadPose headPose = standardHeadPose(pose);
@@ -29152,414 +29019,6 @@ public class Bird {
                     eyeCenterX + 4.0 * s, eyeCenterY + 6.5 * s);
         }
         drawVectorBirdStateAccents(g, drawSize, headPose);
-    }
-
-    /**
-     * Pigeon keeps the roster's friendly proportions, but the tapered body, layered
-     * wing, tail fan, iridescent neck and little feet stop it reading as a recolored ball.
-     */
-    private void drawSignaturePigeonBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
-        double s = sizeMultiplier;
-        double dir = facingRight ? 1.0 : -1.0;
-        HeadPose headPose = standardHeadPose(pose);
-        double headW = 48.0 * s;
-        double headH = 39.0 * s;
-        double headX = headPose.centerX() - headW / 2.0;
-        double headY = headPose.centerY() - headH / 2.0;
-
-        Color body;
-        Color head;
-        Color wing;
-        Color eye;
-        Color neckA;
-        Color neckB;
-        if (isCampaignFactionSkin()) {
-            body = campaignFactionPrimaryColor();
-            head = campaignFactionSecondaryColor();
-            wing = body.darker();
-            eye = campaignFactionAccentColor().darker();
-            neckA = campaignFactionAccentColor();
-            neckB = campaignFactionSecondaryColor().brighter();
-        } else if (isCitySkin) {
-            body = Color.web("#9A651F");
-            head = Color.web("#E0B653");
-            wing = Color.web("#6F4316");
-            eye = Color.web("#2B2118");
-            neckA = Color.web("#26A69A");
-            neckB = Color.web("#7E57C2");
-        } else if (isStormSkin) {
-            body = Color.web("#455A64");
-            head = Color.web("#607D8B");
-            wing = Color.web("#263238");
-            eye = Color.web("#B3E5FC");
-            neckA = Color.web("#29B6F6");
-            neckB = Color.web("#7E57C2");
-        } else if (isBeaconSkin) {
-            body = Color.web("#FFE082");
-            head = Color.web("#FFF8E1");
-            wing = Color.web("#D6A92B");
-            eye = Color.web("#1E88E5");
-            neckA = Color.web("#4FC3F7");
-            neckB = Color.web("#FFF176");
-        } else if (isNoirSkin) {
-            body = Color.web("#121212");
-            head = Color.web("#2A2A2A");
-            wing = Color.web("#050505");
-            eye = Color.web("#FF5252");
-            neckA = Color.web("#7A1C28");
-            neckB = Color.web("#4A235A");
-        } else if (isFreemanSkin) {
-            body = Color.web("#737373");
-            head = Color.web("#A0A0A0");
-            wing = Color.web("#4F4F4F");
-            eye = Color.web("#5D4037");
-            neckA = Color.web("#4DB6AC");
-            neckB = Color.web("#7E57C2");
-        } else {
-            body = Color.web("#667A86");
-            head = Color.web("#9AAAB2");
-            wing = Color.web("#4A5C67");
-            eye = Color.web("#171C20");
-            neckA = Color.web("#23A998");
-            neckB = Color.web("#7651A8");
-        }
-
-        double tailBaseX = x + (facingRight ? 20.0 : 60.0) * s;
-        double tailDir = -dir;
-        g.setFill(wing.darker().deriveColor(0, 1, 1, 0.90));
-        for (int i = -1; i <= 1; i++) {
-            g.fillPolygon(
-                    new double[]{tailBaseX, tailBaseX + tailDir * (31.0 + Math.abs(i) * 3.0) * s,
-                            tailBaseX + tailDir * 7.0 * s},
-                    new double[]{y + 51.0 * s, y + (48.0 + i * 8.0) * s,
-                            y + (65.0 + i * 3.0) * s},
-                    3
-            );
-        }
-
-        g.setFill(body);
-        g.fillOval(x + 7.0 * s, y + 15.0 * s, 66.0 * s, 63.0 * s);
-        g.setFill(body.brighter().deriveColor(0, 0.65, 1.08, 0.18));
-        g.fillOval(x + (facingRight ? 29.0 : 15.0) * s, y + 22.0 * s, 35.0 * s, 31.0 * s);
-
-        double wingX = x + (facingRight ? 9.0 : 35.0) * s;
-        g.setFill(wing.deriveColor(0, 1, 1, 0.88));
-        g.fillOval(wingX, y + 31.0 * s, 38.0 * s, 39.0 * s);
-        g.setStroke(wing.brighter().deriveColor(0, 0.72, 1.10, 0.55));
-        g.setLineCap(StrokeLineCap.ROUND);
-        g.setLineWidth(1.45 * s);
-        for (int i = 0; i < 3; i++) {
-            g.strokeArc(wingX + (4.0 + i * 4.0) * s, y + (38.0 + i * 7.0) * s,
-                    (28.0 - i * 5.0) * s, (21.0 - i * 2.0) * s,
-                    facingRight ? 198 : -18, 126, ArcType.OPEN);
-        }
-
-        g.setFill(head);
-        g.fillOval(headX, headY, headW, headH);
-        g.setFill(neckA.deriveColor(0, 1, 1, 0.42));
-        g.fillOval(headX + (facingRight ? 8.0 : 17.0) * s, headY + 25.0 * s, 24.0 * s, 12.0 * s);
-        g.setFill(neckB.deriveColor(0, 1, 1, 0.32));
-        g.fillOval(headX + (facingRight ? 16.0 : 9.0) * s, headY + 28.0 * s, 21.0 * s, 9.0 * s);
-
-        g.setStroke(Color.web("#A45C45").deriveColor(0, 1, 1, 0.78));
-        g.setLineWidth(2.0 * s);
-        g.strokeLine(x + 29.0 * s, y + 70.0 * s, x + 27.0 * s, y + 79.0 * s);
-        g.strokeLine(x + 50.0 * s, y + 70.0 * s, x + 53.0 * s, y + 79.0 * s);
-        g.setLineWidth(1.35 * s);
-        g.strokeLine(x + 27.0 * s, y + 79.0 * s, x + 20.0 * s, y + 80.0 * s);
-        g.strokeLine(x + 53.0 * s, y + 79.0 * s, x + 60.0 * s, y + 80.0 * s);
-
-        drawSignatureEye(g, headPose, eye, 21.0 * s, 1.0);
-        drawVectorBirdStateAccents(g, drawSize, headPose);
-    }
-
-    /** Broad shoulders, white ruff, layered flight feathers and talons give Eagle a heavyweight silhouette. */
-    private void drawSignatureEagleBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
-        double s = sizeMultiplier;
-        double dir = facingRight ? 1.0 : -1.0;
-        HeadPose headPose = standardHeadPose(pose);
-        double headW = 52.0 * s;
-        double headH = 42.0 * s;
-        double headX = headPose.centerX() - headW / 2.0;
-        double headY = headPose.centerY() - headH / 2.0;
-        Color body = isCampaignFactionSkin() ? campaignFactionPrimaryColor()
-                : isClassicSkin ? game.classicSkinPrimaryColor(type) : Color.web("#6F261F");
-        Color head = isCampaignFactionSkin() ? campaignFactionSecondaryColor() : Color.web("#F2F0DE");
-        Color wing = body.darker().deriveColor(0, 1.08, 0.84, 1.0);
-        Color feather = isCampaignFactionSkin() ? campaignFactionAccentColor()
-                : isClassicSkin ? game.classicSkinAccentColor(type) : Color.web("#B54B32");
-        Color eye = isCampaignFactionSkin() ? campaignFactionAccentColor().darker() : Color.web("#2C160F");
-
-        double tailBaseX = x + (facingRight ? 18.0 : 62.0) * s;
-        g.setFill(Color.web("#EEE9D4").deriveColor(0, 1, 1, 0.94));
-        for (int i = -2; i <= 2; i++) {
-            g.fillPolygon(
-                    new double[]{tailBaseX, tailBaseX - dir * (31.0 + Math.abs(i) * 2.5) * s,
-                            tailBaseX - dir * 7.0 * s},
-                    new double[]{y + 50.0 * s, y + (48.0 + i * 7.0) * s,
-                            y + (66.0 + i * 2.0) * s},
-                    3
-            );
-        }
-
-        g.setFill(body);
-        g.fillOval(x + 5.0 * s, y + 10.0 * s, 70.0 * s, 69.0 * s);
-        g.setFill(body.brighter().deriveColor(0, 0.72, 1.06, 0.18));
-        g.fillOval(x + (facingRight ? 31.0 : 13.0) * s, y + 19.0 * s, 35.0 * s, 31.0 * s);
-
-        double wingRootX = x + (facingRight ? 12.0 : 68.0) * s;
-        double rear = -dir;
-        g.setFill(wing);
-        g.fillPolygon(
-                new double[]{wingRootX, wingRootX + rear * 18.0 * s, wingRootX + rear * 31.0 * s,
-                        wingRootX + rear * 19.0 * s, wingRootX + rear * 36.0 * s,
-                        wingRootX + rear * 12.0 * s, wingRootX + dir * 24.0 * s},
-                new double[]{y + 24.0 * s, y + 19.0 * s, y + 40.0 * s,
-                        y + 42.0 * s, y + 62.0 * s, y + 57.0 * s, y + 64.0 * s},
-                7
-        );
-        g.setStroke(feather.deriveColor(0, 1, 1, 0.58));
-        g.setLineCap(StrokeLineCap.ROUND);
-        g.setLineWidth(2.0 * s);
-        for (int i = 0; i < 4; i++) {
-            double fy = y + (33.0 + i * 8.0) * s;
-            g.strokeLine(wingRootX - rear * 3.0 * s, fy,
-                    wingRootX + rear * (21.0 + i * 4.0) * s, fy + (3.0 + i * 2.0) * s);
-        }
-
-        g.setFill(head);
-        g.fillOval(headX, headY, headW, headH);
-        g.setFill(head.darker().deriveColor(0, 0.45, 0.94, 0.88));
-        for (int i = 0; i < 5; i++) {
-            double ruffX = headX + (5.0 + i * 9.0) * s;
-            g.fillPolygon(
-                    new double[]{ruffX, ruffX + 6.5 * s, ruffX + 10.0 * s},
-                    new double[]{headY + 31.0 * s, headY + 47.0 * s, headY + 32.0 * s},
-                    3
-            );
-        }
-        g.setStroke(Color.web("#7A2D22").deriveColor(0, 1, 1, 0.58));
-        g.setLineWidth(2.4 * s);
-        double browY = headY + 7.0 * s;
-        g.strokeLine(headPose.centerX() - dir * 2.0 * s, browY,
-                headPose.centerX() + dir * 15.0 * s, browY + 4.0 * s);
-
-        Color talon = Color.web("#E0A52C");
-        g.setStroke(talon);
-        g.setLineCap(StrokeLineCap.ROUND);
-        g.setLineWidth(3.0 * s);
-        for (int i = 0; i < 2; i++) {
-            double footX = x + (29.0 + i * 23.0) * s;
-            g.strokeLine(footX, y + 69.0 * s, footX - dir * 2.0 * s, y + 79.0 * s);
-            g.setLineWidth(1.7 * s);
-            for (int toe = -1; toe <= 1; toe++) {
-                g.strokeLine(footX - dir * 2.0 * s, y + 79.0 * s,
-                        footX + (toe * 5.0 + dir * 4.0) * s, y + 82.0 * s);
-            }
-            g.setLineWidth(3.0 * s);
-        }
-
-        drawSignatureEye(g, headPose, eye, 22.0 * s, 1.08);
-        drawVectorBirdStateAccents(g, drawSize, headPose);
-    }
-
-    /** Roadrunner is built around a horizontal torso, long counterbalancing tail and visible sprinting legs. */
-    private void drawSignatureRoadrunnerBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
-        double s = sizeMultiplier;
-        double dir = facingRight ? 1.0 : -1.0;
-        HeadPose headPose = standardHeadPose(pose);
-        double headW = 43.0 * s;
-        double headH = 34.0 * s;
-        double headX = headPose.centerX() - headW / 2.0;
-        double headY = headPose.centerY() - headH / 2.0;
-        Color body = isCampaignFactionSkin() ? campaignFactionPrimaryColor()
-                : isMirageSkin ? Color.web("#E9D8AC")
-                : isClassicSkin ? game.classicSkinPrimaryColor(type) : Color.web("#A8642C");
-        Color head = isCampaignFactionSkin() ? campaignFactionSecondaryColor()
-                : isMirageSkin ? Color.web("#E3F7FF") : body.brighter();
-        Color plume = isCampaignFactionSkin() ? campaignFactionAccentColor()
-                : isMirageSkin ? Color.web("#00B8D4")
-                : isClassicSkin ? game.classicSkinAccentColor(type) : Color.web("#2457A5");
-        Color belly = isMirageSkin ? Color.web("#F8F0D8") : Color.web("#E8D2A6");
-        Color eye = isCampaignFactionSkin() ? campaignFactionAccentColor().darker()
-                : isMirageSkin ? Color.web("#006F86") : Color.web("#321A12");
-
-        double tailBaseX = x + (facingRight ? 20.0 : 60.0) * s;
-        double rear = -dir;
-        g.setFill(plume.darker().deriveColor(0, 1, 0.88, 0.98));
-        g.fillPolygon(
-                new double[]{tailBaseX, tailBaseX + rear * 61.0 * s, tailBaseX + rear * 49.0 * s,
-                        tailBaseX + rear * 5.0 * s},
-                new double[]{y + 43.0 * s, y + 34.0 * s, y + 47.0 * s, y + 53.0 * s},
-                4
-        );
-        g.setFill(plume.deriveColor(0, 0.92, 1.04, 0.96));
-        g.fillPolygon(
-                new double[]{tailBaseX + dir * 3.0 * s, tailBaseX + rear * 53.0 * s,
-                        tailBaseX + rear * 42.0 * s, tailBaseX + dir * 7.0 * s},
-                new double[]{y + 48.0 * s, y + 51.0 * s, y + 61.0 * s, y + 57.0 * s},
-                4
-        );
-
-        g.setFill(body);
-        g.fillOval(x + 9.0 * s, y + 24.0 * s, 65.0 * s, 43.0 * s);
-        g.setFill(belly.deriveColor(0, 1, 1, 0.90));
-        g.fillOval(x + 24.0 * s, y + 43.0 * s, 42.0 * s, 21.0 * s);
-        g.setFill(body.darker().deriveColor(0, 1, 0.90, 0.76));
-        g.fillOval(x + (facingRight ? 10.0 : 37.0) * s, y + 31.0 * s, 38.0 * s, 27.0 * s);
-        g.setStroke(plume.deriveColor(0, 1, 1, 0.62));
-        g.setLineWidth(1.5 * s);
-        g.strokeArc(x + 15.0 * s, y + 33.0 * s, 50.0 * s, 27.0 * s,
-                facingRight ? 202 : -22, 112, ArcType.OPEN);
-
-        double neckBaseX = x + (facingRight ? 61.0 : 19.0) * s;
-        g.setStroke(body);
-        g.setLineCap(StrokeLineCap.ROUND);
-        g.setLineWidth(13.0 * s);
-        g.strokeLine(neckBaseX, y + 35.0 * s,
-                headPose.centerX() - dir * 11.0 * s, headPose.centerY() + 9.0 * s);
-        g.setStroke(belly.deriveColor(0, 1, 1, 0.58));
-        g.setLineWidth(3.0 * s);
-        g.strokeLine(neckBaseX + dir * 2.0 * s, y + 40.0 * s,
-                headPose.centerX() - dir * 8.0 * s, headPose.centerY() + 11.0 * s);
-
-        g.setFill(head);
-        g.fillOval(headX, headY, headW, headH);
-        double crestRootX = headPose.centerX() - dir * 7.0 * s;
-        g.setFill(plume);
-        for (int i = 0; i < 3; i++) {
-            g.fillPolygon(
-                    new double[]{crestRootX - dir * i * 4.0 * s,
-                            crestRootX - dir * (17.0 + i * 8.0) * s,
-                            crestRootX + dir * (4.0 - i * 2.0) * s},
-                    new double[]{headY + 5.0 * s, headY - (13.0 + i * 3.0) * s,
-                            headY + 10.0 * s},
-                    3
-            );
-        }
-
-        double run = Math.min(1.0, Math.abs(vx) / 10.0);
-        double stride = Math.sin(animationStateFrame * 0.82) * 8.0 * s * run;
-        g.setStroke(Color.web("#7D5738"));
-        g.setLineCap(StrokeLineCap.ROUND);
-        g.setLineWidth(2.4 * s);
-        double rearLegX = x + 30.0 * s;
-        double frontLegX = x + 52.0 * s;
-        g.strokeLine(rearLegX, y + 61.0 * s, rearLegX - stride, y + 82.0 * s);
-        g.strokeLine(frontLegX, y + 61.0 * s, frontLegX + stride, y + 82.0 * s);
-        g.setLineWidth(1.5 * s);
-        g.strokeLine(rearLegX - stride, y + 82.0 * s,
-                rearLegX - stride + dir * 10.0 * s, y + 83.0 * s);
-        g.strokeLine(frontLegX + stride, y + 82.0 * s,
-                frontLegX + stride + dir * 11.0 * s, y + 83.0 * s);
-
-        drawSignatureEye(g, headPose, eye, 18.0 * s, 0.82);
-        drawVectorBirdStateAccents(g, drawSize, headPose);
-    }
-
-    /** Charles gets a lean songbird body, forked tail, stage-mask face and high-contrast wing bars. */
-    private void drawSignatureCharlesBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
-        double s = sizeMultiplier;
-        double dir = facingRight ? 1.0 : -1.0;
-        HeadPose headPose = standardHeadPose(pose);
-        double headW = 46.0 * s;
-        double headH = 36.0 * s;
-        double headX = headPose.centerX() - headW / 2.0;
-        double headY = headPose.centerY() - headH / 2.0;
-        Color body = isCampaignFactionSkin() ? campaignFactionPrimaryColor()
-                : isEclipseSkin ? Color.web("#311B62") : Color.web("#525760");
-        Color head = isCampaignFactionSkin() ? campaignFactionSecondaryColor()
-                : isEclipseSkin ? Color.web("#4A148C") : Color.web("#737983");
-        Color wing = isCampaignFactionSkin() ? body.darker()
-                : isEclipseSkin ? Color.web("#16091E") : Color.web("#292D34");
-        Color pale = isEclipseSkin ? Color.web("#D8B4E8") : Color.web("#F3F4F2");
-        Color accent = isCampaignFactionSkin() ? campaignFactionAccentColor()
-                : isEclipseSkin ? Color.web("#E040FB") : Color.web("#D7B34C");
-        Color eye = isCampaignFactionSkin() ? campaignFactionAccentColor().darker()
-                : isEclipseSkin ? Color.web("#E040FB") : Color.web("#17191C");
-
-        double tailBaseX = x + (facingRight ? 18.0 : 62.0) * s;
-        double rear = -dir;
-        g.setFill(wing);
-        g.fillPolygon(
-                new double[]{tailBaseX, tailBaseX + rear * 53.0 * s, tailBaseX + rear * 39.0 * s,
-                        tailBaseX + rear * 4.0 * s},
-                new double[]{y + 46.0 * s, y + 31.0 * s, y + 54.0 * s, y + 59.0 * s},
-                4
-        );
-        g.fillPolygon(
-                new double[]{tailBaseX, tailBaseX + rear * 49.0 * s, tailBaseX + rear * 34.0 * s,
-                        tailBaseX + rear * 3.0 * s},
-                new double[]{y + 52.0 * s, y + 63.0 * s, y + 43.0 * s, y + 57.0 * s},
-                4
-        );
-        g.setStroke(pale.deriveColor(0, 1, 1, 0.72));
-        g.setLineWidth(1.7 * s);
-        g.strokeLine(tailBaseX + rear * 11.0 * s, y + 47.0 * s,
-                tailBaseX + rear * 41.0 * s, y + 38.0 * s);
-
-        g.setFill(body);
-        g.fillOval(x + 8.0 * s, y + 18.0 * s, 65.0 * s, 56.0 * s);
-        g.setFill(pale.deriveColor(0, 1, 1, isEclipseSkin ? 0.52 : 0.88));
-        g.fillOval(x + 28.0 * s, y + 39.0 * s, 35.0 * s, 29.0 * s);
-        double wingX = x + (facingRight ? 9.0 : 36.0) * s;
-        g.setFill(wing.deriveColor(0, 1, 1, 0.92));
-        g.fillOval(wingX, y + 30.0 * s, 40.0 * s, 35.0 * s);
-        g.setStroke(pale.deriveColor(0, 1, 1, 0.88));
-        g.setLineCap(StrokeLineCap.ROUND);
-        g.setLineWidth(3.1 * s);
-        g.strokeLine(wingX + 7.0 * s, y + 40.0 * s, wingX + 34.0 * s, y + 35.0 * s);
-        g.setLineWidth(2.0 * s);
-        g.strokeLine(wingX + 10.0 * s, y + 51.0 * s, wingX + 31.0 * s, y + 47.0 * s);
-
-        g.setFill(head);
-        g.fillOval(headX, headY, headW, headH);
-        g.setFill(wing.deriveColor(0, 1, 1, 0.72));
-        double maskX = headPose.centerX() + dir * 4.0 * s - 13.0 * s;
-        g.fillPolygon(
-                new double[]{maskX, maskX + 22.0 * s, maskX + 19.0 * s, maskX + 4.0 * s},
-                new double[]{headY + 5.0 * s, headY + 7.0 * s, headY + 24.0 * s, headY + 22.0 * s},
-                4
-        );
-        g.setStroke(accent.deriveColor(0, 1, 1, 0.58));
-        g.setLineWidth(1.5 * s);
-        g.strokeArc(headX + 7.0 * s, headY + 2.0 * s, 31.0 * s, 20.0 * s,
-                facingRight ? 205 : -25, 106, ArcType.OPEN);
-
-        drawSignatureEye(g, headPose, eye, 19.0 * s, 0.88);
-        double eyeCenterX = headPose.centerX() + dir * 6.0 * s;
-        double eyeCenterY = headPose.centerY() - 5.0 * s;
-        g.setStroke(Color.web("#F5D0C8").deriveColor(0, 1, 1, 0.92));
-        g.setLineWidth(2.1 * s);
-        g.strokeLine(eyeCenterX - 7.0 * s, eyeCenterY - 10.0 * s,
-                eyeCenterX + 6.0 * s, eyeCenterY + 9.0 * s);
-        g.setStroke(Color.web("#7B1F1F").deriveColor(0, 1, 1, 0.82));
-        g.setLineWidth(0.9 * s);
-        g.strokeLine(eyeCenterX - 5.0 * s, eyeCenterY - 7.0 * s,
-                eyeCenterX + 4.0 * s, eyeCenterY + 6.0 * s);
-
-        drawVectorBirdStateAccents(g, drawSize, headPose);
-    }
-
-    private void drawSignatureEye(GraphicsContext g, HeadPose headPose, Color iris,
-                                  double diameter, double intensity) {
-        double s = sizeMultiplier;
-        double dir = facingRight ? 1.0 : -1.0;
-        double eyeX = headPose.centerX() + dir * 6.0 * s - diameter * 0.5;
-        double eyeY = headPose.centerY() - 10.0 * s;
-        g.setFill(iris.deriveColor(0, 1, 1.18, 0.16 * intensity));
-        g.fillOval(eyeX - 3.0 * s, eyeY - 3.0 * s,
-                diameter + 6.0 * s, diameter + 6.0 * s);
-        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.96));
-        g.fillOval(eyeX, eyeY, diameter, diameter);
-        double pupil = diameter * 0.58;
-        double pupilX = eyeX + (facingRight ? diameter * 0.35 : diameter * 0.07);
-        double pupilY = eyeY + diameter * 0.23;
-        g.setFill(iris);
-        g.fillOval(pupilX, pupilY, pupil, pupil);
-        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.92));
-        g.fillOval(pupilX + (facingRight ? pupil * 0.23 : pupil * 0.48),
-                pupilY + pupil * 0.18, Math.max(1.6 * s, pupil * 0.23), Math.max(1.6 * s, pupil * 0.23));
     }
 
     private void drawRavenBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
