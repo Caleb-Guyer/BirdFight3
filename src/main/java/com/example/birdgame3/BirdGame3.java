@@ -17316,8 +17316,14 @@ public class BirdGame3 {
         }
     }
 
+    private boolean officialTrailerMode() {
+        return Boolean.getBoolean("birdfight3.officialTrailer")
+                || "1".equals(System.getenv("BIRDFIGHT3_OFFICIAL_TRAILER"));
+    }
+
     public void start(Stage stage) {
         try {
+            boolean officialTrailer = officialTrailerMode();
             appendStartLog("enter start");
             String statsSummary = BirdStats.reloadFromDisk();
             if (statsSummary != null) {
@@ -17336,7 +17342,9 @@ public class BirdGame3 {
                 shutdownAndExit();
             });
             appendStartLog("set onCloseRequest");
-            stage.setTitle("Bird Fight 3 - Power-Up Chaos!");
+            stage.setTitle(officialTrailer
+                    ? "Bird Fight 3 - Official Trailer"
+                    : "Bird Fight 3 - Power-Up Chaos!");
             appendStartLog("set title");
             stage.setResizable(true);
             stage.centerOnScreen();
@@ -17365,12 +17373,18 @@ public class BirdGame3 {
             appendStartLog("after stage.show");
             javafx.application.Platform.runLater(() -> {
                 applyDisplaySettings(stage);
-                maybeShowLatestUpdateSplash(stage);
+                if (officialTrailer) {
+                    showUpdateTrailer(stage, BirdBookCategory.BIRDS);
+                } else {
+                    maybeShowLatestUpdateSplash(stage);
+                }
             });
             appendStartLog("scheduled applyDisplaySettings");
             tryShowQueuedAchievementToast();
-            DesktopShortcutSupport.ensureDesktopShortcutAsync();
-            GameUpdater.checkForUpdatesAsync();
+            if (!officialTrailer) {
+                DesktopShortcutSupport.ensureDesktopShortcutAsync();
+                GameUpdater.checkForUpdatesAsync();
+            }
             appendStartLog("end start");
         } catch (Throwable t) {
             ThrowableLogSupport.log(LOGGER, Level.SEVERE, "Application startup failed", t);
@@ -29797,6 +29811,7 @@ public class BirdGame3 {
     }
 
     private void showUpdateTrailer(Stage stage, BirdBookCategory returnCategory) {
+        boolean officialTrailer = officialTrailerMode();
         BirdBookCategory resolvedCategory = returnCategory == null ? BirdBookCategory.BIRDS : returnCategory;
 
         MapType savedSelectedMap = selectedMap;
@@ -29981,6 +29996,7 @@ public class BirdGame3 {
         StackPane.setAlignment(chrome, Pos.TOP_CENTER);
         StackPane.setMargin(chrome, new Insets(20, 0, 0, 0));
         root.getChildren().add(chrome);
+        chrome.setVisible(!officialTrailer);
 
         Scene scene = new Scene(root, WIDTH, HEIGHT);
         makeSceneResponsive(scene);
@@ -29989,7 +30005,10 @@ public class BirdGame3 {
         AnimationTimer[] trailerTimer = new AnimationTimer[1];
         Runnable[] restartAction = new Runnable[1];
         Runnable[] exitAction = new Runnable[1];
-        long[] trailerStartNs = {0L};
+        // Capture launches after the JavaFX window exists. A generous preroll
+        // keeps frame zero intact even on slower build/startup machines; the
+        // renderer trims this stationary lead-in from the finished export.
+        long[] trailerStartNs = {officialTrailer ? System.nanoTime() + 12_000_000_000L : 0L};
         long[] trailerLastStepNs = {0L};
         long[] trailerStepAccumulatorNs = {0L};
         boolean[] musicCut = {false};
@@ -30121,7 +30140,12 @@ public class BirdGame3 {
                     trailerLastStepNs[0] = now;
                 }
 
-                double elapsed = Math.min(finalShotEnd, (now - trailerStartNs[0]) / 1_000_000_000.0);
+                double rawElapsed = (now - trailerStartNs[0]) / 1_000_000_000.0;
+                if (officialTrailer && rawElapsed >= finalShotEnd + 0.75) {
+                    shutdownAndExit();
+                    return;
+                }
+                double elapsed = Math.clamp(rawElapsed, 0.0, finalShotEnd);
                 matchIntroOverlayFrames = 0;
                 matchTimer = MATCH_DURATION_FRAMES;
                 currentFightHudOcclusionRects = List.of();
@@ -30321,9 +30345,11 @@ public class BirdGame3 {
                     hudLayout = buildFightHudLayout();
                     currentFightHudOcclusionRects = hudLayout.occlusionRects();
 
-                    kicker = "NEW UPDATE";
-                    title = "ROADRUNNER STRIKES FIRST";
-                    subtitle = "Fast ground bursts, instant pressure, and a lane built to reward both.";
+                    kicker = officialTrailer ? "21 UNIQUE FIGHTERS" : "NEW UPDATE";
+                    title = officialTrailer ? "EVERY BIRD FIGHTS DIFFERENT" : "ROADRUNNER STRIKES FIRST";
+                    subtitle = officialTrailer
+                            ? "Rush down, zone, summon allies, control the stage, or rule it with an ultimate."
+                            : "Fast ground bursts, instant pressure, and a lane built to reward both.";
                     titleAccent = Color.web("#FFB74D");
                     titleAlpha = trailerOverlayAlpha(normalizedProgress(phase, 0.18, 1.0));
                     titleCenterY = HEIGHT * 0.72;
@@ -30344,9 +30370,11 @@ public class BirdGame3 {
                     camY = trailerGroundCameraY(zoom, 136.0);
                     speedLineIntensity = 0.30;
 
-                    kicker = "NEW MAP";
-                    title = "SUNSCORCH FLATS";
-                    subtitle = "Long sprint lanes, a left oasis reset, and a mesa climb that turns the finish vertical.";
+                    kicker = officialTrailer ? "BATTLE ANYWHERE" : "NEW MAP";
+                    title = officialTrailer ? "ARENAS BUILT FOR CHAOS" : "SUNSCORCH FLATS";
+                    subtitle = officialTrailer
+                            ? "Fight through cities, forests, cliffs, docks, ruins, prisons, and stranger skies."
+                            : "Long sprint lanes, a left oasis reset, and a mesa climb that turns the finish vertical.";
                     titleAccent = Color.web("#FFB74D");
                     titleAlpha = trailerOverlayAlpha(phase);
                     titleCenterY = HEIGHT * 0.72;
@@ -30364,9 +30392,11 @@ public class BirdGame3 {
                     camY = trailerGroundCameraY(zoom, 114.0);
                     speedLineIntensity = 0.82;
 
-                    kicker = "MAP DETAIL";
-                    title = "OASIS POND";
-                    subtitle = "Water, reeds, and one low route that changes how the opener breaks.";
+                    kicker = officialTrailer ? "DYNAMIC STAGES" : "MAP DETAIL";
+                    title = officialTrailer ? "FIND A NEW ROUTE" : "OASIS POND";
+                    subtitle = officialTrailer
+                            ? "Hazards, moving paths, hidden approaches, and variant layouts reshape every fight."
+                            : "Water, reeds, and one low route that changes how the opener breaks.";
                     titleAccent = Color.web("#F5B66C");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < cliffShowcaseEnd) {
@@ -30394,9 +30424,11 @@ public class BirdGame3 {
                     camX = Math.clamp(lerp(4300.0, 5050.0, motion), 0.0, cameraMaxXForZoom(zoom));
                     camY = Math.clamp(lerp(660.0, 240.0, motion), 0.0, cameraMaxYForZoom(zoom));
 
-                    kicker = "MAP DETAIL";
-                    title = "CLIFF-SIDE FINISH";
-                    subtitle = "The far-right mesa turns every closeout into a vertical scramble.";
+                    kicker = officialTrailer ? "VERTICAL BATTLES" : "MAP DETAIL";
+                    title = officialTrailer ? "TAKE THE HIGH GROUND" : "CLIFF-SIDE FINISH";
+                    subtitle = officialTrailer
+                            ? "Recover, chase, and finish the fight across stages that climb into the sky."
+                            : "The far-right mesa turns every closeout into a vertical scramble.";
                     titleAccent = Color.web("#FFD180");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < roadrunnerShowcaseEnd) {
@@ -30420,9 +30452,11 @@ public class BirdGame3 {
                             0.0, cameraMaxYForZoom(zoom));
                     speedLineIntensity = 0.94;
 
-                    kicker = "NEW BIRD";
+                    kicker = officialTrailer ? "MASTER YOUR MAIN" : "NEW BIRD";
                     title = "ROADRUNNER";
-                    subtitle = "Built for low routes, burst acceleration, and cliff-to-cliff recovery.";
+                    subtitle = officialTrailer
+                            ? "Burst acceleration, relentless ground pressure, and recovery built for long chases."
+                            : "Built for low routes, burst acceleration, and cliff-to-cliff recovery.";
                     titleAccent = Color.web("#F5B66C");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < classicShowcaseEnd) {
@@ -30443,9 +30477,11 @@ public class BirdGame3 {
                     camY = Math.clamp(lerp(540.0, 260.0, motion), 0.0, cameraMaxYForZoom(zoom));
                     speedLineIntensity = 0.48;
 
-                    kicker = "CLASSIC SKIN";
-                    title = "DUST DEVIL ROADRUNNER";
-                    subtitle = "A full hero shot for the classic reward instead of a blink-and-you-miss-it cameo.";
+                    kicker = officialTrailer ? "UNLOCKABLE SKINS" : "CLASSIC SKIN";
+                    title = officialTrailer ? "MAKE THE ROSTER YOURS" : "DUST DEVIL ROADRUNNER";
+                    subtitle = officialTrailer
+                            ? "Earn fighters, skins, maps, modes, and rewards through a packed progression system."
+                            : "A full hero shot for the classic reward instead of a blink-and-you-miss-it cameo.";
                     titleAccent = Color.web("#90CAF9");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < specialShowcaseEnd) {
@@ -30474,9 +30510,11 @@ public class BirdGame3 {
                     hudLayout = buildFightHudLayout();
                     currentFightHudOcclusionRects = hudLayout.occlusionRects();
 
-                    kicker = "SPECIAL";
-                    title = "DUST SPRINT";
-                    subtitle = "A burst dash that converts a straightaway into real damage.";
+                    kicker = officialTrailer ? "UNIQUE SPECIALS" : "SPECIAL";
+                    title = officialTrailer ? "TURN SPEED INTO PRESSURE" : "DUST SPRINT";
+                    subtitle = officialTrailer
+                            ? "Every fighter brings a full directional kit with its own strategy, counters, and combos."
+                            : "A burst dash that converts a straightaway into real damage.";
                     titleAccent = Color.web("#FFD54F");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < ultimateShowcaseEnd) {
@@ -30511,8 +30549,10 @@ public class BirdGame3 {
                     currentFightHudOcclusionRects = hudLayout.occlusionRects();
 
                     kicker = "ULTIMATE";
-                    title = "GODSTORM";
-                    subtitle = "The full sandstorm turns the whole lane hostile.";
+                    title = officialTrailer ? "TAKE OVER THE WHOLE STAGE" : "GODSTORM";
+                    subtitle = officialTrailer
+                            ? "Build the meter, find your opening, and unleash a signature finishing attack."
+                            : "The full sandstorm turns the whole lane hostile.";
                     titleAccent = Color.GOLD;
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < chargeShowcaseEnd) {
@@ -30552,9 +30592,11 @@ public class BirdGame3 {
                     hudLayout = buildFightHudLayout();
                     currentFightHudOcclusionRects = hudLayout.occlusionRects();
 
-                    kicker = "NEW COMBAT";
+                    kicker = officialTrailer ? "DEEP COMBAT" : "NEW COMBAT";
                     title = "CHARGE ATTACKS";
-                    subtitle = "Hold swings for bigger launches and real percent pressure.";
+                    subtitle = officialTrailer
+                            ? "Hold your strike, read the escape, and launch damaged rivals beyond the arena."
+                            : "Hold swings for bigger launches and real percent pressure.";
                     titleAccent = Color.web("#B3E5FC");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < shieldShowcaseEnd) {
@@ -30590,9 +30632,11 @@ public class BirdGame3 {
                     hudLayout = buildFightHudLayout();
                     currentFightHudOcclusionRects = hudLayout.occlusionRects();
 
-                    kicker = "NEW COMBAT";
+                    kicker = officialTrailer ? "DEEP COMBAT" : "NEW COMBAT";
                     title = "SHIELDS + PARRIES";
-                    subtitle = "Block pressure, catch the timing window, and flip the whole exchange.";
+                    subtitle = officialTrailer
+                            ? "Block the pressure, catch the timing window, and turn defense into a punish."
+                            : "Block pressure, catch the timing window, and flip the whole exchange.";
                     titleAccent = Color.web("#80DEEA");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < dockShowcaseEnd) {
@@ -30620,9 +30664,11 @@ public class BirdGame3 {
                     hudLayout = buildFightHudLayout();
                     currentFightHudOcclusionRects = hudLayout.occlusionRects();
 
-                    kicker = "4-PLAYER LAN";
-                    title = "BROKEN HARBOR";
-                    subtitle = "Wide dock shots, four-player chaos, and a map that finally sells the update in one frame.";
+                    kicker = officialTrailer ? "LOCAL + INTERNET PLAY" : "4-PLAYER LAN";
+                    title = officialTrailer ? "FOUR-PLAYER BATTLES" : "BROKEN HARBOR";
+                    subtitle = officialTrailer
+                            ? "Fight together on one screen or direct-connect online for deterministic multiplayer."
+                            : "Wide dock shots, four-player chaos, and a map that finally sells the update in one frame.";
                     titleAccent = Color.web("#80CBC4");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < eagleShowcaseEnd) {
@@ -30641,9 +30687,11 @@ public class BirdGame3 {
                     camX = Math.clamp(eagleX - 480.0, 0.0, cameraMaxXForZoom(zoom));
                     camY = Math.clamp(lerp(820.0, 300.0, motion), 0.0, cameraMaxYForZoom(zoom));
 
-                    kicker = "BONUS SKIN";
-                    title = "STOCK PHOTO EAGLE";
-                    subtitle = "Absurd enough to be memorable, clean enough to deserve a real beat.";
+                    kicker = officialTrailer ? "21 BIRDS. WILD SKINS." : "BONUS SKIN";
+                    title = officialTrailer ? "BUILD YOUR ROSTER" : "STOCK PHOTO EAGLE";
+                    subtitle = officialTrailer
+                            ? "Discover serious rivals, ridiculous secrets, echo fighters, minions, and bosses."
+                            : "Absurd enough to be memorable, clean enough to deserve a real beat.";
                     titleAccent = Color.web("#FFE082");
                     titleAlpha = trailerOverlayAlpha(phase);
                 } else if (elapsed < updateCardEnd) {
@@ -30667,8 +30715,10 @@ public class BirdGame3 {
                     speedLineIntensity = 0.30;
 
                     kicker = "BIRD FIGHT 3";
-                    title = "SUNSCORCH UPDATE";
-                    subtitle = "Roadrunner's full kit, charge attacks, shield parries, Broken Harbor LAN, and Stock Photo Eagle.";
+                    title = officialTrailer ? "THE SKY IS YOURS" : "SUNSCORCH UPDATE";
+                    subtitle = officialTrailer
+                            ? "Story Campaign. Classic. Boss Rush. Tower Defense. Tournaments. Training. Multiplayer."
+                            : "Roadrunner's full kit, charge attacks, shield parries, Broken Harbor LAN, and Stock Photo Eagle.";
                     titleAccent = Color.web("#FFCC80");
                     titleAlpha = Math.min(1.0, 0.30 + trailerOverlayAlpha(phase) * 0.88);
                     titleCenterY = HEIGHT * 0.52;
@@ -30699,6 +30749,14 @@ public class BirdGame3 {
                             0.0, cameraMaxXForZoom(zoom));
                     camY = Math.clamp(lerp(700.0, 220.0, motion), 0.0, cameraMaxYForZoom(zoom));
                     speedLineIntensity = 0.26;
+                    if (officialTrailer) {
+                        kicker = "AVAILABLE NOW ON WINDOWS";
+                        title = "FLAP. FIGHT. RULE THE SKIES.";
+                        subtitle = "github.com/Caleb-Guyer/BirdFight3";
+                        titleAccent = Color.web("#FFCC80");
+                        titleAlpha = Math.min(1.0, 0.22 + trailerOverlayAlpha(phase));
+                        titleCenterY = HEIGHT * 0.72;
+                    }
                 }
 
                 triggerTrailerCue(trailerCues, "cold-open-hit", elapsed >= 1.05, () -> {
