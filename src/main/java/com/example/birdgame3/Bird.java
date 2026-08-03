@@ -322,7 +322,11 @@ public class Bird {
         EAGLE_LEG,
         FALCON_TAIL_FEATHER,
         FALCON_WING,
-        FALCON_LEG
+        FALCON_LEG,
+        PHOENIX_TAIL_FLAME,
+        PHOENIX_WING,
+        PHOENIX_CREST,
+        PHOENIX_LEG
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -28407,6 +28411,13 @@ public class Bird {
     private void drawStandardVectorEye(GraphicsContext g, HeadPose headPose,
                                        double headW, double headH, Color eyeColor,
                                        double eyeDiameterUnits, double pupilDiameterUnits) {
+        drawStandardVectorEye(g, headPose, headW, headH, Color.WHITE, eyeColor,
+                eyeDiameterUnits, pupilDiameterUnits);
+    }
+
+    private void drawStandardVectorEye(GraphicsContext g, HeadPose headPose,
+                                       double headW, double headH, Color scleraColor, Color eyeColor,
+                                       double eyeDiameterUnits, double pupilDiameterUnits) {
         double s = sizeMultiplier;
         double dir = facingRight ? 1.0 : -1.0;
         double eyeDiameter = eyeDiameterUnits * s;
@@ -28426,7 +28437,7 @@ public class Bird {
         );
         lastVisualEye = new VisualFeatureCircle(eyeCenterX, eyeCenterY, eyeDiameter * 0.5);
 
-        g.setFill(Color.WHITE);
+        g.setFill(scleraColor);
         g.fillOval(eyeX, eyeY, eyeDiameter, eyeDiameter);
         g.setFill(eyeColor);
         g.fillOval(pupilX, pupilY, pupilDiameter, pupilDiameter);
@@ -30108,12 +30119,14 @@ public class Bird {
                 new double[]{y + 58 * s, y + 70 * s, y + 76 * s},
                 3
         );
+        recordVisualBodyPart(VisualBodyPart.PHOENIX_TAIL_FLAME);
         g.setFill(innerAccent);
         g.fillPolygon(
                 new double[]{innerBaseX, innerBaseX + innerBackOffset, innerBaseX + innerFrontOffset},
                 new double[]{y + 60 * s, y + 76 * s, y + 80 * s},
                 3
         );
+        recordVisualBodyPart(VisualBodyPart.PHOENIX_TAIL_FLAME);
 
         if (ashen) {
             for (int side = -1; side <= 1; side += 2) {
@@ -30149,6 +30162,36 @@ public class Bird {
         drawVectorBodyLighting(g, drawSize, bodyMain, bodyHead, standardHeadPose(null));
         g.setFill(bodyMain.darker());
         g.fillOval(x + 14 * s, y + 28 * s, 42 * s, 26 * s);
+        g.setStroke(accent.deriveColor(0, 0.82, 1.0, ashen ? 0.30 : 0.22));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.15 * s);
+        for (int i = 0; i < 3; i++) {
+            double featherY = y + (36.0 + i * 6.0) * s;
+            g.strokeArc(x + (17.0 + i * 2.0) * s, featherY,
+                    (34.0 - i * 4.0) * s, (15.0 - i * 2.0) * s,
+                    facingRight ? 202 : -22, 112, ArcType.OPEN);
+        }
+        recordVisualBodyPart(VisualBodyPart.PHOENIX_WING);
+
+        BirdAnimationState state = currentBirdAnimationState();
+        boolean airborneLegs = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL;
+        Color talon = accent.deriveColor(0, ashen ? 0.45 : 0.78, ashen ? 0.92 : 0.82, 0.88);
+        double dir = facingRight ? 1.0 : -1.0;
+        g.setStroke(talon);
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < 2; i++) {
+            double legX = x + (29.0 + i * 22.0) * s;
+            double ankleX = legX - dir * (airborneLegs ? 5.0 : 1.0) * s;
+            double ankleY = y + (airborneLegs ? 76.0 : 79.0) * s;
+            g.setLineWidth(1.7 * s);
+            g.strokeLine(legX, y + 69.0 * s, ankleX, ankleY);
+            g.setLineWidth(0.95 * s);
+            g.strokeLine(ankleX, ankleY, ankleX + dir * 5.5 * s,
+                    y + (airborneLegs ? 79.0 : 81.0) * s);
+            g.strokeLine(ankleX, ankleY, ankleX + dir * 1.5 * s,
+                    y + (airborneLegs ? 79.5 : 81.5) * s);
+            recordVisualBodyPart(VisualBodyPart.PHOENIX_LEG);
+        }
 
         // Small crest feathers (subtle).
         double crestBaseX = facingRight ? x + 60 * s : x + 22 * s;
@@ -30158,6 +30201,7 @@ public class Bird {
                 new double[]{y + 19 * s, y + 3 * s, y + 19 * s},
                 3
         );
+        recordVisualBodyPart(VisualBodyPart.PHOENIX_CREST);
         if (ashen) {
             g.setStroke(innerAccent.deriveColor(0, 1, 1, 0.74));
             g.setLineWidth(2.4 * s);
@@ -30200,17 +30244,20 @@ public class Bird {
             );
         }
 
-        // Eyes (standard placement).
-        g.setFill(ashen ? Color.web("#FFF8E1") : Color.WHITE);
-        g.fillOval(x + (facingRight ? 50 : 20) * s, y + 20 * s, 25 * s, 25 * s);
-        g.setFill(ashen ? Color.web("#FF3D00") : Color.CRIMSON.brighter());
-        g.fillOval(x + (facingRight ? 56 : 26) * s, y + 25 * s, 13 * s, 13 * s);
+        // Use the shared mirrored eye geometry so the left-facing eye remains
+        // completely inside Phoenix's head instead of drifting into the beak.
+        HeadPose headPose = standardHeadPose(null);
+        Color sclera = ashen ? Color.web("#FFF8E1") : Color.WHITE;
+        Color eye = ashen ? Color.web("#FF3D00") : Color.CRIMSON.brighter();
+        drawStandardVectorEye(g, headPose, 50.0 * s, 40.0 * s,
+                sclera, eye, 25.0, 13.0);
         if (ashen) {
+            double eyeCenterX = headPose.centerX() - dir * 12.5 * s;
+            double eyeCenterY = headPose.centerY() - 7.5 * s;
             g.setFill(Color.web("#FFFFFF").deriveColor(0, 1, 1, 0.88));
-            g.fillOval(x + (facingRight ? 60 : 30) * s, y + 28 * s, 5 * s, 5 * s);
+            g.fillOval(eyeCenterX - dir * 2.0 * s, eyeCenterY - 3.0 * s, 5 * s, 5 * s);
         }
-        drawVectorEyeGlint(g, x + (facingRight ? 56.0 : 26.0) * s, y + 25.0 * s, s, true);
-        drawVectorBirdStateAccents(g, drawSize, standardHeadPose(null));
+        drawVectorBirdStateAccents(g, drawSize, headPose);
         if (phoenixAerialAttack) {
             drawPhoenixAerialAttackTalons(g, drawSize, displayedAttack, aerialAttackPhase, accent, innerAccent);
         }
@@ -30510,7 +30557,9 @@ public class Bird {
             double open = attacking ? (12 + Math.sin(attackAnimationTimer * 0.7) * 6) * s * openScale : 2.5 * s;
             g.setFill(Color.GOLD);
             if (facingRight) {
-                double baseX = x + 72 * s;
+                double baseX = x + 75 * s;
+                recordVisualBeak(baseX, beakY + 4.0 * s,
+                        baseX + 30.0 * s, beakY + 4.0 * s);
                 g.fillPolygon(
                         new double[]{baseX, baseX + 30 * s, baseX + 2 * s},
                         new double[]{beakY, beakY + open, beakY + 8 * s},
@@ -30522,7 +30571,9 @@ public class Bird {
                         3
                 );
             } else {
-                double baseX = x + 8 * s;
+                double baseX = x + 5 * s;
+                recordVisualBeak(baseX, beakY + 4.0 * s,
+                        baseX - 30.0 * s, beakY + 4.0 * s);
                 g.fillPolygon(
                         new double[]{baseX, baseX - 30 * s, baseX - 2 * s},
                         new double[]{beakY, beakY + open, beakY + 8 * s},

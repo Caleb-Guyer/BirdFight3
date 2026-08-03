@@ -16,6 +16,7 @@ class BirdVisualAuditTest {
     private static final Set<BirdGame3.BirdType> FEATURE_AUDIT_BIRDS = Set.of(
             BirdGame3.BirdType.PIGEON,
             BirdGame3.BirdType.EAGLE,
+            BirdGame3.BirdType.PHOENIX,
             BirdGame3.BirdType.ROADRUNNER,
             BirdGame3.BirdType.MOCKINGBIRD,
             BirdGame3.BirdType.VULTURE
@@ -152,6 +153,35 @@ class BirdVisualAuditTest {
                     assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.FALCON_WING),
                             label + " must draw its swept wing");
                     assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.FALCON_LEG),
+                            label + " must draw both legs");
+                }
+            }
+        }
+    }
+
+    @Test
+    void phoenixKeepsItsFlameTailWingCrestAndLegsAcrossVectorSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.PHOENIX)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertEquals(2,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.PHOENIX_TAIL_FLAME),
+                            label + " must draw both layers of its flame tail");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.PHOENIX_WING),
+                            label + " must draw its folded wing");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.PHOENIX_CREST),
+                            label + " must draw its central flame crest");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.PHOENIX_LEG),
                             label + " must draw both legs");
                 }
             }
