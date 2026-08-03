@@ -325,6 +325,44 @@ class BirdVisualAuditTest {
         }
     }
 
+    @Test
+    void turkeyNeckStaysBehindItsHeadWhenRisingAndFalling() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.TURKEY)
+                .filter(entry -> !"STOCK_PHOTO_TURKEY".equals(entry.key()))
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (double verticalVelocity : List.of(-5.0, 5.0)) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditVerticalMotionFeatures(
+                                    entry, verticalVelocity, facingRight);
+                    String motion = verticalVelocity < 0.0 ? "rising" : "falling";
+                    assertTurkeyNeckEndsBehindHead(geometry,
+                            entry.name() + " " + motion + " facing "
+                                    + (facingRight ? "right" : "left"));
+                }
+            }
+        }
+    }
+
+    private static void assertTurkeyNeckEndsBehindHead(
+            Bird.VisualFeatureGeometry geometry, String label) {
+        assertTrue(geometry.turkeyNeck() != null, label + " did not report its neck geometry");
+        double headCenterX = (geometry.head().left() + geometry.head().right()) * 0.5;
+        double headCenterY = (geometry.head().top() + geometry.head().bottom()) * 0.5;
+        double beakX = beakVectorX(geometry);
+        double beakY = beakVectorY(geometry);
+        double neckEndX = geometry.turkeyNeck().tipX() - headCenterX;
+        double neckEndY = geometry.turkeyNeck().tipY() - headCenterY;
+
+        assertTrue(neckEndX * beakX + neckEndY * beakY < 0.0,
+                label + " lets the center neck strip cross into or beyond the bill-facing half of the head");
+    }
+
     private static double beakVectorX(Bird.VisualFeatureGeometry geometry) {
         return geometry.beak().tipX() - geometry.beak().rootX();
     }

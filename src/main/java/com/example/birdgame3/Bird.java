@@ -337,6 +337,7 @@ public class Bird {
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
+                                 VisualBeakAxis turkeyNeck,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -510,6 +511,7 @@ public class Bird {
     private VisualFeatureBounds lastVisualHeadBounds;
     private VisualFeatureCircle lastVisualEye;
     private VisualBeakAxis lastVisualBeak;
+    private VisualBeakAxis lastVisualTurkeyNeck;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -11680,6 +11682,12 @@ public class Bird {
         prevY = y;
     }
 
+    /** Exercises the real climb/fall animation branches without adding presentation-only audit poses. */
+    void prepareVisualAuditVerticalMotion(double verticalVelocity) {
+        prepareVisualAuditPose(VisualAuditPose.FLAP);
+        vy = verticalVelocity;
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -21691,6 +21699,7 @@ public class Bird {
                 lastVisualHeadBounds,
                 lastVisualEye,
                 lastVisualBeak,
+                lastVisualTurkeyNeck,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21699,6 +21708,7 @@ public class Bird {
         lastVisualHeadBounds = null;
         lastVisualEye = null;
         lastVisualBeak = null;
+        lastVisualTurkeyNeck = null;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -29269,8 +29279,19 @@ public class Bird {
         Color bareNeck = classicPalette ? game.classicSkinAccentColor(type).darker() : headColor.darker();
         double shoulderX = x + (facingRight ? 50.0 : 30.0) * s;
         double shoulderY = y + 42.0 * s;
-        double neckTopX = headPose.centerX() - dir * 3.0 * s;
-        double neckTopY = headPose.centerY() + 11.0 * s;
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double undersideX = -aimY;
+        double undersideY = aimX;
+        if (undersideY < 0.0) {
+            undersideX = -undersideX;
+            undersideY = -undersideY;
+        }
+        // Join the neck to the rear/underside of the rotating head. Using a fixed
+        // screen-down endpoint made the thick center strip pierce through the face
+        // and protrude beyond the bill in the climb and fall poses.
+        double neckTopX = headPose.centerX() - aimX * 8.5 * s + undersideX * 4.0 * s;
+        double neckTopY = headPose.centerY() - aimY * 8.5 * s + undersideY * 4.0 * s;
         g.setLineCap(StrokeLineCap.ROUND);
         g.setStroke(bareNeck.deriveColor(0, 0.92, 0.80, 0.98));
         g.setLineWidth(14.0 * s);
@@ -29278,7 +29299,10 @@ public class Bird {
         g.setStroke(bareNeck.brighter().deriveColor(0, 0.82, 1.0, 0.42));
         g.setLineWidth(2.6 * s);
         g.strokeLine(shoulderX + dir * 3.0 * s, shoulderY,
-                neckTopX + dir * 2.0 * s, neckTopY - 1.0 * s);
+                neckTopX + undersideX * 1.5 * s, neckTopY + undersideY * 1.5 * s);
+        if (visualAuditBodyOnly) {
+            lastVisualTurkeyNeck = new VisualBeakAxis(shoulderX, shoulderY, neckTopX, neckTopY);
+        }
         recordVisualBodyPart(VisualBodyPart.TURKEY_NECK);
     }
 
@@ -29341,31 +29365,39 @@ public class Bird {
         }
         recordVisualBodyPart(VisualBodyPart.TURKEY_WING);
 
-        boolean headLookingRight = Math.cos(headPose.aimAngleRadians()) >= 0.0;
-        double headDir = headLookingRight ? 1.0 : -1.0;
-        double headX = headPose.centerX() - 25.0 * s;
-        double headY = headPose.centerY() - 20.0 * s;
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double undersideX = -aimY;
+        double undersideY = aimX;
+        if (undersideY < 0.0) {
+            undersideX = -undersideX;
+            undersideY = -undersideY;
+        }
         Color crown = (isCampaignFactionSkin() ? campaignFactionAccentColor()
                 : classicPalette ? game.classicSkinAccentColor(type) : Color.web("#6B9BA5"))
                 .deriveColor(0, 0.76, 0.94, 0.70);
         Color wattle = (classicPalette ? game.classicSkinAccentColor(type).brighter() : Color.web("#B71C1C"))
                 .deriveColor(0, 0.92, 0.90, isClassicSkin ? 0.76 : 0.92);
         g.setFill(crown);
-        g.fillOval(headX + (headLookingRight ? 2.0 : 28.0) * s,
-                headY + 4.0 * s, 20.0 * s, 17.0 * s);
-        double wattleX = headPose.centerX() + headDir * 3.0 * s;
-        double wattleY = headPose.centerY() + 7.0 * s;
-        g.setFill(wattle);
-        g.fillOval(wattleX - 4.5 * s, wattleY, 9.0 * s, 18.0 * s);
-        g.fillOval(wattleX + headDir * 3.5 * s - 3.5 * s,
-                wattleY + 10.0 * s, 7.0 * s, 10.0 * s);
-        g.setStroke(wattle.brighter().deriveColor(0, 0.82, 1.0, 0.82));
+        double crownX = headPose.centerX() - aimX * 5.5 * s - undersideX * 4.0 * s;
+        double crownY = headPose.centerY() - aimY * 5.5 * s - undersideY * 4.0 * s;
+        g.fillOval(crownX - 8.0 * s, crownY - 6.0 * s, 16.0 * s, 12.0 * s);
+
+        double wattleRootX = headPose.centerX() + aimX * 2.0 * s + undersideX * 6.5 * s;
+        double wattleRootY = headPose.centerY() + aimY * 2.0 * s + undersideY * 6.5 * s;
+        double wattleTipX = wattleRootX - aimX * 1.5 * s + undersideX * 10.0 * s;
+        double wattleTipY = wattleRootY - aimY * 1.5 * s + undersideY * 10.0 * s;
+        g.setStroke(wattle);
         g.setLineCap(StrokeLineCap.ROUND);
-        g.setLineWidth(4.2 * s);
-        g.strokeLine(headPose.centerX() + headDir * 2.0 * s,
-                headPose.centerY() - 9.0 * s,
-                headPose.centerX() + headDir * 11.0 * s,
-                headPose.centerY() + 1.0 * s);
+        g.setLineWidth(7.5 * s);
+        g.strokeLine(wattleRootX, wattleRootY, wattleTipX, wattleTipY);
+        g.setStroke(wattle.brighter().deriveColor(0, 0.82, 1.0, 0.82));
+        g.setLineWidth(3.2 * s);
+        g.strokeLine(
+                headPose.centerX() + aimX * 1.5 * s - undersideX * 7.0 * s,
+                headPose.centerY() + aimY * 1.5 * s - undersideY * 7.0 * s,
+                headPose.centerX() + aimX * 10.0 * s - undersideX * 2.0 * s,
+                headPose.centerY() + aimY * 10.0 * s - undersideY * 2.0 * s);
 
         boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL;
         double stride = state == BirdAnimationState.IDLE && Math.abs(vx) > 0.25

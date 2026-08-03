@@ -17829,9 +17829,22 @@ public class BirdGame3 {
         return drawVisualAuditCombatPose(new Canvas(160, 160), skin, pose, true, facingRight);
     }
 
+    Bird.VisualFeatureGeometry inspectVisualAuditVerticalMotionFeatures(
+            VisualAuditSkin skin, double verticalVelocity, boolean facingRight) {
+        return drawVisualAuditCombatPose(
+                new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
+                true, facingRight, verticalVelocity);
+    }
+
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
             boolean bodyOnly, boolean facingRight) {
+        return drawVisualAuditCombatPose(canvas, skin, pose, bodyOnly, facingRight, null);
+    }
+
+    private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
+            Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
+            boolean bodyOnly, boolean facingRight, Double verticalVelocity) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -17858,7 +17871,11 @@ public class BirdGame3 {
                 rosterSpriteMinScale(skin.bird, skin.key),
                 maxScale);
         preview.x = 0.0;
-        preview.prepareVisualAuditPose(pose);
+        if (verticalVelocity == null) {
+            preview.prepareVisualAuditPose(pose);
+        } else {
+            preview.prepareVisualAuditVerticalMotion(verticalVelocity);
+        }
         preview.facingRight = facingRight;
 
         double targetCenterY = switch (pose) {
