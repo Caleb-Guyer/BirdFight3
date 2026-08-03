@@ -17877,6 +17877,12 @@ public class BirdGame3 {
     }
 
     private double visualAuditCombatYBias(VisualAuditSkin skin) {
+        if (skin.bird == BirdType.FALCON
+                && BirdSpriteLibrary.sheetFor(skin.bird, skin.key) == null) {
+            // Falcon's steep climb pose reaches slightly above its normal
+            // horizontal silhouette. Keep a clean review margin around the beak.
+            return 0.025;
+        }
         if (NULL_ROCK_VULTURE_SKIN.equals(skin.key)) {
             // The giant void-body extends much farther below its gameplay
             // center than an ordinary bird. Lift the review frame without

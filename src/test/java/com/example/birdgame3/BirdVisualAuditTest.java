@@ -131,6 +131,33 @@ class BirdVisualAuditTest {
         }
     }
 
+    @Test
+    void falconKeepsItsTailWingAndLegsAcrossVectorSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.FALCON)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertEquals(2,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.FALCON_TAIL_FEATHER),
+                            label + " must draw both tail feathers");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.FALCON_WING),
+                            label + " must draw its swept wing");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.FALCON_LEG),
+                            label + " must draw both legs");
+                }
+            }
+        }
+    }
+
     private static void assertFeatureGeometryIsSafe(Bird.VisualFeatureGeometry geometry, String label) {
         assertTrue(geometry != null && geometry.complete(), label + " did not report semantic face geometry");
         assertTrue(geometry.head().contains(geometry.eye(), 0.01),

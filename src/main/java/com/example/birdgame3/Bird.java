@@ -319,7 +319,10 @@ public class Bird {
         PIGEON_LEG,
         EAGLE_TAIL_FEATHER,
         EAGLE_WING,
-        EAGLE_LEG
+        EAGLE_LEG,
+        FALCON_TAIL_FEATHER,
+        FALCON_WING,
+        FALCON_LEG
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -28757,6 +28760,8 @@ public class Bird {
             drawPigeonTailUnderlay(g, bodyColor);
         } else if (stylizedEagle) {
             drawEagleTailUnderlay(g, bodyColor);
+        } else if (stylizedFalcon) {
+            drawFalconTailUnderlay(g, bodyColor);
         }
 
         g.setFill(bodyColor);
@@ -28771,21 +28776,7 @@ public class Bird {
             drawEagleFeatherPolish(g, bodyColor, headColor, headPose);
         }
         if (stylizedFalcon) {
-            Color paleMark = (duneFalcon ? Color.web("#FFF3D6") : Color.web("#FFE0B2"))
-                    .deriveColor(0, 1, 1, isClassicSkin ? 0.26 : 0.34);
-            Color darkMark = (duneFalcon ? Color.web("#5D4037") : Color.web("#4E2416"))
-                    .deriveColor(0, 1, 1, isClassicSkin ? 0.34 : 0.44);
-            g.setFill(paleMark);
-            g.fillOval(headX + 8.0 * s, headY + 6.0 * s, 34.0 * s, 23.0 * s);
-            g.setStroke(darkMark);
-            g.setLineWidth(2.0 * s);
-            double stripeStartX = headX + (facingRight ? 14.0 : 36.0) * s;
-            double stripeEndX = headX + (facingRight ? 29.0 : 21.0) * s;
-            g.strokeLine(stripeStartX, headY + 18.0 * s, stripeEndX, headY + 36.0 * s);
-            g.setStroke(darkMark.deriveColor(0, 1, 1, 0.72));
-            g.setLineWidth(1.35 * s);
-            g.strokeArc(x + 17.0 * s, y + 35.0 * s, 48.0 * s, 27.0 * s,
-                    facingRight ? 204 : -24, 102, ArcType.OPEN);
+            drawFalconFeatherPolish(g, bodyColor, headPose);
         }
         if (stylizedHummingbird) {
             Color belly = (sunflareHummingbird ? Color.web("#FFF8E1") : Color.web("#E8F5E9"))
@@ -29290,6 +29281,101 @@ public class Bird {
         g.setFill(headColor.brighter().deriveColor(0, 0.48, 1.06, 0.09));
         g.fillOval(headX + (facingRight ? 9.0 : 18.0) * s,
                 headY + 5.0 * s, 23.0 * s, 9.0 * s);
+    }
+
+    /** Adds a compact, swept tail without changing Falcon's original round body. */
+    private void drawFalconTailUnderlay(GraphicsContext g, Color bodyColor) {
+        double s = sizeMultiplier;
+        double rear = facingRight ? -1.0 : 1.0;
+        double rootX = x + (facingRight ? 14.0 : 66.0) * s;
+        Color tail = isDuneSkin
+                ? Color.web("#7A5A43")
+                : bodyColor.darker().deriveColor(0, 0.92, 0.88, 1.0);
+        Color edge = isDuneSkin
+                ? Color.web("#D8BF99")
+                : bodyColor.brighter().deriveColor(0, 0.68, 1.02, 0.42);
+
+        for (int i = 0; i < 2; i++) {
+            double tipLength = (i == 0 ? 28.0 : 23.0) * s;
+            double tipY = y + (i == 0 ? 43.0 : 57.0) * s;
+            g.setFill(tail.deriveColor(0, 1, 1, 0.82 - i * 0.08));
+            g.fillPolygon(
+                    new double[]{rootX, rootX + rear * tipLength, rootX + rear * 3.0 * s},
+                    new double[]{y + 46.0 * s, tipY, y + 60.0 * s},
+                    3
+            );
+            g.setStroke(edge);
+            g.setLineWidth(0.8 * s);
+            g.strokeLine(rootX + rear * 4.0 * s, y + 52.0 * s,
+                    rootX + rear * (tipLength - 3.0 * s), tipY);
+            recordVisualBodyPart(VisualBodyPart.FALCON_TAIL_FEATHER);
+        }
+    }
+
+    /** Preserves Falcon's face markings while adding subtle flight-feather and foot detail. */
+    private void drawFalconFeatherPolish(GraphicsContext g, Color bodyColor, HeadPose headPose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double headX = headPose.centerX() - 25.0 * s;
+        double headY = headPose.centerY() - 20.0 * s;
+        Color paleMark = (isDuneSkin ? Color.web("#FFF3D6") : Color.web("#FFE0B2"))
+                .deriveColor(0, 1, 1, isClassicSkin ? 0.26 : 0.34);
+        Color darkMark = (isDuneSkin ? Color.web("#5D4037") : Color.web("#4E2416"))
+                .deriveColor(0, 1, 1, isClassicSkin ? 0.34 : 0.44);
+
+        // Keep the original pale cheek and falcon stripe in exactly the same positions.
+        g.setFill(paleMark);
+        g.fillOval(headX + 8.0 * s, headY + 6.0 * s, 34.0 * s, 23.0 * s);
+        g.setStroke(darkMark);
+        g.setLineWidth(2.0 * s);
+        double stripeStartX = headX + (facingRight ? 14.0 : 36.0) * s;
+        double stripeEndX = headX + (facingRight ? 29.0 : 21.0) * s;
+        g.strokeLine(stripeStartX, headY + 18.0 * s, stripeEndX, headY + 36.0 * s);
+
+        double wingX = x + (facingRight ? 12.0 : 31.0) * s;
+        Color wing = bodyColor.darker().deriveColor(0, 0.88, 0.88, 0.22);
+        Color featherLine = (isDuneSkin ? Color.web("#6D4C41") : Color.web("#4E2416"))
+                .deriveColor(0, 1, 1, 0.42);
+        g.setFill(wing);
+        g.fillOval(wingX, y + 36.0 * s, 37.0 * s, 27.0 * s);
+        g.setStroke(featherLine);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.35 * s);
+        g.strokeArc(wingX, y + 34.0 * s, 39.0 * s, 30.0 * s,
+                facingRight ? 203 : -23, 106, ArcType.OPEN);
+        g.setLineWidth(0.95 * s);
+        for (int i = 0; i < 3; i++) {
+            double featherY = y + (46.0 + i * 6.0) * s;
+            g.strokeLine(wingX + (7.0 + i * 2.0) * s, featherY,
+                    wingX + (30.0 - i * 3.0) * s,
+                    featherY - (3.0 - i) * s);
+        }
+        recordVisualBodyPart(VisualBodyPart.FALCON_WING);
+
+        BirdAnimationState state = currentBirdAnimationState();
+        boolean airborneLegs = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL;
+        Color foot = isDuneSkin ? Color.web("#9A7047")
+                : isClassicSkin ? Color.web("#FFC04D") : Color.web("#C88732");
+        g.setStroke(foot.deriveColor(0, 1, 1, 0.86));
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < 2; i++) {
+            double legX = x + (29.0 + i * 22.0) * s;
+            double ankleX = legX - dir * (airborneLegs ? 5.5 : 1.0) * s;
+            double ankleY = y + (airborneLegs ? 76.5 : 79.0) * s;
+            g.setLineWidth(1.55 * s);
+            g.strokeLine(legX, y + 70.0 * s, ankleX, ankleY);
+            g.setLineWidth(0.9 * s);
+            g.strokeLine(ankleX, ankleY, ankleX + dir * 5.5 * s,
+                    y + (airborneLegs ? 79.0 : 80.5) * s);
+            g.strokeLine(ankleX, ankleY, ankleX + dir * 2.0 * s,
+                    y + (airborneLegs ? 79.5 : 81.0) * s);
+            recordVisualBodyPart(VisualBodyPart.FALCON_LEG);
+        }
+
+        g.setStroke(darkMark.deriveColor(0, 1, 1, 0.72));
+        g.setLineWidth(1.35 * s);
+        g.strokeArc(x + 17.0 * s, y + 35.0 * s, 48.0 * s, 27.0 * s,
+                facingRight ? 204 : -24, 102, ArcType.OPEN);
     }
 
     private void drawRavenBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
