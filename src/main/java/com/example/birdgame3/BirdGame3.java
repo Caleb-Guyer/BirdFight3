@@ -17941,10 +17941,11 @@ public class BirdGame3 {
             case HUMMINGBIRD -> 1.66;
             case PELICAN, GOOSE -> 1.64;
             case KIWI -> 1.72;
+            case TURKEY -> 1.75;
             case FALCON, VULTURE -> 1.62;
             case PHOENIX -> 1.56;
             case ROOSTER -> 1.50;
-            case EAGLE, PIGEON, TURKEY, RAVEN, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD -> 1.46;
+            case EAGLE, PIGEON, RAVEN, MOCKINGBIRD, RAZORBILL, OPIUMBIRD, HEISENBIRD -> 1.46;
             default -> 1.42;
         };
         return baseExtent * rosterSpriteFit(type, skinKey).extentMultiplier();

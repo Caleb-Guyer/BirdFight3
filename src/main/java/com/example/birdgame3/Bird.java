@@ -329,7 +329,11 @@ public class Bird {
         PHOENIX_LEG,
         HUMMINGBIRD_TAIL_FEATHER,
         HUMMINGBIRD_WING,
-        HUMMINGBIRD_LEG
+        HUMMINGBIRD_LEG,
+        TURKEY_TAIL_FEATHER,
+        TURKEY_NECK,
+        TURKEY_WING,
+        TURKEY_LEG
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -28656,6 +28660,10 @@ public class Bird {
             bodyColor = Color.web("#B87333");
             headColor = Color.web("#CC8C46");
             eyeOverride = Color.web("#4E342E");
+        } else if (stylizedTurkey && !classicPalette) {
+            bodyColor = type.color;
+            headColor = Color.web("#B45146");
+            eyeOverride = Color.web("#241511");
         } else if (stylizedGrinchhawk && !classicPalette) {
             bodyColor = Color.web("#4F8A28");
             headColor = Color.web("#7CB342");
@@ -28672,23 +28680,7 @@ public class Bird {
             drawHummingbirdUnderlay(g, bodyColor, sunflareHummingbird, classicPalette);
         }
         if (stylizedTurkey) {
-            double tailBaseX = facingRight ? x + 17.0 * s : x + 63.0 * s;
-            double tailDir = facingRight ? -1.0 : 1.0;
-            Color fanFill = (classicPalette ? game.classicSkinPrimaryColor(type) : Color.web("#8D5A2B"))
-                    .deriveColor(0, 1, 1, isClassicSkin ? 0.24 : 0.32);
-            Color fanLine = (classicPalette ? game.classicSkinAccentColor(type) : Color.web("#4E2416"))
-                    .deriveColor(0, 1, 1, 0.58);
-            g.setFill(fanFill);
-            g.fillArc(tailBaseX - 39.0 * s, y + 5.0 * s, 78.0 * s, 68.0 * s,
-                    facingRight ? 74 : 28, 156, ArcType.ROUND);
-            g.setStroke(fanLine);
-            g.setLineWidth(1.35 * s);
-            for (int i = -2; i <= 2; i++) {
-                double spread = i * 9.0 * s;
-                double tipX = tailBaseX + tailDir * (36.0 - Math.abs(i) * 3.0) * s;
-                double tipY = y + (18.0 + Math.abs(i) * 7.0) * s + spread * 0.18;
-                g.strokeLine(tailBaseX, y + 53.0 * s, tipX, tipY);
-            }
+            drawTurkeyUnderlay(g, bodyColor, headColor, headPose, classicPalette);
         }
         if (stylizedPenguin) {
             Color flipper = (mintPenguin ? Color.web("#4DB6AC")
@@ -28811,20 +28803,7 @@ public class Bird {
             drawHummingbirdFeatherPolish(g, headPose, sunflareHummingbird, classicPalette);
         }
         if (stylizedTurkey) {
-            Color chest = (classicPalette ? game.classicSkinAccentColor(type) : Color.web("#C17A34"))
-                    .deriveColor(0, 1, 1, isClassicSkin ? 0.18 : 0.25);
-            Color feather = (classicPalette ? game.classicSkinAccentColor(type) : Color.web("#3E1B16"))
-                    .deriveColor(0, 1, 1, 0.42);
-            Color wattle = Color.web("#B71C1C").deriveColor(0, 1, 1, isClassicSkin ? 0.58 : 0.76);
-            g.setFill(chest);
-            g.fillOval(x + 20.0 * s, y + 36.0 * s, 40.0 * s, 28.0 * s);
-            g.setStroke(feather);
-            g.setLineWidth(1.45 * s);
-            g.strokeArc(x + 15.0 * s, y + 35.0 * s, 50.0 * s, 30.0 * s,
-                    facingRight ? 202 : -22, 110, ArcType.OPEN);
-            g.setFill(wattle);
-            g.fillOval(headX + (facingRight ? 4.0 : 36.0) * s, headY + 22.0 * s, 10.0 * s, 17.0 * s);
-            g.fillOval(headX + (facingRight ? 9.0 : 31.0) * s, headY + 29.0 * s, 9.0 * s, 10.0 * s);
+            drawTurkeyFeatherPolish(g, bodyColor, headPose, classicPalette);
         }
         if (stylizedPenguin) {
             Color belly = (mintPenguin ? Color.web("#E0F7FA")
@@ -29058,7 +29037,17 @@ public class Bird {
             g.strokeLine(crackX - (facingRight ? 4.0 : -4.0) * s, headY + 16.0 * s,
                     crackX + (facingRight ? 3.0 : -3.0) * s, headY + 25.0 * s);
         }
-        if (stylizedTitmouse) {
+        if (stylizedTurkey) {
+            boolean headLookingRight = Math.cos(headPose.aimAngleRadians()) >= 0.0;
+            double lookDir = headLookingRight ? 1.0 : -1.0;
+            double gaze = currentBirdAnimationState() == BirdAnimationState.IDLE
+                    ? lookDir * Math.sin((animationGlobalFrame + playerIndex * 23.0) * 0.048) * 1.4
+                    : 0.0;
+            Color eyeColor = classicPalette ? game.classicSkinAccentColor(type).darker() : Color.web("#241511");
+            if (eyeOverride != null) eyeColor = eyeOverride;
+            drawStandardVectorEye(g, headPose, headW, headH,
+                    Color.web("#FFF8E1"), eyeColor, 20.0, 12.0, gaze, headLookingRight);
+        } else if (stylizedTitmouse) {
             double eyeX = headX + (facingRight ? 4.0 : 34.0) * s;
             double eyeY = headY + 4.0 * s;
             g.setFill(eyeOverride == null ? Color.BLACK : eyeOverride);
@@ -29222,6 +29211,187 @@ public class Bird {
             g.strokeLine(ankleX, ankleY, ankleX - dir * 2.0 * s,
                     ankleY + (airborne ? 1.5 : 1.0) * s);
             recordVisualBodyPart(VisualBodyPart.HUMMINGBIRD_LEG);
+        }
+    }
+
+    /** Builds Turkey's broad seven-feather fan and keeps its bare neck connected through every pose. */
+    private void drawTurkeyUnderlay(GraphicsContext g, Color bodyColor, Color headColor,
+                                    HeadPose headPose, boolean classicPalette) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        BirdAnimationState state = currentBirdAnimationState();
+        double spreadScale = switch (state) {
+            case ATTACK -> 1.08;
+            case DODGE -> 0.88;
+            case FLAP, FALL -> 0.80;
+            case HITSTUN, KO -> 0.72;
+            case IDLE -> Math.abs(vx) > 0.25 ? 0.88 : 1.0;
+            default -> 1.0;
+        };
+        double fanPulse = Math.sin((animationGlobalFrame + playerIndex * 13.0) * 0.075) * 1.4;
+        Color feather = (classicPalette ? game.classicSkinPrimaryColor(type).darker() : bodyColor.darker())
+                .deriveColor(0, 0.96, 0.94, 0.96);
+        Color band = (classicPalette ? game.classicSkinAccentColor(type) : bodyColor.brighter())
+                .deriveColor(0, 0.94, 0.96, 0.88);
+        Color tip = (classicPalette ? game.classicSkinAccentColor(type).brighter() : Color.web("#E7BF72"))
+                .deriveColor(0, 0.82, 1.0, 0.92);
+        Color outline = (classicPalette ? game.classicSkinAccentColor(type).darker() : Color.web("#32170F"))
+                .deriveColor(0, 0.90, 0.78, 0.86);
+        double rootX = x + (facingRight ? 19.0 : 61.0) * s;
+        double rootY = y + 48.0 * s;
+        double rearAngle = facingRight ? 180.0 : 0.0;
+
+        for (int i = 0; i < 7; i++) {
+            int offset = i - 3;
+            double centerWeight = 3.0 - Math.abs(offset);
+            double angle = rearAngle + offset * 14.0 * spreadScale + fanPulse * offset / 3.0;
+            double length = (48.0 + centerWeight * 2.8) * s;
+            double width = (16.0 + centerWeight * 1.4) * s;
+            Color featherShade = feather.deriveColor(offset * 2.2, 1.0, 0.90 + centerWeight * 0.025, 1.0);
+
+            g.save();
+            g.translate(rootX, rootY);
+            g.rotate(angle);
+            g.setFill(featherShade);
+            g.fillOval(0.0, -width * 0.5, length, width);
+            g.setFill(band);
+            g.fillOval(length * 0.52, -width * 0.42, length * 0.34, width * 0.84);
+            g.setFill(tip);
+            g.fillOval(length * 0.79, -width * 0.34, length * 0.19, width * 0.68);
+            g.setStroke(outline);
+            g.setLineWidth(1.05 * s);
+            g.strokeOval(0.0, -width * 0.5, length, width);
+            g.strokeLine(length * 0.08, 0.0, length * 0.90, 0.0);
+            g.restore();
+            recordVisualBodyPart(VisualBodyPart.TURKEY_TAIL_FEATHER);
+        }
+
+        Color bareNeck = classicPalette ? game.classicSkinAccentColor(type).darker() : headColor.darker();
+        double shoulderX = x + (facingRight ? 50.0 : 30.0) * s;
+        double shoulderY = y + 42.0 * s;
+        double neckTopX = headPose.centerX() - dir * 3.0 * s;
+        double neckTopY = headPose.centerY() + 11.0 * s;
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setStroke(bareNeck.deriveColor(0, 0.92, 0.80, 0.98));
+        g.setLineWidth(14.0 * s);
+        g.strokeLine(shoulderX, shoulderY, neckTopX, neckTopY);
+        g.setStroke(bareNeck.brighter().deriveColor(0, 0.82, 1.0, 0.42));
+        g.setLineWidth(2.6 * s);
+        g.strokeLine(shoulderX + dir * 3.0 * s, shoulderY,
+                neckTopX + dir * 2.0 * s, neckTopY - 1.0 * s);
+        recordVisualBodyPart(VisualBodyPart.TURKEY_NECK);
+    }
+
+    /** Adds Turkey's pose-aware wing, bare-face detail, wattle, and persistent two-legged stance. */
+    private void drawTurkeyFeatherPolish(GraphicsContext g, Color bodyColor,
+                                         HeadPose headPose, boolean classicPalette) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        BirdAnimationState state = currentBirdAnimationState();
+        Color chest = (classicPalette ? game.classicSkinAccentColor(type) : Color.web("#C98743"))
+                .deriveColor(0, 0.92, 1.04, isClassicSkin ? 0.34 : 0.46);
+        Color wing = (classicPalette ? game.classicSkinPrimaryColor(type).darker() : bodyColor.darker())
+                .deriveColor(0, 0.92, 0.82, 0.94);
+        Color featherLine = (classicPalette ? game.classicSkinAccentColor(type) : Color.web("#4A2418"))
+                .deriveColor(0, 0.88, 0.78, 0.72);
+
+        g.setFill(chest);
+        g.fillOval(x + 19.0 * s, y + 36.0 * s, 42.0 * s, 31.0 * s);
+        double shoulderX = x + (facingRight ? 32.0 : 48.0) * s;
+        double shoulderY = y + 38.0 * s;
+        if (state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL) {
+            double beat = Math.sin((animationGlobalFrame + playerIndex * 17.0) * 0.42);
+            for (int i = 0; i < 3; i++) {
+                double tipX = shoulderX + rear * (23.0 + i * 8.0) * s;
+                double tipY = y - (10.0 + i * 8.0 + beat * 5.0) * s;
+                g.setFill(wing.deriveColor(i * 3.0, 1.0, 0.88 + i * 0.05, 0.88));
+                g.fillPolygon(
+                        new double[]{shoulderX + dir * (7.0 - i) * s,
+                                tipX + dir * 5.0 * s,
+                                tipX + rear * 5.0 * s,
+                                shoulderX + rear * (5.0 + i * 2.0) * s},
+                        new double[]{shoulderY + (5.0 + i * 2.0) * s,
+                                tipY + 6.0 * s,
+                                tipY - 5.0 * s,
+                                shoulderY - (3.0 + i * 2.0) * s},
+                        4
+                );
+                g.setStroke(featherLine);
+                g.setLineWidth((1.25 - i * 0.15) * s);
+                g.strokeLine(shoulderX, shoulderY, tipX, tipY);
+            }
+        } else {
+            double wingX = x + (facingRight ? 11.0 : 33.0) * s;
+            double droop = state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO ? 7.0 : 0.0;
+            g.setFill(wing);
+            g.fillOval(wingX, y + (29.0 + droop) * s, 36.0 * s, 43.0 * s);
+            g.setStroke(featherLine);
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(1.65 * s);
+            for (int i = 0; i < 3; i++) {
+                g.strokeArc(wingX + (4.0 + i * 4.0) * s,
+                        y + (35.0 + droop + i * 7.0) * s,
+                        (27.0 - i * 5.0) * s,
+                        (24.0 - i * 4.0) * s,
+                        facingRight ? 202.0 : -22.0,
+                        116.0,
+                        ArcType.OPEN);
+            }
+        }
+        recordVisualBodyPart(VisualBodyPart.TURKEY_WING);
+
+        boolean headLookingRight = Math.cos(headPose.aimAngleRadians()) >= 0.0;
+        double headDir = headLookingRight ? 1.0 : -1.0;
+        double headX = headPose.centerX() - 25.0 * s;
+        double headY = headPose.centerY() - 20.0 * s;
+        Color crown = (isCampaignFactionSkin() ? campaignFactionAccentColor()
+                : classicPalette ? game.classicSkinAccentColor(type) : Color.web("#6B9BA5"))
+                .deriveColor(0, 0.76, 0.94, 0.70);
+        Color wattle = (classicPalette ? game.classicSkinAccentColor(type).brighter() : Color.web("#B71C1C"))
+                .deriveColor(0, 0.92, 0.90, isClassicSkin ? 0.76 : 0.92);
+        g.setFill(crown);
+        g.fillOval(headX + (headLookingRight ? 2.0 : 28.0) * s,
+                headY + 4.0 * s, 20.0 * s, 17.0 * s);
+        double wattleX = headPose.centerX() + headDir * 3.0 * s;
+        double wattleY = headPose.centerY() + 7.0 * s;
+        g.setFill(wattle);
+        g.fillOval(wattleX - 4.5 * s, wattleY, 9.0 * s, 18.0 * s);
+        g.fillOval(wattleX + headDir * 3.5 * s - 3.5 * s,
+                wattleY + 10.0 * s, 7.0 * s, 10.0 * s);
+        g.setStroke(wattle.brighter().deriveColor(0, 0.82, 1.0, 0.82));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(4.2 * s);
+        g.strokeLine(headPose.centerX() + headDir * 2.0 * s,
+                headPose.centerY() - 9.0 * s,
+                headPose.centerX() + headDir * 11.0 * s,
+                headPose.centerY() + 1.0 * s);
+
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL;
+        double stride = state == BirdAnimationState.IDLE && Math.abs(vx) > 0.25
+                ? Math.sin((animationGlobalFrame + playerIndex * 9.0) * 0.34) * 7.0
+                : 0.0;
+        Color leg = (classicPalette ? game.classicSkinAccentColor(type).darker() : Color.web("#6D4C41"))
+                .deriveColor(0, 0.82, 0.82, 0.96);
+        g.setStroke(leg);
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + (31.0 + i * 18.0) * s;
+            double step = (i == 0 ? stride : -stride) * s;
+            double ankleX = airborne ? hipX + rear * (5.0 + i * 2.0) * s : hipX + step;
+            double ankleY = y + (airborne ? 80.0 : state == BirdAnimationState.KO ? 82.0 : 89.0) * s;
+            double kneeX = (hipX + ankleX) * 0.5 + dir * (i == 0 ? -2.0 : 2.0) * s;
+            double kneeY = y + (airborne ? 72.0 : 77.0) * s;
+            g.setLineWidth(2.15 * s);
+            g.strokeLine(hipX, y + 65.0 * s, kneeX, kneeY);
+            g.strokeLine(kneeX, kneeY, ankleX, ankleY);
+            g.setLineWidth(1.15 * s);
+            for (int toe = -1; toe <= 1; toe++) {
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + dir * (5.0 + toe) * s,
+                        ankleY + (2.0 + Math.abs(toe)) * s);
+            }
+            recordVisualBodyPart(VisualBodyPart.TURKEY_LEG);
         }
     }
 
@@ -30916,6 +31086,8 @@ public class Bird {
         double openAmount = (isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) : 3) * s * openScale;
         if (stylizedHummingbird) {
             openAmount *= 0.34;
+        } else if (stylizedTurkey) {
+            openAmount *= 0.72;
         } else if (stylizedMockingbird) {
             openAmount *= 0.62;
         } else if (stylizedGrinchhawk) {
@@ -30956,7 +31128,7 @@ public class Bird {
         }
         double mouthCenterX = headPose.centerX() + dirX * 5.0 * s;
         double mouthCenterY = headPose.centerY() + dirY * 5.0 * s + 5.0 * s;
-        double baseHalfWidth = (stylizedHummingbird ? 3.8 : 8.0) * s;
+        double baseHalfWidth = (stylizedHummingbird ? 3.8 : stylizedTurkey ? 6.0 : 8.0) * s;
         double baseUpperX = mouthCenterX - normalX * baseHalfWidth;
         double baseUpperY = mouthCenterY - normalY * baseHalfWidth;
         double baseLowerX = mouthCenterX + normalX * baseHalfWidth;

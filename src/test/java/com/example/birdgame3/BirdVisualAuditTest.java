@@ -18,6 +18,7 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.EAGLE,
             BirdGame3.BirdType.PHOENIX,
             BirdGame3.BirdType.HUMMINGBIRD,
+            BirdGame3.BirdType.TURKEY,
             BirdGame3.BirdType.ROADRUNNER,
             BirdGame3.BirdType.MOCKINGBIRD,
             BirdGame3.BirdType.VULTURE
@@ -57,6 +58,7 @@ class BirdVisualAuditTest {
         List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
                 .filter(entry -> FEATURE_AUDIT_BIRDS.contains(entry.bird()))
                 .filter(entry -> !"STOCK_PHOTO_EAGLE".equals(entry.key()))
+                .filter(entry -> !"STOCK_PHOTO_TURKEY".equals(entry.key()))
                 .filter(entry -> !"NULL_ROCK_VULTURE".equals(entry.key()))
                 .filter(entry -> !"LORE_ACCURATE_HUMMINGBIRD".equals(entry.key()))
                 .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
@@ -261,6 +263,62 @@ class BirdVisualAuditTest {
 
                 assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 8.0,
                         label + " must point its needle bill upward in flight");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must look back during its hit animation");
+            }
+        }
+    }
+
+    @Test
+    void turkeyKeepsItsFanNeckWingAndLegsAcrossVectorSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.TURKEY)
+                .filter(entry -> !"STOCK_PHOTO_TURKEY".equals(entry.key()))
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertEquals(7, geometry.bodyPartCount(Bird.VisualBodyPart.TURKEY_TAIL_FEATHER),
+                            label + " must draw all seven fan feathers");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.TURKEY_NECK),
+                            label + " must keep its neck connected to its body");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.TURKEY_WING),
+                            label + " must draw its pose-aware wing");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.TURKEY_LEG),
+                            label + " must visibly draw both legs");
+                }
+            }
+        }
+    }
+
+    @Test
+    void turkeyHeadAndBeakFollowMovementAnimationsInBothDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.TURKEY)
+                .filter(entry -> !"STOCK_PHOTO_TURKEY".equals(entry.key()))
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+
+                assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 8.0,
+                        label + " must raise its head and beak during flight");
                 assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
                         label + " must look back during its hit animation");
             }
