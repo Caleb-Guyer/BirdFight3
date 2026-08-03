@@ -95,9 +95,37 @@ class BirdVisualAuditTest {
                     Bird.VisualFeatureGeometry geometry =
                             game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
                     String direction = facingRight ? "right" : "left";
-                    assertEquals(2, geometry.pigeonLegCount(),
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.PIGEON_LEG),
                             entry.name() + " / " + pose + " facing " + direction
                                     + " must visibly draw both legs");
+                }
+            }
+        }
+    }
+
+    @Test
+    void eagleKeepsItsTailWingAndLegsAcrossVectorSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.EAGLE)
+                .filter(entry -> !"STOCK_PHOTO_EAGLE".equals(entry.key()))
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertEquals(3,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.EAGLE_TAIL_FEATHER),
+                            label + " must draw all three tail feathers");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.EAGLE_WING),
+                            label + " must draw its folded wing");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.EAGLE_LEG),
+                            label + " must draw both legs");
                 }
             }
         }

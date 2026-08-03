@@ -15,8 +15,10 @@ import com.example.birdgame3.BirdGame3.MapType;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.Iterator;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Random;
 
 /**
@@ -313,10 +315,21 @@ public class Bird {
         }
     }
 
+    enum VisualBodyPart {
+        PIGEON_LEG,
+        EAGLE_TAIL_FEATHER,
+        EAGLE_WING,
+        EAGLE_LEG
+    }
+
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
-                                 int pigeonLegCount) {
+                                 Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
+        }
+
+        int bodyPartCount(VisualBodyPart part) {
+            return bodyPartCounts.getOrDefault(part, 0);
         }
     }
 
@@ -483,7 +496,8 @@ public class Bird {
     private VisualFeatureBounds lastVisualHeadBounds;
     private VisualFeatureCircle lastVisualEye;
     private VisualBeakAxis lastVisualBeak;
-    private int lastVisualPigeonLegCount;
+    private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
+            new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
     String appliedSkinKey = null;
     public double loungeX, loungeY;
@@ -21663,7 +21677,7 @@ public class Bird {
                 lastVisualHeadBounds,
                 lastVisualEye,
                 lastVisualBeak,
-                lastVisualPigeonLegCount
+                Map.copyOf(lastVisualBodyPartCounts)
         );
     }
 
@@ -21671,11 +21685,17 @@ public class Bird {
         lastVisualHeadBounds = null;
         lastVisualEye = null;
         lastVisualBeak = null;
-        lastVisualPigeonLegCount = 0;
+        lastVisualBodyPartCounts.clear();
     }
 
     private void recordVisualBeak(double rootX, double rootY, double tipX, double tipY) {
         lastVisualBeak = new VisualBeakAxis(rootX, rootY, tipX, tipY);
+    }
+
+    private void recordVisualBodyPart(VisualBodyPart part) {
+        if (visualAuditBodyOnly) {
+            lastVisualBodyPartCounts.merge(part, 1, Integer::sum);
+        }
     }
 
     /**
@@ -28735,6 +28755,8 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.PIGEON) {
             drawPigeonTailUnderlay(g, bodyColor);
+        } else if (stylizedEagle) {
+            drawEagleTailUnderlay(g, bodyColor);
         }
 
         g.setFill(bodyColor);
@@ -28746,17 +28768,7 @@ public class Bird {
             drawPigeonFeatherPolish(g, bodyColor, headColor, headPose);
         }
         if (stylizedEagle) {
-            g.setFill(Color.web("#F5F1DD").deriveColor(0, 1, 1, isClassicSkin ? 0.34 : 0.42));
-            g.fillOval(headX + 7.0 * s, headY + s, 36.0 * s, 26.0 * s);
-            g.setFill(Color.web("#F5F1DD").deriveColor(0, 1, 1, isClassicSkin ? 0.20 : 0.26));
-            g.fillOval(x + 24.0 * s, y + 30.0 * s, 34.0 * s, 22.0 * s);
-            g.setStroke(Color.web("#2A1111").deriveColor(0, 1, 1, 0.34));
-            g.setLineWidth(1.7 * s);
-            g.strokeArc(x + 15.0 * s, y + 34.0 * s, 50.0 * s, 32.0 * s,
-                    facingRight ? 202 : -22, 112, ArcType.OPEN);
-            g.setStroke(Color.web("#3E1B16").deriveColor(0, 1, 1, 0.28));
-            g.setLineWidth(1.2 * s);
-            g.strokeLine(x + 24.0 * s, y + 54.0 * s, x + 55.0 * s, y + 58.0 * s);
+            drawEagleFeatherPolish(g, bodyColor, headColor, headPose);
         }
         if (stylizedFalcon) {
             Color paleMark = (duneFalcon ? Color.web("#FFF3D6") : Color.web("#FFE0B2"))
@@ -29181,14 +29193,103 @@ public class Bird {
             g.setLineWidth(1.0 * s);
             g.strokeLine(ankleX, ankleY, toeX, toeY);
             g.setLineWidth(1.7 * s);
-            if (visualAuditBodyOnly) {
-                lastVisualPigeonLegCount++;
-            }
+            recordVisualBodyPart(VisualBodyPart.PIGEON_LEG);
         }
 
         g.setFill(headColor.brighter().deriveColor(0, 0.55, 1.08, 0.10));
         g.fillOval(headX + (facingRight ? 9.0 : 18.0) * s,
                 headY + 5.0 * s, 23.0 * s, 10.0 * s);
+    }
+
+    /** Keeps Eagle's original round silhouette while making its short tail readable. */
+    private void drawEagleTailUnderlay(GraphicsContext g, Color bodyColor) {
+        double s = sizeMultiplier;
+        double rear = facingRight ? -1.0 : 1.0;
+        double rootX = x + (facingRight ? 14.0 : 66.0) * s;
+        Color tail = isCampaignFactionSkin()
+                ? campaignFactionSecondaryColor().brighter()
+                : isClassicSkin
+                ? game.classicSkinAccentColor(type).brighter()
+                : Color.web("#EEE9D7");
+        Color edge = bodyColor.darker().deriveColor(0, 0.70, 0.82, 0.34);
+
+        for (int i = 0; i < 3; i++) {
+            double offsetY = (i - 1) * 6.0 * s;
+            double tipLength = (i == 1 ? 25.0 : 21.0) * s;
+            g.setFill(tail.deriveColor(0, 0.72, 1.02, 0.82 - i * 0.06));
+            g.fillPolygon(
+                    new double[]{rootX, rootX + rear * tipLength, rootX + rear * 4.0 * s},
+                    new double[]{y + 45.0 * s, y + 49.0 * s + offsetY, y + 59.0 * s},
+                    3
+            );
+            g.setStroke(edge);
+            g.setLineWidth(0.85 * s);
+            g.strokeLine(rootX + rear * 4.0 * s, y + 51.0 * s,
+                    rootX + rear * (tipLength - 3.0 * s), y + 49.0 * s + offsetY);
+            recordVisualBodyPart(VisualBodyPart.EAGLE_TAIL_FEATHER);
+        }
+    }
+
+    /** Adds restrained feather and talon detail without replacing Eagle's original body or face. */
+    private void drawEagleFeatherPolish(GraphicsContext g, Color bodyColor,
+                                        Color headColor, HeadPose headPose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double headX = headPose.centerX() - 25.0 * s;
+        double headY = headPose.centerY() - 20.0 * s;
+        Color pale = isCampaignFactionSkin()
+                ? campaignFactionSecondaryColor().brighter()
+                : Color.web("#F5F1DD");
+
+        // Retain the original pale head and chest markings.
+        g.setFill(pale.deriveColor(0, 0.84, 1.0, isClassicSkin ? 0.34 : 0.42));
+        g.fillOval(headX + 7.0 * s, headY + s, 36.0 * s, 26.0 * s);
+        g.setFill(pale.deriveColor(0, 0.80, 1.0, isClassicSkin ? 0.20 : 0.26));
+        g.fillOval(x + 24.0 * s, y + 30.0 * s, 34.0 * s, 22.0 * s);
+
+        double wingX = x + (facingRight ? 13.0 : 32.0) * s;
+        Color wing = bodyColor.darker().deriveColor(0, 0.82, 0.88, 0.24);
+        Color featherLine = bodyColor.darker().deriveColor(0, 0.76, 0.80, 0.46);
+        g.setFill(wing);
+        g.fillOval(wingX, y + 35.0 * s, 35.0 * s, 30.0 * s);
+        g.setStroke(featherLine);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.45 * s);
+        g.strokeArc(wingX + s, y + 34.0 * s, 35.0 * s, 31.0 * s,
+                facingRight ? 201 : -21, 112, ArcType.OPEN);
+        g.setLineWidth(1.0 * s);
+        for (int i = 0; i < 3; i++) {
+            double featherY = y + (46.0 + i * 6.0) * s;
+            g.strokeLine(wingX + (6.0 + i) * s, featherY,
+                    wingX + (29.0 - i * 3.0) * s, featherY - (4.0 - i) * s);
+        }
+        recordVisualBodyPart(VisualBodyPart.EAGLE_WING);
+
+        BirdAnimationState state = currentBirdAnimationState();
+        boolean airborneLegs = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL;
+        Color talon = isCampaignFactionSkin()
+                ? campaignFactionAccentColor().brighter()
+                : isClassicSkin ? Color.web("#E7B62D") : Color.web("#D9A12A");
+        g.setStroke(talon.deriveColor(0, 1, 1, 0.90));
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < 2; i++) {
+            double legX = x + (28.0 + i * 24.0) * s;
+            double ankleX = legX - dir * (airborneLegs ? 6.0 : 1.5) * s;
+            double ankleY = y + (airborneLegs ? 76.0 : 79.0) * s;
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(legX, y + 69.0 * s, ankleX, ankleY);
+            g.setLineWidth(1.0 * s);
+            for (int toe = -1; toe <= 1; toe++) {
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + dir * 4.5 * s + toe * 3.5 * s,
+                        y + (airborneLegs ? 79.0 : 81.0) * s);
+            }
+            recordVisualBodyPart(VisualBodyPart.EAGLE_LEG);
+        }
+
+        g.setFill(headColor.brighter().deriveColor(0, 0.48, 1.06, 0.09));
+        g.fillOval(headX + (facingRight ? 9.0 : 18.0) * s,
+                headY + 5.0 * s, 23.0 * s, 9.0 * s);
     }
 
     private void drawRavenBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
