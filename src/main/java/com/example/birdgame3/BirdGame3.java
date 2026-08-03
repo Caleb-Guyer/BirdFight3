@@ -17842,9 +17842,16 @@ public class BirdGame3 {
         double baseSize = Math.min(w, h);
         double pad = Math.max(8.0, baseSize * 0.08);
         double extentFactor = visualAuditCombatExtentFactor(skin);
+        double maxScale = rosterSpriteMaxScale(skin.bird, skin.key);
+        if (skin.bird == BirdType.PHOENIX
+                && BirdSpriteLibrary.sheetFor(skin.bird, skin.key) == null) {
+            // The climb pose carries Phoenix's crownfire beyond its wide idle
+            // halo, so the audit needs a slightly wider full-animation frame.
+            maxScale = Math.min(maxScale, 0.60);
+        }
         preview.sizeMultiplier = Math.clamp((baseSize - pad * 2.0) / (80.0 * extentFactor),
                 rosterSpriteMinScale(skin.bird, skin.key),
-                rosterSpriteMaxScale(skin.bird, skin.key));
+                maxScale);
         preview.x = 0.0;
         preview.prepareVisualAuditPose(pose);
         preview.facingRight = facingRight;

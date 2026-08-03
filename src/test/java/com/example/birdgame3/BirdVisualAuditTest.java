@@ -188,6 +188,36 @@ class BirdVisualAuditTest {
         }
     }
 
+    @Test
+    void phoenixHeadAndBeakFollowItsMovementAnimationsInBothDirections() {
+        BirdGame3 game = freshGame();
+        BirdGame3.VisualAuditSkin phoenix = new BirdGame3.VisualAuditSkin(
+                BirdGame3.BirdType.PHOENIX, null, "Phoenix base");
+
+        for (boolean facingRight : List.of(true, false)) {
+            Bird.VisualFeatureGeometry idle =
+                    game.inspectVisualAuditCombatFeatures(phoenix, Bird.VisualAuditPose.IDLE, facingRight);
+            Bird.VisualFeatureGeometry flap =
+                    game.inspectVisualAuditCombatFeatures(phoenix, Bird.VisualAuditPose.FLAP, facingRight);
+            Bird.VisualFeatureGeometry hit =
+                    game.inspectVisualAuditCombatFeatures(phoenix, Bird.VisualAuditPose.HIT, facingRight);
+            String direction = facingRight ? "right" : "left";
+
+            assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 8.0,
+                    "Phoenix's beak must look upward during its flight animation while facing " + direction);
+            assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                    "Phoenix must look back during its hit animation while facing " + direction);
+        }
+    }
+
+    private static double beakVectorX(Bird.VisualFeatureGeometry geometry) {
+        return geometry.beak().tipX() - geometry.beak().rootX();
+    }
+
+    private static double beakVectorY(Bird.VisualFeatureGeometry geometry) {
+        return geometry.beak().tipY() - geometry.beak().rootY();
+    }
+
     private static void assertFeatureGeometryIsSafe(Bird.VisualFeatureGeometry geometry, String label) {
         assertTrue(geometry != null && geometry.complete(), label + " did not report semantic face geometry");
         assertTrue(geometry.head().contains(geometry.eye(), 0.01),
