@@ -59,6 +59,7 @@ import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.image.WritableImage;
+import javafx.scene.image.PixelFormat;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.Text;
@@ -87,6 +88,8 @@ import javafx.stage.Window;
 import javafx.util.Duration;
 
 import java.io.FileOutputStream;
+import java.io.BufferedOutputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.lang.reflect.Method;
 import java.util.*;
@@ -102,6 +105,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.nio.file.Files;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.*;
 import java.util.prefs.BackingStoreException;
@@ -17321,9 +17325,35 @@ public class BirdGame3 {
                 || "1".equals(System.getenv("BIRDFIGHT3_OFFICIAL_TRAILER"));
     }
 
+    private String officialTrailerExportPath() {
+        String property = System.getProperty("birdfight3.officialTrailerExport", "").trim();
+        if (!property.isBlank()) {
+            return property;
+        }
+        String environment = System.getenv("BIRDFIGHT3_OFFICIAL_TRAILER_EXPORT");
+        return environment == null ? "" : environment.trim();
+    }
+
+    private boolean officialTrailerExportMode() {
+        return !officialTrailerExportPath().isBlank();
+    }
+
+    private double officialTrailerExportDuration(double fullDuration) {
+        String configured = System.getenv("BIRDFIGHT3_TRAILER_EXPORT_SECONDS");
+        if (configured == null || configured.isBlank()) {
+            return fullDuration;
+        }
+        try {
+            return Math.clamp(Double.parseDouble(configured.trim()), 0.5, fullDuration);
+        } catch (NumberFormatException ignored) {
+            return fullDuration;
+        }
+    }
+
     public void start(Stage stage) {
         try {
-            boolean officialTrailer = officialTrailerMode();
+            boolean officialTrailerExport = officialTrailerExportMode();
+            boolean officialTrailer = officialTrailerMode() || officialTrailerExport;
             appendStartLog("enter start");
             String statsSummary = BirdStats.reloadFromDisk();
             if (statsSummary != null) {
@@ -17336,6 +17366,11 @@ public class BirdGame3 {
             appendStartLog("loaded bird stats");
             currentStage = stage;
             appendStartLog("set currentStage");
+            if (officialTrailerExport) {
+                stage.setTitle("Bird Fight 3 - Background Trailer Export");
+                showOfficialTrailer(stage);
+                return;
+            }
             // Ensure the JVM exits immediately when the window is closed from OS window controls
             stage.setOnCloseRequest(evt -> {
                 appendStartLog("stage close requested");
@@ -30979,81 +31014,301 @@ public class BirdGame3 {
         StackPane root = new StackPane(canvas);
         root.setStyle("-fx-background-color: #020408;");
         Scene scene = new Scene(root, WIDTH, HEIGHT);
+        OfficialTrailerPlaybackState playback = new OfficialTrailerPlaybackState();
+        List<Bird> roster = new ArrayList<>(cast.values());
+        Consumer<Double> renderAt = elapsed -> renderOfficialTrailerAt(
+                g, elapsed, sceneEnds, playback, roster, skinCast, everyBird,
+                pigeon, eagle, falcon, phoenix, hummingbird, turkey,
+                roadrunner, penguin, shoebill, raven, goose, pelican, nullRock
+        );
+
+        String exportPath = officialTrailerExportPath();
+        if (!exportPath.isBlank()) {
+            exportOfficialTrailerOffscreen(
+                    canvas,
+                    renderAt,
+                    officialTrailerExportDuration(trailerEnd),
+                    java.nio.file.Path.of(exportPath)
+            );
+            shutdownAndExit();
+            return;
+        }
+
         makeSceneResponsive(scene);
         bindEscape(scene, this::shutdownAndExit);
-
-        // Capturing a named JavaFX window requires the recorder to launch after
-        // the Stage exists. Keep a long black preroll so even a cold Maven run
-        // can arm the recorder before cinematic frame zero.
-        long[] startNs = {System.nanoTime() + 30_000_000_000L};
-        long[] lastStepNs = {0L};
-        long[] accumulatorNs = {0L};
-        int[] arenaKey = {Integer.MIN_VALUE};
-        AnimationTimer[] timer = new AnimationTimer[1];
-
-        timer[0] = new AnimationTimer() {
+        long startNs = System.nanoTime();
+        AnimationTimer timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
-                double rawElapsed = (now - startNs[0]) / 1_000_000_000.0;
-                if (rawElapsed >= trailerEnd + 0.65) {
+                double elapsed = (now - startNs) / 1_000_000_000.0;
+                if (elapsed >= trailerEnd + 0.25) {
                     stop();
                     shutdownAndExit();
                     return;
                 }
-                double elapsed = Math.clamp(rawElapsed, 0.0, trailerEnd);
-                int sceneIndex = officialTrailerSceneIndex(elapsed, sceneEnds);
-                double sceneStart = sceneIndex == 0 ? 0.0 : sceneEnds[sceneIndex - 1];
-                double sceneEnd = sceneEnds[sceneIndex];
-                double phase = normalizedProgress(elapsed, sceneStart, sceneEnd);
-
-                OfficialTrailerArena arena = officialTrailerArena(sceneIndex, phase);
-                int nextArenaKey = arena.map().ordinal() * 100
-                        + arena.variant().ordinal() * 10 + arena.cutIndex();
-                if (nextArenaKey != arenaKey[0]) {
-                    arenaKey[0] = nextArenaKey;
-                    prepareOfficialTrailerArena(arena.map(), arena.variant());
-                    fightHudPortraitCache.clear();
-                    particles.clear();
-                    blastZoneKoEffects.clear();
-                    combatImpactEffects.clear();
-                }
-
-                List<Bird> drawBirds = new ArrayList<>();
-                configureOfficialTrailerShot(
-                        sceneIndex, phase, elapsed, arena,
-                        pigeon, eagle, falcon, phoenix, hummingbird, turkey,
-                        roadrunner, penguin, shoebill, raven, goose, pelican,
-                        nullRock, drawBirds
-                );
-
-                if (lastStepNs[0] == 0L) {
-                    lastStepNs[0] = now;
-                }
-                accumulatorNs[0] += Math.min(now - lastStepNs[0], 250_000_000L);
-                lastStepNs[0] = now;
-                int presentationSteps = 0;
-                while (accumulatorNs[0] >= 16_666_666L && presentationSteps < 4) {
-                    for (Bird bird : everyBird) {
-                        bird.advanceTrailerPresentationFrame();
-                    }
-                    accumulatorNs[0] -= 16_666_666L;
-                    presentationSteps++;
-                }
-                if (accumulatorNs[0] > 16_666_666L) {
-                    accumulatorNs[0] = 16_666_666L;
-                }
-
-                drawOfficialTrailerFrame(
-                        g, sceneIndex, phase, elapsed, arena,
-                        new ArrayList<>(cast.values()), skinCast, drawBirds,
-                        nullRock, pigeon, eagle, phoenix, roadrunner
-                );
+                renderAt.accept(Math.clamp(elapsed, 0.0, trailerEnd));
             }
         };
 
         setupKeyboardNavigation(scene);
         setScenePreservingFullscreen(stage, scene);
-        timer[0].start();
+        timer.start();
+    }
+
+    private static final class OfficialTrailerPlaybackState {
+        int sceneIndex = -1;
+        int arenaKey = Integer.MIN_VALUE;
+        double lastElapsed = Double.NaN;
+    }
+
+    private boolean isOfficialTrailerGameplayScene(int sceneIndex) {
+        return sceneIndex == 2 || sceneIndex == 4 || sceneIndex == 5
+                || sceneIndex == 9 || sceneIndex == 10;
+    }
+
+    private void renderOfficialTrailerAt(
+            GraphicsContext g,
+            double elapsed,
+            double[] sceneEnds,
+            OfficialTrailerPlaybackState playback,
+            List<Bird> roster,
+            List<Bird> skinCast,
+            List<Bird> everyBird,
+            Bird pigeon,
+            Bird eagle,
+            Bird falcon,
+            Bird phoenix,
+            Bird hummingbird,
+            Bird turkey,
+            Bird roadrunner,
+            Bird penguin,
+            Bird shoebill,
+            Bird raven,
+            Bird goose,
+            Bird pelican,
+            Bird nullRock) {
+        int sceneIndex = officialTrailerSceneIndex(elapsed, sceneEnds);
+        double sceneStart = sceneIndex == 0 ? 0.0 : sceneEnds[sceneIndex - 1];
+        double sceneEnd = sceneEnds[sceneIndex];
+        double phase = normalizedProgress(elapsed, sceneStart, sceneEnd);
+        OfficialTrailerArena arena = officialTrailerArena(sceneIndex, phase);
+        int nextArenaKey = sceneIndex * 10_000 + arena.map().ordinal() * 100
+                + arena.variant().ordinal() * 10 + arena.cutIndex();
+        boolean newShot = nextArenaKey != playback.arenaKey;
+
+        if (newShot) {
+            playback.sceneIndex = sceneIndex;
+            playback.arenaKey = nextArenaKey;
+            playback.lastElapsed = elapsed;
+            if (isOfficialTrailerGameplayScene(sceneIndex)) {
+                prepareOfficialTrailerCombatClip(sceneIndex, arena);
+            } else {
+                prepareOfficialTrailerArena(arena.map(), arena.variant());
+            }
+            fightHudPortraitCache.clear();
+            particles.clear();
+            blastZoneKoEffects.clear();
+            combatImpactEffects.clear();
+        }
+
+        int simulationSteps = 0;
+        if (!Double.isNaN(playback.lastElapsed) && !newShot) {
+            long previousTick = (long) Math.floor(playback.lastElapsed * 60.0 + 0.0001);
+            long currentTick = (long) Math.floor(elapsed * 60.0 + 0.0001);
+            simulationSteps = (int) Math.clamp(currentTick - previousTick, 0L, 8L);
+        }
+        playback.lastElapsed = elapsed;
+
+        if (isOfficialTrailerGameplayScene(sceneIndex)) {
+            for (int i = 0; i < simulationSteps && !matchEnded; i++) {
+                harnessTick();
+                updateDynamicCamera();
+            }
+        } else {
+            for (int i = 0; i < simulationSteps; i++) {
+                for (Bird bird : everyBird) {
+                    bird.advanceTrailerPresentationFrame();
+                }
+            }
+        }
+
+        List<Bird> drawBirds = new ArrayList<>();
+        if (!isOfficialTrailerGameplayScene(sceneIndex)) {
+            configureOfficialTrailerShot(
+                    sceneIndex, phase, elapsed, arena,
+                    pigeon, eagle, falcon, phoenix, hummingbird, turkey,
+                    roadrunner, penguin, shoebill, raven, goose, pelican,
+                    nullRock, drawBirds
+            );
+        }
+
+        drawOfficialTrailerFrame(
+                g, sceneIndex, phase, elapsed, arena,
+                roster, skinCast, drawBirds,
+                nullRock, pigeon, eagle, phoenix, roadrunner
+        );
+    }
+
+    private void prepareOfficialTrailerCombatClip(int sceneIndex, OfficialTrailerArena arena) {
+        BirdType[] fighters = switch (sceneIndex) {
+            case 2 -> new BirdType[]{BirdType.PIGEON, BirdType.EAGLE};
+            case 4 -> switch (arena.cutIndex()) {
+                case 0 -> new BirdType[]{BirdType.ROADRUNNER, BirdType.GOOSE};
+                case 1 -> new BirdType[]{BirdType.PHOENIX, BirdType.SHOEBILL};
+                default -> new BirdType[]{BirdType.RAVEN, BirdType.HUMMINGBIRD};
+            };
+            case 5 -> switch (arena.cutIndex()) {
+                case 0 -> new BirdType[]{BirdType.TURKEY, BirdType.HUMMINGBIRD};
+                case 1 -> new BirdType[]{BirdType.RAVEN, BirdType.PIGEON};
+                case 2 -> new BirdType[]{BirdType.PENGUIN, BirdType.GOOSE};
+                case 3 -> new BirdType[]{BirdType.PHOENIX, BirdType.FALCON};
+                case 4 -> new BirdType[]{BirdType.PELICAN, BirdType.ROADRUNNER};
+                case 5 -> new BirdType[]{BirdType.SHOEBILL, BirdType.RAVEN};
+                default -> new BirdType[]{BirdType.EAGLE, BirdType.PHOENIX};
+            };
+            case 9 -> new BirdType[]{BirdType.PIGEON, BirdType.EAGLE, BirdType.PHOENIX, BirdType.PELICAN};
+            case 10 -> switch (arena.cutIndex()) {
+                case 0 -> new BirdType[]{BirdType.PIGEON, BirdType.PHOENIX};
+                case 1 -> new BirdType[]{BirdType.ROADRUNNER, BirdType.PELICAN};
+                default -> new BirdType[]{BirdType.EAGLE, BirdType.VULTURE};
+            };
+            default -> new BirdType[]{BirdType.PIGEON, BirdType.EAGLE};
+        };
+
+        long seed = 0xE91C_7A11_3D4FL
+                ^ ((long) sceneIndex << 36)
+                ^ ((long) arena.cutIndex() << 20)
+                ^ ((long) arena.map().ordinal() << 8)
+                ^ arena.variant().ordinal();
+        prepareOfficialTrailerAiMatch(fighters, arena, seed,
+                sceneIndex == 10 ? fighters.length - 1 : -1,
+                sceneIndex == 10 && arena.cutIndex() == 2);
+    }
+
+    private void prepareOfficialTrailerAiMatch(BirdType[] fighterTypes,
+                                                OfficialTrailerArena arena,
+                                                long seed,
+                                                int bossIndex,
+                                                boolean nullRockBoss) {
+        BirdType left = fighterTypes.length > 0 ? fighterTypes[0] : BirdType.PIGEON;
+        BirdType right = fighterTypes.length > 1 ? fighterTypes[1] : BirdType.EAGLE;
+        harnessPrepareMatch(left, right, seed, arena.map());
+        applyMapVariantArena(arena.variant());
+
+        Arrays.fill(players, null);
+        Arrays.fill(isAI, false);
+        Arrays.fill(scores, 0);
+        activePlayers = Math.min(fighterTypes.length, MAX_COMBATANTS);
+        for (int i = 0; i < activePlayers; i++) {
+            BirdType type = fighterTypes[i];
+            Bird bird = new Bird(0, type, i, this);
+            bird.name = type.name;
+            bird.health = 100;
+            if (i == bossIndex) {
+                double bossScale = type == BirdType.PELICAN ? 1.72 : 1.58;
+                bird.baseSizeMultiplier *= bossScale;
+                bird.sizeMultiplier = bird.baseSizeMultiplier;
+                bird.basePowerMultiplier *= 1.22;
+                bird.powerMultiplier = bird.basePowerMultiplier;
+            }
+            if (nullRockBoss && i == bossIndex) {
+                bird.name = "The Null Rock";
+                applyPreviewSkinChoiceToBird(bird, BirdType.VULTURE, NULL_ROCK_VULTURE_SKIN);
+                bird.health = nullRockTrueFormHealth();
+            }
+            players[i] = bird;
+            isAI[i] = true;
+            scores[i] = smashStartingStocks();
+        }
+
+        positionBattlefieldSpawns();
+        particleEffectsEnabled = true;
+        ambientEffectsEnabled = true;
+        screenShakeEnabled = true;
+        matchTimer = MATCH_DURATION_FRAMES;
+        matchEnded = false;
+        resetTrackedCameraBounds();
+        zoom = 0.72;
+        camX = Math.max(0.0, WORLD_WIDTH * 0.5 - WIDTH / (2.0 * zoom));
+        camY = Math.max(0.0, GROUND_Y - 680.0 - HEIGHT / (2.0 * zoom));
+
+        int warmupTicks = activePlayers >= 4 ? 330 : 270;
+        for (int tick = 0; tick < warmupTicks && !matchEnded; tick++) {
+            harnessTick();
+            updateDynamicCamera();
+        }
+    }
+
+    private void exportOfficialTrailerOffscreen(Canvas canvas,
+                                                 Consumer<Double> renderAt,
+                                                 double durationSeconds,
+                                                 java.nio.file.Path outputPath) {
+        String ffmpegPath = System.getenv("BIRDFIGHT3_TRAILER_FFMPEG");
+        if (ffmpegPath == null || ffmpegPath.isBlank()) {
+            throw new IllegalStateException("BIRDFIGHT3_TRAILER_FFMPEG must point to ffmpeg for background export");
+        }
+        java.nio.file.Path absoluteOutput = outputPath.toAbsolutePath().normalize();
+        java.nio.file.Path parent = absoluteOutput.getParent();
+        if (parent == null) {
+            throw new IllegalArgumentException("Trailer output needs a parent directory: " + outputPath);
+        }
+        try {
+            Files.createDirectories(parent);
+            java.nio.file.Path encodeLog = parent.resolve(absoluteOutput.getFileName() + ".encode.log");
+            ProcessBuilder builder = new ProcessBuilder(
+                    ffmpegPath,
+                    "-hide_banner",
+                    "-loglevel", "warning",
+                    "-f", "rawvideo",
+                    "-pixel_format", "bgra",
+                    "-video_size", WIDTH + "x" + HEIGHT,
+                    "-framerate", "30",
+                    "-i", "-",
+                    "-an",
+                    "-c:v", "libx264",
+                    "-preset", "fast",
+                    "-crf", "15",
+                    "-profile:v", "high",
+                    "-level:v", "4.1",
+                    "-pix_fmt", "yuv420p",
+                    "-color_primaries", "bt709",
+                    "-color_trc", "bt709",
+                    "-colorspace", "bt709",
+                    "-movflags", "+faststart",
+                    "-y",
+                    absoluteOutput.toString()
+            );
+            builder.redirectError(encodeLog.toFile());
+            builder.redirectOutput(ProcessBuilder.Redirect.DISCARD);
+            Process encoder = builder.start();
+            WritableImage image = new WritableImage(WIDTH, HEIGHT);
+            byte[] pixels = new byte[WIDTH * HEIGHT * 4];
+            int totalFrames = (int) Math.round(durationSeconds * 30.0);
+            try (OutputStream encoderInput = new BufferedOutputStream(encoder.getOutputStream(), pixels.length * 2)) {
+                for (int frame = 0; frame < totalFrames; frame++) {
+                    renderAt.accept(frame / 30.0);
+                    canvas.snapshot(null, image);
+                    image.getPixelReader().getPixels(
+                            0, 0, WIDTH, HEIGHT,
+                            PixelFormat.getByteBgraPreInstance(),
+                            pixels, 0, WIDTH * 4
+                    );
+                    encoderInput.write(pixels);
+                    if (frame > 0 && frame % 300 == 0) {
+                        LOGGER.info("Background trailer export: " + frame + "/" + totalFrames + " frames");
+                    }
+                }
+            }
+            int exitCode = encoder.waitFor();
+            if (exitCode != 0) {
+                throw new IOException("ffmpeg exited with code " + exitCode + "; see " + encodeLog);
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("Background trailer export interrupted", interrupted);
+        } catch (IOException io) {
+            throw new IllegalStateException("Background trailer export failed", io);
+        }
     }
 
     private record OfficialTrailerArena(MapType map, MapVariant variant, int cutIndex) {
@@ -31121,7 +31376,7 @@ public class BirdGame3 {
                 };
             }
             case 11 -> new OfficialTrailerArena(MapType.BEACON_CROWN, MapVariant.VOID_CROWN, 0);
-            case 12 -> new OfficialTrailerArena(MapType.BATTLEFIELD, MapVariant.STANDARD, 0);
+            case 12 -> new OfficialTrailerArena(MapType.ASHFALL_CATHEDRAL, MapVariant.ASHFALL_REBIRTH, 0);
             default -> new OfficialTrailerArena(MapType.BATTLEFIELD, MapVariant.STANDARD, 0);
         };
     }
@@ -31369,7 +31624,12 @@ public class BirdGame3 {
         g.clearRect(0, 0, WIDTH, HEIGHT);
         drawOfficialTrailerBackdrop(g, Color.web("#050913"), Color.web("#111A2B"));
 
-        if (sceneIndex == 3) {
+        if (isOfficialTrailerGameplayScene(sceneIndex)) {
+            FightHudLayout hudLayout = buildFightHudLayout();
+            currentFightHudOcclusionRects = hudLayout.occlusionRects();
+            drawGame(g);
+            drawFightHud(g, hudLayout);
+        } else if (sceneIndex == 3) {
             drawOfficialTrailerRoster(g, roster, elapsed);
         } else if (sceneIndex == 8) {
             drawOfficialTrailerSkins(g, skinCast, elapsed);
@@ -31386,7 +31646,12 @@ public class BirdGame3 {
             drawOfficialTrailerArena(g);
             drawOfficialTrailerWorldFx(g, sceneIndex, phase, drawBirds, nullRock, pigeon, eagle, phoenix, roadrunner);
             for (Bird bird : drawBirds) {
+                boolean previousSuppressSelectEffects = bird.suppressSelectEffects;
+                if (sceneIndex == 0 || sceneIndex == 1 || sceneIndex == 6 || sceneIndex == 12) {
+                    bird.suppressSelectEffects = true;
+                }
                 bird.draw(g);
+                bird.suppressSelectEffects = previousSuppressSelectEffects;
             }
             g.restore();
 
@@ -31395,9 +31660,11 @@ public class BirdGame3 {
             }
         }
 
+        if (!isOfficialTrailerGameplayScene(sceneIndex)) {
+            drawOfficialTrailerLetterbox(g);
+        }
         drawOfficialTrailerCopy(g, sceneIndex, phase);
         drawOfficialTrailerVignette(g);
-        drawOfficialTrailerLetterbox(g);
         drawOfficialTrailerTransition(g, sceneIndex, phase);
     }
 
@@ -31532,7 +31799,10 @@ public class BirdGame3 {
             g.strokeRoundRect(x - 150, y - 190, 310, 420, 34, 34);
             bird.sizeMultiplier = bird.baseSizeMultiplier * 1.18;
             poseTrailerBird(bird, x - 42, y - 78, true, i == 2 || i == 4, 0, 0);
+            boolean previousSuppressSelectEffects = bird.suppressSelectEffects;
+            bird.suppressSelectEffects = true;
             bird.draw(g);
+            bird.suppressSelectEffects = previousSuppressSelectEffects;
         }
         g.setTextAlign(TextAlignment.LEFT);
         for (int i = 0; i < 12; i++) {
@@ -31610,12 +31880,36 @@ public class BirdGame3 {
             Bird bird = roster.get(Math.min(heroIndices[i], roster.size() - 1));
             bird.sizeMultiplier = bird.baseSizeMultiplier * 0.72;
             poseTrailerBird(bird, 310 + i * 215.0, HEIGHT - 175.0, true, i % 3 == 1, 0, 0);
+            boolean previousSuppressSelectEffects = bird.suppressSelectEffects;
+            bird.suppressSelectEffects = true;
             bird.draw(g);
+            bird.suppressSelectEffects = previousSuppressSelectEffects;
         }
         g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawOfficialTrailerCopy(GraphicsContext g, int sceneIndex, double phase) {
+        if (isOfficialTrailerGameplayScene(sceneIndex)) {
+            String kicker = switch (sceneIndex) {
+                case 2 -> "REAL GAMEPLAY";
+                case 4 -> "SIGNATURE SPECIALS AND ULTIMATES";
+                case 5 -> "EVERY ARENA CHANGES THE FIGHT";
+                case 9 -> "LOCAL, LAN, AND INTERNET MULTIPLAYER";
+                case 10 -> "BOSS RUSH";
+                default -> "GAMEPLAY";
+            };
+            String title = switch (sceneIndex) {
+                case 2 -> "READ. STRIKE. LAUNCH.";
+                case 4 -> "MASTER YOUR MOVESET";
+                case 5 -> MapType.values().length + " ARENAS  /  "
+                        + (MapVariant.values().length - 1) + " VARIANTS";
+                case 9 -> "UP TO FOUR PLAYERS";
+                case 10 -> "BOSSES DON'T FIGHT FAIR";
+                default -> "TAKE THE SKY";
+            };
+            drawOfficialTrailerGameplayCaption(g, kicker, title, phase);
+            return;
+        }
         if (sceneIndex == 3 || sceneIndex == 7 || sceneIndex == 8 || sceneIndex == 13) {
             String kicker = sceneIndex == 3 ? "THE COMPLETE ROSTER"
                     : sceneIndex == 8 ? "MAKE IT YOURS" : "";
@@ -31699,6 +31993,34 @@ public class BirdGame3 {
             }
         }
         drawOfficialTrailerTypography(g, kicker, title, subtitle, phase, centered);
+    }
+
+    private void drawOfficialTrailerGameplayCaption(GraphicsContext g,
+                                                     String kicker,
+                                                     String title,
+                                                     double phase) {
+        double alpha = officialTrailerCopyAlpha(phase);
+        if (alpha <= 0.01) {
+            return;
+        }
+        g.save();
+        g.setGlobalAlpha(alpha);
+        double width = Math.clamp(580.0 + title.length() * 13.0, 720.0, 1100.0);
+        double x = WIDTH / 2.0 - width / 2.0;
+        g.setFill(Color.web("#02050A", 0.78));
+        g.fillRoundRect(x, 5, width, 57, 16, 16);
+        g.setStroke(Color.web("#FFB74D", 0.58));
+        g.setLineWidth(2);
+        g.strokeRoundRect(x, 5, width, 57, 16, 16);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFill(Color.web("#FFB74D"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 13));
+        g.fillText(kicker, WIDTH / 2.0, 18);
+        g.setFill(Color.web("#FFF8E8"));
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 27));
+        g.fillText(title, WIDTH / 2.0, 49);
+        g.restore();
+        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawOfficialTrailerTypography(GraphicsContext g,
@@ -31811,7 +32133,10 @@ public class BirdGame3 {
         bird.facingRight = facingRight;
         bird.isFlying = flying;
         bird.attackAnimationTimer = attackFrames;
-        bird.vx = vx;
+        // Trailer motion comes from explicit position choreography. Feeding a
+        // synthetic velocity into the normal renderer selects hitstun/flight
+        // rotations and can turn a posed bird upside down.
+        bird.vx = 0.0;
         bird.vy = 0.0;
         bird.diveTimer = 0;
         bird.eagleDiveActive = false;
