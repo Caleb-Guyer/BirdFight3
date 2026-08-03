@@ -57,6 +57,7 @@ import javafx.scene.media.MediaPlayer;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
+import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.image.WritableImage;
 import javafx.scene.image.PixelFormat;
@@ -31004,8 +31005,8 @@ public class BirdGame3 {
         }
 
         final double[] sceneEnds = {
-                4.0, 10.0, 17.0, 25.0, 33.0, 42.0, 50.0,
-                59.0, 67.0, 75.0, 85.0, 94.0, 99.0, 106.0
+                2.6, 4.6, 11.6, 19.6, 27.6, 36.6, 44.6,
+                53.6, 61.6, 69.6, 79.6, 88.6, 93.6, 100.6
         };
         final double trailerEnd = sceneEnds[sceneEnds.length - 1];
 
@@ -31068,7 +31069,11 @@ public class BirdGame3 {
     }
 
     static boolean isOfficialTrailerCutsceneScene(int sceneIndex) {
-        return sceneIndex == 0 || sceneIndex == 1 || sceneIndex == 6;
+        return sceneIndex == 6;
+    }
+
+    static boolean isOfficialTrailerGraphicScene(int sceneIndex) {
+        return sceneIndex == 0 || sceneIndex == 1 || sceneIndex == 12;
     }
 
     private void renderOfficialTrailerAt(
@@ -31108,7 +31113,8 @@ public class BirdGame3 {
             playback.lastElapsed = elapsed;
             if (isOfficialTrailerGameplayScene(sceneIndex)) {
                 prepareOfficialTrailerCombatClip(sceneIndex, arena);
-            } else if (!isOfficialTrailerCutsceneScene(sceneIndex)) {
+            } else if (!isOfficialTrailerCutsceneScene(sceneIndex)
+                    && !isOfficialTrailerGraphicScene(sceneIndex)) {
                 prepareOfficialTrailerArena(arena.map(), arena.variant());
             }
             fightHudPortraitCache.clear();
@@ -31130,7 +31136,8 @@ public class BirdGame3 {
                 harnessTick();
                 updateDynamicCamera();
             }
-        } else if (!isOfficialTrailerCutsceneScene(sceneIndex)) {
+        } else if (!isOfficialTrailerCutsceneScene(sceneIndex)
+                && !isOfficialTrailerGraphicScene(sceneIndex)) {
             for (int i = 0; i < simulationSteps; i++) {
                 for (Bird bird : everyBird) {
                     bird.advanceTrailerPresentationFrame();
@@ -31140,7 +31147,8 @@ public class BirdGame3 {
 
         List<Bird> drawBirds = new ArrayList<>();
         if (!isOfficialTrailerGameplayScene(sceneIndex)
-                && !isOfficialTrailerCutsceneScene(sceneIndex)) {
+                && !isOfficialTrailerCutsceneScene(sceneIndex)
+                && !isOfficialTrailerGraphicScene(sceneIndex)) {
             configureOfficialTrailerShot(
                     sceneIndex, phase, elapsed, arena,
                     pigeon, eagle, falcon, phoenix, hummingbird, turkey,
@@ -31438,31 +31446,6 @@ public class BirdGame3 {
         }
 
         switch (sceneIndex) {
-            case 0 -> {
-                nullRock.sizeMultiplier = nullRock.baseSizeMultiplier * 1.10;
-                poseTrailerBird(nullRock, centerX - 150, floorY - 760 - phase * 110, false, true, 0, 0);
-                poseTrailerBird(pigeon, centerX - 520, floorY + 20, true, false, 0, 0);
-                poseTrailerBird(eagle, centerX + 390, floorY - 30, false, false, 0, 0);
-                drawBirds.addAll(List.of(nullRock, pigeon, eagle));
-                centerOfficialTrailerCamera(centerX, GROUND_Y - 650, lerp(0.72, 0.80, phase));
-            }
-            case 1 -> {
-                if (arena.cutIndex() == 0) {
-                    poseTrailerBird(pigeon, centerX - 520 + phase * 620, floorY - 30, true, false, 10, 8);
-                    poseTrailerBird(eagle, centerX + 260, floorY - 240, false, true, 8, -4);
-                    poseTrailerBird(falcon, centerX + 520, floorY - 80, false, false, 12, -5);
-                    drawBirds.addAll(List.of(pigeon, eagle, falcon));
-                    centerOfficialTrailerCamera(centerX, GROUND_Y - 480, 0.78);
-                } else {
-                    nullRock.sizeMultiplier = nullRock.baseSizeMultiplier * 1.04;
-                    poseTrailerBird(nullRock, centerX - 130, floorY - 690, false, true, 0, 0);
-                    poseTrailerBird(pigeon, centerX - 650, floorY, true, false, 6, 3);
-                    poseTrailerBird(eagle, centerX - 260, floorY - 220, true, true, 8, 4);
-                    poseTrailerBird(phoenix, centerX + 430, floorY - 180, false, true, 11, -4);
-                    drawBirds.addAll(List.of(nullRock, pigeon, eagle, phoenix));
-                    centerOfficialTrailerCamera(centerX, GROUND_Y - 600, 0.68);
-                }
-            }
             case 2 -> {
                 double rush = smoothStep01(phase);
                 poseTrailerBird(pigeon, centerX - 520 + rush * 640, floorY - 760, true, false, 15, 10);
@@ -31515,24 +31498,6 @@ public class BirdGame3 {
                 poseTrailerBird(rival, centerX + 360 - local * 180, y - 80, false, true, 9, -4);
                 drawBirds.addAll(List.of(lead, rival));
                 centerOfficialTrailerCamera(centerX, arena.map() == MapType.CITY ? GROUND_Y - 940 : GROUND_Y - 390, 0.68);
-            }
-            case 6 -> {
-                if (arena.cutIndex() == 0) {
-                    poseTrailerBird(pigeon, centerX - 580, floorY - 100, true, false, 8, 4);
-                    poseTrailerBird(turkey, centerX - 180, floorY - 30, true, false, 10, 3);
-                    poseTrailerBird(raven, centerX + 260, floorY - 210, false, true, 12, -3);
-                    poseTrailerBird(goose, centerX + 580, floorY - 40, false, false, 8, -2);
-                    drawBirds.addAll(List.of(pigeon, turkey, raven, goose));
-                    centerOfficialTrailerCamera(centerX, GROUND_Y - 430, 0.70);
-                } else {
-                    nullRock.sizeMultiplier = nullRock.baseSizeMultiplier * 1.08;
-                    poseTrailerBird(nullRock, centerX - 120, floorY - 660, false, true, 0, 0);
-                    poseTrailerBird(pigeon, centerX - 620, floorY, true, false, 8, 3);
-                    poseTrailerBird(eagle, centerX - 280, floorY - 180, true, true, 8, 3);
-                    poseTrailerBird(phoenix, centerX + 440, floorY - 120, false, true, 12, -3);
-                    drawBirds.addAll(List.of(nullRock, pigeon, eagle, phoenix));
-                    centerOfficialTrailerCamera(centerX, GROUND_Y - 610, 0.66);
-                }
             }
             case 7 -> {
                 Bird left = switch (arena.cutIndex()) {
@@ -31639,17 +31604,23 @@ public class BirdGame3 {
         g.clearRect(0, 0, WIDTH, HEIGHT);
         drawOfficialTrailerBackdrop(g, Color.web("#050913"), Color.web("#111A2B"));
 
-        if (isOfficialTrailerCutsceneScene(sceneIndex)) {
-            drawOfficialTrailerCutscene(g, cutsceneRenderer, sceneIndex, phase, arena.cutIndex());
+        if (sceneIndex == 0) {
+            drawOfficialTrailerNullRockSilhouette(g, nullRock, phase);
+        } else if (sceneIndex == 1) {
+            drawOfficialTrailerLaunchCard(g, phase);
+        } else if (isOfficialTrailerCutsceneScene(sceneIndex)) {
+            drawOfficialTrailerCutscene(g, cutsceneRenderer, phase, arena.cutIndex());
         } else if (isOfficialTrailerGameplayScene(sceneIndex)) {
             FightHudLayout hudLayout = buildFightHudLayout();
             currentFightHudOcclusionRects = hudLayout.occlusionRects();
             drawGame(g);
             drawFightHud(g, hudLayout);
         } else if (sceneIndex == 3) {
-            drawOfficialTrailerRoster(g, roster, elapsed);
+            drawOfficialTrailerRoster(g, roster, phase);
         } else if (sceneIndex == 8) {
             drawOfficialTrailerSkins(g, skinCast, elapsed);
+        } else if (sceneIndex == 12) {
+            drawOfficialTrailerHeroChoice(g, roster, phase);
         } else if (sceneIndex == 13) {
             drawOfficialTrailerFinalCard(g, roster, phase);
         } else {
@@ -31678,7 +31649,8 @@ public class BirdGame3 {
         }
 
         if (!isOfficialTrailerGameplayScene(sceneIndex)
-                && !isOfficialTrailerCutsceneScene(sceneIndex)) {
+                && !isOfficialTrailerCutsceneScene(sceneIndex)
+                && !isOfficialTrailerGraphicScene(sceneIndex)) {
             drawOfficialTrailerLetterbox(g);
         }
         drawOfficialTrailerCopy(g, sceneIndex, phase);
@@ -31686,52 +31658,100 @@ public class BirdGame3 {
         drawOfficialTrailerTransition(g, sceneIndex, phase);
     }
 
+    private void drawOfficialTrailerNullRockSilhouette(GraphicsContext g, Bird nullRock, double phase) {
+        drawOfficialTrailerBackdrop(g, Color.web("#010106"), Color.web("#16091F"));
+        double reveal = smoothStep01((phase - 0.06) / 0.48);
+        double pulse = 0.5 + 0.5 * Math.sin(phase * Math.PI * 3.0);
+
+        g.save();
+        g.setGlobalAlpha(reveal * (0.56 + pulse * 0.16));
+        g.setFill(new RadialGradient(0, 0, WIDTH / 2.0, HEIGHT * 0.50, 420,
+                false, CycleMethod.NO_CYCLE,
+                new Stop(0, Color.web("#7C4DFF", 0.34)),
+                new Stop(0.52, Color.web("#311B5B", 0.16)),
+                new Stop(1, Color.TRANSPARENT)));
+        g.fillOval(WIDTH / 2.0 - 520, HEIGHT * 0.50 - 420, 1040, 840);
+        g.setStroke(Color.web("#CE93D8", 0.24 + pulse * 0.10));
+        g.setLineWidth(7);
+        for (int ring = 0; ring < 4; ring++) {
+            double radius = 255 + ring * 92 + phase * 28;
+            g.strokeOval(WIDTH / 2.0 - radius, HEIGHT * 0.51 - radius * 0.74,
+                    radius * 2.0, radius * 1.48);
+        }
+        g.restore();
+
+        ColorAdjust silhouetteTone = new ColorAdjust(0.0, -1.0, -1.0, 0.22);
+        DropShadow aura = new DropShadow(72, Color.web("#9C6CFF", 0.88));
+        aura.setSpread(0.32);
+        aura.setInput(silhouetteTone);
+        g.save();
+        g.setGlobalAlpha(reveal);
+        g.setEffect(aura);
+        drawOfficialTrailerBirdCentered(
+                g, nullRock, WIDTH / 2.0, HEIGHT * 0.54,
+                930.0 + pulse * 26.0, true
+        );
+        g.restore();
+
+        double wordAlpha = smoothStep01((phase - 0.48) / 0.22)
+                * (1.0 - smoothStep01((phase - 0.88) / 0.12));
+        g.save();
+        g.setGlobalAlpha(wordAlpha);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 54));
+        g.setFill(Color.web("#F4E9FF"));
+        g.fillText("STILL.", WIDTH / 2.0, 916);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
+        g.setFill(Color.web("#CE93D8"));
+        g.fillText("THE NULL ROCK IS AWAKE", WIDTH / 2.0, 954);
+        g.restore();
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private void drawOfficialTrailerLaunchCard(GraphicsContext g, double phase) {
+        drawOfficialTrailerBackdrop(g, Color.web("#02050B"), Color.web("#101B2D"));
+        double alpha = officialTrailerCopyAlpha(phase);
+        double strike = smoothStep01((phase - 0.10) / 0.38);
+        g.save();
+        g.setGlobalAlpha(alpha);
+        g.setFill(Color.web("#FFB300", 0.08));
+        g.fillOval(WIDTH / 2.0 - 610, HEIGHT / 2.0 - 420, 1220, 790);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 142));
+        g.setStroke(Color.web("#170A00", 0.98));
+        g.setLineWidth(18);
+        g.strokeText("BIRD FIGHT 3", WIDTH / 2.0, HEIGHT * 0.49);
+        g.setFill(Color.web("#FFF3D0"));
+        g.fillText("BIRD FIGHT 3", WIDTH / 2.0, HEIGHT * 0.49);
+        g.setStroke(Color.web("#FFB300", 0.92));
+        g.setLineWidth(6);
+        double halfLine = 520.0 * strike;
+        g.strokeLine(WIDTH / 2.0 - halfLine, HEIGHT * 0.57,
+                WIDTH / 2.0 + halfLine, HEIGHT * 0.57);
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 36));
+        g.setFill(Color.web("#FFD180"));
+        g.fillText("FLAP.  FIGHT.  RULE THE SKIES.", WIDTH / 2.0, HEIGHT * 0.65);
+        g.restore();
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
     private void drawOfficialTrailerCutscene(GraphicsContext g,
                                               StoryCutscenePlayer cutsceneRenderer,
-                                              int sceneIndex,
                                               double phase,
                                               int cutIndex) {
-        StoryCampaign.Cutscene cutscene;
-        BirdType selectedBird = BirdType.PIGEON;
-        String selectedSkinKey = null;
-        int lineIndex;
-        double linePhase;
-        String trailerTag;
-
-        if (sceneIndex == 0) {
-            cutscene = stillSkyCampaign.scene("s79_null_rock_before");
-            selectedBird = BirdType.VULTURE;
-            selectedSkinKey = NULL_ROCK_VULTURE_SKIN;
-            lineIndex = phase < 0.58 ? 0 : 1;
-            linePhase = phase < 0.58 ? phase / 0.58 : (phase - 0.58) / 0.42;
-            trailerTag = "THE STILL SKY  /  A FULL STORY CAMPAIGN";
-        } else if (sceneIndex == 1 && cutIndex == 0) {
-            cutscene = stillSkyCampaign.scene("s01_dead_air");
-            lineIndex = phase < 0.24 ? 0 : 1;
-            linePhase = phase < 0.24 ? phase / 0.24 : (phase - 0.24) / 0.24;
-            trailerTag = "UNITE THE FLOCK";
-        } else if (sceneIndex == 1) {
-            cutscene = stillSkyCampaign.scene("s75_last_approach");
-            lineIndex = phase < 0.75 ? 0 : 1;
-            linePhase = phase < 0.75 ? (phase - 0.48) / 0.27 : (phase - 0.75) / 0.25;
-            trailerTag = "UNITE THE FLOCK";
-        } else {
-            cutscene = switch (cutIndex) {
-                case 0 -> stillSkyCampaign.scene("s40_lounge_falls");
-                case 1 -> stillSkyCampaign.scene("s66_null_roc_wakes");
-                default -> stillSkyCampaign.scene("s76_every_wing");
-            };
-            lineIndex = switch (cutIndex) {
-                case 0 -> 3;
-                case 1 -> 5;
-                default -> 9;
-            };
-            linePhase = phase * 3.0 - cutIndex;
-            trailerTag = "YOUR CHOICES CARRY FORWARD";
-        }
-
+        StoryCampaign.Cutscene cutscene = switch (cutIndex) {
+            case 0 -> stillSkyCampaign.scene("s40_lounge_falls");
+            case 1 -> stillSkyCampaign.scene("s66_null_roc_wakes");
+            default -> stillSkyCampaign.scene("s76_every_wing");
+        };
+        int lineIndex = switch (cutIndex) {
+            case 0 -> 3;
+            case 1 -> 5;
+            default -> 9;
+        };
+        double linePhase = phase * 3.0 - cutIndex;
         cutsceneRenderer.renderTrailerFrame(
-                g, cutscene, selectedBird, selectedSkinKey,
+                g, cutscene, BirdType.PIGEON, null,
                 lineIndex, 0.10 + Math.clamp(linePhase, 0.0, 1.0) * 2.55
         );
         double alpha = officialTrailerCopyAlpha(phase);
@@ -31740,7 +31760,7 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.CENTER);
         g.setFill(Color.web("#FFB74D"));
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        g.fillText(trailerTag, WIDTH / 2.0, 43);
+        g.fillText("YOUR CHOICES CARRY FORWARD", WIDTH / 2.0, 43);
         g.restore();
         g.setTextAlign(TextAlignment.LEFT);
     }
@@ -31816,7 +31836,7 @@ public class BirdGame3 {
         g.restore();
     }
 
-    private void drawOfficialTrailerRoster(GraphicsContext g, List<Bird> roster, double elapsed) {
+    private void drawOfficialTrailerRoster(GraphicsContext g, List<Bird> roster, double phase) {
         drawOfficialTrailerBackdrop(g, Color.web("#040812"), Color.web("#18243A"));
         g.setTextAlign(TextAlignment.CENTER);
         g.setFill(Color.web("#FFD54F"));
@@ -31829,61 +31849,104 @@ public class BirdGame3 {
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
         g.fillText("Rushdown. Zoners. Summoners. Tanks. Tricksters. Echo fighters.", WIDTH / 2.0, 208);
 
-        int columns = 8;
-        double cellWidth = 214.0;
-        double startX = 118.0;
-        double startY = 240.0;
-        for (int i = 0; i < roster.size(); i++) {
-            Bird bird = roster.get(i);
-            int row = i / columns;
-            int col = i % columns;
-            double x = startX + col * cellWidth;
-            double y = startY + row * 250.0;
-            double reveal = Math.clamp((elapsed - 17.0 - i * 0.055) / 0.42, 0.0, 1.0);
-            g.save();
-            g.setGlobalAlpha(reveal);
-            g.setFill(bird.type.color.deriveColor(0, 0.82, 0.72, 0.13));
-            g.fillOval(x - 72, y - 76, 168, 168);
-            g.setStroke(bird.type.color.deriveColor(0, 1, 1, 0.56));
-            g.setLineWidth(3);
-            g.strokeOval(x - 72, y - 76, 168, 168);
-            bird.sizeMultiplier = bird.baseSizeMultiplier * 0.68;
-            poseTrailerBird(bird, x - 18, y - 28, true, i % 4 == 1, 0, 0);
-            boolean previousSuppressSelectEffects = bird.suppressSelectEffects;
-            bird.suppressSelectEffects = true;
-            bird.draw(g);
-            bird.suppressSelectEffects = previousSuppressSelectEffects;
-            g.setTextAlign(TextAlignment.CENTER);
-            g.setFont(Font.font("Consolas", FontWeight.BOLD, 17));
-            g.setFill(Color.web("#E8EEF6", 0.88));
-            g.fillText(bird.type.name.toUpperCase(Locale.ROOT), x + 10, y + 108);
-            g.restore();
+        int maxColumns = 8;
+        int rowCount = Math.max(1, (int) Math.ceil(roster.size() / (double) maxColumns));
+        int basePerRow = roster.size() / rowCount;
+        int extra = roster.size() % rowCount;
+        double cellWidth = 205.0;
+        double startY = 302.0;
+        double rowSpacing = 250.0;
+        int rosterIndex = 0;
+        for (int row = 0; row < rowCount; row++) {
+            int birdsInRow = basePerRow + (row < extra ? 1 : 0);
+            double rowWidth = (birdsInRow - 1) * cellWidth;
+            double startX = WIDTH / 2.0 - rowWidth / 2.0;
+            for (int col = 0; col < birdsInRow; col++) {
+                int i = rosterIndex++;
+                Bird bird = roster.get(i);
+                double x = startX + col * cellWidth;
+                double y = startY + row * rowSpacing;
+                double reveal = Math.clamp((phase - 0.035 - i * 0.018) / 0.10, 0.0, 1.0);
+                double lift = (1.0 - smoothStep01(reveal)) * 24.0;
+                g.save();
+                g.setGlobalAlpha(reveal);
+                g.setFill(Color.web("#07111D", 0.82));
+                g.fillRoundRect(x - 86, y - 100 + lift, 172, 202, 28, 28);
+                g.setFill(bird.type.color.deriveColor(0, 0.82, 0.72, 0.15));
+                g.fillOval(x - 72, y - 79 + lift, 144, 144);
+                g.setStroke(bird.type.color.deriveColor(0, 1, 1, 0.64));
+                g.setLineWidth(3);
+                g.strokeRoundRect(x - 86, y - 100 + lift, 172, 202, 28, 28);
+                boolean facingRight = x <= WIDTH / 2.0;
+                drawOfficialTrailerBirdCentered(g, bird, x, y - 7 + lift, 132.0, facingRight);
+                g.setTextAlign(TextAlignment.CENTER);
+                g.setFont(Font.font("Consolas", FontWeight.BOLD, 15));
+                g.setFill(Color.web("#EEF4FA", 0.94));
+                g.fillText(bird.type.name.toUpperCase(Locale.ROOT), x, y + 82 + lift);
+                g.restore();
+            }
         }
         g.setTextAlign(TextAlignment.LEFT);
+    }
+
+    private void drawOfficialTrailerBirdCentered(GraphicsContext g,
+                                                  Bird bird,
+                                                  double centerX,
+                                                  double centerY,
+                                                  double maxExtent,
+                                                  boolean facingRight) {
+        if (bird == null) {
+            return;
+        }
+        double extentFactor = rosterSpriteExtentFactor(bird.type, bird.appliedSkinKey);
+        bird.sizeMultiplier = Math.clamp(maxExtent / (80.0 * extentFactor), 0.18, 4.0);
+        poseTrailerBird(bird, 0.0, 0.0, facingRight, false, 0, 0.0);
+        bird.resetCutsceneVisualPose();
+        double xBias = maxExtent * rosterSpriteXBias(bird.type, bird.appliedSkinKey)
+                * (facingRight ? 1.0 : -1.0);
+        double yBias = maxExtent * rosterSpriteYBias(bird.type, bird.appliedSkinKey);
+        boolean previousSuppressSelectEffects = bird.suppressSelectEffects;
+        bird.suppressSelectEffects = true;
+        g.save();
+        g.translate(centerX + xBias - bird.bodyCenterX(),
+                centerY + yBias - bird.bodyCenterY());
+        bird.draw(g);
+        g.restore();
+        bird.suppressSelectEffects = previousSuppressSelectEffects;
     }
 
     private void drawOfficialTrailerSkins(GraphicsContext g, List<Bird> skinCast, double elapsed) {
         drawOfficialTrailerBackdrop(g, Color.web("#12061B"), Color.web("#2B1740"));
         double pulse = 0.5 + 0.5 * Math.sin(elapsed * 1.8);
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFill(Color.web("#FFD54F"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
+        g.fillText("MAKE IT YOURS", WIDTH / 2.0, 108);
+        g.setFill(Color.web("#FFF8E8"));
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 52));
+        g.fillText("UNLOCK THE WHOLE GAME", WIDTH / 2.0, 168);
+        g.setFill(Color.web("#D8C9E8"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
+        g.fillText("Birds. Skins. Maps. Modes. Rewards. Secrets.", WIDTH / 2.0, 208);
+
         for (int i = 0; i < skinCast.size(); i++) {
             Bird bird = skinCast.get(i);
-            double x = 250.0 + i * 360.0;
-            double y = 480.0 + (i % 2) * 70.0;
+            double x = WIDTH / 2.0 + (i - (skinCast.size() - 1) / 2.0) * 350.0;
+            double y = 500.0;
             g.setFill(bird.type.color.deriveColor(0, 0.92, 0.88, 0.12 + pulse * 0.04));
-            g.fillOval(x - 150, y - 170, 310, 350);
+            g.fillOval(x - 140, y - 145, 280, 290);
+            g.setFill(Color.web("#090512", 0.58));
+            g.fillRoundRect(x - 145, y - 190, 290, 420, 34, 34);
             g.setStroke(Color.web("#FFD180", 0.46));
             g.setLineWidth(4);
-            g.strokeRoundRect(x - 150, y - 190, 310, 420, 34, 34);
-            bird.sizeMultiplier = bird.baseSizeMultiplier * 1.18;
-            poseTrailerBird(bird, x - 42, y - 78, true, i == 2 || i == 4, 0, 0);
-            boolean previousSuppressSelectEffects = bird.suppressSelectEffects;
-            bird.suppressSelectEffects = true;
-            bird.draw(g);
-            bird.suppressSelectEffects = previousSuppressSelectEffects;
+            g.strokeRoundRect(x - 145, y - 190, 290, 420, 34, 34);
+            drawOfficialTrailerBirdCentered(g, bird, x, y - 2, 228.0, x <= WIDTH / 2.0);
+            g.setFill(Color.web("#FFF4E4"));
+            g.setFont(Font.font("Consolas", FontWeight.BOLD, 16));
+            g.fillText(bird.name.toUpperCase(Locale.ROOT), x, y + 192);
         }
-        g.setTextAlign(TextAlignment.LEFT);
         for (int i = 0; i < 12; i++) {
-            double coinX = 120 + i * 158.0;
+            double coinX = WIDTH / 2.0 - 785 + i * 140.0;
             double coinY = 880 + Math.sin(elapsed * 2.4 + i) * 12.0;
             g.setFill(Color.web("#FFC107", 0.82));
             g.fillOval(coinX, coinY, 30, 30);
@@ -31891,6 +31954,7 @@ public class BirdGame3 {
             g.setLineWidth(3);
             g.strokeOval(coinX, coinY, 30, 30);
         }
+        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawOfficialTrailerModeGrid(GraphicsContext g, int activeIndex, double phase) {
@@ -31927,6 +31991,58 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.LEFT);
     }
 
+    private void drawOfficialTrailerHeroChoice(GraphicsContext g,
+                                               List<Bird> roster,
+                                               double phase) {
+        drawOfficialTrailerBackdrop(g, Color.web("#090412"), Color.web("#251033"));
+        g.setTextAlign(TextAlignment.CENTER);
+        g.setFill(Color.web("#FFB74D"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
+        g.fillText("CHOOSE YOUR BIRD", WIDTH / 2.0, 118);
+        g.setFill(Color.web("#FFF8E8"));
+        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 60));
+        g.fillText("BECOME THE LAST ONE FLYING", WIDTH / 2.0, 190);
+        g.setFill(Color.web("#D8C9E8"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 21));
+        g.fillText("Every fighter has a distinct moveset, recovery, and ultimate.", WIDTH / 2.0, 232);
+
+        int[] heroIndices = {0, 1, 2, 3, 4};
+        int active = Math.min(heroIndices.length - 1, (int) (phase * heroIndices.length));
+        for (int i = 0; i < heroIndices.length; i++) {
+            Bird bird = roster.get(Math.min(heroIndices[i], roster.size() - 1));
+            double x = WIDTH / 2.0 + (i - (heroIndices.length - 1) / 2.0) * 350.0;
+            double lift = i == active ? -24.0 : 0.0;
+            double cardY = 510.0 + lift;
+            double reveal = smoothStep01((phase - i * 0.035) / 0.16);
+            g.save();
+            g.setGlobalAlpha(reveal);
+            g.setFill(Color.web("#080710", i == active ? 0.96 : 0.80));
+            g.fillRoundRect(x - 145, cardY - 210, 290, 450, 34, 34);
+            g.setFill(bird.type.color.deriveColor(0, 0.90, 0.82, i == active ? 0.24 : 0.12));
+            g.fillOval(x - 128, cardY - 150, 256, 280);
+            g.setStroke(i == active ? Color.web("#FFD54F")
+                    : bird.type.color.deriveColor(0, 1, 1, 0.62));
+            g.setLineWidth(i == active ? 7 : 3);
+            g.strokeRoundRect(x - 145, cardY - 210, 290, 450, 34, 34);
+            drawOfficialTrailerBirdCentered(g, bird, x, cardY - 4, 226.0,
+                    x <= WIDTH / 2.0);
+            g.setFill(Color.web("#FFF8E8"));
+            g.setFont(Font.font("Arial Black", FontWeight.BOLD, 23));
+            g.fillText(bird.type.name.toUpperCase(Locale.ROOT), x, cardY + 190);
+            if (i == active) {
+                g.setFill(Color.web("#FFD54F"));
+                g.fillPolygon(new double[]{x - 14, x + 14, x},
+                        new double[]{cardY - 238, cardY - 238, cardY - 218}, 3);
+            }
+            g.restore();
+        }
+
+        g.setFill(Color.web("#B9C7D8"));
+        g.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
+        g.fillText(BirdType.values().length + " FIGHTERS  /  ONE SKY", WIDTH / 2.0, 920);
+        g.setTextAlign(TextAlignment.LEFT);
+    }
+
     private void drawOfficialTrailerFinalCard(GraphicsContext g, List<Bird> roster, double phase) {
         drawOfficialTrailerBackdrop(g, Color.web("#02050B"), Color.web("#101B2D"));
         double glow = 0.55 + 0.45 * Math.sin(phase * Math.PI);
@@ -31955,18 +32071,16 @@ public class BirdGame3 {
         int[] heroIndices = {0, 1, 3, 8, 17, 19, 20};
         for (int i = 0; i < heroIndices.length; i++) {
             Bird bird = roster.get(Math.min(heroIndices[i], roster.size() - 1));
-            bird.sizeMultiplier = bird.baseSizeMultiplier * 0.72;
-            poseTrailerBird(bird, 310 + i * 215.0, HEIGHT - 175.0, true, i % 3 == 1, 0, 0);
-            boolean previousSuppressSelectEffects = bird.suppressSelectEffects;
-            bird.suppressSelectEffects = true;
-            bird.draw(g);
-            bird.suppressSelectEffects = previousSuppressSelectEffects;
+            double x = WIDTH / 2.0 + (i - (heroIndices.length - 1) / 2.0) * 215.0;
+            drawOfficialTrailerBirdCentered(g, bird, x, HEIGHT - 122.0, 112.0,
+                    x <= WIDTH / 2.0);
         }
         g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawOfficialTrailerCopy(GraphicsContext g, int sceneIndex, double phase) {
-        if (isOfficialTrailerCutsceneScene(sceneIndex)) {
+        if (isOfficialTrailerCutsceneScene(sceneIndex)
+                || isOfficialTrailerGraphicScene(sceneIndex)) {
             return;
         }
         if (isOfficialTrailerGameplayScene(sceneIndex)) {
@@ -31993,15 +32107,6 @@ public class BirdGame3 {
             return;
         }
         if (sceneIndex == 3 || sceneIndex == 7 || sceneIndex == 8 || sceneIndex == 13) {
-            String kicker = sceneIndex == 3 ? "THE COMPLETE ROSTER"
-                    : sceneIndex == 8 ? "MAKE IT YOURS" : "";
-            String title = sceneIndex == 3 ? BirdType.values().length + " FIGHTERS. NO TWO ALIKE."
-                    : sceneIndex == 8 ? "UNLOCK THE WHOLE GAME" : "";
-            String subtitle = sceneIndex == 3 ? "Rushdown. Zoners. Summoners. Tanks. Tricksters. Echo fighters."
-                    : sceneIndex == 8 ? "Birds. Skins. Maps. Modes. Rewards. Secrets." : "";
-            if (!title.isBlank() && sceneIndex != 3 && sceneIndex != 7) {
-                drawOfficialTrailerTypography(g, kicker, title, subtitle, phase, true);
-            }
             return;
         }
 
