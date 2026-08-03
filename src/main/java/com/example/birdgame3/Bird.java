@@ -313,7 +313,8 @@ public class Bird {
         }
     }
 
-    record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak) {
+    record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
+                                 int pigeonLegCount) {
         boolean complete() {
             return head != null && eye != null && beak != null;
         }
@@ -482,6 +483,7 @@ public class Bird {
     private VisualFeatureBounds lastVisualHeadBounds;
     private VisualFeatureCircle lastVisualEye;
     private VisualBeakAxis lastVisualBeak;
+    private int lastVisualPigeonLegCount;
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
     String appliedSkinKey = null;
     public double loungeX, loungeY;
@@ -21657,13 +21659,19 @@ public class Bird {
     }
 
     VisualFeatureGeometry visualFeatureGeometry() {
-        return new VisualFeatureGeometry(lastVisualHeadBounds, lastVisualEye, lastVisualBeak);
+        return new VisualFeatureGeometry(
+                lastVisualHeadBounds,
+                lastVisualEye,
+                lastVisualBeak,
+                lastVisualPigeonLegCount
+        );
     }
 
     private void resetVisualFeatureProbe() {
         lastVisualHeadBounds = null;
         lastVisualEye = null;
         lastVisualBeak = null;
+        lastVisualPigeonLegCount = 0;
     }
 
     private void recordVisualBeak(double rootX, double rootY, double tipX, double tipY) {
@@ -29157,20 +29165,24 @@ public class Bird {
                 headY + 28.0 * s, 17.0 * s, 7.0 * s);
 
         BirdAnimationState state = currentBirdAnimationState();
-        if (state == BirdAnimationState.IDLE || state == BirdAnimationState.ATTACK
-                || state == BirdAnimationState.SHIELD) {
-            Color foot = isBeaconSkin ? Color.web("#D39A36")
-                    : isNoirSkin ? Color.web("#7A343E")
-                    : Color.web("#B66A70");
-            g.setStroke(foot.deriveColor(0, 1, 1, 0.82));
+        boolean airborneLegs = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL;
+        Color foot = isBeaconSkin ? Color.web("#D39A36")
+                : isNoirSkin ? Color.web("#7A343E")
+                : Color.web("#B66A70");
+        g.setStroke(foot.deriveColor(0, 1, 1, 0.82));
+        g.setLineWidth(1.7 * s);
+        for (int i = 0; i < 2; i++) {
+            double footX = x + (29.0 + i * 20.0) * s;
+            double ankleX = footX - dir * (airborneLegs ? 5.0 : 1.5) * s;
+            double ankleY = y + (airborneLegs ? 77.0 : 79.0) * s;
+            double toeX = ankleX + dir * (airborneLegs ? 4.0 : 6.5) * s;
+            double toeY = y + (airborneLegs ? 79.0 : 80.0) * s;
+            g.strokeLine(footX, y + 72.0 * s, ankleX, ankleY);
+            g.setLineWidth(1.0 * s);
+            g.strokeLine(ankleX, ankleY, toeX, toeY);
             g.setLineWidth(1.7 * s);
-            for (int i = 0; i < 2; i++) {
-                double footX = x + (29.0 + i * 20.0) * s;
-                g.strokeLine(footX, y + 72.0 * s, footX - dir * 1.5 * s, y + 79.0 * s);
-                g.setLineWidth(1.0 * s);
-                g.strokeLine(footX - dir * 1.5 * s, y + 79.0 * s,
-                        footX + dir * 5.0 * s, y + 80.0 * s);
-                g.setLineWidth(1.7 * s);
+            if (visualAuditBodyOnly) {
+                lastVisualPigeonLegCount++;
             }
         }
 

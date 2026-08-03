@@ -81,6 +81,28 @@ class BirdVisualAuditTest {
         }
     }
 
+    @Test
+    void pigeonKeepsBothLegsAcrossSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.PIGEON)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String direction = facingRight ? "right" : "left";
+                    assertEquals(2, geometry.pigeonLegCount(),
+                            entry.name() + " / " + pose + " facing " + direction
+                                    + " must visibly draw both legs");
+                }
+            }
+        }
+    }
+
     private static void assertFeatureGeometryIsSafe(Bird.VisualFeatureGeometry geometry, String label) {
         assertTrue(geometry != null && geometry.complete(), label + " did not report semantic face geometry");
         assertTrue(geometry.head().contains(geometry.eye(), 0.01),
