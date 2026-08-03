@@ -17848,6 +17848,11 @@ public class BirdGame3 {
             // The climb pose carries Phoenix's crownfire beyond its wide idle
             // halo, so the audit needs a slightly wider full-animation frame.
             maxScale = Math.min(maxScale, 0.60);
+        } else if (skin.bird == BirdType.HUMMINGBIRD
+                && BirdSpriteLibrary.sheetFor(skin.bird, skin.key) == null) {
+            // Hummingbird's climb pose raises its needle bill and wing tips
+            // beyond the compact idle body, so audit the complete silhouette.
+            maxScale = Math.min(maxScale, 0.64);
         }
         preview.sizeMultiplier = Math.clamp((baseSize - pad * 2.0) / (80.0 * extentFactor),
                 rosterSpriteMinScale(skin.bird, skin.key),
@@ -17884,6 +17889,12 @@ public class BirdGame3 {
     }
 
     private double visualAuditCombatYBias(VisualAuditSkin skin) {
+        if (skin.bird == BirdType.HUMMINGBIRD
+                && BirdSpriteLibrary.sheetFor(skin.bird, skin.key) == null) {
+            // The raised bill and top wing are asymmetric in the climb pose.
+            // Center the full authored silhouette instead of the round body.
+            return 0.035;
+        }
         if (skin.bird == BirdType.FALCON
                 && BirdSpriteLibrary.sheetFor(skin.bird, skin.key) == null) {
             // Falcon's steep climb pose reaches slightly above its normal

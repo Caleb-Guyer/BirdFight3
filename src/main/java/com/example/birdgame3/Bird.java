@@ -326,7 +326,10 @@ public class Bird {
         PHOENIX_TAIL_FLAME,
         PHOENIX_WING,
         PHOENIX_CREST,
-        PHOENIX_LEG
+        PHOENIX_LEG,
+        HUMMINGBIRD_TAIL_FEATHER,
+        HUMMINGBIRD_WING,
+        HUMMINGBIRD_LEG
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -28666,23 +28669,7 @@ public class Bird {
         }
 
         if (stylizedHummingbird) {
-            double wingPulse = 0.5 + 0.5 * Math.sin(System.nanoTime() / 52_000_000.0);
-            Color wingBlur = (sunflareHummingbird ? Color.web("#FFE082") : Color.web("#B2EBF2"))
-                    .deriveColor(0, 1, 1, (isClassicSkin ? 0.14 : 0.18) + wingPulse * 0.08);
-            Color wingLine = (classicPalette ? game.classicSkinAccentColor(type)
-                    : sunflareHummingbird ? Color.web("#FFF59D") : Color.web("#69F0AE"))
-                    .deriveColor(0, 1, 1, 0.28 + wingPulse * 0.10);
-            double wingX = x + (facingRight ? 9.0 : 42.0) * s;
-            double wingY = y - (16.0 + wingPulse * 5.0) * s;
-            g.setFill(wingBlur);
-            g.fillOval(wingX, wingY, 29.0 * s, (66.0 + wingPulse * 9.0) * s);
-            g.setFill(wingBlur.deriveColor(0, 1, 1, 0.64));
-            g.fillOval(wingX + (facingRight ? 12.0 : -6.0) * s, wingY + 7.0 * s,
-                    18.0 * s, (54.0 + wingPulse * 7.0) * s);
-            g.setStroke(wingLine);
-            g.setLineWidth(s);
-            g.strokeArc(wingX + (facingRight ? 2.0 : -3.0) * s, wingY + 5.0 * s,
-                    26.0 * s, 56.0 * s, facingRight ? 82 : 18, 82, ArcType.OPEN);
+            drawHummingbirdUnderlay(g, bodyColor, sunflareHummingbird, classicPalette);
         }
         if (stylizedTurkey) {
             double tailBaseX = facingRight ? x + 17.0 * s : x + 63.0 * s;
@@ -28748,7 +28735,17 @@ public class Bird {
             g.setFill(wingGreen.deriveColor(0, 1, 1, 0.44));
             g.fillOval(x + (facingRight ? 7.0 : 38.0) * s, y + 23.0 * s, 36.0 * s, 50.0 * s);
         }
-        if (stylizedTitmouse) {
+        if (stylizedHummingbird) {
+            boolean headLookingRight = Math.cos(headPose.aimAngleRadians()) >= 0.0;
+            double lookDir = headLookingRight ? 1.0 : -1.0;
+            double gaze = currentBirdAnimationState() == BirdAnimationState.IDLE
+                    ? lookDir * Math.sin((animationGlobalFrame + playerIndex * 29.0) * 0.055) * 2.0
+                    : 0.0;
+            Color eyeColor = classicPalette ? game.classicSkinAccentColor(type) : Color.web("#10251B");
+            if (eyeOverride != null) eyeColor = eyeOverride;
+            drawStandardVectorEye(g, headPose, headW, headH,
+                    Color.web("#FFFDE7"), eyeColor, 22.0, 13.0, gaze, headLookingRight);
+        } else if (stylizedTitmouse) {
             double tailBaseX = facingRight ? x + 14.0 * s : x + 66.0 * s;
             double tailDir = facingRight ? -1.0 : 1.0;
             Color tail = oldSparrow
@@ -28811,19 +28808,7 @@ public class Bird {
             drawFalconFeatherPolish(g, bodyColor, headPose);
         }
         if (stylizedHummingbird) {
-            Color belly = (sunflareHummingbird ? Color.web("#FFF8E1") : Color.web("#E8F5E9"))
-                    .deriveColor(0, 1, 1, isClassicSkin ? 0.22 : 0.30);
-            Color throat = (classicPalette ? game.classicSkinAccentColor(type)
-                    : sunflareHummingbird ? Color.web("#FF7043") : Color.web("#C2185B"))
-                    .deriveColor(0, 1, 1, isClassicSkin ? 0.42 : 0.58);
-            Color glint = (sunflareHummingbird ? Color.web("#FFF176") : Color.web("#00E676"))
-                    .deriveColor(0, 1, 1, 0.34);
-            g.setFill(belly);
-            g.fillOval(x + 27.0 * s, y + 38.0 * s, 26.0 * s, 28.0 * s);
-            g.setFill(throat);
-            g.fillOval(headX + (facingRight ? 18.0 : 16.0) * s, headY + 25.0 * s, 16.0 * s, 10.0 * s);
-            g.setFill(glint);
-            g.fillOval(headX + (facingRight ? 24.0 : 19.0) * s, headY + 27.0 * s, 6.0 * s, 4.0 * s);
+            drawHummingbirdFeatherPolish(g, headPose, sunflareHummingbird, classicPalette);
         }
         if (stylizedTurkey) {
             Color chest = (classicPalette ? game.classicSkinAccentColor(type) : Color.web("#C17A34"))
@@ -29119,6 +29104,125 @@ public class Bird {
                     eyeCenterX + 4.0 * s, eyeCenterY + 6.5 * s);
         }
         drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    /** Gives the stylized Hummingbird a readable two-wing hover and needle-tail silhouette. */
+    private void drawHummingbirdUnderlay(GraphicsContext g, Color bodyColor,
+                                          boolean sunflare, boolean classicPalette) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        double beat = Math.sin((animationGlobalFrame + playerIndex * 17.0) * 1.35);
+        double shoulderX = x + (facingRight ? 31.0 : 49.0) * s;
+        double shoulderY = y + 37.0 * s;
+        Color wing = (sunflare ? Color.web("#FFE082") : Color.web("#B2EBF2"))
+                .deriveColor(0, 1, 1, (isClassicSkin ? 0.18 : 0.24) + Math.abs(beat) * 0.08);
+        Color wingEdge = (classicPalette ? game.classicSkinAccentColor(type)
+                : sunflare ? Color.web("#FFF59D") : Color.web("#69F0AE"))
+                .deriveColor(0, 1, 1, 0.42);
+
+        double upperTipX = shoulderX + rear * (19.0 + beat * 4.0) * s;
+        double upperTipY = y - (20.0 + beat * 8.0) * s;
+        g.setFill(wing);
+        g.fillPolygon(
+                new double[]{shoulderX + dir * 5.0 * s, upperTipX + dir * 5.0 * s,
+                        upperTipX + rear * 6.0 * s, shoulderX + rear * 5.0 * s},
+                new double[]{shoulderY + 4.0 * s, upperTipY + 7.0 * s,
+                        upperTipY - 5.0 * s, shoulderY - 5.0 * s},
+                4
+        );
+        g.setStroke(wingEdge);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.05 * s);
+        g.strokeLine(shoulderX, shoulderY, upperTipX, upperTipY);
+        recordVisualBodyPart(VisualBodyPart.HUMMINGBIRD_WING);
+
+        double lowerTipX = shoulderX + rear * (29.0 - beat * 4.0) * s;
+        double lowerTipY = y + (72.0 - beat * 8.0) * s;
+        g.setFill(wing.deriveColor(0, 1, 1, 0.72));
+        g.fillPolygon(
+                new double[]{shoulderX + dir * 4.0 * s, lowerTipX + dir * 5.0 * s,
+                        lowerTipX + rear * 5.0 * s, shoulderX + rear * 5.0 * s},
+                new double[]{shoulderY - 3.0 * s, lowerTipY - 6.0 * s,
+                        lowerTipY + 5.0 * s, shoulderY + 5.0 * s},
+                4
+        );
+        g.setStroke(wingEdge.deriveColor(0, 1, 1, 0.74));
+        g.strokeLine(shoulderX, shoulderY, lowerTipX, lowerTipY);
+        recordVisualBodyPart(VisualBodyPart.HUMMINGBIRD_WING);
+
+        double tailRootX = x + (facingRight ? 14.0 : 66.0) * s;
+        Color tail = bodyColor.darker().deriveColor(0, 0.92, 0.84, 0.94);
+        Color tailEdge = (classicPalette ? game.classicSkinAccentColor(type) : bodyColor.brighter())
+                .deriveColor(0, 0.78, 1.0, 0.58);
+        for (int i = 0; i < 2; i++) {
+            double rootY = y + (46.0 + i * 8.0) * s;
+            double tipX = tailRootX + rear * (27.0 - i * 4.0) * s;
+            double tipY = y + (40.0 + i * 21.0) * s;
+            g.setFill(tail);
+            g.fillPolygon(
+                    new double[]{tailRootX, tipX, tailRootX + dir * 5.0 * s},
+                    new double[]{rootY - 5.0 * s, tipY, rootY + 5.0 * s},
+                    3
+            );
+            g.setStroke(tailEdge);
+            g.setLineWidth(0.8 * s);
+            g.strokeLine(tailRootX, rootY, tipX, tipY);
+            recordVisualBodyPart(VisualBodyPart.HUMMINGBIRD_TAIL_FEATHER);
+        }
+    }
+
+    /** Adds the gorget, folded shoulder feathers, and tiny feet without changing the round base body. */
+    private void drawHummingbirdFeatherPolish(GraphicsContext g, HeadPose headPose,
+                                               boolean sunflare, boolean classicPalette) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean headLookingRight = Math.cos(headPose.aimAngleRadians()) >= 0.0;
+        Color belly = (sunflare ? Color.web("#FFF8E1") : Color.web("#E8F5E9"))
+                .deriveColor(0, 1, 1, isClassicSkin ? 0.24 : 0.34);
+        Color throat = (classicPalette ? game.classicSkinAccentColor(type)
+                : sunflare ? Color.web("#FF7043") : Color.web("#C2185B"))
+                .deriveColor(0, 1, 1, isClassicSkin ? 0.48 : 0.68);
+        Color glint = (sunflare ? Color.web("#FFF176") : Color.web("#00E676"))
+                .deriveColor(0, 1, 1, 0.42);
+        double headX = headPose.centerX() - 25.0 * s;
+        double headY = headPose.centerY() - 20.0 * s;
+
+        g.setFill(belly);
+        g.fillOval(x + 27.0 * s, y + 38.0 * s, 26.0 * s, 28.0 * s);
+        double throatX = headX + (headLookingRight ? 18.0 : 16.0) * s;
+        g.setFill(throat);
+        g.fillOval(throatX, headY + 24.0 * s, 16.0 * s, 11.0 * s);
+        g.setFill(glint);
+        g.fillOval(throatX + (headLookingRight ? 6.0 : 3.0) * s,
+                headY + 26.5 * s, 6.0 * s, 4.0 * s);
+
+        g.setStroke(throat.darker().deriveColor(0, 0.72, 0.76, 0.48));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.15 * s);
+        g.strokeArc(x + 16.0 * s, y + 31.0 * s, 47.0 * s, 34.0 * s,
+                facingRight ? 204 : -24, 106, ArcType.OPEN);
+        g.strokeArc(x + 22.0 * s, y + 40.0 * s, 35.0 * s, 22.0 * s,
+                facingRight ? 204 : -24, 102, ArcType.OPEN);
+
+        BirdAnimationState state = currentBirdAnimationState();
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL;
+        Color foot = (sunflare ? Color.web("#6D4C41") : Color.web("#37474F"))
+                .deriveColor(0, 0.82, 0.84, 0.88);
+        g.setStroke(foot);
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + (34.0 + i * 13.0) * s;
+            double ankleX = hipX - dir * (airborne ? 4.0 : 1.0) * s;
+            double ankleY = y + (airborne ? 72.0 : 80.0) * s;
+            g.setLineWidth(1.35 * s);
+            g.strokeLine(hipX, y + 65.0 * s, ankleX, ankleY);
+            g.setLineWidth(0.75 * s);
+            g.strokeLine(ankleX, ankleY, ankleX + dir * 4.0 * s,
+                    ankleY + (airborne ? 2.0 : 1.5) * s);
+            g.strokeLine(ankleX, ankleY, ankleX - dir * 2.0 * s,
+                    ankleY + (airborne ? 1.5 : 1.0) * s);
+            recordVisualBodyPart(VisualBodyPart.HUMMINGBIRD_LEG);
+        }
     }
 
     /** Adds species detail without replacing Pigeon's original round silhouette or skin palette. */
@@ -29522,7 +29626,7 @@ public class Bird {
         }
         headX += dirX * needleLunge;
         headY += dirY * needleLunge;
-        double wingPulse = 0.5 + 0.5 * Math.sin(System.nanoTime() / 48_000_000.0);
+        double wingPulse = 0.5 + 0.5 * Math.sin((animationGlobalFrame + playerIndex * 19.0) * 1.45);
 
         g.save();
         g.translate(bodyCenterX, bodyCenterY);
@@ -29532,9 +29636,11 @@ public class Bird {
         g.setFill(Color.web("#B2EBF2").deriveColor(0, 1, 1, 0.16 + wingPulse * 0.10));
         g.fillOval(-19.0 * s, (-50.0 - wingPulse * 4.0) * s,
                 26.0 * s, (66.0 + wingPulse * 8.0) * s);
+        recordVisualBodyPart(VisualBodyPart.HUMMINGBIRD_WING);
         g.setFill(Color.web("#80CBC4").deriveColor(0, 1, 1, 0.12 + wingPulse * 0.08));
         g.fillOval(-5.0 * s, (-47.0 - wingPulse * 3.0) * s,
                 18.0 * s, (60.0 + wingPulse * 7.0) * s);
+        recordVisualBodyPart(VisualBodyPart.HUMMINGBIRD_WING);
         g.setStroke(Color.web("#E0F7FA").deriveColor(0, 1, 1, 0.26));
         g.setLineWidth(0.7 * s);
         g.strokeLine(-5.0 * s, -38.0 * s, -11.0 * s, 8.0 * s);
@@ -29546,12 +29652,14 @@ public class Bird {
                 new double[]{14.0 * s, 19.0 * s, 27.0 * s, 25.0 * s},
                 4
         );
+        recordVisualBodyPart(VisualBodyPart.HUMMINGBIRD_TAIL_FEATHER);
         g.setFill(Color.web("#0F4A2F"));
         g.fillPolygon(
                 new double[]{-5.0 * s, -12.0 * s, -27.0 * s, -12.0 * s},
                 new double[]{17.0 * s, 21.0 * s, 39.0 * s, 26.0 * s},
                 4
         );
+        recordVisualBodyPart(VisualBodyPart.HUMMINGBIRD_TAIL_FEATHER);
         g.setFill(Color.web("#17633F"));
         g.fillOval(-12.0 * s, 12.0 * s, 15.0 * s, 12.0 * s);
 
@@ -29586,6 +29694,12 @@ public class Bird {
         double beakLength = (35.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.55)) * s + needleLunge * 1.35;
         double beakTipX = beakBaseX + dirX * beakLength;
         double beakTipY = beakBaseY + dirY * beakLength;
+        recordVisualBeak(
+                bodyCenterX + face * beakBaseX,
+                bodyCenterY + beakBaseY,
+                bodyCenterX + face * beakTipX,
+                bodyCenterY + beakTipY
+        );
         g.setStroke(Color.web("#171717"));
         g.setLineWidth((1.7 + 0.7 * needleProgress) * s);
         g.strokeLine(beakBaseX, beakBaseY, beakTipX, beakTipY);
@@ -29596,6 +29710,19 @@ public class Bird {
 
         double eyeX = headX + dirX * 3.5 * s - sideX * 2.0 * s;
         double eyeY = headY - 4.0 * s + dirY * 1.5 * s - sideY * 1.2 * s;
+        double screenHeadLeft = bodyCenterX + face * (headX - 8.8 * s);
+        double screenHeadRight = bodyCenterX + face * (headX + 9.2 * s);
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                Math.min(screenHeadLeft, screenHeadRight),
+                bodyCenterY + headY - 8.0 * s,
+                Math.max(screenHeadLeft, screenHeadRight),
+                bodyCenterY + headY + 8.0 * s
+        );
+        lastVisualEye = new VisualFeatureCircle(
+                bodyCenterX + face * eyeX,
+                bodyCenterY + eyeY,
+                2.2 * s
+        );
         g.setFill(Color.BLACK);
         g.fillOval(eyeX - 2.2 * s, eyeY - 2.2 * s, 4.4 * s, 4.4 * s);
         g.setFill(Color.WHITE);
@@ -29604,7 +29731,9 @@ public class Bird {
         g.setStroke(Color.web("#2D1B11"));
         g.setLineWidth(s);
         g.strokeLine(-2.0 * s, 23.0 * s, -4.0 * s, 31.0 * s);
+        recordVisualBodyPart(VisualBodyPart.HUMMINGBIRD_LEG);
         g.strokeLine(5.0 * s, 22.0 * s, 3.0 * s, 30.0 * s);
+        recordVisualBodyPart(VisualBodyPart.HUMMINGBIRD_LEG);
         g.strokeLine(-4.0 * s, 31.0 * s, -9.0 * s, 33.0 * s);
         g.strokeLine(3.0 * s, 30.0 * s, 8.0 * s, 32.0 * s);
         g.restore();
@@ -30827,10 +30956,11 @@ public class Bird {
         }
         double mouthCenterX = headPose.centerX() + dirX * 5.0 * s;
         double mouthCenterY = headPose.centerY() + dirY * 5.0 * s + 5.0 * s;
-        double baseUpperX = mouthCenterX - normalX * 8.0 * s;
-        double baseUpperY = mouthCenterY - normalY * 8.0 * s;
-        double baseLowerX = mouthCenterX + normalX * 8.0 * s;
-        double baseLowerY = mouthCenterY + normalY * 8.0 * s;
+        double baseHalfWidth = (stylizedHummingbird ? 3.8 : 8.0) * s;
+        double baseUpperX = mouthCenterX - normalX * baseHalfWidth;
+        double baseUpperY = mouthCenterY - normalY * baseHalfWidth;
+        double baseLowerX = mouthCenterX + normalX * baseHalfWidth;
+        double baseLowerY = mouthCenterY + normalY * baseHalfWidth;
         double tipBaseX = mouthCenterX + dirX * beakLength;
         double tipBaseY = mouthCenterY + dirY * beakLength;
         double upperTipX = tipBaseX - normalX * openAmount;
