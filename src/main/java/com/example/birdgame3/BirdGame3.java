@@ -13596,60 +13596,35 @@ public class BirdGame3 {
                 .toList();
 
         for (Platform roof : roofs) {
+            // Every playable roof belongs to a complete skyscraper. Letting a
+            // body stop at another platform made the skyline read as stacked
+            // support columns instead of tall city buildings.
             double roofBottom = roof.y + roof.h;
-            double supportY = GROUND_Y;
-            for (Platform candidate : roofs) {
-                if (candidate == roof || candidate.y <= roofBottom + 18.0) {
-                    continue;
-                }
-                double overlap = Math.min(roof.x + roof.w, candidate.x + candidate.w)
-                        - Math.max(roof.x, candidate.x);
-                double requiredOverlap = Math.min(roof.w, candidate.w) * 0.22;
-                if (overlap >= requiredOverlap && candidate.y < supportY) {
-                    supportY = candidate.y;
-                }
-            }
-            if (supportY <= roofBottom + 12.0) {
-                continue;
-            }
-
-            double inset = Math.clamp(roof.w * 0.09, 14.0, 58.0);
+            double inset = Math.clamp(roof.w * 0.045, 8.0, 28.0);
             double bodyX = roof.x + inset;
             double bodyW = Math.max(44.0, roof.w - inset * 2.0);
-            double bodyH = supportY - roofBottom;
-            Color bodyTop = roof.w >= 500.0 ? Color.web("#171A2C") : Color.web("#1B1D31");
-            Color bodyBottom = roof.w >= 500.0 ? Color.web("#24233A") : Color.web("#29243E");
-            g.setFill(new LinearGradient(0, roofBottom, 0, supportY, false, CycleMethod.NO_CYCLE,
-                    new Stop(0.0, bodyTop),
-                    new Stop(1.0, bodyBottom)));
+            double bodyH = GROUND_Y - roofBottom;
+            Color bodyTop = roof.w >= 500.0 ? Color.web("#111426") : Color.web("#17172A");
+            Color bodyBottom = roof.w >= 500.0 ? Color.web("#1B1C32") : Color.web("#232039");
+            g.setFill(new LinearGradient(0, roofBottom, 0, GROUND_Y, false, CycleMethod.NO_CYCLE,
+                    new Stop(0.0, bodyTop), new Stop(1.0, bodyBottom)));
             g.fillRect(bodyX, roofBottom, bodyW, bodyH);
 
-            g.setStroke(Color.web("#33435C", 0.74));
-            g.setLineWidth(3.0);
-            g.strokeLine(bodyX, roofBottom, bodyX, supportY);
-            g.strokeLine(bodyX + bodyW, roofBottom, bodyX + bodyW, supportY);
-            g.setStroke(Color.web("#2DE2E6", 0.10));
+            g.setStroke(Color.web("#303852", 0.66));
             g.setLineWidth(2.0);
-            g.strokeLine(bodyX + bodyW * 0.18, roofBottom + 10.0,
-                    bodyX + bodyW * 0.18, supportY - 4.0);
-            g.setStroke(Color.web("#FF3DC8", 0.08));
-            g.strokeLine(bodyX + bodyW * 0.82, roofBottom + 10.0,
-                    bodyX + bodyW * 0.82, supportY - 4.0);
+            g.strokeRect(bodyX, roofBottom, bodyW, bodyH);
 
-            if (bodyH < 78.0) {
-                continue;
-            }
-            int columns = Math.clamp((int) Math.round(bodyW / 150.0), 1, 5);
+            int columns = Math.clamp((int) Math.round(bodyW / 120.0), 1, 6);
             double columnGap = bodyW / (columns + 1.0);
             for (int col = 1; col <= columns; col++) {
-                double wx = bodyX + col * columnGap - 13.0;
-                for (double wy = roofBottom + 58.0; wy < supportY - 34.0; wy += 94.0) {
+                double wx = bodyX + col * columnGap - 14.0;
+                for (double wy = roofBottom + 64.0; wy < GROUND_Y - 34.0; wy += 104.0) {
                     double shimmer = ambientFx
-                            ? 0.14 + 0.07 * (0.5 + 0.5 * Math.sin(time * 0.46 + col + wy * 0.014))
-                            : 0.16;
+                            ? 0.18 + 0.08 * (0.5 + 0.5 * Math.sin(time * 0.42 + col + wy * 0.012))
+                            : 0.21;
                     g.setFill(Color.web((col + (int) (wy / 94.0)) % 3 == 0
-                            ? "#FF77D2" : "#71D9E5", shimmer));
-                    g.fillRoundRect(wx, wy, 26, 34, 5, 5);
+                            ? "#C75AAB" : "#4F7898", shimmer));
+                    g.fillRect(wx, wy, 28, 38);
                 }
             }
         }
@@ -44896,33 +44871,21 @@ public class BirdGame3 {
             mountainPeaks = null;
         } else {
             double[] buildingX = {400, 1400, 2400, 3400, 4400, 5400};
-            for (double bx : buildingX) {
-                platforms.add(new Platform(bx - 350, GROUND_Y - 320, 700, 50));
-                platforms.add(new Platform(bx - 200, GROUND_Y - 120, 400, 40));
+            double[] buildingWidths = {720, 780, 700, 820, 740, 760};
+            double[] buildingHeights = {1080, 780, 960, 1180, 840, 1040};
+            String[] possibleSigns = {"CLUB", "BAR", "HOTEL", "EAT", "LIVE", "24/7", "OPEN", "PIZZA", "DIVE", "LOUNGE"};
+            for (int i = 0; i < buildingX.length; i++) {
+                double bx = buildingX[i];
+                double buildingW = buildingWidths[i];
+                double roofY = GROUND_Y - buildingHeights[i];
+                Platform rooftop = new Platform(bx - buildingW * 0.5, roofY, buildingW, 54);
+                rooftop.signText = possibleSigns[mapRandom.nextInt(possibleSigns.length)];
+                platforms.add(rooftop);
 
-                Platform high1 = new Platform(bx - 150, GROUND_Y - 720, 300, 40);
-                Platform high2 = new Platform(bx + 50, GROUND_Y - 1020, 200, 40);
-
-                String[] possibleSigns = {"CLUB", "BAR", "HOTEL", "EAT", "LIVE", "24/7", "OPEN", "PIZZA", "DIVE", "LOUNGE"};
-                high1.signText = possibleSigns[mapRandom.nextInt(possibleSigns.length)];
-                high2.signText = possibleSigns[mapRandom.nextInt(possibleSigns.length)];
-
-                platforms.add(high1);
-                platforms.add(high2);
-
-                windVents.add(new WindVent(bx - 350 + 100, GROUND_Y - 320, 500));
-                windVents.add(new WindVent(bx - 350 + 500, GROUND_Y - 320, 100));
+                // Roof vents preserve the City's recovery routes without
+                // breaking the skyscrapers into floating platform ladders.
+                windVents.add(new WindVent(rooftop.x + 70, roofY, Math.max(180, buildingW - 140)));
             }
-
-            platforms.add(new Platform(800, GROUND_Y - 450, 400, 40));
-            platforms.add(new Platform(1800, GROUND_Y - 600, 400, 40));
-            platforms.add(new Platform(2800, GROUND_Y - 400, 400, 40));
-            platforms.add(new Platform(3800, GROUND_Y - 550, 400, 40));
-            platforms.add(new Platform(4800, GROUND_Y - 480, 400, 40));
-
-            platforms.add(new Platform(1000, GROUND_Y - 100, 600, 40));
-            platforms.add(new Platform(3000, GROUND_Y - 150, 500, 40));
-            platforms.add(new Platform(4500, GROUND_Y - 80, 400, 40));
         }
     }
 

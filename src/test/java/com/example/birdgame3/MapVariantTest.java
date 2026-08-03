@@ -38,6 +38,25 @@ class MapVariantTest {
     }
 
     @Test
+    void mainCityUsesBroadSkyscraperRooftops() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.currentMatchSeed = 42L;
+        game.selectedMap = MapType.CITY;
+        Method setupBase = BirdGame3.class.getDeclaredMethod("setupMatchArenaGeometry");
+        setupBase.setAccessible(true);
+
+        setupBase.invoke(game);
+
+        List<Platform> rooftops = game.platforms.stream()
+                .filter(platform -> platform.x >= 0.0 && platform.x < BirdGame3.WORLD_WIDTH
+                        && platform.y < BirdGame3.GROUND_Y)
+                .toList();
+        assertEquals(6, rooftops.size());
+        assertTrue(rooftops.stream().allMatch(platform -> platform.w >= 700.0),
+                "City combat platforms should read as broad skyscraper roofs");
+    }
+
+    @Test
     void everyVariantBuildsAPlayableArena() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.currentMatchSeed = 42L;
