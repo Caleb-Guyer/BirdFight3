@@ -106,7 +106,7 @@ Tag `v<version>` on GitHub with asset `BirdFight3-<version>-win.zip` — every
 installed copy offers the update on next launch. Flow: `.\build-installer.ps1
 -AppVersion X.Y.Z -RunTests`, create the release (tag `vX.Y.Z`), attach the
 zip. The Release workflow (on tag push) also runs checks and attaches the
-jar-based dist zip. Latest shipped: v1.0.4. No gh CLI on this machine —
+jar-based dist zip. Latest shipped: v1.2.2. No gh CLI on this machine —
 releases have been done via curl + the git credential helper token.
 
 ## CI (already exists — don't recreate)
