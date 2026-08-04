@@ -1181,6 +1181,123 @@ class BirdVisualAuditTest {
         }
     }
 
+    @Test
+    void vultureKeepsBroadWingsTailTalonsAndRuffAcrossSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.VULTURE)
+                .filter(entry -> !"NULL_ROCK_VULTURE".equals(entry.key()))
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.VULTURE_WING),
+                            label + " must draw both broad soaring wings");
+                    assertEquals(4, geometry.bodyPartCount(Bird.VisualBodyPart.VULTURE_TAIL_FEATHER),
+                            label + " must retain all four ragged tail feathers");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.VULTURE_LEG),
+                            label + " must retain both taloned legs");
+                    assertEquals(7, geometry.bodyPartCount(Bird.VisualBodyPart.VULTURE_RUFF_FEATHER),
+                            label + " must retain the full pale neck ruff");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+            }
+        }
+    }
+
+    @Test
+    void vultureGroundedTalonsMeetTheGameplayFloorAcrossSkinsAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.VULTURE)
+                .filter(entry -> !"NULL_ROCK_VULTURE".equals(entry.key()))
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : List.of(Bird.VisualAuditPose.IDLE, Bird.VisualAuditPose.RUN)) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertTrue(Double.isFinite(geometry.vultureFootBaseline()),
+                            label + " did not report a grounded talon baseline");
+                    assertEquals(80.0, geometry.vultureFootBaseline(), 0.15,
+                            label + " must place the visible talon edge on the 80-unit collision floor");
+                }
+            }
+        }
+    }
+
+    @Test
+    void vultureHeadEyeAndHookedBillFollowMovementAnimationsInBothDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.VULTURE)
+                .filter(entry -> !"NULL_ROCK_VULTURE".equals(entry.key()))
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+
+                assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 18.0,
+                        label + " must aim its hooked bill upward during flight");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its head and bill backward during hitstun");
+                assertFeatureGeometryIsSafe(idle, label + " idle");
+                assertFeatureGeometryIsSafe(flap, label + " flap");
+                assertFeatureGeometryIsSafe(hit, label + " hit");
+            }
+        }
+    }
+
+    @Test
+    void vultureCarrionGlideOpensBothWingsThenFoldsThemBeforeTheRushEnds() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.VULTURE)
+                .filter(entry -> !"NULL_ROCK_VULTURE".equals(entry.key()))
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry folded = game.inspectVisualAuditVultureGlideFeatures(
+                        entry, Bird.VULTURE_GLIDE_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry spread = game.inspectVisualAuditVultureGlideFeatures(
+                        entry, Bird.VULTURE_GLIDE_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry closing = game.inspectVisualAuditVultureGlideFeatures(
+                        entry, 1, facingRight);
+                String label = entry.name() + " Carrion Glide facing "
+                        + (facingRight ? "right" : "left");
+
+                assertTrue(folded.vultureWingOpenness() <= 0.01,
+                        label + " must begin with folded wings");
+                assertTrue(spread.vultureWingOpenness() >= 0.95,
+                        label + " must reach a fully spread two-wing glide");
+                assertEquals(2, spread.bodyPartCount(Bird.VisualBodyPart.VULTURE_WING),
+                        label + " must display both wings during Carrion Glide");
+                assertTrue(closing.vultureWingOpenness() <= 0.17,
+                        label + " must fold both wings before Carrion Glide ends");
+            }
+        }
+    }
+
     private static void assertTurkeyNeckEndsBehindHead(
             Bird.VisualFeatureGeometry geometry, String label) {
         assertTrue(geometry.turkeyNeck() != null, label + " did not report its neck geometry");

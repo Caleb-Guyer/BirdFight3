@@ -359,7 +359,11 @@ public class Bird {
         GRINCHHAWK_TAIL_FEATHER,
         GRINCHHAWK_WING,
         GRINCHHAWK_LEG,
-        GRINCHHAWK_CREST_FEATHER
+        GRINCHHAWK_CREST_FEATHER,
+        VULTURE_TAIL_FEATHER,
+        VULTURE_WING,
+        VULTURE_LEG,
+        VULTURE_RUFF_FEATHER
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -376,6 +380,8 @@ public class Bird {
                                  double razorbillFootBaseline,
                                  double grinchhawkWingOpenness,
                                  double grinchhawkFootBaseline,
+                                 double vultureWingOpenness,
+                                 double vultureFootBaseline,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -562,6 +568,8 @@ public class Bird {
     private double lastVisualRazorbillFootBaseline = Double.NaN;
     private double lastVisualGrinchhawkWingOpenness;
     private double lastVisualGrinchhawkFootBaseline = Double.NaN;
+    private double lastVisualVultureWingOpenness;
+    private double lastVisualVultureFootBaseline = Double.NaN;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -11819,6 +11827,15 @@ public class Bird {
         attackAnimationTimer = Math.max(attackAnimationTimer, grinchChimneyFlapTimer);
     }
 
+    /** Positions Vulture at a deterministic frame of Carrion Glide's wing cycle. */
+    void prepareVisualAuditVultureGlide(int remainingFrames) {
+        prepareVisualAuditPose(VisualAuditPose.ATTACK);
+        vultureGlideUltimate = false;
+        vultureGlideDirection = facingRight ? 1 : -1;
+        vultureGlideTimer = Math.clamp(remainingFrames, 1, VULTURE_GLIDE_FRAMES);
+        attackAnimationTimer = Math.max(attackAnimationTimer, vultureGlideTimer);
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -17102,6 +17119,12 @@ public class Bird {
                 || grinchGiftstormTimer > 0);
     }
 
+    private boolean vultureSpecialPoseActive() {
+        return type == BirdGame3.BirdType.VULTURE && !isNullRockForm()
+                && (vultureCallTimer > 0 || vultureGlideTimer > 0 || vultureThermalTimer > 0
+                || vultureBlackSkyTimer > 0);
+    }
+
     private boolean mockingbirdSpecialPoseActive() {
         return type == BirdGame3.BirdType.MOCKINGBIRD
                 && (mockingbirdQuestionTimer > 0 || mockingbirdSideFxTimer > 0 || mockingbirdUpFxTimer > 0);
@@ -18052,6 +18075,49 @@ public class Bird {
         }
         return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
                 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+    }
+
+    private AttackVisualPose currentVultureSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (vultureBlackSkyTimer > 0) {
+            double phase = pigeonSpecialPhase(vultureBlackSkyTimer, VULTURE_BLACK_SKY_FRAMES);
+            double pulse = 0.5 + 0.5 * Math.sin(vultureBlackSkyTimer * 0.24);
+            return new AttackVisualPose(
+                    -dir * (2.0 + pulse * 2.0), -10.0 - phase * 5.0,
+                    dir * (2.0 + pulse * 2.0), normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.18),
+                    8.0 + phase * 5.0, -10.0 - phase * 5.0, 8.0 + phase * 4.0, 1.12,
+                    -12.0 - phase * 7.0, 1.03, 1.05);
+        }
+        if (vultureThermalTimer > 0) {
+            double phase = pigeonSpecialPhase(vultureThermalTimer,
+                    vultureThermalUltimate ? VULTURE_THERMAL_FRAMES + 10 : VULTURE_THERMAL_FRAMES);
+            return new AttackVisualPose(
+                    dir * 1.5, -16.0 - phase * 10.0,
+                    dir * (3.0 + phase * 3.0), normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10),
+                    8.0 + phase * 4.0, -15.0 - phase * 7.0, 6.0 + phase * 3.0, 1.02,
+                    -20.0 - phase * 8.0, 0.98, 1.10);
+        }
+        if (vultureGlideTimer > 0) {
+            int glideDir = vultureGlideDirection == 0 ? facingDirection() : vultureGlideDirection;
+            double side = Math.signum(glideDir);
+            double phase = pigeonSpecialPhase(vultureGlideTimer,
+                    vultureGlideUltimate ? VULTURE_GLIDE_FRAMES + 8 : VULTURE_GLIDE_FRAMES);
+            return new AttackVisualPose(
+                    side * (9.0 + phase * 9.0), -5.0,
+                    side * (8.0 + phase * 7.0), side > 0 ? -0.10 : Math.PI + 0.10,
+                    12.0 + phase * 5.0, -6.0, 10.0 + phase * 4.0, 0.94,
+                    side * (8.0 + phase * 6.0), 1.14, 0.88);
+        }
+        if (vultureCallTimer > 0) {
+            double phase = pigeonSpecialPhase(vultureCallTimer,
+                    vultureCallUltimate ? VULTURE_CALL_FRAMES + 10 : VULTURE_CALL_FRAMES);
+            return new AttackVisualPose(
+                    -dir * 3.0, -4.0,
+                    dir * (3.0 + phase * 3.0), facingRight ? -0.16 : Math.PI + 0.16,
+                    10.0 + phase * 5.0, -5.0, 8.0 + phase * 4.0, 1.28,
+                    -dir * 5.0, 1.04, 0.98);
+        }
+        return neutralVisualPose();
     }
 
     private AttackVisualPose currentRavenSpecialPose() {
@@ -21303,6 +21369,9 @@ public class Bird {
         if (grinchhawkSpecialPoseActive()) {
             return currentGrinchhawkSpecialPose();
         }
+        if (vultureSpecialPoseActive()) {
+            return currentVultureSpecialPose();
+        }
         if (ravenSpecialPoseActive()) {
             return currentRavenSpecialPose();
         }
@@ -21843,6 +21912,8 @@ public class Bird {
                 lastVisualRazorbillFootBaseline,
                 lastVisualGrinchhawkWingOpenness,
                 lastVisualGrinchhawkFootBaseline,
+                lastVisualVultureWingOpenness,
+                lastVisualVultureFootBaseline,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21864,6 +21935,8 @@ public class Bird {
         lastVisualRazorbillFootBaseline = Double.NaN;
         lastVisualGrinchhawkWingOpenness = 0.0;
         lastVisualGrinchhawkFootBaseline = Double.NaN;
+        lastVisualVultureWingOpenness = 0.0;
+        lastVisualVultureFootBaseline = Double.NaN;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -27340,137 +27413,424 @@ public class Bird {
 
     private void drawBaseVultureSprite(GraphicsContext g, double drawSize) {
         double s = sizeMultiplier;
-        int dir = facingRight ? 1 : -1;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
         AttackVisualPose pose = currentAttackVisualPose();
         HeadPose headPose = standardHeadPose(pose);
-        double cx = x + drawSize * 0.5;
-
-        double wingSpread = isFlying || Math.abs(vx) > 2 ? 1.28 : 1.0;
-        if (vultureCallTimer > 0) {
-            wingSpread = Math.max(wingSpread, 1.36);
-        }
-        if (vultureGlideTimer > 0) {
-            wingSpread = Math.max(wingSpread, 1.72);
-        }
-        if (vultureThermalTimer > 0) {
-            wingSpread = Math.max(wingSpread, 1.48);
-        }
-        boolean compactSelectionPose = suppressSelectEffects
-                && vultureCallTimer <= 0
-                && vultureGlideTimer <= 0
-                && vultureThermalTimer <= 0
-                && vultureBlackSkyTimer <= 0
-                && carrionSwarmTimer <= 0;
-        if (compactSelectionPose) {
-            wingSpread = Math.min(wingSpread, 0.92);
-        }
-
+        double cx = x + 40.0 * s;
+        BirdAnimationState state = currentBirdAnimationState();
         boolean tide = isTideSkin;
-        Color body = tide ? Color.web("#26A69A") : Color.web("#2C183A");
-        Color head = tide ? Color.web("#80CBC4") : Color.web("#B94742");
-        Color wing = tide ? Color.web("#16756F") : Color.web("#140A21");
-        Color wingInner = tide ? Color.web("#4DB6AC", 0.38) : Color.web("#21112D", 0.55);
-        Color featherLine = tide ? Color.web("#004D40", 0.42) : Color.web("#0B0611", 0.45);
-        Color ruff = tide ? Color.web("#D7FFF8", 0.76) : Color.web("#D7D1C2", 0.86);
-
-        double tailBaseX = facingRight ? x + 15.0 * s : x + 65.0 * s;
-        double tailDir = facingRight ? -1.0 : 1.0;
-        g.setFill(wing.darker().deriveColor(0, 1, 1, 0.78));
-        g.fillPolygon(
-                new double[]{tailBaseX, tailBaseX + tailDir * 50.0 * s, tailBaseX + tailDir * 28.0 * s, tailBaseX + tailDir * 6.0 * s},
-                new double[]{y + 48.0 * s, y + 35.0 * s, y + 72.0 * s, y + 66.0 * s},
-                4
-        );
-
-        g.setFill(wing);
-        g.fillOval(x - 18.0 * wingSpread * s, y + 16.0 * s, 46.0 * wingSpread * s, 76.0 * s);
-        g.fillOval(x + drawSize - 28.0 * wingSpread * s, y + 16.0 * s, 46.0 * wingSpread * s, 76.0 * s);
-        g.setFill(wingInner);
-        g.fillOval(x - 4.0 * wingSpread * s, y + 29.0 * s, 34.0 * wingSpread * s, 48.0 * s);
-        g.fillOval(x + drawSize - 30.0 * wingSpread * s, y + 29.0 * s, 34.0 * wingSpread * s, 48.0 * s);
-        g.setStroke(featherLine);
-        g.setLineCap(StrokeLineCap.ROUND);
-        g.setLineWidth(2.0 * s);
-        for (int side = 0; side < 2; side++) {
-            double sideDir = side == 0 ? -1.0 : 1.0;
-            double rootX = side == 0 ? x + 22.0 * s : x + drawSize - 22.0 * s;
-            for (int i = 0; i < 3; i++) {
-                double y0 = y + (38.0 + i * 13.0) * s;
-                g.strokeLine(rootX, y0, rootX + sideDir * (19.0 + i * 6.0) * wingSpread * s, y0 + (7.0 + i * 3.0) * s);
-            }
+        boolean classic = isClassicSkin;
+        boolean faction = isCampaignFactionSkin();
+        Color back;
+        Color body;
+        Color breast;
+        Color head;
+        Color headLight;
+        Color wing;
+        Color featherEdge;
+        Color ruff;
+        Color leg;
+        Color iris;
+        Color beak;
+        Color beakShadow;
+        if (faction) {
+            back = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            breast = campaignFactionSecondaryColor();
+            head = campaignFactionSecondaryColor().darker();
+            headLight = campaignFactionSecondaryColor().brighter();
+            wing = campaignFactionPrimaryColor().darker();
+            featherEdge = campaignFactionAccentColor();
+            ruff = campaignFactionSecondaryColor().brighter();
+            leg = campaignFactionPrimaryColor().darker();
+            iris = campaignFactionAccentColor();
+            beak = campaignFactionAccentColor().darker();
+            beakShadow = campaignFactionPrimaryColor().darker();
+        } else if (tide) {
+            back = Color.web("#0A4B4B");
+            body = Color.web("#17847E");
+            breast = Color.web("#4DB6AC");
+            head = Color.web("#72C6BF");
+            headLight = Color.web("#B2DFDB");
+            wing = Color.web("#0C625E");
+            featherEdge = Color.web("#91E5DD");
+            ruff = Color.web("#D8FFF8");
+            leg = Color.web("#315E5B");
+            iris = Color.web("#003F3D");
+            beak = Color.web("#D6A84B");
+            beakShadow = Color.web("#806227");
+        } else if (classic) {
+            back = Color.web("#201E22");
+            body = Color.web("#474246");
+            breast = Color.web("#696164");
+            head = Color.web("#8E6F69");
+            headLight = Color.web("#BA9990");
+            wing = Color.web("#29262B");
+            featherEdge = Color.web("#A99FA2");
+            ruff = Color.web("#C9C0B2");
+            leg = Color.web("#4A4038");
+            iris = Color.web("#7A241E");
+            beak = Color.web("#C39A45");
+            beakShadow = Color.web("#6C5128");
+        } else {
+            back = Color.web("#160B20");
+            body = Color.web("#321C40");
+            breast = Color.web("#51305E");
+            head = Color.web("#A64042");
+            headLight = Color.web("#E28B82");
+            wing = Color.web("#1D1028");
+            featherEdge = Color.web("#695373");
+            ruff = Color.web("#D8D0C0");
+            leg = Color.web("#554331");
+            iris = Color.web("#361018");
+            beak = Color.web("#E0AF47");
+            beakShadow = Color.web("#8F6427");
         }
 
+        double tailRootX = x + (facingRight ? 20.0 : 60.0) * s;
+        double tailRootY = y + 57.0 * s;
+        double tailLift = switch (state) {
+            case FLAP -> -9.0;
+            case FALL -> 8.0;
+            case ATTACK -> -4.0;
+            case HITSTUN, KO -> 11.0;
+            default -> 1.0;
+        };
+        for (int i = 0; i < 4; i++) {
+            double offset = i - 1.5;
+            double rootX = tailRootX + dir * i * 1.1 * s;
+            double rootY = tailRootY + offset * 2.8 * s;
+            double tipX = rootX + rear * (27.0 - Math.abs(offset) * 2.5) * s;
+            double tipY = y + (62.0 + offset * 5.0 + tailLift) * s;
+            g.setFill(wing.deriveColor(offset * 2.0, 0.95, 0.78 + i * 0.05, 0.98));
+            g.fillPolygon(
+                    new double[]{rootX + dir * 3.5 * s, tipX, rootX - dir * 4.0 * s},
+                    new double[]{rootY - 5.0 * s, tipY, rootY + 5.0 * s}, 3);
+            g.setStroke(featherEdge.deriveColor(0, 0.66, 1.0, 0.54));
+            g.setLineWidth(0.8 * s);
+            g.strokeLine(rootX, rootY, tipX + dir * 3.0 * s, tipY);
+            recordVisualBodyPart(VisualBodyPart.VULTURE_TAIL_FEATHER);
+        }
+
+        drawVultureLegs(g, state, leg, back);
+        double wingOpenness = vultureWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualVultureWingOpenness = wingOpenness;
+        }
+        drawVultureWing(g, cx + dir * 17.0 * s, y + 36.0 * s,
+                dir, wingOpenness, wing, featherEdge, back, true);
+        recordVisualBodyPart(VisualBodyPart.VULTURE_WING);
+
+        // Broad shoulders and a hanging keel give the scavenger weight without a circular torso.
+        g.setFill(back);
+        g.beginPath();
+        g.moveTo(x + (facingRight ? 15.0 : 65.0) * s, y + 37.0 * s);
+        g.bezierCurveTo(x + 17.0 * s, y + 12.0 * s, x + 58.0 * s, y + 8.0 * s,
+                x + (facingRight ? 69.0 : 11.0) * s, y + 35.0 * s);
+        g.bezierCurveTo(x + (facingRight ? 73.0 : 7.0) * s, y + 52.0 * s,
+                x + 57.0 * s, y + 72.0 * s, cx, y + 72.0 * s);
+        g.bezierCurveTo(x + 22.0 * s, y + 72.0 * s, x + 8.0 * s, y + 53.0 * s,
+                x + (facingRight ? 15.0 : 65.0) * s, y + 37.0 * s);
+        g.closePath();
+        g.fill();
         g.setFill(body);
-        g.fillOval(x, y, drawSize, drawSize);
-        g.setFill(wingInner);
-        g.fillOval(x + 18.0 * s, y + 34.0 * s, 44.0 * s, 26.0 * s);
-        g.setStroke(featherLine.deriveColor(0, 1, 1, 0.68));
-        g.setLineWidth(1.55 * s);
-        g.strokeArc(x + 16.0 * s, y + 35.0 * s, 48.0 * s, 30.0 * s,
-                facingRight ? 204 : -24, 108, ArcType.OPEN);
-        drawVultureCrowTicks(g, drawSize);
+        g.beginPath();
+        g.moveTo(x + (facingRight ? 21.0 : 59.0) * s, y + 37.0 * s);
+        g.bezierCurveTo(x + 23.0 * s, y + 19.0 * s, x + 55.0 * s, y + 16.0 * s,
+                x + (facingRight ? 63.0 : 17.0) * s, y + 36.0 * s);
+        g.bezierCurveTo(x + (facingRight ? 66.0 : 14.0) * s, y + 50.0 * s,
+                x + 53.0 * s, y + 67.0 * s, cx, y + 68.0 * s);
+        g.bezierCurveTo(x + 27.0 * s, y + 67.0 * s, x + 16.0 * s, y + 51.0 * s,
+                x + (facingRight ? 21.0 : 59.0) * s, y + 37.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(breast.deriveColor(0, 0.82, 1.0, 0.72));
+        g.beginPath();
+        g.moveTo(x + 33.0 * s, y + 34.0 * s);
+        g.bezierCurveTo(x + 54.0 * s, y + 35.0 * s, x + 58.0 * s, y + 58.0 * s,
+                cx, y + 67.0 * s);
+        g.bezierCurveTo(x + 27.0 * s, y + 60.0 * s, x + 24.0 * s, y + 42.0 * s,
+                x + 33.0 * s, y + 34.0 * s);
+        g.closePath();
+        g.fill();
 
-        g.setFill(ruff);
-        g.fillOval(x + 18.0 * s, y + 23.0 * s, 44.0 * s, 33.0 * s);
-        g.setFill(body.darker().deriveColor(0, 1, 1, 0.40));
-        g.fillOval(x + 23.0 * s, y + 29.0 * s, 34.0 * s, 20.0 * s);
+        drawVultureWing(g, cx - dir * 17.0 * s, y + 36.0 * s,
+                -dir, wingOpenness, wing, featherEdge, back, false);
+        recordVisualBodyPart(VisualBodyPart.VULTURE_WING);
 
-        double headW = 50.0 * s;
-        double headH = 40.0 * s;
-        double headX = headPose.centerX() - headW / 2.0;
-        double headY = headPose.centerY() - headH / 2.0;
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double upX = -aimY;
+        double upY = aimX;
+        if (upY > 0.0) {
+            upX = -upX;
+            upY = -upY;
+        }
+        double neckStartX = x + (facingRight ? 55.0 : 25.0) * s;
+        double neckStartY = y + 31.0 * s;
+        double neckEndX = headPose.centerX() - aimX * 11.0 * s;
+        double neckEndY = headPose.centerY() - aimY * 11.0 * s + 4.0 * s;
+        g.setStroke(head.darker());
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(18.0 * s);
+        g.strokeLine(neckStartX, neckStartY, neckEndX, neckEndY);
+        g.setStroke(head);
+        g.setLineWidth(12.0 * s);
+        g.strokeLine(neckStartX, neckStartY, neckEndX, neckEndY);
+
+        // Seven separate collar feathers form the unmistakable pale vulture ruff.
+        for (int i = 0; i < 7; i++) {
+            double offset = i - 3.0;
+            double rootX = cx + offset * 6.0 * s;
+            double rootY = y + (31.0 + Math.abs(offset) * 1.1) * s;
+            double tipX = rootX + offset * 1.8 * s + rear * 1.5 * s;
+            double tipY = y + (48.0 + (i % 2) * 4.0) * s;
+            g.setFill(ruff.deriveColor(offset * 1.5, 0.94, 0.88 + (i % 2) * 0.08, 0.98));
+            g.fillPolygon(
+                    new double[]{rootX - 5.0 * s, rootX + 5.0 * s, tipX},
+                    new double[]{rootY, rootY, tipY}, 3);
+            g.setStroke(featherEdge.deriveColor(0, 0.45, 1.0, 0.36));
+            g.setLineWidth(0.65 * s);
+            g.strokeLine(rootX, rootY + 1.5 * s, tipX, tipY - 2.0 * s);
+            recordVisualBodyPart(VisualBodyPart.VULTURE_RUFF_FEATHER);
+        }
+
+        double headW = 45.0 * s;
+        double headH = 35.0 * s;
+        double headX = headPose.centerX() - headW * 0.5;
+        double headY = headPose.centerY() - headH * 0.5;
+        g.setFill(head.darker());
+        g.fillOval(headX - 1.8 * s, headY - 1.2 * s, headW + 3.6 * s, headH + 2.4 * s);
         g.setFill(head);
         g.fillOval(headX, headY, headW, headH);
-        g.setFill((tide ? Color.web("#B2DFDB") : Color.web("#F2A09B")).deriveColor(0, 1, 1, 0.34));
-        g.fillOval(headX + 8.0 * s, headY + 5.0 * s, 31.0 * s, 18.0 * s);
-        drawVectorBodyLighting(g, drawSize, body, head, headPose);
+        double facePatchX = headPose.centerX() + aimX * 3.0 * s + upX * 1.0 * s;
+        double facePatchY = headPose.centerY() + aimY * 3.0 * s + upY * 1.0 * s;
+        g.setFill(headLight.deriveColor(0, 0.78, 1.0, 0.42));
+        g.fillOval(facePatchX - 12.0 * s, facePatchY - 7.0 * s, 24.0 * s, 14.0 * s);
 
-        double crestBaseX = headX + (facingRight ? 16.0 : 34.0) * s;
-        g.setFill(head.darker().deriveColor(0, 1, 1, 0.70));
-        g.fillPolygon(
-                new double[]{crestBaseX - dir * 4.0 * s, crestBaseX - dir * 18.0 * s, crestBaseX + dir * 2.0 * s},
-                new double[]{headY + 6.0 * s, headY - 7.0 * s, headY + 12.0 * s},
-                3
-        );
-
-        double beakBaseX = headPose.centerX() + dir * 5.0 * s;
-        double beakTipX = headPose.centerX() + dir * 32.0 * s;
-        double beakY = headPose.centerY() + 5.0 * s;
-        recordVisualBeak(beakBaseX, beakY, beakTipX, beakY);
-        boolean beakActive = attackAnimationTimer > 0 || isChargingAttack() || isGroundAttackPending();
-        double attackPulse = attackAnimationTimer > 0
-                ? 0.5 + 0.5 * Math.sin(attackAnimationTimer * 0.85)
-                : (beakActive ? 0.55 : 0.0);
-        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
-        double beakOpen = (beakActive ? 4.2 + attackPulse * 6.8 : 0.8) * s * openScale;
-        if (beakOpen > 2.0 * s) {
-            g.setFill(Color.web("#3D1A16", 0.78));
-            g.fillPolygon(
-                    new double[]{beakBaseX + dir * 1.0 * s, beakTipX - dir * 7.0 * s, beakBaseX + dir * 3.0 * s},
-                    new double[]{beakY - 2.0 * s, beakY + beakOpen * 0.44, beakY + 4.5 * s},
-                    3
-            );
+        // Sparse backward hackles retain the bald-headed silhouette without looking like a hat.
+        for (int i = 0; i < 3; i++) {
+            double rootX = headPose.centerX() - aimX * (11.0 + i * 3.0) * s + upX * 12.0 * s;
+            double rootY = headPose.centerY() - aimY * (11.0 + i * 3.0) * s + upY * 12.0 * s;
+            double tipX = rootX - aimX * (9.0 + i * 2.0) * s + upX * (6.0 - i) * s;
+            double tipY = rootY - aimY * (9.0 + i * 2.0) * s + upY * (6.0 - i) * s;
+            g.setStroke(head.darker());
+            g.setLineWidth((3.0 - i * 0.45) * s);
+            g.strokeLine(rootX, rootY, tipX, tipY);
         }
-        g.setFill(Color.web("#E8B64F"));
-        g.fillPolygon(
-                new double[]{beakBaseX, beakTipX, beakBaseX + dir * 2.0 * s},
-                new double[]{beakY - 8.0 * s - beakOpen * 0.18, beakY - 1.5 * s - beakOpen * 0.62, beakY + 5.5 * s},
-                3
-        );
-        g.setFill(Color.web("#9F6C24"));
-        g.fillPolygon(
-                new double[]{beakTipX - dir * 1.0 * s, beakTipX - dir * 9.0 * s, beakTipX - dir * 3.0 * s},
-                new double[]{beakY + 0.5 * s + beakOpen * 0.55, beakY + 9.0 * s + beakOpen * 0.38, beakY + 4.5 * s + beakOpen * 0.32},
-                3
-        );
-        g.setStroke(Color.web("#5D4037", 0.48));
-        g.setLineWidth(1.15 * s);
-        g.strokeLine(beakTipX - dir * 4.0 * s, beakY + s + beakOpen * 0.48,
-                beakTipX - dir * 10.0 * s, beakY + 8.0 * s + beakOpen * 0.34);
 
-        drawStandardVectorEye(g, headPose, headW, headH,
-                tide ? Color.web("#004D40") : Color.web("#111111"), 25.0, 15.0);
+        double eyeCenterX = headPose.centerX() + aimX * 4.5 * s + upX * 4.0 * s;
+        double eyeCenterY = headPose.centerY() + aimY * 4.5 * s + upY * 4.0 * s;
+        double eyeRadius = 7.5 * s;
+        double irisRadius = 4.2 * s;
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headPose.centerX() - headW * 0.5, headPose.centerY() - headH * 0.5,
+                headPose.centerX() + headW * 0.5, headPose.centerY() + headH * 0.5);
+        lastVisualEye = new VisualFeatureCircle(eyeCenterX, eyeCenterY, eyeRadius);
+        g.setFill(Color.web("#FFFBEA"));
+        g.fillOval(eyeCenterX - eyeRadius, eyeCenterY - eyeRadius,
+                eyeRadius * 2.0, eyeRadius * 2.0);
+        double irisX = eyeCenterX + aimX * 1.4 * s;
+        double irisY = eyeCenterY + aimY * 1.4 * s;
+        g.setFill(iris);
+        g.fillOval(irisX - irisRadius, irisY - irisRadius, irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(Color.web("#100B0D"));
+        g.fillOval(irisX - 2.1 * s, irisY - 2.1 * s, 4.2 * s, 4.2 * s);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.92));
+        g.fillOval(irisX - 1.5 * s + upX * 0.7 * s,
+                irisY - 1.5 * s + upY * 0.7 * s, 2.6 * s, 2.6 * s);
+        g.setStroke(head.darker());
+        g.setLineWidth(2.4 * s);
+        g.strokeLine(eyeCenterX - aimX * 7.0 * s + upX * 7.0 * s,
+                eyeCenterY - aimY * 7.0 * s + upY * 7.0 * s,
+                eyeCenterX + aimX * 6.5 * s + upX * 4.8 * s,
+                eyeCenterY + aimY * 6.5 * s + upY * 4.8 * s);
+
+        drawVultureBeak(g, pose, headPose, aimX, aimY, upX, upY, beak, beakShadow);
+        drawVultureCrowTicks(g, drawSize);
+        if (classic) {
+            g.setStroke(featherEdge.deriveColor(0, 0.70, 1.0, 0.55));
+            g.setLineWidth(1.0 * s);
+            g.strokeArc(x + 22.0 * s, y + 35.0 * s, 36.0 * s, 29.0 * s,
+                    facingRight ? 198.0 : -18.0, 126.0, ArcType.OPEN);
+        }
         drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    private void drawVultureLegs(GraphicsContext g, BirdAnimationState state, Color leg, Color edge) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || vultureGlideTimer > 0 || vultureThermalTimer > 0 || vultureBlackSkyTimer > 0;
+        double runAmount = state == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 19.0) * 0.36)
+                * 4.5 * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + (32.0 + i * 16.0) * s;
+            double hipY = y + 58.0 * s;
+            double step = (i == 0 ? stride : -stride) * s;
+            double ankleX = airborne ? hipX - dir * (4.0 + i * 2.0) * s : hipX + step;
+            double ankleY = y + (airborne ? 68.0 + i * 2.0 : 75.0) * s;
+            g.setStroke(leg.deriveColor(0, 0.88, 0.86, i == 0 ? 0.76 : 0.98));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.5 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            double toeDirection = airborne ? -dir : dir;
+            double toeEndY = airborne ? ankleY + 4.0 * s : y + 79.0 * s;
+            g.setLineWidth(2.0 * s);
+            for (int toe = -1; toe <= 1; toe++) {
+                double length = (toe == 0 ? 11.0 : 8.0) * s;
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + toeDirection * length + toe * 1.4 * s,
+                        toeEndY - Math.abs(toe) * 0.6 * s);
+            }
+            g.setStroke(edge.deriveColor(0, 0.64, 1.0, 0.36));
+            g.setLineWidth(0.7 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            if (!airborne && visualAuditBodyOnly) {
+                lastVisualVultureFootBaseline = Math.max(
+                        Double.isNaN(lastVisualVultureFootBaseline)
+                                ? Double.NEGATIVE_INFINITY : lastVisualVultureFootBaseline,
+                        80.0);
+            }
+            recordVisualBodyPart(VisualBodyPart.VULTURE_LEG);
+        }
+    }
+
+    private void drawVultureWing(GraphicsContext g, double shoulderX, double shoulderY,
+                                 double side, double openness, Color wing,
+                                 Color edge, Color shadow, boolean farSide) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double foldedTipX = shoulderX + side * 8.0 * s;
+        double foldedTipY = y + 65.0 * s;
+        double spreadTipX = shoulderX + side * (46.0 + open * 11.0) * s;
+        double spreadTipY = y + (29.0 - open * 16.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double dx = tipX - shoulderX;
+        double dy = tipY - shoulderY;
+        double length = Math.max(0.001, Math.hypot(dx, dy));
+        double normalX = -dy / length;
+        double normalY = dx / length;
+        double alpha = farSide ? 0.67 : 0.98;
+        double rootWidth = (8.0 + open * 2.0) * s;
+        double midX = shoulderX + dx * 0.50;
+        double midY = shoulderY + dy * 0.50;
+        double midWidth = (11.0 + open * 5.0) * s;
+        g.setFill(wing.deriveColor(0, 0.96, farSide ? 0.77 : 0.96, alpha));
+        g.fillPolygon(
+                new double[]{shoulderX + normalX * rootWidth,
+                        midX + normalX * midWidth,
+                        tipX,
+                        midX - normalX * midWidth,
+                        shoulderX - normalX * rootWidth},
+                new double[]{shoulderY + normalY * rootWidth,
+                        midY + normalY * midWidth,
+                        tipY,
+                        midY - normalY * midWidth,
+                        shoulderY - normalY * rootWidth}, 5);
+        // Four splayed primaries create a broad soaring wing instead of an oval paddle.
+        g.setStroke(edge.deriveColor(0, 0.72, 1.0, alpha * 0.70));
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int feather = 0; feather < 4; feather++) {
+            double offset = (feather - 1.5) * (3.2 + open * 2.4) * s;
+            g.setLineWidth((1.05 + feather * 0.08) * s);
+            g.strokeLine(shoulderX + normalX * offset,
+                    shoulderY + normalY * offset,
+                    tipX - side * (feather * 4.5) * s + normalX * offset * 0.42,
+                    tipY + normalY * offset * 0.42 + feather * 2.1 * s);
+        }
+        g.setStroke(shadow.deriveColor(0, 0.74, 1.0, alpha * 0.54));
+        g.setLineWidth(1.0 * s);
+        g.strokeLine(shoulderX, shoulderY, tipX - side * 4.0 * s, tipY + 1.0 * s);
+        g.setFill(wing.brighter().deriveColor(0, 0.74, 1.0, alpha * 0.32));
+        g.fillOval(shoulderX - (11.0 + open * 2.0) * s,
+                shoulderY - (7.0 + open) * s,
+                (22.0 + open * 4.0) * s, (19.0 + open * 3.0) * s);
+    }
+
+    private void drawVultureBeak(GraphicsContext g, AttackVisualPose pose, HeadPose headPose,
+                                 double aimX, double aimY, double upX, double upY,
+                                 Color upper, Color lower) {
+        double s = sizeMultiplier;
+        boolean attacking = attackAnimationTimer > 0 || isChargingAttack() || isGroundAttackPending()
+                || vultureCallTimer > 0 || vultureGlideTimer > 0 || vultureThermalTimer > 0;
+        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
+        double open = (attacking ? 3.4 + Math.sin(attackAnimationTimer * 0.72) * 0.8 : 0.7)
+                * s * openScale;
+        double length = (27.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.40)) * s;
+        double rootX = headPose.centerX() + aimX * 14.5 * s + upX * 0.5 * s;
+        double rootY = headPose.centerY() + aimY * 14.5 * s + upY * 0.5 * s;
+        double midX = rootX + aimX * length * 0.60;
+        double midY = rootY + aimY * length * 0.60;
+        double pointX = rootX + aimX * length;
+        double pointY = rootY + aimY * length;
+        double hookX = pointX + aimX * 1.0 * s - upX * 5.5 * s;
+        double hookY = pointY + aimY * 1.0 * s - upY * 5.5 * s;
+        recordVisualBeak(rootX, rootY, hookX, hookY);
+        g.setFill(upper);
+        g.fillPolygon(
+                new double[]{rootX + upX * 7.2 * s, midX + upX * 6.0 * s,
+                        pointX + upX * 1.8 * s, hookX,
+                        midX - upX * (1.0 * s + open * 0.18), rootX - upX * 1.0 * s},
+                new double[]{rootY + upY * 7.2 * s, midY + upY * 6.0 * s,
+                        pointY + upY * 1.8 * s, hookY,
+                        midY - upY * (1.0 * s + open * 0.18), rootY - upY * 1.0 * s}, 6);
+        g.setFill(lower);
+        g.fillPolygon(
+                new double[]{rootX - upX * 0.5 * s,
+                        pointX - aimX * 2.0 * s - upX * (1.0 * s + open),
+                        midX - upX * (5.0 * s + open * 0.60), rootX - upX * 7.0 * s},
+                new double[]{rootY - upY * 0.5 * s,
+                        pointY - aimY * 2.0 * s - upY * (1.0 * s + open),
+                        midY - upY * (5.0 * s + open * 0.60), rootY - upY * 7.0 * s}, 4);
+        g.setStroke(upper.brighter().deriveColor(0, 0.68, 1.0, 0.66));
+        g.setLineWidth(1.0 * s);
+        g.strokeLine(rootX + upX * 2.0 * s, rootY + upY * 2.0 * s,
+                pointX - aimX * 2.5 * s + upX * 0.7 * s,
+                pointY - aimY * 2.5 * s + upY * 0.7 * s);
+        g.setFill(lower.darker().deriveColor(0, 0.85, 1.0, 0.70));
+        g.fillOval(rootX + aimX * 5.0 * s + upX * 2.0 * s - 1.3 * s,
+                rootY + aimY * 5.0 * s + upY * 2.0 * s - 1.3 * s, 2.6 * s, 2.6 * s);
+    }
+
+    /** Returns Vulture's authored wing pose, including Carrion Glide's full open/close cycle. */
+    private double vultureWingOpenness(BirdAnimationState state) {
+        if (vultureGlideTimer > 0) {
+            int totalFrames = vultureGlideTimer > VULTURE_GLIDE_FRAMES
+                    ? VULTURE_GLIDE_FRAMES + 8 : VULTURE_GLIDE_FRAMES;
+            double elapsed = Math.max(0.0, totalFrames - vultureGlideTimer);
+            double openEnvelope = smoothStep(Math.clamp(elapsed / 4.0, 0.0, 1.0));
+            double closeEnvelope = smoothStep(Math.clamp(vultureGlideTimer / 4.0, 0.0, 1.0));
+            return Math.clamp(openEnvelope * closeEnvelope, 0.0, 1.0);
+        }
+        if (vultureThermalTimer > 0) {
+            double elapsed = Math.max(0.0, VULTURE_THERMAL_FRAMES - vultureThermalTimer);
+            return 0.70 + (0.5 + 0.5 * Math.cos(elapsed * Math.PI * 0.28)) * 0.30;
+        }
+        if (vultureBlackSkyTimer > 0) {
+            return 0.88;
+        }
+        if (vultureCallTimer > 0) {
+            return 0.52 + (0.5 + 0.5 * Math.cos(vultureCallTimer * Math.PI * 0.16)) * 0.22;
+        }
+        if (state == BirdAnimationState.FLAP || isFlying) {
+            double phase = positiveModulo(animationGlobalFrame + playerIndex * 3.0, 20.0) / 20.0;
+            return 0.66 + smoothStep(0.5 + 0.5 * Math.cos(phase * Math.PI * 2.0)) * 0.34;
+        }
+        if (state == BirdAnimationState.FALL) {
+            return 0.59;
+        }
+        if (state == BirdAnimationState.ATTACK) {
+            return 0.28;
+        }
+        if (state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO) {
+            return 0.15;
+        }
+        return 0.05;
     }
 
     private void drawVultureCrowTicks(GraphicsContext g, double drawSize) {
@@ -32585,7 +32945,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.SHOEBILL
                 || type == BirdGame3.BirdType.MOCKINGBIRD
                 || type == BirdGame3.BirdType.RAZORBILL
-                || type == BirdGame3.BirdType.GRINCHHAWK) return;
+                || type == BirdGame3.BirdType.GRINCHHAWK
+                || type == BirdGame3.BirdType.VULTURE) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -33642,6 +34003,11 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.GRINCHHAWK) {
             drawGrinchhawkBeak(g, pose, openScale);
+            return;
+        }
+        if (type == BirdGame3.BirdType.VULTURE) {
+            // Both playable Vulture and Null Rock author their hooked bills in
+            // their dedicated renderers; the shared bill would draw a second one.
             return;
         }
         if (type == BirdGame3.BirdType.RAVEN) {
