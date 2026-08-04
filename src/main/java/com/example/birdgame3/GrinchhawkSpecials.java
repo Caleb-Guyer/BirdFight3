@@ -34,6 +34,12 @@ final class GrinchhawkSpecials {
         }
 
         if (bird.stunTime > 0.0) {
+            if (bird.grinchSleighRiding) {
+                // A hit must eject Grinch-Hawk at his current position before the
+                // remaining special state is cleared. Otherwise reset() silently
+                // detaches him with the sleigh's hovering vertical velocity.
+                dismountSleigh(bird, false);
+            }
             reset(bird, false);
             if (neutralCopy) {
                 bird.mockingbirdCopiedNeutralSource = null;
@@ -434,7 +440,10 @@ final class GrinchhawkSpecials {
             bird.canDoubleJump = true;
         } else {
             bird.vx *= 0.35;
-            bird.vy = Math.min(bird.vy, -5.0);
+            // Shield dismounts, hit ejections, and sleigh crashes are falls. The
+            // old upward clamp made Grinch-Hawk hover or appear to pop to a new
+            // height after the riding pose ended.
+            bird.vy = Math.max(bird.vy, Math.max(1.0, BirdGame3.GRAVITY));
         }
         bird.attackAnimationTimer = Math.max(bird.attackAnimationTimer, 8);
     }
@@ -447,6 +456,9 @@ final class GrinchhawkSpecials {
                 -bird.grinchSleighDirection, bird.grinchSleighUltimate ? 42 : 28,
                 bird.grinchSleighUltimate ? Color.GOLD : Color.web("#C62828"));
         bird.game.shakeIntensity = Math.max(bird.game.shakeIntensity, bird.grinchSleighUltimate ? 14 : 9);
+        if (bird.grinchSleighRiding) {
+            dismountSleigh(bird, false);
+        }
         bird.grinchSleighActive = false;
         bird.grinchSleighRiding = false;
         bird.grinchSleighTimer = 0;

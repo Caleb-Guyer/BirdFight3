@@ -4352,6 +4352,58 @@ class BirdStateTest {
     }
 
     @Test
+    void grinchhawkForcedSleighEjectionFallsFromItsCurrentPosition() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        Bird grinch = new Bird(420.0, BirdGame3.BirdType.GRINCHHAWK, 0, game);
+        grinch.y = BirdGame3.GROUND_Y - 280.0;
+        game.players[0] = grinch;
+        grinch.grinchSleighActive = true;
+        grinch.grinchSleighRiding = true;
+        grinch.grinchSleighTimer = 60;
+        grinch.grinchSleighDirection = 1;
+        grinch.vx = Bird.GRINCH_SLEIGH_SPEED;
+        grinch.vy = -0.6;
+        grinch.stunTime = 6.0;
+        double xBefore = grinch.x;
+        double yBefore = grinch.y;
+
+        GrinchhawkSpecials.handleState(grinch, false, 1.0, false, true);
+
+        assertFalse(grinch.grinchSleighRiding, "Forced ejection must detach Grinch-Hawk from the sleigh.");
+        assertEquals(xBefore, grinch.x, 0.0001, "Ejection must not teleport Grinch-Hawk horizontally.");
+        assertEquals(yBefore, grinch.y, 0.0001, "Ejection must not teleport Grinch-Hawk vertically.");
+        assertTrue(grinch.vy > 0.0, "A non-jump ejection must begin with downward velocity.");
+
+        grinch.update(1.0);
+        assertTrue(grinch.y > yBefore, "Gravity must carry the ejected Grinch-Hawk downward on the next tick.");
+    }
+
+    @Test
+    void grinchhawkFallsWhenAnOccupiedSleighCrashes() {
+        BirdGame3 game = new BirdGame3();
+        Bird grinch = new Bird(420.0, BirdGame3.BirdType.GRINCHHAWK, 0, game);
+        grinch.y = BirdGame3.GROUND_Y - 280.0;
+        grinch.grinchSleighActive = true;
+        grinch.grinchSleighRiding = true;
+        grinch.grinchSleighTimer = 1;
+        grinch.grinchSleighDirection = 1;
+        grinch.grinchSleighX = grinch.bodyCenterX();
+        grinch.grinchSleighY = grinch.bodyBottomY() + 8.0 * grinch.sizeMultiplier;
+        grinch.vy = -0.6;
+        double xBefore = grinch.x;
+        double yBefore = grinch.y;
+
+        GrinchhawkSpecials.crashSleigh(grinch);
+
+        assertFalse(grinch.grinchSleighActive);
+        assertFalse(grinch.grinchSleighRiding);
+        assertEquals(xBefore, grinch.x, 0.0001);
+        assertEquals(yBefore, grinch.y, 0.0001);
+        assertTrue(grinch.vy > 0.0, "A crashing sleigh must drop its rider instead of suspending him.");
+    }
+
+    @Test
     void grinchhawkMidnightGiftstormDropsPresentsAndFinalSleigh() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
