@@ -348,7 +348,10 @@ public class Bird {
         SHOEBILL_TAIL_FEATHER,
         SHOEBILL_WING,
         SHOEBILL_LEG,
-        SHOEBILL_CREST_FEATHER
+        SHOEBILL_CREST_FEATHER,
+        CHARLES_TAIL_FEATHER,
+        CHARLES_WING,
+        CHARLES_LEG
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -359,6 +362,8 @@ public class Bird {
                                  double penguinFlipperOpenness,
                                  double shoebillWingOpenness,
                                  double shoebillFootBaseline,
+                                 double charlesWingOpenness,
+                                 double charlesFootBaseline,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -539,6 +544,8 @@ public class Bird {
     private double lastVisualPenguinFlipperOpenness;
     private double lastVisualShoebillWingOpenness;
     private double lastVisualShoebillFootBaseline = Double.NaN;
+    private double lastVisualCharlesWingOpenness;
+    private double lastVisualCharlesFootBaseline = Double.NaN;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -11772,6 +11779,13 @@ public class Bird {
         attackAnimationTimer = Math.max(attackAnimationTimer, shoebillThrustTimer);
     }
 
+    /** Positions Charles at a deterministic frame of Forest Lift's wing cycle. */
+    void prepareVisualAuditCharlesForestLift(int remainingFrames) {
+        prepareVisualAuditPose(VisualAuditPose.FLAP);
+        mockingbirdUpFxTimer = Math.clamp(remainingFrames, 1, MOCKINGBIRD_UP_FX_FRAMES);
+        attackAnimationTimer = Math.max(attackAnimationTimer, mockingbirdUpFxTimer);
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -21790,6 +21804,8 @@ public class Bird {
                 lastVisualPenguinFlipperOpenness,
                 lastVisualShoebillWingOpenness,
                 lastVisualShoebillFootBaseline,
+                lastVisualCharlesWingOpenness,
+                lastVisualCharlesFootBaseline,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21805,6 +21821,8 @@ public class Bird {
         lastVisualPenguinFlipperOpenness = 0.0;
         lastVisualShoebillWingOpenness = 0.0;
         lastVisualShoebillFootBaseline = Double.NaN;
+        lastVisualCharlesWingOpenness = 0.0;
+        lastVisualCharlesFootBaseline = Double.NaN;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -28858,6 +28876,10 @@ public class Bird {
             drawShoebillBody(g, drawSize, pose);
             return;
         }
+        if (type == BirdGame3.BirdType.MOCKINGBIRD) {
+            drawCharlesBody(g, drawSize, pose);
+            return;
+        }
         if (drawPhotoEagleSprite(g, drawSize, pose)) {
             return;
         }
@@ -30469,6 +30491,371 @@ public class Bird {
         return 0.0;
     }
 
+    /** Builds Charles as a sleek, long-tailed mockingbird with a complete two-wing rig. */
+    private void drawCharlesBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        double cx = x + 40.0 * s;
+        BirdAnimationState state = currentBirdAnimationState();
+        HeadPose headPose = standardHeadPose(pose);
+        boolean classic = isClassicSkin;
+        boolean eclipse = isEclipseSkin;
+        boolean faction = isCampaignFactionSkin();
+
+        Color back;
+        Color body;
+        Color head;
+        Color breast;
+        Color wing;
+        Color flash;
+        Color edge;
+        Color leg;
+        Color iris;
+        if (faction) {
+            back = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            head = campaignFactionSecondaryColor();
+            breast = campaignFactionSecondaryColor().brighter();
+            wing = campaignFactionPrimaryColor().darker();
+            flash = campaignFactionSecondaryColor().brighter();
+            edge = campaignFactionAccentColor();
+            leg = campaignFactionPrimaryColor().darker();
+            iris = campaignFactionAccentColor().darker();
+        } else if (eclipse) {
+            back = Color.web("#101126");
+            body = Color.web("#2C2759");
+            head = Color.web("#4A3979");
+            breast = Color.web("#9A89C7");
+            wing = Color.web("#191833");
+            flash = Color.web("#D8CCF3");
+            edge = Color.web("#D582FF");
+            leg = Color.web("#27213E");
+            iris = Color.web("#E99BFF");
+        } else if (classic) {
+            back = Color.web("#4A1837");
+            body = Color.web("#7A3159");
+            head = Color.web("#A95780");
+            breast = Color.web("#F0C7DA");
+            wing = Color.web("#55203F");
+            flash = Color.web("#FFE3F0");
+            edge = Color.web("#FF9ECB");
+            leg = Color.web("#4A2739");
+            iris = Color.web("#4B1735");
+        } else {
+            back = Color.web("#292E36");
+            body = Color.web("#59616B");
+            head = Color.web("#747D87");
+            breast = Color.web("#D8DDE0");
+            wing = Color.web("#3C434C");
+            flash = Color.web("#F4F5F3");
+            edge = Color.web("#AEB6BD");
+            leg = Color.web("#343A40");
+            iris = Color.web("#5D244E");
+        }
+
+        double tailRootX = x + (facingRight ? 20.0 : 60.0) * s;
+        double tailRootY = y + 51.0 * s;
+        double tailLift = switch (state) {
+            case FLAP -> -13.0;
+            case FALL -> 8.0;
+            case ATTACK -> -5.0;
+            case HITSTUN, KO -> 11.0;
+            default -> Math.sin((animationGlobalFrame + playerIndex * 19.0) * 0.09) * 2.2;
+        };
+        for (int i = 0; i < 4; i++) {
+            double offset = i - 1.5;
+            double rootX = tailRootX + dir * i * 0.8 * s;
+            double rootY = tailRootY + offset * 2.4 * s;
+            double length = (44.0 - Math.abs(offset) * 3.0) * s;
+            double angle = (facingRight ? 180.0 : 0.0) + offset * 7.0 + tailLift * 0.48;
+            double width = (8.4 - Math.abs(offset) * 0.6) * s;
+            g.save();
+            g.translate(rootX, rootY);
+            g.rotate(angle);
+            g.setFill(back.deriveColor(offset * 2.0, 0.96, 0.84 + i * 0.035, 0.98));
+            g.fillOval(0.0, -width * 0.5, length, width);
+            g.setFill(flash.deriveColor(0, 0.78, 1.0, eclipse ? 0.78 : 0.90));
+            g.fillOval(length * 0.68, -width * 0.38, length * 0.24, width * 0.76);
+            g.setStroke(edge.deriveColor(0, 0.78, 1.0, 0.54));
+            g.setLineWidth(0.65 * s);
+            g.strokeLine(4.0 * s, 0.0, length - 3.0 * s, 0.0);
+            g.restore();
+            recordVisualBodyPart(VisualBodyPart.CHARLES_TAIL_FEATHER);
+        }
+
+        drawCharlesLegs(g, state, leg);
+
+        double wingOpenness = charlesWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualCharlesWingOpenness = wingOpenness;
+        }
+        double farSide = dir;
+        drawCharlesWing(g, cx + farSide * 17.0 * s, y + 34.0 * s,
+                farSide, wingOpenness, wing, flash, edge, true);
+        recordVisualBodyPart(VisualBodyPart.CHARLES_WING);
+
+        g.setFill(back);
+        g.beginPath();
+        g.moveTo(cx, y + 8.0 * s);
+        g.bezierCurveTo(x + 65.0 * s, y + 10.0 * s,
+                x + 72.0 * s, y + 38.0 * s, x + 59.0 * s, y + 64.0 * s);
+        g.bezierCurveTo(x + 50.0 * s, y + 73.0 * s,
+                x + 28.0 * s, y + 73.0 * s, x + 19.0 * s, y + 64.0 * s);
+        g.bezierCurveTo(x + 8.0 * s, y + 38.0 * s,
+                x + 15.0 * s, y + 11.0 * s, cx, y + 8.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(body);
+        g.beginPath();
+        g.moveTo(cx, y + 12.0 * s);
+        g.bezierCurveTo(x + 60.0 * s, y + 14.0 * s,
+                x + 66.0 * s, y + 39.0 * s, x + 55.0 * s, y + 61.0 * s);
+        g.bezierCurveTo(x + 48.0 * s, y + 67.0 * s,
+                x + 32.0 * s, y + 67.0 * s, x + 25.0 * s, y + 61.0 * s);
+        g.bezierCurveTo(x + 14.0 * s, y + 39.0 * s,
+                x + 20.0 * s, y + 14.0 * s, cx, y + 12.0 * s);
+        g.closePath();
+        g.fill();
+
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double upX = -aimY;
+        double upY = aimX;
+        if (upY > 0.0) {
+            upX = -upX;
+            upY = -upY;
+        }
+        double neckStartX = x + (facingRight ? 55.0 : 25.0) * s;
+        double neckStartY = y + 28.0 * s;
+        double neckEndX = headPose.centerX() - aimX * 13.0 * s;
+        double neckEndY = headPose.centerY() - aimY * 13.0 * s + 4.0 * s;
+        g.setStroke(back);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(20.0 * s);
+        g.strokeLine(neckStartX, neckStartY, neckEndX, neckEndY);
+        g.setStroke(head.darker().deriveColor(0, 0.84, 0.90, 0.88));
+        g.setLineWidth(13.0 * s);
+        g.strokeLine(neckStartX + rear * 1.5 * s, neckStartY,
+                neckEndX + rear * 1.5 * s, neckEndY);
+
+        g.setFill(breast.deriveColor(0, 0.74, 1.0, classic ? 0.76 : 0.86));
+        g.fillOval(x + 23.0 * s, y + 29.0 * s, 35.0 * s, 38.0 * s);
+        g.setFill(breast.brighter().deriveColor(0, 0.56, 1.02, 0.28));
+        g.fillOval(x + 31.0 * s, y + 36.0 * s, 19.0 * s, 25.0 * s);
+
+        double nearSide = -dir;
+        drawCharlesWing(g, cx + nearSide * 17.0 * s, y + 34.0 * s,
+                nearSide, wingOpenness, wing, flash, edge, false);
+        recordVisualBodyPart(VisualBodyPart.CHARLES_WING);
+
+        double headW = 48.0 * s;
+        double headH = 39.0 * s;
+        double headX = headPose.centerX() - headW * 0.5;
+        double headY = headPose.centerY() - headH * 0.5;
+        g.setFill(head.darker().deriveColor(0, 0.88, 0.82, 1.0));
+        g.fillOval(headX - 1.5 * s, headY - 1.0 * s, headW + 3.0 * s, headH + 2.5 * s);
+        g.setFill(head);
+        g.fillOval(headX, headY, headW, headH);
+
+        double faceCenterX = headPose.centerX() - aimX * 5.0 * s + upX * 1.5 * s;
+        double faceCenterY = headPose.centerY() - aimY * 5.0 * s + upY * 1.5 * s;
+        g.setFill(breast.deriveColor(0, 0.72, 1.0, eclipse ? 0.62 : 0.80));
+        g.fillOval(faceCenterX - 16.0 * s, faceCenterY - 11.0 * s,
+                32.0 * s, 23.0 * s);
+        g.setStroke(flash.deriveColor(0, 0.70, 1.0, 0.72));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(2.0 * s);
+        g.strokeLine(headPose.centerX() - aimX * 14.0 * s + upX * 10.0 * s,
+                headPose.centerY() - aimY * 14.0 * s + upY * 10.0 * s,
+                headPose.centerX() + aimX * 4.0 * s + upX * 8.0 * s,
+                headPose.centerY() + aimY * 4.0 * s + upY * 8.0 * s);
+
+        double eyeCenterX = headPose.centerX() - aimX * 7.5 * s + upX * 6.0 * s;
+        double eyeCenterY = headPose.centerY() - aimY * 7.5 * s + upY * 6.0 * s;
+        double eyeRadius = 8.3 * s;
+        double irisRadius = 4.7 * s;
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headPose.centerX() - headW * 0.5,
+                headPose.centerY() - headH * 0.5,
+                headPose.centerX() + headW * 0.5,
+                headPose.centerY() + headH * 0.5);
+        lastVisualEye = new VisualFeatureCircle(eyeCenterX, eyeCenterY, eyeRadius);
+        g.setFill(Color.web("#FFFDF9"));
+        g.fillOval(eyeCenterX - eyeRadius, eyeCenterY - eyeRadius,
+                eyeRadius * 2.0, eyeRadius * 2.0);
+        double irisX = eyeCenterX + aimX * 1.6 * s;
+        double irisY = eyeCenterY + aimY * 1.6 * s;
+        g.setFill(iris);
+        g.fillOval(irisX - irisRadius, irisY - irisRadius,
+                irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(Color.web("#141218"));
+        g.fillOval(irisX - 2.2 * s, irisY - 2.2 * s, 4.4 * s, 4.4 * s);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.94));
+        g.fillOval(irisX - 1.8 * s + upX * 0.8 * s,
+                irisY - 1.8 * s + upY * 0.8 * s, 2.8 * s, 2.8 * s);
+
+        if (eclipse) {
+            g.setStroke(edge.deriveColor(0, 0.86, 1.0, 0.74));
+            g.setLineWidth(1.4 * s);
+            g.strokeArc(x + 27.0 * s, y + 39.0 * s, 25.0 * s, 20.0 * s,
+                    facingRight ? 208.0 : -28.0, 112.0, ArcType.OPEN);
+            g.setFill(edge.deriveColor(0, 0.72, 1.0, 0.64));
+            g.fillOval(x + (facingRight ? 29.0 : 47.0) * s,
+                    y + 48.0 * s, 4.0 * s, 4.0 * s);
+        }
+
+        drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    private void drawCharlesLegs(GraphicsContext g, BirdAnimationState state, Color leg) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || mockingbirdUpFxTimer > 0;
+        double runAmount = state == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 11.0) * 0.42)
+                * 6.0 * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + (31.0 + i * 18.0) * s;
+            double hipY = y + 58.0 * s;
+            double step = (i == 0 ? stride : -stride) * s;
+            double ankleX = airborne
+                    ? hipX - dir * (6.0 + i * 2.0) * s
+                    : hipX + step;
+            double ankleY = y + (airborne ? 70.0 + i * 2.0 : 76.5) * s;
+            g.setStroke(leg.deriveColor(0, 0.76, 0.78, i == 0 ? 0.80 : 0.98));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            g.setStroke(leg.brighter().deriveColor(0, 0.62, 0.96, 0.90));
+            g.setLineWidth(1.8 * s);
+            double toeDir = airborne ? -dir : dir;
+            double toeLength = (airborne ? 7.0 : 11.0) * s;
+            for (int toe = -1; toe <= 1; toe++) {
+                double toeY = airborne
+                        ? ankleY + (toe + 1.0) * 1.2 * s
+                        : y + (77.8 + (toe + 1.0) * 0.65) * s;
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + toeDir * toeLength,
+                        toeY);
+            }
+            g.strokeLine(ankleX, ankleY,
+                    ankleX - toeDir * (airborne ? 4.0 : 6.0) * s,
+                    airborne ? ankleY + 1.0 * s : y + 78.4 * s);
+            if (!airborne && visualAuditBodyOnly) {
+                double footBottom = y + 79.1 * s + 0.9 * s;
+                lastVisualCharlesFootBaseline = Math.max(
+                        Double.isNaN(lastVisualCharlesFootBaseline)
+                                ? Double.NEGATIVE_INFINITY
+                                : lastVisualCharlesFootBaseline,
+                        (footBottom - y) / s);
+            }
+            recordVisualBodyPart(VisualBodyPart.CHARLES_LEG);
+        }
+    }
+
+    private void drawCharlesWing(GraphicsContext g,
+                                 double shoulderX,
+                                 double shoulderY,
+                                 double side,
+                                 double openness,
+                                 Color wing,
+                                 Color flash,
+                                 Color edge,
+                                 boolean farSide) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double foldedTipX = shoulderX + side * 8.0 * s;
+        double foldedTipY = y + 63.0 * s;
+        double spreadTipX = shoulderX + side * (47.0 + open * 8.0) * s;
+        double spreadTipY = y + (24.0 - open * 11.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double dx = tipX - shoulderX;
+        double dy = tipY - shoulderY;
+        double length = Math.max(0.001, Math.hypot(dx, dy));
+        double normalX = -dy / length;
+        double normalY = dx / length;
+        double rootWidth = (7.0 + open * 2.0) * s;
+        double midX = shoulderX + dx * 0.58;
+        double midY = shoulderY + dy * 0.58;
+        double midWidth = (10.0 + open * 4.5) * s;
+        double alpha = farSide ? 0.66 : 0.98;
+        g.setFill(wing.deriveColor(0, 0.94, farSide ? 0.80 : 0.96, alpha));
+        g.fillPolygon(
+                new double[]{shoulderX + normalX * rootWidth,
+                        midX + normalX * midWidth,
+                        tipX,
+                        midX - normalX * midWidth,
+                        shoulderX - normalX * rootWidth},
+                new double[]{shoulderY + normalY * rootWidth,
+                        midY + normalY * midWidth,
+                        tipY,
+                        midY - normalY * midWidth,
+                        shoulderY - normalY * rootWidth},
+                5);
+        double barStartX = shoulderX + dx * (0.42 + open * 0.06);
+        double barStartY = shoulderY + dy * (0.42 + open * 0.06);
+        double barEndX = shoulderX + dx * 0.82;
+        double barEndY = shoulderY + dy * 0.82;
+        g.setStroke(flash.deriveColor(0, 0.72, 1.0, alpha * 0.92));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth((3.0 + open * 2.0) * s);
+        g.strokeLine(barStartX + normalX * 1.7 * s,
+                barStartY + normalY * 1.7 * s,
+                barEndX + normalX * 1.7 * s,
+                barEndY + normalY * 1.7 * s);
+        g.setStroke(edge.deriveColor(0, 0.78, 1.0, alpha * 0.68));
+        g.setLineWidth(0.9 * s);
+        for (int i = -1; i <= 1; i++) {
+            double offset = i * (3.0 + open * 2.5) * s;
+            g.strokeLine(shoulderX + normalX * offset,
+                    shoulderY + normalY * offset,
+                    tipX - side * (4.0 + Math.abs(i) * 4.0) * s + normalX * offset * 0.35,
+                    tipY + normalY * offset * 0.35 + Math.abs(i) * 2.5 * s);
+        }
+        g.setFill(wing.brighter().deriveColor(0, 0.80, 1.02, alpha * 0.52));
+        g.fillOval(shoulderX - (11.0 + open * 2.0) * s,
+                shoulderY - (7.0 + open * 2.0) * s,
+                (22.0 + open * 4.0) * s,
+                (18.0 + open * 4.0) * s);
+    }
+
+    /** Returns Charles's authored 0..1 wing pose, including Forest Lift's open/close envelope. */
+    private double charlesWingOpenness(BirdAnimationState state) {
+        if (mockingbirdUpFxTimer > 0) {
+            int totalFrames = mockingbirdUpFxTimer > MOCKINGBIRD_UP_FX_FRAMES
+                    ? MOCKINGBIRD_UP_FX_FRAMES + 8
+                    : MOCKINGBIRD_UP_FX_FRAMES;
+            double elapsed = Math.max(0.0, totalFrames - mockingbirdUpFxTimer);
+            double openEnvelope = smoothStep(Math.clamp(elapsed / 4.0, 0.0, 1.0));
+            double closeEnvelope = smoothStep(Math.clamp(mockingbirdUpFxTimer / 4.0, 0.0, 1.0));
+            double beat = 0.56 + 0.44
+                    * (0.5 + 0.5 * Math.cos((elapsed - 4.0) * Math.PI * 0.25));
+            return Math.clamp(openEnvelope * closeEnvelope * beat, 0.0, 1.0);
+        }
+        if (mockingbirdSideFxTimer > 0) {
+            return 0.30 + 0.34 * Math.sin(mockingbirdSideFxTimer * Math.PI
+                    / Math.max(1.0, MOCKINGBIRD_SIDE_FX_FRAMES));
+        }
+        if (mockingbirdQuestionTimer > 0) {
+            return 0.24;
+        }
+        if (state == BirdAnimationState.FLAP) {
+            double phase = positiveModulo(animationGlobalFrame + playerIndex * 4.0, 18.0) / 18.0;
+            return 0.64 + smoothStep(0.5 + 0.5 * Math.cos(phase * Math.PI * 2.0)) * 0.36;
+        }
+        if (state == BirdAnimationState.FALL) {
+            return 0.58;
+        }
+        if (state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO) {
+            return 0.18;
+        }
+        return 0.06;
+    }
+
     /** Builds Roadrunner's long tail, flight wing, and unmistakable two-legged running stance. */
     private void drawRoadrunnerUnderlay(GraphicsContext g, Color bodyColor,
                                          boolean mirage, boolean classicPalette) {
@@ -31381,7 +31768,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.EAGLE
                 || type == BirdGame3.BirdType.ROADRUNNER
                 || type == BirdGame3.BirdType.PENGUIN
-                || type == BirdGame3.BirdType.SHOEBILL) return;
+                || type == BirdGame3.BirdType.SHOEBILL
+                || type == BirdGame3.BirdType.MOCKINGBIRD) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -31594,13 +31982,6 @@ public class Bird {
             g.setStroke(Color.web("#80CBC4").deriveColor(0, 1, 1, 0.7));
             g.setLineWidth(2.1 * s);
             g.strokeArc(x + 8 * s, y + 32 * s, 70 * s, 40 * s, 200, 160, ArcType.OPEN);
-        }
-        if (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin) {
-            g.setStroke(Color.web("#E040FB").deriveColor(0, 1, 1, 0.65));
-            g.setLineWidth(2.4 * s);
-            g.strokeOval(x - 6 * s, y + 6 * s, 92 * s, 92 * s);
-            g.setFill(Color.web("#5E35B1").deriveColor(0, 1, 1, 0.25));
-            g.fillOval(x + 14 * s, y + 38 * s, 52 * s, 28 * s);
         }
         if (type == BirdGame3.BirdType.BAT && isUmbraSkin) {
             g.setStroke(Color.web("#00E5FF").deriveColor(0, 1, 1, 0.45));
@@ -32215,6 +32596,68 @@ public class Bird {
         }
     }
 
+    private void drawCharlesBeak(GraphicsContext g, AttackVisualPose pose, double openScale) {
+        double s = sizeMultiplier;
+        HeadPose headPose = standardHeadPose(pose);
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double normalX = -aimY;
+        double normalY = aimX;
+        if (Math.abs(normalY) > Math.abs(normalX) && normalY < 0.0) {
+            normalX = -normalX;
+            normalY = -normalY;
+        }
+        boolean attacking = attackAnimationTimer > 0 || mockingbirdQuestionTimer > 0
+                || mockingbirdSideFxTimer > 0 || mockingbirdUpFxTimer > 0;
+        double length = (26.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.48)) * s;
+        double open = (attacking ? 3.8 + Math.sin(attackAnimationTimer * 0.7) * 1.4 : 1.0)
+                * s * openScale;
+        double rootX = headPose.centerX() + aimX * 6.0 * s + normalX * 2.0 * s;
+        double rootY = headPose.centerY() + aimY * 6.0 * s + normalY * 2.0 * s;
+        double tipX = rootX + aimX * length;
+        double tipY = rootY + aimY * length;
+        double baseWidth = 5.6 * s;
+        Color upper = isEclipseSkin ? Color.web("#28213D")
+                : isClassicSkin ? Color.web("#6C3851")
+                : isCampaignFactionSkin() ? campaignFactionPrimaryColor().darker()
+                : Color.web("#34383D");
+        Color lower = isEclipseSkin ? Color.web("#141221")
+                : isClassicSkin ? Color.web("#402332")
+                : isCampaignFactionSkin() ? campaignFactionPrimaryColor().darker().darker()
+                : Color.web("#1C2024");
+        Color ridge = isEclipseSkin ? Color.web("#C990E8")
+                : isClassicSkin ? Color.web("#F2B4D0")
+                : isCampaignFactionSkin() ? campaignFactionAccentColor()
+                : Color.web("#BCC3C8");
+
+        recordVisualBeak(rootX, rootY, tipX, tipY);
+        g.setFill(upper);
+        g.fillPolygon(
+                new double[]{rootX - normalX * baseWidth,
+                        tipX - normalX * (1.5 * s + open * 0.28),
+                        rootX + normalX * 1.2 * s},
+                new double[]{rootY - normalY * baseWidth,
+                        tipY - normalY * (1.5 * s + open * 0.28),
+                        rootY + normalY * 1.2 * s},
+                3);
+        g.setFill(lower);
+        g.fillPolygon(
+                new double[]{rootX - normalX * 1.0 * s,
+                        tipX + normalX * (1.3 * s + open),
+                        rootX + normalX * baseWidth},
+                new double[]{rootY - normalY * 1.0 * s,
+                        tipY + normalY * (1.3 * s + open),
+                        rootY + normalY * baseWidth},
+                3);
+        g.setStroke(ridge.deriveColor(0, 0.72, 1.0, 0.55));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(0.75 * s);
+        g.strokeLine(rootX - normalX * 1.0 * s,
+                rootY - normalY * 1.0 * s,
+                tipX - aimX * 3.0 * s,
+                tipY - aimY * 3.0 * s);
+    }
+
     private void drawBeak(GraphicsContext g, AttackVisualPose pose) {
         double s = sizeMultiplier;
         double openScale = pose == null ? 1.0 : pose.beakOpenScale();
@@ -32225,6 +32668,10 @@ public class Bird {
             return;
         }
         if (type == BirdGame3.BirdType.HUMMINGBIRD && isLoreAccurateHummingbirdSkin) {
+            return;
+        }
+        if (type == BirdGame3.BirdType.MOCKINGBIRD) {
+            drawCharlesBeak(g, pose, openScale);
             return;
         }
         if (type == BirdGame3.BirdType.RAVEN) {
