@@ -562,6 +562,120 @@ class BirdVisualAuditTest {
         }
     }
 
+    @Test
+    void penguinKeepsItsFlippersTailAndWebbedFeetAcrossVectorSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.PENGUIN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertEquals(2,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.PENGUIN_FLIPPER),
+                            label + " must draw both flippers");
+                    assertEquals(3,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.PENGUIN_TAIL_FEATHER),
+                            label + " must retain all three short tail feathers");
+                    assertEquals(2,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.PENGUIN_FOOT),
+                            label + " must keep both webbed feet visible");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+            }
+        }
+    }
+
+    @Test
+    void penguinHeadAndBeakFollowMovementAnimationsInBothDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.PENGUIN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+
+                assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 8.0,
+                        label + " must raise its head and beak during flight");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must look back during its hit animation");
+            }
+        }
+    }
+
+    @Test
+    void penguinRocketPopOpensBothFlippersThenClosesBeforeTheLiftEnds() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.PENGUIN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry folded = game.inspectVisualAuditPenguinRocketFeatures(
+                        entry, Bird.PENGUIN_ROCKET_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry spread = game.inspectVisualAuditPenguinRocketFeatures(
+                        entry, Bird.PENGUIN_ROCKET_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry closing = game.inspectVisualAuditPenguinRocketFeatures(
+                        entry, 1, facingRight);
+                String label = entry.name() + " Rocket Pop facing "
+                        + (facingRight ? "right" : "left");
+
+                assertTrue(folded.penguinFlipperOpenness() <= 0.01,
+                        label + " must begin with tucked flippers");
+                assertTrue(spread.penguinFlipperOpenness() >= 0.95,
+                        label + " must visibly reach a fully spread pose");
+                assertEquals(2, spread.bodyPartCount(Bird.VisualBodyPart.PENGUIN_FLIPPER),
+                        label + " must display both flippers during the lift");
+                assertTrue(closing.penguinFlipperOpenness() <= 0.15,
+                        label + " must close its flippers before Rocket Pop ends");
+            }
+        }
+    }
+
+    @Test
+    void penguinBellyExpressTucksFlippersWithoutLosingFeetOrTail() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.PENGUIN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry slide = game.inspectVisualAuditPenguinBellySlideFeatures(
+                        entry, Bird.PENGUIN_BELLY_SLIDE_FRAMES / 2, facingRight);
+                String label = entry.name() + " Belly Express facing "
+                        + (facingRight ? "right" : "left");
+
+                assertTrue(slide.penguinFlipperOpenness() <= 0.01,
+                        label + " must streamline both flippers against the body");
+                assertEquals(2, slide.bodyPartCount(Bird.VisualBodyPart.PENGUIN_FLIPPER),
+                        label + " must keep both tucked flippers visible");
+                assertEquals(2, slide.bodyPartCount(Bird.VisualBodyPart.PENGUIN_FOOT),
+                        label + " must keep both tucked feet visible");
+                assertEquals(3, slide.bodyPartCount(Bird.VisualBodyPart.PENGUIN_TAIL_FEATHER),
+                        label + " must keep the short tail intact during the slide");
+            }
+        }
+    }
+
     private static void assertTurkeyNeckEndsBehindHead(
             Bird.VisualFeatureGeometry geometry, String label) {
         assertTrue(geometry.turkeyNeck() != null, label + " did not report its neck geometry");

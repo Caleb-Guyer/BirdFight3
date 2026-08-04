@@ -277,6 +277,8 @@ class BirdVisualAuditRun {
                 || entry.bird() == BirdGame3.BirdType.HUMMINGBIRD
                 || entry.bird() == BirdGame3.BirdType.TURKEY
                 || entry.bird() == BirdGame3.BirdType.ROOSTER
+                || entry.bird() == BirdGame3.BirdType.ROADRUNNER
+                || entry.bird() == BirdGame3.BirdType.PENGUIN
                 || "NULL_ROCK_VULTURE".equals(entry.key());
     }
 
@@ -387,7 +389,7 @@ class BirdVisualAuditRun {
                 .append("Checks: visible pixels, authored-body clipping (excluding transient combat FX), ")
                 .append("severe portrait/HUD centering, minimum scale, ")
                 .append("and exact idle-image fallback to base art. Edge contact and tight padding remain review findings ")
-                .append("for other entries; completed Pigeon, Eagle, Falcon, Phoenix, Hummingbird, Turkey, Rooster, and Null Rock combat entries ")
+                .append("for other entries; completed Pigeon, Eagle, Falcon, Phoenix, Hummingbird, Turkey, Rooster, Roadrunner, Penguin, and Null Rock combat entries ")
                 .append("treat edge contact as a failure; ")
                 .append("run with `-DvisualAudit.failOnFindings=true` to make them blocking.\n\n");
         appendFindings(report, "Failures", failures);

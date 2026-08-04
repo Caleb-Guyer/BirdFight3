@@ -17893,42 +17893,57 @@ public class BirdGame3 {
             VisualAuditSkin skin, double verticalVelocity, boolean facingRight) {
         return drawVisualAuditCombatPose(
                 new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
-                true, facingRight, verticalVelocity, null, null, null);
+                true, facingRight, verticalVelocity, null, null, null, null, null);
     }
 
     Bird.VisualFeatureGeometry inspectVisualAuditTurkeyPanicFlapFeatures(
             VisualAuditSkin skin, int remainingFrames, boolean facingRight) {
         return drawVisualAuditCombatPose(
                 new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
-                true, facingRight, null, remainingFrames, null, null);
+                true, facingRight, null, remainingFrames, null, null, null, null);
     }
 
     Bird.VisualFeatureGeometry inspectVisualAuditRoosterCoopBoostFeatures(
             VisualAuditSkin skin, int remainingFrames, boolean facingRight) {
         return drawVisualAuditCombatPose(
                 new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
-                true, facingRight, null, null, remainingFrames, null);
+                true, facingRight, null, null, remainingFrames, null, null, null);
     }
 
     Bird.VisualFeatureGeometry inspectVisualAuditRoadrunnerDustDevilFeatures(
             VisualAuditSkin skin, int remainingFrames, boolean facingRight) {
         return drawVisualAuditCombatPose(
                 new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
-                true, facingRight, null, null, null, remainingFrames);
+                true, facingRight, null, null, null, remainingFrames, null, null);
+    }
+
+    Bird.VisualFeatureGeometry inspectVisualAuditPenguinRocketFeatures(
+            VisualAuditSkin skin, int remainingFrames, boolean facingRight) {
+        return drawVisualAuditCombatPose(
+                new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
+                true, facingRight, null, null, null, null, remainingFrames, null);
+    }
+
+    Bird.VisualFeatureGeometry inspectVisualAuditPenguinBellySlideFeatures(
+            VisualAuditSkin skin, int remainingFrames, boolean facingRight) {
+        return drawVisualAuditCombatPose(
+                new Canvas(160, 160), skin, Bird.VisualAuditPose.ATTACK,
+                true, facingRight, null, null, null, null, null, remainingFrames);
     }
 
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
             boolean bodyOnly, boolean facingRight) {
         return drawVisualAuditCombatPose(canvas, skin, pose, bodyOnly, facingRight,
-                null, null, null, null);
+                null, null, null, null, null, null);
     }
 
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
             boolean bodyOnly, boolean facingRight, Double verticalVelocity,
             Integer turkeyPanicFlapTimer, Integer roosterCoopBoostTimer,
-            Integer roadrunnerDustDevilTimer) {
+            Integer roadrunnerDustDevilTimer, Integer penguinRocketTimer,
+            Integer penguinBellySlideTimer) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -17955,7 +17970,11 @@ public class BirdGame3 {
                 rosterSpriteMinScale(skin.bird, skin.key),
                 maxScale);
         preview.x = 0.0;
-        if (roadrunnerDustDevilTimer != null) {
+        if (penguinBellySlideTimer != null) {
+            preview.prepareVisualAuditPenguinBellySlide(penguinBellySlideTimer);
+        } else if (penguinRocketTimer != null) {
+            preview.prepareVisualAuditPenguinRocket(penguinRocketTimer);
+        } else if (roadrunnerDustDevilTimer != null) {
             preview.prepareVisualAuditRoadrunnerDustDevil(roadrunnerDustDevilTimer);
         } else if (roosterCoopBoostTimer != null) {
             preview.prepareVisualAuditRoosterCoopBoost(roosterCoopBoostTimer);

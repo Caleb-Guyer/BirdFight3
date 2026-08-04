@@ -341,7 +341,10 @@ public class Bird {
         ROADRUNNER_TAIL_FEATHER,
         ROADRUNNER_WING,
         ROADRUNNER_LEG,
-        ROADRUNNER_CREST_FEATHER
+        ROADRUNNER_CREST_FEATHER,
+        PENGUIN_TAIL_FEATHER,
+        PENGUIN_FLIPPER,
+        PENGUIN_FOOT
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -349,6 +352,7 @@ public class Bird {
                                  double turkeyWingOpenness,
                                  double roosterWingOpenness,
                                  double roadrunnerWingOpenness,
+                                 double penguinFlipperOpenness,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -526,6 +530,7 @@ public class Bird {
     private double lastVisualTurkeyWingOpenness;
     private double lastVisualRoosterWingOpenness;
     private double lastVisualRoadrunnerWingOpenness;
+    private double lastVisualPenguinFlipperOpenness;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -11725,6 +11730,23 @@ public class Bird {
         attackAnimationTimer = Math.max(attackAnimationTimer, roadrunnerDustDevilTimer);
     }
 
+    /** Positions Penguin at a deterministic frame of Rocket Pop's flipper cycle. */
+    void prepareVisualAuditPenguinRocket(int remainingFrames) {
+        prepareVisualAuditPose(VisualAuditPose.FLAP);
+        penguinRocketUltimate = false;
+        penguinRocketTimer = Math.clamp(remainingFrames, 1, PENGUIN_ROCKET_FRAMES);
+        attackAnimationTimer = Math.max(attackAnimationTimer, penguinRocketTimer);
+    }
+
+    /** Positions Penguin at a deterministic frame of Belly Express's tucked slide. */
+    void prepareVisualAuditPenguinBellySlide(int remainingFrames) {
+        prepareVisualAuditPose(VisualAuditPose.ATTACK);
+        penguinBellyUltimate = false;
+        penguinBellyCharging = false;
+        penguinBellySlideTimer = Math.clamp(remainingFrames, 1, PENGUIN_BELLY_SLIDE_FRAMES);
+        attackAnimationTimer = Math.max(attackAnimationTimer, penguinBellySlideTimer);
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -21740,6 +21762,7 @@ public class Bird {
                 lastVisualTurkeyWingOpenness,
                 lastVisualRoosterWingOpenness,
                 lastVisualRoadrunnerWingOpenness,
+                lastVisualPenguinFlipperOpenness,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21752,6 +21775,7 @@ public class Bird {
         lastVisualTurkeyWingOpenness = 0.0;
         lastVisualRoosterWingOpenness = 0.0;
         lastVisualRoadrunnerWingOpenness = 0.0;
+        lastVisualPenguinFlipperOpenness = 0.0;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -28797,6 +28821,10 @@ public class Bird {
             drawRoosterBody(g, drawSize, pose);
             return;
         }
+        if (type == BirdGame3.BirdType.PENGUIN) {
+            drawPenguinBody(g, drawSize, pose);
+            return;
+        }
         if (drawPhotoEagleSprite(g, drawSize, pose)) {
             return;
         }
@@ -28823,7 +28851,6 @@ public class Bird {
         boolean stormPigeon = (type == BirdGame3.BirdType.PIGEON && isStormSkin);
         boolean classicPalette = isClassicSkin && type != BirdGame3.BirdType.PIGEON;
         boolean duneFalcon = (type == BirdGame3.BirdType.FALCON && isDuneSkin);
-        boolean mintPenguin = (type == BirdGame3.BirdType.PENGUIN && isMintSkin);
         boolean oldSparrow = type == BirdGame3.BirdType.TITMOUSE
                 && BirdGame3.OLD_SPARROW_SKIN.equals(appliedSkinKey);
         boolean circuitTitmouse = (type == BirdGame3.BirdType.TITMOUSE && isCircuitSkin);
@@ -28845,7 +28872,6 @@ public class Bird {
         boolean stylizedFalcon = type == BirdGame3.BirdType.FALCON;
         boolean stylizedHummingbird = type == BirdGame3.BirdType.HUMMINGBIRD;
         boolean stylizedTurkey = type == BirdGame3.BirdType.TURKEY;
-        boolean stylizedPenguin = type == BirdGame3.BirdType.PENGUIN;
         boolean stylizedMockingbird = type == BirdGame3.BirdType.MOCKINGBIRD;
         boolean stylizedRazorbill = type == BirdGame3.BirdType.RAZORBILL;
         boolean stylizedGrinchhawk = type == BirdGame3.BirdType.GRINCHHAWK;
@@ -28925,10 +28951,6 @@ public class Bird {
             bodyColor = Color.web("#D7B98E");
             headColor = Color.web("#E7CFAE");
             eyeOverride = Color.web("#4E342E");
-        } else if (mintPenguin) {
-            bodyColor = Color.web("#7FD6D8");
-            headColor = Color.web("#A6ECEB");
-            eyeOverride = Color.web("#004D40");
         } else if (oldSparrow) {
             bodyColor = Color.web("#75604B");
             headColor = Color.web("#B7AA98");
@@ -28988,14 +29010,6 @@ public class Bird {
         }
         if (stylizedTurkey) {
             drawTurkeyUnderlay(g, bodyColor, headColor, headPose, classicPalette);
-        }
-        if (stylizedPenguin) {
-            Color flipper = (mintPenguin ? Color.web("#4DB6AC")
-                    : classicPalette ? game.classicSkinPrimaryColor(type)
-                    : Color.web("#263238")).deriveColor(0, 1, 1, mintPenguin ? 0.50 : 0.56);
-            g.setFill(flipper);
-            g.fillOval(x + 7.0 * s, y + 35.0 * s, 20.0 * s, 42.0 * s);
-            g.fillOval(x + 53.0 * s, y + 35.0 * s, 20.0 * s, 42.0 * s);
         }
         if (stylizedMockingbird) {
             double tailBaseX = facingRight ? x + 15.0 * s : x + 65.0 * s;
@@ -29124,21 +29138,6 @@ public class Bird {
         }
         if (stylizedTurkey) {
             drawTurkeyFeatherPolish(g, bodyColor, headPose, classicPalette);
-        }
-        if (stylizedPenguin) {
-            Color belly = (mintPenguin ? Color.web("#E0F7FA")
-                    : classicPalette ? Color.web("#E1F5FE")
-                    : Color.web("#F5F5F5")).deriveColor(0, 1, 1, isClassicSkin ? 0.56 : 0.72);
-            Color cap = (mintPenguin ? Color.web("#00695C")
-                    : classicPalette ? Color.web("#102027")
-                    : Color.web("#111111")).deriveColor(0, 1, 1, mintPenguin ? 0.26 : 0.30);
-            g.setFill(belly);
-            g.fillOval(x + 20.0 * s, y + 32.0 * s, 40.0 * s, 40.0 * s);
-            g.setFill(cap);
-            g.fillOval(headX + 5.0 * s, headY + s, 40.0 * s, 22.0 * s);
-            g.setFill(Color.web("#FFA726").deriveColor(0, 1, 1, 0.68));
-            g.fillOval(x + 21.0 * s, y + 72.0 * s, 17.0 * s, 8.0 * s);
-            g.fillOval(x + 43.0 * s, y + 72.0 * s, 17.0 * s, 8.0 * s);
         }
         if (stylizedMockingbird) {
             Color pale = Color.web("#F5F5F5").deriveColor(0, 1, 1, eclipseMockingbird ? 0.44 : 0.60);
@@ -29806,6 +29805,296 @@ public class Bird {
     }
 
     /** Adds species detail without replacing Pigeon's original round silhouette or skin palette. */
+    /** Builds Penguin's pear-shaped body, webbed stance, short tail, and pose-aware flippers. */
+    private void drawPenguinBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        double cx = x + 40.0 * s;
+        BirdAnimationState state = currentBirdAnimationState();
+        HeadPose headPose = standardHeadPose(pose);
+        boolean classic = isClassicSkin;
+        boolean mint = isMintSkin;
+        boolean faction = isCampaignFactionSkin();
+
+        Color back;
+        Color body;
+        Color head;
+        Color belly;
+        Color face;
+        Color flipper;
+        Color flipperEdge;
+        Color foot;
+        if (faction) {
+            back = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            head = campaignFactionSecondaryColor().darker();
+            belly = campaignFactionSecondaryColor().brighter();
+            face = campaignFactionSecondaryColor().brighter();
+            flipper = campaignFactionPrimaryColor().darker();
+            flipperEdge = campaignFactionAccentColor();
+            foot = campaignFactionAccentColor();
+        } else if (mint) {
+            back = Color.web("#145C59");
+            body = Color.web("#2D918B");
+            head = Color.web("#104A49");
+            belly = Color.web("#DFF8F0");
+            face = Color.web("#F1FFF9");
+            flipper = Color.web("#19716D");
+            flipperEdge = Color.web("#80E0D8");
+            foot = Color.web("#F4A261");
+        } else if (classic) {
+            Color primary = game.classicSkinPrimaryColor(type);
+            Color accent = game.classicSkinAccentColor(type);
+            back = primary.darker().deriveColor(0, 0.92, 0.76, 1.0);
+            body = primary.deriveColor(0, 0.84, 0.88, 1.0);
+            head = primary.darker().deriveColor(0, 0.90, 0.68, 1.0);
+            belly = Color.web("#E8FAFF");
+            face = Color.web("#F5FDFF");
+            flipper = primary.darker().deriveColor(0, 0.92, 0.72, 1.0);
+            flipperEdge = accent.brighter();
+            foot = accent.deriveColor(0, 0.78, 1.02, 1.0);
+        } else {
+            back = Color.web("#0D151B");
+            body = Color.web("#1E2A31");
+            head = Color.web("#0A1015");
+            belly = Color.web("#ECEFE8");
+            face = Color.web("#FAFAF3");
+            flipper = Color.web("#162229");
+            flipperEdge = Color.web("#6E8088");
+            foot = Color.web("#F3A33A");
+        }
+
+        double tailRootX = x + (facingRight ? 21.0 : 59.0) * s;
+        double tailRootY = y + 62.0 * s;
+        Color tail = back.deriveColor(0, 0.94, 0.78, 0.98);
+        for (int i = 0; i < 3; i++) {
+            double rootY = tailRootY + (i - 1.0) * 3.0 * s;
+            double tipX = tailRootX + rear * (15.0 + i * 3.5) * s;
+            double tipY = y + (67.0 + i * 4.5) * s;
+            g.setFill(tail.deriveColor(i * 2.0, 0.98, 0.90 + i * 0.03, 0.96));
+            g.fillPolygon(
+                    new double[]{tailRootX + dir * 2.0 * s, tipX, tailRootX - dir * 3.0 * s},
+                    new double[]{rootY - 4.0 * s, tipY, rootY + 4.0 * s},
+                    3);
+            g.setStroke(flipperEdge.deriveColor(0, 0.76, 1.0, 0.42));
+            g.setLineWidth(0.65 * s);
+            g.strokeLine(tailRootX, rootY, tipX + dir * 2.0 * s, tipY);
+            recordVisualBodyPart(VisualBodyPart.PENGUIN_TAIL_FEATHER);
+        }
+
+        drawPenguinFeet(g, state, foot);
+
+        double flipperOpenness = penguinFlipperOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualPenguinFlipperOpenness = flipperOpenness;
+        }
+        double farSide = dir;
+        drawPenguinFlipper(g, cx + farSide * 18.0 * s, y + 34.0 * s,
+                farSide, flipperOpenness, flipper, flipperEdge, true);
+        recordVisualBodyPart(VisualBodyPart.PENGUIN_FLIPPER);
+
+        g.setFill(back);
+        g.fillOval(x + 7.0 * s, y + 3.0 * s, 66.0 * s, 76.0 * s);
+        g.setFill(body);
+        g.fillOval(x + 10.0 * s, y + 5.0 * s, 60.0 * s, 71.0 * s);
+        g.fillOval(x + 6.0 * s, y + 28.0 * s, 68.0 * s, 49.0 * s);
+
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double neckStartX = x + (facingRight ? 57.0 : 23.0) * s;
+        double neckStartY = y + 34.0 * s;
+        double neckEndX = headPose.centerX() - aimX * 12.0 * s;
+        double neckEndY = headPose.centerY() - aimY * 12.0 * s + 3.0 * s;
+        g.setStroke(back);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(18.0 * s);
+        g.strokeLine(neckStartX, neckStartY, neckEndX, neckEndY);
+
+        g.setFill(belly);
+        g.fillOval(x + 21.0 * s, y + 27.0 * s, 39.0 * s, 48.0 * s);
+        g.setFill(belly.brighter().deriveColor(0, 0.72, 1.02, 0.36));
+        g.fillOval(x + 29.0 * s, y + 33.0 * s, 22.0 * s, 32.0 * s);
+        g.setStroke(flipperEdge.deriveColor(0, 0.72, 1.0, classic ? 0.46 : 0.28));
+        g.setLineWidth(1.2 * s);
+        g.strokeArc(x + 16.0 * s, y + 15.0 * s, 48.0 * s, 48.0 * s,
+                facingRight ? 204.0 : -24.0, 112.0, ArcType.OPEN);
+
+        double nearSide = -dir;
+        drawPenguinFlipper(g, cx + nearSide * 18.0 * s, y + 34.0 * s,
+                nearSide, flipperOpenness, flipper, flipperEdge, false);
+        recordVisualBodyPart(VisualBodyPart.PENGUIN_FLIPPER);
+
+        double headW = 48.0 * s;
+        double headH = 40.0 * s;
+        double headX = headPose.centerX() - headW * 0.5;
+        double headY = headPose.centerY() - headH * 0.5;
+        g.setFill(head);
+        g.fillOval(headX, headY, headW, headH);
+
+        double upX = -aimY;
+        double upY = aimX;
+        if (upY > 0.0) {
+            upX = -upX;
+            upY = -upY;
+        }
+        double faceCenterX = headPose.centerX() - aimX * 3.0 * s + upX * 2.5 * s;
+        double faceCenterY = headPose.centerY() - aimY * 3.0 * s + upY * 2.5 * s;
+        g.setFill(face.deriveColor(0, 0.94, 1.0, 0.96));
+        g.fillOval(faceCenterX - 17.0 * s, faceCenterY - 13.0 * s, 34.0 * s, 27.0 * s);
+        g.setFill(head.deriveColor(0, 0.92, 0.74, 0.42));
+        g.fillOval(headX + 5.0 * s, headY + 1.0 * s, 38.0 * s, 14.0 * s);
+
+        double eyeCenterX = headPose.centerX() - aimX * 8.0 * s + upX * 7.0 * s;
+        double eyeCenterY = headPose.centerY() - aimY * 8.0 * s + upY * 7.0 * s;
+        double eyeRadius = 10.0 * s;
+        double pupilRadius = 5.5 * s;
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headPose.centerX() - headW * 0.5,
+                headPose.centerY() - headH * 0.5,
+                headPose.centerX() + headW * 0.5,
+                headPose.centerY() + headH * 0.5);
+        lastVisualEye = new VisualFeatureCircle(eyeCenterX, eyeCenterY, eyeRadius);
+        g.setFill(Color.web("#FFFDF7"));
+        g.fillOval(eyeCenterX - eyeRadius, eyeCenterY - eyeRadius,
+                eyeRadius * 2.0, eyeRadius * 2.0);
+        Color pupil = faction ? campaignFactionAccentColor().darker()
+                : mint ? Color.web("#0B4D4B")
+                : classic ? game.classicSkinAccentColor(type).darker()
+                : Color.web("#111820");
+        double pupilCenterX = eyeCenterX + aimX * 2.0 * s;
+        double pupilCenterY = eyeCenterY + aimY * 2.0 * s;
+        g.setFill(pupil);
+        g.fillOval(pupilCenterX - pupilRadius, pupilCenterY - pupilRadius,
+                pupilRadius * 2.0, pupilRadius * 2.0);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.90));
+        g.fillOval(pupilCenterX - 2.3 * s + upX * 1.2 * s,
+                pupilCenterY - 2.3 * s + upY * 1.2 * s,
+                3.8 * s, 3.8 * s);
+
+        drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    private void drawPenguinFeet(GraphicsContext g, BirdAnimationState state, Color foot) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean specialTuck = penguinBellyCharging || penguinBellySlideTimer > 0
+                || penguinRocketTimer > 0 || penguinFlopTimer > 0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || penguinRocketTimer > 0 || penguinFlopTimer > 0;
+        double runAmount = state == BirdAnimationState.IDLE ? Math.min(1.0, Math.abs(vx) / 5.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 7.0) * 0.36)
+                * (3.0 + runAmount * 7.0) * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double baseX = x + (31.0 + i * 18.0) * s;
+            double step = (i == 0 ? stride : -stride) * s;
+            double ankleX = specialTuck
+                    ? baseX - dir * (4.0 + i * 2.0) * s
+                    : baseX + step;
+            double ankleY = y + (specialTuck ? 70.0 : airborne ? 75.0 : 80.0) * s;
+            double footDir = specialTuck ? -dir : dir;
+            double footLength = (specialTuck ? 9.0 : airborne ? 11.0 : 16.0) * s;
+            double footWidth = (specialTuck ? 5.0 : 8.0) * s;
+            g.setStroke(foot.darker().deriveColor(0, 0.82, 0.78, 0.88));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.0 * s);
+            g.strokeLine(baseX, y + 66.0 * s, ankleX, ankleY);
+            g.setFill(foot.deriveColor(i * 2.0, 0.94, 0.96 + i * 0.03, 0.98));
+            double tipX = ankleX + footDir * footLength;
+            g.fillPolygon(
+                    new double[]{ankleX - footDir * 2.0 * s,
+                            tipX,
+                            ankleX + footDir * footLength * 0.66,
+                            ankleX - footDir * 1.0 * s},
+                    new double[]{ankleY - footWidth * 0.45,
+                            ankleY,
+                            ankleY + footWidth * 0.62,
+                            ankleY + footWidth * 0.48},
+                    4);
+            g.setStroke(foot.brighter().deriveColor(0, 0.82, 1.0, 0.44));
+            g.setLineWidth(0.75 * s);
+            g.strokeLine(ankleX + footDir * 2.0 * s, ankleY,
+                    tipX - footDir * 2.0 * s, ankleY + 0.6 * s);
+            recordVisualBodyPart(VisualBodyPart.PENGUIN_FOOT);
+        }
+    }
+
+    private void drawPenguinFlipper(GraphicsContext g,
+                                    double shoulderX,
+                                    double shoulderY,
+                                    double side,
+                                    double openness,
+                                    Color flipper,
+                                    Color edge,
+                                    boolean farSide) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double foldedTipX = shoulderX + side * 7.0 * s;
+        double foldedTipY = y + 69.0 * s;
+        double spreadTipX = shoulderX + side * (41.0 + open * 11.0) * s;
+        double spreadTipY = y + (35.0 - open * 8.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double alpha = farSide ? 0.74 : 0.98;
+        double normalX = -(tipY - shoulderY);
+        double normalY = tipX - shoulderX;
+        double normalLength = Math.max(0.001, Math.hypot(normalX, normalY));
+        normalX /= normalLength;
+        normalY /= normalLength;
+        double rootWidth = (6.0 + open * 2.5) * s;
+        double midX = shoulderX + (tipX - shoulderX) * 0.58;
+        double midY = shoulderY + (tipY - shoulderY) * 0.58;
+        double midWidth = (8.0 + open * 3.0) * s;
+        g.setFill(flipper.deriveColor(0, 0.96, farSide ? 0.82 : 0.94, alpha));
+        g.fillPolygon(
+                new double[]{shoulderX + normalX * rootWidth,
+                        midX + normalX * midWidth,
+                        tipX,
+                        midX - normalX * midWidth,
+                        shoulderX - normalX * rootWidth},
+                new double[]{shoulderY + normalY * rootWidth,
+                        midY + normalY * midWidth,
+                        tipY,
+                        midY - normalY * midWidth,
+                        shoulderY - normalY * rootWidth},
+                5);
+        g.setStroke(edge.deriveColor(0, 0.90, 1.0, alpha * 0.66));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.1 * s);
+        g.strokeLine(shoulderX, shoulderY, tipX - side * 3.0 * s, tipY);
+    }
+
+    /** Returns a 0..1 authored Penguin flipper pose for flight and special movement. */
+    private double penguinFlipperOpenness(BirdAnimationState state) {
+        if (penguinBellyCharging || penguinBellySlideTimer > 0) {
+            return 0.0;
+        }
+        if (penguinRocketTimer > 0) {
+            int totalFrames = penguinRocketTotalFrames();
+            double elapsed = Math.max(0.0, totalFrames - penguinRocketTimer);
+            double openEnvelope = smoothStep(Math.clamp(elapsed / 4.0, 0.0, 1.0));
+            double closeEnvelope = smoothStep(Math.clamp(penguinRocketTimer / 5.0, 0.0, 1.0));
+            double beat = 0.52 + 0.48
+                    * (0.5 + 0.5 * Math.cos((elapsed - 4.0) * Math.PI * 0.25));
+            return Math.clamp(openEnvelope * closeEnvelope * beat, 0.0, 1.0);
+        }
+        if (penguinFlopTimer > 0) {
+            double progress = penguinFlopProgress();
+            return 0.22 + Math.sin(progress * Math.PI) * 0.48;
+        }
+        if (state == BirdAnimationState.FLAP) {
+            double phase = positiveModulo(animationGlobalFrame + playerIndex * 2.0, 20.0) / 20.0;
+            return 0.68 + smoothStep(0.5 + 0.5 * Math.cos(phase * Math.PI * 2.0)) * 0.32;
+        }
+        if (state == BirdAnimationState.FALL) {
+            return 0.62;
+        }
+        if (state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO) {
+            return 0.28;
+        }
+        return 0.0;
+    }
+
     /** Builds Roadrunner's long tail, flight wing, and unmistakable two-legged running stance. */
     private void drawRoadrunnerUnderlay(GraphicsContext g, Color bodyColor,
                                          boolean mirage, boolean classicPalette) {
@@ -30716,7 +31005,8 @@ public class Bird {
     private void drawClassicSkinAccent(GraphicsContext g, double drawSize) {
         if (!isClassicSkin || type == BirdGame3.BirdType.PIGEON
                 || type == BirdGame3.BirdType.EAGLE
-                || type == BirdGame3.BirdType.ROADRUNNER) return;
+                || type == BirdGame3.BirdType.ROADRUNNER
+                || type == BirdGame3.BirdType.PENGUIN) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -30863,8 +31153,18 @@ public class Bird {
             g.strokeLine(x + 18 * s, y + 55 * s, x + 62 * s, y + 45 * s);
         }
         if (type == BirdGame3.BirdType.PENGUIN && isMintSkin) {
-            g.setFill(Color.web("#E0F7FA").deriveColor(0, 1, 1, 0.55));
-            g.fillOval(x + 16 * s, y + 40 * s, 48 * s, 32 * s);
+            g.setStroke(Color.web("#B9FFF4").deriveColor(0, 0.82, 1.0, 0.62));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(1.25 * s);
+            g.strokeArc(x + 23.0 * s, y + 34.0 * s, 34.0 * s, 31.0 * s,
+                    facingRight ? 205.0 : -25.0, 110.0, ArcType.OPEN);
+            g.strokeArc(x + 28.0 * s, y + 42.0 * s, 24.0 * s, 20.0 * s,
+                    facingRight ? 205.0 : -25.0, 104.0, ArcType.OPEN);
+            g.setFill(Color.web("#E6FFF9").deriveColor(0, 1, 1, 0.54));
+            g.fillOval(x + (facingRight ? 47.0 : 27.0) * s, y + 29.0 * s,
+                    7.0 * s, 5.0 * s);
+            g.fillOval(x + (facingRight ? 34.0 : 40.0) * s, y + 57.0 * s,
+                    5.0 * s, 4.0 * s);
         }
         if (type == BirdGame3.BirdType.PIGEON && isStormSkin) {
             g.setStroke(Color.web("#90CAF9").deriveColor(0, 1, 1, 0.85));
@@ -31843,6 +32143,8 @@ public class Bird {
         double openAmount = (isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) : 3) * s * openScale;
         if (stylizedHummingbird) {
             openAmount *= 0.34;
+        } else if (stylizedPenguin) {
+            openAmount *= 0.50;
         } else if (stylizedTurkey) {
             openAmount *= 0.72;
         } else if (stylizedRooster) {
@@ -31892,6 +32194,7 @@ public class Bird {
         double mouthCenterY = headPose.centerY() + dirY * 5.0 * s + 5.0 * s;
         double baseHalfWidth = (stylizedHummingbird ? 3.8
                 : stylizedRoadrunner ? 4.6
+                : stylizedPenguin ? 5.2
                 : stylizedTurkey || stylizedRooster ? 6.0 : 8.0) * s;
         double baseUpperX = mouthCenterX - normalX * baseHalfWidth;
         double baseUpperY = mouthCenterY - normalY * baseHalfWidth;
@@ -32023,7 +32326,8 @@ public class Bird {
                     tipBaseY - dirY * 4.0 * s + normalY * 0.8 * s);
         }
 
-        if (isAttacking && attackAnimationTimer > 4 && !stylizedRoadrunner) {
+        if (isAttacking && attackAnimationTimer > 4
+                && !stylizedRoadrunner && !stylizedPenguin) {
             g.setFill(Color.DEEPPINK.darker());
             g.fillOval(tongueCenterX - 10.0 * s, tongueCenterY - 7.0 * s, 20.0 * s, 14.0 * s);
         }
