@@ -344,7 +344,11 @@ public class Bird {
         ROADRUNNER_CREST_FEATHER,
         PENGUIN_TAIL_FEATHER,
         PENGUIN_FLIPPER,
-        PENGUIN_FOOT
+        PENGUIN_FOOT,
+        SHOEBILL_TAIL_FEATHER,
+        SHOEBILL_WING,
+        SHOEBILL_LEG,
+        SHOEBILL_CREST_FEATHER
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -353,6 +357,7 @@ public class Bird {
                                  double roosterWingOpenness,
                                  double roadrunnerWingOpenness,
                                  double penguinFlipperOpenness,
+                                 double shoebillWingOpenness,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -531,6 +536,7 @@ public class Bird {
     private double lastVisualRoosterWingOpenness;
     private double lastVisualRoadrunnerWingOpenness;
     private double lastVisualPenguinFlipperOpenness;
+    private double lastVisualShoebillWingOpenness;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -11747,6 +11753,23 @@ public class Bird {
         attackAnimationTimer = Math.max(attackAnimationTimer, penguinBellySlideTimer);
     }
 
+    /** Positions Shoebill at a deterministic frame of Marsh Lift's wing cycle. */
+    void prepareVisualAuditShoebillMarshLift(int remainingFrames) {
+        prepareVisualAuditPose(VisualAuditPose.FLAP);
+        shoebillMarshLiftUltimate = false;
+        shoebillMarshLiftTimer = Math.clamp(remainingFrames, 1, SHOEBILL_MARSH_LIFT_FRAMES);
+        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillMarshLiftTimer);
+    }
+
+    /** Positions Shoebill at a deterministic frame of Heavy Thrust. */
+    void prepareVisualAuditShoebillThrust(int remainingFrames) {
+        prepareVisualAuditPose(VisualAuditPose.ATTACK);
+        shoebillThrustUltimate = false;
+        shoebillThrustDirection = facingRight ? 1 : -1;
+        shoebillThrustTimer = Math.clamp(remainingFrames, 1, SHOEBILL_THRUST_FRAMES);
+        attackAnimationTimer = Math.max(attackAnimationTimer, shoebillThrustTimer);
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -21763,6 +21786,7 @@ public class Bird {
                 lastVisualRoosterWingOpenness,
                 lastVisualRoadrunnerWingOpenness,
                 lastVisualPenguinFlipperOpenness,
+                lastVisualShoebillWingOpenness,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21776,6 +21800,7 @@ public class Bird {
         lastVisualRoosterWingOpenness = 0.0;
         lastVisualRoadrunnerWingOpenness = 0.0;
         lastVisualPenguinFlipperOpenness = 0.0;
+        lastVisualShoebillWingOpenness = 0.0;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -28825,6 +28850,10 @@ public class Bird {
             drawPenguinBody(g, drawSize, pose);
             return;
         }
+        if (type == BirdGame3.BirdType.SHOEBILL) {
+            drawShoebillBody(g, drawSize, pose);
+            return;
+        }
         if (drawPhotoEagleSprite(g, drawSize, pose)) {
             return;
         }
@@ -28858,8 +28887,6 @@ public class Bird {
         boolean auroraPelican = (type == BirdGame3.BirdType.PELICAN && isAuroraSkin);
         boolean ironcladPelican = (type == BirdGame3.BirdType.PELICAN && isIroncladSkin);
         boolean sunflareHummingbird = (type == BirdGame3.BirdType.HUMMINGBIRD && isSunflareSkin);
-        boolean glacierShoebill = (type == BirdGame3.BirdType.SHOEBILL && isGlacierSkin);
-        boolean stoneShoebill = shoebillStoneVisualActive();
         boolean tideVulture = (type == BirdGame3.BirdType.VULTURE && isTideSkin);
         boolean nullRockVulture = (type == BirdGame3.BirdType.VULTURE && isNullRockSkin);
         boolean eclipseMockingbird = (type == BirdGame3.BirdType.MOCKINGBIRD && isEclipseSkin);
@@ -28911,18 +28938,6 @@ public class Bird {
             bodyColor = Color.web("#FFB74D");
             headColor = Color.web("#FFE082");
             eyeOverride = Color.web("#E65100");
-        } else if (stoneShoebill) {
-            bodyColor = shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.web("#A99F74") : Color.web("#69747A");
-            headColor = shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.web("#D2C68C") : Color.web("#9EA7AB");
-            eyeOverride = shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.GOLD : Color.web("#ECEFF1");
-        } else if (glacierShoebill) {
-            bodyColor = Color.web("#90CAF9");
-            headColor = Color.web("#BBDEFB");
-            eyeOverride = Color.web("#01579B");
-        } else if (type == BirdGame3.BirdType.SHOEBILL) {
-            bodyColor = Color.web("#5F7581");
-            headColor = Color.web("#AAB7BE");
-            eyeOverride = Color.web("#FDD835");
         } else if (tideVulture) {
             bodyColor = Color.web("#26A69A");
             headColor = Color.web("#80CBC4");
@@ -29278,36 +29293,6 @@ public class Bird {
             g.setLineWidth(1.6 * s);
             g.strokeArc(x + 13.0 * s, y + 34.0 * s, 54.0 * s, 34.0 * s,
                     facingRight ? 204 : -24, 116, ArcType.OPEN);
-        }
-        if (type == BirdGame3.BirdType.SHOEBILL) {
-            int tailDir = facingRight ? -1 : 1;
-            Color crest = stoneShoebill
-                    ? (shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.web("#EFE6A8") : Color.web("#B8C0C4"))
-                    : (glacierShoebill ? Color.web("#E1F5FE") : Color.web("#CFD8DC"));
-            Color chest = stoneShoebill
-                    ? (shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.web("#CFC589") : Color.web("#AEB6BA"))
-                    : (glacierShoebill ? Color.web("#E3F2FD") : Color.web("#D5DDE0"));
-            double crestBaseX = facingRight ? headX + 17 * s : headX + 33 * s;
-            g.setFill(crest);
-            g.fillPolygon(
-                    new double[]{crestBaseX - 5 * s, crestBaseX, crestBaseX + 5 * s},
-                    new double[]{headY + 2 * s, headY - 18 * s, headY + 2 * s},
-                    3
-            );
-            g.fillPolygon(
-                    new double[]{crestBaseX + tailDir * 4 * s, crestBaseX + tailDir * 16 * s, crestBaseX + tailDir * 8 * s},
-                    new double[]{headY + 4 * s, headY - 10 * s, headY + 7 * s},
-                    3
-            );
-            g.setFill(chest.deriveColor(0, 1, 1, 0.78));
-            g.fillOval(x + 19 * s, y + 34 * s, 42 * s, 35 * s);
-            Color legColor = stoneShoebill
-                    ? (shoebillStatueUltimate || shoebillCounterBurstUltimate ? Color.web("#B7AD78") : Color.web("#828B90"))
-                    : (glacierShoebill ? Color.web("#E1F5FE") : Color.web("#78909C"));
-            g.setStroke(legColor.deriveColor(0, 1, 1, 0.72));
-            g.setLineWidth(2.0 * s);
-            g.strokeLine(x + 24 * s, y + 68 * s, x + 18 * s, y + 88 * s);
-            g.strokeLine(x + 56 * s, y + 68 * s, x + 62 * s, y + 88 * s);
         }
         if (ravenEyes) {
             double glowX = headX + (facingRight ? -2 : 38) * s;
@@ -30091,6 +30076,382 @@ public class Bird {
         }
         if (state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO) {
             return 0.28;
+        }
+        return 0.0;
+    }
+
+    /** Builds Shoebill's tall marsh-bird silhouette, layered plumage, and articulated wings. */
+    private void drawShoebillBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        double cx = x + 40.0 * s;
+        BirdAnimationState state = currentBirdAnimationState();
+        HeadPose headPose = standardHeadPose(pose);
+        boolean classic = isClassicSkin;
+        boolean glacier = isGlacierSkin;
+        boolean stone = shoebillStoneVisualActive();
+        boolean goldStone = stone && (shoebillStatueUltimate || shoebillCounterBurstUltimate);
+        boolean faction = isCampaignFactionSkin();
+
+        Color bodyDark;
+        Color body;
+        Color head;
+        Color chest;
+        Color wing;
+        Color wingEdge;
+        Color leg;
+        Color crest;
+        Color iris;
+        if (faction) {
+            bodyDark = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            head = campaignFactionSecondaryColor().brighter();
+            chest = campaignFactionSecondaryColor();
+            wing = campaignFactionPrimaryColor().darker();
+            wingEdge = campaignFactionAccentColor();
+            leg = campaignFactionSecondaryColor().darker();
+            crest = campaignFactionSecondaryColor().brighter();
+            iris = campaignFactionAccentColor().darker();
+        } else if (stone) {
+            bodyDark = goldStone ? Color.web("#6E6747") : Color.web("#4A5358");
+            body = goldStone ? Color.web("#A99F74") : Color.web("#69747A");
+            head = goldStone ? Color.web("#D2C68C") : Color.web("#9EA7AB");
+            chest = goldStone ? Color.web("#C5BA82") : Color.web("#AEB6BA");
+            wing = goldStone ? Color.web("#8B825B") : Color.web("#59636A");
+            wingEdge = goldStone ? Color.web("#EFE6A8") : Color.web("#CBD2D5");
+            leg = goldStone ? Color.web("#776F4B") : Color.web("#596268");
+            crest = goldStone ? Color.web("#E4D99B") : Color.web("#B8C0C4");
+            iris = goldStone ? Color.web("#FFF176") : Color.web("#ECEFF1");
+        } else if (glacier) {
+            bodyDark = Color.web("#3F83B8");
+            body = Color.web("#69AEDD");
+            head = Color.web("#B9E6F8");
+            chest = Color.web("#E4F8FF");
+            wing = Color.web("#539BD0");
+            wingEdge = Color.web("#D9F5FF");
+            leg = Color.web("#82BBD2");
+            crest = Color.web("#D9F4FF");
+            iris = Color.web("#01579B");
+        } else if (classic) {
+            bodyDark = Color.web("#10171D");
+            body = Color.web("#25333B");
+            head = Color.web("#50616B");
+            chest = Color.web("#778A94");
+            wing = Color.web("#19242B");
+            wingEdge = Color.web("#90CAF9");
+            leg = Color.web("#263238");
+            crest = Color.web("#607D8B");
+            iris = Color.web("#81D4FA");
+        } else {
+            bodyDark = Color.web("#42535D");
+            body = Color.web("#607782");
+            head = Color.web("#AAB8BE");
+            chest = Color.web("#CFD8DC");
+            wing = Color.web("#506773");
+            wingEdge = Color.web("#A9BBC3");
+            leg = Color.web("#64727A");
+            crest = Color.web("#899BA3");
+            iris = Color.web("#D7A900");
+        }
+
+        double tailRootX = x + (facingRight ? 18.0 : 62.0) * s;
+        double tailRootY = y + 58.0 * s;
+        for (int i = 0; i < 3; i++) {
+            double rootY = tailRootY + (i - 1.0) * 4.0 * s;
+            double length = (25.0 - i * 3.0) * s;
+            double tipX = tailRootX + rear * length;
+            double tipY = rootY + (i - 1.0) * 4.5 * s;
+            g.setFill(bodyDark.deriveColor(i * 2.0, 0.96, 0.84 + i * 0.04, 0.96));
+            g.fillPolygon(
+                    new double[]{tailRootX + dir * 2.0 * s, tipX,
+                            tailRootX - dir * 3.0 * s},
+                    new double[]{rootY - 5.0 * s, tipY, rootY + 5.0 * s},
+                    3);
+            g.setStroke(wingEdge.deriveColor(0, 0.72, 1.0, 0.40));
+            g.setLineWidth(0.75 * s);
+            g.strokeLine(tailRootX, rootY, tipX + dir * 3.0 * s, tipY);
+            recordVisualBodyPart(VisualBodyPart.SHOEBILL_TAIL_FEATHER);
+        }
+
+        drawShoebillLegs(g, state, leg);
+
+        double wingOpenness = shoebillWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualShoebillWingOpenness = wingOpenness;
+        }
+        double farSide = dir;
+        drawShoebillWing(g, cx + farSide * 17.0 * s, y + 34.0 * s,
+                farSide, wingOpenness, wing, wingEdge, true);
+        recordVisualBodyPart(VisualBodyPart.SHOEBILL_WING);
+
+        g.setFill(bodyDark);
+        g.beginPath();
+        g.moveTo(cx, y + 4.0 * s);
+        g.bezierCurveTo(x + 67.0 * s, y + 8.0 * s,
+                x + 73.0 * s, y + 48.0 * s, x + 62.0 * s, y + 73.0 * s);
+        g.bezierCurveTo(x + 54.0 * s, y + 82.0 * s,
+                x + 26.0 * s, y + 82.0 * s, x + 18.0 * s, y + 73.0 * s);
+        g.bezierCurveTo(x + 7.0 * s, y + 48.0 * s,
+                x + 13.0 * s, y + 8.0 * s, cx, y + 4.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(body);
+        g.beginPath();
+        g.moveTo(cx, y + 8.0 * s);
+        g.bezierCurveTo(x + 62.0 * s, y + 11.0 * s,
+                x + 68.0 * s, y + 47.0 * s, x + 58.0 * s, y + 70.0 * s);
+        g.bezierCurveTo(x + 50.0 * s, y + 77.0 * s,
+                x + 30.0 * s, y + 77.0 * s, x + 22.0 * s, y + 70.0 * s);
+        g.bezierCurveTo(x + 12.0 * s, y + 47.0 * s,
+                x + 18.0 * s, y + 11.0 * s, cx, y + 8.0 * s);
+        g.closePath();
+        g.fill();
+
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double upX = -aimY;
+        double upY = aimX;
+        if (upY > 0.0) {
+            upX = -upX;
+            upY = -upY;
+        }
+        double neckStartX = x + (facingRight ? 55.0 : 25.0) * s;
+        double neckStartY = y + 31.0 * s;
+        double neckEndX = headPose.centerX() - aimX * 14.0 * s;
+        double neckEndY = headPose.centerY() - aimY * 14.0 * s + 4.0 * s;
+        g.setStroke(bodyDark);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(24.0 * s);
+        g.strokeLine(neckStartX, neckStartY, neckEndX, neckEndY);
+        g.setStroke(head.darker().deriveColor(0, 0.78, 0.84, 0.92));
+        g.setLineWidth(16.0 * s);
+        g.strokeLine(neckStartX + rear * 1.5 * s, neckStartY,
+                neckEndX + rear * 1.5 * s, neckEndY);
+
+        g.setFill(chest.deriveColor(0, 0.86, 1.0, 0.86));
+        g.fillOval(x + 22.0 * s, y + 31.0 * s, 36.0 * s, 43.0 * s);
+        g.setFill(chest.brighter().deriveColor(0, 0.58, 1.03, 0.30));
+        g.fillOval(x + 30.0 * s, y + 38.0 * s, 20.0 * s, 29.0 * s);
+
+        double nearSide = -dir;
+        drawShoebillWing(g, cx + nearSide * 17.0 * s, y + 34.0 * s,
+                nearSide, wingOpenness, wing, wingEdge, false);
+        recordVisualBodyPart(VisualBodyPart.SHOEBILL_WING);
+
+        drawShoebillCrest(g, headPose, aimX, aimY, upX, upY, crest, wingEdge);
+
+        double headW = 56.0 * s;
+        double headH = 45.0 * s;
+        double headX = headPose.centerX() - headW * 0.5;
+        double headY = headPose.centerY() - headH * 0.5;
+        g.setFill(head.darker().deriveColor(0, 0.86, 0.84, 1.0));
+        g.fillOval(headX - 2.0 * s, headY - 1.0 * s, headW + 4.0 * s, headH + 3.0 * s);
+        g.setFill(head);
+        g.fillOval(headX, headY, headW, headH);
+        g.setFill(chest.deriveColor(0, 0.68, 1.04, 0.42));
+        g.fillOval(headPose.centerX() - aimX * 8.0 * s - 17.0 * s,
+                headPose.centerY() - aimY * 8.0 * s - 11.0 * s,
+                34.0 * s, 23.0 * s);
+        g.setStroke(wingEdge.deriveColor(0, 0.62, 1.0, glacier ? 0.72 : 0.42));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.1 * s);
+        for (int i = -1; i <= 1; i++) {
+            double startX = headPose.centerX() - aimX * (13.0 + i * 2.0) * s
+                    + upX * (i * 5.0) * s;
+            double startY = headPose.centerY() - aimY * (13.0 + i * 2.0) * s
+                    + upY * (i * 5.0) * s;
+            g.strokeLine(startX, startY,
+                    startX - aimX * 10.0 * s + upX * 2.0 * s,
+                    startY - aimY * 10.0 * s + upY * 2.0 * s);
+        }
+
+        double eyeCenterX = headPose.centerX() - aimX * 11.5 * s + upX * 7.0 * s;
+        double eyeCenterY = headPose.centerY() - aimY * 11.5 * s + upY * 7.0 * s;
+        double eyeRadius = 8.5 * s;
+        double irisRadius = 5.0 * s;
+        double pupilRadius = 2.4 * s;
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headPose.centerX() - headW * 0.5,
+                headPose.centerY() - headH * 0.5,
+                headPose.centerX() + headW * 0.5,
+                headPose.centerY() + headH * 0.5);
+        lastVisualEye = new VisualFeatureCircle(eyeCenterX, eyeCenterY, eyeRadius);
+        g.setFill(Color.web("#F7FAF8"));
+        g.fillOval(eyeCenterX - eyeRadius, eyeCenterY - eyeRadius,
+                eyeRadius * 2.0, eyeRadius * 2.0);
+        double irisX = eyeCenterX + aimX * 1.8 * s;
+        double irisY = eyeCenterY + aimY * 1.8 * s;
+        g.setFill(iris);
+        g.fillOval(irisX - irisRadius, irisY - irisRadius,
+                irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(Color.web("#111619"));
+        g.fillOval(irisX - pupilRadius, irisY - pupilRadius,
+                pupilRadius * 2.0, pupilRadius * 2.0);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.92));
+        g.fillOval(irisX - 1.4 * s + upX * 0.7 * s,
+                irisY - 1.4 * s + upY * 0.7 * s,
+                2.2 * s, 2.2 * s);
+
+        drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    private void drawShoebillLegs(GraphicsContext g, BirdAnimationState state, Color leg) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || shoebillMarshLiftTimer > 0;
+        double runAmount = Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0);
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 13.0) * 0.34)
+                * 7.0 * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + (30.0 + i * 20.0) * s;
+            double hipY = y + 61.0 * s;
+            double step = (i == 0 ? stride : -stride) * s;
+            double kneeX = hipX + step * 0.48 - dir * (airborne ? 3.0 + i * 1.5 : 0.0) * s;
+            double kneeY = y + (airborne ? 72.0 + i * 1.5 : 84.0) * s;
+            double ankleX = hipX + step - dir * (airborne ? 8.0 + i * 2.0 : 0.0) * s;
+            double ankleY = y + (airborne ? 79.0 + i * 1.5 : 97.0) * s;
+            double toeDir = airborne ? -dir : dir;
+            g.setStroke(leg.deriveColor(0, 0.78, 0.76, i == 0 ? 0.78 : 0.96));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.3 * s);
+            g.strokeLine(hipX, hipY, kneeX, kneeY);
+            g.setLineWidth(1.8 * s);
+            g.strokeLine(kneeX, kneeY, ankleX, ankleY);
+            g.setStroke(leg.brighter().deriveColor(0, 0.64, 0.92, 0.82));
+            g.setLineWidth(1.25 * s);
+            double toeLength = (airborne ? 8.0 : 13.0) * s;
+            for (int toe = -1; toe <= 1; toe++) {
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + toeDir * toeLength,
+                        ankleY + toe * 2.3 * s + (airborne ? 1.0 : 0.0) * s);
+            }
+            g.strokeLine(ankleX, ankleY,
+                    ankleX - toeDir * (airborne ? 4.0 : 7.0) * s,
+                    ankleY + 1.5 * s);
+            recordVisualBodyPart(VisualBodyPart.SHOEBILL_LEG);
+        }
+    }
+
+    private void drawShoebillWing(GraphicsContext g,
+                                  double shoulderX,
+                                  double shoulderY,
+                                  double side,
+                                  double openness,
+                                  Color wing,
+                                  Color edge,
+                                  boolean farSide) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double foldedTipX = shoulderX + side * 7.0 * s;
+        double foldedTipY = y + 68.0 * s;
+        double spreadTipX = shoulderX + side * (43.0 + open * 10.0) * s;
+        double spreadTipY = y + (27.0 - open * 9.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double dx = tipX - shoulderX;
+        double dy = tipY - shoulderY;
+        double length = Math.max(0.001, Math.hypot(dx, dy));
+        double normalX = -dy / length;
+        double normalY = dx / length;
+        double rootWidth = (8.0 + open * 2.0) * s;
+        double midX = shoulderX + dx * 0.55;
+        double midY = shoulderY + dy * 0.55;
+        double midWidth = (11.0 + open * 5.0) * s;
+        double alpha = farSide ? 0.68 : 0.98;
+        g.setFill(wing.deriveColor(0, 0.94, farSide ? 0.80 : 0.94, alpha));
+        g.fillPolygon(
+                new double[]{shoulderX + normalX * rootWidth,
+                        midX + normalX * midWidth,
+                        tipX,
+                        midX - normalX * midWidth,
+                        shoulderX - normalX * rootWidth},
+                new double[]{shoulderY + normalY * rootWidth,
+                        midY + normalY * midWidth,
+                        tipY,
+                        midY - normalY * midWidth,
+                        shoulderY - normalY * rootWidth},
+                5);
+        g.setStroke(edge.deriveColor(0, 0.82, 1.0, alpha * 0.68));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.1 * s);
+        for (int i = -1; i <= 1; i++) {
+            double featherOffset = i * (3.0 + open * 3.0) * s;
+            g.strokeLine(shoulderX + normalX * featherOffset,
+                    shoulderY + normalY * featherOffset,
+                    tipX - side * (4.0 + Math.abs(i) * 4.0) * s
+                            + normalX * featherOffset * 0.45,
+                    tipY + normalY * featherOffset * 0.45
+                            + Math.abs(i) * 3.0 * s);
+        }
+        g.setFill(wing.brighter().deriveColor(0, 0.82, 1.02, alpha * 0.44));
+        g.fillOval(shoulderX - (12.0 + open * 3.0) * s,
+                shoulderY - (7.0 + open * 2.0) * s,
+                (24.0 + open * 6.0) * s,
+                (19.0 + open * 4.0) * s);
+    }
+
+    private void drawShoebillCrest(GraphicsContext g,
+                                   HeadPose headPose,
+                                   double aimX,
+                                   double aimY,
+                                   double upX,
+                                   double upY,
+                                   Color crest,
+                                   Color edge) {
+        double s = sizeMultiplier;
+        for (int i = 0; i < 4; i++) {
+            double rootX = headPose.centerX() - aimX * (15.0 - i * 0.8) * s
+                    + upX * (4.0 + i * 1.8) * s;
+            double rootY = headPose.centerY() - aimY * (15.0 - i * 0.8) * s
+                    + upY * (4.0 + i * 1.8) * s;
+            double tipX = rootX - aimX * (12.0 + i * 3.0) * s
+                    + upX * (8.0 + (i % 2) * 5.0) * s;
+            double tipY = rootY - aimY * (12.0 + i * 3.0) * s
+                    + upY * (8.0 + (i % 2) * 5.0) * s;
+            double angle = Math.toDegrees(Math.atan2(tipY - rootY, tipX - rootX));
+            double length = Math.hypot(tipX - rootX, tipY - rootY);
+            double width = (5.5 - i * 0.35) * s;
+            g.save();
+            g.translate(rootX, rootY);
+            g.rotate(angle);
+            g.setFill(crest.deriveColor(i * 2.0, 0.94, 0.90 + i * 0.025, 0.98));
+            g.fillOval(0.0, -width * 0.5, length, width);
+            g.setStroke(edge.deriveColor(0, 0.68, 1.0, 0.44));
+            g.setLineWidth(0.65 * s);
+            g.strokeLine(2.0 * s, 0.0, length - 2.0 * s, 0.0);
+            g.restore();
+            recordVisualBodyPart(VisualBodyPart.SHOEBILL_CREST_FEATHER);
+        }
+    }
+
+    /** Returns a 0..1 authored Shoebill wing pose for flight and Marsh Lift. */
+    private double shoebillWingOpenness(BirdAnimationState state) {
+        if (shoebillMarshLiftTimer > 0) {
+            int totalFrames = shoebillMarshLiftUltimate
+                    ? SHOEBILL_MARSH_LIFT_FRAMES + 8
+                    : SHOEBILL_MARSH_LIFT_FRAMES;
+            double elapsed = Math.max(0.0, totalFrames - shoebillMarshLiftTimer);
+            double openEnvelope = smoothStep(Math.clamp(elapsed / 4.0, 0.0, 1.0));
+            double closeEnvelope = smoothStep(Math.clamp(shoebillMarshLiftTimer / 5.0, 0.0, 1.0));
+            double flapStroke = 0.52 + 0.48
+                    * (0.5 + 0.5 * Math.cos((elapsed - 4.0) * Math.PI * 0.25));
+            return Math.clamp(openEnvelope * closeEnvelope * flapStroke, 0.0, 1.0);
+        }
+        if (shoebillStatueTimer > 0 || shoebillFinalStillnessTimer > 0
+                || shoebillThrustTimer > 0 || shoebillStareFxTimer > 0) {
+            return 0.0;
+        }
+        if (state == BirdAnimationState.FLAP) {
+            double phase = positiveModulo(animationGlobalFrame + playerIndex * 5.0, 22.0) / 22.0;
+            return 0.66 + smoothStep(0.5 + 0.5 * Math.cos(phase * Math.PI * 2.0)) * 0.34;
+        }
+        if (state == BirdAnimationState.FALL) {
+            return 0.54;
+        }
+        if (state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO) {
+            return 0.18;
         }
         return 0.0;
     }
@@ -31006,7 +31367,8 @@ public class Bird {
         if (!isClassicSkin || type == BirdGame3.BirdType.PIGEON
                 || type == BirdGame3.BirdType.EAGLE
                 || type == BirdGame3.BirdType.ROADRUNNER
-                || type == BirdGame3.BirdType.PENGUIN) return;
+                || type == BirdGame3.BirdType.PENGUIN
+                || type == BirdGame3.BirdType.SHOEBILL) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -31214,12 +31576,6 @@ public class Bird {
             g.strokeLine(x + 12 * s, y + 40 * s, x + 68 * s, y + 24 * s);
             g.setFill(Color.web("#FFE082").deriveColor(0, 1, 1, 0.3));
             g.fillOval(x + 18 * s, y + 52 * s, 36 * s, 20 * s);
-        }
-        if (type == BirdGame3.BirdType.SHOEBILL && isGlacierSkin) {
-            g.setStroke(Color.web("#B3E5FC").deriveColor(0, 1, 1, 0.85));
-            g.setLineWidth(2.2 * s);
-            g.strokeLine(x + 18 * s, y + 30 * s, x + 58 * s, y + 18 * s);
-            g.strokeLine(x + 20 * s, y + 56 * s, x + 60 * s, y + 44 * s);
         }
         if (type == BirdGame3.BirdType.VULTURE && isTideSkin) {
             g.setStroke(Color.web("#80CBC4").deriveColor(0, 1, 1, 0.7));
@@ -31977,35 +32333,51 @@ public class Bird {
             double aimAngle = headPose.aimAngleRadians();
             double dirX = Math.cos(aimAngle);
             double dirY = Math.sin(aimAngle);
-            double normalX = Math.cos(aimAngle + Math.PI * 0.5);
-            double normalY = Math.sin(aimAngle + Math.PI * 0.5);
+            double normalX = -dirY;
+            double normalY = dirX;
+            if (normalY < 0.0) {
+                normalX = -normalX;
+                normalY = -normalY;
+            }
             boolean attacking = attackAnimationTimer > 0 || shoebillThrustTimer > 0 || shoebillStareFxTimer > 0;
+            int thrustFrames = shoebillThrustUltimate ? SHOEBILL_THRUST_FRAMES + 8 : SHOEBILL_THRUST_FRAMES;
             double thrustStretch = shoebillThrustTimer > 0
-                    ? Math.sin(Math.clamp((SHOEBILL_THRUST_FRAMES - shoebillThrustTimer)
-                    / (double) SHOEBILL_THRUST_FRAMES, 0.0, 1.0) * Math.PI) * 18.0 * s
+                    ? Math.sin(Math.clamp((thrustFrames - shoebillThrustTimer)
+                    / (double) thrustFrames, 0.0, 1.0) * Math.PI) * 18.0 * s
                     : 0.0;
             double length = (48.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.72)) * s + thrustStretch;
-            double baseWidth = 17.0 * s;
-            double midWidth = 23.0 * s;
-            double tipWidth = 12.0 * s;
-            double open = (attacking ? 5.0 : 1.6) * s * openScale;
-            double baseX = headPose.centerX() + dirX * 4.0 * s;
-            double baseY = headPose.centerY() + dirY * 4.0 * s + 5.0 * s;
+            double baseWidth = 15.0 * s;
+            double midWidth = 20.0 * s;
+            double tipWidth = 10.5 * s;
+            double open = (attacking ? 4.2 : 1.2) * s * openScale;
+            double baseX = headPose.centerX() + dirX * 7.0 * s + normalX * 3.5 * s;
+            double baseY = headPose.centerY() + dirY * 7.0 * s + normalY * 3.5 * s;
             double midX = baseX + dirX * length * 0.55;
             double midY = baseY + dirY * length * 0.55;
-            double tipX = baseX + dirX * length;
-            double tipY = baseY + dirY * length + 2.0 * s;
+            double tipX = baseX + dirX * length + normalX * 1.5 * s;
+            double tipY = baseY + dirY * length + normalY * 1.5 * s;
             boolean stoneShoebill = shoebillStoneVisualActive();
             boolean goldStone = shoebillStatueUltimate || shoebillCounterBurstUltimate;
             Color upper = stoneShoebill
                     ? (goldStone ? Color.web("#CFC58D") : Color.web("#9AA3A7"))
-                    : (isGlacierSkin ? Color.web("#E1F5FE") : Color.web("#C8BE94"));
+                    : (isGlacierSkin ? Color.web("#D9F4FF")
+                    : isClassicSkin ? Color.web("#56656D")
+                    : isCampaignFactionSkin() ? campaignFactionSecondaryColor()
+                    : Color.web("#C8BE94"));
             Color lower = stoneShoebill
                     ? (goldStone ? Color.web("#AFA56F") : Color.web("#737D82"))
-                    : (isGlacierSkin ? Color.web("#B3E5FC") : Color.web("#A99D78"));
+                    : (isGlacierSkin ? Color.web("#A9DBEF")
+                    : isClassicSkin ? Color.web("#26343B")
+                    : isCampaignFactionSkin() ? campaignFactionPrimaryColor().brighter()
+                    : Color.web("#A99D78"));
             Color ridge = stoneShoebill
                     ? (goldStone ? Color.web("#5F5635") : Color.web("#3F474B"))
-                    : (isGlacierSkin ? Color.web("#607D8B") : Color.web("#5D5344"));
+                    : (isGlacierSkin ? Color.web("#3D728A")
+                    : isClassicSkin ? Color.web("#5B9CC5")
+                    : isCampaignFactionSkin() ? campaignFactionAccentColor().darker()
+                    : Color.web("#5D5344"));
+
+            recordVisualBeak(baseX, baseY, tipX, tipY);
 
             double[] upperX = {
                     baseX - normalX * baseWidth,

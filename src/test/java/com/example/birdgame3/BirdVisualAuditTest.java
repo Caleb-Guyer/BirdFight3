@@ -21,6 +21,7 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.TURKEY,
             BirdGame3.BirdType.ROOSTER,
             BirdGame3.BirdType.ROADRUNNER,
+            BirdGame3.BirdType.SHOEBILL,
             BirdGame3.BirdType.MOCKINGBIRD,
             BirdGame3.BirdType.VULTURE
     );
@@ -672,6 +673,133 @@ class BirdVisualAuditTest {
                         label + " must keep both tucked feet visible");
                 assertEquals(3, slide.bodyPartCount(Bird.VisualBodyPart.PENGUIN_TAIL_FEATHER),
                         label + " must keep the short tail intact during the slide");
+            }
+        }
+    }
+
+    @Test
+    void shoebillKeepsItsWingsTailCrestAndLongLegsAcrossVectorSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.SHOEBILL)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertEquals(2,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.SHOEBILL_WING),
+                            label + " must draw both wings");
+                    assertEquals(3,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.SHOEBILL_TAIL_FEATHER),
+                            label + " must retain all three layered tail feathers");
+                    assertEquals(2,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.SHOEBILL_LEG),
+                            label + " must retain both long legs and feet");
+                    assertEquals(4,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.SHOEBILL_CREST_FEATHER),
+                            label + " must retain all four crest feathers");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+            }
+        }
+    }
+
+    @Test
+    void shoebillHeadEyeAndBillFollowMovementAnimationsInBothDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.SHOEBILL)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+
+                assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 20.0,
+                        label + " must point its heavy bill upward during flight");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its head and bill backward during hitstun");
+                assertFeatureGeometryIsSafe(idle, label + " idle");
+                assertFeatureGeometryIsSafe(flap, label + " flap");
+                assertFeatureGeometryIsSafe(hit, label + " hit");
+            }
+        }
+    }
+
+    @Test
+    void shoebillMarshLiftOpensBothWingsThenClosesBeforeTheLiftEnds() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.SHOEBILL)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry folded = game.inspectVisualAuditShoebillMarshLiftFeatures(
+                        entry, Bird.SHOEBILL_MARSH_LIFT_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry spread = game.inspectVisualAuditShoebillMarshLiftFeatures(
+                        entry, Bird.SHOEBILL_MARSH_LIFT_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry closing = game.inspectVisualAuditShoebillMarshLiftFeatures(
+                        entry, 1, facingRight);
+                String label = entry.name() + " Marsh Lift facing "
+                        + (facingRight ? "right" : "left");
+
+                assertTrue(folded.shoebillWingOpenness() <= 0.01,
+                        label + " must begin with folded wings");
+                assertTrue(spread.shoebillWingOpenness() >= 0.95,
+                        label + " must reach a fully spread two-wing pose");
+                assertEquals(2, spread.bodyPartCount(Bird.VisualBodyPart.SHOEBILL_WING),
+                        label + " must display both wings during the lift");
+                assertTrue(closing.shoebillWingOpenness() <= 0.15,
+                        label + " must close both wings before Marsh Lift ends");
+            }
+        }
+    }
+
+    @Test
+    void shoebillHeavyThrustExtendsTheBillWithoutDroppingBodyParts() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.SHOEBILL)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry windup = game.inspectVisualAuditShoebillThrustFeatures(
+                        entry, Bird.SHOEBILL_THRUST_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry strike = game.inspectVisualAuditShoebillThrustFeatures(
+                        entry, Bird.SHOEBILL_THRUST_FRAMES - Bird.SHOEBILL_THRUST_STARTUP_FRAMES - 5,
+                        facingRight);
+                String label = entry.name() + " Heavy Thrust facing "
+                        + (facingRight ? "right" : "left");
+                double windupLength = Math.hypot(beakVectorX(windup), beakVectorY(windup));
+                double strikeLength = Math.hypot(beakVectorX(strike), beakVectorY(strike));
+
+                assertTrue(strikeLength >= windupLength * 1.45,
+                        label + " must visibly extend its bill during the strike: windup="
+                                + windupLength + ", strike=" + strikeLength);
+                assertTrue(strike.shoebillWingOpenness() <= 0.01,
+                        label + " must brace with folded wings");
+                assertEquals(2, strike.bodyPartCount(Bird.VisualBodyPart.SHOEBILL_LEG),
+                        label + " must keep both legs during the lunge");
+                assertEquals(4, strike.bodyPartCount(Bird.VisualBodyPart.SHOEBILL_CREST_FEATHER),
+                        label + " must keep the crest connected during the lunge");
+                assertFeatureGeometryIsSafe(strike, label);
             }
         }
     }
