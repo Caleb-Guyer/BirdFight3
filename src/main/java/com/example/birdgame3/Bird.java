@@ -333,12 +333,17 @@ public class Bird {
         TURKEY_TAIL_FEATHER,
         TURKEY_NECK,
         TURKEY_WING,
-        TURKEY_LEG
+        TURKEY_LEG,
+        ROOSTER_TAIL_FEATHER,
+        ROOSTER_WING,
+        ROOSTER_LEG,
+        ROOSTER_COMB_LOBE
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
                                  VisualBeakAxis turkeyNeck,
                                  double turkeyWingOpenness,
+                                 double roosterWingOpenness,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -514,6 +519,7 @@ public class Bird {
     private VisualBeakAxis lastVisualBeak;
     private VisualBeakAxis lastVisualTurkeyNeck;
     private double lastVisualTurkeyWingOpenness;
+    private double lastVisualRoosterWingOpenness;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -11697,6 +11703,14 @@ public class Bird {
         attackAnimationTimer = turkeyPanicFlapTimer;
     }
 
+    /** Positions Rooster at a deterministic frame of Coop Boost's wing cycle. */
+    void prepareVisualAuditRoosterCoopBoost(int remainingFrames) {
+        prepareVisualAuditPose(VisualAuditPose.FLAP);
+        roosterCommandFxKind = 3;
+        roosterCommandFxTimer = Math.clamp(remainingFrames, 1, 38);
+        attackAnimationTimer = Math.max(attackAnimationTimer, 18);
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -21710,6 +21724,7 @@ public class Bird {
                 lastVisualBeak,
                 lastVisualTurkeyNeck,
                 lastVisualTurkeyWingOpenness,
+                lastVisualRoosterWingOpenness,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21720,6 +21735,7 @@ public class Bird {
         lastVisualBeak = null;
         lastVisualTurkeyNeck = null;
         lastVisualTurkeyWingOpenness = 0.0;
+        lastVisualRoosterWingOpenness = 0.0;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -27589,49 +27605,286 @@ public class Bird {
         g.restore();
     }
 
-    private void drawRooster(GraphicsContext g, double drawSize) {
-        if (type != BirdGame3.BirdType.ROOSTER) return;
+    /**
+     * Gives Rooster a complete side-profile silhouette: sickle tail feathers,
+     * a layered breast and hackles, visible legs, a readable comb and wattle,
+     * and wings that actually spread during flight and Coop Boost.
+     */
+    private void drawRoosterBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
         double s = sizeMultiplier;
-        HeadPose headPose = currentHeadPose();
-        double headX = headPose.centerX() - 25.0 * s;
-        double headY = headPose.centerY() - 20.0 * s;
-        double tailBaseX = facingRight ? x + 18 * s : x + drawSize - 18 * s;
-        double tailDir = facingRight ? -1 : 1;
-        Color tailStroke = isSunforgeSkin ? Color.web("#FFD54F") : Color.web("#BF360C");
-        if (isSunforgeSkin && !suppressSelectEffects) {
-            g.setStroke(Color.web("#FFF59D").deriveColor(0, 1, 1, 0.45));
-            g.setLineWidth(8 * s);
-            for (int i = 0; i < 3; i++) {
-                double len = 26 + i * 10;
-                double rise = 18 + i * 6;
-                g.strokeLine(tailBaseX, y + 52 * s, tailBaseX + tailDir * len * s, y + 52 * s - rise * s);
-            }
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        BirdAnimationState state = currentBirdAnimationState();
+        double wingOpenness = roosterWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualRoosterWingOpenness = wingOpenness;
         }
-        g.setStroke(tailStroke);
-        g.setLineWidth(4 * s);
+
+        boolean classic = isClassicSkin;
+        boolean faction = isCampaignFactionSkin();
+        Color body = faction ? campaignFactionPrimaryColor()
+                : isSunforgeSkin ? Color.web("#4E342E")
+                : classic ? game.classicSkinPrimaryColor(type)
+                : Color.web("#B9342D");
+        Color bodyLight = faction ? campaignFactionSecondaryColor()
+                : isSunforgeSkin ? Color.web("#BF6D1D")
+                : classic ? game.classicSkinAccentColor(type)
+                : Color.web("#E25A3F");
+        Color head = faction ? campaignFactionSecondaryColor()
+                : isSunforgeSkin ? Color.web("#C8791F")
+                : classic ? game.classicSkinPrimaryColor(type).brighter()
+                : Color.web("#D94836");
+        Color hackle = faction ? campaignFactionAccentColor()
+                : isSunforgeSkin ? Color.web("#FFE082")
+                : classic ? game.classicSkinAccentColor(type)
+                : Color.web("#F2A13B");
+        Color wing = faction ? campaignFactionPrimaryColor().darker()
+                : isSunforgeSkin ? Color.web("#6D442D")
+                : classic ? game.classicSkinPrimaryColor(type).darker()
+                : Color.web("#8F2827");
+        Color tail = faction ? campaignFactionPrimaryColor().darker().darker()
+                : isSunforgeSkin ? Color.web("#5B4631")
+                : classic ? game.classicSkinPrimaryColor(type).darker().darker()
+                : Color.web("#173D36");
+        Color tailSheen = faction ? campaignFactionAccentColor()
+                : isSunforgeSkin ? Color.web("#FFD54F")
+                : classic ? game.classicSkinAccentColor(type)
+                : Color.web("#3C7965");
+        Color comb = faction ? campaignFactionAccentColor()
+                : isSunforgeSkin ? Color.web("#FFC400")
+                : Color.web("#E32636");
+        Color leg = isSunforgeSkin ? Color.web("#E5A83C") : Color.web("#D99532");
+
+        double bodyCenterX = x + 40.0 * s;
+        double bodyCenterY = y + 43.0 * s;
+        double tailBaseX = bodyCenterX + rear * 25.0 * s;
+        double tailBaseY = bodyCenterY + 3.0 * s;
+        double[] tailLengths = {48.0, 57.0, 52.0, 43.0};
+        double[] tailLifts = {32.0, 17.0, 2.0, -13.0};
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < tailLengths.length; i++) {
+            double startX = tailBaseX + rear * i * 1.8 * s;
+            double startY = tailBaseY + i * 2.0 * s;
+            double endX = tailBaseX + rear * tailLengths[i] * s;
+            double endY = tailBaseY - tailLifts[i] * s;
+            g.setStroke(tail.deriveColor(0, 1, 0.92 + i * 0.025, 0.98));
+            g.setLineWidth((9.0 - i * 0.9) * s);
+            g.beginPath();
+            g.moveTo(startX, startY);
+            g.bezierCurveTo(
+                    tailBaseX + rear * (17.0 + i * 2.0) * s,
+                    tailBaseY - (13.0 - i * 3.0) * s,
+                    endX - rear * 10.0 * s,
+                    endY - (i < 2 ? 10.0 : -3.0) * s,
+                    endX,
+                    endY
+            );
+            g.stroke();
+            g.setStroke(tailSheen.deriveColor(0, 1, 1, isSunforgeSkin ? 0.72 : 0.48));
+            g.setLineWidth(1.7 * s);
+            g.beginPath();
+            g.moveTo(startX + dir * 1.0 * s, startY - 1.0 * s);
+            g.bezierCurveTo(
+                    tailBaseX + rear * (17.0 + i * 2.0) * s,
+                    tailBaseY - (14.0 - i * 3.0) * s,
+                    endX - rear * 10.0 * s,
+                    endY - (i < 2 ? 10.0 : -3.0) * s,
+                    endX,
+                    endY
+            );
+            g.stroke();
+            recordVisualBodyPart(VisualBodyPart.ROOSTER_TAIL_FEATHER);
+        }
+
+        if (wingOpenness > 0.45) {
+            drawRoosterWing(g, wingOpenness, true, wing, tailSheen);
+        }
+
+        boolean airborneLegs = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || roosterCommandFxKind == 3 && roosterCommandFxTimer > 0;
+        drawRoosterLeg(g, bodyCenterX - 11.0 * s, bodyCenterY + 18.0 * s,
+                dir, airborneLegs, false, leg);
+        drawRoosterLeg(g, bodyCenterX + 9.0 * s, bodyCenterY + 18.0 * s,
+                dir, airborneLegs, true, leg);
+
+        g.setFill(body.darker().deriveColor(0, 1, 1, 0.72));
+        g.fillOval(x + 4.0 * s, y + 12.0 * s, 72.0 * s, 63.0 * s);
+        g.setFill(body);
+        g.fillOval(x + 7.0 * s, y + 8.0 * s, 68.0 * s, 64.0 * s);
+        g.setFill(bodyLight.deriveColor(0, 1, 1, isSunforgeSkin ? 0.46 : 0.58));
+        g.fillOval(x + 28.0 * s, y + 28.0 * s, 39.0 * s, 36.0 * s);
+        g.setFill(hackle.deriveColor(0, 1, 1, isSunforgeSkin ? 0.72 : 0.52));
+        g.fillOval(x + (facingRight ? 42.0 : 12.0) * s, y + 17.0 * s, 27.0 * s, 42.0 * s);
+
+        drawRoosterWing(g, wingOpenness, false, wing, tailSheen);
+
+        HeadPose headPose = standardHeadPose(pose);
+        double headW = 47.0 * s;
+        double headH = 41.0 * s;
+        double headX = headPose.centerX() - headW * 0.5;
+        double headY = headPose.centerY() - headH * 0.5;
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        boolean headLookingRight = aimX >= 0.0;
+        double lookSign = headLookingRight ? 1.0 : -1.0;
+        double upX = aimY * lookSign;
+        double upY = -aimX * lookSign;
+
+        g.setFill(head.darker().deriveColor(0, 1, 1, 0.46));
+        g.fillOval(headX - 1.5 * s, headY + 2.0 * s, headW + 3.0 * s, headH + 2.0 * s);
+        g.setFill(head);
+        g.fillOval(headX, headY, headW, headH);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.16));
+        g.fillOval(headX + 8.0 * s, headY + 5.0 * s, 24.0 * s, 12.0 * s);
+
+        for (int i = 0; i < 4; i++) {
+            double offset = (i - 1.5) * 6.0 * s;
+            double rootX = headPose.centerX() - aimX * 11.0 * s + upX * 9.0 * s + aimX * offset;
+            double rootY = headPose.centerY() - aimY * 11.0 * s + upY * 9.0 * s + aimY * offset;
+            g.setFill(hackle.deriveColor(0, 1, 0.96 + i * 0.01, 0.88));
+            g.fillPolygon(
+                    new double[]{rootX - aimX * 4.5 * s, rootX + upX * 13.0 * s,
+                            rootX + aimX * 4.5 * s},
+                    new double[]{rootY - aimY * 4.5 * s, rootY + upY * 13.0 * s,
+                            rootY + aimY * 4.5 * s},
+                    3
+            );
+        }
+
+        double[] combOffsets = {-7.0, 0.0, 7.0};
+        double[] combSizes = {10.0, 13.0, 9.0};
+        for (int i = 0; i < combOffsets.length; i++) {
+            double lobeCenterX = headPose.centerX() + upX * (20.0 + (i == 1 ? 2.0 : 0.0)) * s
+                    + aimX * combOffsets[i] * s;
+            double lobeCenterY = headPose.centerY() + upY * (20.0 + (i == 1 ? 2.0 : 0.0)) * s
+                    + aimY * combOffsets[i] * s;
+            double diameter = combSizes[i] * s;
+            g.setFill(comb);
+            g.fillOval(lobeCenterX - diameter * 0.5, lobeCenterY - diameter * 0.5,
+                    diameter, diameter * 1.08);
+            recordVisualBodyPart(VisualBodyPart.ROOSTER_COMB_LOBE);
+        }
+
+        double downX = -upX;
+        double downY = -upY;
+        double wattleBaseX = headPose.centerX() + aimX * 13.0 * s + downX * 12.0 * s;
+        double wattleBaseY = headPose.centerY() + aimY * 13.0 * s + downY * 12.0 * s;
+        g.setFill(comb.darker());
+        g.fillOval(wattleBaseX - 5.5 * s, wattleBaseY - 5.0 * s, 11.0 * s, 15.0 * s);
+        g.setFill(comb.deriveColor(0, 1, 1, 0.88));
+        g.fillOval(wattleBaseX - aimX * 5.0 * s - 4.5 * s,
+                wattleBaseY - aimY * 5.0 * s + 1.0 * s,
+                9.0 * s, 12.0 * s);
+
+        double gaze = state == BirdAnimationState.IDLE
+                ? lookSign * Math.sin((animationGlobalFrame + playerIndex * 19.0) * 0.052) * 1.3
+                : 0.0;
+        Color pupil = faction ? campaignFactionAccentColor().darker()
+                : isSunforgeSkin ? Color.web("#35251E")
+                : classic ? game.classicSkinAccentColor(type).darker().darker()
+                : Color.web("#201613");
+        drawStandardVectorEye(g, headPose, headW, headH,
+                Color.web("#FFFBEA"), pupil, 22.0, 12.5, gaze, headLookingRight);
+    }
+
+    private double roosterWingOpenness(BirdAnimationState state) {
+        if (roosterCommandFxKind == 3 && roosterCommandFxTimer > 0) {
+            double elapsed = 38.0 - Math.min(38.0, roosterCommandFxTimer);
+            double opening = smoothVisualStep(Math.clamp(elapsed / 7.0, 0.0, 1.0));
+            double closing = smoothVisualStep(Math.clamp(roosterCommandFxTimer / 7.0, 0.0, 1.0));
+            return Math.min(opening, closing);
+        }
+        if (state == BirdAnimationState.FLAP) {
+            double beat = Math.abs(Math.sin((animationGlobalFrame + playerIndex * 13.0) * 0.72));
+            return 0.82 + beat * 0.16;
+        }
+        if (state == BirdAnimationState.FALL) return 0.52;
+        if (state == BirdAnimationState.ATTACK) return 0.30;
+        if (state == BirdAnimationState.HITSTUN) return 0.24;
+        if (state == BirdAnimationState.KO) return 0.10;
+        return 0.16;
+    }
+
+    private double smoothVisualStep(double value) {
+        return value * value * (3.0 - 2.0 * value);
+    }
+
+    private void drawRoosterWing(GraphicsContext g, double openness, boolean farWing,
+                                 Color wingColor, Color edgeColor) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double shoulderX = x + 40.0 * s + (farWing ? dir * 4.0 : -dir * 7.0) * s;
+        double shoulderY = y + (farWing ? 39.0 : 36.0) * s;
+        if (!farWing && openness <= 0.45) {
+            double wingX = x + (facingRight ? 9.0 : 35.0) * s;
+            g.setFill(wingColor.deriveColor(0, 1, 1, 0.88));
+            g.fillOval(wingX, y + 27.0 * s, 36.0 * s, 43.0 * s);
+            g.setStroke(edgeColor.deriveColor(0, 1, 1, 0.58));
+            g.setLineWidth(1.7 * s);
+            g.strokeArc(wingX + 4.0 * s, y + 35.0 * s, 27.0 * s, 27.0 * s,
+                    facingRight ? 198 : -18, 130, ArcType.OPEN);
+            g.strokeArc(wingX + 9.0 * s, y + 44.0 * s, 19.0 * s, 17.0 * s,
+                    facingRight ? 198 : -18, 130, ArcType.OPEN);
+            recordVisualBodyPart(VisualBodyPart.ROOSTER_WING);
+            return;
+        }
+
+        double spreadDir = farWing ? dir : -dir;
+        double tipX = shoulderX + spreadDir * (21.0 + openness * 25.0) * s;
+        double tipY = shoulderY - (16.0 + openness * 31.0) * s;
+        double trailingX = shoulderX + spreadDir * (28.0 + openness * 18.0) * s;
+        double trailingY = shoulderY + (10.0 - openness * 7.0) * s;
+        Color fill = wingColor.deriveColor(0, 1, farWing ? 0.86 : 1.0, farWing ? 0.68 : 0.94);
+        g.setFill(fill);
+        g.fillPolygon(
+                new double[]{shoulderX, tipX, trailingX,
+                        shoulderX + spreadDir * 18.0 * s, shoulderX - spreadDir * 4.0 * s},
+                new double[]{shoulderY - 7.0 * s, tipY, trailingY,
+                        shoulderY + 18.0 * s, shoulderY + 8.0 * s},
+                5
+        );
+        g.setStroke(edgeColor.deriveColor(0, 1, 1, farWing ? 0.42 : 0.66));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.6 * s);
         for (int i = 0; i < 3; i++) {
-            double len = 26 + i * 10;
-            double rise = 18 + i * 6;
-            g.strokeLine(tailBaseX, y + 52 * s, tailBaseX + tailDir * len * s, y + 52 * s - rise * s);
+            double t = 0.34 + i * 0.17;
+            g.strokeLine(
+                    shoulderX + spreadDir * 7.0 * s,
+                    shoulderY + (i - 1) * 4.0 * s,
+                    shoulderX + (tipX - shoulderX) * t,
+                    shoulderY + (tipY - shoulderY) * t + i * 7.0 * s
+            );
         }
+        recordVisualBodyPart(VisualBodyPart.ROOSTER_WING);
+    }
 
-        g.setFill(isSunforgeSkin ? Color.web("#FFB300") : Color.web("#D32F2F"));
-        double combX = headX + (facingRight ? -6 : 36) * s;
-        double combY = headY - 26 * s;
-        double combW = 28 * s;
-        double combH = 18 * s;
-        double[] xs = new double[]{
-                combX, combX + combW * 0.25, combX + combW * 0.5, combX + combW * 0.75, combX + combW, combX + combW, combX
-        };
-        double[] ys = new double[]{
-                combY + combH, combY, combY + combH * 0.4, combY, combY + combH, combY + combH * 1.2, combY + combH * 1.2
-        };
-        g.fillPolygon(xs, ys, xs.length);
+    private void drawRoosterLeg(GraphicsContext g, double hipX, double hipY, double dir,
+                                boolean airborne, boolean rearLeg, Color legColor) {
+        double s = sizeMultiplier;
+        double separation = rearLeg ? 4.0 : -3.0;
+        double ankleX = hipX + dir * separation * s;
+        double ankleY = hipY + (airborne ? 11.0 : 20.0) * s;
+        double footX = ankleX + dir * (airborne ? 7.0 : 10.0) * s;
+        double footY = ankleY + (airborne ? 4.0 : 2.0) * s;
+        g.setStroke(legColor.deriveColor(0, 1, rearLeg ? 0.86 : 1.0, rearLeg ? 0.74 : 0.96));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(2.6 * s);
+        g.strokeLine(hipX, hipY, ankleX, ankleY);
+        g.setLineWidth(2.0 * s);
+        g.strokeLine(ankleX, ankleY, footX, footY);
+        g.strokeLine(footX, footY, footX + dir * 7.0 * s, footY + 1.0 * s);
+        g.strokeLine(footX, footY, footX - dir * 5.0 * s, footY + 3.0 * s);
+        if (!airborne) {
+            g.strokeLine(ankleX, ankleY - 3.0 * s,
+                    ankleX - dir * 5.0 * s, ankleY - 7.0 * s);
+        }
+        recordVisualBodyPart(VisualBodyPart.ROOSTER_LEG);
+    }
 
-        g.setFill(isSunforgeSkin ? Color.web("#FFE082") : Color.web("#B71C1C"));
-        double wattleX = headX + (facingRight ? 0 : 40) * s;
-        g.fillOval(wattleX, headY + 22 * s, 10 * s, 14 * s);
-
+    /** Transient brood-command effects are kept separate from authored body art. */
+    private void drawRooster(GraphicsContext g, double drawSize) {
+        if (type != BirdGame3.BirdType.ROOSTER || visualAuditBodyOnly) return;
+        double s = sizeMultiplier;
         if (roosterCommandFxTimer > 0) {
             double fade = Math.clamp(roosterCommandFxTimer / 38.0, 0.0, 1.0);
             double cx = bodyCenterX();
@@ -28521,6 +28774,10 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.PHOENIX) {
             drawPhoenixBody(g, drawSize, pose);
+            return;
+        }
+        if (type == BirdGame3.BirdType.ROOSTER) {
+            drawRoosterBody(g, drawSize, pose);
             return;
         }
         if (drawPhotoEagleSprite(g, drawSize, pose)) {
@@ -31220,6 +31477,7 @@ public class Bird {
         boolean isAttacking = attackAnimationTimer > 0;
         boolean stylizedHummingbird = type == BirdGame3.BirdType.HUMMINGBIRD;
         boolean stylizedTurkey = type == BirdGame3.BirdType.TURKEY;
+        boolean stylizedRooster = type == BirdGame3.BirdType.ROOSTER;
         boolean stylizedPenguin = type == BirdGame3.BirdType.PENGUIN;
         boolean stylizedMockingbird = type == BirdGame3.BirdType.MOCKINGBIRD;
         boolean stylizedGrinchhawk = type == BirdGame3.BirdType.GRINCHHAWK;
@@ -31230,6 +31488,8 @@ public class Bird {
             openAmount *= 0.34;
         } else if (stylizedTurkey) {
             openAmount *= 0.72;
+        } else if (stylizedRooster) {
+            openAmount *= 0.62;
         } else if (stylizedMockingbird) {
             openAmount *= 0.62;
         } else if (stylizedGrinchhawk) {
@@ -31245,6 +31505,7 @@ public class Bird {
                 : stylizedMockingbird ? 31
                 : stylizedPenguin ? 22
                 : stylizedTurkey ? 25
+                : stylizedRooster ? 25
                 : stylizedGrinchhawk ? 36
                 : stylizedTitmouse ? 20
                 : stylizedGoose ? 31
@@ -31270,7 +31531,8 @@ public class Bird {
         }
         double mouthCenterX = headPose.centerX() + dirX * 5.0 * s;
         double mouthCenterY = headPose.centerY() + dirY * 5.0 * s + 5.0 * s;
-        double baseHalfWidth = (stylizedHummingbird ? 3.8 : stylizedTurkey ? 6.0 : 8.0) * s;
+        double baseHalfWidth = (stylizedHummingbird ? 3.8
+                : stylizedTurkey || stylizedRooster ? 6.0 : 8.0) * s;
         double baseUpperX = mouthCenterX - normalX * baseHalfWidth;
         double baseUpperY = mouthCenterY - normalY * baseHalfWidth;
         double baseLowerX = mouthCenterX + normalX * baseHalfWidth;
@@ -31295,6 +31557,10 @@ public class Bird {
                 ? (isAttacking ? Color.web("#F9A825") : Color.web("#FDD835"))
                 : stylizedTurkey
                 ? (isAttacking ? Color.web("#F57C00") : Color.web("#FFB74D"))
+                : stylizedRooster
+                ? (isSunforgeSkin
+                    ? (isAttacking ? Color.web("#FFB300") : Color.web("#FFD54F"))
+                    : (isAttacking ? Color.web("#F57C00") : Color.web("#FFA726")))
                 : stylizedPenguin
                 ? (isAttacking ? Color.web("#F9A825") : Color.web("#FFA726"))
                 : stylizedMockingbird
@@ -31344,6 +31610,15 @@ public class Bird {
             g.setLineWidth(0.95 * s);
             g.strokeLine(mouthCenterX - normalX * 2.0 * s, mouthCenterY - normalY * 2.0 * s,
                     tipBaseX - dirX * 3.0 * s, tipBaseY - dirY * 3.0 * s);
+        }
+        if (stylizedRooster) {
+            g.setStroke((isSunforgeSkin ? Color.web("#8D5A18") : Color.web("#6D3B24"))
+                    .deriveColor(0, 1, 1, 0.46));
+            g.setLineWidth(1.05 * s);
+            g.strokeLine(mouthCenterX - normalX * 1.8 * s,
+                    mouthCenterY - normalY * 1.8 * s,
+                    tipBaseX - dirX * 3.5 * s,
+                    tipBaseY - dirY * 3.5 * s);
         }
         if (stylizedMockingbird) {
             g.setStroke(Color.web("#ECEFF1").deriveColor(0, 1, 1, 0.30));

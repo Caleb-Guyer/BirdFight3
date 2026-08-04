@@ -17882,26 +17882,33 @@ public class BirdGame3 {
             VisualAuditSkin skin, double verticalVelocity, boolean facingRight) {
         return drawVisualAuditCombatPose(
                 new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
-                true, facingRight, verticalVelocity, null);
+                true, facingRight, verticalVelocity, null, null);
     }
 
     Bird.VisualFeatureGeometry inspectVisualAuditTurkeyPanicFlapFeatures(
             VisualAuditSkin skin, int remainingFrames, boolean facingRight) {
         return drawVisualAuditCombatPose(
                 new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
-                true, facingRight, null, remainingFrames);
+                true, facingRight, null, remainingFrames, null);
+    }
+
+    Bird.VisualFeatureGeometry inspectVisualAuditRoosterCoopBoostFeatures(
+            VisualAuditSkin skin, int remainingFrames, boolean facingRight) {
+        return drawVisualAuditCombatPose(
+                new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
+                true, facingRight, null, null, remainingFrames);
     }
 
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
             boolean bodyOnly, boolean facingRight) {
-        return drawVisualAuditCombatPose(canvas, skin, pose, bodyOnly, facingRight, null, null);
+        return drawVisualAuditCombatPose(canvas, skin, pose, bodyOnly, facingRight, null, null, null);
     }
 
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
             boolean bodyOnly, boolean facingRight, Double verticalVelocity,
-            Integer turkeyPanicFlapTimer) {
+            Integer turkeyPanicFlapTimer, Integer roosterCoopBoostTimer) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -17928,7 +17935,9 @@ public class BirdGame3 {
                 rosterSpriteMinScale(skin.bird, skin.key),
                 maxScale);
         preview.x = 0.0;
-        if (turkeyPanicFlapTimer != null) {
+        if (roosterCoopBoostTimer != null) {
+            preview.prepareVisualAuditRoosterCoopBoost(roosterCoopBoostTimer);
+        } else if (turkeyPanicFlapTimer != null) {
             preview.prepareVisualAuditTurkeyPanicFlap(turkeyPanicFlapTimer);
         } else if (verticalVelocity == null) {
             preview.prepareVisualAuditPose(pose);
@@ -18046,7 +18055,7 @@ public class BirdGame3 {
             return new RosterSpriteFit(1.18, 0.0, 0.0);
         }
         if (SUNFORGE_ROOSTER_SKIN.equals(skinKey)) {
-            return new RosterSpriteFit(1.18, 0.015, 0.0);
+            return new RosterSpriteFit(1.18, 0.12, 0.0);
         }
         if (VOID_HERALD_RAVEN_SKIN.equals(skinKey)) {
             return new RosterSpriteFit(1.14, 0.0, 0.0);
@@ -18057,7 +18066,7 @@ public class BirdGame3 {
         }
         return switch (type) {
             case EAGLE -> new RosterSpriteFit(1.08, 0.0, 0.0);
-            case ROOSTER -> new RosterSpriteFit(1.10, 0.02, 0.0);
+            case ROOSTER -> new RosterSpriteFit(1.12, 0.105, 0.0);
             case PELICAN, GOOSE -> new RosterSpriteFit(1.10, 0.0, 0.0);
             case MOCKINGBIRD -> new RosterSpriteFit(1.12, 0.0, 0.0);
             case GRINCHHAWK -> new RosterSpriteFit(1.25, 0.005, 0.0);

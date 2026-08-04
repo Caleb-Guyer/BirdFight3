@@ -19,6 +19,7 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.PHOENIX,
             BirdGame3.BirdType.HUMMINGBIRD,
             BirdGame3.BirdType.TURKEY,
+            BirdGame3.BirdType.ROOSTER,
             BirdGame3.BirdType.ROADRUNNER,
             BirdGame3.BirdType.MOCKINGBIRD,
             BirdGame3.BirdType.VULTURE
@@ -379,6 +380,94 @@ class BirdVisualAuditTest {
                         label + " must display both body wings during the up special");
                 assertTrue(closing.turkeyWingOpenness() <= 0.15,
                         label + " must close its wings before Panic Flap ends");
+            }
+        }
+    }
+
+    @Test
+    void roosterKeepsItsSickleTailWingsCombAndLegsAcrossVectorSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.ROOSTER)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertEquals(4,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.ROOSTER_TAIL_FEATHER),
+                            label + " must draw all four sickle-tail feathers");
+                    assertEquals(pose == Bird.VisualAuditPose.FLAP ? 2 : 1,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.ROOSTER_WING),
+                            label + " must draw every pose-aware wing");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.ROOSTER_LEG),
+                            label + " must visibly draw both legs");
+                    assertEquals(3,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.ROOSTER_COMB_LOBE),
+                            label + " must retain all three rounded comb lobes");
+                }
+            }
+        }
+    }
+
+    @Test
+    void roosterHeadAndBeakFollowMovementAnimationsInBothDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.ROOSTER)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+
+                assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 8.0,
+                        label + " must raise its head and bill in flight");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must look back during its hit animation");
+            }
+        }
+    }
+
+    @Test
+    void roosterCoopBoostOpensBothWingsThenClosesBeforeTheLiftEnds() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.ROOSTER)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry folded = game.inspectVisualAuditRoosterCoopBoostFeatures(
+                        entry, 38, facingRight);
+                Bird.VisualFeatureGeometry spread = game.inspectVisualAuditRoosterCoopBoostFeatures(
+                        entry, 30, facingRight);
+                Bird.VisualFeatureGeometry closing = game.inspectVisualAuditRoosterCoopBoostFeatures(
+                        entry, 1, facingRight);
+                String label = entry.name() + " Coop Boost facing "
+                        + (facingRight ? "right" : "left");
+
+                assertTrue(folded.roosterWingOpenness() <= 0.01,
+                        label + " must begin with folded wings");
+                assertTrue(spread.roosterWingOpenness() >= 0.95,
+                        label + " must visibly reach a fully spread pose");
+                assertEquals(2, spread.bodyPartCount(Bird.VisualBodyPart.ROOSTER_WING),
+                        label + " must display both wings during the lift");
+                assertTrue(closing.roosterWingOpenness() <= 0.15,
+                        label + " must close its wings before Coop Boost ends");
             }
         }
     }
