@@ -945,6 +945,124 @@ class BirdVisualAuditTest {
         }
     }
 
+    @Test
+    void razorbillKeepsBladeWingsTailFeetAndGroovedBillAcrossSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.RAZORBILL)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertEquals(2,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.RAZORBILL_WING),
+                            label + " must draw both blade-like wings");
+                    assertEquals(3,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.RAZORBILL_TAIL_FEATHER),
+                            label + " must retain all three short tail feathers");
+                    assertEquals(2,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.RAZORBILL_LEG),
+                            label + " must retain both legs and webbed feet");
+                    assertEquals(1,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.RAZORBILL_BILL_GROOVE),
+                            label + " must retain the species-defining white bill groove");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+            }
+        }
+    }
+
+    @Test
+    void razorbillGroundedFeetMeetTheGameplayFloorAcrossSkinsAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.RAZORBILL)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : List.of(
+                    Bird.VisualAuditPose.IDLE, Bird.VisualAuditPose.RUN)) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertTrue(Double.isFinite(geometry.razorbillFootBaseline()),
+                            label + " did not report a grounded foot baseline");
+                    assertEquals(80.0, geometry.razorbillFootBaseline(), 0.15,
+                            label + " must place the visible foot edge on the 80-unit collision floor");
+                }
+            }
+        }
+    }
+
+    @Test
+    void razorbillHeadEyeAndBillFollowMovementAnimationsInBothDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.RAZORBILL)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+
+                assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 18.0,
+                        label + " must point its deep bill upward during flight");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its head and bill backward during hitstun");
+                assertFeatureGeometryIsSafe(idle, label + " idle");
+                assertFeatureGeometryIsSafe(flap, label + " flap");
+                assertFeatureGeometryIsSafe(hit, label + " hit");
+            }
+        }
+    }
+
+    @Test
+    void razorbillCliffShearOpensBothWingsThenTucksThemBeforeTheCutEnds() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.RAZORBILL)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry folded = game.inspectVisualAuditRazorbillCliffShearFeatures(
+                        entry, Bird.RAZORBILL_SHEAR_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry spread = game.inspectVisualAuditRazorbillCliffShearFeatures(
+                        entry, Bird.RAZORBILL_SHEAR_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry closing = game.inspectVisualAuditRazorbillCliffShearFeatures(
+                        entry, 1, facingRight);
+                String label = entry.name() + " Cliff Shear facing "
+                        + (facingRight ? "right" : "left");
+
+                assertTrue(folded.razorbillWingOpenness() <= 0.01,
+                        label + " must begin with tucked wings");
+                assertTrue(spread.razorbillWingOpenness() >= 0.95,
+                        label + " must reach a fully spread two-wing cutting pose");
+                assertEquals(2, spread.bodyPartCount(Bird.VisualBodyPart.RAZORBILL_WING),
+                        label + " must display both wings during Cliff Shear");
+                assertTrue(closing.razorbillWingOpenness() <= 0.17,
+                        label + " must tuck both wings before Cliff Shear ends");
+            }
+        }
+    }
+
     private static void assertTurkeyNeckEndsBehindHead(
             Bird.VisualFeatureGeometry geometry, String label) {
         assertTrue(geometry.turkeyNeck() != null, label + " did not report its neck geometry");

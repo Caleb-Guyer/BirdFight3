@@ -351,7 +351,11 @@ public class Bird {
         SHOEBILL_CREST_FEATHER,
         CHARLES_TAIL_FEATHER,
         CHARLES_WING,
-        CHARLES_LEG
+        CHARLES_LEG,
+        RAZORBILL_TAIL_FEATHER,
+        RAZORBILL_WING,
+        RAZORBILL_LEG,
+        RAZORBILL_BILL_GROOVE
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -364,6 +368,8 @@ public class Bird {
                                  double shoebillFootBaseline,
                                  double charlesWingOpenness,
                                  double charlesFootBaseline,
+                                 double razorbillWingOpenness,
+                                 double razorbillFootBaseline,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -546,6 +552,8 @@ public class Bird {
     private double lastVisualShoebillFootBaseline = Double.NaN;
     private double lastVisualCharlesWingOpenness;
     private double lastVisualCharlesFootBaseline = Double.NaN;
+    private double lastVisualRazorbillWingOpenness;
+    private double lastVisualRazorbillFootBaseline = Double.NaN;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -11786,6 +11794,15 @@ public class Bird {
         attackAnimationTimer = Math.max(attackAnimationTimer, mockingbirdUpFxTimer);
     }
 
+    /** Positions Razorbill at a deterministic frame of Cliff Shear's wing cycle. */
+    void prepareVisualAuditRazorbillCliffShear(int remainingFrames) {
+        prepareVisualAuditPose(VisualAuditPose.FLAP);
+        razorbillShearUltimate = false;
+        razorbillShearDirection = facingRight ? 1 : -1;
+        razorbillShearTimer = Math.clamp(remainingFrames, 1, RAZORBILL_SHEAR_FRAMES);
+        attackAnimationTimer = Math.max(attackAnimationTimer, razorbillShearTimer);
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -21806,6 +21823,8 @@ public class Bird {
                 lastVisualShoebillFootBaseline,
                 lastVisualCharlesWingOpenness,
                 lastVisualCharlesFootBaseline,
+                lastVisualRazorbillWingOpenness,
+                lastVisualRazorbillFootBaseline,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21823,6 +21842,8 @@ public class Bird {
         lastVisualShoebillFootBaseline = Double.NaN;
         lastVisualCharlesWingOpenness = 0.0;
         lastVisualCharlesFootBaseline = Double.NaN;
+        lastVisualRazorbillWingOpenness = 0.0;
+        lastVisualRazorbillFootBaseline = Double.NaN;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -28880,6 +28901,10 @@ public class Bird {
             drawCharlesBody(g, drawSize, pose);
             return;
         }
+        if (type == BirdGame3.BirdType.RAZORBILL) {
+            drawRazorbillBody(g, drawSize, pose);
+            return;
+        }
         if (drawPhotoEagleSprite(g, drawSize, pose)) {
             return;
         }
@@ -30856,6 +30881,388 @@ public class Bird {
         return 0.06;
     }
 
+    /** Builds Razorbill's upright auk silhouette, grooved bill, and blade-like wing rig. */
+    private void drawRazorbillBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        double cx = x + 40.0 * s;
+        BirdAnimationState state = currentBirdAnimationState();
+        HeadPose headPose = standardHeadPose(pose);
+        boolean classic = isClassicSkin;
+        boolean prism = isPrismSkin;
+        boolean faction = isCampaignFactionSkin();
+
+        Color back;
+        Color body;
+        Color head;
+        Color breast;
+        Color wing;
+        Color flash;
+        Color edge;
+        Color leg;
+        Color iris;
+        if (faction) {
+            back = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            head = campaignFactionSecondaryColor().darker();
+            breast = campaignFactionSecondaryColor().brighter();
+            wing = campaignFactionPrimaryColor().darker();
+            flash = campaignFactionSecondaryColor().brighter();
+            edge = campaignFactionAccentColor();
+            leg = campaignFactionPrimaryColor().darker();
+            iris = campaignFactionAccentColor().darker();
+        } else if (prism) {
+            back = Color.web("#101747");
+            body = Color.web("#263B96");
+            head = Color.web("#17245E");
+            breast = Color.web("#E6E8FF");
+            wing = Color.web("#1A286F");
+            flash = Color.web("#C8D1FF");
+            edge = Color.web("#82E9FF");
+            leg = Color.web("#202753");
+            iris = Color.web("#D84DFF");
+        } else if (classic) {
+            back = Color.web("#062C36");
+            body = Color.web("#116B7C");
+            head = Color.web("#073D49");
+            breast = Color.web("#D9F8FA");
+            wing = Color.web("#07505E");
+            flash = Color.web("#B7F4F7");
+            edge = Color.web("#48DDE8");
+            leg = Color.web("#173E46");
+            iris = Color.web("#008CA3");
+        } else {
+            back = Color.web("#0C1318");
+            body = Color.web("#1F2B32");
+            head = Color.web("#11191E");
+            breast = Color.web("#E8ECE9");
+            wing = Color.web("#162229");
+            flash = Color.web("#F5F6F2");
+            edge = Color.web("#9EABB1");
+            leg = Color.web("#323B3F");
+            iris = Color.web("#15191B");
+        }
+
+        double tailRootX = x + (facingRight ? 24.0 : 56.0) * s;
+        double tailRootY = y + 62.0 * s;
+        double tailTilt = switch (state) {
+            case FLAP -> -8.0;
+            case FALL -> 7.0;
+            case ATTACK -> -4.0;
+            case HITSTUN, KO -> 10.0;
+            default -> 0.0;
+        };
+        for (int i = 0; i < 3; i++) {
+            double offset = i - 1.0;
+            double rootX = tailRootX + dir * i * 1.1 * s;
+            double rootY = tailRootY + offset * 2.6 * s;
+            double tipX = rootX + rear * (19.0 + (1.0 - Math.abs(offset)) * 4.0) * s;
+            double tipY = y + (64.0 + offset * 5.0 + tailTilt) * s;
+            g.setFill(back.deriveColor(i * 2.0, 0.96, 0.82 + i * 0.05, 0.98));
+            g.fillPolygon(
+                    new double[]{rootX + dir * 2.5 * s, tipX, rootX - dir * 3.0 * s},
+                    new double[]{rootY - 4.0 * s, tipY, rootY + 4.0 * s},
+                    3);
+            g.setStroke(flash.deriveColor(0, 0.70, 1.0, 0.68));
+            g.setLineWidth(0.8 * s);
+            g.strokeLine(rootX, rootY, tipX + dir * 3.0 * s, tipY);
+            recordVisualBodyPart(VisualBodyPart.RAZORBILL_TAIL_FEATHER);
+        }
+
+        drawRazorbillLegs(g, state, leg, edge);
+
+        double wingOpenness = razorbillWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualRazorbillWingOpenness = wingOpenness;
+        }
+        double farSide = dir;
+        drawRazorbillWing(g, cx + farSide * 17.0 * s, y + 34.0 * s,
+                farSide, wingOpenness, wing, flash, edge, true);
+        recordVisualBodyPart(VisualBodyPart.RAZORBILL_WING);
+
+        g.setFill(back);
+        g.beginPath();
+        g.moveTo(cx, y + 3.0 * s);
+        g.bezierCurveTo(x + 62.0 * s, y + 5.0 * s,
+                x + 70.0 * s, y + 32.0 * s, x + 62.0 * s, y + 61.0 * s);
+        g.bezierCurveTo(x + 56.0 * s, y + 75.0 * s,
+                x + 24.0 * s, y + 75.0 * s, x + 18.0 * s, y + 61.0 * s);
+        g.bezierCurveTo(x + 10.0 * s, y + 32.0 * s,
+                x + 18.0 * s, y + 5.0 * s, cx, y + 3.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(body);
+        g.beginPath();
+        g.moveTo(cx, y + 8.0 * s);
+        g.bezierCurveTo(x + 58.0 * s, y + 10.0 * s,
+                x + 64.0 * s, y + 34.0 * s, x + 57.0 * s, y + 59.0 * s);
+        g.bezierCurveTo(x + 51.0 * s, y + 69.0 * s,
+                x + 29.0 * s, y + 69.0 * s, x + 23.0 * s, y + 59.0 * s);
+        g.bezierCurveTo(x + 16.0 * s, y + 34.0 * s,
+                x + 22.0 * s, y + 10.0 * s, cx, y + 8.0 * s);
+        g.closePath();
+        g.fill();
+
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double upX = -aimY;
+        double upY = aimX;
+        if (upY > 0.0) {
+            upX = -upX;
+            upY = -upY;
+        }
+        double neckStartX = x + (facingRight ? 54.0 : 26.0) * s;
+        double neckStartY = y + 27.0 * s;
+        double neckEndX = headPose.centerX() - aimX * 13.0 * s;
+        double neckEndY = headPose.centerY() - aimY * 13.0 * s + 4.0 * s;
+        g.setStroke(back);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(22.0 * s);
+        g.strokeLine(neckStartX, neckStartY, neckEndX, neckEndY);
+        g.setStroke(head);
+        g.setLineWidth(15.0 * s);
+        g.strokeLine(neckStartX + rear * 1.0 * s, neckStartY,
+                neckEndX + rear * 1.0 * s, neckEndY);
+
+        g.setFill(breast.deriveColor(0, 0.76, 1.0, 0.96));
+        g.beginPath();
+        g.moveTo(x + 38.0 * s, y + 25.0 * s);
+        g.bezierCurveTo(x + 56.0 * s, y + 26.0 * s,
+                x + 61.0 * s, y + 49.0 * s, x + 53.0 * s, y + 66.0 * s);
+        g.bezierCurveTo(x + 47.0 * s, y + 72.0 * s,
+                x + 32.0 * s, y + 72.0 * s, x + 26.0 * s, y + 65.0 * s);
+        g.bezierCurveTo(x + 20.0 * s, y + 47.0 * s,
+                x + 25.0 * s, y + 28.0 * s, x + 38.0 * s, y + 25.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(Color.WHITE.deriveColor(0, 0.35, 1.0, 0.26));
+        g.fillOval(x + 31.0 * s, y + 35.0 * s, 20.0 * s, 28.0 * s);
+
+        double nearSide = -dir;
+        drawRazorbillWing(g, cx + nearSide * 17.0 * s, y + 34.0 * s,
+                nearSide, wingOpenness, wing, flash, edge, false);
+        recordVisualBodyPart(VisualBodyPart.RAZORBILL_WING);
+
+        double headW = 49.0 * s;
+        double headH = 42.0 * s;
+        double headX = headPose.centerX() - headW * 0.5;
+        double headY = headPose.centerY() - headH * 0.5;
+        g.setFill(back);
+        g.fillOval(headX - 1.5 * s, headY - 1.0 * s, headW + 3.0 * s, headH + 2.0 * s);
+        g.setFill(head);
+        g.fillOval(headX, headY, headW, headH);
+
+        double cheekX = headPose.centerX() - aimX * 5.0 * s + upX * 1.5 * s;
+        double cheekY = headPose.centerY() - aimY * 5.0 * s + upY * 1.5 * s;
+        g.setFill(breast.deriveColor(0, 0.62, 1.0, 0.94));
+        g.fillOval(cheekX - 15.0 * s, cheekY - 10.5 * s, 30.0 * s, 22.0 * s);
+
+        double eyeCenterX = headPose.centerX() - aimX * 7.5 * s + upX * 6.5 * s;
+        double eyeCenterY = headPose.centerY() - aimY * 7.5 * s + upY * 6.5 * s;
+        double eyeRadius = 8.4 * s;
+        double irisRadius = 4.8 * s;
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headPose.centerX() - headW * 0.5,
+                headPose.centerY() - headH * 0.5,
+                headPose.centerX() + headW * 0.5,
+                headPose.centerY() + headH * 0.5);
+        lastVisualEye = new VisualFeatureCircle(eyeCenterX, eyeCenterY, eyeRadius);
+        g.setFill(Color.web("#FFFDF8"));
+        g.fillOval(eyeCenterX - eyeRadius, eyeCenterY - eyeRadius,
+                eyeRadius * 2.0, eyeRadius * 2.0);
+        double irisX = eyeCenterX + aimX * 1.7 * s;
+        double irisY = eyeCenterY + aimY * 1.7 * s;
+        g.setFill(iris);
+        g.fillOval(irisX - irisRadius, irisY - irisRadius,
+                irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(Color.web("#101418"));
+        g.fillOval(irisX - 2.3 * s, irisY - 2.3 * s, 4.6 * s, 4.6 * s);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.94));
+        g.fillOval(irisX - 1.8 * s + upX * 0.8 * s,
+                irisY - 1.8 * s + upY * 0.8 * s, 2.8 * s, 2.8 * s);
+
+        // The species-defining white line runs behind the eye toward the bill root.
+        g.setStroke(flash.deriveColor(0, 0.58, 1.0, 0.90));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.8 * s);
+        g.strokeLine(eyeCenterX - aimX * 7.0 * s,
+                eyeCenterY - aimY * 7.0 * s,
+                eyeCenterX + aimX * 8.0 * s,
+                eyeCenterY + aimY * 8.0 * s);
+
+        if (prism) {
+            g.setStroke(Color.web("#E1BEE7").deriveColor(0, 0.82, 1.0, 0.72));
+            g.setLineWidth(1.3 * s);
+            g.strokeLine(x + 28.0 * s, y + 43.0 * s, x + 48.0 * s, y + 35.0 * s);
+            g.setStroke(Color.web("#80D8FF").deriveColor(0, 0.82, 1.0, 0.78));
+            g.strokeLine(x + 31.0 * s, y + 53.0 * s, x + 53.0 * s, y + 44.0 * s);
+            g.setFill(Color.web("#EA80FC").deriveColor(0, 0.78, 1.0, 0.58));
+            g.fillPolygon(
+                    new double[]{x + 36.0 * s, x + 42.0 * s, x + 38.0 * s},
+                    new double[]{y + 58.0 * s, y + 54.0 * s, y + 64.0 * s},
+                    3);
+        } else if (classic) {
+            g.setStroke(edge.deriveColor(0, 0.70, 1.0, 0.58));
+            g.setLineWidth(1.15 * s);
+            g.strokeArc(x + 23.0 * s, y + 31.0 * s, 34.0 * s, 31.0 * s,
+                    facingRight ? 204.0 : -24.0, 112.0, ArcType.OPEN);
+        }
+
+        drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    private void drawRazorbillLegs(GraphicsContext g, BirdAnimationState state, Color leg, Color edge) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || razorbillShearTimer > 0 || bladeStormFrames > 0;
+        double runAmount = state == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 17.0) * 0.38)
+                * 5.0 * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + (31.0 + i * 18.0) * s;
+            double hipY = y + 59.0 * s;
+            double step = (i == 0 ? stride : -stride) * s;
+            double ankleX = airborne
+                    ? hipX - dir * (5.0 + i * 2.0) * s
+                    : hipX + step;
+            double ankleY = y + (airborne ? 69.0 + i * 2.0 : 76.0) * s;
+            g.setStroke(leg.deriveColor(0, 0.80, 0.78, i == 0 ? 0.78 : 0.98));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.2 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            double toeDir = airborne ? -dir : dir;
+            double footLength = (airborne ? 7.0 : 11.0) * s;
+            double footBottomY = airborne ? ankleY + 4.0 * s : y + 79.4 * s;
+            g.setFill(leg.deriveColor(i * 2.0, 0.88, 0.92 + i * 0.03, 0.98));
+            g.fillPolygon(
+                    new double[]{ankleX - toeDir * 2.0 * s,
+                            ankleX + toeDir * footLength,
+                            ankleX + toeDir * footLength * 0.66,
+                            ankleX - toeDir * 1.0 * s},
+                    new double[]{ankleY - 1.2 * s,
+                            airborne ? ankleY + 2.0 * s : y + 78.5 * s,
+                            footBottomY,
+                            airborne ? ankleY + 3.0 * s : y + 78.7 * s},
+                    4);
+            g.setStroke(edge.deriveColor(0, 0.54, 1.0, 0.44));
+            g.setLineWidth(1.2 * s);
+            g.strokeLine(ankleX + toeDir * 1.0 * s, ankleY + 0.5 * s,
+                    ankleX + toeDir * (footLength - 1.5 * s),
+                    airborne ? ankleY + 2.0 * s : y + 78.5 * s);
+            if (!airborne && visualAuditBodyOnly) {
+                double visibleBottom = y + 79.4 * s + 0.6 * s;
+                lastVisualRazorbillFootBaseline = Math.max(
+                        Double.isNaN(lastVisualRazorbillFootBaseline)
+                                ? Double.NEGATIVE_INFINITY
+                                : lastVisualRazorbillFootBaseline,
+                        (visibleBottom - y) / s);
+            }
+            recordVisualBodyPart(VisualBodyPart.RAZORBILL_LEG);
+        }
+    }
+
+    private void drawRazorbillWing(GraphicsContext g,
+                                   double shoulderX,
+                                   double shoulderY,
+                                   double side,
+                                   double openness,
+                                   Color wing,
+                                   Color flash,
+                                   Color edge,
+                                   boolean farSide) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double foldedTipX = shoulderX + side * 7.0 * s;
+        double foldedTipY = y + 64.0 * s;
+        double spreadTipX = shoulderX + side * (49.0 + open * 9.0) * s;
+        double spreadTipY = y + (27.0 - open * 13.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double dx = tipX - shoulderX;
+        double dy = tipY - shoulderY;
+        double length = Math.max(0.001, Math.hypot(dx, dy));
+        double normalX = -dy / length;
+        double normalY = dx / length;
+        double rootWidth = (7.0 + open * 1.8) * s;
+        double midX = shoulderX + dx * 0.54;
+        double midY = shoulderY + dy * 0.54;
+        double midWidth = (9.0 + open * 4.0) * s;
+        double alpha = farSide ? 0.68 : 0.98;
+        g.setFill(wing.deriveColor(0, 0.94, farSide ? 0.80 : 0.96, alpha));
+        g.fillPolygon(
+                new double[]{shoulderX + normalX * rootWidth,
+                        midX + normalX * midWidth,
+                        tipX,
+                        midX - normalX * midWidth,
+                        shoulderX - normalX * rootWidth},
+                new double[]{shoulderY + normalY * rootWidth,
+                        midY + normalY * midWidth,
+                        tipY,
+                        midY - normalY * midWidth,
+                        shoulderY - normalY * rootWidth},
+                5);
+        g.setStroke(flash.deriveColor(0, 0.60, 1.0, alpha * 0.86));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth((2.3 + open * 1.7) * s);
+        g.strokeLine(shoulderX + dx * 0.36 + normalX * 1.5 * s,
+                shoulderY + dy * 0.36 + normalY * 1.5 * s,
+                shoulderX + dx * 0.79 + normalX * 1.5 * s,
+                shoulderY + dy * 0.79 + normalY * 1.5 * s);
+        g.setStroke(edge.deriveColor(0, 0.72, 1.0, alpha * 0.72));
+        g.setLineWidth(0.9 * s);
+        for (int i = -1; i <= 1; i++) {
+            double offset = i * (2.8 + open * 2.4) * s;
+            g.strokeLine(shoulderX + normalX * offset,
+                    shoulderY + normalY * offset,
+                    tipX - side * (3.0 + Math.abs(i) * 4.0) * s + normalX * offset * 0.38,
+                    tipY + normalY * offset * 0.38 + Math.abs(i) * 2.0 * s);
+        }
+        g.setFill(wing.brighter().deriveColor(0, 0.82, 1.02, alpha * 0.50));
+        g.fillOval(shoulderX - (10.5 + open * 2.0) * s,
+                shoulderY - (6.5 + open * 1.5) * s,
+                (21.0 + open * 4.0) * s,
+                (17.0 + open * 3.0) * s);
+    }
+
+    /** Returns Razorbill's authored blade-wing pose, including Cliff Shear's full cycle. */
+    private double razorbillWingOpenness(BirdAnimationState state) {
+        if (razorbillShearTimer > 0) {
+            int totalFrames = razorbillShearTimer > RAZORBILL_SHEAR_FRAMES
+                    ? RAZORBILL_SHEAR_FRAMES + 8
+                    : RAZORBILL_SHEAR_FRAMES;
+            double elapsed = Math.max(0.0, totalFrames - razorbillShearTimer);
+            double openEnvelope = smoothStep(Math.clamp(elapsed / 4.0, 0.0, 1.0));
+            double closeEnvelope = smoothStep(Math.clamp(razorbillShearTimer / 4.0, 0.0, 1.0));
+            return Math.clamp(openEnvelope * closeEnvelope, 0.0, 1.0);
+        }
+        if (bladeStormFrames > 0 || razorbillGuillotineTimer > 0) {
+            return 0.03;
+        }
+        if (razorbillStormTimer > 0) {
+            return razorbillStormReleased ? 0.92 : 0.62;
+        }
+        if (razorbillCounterTimer > 0 || razorbillCounterBurstTimer > 0) {
+            return 0.40;
+        }
+        if (state == BirdAnimationState.FLAP) {
+            double phase = positiveModulo(animationGlobalFrame + playerIndex * 5.0, 18.0) / 18.0;
+            return 0.68 + smoothStep(0.5 + 0.5 * Math.cos(phase * Math.PI * 2.0)) * 0.32;
+        }
+        if (state == BirdAnimationState.FALL) {
+            return 0.58;
+        }
+        if (state == BirdAnimationState.ATTACK) {
+            return 0.24;
+        }
+        if (state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO) {
+            return 0.16;
+        }
+        return 0.05;
+    }
+
     /** Builds Roadrunner's long tail, flight wing, and unmistakable two-legged running stance. */
     private void drawRoadrunnerUnderlay(GraphicsContext g, Color bodyColor,
                                          boolean mirage, boolean classicPalette) {
@@ -31769,7 +32176,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.ROADRUNNER
                 || type == BirdGame3.BirdType.PENGUIN
                 || type == BirdGame3.BirdType.SHOEBILL
-                || type == BirdGame3.BirdType.MOCKINGBIRD) return;
+                || type == BirdGame3.BirdType.MOCKINGBIRD
+                || type == BirdGame3.BirdType.RAZORBILL) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -31945,16 +32353,6 @@ public class Bird {
             g.strokeLine(x + 26 * s, y + 30 * s, x + 26 * s, y + 64 * s);
             g.setFill(Color.web("#FF4081"));
             g.fillOval(x + 58 * s, y + 26 * s, 6 * s, 6 * s);
-        }
-        if (type == BirdGame3.BirdType.RAZORBILL && isPrismSkin) {
-            double startX = facingRight ? x + 10 * s : x + 70 * s;
-            double endX = facingRight ? x + 60 * s : x + 20 * s;
-            g.setStroke(Color.web("#E1BEE7").deriveColor(0, 1, 1, 0.7));
-            g.setLineWidth(3.0 * s);
-            g.strokeLine(startX, y + 60 * s, endX, y + 35 * s);
-            g.setStroke(Color.web("#80D8FF").deriveColor(0, 1, 1, 0.8));
-            g.setLineWidth(2.0 * s);
-            g.strokeLine(startX, y + 66 * s, endX, y + 41 * s);
         }
         if (type == BirdGame3.BirdType.PELICAN && isAuroraSkin) {
             g.setFill(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.35));
@@ -32658,6 +33056,88 @@ public class Bird {
                 tipY - aimY * 3.0 * s);
     }
 
+    private void drawRazorbillBeak(GraphicsContext g, AttackVisualPose pose, double openScale) {
+        double s = sizeMultiplier;
+        HeadPose headPose = standardHeadPose(pose);
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double normalX = -aimY;
+        double normalY = aimX;
+        if (Math.abs(normalY) > Math.abs(normalX) && normalY < 0.0) {
+            normalX = -normalX;
+            normalY = -normalY;
+        }
+        boolean attacking = attackAnimationTimer > 0 || bladeStormFrames > 0
+                || razorbillStormTimer > 0 || razorbillShearTimer > 0
+                || razorbillCounterTimer > 0 || razorbillCounterBurstTimer > 0
+                || razorbillGuillotineTimer > 0;
+        double length = (25.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.50)) * s;
+        double open = (attacking ? 3.2 + Math.sin(attackAnimationTimer * 0.72) * 1.0 : 0.7)
+                * s * openScale;
+        double rootX = headPose.centerX() + aimX * 6.0 * s + normalX * 2.0 * s;
+        double rootY = headPose.centerY() + aimY * 6.0 * s + normalY * 2.0 * s;
+        double midX = rootX + aimX * length * 0.58;
+        double midY = rootY + aimY * length * 0.58;
+        double tipX = rootX + aimX * length;
+        double tipY = rootY + aimY * length;
+        double baseDepth = 8.0 * s;
+        double midDepth = 7.0 * s;
+        Color upper = isPrismSkin ? Color.web("#243B91")
+                : isClassicSkin ? Color.web("#0C5663")
+                : isCampaignFactionSkin() ? campaignFactionPrimaryColor().darker()
+                : Color.web("#263238");
+        Color lower = isPrismSkin ? Color.web("#151F58")
+                : isClassicSkin ? Color.web("#07313A")
+                : isCampaignFactionSkin() ? campaignFactionPrimaryColor().darker().darker()
+                : Color.web("#11191E");
+        Color groove = isPrismSkin ? Color.web("#B8F3FF")
+                : isClassicSkin ? Color.web("#C9F8FB")
+                : isCampaignFactionSkin() ? campaignFactionAccentColor()
+                : Color.web("#ECEFEA");
+
+        recordVisualBeak(rootX, rootY, tipX, tipY);
+        g.setFill(upper);
+        g.fillPolygon(
+                new double[]{rootX - normalX * baseDepth,
+                        midX - normalX * (midDepth + open * 0.25),
+                        tipX - normalX * (2.0 * s + open * 0.20),
+                        tipX + normalX * 1.0 * s,
+                        rootX + normalX * 1.5 * s},
+                new double[]{rootY - normalY * baseDepth,
+                        midY - normalY * (midDepth + open * 0.25),
+                        tipY - normalY * (2.0 * s + open * 0.20),
+                        tipY + normalY * 1.0 * s,
+                        rootY + normalY * 1.5 * s},
+                5);
+        g.setFill(lower);
+        g.fillPolygon(
+                new double[]{rootX - normalX * 1.0 * s,
+                        tipX + normalX * (2.0 * s + open),
+                        midX + normalX * (midDepth + open * 0.65),
+                        rootX + normalX * baseDepth},
+                new double[]{rootY - normalY * 1.0 * s,
+                        tipY + normalY * (2.0 * s + open),
+                        midY + normalY * (midDepth + open * 0.65),
+                        rootY + normalY * baseDepth},
+                4);
+        g.setStroke(groove.deriveColor(0, 0.62, 1.0, 0.90));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.45 * s);
+        double grooveX = rootX + aimX * length * 0.66;
+        double grooveY = rootY + aimY * length * 0.66;
+        g.strokeLine(grooveX - normalX * 5.2 * s,
+                grooveY - normalY * 5.2 * s,
+                grooveX + normalX * 5.2 * s,
+                grooveY + normalY * 5.2 * s);
+        recordVisualBodyPart(VisualBodyPart.RAZORBILL_BILL_GROOVE);
+        g.setStroke(groove.deriveColor(0, 0.42, 1.0, 0.48));
+        g.setLineWidth(0.75 * s);
+        g.strokeLine(rootX - normalX * 1.0 * s,
+                rootY - normalY * 1.0 * s,
+                tipX - aimX * 2.5 * s,
+                tipY - aimY * 2.5 * s);
+    }
+
     private void drawBeak(GraphicsContext g, AttackVisualPose pose) {
         double s = sizeMultiplier;
         double openScale = pose == null ? 1.0 : pose.beakOpenScale();
@@ -32672,6 +33152,10 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.MOCKINGBIRD) {
             drawCharlesBeak(g, pose, openScale);
+            return;
+        }
+        if (type == BirdGame3.BirdType.RAZORBILL) {
+            drawRazorbillBeak(g, pose, openScale);
             return;
         }
         if (type == BirdGame3.BirdType.RAVEN) {
