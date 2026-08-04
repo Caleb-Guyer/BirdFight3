@@ -79,7 +79,12 @@ causes silent desyncs. Rules:
 - **Developer profiles**: the `FEATHERDEV` settings code is a permanent
   all-content entitlement. Profile load reapplies `unlockEverythingForDeveloperProfile`
   so developer saves created on older versions automatically receive newly added
-  birds, skins, maps, modes, and progression unlocks without opening packs.
+  birds, skins, maps, modes, progression unlocks, and the complete Still Sky
+  mission/cutscene gallery without opening packs.
+- **Save safety**: trailer launches use isolated Java Preferences and must never
+  read or write the live profile. Normal shutdown persistence is gated until a
+  profile has loaded successfully. A rolling backup is created before each normal
+  startup load; preserve all three safeguards when adding headless/export modes.
 - **Sprite pipeline**: `sprites/<bird>.png` + `.properties` replaces a bird's
   vector body (effects still draw). Per-skin variants: `<bird>-<suffix>` where
   suffix matches the skin key case/underscore-insensitively. One animation per

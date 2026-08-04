@@ -137,6 +137,30 @@ class StoryCampaignProgressTest {
     }
 
     @Test
+    void completeAllRestoresEveryMissionRecruitAndGalleryScene() {
+        StoryCampaignProgress progress = new StoryCampaignProgress();
+
+        progress.completeAll(campaign);
+        progress.saveTo(prefs);
+        StoryCampaignProgress loaded = StoryCampaignProgress.load(prefs, campaign);
+
+        assertTrue(loaded.campaignComplete);
+        assertTrue(loaded.completionRewardClaimed);
+        assertEquals(campaign.orderedMissions.size(), loaded.completedCount());
+        assertEquals(campaign.orderedMissions.getLast().id(), loaded.currentMissionId);
+        assertTrue(campaign.orderedMissions.stream()
+                .allMatch(mission -> loaded.isMissionCompleted(mission.id())));
+        assertTrue(campaign.scenes.keySet().stream().allMatch(loaded::hasSeenScene));
+        assertTrue(loaded.hasSeenScene(StorybookPrologue.ID));
+        assertTrue(loaded.hasSeenScene(StorybookPrologue.EPILOGUE_ID));
+        assertTrue(loaded.hasSeenScene(StillSkyCreditsPlayer.ID));
+        assertTrue(campaign.orderedMissions.stream()
+                .map(StoryCampaign.Mission::recruit)
+                .filter(java.util.Objects::nonNull)
+                .allMatch(loaded::isRecruited));
+    }
+
+    @Test
     void resetTouchesOnlyTheNewCampaignNamespace() {
         prefs.put("adv_route_selected", "TEMPEST");
         StoryCampaignProgress progress = new StoryCampaignProgress();

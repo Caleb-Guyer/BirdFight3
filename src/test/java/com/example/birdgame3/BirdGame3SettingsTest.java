@@ -361,6 +361,10 @@ class BirdGame3SettingsTest {
         assertTrue(prefs.getBoolean("map_desert_unlocked", false));
         assertTrue(prefs.getBoolean("developer_infinite_bird_coins", false));
         assertTrue(prefs.getBoolean("skin_ashen_sovereign_phoenix", false));
+        assertTrue(prefs.getBoolean("story_v2_complete", false));
+        assertTrue(prefs.getBoolean("story_v2_reward_claimed", false));
+        assertTrue(prefs.get("story_v2_seen_scenes", "").contains("s80_eagle_end"));
+        assertTrue(prefs.get("story_v2_seen_scenes", "").contains(StillSkyCreditsPlayer.ID));
 
         BirdGame3 reloaded = new BirdGame3();
         Method loadProfileProgress = BirdGame3.class.getDeclaredMethod("loadProfileProgress", Preferences.class);

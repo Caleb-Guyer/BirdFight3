@@ -108,6 +108,32 @@ final class StoryCampaignProgress {
         recruitedBirds.add(BirdGame3.BirdType.MOCKINGBIRD);
     }
 
+    /**
+     * Restores a fully cleared campaign, including every gallery presentation.
+     * Developer profiles use this as a permanent all-content entitlement, so
+     * newly authored missions and scenes are picked up automatically.
+     */
+    void completeAll(StoryCampaign campaign) {
+        if (campaign == null || campaign.orderedMissions.isEmpty()) {
+            return;
+        }
+        version = campaign.version;
+        for (StoryCampaign.Mission mission : campaign.orderedMissions) {
+            markMissionCompleted(campaign, mission);
+            markSceneSeen(mission.preSceneId());
+            markSceneSeen(mission.postSceneId());
+        }
+        for (String sceneId : campaign.scenes.keySet()) {
+            markSceneSeen(sceneId);
+        }
+        markSceneSeen(StorybookPrologue.ID);
+        markSceneSeen(StorybookPrologue.EPILOGUE_ID);
+        markSceneSeen(StillSkyCreditsPlayer.ID);
+        currentMissionId = campaign.orderedMissions.getLast().id();
+        campaignComplete = true;
+        completionRewardClaimed = true;
+    }
+
     boolean markMissionCompleted(StoryCampaign campaign, StoryCampaign.Mission mission) {
         if (mission == null || campaign.mission(mission.id()) == null) {
             return false;

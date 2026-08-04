@@ -277,6 +277,7 @@ public class BirdGame3 {
             PREF_BIRD_COINS_CHECKSUM
     );
     private final GameSaveRepository saveRepository;
+    private boolean profileProgressLoaded = false;
     private PauseTransition achievementSaveDebounce;
     private boolean achievementSaveQueued = false;
     private final Deque<AchievementToastPayload> achievementToastQueue = new ArrayDeque<>();
@@ -632,10 +633,19 @@ public class BirdGame3 {
     }
 
     private static Preferences defaultSavePreferencesRoot() {
+        if (officialTrailerLaunchRequested()) {
+            return Preferences.userRoot().node("/birdfight3-tools/trailer/" + UUID.randomUUID());
+        }
         if (shouldUseIsolatedTestPrefs()) {
             return Preferences.userRoot().node("/birdfight3-tests/runtime/" + UUID.randomUUID());
         }
         return Preferences.userNodeForPackage(BirdGame3.class);
+    }
+
+    private static boolean officialTrailerLaunchRequested() {
+        return Boolean.getBoolean("birdfight3.officialTrailer")
+                || "1".equals(System.getenv("BIRDFIGHT3_OFFICIAL_TRAILER"))
+                || !officialTrailerExportPath().isBlank();
     }
 
     private static boolean shouldUseIsolatedTestPrefs() {
@@ -17320,12 +17330,12 @@ public class BirdGame3 {
         }
     }
 
-    private boolean officialTrailerMode() {
+    private static boolean officialTrailerMode() {
         return Boolean.getBoolean("birdfight3.officialTrailer")
                 || "1".equals(System.getenv("BIRDFIGHT3_OFFICIAL_TRAILER"));
     }
 
-    private String officialTrailerExportPath() {
+    private static String officialTrailerExportPath() {
         String property = System.getProperty("birdfight3.officialTrailerExport", "").trim();
         if (!property.isBlank()) {
             return property;
@@ -17334,7 +17344,7 @@ public class BirdGame3 {
         return environment == null ? "" : environment.trim();
     }
 
-    private boolean officialTrailerExportMode() {
+    private static boolean officialTrailerExportMode() {
         return !officialTrailerExportPath().isBlank();
     }
 
@@ -17390,6 +17400,7 @@ public class BirdGame3 {
             Thread inputInitThread = getThread();
             inputInitThread.start();
             appendStartLog("scheduled input init");
+            saveRepository.createBackup("Automatic backup before startup");
             loadAchievements();
             appendStartLog("loadAchievements done");
             fullscreenEnabled = true;
@@ -28476,6 +28487,7 @@ public class BirdGame3 {
             }
         }
         setAdventureRoute(selectedAdventureRoute);
+        stillSkyProgress.completeAll(stillSkyCampaign);
     }
 
     private void grantBirdCoins(int amount) {
@@ -50562,10 +50574,12 @@ public class BirdGame3 {
     }
 
     private void loadAchievements() {
+        profileProgressLoaded = false;
         Preferences prefs = saveRepository.globalPrefs();
         Preferences profilePrefs = saveRepository.activeProfilePrefs();
         loadGlobalSettings(prefs);
         loadProfileProgress(profilePrefs);
+        profileProgressLoaded = true;
     }
 
     private void loadGlobalSettings(Preferences prefs) {
@@ -50615,6 +50629,9 @@ public class BirdGame3 {
     }
 
     private void persistAchievements(boolean flush) {
+        if (!profileProgressLoaded) {
+            return;
+        }
         Preferences prefs = saveRepository.globalPrefs();
         Preferences profilePrefs = saveRepository.activeProfilePrefs();
         saveRepository.touchActiveProfile();
