@@ -372,7 +372,12 @@ public class Bird {
         VULTURE_WING,
         VULTURE_LEG,
         VULTURE_RUFF_FEATHER,
-        VULTURE_CROW_MARK
+        VULTURE_CROW_MARK,
+        OPIUM_TAIL_FEATHER,
+        OPIUM_WING,
+        OPIUM_LEG,
+        OPIUM_CREST_PETAL,
+        OPIUM_CHARM
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -393,6 +398,10 @@ public class Bird {
                                  double vultureFootBaseline,
                                  VisualFeatureBounds vultureTorso,
                                  VisualFeatureBounds vultureCrowMarks,
+                                 double opiumWingOpenness,
+                                 double opiumFootBaseline,
+                                 VisualFeatureBounds opiumTorso,
+                                 VisualFeatureBounds opiumCharm,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -583,6 +592,10 @@ public class Bird {
     private double lastVisualVultureFootBaseline = Double.NaN;
     private VisualFeatureBounds lastVisualVultureTorso;
     private VisualFeatureBounds lastVisualVultureCrowMarks;
+    private double lastVisualOpiumWingOpenness;
+    private double lastVisualOpiumFootBaseline = Double.NaN;
+    private VisualFeatureBounds lastVisualOpiumTorso;
+    private VisualFeatureBounds lastVisualOpiumCharm;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -2174,6 +2187,14 @@ public class Bird {
         ATTACK,
         HIT,
         KO
+    }
+
+    enum VisualAuditOpiumAction {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN,
+        ULTIMATE
     }
 
     private record ShieldHitResult(boolean blocked, boolean parried) {
@@ -11849,6 +11870,36 @@ public class Bird {
         attackAnimationTimer = Math.max(attackAnimationTimer, vultureGlideTimer);
     }
 
+    /** Positions Opium Bird at a deterministic frame of each authored special pose. */
+    void prepareVisualAuditOpiumAction(
+            VisualAuditOpiumAction action, int remainingFrames, boolean faceRight) {
+        prepareVisualAuditPose(action == VisualAuditOpiumAction.UP
+                ? VisualAuditPose.FLAP : VisualAuditPose.ATTACK);
+        facingRight = faceRight;
+        opiumNeutralReuseTimer = 0;
+        opiumSideTimer = 0;
+        opiumUpTimer = 0;
+        opiumDownReuseTimer = 0;
+        opiumUltimateTimer = 0;
+        switch (action) {
+            case NEUTRAL -> opiumNeutralReuseTimer = Math.clamp(
+                    remainingFrames, OPIUM_NEUTRAL_REUSE_FRAMES - 15, OPIUM_NEUTRAL_REUSE_FRAMES);
+            case SIDE -> {
+                opiumSideDirection = faceRight ? 1 : -1;
+                opiumSideTimer = Math.clamp(remainingFrames, 1, OPIUM_SIDE_FRAMES);
+            }
+            case UP -> {
+                opiumUpSpecialUsed = true;
+                opiumUpTimer = Math.clamp(remainingFrames, 1, OPIUM_UP_FRAMES);
+            }
+            case DOWN -> opiumDownReuseTimer = Math.clamp(
+                    remainingFrames, OPIUM_DOWN_REUSE_FRAMES - 15, OPIUM_DOWN_REUSE_FRAMES);
+            case ULTIMATE -> opiumUltimateTimer = Math.clamp(remainingFrames, 1, OPIUM_ULTIMATE_FRAMES);
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
+        displayPose = null;
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -17146,7 +17197,18 @@ public class Bird {
     private boolean opiumSpecialPoseActive() {
         return isOpiumEchoPair()
                 && (opiumSideTimer > 0 || opiumUpTimer > 0
-                || opiumUltimateTimer > 0 || heisenUltimateTimer > 0 || heisenUltimateVolleyTimer > 0);
+                || opiumUltimateTimer > 0 || heisenUltimateTimer > 0 || heisenUltimateVolleyTimer > 0
+                || opiumNeutralCastPoseActive() || opiumDownCastPoseActive());
+    }
+
+    private boolean opiumNeutralCastPoseActive() {
+        return type == BirdGame3.BirdType.OPIUMBIRD
+                && opiumNeutralReuseTimer > OPIUM_NEUTRAL_REUSE_FRAMES - 16;
+    }
+
+    private boolean opiumDownCastPoseActive() {
+        return type == BirdGame3.BirdType.OPIUMBIRD
+                && opiumDownReuseTimer > OPIUM_DOWN_REUSE_FRAMES - 16;
     }
 
     private boolean ravenSpecialPoseActive() {
@@ -18011,6 +18073,40 @@ public class Bird {
                     heisen ? 0.82 : 1.08,
                     sideDir * (10.0 + surge * 7.0),
                     1.14 + surge * 0.06,
+                    0.88
+            );
+        }
+        if (!heisen && opiumNeutralCastPoseActive()) {
+            double elapsed = OPIUM_NEUTRAL_REUSE_FRAMES - opiumNeutralReuseTimer;
+            double bloom = Math.sin(Math.clamp(elapsed / 15.0, 0.0, 1.0) * Math.PI);
+            return new AttackVisualPose(
+                    -dir * bloom * 2.0,
+                    -5.0 - bloom * 5.0,
+                    -dir * (3.0 + bloom * 4.0),
+                    normalizeAngleRadians(-0.20 * dir),
+                    8.0 + bloom * 5.0,
+                    -9.0 - bloom * 5.0,
+                    7.0 + bloom * 4.0,
+                    1.12 + bloom * 0.08,
+                    -dir * (7.0 + bloom * 4.0),
+                    1.04 + bloom * 0.04,
+                    0.96
+            );
+        }
+        if (!heisen && opiumDownCastPoseActive()) {
+            double elapsed = OPIUM_DOWN_REUSE_FRAMES - opiumDownReuseTimer;
+            double plant = Math.sin(Math.clamp(elapsed / 15.0, 0.0, 1.0) * Math.PI);
+            return new AttackVisualPose(
+                    -dir * plant * 3.0,
+                    4.0 + plant * 3.0,
+                    -dir * (5.0 + plant * 4.0),
+                    normalizeAngleRadians(0.34 * dir),
+                    4.0 + plant * 3.0,
+                    5.0 + plant * 4.0,
+                    4.0 + plant * 3.0,
+                    0.92,
+                    -dir * (5.0 + plant * 4.0),
+                    1.10,
                     0.88
             );
         }
@@ -21929,6 +22025,10 @@ public class Bird {
                 lastVisualVultureFootBaseline,
                 lastVisualVultureTorso,
                 lastVisualVultureCrowMarks,
+                lastVisualOpiumWingOpenness,
+                lastVisualOpiumFootBaseline,
+                lastVisualOpiumTorso,
+                lastVisualOpiumCharm,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21954,6 +22054,10 @@ public class Bird {
         lastVisualVultureFootBaseline = Double.NaN;
         lastVisualVultureTorso = null;
         lastVisualVultureCrowMarks = null;
+        lastVisualOpiumWingOpenness = 0.0;
+        lastVisualOpiumFootBaseline = Double.NaN;
+        lastVisualOpiumTorso = null;
+        lastVisualOpiumCharm = null;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -21992,7 +22096,6 @@ public class Bird {
             drawVulture(g, drawSize);
             drawBodyAndEyes(g, drawSize, attackPose);
             drawRooster(g, drawSize);
-            drawOpiumBirdAccessories(g);
             drawHeisenbirdAccessories(g);
             drawCitySkin(g);
             drawNoirSkin(g);
@@ -24151,16 +24254,11 @@ public class Bird {
         if (!opium && !heisen) return;
 
         if (opium) {
-            g.setFill(Color.rgb(138, 43, 226, 0.3));
-            g.fillOval(x - 30, y - 40, drawSize + 60, drawSize + 80);
-
-            g.setFill(Color.PURPLE.darker());
-            double dripBaseX = facingRight ? x + 85 : x - 21;
-            for (int i = 0; i < 3; i++) {
-                double offset = Math.sin((System.currentTimeMillis() / 100.0) + i) * 4;
-                double facingOffset = facingRight ? offset : -offset;
-                g.fillOval(dripBaseX + facingOffset, y + 54 + i * 14, 14, 22);
-            }
+            double idlePulse = 0.5 + 0.5 * Math.sin(animationTimeMillis() / 360.0);
+            double s = sizeMultiplier;
+            g.setFill(Color.web("#8E24AA", 0.055 + idlePulse * 0.035));
+            g.fillOval(x - 12.0 * s, y - 10.0 * s,
+                    drawSize + 24.0 * s, drawSize + 20.0 * s);
 
             if (highTimer > 0) {
                 double intensity = highTimer / 180.0;
@@ -29261,6 +29359,10 @@ public class Bird {
     }
 
     private void drawBodyAndEyes(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        if (type == BirdGame3.BirdType.OPIUMBIRD) {
+            drawOpiumBirdBody(g, drawSize, pose);
+            return;
+        }
         if (type == BirdGame3.BirdType.BAT) {
             drawBatBody(g);
             return;
@@ -29820,6 +29922,447 @@ public class Bird {
                     eyeCenterX + 4.0 * s, eyeCenterY + 6.5 * s);
         }
         drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    /**
+     * Opium Bird is a drifting dream-seer rather than a recolored round bird.
+     * His tapered body, vapor-tail, petal wings, charm cup, and sleepy crown are
+     * authored as one rig so every feature shares the same facing and pose.
+     */
+    private void drawOpiumBirdBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        double cx = x + drawSize * 0.5;
+        BirdAnimationState state = currentBirdAnimationState();
+        HeadPose headPose = standardHeadPose(pose);
+        boolean classic = isClassicSkin;
+        boolean faction = isCampaignFactionSkin();
+
+        Color back;
+        Color body;
+        Color breast;
+        Color head;
+        Color faceLight;
+        Color wing;
+        Color featherEdge;
+        Color crest;
+        Color leg;
+        Color iris;
+        Color beak;
+        Color beakShadow;
+        Color charmFrame;
+        Color charmLiquid;
+        if (faction) {
+            back = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            breast = campaignFactionSecondaryColor();
+            head = campaignFactionSecondaryColor();
+            faceLight = campaignFactionSecondaryColor().brighter();
+            wing = campaignFactionPrimaryColor().darker();
+            featherEdge = campaignFactionAccentColor();
+            crest = campaignFactionAccentColor();
+            leg = campaignFactionPrimaryColor().darker();
+            iris = campaignFactionAccentColor().darker();
+            beak = campaignFactionAccentColor();
+            beakShadow = campaignFactionPrimaryColor().darker();
+            charmFrame = campaignFactionSecondaryColor().brighter();
+            charmLiquid = campaignFactionAccentColor();
+        } else if (classic) {
+            back = Color.web("#120D1A");
+            body = Color.web("#2B173D");
+            breast = Color.web("#65365F");
+            head = Color.web("#432150");
+            faceLight = Color.web("#91618E");
+            wing = Color.web("#1B1028");
+            featherEdge = Color.web("#D07ABF");
+            crest = Color.web("#E890CF");
+            leg = Color.web("#38273D");
+            iris = Color.web("#E65AB8");
+            beak = Color.web("#C59761");
+            beakShadow = Color.web("#6E4F38");
+            charmFrame = Color.web("#E1BEE7");
+            charmLiquid = Color.web("#8E246F");
+        } else {
+            back = Color.web("#250D3B");
+            body = Color.web("#62258D");
+            breast = Color.web("#A956BD");
+            head = Color.web("#8C3DB0");
+            faceLight = Color.web("#D09ADC");
+            wing = Color.web("#42145F");
+            featherEdge = Color.web("#E1BEE7");
+            crest = Color.web("#D66BF2");
+            leg = Color.web("#49334F");
+            iris = Color.web("#4A185E");
+            beak = Color.web("#F2B34F");
+            beakShadow = Color.web("#9B6530");
+            charmFrame = Color.web("#F3E5F5");
+            charmLiquid = Color.web("#8E24AA");
+        }
+
+        double wingOpenness = opiumWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualOpiumWingOpenness = wingOpenness;
+        }
+
+        // Three tapering vapor feathers keep the rear silhouette readable even
+        // when the body is surrounded by an active cloud.
+        for (int i = 0; i < 3; i++) {
+            double rootX = cx - dir * (20.0 - i * 1.5) * s;
+            double rootY = y + (39.0 + i * 8.5) * s;
+            double tipX = rootX + rear * (30.0 - i * 4.0) * s;
+            double tipY = y + (31.0 + i * 18.0
+                    + (state == BirdAnimationState.FLAP ? -6.0 : state == BirdAnimationState.FALL ? 6.0 : 0.0)) * s;
+            Color tailColor = (i == 1 ? crest : wing)
+                    .deriveColor(i * 3.0, 0.92, 0.84 + i * 0.06, 0.92);
+            g.setFill(tailColor);
+            g.fillPolygon(
+                    new double[]{rootX + dir * 4.5 * s, tipX,
+                            rootX - dir * (4.0 + i) * s},
+                    new double[]{rootY - 5.0 * s, tipY, rootY + 5.5 * s}, 3);
+            g.setStroke(featherEdge.deriveColor(0, 0.70, 1.0, 0.48));
+            g.setLineWidth(0.9 * s);
+            g.strokeLine(rootX, rootY, tipX + dir * 2.0 * s, tipY);
+            recordVisualBodyPart(VisualBodyPart.OPIUM_TAIL_FEATHER);
+        }
+
+        drawOpiumLegs(g, state, leg, back);
+        drawOpiumWing(g, cx + dir * 14.0 * s, y + 35.0 * s,
+                dir, wingOpenness, wing, featherEdge, back, true);
+        recordVisualBodyPart(VisualBodyPart.OPIUM_WING);
+
+        // A high shoulder and hanging keel replace the old perfect circle.
+        g.setFill(back);
+        g.beginPath();
+        g.moveTo(cx - dir * 24.0 * s, y + 34.0 * s);
+        g.bezierCurveTo(cx - dir * 21.0 * s, y + 16.0 * s,
+                cx + dir * 12.0 * s, y + 10.0 * s,
+                cx + dir * 25.0 * s, y + 29.0 * s);
+        g.bezierCurveTo(cx + dir * 31.0 * s, y + 43.0 * s,
+                cx + dir * 18.0 * s, y + 66.0 * s, cx, y + 71.0 * s);
+        g.bezierCurveTo(cx - dir * 17.0 * s, y + 70.0 * s,
+                cx - dir * 31.0 * s, y + 54.0 * s,
+                cx - dir * 24.0 * s, y + 34.0 * s);
+        g.closePath();
+        g.fill();
+
+        g.setFill(body);
+        g.beginPath();
+        g.moveTo(cx - dir * 19.0 * s, y + 34.0 * s);
+        g.bezierCurveTo(cx - dir * 16.0 * s, y + 20.0 * s,
+                cx + dir * 10.0 * s, y + 16.0 * s,
+                cx + dir * 20.0 * s, y + 31.0 * s);
+        g.bezierCurveTo(cx + dir * 24.0 * s, y + 44.0 * s,
+                cx + dir * 13.0 * s, y + 62.0 * s, cx, y + 67.0 * s);
+        g.bezierCurveTo(cx - dir * 13.0 * s, y + 65.0 * s,
+                cx - dir * 23.0 * s, y + 51.0 * s,
+                cx - dir * 19.0 * s, y + 34.0 * s);
+        g.closePath();
+        g.fill();
+
+        g.setFill(breast.deriveColor(0, 0.86, 1.0, 0.68));
+        g.beginPath();
+        g.moveTo(cx - dir * 4.0 * s, y + 31.0 * s);
+        g.bezierCurveTo(cx + dir * 15.0 * s, y + 35.0 * s,
+                cx + dir * 14.0 * s, y + 57.0 * s, cx, y + 65.0 * s);
+        g.bezierCurveTo(cx - dir * 10.0 * s, y + 58.0 * s,
+                cx - dir * 12.0 * s, y + 40.0 * s,
+                cx - dir * 4.0 * s, y + 31.0 * s);
+        g.closePath();
+        g.fill();
+        if (visualAuditBodyOnly) {
+            lastVisualOpiumTorso = new VisualFeatureBounds(
+                    cx - 31.0 * s, y + 10.0 * s, cx + 31.0 * s, y + 71.0 * s);
+        }
+
+        drawOpiumWing(g, cx - dir * 14.0 * s, y + 35.0 * s,
+                -dir, wingOpenness, wing, featherEdge, back, false);
+        recordVisualBodyPart(VisualBodyPart.OPIUM_WING);
+
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double upX = -aimY;
+        double upY = aimX;
+        if (upY > 0.0) {
+            upX = -upX;
+            upY = -upY;
+        }
+
+        double neckStartX = cx + dir * 18.0 * s;
+        double neckStartY = y + 29.0 * s;
+        double neckEndX = headPose.centerX() - aimX * 12.0 * s;
+        double neckEndY = headPose.centerY() - aimY * 12.0 * s + 3.0 * s;
+        g.setStroke(head.darker());
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(15.0 * s);
+        g.strokeLine(neckStartX, neckStartY, neckEndX, neckEndY);
+        g.setStroke(head);
+        g.setLineWidth(10.0 * s);
+        g.strokeLine(neckStartX, neckStartY, neckEndX, neckEndY);
+
+        double headW = 42.0 * s;
+        double headH = 34.0 * s;
+        double headX = headPose.centerX() - headW * 0.5;
+        double headY = headPose.centerY() - headH * 0.5;
+        g.setFill(head.darker());
+        g.fillOval(headX - 1.6 * s, headY - 1.2 * s, headW + 3.2 * s, headH + 2.4 * s);
+        g.setFill(head);
+        g.fillOval(headX, headY, headW, headH);
+        double facePatchX = headPose.centerX() + aimX * 3.0 * s + upX * 1.5 * s;
+        double facePatchY = headPose.centerY() + aimY * 3.0 * s + upY * 1.5 * s;
+        g.setFill(faceLight.deriveColor(0, 0.72, 1.0, 0.34));
+        g.fillOval(facePatchX - 11.5 * s, facePatchY - 7.0 * s, 23.0 * s, 14.0 * s);
+
+        // Three soft crown petals curl backward like smoke without entering the eye.
+        for (int i = 0; i < 3; i++) {
+            double rootX = headPose.centerX() - aimX * (5.0 + i * 4.0) * s + upX * 13.0 * s;
+            double rootY = headPose.centerY() - aimY * (5.0 + i * 4.0) * s + upY * 13.0 * s;
+            double tipX = rootX - aimX * (8.0 + i * 3.0) * s + upX * (6.0 - i) * s;
+            double tipY = rootY - aimY * (8.0 + i * 3.0) * s + upY * (6.0 - i) * s;
+            g.setFill(crest.deriveColor(i * 4.0, 0.92, 0.94 - i * 0.07, 0.94));
+            g.fillPolygon(
+                    new double[]{rootX - upX * 3.2 * s, tipX, rootX + upX * 3.2 * s},
+                    new double[]{rootY - upY * 3.2 * s, tipY, rootY + upY * 3.2 * s}, 3);
+            recordVisualBodyPart(VisualBodyPart.OPIUM_CREST_PETAL);
+        }
+
+        double eyeCenterX = headPose.centerX() + aimX * 4.5 * s + upX * 3.5 * s;
+        double eyeCenterY = headPose.centerY() + aimY * 4.5 * s + upY * 3.5 * s;
+        double eyeRadius = 8.0 * s;
+        double irisRadius = 4.5 * s;
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headPose.centerX() - headW * 0.5, headPose.centerY() - headH * 0.5,
+                headPose.centerX() + headW * 0.5, headPose.centerY() + headH * 0.5);
+        lastVisualEye = new VisualFeatureCircle(eyeCenterX, eyeCenterY, eyeRadius);
+        g.setFill(Color.web("#FFF8F0"));
+        g.fillOval(eyeCenterX - eyeRadius, eyeCenterY - eyeRadius,
+                eyeRadius * 2.0, eyeRadius * 2.0);
+        double gaze = state == BirdAnimationState.IDLE
+                ? Math.sin((animationGlobalFrame + playerIndex * 31.0) * 0.052) * 0.9 : 0.0;
+        double irisX = eyeCenterX + aimX * (1.5 + gaze) * s;
+        double irisY = eyeCenterY + aimY * (1.5 + gaze) * s;
+        g.setFill(iris);
+        g.fillOval(irisX - irisRadius, irisY - irisRadius,
+                irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(Color.web("#17091D"));
+        g.fillOval(irisX - 2.2 * s, irisY - 2.2 * s, 4.4 * s, 4.4 * s);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.90));
+        g.fillOval(irisX - 1.4 * s + upX * 0.5 * s,
+                irisY - 1.4 * s + upY * 0.5 * s, 2.5 * s, 2.5 * s);
+        // A lowered upper lid keeps the sleepy expression without crossing the pupil.
+        g.setStroke(head.darker());
+        g.setLineWidth(2.2 * s);
+        g.strokeLine(eyeCenterX - aimX * 6.8 * s + upX * 7.0 * s,
+                eyeCenterY - aimY * 6.8 * s + upY * 7.0 * s,
+                eyeCenterX + aimX * 6.3 * s + upX * 5.4 * s,
+                eyeCenterY + aimY * 6.3 * s + upY * 5.4 * s);
+
+        drawOpiumBeak(g, pose, headPose, aimX, aimY, upX, upY, beak, beakShadow);
+        drawOpiumCharm(g, cx, dir, charmFrame, charmLiquid, featherEdge);
+        drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    private void drawOpiumLegs(GraphicsContext g, BirdAnimationState state, Color leg, Color edge) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || opiumUpTimer > 0 || opiumUltimateTimer > 0;
+        double runAmount = state == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 17.0) * 0.38)
+                * 4.0 * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double alongBody = i == 0 ? -7.0 : 7.0;
+            double hipX = x + 40.0 * s + dir * alongBody * s;
+            double hipY = y + 60.0 * s;
+            double step = (i == 0 ? stride : -stride) * dir * s;
+            double ankleX = airborne ? hipX - dir * (3.0 + i * 2.0) * s : hipX + step;
+            double ankleY = y + (airborne ? 69.0 + i * 2.0 : 75.0) * s;
+            g.setStroke(leg.deriveColor(0, 0.90, 0.90, i == 0 ? 0.72 : 0.98));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.2 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            double toeDir = airborne ? -dir : dir;
+            double toeY = airborne ? ankleY + 4.0 * s : y + 79.0 * s;
+            g.setLineWidth(1.8 * s);
+            for (int toe = -1; toe <= 1; toe++) {
+                double length = (toe == 0 ? 9.0 : 6.5) * s;
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + toeDir * length + toe * 1.2 * s,
+                        toeY - Math.abs(toe) * 0.5 * s);
+            }
+            g.setStroke(edge.deriveColor(0, 0.62, 1.0, 0.30));
+            g.setLineWidth(0.65 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            if (!airborne && visualAuditBodyOnly) {
+                lastVisualOpiumFootBaseline = Math.max(
+                        Double.isNaN(lastVisualOpiumFootBaseline)
+                                ? Double.NEGATIVE_INFINITY : lastVisualOpiumFootBaseline,
+                        80.0);
+            }
+            recordVisualBodyPart(VisualBodyPart.OPIUM_LEG);
+        }
+    }
+
+    private void drawOpiumWing(GraphicsContext g, double shoulderX, double shoulderY,
+                               double side, double openness, Color wing,
+                               Color edge, Color shadow, boolean farSide) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double foldedTipX = shoulderX + side * 8.0 * s;
+        double foldedTipY = y + 61.0 * s;
+        double spreadTipX = shoulderX + side * (31.0 + open * 8.0) * s;
+        double spreadTipY = y + (31.0 - open * 25.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double dx = tipX - shoulderX;
+        double dy = tipY - shoulderY;
+        double length = Math.max(0.001, Math.hypot(dx, dy));
+        double normalX = (-dy / length) * side;
+        double normalY = (dx / length) * side;
+        double alpha = farSide ? 0.62 : 0.96;
+        double rootWidth = (7.0 + open * 2.0) * s;
+        double midX = shoulderX + dx * 0.54;
+        double midY = shoulderY + dy * 0.54;
+        double midWidth = (10.0 + open * 4.0) * s;
+        g.setFill(wing.deriveColor(0, 0.96, farSide ? 0.78 : 0.98, alpha));
+        g.fillPolygon(
+                new double[]{shoulderX + normalX * rootWidth,
+                        midX + normalX * midWidth, tipX,
+                        midX - normalX * midWidth,
+                        shoulderX - normalX * rootWidth},
+                new double[]{shoulderY + normalY * rootWidth,
+                        midY + normalY * midWidth, tipY,
+                        midY - normalY * midWidth,
+                        shoulderY - normalY * rootWidth}, 5);
+
+        // Three petal-like primaries make the wing feel soft but still anatomical.
+        g.setStroke(edge.deriveColor(0, 0.72, 1.0, alpha * 0.68));
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int feather = 0; feather < 3; feather++) {
+            double offset = (feather - 1.0) * (3.6 + open * 2.6) * s;
+            g.setLineWidth((1.0 + feather * 0.12) * s);
+            g.strokeLine(shoulderX + normalX * offset,
+                    shoulderY + normalY * offset,
+                    tipX - side * feather * 4.2 * s + normalX * offset * 0.38,
+                    tipY + normalY * offset * 0.38 + feather * 2.0 * s);
+        }
+        g.setStroke(shadow.deriveColor(0, 0.72, 1.0, alpha * 0.50));
+        g.setLineWidth(0.9 * s);
+        g.strokeLine(shoulderX, shoulderY, tipX - side * 3.0 * s, tipY + 1.0 * s);
+        g.setFill(wing.brighter().deriveColor(0, 0.70, 1.0, alpha * 0.24));
+        g.fillOval(shoulderX - (10.0 + open) * s,
+                shoulderY - (6.0 + open) * s,
+                (20.0 + open * 2.0) * s, (18.0 + open * 2.0) * s);
+    }
+
+    private void drawOpiumBeak(GraphicsContext g, AttackVisualPose pose, HeadPose headPose,
+                               double aimX, double aimY, double upX, double upY,
+                               Color upper, Color lower) {
+        double s = sizeMultiplier;
+        boolean special = opiumSpecialPoseActive();
+        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
+        double open = ((attackAnimationTimer > 0 || special) ? 3.2 : 0.8) * s * openScale;
+        double length = (23.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.34)) * s;
+        double rootX = headPose.centerX() + aimX * 14.0 * s;
+        double rootY = headPose.centerY() + aimY * 14.0 * s;
+        double tipX = rootX + aimX * length;
+        double tipY = rootY + aimY * length;
+        double softHookX = tipX + aimX * 1.0 * s - upX * 2.8 * s;
+        double softHookY = tipY + aimY * 1.0 * s - upY * 2.8 * s;
+        recordVisualBeak(rootX, rootY, softHookX, softHookY);
+        g.setFill(upper);
+        g.fillPolygon(
+                new double[]{rootX + upX * 6.0 * s,
+                        tipX + upX * 1.6 * s, softHookX,
+                        rootX - upX * 0.8 * s},
+                new double[]{rootY + upY * 6.0 * s,
+                        tipY + upY * 1.6 * s, softHookY,
+                        rootY - upY * 0.8 * s}, 4);
+        g.setFill(lower);
+        g.fillPolygon(
+                new double[]{rootX - upX * 0.5 * s,
+                        tipX - aimX * 2.0 * s - upX * (1.0 * s + open),
+                        rootX - upX * 6.0 * s},
+                new double[]{rootY - upY * 0.5 * s,
+                        tipY - aimY * 2.0 * s - upY * (1.0 * s + open),
+                        rootY - upY * 6.0 * s}, 3);
+        g.setStroke(upper.brighter().deriveColor(0, 0.70, 1.0, 0.58));
+        g.setLineWidth(0.9 * s);
+        g.strokeLine(rootX + upX * 1.5 * s, rootY + upY * 1.5 * s,
+                tipX - aimX * 2.5 * s + upX * 0.5 * s,
+                tipY - aimY * 2.5 * s + upY * 0.5 * s);
+    }
+
+    private void drawOpiumCharm(GraphicsContext g, double cx, double dir,
+                                Color frame, Color liquid, Color strap) {
+        double s = sizeMultiplier;
+        double charmCenterX = cx - dir * 15.0 * s;
+        double charmTop = y + 47.0 * s;
+        double charmWidth = 14.0 * s;
+        double charmHeight = 18.0 * s;
+        g.setStroke(strap.deriveColor(0, 0.66, 1.0, 0.54));
+        g.setLineWidth(1.4 * s);
+        g.strokeLine(cx + dir * 5.0 * s, y + 28.0 * s,
+                charmCenterX, charmTop + 2.0 * s);
+        g.setFill(frame);
+        g.fillRoundRect(charmCenterX - charmWidth * 0.5, charmTop,
+                charmWidth, charmHeight, 4.0 * s, 4.0 * s);
+        g.setFill(liquid);
+        g.fillRoundRect(charmCenterX - charmWidth * 0.5 + 2.0 * s,
+                charmTop + 5.0 * s, charmWidth - 4.0 * s,
+                charmHeight - 7.0 * s, 2.5 * s, 2.5 * s);
+        g.setStroke(liquid.brighter().deriveColor(0, 0.72, 1.0, 0.72));
+        g.setLineWidth(0.8 * s);
+        g.strokeLine(charmCenterX - 3.0 * s, charmTop + 8.0 * s,
+                charmCenterX + 3.0 * s, charmTop + 8.0 * s);
+        if (visualAuditBodyOnly) {
+            lastVisualOpiumCharm = new VisualFeatureBounds(
+                    charmCenterX - charmWidth * 0.5, charmTop,
+                    charmCenterX + charmWidth * 0.5, charmTop + charmHeight);
+        }
+        recordVisualBodyPart(VisualBodyPart.OPIUM_CHARM);
+    }
+
+    /** Returns the authored two-wing pose for movement and every Opium special. */
+    private double opiumWingOpenness(BirdAnimationState state) {
+        if (opiumUltimateTimer > 0) {
+            return 0.84 + (0.5 + 0.5 * Math.cos(opiumUltimateTimer * 0.20)) * 0.12;
+        }
+        if (opiumUpTimer > 0) {
+            double elapsed = Math.max(0.0, OPIUM_UP_FRAMES - opiumUpTimer);
+            double open = smoothStep(Math.clamp(elapsed / 3.0, 0.0, 1.0));
+            double close = smoothStep(Math.clamp(opiumUpTimer / 4.0, 0.0, 1.0));
+            return 0.16 + open * close * 0.84;
+        }
+        if (opiumSideTimer > 0) {
+            double elapsed = Math.max(0.0, OPIUM_SIDE_FRAMES - opiumSideTimer);
+            double open = smoothStep(Math.clamp(elapsed / 3.0, 0.0, 1.0));
+            double close = smoothStep(Math.clamp(opiumSideTimer / 4.0, 0.0, 1.0));
+            return 0.12 + open * close * 0.64;
+        }
+        if (opiumNeutralCastPoseActive()) {
+            double elapsed = OPIUM_NEUTRAL_REUSE_FRAMES - opiumNeutralReuseTimer;
+            return 0.12 + Math.sin(Math.clamp(elapsed / 15.0, 0.0, 1.0) * Math.PI) * 0.68;
+        }
+        if (opiumDownCastPoseActive()) {
+            double elapsed = OPIUM_DOWN_REUSE_FRAMES - opiumDownReuseTimer;
+            return 0.10 + Math.sin(Math.clamp(elapsed / 15.0, 0.0, 1.0) * Math.PI) * 0.52;
+        }
+        if (state == BirdAnimationState.FLAP || isFlying) {
+            double phase = positiveModulo(animationGlobalFrame + playerIndex * 5.0, 18.0) / 18.0;
+            return 0.66 + smoothStep(0.5 + 0.5 * Math.cos(phase * Math.PI * 2.0)) * 0.34;
+        }
+        if (state == BirdAnimationState.FALL) {
+            return 0.56;
+        }
+        if (state == BirdAnimationState.ATTACK) {
+            return 0.24;
+        }
+        if (state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO) {
+            return 0.14;
+        }
+        return 0.06;
     }
 
     /** Gives the stylized Hummingbird a readable two-wing hover and needle-tail silhouette. */
@@ -32917,36 +33460,6 @@ public class Bird {
         g.restore();
     }
 
-    private void drawOpiumBirdAccessories(GraphicsContext g) {
-        if (type != BirdGame3.BirdType.OPIUMBIRD) return;
-        double s = sizeMultiplier;
-        HeadPose headPose = currentHeadPose();
-        double headX = headPose.centerX() - 25.0 * s;
-        double headY = headPose.centerY() - 20.0 * s;
-        double dir = facingRight ? 1.0 : -1.0;
-
-        g.setStroke(Color.web("#CE93D8").deriveColor(0, 1, 1, 0.86));
-        g.setLineWidth(2.2 * s);
-        g.strokeArc(x + 16.0 * s, y + 30.0 * s, 48.0 * s, 34.0 * s, 202, 128, ArcType.OPEN);
-
-        double cupX = x + (facingRight ? 11.0 : 55.0) * s;
-        double cupY = y + 47.0 * s;
-        g.setFill(Color.web("#F3E5F5"));
-        g.fillRoundRect(cupX, cupY, 17.0 * s, 23.0 * s, 4.0 * s, 4.0 * s);
-        g.setFill(Color.web("#7B1FA2"));
-        g.fillRoundRect(cupX + 2.0 * s, cupY + 5.0 * s, 13.0 * s, 14.0 * s, 3.0 * s, 3.0 * s);
-
-        double eyeY = headY + 14.0 * s;
-        double frontEyeX = headX + (facingRight ? 34.0 : 16.0) * s;
-        g.setStroke(Color.web("#6A1B9A"));
-        g.setLineWidth(2.2 * s);
-        g.strokeLine(frontEyeX - 5.0 * s * dir, eyeY, frontEyeX + 6.0 * s * dir, eyeY + 2.0 * s);
-
-        g.setFill(Color.web("#AB47BC").deriveColor(0, 1, 1, 0.82));
-        double dripX = x + (facingRight ? 61.0 : 14.0) * s;
-        g.fillOval(dripX, y + 63.0 * s, 6.0 * s, 12.0 * s);
-    }
-
     private void drawHeisenbirdAccessories(GraphicsContext g) {
         if (type != BirdGame3.BirdType.HEISENBIRD) return;
         double s = sizeMultiplier;
@@ -32994,7 +33507,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.MOCKINGBIRD
                 || type == BirdGame3.BirdType.RAZORBILL
                 || type == BirdGame3.BirdType.GRINCHHAWK
-                || type == BirdGame3.BirdType.VULTURE) return;
+                || type == BirdGame3.BirdType.VULTURE
+                || type == BirdGame3.BirdType.OPIUMBIRD) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -34057,6 +34571,10 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE) {
             // Both playable Vulture and Null Rock author their hooked bills in
             // their dedicated renderers; the shared bill would draw a second one.
+            return;
+        }
+        if (type == BirdGame3.BirdType.OPIUMBIRD) {
+            // Opium Bird's small hooked bill is part of his dedicated model.
             return;
         }
         if (type == BirdGame3.BirdType.RAVEN) {

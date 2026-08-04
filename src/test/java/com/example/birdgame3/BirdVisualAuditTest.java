@@ -23,7 +23,8 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.ROADRUNNER,
             BirdGame3.BirdType.SHOEBILL,
             BirdGame3.BirdType.MOCKINGBIRD,
-            BirdGame3.BirdType.VULTURE
+            BirdGame3.BirdType.VULTURE,
+            BirdGame3.BirdType.OPIUMBIRD
     );
 
     private static BirdGame3 freshGame() {
@@ -1338,6 +1339,159 @@ class BirdVisualAuditTest {
                         label + " changes crow-mark height when turning around");
                 assertEquals(right.vultureCrowMarks().bottom(), left.vultureCrowMarks().bottom(), 0.01,
                         label + " changes crow-mark height when turning around");
+            }
+        }
+    }
+
+    @Test
+    void opiumBirdKeepsVaporTailPetalWingsTalonsCrestAndCharmAcrossEveryPose() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.OPIUMBIRD)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                Bird.VisualFeatureGeometry right =
+                        game.inspectVisualAuditCombatFeatures(entry, pose, true);
+                Bird.VisualFeatureGeometry left =
+                        game.inspectVisualAuditCombatFeatures(entry, pose, false);
+                String label = entry.name() + " / " + pose;
+
+                for (Bird.VisualFeatureGeometry geometry : List.of(right, left)) {
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.OPIUM_TAIL_FEATHER),
+                            label + " must retain all three vapor-tail feathers");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.OPIUM_WING),
+                            label + " must retain both petal wings");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.OPIUM_LEG),
+                            label + " must retain both legs");
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.OPIUM_CREST_PETAL),
+                            label + " must retain all three sleepy crown petals");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.OPIUM_CHARM),
+                            label + " must retain the flank charm");
+                    assertTrue(geometry.opiumTorso() != null,
+                            label + " did not report the authored torso");
+                    assertTrue(geometry.opiumTorso().contains(geometry.opiumCharm(), 0.01),
+                            label + " lets the flank charm float outside the torso");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+
+                assertMirrored(right, left, label);
+                double centerX = (right.opiumTorso().left() + right.opiumTorso().right()) * 0.5;
+                assertEquals(centerX * 2.0,
+                        right.opiumCharm().left() + left.opiumCharm().right(), 0.01,
+                        label + " does not mirror the charm's rear edge");
+                assertEquals(centerX * 2.0,
+                        right.opiumCharm().right() + left.opiumCharm().left(), 0.01,
+                        label + " does not mirror the charm's front edge");
+            }
+        }
+    }
+
+    @Test
+    void opiumBirdGroundedTalonsMeetTheGameplayFloorAcrossSkinsAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.OPIUMBIRD)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : List.of(Bird.VisualAuditPose.IDLE, Bird.VisualAuditPose.RUN)) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertTrue(Double.isFinite(geometry.opiumFootBaseline()),
+                            label + " did not report a grounded foot baseline");
+                    assertEquals(80.0, geometry.opiumFootBaseline(), 0.15,
+                            label + " must place the talons on the 80-unit collision floor");
+                }
+            }
+        }
+    }
+
+    @Test
+    void opiumBirdFaceAndBillFollowFlightAndHitAnimationsWithoutObstruction() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.OPIUMBIRD)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+
+                assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 16.0,
+                        label + " must aim its bill upward during flight");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its head and bill backward during hitstun");
+                assertFeatureGeometryIsSafe(idle, label + " idle");
+                assertFeatureGeometryIsSafe(flap, label + " flap");
+                assertFeatureGeometryIsSafe(hit, label + " hit");
+            }
+        }
+    }
+
+    @Test
+    void opiumBirdSpecialsUseAuthoredWingGesturesAndCompleteOpenCloseCycles() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.OPIUMBIRD)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry neutral = game.inspectVisualAuditOpiumActionFeatures(
+                        entry, Bird.VisualAuditOpiumAction.NEUTRAL, 45, facingRight);
+                Bird.VisualFeatureGeometry sideStart = game.inspectVisualAuditOpiumActionFeatures(
+                        entry, Bird.VisualAuditOpiumAction.SIDE, Bird.OPIUM_SIDE_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry sideSpread = game.inspectVisualAuditOpiumActionFeatures(
+                        entry, Bird.VisualAuditOpiumAction.SIDE, Bird.OPIUM_SIDE_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry sideClosing = game.inspectVisualAuditOpiumActionFeatures(
+                        entry, Bird.VisualAuditOpiumAction.SIDE, 1, facingRight);
+                Bird.VisualFeatureGeometry upSpread = game.inspectVisualAuditOpiumActionFeatures(
+                        entry, Bird.VisualAuditOpiumAction.UP, Bird.OPIUM_UP_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry down = game.inspectVisualAuditOpiumActionFeatures(
+                        entry, Bird.VisualAuditOpiumAction.DOWN, 37, facingRight);
+                Bird.VisualFeatureGeometry ultimate = game.inspectVisualAuditOpiumActionFeatures(
+                        entry, Bird.VisualAuditOpiumAction.ULTIMATE, Bird.OPIUM_ULTIMATE_FRAMES - 20, facingRight);
+
+                assertTrue(idle.opiumWingOpenness() <= 0.07,
+                        label + " must keep relaxed idle wings folded");
+                assertTrue(neutral.opiumWingOpenness() >= 0.72,
+                        label + " must bloom both wings while casting Lean Cloud");
+                assertTrue(sideStart.opiumWingOpenness() <= 0.13,
+                        label + " must begin Haze Drift with folded wings");
+                assertTrue(sideSpread.opiumWingOpenness() >= 0.72,
+                        label + " must spread both wings during Haze Drift");
+                assertTrue(sideClosing.opiumWingOpenness() <= 0.24,
+                        label + " must fold both wings before Haze Drift ends");
+                assertTrue(upSpread.opiumWingOpenness() >= 0.92,
+                        label + " must fully open both wings during Rising Vapors");
+                assertTrue(down.opiumWingOpenness() >= 0.57,
+                        label + " must gesture with both wings while planting Lotus Patch");
+                assertTrue(ultimate.opiumWingOpenness() >= 0.84,
+                        label + " must hold both wings open during Purple Haze");
+                for (Bird.VisualFeatureGeometry geometry :
+                        List.of(neutral, sideStart, sideSpread, sideClosing, upSpread, down, ultimate)) {
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.OPIUM_WING),
+                            label + " special pose lost a wing");
+                    assertFeatureGeometryIsSafe(geometry, label + " special pose");
+                }
             }
         }
     }
