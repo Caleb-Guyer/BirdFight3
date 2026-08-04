@@ -1298,6 +1298,50 @@ class BirdVisualAuditTest {
         }
     }
 
+    @Test
+    void vultureTorsoAndCrowMarksMirrorCleanlyAndStayAttachedToTheBody() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.VULTURE)
+                .filter(entry -> !"NULL_ROCK_VULTURE".equals(entry.key()))
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                Bird.VisualFeatureGeometry right =
+                        game.inspectVisualAuditCombatFeatures(entry, pose, true);
+                Bird.VisualFeatureGeometry left =
+                        game.inspectVisualAuditCombatFeatures(entry, pose, false);
+                String label = entry.name() + " / " + pose;
+
+                assertMirrored(right, left, label);
+                assertEquals(2, right.bodyPartCount(Bird.VisualBodyPart.VULTURE_CROW_MARK),
+                        label + " must draw two crow-charge marks facing right");
+                assertEquals(2, left.bodyPartCount(Bird.VisualBodyPart.VULTURE_CROW_MARK),
+                        label + " must draw two crow-charge marks facing left");
+                assertTrue(right.vultureTorso() != null && left.vultureTorso() != null,
+                        label + " did not report the authored torso bounds");
+                assertTrue(right.vultureTorso().contains(right.vultureCrowMarks(), 0.01),
+                        label + " places a right-facing crow mark outside the torso");
+                assertTrue(left.vultureTorso().contains(left.vultureCrowMarks(), 0.01),
+                        label + " places a left-facing crow mark outside the torso");
+
+                double centerX = (right.vultureTorso().left() + right.vultureTorso().right()) * 0.5;
+                assertEquals(centerX * 2.0,
+                        right.vultureCrowMarks().left() + left.vultureCrowMarks().right(), 0.01,
+                        label + " does not mirror the rear edge of the crow markings");
+                assertEquals(centerX * 2.0,
+                        right.vultureCrowMarks().right() + left.vultureCrowMarks().left(), 0.01,
+                        label + " does not mirror the front edge of the crow markings");
+                assertEquals(right.vultureCrowMarks().top(), left.vultureCrowMarks().top(), 0.01,
+                        label + " changes crow-mark height when turning around");
+                assertEquals(right.vultureCrowMarks().bottom(), left.vultureCrowMarks().bottom(), 0.01,
+                        label + " changes crow-mark height when turning around");
+            }
+        }
+    }
+
     private static void assertTurkeyNeckEndsBehindHead(
             Bird.VisualFeatureGeometry geometry, String label) {
         assertTrue(geometry.turkeyNeck() != null, label + " did not report its neck geometry");

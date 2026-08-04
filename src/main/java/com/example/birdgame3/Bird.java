@@ -300,6 +300,14 @@ public class Bird {
                     && circle.centerY() - circle.radius() >= top - tolerance
                     && circle.centerY() + circle.radius() <= bottom + tolerance;
         }
+
+        boolean contains(VisualFeatureBounds bounds, double tolerance) {
+            return bounds != null
+                    && bounds.left() >= left - tolerance
+                    && bounds.right() <= right + tolerance
+                    && bounds.top() >= top - tolerance
+                    && bounds.bottom() <= bottom + tolerance;
+        }
     }
 
     record VisualFeatureCircle(double centerX, double centerY, double radius) {
@@ -363,7 +371,8 @@ public class Bird {
         VULTURE_TAIL_FEATHER,
         VULTURE_WING,
         VULTURE_LEG,
-        VULTURE_RUFF_FEATHER
+        VULTURE_RUFF_FEATHER,
+        VULTURE_CROW_MARK
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -382,6 +391,8 @@ public class Bird {
                                  double grinchhawkFootBaseline,
                                  double vultureWingOpenness,
                                  double vultureFootBaseline,
+                                 VisualFeatureBounds vultureTorso,
+                                 VisualFeatureBounds vultureCrowMarks,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -570,6 +581,8 @@ public class Bird {
     private double lastVisualGrinchhawkFootBaseline = Double.NaN;
     private double lastVisualVultureWingOpenness;
     private double lastVisualVultureFootBaseline = Double.NaN;
+    private VisualFeatureBounds lastVisualVultureTorso;
+    private VisualFeatureBounds lastVisualVultureCrowMarks;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -21914,6 +21927,8 @@ public class Bird {
                 lastVisualGrinchhawkFootBaseline,
                 lastVisualVultureWingOpenness,
                 lastVisualVultureFootBaseline,
+                lastVisualVultureTorso,
+                lastVisualVultureCrowMarks,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21937,6 +21952,8 @@ public class Bird {
         lastVisualGrinchhawkFootBaseline = Double.NaN;
         lastVisualVultureWingOpenness = 0.0;
         lastVisualVultureFootBaseline = Double.NaN;
+        lastVisualVultureTorso = null;
+        lastVisualVultureCrowMarks = null;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -27525,35 +27542,44 @@ public class Bird {
         // Broad shoulders and a hanging keel give the scavenger weight without a circular torso.
         g.setFill(back);
         g.beginPath();
-        g.moveTo(x + (facingRight ? 15.0 : 65.0) * s, y + 37.0 * s);
-        g.bezierCurveTo(x + 17.0 * s, y + 12.0 * s, x + 58.0 * s, y + 8.0 * s,
-                x + (facingRight ? 69.0 : 11.0) * s, y + 35.0 * s);
-        g.bezierCurveTo(x + (facingRight ? 73.0 : 7.0) * s, y + 52.0 * s,
-                x + 57.0 * s, y + 72.0 * s, cx, y + 72.0 * s);
-        g.bezierCurveTo(x + 22.0 * s, y + 72.0 * s, x + 8.0 * s, y + 53.0 * s,
-                x + (facingRight ? 15.0 : 65.0) * s, y + 37.0 * s);
+        g.moveTo(cx - dir * 25.0 * s, y + 37.0 * s);
+        g.bezierCurveTo(cx - dir * 23.0 * s, y + 12.0 * s,
+                cx + dir * 18.0 * s, y + 8.0 * s,
+                cx + dir * 29.0 * s, y + 35.0 * s);
+        g.bezierCurveTo(cx + dir * 33.0 * s, y + 52.0 * s,
+                cx + dir * 17.0 * s, y + 72.0 * s, cx, y + 72.0 * s);
+        g.bezierCurveTo(cx - dir * 18.0 * s, y + 72.0 * s,
+                cx - dir * 32.0 * s, y + 53.0 * s,
+                cx - dir * 25.0 * s, y + 37.0 * s);
         g.closePath();
         g.fill();
         g.setFill(body);
         g.beginPath();
-        g.moveTo(x + (facingRight ? 21.0 : 59.0) * s, y + 37.0 * s);
-        g.bezierCurveTo(x + 23.0 * s, y + 19.0 * s, x + 55.0 * s, y + 16.0 * s,
-                x + (facingRight ? 63.0 : 17.0) * s, y + 36.0 * s);
-        g.bezierCurveTo(x + (facingRight ? 66.0 : 14.0) * s, y + 50.0 * s,
-                x + 53.0 * s, y + 67.0 * s, cx, y + 68.0 * s);
-        g.bezierCurveTo(x + 27.0 * s, y + 67.0 * s, x + 16.0 * s, y + 51.0 * s,
-                x + (facingRight ? 21.0 : 59.0) * s, y + 37.0 * s);
+        g.moveTo(cx - dir * 19.0 * s, y + 37.0 * s);
+        g.bezierCurveTo(cx - dir * 17.0 * s, y + 19.0 * s,
+                cx + dir * 15.0 * s, y + 16.0 * s,
+                cx + dir * 23.0 * s, y + 36.0 * s);
+        g.bezierCurveTo(cx + dir * 26.0 * s, y + 50.0 * s,
+                cx + dir * 13.0 * s, y + 67.0 * s, cx, y + 68.0 * s);
+        g.bezierCurveTo(cx - dir * 13.0 * s, y + 67.0 * s,
+                cx - dir * 24.0 * s, y + 51.0 * s,
+                cx - dir * 19.0 * s, y + 37.0 * s);
         g.closePath();
         g.fill();
         g.setFill(breast.deriveColor(0, 0.82, 1.0, 0.72));
         g.beginPath();
-        g.moveTo(x + 33.0 * s, y + 34.0 * s);
-        g.bezierCurveTo(x + 54.0 * s, y + 35.0 * s, x + 58.0 * s, y + 58.0 * s,
-                cx, y + 67.0 * s);
-        g.bezierCurveTo(x + 27.0 * s, y + 60.0 * s, x + 24.0 * s, y + 42.0 * s,
-                x + 33.0 * s, y + 34.0 * s);
+        g.moveTo(cx - dir * 7.0 * s, y + 34.0 * s);
+        g.bezierCurveTo(cx + dir * 14.0 * s, y + 35.0 * s,
+                cx + dir * 18.0 * s, y + 58.0 * s, cx, y + 67.0 * s);
+        g.bezierCurveTo(cx - dir * 13.0 * s, y + 60.0 * s,
+                cx - dir * 16.0 * s, y + 42.0 * s,
+                cx - dir * 7.0 * s, y + 34.0 * s);
         g.closePath();
         g.fill();
+        if (visualAuditBodyOnly) {
+            lastVisualVultureTorso = new VisualFeatureBounds(
+                    cx - 33.0 * s, y + 8.0 * s, cx + 33.0 * s, y + 72.0 * s);
+        }
 
         drawVultureWing(g, cx - dir * 17.0 * s, y + 36.0 * s,
                 -dir, wingOpenness, wing, featherEdge, back, false);
@@ -27582,9 +27608,9 @@ public class Bird {
         // Seven separate collar feathers form the unmistakable pale vulture ruff.
         for (int i = 0; i < 7; i++) {
             double offset = i - 3.0;
-            double rootX = cx + offset * 6.0 * s;
+            double rootX = cx + dir * offset * 6.0 * s;
             double rootY = y + (31.0 + Math.abs(offset) * 1.1) * s;
-            double tipX = rootX + offset * 1.8 * s + rear * 1.5 * s;
+            double tipX = rootX + dir * offset * 1.8 * s + rear * 1.5 * s;
             double tipY = y + (48.0 + (i % 2) * 4.0) * s;
             g.setFill(ruff.deriveColor(offset * 1.5, 0.94, 0.88 + (i % 2) * 0.08, 0.98));
             g.fillPolygon(
@@ -27653,7 +27679,7 @@ public class Bird {
             g.setStroke(featherEdge.deriveColor(0, 0.70, 1.0, 0.55));
             g.setLineWidth(1.0 * s);
             g.strokeArc(x + 22.0 * s, y + 35.0 * s, 36.0 * s, 29.0 * s,
-                    facingRight ? 198.0 : -18.0, 126.0, ArcType.OPEN);
+                    facingRight ? 198.0 : 216.0, 126.0, ArcType.OPEN);
         }
         drawVectorBirdStateAccents(g, drawSize, headPose);
     }
@@ -27668,7 +27694,8 @@ public class Bird {
         double stride = Math.sin((animationGlobalFrame + playerIndex * 19.0) * 0.36)
                 * 4.5 * runAmount;
         for (int i = 0; i < 2; i++) {
-            double hipX = x + (32.0 + i * 16.0) * s;
+            double alongBody = i == 0 ? -8.0 : 8.0;
+            double hipX = x + 40.0 * s + dir * alongBody * s;
             double hipY = y + 58.0 * s;
             double step = (i == 0 ? stride : -stride) * s;
             double ankleX = airborne ? hipX - dir * (4.0 + i * 2.0) * s : hipX + step;
@@ -27713,8 +27740,10 @@ public class Bird {
         double dx = tipX - shoulderX;
         double dy = tipY - shoulderY;
         double length = Math.max(0.001, Math.hypot(dx, dy));
-        double normalX = -dy / length;
-        double normalY = dx / length;
+        // Keep the feather surface normal in bird-local space so the opposite
+        // facing is an exact horizontal reflection, not a re-ordered wing.
+        double normalX = (-dy / length) * side;
+        double normalY = (dx / length) * side;
         double alpha = farSide ? 0.67 : 0.98;
         double rootWidth = (8.0 + open * 2.0) * s;
         double midX = shoulderX + dx * 0.50;
@@ -27839,33 +27868,52 @@ public class Bird {
         }
         double s = sizeMultiplier;
         int dir = facingRight ? 1 : -1;
-        double baseX = x + (facingRight ? 31.0 : 49.0) * s;
-        double baseY = y + 8.0 * s;
+        double cx = x + drawSize * 0.5;
         double rechargeRatio = vultureCrowTicks < VULTURE_CROW_TICK_MAX && vultureCrowTickRechargeTimer > 0
                 ? 1.0 - Math.clamp(vultureCrowTickRechargeTimer / (double) VULTURE_CROW_TICK_RECHARGE_FRAMES, 0.0, 1.0)
                 : 0.0;
 
         g.setLineCap(StrokeLineCap.ROUND);
+        double minX = Double.POSITIVE_INFINITY;
+        double minY = Double.POSITIVE_INFINITY;
+        double maxX = Double.NEGATIVE_INFINITY;
+        double maxY = Double.NEGATIVE_INFINITY;
         for (int i = 0; i < VULTURE_CROW_TICK_MAX; i++) {
-            double tickX = baseX - dir * i * 9.5 * s;
-            double tickY = baseY + i * 3.4 * s;
+            // The crow charges are plumage markings, so they belong on the
+            // rear shoulder instead of floating over the head like HUD text.
+            double tickX = cx - dir * (4.0 + i * 9.0) * s;
+            double tickY = y + (37.0 + i * 4.5) * s;
+            double halfWidth = 4.0 * s;
+            double halfHeight = 3.0 * s;
             boolean filled = i < vultureCrowTicks;
             g.setStroke(Color.web("#120718", 0.90));
-            g.setLineWidth(6.0 * s);
-            g.strokeLine(tickX - dir * 4.2 * s, tickY + 7.2 * s,
-                    tickX + dir * 4.2 * s, tickY - 7.2 * s);
+            g.setLineWidth(4.4 * s);
+            g.strokeLine(tickX - dir * halfWidth, tickY + halfHeight,
+                    tickX, tickY - halfHeight);
+            g.strokeLine(tickX, tickY - halfHeight,
+                    tickX + dir * halfWidth, tickY + halfHeight);
             g.setStroke(filled ? Color.web("#FFFDE7") : Color.web("#5E486A", 0.90));
-            g.setLineWidth((filled ? 4.2 : 2.9) * s);
-            g.strokeLine(tickX - dir * 4.2 * s, tickY + 7.2 * s,
-                    tickX + dir * 4.2 * s, tickY - 7.2 * s);
+            g.setLineWidth((filled ? 2.6 : 1.8) * s);
+            g.strokeLine(tickX - dir * halfWidth, tickY + halfHeight,
+                    tickX, tickY - halfHeight);
+            g.strokeLine(tickX, tickY - halfHeight,
+                    tickX + dir * halfWidth, tickY + halfHeight);
             if (!filled && i == vultureCrowTicks && rechargeRatio > 0.0) {
                 g.setStroke(Color.web("#B0F5FF").deriveColor(0, 1, 1, 0.55 + rechargeRatio * 0.38));
-                g.setLineWidth(3.3 * s);
-                double fill = (14.4 * rechargeRatio) * s;
-                g.strokeLine(tickX - dir * 4.2 * s, tickY + 7.2 * s,
-                        tickX - dir * 4.2 * s + dir * fill * 0.58,
-                        tickY + 7.2 * s - fill);
+                g.setLineWidth(2.1 * s);
+                double wingFill = halfWidth * rechargeRatio;
+                double riseFill = halfHeight * 2.0 * rechargeRatio;
+                g.strokeLine(tickX - dir * halfWidth, tickY + halfHeight,
+                        tickX - dir * (halfWidth - wingFill), tickY + halfHeight - riseFill);
             }
+            minX = Math.min(minX, tickX - halfWidth - 2.2 * s);
+            maxX = Math.max(maxX, tickX + halfWidth + 2.2 * s);
+            minY = Math.min(minY, tickY - halfHeight - 2.2 * s);
+            maxY = Math.max(maxY, tickY + halfHeight + 2.2 * s);
+            recordVisualBodyPart(VisualBodyPart.VULTURE_CROW_MARK);
+        }
+        if (visualAuditBodyOnly) {
+            lastVisualVultureCrowMarks = new VisualFeatureBounds(minX, minY, maxX, maxY);
         }
     }
 
@@ -33148,7 +33196,8 @@ public class Bird {
         if (type == BirdGame3.BirdType.VULTURE && isTideSkin) {
             g.setStroke(Color.web("#80CBC4").deriveColor(0, 1, 1, 0.7));
             g.setLineWidth(2.1 * s);
-            g.strokeArc(x + 8 * s, y + 32 * s, 70 * s, 40 * s, 200, 160, ArcType.OPEN);
+            g.strokeArc(x + 5 * s, y + 32 * s, 70 * s, 40 * s,
+                    facingRight ? 200 : 180, 160, ArcType.OPEN);
         }
         if (type == BirdGame3.BirdType.BAT && isUmbraSkin) {
             g.setStroke(Color.web("#00E5FF").deriveColor(0, 1, 1, 0.45));

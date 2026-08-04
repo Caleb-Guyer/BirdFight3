@@ -148,6 +148,11 @@ class BirdVisualAuditRun {
                             rendered.bounds.borderPixels > 0);
                 }
 
+                if (entry.bird() == BirdGame3.BirdType.VULTURE
+                        && !"NULL_ROCK_VULTURE".equals(entry.key())) {
+                    checkVultureFacingMirror(game, entry, failures);
+                }
+
                 long idleSignature = renders.get(View.IDLE).bounds.signature;
                 String birdKey = entry.bird().name();
                 if (entry.key() == null) {
@@ -186,6 +191,48 @@ class BirdVisualAuditRun {
         game.drawVisualAuditCombatSilhouette(
                 silhouetteCanvas, entry, Bird.VisualAuditPose.valueOf(view.name()));
         return new RenderedView(image, measure(snapshot(silhouetteCanvas)));
+    }
+
+    private static void checkVultureFacingMirror(
+            BirdGame3 game, BirdGame3.VisualAuditSkin entry, List<String> failures) {
+        for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+            Canvas rightCanvas = new Canvas(ART_SIZE, ART_SIZE);
+            Canvas leftCanvas = new Canvas(ART_SIZE, ART_SIZE);
+            game.drawVisualAuditCombatSilhouette(rightCanvas, entry, pose, true);
+            game.drawVisualAuditCombatSilhouette(leftCanvas, entry, pose, false);
+            BufferedImage right = snapshot(rightCanvas);
+            BufferedImage left = snapshot(leftCanvas);
+            int compared = 0;
+            int mismatched = 0;
+            for (int y = 0; y < ART_SIZE; y++) {
+                for (int x = 0; x < ART_SIZE; x++) {
+                    int rightArgb = right.getRGB(x, y);
+                    int leftArgb = left.getRGB(ART_SIZE - 1 - x, y);
+                    if (((rightArgb >>> 24) | (leftArgb >>> 24)) <= 12) {
+                        continue;
+                    }
+                    compared++;
+                    if (maximumChannelDifference(rightArgb, leftArgb) > 22) {
+                        mismatched++;
+                    }
+                }
+            }
+            double mismatchRatio = compared == 0 ? 1.0 : mismatched / (double) compared;
+            if (mismatchRatio > 0.025) {
+                failures.add(entry.name() + " / " + pose
+                        + " is not horizontally even between facings ("
+                        + String.format("%.1f%%", mismatchRatio * 100.0) + " mismatched pixels).");
+            }
+        }
+    }
+
+    private static int maximumChannelDifference(int first, int second) {
+        int maximum = 0;
+        for (int shift : new int[]{0, 8, 16, 24}) {
+            maximum = Math.max(maximum,
+                    Math.abs(((first >>> shift) & 0xFF) - ((second >>> shift) & 0xFF)));
+        }
+        return maximum;
     }
 
     private static BufferedImage snapshot(Canvas canvas) {

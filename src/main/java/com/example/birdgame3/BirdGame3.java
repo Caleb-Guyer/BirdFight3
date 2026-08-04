@@ -17884,6 +17884,11 @@ public class BirdGame3 {
         drawVisualAuditCombatPose(canvas, skin, pose, true, true);
     }
 
+    void drawVisualAuditCombatSilhouette(
+            Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose, boolean facingRight) {
+        drawVisualAuditCombatPose(canvas, skin, pose, true, facingRight);
+    }
+
     Bird.VisualFeatureGeometry inspectVisualAuditCombatFeatures(
             VisualAuditSkin skin, Bird.VisualAuditPose pose, boolean facingRight) {
         return drawVisualAuditCombatPose(new Canvas(160, 160), skin, pose, true, facingRight);
