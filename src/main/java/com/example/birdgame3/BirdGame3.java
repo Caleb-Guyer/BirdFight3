@@ -57,7 +57,6 @@ import javafx.scene.media.MediaPlayer;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.LinearGradient;
-import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
 import javafx.scene.image.WritableImage;
 import javafx.scene.image.PixelFormat;
@@ -31005,8 +31004,8 @@ public class BirdGame3 {
         }
 
         final double[] sceneEnds = {
-                2.6, 4.6, 11.6, 19.6, 27.6, 36.6, 44.6,
-                53.6, 61.6, 69.6, 79.6, 88.6, 93.6, 100.6
+                1.2, 3.2, 10.2, 18.2, 26.2, 35.2, 43.2,
+                52.2, 60.2, 68.2, 78.2, 87.2, 92.2, 99.2
         };
         final double trailerEnd = sceneEnds[sceneEnds.length - 1];
 
@@ -31061,6 +31060,16 @@ public class BirdGame3 {
         int sceneIndex = -1;
         int arenaKey = Integer.MIN_VALUE;
         double lastElapsed = Double.NaN;
+    }
+
+    private static final double OFFICIAL_TRAILER_ROSTER_SUBTITLE_BASELINE_Y = 184.0;
+    private static final double OFFICIAL_TRAILER_ROSTER_FIRST_ROW_CENTER_Y = 330.0;
+    private static final double OFFICIAL_TRAILER_ROSTER_CARD_HALF_HEIGHT = 100.0;
+
+    static double officialTrailerRosterHeaderClearance() {
+        return OFFICIAL_TRAILER_ROSTER_FIRST_ROW_CENTER_Y
+                - OFFICIAL_TRAILER_ROSTER_CARD_HALF_HEIGHT
+                - OFFICIAL_TRAILER_ROSTER_SUBTITLE_BASELINE_Y;
     }
 
     static boolean isOfficialTrailerGameplayScene(int sceneIndex) {
@@ -31605,7 +31614,7 @@ public class BirdGame3 {
         drawOfficialTrailerBackdrop(g, Color.web("#050913"), Color.web("#111A2B"));
 
         if (sceneIndex == 0) {
-            drawOfficialTrailerNullRockSilhouette(g, nullRock, phase);
+            drawOfficialTrailerSilentOpen(g, phase);
         } else if (sceneIndex == 1) {
             drawOfficialTrailerLaunchCard(g, phase);
         } else if (isOfficialTrailerCutsceneScene(sceneIndex)) {
@@ -31658,62 +31667,34 @@ public class BirdGame3 {
         drawOfficialTrailerTransition(g, sceneIndex, phase);
     }
 
-    private void drawOfficialTrailerNullRockSilhouette(GraphicsContext g, Bird nullRock, double phase) {
-        drawOfficialTrailerBackdrop(g, Color.web("#010106"), Color.web("#16091F"));
-        double reveal = smoothStep01((phase - 0.06) / 0.48);
-        double pulse = 0.5 + 0.5 * Math.sin(phase * Math.PI * 3.0);
+    private void drawOfficialTrailerSilentOpen(GraphicsContext g, double phase) {
+        drawOfficialTrailerBackdrop(g, Color.web("#000000"), Color.web("#03050A"));
+        g.setFill(Color.web("#000000", 0.86));
+        g.fillRect(0, 0, WIDTH, HEIGHT);
 
+        double tension = smoothStep01((phase - 0.44) / 0.50);
+        double halfLine = 150.0 * tension;
         g.save();
-        g.setGlobalAlpha(reveal * (0.56 + pulse * 0.16));
-        g.setFill(new RadialGradient(0, 0, WIDTH / 2.0, HEIGHT * 0.50, 420,
-                false, CycleMethod.NO_CYCLE,
-                new Stop(0, Color.web("#7C4DFF", 0.34)),
-                new Stop(0.52, Color.web("#311B5B", 0.16)),
-                new Stop(1, Color.TRANSPARENT)));
-        g.fillOval(WIDTH / 2.0 - 520, HEIGHT * 0.50 - 420, 1040, 840);
-        g.setStroke(Color.web("#CE93D8", 0.24 + pulse * 0.10));
-        g.setLineWidth(7);
-        for (int ring = 0; ring < 4; ring++) {
-            double radius = 255 + ring * 92 + phase * 28;
-            g.strokeOval(WIDTH / 2.0 - radius, HEIGHT * 0.51 - radius * 0.74,
-                    radius * 2.0, radius * 1.48);
-        }
+        g.setGlobalAlpha(tension * 0.42);
+        g.setStroke(Color.web("#FFB300"));
+        g.setLineWidth(2.5);
+        g.strokeLine(WIDTH / 2.0 - halfLine, HEIGHT / 2.0,
+                WIDTH / 2.0 + halfLine, HEIGHT / 2.0);
+        g.setFill(Color.web("#FFF3D0"));
+        g.fillOval(WIDTH / 2.0 - 3, HEIGHT / 2.0 - 3, 6, 6);
         g.restore();
-
-        ColorAdjust silhouetteTone = new ColorAdjust(0.0, -1.0, -1.0, 0.22);
-        DropShadow aura = new DropShadow(72, Color.web("#9C6CFF", 0.88));
-        aura.setSpread(0.32);
-        aura.setInput(silhouetteTone);
-        g.save();
-        g.setGlobalAlpha(reveal);
-        g.setEffect(aura);
-        drawOfficialTrailerBirdCentered(
-                g, nullRock, WIDTH / 2.0, HEIGHT * 0.54,
-                930.0 + pulse * 26.0, true
-        );
-        g.restore();
-
-        double wordAlpha = smoothStep01((phase - 0.48) / 0.22)
-                * (1.0 - smoothStep01((phase - 0.88) / 0.12));
-        g.save();
-        g.setGlobalAlpha(wordAlpha);
-        g.setTextAlign(TextAlignment.CENTER);
-        g.setFont(Font.font("Arial Black", FontWeight.BOLD, 54));
-        g.setFill(Color.web("#F4E9FF"));
-        g.fillText("STILL.", WIDTH / 2.0, 916);
-        g.setFont(Font.font("Consolas", FontWeight.BOLD, 18));
-        g.setFill(Color.web("#CE93D8"));
-        g.fillText("THE NULL ROCK IS AWAKE", WIDTH / 2.0, 954);
-        g.restore();
-        g.setTextAlign(TextAlignment.LEFT);
     }
 
     private void drawOfficialTrailerLaunchCard(GraphicsContext g, double phase) {
-        drawOfficialTrailerBackdrop(g, Color.web("#02050B"), Color.web("#101B2D"));
-        double alpha = officialTrailerCopyAlpha(phase);
-        double strike = smoothStep01((phase - 0.10) / 0.38);
+        drawOfficialTrailerBackdrop(g, Color.web("#010204"), Color.web("#0B1422"));
+        double reveal = smoothStep01((phase - 0.03) / 0.30);
+        double tagline = smoothStep01((phase - 0.42) / 0.24);
+        double settleScale = 1.08 - reveal * 0.08;
         g.save();
-        g.setGlobalAlpha(alpha);
+        g.setGlobalAlpha(reveal);
+        g.translate(WIDTH / 2.0, HEIGHT / 2.0);
+        g.scale(settleScale, settleScale);
+        g.translate(-WIDTH / 2.0, -HEIGHT / 2.0);
         g.setFill(Color.web("#FFB300", 0.08));
         g.fillOval(WIDTH / 2.0 - 610, HEIGHT / 2.0 - 420, 1220, 790);
         g.setTextAlign(TextAlignment.CENTER);
@@ -31725,9 +31706,10 @@ public class BirdGame3 {
         g.fillText("BIRD FIGHT 3", WIDTH / 2.0, HEIGHT * 0.49);
         g.setStroke(Color.web("#FFB300", 0.92));
         g.setLineWidth(6);
-        double halfLine = 520.0 * strike;
+        double halfLine = 520.0 * reveal;
         g.strokeLine(WIDTH / 2.0 - halfLine, HEIGHT * 0.57,
                 WIDTH / 2.0 + halfLine, HEIGHT * 0.57);
+        g.setGlobalAlpha(reveal * tagline);
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 36));
         g.setFill(Color.web("#FFD180"));
         g.fillText("FLAP.  FIGHT.  RULE THE SKIES.", WIDTH / 2.0, HEIGHT * 0.65);
@@ -31841,20 +31823,21 @@ public class BirdGame3 {
         g.setTextAlign(TextAlignment.CENTER);
         g.setFill(Color.web("#FFD54F"));
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 22));
-        g.fillText("THE COMPLETE ROSTER", WIDTH / 2.0, 108);
+        g.fillText("THE COMPLETE ROSTER", WIDTH / 2.0, 88);
         g.setFill(Color.web("#F7FAFF"));
         g.setFont(Font.font("Consolas", FontWeight.EXTRA_BOLD, 52));
-        g.fillText(BirdType.values().length + " FIGHTERS. NO TWO ALIKE.", WIDTH / 2.0, 168);
+        g.fillText(BirdType.values().length + " FIGHTERS. NO TWO ALIKE.", WIDTH / 2.0, 146);
         g.setFill(Color.web("#B9C7D8"));
         g.setFont(Font.font("Consolas", FontWeight.BOLD, 20));
-        g.fillText("Rushdown. Zoners. Summoners. Tanks. Tricksters. Echo fighters.", WIDTH / 2.0, 208);
+        g.fillText("Rushdown. Zoners. Summoners. Tanks. Tricksters. Echo fighters.",
+                WIDTH / 2.0, OFFICIAL_TRAILER_ROSTER_SUBTITLE_BASELINE_Y);
 
         int maxColumns = 8;
         int rowCount = Math.max(1, (int) Math.ceil(roster.size() / (double) maxColumns));
         int basePerRow = roster.size() / rowCount;
         int extra = roster.size() % rowCount;
         double cellWidth = 205.0;
-        double startY = 302.0;
+        double startY = OFFICIAL_TRAILER_ROSTER_FIRST_ROW_CENTER_Y;
         double rowSpacing = 250.0;
         int rosterIndex = 0;
         for (int row = 0; row < rowCount; row++) {
@@ -32294,7 +32277,13 @@ public class BirdGame3 {
             g.setFill(Color.web("#000000", alpha));
             g.fillRect(0, 0, WIDTH, HEIGHT);
         }
-        if ((sceneIndex == 2 || sceneIndex == 4 || sceneIndex == 10 || sceneIndex == 11)
+        if (sceneIndex == 2 && phase < 0.055) {
+            double flash = 1.0 - Math.abs(phase - 0.0275) / 0.0275;
+            g.setFill(Color.WHITE.deriveColor(0, 1, 1,
+                    Math.clamp(flash * 0.78, 0.0, 0.78)));
+            g.fillRect(0, 0, WIDTH, HEIGHT);
+        }
+        if ((sceneIndex == 4 || sceneIndex == 10 || sceneIndex == 11)
                 && phase > 0.48 && phase < 0.515) {
             double flash = 1.0 - Math.abs(phase - 0.4975) / 0.0175;
             g.setFill(Color.WHITE.deriveColor(0, 1, 1, Math.clamp(flash * 0.42, 0.0, 0.42)));

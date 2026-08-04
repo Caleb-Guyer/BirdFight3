@@ -28,4 +28,9 @@ class OfficialTrailerStoryboardTest {
         assertTrue(BirdGame3.isOfficialTrailerGameplayScene(11));
         assertFalse(BirdGame3.isOfficialTrailerCutsceneScene(11));
     }
+
+    @Test
+    void rosterHeaderClearsTheFirstCharacterRow() {
+        assertTrue(BirdGame3.officialTrailerRosterHeaderClearance() >= 40.0);
+    }
 }
