@@ -17893,33 +17893,42 @@ public class BirdGame3 {
             VisualAuditSkin skin, double verticalVelocity, boolean facingRight) {
         return drawVisualAuditCombatPose(
                 new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
-                true, facingRight, verticalVelocity, null, null);
+                true, facingRight, verticalVelocity, null, null, null);
     }
 
     Bird.VisualFeatureGeometry inspectVisualAuditTurkeyPanicFlapFeatures(
             VisualAuditSkin skin, int remainingFrames, boolean facingRight) {
         return drawVisualAuditCombatPose(
                 new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
-                true, facingRight, null, remainingFrames, null);
+                true, facingRight, null, remainingFrames, null, null);
     }
 
     Bird.VisualFeatureGeometry inspectVisualAuditRoosterCoopBoostFeatures(
             VisualAuditSkin skin, int remainingFrames, boolean facingRight) {
         return drawVisualAuditCombatPose(
                 new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
-                true, facingRight, null, null, remainingFrames);
+                true, facingRight, null, null, remainingFrames, null);
+    }
+
+    Bird.VisualFeatureGeometry inspectVisualAuditRoadrunnerDustDevilFeatures(
+            VisualAuditSkin skin, int remainingFrames, boolean facingRight) {
+        return drawVisualAuditCombatPose(
+                new Canvas(160, 160), skin, Bird.VisualAuditPose.FLAP,
+                true, facingRight, null, null, null, remainingFrames);
     }
 
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
             boolean bodyOnly, boolean facingRight) {
-        return drawVisualAuditCombatPose(canvas, skin, pose, bodyOnly, facingRight, null, null, null);
+        return drawVisualAuditCombatPose(canvas, skin, pose, bodyOnly, facingRight,
+                null, null, null, null);
     }
 
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
             boolean bodyOnly, boolean facingRight, Double verticalVelocity,
-            Integer turkeyPanicFlapTimer, Integer roosterCoopBoostTimer) {
+            Integer turkeyPanicFlapTimer, Integer roosterCoopBoostTimer,
+            Integer roadrunnerDustDevilTimer) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -17946,7 +17955,9 @@ public class BirdGame3 {
                 rosterSpriteMinScale(skin.bird, skin.key),
                 maxScale);
         preview.x = 0.0;
-        if (roosterCoopBoostTimer != null) {
+        if (roadrunnerDustDevilTimer != null) {
+            preview.prepareVisualAuditRoadrunnerDustDevil(roadrunnerDustDevilTimer);
+        } else if (roosterCoopBoostTimer != null) {
             preview.prepareVisualAuditRoosterCoopBoost(roosterCoopBoostTimer);
         } else if (turkeyPanicFlapTimer != null) {
             preview.prepareVisualAuditTurkeyPanicFlap(turkeyPanicFlapTimer);
@@ -18033,7 +18044,7 @@ public class BirdGame3 {
         double baseExtent = switch (type) {
             case BAT -> 2.9;
             case SHOEBILL -> 1.84;
-            case ROADRUNNER -> 1.70;
+            case ROADRUNNER -> 1.90;
             case HUMMINGBIRD -> 1.66;
             case PELICAN, GOOSE -> 1.64;
             case KIWI -> 1.72;
@@ -18137,7 +18148,8 @@ public class BirdGame3 {
             case SHOEBILL -> -0.14;
             case FALCON -> -0.09;
             case HUMMINGBIRD -> -0.085;
-            case ROADRUNNER, PELICAN, GOOSE -> -0.08;
+            case ROADRUNNER -> -0.01;
+            case PELICAN, GOOSE -> -0.08;
             case PHOENIX -> -0.055;
             case ROOSTER -> -0.04;
             case VULTURE -> 0.0;

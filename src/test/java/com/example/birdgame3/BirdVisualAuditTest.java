@@ -472,6 +472,96 @@ class BirdVisualAuditTest {
         }
     }
 
+    @Test
+    void roadrunnerKeepsItsTailWingsCrestAndLegsAcrossVectorSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.ROADRUNNER)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertEquals(4,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.ROADRUNNER_TAIL_FEATHER),
+                            label + " must retain all four long tail feathers");
+                    assertEquals(pose == Bird.VisualAuditPose.FLAP ? 2 : 1,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.ROADRUNNER_WING),
+                            label + " must draw every pose-aware wing");
+                    assertEquals(2,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.ROADRUNNER_LEG),
+                            label + " must keep both long legs visible");
+                    assertEquals(3,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.ROADRUNNER_CREST_FEATHER),
+                            label + " must retain all three crest feathers");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+            }
+        }
+    }
+
+    @Test
+    void roadrunnerHeadAndBillFollowMovementAnimationsInBothDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.ROADRUNNER)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+
+                assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 8.0,
+                        label + " must raise its long bill during flight");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must look back during its hit animation");
+            }
+        }
+    }
+
+    @Test
+    void roadrunnerDustDevilOpensBothWingsThenClosesBeforeTheLiftEnds() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.ROADRUNNER)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry folded = game.inspectVisualAuditRoadrunnerDustDevilFeatures(
+                        entry, Bird.ROADRUNNER_DUST_DEVIL_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry spread = game.inspectVisualAuditRoadrunnerDustDevilFeatures(
+                        entry, Bird.ROADRUNNER_DUST_DEVIL_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry closing = game.inspectVisualAuditRoadrunnerDustDevilFeatures(
+                        entry, 1, facingRight);
+                String label = entry.name() + " Dust Devil Lift facing "
+                        + (facingRight ? "right" : "left");
+
+                assertTrue(folded.roadrunnerWingOpenness() <= 0.01,
+                        label + " must begin with folded wings");
+                assertTrue(spread.roadrunnerWingOpenness() >= 0.95,
+                        label + " must visibly reach a fully spread pose");
+                assertEquals(2, spread.bodyPartCount(Bird.VisualBodyPart.ROADRUNNER_WING),
+                        label + " must display both wings during the lift");
+                assertTrue(closing.roadrunnerWingOpenness() <= 0.15,
+                        label + " must close its wings before Dust Devil Lift ends");
+            }
+        }
+    }
+
     private static void assertTurkeyNeckEndsBehindHead(
             Bird.VisualFeatureGeometry geometry, String label) {
         assertTrue(geometry.turkeyNeck() != null, label + " did not report its neck geometry");

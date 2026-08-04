@@ -337,13 +337,18 @@ public class Bird {
         ROOSTER_TAIL_FEATHER,
         ROOSTER_WING,
         ROOSTER_LEG,
-        ROOSTER_COMB_LOBE
+        ROOSTER_COMB_LOBE,
+        ROADRUNNER_TAIL_FEATHER,
+        ROADRUNNER_WING,
+        ROADRUNNER_LEG,
+        ROADRUNNER_CREST_FEATHER
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
                                  VisualBeakAxis turkeyNeck,
                                  double turkeyWingOpenness,
                                  double roosterWingOpenness,
+                                 double roadrunnerWingOpenness,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -520,6 +525,7 @@ public class Bird {
     private VisualBeakAxis lastVisualTurkeyNeck;
     private double lastVisualTurkeyWingOpenness;
     private double lastVisualRoosterWingOpenness;
+    private double lastVisualRoadrunnerWingOpenness;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -11711,6 +11717,14 @@ public class Bird {
         attackAnimationTimer = Math.max(attackAnimationTimer, 18);
     }
 
+    /** Positions Roadrunner at a deterministic frame of Dust Devil Lift's wing cycle. */
+    void prepareVisualAuditRoadrunnerDustDevil(int remainingFrames) {
+        prepareVisualAuditPose(VisualAuditPose.FLAP);
+        roadrunnerDustDevilUltimate = false;
+        roadrunnerDustDevilTimer = Math.clamp(remainingFrames, 1, ROADRUNNER_DUST_DEVIL_FRAMES);
+        attackAnimationTimer = Math.max(attackAnimationTimer, roadrunnerDustDevilTimer);
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -21725,6 +21739,7 @@ public class Bird {
                 lastVisualTurkeyNeck,
                 lastVisualTurkeyWingOpenness,
                 lastVisualRoosterWingOpenness,
+                lastVisualRoadrunnerWingOpenness,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21736,6 +21751,7 @@ public class Bird {
         lastVisualTurkeyNeck = null;
         lastVisualTurkeyWingOpenness = 0.0;
         lastVisualRoosterWingOpenness = 0.0;
+        lastVisualRoadrunnerWingOpenness = 0.0;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -28350,7 +28366,8 @@ public class Bird {
         double width = 118.0 * s;
         double height = 31.0 * s;
         double panelX = x + drawSize * 0.5 - width * 0.5;
-        double panelY = y + drawSize + 9.0 * s;
+        double panelY = y + drawSize
+                + (type == BirdGame3.BirdType.ROADRUNNER ? 22.0 : 9.0) * s;
         double pulse = 0.5 + 0.5 * Math.sin(System.currentTimeMillis() / 120.0);
         Color safeAccent = accent == null ? Color.WHITE : accent;
         Color stateColor = warning
@@ -28835,6 +28852,7 @@ public class Bird {
         boolean stylizedTitmouse = type == BirdGame3.BirdType.TITMOUSE;
         boolean stylizedPelican = type == BirdGame3.BirdType.PELICAN;
         boolean stylizedGoose = type == BirdGame3.BirdType.GOOSE;
+        boolean stylizedRoadrunner = type == BirdGame3.BirdType.ROADRUNNER;
         boolean ravenEyes = (type == BirdGame3.BirdType.RAVEN);
         Color bodyColor;
         Color headColor;
@@ -29073,12 +29091,21 @@ public class Bird {
         } else if (stylizedFalcon) {
             drawFalconTailUnderlay(g, bodyColor);
         }
+        if (stylizedRoadrunner) {
+            drawRoadrunnerUnderlay(g, bodyColor, mirageRoadrunner, classicPalette);
+        }
 
-        g.setFill(bodyColor);
-        g.fillOval(x, y, drawSize, drawSize);
+        if (stylizedRoadrunner) {
+            drawRoadrunnerTorso(g, bodyColor, headColor, headPose, mirageRoadrunner, classicPalette);
+        } else {
+            g.setFill(bodyColor);
+            g.fillOval(x, y, drawSize, drawSize);
+        }
         g.setFill(headColor);
         g.fillOval(headX, headY, headW, headH);
-        drawVectorBodyLighting(g, drawSize, bodyColor, headColor, headPose);
+        if (!stylizedRoadrunner) {
+            drawVectorBodyLighting(g, drawSize, bodyColor, headColor, headPose);
+        }
         if (type == BirdGame3.BirdType.PIGEON) {
             drawPigeonFeatherPolish(g, bodyColor, headColor, headPose);
         }
@@ -29087,6 +29114,10 @@ public class Bird {
         }
         if (stylizedFalcon) {
             drawFalconFeatherPolish(g, bodyColor, headPose);
+        }
+        if (stylizedRoadrunner) {
+            drawRoadrunnerFeatherPolish(g, bodyColor, headColor, headPose,
+                    mirageRoadrunner, classicPalette);
         }
         if (stylizedHummingbird) {
             drawHummingbirdFeatherPolish(g, headPose, sunflareHummingbird, classicPalette);
@@ -29249,37 +29280,6 @@ public class Bird {
             g.strokeArc(x + 13.0 * s, y + 34.0 * s, 54.0 * s, 34.0 * s,
                     facingRight ? 204 : -24, 116, ArcType.OPEN);
         }
-        if (type == BirdGame3.BirdType.ROADRUNNER) {
-            int tailDir = facingRight ? -1 : 1;
-            double crestBaseX = facingRight ? headX + 18 * s : headX + 32 * s;
-            Color plume = mirageRoadrunner ? Color.web("#00B8D4")
-                    : classicPalette ? game.classicSkinAccentColor(type) : Color.web("#2E5AAC");
-            g.setFill(plume);
-            g.fillPolygon(
-                    new double[]{crestBaseX, crestBaseX + tailDir * 14 * s, crestBaseX + tailDir * 4 * s},
-                    new double[]{y + 20 * s, y - 2 * s, y + 18 * s},
-                    3
-            );
-            g.fillPolygon(
-                    new double[]{crestBaseX + 8 * s, crestBaseX + tailDir * 8 * s, crestBaseX + 12 * s},
-                    new double[]{y + 22 * s, y + 2 * s, y + 19 * s},
-                    3
-            );
-            g.setFill((mirageRoadrunner ? Color.web("#B2EBF2") : Color.web("#E8D2A6")).deriveColor(0, 1, 1, 0.75));
-            g.fillOval(x + 20 * s, y + 36 * s, 42 * s, 24 * s);
-            double tailBaseX = facingRight ? x + 12 * s : x + 68 * s;
-            g.setFill(plume.deriveColor(0, 1, 0.95, 0.95));
-            g.fillPolygon(
-                    new double[]{tailBaseX, tailBaseX + tailDir * 24 * s, tailBaseX + tailDir * 8 * s},
-                    new double[]{y + 48 * s, y + 42 * s, y + 64 * s},
-                    3
-            );
-            g.fillPolygon(
-                    new double[]{tailBaseX + 5 * s, tailBaseX + tailDir * 16 * s, tailBaseX + tailDir * 2 * s},
-                    new double[]{y + 44 * s, y + 28 * s, y + 60 * s},
-                    3
-            );
-        }
         if (type == BirdGame3.BirdType.SHOEBILL) {
             int tailDir = facingRight ? -1 : 1;
             Color crest = stoneShoebill
@@ -29336,6 +29336,17 @@ public class Bird {
             if (eyeOverride != null) eyeColor = eyeOverride;
             drawStandardVectorEye(g, headPose, headW, headH,
                     Color.web("#FFF8E1"), eyeColor, 20.0, 12.0, gaze, headLookingRight);
+        } else if (stylizedRoadrunner) {
+            boolean headLookingRight = Math.cos(headPose.aimAngleRadians()) >= 0.0;
+            double lookDir = headLookingRight ? 1.0 : -1.0;
+            double gaze = currentBirdAnimationState() == BirdAnimationState.IDLE
+                    ? lookDir * Math.sin((animationGlobalFrame + playerIndex * 31.0) * 0.060) * 1.8
+                    : 0.0;
+            Color eyeColor = classicPalette ? game.classicSkinAccentColor(type).darker()
+                    : mirageRoadrunner ? Color.web("#007D8D") : Color.web("#30251F");
+            if (eyeOverride != null) eyeColor = eyeOverride;
+            drawStandardVectorEye(g, headPose, headW, headH,
+                    Color.web("#FFFDF2"), eyeColor, 22.0, 12.5, gaze, headLookingRight);
         } else if (stylizedTitmouse) {
             double eyeX = headX + (facingRight ? 4.0 : 34.0) * s;
             double eyeY = headY + 4.0 * s;
@@ -29795,6 +29806,332 @@ public class Bird {
     }
 
     /** Adds species detail without replacing Pigeon's original round silhouette or skin palette. */
+    /** Builds Roadrunner's long tail, flight wing, and unmistakable two-legged running stance. */
+    private void drawRoadrunnerUnderlay(GraphicsContext g, Color bodyColor,
+                                         boolean mirage, boolean classicPalette) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        BirdAnimationState state = currentBirdAnimationState();
+        Color plume = isCampaignFactionSkin()
+                ? campaignFactionAccentColor()
+                : mirage ? Color.web("#00A9C0")
+                : classicPalette ? game.classicSkinAccentColor(type)
+                : Color.web("#244F91");
+        Color plumeEdge = (mirage ? Color.web("#B2F5F7") : plume.brighter())
+                .deriveColor(0, 0.82, 1.04, 0.78);
+        double tailRootX = x + (facingRight ? 17.0 : 63.0) * s;
+        double tailRootY = y + 43.0 * s;
+        double tailLift = switch (state) {
+            case FLAP -> -10.0;
+            case FALL -> 9.0;
+            case DODGE -> -5.0;
+            case HITSTUN, KO -> 13.0;
+            case ATTACK -> -4.0;
+            default -> Math.sin((animationGlobalFrame + playerIndex * 11.0) * 0.10) * 2.0;
+        };
+        double rearAngle = facingRight ? 180.0 : 0.0;
+        for (int i = 0; i < 4; i++) {
+            double offset = i - 1.5;
+            double length = (61.0 - i * 5.0) * s;
+            double width = (11.5 - i * 0.8) * s;
+            double angle = rearAngle + offset * 8.5 + tailLift * 0.42;
+            g.save();
+            g.translate(tailRootX + rear * i * 1.5 * s, tailRootY + offset * 2.2 * s);
+            g.rotate(angle);
+            g.setFill(plume.deriveColor(offset * 3.0, 0.98, 0.88 + i * 0.035, 0.98));
+            g.fillOval(0.0, -width * 0.5, length, width);
+            g.setStroke(plumeEdge);
+            g.setLineWidth(0.85 * s);
+            g.strokeLine(6.0 * s, 0.0, length - 5.0 * s, 0.0);
+            g.restore();
+            recordVisualBodyPart(VisualBodyPart.ROADRUNNER_TAIL_FEATHER);
+        }
+
+        double wingOpenness = roadrunnerWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualRoadrunnerWingOpenness = wingOpenness;
+        }
+        if (wingOpenness > 0.04) {
+            Color wing = (mirage ? Color.web("#79DCE4") : bodyColor.darker())
+                    .deriveColor(0, 0.94, 0.82, 0.76);
+            Color edge = (mirage ? Color.web("#D9FFFF") : plumeEdge)
+                    .deriveColor(0, 0.88, 1.0, 0.64);
+            drawRoadrunnerArticulatedWing(g,
+                    x + (facingRight ? 48.0 : 32.0) * s,
+                    y + 38.0 * s,
+                    dir,
+                    wingOpenness,
+                    wing,
+                    edge,
+                    true);
+            recordVisualBodyPart(VisualBodyPart.ROADRUNNER_WING);
+        }
+
+        drawRoadrunnerLegs(g, state, classicPalette, mirage);
+    }
+
+    /** Replaces the shared round body with a compact, forward-leaning desert-runner torso. */
+    private void drawRoadrunnerTorso(GraphicsContext g, Color bodyColor, Color headColor,
+                                     HeadPose headPose, boolean mirage, boolean classicPalette) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double shoulderX = x + (facingRight ? 57.0 : 23.0) * s;
+        double shoulderY = y + 37.0 * s;
+        double neckX = headPose.centerX() - aimX * 12.0 * s;
+        double neckY = headPose.centerY() - aimY * 12.0 * s + 4.0 * s;
+        Color shadow = (mirage ? Color.web("#B8D8D9") : bodyColor.darker())
+                .deriveColor(0, 0.92, 0.74, 0.98);
+
+        g.setStroke(shadow);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(19.0 * s);
+        g.strokeLine(shoulderX, shoulderY, neckX, neckY);
+        g.setStroke(headColor.deriveColor(0, 0.94, 0.92, 0.88));
+        g.setLineWidth(12.5 * s);
+        g.strokeLine(shoulderX + dir * 1.5 * s, shoulderY - 1.0 * s,
+                neckX + dir * 1.0 * s, neckY - 1.0 * s);
+
+        g.setFill(shadow);
+        g.fillOval(x + 5.0 * s, y + 13.0 * s, 70.0 * s, 62.0 * s);
+        g.setFill(bodyColor);
+        g.fillOval(x + 8.0 * s, y + 10.0 * s, 66.0 * s, 60.0 * s);
+        Color backLight = classicPalette ? game.classicSkinAccentColor(type)
+                : mirage ? Color.web("#F5FFFF") : Color.web("#E2A05A");
+        g.setFill(backLight.deriveColor(0, 0.72, 1.05, classicPalette ? 0.18 : 0.24));
+        g.fillOval(x + (facingRight ? 27.0 : 13.0) * s, y + 15.0 * s, 38.0 * s, 22.0 * s);
+    }
+
+    /** Adds Roadrunner's folding wing, cream breast, face bars, and pose-aware crest. */
+    private void drawRoadrunnerFeatherPolish(GraphicsContext g, Color bodyColor, Color headColor,
+                                              HeadPose headPose, boolean mirage,
+                                              boolean classicPalette) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        BirdAnimationState state = currentBirdAnimationState();
+        Color plume = isCampaignFactionSkin()
+                ? campaignFactionAccentColor()
+                : mirage ? Color.web("#00A9C0")
+                : classicPalette ? game.classicSkinAccentColor(type)
+                : Color.web("#244F91");
+        Color featherLine = (mirage ? Color.web("#C9FBFF") : plume.brighter())
+                .deriveColor(0, 0.82, 1.0, 0.70);
+        Color breast = (mirage ? Color.web("#F2FFFF")
+                : classicPalette ? game.classicSkinAccentColor(type).brighter()
+                : Color.web("#F0D3A0"))
+                .deriveColor(0, 0.78, 1.02, classicPalette ? 0.46 : 0.82);
+
+        g.setFill(breast);
+        g.fillOval(x + (facingRight ? 34.0 : 18.0) * s, y + 31.0 * s, 34.0 * s, 34.0 * s);
+        g.setStroke(breast.brighter().deriveColor(0, 0.70, 1.02, 0.50));
+        g.setLineWidth(1.3 * s);
+        g.strokeArc(x + 16.0 * s, y + 18.0 * s, 49.0 * s, 39.0 * s,
+                facingRight ? 205.0 : -25.0, 110.0, ArcType.OPEN);
+
+        double wingOpenness = roadrunnerWingOpenness(state);
+        if (wingOpenness > 0.04) {
+            Color wing = (mirage ? Color.web("#4CC6D1") : bodyColor.darker())
+                    .deriveColor(0, 0.96, 0.80, 0.94);
+            drawRoadrunnerArticulatedWing(g,
+                    x + (facingRight ? 34.0 : 46.0) * s,
+                    y + 38.0 * s,
+                    -dir,
+                    wingOpenness,
+                    wing,
+                    featherLine,
+                    false);
+            recordVisualBodyPart(VisualBodyPart.ROADRUNNER_WING);
+        } else {
+            double wingX = x + (facingRight ? 12.0 : 34.0) * s;
+            double droop = state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO ? 7.0 : 0.0;
+            Color wing = (mirage ? Color.web("#57C9D2") : bodyColor.darker())
+                    .deriveColor(0, 0.92, 0.80, 0.94);
+            g.setFill(wing);
+            g.fillOval(wingX, y + (25.0 + droop) * s, 35.0 * s, 39.0 * s);
+            g.setStroke(featherLine);
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(1.4 * s);
+            for (int i = 0; i < 3; i++) {
+                g.strokeArc(wingX + (4.0 + i * 4.0) * s,
+                        y + (31.0 + droop + i * 7.0) * s,
+                        (27.0 - i * 5.0) * s,
+                        (23.0 - i * 4.0) * s,
+                        facingRight ? 204.0 : -24.0,
+                        112.0,
+                        ArcType.OPEN);
+            }
+            recordVisualBodyPart(VisualBodyPart.ROADRUNNER_WING);
+        }
+
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double upX = -aimY;
+        double upY = aimX;
+        if (upY > 0.0) {
+            upX = -upX;
+            upY = -upY;
+        }
+        double rearX = -aimX;
+        double rearY = -aimY;
+        double crestRootX = headPose.centerX() + upX * 14.0 * s + rearX * 7.0 * s;
+        double crestRootY = headPose.centerY() + upY * 14.0 * s + rearY * 7.0 * s;
+        for (int i = 0; i < 3; i++) {
+            double rootX = crestRootX + rearX * i * 4.0 * s;
+            double rootY = crestRootY + rearY * i * 4.0 * s;
+            double tipX = rootX + rearX * (18.0 + i * 4.0) * s + upX * (9.0 - i * 6.0) * s;
+            double tipY = rootY + rearY * (18.0 + i * 4.0) * s + upY * (9.0 - i * 6.0) * s;
+            double halfWidth = (4.0 - i * 0.45) * s;
+            g.setFill(plume.deriveColor(i * 3.0, 0.98, 0.94 + i * 0.02, 0.98));
+            g.fillPolygon(
+                    new double[]{rootX + upX * halfWidth, tipX, rootX - upX * halfWidth},
+                    new double[]{rootY + upY * halfWidth, tipY, rootY - upY * halfWidth},
+                    3);
+            g.setStroke(featherLine);
+            g.setLineWidth(0.75 * s);
+            g.strokeLine(rootX, rootY, tipX - rearX * 3.0 * s, tipY - rearY * 3.0 * s);
+            recordVisualBodyPart(VisualBodyPart.ROADRUNNER_CREST_FEATHER);
+        }
+
+        double faceBarX = headPose.centerX() - aimX * 4.0 * s + upX * 4.0 * s;
+        double faceBarY = headPose.centerY() - aimY * 4.0 * s + upY * 4.0 * s;
+        g.setStroke(plume.deriveColor(0, 0.94, 0.88, 0.72));
+        g.setLineWidth(3.0 * s);
+        g.strokeLine(faceBarX + rearX * 8.0 * s, faceBarY + rearY * 8.0 * s,
+                faceBarX + aimX * 7.0 * s, faceBarY + aimY * 7.0 * s);
+        g.setFill(headColor.brighter().deriveColor(0, 0.70, 1.04, 0.28));
+        g.fillOval(headPose.centerX() - 13.0 * s, headPose.centerY() - 13.0 * s,
+                26.0 * s, 16.0 * s);
+    }
+
+    private void drawRoadrunnerLegs(GraphicsContext g, BirdAnimationState state,
+                                    boolean classicPalette, boolean mirage) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL;
+        double runAmount = state == BirdAnimationState.IDLE ? Math.min(1.0, Math.abs(vx) / 7.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 9.0) * 0.48)
+                * (5.0 + runAmount * 11.0) * runAmount;
+        Color leg = (mirage ? Color.web("#647D80")
+                : classicPalette ? game.classicSkinAccentColor(type).darker()
+                : Color.web("#6E6256"))
+                .deriveColor(0, 0.74, 0.78, 0.98);
+        g.setStroke(leg);
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + (34.0 + i * 15.0) * s;
+            double step = (i == 0 ? stride : -stride) * s;
+            double kneeX;
+            double kneeY;
+            double ankleX;
+            double ankleY;
+            if (state == BirdAnimationState.KO || state == BirdAnimationState.HITSTUN) {
+                kneeX = hipX + rear * (8.0 + i * 3.0) * s;
+                kneeY = y + (69.0 + i * 2.0) * s;
+                ankleX = kneeX + rear * 14.0 * s;
+                ankleY = y + (76.0 + i * 3.0) * s;
+            } else if (airborne) {
+                kneeX = hipX + rear * (5.0 + i * 2.0) * s;
+                kneeY = y + (70.0 + i * 2.0) * s;
+                ankleX = kneeX + rear * (9.0 + i * 2.0) * s;
+                ankleY = y + (80.0 + i * 2.0) * s;
+            } else {
+                kneeX = hipX + step * 0.46 + dir * (i == 0 ? -1.5 : 1.5) * s;
+                kneeY = y + 77.0 * s;
+                ankleX = hipX + step;
+                ankleY = y + 93.0 * s;
+            }
+            g.setLineWidth(2.25 * s);
+            g.strokeLine(hipX, y + 59.0 * s, kneeX, kneeY);
+            g.strokeLine(kneeX, kneeY, ankleX, ankleY);
+            g.setLineWidth(1.15 * s);
+            double toeDir = airborne ? rear : dir;
+            g.strokeLine(ankleX, ankleY, ankleX + toeDir * 8.0 * s, ankleY + 2.0 * s);
+            g.strokeLine(ankleX, ankleY, ankleX + toeDir * 4.0 * s, ankleY + 4.0 * s);
+            g.strokeLine(ankleX, ankleY, ankleX - toeDir * 3.0 * s, ankleY + 2.0 * s);
+            recordVisualBodyPart(VisualBodyPart.ROADRUNNER_LEG);
+        }
+    }
+
+    /** Draws one layered Roadrunner wing, interpolating every primary from folded to spread. */
+    private void drawRoadrunnerArticulatedWing(GraphicsContext g,
+                                                double shoulderX,
+                                                double shoulderY,
+                                                double horizontalDirection,
+                                                double openness,
+                                                Color wing,
+                                                Color featherLine,
+                                                boolean farSide) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double verticalDirection = farSide ? -1.0 : 1.0;
+        double alpha = farSide ? 0.70 : 0.96;
+        double fanCenterX = shoulderX + horizontalDirection * (19.0 + open * 20.0) * s;
+        double fanCenterY = shoulderY + verticalDirection * (8.0 + open * 21.0) * s;
+        double baseHalfWidth = (7.0 + open * 5.0) * s;
+        g.setFill(wing.deriveColor(0, 0.96, 0.84, alpha * 0.90));
+        g.fillPolygon(
+                new double[]{shoulderX - horizontalDirection * 5.0 * s,
+                        fanCenterX - horizontalDirection * baseHalfWidth * 0.45,
+                        fanCenterX + horizontalDirection * baseHalfWidth * 0.45,
+                        shoulderX + horizontalDirection * 6.0 * s},
+                new double[]{shoulderY + verticalDirection * 5.0 * s,
+                        fanCenterY - verticalDirection * baseHalfWidth,
+                        fanCenterY + verticalDirection * baseHalfWidth,
+                        shoulderY - verticalDirection * 5.0 * s},
+                4);
+        g.setStroke(featherLine.deriveColor(0, 1, 1, alpha * 0.82));
+        g.setLineWidth(1.1 * s);
+        g.strokeLine(shoulderX, shoulderY, fanCenterX, fanCenterY);
+        for (int i = 3; i >= 0; i--) {
+            double rootX = shoulderX + horizontalDirection * i * 1.2 * s;
+            double rootY = shoulderY + i * 1.2 * s;
+            double foldedTipX = shoulderX + horizontalDirection * (13.0 + i * 2.5) * s;
+            double foldedTipY = shoulderY + (18.0 + i * 4.0) * s;
+            double spreadTipX = shoulderX + horizontalDirection * (22.0 + i * 10.0) * s;
+            double spreadTipY = shoulderY + verticalDirection * (45.0 - i * 7.0) * s;
+            double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+            double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+            double featherLength = Math.hypot(tipX - rootX, tipY - rootY);
+            double featherWidth = (8.4 - i * 0.55 + open * 1.6) * s;
+            double featherAngle = Math.toDegrees(Math.atan2(tipY - rootY, tipX - rootX));
+            g.save();
+            g.translate(rootX, rootY);
+            g.rotate(featherAngle);
+            g.setFill(wing.deriveColor(i * 2.0, 0.98, 0.88 + i * 0.035, alpha));
+            g.fillOval(0.0, -featherWidth * 0.5, featherLength, featherWidth);
+            g.setStroke(featherLine.deriveColor(0, 1, 1, alpha));
+            g.setLineWidth(0.9 * s);
+            g.strokeLine(3.0 * s, 0.0, featherLength - 3.0 * s, 0.0);
+            g.restore();
+        }
+    }
+
+    /** Returns a 0..1 authored Roadrunner wing pose for flight and Dust Devil Lift. */
+    private double roadrunnerWingOpenness(BirdAnimationState state) {
+        if (roadrunnerDustDevilTimer > 0) {
+            int totalFrames = roadrunnerDustDevilUltimate
+                    ? ROADRUNNER_DUST_DEVIL_FRAMES + 8
+                    : ROADRUNNER_DUST_DEVIL_FRAMES;
+            double elapsed = Math.max(0.0, totalFrames - roadrunnerDustDevilTimer);
+            double openEnvelope = smoothStep(Math.clamp(elapsed / 4.0, 0.0, 1.0));
+            double closeEnvelope = smoothStep(Math.clamp(roadrunnerDustDevilTimer / 5.0, 0.0, 1.0));
+            double flapStroke = 0.52 + 0.48
+                    * (0.5 + 0.5 * Math.cos((elapsed - 4.0) * Math.PI * 0.25));
+            return Math.clamp(openEnvelope * closeEnvelope * flapStroke, 0.0, 1.0);
+        }
+        if (state == BirdAnimationState.FLAP) {
+            double phase = positiveModulo(animationGlobalFrame + playerIndex * 3.0, 16.0) / 16.0;
+            return 0.68 + smoothStep(0.5 + 0.5 * Math.cos(phase * Math.PI * 2.0)) * 0.32;
+        }
+        if (state == BirdAnimationState.FALL) {
+            return 0.58;
+        }
+        return 0.0;
+    }
+
     private void drawPigeonTailUnderlay(GraphicsContext g, Color bodyColor) {
         double s = sizeMultiplier;
         double dir = facingRight ? -1.0 : 1.0;
@@ -30377,7 +30714,9 @@ public class Bird {
     }
 
     private void drawClassicSkinAccent(GraphicsContext g, double drawSize) {
-        if (!isClassicSkin || type == BirdGame3.BirdType.PIGEON || type == BirdGame3.BirdType.EAGLE) return;
+        if (!isClassicSkin || type == BirdGame3.BirdType.PIGEON
+                || type == BirdGame3.BirdType.EAGLE
+                || type == BirdGame3.BirdType.ROADRUNNER) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -30618,15 +30957,32 @@ public class Bird {
             g.fillOval(x + 52 * s, y + 26 * s, 7 * s, 7 * s);
         }
         if (type == BirdGame3.BirdType.ROADRUNNER && isMirageSkin) {
-            g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.72));
-            g.setLineWidth(2.2 * s);
+            double dir = facingRight ? 1.0 : -1.0;
+            double rear = -dir;
+            double wingX = x + (facingRight ? 12.0 : 34.0) * s;
+            g.setStroke(Color.web("#C9FFFF").deriveColor(0, 0.86, 1.0, 0.68));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(1.45 * s);
             for (int i = 0; i < 3; i++) {
-                double offset = i * 9.0 * s;
-                g.strokeLine(x + 14 * s - offset, y + 60 * s + i * 4.0 * s,
-                        x + 66 * s - offset, y + 42 * s + i * 3.0 * s);
+                g.strokeArc(wingX + (5.0 + i * 4.0) * s,
+                        y + (33.0 + i * 7.0) * s,
+                        (24.0 - i * 4.0) * s,
+                        (18.0 - i * 3.0) * s,
+                        facingRight ? 204.0 : -24.0,
+                        108.0,
+                        ArcType.OPEN);
             }
-            g.setFill(Color.web("#E0F7FA").deriveColor(0, 1, 1, 0.18));
-            g.fillOval(x + 8 * s, y + 28 * s, 62 * s, 34 * s);
+            g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1.06, 0.56));
+            g.setLineWidth(1.1 * s);
+            double tailRootX = x + (facingRight ? 16.0 : 64.0) * s;
+            for (int i = 0; i < 3; i++) {
+                g.strokeLine(tailRootX + rear * (8.0 + i * 3.0) * s,
+                        y + (39.0 + i * 5.0) * s,
+                        tailRootX + rear * (34.0 + i * 5.0) * s,
+                        y + (35.0 + i * 8.0) * s);
+            }
+            g.setFill(Color.web("#E0FFFF").deriveColor(0, 1, 1, 0.32));
+            g.fillOval(x + (facingRight ? 52.0 : 20.0) * s, y + 25.0 * s, 9.0 * s, 5.0 * s);
         }
         if (type == BirdGame3.BirdType.RAVEN && isVoidHeraldSkin) {
             g.setStroke(Color.web("#B388FF").deriveColor(0, 1, 1, 0.66));
@@ -31483,6 +31839,7 @@ public class Bird {
         boolean stylizedGrinchhawk = type == BirdGame3.BirdType.GRINCHHAWK;
         boolean stylizedTitmouse = type == BirdGame3.BirdType.TITMOUSE;
         boolean stylizedGoose = type == BirdGame3.BirdType.GOOSE;
+        boolean stylizedRoadrunner = type == BirdGame3.BirdType.ROADRUNNER;
         double openAmount = (isAttacking ? (16 + Math.sin(attackAnimationTimer * 0.7) * 10) : 3) * s * openScale;
         if (stylizedHummingbird) {
             openAmount *= 0.34;
@@ -31498,6 +31855,8 @@ public class Bird {
             openAmount *= 0.42;
         } else if (stylizedGoose) {
             openAmount *= gooseHonkTimer > 0 ? 1.05 : 0.62;
+        } else if (stylizedRoadrunner) {
+            openAmount *= 0.38;
         }
         double beakLength = ((type == BirdGame3.BirdType.FALCON ? 34
                 : type == BirdGame3.BirdType.EAGLE ? 32
@@ -31532,6 +31891,7 @@ public class Bird {
         double mouthCenterX = headPose.centerX() + dirX * 5.0 * s;
         double mouthCenterY = headPose.centerY() + dirY * 5.0 * s + 5.0 * s;
         double baseHalfWidth = (stylizedHummingbird ? 3.8
+                : stylizedRoadrunner ? 4.6
                 : stylizedTurkey || stylizedRooster ? 6.0 : 8.0) * s;
         double baseUpperX = mouthCenterX - normalX * baseHalfWidth;
         double baseUpperY = mouthCenterY - normalY * baseHalfWidth;
@@ -31571,6 +31931,10 @@ public class Bird {
                 ? (isAttacking ? Color.web("#4E342E") : Color.web("#5D4037"))
                 : stylizedGoose
                 ? (isAttacking ? Color.web("#F57C00") : Color.web("#FFA726"))
+                : stylizedRoadrunner
+                ? (isMirageSkin
+                    ? (isAttacking ? Color.web("#156B78") : Color.web("#3E8790"))
+                    : (isAttacking ? Color.web("#263238") : Color.web("#455A64")))
                 : (isAttacking ? Color.ORANGERED : Color.ORANGE));
         g.fillPolygon(
                 new double[]{baseUpperX, upperTipX, baseLowerX},
@@ -31649,8 +32013,17 @@ public class Bird {
             g.fillOval(tipBaseX - dirX * 6.0 * s - 3.0 * s, tipBaseY - dirY * 6.0 * s - 2.0 * s,
                     6.0 * s, 4.0 * s);
         }
+        if (stylizedRoadrunner) {
+            g.setStroke((isMirageSkin ? Color.web("#D2FFFF") : Color.web("#CFD8DC"))
+                    .deriveColor(0, 0.72, 1.0, 0.48));
+            g.setLineWidth(0.75 * s);
+            g.strokeLine(mouthCenterX + normalX * 1.0 * s,
+                    mouthCenterY + normalY * 1.0 * s,
+                    tipBaseX - dirX * 4.0 * s + normalX * 0.8 * s,
+                    tipBaseY - dirY * 4.0 * s + normalY * 0.8 * s);
+        }
 
-        if (isAttacking && attackAnimationTimer > 4) {
+        if (isAttacking && attackAnimationTimer > 4 && !stylizedRoadrunner) {
             g.setFill(Color.DEEPPINK.darker());
             g.fillOval(tongueCenterX - 10.0 * s, tongueCenterY - 7.0 * s, 20.0 * s, 14.0 * s);
         }
