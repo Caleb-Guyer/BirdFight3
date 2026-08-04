@@ -358,6 +358,7 @@ public class Bird {
                                  double roadrunnerWingOpenness,
                                  double penguinFlipperOpenness,
                                  double shoebillWingOpenness,
+                                 double shoebillFootBaseline,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -537,6 +538,7 @@ public class Bird {
     private double lastVisualRoadrunnerWingOpenness;
     private double lastVisualPenguinFlipperOpenness;
     private double lastVisualShoebillWingOpenness;
+    private double lastVisualShoebillFootBaseline = Double.NaN;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -21787,6 +21789,7 @@ public class Bird {
                 lastVisualRoadrunnerWingOpenness,
                 lastVisualPenguinFlipperOpenness,
                 lastVisualShoebillWingOpenness,
+                lastVisualShoebillFootBaseline,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21801,6 +21804,7 @@ public class Bird {
         lastVisualRoadrunnerWingOpenness = 0.0;
         lastVisualPenguinFlipperOpenness = 0.0;
         lastVisualShoebillWingOpenness = 0.0;
+        lastVisualShoebillFootBaseline = Double.NaN;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -30156,7 +30160,7 @@ public class Bird {
         }
 
         double tailRootX = x + (facingRight ? 18.0 : 62.0) * s;
-        double tailRootY = y + 58.0 * s;
+        double tailRootY = y + 52.0 * s;
         for (int i = 0; i < 3; i++) {
             double rootY = tailRootY + (i - 1.0) * 4.0 * s;
             double length = (25.0 - i * 3.0) * s;
@@ -30189,10 +30193,10 @@ public class Bird {
         g.beginPath();
         g.moveTo(cx, y + 4.0 * s);
         g.bezierCurveTo(x + 67.0 * s, y + 8.0 * s,
-                x + 73.0 * s, y + 48.0 * s, x + 62.0 * s, y + 73.0 * s);
-        g.bezierCurveTo(x + 54.0 * s, y + 82.0 * s,
-                x + 26.0 * s, y + 82.0 * s, x + 18.0 * s, y + 73.0 * s);
-        g.bezierCurveTo(x + 7.0 * s, y + 48.0 * s,
+                x + 71.0 * s, y + 40.0 * s, x + 60.0 * s, y + 62.0 * s);
+        g.bezierCurveTo(x + 53.0 * s, y + 69.0 * s,
+                x + 27.0 * s, y + 69.0 * s, x + 20.0 * s, y + 62.0 * s);
+        g.bezierCurveTo(x + 9.0 * s, y + 40.0 * s,
                 x + 13.0 * s, y + 8.0 * s, cx, y + 4.0 * s);
         g.closePath();
         g.fill();
@@ -30200,10 +30204,10 @@ public class Bird {
         g.beginPath();
         g.moveTo(cx, y + 8.0 * s);
         g.bezierCurveTo(x + 62.0 * s, y + 11.0 * s,
-                x + 68.0 * s, y + 47.0 * s, x + 58.0 * s, y + 70.0 * s);
-        g.bezierCurveTo(x + 50.0 * s, y + 77.0 * s,
-                x + 30.0 * s, y + 77.0 * s, x + 22.0 * s, y + 70.0 * s);
-        g.bezierCurveTo(x + 12.0 * s, y + 47.0 * s,
+                x + 66.0 * s, y + 39.0 * s, x + 56.0 * s, y + 59.0 * s);
+        g.bezierCurveTo(x + 50.0 * s, y + 65.0 * s,
+                x + 30.0 * s, y + 65.0 * s, x + 24.0 * s, y + 59.0 * s);
+        g.bezierCurveTo(x + 14.0 * s, y + 39.0 * s,
                 x + 18.0 * s, y + 11.0 * s, cx, y + 8.0 * s);
         g.closePath();
         g.fill();
@@ -30217,7 +30221,7 @@ public class Bird {
             upY = -upY;
         }
         double neckStartX = x + (facingRight ? 55.0 : 25.0) * s;
-        double neckStartY = y + 31.0 * s;
+        double neckStartY = y + 28.0 * s;
         double neckEndX = headPose.centerX() - aimX * 14.0 * s;
         double neckEndY = headPose.centerY() - aimY * 14.0 * s + 4.0 * s;
         g.setStroke(bodyDark);
@@ -30230,9 +30234,9 @@ public class Bird {
                 neckEndX + rear * 1.5 * s, neckEndY);
 
         g.setFill(chest.deriveColor(0, 0.86, 1.0, 0.86));
-        g.fillOval(x + 22.0 * s, y + 31.0 * s, 36.0 * s, 43.0 * s);
+        g.fillOval(x + 22.0 * s, y + 27.0 * s, 36.0 * s, 37.0 * s);
         g.setFill(chest.brighter().deriveColor(0, 0.58, 1.03, 0.30));
-        g.fillOval(x + 30.0 * s, y + 38.0 * s, 20.0 * s, 29.0 * s);
+        g.fillOval(x + 30.0 * s, y + 34.0 * s, 20.0 * s, 25.0 * s);
 
         double nearSide = -dir;
         drawShoebillWing(g, cx + nearSide * 17.0 * s, y + 34.0 * s,
@@ -30306,12 +30310,12 @@ public class Bird {
                 * 7.0 * runAmount;
         for (int i = 0; i < 2; i++) {
             double hipX = x + (30.0 + i * 20.0) * s;
-            double hipY = y + 61.0 * s;
+            double hipY = y + 52.0 * s;
             double step = (i == 0 ? stride : -stride) * s;
             double kneeX = hipX + step * 0.48 - dir * (airborne ? 3.0 + i * 1.5 : 0.0) * s;
-            double kneeY = y + (airborne ? 72.0 + i * 1.5 : 84.0) * s;
+            double kneeY = y + (airborne ? 66.0 + i * 1.5 : 65.0) * s;
             double ankleX = hipX + step - dir * (airborne ? 8.0 + i * 2.0 : 0.0) * s;
-            double ankleY = y + (airborne ? 79.0 + i * 1.5 : 97.0) * s;
+            double ankleY = y + (airborne ? 74.0 + i * 1.5 : 77.0) * s;
             double toeDir = airborne ? -dir : dir;
             g.setStroke(leg.deriveColor(0, 0.78, 0.76, i == 0 ? 0.78 : 0.96));
             g.setLineCap(StrokeLineCap.ROUND);
@@ -30330,6 +30334,15 @@ public class Bird {
             g.strokeLine(ankleX, ankleY,
                     ankleX - toeDir * (airborne ? 4.0 : 7.0) * s,
                     ankleY + 1.5 * s);
+            if (!airborne && visualAuditBodyOnly) {
+                double strokeRadius = 1.25 * s * 0.5;
+                double footBottom = ankleY + 2.3 * s + strokeRadius;
+                lastVisualShoebillFootBaseline = Math.max(
+                        Double.isNaN(lastVisualShoebillFootBaseline)
+                                ? Double.NEGATIVE_INFINITY
+                                : lastVisualShoebillFootBaseline,
+                        (footBottom - y) / s);
+            }
             recordVisualBodyPart(VisualBodyPart.SHOEBILL_LEG);
         }
     }
@@ -30345,7 +30358,7 @@ public class Bird {
         double s = sizeMultiplier;
         double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
         double foldedTipX = shoulderX + side * 7.0 * s;
-        double foldedTipY = y + 68.0 * s;
+        double foldedTipY = y + 62.0 * s;
         double spreadTipX = shoulderX + side * (43.0 + open * 10.0) * s;
         double spreadTipY = y + (27.0 - open * 9.0) * s;
         double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
