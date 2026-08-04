@@ -355,7 +355,11 @@ public class Bird {
         RAZORBILL_TAIL_FEATHER,
         RAZORBILL_WING,
         RAZORBILL_LEG,
-        RAZORBILL_BILL_GROOVE
+        RAZORBILL_BILL_GROOVE,
+        GRINCHHAWK_TAIL_FEATHER,
+        GRINCHHAWK_WING,
+        GRINCHHAWK_LEG,
+        GRINCHHAWK_CREST_FEATHER
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -370,6 +374,8 @@ public class Bird {
                                  double charlesFootBaseline,
                                  double razorbillWingOpenness,
                                  double razorbillFootBaseline,
+                                 double grinchhawkWingOpenness,
+                                 double grinchhawkFootBaseline,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -554,6 +560,8 @@ public class Bird {
     private double lastVisualCharlesFootBaseline = Double.NaN;
     private double lastVisualRazorbillWingOpenness;
     private double lastVisualRazorbillFootBaseline = Double.NaN;
+    private double lastVisualGrinchhawkWingOpenness;
+    private double lastVisualGrinchhawkFootBaseline = Double.NaN;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -11803,6 +11811,14 @@ public class Bird {
         attackAnimationTimer = Math.max(attackAnimationTimer, razorbillShearTimer);
     }
 
+    /** Positions Grinch-Hawk at a deterministic frame of Chimney Flap's wing cycle. */
+    void prepareVisualAuditGrinchhawkChimneyFlap(int remainingFrames) {
+        prepareVisualAuditPose(VisualAuditPose.FLAP);
+        grinchChimneyFlapUltimate = false;
+        grinchChimneyFlapTimer = Math.clamp(remainingFrames, 1, GRINCH_CHIMNEY_FLAP_FRAMES);
+        attackAnimationTimer = Math.max(attackAnimationTimer, grinchChimneyFlapTimer);
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -21825,6 +21841,8 @@ public class Bird {
                 lastVisualCharlesFootBaseline,
                 lastVisualRazorbillWingOpenness,
                 lastVisualRazorbillFootBaseline,
+                lastVisualGrinchhawkWingOpenness,
+                lastVisualGrinchhawkFootBaseline,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -21844,6 +21862,8 @@ public class Bird {
         lastVisualCharlesFootBaseline = Double.NaN;
         lastVisualRazorbillWingOpenness = 0.0;
         lastVisualRazorbillFootBaseline = Double.NaN;
+        lastVisualGrinchhawkWingOpenness = 0.0;
+        lastVisualGrinchhawkFootBaseline = Double.NaN;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -21881,7 +21901,6 @@ public class Bird {
             drawEagleSkin(g, drawSize);
             drawVulture(g, drawSize);
             drawBodyAndEyes(g, drawSize, attackPose);
-            drawGrinchhawk(g);
             drawRooster(g, drawSize);
             drawOpiumBirdAccessories(g);
             drawHeisenbirdAccessories(g);
@@ -26896,45 +26915,6 @@ public class Bird {
         }
     }
 
-    private void drawGrinchhawk(GraphicsContext g) {
-        if (type == BirdGame3.BirdType.GRINCHHAWK) {
-            double s = sizeMultiplier;
-            HeadPose headPose = currentHeadPose();
-            double headX = headPose.centerX() - 25.0 * s;
-            double headY = headPose.centerY() - 20.0 * s;
-            int dir = facingRight ? 1 : -1;
-            double eyeX = headX + (facingRight ? 5 : 45) * s;
-            double eyeY = headY + 2 * s;
-
-            g.setFill(Color.web("#FDD835"));
-            g.fillOval(eyeX, eyeY, 18 * s, 18 * s);
-            g.setFill(Color.web("#1B1B1B"));
-            g.fillOval(eyeX + (facingRight ? 6 : 2) * s, eyeY + 5 * s, 8 * s, 9 * s);
-
-            g.setStroke(Color.web("#1B5E20"));
-            g.setLineCap(StrokeLineCap.ROUND);
-            g.setLineWidth(3.0 * s);
-            double browStartX = eyeX - dir * 4.0 * s;
-            double browEndX = eyeX + dir * 20.0 * s;
-            g.strokeLine(browStartX, eyeY - 2.0 * s, browEndX, eyeY + 7.0 * s);
-
-            Color hatRed = Color.web("#C62828");
-            Color hatTrim = Color.web("#FFF8E1");
-            double hatBaseX = headX + (facingRight ? 4.0 : 10.0) * s;
-            double hatBaseY = headY - 11.0 * s;
-            g.setFill(hatTrim);
-            g.fillRoundRect(hatBaseX, hatBaseY + 14.0 * s, 34.0 * s, 8.0 * s, 5.0 * s, 5.0 * s);
-            g.setFill(hatRed);
-            g.fillPolygon(
-                    new double[]{hatBaseX + 4.0 * s, hatBaseX + 26.0 * s, hatBaseX + dir * 46.0 * s},
-                    new double[]{hatBaseY + 16.0 * s, hatBaseY + 16.0 * s, hatBaseY - 12.0 * s},
-                    3
-            );
-            g.setFill(hatTrim);
-            g.fillOval(hatBaseX + dir * 40.0 * s - 6.0 * s, hatBaseY - 17.0 * s, 12.0 * s, 12.0 * s);
-        }
-    }
-
     private void drawVultureBlackSkyFx(GraphicsContext g, double drawSize) {
         if (type != BirdGame3.BirdType.VULTURE || vultureBlackSkyTimer <= 0) {
             return;
@@ -28903,6 +28883,10 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.RAZORBILL) {
             drawRazorbillBody(g, drawSize, pose);
+            return;
+        }
+        if (type == BirdGame3.BirdType.GRINCHHAWK) {
+            drawGrinchhawkBody(g, drawSize, pose);
             return;
         }
         if (drawPhotoEagleSprite(g, drawSize, pose)) {
@@ -31263,6 +31247,429 @@ public class Bird {
         return 0.05;
     }
 
+    /** Builds Grinch-Hawk's hunched raptor silhouette, ragged plumage, and articulated wings. */
+    private void drawGrinchhawkBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double rear = -dir;
+        double cx = x + 40.0 * s;
+        BirdAnimationState state = currentBirdAnimationState();
+        HeadPose headPose = standardHeadPose(pose);
+        boolean classic = isClassicSkin;
+        boolean faction = isCampaignFactionSkin();
+
+        Color back;
+        Color body;
+        Color head;
+        Color chest;
+        Color wing;
+        Color featherEdge;
+        Color leg;
+        Color iris;
+        Color hat;
+        Color hatTrim;
+        if (faction) {
+            back = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            head = campaignFactionSecondaryColor().darker();
+            chest = campaignFactionSecondaryColor().brighter();
+            wing = campaignFactionPrimaryColor().darker();
+            featherEdge = campaignFactionAccentColor();
+            leg = campaignFactionSecondaryColor().darker();
+            iris = campaignFactionAccentColor();
+            hat = campaignFactionPrimaryColor().darker();
+            hatTrim = campaignFactionAccentColor().brighter();
+        } else if (classic) {
+            back = Color.web("#1B1110");
+            body = Color.web("#3A1715");
+            head = Color.web("#241313");
+            chest = Color.web("#B8A178");
+            wing = Color.web("#291313");
+            featherEdge = Color.web("#D8BE88");
+            leg = Color.web("#3A2820");
+            iris = Color.web("#FF9D28");
+            hat = Color.web("#5C1018");
+            hatTrim = Color.web("#C9B58D");
+        } else {
+            back = Color.web("#173719");
+            body = Color.web("#4F7F2B");
+            head = Color.web("#315D24");
+            chest = Color.web("#C4D99A");
+            wing = Color.web("#244B20");
+            featherEdge = Color.web("#9FBE69");
+            leg = Color.web("#6B5329");
+            iris = Color.web("#FDD835");
+            hat = Color.web("#B82428");
+            hatTrim = Color.web("#FFF3D4");
+        }
+
+        double tailRootX = x + (facingRight ? 20.0 : 60.0) * s;
+        double tailRootY = y + 55.0 * s;
+        double tailLift = switch (state) {
+            case FLAP -> -10.0;
+            case FALL -> 7.0;
+            case ATTACK -> -5.0;
+            case HITSTUN, KO -> 11.0;
+            default -> -1.0;
+        };
+        for (int i = 0; i < 4; i++) {
+            double offset = i - 1.5;
+            double rootX = tailRootX + dir * i * 1.2 * s;
+            double rootY = tailRootY + offset * 2.6 * s;
+            double tipX = rootX + rear * (25.0 - Math.abs(offset) * 2.5) * s;
+            double tipY = y + (58.0 + offset * 5.0 + tailLift) * s;
+            g.setFill(back.deriveColor(offset * 3.0, 0.96, 0.79 + i * 0.045, 0.98));
+            g.fillPolygon(
+                    new double[]{rootX + dir * 3.0 * s, tipX, rootX - dir * 4.0 * s},
+                    new double[]{rootY - 4.6 * s, tipY, rootY + 4.6 * s},
+                    3);
+            g.setStroke(featherEdge.deriveColor(0, 0.65, 1.0, 0.52));
+            g.setLineWidth(0.8 * s);
+            g.strokeLine(rootX, rootY, tipX + dir * 3.0 * s, tipY);
+            recordVisualBodyPart(VisualBodyPart.GRINCHHAWK_TAIL_FEATHER);
+        }
+
+        drawGrinchhawkLegs(g, state, leg, back);
+
+        double wingOpenness = grinchhawkWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualGrinchhawkWingOpenness = wingOpenness;
+        }
+        drawGrinchhawkWing(g, cx + dir * 15.0 * s, y + 39.0 * s,
+                dir, wingOpenness, wing, featherEdge, back, true);
+        recordVisualBodyPart(VisualBodyPart.GRINCHHAWK_WING);
+
+        // Low shoulders and a forward keel replace the old perfectly round orb.
+        g.setFill(back);
+        g.beginPath();
+        g.moveTo(x + (facingRight ? 15.0 : 65.0) * s, y + 45.0 * s);
+        g.bezierCurveTo(x + (facingRight ? 18.0 : 62.0) * s, y + 16.0 * s,
+                x + (facingRight ? 48.0 : 32.0) * s, y + 9.0 * s,
+                x + (facingRight ? 67.0 : 13.0) * s, y + 27.0 * s);
+        g.bezierCurveTo(x + (facingRight ? 75.0 : 5.0) * s, y + 41.0 * s,
+                x + (facingRight ? 62.0 : 18.0) * s, y + 70.0 * s,
+                x + 39.0 * s, y + 72.0 * s);
+        g.bezierCurveTo(x + 23.0 * s, y + 72.0 * s,
+                x + 11.0 * s, y + 61.0 * s,
+                x + (facingRight ? 15.0 : 65.0) * s, y + 45.0 * s);
+        g.closePath();
+        g.fill();
+
+        g.setFill(body);
+        g.beginPath();
+        g.moveTo(x + (facingRight ? 21.0 : 59.0) * s, y + 44.0 * s);
+        g.bezierCurveTo(x + (facingRight ? 23.0 : 57.0) * s, y + 23.0 * s,
+                x + (facingRight ? 48.0 : 32.0) * s, y + 17.0 * s,
+                x + (facingRight ? 61.0 : 19.0) * s, y + 31.0 * s);
+        g.bezierCurveTo(x + (facingRight ? 67.0 : 13.0) * s, y + 43.0 * s,
+                x + (facingRight ? 57.0 : 23.0) * s, y + 65.0 * s,
+                x + 40.0 * s, y + 67.0 * s);
+        g.bezierCurveTo(x + 26.0 * s, y + 67.0 * s,
+                x + 17.0 * s, y + 58.0 * s,
+                x + (facingRight ? 21.0 : 59.0) * s, y + 44.0 * s);
+        g.closePath();
+        g.fill();
+
+        g.setFill(chest.deriveColor(0, 0.82, 1.0, 0.94));
+        g.beginPath();
+        g.moveTo(x + (facingRight ? 43.0 : 37.0) * s, y + 28.0 * s);
+        g.bezierCurveTo(x + (facingRight ? 61.0 : 19.0) * s, y + 33.0 * s,
+                x + (facingRight ? 60.0 : 20.0) * s, y + 59.0 * s,
+                x + 42.0 * s, y + 67.0 * s);
+        g.bezierCurveTo(x + 31.0 * s, y + 61.0 * s,
+                x + 30.0 * s, y + 39.0 * s,
+                x + (facingRight ? 43.0 : 37.0) * s, y + 28.0 * s);
+        g.closePath();
+        g.fill();
+        g.setStroke(featherEdge.deriveColor(0, 0.72, 1.0, 0.44));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.0 * s);
+        for (int i = 0; i < 3; i++) {
+            double featherY = y + (43.0 + i * 7.0) * s;
+            g.strokeArc(x + 31.0 * s, featherY, 19.0 * s, 8.0 * s, 198.0, 145.0, ArcType.OPEN);
+        }
+
+        drawGrinchhawkWing(g, cx - dir * 15.0 * s, y + 39.0 * s,
+                -dir, wingOpenness, wing, featherEdge, back, false);
+        recordVisualBodyPart(VisualBodyPart.GRINCHHAWK_WING);
+
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double upX = -aimY;
+        double upY = aimX;
+        if (upY > 0.0) {
+            upX = -upX;
+            upY = -upY;
+        }
+        double neckStartX = x + (facingRight ? 56.0 : 24.0) * s;
+        double neckStartY = y + 29.0 * s;
+        double neckEndX = headPose.centerX() - aimX * 13.0 * s;
+        double neckEndY = headPose.centerY() - aimY * 13.0 * s + 3.0 * s;
+        g.setStroke(back);
+        g.setLineWidth(23.0 * s);
+        g.strokeLine(neckStartX, neckStartY, neckEndX, neckEndY);
+        g.setStroke(head);
+        g.setLineWidth(15.0 * s);
+        g.strokeLine(neckStartX + rear * 1.5 * s, neckStartY,
+                neckEndX + rear * 1.5 * s, neckEndY);
+
+        drawGrinchhawkCrest(g, headPose, aimX, aimY, upX, upY, back, featherEdge);
+
+        double headW = 51.0 * s;
+        double headH = 42.0 * s;
+        double headX = headPose.centerX() - headW * 0.5;
+        double headY = headPose.centerY() - headH * 0.5;
+        g.setFill(back);
+        g.fillOval(headX - 2.0 * s, headY - 1.5 * s, headW + 4.0 * s, headH + 3.0 * s);
+        g.setFill(head);
+        g.fillOval(headX, headY, headW, headH);
+
+        // A pale, ragged cheek makes the eye readable without softening the scowl.
+        double cheekX = headPose.centerX() + aimX * 2.0 * s - upX * 1.0 * s;
+        double cheekY = headPose.centerY() + aimY * 2.0 * s - upY * 1.0 * s;
+        g.setFill(chest.deriveColor(0, 0.72, 1.0, 0.84));
+        g.fillOval(cheekX - 13.0 * s, cheekY - 10.0 * s, 26.0 * s, 20.0 * s);
+
+        double eyeCenterX = headPose.centerX() + aimX * 6.0 * s + upX * 5.0 * s;
+        double eyeCenterY = headPose.centerY() + aimY * 6.0 * s + upY * 5.0 * s;
+        double eyeRadius = 8.5 * s;
+        double irisRadius = 5.0 * s;
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headPose.centerX() - headW * 0.5,
+                headPose.centerY() - headH * 0.5,
+                headPose.centerX() + headW * 0.5,
+                headPose.centerY() + headH * 0.5);
+        lastVisualEye = new VisualFeatureCircle(eyeCenterX, eyeCenterY, eyeRadius);
+        g.setFill(Color.web("#FFFBE8"));
+        g.fillOval(eyeCenterX - eyeRadius, eyeCenterY - eyeRadius,
+                eyeRadius * 2.0, eyeRadius * 2.0);
+        double irisX = eyeCenterX + aimX * 1.7 * s;
+        double irisY = eyeCenterY + aimY * 1.7 * s;
+        g.setFill(iris);
+        g.fillOval(irisX - irisRadius, irisY - irisRadius,
+                irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(Color.web("#120D0B"));
+        g.fillOval(irisX - 2.5 * s, irisY - 2.5 * s, 5.0 * s, 5.0 * s);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.92));
+        g.fillOval(irisX - 1.5 * s + upX * 0.8 * s,
+                irisY - 1.5 * s + upY * 0.8 * s, 2.7 * s, 2.7 * s);
+
+        g.setStroke(back.darker());
+        g.setLineWidth(3.2 * s);
+        g.strokeLine(eyeCenterX - aimX * 9.0 * s + upX * 9.0 * s,
+                eyeCenterY - aimY * 9.0 * s + upY * 9.0 * s,
+                eyeCenterX + aimX * 8.0 * s + upX * 5.7 * s,
+                eyeCenterY + aimY * 8.0 * s + upY * 5.7 * s);
+
+        drawGrinchhawkHat(g, headPose, aimX, aimY, upX, upY, hat, hatTrim, classic);
+
+        if (classic) {
+            g.setStroke(Color.web("#E5C78D").deriveColor(0, 0.76, 1.0, 0.58));
+            g.setLineWidth(1.15 * s);
+            g.strokeArc(x + 22.0 * s, y + 31.0 * s, 36.0 * s, 33.0 * s,
+                    facingRight ? 198.0 : -18.0, 125.0, ArcType.OPEN);
+        }
+        drawVectorBirdStateAccents(g, drawSize, headPose);
+    }
+
+    private void drawGrinchhawkLegs(GraphicsContext g, BirdAnimationState state, Color leg, Color edge) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || grinchChimneyFlapTimer > 0 || grinchGiftstormTimer > 0 || grinchSleighRiding;
+        double runAmount = state == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 13.0) * 0.38)
+                * 4.5 * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + (32.0 + i * 16.0) * s;
+            double hipY = y + 59.0 * s;
+            double step = (i == 0 ? stride : -stride) * s;
+            double ankleX = airborne ? hipX - dir * (4.0 + i * 2.0) * s : hipX + step;
+            double ankleY = y + (airborne ? 68.0 + i * 2.0 : 75.0) * s;
+            g.setStroke(leg.deriveColor(0, 0.90, 0.88, i == 0 ? 0.78 : 0.98));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.3 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            double toeDirection = airborne ? -dir : dir;
+            g.setStroke(leg.deriveColor(i * 2.0, 0.90, 0.98, 0.98));
+            g.setLineWidth(2.0 * s);
+            double toeEndY = airborne ? ankleY + 4.0 * s : y + 79.0 * s;
+            for (int toe = -1; toe <= 1; toe++) {
+                double length = (toe == 0 ? 10.0 : 7.5) * s;
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + toeDirection * length + toe * 1.3 * s,
+                        toeEndY - Math.abs(toe) * 0.6 * s);
+            }
+            g.setStroke(edge.deriveColor(0, 0.66, 1.0, 0.40));
+            g.setLineWidth(0.7 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            if (!airborne && visualAuditBodyOnly) {
+                lastVisualGrinchhawkFootBaseline = Math.max(
+                        Double.isNaN(lastVisualGrinchhawkFootBaseline)
+                                ? Double.NEGATIVE_INFINITY
+                                : lastVisualGrinchhawkFootBaseline,
+                        80.0);
+            }
+            recordVisualBodyPart(VisualBodyPart.GRINCHHAWK_LEG);
+        }
+    }
+
+    private void drawGrinchhawkWing(GraphicsContext g,
+                                    double shoulderX,
+                                    double shoulderY,
+                                    double side,
+                                    double openness,
+                                    Color wing,
+                                    Color edge,
+                                    Color shadow,
+                                    boolean farSide) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double foldedTipX = shoulderX + side * 7.0 * s;
+        double foldedTipY = y + 63.0 * s;
+        double spreadTipX = shoulderX + side * (42.0 + open * 10.0) * s;
+        double spreadTipY = y + (27.0 - open * 15.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double dx = tipX - shoulderX;
+        double dy = tipY - shoulderY;
+        double length = Math.max(0.001, Math.hypot(dx, dy));
+        double normalX = -dy / length;
+        double normalY = dx / length;
+        double alpha = farSide ? 0.68 : 0.98;
+        double rootWidth = (7.0 + open * 2.0) * s;
+        double midX = shoulderX + dx * 0.52;
+        double midY = shoulderY + dy * 0.52;
+        double midWidth = (9.0 + open * 4.0) * s;
+        g.setFill(wing.deriveColor(0, 0.96, farSide ? 0.78 : 0.96, alpha));
+        g.fillPolygon(
+                new double[]{shoulderX + normalX * rootWidth,
+                        midX + normalX * midWidth,
+                        tipX,
+                        midX - normalX * midWidth,
+                        shoulderX - normalX * rootWidth},
+                new double[]{shoulderY + normalY * rootWidth,
+                        midY + normalY * midWidth,
+                        tipY,
+                        midY - normalY * midWidth,
+                        shoulderY - normalY * rootWidth},
+                5);
+        // Three uneven primaries keep the spread wing sharp and predatory.
+        g.setStroke(edge.deriveColor(0, 0.70, 1.0, alpha * 0.72));
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int feather = -1; feather <= 1; feather++) {
+            double offset = feather * (3.0 + open * 2.5) * s;
+            g.setLineWidth((1.0 + (1 - Math.abs(feather)) * 0.35) * s);
+            g.strokeLine(shoulderX + normalX * offset,
+                    shoulderY + normalY * offset,
+                    tipX - side * (2.0 + Math.abs(feather) * 5.0) * s + normalX * offset * 0.45,
+                    tipY + normalY * offset * 0.45 + Math.abs(feather) * 2.5 * s);
+        }
+        g.setStroke(shadow.deriveColor(0, 0.72, 1.0, alpha * 0.56));
+        g.setLineWidth(1.0 * s);
+        g.strokeLine(shoulderX, shoulderY, tipX - side * 4.0 * s, tipY + 1.0 * s);
+        g.setFill(wing.brighter().deriveColor(0, 0.78, 1.0, alpha * 0.38));
+        g.fillOval(shoulderX - (10.0 + open * 2.0) * s,
+                shoulderY - (7.0 + open) * s,
+                (20.0 + open * 4.0) * s,
+                (18.0 + open * 2.0) * s);
+    }
+
+    private void drawGrinchhawkCrest(GraphicsContext g, HeadPose headPose,
+                                     double aimX, double aimY, double upX, double upY,
+                                     Color crest, Color edge) {
+        double s = sizeMultiplier;
+        for (int i = 0; i < 3; i++) {
+            double along = (-13.0 + i * 5.5) * s;
+            double rootX = headPose.centerX() + aimX * along + upX * 13.0 * s;
+            double rootY = headPose.centerY() + aimY * along + upY * 13.0 * s;
+            double tipX = rootX - aimX * (8.0 + i * 2.0) * s + upX * (13.0 - i * 1.5) * s;
+            double tipY = rootY - aimY * (8.0 + i * 2.0) * s + upY * (13.0 - i * 1.5) * s;
+            g.setFill(crest.deriveColor(i * 2.0, 0.96, 0.84 + i * 0.05, 0.98));
+            g.fillPolygon(
+                    new double[]{rootX - aimX * 3.0 * s, tipX, rootX + aimX * 4.0 * s},
+                    new double[]{rootY - aimY * 3.0 * s, tipY, rootY + aimY * 4.0 * s},
+                    3);
+            g.setStroke(edge.deriveColor(0, 0.62, 1.0, 0.48));
+            g.setLineWidth(0.7 * s);
+            g.strokeLine(rootX, rootY, tipX, tipY);
+            recordVisualBodyPart(VisualBodyPart.GRINCHHAWK_CREST_FEATHER);
+        }
+    }
+
+    private void drawGrinchhawkHat(GraphicsContext g, HeadPose headPose,
+                                   double aimX, double aimY, double upX, double upY,
+                                   Color hat, Color trim, boolean classic) {
+        double s = sizeMultiplier;
+        double bandCenterX = headPose.centerX() - aimX * 5.0 * s + upX * 18.0 * s;
+        double bandCenterY = headPose.centerY() - aimY * 5.0 * s + upY * 18.0 * s;
+        double halfWidth = 17.0 * s;
+        double halfHeight = 4.0 * s;
+        g.setFill(trim);
+        g.fillPolygon(
+                new double[]{bandCenterX - aimX * halfWidth - upX * halfHeight,
+                        bandCenterX + aimX * halfWidth - upX * halfHeight,
+                        bandCenterX + aimX * halfWidth + upX * halfHeight,
+                        bandCenterX - aimX * halfWidth + upX * halfHeight},
+                new double[]{bandCenterY - aimY * halfWidth - upY * halfHeight,
+                        bandCenterY + aimY * halfWidth - upY * halfHeight,
+                        bandCenterY + aimY * halfWidth + upY * halfHeight,
+                        bandCenterY - aimY * halfWidth + upY * halfHeight},
+                4);
+
+        double coneBackX = bandCenterX - aimX * 14.0 * s - upX * 2.0 * s;
+        double coneBackY = bandCenterY - aimY * 14.0 * s - upY * 2.0 * s;
+        double coneFrontX = bandCenterX + aimX * 13.0 * s - upX * 2.0 * s;
+        double coneFrontY = bandCenterY + aimY * 13.0 * s - upY * 2.0 * s;
+        double tipX = bandCenterX - aimX * (classic ? 22.0 : 26.0) * s + upX * 28.0 * s;
+        double tipY = bandCenterY - aimY * (classic ? 22.0 : 26.0) * s + upY * 28.0 * s;
+        g.setFill(hat);
+        g.fillPolygon(
+                new double[]{coneBackX, coneFrontX, tipX},
+                new double[]{coneBackY, coneFrontY, tipY},
+                3);
+        double pomRadius = (classic ? 5.2 : 5.8) * s;
+        g.setFill(trim);
+        g.fillOval(tipX - pomRadius, tipY - pomRadius, pomRadius * 2.0, pomRadius * 2.0);
+    }
+
+    /** Returns Grinch-Hawk's authored wing pose, including Chimney Flap's full open/close cycle. */
+    private double grinchhawkWingOpenness(BirdAnimationState state) {
+        if (grinchChimneyFlapTimer > 0) {
+            int totalFrames = grinchChimneyFlapTimer > GRINCH_CHIMNEY_FLAP_FRAMES
+                    ? GRINCH_CHIMNEY_FLAP_FRAMES + 8
+                    : GRINCH_CHIMNEY_FLAP_FRAMES;
+            double elapsed = Math.max(0.0, totalFrames - grinchChimneyFlapTimer);
+            double openEnvelope = smoothStep(Math.clamp(elapsed / 4.0, 0.0, 1.0));
+            double closeEnvelope = smoothStep(Math.clamp(grinchChimneyFlapTimer / 4.0, 0.0, 1.0));
+            return Math.clamp(openEnvelope * closeEnvelope, 0.0, 1.0);
+        }
+        if (grinchSleighRiding) {
+            return 0.03;
+        }
+        if (grinchGiftstormTimer > 0) {
+            return 0.88;
+        }
+        if (grinchHeartSnatchTimer > 0) {
+            return 0.36;
+        }
+        if (state == BirdAnimationState.FLAP) {
+            double phase = positiveModulo(animationGlobalFrame + playerIndex * 7.0, 18.0) / 18.0;
+            return 0.66 + smoothStep(0.5 + 0.5 * Math.cos(phase * Math.PI * 2.0)) * 0.34;
+        }
+        if (state == BirdAnimationState.FALL) {
+            return 0.57;
+        }
+        if (state == BirdAnimationState.ATTACK) {
+            return 0.27;
+        }
+        if (state == BirdAnimationState.HITSTUN || state == BirdAnimationState.KO) {
+            return 0.15;
+        }
+        return 0.05;
+    }
+
     /** Builds Roadrunner's long tail, flight wing, and unmistakable two-legged running stance. */
     private void drawRoadrunnerUnderlay(GraphicsContext g, Color bodyColor,
                                          boolean mirage, boolean classicPalette) {
@@ -32177,7 +32584,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.PENGUIN
                 || type == BirdGame3.BirdType.SHOEBILL
                 || type == BirdGame3.BirdType.MOCKINGBIRD
-                || type == BirdGame3.BirdType.RAZORBILL) return;
+                || type == BirdGame3.BirdType.RAZORBILL
+                || type == BirdGame3.BirdType.GRINCHHAWK) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -33138,6 +33546,80 @@ public class Bird {
                 tipY - aimY * 2.5 * s);
     }
 
+    private void drawGrinchhawkBeak(GraphicsContext g, AttackVisualPose pose, double openScale) {
+        double s = sizeMultiplier;
+        HeadPose headPose = standardHeadPose(pose);
+        double aimX = Math.cos(headPose.aimAngleRadians());
+        double aimY = Math.sin(headPose.aimAngleRadians());
+        double upX = -aimY;
+        double upY = aimX;
+        if (upY > 0.0) {
+            upX = -upX;
+            upY = -upY;
+        }
+        boolean attacking = attackAnimationTimer > 0 || grinchHeartSnatchTimer > 0
+                || grinchSleighRiding || grinchChimneyFlapTimer > 0 || grinchGiftstormTimer > 0;
+        double length = (27.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.42)) * s;
+        double open = (attacking ? 3.0 + Math.sin(attackAnimationTimer * 0.72) * 0.8 : 0.7)
+                * s * openScale;
+        double rootX = headPose.centerX() + aimX * 16.5 * s + upX * 1.0 * s;
+        double rootY = headPose.centerY() + aimY * 16.5 * s + upY * 1.0 * s;
+        double midX = rootX + aimX * length * 0.62;
+        double midY = rootY + aimY * length * 0.62;
+        double billPointX = rootX + aimX * length;
+        double billPointY = rootY + aimY * length;
+        double hookX = billPointX + aimX * 1.5 * s - upX * 4.8 * s;
+        double hookY = billPointY + aimY * 1.5 * s - upY * 4.8 * s;
+        double baseDepth = 7.5 * s;
+        Color upper = isClassicSkin ? Color.web("#B98A37")
+                : isCampaignFactionSkin() ? campaignFactionAccentColor().darker()
+                : Color.web("#F5A623");
+        Color lower = isClassicSkin ? Color.web("#6E451D")
+                : isCampaignFactionSkin() ? campaignFactionPrimaryColor().darker()
+                : Color.web("#C96D10");
+        Color ridge = isClassicSkin ? Color.web("#F0D29A")
+                : isCampaignFactionSkin() ? campaignFactionAccentColor().brighter()
+                : Color.web("#FFE082");
+
+        recordVisualBeak(rootX, rootY, hookX, hookY);
+        g.setFill(upper);
+        g.fillPolygon(
+                new double[]{rootX + upX * baseDepth,
+                        midX + upX * 6.0 * s,
+                        billPointX + upX * 1.8 * s,
+                        hookX,
+                        midX - upX * (1.0 * s + open * 0.18),
+                        rootX - upX * 1.2 * s},
+                new double[]{rootY + upY * baseDepth,
+                        midY + upY * 6.0 * s,
+                        billPointY + upY * 1.8 * s,
+                        hookY,
+                        midY - upY * (1.0 * s + open * 0.18),
+                        rootY - upY * 1.2 * s},
+                6);
+        g.setFill(lower);
+        g.fillPolygon(
+                new double[]{rootX - upX * 0.5 * s,
+                        billPointX - aimX * 2.0 * s - upX * (1.0 * s + open),
+                        midX - upX * (5.0 * s + open * 0.65),
+                        rootX - upX * baseDepth},
+                new double[]{rootY - upY * 0.5 * s,
+                        billPointY - aimY * 2.0 * s - upY * (1.0 * s + open),
+                        midY - upY * (5.0 * s + open * 0.65),
+                        rootY - upY * baseDepth},
+                4);
+        g.setStroke(ridge.deriveColor(0, 0.78, 1.0, 0.78));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.1 * s);
+        g.strokeLine(rootX + upX * 2.0 * s, rootY + upY * 2.0 * s,
+                billPointX - aimX * 2.5 * s + upX * 0.8 * s,
+                billPointY - aimY * 2.5 * s + upY * 0.8 * s);
+        g.setFill(lower.darker().deriveColor(0, 0.82, 1.0, 0.72));
+        g.fillOval(rootX + aimX * 6.0 * s + upX * 2.0 * s - 1.4 * s,
+                rootY + aimY * 6.0 * s + upY * 2.0 * s - 1.4 * s,
+                2.8 * s, 2.8 * s);
+    }
+
     private void drawBeak(GraphicsContext g, AttackVisualPose pose) {
         double s = sizeMultiplier;
         double openScale = pose == null ? 1.0 : pose.beakOpenScale();
@@ -33156,6 +33638,10 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.RAZORBILL) {
             drawRazorbillBeak(g, pose, openScale);
+            return;
+        }
+        if (type == BirdGame3.BirdType.GRINCHHAWK) {
+            drawGrinchhawkBeak(g, pose, openScale);
             return;
         }
         if (type == BirdGame3.BirdType.RAVEN) {

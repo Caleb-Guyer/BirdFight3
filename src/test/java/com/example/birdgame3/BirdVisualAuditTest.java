@@ -1063,6 +1063,124 @@ class BirdVisualAuditTest {
         }
     }
 
+    @Test
+    void grinchhawkKeepsRaggedWingsTailTalonsAndCrestAcrossSkinsPosesAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.GRINCHHAWK)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertEquals(2,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.GRINCHHAWK_WING),
+                            label + " must draw both ragged hawk wings");
+                    assertEquals(4,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.GRINCHHAWK_TAIL_FEATHER),
+                            label + " must retain all four tail feathers");
+                    assertEquals(2,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.GRINCHHAWK_LEG),
+                            label + " must retain both taloned legs");
+                    assertEquals(3,
+                            geometry.bodyPartCount(Bird.VisualBodyPart.GRINCHHAWK_CREST_FEATHER),
+                            label + " must retain the hostile three-feather crest");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+            }
+        }
+    }
+
+    @Test
+    void grinchhawkGroundedTalonsMeetTheGameplayFloorAcrossSkinsAndDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.GRINCHHAWK)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : List.of(
+                    Bird.VisualAuditPose.IDLE, Bird.VisualAuditPose.RUN)) {
+                for (boolean facingRight : List.of(true, false)) {
+                    Bird.VisualFeatureGeometry geometry =
+                            game.inspectVisualAuditCombatFeatures(entry, pose, facingRight);
+                    String label = entry.name() + " / " + pose + " facing "
+                            + (facingRight ? "right" : "left");
+                    assertTrue(Double.isFinite(geometry.grinchhawkFootBaseline()),
+                            label + " did not report a grounded talon baseline");
+                    assertEquals(80.0, geometry.grinchhawkFootBaseline(), 0.15,
+                            label + " must place the visible talon edge on the 80-unit collision floor");
+                }
+            }
+        }
+    }
+
+    @Test
+    void grinchhawkHeadEyeAndHookedBillFollowMovementAnimationsInBothDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.GRINCHHAWK)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+
+                assertTrue(Math.abs(beakVectorY(flap) - beakVectorY(idle)) >= 18.0,
+                        label + " must aim its hooked bill upward during flight");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its head and bill backward during hitstun");
+                assertFeatureGeometryIsSafe(idle, label + " idle");
+                assertFeatureGeometryIsSafe(flap, label + " flap");
+                assertFeatureGeometryIsSafe(hit, label + " hit");
+            }
+        }
+    }
+
+    @Test
+    void grinchhawkChimneyFlapOpensBothWingsThenClosesThemBeforeLanding() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.GRINCHHAWK)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry folded = game.inspectVisualAuditGrinchhawkChimneyFlapFeatures(
+                        entry, Bird.GRINCH_CHIMNEY_FLAP_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry spread = game.inspectVisualAuditGrinchhawkChimneyFlapFeatures(
+                        entry, Bird.GRINCH_CHIMNEY_FLAP_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry closing = game.inspectVisualAuditGrinchhawkChimneyFlapFeatures(
+                        entry, 1, facingRight);
+                String label = entry.name() + " Chimney Flap facing "
+                        + (facingRight ? "right" : "left");
+
+                assertTrue(folded.grinchhawkWingOpenness() <= 0.01,
+                        label + " must begin with folded wings");
+                assertTrue(spread.grinchhawkWingOpenness() >= 0.95,
+                        label + " must reach a fully spread two-wing climbing pose");
+                assertEquals(2, spread.bodyPartCount(Bird.VisualBodyPart.GRINCHHAWK_WING),
+                        label + " must display both wings during Chimney Flap");
+                assertTrue(closing.grinchhawkWingOpenness() <= 0.17,
+                        label + " must close both wings before Chimney Flap ends");
+            }
+        }
+    }
+
     private static void assertTurkeyNeckEndsBehindHead(
             Bird.VisualFeatureGeometry geometry, String label) {
         assertTrue(geometry.turkeyNeck() != null, label + " did not report its neck geometry");
