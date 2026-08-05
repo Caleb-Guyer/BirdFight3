@@ -11383,10 +11383,11 @@ public class BirdGame3 {
                     }
                     recordTrainingVultureCrowHit(c.owner, closest);
                     boolean hostile = c.effectiveVariant() != CrowMinion.VARIANT_ALLIED_CROW;
-                    closest.vx += hostile
+                    double launchMultiplier = c.ownerLaunchMultiplier();
+                    closest.vx += (hostile
                             ? c.vx * 1.65 + hitDirection * 4.8
-                            : c.vx * 0.95 + hitDirection * 2.8;
-                    closest.vy -= hostile ? 7.0 : 4.2;
+                            : c.vx * 0.95 + hitDirection * 2.8) * launchMultiplier;
+                    closest.vy -= (hostile ? 7.0 : 4.2) * launchMultiplier;
                     recordOwnedCrowImpact(c, closest, oldHealth, dealtDamage);
                     int particleCount = scaledParticleBurstCount(hostile ? 35 : 18);
                     Color particleColor = hostile
@@ -16265,8 +16266,9 @@ public class BirdGame3 {
                     hitDirection = closest.facingRight ? -1.0 : 1.0;
                 }
                 recordTrainingVultureCrowHit(c.owner, closest);
-                closest.vx += hitDirection * 5.4 + c.vx * 0.25;
-                closest.vy -= 3.6;
+                double launchMultiplier = c.ownerLaunchMultiplier();
+                closest.vx += (hitDirection * 5.4 + c.vx * 0.25) * launchMultiplier;
+                closest.vy -= 3.6 * launchMultiplier;
                 recordOwnedCrowImpact(c, closest, oldHealth, dealtDamage);
                 int particleCount = scaledParticleBurstCount(16);
                 for (int i = 0; i < particleCount; i++) {

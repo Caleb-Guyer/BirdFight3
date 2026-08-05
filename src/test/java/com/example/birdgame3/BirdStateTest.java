@@ -2038,6 +2038,46 @@ class BirdStateTest {
     }
 
     @Test
+    void ownedVultureCrowLaunchInheritsOwnerDamageTuningButNullRockDoesNot() throws Exception {
+        double originalVultureDamage = BirdGame3.BirdType.VULTURE.damageDealtMult;
+        double originalPigeonDamageTaken = BirdGame3.BirdType.PIGEON.damageTakenMult;
+        try {
+            BirdGame3.BirdType.VULTURE.damageDealtMult = 0.5;
+            BirdGame3.BirdType.PIGEON.damageTakenMult = 1.0;
+            BirdGame3 game = new BirdGame3();
+            game.activePlayers = 2;
+            Bird owner = new Bird(980.0, BirdGame3.BirdType.VULTURE, 0, game);
+            Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+            owner.y = BirdGame3.GROUND_Y - 80.0;
+            target.y = BirdGame3.GROUND_Y - 80.0;
+            game.players[0] = owner;
+            game.players[1] = target;
+
+            CrowMinion crow = new CrowMinion(target.x + 16.0, target.y + 40.0, target);
+            crow.owner = owner;
+            crow.vx = 0.0;
+            crow.vy = 0.0;
+            game.crowMinions.add(crow);
+            invokePrivateVoid(game, "updateWorldFixed");
+
+            assertEquals(0.5, crow.ownerLaunchMultiplier(), 0.0001);
+            assertEquals((crow.vx * 0.95 + 2.8) * 0.5, target.vx, 0.0001,
+                    "Player Vulture's crow shove should inherit his outgoing tuning.");
+            assertEquals(-2.1, target.vy, 0.0001,
+                    "Player Vulture's crow lift should inherit his outgoing tuning.");
+
+            owner.isNullRockSkin = true;
+            CrowMinion bossCrow = new CrowMinion(0.0, 0.0, null);
+            bossCrow.owner = owner;
+            assertEquals(1.0, bossCrow.ownerLaunchMultiplier(), 0.0001,
+                    "Null Rock's boss flock must remain independent of player balance tuning.");
+        } finally {
+            BirdGame3.BirdType.VULTURE.damageDealtMult = originalVultureDamage;
+            BirdGame3.BirdType.PIGEON.damageTakenMult = originalPigeonDamageTaken;
+        }
+    }
+
+    @Test
     void ownedVultureCrowCreditsDamageAndHealthModeKoWithoutBuildingUltimate() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

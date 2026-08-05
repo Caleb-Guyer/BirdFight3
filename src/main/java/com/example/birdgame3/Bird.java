@@ -783,9 +783,9 @@ public class Bird {
     static final int VULTURE_BAIT_CROW_SPAWN_INTERVAL = 34;
     static final int VULTURE_DOWN_REUSE_FRAMES = 70;
     static final int VULTURE_BLACK_SKY_FRAMES = 166;
-    static final int VULTURE_BLACK_SKY_INITIAL_CROWS = 14;
-    static final int VULTURE_BLACK_SKY_TARGET_CROWS = 40;
-    static final int VULTURE_BLACK_SKY_FINAL_CROWS = 10;
+    static final int VULTURE_BLACK_SKY_INITIAL_CROWS = 10;
+    static final int VULTURE_BLACK_SKY_TARGET_CROWS = 30;
+    static final int VULTURE_BLACK_SKY_FINAL_CROWS = 8;
     static final int VULTURE_BLACK_SKY_WAVE_INTERVAL = 9;
     static final int VULTURE_BLACK_SKY_FINAL_FRAME = 42;
     static final int NULL_ROCK_LASER_FRAMES = 58;
