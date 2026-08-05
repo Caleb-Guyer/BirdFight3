@@ -1380,6 +1380,56 @@ class BirdStateTest {
     }
 
     @Test
+    void gooseAiChargesHonkOnlyAtSafeZoningRange() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        Bird goose = new Bird(240.0, BirdGame3.BirdType.GOOSE, 0, game);
+        Bird distantTarget = new Bird(680.0, BirdGame3.BirdType.PIGEON, 1, game);
+        goose.y = distantTarget.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = goose;
+        game.players[1] = distantTarget;
+        game.isAI[0] = true;
+        setPrivateInt(goose, "aiLockedTargetIndex", 1);
+
+        GooseSpecials.neutral(goose, false);
+        assertTrue(goose.shouldGooseAIChargeHonk(),
+                "A distant inactive target should give CPU Goose room to charge Honk.");
+        int fullChargeFrames = GooseSpecials.honkMaxHoldFrames(goose);
+        for (int frame = 0; frame < fullChargeFrames; frame++) {
+            boolean held = goose.maintainAIHeldSpecialInputs();
+            assertTrue(held, "CPU Goose should preserve the charge while the target remains safely spaced.");
+            GooseSpecials.handleState(goose, held);
+        }
+
+        assertTrue(goose.gooseHonkReleased,
+                "CPU Goose should release Honk when the full charge is ready.");
+        assertEquals(fullChargeFrames, goose.gooseHonkHoldFrames);
+
+        BirdGame3 pressureGame = new BirdGame3();
+        pressureGame.activePlayers = 2;
+        Bird pressuredGoose = new Bird(240.0, BirdGame3.BirdType.GOOSE, 0, pressureGame);
+        Bird closeTarget = new Bird(350.0, BirdGame3.BirdType.PIGEON, 1, pressureGame);
+        pressuredGoose.y = closeTarget.y = BirdGame3.GROUND_Y - 80.0;
+        pressureGame.players[0] = pressuredGoose;
+        pressureGame.players[1] = closeTarget;
+        pressureGame.isAI[0] = true;
+        setPrivateInt(pressuredGoose, "aiLockedTargetIndex", 1);
+
+        GooseSpecials.neutral(pressuredGoose, false);
+        assertFalse(pressuredGoose.shouldGooseAIChargeHonk(),
+                "CPU Goose should not commit to a charge while an opponent is already close.");
+        for (int frame = 0; frame < Bird.GOOSE_HONK_MIN_HOLD_FRAMES; frame++) {
+            boolean held = pressuredGoose.maintainAIHeldSpecialInputs();
+            assertFalse(held, "A pressured CPU Goose should allow the fast Honk release.");
+            GooseSpecials.handleState(pressuredGoose, held);
+        }
+
+        assertTrue(pressuredGoose.gooseHonkReleased);
+        assertEquals(Bird.GOOSE_HONK_MIN_HOLD_FRAMES, pressuredGoose.gooseHonkHoldFrames,
+                "Close pressure should keep CPU Goose's readable minimum tell without adding charge delay.");
+    }
+
+    @Test
     void mockingbirdAiUsesItsKitInsteadOfEmptyNeutral() {
         assertEquals(20, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.MOCKINGBIRD),
                 "Charles needs the same setup cadence as the other technical fighters.");

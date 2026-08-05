@@ -8992,6 +8992,14 @@ public class Bird {
             game.setAiControlKey(playerIndex, specialKey(), true);
             return true;
         }
+        if (type == BirdGame3.BirdType.GOOSE
+                && gooseHonkTimer > 0
+                && !gooseHonkReleased
+                && gooseHonkHoldFrames < GooseSpecials.honkMaxHoldFrames(this)
+                && shouldGooseAIChargeHonk()) {
+            game.setAiControlKey(playerIndex, specialKey(), true);
+            return true;
+        }
         if (type == BirdGame3.BirdType.TITMOUSE
                 && titmouseStashCharging
                 && titmouseSeedStashes.size() >= TITMOUSE_MAX_STASHES) {
@@ -9003,6 +9011,13 @@ public class Bird {
     }
 
     boolean shouldRavenAIChargeBlackQuill() {
+        Bird target = currentAILockedTarget();
+        return target != null
+                && combatDistanceTo(target) > 225.0
+                && !aiTargetHasActiveThreat(target);
+    }
+
+    boolean shouldGooseAIChargeHonk() {
         Bird target = currentAILockedTarget();
         return target != null
                 && combatDistanceTo(target) > 225.0
