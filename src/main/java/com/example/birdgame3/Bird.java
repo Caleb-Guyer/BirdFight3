@@ -388,7 +388,12 @@ public class Bird {
         BAT_EAR,
         BAT_LEG,
         BAT_TAIL_MEMBRANE,
-        BAT_FANG
+        BAT_FANG,
+        PELICAN_TAIL_FEATHER,
+        PELICAN_WING,
+        PELICAN_LEG,
+        PELICAN_CREST_FEATHER,
+        PELICAN_POUCH
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -421,6 +426,11 @@ public class Bird {
                                  double batFootBaseline,
                                  double batCeilingClawBaseline,
                                  VisualFeatureBounds batTorso,
+                                 double pelicanWingOpenness,
+                                 double pelicanFootBaseline,
+                                 double pelicanBillGape,
+                                 VisualFeatureBounds pelicanTorso,
+                                 VisualFeatureBounds pelicanPouch,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -623,6 +633,11 @@ public class Bird {
     private double lastVisualBatFootBaseline = Double.NaN;
     private double lastVisualBatCeilingClawBaseline = Double.NaN;
     private VisualFeatureBounds lastVisualBatTorso;
+    private double lastVisualPelicanWingOpenness;
+    private double lastVisualPelicanFootBaseline = Double.NaN;
+    private double lastVisualPelicanBillGape;
+    private VisualFeatureBounds lastVisualPelicanTorso;
+    private VisualFeatureBounds lastVisualPelicanPouch;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -896,16 +911,16 @@ public class Bird {
     final int[] razorbillGuillotineWakeHitCooldown = new int[4];
     public int plungeTimer = 0;
     private static final int PELICAN_CARGO_MAX = 2;
-    private static final int PELICAN_NEUTRAL_FRAMES = 14;
+    static final int PELICAN_NEUTRAL_FRAMES = 14;
     private static final int PELICAN_NEUTRAL_REUSE_FRAMES = 24;
-    private static final int PELICAN_SIDE_FRAMES = 18;
+    static final int PELICAN_SIDE_FRAMES = 18;
     private static final int PELICAN_SIDE_REUSE_FRAMES = 36;
-    private static final int PELICAN_UP_FRAMES = 32;
+    static final int PELICAN_UP_FRAMES = 32;
     private static final int PELICAN_UP_ASCENT_FRAMES = 18;
     private static final int PELICAN_UP_ULTIMATE_ASCENT_FRAMES = 22;
-    private static final int PELICAN_DOWN_HOLD_FRAMES = 24;
+    static final int PELICAN_DOWN_HOLD_FRAMES = 24;
     private static final int PELICAN_DOWN_REUSE_FRAMES = 28;
-    private static final int PELICAN_BILGE_FX_FRAMES = 16;
+    static final int PELICAN_BILGE_FX_FRAMES = 16;
     private static final int PELICAN_FULL_HOLD_FRAMES = 300;
     static final int PELICAN_MAELSTROM_FRAMES = 168;
     static final int PELICAN_MAELSTROM_PULL_START_FRAME = 18;
@@ -2239,6 +2254,16 @@ public class Bird {
         UP,
         DOWN_STALL,
         DOWN_DIVE,
+        ULTIMATE
+    }
+
+    enum VisualAuditPelicanAction {
+        NEUTRAL,
+        SIDE,
+        UP_ASCENT,
+        UP_DIVE,
+        DOWN_LOAD,
+        DOWN_BILGE,
         ULTIMATE
     }
 
@@ -12021,6 +12046,60 @@ public class Bird {
         displayPose = null;
     }
 
+    /** Positions Pelican at deterministic frames of its complete authored special set. */
+    void prepareVisualAuditPelicanAction(
+            VisualAuditPelicanAction action, int remainingFrames, boolean faceRight) {
+        prepareVisualAuditPose(action == VisualAuditPelicanAction.UP_ASCENT
+                || action == VisualAuditPelicanAction.UP_DIVE
+                ? VisualAuditPose.FLAP : VisualAuditPose.ATTACK);
+        facingRight = faceRight;
+        pelicanCargoCount = 0;
+        pelicanNeutralTimer = 0;
+        pelicanSideTimer = 0;
+        pelicanSideCargoSpent = 0;
+        pelicanUpTimer = 0;
+        pelicanKeelDiveActive = false;
+        plungeTimer = 0;
+        pelicanDownCharging = false;
+        pelicanDownHoldFrames = 0;
+        pelicanBilgeFxTimer = 0;
+        pelicanBilgeCargoSpent = 0;
+        pelicanMaelstromTimer = 0;
+        switch (action) {
+            case NEUTRAL -> pelicanNeutralTimer = Math.clamp(
+                    remainingFrames, 1, PELICAN_NEUTRAL_FRAMES);
+            case SIDE -> {
+                pelicanSideDirection = faceRight ? 1 : -1;
+                pelicanSideCargoSpent = PELICAN_CARGO_MAX;
+                pelicanSideTimer = Math.clamp(remainingFrames, 1, PELICAN_SIDE_FRAMES);
+            }
+            case UP_ASCENT -> {
+                pelicanUpSpecialUsed = true;
+                pelicanUpTimer = Math.clamp(remainingFrames, 1, PELICAN_UP_FRAMES);
+            }
+            case UP_DIVE -> {
+                pelicanUpSpecialUsed = true;
+                pelicanUpTimer = Math.clamp(remainingFrames, 1, PELICAN_UP_FRAMES);
+                pelicanKeelDiveActive = true;
+                plungeTimer = 18;
+            }
+            case DOWN_LOAD -> {
+                pelicanDownCharging = true;
+                pelicanDownHoldFrames = Math.clamp(remainingFrames, 1, PELICAN_DOWN_HOLD_FRAMES);
+            }
+            case DOWN_BILGE -> {
+                pelicanBilgeCargoSpent = PELICAN_CARGO_MAX;
+                pelicanBilgeFxTimer = Math.clamp(remainingFrames, 1, PELICAN_BILGE_FX_FRAMES);
+            }
+            case ULTIMATE -> {
+                pelicanMaelstromCargoSpent = PELICAN_CARGO_MAX;
+                pelicanMaelstromTimer = Math.clamp(remainingFrames, 1, PELICAN_MAELSTROM_FRAMES);
+            }
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
+        displayPose = null;
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -17342,6 +17421,10 @@ public class Bird {
                 || batSilentStallTimer > 0 || batSilentDiveTimer > 0 || batCathedralTimer > 0);
     }
 
+    private boolean pelicanSpecialPoseActive() {
+        return type == BirdGame3.BirdType.PELICAN && pelicanSpecialActive();
+    }
+
     private boolean ravenSpecialPoseActive() {
         return type == BirdGame3.BirdType.RAVEN
                 && (ravenQuillCharging || ravenSideTimer > 0 || ravenLiftTimer > 0
@@ -18375,6 +18458,76 @@ public class Bird {
         return neutralVisualPose();
     }
 
+    private AttackVisualPose currentPelicanSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (pelicanMaelstromTimer > 0) {
+            double elapsed = PELICAN_MAELSTROM_FRAMES - pelicanMaelstromTimer;
+            double pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.20);
+            return new AttackVisualPose(
+                    -dir * pulse * 1.5, -10.0 - pulse * 3.0, dir * (2.0 + pulse * 2.0),
+                    normalizeAngleRadians(-0.24 * dir),
+                    10.0, -9.0, 8.0, 1.42,
+                    -dir * (4.0 + pulse * 3.0), 1.04, 1.08);
+        }
+        if (pelicanKeelDiveActive) {
+            return new AttackVisualPose(
+                    0.0, 13.0, dir * 4.0,
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.04),
+                    7.0, 12.0, 6.0, 0.82,
+                    29.0, 0.86, 1.18);
+        }
+        if (pelicanUpTimer > 0) {
+            double phase = pigeonSpecialPhase(pelicanUpTimer, PELICAN_UP_FRAMES);
+            double lift = Math.sin(Math.min(1.0, phase * 1.7) * Math.PI * 0.5);
+            return new AttackVisualPose(
+                    dir * phase * 2.0, -17.0 - lift * 10.0, dir * (2.0 + lift * 3.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.07),
+                    9.0 + lift * 5.0, -17.0 - lift * 7.0, 7.0 + lift * 4.0, 1.04,
+                    -21.0 - lift * 8.0, 0.94, 1.16);
+        }
+        if (pelicanSideTimer > 0) {
+            double sideDir = pelicanSideDirection == 0 ? dir : Math.signum(pelicanSideDirection);
+            double phase = pigeonSpecialPhase(pelicanSideTimer, PELICAN_SIDE_FRAMES);
+            double surge = Math.sin(phase * Math.PI);
+            return new AttackVisualPose(
+                    sideDir * (8.0 + surge * 12.0), 3.0 + surge * 2.0,
+                    sideDir * (6.0 + surge * 5.0),
+                    sideDir > 0 ? -0.04 : Math.PI + 0.04,
+                    10.0 + surge * 6.0, -1.0 - surge * 2.0,
+                    10.0 + surge * 6.0, 0.92,
+                    sideDir * (8.0 + surge * 7.0), 1.22, 0.80);
+        }
+        if (pelicanNeutralTimer > 0) {
+            double phase = pigeonSpecialPhase(pelicanNeutralTimer, PELICAN_NEUTRAL_FRAMES);
+            double scoop = Math.sin(phase * Math.PI);
+            return new AttackVisualPose(
+                    dir * scoop * 3.0, 2.0 + scoop * 2.0, dir * (2.0 + scoop * 3.0),
+                    facingRight ? 0.05 : Math.PI - 0.05,
+                    11.0 + scoop * 5.0, 1.0 + scoop * 2.0,
+                    10.0 + scoop * 6.0, 1.48,
+                    dir * (3.0 + scoop * 3.0), 1.10, 0.92);
+        }
+        if (pelicanBilgeFxTimer > 0) {
+            double phase = pigeonSpecialPhase(pelicanBilgeFxTimer, PELICAN_BILGE_FX_FRAMES);
+            double dump = Math.sin(phase * Math.PI);
+            return new AttackVisualPose(
+                    -dir * dump * 3.0, 5.0 + dump * 4.0, -dir * (3.0 + dump * 4.0),
+                    normalizeAngleRadians(0.30 * dir),
+                    7.0, 5.0 + dump * 3.0, 7.0, 1.34,
+                    -dir * (5.0 + dump * 4.0), 1.12, 0.86);
+        }
+        if (pelicanDownCharging) {
+            double load = smoothStep(Math.clamp(
+                    pelicanDownHoldFrames / (double) PELICAN_DOWN_HOLD_FRAMES, 0.0, 1.0));
+            return new AttackVisualPose(
+                    -dir * load * 2.0, 5.0 + load * 5.0, -dir * (2.0 + load * 3.0),
+                    normalizeAngleRadians(0.20 * dir),
+                    5.0, 5.0 + load * 3.0, 4.0, 1.18,
+                    -dir * (3.0 + load * 3.0), 1.12, 0.84);
+        }
+        return neutralVisualPose();
+    }
+
     private AttackVisualPose currentTitmouseSpecialPose() {
         double dir = facingRight ? 1.0 : -1.0;
         if (titmouseMobbingTimer > 0) {
@@ -18898,7 +19051,7 @@ public class Bird {
                 || pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
                 || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
                 || mockingbirdSpecialPoseActive() || opiumSpecialPoseActive()
-                || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive()
+                || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive() || pelicanSpecialPoseActive()
                 || (type == BirdGame3.BirdType.KIWI && KiwiSpecials.active(this))) {
             return VISUAL_POSE_ACTION_BLEND_PER_FRAME;
         }
@@ -21732,6 +21885,9 @@ public class Bird {
         if (batSpecialPoseActive()) {
             return currentBatSpecialPose();
         }
+        if (pelicanSpecialPoseActive()) {
+            return currentPelicanSpecialPose();
+        }
         if (grinchhawkSpecialPoseActive()) {
             return currentGrinchhawkSpecialPose();
         }
@@ -22294,6 +22450,11 @@ public class Bird {
                 lastVisualBatFootBaseline,
                 lastVisualBatCeilingClawBaseline,
                 lastVisualBatTorso,
+                lastVisualPelicanWingOpenness,
+                lastVisualPelicanFootBaseline,
+                lastVisualPelicanBillGape,
+                lastVisualPelicanTorso,
+                lastVisualPelicanPouch,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -22331,6 +22492,11 @@ public class Bird {
         lastVisualBatFootBaseline = Double.NaN;
         lastVisualBatCeilingClawBaseline = Double.NaN;
         lastVisualBatTorso = null;
+        lastVisualPelicanWingOpenness = 0.0;
+        lastVisualPelicanFootBaseline = Double.NaN;
+        lastVisualPelicanBillGape = 0.0;
+        lastVisualPelicanTorso = null;
+        lastVisualPelicanPouch = null;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -22378,7 +22544,6 @@ public class Bird {
             drawSpecialSkinAccent(g, drawSize);
             drawCampaignFactionSkin(g, drawSize);
             drawBeak(g, attackPose);
-            drawPelican(g);
             g.restore();
         }
     }
@@ -29643,6 +29808,10 @@ public class Bird {
             drawBatBody(g, drawSize, pose);
             return;
         }
+        if (type == BirdGame3.BirdType.PELICAN) {
+            drawPelicanBody(g, drawSize, pose);
+            return;
+        }
         if (type == BirdGame3.BirdType.RAVEN) {
             drawRavenBody(g, drawSize, pose);
             return;
@@ -34266,7 +34435,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.VULTURE
                 || type == BirdGame3.BirdType.OPIUMBIRD
                 || type == BirdGame3.BirdType.TITMOUSE
-                || type == BirdGame3.BirdType.BAT) return;
+                || type == BirdGame3.BirdType.BAT
+                || type == BirdGame3.BirdType.PELICAN) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -34402,21 +34572,6 @@ public class Bird {
             g.strokeLine(x + 34 * s, y + 38 * s, x + 24 * s, y + 62 * s);
             g.setStroke(Color.web("#CFD8DC").deriveColor(0, 1, 1, 0.55));
             g.strokeArc(x - 4 * s, y + 8 * s, drawSize + 8 * s, drawSize * 0.54, 210, 120, ArcType.OPEN);
-        }
-        if (type == BirdGame3.BirdType.PELICAN && isAuroraSkin) {
-            g.setFill(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.35));
-            g.fillOval(x + 6 * s, y + 30 * s, 68 * s, 26 * s);
-            g.setFill(Color.web("#CE93D8").deriveColor(0, 1, 1, 0.28));
-            g.fillOval(x + 10 * s, y + 48 * s, 64 * s, 24 * s);
-        }
-        if (type == BirdGame3.BirdType.PELICAN && isIroncladSkin) {
-            g.setStroke(Color.web("#D7CCC8").deriveColor(0, 1, 1, 0.8));
-            g.setLineWidth(2.4 * s);
-            g.strokeArc(x - 4 * s, y + 28 * s, 80 * s, 34 * s, 196, 148, ArcType.OPEN);
-            g.strokeLine(x + 18 * s, y + 32 * s, x + 60 * s, y + 28 * s);
-            g.setFill(Color.web("#FFCC80").deriveColor(0, 1, 1, 0.5));
-            g.fillOval(x + 18 * s, y + 54 * s, 8 * s, 8 * s);
-            g.fillOval(x + 54 * s, y + 50 * s, 8 * s, 8 * s);
         }
         if (type == BirdGame3.BirdType.HUMMINGBIRD && isSunflareSkin) {
             g.setStroke(Color.web("#FFECB3").deriveColor(0, 1, 1, 0.8));
@@ -34797,6 +34952,541 @@ public class Bird {
         return new VisualFeatureBounds(
                 left, batVisualY(bottom, centerY, true),
                 right, batVisualY(top, centerY, true));
+    }
+
+    /**
+     * Pelican uses one articulated harbor-bird rig: the long bill grows directly
+     * from the head, its pouch hangs from that bill, and both wings open and fold
+     * instead of relying on detached overlays from the shared round body.
+     */
+    private void drawPelicanBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double cx = x + drawSize * 0.50;
+        BirdAnimationState state = currentBirdAnimationState();
+        boolean aurora = isAuroraSkin;
+        boolean ironclad = isIroncladSkin;
+        boolean faction = isCampaignFactionSkin();
+
+        Color back;
+        Color body;
+        Color belly;
+        Color wing;
+        Color wingEdge;
+        Color head;
+        Color face;
+        Color crest;
+        Color leg;
+        Color iris;
+        Color bill;
+        Color billShade;
+        Color pouch;
+        Color pouchLight;
+        if (faction) {
+            back = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            belly = campaignFactionSecondaryColor().brighter();
+            wing = campaignFactionPrimaryColor().darker();
+            wingEdge = campaignFactionAccentColor();
+            head = campaignFactionSecondaryColor().brighter();
+            face = campaignFactionSecondaryColor().brighter().brighter();
+            crest = campaignFactionAccentColor();
+            leg = campaignFactionPrimaryColor().darker();
+            iris = campaignFactionAccentColor().darker();
+            bill = campaignFactionAccentColor();
+            billShade = campaignFactionPrimaryColor().darker();
+            pouch = campaignFactionSecondaryColor();
+            pouchLight = campaignFactionAccentColor().deriveColor(0, 0.58, 1.05, 1.0);
+        } else if (aurora) {
+            back = Color.web("#315D68");
+            body = Color.web("#76B8B6");
+            belly = Color.web("#D9F4EB");
+            wing = Color.web("#497B89");
+            wingEdge = Color.web("#85F2EA");
+            head = Color.web("#D5F3EA");
+            face = Color.web("#F2FFFA");
+            crest = Color.web("#C792DE");
+            leg = Color.web("#557782");
+            iris = Color.web("#263B66");
+            bill = Color.web("#F2C879");
+            billShade = Color.web("#A56E51");
+            pouch = Color.web("#7FD5D2");
+            pouchLight = Color.web("#CDA6E1");
+        } else if (ironclad) {
+            back = Color.web("#4A403C");
+            body = Color.web("#766861");
+            belly = Color.web("#C7B8A7");
+            wing = Color.web("#554B49");
+            wingEdge = Color.web("#D0B887");
+            head = Color.web("#B9ACA2");
+            face = Color.web("#E1D7CB");
+            crest = Color.web("#A06E43");
+            leg = Color.web("#4D443E");
+            iris = Color.web("#6E2B24");
+            bill = Color.web("#C59B5E");
+            billShade = Color.web("#5D4037");
+            pouch = Color.web("#8C756A");
+            pouchLight = Color.web("#BFA99D");
+        } else if (isClassicSkin) {
+            back = Color.web("#24364A");
+            body = Color.web("#58748C");
+            belly = Color.web("#EDF3F2");
+            wing = Color.web("#314A63");
+            wingEdge = game.classicSkinAccentColor(type);
+            head = Color.web("#E5ECE9");
+            face = Color.web("#FFFFFF");
+            crest = game.classicSkinAccentColor(type);
+            leg = Color.web("#7D6751");
+            iris = Color.web("#17283A");
+            bill = Color.web("#E7B44C");
+            billShade = Color.web("#79501E");
+            pouch = Color.web("#C8743D");
+            pouchLight = Color.web("#F2B45D");
+        } else {
+            back = Color.web("#7E674D");
+            body = Color.web("#C9B58F");
+            belly = Color.web("#F2E5C9");
+            wing = Color.web("#A48B66");
+            wingEdge = Color.web("#E4D1A8");
+            head = Color.web("#F1E3C5");
+            face = Color.web("#FFF8E8");
+            crest = Color.web("#C5AA7B");
+            leg = Color.web("#85684B");
+            iris = Color.web("#30271E");
+            bill = Color.web("#F1B454");
+            billShade = Color.web("#8D5B22");
+            pouch = Color.web("#E59645");
+            pouchLight = Color.web("#FFC36D");
+        }
+
+        double wingOpenness = pelicanWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualPelicanWingOpenness = wingOpenness;
+        }
+
+        // Three broad tail vanes root under the rump and mirror with facing.
+        for (int i = 0; i < 3; i++) {
+            double rootX = cx - dir * (15.0 - i * 1.5) * s;
+            double rootY = y + (51.0 + i * 5.5) * s;
+            double tipX = rootX - dir * (30.0 - i * 3.5) * s;
+            double tipY = y + (42.0 + i * 10.5) * s;
+            g.setFill((i == 1 ? body : wing).deriveColor(i * 2.0, 0.88, 0.92, 0.96));
+            g.fillPolygon(
+                    new double[]{rootX + dir * 4.0 * s, tipX, rootX - dir * 5.0 * s},
+                    new double[]{rootY - 5.0 * s, tipY, rootY + 5.0 * s}, 3);
+            g.setStroke(wingEdge.deriveColor(0, 0.70, 1.0, 0.54));
+            g.setLineWidth(0.9 * s);
+            g.strokeLine(rootX, rootY, tipX + dir * 2.0 * s, tipY);
+            recordVisualBodyPart(VisualBodyPart.PELICAN_TAIL_FEATHER);
+        }
+
+        drawPelicanLegs(g, state, leg, wingEdge);
+        drawPelicanWing(g, cx - dir * 4.0 * s, y + 37.0 * s,
+                dir, wingOpenness, wing, wingEdge, back, true, aurora, ironclad);
+        recordVisualBodyPart(VisualBodyPart.PELICAN_WING);
+
+        // A deep, keeled torso sells Pelican's heavyweight frame without becoming
+        // a stretched circle when the shared attack pose squashes or rotates it.
+        g.setFill(back);
+        g.beginPath();
+        g.moveTo(cx - dir * 25.0 * s, y + 34.0 * s);
+        g.bezierCurveTo(cx - dir * 21.0 * s, y + 19.0 * s,
+                cx + dir * 16.0 * s, y + 18.0 * s,
+                cx + dir * 27.0 * s, y + 37.0 * s);
+        g.bezierCurveTo(cx + dir * 31.0 * s, y + 54.0 * s,
+                cx + dir * 15.0 * s, y + 70.0 * s, cx - dir * 2.0 * s, y + 72.0 * s);
+        g.bezierCurveTo(cx - dir * 20.0 * s, y + 70.0 * s,
+                cx - dir * 31.0 * s, y + 54.0 * s,
+                cx - dir * 25.0 * s, y + 34.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(body);
+        g.beginPath();
+        g.moveTo(cx - dir * 20.0 * s, y + 35.0 * s);
+        g.bezierCurveTo(cx - dir * 16.0 * s, y + 24.0 * s,
+                cx + dir * 13.0 * s, y + 23.0 * s,
+                cx + dir * 22.0 * s, y + 38.0 * s);
+        g.bezierCurveTo(cx + dir * 25.0 * s, y + 52.0 * s,
+                cx + dir * 12.0 * s, y + 65.0 * s, cx - dir * 2.0 * s, y + 68.0 * s);
+        g.bezierCurveTo(cx - dir * 16.0 * s, y + 66.0 * s,
+                cx - dir * 25.0 * s, y + 52.0 * s,
+                cx - dir * 20.0 * s, y + 35.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(belly.deriveColor(0, 0.86, 1.0, 0.76));
+        g.fillOval(cx - dir * 2.0 * s - 14.0 * s, y + 38.0 * s, 28.0 * s, 28.0 * s);
+        if (visualAuditBodyOnly) {
+            lastVisualPelicanTorso = new VisualFeatureBounds(
+                    cx - 31.0 * s, y + 18.0 * s, cx + 31.0 * s, y + 72.0 * s);
+        }
+
+        drawPelicanWing(g, cx + dir * 3.0 * s, y + 38.0 * s,
+                -dir, wingOpenness, wing, wingEdge, back, false, aurora, ironclad);
+        recordVisualBodyPart(VisualBodyPart.PELICAN_WING);
+
+        double aim = pose == null ? (facingRight ? 0.0 : Math.PI) : pose.aimAngleRadians();
+        double aimX = Math.cos(aim);
+        double aimY = Math.sin(aim);
+        double normalX = -aimY;
+        double normalY = aimX;
+        if ((Math.abs(normalY) >= Math.abs(normalX) && normalY < 0.0)
+                || (Math.abs(normalX) > Math.abs(normalY)
+                && normalX * dir < 0.0)) {
+            normalX = -normalX;
+            normalY = -normalY;
+        }
+        double headReach = (24.0 + (pose == null ? 0.0 : pose.headReachBonus() * 0.42)) * s;
+        double headCx = cx + aimX * headReach + dir * 4.0 * s;
+        double headCy = y + 31.0 * s + aimY * headReach
+                + (pose == null ? 0.0 : pose.headLift() * 0.34 * s);
+        double neckRootX = cx + dir * 17.0 * s;
+        double neckRootY = y + 34.0 * s;
+        double neckEndX = headCx - aimX * 12.0 * s;
+        double neckEndY = headCy - aimY * 12.0 * s + normalY * 2.0 * s;
+        g.setStroke(back);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(17.0 * s);
+        g.strokeLine(neckRootX, neckRootY, neckEndX, neckEndY);
+        g.setStroke(head.darker());
+        g.setLineWidth(13.0 * s);
+        g.strokeLine(neckRootX, neckRootY, neckEndX, neckEndY);
+        g.setStroke(head);
+        g.setLineWidth(9.0 * s);
+        g.strokeLine(neckRootX, neckRootY, neckEndX, neckEndY);
+
+        double headW = 38.0 * s;
+        double headH = 30.0 * s;
+        g.setFill(head.darker());
+        g.fillOval(headCx - headW * 0.53, headCy - headH * 0.53,
+                headW * 1.06, headH * 1.06);
+        g.setFill(head);
+        g.fillOval(headCx - headW * 0.50, headCy - headH * 0.50, headW, headH);
+        g.setFill(face.deriveColor(0, 0.72, 1.0, 0.62));
+        g.fillOval(headCx + aimX * 3.0 * s - 12.0 * s,
+                headCy + aimY * 3.0 * s - 9.0 * s, 24.0 * s, 18.0 * s);
+
+        // Three rear crown feathers retain a readable silhouette without ever
+        // crossing the eye or floating away from the skull.
+        for (int i = 0; i < 3; i++) {
+            double rootX = headCx - aimX * (8.0 + i * 2.0) * s - normalX * 10.0 * s;
+            double rootY = headCy - aimY * (8.0 + i * 2.0) * s - normalY * 10.0 * s;
+            double tipX = rootX - aimX * (9.0 + i * 3.0) * s
+                    - normalX * (5.0 - i * 1.2) * s;
+            double tipY = rootY - aimY * (9.0 + i * 3.0) * s
+                    - normalY * (5.0 - i * 1.2) * s;
+            g.setFill(crest.deriveColor(i * 4.0, 0.90, 0.96 - i * 0.07, 0.96));
+            g.fillPolygon(
+                    new double[]{rootX - normalX * 3.0 * s, tipX, rootX + normalX * 3.0 * s},
+                    new double[]{rootY - normalY * 3.0 * s, tipY, rootY + normalY * 3.0 * s}, 3);
+            recordVisualBodyPart(VisualBodyPart.PELICAN_CREST_FEATHER);
+        }
+
+        double eyeCx = headCx + aimX * 4.0 * s - normalX * 4.0 * s;
+        double eyeCy = headCy + aimY * 4.0 * s - normalY * 4.0 * s;
+        double eyeRadius = 7.2 * s;
+        double irisRadius = 3.9 * s;
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headCx - headW * 0.5, headCy - headH * 0.5,
+                headCx + headW * 0.5, headCy + headH * 0.5);
+        lastVisualEye = new VisualFeatureCircle(eyeCx, eyeCy, eyeRadius);
+        g.setFill(Color.web("#FFFDF7"));
+        g.fillOval(eyeCx - eyeRadius, eyeCy - eyeRadius, eyeRadius * 2.0, eyeRadius * 2.0);
+        g.setFill(iris);
+        g.fillOval(eyeCx - irisRadius + aimX * 1.2 * s,
+                eyeCy - irisRadius + aimY * 1.2 * s, irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(Color.web("#171513"));
+        g.fillOval(eyeCx - 2.0 * s + aimX * 1.5 * s,
+                eyeCy - 2.0 * s + aimY * 1.5 * s, 4.0 * s, 4.0 * s);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.94));
+        g.fillOval(eyeCx - 0.2 * s - normalX * 1.6 * s,
+                eyeCy - 0.2 * s - normalY * 1.6 * s, 2.2 * s, 2.2 * s);
+
+        drawPelicanBillAndPouch(g, pose, headCx, headCy, aimX, aimY, normalX, normalY,
+                bill, billShade, pouch, pouchLight, aurora, ironclad);
+        drawVectorBirdStateAccents(g, drawSize,
+                new HeadPose(headCx, headCy, aim));
+    }
+
+    private double pelicanWingOpenness(BirdAnimationState state) {
+        if (pelicanMaelstromTimer > 0) return 0.96;
+        if (pelicanKeelDiveActive) return 0.10;
+        if (pelicanUpTimer > 0) {
+            double phase = (PELICAN_UP_FRAMES - pelicanUpTimer)
+                    / (double) Math.max(1, PELICAN_UP_FRAMES - 1);
+            return 0.30 + 0.68 * Math.abs(Math.sin(phase * Math.PI * 1.55));
+        }
+        if (pelicanSideTimer > 0) {
+            double phase = (PELICAN_SIDE_FRAMES - pelicanSideTimer)
+                    / (double) Math.max(1, PELICAN_SIDE_FRAMES - 1);
+            return 0.08 + 0.52 * Math.sin(phase * Math.PI);
+        }
+        if (pelicanNeutralTimer > 0) return 0.44;
+        if (pelicanBilgeFxTimer > 0) return 0.58;
+        if (pelicanDownCharging) return 0.24;
+        return switch (state) {
+            case FLAP -> 0.55 + 0.43 * Math.abs(Math.sin(
+                    (animationGlobalFrame + playerIndex * 13.0) * 0.66));
+            case FALL -> 0.68;
+            case ATTACK -> 0.48;
+            case HITSTUN -> 0.18;
+            case KO -> 0.10;
+            case DODGE -> 0.20;
+            case SHIELD -> 0.08;
+            case IDLE -> 0.07;
+        };
+    }
+
+    private void drawPelicanWing(GraphicsContext g, double shoulderX, double shoulderY,
+                                 double side, double openness, Color wing, Color edge,
+                                 Color shadow, boolean farSide, boolean aurora, boolean ironclad) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double layer = farSide ? -1.0 : 1.0;
+        double foldedTipX = shoulderX - side * (farSide ? 14.0 : 10.0) * s;
+        double foldedTipY = y + (farSide ? 59.0 : 62.0) * s;
+        double spreadTipX = shoulderX - side * (28.0 + open * 25.0) * s;
+        double spreadTipY = y + (farSide ? 32.0 - open * 38.0 : 43.0 + open * 32.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double dx = tipX - shoulderX;
+        double dy = tipY - shoulderY;
+        double length = Math.max(0.001, Math.hypot(dx, dy));
+        double normalX = -dy / length * layer * side;
+        double normalY = dx / length * layer * side;
+        double rootWidth = (8.0 + open * 2.0) * s;
+        double midX = shoulderX + dx * 0.55;
+        double midY = shoulderY + dy * 0.55;
+        double midWidth = (12.0 + open * 5.0) * s;
+        double alpha = farSide ? 0.70 : 0.98;
+        double[] wingX = {
+                shoulderX + normalX * rootWidth,
+                midX + normalX * midWidth,
+                tipX,
+                midX - normalX * midWidth,
+                shoulderX - normalX * rootWidth
+        };
+        double[] wingY = {
+                shoulderY + normalY * rootWidth,
+                midY + normalY * midWidth,
+                tipY,
+                midY - normalY * midWidth,
+                shoulderY - normalY * rootWidth
+        };
+        g.setFill(wing.deriveColor(0, 0.94, farSide ? 0.82 : 1.0, alpha));
+        g.fillPolygon(wingX, wingY, wingX.length);
+        g.setStroke(edge.deriveColor(0, 0.78, 1.0, alpha * 0.82));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineJoin(StrokeLineJoin.ROUND);
+        g.setLineWidth((ironclad ? 1.8 : 1.35) * s);
+        g.strokePolyline(wingX, wingY, wingX.length);
+        for (int feather = 0; feather < 4; feather++) {
+            double offset = (feather - 1.5) * (3.3 + open * 2.0) * s;
+            g.setLineWidth((0.8 + feather * 0.08) * s);
+            g.strokeLine(shoulderX + normalX * offset,
+                    shoulderY + normalY * offset,
+                    tipX + normalX * offset * 0.38 + side * feather * 2.8 * s,
+                    tipY + normalY * offset * 0.38 + feather * layer * 1.6 * s);
+        }
+        g.setStroke(shadow.deriveColor(0, 0.72, 1.0, alpha * 0.46));
+        g.setLineWidth(0.85 * s);
+        g.strokeLine(shoulderX, shoulderY, tipX + side * 2.0 * s, tipY);
+        if (aurora) {
+            g.setStroke(Color.web("#D7A9EB").deriveColor(0, 0.82, 1.0, alpha * 0.70));
+            g.setLineWidth(1.15 * s);
+            g.strokeLine(shoulderX + normalX * 3.0 * s, shoulderY + normalY * 3.0 * s,
+                    midX + normalX * 5.0 * s, midY + normalY * 5.0 * s);
+        } else if (ironclad) {
+            g.setFill(Color.web("#E0C38A").deriveColor(0, 0.72, 1.0, alpha * 0.86));
+            g.fillOval(midX - 2.0 * s, midY - 2.0 * s, 4.0 * s, 4.0 * s);
+        }
+    }
+
+    private void drawPelicanLegs(GraphicsContext g, BirdAnimationState state, Color leg, Color edge) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || pelicanUpTimer > 0 || pelicanKeelDiveActive || pelicanMaelstromTimer > 0;
+        double runAmount = state == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 17.0) * 0.34)
+                * 3.5 * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + 40.0 * s + dir * (i == 0 ? -7.0 : 7.0) * s;
+            double hipY = y + 62.0 * s;
+            double step = (i == 0 ? stride : -stride) * dir * s;
+            double ankleX = airborne ? hipX - dir * (4.0 + i * 2.0) * s : hipX + step;
+            double ankleY = y + (airborne ? 68.0 + i * 2.0 : 75.0) * s;
+            double toeY = airborne ? ankleY + 4.0 * s : y + 80.0 * s;
+            g.setStroke(leg.deriveColor(0, 0.90, i == 0 ? 0.82 : 1.0, i == 0 ? 0.76 : 0.98));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.5 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            g.setLineWidth(2.0 * s);
+            double toeDir = airborne ? -dir : dir;
+            for (int toe = -1; toe <= 1; toe++) {
+                double length = (toe == 0 ? 11.0 : 8.0) * s;
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + toeDir * length + toe * 1.5 * s,
+                        toeY - Math.abs(toe) * 0.8 * s);
+            }
+            g.setStroke(edge.deriveColor(0, 0.55, 1.0, 0.28));
+            g.setLineWidth(0.7 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            if (!airborne && visualAuditBodyOnly) {
+                lastVisualPelicanFootBaseline = Math.max(
+                        Double.isNaN(lastVisualPelicanFootBaseline)
+                                ? Double.NEGATIVE_INFINITY : lastVisualPelicanFootBaseline,
+                        80.0);
+            }
+            recordVisualBodyPart(VisualBodyPart.PELICAN_LEG);
+        }
+    }
+
+    private void drawPelicanBillAndPouch(
+            GraphicsContext g, AttackVisualPose pose, double headCx, double headCy,
+            double aimX, double aimY, double normalX, double normalY,
+            Color bill, Color billShade, Color pouch, Color pouchLight,
+            boolean aurora, boolean ironclad) {
+        double s = sizeMultiplier;
+        int cargo = pelicanEffectiveCargo();
+        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
+        double gape = pelicanNeutralTimer > 0 ? 8.6
+                : pelicanMaelstromTimer > 0 ? 7.4
+                : pelicanBilgeFxTimer > 0 ? 6.4
+                : attackAnimationTimer > 0 ? 4.0 : 1.5;
+        gape *= openScale;
+        if (visualAuditBodyOnly) {
+            lastVisualPelicanBillGape = gape;
+        }
+        double length = (47.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.42)) * s;
+        double rootX = headCx + aimX * 13.0 * s + normalX * 1.0 * s;
+        double rootY = headCy + aimY * 13.0 * s + normalY * 1.0 * s;
+        double tipX = rootX + aimX * length;
+        double tipY = rootY + aimY * length;
+        double upperHalf = 5.2 * s;
+        double tipHalf = 2.2 * s;
+        recordVisualBeak(rootX, rootY, tipX, tipY);
+
+        g.setFill(bill);
+        g.fillPolygon(
+                new double[]{rootX - normalX * upperHalf,
+                        tipX - normalX * tipHalf,
+                        tipX + normalX * 1.0 * s,
+                        rootX + normalX * 2.2 * s},
+                new double[]{rootY - normalY * upperHalf,
+                        tipY - normalY * tipHalf,
+                        tipY + normalY * 1.0 * s,
+                        rootY + normalY * 2.2 * s}, 4);
+        g.setStroke(billShade.deriveColor(0, 0.88, 1.0, 0.88));
+        g.setLineWidth((ironclad ? 1.7 : 1.2) * s);
+        g.strokeLine(rootX - normalX * upperHalf, rootY - normalY * upperHalf,
+                tipX - normalX * tipHalf, tipY - normalY * tipHalf);
+        g.strokeLine(rootX + normalX * 2.2 * s, rootY + normalY * 2.2 * s,
+                tipX + normalX * 1.0 * s, tipY + normalY * 1.0 * s);
+        g.setFill(billShade.deriveColor(0, 0.90, 1.0, 0.70));
+        double nostrilX = rootX + aimX * length * 0.30 - normalX * 1.8 * s;
+        double nostrilY = rootY + aimY * length * 0.30 - normalY * 1.8 * s;
+        g.fillOval(nostrilX - 1.8 * s, nostrilY - 1.3 * s, 3.6 * s, 2.6 * s);
+
+        double cargoBulge = cargo * 3.2;
+        double neutralBulge = pelicanNeutralTimer > 0 ? 5.0 : 0.0;
+        double maelstromBulge = pelicanMaelstromTimer > 0 ? 6.0 : 0.0;
+        double depth = (13.0 + cargoBulge + neutralBulge + maelstromBulge + gape * 0.55) * s;
+        double lowerRootX = rootX + normalX * (4.0 * s + gape * s);
+        double lowerRootY = rootY + normalY * (4.0 * s + gape * s);
+        double lowerTipX = tipX + normalX * (2.0 * s + gape * 0.30 * s);
+        double lowerTipY = tipY + normalY * (2.0 * s + gape * 0.30 * s);
+        double midX = (rootX + tipX) * 0.5;
+        double midY = (rootY + tipY) * 0.5;
+        double bellyMidX = midX + normalX * depth;
+        double bellyMidY = midY + normalY * depth;
+        g.setFill(pouch.darker());
+        g.beginPath();
+        g.moveTo(rootX + normalX * 1.5 * s, rootY + normalY * 1.5 * s);
+        g.bezierCurveTo(lowerRootX, lowerRootY,
+                bellyMidX - aimX * length * 0.24, bellyMidY - aimY * length * 0.24,
+                bellyMidX, bellyMidY);
+        g.bezierCurveTo(bellyMidX + aimX * length * 0.27, bellyMidY + aimY * length * 0.27,
+                lowerTipX, lowerTipY,
+                tipX + normalX * 1.0 * s, tipY + normalY * 1.0 * s);
+        g.lineTo(rootX + normalX * 1.5 * s, rootY + normalY * 1.5 * s);
+        g.closePath();
+        g.fill();
+        double innerDepth = depth * 0.72;
+        g.setFill(pouchLight.deriveColor(0, 0.92, 1.0, 0.82));
+        g.beginPath();
+        g.moveTo(rootX + aimX * 4.0 * s + normalX * 4.0 * s,
+                rootY + aimY * 4.0 * s + normalY * 4.0 * s);
+        g.bezierCurveTo(
+                midX - aimX * length * 0.26 + normalX * innerDepth,
+                midY - aimY * length * 0.26 + normalY * innerDepth,
+                midX + aimX * length * 0.24 + normalX * innerDepth,
+                midY + aimY * length * 0.24 + normalY * innerDepth,
+                tipX - aimX * 5.0 * s + normalX * 3.0 * s,
+                tipY - aimY * 5.0 * s + normalY * 3.0 * s);
+        g.bezierCurveTo(midX + aimX * length * 0.24 + normalX * 6.0 * s,
+                midY + aimY * length * 0.24 + normalY * 6.0 * s,
+                midX - aimX * length * 0.24 + normalX * 6.0 * s,
+                midY - aimY * length * 0.24 + normalY * 6.0 * s,
+                rootX + aimX * 4.0 * s + normalX * 4.0 * s,
+                rootY + aimY * 4.0 * s + normalY * 4.0 * s);
+        g.closePath();
+        g.fill();
+        g.setStroke(billShade.deriveColor(0, 0.72, 1.0, 0.62));
+        g.setLineWidth((ironclad ? 1.8 : 1.25) * s);
+        g.strokeLine(rootX + normalX * 2.0 * s, rootY + normalY * 2.0 * s,
+                tipX + normalX * 1.2 * s, tipY + normalY * 1.2 * s);
+        recordVisualBodyPart(VisualBodyPart.PELICAN_POUCH);
+
+        double halfLong = length * 0.50;
+        double halfDepth = depth * 0.56;
+        double pouchCx = midX + normalX * depth * 0.50;
+        double pouchCy = midY + normalY * depth * 0.50;
+        double extentX = Math.abs(aimX) * halfLong + Math.abs(normalX) * halfDepth;
+        double extentY = Math.abs(aimY) * halfLong + Math.abs(normalY) * halfDepth;
+        if (visualAuditBodyOnly) {
+            lastVisualPelicanPouch = new VisualFeatureBounds(
+                    pouchCx - extentX, pouchCy - extentY,
+                    pouchCx + extentX, pouchCy + extentY);
+        }
+
+        if (cargo > 0) {
+            for (int i = 0; i < cargo; i++) {
+                double along = (-6.0 + i * 12.0) * s;
+                double cargoX = pouchCx + aimX * along + normalX * depth * 0.05;
+                double cargoY = pouchCy + aimY * along + normalY * depth * 0.05;
+                g.setFill(pelicanFullHoldActive() ? Color.web("#FFE66D") : Color.web("#607D8B"));
+                g.fillOval(cargoX - 4.0 * s, cargoY - 3.2 * s, 8.0 * s, 6.4 * s);
+                g.setStroke(Color.web("#263238").deriveColor(0, 0.7, 1.0, 0.64));
+                g.setLineWidth(0.8 * s);
+                g.strokeOval(cargoX - 4.0 * s, cargoY - 3.2 * s, 8.0 * s, 6.4 * s);
+            }
+        }
+        if (aurora) {
+            g.setStroke(Color.web("#E7C3F4").deriveColor(0, 0.82, 1.0, 0.72));
+            g.setLineWidth(1.2 * s);
+            g.strokeLine(rootX + aimX * length * 0.22 + normalX * depth * 0.54,
+                    rootY + aimY * length * 0.22 + normalY * depth * 0.54,
+                    tipX - aimX * length * 0.16 + normalX * depth * 0.42,
+                    tipY - aimY * length * 0.16 + normalY * depth * 0.42);
+        } else if (ironclad) {
+            g.setFill(Color.web("#E0C38A"));
+            for (double along : new double[]{0.22, 0.78}) {
+                double rivetX = rootX + aimX * length * along + normalX * depth * 0.38;
+                double rivetY = rootY + aimY * length * along + normalY * depth * 0.38;
+                g.fillOval(rivetX - 1.8 * s, rivetY - 1.8 * s, 3.6 * s, 3.6 * s);
+            }
+        }
+        if (pelicanMaelstromTimer > 0) {
+            double elapsed = PELICAN_MAELSTROM_FRAMES - pelicanMaelstromTimer;
+            double pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.38);
+            g.setEffect(new Glow(0.45 + pulse * 0.18));
+            g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1.08, 0.52 + pulse * 0.22));
+            g.setLineWidth((2.2 + pulse * 1.2) * s);
+            g.strokeOval(pouchCx - extentX * 0.78, pouchCy - extentY * 0.72,
+                    extentX * 1.56, extentY * 1.44);
+            g.setEffect(null);
+        }
     }
 
     private void drawPhoenixBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -35441,6 +36131,10 @@ public class Bird {
             // Titmouse's short songbird bill opens with its authored call pose.
             return;
         }
+        if (type == BirdGame3.BirdType.PELICAN) {
+            // Pelican's bill and attached throat pouch belong to its dedicated rig.
+            return;
+        }
         if (type == BirdGame3.BirdType.RAVEN) {
             HeadPose headPose = standardHeadPose(pose);
             boolean isAttacking = attackAnimationTimer > 0 || ravenQuillCharging || ravenSideTimer > 0
@@ -35637,75 +36331,6 @@ public class Bird {
                     tipY - dirY * 10.0 * s + normalY * 8.0 * s);
             return;
         }
-        if (type == BirdGame3.BirdType.PELICAN) {
-            HeadPose headPose = standardHeadPose(pose);
-            double aimAngle = headPose.aimAngleRadians();
-            double dirX = Math.cos(aimAngle);
-            double dirY = Math.sin(aimAngle);
-            double normalX = Math.cos(aimAngle + Math.PI * 0.5);
-            double normalY = Math.sin(aimAngle + Math.PI * 0.5);
-            if (Math.abs(normalY) > Math.abs(normalX) && normalY < 0.0) {
-                normalX = -normalX;
-                normalY = -normalY;
-            }
-            boolean attacking = attackAnimationTimer > 0 || pelicanNeutralTimer > 0;
-            double open = (attacking ? 7.0 + Math.sin(attackAnimationTimer * 0.65) * 2.4 : 2.4) * s * openScale;
-            double length = (54.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.68)) * s;
-            double baseX = headPose.centerX() + dirX * 4.0 * s;
-            double baseY = headPose.centerY() + dirY * 4.0 * s + 5.0 * s;
-            double midX = baseX + dirX * length * 0.54;
-            double midY = baseY + dirY * length * 0.54;
-            double tipX = baseX + dirX * length;
-            double tipY = baseY + dirY * length + 1.4 * s;
-            Color upper = isIroncladSkin ? Color.web("#C59B5E") : Color.web("#F4B860");
-            Color lower = isIroncladSkin ? Color.web("#A1887F") : Color.web("#E99B45");
-            Color ridge = isIroncladSkin ? Color.web("#5D4037") : Color.web("#8D5B22");
-
-            double[] upperX = {
-                    baseX - normalX * 8.2 * s,
-                    midX - normalX * 9.6 * s,
-                    tipX - normalX * 6.4 * s,
-                    tipX + normalX * 2.6 * s,
-                    midX + normalX * 4.2 * s,
-                    baseX + normalX * 4.0 * s
-            };
-            double[] upperY = {
-                    baseY - normalY * 8.2 * s - open * 0.18,
-                    midY - normalY * 9.6 * s - open * 0.22,
-                    tipY - normalY * 6.4 * s - open * 0.18,
-                    tipY + normalY * 2.6 * s,
-                    midY + normalY * 4.2 * s,
-                    baseY + normalY * 4.0 * s
-            };
-            g.setFill(upper);
-            g.fillPolygon(upperX, upperY, upperX.length);
-
-            double[] lowerX = {
-                    baseX + normalX * 3.0 * s,
-                    midX + normalX * 7.2 * s,
-                    tipX + normalX * 5.6 * s,
-                    tipX - normalX * 1.4 * s,
-                    midX - normalX * 1.8 * s
-            };
-            double[] lowerY = {
-                    baseY + normalY * 3.0 * s + open,
-                    midY + normalY * 7.2 * s + open * 0.74,
-                    tipY + normalY * 5.6 * s + open * 0.52,
-                    tipY - normalY * 1.4 * s + open * 0.18,
-                    midY - normalY * 1.8 * s + open * 0.18
-            };
-            g.setFill(lower);
-            g.fillPolygon(lowerX, lowerY, lowerX.length);
-
-            g.setStroke(ridge.deriveColor(0, 1, 1, 0.72));
-            g.setLineWidth(1.45 * s);
-            g.strokePolyline(upperX, upperY, upperX.length);
-            g.strokePolyline(lowerX, lowerY, lowerX.length);
-            g.strokeLine(baseX - normalX * 2.0 * s, baseY - normalY * 2.0 * s,
-                    tipX - dirX * 7.0 * s, tipY - dirY * 7.0 * s);
-            return;
-        }
-
         HeadPose headPose = standardHeadPose(pose);
         boolean isAttacking = attackAnimationTimer > 0;
         boolean stylizedHummingbird = type == BirdGame3.BirdType.HUMMINGBIRD;
@@ -35917,63 +36542,6 @@ public class Bird {
             double flashCenterY = tipBaseY + dirY * 12.0 * s;
             g.setFill(Color.WHITE.deriveColor(0, 1, 1, flashOpacity));
             g.fillOval(flashCenterX - flashSize * 0.5, flashCenterY - flashSize * 0.5, flashSize, flashSize);
-        }
-    }
-
-    private void drawPelican(GraphicsContext g) {
-        if (type == BirdGame3.BirdType.PELICAN) {
-            double s = sizeMultiplier;
-            HeadPose headPose = currentHeadPose();
-            double headX = headPose.centerX() - 25.0 * s;
-            double headY = headPose.centerY() - 20.0 * s;
-            int cargo = pelicanEffectiveCargo();
-            double neutralInflation = pelicanNeutralTimer > 0
-                    ? (8.0 + Math.sin(pelicanNeutralTimer * 0.58) * 3.0) * s
-                    : 0.0;
-            double cargoScale = cargo * 8.0;
-            double pouchW = (plungeTimer > 0 ? 62 : 46 + cargoScale) * s + neutralInflation;
-            double pouchH = (plungeTimer > 0 ? 38 : 28 + cargo * 5.0) * s + neutralInflation * 0.42;
-            double pouchX = facingRight
-                    ? headPose.centerX() - 8.0 * s
-                    : headPose.centerX() - pouchW + 8.0 * s;
-            double pouchY = headY + (pelicanKeelDiveActive ? 25.0 : 22.0) * s;
-            g.setStroke((isIroncladSkin ? Color.web("#5D4037") : Color.web("#A67C46"))
-                    .deriveColor(0, 1, 1, 0.52));
-            g.setLineWidth(1.3 * s);
-            g.strokeArc(pouchX + 2.0 * s, pouchY - 4.0 * s, pouchW - 4.0 * s, pouchH + 4.0 * s,
-                    facingRight ? 16 : 164, 148, ArcType.OPEN);
-            g.setFill(isIroncladSkin ? Color.web("#A1887F") : Color.rgb(255, 180, 80));
-            g.fillOval(pouchX, pouchY, pouchW, pouchH);
-            g.setFill(isIroncladSkin ? Color.web("#D7CCC8") : Color.rgb(255, 200, 100));
-            g.fillOval(pouchX + 6 * s, pouchY + 4 * s, pouchW - 12 * s, pouchH - 12 * s);
-            if (cargo > 0) {
-                g.setFill(pelicanFullHoldActive() ? Color.GOLD : Color.web("#90A4AE"));
-                for (int i = 0; i < cargo; i++) {
-                    double cargoOffset = (18.0 + i * 16.0) * s;
-                    double cargoX = facingRight
-                            ? pouchX + cargoOffset
-                            : pouchX + pouchW - cargoOffset - 10.0 * s;
-                    double cargoY = pouchY + (14.0 + (i % 2) * 3.0) * s;
-                    g.fillOval(cargoX, cargoY, 10.0 * s, 8.0 * s);
-                }
-            }
-            if (pelicanMaelstromTimer > 0) {
-                double elapsed = PELICAN_MAELSTROM_FRAMES - pelicanMaelstromTimer;
-                double pulse = 0.5 + 0.5 * Math.sin(elapsed * 0.38);
-                g.setEffect(new Glow(0.55 + pulse * 0.20));
-                g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1.12, 0.52 + pulse * 0.22));
-                g.setLineWidth((3.0 + pulse * 1.6) * s);
-                g.strokeOval(pouchX - 4.0 * s, pouchY - 3.0 * s, pouchW + 8.0 * s, pouchH + 8.0 * s);
-                g.setFill(Color.web("#E1F5FE").deriveColor(0, 1, 1, 0.18 + pulse * 0.10));
-                g.fillOval(pouchX + pouchW * 0.18, pouchY + pouchH * 0.22,
-                        pouchW * 0.64, pouchH * 0.42);
-                g.setEffect(null);
-            }
-            if (isIroncladSkin) {
-                g.setStroke(Color.web("#5D4037"));
-                g.setLineWidth(1.8 * s);
-                g.strokeOval(pouchX + 3 * s, pouchY + 3 * s, pouchW - 6 * s, pouchH - 6 * s);
-            }
         }
     }
 

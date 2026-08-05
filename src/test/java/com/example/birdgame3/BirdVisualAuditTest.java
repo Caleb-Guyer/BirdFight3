@@ -26,7 +26,8 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.VULTURE,
             BirdGame3.BirdType.OPIUMBIRD,
             BirdGame3.BirdType.TITMOUSE,
-            BirdGame3.BirdType.BAT
+            BirdGame3.BirdType.BAT,
+            BirdGame3.BirdType.PELICAN
     );
 
     private static BirdGame3 freshGame() {
@@ -1784,6 +1785,175 @@ class BirdVisualAuditTest {
                 }
             }
         }
+    }
+
+    @Test
+    void pelicanKeepsTailWingsLegsCrestAndAttachedPouchAcrossEverySkinPoseAndDirection() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.PELICAN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                Bird.VisualFeatureGeometry right = game.inspectVisualAuditCombatFeatures(entry, pose, true);
+                Bird.VisualFeatureGeometry left = game.inspectVisualAuditCombatFeatures(entry, pose, false);
+                String label = entry.name() + " / " + pose;
+                for (Bird.VisualFeatureGeometry geometry : List.of(right, left)) {
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.PELICAN_TAIL_FEATHER),
+                            label + " must retain all three tail vanes");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.PELICAN_WING),
+                            label + " must retain both articulated wings");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.PELICAN_LEG),
+                            label + " must retain both legs");
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.PELICAN_CREST_FEATHER),
+                            label + " must retain all three rooted crown feathers");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.PELICAN_POUCH),
+                            label + " must draw exactly one attached throat pouch");
+                    assertTrue(geometry.pelicanTorso() != null,
+                            label + " did not report the authored heavyweight torso");
+                    assertTrue(geometry.pelicanPouch() != null,
+                            label + " did not report the attached pouch");
+                    assertPelicanPouchFollowsBill(geometry, label);
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+                assertMirrored(right, left, label);
+            }
+        }
+    }
+
+    @Test
+    void pelicanGroundedFeetMeetTheCollisionFloorAcrossEverySkinAndDirection() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.PELICAN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                assertEquals(80.0, idle.pelicanFootBaseline(), 0.15,
+                        entry.name() + " facing " + (facingRight ? "right" : "left")
+                                + " must place both webbed feet on the collision floor");
+            }
+        }
+    }
+
+    @Test
+    void pelicanFaceAndAttachedPouchTrackFlightHitAndDiveDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.PELICAN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                Bird.VisualFeatureGeometry dive = game.inspectVisualAuditPelicanActionFeatures(
+                        entry, Bird.VisualAuditPelicanAction.UP_DIVE, 10, facingRight);
+
+                assertTrue(Math.abs(beakVectorY(flap)) > Math.abs(beakVectorX(flap)) * 2.0,
+                        label + " must aim its bill upward during Thermal Sail");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its bill away from impact in hitstun");
+                assertTrue(beakVectorY(dive) > Math.abs(beakVectorX(dive)) * 2.0,
+                        label + " must point its complete bill and pouch down during Keel Dive");
+                for (Bird.VisualFeatureGeometry geometry : List.of(idle, flap, hit, dive)) {
+                    assertPelicanPouchFollowsBill(geometry, label);
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+            }
+        }
+    }
+
+    @Test
+    void pelicanSpecialsUseDistinctCompleteWingAndPouchCycles() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.PELICAN)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry snare = game.inspectVisualAuditPelicanActionFeatures(
+                        entry, Bird.VisualAuditPelicanAction.NEUTRAL, 8, facingRight);
+                Bird.VisualFeatureGeometry sideStart = game.inspectVisualAuditPelicanActionFeatures(
+                        entry, Bird.VisualAuditPelicanAction.SIDE, Bird.PELICAN_SIDE_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry sideOpen = game.inspectVisualAuditPelicanActionFeatures(
+                        entry, Bird.VisualAuditPelicanAction.SIDE, Bird.PELICAN_SIDE_FRAMES - 8, facingRight);
+                Bird.VisualFeatureGeometry sideClose = game.inspectVisualAuditPelicanActionFeatures(
+                        entry, Bird.VisualAuditPelicanAction.SIDE, 1, facingRight);
+                Bird.VisualFeatureGeometry sail = game.inspectVisualAuditPelicanActionFeatures(
+                        entry, Bird.VisualAuditPelicanAction.UP_ASCENT, Bird.PELICAN_UP_FRAMES - 7, facingRight);
+                Bird.VisualFeatureGeometry dive = game.inspectVisualAuditPelicanActionFeatures(
+                        entry, Bird.VisualAuditPelicanAction.UP_DIVE, 10, facingRight);
+                Bird.VisualFeatureGeometry load = game.inspectVisualAuditPelicanActionFeatures(
+                        entry, Bird.VisualAuditPelicanAction.DOWN_LOAD, 16, facingRight);
+                Bird.VisualFeatureGeometry bilge = game.inspectVisualAuditPelicanActionFeatures(
+                        entry, Bird.VisualAuditPelicanAction.DOWN_BILGE, 9, facingRight);
+                Bird.VisualFeatureGeometry ultimate = game.inspectVisualAuditPelicanActionFeatures(
+                        entry, Bird.VisualAuditPelicanAction.ULTIMATE, 100, facingRight);
+
+                assertTrue(idle.pelicanWingOpenness() <= 0.09, label + " must fold both idle wings");
+                assertTrue(snare.pelicanWingOpenness() >= 0.40, label + " must brace for Pouch Snare");
+                assertTrue(snare.pelicanBillGape() > idle.pelicanBillGape() + 6.0,
+                        label + " must visibly open the bill for Pouch Snare");
+                assertTrue(sideStart.pelicanWingOpenness() <= 0.10,
+                        label + " must begin Breakwater Run with folded wings");
+                assertTrue(sideOpen.pelicanWingOpenness() >= 0.56,
+                        label + " must open both wings during Breakwater Run");
+                assertTrue(sideClose.pelicanWingOpenness() <= 0.10,
+                        label + " must close both wings before Breakwater Run ends");
+                assertTrue(sail.pelicanWingOpenness() >= 0.85,
+                        label + " must fully spread both wings during Thermal Sail");
+                assertTrue(dive.pelicanWingOpenness() <= 0.12,
+                        label + " must tuck both wings for Keel Dive");
+                assertTrue(load.pelicanWingOpenness() >= 0.20 && load.pelicanWingOpenness() <= 0.28,
+                        label + " must keep a restrained loading stance");
+                assertTrue(bilge.pelicanWingOpenness() >= 0.55,
+                        label + " must spread both wings while dumping Bilge Command");
+                assertTrue(ultimate.pelicanWingOpenness() >= 0.94,
+                        label + " must hold both wings open for Maelstrom Gullet");
+                for (Bird.VisualFeatureGeometry geometry :
+                        List.of(snare, sideStart, sideOpen, sideClose, sail, dive, load, bilge, ultimate)) {
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.PELICAN_WING),
+                            label + " special pose lost a wing");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.PELICAN_POUCH),
+                            label + " special pose detached or duplicated the pouch");
+                    assertPelicanPouchFollowsBill(geometry, label + " special pose");
+                    assertFeatureGeometryIsSafe(geometry, label + " special pose");
+                }
+            }
+        }
+    }
+
+    private static void assertPelicanPouchFollowsBill(
+            Bird.VisualFeatureGeometry geometry, String label) {
+        Bird.VisualFeatureBounds pouch = geometry.pelicanPouch();
+        assertTrue(pouch != null, label + " did not report the Pelican pouch");
+        double tolerance = 0.05;
+        assertTrue(geometry.beak().tipX() >= pouch.left() - tolerance
+                        && geometry.beak().tipX() <= pouch.right() + tolerance
+                        && geometry.beak().tipY() >= pouch.top() - tolerance
+                        && geometry.beak().tipY() <= pouch.bottom() + tolerance,
+                label + " lets the pouch separate from the bill tip");
+        assertTrue(pouch.right() - pouch.left() > geometry.eye().radius() * 2.0
+                        || pouch.bottom() - pouch.top() > geometry.eye().radius() * 2.0,
+                label + " collapses the throat pouch into a decorative line");
     }
 
     private static void assertTurkeyNeckEndsBehindHead(
