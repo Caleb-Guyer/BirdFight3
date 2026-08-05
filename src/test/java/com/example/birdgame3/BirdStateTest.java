@@ -2038,7 +2038,7 @@ class BirdStateTest {
     }
 
     @Test
-    void ownedVultureCrowCreditsDamageMetersAndHealthModeKo() throws Exception {
+    void ownedVultureCrowCreditsDamageAndHealthModeKoWithoutBuildingUltimate() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
         game.headlessHarnessMode = true;
@@ -2061,8 +2061,10 @@ class BirdStateTest {
 
         assertEquals(1, game.damageDealt[0], "Crow damage should appear in its owner's results statistics.");
         assertEquals(1, game.eliminations[0], "A lethal crow hit should credit its owner with the KO.");
-        assertTrue(owner.getUltimateRatio() > 0.0, "Crow damage should build the summoner's ultimate meter.");
-        assertTrue(target.getUltimateRatio() > 0.0, "Crow damage should build the victim's ultimate meter.");
+        assertEquals(0.0, owner.getUltimateRatio(), 0.0001,
+                "Passive crow damage must not feed Vulture's next ultimate summon cycle.");
+        assertEquals(0.0, target.getUltimateRatio(), 0.0001,
+                "Passive crow contact should not build the victim's ultimate meter either.");
     }
 
     @Test

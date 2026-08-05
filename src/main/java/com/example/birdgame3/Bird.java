@@ -14518,15 +14518,12 @@ public class Bird {
         }
         double dealtDamage = receiveExternalDamage(ownerScaledDamage);
         if (dealtDamage > 0 && owner != null && owner != this) {
-            // Summons should participate in the same meter, training, and Smash
-            // attribution systems as the bird that called them. Keep the actual
-            // damage external so a remote crow cannot counter-hit its owner.
+            // Summons retain their owner's training and Smash attribution, but
+            // deliberately do not build either fighter's ultimate meter. Passive
+            // crow contact otherwise feeds Vulture's next summon cycle too fast.
             if (game.usesDamageScaledKnockback()) {
                 registerSmashHit(owner, dealtDamage);
             }
-            RoadrunnerSpecials.onHitLanded(owner);
-            owner.gainUltimate(dealtDamage * ULTIMATE_GAIN_DEALT);
-            gainUltimate(dealtDamage * ULTIMATE_GAIN_TAKEN);
             game.recordTrainingHit(owner, this, dealtDamage);
         }
         return dealtDamage;
