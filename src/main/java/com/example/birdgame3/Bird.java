@@ -410,7 +410,12 @@ public class Bird {
         GOOSE_WING,
         GOOSE_LEG,
         GOOSE_NECK,
-        GOOSE_CHEEK_PATCH
+        GOOSE_CHEEK_PATCH,
+        KIWI_SHAG_FEATHER,
+        KIWI_LEG,
+        KIWI_TOE,
+        KIWI_FACE_BRISTLE,
+        KIWI_BILL_NOSTRIL
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -465,6 +470,11 @@ public class Bird {
                                  VisualBeakAxis gooseNeck,
                                  VisualFeatureBounds gooseTorso,
                                  VisualFeatureBounds gooseCheekPatch,
+                                 double kiwiFootBaseline,
+                                 double kiwiBillExtension,
+                                 double kiwiLegExtension,
+                                 double kiwiBodyCompression,
+                                 VisualFeatureBounds kiwiTorso,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -689,6 +699,11 @@ public class Bird {
     private VisualBeakAxis lastVisualGooseNeck;
     private VisualFeatureBounds lastVisualGooseTorso;
     private VisualFeatureBounds lastVisualGooseCheekPatch;
+    private double lastVisualKiwiFootBaseline = Double.NaN;
+    private double lastVisualKiwiBillExtension;
+    private double lastVisualKiwiLegExtension;
+    private double lastVisualKiwiBodyCompression;
+    private VisualFeatureBounds lastVisualKiwiTorso;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -2318,6 +2333,18 @@ public class Bird {
         NEST_GUARD,
         NEST_COUNTER,
         ULTIMATE
+    }
+
+    enum VisualAuditKiwiAction {
+        PROBE,
+        BURROW_DIG,
+        BURROW_ERUPT,
+        SPRING,
+        STOMP_WINDUP,
+        STOMP_AIR,
+        STOMP_IMPACT,
+        ULTIMATE_CHARGE,
+        ULTIMATE_ERUPTION
     }
 
     enum VisualAuditTitmouseAction {
@@ -12192,6 +12219,74 @@ public class Bird {
         displayPose = null;
     }
 
+    /** Positions Kiwi at deterministic frames of its complete grounded kit. */
+    void prepareVisualAuditKiwiAction(
+            VisualAuditKiwiAction action, int remainingFrames, boolean faceRight) {
+        prepareVisualAuditPose(action == VisualAuditKiwiAction.SPRING
+                        || action == VisualAuditKiwiAction.STOMP_AIR
+                ? VisualAuditPose.FLAP : VisualAuditPose.ATTACK);
+        facingRight = faceRight;
+        kiwiProbeTimer = 0;
+        kiwiProbeStrikeIndex = 0;
+        kiwiBurrowTimer = 0;
+        kiwiBurrowGrounded = false;
+        kiwiBurrowErupted = false;
+        kiwiSpringTimer = 0;
+        kiwiSpringUsed = false;
+        kiwiStompTimer = 0;
+        kiwiStompAirborne = false;
+        kiwiStompImpactResolved = false;
+        kiwiStompImpactFxTimer = 0;
+        kiwiUltimateTimer = 0;
+        kiwiUltimateWaveIndex = 0;
+        kiwiUltimateFinalResolved = false;
+        switch (action) {
+            case PROBE -> {
+                kiwiProbeDirection = faceRight ? 1 : -1;
+                kiwiProbeTimer = Math.clamp(remainingFrames, 1, KIWI_PROBE_FRAMES);
+            }
+            case BURROW_DIG -> {
+                kiwiBurrowDirection = faceRight ? 1 : -1;
+                kiwiBurrowGrounded = true;
+                kiwiBurrowTimer = Math.clamp(remainingFrames, 1, KIWI_BURROW_FRAMES);
+            }
+            case BURROW_ERUPT -> {
+                kiwiBurrowDirection = faceRight ? 1 : -1;
+                kiwiBurrowGrounded = true;
+                kiwiBurrowErupted = true;
+                kiwiBurrowTimer = Math.clamp(remainingFrames, 1, KIWI_BURROW_FRAMES);
+            }
+            case SPRING -> {
+                kiwiSpringDirection = faceRight ? 1 : -1;
+                kiwiSpringUsed = true;
+                kiwiSpringTimer = Math.clamp(remainingFrames, 1, KIWI_SPRING_FRAMES);
+            }
+            case STOMP_WINDUP -> kiwiStompTimer = Math.clamp(
+                    remainingFrames, 1, KIWI_STOMP_FRAMES);
+            case STOMP_AIR -> {
+                kiwiStompAirborne = true;
+                kiwiStompTimer = Math.clamp(remainingFrames, 1, KIWI_STOMP_FRAMES);
+            }
+            case STOMP_IMPACT -> {
+                kiwiStompImpactResolved = true;
+                kiwiStompTimer = 1;
+                kiwiStompImpactFxTimer = Math.clamp(
+                        remainingFrames, 1, KIWI_STOMP_IMPACT_FX_FRAMES);
+            }
+            case ULTIMATE_CHARGE -> {
+                kiwiUltimateDirection = faceRight ? 1 : -1;
+                kiwiUltimateTimer = Math.clamp(remainingFrames, 1, KIWI_ULTIMATE_FRAMES);
+            }
+            case ULTIMATE_ERUPTION -> {
+                kiwiUltimateDirection = faceRight ? 1 : -1;
+                kiwiUltimateFinalResolved = true;
+                kiwiUltimateTimer = Math.clamp(remainingFrames, 1, KIWI_ULTIMATE_FRAMES);
+            }
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, 18);
+        displayPose = null;
+    }
+
     /** Positions Tufted Titmouse at a deterministic frame of each authored special pose. */
     void prepareVisualAuditTitmouseAction(
             VisualAuditTitmouseAction action, int remainingFrames, boolean faceRight) {
@@ -17686,6 +17781,10 @@ public class Bird {
                 && (GooseSpecials.active(this) || gooseNestPlacePoseActive());
     }
 
+    private boolean kiwiSpecialPoseActive() {
+        return type == BirdGame3.BirdType.KIWI && KiwiSpecials.active(this);
+    }
+
     private double turkeySpecialPhase(int timer, int totalFrames) {
         if (timer <= 0 || totalFrames <= 0) {
             return 0.0;
@@ -19108,12 +19207,87 @@ public class Bird {
         return neutralVisualPose();
     }
 
+    private AttackVisualPose currentKiwiSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (kiwiUltimateTimer > 0) {
+            int elapsed = KIWI_ULTIMATE_FRAMES - kiwiUltimateTimer;
+            if (kiwiUltimateFinalResolved || elapsed >= 126) {
+                double recovery = Math.clamp(kiwiUltimateTimer / 38.0, 0.0, 1.0);
+                return new AttackVisualPose(
+                        -dir * 3.0, 8.0 + recovery * 3.0, -dir * 4.0,
+                        aimAngleForLocalPitch(0.82), 10.0, 8.0, 13.0,
+                        1.04, dir * 7.0, 1.08, 0.94);
+            }
+            double wavePhase = positiveModulo(elapsed, 42.0) / 41.0;
+            double drive = Math.sin(wavePhase * Math.PI);
+            return new AttackVisualPose(
+                    dir * (10.0 + drive * 9.0), -2.0 - drive * 2.0,
+                    dir * (8.0 + drive * 5.0), aimAngleForLocalPitch(-0.08),
+                    13.0 + drive * 6.0, -5.0, 12.0 + drive * 7.0,
+                    1.03, dir * (12.0 + drive * 8.0), 1.10, 0.92);
+        }
+        if (kiwiStompTimer > 0) {
+            if (kiwiStompImpactResolved) {
+                return new AttackVisualPose(
+                        0.0, 10.0, dir * 3.0, aimAngleForLocalPitch(0.88),
+                        5.0, 8.0, 5.0, 1.0,
+                        dir * 5.0, 1.08, 0.94);
+            }
+            if (kiwiStompAirborne) {
+                return new AttackVisualPose(
+                        -dir * 1.5, 7.0, dir * 4.0, aimAngleForLocalPitch(1.46),
+                        11.0, 11.0, 8.0, 1.0,
+                        dir * 5.0, 1.02, 1.04);
+            }
+            double windup = Math.clamp(
+                    (KIWI_STOMP_FRAMES - kiwiStompTimer) / 7.0, 0.0, 1.0);
+            return new AttackVisualPose(
+                    -dir * (2.0 + windup * 2.0), 4.0 + windup * 5.0,
+                    -dir * (3.0 + windup * 3.0), aimAngleForLocalPitch(0.66),
+                    6.0, 5.0 + windup * 4.0, 5.0, 1.0,
+                    -dir * 4.0, 1.04, 0.97);
+        }
+        if (kiwiSpringTimer > 0) {
+            double phase = Math.clamp(
+                    (KIWI_SPRING_FRAMES - kiwiSpringTimer) / (double) KIWI_SPRING_FRAMES,
+                    0.0, 1.0);
+            return new AttackVisualPose(
+                    dir * (1.0 + phase * 2.0), -13.0 - phase * 10.0,
+                    -dir * (3.0 + phase * 3.0), aimAngleForLocalPitch(-1.40),
+                    14.0, -20.0 - phase * 5.0, 9.0, 1.0,
+                    -dir * (8.0 + phase * 5.0), 0.98, 1.08);
+        }
+        if (kiwiBurrowTimer > 0) {
+            if (kiwiBurrowErupted) {
+                return new AttackVisualPose(
+                        dir * 5.0, -8.0, dir * 5.0, aimAngleForLocalPitch(-1.16),
+                        13.0, -13.0, 12.0, 1.0,
+                        -dir * 6.0, 1.04, 1.02);
+            }
+            return new AttackVisualPose(
+                    dir * 4.0, 13.0, dir * 2.0, aimAngleForLocalPitch(0.16),
+                    7.0, 8.0, 10.0, 1.0,
+                    dir * 5.0, 1.12, 0.84);
+        }
+        if (kiwiProbeTimer > 0) {
+            int elapsed = KIWI_PROBE_FRAMES - kiwiProbeTimer;
+            double thrust = Math.sin((elapsed % 6) / 5.0 * Math.PI);
+            thrust = Math.max(0.0, thrust);
+            return new AttackVisualPose(
+                    dir * (6.0 + thrust * 7.0), -2.0,
+                    dir * (6.0 + thrust * 4.0), aimAngleForLocalPitch(-0.04),
+                    9.0 + thrust * 7.0, -4.0, 8.0 + thrust * 10.0,
+                    1.0, dir * (7.0 + thrust * 5.0), 1.06, 0.96);
+        }
+        return neutralVisualPose();
+    }
+
     private NormalAttackVariant currentDisplayedAttackVariant() {
         if (pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
                 || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
                 || mockingbirdSpecialPoseActive() || opiumSpecialPoseActive()
                 || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive()
-                || gooseSpecialPoseActive()) {
+                || gooseSpecialPoseActive() || kiwiSpecialPoseActive()) {
             return null;
         }
         if (isGroundAttackPending()) {
@@ -19991,7 +20165,7 @@ public class Bird {
                     dir * (1.6 + speed * 2.0),
                     (-6.0 - speed * 4.5) * profile.airLift(),
                     dir * (4.0 + speed * 4.0),
-                    aimAngleForLocalPitch(-0.78),
+                    aimAngleForLocalPitch(-1.28),
                     8.0 + speed * 4.0,
                     -10.0 - speed * 4.0,
                     5.0 + speed * 2.0,
@@ -20017,7 +20191,7 @@ public class Bird {
                     -dir * (4.0 + speed * 5.0) * profile.recoil(),
                     -1.0,
                     -dir * (10.0 + speed * 8.0) * profile.recoil(),
-                    aimAngleForLocalPitch(0.16),
+                    facingRight ? Math.PI - 0.12 : 0.12,
                     -2.0,
                     3.0,
                     -2.0,
@@ -22281,6 +22455,9 @@ public class Bird {
         if (vultureSpecialPoseActive()) {
             return currentVultureSpecialPose();
         }
+        if (kiwiSpecialPoseActive()) {
+            return currentKiwiSpecialPose();
+        }
         if (gooseSpecialPoseActive()) {
             return currentGooseSpecialPose();
         }
@@ -22862,6 +23039,11 @@ public class Bird {
                 lastVisualGooseNeck,
                 lastVisualGooseTorso,
                 lastVisualGooseCheekPatch,
+                lastVisualKiwiFootBaseline,
+                lastVisualKiwiBillExtension,
+                lastVisualKiwiLegExtension,
+                lastVisualKiwiBodyCompression,
+                lastVisualKiwiTorso,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -22921,6 +23103,11 @@ public class Bird {
         lastVisualGooseNeck = null;
         lastVisualGooseTorso = null;
         lastVisualGooseCheekPatch = null;
+        lastVisualKiwiFootBaseline = Double.NaN;
+        lastVisualKiwiBillExtension = 0.0;
+        lastVisualKiwiLegExtension = 0.0;
+        lastVisualKiwiBodyCompression = 0.0;
+        lastVisualKiwiTorso = null;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -22972,114 +23159,453 @@ public class Bird {
     }
 
     /**
-     * Kiwi keeps the roster's shared rounded-body and oversized-eye language while
-     * retaining the long bill and grounded stance that make the species readable.
+     * Kiwi is deliberately wingless and grounded: a shag-feathered pear torso,
+     * small nocturnal face, flexible nostril-tipped bill, and two powerful legs.
      */
     private void drawKiwiBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
         double s = sizeMultiplier;
         double dir = facingRight ? 1.0 : -1.0;
         double cx = x + drawSize * 0.50;
-        double cy = y + drawSize * 0.54;
+        BirdAnimationState state = currentBirdAnimationState();
         boolean classic = isClassicSkin;
-        Color bodyDark = classic ? Color.web("#405844") : Color.web("#4A392C");
-        Color body = classic ? Color.web("#6E8B68") : Color.web("#745A42");
-        Color bodyLight = classic ? Color.web("#AFC49D") : Color.web("#A98862");
-        Color face = classic ? Color.web("#C9D8B7") : Color.web("#B99A72");
-        Color bill = classic ? Color.web("#D8D2AE") : Color.web("#C5A77E");
-        Color billShade = classic ? Color.web("#8C8B70") : Color.web("#826B52");
+        boolean faction = isCampaignFactionSkin();
+
+        Color shadow;
+        Color body;
+        Color feather;
+        Color highlight;
+        Color face;
+        Color bill;
+        Color billShade;
+        Color leg;
+        Color eye;
+        if (faction) {
+            shadow = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            feather = campaignFactionSecondaryColor();
+            highlight = campaignFactionAccentColor();
+            face = campaignFactionSecondaryColor().brighter();
+            bill = campaignFactionAccentColor();
+            billShade = campaignFactionPrimaryColor().darker().darker();
+            leg = campaignFactionSecondaryColor();
+            eye = campaignFactionPrimaryColor().darker().darker();
+        } else if (classic) {
+            shadow = Color.web("#334338");
+            body = Color.web("#607D5A");
+            feather = Color.web("#8FA784");
+            highlight = Color.web("#DDE8C8");
+            face = Color.web("#BFCFB0");
+            bill = Color.web("#D7D2B2");
+            billShade = Color.web("#777765");
+            leg = Color.web("#B7A77C");
+            eye = Color.web("#172019");
+        } else {
+            shadow = Color.web("#3A2B22");
+            body = Color.web("#66503A");
+            feather = Color.web("#876B4C");
+            highlight = Color.web("#B99A72");
+            face = Color.web("#9D7D58");
+            bill = Color.web("#C8AC84");
+            billShade = Color.web("#745C46");
+            leg = Color.web("#A88962");
+            eye = Color.web("#17120E");
+        }
+
+        double compression = kiwiBodyCompression();
+        double legExtension = kiwiLegExtension(state);
+        if (visualAuditBodyOnly) {
+            lastVisualKiwiBodyCompression = compression;
+            lastVisualKiwiLegExtension = legExtension;
+        }
 
         if (KiwiSpecials.bodyBurrowed(this)) {
-            double tipX = cx + dir * 44.0 * s;
+            double moundY = y + 63.0 * s;
+            double billRootX = cx - dir * 5.0 * s;
+            double billRootY = moundY + 2.0 * s;
+            double billTipX = cx + dir * 46.0 * s;
+            double billTipY = moundY - 7.0 * s;
             g.setFill(billShade);
-            g.fillPolygon(
-                    new double[]{cx - dir * 7.0 * s, tipX, cx - dir * 3.0 * s},
-                    new double[]{cy + 21.0 * s, cy + 17.0 * s, cy + 29.0 * s}, 3);
+            g.beginPath();
+            g.moveTo(billRootX, billRootY - 3.0 * s);
+            g.bezierCurveTo(cx + dir * 13.0 * s, moundY - 10.0 * s,
+                    cx + dir * 34.0 * s, moundY - 9.0 * s, billTipX, billTipY);
+            g.bezierCurveTo(cx + dir * 31.0 * s, moundY - 2.0 * s,
+                    cx + dir * 10.0 * s, moundY + 5.0 * s, billRootX, billRootY + 3.0 * s);
+            g.closePath();
+            g.fill();
+            g.setStroke(bill.deriveColor(0, 0.84, 1.08, 0.92));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(1.8 * s);
+            g.beginPath();
+            g.moveTo(billRootX, billRootY - 1.0 * s);
+            g.bezierCurveTo(cx + dir * 16.0 * s, moundY - 8.0 * s,
+                    cx + dir * 35.0 * s, moundY - 8.0 * s,
+                    billTipX - dir * 2.0 * s, billTipY);
+            g.stroke();
+            g.setFill(shadow.darker());
+            g.fillOval(cx - 34.0 * s, moundY - 7.0 * s, 68.0 * s, 24.0 * s);
             g.setFill(body);
-            g.fillOval(cx - 26.0 * s, cy + 14.0 * s, 52.0 * s, 22.0 * s);
-            g.setFill(bodyLight.deriveColor(0.0, 1.0, 1.0, 0.78));
-            g.fillOval(cx - 17.0 * s, cy + 16.0 * s, 31.0 * s, 11.0 * s);
+            g.fillOval(cx - 27.0 * s, moundY - 9.0 * s, 54.0 * s, 17.0 * s);
+            g.setStroke(feather.deriveColor(0, 0.78, 1.0, 0.72));
+            g.setLineWidth(1.0 * s);
+            g.strokeArc(cx - 26.0 * s, moundY - 8.0 * s,
+                    52.0 * s, 16.0 * s, 18, 144, ArcType.OPEN);
+            for (int i = -2; i <= 2; i++) {
+                drawKiwiShagTuft(g, cx + i * 9.0 * s, moundY - 5.0 * s,
+                        dir * i * 0.7 * s, -8.0 * s, feather, highlight);
+            }
+            g.setFill(billShade.darker());
+            g.fillOval(billTipX - dir * 5.0 * s - 1.2 * s,
+                    billTipY - 1.2 * s, 2.4 * s, 2.4 * s);
+            if (visualAuditBodyOnly) {
+                lastVisualKiwiBodyCompression = 1.0;
+                lastVisualKiwiTorso = new VisualFeatureBounds(
+                        cx - 34.0 * s, moundY - 13.0 * s,
+                        cx + 34.0 * s, moundY + 17.0 * s);
+            }
             return;
         }
 
         int probeElapsed = kiwiProbeTimer > 0 ? KIWI_PROBE_FRAMES - kiwiProbeTimer : 0;
-        double probePulse = kiwiProbeTimer > 0 ? Math.max(0.0, Math.sin((probeElapsed - 1.0) * Math.PI / 6.0)) : 0.0;
-        double billExtension = probePulse * 14.0 * s;
-        int stompElapsed = kiwiStompTimer > 0 ? KIWI_STOMP_FRAMES - kiwiStompTimer : 0;
-        double groundStompWindup = kiwiStompTimer > 0 && !kiwiStompAirborne && !kiwiStompImpactResolved
-                ? Math.clamp(stompElapsed / 7.0, 0.0, 1.0) : 0.0;
-        double impactRecovery = kiwiStompImpactFxTimer > 0
-                ? kiwiStompImpactFxTimer / (double) KIWI_STOMP_IMPACT_FX_FRAMES : 0.0;
-        double stompLift = -Math.sin(groundStompWindup * Math.PI) * 7.0 * s;
-        double stompSquash = (Math.pow(groundStompWindup, 4.0) * 8.0 + impactRecovery * 5.0) * s;
-        double bodyCy = cy + stompLift + stompSquash;
+        double probePulse = kiwiProbeTimer > 0
+                ? Math.max(0.0, Math.sin((probeElapsed % 6) / 5.0 * Math.PI)) : 0.0;
+        double ultimateDrive = 0.0;
+        if (kiwiUltimateTimer > 0 && !kiwiUltimateFinalResolved) {
+            int elapsed = KIWI_ULTIMATE_FRAMES - kiwiUltimateTimer;
+            ultimateDrive = Math.max(0.0,
+                    Math.sin((positiveModulo(elapsed, 42.0) / 41.0) * Math.PI));
+        }
+        double billExtension = probePulse * 16.0
+                + ultimateDrive * 7.0
+                + (kiwiBurrowErupted ? 6.0 : 0.0);
+        if (visualAuditBodyOnly) {
+            lastVisualKiwiBillExtension = billExtension;
+        }
 
-        // Two clean oval layers give Kiwi the same compact body construction as the roster.
-        g.setFill(bodyDark);
-        g.fillOval(cx - 35.0 * s, bodyCy - 32.0 * s, 70.0 * s, 68.0 * s - stompSquash * 0.55);
+        double originY = y + compression * 5.5 * s;
+        drawKiwiLegs(g, state, cx, originY, dir, compression, legExtension, leg, billShade);
+
+        // A low pear silhouette replaces the old sphere; there is intentionally
+        // no visible wing because a kiwi's vestigial wings disappear in its coat.
+        g.setFill(shadow);
+        g.beginPath();
+        g.moveTo(cx + dir * 20.0 * s, originY + 27.0 * s);
+        g.bezierCurveTo(cx + dir * 8.0 * s, originY + 13.0 * s,
+                cx - dir * 16.0 * s, originY + 12.0 * s,
+                cx - dir * 30.0 * s, originY + 25.0 * s);
+        g.bezierCurveTo(cx - dir * 40.0 * s, originY + 38.0 * s,
+                cx - dir * 31.0 * s, originY + 59.0 * s,
+                cx - dir * 12.0 * s, originY + 66.0 * s);
+        g.bezierCurveTo(cx + dir * 7.0 * s, originY + 68.0 * s,
+                cx + dir * 24.0 * s, originY + 56.0 * s,
+                cx + dir * 24.0 * s, originY + 39.0 * s);
+        g.bezierCurveTo(cx + dir * 24.0 * s, originY + 33.0 * s,
+                cx + dir * 23.0 * s, originY + 29.0 * s,
+                cx + dir * 20.0 * s, originY + 27.0 * s);
+        g.closePath();
+        g.fill();
         g.setFill(body);
-        g.fillOval(cx - 31.0 * s, bodyCy - 29.0 * s, 62.0 * s, 61.0 * s - stompSquash * 0.45);
-        g.setFill(bodyLight.deriveColor(0.0, 0.94, 1.06, 0.42));
-        g.fillOval(cx - 20.0 * s, bodyCy - 23.0 * s, 35.0 * s, 21.0 * s);
+        g.beginPath();
+        g.moveTo(cx + dir * 18.0 * s, originY + 29.0 * s);
+        g.bezierCurveTo(cx + dir * 6.0 * s, originY + 18.0 * s,
+                cx - dir * 15.0 * s, originY + 17.0 * s,
+                cx - dir * 26.0 * s, originY + 28.0 * s);
+        g.bezierCurveTo(cx - dir * 33.0 * s, originY + 40.0 * s,
+                cx - dir * 25.0 * s, originY + 56.0 * s,
+                cx - dir * 10.0 * s, originY + 61.0 * s);
+        g.bezierCurveTo(cx + dir * 6.0 * s, originY + 63.0 * s,
+                cx + dir * 20.0 * s, originY + 53.0 * s,
+                cx + dir * 20.0 * s, originY + 39.0 * s);
+        g.bezierCurveTo(cx + dir * 20.0 * s, originY + 34.0 * s,
+                cx + dir * 20.0 * s, originY + 31.0 * s,
+                cx + dir * 18.0 * s, originY + 29.0 * s);
+        g.closePath();
+        g.fill();
+        if (visualAuditBodyOnly) {
+            lastVisualKiwiTorso = new VisualFeatureBounds(
+                    cx - 40.0 * s, originY + 12.0 * s,
+                    cx + 40.0 * s, originY + 68.0 * s);
+        }
 
-        // One compact wing and two feather marks replace the old naturalistic feather rows.
-        double wingX = cx - dir * 10.0 * s;
-        g.setFill(bodyDark.deriveColor(0.0, 1.0, 0.88, 0.92));
-        g.fillOval(wingX - 15.0 * s, bodyCy - 5.0 * s, 30.0 * s, 34.0 * s);
-        g.setStroke(bodyLight.deriveColor(0.0, 0.84, 1.08, 0.58));
-        g.setLineWidth(1.6 * s);
-        g.strokeArc(wingX - 11.0 * s, bodyCy + 1.0 * s, 22.0 * s, 22.0 * s, 205, 128, ArcType.OPEN);
-        g.strokeArc(wingX - 8.0 * s, bodyCy + 7.0 * s, 16.0 * s, 13.0 * s, 205, 128, ArcType.OPEN);
+        // Ten silhouette tufts keep the plumage shaggy at combat scale.
+        double[][] tufts = {
+                {-29, 28, -8, -3}, {-33, 38, -8, 0}, {-30, 50, -7, 4},
+                {-23, 59, -4, 7}, {-12, 64, -1, 7}, {0, 63, 3, 7},
+                {12, 58, 5, 5}, {-21, 20, -4, -7}, {-10, 16, 0, -8},
+                {3, 18, 4, -7}
+        };
+        for (int i = 0; i < tufts.length; i++) {
+            double[] tuft = tufts[i];
+            drawKiwiShagTuft(g,
+                    cx + dir * tuft[0] * s, originY + tuft[1] * s,
+                    dir * tuft[2] * s, tuft[3] * s,
+                    i % 3 == 0 ? shadow : feather, highlight);
+        }
+
+        // Layered hair-like feather strokes, never an invented wing oval.
+        g.setStroke(highlight.deriveColor(0, 0.72, 1.0, classic ? 0.62 : 0.34));
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < 6; i++) {
+            double lineX = cx - dir * (23.0 - i * 7.0) * s;
+            double lineY = originY + (29.0 + (i % 2) * 8.0) * s;
+            g.setLineWidth((0.8 + i * 0.06) * s);
+            g.strokeLine(lineX, lineY,
+                    lineX + dir * (10.0 + i * 0.8) * s,
+                    lineY + (8.0 + i * 1.2) * s);
+        }
+
+        if (classic) {
+            // Silver Fern Kiwi carries a proper fern device instead of a recolored wing.
+            double stemX = cx - dir * 13.0 * s;
+            double stemY = originY + 48.0 * s;
+            g.setStroke(highlight.deriveColor(0, 0.66, 1.0, 0.88));
+            g.setLineWidth(1.35 * s);
+            g.beginPath();
+            g.moveTo(stemX - dir * 8.0 * s, stemY + 9.0 * s);
+            g.bezierCurveTo(stemX - dir * 3.0 * s, stemY + 1.0 * s,
+                    stemX + dir * 3.0 * s, stemY - 8.0 * s,
+                    stemX + dir * 9.0 * s, stemY - 15.0 * s);
+            g.stroke();
+            for (int i = 0; i < 5; i++) {
+                double leafX = stemX - dir * (3.0 - i * 2.2) * s;
+                double leafY = stemY + (2.0 - i * 3.4) * s;
+                double leaf = (5.5 - i * 0.55) * s;
+                g.strokeLine(leafX, leafY, leafX - dir * leaf, leafY - leaf * 0.48);
+                g.strokeLine(leafX + dir * 1.0 * s, leafY - 1.4 * s,
+                        leafX + dir * leaf, leafY + leaf * 0.34);
+            }
+        }
 
         double aimAngle = pose == null ? (facingRight ? 0.0 : Math.PI) : pose.aimAngleRadians();
-        // Use the complete shared aim angle, including the interpolated sweep when
-        // facing changes. This is the same turn path used by the roster renderer.
         double aimX = Math.cos(aimAngle);
         double aimY = Math.sin(aimAngle);
         double normalX = -aimY;
         double normalY = aimX;
-        double headReach = (24.0 + (pose == null ? 0.0 : pose.headReachBonus() * 0.32)) * s;
-        double headCenterX = cx + aimX * headReach + aimX * billExtension * 0.08;
-        double headCenterY = bodyCy - 12.0 * s + aimY * 16.0 * s
-                + (pose == null ? 0.0 : pose.headLift() * 0.35 * s);
-        double headLeft = headCenterX - 19.0 * s;
-        double headTop = headCenterY - 18.0 * s;
-        double billBaseX = headCenterX + aimX * 12.0 * s;
-        double billBaseY = headCenterY + aimY * 12.0 * s + 2.0 * s;
-        double billLength = (38.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.30)) * s
-                + billExtension;
-        double billTipX = billBaseX + aimX * billLength;
-        double billTipY = billBaseY + aimY * billLength;
+        if (normalY < -0.001 || (Math.abs(normalY) <= 0.001 && normalX * dir < 0.0)) {
+            normalX = -normalX;
+            normalY = -normalY;
+        }
+        double headReach = (22.0 + (pose == null ? 0.0 : pose.headReachBonus() * 0.24)) * s;
+        double headCx = cx + aimX * headReach;
+        double headCy = originY + 31.0 * s + aimY * 19.0 * s
+                + (pose == null ? 0.0 : pose.headLift() * 0.24 * s);
+        double headW = 28.0 * s;
+        double headH = 27.0 * s;
 
-        // The bill follows the shared head aim so up/down attacks read as intentional poses.
-        g.setFill(billShade);
-        g.fillPolygon(
-                new double[]{billBaseX - normalX * 7.0 * s, billTipX, billBaseX + normalX * 8.0 * s},
-                new double[]{billBaseY - normalY * 7.0 * s, billTipY, billBaseY + normalY * 8.0 * s}, 3);
-        g.setFill(bill);
-        g.fillPolygon(
-                new double[]{billBaseX - normalX * 4.5 * s, billTipX - aimX * 5.0 * s,
-                        billBaseX + normalX * 2.5 * s},
-                new double[]{billBaseY - normalY * 4.5 * s, billTipY - aimY * 5.0 * s,
-                        billBaseY + normalY * 2.5 * s}, 3);
+        drawKiwiBill(g, pose, headCx, headCy, aimX, aimY, normalX, normalY,
+                billExtension, bill, billShade, highlight);
 
+        g.setFill(shadow);
+        g.fillOval(headCx - headW * 0.53, headCy - headH * 0.53,
+                headW * 1.06, headH * 1.06);
         g.setFill(face);
-        g.fillOval(headLeft, headTop, 38.0 * s, 37.0 * s);
-        g.setFill(bodyLight.deriveColor(0.0, 0.86, 1.06, 0.68));
-        g.fillOval(headLeft + (facingRight ? 6.0 : 12.0) * s, headTop + 8.0 * s, 20.0 * s, 13.0 * s);
+        g.fillOval(headCx - headW * 0.50, headCy - headH * 0.50, headW, headH);
+        g.setFill(feather.deriveColor(0, 0.86, 1.06, 0.72));
+        g.fillOval(headCx - aimX * 4.0 * s - 8.0 * s,
+                headCy - aimY * 4.0 * s - 5.0 * s, 16.0 * s, 10.0 * s);
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headCx - headW * 0.5, headCy - headH * 0.5,
+                headCx + headW * 0.5, headCy + headH * 0.5);
 
-        double eyeCenterX = headCenterX + aimX * 4.0 * s;
-        double eyeCenterY = headCenterY - 5.0 * s + aimY * 2.0 * s;
-        double eyeLeft = eyeCenterX - 10.5 * s;
-        double eyeTop = eyeCenterY - 10.5 * s;
-        double pupilCenterX = eyeCenterX + aimX * 3.5 * s;
-        double pupilCenterY = eyeCenterY + aimY * 3.5 * s;
-        double pupilLeft = pupilCenterX - 6.5 * s;
-        double pupilTop = pupilCenterY - 6.5 * s;
-        g.setFill(Color.WHITE);
-        g.fillOval(eyeLeft, eyeTop, 21.0 * s, 21.0 * s);
-        g.setFill(Color.BLACK);
-        g.fillOval(pupilLeft, pupilTop, 13.0 * s, 13.0 * s);
-        drawVectorEyeGlint(g, pupilLeft, pupilTop, s, true);
+        // Four facial bristles sit around the bill root and never replace wings.
+        g.setStroke(highlight.deriveColor(0, 0.72, 0.92, 0.70));
+        g.setLineWidth(0.75 * s);
+        for (int i = 0; i < 4; i++) {
+            double side = i < 2 ? -1.0 : 1.0;
+            double spread = (4.5 + (i % 2) * 2.8) * s;
+            double startX = headCx + aimX * 7.0 * s + normalX * side * (2.5 + i % 2) * s;
+            double startY = headCy + aimY * 7.0 * s + normalY * side * (2.5 + i % 2) * s;
+            g.strokeLine(startX, startY,
+                    startX - aimX * 4.0 * s + normalX * side * spread,
+                    startY - aimY * 4.0 * s + normalY * side * spread);
+            recordVisualBodyPart(VisualBodyPart.KIWI_FACE_BRISTLE);
+        }
+
+        double eyeCx = headCx + aimX * 2.5 * s - normalX * 4.0 * s;
+        double eyeCy = headCy + aimY * 2.5 * s - normalY * 4.0 * s;
+        double eyeRadius = 5.2 * s;
+        double irisRadius = 3.15 * s;
+        lastVisualEye = new VisualFeatureCircle(eyeCx, eyeCy, eyeRadius);
+        g.setFill(Color.web("#F7F2DE"));
+        g.fillOval(eyeCx - eyeRadius, eyeCy - eyeRadius, eyeRadius * 2.0, eyeRadius * 2.0);
+        g.setFill(eye);
+        g.fillOval(eyeCx - irisRadius + aimX * 0.9 * s,
+                eyeCy - irisRadius + aimY * 0.9 * s,
+                irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.92));
+        g.fillOval(eyeCx - normalX * 1.2 * s - 0.7 * s,
+                eyeCy - normalY * 1.2 * s - 0.7 * s, 1.6 * s, 1.6 * s);
+        drawVectorBirdStateAccents(g, drawSize, new HeadPose(headCx, headCy, aimAngle));
+    }
+
+    private double kiwiBodyCompression() {
+        if (KiwiSpecials.bodyBurrowed(this)) return 1.0;
+        if (kiwiUltimateTimer > 0 && kiwiUltimateFinalResolved) return 0.72;
+        if (kiwiStompImpactResolved && kiwiStompTimer > 0) return 0.78;
+        if (kiwiStompImpactFxTimer > 0) {
+            return 0.72 * kiwiStompImpactFxTimer / (double) KIWI_STOMP_IMPACT_FX_FRAMES;
+        }
+        if (kiwiStompTimer > 0 && !kiwiStompAirborne) {
+            double elapsed = KIWI_STOMP_FRAMES - kiwiStompTimer;
+            return 0.58 * smoothStep(Math.clamp(elapsed / 7.0, 0.0, 1.0));
+        }
+        if (kiwiBurrowTimer > 0 && kiwiBurrowErupted) return 0.18;
+        return landingLagTimer > 0 ? Math.min(0.38, landingLagTimer / 24.0) : 0.0;
+    }
+
+    private double kiwiLegExtension(BirdAnimationState state) {
+        if (kiwiSpringTimer > 0) return 0.98;
+        if (kiwiStompTimer > 0 && kiwiStompAirborne && !kiwiStompImpactResolved) return 1.0;
+        if (kiwiBurrowTimer > 0 && kiwiBurrowErupted) return 0.82;
+        if (kiwiUltimateTimer > 0 && !kiwiUltimateFinalResolved) {
+            int elapsed = KIWI_ULTIMATE_FRAMES - kiwiUltimateTimer;
+            return 0.62 + 0.30 * Math.abs(Math.sin(elapsed * 0.34));
+        }
+        return switch (state) {
+            case FLAP -> 0.80;
+            case FALL -> 0.58;
+            case KO -> 0.22;
+            default -> 0.0;
+        };
+    }
+
+    private void drawKiwiShagTuft(
+            GraphicsContext g, double rootX, double rootY, double outX, double outY,
+            Color feather, Color edge) {
+        double s = sizeMultiplier;
+        double length = Math.max(0.001, Math.hypot(outX, outY));
+        double sideX = -outY / length * 2.4 * s;
+        double sideY = outX / length * 2.4 * s;
+        g.setFill(feather.deriveColor(0, 0.92, 1.0, 0.96));
+        g.fillPolygon(
+                new double[]{rootX - sideX, rootX + outX, rootX + sideX},
+                new double[]{rootY - sideY, rootY + outY, rootY + sideY}, 3);
+        g.setStroke(edge.deriveColor(0, 0.70, 1.0, 0.34));
+        g.setLineWidth(0.55 * s);
+        g.strokeLine(rootX, rootY, rootX + outX * 0.86, rootY + outY * 0.86);
+        recordVisualBodyPart(VisualBodyPart.KIWI_SHAG_FEATHER);
+    }
+
+    private void drawKiwiLegs(
+            GraphicsContext g, BirdAnimationState state, double cx, double originY,
+            double dir, double compression, double extension, Color leg, Color shade) {
+        double s = sizeMultiplier;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || kiwiSpringTimer > 0
+                || (kiwiStompTimer > 0 && kiwiStompAirborne && !kiwiStompImpactResolved);
+        double run = !airborne && state == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / Math.max(1.0, type.speed), 0.0, 1.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 11.0) * (0.42 + run * 0.28))
+                * 5.0 * run;
+        g.setLineCap(StrokeLineCap.ROUND);
+        for (int i = 0; i < 2; i++) {
+            double hipX = cx + dir * (i == 0 ? -8.0 : 7.0) * s;
+            double hipY = originY + (55.0 - compression * 2.0) * s;
+            double step = (i == 0 ? stride : -stride) * dir * s;
+            double kneeX;
+            double kneeY;
+            double ankleX;
+            double ankleY;
+            double toeY;
+            if (airborne) {
+                double kick = kiwiSpringTimer > 0 && i == 0 ? 7.0 : 0.0;
+                kneeX = hipX - dir * (4.0 + kick) * s;
+                kneeY = originY + (62.0 + i * 1.5) * s;
+                ankleX = kneeX + dir * (i == 0 ? 7.0 : -4.0) * extension * s;
+                ankleY = originY + (68.0 + extension * (i == 0 ? 7.0 : 3.0)) * s;
+                toeY = Math.min(y + 80.0 * s, ankleY + 4.0 * s);
+            } else {
+                kneeX = hipX + step * 0.45;
+                kneeY = originY + 65.0 * s;
+                ankleX = hipX + step;
+                ankleY = y + 74.0 * s;
+                toeY = y + 80.0 * s;
+            }
+            g.setStroke(leg.deriveColor(0, 0.90, i == 0 ? 0.82 : 1.0, i == 0 ? 0.78 : 1.0));
+            g.setLineWidth(3.0 * s);
+            g.strokeLine(hipX, hipY, kneeX, kneeY);
+            g.setLineWidth(2.3 * s);
+            g.strokeLine(kneeX, kneeY, ankleX, ankleY);
+            recordVisualBodyPart(VisualBodyPart.KIWI_LEG);
+
+            double toeDir = airborne && kiwiSpringTimer > 0 ? -dir : dir;
+            g.setStroke(shade.deriveColor(0, 0.76, 1.0, i == 0 ? 0.70 : 0.94));
+            g.setLineWidth(1.35 * s);
+            for (int toe = 0; toe < 3; toe++) {
+                double toeLength = (8.0 + toe * 2.2) * s;
+                double toeTipX = ankleX + toeDir * toeLength;
+                double toeTipY = toeY - (airborne
+                        ? (toe - 1) * 1.8
+                        : Math.abs(toe - 1) * 2.0) * s;
+                g.strokeLine(ankleX, ankleY, toeTipX, toeTipY);
+                recordVisualBodyPart(VisualBodyPart.KIWI_TOE);
+            }
+            g.strokeLine(ankleX, ankleY,
+                    ankleX - toeDir * 6.5 * s, toeY - (airborne ? 2.0 : 1.0) * s);
+            recordVisualBodyPart(VisualBodyPart.KIWI_TOE);
+            if (!airborne && visualAuditBodyOnly) {
+                lastVisualKiwiFootBaseline = Math.max(
+                        Double.isNaN(lastVisualKiwiFootBaseline)
+                                ? Double.NEGATIVE_INFINITY : lastVisualKiwiFootBaseline,
+                        80.0);
+            }
+        }
+    }
+
+    private void drawKiwiBill(
+            GraphicsContext g, AttackVisualPose pose, double headCx, double headCy,
+            double aimX, double aimY, double normalX, double normalY,
+            double extension, Color bill, Color shade, Color edge) {
+        double s = sizeMultiplier;
+        double rootX = headCx + aimX * 10.0 * s;
+        double rootY = headCy + aimY * 10.0 * s;
+        double length = (40.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.24)
+                + extension) * s;
+        double tipX = rootX + aimX * length;
+        double tipY = rootY + aimY * length;
+        double curve = (2.8 + Math.min(2.2, extension * 0.08)) * s;
+        double rootHalf = 4.2 * s;
+        recordVisualBeak(rootX, rootY, tipX, tipY);
+
+        g.setFill(shade);
+        g.beginPath();
+        g.moveTo(rootX - normalX * rootHalf, rootY - normalY * rootHalf);
+        g.bezierCurveTo(
+                rootX + aimX * length * 0.36 - normalX * 2.8 * s,
+                rootY + aimY * length * 0.36 - normalY * 2.8 * s,
+                rootX + aimX * length * 0.76 + normalX * (curve - 1.2 * s),
+                rootY + aimY * length * 0.76 + normalY * (curve - 1.2 * s),
+                tipX, tipY);
+        g.bezierCurveTo(
+                rootX + aimX * length * 0.76 + normalX * (curve + 1.2 * s),
+                rootY + aimY * length * 0.76 + normalY * (curve + 1.2 * s),
+                rootX + aimX * length * 0.34 + normalX * 3.1 * s,
+                rootY + aimY * length * 0.34 + normalY * 3.1 * s,
+                rootX + normalX * rootHalf, rootY + normalY * rootHalf);
+        g.closePath();
+        g.fill();
+        g.setStroke(bill.deriveColor(0, 0.84, 1.12, 0.92));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(2.2 * s);
+        g.beginPath();
+        g.moveTo(rootX - normalX * 1.2 * s, rootY - normalY * 1.2 * s);
+        g.bezierCurveTo(
+                rootX + aimX * length * 0.40,
+                rootY + aimY * length * 0.40,
+                rootX + aimX * length * 0.78 + normalX * curve,
+                rootY + aimY * length * 0.78 + normalY * curve,
+                tipX - aimX * 2.0 * s, tipY - aimY * 2.0 * s);
+        g.stroke();
+        g.setStroke(edge.deriveColor(0, 0.64, 1.0, 0.46));
+        g.setLineWidth(0.75 * s);
+        g.strokeLine(rootX, rootY, tipX - aimX * 2.0 * s, tipY - aimY * 2.0 * s);
+
+        // Kiwis uniquely carry their nostrils close to the bill tip.
+        double nostrilX = rootX + aimX * length * 0.84 + normalX * curve * 0.70;
+        double nostrilY = rootY + aimY * length * 0.84 + normalY * curve * 0.70;
+        g.setFill(shade.darker());
+        g.fillOval(nostrilX - 1.25 * s, nostrilY - 1.25 * s, 2.5 * s, 2.5 * s);
+        recordVisualBodyPart(VisualBodyPart.KIWI_BILL_NOSTRIL);
     }
 
     void drawWorldObjects(GraphicsContext g) {

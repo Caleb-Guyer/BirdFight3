@@ -30,7 +30,8 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.PELICAN,
             BirdGame3.BirdType.HEISENBIRD,
             BirdGame3.BirdType.RAVEN,
-            BirdGame3.BirdType.GOOSE
+            BirdGame3.BirdType.GOOSE,
+            BirdGame3.BirdType.KIWI
     );
 
     private static BirdGame3 freshGame() {
@@ -2446,6 +2447,175 @@ class BirdVisualAuditTest {
                     assertTrue(!geometry.gooseCheekPatch().contains(geometry.eye(), 0.01),
                             label + " special pose lets the cheek patch obstruct the eye");
                     assertGooseNeckEndsBehindHead(geometry, label + " special pose");
+                    assertFeatureGeometryIsSafe(geometry, label + " special pose");
+                }
+            }
+        }
+    }
+
+    @Test
+    void kiwiKeepsItsCompleteWinglessAnatomyAcrossEverySkinPoseAndDirection() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.KIWI)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                Bird.VisualFeatureGeometry right = game.inspectVisualAuditCombatFeatures(entry, pose, true);
+                Bird.VisualFeatureGeometry left = game.inspectVisualAuditCombatFeatures(entry, pose, false);
+                String label = entry.name() + " / " + pose;
+                for (Bird.VisualFeatureGeometry geometry : List.of(right, left)) {
+                    assertEquals(10, geometry.bodyPartCount(Bird.VisualBodyPart.KIWI_SHAG_FEATHER),
+                            label + " must retain all ten wingless silhouette feather tufts");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.KIWI_LEG),
+                            label + " must retain both powerful legs");
+                    assertEquals(8, geometry.bodyPartCount(Bird.VisualBodyPart.KIWI_TOE),
+                            label + " must retain four spread toes on each foot");
+                    assertEquals(4, geometry.bodyPartCount(Bird.VisualBodyPart.KIWI_FACE_BRISTLE),
+                            label + " must retain all four attached facial bristles");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.KIWI_BILL_NOSTRIL),
+                            label + " must retain the species-correct bill-tip nostril");
+                    assertTrue(geometry.kiwiTorso() != null,
+                            label + " did not report the authored pear-shaped torso");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+                assertMirrored(right, left, label);
+            }
+        }
+    }
+
+    @Test
+    void kiwiGroundedToesMeetTheCollisionFloorAcrossEverySkinAndDirection() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.KIWI)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                assertEquals(80.0, idle.kiwiFootBaseline(), 0.15,
+                        entry.name() + " facing " + (facingRight ? "right" : "left")
+                                + " must place both four-toed feet on the collision floor");
+            }
+        }
+    }
+
+    @Test
+    void kiwiFaceAndNostrilTippedBillTrackJumpAndHitDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.KIWI)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+
+                assertTrue(Math.abs(beakVectorY(flap)) > Math.abs(beakVectorX(flap)) * 2.0,
+                        label + " must aim its complete face upward during a jump");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its complete face away from impact in hitstun");
+                for (Bird.VisualFeatureGeometry geometry : List.of(idle, flap, hit)) {
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.KIWI_BILL_NOSTRIL),
+                            label + " loses the nostril when its face changes direction");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+            }
+        }
+    }
+
+    @Test
+    void kiwiSpecialsUseDistinctBillLegAndCompressionCycles() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.KIWI)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry probeStart = game.inspectVisualAuditKiwiActionFeatures(
+                        entry, Bird.VisualAuditKiwiAction.PROBE, Bird.KIWI_PROBE_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry probeExtend = game.inspectVisualAuditKiwiActionFeatures(
+                        entry, Bird.VisualAuditKiwiAction.PROBE, Bird.KIWI_PROBE_FRAMES - 3, facingRight);
+                Bird.VisualFeatureGeometry probeReset = game.inspectVisualAuditKiwiActionFeatures(
+                        entry, Bird.VisualAuditKiwiAction.PROBE, Bird.KIWI_PROBE_FRAMES - 6, facingRight);
+                Bird.VisualFeatureGeometry burrow = game.inspectVisualAuditKiwiActionFeatures(
+                        entry, Bird.VisualAuditKiwiAction.BURROW_DIG, Bird.KIWI_BURROW_FRAMES - 8, facingRight);
+                Bird.VisualFeatureGeometry erupt = game.inspectVisualAuditKiwiActionFeatures(
+                        entry, Bird.VisualAuditKiwiAction.BURROW_ERUPT, 7, facingRight);
+                Bird.VisualFeatureGeometry spring = game.inspectVisualAuditKiwiActionFeatures(
+                        entry, Bird.VisualAuditKiwiAction.SPRING, Bird.KIWI_SPRING_FRAMES - 6, facingRight);
+                Bird.VisualFeatureGeometry stompWindup = game.inspectVisualAuditKiwiActionFeatures(
+                        entry, Bird.VisualAuditKiwiAction.STOMP_WINDUP,
+                        Bird.KIWI_STOMP_FRAMES - 6, facingRight);
+                Bird.VisualFeatureGeometry stompAir = game.inspectVisualAuditKiwiActionFeatures(
+                        entry, Bird.VisualAuditKiwiAction.STOMP_AIR,
+                        Bird.KIWI_STOMP_FRAMES - 10, facingRight);
+                Bird.VisualFeatureGeometry stompImpact = game.inspectVisualAuditKiwiActionFeatures(
+                        entry, Bird.VisualAuditKiwiAction.STOMP_IMPACT,
+                        Bird.KIWI_STOMP_IMPACT_FX_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry stampede = game.inspectVisualAuditKiwiActionFeatures(
+                        entry, Bird.VisualAuditKiwiAction.ULTIMATE_CHARGE, 143, facingRight);
+                Bird.VisualFeatureGeometry eruption = game.inspectVisualAuditKiwiActionFeatures(
+                        entry, Bird.VisualAuditKiwiAction.ULTIMATE_ERUPTION, 24, facingRight);
+
+                assertTrue(idle.kiwiBillExtension() <= 0.01,
+                        label + " must keep its idle bill at the authored resting length");
+                assertTrue(probeStart.kiwiBillExtension() <= 0.01,
+                        label + " must begin Rapid Probe before extending the bill");
+                assertTrue(probeExtend.kiwiBillExtension() >= 15.0,
+                        label + " must visibly extend the bill during each Rapid Probe thrust");
+                assertTrue(probeReset.kiwiBillExtension() <= 0.01,
+                        label + " must retract the bill between Rapid Probe thrusts");
+                assertTrue(burrow.kiwiBodyCompression() >= 0.99,
+                        label + " must fully disappear into its authored Burrow Charge mound");
+                assertTrue(!burrow.complete(),
+                        label + " must not leave a floating face above the Burrow Charge mound");
+                assertEquals(0, burrow.bodyPartCount(Bird.VisualBodyPart.KIWI_LEG),
+                        label + " must not leave floating legs above the Burrow Charge mound");
+                assertTrue(erupt.kiwiLegExtension() >= 0.80,
+                        label + " must drive both legs through the Burrow Charge eruption");
+                assertTrue(spring.kiwiLegExtension() >= 0.96,
+                        label + " must fully extend its legs during Spring Kick");
+                assertTrue(stompWindup.kiwiBodyCompression() >= 0.50,
+                        label + " must visibly crouch before a grounded Earth Stomp");
+                assertTrue(stompAir.kiwiLegExtension() >= 0.98,
+                        label + " must thrust both legs downward during aerial Earth Stomp");
+                assertTrue(stompImpact.kiwiBodyCompression() >= 0.76,
+                        label + " must absorb Earth Stomp impact through the whole body");
+                assertTrue(stampede.kiwiBillExtension() >= 6.8,
+                        label + " must extend the bill through Midnight Stampede's charge");
+                assertTrue(stampede.kiwiLegExtension() >= 0.60,
+                        label + " must run with both legs through Midnight Stampede");
+                assertTrue(eruption.kiwiBodyCompression() >= 0.70,
+                        label + " must brace its complete body for Midnight Stampede's eruption");
+                for (Bird.VisualFeatureGeometry geometry : List.of(
+                        probeStart, probeExtend, probeReset, erupt, spring, stompWindup,
+                        stompAir, stompImpact, stampede, eruption)) {
+                    assertEquals(10, geometry.bodyPartCount(Bird.VisualBodyPart.KIWI_SHAG_FEATHER),
+                            label + " special pose lost a silhouette feather tuft");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.KIWI_LEG),
+                            label + " special pose lost a leg");
+                    assertEquals(8, geometry.bodyPartCount(Bird.VisualBodyPart.KIWI_TOE),
+                            label + " special pose lost a toe");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.KIWI_BILL_NOSTRIL),
+                            label + " special pose lost the bill-tip nostril");
                     assertFeatureGeometryIsSafe(geometry, label + " special pose");
                 }
             }

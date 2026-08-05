@@ -203,6 +203,29 @@ class BirdVisualAuditRun {
         }
     }
 
+    private enum KiwiView {
+        IDLE(null, 0),
+        PROBE_START(Bird.VisualAuditKiwiAction.PROBE, Bird.KIWI_PROBE_FRAMES),
+        PROBE_THRUST(Bird.VisualAuditKiwiAction.PROBE, Bird.KIWI_PROBE_FRAMES - 3),
+        PROBE_RESET(Bird.VisualAuditKiwiAction.PROBE, Bird.KIWI_PROBE_FRAMES - 6),
+        BURROW_DIG(Bird.VisualAuditKiwiAction.BURROW_DIG, Bird.KIWI_BURROW_FRAMES - 8),
+        BURROW_ERUPT(Bird.VisualAuditKiwiAction.BURROW_ERUPT, 7),
+        SPRING_KICK(Bird.VisualAuditKiwiAction.SPRING, Bird.KIWI_SPRING_FRAMES - 6),
+        STOMP_WINDUP(Bird.VisualAuditKiwiAction.STOMP_WINDUP, Bird.KIWI_STOMP_FRAMES - 6),
+        STOMP_AIR(Bird.VisualAuditKiwiAction.STOMP_AIR, Bird.KIWI_STOMP_FRAMES - 10),
+        STOMP_IMPACT(Bird.VisualAuditKiwiAction.STOMP_IMPACT, Bird.KIWI_STOMP_IMPACT_FX_FRAMES),
+        STAMPEDE_CHARGE(Bird.VisualAuditKiwiAction.ULTIMATE_CHARGE, 143),
+        STAMPEDE_ERUPT(Bird.VisualAuditKiwiAction.ULTIMATE_ERUPTION, 24);
+
+        private final Bird.VisualAuditKiwiAction action;
+        private final int remainingFrames;
+
+        KiwiView(Bird.VisualAuditKiwiAction action, int remainingFrames) {
+            this.action = action;
+            this.remainingFrames = remainingFrames;
+        }
+    }
+
     private record PixelBounds(int minX, int minY, int maxX, int maxY, int opaquePixels,
                                int borderPixels, long signature) {
         int width() {
@@ -303,7 +326,8 @@ class BirdVisualAuditRun {
                         || entry.bird() == BirdGame3.BirdType.PELICAN
                         || entry.bird() == BirdGame3.BirdType.HEISENBIRD
                         || entry.bird() == BirdGame3.BirdType.RAVEN
-                        || entry.bird() == BirdGame3.BirdType.GOOSE) {
+                        || entry.bird() == BirdGame3.BirdType.GOOSE
+                        || entry.bird() == BirdGame3.BirdType.KIWI) {
                     checkPolishedFacingMirror(game, entry, failures);
                 }
 
@@ -331,6 +355,7 @@ class BirdVisualAuditRun {
         renderCount += renderHeisenSpecialSheet(game, entries, outputDir, failures);
         renderCount += renderRavenSpecialSheet(game, entries, outputDir, failures);
         renderCount += renderGooseSpecialSheet(game, entries, outputDir, failures);
+        renderCount += renderKiwiSpecialSheet(game, entries, outputDir, failures);
 
         writeReport(outputDir, entries.size(), pages, renderCount, failures, warnings);
         return new AuditResult(outputDir, pages, renderCount, List.copyOf(failures), List.copyOf(warnings));
@@ -747,6 +772,62 @@ class BirdVisualAuditRun {
         return renders;
     }
 
+    private static int renderKiwiSpecialSheet(
+            BirdGame3 game, List<BirdGame3.VisualAuditSkin> entries,
+            Path outputDir, List<String> failures) throws IOException {
+        List<BirdGame3.VisualAuditSkin> kiwiEntries = entries.stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.KIWI)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+        BufferedImage page = createPage(kiwiEntries.size(), KiwiView.values().length);
+        Graphics2D graphics = page.createGraphics();
+        configureGraphics(graphics);
+        graphics.setColor(new Color(34, 30, 25));
+        graphics.fillRect(0, 0, page.getWidth(), HEADER_HEIGHT);
+        graphics.setColor(new Color(244, 239, 226));
+        graphics.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        graphics.drawString("KIWI BIRD SPECIALS", 18, 25);
+        graphics.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        graphics.setColor(new Color(184, 169, 143));
+        graphics.drawString("Wingless shag anatomy, articulated feet, and complete groundwork cycles", 18, 45);
+        graphics.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        for (KiwiView view : KiwiView.values()) {
+            int columnX = LABEL_WIDTH + view.ordinal() * CELL_WIDTH;
+            graphics.setColor(new Color(244, 239, 226));
+            String label = view.name().replace('_', ' ');
+            int textWidth = graphics.getFontMetrics().stringWidth(label);
+            graphics.drawString(label, columnX + (CELL_WIDTH - textWidth) / 2, 34);
+        }
+
+        int renders = 0;
+        for (int row = 0; row < kiwiEntries.size(); row++) {
+            BirdGame3.VisualAuditSkin entry = kiwiEntries.get(row);
+            int rowY = HEADER_HEIGHT + row * ROW_HEIGHT;
+            drawRowLabel(graphics, entry, rowY);
+            for (KiwiView view : KiwiView.values()) {
+                Canvas canvas = new Canvas(ART_SIZE, ART_SIZE);
+                if (view.action == null) {
+                    game.drawVisualAuditCombatSilhouette(canvas, entry, Bird.VisualAuditPose.IDLE);
+                } else {
+                    game.drawVisualAuditKiwiActionPose(
+                            canvas, entry, view.action, view.remainingFrames, true);
+                }
+                BufferedImage art = snapshot(canvas);
+                PixelBounds bounds = measure(art);
+                if (bounds.borderPixels > 0) {
+                    failures.add(entry.name() + " / " + view.name()
+                            + " touches the " + touchedEdges(bounds, art)
+                            + " canvas edge in the Kiwi special audit.");
+                }
+                drawCell(graphics, art, view.ordinal(), rowY, bounds.borderPixels > 0);
+                renders++;
+            }
+        }
+        graphics.dispose();
+        ImageIO.write(page, "png", outputDir.resolve("kiwi-special-audit.png").toFile());
+        return renders;
+    }
+
     private static void checkPolishedFacingMirror(
             BirdGame3 game, BirdGame3.VisualAuditSkin entry, List<String> failures) {
         for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
@@ -892,6 +973,7 @@ class BirdVisualAuditRun {
                 || entry.bird() == BirdGame3.BirdType.HEISENBIRD
                 || entry.bird() == BirdGame3.BirdType.RAVEN
                 || entry.bird() == BirdGame3.BirdType.GOOSE
+                || entry.bird() == BirdGame3.BirdType.KIWI
                 || "NULL_ROCK_VULTURE".equals(entry.key());
     }
 
@@ -1006,7 +1088,7 @@ class BirdVisualAuditRun {
                 .append("Checks: visible pixels, authored-body clipping (excluding transient combat FX), ")
                 .append("severe portrait/HUD centering, minimum scale, ")
                 .append("and exact idle-image fallback to base art. Edge contact and tight padding remain review findings ")
-                .append("for other entries; completed Pigeon, Eagle, Falcon, Phoenix, Hummingbird, Turkey, Rooster, Roadrunner, Penguin, Shoebill, Charles, Razorbill, Grinch-Hawk, Vulture, Opium Bird, Tufted Titmouse, Bat, Pelican, Heisenbird, Raven, Goose, and Null Rock combat entries ")
+                .append("for other entries; completed Pigeon, Eagle, Falcon, Phoenix, Hummingbird, Turkey, Rooster, Roadrunner, Penguin, Shoebill, Charles, Razorbill, Grinch-Hawk, Vulture, Opium Bird, Tufted Titmouse, Bat, Pelican, Heisenbird, Raven, Goose, Kiwi Bird, and Null Rock combat entries ")
                 .append("treat edge contact as a failure; ")
                 .append("run with `-DvisualAudit.failOnFindings=true` to make them blocking.\n\n");
         appendFindings(report, "Failures", failures);
@@ -1038,6 +1120,7 @@ class BirdVisualAuditRun {
                         || name.equals("heisen-special-audit.png")
                         || name.equals("raven-special-audit.png")
                         || name.equals("goose-special-audit.png")
+                        || name.equals("kiwi-special-audit.png")
                         || name.equals("visual-audit-report.md");
             }).toList()) {
                 Files.deleteIfExists(path);

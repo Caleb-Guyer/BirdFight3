@@ -18148,6 +18148,32 @@ public class BirdGame3 {
                 action, remainingFrames);
     }
 
+    Bird.VisualFeatureGeometry inspectVisualAuditKiwiActionFeatures(
+            VisualAuditSkin skin, Bird.VisualAuditKiwiAction action,
+            int remainingFrames, boolean facingRight) {
+        Bird.VisualAuditPose pose = action == Bird.VisualAuditKiwiAction.SPRING
+                        || action == Bird.VisualAuditKiwiAction.STOMP_AIR
+                ? Bird.VisualAuditPose.FLAP : Bird.VisualAuditPose.ATTACK;
+        return drawVisualAuditCombatPose(
+                new Canvas(160, 160), skin, pose,
+                true, facingRight, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, action, remainingFrames);
+    }
+
+    void drawVisualAuditKiwiActionPose(
+            Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditKiwiAction action,
+            int remainingFrames, boolean facingRight) {
+        Bird.VisualAuditPose pose = action == Bird.VisualAuditKiwiAction.SPRING
+                        || action == Bird.VisualAuditKiwiAction.STOMP_AIR
+                ? Bird.VisualAuditPose.FLAP : Bird.VisualAuditPose.ATTACK;
+        drawVisualAuditCombatPose(
+                canvas, skin, pose, true, facingRight,
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, action, remainingFrames);
+    }
+
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
             boolean bodyOnly, boolean facingRight) {
@@ -18283,6 +18309,34 @@ public class BirdGame3 {
             Integer heisenActionTimer, Bird.VisualAuditRavenAction ravenAction,
             Integer ravenActionTimer, Bird.VisualAuditGooseAction gooseAction,
             Integer gooseActionTimer) {
+        return drawVisualAuditCombatPose(canvas, skin, pose, bodyOnly, facingRight,
+                verticalVelocity, turkeyPanicFlapTimer, roosterCoopBoostTimer,
+                roadrunnerDustDevilTimer, penguinRocketTimer, penguinBellySlideTimer,
+                shoebillMarshLiftTimer, shoebillThrustTimer, charlesForestLiftTimer,
+                razorbillCliffShearTimer, grinchhawkChimneyFlapTimer, vultureGlideTimer,
+                opiumAction, opiumActionTimer, titmouseAction, titmouseActionTimer,
+                batAction, batActionTimer, pelicanAction, pelicanActionTimer,
+                heisenAction, heisenActionTimer, ravenAction, ravenActionTimer,
+                gooseAction, gooseActionTimer, null, null);
+    }
+
+    private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
+            Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
+            boolean bodyOnly, boolean facingRight, Double verticalVelocity,
+            Integer turkeyPanicFlapTimer, Integer roosterCoopBoostTimer,
+            Integer roadrunnerDustDevilTimer, Integer penguinRocketTimer,
+            Integer penguinBellySlideTimer, Integer shoebillMarshLiftTimer,
+            Integer shoebillThrustTimer, Integer charlesForestLiftTimer,
+            Integer razorbillCliffShearTimer, Integer grinchhawkChimneyFlapTimer,
+            Integer vultureGlideTimer, Bird.VisualAuditOpiumAction opiumAction,
+            Integer opiumActionTimer, Bird.VisualAuditTitmouseAction titmouseAction,
+            Integer titmouseActionTimer, Bird.VisualAuditBatAction batAction,
+            Integer batActionTimer, Bird.VisualAuditPelicanAction pelicanAction,
+            Integer pelicanActionTimer, Bird.VisualAuditHeisenAction heisenAction,
+            Integer heisenActionTimer, Bird.VisualAuditRavenAction ravenAction,
+            Integer ravenActionTimer, Bird.VisualAuditGooseAction gooseAction,
+            Integer gooseActionTimer, Bird.VisualAuditKiwiAction kiwiAction,
+            Integer kiwiActionTimer) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -18337,9 +18391,15 @@ public class BirdGame3 {
             // V-Formation Lift and The Whole Flock spread both wings around
             // Goose's much taller long-neck silhouette.
             preview.sizeMultiplier *= 0.78;
+        } else if (kiwiAction != null) {
+            // Rapid Probe and Midnight Stampede push Kiwi's already-long bill
+            // beyond its compact wingless body.
+            preview.sizeMultiplier *= 0.82;
         }
         preview.x = 0.0;
-        if (gooseAction != null && gooseActionTimer != null) {
+        if (kiwiAction != null && kiwiActionTimer != null) {
+            preview.prepareVisualAuditKiwiAction(kiwiAction, kiwiActionTimer, facingRight);
+        } else if (gooseAction != null && gooseActionTimer != null) {
             preview.prepareVisualAuditGooseAction(gooseAction, gooseActionTimer, facingRight);
         } else if (ravenAction != null && ravenActionTimer != null) {
             preview.prepareVisualAuditRavenAction(ravenAction, ravenActionTimer, facingRight);
@@ -18401,6 +18461,10 @@ public class BirdGame3 {
             targetCenterY += h * 0.055;
         } else if (gooseAction == Bird.VisualAuditGooseAction.LIFT) {
             targetCenterY += h * 0.065;
+        } else if (kiwiAction == Bird.VisualAuditKiwiAction.SPRING) {
+            targetCenterY += h * 0.065;
+        } else if (kiwiAction == Bird.VisualAuditKiwiAction.STOMP_AIR) {
+            targetCenterY -= h * 0.075;
         }
         double targetCenterX = w * 0.5;
         if (opiumAction == Bird.VisualAuditOpiumAction.SIDE) {
@@ -18416,6 +18480,10 @@ public class BirdGame3 {
         } else if (ravenAction == Bird.VisualAuditRavenAction.SIDE) {
             targetCenterX -= (facingRight ? 1.0 : -1.0) * w * 0.08;
         } else if (gooseAction == Bird.VisualAuditGooseAction.BARGE) {
+            targetCenterX -= (facingRight ? 1.0 : -1.0) * w * 0.10;
+        } else if (kiwiAction == Bird.VisualAuditKiwiAction.PROBE
+                || kiwiAction == Bird.VisualAuditKiwiAction.BURROW_DIG
+                || kiwiAction == Bird.VisualAuditKiwiAction.ULTIMATE_CHARGE) {
             targetCenterX -= (facingRight ? 1.0 : -1.0) * w * 0.10;
         }
         g.save();
