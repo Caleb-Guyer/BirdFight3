@@ -18080,6 +18080,28 @@ public class BirdGame3 {
                 null, null, null, null, null, null, action, remainingFrames);
     }
 
+    Bird.VisualFeatureGeometry inspectVisualAuditHeisenActionFeatures(
+            VisualAuditSkin skin, Bird.VisualAuditHeisenAction action,
+            int remainingFrames, boolean facingRight) {
+        Bird.VisualAuditPose pose = action == Bird.VisualAuditHeisenAction.UP
+                ? Bird.VisualAuditPose.FLAP : Bird.VisualAuditPose.ATTACK;
+        return drawVisualAuditCombatPose(
+                new Canvas(160, 160), skin, pose,
+                true, facingRight, null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, action, remainingFrames);
+    }
+
+    void drawVisualAuditHeisenActionPose(
+            Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditHeisenAction action,
+            int remainingFrames, boolean facingRight) {
+        Bird.VisualAuditPose pose = action == Bird.VisualAuditHeisenAction.UP
+                ? Bird.VisualAuditPose.FLAP : Bird.VisualAuditPose.ATTACK;
+        drawVisualAuditCombatPose(
+                canvas, skin, pose, true, facingRight,
+                null, null, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, action, remainingFrames);
+    }
+
     private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
             Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
             boolean bodyOnly, boolean facingRight) {
@@ -18140,6 +18162,29 @@ public class BirdGame3 {
             Integer titmouseActionTimer, Bird.VisualAuditBatAction batAction,
             Integer batActionTimer, Bird.VisualAuditPelicanAction pelicanAction,
             Integer pelicanActionTimer) {
+        return drawVisualAuditCombatPose(canvas, skin, pose, bodyOnly, facingRight,
+                verticalVelocity, turkeyPanicFlapTimer, roosterCoopBoostTimer,
+                roadrunnerDustDevilTimer, penguinRocketTimer, penguinBellySlideTimer,
+                shoebillMarshLiftTimer, shoebillThrustTimer, charlesForestLiftTimer,
+                razorbillCliffShearTimer, grinchhawkChimneyFlapTimer, vultureGlideTimer,
+                opiumAction, opiumActionTimer, titmouseAction, titmouseActionTimer,
+                batAction, batActionTimer, pelicanAction, pelicanActionTimer, null, null);
+    }
+
+    private Bird.VisualFeatureGeometry drawVisualAuditCombatPose(
+            Canvas canvas, VisualAuditSkin skin, Bird.VisualAuditPose pose,
+            boolean bodyOnly, boolean facingRight, Double verticalVelocity,
+            Integer turkeyPanicFlapTimer, Integer roosterCoopBoostTimer,
+            Integer roadrunnerDustDevilTimer, Integer penguinRocketTimer,
+            Integer penguinBellySlideTimer, Integer shoebillMarshLiftTimer,
+            Integer shoebillThrustTimer, Integer charlesForestLiftTimer,
+            Integer razorbillCliffShearTimer, Integer grinchhawkChimneyFlapTimer,
+            Integer vultureGlideTimer, Bird.VisualAuditOpiumAction opiumAction,
+            Integer opiumActionTimer, Bird.VisualAuditTitmouseAction titmouseAction,
+            Integer titmouseActionTimer, Bird.VisualAuditBatAction batAction,
+            Integer batActionTimer, Bird.VisualAuditPelicanAction pelicanAction,
+            Integer pelicanActionTimer, Bird.VisualAuditHeisenAction heisenAction,
+            Integer heisenActionTimer) {
         GraphicsContext g = canvas.getGraphicsContext2D();
         double w = canvas.getWidth();
         double h = canvas.getHeight();
@@ -18182,9 +18227,15 @@ public class BirdGame3 {
             // Thermal Sail and Maelstrom spread a heavyweight pair of wings while
             // the long attached pouch continues beyond the head-facing edge.
             preview.sizeMultiplier *= 0.78;
+        } else if (heisenAction != null) {
+            // Crystal Column and Glass Cook extend both wings, hat, and rooted
+            // flank crystals beyond the compact idle silhouette.
+            preview.sizeMultiplier *= 0.82;
         }
         preview.x = 0.0;
-        if (pelicanAction != null && pelicanActionTimer != null) {
+        if (heisenAction != null && heisenActionTimer != null) {
+            preview.prepareVisualAuditHeisenAction(heisenAction, heisenActionTimer, facingRight);
+        } else if (pelicanAction != null && pelicanActionTimer != null) {
             preview.prepareVisualAuditPelicanAction(pelicanAction, pelicanActionTimer, facingRight);
         } else if (batAction != null && batActionTimer != null) {
             preview.prepareVisualAuditBatAction(batAction, batActionTimer, facingRight);
@@ -18234,6 +18285,8 @@ public class BirdGame3 {
             targetCenterY += h * 0.085;
         } else if (pelicanAction == Bird.VisualAuditPelicanAction.UP_DIVE) {
             targetCenterY -= h * 0.12;
+        } else if (heisenAction == Bird.VisualAuditHeisenAction.UP) {
+            targetCenterY += h * 0.055;
         }
         double targetCenterX = w * 0.5;
         if (opiumAction == Bird.VisualAuditOpiumAction.SIDE) {
@@ -18244,6 +18297,8 @@ public class BirdGame3 {
             targetCenterX -= (facingRight ? 1.0 : -1.0) * w * 0.08;
         } else if (pelicanAction == Bird.VisualAuditPelicanAction.SIDE) {
             targetCenterX -= (facingRight ? 1.0 : -1.0) * w * 0.10;
+        } else if (heisenAction == Bird.VisualAuditHeisenAction.SIDE) {
+            targetCenterX -= (facingRight ? 1.0 : -1.0) * w * 0.08;
         }
         g.save();
         g.translate(targetCenterX - preview.bodyCenterX(), targetCenterY - preview.bodyCenterY());

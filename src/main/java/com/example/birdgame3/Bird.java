@@ -393,7 +393,14 @@ public class Bird {
         PELICAN_WING,
         PELICAN_LEG,
         PELICAN_CREST_FEATHER,
-        PELICAN_POUCH
+        PELICAN_POUCH,
+        HEISEN_TAIL_FEATHER,
+        HEISEN_WING,
+        HEISEN_LEG,
+        HEISEN_HAT_BRIM,
+        HEISEN_HAT_CROWN,
+        HEISEN_GOATEE,
+        HEISEN_FLANK_CRYSTAL
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -431,6 +438,12 @@ public class Bird {
                                  double pelicanBillGape,
                                  VisualFeatureBounds pelicanTorso,
                                  VisualFeatureBounds pelicanPouch,
+                                 double heisenWingOpenness,
+                                 double heisenFootBaseline,
+                                 double heisenBillGape,
+                                 VisualFeatureBounds heisenTorso,
+                                 VisualFeatureBounds heisenHat,
+                                 VisualFeatureBounds heisenTear,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -638,6 +651,12 @@ public class Bird {
     private double lastVisualPelicanBillGape;
     private VisualFeatureBounds lastVisualPelicanTorso;
     private VisualFeatureBounds lastVisualPelicanPouch;
+    private double lastVisualHeisenWingOpenness;
+    private double lastVisualHeisenFootBaseline = Double.NaN;
+    private double lastVisualHeisenBillGape;
+    private VisualFeatureBounds lastVisualHeisenTorso;
+    private VisualFeatureBounds lastVisualHeisenHat;
+    private VisualFeatureBounds lastVisualHeisenTear;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -2237,6 +2256,15 @@ public class Bird {
         UP,
         DOWN,
         ULTIMATE
+    }
+
+    enum VisualAuditHeisenAction {
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN,
+        ULTIMATE_ORBIT,
+        ULTIMATE_VOLLEY
     }
 
     enum VisualAuditTitmouseAction {
@@ -11970,6 +11998,40 @@ public class Bird {
         displayPose = null;
     }
 
+    /** Positions Heisenbird at deterministic frames of his complete crystal kit. */
+    void prepareVisualAuditHeisenAction(
+            VisualAuditHeisenAction action, int remainingFrames, boolean faceRight) {
+        prepareVisualAuditPose(action == VisualAuditHeisenAction.UP
+                ? VisualAuditPose.FLAP : VisualAuditPose.ATTACK);
+        facingRight = faceRight;
+        opiumNeutralReuseTimer = 0;
+        opiumSideTimer = 0;
+        opiumUpTimer = 0;
+        opiumDownReuseTimer = 0;
+        heisenUltimateTimer = 0;
+        heisenUltimateVolleyTimer = 0;
+        switch (action) {
+            case NEUTRAL -> opiumNeutralReuseTimer = Math.clamp(
+                    remainingFrames, HEISEN_NEUTRAL_REUSE_FRAMES - 15, HEISEN_NEUTRAL_REUSE_FRAMES);
+            case SIDE -> {
+                opiumSideDirection = faceRight ? 1 : -1;
+                opiumSideTimer = Math.clamp(remainingFrames, 1, HEISEN_SIDE_FRAMES);
+            }
+            case UP -> {
+                opiumUpSpecialUsed = true;
+                opiumUpTimer = Math.clamp(remainingFrames, 1, HEISEN_UP_FRAMES);
+            }
+            case DOWN -> opiumDownReuseTimer = Math.clamp(
+                    remainingFrames, HEISEN_DOWN_REUSE_FRAMES - 15, HEISEN_DOWN_REUSE_FRAMES);
+            case ULTIMATE_ORBIT -> heisenUltimateTimer = Math.clamp(
+                    remainingFrames, 1, HEISEN_ULTIMATE_FRAMES);
+            case ULTIMATE_VOLLEY -> heisenUltimateVolleyTimer = Math.clamp(
+                    remainingFrames, 1, HEISEN_ULTIMATE_VOLLEY_FRAMES);
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
+        displayPose = null;
+    }
+
     /** Positions Tufted Titmouse at a deterministic frame of each authored special pose. */
     void prepareVisualAuditTitmouseAction(
             VisualAuditTitmouseAction action, int remainingFrames, boolean faceRight) {
@@ -17398,7 +17460,8 @@ public class Bird {
         return isOpiumEchoPair()
                 && (opiumSideTimer > 0 || opiumUpTimer > 0
                 || opiumUltimateTimer > 0 || heisenUltimateTimer > 0 || heisenUltimateVolleyTimer > 0
-                || opiumNeutralCastPoseActive() || opiumDownCastPoseActive());
+                || opiumNeutralCastPoseActive() || opiumDownCastPoseActive()
+                || heisenNeutralCastPoseActive() || heisenDownCastPoseActive());
     }
 
     private boolean opiumNeutralCastPoseActive() {
@@ -17409,6 +17472,16 @@ public class Bird {
     private boolean opiumDownCastPoseActive() {
         return type == BirdGame3.BirdType.OPIUMBIRD
                 && opiumDownReuseTimer > OPIUM_DOWN_REUSE_FRAMES - 16;
+    }
+
+    private boolean heisenNeutralCastPoseActive() {
+        return type == BirdGame3.BirdType.HEISENBIRD
+                && opiumNeutralReuseTimer > HEISEN_NEUTRAL_REUSE_FRAMES - 16;
+    }
+
+    private boolean heisenDownCastPoseActive() {
+        return type == BirdGame3.BirdType.HEISENBIRD
+                && opiumDownReuseTimer > HEISEN_DOWN_REUSE_FRAMES - 16;
     }
 
     private boolean titmouseSpecialPoseActive() {
@@ -18287,6 +18360,40 @@ public class Bird {
                     heisen ? 0.82 : 1.08,
                     sideDir * (10.0 + surge * 7.0),
                     1.14 + surge * 0.06,
+                    0.88
+            );
+        }
+        if (heisen && heisenNeutralCastPoseActive()) {
+            double elapsed = HEISEN_NEUTRAL_REUSE_FRAMES - opiumNeutralReuseTimer;
+            double crystallize = Math.sin(Math.clamp(elapsed / 15.0, 0.0, 1.0) * Math.PI);
+            return new AttackVisualPose(
+                    -dir * crystallize * 2.0,
+                    -5.0 - crystallize * 4.0,
+                    -dir * (3.0 + crystallize * 4.0),
+                    normalizeAngleRadians(-0.16 * dir),
+                    8.0 + crystallize * 5.0,
+                    -8.0 - crystallize * 4.0,
+                    8.0 + crystallize * 4.0,
+                    1.18 + crystallize * 0.10,
+                    -dir * (6.0 + crystallize * 4.0),
+                    1.05,
+                    0.96
+            );
+        }
+        if (heisen && heisenDownCastPoseActive()) {
+            double elapsed = HEISEN_DOWN_REUSE_FRAMES - opiumDownReuseTimer;
+            double plant = Math.sin(Math.clamp(elapsed / 15.0, 0.0, 1.0) * Math.PI);
+            return new AttackVisualPose(
+                    -dir * plant * 3.0,
+                    5.0 + plant * 3.0,
+                    -dir * (5.0 + plant * 4.0),
+                    normalizeAngleRadians(0.32 * dir),
+                    4.0 + plant * 3.0,
+                    5.0 + plant * 4.0,
+                    5.0 + plant * 3.0,
+                    0.88,
+                    -dir * (5.0 + plant * 4.0),
+                    1.10,
                     0.88
             );
         }
@@ -22455,6 +22562,12 @@ public class Bird {
                 lastVisualPelicanBillGape,
                 lastVisualPelicanTorso,
                 lastVisualPelicanPouch,
+                lastVisualHeisenWingOpenness,
+                lastVisualHeisenFootBaseline,
+                lastVisualHeisenBillGape,
+                lastVisualHeisenTorso,
+                lastVisualHeisenHat,
+                lastVisualHeisenTear,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -22497,6 +22610,12 @@ public class Bird {
         lastVisualPelicanBillGape = 0.0;
         lastVisualPelicanTorso = null;
         lastVisualPelicanPouch = null;
+        lastVisualHeisenWingOpenness = 0.0;
+        lastVisualHeisenFootBaseline = Double.NaN;
+        lastVisualHeisenBillGape = 0.0;
+        lastVisualHeisenTorso = null;
+        lastVisualHeisenHat = null;
+        lastVisualHeisenTear = null;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -22535,7 +22654,6 @@ public class Bird {
             drawVulture(g, drawSize);
             drawBodyAndEyes(g, drawSize, attackPose);
             drawRooster(g, drawSize);
-            drawHeisenbirdAccessories(g);
             drawCitySkin(g);
             drawNoirSkin(g);
             drawFreemanSkin(g);
@@ -24720,25 +24838,10 @@ public class Bird {
                 }
             }
         } else {
-            g.setFill(Color.web("#0D47A1", 0.25));
-            g.fillOval(x - 30, y - 40, drawSize + 60, drawSize + 80);
-
-            g.setFill(Color.web("#1E88E5"));
-            double crystalBaseX = facingRight ? x + 85 : x - 21;
-            for (int i = 0; i < 3; i++) {
-                double offset = Math.sin((System.currentTimeMillis() / 110.0) + i) * 3;
-                double facingOffset = facingRight ? offset : -offset;
-                double cx = crystalBaseX + facingOffset;
-                double cy = y + 52 + i * 16;
-                double w = 14;
-                double h = 18;
-                g.fillPolygon(
-                        new double[]{cx, cx + w / 2.0, cx + w, cx + w / 2.0},
-                        new double[]{cy + h / 2.0, cy, cy + h / 2.0, cy + h},
-                        4
-                );
-            }
-
+            // The authored body now carries three rooted flank crystals and a
+            // blue face marking. Keep the old full-time bubble and detached,
+            // screen-space diamonds out of normal play so crystal spectacle is
+            // reserved for active specials instead of obscuring the fighter.
             if (highTimer > 0) {
                 double intensity = highTimer / 140.0;
                 g.setFill(Color.web("#29B6F6", 0.25 * intensity));
@@ -29800,6 +29903,10 @@ public class Bird {
             drawOpiumBirdBody(g, drawSize, pose);
             return;
         }
+        if (type == BirdGame3.BirdType.HEISENBIRD) {
+            drawHeisenbirdBody(g, drawSize, pose);
+            return;
+        }
         if (type == BirdGame3.BirdType.TITMOUSE) {
             drawTitmouseBody(g, drawSize, pose);
             return;
@@ -30808,6 +30915,535 @@ public class Bird {
             return 0.14;
         }
         return 0.06;
+    }
+
+    /**
+     * Heisenbird's hat, tear, goatee, bill, crystals, and feather anatomy share
+     * one mirrored rig. This replaces the old generic sphere with accessories
+     * positioned independently in screen space.
+     */
+    private void drawHeisenbirdBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double cx = x + drawSize * 0.50;
+        BirdAnimationState state = currentBirdAnimationState();
+        boolean blueSky = isClassicSkin;
+        boolean faction = isCampaignFactionSkin();
+
+        Color back;
+        Color body;
+        Color belly;
+        Color wing;
+        Color wingEdge;
+        Color head;
+        Color face;
+        Color leg;
+        Color iris;
+        Color bill;
+        Color billShade;
+        Color hat;
+        Color hatBand;
+        Color goatee;
+        Color tear;
+        Color crystal;
+        if (faction) {
+            back = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            belly = campaignFactionSecondaryColor().brighter();
+            wing = campaignFactionPrimaryColor().darker();
+            wingEdge = campaignFactionAccentColor();
+            head = campaignFactionSecondaryColor().brighter();
+            face = campaignFactionSecondaryColor().brighter().brighter();
+            leg = campaignFactionPrimaryColor().darker();
+            iris = campaignFactionAccentColor().darker();
+            bill = campaignFactionAccentColor();
+            billShade = campaignFactionPrimaryColor().darker();
+            hat = campaignFactionPrimaryColor().darker().darker();
+            hatBand = campaignFactionAccentColor();
+            goatee = campaignFactionPrimaryColor().darker();
+            tear = campaignFactionAccentColor();
+            crystal = campaignFactionAccentColor().brighter();
+        } else if (blueSky) {
+            back = Color.web("#174A68");
+            body = Color.web("#4A9BC8");
+            belly = Color.web("#D9F3FF");
+            wing = Color.web("#246B91");
+            wingEdge = Color.web("#B3E5FC");
+            head = Color.web("#E8F7FC");
+            face = Color.web("#FFFFFF");
+            leg = Color.web("#466579");
+            iris = Color.web("#12364D");
+            bill = Color.web("#FFC04D");
+            billShade = Color.web("#8A5716");
+            hat = Color.web("#102B3D");
+            hatBand = Color.web("#4FC3F7");
+            goatee = Color.web("#213643");
+            tear = Color.web("#00E5FF");
+            crystal = Color.web("#80E5FF");
+        } else {
+            back = Color.web("#77736D");
+            body = Color.web("#C9C4B9");
+            belly = Color.web("#EEEAE2");
+            wing = Color.web("#A7A299");
+            wingEdge = Color.web("#E2DDD2");
+            head = Color.web("#E8E3D8");
+            face = Color.web("#FAF8F2");
+            leg = Color.web("#705D4C");
+            iris = Color.web("#1C1C1A");
+            bill = Color.web("#F0A63A");
+            billShade = Color.web("#8A5218");
+            hat = Color.web("#17191B");
+            hatBand = Color.web("#59636B");
+            goatee = Color.web("#3D291E");
+            tear = Color.web("#42A5F5");
+            crystal = Color.web("#4FC3F7");
+        }
+
+        double wingOpenness = heisenWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualHeisenWingOpenness = wingOpenness;
+        }
+
+        for (int i = 0; i < 3; i++) {
+            double rootX = cx - dir * (15.0 - i * 1.5) * s;
+            double rootY = y + (50.0 + i * 5.8) * s;
+            double tipX = rootX - dir * (28.0 - i * 3.0) * s;
+            double tipY = y + (40.0 + i * 11.0) * s;
+            g.setFill((i == 1 ? body : wing).deriveColor(i * 2.0, 0.90, 0.92, 0.96));
+            g.fillPolygon(
+                    new double[]{rootX + dir * 4.2 * s, tipX, rootX - dir * 4.6 * s},
+                    new double[]{rootY - 4.6 * s, tipY, rootY + 4.6 * s}, 3);
+            g.setStroke(wingEdge.deriveColor(0, 0.72, 1.0, 0.52));
+            g.setLineWidth(0.85 * s);
+            g.strokeLine(rootX, rootY, tipX + dir * 2.0 * s, tipY);
+            recordVisualBodyPart(VisualBodyPart.HEISEN_TAIL_FEATHER);
+        }
+
+        drawHeisenLegs(g, state, leg, wingEdge);
+        drawHeisenWing(g, cx - dir * 5.0 * s, y + 36.0 * s,
+                dir, wingOpenness, wing, wingEdge, back, true, blueSky);
+        recordVisualBodyPart(VisualBodyPart.HEISEN_WING);
+
+        g.setFill(back);
+        g.beginPath();
+        g.moveTo(cx - dir * 25.0 * s, y + 34.0 * s);
+        g.bezierCurveTo(cx - dir * 21.0 * s, y + 19.0 * s,
+                cx + dir * 15.0 * s, y + 17.0 * s,
+                cx + dir * 27.0 * s, y + 35.0 * s);
+        g.bezierCurveTo(cx + dir * 31.0 * s, y + 51.0 * s,
+                cx + dir * 15.0 * s, y + 69.0 * s, cx - dir * 1.0 * s, y + 71.0 * s);
+        g.bezierCurveTo(cx - dir * 18.0 * s, y + 70.0 * s,
+                cx - dir * 31.0 * s, y + 54.0 * s,
+                cx - dir * 25.0 * s, y + 34.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(body);
+        g.beginPath();
+        g.moveTo(cx - dir * 20.0 * s, y + 35.0 * s);
+        g.bezierCurveTo(cx - dir * 16.0 * s, y + 24.0 * s,
+                cx + dir * 12.0 * s, y + 22.0 * s,
+                cx + dir * 22.0 * s, y + 37.0 * s);
+        g.bezierCurveTo(cx + dir * 25.0 * s, y + 51.0 * s,
+                cx + dir * 12.0 * s, y + 64.0 * s, cx - dir * 1.0 * s, y + 67.0 * s);
+        g.bezierCurveTo(cx - dir * 15.0 * s, y + 65.0 * s,
+                cx - dir * 25.0 * s, y + 52.0 * s,
+                cx - dir * 20.0 * s, y + 35.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(belly.deriveColor(0, 0.82, 1.0, 0.78));
+        g.fillOval(cx - dir * 1.0 * s - 14.0 * s, y + 38.0 * s, 28.0 * s, 28.0 * s);
+        if (visualAuditBodyOnly) {
+            lastVisualHeisenTorso = new VisualFeatureBounds(
+                    cx - 31.0 * s, y + 17.0 * s, cx + 31.0 * s, y + 71.0 * s);
+        }
+
+        drawHeisenWing(g, cx + dir * 3.0 * s, y + 38.0 * s,
+                -dir, wingOpenness, wing, wingEdge, back, false, blueSky);
+        recordVisualBodyPart(VisualBodyPart.HEISEN_WING);
+        drawHeisenFlankCrystals(g, cx, dir, crystal, back);
+
+        double aim = pose == null ? (facingRight ? 0.0 : Math.PI) : pose.aimAngleRadians();
+        double aimX = Math.cos(aim);
+        double aimY = Math.sin(aim);
+        double normalX = -aimY;
+        double normalY = aimX;
+        if ((Math.abs(normalY) >= Math.abs(normalX) && normalY < 0.0)
+                || (Math.abs(normalX) > Math.abs(normalY) && normalX * dir < 0.0)) {
+            normalX = -normalX;
+            normalY = -normalY;
+        }
+        double headReach = (23.0 + (pose == null ? 0.0 : pose.headReachBonus() * 0.40)) * s;
+        double headCx = cx + aimX * headReach + dir * 3.0 * s;
+        double headCy = y + 30.0 * s + aimY * headReach
+                + (pose == null ? 0.0 : pose.headLift() * 0.34 * s);
+        double neckRootX = cx + dir * 17.0 * s;
+        double neckRootY = y + 34.0 * s;
+        double neckEndX = headCx - aimX * 10.0 * s;
+        double neckEndY = headCy - aimY * 10.0 * s + normalY * 2.0 * s;
+        g.setStroke(back);
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(15.0 * s);
+        g.strokeLine(neckRootX, neckRootY, neckEndX, neckEndY);
+        g.setStroke(head);
+        g.setLineWidth(10.0 * s);
+        g.strokeLine(neckRootX, neckRootY, neckEndX, neckEndY);
+
+        double headW = 38.0 * s;
+        double headH = 31.0 * s;
+        g.setFill(head.darker());
+        g.fillOval(headCx - headW * 0.53, headCy - headH * 0.53,
+                headW * 1.06, headH * 1.06);
+        g.setFill(head);
+        g.fillOval(headCx - headW * 0.50, headCy - headH * 0.50, headW, headH);
+        g.setFill(face.deriveColor(0, 0.70, 1.0, 0.64));
+        g.fillOval(headCx + aimX * 3.0 * s - 11.5 * s,
+                headCy + aimY * 3.0 * s - 8.5 * s, 23.0 * s, 17.0 * s);
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headCx - headW * 0.5, headCy - headH * 0.5,
+                headCx + headW * 0.5, headCy + headH * 0.5);
+
+        drawHeisenHat(g, headCx, headCy, aimX, aimY, normalX, normalY,
+                hat, hatBand, crystal, blueSky);
+
+        double eyeCx = headCx + aimX * 4.0 * s - normalX * 4.0 * s;
+        double eyeCy = headCy + aimY * 4.0 * s - normalY * 4.0 * s;
+        double eyeRadius = 7.2 * s;
+        double irisRadius = 3.9 * s;
+        lastVisualEye = new VisualFeatureCircle(eyeCx, eyeCy, eyeRadius);
+        g.setFill(Color.web("#FFFDF7"));
+        g.fillOval(eyeCx - eyeRadius, eyeCy - eyeRadius, eyeRadius * 2.0, eyeRadius * 2.0);
+        g.setFill(iris);
+        g.fillOval(eyeCx - irisRadius + aimX * 1.2 * s,
+                eyeCy - irisRadius + aimY * 1.2 * s, irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(Color.web("#111312"));
+        g.fillOval(eyeCx - 2.0 * s + aimX * 1.5 * s,
+                eyeCy - 2.0 * s + aimY * 1.5 * s, 4.0 * s, 4.0 * s);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.94));
+        g.fillOval(eyeCx - 0.2 * s - normalX * 1.6 * s,
+                eyeCy - 0.2 * s - normalY * 1.6 * s, 2.2 * s, 2.2 * s);
+
+        drawHeisenTear(g, eyeCx, eyeCy, aimX, aimY, normalX, normalY, tear);
+        drawHeisenGoatee(g, headCx, headCy, aimX, aimY, normalX, normalY, goatee);
+        drawHeisenBill(g, pose, headCx, headCy, aimX, aimY, normalX, normalY,
+                bill, billShade, crystal);
+        drawVectorBirdStateAccents(g, drawSize, new HeadPose(headCx, headCy, aim));
+    }
+
+    private double heisenWingOpenness(BirdAnimationState state) {
+        if (heisenUltimateTimer > 0) return 0.95;
+        if (heisenUltimateVolleyTimer > 0) return 0.76;
+        if (opiumUpTimer > 0) {
+            double phase = (HEISEN_UP_FRAMES - opiumUpTimer)
+                    / (double) Math.max(1, HEISEN_UP_FRAMES - 1);
+            return 0.28 + 0.70 * Math.abs(Math.sin(phase * Math.PI * 1.35));
+        }
+        if (opiumSideTimer > 0) {
+            double phase = (HEISEN_SIDE_FRAMES - opiumSideTimer)
+                    / (double) Math.max(1, HEISEN_SIDE_FRAMES - 1);
+            return 0.08 + 0.66 * Math.sin(phase * Math.PI);
+        }
+        if (heisenNeutralCastPoseActive()) return 0.58;
+        if (heisenDownCastPoseActive()) return 0.35;
+        return switch (state) {
+            case FLAP -> 0.56 + 0.41 * Math.abs(Math.sin(
+                    (animationGlobalFrame + playerIndex * 19.0) * 0.69));
+            case FALL -> 0.64;
+            case ATTACK -> 0.48;
+            case HITSTUN -> 0.18;
+            case KO -> 0.10;
+            case DODGE -> 0.22;
+            case SHIELD -> 0.08;
+            case IDLE -> 0.07;
+        };
+    }
+
+    private void drawHeisenWing(GraphicsContext g, double shoulderX, double shoulderY,
+                                double side, double openness, Color wing, Color edge,
+                                Color shadow, boolean farSide, boolean blueSky) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double layer = farSide ? -1.0 : 1.0;
+        double foldedTipX = shoulderX - side * (farSide ? 14.0 : 11.0) * s;
+        double foldedTipY = y + (farSide ? 58.0 : 61.0) * s;
+        double spreadTipX = shoulderX - side * (27.0 + open * 22.0) * s;
+        double spreadTipY = y + (farSide ? 31.0 - open * 34.0 : 43.0 + open * 29.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double dx = tipX - shoulderX;
+        double dy = tipY - shoulderY;
+        double length = Math.max(0.001, Math.hypot(dx, dy));
+        double perpendicularX = -dy / length * layer * side;
+        double perpendicularY = dx / length * layer * side;
+        double rootWidth = (7.0 + open * 2.0) * s;
+        double midX = shoulderX + dx * 0.55;
+        double midY = shoulderY + dy * 0.55;
+        double midWidth = (11.0 + open * 4.5) * s;
+        double alpha = farSide ? 0.68 : 0.98;
+        double[] wingX = {
+                shoulderX + perpendicularX * rootWidth,
+                midX + perpendicularX * midWidth,
+                tipX,
+                midX - perpendicularX * midWidth,
+                shoulderX - perpendicularX * rootWidth
+        };
+        double[] wingY = {
+                shoulderY + perpendicularY * rootWidth,
+                midY + perpendicularY * midWidth,
+                tipY,
+                midY - perpendicularY * midWidth,
+                shoulderY - perpendicularY * rootWidth
+        };
+        g.setFill(wing.deriveColor(0, 0.94, farSide ? 0.82 : 1.0, alpha));
+        g.fillPolygon(wingX, wingY, wingX.length);
+        g.setStroke(edge.deriveColor(0, 0.78, 1.0, alpha * 0.80));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineJoin(StrokeLineJoin.ROUND);
+        g.setLineWidth((blueSky ? 1.55 : 1.30) * s);
+        g.strokePolyline(wingX, wingY, wingX.length);
+        for (int feather = 0; feather < 4; feather++) {
+            double offset = (feather - 1.5) * (3.1 + open * 1.9) * s;
+            g.setLineWidth((0.78 + feather * 0.08) * s);
+            g.strokeLine(shoulderX + perpendicularX * offset,
+                    shoulderY + perpendicularY * offset,
+                    tipX + perpendicularX * offset * 0.38 + side * feather * 2.6 * s,
+                    tipY + perpendicularY * offset * 0.38 + feather * layer * 1.5 * s);
+        }
+        g.setStroke(shadow.deriveColor(0, 0.72, 1.0, alpha * 0.44));
+        g.setLineWidth(0.8 * s);
+        g.strokeLine(shoulderX, shoulderY, tipX + side * 2.0 * s, tipY);
+    }
+
+    private void drawHeisenLegs(GraphicsContext g, BirdAnimationState state, Color leg, Color edge) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || opiumUpTimer > 0 || heisenUltimateTimer > 0 || heisenUltimateVolleyTimer > 0;
+        double runAmount = state == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 17.0) * 0.36)
+                * 3.8 * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + 40.0 * s + dir * (i == 0 ? -7.0 : 7.0) * s;
+            double hipY = y + 61.0 * s;
+            double step = (i == 0 ? stride : -stride) * dir * s;
+            double ankleX = airborne ? hipX - dir * (3.0 + i * 2.0) * s : hipX + step;
+            double ankleY = y + (airborne ? 68.0 + i * 2.0 : 75.0) * s;
+            double toeY = airborne ? ankleY + 4.0 * s : y + 80.0 * s;
+            g.setStroke(leg.deriveColor(0, 0.90, i == 0 ? 0.82 : 1.0, i == 0 ? 0.76 : 0.98));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.3 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            g.setLineWidth(1.8 * s);
+            double toeDir = airborne ? -dir : dir;
+            for (int toe = -1; toe <= 1; toe++) {
+                double toeLength = (toe == 0 ? 9.5 : 7.0) * s;
+                g.strokeLine(ankleX, ankleY,
+                        ankleX + toeDir * toeLength + toe * 1.3 * s,
+                        toeY - Math.abs(toe) * 0.7 * s);
+            }
+            g.setStroke(edge.deriveColor(0, 0.54, 1.0, 0.26));
+            g.setLineWidth(0.65 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            if (!airborne && visualAuditBodyOnly) {
+                lastVisualHeisenFootBaseline = Math.max(
+                        Double.isNaN(lastVisualHeisenFootBaseline)
+                                ? Double.NEGATIVE_INFINITY : lastVisualHeisenFootBaseline,
+                        80.0);
+            }
+            recordVisualBodyPart(VisualBodyPart.HEISEN_LEG);
+        }
+    }
+
+    private void drawHeisenFlankCrystals(
+            GraphicsContext g, double cx, double dir, Color crystal, Color outline) {
+        double s = sizeMultiplier;
+        for (int i = 0; i < 3; i++) {
+            double rootX = cx + dir * (13.0 + i * 2.2) * s;
+            double rootY = y + (45.0 + i * 7.0) * s;
+            double tipX = rootX + dir * (8.0 + i * 1.5) * s;
+            double tipY = rootY - (7.0 - i * 1.4) * s;
+            g.setFill(crystal.deriveColor(i * 5.0, 0.94, 1.0 - i * 0.08, 0.90));
+            g.fillPolygon(
+                    new double[]{rootX - dir * 2.5 * s, tipX, rootX + dir * 2.5 * s, rootX},
+                    new double[]{rootY - 3.0 * s, tipY, rootY + 3.0 * s, rootY + 5.0 * s}, 4);
+            g.setStroke(outline.deriveColor(0, 0.70, 0.72, 0.64));
+            g.setLineWidth(0.75 * s);
+            g.strokeLine(rootX, rootY, tipX, tipY);
+            recordVisualBodyPart(VisualBodyPart.HEISEN_FLANK_CRYSTAL);
+        }
+    }
+
+    private void drawHeisenHat(
+            GraphicsContext g, double headCx, double headCy,
+            double aimX, double aimY, double normalX, double normalY,
+            Color hat, Color band, Color crystal, boolean blueSky) {
+        double s = sizeMultiplier;
+        double brimCx = headCx - normalX * 15.0 * s - aimX * 1.0 * s;
+        double brimCy = headCy - normalY * 15.0 * s - aimY * 1.0 * s;
+        double brimHalf = 22.0 * s;
+        double brimDepth = 3.3 * s;
+        g.setFill(hat.darker());
+        g.fillPolygon(
+                new double[]{brimCx - aimX * brimHalf - normalX * brimDepth,
+                        brimCx + aimX * brimHalf - normalX * brimDepth,
+                        brimCx + aimX * brimHalf + normalX * brimDepth,
+                        brimCx - aimX * brimHalf + normalX * brimDepth},
+                new double[]{brimCy - aimY * brimHalf - normalY * brimDepth,
+                        brimCy + aimY * brimHalf - normalY * brimDepth,
+                        brimCy + aimY * brimHalf + normalY * brimDepth,
+                        brimCy - aimY * brimHalf + normalY * brimDepth}, 4);
+        recordVisualBodyPart(VisualBodyPart.HEISEN_HAT_BRIM);
+
+        double crownBottomX = brimCx - normalX * 1.0 * s;
+        double crownBottomY = brimCy - normalY * 1.0 * s;
+        double crownTopX = brimCx - normalX * 15.0 * s - aimX * 1.0 * s;
+        double crownTopY = brimCy - normalY * 15.0 * s - aimY * 1.0 * s;
+        g.setFill(hat);
+        g.fillPolygon(
+                new double[]{crownBottomX - aimX * 14.0 * s,
+                        crownBottomX + aimX * 14.0 * s,
+                        crownTopX + aimX * 11.0 * s,
+                        crownTopX - aimX * 11.0 * s},
+                new double[]{crownBottomY - aimY * 14.0 * s,
+                        crownBottomY + aimY * 14.0 * s,
+                        crownTopY + aimY * 11.0 * s,
+                        crownTopY - aimY * 11.0 * s}, 4);
+        recordVisualBodyPart(VisualBodyPart.HEISEN_HAT_CROWN);
+
+        double bandCx = brimCx - normalX * 4.8 * s;
+        double bandCy = brimCy - normalY * 4.8 * s;
+        double bandHalf = 13.2 * s;
+        double bandDepth = 2.0 * s;
+        g.setFill(band);
+        g.fillPolygon(
+                new double[]{bandCx - aimX * bandHalf - normalX * bandDepth,
+                        bandCx + aimX * bandHalf - normalX * bandDepth,
+                        bandCx + aimX * bandHalf + normalX * bandDepth,
+                        bandCx - aimX * bandHalf + normalX * bandDepth},
+                new double[]{bandCy - aimY * bandHalf - normalY * bandDepth,
+                        bandCy + aimY * bandHalf - normalY * bandDepth,
+                        bandCy + aimY * bandHalf + normalY * bandDepth,
+                        bandCy - aimY * bandHalf + normalY * bandDepth}, 4);
+        if (blueSky) {
+            double gemX = bandCx + aimX * 8.0 * s - normalX * 0.5 * s;
+            double gemY = bandCy + aimY * 8.0 * s - normalY * 0.5 * s;
+            g.setFill(crystal);
+            g.fillPolygon(
+                    new double[]{gemX - aimX * 2.2 * s, gemX - normalX * 3.0 * s,
+                            gemX + aimX * 2.2 * s, gemX + normalX * 3.0 * s},
+                    new double[]{gemY - aimY * 2.2 * s, gemY - normalY * 3.0 * s,
+                            gemY + aimY * 2.2 * s, gemY + normalY * 3.0 * s}, 4);
+        }
+        if (visualAuditBodyOnly) {
+            double hatCenterX = brimCx - normalX * 7.0 * s;
+            double hatCenterY = brimCy - normalY * 7.0 * s;
+            double extentX = Math.abs(aimX) * 23.0 * s + Math.abs(normalX) * 11.0 * s;
+            double extentY = Math.abs(aimY) * 23.0 * s + Math.abs(normalY) * 11.0 * s;
+            lastVisualHeisenHat = new VisualFeatureBounds(
+                    hatCenterX - extentX, hatCenterY - extentY,
+                    hatCenterX + extentX, hatCenterY + extentY);
+        }
+    }
+
+    private void drawHeisenTear(
+            GraphicsContext g, double eyeCx, double eyeCy,
+            double aimX, double aimY, double normalX, double normalY, Color tear) {
+        double s = sizeMultiplier;
+        double rootX = eyeCx + normalX * 7.4 * s - aimX * 1.2 * s;
+        double rootY = eyeCy + normalY * 7.4 * s - aimY * 1.2 * s;
+        double centerX = rootX + normalX * 4.2 * s - aimX * 0.8 * s;
+        double centerY = rootY + normalY * 4.2 * s - aimY * 0.8 * s;
+        double tipX = rootX + normalX * 11.5 * s - aimX * 1.8 * s;
+        double tipY = rootY + normalY * 11.5 * s - aimY * 1.8 * s;
+        g.setFill(tear.deriveColor(0, 0.92, 1.0, 0.88));
+        g.fillPolygon(
+                new double[]{rootX - aimX * 1.5 * s,
+                        centerX - normalX * 2.8 * s,
+                        tipX,
+                        centerX + normalX * 2.8 * s,
+                        rootX + aimX * 1.5 * s},
+                new double[]{rootY - aimY * 1.5 * s,
+                        centerY - normalY * 2.8 * s,
+                        tipY,
+                        centerY + normalY * 2.8 * s,
+                        rootY + aimY * 1.5 * s}, 5);
+        double minX = Math.min(Math.min(rootX, centerX), tipX) - 3.0 * s;
+        double minY = Math.min(Math.min(rootY, centerY), tipY) - 3.0 * s;
+        double maxX = Math.max(Math.max(rootX, centerX), tipX) + 3.0 * s;
+        double maxY = Math.max(Math.max(rootY, centerY), tipY) + 3.0 * s;
+        if (visualAuditBodyOnly) {
+            lastVisualHeisenTear = new VisualFeatureBounds(minX, minY, maxX, maxY);
+        }
+    }
+
+    private void drawHeisenGoatee(
+            GraphicsContext g, double headCx, double headCy,
+            double aimX, double aimY, double normalX, double normalY, Color goatee) {
+        double s = sizeMultiplier;
+        double rootX = headCx + aimX * 7.0 * s + normalX * 10.0 * s;
+        double rootY = headCy + aimY * 7.0 * s + normalY * 10.0 * s;
+        double tipX = rootX - aimX * 2.0 * s + normalX * 9.0 * s;
+        double tipY = rootY - aimY * 2.0 * s + normalY * 9.0 * s;
+        g.setFill(goatee);
+        g.fillPolygon(
+                new double[]{rootX - aimX * 5.0 * s, rootX + aimX * 5.0 * s, tipX},
+                new double[]{rootY - aimY * 5.0 * s, rootY + aimY * 5.0 * s, tipY}, 3);
+        recordVisualBodyPart(VisualBodyPart.HEISEN_GOATEE);
+    }
+
+    private void drawHeisenBill(
+            GraphicsContext g, AttackVisualPose pose, double headCx, double headCy,
+            double aimX, double aimY, double normalX, double normalY,
+            Color bill, Color shade, Color crystal) {
+        double s = sizeMultiplier;
+        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
+        double gape = heisenNeutralCastPoseActive() ? 5.8
+                : heisenUltimateTimer > 0 ? 4.4
+                : heisenUltimateVolleyTimer > 0 ? 3.4
+                : opiumSideTimer > 0 ? 2.3
+                : opiumUpTimer > 0 ? 1.8
+                : heisenDownCastPoseActive() ? 1.2
+                : attackAnimationTimer > 0 ? 3.0 : 0.8;
+        gape *= openScale;
+        if (visualAuditBodyOnly) {
+            lastVisualHeisenBillGape = gape;
+        }
+        double length = (25.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.38)) * s;
+        double rootX = headCx + aimX * 13.0 * s + normalX * 1.0 * s;
+        double rootY = headCy + aimY * 13.0 * s + normalY * 1.0 * s;
+        double tipX = rootX + aimX * length;
+        double tipY = rootY + aimY * length;
+        double halfRoot = 5.2 * s;
+        recordVisualBeak(rootX, rootY, tipX, tipY);
+        g.setFill(bill);
+        g.fillPolygon(
+                new double[]{rootX - normalX * halfRoot,
+                        tipX - normalX * gape * 0.32 * s,
+                        rootX + normalX * 0.8 * s},
+                new double[]{rootY - normalY * halfRoot,
+                        tipY - normalY * gape * 0.32 * s,
+                        rootY + normalY * 0.8 * s}, 3);
+        g.setFill(bill.darker());
+        g.fillPolygon(
+                new double[]{rootX + normalX * 0.8 * s,
+                        tipX + normalX * gape * s,
+                        rootX + normalX * halfRoot},
+                new double[]{rootY + normalY * 0.8 * s,
+                        tipY + normalY * gape * s,
+                        rootY + normalY * halfRoot}, 3);
+        g.setStroke(shade.deriveColor(0, 0.88, 1.0, 0.72));
+        g.setLineWidth(1.0 * s);
+        g.strokeLine(rootX, rootY, tipX - aimX * 2.0 * s, tipY - aimY * 2.0 * s);
+        if (heisenNeutralCastPoseActive() || heisenUltimateTimer > 0) {
+            g.setFill(crystal.deriveColor(0, 0.92, 1.0, 0.78));
+            double chipX = tipX - aimX * 3.0 * s - normalX * 2.0 * s;
+            double chipY = tipY - aimY * 3.0 * s - normalY * 2.0 * s;
+            g.fillPolygon(
+                    new double[]{chipX - aimX * 2.0 * s, chipX - normalX * 2.5 * s,
+                            chipX + aimX * 2.0 * s, chipX + normalX * 2.5 * s},
+                    new double[]{chipY - aimY * 2.0 * s, chipY - normalY * 2.5 * s,
+                            chipY + aimY * 2.0 * s, chipY + normalY * 2.5 * s}, 4);
+        }
     }
 
     /**
@@ -34385,44 +35021,6 @@ public class Bird {
         g.restore();
     }
 
-    private void drawHeisenbirdAccessories(GraphicsContext g) {
-        if (type != BirdGame3.BirdType.HEISENBIRD) return;
-        double s = sizeMultiplier;
-        HeadPose headPose = currentHeadPose();
-        double headX = headPose.centerX() - 25.0 * s;
-        double headY = headPose.centerY() - 20.0 * s;
-        double headW = 50 * s;
-
-        // Hat
-        g.setFill(Color.rgb(20, 20, 20));
-        g.fillRoundRect(headX - 6 * s, headY - 12 * s, headW + 12 * s, 10 * s, 6 * s, 6 * s);
-        g.setFill(Color.rgb(35, 35, 35));
-        g.fillRoundRect(headX + 8 * s, headY - 34 * s, headW - 16 * s, 22 * s, 6 * s, 6 * s);
-        g.setFill(Color.rgb(90, 90, 90));
-        g.fillRect(headX + 10 * s, headY - 24 * s, headW - 20 * s, 5 * s);
-
-        // Goatee
-        g.setFill(Color.rgb(45, 25, 15));
-        double goateeW = 14 * s;
-        double goateeH = 10 * s;
-        double goateeX = headX + (facingRight ? 12 : 24) * s;
-        double goateeY = headY + 34 * s;
-        g.fillPolygon(
-                new double[]{goateeX, goateeX + goateeW, goateeX + goateeW / 2.0},
-                new double[]{goateeY, goateeY, goateeY + goateeH},
-                3
-        );
-
-        double shardX = x + (facingRight ? 63.0 : 12.0) * s;
-        double shardY = y + 60.0 * s;
-        g.setFill(Color.web("#4FC3F7").deriveColor(0, 1, 1, 0.82));
-        g.fillPolygon(
-                new double[]{shardX - 4.0 * s, shardX, shardX + 4.0 * s, shardX},
-                new double[]{shardY + 3.0 * s, shardY - 15.0 * s, shardY + 3.0 * s, shardY + 10.0 * s},
-                4
-        );
-    }
-
     private void drawClassicSkinAccent(GraphicsContext g, double drawSize) {
         if (!isClassicSkin || type == BirdGame3.BirdType.PIGEON
                 || type == BirdGame3.BirdType.EAGLE
@@ -34436,7 +35034,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.OPIUMBIRD
                 || type == BirdGame3.BirdType.TITMOUSE
                 || type == BirdGame3.BirdType.BAT
-                || type == BirdGame3.BirdType.PELICAN) return;
+                || type == BirdGame3.BirdType.PELICAN
+                || type == BirdGame3.BirdType.HEISENBIRD) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -36138,6 +36737,10 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.OPIUMBIRD) {
             // Opium Bird's small hooked bill is part of his dedicated model.
+            return;
+        }
+        if (type == BirdGame3.BirdType.HEISENBIRD) {
+            // Heisenbird's bill, tear, goatee, and hat share one dedicated rig.
             return;
         }
         if (type == BirdGame3.BirdType.TITMOUSE) {

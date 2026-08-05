@@ -27,7 +27,8 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.OPIUMBIRD,
             BirdGame3.BirdType.TITMOUSE,
             BirdGame3.BirdType.BAT,
-            BirdGame3.BirdType.PELICAN
+            BirdGame3.BirdType.PELICAN,
+            BirdGame3.BirdType.HEISENBIRD
     );
 
     private static BirdGame3 freshGame() {
@@ -1939,6 +1940,179 @@ class BirdVisualAuditTest {
                 }
             }
         }
+    }
+
+    @Test
+    void heisenbirdKeepsItsCompleteAttachedAnatomyAcrossEverySkinPoseAndDirection() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.HEISENBIRD)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                Bird.VisualFeatureGeometry right = game.inspectVisualAuditCombatFeatures(entry, pose, true);
+                Bird.VisualFeatureGeometry left = game.inspectVisualAuditCombatFeatures(entry, pose, false);
+                String label = entry.name() + " / " + pose;
+                for (Bird.VisualFeatureGeometry geometry : List.of(right, left)) {
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.HEISEN_TAIL_FEATHER),
+                            label + " must retain all three layered tail feathers");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.HEISEN_WING),
+                            label + " must retain both articulated wings");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.HEISEN_LEG),
+                            label + " must retain both legs");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.HEISEN_HAT_BRIM),
+                            label + " must draw one attached hat brim");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.HEISEN_HAT_CROWN),
+                            label + " must draw one attached hat crown");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.HEISEN_GOATEE),
+                            label + " must draw one rooted goatee");
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.HEISEN_FLANK_CRYSTAL),
+                            label + " must root all three crystals in the flank");
+                    assertTrue(geometry.heisenTorso() != null,
+                            label + " did not report the authored torso");
+                    assertTrue(geometry.heisenHat() != null,
+                            label + " did not report the attached hat");
+                    assertTrue(geometry.heisenTear() != null,
+                            label + " did not report the face marking");
+                    assertTrue(!geometry.heisenTear().contains(geometry.eye(), 0.0),
+                            label + " lets the blue face marking cover the eye");
+                    assertHeisenHatFollowsHead(geometry, label);
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+                assertMirrored(right, left, label);
+            }
+        }
+    }
+
+    @Test
+    void heisenbirdGroundedFeetMeetTheCollisionFloorAcrossEverySkinAndDirection() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.HEISENBIRD)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                assertEquals(80.0, idle.heisenFootBaseline(), 0.15,
+                        entry.name() + " facing " + (facingRight ? "right" : "left")
+                                + " must place both feet on the collision floor");
+            }
+        }
+    }
+
+    @Test
+    void heisenbirdFaceHatAndMarkingTrackFlightAndHitDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.HEISENBIRD)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+
+                assertTrue(Math.abs(beakVectorY(flap)) > Math.abs(beakVectorX(flap)) * 2.0,
+                        label + " must aim its complete face upward while climbing");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its complete face away from impact in hitstun");
+                for (Bird.VisualFeatureGeometry geometry : List.of(idle, flap, hit)) {
+                    assertHeisenHatFollowsHead(geometry, label);
+                    assertTrue(!geometry.heisenTear().contains(geometry.eye(), 0.0),
+                            label + " lets the blue face marking cover the eye");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+            }
+        }
+    }
+
+    @Test
+    void heisenbirdSpecialsUseDistinctCompleteWingAndBillCycles() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.HEISENBIRD)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry cloud = game.inspectVisualAuditHeisenActionFeatures(
+                        entry, Bird.VisualAuditHeisenAction.NEUTRAL,
+                        Bird.HEISEN_NEUTRAL_REUSE_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry sideStart = game.inspectVisualAuditHeisenActionFeatures(
+                        entry, Bird.VisualAuditHeisenAction.SIDE, Bird.HEISEN_SIDE_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry sideOpen = game.inspectVisualAuditHeisenActionFeatures(
+                        entry, Bird.VisualAuditHeisenAction.SIDE, Bird.HEISEN_SIDE_FRAMES - 7, facingRight);
+                Bird.VisualFeatureGeometry sideClose = game.inspectVisualAuditHeisenActionFeatures(
+                        entry, Bird.VisualAuditHeisenAction.SIDE, 1, facingRight);
+                Bird.VisualFeatureGeometry column = game.inspectVisualAuditHeisenActionFeatures(
+                        entry, Bird.VisualAuditHeisenAction.UP, Bird.HEISEN_UP_FRAMES - 6, facingRight);
+                Bird.VisualFeatureGeometry node = game.inspectVisualAuditHeisenActionFeatures(
+                        entry, Bird.VisualAuditHeisenAction.DOWN,
+                        Bird.HEISEN_DOWN_REUSE_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry cook = game.inspectVisualAuditHeisenActionFeatures(
+                        entry, Bird.VisualAuditHeisenAction.ULTIMATE_ORBIT, 180, facingRight);
+                Bird.VisualFeatureGeometry volley = game.inspectVisualAuditHeisenActionFeatures(
+                        entry, Bird.VisualAuditHeisenAction.ULTIMATE_VOLLEY, 100, facingRight);
+
+                assertTrue(idle.heisenWingOpenness() <= 0.09, label + " must fold both idle wings");
+                assertTrue(cloud.heisenWingOpenness() >= 0.56,
+                        label + " must cup both wings while forming Crystal Cloud");
+                assertTrue(cloud.heisenBillGape() > idle.heisenBillGape() + 3.0,
+                        label + " must visibly open the bill while forming Crystal Cloud");
+                assertTrue(sideStart.heisenWingOpenness() <= 0.10,
+                        label + " must begin Blue Rush with folded wings");
+                assertTrue(sideOpen.heisenWingOpenness() >= 0.70,
+                        label + " must spread both wings during Blue Rush");
+                assertTrue(sideClose.heisenWingOpenness() <= 0.10,
+                        label + " must close both wings before Blue Rush ends");
+                assertTrue(column.heisenWingOpenness() >= 0.90,
+                        label + " must fully spread both wings during Crystal Column");
+                assertTrue(node.heisenWingOpenness() >= 0.33 && node.heisenWingOpenness() <= 0.37,
+                        label + " must brace both wings while planting Glass Node");
+                assertTrue(cook.heisenWingOpenness() >= 0.94,
+                        label + " must hold both wings open while cooking Glass Cook");
+                assertTrue(volley.heisenWingOpenness() >= 0.74,
+                        label + " must keep both wings spread through the shard volley");
+                for (Bird.VisualFeatureGeometry geometry :
+                        List.of(cloud, sideStart, sideOpen, sideClose, column, node, cook, volley)) {
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.HEISEN_WING),
+                            label + " special pose lost a wing");
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.HEISEN_FLANK_CRYSTAL),
+                            label + " special pose detached a flank crystal");
+                    assertHeisenHatFollowsHead(geometry, label + " special pose");
+                    assertFeatureGeometryIsSafe(geometry, label + " special pose");
+                }
+            }
+        }
+    }
+
+    private static void assertHeisenHatFollowsHead(
+            Bird.VisualFeatureGeometry geometry, String label) {
+        Bird.VisualFeatureBounds hat = geometry.heisenHat();
+        Bird.VisualFeatureBounds head = geometry.head();
+        assertTrue(hat != null && head != null, label + " did not report the hat and head bounds");
+        double headCenterX = (head.left() + head.right()) * 0.5;
+        double headCenterY = (head.top() + head.bottom()) * 0.5;
+        double hatCenterX = (hat.left() + hat.right()) * 0.5;
+        double hatCenterY = (hat.top() + hat.bottom()) * 0.5;
+        double headDiagonal = Math.hypot(head.right() - head.left(), head.bottom() - head.top());
+        assertTrue(Math.hypot(hatCenterX - headCenterX, hatCenterY - headCenterY) < headDiagonal * 0.85,
+                label + " lets the hat float away from the head");
     }
 
     private static void assertPelicanPouchFollowsBill(
