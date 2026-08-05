@@ -18181,7 +18181,7 @@ public class BirdGame3 {
         } else if (pelicanAction != null) {
             // Thermal Sail and Maelstrom spread a heavyweight pair of wings while
             // the long attached pouch continues beyond the head-facing edge.
-            preview.sizeMultiplier *= 0.82;
+            preview.sizeMultiplier *= 0.78;
         }
         preview.x = 0.0;
         if (pelicanAction != null && pelicanActionTimer != null) {
@@ -18226,6 +18226,10 @@ public class BirdGame3 {
             case FLAP, HIT, KO -> h * 0.51;
         };
         targetCenterY += h * visualAuditCombatYBias(skin);
+        if (skin.bird == BirdType.PELICAN
+                && pelicanAction == null && pose == Bird.VisualAuditPose.FLAP) {
+            targetCenterY += h * 0.04;
+        }
         if (pelicanAction == Bird.VisualAuditPelicanAction.UP_ASCENT) {
             targetCenterY += h * 0.085;
         } else if (pelicanAction == Bird.VisualAuditPelicanAction.UP_DIVE) {
@@ -18273,6 +18277,12 @@ public class BirdGame3 {
             // vertical silhouette in Thermal Sail. Center that silhouette rather
             // than the lower heavyweight torso used by the old round model.
             return 0.085;
+        }
+        if (skin.bird == BirdType.HEISENBIRD
+                && BirdSpriteLibrary.sheetFor(skin.bird, skin.key) == null) {
+            // Heisenbird's vertical flight aim raised the hat and bill through
+            // the review frame. Center the complete upward silhouette.
+            return 0.055;
         }
         if (skin.bird == BirdType.HUMMINGBIRD
                 && BirdSpriteLibrary.sheetFor(skin.bird, skin.key) == null) {
@@ -18366,7 +18376,7 @@ public class BirdGame3 {
         }
         return switch (type) {
             case EAGLE -> new RosterSpriteFit(1.08, 0.0, 0.0);
-            case ROOSTER -> new RosterSpriteFit(1.12, 0.105, 0.0);
+            case ROOSTER -> new RosterSpriteFit(1.18, 0.105, 0.0);
             case PELICAN, GOOSE -> new RosterSpriteFit(1.10, 0.0, 0.0);
             case MOCKINGBIRD -> new RosterSpriteFit(1.12, 0.0, 0.0);
             case GRINCHHAWK -> new RosterSpriteFit(1.25, 0.005, 0.0);

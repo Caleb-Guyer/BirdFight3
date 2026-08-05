@@ -35059,6 +35059,18 @@ public class Bird {
             pouchLight = Color.web("#FFC36D");
         }
 
+        // Pelican's long silhouette was reading a touch small beside the other
+        // heavyweights. Enlarge only the painted rig around its grounded foot
+        // plane; collision size, ledge checks, knockback, and netplay state stay
+        // exactly on the established 1.2 gameplay multiplier.
+        double visualScale = 1.055;
+        double visualAnchorX = x + 40.0 * s;
+        double visualAnchorY = y + 80.0 * s;
+        g.save();
+        g.translate(visualAnchorX, visualAnchorY);
+        g.scale(visualScale, visualScale);
+        g.translate(-visualAnchorX, -visualAnchorY);
+
         double wingOpenness = pelicanWingOpenness(state);
         if (visualAuditBodyOnly) {
             lastVisualPelicanWingOpenness = wingOpenness;
@@ -35205,6 +35217,7 @@ public class Bird {
                 bill, billShade, pouch, pouchLight, aurora, ironclad);
         drawVectorBirdStateAccents(g, drawSize,
                 new HeadPose(headCx, headCy, aim));
+        g.restore();
     }
 
     private double pelicanWingOpenness(BirdAnimationState state) {
