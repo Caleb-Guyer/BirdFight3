@@ -7111,6 +7111,10 @@ public class Bird {
         double targetVx = target != null ? aiPerceivedTargetVx : 0.0;
         double targetVy = target != null ? aiPerceivedTargetVy : 0.0;
         double targetDist = target != null ? Math.hypot(targetX - x, targetY - y) : Double.MAX_VALUE;
+        if (applyBatAIHangRelease(target, targetDist)) {
+            aiLastHealth = currentDurability;
+            return;
+        }
         if (applyAINavigationEscape(target, onGround)) {
             aiLastHealth = currentDurability;
             return;
@@ -7614,6 +7618,19 @@ public class Bird {
         } else if (!onGround && y > BirdGame3.GROUND_Y - 130.0 && currentFlyUpForce() > 0.0) {
             game.setAiControlKey(playerIndex, jumpKey(), true);
         }
+    }
+
+    boolean applyBatAIHangRelease(Bird target, double dist) {
+        if (type != BirdGame3.BirdType.BAT || !batHanging) {
+            return false;
+        }
+        boolean targetStillInAmbushLane = target != null && dist <= 360.0;
+        if (targetStillInAmbushLane) {
+            return false;
+        }
+        game.setAiControlKey(playerIndex, jumpKey(), true);
+        aiJumpCooldown = Math.max(aiJumpCooldown, 14);
+        return true;
     }
 
     void specialBatNeutral(boolean ultimate) {

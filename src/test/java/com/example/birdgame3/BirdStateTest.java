@@ -5444,6 +5444,43 @@ class BirdStateTest {
     }
 
     @Test
+    void batAiDropsFromCeilingWhenItsTargetLeavesTheAmbushLane() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird bat = new Bird(240.0, BirdGame3.BirdType.BAT, 0, game);
+        Bird target = new Bird(360.0, BirdGame3.BirdType.PIGEON, 1, game);
+        bat.y = 180.0;
+        target.y = 360.0;
+        bat.batHanging = true;
+        game.players[0] = bat;
+        game.players[1] = target;
+
+        double nearbyDistance = Math.hypot(
+                target.bodyCenterX() - bat.bodyCenterX(),
+                target.bodyCenterY() - bat.bodyCenterY());
+        assertFalse(bat.applyBatAIHangRelease(target, nearbyDistance),
+                "CPU Bat should preserve a nearby downward ambush instead of dropping early.");
+        assertFalse(game.isJumpPressed(0));
+
+        target.y = bat.y;
+        double nearbyWingcutDistance = Math.hypot(
+                target.bodyCenterX() - bat.bodyCenterX(),
+                target.bodyCenterY() - bat.bodyCenterY());
+        assertFalse(bat.applyBatAIHangRelease(target, nearbyWingcutDistance),
+                "CPU Bat should stay latched while a nearby target remains reachable by Wingcut or Echo Lance.");
+
+        target.x = 920.0;
+        double escapedDistance = Math.hypot(
+                target.bodyCenterX() - bat.bodyCenterX(),
+                target.bodyCenterY() - bat.bodyCenterY());
+        assertTrue(bat.applyBatAIHangRelease(target, escapedDistance),
+                "CPU Bat should release the ceiling when its opponent leaves every hanging attack route.");
+        assertTrue(game.isJumpPressed(0),
+                "The release decision should use Bat's normal deterministic jump input.");
+    }
+
+    @Test
     void batEchoLanceBouncesIntoTargetsOffPlatforms() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;
