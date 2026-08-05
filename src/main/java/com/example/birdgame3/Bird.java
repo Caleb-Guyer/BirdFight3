@@ -10105,15 +10105,57 @@ public class Bird {
                 if (dist > 108.0 && dist < 370.0 && gooseBargeReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
                 yield DirectionalSpecialInput.NEUTRAL;
             }
-            case KIWI -> {
-                if (!onGround && targetAbove && !kiwiSpringUsed) yield DirectionalSpecialInput.UP;
-                if (!onGround && targetBelow && kiwiStompReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
-                if (onGround && enemyActive && dist < 150.0 && kiwiStompReuseTimer <= 0) yield DirectionalSpecialInput.DOWN;
-                if (dist > 95.0 && dist < 340.0 && Math.abs(dy) < 145.0
-                        && kiwiBurrowReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
-                yield DirectionalSpecialInput.NEUTRAL;
-            }
+            case KIWI -> chooseKiwiAISpecialInput(
+                    target, dist, onGround, targetAbove, targetBelow, enemyActive);
         };
+    }
+
+    DirectionalSpecialInput chooseKiwiAISpecialInput(Bird target, double dist, boolean onGround,
+                                                      boolean targetAbove, boolean targetBelow,
+                                                      boolean enemyActive) {
+        double dy = target.bodyCenterY() - bodyCenterY();
+        int dir = target.bodyCenterX() >= bodyCenterX() ? 1 : -1;
+        if (!onGround && targetAbove && !kiwiSpringUsed) {
+            return DirectionalSpecialInput.UP;
+        }
+        if (!onGround && targetBelow && kiwiStompReuseTimer <= 0 && canKiwiAIStompSafely()) {
+            return DirectionalSpecialInput.DOWN;
+        }
+        if (onGround && enemyActive && dist < 150.0 && kiwiStompReuseTimer <= 0) {
+            return DirectionalSpecialInput.DOWN;
+        }
+        if (dist > 95.0 && dist < 340.0 && Math.abs(dy) < 145.0
+                && kiwiBurrowReuseTimer <= 0 && canKiwiAIBurrowSafely(dir)) {
+            return DirectionalSpecialInput.SIDE;
+        }
+        return DirectionalSpecialInput.NEUTRAL;
+    }
+
+    private boolean canKiwiAIStompSafely() {
+        double projectedCenterX = bodyCenterX() + vx * 2.0;
+        return hasKiwiAILandingLane(projectedCenterX);
+    }
+
+    private boolean canKiwiAIBurrowSafely(int dir) {
+        double projectedCenterX = bodyCenterX()
+                + Integer.signum(dir) * 13.2 * KIWI_BURROW_FRAMES;
+        return hasKiwiAILandingLane(projectedCenterX);
+    }
+
+    private boolean hasKiwiAILandingLane(double centerX) {
+        if (!isVoidMap()) {
+            return true;
+        }
+        double minimumLandingY = bodyBottomY() - 12.0 * sizeMultiplier;
+        for (Platform platform : game.platforms) {
+            if (isBoundaryPlatform(platform)) continue;
+            double edgeInset = Math.min(24.0 * sizeMultiplier, platform.w * 0.18);
+            if (centerX < platform.x + edgeInset || centerX > platform.x + platform.w - edgeInset) continue;
+            if (platform.y >= minimumLandingY) {
+                return true;
+            }
+        }
+        return false;
     }
 
     DirectionalSpecialInput choosePelicanAISpecialInput(Bird target, double dist, boolean onGround,

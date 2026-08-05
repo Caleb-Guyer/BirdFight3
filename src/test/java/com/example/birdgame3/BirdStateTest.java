@@ -1430,6 +1430,58 @@ class BirdStateTest {
     }
 
     @Test
+    void kiwiAiKeepsCommittedSpecialsOverSafeLandingLanes() {
+        BirdGame3 game = new BirdGame3();
+        game.harnessPrepareMatch(
+                BirdGame3.BirdType.KIWI,
+                BirdGame3.BirdType.PIGEON,
+                0x5AFECA11L,
+                BirdGame3.MapType.BATTLEFIELD);
+        Bird kiwi = game.players[0];
+        Bird target = game.players[1];
+        Platform mainStage = null;
+        for (Platform platform : game.platforms) {
+            if (mainStage == null || platform.w > mainStage.w) {
+                mainStage = platform;
+            }
+        }
+        assertNotNull(mainStage);
+
+        kiwi.x = mainStage.x + mainStage.w * 0.5 - kiwi.bodyWidth() * 0.5;
+        kiwi.y = mainStage.y - 260.0;
+        kiwi.vx = 0.0;
+        target.x = kiwi.x + 45.0;
+        target.y = kiwi.y + 190.0;
+        double distance = kiwi.combatDistanceTo(target);
+        assertEquals(Bird.DirectionalSpecialInput.DOWN,
+                kiwi.chooseKiwiAISpecialInput(target, distance, false, false, true, false),
+                "Earth Stomp should remain available when solid stage lies below the plunge.");
+
+        kiwi.x = mainStage.x - 480.0;
+        target.x = kiwi.x + 45.0;
+        distance = kiwi.combatDistanceTo(target);
+        assertNotEquals(Bird.DirectionalSpecialInput.DOWN,
+                kiwi.chooseKiwiAISpecialInput(target, distance, false, false, true, false),
+                "CPU Kiwi must not lock into Earth Stomp over the lower blast zone.");
+
+        kiwi.y = mainStage.y - kiwi.bodyHeight();
+        kiwi.x = mainStage.x + mainStage.w * 0.5 - kiwi.bodyWidth() * 0.5;
+        target.x = kiwi.x + 250.0;
+        target.y = kiwi.y;
+        distance = kiwi.combatDistanceTo(target);
+        assertEquals(Bird.DirectionalSpecialInput.SIDE,
+                kiwi.chooseKiwiAISpecialInput(target, distance, true, false, false, false),
+                "Burrow Charge should remain available when its committed route ends over the island.");
+
+        kiwi.x = mainStage.x + mainStage.w - kiwi.bodyWidth() - 30.0;
+        target.x = kiwi.x + 250.0;
+        distance = kiwi.combatDistanceTo(target);
+        assertNotEquals(Bird.DirectionalSpecialInput.SIDE,
+                kiwi.chooseKiwiAISpecialInput(target, distance, true, false, false, false),
+                "CPU Kiwi must not Burrow Charge beyond every safe landing lane.");
+    }
+
+    @Test
     void mockingbirdAiUsesItsKitInsteadOfEmptyNeutral() {
         assertEquals(20, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.MOCKINGBIRD),
                 "Charles needs the same setup cadence as the other technical fighters.");
