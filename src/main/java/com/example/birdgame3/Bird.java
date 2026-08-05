@@ -9964,14 +9964,7 @@ public class Bird {
                 if (dist < 330.0 && Math.abs(dy) < 135.0 && turkeyStampedeReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
                 yield DirectionalSpecialInput.NEUTRAL;
             }
-            case ROOSTER -> {
-                int owned = ownedRoosterChickCount();
-                if (!onGround && targetAbove && !roosterUpSpecialUsed && owned > 0) yield DirectionalSpecialInput.UP;
-                if (owned < ROOSTER_MAX_CHICKS && roosterNeutralReuseTimer <= 0) yield DirectionalSpecialInput.NEUTRAL;
-                if (nextRoosterFollowerChick() != null && dist < 470.0 && roosterSideReuseTimer <= 0) yield DirectionalSpecialInput.SIDE;
-                if (roosterDownReuseTimer <= 0 && (lowHealth || dist > 250.0)) yield DirectionalSpecialInput.DOWN;
-                yield DirectionalSpecialInput.NEUTRAL;
-            }
+            case ROOSTER -> chooseRoosterAISpecialInput(target, dist, onGround, targetAbove);
             case ROADRUNNER -> {
                 if (!onGround && targetAbove && !roadrunnerDustDevilUsed) yield DirectionalSpecialInput.UP;
                 if (onGround && roadrunnerPaintedRoadReuseTimer <= 0 && (dist > 170.0 || targetSettingUp)) yield DirectionalSpecialInput.DOWN;
@@ -10122,6 +10115,57 @@ public class Bird {
         return mockingbirdCapturedType == null
                 ? DirectionalSpecialInput.SIDE
                 : DirectionalSpecialInput.NEUTRAL;
+    }
+
+    DirectionalSpecialInput chooseRoosterAISpecialInput(Bird target, double dist, boolean onGround,
+                                                        boolean targetAbove) {
+        int owned = ownedRoosterChickCount();
+        if (!onGround && targetAbove && !roosterUpSpecialUsed && owned > 0) {
+            return DirectionalSpecialInput.UP;
+        }
+        if (owned < ROOSTER_MAX_CHICKS && roosterNeutralReuseTimer <= 0) {
+            return DirectionalSpecialInput.NEUTRAL;
+        }
+        if (nextRoosterFollowerChick() != null && dist < 470.0 && roosterSideReuseTimer <= 0) {
+            return DirectionalSpecialInput.SIDE;
+        }
+        if (roosterDownReuseTimer <= 0 && shouldRoosterAIRecallChicks(target)) {
+            return DirectionalSpecialInput.DOWN;
+        }
+        return DirectionalSpecialInput.NEUTRAL;
+    }
+
+    private boolean shouldRoosterAIRecallChicks(Bird target) {
+        if (target == null || nextRoosterFollowerChick() != null) {
+            return false;
+        }
+        boolean hasDeployedChick = false;
+        double targetX = target.bodyCenterX();
+        double targetY = target.bodyCenterY();
+        for (ChickMinion chick : ownedRoosterChicks()) {
+            if (chick.roosterSwarm || chick.followingOwner) {
+                continue;
+            }
+            hasDeployedChick = true;
+            double dx = targetX - (chick.x + chick.width * 0.5);
+            double dy = targetY - (chick.y + chick.height * 0.5);
+            if (dx * dx + dy * dy < 520.0 * 520.0) {
+                return false;
+            }
+        }
+        return hasDeployedChick;
+    }
+
+    boolean shouldRoosterAIUseSpecial(Bird target, double dist, boolean lowHealth, double dy) {
+        int owned = ownedRoosterChickCount();
+        boolean hasFollower = nextRoosterFollowerChick() != null;
+        boolean needsRecall = owned > 0
+                && !hasFollower
+                && roosterDownReuseTimer <= 0
+                && shouldRoosterAIRecallChicks(target);
+        return (owned < ROOSTER_MAX_CHICKS && (dist < 500.0 || lowHealth))
+                || (hasFollower && dist < 460.0 && Math.abs(dy) < 210.0)
+                || needsRecall;
     }
 
     private DirectionalSpecialInput aiUltimateSpecialInput(Bird target, double dist, boolean onGround, boolean lowHealth,
@@ -10383,10 +10427,7 @@ public class Bird {
                         || (vultureBait == null && vultureDownReuseTimer <= 0 && (dist > 170 || lowHealth))
                         || (dist < 320 && vultureSideReuseTimer <= 0 && targetVulnerable);
             case ROOSTER: {
-                int owned = ownedRoosterChickCount();
-                boolean hasFollower = nextRoosterFollowerChick() != null;
-                return (owned < ROOSTER_MAX_CHICKS && (dist < 500 || lowHealth))
-                        || (hasFollower && dist < 460 && Math.abs(dy) < 210);
+                return shouldRoosterAIUseSpecial(target, dist, lowHealth, dy);
             }
             case OPIUMBIRD:
                 return (dist < 340 && Math.abs(dy) < 210)

@@ -1142,6 +1142,52 @@ class BirdStateTest {
     }
 
     @Test
+    void roosterAiRecallsAndReusesItsDeployedChicks() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird rooster = new Bird(220.0, BirdGame3.BirdType.ROOSTER, 0, game);
+        Bird target = new Bird(540.0, BirdGame3.BirdType.PIGEON, 1, game);
+        rooster.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        game.players[0] = rooster;
+        game.players[1] = target;
+        rooster.update(1.0);
+        RoosterSpecials.neutral(rooster, false);
+        RoosterSpecials.neutral(rooster, false);
+
+        for (ChickMinion chick : ownedChicks(game, rooster)) {
+            chick.followingOwner = false;
+            chick.target = target;
+        }
+        double distance = Math.hypot(
+                target.bodyCenterX() - rooster.bodyCenterX(),
+                target.bodyCenterY() - rooster.bodyCenterY());
+
+        assertFalse(rooster.shouldRoosterAIUseSpecial(target, distance, false, 0.0),
+                "Rooster's CPU should leave deployed chicks alone while they are close enough to pressure the opponent.");
+        assertEquals(Bird.DirectionalSpecialInput.NEUTRAL,
+                rooster.chooseRoosterAISpecialInput(target, distance, true, false));
+
+        for (ChickMinion chick : ownedChicks(game, rooster)) {
+            chick.x = -700.0;
+        }
+        assertTrue(rooster.shouldRoosterAIUseSpecial(target, distance, false, 0.0),
+                "Rooster's CPU must keep considering specials after every chick has been deployed.");
+        assertEquals(Bird.DirectionalSpecialInput.DOWN,
+                rooster.chooseRoosterAISpecialInput(target, distance, true, false),
+                "A separated CPU Rooster should recall its fighting chicks instead of abandoning the command loop.");
+
+        RoosterSpecials.down(rooster, false);
+
+        assertTrue(ownedChicks(game, rooster).stream().allMatch(chick -> chick.followingOwner),
+                "Recall should restore every deployed chick to formation.");
+        assertEquals(Bird.DirectionalSpecialInput.SIDE,
+                rooster.chooseRoosterAISpecialInput(target, distance, true, false),
+                "After recalling, CPU Rooster should be able to redeploy the flock.");
+    }
+
+    @Test
     void mockingbirdAiUsesItsKitInsteadOfEmptyNeutral() {
         assertEquals(20, Bird.aiSpecialDecisionCooldownFor(BirdGame3.BirdType.MOCKINGBIRD),
                 "Charles needs the same setup cadence as the other technical fighters.");
