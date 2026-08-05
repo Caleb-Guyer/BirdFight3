@@ -8,6 +8,7 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.ArcType;
 import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
@@ -382,7 +383,12 @@ public class Bird {
         TITMOUSE_WING,
         TITMOUSE_LEG,
         TITMOUSE_CREST_FEATHER,
-        TITMOUSE_FLANK_PATCH
+        TITMOUSE_FLANK_PATCH,
+        BAT_WING,
+        BAT_EAR,
+        BAT_LEG,
+        BAT_TAIL_MEMBRANE,
+        BAT_FANG
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -411,6 +417,10 @@ public class Bird {
                                  double titmouseFootBaseline,
                                  VisualFeatureBounds titmouseTorso,
                                  VisualFeatureBounds titmouseFlankPatch,
+                                 double batWingOpenness,
+                                 double batFootBaseline,
+                                 double batCeilingClawBaseline,
+                                 VisualFeatureBounds batTorso,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -609,6 +619,10 @@ public class Bird {
     private double lastVisualTitmouseFootBaseline = Double.NaN;
     private VisualFeatureBounds lastVisualTitmouseTorso;
     private VisualFeatureBounds lastVisualTitmouseFlankPatch;
+    private double lastVisualBatWingOpenness;
+    private double lastVisualBatFootBaseline = Double.NaN;
+    private double lastVisualBatCeilingClawBaseline = Double.NaN;
+    private VisualFeatureBounds lastVisualBatTorso;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -935,16 +949,16 @@ public class Bird {
     public boolean batHanging = false;
     private Platform batHangPlatform = null;
     public int batEchoTimer = 0;
-    private static final int BAT_NEUTRAL_REUSE_FRAMES = 30;
-    private static final int BAT_WINGCUT_FRAMES = 18;
+    static final int BAT_NEUTRAL_REUSE_FRAMES = 30;
+    static final int BAT_WINGCUT_FRAMES = 18;
     private static final int BAT_WINGCUT_REUSE_FRAMES = 38;
-    private static final int BAT_MOONRISE_FRAMES = 20;
+    static final int BAT_MOONRISE_FRAMES = 20;
     private static final int BAT_SILENT_GROUND_RISE_FRAMES = 7;
-    private static final int BAT_SILENT_STALL_FRAMES = 10;
-    private static final int BAT_SILENT_DIVE_FRAMES = 22;
+    static final int BAT_SILENT_STALL_FRAMES = 10;
+    static final int BAT_SILENT_DIVE_FRAMES = 22;
     private static final int BAT_SILENT_REUSE_FRAMES = 46;
     private static final int BAT_AMBUSH_WINDOW_FRAMES = 48;
-    private static final int BAT_CATHEDRAL_FRAMES = 168;
+    static final int BAT_CATHEDRAL_FRAMES = 168;
     private static final int BAT_CATHEDRAL_PULSE_INTERVAL = 24;
     private static final int BAT_ECHO_FX_FRAMES = 20;
     int batNeutralReuseTimer = 0;
@@ -2215,6 +2229,16 @@ public class Bird {
         SIDE,
         UP,
         DOWN,
+        ULTIMATE
+    }
+
+    enum VisualAuditBatAction {
+        HANG,
+        NEUTRAL,
+        SIDE,
+        UP,
+        DOWN_STALL,
+        DOWN_DIVE,
         ULTIMATE
     }
 
@@ -11957,6 +11981,46 @@ public class Bird {
         displayPose = null;
     }
 
+    /** Positions Bat at deterministic frames of its complete authored special set. */
+    void prepareVisualAuditBatAction(
+            VisualAuditBatAction action, int remainingFrames, boolean faceRight) {
+        prepareVisualAuditPose(action == VisualAuditBatAction.UP
+                ? VisualAuditPose.FLAP : VisualAuditPose.ATTACK);
+        facingRight = faceRight;
+        batHanging = false;
+        batEchoTimer = 0;
+        batWingcutTimer = 0;
+        batWingcutFromHang = false;
+        batMoonriseTimer = 0;
+        batSilentStallTimer = 0;
+        batSilentDiveTimer = 0;
+        batCathedralTimer = 0;
+        switch (action) {
+            case HANG -> {
+                prepareVisualAuditPose(VisualAuditPose.IDLE);
+                facingRight = faceRight;
+                batHanging = true;
+            }
+            case NEUTRAL -> batEchoTimer = Math.clamp(remainingFrames, 1, BAT_ECHO_FX_FRAMES);
+            case SIDE -> {
+                batWingcutDirection = faceRight ? 1 : -1;
+                batWingcutTimer = Math.clamp(remainingFrames, 1, BAT_WINGCUT_FRAMES);
+            }
+            case UP -> {
+                batMoonriseUsed = true;
+                batMoonriseTimer = Math.clamp(remainingFrames, 1, BAT_MOONRISE_FRAMES);
+            }
+            case DOWN_STALL -> batSilentStallTimer = Math.clamp(
+                    remainingFrames, 1, BAT_SILENT_STALL_FRAMES);
+            case DOWN_DIVE -> batSilentDiveTimer = Math.clamp(
+                    remainingFrames, 1, BAT_SILENT_DIVE_FRAMES);
+            case ULTIMATE -> batCathedralTimer = Math.clamp(
+                    remainingFrames, 1, BAT_CATHEDRAL_FRAMES);
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, 14);
+        displayPose = null;
+    }
+
     private void clearActiveDodge() {
         dodgeType = DodgeType.NONE;
         dodgeTimer = 0;
@@ -17272,6 +17336,12 @@ public class Bird {
         return type == BirdGame3.BirdType.TITMOUSE && titmouseSpecialActive();
     }
 
+    private boolean batSpecialPoseActive() {
+        return type == BirdGame3.BirdType.BAT
+                && (batEchoTimer > 0 || batWingcutTimer > 0 || batMoonriseTimer > 0
+                || batSilentStallTimer > 0 || batSilentDiveTimer > 0 || batCathedralTimer > 0);
+    }
+
     private boolean ravenSpecialPoseActive() {
         return type == BirdGame3.BirdType.RAVEN
                 && (ravenQuillCharging || ravenSideTimer > 0 || ravenLiftTimer > 0
@@ -18245,6 +18315,64 @@ public class Bird {
         }
         return new AttackVisualPose(0.0, 0.0, 0.0, facingRight ? 0.0 : Math.PI,
                 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
+    }
+
+    private AttackVisualPose currentBatSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (batCathedralTimer > 0) {
+            double pulse = 0.5 + 0.5 * Math.sin(batCathedralTimer * 0.18);
+            return new AttackVisualPose(
+                    0.0, -10.0 - pulse * 3.0, dir * pulse * 2.0,
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.04),
+                    9.0, -14.0, 8.0, 1.34,
+                    -18.0, 1.02, 1.08);
+        }
+        if (batMoonriseTimer > 0) {
+            double phase = pigeonSpecialPhase(batMoonriseTimer, BAT_MOONRISE_FRAMES);
+            double lift = Math.sin(phase * Math.PI);
+            return new AttackVisualPose(
+                    dir * phase * 2.0, -17.0 - lift * 12.0, dir * (2.0 + lift * 4.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.06),
+                    10.0 + lift * 5.0, -18.0 - lift * 7.0, 8.0 + lift * 4.0, 1.06,
+                    -23.0 - lift * 8.0, 0.96, 1.17);
+        }
+        if (batSilentDiveTimer > 0) {
+            double phase = pigeonSpecialPhase(batSilentDiveTimer, BAT_SILENT_DIVE_FRAMES);
+            return new AttackVisualPose(
+                    dir * 1.0, 10.0 + phase * 9.0, dir * (2.0 + phase * 3.0),
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.05),
+                    5.0, 9.0, 4.0, 0.80,
+                    19.0 + phase * 8.0, 0.84, 1.18);
+        }
+        if (batSilentStallTimer > 0) {
+            return new AttackVisualPose(
+                    0.0, -4.0, -dir * 2.0,
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.04),
+                    5.0, 5.0, 4.0, 0.88,
+                    10.0, 0.92, 1.10);
+        }
+        if (batWingcutTimer > 0) {
+            double sideDir = batWingcutDirection == 0 ? dir : Math.signum(batWingcutDirection);
+            double phase = pigeonSpecialPhase(batWingcutTimer, BAT_WINGCUT_FRAMES);
+            double surge = Math.sin(phase * Math.PI);
+            return new AttackVisualPose(
+                    sideDir * (9.0 + surge * 12.0), -4.0 - surge * 3.0,
+                    sideDir * (10.0 + surge * 8.0),
+                    sideDir > 0 ? -0.10 : Math.PI + 0.10,
+                    13.0 + surge * 6.0, -6.0 - surge * 3.0,
+                    11.0 + surge * 6.0, 1.10,
+                    sideDir * (11.0 + surge * 8.0), 1.16, 0.86);
+        }
+        if (batEchoTimer > 0) {
+            double call = Math.sin((1.0 - batEchoTimer / (double) BAT_ECHO_FX_FRAMES) * Math.PI);
+            return new AttackVisualPose(
+                    -dir * call * 2.0, -4.0 - call * 3.0, -dir * (2.0 + call * 3.0),
+                    facingRight ? -0.04 : Math.PI + 0.04,
+                    8.0 + call * 4.0, -7.0 - call * 3.0,
+                    7.0 + call * 3.0, 1.42,
+                    -dir * (4.0 + call * 3.0), 1.04, 0.96);
+        }
+        return neutralVisualPose();
     }
 
     private AttackVisualPose currentTitmouseSpecialPose() {
@@ -21601,6 +21729,9 @@ public class Bird {
         if (titmouseSpecialPoseActive()) {
             return currentTitmouseSpecialPose();
         }
+        if (batSpecialPoseActive()) {
+            return currentBatSpecialPose();
+        }
         if (grinchhawkSpecialPoseActive()) {
             return currentGrinchhawkSpecialPose();
         }
@@ -22159,6 +22290,10 @@ public class Bird {
                 lastVisualTitmouseFootBaseline,
                 lastVisualTitmouseTorso,
                 lastVisualTitmouseFlankPatch,
+                lastVisualBatWingOpenness,
+                lastVisualBatFootBaseline,
+                lastVisualBatCeilingClawBaseline,
+                lastVisualBatTorso,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -22192,6 +22327,10 @@ public class Bird {
         lastVisualTitmouseFootBaseline = Double.NaN;
         lastVisualTitmouseTorso = null;
         lastVisualTitmouseFlankPatch = null;
+        lastVisualBatWingOpenness = 0.0;
+        lastVisualBatFootBaseline = Double.NaN;
+        lastVisualBatCeilingClawBaseline = Double.NaN;
+        lastVisualBatTorso = null;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -28666,11 +28805,11 @@ public class Bird {
 
         double s = sizeMultiplier;
         double pulse = 0.55 + 0.45 * Math.sin(System.currentTimeMillis() / 120.0);
-        double headCenterX = type == BirdGame3.BirdType.BAT
-                ? x + 40 * s
+        double headCenterX = type == BirdGame3.BirdType.BAT && lastVisualHeadBounds != null
+                ? (lastVisualHeadBounds.left() + lastVisualHeadBounds.right()) * 0.5
                 : x + (facingRight ? 72 : 28) * s;
-        double headCenterY = type == BirdGame3.BirdType.BAT
-                ? y + 22 * s
+        double headCenterY = type == BirdGame3.BirdType.BAT && lastVisualHeadBounds != null
+                ? (lastVisualHeadBounds.top() + lastVisualHeadBounds.bottom()) * 0.5
                 : y + 34 * s;
         double orbitBaseY = headCenterY - 26 * s;
 
@@ -28691,10 +28830,9 @@ public class Bird {
         }
 
         if (type == BirdGame3.BirdType.BAT) {
-            double headX = facingRight ? x + 24 * s : x + 16 * s;
-            double eyeBias = (facingRight ? 3 : -3) * s;
-            drawStunEyeMark(g, headX + 13.5 * s + eyeBias, y + 21.5 * s, 4.8 * s);
-            drawStunEyeMark(g, headX + 29.5 * s + eyeBias, y + 21.5 * s, 4.8 * s);
+            if (lastVisualEye != null) {
+                drawStunEyeMark(g, lastVisualEye.centerX(), lastVisualEye.centerY(), 4.8 * s);
+            }
         } else {
             drawStunEyeMark(g, x + (facingRight ? 62.5 : 32.5) * s, y + 32.5 * s, 6.4 * s);
         }
@@ -29502,7 +29640,7 @@ public class Bird {
             return;
         }
         if (type == BirdGame3.BirdType.BAT) {
-            drawBatBody(g);
+            drawBatBody(g, drawSize, pose);
             return;
         }
         if (type == BirdGame3.BirdType.RAVEN) {
@@ -34127,7 +34265,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.GRINCHHAWK
                 || type == BirdGame3.BirdType.VULTURE
                 || type == BirdGame3.BirdType.OPIUMBIRD
-                || type == BirdGame3.BirdType.TITMOUSE) return;
+                || type == BirdGame3.BirdType.TITMOUSE
+                || type == BirdGame3.BirdType.BAT) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -34292,19 +34431,6 @@ public class Bird {
             g.strokeArc(x + 5 * s, y + 32 * s, 70 * s, 40 * s,
                     facingRight ? 200 : 180, 160, ArcType.OPEN);
         }
-        if (type == BirdGame3.BirdType.BAT && isUmbraSkin) {
-            g.setStroke(Color.web("#00E5FF").deriveColor(0, 1, 1, 0.45));
-            g.setLineWidth(2.0 * s);
-            g.strokeOval(x - 10 * s, y - 10 * s, 100 * s, 100 * s);
-        }
-        if (type == BirdGame3.BirdType.BAT && isResonanceSkin) {
-            g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.7));
-            g.setLineWidth(2.0 * s);
-            g.strokeOval(x - 4 * s, y + 2 * s, 88 * s, 88 * s);
-            g.strokeOval(x - 14 * s, y - 8 * s, 108 * s, 108 * s);
-            g.setStroke(Color.web("#B39DDB").deriveColor(0, 1, 1, 0.7));
-            g.strokeLine(x + 14 * s, y + 38 * s, x + 68 * s, y + 28 * s);
-        }
         if (type == BirdGame3.BirdType.ROOSTER && isSunforgeSkin) {
             g.setStroke(Color.web("#FFD54F").deriveColor(0, 1, 1, 0.7));
             g.setLineWidth(2.4 * s);
@@ -34370,152 +34496,307 @@ public class Bird {
                 drawSize + auraPad * (fortress ? 1.20 : 1.22));
     }
 
-    private void drawBatBody(GraphicsContext g) {
+    private void drawBatBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
         double s = sizeMultiplier;
-        double cx = x + 40 * s;
-        double cy = y + 40 * s;
-        boolean airborne = !isOnGround();
-        boolean ceilingWingcut = batWingcutFromHang && batWingcutTimer > 0;
+        double cx = x + drawSize * 0.50;
+        double cy = y + drawSize * 0.50;
         boolean silentPose = batSilentStallTimer > 0 || batSilentDiveTimer > 0;
-        boolean invertedPose = batHanging || ceilingWingcut || silentPose;
-        if (invertedPose) {
+        boolean inverted = batHanging || (batWingcutFromHang && batWingcutTimer > 0) || silentPose;
+        boolean airborne = !isOnGround() && !batHanging;
+        double openness = batWingOpenness(airborne);
+        lastVisualBatWingOpenness = openness;
+
+        boolean classic = isClassicSkin;
+        boolean umbra = isUmbraSkin;
+        boolean resonance = isResonanceSkin;
+        boolean campaign = isCampaignFactionSkin();
+        Color fur = campaign ? campaignFactionPrimaryColor()
+                : umbra ? Color.web("#171326")
+                : resonance ? Color.web("#31546D")
+                : classic ? Color.web("#625D78")
+                : Color.web("#65456F");
+        Color furLight = campaign ? campaignFactionSecondaryColor()
+                : umbra ? Color.web("#302348")
+                : resonance ? Color.web("#5488A5")
+                : classic ? Color.web("#AAA5C0")
+                : Color.web("#90659A");
+        Color membrane = umbra ? Color.web("#090D18")
+                : resonance ? Color.web("#132C42")
+                : classic ? Color.web("#3D3A50")
+                : Color.web("#24172F");
+        Color membraneInner = umbra ? Color.web("#171C2C")
+                : resonance ? Color.web("#244E69")
+                : classic ? Color.web("#716C88")
+                : Color.web("#493158");
+        Color edge = campaign ? campaignFactionAccentColor()
+                : umbra ? Color.web("#58DCEC")
+                : resonance ? Color.web("#7FE7F4")
+                : classic ? Color.web("#FFE082")
+                : Color.web("#B287C3");
+        Color innerEar = umbra ? Color.web("#6B537D")
+                : resonance ? Color.web("#8ED4DF")
+                : classic ? edge.deriveColor(0, 0.72, 1.0, 1.0)
+                : Color.web("#D38FB0");
+        Color iris = umbra ? Color.web("#00E5FF")
+                : resonance ? Color.web("#B2EBF2")
+                : classic ? Color.web("#FFD86B")
+                : Color.web("#E74972");
+
+        if (inverted) {
             g.save();
             g.translate(cx, cy);
             g.scale(1, -1);
             g.translate(-cx, -cy);
         }
 
-        boolean umbra = isUmbraSkin;
-        boolean resonance = isResonanceSkin;
-        Color wing = umbra ? Color.web("#0B0F1A") : (resonance ? Color.web("#162447") : Color.rgb(22, 14, 34));
-        Color wingInner = umbra ? Color.web("#182032") : (resonance ? Color.web("#244A6A") : Color.rgb(58, 34, 78));
-        Color body = umbra ? Color.web("#1C1033") : (resonance ? Color.web("#355C7D") : Color.rgb(76, 44, 92));
-        Color head = umbra ? Color.web("#2D1B4D") : (resonance ? Color.web("#4E7BA7") : Color.rgb(92, 56, 112));
-        Color edge = umbra ? Color.web("#343A58") : (resonance ? Color.web("#7BDFF6") : Color.rgb(118, 82, 146));
-        double flap = airborne ? Math.sin(System.currentTimeMillis() / 84.0) * 9.0 * s : 0.0;
-        if (batWingcutTimer > 0) {
-            flap = -10.0 * s;
-        } else if (batMoonriseTimer > 0) {
-            flap = 13.0 * s;
-        } else if (silentPose) {
-            flap = -6.0 * s;
+        // Two articulated, mirrored wings replace the old permanently spread slabs.
+        drawBatWing(g, cx, cy, -1.0, openness, membrane, membraneInner, edge, umbra, resonance);
+        drawBatWing(g, cx, cy, 1.0, openness, membrane, membraneInner, edge, umbra, resonance);
+
+        // Tail membrane and feet sit behind the compact fur body.
+        g.setFill(membraneInner.deriveColor(0, 0.92, 0.92, 0.96));
+        g.fillPolygon(
+                new double[]{cx - 9.0 * s, cx, cx + 9.0 * s},
+                new double[]{y + 61.0 * s, y + 75.0 * s, y + 61.0 * s}, 3);
+        recordVisualBodyPart(VisualBodyPart.BAT_TAIL_MEMBRANE);
+        drawBatLeg(g, cx - 7.0 * s, y + 63.0 * s, -1.0, airborne, inverted, edge);
+        drawBatLeg(g, cx + 7.0 * s, y + 63.0 * s, 1.0, airborne, inverted, edge);
+
+        double torsoX = cx - 15.0 * s;
+        double torsoY = y + 31.0 * s;
+        double torsoW = 30.0 * s;
+        double torsoH = 39.0 * s;
+        g.setFill(fur.darker());
+        g.fillOval(torsoX - 2.0 * s, torsoY - 1.0 * s, torsoW + 4.0 * s, torsoH + 3.0 * s);
+        g.setFill(fur);
+        g.fillOval(torsoX, torsoY, torsoW, torsoH);
+        g.setFill(furLight.deriveColor(0, 0.78, 1.08, 0.48));
+        g.fillOval(cx - 8.5 * s, y + 42.0 * s, 17.0 * s, 22.0 * s);
+        lastVisualBatTorso = batVisualBounds(
+                torsoX, torsoY, torsoX + torsoW, torsoY + torsoH, cy, inverted);
+
+        // The ears are individually authored and remain rooted behind the head.
+        drawBatEar(g, cx - 9.0 * s, y + 22.0 * s, -1.0, fur, innerEar);
+        drawBatEar(g, cx + 9.0 * s, y + 22.0 * s, 1.0, fur, innerEar);
+
+        double aim = pose == null ? (facingRight ? 0.0 : Math.PI) : pose.aimAngleRadians();
+        double aimX = Math.cos(aim);
+        double aimY = Math.sin(aim);
+        double normalX = -aimY;
+        double normalY = aimX;
+        if ((Math.abs(normalY) >= Math.abs(normalX) && normalY < 0.0)
+                || (Math.abs(normalX) > Math.abs(normalY)
+                && normalX * (facingRight ? 1.0 : -1.0) < 0.0)) {
+            normalX = -normalX;
+            normalY = -normalY;
         }
-        double wingReach = airborne || batWingcutTimer > 0 ? 1.18 : 1.0;
-        double shoulderY = y + 36.0 * s;
-        double upperWingY = y + 18.0 * s - flap;
-        double lowerWingY = y + 72.0 * s - flap * 0.2;
-        double sideReach = (batWingcutTimer > 0 ? 72.0 : 62.0) * wingReach * s;
+        double headReach = pose == null ? 0.0 : pose.headReachBonus() * 0.20 * s;
+        double headCx = cx + aimX * headReach;
+        double headCy = y + 25.0 * s + aimY * headReach
+                + (pose == null ? 0.0 : pose.headLift() * 0.22 * s);
+        double headW = 36.0 * s;
+        double headH = 28.0 * s;
+        g.setFill(fur.darker());
+        g.fillOval(headCx - headW * 0.52, headCy - headH * 0.52, headW * 1.04, headH * 1.05);
+        g.setFill(furLight);
+        g.fillOval(headCx - headW * 0.50, headCy - headH * 0.50, headW, headH);
 
-        // Fingered wing frames and scalloped membranes.
-        g.setFill(wing);
-        g.fillPolygon(
-                new double[]{x + 34 * s, x - 6 * s, x - sideReach, x - 42 * s, x - 10 * s, x + 8 * s},
-                new double[]{shoulderY, upperWingY + 2 * s, upperWingY + 16 * s, lowerWingY - 6 * s,
-                        lowerWingY + 10 * s, y + 60 * s},
-                6
-        );
-        g.fillPolygon(
-                new double[]{x + 46 * s, x + 86 * s, x + 80 * s + sideReach, x + 122 * s, x + 90 * s, x + 72 * s},
-                new double[]{shoulderY, upperWingY + 2 * s, upperWingY + 16 * s, lowerWingY - 6 * s,
-                        lowerWingY + 10 * s, y + 60 * s},
-                6
-        );
-
-        g.setFill(wingInner);
-        g.fillPolygon(
-                new double[]{x + 31 * s, x - 7 * s, x - 40 * s, x - 18 * s, x + 8 * s},
-                new double[]{shoulderY + 2 * s, upperWingY + 10 * s, lowerWingY - 2 * s,
-                        lowerWingY + 6 * s, y + 58 * s},
-                5
-        );
-        g.fillPolygon(
-                new double[]{x + 49 * s, x + 87 * s, x + 120 * s, x + 98 * s, x + 72 * s},
-                new double[]{shoulderY + 2 * s, upperWingY + 10 * s, lowerWingY - 2 * s,
-                        lowerWingY + 6 * s, y + 58 * s},
-                5
-        );
-        g.setStroke(edge.deriveColor(0, 1, 1, 0.58));
-        g.setLineWidth(2.2 * s);
-        g.strokePolyline(
-                new double[]{x + 34 * s, x - 6 * s, x - sideReach, x - 42 * s, x - 10 * s, x + 8 * s},
-                new double[]{shoulderY, upperWingY + 2 * s, upperWingY + 16 * s, lowerWingY - 6 * s,
-                        lowerWingY + 10 * s, y + 60 * s},
-                6
-        );
-        g.strokePolyline(
-                new double[]{x + 46 * s, x + 86 * s, x + 80 * s + sideReach, x + 122 * s, x + 90 * s, x + 72 * s},
-                new double[]{shoulderY, upperWingY + 2 * s, upperWingY + 16 * s, lowerWingY - 6 * s,
-                        lowerWingY + 10 * s, y + 60 * s},
-                6
-        );
-
-        g.setFill(body);
-        g.fillOval(x + 24 * s, y + 25 * s, 32 * s, 45 * s);
-        g.fillPolygon(
-                new double[]{x + 34 * s, x + 40 * s, x + 46 * s},
-                new double[]{y + 64 * s, y + 82 * s, y + 64 * s},
-                3
-        );
-        double headX = facingRight ? x + 20 * s : x + 18 * s;
-        g.setFill(head);
-        g.fillOval(headX, y + 7 * s, 42 * s, 31 * s);
-
-        Color ear = umbra ? Color.web("#4C537A") : (resonance ? Color.web("#8AD7FF") : Color.rgb(110, 74, 150));
-        g.setFill(ear);
-        g.fillPolygon(new double[]{headX + 4 * s, headX + 12 * s, headX + 18 * s},
-                new double[]{y + 12 * s, y - 13 * s, y + 10 * s}, 3);
-        g.fillPolygon(new double[]{headX + 24 * s, headX + 31 * s, headX + 38 * s},
-                new double[]{y + 10 * s, y - 14 * s, y + 12 * s}, 3);
-
-        g.setFill(Color.WHITE);
-        double eyeBias = (facingRight ? 2.5 : -2.5) * s;
-        g.fillOval(headX + 8 * s + eyeBias, y + 16 * s, 10 * s, 10 * s);
-        g.fillOval(headX + 23 * s + eyeBias, y + 16 * s, 10 * s, 10 * s);
-        Color iris = umbra ? Color.web("#00E5FF") : (resonance ? Color.web("#B2EBF2") : Color.CRIMSON.brighter());
+        double eyeCx = headCx + aimX * 2.0 * s - normalX * 3.0 * s;
+        double eyeCy = headCy + aimY * 2.0 * s - normalY * 3.0 * s;
+        double eyeRadius = 5.2 * s;
+        g.setFill(Color.web("#F7F4FB"));
+        g.fillOval(eyeCx - eyeRadius, eyeCy - eyeRadius, eyeRadius * 2.0, eyeRadius * 2.0);
+        double pupilRadius = 2.65 * s;
         g.setFill(iris);
-        g.fillOval(headX + 11 * s + eyeBias, y + 19 * s, 5 * s, 5 * s);
-        g.fillOval(headX + 26 * s + eyeBias, y + 19 * s, 5 * s, 5 * s);
+        g.fillOval(eyeCx - pupilRadius + aimX * 1.3 * s,
+                eyeCy - pupilRadius + aimY * 1.3 * s, pupilRadius * 2.0, pupilRadius * 2.0);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.90));
+        g.fillOval(eyeCx - 0.5 * s, eyeCy - 2.3 * s, 2.1 * s, 2.1 * s);
 
-        g.setFill(head.darker());
-        double snoutX = facingRight ? headX + 30 * s : headX + 2 * s;
-        g.fillOval(snoutX, y + 23 * s, 10 * s, 8 * s);
-        g.setFill(Color.BLACK.deriveColor(0, 1, 1, 0.86));
-        g.fillOval(facingRight ? snoutX + 6 * s : snoutX + 1 * s, y + 25 * s, 4 * s, 4 * s);
-        g.setStroke(Color.web("#F5F5F5").deriveColor(0, 1, 1, 0.9));
-        g.setLineWidth(1.4 * s);
-        if (facingRight) {
-            g.strokeLine(headX + 33 * s, y + 31 * s, headX + 35 * s, y + 37 * s);
-            g.strokeLine(headX + 28 * s, y + 31 * s, headX + 30 * s, y + 37 * s);
-        } else {
-            g.strokeLine(headX + 9 * s, y + 31 * s, headX + 7 * s, y + 37 * s);
-            g.strokeLine(headX + 14 * s, y + 31 * s, headX + 12 * s, y + 37 * s);
+        double muzzleRootX = headCx + aimX * 11.0 * s + normalX * 2.5 * s;
+        double muzzleRootY = headCy + aimY * 11.0 * s + normalY * 2.5 * s;
+        double muzzleTipX = muzzleRootX + aimX * 7.0 * s;
+        double muzzleTipY = muzzleRootY + aimY * 7.0 * s;
+        double muzzleHalf = 4.1 * s;
+        g.setFill(furLight.brighter());
+        g.fillPolygon(
+                new double[]{muzzleRootX - normalX * muzzleHalf, muzzleTipX,
+                        muzzleRootX + normalX * muzzleHalf},
+                new double[]{muzzleRootY - normalY * muzzleHalf, muzzleTipY,
+                        muzzleRootY + normalY * muzzleHalf}, 3);
+        g.setFill(Color.web("#24131F"));
+        g.fillOval(muzzleTipX - 2.0 * s, muzzleTipY - 2.0 * s, 4.0 * s, 4.0 * s);
+
+        boolean mouthOpen = batEchoTimer > 0 || batCathedralTimer > 0 || attackAnimationTimer > 0;
+        double jaw = mouthOpen ? 4.2 * s : 1.6 * s;
+        double mouthX = muzzleRootX - aimX * 1.0 * s + normalX * 3.8 * s;
+        double mouthY = muzzleRootY - aimY * 1.0 * s + normalY * 3.8 * s;
+        g.setFill(Color.web("#B94F75"));
+        g.fillOval(mouthX - 4.2 * s, mouthY - jaw * 0.5, 8.4 * s, jaw);
+        g.setFill(Color.web("#FFF8F3"));
+        for (double fangSide : new double[]{-1.0, 1.0}) {
+            double fangRootX = mouthX + aimX * fangSide * 2.2 * s - normalX * jaw * 0.25;
+            double fangRootY = mouthY + aimY * fangSide * 2.2 * s - normalY * jaw * 0.25;
+            g.fillPolygon(
+                    new double[]{fangRootX - aimX * 1.2 * s, fangRootX + aimX * 1.2 * s,
+                            fangRootX + normalX * 3.0 * s},
+                    new double[]{fangRootY - aimY * 1.2 * s, fangRootY + aimY * 1.2 * s,
+                            fangRootY + normalY * 3.0 * s}, 3);
+            recordVisualBodyPart(VisualBodyPart.BAT_FANG);
         }
 
-        g.setStroke(edge.deriveColor(0, 1, 1, 0.88));
-        g.setLineWidth(2.0 * s);
-        g.strokeLine(x + 31 * s, y + 68 * s, x + 24 * s, y + 80 * s);
-        g.strokeLine(x + 49 * s, y + 68 * s, x + 56 * s, y + 80 * s);
-        g.strokeLine(x + 24 * s, y + 80 * s, x + 18 * s, y + 84 * s);
-        g.strokeLine(x + 24 * s, y + 80 * s, x + 28 * s, y + 85 * s);
-        g.strokeLine(x + 56 * s, y + 80 * s, x + 52 * s, y + 85 * s);
-        g.strokeLine(x + 56 * s, y + 80 * s, x + 62 * s, y + 84 * s);
+        lastVisualHeadBounds = batVisualBounds(
+                headCx - headW * 0.5, headCy - headH * 0.5,
+                headCx + headW * 0.5, headCy + headH * 0.5, cy, inverted);
+        lastVisualEye = new VisualFeatureCircle(
+                eyeCx, batVisualY(eyeCy, cy, inverted), eyeRadius);
+        recordVisualBeak(
+                muzzleRootX, batVisualY(muzzleRootY, cy, inverted),
+                muzzleTipX, batVisualY(muzzleTipY, cy, inverted));
 
-        if (resonance) {
-            g.setStroke(Color.web("#80DEEA").deriveColor(0, 1, 1, 0.8));
-            g.setLineWidth(1.8 * s);
-            g.strokeArc(x - 18 * s, y + 8 * s, 116 * s, 60 * s, 12, 154, ArcType.OPEN);
-            g.strokeArc(x - 6 * s, y + 18 * s, 92 * s, 42 * s, 10, 146, ArcType.OPEN);
-        }
-
-        if (batHanging) {
-            g.setStroke(Color.LIGHTGRAY);
-            g.setLineWidth(2 * s);
-            g.strokeLine(x + 30 * s, y + 76 * s, x + 30 * s, y + 92 * s);
-            g.strokeLine(x + 50 * s, y + 76 * s, x + 50 * s, y + 92 * s);
-        }
-        if (invertedPose) {
+        if (inverted) {
             g.restore();
         }
+    }
+
+    private double batWingOpenness(boolean airborne) {
+        if (batCathedralTimer > 0) return 0.96;
+        if (batMoonriseTimer > 0) {
+            double phase = (BAT_MOONRISE_FRAMES - batMoonriseTimer)
+                    / (double) Math.max(1, BAT_MOONRISE_FRAMES - 1);
+            return 0.30 + Math.sin(phase * Math.PI) * 0.70;
+        }
+        if (batWingcutTimer > 0) {
+            double phase = (BAT_WINGCUT_FRAMES - batWingcutTimer)
+                    / (double) Math.max(1, BAT_WINGCUT_FRAMES - 1);
+            return 0.10 + Math.sin(phase * Math.PI) * 0.78;
+        }
+        if (batEchoTimer > 0) return 0.66;
+        if (batSilentDiveTimer > 0) return 0.12;
+        if (batSilentStallTimer > 0) return 0.28;
+        if (batHanging) return 0.06;
+        BirdAnimationState state = currentBirdAnimationState();
+        return switch (state) {
+            case FLAP -> 0.58 + 0.38 * Math.abs(Math.sin(
+                    (animationGlobalFrame + playerIndex * 11.0) * 0.74));
+            case FALL -> 0.56;
+            case ATTACK -> 0.64;
+            case HITSTUN -> 0.18;
+            case KO -> 0.12;
+            case DODGE -> 0.24;
+            case SHIELD -> 0.08;
+            case IDLE -> airborne ? 0.48 : 0.10;
+        };
+    }
+
+    private void drawBatWing(GraphicsContext g, double cx, double cy, double side,
+                             double openness, Color membrane, Color membraneInner,
+                             Color edge, boolean umbra, boolean resonance) {
+        double s = sizeMultiplier;
+        double shoulderX = cx + side * 10.0 * s;
+        double shoulderY = y + 37.0 * s;
+        double elbowX = cx + side * (15.0 + 20.0 * openness) * s;
+        double elbowY = y + (38.0 - 21.0 * openness) * s;
+        double tipX = cx + side * (21.0 + 43.0 * openness) * s;
+        double tipY = y + (45.0 - 25.0 * openness) * s;
+        double fingerOneX = cx + side * (20.0 + 37.0 * openness) * s;
+        double fingerOneY = y + (51.0 + 5.0 * openness) * s;
+        double fingerTwoX = cx + side * (17.0 + 27.0 * openness) * s;
+        double fingerTwoY = y + (59.0 + 9.0 * openness) * s;
+        double rootX = cx + side * 8.0 * s;
+        double rootY = y + 62.0 * s;
+        double scallopOneX = (tipX + fingerOneX) * 0.5 - side * 2.5 * s;
+        double scallopOneY = (tipY + fingerOneY) * 0.5 + 4.0 * s;
+        double scallopTwoX = (fingerOneX + fingerTwoX) * 0.5 - side * 2.0 * s;
+        double scallopTwoY = (fingerOneY + fingerTwoY) * 0.5 + 4.0 * s;
+
+        g.setFill(membrane);
+        g.fillPolygon(
+                new double[]{shoulderX, elbowX, tipX, scallopOneX, fingerOneX,
+                        scallopTwoX, fingerTwoX, rootX},
+                new double[]{shoulderY, elbowY, tipY, scallopOneY, fingerOneY,
+                        scallopTwoY, fingerTwoY, rootY}, 8);
+        g.setFill(membraneInner.deriveColor(0, 1, 1, 0.82));
+        g.fillPolygon(
+                new double[]{shoulderX, elbowX, tipX, fingerOneX, rootX},
+                new double[]{shoulderY + 2.0 * s, elbowY + 3.0 * s, tipY + 3.0 * s,
+                        fingerOneY - 1.0 * s, rootY - 2.0 * s}, 5);
+        g.setStroke(edge.deriveColor(0, 1, 1, umbra || resonance ? 0.90 : 0.68));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineJoin(StrokeLineJoin.ROUND);
+        g.setLineWidth((umbra || resonance ? 1.75 : 1.45) * s);
+        g.strokePolyline(
+                new double[]{shoulderX, elbowX, tipX, scallopOneX, fingerOneX,
+                        scallopTwoX, fingerTwoX, rootX},
+                new double[]{shoulderY, elbowY, tipY, scallopOneY, fingerOneY,
+                        scallopTwoY, fingerTwoY, rootY}, 8);
+        g.setStroke(edge.deriveColor(0, 0.88, 1.0, resonance ? 0.88 : 0.48));
+        g.setLineWidth((resonance ? 1.35 : 1.05) * s);
+        g.strokeLine(shoulderX, shoulderY, elbowX, elbowY);
+        g.strokeLine(elbowX, elbowY, tipX, tipY);
+        g.strokeLine(shoulderX, shoulderY, fingerOneX, fingerOneY);
+        g.strokeLine(shoulderX, shoulderY, fingerTwoX, fingerTwoY);
+        if (resonance) {
+            g.setStroke(Color.web("#B9F6FF").deriveColor(0, 1, 1, 0.72));
+            g.setLineWidth(0.85 * s);
+            g.strokeLine(elbowX, elbowY, fingerOneX, fingerOneY);
+        } else if (umbra) {
+            g.setFill(Color.web("#9AF5FF").deriveColor(0, 1, 1, 0.90));
+            g.fillOval(tipX - 1.4 * s, tipY - 1.4 * s, 2.8 * s, 2.8 * s);
+        }
+        recordVisualBodyPart(VisualBodyPart.BAT_WING);
+    }
+
+    private void drawBatEar(GraphicsContext g, double rootX, double rootY, double side,
+                            Color fur, Color innerEar) {
+        double s = sizeMultiplier;
+        double tipX = rootX + side * 4.0 * s;
+        double tipY = y + 2.0 * s;
+        g.setFill(fur.darker());
+        g.fillPolygon(
+                new double[]{rootX - side * 6.0 * s, tipX, rootX + side * 6.0 * s},
+                new double[]{rootY + 4.0 * s, tipY, rootY + 2.0 * s}, 3);
+        g.setFill(innerEar.deriveColor(0, 0.82, 1.0, 0.86));
+        g.fillPolygon(
+                new double[]{rootX - side * 2.5 * s, tipX, rootX + side * 3.5 * s},
+                new double[]{rootY + 1.0 * s, tipY + 5.0 * s, rootY}, 3);
+        recordVisualBodyPart(VisualBodyPart.BAT_EAR);
+    }
+
+    private void drawBatLeg(GraphicsContext g, double rootX, double rootY, double side,
+                            boolean airborne, boolean inverted, Color edge) {
+        double s = sizeMultiplier;
+        double ankleX = rootX + side * (airborne ? 2.0 : 3.0) * s;
+        double ankleY = y + (airborne ? 68.0 : 73.0) * s;
+        double toeY = y + (airborne ? 70.0 : 80.0) * s;
+        g.setStroke(edge.deriveColor(0, 0.70, 0.92, 0.92));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineWidth(1.8 * s);
+        g.strokeLine(rootX, rootY, ankleX, ankleY);
+        g.strokeLine(ankleX, ankleY, ankleX + side * 5.0 * s, toeY);
+        g.strokeLine(ankleX, ankleY, ankleX - side * 3.0 * s, toeY);
+        recordVisualBodyPart(VisualBodyPart.BAT_LEG);
+        double baseline = (toeY - y) / s;
+        if (inverted) {
+            lastVisualBatCeilingClawBaseline = 80.0 - baseline;
+        } else if (!airborne) {
+            lastVisualBatFootBaseline = baseline;
+        }
+    }
+
+    private double batVisualY(double value, double centerY, boolean inverted) {
+        return inverted ? centerY * 2.0 - value : value;
+    }
+
+    private VisualFeatureBounds batVisualBounds(
+            double left, double top, double right, double bottom,
+            double centerY, boolean inverted) {
+        if (!inverted) {
+            return new VisualFeatureBounds(left, top, right, bottom);
+        }
+        return new VisualFeatureBounds(
+                left, batVisualY(bottom, centerY, true),
+                right, batVisualY(top, centerY, true));
     }
 
     private void drawPhoenixBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
@@ -35213,28 +35494,6 @@ public class Bird {
             return;
         }
         if (type == BirdGame3.BirdType.BAT) {
-            double mouthX = x + 33 * s;
-            double mouthY = y + 28 * s;
-            boolean attacking = attackAnimationTimer > 0;
-            double biteOpen = attacking ? (4 + Math.sin(attackAnimationTimer * 0.8) * 3) * s * openScale : 0;
-            g.setFill(Color.rgb(220, 120, 170));
-            g.fillOval(mouthX, mouthY + biteOpen * 0.2, 16 * s, (10 + biteOpen) * s);
-            g.setFill(Color.WHITE);
-            g.fillPolygon(
-                    new double[]{mouthX + 4 * s, mouthX + 7 * s, mouthX + 10 * s},
-                    new double[]{mouthY + (8 + biteOpen) * s, mouthY + (13 + biteOpen) * s, mouthY + (8 + biteOpen) * s},
-                    3
-            );
-            if (attacking) {
-                g.setStroke(Color.MEDIUMPURPLE.brighter());
-                g.setLineWidth(3);
-                double dir = facingRight ? 1 : -1;
-                for (int i = 0; i < 3; i++) {
-                    double sx = x + 40 + dir * (25 + i * 12);
-                    double sy = y + 44 - i * 6;
-                    g.strokeLine(sx, sy, sx + dir * 20, sy - 10);
-                }
-            }
             return;
         }
         if (type == BirdGame3.BirdType.PHOENIX) {

@@ -94,6 +94,27 @@ class BirdVisualAuditRun {
         }
     }
 
+    private enum BatView {
+        IDLE(null, 0),
+        HANG(Bird.VisualAuditBatAction.HANG, 1),
+        ECHO(Bird.VisualAuditBatAction.NEUTRAL, 10),
+        WINGCUT_START(Bird.VisualAuditBatAction.SIDE, Bird.BAT_WINGCUT_FRAMES),
+        WINGCUT_OPEN(Bird.VisualAuditBatAction.SIDE, Bird.BAT_WINGCUT_FRAMES - 4),
+        WINGCUT_CLOSE(Bird.VisualAuditBatAction.SIDE, 1),
+        MOONRISE(Bird.VisualAuditBatAction.UP, Bird.BAT_MOONRISE_FRAMES - 5),
+        STALL(Bird.VisualAuditBatAction.DOWN_STALL, 5),
+        DIVE(Bird.VisualAuditBatAction.DOWN_DIVE, 12),
+        CATHEDRAL(Bird.VisualAuditBatAction.ULTIMATE, 80);
+
+        private final Bird.VisualAuditBatAction action;
+        private final int remainingFrames;
+
+        BatView(Bird.VisualAuditBatAction action, int remainingFrames) {
+            this.action = action;
+            this.remainingFrames = remainingFrames;
+        }
+    }
+
     private record PixelBounds(int minX, int minY, int maxX, int maxY, int opaquePixels,
                                int borderPixels, long signature) {
         int width() {
@@ -189,7 +210,8 @@ class BirdVisualAuditRun {
                 if ((entry.bird() == BirdGame3.BirdType.VULTURE
                         && !"NULL_ROCK_VULTURE".equals(entry.key()))
                         || entry.bird() == BirdGame3.BirdType.OPIUMBIRD
-                        || entry.bird() == BirdGame3.BirdType.TITMOUSE) {
+                        || entry.bird() == BirdGame3.BirdType.TITMOUSE
+                        || entry.bird() == BirdGame3.BirdType.BAT) {
                     checkPolishedFacingMirror(game, entry, failures);
                 }
 
@@ -212,6 +234,7 @@ class BirdVisualAuditRun {
 
         renderCount += renderOpiumSpecialSheet(game, entries, outputDir, failures);
         renderCount += renderTitmouseSpecialSheet(game, entries, outputDir, failures);
+        renderCount += renderBatSpecialSheet(game, entries, outputDir, failures);
 
         writeReport(outputDir, entries.size(), pages, renderCount, failures, warnings);
         return new AuditResult(outputDir, pages, renderCount, List.copyOf(failures), List.copyOf(warnings));
@@ -345,6 +368,62 @@ class BirdVisualAuditRun {
         }
         graphics.dispose();
         ImageIO.write(page, "png", outputDir.resolve("titmouse-special-audit.png").toFile());
+        return renders;
+    }
+
+    private static int renderBatSpecialSheet(
+            BirdGame3 game, List<BirdGame3.VisualAuditSkin> entries,
+            Path outputDir, List<String> failures) throws IOException {
+        List<BirdGame3.VisualAuditSkin> batEntries = entries.stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.BAT)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+        BufferedImage page = createPage(batEntries.size(), BatView.values().length);
+        Graphics2D graphics = page.createGraphics();
+        configureGraphics(graphics);
+        graphics.setColor(new Color(26, 36, 48));
+        graphics.fillRect(0, 0, page.getWidth(), HEADER_HEIGHT);
+        graphics.setColor(new Color(240, 244, 248));
+        graphics.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        graphics.drawString("BAT SPECIALS", 18, 25);
+        graphics.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        graphics.setColor(new Color(148, 163, 184));
+        graphics.drawString("Hanging contact and complete wing cycles", 18, 45);
+        graphics.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        for (BatView view : BatView.values()) {
+            int columnX = LABEL_WIDTH + view.ordinal() * CELL_WIDTH;
+            graphics.setColor(new Color(240, 244, 248));
+            String label = view.name().replace('_', ' ');
+            int textWidth = graphics.getFontMetrics().stringWidth(label);
+            graphics.drawString(label, columnX + (CELL_WIDTH - textWidth) / 2, 34);
+        }
+
+        int renders = 0;
+        for (int row = 0; row < batEntries.size(); row++) {
+            BirdGame3.VisualAuditSkin entry = batEntries.get(row);
+            int rowY = HEADER_HEIGHT + row * ROW_HEIGHT;
+            drawRowLabel(graphics, entry, rowY);
+            for (BatView view : BatView.values()) {
+                Canvas canvas = new Canvas(ART_SIZE, ART_SIZE);
+                if (view.action == null) {
+                    game.drawVisualAuditCombatSilhouette(canvas, entry, Bird.VisualAuditPose.IDLE);
+                } else {
+                    game.drawVisualAuditBatActionPose(
+                            canvas, entry, view.action, view.remainingFrames, true);
+                }
+                BufferedImage art = snapshot(canvas);
+                PixelBounds bounds = measure(art);
+                if (bounds.borderPixels > 0) {
+                    failures.add(entry.name() + " / " + view.name()
+                            + " touches the " + touchedEdges(bounds, art)
+                            + " canvas edge in the Bat special audit.");
+                }
+                drawCell(graphics, art, view.ordinal(), rowY, bounds.borderPixels > 0);
+                renders++;
+            }
+        }
+        graphics.dispose();
+        ImageIO.write(page, "png", outputDir.resolve("bat-special-audit.png").toFile());
         return renders;
     }
 
@@ -486,7 +565,9 @@ class BirdVisualAuditRun {
                 || entry.bird() == BirdGame3.BirdType.RAZORBILL
                 || entry.bird() == BirdGame3.BirdType.GRINCHHAWK
                 || entry.bird() == BirdGame3.BirdType.VULTURE
+                || entry.bird() == BirdGame3.BirdType.OPIUMBIRD
                 || entry.bird() == BirdGame3.BirdType.TITMOUSE
+                || entry.bird() == BirdGame3.BirdType.BAT
                 || "NULL_ROCK_VULTURE".equals(entry.key());
     }
 
@@ -504,7 +585,11 @@ class BirdVisualAuditRun {
     }
 
     private static BufferedImage createPage(int rows) {
-        int width = LABEL_WIDTH + View.values().length * CELL_WIDTH;
+        return createPage(rows, View.values().length);
+    }
+
+    private static BufferedImage createPage(int rows, int columns) {
+        int width = LABEL_WIDTH + columns * CELL_WIDTH;
         int height = HEADER_HEIGHT + rows * ROW_HEIGHT;
         BufferedImage page = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
         Graphics2D graphics = page.createGraphics();
@@ -597,7 +682,7 @@ class BirdVisualAuditRun {
                 .append("Checks: visible pixels, authored-body clipping (excluding transient combat FX), ")
                 .append("severe portrait/HUD centering, minimum scale, ")
                 .append("and exact idle-image fallback to base art. Edge contact and tight padding remain review findings ")
-                .append("for other entries; completed Pigeon, Eagle, Falcon, Phoenix, Hummingbird, Turkey, Rooster, Roadrunner, Penguin, Shoebill, Charles, Razorbill, Grinch-Hawk, Vulture, and Null Rock combat entries ")
+                .append("for other entries; completed Pigeon, Eagle, Falcon, Phoenix, Hummingbird, Turkey, Rooster, Roadrunner, Penguin, Shoebill, Charles, Razorbill, Grinch-Hawk, Vulture, Opium Bird, Tufted Titmouse, Bat, and Null Rock combat entries ")
                 .append("treat edge contact as a failure; ")
                 .append("run with `-DvisualAudit.failOnFindings=true` to make them blocking.\n\n");
         appendFindings(report, "Failures", failures);
@@ -624,6 +709,7 @@ class BirdVisualAuditRun {
                 return name.startsWith("bird-skin-audit-") && name.endsWith(".png")
                         || name.equals("opium-special-audit.png")
                         || name.equals("titmouse-special-audit.png")
+                        || name.equals("bat-special-audit.png")
                         || name.equals("visual-audit-report.md");
             }).toList()) {
                 Files.deleteIfExists(path);

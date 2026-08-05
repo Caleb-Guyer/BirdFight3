@@ -25,7 +25,8 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.MOCKINGBIRD,
             BirdGame3.BirdType.VULTURE,
             BirdGame3.BirdType.OPIUMBIRD,
-            BirdGame3.BirdType.TITMOUSE
+            BirdGame3.BirdType.TITMOUSE,
+            BirdGame3.BirdType.BAT
     );
 
     private static BirdGame3 freshGame() {
@@ -1643,6 +1644,141 @@ class BirdVisualAuditTest {
                 for (Bird.VisualFeatureGeometry geometry :
                         List.of(neutral, sideStart, sideSpread, sideClosing, upSpread, down, ultimate)) {
                     assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.TITMOUSE_WING),
+                            label + " special pose lost a wing");
+                    assertFeatureGeometryIsSafe(geometry, label + " special pose");
+                }
+            }
+        }
+    }
+
+    @Test
+    void batKeepsBothWingsEarsLegsTailAndFangsAcrossEverySkinPoseAndDirection() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.BAT)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                Bird.VisualFeatureGeometry right = game.inspectVisualAuditCombatFeatures(entry, pose, true);
+                Bird.VisualFeatureGeometry left = game.inspectVisualAuditCombatFeatures(entry, pose, false);
+                String label = entry.name() + " / " + pose;
+                for (Bird.VisualFeatureGeometry geometry : List.of(right, left)) {
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.BAT_WING),
+                            label + " must retain both articulated wings");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.BAT_EAR),
+                            label + " must retain both rooted ears");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.BAT_LEG),
+                            label + " must retain both legs");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.BAT_TAIL_MEMBRANE),
+                            label + " must retain the tail membrane");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.BAT_FANG),
+                            label + " must retain both fangs");
+                    assertTrue(geometry.batTorso() != null, label + " did not report the authored torso");
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+                assertMirrored(right, left, label);
+            }
+        }
+    }
+
+    @Test
+    void batFeetMeetTheFloorAndHangingClawsMeetTheCeilingPlane() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.BAT)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry hanging = game.inspectVisualAuditBatActionFeatures(
+                        entry, Bird.VisualAuditBatAction.HANG, 1, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                assertEquals(80.0, idle.batFootBaseline(), 0.15,
+                        label + " must place both grounded claws on the collision floor");
+                assertEquals(0.0, hanging.batCeilingClawBaseline(), 0.15,
+                        label + " must place both hanging claws on the ceiling plane");
+                assertTrue(hanging.batWingOpenness() <= 0.07,
+                        label + " must wrap its wings while hanging");
+            }
+        }
+    }
+
+    @Test
+    void batFaceTracksFlightAndHitDirectionsWithoutEnteringTheMuzzle() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.BAT)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                assertTrue(Math.abs(beakVectorY(flap)) > Math.abs(beakVectorX(flap)) * 2.0,
+                        label + " must aim its muzzle upward in flight");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its muzzle backward in hitstun");
+                assertFeatureGeometryIsSafe(idle, label + " idle");
+                assertFeatureGeometryIsSafe(flap, label + " flap");
+                assertFeatureGeometryIsSafe(hit, label + " hit");
+            }
+        }
+    }
+
+    @Test
+    void batSpecialsUseDistinctCompleteWingCycles() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.BAT)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry echo = game.inspectVisualAuditBatActionFeatures(
+                        entry, Bird.VisualAuditBatAction.NEUTRAL, 10, facingRight);
+                Bird.VisualFeatureGeometry sideStart = game.inspectVisualAuditBatActionFeatures(
+                        entry, Bird.VisualAuditBatAction.SIDE, Bird.BAT_WINGCUT_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry sideOpen = game.inspectVisualAuditBatActionFeatures(
+                        entry, Bird.VisualAuditBatAction.SIDE, Bird.BAT_WINGCUT_FRAMES - 4, facingRight);
+                Bird.VisualFeatureGeometry sideClose = game.inspectVisualAuditBatActionFeatures(
+                        entry, Bird.VisualAuditBatAction.SIDE, 1, facingRight);
+                Bird.VisualFeatureGeometry moonrise = game.inspectVisualAuditBatActionFeatures(
+                        entry, Bird.VisualAuditBatAction.UP, Bird.BAT_MOONRISE_FRAMES - 5, facingRight);
+                Bird.VisualFeatureGeometry stall = game.inspectVisualAuditBatActionFeatures(
+                        entry, Bird.VisualAuditBatAction.DOWN_STALL, 5, facingRight);
+                Bird.VisualFeatureGeometry dive = game.inspectVisualAuditBatActionFeatures(
+                        entry, Bird.VisualAuditBatAction.DOWN_DIVE, 12, facingRight);
+                Bird.VisualFeatureGeometry ultimate = game.inspectVisualAuditBatActionFeatures(
+                        entry, Bird.VisualAuditBatAction.ULTIMATE, 80, facingRight);
+
+                assertTrue(idle.batWingOpenness() <= 0.12, label + " must fold both idle wings");
+                assertTrue(echo.batWingOpenness() >= 0.62, label + " must cup both wings for Echo Pulse");
+                assertTrue(sideStart.batWingOpenness() <= 0.12, label + " must begin Wingcut folded");
+                assertTrue(sideOpen.batWingOpenness() >= 0.60, label + " must open both wings during Wingcut");
+                assertTrue(sideClose.batWingOpenness() <= 0.12, label + " must close both wings before Wingcut ends");
+                assertTrue(moonrise.batWingOpenness() >= 0.80, label + " must fully spread during Moonrise");
+                assertTrue(stall.batWingOpenness() >= 0.25 && stall.batWingOpenness() <= 0.32,
+                        label + " must hold a restrained inverted stall");
+                assertTrue(dive.batWingOpenness() <= 0.14, label + " must tuck both wings for Silent Dive");
+                assertTrue(ultimate.batWingOpenness() >= 0.94, label + " must hold both wings open for Cathedral");
+                for (Bird.VisualFeatureGeometry geometry :
+                        List.of(echo, sideStart, sideOpen, sideClose, moonrise, stall, dive, ultimate)) {
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.BAT_WING),
                             label + " special pose lost a wing");
                     assertFeatureGeometryIsSafe(geometry, label + " special pose");
                 }
