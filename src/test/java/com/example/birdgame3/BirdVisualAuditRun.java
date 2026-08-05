@@ -180,6 +180,29 @@ class BirdVisualAuditRun {
         }
     }
 
+    private enum GooseView {
+        IDLE(null, 0),
+        HONK_START(Bird.VisualAuditGooseAction.HONK_CHARGE, 1),
+        HONK_FULL(Bird.VisualAuditGooseAction.HONK_CHARGE, Bird.GOOSE_HONK_MAX_HOLD_FRAMES),
+        HONK_RELEASE(Bird.VisualAuditGooseAction.HONK_RELEASE, Bird.GOOSE_HONK_RECOVERY_FRAMES),
+        BARGE_START(Bird.VisualAuditGooseAction.BARGE, Bird.GOOSE_BARGE_FRAMES),
+        BARGE_OPEN(Bird.VisualAuditGooseAction.BARGE, Bird.GOOSE_BARGE_FRAMES / 2),
+        BARGE_CLOSE(Bird.VisualAuditGooseAction.BARGE, 1),
+        FORMATION_LIFT(Bird.VisualAuditGooseAction.LIFT, Bird.GOOSE_LIFT_FRAMES - 7),
+        NEST_PLACE(Bird.VisualAuditGooseAction.NEST_PLACE, 12),
+        NEST_GUARD(Bird.VisualAuditGooseAction.NEST_GUARD, Bird.GOOSE_NEST_GUARD_FRAMES - 8),
+        NEST_COUNTER(Bird.VisualAuditGooseAction.NEST_COUNTER, Bird.GOOSE_COUNTER_BURST_FRAMES - 8),
+        WHOLE_FLOCK(Bird.VisualAuditGooseAction.ULTIMATE, Bird.GOOSE_ULTIMATE_FRAMES - 30);
+
+        private final Bird.VisualAuditGooseAction action;
+        private final int remainingFrames;
+
+        GooseView(Bird.VisualAuditGooseAction action, int remainingFrames) {
+            this.action = action;
+            this.remainingFrames = remainingFrames;
+        }
+    }
+
     private record PixelBounds(int minX, int minY, int maxX, int maxY, int opaquePixels,
                                int borderPixels, long signature) {
         int width() {
@@ -279,7 +302,8 @@ class BirdVisualAuditRun {
                         || entry.bird() == BirdGame3.BirdType.BAT
                         || entry.bird() == BirdGame3.BirdType.PELICAN
                         || entry.bird() == BirdGame3.BirdType.HEISENBIRD
-                        || entry.bird() == BirdGame3.BirdType.RAVEN) {
+                        || entry.bird() == BirdGame3.BirdType.RAVEN
+                        || entry.bird() == BirdGame3.BirdType.GOOSE) {
                     checkPolishedFacingMirror(game, entry, failures);
                 }
 
@@ -306,6 +330,7 @@ class BirdVisualAuditRun {
         renderCount += renderPelicanSpecialSheet(game, entries, outputDir, failures);
         renderCount += renderHeisenSpecialSheet(game, entries, outputDir, failures);
         renderCount += renderRavenSpecialSheet(game, entries, outputDir, failures);
+        renderCount += renderGooseSpecialSheet(game, entries, outputDir, failures);
 
         writeReport(outputDir, entries.size(), pages, renderCount, failures, warnings);
         return new AuditResult(outputDir, pages, renderCount, List.copyOf(failures), List.copyOf(warnings));
@@ -666,6 +691,62 @@ class BirdVisualAuditRun {
         return renders;
     }
 
+    private static int renderGooseSpecialSheet(
+            BirdGame3 game, List<BirdGame3.VisualAuditSkin> entries,
+            Path outputDir, List<String> failures) throws IOException {
+        List<BirdGame3.VisualAuditSkin> gooseEntries = entries.stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.GOOSE)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+        BufferedImage page = createPage(gooseEntries.size(), GooseView.values().length);
+        Graphics2D graphics = page.createGraphics();
+        configureGraphics(graphics);
+        graphics.setColor(new Color(23, 33, 27));
+        graphics.fillRect(0, 0, page.getWidth(), HEADER_HEIGHT);
+        graphics.setColor(new Color(240, 244, 238));
+        graphics.setFont(new Font("Segoe UI", Font.BOLD, 17));
+        graphics.drawString("GOOSE SPECIALS", 18, 25);
+        graphics.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        graphics.setColor(new Color(157, 176, 158));
+        graphics.drawString("Long-neck anatomy, webbed grounding, and complete territorial action cycles", 18, 45);
+        graphics.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        for (GooseView view : GooseView.values()) {
+            int columnX = LABEL_WIDTH + view.ordinal() * CELL_WIDTH;
+            graphics.setColor(new Color(240, 244, 238));
+            String label = view.name().replace('_', ' ');
+            int textWidth = graphics.getFontMetrics().stringWidth(label);
+            graphics.drawString(label, columnX + (CELL_WIDTH - textWidth) / 2, 34);
+        }
+
+        int renders = 0;
+        for (int row = 0; row < gooseEntries.size(); row++) {
+            BirdGame3.VisualAuditSkin entry = gooseEntries.get(row);
+            int rowY = HEADER_HEIGHT + row * ROW_HEIGHT;
+            drawRowLabel(graphics, entry, rowY);
+            for (GooseView view : GooseView.values()) {
+                Canvas canvas = new Canvas(ART_SIZE, ART_SIZE);
+                if (view.action == null) {
+                    game.drawVisualAuditCombatSilhouette(canvas, entry, Bird.VisualAuditPose.IDLE);
+                } else {
+                    game.drawVisualAuditGooseActionPose(
+                            canvas, entry, view.action, view.remainingFrames, true);
+                }
+                BufferedImage art = snapshot(canvas);
+                PixelBounds bounds = measure(art);
+                if (bounds.borderPixels > 0) {
+                    failures.add(entry.name() + " / " + view.name()
+                            + " touches the " + touchedEdges(bounds, art)
+                            + " canvas edge in the Goose special audit.");
+                }
+                drawCell(graphics, art, view.ordinal(), rowY, bounds.borderPixels > 0);
+                renders++;
+            }
+        }
+        graphics.dispose();
+        ImageIO.write(page, "png", outputDir.resolve("goose-special-audit.png").toFile());
+        return renders;
+    }
+
     private static void checkPolishedFacingMirror(
             BirdGame3 game, BirdGame3.VisualAuditSkin entry, List<String> failures) {
         for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
@@ -810,6 +891,7 @@ class BirdVisualAuditRun {
                 || entry.bird() == BirdGame3.BirdType.PELICAN
                 || entry.bird() == BirdGame3.BirdType.HEISENBIRD
                 || entry.bird() == BirdGame3.BirdType.RAVEN
+                || entry.bird() == BirdGame3.BirdType.GOOSE
                 || "NULL_ROCK_VULTURE".equals(entry.key());
     }
 
@@ -924,7 +1006,7 @@ class BirdVisualAuditRun {
                 .append("Checks: visible pixels, authored-body clipping (excluding transient combat FX), ")
                 .append("severe portrait/HUD centering, minimum scale, ")
                 .append("and exact idle-image fallback to base art. Edge contact and tight padding remain review findings ")
-                .append("for other entries; completed Pigeon, Eagle, Falcon, Phoenix, Hummingbird, Turkey, Rooster, Roadrunner, Penguin, Shoebill, Charles, Razorbill, Grinch-Hawk, Vulture, Opium Bird, Tufted Titmouse, Bat, Pelican, Heisenbird, Raven, and Null Rock combat entries ")
+                .append("for other entries; completed Pigeon, Eagle, Falcon, Phoenix, Hummingbird, Turkey, Rooster, Roadrunner, Penguin, Shoebill, Charles, Razorbill, Grinch-Hawk, Vulture, Opium Bird, Tufted Titmouse, Bat, Pelican, Heisenbird, Raven, Goose, and Null Rock combat entries ")
                 .append("treat edge contact as a failure; ")
                 .append("run with `-DvisualAudit.failOnFindings=true` to make them blocking.\n\n");
         appendFindings(report, "Failures", failures);
@@ -955,6 +1037,7 @@ class BirdVisualAuditRun {
                         || name.equals("pelican-special-audit.png")
                         || name.equals("heisen-special-audit.png")
                         || name.equals("raven-special-audit.png")
+                        || name.equals("goose-special-audit.png")
                         || name.equals("visual-audit-report.md");
             }).toList()) {
                 Files.deleteIfExists(path);

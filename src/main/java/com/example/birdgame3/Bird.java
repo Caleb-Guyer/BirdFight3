@@ -405,7 +405,12 @@ public class Bird {
         RAVEN_WING,
         RAVEN_LEG,
         RAVEN_CREST_FEATHER,
-        RAVEN_THROAT_FEATHER
+        RAVEN_THROAT_FEATHER,
+        GOOSE_TAIL_FEATHER,
+        GOOSE_WING,
+        GOOSE_LEG,
+        GOOSE_NECK,
+        GOOSE_CHEEK_PATCH
     }
 
     record VisualFeatureGeometry(VisualFeatureBounds head, VisualFeatureCircle eye, VisualBeakAxis beak,
@@ -454,6 +459,12 @@ public class Bird {
                                  double ravenBillGape,
                                  VisualFeatureBounds ravenTorso,
                                  VisualFeatureBounds ravenMask,
+                                 double gooseWingOpenness,
+                                 double gooseFootBaseline,
+                                 double gooseBillGape,
+                                 VisualBeakAxis gooseNeck,
+                                 VisualFeatureBounds gooseTorso,
+                                 VisualFeatureBounds gooseCheekPatch,
                                  Map<VisualBodyPart, Integer> bodyPartCounts) {
         boolean complete() {
             return head != null && eye != null && beak != null;
@@ -672,6 +683,12 @@ public class Bird {
     private double lastVisualRavenBillGape;
     private VisualFeatureBounds lastVisualRavenTorso;
     private VisualFeatureBounds lastVisualRavenMask;
+    private double lastVisualGooseWingOpenness;
+    private double lastVisualGooseFootBaseline = Double.NaN;
+    private double lastVisualGooseBillGape;
+    private VisualBeakAxis lastVisualGooseNeck;
+    private VisualFeatureBounds lastVisualGooseTorso;
+    private VisualFeatureBounds lastVisualGooseCheekPatch;
     private final EnumMap<VisualBodyPart, Integer> lastVisualBodyPartCounts =
             new EnumMap<>(VisualBodyPart.class);
     /** The skin key applied to this bird (null = default); selects per-skin sprite sheets. */
@@ -2290,6 +2307,17 @@ public class Bird {
         DOWN_SWAP,
         ULTIMATE_WINDUP,
         ULTIMATE_ROUTE
+    }
+
+    enum VisualAuditGooseAction {
+        HONK_CHARGE,
+        HONK_RELEASE,
+        BARGE,
+        LIFT,
+        NEST_PLACE,
+        NEST_GUARD,
+        NEST_COUNTER,
+        ULTIMATE
     }
 
     enum VisualAuditTitmouseAction {
@@ -12107,6 +12135,63 @@ public class Bird {
         displayPose = null;
     }
 
+    /** Positions Goose at deterministic frames of its complete territorial kit. */
+    void prepareVisualAuditGooseAction(
+            VisualAuditGooseAction action, int remainingFrames, boolean faceRight) {
+        prepareVisualAuditPose(action == VisualAuditGooseAction.LIFT
+                ? VisualAuditPose.FLAP : VisualAuditPose.ATTACK);
+        facingRight = faceRight;
+        gooseHonkTimer = 0;
+        gooseHonkHoldFrames = 0;
+        gooseHonkReleased = false;
+        gooseBargeTimer = 0;
+        gooseLiftTimer = 0;
+        gooseNestGuardTimer = 0;
+        gooseNestCounterTimer = 0;
+        gooseUltimateTimer = 0;
+        gooseNest = null;
+        switch (action) {
+            case HONK_CHARGE -> {
+                gooseHonkDirection = faceRight ? 1 : -1;
+                gooseHonkTimer = GOOSE_HONK_MAX_HOLD_FRAMES + GOOSE_HONK_RECOVERY_FRAMES;
+                gooseHonkHoldFrames = Math.clamp(remainingFrames, 1, GOOSE_HONK_MAX_HOLD_FRAMES);
+            }
+            case HONK_RELEASE -> {
+                gooseHonkDirection = faceRight ? 1 : -1;
+                gooseHonkReleased = true;
+                gooseHonkHoldFrames = GOOSE_HONK_MAX_HOLD_FRAMES;
+                gooseHonkTimer = Math.clamp(remainingFrames, 1, GOOSE_HONK_RECOVERY_FRAMES);
+            }
+            case BARGE -> {
+                gooseBargeDirection = faceRight ? 1 : -1;
+                gooseBargeTimer = Math.clamp(remainingFrames, 1, GOOSE_BARGE_FRAMES);
+            }
+            case LIFT -> {
+                gooseLiftDirection = faceRight ? 1 : -1;
+                gooseLiftUsed = true;
+                gooseLiftTimer = Math.clamp(remainingFrames, 1, GOOSE_LIFT_FRAMES);
+            }
+            case NEST_PLACE -> {
+                gooseNestReuseTimer = GOOSE_NEST_REUSE_FRAMES;
+                gooseNest = new GooseSpecials.GooseNest(bodyCenterX(), bodyBottomY() + 5.0, false);
+            }
+            case NEST_GUARD -> {
+                gooseNest = new GooseSpecials.GooseNest(bodyCenterX(), bodyBottomY() + 5.0, false);
+                gooseNestGuardTimer = Math.clamp(remainingFrames, 1, GOOSE_NEST_GUARD_FRAMES);
+            }
+            case NEST_COUNTER -> {
+                gooseNest = new GooseSpecials.GooseNest(bodyCenterX(), bodyBottomY() + 5.0, false);
+                gooseNestCounterTimer = Math.clamp(remainingFrames, 1, GOOSE_COUNTER_BURST_FRAMES);
+            }
+            case ULTIMATE -> {
+                gooseUltimateDirection = faceRight ? 1 : -1;
+                gooseUltimateTimer = Math.clamp(remainingFrames, 1, GOOSE_ULTIMATE_FRAMES);
+            }
+        }
+        attackAnimationTimer = Math.max(attackAnimationTimer, 18);
+        displayPose = null;
+    }
+
     /** Positions Tufted Titmouse at a deterministic frame of each authored special pose. */
     void prepareVisualAuditTitmouseAction(
             VisualAuditTitmouseAction action, int remainingFrames, boolean faceRight) {
@@ -17586,6 +17671,21 @@ public class Bird {
                 || ravenDownReuseTimer > RAVEN_DOWN_REUSE_FRAMES - 13);
     }
 
+    private boolean gooseNestPlacePoseActive() {
+        return type == BirdGame3.BirdType.GOOSE
+                && gooseNest != null
+                && gooseNest.ageFrames < 20
+                && gooseNestGuardTimer <= 0
+                && gooseNestCounterTimer <= 0
+                && attackAnimationTimer > 0
+                && gooseNestReuseTimer > GOOSE_NEST_REUSE_FRAMES - 20;
+    }
+
+    private boolean gooseSpecialPoseActive() {
+        return type == BirdGame3.BirdType.GOOSE
+                && (GooseSpecials.active(this) || gooseNestPlacePoseActive());
+    }
+
     private double turkeySpecialPhase(int timer, int totalFrames) {
         if (timer <= 0 || totalFrames <= 0) {
             return 0.0;
@@ -18929,11 +19029,91 @@ public class Bird {
                 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 1.0);
     }
 
+    private AttackVisualPose currentGooseSpecialPose() {
+        double dir = facingRight ? 1.0 : -1.0;
+        if (gooseUltimateTimer > 0) {
+            double phase = pigeonSpecialPhase(gooseUltimateTimer, GOOSE_ULTIMATE_FRAMES);
+            double pulse = 0.5 + 0.5 * Math.sin(gooseUltimateTimer * 0.22);
+            return new AttackVisualPose(
+                    -dir * (2.0 + pulse * 2.0), -8.0 - phase * 5.0,
+                    dir * (2.0 + pulse * 2.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * (0.12 + pulse * 0.04)),
+                    15.0 + phase * 7.0, -17.0 - phase * 7.0, 10.0 + phase * 5.0,
+                    1.18, -18.0 - phase * 8.0, 0.98, 1.10 + phase * 0.05);
+        }
+        if (gooseNestCounterTimer > 0) {
+            double phase = pigeonSpecialPhase(gooseNestCounterTimer,
+                    gooseNestCounterUltimate ? GOOSE_COUNTER_ULTIMATE_BURST_FRAMES
+                            : GOOSE_COUNTER_BURST_FRAMES);
+            return new AttackVisualPose(
+                    dir * (5.0 + phase * 8.0), -4.0,
+                    dir * (9.0 + phase * 8.0), facingRight ? -0.18 : Math.PI + 0.18,
+                    15.0 + phase * 6.0, -7.0, 13.0 + phase * 5.0,
+                    1.22, dir * (12.0 + phase * 8.0), 1.12, 0.90);
+        }
+        if (gooseNestGuardTimer > 0) {
+            double phase = pigeonSpecialPhase(gooseNestGuardTimer,
+                    gooseNestGuardUltimate ? GOOSE_NEST_GUARD_ULTIMATE_FRAMES
+                            : GOOSE_NEST_GUARD_FRAMES);
+            return new AttackVisualPose(
+                    -dir * 4.0, 4.0, -dir * (5.0 + phase * 2.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.18),
+                    10.0, -12.0, 5.0, 0.96,
+                    -dir * 6.0, 1.10, 0.90);
+        }
+        if (gooseNestPlacePoseActive()) {
+            return new AttackVisualPose(
+                    -dir * 2.0, 5.0, -dir * 3.0,
+                    normalizeAngleRadians(Math.PI / 2.0 - dir * 0.22),
+                    12.0, 9.0, 7.0, 0.92,
+                    dir * 8.0, 1.08, 0.90);
+        }
+        if (gooseLiftTimer > 0) {
+            double phase = pigeonSpecialPhase(gooseLiftTimer,
+                    gooseLiftUltimate ? GOOSE_LIFT_ULTIMATE_FRAMES : GOOSE_LIFT_FRAMES);
+            return new AttackVisualPose(
+                    dir * (1.0 + phase * 2.0), -15.0 - phase * 14.0,
+                    dir * (3.0 + phase * 3.0),
+                    normalizeAngleRadians(-Math.PI / 2.0 + dir * 0.10),
+                    16.0 + phase * 6.0, -21.0 - phase * 8.0, 10.0 + phase * 4.0,
+                    1.08, -25.0 - phase * 9.0, 0.98, 1.16);
+        }
+        if (gooseBargeTimer > 0) {
+            double phase = pigeonSpecialPhase(gooseBargeTimer,
+                    gooseBargeUltimate || gooseBargeEmpowered ? GOOSE_BARGE_FRAMES + 6 : GOOSE_BARGE_FRAMES);
+            return new AttackVisualPose(
+                    dir * (12.0 + phase * 9.0), 2.0,
+                    dir * (11.0 + phase * 7.0), facingRight ? 0.08 : Math.PI - 0.08,
+                    18.0 + phase * 7.0, 2.0, 15.0 + phase * 6.0,
+                    1.16, dir * (15.0 + phase * 8.0), 1.18, 0.84);
+        }
+        if (gooseHonkTimer > 0) {
+            double charge = Math.clamp(gooseHonkHoldFrames
+                    / (double) GOOSE_HONK_MAX_HOLD_FRAMES, 0.0, 1.0);
+            if (gooseHonkReleased) {
+                double recovery = Math.clamp(gooseHonkTimer
+                        / (double) GOOSE_HONK_RECOVERY_FRAMES, 0.0, 1.0);
+                return new AttackVisualPose(
+                        dir * (6.0 + recovery * 7.0), -4.0,
+                        dir * (8.0 + recovery * 7.0), facingRight ? -0.10 : Math.PI + 0.10,
+                        18.0 + recovery * 7.0, -8.0, 15.0 + recovery * 6.0,
+                        1.30, dir * 10.0, 1.12, 0.92);
+            }
+            return new AttackVisualPose(
+                    -dir * (4.0 + charge * 5.0), 1.0,
+                    -dir * (5.0 + charge * 5.0), facingRight ? -0.04 : Math.PI + 0.04,
+                    8.0 + charge * 7.0, -3.0 - charge * 4.0, 7.0 + charge * 5.0,
+                    1.04 + charge * 0.10, -dir * (6.0 + charge * 5.0), 1.06, 0.96);
+        }
+        return neutralVisualPose();
+    }
+
     private NormalAttackVariant currentDisplayedAttackVariant() {
         if (pigeonSpecialPoseActive() || phoenixSpecialPoseActive() || raptorSpecialPoseActive()
                 || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
                 || mockingbirdSpecialPoseActive() || opiumSpecialPoseActive()
-                || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive()) {
+                || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive()
+                || gooseSpecialPoseActive()) {
             return null;
         }
         if (isGroundAttackPending()) {
@@ -19258,6 +19438,7 @@ public class Bird {
                 || turkeySpecialPoseActive() || penguinSpecialPoseActive() || shoebillSpecialPoseActive()
                 || mockingbirdSpecialPoseActive() || opiumSpecialPoseActive()
                 || grinchhawkSpecialPoseActive() || ravenSpecialPoseActive() || pelicanSpecialPoseActive()
+                || gooseSpecialPoseActive()
                 || (type == BirdGame3.BirdType.KIWI && KiwiSpecials.active(this))) {
             return VISUAL_POSE_ACTION_BLEND_PER_FRAME;
         }
@@ -19682,7 +19863,7 @@ public class Bird {
                     dir * (1.0 + speed * 1.8),
                     (-6.2 - speed * 4.4) * profile.airLift(),
                     dir * (4.6 + speed * 3.4),
-                    aimAngleForLocalPitch(-0.76),
+                    aimAngleForLocalPitch(-1.28),
                     11.0 + speed * 4.0,
                     -14.0 - speed * 4.0,
                     8.0 + speed * 3.0,
@@ -22100,6 +22281,9 @@ public class Bird {
         if (vultureSpecialPoseActive()) {
             return currentVultureSpecialPose();
         }
+        if (gooseSpecialPoseActive()) {
+            return currentGooseSpecialPose();
+        }
         if (ravenSpecialPoseActive()) {
             return currentRavenSpecialPose();
         }
@@ -22672,6 +22856,12 @@ public class Bird {
                 lastVisualRavenBillGape,
                 lastVisualRavenTorso,
                 lastVisualRavenMask,
+                lastVisualGooseWingOpenness,
+                lastVisualGooseFootBaseline,
+                lastVisualGooseBillGape,
+                lastVisualGooseNeck,
+                lastVisualGooseTorso,
+                lastVisualGooseCheekPatch,
                 Map.copyOf(lastVisualBodyPartCounts)
         );
     }
@@ -22725,6 +22915,12 @@ public class Bird {
         lastVisualRavenBillGape = 0.0;
         lastVisualRavenTorso = null;
         lastVisualRavenMask = null;
+        lastVisualGooseWingOpenness = 0.0;
+        lastVisualGooseFootBaseline = Double.NaN;
+        lastVisualGooseBillGape = 0.0;
+        lastVisualGooseNeck = null;
+        lastVisualGooseTorso = null;
+        lastVisualGooseCheekPatch = null;
         lastVisualBodyPartCounts.clear();
     }
 
@@ -30032,6 +30228,10 @@ public class Bird {
             drawRavenBody(g, drawSize, pose);
             return;
         }
+        if (type == BirdGame3.BirdType.GOOSE) {
+            drawGooseBody(g, drawSize, pose);
+            return;
+        }
         if (type == BirdGame3.BirdType.PHOENIX) {
             drawPhoenixBody(g, drawSize, pose);
             return;
@@ -35384,6 +35584,418 @@ public class Bird {
                 2.2 * s, 2.2 * s);
     }
 
+    /**
+     * Goose uses a low waterfowl torso, curved neck, compact Canada-goose head,
+     * layered tail, paired wings, and webbed feet instead of the shared sphere.
+     * Every face feature is authored in the same aim basis so the eye, cheek,
+     * and bill remain attached while honking, charging, flying, or countering.
+     */
+    private void drawGooseBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        double cx = x + drawSize * 0.50;
+        BirdAnimationState state = currentBirdAnimationState();
+        boolean royal = isClassicSkin;
+        boolean faction = isCampaignFactionSkin();
+
+        Color back;
+        Color body;
+        Color breast;
+        Color wing;
+        Color edge;
+        Color neck;
+        Color neckLight;
+        Color cheek;
+        Color leg;
+        Color bill;
+        Color billShade;
+        Color iris;
+        if (faction) {
+            back = campaignFactionPrimaryColor().darker();
+            body = campaignFactionPrimaryColor();
+            breast = campaignFactionSecondaryColor().brighter();
+            wing = campaignFactionPrimaryColor().darker();
+            edge = campaignFactionAccentColor();
+            neck = campaignFactionPrimaryColor().darker().darker();
+            neckLight = campaignFactionSecondaryColor();
+            cheek = campaignFactionAccentColor().brighter();
+            leg = campaignFactionAccentColor();
+            bill = campaignFactionAccentColor();
+            billShade = campaignFactionPrimaryColor().darker();
+            iris = campaignFactionPrimaryColor().darker().darker();
+        } else if (royal) {
+            back = Color.web("#263F1E");
+            body = Color.web("#557A2A");
+            breast = Color.web("#DDE8A3");
+            wing = Color.web("#385B24");
+            edge = Color.web("#FFF59D");
+            neck = Color.web("#18331E");
+            neckLight = Color.web("#7CB342");
+            cheek = Color.web("#FFF8C4");
+            leg = Color.web("#E5A534");
+            bill = Color.web("#F6B73C");
+            billShade = Color.web("#9A5A17");
+            iris = Color.web("#1A2117");
+        } else {
+            back = Color.web("#465144");
+            body = Color.web("#75856B");
+            breast = Color.web("#E8E1C7");
+            wing = Color.web("#586348");
+            edge = Color.web("#B8C1AA");
+            neck = Color.web("#202A24");
+            neckLight = Color.web("#4A594D");
+            cheek = Color.web("#F2E9C8");
+            leg = Color.web("#D89537");
+            bill = Color.web("#F0A63A");
+            billShade = Color.web("#8D541B");
+            iris = Color.web("#111511");
+        }
+
+        double wingOpenness = gooseWingOpenness(state);
+        if (visualAuditBodyOnly) {
+            lastVisualGooseWingOpenness = wingOpenness;
+        }
+
+        // Three cream-edged tail vanes root beneath the rump and mirror exactly.
+        for (int i = 0; i < 3; i++) {
+            double rootX = cx - dir * (20.0 - i * 2.0) * s;
+            double rootY = y + (48.0 + i * 5.0) * s;
+            double tipX = rootX - dir * (31.0 - i * 3.0) * s;
+            double tipY = y + (38.0 + i * 10.0) * s;
+            Color vane = i == 1 ? breast : wing;
+            g.setFill(vane.deriveColor(i * 2.0, 0.88, 0.96, 0.98));
+            g.fillPolygon(
+                    new double[]{rootX + dir * 4.5 * s, tipX, rootX - dir * 5.0 * s},
+                    new double[]{rootY - 4.5 * s, tipY, rootY + 4.5 * s}, 3);
+            g.setStroke(edge.deriveColor(0, 0.72, 1.0, 0.54));
+            g.setLineWidth(0.85 * s);
+            g.strokeLine(rootX, rootY, tipX + dir * 2.0 * s, tipY);
+            recordVisualBodyPart(VisualBodyPart.GOOSE_TAIL_FEATHER);
+        }
+
+        drawGooseLegs(g, state, leg, billShade);
+        drawGooseWing(g, cx - dir * 5.0 * s, y + 38.0 * s,
+                dir, wingOpenness, wing, edge, back, true, royal);
+        recordVisualBodyPart(VisualBodyPart.GOOSE_WING);
+
+        // The low, keeled torso is broad enough to read as a heavyweight without
+        // ever stretching the neck or face when shared attack squash is applied.
+        g.setFill(back);
+        g.beginPath();
+        g.moveTo(cx - dir * 30.0 * s, y + 39.0 * s);
+        g.bezierCurveTo(cx - dir * 21.0 * s, y + 24.0 * s,
+                cx + dir * 18.0 * s, y + 24.0 * s, cx + dir * 30.0 * s, y + 40.0 * s);
+        g.bezierCurveTo(cx + dir * 31.0 * s, y + 55.0 * s,
+                cx + dir * 14.0 * s, y + 69.0 * s, cx - dir * 5.0 * s, y + 71.0 * s);
+        g.bezierCurveTo(cx - dir * 22.0 * s, y + 68.0 * s,
+                cx - dir * 35.0 * s, y + 54.0 * s, cx - dir * 30.0 * s, y + 39.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(body);
+        g.beginPath();
+        g.moveTo(cx - dir * 25.0 * s, y + 39.0 * s);
+        g.bezierCurveTo(cx - dir * 17.0 * s, y + 29.0 * s,
+                cx + dir * 15.0 * s, y + 29.0 * s, cx + dir * 24.0 * s, y + 41.0 * s);
+        g.bezierCurveTo(cx + dir * 25.0 * s, y + 53.0 * s,
+                cx + dir * 11.0 * s, y + 64.0 * s, cx - dir * 5.0 * s, y + 66.0 * s);
+        g.bezierCurveTo(cx - dir * 19.0 * s, y + 63.0 * s,
+                cx - dir * 29.0 * s, y + 51.0 * s, cx - dir * 25.0 * s, y + 39.0 * s);
+        g.closePath();
+        g.fill();
+        g.setFill(breast.deriveColor(0, 0.86, 1.0, royal ? 0.64 : 0.74));
+        g.fillOval(cx + dir * 5.0 * s - 16.0 * s, y + 39.0 * s, 32.0 * s, 26.0 * s);
+        if (visualAuditBodyOnly) {
+            lastVisualGooseTorso = new VisualFeatureBounds(
+                    cx - 35.0 * s, y + 24.0 * s, cx + 35.0 * s, y + 71.0 * s);
+        }
+
+        drawGooseWing(g, cx + dir * 3.0 * s, y + 40.0 * s,
+                -dir, wingOpenness, wing, edge, back, false, royal);
+        recordVisualBodyPart(VisualBodyPart.GOOSE_WING);
+
+        double aim = pose == null ? (facingRight ? 0.0 : Math.PI) : pose.aimAngleRadians();
+        double aimX = Math.cos(aim);
+        double aimY = Math.sin(aim);
+        double normalX = -aimY;
+        double normalY = aimX;
+        if ((Math.abs(normalY) >= Math.abs(normalX) && normalY < 0.0)
+                || (Math.abs(normalX) > Math.abs(normalY) && normalX * dir < 0.0)) {
+            normalX = -normalX;
+            normalY = -normalY;
+        }
+        double headReach = (31.0 + (pose == null ? 0.0 : pose.headReachBonus() * 0.42)) * s;
+        double headCx = cx + aimX * headReach + dir * 3.0 * s;
+        double headCy = y + 28.0 * s + aimY * headReach
+                + (pose == null ? 0.0 : pose.headLift() * 0.32 * s);
+        double neckRootX = cx + dir * 19.0 * s;
+        double neckRootY = y + 42.0 * s;
+        double neckEndX = headCx - aimX * 11.0 * s + normalX * 1.5 * s;
+        double neckEndY = headCy - aimY * 11.0 * s + normalY * 1.5 * s;
+        double control1X = neckRootX + dir * 8.0 * s;
+        double control1Y = neckRootY - 11.0 * s;
+        double control2X = neckEndX - aimX * 5.0 * s + normalX * 3.0 * s;
+        double control2Y = neckEndY - aimY * 5.0 * s + normalY * 3.0 * s;
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setStroke(neck.darker());
+        g.setLineWidth(16.0 * s);
+        g.beginPath();
+        g.moveTo(neckRootX, neckRootY);
+        g.bezierCurveTo(control1X, control1Y, control2X, control2Y, neckEndX, neckEndY);
+        g.stroke();
+        g.setStroke(neck);
+        g.setLineWidth(12.0 * s);
+        g.beginPath();
+        g.moveTo(neckRootX, neckRootY);
+        g.bezierCurveTo(control1X, control1Y, control2X, control2Y, neckEndX, neckEndY);
+        g.stroke();
+        g.setStroke(neckLight.deriveColor(0, 0.82, 1.0, royal ? 0.50 : 0.34));
+        g.setLineWidth(2.4 * s);
+        g.beginPath();
+        g.moveTo(neckRootX + normalX * 4.0 * s, neckRootY + normalY * 4.0 * s);
+        g.bezierCurveTo(control1X + normalX * 4.0 * s, control1Y + normalY * 4.0 * s,
+                control2X + normalX * 3.0 * s, control2Y + normalY * 3.0 * s,
+                neckEndX + normalX * 3.0 * s, neckEndY + normalY * 3.0 * s);
+        g.stroke();
+        if (visualAuditBodyOnly) {
+            lastVisualGooseNeck = new VisualBeakAxis(neckRootX, neckRootY, neckEndX, neckEndY);
+        }
+        recordVisualBodyPart(VisualBodyPart.GOOSE_NECK);
+
+        double headW = 36.0 * s;
+        double headH = 29.0 * s;
+        g.setFill(neck.darker());
+        g.fillOval(headCx - headW * 0.53, headCy - headH * 0.53,
+                headW * 1.06, headH * 1.06);
+        g.setFill(neck);
+        g.fillOval(headCx - headW * 0.50, headCy - headH * 0.50, headW, headH);
+        lastVisualHeadBounds = new VisualFeatureBounds(
+                headCx - headW * 0.5, headCy - headH * 0.5,
+                headCx + headW * 0.5, headCy + headH * 0.5);
+
+        double cheekCx = headCx - aimX * 3.0 * s + normalX * 6.0 * s;
+        double cheekCy = headCy - aimY * 3.0 * s + normalY * 6.0 * s;
+        double cheekAim = 6.5 * s;
+        double cheekNormal = 3.6 * s;
+        g.setFill(cheek.deriveColor(0, 0.82, 1.0, 0.96));
+        g.fillPolygon(
+                new double[]{cheekCx - aimX * cheekAim, cheekCx - normalX * cheekNormal,
+                        cheekCx + aimX * cheekAim, cheekCx + normalX * cheekNormal},
+                new double[]{cheekCy - aimY * cheekAim, cheekCy - normalY * cheekNormal,
+                        cheekCy + aimY * cheekAim, cheekCy + normalY * cheekNormal}, 4);
+        if (visualAuditBodyOnly) {
+            double cheekExtentX = Math.abs(aimX) * cheekAim + Math.abs(normalX) * cheekNormal;
+            double cheekExtentY = Math.abs(aimY) * cheekAim + Math.abs(normalY) * cheekNormal;
+            lastVisualGooseCheekPatch = new VisualFeatureBounds(
+                    cheekCx - cheekExtentX, cheekCy - cheekExtentY,
+                    cheekCx + cheekExtentX, cheekCy + cheekExtentY);
+        }
+        recordVisualBodyPart(VisualBodyPart.GOOSE_CHEEK_PATCH);
+
+        double eyeCx = headCx + aimX * 4.0 * s - normalX * 4.0 * s;
+        double eyeCy = headCy + aimY * 4.0 * s - normalY * 4.0 * s;
+        double eyeRadius = 6.2 * s;
+        double irisRadius = 3.4 * s;
+        lastVisualEye = new VisualFeatureCircle(eyeCx, eyeCy, eyeRadius);
+        g.setFill(Color.web("#FFFDF5"));
+        g.fillOval(eyeCx - eyeRadius, eyeCy - eyeRadius, eyeRadius * 2.0, eyeRadius * 2.0);
+        g.setFill(iris);
+        g.fillOval(eyeCx - irisRadius + aimX * 1.1 * s,
+                eyeCy - irisRadius + aimY * 1.1 * s, irisRadius * 2.0, irisRadius * 2.0);
+        g.setFill(Color.web("#080A08"));
+        g.fillOval(eyeCx - 1.7 * s + aimX * 1.4 * s,
+                eyeCy - 1.7 * s + aimY * 1.4 * s, 3.4 * s, 3.4 * s);
+        g.setFill(Color.WHITE.deriveColor(0, 1, 1, 0.94));
+        g.fillOval(eyeCx - normalX * 1.4 * s - 0.8 * s,
+                eyeCy - normalY * 1.4 * s - 0.8 * s, 1.9 * s, 1.9 * s);
+
+        drawGooseBill(g, pose, headCx, headCy, aimX, aimY, normalX, normalY,
+                bill, billShade, edge);
+        drawVectorBirdStateAccents(g, drawSize, new HeadPose(headCx, headCy, aim));
+    }
+
+    private double gooseWingOpenness(BirdAnimationState state) {
+        if (gooseUltimateTimer > 0) return 0.98;
+        if (gooseNestCounterTimer > 0) return 0.88;
+        if (gooseNestGuardTimer > 0) return 0.66;
+        if (gooseNestPlacePoseActive()) return 0.30;
+        if (gooseLiftTimer > 0) return 0.96;
+        if (gooseBargeTimer > 0) {
+            double phase = (GOOSE_BARGE_FRAMES - gooseBargeTimer)
+                    / (double) Math.max(1, GOOSE_BARGE_FRAMES - 1);
+            return 0.09 + 0.53 * Math.sin(phase * Math.PI);
+        }
+        if (gooseHonkTimer > 0) {
+            if (gooseHonkReleased) return 0.60;
+            double charge = Math.clamp(gooseHonkHoldFrames
+                    / (double) GOOSE_HONK_MAX_HOLD_FRAMES, 0.0, 1.0);
+            return 0.20 + charge * 0.24;
+        }
+        return switch (state) {
+            case FLAP -> 0.58 + 0.40 * Math.abs(Math.sin(
+                    (animationGlobalFrame + playerIndex * 13.0) * 0.66));
+            case FALL -> 0.70;
+            case ATTACK -> 0.48;
+            case HITSTUN -> 0.18;
+            case KO -> 0.10;
+            case DODGE -> 0.22;
+            case SHIELD -> 0.08;
+            case IDLE -> 0.07;
+        };
+    }
+
+    private void drawGooseWing(
+            GraphicsContext g, double shoulderX, double shoulderY,
+            double side, double openness, Color wing, Color edge,
+            Color shadow, boolean farSide, boolean royal) {
+        double s = sizeMultiplier;
+        double open = smoothStep(Math.clamp(openness, 0.0, 1.0));
+        double layer = farSide ? -1.0 : 1.0;
+        double foldedTipX = shoulderX - side * (farSide ? 15.0 : 12.0) * s;
+        double foldedTipY = y + (farSide ? 59.0 : 63.0) * s;
+        double spreadTipX = shoulderX - side * (29.0 + open * 27.0) * s;
+        double spreadTipY = y + (farSide ? 31.0 - open * 40.0 : 44.0 + open * 34.0) * s;
+        double tipX = foldedTipX + (spreadTipX - foldedTipX) * open;
+        double tipY = foldedTipY + (spreadTipY - foldedTipY) * open;
+        double dx = tipX - shoulderX;
+        double dy = tipY - shoulderY;
+        double length = Math.max(0.001, Math.hypot(dx, dy));
+        double perpendicularX = -dy / length * layer * side;
+        double perpendicularY = dx / length * layer * side;
+        double rootWidth = (8.0 + open * 2.2) * s;
+        double midX = shoulderX + dx * 0.54;
+        double midY = shoulderY + dy * 0.54;
+        double midWidth = (12.0 + open * 5.0) * s;
+        double alpha = farSide ? 0.70 : 0.98;
+        double[] wingX = {
+                shoulderX + perpendicularX * rootWidth,
+                midX + perpendicularX * midWidth,
+                tipX,
+                midX - perpendicularX * midWidth,
+                shoulderX - perpendicularX * rootWidth
+        };
+        double[] wingY = {
+                shoulderY + perpendicularY * rootWidth,
+                midY + perpendicularY * midWidth,
+                tipY,
+                midY - perpendicularY * midWidth,
+                shoulderY - perpendicularY * rootWidth
+        };
+        g.setFill(wing.deriveColor(0, 0.94, farSide ? 0.82 : 1.0, alpha));
+        g.fillPolygon(wingX, wingY, wingX.length);
+        g.setStroke(edge.deriveColor(0, 0.78, 1.0, alpha * 0.82));
+        g.setLineCap(StrokeLineCap.ROUND);
+        g.setLineJoin(StrokeLineJoin.ROUND);
+        g.setLineWidth((royal ? 1.55 : 1.30) * s);
+        g.strokePolyline(wingX, wingY, wingX.length);
+        for (int feather = 0; feather < 5; feather++) {
+            double offset = (feather - 2.0) * (3.2 + open * 2.0) * s;
+            g.setLineWidth((0.76 + feather * 0.08) * s);
+            g.strokeLine(shoulderX + perpendicularX * offset,
+                    shoulderY + perpendicularY * offset,
+                    tipX + perpendicularX * offset * 0.36 + side * feather * 2.8 * s,
+                    tipY + perpendicularY * offset * 0.36 + feather * layer * 1.5 * s);
+        }
+        g.setStroke(shadow.deriveColor(0, 0.72, 1.0, alpha * 0.44));
+        g.setLineWidth(0.8 * s);
+        g.strokeLine(shoulderX, shoulderY, tipX + side * 2.0 * s, tipY);
+    }
+
+    private void drawGooseLegs(GraphicsContext g, BirdAnimationState state, Color leg, Color shade) {
+        double s = sizeMultiplier;
+        double dir = facingRight ? 1.0 : -1.0;
+        boolean airborne = state == BirdAnimationState.FLAP || state == BirdAnimationState.FALL
+                || gooseLiftTimer > 0 || gooseUltimateTimer > 0;
+        double runAmount = state == BirdAnimationState.IDLE
+                ? Math.clamp(Math.abs(vx) / 6.0, 0.0, 1.0) : 0.0;
+        double stride = Math.sin((animationGlobalFrame + playerIndex * 17.0) * 0.36)
+                * 3.8 * runAmount;
+        for (int i = 0; i < 2; i++) {
+            double hipX = x + 40.0 * s + dir * (i == 0 ? -8.0 : 8.0) * s;
+            double hipY = y + 61.0 * s;
+            double step = (i == 0 ? stride : -stride) * dir * s;
+            double ankleX = airborne ? hipX - dir * (5.0 + i * 2.0) * s : hipX + step;
+            double ankleY = y + (airborne ? 69.0 + i * 1.5 : 75.0) * s;
+            double toeY = airborne ? ankleY + 4.0 * s : y + 80.0 * s;
+            double toeDir = airborne ? -dir : dir;
+            g.setStroke(leg.deriveColor(0, 0.90, i == 0 ? 0.84 : 1.0, i == 0 ? 0.76 : 0.98));
+            g.setLineCap(StrokeLineCap.ROUND);
+            g.setLineWidth(2.4 * s);
+            g.strokeLine(hipX, hipY, ankleX, ankleY);
+            double webTipX = ankleX + toeDir * 10.0 * s;
+            double webHalf = 4.0 * s;
+            g.setFill(leg.deriveColor(0, 0.92, i == 0 ? 0.86 : 1.0, i == 0 ? 0.78 : 0.98));
+            g.fillPolygon(
+                    new double[]{ankleX, webTipX, ankleX + toeDir * 5.0 * s + webHalf,
+                            ankleX + toeDir * 5.0 * s - webHalf},
+                    new double[]{ankleY, toeY, toeY - 1.0 * s, toeY - 1.0 * s}, 4);
+            g.setStroke(shade.deriveColor(0, 0.74, 1.0, 0.52));
+            g.setLineWidth(0.7 * s);
+            g.strokeLine(ankleX, ankleY, webTipX, toeY);
+            if (!airborne && visualAuditBodyOnly) {
+                lastVisualGooseFootBaseline = Math.max(
+                        Double.isNaN(lastVisualGooseFootBaseline)
+                                ? Double.NEGATIVE_INFINITY : lastVisualGooseFootBaseline,
+                        80.0);
+            }
+            recordVisualBodyPart(VisualBodyPart.GOOSE_LEG);
+        }
+    }
+
+    private void drawGooseBill(
+            GraphicsContext g, AttackVisualPose pose, double headCx, double headCy,
+            double aimX, double aimY, double normalX, double normalY,
+            Color bill, Color shade, Color edge) {
+        double s = sizeMultiplier;
+        double openScale = pose == null ? 1.0 : pose.beakOpenScale();
+        double charge = Math.clamp(gooseHonkHoldFrames
+                / (double) GOOSE_HONK_MAX_HOLD_FRAMES, 0.0, 1.0);
+        double gape = gooseHonkReleased ? 8.2
+                : gooseHonkTimer > 0 ? 1.4 + charge * 4.0
+                : gooseUltimateTimer > 0 ? 6.4
+                : gooseNestCounterTimer > 0 ? 5.2
+                : gooseNestGuardTimer > 0 ? 2.0
+                : gooseNestPlacePoseActive() ? 1.2
+                : gooseBargeTimer > 0 ? 3.2
+                : gooseLiftTimer > 0 ? 2.4
+                : attackAnimationTimer > 0 ? 3.2 : 0.8;
+        gape *= openScale;
+        if (visualAuditBodyOnly) {
+            lastVisualGooseBillGape = gape;
+        }
+        double length = (28.0 + (pose == null ? 0.0 : pose.beakLengthBonus() * 0.42)) * s;
+        double rootX = headCx + aimX * 12.0 * s + normalX * 0.6 * s;
+        double rootY = headCy + aimY * 12.0 * s + normalY * 0.6 * s;
+        double tipX = rootX + aimX * length;
+        double tipY = rootY + aimY * length;
+        double halfRoot = 5.7 * s;
+        recordVisualBeak(rootX, rootY, tipX, tipY);
+        g.setFill(bill);
+        g.fillPolygon(
+                new double[]{rootX - normalX * halfRoot,
+                        tipX - normalX * gape * 0.32 * s,
+                        tipX + aimX * 1.3 * s + normalX * 0.5 * s,
+                        rootX + normalX * 0.8 * s},
+                new double[]{rootY - normalY * halfRoot,
+                        tipY - normalY * gape * 0.32 * s,
+                        tipY + aimY * 1.3 * s + normalY * 0.5 * s,
+                        rootY + normalY * 0.8 * s}, 4);
+        g.setFill(shade);
+        g.fillPolygon(
+                new double[]{rootX + normalX * 0.8 * s,
+                        tipX - aimX * 1.2 * s + normalX * gape * s,
+                        rootX + normalX * halfRoot},
+                new double[]{rootY + normalY * 0.8 * s,
+                        tipY - aimY * 1.2 * s + normalY * gape * s,
+                        rootY + normalY * halfRoot}, 3);
+        g.setStroke(edge.deriveColor(0, 0.66, 0.88, 0.56));
+        g.setLineWidth(0.95 * s);
+        g.strokeLine(rootX, rootY, tipX - aimX * 2.0 * s, tipY - aimY * 2.0 * s);
+        g.setFill(shade.darker().deriveColor(0, 0.82, 1.0, 0.72));
+        g.fillOval(rootX + aimX * 6.0 * s - normalX * 1.8 * s - 1.2 * s,
+                rootY + aimY * 6.0 * s - normalY * 1.8 * s - 1.2 * s,
+                2.4 * s, 2.4 * s);
+    }
+
     private void drawLoreAccurateHummingbirdBody(GraphicsContext g, double drawSize, AttackVisualPose pose) {
         double s = sizeMultiplier;
         double face = facingRight ? 1.0 : -1.0;
@@ -35543,7 +36155,8 @@ public class Bird {
                 || type == BirdGame3.BirdType.BAT
                 || type == BirdGame3.BirdType.PELICAN
                 || type == BirdGame3.BirdType.HEISENBIRD
-                || type == BirdGame3.BirdType.RAVEN) return;
+                || type == BirdGame3.BirdType.RAVEN
+                || type == BirdGame3.BirdType.GOOSE) return;
         Color accent = game.classicSkinAccentColor(type);
         g.setStroke(accent.deriveColor(0, 1, 1, 0.9));
         g.setLineWidth(3.2 * sizeMultiplier);
@@ -37254,6 +37867,10 @@ public class Bird {
         }
         if (type == BirdGame3.BirdType.RAVEN) {
             // Raven's hooked bill opens with its dedicated corvid head rig.
+            return;
+        }
+        if (type == BirdGame3.BirdType.GOOSE) {
+            // Goose's bill belongs to the dedicated long-neck rig.
             return;
         }
         if (type == BirdGame3.BirdType.VULTURE) {

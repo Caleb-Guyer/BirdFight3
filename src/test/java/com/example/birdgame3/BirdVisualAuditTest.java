@@ -29,7 +29,8 @@ class BirdVisualAuditTest {
             BirdGame3.BirdType.BAT,
             BirdGame3.BirdType.PELICAN,
             BirdGame3.BirdType.HEISENBIRD,
-            BirdGame3.BirdType.RAVEN
+            BirdGame3.BirdType.RAVEN,
+            BirdGame3.BirdType.GOOSE
     );
 
     private static BirdGame3 freshGame() {
@@ -2274,6 +2275,183 @@ class BirdVisualAuditTest {
         }
     }
 
+    @Test
+    void gooseKeepsItsCompleteAttachedAnatomyAcrossEverySkinPoseAndDirection() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.GOOSE)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (Bird.VisualAuditPose pose : Bird.VisualAuditPose.values()) {
+                Bird.VisualFeatureGeometry right = game.inspectVisualAuditCombatFeatures(entry, pose, true);
+                Bird.VisualFeatureGeometry left = game.inspectVisualAuditCombatFeatures(entry, pose, false);
+                String label = entry.name() + " / " + pose;
+                for (Bird.VisualFeatureGeometry geometry : List.of(right, left)) {
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.GOOSE_TAIL_FEATHER),
+                            label + " must retain all three layered tail feathers");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.GOOSE_WING),
+                            label + " must retain both articulated wings");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.GOOSE_LEG),
+                            label + " must retain both webbed legs");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.GOOSE_NECK),
+                            label + " must retain one continuous long neck");
+                    assertEquals(1, geometry.bodyPartCount(Bird.VisualBodyPart.GOOSE_CHEEK_PATCH),
+                            label + " must retain its attached Canada-goose cheek patch");
+                    assertTrue(geometry.gooseTorso() != null,
+                            label + " did not report the authored waterfowl torso");
+                    assertTrue(geometry.gooseCheekPatch() != null,
+                            label + " did not report the attached cheek patch");
+                    assertTrue(!geometry.gooseCheekPatch().contains(geometry.eye(), 0.01),
+                            label + " lets the cheek patch obstruct the eye");
+                    assertGooseNeckEndsBehindHead(geometry, label);
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+                assertMirrored(right, left, label);
+            }
+        }
+    }
+
+    @Test
+    void gooseGroundedWebbedFeetMeetTheCollisionFloorAcrossEverySkinAndDirection() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.GOOSE)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                assertEquals(80.0, idle.gooseFootBaseline(), 0.15,
+                        entry.name() + " facing " + (facingRight ? "right" : "left")
+                                + " must place both webbed feet on the collision floor");
+            }
+        }
+    }
+
+    @Test
+    void gooseFaceNeckAndCheekPatchTrackFlightAndHitDirections() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.GOOSE)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry flap = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.FLAP, facingRight);
+                Bird.VisualFeatureGeometry hit = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.HIT, facingRight);
+
+                assertTrue(Math.abs(beakVectorY(flap)) > Math.abs(beakVectorX(flap)) * 2.0,
+                        label + " must aim its complete long-necked face upward while climbing");
+                assertTrue(beakVectorX(hit) * beakVectorX(idle) < 0.0,
+                        label + " must turn its complete face away from impact in hitstun");
+                for (Bird.VisualFeatureGeometry geometry : List.of(idle, flap, hit)) {
+                    assertTrue(!geometry.gooseCheekPatch().contains(geometry.eye(), 0.01),
+                            label + " lets the cheek patch drift over the eye during motion");
+                    assertGooseNeckEndsBehindHead(geometry, label);
+                    assertFeatureGeometryIsSafe(geometry, label);
+                }
+            }
+        }
+    }
+
+    @Test
+    void gooseSpecialsUseDistinctCompleteWingAndBillCycles() {
+        BirdGame3 game = freshGame();
+        List<BirdGame3.VisualAuditSkin> entries = game.visualAuditSkins().stream()
+                .filter(entry -> entry.bird() == BirdGame3.BirdType.GOOSE)
+                .filter(entry -> BirdSpriteLibrary.sheetFor(entry.bird(), entry.key()) == null)
+                .toList();
+
+        for (BirdGame3.VisualAuditSkin entry : entries) {
+            for (boolean facingRight : List.of(true, false)) {
+                String label = entry.name() + " facing " + (facingRight ? "right" : "left");
+                Bird.VisualFeatureGeometry idle = game.inspectVisualAuditCombatFeatures(
+                        entry, Bird.VisualAuditPose.IDLE, facingRight);
+                Bird.VisualFeatureGeometry honkStart = game.inspectVisualAuditGooseActionFeatures(
+                        entry, Bird.VisualAuditGooseAction.HONK_CHARGE, 1, facingRight);
+                Bird.VisualFeatureGeometry honkFull = game.inspectVisualAuditGooseActionFeatures(
+                        entry, Bird.VisualAuditGooseAction.HONK_CHARGE,
+                        Bird.GOOSE_HONK_MAX_HOLD_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry honkRelease = game.inspectVisualAuditGooseActionFeatures(
+                        entry, Bird.VisualAuditGooseAction.HONK_RELEASE,
+                        Bird.GOOSE_HONK_RECOVERY_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry bargeStart = game.inspectVisualAuditGooseActionFeatures(
+                        entry, Bird.VisualAuditGooseAction.BARGE, Bird.GOOSE_BARGE_FRAMES, facingRight);
+                Bird.VisualFeatureGeometry bargeOpen = game.inspectVisualAuditGooseActionFeatures(
+                        entry, Bird.VisualAuditGooseAction.BARGE, Bird.GOOSE_BARGE_FRAMES / 2, facingRight);
+                Bird.VisualFeatureGeometry bargeClose = game.inspectVisualAuditGooseActionFeatures(
+                        entry, Bird.VisualAuditGooseAction.BARGE, 1, facingRight);
+                Bird.VisualFeatureGeometry lift = game.inspectVisualAuditGooseActionFeatures(
+                        entry, Bird.VisualAuditGooseAction.LIFT, Bird.GOOSE_LIFT_FRAMES - 7, facingRight);
+                Bird.VisualFeatureGeometry place = game.inspectVisualAuditGooseActionFeatures(
+                        entry, Bird.VisualAuditGooseAction.NEST_PLACE, 12, facingRight);
+                Bird.VisualFeatureGeometry guard = game.inspectVisualAuditGooseActionFeatures(
+                        entry, Bird.VisualAuditGooseAction.NEST_GUARD,
+                        Bird.GOOSE_NEST_GUARD_FRAMES - 8, facingRight);
+                Bird.VisualFeatureGeometry counter = game.inspectVisualAuditGooseActionFeatures(
+                        entry, Bird.VisualAuditGooseAction.NEST_COUNTER,
+                        Bird.GOOSE_COUNTER_BURST_FRAMES - 8, facingRight);
+                Bird.VisualFeatureGeometry ultimate = game.inspectVisualAuditGooseActionFeatures(
+                        entry, Bird.VisualAuditGooseAction.ULTIMATE,
+                        Bird.GOOSE_ULTIMATE_FRAMES - 30, facingRight);
+
+                assertTrue(idle.gooseWingOpenness() <= 0.09,
+                        label + " must fold both idle wings");
+                assertTrue(honkStart.gooseWingOpenness() >= 0.20
+                                && honkStart.gooseWingOpenness() <= 0.23,
+                        label + " must begin Threatening Honk in a restrained charging stance");
+                assertTrue(honkFull.gooseWingOpenness() >= 0.43,
+                        label + " must raise both wings at full Threatening Honk charge");
+                assertTrue(honkFull.gooseBillGape() > idle.gooseBillGape() + 4.0,
+                        label + " must visibly open the bill at full Threatening Honk charge");
+                assertTrue(honkRelease.gooseWingOpenness() >= 0.58,
+                        label + " must flare both wings when Threatening Honk releases");
+                assertTrue(honkRelease.gooseBillGape() > honkFull.gooseBillGape() + 1.5,
+                        label + " must open the bill farther for the released honk");
+                assertTrue(bargeStart.gooseWingOpenness() <= 0.10,
+                        label + " must begin Bite and Barge with folded wings");
+                assertTrue(bargeOpen.gooseWingOpenness() >= 0.60,
+                        label + " must drive both wings through Bite and Barge");
+                assertTrue(bargeClose.gooseWingOpenness() <= 0.10,
+                        label + " must close both wings before Bite and Barge ends");
+                assertTrue(lift.gooseWingOpenness() >= 0.94,
+                        label + " must fully spread both wings during V-Formation Lift");
+                assertTrue(place.gooseWingOpenness() >= 0.28 && place.gooseWingOpenness() <= 0.32,
+                        label + " must brace both wings while placing the nest");
+                assertTrue(guard.gooseWingOpenness() >= 0.64,
+                        label + " must spread both wings during Nest Guard");
+                assertTrue(counter.gooseWingOpenness() >= 0.86,
+                        label + " must flare both wings for the nest counter");
+                assertTrue(ultimate.gooseWingOpenness() >= 0.96,
+                        label + " must hold both wings open during The Whole Flock");
+                for (Bird.VisualFeatureGeometry geometry : List.of(
+                        honkStart, honkFull, honkRelease, bargeStart, bargeOpen, bargeClose,
+                        lift, place, guard, counter, ultimate)) {
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.GOOSE_WING),
+                            label + " special pose lost a wing");
+                    assertEquals(3, geometry.bodyPartCount(Bird.VisualBodyPart.GOOSE_TAIL_FEATHER),
+                            label + " special pose detached a tail feather");
+                    assertEquals(2, geometry.bodyPartCount(Bird.VisualBodyPart.GOOSE_LEG),
+                            label + " special pose lost a leg");
+                    assertTrue(!geometry.gooseCheekPatch().contains(geometry.eye(), 0.01),
+                            label + " special pose lets the cheek patch obstruct the eye");
+                    assertGooseNeckEndsBehindHead(geometry, label + " special pose");
+                    assertFeatureGeometryIsSafe(geometry, label + " special pose");
+                }
+            }
+        }
+    }
+
     private static void assertHeisenHatFollowsHead(
             Bird.VisualFeatureGeometry geometry, String label) {
         Bird.VisualFeatureBounds hat = geometry.heisenHat();
@@ -2312,6 +2490,20 @@ class BirdVisualAuditTest {
         double beakY = beakVectorY(geometry);
         double neckEndX = geometry.turkeyNeck().tipX() - headCenterX;
         double neckEndY = geometry.turkeyNeck().tipY() - headCenterY;
+
+        assertTrue(neckEndX * beakX + neckEndY * beakY < 0.0,
+                label + " lets the center neck strip cross into or beyond the bill-facing half of the head");
+    }
+
+    private static void assertGooseNeckEndsBehindHead(
+            Bird.VisualFeatureGeometry geometry, String label) {
+        assertTrue(geometry.gooseNeck() != null, label + " did not report its neck geometry");
+        double headCenterX = (geometry.head().left() + geometry.head().right()) * 0.5;
+        double headCenterY = (geometry.head().top() + geometry.head().bottom()) * 0.5;
+        double beakX = beakVectorX(geometry);
+        double beakY = beakVectorY(geometry);
+        double neckEndX = geometry.gooseNeck().tipX() - headCenterX;
+        double neckEndY = geometry.gooseNeck().tipY() - headCenterY;
 
         assertTrue(neckEndX * beakX + neckEndY * beakY < 0.0,
                 label + " lets the center neck strip cross into or beyond the bill-facing half of the head");
