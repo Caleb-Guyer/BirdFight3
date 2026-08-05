@@ -2037,6 +2037,67 @@ class BirdStateTest {
         }
     }
 
+    @Test
+    void ownedVultureCrowCreditsDamageMetersAndHealthModeKo() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        game.headlessHarnessMode = true;
+
+        Bird owner = new Bird(980.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        owner.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        target.health = 0.5;
+        game.players[0] = owner;
+        game.players[1] = target;
+
+        CrowMinion crow = new CrowMinion(target.x + 16.0, target.y + 40.0, target);
+        crow.owner = owner;
+        crow.vx = 0.0;
+        crow.vy = 0.0;
+        game.crowMinions.add(crow);
+
+        invokePrivateVoid(game, "updateWorldFixed");
+
+        assertEquals(1, game.damageDealt[0], "Crow damage should appear in its owner's results statistics.");
+        assertEquals(1, game.eliminations[0], "A lethal crow hit should credit its owner with the KO.");
+        assertTrue(owner.getUltimateRatio() > 0.0, "Crow damage should build the summoner's ultimate meter.");
+        assertTrue(target.getUltimateRatio() > 0.0, "Crow damage should build the victim's ultimate meter.");
+    }
+
+    @Test
+    void ownedVultureCrowRegistersSmashLaunchAndKoCredit() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+        game.headlessHarnessMode = true;
+        setPrivateBoolean(game);
+        game.scores[0] = 3;
+        game.scores[1] = 3;
+
+        Bird owner = new Bird(980.0, BirdGame3.BirdType.VULTURE, 0, game);
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        owner.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        setPrivateDouble(target, "smashDamage", 120.0);
+        game.players[0] = owner;
+        game.players[1] = target;
+
+        CrowMinion crow = new CrowMinion(target.x + 16.0, target.y + 40.0, target);
+        crow.owner = owner;
+        crow.vx = 3.2;
+        crow.vy = 0.0;
+        game.crowMinions.add(crow);
+
+        invokePrivateVoid(game, "updateWorldFixed");
+
+        assertEquals(0, getPrivateInt(target, "recentSmashAttackerIndex"),
+                "A crow launch should preserve its owner's blast-zone KO credit.");
+        assertTrue(getPrivateDouble(target, "pendingSmashLaunchScale") > 1.0,
+                "Crow knockback should scale with the victim's Smash damage like other attacks.");
+        assertEquals(1, game.damageDealt[0]);
+        assertEquals(0, game.eliminations[0], "Smash KOs are credited only after crossing a blast zone.");
+    }
+
     private static double playOwnedVultureCrowHit(boolean anchored) throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 2;

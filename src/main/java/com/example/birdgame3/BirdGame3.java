@@ -11365,6 +11365,7 @@ public class BirdGame3 {
                 }
                 if (dist < 48 && c.contactCooldown <= 0) {
                     int damage = c.contactDamage();
+                    double oldHealth = closest.health;
                     double dealtDamage = closest.receiveOwnedMinionDamage(damage, c.owner);
                     if (dealtDamage <= 0) {
                         it.remove();
@@ -11386,6 +11387,7 @@ public class BirdGame3 {
                             ? c.vx * 1.65 + hitDirection * 4.8
                             : c.vx * 0.95 + hitDirection * 2.8;
                     closest.vy -= hostile ? 7.0 : 4.2;
+                    recordOwnedCrowImpact(c, closest, oldHealth, dealtDamage);
                     int particleCount = scaledParticleBurstCount(hostile ? 35 : 18);
                     Color particleColor = hostile
                             ? Color.web("#260108").deriveColor(0, 1, 1, 0.95)
@@ -16251,6 +16253,7 @@ public class BirdGame3 {
             double hitDx = (closest.x + 40) - c.x;
             double hitDy = (closest.y + 40) - c.y;
             if (Math.hypot(hitDx, hitDy) < 48.0) {
+                double oldHealth = closest.health;
                 double dealtDamage = closest.receiveOwnedMinionDamage(c.contactDamage(), c.owner);
                 if (dealtDamage <= 0) {
                     return true;
@@ -16264,6 +16267,7 @@ public class BirdGame3 {
                 recordTrainingVultureCrowHit(c.owner, closest);
                 closest.vx += hitDirection * 5.4 + c.vx * 0.25;
                 closest.vy -= 3.6;
+                recordOwnedCrowImpact(c, closest, oldHealth, dealtDamage);
                 int particleCount = scaledParticleBurstCount(16);
                 for (int i = 0; i < particleCount; i++) {
                     double angle = nextParticleRandom() * Math.PI * 2;
@@ -16276,6 +16280,33 @@ public class BirdGame3 {
         }
 
         return c.x < -1500 || c.x > WORLD_WIDTH + 1500 || c.y < -1500 || c.y > WORLD_HEIGHT + 1500;
+    }
+
+    private void recordOwnedCrowImpact(CrowMinion crow, Bird target, double oldHealth, double dealtDamage) {
+        Bird owner = crow == null ? null : crow.owner;
+        if (owner == null || target == null || dealtDamage <= 0.0) {
+            return;
+        }
+        int ownerIndex = owner.playerIndex;
+        if (ownerIndex < 0 || ownerIndex >= damageDealt.length) {
+            return;
+        }
+
+        int shownDamage = Math.max(1, (int) Math.round(dealtDamage));
+        damageDealt[ownerIndex] += shownDamage;
+        specialHits[ownerIndex]++;
+        specialDamageDealt[ownerIndex] += shownDamage;
+        owner.confirmSpecialHit(shownDamage, Color.web("#B71C1C"));
+
+        String moveName = crow.displayName();
+        recordTelemetryMoveImpact(owner, moveName, shownDamage, true);
+        boolean isKill = !usesSmashCombatRules() && oldHealth > 0.0 && target.health <= 0.0;
+        emitCombatImpact(owner, target, target.bodyCenterX(), target.bodyCenterY(),
+                target.vx, target.vy, dealtDamage, isKill, moveName);
+        if (isKill) {
+            eliminations[ownerIndex]++;
+            recordMoveKo(owner, target, moveName);
+        }
     }
 
     private boolean isValidAnchoredCrowTarget(CrowMinion c, Bird b) {

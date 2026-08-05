@@ -14516,7 +14516,20 @@ public class Bird {
         if (owner != null && owner != this && owner.type != null) {
             ownerScaledDamage *= owner.type.damageDealtMult;
         }
-        return receiveExternalDamage(ownerScaledDamage);
+        double dealtDamage = receiveExternalDamage(ownerScaledDamage);
+        if (dealtDamage > 0 && owner != null && owner != this) {
+            // Summons should participate in the same meter, training, and Smash
+            // attribution systems as the bird that called them. Keep the actual
+            // damage external so a remote crow cannot counter-hit its owner.
+            if (game.usesDamageScaledKnockback()) {
+                registerSmashHit(owner, dealtDamage);
+            }
+            RoadrunnerSpecials.onHitLanded(owner);
+            owner.gainUltimate(dealtDamage * ULTIMATE_GAIN_DEALT);
+            gainUltimate(dealtDamage * ULTIMATE_GAIN_TAKEN);
+            game.recordTrainingHit(owner, this, dealtDamage);
+        }
+        return dealtDamage;
     }
 
     private void interruptLedgeHangOnHit() {
