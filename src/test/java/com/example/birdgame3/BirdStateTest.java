@@ -4875,6 +4875,53 @@ class BirdStateTest {
     }
 
     @Test
+    void roadrunnerAiProtectsItsMomentumAtBattlefieldEdges() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 1;
+        game.selectedMap = BirdGame3.MapType.BATTLEFIELD;
+        double islandX = 2400.0;
+        double islandY = BirdGame3.GROUND_Y - 80.0;
+        Platform mainIsland = new Platform(islandX, islandY, 1200, 70);
+        game.platforms.add(mainIsland);
+
+        Bird runner = new Bird(islandX - 62.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        runner.y = islandY - 36.0;
+        runner.vx = -9.0;
+        game.players[0] = runner;
+
+        Method caution = Bird.class.getDeclaredMethod("isAIVoidRecoveryCaution", boolean.class, Platform.class);
+        caution.setAccessible(true);
+        assertTrue((boolean) caution.invoke(runner, false, null),
+                "Roadrunner should brake and recover as soon as its momentum carries it beyond the island lip.");
+
+        runner.x = islandX + 24.0;
+        Method jumpBeforeEdge = Bird.class.getDeclaredMethod("shouldAIJumpBeforeOffstage", double.class);
+        jumpBeforeEdge.setAccessible(true);
+        assertTrue((boolean) jumpBeforeEdge.invoke(runner, islandX - 220.0),
+                "Roadrunner should jump before committing its high ground speed offstage.");
+        assertFalse((boolean) jumpBeforeEdge.invoke(runner, islandX + 300.0),
+                "Roadrunner should not jump merely for an onstage route.");
+    }
+
+    @Test
+    void roadrunnerAiCountersteersBeforeOvershootingAClimbRoute() throws Exception {
+        BirdGame3 game = new BirdGame3();
+        Bird runner = new Bird(500.0, BirdGame3.BirdType.ROADRUNNER, 0, game);
+        runner.vx = 24.0;
+        game.players[0] = runner;
+
+        Method adjust = Bird.class.getDeclaredMethod("adjustRoadrunnerAINavigationDirection",
+                int.class, double.class, boolean.class);
+        adjust.setAccessible(true);
+        assertEquals(-1, adjust.invoke(runner, 1, 590.0, true),
+                "Roadrunner should countersteer when momentum would carry it past a nearby climb route.");
+        assertEquals(1, adjust.invoke(runner, 1, 900.0, true),
+                "Roadrunner should keep accelerating while the climb route is still far away.");
+        assertEquals(1, adjust.invoke(runner, 1, 590.0, false),
+                "Ordinary combat movement should retain Roadrunner's player-like momentum.");
+    }
+
+    @Test
     void recoveryFromBattlefieldSidePlatformsStillTargetsTheMainIsland() throws Exception {
         BirdGame3 game = new BirdGame3();
         game.activePlayers = 1;

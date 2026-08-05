@@ -7326,6 +7326,8 @@ public class Bird {
             }
         }
 
+        moveDir = adjustRoadrunnerAINavigationDirection(moveDir, goalX, verticalPlan);
+
         if (isVoidMap() && moveDir != 0) {
             double projectedX = x + moveDir * Math.max(18.0, type.speed * speedMultiplier * 4.0);
             if (Math.abs(clampGoalXAwayFromVoid(projectedX) - projectedX) > 0.1) {
@@ -7448,6 +7450,19 @@ public class Bird {
         }
 
         aiLastHealth = currentDurability;
+    }
+
+    private int adjustRoadrunnerAINavigationDirection(int moveDir, double goalX, boolean verticalPlan) {
+        if (type != BirdGame3.BirdType.ROADRUNNER || !verticalPlan || moveDir == 0 || Math.abs(vx) < 8.0) {
+            return moveDir;
+        }
+        double goalDelta = goalX - x;
+        boolean movingTowardGoal = Math.signum(vx) == Math.signum(goalDelta);
+        double brakingDistance = Math.clamp(35.0 + Math.abs(vx) * 3.2, 60.0, 145.0);
+        if (movingTowardGoal && Math.abs(goalDelta) < brakingDistance) {
+            return vx < 0.0 ? 1 : -1;
+        }
+        return moveDir;
     }
 
     private boolean applyAINavigationEscape(Bird target, boolean onGround) {
@@ -9437,6 +9452,10 @@ public class Bird {
             case PIGEON -> (!canDoubleJump && (depth > 36.0 || horizontalRatio > 0.22 || movingAway))
                     || depthRatio > 0.62
                     || (vy > 3.6 && depth > 22.0);
+            case ROADRUNNER -> depth > 30.0
+                    || horizontalRatio > 0.48
+                    || (movingAway && offstageDistance > 14.0)
+                    || (vy > 4.0 && depth > 16.0);
             default -> false;
         };
     }
@@ -9479,6 +9498,7 @@ public class Bird {
         double distanceToEdge = Math.abs(centerX - edgeX);
         return switch (type) {
             case VULTURE -> distanceToEdge < 140.0;
+            case ROADRUNNER -> distanceToEdge < 110.0;
             case PIGEON, TURKEY, PELICAN, GRINCHHAWK, ROOSTER, GOOSE -> distanceToEdge < 95.0;
             default -> false;
         };
@@ -9513,7 +9533,10 @@ public class Bird {
                     && ownedRoosterChickCount() > 0
                     && (depth > 92.0 || (offstage && (offstageDistance > 14.0 || movingAway || vy > 2.0)));
             case ROADRUNNER -> !roadrunnerDustDevilUsed
-                    && (depth > 90.0 || (offstage && (offstageDistance > 22.0 || movingAway || vy > 2.0)));
+                    && (depth > 90.0
+                    || (offstage && (offstageDistance > 34.0
+                    || (movingAway && offstageDistance > 18.0)
+                    || (vy > 3.5 && depth > 16.0))));
             case SHOEBILL -> !shoebillUpSpecialUsed
                     && (depth > 96.0 || (offstage && (offstageDistance > 16.0 || movingAway || vy > 2.1)));
             case RAZORBILL -> !razorbillUpSpecialUsed
