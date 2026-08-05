@@ -363,8 +363,12 @@ final class GooseSpecials {
                         + (bird.gooseHonkEmpowered ? 0.6 : 0.0)) * (0.70 + distanceStrength * 0.30);
                 double stunFrames = 2.0 + (chargeStrength * 6.0
                         + (bird.gooseHonkEmpowered ? 1.0 : 0.0)) * distanceStrength;
-                other.vx += dir * horizontalLaunch;
-                other.vy -= verticalLaunch;
+                double horizontalCap = 8.5 + chargeStrength * 5.0
+                        + (bird.gooseHonkEmpowered ? 2.0 : 0.0);
+                double verticalCap = 5.0 + chargeStrength * 4.0
+                        + (bird.gooseHonkEmpowered ? 1.0 : 0.0);
+                other.vx = cappedHonkVelocity(other.vx, dir, horizontalLaunch, horizontalCap);
+                other.vy = cappedHonkVelocity(other.vy, -1, verticalLaunch, verticalCap);
                 other.applyStun(stunFrames);
                 addTerritory(bird, 7.0 + dealt * 0.16);
                 emitHitBurst(bird, other, bird.gooseHonkEmpowered ? Color.GOLD : Color.web("#E8F5E9"),
@@ -397,6 +401,17 @@ final class GooseSpecials {
     private static double honkLaunchStrength(double forward, double reach) {
         double distanceRatio = Math.clamp(Math.max(0.0, forward) / Math.max(1.0, reach), 0.0, 1.0);
         return 1.0 - smoothStep(distanceRatio) * (1.0 - HONK_EDGE_LAUNCH_STRENGTH);
+    }
+
+    static double cappedHonkVelocity(double currentVelocity, int launchDirection,
+                                     double impulse, double maxAwaySpeed) {
+        int direction = launchDirection < 0 ? -1 : 1;
+        double awayVelocity = currentVelocity * direction;
+        if (awayVelocity >= maxAwaySpeed || impulse <= 0.0) {
+            return currentVelocity;
+        }
+        double cappedAwayVelocity = Math.min(maxAwaySpeed, awayVelocity + impulse);
+        return currentVelocity + direction * (cappedAwayVelocity - awayVelocity);
     }
 
     private static double smoothStep(double value) {

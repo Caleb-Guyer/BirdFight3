@@ -7256,6 +7256,39 @@ class BirdStateTest {
     }
 
     @Test
+    void gooseHonkDoesNotStackOntoAlreadyLethalVelocity() {
+        BirdGame3 game = new BirdGame3();
+        game.activePlayers = 2;
+
+        Bird goose = new Bird(100.0, BirdGame3.BirdType.GOOSE, 0, game);
+        Bird target = new Bird(220.0, BirdGame3.BirdType.PIGEON, 1, game);
+        goose.y = BirdGame3.GROUND_Y - 80.0;
+        target.y = BirdGame3.GROUND_Y - 80.0;
+        goose.facingRight = true;
+        target.vx = 18.0;
+        target.vy = -12.0;
+        game.players[0] = goose;
+        game.players[1] = target;
+
+        GooseSpecials.neutral(goose, false);
+        for (int frame = 0; frame < Bird.GOOSE_HONK_MAX_HOLD_FRAMES; frame++) {
+            GooseSpecials.handleState(goose, true);
+        }
+
+        assertTrue(target.health < Bird.STARTING_HEALTH);
+        assertEquals(18.0, target.vx, 0.0001,
+                "Honk must not compound horizontal launch that is already beyond its velocity cap.");
+        assertEquals(-12.0, target.vy, 0.0001,
+                "Honk must not compound upward launch that is already beyond its velocity cap.");
+        assertEquals(9.0, GooseSpecials.cappedHonkVelocity(0.0, 1, 9.0, 13.5), 0.0001,
+                "The velocity cap must not weaken a charged close honk against a stationary victim.");
+        assertEquals(13.5, GooseSpecials.cappedHonkVelocity(8.0, 1, 9.0, 13.5), 0.0001,
+                "A moving victim should receive only the remaining launch budget.");
+        assertEquals(-4.0, GooseSpecials.cappedHonkVelocity(5.0, -1, 9.0, 13.5), 0.0001,
+                "Honk should still reverse a victim moving toward Goose when below the cap.");
+    }
+
+    @Test
     void cpuReactionAndOffenseCadenceImproveGraduallyByLevel() {
         for (int level = 1; level < 9; level++) {
             assertTrue(Bird.aiReactionFramesForLevel(level) > Bird.aiReactionFramesForLevel(level + 1),
