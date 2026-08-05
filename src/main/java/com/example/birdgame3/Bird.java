@@ -29111,9 +29111,6 @@ public class Bird {
     }
 
     private void drawSpecialCooldown(GraphicsContext g) {
-        if (drawDirectedSpecialReadiness(g)) {
-            return;
-        }
         if (type == BirdGame3.BirdType.PHOENIX) {
             return;
         }
@@ -29145,6 +29142,9 @@ public class Bird {
             return;
         }
         if (isOpiumEchoPair()) {
+            return;
+        }
+        if (type == BirdGame3.BirdType.TITMOUSE) {
             return;
         }
         if (type == BirdGame3.BirdType.PIGEON && specialCooldown > 0) {
